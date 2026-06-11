@@ -3,7 +3,7 @@ import { rolePermissionActions } from './permission-actions';
 import type { UserRole } from './roles';
 import { userRoles } from './roles';
 
-export type RolePermissionDecision = 'allow' | 'deny' | 'member' | 'owner';
+export type RolePermissionDecision = 'allow' | 'deny' | 'member' | 'owner' | 'edit';
 
 export type RolePermissionMatrix = Record<
   RolePermissionAction,
@@ -29,6 +29,7 @@ function row(
 export const rolePermissionMatrix: RolePermissionMatrix = {
   'tenant.settings_read': row({ firm_admin: 'allow', security_admin: 'allow' }),
   'tenant.settings_update': row({ firm_admin: 'allow' }),
+  'user.create_invite': row({ firm_admin: 'allow' }),
   'group.manage': row({ firm_admin: 'allow', security_admin: 'allow' }),
   'client.create': row({ firm_admin: 'allow', matter_owner: 'allow' }),
   'client.read': row({
@@ -48,17 +49,24 @@ export const rolePermissionMatrix: RolePermissionMatrix = {
     limited_reviewer: 'member',
     knowledge_manager: 'member',
   }),
-  'matter.edit': row({ matter_owner: 'member', matter_member: 'member' }),
-  'matter.status_change': row({ matter_owner: 'member', matter_member: 'member' }),
+  'matter.edit': row({ matter_owner: 'edit', matter_member: 'edit' }),
+  'matter.status_change': row({ matter_owner: 'edit', matter_member: 'edit' }),
+  'matter.close': row({ matter_owner: 'owner' }),
+  'matter.archive': row({ matter_owner: 'owner' }),
+  'matter.reopen': row({ firm_admin: 'allow' }),
   'matter.member_add': row({ matter_owner: 'owner' }),
   'matter.member_remove': row({ matter_owner: 'owner' }),
   'matter.member_role_change': row({ matter_owner: 'owner' }),
-  'party.create': row({ matter_owner: 'owner', matter_member: 'member' }),
-  'party.restrict': row({ matter_owner: 'owner', matter_member: 'member' }),
+  'party.create': row({ matter_owner: 'edit', matter_member: 'edit' }),
+  'party.restrict': row({ security_admin: 'allow', matter_owner: 'owner' }),
+  'permission.grant': row({ security_admin: 'allow', matter_owner: 'owner' }),
+  'permission.revoke': row({ security_admin: 'allow', matter_owner: 'owner' }),
   'user.role_assign': row({ firm_admin: 'allow' }),
   'wall.create': row({ security_admin: 'allow' }),
   'wall.manage': row({ security_admin: 'allow' }),
-  'audit.read': row({ firm_admin: 'allow', security_admin: 'allow', matter_owner: 'owner' }),
+  'wall.release': row({ security_admin: 'allow' }),
+  'audit.read.tenant': row({ firm_admin: 'allow', security_admin: 'allow' }),
+  'audit.read.matter': row({ firm_admin: 'allow', security_admin: 'allow', matter_owner: 'owner' }),
 };
 
 export function rolePermissionDecision(
@@ -85,4 +93,3 @@ export function assertCompleteRolePermissionMatrix(): void {
     }
   }
 }
-
