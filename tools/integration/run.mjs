@@ -5,6 +5,14 @@ import { spawnSync } from 'node:child_process';
 
 const filters = process.argv.slice(2).filter((filter) => filter !== '--');
 
+const sharedBuild = spawnSync('pnpm', ['--filter', '@amic-vault/shared', 'build'], {
+  stdio: 'inherit',
+});
+
+if (sharedBuild.status !== 0) {
+  process.exit(sharedBuild.status ?? 1);
+}
+
 const seed = spawnSync('pnpm', ['db:seed'], {
   stdio: 'inherit',
 });
