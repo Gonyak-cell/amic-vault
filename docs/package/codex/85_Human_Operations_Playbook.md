@@ -13,7 +13,7 @@ Codex는 PACK 단위로 구현·검증·PR 생성까지 수행한다. 그러나 
 | H-01 | **Mac 사전 설치** | Docker Desktop, Node 20 LTS(+corepack으로 pnpm), Python 3.12, git. 전부 무료 — Codex가 검증 명령을 이 Mac에서 실행하므로 필요 | 30분 |
 | H-02 | **GitHub private repo 생성** | github.com에서 비공개 저장소 `amic-vault` 생성(백업·이력·PR 기록 목적). 승인 강제 설정은 하지 않음. main 직접 push 금지 규칙만 권장(Settings→Branches→"Require a pull request before merging", 승인 수 0) | 10분 |
 | H-03 | **작업 폴더 준비 + Codex 연결** | 로컬에 `amic-vault` clone(또는 빈 폴더 git init 후 remote 연결) → **Codex 데스크톱 앱에서 이 폴더를 열기** | 10분 |
-| H-04 | **첫 PACK 투입** | 본 패키지 `60_Execution_Packs.md`의 `[PACK-R0-01 …]` 코드 블록을 통째로 복사해 Codex에 붙여넣기. 단, 첫 PACK 시작 전에 `90_AGENTS_TEMPLATE.md`를 폴더 루트에 `AGENTS.md`로 복사해 둘 것(README 절차 2) | 5분 |
+| H-04 | **첫 PACK 투입** | Codex 데스크톱 앱에서 폴더를 열고 **"PACK-R0-01 진행"** 이라고 입력 — Codex가 AGENTS.md §3.0 규약에 따라 60번 문서에서 프롬프트를 스스로 찾아 실행한다 (복사·붙여넣기 불필요) | 1분 |
 
 ## 2. 상시 — PACK 사이클마다 (R0~R3 동안 25회)
 
@@ -22,7 +22,7 @@ Codex는 PACK 단위로 구현·검증·PR 생성까지 수행한다. 그러나 
 | H-05 | **검토 AI 호출** | PACK 완료(PR 생성) 시 운영자는 **검토 AI(Claude)에게 "검토"라고만 요청**한다. 검토 AI가 §2-A 체크리스트 전체(diff 정독·negative test 확인·수정금지 위반·테스트 약화·ledger 기록)를 수행하고 머지까지 실행한다. **리뷰 필수 PACK 9개**(R0-02, R0-03, R1-03, R1-06, R1-07, R2-03, R2-06, R2-07, R3-04 — Risk=C 18건)는 검토 AI 승인 없이는 머지 금지 | 운영자 1분(호출), 검토 AI 수행 |
 | H-06 | **검토 내용(검토 AI 수행)** | ① PR 본문의 검증 명령 결과(전부 green) ② Risk=C TUW의 negative test가 실제로 차단을 증명 ③ `Files NOT to modify` 위반 여부(diff 범위) ④ 테스트 약화·skip 흔적 — 검토 AI가 결과를 **비전문가용 한국어 요약**으로 운영자에게 보고 | (H-05에 포함) |
 | H-07 | **BLOCKED escalation 처리** | Codex가 중단하면 PR에 `BLOCKED` 라벨+사유가 남는다. 운영자는 검토 AI에게 전달만 하면 되고, **검토 AI가 사유를 분석해 결정을 PR 코멘트로 회신**한다. 단, 결정이 비용·법률·제품 방향(예: 유료 서비스 가입, 보존기간 값)에 해당하면 검토 AI가 운영자에게 평어로 질문을 되돌린다 | 운영자 1분(전달) |
-| H-08 | **다음 PACK 투입** | 선행 PACK 머지 확인 후 60번의 다음 프롬프트 투입 | 5분 |
+| H-08 | **다음 PACK 투입** | 검토 AI의 머지 보고 후 Codex에 **"다음 PACK 진행"** 입력 — 순번 결정·선행 확인은 Codex가 AGENTS.md §3.0 규약으로 스스로 수행 | 1분 |
 
 ### §2-A. 리뷰 체크리스트 (수행 주체: **검토 AI(Claude)** — Risk=C PACK 머지 전 필수)
 

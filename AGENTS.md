@@ -35,6 +35,16 @@
 
 ## 3. 작업 수칙
 
+### 3.0 PACK 실행 호출 규약 (운영자는 비개발자다 — 한 마디로 호출한다)
+
+운영자가 **"다음 PACK 진행"** (또는 "PACK-R0-01 진행"처럼 특정 지정)이라고 말하면 다음 절차를 따른다:
+
+1. `docs/ledger/execution.md`에서 마지막 완료 PACK을 확인하고, `docs/package/codex/60_Execution_Packs.md` §0 추적표 순서상 **다음 PACK**을 결정한다 (특정 지정 시 해당 PACK).
+2. 60번 문서에서 그 PACK의 정의 전체(포함 TUW·구현 순서·선행 PACK·검증 명령·금지·프롬프트 블록)를 읽고, **프롬프트 블록의 지시를 그대로 수행**한다 (운영자가 복사해 줄 필요 없음).
+3. 진행 전 차단 검사 — 하나라도 걸리면 진행하지 말고 BLOCKED 보고: ① 선행 PACK이 머지되지 않음 ② release 경계를 넘는데 직전 release Gate 통과 기록이 ledger에 없음 ③ 작업 트리가 깨끗하지 않음.
+4. 상세 TUW 명세는 `docs/package/codex/4N_TUW_Backlog_RN.md`의 해당 항목이 규범이다.
+
+
 - 실행 단위는 **PACK**(TUW 3~8개 묶음)이다. `60_Execution_Packs.md`의 순서를 따르고, 진행 중 PACK 외의 작업에 착수하지 마라.
 - 각 TUW 구현 전 명세의 `Files create / modify / NOT-modify`를 먼저 읽어라. **NOT-modify 목록의 파일은 한 줄도 변경 금지.** 변경이 필요하다고 판단되면 그 자체가 Stop condition이다 — 중단·escalation.
 - TUW 스코프 밖 파일 변경 금지. 지나가는 리팩토링·포맷팅·"겸사겸사 수정" 금지.
