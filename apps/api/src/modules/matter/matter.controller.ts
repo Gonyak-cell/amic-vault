@@ -13,6 +13,7 @@ import {
 import type { RequestWithSession } from '../auth/session.guard';
 import { createMatterSchema } from './dto/create-matter.dto';
 import { listMattersQuerySchema } from './dto/list-matters.query';
+import { updateMatterSchema } from './dto/update-matter.dto';
 import { updateMatterStatusSchema } from './dto/update-matter-status.dto';
 import { MatterService } from './matter.service';
 
@@ -61,6 +62,16 @@ export class MatterController {
   @Get(':matterId')
   get(@Req() request: RequestWithSession, @Param('matterId') matterId: string) {
     return this.matterService.get(sessionUserId(request), parseUuid(matterId));
+  }
+
+  @Patch(':matterId')
+  update(
+    @Req() request: RequestWithSession,
+    @Param('matterId') matterId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => updateMatterSchema.parse(body));
+    return this.matterService.update(sessionUserId(request), parseUuid(matterId), input);
   }
 
   @Patch(':matterId/status')

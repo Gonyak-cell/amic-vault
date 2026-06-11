@@ -37,7 +37,7 @@ async function ensureTenantRows(): Promise<void> {
           )
           VALUES ($1, 'system', 'LOGIN_SUCCESS', 'user', 'success', $2)
         `,
-        [tenantId, { actor: 'system', tenant_id: tenantId }],
+        [tenantId, { reason_code: 'rls_fixture', correlation_id: tenantId }],
       );
     }
   });

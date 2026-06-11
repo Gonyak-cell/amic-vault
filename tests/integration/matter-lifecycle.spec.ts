@@ -234,6 +234,15 @@ describe('matter lifecycle integration', () => {
     expect(roleClosed.status, roleClosedBody).toBe(400);
     expect(roleClosedBody).toContain('MATTER_CLOSED');
 
+    const updateClosed = await fetch(`${baseUrl}/v1/matters/${matterId}`, {
+      method: 'PATCH',
+      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ matterName: `Closed Matter Rename ${randomUUID()}` }),
+    });
+    const updateClosedBody = await updateClosed.text();
+    expect(updateClosed.status, updateClosedBody).toBe(400);
+    expect(updateClosedBody).toContain('MATTER_CLOSED');
+
     const archive = await updateStatus(baseUrl, ownerCookie, matterId, 'archived');
     expect(archive.status, await archive.text()).toBe(200);
 

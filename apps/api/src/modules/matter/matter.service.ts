@@ -20,6 +20,7 @@ import type {
   MatterType,
   PermissionDecision,
   TenantId,
+  UpdateMatterDto,
   UserRole,
 } from '@amic-vault/shared';
 import { isUserRole } from '@amic-vault/shared';
@@ -28,6 +29,7 @@ import { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
+import { assertMatterMutationAllowed } from './guards/matter-mutability.guard';
 import type { UpdateMatterStatusDto } from './dto/update-matter-status.dto';
 import { MatterMemberService } from './matter-member.service';
 import { MatterEntity } from './matter.entity';
@@ -108,6 +110,34 @@ function notFoundDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
 }
 
+function canonicalMetadata(value: Record<string, string>): string {
+  return JSON.stringify(
+    Object.keys(value)
+      .sort()
+      .reduce<Record<string, string>>((output, key) => {
+        output[key] = value[key]!;
+        return output;
+      }, {}),
+  );
+}
+
+function matterDiffKeys(before: MatterEntity, input: UpdateMatterDto): string[] {
+  const keys: string[] = [];
+  if (input.matterName !== undefined && input.matterName !== before.props.matterName) {
+    keys.push('matter_name');
+  }
+  if (input.practiceGroup !== undefined && input.practiceGroup !== before.props.practiceGroup) {
+    keys.push('practice_group');
+  }
+  if (
+    input.metadata !== undefined &&
+    canonicalMetadata(input.metadata) !== canonicalMetadata(before.props.metadata)
+  ) {
+    keys.push('metadata');
+  }
+  return keys;
+}
+
 @Injectable()
 export class MatterService {
   constructor(
@@ -170,6 +200,40 @@ export class MatterService {
     if (!matter) throw notFoundDenied();
     await this.assertCanReadMatter(context.tenantId, actorUserId, matter.props.matterId);
     return matter.toDto();
+  }
+
+  async update(actorUserId: string, matterId: string, input: UpdateMatterDto) {
+    const context = this.tenantContext.require();
+    const before = await this.findByIdForTenant(context.tenantId, matterId);
+    if (!before) throw notFoundDenied();
+    await this.assertCanEditMatter(context.tenantId, actorUserId, matterId);
+    assertMatterMutationAllowed(before.props.status);
+
+    const diffKeys = matterDiffKeys(before, input);
+    if (diffKeys.length === 0) return before.toDto();
+
+    const updated = await this.auditService.transaction(context.tenantId, async (tx) => {
+      const changed = await this.updateMatterMetadata(tx, context.tenantId, matterId, input);
+      if (!changed) throw notFoundDenied();
+      await this.auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'MATTER_UPDATED',
+          targetType: 'matter',
+          targetId: matterId,
+          matterId,
+          metadata: {
+            matter_id: matterId,
+            diff_keys: diffKeys,
+          },
+        },
+        tx,
+      );
+      return changed;
+    });
+
+    return updated.toDto();
   }
 
   async updateStatus(actorUserId: string, matterId: string, input: UpdateMatterStatusDto) {
@@ -372,6 +436,44 @@ export class MatterService {
           created_by, created_at, updated_at
       `,
       [tenantId, matterId, status],
+    );
+    const row = result.rows[0] as MatterRow | undefined;
+    return row ? mapMatter(row) : null;
+  }
+
+  private async updateMatterMetadata(
+    client: QueryClient,
+    tenantId: TenantId,
+    matterId: string,
+    input: UpdateMatterDto,
+  ): Promise<MatterEntity | null> {
+    const params: unknown[] = [tenantId, matterId];
+    const sets: string[] = [];
+    if (input.matterName !== undefined) {
+      params.push(input.matterName);
+      sets.push(`matter_name = $${params.length}`);
+    }
+    if (input.practiceGroup !== undefined) {
+      params.push(input.practiceGroup);
+      sets.push(`practice_group = $${params.length}`);
+    }
+    if (input.metadata !== undefined) {
+      params.push(JSON.stringify(input.metadata));
+      sets.push(`metadata_json = $${params.length}::jsonb`);
+    }
+    sets.push('updated_at = now()');
+
+    const result = await client.query(
+      `
+        UPDATE matters
+        SET ${sets.join(', ')}
+        WHERE tenant_id = $1
+          AND matter_id = $2
+        RETURNING matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
+          status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
+          created_by, created_at, updated_at
+      `,
+      params,
     );
     const row = result.rows[0] as MatterRow | undefined;
     return row ? mapMatter(row) : null;
