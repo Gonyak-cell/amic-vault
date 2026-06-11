@@ -151,6 +151,7 @@ describe('ethical wall integration', () => {
       'ETHICAL_WALL_CREATED',
       'ETHICAL_WALL_MEMBERSHIP_CHANGED',
       'ETHICAL_WALL_APPLIED',
+      'PERMISSION_CHANGED',
     ]);
     for (const row of audits) {
       expect(JSON.stringify(row.metadata_json)).not.toContain(wallName);
@@ -169,9 +170,9 @@ describe('ethical wall integration', () => {
     });
     const listBody = await list.text();
     expect(list.status, listBody).toBe(200);
-    const listedMatterIds = (JSON.parse(listBody) as { items: Array<{ matterId: string }> }).items.map(
-      (item) => item.matterId,
-    );
+    const listedMatterIds = (
+      JSON.parse(listBody) as { items: Array<{ matterId: string }> }
+    ).items.map((item) => item.matterId);
     expect(listedMatterIds).not.toContain(matterId);
   });
 
@@ -196,10 +197,9 @@ describe('ethical wall integration', () => {
 
     await withClient(createAppClient(), async (client) => {
       await setTenant(client, tenantBetaId);
-      const result = await client.query(
-        'SELECT wall_id FROM ethical_walls WHERE tenant_id = $1',
-        [tenantAlphaId],
-      );
+      const result = await client.query('SELECT wall_id FROM ethical_walls WHERE tenant_id = $1', [
+        tenantAlphaId,
+      ]);
       expect(result.rowCount).toBe(0);
     });
   });

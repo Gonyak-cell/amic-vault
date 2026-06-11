@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
 import type {
   CreateEthicalWallDto,
@@ -13,6 +8,7 @@ import type {
   WallSubjectType,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { TenantContextService } from '../tenant/tenant-context';
 import { EthicalWallEntity } from './ethical-wall.entity';
 import { WallMembershipEntity } from './wall-membership.entity';
@@ -92,6 +88,7 @@ function notFoundDenied(): NotFoundException {
 export class EthicalWallService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -154,6 +151,20 @@ export class EthicalWallService {
             wall_id: wall.props.wallId,
             matter_id: input.matterId,
           },
+        },
+        tx,
+      );
+      await this.permissionEvents.recordPermissionChanged(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          targetType: 'ethical_wall',
+          targetId: wall.props.wallId,
+          matterId: input.matterId,
+          beforeRef: 'none',
+          afterRef: `wall:${wall.props.wallId}:active`,
+          reasonCode: 'ethical_wall_created',
+          wallId: wall.props.wallId,
         },
         tx,
       );

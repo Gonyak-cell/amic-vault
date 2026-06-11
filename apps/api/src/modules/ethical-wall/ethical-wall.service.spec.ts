@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import type { AuditService } from '../audit/audit.service';
+import type { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import type { TenantContextService } from '../tenant/tenant-context';
 import { EthicalWallService } from './ethical-wall.service';
 
@@ -8,6 +9,7 @@ describe('EthicalWallService', () => {
   it('rejects group memberships before group wall expansion exists', async () => {
     const service = new EthicalWallService(
       {} as unknown as AuditService,
+      {} as unknown as PermissionEventRecorder,
       {} as unknown as TenantContextService,
     );
 
@@ -27,4 +29,3 @@ describe('EthicalWallService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
-

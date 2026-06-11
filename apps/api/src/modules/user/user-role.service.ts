@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { AssignUserRoleDto, TenantId } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
+import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { UserService } from './user.service';
 
 function validationFailed(): BadRequestException {
@@ -25,6 +26,7 @@ function notFoundDenied(): NotFoundException {
 export class UserRoleService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
     @Inject(UserService) private readonly userService: UserService,
   ) {}
 
@@ -70,10 +72,21 @@ export class UserRoleService {
         },
         tx,
       );
+      await this.permissionEvents.recordPermissionChanged(
+        {
+          tenantId,
+          actorId: actorUserId,
+          targetType: 'user',
+          targetId: targetUserId,
+          beforeRef: `role:${target.role}`,
+          afterRef: `role:${input.role}`,
+          reasonCode: 'tenant_role_changed',
+        },
+        tx,
+      );
       return changed;
     });
 
     return updated.toSummary();
   }
 }
-
