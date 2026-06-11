@@ -21,3 +21,12 @@ export interface ApiErrorResponse {
   message?: string;
   requestId?: string;
 }
+
+export {
+  auditActions,
+  auditMetadataKeys,
+  type AuditAction,
+  type AuditMetadata,
+  type AuditMetadataKey,
+  type AuditMetadataValue,
+} from './types/audit';

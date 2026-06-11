@@ -1,5 +1,6 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { ERROR_CODES } from '@amic-vault/shared';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Controller()
 class AppController {
@@ -14,6 +15,7 @@ class AppController {
 }
 
 @Module({
+  imports: [AuditModule],
   controllers: [AppController],
 })
 export class AppModule {}
