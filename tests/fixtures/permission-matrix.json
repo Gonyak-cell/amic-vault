@@ -1,0 +1,257 @@
+{
+  "version": "r1-freeze-draft",
+  "roles": [
+    "firm_admin",
+    "security_admin",
+    "matter_owner",
+    "matter_member",
+    "limited_reviewer",
+    "knowledge_manager",
+    "external_user"
+  ],
+  "decisions": {
+    "tenant.settings_read": {
+      "firm_admin": "allow",
+      "security_admin": "allow",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "tenant.settings_update": {
+      "firm_admin": "allow",
+      "security_admin": "deny",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "user.create_invite": {
+      "firm_admin": "allow",
+      "security_admin": "deny",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "group.manage": {
+      "firm_admin": "allow",
+      "security_admin": "allow",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "client.create": {
+      "firm_admin": "allow",
+      "security_admin": "deny",
+      "matter_owner": "allow",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "client.read": {
+      "firm_admin": "allow",
+      "security_admin": "allow",
+      "matter_owner": "allow",
+      "matter_member": "allow",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "allow",
+      "external_user": "deny"
+    },
+    "client.update": {
+      "firm_admin": "allow",
+      "security_admin": "deny",
+      "matter_owner": "allow",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.create": {
+      "firm_admin": "allow",
+      "security_admin": "deny",
+      "matter_owner": "allow",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.read": {
+      "firm_admin": "member",
+      "security_admin": "member",
+      "matter_owner": "member",
+      "matter_member": "member",
+      "limited_reviewer": "member",
+      "knowledge_manager": "member",
+      "external_user": "deny"
+    },
+    "matter.edit": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "edit",
+      "matter_member": "edit",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.status_change": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "edit",
+      "matter_member": "edit",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.close": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.archive": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.reopen": {
+      "firm_admin": "allow",
+      "security_admin": "deny",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.member_add": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.member_remove": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "matter.member_role_change": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "party.create": {
+      "firm_admin": "deny",
+      "security_admin": "deny",
+      "matter_owner": "edit",
+      "matter_member": "edit",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "party.restrict": {
+      "firm_admin": "deny",
+      "security_admin": "allow",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "permission.grant": {
+      "firm_admin": "deny",
+      "security_admin": "allow",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "permission.revoke": {
+      "firm_admin": "deny",
+      "security_admin": "allow",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "user.role_assign": {
+      "firm_admin": "allow",
+      "security_admin": "deny",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "wall.create": {
+      "firm_admin": "deny",
+      "security_admin": "allow",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "wall.manage": {
+      "firm_admin": "deny",
+      "security_admin": "allow",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "wall.release": {
+      "firm_admin": "deny",
+      "security_admin": "allow",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "audit.read.tenant": {
+      "firm_admin": "allow",
+      "security_admin": "allow",
+      "matter_owner": "deny",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    },
+    "audit.read.matter": {
+      "firm_admin": "allow",
+      "security_admin": "allow",
+      "matter_owner": "owner",
+      "matter_member": "deny",
+      "limited_reviewer": "deny",
+      "knowledge_manager": "deny",
+      "external_user": "deny"
+    }
+  }
+}

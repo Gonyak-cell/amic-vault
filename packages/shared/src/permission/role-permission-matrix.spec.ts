@@ -21,9 +21,15 @@ describe('role permission matrix', () => {
     expect(isRoleAllowedForAction('firm_admin', 'wall.create')).toBe(false);
   });
 
+  it('splits party create and restricted marker decisions before freeze', () => {
+    expect(rolePermissionDecision('matter_member', 'party.create')).toBe('edit');
+    expect(rolePermissionDecision('matter_member', 'party.restrict')).toBe('deny');
+    expect(rolePermissionDecision('security_admin', 'party.restrict')).toBe('allow');
+    expect(rolePermissionDecision('matter_owner', 'party.restrict')).toBe('owner');
+  });
+
   it('keeps unknown matrix lookups fail-closed through explicit deny semantics', () => {
     expect(rolePermissionDecision('external_user', 'matter.read')).toBe('deny');
     expect(rolePermissionDecision('matter_member', 'matter.member_add')).toBe('deny');
   });
 });
-

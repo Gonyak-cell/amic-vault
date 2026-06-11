@@ -13,6 +13,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
 import { MatterModule } from './modules/matter/matter.module';
+import { PartyModule } from './modules/party/party.module';
 import { PermissionModule } from './modules/permission/permission.module';
 
 @Controller()
@@ -39,6 +40,7 @@ class AppController {
     EthicalWallModule,
     PermissionModule,
     MatterModule,
+    PartyModule,
   ],
   controllers: [AppController],
   providers: [
