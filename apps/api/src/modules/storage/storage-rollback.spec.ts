@@ -13,12 +13,13 @@ const matterId = '11111111-1111-4111-8111-111111111122';
 async function tempUploadFile(): Promise<UploadedDiskFile> {
   const dir = await mkdtemp(join(tmpdir(), 'amic-vault-rollback-test-'));
   const path = join(dir, 'Rollback.pdf');
-  await writeFile(path, 'rollback');
+  const bytes = '%PDF-1.7 rollback';
+  await writeFile(path, bytes);
   return {
     path,
     originalname: 'Rollback.pdf',
     mimetype: 'application/pdf',
-    size: 8,
+    size: Buffer.byteLength(bytes),
   };
 }
 
@@ -47,6 +48,7 @@ describe('storage rollback', () => {
           throw new Error('injected db failure');
         },
       } as never,
+      { findCandidates: vi.fn(async () => []) } as never,
       { create: vi.fn(async () => undefined) } as never,
       { canUploadToMatter: vi.fn(async () => allowPermission()) } as never,
       {
@@ -60,7 +62,9 @@ describe('storage rollback', () => {
         }),
         deleteByStorageUri,
       } as never,
-      { require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }) } as never,
+      {
+        require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
+      } as never,
     );
 
     await expect(

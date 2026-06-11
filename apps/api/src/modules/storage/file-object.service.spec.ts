@@ -19,6 +19,7 @@ describe('FileObjectService', () => {
               normalized_filename: '계약.pdf',
               mime_type: 'application/pdf',
               size_bytes: '12',
+              sha256: 'a'.repeat(64),
               encryption_key_id: null,
               source_system: 'upload',
               created_by: '11111111-1111-4111-8111-111111111101',
@@ -41,6 +42,7 @@ describe('FileObjectService', () => {
           normalizedFilename: '계약.pdf',
           mimeType: 'application/pdf',
           sizeBytes: 12,
+          sha256: 'a'.repeat(64),
           encryptionKeyId: null,
           createdBy: '11111111-1111-4111-8111-111111111101',
         },
@@ -50,6 +52,7 @@ describe('FileObjectService', () => {
       fileObjectId: '11111111-1111-4111-8111-111111111144',
       normalizedFilename: '계약.pdf',
       sizeBytes: 12,
+      sha256: 'a'.repeat(64),
     });
     expect(queries[0]?.params).not.toContain('file body');
   });

@@ -91,6 +91,18 @@ export {
   type UploadDocumentFieldsDto,
   type UploadDocumentResponseDto,
 } from './dto/document/upload-document.dto';
+export {
+  bulkUploadFileSchema,
+  bulkUploadJobItemSchema,
+  bulkUploadJobSchema,
+  bulkUploadQueueName,
+  type BulkUploadFailedItemDto,
+  type BulkUploadItemResultDto,
+  type BulkUploadJobDto,
+  type BulkUploadJobItemDto,
+  type BulkUploadReportDto,
+  type BulkUploadSuccessItemDto,
+} from './dto/document/bulk-upload.dto';
 
 export {
   clientConfidentialityLevels,

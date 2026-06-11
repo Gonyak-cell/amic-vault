@@ -80,11 +80,13 @@ async function uploadedRows(documentId: string) {
       file_object_id: string;
       storage_uri: string;
       normalized_filename: string;
+      mime_type: string;
       size_bytes: string;
+      sha256: string;
     }>(
       `
         SELECT d.document_id, f.file_object_id, f.storage_uri, f.normalized_filename,
-          f.size_bytes::text
+          f.mime_type, f.size_bytes::text, f.sha256
         FROM documents d
         JOIN file_objects f
           ON f.storage_uri LIKE ('s3://amic-vault-dev/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
@@ -94,6 +96,23 @@ async function uploadedRows(documentId: string) {
       [documentId],
     );
     return result.rows[0];
+  });
+}
+
+async function uploadedRowCountForMatter(matterId: string): Promise<number> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ count: string }>(
+      `
+        SELECT count(*)::text
+        FROM documents d
+        JOIN file_objects f
+          ON f.storage_uri LIKE ('s3://amic-vault-dev/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
+        WHERE d.tenant_id = $1
+          AND d.matter_id = $2
+      `,
+      [tenantBetaId, matterId],
+    );
+    return Number(result.rows[0]?.count ?? '0');
   });
 }
 
@@ -138,7 +157,7 @@ describe('document upload integration', () => {
     await app.close();
   });
 
-  it('uploads one document through canUploadToMatter and stores DB/object references', async () => {
+  it('uploads one document through canUploadToMatter and stores DB/object/hash references', async () => {
     const response = await fetch(`${baseUrl}/v1/matters/${betaMatterId}/documents`, {
       method: 'POST',
       headers: { cookie: betaOwnerCookie },
@@ -146,7 +165,11 @@ describe('document upload integration', () => {
     });
     const body = await response.text();
     expect(response.status, body).toBe(201);
-    const uploaded = JSON.parse(body) as { documentId: string; fileObjectId: string; title: string };
+    const uploaded = JSON.parse(body) as {
+      documentId: string;
+      fileObjectId: string;
+      title: string;
+    };
     expect(uploaded.title).toBe('Uploaded Draft');
 
     const row = await uploadedRows(uploaded.documentId);
@@ -154,12 +177,19 @@ describe('document upload integration', () => {
       document_id: uploaded.documentId,
       file_object_id: uploaded.fileObjectId,
       normalized_filename: '계약.PDF',
+      mime_type: 'application/pdf',
       size_bytes: String(Buffer.byteLength('%PDF test bytes')),
+      sha256: 'ad795e376e3017c886c7594e8d87ce2fa62daa8f5a32bd4b19799c511563b0f7',
     });
-    expect(row?.storage_uri).toContain(`/tenants/${tenantBetaId}/matters/${betaMatterId}/documents/${uploaded.documentId}/`);
+    expect(uploaded).toMatchObject({ duplicates: [] });
+    expect(row?.storage_uri).toContain(
+      `/tenants/${tenantBetaId}/matters/${betaMatterId}/documents/${uploaded.documentId}/`,
+    );
     if (row?.storage_uri) {
       createdStorageUris.push(row.storage_uri);
-      await expect(createStorageService().headByStorageUri(tenantBetaId, row.storage_uri)).resolves.toMatchObject({
+      await expect(
+        createStorageService().headByStorageUri(tenantBetaId, row.storage_uri),
+      ).resolves.toMatchObject({
         contentLength: Buffer.byteLength('%PDF test bytes'),
       });
     }
@@ -207,5 +237,26 @@ describe('document upload integration', () => {
     const unsupportedBody = await unsupported.text();
     expect(unsupported.status, unsupportedBody).toBe(415);
     expect(unsupportedBody).toContain('UNSUPPORTED_FILE_TYPE');
+  });
+
+  it('rejects declared extension and magic byte mismatches before storage is created', async () => {
+    const before = await uploadedRowCountForMatter(betaMatterId);
+
+    const docxBytes = Buffer.from(
+      'PK\x03\x04[Content_Types].xml word/document.xml application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'latin1',
+    );
+    const mismatch = await fetch(`${baseUrl}/v1/matters/${betaMatterId}/documents`, {
+      method: 'POST',
+      headers: { cookie: betaOwnerCookie },
+      body: uploadForm('Mismatch.pdf', docxBytes, 'application/pdf'),
+    });
+    const mismatchBody = await mismatch.text();
+
+    expect(mismatch.status, mismatchBody).toBe(415);
+    expect(mismatchBody).toContain('UNSUPPORTED_FILE_TYPE');
+    expect(mismatchBody).not.toContain('Mismatch');
+    const after = await uploadedRowCountForMatter(betaMatterId);
+    expect(after).toBe(before);
   });
 });

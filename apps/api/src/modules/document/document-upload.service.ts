@@ -15,7 +15,11 @@ import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { DocumentService } from './document.service';
+import { DuplicateDetectorService } from './integrity/duplicate-detector.service';
+import { sha256File } from './integrity/sha256.util';
 import { FileExtensionValidator } from './validators/file-extension.validator';
+import { FileSizeValidator } from './validators/file-size.validator';
+import { MimeTypeValidator } from './validators/mime-type.validator';
 
 export interface UploadedDiskFile {
   path: string;
@@ -67,10 +71,14 @@ function normalizeTransportFilename(filename: string): string {
 export class DocumentUploadService {
   private readonly logger = new Logger(DocumentUploadService.name);
   private readonly extensionValidator = new FileExtensionValidator();
+  private readonly fileSizeValidator = new FileSizeValidator();
+  private readonly mimeTypeValidator = new MimeTypeValidator();
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(DocumentService) private readonly documentService: DocumentService,
+    @Inject(DuplicateDetectorService)
+    private readonly duplicateDetector: DuplicateDetectorService,
     @Inject(FileObjectService) private readonly fileObjectService: FileObjectService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(StorageService) private readonly storageService: StorageService,
@@ -80,15 +88,23 @@ export class DocumentUploadService {
   async upload(input: UploadDocumentInput): Promise<UploadDocumentResponseDto> {
     const context = this.tenantContext.require();
     const file = input.file;
-    if (!isUploadedDiskFile(file) || file.size <= 0) {
+    if (!isUploadedDiskFile(file)) {
       await this.unlinkTempFile(file);
       throw validationFailed();
     }
 
     try {
+      this.fileSizeValidator.validate(file.size);
       await this.assertCanUpload(context.tenantId, input.actorUserId, input.matterId);
       const originalFilename = normalizeTransportFilename(file.originalname);
-      const { normalizedFilename } = this.extensionValidator.validate(originalFilename);
+      const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
+      const sniffed = await this.mimeTypeValidator.validate({
+        path: file.path,
+        sizeBytes: file.size,
+        extension,
+        declaredMimeType: file.mimetype,
+      });
+      const sha256 = await sha256File(file.path);
       const title = input.fields.title?.trim() || titleFromFilename(normalizedFilename);
       const documentId = randomUUID();
       const fileObjectId = randomUUID();
@@ -99,11 +115,12 @@ export class DocumentUploadService {
         fileObjectId,
         body: createReadStream(file.path),
         contentLength: file.size,
-        contentType: file.mimetype || 'application/octet-stream',
+        contentType: sniffed.mimeType,
       });
 
+      let duplicates: UploadDocumentResponseDto['duplicates'] = [];
       try {
-        await this.auditService.transaction(context.tenantId, async (tx) => {
+        duplicates = await this.auditService.transaction(context.tenantId, async (tx) => {
           await this.documentService.createDraft(
             {
               documentId,
@@ -122,10 +139,20 @@ export class DocumentUploadService {
               storageUri: storage.storageUri,
               originalFilename,
               normalizedFilename,
-              mimeType: file.mimetype || 'application/octet-stream',
+              mimeType: sniffed.mimeType,
               sizeBytes: file.size,
+              sha256,
               encryptionKeyId: storage.encryptionKeyId,
               createdBy: input.actorUserId,
+            },
+            tx,
+          );
+          return this.duplicateDetector.findCandidates(
+            {
+              tenantId: context.tenantId,
+              matterId: input.matterId,
+              documentId,
+              sha256,
             },
             tx,
           );
@@ -141,6 +168,7 @@ export class DocumentUploadService {
         fileObjectId,
         status: 'draft',
         title,
+        duplicates,
       };
     } finally {
       await this.unlinkTempFile(file);
@@ -152,12 +180,17 @@ export class DocumentUploadService {
     actorUserId: string,
     matterId: string,
   ): Promise<void> {
-    const decision = await this.permissionService.canUploadToMatter(
-      { tenantId, userId: actorUserId },
-      matterId,
-    );
-    if (decision.effect === 'ALLOW') return;
-    if (decision.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
+    let decision: Awaited<ReturnType<PermissionService['canUploadToMatter']>> | undefined;
+    try {
+      decision = await this.permissionService.canUploadToMatter(
+        { tenantId, userId: actorUserId },
+        matterId,
+      );
+    } catch {
+      this.logger.warn({ code: 'PERM_EVAL_ERROR', matterId });
+    }
+    if (decision?.effect === 'ALLOW') return;
+    if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
     throw permissionDenied();
   }
 

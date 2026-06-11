@@ -6,6 +6,7 @@ export interface FileObjectDto {
   normalizedFilename: string;
   mimeType: string;
   sizeBytes: number;
+  sha256: string;
   encryptionKeyId: string | null;
   sourceSystem: 'upload' | 'email_ingest' | 'migration';
   createdBy: string | null;

@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { documentUploadMaxBytes } from './validators/file-size.validator';
 
 export const multipartFieldName = 'file';
 
@@ -25,7 +26,7 @@ export function multipartUploadOptions(): MultipartUploadOptions {
     limits: {
       files: 1,
       fields: 4,
-      fileSize: Number(process.env.DOCUMENT_UPLOAD_MAX_BYTES ?? String(200 * 1024 * 1024)),
+      fileSize: documentUploadMaxBytes(),
     },
   };
 }
