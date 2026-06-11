@@ -1,4 +1,10 @@
-import type { ApiErrorResponse, ErrorCode } from '@amic-vault/shared';
+import type {
+  ApiErrorResponse,
+  ErrorCode,
+  ListMattersQueryDto,
+  MatterDto,
+  MatterListDto,
+} from '@amic-vault/shared';
 import { ERROR_CODES } from '@amic-vault/shared';
 import { apiBaseUrl } from './config';
 
@@ -60,3 +66,20 @@ export async function apiFetch<T>(
 }
 
 // Server components must forward cookies explicitly when calling API routes.
+
+function matterQueryString(query: Partial<ListMattersQueryDto> = {}): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) params.set(key, String(value));
+  }
+  const queryString = params.toString();
+  return queryString ? `?${queryString}` : '';
+}
+
+export function listMatters(query: Partial<ListMattersQueryDto> = {}): Promise<MatterListDto> {
+  return apiFetch<MatterListDto>(`/matters${matterQueryString(query)}`);
+}
+
+export function getMatter(matterId: string): Promise<MatterDto> {
+  return apiFetch<MatterDto>(`/matters/${matterId}`);
+}
