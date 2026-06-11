@@ -22,6 +22,11 @@ export const auditMetadataKeys = [
   'scope_type',
   'scope_id',
   'enqueued_job_count',
+  'query_hash',
+  'query_length',
+  'filter_refs',
+  'result_count',
+  'duration_ms',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

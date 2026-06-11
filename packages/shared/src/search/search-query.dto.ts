@@ -45,9 +45,33 @@ export const searchQuerySchema = z
     query: z.string().trim().min(1).max(2000).optional(),
     filters: searchFiltersSchema.optional(),
     page: z.coerce.number().int().min(1).max(1000).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(25),
+    pageSize: z.coerce.number().int().min(1).max(50).default(25),
   })
   .strict();
+
+export interface SearchHighlightDto {
+  start: number;
+  end: number;
+}
+
+export interface SearchResultDto {
+  documentId: string;
+  versionId: string;
+  matterId: string;
+  clientId: string;
+  title: string;
+  snippet: string;
+  highlights: SearchHighlightDto[];
+  documentType: string;
+  versionStatus: string;
+  score: number;
+  updatedAt: string;
+}
+
+export interface SearchResponseDto {
+  results: SearchResultDto[];
+  total: number;
+}
 
 export type SearchDocumentTypeFilterDto = z.infer<typeof searchDocumentTypeFilterSchema>;
 export type SearchVersionStatus = (typeof searchVersionStatusValues)[number];

@@ -17,6 +17,7 @@ describe('audit shared types', () => {
         'DOCUMENT_INTEGRITY_ALERT',
         'DOCUMENT_TEXT_EXTRACTED',
         'SEARCH_REINDEX_REQUESTED',
+        'SEARCH_EXECUTED',
       ]),
     );
   });
@@ -26,6 +27,11 @@ describe('audit shared types', () => {
       hash: 'sha256:fixture',
       client_id: '11111111-1111-4111-8111-111111111111',
       matter_id: '11111111-1111-4111-8111-111111111111',
+      query_hash: '0'.repeat(64),
+      query_length: 12,
+      filter_refs: 'matter_id:11111111-1111-4111-8111-111111111111',
+      result_count: 0,
+      duration_ms: 1,
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');

@@ -18,6 +18,7 @@
     "db:rollback": "node tools/db/migrate.mjs down 999",
     "db:seed": "node tools/db/seed.mjs",
     "evalset:load": "node tools/evalset/load-evaluation-cases.ts",
+    "search:eval:korean": "node tools/search-eval/run-korean-eval.ts",
     "test:integration": "node tools/integration/run.mjs"
   },
   "devDependencies": {

@@ -35,7 +35,7 @@ export const r2DocumentAuditActions = [
   'DOCUMENT_TEXT_EXTRACTED',
 ] as const;
 
-export const r3SearchAuditActions = ['SEARCH_REINDEX_REQUESTED'] as const;
+export const r3SearchAuditActions = ['SEARCH_REINDEX_REQUESTED', 'SEARCH_EXECUTED'] as const;
 
 export const auditActions = [
   ...r1AuditActions,
