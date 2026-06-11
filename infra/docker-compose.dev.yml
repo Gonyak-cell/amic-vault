@@ -50,6 +50,12 @@ services:
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
         mc mb --ignore-existing "local/$${S3_BUCKET}"
         mc anonymous set none "local/$${S3_BUCKET}"
+        tail -f /dev/null
+    healthcheck:
+      test: ["CMD-SHELL", "mc ls local/$${S3_BUCKET} >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: "no"
 
 volumes:
