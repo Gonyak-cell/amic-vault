@@ -10,6 +10,7 @@ import { createOwnerClient, tenantAlphaId, withClient } from '../helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
+const alphaPermissionAuditTargetUserId = '11111111-1111-4111-8111-111111111106';
 
 async function login(
   baseUrl: string,
@@ -148,14 +149,14 @@ describe('permission audit integration', () => {
   });
 
   it('records PERMISSION_CHANGED for role, team, and wall mutations', async () => {
-    const roleChange = await fetch(`${baseUrl}/v1/users/${alphaMemberUserId}/role`, {
+    const roleChange = await fetch(`${baseUrl}/v1/users/${alphaPermissionAuditTargetUserId}/role`, {
       method: 'PATCH',
       headers: { cookie: firmAdminCookie, 'content-type': 'application/json' },
       body: JSON.stringify({ role: 'limited_reviewer' }),
     });
     expect(roleChange.status, await roleChange.text()).toBe(200);
 
-    const resetRole = await fetch(`${baseUrl}/v1/users/${alphaMemberUserId}/role`, {
+    const resetRole = await fetch(`${baseUrl}/v1/users/${alphaPermissionAuditTargetUserId}/role`, {
       method: 'PATCH',
       headers: { cookie: firmAdminCookie, 'content-type': 'application/json' },
       body: JSON.stringify({ role: 'matter_member' }),
@@ -167,7 +168,7 @@ describe('permission audit integration', () => {
       method: 'POST',
       headers: { cookie: ownerCookie, 'content-type': 'application/json' },
       body: JSON.stringify({
-        userId: alphaMemberUserId,
+        userId: alphaPermissionAuditTargetUserId,
         matterRole: 'member',
         accessLevel: 'read',
       }),
@@ -175,7 +176,7 @@ describe('permission audit integration', () => {
     expect(addMember.status, await addMember.text()).toBe(201);
 
     const updateMember = await fetch(
-      `${baseUrl}/v1/matters/${matterId}/members/${alphaMemberUserId}`,
+      `${baseUrl}/v1/matters/${matterId}/members/${alphaPermissionAuditTargetUserId}`,
       {
         method: 'PATCH',
         headers: { cookie: ownerCookie, 'content-type': 'application/json' },
@@ -185,7 +186,7 @@ describe('permission audit integration', () => {
     expect(updateMember.status, await updateMember.text()).toBe(200);
 
     const removeMember = await fetch(
-      `${baseUrl}/v1/matters/${matterId}/members/${alphaMemberUserId}`,
+      `${baseUrl}/v1/matters/${matterId}/members/${alphaPermissionAuditTargetUserId}`,
       {
         method: 'DELETE',
         headers: { cookie: ownerCookie },
@@ -203,7 +204,7 @@ describe('permission audit integration', () => {
         members: [
           {
             subjectType: 'user',
-            subjectId: alphaMemberUserId,
+            subjectId: alphaPermissionAuditTargetUserId,
             membershipType: 'excluded',
           },
         ],
@@ -229,7 +230,7 @@ describe('permission audit integration', () => {
     const nonmemberDenied = await fetch(`${baseUrl}/v1/matters/${nonmemberMatterId}`, {
       headers: { cookie: memberCookie },
     });
-    expect(nonmemberDenied.status, await nonmemberDenied.text()).toBe(403);
+    expect(nonmemberDenied.status, await nonmemberDenied.text()).toBe(404);
     await expect(
       accessDeniedCount(nonmemberMatterId, 'PERMISSION_DENIED'),
     ).resolves.toBeGreaterThanOrEqual(1);

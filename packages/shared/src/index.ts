@@ -65,6 +65,17 @@ export {
   type RolePermissionDecision,
   type RolePermissionMatrix,
 } from './permission/role-permission-matrix';
+export {
+  allowPermission,
+  denyPermission,
+  type PermissionDecision,
+  type PermissionEffect,
+  type PermissionReasonCode,
+} from './permission/permission-decision';
+export type {
+  DocumentPermissionService,
+  PermissionContext,
+} from './permission/document-permission.interface';
 export { assignUserRoleSchema, type AssignUserRoleDto } from './user/user-role.dto';
 export type {
   LoginRequestDto,

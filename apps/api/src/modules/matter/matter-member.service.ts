@@ -12,11 +12,13 @@ import type {
   MatterMemberAccessLevel,
   MatterMemberListDto,
   MatterMemberRole,
+  PermissionDecision,
   TenantId,
   UpdateMatterMemberDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionEventRecorder } from '../audit/permission-event.recorder';
+import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { assertMatterMutationAllowed } from './guards/matter-mutability.guard';
@@ -86,6 +88,7 @@ export class MatterMemberService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
+    @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
   ) {}
@@ -93,20 +96,12 @@ export class MatterMemberService {
   async list(actorUserId: string, matterId: string): Promise<MatterMemberListDto> {
     const context = this.tenantContext.require();
     await this.assertMatterExists(context.tenantId, matterId);
+    const read = await this.permissionService.canReadMatter(
+      { tenantId: context.tenantId, userId: actorUserId },
+      matterId,
+    );
+    if (read.effect !== 'ALLOW') throwReadDenied(read);
     const canManage = await this.canManageMembers(context.tenantId, actorUserId, matterId);
-    const isMember = await this.isMember(context.tenantId, matterId, actorUserId);
-    const actor = await this.userService.findByTenantAndId(context.tenantId, actorUserId);
-    if (!canManage && !isMember && actor?.role !== 'firm_admin') {
-      await this.permissionEvents.recordAccessDenied({
-        tenantId: context.tenantId,
-        actorId: actorUserId,
-        targetType: 'matter',
-        targetId: matterId,
-        matterId,
-        reasonCode: 'PERMISSION_DENIED',
-      });
-      throw permissionDenied();
-    }
     const result = await getPool().query<MatterMemberRow>(
       `
         SELECT matter_id, tenant_id, user_id, matter_role, access_level, added_by, added_at
@@ -293,7 +288,7 @@ export class MatterMemberService {
   ): Promise<boolean> {
     const actor = await this.userService.findByTenantAndId(tenantId, actorUserId);
     if (!actor || actor.status !== 'active') return false;
-    if (actor.role === 'firm_admin') return true;
+    if (actor.role !== 'matter_owner') return false;
     const member = await this.findMember(tenantId, matterId, actorUserId);
     return member?.props.matterRole === 'owner';
   }
@@ -356,16 +351,11 @@ export class MatterMemberService {
     actorUserId: string,
     matterId: string,
   ): Promise<void> {
-    if (await this.canManageMembers(tenantId, actorUserId, matterId)) return;
-    await this.permissionEvents.recordAccessDenied({
-      tenantId,
-      actorId: actorUserId,
-      targetType: 'matter',
-      targetId: matterId,
+    const decision = await this.permissionService.canManageMatterMembers(
+      { tenantId, userId: actorUserId },
       matterId,
-      reasonCode: 'PERMISSION_DENIED',
-    });
-    throw permissionDenied();
+    );
+    if (decision.effect !== 'ALLOW') throwWriteDenied(decision);
   }
 
   private async assertMatterExists(tenantId: TenantId, matterId: string): Promise<MatterRow> {
@@ -451,4 +441,14 @@ export class MatterMemberService {
     const row = result.rows[0] as MatterMemberRow | undefined;
     return row ? mapMatterMember(row) : null;
   }
+}
+
+function throwReadDenied(decision: PermissionDecision): never {
+  if (decision.reasonCode === 'ETHICAL_WALL_BLOCKED') throw permissionDenied();
+  throw notFoundDenied();
+}
+
+function throwWriteDenied(decision: PermissionDecision): never {
+  if (decision.reasonCode === 'ETHICAL_WALL_BLOCKED') throw permissionDenied();
+  throw permissionDenied();
 }

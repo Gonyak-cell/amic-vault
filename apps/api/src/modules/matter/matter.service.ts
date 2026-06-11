@@ -18,11 +18,14 @@ import type {
   MatterListDto,
   MatterStatus,
   MatterType,
+  PermissionDecision,
   TenantId,
+  UserRole,
 } from '@amic-vault/shared';
+import { isUserRole } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
-import { PermissionEventRecorder } from '../audit/permission-event.recorder';
-import { EthicalWallService } from '../ethical-wall/ethical-wall.service';
+import { PermissionQueryBuilder } from '../permission/permission-query.builder';
+import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import type { UpdateMatterStatusDto } from './dto/update-matter-status.dto';
@@ -64,20 +67,6 @@ interface MatterListRow extends MatterRow {
 
 export function canCreateMatterRole(role: string): boolean {
   return role === 'firm_admin' || role === 'matter_owner';
-}
-
-export function canReadMatterConservatively(
-  role: string,
-  actorUserId: string,
-  matter: MatterEntity,
-): boolean {
-  // REPLACED-BY: SEC-MATTPERM-ACCECONT-TUW-004
-  return role === 'firm_admin' || matter.props.leadLawyerId === actorUserId;
-}
-
-export function shouldRestrictMatterListToLead(role: string): boolean {
-  // REPLACED-BY: SEC-MATTPERM-ACCECONT-TUW-005
-  return role !== 'firm_admin';
 }
 
 function mapMatter(row: MatterRow): MatterEntity {
@@ -123,9 +112,9 @@ function notFoundDenied(): NotFoundException {
 export class MatterService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
-    @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
-    @Inject(EthicalWallService) private readonly ethicalWallService: EthicalWallService,
     @Inject(MatterMemberService) private readonly matterMemberService: MatterMemberService,
+    @Inject(PermissionQueryBuilder) private readonly permissionQueryBuilder: PermissionQueryBuilder,
+    @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
   ) {}
@@ -179,7 +168,7 @@ export class MatterService {
     const context = this.tenantContext.require();
     const matter = await this.findByIdForTenant(context.tenantId, matterId);
     if (!matter) throw notFoundDenied();
-    await this.assertCanReadMatter(context.tenantId, actorUserId, matter);
+    await this.assertCanReadMatter(context.tenantId, actorUserId, matter.props.matterId);
     return matter.toDto();
   }
 
@@ -187,7 +176,7 @@ export class MatterService {
     const context = this.tenantContext.require();
     const before = await this.findByIdForTenant(context.tenantId, matterId);
     if (!before) throw notFoundDenied();
-    await this.assertCanManageMatterStatus(context.tenantId, actorUserId, matterId);
+    await this.assertCanEditMatter(context.tenantId, actorUserId, matterId);
 
     const from = asMatterState(before.props.status);
     const to = asMatterState(input.status);
@@ -226,7 +215,7 @@ export class MatterService {
   async list(actorUserId: string, query: ListMattersQueryDto): Promise<MatterListDto> {
     const context = this.tenantContext.require();
     const actor = await this.userService.findByTenantAndId(context.tenantId, actorUserId);
-    if (!actor) throw permissionDenied();
+    if (!actor || !isUserRole(actor.role)) throw permissionDenied();
     const { items, totalCount } = await this.listForTenant(
       context.tenantId,
       actorUserId,
@@ -244,71 +233,25 @@ export class MatterService {
   private async assertCanReadMatter(
     tenantId: TenantId,
     actorUserId: string,
-    matter: MatterEntity,
+    matterId: string,
   ): Promise<void> {
-    const actor = await this.userService.findByTenantAndId(tenantId, actorUserId);
-    let wallDenied = false;
-    try {
-      wallDenied = await this.ethicalWallService.isUserExcludedFromMatter(
-        tenantId,
-        matter.props.matterId,
-        actorUserId,
-      );
-    } catch {
-      await this.permissionEvents.recordAccessDenied({
-        tenantId,
-        actorId: actorUserId,
-        targetType: 'matter',
-        targetId: matter.props.matterId,
-        matterId: matter.props.matterId,
-        reasonCode: 'EVAL_FAILURE',
-      });
-      throw permissionDenied();
-    }
-    if (wallDenied) {
-      await this.permissionEvents.recordAccessDenied({
-        tenantId,
-        actorId: actorUserId,
-        targetType: 'matter',
-        targetId: matter.props.matterId,
-        matterId: matter.props.matterId,
-        reasonCode: 'ETHICAL_WALL_BLOCKED',
-      });
-      throw ethicalWallBlocked();
-    }
-    const memberAllowed = await this.matterMemberService.isMember(
-      tenantId,
-      matter.props.matterId,
-      actorUserId,
+    const decision = await this.permissionService.canReadMatter(
+      { tenantId, userId: actorUserId },
+      matterId,
     );
-    if (!actor || (actor.role !== 'firm_admin' && !memberAllowed)) {
-      await this.permissionEvents.recordAccessDenied({
-        tenantId,
-        actorId: actorUserId,
-        targetType: 'matter',
-        targetId: matter.props.matterId,
-        matterId: matter.props.matterId,
-        reasonCode: 'PERMISSION_DENIED',
-      });
-      throw permissionDenied();
-    }
+    if (decision.effect !== 'ALLOW') throwReadDenied(decision);
   }
 
-  private async assertCanManageMatterStatus(
+  private async assertCanEditMatter(
     tenantId: TenantId,
     actorUserId: string,
     matterId: string,
   ): Promise<void> {
-    if (await this.matterMemberService.canManageMembers(tenantId, actorUserId, matterId)) return;
-    await this.permissionEvents.recordAccessDenied({
-      tenantId,
-      actorId: actorUserId,
-      targetType: 'matter',
-      targetId: matterId,
+    const decision = await this.permissionService.canEditMatter(
+      { tenantId, userId: actorUserId },
       matterId,
-      reasonCode: 'PERMISSION_DENIED',
-    });
-    throw permissionDenied();
+    );
+    if (decision.effect !== 'ALLOW') throwWriteDenied(decision);
   }
 
   private async assertClientUsable(tenantId: TenantId, clientId: string): Promise<void> {
@@ -437,39 +380,18 @@ export class MatterService {
   private async listForTenant(
     tenantId: TenantId,
     actorUserId: string,
-    actorRole: string,
+    actorRole: UserRole,
     query: ListMattersQueryDto,
   ): Promise<{ items: MatterEntity[]; totalCount: number }> {
     const filters = ['tenant_id = $1'];
     const params: unknown[] = [tenantId];
-    params.push(actorUserId);
-    filters.push(`
-      NOT EXISTS (
-        SELECT 1
-        FROM ethical_walls ew
-        JOIN ethical_wall_memberships ewm
-          ON ewm.tenant_id = ew.tenant_id
-         AND ewm.wall_id = ew.wall_id
-        WHERE ew.tenant_id = $1
-          AND ew.matter_id = matters.matter_id
-          AND ew.status = 'active'
-          AND ewm.subject_type = 'user'
-          AND ewm.subject_id = $${params.length}::uuid
-          AND ewm.membership_type = 'excluded'
-      )
-    `);
-    if (shouldRestrictMatterListToLead(actorRole)) {
-      params.push(actorUserId);
-      filters.push(`
-        EXISTS (
-          SELECT 1
-          FROM matter_members mm
-          WHERE mm.tenant_id = matters.tenant_id
-            AND mm.matter_id = matters.matter_id
-            AND mm.user_id = $${params.length}::uuid
-        )
-      `);
-    }
+    const permissionFilter = this.permissionQueryBuilder.buildMatterFilter(
+      { tenantId, userId: actorUserId, role: actorRole },
+      params.length + 1,
+      'matters',
+    );
+    filters.push(permissionFilter.sql);
+    params.push(...permissionFilter.params);
     if (query.status) {
       params.push(query.status);
       filters.push(`status = $${params.length}`);
@@ -508,4 +430,14 @@ export class MatterService {
 function asMatterState(status: string): MatterStateValue {
   if (isMatterState(status)) return status;
   throw validationFailed();
+}
+
+function throwReadDenied(decision: PermissionDecision): never {
+  if (decision.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
+  throw notFoundDenied();
+}
+
+function throwWriteDenied(decision: PermissionDecision): never {
+  if (decision.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
+  throw permissionDenied();
 }
