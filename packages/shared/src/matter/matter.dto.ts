@@ -85,6 +85,7 @@ export interface MatterDto {
   leadLawyerId: string | null;
   practiceGroup: string | null;
   metadata: Record<string, string>;
+  legalHold: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

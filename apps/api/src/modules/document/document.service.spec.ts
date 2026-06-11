@@ -19,6 +19,7 @@ function documentRow(overrides: Record<string, unknown> = {}) {
     subtype: null,
     confidentiality_level: 'standard',
     privilege_status: 'none',
+    legal_hold: false,
     created_by: actorUserId,
     created_at: new Date('2026-06-12T00:00:00.000Z'),
     updated_at: new Date('2026-06-12T00:00:00.000Z'),

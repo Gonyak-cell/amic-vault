@@ -48,6 +48,12 @@ describe('storage rollback', () => {
           throw new Error('injected db failure');
         },
       } as never,
+      {
+        createInitialVersion: vi.fn(),
+        findVersionTarget: vi.fn(),
+        addNextVersion: vi.fn(),
+        findDuplicateVersionCandidates: vi.fn(),
+      } as never,
       { findCandidates: vi.fn(async () => []) } as never,
       { create: vi.fn(async () => undefined) } as never,
       { canUploadToMatter: vi.fn(async () => allowPermission()) } as never,

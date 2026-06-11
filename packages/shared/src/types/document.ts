@@ -55,6 +55,7 @@ export interface DocumentDto {
   subtype: string | null;
   confidentialityLevel: DocumentConfidentialityLevel;
   privilegeStatus: DocumentPrivilegeStatus;
+  legalHold: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

@@ -18,10 +18,13 @@ import type {
   PermissionDecision,
   TenantId,
   UpdateDocumentMetadataDto,
+  UpdateLegalHoldDto,
+  UserRole,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { UserService } from '../user/user.service';
 
 const documentMetadataDiffOrder = [
   'title',
@@ -54,6 +57,7 @@ interface DocumentRow {
   subtype: string | null;
   confidentiality_level: DocumentConfidentialityLevel;
   privilege_status: DocumentPrivilegeStatus;
+  legal_hold: boolean;
   created_by: string;
   created_at: Date;
   updated_at: Date | null;
@@ -75,6 +79,7 @@ function mapDocument(row: DocumentRow): DocumentDto {
     subtype: row.subtype,
     confidentialityLevel: row.confidentiality_level,
     privilegeStatus: row.privilege_status,
+    legalHold: row.legal_hold,
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
     updatedAt: (row.updated_at ?? row.created_at).toISOString(),
@@ -132,6 +137,10 @@ function documentMetadataDiffKeys(
   });
 }
 
+function isLegalHoldAdminRole(role: UserRole): boolean {
+  return role === 'firm_admin' || role === 'security_admin';
+}
+
 @Injectable()
 export class DocumentService {
   private readonly logger = new Logger(DocumentService.name);
@@ -140,6 +149,7 @@ export class DocumentService {
     @Inject(AuditService) private readonly auditService?: AuditService,
     @Inject(PermissionService) private readonly permissionService?: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext?: TenantContextService,
+    @Inject(UserService) private readonly userService?: UserService,
   ) {}
 
   async createDraft(input: CreateDraftDocumentInput, client: PoolClient): Promise<DocumentDto> {
@@ -152,7 +162,7 @@ export class DocumentService {
         VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10)
         RETURNING document_id, tenant_id, matter_id, document_family_id, title,
           status, document_type, subtype, confidentiality_level, privilege_status,
-          created_by, created_at, updated_at
+          legal_hold, created_by, created_at, updated_at
       `,
       [
         input.documentId,
@@ -212,6 +222,48 @@ export class DocumentService {
     });
   }
 
+  async updateLegalHold(
+    actorUserId: string,
+    documentId: string,
+    input: UpdateLegalHoldDto,
+  ): Promise<DocumentDto> {
+    const auditService = this.requireAuditService();
+    const context = this.requireTenantContext().require();
+    await this.assertLegalHoldAdmin(context.tenantId, actorUserId);
+
+    return auditService.transaction(context.tenantId, async (tx) => {
+      const before = await this.findByIdForTenant(context.tenantId, documentId, tx);
+      if (!before) throw notFoundDenied();
+      if (before.legal_hold === input.legalHold) return mapDocument(before);
+
+      const updated = await this.updateDocumentLegalHold(
+        tx,
+        context.tenantId,
+        documentId,
+        input.legalHold,
+      );
+      if (!updated) throw notFoundDenied();
+      await auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'LEGAL_HOLD_CHANGED',
+          targetType: 'document',
+          targetId: documentId,
+          matterId: updated.matter_id,
+          metadata: {
+            document_id: documentId,
+            matter_id: updated.matter_id,
+            before_ref: `legal_hold:${before.legal_hold}`,
+            after_ref: `legal_hold:${updated.legal_hold}`,
+          },
+        },
+        tx,
+      );
+      return mapDocument(updated);
+    });
+  }
+
   private async assertCanEditMatter(
     tenantId: TenantId,
     actorUserId: string,
@@ -236,6 +288,11 @@ export class DocumentService {
     if (isMatterMutationBlockedState(status)) throw validationFailed('MATTER_MUTATION_BLOCKED');
   }
 
+  private async assertLegalHoldAdmin(tenantId: TenantId, actorUserId: string): Promise<void> {
+    const actor = await this.requireUserService().findByTenantAndId(tenantId, actorUserId);
+    if (!actor || !isLegalHoldAdminRole(actor.role)) throw permissionDenied();
+  }
+
   private async findByIdForTenant(
     tenantId: TenantId,
     documentId: string,
@@ -245,7 +302,7 @@ export class DocumentService {
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.created_by, d.created_at, d.updated_at, m.status AS matter_status
+          d.legal_hold, d.created_by, d.created_at, d.updated_at, m.status AS matter_status
         FROM documents d
         JOIN matters m
           ON m.tenant_id = d.tenant_id
@@ -296,9 +353,34 @@ export class DocumentService {
           AND m.matter_id = d.matter_id
         RETURNING d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.created_by, d.created_at, d.updated_at, m.status AS matter_status
+          d.legal_hold, d.created_by, d.created_at, d.updated_at, m.status AS matter_status
       `,
       params,
+    );
+    return (result.rows[0] as DocumentWithMatterRow | undefined) ?? null;
+  }
+
+  private async updateDocumentLegalHold(
+    client: QueryClient,
+    tenantId: TenantId,
+    documentId: string,
+    legalHold: boolean,
+  ): Promise<DocumentWithMatterRow | null> {
+    const result = await client.query(
+      `
+        UPDATE documents d
+        SET legal_hold = $3,
+            updated_at = now()
+        FROM matters m
+        WHERE d.tenant_id = $1
+          AND d.document_id = $2
+          AND m.tenant_id = d.tenant_id
+          AND m.matter_id = d.matter_id
+        RETURNING d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
+          d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
+          d.legal_hold, d.created_by, d.created_at, d.updated_at, m.status AS matter_status
+      `,
+      [tenantId, documentId, legalHold],
     );
     return (result.rows[0] as DocumentWithMatterRow | undefined) ?? null;
   }
@@ -316,5 +398,10 @@ export class DocumentService {
   private requireTenantContext(): TenantContextService {
     if (!this.tenantContext) throw new Error('TenantContextService is required');
     return this.tenantContext;
+  }
+
+  private requireUserService(): UserService {
+    if (!this.userService) throw new Error('UserService is required');
+    return this.userService;
   }
 }

@@ -110,9 +110,24 @@ export {
   type UploadDocumentResponseDto,
 } from './dto/document/upload-document.dto';
 export {
+  addDocumentVersionFieldsSchema,
+  type AddDocumentVersionFieldsDto,
+  type AddDocumentVersionResponseDto,
+} from './dto/document/add-version.dto';
+export {
+  documentVersionStatusSchema,
+  documentVersionStatuses,
+  listDocumentVersionsQuerySchema,
+  type DocumentVersionDto,
+  type DocumentVersionListDto,
+  type DocumentVersionStatus,
+  type ListDocumentVersionsQueryDto,
+} from './dto/document/version-list.dto';
+export {
   updateDocumentMetadataSchema,
   type UpdateDocumentMetadataDto,
 } from './dto/document/update-document-metadata.dto';
+export { updateLegalHoldSchema, type UpdateLegalHoldDto } from './dto/legal-hold.dto';
 export {
   bulkUploadFileSchema,
   bulkUploadJobItemSchema,

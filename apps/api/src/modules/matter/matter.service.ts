@@ -20,6 +20,7 @@ import type {
   MatterType,
   PermissionDecision,
   TenantId,
+  UpdateLegalHoldDto,
   UpdateMatterDto,
   UserRole,
 } from '@amic-vault/shared';
@@ -58,6 +59,7 @@ interface MatterRow {
   lead_lawyer_id: string | null;
   practice_group: string | null;
   metadata_json: Record<string, string>;
+  legal_hold: boolean;
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -69,6 +71,10 @@ interface MatterListRow extends MatterRow {
 
 export function canCreateMatterRole(role: string): boolean {
   return role === 'firm_admin' || role === 'matter_owner';
+}
+
+export function canChangeLegalHoldRole(role: string): boolean {
+  return role === 'firm_admin' || role === 'security_admin';
 }
 
 function mapMatter(row: MatterRow): MatterEntity {
@@ -85,6 +91,7 @@ function mapMatter(row: MatterRow): MatterEntity {
     leadLawyerId: row.lead_lawyer_id,
     practiceGroup: row.practice_group,
     metadata: row.metadata_json,
+    legalHold: row.legal_hold,
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -276,6 +283,43 @@ export class MatterService {
     return updated.toDto();
   }
 
+  async updateLegalHold(actorUserId: string, matterId: string, input: UpdateLegalHoldDto) {
+    const context = this.tenantContext.require();
+    const actor = await this.userService.findByTenantAndId(context.tenantId, actorUserId);
+    if (!actor || !canChangeLegalHoldRole(actor.role)) throw permissionDenied();
+
+    return this.auditService.transaction(context.tenantId, async (tx) => {
+      const before = await this.findByIdForTenant(context.tenantId, matterId, tx);
+      if (!before) throw notFoundDenied();
+      if (before.props.legalHold === input.legalHold) return before.toDto();
+
+      const updated = await this.updateMatterLegalHold(
+        tx,
+        context.tenantId,
+        matterId,
+        input.legalHold,
+      );
+      if (!updated) throw notFoundDenied();
+      await this.auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'LEGAL_HOLD_CHANGED',
+          targetType: 'matter',
+          targetId: matterId,
+          matterId,
+          metadata: {
+            matter_id: matterId,
+            before_ref: `legal_hold:${before.props.legalHold}`,
+            after_ref: `legal_hold:${updated.props.legalHold}`,
+          },
+        },
+        tx,
+      );
+      return updated.toDto();
+    });
+  }
+
   async list(actorUserId: string, query: ListMattersQueryDto): Promise<MatterListDto> {
     const context = this.tenantContext.require();
     const actor = await this.userService.findByTenantAndId(context.tenantId, actorUserId);
@@ -369,7 +413,7 @@ export class MatterService {
         VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7, $8, $9, $10::jsonb, $11)
         RETURNING matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
-          created_by, created_at, updated_at
+          legal_hold, created_by, created_at, updated_at
       `,
       [
         tenantId,
@@ -399,7 +443,7 @@ export class MatterService {
       `
         SELECT matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
-          created_by, created_at, updated_at
+          legal_hold, created_by, created_at, updated_at
         FROM matters
         WHERE tenant_id = $1
           AND matter_id = $2
@@ -433,7 +477,7 @@ export class MatterService {
           AND matter_id = $2
         RETURNING matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
-          created_by, created_at, updated_at
+          legal_hold, created_by, created_at, updated_at
       `,
       [tenantId, matterId, status],
     );
@@ -471,9 +515,32 @@ export class MatterService {
           AND matter_id = $2
         RETURNING matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
-          created_by, created_at, updated_at
+          legal_hold, created_by, created_at, updated_at
       `,
       params,
+    );
+    const row = result.rows[0] as MatterRow | undefined;
+    return row ? mapMatter(row) : null;
+  }
+
+  private async updateMatterLegalHold(
+    client: QueryClient,
+    tenantId: TenantId,
+    matterId: string,
+    legalHold: boolean,
+  ): Promise<MatterEntity | null> {
+    const result = await client.query(
+      `
+        UPDATE matters
+        SET legal_hold = $3,
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND matter_id = $2
+        RETURNING matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
+          status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
+          legal_hold, created_by, created_at, updated_at
+      `,
+      [tenantId, matterId, legalHold],
     );
     const row = result.rows[0] as MatterRow | undefined;
     return row ? mapMatter(row) : null;
@@ -512,7 +579,7 @@ export class MatterService {
       `
         SELECT matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
-          created_by, created_at, updated_at, count(*) OVER()::text AS total_count
+          legal_hold, created_by, created_at, updated_at, count(*) OVER()::text AS total_count
         FROM matters
         WHERE ${filters.join(' AND ')}
         ORDER BY opened_at DESC NULLS LAST, created_at DESC, matter_id
