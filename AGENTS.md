@@ -120,7 +120,7 @@ pnpm test:integration
 - 통합테스트 suite 디렉터리는 `50_Verification_Security_Gates.md` §0.5의 10개 디렉터리가 canonical이며, PACK 검증 시퀀스의 suite 키워드는 해당 디렉터리 하위 spec 파일명으로 해석한다(신규 최상위 suite 디렉터리 신설 금지).
 - **flaky 테스트의 skip/quarantine 처리 금지.** 원인을 수정하거나, 동일 실패 3회 반복 시 중단·escalation한다(테스트 약화로 green을 만드는 것은 검증 우회다).
 - **테스트 없는 구현 금지.** TUW Verification은 AND 의미론이다: 기능검증 **AND** 회귀검증, 권한·보안 영향 TUW는 **AND** 권한검증(비인가 시도가 차단되는 negative test 필수), 행위 기록 대상 TUW는 **AND** 감사검증(audit event 발생·필수 필드 충족).
-- **Risk=C(Critical) TUW가 포함된 PR에는 `needs-human-review` 라벨을 붙여라.** 운영자(사람)의 리뷰 완료 전 머지 금지 — 1인 개발 모드에서는 운영자가 85번 §2-A 셀프 리뷰 체크리스트를 완료하고 `docs/ledger/execution.md`에 `HUMAN-REVIEW: <PACK-ID>` 1줄을 기록하는 것으로 갈음한다. **Codex가 스스로 머지하는 것은 어떤 경우에도 금지** — 머지는 항상 운영자가 한다.
+- **Risk=C(Critical) TUW가 포함된 PR에는 `needs-human-review` 라벨을 붙여라.** 독립 검토자의 리뷰 완료 전 머지 금지 — 본 프로젝트의 검토자는 **작성자(너, Codex)와 다른 AI인 검토 AI(Claude)** 이며, 검토 AI가 85번 §2-A 체크리스트를 완료하고 `docs/ledger/execution.md`에 `AI-REVIEW(Claude): <PACK-ID>` 1줄을 기록한 뒤 머지한다. **너(Codex)가 스스로 머지하는 것은 어떤 경우에도 금지** — 머지는 검토 AI 또는 운영자만 한다.
 - Release Gate(`50_Verification_Security_Gates.md`) 통과 전 다음 release의 PACK에 착수하지 마라. 특히 R1 Permission Model Freeze 승인 전 R2·R3 착수 금지.
 
 ## 6. 브랜치·커밋·PR
