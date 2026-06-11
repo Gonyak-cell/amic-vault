@@ -2,7 +2,7 @@
 
 These ADR files are the repo-local rendering of `docs/package/codex/01_Adopted_Decisions_ADR.md`.
 
-Status note: each file is marked `Proposed for R0 Gate` because `DEVOPS-DOCSPKG-TRANSFER-TUW-002` requires repo-local ADR files to await R0 Gate approval. The underlying DEC decisions remain binding through `docs/package/codex/00_Master_Brief.md` and `docs/package/codex/01_Adopted_Decisions_ADR.md`.
+Status note: each file is marked `Accepted` under the 2026-06-12 operator waiver recorded in `docs/ledger/decision.md`. The underlying DEC decisions remain binding through `docs/package/codex/00_Master_Brief.md` and `docs/package/codex/01_Adopted_Decisions_ADR.md`.
 
 | ADR | Topic | DEC / Correction Trace |
 |---|---|---|

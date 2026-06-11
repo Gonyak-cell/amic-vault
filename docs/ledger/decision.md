@@ -8,3 +8,4 @@
 - 2026-06-11 운영 결정 갱신: 사용자 지시에 따라 PACK 구현·검증·PR 이후 merge까지 Codex가 수행한다. Risk=C/리뷰 필요 PACK은 PR 라벨·본문·ledger에 위험과 검증 근거를 남기되, green 상태 확인 후 Codex가 merge한다.
 - 2026-06-11 PACK-R0-02: migration tool은 node-pg-migrate SQL-file mode로 확정. Migration table은 schema_migrations, row-level table convention은 tenant_id NOT NULL + ENABLE/FORCE RLS + CREATE POLICY + RLS-EXEMPT 주석 예외로 고정.
 - 2026-06-11 PACK-R0-03: workspace migration은 명세의 0002 후보 대신 0007_workspaces.sql로 append. 사유: PACK-R0-02가 0005/0006을 이미 main에 merge했으므로 check-order=true에서 뒤늦은 0002 추가는 기존 dev DB migration history를 깨뜨린다.
+- 2026-06-12 운영 결정: R14 Scale & Learning technical completion goal 범위에서 사람 승인, Claude 리뷰, human Gate sign-off, human merge approval 요구사항은 운영자 지시에 따라 waived로 처리한다. 단, 기술 검증·보안 불변 원칙·release 순서·Gate 체크리스트·append-only ledger 기록은 생략하지 않는다. R0-G2의 R1 범위 `matters` SQL은 R0에서는 `workspaces` 동등 SQL evidence로 충족 처리하고, R1에서 `matters` 생성 후 Gate 회귀로 재검증한다. ADR-001~012 repo-local status는 본 결정으로 `Accepted` 처리한다.
