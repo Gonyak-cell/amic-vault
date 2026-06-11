@@ -74,3 +74,21 @@ export {
   type ListClientsQueryDto,
   type UpdateClientDto,
 } from './client/client.dto';
+export { matterTypes, matterTypeSchema, type MatterType } from './matter/matter-type';
+export {
+  containsSensitiveMatterMetadataKey,
+  isMatterDateRangeValid,
+  matterMetadataSchema,
+  matterOptionalDateSchema,
+} from './matter/matter-validation';
+export {
+  createMatterSchema,
+  listMattersQuerySchema,
+  matterStatuses,
+  matterStatusSchema,
+  type CreateMatterDto,
+  type ListMattersQueryDto,
+  type MatterDto,
+  type MatterListDto,
+  type MatterStatus,
+} from './matter/matter.dto';
