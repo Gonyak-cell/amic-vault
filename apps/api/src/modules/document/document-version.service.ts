@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import {
@@ -23,6 +24,7 @@ import type {
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { ExtractionQueueService } from './extraction/extraction-queue.service';
 import { VersionNumberResolver } from './version-number.resolver';
 
 interface DocumentVersionRow {
@@ -119,6 +121,9 @@ export class DocumentVersionService {
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(VersionNumberResolver) private readonly versionNumberResolver: VersionNumberResolver,
+    @Optional()
+    @Inject(ExtractionQueueService)
+    private readonly extractionQueue?: ExtractionQueueService,
   ) {}
 
   async createInitialVersion(
@@ -146,7 +151,17 @@ export class DocumentVersionService {
     );
     const row = result.rows[0] as DocumentVersionRow | undefined;
     if (!row) throw new Error('document version insert returned no row');
-    return mapVersion(row);
+    const version = mapVersion(row);
+    await this.extractionQueue?.enqueueVersionCreated(
+      {
+        tenantId: input.tenantId,
+        documentId: input.documentId,
+        versionId: version.versionId,
+        fileObjectId: input.fileObjectId,
+      },
+      client,
+    );
+    return version;
   }
 
   async addNextVersion(
@@ -196,7 +211,17 @@ export class DocumentVersionService {
     );
     const row = inserted.rows[0] as DocumentVersionRow | undefined;
     if (!row) throw new Error('document version insert returned no row');
-    return mapVersion(row);
+    const version = mapVersion(row);
+    await this.extractionQueue?.enqueueVersionCreated(
+      {
+        tenantId: input.tenantId,
+        documentId: input.documentId,
+        versionId: version.versionId,
+        fileObjectId: input.fileObjectId,
+      },
+      client,
+    );
+    return version;
   }
 
   async findVersionTarget(

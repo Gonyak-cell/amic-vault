@@ -30,4 +30,17 @@ describe('MetricsRegistry', () => {
     expect(rendered).not.toContain('document_id');
     expect(rendered).not.toContain('tenant_id');
   });
+
+  it('records extraction results by status without tenant or document labels', () => {
+    const registry = new MetricsRegistry();
+    registry.recordExtractionResult('ready');
+    registry.recordExtractionResult('failed');
+    registry.recordExtractionResult('failed');
+
+    const rendered = registry.render();
+    expect(rendered).toContain('document_extraction_results_total{status="ready"} 1');
+    expect(rendered).toContain('document_extraction_results_total{status="failed"} 2');
+    expect(rendered).not.toContain('document_id');
+    expect(rendered).not.toContain('tenant_id');
+  });
 });

@@ -32,6 +32,7 @@ export const r2DocumentAuditActions = [
   'DOCUMENT_METADATA_CHANGED',
   'DOCUMENT_INTEGRITY_ALERT',
   'LEGAL_HOLD_CHANGED',
+  'DOCUMENT_TEXT_EXTRACTED',
 ] as const;
 
 export const auditActions = [

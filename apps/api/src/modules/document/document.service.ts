@@ -12,6 +12,8 @@ import { isMatterMutationBlockedState, isMatterState } from '@amic-vault/domain'
 import type {
   DocumentConfidentialityLevel,
   DocumentDto,
+  DocumentExtractionMethod,
+  DocumentExtractionStatus,
   DocumentPrivilegeStatus,
   DocumentStatus,
   DocumentType,
@@ -58,6 +60,9 @@ interface DocumentRow {
   confidentiality_level: DocumentConfidentialityLevel;
   privilege_status: DocumentPrivilegeStatus;
   legal_hold: boolean;
+  extraction_status?: DocumentExtractionStatus | null;
+  extraction_method?: DocumentExtractionMethod | null;
+  extraction_confidence?: number | null;
   created_by: string;
   created_at: Date;
   updated_at: Date | null;
@@ -68,7 +73,7 @@ interface DocumentWithMatterRow extends DocumentRow {
 }
 
 function mapDocument(row: DocumentRow): DocumentDto {
-  return {
+  const document: DocumentDto = {
     documentId: row.document_id,
     tenantId: row.tenant_id,
     matterId: row.matter_id,
@@ -84,6 +89,12 @@ function mapDocument(row: DocumentRow): DocumentDto {
     createdAt: row.created_at.toISOString(),
     updatedAt: (row.updated_at ?? row.created_at).toISOString(),
   };
+  if ('extraction_status' in row) {
+    document.extractionStatus = row.extraction_status ?? null;
+    document.extractionMethod = row.extraction_method ?? null;
+    document.extractionConfidence = row.extraction_confidence ?? null;
+  }
+  return document;
 }
 
 function validationFailed(reason?: string): BadRequestException {
@@ -222,6 +233,33 @@ export class DocumentService {
     });
   }
 
+  async getDocument(actorUserId: string, documentId: string): Promise<DocumentDto> {
+    const auditService = this.requireAuditService();
+    const context = this.requireTenantContext().require();
+
+    return auditService.transaction(context.tenantId, async (tx) => {
+      const document = await this.findByIdWithExtractionForTenant(context.tenantId, documentId, tx);
+      if (!document) throw notFoundDenied();
+      await this.assertCanReadMatter(context.tenantId, actorUserId, document.matter_id);
+      await auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'DOCUMENT_VIEWED',
+          targetType: 'document',
+          targetId: documentId,
+          matterId: document.matter_id,
+          metadata: {
+            document_id: documentId,
+            matter_id: document.matter_id,
+          },
+        },
+        tx,
+      );
+      return mapDocument(document);
+    });
+  }
+
   async updateLegalHold(
     actorUserId: string,
     documentId: string,
@@ -283,6 +321,25 @@ export class DocumentService {
     throw permissionDenied();
   }
 
+  private async assertCanReadMatter(
+    tenantId: TenantId,
+    actorUserId: string,
+    matterId: string,
+  ): Promise<void> {
+    let decision: PermissionDecision | undefined;
+    try {
+      decision = await this.requirePermissionService().canReadMatter(
+        { tenantId, userId: actorUserId },
+        matterId,
+      );
+    } catch {
+      this.logger.warn({ code: 'PERM_EVAL_ERROR', matterId });
+    }
+    if (decision?.effect === 'ALLOW') return;
+    if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
+    throw permissionDenied();
+  }
+
   private assertMatterMutationAllowed(status: string): void {
     if (!isMatterState(status)) throw validationFailed();
     if (isMatterMutationBlockedState(status)) throw validationFailed('MATTER_MUTATION_BLOCKED');
@@ -307,6 +364,38 @@ export class DocumentService {
         JOIN matters m
           ON m.tenant_id = d.tenant_id
           AND m.matter_id = d.matter_id
+        WHERE d.tenant_id = $1
+          AND d.document_id = $2
+        LIMIT 1
+      `,
+      [tenantId, documentId],
+    );
+    return (result.rows[0] as DocumentWithMatterRow | undefined) ?? null;
+  }
+
+  private async findByIdWithExtractionForTenant(
+    tenantId: TenantId,
+    documentId: string,
+    queryClient: QueryClient,
+  ): Promise<DocumentWithMatterRow | null> {
+    const result = await queryClient.query(
+      `
+        SELECT d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
+          d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
+          d.legal_hold, cd.extraction_status, cd.extraction_method,
+          cd.confidence::float8 AS extraction_confidence,
+          d.created_by, d.created_at, d.updated_at, m.status AS matter_status
+        FROM documents d
+        JOIN matters m
+          ON m.tenant_id = d.tenant_id
+          AND m.matter_id = d.matter_id
+        LEFT JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+          AND dv.document_id = d.document_id
+          AND dv.version_status = 'current'
+        LEFT JOIN canonical_documents cd
+          ON cd.tenant_id = dv.tenant_id
+          AND cd.version_id = dv.version_id
         WHERE d.tenant_id = $1
           AND d.document_id = $2
         LIMIT 1

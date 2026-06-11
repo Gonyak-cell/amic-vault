@@ -33,6 +33,15 @@ export const documentPrivilegeStatuses = [
   'work_product',
   'joint_privilege',
 ] as const;
+export const documentExtractionStatuses = ['pending', 'ready', 'ocr_pending', 'failed'] as const;
+export const documentExtractionMethods = [
+  'pending',
+  'pdf_text',
+  'docx',
+  'hwpx',
+  'ocr_required',
+  'failed',
+] as const;
 
 export const documentTypeSchema = z.enum(documentTypes);
 export const documentStatusSchema = z.enum(documentStatuses);
@@ -43,6 +52,8 @@ export type DocumentType = (typeof documentTypes)[number];
 export type DocumentStatus = (typeof documentStatuses)[number];
 export type DocumentConfidentialityLevel = (typeof documentConfidentialityLevels)[number];
 export type DocumentPrivilegeStatus = (typeof documentPrivilegeStatuses)[number];
+export type DocumentExtractionStatus = (typeof documentExtractionStatuses)[number];
+export type DocumentExtractionMethod = (typeof documentExtractionMethods)[number];
 
 export interface DocumentDto {
   documentId: string;
@@ -56,6 +67,9 @@ export interface DocumentDto {
   confidentialityLevel: DocumentConfidentialityLevel;
   privilegeStatus: DocumentPrivilegeStatus;
   legalHold: boolean;
+  extractionStatus?: DocumentExtractionStatus | null;
+  extractionMethod?: DocumentExtractionMethod | null;
+  extractionConfidence?: number | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

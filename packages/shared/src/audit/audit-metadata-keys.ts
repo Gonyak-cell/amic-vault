@@ -15,6 +15,9 @@ export const auditMetadataKeys = [
   'document_id',
   'version_id',
   'hash',
+  'extraction_status',
+  'extraction_method',
+  'confidence',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];
