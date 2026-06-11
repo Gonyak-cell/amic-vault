@@ -1,0 +1,40 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiClientError, apiFetch } from './api-client';
+
+describe('api client', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('parses standard error code responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ code: 'AUTH_REQUIRED', requestId: 'req-1' }), { status: 401 })),
+    );
+
+    await expect(apiFetch('/tenant/settings', { redirectOnAuthRequired: false })).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
+      requestId: 'req-1',
+      status: 401,
+    });
+  });
+
+  it('returns JSON on success with credentials included', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiFetch<{ ok: boolean }>('/health/live')).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/health/live',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
+  it('uses ApiClientError for non-standard responses', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })));
+
+    await expect(apiFetch('/boom', { redirectOnAuthRequired: false })).rejects.toBeInstanceOf(
+      ApiClientError,
+    );
+  });
+});
