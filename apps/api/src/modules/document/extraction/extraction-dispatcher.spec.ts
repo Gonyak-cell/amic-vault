@@ -55,6 +55,7 @@ describe('ExtractionDispatcher', () => {
         async (_tenant: string, run: (tx: typeof secondTx) => Promise<unknown>) => run(secondTx),
       );
     const metrics = new MetricsRegistry();
+    const enqueueVersion = vi.fn(async () => undefined);
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: auditLog } as never,
       {
@@ -67,6 +68,7 @@ describe('ExtractionDispatcher', () => {
         })),
       } as never,
       metrics,
+      { enqueueVersion } as never,
     );
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
@@ -104,6 +106,10 @@ describe('ExtractionDispatcher', () => {
           confidence: 1,
         }),
       }),
+      secondTx,
+    );
+    expect(enqueueVersion).toHaveBeenCalledWith(
+      { tenantId, documentId, versionId },
       secondTx,
     );
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Confidential fixture text');

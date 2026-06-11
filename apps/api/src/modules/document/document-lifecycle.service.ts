@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { assertDeletable, LegalHoldBlockedError } from '@amic-vault/domain';
 import type { DocumentStatus, PermissionDecision, TenantId } from '@amic-vault/shared';
@@ -16,6 +17,7 @@ import {
   documentRestoredAudit,
 } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
+import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
@@ -87,6 +89,9 @@ export class DocumentLifecycleService {
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
+    @Optional()
+    @Inject(SearchIndexSyncHook)
+    private readonly searchIndexSync?: SearchIndexSyncHook,
   ) {}
 
   async softDelete(actorUserId: string, documentId: string): Promise<void> {
@@ -126,6 +131,10 @@ export class DocumentLifecycleService {
           beforeRef: statusRef(target.status),
           afterRef: statusRef('deleted'),
         }),
+        tx,
+      );
+      await this.searchIndexSync?.enqueueCurrentVersionForDocument(
+        { tenantId: context.tenantId, documentId },
         tx,
       );
     });
@@ -169,6 +178,10 @@ export class DocumentLifecycleService {
           beforeRef: statusRef('deleted'),
           afterRef: statusRef(target.deleted_previous_status),
         }),
+        tx,
+      );
+      await this.searchIndexSync?.enqueueCurrentVersionForDocument(
+        { tenantId: context.tenantId, documentId },
         tx,
       );
     });

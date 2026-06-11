@@ -37,6 +37,7 @@ export class MetricsRegistry {
   private readonly observations: Observation[] = [];
   private documentIntegrityAlerts = 0;
   private readonly extractionResults = new Map<string, number>();
+  private searchIndexFailures = 0;
 
   observe(input: Observation): void {
     this.observations.push(input);
@@ -50,10 +51,15 @@ export class MetricsRegistry {
     this.extractionResults.set(status, (this.extractionResults.get(status) ?? 0) + 1);
   }
 
+  recordSearchIndexFailure(): void {
+    this.searchIndexFailures += 1;
+  }
+
   reset(): void {
     this.observations.splice(0, this.observations.length);
     this.documentIntegrityAlerts = 0;
     this.extractionResults.clear();
+    this.searchIndexFailures = 0;
   }
 
   render(): string {
@@ -116,7 +122,13 @@ export class MetricsRegistry {
       );
     }
 
-    return [...totalLines, ...durationLines, ...integrityLines, ...extractionLines, ''].join('\n');
+    const searchIndexLines = [
+      '# HELP search_index_failures_total Total failed search indexing jobs.',
+      '# TYPE search_index_failures_total counter',
+      `search_index_failures_total ${this.searchIndexFailures}`,
+    ];
+
+    return [...totalLines, ...durationLines, ...integrityLines, ...extractionLines, ...searchIndexLines, ''].join('\n');
   }
 }
 

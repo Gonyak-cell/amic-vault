@@ -18,6 +18,7 @@ import { PermissionModule } from './modules/permission/permission.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { DocumentModule } from './modules/document/document.module';
 import { PreviewModule } from './modules/preview/preview.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Controller()
 class AppController {
@@ -45,6 +46,7 @@ class AppController {
     MatterModule,
     PartyModule,
     StorageModule,
+    SearchModule,
     DocumentModule,
     PreviewModule,
   ],

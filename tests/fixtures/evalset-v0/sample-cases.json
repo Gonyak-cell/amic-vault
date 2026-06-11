@@ -1,0 +1,20 @@
+[
+  {
+    "caseNo": "EV-0001",
+    "sourceDocRef": "doc:closed-contract-0001",
+    "caseType": "contract_search",
+    "queryText": "termination notice period clause",
+    "expectedRefs": ["doc:closed-contract-0001"],
+    "deidentified": true,
+    "notes": "synthetic deidentified sample"
+  },
+  {
+    "caseNo": "EV-0002",
+    "sourceDocRef": "doc:closed-contract-0002",
+    "caseType": "contract_search",
+    "queryText": "governing law and dispute resolution",
+    "expectedRefs": ["doc:closed-contract-0002"],
+    "deidentified": true,
+    "notes": "synthetic deidentified sample"
+  }
+]

@@ -29,12 +29,14 @@ export {
   isAuditMetadataKey,
   r1AuditActions,
   r2DocumentAuditActions,
+  r3SearchAuditActions,
   type AuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
   type AuditMetadataValue,
   type R1AuditAction,
   type R2DocumentAuditAction,
+  type R3SearchAuditAction,
 } from './types/audit';
 
 export {

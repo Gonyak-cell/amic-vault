@@ -43,4 +43,14 @@ describe('MetricsRegistry', () => {
     expect(rendered).not.toContain('document_id');
     expect(rendered).not.toContain('tenant_id');
   });
+
+  it('records search index failures without tenant or document labels', () => {
+    const registry = new MetricsRegistry();
+    registry.recordSearchIndexFailure();
+
+    const rendered = registry.render();
+    expect(rendered).toContain('search_index_failures_total 1');
+    expect(rendered).not.toContain('document_id');
+    expect(rendered).not.toContain('tenant_id');
+  });
 });

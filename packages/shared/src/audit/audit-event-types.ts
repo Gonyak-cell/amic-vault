@@ -35,14 +35,18 @@ export const r2DocumentAuditActions = [
   'DOCUMENT_TEXT_EXTRACTED',
 ] as const;
 
+export const r3SearchAuditActions = ['SEARCH_REINDEX_REQUESTED'] as const;
+
 export const auditActions = [
   ...r1AuditActions,
   ...r0CompatibilityActions,
   ...r2DocumentAuditActions,
+  ...r3SearchAuditActions,
 ] as const;
 
 export type R1AuditAction = (typeof r1AuditActions)[number];
 export type R2DocumentAuditAction = (typeof r2DocumentAuditActions)[number];
+export type R3SearchAuditAction = (typeof r3SearchAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 
 export function isAuditAction(value: string): value is AuditAction {
