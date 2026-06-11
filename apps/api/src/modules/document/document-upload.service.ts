@@ -18,6 +18,7 @@ import { DocumentService } from './document.service';
 import { DuplicateDetectorService } from './integrity/duplicate-detector.service';
 import { sha256File } from './integrity/sha256.util';
 import { FileExtensionValidator } from './validators/file-extension.validator';
+import { parseFilenameMetadata } from './filename-metadata.parser';
 import { FileSizeValidator } from './validators/file-size.validator';
 import { MimeTypeValidator } from './validators/mime-type.validator';
 
@@ -106,6 +107,7 @@ export class DocumentUploadService {
       });
       const sha256 = await sha256File(file.path);
       const title = input.fields.title?.trim() || titleFromFilename(normalizedFilename);
+      const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const documentId = randomUUID();
       const fileObjectId = randomUUID();
       const storage = await this.storageService.putTenantObject({
@@ -118,16 +120,25 @@ export class DocumentUploadService {
         contentType: sniffed.mimeType,
       });
 
-      let duplicates: UploadDocumentResponseDto['duplicates'] = [];
+      let uploaded:
+        | {
+            document: Awaited<ReturnType<DocumentService['createDraft']>>;
+            duplicates: UploadDocumentResponseDto['duplicates'];
+          }
+        | undefined;
       try {
-        duplicates = await this.auditService.transaction(context.tenantId, async (tx) => {
-          await this.documentService.createDraft(
+        uploaded = await this.auditService.transaction(context.tenantId, async (tx) => {
+          const document = await this.documentService.createDraft(
             {
               documentId,
               tenantId: context.tenantId,
               matterId: input.matterId,
               documentFamilyId: documentId,
               title,
+              documentType: input.fields.documentType,
+              subtype: input.fields.subtype,
+              confidentialityLevel: input.fields.confidentialityLevel,
+              privilegeStatus: input.fields.privilegeStatus,
               createdBy: input.actorUserId,
             },
             tx,
@@ -147,7 +158,7 @@ export class DocumentUploadService {
             },
             tx,
           );
-          return this.duplicateDetector.findCandidates(
+          const duplicates = await this.duplicateDetector.findCandidates(
             {
               tenantId: context.tenantId,
               matterId: input.matterId,
@@ -156,19 +167,26 @@ export class DocumentUploadService {
             },
             tx,
           );
+          return { document, duplicates };
         });
       } catch (error) {
         await this.compensateStorageObject(context.tenantId, storage.storageUri);
         throw error;
       }
+      if (!uploaded) throw new Error('document upload transaction returned no result');
 
       return {
         documentId,
         matterId: input.matterId,
         fileObjectId,
         status: 'draft',
-        title,
-        duplicates,
+        title: uploaded.document.title,
+        documentType: uploaded.document.documentType,
+        subtype: uploaded.document.subtype,
+        confidentialityLevel: uploaded.document.confidentialityLevel,
+        privilegeStatus: uploaded.document.privilegeStatus,
+        metadataSuggestion,
+        duplicates: uploaded.duplicates,
       };
     } finally {
       await this.unlinkTempFile(file);

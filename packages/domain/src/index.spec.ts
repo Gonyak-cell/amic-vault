@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DOMAIN_PACKAGE_CONTRACT, matterStateValues } from './index';
+import {
+  DOMAIN_PACKAGE_CONTRACT,
+  documentStatusValues,
+  documentTypeValues,
+  matterStateValues,
+} from './index';
 
 describe('domain package boundary', () => {
   it('declares IO as disallowed', () => {
@@ -8,5 +13,10 @@ describe('domain package boundary', () => {
 
   it('exports matter lifecycle primitives', () => {
     expect(matterStateValues).toContain('closed');
+  });
+
+  it('exports document domain primitives', () => {
+    expect(documentTypeValues).toContain('contract');
+    expect(documentStatusValues).toHaveLength(11);
   });
 });

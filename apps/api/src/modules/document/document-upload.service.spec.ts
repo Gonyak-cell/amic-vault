@@ -10,7 +10,10 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
 const matterId = '11111111-1111-4111-8111-111111111122';
 
-async function tempUploadFile(name: string, content = '%PDF-1.7 content'): Promise<UploadedDiskFile> {
+async function tempUploadFile(
+  name: string,
+  content = '%PDF-1.7 content',
+): Promise<UploadedDiskFile> {
   const dir = await mkdtemp(join(tmpdir(), 'amic-vault-upload-test-'));
   const path = join(dir, name);
   await writeFile(path, content);
@@ -49,8 +52,13 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     documentFamilyId: 'generated-document-id',
     title: 'Contract',
     status: 'draft' as const,
+    documentType: 'contract' as const,
+    subtype: 'signed',
+    confidentialityLevel: 'high' as const,
+    privilegeStatus: 'privileged' as const,
     createdBy: actorUserId,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }));
   const createFileObject = vi.fn(async () => ({
     fileObjectId: 'generated-file-object-id',
@@ -83,7 +91,9 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     { create: createFileObject } as never,
     { canUploadToMatter: vi.fn(async () => permission) } as never,
     { putTenantObject, deleteByStorageUri: vi.fn(async () => undefined) } as never,
-    { require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }) } as never,
+    {
+      require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
+    } as never,
   );
   return { createDraft, createFileObject, putTenantObject, service };
 }
@@ -102,11 +112,25 @@ describe('DocumentUploadService', () => {
 
     expect(response.status).toBe('draft');
     expect(response.title).toBe('Contract');
+    expect(response.documentType).toBe('contract');
+    expect(response.subtype).toBe('signed');
+    expect(response.confidentialityLevel).toBe('high');
+    expect(response.privilegeStatus).toBe('privileged');
+    expect(response.metadataSuggestion).toEqual({ documentType: 'contract' });
     expect(response.duplicates).toEqual([]);
     expect(putTenantObject).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId, matterId, contentType: 'application/pdf' }),
     );
     expect(createDraft).toHaveBeenCalledOnce();
+    expect(createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentType: undefined,
+        subtype: undefined,
+        confidentialityLevel: undefined,
+        privilegeStatus: undefined,
+      }),
+      expect.anything(),
+    );
     expect(createFileObject).toHaveBeenCalledWith(
       expect.objectContaining({
         mimeType: 'application/pdf',
@@ -116,15 +140,47 @@ describe('DocumentUploadService', () => {
     );
   });
 
+  it('accepts explicit metadata fields and only suggests parsed filename metadata', async () => {
+    const file = await tempUploadFile('2026-06-12_계약서_v2.pdf');
+    const { createDraft, service } = createService();
+
+    const response = await service.upload({
+      actorUserId,
+      matterId,
+      fields: {
+        documentType: 'memo',
+        subtype: 'review',
+        confidentialityLevel: 'restricted',
+        privilegeStatus: 'work_product',
+      },
+      file,
+    });
+
+    expect(createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentType: 'memo',
+        subtype: 'review',
+        confidentialityLevel: 'restricted',
+        privilegeStatus: 'work_product',
+      }),
+      expect.anything(),
+    );
+    expect(response.metadataSuggestion).toEqual({
+      documentType: 'contract',
+      date: '2026-06-12',
+      versionLabel: 'v2',
+    });
+  });
+
   it('fails closed before storage when upload permission denies', async () => {
     const file = await tempUploadFile('Contract.pdf');
     const { putTenantObject, service } = createService({ permission: 'deny' });
 
-    await expect(
-      service.upload({ actorUserId, matterId, fields: {}, file }),
-    ).rejects.toMatchObject({
-      response: { code: 'PERMISSION_DENIED' },
-    });
+    await expect(service.upload({ actorUserId, matterId, fields: {}, file })).rejects.toMatchObject(
+      {
+        response: { code: 'PERMISSION_DENIED' },
+      },
+    );
     expect(putTenantObject).not.toHaveBeenCalled();
   });
 
@@ -132,10 +188,10 @@ describe('DocumentUploadService', () => {
     const file = await tempUploadFile('Contract.pdf');
     const { service } = createService({ permission: 'wall' });
 
-    await expect(
-      service.upload({ actorUserId, matterId, fields: {}, file }),
-    ).rejects.toMatchObject({
-      response: { code: 'ETHICAL_WALL_BLOCKED' },
-    });
+    await expect(service.upload({ actorUserId, matterId, fields: {}, file })).rejects.toMatchObject(
+      {
+        response: { code: 'ETHICAL_WALL_BLOCKED' },
+      },
+    );
   });
 });
