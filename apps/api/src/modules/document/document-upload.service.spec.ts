@@ -114,7 +114,13 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
       require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
     } as never,
   );
-  return { createDraft, createFileObject, createInitialVersion, putTenantObject, service };
+  return {
+    createDraft,
+    createFileObject,
+    createInitialVersion,
+    putTenantObject,
+    service,
+  };
 }
 
 describe('DocumentUploadService', () => {

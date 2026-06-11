@@ -36,6 +36,7 @@ interface Observation {
 export class MetricsRegistry {
   private readonly observations: Observation[] = [];
   private documentIntegrityAlerts = 0;
+  private readonly extractionResults = new Map<string, number>();
 
   observe(input: Observation): void {
     this.observations.push(input);
@@ -45,9 +46,14 @@ export class MetricsRegistry {
     this.documentIntegrityAlerts += 1;
   }
 
+  recordExtractionResult(status: string): void {
+    this.extractionResults.set(status, (this.extractionResults.get(status) ?? 0) + 1);
+  }
+
   reset(): void {
     this.observations.splice(0, this.observations.length);
     this.documentIntegrityAlerts = 0;
+    this.extractionResults.clear();
   }
 
   render(): string {
@@ -98,7 +104,19 @@ export class MetricsRegistry {
       `document_integrity_alerts_total ${this.documentIntegrityAlerts}`,
     ];
 
-    return [...totalLines, ...durationLines, ...integrityLines, ''].join('\n');
+    const extractionLines = [
+      '# HELP document_extraction_results_total Total document extraction results by status.',
+      '# TYPE document_extraction_results_total counter',
+    ];
+    for (const [status, count] of [...this.extractionResults.entries()].sort(([left], [right]) =>
+      left.localeCompare(right),
+    )) {
+      extractionLines.push(
+        `document_extraction_results_total{status="${labelValue(status)}"} ${count}`,
+      );
+    }
+
+    return [...totalLines, ...durationLines, ...integrityLines, ...extractionLines, ''].join('\n');
   }
 }
 

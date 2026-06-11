@@ -25,17 +25,21 @@ function versionRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createService() {
+function createService(options: { enqueueVersionCreated?: ReturnType<typeof vi.fn> } = {}) {
   return new DocumentVersionService(
     { transaction: vi.fn() } as never,
     { canReadMatter: vi.fn() } as never,
     { require: vi.fn() } as never,
     new VersionNumberResolver(),
+    options.enqueueVersionCreated
+      ? ({ enqueueVersionCreated: options.enqueueVersionCreated } as never)
+      : undefined,
   );
 }
 
 describe('DocumentVersionService', () => {
   it('creates the initial current version at version 1', async () => {
+    const enqueueVersionCreated = vi.fn(async () => 'extraction-job-id');
     const tx = {
       query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
         void sql;
@@ -47,7 +51,7 @@ describe('DocumentVersionService', () => {
       }),
     };
 
-    const result = await createService().createInitialVersion(
+    const result = await createService({ enqueueVersionCreated }).createInitialVersion(
       {
         tenantId,
         documentId,
@@ -74,6 +78,15 @@ describe('DocumentVersionService', () => {
       hash,
       actorUserId,
     ]);
+    expect(enqueueVersionCreated).toHaveBeenCalledWith(
+      {
+        tenantId,
+        documentId,
+        versionId: '11111111-1111-4111-8111-111111111155',
+        fileObjectId,
+      },
+      tx,
+    );
   });
 
   it('marks the previous current version superseded before inserting the next current version', async () => {

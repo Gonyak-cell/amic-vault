@@ -10,6 +10,8 @@ import { DocumentController, DocumentMetadataController } from './document.contr
 import { DocumentVersionService } from './document-version.service';
 import { DocumentService } from './document.service';
 import { DocumentUploadService } from './document-upload.service';
+import { ExtractionDispatcher } from './extraction/extraction-dispatcher';
+import { ExtractionQueueService } from './extraction/extraction-queue.service';
 import { DuplicateDetectorService } from './integrity/duplicate-detector.service';
 import { IntegrityCheckService } from './integrity/integrity-check.service';
 import { VersionNumberResolver } from './version-number.resolver';
@@ -22,6 +24,8 @@ import { VersionNumberResolver } from './version-number.resolver';
     DocumentService,
     DocumentVersionService,
     DocumentUploadService,
+    ExtractionDispatcher,
+    ExtractionQueueService,
     DuplicateDetectorService,
     IntegrityCheckService,
     VersionNumberResolver,
@@ -31,6 +35,8 @@ import { VersionNumberResolver } from './version-number.resolver';
     DocumentService,
     DocumentVersionService,
     DocumentUploadService,
+    ExtractionDispatcher,
+    ExtractionQueueService,
     IntegrityCheckService,
   ],
 })

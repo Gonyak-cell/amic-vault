@@ -132,6 +132,11 @@ export class DocumentMetadataController {
     );
   }
 
+  @Get(':documentId')
+  getDocument(@Req() request: RequestWithSession, @Param('documentId') documentId: string) {
+    return this.documentService.getDocument(sessionUserId(request), parseUuid(documentId));
+  }
+
   @Post(':documentId/versions')
   @UseInterceptors(FileInterceptor(multipartFieldName, multipartUploadOptions()))
   async addVersion(

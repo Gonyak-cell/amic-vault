@@ -8,11 +8,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-amic_vault}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amic_vault_dev_password}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -24,12 +24,12 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-amic-vault-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-amic-vault-minio-dev-password}
     ports:
-      - "${MINIO_API_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -52,11 +52,31 @@ services:
         mc anonymous set none "local/$${S3_BUCKET}"
         tail -f /dev/null
     healthcheck:
-      test: ["CMD-SHELL", "mc ls local/$${S3_BUCKET} >/dev/null 2>&1"]
+      test: ['CMD-SHELL', 'mc ls local/$${S3_BUCKET} >/dev/null 2>&1']
       interval: 5s
       timeout: 5s
       retries: 20
-    restart: "no"
+    restart: 'no'
+
+  ingestion:
+    build:
+      context: ..
+      dockerfile: workers/ingestion/Dockerfile
+    environment:
+      PYTHONUNBUFFERED: '1'
+    ports:
+      - '${INGESTION_WORKER_PORT:-8000}:8000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   postgres-data:

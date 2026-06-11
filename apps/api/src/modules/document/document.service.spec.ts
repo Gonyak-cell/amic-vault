@@ -136,4 +136,54 @@ describe('DocumentService', () => {
     );
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Updated Agreement');
   });
+
+  it('reads document detail through PermissionService and exposes extraction status only', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          documentRow({
+            extraction_status: 'ocr_pending',
+            extraction_method: 'ocr_required',
+            extraction_confidence: 0,
+          }),
+        ],
+      }),
+    };
+    const auditLog = vi.fn(async () => undefined);
+    const canReadMatter = vi.fn(async () => allowPermission());
+    const service = new DocumentService(
+      {
+        transaction: vi.fn(
+          async (_tenantId: string, run: (client: typeof tx) => Promise<unknown>) => run(tx),
+        ),
+        log: auditLog,
+      } as never,
+      { canReadMatter } as never,
+      {
+        require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
+      } as never,
+    );
+
+    const result = await service.getDocument(actorUserId, documentId);
+
+    expect(canReadMatter).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, matterId);
+    expect(result).toMatchObject({
+      documentId,
+      extractionStatus: 'ocr_pending',
+      extractionMethod: 'ocr_required',
+      extractionConfidence: 0,
+    });
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DOCUMENT_VIEWED',
+        metadata: {
+          document_id: documentId,
+          matter_id: matterId,
+        },
+      }),
+      tx,
+    );
+    expect(JSON.stringify(result)).not.toContain('body_text');
+  });
 });

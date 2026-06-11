@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - "feat/**"
+      - 'feat/**'
 
 jobs:
   verify:
@@ -60,12 +60,13 @@ jobs:
       - name: Build ingestion image
         run: docker build -f workers/ingestion/Dockerfile -t amic-vault-ingestion:${{ github.sha }} .
 
-  python-placeholder:
+  python-worker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
       - run: python --version
-      - run: echo "Python lint/test placeholder until worker implementation PACKs."
+      - run: python -m pip install -e "workers/ingestion[test]"
+      - run: pytest workers/ingestion/tests
