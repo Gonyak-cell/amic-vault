@@ -14,21 +14,26 @@
     "build": "turbo run build --filter='./apps/*' --filter='./packages/*'",
     "backlog:validate": "node tools/backlog/validate.mjs docs/package/codex/data/backlog_r0_r3.csv",
     "docs:frozen": "node infra/ci/scripts/check-docs-package-frozen.mjs",
-    "db:migrate": "node tools/db/placeholder.mjs db:migrate",
-    "db:rollback": "node tools/db/placeholder.mjs db:rollback",
-    "db:seed": "node tools/db/placeholder.mjs db:seed",
-    "test:integration": "node tools/db/placeholder.mjs test:integration"
+    "db:migrate": "node tools/db/migrate.mjs up",
+    "db:rollback": "node tools/db/migrate.mjs down 999",
+    "db:seed": "node tools/db/seed.mjs",
+    "test:integration": "node tools/integration/run.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
     "@types/node": "^22.10.7",
+    "@types/pg": "^8.20.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "eslint": "^9.18.0",
+    "node-pg-migrate": "^8.0.4",
     "prettier": "^3.4.2",
     "turbo": "^2.3.4",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "pg": "^8.21.0"
   }
 }

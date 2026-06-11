@@ -23,6 +23,27 @@ jobs:
       - run: pnpm build
       - run: node tools/backlog/validate.mjs docs/package/codex/data/backlog_r0_r3.csv
       - run: node infra/ci/scripts/check-docs-package-frozen.mjs
+      - run: node tools/db/check-migration-conventions.mjs
+
+  db-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose -f infra/docker-compose.dev.yml up -d
+      - run: node tools/db/check-migration-conventions.mjs
+      - run: pnpm db:migrate
+      - run: pnpm db:rollback
+      - run: pnpm db:migrate
+      - run: pnpm db:seed
+      - run: pnpm test:integration -- audit-immutability
+      - run: pnpm test:integration
+      - run: docker compose -f infra/docker-compose.dev.yml down -v
+        if: always()
 
   docker-build:
     runs-on: ubuntu-latest
