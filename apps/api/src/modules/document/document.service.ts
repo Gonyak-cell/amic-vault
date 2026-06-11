@@ -27,6 +27,7 @@ import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
+import { assertDocumentMutationAllowed } from './guards/immutable-state.guard';
 
 const documentMetadataDiffOrder = [
   'title',
@@ -206,6 +207,10 @@ export class DocumentService {
       if (!before) throw notFoundDenied();
       await this.assertCanEditMatter(context.tenantId, actorUserId, before.matter_id);
       this.assertMatterMutationAllowed(before.matter_status);
+      assertDocumentMutationAllowed({
+        documentStatus: before.status,
+        matterStatus: before.matter_status,
+      });
       const diffKeys = documentMetadataDiffKeys(before, input);
       if (diffKeys.length === 0) return mapDocument(before);
 

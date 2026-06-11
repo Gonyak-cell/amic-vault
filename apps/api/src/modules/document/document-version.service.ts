@@ -8,11 +8,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import {
-  isMatterMutationBlockedState,
-  isMatterState,
-  type DocumentStatusValue,
-} from '@amic-vault/domain';
+import type { DocumentStatusValue } from '@amic-vault/domain';
 import type {
   DocumentVersionDto,
   DocumentVersionListDto,
@@ -25,6 +21,7 @@ import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { ExtractionQueueService } from './extraction/extraction-queue.service';
+import { assertDocumentMutationAllowed } from './guards/immutable-state.guard';
 import { VersionNumberResolver } from './version-number.resolver';
 
 interface DocumentVersionRow {
@@ -103,13 +100,10 @@ function mapVersion(row: DocumentVersionRow): DocumentVersionDto {
 }
 
 function assertVersionableDocument(row: DocumentVersionTarget): void {
-  if (row.status === 'archived' || row.status === 'deleted' || row.status === 'disposal_locked') {
-    throw validationFailed('DOCUMENT_VERSION_BLOCKED');
-  }
-  if (!isMatterState(row.matter_status)) throw validationFailed();
-  if (isMatterMutationBlockedState(row.matter_status)) {
-    throw validationFailed('MATTER_MUTATION_BLOCKED');
-  }
+  assertDocumentMutationAllowed({
+    documentStatus: row.status,
+    matterStatus: row.matter_status,
+  });
 }
 
 @Injectable()

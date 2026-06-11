@@ -2,14 +2,19 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Inject,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -26,6 +31,8 @@ import { DocumentUploadService, type UploadedDiskFile } from './document-upload.
 import { mapDocumentUploadError } from './document-error.mapper';
 import { DocumentService } from './document.service';
 import { DocumentVersionService } from './document-version.service';
+import { DocumentLifecycleService } from './document-lifecycle.service';
+import { ImmutableStateGuard } from './guards/immutable-state.guard';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -78,6 +85,11 @@ function parseLegalHoldBody(body: unknown) {
   }
 }
 
+function contentDisposition(filename: string): string {
+  const fallback = filename.replace(/[^\w.-]+/g, '_').slice(0, 120) || 'document';
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 function sessionUserId(request: RequestWithSession): string {
   const userId = request.session?.userId;
   if (!userId) throw validationFailed();
@@ -115,11 +127,14 @@ export class DocumentController {
 export class DocumentMetadataController {
   constructor(
     @Inject(DocumentService) private readonly documentService: DocumentService,
+    @Inject(DocumentLifecycleService)
+    private readonly lifecycleService: DocumentLifecycleService,
     @Inject(DocumentUploadService) private readonly uploadService: DocumentUploadService,
     @Inject(DocumentVersionService) private readonly versionService: DocumentVersionService,
   ) {}
 
   @Patch(':documentId/metadata')
+  @UseGuards(ImmutableStateGuard)
   updateMetadata(
     @Req() request: RequestWithSession,
     @Param('documentId') documentId: string,
@@ -132,12 +147,45 @@ export class DocumentMetadataController {
     );
   }
 
+  @Delete(':documentId')
+  @HttpCode(204)
+  @UseGuards(ImmutableStateGuard)
+  async deleteDocument(@Req() request: RequestWithSession, @Param('documentId') documentId: string) {
+    await this.lifecycleService.softDelete(sessionUserId(request), parseUuid(documentId));
+  }
+
+  @Post(':documentId/restore')
+  @HttpCode(204)
+  async restoreDocument(@Req() request: RequestWithSession, @Param('documentId') documentId: string) {
+    await this.lifecycleService.restore(sessionUserId(request), parseUuid(documentId));
+  }
+
   @Get(':documentId')
   getDocument(@Req() request: RequestWithSession, @Param('documentId') documentId: string) {
     return this.documentService.getDocument(sessionUserId(request), parseUuid(documentId));
   }
 
+  @Get(':documentId/download')
+  async downloadDocument(
+    @Req() request: RequestWithSession,
+    @Param('documentId') documentId: string,
+    @Res({ passthrough: true })
+    response: { setHeader(name: string, value: string): void },
+  ) {
+    const download = await this.lifecycleService.download(
+      sessionUserId(request),
+      parseUuid(documentId),
+    );
+    response.setHeader('content-type', download.contentType);
+    response.setHeader('content-length', String(download.contentLength));
+    response.setHeader('content-disposition', contentDisposition(download.filename));
+    response.setHeader('x-content-type-options', 'nosniff');
+    response.setHeader('x-amic-sha256', download.sha256);
+    return new StreamableFile(download.body);
+  }
+
   @Post(':documentId/versions')
+  @UseGuards(ImmutableStateGuard)
   @UseInterceptors(FileInterceptor(multipartFieldName, multipartUploadOptions()))
   async addVersion(
     @Req() request: RequestWithSession,
