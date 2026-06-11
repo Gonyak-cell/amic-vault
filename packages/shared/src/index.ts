@@ -39,4 +39,12 @@ export {
   type TenantSummary,
   type WorkspaceStatus,
 } from './types/tenant';
+export { userStatuses, type UserStatus, type UserSummary } from './types/user';
+export type {
+  LoginRequestDto,
+  LoginResponseDto,
+  PasswordResetAcceptedDto,
+  PasswordResetConfirmDto,
+  PasswordResetRequestDto,
+} from './dto/auth.dto';
 export type { TenantSettingsDto } from './dto/tenant-settings.dto';

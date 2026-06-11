@@ -31,7 +31,7 @@ describe('TenantAwareDataSource', () => {
     const dataSource = new TenantAwareDataSource(context);
 
     await context.run(
-      { tenantId, slug: 'tenant-alpha', status: 'active', source: 'pre-auth-header' },
+      { tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' },
       () => dataSource.transaction(client, async () => 'ok'),
     );
 

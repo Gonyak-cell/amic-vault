@@ -1,0 +1,209 @@
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
+import type { TenantId, UserStatus } from '@amic-vault/shared';
+import { hashPassword, normalizeEmail } from './password';
+import { UserEntity } from './user.entity';
+
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
+
+let pool: Pool | undefined;
+
+function getPool(): Pool {
+  pool ??= new Pool({ connectionString: databaseUrl });
+  return pool;
+}
+
+interface UserRow {
+  user_id: string;
+  tenant_id: string;
+  email: string;
+  name: string;
+  role: string;
+  practice_group: string | null;
+  status: UserStatus;
+  password_hash: string;
+  mfa_enabled: boolean;
+  last_login_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+function mapUser(row: UserRow): UserEntity {
+  return new UserEntity({
+    userId: row.user_id,
+    tenantId: row.tenant_id as TenantId,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    practiceGroup: row.practice_group,
+    status: row.status,
+    passwordHash: row.password_hash,
+    mfaEnabled: row.mfa_enabled,
+    lastLoginAt: row.last_login_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+export interface CreateUserInput {
+  tenantId: TenantId;
+  email: string;
+  name: string;
+  role: string;
+  practiceGroup: string | null;
+  password: string;
+}
+
+export interface UserStore {
+  createUser(input: CreateUserInput & { passwordHash: string }): Promise<UserEntity>;
+  findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null>;
+  findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null>;
+  updatePasswordHash(tenantId: TenantId, userId: string, passwordHash: string): Promise<void>;
+  setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void>;
+  recordLoginSuccess(tenantId: TenantId, userId: string): Promise<void>;
+}
+
+export class PgUserStore implements UserStore {
+  async createUser(input: CreateUserInput & { passwordHash: string }): Promise<UserEntity> {
+    const result = await getPool().query<UserRow>(
+      `
+        INSERT INTO users (
+          tenant_id, email, name, role, practice_group, status, password_hash, mfa_enabled
+        )
+        VALUES ($1, lower($2), $3, $4, $5, 'active', $6, false)
+        RETURNING user_id, tenant_id, email, name, role, practice_group, status,
+          password_hash, mfa_enabled, last_login_at, created_at, updated_at
+      `,
+      [
+        input.tenantId,
+        input.email,
+        input.name,
+        input.role,
+        input.practiceGroup,
+        input.passwordHash,
+      ],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('user insert returned no row');
+    }
+    return mapUser(row);
+  }
+
+  async findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
+    const result = await getPool().query<UserRow>(
+      `
+        SELECT user_id, tenant_id, email, name, role, practice_group, status,
+          password_hash, mfa_enabled, last_login_at, created_at, updated_at
+        FROM users
+        WHERE tenant_id = $1
+          AND lower(email) = lower($2)
+      `,
+      [tenantId, email],
+    );
+    const row = result.rows[0];
+    return row ? mapUser(row) : null;
+  }
+
+  async findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null> {
+    const result = await getPool().query<UserRow>(
+      `
+        SELECT user_id, tenant_id, email, name, role, practice_group, status,
+          password_hash, mfa_enabled, last_login_at, created_at, updated_at
+        FROM users
+        WHERE tenant_id = $1
+          AND user_id = $2
+      `,
+      [tenantId, userId],
+    );
+    const row = result.rows[0];
+    return row ? mapUser(row) : null;
+  }
+
+  async updatePasswordHash(
+    tenantId: TenantId,
+    userId: string,
+    passwordHash: string,
+  ): Promise<void> {
+    await getPool().query(
+      `
+        UPDATE users
+        SET password_hash = $3,
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND user_id = $2
+      `,
+      [tenantId, userId, passwordHash],
+    );
+  }
+
+  async setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void> {
+    await getPool().query(
+      `
+        UPDATE users
+        SET mfa_enabled = $3,
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND user_id = $2
+      `,
+      [tenantId, userId, enabled],
+    );
+  }
+
+  async recordLoginSuccess(tenantId: TenantId, userId: string): Promise<void> {
+    await getPool().query(
+      `
+        UPDATE users
+        SET last_login_at = now(),
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND user_id = $2
+      `,
+      [tenantId, userId],
+    );
+  }
+}
+
+export const USER_STORE = Symbol('USER_STORE');
+
+@Injectable()
+export class UserService {
+  constructor(@Inject(USER_STORE) private readonly store: UserStore) {}
+
+  async createUser(input: CreateUserInput): Promise<UserEntity> {
+    const normalizedEmail = normalizeEmail(input.email);
+    const existing = await this.store.findByTenantAndEmail(input.tenantId, normalizedEmail);
+    if (existing) {
+      throw new ConflictException({ code: 'VALIDATION_FAILED' });
+    }
+    const passwordHash = await hashPassword(input.password);
+    return this.store.createUser({
+      ...input,
+      email: normalizedEmail,
+      passwordHash,
+    });
+  }
+
+  findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
+    return this.store.findByTenantAndEmail(tenantId, normalizeEmail(email));
+  }
+
+  findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null> {
+    return this.store.findByTenantAndId(tenantId, userId);
+  }
+
+  async updatePassword(tenantId: TenantId, userId: string, password: string): Promise<void> {
+    const passwordHash = await hashPassword(password);
+    await this.store.updatePasswordHash(tenantId, userId, passwordHash);
+  }
+
+  setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void> {
+    return this.store.setMfaEnabled(tenantId, userId, enabled);
+  }
+
+  recordLoginSuccess(tenantId: TenantId, userId: string): Promise<void> {
+    return this.store.recordLoginSuccess(tenantId, userId);
+  }
+}

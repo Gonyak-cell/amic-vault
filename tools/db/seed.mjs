@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import crypto from 'node:crypto';
 import fs from 'node:fs';
+import argon2 from 'argon2';
 import { Client } from 'pg';
 import { databaseUrl } from './config.mjs';
 
@@ -12,7 +12,12 @@ if (process.env.NODE_ENV === 'production') {
 const fixture = JSON.parse(fs.readFileSync('tests/fixtures/seed/users.json', 'utf8'));
 
 function devHash(password) {
-  return `dev-sha256:${crypto.createHash('sha256').update(password).digest('hex')}`;
+  return argon2.hash(password, {
+    type: argon2.argon2id,
+    memoryCost: 65_536,
+    timeCost: 3,
+    parallelism: 4,
+  });
 }
 
 const client = new Client({ connectionString: databaseUrl() });
@@ -76,7 +81,7 @@ try {
           user.name,
           user.role,
           user.practiceGroup,
-          devHash(user.devPassword),
+          await devHash(user.devPassword),
         ],
       );
     }
