@@ -20,6 +20,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addDocumentVersionFieldsSchema,
+  documentDownloadReasonQuerySchema,
   listDocumentVersionsQuerySchema,
   updateDocumentMetadataSchema,
   updateLegalHoldSchema,
@@ -80,6 +81,14 @@ function parseVersionListQuery(query: unknown) {
 function parseLegalHoldBody(body: unknown) {
   try {
     return updateLegalHoldSchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function parseDownloadReasonQuery(query: unknown) {
+  try {
+    return documentDownloadReasonQuerySchema.parse(query ?? {});
   } catch {
     throw validationFailed();
   }
@@ -169,12 +178,15 @@ export class DocumentMetadataController {
   async downloadDocument(
     @Req() request: RequestWithSession,
     @Param('documentId') documentId: string,
+    @Query() query: Record<string, unknown>,
     @Res({ passthrough: true })
     response: { setHeader(name: string, value: string): void },
   ) {
+    const reason = parseDownloadReasonQuery(query);
     const download = await this.lifecycleService.download(
       sessionUserId(request),
       parseUuid(documentId),
+      reason.reasonCode,
     );
     response.setHeader('content-type', download.contentType);
     response.setHeader('content-length', String(download.contentLength));

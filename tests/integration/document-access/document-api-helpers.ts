@@ -108,6 +108,107 @@ function pdfForm(marker: string): FormData {
   return form;
 }
 
+const crcTable = Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit += 1) {
+    value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+  }
+  return value >>> 0;
+});
+
+function crc32(buffer: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc = crcTable[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function zipStore(files: Array<{ name: string; body: string }>): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const file of files) {
+    const name = Buffer.from(file.name);
+    const data = Buffer.from(file.body);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    locals.push(local, name, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, name);
+    offset += local.length + name.length + data.length;
+  }
+  const centralStart = offset;
+  const centralSize = centrals.reduce((sum, part) => sum + part.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(centralStart, 16);
+  return Buffer.concat([...locals, ...centrals, end]);
+}
+
+function docxBytes(marker: string): Buffer {
+  return zipStore([
+    {
+      name: '[Content_Types].xml',
+      body:
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+        '</Types>',
+    },
+    {
+      name: '_rels/.rels',
+      body:
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+        '</Relationships>',
+    },
+    {
+      name: 'word/document.xml',
+      body:
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+        '<w:body><w:p><w:r><w:t>AMIC-DOCX-' +
+        marker +
+        '</w:t></w:r></w:p></w:body></w:document>',
+    },
+  ]);
+}
+
+function docxForm(marker: string): FormData {
+  const form = new FormData();
+  form.append('title', `${marker} Document`);
+  form.append(
+    'file',
+    new Blob([docxBytes(marker)], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }),
+    `${marker}.docx`,
+  );
+  return form;
+}
+
 export async function uploadPdf(
   baseUrl: string,
   cookie: string,
@@ -128,6 +229,22 @@ export async function uploadPdf(
   return parsed;
 }
 
+export async function uploadDocx(
+  baseUrl: string,
+  cookie: string,
+  matterId: string,
+  marker: string,
+): Promise<{ documentId: string; fileObjectId: string }> {
+  const response = await fetch(`${baseUrl}/v1/matters/${matterId}/documents`, {
+    method: 'POST',
+    headers: { cookie },
+    body: docxForm(marker),
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
+  return JSON.parse(body) as { documentId: string; fileObjectId: string };
+}
+
 export function createStorageService(): StorageService {
   return new StorageService(
     S3StorageAdapter.fromEnv(),
@@ -141,15 +258,94 @@ export async function storageUrisForDocument(documentId: string): Promise<string
     const result = await client.query<{ storage_uri: string }>(
       `
         SELECT f.storage_uri
-        FROM document_versions dv
-        JOIN file_objects f
-          ON f.tenant_id = dv.tenant_id
-          AND f.file_object_id = dv.file_object_id
-        WHERE dv.document_id = $1
+        FROM file_objects f
+        WHERE f.storage_uri LIKE (
+          's3://amic-vault-dev/tenants/%/matters/%/documents/' || $1 || '/%'
+        )
       `,
       [documentId],
     );
     return result.rows.map((row) => row.storage_uri);
+  });
+}
+
+export async function setDocumentConfidentiality(
+  documentId: string,
+  confidentialityLevel: 'standard' | 'high' | 'restricted',
+): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        UPDATE documents
+        SET confidentiality_level = $2,
+            updated_at = now()
+        WHERE document_id = $1
+      `,
+      [documentId, confidentialityLevel],
+    );
+  });
+}
+
+export async function grantDocumentPermission(input: {
+  tenantId: string;
+  documentId: string;
+  subjectUserId: string;
+  action: 'read' | 'download';
+  effect?: 'ALLOW' | 'DENY';
+  createdBy: string;
+  conditionJson?: Record<string, unknown> | null;
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO permissions (
+          tenant_id, subject_type, subject_id, resource_type, resource_id,
+          action, effect, condition_json, created_by
+        )
+        VALUES ($1, 'user', $2, 'document', $3, $4, $5, $6::jsonb, $7)
+      `,
+      [
+        input.tenantId,
+        input.subjectUserId,
+        input.documentId,
+        input.action,
+        input.effect ?? 'ALLOW',
+        input.conditionJson ? JSON.stringify(input.conditionJson) : null,
+        input.createdBy,
+      ],
+    );
+  });
+}
+
+export async function previewArtifactSummary(documentId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{
+      artifact_count: string;
+      version_count: string;
+      preview_file_count: string;
+      source_systems: string[];
+    }>(
+      `
+        SELECT count(DISTINCT a.artifact_id)::text AS artifact_count,
+          count(DISTINCT dv.version_id)::text AS version_count,
+          count(DISTINCT f.file_object_id)::text AS preview_file_count,
+          array_agg(DISTINCT f.source_system) AS source_systems
+        FROM documents d
+        LEFT JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+          AND dv.document_id = d.document_id
+        LEFT JOIN document_preview_artifacts a
+          ON a.tenant_id = d.tenant_id
+          AND a.document_id = d.document_id
+        LEFT JOIN file_objects f
+          ON f.tenant_id = a.tenant_id
+          AND f.file_object_id = a.file_object_id
+        WHERE d.document_id = $1
+        GROUP BY d.document_id
+      `,
+      [documentId],
+    );
+    return result.rows[0];
   });
 }
 

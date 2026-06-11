@@ -30,7 +30,7 @@ interface FileObjectRow {
   size_bytes: string;
   sha256: string;
   encryption_key_id: string | null;
-  source_system: 'upload' | 'email_ingest' | 'migration';
+  source_system: 'upload' | 'email_ingest' | 'migration' | 'preview_derived';
   created_by: string | null;
   created_at: Date;
 }
@@ -45,7 +45,7 @@ export interface CreateFileObjectInput {
   sizeBytes: number;
   sha256: string;
   encryptionKeyId: string | null;
-  sourceSystem?: 'upload' | 'email_ingest' | 'migration';
+  sourceSystem?: 'upload' | 'email_ingest' | 'migration' | 'preview_derived';
   createdBy: string | null;
 }
 

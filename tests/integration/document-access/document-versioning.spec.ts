@@ -330,7 +330,8 @@ describe('document-versioning integration', () => {
       headers: { cookie: betaMemberCookie },
     });
     const deniedListBody = await deniedList.text();
-    expect(deniedList.status, deniedListBody).toBe(403);
+    expect(deniedList.status, deniedListBody).toBe(404);
+    expect(deniedListBody).toContain('PERMISSION_DENIED');
     expect(deniedListBody).not.toContain(uploaded.documentId);
 
     const invalidFilter = await fetch(
