@@ -134,6 +134,55 @@ export class PermissionService {
     return this.documentPermissionService.canDownloadDocument(ctx, documentId, reason);
   }
 
+  canReadDocumentAudit(ctx: PermissionContext, matterId: string): Promise<PermissionDecision> {
+    return this.wrapper.evaluate(auditTarget(ctx, matterId), () =>
+      this.evaluateCanReadDocumentAudit(ctx, matterId),
+    );
+  }
+
+  protected async evaluateCanReadDocumentAudit(
+    ctx: PermissionContext,
+    matterId: string,
+  ): Promise<PermissionDecision> {
+    const actor = await this.findActor(ctx.tenantId as TenantId, ctx.userId);
+    if (!actor || actor.status !== 'active') {
+      return denyPermission('PERMISSION_DENIED', ['actor:inactive_or_missing']);
+    }
+
+    const roleDecision = rolePermissionDecision(actor.role, 'audit.read.matter');
+    if (roleDecision === 'deny') {
+      return denyPermission('PERMISSION_DENIED', ['audit.read.matter:role_deny']);
+    }
+
+    const matter = await this.findMatter(ctx.tenantId as TenantId, matterId);
+    if (!matter) return denyPermission('PERMISSION_DENIED', ['matter:missing']);
+
+    if (roleDecision === 'allow') {
+      return allowPermission(['audit.read.matter:role_allow']);
+    }
+
+    if (roleDecision === 'owner') {
+      const member = await this.findMatterMember(ctx.tenantId as TenantId, matterId, ctx.userId);
+      if (member?.matterRole !== 'owner') {
+        return denyPermission('PERMISSION_DENIED', ['audit.read.matter:not_owner']);
+      }
+      const wall = await this.wallMembershipReader.readUserMatterState(
+        ctx.tenantId as TenantId,
+        matterId,
+        ctx.userId,
+      );
+      if (wall.isExcluded) {
+        return denyPermission('ETHICAL_WALL_BLOCKED', ['ethical_wall:excluded']);
+      }
+      return allowPermission([
+        'audit.read.matter:owner',
+        ...(wall.isInsider ? ['ethical_wall:insider'] : []),
+      ]);
+    }
+
+    return denyPermission('PERMISSION_DENIED', ['audit.read.matter:unsupported_decision']);
+  }
+
   protected async evaluateCanReadMatter(
     ctx: PermissionContext,
     matterId: string,

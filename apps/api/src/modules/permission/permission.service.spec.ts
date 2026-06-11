@@ -120,4 +120,51 @@ describe('PermissionService matter evaluator', () => {
       appliedRules: ['permissions:explicit_deny'],
     });
   });
+
+  it('allows document audit reads for tenant audit roles without matter membership', async () => {
+    const { service } = createService();
+    service.actor = { userId, role: 'security_admin', status: 'active' };
+    service.member = null;
+
+    await expect(service.canReadDocumentAudit({ tenantId, userId }, matterId)).resolves
+      .toMatchObject({
+        effect: 'ALLOW',
+        appliedRules: ['audit.read.matter:role_allow'],
+      });
+  });
+
+  it('allows document audit reads only for matter owners among matter roles', async () => {
+    const { service } = createService();
+
+    await expect(service.canReadDocumentAudit({ tenantId, userId }, matterId)).resolves
+      .toMatchObject({
+        effect: 'ALLOW',
+        appliedRules: ['audit.read.matter:owner'],
+      });
+
+    service.member = { matterRole: 'member', accessLevel: 'edit' };
+    await expect(service.canReadDocumentAudit({ tenantId, userId }, matterId)).resolves
+      .toMatchObject({
+        effect: 'DENY',
+        appliedRules: ['audit.read.matter:not_owner'],
+      });
+  });
+
+  it('denies document audit reads for unsupported roles and wall-excluded owners', async () => {
+    const memberService = createService().service;
+    memberService.actor = { userId, role: 'matter_member', status: 'active' };
+    await expect(memberService.canReadDocumentAudit({ tenantId, userId }, matterId)).resolves
+      .toMatchObject({
+        effect: 'DENY',
+        appliedRules: ['audit.read.matter:role_deny'],
+      });
+
+    const excludedOwner = createService({ isExcluded: true, isInsider: true }).service;
+    await expect(excludedOwner.canReadDocumentAudit({ tenantId, userId }, matterId)).resolves
+      .toMatchObject({
+        effect: 'DENY',
+        reasonCode: 'ETHICAL_WALL_BLOCKED',
+        appliedRules: ['ethical_wall:excluded'],
+      });
+  });
 });

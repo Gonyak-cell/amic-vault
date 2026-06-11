@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import type { PermissionDecision, TenantId } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { documentViewedAudit } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -155,20 +156,14 @@ export class PreviewService {
   ): Promise<void> {
     await this.auditService.transaction(tenantId, async (tx) => {
       await this.auditService.log(
-        {
+        documentViewedAudit({
           tenantId,
           actorId: actorUserId,
-          action: 'DOCUMENT_VIEWED',
-          targetType: 'document',
-          targetId: original.document_id,
+          documentId: original.document_id,
           matterId: original.matter_id,
-          metadata: {
-            document_id: original.document_id,
-            matter_id: original.matter_id,
-            version_id: original.version_id,
-            channel: 'preview',
-          },
-        },
+          versionId: original.version_id,
+          channel: 'preview',
+        }),
         tx,
       );
     });
