@@ -16,6 +16,7 @@ describe('audit shared types', () => {
         'DOCUMENT_METADATA_CHANGED',
         'DOCUMENT_INTEGRITY_ALERT',
         'DOCUMENT_TEXT_EXTRACTED',
+        'SEARCH_REINDEX_REQUESTED',
       ]),
     );
   });

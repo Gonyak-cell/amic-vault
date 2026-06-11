@@ -1,6 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { MetricsRegistry } from '../../../common/metrics/metrics.middleware';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
+import { SearchIndexSyncHook } from '../../search/index/index-sync.hook';
 import { StorageService } from '../../storage/storage.service';
 import type {
   ExtractionJobPayload,
@@ -83,6 +84,9 @@ export class ExtractionDispatcher {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(MetricsRegistry) private readonly metrics: MetricsRegistry,
+    @Optional()
+    @Inject(SearchIndexSyncHook)
+    private readonly searchIndexSync?: SearchIndexSyncHook,
   ) {}
 
   async handle(payload: ExtractionJobPayload): Promise<void> {
@@ -256,6 +260,16 @@ export class ExtractionDispatcher {
         },
         tx,
       );
+      if (input.status === 'ready') {
+        await this.searchIndexSync?.enqueueVersion(
+          {
+            tenantId: input.tenantId,
+            documentId: input.documentId,
+            versionId: input.versionId,
+          },
+          tx,
+        );
+      }
       this.metrics.recordExtractionResult(input.status);
     });
   }

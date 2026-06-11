@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { isMatterMutationBlockedState, isMatterState } from '@amic-vault/domain';
@@ -29,6 +30,7 @@ import {
   documentViewedAudit,
 } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
+import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { assertDocumentMutationAllowed } from './guards/immutable-state.guard';
@@ -171,6 +173,9 @@ export class DocumentService {
     @Inject(PermissionService) private readonly permissionService?: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext?: TenantContextService,
     @Inject(UserService) private readonly userService?: UserService,
+    @Optional()
+    @Inject(SearchIndexSyncHook)
+    private readonly searchIndexSync?: SearchIndexSyncHook,
   ) {}
 
   async createDraft(input: CreateDraftDocumentInput, client: PoolClient): Promise<DocumentDto> {
@@ -235,6 +240,10 @@ export class DocumentService {
           beforeRef: metadataRef(before),
           afterRef: metadataRef(updated),
         }),
+        tx,
+      );
+      await this.searchIndexSync?.enqueueCurrentVersionForDocument(
+        { tenantId: context.tenantId, documentId },
         tx,
       );
       return mapDocument(updated);

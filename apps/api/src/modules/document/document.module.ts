@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MetricsModule } from '../../common/metrics/metrics.module';
 import { AuditModule } from '../audit/audit.module';
 import { PermissionModule } from '../permission/permission.module';
+import { SearchModule } from '../search/search.module';
 import { StorageModule } from '../storage/storage.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { UserModule } from '../user/user.module';
@@ -18,7 +19,7 @@ import { IntegrityCheckService } from './integrity/integrity-check.service';
 import { VersionNumberResolver } from './version-number.resolver';
 
 @Module({
-  imports: [AuditModule, MetricsModule, PermissionModule, StorageModule, TenantModule, UserModule],
+  imports: [AuditModule, MetricsModule, PermissionModule, SearchModule, StorageModule, TenantModule, UserModule],
   controllers: [DocumentController, DocumentMetadataController],
   providers: [
     BulkUploadJob,

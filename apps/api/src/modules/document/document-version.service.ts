@@ -18,6 +18,7 @@ import type {
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
+import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { TenantContextService } from '../tenant/tenant-context';
 import { ExtractionQueueService } from './extraction/extraction-queue.service';
 import { assertDocumentMutationAllowed } from './guards/immutable-state.guard';
@@ -109,6 +110,9 @@ export class DocumentVersionService {
     @Optional()
     @Inject(ExtractionQueueService)
     private readonly extractionQueue?: ExtractionQueueService,
+    @Optional()
+    @Inject(SearchIndexSyncHook)
+    private readonly searchIndexSync?: SearchIndexSyncHook,
   ) {}
 
   async createInitialVersion(
@@ -173,6 +177,10 @@ export class DocumentVersionService {
       [input.tenantId, input.documentId, current.version_id],
     );
     if (superseded.rowCount !== 1) throw validationFailed('DOCUMENT_VERSION_CONFLICT');
+    await this.searchIndexSync?.enqueueVersion(
+      { tenantId: input.tenantId, documentId: input.documentId, versionId: current.version_id },
+      client,
+    );
 
     const inserted = await client.query(
       `
