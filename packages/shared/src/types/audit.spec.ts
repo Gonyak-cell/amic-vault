@@ -13,6 +13,8 @@ describe('audit shared types', () => {
         'LOGIN_FAILURE',
         'SESSION_REVOKED',
         'PERMISSION_DENIED_HIT',
+        'DOCUMENT_METADATA_CHANGED',
+        'DOCUMENT_INTEGRITY_ALERT',
       ]),
     );
   });

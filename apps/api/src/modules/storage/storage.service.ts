@@ -1,4 +1,5 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { sha256Stream } from '../document/integrity/sha256.util';
 import type {
   StorageAdapter,
   StorageBody,
@@ -77,6 +78,11 @@ export class StorageService {
       contentType: object.contentType,
     });
     return { ...object, body: decrypted.body };
+  }
+
+  async sha256ByStorageUri(tenantId: string, storageUri: string): Promise<string> {
+    const object = await this.getByStorageUri(tenantId, storageUri);
+    return sha256Stream(object.body);
   }
 
   async deleteByStorageUri(tenantId: string, storageUri: string): Promise<void> {

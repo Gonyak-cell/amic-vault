@@ -35,13 +35,19 @@ interface Observation {
 @Injectable()
 export class MetricsRegistry {
   private readonly observations: Observation[] = [];
+  private documentIntegrityAlerts = 0;
 
   observe(input: Observation): void {
     this.observations.push(input);
   }
 
+  recordDocumentIntegrityAlert(): void {
+    this.documentIntegrityAlerts += 1;
+  }
+
   reset(): void {
     this.observations.splice(0, this.observations.length);
+    this.documentIntegrityAlerts = 0;
   }
 
   render(): string {
@@ -71,7 +77,9 @@ export class MetricsRegistry {
       let cumulative = 0;
       for (const bucket of buckets) {
         cumulative = observations.filter((item) => item.durationMs <= bucket).length;
-        durationLines.push(`http_request_duration_ms_bucket{${labels},le="${bucket}"} ${cumulative}`);
+        durationLines.push(
+          `http_request_duration_ms_bucket{${labels},le="${bucket}"} ${cumulative}`,
+        );
       }
       durationLines.push(
         `http_request_duration_ms_bucket{${labels},le="+Inf"} ${observations.length}`,
@@ -84,7 +92,13 @@ export class MetricsRegistry {
       durationLines.push(`http_request_duration_ms_count{${labels}} ${observations.length}`);
     }
 
-    return [...totalLines, ...durationLines, ''].join('\n');
+    const integrityLines = [
+      '# HELP document_integrity_alerts_total Total blocked document integrity hash mismatches.',
+      '# TYPE document_integrity_alerts_total counter',
+      `document_integrity_alerts_total ${this.documentIntegrityAlerts}`,
+    ];
+
+    return [...totalLines, ...durationLines, ...integrityLines, ''].join('\n');
   }
 }
 
@@ -95,7 +109,9 @@ export class MetricsMiddleware implements NestMiddleware {
   use(request: RequestLike, response: ResponseLike, next: NextFunction): void {
     const startedAt = performance.now();
     response.on('finish', () => {
-      const routePath = request.route?.path ? String(request.route.path) : request.originalUrl ?? '';
+      const routePath = request.route?.path
+        ? String(request.route.path)
+        : (request.originalUrl ?? '');
       this.registry.observe({
         method: request.method ?? 'UNKNOWN',
         path: normalizePath(routePath),

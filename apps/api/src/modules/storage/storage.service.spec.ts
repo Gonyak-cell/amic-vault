@@ -93,4 +93,25 @@ describe('StorageService', () => {
       response: { code: 'TENANT_ISOLATION_VIOLATION' },
     });
   });
+
+  it('recomputes object SHA-256 from the stored tenant object stream', async () => {
+    const service = new StorageService(
+      new MemoryStorageAdapter(),
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
+    const result = await service.putTenantObject({
+      tenantId,
+      matterId,
+      documentId,
+      fileObjectId,
+      body: Buffer.from('contract'),
+      contentLength: 8,
+      contentType: 'application/pdf',
+    });
+
+    await expect(service.sha256ByStorageUri(tenantId, result.storageUri)).resolves.toBe(
+      'cc8321d6375c494d043fdd0260f21bc0ec51dacc9f6abb7f909cdcd3041b78bf',
+    );
+  });
 });

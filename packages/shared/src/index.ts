@@ -28,11 +28,13 @@ export {
   isAuditAction,
   isAuditMetadataKey,
   r1AuditActions,
+  r2DocumentAuditActions,
   type AuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
   type AuditMetadataValue,
   type R1AuditAction,
+  type R2DocumentAuditAction,
 } from './types/audit';
 
 export {
@@ -45,6 +47,21 @@ export {
 } from './types/tenant';
 export { userStatuses, type UserStatus, type UserSummary } from './types/user';
 export type { FileObjectDto } from './types/file-object';
+export {
+  documentConfidentialityLevelSchema,
+  documentConfidentialityLevels,
+  documentPrivilegeStatusSchema,
+  documentPrivilegeStatuses,
+  documentStatusSchema,
+  documentStatuses,
+  documentTypeSchema,
+  documentTypes,
+  type DocumentConfidentialityLevel,
+  type DocumentDto,
+  type DocumentPrivilegeStatus,
+  type DocumentStatus,
+  type DocumentType,
+} from './types/document';
 export {
   canIssueSessionForRole,
   isUserRole,
@@ -88,9 +105,14 @@ export type {
 export type { TenantSettingsDto } from './dto/tenant-settings.dto';
 export {
   uploadDocumentFieldsSchema,
+  type DocumentMetadataSuggestionDto,
   type UploadDocumentFieldsDto,
   type UploadDocumentResponseDto,
 } from './dto/document/upload-document.dto';
+export {
+  updateDocumentMetadataSchema,
+  type UpdateDocumentMetadataDto,
+} from './dto/document/update-document-metadata.dto';
 export {
   bulkUploadFileSchema,
   bulkUploadJobItemSchema,

@@ -21,3 +21,23 @@ export {
   type MatterTransitionDecision,
   type MatterTransitionReasonCode,
 } from './matter/matter-transitions';
+export {
+  DocumentType,
+  documentConfidentialityLevelValues,
+  documentPrivilegeStatusValues,
+  documentTypeValues,
+  isDocumentConfidentialityLevel,
+  isDocumentPrivilegeStatus,
+  isDocumentType,
+  type DocumentConfidentialityLevel,
+  type DocumentPrivilegeStatus,
+  type DocumentTypeValue,
+} from './document/document-type';
+export {
+  DocumentStatus,
+  allowedDocumentTransitions,
+  canTransitionDocumentStatus,
+  documentStatusValues,
+  isDocumentStatus,
+  type DocumentStatusValue,
+} from './document/document-status';

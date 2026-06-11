@@ -51,7 +51,7 @@ if (specs.length === 0) {
   process.exit(1);
 }
 
-const result = spawnSync('pnpm', ['exec', 'vitest', 'run', ...specs], {
+const result = spawnSync('pnpm', ['exec', 'vitest', 'run', '--no-file-parallelism', ...specs], {
   stdio: 'inherit',
 });
 
