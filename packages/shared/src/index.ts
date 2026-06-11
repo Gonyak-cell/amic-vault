@@ -25,10 +25,14 @@ export interface ApiErrorResponse {
 export {
   auditActions,
   auditMetadataKeys,
+  isAuditAction,
+  isAuditMetadataKey,
+  r1AuditActions,
   type AuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
   type AuditMetadataValue,
+  type R1AuditAction,
 } from './types/audit';
 
 export {
@@ -48,3 +52,25 @@ export type {
   PasswordResetRequestDto,
 } from './dto/auth.dto';
 export type { TenantSettingsDto } from './dto/tenant-settings.dto';
+
+export {
+  clientConfidentialityLevels,
+  clientConfidentialityLevelSchema,
+  clientStatuses,
+  clientStatusSchema,
+  clientTypes,
+  clientTypeSchema,
+  type ClientConfidentialityLevel,
+  type ClientStatus,
+  type ClientType,
+} from './client/client-enums';
+export {
+  createClientSchema,
+  listClientsQuerySchema,
+  updateClientSchema,
+  type ClientDto,
+  type ClientListDto,
+  type CreateClientDto,
+  type ListClientsQueryDto,
+  type UpdateClientDto,
+} from './client/client.dto';

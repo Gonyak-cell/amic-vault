@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 import type { TenantId } from '@amic-vault/shared';
+import type { QueryClient } from '../audit/audit.service';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -74,8 +75,8 @@ export class SessionRepository {
     ipAddress: string | null;
     userAgent: string | null;
     expiresAt: Date;
-  }): Promise<SessionRecord> {
-    const result = await getPool().query<SessionRow>(
+  }, client: QueryClient = getPool()): Promise<SessionRecord> {
+    const result = await client.query(
       `
         INSERT INTO sessions (
           tenant_id, user_id, token_hash, ip_address, user_agent, expires_at
@@ -92,7 +93,7 @@ export class SessionRepository {
         input.expiresAt,
       ],
     );
-    const row = result.rows[0];
+    const row = result.rows[0] as SessionRow | undefined;
     if (!row) {
       throw new Error('session insert returned no row');
     }
