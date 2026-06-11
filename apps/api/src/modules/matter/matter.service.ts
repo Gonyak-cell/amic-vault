@@ -5,6 +5,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  MatterState,
+  isMatterState,
+  validateMatterTransition,
+  type MatterStateValue,
+} from '@amic-vault/domain';
 import { Pool } from 'pg';
 import type {
   CreateMatterDto,
@@ -19,6 +25,7 @@ import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { EthicalWallService } from '../ethical-wall/ethical-wall.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
+import type { UpdateMatterStatusDto } from './dto/update-matter-status.dto';
 import { MatterMemberService } from './matter-member.service';
 import { MatterEntity } from './matter.entity';
 
@@ -93,8 +100,11 @@ function mapMatter(row: MatterRow): MatterEntity {
   });
 }
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({
+    code: 'VALIDATION_FAILED',
+    ...(reason ? { reason } : {}),
+  });
 }
 
 function permissionDenied(): ForbiddenException {
@@ -173,6 +183,49 @@ export class MatterService {
     return matter.toDto();
   }
 
+  async updateStatus(actorUserId: string, matterId: string, input: UpdateMatterStatusDto) {
+    const context = this.tenantContext.require();
+    const before = await this.findByIdForTenant(context.tenantId, matterId);
+    if (!before) throw notFoundDenied();
+    await this.assertCanManageMatterStatus(context.tenantId, actorUserId, matterId);
+
+    const from = asMatterState(before.props.status);
+    const transition = validateMatterTransition(from, input.status);
+    if (!transition.allowed) throw validationFailed(transition.reasonCode);
+    if (
+      from === MatterState.Closing &&
+      input.status === MatterState.Closed &&
+      before.props.closedAt
+    ) {
+      throw validationFailed('MATTER_CLOSED');
+    }
+
+    const updated = await this.auditService.transaction(context.tenantId, async (tx) => {
+      const changed = await this.updateMatterStatus(tx, context.tenantId, matterId, input.status);
+      if (!changed) throw notFoundDenied();
+      await this.auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'MATTER_STATUS_CHANGED',
+          targetType: 'matter',
+          targetId: matterId,
+          matterId,
+          metadata: {
+            matter_id: matterId,
+            before_ref: `status:${from}`,
+            after_ref: `status:${input.status}`,
+            reason_code: 'matter_status_changed',
+          },
+        },
+        tx,
+      );
+      return changed;
+    });
+
+    return updated.toDto();
+  }
+
   async list(actorUserId: string, query: ListMattersQueryDto): Promise<MatterListDto> {
     const context = this.tenantContext.require();
     const actor = await this.userService.findByTenantAndId(context.tenantId, actorUserId);
@@ -242,6 +295,23 @@ export class MatterService {
       });
       throw permissionDenied();
     }
+  }
+
+  private async assertCanManageMatterStatus(
+    tenantId: TenantId,
+    actorUserId: string,
+    matterId: string,
+  ): Promise<void> {
+    if (await this.matterMemberService.canManageMembers(tenantId, actorUserId, matterId)) return;
+    await this.permissionEvents.recordAccessDenied({
+      tenantId,
+      actorId: actorUserId,
+      targetType: 'matter',
+      targetId: matterId,
+      matterId,
+      reasonCode: 'PERMISSION_DENIED',
+    });
+    throw permissionDenied();
   }
 
   private async assertClientUsable(tenantId: TenantId, clientId: string): Promise<void> {
@@ -336,6 +406,37 @@ export class MatterService {
     return row ? mapMatter(row) : null;
   }
 
+  private async updateMatterStatus(
+    client: QueryClient,
+    tenantId: TenantId,
+    matterId: string,
+    status: MatterStateValue,
+  ): Promise<MatterEntity | null> {
+    const result = await client.query(
+      `
+        UPDATE matters
+        SET status = $3,
+            opened_at = CASE
+              WHEN $3 = 'open' AND opened_at IS NULL THEN now()
+              ELSE opened_at
+            END,
+            closed_at = CASE
+              WHEN $3 = 'closed' THEN COALESCE(closed_at, now())
+              ELSE closed_at
+            END,
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND matter_id = $2
+        RETURNING matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
+          status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
+          created_by, created_at, updated_at
+      `,
+      [tenantId, matterId, status],
+    );
+    const row = result.rows[0] as MatterRow | undefined;
+    return row ? mapMatter(row) : null;
+  }
+
   private async listForTenant(
     tenantId: TenantId,
     actorUserId: string,
@@ -405,4 +506,9 @@ export class MatterService {
       totalCount: Number(result.rows[0]?.total_count ?? '0'),
     };
   }
+}
+
+function asMatterState(status: string): MatterStateValue {
+  if (isMatterState(status)) return status;
+  throw validationFailed();
 }

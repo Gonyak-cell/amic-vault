@@ -5,6 +5,7 @@ import {
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -12,6 +13,7 @@ import {
 import type { RequestWithSession } from '../auth/session.guard';
 import { createMatterSchema } from './dto/create-matter.dto';
 import { listMattersQuerySchema } from './dto/list-matters.query';
+import { updateMatterStatusSchema } from './dto/update-matter-status.dto';
 import { MatterService } from './matter.service';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -59,5 +61,15 @@ export class MatterController {
   @Get(':matterId')
   get(@Req() request: RequestWithSession, @Param('matterId') matterId: string) {
     return this.matterService.get(sessionUserId(request), parseUuid(matterId));
+  }
+
+  @Patch(':matterId/status')
+  updateStatus(
+    @Req() request: RequestWithSession,
+    @Param('matterId') matterId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => updateMatterStatusSchema.parse(body));
+    return this.matterService.updateStatus(sessionUserId(request), parseUuid(matterId), input);
   }
 }

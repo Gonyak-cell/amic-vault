@@ -11,6 +11,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
+    "@amic-vault/domain": "workspace:*",
     "zod": "^3.24.1"
   }
 }

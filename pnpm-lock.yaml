@@ -69,6 +69,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@amic-vault/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@amic-vault/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -155,14 +158,13 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/domain:
-    dependencies:
-      '@amic-vault/shared':
-        specifier: workspace:*
-        version: link:../shared
+  packages/domain: {}
 
   packages/shared:
     dependencies:
+      '@amic-vault/domain':
+        specifier: workspace:*
+        version: link:../domain
       zod:
         specifier: ^3.24.1
         version: 3.25.76
