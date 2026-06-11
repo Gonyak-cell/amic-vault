@@ -6,6 +6,7 @@ import type { TenantService } from '../tenant/tenant.service';
 import { hashPassword } from '../user/password';
 import { UserEntity } from '../user/user.entity';
 import type { UserService } from '../user/user.service';
+import type { AuditService } from '../audit/audit.service';
 import { AuthService } from './auth.service';
 import { MfaPolicy } from './mfa.policy';
 import type { SessionRecord, SessionRepository } from './session.repository';
@@ -87,12 +88,26 @@ class MemorySessionRepository {
   }
 }
 
+class MemoryAuditService {
+  readonly events: unknown[] = [];
+
+  async log(input: unknown): Promise<void> {
+    this.events.push(input);
+  }
+
+  async transaction<T>(_tenantId: string, run: (client: never) => Promise<T>): Promise<T> {
+    return run(undefined as never);
+  }
+}
+
 function createService(entity: UserEntity | null, tenantEntity: TenantEntity | null = tenant()) {
+  const auditService = new MemoryAuditService();
   return new AuthService(
     fakeTenantService(tenantEntity),
     fakeUserService(entity),
     new MemorySessionRepository() as unknown as SessionRepository,
     new MfaPolicy(),
+    auditService as unknown as AuditService,
   );
 }
 

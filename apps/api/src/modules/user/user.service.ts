@@ -1,6 +1,7 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 import type { TenantId, UserStatus } from '@amic-vault/shared';
+import type { QueryClient } from '../audit/audit.service';
 import { hashPassword, normalizeEmail } from './password';
 import { UserEntity } from './user.entity';
 
@@ -62,7 +63,7 @@ export interface UserStore {
   findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null>;
   updatePasswordHash(tenantId: TenantId, userId: string, passwordHash: string): Promise<void>;
   setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void>;
-  recordLoginSuccess(tenantId: TenantId, userId: string): Promise<void>;
+  recordLoginSuccess(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void>;
 }
 
 export class PgUserStore implements UserStore {
@@ -152,8 +153,12 @@ export class PgUserStore implements UserStore {
     );
   }
 
-  async recordLoginSuccess(tenantId: TenantId, userId: string): Promise<void> {
-    await getPool().query(
+  async recordLoginSuccess(
+    tenantId: TenantId,
+    userId: string,
+    client: QueryClient = getPool(),
+  ): Promise<void> {
+    await client.query(
       `
         UPDATE users
         SET last_login_at = now(),
@@ -203,7 +208,7 @@ export class UserService {
     return this.store.setMfaEnabled(tenantId, userId, enabled);
   }
 
-  recordLoginSuccess(tenantId: TenantId, userId: string): Promise<void> {
-    return this.store.recordLoginSuccess(tenantId, userId);
+  recordLoginSuccess(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void> {
+    return this.store.recordLoginSuccess(tenantId, userId, client);
   }
 }

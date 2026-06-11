@@ -10,6 +10,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantModule } from './modules/tenant/tenant.module';
+import { ClientModule } from './modules/client/client.module';
 
 @Controller()
 class AppController {
@@ -24,7 +25,15 @@ class AppController {
 }
 
 @Module({
-  imports: [LoggerModule, MetricsModule, AuditModule, TenantModule, AuthModule, HealthModule],
+  imports: [
+    LoggerModule,
+    MetricsModule,
+    AuditModule,
+    TenantModule,
+    AuthModule,
+    HealthModule,
+    ClientModule,
+  ],
   controllers: [AppController],
   providers: [
     LogErrorTracker,
