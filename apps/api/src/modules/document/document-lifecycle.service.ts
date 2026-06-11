@@ -10,6 +10,11 @@ import {
 import { assertDeletable, LegalHoldBlockedError } from '@amic-vault/domain';
 import type { DocumentStatus, PermissionDecision, TenantId } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import {
+  documentDeletedAudit,
+  documentDownloadedAudit,
+  documentRestoredAudit,
+} from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
@@ -113,20 +118,14 @@ export class DocumentLifecycleService {
       );
       if (updated.rowCount !== 1) throw validationFailed('DOCUMENT_DELETE_CONFLICT');
       await this.auditService.log(
-        {
+        documentDeletedAudit({
           tenantId: context.tenantId,
           actorId: actorUserId,
-          action: 'DOCUMENT_DELETED',
-          targetType: 'document',
-          targetId: documentId,
+          documentId,
           matterId: target.matter_id,
-          metadata: {
-            document_id: documentId,
-            matter_id: target.matter_id,
-            before_ref: statusRef(target.status),
-            after_ref: statusRef('deleted'),
-          },
-        },
+          beforeRef: statusRef(target.status),
+          afterRef: statusRef('deleted'),
+        }),
         tx,
       );
     });
@@ -162,20 +161,14 @@ export class DocumentLifecycleService {
       );
       if (restored.rowCount !== 1) throw validationFailed('DOCUMENT_RESTORE_CONFLICT');
       await this.auditService.log(
-        {
+        documentRestoredAudit({
           tenantId: context.tenantId,
           actorId: actorUserId,
-          action: 'DOCUMENT_RESTORED',
-          targetType: 'document',
-          targetId: documentId,
+          documentId,
           matterId: target.matter_id,
-          metadata: {
-            document_id: documentId,
-            matter_id: target.matter_id,
-            before_ref: statusRef('deleted'),
-            after_ref: statusRef(target.deleted_previous_status),
-          },
-        },
+          beforeRef: statusRef('deleted'),
+          afterRef: statusRef(target.deleted_previous_status),
+        }),
         tx,
       );
     });
@@ -192,22 +185,16 @@ export class DocumentLifecycleService {
       if (!row) throw notFoundDenied();
       if (row.status === 'deleted') throw documentLocked();
       await this.assertCanDownloadDocument(context.tenantId, actorUserId, documentId, reasonCode);
+      const auditInput = {
+        tenantId: context.tenantId,
+        actorId: actorUserId,
+        documentId,
+        matterId: row.matter_id,
+        versionId: row.version_id,
+        hash: row.sha256,
+      };
       await this.auditService.log(
-        {
-          tenantId: context.tenantId,
-          actorId: actorUserId,
-          action: 'DOCUMENT_DOWNLOADED',
-          targetType: 'document',
-          targetId: documentId,
-          matterId: row.matter_id,
-          metadata: {
-            document_id: documentId,
-            matter_id: row.matter_id,
-            version_id: row.version_id,
-            hash: row.sha256,
-            ...(reasonCode ? { reason_code: reasonCode } : {}),
-          },
-        },
+        documentDownloadedAudit(reasonCode ? { ...auditInput, reasonCode } : auditInput),
         tx,
       );
       return row;

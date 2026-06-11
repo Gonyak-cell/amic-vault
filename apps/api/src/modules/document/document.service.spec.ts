@@ -6,6 +6,7 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const matterId = '11111111-1111-4111-8111-111111111122';
 const documentId = '11111111-1111-4111-8111-111111111133';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
+const versionId = '11111111-1111-4111-8111-111111111144';
 
 function documentRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -20,6 +21,7 @@ function documentRow(overrides: Record<string, unknown> = {}) {
     confidentiality_level: 'standard',
     privilege_status: 'none',
     legal_hold: false,
+    version_id: versionId,
     created_by: actorUserId,
     created_at: new Date('2026-06-12T00:00:00.000Z'),
     updated_at: new Date('2026-06-12T00:00:00.000Z'),
@@ -180,6 +182,8 @@ describe('DocumentService', () => {
         metadata: {
           document_id: documentId,
           matter_id: matterId,
+          version_id: versionId,
+          channel: 'detail',
         },
       }),
       tx,

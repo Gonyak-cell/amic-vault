@@ -151,6 +151,14 @@ export {
   type BulkUploadReportDto,
   type BulkUploadSuccessItemDto,
 } from './dto/document/bulk-upload.dto';
+export {
+  documentAuditQueryEventTypeSchema,
+  documentAuditQuerySchema,
+  type DocumentAuditEventDto,
+  type DocumentAuditEventListDto,
+  type DocumentAuditQueryDto,
+  type DocumentAuditQueryEventType,
+} from './dto/audit/audit-query.dto';
 
 export {
   clientConfidentialityLevels,

@@ -24,6 +24,10 @@ import type {
   UserRole,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import {
+  documentMetadataChangedAudit,
+  documentViewedAudit,
+} from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
@@ -61,6 +65,7 @@ interface DocumentRow {
   confidentiality_level: DocumentConfidentialityLevel;
   privilege_status: DocumentPrivilegeStatus;
   legal_hold: boolean;
+  version_id?: string | null;
   extraction_status?: DocumentExtractionStatus | null;
   extraction_method?: DocumentExtractionMethod | null;
   extraction_confidence?: number | null;
@@ -221,21 +226,15 @@ export class DocumentService {
       const updated = await this.updateDocumentMetadata(tx, context.tenantId, documentId, input);
       if (!updated) throw notFoundDenied();
       await auditService.log(
-        {
+        documentMetadataChangedAudit({
           tenantId: context.tenantId,
           actorId: actorUserId,
-          action: 'DOCUMENT_METADATA_CHANGED',
-          targetType: 'document',
-          targetId: documentId,
+          documentId,
           matterId: updated.matter_id,
-          metadata: {
-            document_id: documentId,
-            matter_id: updated.matter_id,
-            diff_keys: diffKeys,
-            before_ref: metadataRef(before),
-            after_ref: metadataRef(updated),
-          },
-        },
+          diffKeys,
+          beforeRef: metadataRef(before),
+          afterRef: metadataRef(updated),
+        }),
         tx,
       );
       return mapDocument(updated);
@@ -250,19 +249,16 @@ export class DocumentService {
       const document = await this.findByIdWithExtractionForTenant(context.tenantId, documentId, tx);
       if (!document) throw notFoundDenied();
       await this.assertCanReadDocument(context.tenantId, actorUserId, documentId);
+      if (!document.version_id) throw validationFailed('DOCUMENT_VERSION_REQUIRED');
       await auditService.log(
-        {
+        documentViewedAudit({
           tenantId: context.tenantId,
           actorId: actorUserId,
-          action: 'DOCUMENT_VIEWED',
-          targetType: 'document',
-          targetId: documentId,
+          documentId,
           matterId: document.matter_id,
-          metadata: {
-            document_id: documentId,
-            matter_id: document.matter_id,
-          },
-        },
+          versionId: document.version_id,
+          channel: 'detail',
+        }),
         tx,
       );
       return mapDocument(document);
@@ -391,7 +387,7 @@ export class DocumentService {
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.legal_hold, cd.extraction_status, cd.extraction_method,
+          d.legal_hold, dv.version_id, cd.extraction_status, cd.extraction_method,
           cd.confidence::float8 AS extraction_confidence,
           d.created_by, d.created_at, d.updated_at, m.status AS matter_status
         FROM documents d

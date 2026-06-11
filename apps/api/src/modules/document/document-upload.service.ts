@@ -16,6 +16,10 @@ import type {
   UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
+import {
+  documentUploadedAudit,
+  documentVersionAddedAudit,
+} from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -193,20 +197,14 @@ export class DocumentUploadService {
             tx,
           );
           await this.auditService.log(
-            {
+            documentUploadedAudit({
               tenantId: context.tenantId,
               actorId: input.actorUserId,
-              action: 'DOCUMENT_UPLOADED',
-              targetType: 'document',
-              targetId: documentId,
+              documentId,
               matterId: input.matterId,
-              metadata: {
-                document_id: documentId,
-                matter_id: input.matterId,
-                version_id: version.versionId,
-                hash: sha256,
-              },
-            },
+              versionId: version.versionId,
+              hash: sha256,
+            }),
             tx,
           );
           return { document, duplicates };
@@ -322,20 +320,14 @@ export class DocumentUploadService {
             tx,
           );
           await this.auditService.log(
-            {
+            documentVersionAddedAudit({
               tenantId: context.tenantId,
               actorId: input.actorUserId,
-              action: 'DOCUMENT_VERSION_ADDED',
-              targetType: 'document',
-              targetId: input.documentId,
+              documentId: input.documentId,
               matterId: target.matter_id,
-              metadata: {
-                document_id: input.documentId,
-                matter_id: target.matter_id,
-                version_id: version.versionId,
-                hash: sha256,
-              },
-            },
+              versionId: version.versionId,
+              hash: sha256,
+            }),
             tx,
           );
           return {
