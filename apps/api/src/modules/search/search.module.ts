@@ -10,22 +10,47 @@ import { ReindexController } from './index/reindex.controller';
 import { ReindexService } from './index/reindex.service';
 import { SearchIndexRepository } from './index/search-index.repository';
 import { SearchIndexSyncHook } from './index/index-sync.hook';
+import {
+  DenyAllSearchPermissionScopeProvider,
+  SEARCH_PERMISSION_SCOPE_PROVIDER,
+} from './permission/search-permission-scope.provider';
+import { SearchController } from './search.controller';
+import { SearchService } from './search.service';
 import { SearchFilterBuilder } from './query/search-filter.builder';
+import { SearchQueryBuilder } from './query/search-query.builder';
+import { SnippetBuilder } from './query/snippet-builder';
 
 @Module({
   imports: [AuditModule, MetricsModule, TenantModule],
-  controllers: [ReindexController],
+  controllers: [ReindexController, SearchController],
   providers: [
+    DenyAllSearchPermissionScopeProvider,
     IndexFailureHandler,
     IndexingProcessor,
     PgRoleLookup,
     RequireRolesGuard,
     ReindexService,
     SearchFilterBuilder,
+    SearchQueryBuilder,
     SearchIndexingService,
     SearchIndexRepository,
     SearchIndexSyncHook,
+    SearchService,
+    SnippetBuilder,
+    {
+      provide: SEARCH_PERMISSION_SCOPE_PROVIDER,
+      useExisting: DenyAllSearchPermissionScopeProvider,
+    },
   ],
-  exports: [SearchFilterBuilder, SearchIndexingService, SearchIndexRepository, SearchIndexSyncHook],
+  exports: [
+    SEARCH_PERMISSION_SCOPE_PROVIDER,
+    SearchFilterBuilder,
+    SearchIndexingService,
+    SearchIndexRepository,
+    SearchIndexSyncHook,
+    SearchQueryBuilder,
+    SearchService,
+    SnippetBuilder,
+  ],
 })
 export class SearchModule {}

@@ -170,7 +170,10 @@ export {
   searchVersionStatusValues,
   type SearchDocumentTypeFilterDto,
   type SearchFiltersDto,
+  type SearchHighlightDto,
   type SearchQueryDto,
+  type SearchResponseDto,
+  type SearchResultDto,
   type SearchVersionStatus,
 } from './search/search-query.dto';
 
