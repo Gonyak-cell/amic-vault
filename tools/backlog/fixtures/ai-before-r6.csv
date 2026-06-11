@@ -1,0 +1,2 @@
+work_id,title,release,module,risk,size,depends_on,files,verification
+AI-RAG-PERM-TUW-001,AI retrieval candidate filter,R2,AI-RAG,H,M,,,ok

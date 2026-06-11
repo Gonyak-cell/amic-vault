@@ -1,0 +1,3 @@
+work_id,title,release,module,risk,size,depends_on,files,verification
+CORE-X-TUW-001,one,R0,CORE-X,M,S,CORE-Y-TUW-001,,ok
+CORE-Y-TUW-001,two,R1,CORE-Y,M,S,,,ok

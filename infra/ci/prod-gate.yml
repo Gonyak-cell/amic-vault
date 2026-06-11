@@ -1,0 +1,12 @@
+# Production gate skeleton for PACK-R0-01.
+# This is a policy artifact. Real deployment steps remain no-op until a later release.
+name: prod-gate
+trigger: manual
+required_before_continue:
+  - release_gate_report_passed
+  - risk_c_review_complete
+  - execution_ledger_recorded
+timeout_minutes: 60
+deploy:
+  enabled: false
+  reason: "Production deployment is intentionally disabled in R0."

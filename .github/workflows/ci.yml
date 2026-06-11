@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "feat/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: node tools/backlog/validate.mjs docs/package/codex/data/backlog_r0_r3.csv
+      - run: node infra/ci/scripts/check-docs-package-frozen.mjs
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build api image
+        run: docker build -f apps/api/Dockerfile -t amic-vault-api:${{ github.sha }} .
+      - name: Build web image
+        run: docker build -f apps/web/Dockerfile -t amic-vault-web:${{ github.sha }} .
+      - name: Build ingestion image
+        run: docker build -f workers/ingestion/Dockerfile -t amic-vault-ingestion:${{ github.sha }} .
+
+  python-placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python --version
+      - run: echo "Python lint/test placeholder until worker implementation PACKs."
