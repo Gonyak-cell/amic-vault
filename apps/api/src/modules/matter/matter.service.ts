@@ -15,9 +15,11 @@ import type {
   TenantId,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { EthicalWallService } from '../ethical-wall/ethical-wall.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
+import { MatterMemberService } from './matter-member.service';
 import { MatterEntity } from './matter.entity';
 
 const databaseUrl =
@@ -57,7 +59,11 @@ export function canCreateMatterRole(role: string): boolean {
   return role === 'firm_admin' || role === 'matter_owner';
 }
 
-export function canReadMatterConservatively(role: string, actorUserId: string, matter: MatterEntity): boolean {
+export function canReadMatterConservatively(
+  role: string,
+  actorUserId: string,
+  matter: MatterEntity,
+): boolean {
   // REPLACED-BY: SEC-MATTPERM-ACCECONT-TUW-004
   return role === 'firm_admin' || matter.props.leadLawyerId === actorUserId;
 }
@@ -107,7 +113,9 @@ function notFoundDenied(): NotFoundException {
 export class MatterService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
     @Inject(EthicalWallService) private readonly ethicalWallService: EthicalWallService,
+    @Inject(MatterMemberService) private readonly matterMemberService: MatterMemberService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
   ) {}
@@ -129,7 +137,13 @@ export class MatterService {
         leadLawyerId,
         input,
       );
-      // MEMBMANA-002 wires lead_lawyer into matter_members owner in the same transaction.
+      await this.matterMemberService.addLeadOwner(
+        tx,
+        context.tenantId,
+        created.props.matterId,
+        leadLawyerId,
+        actorUserId,
+      );
       await this.auditService.log(
         {
           tenantId: context.tenantId,
@@ -163,7 +177,12 @@ export class MatterService {
     const context = this.tenantContext.require();
     const actor = await this.userService.findByTenantAndId(context.tenantId, actorUserId);
     if (!actor) throw permissionDenied();
-    const { items, totalCount } = await this.listForTenant(context.tenantId, actorUserId, actor.role, query);
+    const { items, totalCount } = await this.listForTenant(
+      context.tenantId,
+      actorUserId,
+      actor.role,
+      query,
+    );
     return {
       items: items.map((matter) => matter.toDto()),
       totalCount,
@@ -186,10 +205,41 @@ export class MatterService {
         actorUserId,
       );
     } catch {
+      await this.permissionEvents.recordAccessDenied({
+        tenantId,
+        actorId: actorUserId,
+        targetType: 'matter',
+        targetId: matter.props.matterId,
+        matterId: matter.props.matterId,
+        reasonCode: 'EVAL_FAILURE',
+      });
       throw permissionDenied();
     }
-    if (wallDenied) throw ethicalWallBlocked();
-    if (!actor || !canReadMatterConservatively(actor.role, actorUserId, matter)) {
+    if (wallDenied) {
+      await this.permissionEvents.recordAccessDenied({
+        tenantId,
+        actorId: actorUserId,
+        targetType: 'matter',
+        targetId: matter.props.matterId,
+        matterId: matter.props.matterId,
+        reasonCode: 'ETHICAL_WALL_BLOCKED',
+      });
+      throw ethicalWallBlocked();
+    }
+    const memberAllowed = await this.matterMemberService.isMember(
+      tenantId,
+      matter.props.matterId,
+      actorUserId,
+    );
+    if (!actor || (actor.role !== 'firm_admin' && !memberAllowed)) {
+      await this.permissionEvents.recordAccessDenied({
+        tenantId,
+        actorId: actorUserId,
+        targetType: 'matter',
+        targetId: matter.props.matterId,
+        matterId: matter.props.matterId,
+        reasonCode: 'PERMISSION_DENIED',
+      });
       throw permissionDenied();
     }
   }
@@ -223,7 +273,9 @@ export class MatterService {
   }
 
   private async userExistsAnyTenant(userId: string): Promise<boolean> {
-    const result = await getPool().query('SELECT 1 FROM users WHERE user_id = $1 LIMIT 1', [userId]);
+    const result = await getPool().query('SELECT 1 FROM users WHERE user_id = $1 LIMIT 1', [
+      userId,
+    ]);
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -310,7 +362,15 @@ export class MatterService {
     `);
     if (shouldRestrictMatterListToLead(actorRole)) {
       params.push(actorUserId);
-      filters.push(`lead_lawyer_id = $${params.length}`);
+      filters.push(`
+        EXISTS (
+          SELECT 1
+          FROM matter_members mm
+          WHERE mm.tenant_id = matters.tenant_id
+            AND mm.matter_id = matters.matter_id
+            AND mm.user_id = $${params.length}::uuid
+        )
+      `);
     }
     if (query.status) {
       params.push(query.status);

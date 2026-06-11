@@ -65,10 +65,7 @@ export {
   type RolePermissionDecision,
   type RolePermissionMatrix,
 } from './permission/role-permission-matrix';
-export {
-  assignUserRoleSchema,
-  type AssignUserRoleDto,
-} from './user/user-role.dto';
+export { assignUserRoleSchema, type AssignUserRoleDto } from './user/user-role.dto';
 export type {
   LoginRequestDto,
   LoginResponseDto,
@@ -117,6 +114,20 @@ export {
   type MatterListDto,
   type MatterStatus,
 } from './matter/matter.dto';
+export {
+  addMatterMemberSchema,
+  matterMemberAccessLevelSchema,
+  matterMemberAccessLevels,
+  matterMemberRoleSchema,
+  matterMemberRoles,
+  updateMatterMemberSchema,
+  type AddMatterMemberDto,
+  type MatterMemberAccessLevel,
+  type MatterMemberDto,
+  type MatterMemberListDto,
+  type MatterMemberRole,
+  type UpdateMatterMemberDto,
+} from './matter/matter-member.dto';
 export {
   createEthicalWallSchema,
   ethicalWallStatuses,

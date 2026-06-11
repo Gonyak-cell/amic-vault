@@ -1,9 +1,13 @@
 import type {
   ApiErrorResponse,
   ErrorCode,
+  AddMatterMemberDto,
   ListMattersQueryDto,
   MatterDto,
+  MatterMemberDto,
+  MatterMemberListDto,
   MatterListDto,
+  UpdateMatterMemberDto,
 } from '@amic-vault/shared';
 import { ERROR_CODES } from '@amic-vault/shared';
 import { apiBaseUrl } from './config';
@@ -27,7 +31,9 @@ function isErrorCode(value: unknown): value is ErrorCode {
 }
 
 async function parseError(response: Response): Promise<ApiErrorResponse> {
-  const body = (await response.json().catch(() => undefined)) as Partial<ApiErrorResponse> | undefined;
+  const body = (await response.json().catch(() => undefined)) as
+    | Partial<ApiErrorResponse>
+    | undefined;
   const code = isErrorCode(body?.code) ? body.code : 'VALIDATION_FAILED';
   if (body?.requestId) {
     return { code, requestId: body.requestId };
@@ -62,6 +68,7 @@ export async function apiFetch<T>(
     throw error;
   }
 
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
@@ -82,4 +89,35 @@ export function listMatters(query: Partial<ListMattersQueryDto> = {}): Promise<M
 
 export function getMatter(matterId: string): Promise<MatterDto> {
   return apiFetch<MatterDto>(`/matters/${matterId}`);
+}
+
+export function listMatterMembers(matterId: string): Promise<MatterMemberListDto> {
+  return apiFetch<MatterMemberListDto>(`/matters/${matterId}/members`);
+}
+
+export function addMatterMember(
+  matterId: string,
+  input: AddMatterMemberDto,
+): Promise<MatterMemberDto> {
+  return apiFetch<MatterMemberDto>(`/matters/${matterId}/members`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateMatterMember(
+  matterId: string,
+  userId: string,
+  input: UpdateMatterMemberDto,
+): Promise<MatterMemberDto> {
+  return apiFetch<MatterMemberDto>(`/matters/${matterId}/members/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function removeMatterMember(matterId: string, userId: string): Promise<void> {
+  return apiFetch<void>(`/matters/${matterId}/members/${userId}`, {
+    method: 'DELETE',
+  });
 }
