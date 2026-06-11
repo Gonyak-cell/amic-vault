@@ -40,6 +40,18 @@ try {
       tenant.tenantId,
     ]);
 
+    await client.query(
+      `
+        INSERT INTO workspaces (workspace_id, tenant_id, name, status)
+        VALUES ($1, $2, $3, 'active')
+        ON CONFLICT (tenant_id, name) DO UPDATE
+          SET workspace_id = EXCLUDED.workspace_id,
+              status = EXCLUDED.status,
+              updated_at = now()
+      `,
+      [tenant.workspace.workspaceId, tenant.tenantId, tenant.workspace.name],
+    );
+
     for (const user of tenant.users) {
       await client.query(
         `

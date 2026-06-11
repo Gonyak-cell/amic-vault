@@ -30,3 +30,13 @@ export {
   type AuditMetadataKey,
   type AuditMetadataValue,
 } from './types/audit';
+
+export {
+  tenantStatuses,
+  workspaceStatuses,
+  type TenantId,
+  type TenantStatus,
+  type TenantSummary,
+  type WorkspaceStatus,
+} from './types/tenant';
+export type { TenantSettingsDto } from './dto/tenant-settings.dto';
