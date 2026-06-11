@@ -12,6 +12,11 @@ export interface UploadDocumentResponseDto {
   fileObjectId: string;
   status: 'draft';
   title: string;
+  duplicates: Array<{
+    documentId: string;
+    fileObjectId: string;
+    sha256: string;
+  }>;
 }
 
 export type UploadDocumentFieldsDto = z.infer<typeof uploadDocumentFieldsSchema>;

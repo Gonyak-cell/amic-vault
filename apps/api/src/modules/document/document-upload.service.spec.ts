@@ -10,7 +10,7 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
 const matterId = '11111111-1111-4111-8111-111111111122';
 
-async function tempUploadFile(name: string, content = 'content'): Promise<UploadedDiskFile> {
+async function tempUploadFile(name: string, content = '%PDF-1.7 content'): Promise<UploadedDiskFile> {
   const dir = await mkdtemp(join(tmpdir(), 'amic-vault-upload-test-'));
   const path = join(dir, name);
   await writeFile(path, content);
@@ -60,6 +60,7 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     normalizedFilename: 'Contract.pdf',
     mimeType: 'application/pdf',
     sizeBytes: 7,
+    sha256: 'd'.repeat(64),
     encryptionKeyId: null,
     sourceSystem: 'upload' as const,
     createdBy: actorUserId,
@@ -78,6 +79,7 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
   const service = new DocumentUploadService(
     { transaction } as never,
     { createDraft } as never,
+    { findCandidates: vi.fn(async () => []) } as never,
     { create: createFileObject } as never,
     { canUploadToMatter: vi.fn(async () => permission) } as never,
     { putTenantObject, deleteByStorageUri: vi.fn(async () => undefined) } as never,
@@ -100,11 +102,18 @@ describe('DocumentUploadService', () => {
 
     expect(response.status).toBe('draft');
     expect(response.title).toBe('Contract');
+    expect(response.duplicates).toEqual([]);
     expect(putTenantObject).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId, matterId, contentType: 'application/pdf' }),
     );
     expect(createDraft).toHaveBeenCalledOnce();
-    expect(createFileObject).toHaveBeenCalledOnce();
+    expect(createFileObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mimeType: 'application/pdf',
+        sha256: 'd274f10f823f4da5c383bedc6bf03b4aed26b05f8306cf082b8402ae78a456a5',
+      }),
+      expect.anything(),
+    );
   });
 
   it('fails closed before storage when upload permission denies', async () => {

@@ -14,6 +14,7 @@ import { uploadDocumentFieldsSchema } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
 import { multipartFieldName, multipartUploadOptions } from './multipart.config';
 import { DocumentUploadService, type UploadedDiskFile } from './document-upload.service';
+import { mapDocumentUploadError } from './document-error.mapper';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -48,17 +49,21 @@ export class DocumentController {
 
   @Post()
   @UseInterceptors(FileInterceptor(multipartFieldName, multipartUploadOptions()))
-  upload(
+  async upload(
     @Req() request: RequestWithSession,
     @Param('matterId') matterId: string,
     @Body() body: unknown,
     @UploadedFile() file: UploadedDiskFile | undefined,
   ) {
-    return this.uploadService.upload({
-      actorUserId: sessionUserId(request),
-      matterId: parseUuid(matterId),
-      fields: parseBody(body),
-      file,
-    });
+    try {
+      return await this.uploadService.upload({
+        actorUserId: sessionUserId(request),
+        matterId: parseUuid(matterId),
+        fields: parseBody(body),
+        file,
+      });
+    } catch (error) {
+      throw mapDocumentUploadError(error);
+    }
   }
 }

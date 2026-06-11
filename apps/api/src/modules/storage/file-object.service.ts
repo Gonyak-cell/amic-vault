@@ -14,7 +14,10 @@ function getPool(): Pool {
 }
 
 interface QueryClient {
-  query(sql: string, params?: readonly unknown[]): Promise<{ rows: unknown[]; rowCount: number | null }>;
+  query(
+    sql: string,
+    params?: readonly unknown[],
+  ): Promise<{ rows: unknown[]; rowCount: number | null }>;
 }
 
 interface FileObjectRow {
@@ -25,6 +28,7 @@ interface FileObjectRow {
   normalized_filename: string;
   mime_type: string;
   size_bytes: string;
+  sha256: string;
   encryption_key_id: string | null;
   source_system: 'upload' | 'email_ingest' | 'migration';
   created_by: string | null;
@@ -39,6 +43,7 @@ export interface CreateFileObjectInput {
   normalizedFilename: string;
   mimeType: string;
   sizeBytes: number;
+  sha256: string;
   encryptionKeyId: string | null;
   sourceSystem?: 'upload' | 'email_ingest' | 'migration';
   createdBy: string | null;
@@ -53,6 +58,7 @@ function mapFileObject(row: FileObjectRow): FileObjectDto {
     normalizedFilename: row.normalized_filename,
     mimeType: row.mime_type,
     sizeBytes: Number(row.size_bytes),
+    sha256: row.sha256,
     encryptionKeyId: row.encryption_key_id,
     sourceSystem: row.source_system,
     createdBy: row.created_by,
@@ -67,11 +73,11 @@ export class FileObjectService {
       `
         INSERT INTO file_objects (
           file_object_id, tenant_id, storage_uri, original_filename, normalized_filename,
-          mime_type, size_bytes, encryption_key_id, source_system, created_by
+          mime_type, size_bytes, sha256, encryption_key_id, source_system, created_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING file_object_id, tenant_id, storage_uri, original_filename,
-          normalized_filename, mime_type, size_bytes::text, encryption_key_id,
+          normalized_filename, mime_type, size_bytes::text, sha256, encryption_key_id,
           source_system, created_by, created_at
       `,
       [
@@ -82,6 +88,7 @@ export class FileObjectService {
         input.normalizedFilename,
         input.mimeType,
         input.sizeBytes,
+        input.sha256,
         input.encryptionKeyId,
         input.sourceSystem ?? 'upload',
         input.createdBy,
@@ -96,7 +103,7 @@ export class FileObjectService {
     const result = await getPool().query(
       `
         SELECT file_object_id, tenant_id, storage_uri, original_filename,
-          normalized_filename, mime_type, size_bytes::text, encryption_key_id,
+          normalized_filename, mime_type, size_bytes::text, sha256, encryption_key_id,
           source_system, created_by, created_at
         FROM file_objects
         WHERE tenant_id = $1
