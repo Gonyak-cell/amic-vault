@@ -161,6 +161,18 @@ export {
   type DocumentAuditQueryDto,
   type DocumentAuditQueryEventType,
 } from './dto/audit/audit-query.dto';
+export {
+  searchDocumentTypeFilterSchema,
+  searchFiltersSchema,
+  searchIsoDateTimeSchema,
+  searchQuerySchema,
+  searchVersionStatusSchema,
+  searchVersionStatusValues,
+  type SearchDocumentTypeFilterDto,
+  type SearchFiltersDto,
+  type SearchQueryDto,
+  type SearchVersionStatus,
+} from './search/search-query.dto';
 
 export {
   clientConfidentialityLevels,

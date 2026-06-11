@@ -18,6 +18,7 @@ export interface SearchIndexRow {
   contentText: string;
   sourceTextHash: string;
   indexedAt: Date;
+  updatedAt: Date;
 }
 
 interface SearchIndexSourceRow {
@@ -31,6 +32,7 @@ interface SearchIndexSourceRow {
   version_status: string;
   title: string;
   body_text: string | null;
+  document_updated_at: Date;
 }
 
 interface SearchIndexDbRow {
@@ -47,6 +49,7 @@ interface SearchIndexDbRow {
   content_text: string;
   source_text_hash: string;
   indexed_at: Date;
+  updated_at: Date;
 }
 
 export function truncateUtf8(input: string, maxBytes = maxIndexedContentBytes): string {
@@ -81,6 +84,7 @@ function mapRow(row: SearchIndexDbRow): SearchIndexRow {
     contentText: row.content_text,
     sourceTextHash: row.source_text_hash,
     indexedAt: row.indexed_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -103,7 +107,7 @@ export class SearchIndexRepository {
           document_status, version_status, title, content_text, fts_config,
           source_text_hash, indexed_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'simple', $11, now(), now())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'simple', $11, now(), $12)
         ON CONFLICT (tenant_id, version_id)
         DO UPDATE SET
           matter_id = EXCLUDED.matter_id,
@@ -119,7 +123,7 @@ export class SearchIndexRepository {
           updated_at = EXCLUDED.updated_at
         RETURNING index_id, tenant_id, document_id, version_id, matter_id, client_id,
           document_type, document_status, version_status, title, content_text,
-          source_text_hash, indexed_at
+          source_text_hash, indexed_at, updated_at
       `,
       [
         source.tenant_id,
@@ -133,6 +137,7 @@ export class SearchIndexRepository {
         source.title,
         truncatedContent,
         sourceTextHash,
+        source.document_updated_at,
       ],
     );
     const row = result.rows[0] as SearchIndexDbRow | undefined;
@@ -147,7 +152,7 @@ export class SearchIndexRepository {
       `
         SELECT index_id, tenant_id, document_id, version_id, matter_id, client_id,
           document_type, document_status, version_status, title, content_text,
-          source_text_hash, indexed_at
+          source_text_hash, indexed_at, updated_at
         FROM document_search_index
         WHERE tenant_id = $1
           AND version_id = $2
@@ -167,7 +172,7 @@ export class SearchIndexRepository {
       `
         SELECT dv.tenant_id, dv.document_id, dv.version_id, d.matter_id, m.client_id,
           d.document_type, d.status AS document_status, dv.version_status, d.title,
-          cd.body_text
+          cd.body_text, d.updated_at AS document_updated_at
         FROM document_versions dv
         JOIN documents d
           ON d.tenant_id = dv.tenant_id

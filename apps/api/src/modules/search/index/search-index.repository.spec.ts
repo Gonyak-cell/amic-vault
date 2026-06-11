@@ -29,6 +29,7 @@ describe('SearchIndexRepository', () => {
               version_status: 'current',
               title: 'Searchable title',
               body_text: 'Confidential source body',
+              document_updated_at: new Date('2026-06-11T00:00:00.000Z'),
             },
           ],
           rowCount: 1,
@@ -50,6 +51,7 @@ describe('SearchIndexRepository', () => {
               source_text_hash:
                 '8aa3af6ab56a83bf453038fa57b2ae8fc426e2ef4eec3e3d2d687ddd0d3d20d9',
               indexed_at: new Date('2026-06-12T00:00:00.000Z'),
+              updated_at: new Date('2026-06-11T00:00:00.000Z'),
             },
           ],
           rowCount: 1,
@@ -69,6 +71,7 @@ describe('SearchIndexRepository', () => {
       matterId,
       clientId,
       sourceTextHash: '8aa3af6ab56a83bf453038fa57b2ae8fc426e2ef4eec3e3d2d687ddd0d3d20d9',
+      updatedAt: new Date('2026-06-11T00:00:00.000Z'),
     });
     expect(client.query.mock.calls[1]?.[1]).not.toContain('body');
   });

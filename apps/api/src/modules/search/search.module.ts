@@ -10,6 +10,7 @@ import { ReindexController } from './index/reindex.controller';
 import { ReindexService } from './index/reindex.service';
 import { SearchIndexRepository } from './index/search-index.repository';
 import { SearchIndexSyncHook } from './index/index-sync.hook';
+import { SearchFilterBuilder } from './query/search-filter.builder';
 
 @Module({
   imports: [AuditModule, MetricsModule, TenantModule],
@@ -20,10 +21,11 @@ import { SearchIndexSyncHook } from './index/index-sync.hook';
     PgRoleLookup,
     RequireRolesGuard,
     ReindexService,
+    SearchFilterBuilder,
     SearchIndexingService,
     SearchIndexRepository,
     SearchIndexSyncHook,
   ],
-  exports: [SearchIndexingService, SearchIndexRepository, SearchIndexSyncHook],
+  exports: [SearchFilterBuilder, SearchIndexingService, SearchIndexRepository, SearchIndexSyncHook],
 })
 export class SearchModule {}
