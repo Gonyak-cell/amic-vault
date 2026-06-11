@@ -34,7 +34,7 @@ jobs:
           node-version: 22
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: docker compose -f infra/docker-compose.dev.yml up -d
+      - run: docker compose -f infra/docker-compose.dev.yml up -d --wait
       - run: node tools/db/check-migration-conventions.mjs
       - run: pnpm db:migrate
       - run: pnpm db:rollback
