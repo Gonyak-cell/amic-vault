@@ -198,8 +198,11 @@ describe('matter lifecycle integration', () => {
     const memberDenied = await updateStatus(baseUrl, memberCookie, matterId, 'open');
     expect(memberDenied.status, await memberDenied.text()).toBe(403);
 
-    const adminAllowed = await updateStatus(baseUrl, firmAdminCookie, matterId, 'open');
-    expect(adminAllowed.status, await adminAllowed.text()).toBe(200);
+    const adminDenied = await updateStatus(baseUrl, firmAdminCookie, matterId, 'open');
+    expect(adminDenied.status, await adminDenied.text()).toBe(403);
+
+    const ownerAllowed = await updateStatus(baseUrl, ownerCookie, matterId, 'open');
+    expect(ownerAllowed.status, await ownerAllowed.text()).toBe(200);
 
     await insertInvalidStatus(clientId);
   });
@@ -234,7 +237,7 @@ describe('matter lifecycle integration', () => {
     const archive = await updateStatus(baseUrl, ownerCookie, matterId, 'archived');
     expect(archive.status, await archive.text()).toBe(200);
 
-    const addArchived = await addMember(baseUrl, firmAdminCookie, matterId, alphaFirmAdminUserId);
+    const addArchived = await addMember(baseUrl, ownerCookie, matterId, alphaFirmAdminUserId);
     const addArchivedBody = await addArchived.text();
     expect(addArchived.status, addArchivedBody).toBe(400);
     expect(addArchivedBody).toContain('MATTER_CLOSED');

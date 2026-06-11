@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
-import { EthicalWallModule } from '../ethical-wall/ethical-wall.module';
+import { PermissionModule } from '../permission/permission.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { UserModule } from '../user/user.module';
 import { MatterMemberController } from './matter-member.controller';
@@ -9,7 +9,7 @@ import { MatterController } from './matter.controller';
 import { MatterService } from './matter.service';
 
 @Module({
-  imports: [AuditModule, EthicalWallModule, TenantModule, UserModule],
+  imports: [AuditModule, PermissionModule, TenantModule, UserModule],
   controllers: [MatterController, MatterMemberController],
   providers: [MatterService, MatterMemberService],
   exports: [MatterService],

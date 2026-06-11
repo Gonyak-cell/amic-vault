@@ -50,6 +50,30 @@
           "role": "matter_member",
           "practiceGroup": "litigation",
           "devPassword": "dev-alpha-auth-reset-password"
+        },
+        {
+          "userId": "11111111-1111-4111-8111-111111111104",
+          "email": "alpha-rbac-target@test.local",
+          "name": "Alpha RBAC Target",
+          "role": "matter_member",
+          "practiceGroup": "litigation",
+          "devPassword": "dev-alpha-rbac-target-password"
+        },
+        {
+          "userId": "11111111-1111-4111-8111-111111111105",
+          "email": "alpha-permission-member@test.local",
+          "name": "Alpha Permission Member",
+          "role": "matter_member",
+          "practiceGroup": "litigation",
+          "devPassword": "dev-alpha-permission-member-password"
+        },
+        {
+          "userId": "11111111-1111-4111-8111-111111111106",
+          "email": "alpha-permission-audit-target@test.local",
+          "name": "Alpha Permission Audit Target",
+          "role": "matter_member",
+          "practiceGroup": "litigation",
+          "devPassword": "dev-alpha-permission-audit-target-password"
         }
       ]
     },

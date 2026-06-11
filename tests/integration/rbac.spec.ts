@@ -8,7 +8,7 @@ import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.rep
 import { createOwnerClient, tenantAlphaId, withClient } from './helpers/db';
 
 const alphaFirmAdminUserId = '11111111-1111-4111-8111-111111111100';
-const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
+const alphaRbacTargetUserId = '11111111-1111-4111-8111-111111111104';
 
 async function login(
   baseUrl: string,
@@ -98,7 +98,7 @@ describe('rbac integration', () => {
   });
 
   it('assigns tenant-local roles with reference-only audit metadata', async () => {
-    const response = await fetch(`${baseUrl}/v1/users/${alphaMemberUserId}/role`, {
+    const response = await fetch(`${baseUrl}/v1/users/${alphaRbacTargetUserId}/role`, {
       method: 'PATCH',
       headers: { cookie: firmAdminCookie, 'content-type': 'application/json' },
       body: JSON.stringify({ role: 'limited_reviewer' }),
@@ -106,37 +106,37 @@ describe('rbac integration', () => {
     const body = await response.text();
     expect(response.status, body).toBe(200);
     expect(JSON.parse(body)).toMatchObject({
-      userId: alphaMemberUserId,
+      userId: alphaRbacTargetUserId,
       role: 'limited_reviewer',
     });
 
-    const audit = await latestRoleAudit(alphaMemberUserId);
+    const audit = await latestRoleAudit(alphaRbacTargetUserId);
     expect(audit?.actor_id).toBe(alphaFirmAdminUserId);
     expect(audit?.metadata_json).toEqual({
       role_before: 'matter_member',
       role_after: 'limited_reviewer',
     });
-    expect(JSON.stringify(audit?.metadata_json)).not.toContain('alpha-member@test.local');
+    expect(JSON.stringify(audit?.metadata_json)).not.toContain('alpha-rbac-target@test.local');
 
-    const beforeNoop = await roleAuditCount(alphaMemberUserId);
-    const noop = await fetch(`${baseUrl}/v1/users/${alphaMemberUserId}/role`, {
+    const beforeNoop = await roleAuditCount(alphaRbacTargetUserId);
+    const noop = await fetch(`${baseUrl}/v1/users/${alphaRbacTargetUserId}/role`, {
       method: 'PATCH',
       headers: { cookie: firmAdminCookie, 'content-type': 'application/json' },
       body: JSON.stringify({ role: 'limited_reviewer' }),
     });
     expect(noop.status, await noop.text()).toBe(200);
-    await expect(roleAuditCount(alphaMemberUserId)).resolves.toBe(beforeNoop);
+    await expect(roleAuditCount(alphaRbacTargetUserId)).resolves.toBe(beforeNoop);
   });
 
   it('blocks non-admin role writes, external_user assignment, and admin settings leakage', async () => {
-    const ownerDenied = await fetch(`${baseUrl}/v1/users/${alphaMemberUserId}/role`, {
+    const ownerDenied = await fetch(`${baseUrl}/v1/users/${alphaRbacTargetUserId}/role`, {
       method: 'PATCH',
       headers: { cookie: ownerCookie, 'content-type': 'application/json' },
       body: JSON.stringify({ role: 'matter_member' }),
     });
     expect(ownerDenied.status, await ownerDenied.text()).toBe(403);
 
-    const externalDenied = await fetch(`${baseUrl}/v1/users/${alphaMemberUserId}/role`, {
+    const externalDenied = await fetch(`${baseUrl}/v1/users/${alphaRbacTargetUserId}/role`, {
       method: 'PATCH',
       headers: { cookie: firmAdminCookie, 'content-type': 'application/json' },
       body: JSON.stringify({ role: 'external_user' }),
@@ -154,4 +154,3 @@ describe('rbac integration', () => {
     expect(tenantSettingsAllowed.status, await tenantSettingsAllowed.text()).toBe(200);
   });
 });
-

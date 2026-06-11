@@ -166,7 +166,7 @@ describe('matter core integration', () => {
     expect(invalidType.status, await invalidType.text()).toBe(400);
   });
 
-  it('applies conservative detail and list guards at query time', async () => {
+  it('applies membership detail and list guards at query time', async () => {
     const ownerMatterResponse = await createMatter(baseUrl, betaOwnerCookie, {
       clientId: betaClientId,
       matterCode: `OWNER-${randomUUID()}`,
@@ -185,7 +185,7 @@ describe('matter core integration', () => {
     const memberDenied = await fetch(`${baseUrl}/v1/matters/${ownerMatter.matterId}`, {
       headers: { cookie: betaMemberCookie },
     });
-    expect(memberDenied.status, await memberDenied.text()).toBe(403);
+    expect(memberDenied.status, await memberDenied.text()).toBe(404);
 
     const memberDetail = await fetch(`${baseUrl}/v1/matters/${memberMatter.matterId}`, {
       headers: { cookie: betaMemberCookie },
