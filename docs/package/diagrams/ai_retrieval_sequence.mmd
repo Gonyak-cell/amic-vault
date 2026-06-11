@@ -1,0 +1,24 @@
+sequenceDiagram
+  participant U as User
+  participant API as API Gateway
+  participant PERM as Permission Service
+  participant R as Retrieval Orchestrator
+  participant S as Search Indexes
+  participant G as Knowledge Graph
+  participant P as Playbook Rule Store
+  participant E as Evidence Pack Builder
+  participant M as Model Gateway
+  participant A as Audit Service
+  U->>API: AI question
+  API->>PERM: tenant/matter/AI policy check
+  PERM-->>API: allowed scope
+  API->>R: query + scope
+  R->>S: keyword/vector search with filters
+  R->>G: graph query
+  R->>P: rule lookup
+  R->>PERM: post-retrieval filter
+  R->>E: relevant chunks + graph facts + rules
+  E->>M: evidence pack
+  M-->>API: grounded answer + citations
+  API->>A: AI query/retrieval/response audit
+  API-->>U: answer with citations/warnings

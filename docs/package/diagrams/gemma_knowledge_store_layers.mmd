@@ -1,0 +1,18 @@
+flowchart LR
+  L0[Layer 0 Source Vault] --> L1[Layer 1 Canonical Document Store]
+  L1 --> L2[Layer 2 Metadata Store]
+  L1 --> L3[Layer 3 Chunk Store]
+  L3 --> L4[Layer 4 Vector Index]
+  L3 --> L5[Layer 5 Keyword/BM25 Index]
+  L2 --> L6[Layer 6 Knowledge Graph]
+  L3 --> L6
+  L2 --> L7[Layer 7 Playbook/Rule Store]
+  L4 --> L8[Layer 8 Retrieval Orchestrator]
+  L5 --> L8
+  L6 --> L8
+  L7 --> L8
+  L8 --> L9[Layer 9 Evidence Pack Builder]
+  L9 --> GEMMA[Gemma Local Processor]
+  GEMMA --> L10[Layer 10 Feedback & Evaluation Store]
+  L10 --> L7
+  L10 --> L8

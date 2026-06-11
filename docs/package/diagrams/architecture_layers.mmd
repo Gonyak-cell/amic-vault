@@ -1,0 +1,26 @@
+flowchart TD
+  UI[Web / Add-ins / External Portal] --> API[API Gateway]
+  API --> AUTH[Auth & Tenant Context]
+  API --> DOMAIN[Domain Services]
+  DOMAIN --> MATTER[Matter Service]
+  DOMAIN --> DOC[Document Service]
+  DOMAIN --> EMAIL[Email Service]
+  DOMAIN --> PERM[Permission Service]
+  DOMAIN --> AUDIT[Audit Service]
+  DOMAIN --> SEARCH[Search Service]
+  DOMAIN --> AI[AI Service]
+  DOC --> OBJ[(Object Storage)]
+  DOC --> PG[(PostgreSQL Metadata)]
+  DOC --> WORKERS[OCR / Parser / Chunk Workers]
+  WORKERS --> OPEN[(OpenSearch)]
+  WORKERS --> VEC[(Vector DB)]
+  WORKERS --> GRAPH[(Neo4j)]
+  AI --> RAG[Retrieval Orchestrator]
+  RAG --> OPEN
+  RAG --> VEC
+  RAG --> GRAPH
+  RAG --> RULES[Playbook / Rule Store]
+  AI --> PACK[Evidence Pack Builder]
+  PACK --> GATEWAY[Model Gateway: Gemma / Upper Models]
+  GATEWAY --> FEEDBACK[Feedback & Evaluation Store]
+  DOMAIN --> AUDITSTORE[(Append-only Audit Store)]

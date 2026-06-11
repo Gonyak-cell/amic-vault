@@ -1,0 +1,323 @@
+{
+  "generated_at": "2026-06-11",
+  "documents": [
+    {
+      "file": "00_README.md",
+      "purpose": "패키지 사용법과 문서 순서",
+      "audience": "개발팀/PM/PO"
+    },
+    {
+      "file": "01_Document_Register.md",
+      "purpose": "전체 문서목록 및 산출물 설명",
+      "audience": "PM/개발리드"
+    },
+    {
+      "file": "02_Product_Requirements_Specification.md",
+      "purpose": "Vault 제품 요구사항 명세서",
+      "audience": "PO/개발팀"
+    },
+    {
+      "file": "03_Pyramid_PBS_DBS_Structure.md",
+      "purpose": "피라미드식 제품·전달·실행 구조",
+      "audience": "PM/Planner"
+    },
+    {
+      "file": "04_System_Architecture_Blueprint.md",
+      "purpose": "시스템 아키텍처 및 구조도",
+      "audience": "Architect"
+    },
+    {
+      "file": "05_Gemma_Knowledge_Store_Specification.md",
+      "purpose": "Gemma용 고도 지식저장소 사양",
+      "audience": "AI/검색팀"
+    },
+    {
+      "file": "06_Retrieval_RAG_GraphRAG_Design.md",
+      "purpose": "검색·RAG·GraphRAG·Evidence Pack 설계",
+      "audience": "AI/검색팀"
+    },
+    {
+      "file": "07_Data_Model_and_Schema_Draft.md",
+      "purpose": "핵심 데이터 모델 및 스키마 초안",
+      "audience": "Backend/Data"
+    },
+    {
+      "file": "08_Security_Permission_Audit_Compliance.md",
+      "purpose": "권한·보안·감사·컴플라이언스 사양",
+      "audience": "Security/Backend"
+    },
+    {
+      "file": "09_API_Service_Contract.md",
+      "purpose": "서비스 경계 및 API 계약 초안",
+      "audience": "Backend/Frontend"
+    },
+    {
+      "file": "10_UI_UX_Workflow_Specification.md",
+      "purpose": "화면·사용자 흐름·운영 흐름",
+      "audience": "UX/Frontend"
+    },
+    {
+      "file": "11_Development_Operating_System.md",
+      "purpose": "위험도 기반·검증 중심·루프형 개발 운영체계",
+      "audience": "PM/Agent팀"
+    },
+    {
+      "file": "12_Execution_Dependency_Graph.md",
+      "purpose": "실행 의존성 그래프 및 선후관계",
+      "audience": "Planner/개발리드"
+    },
+    {
+      "file": "13_TUW_Master_Backlog.md",
+      "purpose": "전체 Testable Unit of Work 백로그",
+      "audience": "개발팀/Agent"
+    },
+    {
+      "file": "14_Agent_Work_Contracts.md",
+      "purpose": "Agent Work Contract 템플릿 및 중요 샘플",
+      "audience": "Agent/개발팀"
+    },
+    {
+      "file": "15_Verification_Contracts_Test_Plan.md",
+      "purpose": "검증계약·검증케이스·테스트 전략",
+      "audience": "QA/Security"
+    },
+    {
+      "file": "16_Roadmap_Release_Plan.md",
+      "purpose": "릴리스 로드맵 및 Gate",
+      "audience": "PM/개발리드"
+    },
+    {
+      "file": "17_Implementation_Guide.md",
+      "purpose": "구현 착수 가이드와 운영 규칙",
+      "audience": "개발팀"
+    },
+    {
+      "file": "18_Risk_Register_Open_Questions.md",
+      "purpose": "리스크 레지스터와 추가 확인사항",
+      "audience": "PO/PM/Security"
+    },
+    {
+      "file": "19_Prompt_Library.md",
+      "purpose": "Planner/Executor/Verifier/Governor 프롬프트",
+      "audience": "Agent팀"
+    },
+    {
+      "file": "20_References.md",
+      "purpose": "공식 문서 및 참고자료",
+      "audience": "전체"
+    }
+  ],
+  "pillars": [
+    {
+      "id": "P0",
+      "name": "Development Operating System",
+      "description": "개발 운영체계, Constitution, Ledger, Work Contract, Verification Contract",
+      "prefix": "DEVOPS",
+      "risk": "Critical"
+    },
+    {
+      "id": "P1",
+      "name": "Foundation & SaaS Core",
+      "description": "인증, tenant, workspace, 공통 인프라, CI/CD, 관측성",
+      "prefix": "CORE",
+      "risk": "High"
+    },
+    {
+      "id": "P2",
+      "name": "Matter-Centric Core",
+      "description": "Client, Matter, Party, Matter lifecycle, Matter dashboard",
+      "prefix": "MATTER",
+      "risk": "High"
+    },
+    {
+      "id": "P3",
+      "name": "Document Vault",
+      "description": "문서 업로드, 버전관리, 원본성, OCR, preview, metadata",
+      "prefix": "DOC",
+      "risk": "Critical"
+    },
+    {
+      "id": "P4",
+      "name": "Permission & Security Governance",
+      "description": "RBAC, ABAC, Matter 권한, 문서권한, 윤리장벽, DLP",
+      "prefix": "SEC",
+      "risk": "Critical"
+    },
+    {
+      "id": "P5",
+      "name": "Audit & Compliance Ledger",
+      "description": "감사로그, 접근기록, 다운로드기록, AI 사용기록, 보안 이벤트",
+      "prefix": "AUDIT",
+      "risk": "Critical"
+    },
+    {
+      "id": "P6",
+      "name": "Search & Retrieval",
+      "description": "전문검색, 메타데이터 검색, 의미검색, 권한연동 검색",
+      "prefix": "SEARCH",
+      "risk": "High"
+    },
+    {
+      "id": "P7",
+      "name": "Email Vault",
+      "description": "이메일 filing, 첨부파일 분리, thread, Outlook/Gmail 연동",
+      "prefix": "EMAIL",
+      "risk": "High"
+    },
+    {
+      "id": "P8",
+      "name": "AI Knowledge Layer",
+      "description": "권한연동 RAG, 문서요약, Matter 요약, citation, AI audit",
+      "prefix": "AI",
+      "risk": "Critical"
+    },
+    {
+      "id": "P9",
+      "name": "Legal Knowledge Graph",
+      "description": "Client–Matter–Document–Clause–Issue 관계망",
+      "prefix": "GRAPH",
+      "risk": "High"
+    },
+    {
+      "id": "P10",
+      "name": "Contract Intelligence",
+      "description": "계약서 분석, 조항 추출, redline, clause bank, playbook",
+      "prefix": "CONTRACT",
+      "risk": "High"
+    },
+    {
+      "id": "P11",
+      "name": "Due Diligence Vault",
+      "description": "RFI, 제출자료, DD issue, risk register, DD report support",
+      "prefix": "DD",
+      "risk": "Medium"
+    },
+    {
+      "id": "P12",
+      "name": "Litigation Vault",
+      "description": "증거, fact ledger, issue tree, pleading, court deadline",
+      "prefix": "LIT",
+      "risk": "Medium"
+    },
+    {
+      "id": "P13",
+      "name": "External Portal / VDR",
+      "description": "고객포털, 외부공유, secure link, Q&A, watermark",
+      "prefix": "VDR",
+      "risk": "Critical"
+    },
+    {
+      "id": "P14",
+      "name": "Records Management",
+      "description": "retention, legal hold, archive, disposal, destruction certificate",
+      "prefix": "RECORD",
+      "risk": "Critical"
+    },
+    {
+      "id": "P15",
+      "name": "Integration Layer",
+      "description": "Microsoft 365, Google Workspace, ERP/CRM, e-signature, migration",
+      "prefix": "INT",
+      "risk": "High"
+    },
+    {
+      "id": "P16",
+      "name": "Admin, Analytics & Enterprise Operations",
+      "description": "관리자 콘솔, usage analytics, billing, monitoring, enterprise hardening",
+      "prefix": "ADMIN",
+      "risk": "High"
+    }
+  ],
+  "releases": [
+    {
+      "id": "R0",
+      "purpose": "Foundation",
+      "scope": "repo, CI/CD, auth skeleton, DB, design system, logging, test framework",
+      "pillars": "P0,P1"
+    },
+    {
+      "id": "R1",
+      "purpose": "Matter Core",
+      "scope": "Client, Matter, Party, Matter team, basic permission",
+      "pillars": "P2,P4,P5"
+    },
+    {
+      "id": "R2",
+      "purpose": "Document Vault MVP",
+      "scope": "upload, version, metadata, hash, preview skeleton, audit",
+      "pillars": "P3,P4,P5"
+    },
+    {
+      "id": "R3",
+      "purpose": "Search MVP",
+      "scope": "metadata/full-text/permission-bound search, indexing, snippets",
+      "pillars": "P6,P4,P5"
+    },
+    {
+      "id": "R4",
+      "purpose": "Email Vault MVP",
+      "scope": "email filing, attachment extraction, threading, timeline",
+      "pillars": "P7,P3,P5"
+    },
+    {
+      "id": "R5",
+      "purpose": "Security & Governance",
+      "scope": "RBAC/ABAC, ethical wall, DLP, external sharing controls",
+      "pillars": "P4,P5"
+    },
+    {
+      "id": "R6",
+      "purpose": "AI Knowledge Layer v1",
+      "scope": "permission-bound RAG, summaries, citations, AI sessions",
+      "pillars": "P8,P6,P4,P5"
+    },
+    {
+      "id": "R7",
+      "purpose": "Knowledge Graph v1",
+      "scope": "graph schema, mapping, sync, graph query",
+      "pillars": "P9,P3,P8"
+    },
+    {
+      "id": "R8",
+      "purpose": "Contract Intelligence",
+      "scope": "clause extraction, redline parser, playbook, rule store",
+      "pillars": "P10,P9,P8"
+    },
+    {
+      "id": "R9",
+      "purpose": "DD Vault",
+      "scope": "RFI, data room mapping, DD issue, risk register",
+      "pillars": "P11,P13"
+    },
+    {
+      "id": "R10",
+      "purpose": "Litigation Vault",
+      "scope": "evidence, fact ledger, issue tree, pleading management",
+      "pillars": "P12"
+    },
+    {
+      "id": "R11",
+      "purpose": "External Portal / VDR",
+      "scope": "external workspace, secure link, watermark, Q&A",
+      "pillars": "P13,P4,P5"
+    },
+    {
+      "id": "R12",
+      "purpose": "Records Management",
+      "scope": "retention, legal hold, archive, disposal workflow",
+      "pillars": "P14,P5"
+    },
+    {
+      "id": "R13",
+      "purpose": "Enterprise Hardening",
+      "scope": "SSO/SAML, BYOK, SIEM, backup/DR, compliance readiness",
+      "pillars": "P16,P15"
+    },
+    {
+      "id": "R14",
+      "purpose": "Scale & Optimization",
+      "scope": "performance, cost, eval, advanced AI, migration tooling",
+      "pillars": "P15,P16"
+    }
+  ]
+}
