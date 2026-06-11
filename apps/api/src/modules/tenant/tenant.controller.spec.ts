@@ -77,7 +77,7 @@ describe('TenantController', () => {
     const { context, controller } = createController();
 
     await context.run(
-      { tenantId, slug: 'tenant-alpha', status: 'active', source: 'pre-auth-header' },
+      { tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' },
       async () => {
         await expect(controller.getSettings()).resolves.toEqual({
           tenantId,
@@ -95,7 +95,7 @@ describe('TenantController', () => {
     const { context, controller } = createController();
 
     await context.run(
-      { tenantId, slug: 'tenant-alpha', status: 'active', source: 'pre-auth-header' },
+      { tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' },
       async () => {
         await expect(controller.getWorkspace(workspaceId)).resolves.toMatchObject({
           workspaceId,

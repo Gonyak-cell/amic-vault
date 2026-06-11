@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
+import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
 import { TenantController } from '../../apps/api/src/modules/tenant/tenant.controller';
 import { loadTenantFixtures } from './helpers/tenant-fixtures';
 
@@ -17,6 +18,19 @@ function tenantRoutes(): string[] {
       const methodCode = Reflect.getMetadata(METHOD_METADATA, handler);
       return methodPath && methodCode !== undefined ? [`/v1/${controllerPath}/${methodPath}`] : [];
     });
+}
+
+async function login(baseUrl: string, tenantId: string, email: string, password: string): Promise<string> {
+  const response = await fetch(`${baseUrl}/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ tenantId, email, password }),
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
+  const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
+  expect(cookie).toMatch(new RegExp(`^${SESSION_COOKIE_NAME}=`));
+  return cookie;
 }
 
 describe('cross-tenant access harness', () => {
@@ -46,9 +60,15 @@ describe('cross-tenant access harness', () => {
 
   it('blocks tenant-alpha from reading tenant-beta workspace details', async () => {
     const { alpha, beta } = await loadTenantFixtures();
+    const cookie = await login(
+      baseUrl,
+      alpha.tenantId,
+      'alpha-matter-owner@test.local',
+      'dev-alpha-owner-password',
+    );
 
     const allowed = await fetch(`${baseUrl}/v1/tenant/workspaces/${alpha.workspaceId}`, {
-      headers: { 'x-tenant-id': alpha.tenantId },
+      headers: { cookie },
     });
     const allowedBody = await allowed.text();
     expect(allowed.status, allowedBody).toBe(200);
@@ -59,7 +79,7 @@ describe('cross-tenant access harness', () => {
     });
 
     const blocked = await fetch(`${baseUrl}/v1/tenant/workspaces/${beta.workspaceId}`, {
-      headers: { 'x-tenant-id': alpha.tenantId },
+      headers: { cookie, 'x-tenant-id': beta.tenantId },
     });
     const body = await blocked.text();
 
