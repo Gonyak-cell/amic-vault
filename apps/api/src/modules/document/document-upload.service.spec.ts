@@ -45,6 +45,7 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
   const transaction = vi.fn(async (_tenantId: string, run: (tx: never) => Promise<void>) =>
     run({} as never),
   );
+  const auditLog = vi.fn(async () => undefined);
   const createDraft = vi.fn(async () => ({
     documentId: 'generated-document-id',
     tenantId,
@@ -56,6 +57,7 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     subtype: 'signed',
     confidentialityLevel: 'high' as const,
     privilegeStatus: 'privileged' as const,
+    legalHold: false,
     createdBy: actorUserId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -74,6 +76,17 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     createdBy: actorUserId,
     createdAt: new Date().toISOString(),
   }));
+  const createInitialVersion = vi.fn(async () => ({
+    versionId: 'generated-version-id',
+    documentId: 'generated-document-id',
+    versionNo: 1,
+    versionStatus: 'current' as const,
+    fileObjectId: 'generated-file-object-id',
+    fileHash: 'd'.repeat(64),
+    createdBy: actorUserId,
+    createdAt: new Date().toISOString(),
+    supersedesVersionId: null,
+  }));
   const putTenantObject = vi.fn(
     async (input: { fileObjectId: string; documentId: string; body: Buffer | Readable }) => {
       await drainBody(input.body);
@@ -85,8 +98,14 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     },
   );
   const service = new DocumentUploadService(
-    { transaction } as never,
+    { transaction, log: auditLog } as never,
     { createDraft } as never,
+    {
+      createInitialVersion,
+      findVersionTarget: vi.fn(),
+      addNextVersion: vi.fn(),
+      findDuplicateVersionCandidates: vi.fn(),
+    } as never,
     { findCandidates: vi.fn(async () => []) } as never,
     { create: createFileObject } as never,
     { canUploadToMatter: vi.fn(async () => permission) } as never,
@@ -95,13 +114,14 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
       require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
     } as never,
   );
-  return { createDraft, createFileObject, putTenantObject, service };
+  return { createDraft, createFileObject, createInitialVersion, putTenantObject, service };
 }
 
 describe('DocumentUploadService', () => {
   it('creates storage object, document row, and file object row for allowed members', async () => {
     const file = await tempUploadFile('Contract.PDF');
-    const { createDraft, createFileObject, putTenantObject, service } = createService();
+    const { createDraft, createFileObject, createInitialVersion, putTenantObject, service } =
+      createService();
 
     const response = await service.upload({
       actorUserId,
@@ -135,6 +155,14 @@ describe('DocumentUploadService', () => {
       expect.objectContaining({
         mimeType: 'application/pdf',
         sha256: 'd274f10f823f4da5c383bedc6bf03b4aed26b05f8306cf082b8402ae78a456a5',
+      }),
+      expect.anything(),
+    );
+    expect(createInitialVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: expect.any(String),
+        fileObjectId: expect.any(String),
+        fileHash: 'd274f10f823f4da5c383bedc6bf03b4aed26b05f8306cf082b8402ae78a456a5',
       }),
       expect.anything(),
     );

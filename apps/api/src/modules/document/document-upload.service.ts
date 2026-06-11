@@ -8,12 +8,19 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import type { UploadDocumentFieldsDto, UploadDocumentResponseDto } from '@amic-vault/shared';
+import { initialDocumentFamilyId } from '@amic-vault/domain';
+import type {
+  AddDocumentVersionFieldsDto,
+  AddDocumentVersionResponseDto,
+  UploadDocumentFieldsDto,
+  UploadDocumentResponseDto,
+} from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { DocumentVersionService } from './document-version.service';
 import { DocumentService } from './document.service';
 import { DuplicateDetectorService } from './integrity/duplicate-detector.service';
 import { sha256File } from './integrity/sha256.util';
@@ -33,6 +40,13 @@ export interface UploadDocumentInput {
   actorUserId: string;
   matterId: string;
   fields: UploadDocumentFieldsDto;
+  file: UploadedDiskFile | undefined;
+}
+
+export interface AddDocumentVersionInput {
+  actorUserId: string;
+  documentId: string;
+  fields: AddDocumentVersionFieldsDto;
   file: UploadedDiskFile | undefined;
 }
 
@@ -78,6 +92,7 @@ export class DocumentUploadService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(DocumentService) private readonly documentService: DocumentService,
+    @Inject(DocumentVersionService) private readonly documentVersionService: DocumentVersionService,
     @Inject(DuplicateDetectorService)
     private readonly duplicateDetector: DuplicateDetectorService,
     @Inject(FileObjectService) private readonly fileObjectService: FileObjectService,
@@ -133,7 +148,7 @@ export class DocumentUploadService {
               documentId,
               tenantId: context.tenantId,
               matterId: input.matterId,
-              documentFamilyId: documentId,
+              documentFamilyId: initialDocumentFamilyId({ documentId }),
               title,
               documentType: input.fields.documentType,
               subtype: input.fields.subtype,
@@ -158,12 +173,39 @@ export class DocumentUploadService {
             },
             tx,
           );
+          const version = await this.documentVersionService.createInitialVersion(
+            {
+              tenantId: context.tenantId,
+              documentId,
+              fileObjectId,
+              fileHash: sha256,
+              createdBy: input.actorUserId,
+            },
+            tx,
+          );
           const duplicates = await this.duplicateDetector.findCandidates(
             {
               tenantId: context.tenantId,
               matterId: input.matterId,
               documentId,
               sha256,
+            },
+            tx,
+          );
+          await this.auditService.log(
+            {
+              tenantId: context.tenantId,
+              actorId: input.actorUserId,
+              action: 'DOCUMENT_UPLOADED',
+              targetType: 'document',
+              targetId: documentId,
+              matterId: input.matterId,
+              metadata: {
+                document_id: documentId,
+                matter_id: input.matterId,
+                version_id: version.versionId,
+                hash: sha256,
+              },
             },
             tx,
           );
@@ -188,6 +230,132 @@ export class DocumentUploadService {
         metadataSuggestion,
         duplicates: uploaded.duplicates,
       };
+    } finally {
+      await this.unlinkTempFile(file);
+    }
+  }
+
+  async addVersion(input: AddDocumentVersionInput): Promise<AddDocumentVersionResponseDto> {
+    void input.fields;
+    const context = this.tenantContext.require();
+    const file = input.file;
+    if (!isUploadedDiskFile(file)) {
+      await this.unlinkTempFile(file);
+      throw validationFailed();
+    }
+
+    try {
+      this.fileSizeValidator.validate(file.size);
+      const target = await this.documentVersionService.findVersionTarget(
+        context.tenantId,
+        input.documentId,
+      );
+      if (!target) throw permissionDenied();
+      await this.assertCanUpload(context.tenantId, input.actorUserId, target.matter_id);
+
+      const originalFilename = normalizeTransportFilename(file.originalname);
+      const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
+      const sniffed = await this.mimeTypeValidator.validate({
+        path: file.path,
+        sizeBytes: file.size,
+        extension,
+        declaredMimeType: file.mimetype,
+      });
+      const sha256 = await sha256File(file.path);
+      const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
+      const fileObjectId = randomUUID();
+      const storage = await this.storageService.putTenantObject({
+        tenantId: context.tenantId,
+        matterId: target.matter_id,
+        documentId: input.documentId,
+        fileObjectId,
+        body: createReadStream(file.path),
+        contentLength: file.size,
+        contentType: sniffed.mimeType,
+      });
+
+      let added: AddDocumentVersionResponseDto | undefined;
+      try {
+        added = await this.auditService.transaction(context.tenantId, async (tx) => {
+          await this.fileObjectService.create(
+            {
+              fileObjectId,
+              tenantId: context.tenantId,
+              storageUri: storage.storageUri,
+              originalFilename,
+              normalizedFilename,
+              mimeType: sniffed.mimeType,
+              sizeBytes: file.size,
+              sha256,
+              encryptionKeyId: storage.encryptionKeyId,
+              createdBy: input.actorUserId,
+            },
+            tx,
+          );
+          const version = await this.documentVersionService.addNextVersion(
+            {
+              tenantId: context.tenantId,
+              documentId: input.documentId,
+              fileObjectId,
+              fileHash: sha256,
+              createdBy: input.actorUserId,
+            },
+            tx,
+          );
+          const versionDuplicates =
+            await this.documentVersionService.findDuplicateVersionCandidates(
+              {
+                tenantId: context.tenantId,
+                documentId: input.documentId,
+                fileObjectId,
+                sha256,
+              },
+              tx,
+            );
+          const documentDuplicates = await this.duplicateDetector.findCandidates(
+            {
+              tenantId: context.tenantId,
+              matterId: target.matter_id,
+              documentId: input.documentId,
+              sha256,
+            },
+            tx,
+          );
+          await this.auditService.log(
+            {
+              tenantId: context.tenantId,
+              actorId: input.actorUserId,
+              action: 'DOCUMENT_VERSION_ADDED',
+              targetType: 'document',
+              targetId: input.documentId,
+              matterId: target.matter_id,
+              metadata: {
+                document_id: input.documentId,
+                matter_id: target.matter_id,
+                version_id: version.versionId,
+                hash: sha256,
+              },
+            },
+            tx,
+          );
+          return {
+            documentId: input.documentId,
+            matterId: target.matter_id,
+            versionId: version.versionId,
+            versionNo: version.versionNo,
+            versionStatus: 'current',
+            fileObjectId,
+            sha256,
+            metadataSuggestion,
+            duplicates: [...versionDuplicates, ...documentDuplicates],
+          };
+        });
+      } catch (error) {
+        await this.compensateStorageObject(context.tenantId, storage.storageUri);
+        throw error;
+      }
+      if (!added) throw new Error('document version transaction returned no result');
+      return added;
     } finally {
       await this.unlinkTempFile(file);
     }

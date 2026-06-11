@@ -41,3 +41,13 @@ export {
   isDocumentStatus,
   type DocumentStatusValue,
 } from './document/document-status';
+export {
+  assertDocumentFamilyInherited,
+  initialDocumentFamilyId,
+  type DocumentFamilySeed,
+} from './document/document-family';
+export {
+  LegalHoldBlockedError,
+  assertDeletable,
+  type LegalHoldSubject,
+} from './records/legal-hold';

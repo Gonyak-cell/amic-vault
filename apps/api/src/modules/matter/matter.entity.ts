@@ -13,6 +13,7 @@ export interface MatterEntityProps {
   leadLawyerId: string | null;
   practiceGroup: string | null;
   metadata: Record<string, string>;
+  legalHold: boolean;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -35,6 +36,7 @@ export class MatterEntity {
       leadLawyerId: this.props.leadLawyerId,
       practiceGroup: this.props.practiceGroup,
       metadata: this.props.metadata,
+      legalHold: this.props.legalHold,
       createdBy: this.props.createdBy,
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),

@@ -11,6 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import type { RequestWithSession } from '../auth/session.guard';
+import { updateLegalHoldSchema } from '@amic-vault/shared';
 import { createMatterSchema } from './dto/create-matter.dto';
 import { listMattersQuerySchema } from './dto/list-matters.query';
 import { updateMatterSchema } from './dto/update-matter.dto';
@@ -82,5 +83,15 @@ export class MatterController {
   ) {
     const input = parseOrValidation(() => updateMatterStatusSchema.parse(body));
     return this.matterService.updateStatus(sessionUserId(request), parseUuid(matterId), input);
+  }
+
+  @Patch(':matterId/legal-hold')
+  updateLegalHold(
+    @Req() request: RequestWithSession,
+    @Param('matterId') matterId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => updateLegalHoldSchema.parse(body));
+    return this.matterService.updateLegalHold(sessionUserId(request), parseUuid(matterId), input);
   }
 }
