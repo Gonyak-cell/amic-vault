@@ -44,6 +44,18 @@ export const createMatterSchema = baseMatterMutationSchema
     path: ['metadata'],
   });
 
+export const updateMatterSchema = z
+  .object({
+    matterName: z.string().trim().min(1).max(1000).optional(),
+    practiceGroup: z.string().trim().min(1).max(128).optional(),
+    metadata: matterMetadataSchema.optional(),
+  })
+  .strict()
+  .refine((input) => !containsSensitiveMatterMetadataKey(input.metadata ?? {}), {
+    message: 'metadata contains sensitive keys',
+    path: ['metadata'],
+  });
+
 export const listMattersQuerySchema = z
   .object({
     status: matterStatusSchema.optional(),
@@ -88,4 +100,5 @@ export interface MatterListDto {
 export type MatterStatus = (typeof matterStatuses)[number];
 export type CreateMatterDto = z.infer<typeof createMatterSchema>;
 export type ListMattersQueryDto = z.infer<typeof listMattersQuerySchema>;
+export type UpdateMatterDto = z.infer<typeof updateMatterSchema>;
 export type UpdateMatterStatusDto = z.infer<typeof updateMatterStatusSchema>;

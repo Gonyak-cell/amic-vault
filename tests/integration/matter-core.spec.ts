@@ -80,6 +80,24 @@ async function latestMatterAudit(matterId: string) {
   });
 }
 
+async function latestMatterUpdateAudit(matterId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ metadata_json: Record<string, unknown> }>(
+      `
+        SELECT metadata_json
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'MATTER_UPDATED'
+          AND target_id = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [tenantBetaId, matterId],
+    );
+    return result.rows[0];
+  });
+}
+
 describe('matter core integration', () => {
   let app: INestApplication;
   let baseUrl: string;
@@ -137,6 +155,39 @@ describe('matter core integration', () => {
       headers: { cookie: betaOwnerCookie },
     });
     expect(detail.status, await detail.text()).toBe(200);
+  });
+
+  it('updates matter metadata with diff-only audit metadata', async () => {
+    const response = await createMatter(baseUrl, betaOwnerCookie, {
+      clientId: betaClientId,
+      matterName: 'Beta Matter Before Update',
+    });
+    const body = await response.text();
+    expect(response.status, body).toBe(201);
+    const matter = JSON.parse(body) as { matterId: string };
+
+    const update = await fetch(`${baseUrl}/v1/matters/${matter.matterId}`, {
+      method: 'PATCH',
+      headers: { cookie: betaOwnerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        matterName: 'Beta Matter After Update',
+        metadata: { stage: 'intake' },
+      }),
+    });
+    const updateBody = await update.text();
+    expect(update.status, updateBody).toBe(200);
+    expect(JSON.parse(updateBody)).toMatchObject({
+      matterName: 'Beta Matter After Update',
+      metadata: { stage: 'intake' },
+    });
+
+    const audit = await latestMatterUpdateAudit(matter.matterId);
+    expect(audit?.metadata_json).toEqual({
+      matter_id: matter.matterId,
+      diff_keys: ['matter_name', 'metadata'],
+    });
+    expect(JSON.stringify(audit?.metadata_json)).not.toContain('Beta Matter After Update');
+    expect(JSON.stringify(audit?.metadata_json)).not.toContain('intake');
   });
 
   it('fails closed for invalid clients, cross-tenant clients, and non-manager creates', async () => {

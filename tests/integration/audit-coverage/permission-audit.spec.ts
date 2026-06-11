@@ -72,6 +72,21 @@ async function reasonCount(reasonCode: string): Promise<number> {
   });
 }
 
+async function auditActionCount(action: string): Promise<number> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ count: string }>(
+      `
+        SELECT count(*)::text AS count
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = $2
+      `,
+      [tenantAlphaId, action],
+    );
+    return Number(result.rows[0]?.count ?? '0');
+  });
+}
+
 async function accessDeniedCount(matterId: string, reasonCode: string): Promise<number> {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{ count: string }>(
@@ -213,6 +228,8 @@ describe('permission audit integration', () => {
     expect(wall.status, await wall.text()).toBe(201);
 
     await expect(reasonCount('tenant_role_changed')).resolves.toBeGreaterThanOrEqual(2);
+    await expect(auditActionCount('ROLE_ASSIGNED')).resolves.toBeGreaterThanOrEqual(2);
+    await expect(auditActionCount('ROLE_CHANGED')).resolves.toBeGreaterThanOrEqual(2);
     await expect(reasonCount('member_added')).resolves.toBeGreaterThanOrEqual(2);
     await expect(reasonCount('member_role_changed')).resolves.toBeGreaterThanOrEqual(1);
     await expect(reasonCount('member_removed')).resolves.toBeGreaterThanOrEqual(1);

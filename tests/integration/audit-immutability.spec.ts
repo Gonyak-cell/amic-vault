@@ -22,7 +22,7 @@ async function ensureAuditFixture(): Promise<string> {
         VALUES ($1, 'system', 'PERMISSION_DENIED_HIT', 'system', NULL, 'denied', $2)
         RETURNING event_id
       `,
-      [tenantAlphaId, { actor: 'system', code: 'fixture' }],
+      [tenantAlphaId, { reason_code: 'fixture' }],
     );
     const row = result.rows[0];
     if (!row) throw new Error('audit fixture insert returned no row');
@@ -71,7 +71,7 @@ describe('audit immutability', () => {
           VALUES ($1, 'system', 'SESSION_REVOKED', 'session', 'success', $2)
           RETURNING event_id
         `,
-        [tenantAlphaId, { actor: 'system', session_id: 'integration-session' }],
+        [tenantAlphaId, { reason_code: 'session_revoked', correlation_id: 'integration-session' }],
       );
       const insertedRow = inserted.rows[0];
       expect(insertedRow?.event_id).toMatch(/[0-9a-f-]{36}/);

@@ -62,6 +62,19 @@ export class UserRoleService {
         {
           tenantId,
           actorId: actorUserId,
+          action: 'ROLE_ASSIGNED',
+          targetType: 'user',
+          targetId: targetUserId,
+          metadata: {
+            role_after: input.role,
+          },
+        },
+        tx,
+      );
+      await this.auditService.log(
+        {
+          tenantId,
+          actorId: actorUserId,
           action: 'ROLE_CHANGED',
           targetType: 'user',
           targetId: targetUserId,
