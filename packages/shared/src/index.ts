@@ -44,6 +44,7 @@ export {
   type WorkspaceStatus,
 } from './types/tenant';
 export { userStatuses, type UserStatus, type UserSummary } from './types/user';
+export type { FileObjectDto } from './types/file-object';
 export {
   canIssueSessionForRole,
   isUserRole,
@@ -85,6 +86,11 @@ export type {
   PasswordResetRequestDto,
 } from './dto/auth.dto';
 export type { TenantSettingsDto } from './dto/tenant-settings.dto';
+export {
+  uploadDocumentFieldsSchema,
+  type UploadDocumentFieldsDto,
+  type UploadDocumentResponseDto,
+} from './dto/document/upload-document.dto';
 
 export {
   clientConfidentialityLevels,

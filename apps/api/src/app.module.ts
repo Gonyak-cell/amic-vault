@@ -15,6 +15,8 @@ import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
 import { MatterModule } from './modules/matter/matter.module';
 import { PartyModule } from './modules/party/party.module';
 import { PermissionModule } from './modules/permission/permission.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { DocumentModule } from './modules/document/document.module';
 
 @Controller()
 class AppController {
@@ -41,6 +43,8 @@ class AppController {
     PermissionModule,
     MatterModule,
     PartyModule,
+    StorageModule,
+    DocumentModule,
   ],
   controllers: [AppController],
   providers: [
