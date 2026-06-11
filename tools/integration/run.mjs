@@ -5,6 +5,14 @@ import { spawnSync } from 'node:child_process';
 
 const filters = process.argv.slice(2).filter((filter) => filter !== '--');
 
+const seed = spawnSync('pnpm', ['db:seed'], {
+  stdio: 'inherit',
+});
+
+if (seed.status !== 0) {
+  process.exit(seed.status ?? 1);
+}
+
 function listSpecFiles(root) {
   return fs
     .readdirSync(root, { withFileTypes: true })

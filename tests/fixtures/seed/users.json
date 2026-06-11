@@ -6,6 +6,10 @@
       "slug": "tenant-alpha",
       "region": "kr",
       "dataResidency": "kr",
+      "workspace": {
+        "workspaceId": "11111111-1111-4111-8111-1111111111aa",
+        "name": "Alpha Default"
+      },
       "users": [
         {
           "userId": "11111111-1111-4111-8111-111111111101",
@@ -31,6 +35,10 @@
       "slug": "tenant-beta",
       "region": "kr",
       "dataResidency": "kr",
+      "workspace": {
+        "workspaceId": "22222222-2222-4222-8222-2222222222bb",
+        "name": "Beta Default"
+      },
       "users": [
         {
           "userId": "22222222-2222-4222-8222-222222222201",
