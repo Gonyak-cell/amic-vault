@@ -190,18 +190,15 @@ export class MatterService {
     await this.assertCanManageMatterStatus(context.tenantId, actorUserId, matterId);
 
     const from = asMatterState(before.props.status);
-    const transition = validateMatterTransition(from, input.status);
+    const to = asMatterState(input.status);
+    const transition = validateMatterTransition(from, to);
     if (!transition.allowed) throw validationFailed(transition.reasonCode);
-    if (
-      from === MatterState.Closing &&
-      input.status === MatterState.Closed &&
-      before.props.closedAt
-    ) {
+    if (from === MatterState.Closing && to === MatterState.Closed && before.props.closedAt) {
       throw validationFailed('MATTER_CLOSED');
     }
 
     const updated = await this.auditService.transaction(context.tenantId, async (tx) => {
-      const changed = await this.updateMatterStatus(tx, context.tenantId, matterId, input.status);
+      const changed = await this.updateMatterStatus(tx, context.tenantId, matterId, to);
       if (!changed) throw notFoundDenied();
       await this.auditService.log(
         {
@@ -214,7 +211,7 @@ export class MatterService {
           metadata: {
             matter_id: matterId,
             before_ref: `status:${from}`,
-            after_ref: `status:${input.status}`,
+            after_ref: `status:${to}`,
             reason_code: 'matter_status_changed',
           },
         },

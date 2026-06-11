@@ -162,9 +162,6 @@ importers:
 
   packages/shared:
     dependencies:
-      '@amic-vault/domain':
-        specifier: workspace:*
-        version: link:../domain
       zod:
         specifier: ^3.24.1
         version: 3.25.76

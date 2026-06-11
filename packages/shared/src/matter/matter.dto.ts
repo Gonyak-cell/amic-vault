@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { matterStateValues, type MatterStateValue } from '@amic-vault/domain';
 import { matterTypeSchema } from './matter-type';
 import {
   containsSensitiveMatterMetadataKey,
@@ -8,7 +7,16 @@ import {
   matterOptionalDateSchema,
 } from './matter-validation';
 
-export const matterStatuses = matterStateValues;
+export const matterStatuses = [
+  'proposed',
+  'open',
+  'active',
+  'closing',
+  'closed',
+  'archived',
+  'disposal_review',
+  'disposed',
+] as const;
 
 export const matterStatusSchema = z.enum(matterStatuses);
 
@@ -77,7 +85,7 @@ export interface MatterListDto {
   pageSize: number;
 }
 
-export type MatterStatus = MatterStateValue;
+export type MatterStatus = (typeof matterStatuses)[number];
 export type CreateMatterDto = z.infer<typeof createMatterSchema>;
 export type ListMattersQueryDto = z.infer<typeof listMattersQuerySchema>;
 export type UpdateMatterStatusDto = z.infer<typeof updateMatterStatusSchema>;
