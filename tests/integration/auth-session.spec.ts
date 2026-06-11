@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
+import { configureApp } from '../../apps/api/src/main';
 import { MailerStub } from '../../apps/api/src/modules/auth/mailer.stub';
 import { hashOpaqueToken, SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
 import { createOwnerClient, tenantAlphaId, tenantBetaId, withClient } from './helpers/db';
@@ -83,7 +84,7 @@ describe('auth session integration', () => {
 
   beforeAll(async () => {
     app = await NestFactory.create(AppModule, { logger: false });
-    app.setGlobalPrefix('v1');
+    configureApp(app);
     await app.listen(0);
     baseUrl = await app.getUrl();
     mailer = app.get(MailerStub);

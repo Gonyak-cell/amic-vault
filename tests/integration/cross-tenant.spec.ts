@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
+import { configureApp } from '../../apps/api/src/main';
 import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
 import { TenantController } from '../../apps/api/src/modules/tenant/tenant.controller';
 import { loadTenantFixtures } from './helpers/tenant-fixtures';
@@ -39,7 +40,7 @@ describe('cross-tenant access harness', () => {
 
   beforeAll(async () => {
     app = await NestFactory.create(AppModule, { logger: false });
-    app.setGlobalPrefix('v1');
+    configureApp(app);
     await app.listen(0);
     baseUrl = await app.getUrl();
   });

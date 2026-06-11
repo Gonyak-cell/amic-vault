@@ -13,6 +13,7 @@ const publicPathPatterns = [
   /^\/v1\/health(?:\/.*)?$/,
   /^\/v1\/auth\/login$/,
   /^\/v1\/auth\/password-reset\/.*$/,
+  /^\/v1\/metrics$/,
   /^\/metrics$/,
 ];
 
