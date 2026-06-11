@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import type { TenantId } from '@amic-vault/shared';
+import type { TenantId, UserRole } from '@amic-vault/shared';
 import { verifyPasswordHash } from './password';
 import { UserEntity } from './user.entity';
 import { type CreateUserInput, type UserStore, UserService } from './user.service';
@@ -66,6 +66,24 @@ class MemoryUserStore implements UserStore {
   }
 
   async recordLoginSuccess(): Promise<void> {}
+
+  async updateRole(
+    tenantId: TenantId,
+    userId: string,
+    role: UserRole,
+  ): Promise<UserEntity | null> {
+    const user = await this.findByTenantAndId(tenantId, userId);
+    if (!user) return null;
+    const updated = new UserEntity({ ...user, role });
+    this.users.splice(this.users.indexOf(user), 1, updated);
+    return updated;
+  }
+
+  async countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number> {
+    return this.users.filter(
+      (user) => user.tenantId === tenantId && user.role === role && user.status === 'active',
+    ).length;
+  }
 }
 
 function createInput(tenantId: TenantId, email = 'Lawyer@Test.Local'): CreateUserInput {
@@ -73,7 +91,7 @@ function createInput(tenantId: TenantId, email = 'Lawyer@Test.Local'): CreateUse
     tenantId,
     email,
     name: 'Lawyer',
-    role: 'Matter Owner',
+    role: 'matter_owner',
     practiceGroup: 'corporate',
     password: 'correct horse battery staple',
   };

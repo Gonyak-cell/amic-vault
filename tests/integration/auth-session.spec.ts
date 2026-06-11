@@ -134,8 +134,8 @@ describe('auth session integration', () => {
   it('uses the session tenant as the only protected endpoint tenant source', async () => {
     const { cookie } = await login(baseUrl, {
       tenantId: tenantAlphaId,
-      email: 'alpha-matter-owner@test.local',
-      password: 'dev-alpha-owner-password',
+      email: 'alpha-firm-admin@test.local',
+      password: 'dev-alpha-firm-admin-password',
     });
 
     const response = await fetch(`${baseUrl}/v1/tenant/settings`, {

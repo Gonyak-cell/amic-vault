@@ -1,6 +1,6 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
-import type { TenantId, UserStatus } from '@amic-vault/shared';
+import type { TenantId, UserRole, UserStatus } from '@amic-vault/shared';
 import type { QueryClient } from '../audit/audit.service';
 import { hashPassword, normalizeEmail } from './password';
 import { UserEntity } from './user.entity';
@@ -21,7 +21,7 @@ interface UserRow {
   tenant_id: string;
   email: string;
   name: string;
-  role: string;
+  role: UserRole;
   practice_group: string | null;
   status: UserStatus;
   password_hash: string;
@@ -52,7 +52,7 @@ export interface CreateUserInput {
   tenantId: TenantId;
   email: string;
   name: string;
-  role: string;
+  role: UserRole;
   practiceGroup: string | null;
   password: string;
 }
@@ -64,6 +64,13 @@ export interface UserStore {
   updatePasswordHash(tenantId: TenantId, userId: string, passwordHash: string): Promise<void>;
   setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void>;
   recordLoginSuccess(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void>;
+  updateRole(
+    tenantId: TenantId,
+    userId: string,
+    role: UserRole,
+    client?: QueryClient,
+  ): Promise<UserEntity | null>;
+  countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number>;
 }
 
 export class PgUserStore implements UserStore {
@@ -169,6 +176,42 @@ export class PgUserStore implements UserStore {
       [tenantId, userId],
     );
   }
+
+  async updateRole(
+    tenantId: TenantId,
+    userId: string,
+    role: UserRole,
+    client: QueryClient = getPool(),
+  ): Promise<UserEntity | null> {
+    const result = await client.query(
+      `
+        UPDATE users
+        SET role = $3,
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND user_id = $2
+        RETURNING user_id, tenant_id, email, name, role, practice_group, status,
+          password_hash, mfa_enabled, last_login_at, created_at, updated_at
+      `,
+      [tenantId, userId, role],
+    );
+    const row = result.rows[0] as UserRow | undefined;
+    return row ? mapUser(row) : null;
+  }
+
+  async countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number> {
+    const result = await getPool().query<{ count: string }>(
+      `
+        SELECT count(*)::text AS count
+        FROM users
+        WHERE tenant_id = $1
+          AND role = $2
+          AND status = 'active'
+      `,
+      [tenantId, role],
+    );
+    return Number(result.rows[0]?.count ?? '0');
+  }
 }
 
 export const USER_STORE = Symbol('USER_STORE');
@@ -210,5 +253,18 @@ export class UserService {
 
   recordLoginSuccess(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void> {
     return this.store.recordLoginSuccess(tenantId, userId, client);
+  }
+
+  updateRole(
+    tenantId: TenantId,
+    userId: string,
+    role: UserRole,
+    client?: QueryClient,
+  ): Promise<UserEntity | null> {
+    return this.store.updateRole(tenantId, userId, role, client);
+  }
+
+  countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number> {
+    return this.store.countActiveUsersByRole(tenantId, role);
   }
 }

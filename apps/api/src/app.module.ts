@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
+import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
 import { MatterModule } from './modules/matter/matter.module';
 
 @Controller()
@@ -34,6 +35,7 @@ class AppController {
     AuthModule,
     HealthModule,
     ClientModule,
+    EthicalWallModule,
     MatterModule,
   ],
   controllers: [AppController],

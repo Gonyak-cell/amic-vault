@@ -1,0 +1,51 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Inject,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { RequireRoles } from '../../common/decorators/require-roles.decorator';
+import { RequireRolesGuard } from '../../common/guards/require-roles.guard';
+import type { RequestWithSession } from '../auth/session.guard';
+import { createEthicalWallSchema } from './dto/create-ethical-wall.dto';
+import { EthicalWallService } from './ethical-wall.service';
+
+function validationFailed(): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+}
+
+function permissionDenied(): ForbiddenException {
+  return new ForbiddenException({ code: 'PERMISSION_DENIED' });
+}
+
+function parseOrValidation<T>(parse: () => T): T {
+  try {
+    return parse();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') throw validationFailed();
+    throw error;
+  }
+}
+
+function sessionUserId(request: RequestWithSession): string {
+  const userId = request.session?.userId;
+  if (!userId) throw permissionDenied();
+  return userId;
+}
+
+@Controller('ethical-walls')
+export class EthicalWallController {
+  constructor(@Inject(EthicalWallService) private readonly ethicalWallService: EthicalWallService) {}
+
+  @Post()
+  @RequireRoles('security_admin')
+  @UseGuards(RequireRolesGuard)
+  create(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() => createEthicalWallSchema.parse(body));
+    return this.ethicalWallService.create(sessionUserId(request), input);
+  }
+}

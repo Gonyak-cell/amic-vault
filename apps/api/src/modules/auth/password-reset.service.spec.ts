@@ -37,7 +37,7 @@ async function user(): Promise<UserEntity> {
     tenantId,
     email: 'alpha@test.local',
     name: 'Alpha',
-    role: 'Matter Owner',
+    role: 'matter_owner',
     practiceGroup: 'corporate',
     status: 'active',
     passwordHash: await hashPassword('old-password'),

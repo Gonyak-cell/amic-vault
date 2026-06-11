@@ -13,6 +13,8 @@ describe('seed loader', () => {
           FROM users
           WHERE email IN (
             'alpha-matter-owner@test.local',
+            'alpha-firm-admin@test.local',
+            'alpha-security-admin@test.local',
             'alpha-member@test.local',
             'beta-matter-owner@test.local',
             'beta-member@test.local'
@@ -24,7 +26,7 @@ describe('seed loader', () => {
       );
 
       expect(tenants.rows[0]?.count).toBe('2');
-      expect(users.rows[0]?.count).toBe('4');
+      expect(users.rows[0]?.count).toBe('6');
       expect(plaintextPasswords.rows[0]?.count).toBe('0');
     });
   });

@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import type { TenantId } from '@amic-vault/shared';
 import type { TenantEntity } from '../tenant/tenant.entity';
@@ -34,7 +34,7 @@ async function user(password: string, mfaEnabled = false): Promise<UserEntity> {
     tenantId,
     email: 'alpha@test.local',
     name: 'Alpha',
-    role: 'Matter Owner',
+    role: 'matter_owner',
     practiceGroup: 'corporate',
     status: 'active',
     passwordHash: await hashPassword(password),
@@ -156,5 +156,17 @@ describe('AuthService', () => {
         { ipAddress: null, userAgent: null },
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('denies external_user session issuance before R11', async () => {
+    const external = await user('secret-password');
+    const service = createService(new UserEntity({ ...external, role: 'external_user' }));
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
