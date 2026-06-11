@@ -181,13 +181,17 @@ export class DocumentLifecycleService {
     });
   }
 
-  async download(actorUserId: string, documentId: string): Promise<DocumentDownloadResult> {
+  async download(
+    actorUserId: string,
+    documentId: string,
+    reasonCode?: string,
+  ): Promise<DocumentDownloadResult> {
     const context = this.tenantContext.require();
     const target = await this.auditService.transaction(context.tenantId, async (tx) => {
       const row = await this.findDownloadTarget(tx, context.tenantId, documentId);
       if (!row) throw notFoundDenied();
       if (row.status === 'deleted') throw documentLocked();
-      await this.assertCanReadMatter(context.tenantId, actorUserId, row.matter_id);
+      await this.assertCanDownloadDocument(context.tenantId, actorUserId, documentId, reasonCode);
       await this.auditService.log(
         {
           tenantId: context.tenantId,
@@ -201,6 +205,7 @@ export class DocumentLifecycleService {
             matter_id: row.matter_id,
             version_id: row.version_id,
             hash: row.sha256,
+            ...(reasonCode ? { reason_code: reasonCode } : {}),
           },
         },
         tx,
@@ -246,20 +251,28 @@ export class DocumentLifecycleService {
     throw permissionDenied();
   }
 
-  private async assertCanReadMatter(
+  private async assertCanDownloadDocument(
     tenantId: TenantId,
     actorUserId: string,
-    matterId: string,
+    documentId: string,
+    reasonCode?: string,
   ): Promise<void> {
     let decision: PermissionDecision | undefined;
     try {
-      decision = await this.permissionService.canReadMatter({ tenantId, userId: actorUserId }, matterId);
+      decision = await this.permissionService.canDownloadDocument(
+        { tenantId, userId: actorUserId },
+        documentId,
+        reasonCode,
+      );
     } catch {
-      this.logger.warn({ code: 'PERM_EVAL_ERROR', matterId });
+      this.logger.warn({ code: 'PERM_EVAL_ERROR', documentId });
     }
     if (decision?.effect === 'ALLOW') return;
-    if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
-    throw permissionDenied();
+    if (decision?.reasonCode === 'DOCUMENT_LOCKED') throw documentLocked();
+    if (decision?.reasonCode === 'VALIDATION_FAILED') {
+      throw validationFailed('DOWNLOAD_REASON_REQUIRED');
+    }
+    throw notFoundDenied();
   }
 
   private async assertCanRestore(

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Pool } from 'pg';
 import { isMatterMutationBlockedState, isMatterState } from '@amic-vault/domain';
 import type {
@@ -21,6 +21,7 @@ import {
   type PermissionAuditTarget,
 } from './fail-closed.wrapper';
 import { WallMembershipReader } from './wall-membership.reader';
+import { DocumentPermissionService } from './document-permission.service';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -86,6 +87,9 @@ export class PermissionService {
     @Inject(FailClosedPermissionWrapper)
     private readonly wrapper: FailClosedPermissionWrapper,
     @Inject(WallMembershipReader) private readonly wallMembershipReader: WallMembershipReader,
+    @Optional()
+    @Inject(DocumentPermissionService)
+    private readonly documentPermissionService?: DocumentPermissionService,
   ) {}
 
   canReadMatter(ctx: PermissionContext, matterId: string): Promise<PermissionDecision> {
@@ -110,6 +114,24 @@ export class PermissionService {
     return this.wrapper.evaluate(auditTarget(ctx, matterId), () =>
       this.evaluateCanManageMatterMembers(ctx, matterId),
     );
+  }
+
+  canReadDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
+    if (!this.documentPermissionService) {
+      return Promise.resolve(denyPermission('NOT_IMPLEMENTED', ['document_permission:missing']));
+    }
+    return this.documentPermissionService.canReadDocument(ctx, documentId);
+  }
+
+  canDownloadDocument(
+    ctx: PermissionContext,
+    documentId: string,
+    reason?: string,
+  ): Promise<PermissionDecision> {
+    if (!this.documentPermissionService) {
+      return Promise.resolve(denyPermission('NOT_IMPLEMENTED', ['document_permission:missing']));
+    }
+    return this.documentPermissionService.canDownloadDocument(ctx, documentId, reason);
   }
 
   protected async evaluateCanReadMatter(

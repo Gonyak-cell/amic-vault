@@ -17,6 +17,7 @@ import { PartyModule } from './modules/party/party.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { DocumentModule } from './modules/document/document.module';
+import { PreviewModule } from './modules/preview/preview.module';
 
 @Controller()
 class AppController {
@@ -45,6 +46,7 @@ class AppController {
     PartyModule,
     StorageModule,
     DocumentModule,
+    PreviewModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 WORKDIR /worker
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libreoffice-writer fonts-dejavu \
+  && rm -rf /var/lib/apt/lists/*
 COPY workers/ingestion/pyproject.toml ./
 COPY workers/ingestion/app ./app
 RUN pip install --no-cache-dir .

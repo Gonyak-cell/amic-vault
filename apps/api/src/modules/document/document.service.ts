@@ -113,6 +113,10 @@ function ethicalWallBlocked(): ForbiddenException {
   return new ForbiddenException({ code: 'ETHICAL_WALL_BLOCKED' });
 }
 
+function documentLocked(): BadRequestException {
+  return new BadRequestException({ code: 'DOCUMENT_LOCKED' });
+}
+
 function notFoundDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
 }
@@ -245,7 +249,7 @@ export class DocumentService {
     return auditService.transaction(context.tenantId, async (tx) => {
       const document = await this.findByIdWithExtractionForTenant(context.tenantId, documentId, tx);
       if (!document) throw notFoundDenied();
-      await this.assertCanReadMatter(context.tenantId, actorUserId, document.matter_id);
+      await this.assertCanReadDocument(context.tenantId, actorUserId, documentId);
       await auditService.log(
         {
           tenantId: context.tenantId,
@@ -326,23 +330,23 @@ export class DocumentService {
     throw permissionDenied();
   }
 
-  private async assertCanReadMatter(
+  private async assertCanReadDocument(
     tenantId: TenantId,
     actorUserId: string,
-    matterId: string,
+    documentId: string,
   ): Promise<void> {
     let decision: PermissionDecision | undefined;
     try {
-      decision = await this.requirePermissionService().canReadMatter(
+      decision = await this.requirePermissionService().canReadDocument(
         { tenantId, userId: actorUserId },
-        matterId,
+        documentId,
       );
     } catch {
-      this.logger.warn({ code: 'PERM_EVAL_ERROR', matterId });
+      this.logger.warn({ code: 'PERM_EVAL_ERROR', documentId });
     }
     if (decision?.effect === 'ALLOW') return;
-    if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
-    throw permissionDenied();
+    if (decision?.reasonCode === 'DOCUMENT_LOCKED') throw documentLocked();
+    throw notFoundDenied();
   }
 
   private assertMatterMutationAllowed(status: string): void {

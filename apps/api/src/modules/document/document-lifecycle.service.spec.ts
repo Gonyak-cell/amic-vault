@@ -34,7 +34,7 @@ function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
     } as never,
     {
       canEditMatter: vi.fn(async () => allowPermission()),
-      canReadMatter: vi.fn(async () => allowPermission()),
+      canDownloadDocument: vi.fn(async () => allowPermission()),
     } as never,
     {
       getByStorageUri: vi.fn(async () => ({

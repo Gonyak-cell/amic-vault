@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -71,14 +70,6 @@ function validationFailed(reason?: string): BadRequestException {
     code: 'VALIDATION_FAILED',
     ...(reason ? { reason } : {}),
   });
-}
-
-function permissionDenied(): ForbiddenException {
-  return new ForbiddenException({ code: 'PERMISSION_DENIED' });
-}
-
-function ethicalWallBlocked(): ForbiddenException {
-  return new ForbiddenException({ code: 'ETHICAL_WALL_BLOCKED' });
 }
 
 function notFoundDenied(): NotFoundException {
@@ -236,7 +227,7 @@ export class DocumentVersionService {
     return this.auditService.transaction(context.tenantId, async (tx) => {
       const target = await this.findTargetForTenant(context.tenantId, documentId, tx, false);
       if (!target) throw notFoundDenied();
-      await this.assertCanReadMatter(context.tenantId, actorUserId, target.matter_id);
+      await this.assertCanReadDocument(context.tenantId, actorUserId, documentId);
 
       const params: unknown[] = [context.tenantId, documentId];
       const filters = ['tenant_id = $1', 'document_id = $2'];
@@ -294,23 +285,22 @@ export class DocumentVersionService {
     }));
   }
 
-  private async assertCanReadMatter(
+  private async assertCanReadDocument(
     tenantId: TenantId,
     actorUserId: string,
-    matterId: string,
+    documentId: string,
   ): Promise<void> {
     let decision: PermissionDecision | undefined;
     try {
-      decision = await this.permissionService.canReadMatter(
+      decision = await this.permissionService.canReadDocument(
         { tenantId, userId: actorUserId },
-        matterId,
+        documentId,
       );
     } catch {
-      this.logger.warn({ code: 'PERM_EVAL_ERROR', matterId });
+      this.logger.warn({ code: 'PERM_EVAL_ERROR', documentId });
     }
     if (decision?.effect === 'ALLOW') return;
-    if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
-    throw permissionDenied();
+    throw notFoundDenied();
   }
 
   private async findTargetForTenant(

@@ -131,6 +131,13 @@ export {
   updateDocumentMetadataSchema,
   type UpdateDocumentMetadataDto,
 } from './dto/document/update-document-metadata.dto';
+export {
+  documentDownloadReasonCodes,
+  documentDownloadReasonCodeSchema,
+  documentDownloadReasonQuerySchema,
+  type DocumentDownloadReasonCode,
+  type DocumentDownloadReasonQueryDto,
+} from './dto/document/download-reason.dto';
 export { updateLegalHoldSchema, type UpdateLegalHoldDto } from './dto/legal-hold.dto';
 export {
   bulkUploadFileSchema,

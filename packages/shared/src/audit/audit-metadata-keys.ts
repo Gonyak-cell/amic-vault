@@ -18,6 +18,7 @@ export const auditMetadataKeys = [
   'extraction_status',
   'extraction_method',
   'confidence',
+  'channel',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

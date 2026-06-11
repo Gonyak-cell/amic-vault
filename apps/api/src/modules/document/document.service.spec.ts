@@ -151,7 +151,7 @@ describe('DocumentService', () => {
       }),
     };
     const auditLog = vi.fn(async () => undefined);
-    const canReadMatter = vi.fn(async () => allowPermission());
+    const canReadDocument = vi.fn(async () => allowPermission());
     const service = new DocumentService(
       {
         transaction: vi.fn(
@@ -159,7 +159,7 @@ describe('DocumentService', () => {
         ),
         log: auditLog,
       } as never,
-      { canReadMatter } as never,
+      { canReadDocument } as never,
       {
         require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
       } as never,
@@ -167,7 +167,7 @@ describe('DocumentService', () => {
 
     const result = await service.getDocument(actorUserId, documentId);
 
-    expect(canReadMatter).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, matterId);
+    expect(canReadDocument).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, documentId);
     expect(result).toMatchObject({
       documentId,
       extractionStatus: 'ocr_pending',
