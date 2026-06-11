@@ -41,7 +41,7 @@ function codeFromStatus(status: number): ErrorCode {
 
 function reasonFromResponse(value: unknown): string | undefined {
   if (!isRecord(value) || typeof value.reason !== 'string') return undefined;
-  return /^[a-z0-9_:-]{1,80}$/.test(value.reason) ? value.reason : undefined;
+  return /^[A-Za-z0-9_:-]{1,80}$/.test(value.reason) ? value.reason : undefined;
 }
 
 @Catch()
@@ -54,9 +54,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = http.getResponse<ResponseLike>();
     const request = http.getRequest<RequestLike>();
     const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
     const responseCode = isRecord(exceptionResponse)
@@ -83,7 +81,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   private async captureSafely(
     exception: unknown,
-    context: { requestId: string | undefined; method: string | undefined; path: string | undefined },
+    context: {
+      requestId: string | undefined;
+      method: string | undefined;
+      path: string | undefined;
+    },
   ): Promise<void> {
     try {
       await this.errorTracker.capture(exception, context);

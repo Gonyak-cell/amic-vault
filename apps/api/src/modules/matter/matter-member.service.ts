@@ -19,6 +19,7 @@ import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
+import { assertMatterMutationAllowed } from './guards/matter-mutability.guard';
 import { MatterMemberEntity } from './matter-member.entity';
 
 const databaseUrl =
@@ -188,7 +189,12 @@ export class MatterMemberService {
     });
   }
 
-  async update(actorUserId: string, matterId: string, userId: string, input: UpdateMatterMemberDto) {
+  async update(
+    actorUserId: string,
+    matterId: string,
+    userId: string,
+    input: UpdateMatterMemberDto,
+  ) {
     const context = this.tenantContext.require();
     await this.assertCanManageOrDeny(context.tenantId, actorUserId, matterId);
     await this.assertMatterMutable(context.tenantId, matterId);
@@ -197,10 +203,7 @@ export class MatterMemberService {
     const nextRole = input.matterRole ?? before.props.matterRole;
     const nextAccess = input.accessLevel ?? before.props.accessLevel;
     if (nextRole === 'limited_reviewer' && nextAccess === 'edit') throw validationFailed();
-    if (
-      before.props.matterRole === 'owner' &&
-      nextRole !== 'owner'
-    ) {
+    if (before.props.matterRole === 'owner' && nextRole !== 'owner') {
       await this.assertAnotherOwnerExists(context.tenantId, matterId, userId);
     }
     if (nextRole === before.props.matterRole && nextAccess === before.props.accessLevel) {
@@ -283,7 +286,11 @@ export class MatterMemberService {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async canManageMembers(tenantId: TenantId, actorUserId: string, matterId: string): Promise<boolean> {
+  async canManageMembers(
+    tenantId: TenantId,
+    actorUserId: string,
+    matterId: string,
+  ): Promise<boolean> {
     const actor = await this.userService.findByTenantAndId(tenantId, actorUserId);
     if (!actor || actor.status !== 'active') return false;
     if (actor.role === 'firm_admin') return true;
@@ -373,7 +380,7 @@ export class MatterMemberService {
 
   private async assertMatterMutable(tenantId: TenantId, matterId: string): Promise<void> {
     const matter = await this.assertMatterExists(tenantId, matterId);
-    if (matter.status === 'closed' || matter.status === 'archived') throw permissionDenied();
+    assertMatterMutationAllowed(matter.status);
   }
 
   private async assertUserAddable(tenantId: TenantId, userId: string): Promise<void> {
@@ -445,4 +452,3 @@ export class MatterMemberService {
     return row ? mapMatterMember(row) : null;
   }
 }
-

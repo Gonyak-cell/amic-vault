@@ -54,6 +54,12 @@ export const listMattersQuerySchema = z
   })
   .strict();
 
+export const updateMatterStatusSchema = z
+  .object({
+    status: matterStatusSchema,
+  })
+  .strict();
+
 export interface MatterDto {
   matterId: string;
   tenantId: string;
@@ -82,3 +88,4 @@ export interface MatterListDto {
 export type MatterStatus = (typeof matterStatuses)[number];
 export type CreateMatterDto = z.infer<typeof createMatterSchema>;
 export type ListMattersQueryDto = z.infer<typeof listMattersQuerySchema>;
+export type UpdateMatterStatusDto = z.infer<typeof updateMatterStatusSchema>;

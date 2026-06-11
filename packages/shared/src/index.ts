@@ -108,11 +108,13 @@ export {
   listMattersQuerySchema,
   matterStatuses,
   matterStatusSchema,
+  updateMatterStatusSchema,
   type CreateMatterDto,
   type ListMattersQueryDto,
   type MatterDto,
   type MatterListDto,
   type MatterStatus,
+  type UpdateMatterStatusDto,
 } from './matter/matter.dto';
 export {
   addMatterMemberSchema,

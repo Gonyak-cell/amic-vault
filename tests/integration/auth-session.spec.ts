@@ -9,8 +9,8 @@ import { hashOpaqueToken, SESSION_COOKIE_NAME } from '../../apps/api/src/modules
 import { createOwnerClient, tenantAlphaId, tenantBetaId, withClient } from './helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
-const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
-const betaMemberUserId = '22222222-2222-4222-8222-222222222202';
+const alphaAuthResetUserId = '11111111-1111-4111-8111-111111111103';
+const betaAuthMfaUserId = '22222222-2222-4222-8222-222222222203';
 
 function extractSessionCookie(response: Response): string {
   const setCookie = response.headers.get('set-cookie') ?? '';
@@ -91,7 +91,7 @@ describe('auth session integration', () => {
   });
 
   afterAll(async () => {
-    await setMfaEnabled(betaMemberUserId, false);
+    await setMfaEnabled(betaAuthMfaUserId, false);
     await app.close();
   });
 
@@ -187,45 +187,49 @@ describe('auth session integration', () => {
   });
 
   it('fails closed for mfa_enabled users without creating a session', async () => {
-    await setMfaEnabled(betaMemberUserId, true);
-    const before = await countSessionsForUser(betaMemberUserId);
+    await setMfaEnabled(betaAuthMfaUserId, true);
+    try {
+      const before = await countSessionsForUser(betaAuthMfaUserId);
 
-    const response = await fetch(`${baseUrl}/v1/auth/login`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        tenantId: tenantBetaId,
-        email: 'beta-member@test.local',
-        password: 'dev-beta-member-password',
-      }),
-    });
-    const body = await response.text();
-    const after = await countSessionsForUser(betaMemberUserId);
+      const response = await fetch(`${baseUrl}/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: tenantBetaId,
+          email: 'beta-auth-mfa@test.local',
+          password: 'dev-beta-auth-mfa-password',
+        }),
+      });
+      const body = await response.text();
+      const after = await countSessionsForUser(betaAuthMfaUserId);
 
-    expect(response.status, body).toBe(401);
-    expect(body).toContain('AUTH_REQUIRED');
-    expect(body).toContain('mfa_not_available');
-    expect(after).toBe(before);
+      expect(response.status, body).toBe(401);
+      expect(body).toContain('AUTH_REQUIRED');
+      expect(body).toContain('mfa_not_available');
+      expect(after).toBe(before);
+    } finally {
+      await setMfaEnabled(betaAuthMfaUserId, false);
+    }
   });
 
   it('completes password reset without storing plaintext tokens and revokes old sessions', async () => {
     mailer.clear();
     const oldSession = await login(baseUrl, {
       tenantId: tenantAlphaId,
-      email: 'alpha-member@test.local',
-      password: 'dev-alpha-member-password',
+      email: 'alpha-auth-reset@test.local',
+      password: 'dev-alpha-auth-reset-password',
     });
 
     const request = await fetch(`${baseUrl}/v1/auth/password-reset/request`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tenantId: tenantAlphaId, email: 'alpha-member@test.local' }),
+      body: JSON.stringify({ tenantId: tenantAlphaId, email: 'alpha-auth-reset@test.local' }),
     });
     expect(request.status).toBe(201);
 
-    const message = mailer.latestForEmail('alpha-member@test.local');
+    const message = mailer.latestForEmail('alpha-auth-reset@test.local');
     expect(message).toBeDefined();
-    const storedHash = await latestResetHash(alphaMemberUserId);
+    const storedHash = await latestResetHash(alphaAuthResetUserId);
     expect(storedHash).toBe(hashOpaqueToken(message?.token ?? ''));
     expect(storedHash).not.toContain(message?.token ?? '');
 
@@ -241,8 +245,8 @@ describe('auth session integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         tenantId: tenantAlphaId,
-        email: 'alpha-member@test.local',
-        password: 'dev-alpha-member-password',
+        email: 'alpha-auth-reset@test.local',
+        password: 'dev-alpha-auth-reset-password',
       }),
     });
     expect(oldPassword.status).toBe(401);
@@ -254,7 +258,7 @@ describe('auth session integration', () => {
 
     const newPassword = await login(baseUrl, {
       tenantId: tenantAlphaId,
-      email: 'alpha-member@test.local',
+      email: 'alpha-auth-reset@test.local',
       password: 'new-alpha-member-password',
     });
     expect(newPassword.response.status).toBe(201);

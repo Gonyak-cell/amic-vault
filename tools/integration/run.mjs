@@ -5,6 +5,14 @@ import { spawnSync } from 'node:child_process';
 
 const filters = process.argv.slice(2).filter((filter) => filter !== '--');
 
+const domainBuild = spawnSync('pnpm', ['--filter', '@amic-vault/domain', 'build'], {
+  stdio: 'inherit',
+});
+
+if (domainBuild.status !== 0) {
+  process.exit(domainBuild.status ?? 1);
+}
+
 const sharedBuild = spawnSync('pnpm', ['--filter', '@amic-vault/shared', 'build'], {
   stdio: 'inherit',
 });

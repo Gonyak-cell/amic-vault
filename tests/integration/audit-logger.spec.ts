@@ -21,7 +21,7 @@ async function login(baseUrl: string, password: string): Promise<Response> {
   });
 }
 
-async function latestAudit(action: string) {
+async function latestAudit(action: string, targetId: string) {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{
       action: string;
@@ -36,10 +36,11 @@ async function latestAudit(action: string) {
         FROM audit_events
         WHERE tenant_id = $1
           AND action = $2
+          AND target_id = $3
         ORDER BY created_at DESC
         LIMIT 1
       `,
-      [tenantAlphaId, action],
+      [tenantAlphaId, action, targetId],
     );
     return result.rows[0];
   });
@@ -65,7 +66,7 @@ describe('audit logger integration', () => {
   it('records login success and failure audit events without credentials', async () => {
     const failed = await login(baseUrl, 'wrong-password');
     expect(failed.status).toBe(401);
-    const failureAudit = await latestAudit('LOGIN_FAILURE');
+    const failureAudit = await latestAudit('LOGIN_FAILURE', alphaOwnerUserId);
     expect(failureAudit).toMatchObject({
       action: 'LOGIN_FAILURE',
       actor_id: alphaOwnerUserId,
@@ -77,7 +78,7 @@ describe('audit logger integration', () => {
 
     const success = await login(baseUrl, 'dev-alpha-owner-password');
     expect(success.status).toBe(201);
-    const successAudit = await latestAudit('LOGIN_SUCCESS');
+    const successAudit = await latestAudit('LOGIN_SUCCESS', alphaOwnerUserId);
     expect(successAudit).toMatchObject({
       action: 'LOGIN_SUCCESS',
       actor_id: alphaOwnerUserId,

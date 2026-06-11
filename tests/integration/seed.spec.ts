@@ -16,8 +16,10 @@ describe('seed loader', () => {
             'alpha-firm-admin@test.local',
             'alpha-security-admin@test.local',
             'alpha-member@test.local',
+            'alpha-auth-reset@test.local',
             'beta-matter-owner@test.local',
-            'beta-member@test.local'
+            'beta-member@test.local',
+            'beta-auth-mfa@test.local'
           )
         `,
       );
@@ -26,7 +28,7 @@ describe('seed loader', () => {
       );
 
       expect(tenants.rows[0]?.count).toBe('2');
-      expect(users.rows[0]?.count).toBe('6');
+      expect(users.rows[0]?.count).toBe('8');
       expect(plaintextPasswords.rows[0]?.count).toBe('0');
     });
   });
