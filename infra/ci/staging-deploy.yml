@@ -1,0 +1,15 @@
+# Staging skeleton for PACK-R0-01.
+# It builds and tags images only. Deployment targets are intentionally not wired in R0.
+images:
+  api:
+    dockerfile: apps/api/Dockerfile
+    tag: amic-vault-api:${GITHUB_SHA}
+  web:
+    dockerfile: apps/web/Dockerfile
+    tag: amic-vault-web:${GITHUB_SHA}
+  ingestion:
+    dockerfile: workers/ingestion/Dockerfile
+    tag: amic-vault-ingestion:${GITHUB_SHA}
+deploy:
+  enabled: false
+  reason: "TODO(R-deploy): staging target is not defined in R0"

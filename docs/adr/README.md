@@ -1,0 +1,22 @@
+# Architecture Decision Records
+
+These ADR files are the repo-local rendering of `docs/package/codex/01_Adopted_Decisions_ADR.md`.
+
+Status note: each file is marked `Proposed for R0 Gate` because `DEVOPS-DOCSPKG-TRANSFER-TUW-002` requires repo-local ADR files to await R0 Gate approval. The underlying DEC decisions remain binding through `docs/package/codex/00_Master_Brief.md` and `docs/package/codex/01_Adopted_Decisions_ADR.md`.
+
+| ADR | Topic | DEC / Correction Trace |
+|---|---|---|
+| ADR-001 | Deployment model | DEC-01 |
+| ADR-002 | Database isolation | DEC-02, C-7 |
+| ADR-003 | Runtime split and monorepo | DEC-03, DEC-04, DEC-06 |
+| ADR-004 | Permission model | DEC-09, DEC-15, C-1, C-2, C-7 |
+| ADR-005 | Audit immutability | DEC-12, Brief Constitution |
+| ADR-006 | Search engine phasing | DEC-05, C-5 |
+| ADR-007 | Storage and encryption | DEC-07, DEC-13 |
+| ADR-008 | Queue and worker strategy | DEC-06, DEC-08 |
+| ADR-009 | HWP/HWPX strategy | DEC-10 |
+| ADR-010 | API versioning | DEC-14 |
+| ADR-011 | Model gateway policy | DEC-11, DEC-17, DEC-18 |
+| ADR-012 | Evaluation dataset strategy | DEC-16, DEC-18 |
+
+ADR changes require human approval and a Decision Ledger append.

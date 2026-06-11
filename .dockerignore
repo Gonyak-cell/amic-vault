@@ -1,0 +1,14 @@
+.git
+.github
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules
+dist
+.next
+.turbo
+coverage
+__pycache__
+.pytest_cache
+docs/package
