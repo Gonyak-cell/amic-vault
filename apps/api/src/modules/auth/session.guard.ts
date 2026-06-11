@@ -50,12 +50,22 @@ export class SessionGuard implements CanActivate {
       throw authRequired();
     }
 
-    const session = await this.sessions.findActiveByTokenHash(hashOpaqueToken(token));
+    let session: SessionRecord | null;
+    try {
+      session = await this.sessions.findActiveByTokenHash(hashOpaqueToken(token));
+    } catch {
+      throw authRequired();
+    }
     if (!session) {
       throw authRequired();
     }
 
-    const tenant = await this.tenantService.findById(session.tenantId);
+    let tenant: Awaited<ReturnType<TenantService['findById']>>;
+    try {
+      tenant = await this.tenantService.findById(session.tenantId);
+    } catch {
+      throw authRequired();
+    }
     if (!tenant || tenant.status !== 'active') {
       throw authRequired();
     }
