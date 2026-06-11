@@ -49,8 +49,8 @@ describe('client registry integration', () => {
   let app: INestApplication;
   let baseUrl: string;
   let alphaOwnerCookie: string;
-  let alphaMemberCookie: string;
   let betaOwnerCookie: string;
+  let betaMemberCookie: string;
 
   beforeAll(async () => {
     app = await NestFactory.create(AppModule, { logger: false });
@@ -62,15 +62,15 @@ describe('client registry integration', () => {
       email: 'alpha-matter-owner@test.local',
       password: 'dev-alpha-owner-password',
     });
-    alphaMemberCookie = await login(baseUrl, {
-      tenantId: tenantAlphaId,
-      email: 'alpha-member@test.local',
-      password: 'dev-alpha-member-password',
-    });
     betaOwnerCookie = await login(baseUrl, {
       tenantId: tenantBetaId,
       email: 'beta-matter-owner@test.local',
       password: 'dev-beta-owner-password',
+    });
+    betaMemberCookie = await login(baseUrl, {
+      tenantId: tenantBetaId,
+      email: 'beta-member@test.local',
+      password: 'dev-beta-member-password',
     });
   });
 
@@ -135,7 +135,7 @@ describe('client registry integration', () => {
   it('blocks non-manager writes and hides cross-tenant client ids', async () => {
     const denied = await fetch(`${baseUrl}/v1/clients`, {
       method: 'POST',
-      headers: { cookie: alphaMemberCookie, 'content-type': 'application/json' },
+      headers: { cookie: betaMemberCookie, 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'Denied Client' }),
     });
     const deniedBody = await denied.text();
