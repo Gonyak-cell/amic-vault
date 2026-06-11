@@ -15,6 +15,7 @@ import type {
   TenantId,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { EthicalWallService } from '../ethical-wall/ethical-wall.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { MatterEntity } from './matter.entity';
@@ -53,17 +54,17 @@ interface MatterListRow extends MatterRow {
 }
 
 export function canCreateMatterRole(role: string): boolean {
-  return role === 'Firm Admin' || role === 'Matter Owner';
+  return role === 'firm_admin' || role === 'matter_owner';
 }
 
 export function canReadMatterConservatively(role: string, actorUserId: string, matter: MatterEntity): boolean {
   // REPLACED-BY: SEC-MATTPERM-ACCECONT-TUW-004
-  return role === 'Firm Admin' || matter.props.leadLawyerId === actorUserId;
+  return role === 'firm_admin' || matter.props.leadLawyerId === actorUserId;
 }
 
 export function shouldRestrictMatterListToLead(role: string): boolean {
   // REPLACED-BY: SEC-MATTPERM-ACCECONT-TUW-005
-  return role !== 'Firm Admin';
+  return role !== 'firm_admin';
 }
 
 function mapMatter(row: MatterRow): MatterEntity {
@@ -94,6 +95,10 @@ function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
 
+function ethicalWallBlocked(): ForbiddenException {
+  return new ForbiddenException({ code: 'ETHICAL_WALL_BLOCKED' });
+}
+
 function notFoundDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
 }
@@ -102,6 +107,7 @@ function notFoundDenied(): NotFoundException {
 export class MatterService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(EthicalWallService) private readonly ethicalWallService: EthicalWallService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
   ) {}
@@ -172,6 +178,17 @@ export class MatterService {
     matter: MatterEntity,
   ): Promise<void> {
     const actor = await this.userService.findByTenantAndId(tenantId, actorUserId);
+    let wallDenied = false;
+    try {
+      wallDenied = await this.ethicalWallService.isUserExcludedFromMatter(
+        tenantId,
+        matter.props.matterId,
+        actorUserId,
+      );
+    } catch {
+      throw permissionDenied();
+    }
+    if (wallDenied) throw ethicalWallBlocked();
     if (!actor || !canReadMatterConservatively(actor.role, actorUserId, matter)) {
       throw permissionDenied();
     }
@@ -275,6 +292,22 @@ export class MatterService {
   ): Promise<{ items: MatterEntity[]; totalCount: number }> {
     const filters = ['tenant_id = $1'];
     const params: unknown[] = [tenantId];
+    params.push(actorUserId);
+    filters.push(`
+      NOT EXISTS (
+        SELECT 1
+        FROM ethical_walls ew
+        JOIN ethical_wall_memberships ewm
+          ON ewm.tenant_id = ew.tenant_id
+         AND ewm.wall_id = ew.wall_id
+        WHERE ew.tenant_id = $1
+          AND ew.matter_id = matters.matter_id
+          AND ew.status = 'active'
+          AND ewm.subject_type = 'user'
+          AND ewm.subject_id = $${params.length}::uuid
+          AND ewm.membership_type = 'excluded'
+      )
+    `);
     if (shouldRestrictMatterListToLead(actorRole)) {
       params.push(actorUserId);
       filters.push(`lead_lawyer_id = $${params.length}`);

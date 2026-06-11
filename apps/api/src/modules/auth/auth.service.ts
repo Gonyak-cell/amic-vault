@@ -1,5 +1,10 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import type { LoginRequestDto, LoginResponseDto, PasswordResetAcceptedDto } from '@amic-vault/shared';
+import { ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  canIssueSessionForRole,
+  type LoginRequestDto,
+  type LoginResponseDto,
+  type PasswordResetAcceptedDto,
+} from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 import type { TenantEntity } from '../tenant/tenant.entity';
 import { TenantService } from '../tenant/tenant.service';
@@ -78,6 +83,23 @@ export class AuthService {
         });
       }
       throw authRequired();
+    }
+
+    if (!canIssueSessionForRole(user.role)) {
+      this.recordEvent('LOGIN_FAILURE', tenant.tenantId, user.userId, 'external_user_disabled');
+      await this.auditService.log({
+        tenantId: tenant.tenantId,
+        actorId: user.userId,
+        action: 'LOGIN_FAILURE',
+        targetType: 'auth',
+        targetId: user.userId,
+        result: 'denied',
+        metadata: {
+          reason_code: 'external_user_disabled',
+          ip_address: metadata.ipAddress,
+        },
+      });
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
 
     const mfaDecision = this.mfaPolicy.evaluate(user);

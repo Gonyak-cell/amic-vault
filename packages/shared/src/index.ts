@@ -44,6 +44,31 @@ export {
   type WorkspaceStatus,
 } from './types/tenant';
 export { userStatuses, type UserStatus, type UserSummary } from './types/user';
+export {
+  canIssueSessionForRole,
+  isUserRole,
+  userRoles,
+  userRoleSchema,
+  type UserRole,
+} from './permission/roles';
+export {
+  isRolePermissionAction,
+  rolePermissionActions,
+  rolePermissionActionSchema,
+  type RolePermissionAction,
+} from './permission/permission-actions';
+export {
+  assertCompleteRolePermissionMatrix,
+  isRoleAllowedForAction,
+  rolePermissionDecision,
+  rolePermissionMatrix,
+  type RolePermissionDecision,
+  type RolePermissionMatrix,
+} from './permission/role-permission-matrix';
+export {
+  assignUserRoleSchema,
+  type AssignUserRoleDto,
+} from './user/user-role.dto';
 export type {
   LoginRequestDto,
   LoginResponseDto,
@@ -92,3 +117,16 @@ export {
   type MatterListDto,
   type MatterStatus,
 } from './matter/matter.dto';
+export {
+  createEthicalWallSchema,
+  ethicalWallStatuses,
+  wallMembershipTypes,
+  wallSubjectTypes,
+  type CreateEthicalWallDto,
+  type CreateEthicalWallMemberDto,
+  type EthicalWallDto,
+  type EthicalWallMembershipDto,
+  type EthicalWallStatus,
+  type WallMembershipType,
+  type WallSubjectType,
+} from './ethical-wall/ethical-wall.dto';

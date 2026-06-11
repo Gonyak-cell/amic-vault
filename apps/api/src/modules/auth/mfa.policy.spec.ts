@@ -10,7 +10,7 @@ function userWithMfa(enabled: boolean): UserEntity {
     tenantId: '11111111-1111-4111-8111-111111111111' as TenantId,
     email: 'alpha@test.local',
     name: 'Alpha',
-    role: 'Matter Owner',
+    role: 'matter_owner',
     practiceGroup: 'corporate',
     status: 'active',
     passwordHash: '$argon2id$placeholder',

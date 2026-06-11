@@ -28,20 +28,20 @@ function matter(leadLawyerId: string | null): MatterEntity {
 
 describe('matter conservative guards', () => {
   it('allows only firm admin and matter owner to create matters', () => {
-    expect(canCreateMatterRole('Firm Admin')).toBe(true);
-    expect(canCreateMatterRole('Matter Owner')).toBe(true);
-    expect(canCreateMatterRole('Matter Member')).toBe(false);
+    expect(canCreateMatterRole('firm_admin')).toBe(true);
+    expect(canCreateMatterRole('matter_owner')).toBe(true);
+    expect(canCreateMatterRole('matter_member')).toBe(false);
   });
 
   it('keeps read access conservative until PermissionService replaces it', () => {
-    expect(canReadMatterConservatively('Firm Admin', 'user-a', matter(null))).toBe(true);
-    expect(canReadMatterConservatively('Matter Owner', 'user-a', matter('user-a'))).toBe(true);
-    expect(canReadMatterConservatively('Matter Owner', 'user-a', matter('user-b'))).toBe(false);
+    expect(canReadMatterConservatively('firm_admin', 'user-a', matter(null))).toBe(true);
+    expect(canReadMatterConservatively('matter_owner', 'user-a', matter('user-a'))).toBe(true);
+    expect(canReadMatterConservatively('matter_owner', 'user-a', matter('user-b'))).toBe(false);
   });
 
   it('injects the list visibility decision before querying', () => {
-    expect(shouldRestrictMatterListToLead('Firm Admin')).toBe(false);
-    expect(shouldRestrictMatterListToLead('Matter Owner')).toBe(true);
-    expect(shouldRestrictMatterListToLead('Matter Member')).toBe(true);
+    expect(shouldRestrictMatterListToLead('firm_admin')).toBe(false);
+    expect(shouldRestrictMatterListToLead('matter_owner')).toBe(true);
+    expect(shouldRestrictMatterListToLead('matter_member')).toBe(true);
   });
 });

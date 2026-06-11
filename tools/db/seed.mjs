@@ -87,7 +87,8 @@ try {
     }
   }
   await client.query('COMMIT');
-  console.log('seed completed: tenants=2 users=4');
+  const userCount = fixture.tenants.reduce((count, tenant) => count + tenant.users.length, 0);
+  console.log(`seed completed: tenants=${fixture.tenants.length} users=${userCount}`);
 } catch (error) {
   await client.query('ROLLBACK');
   console.error(error);

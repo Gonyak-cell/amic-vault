@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { PgRoleLookup, RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { TenantController } from './tenant.controller';
 import { TenantContextMiddleware } from './tenant-context.middleware';
 import { TenantContextService } from './tenant-context';
@@ -14,6 +15,8 @@ import { WorkspaceService } from './workspace.service';
     TenantContextService,
     TenantService,
     WorkspaceService,
+    PgRoleLookup,
+    RequireRolesGuard,
     {
       provide: TENANT_STORE,
       useExisting: PgTenantStore,

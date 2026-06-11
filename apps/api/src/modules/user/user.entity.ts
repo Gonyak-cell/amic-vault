@@ -1,11 +1,11 @@
-import type { TenantId, UserStatus, UserSummary } from '@amic-vault/shared';
+import type { TenantId, UserRole, UserStatus, UserSummary } from '@amic-vault/shared';
 
 export interface UserEntityProps {
   userId: string;
   tenantId: TenantId;
   email: string;
   name: string;
-  role: string;
+  role: UserRole;
   practiceGroup: string | null;
   status: UserStatus;
   passwordHash: string;
@@ -20,7 +20,7 @@ export class UserEntity {
   readonly tenantId: TenantId;
   readonly email: string;
   readonly name: string;
-  readonly role: string;
+  readonly role: UserRole;
   readonly practiceGroup: string | null;
   readonly status: UserStatus;
   readonly passwordHash: string;
@@ -50,7 +50,6 @@ export class UserEntity {
       tenantId: this.tenantId,
       email: this.email,
       name: this.name,
-      // Role remains a free string in R0; the R1 SEC-RBAC pack owns the enum matrix.
       role: this.role,
       practiceGroup: this.practiceGroup,
       status: this.status,

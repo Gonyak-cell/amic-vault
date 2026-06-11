@@ -72,7 +72,7 @@ function notFoundDenied(): NotFoundException {
 }
 
 function isClientManagerRole(role: string): boolean {
-  return role === 'Firm Admin' || role === 'Matter Owner';
+  return role === 'firm_admin' || role === 'matter_owner';
 }
 
 function escapeLike(input: string): string {

@@ -1,4 +1,6 @@
-import { Controller, Get, Inject, NotFoundException, Param } from '@nestjs/common';
+import { Controller, Get, Inject, NotFoundException, Param, UseGuards } from '@nestjs/common';
+import { RequireRoles } from '../../common/decorators/require-roles.decorator';
+import { RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { TenantContextService } from './tenant-context';
 import { TenantService } from './tenant.service';
 import { WorkspaceService } from './workspace.service';
@@ -12,6 +14,8 @@ export class TenantController {
   ) {}
 
   @Get('settings')
+  @RequireRoles('firm_admin', 'security_admin')
+  @UseGuards(RequireRolesGuard)
   async getSettings() {
     const context = this.tenantContext.require();
     const tenant = await this.tenantService.findById(context.tenantId);

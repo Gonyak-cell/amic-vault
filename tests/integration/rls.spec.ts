@@ -25,7 +25,7 @@ async function ensureTenantRows(): Promise<void> {
       await client.query(
         `
           INSERT INTO users (tenant_id, email, name, role, password_hash)
-          VALUES ($1, $2, $3, 'Matter Member', 'dev-sha256:fixture')
+          VALUES ($1, $2, $3, 'matter_member', 'dev-sha256:fixture')
           ON CONFLICT (tenant_id, email) DO NOTHING
         `,
         [tenantId, `${slug}-rls@test.local`, `${slug} RLS User`],
@@ -77,7 +77,7 @@ describe('tenant RLS', () => {
         client.query(
           `
             INSERT INTO users (email, name, role, password_hash)
-            VALUES ('missing-tenant@test.local', 'Missing Tenant', 'Matter Member', 'hash')
+            VALUES ('missing-tenant@test.local', 'Missing Tenant', 'matter_member', 'hash')
           `,
         ),
       ).rejects.toThrow(/null value in column "tenant_id"/i);
