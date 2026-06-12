@@ -13,6 +13,7 @@ export const auditMetadataKeys = [
   'correlation_id',
   'ip_address',
   'document_id',
+  'file_object_id',
   'version_id',
   'hash',
   'extraction_status',

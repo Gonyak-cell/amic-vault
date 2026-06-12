@@ -5,7 +5,24 @@ export interface StorageObjectIds {
   fileObjectId: string;
 }
 
-export interface ParsedStorageObjectKey extends StorageObjectIds {
+export interface EmailRawStorageObjectIds {
+  tenantId: string;
+  emailId: string;
+  fileObjectId: string;
+}
+
+export type ParsedStorageObjectKey =
+  | (StorageObjectIds & {
+      objectType: 'document';
+      key: string;
+    })
+  | (EmailRawStorageObjectIds & {
+      objectType: 'email_raw';
+      key: string;
+    });
+
+interface ParsedStorageObjectKeyBase {
+  tenantId: string;
   key: string;
 }
 
@@ -49,6 +66,13 @@ export class StoragePathResolver {
     return `tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
   }
 
+  buildEmailRawObjectKey(input: EmailRawStorageObjectIds): string {
+    const tenantId = assertUuid('tenantId', input.tenantId);
+    const emailId = assertUuid('emailId', input.emailId);
+    const fileObjectId = assertUuid('fileObjectId', input.fileObjectId);
+    return `tenants/${tenantId}/emails/${emailId}/raw/${fileObjectId}`;
+  }
+
   storageUriForKey(key: string): string {
     return `s3://${this.bucket}/${this.parseObjectKey(key).key}`;
   }
@@ -76,21 +100,35 @@ export class StoragePathResolver {
     }
 
     const parts = decoded.split('/');
-    if (parts.length !== 7 || parts[0] !== 'tenants' || parts[2] !== 'matters' || parts[4] !== 'documents') {
+    if (parts[0] !== 'tenants') {
       throw new StoragePathViolationError();
     }
 
-    const parsed = {
-      tenantId: assertUuid('tenantId', parts[1] ?? ''),
-      matterId: assertUuid('matterId', parts[3] ?? ''),
-      documentId: assertUuid('documentId', parts[5] ?? ''),
-      fileObjectId: assertUuid('fileObjectId', parts[6] ?? ''),
-      key: decoded,
-    };
-    return parsed;
+    if (parts.length === 7 && parts[2] === 'matters' && parts[4] === 'documents') {
+      return {
+        objectType: 'document',
+        tenantId: assertUuid('tenantId', parts[1] ?? ''),
+        matterId: assertUuid('matterId', parts[3] ?? ''),
+        documentId: assertUuid('documentId', parts[5] ?? ''),
+        fileObjectId: assertUuid('fileObjectId', parts[6] ?? ''),
+        key: decoded,
+      };
+    }
+
+    if (parts.length === 6 && parts[2] === 'emails' && parts[4] === 'raw') {
+      return {
+        objectType: 'email_raw',
+        tenantId: assertUuid('tenantId', parts[1] ?? ''),
+        emailId: assertUuid('emailId', parts[3] ?? ''),
+        fileObjectId: assertUuid('fileObjectId', parts[5] ?? ''),
+        key: decoded,
+      };
+    }
+
+    throw new StoragePathViolationError();
   }
 
-  assertTenantKey(tenantId: string, key: string): ParsedStorageObjectKey {
+  assertTenantKey(tenantId: string, key: string): ParsedStorageObjectKeyBase {
     const parsed = this.parseObjectKey(key);
     if (parsed.tenantId !== assertUuid('tenantId', tenantId)) {
       throw new StorageTenantIsolationViolationError();
@@ -98,7 +136,7 @@ export class StoragePathResolver {
     return parsed;
   }
 
-  assertTenantStorageUri(tenantId: string, uri: string): ParsedStorageObjectKey {
+  assertTenantStorageUri(tenantId: string, uri: string): ParsedStorageObjectKeyBase {
     const parsed = this.parseStorageUri(uri);
     if (parsed.tenantId !== assertUuid('tenantId', tenantId)) {
       throw new StorageTenantIsolationViolationError();

@@ -20,6 +20,8 @@ describe('audit shared types', () => {
         'SEARCH_EXECUTED',
         'DLP_SCAN_COMPLETED',
         'DLP_FINDING_RECORDED',
+        'EMAIL_IMPORTED',
+        'EMAIL_DUPLICATE_BLOCKED',
       ]),
     );
   });
@@ -29,6 +31,7 @@ describe('audit shared types', () => {
       hash: 'sha256:fixture',
       client_id: '11111111-1111-4111-8111-111111111111',
       matter_id: '11111111-1111-4111-8111-111111111111',
+      file_object_id: '11111111-1111-4111-8111-111111111122',
       query_hash: '0'.repeat(64),
       query_length: 12,
       filter_refs: 'matter_id:11111111-1111-4111-8111-111111111111',

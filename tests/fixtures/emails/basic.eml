@@ -1,0 +1,6 @@
+From: Sender <sender@example.test>
+To: Recipient <recipient@example.test>
+Message-ID: <basic-001@example.test>
+Subject: Synthetic email fixture
+
+This fixture body is synthetic and must never be copied into audit metadata.

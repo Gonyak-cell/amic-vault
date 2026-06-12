@@ -20,6 +20,15 @@ export interface PutTenantObjectInput {
   contentType: string;
 }
 
+export interface PutEmailRawObjectInput {
+  tenantId: string;
+  emailId: string;
+  fileObjectId: string;
+  body: StorageBody;
+  contentLength: number;
+  contentType: string;
+}
+
 export interface PutTenantObjectResult {
   key: string;
   storageUri: string;
@@ -44,6 +53,29 @@ export class StorageService {
       tenantId: input.tenantId,
       matterId: input.matterId,
       documentId: input.documentId,
+      fileObjectId: input.fileObjectId,
+      body: input.body,
+      contentLength: input.contentLength,
+      contentType: input.contentType,
+    });
+    await this.adapter.putIfAbsent({
+      key,
+      body: encrypted.body,
+      contentLength: encrypted.contentLength,
+      contentType: encrypted.contentType,
+    });
+    return {
+      key,
+      storageUri: this.pathResolver.storageUriForKey(key),
+      encryptionKeyId: encrypted.encryptionKeyId,
+    };
+  }
+
+  async putEmailRawObject(input: PutEmailRawObjectInput): Promise<PutTenantObjectResult> {
+    const key = this.pathResolver.buildEmailRawObjectKey(input);
+    const encrypted = await this.encryptionHook.beforePut({
+      tenantId: input.tenantId,
+      emailId: input.emailId,
       fileObjectId: input.fileObjectId,
       body: input.body,
       contentLength: input.contentLength,
