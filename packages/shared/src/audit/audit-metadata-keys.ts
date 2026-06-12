@@ -63,6 +63,15 @@ export const auditMetadataKeys = [
   'drift_count',
   'graph_scope',
   'consistency_status',
+  'contract_type',
+  'classifier_version',
+  'clause_count',
+  'term_count',
+  'redline_change_count',
+  'parser_status',
+  'playbook_rule_id',
+  'rule_key',
+  'rule_version',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

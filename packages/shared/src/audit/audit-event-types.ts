@@ -70,6 +70,14 @@ export const r7GraphAuditActions = [
   'GRAPH_CONSISTENCY_CHECKED',
 ] as const;
 
+export const r8ContractAuditActions = [
+  'CONTRACT_CLASSIFIED',
+  'CONTRACT_CLAUSES_EXTRACTED',
+  'CONTRACT_TERMS_EXTRACTED',
+  'CONTRACT_REDLINE_PARSED',
+  'PLAYBOOK_RULE_CHANGED',
+] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -90,6 +98,7 @@ export const auditActions = [
   ...r6AiAuditActions,
   ...r6AiFeedbackAuditActions,
   ...r7GraphAuditActions,
+  ...r8ContractAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -104,6 +113,7 @@ export type R6AiPolicyAuditAction = (typeof r6AiPolicyAuditActions)[number];
 export type R6AiAuditAction = (typeof r6AiAuditActions)[number];
 export type R6AiFeedbackAuditAction = (typeof r6AiFeedbackAuditActions)[number];
 export type R7GraphAuditAction = (typeof r7GraphAuditActions)[number];
+export type R8ContractAuditAction = (typeof r8ContractAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 

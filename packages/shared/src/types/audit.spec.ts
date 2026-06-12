@@ -1,5 +1,10 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { auditActions, auditMetadataKeys, type AuditMetadata } from './audit';
+import {
+  auditActions,
+  auditMetadataKeys,
+  r8ContractAuditActions,
+  type AuditMetadata,
+} from './audit';
 
 describe('audit shared types', () => {
   it('defines the R1 canonical action list while preserving R0 compatibility actions', () => {
@@ -40,8 +45,14 @@ describe('audit shared types', () => {
         'GRAPH_SYNCED',
         'GRAPH_QUERY_EXECUTED',
         'GRAPH_CONSISTENCY_CHECKED',
+        'CONTRACT_CLASSIFIED',
+        'CONTRACT_CLAUSES_EXTRACTED',
+        'CONTRACT_TERMS_EXTRACTED',
+        'CONTRACT_REDLINE_PARSED',
+        'PLAYBOOK_RULE_CHANGED',
       ]),
     );
+    expect(r8ContractAuditActions).toContain('PLAYBOOK_RULE_CHANGED');
   });
 
   it('keeps metadata keys restricted to reference-like values', () => {
@@ -82,6 +93,15 @@ describe('audit shared types', () => {
       drift_count: 0,
       graph_scope: 'matter',
       consistency_status: 'consistent',
+      contract_type: 'nda',
+      classifier_version: 'r8-local-v1',
+      clause_count: 4,
+      term_count: 2,
+      redline_change_count: 1,
+      parser_status: 'success',
+      playbook_rule_id: '11111111-1111-4111-8111-111111111199',
+      rule_key: 'nda.confidentiality.required',
+      rule_version: 1,
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');
