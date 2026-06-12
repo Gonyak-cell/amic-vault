@@ -52,7 +52,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R7-01 | `feat/pack-r7-01-knowledge-graph` | 8 | `GRAPH-*` R7 rows |
 | PACK-R8-01 | `feat/pack-r8-01-contract-parsing-playbook` | 6 | `CONTRACT-CLASSIFY-TUW-001` through `CONTRACT-PLAYBOOK-TUW-001` |
 | PACK-R8-02 | `feat/pack-r8-02-contract-rule-ui-gate` | 6 | `CONTRACT-PLAYBOOK-TUW-002` through `CONTRACT-GATE-REPORT-TUW-001` |
-| PACK-R9-01 | `feat/pack-r9-01-dd-vault` | 8 | `DD-*` R9 rows |
+| PACK-R9-01 | `feat/pack-r9-01-dd-vault` | 8 | `DD-RFI-CORE-TUW-001` through `DD-GATE-REPORT-TUW-008` (`docs/execution/TUW_R9_DD_VAULT.md`) |
 | PACK-R10-01 | `feat/pack-r10-01-litigation-vault` | 8 | `LIT-*` R10 rows |
 | PACK-R11-01 | `feat/pack-r11-01-external-core` | 5 | `EXT-USER-TUW-001` through `EXT-NDA-TUW-001` |
 | PACK-R11-02 | `feat/pack-r11-02-external-portal-gate` | 5 | `EXT-DLP-WARN-TUW-001` through `EXT-GATE-REPORT-TUW-001` |
