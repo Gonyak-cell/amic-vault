@@ -8,6 +8,7 @@ import {
   FileSearch,
   FolderKanban,
   Gavel,
+  Gauge,
   LayoutDashboard,
   ScrollText,
   Shield,
@@ -48,6 +49,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink href="/enterprise" label="Enterprise">
                 <Building2 className="h-4 w-4" />
+              </NavLink>
+              <NavLink href="/scale" label="Scale">
+                <Gauge className="h-4 w-4" />
               </NavLink>
               <NavLink href="/audit" label="Audit">
                 <ScrollText className="h-4 w-4" />

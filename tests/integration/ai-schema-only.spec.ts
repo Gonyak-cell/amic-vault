@@ -127,6 +127,7 @@ describe('ai policy boundary integration', () => {
       'apps/api/src/modules/ai/feedback/ai-feedback.controller.ts',
       'apps/api/src/modules/ai/session/ai-session.controller.ts',
       'apps/api/src/modules/ai/features/ai-summary.controller.ts',
+      'apps/api/src/modules/scale/scale.controller.ts',
     ]);
     expect(controllerRefs.filter((file) => !allowedR6ControllerRefs.has(file))).toEqual([]);
 

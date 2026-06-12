@@ -130,6 +130,16 @@ export const r13EnterpriseAuditActions = [
   'ENTERPRISE_READINESS_VIEWED',
 ] as const;
 
+export const r14ScaleLearningAuditActions = [
+  'SCALE_PERFORMANCE_RECORDED',
+  'SCALE_COST_SNAPSHOT_RECORDED',
+  'SCALE_EVAL_RUN_RECORDED',
+  'SCALE_MIGRATION_DRILL_RECORDED',
+  'SCALE_LEARNING_EVENT_RECORDED',
+  'ADVANCED_AI_GATE_REVIEWED',
+  'SCALE_READINESS_VIEWED',
+] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -156,6 +166,7 @@ export const auditActions = [
   ...r11ExternalAuditActions,
   ...r12RecordsAuditActions,
   ...r13EnterpriseAuditActions,
+  ...r14ScaleLearningAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -176,6 +187,7 @@ export type R10LitigationAuditAction = (typeof r10LitigationAuditActions)[number
 export type R11ExternalAuditAction = (typeof r11ExternalAuditActions)[number];
 export type R12RecordsAuditAction = (typeof r12RecordsAuditActions)[number];
 export type R13EnterpriseAuditAction = (typeof r13EnterpriseAuditActions)[number];
+export type R14ScaleLearningAuditAction = (typeof r14ScaleLearningAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 
