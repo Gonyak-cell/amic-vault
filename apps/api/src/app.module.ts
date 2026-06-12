@@ -14,6 +14,7 @@ import { BreakGlassModule } from './modules/break-glass/break-glass.module';
 import { HealthModule } from './modules/health/health.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { ContractIntelModule } from './modules/contract-intel/contract-intel.module';
+import { DdModule } from './modules/dd/dd.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
@@ -51,6 +52,7 @@ class AppController {
     AuthModule,
     GraphModule,
     ContractIntelModule,
+    DdModule,
     HealthModule,
     ClientModule,
     EthicalWallModule,

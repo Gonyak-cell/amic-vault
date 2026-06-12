@@ -3,6 +3,7 @@ import {
   auditActions,
   auditMetadataKeys,
   r8ContractAuditActions,
+  r9DdAuditActions,
   type AuditMetadata,
 } from './audit';
 
@@ -52,9 +53,15 @@ describe('audit shared types', () => {
         'PLAYBOOK_RULE_CHANGED',
         'CONTRACT_RULE_EVALUATED',
         'CONTRACT_CLAUSE_BANK_VIEWED',
+        'DD_RFI_CHANGED',
+        'DD_DATA_ROOM_MAPPED',
+        'DD_ISSUE_CHANGED',
+        'DD_RISK_CHANGED',
+        'DD_TRACE_VIEWED',
       ]),
     );
     expect(r8ContractAuditActions).toContain('PLAYBOOK_RULE_CHANGED');
+    expect(r9DdAuditActions).toContain('DD_TRACE_VIEWED');
   });
 
   it('keeps metadata keys restricted to reference-like values', () => {
@@ -106,6 +113,20 @@ describe('audit shared types', () => {
       rule_version: 1,
       rule_finding_count: 2,
       unsupported_rule_count: 1,
+      rfi_id: '11111111-1111-4111-8111-111111111200',
+      rfi_count: 1,
+      mapping_id: '11111111-1111-4111-8111-111111111201',
+      mapping_count: 1,
+      issue_id: '11111111-1111-4111-8111-111111111202',
+      issue_count: 1,
+      risk_id: '11111111-1111-4111-8111-111111111203',
+      risk_count: 1,
+      trace_count: 1,
+      status_before: 'requested',
+      status_after: 'submitted',
+      severity: 'high',
+      priority: 'critical',
+      mapping_status: 'mapped',
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');

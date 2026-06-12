@@ -80,6 +80,14 @@ export const r8ContractAuditActions = [
   'CONTRACT_CLAUSE_BANK_VIEWED',
 ] as const;
 
+export const r9DdAuditActions = [
+  'DD_RFI_CHANGED',
+  'DD_DATA_ROOM_MAPPED',
+  'DD_ISSUE_CHANGED',
+  'DD_RISK_CHANGED',
+  'DD_TRACE_VIEWED',
+] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -101,6 +109,7 @@ export const auditActions = [
   ...r6AiFeedbackAuditActions,
   ...r7GraphAuditActions,
   ...r8ContractAuditActions,
+  ...r9DdAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -116,6 +125,7 @@ export type R6AiAuditAction = (typeof r6AiAuditActions)[number];
 export type R6AiFeedbackAuditAction = (typeof r6AiFeedbackAuditActions)[number];
 export type R7GraphAuditAction = (typeof r7GraphAuditActions)[number];
 export type R8ContractAuditAction = (typeof r8ContractAuditActions)[number];
+export type R9DdAuditAction = (typeof r9DdAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 
