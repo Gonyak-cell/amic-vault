@@ -32,6 +32,7 @@ export {
   r3SearchAuditActions,
   r4DlpAuditActions,
   r4EmailAuditActions,
+  r5AuditConsoleActions,
   r5BreakGlassAuditActions,
   type AuditAction,
   type AuditMetadata,
@@ -42,6 +43,7 @@ export {
   type R3SearchAuditAction,
   type R4DlpAuditAction,
   type R4EmailAuditAction,
+  type R5AuditConsoleAction,
   type R5BreakGlassAuditAction,
 } from './types/audit';
 export {
@@ -235,8 +237,18 @@ export {
   type BulkUploadSuccessItemDto,
 } from './dto/document/bulk-upload.dto';
 export {
+  auditExportQuerySchema,
+  auditQueryActionSchema,
+  auditQuerySchema,
+  auditResultSchema,
+  auditTargetTypeSchema,
   documentAuditQueryEventTypeSchema,
   documentAuditQuerySchema,
+  type AuditEventDto,
+  type AuditEventListDto,
+  type AuditExportQueryDto,
+  type AuditExportResultDto,
+  type AuditQueryDto,
   type DocumentAuditEventDto,
   type DocumentAuditEventListDto,
   type DocumentAuditQueryDto,
@@ -319,15 +331,21 @@ export {
   type UpdateMatterMemberDto,
 } from './matter/matter-member.dto';
 export {
+  ethicalWallMembershipInputSchema,
   createEthicalWallSchema,
   ethicalWallStatuses,
+  listEthicalWallsQuerySchema,
   wallMembershipTypes,
   wallSubjectTypes,
+  type AddEthicalWallMembershipDto,
   type CreateEthicalWallDto,
   type CreateEthicalWallMemberDto,
+  type EthicalWallDetailDto,
   type EthicalWallDto,
+  type EthicalWallListDto,
   type EthicalWallMembershipDto,
   type EthicalWallStatus,
+  type ListEthicalWallsQueryDto,
   type WallMembershipType,
   type WallSubjectType,
 } from './ethical-wall/ethical-wall.dto';

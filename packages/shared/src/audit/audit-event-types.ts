@@ -50,6 +50,8 @@ export const r5BreakGlassAuditActions = [
   'BREAK_GLASS_EXPIRED',
 ] as const;
 
+export const r5AuditConsoleActions = ['AUDIT_QUERY_EXECUTED', 'AUDIT_EXPORT_CREATED'] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -65,6 +67,7 @@ export const auditActions = [
   ...r4DlpAuditActions,
   ...r5DlpAuditActions,
   ...r5BreakGlassAuditActions,
+  ...r5AuditConsoleActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -74,6 +77,7 @@ export type R3SearchAuditAction = (typeof r3SearchAuditActions)[number];
 export type R4DlpAuditAction = (typeof r4DlpAuditActions)[number];
 export type R5DlpAuditAction = (typeof r5DlpAuditActions)[number];
 export type R5BreakGlassAuditAction = (typeof r5BreakGlassAuditActions)[number];
+export type R5AuditConsoleAction = (typeof r5AuditConsoleActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 

@@ -16,6 +16,7 @@ import {
 } from './helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
+const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
 
 async function login(
   baseUrl: string,
@@ -202,5 +203,96 @@ describe('ethical wall integration', () => {
       ]);
       expect(result.rowCount).toBe(0);
     });
+  });
+
+  it('lets Security Admin list and manage wall memberships with audit coverage', async () => {
+    const createWall = await fetch(`${baseUrl}/v1/ethical-walls`, {
+      method: 'POST',
+      headers: { cookie: securityAdminCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        matterId,
+        wallName: `Managed Wall ${randomUUID()}`,
+        reason: 'conflict_check',
+        members: [],
+      }),
+    });
+    const createBody = await createWall.text();
+    expect(createWall.status, createBody).toBe(201);
+    const created = JSON.parse(createBody) as {
+      wall: { wallId: string; matterId: string };
+      memberships: Array<{ membershipId: string }>;
+    };
+    expect(created.memberships).toEqual([]);
+
+    const ownerListDenied = await fetch(`${baseUrl}/v1/ethical-walls?matterId=${matterId}`, {
+      headers: { cookie: ownerCookie },
+    });
+    expect(ownerListDenied.status, await ownerListDenied.text()).toBe(403);
+
+    const listBefore = await fetch(`${baseUrl}/v1/ethical-walls?matterId=${matterId}`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const listBeforeBody = await listBefore.text();
+    expect(listBefore.status, listBeforeBody).toBe(200);
+    expect(listBeforeBody).toContain(created.wall.wallId);
+
+    const addMembership = await fetch(
+      `${baseUrl}/v1/ethical-walls/${created.wall.wallId}/memberships`,
+      {
+        method: 'POST',
+        headers: { cookie: securityAdminCookie, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          subjectType: 'user',
+          subjectId: alphaMemberUserId,
+          membershipType: 'excluded',
+        }),
+      },
+    );
+    const addBody = await addMembership.text();
+    expect(addMembership.status, addBody).toBe(201);
+    const membership = JSON.parse(addBody) as {
+      membershipId: string;
+      subjectId: string;
+      membershipType: string;
+    };
+    expect(membership).toMatchObject({
+      subjectId: alphaMemberUserId,
+      membershipType: 'excluded',
+    });
+
+    const listAfterAdd = await fetch(`${baseUrl}/v1/ethical-walls?matterId=${matterId}`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const listAfterAddBody = await listAfterAdd.text();
+    expect(listAfterAdd.status, listAfterAddBody).toBe(200);
+    expect(listAfterAddBody).toContain(alphaMemberUserId);
+
+    const removeMembership = await fetch(
+      `${baseUrl}/v1/ethical-walls/${created.wall.wallId}/memberships/${membership.membershipId}`,
+      { method: 'DELETE', headers: { cookie: securityAdminCookie } },
+    );
+    expect(removeMembership.status, await removeMembership.text()).toBe(200);
+
+    const listAfterRemove = await fetch(`${baseUrl}/v1/ethical-walls?matterId=${matterId}`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const listAfterRemoveBody = await listAfterRemove.text();
+    expect(listAfterRemove.status, listAfterRemoveBody).toBe(200);
+    expect(listAfterRemoveBody).not.toContain(membership.membershipId);
+
+    const audits = await wallAuditRows(created.wall.wallId);
+    expect(audits.map((row) => row.action)).toEqual([
+      'ETHICAL_WALL_CREATED',
+      'ETHICAL_WALL_APPLIED',
+      'PERMISSION_CHANGED',
+      'ETHICAL_WALL_MEMBERSHIP_CHANGED',
+      'PERMISSION_CHANGED',
+      'ETHICAL_WALL_MEMBERSHIP_CHANGED',
+      'PERMISSION_CHANGED',
+    ]);
+    for (const row of audits) {
+      expect(JSON.stringify(row.metadata_json)).not.toContain('Managed Wall');
+      expect(JSON.stringify(row.metadata_json)).not.toContain('conflict_check');
+    }
   });
 });

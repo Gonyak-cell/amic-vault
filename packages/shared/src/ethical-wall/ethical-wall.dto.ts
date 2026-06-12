@@ -9,27 +9,36 @@ export type WallSubjectType = (typeof wallSubjectTypes)[number];
 export type WallMembershipType = (typeof wallMembershipTypes)[number];
 
 const uuidSchema = z.string().uuid();
+export const listEthicalWallsQuerySchema = z
+  .object({
+    matterId: uuidSchema.optional(),
+    matter_id: uuidSchema.optional(),
+    status: z.enum(ethicalWallStatuses).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  .strict()
+  .transform((value) => ({
+    matterId: value.matterId ?? value.matter_id,
+    status: value.status,
+    limit: value.limit,
+  }));
+
+export const ethicalWallMembershipInputSchema = z.object({
+  subjectType: z.enum(wallSubjectTypes),
+  subjectId: uuidSchema,
+  membershipType: z.enum(wallMembershipTypes),
+});
 
 export const createEthicalWallSchema = z.object({
   matterId: uuidSchema,
   wallName: z.string().trim().min(1).max(200),
   reason: z.string().trim().min(1).max(2000),
-  members: z
-    .array(
-      z.object({
-        subjectType: z.enum(wallSubjectTypes),
-        subjectId: uuidSchema,
-        membershipType: z.enum(wallMembershipTypes),
-      }),
-    )
-    .default([]),
+  members: z.array(ethicalWallMembershipInputSchema).default([]),
 });
 
-export interface CreateEthicalWallMemberDto {
-  subjectType: WallSubjectType;
-  subjectId: string;
-  membershipType: WallMembershipType;
-}
+export type CreateEthicalWallMemberDto = z.infer<typeof ethicalWallMembershipInputSchema>;
+export type AddEthicalWallMembershipDto = CreateEthicalWallMemberDto;
+export type ListEthicalWallsQueryDto = z.infer<typeof listEthicalWallsQuerySchema>;
 
 export interface CreateEthicalWallDto {
   matterId: string;
@@ -61,3 +70,11 @@ export interface EthicalWallMembershipDto {
   createdAt: string;
 }
 
+export interface EthicalWallDetailDto {
+  wall: EthicalWallDto;
+  memberships: EthicalWallMembershipDto[];
+}
+
+export interface EthicalWallListDto {
+  items: EthicalWallDetailDto[];
+}
