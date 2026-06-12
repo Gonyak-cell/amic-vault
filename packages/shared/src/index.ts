@@ -90,9 +90,20 @@ export {
   type EmailParseStatus,
 } from './email/email-types';
 export {
+  emailMetadataWarningCodes,
+  emailParticipantRoles,
+  normalizeEmailMetadata,
+  type EmailMetadataWarningCode,
+  type EmailParticipantRole,
+  type NormalizedEmailMetadata,
+  type NormalizedEmailParticipant,
+} from './email/email-metadata';
+export {
   EmlParseError,
+  parseEmlHeaders,
   parseEmlEnvelope,
   type EmlParseFailureReason,
+  type ParsedEmlHeader,
   type ParsedEmlEnvelope,
 } from './email/eml-parser';
 export {

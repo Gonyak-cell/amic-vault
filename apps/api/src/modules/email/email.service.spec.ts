@@ -16,6 +16,7 @@ function createService(selectRows: unknown[][] = [[], []]) {
       return { rows, rowCount: rows.length };
     }
     if (sql.includes('INSERT INTO email_messages')) {
+      const referencesJson = typeof params?.[11] === 'string' ? JSON.parse(params[11]) : [];
       return {
         rowCount: 1,
         rows: [
@@ -27,13 +28,22 @@ function createService(selectRows: unknown[][] = [[], []]) {
             parser: params?.[4],
             parse_status: params?.[5],
             failure_reason_code: params?.[6],
-            raw_sha256: params?.[7],
-            raw_size_bytes: String(params?.[8]),
-            created_by: params?.[9],
+            subject: params?.[7],
+            sent_at: params?.[8] ? new Date(String(params[8])) : null,
+            received_at: params?.[9] ? new Date(String(params[9])) : null,
+            metadata_warning_code: params?.[10],
+            references_json: referencesJson,
+            has_outside_participants: params?.[12],
+            raw_sha256: params?.[13],
+            raw_size_bytes: String(params?.[14]),
+            created_by: params?.[15],
             created_at: new Date('2026-06-12T00:00:00.000Z'),
           },
         ],
       };
+    }
+    if (sql.includes('INSERT INTO email_participants')) {
+      return { rows: [], rowCount: 1 };
     }
     return { rows: [], rowCount: 0 };
   });
@@ -82,10 +92,14 @@ describe('EmailService', () => {
       tenantId,
       actorUserId,
       originalFilename: 'fixture.eml',
+      tenantDomains: ['amic.test'],
       body: Buffer.from(
         [
           'From: Sender <sender@example.test>',
+          'To: Internal <internal@amic.test>, Outside <outside@example.test>',
           'Message-ID: <case-001@example.test>',
+          'References: <thread-001@example.test>',
+          'Date: Fri, 12 Jun 2026 10:15:30 +0900',
           'Subject: Privileged fixture',
           '',
           'raw body must not appear in audit',
@@ -98,6 +112,11 @@ describe('EmailService', () => {
       parser: 'eml',
       parseStatus: 'parsed',
       failureReasonCode: null,
+      subject: 'Privileged fixture',
+      sentAt: '2026-06-12T01:15:30.000Z',
+      receivedAt: null,
+      hasOutsideParticipants: true,
+      references: [expect.stringMatching(/^[0-9a-f]{64}$/)],
       createdBy: actorUserId,
     });
     expect(fileObjectCreate).toHaveBeenCalledWith(
@@ -120,7 +139,18 @@ describe('EmailService', () => {
       }),
       expect.anything(),
     );
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'EMAIL_METADATA_UPDATED',
+        metadata: expect.objectContaining({
+          scope_type: 'email_metadata',
+          result_count: 3,
+        }),
+      }),
+      expect.anything(),
+    );
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('case-001@example.test');
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('outside@example.test');
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('raw body must not appear');
     expect(storageService.deleteByStorageUri).not.toHaveBeenCalled();
   });

@@ -22,6 +22,7 @@ describe('audit shared types', () => {
         'DLP_FINDING_RECORDED',
         'EMAIL_IMPORTED',
         'EMAIL_DUPLICATE_BLOCKED',
+        'EMAIL_METADATA_UPDATED',
       ]),
     );
   });

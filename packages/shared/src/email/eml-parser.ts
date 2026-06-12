@@ -14,6 +14,11 @@ export interface ParsedEmlEnvelope {
   normalizedMessageId: string;
 }
 
+export interface ParsedEmlHeader {
+  name: string;
+  value: string;
+}
+
 function splitHeaderSection(raw: string): string {
   const crlfIndex = raw.indexOf('\r\n\r\n');
   if (crlfIndex >= 0) return raw.slice(0, crlfIndex);
@@ -36,6 +41,19 @@ function unfoldHeaderLines(headerSection: string): string[] {
   return unfolded;
 }
 
+export function parseEmlHeaders(raw: string): ParsedEmlHeader[] {
+  return unfoldHeaderLines(splitHeaderSection(raw))
+    .map((line) => {
+      const delimiter = line.indexOf(':');
+      if (delimiter <= 0) return null;
+      return {
+        name: line.slice(0, delimiter).trim().toLowerCase(),
+        value: line.slice(delimiter + 1).trim(),
+      };
+    })
+    .filter((header): header is ParsedEmlHeader => header !== null);
+}
+
 function normalizeMessageId(value: string): string {
   const trimmed = value.trim().replace(/^<|>$/g, '').trim().toLowerCase();
   if (!trimmed || trimmed.length > 256 || /[\s<>]/.test(trimmed)) {
@@ -45,14 +63,9 @@ function normalizeMessageId(value: string): string {
 }
 
 export function parseEmlEnvelope(raw: string): ParsedEmlEnvelope {
-  const headerSection = splitHeaderSection(raw);
-  const lines = unfoldHeaderLines(headerSection);
-  for (const line of lines) {
-    const delimiter = line.indexOf(':');
-    if (delimiter <= 0) continue;
-    const name = line.slice(0, delimiter).trim().toLowerCase();
-    if (name !== 'message-id') continue;
-    return { normalizedMessageId: normalizeMessageId(line.slice(delimiter + 1)) };
+  for (const header of parseEmlHeaders(raw)) {
+    if (header.name !== 'message-id') continue;
+    return { normalizedMessageId: normalizeMessageId(header.value) };
   }
   throw new EmlParseError('MISSING_MESSAGE_ID');
 }

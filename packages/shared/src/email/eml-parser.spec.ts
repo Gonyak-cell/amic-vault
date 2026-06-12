@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EmlParseError, parseEmlEnvelope } from './eml-parser';
+import { EmlParseError, parseEmlEnvelope, parseEmlHeaders } from './eml-parser';
 
 describe('parseEmlEnvelope', () => {
   it('normalizes Message-ID deterministically without returning body text', () => {
@@ -25,5 +25,12 @@ describe('parseEmlEnvelope', () => {
 
   it('fails closed when Message-ID is absent', () => {
     expect(() => parseEmlEnvelope('Subject: Missing\r\n\r\nbody')).toThrow(EmlParseError);
+  });
+
+  it('parses unfolded headers without body text', () => {
+    const headers = parseEmlHeaders('Subject: Alpha\r\n\tBeta\r\n\r\nbody text');
+
+    expect(headers).toEqual([{ name: 'subject', value: 'Alpha Beta' }]);
+    expect(JSON.stringify(headers)).not.toContain('body text');
   });
 });
