@@ -62,6 +62,8 @@ export const r6AiAuditActions = [
   'AI_RETRIEVAL_EXCLUDED',
 ] as const;
 
+export const r6AiFeedbackAuditActions = ['AI_FEEDBACK_RECORDED'] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -80,6 +82,7 @@ export const auditActions = [
   ...r5AuditConsoleActions,
   ...r6AiPolicyAuditActions,
   ...r6AiAuditActions,
+  ...r6AiFeedbackAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -92,6 +95,7 @@ export type R5BreakGlassAuditAction = (typeof r5BreakGlassAuditActions)[number];
 export type R5AuditConsoleAction = (typeof r5AuditConsoleActions)[number];
 export type R6AiPolicyAuditAction = (typeof r6AiPolicyAuditActions)[number];
 export type R6AiAuditAction = (typeof r6AiAuditActions)[number];
+export type R6AiFeedbackAuditAction = (typeof r6AiFeedbackAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 

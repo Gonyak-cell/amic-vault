@@ -36,6 +36,7 @@ describe('audit shared types', () => {
         'AI_RESPONSE',
         'AI_CITED_DOCUMENT',
         'AI_RETRIEVAL_EXCLUDED',
+        'AI_FEEDBACK_RECORDED',
       ]),
     );
   });
@@ -65,6 +66,12 @@ describe('audit shared types', () => {
       response_token_count: 32,
       ai_response_status: 'responded',
       escalation_required: false,
+      feedback_id: '11111111-1111-4111-8111-111111111177',
+      rating: 4,
+      helpful: true,
+      correction_type: 'minor_edit',
+      error_types: ['incorrect_citation'],
+      edit_distance: 12,
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');

@@ -32,8 +32,18 @@ export interface AiResponseAuditInput extends AiSessionAuditInput {
 }
 
 export interface AiCitedDocumentAuditInput {
+  aiSessionId?: string | null;
   matterId: string;
   source: AiCitationSourceDto;
+}
+
+export interface AiFeedbackAuditInput extends AiSessionAuditInput {
+  feedbackId: string;
+  rating: number;
+  helpful?: boolean | null;
+  correctionType: string;
+  errorTypes: readonly string[];
+  editDistance: number;
 }
 
 @Injectable()
@@ -168,6 +178,7 @@ export class AiAuditRecorder {
         targetId: input.source.chunkId,
         matterId: input.matterId,
         metadata: {
+          ...(input.aiSessionId ? { ai_session_id: input.aiSessionId } : {}),
           scope_type: 'ai_citation',
           scope_id: input.matterId,
           matter_id: input.matterId,
@@ -175,6 +186,35 @@ export class AiAuditRecorder {
           version_id: input.source.versionId,
           chunk_id: input.source.chunkId,
           hash: input.source.sourceTextHash,
+        },
+      },
+      client,
+    );
+  }
+
+  async recordFeedback(
+    ctx: AiAuditContext,
+    input: AiFeedbackAuditInput,
+    client?: QueryClient,
+  ): Promise<void> {
+    await this.auditService.log(
+      {
+        tenantId: ctx.tenantId,
+        actorId: ctx.userId,
+        sessionId: ctx.sessionId ?? null,
+        action: 'AI_FEEDBACK_RECORDED',
+        targetType: 'ai_feedback',
+        targetId: input.feedbackId,
+        matterId: input.matterId,
+        metadata: {
+          ai_session_id: input.aiSessionId,
+          feedback_id: input.feedbackId,
+          matter_id: input.matterId,
+          rating: input.rating,
+          helpful: input.helpful ?? null,
+          correction_type: input.correctionType,
+          error_types: input.errorTypes,
+          edit_distance: input.editDistance,
         },
       },
       client,

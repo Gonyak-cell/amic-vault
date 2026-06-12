@@ -35,6 +35,7 @@ export {
   r5AuditConsoleActions,
   r5BreakGlassAuditActions,
   r6AiAuditActions,
+  r6AiFeedbackAuditActions,
   r6AiPolicyAuditActions,
   type AuditAction,
   type AuditMetadata,
@@ -48,6 +49,7 @@ export {
   type R5AuditConsoleAction,
   type R5BreakGlassAuditAction,
   type R6AiAuditAction,
+  type R6AiFeedbackAuditAction,
   type R6AiPolicyAuditAction,
 } from './types/audit';
 export {
@@ -363,6 +365,18 @@ export {
   type AiSummaryTask,
   type AiSummaryWarningCode,
 } from './ai/summary';
+export {
+  aiFeedbackCorrectionTypes,
+  aiFeedbackErrorTypes,
+  aiFeedbackMetricsSchema,
+  aiFeedbackRequestSchema,
+  aiFeedbackResponseSchema,
+  type AiFeedbackCorrectionType,
+  type AiFeedbackErrorType,
+  type AiFeedbackMetricsDto,
+  type AiFeedbackRequestDto,
+  type AiFeedbackResponseDto,
+} from './ai/feedback';
 export {
   aiSessionChunkDetailSchema,
   aiSessionChunkLogSchema,

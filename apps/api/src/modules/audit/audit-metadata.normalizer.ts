@@ -11,6 +11,7 @@ const stringListMetadataKeys = new Set<AuditMetadataKey>([
   'diff_keys',
   'included_chunk_ids',
   'excluded_chunk_ids',
+  'error_types',
 ]);
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
