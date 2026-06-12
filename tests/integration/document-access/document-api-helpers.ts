@@ -317,6 +317,55 @@ export async function grantDocumentPermission(input: {
   });
 }
 
+export async function excludeUserWithEthicalWall(input: {
+  tenantId: string;
+  matterId: string;
+  userId: string;
+  createdBy: string;
+}): Promise<string> {
+  const wallId = randomUUID();
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO ethical_walls (
+          wall_id, tenant_id, matter_id, wall_name, reason, created_by
+        )
+        VALUES ($1, $2, $3, $4, 'r5_document_wall_proof', $5)
+      `,
+      [wallId, input.tenantId, input.matterId, `R5 Document Wall ${wallId}`, input.createdBy],
+    );
+    await client.query(
+      `
+        INSERT INTO ethical_wall_memberships (
+          tenant_id, wall_id, subject_type, subject_id, membership_type, created_by
+        )
+        VALUES ($1, $2, 'user', $3, 'excluded', $4)
+      `,
+      [input.tenantId, wallId, input.userId, input.createdBy],
+    );
+  });
+  return wallId;
+}
+
+export async function accessDeniedReasonCount(
+  targetId: string,
+  reasonCode: 'PERMISSION_DENIED' | 'ETHICAL_WALL_BLOCKED' | 'TENANT_ISOLATION_VIOLATION',
+): Promise<number> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ count: string }>(
+      `
+        SELECT count(*)::text
+        FROM audit_events
+        WHERE target_id = $1
+          AND action = 'ACCESS_DENIED'
+          AND metadata_json->>'reason_code' = $2
+      `,
+      [targetId, reasonCode],
+    );
+    return Number(result.rows[0]?.count ?? '0');
+  });
+}
+
 export async function previewArtifactSummary(documentId: string) {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{

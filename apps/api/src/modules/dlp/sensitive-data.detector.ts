@@ -7,6 +7,7 @@ interface Rule {
   pattern: RegExp;
   confidence: number;
   normalize(match: string): string;
+  validate?(normalized: string): boolean;
 }
 
 const defaultMaxFindings = 200;
@@ -24,11 +25,33 @@ function lower(input: string): string {
   return input.toLowerCase();
 }
 
+function luhnValid(digits: string): boolean {
+  let sum = 0;
+  let doubleDigit = false;
+  for (let index = digits.length - 1; index >= 0; index -= 1) {
+    let value = Number(digits[index]);
+    if (doubleDigit) {
+      value *= 2;
+      if (value > 9) value -= 9;
+    }
+    sum += value;
+    doubleDigit = !doubleDigit;
+  }
+  return sum > 0 && sum % 10 === 0;
+}
+
 const rules: readonly Rule[] = [
   {
     ruleId: 'kr-rrn-format-v1',
     findingType: 'korean_resident_id',
-    pattern: /\b\d{6}[- ]?\d{7}\b/gu,
+    pattern: /\b\d{6}[- ]?[0-4]\d{6}\b/gu,
+    confidence: 0.95,
+    normalize: digitsOnly,
+  },
+  {
+    ruleId: 'kr-alien-registration-format-v1',
+    findingType: 'korean_alien_registration_number',
+    pattern: /\b\d{6}[- ]?[5-8]\d{6}\b/gu,
     confidence: 0.95,
     normalize: digitsOnly,
   },
@@ -38,6 +61,21 @@ const rules: readonly Rule[] = [
     pattern: /\b(?!01[016789][- ])\d{2,6}[- ]\d{2,8}[- ]\d{1,6}(?:[- ]\d{1,4})?\b/gu,
     confidence: 0.8,
     normalize: digitsOnly,
+  },
+  {
+    ruleId: 'passport-format-v1',
+    findingType: 'passport_number',
+    pattern: /\b[A-Z][0-9]{8}\b/gu,
+    confidence: 0.8,
+    normalize: lower,
+  },
+  {
+    ruleId: 'payment-card-format-v1',
+    findingType: 'payment_card_number',
+    pattern: /\b(?:\d[ -]?){13,19}\b/gu,
+    confidence: 0.85,
+    normalize: digitsOnly,
+    validate: luhnValid,
   },
   {
     ruleId: 'email-address-format-v1',
@@ -73,6 +111,7 @@ export class SensitiveDataDetector {
         const raw = match[0];
         const normalized = rule.normalize(raw);
         if (!normalized) continue;
+        if (rule.validate && !rule.validate(normalized)) continue;
         const startOffset = match.index;
         const endOffset = startOffset + raw.length;
         const valueHash = sha256Hex(`${rule.ruleId}:${normalized}`);

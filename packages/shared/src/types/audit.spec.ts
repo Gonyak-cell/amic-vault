@@ -20,6 +20,7 @@ describe('audit shared types', () => {
         'SEARCH_EXECUTED',
         'DLP_SCAN_COMPLETED',
         'DLP_FINDING_RECORDED',
+        'DLP_EGRESS_BLOCKED',
         'EMAIL_IMPORTED',
         'EMAIL_DUPLICATE_BLOCKED',
         'EMAIL_METADATA_UPDATED',

@@ -37,4 +37,50 @@ describe('DlpService', () => {
       client,
     );
   });
+
+  it('blocks model egress by default when sensitive data is detected', async () => {
+    const auditLog = vi.fn().mockResolvedValue({
+      eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      createdAt: new Date(),
+    });
+    const client: QueryClient = {
+      query: vi.fn(),
+    };
+    const service = new DlpService(
+      { log: auditLog } as unknown as AuditService,
+      new SensitiveDataDetector(),
+    );
+
+    const result = await service.checkModelEgress(client, {
+      tenantId: '11111111-1111-4111-8111-111111111111',
+      egressId: '11111111-1111-4111-8111-11111111e601',
+      matterId: '11111111-1111-4111-8111-11111111e602',
+      text: 'draft answer mentions passport M12345678 and card 4111111111111111',
+    });
+
+    expect(result).toMatchObject({
+      allowed: false,
+      findingCount: 2,
+    });
+    expect(result.resultHash).toMatch(/^[0-9a-f]{64}$/u);
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'DLP_SCAN_COMPLETED' }),
+      client,
+    );
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DLP_EGRESS_BLOCKED',
+        result: 'denied',
+        metadata: expect.objectContaining({
+          scope_type: 'model_egress',
+          scope_id: '11111111-1111-4111-8111-11111111e601',
+          result_count: 2,
+        }),
+      }),
+      client,
+    );
+    expect(JSON.stringify(result)).not.toContain('M12345678');
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('M12345678');
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('4111111111111111');
+  });
 });

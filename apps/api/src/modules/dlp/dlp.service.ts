@@ -24,6 +24,21 @@ export interface DlpScanRecordResult {
   findings: RecordedDlpFinding[];
 }
 
+export interface DlpModelEgressSource {
+  tenantId: string;
+  egressId: string;
+  matterId?: string | null;
+  documentId?: string | null;
+  versionId?: string | null;
+  text: string;
+}
+
+export interface DlpModelEgressResult {
+  allowed: boolean;
+  findingCount: number;
+  resultHash: string;
+}
+
 interface DlpFindingRow {
   finding_id: string;
 }
@@ -45,6 +60,54 @@ export class DlpService {
 
   scanText(text: string): DlpDetection[] {
     return this.detector.scan(text);
+  }
+
+  async checkModelEgress(
+    client: QueryClient,
+    source: DlpModelEgressSource,
+  ): Promise<DlpModelEgressResult> {
+    const detections = this.scanText(source.text);
+    const resultHash = scanResultHash(detections);
+    const metadata = {
+      scope_type: 'model_egress',
+      scope_id: source.egressId,
+      result_count: detections.length,
+      hash: resultHash,
+      ...(source.documentId ? { document_id: source.documentId } : {}),
+      ...(source.versionId ? { version_id: source.versionId } : {}),
+      ...(source.matterId ? { matter_id: source.matterId } : {}),
+    };
+
+    await this.auditService.log(
+      {
+        tenantId: source.tenantId,
+        action: 'DLP_SCAN_COMPLETED',
+        targetType: 'model_egress',
+        targetId: source.egressId,
+        matterId: source.matterId ?? null,
+        metadata,
+      },
+      client,
+    );
+
+    if (detections.length === 0) {
+      return { allowed: true, findingCount: 0, resultHash };
+    }
+
+    await this.auditService.log(
+      {
+        tenantId: source.tenantId,
+        action: 'DLP_EGRESS_BLOCKED',
+        targetType: 'model_egress',
+        targetId: source.egressId,
+        matterId: source.matterId ?? null,
+        result: 'denied',
+        metadata,
+      },
+      client,
+    );
+
+    return { allowed: false, findingCount: detections.length, resultHash };
   }
 
   async scanAndRecord(

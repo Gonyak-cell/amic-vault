@@ -8,12 +8,14 @@ import { configureApp } from '../../../apps/api/src/main';
 import { tenantBetaId } from '../helpers/db';
 import {
   addBetaMember,
+  accessDeniedReasonCount,
   auditCount,
   betaMemberUserId,
   betaOwnerUserId,
   createClient,
   createMatter,
   createStorageService,
+  excludeUserWithEthicalWall,
   grantDocumentPermission,
   latestAuditMetadata,
   loginAlphaOwner,
@@ -163,5 +165,53 @@ describe('document-permission integration', () => {
       body: JSON.stringify({ confidentialityLevel: 'restricted' }),
     });
     expect(bypass.status, await bypass.text()).toBe(403);
+  });
+
+  it('denies wall-excluded document read and download even with explicit document allows', async () => {
+    const clientId = await createClient(baseUrl, betaOwnerCookie, 'DWALL');
+    const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'DWALL');
+    await addBetaMember(baseUrl, betaOwnerCookie, matterId, 'read');
+    const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, 'document-wall');
+    storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
+    await grantDocumentPermission({
+      tenantId: tenantBetaId,
+      documentId: uploaded.documentId,
+      subjectUserId: betaMemberUserId,
+      action: 'read',
+      createdBy: betaOwnerUserId,
+    });
+    await grantDocumentPermission({
+      tenantId: tenantBetaId,
+      documentId: uploaded.documentId,
+      subjectUserId: betaMemberUserId,
+      action: 'download',
+      createdBy: betaOwnerUserId,
+    });
+    await excludeUserWithEthicalWall({
+      tenantId: tenantBetaId,
+      matterId,
+      userId: betaMemberUserId,
+      createdBy: betaOwnerUserId,
+    });
+
+    const read = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}`, {
+      headers: { cookie: betaMemberCookie },
+    });
+    const readBody = await read.text();
+    expect(read.status, readBody).toBe(404);
+    expect(JSON.parse(readBody)).toMatchObject({ code: 'PERMISSION_DENIED' });
+
+    const download = await fetch(
+      `${baseUrl}/v1/documents/${uploaded.documentId}/download?reasonCode=casework`,
+      { headers: { cookie: betaMemberCookie } },
+    );
+    const downloadBody = await download.text();
+    expect(download.status, downloadBody).toBe(404);
+    expect(JSON.parse(downloadBody)).toMatchObject({ code: 'PERMISSION_DENIED' });
+    expect(await accessDeniedReasonCount(uploaded.documentId, 'ETHICAL_WALL_BLOCKED')).toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(0);
+    expect(await auditCount(uploaded.documentId, 'DOCUMENT_DOWNLOADED')).toBe(0);
   });
 });
