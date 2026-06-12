@@ -8,6 +8,10 @@ import {
 } from '../helpers/db';
 
 export const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
+export const alphaFirmAdminUserId = '11111111-1111-4111-8111-111111111100';
+export const alphaSecurityAdminUserId = '11111111-1111-4111-8111-111111111110';
+export const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
+export const alphaPermissionMemberUserId = '11111111-1111-4111-8111-111111111105';
 export const betaOwnerUserId = '22222222-2222-4222-8222-222222222201';
 
 export interface SearchIndexedFixtureRow {
@@ -28,8 +32,30 @@ export interface SearchIndexedFixtureRow {
 export interface SearchFixture {
   alphaClientId: string;
   alphaMatterId: string;
+  alphaDocumentIds: string[];
   alphaVersionIds: string[];
   betaVersionIds: string[];
+}
+
+export interface AddMatterMemberInput {
+  tenantId: string;
+  matterId: string;
+  userId: string;
+  matterRole?: 'owner' | 'member' | 'limited_reviewer';
+  accessLevel?: 'read' | 'edit';
+  addedBy?: string;
+}
+
+export interface AddExplicitPermissionInput {
+  tenantId: string;
+  resourceType: 'matter' | 'document';
+  resourceId: string;
+  subjectType?: 'user' | 'group' | 'role';
+  subjectId: string;
+  effect: 'ALLOW' | 'DENY';
+  action?: 'read';
+  conditionJson?: Record<string, unknown> | null;
+  createdBy?: string;
 }
 
 function hexHash(index: number): string {
@@ -50,6 +76,192 @@ export function tenantVersionScope(tenantId: string, versionIds: readonly string
     sql: 'idx.tenant_id = ? AND idx.version_id = ANY(?::uuid[])',
     params: [tenantId, versionIds],
   };
+}
+
+export async function addMatterMember(input: AddMatterMemberInput): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        INSERT INTO matter_members (
+          tenant_id, matter_id, user_id, matter_role, access_level, added_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (matter_id, user_id)
+        DO UPDATE SET matter_role = EXCLUDED.matter_role,
+          access_level = EXCLUDED.access_level
+      `,
+      [
+        input.tenantId,
+        input.matterId,
+        input.userId,
+        input.matterRole ?? 'member',
+        input.accessLevel ?? 'read',
+        input.addedBy ?? alphaOwnerUserId,
+      ],
+    );
+  });
+}
+
+export async function removeMatterMember(input: {
+  tenantId: string;
+  matterId: string;
+  userId: string;
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        DELETE FROM matter_members
+        WHERE tenant_id = $1
+          AND matter_id = $2
+          AND user_id = $3
+      `,
+      [input.tenantId, input.matterId, input.userId],
+    );
+  });
+}
+
+export async function addExplicitPermission(input: AddExplicitPermissionInput): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        INSERT INTO permissions (
+          tenant_id, subject_type, subject_id, resource_type, resource_id,
+          action, effect, condition_json, created_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+      `,
+      [
+        input.tenantId,
+        input.subjectType ?? 'user',
+        input.subjectId,
+        input.resourceType,
+        input.resourceId,
+        input.action ?? 'read',
+        input.effect,
+        input.conditionJson === undefined ? null : JSON.stringify(input.conditionJson),
+        input.createdBy ?? alphaOwnerUserId,
+      ],
+    );
+  });
+}
+
+export async function setDocumentSecurity(input: {
+  tenantId: string;
+  documentId: string;
+  confidentialityLevel: 'standard' | 'high' | 'restricted';
+  privilegeStatus?: 'none' | 'privileged' | 'work_product' | 'joint_privilege';
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        UPDATE documents
+        SET confidentiality_level = $3,
+          privilege_status = $4,
+          updated_at = now()
+        WHERE tenant_id = $1
+          AND document_id = $2
+      `,
+      [
+        input.tenantId,
+        input.documentId,
+        input.confidentialityLevel,
+        input.privilegeStatus ?? 'none',
+      ],
+    );
+  });
+}
+
+export async function createGroupWithMember(input: {
+  tenantId: string;
+  userId: string;
+  addedBy?: string;
+  name?: string;
+}): Promise<string> {
+  return withClient(createOwnerClient(), async (client) => {
+    const groupId = randomUUID();
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        INSERT INTO groups (group_id, tenant_id, name, group_type, created_by)
+        VALUES ($1, $2, $3, 'custom', $4)
+      `,
+      [
+        groupId,
+        input.tenantId,
+        input.name ?? `Search Group ${groupId}`,
+        input.addedBy ?? alphaOwnerUserId,
+      ],
+    );
+    await client.query(
+      `
+        INSERT INTO group_members (group_id, tenant_id, user_id, added_by)
+        VALUES ($1, $2, $3, $4)
+      `,
+      [groupId, input.tenantId, input.userId, input.addedBy ?? alphaOwnerUserId],
+    );
+    return groupId;
+  });
+}
+
+export async function createEthicalWall(input: {
+  tenantId: string;
+  matterId: string;
+  createdBy?: string;
+  name?: string;
+}): Promise<string> {
+  return withClient(createOwnerClient(), async (client) => {
+    const wallId = randomUUID();
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        INSERT INTO ethical_walls (
+          wall_id, tenant_id, matter_id, wall_name, reason, created_by
+        )
+        VALUES ($1, $2, $3, $4, 'search permission fixture', $5)
+      `,
+      [
+        wallId,
+        input.tenantId,
+        input.matterId,
+        input.name ?? `Search Wall ${wallId}`,
+        input.createdBy ?? alphaOwnerUserId,
+      ],
+    );
+    return wallId;
+  });
+}
+
+export async function addWallMembership(input: {
+  tenantId: string;
+  wallId: string;
+  subjectType?: 'user' | 'group';
+  subjectId: string;
+  membershipType: 'insider' | 'excluded';
+  createdBy?: string;
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        INSERT INTO ethical_wall_memberships (
+          tenant_id, wall_id, subject_type, subject_id, membership_type, created_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `,
+      [
+        input.tenantId,
+        input.wallId,
+        input.subjectType ?? 'user',
+        input.subjectId,
+        input.membershipType,
+        input.createdBy ?? alphaOwnerUserId,
+      ],
+    );
+  });
 }
 
 export async function insertSearchIndexedRow(
@@ -270,6 +482,9 @@ export async function createSearchFixture(marker: string): Promise<SearchFixture
   return {
     alphaClientId,
     alphaMatterId,
+    alphaDocumentIds: rows
+      .filter((row) => row.tenantId === tenantAlphaId)
+      .map((row) => row.documentId),
     alphaVersionIds: rows.filter((row) => row.tenantId === tenantAlphaId).map((row) => row.versionId),
     betaVersionIds: rows.filter((row) => row.tenantId === tenantBetaId).map((row) => row.versionId),
   };

@@ -1,0 +1,13 @@
+{
+  "commonToken": "leakagecommongate",
+  "deniedOnlyToken": "leakagedeniedonlygate",
+  "visibleTitles": [
+    "SP Leakage Visible One",
+    "SP Leakage Visible Two"
+  ],
+  "hiddenTitles": [
+    "SP Leakage Same Tenant Nonmember Hidden",
+    "SP Leakage Explicit Deny Hidden",
+    "SP Leakage Wall Hidden"
+  ]
+}

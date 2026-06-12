@@ -37,22 +37,26 @@ function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
 
-function filterRefs(input: SearchQueryDto): string {
+function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): string {
   const refs: string[] = [];
   const filters = input.filters;
-  if (!filters) return 'none';
-  if (filters.matterId) refs.push(`matter_id:${filters.matterId}`);
-  if (filters.clientId) refs.push(`client_id:${filters.clientId}`);
-  if (filters.documentType) {
-    const value = Array.isArray(filters.documentType)
-      ? filters.documentType.join(',')
-      : filters.documentType;
-    refs.push(`document_type:${value}`);
+  if (filters) {
+    if (filters.matterId) refs.push(`matter_id:${filters.matterId}`);
+    if (filters.clientId) refs.push(`client_id:${filters.clientId}`);
+    if (filters.documentType) {
+      const value = Array.isArray(filters.documentType)
+        ? filters.documentType.join(',')
+        : filters.documentType;
+      refs.push(`document_type:${value}`);
+    }
+    if (filters.dateFrom || filters.dateTo) {
+      refs.push(`date_range:${filters.dateFrom ?? ''}..${filters.dateTo ?? ''}`);
+    }
+    refs.push(`version_status:${filters.versionStatus ?? 'current'}`);
   }
-  if (filters.dateFrom || filters.dateTo) {
-    refs.push(`date_range:${filters.dateFrom ?? ''}..${filters.dateTo ?? ''}`);
+  if (scopeRules.length > 0) {
+    refs.push(`scope:${[...new Set(scopeRules)].join(',')}`);
   }
-  refs.push(`version_status:${filters.versionStatus ?? 'current'}`);
   return (refs.join('|') || 'none').slice(0, 256);
 }
 
@@ -60,12 +64,13 @@ function searchAuditMetadata(
   input: SearchQueryDto,
   resultCount: number,
   durationMs: number,
+  scopeRules: readonly string[] = [],
 ): AuditMetadata {
   const query = input.query ?? '';
   return {
     query_hash: sha256Hex(query),
     query_length: query.length,
-    filter_refs: filterRefs(input),
+    filter_refs: filterRefs(input, scopeRules),
     result_count: resultCount,
     duration_ms: durationMs,
   };
@@ -101,7 +106,15 @@ export class SearchService {
       const result = await client.query(built.sql, built.params);
       const rows = result.rows as SearchDbRow[];
       const response = this.mapRows(rows);
-      await this.recordSearchAudit(client, ctx, input, 'success', response.total, startedAt);
+      await this.recordSearchAudit(
+        client,
+        ctx,
+        input,
+        'success',
+        response.total,
+        startedAt,
+        scopeDecision.appliedRules,
+      );
       return response;
     });
   }
@@ -123,6 +136,7 @@ export class SearchService {
     result: 'success' | 'denied',
     resultCount: number,
     startedAt: number,
+    scopeRules: readonly string[] = [],
   ): Promise<void> {
     await this.auditService.log(
       {
@@ -132,7 +146,12 @@ export class SearchService {
         action: 'SEARCH_EXECUTED',
         targetType: 'search',
         result,
-        metadata: searchAuditMetadata(input, resultCount, Math.round(performance.now() - startedAt)),
+        metadata: searchAuditMetadata(
+          input,
+          resultCount,
+          Math.round(performance.now() - startedAt),
+          scopeRules,
+        ),
       },
       client,
     );

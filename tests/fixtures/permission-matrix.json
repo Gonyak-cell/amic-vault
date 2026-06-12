@@ -91,6 +91,15 @@
       "knowledge_manager": "member",
       "external_user": "deny"
     },
+    "search.query": {
+      "firm_admin": "member",
+      "security_admin": "member",
+      "matter_owner": "member",
+      "matter_member": "member",
+      "limited_reviewer": "member",
+      "knowledge_manager": "member",
+      "external_user": "deny"
+    },
     "matter.edit": {
       "firm_admin": "deny",
       "security_admin": "deny",

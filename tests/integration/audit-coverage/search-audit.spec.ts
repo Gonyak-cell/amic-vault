@@ -1,13 +1,8 @@
 import 'reflect-metadata';
 import { createHash } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { NestFactory } from '@nestjs/core';
-import type { INestApplication } from '@nestjs/common';
-import { AppModule } from '../../../apps/api/src/app.module';
-import { configureApp } from '../../../apps/api/src/main';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { AuditMetadataNormalizer } from '../../../apps/api/src/modules/audit/audit-metadata.normalizer';
 import { AuditService } from '../../../apps/api/src/modules/audit/audit.service';
-import { SESSION_COOKIE_NAME } from '../../../apps/api/src/modules/auth/session.repository';
 import type {
   SearchPermissionScopeDecision,
   SearchPermissionScopeProvider,
@@ -38,23 +33,6 @@ interface SearchAuditRow {
   raw_metadata: string;
 }
 
-async function login(baseUrl: string): Promise<string> {
-  const response = await fetch(`${baseUrl}/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      tenantId: tenantAlphaId,
-      email: 'alpha-matter-owner@test.local',
-      password: 'dev-alpha-owner-password',
-    }),
-  });
-  const body = await response.text();
-  expect(response.status, body).toBe(201);
-  const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
-  expect(cookie).toMatch(new RegExp(`^${SESSION_COOKIE_NAME}=`));
-  return cookie;
-}
-
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
@@ -69,6 +47,16 @@ function createService(fixture: SearchFixture): SearchService {
       };
     },
   };
+  return new SearchService(
+    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    new SearchQueryBuilder(new SearchFilterBuilder(), snippetBuilder),
+    snippetBuilder,
+    provider,
+  );
+}
+
+function createServiceWithProvider(provider: SearchPermissionScopeProvider): SearchService {
+  const snippetBuilder = new SnippetBuilder();
   return new SearchService(
     new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
     new SearchQueryBuilder(new SearchFilterBuilder(), snippetBuilder),
@@ -97,32 +85,24 @@ async function latestSearchAudit(queryHash: string): Promise<SearchAuditRow> {
 }
 
 describe('search audit coverage', () => {
-  let app: INestApplication;
-  let baseUrl: string;
-  let cookie: string;
   let fixture: SearchFixture;
 
   beforeAll(async () => {
     fixture = await createSearchFixture('SC Audit');
-    app = await NestFactory.create(AppModule, { logger: false });
-    configureApp(app);
-    await app.listen(0);
-    baseUrl = await app.getUrl();
-    cookie = await login(baseUrl);
   });
 
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('records denied default-scope searches without storing the raw query', async () => {
+  it('records denied provider failures without storing the raw query', async () => {
     const rawQuery = 'raw-denied-query-8842';
-    const response = await fetch(`${baseUrl}/v1/search`, {
-      method: 'POST',
-      headers: { cookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ query: rawQuery }),
-    });
-    expect(response.status).toBe(403);
+    await expect(
+      createServiceWithProvider({
+        async scopeForSearch(): Promise<SearchPermissionScopeDecision> {
+          throw new Error('scope unavailable');
+        },
+      }).search(
+        { tenantId: tenantAlphaId, userId: alphaOwnerUserId },
+        { query: rawQuery, page: 1, pageSize: 10 },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
 
     const audit = await latestSearchAudit(sha256Hex(rawQuery));
     expect(audit.result).toBe('denied');
