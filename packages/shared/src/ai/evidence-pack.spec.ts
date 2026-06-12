@@ -68,7 +68,7 @@ describe('evidencePackSchema', () => {
     expect(parsed.ruleFindings).toEqual([]);
   });
 
-  it('accepts R7 graph facts but still rejects rule findings before R8 activation', () => {
+  it('accepts R7 graph facts and R8 rule findings as reference-only evidence', () => {
     expect(
       evidencePackSchema.parse({
         ...validPack(),
@@ -87,12 +87,28 @@ describe('evidencePackSchema', () => {
         ],
       }).graphFacts,
     ).toHaveLength(1);
-    expect(() =>
-      evidencePackSchema.parse({
-        ...validPack(),
-        ruleFindings: [{ ruleId: 'rule-1' }],
-      }),
-    ).toThrow();
+    const parsed = evidencePackSchema.parse({
+      ...validPack(),
+      ruleFindings: [
+        {
+          findingId: hash,
+          matterId: uuid,
+          documentId: uuid,
+          versionId: uuid,
+          clauseId: uuid,
+          ruleId: uuid,
+          ruleKey: 'nda.section.required',
+          ruleVersion: 1,
+          severity: 'critical',
+          status: 'pass',
+          findingCode: 'required_clause.section.pass',
+          findingHash: hash,
+          evidenceRefs: [`clause:${uuid}`],
+        },
+      ],
+    });
+    expect(parsed.ruleFindings).toHaveLength(1);
+    expect(JSON.stringify(parsed.ruleFindings)).not.toMatch(/body|snippet|raw|content|text/u);
   });
 
   it('rejects evidence packs that exceed the context window budget', () => {

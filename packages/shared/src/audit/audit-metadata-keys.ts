@@ -72,6 +72,8 @@ export const auditMetadataKeys = [
   'playbook_rule_id',
   'rule_key',
   'rule_version',
+  'rule_finding_count',
+  'unsupported_rule_count',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

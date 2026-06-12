@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AiPolicyModule } from '../ai-policy/ai-policy.module';
 import { AuditModule } from '../audit/audit.module';
+import { ContractIntelModule } from '../contract-intel/contract-intel.module';
 import { DlpModule } from '../dlp/dlp.module';
 import { GraphModule } from '../graph/graph.module';
 import { PermissionModule } from '../permission/permission.module';
@@ -27,7 +28,15 @@ import { AiModelRoutingService } from './routing/model-routing.service';
 import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
 
 @Module({
-  imports: [AiPolicyModule, AuditModule, DlpModule, GraphModule, PermissionModule, SearchModule],
+  imports: [
+    AiPolicyModule,
+    AuditModule,
+    ContractIntelModule,
+    DlpModule,
+    GraphModule,
+    PermissionModule,
+    SearchModule,
+  ],
   controllers: [AiCitationController, AiFeedbackController, AiSessionController, AiSummaryController],
   providers: [
     AiCitationMapperService,

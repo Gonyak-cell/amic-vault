@@ -9,6 +9,7 @@ describe('AuditMetadataNormalizer', () => {
       normalizer.normalize({
         client_id: '11111111-1111-4111-8111-111111111111',
         diff_keys: ['status'],
+        filter_refs: ['matter', 'document', 'wall'],
         included_chunk_ids: ['11111111-1111-4111-8111-111111111222'],
         excluded_chunk_ids: ['11111111-1111-4111-8111-111111111333'],
         name: 'Acme Corp',
@@ -16,6 +17,7 @@ describe('AuditMetadataNormalizer', () => {
     ).toEqual({
       client_id: '11111111-1111-4111-8111-111111111111',
       diff_keys: ['status'],
+      filter_refs: ['matter', 'document', 'wall'],
       included_chunk_ids: ['11111111-1111-4111-8111-111111111222'],
       excluded_chunk_ids: ['11111111-1111-4111-8111-111111111333'],
     });

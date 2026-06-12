@@ -3,7 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
-import type { ContractProcessResponseDto, PlaybookRuleResponseDto } from '@amic-vault/shared';
+import type {
+  ContractClauseBankResponseDto,
+  ContractProcessResponseDto,
+  ContractRuleFindingsResponseDto,
+  CreatePlaybookRuleRequestDto,
+  PlaybookRuleResponseDto,
+} from '@amic-vault/shared';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
 import {
@@ -132,23 +138,16 @@ This Non-Disclosure Agreement protects confidential information. [[ADD:Use reaso
   });
 
   it('creates audited playbook rule versions without storing raw text', async () => {
-    const response = await fetch(`${baseUrl}/v1/contract-intel/playbook-rules`, {
-      method: 'POST',
-      headers: { cookie: adminCookie, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        ruleKey: playbookRuleKey,
-        ruleType: 'required_clause',
-        severity: 'critical',
-        expression: { requiredClauseKind: 'section', minCount: 1 },
-        matterId,
-      }),
+    const body = await createRule({
+      ruleKey: playbookRuleKey,
+      ruleType: 'required_clause',
+      severity: 'critical',
+      expression: { requiredClauseKind: 'section', minCount: 1 },
+      matterId,
     });
-    const text = await response.text();
-    expect(response.status, text).toBe(201);
-    const body = JSON.parse(text) as PlaybookRuleResponseDto;
     expect(body.versionNumber).toBe(1);
     expect(body.expressionHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(text).not.toContain('requiredClauseKind');
+    expect(JSON.stringify(body)).not.toContain('requiredClauseKind');
 
     const audit = await latestRuleAudit(body.ruleId);
     expect(audit?.metadata_json).toMatchObject({
@@ -157,6 +156,67 @@ This Non-Disclosure Agreement protects confidential information. [[ADD:Use reaso
       rule_version: 1,
     });
     expect(JSON.stringify(audit?.metadata_json)).not.toContain('requiredClauseKind');
+  });
+
+  it('lists clause bank and deterministic rule findings with permission-scoped audit', async () => {
+    await processDocument(documentId);
+    await createRule({
+      ruleKey: `nda.section.required.${marker}`,
+      ruleType: 'required_clause',
+      severity: 'critical',
+      expression: { requiredClauseKind: 'section', minCount: 1 },
+      matterId,
+    });
+    await createRule({
+      ruleKey: `nda.threshold.unsupported.${marker}`,
+      ruleType: 'threshold',
+      severity: 'warning',
+      expression: { metric: 'raw_body', operator: 'gte', value: 1 },
+      matterId,
+    });
+
+    const clauseBank = await getClauseBank(documentId);
+    expect(clauseBank.clauses).toHaveLength(2);
+    expect(clauseBank.clauses[0]?.citationRef).toMatch(/^clause:/u);
+    expect(JSON.stringify(clauseBank)).not.toContain('Use reasonable safeguards');
+    expect(JSON.stringify(clauseBank)).not.toContain('Confidential Information');
+
+    const first = await getRuleFindings(documentId);
+    const second = await getRuleFindings(documentId);
+    expect(first.findings).toEqual(second.findings);
+    const findingStatuses = first.findings.map((finding) => finding.status);
+    expect(findingStatuses.filter((status) => status === 'pass').length).toBeGreaterThanOrEqual(1);
+    expect(findingStatuses.filter((status) => status === 'unsupported')).toHaveLength(1);
+    expect(first.unsupportedRuleCount).toBe(1);
+    expect(JSON.stringify(first)).not.toContain('requiredClauseKind');
+    expect(JSON.stringify(first)).not.toContain('raw_body');
+    expect(JSON.stringify(first)).not.toContain('Use reasonable safeguards');
+
+    const clauseAudit = await latestContractAudit(documentId, 'CONTRACT_CLAUSE_BANK_VIEWED');
+    expect(clauseAudit?.metadata_json).toMatchObject({
+      matter_id: matterId,
+      document_id: documentId,
+      result_count: 2,
+    });
+    const ruleAudit = await latestContractAudit(documentId, 'CONTRACT_RULE_EVALUATED');
+    expect(ruleAudit?.metadata_json).toMatchObject({
+      matter_id: matterId,
+      document_id: documentId,
+      rule_finding_count: first.findings.length,
+      unsupported_rule_count: 1,
+    });
+  });
+
+  it('denies clause bank access to explicitly blocked documents', async () => {
+    const response = await fetch(
+      `${baseUrl}/v1/contract-intel/clause-bank?matterId=${matterId}&documentId=${deniedDocumentId}`,
+      {
+        headers: { cookie: ownerCookie },
+      },
+    );
+    const text = await response.text();
+    expect(response.status, text).toBe(403);
+    expect(text).not.toContain(deniedDocumentId);
   });
 
   async function processDocument(targetDocumentId: string): Promise<ContractProcessResponseDto> {
@@ -168,6 +228,43 @@ This Non-Disclosure Agreement protects confidential information. [[ADD:Use reaso
     const text = await response.text();
     expect(response.status, text).toBe(201);
     return JSON.parse(text) as ContractProcessResponseDto;
+  }
+
+  async function createRule(input: CreatePlaybookRuleRequestDto): Promise<PlaybookRuleResponseDto> {
+    const response = await fetch(`${baseUrl}/v1/contract-intel/playbook-rules`, {
+      method: 'POST',
+      headers: { cookie: adminCookie, 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const text = await response.text();
+    expect(response.status, text).toBe(201);
+    return JSON.parse(text) as PlaybookRuleResponseDto;
+  }
+
+  async function getClauseBank(targetDocumentId: string): Promise<ContractClauseBankResponseDto> {
+    const response = await fetch(
+      `${baseUrl}/v1/contract-intel/clause-bank?matterId=${matterId}&documentId=${targetDocumentId}`,
+      {
+        headers: { cookie: ownerCookie },
+      },
+    );
+    const text = await response.text();
+    expect(response.status, text).toBe(200);
+    return JSON.parse(text) as ContractClauseBankResponseDto;
+  }
+
+  async function getRuleFindings(
+    targetDocumentId: string,
+  ): Promise<ContractRuleFindingsResponseDto> {
+    const response = await fetch(
+      `${baseUrl}/v1/contract-intel/rule-findings?matterId=${matterId}&documentId=${targetDocumentId}`,
+      {
+        headers: { cookie: ownerCookie },
+      },
+    );
+    const text = await response.text();
+    expect(response.status, text).toBe(200);
+    return JSON.parse(text) as ContractRuleFindingsResponseDto;
   }
 
   async function insertDocument(input: {

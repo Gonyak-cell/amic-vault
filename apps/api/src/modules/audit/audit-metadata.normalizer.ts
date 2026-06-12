@@ -9,6 +9,7 @@ import {
 const metadataKeySet = new Set<string>(auditMetadataKeys);
 const stringListMetadataKeys = new Set<AuditMetadataKey>([
   'diff_keys',
+  'filter_refs',
   'included_chunk_ids',
   'excluded_chunk_ids',
   'error_types',

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { FileSearch, FolderKanban, LayoutDashboard, ScrollText, Shield } from 'lucide-react';
+import { FileCog, FileSearch, FolderKanban, LayoutDashboard, ScrollText, Shield } from 'lucide-react';
 import { LogoutButton } from './logout-button';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -22,6 +22,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink href="/search" label="Search">
                 <FileSearch className="h-4 w-4" />
+              </NavLink>
+              <NavLink href="/contracts" label="Contracts">
+                <FileCog className="h-4 w-4" />
               </NavLink>
               <NavLink href="/audit" label="Audit">
                 <ScrollText className="h-4 w-4" />

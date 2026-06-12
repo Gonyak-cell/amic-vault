@@ -50,6 +50,8 @@ describe('audit shared types', () => {
         'CONTRACT_TERMS_EXTRACTED',
         'CONTRACT_REDLINE_PARSED',
         'PLAYBOOK_RULE_CHANGED',
+        'CONTRACT_RULE_EVALUATED',
+        'CONTRACT_CLAUSE_BANK_VIEWED',
       ]),
     );
     expect(r8ContractAuditActions).toContain('PLAYBOOK_RULE_CHANGED');
@@ -102,6 +104,8 @@ describe('audit shared types', () => {
       playbook_rule_id: '11111111-1111-4111-8111-111111111199',
       rule_key: 'nda.confidentiality.required',
       rule_version: 1,
+      rule_finding_count: 2,
+      unsupported_rule_count: 1,
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  contractClauseBankResponseSchema,
   contractClassificationSchema,
   contractProcessRequestSchema,
+  contractRuleFindingsResponseSchema,
   createPlaybookRuleRequestSchema,
 } from './contract-types';
 
@@ -36,5 +38,58 @@ describe('contract shared schemas', () => {
         severity: 'warning',
       }),
     ).toThrow();
+  });
+
+  it('accepts reference-only clause bank and rule finding responses', () => {
+    const uuid = '11111111-1111-4111-8111-111111111111';
+    const hash = 'a'.repeat(64);
+    const clauseBank = contractClauseBankResponseSchema.parse({
+      matterId: uuid,
+      documentId: uuid,
+      clauses: [
+        {
+          clauseId: uuid,
+          matterId: uuid,
+          documentId: uuid,
+          versionId: uuid,
+          clauseKind: 'section',
+          clauseNumber: '2',
+          startOffset: 10,
+          endOffset: 20,
+          headingHash: hash,
+          textHash: hash,
+          definedTermCount: 1,
+          conflictCount: 0,
+          redlineChangeCount: 1,
+          citationRef: `clause:${uuid}`,
+        },
+      ],
+    });
+    const findings = contractRuleFindingsResponseSchema.parse({
+      matterId: uuid,
+      documentId: uuid,
+      unsupportedRuleCount: 0,
+      findings: [
+        {
+          findingId: hash,
+          matterId: uuid,
+          documentId: uuid,
+          versionId: uuid,
+          clauseId: uuid,
+          ruleId: uuid,
+          ruleKey: 'nda.section.required',
+          ruleVersion: 1,
+          severity: 'critical',
+          status: 'pass',
+          findingCode: 'required_clause.section.pass',
+          findingHash: hash,
+          evidenceRefs: [`clause:${uuid}`],
+        },
+      ],
+    });
+    const serialized = JSON.stringify({ clauseBank, findings });
+    expect(serialized).not.toContain('Confidential Information means');
+    expect(serialized).not.toContain('raw clause body');
+    expect(serialized).not.toContain('snippet leakage');
   });
 });
