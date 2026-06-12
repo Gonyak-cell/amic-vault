@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AuditService, QueryClient } from '../audit/audit.service';
+import type { DlpService } from '../dlp/dlp.service';
 import type { DocumentUploadService } from '../document/document-upload.service';
 import type { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import type { PermissionService } from '../permission/permission.service';
@@ -18,11 +19,11 @@ function createService(
   permissionEffect: 'ALLOW' | 'DENY' = 'ALLOW',
 ) {
   const query = vi.fn(async (sql: string, params?: readonly unknown[]) => {
-    if (sql.includes('SELECT email_id')) {
+    if (/SELECT\s+email_id\s+FROM email_messages\s+WHERE/u.test(sql)) {
       const rows = selectRows.shift() ?? [];
       return { rows, rowCount: rows.length };
     }
-    if (sql.includes('SELECT 1') && sql.includes('FROM email_messages')) {
+    if (/SELECT\s+1\s+FROM email_messages\s+WHERE/u.test(sql)) {
       return { rows: [{ '?column?': 1 }], rowCount: 1 };
     }
     if (sql.includes('INSERT INTO email_messages')) {
@@ -69,9 +70,17 @@ function createService(
             tenant_id: tenantId,
             email_id: existingEmailId,
             matter_id: '11111111-1111-4111-8111-1111111111a0',
-            subject: 'Filed subject',
+            subject: 'Privileged filed subject',
             sent_at: new Date('2026-06-12T00:00:00.000Z'),
             has_outside_participants: false,
+            matter_code: 'MAT-FILED',
+            matter_name: 'Filed matter',
+            matter_domain: 'sender.example',
+            client_domain: 'sender.example',
+            participant_domains: ['sender.example'],
+            message_id_hash: 'c'.repeat(64),
+            references_json: ['a'.repeat(64), 'b'.repeat(64)],
+            thread_related_count: '2',
             document_ids: ['11111111-1111-4111-8111-1111111111d0'],
             created_by: actorUserId,
             created_at: new Date('2026-06-12T00:00:00.000Z'),
@@ -152,6 +161,8 @@ function createService(
   const userService = {
     findByTenantAndId: vi.fn(async () => ({ role: 'matter_owner', status: 'active' })),
   } as unknown as UserService;
+  const scanAndRecord = vi.fn(async () => ({ findings: [] }));
+  const dlpService = { scanAndRecord } as unknown as DlpService;
 
   return {
     auditLog,
@@ -161,6 +172,7 @@ function createService(
     documentUploadService,
     fileObjectCreate,
     query,
+    scanAndRecord,
     service: new EmailService(
       auditService,
       fileObjectService,
@@ -170,6 +182,7 @@ function createService(
       permissionService,
       permissionQueryBuilder,
       userService,
+      dlpService,
     ),
     storageService,
     uploadBuffer,
@@ -279,8 +292,8 @@ describe('EmailService', () => {
     });
   });
 
-  it('imports supported EML attachments through document upload and stores email links', async () => {
-    const { query, service, uploadBuffer } = createService();
+  it('imports supported EML attachments only after DLP scan and stores email links', async () => {
+    const { query, scanAndRecord, service, uploadBuffer } = createService();
     const pdf = Buffer.from('%PDF-1.7\nattachment\n%%EOF\n');
 
     await service.importRawEmail({
@@ -309,6 +322,21 @@ describe('EmailService', () => {
       ),
     });
 
+    expect(scanAndRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tenantId,
+        sourceType: 'attachment',
+        matterId: '11111111-1111-4111-8111-1111111111a0',
+        text: expect.stringContaining('attachment'),
+      }),
+    );
+    const scanOrder = scanAndRecord.mock.invocationCallOrder[0];
+    const uploadOrder = uploadBuffer.mock.invocationCallOrder[0];
+    if (scanOrder === undefined || uploadOrder === undefined) {
+      throw new Error('missing DLP or upload invocation');
+    }
+    expect(scanOrder).toBeLessThan(uploadOrder);
     expect(uploadBuffer).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId,
@@ -325,6 +353,43 @@ describe('EmailService', () => {
       query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO email_document_links')),
     ).toBe(true);
     expect(JSON.stringify(query.mock.calls)).not.toContain('raw email body');
+  });
+
+  it('fails closed before document upload when attachment DLP scan fails', async () => {
+    const { query, scanAndRecord, service, uploadBuffer } = createService();
+    scanAndRecord.mockRejectedValueOnce(new Error('dlp unavailable'));
+
+    await expect(
+      service.importRawEmail({
+        tenantId,
+        actorUserId,
+        matterId: '11111111-1111-4111-8111-1111111111a0',
+        originalFilename: 'with-attachment.eml',
+        body: Buffer.from(
+          [
+            'Message-ID: <case-attachment-fail@example.test>',
+            'Content-Type: multipart/mixed; boundary="amic-boundary"',
+            '',
+            '--amic-boundary',
+            'Content-Type: text/plain',
+            '',
+            'raw email body',
+            '--amic-boundary',
+            'Content-Type: text/plain; name="notes.txt"',
+            'Content-Disposition: attachment; filename="notes.txt"',
+            '',
+            'attachment with person@example.test',
+            '--amic-boundary--',
+            '',
+          ].join('\r\n'),
+        ),
+      }),
+    ).rejects.toThrow('dlp unavailable');
+
+    expect(uploadBuffer).not.toHaveBeenCalled();
+    expect(
+      query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO email_document_links')),
+    ).toBe(false);
   });
 
   it('returns only permission-allowed email document links', async () => {
@@ -392,6 +457,17 @@ describe('EmailService', () => {
     expect(filed).toMatchObject({
       emailId: existingEmailId,
       documentIds: ['11111111-1111-4111-8111-1111111111d0'],
+      privilegeTagSuggestion: {
+        tag: 'attorney_client_privilege',
+        reasonCodes: ['subject_keyword'],
+        requiresUserConfirmation: true,
+      },
+      thread: {
+        rootMessageHash: 'a'.repeat(64),
+        directReferenceCount: 2,
+        relatedEmailCount: 2,
+      },
+      warningCodes: [],
     });
     expect(auditLog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -406,7 +482,7 @@ describe('EmailService', () => {
       }),
       expect.anything(),
     );
-    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Filed subject');
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Privileged filed subject');
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('person@example.test');
   });
 

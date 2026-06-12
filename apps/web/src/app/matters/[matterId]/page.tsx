@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Mail, Users } from 'lucide-react';
+import { AlertTriangle, Mail, ShieldCheck, Users } from 'lucide-react';
 import type { EmailMatterFilingDto, MatterDto } from '@amic-vault/shared';
 import { getMatter, listMatterEmailTimeline } from '@/lib/api-client';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
@@ -82,9 +82,29 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">{email.subject ?? email.emailId}</p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {email.documentIds.length} documents
-                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{email.documentIds.length} documents</span>
+                        <span>{email.thread.relatedEmailCount} related</span>
+                        {email.warningCodes.map((code) => (
+                          <span
+                            key={code}
+                            className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            {code === 'outside_participant'
+                              ? 'Outside recipient'
+                              : 'Matter mismatch'}
+                          </span>
+                        ))}
+                        {email.privilegeTagSuggestion ? (
+                          <span className="inline-flex items-center gap-1 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-800">
+                            <ShieldCheck className="h-3 w-3" />
+                            {email.privilegeTagSuggestion.tag === 'attorney_client_privilege'
+                              ? 'Privilege suggested'
+                              : 'Confidential suggested'}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <time className="text-xs text-muted-foreground">
                       {new Date(email.filedAt).toLocaleString()}

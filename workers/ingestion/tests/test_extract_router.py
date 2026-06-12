@@ -156,6 +156,16 @@ def test_hwpx_endpoint_rejects_hwp_binary_without_binary_parser() -> None:
     assert body["body_text"] == ""
 
 
+def test_hwp5_binary_boundary_does_not_claim_production_parser() -> None:
+    response = _post_extract("legacy.hwp", b"\xd0\xcf\x11\xe0" + b"not-real-document")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["extraction_method"] == "failed"
+    assert body["failure_reason_code"] == "UNSUPPORTED_HWP_BINARY"
+    assert body["body_text"] == ""
+
+
 def test_tenant_header_mismatch_fails_closed() -> None:
     response = client.post(
         "/extract",

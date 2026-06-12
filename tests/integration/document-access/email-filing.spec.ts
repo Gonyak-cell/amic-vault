@@ -61,6 +61,46 @@ async function createMatter(baseUrl: string, cookie: string, clientId: string) {
   return { matterCode, matterId: (JSON.parse(body) as { matterId: string }).matterId };
 }
 
+function emailUploadForm(input: {
+  matterCode: string;
+  messageId: string;
+  attachmentText?: string;
+  filename?: string;
+}): FormData {
+  const boundary = `amic-upload-${randomUUID()}`;
+  const attachment = Buffer.from(`%PDF-1.7\n${input.attachmentText ?? 'attachment'}\n%%EOF\n`);
+  const eml = [
+    'From: Sender <sender@sender.example>',
+    'To: Internal <internal@amic.test>, Outside <outside@example.test>',
+    `Message-ID: <${input.messageId}>`,
+    'References: <thread-upload@example.test>',
+    'Date: Fri, 12 Jun 2026 10:15:30 +0900',
+    `Subject: Privileged filing request ${input.matterCode}`,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain',
+    '',
+    'body must not be persisted in audit metadata',
+    `--${boundary}`,
+    'Content-Type: application/pdf; name="attachment.pdf"',
+    'Content-Disposition: attachment; filename="attachment.pdf"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    attachment.toString('base64'),
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+  const form = new FormData();
+  form.append('tenantDomains', 'amic.test');
+  form.append(
+    'file',
+    new Blob([Buffer.from(eml)], { type: 'message/rfc822' }),
+    input.filename ?? 'upload.eml',
+  );
+  return form;
+}
+
 async function insertEmailFixture(matterCode: string): Promise<string> {
   return withClient(createAppClient(), async (client) => {
     await setTenant(client, tenantAlphaId);
@@ -165,15 +205,57 @@ async function auditCount(input: {
           AND ($4::uuid IS NULL OR actor_id = $4::uuid)
           AND ($5::text IS NULL OR metadata_json::text NOT LIKE '%' || $5::text || '%')
       `,
-      [
-        tenantAlphaId,
-        input.action,
-        input.targetId,
-        input.actorId ?? null,
-        input.unsafe ?? null,
-      ],
+      [tenantAlphaId, input.action, input.targetId, input.actorId ?? null, input.unsafe ?? null],
     );
     return result.rows[0]?.count ?? '0';
+  });
+}
+
+async function dlpAttachmentEvidence(matterId: string): Promise<{
+  findingCount: string;
+  scanCount: string;
+  unsafe: string;
+}> {
+  return withClient(createAppClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query<{
+      finding_count: string;
+      scan_count: string;
+      unsafe: string;
+    }>(
+      `
+        SELECT
+          (
+            SELECT count(*)::text
+            FROM dlp_findings
+            WHERE tenant_id = $1
+              AND matter_id = $2
+              AND source_type = 'attachment'
+          ) AS finding_count,
+          (
+            SELECT count(*)::text
+            FROM audit_events
+            WHERE tenant_id = $1
+              AND matter_id = $2
+              AND action = 'DLP_SCAN_COMPLETED'
+              AND target_type = 'attachment'
+          ) AS scan_count,
+          (
+            SELECT count(*)::text
+            FROM audit_events
+            WHERE tenant_id = $1
+              AND matter_id = $2
+              AND metadata_json::text LIKE '%person@example.test%'
+          ) AS unsafe
+      `,
+      [tenantAlphaId, matterId],
+    );
+    const row = result.rows[0];
+    return {
+      findingCount: row?.finding_count ?? '0',
+      scanCount: row?.scan_count ?? '0',
+      unsafe: row?.unsafe ?? '0',
+    };
   });
 }
 
@@ -263,5 +345,69 @@ describe('email filing integration', () => {
     const excludedBody = (await excludedTimeline.json()) as { items: unknown[] };
     expect(excludedTimeline.status, JSON.stringify(excludedBody)).toBe(200);
     expect(excludedBody.items).toEqual([]);
+  });
+
+  it('uploads EML to a matter through upload permission with DLP and display-only warnings', async () => {
+    const { matterCode, matterId } = await createMatter(baseUrl, ownerCookie, clientId);
+    const denied = await fetch(`${baseUrl}/v1/matters/${matterId}/emails`, {
+      method: 'POST',
+      headers: { cookie: memberCookie },
+      body: emailUploadForm({
+        matterCode,
+        messageId: `${randomUUID()}@example.test`,
+      }),
+    });
+    expect(denied.status, await denied.text()).toBe(403);
+
+    const uploaded = await fetch(`${baseUrl}/v1/matters/${matterId}/emails`, {
+      method: 'POST',
+      headers: { cookie: ownerCookie },
+      body: emailUploadForm({
+        matterCode,
+        messageId: `${randomUUID()}@example.test`,
+        attachmentText: 'person@example.test',
+      }),
+    });
+    const uploadedBody = (await uploaded.json()) as {
+      email: { emailId: string; hasOutsideParticipants: boolean };
+      filing: {
+        matterId: string;
+        documentIds: string[];
+        warningCodes: string[];
+        privilegeTagSuggestion: { tag: string; requiresUserConfirmation: boolean } | null;
+        thread: { directReferenceCount: number; relatedEmailCount: number };
+      };
+    };
+    expect(uploaded.status, JSON.stringify(uploadedBody)).toBe(201);
+    expect(uploadedBody.email.hasOutsideParticipants).toBe(true);
+    expect(uploadedBody.filing).toMatchObject({
+      matterId,
+      warningCodes: expect.arrayContaining(['outside_participant']),
+      privilegeTagSuggestion: {
+        tag: 'attorney_client_privilege',
+        requiresUserConfirmation: true,
+      },
+      thread: {
+        directReferenceCount: 1,
+      },
+    });
+    expect(uploadedBody.filing.warningCodes).not.toContain('matter_metadata_mismatch');
+    expect(uploadedBody.filing.documentIds).toHaveLength(1);
+    await expect(dlpAttachmentEvidence(matterId)).resolves.toEqual({
+      findingCount: '1',
+      scanCount: '1',
+      unsafe: '0',
+    });
+
+    const unsupported = await fetch(`${baseUrl}/v1/matters/${matterId}/emails`, {
+      method: 'POST',
+      headers: { cookie: ownerCookie },
+      body: emailUploadForm({
+        matterCode,
+        messageId: `${randomUUID()}@example.test`,
+        filename: 'not-email.txt',
+      }),
+    });
+    expect(unsupported.status, await unsupported.text()).toBe(415);
   });
 });

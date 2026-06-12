@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { readFile, unlink } from 'node:fs/promises';
 import {
   BadRequestException,
   ForbiddenException,
@@ -7,12 +8,16 @@ import {
   Logger,
   NotFoundException,
   Optional,
+  UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import {
   EmlParseError,
+  type EmailMatterWarningCode,
   type EmailMatterFilingDto,
   type EmailMatterSuggestionListDto,
   type EmailMatterSuggestionQueryDto,
+  type EmailPrivilegeTagSuggestionDto,
+  type EmailThreadSummaryDto,
   normalizeEmailMetadata,
   type EmailMetadataWarningCode,
   type EmailFailureReasonCode,
@@ -21,12 +26,15 @@ import {
   type EmailParseStatus,
   type EmailTimelineDto,
   type FileEmailToMatterDto,
+  type UploadEmailToMatterFieldsDto,
+  type UploadEmailToMatterResponseDto,
   type NormalizedEmailMetadata,
   type UploadDocumentFieldsDto,
   type UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
-import { DocumentUploadService } from '../document/document-upload.service';
+import { DocumentUploadService, type UploadedDiskFile } from '../document/document-upload.service';
+import { DlpService } from '../dlp/dlp.service';
 import { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import { PermissionService } from '../permission/permission.service';
 import {
@@ -98,6 +106,14 @@ interface EmailMatterFilingRow {
   subject: string | null;
   sent_at: Date | null;
   has_outside_participants: boolean;
+  matter_code: string;
+  matter_name: string;
+  matter_domain: string | null;
+  client_domain: string | null;
+  participant_domains: readonly string[] | null;
+  message_id_hash: string;
+  references_json: readonly string[];
+  thread_related_count: string;
   document_ids: readonly string[] | null;
   created_by: string;
   created_at: Date;
@@ -165,8 +181,12 @@ export class EmailDuplicateMessageError extends Error {
   }
 }
 
-function unsupportedFileType(): BadRequestException {
-  return new BadRequestException({ code: 'UNSUPPORTED_FILE_TYPE' });
+function unsupportedFileType(): UnsupportedMediaTypeException {
+  return new UnsupportedMediaTypeException({ code: 'UNSUPPORTED_FILE_TYPE' });
+}
+
+function validationFailed(): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED' });
 }
 
 function sha256Hex(value: Buffer | string): string {
@@ -189,6 +209,83 @@ function extensionFromFilename(filename: string): string {
 function normalizeFilename(filename: string, fallback: string): string {
   const base = filename.split('\\').pop()?.split('/').pop()?.trim() ?? '';
   return (base || fallback).slice(0, 1000);
+}
+
+function isUploadedDiskFile(file: UploadedDiskFile | undefined): file is UploadedDiskFile {
+  return (
+    typeof file?.path === 'string' &&
+    typeof file.originalname === 'string' &&
+    typeof file.mimetype === 'string' &&
+    Number.isSafeInteger(file.size)
+  );
+}
+
+function emailUploadMaxBytes(): number {
+  return 25 * 1024 * 1024;
+}
+
+function asStringArray(value: readonly string[] | null | undefined): string[] {
+  return Array.isArray(value) ? [...value] : [];
+}
+
+function privilegeTagSuggestion(subject: string | null): EmailPrivilegeTagSuggestionDto | null {
+  const lower = subject?.toLowerCase() ?? '';
+  if (!lower) return null;
+  if (/\b(attorney-client|attorney client|privileged|legal advice|work product)\b/.test(lower)) {
+    return {
+      tag: 'attorney_client_privilege',
+      reasonCodes: ['subject_keyword'],
+      requiresUserConfirmation: true,
+    };
+  }
+  if (/\b(confidential|confidentiality)\b/.test(lower)) {
+    return {
+      tag: 'confidential',
+      reasonCodes: ['subject_keyword'],
+      requiresUserConfirmation: true,
+    };
+  }
+  return null;
+}
+
+function subjectMatchesMatter(row: EmailMatterFilingRow): boolean {
+  const subject = row.subject?.toLowerCase() ?? '';
+  if (!subject) return false;
+  return [row.matter_code, row.matter_name]
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .some((value) => subject.includes(value));
+}
+
+function matterMetadataMismatch(row: EmailMatterFilingRow): boolean {
+  const expectedDomains = [row.matter_domain, row.client_domain]
+    .map((value) => value?.trim().toLowerCase() ?? '')
+    .filter(Boolean);
+  const participantDomains = asStringArray(row.participant_domains)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (expectedDomains.length === 0 && !row.subject) return false;
+  const hasDomainMatch =
+    expectedDomains.length > 0 &&
+    participantDomains.some((domain) => expectedDomains.includes(domain));
+  return participantDomains.length > 0 && !hasDomainMatch && !subjectMatchesMatter(row);
+}
+
+function warningCodes(row: EmailMatterFilingRow): EmailMatterWarningCode[] {
+  const warnings: EmailMatterWarningCode[] = [];
+  if (row.has_outside_participants) warnings.push('outside_participant');
+  if (matterMetadataMismatch(row)) warnings.push('matter_metadata_mismatch');
+  return warnings;
+}
+
+function threadSummary(row: EmailMatterFilingRow): EmailThreadSummaryDto {
+  const references = asStringArray(row.references_json);
+  return {
+    rootMessageHash: references[0] ?? row.message_id_hash,
+    directReferenceCount: references.length,
+    relatedEmailCount: Number(row.thread_related_count),
+    referenceHashes: references.slice(0, 10),
+  };
 }
 
 function mapEmailRow(row: EmailMessageRow): EmailMessageDto {
@@ -238,6 +335,9 @@ function mapEmailMatterFilingRow(row: EmailMatterFilingRow): EmailMatterFilingDt
     subject: row.subject,
     sentAt: row.sent_at?.toISOString() ?? null,
     hasOutsideParticipants: row.has_outside_participants,
+    warningCodes: warningCodes(row),
+    privilegeTagSuggestion: privilegeTagSuggestion(row.subject),
+    thread: threadSummary(row),
     documentIds: [...(row.document_ids ?? [])],
     filedBy: row.created_by,
     filedAt: row.created_at.toISOString(),
@@ -281,7 +381,46 @@ export class EmailService {
     @Optional()
     @Inject(UserService)
     private readonly userService?: UserService,
+    @Optional()
+    @Inject(DlpService)
+    private readonly dlpService?: DlpService,
   ) {}
+
+  async uploadRawEmailToMatter(
+    actorUserId: string,
+    matterId: string,
+    fields: UploadEmailToMatterFieldsDto,
+    file: UploadedDiskFile | undefined,
+  ): Promise<UploadEmailToMatterResponseDto> {
+    const tenantId = this.tenantContext.require().tenantId;
+    if (!isUploadedDiskFile(file)) {
+      await this.unlinkTempFile(file);
+      throw validationFailed();
+    }
+
+    try {
+      extensionFromFilename(file.originalname);
+      if (file.size <= 0 || file.size > emailUploadMaxBytes()) throw validationFailed();
+      await this.assertCanUploadToMatter(tenantId, actorUserId, matterId);
+      const body = await readFile(file.path);
+      const email = await this.importRawEmail({
+        tenantId,
+        actorUserId,
+        matterId,
+        originalFilename: file.originalname,
+        mimeType: file.mimetype,
+        body,
+        tenantDomains: fields.tenantDomains ?? [],
+      });
+      const filing = await this.fileEmailToMatter(actorUserId, email.emailId, { matterId });
+      return { email, filing };
+    } catch (error) {
+      if (error instanceof EmailDuplicateMessageError) throw validationFailed();
+      throw error;
+    } finally {
+      await this.unlinkTempFile(file);
+    }
+  }
 
   async importRawEmail(input: ImportRawEmailInput): Promise<EmailMessageDto> {
     const tenantId = input.tenantId ?? this.tenantContext.require().tenantId;
@@ -458,8 +597,7 @@ export class EmailService {
         attachments: extractEmlAttachments(raw),
       };
     } catch (error) {
-      const reasonCode =
-        error instanceof EmlParseError ? error.reasonCode : 'MALFORMED_HEADERS';
+      const reasonCode = error instanceof EmlParseError ? error.reasonCode : 'MALFORMED_HEADERS';
       return {
         parser: 'eml',
         parseStatus: 'failed',
@@ -714,10 +852,7 @@ export class EmailService {
     });
   }
 
-  async listMatterEmailTimeline(
-    actorUserId: string,
-    matterId: string,
-  ): Promise<EmailTimelineDto> {
+  async listMatterEmailTimeline(actorUserId: string, matterId: string): Promise<EmailTimelineDto> {
     const tenantId = this.tenantContext.require().tenantId;
     const user = await this.userService?.findByTenantAndId(tenantId, actorUserId);
     const permissionQueryBuilder = this.permissionQueryBuilder;
@@ -735,9 +870,38 @@ export class EmailService {
         `
           SELECT f.filing_id, f.tenant_id, f.email_id, f.matter_id,
             e.subject, e.sent_at, e.has_outside_participants,
+            m.matter_code, m.matter_name,
+            nullif(m.metadata_json->>'domain', '') AS matter_domain,
+            nullif(c.metadata_json->>'domain', '') AS client_domain,
+            coalesce(
+              array_agg(DISTINCT ep.domain_ref)
+                FILTER (WHERE ep.domain_ref IS NOT NULL),
+              ARRAY[]::text[]
+            ) AS participant_domains,
+            e.message_id_hash, e.references_json,
+            (
+              SELECT count(DISTINCT related.email_id)::text
+              FROM email_messages related
+              WHERE related.tenant_id = e.tenant_id
+                AND related.email_id <> e.email_id
+                AND (
+                  related.message_id_hash IN (
+                    SELECT jsonb_array_elements_text(e.references_json)
+                  )
+                  OR e.message_id_hash IN (
+                    SELECT jsonb_array_elements_text(related.references_json)
+                  )
+                  OR EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements_text(e.references_json) current_ref(ref)
+                    JOIN jsonb_array_elements_text(related.references_json) related_ref(ref)
+                      ON related_ref.ref = current_ref.ref
+                  )
+                )
+            ) AS thread_related_count,
             f.created_by, f.created_at,
             coalesce(
-              array_agg(edl.document_id::text ORDER BY edl.attachment_index)
+              array_agg(DISTINCT edl.document_id::text)
                 FILTER (WHERE edl.document_id IS NOT NULL),
               ARRAY[]::text[]
             ) AS document_ids
@@ -745,9 +909,15 @@ export class EmailService {
           JOIN matters m
             ON m.tenant_id = f.tenant_id
            AND m.matter_id = f.matter_id
+          JOIN clients c
+            ON c.tenant_id = m.tenant_id
+           AND c.client_id = m.client_id
           JOIN email_messages e
             ON e.tenant_id = f.tenant_id
            AND e.email_id = f.email_id
+          LEFT JOIN email_participants ep
+            ON ep.tenant_id = e.tenant_id
+           AND ep.email_id = e.email_id
           LEFT JOIN email_document_links edl
             ON edl.tenant_id = f.tenant_id
            AND edl.email_id = f.email_id
@@ -755,7 +925,9 @@ export class EmailService {
             AND f.matter_id = $2
             AND ${permission.sql}
           GROUP BY f.filing_id, f.tenant_id, f.email_id, f.matter_id,
-            e.subject, e.sent_at, e.has_outside_participants, f.created_by, f.created_at
+            e.tenant_id, e.email_id, e.subject, e.sent_at, e.has_outside_participants, e.message_id_hash,
+            e.references_json, m.matter_code, m.matter_name, m.metadata_json,
+            c.metadata_json, f.created_by, f.created_at
           ORDER BY f.created_at DESC, f.filing_id ASC
         `,
         params,
@@ -863,9 +1035,38 @@ export class EmailService {
       `
         SELECT f.filing_id, f.tenant_id, f.email_id, f.matter_id,
           e.subject, e.sent_at, e.has_outside_participants,
+          m.matter_code, m.matter_name,
+          nullif(m.metadata_json->>'domain', '') AS matter_domain,
+          nullif(c.metadata_json->>'domain', '') AS client_domain,
+          coalesce(
+            array_agg(DISTINCT ep.domain_ref)
+              FILTER (WHERE ep.domain_ref IS NOT NULL),
+            ARRAY[]::text[]
+          ) AS participant_domains,
+          e.message_id_hash, e.references_json,
+          (
+            SELECT count(DISTINCT related.email_id)::text
+            FROM email_messages related
+            WHERE related.tenant_id = e.tenant_id
+              AND related.email_id <> e.email_id
+              AND (
+                related.message_id_hash IN (
+                  SELECT jsonb_array_elements_text(e.references_json)
+                )
+                OR e.message_id_hash IN (
+                  SELECT jsonb_array_elements_text(related.references_json)
+                )
+                OR EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements_text(e.references_json) current_ref(ref)
+                  JOIN jsonb_array_elements_text(related.references_json) related_ref(ref)
+                    ON related_ref.ref = current_ref.ref
+                )
+              )
+          ) AS thread_related_count,
           f.created_by, f.created_at,
           coalesce(
-            array_agg(edl.document_id::text ORDER BY edl.attachment_index)
+            array_agg(DISTINCT edl.document_id::text)
               FILTER (WHERE edl.document_id IS NOT NULL),
             ARRAY[]::text[]
           ) AS document_ids
@@ -873,6 +1074,15 @@ export class EmailService {
         JOIN email_messages e
           ON e.tenant_id = f.tenant_id
          AND e.email_id = f.email_id
+        JOIN matters m
+          ON m.tenant_id = f.tenant_id
+         AND m.matter_id = f.matter_id
+        JOIN clients c
+          ON c.tenant_id = m.tenant_id
+         AND c.client_id = m.client_id
+        LEFT JOIN email_participants ep
+          ON ep.tenant_id = e.tenant_id
+         AND ep.email_id = e.email_id
         LEFT JOIN email_document_links edl
           ON edl.tenant_id = f.tenant_id
          AND edl.email_id = f.email_id
@@ -880,7 +1090,9 @@ export class EmailService {
           AND f.email_id = $2
           AND f.matter_id = $3
         GROUP BY f.filing_id, f.tenant_id, f.email_id, f.matter_id,
-          e.subject, e.sent_at, e.has_outside_participants, f.created_by, f.created_at
+          e.tenant_id, e.email_id, e.subject, e.sent_at, e.has_outside_participants, e.message_id_hash,
+          e.references_json, m.matter_code, m.matter_name, m.metadata_json,
+          c.metadata_json, f.created_by, f.created_at
         LIMIT 1
       `,
       [tenantId, emailId, matterId],
@@ -935,7 +1147,13 @@ export class EmailService {
     if (!input.actorUserId || !this.documentUploadService) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED' });
     }
+    await this.assertCanUploadToMatter(input.tenantId, input.actorUserId, input.matterId);
     for (const attachment of input.attachments) {
+      await this.scanAttachmentBeforeUpload({
+        tenantId: input.tenantId,
+        matterId: input.matterId,
+        attachment,
+      });
       const document = await this.documentUploadService.uploadBuffer({
         actorUserId: input.actorUserId,
         matterId: input.matterId,
@@ -986,6 +1204,25 @@ export class EmailService {
     });
   }
 
+  private async scanAttachmentBeforeUpload(input: {
+    tenantId: string;
+    matterId: string;
+    attachment: ParsedEmailAttachment;
+  }): Promise<void> {
+    const dlpService = this.dlpService;
+    if (!dlpService) throw validationFailed();
+    const sourceId = randomUUID();
+    await this.auditService.transaction(input.tenantId, async (tx) => {
+      await dlpService.scanAndRecord(tx, {
+        tenantId: input.tenantId,
+        sourceType: 'attachment',
+        sourceId,
+        matterId: input.matterId,
+        text: input.attachment.body.toString('utf8'),
+      });
+    });
+  }
+
   private async canReadDocument(
     tenantId: string,
     actorUserId: string,
@@ -1009,6 +1246,15 @@ export class EmailService {
       await this.storageService.deleteByStorageUri(tenantId, storageUri);
     } catch {
       this.logger.warn({ code: 'EMAIL_STORAGE_COMPENSATION_FAILED', storageUri });
+    }
+  }
+
+  private async unlinkTempFile(file: UploadedDiskFile | undefined): Promise<void> {
+    if (!file?.path) return;
+    try {
+      await unlink(file.path);
+    } catch {
+      this.logger.warn({ code: 'EMAIL_UPLOAD_TEMP_UNLINK_FAILED' });
     }
   }
 }
