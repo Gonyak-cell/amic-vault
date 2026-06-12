@@ -102,6 +102,13 @@ export const auditMetadataKeys = [
   'filing_status',
   'evidence_type',
   'pleading_type',
+  'external_workspace_id',
+  'external_user_id',
+  'external_link_id',
+  'link_count',
+  'access_status',
+  'nda_version',
+  'watermark_ref',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

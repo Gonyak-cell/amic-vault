@@ -24,6 +24,19 @@ const client = new Client({ connectionString: databaseUrl() });
 await client.connect();
 
 try {
+  const r11SharingPolicies = await client.query(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = to_regclass('public.sharing_policy_definitions')
+          AND conname = 'sharing_policy_definitions_status_check'
+          AND pg_get_constraintdef(oid) LIKE '%enabled_r11%'
+      ) AS present
+    `,
+  );
+  const canSeedR11SharingPolicies = Boolean(r11SharingPolicies.rows[0]?.present);
+
   await client.query('BEGIN');
   for (const tenant of fixture.tenants) {
     await client.query(
@@ -44,6 +57,26 @@ try {
       'app.current_tenant_id',
       tenant.tenantId,
     ]);
+
+    if (canSeedR11SharingPolicies) {
+      await client.query(
+        `
+          INSERT INTO sharing_policy_definitions (
+            tenant_id, policy_key, status, enforcement_mode, control_ref
+          )
+          VALUES
+            ($1, 'external_sharing', 'enabled_r11', 'controlled_allow', 'R11_EXTERNAL_SHARING_CRITICAL_GATE'),
+            ($1, 'secure_link', 'enabled_r11', 'controlled_allow', 'R11_EXTERNAL_SHARING_CRITICAL_GATE'),
+            ($1, 'external_user_access', 'enabled_r11', 'controlled_allow', 'R11_EXTERNAL_SHARING_CRITICAL_GATE')
+          ON CONFLICT (tenant_id, policy_key) DO UPDATE
+            SET status = EXCLUDED.status,
+                enforcement_mode = EXCLUDED.enforcement_mode,
+                control_ref = EXCLUDED.control_ref,
+                updated_at = now()
+        `,
+        [tenant.tenantId],
+      );
+    }
 
     await client.query(
       `

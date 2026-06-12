@@ -5,6 +5,7 @@ import {
   r8ContractAuditActions,
   r9DdAuditActions,
   r10LitigationAuditActions,
+  r11ExternalAuditActions,
   type AuditMetadata,
 } from './audit';
 
@@ -64,11 +65,18 @@ describe('audit shared types', () => {
         'LIT_ISSUE_TREE_CHANGED',
         'LIT_PLEADING_CHANGED',
         'LIT_CASE_MAP_VIEWED',
+        'EXTERNAL_USER_CHANGED',
+        'EXTERNAL_WORKSPACE_CHANGED',
+        'EXTERNAL_LINK_CREATED',
+        'EXTERNAL_LINK_REVOKED',
+        'EXTERNAL_LINK_ACCESSED',
+        'EXTERNAL_NDA_ACCEPTED',
       ]),
     );
     expect(r8ContractAuditActions).toContain('PLAYBOOK_RULE_CHANGED');
     expect(r9DdAuditActions).toContain('DD_TRACE_VIEWED');
     expect(r10LitigationAuditActions).toContain('LIT_CASE_MAP_VIEWED');
+    expect(r11ExternalAuditActions).toContain('EXTERNAL_LINK_ACCESSED');
   });
 
   it('keeps metadata keys restricted to reference-like values', () => {
@@ -148,12 +156,20 @@ describe('audit shared types', () => {
       filing_status: 'internal_draft',
       evidence_type: 'document',
       pleading_type: 'brief',
+      external_workspace_id: '11111111-1111-4111-8111-111111111208',
+      external_user_id: '11111111-1111-4111-8111-111111111209',
+      external_link_id: '11111111-1111-4111-8111-111111111210',
+      link_count: 1,
+      access_status: 'ready',
+      nda_version: 'NDA-R11-V1',
+      watermark_ref: 'watermark:11111111-1111-4111-8111-111111111208',
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');
     expect(auditMetadataKeys).not.toContain('body');
     expect(auditMetadataKeys).not.toContain('content');
     expect(auditMetadataKeys).not.toContain('snippet');
+    expect(auditMetadataKeys).not.toContain('link_token');
     expectTypeOf<AuditMetadata>().not.toHaveProperty('body');
   });
 });
