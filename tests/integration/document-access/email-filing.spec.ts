@@ -259,6 +259,120 @@ async function dlpAttachmentEvidence(matterId: string): Promise<{
   });
 }
 
+async function indexAttachmentDocumentForSearch(
+  documentId: string,
+  contentText: string,
+): Promise<void> {
+  await withClient(createAppClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const source = await client.query<{
+      document_id: string;
+      version_id: string;
+      matter_id: string;
+      client_id: string;
+      document_type: string;
+      document_status: string;
+      version_status: string;
+      title: string;
+      updated_at: Date;
+    }>(
+      `
+        SELECT d.document_id, dv.version_id, d.matter_id, m.client_id,
+          d.document_type, d.status AS document_status, dv.version_status,
+          d.title, d.updated_at
+        FROM documents d
+        JOIN matters m
+          ON m.tenant_id = d.tenant_id
+         AND m.matter_id = d.matter_id
+        JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+         AND dv.document_id = d.document_id
+         AND dv.version_status = 'current'
+        WHERE d.tenant_id = $1
+          AND d.document_id = $2
+        LIMIT 1
+      `,
+      [tenantAlphaId, documentId],
+    );
+    const row = source.rows[0];
+    expect(row).toBeDefined();
+
+    await client.query(
+      `
+        INSERT INTO canonical_documents (
+          tenant_id, version_id, body_text, extraction_status, extraction_method,
+          confidence, extracted_at
+        )
+        VALUES ($1, $2, $3, 'ready', 'pdf_text', 0.999, now())
+        ON CONFLICT (tenant_id, version_id)
+        DO UPDATE SET
+          body_text = EXCLUDED.body_text,
+          extraction_status = 'ready',
+          extraction_method = 'pdf_text',
+          confidence = 0.999,
+          failure_reason_code = NULL,
+          extracted_at = now(),
+          updated_at = now()
+      `,
+      [tenantAlphaId, row.version_id, contentText],
+    );
+
+    await client.query(
+      `
+        INSERT INTO document_search_index (
+          tenant_id, document_id, version_id, matter_id, client_id, document_type,
+          document_status, version_status, title, content_text, source_text_hash,
+          indexed_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12)
+        ON CONFLICT (tenant_id, version_id)
+        DO UPDATE SET
+          matter_id = EXCLUDED.matter_id,
+          client_id = EXCLUDED.client_id,
+          document_type = EXCLUDED.document_type,
+          document_status = EXCLUDED.document_status,
+          version_status = EXCLUDED.version_status,
+          title = EXCLUDED.title,
+          content_text = EXCLUDED.content_text,
+          source_text_hash = EXCLUDED.source_text_hash,
+          indexed_at = EXCLUDED.indexed_at,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [
+        tenantAlphaId,
+        row.document_id,
+        row.version_id,
+        row.matter_id,
+        row.client_id,
+        row.document_type,
+        row.document_status,
+        row.version_status,
+        row.title,
+        contentText,
+        sha256Hex(contentText),
+        row.updated_at,
+      ],
+    );
+  });
+}
+
+async function searchDocuments(baseUrl: string, cookie: string, query: string): Promise<{
+  total: number;
+  results: Array<{ documentId: string; matterId: string }>;
+}> {
+  const response = await fetch(`${baseUrl}/v1/search`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ query, pageSize: 10 }),
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
+  return JSON.parse(body) as {
+    total: number;
+    results: Array<{ documentId: string; matterId: string }>;
+  };
+}
+
 describe('email filing integration', () => {
   let app: INestApplication;
   let baseUrl: string;
@@ -398,6 +512,22 @@ describe('email filing integration', () => {
       scanCount: '1',
       unsafe: '0',
     });
+
+    const attachmentDocumentId = uploadedBody.filing.documentIds[0];
+    expect(attachmentDocumentId).toBeDefined();
+    const searchToken = `emailattachment${randomUUID().replaceAll('-', '')}`;
+    await indexAttachmentDocumentForSearch(
+      attachmentDocumentId,
+      `searchable email attachment token ${searchToken}`,
+    );
+    const ownerSearch = await searchDocuments(baseUrl, ownerCookie, searchToken);
+    expect(ownerSearch.results).toEqual([
+      expect.objectContaining({ documentId: attachmentDocumentId, matterId }),
+    ]);
+
+    await addMemberAndExclude(matterId);
+    const excludedSearch = await searchDocuments(baseUrl, memberCookie, searchToken);
+    expect(excludedSearch).toMatchObject({ total: 0, results: [] });
 
     const unsupported = await fetch(`${baseUrl}/v1/matters/${matterId}/emails`, {
       method: 'POST',
