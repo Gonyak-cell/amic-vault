@@ -6,6 +6,7 @@ export {
   r3SearchAuditActions,
   r4DlpAuditActions,
   r4EmailAuditActions,
+  r5BreakGlassAuditActions,
   r5DlpAuditActions,
   type AuditAction,
   type R1AuditAction,
@@ -13,6 +14,7 @@ export {
   type R3SearchAuditAction,
   type R4DlpAuditAction,
   type R4EmailAuditAction,
+  type R5BreakGlassAuditAction,
   type R5DlpAuditAction,
 } from '../audit/audit-event-types';
 export {

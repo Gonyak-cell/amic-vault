@@ -18,6 +18,8 @@ export interface MatterWallMembershipState {
   isExcluded: boolean;
   isInsider: boolean;
   wallIds: string[];
+  excludedWallIds: string[];
+  insiderWallIds: string[];
 }
 
 interface WallMembershipRow {
@@ -48,11 +50,19 @@ export class WallMembershipReader {
       [tenantId, matterId, userId],
     );
     const wallIds = result.rows.map((row) => row.wall_id);
+    const excludedWallIds = result.rows
+      .filter((row) => row.membership_type === 'excluded')
+      .map((row) => row.wall_id);
+    const insiderWallIds = result.rows
+      .filter((row) => row.membership_type === 'insider')
+      .map((row) => row.wall_id);
     return {
       hasActiveWall: await this.hasActiveMatterWall(tenantId, matterId),
-      isExcluded: result.rows.some((row) => row.membership_type === 'excluded'),
-      isInsider: result.rows.some((row) => row.membership_type === 'insider'),
+      isExcluded: excludedWallIds.length > 0,
+      isInsider: insiderWallIds.length > 0,
       wallIds,
+      excludedWallIds,
+      insiderWallIds,
     };
   }
 
@@ -71,4 +81,3 @@ export class WallMembershipReader {
     return (result.rowCount ?? 0) > 0;
   }
 }
-
