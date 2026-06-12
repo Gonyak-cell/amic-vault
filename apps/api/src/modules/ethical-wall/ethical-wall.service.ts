@@ -7,8 +7,11 @@ import {
 } from '@nestjs/common';
 import { Pool } from 'pg';
 import type {
+  AddEthicalWallMembershipDto,
   CreateEthicalWallDto,
   CreateEthicalWallMemberDto,
+  EthicalWallListDto,
+  ListEthicalWallsQueryDto,
   TenantId,
   WallMembershipType,
   WallSubjectType,
@@ -98,9 +101,7 @@ function permissionDenied(reason?: string): ForbiddenException {
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
-    value,
-  );
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
 }
 
 @Injectable()
@@ -196,6 +197,135 @@ export class EthicalWallService {
     return result;
   }
 
+  async list(_actorUserId: string, query: ListEthicalWallsQueryDto): Promise<EthicalWallListDto> {
+    const context = this.tenantContext.require();
+    const walls = await this.findWalls(context.tenantId, query);
+    const memberships = await this.findMembershipsForWalls(
+      context.tenantId,
+      walls.map((wall) => wall.wall_id),
+    );
+    const membershipsByWall = new Map<string, WallMembershipEntity[]>();
+    for (const membership of memberships) {
+      const group = membershipsByWall.get(membership.props.wallId) ?? [];
+      group.push(membership);
+      membershipsByWall.set(membership.props.wallId, group);
+    }
+
+    return {
+      items: walls.map((wall) => ({
+        wall: mapWall(wall).toDto(),
+        memberships: (membershipsByWall.get(wall.wall_id) ?? []).map((membership) =>
+          membership.toDto(),
+        ),
+      })),
+    };
+  }
+
+  async addMembership(actorUserId: string, wallId: string, input: AddEthicalWallMembershipDto) {
+    if (!isUuid(wallId)) throw validationFailed();
+    this.assertSupportedMembers([input]);
+    const context = this.tenantContext.require();
+    const wall = await this.findWallById(context.tenantId, wallId);
+    if (!wall) throw notFoundDenied();
+    await this.assertMemberUsersExist(context.tenantId, [input]);
+    if (await this.findMembershipForSubject(context.tenantId, wallId, input)) {
+      throw validationFailed();
+    }
+
+    return this.auditService.transaction(context.tenantId, async (tx) => {
+      const [membership] = await this.insertMemberships(tx, context.tenantId, actorUserId, wallId, [
+        input,
+      ]);
+      if (!membership) throw new Error('ethical wall membership insert returned no row');
+      await this.auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'ETHICAL_WALL_MEMBERSHIP_CHANGED',
+          targetType: 'ethical_wall',
+          targetId: wallId,
+          matterId: wall.matter_id,
+          metadata: {
+            wall_id: wallId,
+            member_user_id: membership.props.subjectId,
+            matter_id: wall.matter_id,
+            after_ref: `wall_membership:${membership.props.subjectId}:${membership.props.membershipType}`,
+          },
+        },
+        tx,
+      );
+      await this.permissionEvents.recordPermissionChanged(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          targetType: 'ethical_wall',
+          targetId: wallId,
+          matterId: wall.matter_id,
+          beforeRef: 'none',
+          afterRef: `wall_membership:${membership.props.subjectId}:${membership.props.membershipType}`,
+          reasonCode: 'ethical_wall_membership_added',
+          memberUserId: membership.props.subjectId,
+          wallId,
+        },
+        tx,
+      );
+      return membership.toDto();
+    });
+  }
+
+  async removeMembership(actorUserId: string, wallId: string, membershipId: string): Promise<void> {
+    if (!isUuid(wallId) || !isUuid(membershipId)) throw validationFailed();
+    const context = this.tenantContext.require();
+    const wall = await this.findWallById(context.tenantId, wallId);
+    if (!wall) throw notFoundDenied();
+    const before = await this.findMembershipById(context.tenantId, wallId, membershipId);
+    if (!before) throw notFoundDenied();
+
+    await this.auditService.transaction(context.tenantId, async (tx) => {
+      await tx.query(
+        `
+          DELETE FROM ethical_wall_memberships
+          WHERE tenant_id = $1
+            AND wall_id = $2
+            AND membership_id = $3
+        `,
+        [context.tenantId, wallId, membershipId],
+      );
+      await this.auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'ETHICAL_WALL_MEMBERSHIP_CHANGED',
+          targetType: 'ethical_wall',
+          targetId: wallId,
+          matterId: wall.matter_id,
+          metadata: {
+            wall_id: wallId,
+            member_user_id: before.props.subjectId,
+            matter_id: wall.matter_id,
+            before_ref: `wall_membership:${before.props.subjectId}:${before.props.membershipType}`,
+          },
+        },
+        tx,
+      );
+      await this.permissionEvents.recordPermissionChanged(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          targetType: 'ethical_wall',
+          targetId: wallId,
+          matterId: wall.matter_id,
+          beforeRef: `wall_membership:${before.props.subjectId}:${before.props.membershipType}`,
+          afterRef: 'none',
+          reasonCode: 'ethical_wall_membership_removed',
+          memberUserId: before.props.subjectId,
+          wallId,
+        },
+        tx,
+      );
+    });
+  }
+
   async requestBreakGlassOverride(actorUserId: string, wallId: string): Promise<never> {
     if (!isUuid(wallId)) throw validationFailed();
     const context = this.tenantContext.require();
@@ -284,6 +414,88 @@ export class EthicalWallService {
       [tenantId, wallId],
     );
     return (result.rows[0] as EthicalWallRow | undefined) ?? null;
+  }
+
+  private async findWalls(
+    tenantId: TenantId,
+    query: ListEthicalWallsQueryDto,
+  ): Promise<EthicalWallRow[]> {
+    const result = await getPool().query(
+      `
+        SELECT wall_id, tenant_id, matter_id, wall_name, reason, status, created_by,
+          created_at, released_by, released_at
+        FROM ethical_walls
+        WHERE tenant_id = $1
+          AND ($2::uuid IS NULL OR matter_id = $2)
+          AND ($3::text IS NULL OR status = $3)
+        ORDER BY created_at DESC, wall_id DESC
+        LIMIT $4
+      `,
+      [tenantId, query.matterId ?? null, query.status ?? null, query.limit],
+    );
+    return result.rows as EthicalWallRow[];
+  }
+
+  private async findMembershipsForWalls(
+    tenantId: TenantId,
+    wallIds: readonly string[],
+  ): Promise<WallMembershipEntity[]> {
+    if (wallIds.length === 0) return [];
+    const result = await getPool().query(
+      `
+        SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
+          membership_type, created_by, created_at
+        FROM ethical_wall_memberships
+        WHERE tenant_id = $1
+          AND wall_id = ANY($2::uuid[])
+        ORDER BY created_at ASC, membership_id ASC
+      `,
+      [tenantId, wallIds],
+    );
+    return (result.rows as WallMembershipRow[]).map(mapMembership);
+  }
+
+  private async findMembershipById(
+    tenantId: TenantId,
+    wallId: string,
+    membershipId: string,
+  ): Promise<WallMembershipEntity | null> {
+    const result = await getPool().query(
+      `
+        SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
+          membership_type, created_by, created_at
+        FROM ethical_wall_memberships
+        WHERE tenant_id = $1
+          AND wall_id = $2
+          AND membership_id = $3
+        LIMIT 1
+      `,
+      [tenantId, wallId, membershipId],
+    );
+    const row = result.rows[0] as WallMembershipRow | undefined;
+    return row ? mapMembership(row) : null;
+  }
+
+  private async findMembershipForSubject(
+    tenantId: TenantId,
+    wallId: string,
+    input: AddEthicalWallMembershipDto,
+  ): Promise<WallMembershipEntity | null> {
+    const result = await getPool().query(
+      `
+        SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
+          membership_type, created_by, created_at
+        FROM ethical_wall_memberships
+        WHERE tenant_id = $1
+          AND wall_id = $2
+          AND subject_type = $3
+          AND subject_id = $4
+        LIMIT 1
+      `,
+      [tenantId, wallId, input.subjectType, input.subjectId],
+    );
+    const row = result.rows[0] as WallMembershipRow | undefined;
+    return row ? mapMembership(row) : null;
   }
 
   private async assertMemberUsersExist(

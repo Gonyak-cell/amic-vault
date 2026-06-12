@@ -34,6 +34,7 @@ export const auditMetadataKeys = [
   'filter_refs',
   'result_count',
   'duration_ms',
+  'export_format',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

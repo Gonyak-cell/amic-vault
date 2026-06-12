@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { FileSearch, FolderKanban, LayoutDashboard } from 'lucide-react';
+import { FileSearch, FolderKanban, LayoutDashboard, ScrollText, Shield } from 'lucide-react';
 import { LogoutButton } from './logout-button';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -23,6 +23,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <NavLink href="/search" label="Search">
                 <FileSearch className="h-4 w-4" />
               </NavLink>
+              <NavLink href="/audit" label="Audit">
+                <ScrollText className="h-4 w-4" />
+              </NavLink>
+              <NavLink href="/walls" label="Walls">
+                <Shield className="h-4 w-4" />
+              </NavLink>
             </nav>
             <LogoutButton />
           </div>
@@ -33,15 +39,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function NavLink({
-  href,
-  label,
-  children,
-}: {
-  href: string;
-  label: string;
-  children: ReactNode;
-}) {
+function NavLink({ href, label, children }: { href: string; label: string; children: ReactNode }) {
   return (
     <Link
       aria-label={label}
