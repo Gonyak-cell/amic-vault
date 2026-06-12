@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { SearchQueryDto } from '@amic-vault/shared';
 import {
   SearchFilterBuilder,
@@ -15,7 +15,9 @@ export interface BuiltSearchQuery {
 @Injectable()
 export class SearchQueryBuilder {
   constructor(
+    @Inject(SearchFilterBuilder)
     private readonly filterBuilder: SearchFilterBuilder,
+    @Inject(SnippetBuilder)
     private readonly snippetBuilder: SnippetBuilder,
   ) {}
 

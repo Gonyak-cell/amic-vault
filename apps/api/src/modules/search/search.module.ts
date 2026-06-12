@@ -12,8 +12,12 @@ import { SearchIndexRepository } from './index/search-index.repository';
 import { SearchIndexSyncHook } from './index/index-sync.hook';
 import {
   DenyAllSearchPermissionScopeProvider,
+  PermissionBoundSearchPermissionScopeProvider,
   SEARCH_PERMISSION_SCOPE_PROVIDER,
 } from './permission/search-permission-scope.provider';
+import { DocumentScopeFilter } from './permission/document-scope.filter';
+import { MatterScopeFilter } from './permission/matter-scope.filter';
+import { WallScopeFilter } from './permission/wall-scope.filter';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
 import { SearchFilterBuilder } from './query/search-filter.builder';
@@ -25,9 +29,12 @@ import { SnippetBuilder } from './query/snippet-builder';
   controllers: [ReindexController, SearchController],
   providers: [
     DenyAllSearchPermissionScopeProvider,
+    DocumentScopeFilter,
     IndexFailureHandler,
     IndexingProcessor,
+    MatterScopeFilter,
     PgRoleLookup,
+    PermissionBoundSearchPermissionScopeProvider,
     RequireRolesGuard,
     ReindexService,
     SearchFilterBuilder,
@@ -37,9 +44,10 @@ import { SnippetBuilder } from './query/snippet-builder';
     SearchIndexSyncHook,
     SearchService,
     SnippetBuilder,
+    WallScopeFilter,
     {
       provide: SEARCH_PERMISSION_SCOPE_PROVIDER,
-      useExisting: DenyAllSearchPermissionScopeProvider,
+      useExisting: PermissionBoundSearchPermissionScopeProvider,
     },
   ],
   exports: [

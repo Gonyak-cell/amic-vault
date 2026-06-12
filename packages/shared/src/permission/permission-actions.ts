@@ -10,6 +10,7 @@ export const rolePermissionActions = [
   'client.update',
   'matter.create',
   'matter.read',
+  'search.query',
   'matter.edit',
   'matter.status_change',
   'matter.close',

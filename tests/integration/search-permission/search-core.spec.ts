@@ -19,6 +19,7 @@ import { SearchService } from '../../../apps/api/src/modules/search/search.servi
 import { TenantContextService } from '../../../apps/api/src/modules/tenant/tenant-context';
 import { tenantAlphaId } from '../helpers/db';
 import {
+  addMatterMember,
   alphaOwnerUserId,
   createSearchFixture,
   tenantVersionScope,
@@ -71,6 +72,13 @@ describe('search core integration', () => {
 
   beforeAll(async () => {
     fixture = await createSearchFixture('SC Core');
+    await addMatterMember({
+      tenantId: tenantAlphaId,
+      matterId: fixture.alphaMatterId,
+      userId: alphaOwnerUserId,
+      matterRole: 'owner',
+      accessLevel: 'edit',
+    });
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
     await app.listen(0);
@@ -82,15 +90,20 @@ describe('search core integration', () => {
     await app.close();
   });
 
-  it('keeps the HTTP endpoint fail-closed before PACK-R3-04 permission provider replacement', async () => {
-    const denied = await fetch(`${baseUrl}/v1/search`, {
+  it('runs the HTTP endpoint through the permission-bound search provider', async () => {
+    const allowed = await fetch(`${baseUrl}/v1/search`, {
       method: 'POST',
       headers: { cookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ query: 'termination' }),
+      body: JSON.stringify({ query: 'termination', filters: { matterId: fixture.alphaMatterId } }),
     });
-    const deniedBody = await denied.text();
-    expect(denied.status, deniedBody).toBe(403);
-    expect(deniedBody).toContain('PERMISSION_DENIED');
+    const allowedBody = await allowed.text();
+    expect(allowed.status, allowedBody).toBe(201);
+    const parsed = JSON.parse(allowedBody) as { total: number; results: Array<{ title: string }> };
+    expect(parsed.total).toBe(2);
+    expect(parsed.results.map((result) => result.title)).toEqual([
+      'SC Core Termination Agreement',
+      'SC Core Background Memo',
+    ]);
 
     const unauthenticated = await fetch(`${baseUrl}/v1/search`, {
       method: 'POST',
