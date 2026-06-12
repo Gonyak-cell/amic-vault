@@ -12,6 +12,7 @@ export {
   r6AiAuditActions,
   r6AiFeedbackAuditActions,
   r6AiPolicyAuditActions,
+  r7GraphAuditActions,
   type AuditAction,
   type R1AuditAction,
   type R2DocumentAuditAction,
@@ -24,6 +25,7 @@ export {
   type R6AiAuditAction,
   type R6AiFeedbackAuditAction,
   type R6AiPolicyAuditAction,
+  type R7GraphAuditAction,
 } from '../audit/audit-event-types';
 export {
   auditMetadataKeys,

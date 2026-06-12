@@ -34,6 +34,44 @@ export const evidencePackChunkSchema = z
   })
   .strict();
 
+export const evidencePackGraphFactSchema = z
+  .object({
+    edgeId: z.string().uuid(),
+    edgeType: z.enum([
+      'HAS_MATTER',
+      'HAS_DOCUMENT',
+      'HAS_VERSION',
+      'HAS_CLAUSE',
+      'HAS_ISSUE',
+      'HAS_RISK',
+      'RELATED_TO',
+    ]),
+    matterId: z.string().uuid(),
+    documentId: z.string().uuid().nullable(),
+    sourceNodeId: z.string().uuid(),
+    sourceNodeType: z.enum([
+      'client',
+      'matter',
+      'document',
+      'version',
+      'clause',
+      'issue',
+      'risk',
+    ]),
+    targetNodeId: z.string().uuid(),
+    targetNodeType: z.enum([
+      'client',
+      'matter',
+      'document',
+      'version',
+      'clause',
+      'issue',
+      'risk',
+    ]),
+    sourceHash: hashSchema,
+  })
+  .strict();
+
 export const evidencePackSchema = z
   .object({
     packId: z.string().uuid(),
@@ -85,7 +123,7 @@ export const evidencePackSchema = z
         tokenCount: z.number().int().min(0).max(4000),
       })
       .strict(),
-    graphFacts: z.array(z.never()).max(0),
+    graphFacts: z.array(evidencePackGraphFactSchema).max(20),
     ruleFindings: z.array(z.never()).max(0),
     conflicts: z.array(z.string().min(1).max(300)).max(10),
     uncertainty: z.array(z.string().min(1).max(300)).max(10),
@@ -113,4 +151,5 @@ export const evidencePackSchema = z
 
 export type EvidencePackTaskType = (typeof evidencePackTaskTypes)[number];
 export type EvidencePackChunkDto = z.infer<typeof evidencePackChunkSchema>;
+export type EvidencePackGraphFactDto = z.infer<typeof evidencePackGraphFactSchema>;
 export type EvidencePackDto = z.infer<typeof evidencePackSchema>;

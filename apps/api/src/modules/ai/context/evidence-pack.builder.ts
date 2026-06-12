@@ -3,7 +3,9 @@ import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import {
   evidencePackSchema,
   type EvidencePackDto,
+  type EvidencePackGraphFactDto,
   type EvidencePackTaskType,
+  type GraphFactDto,
 } from '@amic-vault/shared';
 import type { AiRetrievalResult, AiRetrievedChunk } from '../retrieval/ai-retrieval.types';
 import { AiContextRanker } from './context-ranker';
@@ -18,6 +20,7 @@ export interface AiEvidencePackBuildInput {
   taskType?: EvidencePackTaskType | undefined;
   tokenBudget?: number | undefined;
   locale?: 'ko-KR' | 'en-US' | undefined;
+  graphFacts?: readonly GraphFactDto[] | readonly EvidencePackGraphFactDto[] | undefined;
 }
 
 @Injectable()
@@ -57,7 +60,7 @@ export class AiEvidencePackBuilder {
         tokenBudget: window.tokenBudget,
         tokenCount: window.tokenCount,
       },
-      graphFacts: [],
+      graphFacts: toEvidenceGraphFacts(input.graphFacts ?? []),
       ruleFindings: [],
       conflicts: [],
       uncertainty:
@@ -66,7 +69,7 @@ export class AiEvidencePackBuilder {
           : [],
       prohibitedAssumptions: [
         'Do not use facts outside retrieved chunks.',
-        'Do not cite graph_facts before R7.',
+        'Use graph_facts only as ID-backed relationships.',
         'Do not cite rule_findings before R8.',
       ],
       citationRequirements: {
@@ -92,6 +95,25 @@ export class AiEvidencePackBuilder {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
   }
+}
+
+function toEvidenceGraphFacts(
+  facts: readonly GraphFactDto[] | readonly EvidencePackGraphFactDto[],
+): EvidencePackGraphFactDto[] {
+  return facts.slice(0, 20).map((fact) => {
+    if ('sourceNodeId' in fact) return fact;
+    return {
+      edgeId: fact.edgeId,
+      edgeType: fact.edgeType,
+      matterId: fact.matterId,
+      documentId: fact.documentId,
+      sourceNodeId: fact.source.nodeId,
+      sourceNodeType: fact.source.nodeType,
+      targetNodeId: fact.target.nodeId,
+      targetNodeType: fact.target.nodeType,
+      sourceHash: fact.sourceHash,
+    };
+  });
 }
 
 function toEvidenceChunk(chunk: AiRetrievedChunk): EvidencePackDto['retrievedChunks'][number] {

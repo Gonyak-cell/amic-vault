@@ -89,7 +89,7 @@ function compactRuleRef(rule: string): string {
     'dlp.redaction:failed_closed': 'dlp_failed_closed',
     'retrieval.hybrid:query_stage_scope': 'retrieval_query_scope',
     'question.retrieval:supported': 'question_retrieval',
-    'question.graph:unsupported_before_r7': 'question_graph_unsupported',
+    'question.graph:supported_r7': 'question_graph_supported',
     'question.rule_findings:unsupported_before_r8': 'question_rule_unsupported',
     'reranker:deterministic': 'reranker_deterministic',
   };

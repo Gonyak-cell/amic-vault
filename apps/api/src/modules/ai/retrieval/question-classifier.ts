@@ -14,8 +14,8 @@ export class AiQuestionClassifier {
   classify(query: string): AiQuestionClassification {
     if (graphPattern.test(query)) {
       return {
-        kind: 'unsupported_graph',
-        appliedRules: ['question.graph:unsupported_before_r7'],
+        kind: 'retrieval',
+        appliedRules: ['question.graph:supported_r7'],
       };
     }
     if (rulePattern.test(query)) {

@@ -11,6 +11,7 @@ import {
   type AiSummaryWarningCode,
   type EvidencePackChunkDto,
   type EvidencePackDto,
+  type PermissionContext,
 } from '@amic-vault/shared';
 import { AiCitationMapperService } from '../citation/citation-mapper.service';
 import { AiCitationVerifier } from '../citation/citation-verifier';
@@ -18,6 +19,7 @@ import { AiEvidencePackBuilder } from '../context/evidence-pack.builder';
 import { AiRetrievalOrchestratorService } from '../retrieval/retrieval-orchestrator.service';
 import { AiModelRoutingService } from '../routing/model-routing.service';
 import { AiSessionLogService, type AiSessionRequestContext } from '../session/ai-session-log.service';
+import { GraphQueryService } from '../../graph/graph-query.service';
 
 interface RenderedSummary {
   status: 'completed' | 'escalated';
@@ -38,6 +40,7 @@ export class AiSummaryService {
     @Inject(AiCitationMapperService) private readonly citations: AiCitationMapperService,
     @Inject(AiCitationVerifier) private readonly citationVerifier: AiCitationVerifier,
     @Inject(AiSessionLogService) private readonly sessions: AiSessionLogService,
+    @Inject(GraphQueryService) private readonly graphQuery: GraphQueryService,
   ) {}
 
   async createSummary(
@@ -97,6 +100,13 @@ export class AiSummaryService {
       })),
     );
 
+    const graphFacts = await this.graphQuery.listFacts(permissionContext(ctx), {
+      matterId: input.matterId,
+      documentIds: [...new Set(retrieval.chunks.map((chunk) => chunk.documentId))],
+      limit: 12,
+      scopeLabel: 'ai_evidence_pack',
+    });
+
     let pack: EvidencePackDto;
     try {
       pack = this.evidencePacks.build({
@@ -104,6 +114,7 @@ export class AiSummaryService {
         matterId: input.matterId,
         userQuestion: input.query,
         retrieval,
+        graphFacts: graphFacts.facts,
         taskType: 'summary',
         tokenBudget: 2400,
         locale: input.locale,
@@ -186,6 +197,14 @@ export class AiSummaryService {
       blockedReason,
     });
   }
+}
+
+function permissionContext(ctx: AiSessionRequestContext): PermissionContext {
+  return {
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
+  };
 }
 
 function renderSummary(
@@ -290,7 +309,6 @@ function prefixForTask(task: AiSummaryTask): string {
 function warningCodesForTask(task: AiSummaryTask): AiSummaryWarningCode[] {
   const warnings = new Set<AiSummaryWarningCode>([
     'EVIDENCE_ONLY_DEGRADED',
-    'GRAPH_FACTS_UNAVAILABLE_BEFORE_R7',
     'NO_DENIED_SOURCES_INCLUDED',
   ]);
   if (task === 'clause_analysis' || task === 'risk_extraction') {

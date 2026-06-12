@@ -12,6 +12,7 @@ import { AiPolicyModule } from './modules/ai-policy/ai-policy.module';
 import { AiModule } from './modules/ai/ai.module';
 import { BreakGlassModule } from './modules/break-glass/break-glass.module';
 import { HealthModule } from './modules/health/health.module';
+import { GraphModule } from './modules/graph/graph.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
@@ -47,6 +48,7 @@ class AppController {
     BreakGlassModule,
     TenantModule,
     AuthModule,
+    GraphModule,
     HealthModule,
     ClientModule,
     EthicalWallModule,

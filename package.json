@@ -19,6 +19,7 @@
     "db:seed": "node tools/db/seed.mjs",
     "evalset:load": "node tools/evalset/load-evaluation-cases.ts",
     "eval:ai-gate": "node tools/evalset/run-ai-gate-metrics.ts",
+    "graph:check": "node tools/graph/check-consistency.ts",
     "search:eval:korean": "node tools/search-eval/run-korean-eval.ts",
     "test:integration": "node tools/integration/run.mjs"
   },

@@ -68,13 +68,25 @@ describe('evidencePackSchema', () => {
     expect(parsed.ruleFindings).toEqual([]);
   });
 
-  it('rejects graph facts and rule findings before R7/R8 activation', () => {
-    expect(() =>
+  it('accepts R7 graph facts but still rejects rule findings before R8 activation', () => {
+    expect(
       evidencePackSchema.parse({
         ...validPack(),
-        graphFacts: [{ subject: 'a', relation: 'b', object: 'c' }],
-      }),
-    ).toThrow();
+        graphFacts: [
+          {
+            edgeId: uuid,
+            edgeType: 'HAS_DOCUMENT',
+            matterId: uuid,
+            documentId: uuid,
+            sourceNodeId: uuid,
+            sourceNodeType: 'matter',
+            targetNodeId: uuid,
+            targetNodeType: 'document',
+            sourceHash: hash,
+          },
+        ],
+      }).graphFacts,
+    ).toHaveLength(1);
     expect(() =>
       evidencePackSchema.parse({
         ...validPack(),
