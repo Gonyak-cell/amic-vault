@@ -14,9 +14,11 @@ describe('external portal API client', () => {
   });
 
   it('calls public token endpoints without credentialed session scope', async () => {
-    const fetchMock = vi.fn(() =>
-      Promise.resolve(new Response(JSON.stringify({ status: 'ready', messages: [] }))),
-    );
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return Promise.resolve(new Response(JSON.stringify({ status: 'ready', messages: [] })));
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     await getExternalAccessStatus('tok_123');
