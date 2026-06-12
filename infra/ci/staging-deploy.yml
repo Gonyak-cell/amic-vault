@@ -1,15 +1,90 @@
-# Staging skeleton for PACK-R0-01.
-# It builds and tags images only. Deployment targets are intentionally not wired in R0.
+# Launch readiness staging deployment contract.
+# This file is intentionally provider-neutral. It becomes executable only after
+# all approval-required inputs in docs/release/launch-blocker-ledger.md are
+# resolved and wired by a later release-change PR.
+launch_readiness_version: 1
+environment: staging
+status:
+  deployment_enabled: false
+  approval_required: true
+  blocker_refs:
+    - LRB-001
+    - LRB-002
+    - LRB-003
+    - LRB-004
+    - LRB-008
+  reason: "Staging target, DNS/TLS, registry, and secrets are approval-required."
+
+required_inputs:
+  cloud_provider: TBD_APPROVAL_REQUIRED
+  region: TBD_APPROVAL_REQUIRED
+  container_registry: TBD_APPROVAL_REQUIRED
+  database_url_secret_ref: TBD_APPROVAL_REQUIRED
+  object_storage_secret_ref: TBD_APPROVAL_REQUIRED
+  app_base_url: TBD_APPROVAL_REQUIRED
+  worker_queue_connection_ref: TBD_APPROVAL_REQUIRED
+  monitoring_sink_ref: TBD_APPROVAL_REQUIRED
+
 images:
   api:
     dockerfile: apps/api/Dockerfile
-    tag: amic-vault-api:${GITHUB_SHA}
+    tag_template: "${CONTAINER_REGISTRY}/amic-vault-api:${GITHUB_SHA}"
   web:
     dockerfile: apps/web/Dockerfile
-    tag: amic-vault-web:${GITHUB_SHA}
+    tag_template: "${CONTAINER_REGISTRY}/amic-vault-web:${GITHUB_SHA}"
   ingestion:
     dockerfile: workers/ingestion/Dockerfile
-    tag: amic-vault-ingestion:${GITHUB_SHA}
-deploy:
-  enabled: false
-  reason: "TODO(R-deploy): staging target is not defined in R0"
+    tag_template: "${CONTAINER_REGISTRY}/amic-vault-ingestion:${GITHUB_SHA}"
+
+preflight_checks:
+  - main_ci_green
+  - pnpm_launch_readiness_green
+  - docs_package_frozen_green
+  - database_migration_roundtrip_green
+  - release_boundary_scan_green
+  - no_real_data_or_secret_committed
+
+deployment_stages:
+  - id: build_images
+    evidence: "GitHub Actions docker-build job"
+  - id: push_images
+    requires:
+      - container_registry
+      - registry_write_secret
+    command_template: "docker push ${CONTAINER_REGISTRY}/amic-vault-{api,web,ingestion}:${GITHUB_SHA}"
+  - id: migrate_database
+    requires:
+      - database_url_secret_ref
+      - migration_lock
+      - pre_migration_backup_snapshot
+    command_template: "pnpm db:migrate"
+  - id: deploy_api
+    requires:
+      - api_image
+      - runtime_env_secret_refs
+    smoke:
+      - "/health"
+      - "/v1/scale/readiness"
+  - id: deploy_web
+    requires:
+      - web_image
+      - app_base_url
+    smoke:
+      - "/login"
+      - "/scale"
+  - id: deploy_ingestion_worker
+    requires:
+      - ingestion_image
+      - worker_queue_connection_ref
+    smoke:
+      - "worker process starts without external egress"
+  - id: post_deploy_uat
+    checklist: docs/release/uat-checklist.md
+
+rollback:
+  runbook: docs/release/rollback-runbook.md
+  trigger_conditions:
+    - failed_smoke
+    - permission_or_tenant_isolation_regression
+    - audit_write_failure
+    - unsafe_log_or_secret_detection

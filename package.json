@@ -13,6 +13,7 @@
     "test": "turbo run test --filter='./apps/*' --filter='./packages/*'",
     "build": "turbo run build --filter='./apps/*' --filter='./packages/*'",
     "backlog:validate": "node tools/backlog/validate-all.mjs",
+    "launch:readiness": "node tools/release/check-launch-readiness.mjs",
     "docs:frozen": "node infra/ci/scripts/check-docs-package-frozen.mjs",
     "db:migrate": "node tools/db/migrate.mjs up",
     "db:rollback": "node tools/db/migrate.mjs down 999",

@@ -27,6 +27,7 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm backlog:validate
+      - run: pnpm launch:readiness
       - run: node infra/ci/scripts/check-docs-package-frozen.mjs
       - run: node tools/db/check-migration-conventions.mjs
 
