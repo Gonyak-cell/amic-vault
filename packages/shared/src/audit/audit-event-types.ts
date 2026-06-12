@@ -120,6 +120,16 @@ export const r12RecordsAuditActions = [
   'DISPOSAL_CERTIFICATE_CREATED',
 ] as const;
 
+export const r13EnterpriseAuditActions = [
+  'SSO_PROVIDER_CHANGED',
+  'SSO_METADATA_VIEWED',
+  'BYOK_KEY_REFERENCE_CHANGED',
+  'SIEM_EXPORT_RECORDED',
+  'BACKUP_SNAPSHOT_RECORDED',
+  'COMPLIANCE_EVIDENCE_RECORDED',
+  'ENTERPRISE_READINESS_VIEWED',
+] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -145,6 +155,7 @@ export const auditActions = [
   ...r10LitigationAuditActions,
   ...r11ExternalAuditActions,
   ...r12RecordsAuditActions,
+  ...r13EnterpriseAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -164,6 +175,7 @@ export type R9DdAuditAction = (typeof r9DdAuditActions)[number];
 export type R10LitigationAuditAction = (typeof r10LitigationAuditActions)[number];
 export type R11ExternalAuditAction = (typeof r11ExternalAuditActions)[number];
 export type R12RecordsAuditAction = (typeof r12RecordsAuditActions)[number];
+export type R13EnterpriseAuditAction = (typeof r13EnterpriseAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 
