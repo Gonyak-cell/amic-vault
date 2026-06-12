@@ -12,8 +12,8 @@ import {
 } from './helpers/db';
 import { readIfSmall, sourceFiles } from './document-access/document-api-helpers';
 
-describe('ai-schema-only integration', () => {
-  it('creates default-deny schema with tenant RLS and no R2 evaluation surface', async () => {
+describe('ai policy boundary integration', () => {
+  it('creates default-deny R2 schema plus R6 local-only model policy RLS', async () => {
     await withClient(createOwnerClient(), async (client) => {
       const columns = await client.query<{
         table_name: string;
@@ -63,12 +63,23 @@ describe('ai-schema-only integration', () => {
       );
 
       const policyId = randomUUID();
+      const accessPolicyId = randomUUID();
       await client.query(
         `
           INSERT INTO ai_policies (policy_id, tenant_id, name)
           VALUES ($1, $2, 'Schema Only')
         `,
         [policyId, tenantAlphaId],
+      );
+      await client.query(
+        `
+          INSERT INTO ai_model_access_policies (
+            access_policy_id, tenant_id, route_key, model_tier
+          )
+          VALUES ($1, $2, 'local_gemma', 'local')
+          ON CONFLICT (tenant_id, route_key) DO NOTHING
+        `,
+        [accessPolicyId, tenantAlphaId],
       );
 
       await withClient(createAppClient(), async (appClient) => {
@@ -78,23 +89,33 @@ describe('ai-schema-only integration', () => {
           [policyId],
         );
         expect(alpha.rows[0]?.count).toBe('1');
+        const alphaModel = await appClient.query<{ count: string }>(
+          `
+            SELECT count(*)::text
+            FROM ai_model_access_policies
+            WHERE route_key = 'local_gemma'
+          `,
+        );
+        expect(Number(alphaModel.rows[0]?.count ?? '0')).toBeGreaterThanOrEqual(1);
+
         await setTenant(appClient, tenantBetaId);
         const beta = await appClient.query<{ count: string }>(
           'SELECT count(*)::text FROM ai_policies WHERE policy_id = $1',
           [policyId],
         );
         expect(beta.rows[0]?.count).toBe('0');
+        const betaModel = await appClient.query<{ count: string }>(
+          `
+            SELECT count(*)::text
+            FROM ai_model_access_policies
+            WHERE tenant_id = $1
+              AND route_key = 'local_gemma'
+          `,
+          [tenantAlphaId],
+        );
+        expect(betaModel.rows[0]?.count).toBe('0');
       });
     });
-
-    const forbiddenRefs = ['apps', 'workers', 'packages']
-      .flatMap(sourceFiles)
-      .filter((file) => !file.endsWith(path.join('packages', 'shared', 'src', 'types', 'ai-policy.ts')))
-      .flatMap((file) => {
-        const text = readIfSmall(file);
-        return /\b(ai_allowed|ai_policy_id|ai_policies|ai_policy)\b/.test(text) ? [file] : [];
-      });
-    expect(forbiddenRefs).toEqual([]);
 
     const controllerRefs = sourceFiles('apps/api/src').flatMap((file) => {
       if (!file.endsWith('.controller.ts')) return [];
@@ -110,5 +131,14 @@ describe('ai-schema-only integration', () => {
       .split('\n')
       .filter(Boolean);
     expect(aiPackageDiff).toEqual([]);
+
+    const packageJsonRefs = ['package.json', 'apps/api/package.json', 'packages/ai/package.json']
+      .map((file) => [file, readIfSmall(path.resolve(file))] as const)
+      .flatMap(([file, text]) =>
+        /\b(openai|@anthropic-ai|@google\/generative-ai|langchain|llamaindex)\b/i.test(text)
+          ? [file]
+          : [],
+      );
+    expect(packageJsonRefs).toEqual([]);
   });
 });
