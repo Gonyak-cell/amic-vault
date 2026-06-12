@@ -35,6 +35,11 @@ export const auditMetadataKeys = [
   'result_count',
   'duration_ms',
   'export_format',
+  'policy_id',
+  'model_route',
+  'decision_ref',
+  'document_count',
+  'blocked_reason',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];
