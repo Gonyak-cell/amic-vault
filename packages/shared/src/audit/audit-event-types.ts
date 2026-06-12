@@ -109,6 +109,17 @@ export const r11ExternalAuditActions = [
   'EXTERNAL_QA_MESSAGE_RECORDED',
 ] as const;
 
+export const r12RecordsAuditActions = [
+  'RETENTION_POLICY_CHANGED',
+  'LEGAL_HOLD_APPLIED',
+  'LEGAL_HOLD_RELEASED',
+  'RECORD_ARCHIVED',
+  'DISPOSAL_REQUESTED',
+  'DISPOSAL_APPROVED',
+  'DISPOSAL_EXECUTED',
+  'DISPOSAL_CERTIFICATE_CREATED',
+] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -133,6 +144,7 @@ export const auditActions = [
   ...r9DdAuditActions,
   ...r10LitigationAuditActions,
   ...r11ExternalAuditActions,
+  ...r12RecordsAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -151,6 +163,7 @@ export type R8ContractAuditAction = (typeof r8ContractAuditActions)[number];
 export type R9DdAuditAction = (typeof r9DdAuditActions)[number];
 export type R10LitigationAuditAction = (typeof r10LitigationAuditActions)[number];
 export type R11ExternalAuditAction = (typeof r11ExternalAuditActions)[number];
+export type R12RecordsAuditAction = (typeof r12RecordsAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 

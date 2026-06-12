@@ -8,6 +8,7 @@ import {
 describe('frontend auth guard integration', () => {
   it('redirects unauthenticated app routes to login', () => {
     expect(isProtectedAppPath('/dashboard')).toBe(true);
+    expect(isProtectedAppPath('/records')).toBe(true);
     expect(shouldRedirectToLogin('/dashboard', false)).toBe(true);
     expect(loginRedirectUrl('http://localhost', '/dashboard')).toBe(
       'http://localhost/login?next=%2Fdashboard',

@@ -56,7 +56,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R10-01 | `feat/pack-r10-01-litigation-vault` | 8 | `LIT-EVID-REG-TUW-001` through `LIT-GATE-REPORT-TUW-008` (`docs/execution/TUW_R10_LITIGATION_VAULT.md`) |
 | PACK-R11-01 | `feat/pack-r11-01-external-core` | 5 | `EXT-USER-TUW-001` through `EXT-NDA-TUW-005` (`docs/execution/TUW_R11_EXTERNAL_CORE.md`) |
 | PACK-R11-02 | `feat/pack-r11-02-external-portal-gate` | 5 | `EXT-DLP-WARN-TUW-001` through `EXT-GATE-REPORT-TUW-001` (`docs/execution/TUW_R11_EXTERNAL_PORTAL_GATE.md`) |
-| PACK-R12-01 | `feat/pack-r12-01-records-governance` | 8 | `RECORD-*` R12 rows |
+| PACK-R12-01 | `feat/pack-r12-01-records-governance` | 8 | `RECORD-RETENTION-TUW-001` through `RECORD-GATE-REPORT-TUW-001` (`docs/execution/TUW_R12_RECORDS_GOVERNANCE.md`) |
 | PACK-R13-01 | `feat/pack-r13-01-enterprise-hardening` | 8 | `ENT-*` R13 rows |
 | PACK-R14-01 | `feat/pack-r14-01-scale-learning` | 8 | `SCALE-*` R14 rows |
 
