@@ -4,6 +4,7 @@ import {
   auditMetadataKeys,
   r8ContractAuditActions,
   r9DdAuditActions,
+  r10LitigationAuditActions,
   type AuditMetadata,
 } from './audit';
 
@@ -58,10 +59,16 @@ describe('audit shared types', () => {
         'DD_ISSUE_CHANGED',
         'DD_RISK_CHANGED',
         'DD_TRACE_VIEWED',
+        'LIT_EVIDENCE_CHANGED',
+        'LIT_FACT_CHANGED',
+        'LIT_ISSUE_TREE_CHANGED',
+        'LIT_PLEADING_CHANGED',
+        'LIT_CASE_MAP_VIEWED',
       ]),
     );
     expect(r8ContractAuditActions).toContain('PLAYBOOK_RULE_CHANGED');
     expect(r9DdAuditActions).toContain('DD_TRACE_VIEWED');
+    expect(r10LitigationAuditActions).toContain('LIT_CASE_MAP_VIEWED');
   });
 
   it('keeps metadata keys restricted to reference-like values', () => {
@@ -127,6 +134,20 @@ describe('audit shared types', () => {
       severity: 'high',
       priority: 'critical',
       mapping_status: 'mapped',
+      evidence_id: '11111111-1111-4111-8111-111111111204',
+      evidence_count: 1,
+      fact_id: '11111111-1111-4111-8111-111111111205',
+      fact_count: 1,
+      issue_node_id: '11111111-1111-4111-8111-111111111206',
+      issue_node_count: 1,
+      pleading_id: '11111111-1111-4111-8111-111111111207',
+      pleading_count: 1,
+      case_map_count: 1,
+      custody_status: 'reviewed',
+      admitted_status: 'unknown',
+      filing_status: 'internal_draft',
+      evidence_type: 'document',
+      pleading_type: 'brief',
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');

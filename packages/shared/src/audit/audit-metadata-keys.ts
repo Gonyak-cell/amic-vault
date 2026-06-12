@@ -88,6 +88,20 @@ export const auditMetadataKeys = [
   'severity',
   'priority',
   'mapping_status',
+  'evidence_id',
+  'evidence_count',
+  'fact_id',
+  'fact_count',
+  'issue_node_id',
+  'issue_node_count',
+  'pleading_id',
+  'pleading_count',
+  'case_map_count',
+  'custody_status',
+  'admitted_status',
+  'filing_status',
+  'evidence_type',
+  'pleading_type',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];
