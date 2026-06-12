@@ -1,12 +1,44 @@
-# Production gate skeleton for PACK-R0-01.
-# This is a policy artifact. Real deployment steps remain no-op until a later release.
+# Production release gate contract.
+# Real production deployment remains disabled until every approval-required
+# blocker is resolved and the manual release gate is recorded.
 name: prod-gate
 trigger: manual
+launch_readiness_version: 1
 required_before_continue:
-  - release_gate_report_passed
-  - risk_c_review_complete
-  - execution_ledger_recorded
+  - main_ci_green
+  - launch_readiness_green
+  - R14_gate_technical_passed
+  - staging_deployment_green
+  - staging_uat_accepted
+  - security_evidence_index_reviewed
+  - risk_c_review_complete_or_operational_waiver_recorded
+  - legal_terms_approved
+  - pricing_and_support_model_approved
+  - customer_data_handling_approved
+  - production_operator_signoff_recorded
+  - rollback_runbook_rehearsed
+  - execution_decision_and_gate_ledgers_recorded
 timeout_minutes: 60
+manual_approvals:
+  approval_required: true
+  blocker_refs:
+    - LRB-005
+    - LRB-006
+    - LRB-007
+    - LRB-009
+    - LRB-010
+    - LRB-011
+    - LRB-012
+    - LRB-013
+    - LRB-014
+  approver_roles:
+    - operator
+    - security_owner
+    - legal_owner
+    - product_owner
 deploy:
   enabled: false
-  reason: "Production deployment is intentionally disabled in R0."
+  reason: "Production release requires operator, security, legal, product, and customer-data approvals."
+  staging_contract: infra/ci/staging-deploy.yml
+  production_runbook: docs/release/production-release-runbook.md
+  rollback_runbook: docs/release/rollback-runbook.md

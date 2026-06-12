@@ -1,7 +1,7 @@
 # CI Overview
 
-GitHub Actions is the selected CI platform for R0, matching the private GitHub repo decision in
-`docs/ledger/decision.md`.
+GitHub Actions is the selected CI platform for the private GitHub repository
+recorded in `docs/ledger/decision.md`.
 
 Required PR checks:
 
@@ -9,8 +9,15 @@ Required PR checks:
 - `pnpm typecheck`
 - `pnpm test`
 - `pnpm build`
-- `node tools/backlog/validate.mjs docs/package/codex/data/backlog_r0_r3.csv`
+- `pnpm backlog:validate`
+- `pnpm launch:readiness`
 - frozen docs package check
+- migration convention check
+- database migration, rollback, seed, and integration suites
 - container image build smoke checks for api, web, and ingestion
+- Python ingestion worker tests
 
-Python worker lint is a placeholder in R0. R2 extraction work will add real Python tests.
+Launch readiness artifacts live outside `docs/package/`. The readiness check
+verifies that staging and production deployment files remain disabled until
+operator-approved targets, secrets, legal/commercial decisions, and production
+release approval are recorded in the launch blocker ledger.
