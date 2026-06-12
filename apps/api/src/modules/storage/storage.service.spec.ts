@@ -15,6 +15,7 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const matterId = '11111111-1111-4111-8111-111111111122';
 const documentId = '11111111-1111-4111-8111-111111111133';
 const fileObjectId = '11111111-1111-4111-8111-111111111144';
+const emailId = '11111111-1111-4111-8111-111111111155';
 
 class MemoryStorageAdapter implements StorageAdapter {
   private readonly objects = new Map<string, { body: Buffer; contentType: string }>();
@@ -76,6 +77,32 @@ describe('StorageService', () => {
     });
     await expect(service.headByStorageUri(tenantId, result.storageUri)).resolves.toMatchObject({
       contentLength: 8,
+    });
+  });
+
+  it('stores raw email bytes under the tenant email prefix', async () => {
+    const service = new StorageService(
+      new MemoryStorageAdapter(),
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
+
+    const result = await service.putEmailRawObject({
+      tenantId,
+      emailId,
+      fileObjectId,
+      body: Buffer.from('raw email'),
+      contentLength: 9,
+      contentType: 'message/rfc822',
+    });
+
+    expect(result).toEqual({
+      key: `tenants/${tenantId}/emails/${emailId}/raw/${fileObjectId}`,
+      storageUri: `s3://vault-dev/tenants/${tenantId}/emails/${emailId}/raw/${fileObjectId}`,
+      encryptionKeyId: null,
+    });
+    await expect(service.headByStorageUri(tenantId, result.storageUri)).resolves.toMatchObject({
+      contentLength: 9,
     });
   });
 

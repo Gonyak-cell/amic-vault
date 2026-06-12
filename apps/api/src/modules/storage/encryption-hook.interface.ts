@@ -3,8 +3,9 @@ import type { StorageBody } from './storage-adapter.interface';
 
 export interface EncryptionBeforePutInput {
   tenantId: string;
-  matterId: string;
-  documentId: string;
+  matterId?: string;
+  documentId?: string;
+  emailId?: string;
   fileObjectId: string;
   body: StorageBody;
   contentLength: number;

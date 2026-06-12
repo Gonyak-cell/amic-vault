@@ -9,6 +9,7 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const matterId = '11111111-1111-4111-8111-111111111122';
 const documentId = '11111111-1111-4111-8111-111111111133';
 const fileObjectId = '11111111-1111-4111-8111-111111111144';
+const emailId = '11111111-1111-4111-8111-111111111155';
 
 describe('StoragePathResolver', () => {
   it('builds and parses tenant-prefixed object paths', () => {
@@ -20,9 +21,26 @@ describe('StoragePathResolver', () => {
     );
     expect(resolver.storageUriForKey(key)).toBe(`s3://vault-dev/${key}`);
     expect(resolver.parseStorageUri(`s3://vault-dev/${key}`)).toMatchObject({
+      objectType: 'document',
       tenantId,
       matterId,
       documentId,
+      fileObjectId,
+    });
+  });
+
+  it('builds and parses tenant-prefixed raw email object paths', () => {
+    const resolver = new StoragePathResolver('vault-dev');
+    const key = resolver.buildEmailRawObjectKey({ tenantId, emailId, fileObjectId });
+
+    expect(key).toBe(
+      'tenants/11111111-1111-4111-8111-111111111111/emails/11111111-1111-4111-8111-111111111155/raw/11111111-1111-4111-8111-111111111144',
+    );
+    expect(resolver.storageUriForKey(key)).toBe(`s3://vault-dev/${key}`);
+    expect(resolver.parseStorageUri(`s3://vault-dev/${key}`)).toMatchObject({
+      objectType: 'email_raw',
+      tenantId,
+      emailId,
       fileObjectId,
     });
   });
@@ -42,6 +60,9 @@ describe('StoragePathResolver', () => {
       resolver.parseObjectKey(
         `tenants/${tenantId}/matters/${matterId}/documents/${documentId}/%2e%2e/${fileObjectId}`,
       ),
+    ).toThrow(StoragePathViolationError);
+    expect(() =>
+      resolver.parseObjectKey(`tenants/${tenantId}/emails/${emailId}/raw/../${fileObjectId}`),
     ).toThrow(StoragePathViolationError);
   });
 

@@ -31,6 +31,7 @@ export {
   r2DocumentAuditActions,
   r3SearchAuditActions,
   r4DlpAuditActions,
+  r4EmailAuditActions,
   type AuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
@@ -39,6 +40,7 @@ export {
   type R2DocumentAuditAction,
   type R3SearchAuditAction,
   type R4DlpAuditAction,
+  type R4EmailAuditAction,
 } from './types/audit';
 
 export {
@@ -78,6 +80,21 @@ export {
   type DlpRuleId,
   type DlpScanOptions,
 } from './dlp/dlp-types';
+export {
+  emailFailureReasonCodes,
+  emailParserKinds,
+  emailParseStatuses,
+  type EmailFailureReasonCode,
+  type EmailMessageDto,
+  type EmailParserKind,
+  type EmailParseStatus,
+} from './email/email-types';
+export {
+  EmlParseError,
+  parseEmlEnvelope,
+  type EmlParseFailureReason,
+  type ParsedEmlEnvelope,
+} from './email/eml-parser';
 export {
   canIssueSessionForRole,
   isUserRole,

@@ -1,0 +1,55 @@
+import type { EmailParseStatus } from '@amic-vault/shared';
+import type { AuditLogInput } from '../audit.service';
+
+interface BaseEmailEventInput {
+  tenantId: string;
+  actorId?: string | null;
+  emailId: string;
+}
+
+export function emailImportedAudit(
+  input: BaseEmailEventInput & {
+    rawFileObjectId: string;
+    rawSha256: string;
+    parseStatus: EmailParseStatus;
+    failureReasonCode?: string | null;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId ?? null,
+    action: 'EMAIL_IMPORTED',
+    targetType: 'email',
+    targetId: input.emailId,
+    metadata: {
+      scope_type: 'email',
+      scope_id: input.emailId,
+      hash: input.rawSha256,
+      before_ref: 'source_system:email_ingest',
+      after_ref: `parse_status:${input.parseStatus}`,
+      ...(input.failureReasonCode ? { reason_code: input.failureReasonCode } : {}),
+      file_object_id: input.rawFileObjectId,
+    },
+  };
+}
+
+export function emailDuplicateBlockedAudit(
+  input: BaseEmailEventInput & {
+    messageIdHash: string;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId ?? null,
+    action: 'EMAIL_DUPLICATE_BLOCKED',
+    targetType: 'email',
+    targetId: input.emailId,
+    result: 'denied',
+    metadata: {
+      scope_type: 'email_message_id',
+      scope_id: input.emailId,
+      hash: input.messageIdHash,
+      reason_code: 'DUPLICATE_MESSAGE_ID',
+    },
+  };
+}

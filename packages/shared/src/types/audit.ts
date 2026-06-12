@@ -5,11 +5,13 @@ export {
   r2DocumentAuditActions,
   r3SearchAuditActions,
   r4DlpAuditActions,
+  r4EmailAuditActions,
   type AuditAction,
   type R1AuditAction,
   type R2DocumentAuditAction,
   type R3SearchAuditAction,
   type R4DlpAuditAction,
+  type R4EmailAuditAction,
 } from '../audit/audit-event-types';
 export {
   auditMetadataKeys,

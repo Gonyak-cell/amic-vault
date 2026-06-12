@@ -1,0 +1,4 @@
+From: Sender <sender@example.test>
+Subject: Missing Message-ID fixture
+
+This parser-failure fixture must still preserve original bytes in storage.
