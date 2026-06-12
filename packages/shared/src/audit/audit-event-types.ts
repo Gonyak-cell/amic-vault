@@ -88,6 +88,14 @@ export const r9DdAuditActions = [
   'DD_TRACE_VIEWED',
 ] as const;
 
+export const r10LitigationAuditActions = [
+  'LIT_EVIDENCE_CHANGED',
+  'LIT_FACT_CHANGED',
+  'LIT_ISSUE_TREE_CHANGED',
+  'LIT_PLEADING_CHANGED',
+  'LIT_CASE_MAP_VIEWED',
+] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -110,6 +118,7 @@ export const auditActions = [
   ...r7GraphAuditActions,
   ...r8ContractAuditActions,
   ...r9DdAuditActions,
+  ...r10LitigationAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -126,6 +135,7 @@ export type R6AiFeedbackAuditAction = (typeof r6AiFeedbackAuditActions)[number];
 export type R7GraphAuditAction = (typeof r7GraphAuditActions)[number];
 export type R8ContractAuditAction = (typeof r8ContractAuditActions)[number];
 export type R9DdAuditAction = (typeof r9DdAuditActions)[number];
+export type R10LitigationAuditAction = (typeof r10LitigationAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 

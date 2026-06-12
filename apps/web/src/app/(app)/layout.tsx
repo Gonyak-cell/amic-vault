@@ -5,6 +5,7 @@ import {
   FileCog,
   FileSearch,
   FolderKanban,
+  Gavel,
   LayoutDashboard,
   ScrollText,
   Shield,
@@ -36,6 +37,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink href="/dd" label="DD Vault">
                 <ClipboardList className="h-4 w-4" />
+              </NavLink>
+              <NavLink href="/litigation" label="Litigation">
+                <Gavel className="h-4 w-4" />
               </NavLink>
               <NavLink href="/audit" label="Audit">
                 <ScrollText className="h-4 w-4" />
