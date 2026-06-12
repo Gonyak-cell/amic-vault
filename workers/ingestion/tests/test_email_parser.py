@@ -22,6 +22,33 @@ def test_eml_parser_normalizes_message_id_without_body_text() -> None:
     assert "body must not be returned" not in repr(result)
 
 
+def test_eml_parser_extracts_attachment_metadata_without_payload() -> None:
+    result = parse_eml_envelope(
+        b"Message-ID: <Case-Attachment@Example.TEST>\r\n"
+        b"Content-Type: multipart/mixed; boundary=\"amic-boundary\"\r\n"
+        b"\r\n"
+        b"--amic-boundary\r\n"
+        b"Content-Type: text/plain\r\n"
+        b"\r\n"
+        b"body must not be returned\r\n"
+        b"--amic-boundary\r\n"
+        b"Content-Type: application/pdf; name=\"../unsafe?.pdf\"\r\n"
+        b"Content-Disposition: attachment; filename=\"../unsafe?.pdf\"\r\n"
+        b"Content-Transfer-Encoding: base64\r\n"
+        b"\r\n"
+        b"JVBERi0xLjcKQU1JQy1BVFRBQ0hNRU5UCgolJUVPRgo=\r\n"
+        b"--amic-boundary--\r\n"
+    )
+
+    assert result.status == "parsed"
+    assert len(result.attachments) == 1
+    assert result.attachments[0].attachment_index == 0
+    assert result.attachments[0].normalized_filename == "unsafe_.pdf"
+    assert result.attachments[0].media_type == "application/pdf"
+    assert result.attachments[0].size_bytes > 0
+    assert "AMIC-ATTACHMENT" not in repr(result)
+
+
 def test_eml_parser_failure_does_not_emit_body_text() -> None:
     result = parse_eml_envelope(b"Subject: Missing\r\n\r\nbody must not be returned")
 

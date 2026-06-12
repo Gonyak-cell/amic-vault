@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AuditService, QueryClient } from '../audit/audit.service';
+import type { DocumentUploadService } from '../document/document-upload.service';
+import type { PermissionService } from '../permission/permission.service';
 import type { FileObjectService } from '../storage/file-object.service';
 import type { StorageService } from '../storage/storage.service';
 import type { TenantContextService } from '../tenant/tenant-context';
@@ -9,7 +11,10 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
 const existingEmailId = '11111111-1111-4111-8111-1111111111ee';
 
-function createService(selectRows: unknown[][] = [[], []]) {
+function createService(
+  selectRows: unknown[][] = [[], []],
+  permissionEffect: 'ALLOW' | 'DENY' = 'ALLOW',
+) {
   const query = vi.fn(async (sql: string, params?: readonly unknown[]) => {
     if (sql.includes('SELECT email_id')) {
       const rows = selectRows.shift() ?? [];
@@ -45,6 +50,29 @@ function createService(selectRows: unknown[][] = [[], []]) {
     if (sql.includes('INSERT INTO email_participants')) {
       return { rows: [], rowCount: 1 };
     }
+    if (sql.includes('INSERT INTO email_document_links')) {
+      return { rows: [], rowCount: 1 };
+    }
+    if (sql.includes('FROM email_document_links')) {
+      return {
+        rows: [
+          {
+            link_id: '11111111-1111-4111-8111-1111111111ad',
+            tenant_id: tenantId,
+            email_id: existingEmailId,
+            document_id: '11111111-1111-4111-8111-1111111111d0',
+            file_object_id: '11111111-1111-4111-8111-1111111111f0',
+            attachment_index: 0,
+            attachment_filename: 'linked.pdf',
+            media_type: 'application/pdf',
+            size_bytes: '30',
+            sha256: 'b'.repeat(64),
+            created_at: new Date('2026-06-12T00:00:00.000Z'),
+          },
+        ],
+        rowCount: 1,
+      };
+    }
     return { rows: [], rowCount: 0 };
   });
   const client = { query } satisfies QueryClient;
@@ -74,14 +102,40 @@ function createService(selectRows: unknown[][] = [[], []]) {
   const tenantContext = {
     require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
   } as unknown as TenantContextService;
+  const uploadBuffer = vi.fn(async () => ({
+    documentId: '11111111-1111-4111-8111-1111111111d0',
+    matterId: '11111111-1111-4111-8111-1111111111m0',
+    fileObjectId: '11111111-1111-4111-8111-1111111111f0',
+    status: 'draft' as const,
+    title: 'attachment.pdf',
+    documentType: 'correspondence' as const,
+    subtype: null,
+    confidentialityLevel: 'standard' as const,
+    privilegeStatus: 'none' as const,
+    metadataSuggestion: {},
+    duplicates: [{ documentId: 'dupe-doc', fileObjectId: 'dupe-file', sha256: 'b'.repeat(64) }],
+  }));
+  const documentUploadService = { uploadBuffer } as unknown as DocumentUploadService;
+  const canReadDocument = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
+  const permissionService = { canReadDocument } as unknown as PermissionService;
 
   return {
     auditLog,
+    canReadDocument,
     client,
+    documentUploadService,
     fileObjectCreate,
     query,
-    service: new EmailService(auditService, fileObjectService, storageService, tenantContext),
+    service: new EmailService(
+      auditService,
+      fileObjectService,
+      storageService,
+      tenantContext,
+      documentUploadService,
+      permissionService,
+    ),
     storageService,
+    uploadBuffer,
   };
 }
 
@@ -185,6 +239,102 @@ describe('EmailService', () => {
       parser: 'msg',
       parseStatus: 'pending_unsupported',
       failureReasonCode: 'UNSUPPORTED_MSG',
+    });
+  });
+
+  it('imports supported EML attachments through document upload and stores email links', async () => {
+    const { query, service, uploadBuffer } = createService();
+    const pdf = Buffer.from('%PDF-1.7\nattachment\n%%EOF\n');
+
+    await service.importRawEmail({
+      tenantId,
+      actorUserId,
+      matterId: '11111111-1111-4111-8111-1111111111m0',
+      originalFilename: 'with-attachment.eml',
+      body: Buffer.from(
+        [
+          'Message-ID: <case-attachment@example.test>',
+          'Content-Type: multipart/mixed; boundary="amic-boundary"',
+          '',
+          '--amic-boundary',
+          'Content-Type: text/plain',
+          '',
+          'raw email body',
+          '--amic-boundary',
+          'Content-Type: application/pdf; name="../attachment?.pdf"',
+          'Content-Disposition: attachment; filename="../attachment?.pdf"',
+          'Content-Transfer-Encoding: base64',
+          '',
+          pdf.toString('base64'),
+          '--amic-boundary--',
+          '',
+        ].join('\r\n'),
+      ),
+    });
+
+    expect(uploadBuffer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId,
+        originalFilename: 'attachment_.pdf',
+        mimeType: 'application/pdf',
+        sourceSystem: 'email_ingest',
+        fields: expect.objectContaining({
+          title: 'attachment_.pdf',
+          documentType: 'correspondence',
+        }),
+      }),
+    );
+    expect(
+      query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO email_document_links')),
+    ).toBe(true);
+    expect(JSON.stringify(query.mock.calls)).not.toContain('raw email body');
+  });
+
+  it('returns only permission-allowed email document links', async () => {
+    const { canReadDocument, service } = createService();
+
+    const links = await service.listDocumentLinksForEmail(actorUserId, existingEmailId);
+
+    expect(canReadDocument).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId },
+      '11111111-1111-4111-8111-1111111111d0',
+    );
+    expect(links).toEqual([
+      expect.objectContaining({
+        emailId: existingEmailId,
+        attachmentFilename: 'linked.pdf',
+        mediaType: 'application/pdf',
+      }),
+    ]);
+  });
+
+  it('returns document email links only after document read permission allows', async () => {
+    const { canReadDocument, service } = createService();
+
+    const links = await service.listEmailLinksForDocument(
+      actorUserId,
+      '11111111-1111-4111-8111-1111111111d0',
+    );
+
+    expect(canReadDocument).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId },
+      '11111111-1111-4111-8111-1111111111d0',
+    );
+    expect(links).toEqual([
+      expect.objectContaining({
+        emailId: existingEmailId,
+        documentId: '11111111-1111-4111-8111-1111111111d0',
+      }),
+    ]);
+  });
+
+  it('fails closed for document email links when permission denies', async () => {
+    const { service } = createService(undefined, 'DENY');
+
+    await expect(
+      service.listEmailLinksForDocument(actorUserId, '11111111-1111-4111-8111-1111111111d0'),
+    ).rejects.toMatchObject({
+      response: { code: 'PERMISSION_DENIED' },
     });
   });
 
