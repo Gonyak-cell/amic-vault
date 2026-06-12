@@ -11,6 +11,8 @@ import { AiCitationVerifier } from './citation/citation-verifier';
 import { AiContextRanker } from './context/context-ranker';
 import { AiContextWindowManager } from './context/context-window.manager';
 import { AiEvidencePackBuilder } from './context/evidence-pack.builder';
+import { AiSummaryController } from './features/ai-summary.controller';
+import { AiSummaryService } from './features/ai-summary.service';
 import { AiSessionController } from './session/ai-session.controller';
 import { AiSessionLogService } from './session/ai-session-log.service';
 import { AiMetadataFilterBuilder } from './retrieval/metadata-filter.builder';
@@ -23,7 +25,7 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
 
 @Module({
   imports: [AiPolicyModule, AuditModule, DlpModule, PermissionModule, SearchModule],
-  controllers: [AiCitationController, AiSessionController],
+  controllers: [AiCitationController, AiSessionController, AiSummaryController],
   providers: [
     AiCitationMapperService,
     AiAuditRecorder,
@@ -39,6 +41,7 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiSessionLogService,
     AiModelRoutingService,
     AiTaskRiskClassifier,
+    AiSummaryService,
   ],
   exports: [
     AiCitationMapperService,
@@ -49,6 +52,7 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiSessionLogService,
     AiModelRoutingService,
     AiTaskRiskClassifier,
+    AiSummaryService,
   ],
 })
 export class AiModule {}
