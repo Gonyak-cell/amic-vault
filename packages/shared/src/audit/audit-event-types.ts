@@ -96,6 +96,15 @@ export const r10LitigationAuditActions = [
   'LIT_CASE_MAP_VIEWED',
 ] as const;
 
+export const r11ExternalAuditActions = [
+  'EXTERNAL_USER_CHANGED',
+  'EXTERNAL_WORKSPACE_CHANGED',
+  'EXTERNAL_LINK_CREATED',
+  'EXTERNAL_LINK_REVOKED',
+  'EXTERNAL_LINK_ACCESSED',
+  'EXTERNAL_NDA_ACCEPTED',
+] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -119,6 +128,7 @@ export const auditActions = [
   ...r8ContractAuditActions,
   ...r9DdAuditActions,
   ...r10LitigationAuditActions,
+  ...r11ExternalAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -136,6 +146,7 @@ export type R7GraphAuditAction = (typeof r7GraphAuditActions)[number];
 export type R8ContractAuditAction = (typeof r8ContractAuditActions)[number];
 export type R9DdAuditAction = (typeof r9DdAuditActions)[number];
 export type R10LitigationAuditAction = (typeof r10LitigationAuditActions)[number];
+export type R11ExternalAuditAction = (typeof r11ExternalAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 

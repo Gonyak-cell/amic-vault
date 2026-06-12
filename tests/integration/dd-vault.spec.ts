@@ -173,21 +173,34 @@ describe('DD Vault integration', () => {
     expect(audit).toBeUndefined();
   });
 
-  it('keeps R9 internal-only by avoiding external data-room tables', async () => {
-    const externalTables = await withClient(createOwnerClient(), async (client) => {
+  it('keeps DD scope free of VDR delivery and external Q&A tables after R11 core opens', async () => {
+    const unexpectedExternalTables = await withClient(createOwnerClient(), async (client) => {
       await setTenant(client, tenantAlphaId);
       const result = await client.query<{ table_name: string }>(
         `
           SELECT table_name
           FROM information_schema.tables
           WHERE table_schema = 'public'
-            AND table_name LIKE 'external_%'
+            AND (
+              (
+                table_name LIKE 'external_%'
+                AND table_name NOT IN (
+                  'external_workspaces',
+                  'external_users',
+                  'external_workspace_members',
+                  'external_secure_links',
+                  'external_nda_acceptances'
+                )
+              )
+              OR table_name LIKE '%vdr%'
+              OR table_name LIKE '%external_q%'
+            )
           ORDER BY table_name
         `,
       );
       return result.rows.map((row) => row.table_name);
     });
-    expect(externalTables).toEqual([]);
+    expect(unexpectedExternalTables).toEqual([]);
   });
 
   async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {

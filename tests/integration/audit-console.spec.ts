@@ -217,7 +217,7 @@ describe('audit console integration', () => {
 });
 
 describe('sharing policy definition only integration', () => {
-  it('keeps future sharing policy definitions deny-only and tenant-scoped', async () => {
+  it('keeps R11 sharing policy definitions controlled and tenant-scoped', async () => {
     await withClient(createAppClient(), async (client) => {
       await setTenant(client, tenantBetaId);
       const policyKey = `external_sharing`;
@@ -232,7 +232,7 @@ describe('sharing policy definition only integration', () => {
       );
       const betaRows = await client.query(
         `
-          SELECT policy_key, status, enforcement_mode
+          SELECT tenant_id, policy_key, status, enforcement_mode
           FROM sharing_policy_definitions
           WHERE policy_key = $1
         `,
@@ -240,9 +240,10 @@ describe('sharing policy definition only integration', () => {
       );
       expect(betaRows.rows).toEqual([
         {
+          tenant_id: tenantBetaId,
           policy_key: policyKey,
-          status: 'disabled_until_r11',
-          enforcement_mode: 'deny_all',
+          status: 'enabled_r11',
+          enforcement_mode: 'controlled_allow',
         },
       ]);
 
@@ -259,8 +260,33 @@ describe('sharing policy definition only integration', () => {
       ).rejects.toThrow();
 
       await setTenant(client, tenantAlphaId);
-      const alphaRows = await client.query('SELECT policy_key FROM sharing_policy_definitions');
-      expect(alphaRows.rows).toEqual([]);
+      const alphaRows = await client.query(
+        `
+          SELECT tenant_id, policy_key, status, enforcement_mode
+          FROM sharing_policy_definitions
+          ORDER BY policy_key
+        `,
+      );
+      expect(alphaRows.rows).toEqual([
+        {
+          tenant_id: tenantAlphaId,
+          policy_key: 'external_sharing',
+          status: 'enabled_r11',
+          enforcement_mode: 'controlled_allow',
+        },
+        {
+          tenant_id: tenantAlphaId,
+          policy_key: 'external_user_access',
+          status: 'enabled_r11',
+          enforcement_mode: 'controlled_allow',
+        },
+        {
+          tenant_id: tenantAlphaId,
+          policy_key: 'secure_link',
+          status: 'enabled_r11',
+          enforcement_mode: 'controlled_allow',
+        },
+      ]);
     });
   });
 });

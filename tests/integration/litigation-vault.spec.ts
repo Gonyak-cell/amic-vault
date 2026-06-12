@@ -169,8 +169,8 @@ describe('Litigation Vault integration', () => {
     expect(audit).toBeUndefined();
   });
 
-  it('does not introduce external filing or sharing tables before R11', async () => {
-    const externalTables = await withClient(createOwnerClient(), async (client) => {
+  it('does not introduce e-filing or external transmission tables after R11 core opens', async () => {
+    const unexpectedExternalTables = await withClient(createOwnerClient(), async (client) => {
       await setTenant(client, tenantAlphaId);
       const result = await client.query<{ table_name: string }>(
         `
@@ -178,16 +178,26 @@ describe('Litigation Vault integration', () => {
           FROM information_schema.tables
           WHERE table_schema = 'public'
             AND (
-              table_name LIKE 'external_%'
+              (
+                table_name LIKE 'external_%'
+                AND table_name NOT IN (
+                  'external_workspaces',
+                  'external_users',
+                  'external_workspace_members',
+                  'external_secure_links',
+                  'external_nda_acceptances'
+                )
+              )
               OR table_name LIKE '%efile%'
-              OR table_name LIKE '%secure_link%'
+              OR table_name LIKE '%court_upload%'
+              OR table_name LIKE '%external_transmission%'
             )
           ORDER BY table_name
         `,
       );
       return result.rows.map((row) => row.table_name);
     });
-    expect(externalTables).toEqual([]);
+    expect(unexpectedExternalTables).toEqual([]);
   });
 
   async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {

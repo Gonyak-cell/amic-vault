@@ -16,6 +16,7 @@ import { GraphModule } from './modules/graph/graph.module';
 import { ContractIntelModule } from './modules/contract-intel/contract-intel.module';
 import { DdModule } from './modules/dd/dd.module';
 import { LitigationModule } from './modules/litigation/litigation.module';
+import { ExternalModule } from './modules/external/external.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
@@ -55,6 +56,7 @@ class AppController {
     ContractIntelModule,
     DdModule,
     LitigationModule,
+    ExternalModule,
     HealthModule,
     ClientModule,
     EthicalWallModule,

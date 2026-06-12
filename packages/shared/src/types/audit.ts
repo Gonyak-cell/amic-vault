@@ -16,6 +16,7 @@ export {
   r8ContractAuditActions,
   r9DdAuditActions,
   r10LitigationAuditActions,
+  r11ExternalAuditActions,
   type AuditAction,
   type R1AuditAction,
   type R2DocumentAuditAction,
@@ -32,6 +33,7 @@ export {
   type R8ContractAuditAction,
   type R9DdAuditAction,
   type R10LitigationAuditAction,
+  type R11ExternalAuditAction,
 } from '../audit/audit-event-types';
 export {
   auditMetadataKeys,
