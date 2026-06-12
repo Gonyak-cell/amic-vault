@@ -10,6 +10,7 @@ import {
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { DocumentPermissionService } from '../../permission/document-permission.service';
+import { AiAuditRecorder } from '../audit/ai-audit-recorder.service';
 
 export interface AiCitationRequestContext {
   tenantId: string;
@@ -34,6 +35,7 @@ interface CitationSourceRow {
 export class AiCitationMapperService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(AiAuditRecorder) private readonly aiAuditRecorder: AiAuditRecorder,
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: DocumentPermissionService,
   ) {}
@@ -48,6 +50,13 @@ export class AiCitationMapperService {
         for (const citation of input.citations) {
           await this.assertCanReadCitation(ctx, citation);
           sources.push(await this.resolveCitationSource(client, ctx.tenantId, citation));
+        }
+        for (const source of sources) {
+          await this.aiAuditRecorder.recordCitedDocument(
+            ctx,
+            { matterId: input.matterId, source },
+            client,
+          );
         }
         await this.recordCitationLog(client, ctx, input, 'success', sources.length);
         return aiCitationSourceResponseSchema.parse({ sources });

@@ -93,6 +93,20 @@ describe('AI citation source panel integration', () => {
     expect(metadata).not.toContain(visible.citation.documentId);
     expect(metadata).not.toContain(visible.citation.versionId);
     expect(metadata).not.toContain(visible.citation.chunkId);
+
+    const citedAudit = await latestCitedDocumentAudit(visible.citation.chunkId);
+    expect(citedAudit?.metadata_json).toMatchObject({
+      scope_type: 'ai_citation',
+      scope_id: visible.citation.matterId,
+      matter_id: visible.citation.matterId,
+      document_id: visible.citation.documentId,
+      version_id: visible.citation.versionId,
+      chunk_id: visible.citation.chunkId,
+      hash: visible.citation.sourceTextHash,
+    });
+    const citedMetadata = JSON.stringify(citedAudit?.metadata_json);
+    expect(citedMetadata).not.toContain(visible.title);
+    expect(citedMetadata).not.toContain('visible authorized citation source text');
   });
 
   it('fails closed with a safe denied response for unreadable cited sources', async () => {
@@ -120,6 +134,7 @@ describe('AI citation source panel integration', () => {
     });
     expect(String(audit?.metadata_json?.filter_refs)).toContain('included:false');
     expect(JSON.stringify(audit?.metadata_json)).not.toContain(denied.citation.documentId);
+    await expect(citedDocumentAuditCount(denied.citation.matterId)).resolves.toBe(0);
   });
 });
 
@@ -246,5 +261,44 @@ async function latestCitationAudit(
       [tenantAlphaId, matterId, result],
     );
     return audit.rows[0] ?? null;
+  });
+}
+
+async function latestCitedDocumentAudit(
+  chunkId: string,
+): Promise<{ metadata_json: Record<string, unknown> } | null> {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const audit = await client.query<{ metadata_json: Record<string, unknown> }>(
+      `
+        SELECT metadata_json
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'AI_CITED_DOCUMENT'
+          AND target_type = 'ai_cited_document'
+          AND target_id = $2
+        ORDER BY seq DESC
+        LIMIT 1
+      `,
+      [tenantAlphaId, chunkId],
+    );
+    return audit.rows[0] ?? null;
+  });
+}
+
+async function citedDocumentAuditCount(matterId: string): Promise<number> {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const audit = await client.query<{ count: string }>(
+      `
+        SELECT count(*)::text AS count
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'AI_CITED_DOCUMENT'
+          AND matter_id = $2
+      `,
+      [tenantAlphaId, matterId],
+    );
+    return Number(audit.rows[0]?.count ?? '0');
   });
 }

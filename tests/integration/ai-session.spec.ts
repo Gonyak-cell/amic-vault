@@ -108,10 +108,8 @@ describe('AI session log integration', () => {
         documentId: hidden.documentId,
         versionId: hidden.versionId,
         chunkId: hidden.chunkId,
-        included: true,
-        reasonCode: 'included',
-        rankIndex: 1,
-        score: 0.7,
+        included: false,
+        reasonCode: 'permission_denied',
         quoteHash: hidden.quoteHash,
         sourceTextHash: hidden.sourceTextHash,
       },
@@ -180,6 +178,53 @@ describe('AI session log integration', () => {
     expect(json).not.toContain(hidden.documentId);
     expect(json).not.toContain(visible.rawText);
     expect(json).not.toContain(hidden.rawText);
+  });
+
+  it('records the mandatory AI audit events without prompt response or source text', async () => {
+    const audits = await aiAuditEvents(sessionId);
+    expect(audits.map((audit) => audit.action)).toEqual([
+      'AI_QUERY_SUBMITTED',
+      'AI_RETRIEVAL',
+      'AI_RETRIEVAL_EXCLUDED',
+      'AI_RESPONSE',
+    ]);
+
+    expect(audits[0]?.metadata_json).toMatchObject({
+      ai_session_id: sessionId,
+      matter_id: matterId,
+      model_route: 'local_gemma',
+    });
+    expect(audits[1]?.metadata_json).toMatchObject({
+      ai_session_id: sessionId,
+      matter_id: matterId,
+      included_count: 1,
+      excluded_count: 1,
+      included_chunk_ids: [visible.chunkId],
+      excluded_chunk_ids: [hidden.chunkId],
+    });
+    expect(audits[2]?.metadata_json).toMatchObject({
+      ai_session_id: sessionId,
+      matter_id: matterId,
+      excluded_count: 1,
+      excluded_chunk_ids: [hidden.chunkId],
+    });
+    expect(audits[3]?.metadata_json).toMatchObject({
+      ai_session_id: sessionId,
+      matter_id: matterId,
+      response_length: 48,
+      response_token_count: 12,
+      duration_ms: 42,
+      ai_response_status: 'responded',
+      escalation_required: false,
+    });
+    expect(audits[3]?.metadata_json.hash).toMatch(/^[0-9a-f]{64}$/);
+
+    const rawAudit = audits.map((audit) => audit.raw_metadata).join('\n');
+    expect(rawAudit).not.toContain('prompt hash input only');
+    expect(rawAudit).not.toContain('response hash input only');
+    expect(rawAudit).not.toContain(visible.rawText);
+    expect(rawAudit).not.toContain(hidden.rawText);
+    expect(rawAudit).not.toMatch(/body|content|snippet|raw|prompt_text|response_text/i);
   });
 
   it('lets authorized admins view session metadata while rechecking source permission', async () => {
@@ -257,6 +302,46 @@ describe('AI session log integration', () => {
     return JSON.parse(text) as AiSessionDetailDto;
   }
 });
+
+async function aiAuditEvents(sessionId: string): Promise<
+  {
+    action: string;
+    target_type: string;
+    target_id: string | null;
+    result: string;
+    metadata_json: Record<string, unknown>;
+    raw_metadata: string;
+  }[]
+> {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query<{
+      action: string;
+      target_type: string;
+      target_id: string | null;
+      result: string;
+      metadata_json: Record<string, unknown>;
+      raw_metadata: string;
+    }>(
+      `
+        SELECT action, target_type, target_id::text, result, metadata_json,
+          metadata_json::text AS raw_metadata
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action IN (
+            'AI_QUERY_SUBMITTED',
+            'AI_RETRIEVAL',
+            'AI_RESPONSE',
+            'AI_RETRIEVAL_EXCLUDED'
+          )
+          AND metadata_json->>'ai_session_id' = $2
+        ORDER BY seq ASC
+      `,
+      [tenantAlphaId, sessionId],
+    );
+    return result.rows;
+  });
+}
 
 async function firstChildChunk(
   documentId: string,

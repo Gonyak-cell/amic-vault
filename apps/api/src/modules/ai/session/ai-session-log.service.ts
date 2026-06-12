@@ -12,6 +12,7 @@ import {
   type AiSessionResponseLogDto,
   type AiSessionStatus,
 } from '@amic-vault/shared';
+import { AiAuditRecorder } from '../audit/ai-audit-recorder.service';
 import { DocumentPermissionService } from '../../permission/document-permission.service';
 import { PermissionService } from '../../permission/permission.service';
 
@@ -76,6 +77,7 @@ export class AiSessionLogService {
     private readonly permissionService: Pick<PermissionService, 'canReadMatter'>,
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: Pick<DocumentPermissionService, 'canReadDocument'>,
+    @Inject(AiAuditRecorder) private readonly aiAuditRecorder: AiAuditRecorder,
   ) {}
 
   async createSession(
@@ -109,6 +111,15 @@ export class AiSessionLogService {
       );
       const sessionId = result.rows[0]?.ai_session_id;
       if (!sessionId) throw permissionDenied();
+      await this.aiAuditRecorder.recordQuerySubmitted(
+        ctx,
+        {
+          aiSessionId: sessionId,
+          matterId: parsed.matterId,
+          modelRoute: parsed.modelRoute,
+        },
+        client,
+      );
       return { sessionId };
     });
   }
@@ -164,6 +175,15 @@ export class AiSessionLogService {
         `,
         [ctx.tenantId, session.ai_session_id],
       );
+      await this.aiAuditRecorder.recordRetrieval(
+        ctx,
+        {
+          aiSessionId: session.ai_session_id,
+          matterId: session.matter_id,
+          chunks: parsedChunks,
+        },
+        client,
+      );
     });
   }
 
@@ -175,6 +195,9 @@ export class AiSessionLogService {
     const parsed = aiSessionResponseLogSchema.parse(input);
     await withTenantTransaction(ctx.tenantId, async (client) => {
       const session = await this.findOwnedSession(client, ctx, sessionId);
+      const status = parsed.status ?? 'responded';
+      const escalationRequired = parsed.escalationRequired ?? session.escalation_required;
+      const blockedReason = parsed.blockedReason ?? session.blocked_reason;
       await client.query(
         `
           UPDATE ai_sessions
@@ -196,10 +219,25 @@ export class AiSessionLogService {
           parsed.responseLength,
           parsed.responseTokenCount ?? null,
           parsed.latencyMs ?? null,
-          parsed.status ?? 'responded',
-          parsed.escalationRequired ?? session.escalation_required,
-          parsed.blockedReason ?? session.blocked_reason,
+          status,
+          escalationRequired,
+          blockedReason,
         ],
+      );
+      await this.aiAuditRecorder.recordResponse(
+        ctx,
+        {
+          aiSessionId: session.ai_session_id,
+          matterId: session.matter_id,
+          responseHash: parsed.responseHash,
+          responseLength: parsed.responseLength,
+          responseTokenCount: parsed.responseTokenCount ?? null,
+          latencyMs: parsed.latencyMs ?? null,
+          status,
+          blockedReason,
+          escalationRequired,
+        },
+        client,
       );
     });
   }
