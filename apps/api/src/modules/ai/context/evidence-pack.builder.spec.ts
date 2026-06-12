@@ -166,4 +166,41 @@ describe('AiEvidencePackBuilder', () => {
     expect(JSON.stringify(pack.graphFacts)).not.toMatch(/body|snippet|raw|content|text/u);
     expect(pack.ruleFindings).toEqual([]);
   });
+
+  it('includes R8 rule findings only as rule output references', () => {
+    const builder = new AiEvidencePackBuilder(
+      new AiContextRanker(),
+      new AiContextWindowManager(),
+    );
+
+    const pack = builder.build({
+      tenantId,
+      matterId,
+      userQuestion: 'show contract rule context',
+      retrieval: readyRetrieval([chunk({})]),
+      ruleFindings: [
+        {
+          findingId: sourceHash,
+          matterId,
+          documentId: '11111111-1111-4111-8111-111111111201',
+          versionId,
+          clauseId: '11111111-1111-4111-8111-111111111501',
+          ruleId: '11111111-1111-4111-8111-111111111502',
+          ruleKey: 'nda.section.required',
+          ruleVersion: 1,
+          severity: 'critical',
+          status: 'pass',
+          findingCode: 'required_clause.section.pass',
+          findingHash: sourceHash,
+          evidenceRefs: ['clause:11111111-1111-4111-8111-111111111501'],
+        },
+      ],
+    });
+
+    expect(pack.ruleFindings).toHaveLength(1);
+    expect(pack.ruleFindings[0]?.evidenceRefs).toEqual([
+      'clause:11111111-1111-4111-8111-111111111501',
+    ]);
+    expect(JSON.stringify(pack.ruleFindings)).not.toMatch(/body|snippet|raw|content|text/u);
+  });
 });

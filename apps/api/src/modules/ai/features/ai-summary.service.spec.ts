@@ -8,6 +8,7 @@ import { AiRetrievalOrchestratorService } from '../retrieval/retrieval-orchestra
 import { AiModelRoutingService } from '../routing/model-routing.service';
 import { AiSessionLogService } from '../session/ai-session-log.service';
 import { GraphQueryService } from '../../graph/graph-query.service';
+import { ContractIntelService } from '../../contract-intel/contract-intel.service';
 import { AiSummaryService } from './ai-summary.service';
 
 const ctx = {
@@ -31,6 +32,7 @@ describe('AiSummaryService', () => {
       { verify: vi.fn() } as unknown as AiCitationVerifier,
       sessions as unknown as AiSessionLogService,
       { listFacts: vi.fn() } as unknown as GraphQueryService,
+      { evaluateRuleFindings: vi.fn() } as unknown as ContractIntelService,
     );
 
     await expect(service.createSummary(ctx, request())).rejects.toBeInstanceOf(ForbiddenException);

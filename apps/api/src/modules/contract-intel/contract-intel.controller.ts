@@ -2,13 +2,17 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Inject,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import {
+  contractClauseBankQuerySchema,
   contractProcessRequestSchema,
+  contractRuleFindingsQuerySchema,
   createPlaybookRuleRequestSchema,
 } from '@amic-vault/shared';
 import { RequireRoles } from '../../common/decorators/require-roles.decorator';
@@ -56,5 +60,17 @@ export class ContractIntelController {
   createPlaybookRule(@Req() request: RequestWithSession, @Body() body: unknown) {
     const input = parseOrValidation(() => createPlaybookRuleRequestSchema.parse(body ?? {}));
     return this.contracts.createPlaybookRule(permissionContext(request), input);
+  }
+
+  @Get('clause-bank')
+  listClauseBank(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
+    const input = parseOrValidation(() => contractClauseBankQuerySchema.parse(query));
+    return this.contracts.listClauseBank(permissionContext(request), input);
+  }
+
+  @Get('rule-findings')
+  listRuleFindings(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
+    const input = parseOrValidation(() => contractRuleFindingsQuerySchema.parse(query));
+    return this.contracts.evaluateRuleFindings(permissionContext(request), input);
   }
 }

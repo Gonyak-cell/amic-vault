@@ -1,4 +1,4 @@
-const protectedPaths = ['/dashboard', '/matters', '/search'] as const;
+const protectedPaths = ['/dashboard', '/matters', '/search', '/contracts'] as const;
 
 export function isProtectedAppPath(pathname: string): boolean {
   return protectedPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));

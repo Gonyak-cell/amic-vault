@@ -4,7 +4,9 @@ import {
   evidencePackSchema,
   type EvidencePackDto,
   type EvidencePackGraphFactDto,
+  type EvidencePackRuleFindingDto,
   type EvidencePackTaskType,
+  type ContractRuleFindingDto,
   type GraphFactDto,
 } from '@amic-vault/shared';
 import type { AiRetrievalResult, AiRetrievedChunk } from '../retrieval/ai-retrieval.types';
@@ -21,6 +23,7 @@ export interface AiEvidencePackBuildInput {
   tokenBudget?: number | undefined;
   locale?: 'ko-KR' | 'en-US' | undefined;
   graphFacts?: readonly GraphFactDto[] | readonly EvidencePackGraphFactDto[] | undefined;
+  ruleFindings?: readonly ContractRuleFindingDto[] | readonly EvidencePackRuleFindingDto[] | undefined;
 }
 
 @Injectable()
@@ -61,7 +64,7 @@ export class AiEvidencePackBuilder {
         tokenCount: window.tokenCount,
       },
       graphFacts: toEvidenceGraphFacts(input.graphFacts ?? []),
-      ruleFindings: [],
+      ruleFindings: toEvidenceRuleFindings(input.ruleFindings ?? []),
       conflicts: [],
       uncertainty:
         window.omittedChunkIds.length > 0
@@ -70,7 +73,7 @@ export class AiEvidencePackBuilder {
       prohibitedAssumptions: [
         'Do not use facts outside retrieved chunks.',
         'Use graph_facts only as ID-backed relationships.',
-        'Do not cite rule_findings before R8.',
+        'Use rule_findings only as rule-output references; cite document chunks for text.',
       ],
       citationRequirements: {
         required: true,
@@ -95,6 +98,12 @@ export class AiEvidencePackBuilder {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
   }
+}
+
+function toEvidenceRuleFindings(
+  findings: readonly ContractRuleFindingDto[] | readonly EvidencePackRuleFindingDto[],
+): EvidencePackRuleFindingDto[] {
+  return findings.slice(0, 20).map((finding) => ({ ...finding }));
 }
 
 function toEvidenceGraphFacts(

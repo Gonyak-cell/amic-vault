@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { contractRuleFindingSchema } from '../contract/contract-types';
 
 const hashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
@@ -72,6 +73,8 @@ export const evidencePackGraphFactSchema = z
   })
   .strict();
 
+export const evidencePackRuleFindingSchema = contractRuleFindingSchema;
+
 export const evidencePackSchema = z
   .object({
     packId: z.string().uuid(),
@@ -124,7 +127,7 @@ export const evidencePackSchema = z
       })
       .strict(),
     graphFacts: z.array(evidencePackGraphFactSchema).max(20),
-    ruleFindings: z.array(z.never()).max(0),
+    ruleFindings: z.array(evidencePackRuleFindingSchema).max(20),
     conflicts: z.array(z.string().min(1).max(300)).max(10),
     uncertainty: z.array(z.string().min(1).max(300)).max(10),
     prohibitedAssumptions: z.array(z.string().min(1).max(300)).min(1).max(10),
@@ -152,4 +155,5 @@ export const evidencePackSchema = z
 export type EvidencePackTaskType = (typeof evidencePackTaskTypes)[number];
 export type EvidencePackChunkDto = z.infer<typeof evidencePackChunkSchema>;
 export type EvidencePackGraphFactDto = z.infer<typeof evidencePackGraphFactSchema>;
+export type EvidencePackRuleFindingDto = z.infer<typeof evidencePackRuleFindingSchema>;
 export type EvidencePackDto = z.infer<typeof evidencePackSchema>;

@@ -20,6 +20,7 @@ import { AiRetrievalOrchestratorService } from '../retrieval/retrieval-orchestra
 import { AiModelRoutingService } from '../routing/model-routing.service';
 import { AiSessionLogService, type AiSessionRequestContext } from '../session/ai-session-log.service';
 import { GraphQueryService } from '../../graph/graph-query.service';
+import { ContractIntelService } from '../../contract-intel/contract-intel.service';
 
 interface RenderedSummary {
   status: 'completed' | 'escalated';
@@ -41,6 +42,7 @@ export class AiSummaryService {
     @Inject(AiCitationVerifier) private readonly citationVerifier: AiCitationVerifier,
     @Inject(AiSessionLogService) private readonly sessions: AiSessionLogService,
     @Inject(GraphQueryService) private readonly graphQuery: GraphQueryService,
+    @Inject(ContractIntelService) private readonly contracts: ContractIntelService,
   ) {}
 
   async createSummary(
@@ -106,6 +108,10 @@ export class AiSummaryService {
       limit: 12,
       scopeLabel: 'ai_evidence_pack',
     });
+    const ruleFindings = await this.contracts.evaluateRuleFindings(permissionContext(ctx), {
+      matterId: input.matterId,
+      limit: 12,
+    });
 
     let pack: EvidencePackDto;
     try {
@@ -115,6 +121,7 @@ export class AiSummaryService {
         userQuestion: input.query,
         retrieval,
         graphFacts: graphFacts.facts,
+        ruleFindings: ruleFindings.findings,
         taskType: 'summary',
         tokenBudget: 2400,
         locale: input.locale,
@@ -300,8 +307,8 @@ function prefixForTask(task: AiSummaryTask): string {
     document_summary: 'Evidence-only document summary:',
     matter_summary: 'Authorized matter evidence:',
     email_thread_summary: 'Filed authorized email context:',
-    clause_analysis: 'R8 rule findings are unavailable; cited clause evidence only:',
-    risk_extraction: 'Human review required; cited risk evidence only:',
+    clause_analysis: 'Rule findings active; cited clause evidence only:',
+    risk_extraction: 'Human review required; cited rule and chunk evidence only:',
   };
   return prefixes[task];
 }
@@ -311,10 +318,7 @@ function warningCodesForTask(task: AiSummaryTask): AiSummaryWarningCode[] {
     'EVIDENCE_ONLY_DEGRADED',
     'NO_DENIED_SOURCES_INCLUDED',
   ]);
-  if (task === 'clause_analysis' || task === 'risk_extraction') {
-    warnings.add('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
-    warnings.add('HUMAN_REVIEW_REQUIRED');
-  }
+  if (task === 'clause_analysis' || task === 'risk_extraction') warnings.add('HUMAN_REVIEW_REQUIRED');
   if (task === 'risk_extraction') warnings.add('HUMAN_REVIEW_REQUIRED');
   return [...warnings];
 }

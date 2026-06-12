@@ -159,7 +159,7 @@ describe('AI summaries integration', () => {
     expectNoDeniedReference(emailSummary);
   });
 
-  it('returns degraded clause templates with required citations and R8 warning', async () => {
+  it('returns R8 clause templates with required citations', async () => {
     const summary = await postSummary({
       matterId,
       task: 'clause_analysis',
@@ -169,7 +169,7 @@ describe('AI summaries integration', () => {
     });
 
     expect(summary.status).toBe('escalated');
-    expect(summary.warnings).toContain('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
+    expect(summary.warnings).not.toContain('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
     expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
     expectNoDeniedReference(summary);
   });

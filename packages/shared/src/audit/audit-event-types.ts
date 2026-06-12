@@ -76,6 +76,8 @@ export const r8ContractAuditActions = [
   'CONTRACT_TERMS_EXTRACTED',
   'CONTRACT_REDLINE_PARSED',
   'PLAYBOOK_RULE_CHANGED',
+  'CONTRACT_RULE_EVALUATED',
+  'CONTRACT_CLAUSE_BANK_VIEWED',
 ] as const;
 
 export const r4EmailAuditActions = [

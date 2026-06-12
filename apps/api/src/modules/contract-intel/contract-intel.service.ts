@@ -8,15 +8,32 @@ import {
 import type { PoolClient } from 'pg';
 import {
   contractProcessResponseSchema,
+  contractClauseBankResponseSchema,
+  contractRuleFindingsResponseSchema,
   playbookRuleResponseSchema,
+  type ContractClauseBankItemDto,
+  type ContractClauseBankQueryDto,
+  type ContractClauseBankResponseDto,
   type ContractClassificationDto,
   type ContractProcessResponseDto,
+  type ContractRuleFindingsQueryDto,
+  type ContractRuleFindingsResponseDto,
   type CreatePlaybookRuleRequestDto,
   type PermissionContext,
   type PlaybookRuleResponseDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 import { DocumentPermissionService } from '../permission/document-permission.service';
+import { PermissionService } from '../permission/permission.service';
+import {
+  SEARCH_PERMISSION_SCOPE_PROVIDER,
+  type SearchPermissionScopeProvider,
+} from '../search/permission/search-permission-scope.provider';
+import {
+  SearchFilterBuilder,
+  type SearchSqlFragment,
+  type SearchSqlValue,
+} from '../search/query/search-filter.builder';
 import { classifyContractText } from './contract-classifier';
 import {
   contractParserVersion,
@@ -26,6 +43,12 @@ import {
   type ParsedDefinedTerm,
   type ParsedRedlineChange,
 } from './contract-parser';
+import {
+  evaluatePlaybookRule,
+  type ContractRuleClauseFact,
+  type ContractRuleFacts,
+  type PlaybookRuleForEvaluation,
+} from './contract-rule-engine';
 
 interface ContractTargetRow {
   matter_id: string;
@@ -39,6 +62,53 @@ interface ClauseIdRow {
   clause_id: string;
   start_offset: number;
   end_offset: number;
+}
+
+interface ClauseBankRow {
+  clause_id: string;
+  matter_id: string;
+  document_id: string;
+  version_id: string;
+  clause_kind: ContractClauseBankItemDto['clauseKind'];
+  clause_number: string;
+  start_offset: number;
+  end_offset: number;
+  heading_hash: string;
+  text_hash: string;
+  defined_term_count: string;
+  conflict_count: string;
+  redline_change_count: string;
+}
+
+interface PlaybookRuleRow {
+  rule_id: string;
+  rule_key: string;
+  rule_type: PlaybookRuleForEvaluation['ruleType'];
+  severity: PlaybookRuleForEvaluation['severity'];
+  version_number: number;
+  matter_id: string | null;
+  expression_hash: string;
+  expression_json: Record<string, unknown>;
+}
+
+interface RuleTermRow {
+  term_id: string;
+  matter_id: string;
+  document_id: string;
+  version_id: string;
+  clause_id: string;
+  normalized_term_key: string;
+  definition_hash: string;
+}
+
+interface RuleRedlineRow {
+  redline_change_id: string;
+  matter_id: string;
+  document_id: string;
+  version_id: string;
+  clause_id: string | null;
+  change_type: 'added' | 'deleted';
+  text_hash: string;
 }
 
 const sensitiveExpressionKeys = new Set([
@@ -57,6 +127,10 @@ export class ContractIntelService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(DocumentPermissionService)
     private readonly documentPermission: DocumentPermissionService,
+    @Inject(PermissionService) private readonly permissionService: PermissionService,
+    @Inject(SEARCH_PERMISSION_SCOPE_PROVIDER)
+    private readonly scopeProvider: SearchPermissionScopeProvider,
+    @Inject(SearchFilterBuilder) private readonly filterBuilder: SearchFilterBuilder,
   ) {}
 
   async processDocument(
@@ -287,6 +361,323 @@ export class ContractIntelService {
         expressionHash: row.expression_hash,
       });
     });
+  }
+
+  async listClauseBank(
+    ctx: PermissionContext,
+    input: ContractClauseBankQueryDto,
+  ): Promise<ContractClauseBankResponseDto> {
+    await this.assertCanReadContractScope(ctx, input.matterId, input.documentId);
+    const scopeDecision = await this.authorizedScope(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const clauses = await this.queryClauseBank(client, scopeDecision.scope, input);
+      await this.auditService.log(
+        {
+          tenantId: ctx.tenantId,
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+          action: 'CONTRACT_CLAUSE_BANK_VIEWED',
+          targetType: 'contract_clause_bank',
+          targetId: input.documentId ?? input.matterId,
+          matterId: input.matterId,
+          metadata: {
+            matter_id: input.matterId,
+            document_id: input.documentId ?? null,
+            query_hash: sha256Hex(`${input.matterId}:${input.documentId ?? ''}:clause_bank`),
+            result_count: clauses.length,
+            clause_count: clauses.length,
+            filter_refs: compactRules(scopeDecision.appliedRules ?? []),
+          },
+        },
+        client,
+      );
+      return contractClauseBankResponseSchema.parse({
+        matterId: input.matterId,
+        documentId: input.documentId ?? null,
+        clauses,
+      });
+    });
+  }
+
+  async evaluateRuleFindings(
+    ctx: PermissionContext,
+    input: ContractRuleFindingsQueryDto,
+  ): Promise<ContractRuleFindingsResponseDto> {
+    await this.assertCanReadContractScope(ctx, input.matterId, input.documentId);
+    const scopeDecision = await this.authorizedScope(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const facts = await this.queryRuleFacts(client, ctx.tenantId, scopeDecision.scope, input);
+      const rules = await this.queryActivePlaybookRules(client, ctx.tenantId, input.matterId);
+      const allFindings = rules
+        .map((rule) => evaluatePlaybookRule(rule, facts))
+        .sort((a, b) =>
+          `${a.ruleKey}:${a.findingHash}`.localeCompare(`${b.ruleKey}:${b.findingHash}`),
+        );
+      const findings = allFindings.slice(0, input.limit);
+      const unsupportedRuleCount = allFindings.filter(
+        (finding) => finding.status === 'unsupported',
+      ).length;
+      await this.auditService.log(
+        {
+          tenantId: ctx.tenantId,
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+          action: 'CONTRACT_RULE_EVALUATED',
+          targetType: 'contract_rule_eval',
+          targetId: input.documentId ?? input.matterId,
+          matterId: input.matterId,
+          metadata: {
+            matter_id: input.matterId,
+            document_id: input.documentId ?? null,
+            query_hash: sha256Hex(`${input.matterId}:${input.documentId ?? ''}:rule_eval`),
+            result_count: findings.length,
+            rule_finding_count: findings.length,
+            unsupported_rule_count: unsupportedRuleCount,
+            filter_refs: compactRules(scopeDecision.appliedRules ?? []),
+          },
+        },
+        client,
+      );
+      return contractRuleFindingsResponseSchema.parse({
+        matterId: input.matterId,
+        documentId: input.documentId ?? null,
+        findings,
+        unsupportedRuleCount,
+      });
+    });
+  }
+
+  private async assertCanReadContractScope(
+    ctx: PermissionContext,
+    matterId: string,
+    documentId?: string | undefined,
+  ): Promise<void> {
+    const matterDecision = await this.permissionService.canReadMatter(ctx, matterId);
+    if (matterDecision.effect !== 'ALLOW') {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    if (!documentId) return;
+    const documentDecision = await this.documentPermission.canReadDocument(ctx, documentId);
+    if (documentDecision.effect !== 'ALLOW') {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+  }
+
+  private async authorizedScope(ctx: PermissionContext): Promise<{
+    scope: SearchSqlFragment;
+    appliedRules?: string[] | undefined;
+  }> {
+    let scopeDecision: Awaited<ReturnType<SearchPermissionScopeProvider['scopeForSearch']>>;
+    try {
+      scopeDecision = await this.scopeProvider.scopeForSearch(ctx);
+    } catch {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    if (scopeDecision.effect !== 'ALLOW') {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    return scopeDecision;
+  }
+
+  private async queryClauseBank(
+    client: PoolClient,
+    scope: SearchSqlFragment,
+    input: ContractClauseBankQueryDto,
+  ): Promise<ContractClauseBankItemDto[]> {
+    const filters = this.filterBuilder.build({
+      filters: { matterId: input.matterId },
+      scope,
+    });
+    const params: SearchSqlValue[] = [...filters.params];
+    const documentFilter = input.documentId
+      ? `AND cc.document_id = $${params.push(input.documentId)}::uuid`
+      : '';
+    const limitSql = `$${params.push(input.limit)}`;
+    const result = await client.query<ClauseBankRow>(
+      `
+        WITH idx AS (
+          SELECT d.tenant_id, d.document_id, dv.version_id, d.matter_id, m.client_id,
+            d.document_type, d.status AS document_status, dv.version_status, d.updated_at
+          FROM documents d
+          JOIN matters m
+            ON m.tenant_id = d.tenant_id
+            AND m.matter_id = d.matter_id
+          JOIN document_versions dv
+            ON dv.tenant_id = d.tenant_id
+            AND dv.document_id = d.document_id
+            AND dv.version_status = 'current'
+        )
+        SELECT
+          cc.clause_id,
+          cc.matter_id,
+          cc.document_id,
+          cc.version_id,
+          cc.clause_kind,
+          cc.clause_number,
+          cc.start_offset,
+          cc.end_offset,
+          cc.heading_hash,
+          cc.text_hash,
+          (
+            SELECT count(*)::text
+            FROM contract_defined_terms cdt
+            WHERE cdt.tenant_id = cc.tenant_id
+              AND cdt.clause_id = cc.clause_id
+              AND cdt.stale = false
+          ) AS defined_term_count,
+          (
+            SELECT count(*)::text
+            FROM contract_defined_terms cdt
+            WHERE cdt.tenant_id = cc.tenant_id
+              AND cdt.clause_id = cc.clause_id
+              AND cdt.conflict_status = 'conflict'
+              AND cdt.stale = false
+          ) AS conflict_count,
+          (
+            SELECT count(*)::text
+            FROM contract_redline_changes crc
+            WHERE crc.tenant_id = cc.tenant_id
+              AND crc.clause_id = cc.clause_id
+              AND crc.stale = false
+          ) AS redline_change_count
+        FROM contract_clauses cc
+        JOIN idx
+          ON idx.tenant_id = cc.tenant_id
+          AND idx.document_id = cc.document_id
+          AND idx.version_id = cc.version_id
+        ${filters.whereSql}
+          AND cc.stale = false
+          ${documentFilter}
+        ORDER BY cc.document_id, cc.start_offset, cc.clause_id
+        LIMIT ${limitSql}
+      `,
+      params,
+    );
+    return result.rows.map(toClauseBankItem);
+  }
+
+  private async queryRuleFacts(
+    client: PoolClient,
+    tenantId: string,
+    scope: SearchSqlFragment,
+    input: ContractRuleFindingsQueryDto,
+  ): Promise<ContractRuleFacts> {
+    const clauses = await this.queryRuleClauseFacts(client, scope, input);
+    const clauseIds = clauses.map((clause) => clause.clauseId);
+    if (clauseIds.length === 0) {
+      return {
+        matterId: input.matterId,
+        documentId: input.documentId ?? null,
+        clauses: [],
+        terms: [],
+        redlineChanges: [],
+      };
+    }
+    const terms = await client.query<RuleTermRow>(
+      `
+        SELECT term_id, matter_id, document_id, version_id, clause_id,
+          normalized_term_key, definition_hash
+        FROM contract_defined_terms
+        WHERE tenant_id = $1
+          AND clause_id = ANY($2::uuid[])
+          AND stale = false
+        ORDER BY document_id, start_offset, term_id
+      `,
+      [tenantId, clauseIds],
+    );
+    const redlines = await client.query<RuleRedlineRow>(
+      `
+        SELECT redline_change_id, matter_id, document_id, version_id, clause_id,
+          change_type, text_hash
+        FROM contract_redline_changes
+        WHERE tenant_id = $1
+          AND (
+            clause_id = ANY($2::uuid[])
+            OR (clause_id IS NULL AND document_id = ANY($3::uuid[]))
+          )
+          AND stale = false
+        ORDER BY document_id, start_offset, redline_change_id
+      `,
+      [
+        tenantId,
+        clauseIds,
+        [...new Set(clauses.map((clause) => clause.documentId))],
+      ],
+    );
+    return {
+      matterId: input.matterId,
+      documentId: input.documentId ?? null,
+      clauses,
+      terms: terms.rows.map((row) => ({
+        termId: row.term_id,
+        matterId: row.matter_id,
+        documentId: row.document_id,
+        versionId: row.version_id,
+        clauseId: row.clause_id,
+        normalizedTermKey: row.normalized_term_key,
+        definitionHash: row.definition_hash,
+      })),
+      redlineChanges: redlines.rows.map((row) => ({
+        redlineChangeId: row.redline_change_id,
+        matterId: row.matter_id,
+        documentId: row.document_id,
+        versionId: row.version_id,
+        clauseId: row.clause_id,
+        changeType: row.change_type,
+        textHash: row.text_hash,
+      })),
+    };
+  }
+
+  private async queryRuleClauseFacts(
+    client: PoolClient,
+    scope: SearchSqlFragment,
+    input: ContractRuleFindingsQueryDto,
+  ): Promise<ContractRuleClauseFact[]> {
+    const clauses = await this.queryClauseBank(client, scope, {
+      matterId: input.matterId,
+      documentId: input.documentId,
+      limit: 500,
+    });
+    return clauses.map((clause) => ({
+      clauseId: clause.clauseId,
+      matterId: clause.matterId,
+      documentId: clause.documentId,
+      versionId: clause.versionId,
+      clauseKind: clause.clauseKind,
+      clauseNumber: clause.clauseNumber,
+      textHash: clause.textHash,
+    }));
+  }
+
+  private async queryActivePlaybookRules(
+    client: PoolClient,
+    tenantId: string,
+    matterId: string,
+  ): Promise<PlaybookRuleForEvaluation[]> {
+    const result = await client.query<PlaybookRuleRow>(
+      `
+        SELECT DISTINCT ON (rule_key)
+          rule_id, rule_key, rule_type, severity, version_number, matter_id,
+          expression_hash, expression_json
+        FROM playbook_rules
+        WHERE tenant_id = $1
+          AND status = 'active'
+          AND (matter_id IS NULL OR matter_id = $2)
+        ORDER BY rule_key, CASE WHEN matter_id = $2 THEN 0 ELSE 1 END, version_number DESC
+      `,
+      [tenantId, matterId],
+    );
+    return result.rows.map((row) => ({
+      ruleId: row.rule_id,
+      ruleKey: row.rule_key,
+      ruleType: row.rule_type,
+      severity: row.severity,
+      versionNumber: Number(row.version_number),
+      matterId: row.matter_id,
+      expressionHash: row.expression_hash,
+      expression: row.expression_json,
+    }));
   }
 
   private async findTarget(
@@ -580,6 +971,29 @@ function countTermConflicts(terms: readonly ParsedDefinedTerm[]): Map<string, nu
     definitions.set(term.normalizedTermKey, set);
   }
   return new Map([...definitions.entries()].map(([key, value]) => [key, value.size]));
+}
+
+function toClauseBankItem(row: ClauseBankRow): ContractClauseBankItemDto {
+  return {
+    clauseId: row.clause_id,
+    matterId: row.matter_id,
+    documentId: row.document_id,
+    versionId: row.version_id,
+    clauseKind: row.clause_kind,
+    clauseNumber: row.clause_number,
+    startOffset: Number(row.start_offset),
+    endOffset: Number(row.end_offset),
+    headingHash: row.heading_hash,
+    textHash: row.text_hash,
+    definedTermCount: Number(row.defined_term_count),
+    conflictCount: Number(row.conflict_count),
+    redlineChangeCount: Number(row.redline_change_count),
+    citationRef: `clause:${row.clause_id}`,
+  };
+}
+
+function compactRules(rules: readonly string[]): string[] {
+  return [...new Set(rules)].slice(0, 20).map((rule) => rule.slice(0, 120));
 }
 
 function canonicalJson(input: unknown): string {
