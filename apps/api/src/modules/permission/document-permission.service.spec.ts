@@ -95,6 +95,57 @@ describe('DocumentPermissionService', () => {
     });
   });
 
+  it('evaluates ABAC conditions on explicit document permissions', async () => {
+    const { service } = createService();
+    service.target = {
+      ...service.target!,
+      confidentialityLevel: 'high',
+      matterPracticeGroup: 'litigation',
+      documentType: 'contract',
+    };
+    service.explicitRows = [
+      {
+        effect: 'ALLOW',
+        condition_json: {
+          all: [
+            { attribute: 'matter.practice_group', operator: 'eq', value: 'litigation' },
+            { attribute: 'document.document_type', operator: 'eq', value: 'contract' },
+          ],
+        },
+      },
+    ];
+
+    await expect(service.canReadDocument({ tenantId, userId }, documentId)).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining(['permissions:explicit_allow']),
+    });
+
+    service.target = { ...service.target!, matterPracticeGroup: 'tax' };
+    await expect(service.canReadDocument({ tenantId, userId }, documentId)).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['document.confidentiality:high:explicit_allow_required'],
+    });
+  });
+
+  it('fails closed on invalid document permission conditions', async () => {
+    const { service } = createService();
+    service.explicitRows = [
+      {
+        effect: 'ALLOW',
+        condition_json: {
+          attribute: 'document.confidentiality_level',
+          operator: 'eq',
+          value: { '$ne': 'restricted' },
+        },
+      },
+    ];
+
+    await expect(service.canReadDocument({ tenantId, userId }, documentId)).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['permissions:condition_invalid:invalid_scalar_value'],
+    });
+  });
+
   it('lets explicit deny override explicit allow', async () => {
     const { service } = createService();
     service.explicitRows = [
