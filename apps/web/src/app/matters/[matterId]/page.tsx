@@ -2,23 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Users } from 'lucide-react';
-import type { MatterDto } from '@amic-vault/shared';
-import { getMatter } from '@/lib/api-client';
+import { Mail, Users } from 'lucide-react';
+import type { EmailMatterFilingDto, MatterDto } from '@amic-vault/shared';
+import { getMatter, listMatterEmailTimeline } from '@/lib/api-client';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
 import { Button } from '@/components/ui/button';
 
 export default function MatterDetailPage({ params }: { params: { matterId: string } }) {
   const [matter, setMatter] = useState<MatterDto | null>(null);
+  const [emails, setEmails] = useState<EmailMatterFilingDto[]>([]);
 
   useEffect(() => {
     let active = true;
-    getMatter(params.matterId)
-      .then((result) => {
-        if (active) setMatter(result);
+    Promise.all([getMatter(params.matterId), listMatterEmailTimeline(params.matterId)])
+      .then(([matterResult, timeline]) => {
+        if (!active) return;
+        setMatter(matterResult);
+        setEmails([...timeline.items]);
       })
       .catch(() => {
-        if (active) setMatter(null);
+        if (!active) return;
+        setMatter(null);
+        setEmails([]);
       });
     return () => {
       active = false;
@@ -60,6 +65,38 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
             <dd className="mt-1 font-medium">{matter.clientId}</dd>
           </div>
         </dl>
+      ) : null}
+      {matter ? (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-base font-semibold tracking-normal">Filed emails</h2>
+          </div>
+          <div className="overflow-hidden rounded-md border">
+            {emails.length > 0 ? (
+              <ul className="divide-y">
+                {emails.map((email) => (
+                  <li
+                    key={email.filingId}
+                    className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{email.subject ?? email.emailId}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {email.documentIds.length} documents
+                      </p>
+                    </div>
+                    <time className="text-xs text-muted-foreground">
+                      {new Date(email.filedAt).toLocaleString()}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-4 py-3 text-sm text-muted-foreground">No filed emails</p>
+            )}
+          </div>
+        </section>
       ) : null}
     </main>
   );

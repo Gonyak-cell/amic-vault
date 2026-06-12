@@ -82,12 +82,20 @@ export {
 } from './dlp/dlp-types';
 export {
   emailFailureReasonCodes,
+  emailMatterSuggestionQuerySchema,
   emailParserKinds,
   emailParseStatuses,
+  fileEmailToMatterSchema,
+  type EmailMatterFilingDto,
+  type EmailMatterSuggestionDto,
+  type EmailMatterSuggestionListDto,
+  type EmailMatterSuggestionQueryDto,
+  type EmailTimelineDto,
   type EmailFailureReasonCode,
   type EmailMessageDto,
   type EmailParserKind,
   type EmailParseStatus,
+  type FileEmailToMatterDto,
 } from './email/email-types';
 export {
   emailMetadataWarningCodes,

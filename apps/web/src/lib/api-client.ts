@@ -2,6 +2,7 @@ import type {
   ApiErrorResponse,
   ErrorCode,
   AddMatterMemberDto,
+  EmailTimelineDto,
   ListMattersQueryDto,
   MatterDto,
   MatterMemberDto,
@@ -120,4 +121,8 @@ export function removeMatterMember(matterId: string, userId: string): Promise<vo
   return apiFetch<void>(`/matters/${matterId}/members/${userId}`, {
     method: 'DELETE',
   });
+}
+
+export function listMatterEmailTimeline(matterId: string): Promise<EmailTimelineDto> {
+  return apiFetch<EmailTimelineDto>(`/matters/${matterId}/email-timeline`);
 }
