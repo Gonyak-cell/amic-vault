@@ -50,6 +50,12 @@ export const auditMetadataKeys = [
   'ai_response_status',
   'escalation_required',
   'blocked_reason',
+  'feedback_id',
+  'rating',
+  'helpful',
+  'correction_type',
+  'error_types',
+  'edit_distance',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

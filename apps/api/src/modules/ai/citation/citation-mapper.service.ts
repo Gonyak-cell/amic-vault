@@ -43,6 +43,7 @@ export class AiCitationMapperService {
   async resolveSources(
     ctx: AiCitationRequestContext,
     input: AiCitationSourceRequestDto,
+    aiSessionId?: string | null,
   ): Promise<AiCitationSourceResponseDto> {
     try {
       return await this.auditService.transaction(ctx.tenantId, async (client) => {
@@ -54,7 +55,7 @@ export class AiCitationMapperService {
         for (const source of sources) {
           await this.aiAuditRecorder.recordCitedDocument(
             ctx,
-            { matterId: input.matterId, source },
+            { aiSessionId: aiSessionId ?? null, matterId: input.matterId, source },
             client,
           );
         }

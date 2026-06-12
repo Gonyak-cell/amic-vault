@@ -119,10 +119,14 @@ export class AiSummaryService {
     }
 
     try {
-      await this.citations.resolveSources(ctx, {
-        matterId: input.matterId,
-        citations: rendered.citations,
-      });
+      await this.citations.resolveSources(
+        ctx,
+        {
+          matterId: input.matterId,
+          citations: rendered.citations,
+        },
+        created.sessionId,
+      );
     } catch {
       await this.recordBlockedResponse(ctx, created.sessionId, startedAt, 'permission_denied');
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
