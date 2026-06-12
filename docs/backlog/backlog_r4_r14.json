@@ -1,0 +1,2759 @@
+{
+  "total": 174,
+  "tuws": [
+    {
+      "id": "SEC-DLP-SENSDATADE-TUW-001",
+      "title": "Korean resident identifier detector",
+      "release": "R4",
+      "module": "SEC-DLP-SENSDATADE",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [],
+      "files": [
+        "packages/shared/src/dlp",
+        "apps/api/src/modules/dlp",
+        "tests/fixtures/dlp",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "synthetic fixtures detect only fake resident identifiers AND false positives bounded AND no raw value in logs or audit"
+    },
+    {
+      "id": "SEC-DLP-SENSDATADE-TUW-002",
+      "title": "Bank account detector",
+      "release": "R4",
+      "module": "SEC-DLP-SENSDATADE",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "SEC-DLP-SENSDATADE-TUW-001"
+      ],
+      "files": [
+        "packages/shared/src/dlp",
+        "apps/api/src/modules/dlp",
+        "tests/fixtures/dlp"
+      ],
+      "verification": "synthetic bank account fixtures detect AND invalid checksums or allowlisted shapes ignored AND regression green"
+    },
+    {
+      "id": "SEC-DLP-SENSDATADE-TUW-003",
+      "title": "Email and phone detector",
+      "release": "R4",
+      "module": "SEC-DLP-SENSDATADE",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "SEC-DLP-SENSDATADE-TUW-002"
+      ],
+      "files": [
+        "packages/shared/src/dlp",
+        "apps/api/src/modules/dlp",
+        "tests/fixtures/dlp"
+      ],
+      "verification": "synthetic email and phone fixtures detect AND safe domains handled AND regression green"
+    },
+    {
+      "id": "SEC-DLP-SENSDATADE-TUW-004",
+      "title": "DLP finding schema and RLS",
+      "release": "R4",
+      "module": "SEC-DLP-SENSDATADE",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-DLP-SENSDATADE-TUW-003"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/dlp",
+        "apps/api/src/modules/dlp",
+        "tests/integration/cross-tenant",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "dlp_findings has tenant_id NOT NULL and FORCE RLS AND findings store hash and references only AND audit coverage green"
+    },
+    {
+      "id": "EMAIL-EMAIINGE-PARS-TUW-001",
+      "title": "Email message schema",
+      "release": "R4",
+      "module": "EMAIL-EMAIINGE-PARS",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "SEC-DLP-SENSDATADE-TUW-004"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/email",
+        "apps/api/src/modules/email",
+        "tests/integration/cross-tenant"
+      ],
+      "verification": "email_messages has tenant_id NOT NULL and FORCE RLS AND raw pointer references immutable object AND migration roundtrip green"
+    },
+    {
+      "id": "EMAIL-EMAIINGE-PARS-TUW-002",
+      "title": "EML parser adapter",
+      "release": "R4",
+      "module": "EMAIL-EMAIINGE-PARS",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-EMAIINGE-PARS-TUW-001"
+      ],
+      "files": [
+        "workers/ingestion",
+        "apps/api/src/modules/email",
+        "tests/fixtures/emails"
+      ],
+      "verification": "synthetic EML parsed deterministically AND parser failure preserves original AND no network calls"
+    },
+    {
+      "id": "EMAIL-EMAIINGE-PARS-TUW-003",
+      "title": "MSG parser skeleton",
+      "release": "R4",
+      "module": "EMAIL-EMAIINGE-PARS",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIINGE-PARS-TUW-002"
+      ],
+      "files": [
+        "workers/ingestion",
+        "apps/api/src/modules/email",
+        "tests/fixtures/emails"
+      ],
+      "verification": "MSG input is accepted as pending unsupported skeleton AND original preserved AND no lossy parse claim"
+    },
+    {
+      "id": "EMAIL-EMAIINGE-PARS-TUW-004",
+      "title": "Raw email immutable storage",
+      "release": "R4",
+      "module": "EMAIL-EMAIINGE-PARS",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-EMAIINGE-PARS-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/api/src/modules/storage",
+        "tests/integration/storage-isolation"
+      ],
+      "verification": "raw email bytes use tenant prefix storage AND overwrite blocked AND storage isolation green"
+    },
+    {
+      "id": "EMAIL-EMAIINGE-PARS-TUW-005",
+      "title": "Message id duplicate guard",
+      "release": "R4",
+      "module": "EMAIL-EMAIINGE-PARS",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIINGE-PARS-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "db/migrations",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "same tenant duplicate message id blocked AND cross tenant duplicate allowed separately AND audit event recorded"
+    },
+    {
+      "id": "EMAIL-EMAIMETA-NORM-TUW-001",
+      "title": "Header extractor",
+      "release": "R4",
+      "module": "EMAIL-EMAIMETA-NORM",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIINGE-PARS-TUW-005"
+      ],
+      "files": [
+        "packages/shared/src/email",
+        "apps/api/src/modules/email",
+        "workers/ingestion"
+      ],
+      "verification": "from to cc subject message id references extracted AND bounded values stored AND body omitted"
+    },
+    {
+      "id": "EMAIL-EMAIMETA-NORM-TUW-002",
+      "title": "Participant normalizer",
+      "release": "R4",
+      "module": "EMAIL-EMAIMETA-NORM",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIMETA-NORM-TUW-001"
+      ],
+      "files": [
+        "packages/shared/src/email",
+        "apps/api/src/modules/email"
+      ],
+      "verification": "participants canonicalized by address hash and domain reference AND display names bounded"
+    },
+    {
+      "id": "EMAIL-EMAIMETA-NORM-TUW-003",
+      "title": "Sent received date normalizer",
+      "release": "R4",
+      "module": "EMAIL-EMAIMETA-NORM",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIMETA-NORM-TUW-002"
+      ],
+      "files": [
+        "packages/shared/src/email",
+        "apps/api/src/modules/email"
+      ],
+      "verification": "date headers normalize to timestamptz AND malformed dates fail closed to received_at null with parser warning"
+    },
+    {
+      "id": "EMAIL-EMAIMETA-NORM-TUW-004",
+      "title": "Outside participant flag",
+      "release": "R4",
+      "module": "EMAIL-EMAIMETA-NORM",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIMETA-NORM-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "packages/shared/src/email"
+      ],
+      "verification": "non tenant domains flagged as outside participants AND this is display only with no send or share flow"
+    },
+    {
+      "id": "EMAIL-EMAIMETA-NORM-TUW-005",
+      "title": "Email metadata audit",
+      "release": "R4",
+      "module": "EMAIL-EMAIMETA-NORM",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIMETA-NORM-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/email",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "EMAIL_IMPORTED and EMAIL_METADATA_UPDATED audit store references only AND audit insert failure rolls back"
+    },
+    {
+      "id": "EMAIL-ATTAHAND-ATTALINK-TUW-001",
+      "title": "Attachment metadata extractor",
+      "release": "R4",
+      "module": "EMAIL-ATTAHAND-ATTALINK",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAIMETA-NORM-TUW-005"
+      ],
+      "files": [
+        "workers/ingestion",
+        "apps/api/src/modules/email",
+        "tests/fixtures/emails"
+      ],
+      "verification": "attachment names sizes media hints extracted AND unsafe names normalized AND raw contents not logged"
+    },
+    {
+      "id": "EMAIL-ATTAHAND-ATTALINK-TUW-002",
+      "title": "Attachment FileObject creation",
+      "release": "R4",
+      "module": "EMAIL-ATTAHAND-ATTALINK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-ATTAHAND-ATTALINK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/api/src/modules/storage",
+        "tests/integration/storage-isolation"
+      ],
+      "verification": "attachments create tenant-prefixed FileObjects AND hash recorded AND rollback compensation works"
+    },
+    {
+      "id": "EMAIL-ATTAHAND-ATTALINK-TUW-003",
+      "title": "Attachment Document pipeline reuse",
+      "release": "R4",
+      "module": "EMAIL-ATTAHAND-ATTALINK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-ATTAHAND-ATTALINK-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/api/src/modules/document",
+        "tests/integration/document-access"
+      ],
+      "verification": "attachment documents go through R2 upload hash version permission path AND no bypass service exists"
+    },
+    {
+      "id": "EMAIL-ATTAHAND-ATTALINK-TUW-004",
+      "title": "Email document link",
+      "release": "R4",
+      "module": "EMAIL-ATTAHAND-ATTALINK",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-ATTAHAND-ATTALINK-TUW-003"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/email",
+        "tests/integration/cross-tenant"
+      ],
+      "verification": "email_document_links has tenant_id NOT NULL and RLS AND bidirectional lookup respects matter permission"
+    },
+    {
+      "id": "EMAIL-ATTAHAND-ATTALINK-TUW-005",
+      "title": "Attachment duplicate hash handling",
+      "release": "R4",
+      "module": "EMAIL-ATTAHAND-ATTALINK",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-ATTAHAND-ATTALINK-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/api/src/modules/document"
+      ],
+      "verification": "duplicate attachments reuse duplicate candidate logic AND still create correct email link references"
+    },
+    {
+      "id": "EMAIL-MATTFILI-FILIENGI-TUW-001",
+      "title": "Manual filing API",
+      "release": "R4",
+      "module": "EMAIL-MATTFILI-FILIENGI",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-ATTAHAND-ATTALINK-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/api/src/modules/permission",
+        "tests/integration/permission-matrix"
+      ],
+      "verification": "filing requires canUploadToMatter AND non member filing denied with ACCESS_DENIED audit"
+    },
+    {
+      "id": "EMAIL-MATTFILI-FILIENGI-TUW-002",
+      "title": "Subject based matter suggestion",
+      "release": "R4",
+      "module": "EMAIL-MATTFILI-FILIENGI",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-MATTFILI-FILIENGI-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/api/src/modules/search"
+      ],
+      "verification": "suggestions use metadata only AND query-time permission scope AND no body or AI inference"
+    },
+    {
+      "id": "EMAIL-MATTFILI-FILIENGI-TUW-003",
+      "title": "Participant domain matter suggestion",
+      "release": "R4",
+      "module": "EMAIL-MATTFILI-FILIENGI",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-MATTFILI-FILIENGI-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/api/src/modules/client"
+      ],
+      "verification": "domain suggestions are deterministic rules AND authorized matter scope only AND no outside sending"
+    },
+    {
+      "id": "EMAIL-MATTFILI-FILIENGI-TUW-004",
+      "title": "Email filing audit",
+      "release": "R4",
+      "module": "EMAIL-MATTFILI-FILIENGI",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-MATTFILI-FILIENGI-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/email",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "EMAIL_FILED audit is mandatory AND metadata contains email_id matter_id document ids only"
+    },
+    {
+      "id": "EMAIL-MATTFILI-FILIENGI-TUW-005",
+      "title": "Email timeline item",
+      "release": "R4",
+      "module": "EMAIL-MATTFILI-FILIENGI",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-MATTFILI-FILIENGI-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/web/src",
+        "tests/integration/document-access"
+      ],
+      "verification": "matter timeline shows filed emails only to authorized users AND wall excluded users see zero"
+    },
+    {
+      "id": "EMAIL-EMAISECU-EMAIDLP-TUW-001",
+      "title": "Outside recipient display warning",
+      "release": "R4",
+      "module": "EMAIL-EMAISECU-EMAIDLP",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-MATTFILI-FILIENGI-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/web/src"
+      ],
+      "verification": "outside participant warning is display only AND no send share or link flow is added"
+    },
+    {
+      "id": "EMAIL-EMAISECU-EMAIDLP-TUW-002",
+      "title": "Attachment DLP scan hook",
+      "release": "R4",
+      "module": "EMAIL-EMAISECU-EMAIDLP",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-EMAISECU-EMAIDLP-TUW-001",
+        "SEC-DLP-SENSDATADE-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/dlp",
+        "apps/api/src/modules/email",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "attachment import invokes DLP detector AND findings stored as references AND scan failure blocks filing fail closed"
+    },
+    {
+      "id": "EMAIL-EMAISECU-EMAIDLP-TUW-003",
+      "title": "Privilege tag suggestion",
+      "release": "R4",
+      "module": "EMAIL-EMAISECU-EMAIDLP",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAISECU-EMAIDLP-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "packages/shared/src/email"
+      ],
+      "verification": "privilege tag suggestion uses headers and metadata rules only AND user confirmation required"
+    },
+    {
+      "id": "EMAIL-EMAISECU-EMAIDLP-TUW-004",
+      "title": "Wrong matter filing warning skeleton",
+      "release": "R4",
+      "module": "EMAIL-EMAISECU-EMAIDLP",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-EMAISECU-EMAIDLP-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/web/src"
+      ],
+      "verification": "warning compares deterministic metadata signals AND never auto files or sends"
+    },
+    {
+      "id": "EMAIL-EMAITHRE-THREAD-TUW-001",
+      "title": "Thread builder",
+      "release": "R4",
+      "module": "EMAIL-EMAITHRE-THREAD",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-EMAISECU-EMAIDLP-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "apps/web/src"
+      ],
+      "verification": "Message-ID In-Reply-To References thread graph builds per tenant AND permission filtered timeline green"
+    },
+    {
+      "id": "EMAIL-UPLOENDP-UPLOAD-TUW-001",
+      "title": "Email upload endpoint",
+      "release": "R4",
+      "module": "EMAIL-UPLOENDP-UPLOAD",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EMAIL-EMAITHRE-THREAD-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/email",
+        "packages/shared/src/email",
+        "tests/integration/document-access"
+      ],
+      "verification": "EML MSG upload endpoint requires matter upload permission AND validates size and extension AND audit green"
+    },
+    {
+      "id": "INGEST-HWP5-SPIKE-TUW-001",
+      "title": "HWP5 binary extraction spike",
+      "release": "R4",
+      "module": "INGEST-HWP5-SPIKE",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "EMAIL-UPLOENDP-UPLOAD-TUW-001"
+      ],
+      "files": [
+        "workers/ingestion",
+        "docs/reports"
+      ],
+      "verification": "spike records feasibility and parser boundary AND no unsupported production parser claim"
+    },
+    {
+      "id": "SEC-DLP-SENSDATADE-TUW-005",
+      "title": "Passport alien card detector set",
+      "release": "R5",
+      "module": "SEC-DLP-SENSDATADE",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "packages/shared/src/dlp",
+        "apps/api/src/modules/dlp",
+        "tests/fixtures/dlp"
+      ],
+      "verification": "synthetic passport alien registration and card fixtures detect AND masked references only AND DLP regression green"
+    },
+    {
+      "id": "SEC-DLP-SENSDATADE-TUW-006",
+      "title": "Model egress DLP block hook",
+      "release": "R5",
+      "module": "SEC-DLP-SENSDATADE",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-DLP-SENSDATADE-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/dlp",
+        "packages/shared/src/dlp"
+      ],
+      "verification": "model egress hook blocks detected sensitive findings by default AND records reference-only audit"
+    },
+    {
+      "id": "SEC-ETHIWALL-WALLENFO-TUW-004",
+      "title": "Document wall enforcement proof",
+      "release": "R5",
+      "module": "SEC-ETHIWALL-WALLENFO",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-DLP-SENSDATADE-TUW-006"
+      ],
+      "files": [
+        "apps/api/src/modules/permission",
+        "tests/integration/document-access",
+        "tests/integration/search-permission"
+      ],
+      "verification": "document and search wall negative suites prove no bypass AND existing permission matrix unchanged"
+    },
+    {
+      "id": "SEC-ETHIWALL-WALLENFO-TUW-007",
+      "title": "Break glass workflow entry",
+      "release": "R5",
+      "module": "SEC-ETHIWALL-WALLENFO",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-ETHIWALL-WALLENFO-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/ethical-wall",
+        "apps/api/src/modules/permission"
+      ],
+      "verification": "wall override remains denied until dual approval state exists AND attempts audited"
+    },
+    {
+      "id": "SEC-BREAKGLAS-DUALAPPR-TUW-001",
+      "title": "Break glass request schema",
+      "release": "R5",
+      "module": "SEC-BREAKGLAS-DUALAPPR",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-ETHIWALL-WALLENFO-TUW-007"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/break-glass",
+        "tests/integration/cross-tenant"
+      ],
+      "verification": "break_glass_requests has tenant_id NOT NULL and RLS AND requester approver constraints"
+    },
+    {
+      "id": "SEC-BREAKGLAS-DUALAPPR-TUW-002",
+      "title": "Dual approval API",
+      "release": "R5",
+      "module": "SEC-BREAKGLAS-DUALAPPR",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-BREAKGLAS-DUALAPPR-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/break-glass",
+        "packages/shared/src/break-glass"
+      ],
+      "verification": "two distinct approvers required AND requester cannot approve AND expiration required"
+    },
+    {
+      "id": "SEC-BREAKGLAS-DUALAPPR-TUW-003",
+      "title": "Temporary wall override evaluator",
+      "release": "R5",
+      "module": "SEC-BREAKGLAS-DUALAPPR",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-BREAKGLAS-DUALAPPR-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/permission",
+        "apps/api/src/modules/break-glass"
+      ],
+      "verification": "approved unexpired request is the only wall override path AND expired state denies"
+    },
+    {
+      "id": "SEC-BREAKGLAS-DUALAPPR-TUW-004",
+      "title": "Break glass audit and revocation",
+      "release": "R5",
+      "module": "SEC-BREAKGLAS-DUALAPPR",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "SEC-BREAKGLAS-DUALAPPR-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/break-glass"
+      ],
+      "verification": "request approval use revoke and expiry events audited AND metadata reference only"
+    },
+    {
+      "id": "SEC-ABAC-ATTRPOLI-TUW-001",
+      "title": "Attribute policy schema",
+      "release": "R5",
+      "module": "SEC-ABAC-ATTRPOLI",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-BREAKGLAS-DUALAPPR-TUW-004"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/permission"
+      ],
+      "verification": "policy attributes are tenant scoped with RLS AND unknown attributes deny by default"
+    },
+    {
+      "id": "SEC-ABAC-ATTRPOLI-TUW-002",
+      "title": "Condition json evaluator",
+      "release": "R5",
+      "module": "SEC-ABAC-ATTRPOLI",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-ABAC-ATTRPOLI-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/permission",
+        "packages/shared/src/permission"
+      ],
+      "verification": "condition_json supports allowed operators only AND parse errors deny AND injection fixtures green"
+    },
+    {
+      "id": "SEC-ABAC-ATTRPOLI-TUW-003",
+      "title": "Priority and validity windows",
+      "release": "R5",
+      "module": "SEC-ABAC-ATTRPOLI",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "SEC-ABAC-ATTRPOLI-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/permission"
+      ],
+      "verification": "deny overrides and valid_from valid_to ordering preserved AND expired allow denies"
+    },
+    {
+      "id": "SEC-ABAC-ATTRPOLI-TUW-004",
+      "title": "RBAC matrix invariance proof",
+      "release": "R5",
+      "module": "SEC-ABAC-ATTRPOLI",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-ABAC-ATTRPOLI-TUW-003"
+      ],
+      "files": [
+        "tests/integration/permission-matrix",
+        "docs/reports"
+      ],
+      "verification": "existing role matrix cells unchanged AND added attribute cases documented AND false allow zero"
+    },
+    {
+      "id": "AUDIT-AUDICONS-CONS-TUW-001",
+      "title": "Audit search API",
+      "release": "R5",
+      "module": "AUDIT-AUDICONS-CONS",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEC-ABAC-ATTRPOLI-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "packages/shared/src/dto/audit"
+      ],
+      "verification": "Firm Admin and Security Admin only AND query filters are tenant scoped AND metadata safe"
+    },
+    {
+      "id": "AUDIT-AUDICONS-CONS-TUW-002",
+      "title": "Actor action date filters",
+      "release": "R5",
+      "module": "AUDIT-AUDICONS-CONS",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AUDICONS-CONS-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/web/src"
+      ],
+      "verification": "filters are bounded and indexed AND no raw metadata search"
+    },
+    {
+      "id": "AUDIT-AUDICONS-CONS-TUW-003",
+      "title": "Target resource filters",
+      "release": "R5",
+      "module": "AUDIT-AUDICONS-CONS",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AUDICONS-CONS-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/web/src"
+      ],
+      "verification": "target filters enforce permission to target scope AND unauthorized query returns safe denial"
+    },
+    {
+      "id": "AUDIT-AUDICONS-CONS-TUW-004",
+      "title": "Audit CSV export",
+      "release": "R5",
+      "module": "AUDIT-AUDICONS-CONS",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AUDIT-AUDICONS-CONS-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/web/src"
+      ],
+      "verification": "export requires admin role AND exported fields are whitelist only AND export itself audited"
+    },
+    {
+      "id": "AUDIT-AUDICONS-CONS-TUW-005",
+      "title": "Audit console UI",
+      "release": "R5",
+      "module": "AUDIT-AUDICONS-CONS",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AUDIT-AUDICONS-CONS-TUW-004"
+      ],
+      "files": [
+        "apps/web/src",
+        "apps/api/src/modules/audit"
+      ],
+      "verification": "console renders server results only AND non admin route blocked AND integration green"
+    },
+    {
+      "id": "SEC-SHAREPOLICY-DEFIONLY-TUW-001",
+      "title": "Sharing policy definition only",
+      "release": "R5",
+      "module": "SEC-SHAREPOLICY-DEFIONLY",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AUDICONS-CONS-TUW-005"
+      ],
+      "files": [
+        "docs/policies",
+        "db/migrations"
+      ],
+      "verification": "policy table and docs define future controls only AND no endpoint link issue or outside user flow"
+    },
+    {
+      "id": "SEC-ETHIWALL-WALLADMIUI-TUW-001",
+      "title": "Wall admin UI",
+      "release": "R5",
+      "module": "SEC-ETHIWALL-WALLADMIUI",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "SEC-SHAREPOLICY-DEFIONLY-TUW-001"
+      ],
+      "files": [
+        "apps/web/src",
+        "apps/api/src/modules/ethical-wall"
+      ],
+      "verification": "Security Admin can manage wall membership AND every change audited AND matrix green"
+    },
+    {
+      "id": "AI-AIPOLI-POLIEVAL-TUW-001",
+      "title": "Matter AI policy evaluator",
+      "release": "R6",
+      "module": "AI-AIPOLI-POLIEVAL",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "apps/api/src/modules/ai-policy",
+        "packages/shared/src/types/ai-policy"
+      ],
+      "verification": "default DENY policy evaluates fail closed AND R2 schema reused without recreation"
+    },
+    {
+      "id": "AI-AIPOLI-POLIEVAL-TUW-002",
+      "title": "Document aiAllowed evaluator",
+      "release": "R6",
+      "module": "AI-AIPOLI-POLIEVAL",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AIPOLI-POLIEVAL-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai-policy",
+        "apps/api/src/modules/document"
+      ],
+      "verification": "document aiAllowed false blocks retrieval AND true is necessary not sufficient"
+    },
+    {
+      "id": "AI-AIPOLI-POLIEVAL-TUW-003",
+      "title": "AI blocked standard response",
+      "release": "R6",
+      "module": "AI-AIPOLI-POLIEVAL",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AIPOLI-POLIEVAL-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/ai-policy",
+        "packages/shared/src"
+      ],
+      "verification": "blocked responses use AI_POLICY_BLOCKED AND reveal no document existence"
+    },
+    {
+      "id": "AI-AIPOLI-POLIEVAL-TUW-004",
+      "title": "Model access policy table evaluator",
+      "release": "R6",
+      "module": "AI-AIPOLI-POLIEVAL",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AIPOLI-POLIEVAL-TUW-003"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/ai-policy"
+      ],
+      "verification": "model policies are tenant scoped with RLS AND unknown model route denied"
+    },
+    {
+      "id": "AI-AIPOLI-POLIEVAL-TUW-005",
+      "title": "AI policy audit coverage",
+      "release": "R6",
+      "module": "AI-AIPOLI-POLIEVAL",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AIPOLI-POLIEVAL-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "policy allow block and parse failure audited with hash references only"
+    },
+    {
+      "id": "AI-AICONT-CHUNEVID-TUW-001",
+      "title": "Parent child chunk builder",
+      "release": "R6",
+      "module": "AI-AICONT-CHUNEVID",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AIPOLI-POLIEVAL-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "workers/ingestion"
+      ],
+      "verification": "chunks preserve provenance and bounds AND raw content storage follows canonical document rules"
+    },
+    {
+      "id": "AI-AICONT-CHUNEVID-TUW-002",
+      "title": "Chunk provenance schema",
+      "release": "R6",
+      "module": "AI-AICONT-CHUNEVID",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AICONT-CHUNEVID-TUW-001"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/ai"
+      ],
+      "verification": "chunks table has tenant_id NOT NULL and RLS AND provenance references document version"
+    },
+    {
+      "id": "SEARCH-SEMASEAR-VECT-TUW-001",
+      "title": "Embedding job with pgvector",
+      "release": "R6",
+      "module": "SEARCH-SEMASEAR-VECT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AI-AICONT-CHUNEVID-TUW-002"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/search",
+        "workers/ingestion"
+      ],
+      "verification": "pgvector enabled only in R6 AND job uses authorized chunk references AND no outside model call"
+    },
+    {
+      "id": "SEARCH-SEMASEAR-VECT-TUW-002",
+      "title": "Vector index table",
+      "release": "R6",
+      "module": "SEARCH-SEMASEAR-VECT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "SEARCH-SEMASEAR-VECT-TUW-001"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/search"
+      ],
+      "verification": "embeddings table has tenant_id NOT NULL FORCE RLS stale flag AND stale rows excluded"
+    },
+    {
+      "id": "SEARCH-SEMASEAR-VECT-TUW-003",
+      "title": "Similarity search API",
+      "release": "R6",
+      "module": "SEARCH-SEMASEAR-VECT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "SEARCH-SEMASEAR-VECT-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/search",
+        "packages/shared/src/search"
+      ],
+      "verification": "similarity query requires permission scope before execution AND no post filtering"
+    },
+    {
+      "id": "SEARCH-SEMASEAR-VECT-TUW-004",
+      "title": "Hybrid score combiner",
+      "release": "R6",
+      "module": "SEARCH-SEMASEAR-VECT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "SEARCH-SEMASEAR-VECT-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/search"
+      ],
+      "verification": "BM25 and vector scores combine deterministically AND permission scope remains query stage"
+    },
+    {
+      "id": "SEARCH-SEMASEAR-VECT-TUW-005",
+      "title": "Semantic result permission filter",
+      "release": "R6",
+      "module": "SEARCH-SEMASEAR-VECT",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SEARCH-SEMASEAR-VECT-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/search",
+        "tests/integration/metadata-leakage"
+      ],
+      "verification": "semantic results obey matter document wall aiAllowed filters AND leakage zero"
+    },
+    {
+      "id": "AI-AIRETR-RETRORCH-TUW-001",
+      "title": "Question type classifier",
+      "release": "R6",
+      "module": "AI-AIRETR-RETRORCH",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "SEARCH-SEMASEAR-VECT-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "unsupported graph or rule dependent questions return scoped unsupported result"
+    },
+    {
+      "id": "AI-AIRETR-RETRORCH-TUW-002",
+      "title": "Metadata filter builder",
+      "release": "R6",
+      "module": "AI-AIRETR-RETRORCH",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AIRETR-RETRORCH-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/api/src/modules/search"
+      ],
+      "verification": "metadata filters are permission scoped before retrieval AND invalid filters deny"
+    },
+    {
+      "id": "AI-AIRETR-RETRORCH-TUW-003",
+      "title": "Hybrid retrieval orchestrator",
+      "release": "R6",
+      "module": "AI-AIRETR-RETRORCH",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AIRETR-RETRORCH-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/api/src/modules/search"
+      ],
+      "verification": "retrieval combines allowed BM25 and vector candidates AND denied candidates excluded before context"
+    },
+    {
+      "id": "AI-AIRETR-RETRORCH-TUW-004",
+      "title": "Permission bound retrieval filter",
+      "release": "R6",
+      "module": "AI-AIRETR-RETRORCH",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AIRETR-RETRORCH-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/api/src/modules/permission"
+      ],
+      "verification": "retrieval calls PermissionService scope builder once before query AND fail closed injection green"
+    },
+    {
+      "id": "AI-AIRETR-RETRORCH-TUW-005",
+      "title": "Redaction preprocessor hook",
+      "release": "R6",
+      "module": "AI-AIRETR-RETRORCH",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AIRETR-RETRORCH-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/api/src/modules/dlp"
+      ],
+      "verification": "DLP findings trigger redaction before local model context AND redaction failure blocks"
+    },
+    {
+      "id": "AI-AIRETR-RETRORCH-TUW-006",
+      "title": "Reranker interface",
+      "release": "R6",
+      "module": "AI-AIRETR-RETRORCH",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AI-AIRETR-RETRORCH-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "reranker is local deterministic or no-op AND no outside SDK dependency"
+    },
+    {
+      "id": "SEC-ETHIWALL-WALLENFO-TUW-006",
+      "title": "Wall enforcement in AI retrieval",
+      "release": "R6",
+      "module": "SEC-ETHIWALL-WALLENFO",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AIRETR-RETRORCH-TUW-006"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/api/src/modules/permission"
+      ],
+      "verification": "wall excluded subjects retrieve zero AI context AND audit excluded count"
+    },
+    {
+      "id": "AI-AICONT-CHUNEVID-TUW-003",
+      "title": "Context ranker",
+      "release": "R6",
+      "module": "AI-AICONT-CHUNEVID",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "SEC-ETHIWALL-WALLENFO-TUW-006"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "ranking uses authorized chunks only AND stable tie break"
+    },
+    {
+      "id": "AI-AICONT-CHUNEVID-TUW-004",
+      "title": "Context window manager",
+      "release": "R6",
+      "module": "AI-AICONT-CHUNEVID",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AICONT-CHUNEVID-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "window never exceeds bounded token budget AND omitted chunks logged by id only"
+    },
+    {
+      "id": "AI-AICONT-CHUNEVID-TUW-005",
+      "title": "Evidence Pack schema",
+      "release": "R6",
+      "module": "AI-AICONT-CHUNEVID",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AICONT-CHUNEVID-TUW-004"
+      ],
+      "files": [
+        "packages/shared/src/ai",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "Evidence Pack includes graph_facts and rule_findings as forced empty arrays before R7 R8"
+    },
+    {
+      "id": "AI-AICONT-CHUNEVID-TUW-006",
+      "title": "Evidence Pack builder",
+      "release": "R6",
+      "module": "AI-AICONT-CHUNEVID",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AICONT-CHUNEVID-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "builder emits citations from authorized chunks only AND leakage removal test green"
+    },
+    {
+      "id": "AI-CITA-CITAMAPP-TUW-001",
+      "title": "Citation object schema",
+      "release": "R6",
+      "module": "AI-CITA-CITAMAPP",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AICONT-CHUNEVID-TUW-006"
+      ],
+      "files": [
+        "packages/shared/src/ai"
+      ],
+      "verification": "citation schema requires document_id version_id chunk_id and quote hash not raw body"
+    },
+    {
+      "id": "AI-CITA-CITAMAPP-TUW-002",
+      "title": "Chunk to source mapper",
+      "release": "R6",
+      "module": "AI-CITA-CITAMAPP",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-CITA-CITAMAPP-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "mapper resolves source only if caller can read document AND fail closed on missing source"
+    },
+    {
+      "id": "AI-CITA-CITAMAPP-TUW-003",
+      "title": "Cited document log",
+      "release": "R6",
+      "module": "AI-CITA-CITAMAPP",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-CITA-CITAMAPP-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "cited documents logged by id hash and included status only"
+    },
+    {
+      "id": "AI-CITA-CITAMAPP-TUW-004",
+      "title": "Source panel API",
+      "release": "R6",
+      "module": "AI-CITA-CITAMAPP",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AI-CITA-CITAMAPP-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "source panel rechecks document permission AND safe denied response"
+    },
+    {
+      "id": "AI-CITA-CITAMAPP-TUW-005",
+      "title": "Citation verification warning",
+      "release": "R6",
+      "module": "AI-CITA-CITAMAPP",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-CITA-CITAMAPP-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "unsupported or uncited claims are flagged AND no legal conclusion auto approval"
+    },
+    {
+      "id": "AI-AISESS-SESSLOGG-TUW-001",
+      "title": "AI session schema",
+      "release": "R6",
+      "module": "AI-AISESS-SESSLOGG",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-CITA-CITAMAPP-TUW-005"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/ai"
+      ],
+      "verification": "ai_sessions has tenant_id NOT NULL FORCE RLS AND prompt response raw text not stored"
+    },
+    {
+      "id": "AI-AISESS-SESSLOGG-TUW-002",
+      "title": "Prompt hash logging",
+      "release": "R6",
+      "module": "AI-AISESS-SESSLOGG",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AISESS-SESSLOGG-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "prompt hash and length stored AND prompt raw text absent from DB audit logs"
+    },
+    {
+      "id": "AI-AISESS-SESSLOGG-TUW-003",
+      "title": "Response hash logging",
+      "release": "R6",
+      "module": "AI-AISESS-SESSLOGG",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AISESS-SESSLOGG-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "response hash and metrics stored AND response raw text absent from audit"
+    },
+    {
+      "id": "AI-AISESS-SESSLOGG-TUW-004",
+      "title": "Retrieved chunk log",
+      "release": "R6",
+      "module": "AI-AISESS-SESSLOGG",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AISESS-SESSLOGG-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "retrieved included and excluded chunk ids logged with reason codes only"
+    },
+    {
+      "id": "AI-AISESS-SESSLOGG-TUW-005",
+      "title": "AI session detail API",
+      "release": "R6",
+      "module": "AI-AISESS-SESSLOGG",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-AISESS-SESSLOGG-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "session details visible only to owner or authorized admin AND source permission rechecked"
+    },
+    {
+      "id": "AUDIT-AIAUDI-AIEVEN-TUW-001",
+      "title": "AI query submitted audit",
+      "release": "R6",
+      "module": "AUDIT-AIAUDI-AIEVEN",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-AISESS-SESSLOGG-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "AI_QUERY_SUBMITTED audit mandatory AND stores session model route matter id only"
+    },
+    {
+      "id": "AUDIT-AIAUDI-AIEVEN-TUW-002",
+      "title": "AI retrieval audit",
+      "release": "R6",
+      "module": "AUDIT-AIAUDI-AIEVEN",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AIAUDI-AIEVEN-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "AI_RETRIEVAL audit records included excluded counts and ids only"
+    },
+    {
+      "id": "AUDIT-AIAUDI-AIEVEN-TUW-003",
+      "title": "AI response audit",
+      "release": "R6",
+      "module": "AUDIT-AIAUDI-AIEVEN",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AIAUDI-AIEVEN-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "AI_RESPONSE audit records hashes metrics and block status only"
+    },
+    {
+      "id": "AUDIT-AIAUDI-AIEVEN-TUW-004",
+      "title": "Cited document audit",
+      "release": "R6",
+      "module": "AUDIT-AIAUDI-AIEVEN",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AIAUDI-AIEVEN-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "each cited source creates reference event AND denied source never cited"
+    },
+    {
+      "id": "AUDIT-AIAUDI-AIEVEN-TUW-005",
+      "title": "Excluded retrieval count audit",
+      "release": "R6",
+      "module": "AUDIT-AIAUDI-AIEVEN",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AIAUDI-AIEVEN-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "excluded retrieval count recorded without titles snippets or body"
+    },
+    {
+      "id": "AI-MODEROUT-RISKROUT-TUW-001",
+      "title": "Model tier enum",
+      "release": "R6",
+      "module": "AI-MODEROUT-RISKROUT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AUDIT-AIAUDI-AIEVEN-TUW-005"
+      ],
+      "files": [
+        "packages/shared/src/ai"
+      ],
+      "verification": "only local_gemma route is enabled in R6 AND unknown route denied"
+    },
+    {
+      "id": "AI-MODEROUT-RISKROUT-TUW-002",
+      "title": "Task risk classifier",
+      "release": "R6",
+      "module": "AI-MODEROUT-RISKROUT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-MODEROUT-RISKROUT-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "risk classifier is deterministic and conservative AND high risk escalates"
+    },
+    {
+      "id": "AI-MODEROUT-RISKROUT-TUW-003",
+      "title": "Local Gemma route",
+      "release": "R6",
+      "module": "AI-MODEROUT-RISKROUT",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "AI-MODEROUT-RISKROUT-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "packages/ai"
+      ],
+      "verification": "local route abstraction calls configured local endpoint only AND disabled config blocks"
+    },
+    {
+      "id": "AI-MODEROUT-RISKROUT-TUW-004",
+      "title": "Outside model approval hook always deny",
+      "release": "R6",
+      "module": "AI-MODEROUT-RISKROUT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "AI-MODEROUT-RISKROUT-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "non local routes always deny in R6 AND attempt audited"
+    },
+    {
+      "id": "AI-MODEROUT-RISKROUT-TUW-005",
+      "title": "Escalation flag",
+      "release": "R6",
+      "module": "AI-MODEROUT-RISKROUT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AI-MODEROUT-RISKROUT-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "high risk or unsupported questions set escalation flag AND no answer fabricated"
+    },
+    {
+      "id": "AI-AIFEAT-SUMM-TUW-001",
+      "title": "Document summary",
+      "release": "R6",
+      "module": "AI-AIFEAT-SUMM",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AI-MODEROUT-RISKROUT-TUW-005"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "summary uses Evidence Pack only AND citations required AND denied docs absent"
+    },
+    {
+      "id": "AI-AIFEAT-SUMM-TUW-002",
+      "title": "Matter summary",
+      "release": "R6",
+      "module": "AI-AIFEAT-SUMM",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AI-AIFEAT-SUMM-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "matter summary limited to authorized matter corpus AND audit green"
+    },
+    {
+      "id": "AI-AIFEAT-SUMM-TUW-003",
+      "title": "Email thread summary",
+      "release": "R6",
+      "module": "AI-AIFEAT-SUMM",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AI-AIFEAT-SUMM-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "email summary uses filed authorized thread context AND outside participant text not logged"
+    },
+    {
+      "id": "AI-AIFEAT-SUMM-TUW-004",
+      "title": "Clause analysis template degraded",
+      "release": "R6",
+      "module": "AI-AIFEAT-SUMM",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AI-AIFEAT-SUMM-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "clause template states rule findings unavailable before R8 AND requires citation"
+    },
+    {
+      "id": "AI-AIFEAT-SUMM-TUW-005",
+      "title": "Risk extraction template degraded",
+      "release": "R6",
+      "module": "AI-AIFEAT-SUMM",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AI-AIFEAT-SUMM-TUW-004"
+      ],
+      "files": [
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "risk template uses retrieved evidence only AND escalates unsupported conclusions"
+    },
+    {
+      "id": "AI-FEEDSTOR-FEEDCAPT-TUW-001",
+      "title": "Feedback item schema",
+      "release": "R6",
+      "module": "AI-FEEDSTOR-FEEDCAPT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AI-AIFEAT-SUMM-TUW-005"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/ai"
+      ],
+      "verification": "feedback_items has tenant_id NOT NULL FORCE RLS AND no prompt response body"
+    },
+    {
+      "id": "AI-FEEDSTOR-FEEDCAPT-TUW-002",
+      "title": "Feedback capture API",
+      "release": "R6",
+      "module": "AI-FEEDSTOR-FEEDCAPT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AI-FEEDSTOR-FEEDCAPT-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/web/src"
+      ],
+      "verification": "feedback tied to session owner or admin AND audit green"
+    },
+    {
+      "id": "AI-FEEDSTOR-FEEDCAPT-TUW-003",
+      "title": "Shadow pilot metrics query",
+      "release": "R6",
+      "module": "AI-FEEDSTOR-FEEDCAPT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "AI-FEEDSTOR-FEEDCAPT-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "docs/reports"
+      ],
+      "verification": "pilot metrics aggregate without sensitive text AND stop criteria computable"
+    },
+    {
+      "id": "DEVOPS-EVALHARN-GATEMEAS-TUW-001",
+      "title": "AI eval harness integration",
+      "release": "R6",
+      "module": "DEVOPS-EVALHARN-GATEMEAS",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "AI-FEEDSTOR-FEEDCAPT-TUW-003"
+      ],
+      "files": [
+        "tools/evalset",
+        "apps/api/src/modules/ai"
+      ],
+      "verification": "eval harness runs on approved subset only AND permission leakage test included"
+    },
+    {
+      "id": "DEVOPS-EVALHARN-GATEMEAS-TUW-002",
+      "title": "AI gate metric report",
+      "release": "R6",
+      "module": "DEVOPS-EVALHARN-GATEMEAS",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "DEVOPS-EVALHARN-GATEMEAS-TUW-001"
+      ],
+      "files": [
+        "tools/evalset",
+        "docs/reports"
+      ],
+      "verification": "report emits citation accuracy hallucination permission accuracy and recall metrics"
+    },
+    {
+      "id": "DEVOPS-EVALHARN-GATEMEAS-TUW-003",
+      "title": "MVP declaration evidence pack",
+      "release": "R6",
+      "module": "DEVOPS-EVALHARN-GATEMEAS",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "DEVOPS-EVALHARN-GATEMEAS-TUW-002"
+      ],
+      "files": [
+        "docs/ledger/gates",
+        "docs/ledger/decision"
+      ],
+      "verification": "R6 Gate evidence complete AND MVP decision ledger ready after technical pass"
+    },
+    {
+      "id": "GRAPH-TAXO-NODEEDGE-TUW-001",
+      "title": "Graph node and edge taxonomy",
+      "release": "R7",
+      "module": "GRAPH-TAXO-NODEEDGE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "docs/architecture",
+        "packages/shared/src/graph"
+      ],
+      "verification": "taxonomy covers Client Matter Document Clause Issue Risk AND tenant scope defined"
+    },
+    {
+      "id": "GRAPH-TAXO-NODEEDGE-TUW-002",
+      "title": "Graph store adapter",
+      "release": "R7",
+      "module": "GRAPH-TAXO-NODEEDGE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "GRAPH-TAXO-NODEEDGE-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/graph",
+        "infra"
+      ],
+      "verification": "adapter isolated behind interface AND local dev service documented AND no query bypass"
+    },
+    {
+      "id": "GRAPH-PERM-QUERY-TUW-001",
+      "title": "Graph permission model",
+      "release": "R7",
+      "module": "GRAPH-PERM-QUERY",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "GRAPH-TAXO-NODEEDGE-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/graph",
+        "apps/api/src/modules/permission"
+      ],
+      "verification": "graph query injects matter document wall filters before traversal AND leakage zero"
+    },
+    {
+      "id": "GRAPH-MAPPER-RDB-TUW-001",
+      "title": "Client matter document node mapper",
+      "release": "R7",
+      "module": "GRAPH-MAPPER-RDB",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "GRAPH-PERM-QUERY-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/graph"
+      ],
+      "verification": "RDB rows map to graph nodes idempotently AND deleted docs excluded"
+    },
+    {
+      "id": "GRAPH-SYNC-EVENT-TUW-001",
+      "title": "Event based graph sync",
+      "release": "R7",
+      "module": "GRAPH-SYNC-EVENT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "GRAPH-MAPPER-RDB-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/graph",
+        "apps/api/src/modules/audit"
+      ],
+      "verification": "sync job retries and audits state changes AND tenant isolation green"
+    },
+    {
+      "id": "GRAPH-CONSIST-CHECK-TUW-001",
+      "title": "RDB graph consistency checker",
+      "release": "R7",
+      "module": "GRAPH-CONSIST-CHECK",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "GRAPH-SYNC-EVENT-TUW-001"
+      ],
+      "files": [
+        "tools/graph",
+        "tests/integration"
+      ],
+      "verification": "checker reports drift by ids only AND no sensitive values"
+    },
+    {
+      "id": "GRAPH-AI-EVID-TUW-001",
+      "title": "Evidence Pack graph facts enablement",
+      "release": "R7",
+      "module": "GRAPH-AI-EVID",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "GRAPH-CONSIST-CHECK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/api/src/modules/graph"
+      ],
+      "verification": "graph_facts enabled only from authorized graph query AND R6 degraded contract updated"
+    },
+    {
+      "id": "GRAPH-GATE-REPORT-TUW-001",
+      "title": "Knowledge Graph Gate report",
+      "release": "R7",
+      "module": "GRAPH-GATE-REPORT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "GRAPH-AI-EVID-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R7 Gate evidence records permission wall consistency deleted sync and audit green"
+    },
+    {
+      "id": "CONTRACT-CLASSIFY-TUW-001",
+      "title": "Contract type classifier",
+      "release": "R8",
+      "module": "CONTRACT-CLASSIFY",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "apps/api/src/modules/contract-intel",
+        "workers/ingestion"
+      ],
+      "verification": "classifier uses deterministic local rules or R6 approved route AND unsupported types safe"
+    },
+    {
+      "id": "CONTRACT-CLAUSE-EXTRACT-TUW-001",
+      "title": "Clause schema and RLS",
+      "release": "R8",
+      "module": "CONTRACT-CLAUSE-EXTRACT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "CONTRACT-CLASSIFY-TUW-001"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/contract"
+      ],
+      "verification": "clauses and clause_chunks have tenant_id NOT NULL FORCE RLS AND provenance version ids"
+    },
+    {
+      "id": "CONTRACT-CLAUSE-EXTRACT-TUW-002",
+      "title": "Clause extraction parser",
+      "release": "R8",
+      "module": "CONTRACT-CLAUSE-EXTRACT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "CONTRACT-CLAUSE-EXTRACT-TUW-001"
+      ],
+      "files": [
+        "workers/ingestion",
+        "apps/api/src/modules/contract-intel"
+      ],
+      "verification": "parser extracts article paragraph definition boundaries AND original unchanged on failure"
+    },
+    {
+      "id": "CONTRACT-DEFINED-TERMS-TUW-001",
+      "title": "Defined terms extractor",
+      "release": "R8",
+      "module": "CONTRACT-DEFINED-TERMS",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "CONTRACT-CLAUSE-EXTRACT-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/contract-intel"
+      ],
+      "verification": "defined terms link to clauses AND conflict cases flagged not overwritten"
+    },
+    {
+      "id": "CONTRACT-REDLINE-PARSE-TUW-001",
+      "title": "Redline parser",
+      "release": "R8",
+      "module": "CONTRACT-REDLINE-PARSE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "CONTRACT-DEFINED-TERMS-TUW-001"
+      ],
+      "files": [
+        "workers/ingestion",
+        "apps/api/src/modules/contract-intel"
+      ],
+      "verification": "redline parse records additions deletions by reference AND parser failure preserves original"
+    },
+    {
+      "id": "CONTRACT-PLAYBOOK-TUW-001",
+      "title": "Playbook rule schema",
+      "release": "R8",
+      "module": "CONTRACT-PLAYBOOK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "CONTRACT-REDLINE-PARSE-TUW-001"
+      ],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/contract"
+      ],
+      "verification": "playbook_rules tenant scoped RLS AND rule changes audited"
+    },
+    {
+      "id": "CONTRACT-PLAYBOOK-TUW-002",
+      "title": "Rule engine deterministic evaluator",
+      "release": "R8",
+      "module": "CONTRACT-PLAYBOOK",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "CONTRACT-PLAYBOOK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/contract-intel"
+      ],
+      "verification": "same input same finding output AND unknown rule denies or flags unsupported"
+    },
+    {
+      "id": "CONTRACT-CLAUSEBANK-TUW-001",
+      "title": "Clause bank API",
+      "release": "R8",
+      "module": "CONTRACT-CLAUSEBANK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "CONTRACT-PLAYBOOK-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/contract-intel",
+        "apps/web/src"
+      ],
+      "verification": "clause bank enforces matter and tenant permission AND audit green"
+    },
+    {
+      "id": "CONTRACT-AI-EVID-TUW-001",
+      "title": "Evidence Pack rule findings enablement",
+      "release": "R8",
+      "module": "CONTRACT-AI-EVID",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "CONTRACT-CLAUSEBANK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "apps/api/src/modules/contract-intel"
+      ],
+      "verification": "rule_findings enabled only from authorized rule output AND degraded contract updated"
+    },
+    {
+      "id": "CONTRACT-EVAL-GATE-TUW-001",
+      "title": "Contract accuracy eval report",
+      "release": "R8",
+      "module": "CONTRACT-EVAL-GATE",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "CONTRACT-AI-EVID-TUW-001"
+      ],
+      "files": [
+        "tools/evalset",
+        "docs/reports"
+      ],
+      "verification": "clause extraction and rule reproducibility metrics recorded AND threshold pass"
+    },
+    {
+      "id": "CONTRACT-UI-TUW-001",
+      "title": "Contract intelligence UI",
+      "release": "R8",
+      "module": "CONTRACT-UI",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "CONTRACT-EVAL-GATE-TUW-001"
+      ],
+      "files": [
+        "apps/web/src"
+      ],
+      "verification": "UI displays clauses findings and citations without raw hidden data AND route guarded"
+    },
+    {
+      "id": "CONTRACT-GATE-REPORT-TUW-001",
+      "title": "Contract Intelligence Gate report",
+      "release": "R8",
+      "module": "CONTRACT-GATE-REPORT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "CONTRACT-UI-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R8 Gate evidence records extraction accuracy parser safety rule reproducibility and regressions"
+    },
+    {
+      "id": "DD-RFI-MGMT-TUW-001",
+      "title": "RFI schema and RLS",
+      "release": "R9",
+      "module": "DD-RFI-MGMT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/dd"
+      ],
+      "verification": "RFI tables tenant scoped RLS AND no outside access path"
+    },
+    {
+      "id": "DD-RFI-MGMT-TUW-002",
+      "title": "RFI API",
+      "release": "R9",
+      "module": "DD-RFI-MGMT",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DD-RFI-MGMT-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/dd",
+        "apps/web/src"
+      ],
+      "verification": "RFI create assign answer requires matter permission AND audited"
+    },
+    {
+      "id": "DD-ISSUE-RISK-TUW-001",
+      "title": "DD issue schema",
+      "release": "R9",
+      "module": "DD-ISSUE-RISK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DD-RFI-MGMT-TUW-002"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/dd"
+      ],
+      "verification": "issues table tenant scoped RLS AND document links permission checked"
+    },
+    {
+      "id": "DD-ISSUE-RISK-TUW-002",
+      "title": "Risk register",
+      "release": "R9",
+      "module": "DD-ISSUE-RISK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DD-ISSUE-RISK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/dd",
+        "apps/web/src"
+      ],
+      "verification": "risk register supports severity status owner AND audit green"
+    },
+    {
+      "id": "DD-DATAROOM-MAP-TUW-001",
+      "title": "Internal data room mapping",
+      "release": "R9",
+      "module": "DD-DATAROOM-MAP",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "DD-ISSUE-RISK-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/dd",
+        "apps/web/src"
+      ],
+      "verification": "mapping is internal only AND no link issue user invite or outside role flow exists"
+    },
+    {
+      "id": "DD-TRACE-TUW-001",
+      "title": "RFI document issue traceability",
+      "release": "R9",
+      "module": "DD-TRACE",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "DD-DATAROOM-MAP-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/dd"
+      ],
+      "verification": "trace query links RFI document issue by ids AND permission scoped"
+    },
+    {
+      "id": "DD-UI-TUW-001",
+      "title": "DD workspace UI",
+      "release": "R9",
+      "module": "DD-UI",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DD-TRACE-TUW-001"
+      ],
+      "files": [
+        "apps/web/src"
+      ],
+      "verification": "DD UI route guarded AND hidden matter data absent for non members"
+    },
+    {
+      "id": "DD-GATE-REPORT-TUW-001",
+      "title": "DD Vault Gate report",
+      "release": "R9",
+      "module": "DD-GATE-REPORT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "DD-UI-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R9 Gate evidence records traceability internal only proof permission and audit regressions"
+    },
+    {
+      "id": "LIT-EVIDENCE-TUW-001",
+      "title": "Evidence item schema",
+      "release": "R10",
+      "module": "LIT-EVIDENCE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/litigation"
+      ],
+      "verification": "evidence tables tenant scoped RLS AND document links permission checked"
+    },
+    {
+      "id": "LIT-EVIDENCE-TUW-002",
+      "title": "Evidence intake API",
+      "release": "R10",
+      "module": "LIT-EVIDENCE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "LIT-EVIDENCE-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/litigation"
+      ],
+      "verification": "evidence intake requires matter permission AND original document immutable"
+    },
+    {
+      "id": "LIT-FACTLEDGER-TUW-001",
+      "title": "Fact ledger schema",
+      "release": "R10",
+      "module": "LIT-FACTLEDGER",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "LIT-EVIDENCE-TUW-002"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/litigation"
+      ],
+      "verification": "facts reference evidence ids AND audit append only"
+    },
+    {
+      "id": "LIT-FACTLEDGER-TUW-002",
+      "title": "Fact ledger API",
+      "release": "R10",
+      "module": "LIT-FACTLEDGER",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "LIT-FACTLEDGER-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/litigation",
+        "apps/web/src"
+      ],
+      "verification": "fact CRUD requires matter permission AND changes audited"
+    },
+    {
+      "id": "LIT-ISSUETREE-TUW-001",
+      "title": "Issue tree",
+      "release": "R10",
+      "module": "LIT-ISSUETREE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "LIT-FACTLEDGER-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/litigation",
+        "apps/web/src"
+      ],
+      "verification": "issue tree nodes permission scoped AND source evidence links rechecked"
+    },
+    {
+      "id": "LIT-PLEADING-TUW-001",
+      "title": "Pleading manager",
+      "release": "R10",
+      "module": "LIT-PLEADING",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "LIT-ISSUETREE-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/litigation",
+        "apps/web/src"
+      ],
+      "verification": "pleadings managed as internal documents AND no efiling or outside transmission"
+    },
+    {
+      "id": "LIT-UI-TUW-001",
+      "title": "Litigation workspace UI",
+      "release": "R10",
+      "module": "LIT-UI",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "LIT-PLEADING-TUW-001"
+      ],
+      "files": [
+        "apps/web/src"
+      ],
+      "verification": "UI shows evidence facts issues pleadings with guarded routes"
+    },
+    {
+      "id": "LIT-GATE-REPORT-TUW-001",
+      "title": "Litigation Vault Gate report",
+      "release": "R10",
+      "module": "LIT-GATE-REPORT",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "LIT-UI-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R10 Gate evidence records evidence fact issue pleading permission and audit regressions"
+    },
+    {
+      "id": "EXT-USER-TUW-001",
+      "title": "External user activation",
+      "release": "R11",
+      "module": "EXT-USER",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/external"
+      ],
+      "verification": "external_user login allowed only for portal scoped sessions AND tenant isolation green"
+    },
+    {
+      "id": "EXT-WORKSPACE-TUW-001",
+      "title": "External workspace schema",
+      "release": "R11",
+      "module": "EXT-WORKSPACE",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "EXT-USER-TUW-001"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/external"
+      ],
+      "verification": "external workspaces tenant scoped RLS AND matter scoped permission enforced"
+    },
+    {
+      "id": "EXT-LINK-TUW-001",
+      "title": "Secure link issue and revoke",
+      "release": "R11",
+      "module": "EXT-LINK",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "EXT-WORKSPACE-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/external",
+        "packages/shared/src/external"
+      ],
+      "verification": "secure links expire revoke and bind to subject AND unauthorized access denied"
+    },
+    {
+      "id": "EXT-WATERMARK-TUW-001",
+      "title": "Watermark rendering",
+      "release": "R11",
+      "module": "EXT-WATERMARK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EXT-LINK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/external",
+        "apps/api/src/modules/preview"
+      ],
+      "verification": "download and preview watermarks include bounded reference metadata AND no raw secret"
+    },
+    {
+      "id": "EXT-NDA-TUW-001",
+      "title": "NDA gate",
+      "release": "R11",
+      "module": "EXT-NDA",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "EXT-WATERMARK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/external",
+        "apps/web/src"
+      ],
+      "verification": "pre access NDA acceptance required AND declined users blocked"
+    },
+    {
+      "id": "EXT-DLP-WARN-TUW-001",
+      "title": "External DLP warning enforcement",
+      "release": "R11",
+      "module": "EXT-DLP-WARN",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "EXT-NDA-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/external",
+        "apps/api/src/modules/dlp"
+      ],
+      "verification": "DLP warning policy enforced before link grant AND override audited"
+    },
+    {
+      "id": "EXT-QA-TUW-001",
+      "title": "Portal Q and A",
+      "release": "R11",
+      "module": "EXT-QA",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EXT-DLP-WARN-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/external",
+        "apps/web/src"
+      ],
+      "verification": "Q and A bound to workspace permission AND all messages audited"
+    },
+    {
+      "id": "EXT-AUDIT-TUW-001",
+      "title": "External audit coverage",
+      "release": "R11",
+      "module": "EXT-AUDIT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "EXT-QA-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "view download link issue revoke NDA and Q and A events audited"
+    },
+    {
+      "id": "EXT-UI-TUW-001",
+      "title": "External portal UI",
+      "release": "R11",
+      "module": "EXT-UI",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "EXT-AUDIT-TUW-001"
+      ],
+      "files": [
+        "apps/web/src"
+      ],
+      "verification": "portal route isolated from internal app shell AND session scope enforced"
+    },
+    {
+      "id": "EXT-GATE-REPORT-TUW-001",
+      "title": "External Sharing Critical Gate report",
+      "release": "R11",
+      "module": "EXT-GATE-REPORT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "EXT-UI-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R11 Gate evidence records expiry revoke watermark audit DLP NDA permission and tenant regressions"
+    },
+    {
+      "id": "RECORD-RETENTION-TUW-001",
+      "title": "Retention policy schema",
+      "release": "R12",
+      "module": "RECORD-RETENTION",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "db/migrations",
+        "packages/shared/src/records"
+      ],
+      "verification": "retention_policies tenant scoped RLS AND default indefinite retention preserved"
+    },
+    {
+      "id": "RECORD-HOLD-TUW-001",
+      "title": "Legal hold table workflow",
+      "release": "R12",
+      "module": "RECORD-HOLD",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "RECORD-RETENTION-TUW-001"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/records"
+      ],
+      "verification": "legal_holds table syncs R2 flags AND create release audited"
+    },
+    {
+      "id": "RECORD-ARCHIVE-TUW-001",
+      "title": "Archive workflow",
+      "release": "R12",
+      "module": "RECORD-ARCHIVE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "RECORD-HOLD-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/records",
+        "apps/web/src"
+      ],
+      "verification": "archive transition preserves immutable objects AND permission checked"
+    },
+    {
+      "id": "RECORD-DISPOSAL-TUW-001",
+      "title": "Disposal request workflow",
+      "release": "R12",
+      "module": "RECORD-DISPOSAL",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "RECORD-ARCHIVE-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/records"
+      ],
+      "verification": "disposal requires no active hold and approval state AND bypass denied"
+    },
+    {
+      "id": "RECORD-DISPOSAL-TUW-002",
+      "title": "Disposal certificate",
+      "release": "R12",
+      "module": "RECORD-DISPOSAL",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "RECORD-DISPOSAL-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/records",
+        "docs/reports"
+      ],
+      "verification": "certificate records ids hashes approver and time AND no body"
+    },
+    {
+      "id": "RECORD-DISPOSAL-TUW-003",
+      "title": "Controlled hard delete executor",
+      "release": "R12",
+      "module": "RECORD-DISPOSAL",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "RECORD-DISPOSAL-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/records",
+        "db/migrations"
+      ],
+      "verification": "hard delete exists only behind approved disposal executor AND hold blocks both soft and hard delete"
+    },
+    {
+      "id": "RECORD-AUDIT-TUW-001",
+      "title": "Records audit coverage",
+      "release": "R12",
+      "module": "RECORD-AUDIT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "RECORD-DISPOSAL-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "tests/integration/audit-coverage"
+      ],
+      "verification": "RETENTION_POLICY_CHANGED LEGAL_HOLD_APPLIED DISPOSAL_EXECUTED coverage 100 percent"
+    },
+    {
+      "id": "RECORD-GATE-REPORT-TUW-001",
+      "title": "Records Governance Gate report",
+      "release": "R12",
+      "module": "RECORD-GATE-REPORT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "RECORD-AUDIT-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R12 Gate evidence records hold block disposal bypass zero and audit regressions"
+    },
+    {
+      "id": "ENT-SSO-SAML-TUW-001",
+      "title": "SSO SAML skeleton",
+      "release": "R13",
+      "module": "ENT-SSO-SAML",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "apps/api/src/modules/auth",
+        "apps/web/src"
+      ],
+      "verification": "SAML config is tenant scoped and disabled by default AND password login regression green"
+    },
+    {
+      "id": "ENT-SSO-SAML-TUW-002",
+      "title": "SSO session mapping",
+      "release": "R13",
+      "module": "ENT-SSO-SAML",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "ENT-SSO-SAML-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/auth"
+      ],
+      "verification": "SAML assertion maps to existing user only AND unknown tenant or role denies"
+    },
+    {
+      "id": "ENT-BYOK-TUW-001",
+      "title": "BYOK key registry",
+      "release": "R13",
+      "module": "ENT-BYOK",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "ENT-SSO-SAML-TUW-002"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/security"
+      ],
+      "verification": "key registry tenant scoped RLS AND secrets not committed or logged"
+    },
+    {
+      "id": "ENT-BYOK-TUW-002",
+      "title": "BYOK encryption adapter",
+      "release": "R13",
+      "module": "ENT-BYOK",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "ENT-BYOK-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/storage"
+      ],
+      "verification": "adapter interface supports key id references AND failure blocks writes"
+    },
+    {
+      "id": "ENT-SIEM-TUW-001",
+      "title": "SIEM export adapter",
+      "release": "R13",
+      "module": "ENT-SIEM",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "ENT-BYOK-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/audit",
+        "infra"
+      ],
+      "verification": "SIEM export sends whitelisted audit fields only AND retry audit references"
+    },
+    {
+      "id": "ENT-BACKUPDR-TUW-001",
+      "title": "Backup and restore drills",
+      "release": "R13",
+      "module": "ENT-BACKUPDR",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "ENT-SIEM-TUW-001"
+      ],
+      "files": [
+        "infra",
+        "tools/db",
+        "docs/reports"
+      ],
+      "verification": "restore drill proves RLS audit triggers and migrations remain intact"
+    },
+    {
+      "id": "ENT-COMPLIANCE-TUW-001",
+      "title": "Compliance readiness report",
+      "release": "R13",
+      "module": "ENT-COMPLIANCE",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "ENT-BACKUPDR-TUW-001"
+      ],
+      "files": [
+        "docs/reports"
+      ],
+      "verification": "SOC2 ISO readiness evidence maps controls to tests AND gaps tracked"
+    },
+    {
+      "id": "ENT-GATE-REPORT-TUW-001",
+      "title": "Enterprise SaaS Readiness Gate report",
+      "release": "R13",
+      "module": "ENT-GATE-REPORT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "ENT-COMPLIANCE-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R13 Gate evidence records SSO BYOK SIEM DR compliance and regressions"
+    },
+    {
+      "id": "SCALE-PERF-TUW-001",
+      "title": "API performance baseline",
+      "release": "R14",
+      "module": "SCALE-PERF",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "tools/perf",
+        "docs/reports"
+      ],
+      "verification": "key API p95 baseline measured under synthetic load AND thresholds recorded"
+    },
+    {
+      "id": "SCALE-PERF-TUW-002",
+      "title": "Search and retrieval performance",
+      "release": "R14",
+      "module": "SCALE-PERF",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "SCALE-PERF-TUW-001"
+      ],
+      "files": [
+        "tools/perf",
+        "apps/api/src/modules/search"
+      ],
+      "verification": "search retrieval p95 measured with permission filters enabled AND no post filter"
+    },
+    {
+      "id": "SCALE-COST-TUW-001",
+      "title": "Cost telemetry",
+      "release": "R14",
+      "module": "SCALE-COST",
+      "risk": "M",
+      "size": "S",
+      "depends_on": [
+        "SCALE-PERF-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/common/metrics",
+        "docs/reports"
+      ],
+      "verification": "storage queue model and compute cost metrics recorded without sensitive labels"
+    },
+    {
+      "id": "SCALE-EVAL-TUW-001",
+      "title": "Large eval pipeline",
+      "release": "R14",
+      "module": "SCALE-EVAL",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "SCALE-COST-TUW-001"
+      ],
+      "files": [
+        "tools/evalset",
+        "docs/reports"
+      ],
+      "verification": "eval pipeline scales to approved corpus subset AND no real data committed"
+    },
+    {
+      "id": "SCALE-AI-TUW-001",
+      "title": "Advanced AI approval gate",
+      "release": "R14",
+      "module": "SCALE-AI",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SCALE-EVAL-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/ai",
+        "docs/adr"
+      ],
+      "verification": "non local model remains blocked unless approval gate evidence exists AND default route unchanged"
+    },
+    {
+      "id": "SCALE-MIGRATION-TUW-001",
+      "title": "Tenant migration tooling",
+      "release": "R14",
+      "module": "SCALE-MIGRATION",
+      "risk": "C",
+      "size": "M",
+      "depends_on": [
+        "SCALE-AI-TUW-001"
+      ],
+      "files": [
+        "tools/migration",
+        "apps/api/src/modules/tenant"
+      ],
+      "verification": "migration exports import tenant scoped data with hashes AND cross tenant restore blocked"
+    },
+    {
+      "id": "SCALE-LEARNING-TUW-001",
+      "title": "Learning ledger automation",
+      "release": "R14",
+      "module": "SCALE-LEARNING",
+      "risk": "H",
+      "size": "S",
+      "depends_on": [
+        "SCALE-MIGRATION-TUW-001"
+      ],
+      "files": [
+        "tools/ledger",
+        "docs/ledger"
+      ],
+      "verification": "PACK and Gate lessons summarized without sensitive text AND append only"
+    },
+    {
+      "id": "SCALE-GATE-REPORT-TUW-001",
+      "title": "Scale and Learning Gate report",
+      "release": "R14",
+      "module": "SCALE-GATE-REPORT",
+      "risk": "C",
+      "size": "S",
+      "depends_on": [
+        "SCALE-LEARNING-TUW-001"
+      ],
+      "files": [
+        "docs/ledger/gates"
+      ],
+      "verification": "R14 Gate evidence records performance cost eval migration learning blockers zero and full regression green"
+    }
+  ]
+}

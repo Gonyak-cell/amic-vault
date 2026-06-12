@@ -12,7 +12,7 @@
     "typecheck": "turbo run typecheck --filter='./apps/*' --filter='./packages/*'",
     "test": "turbo run test --filter='./apps/*' --filter='./packages/*'",
     "build": "turbo run build --filter='./apps/*' --filter='./packages/*'",
-    "backlog:validate": "node tools/backlog/validate.mjs docs/package/codex/data/backlog_r0_r3.csv",
+    "backlog:validate": "node tools/backlog/validate-all.mjs",
     "docs:frozen": "node infra/ci/scripts/check-docs-package-frozen.mjs",
     "db:migrate": "node tools/db/migrate.mjs up",
     "db:rollback": "node tools/db/migrate.mjs down 999",
