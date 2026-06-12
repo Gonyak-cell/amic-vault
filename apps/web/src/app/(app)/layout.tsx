@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {
   ClipboardList,
   Archive,
+  Building2,
   FileCog,
   FileSearch,
   FolderKanban,
@@ -44,6 +45,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink href="/records" label="Records">
                 <Archive className="h-4 w-4" />
+              </NavLink>
+              <NavLink href="/enterprise" label="Enterprise">
+                <Building2 className="h-4 w-4" />
               </NavLink>
               <NavLink href="/audit" label="Audit">
                 <ScrollText className="h-4 w-4" />

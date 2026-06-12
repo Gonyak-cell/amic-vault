@@ -18,6 +18,7 @@ import { DdModule } from './modules/dd/dd.module';
 import { LitigationModule } from './modules/litigation/litigation.module';
 import { ExternalModule } from './modules/external/external.module';
 import { RecordsModule } from './modules/records/records.module';
+import { EnterpriseModule } from './modules/enterprise/enterprise.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
@@ -59,6 +60,7 @@ class AppController {
     LitigationModule,
     ExternalModule,
     RecordsModule,
+    EnterpriseModule,
     HealthModule,
     ClientModule,
     EthicalWallModule,
