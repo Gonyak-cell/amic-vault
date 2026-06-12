@@ -18,6 +18,8 @@ describe('audit shared types', () => {
         'DOCUMENT_TEXT_EXTRACTED',
         'SEARCH_REINDEX_REQUESTED',
         'SEARCH_EXECUTED',
+        'DLP_SCAN_COMPLETED',
+        'DLP_FINDING_RECORDED',
       ]),
     );
   });

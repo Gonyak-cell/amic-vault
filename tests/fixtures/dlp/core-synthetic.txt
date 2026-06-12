@@ -1,0 +1,6 @@
+Synthetic DLP fixture.
+
+Resident marker: 000000-0000000
+Bank marker: 000-000000-00-000
+Email marker: person@example.test
+Phone marker: 010-0000-0000
