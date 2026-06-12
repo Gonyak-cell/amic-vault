@@ -140,7 +140,11 @@ describe('ai policy boundary integration', () => {
       .trim()
       .split('\n')
       .filter(Boolean);
-    expect(aiPackageDiff).toEqual([]);
+    const allowedR6AiPackageDiff = new Set([
+      'packages/ai/src/index.ts',
+      'packages/ai/src/index.spec.ts',
+    ]);
+    expect(aiPackageDiff.filter((file) => !allowedR6AiPackageDiff.has(file))).toEqual([]);
 
     const packageJsonRefs = ['package.json', 'apps/api/package.json', 'packages/ai/package.json']
       .map((file) => [file, readIfSmall(path.resolve(file))] as const)

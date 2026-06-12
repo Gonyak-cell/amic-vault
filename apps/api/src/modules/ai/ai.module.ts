@@ -18,6 +18,8 @@ import { AiQuestionClassifier } from './retrieval/question-classifier';
 import { AiRedactionPreprocessor } from './retrieval/redaction-preprocessor';
 import { AiDeterministicReranker } from './retrieval/reranker';
 import { AiRetrievalOrchestratorService } from './retrieval/retrieval-orchestrator.service';
+import { AiModelRoutingService } from './routing/model-routing.service';
+import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
 
 @Module({
   imports: [AiPolicyModule, AuditModule, DlpModule, PermissionModule, SearchModule],
@@ -35,6 +37,8 @@ import { AiRetrievalOrchestratorService } from './retrieval/retrieval-orchestrat
     AiRedactionPreprocessor,
     AiRetrievalOrchestratorService,
     AiSessionLogService,
+    AiModelRoutingService,
+    AiTaskRiskClassifier,
   ],
   exports: [
     AiCitationMapperService,
@@ -43,6 +47,8 @@ import { AiRetrievalOrchestratorService } from './retrieval/retrieval-orchestrat
     AiEvidencePackBuilder,
     AiRetrievalOrchestratorService,
     AiSessionLogService,
+    AiModelRoutingService,
+    AiTaskRiskClassifier,
   ],
 })
 export class AiModule {}

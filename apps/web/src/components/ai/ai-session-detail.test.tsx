@@ -24,8 +24,8 @@ describe('AiSessionDetail', () => {
             responseLength: 24,
             responseTokenCount: 6,
             latencyMs: 10,
-            escalationRequired: false,
-            blockedReason: null,
+            escalationRequired: true,
+            blockedReason: 'unsupported_scope',
             hiddenSourceCount: 1,
             createdAt: '2026-06-12T00:00:00.000Z',
             updatedAt: '2026-06-12T00:00:00.000Z',
@@ -49,6 +49,8 @@ describe('AiSessionDetail', () => {
 
     expect(html).toContain(hash);
     expect(html).toContain('hidden: 1');
+    expect(html).toContain('Review required');
+    expect(html).toContain('unsupported_scope');
     expect(html).not.toContain('raw prompt');
     expect(html).not.toContain('raw response');
   });
