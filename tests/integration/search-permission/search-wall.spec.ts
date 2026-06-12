@@ -7,6 +7,7 @@ import { AppModule } from '../../../apps/api/src/app.module';
 import { configureApp } from '../../../apps/api/src/main';
 import { tenantAlphaId } from '../helpers/db';
 import {
+  addExplicitPermission,
   addMatterMember,
   addWallMembership,
   alphaMemberUserId,
@@ -22,14 +23,16 @@ async function insertWallSearchRow(input: {
   title: string;
   token: string;
   index: number;
-}): Promise<void> {
+  documentId?: string;
+}): Promise<string> {
+  const documentId = input.documentId ?? randomUUID();
   await insertSearchIndexedRow(
     {
       tenantId: tenantAlphaId,
       ownerUserId: alphaOwnerUserId,
       clientId: randomUUID(),
       matterId: input.matterId,
-      documentId: randomUUID(),
+      documentId,
       versionId: randomUUID(),
       title: input.title,
       contentText: `${input.token} wall search text`,
@@ -40,6 +43,7 @@ async function insertWallSearchRow(input: {
     },
     input.index,
   );
+  return documentId;
 }
 
 describe('search ethical wall filter integration', () => {
@@ -147,5 +151,36 @@ describe('search ethical wall filter integration', () => {
     expect(ownerResponse.total).toBe(1);
     expect(resultTitles(ownerResponse)).toEqual(['SP Wall Insider Visible']);
     expect(memberResponse.total).toBe(0);
+  });
+
+  it('lets wall exclusion override explicit document allow at query time', async () => {
+    const matterId = randomUUID();
+    const token = `explicitwallgate${randomUUID().replace(/-/g, '').slice(0, 8)}`;
+    const documentId = await insertWallSearchRow({
+      matterId,
+      title: 'SP Wall Explicit Allow Hidden',
+      token,
+      index: 304,
+    });
+    await addMatterMember({ tenantId: tenantAlphaId, matterId, userId: alphaOwnerUserId });
+    await addExplicitPermission({
+      tenantId: tenantAlphaId,
+      resourceType: 'document',
+      resourceId: documentId,
+      subjectId: alphaOwnerUserId,
+      effect: 'ALLOW',
+    });
+    const wallId = await createEthicalWall({ tenantId: tenantAlphaId, matterId });
+    await addWallMembership({
+      tenantId: tenantAlphaId,
+      wallId,
+      subjectId: alphaOwnerUserId,
+      membershipType: 'excluded',
+    });
+
+    const response = await postSearch(baseUrl, ownerCookie, { query: token });
+
+    expect(response.total).toBe(0);
+    expect(response.results).toEqual([]);
   });
 });

@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Pool } from 'pg';
 import type {
   CreateEthicalWallDto,
@@ -82,6 +88,19 @@ function validationFailed(): BadRequestException {
 
 function notFoundDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
+}
+
+function permissionDenied(reason?: string): ForbiddenException {
+  return new ForbiddenException({
+    code: 'PERMISSION_DENIED',
+    ...(reason ? { reason } : {}),
+  });
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+    value,
+  );
 }
 
 @Injectable()
@@ -177,6 +196,31 @@ export class EthicalWallService {
     return result;
   }
 
+  async requestBreakGlassOverride(actorUserId: string, wallId: string): Promise<never> {
+    if (!isUuid(wallId)) throw validationFailed();
+    const context = this.tenantContext.require();
+    const wall = await this.findWallById(context.tenantId, wallId);
+
+    await this.auditService.log({
+      tenantId: context.tenantId,
+      actorId: actorUserId,
+      action: 'ACCESS_DENIED',
+      targetType: 'ethical_wall',
+      targetId: wallId,
+      matterId: wall?.matter_id ?? null,
+      result: 'denied',
+      metadata: {
+        scope_type: 'break_glass_attempt',
+        scope_id: wallId,
+        reason_code: 'dual_approval_required',
+        wall_id: wallId,
+        ...(wall ? { matter_id: wall.matter_id } : {}),
+      },
+    });
+
+    throw permissionDenied('DUAL_APPROVAL_REQUIRED');
+  }
+
   async isUserExcludedFromMatter(
     tenantId: TenantId,
     matterId: string,
@@ -225,6 +269,21 @@ export class EthicalWallService {
     );
     if ((anyTenantResult.rowCount ?? 0) > 0) throw notFoundDenied();
     throw validationFailed();
+  }
+
+  protected async findWallById(tenantId: TenantId, wallId: string): Promise<EthicalWallRow | null> {
+    const result = await getPool().query(
+      `
+        SELECT wall_id, tenant_id, matter_id, wall_name, reason, status, created_by,
+          created_at, released_by, released_at
+        FROM ethical_walls
+        WHERE tenant_id = $1
+          AND wall_id = $2
+        LIMIT 1
+      `,
+      [tenantId, wallId],
+    );
+    return (result.rows[0] as EthicalWallRow | undefined) ?? null;
   }
 
   private async assertMemberUsersExist(

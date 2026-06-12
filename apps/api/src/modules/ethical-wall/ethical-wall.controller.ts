@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Param,
   Inject,
   Post,
   Req,
@@ -47,5 +48,15 @@ export class EthicalWallController {
   create(@Req() request: RequestWithSession, @Body() body: unknown) {
     const input = parseOrValidation(() => createEthicalWallSchema.parse(body));
     return this.ethicalWallService.create(sessionUserId(request), input);
+  }
+
+  @Post(':wallId/break-glass')
+  @RequireRoles('security_admin', 'matter_owner')
+  @UseGuards(RequireRolesGuard)
+  requestBreakGlassOverride(
+    @Req() request: RequestWithSession,
+    @Param('wallId') wallId: string,
+  ) {
+    return this.ethicalWallService.requestBreakGlassOverride(sessionUserId(request), wallId);
   }
 }

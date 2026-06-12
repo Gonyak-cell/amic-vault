@@ -1,6 +1,9 @@
 Synthetic DLP fixture.
 
 Resident marker: 000000-0000000
+Alien registration marker: 900101-5000000
 Bank marker: 000-000000-00-000
+Passport marker: M12345678
+Payment card marker: 4111111111111111
 Email marker: person@example.test
 Phone marker: 010-0000-0000

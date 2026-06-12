@@ -39,6 +39,8 @@ export const r3SearchAuditActions = ['SEARCH_REINDEX_REQUESTED', 'SEARCH_EXECUTE
 
 export const r4DlpAuditActions = ['DLP_SCAN_COMPLETED', 'DLP_FINDING_RECORDED'] as const;
 
+export const r5DlpAuditActions = ['DLP_EGRESS_BLOCKED'] as const;
+
 export const r4EmailAuditActions = [
   'EMAIL_IMPORTED',
   'EMAIL_DUPLICATE_BLOCKED',
@@ -52,6 +54,7 @@ export const auditActions = [
   ...r2DocumentAuditActions,
   ...r3SearchAuditActions,
   ...r4DlpAuditActions,
+  ...r5DlpAuditActions,
   ...r4EmailAuditActions,
 ] as const;
 
@@ -59,6 +62,7 @@ export type R1AuditAction = (typeof r1AuditActions)[number];
 export type R2DocumentAuditAction = (typeof r2DocumentAuditActions)[number];
 export type R3SearchAuditAction = (typeof r3SearchAuditActions)[number];
 export type R4DlpAuditAction = (typeof r4DlpAuditActions)[number];
+export type R5DlpAuditAction = (typeof r5DlpAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 
