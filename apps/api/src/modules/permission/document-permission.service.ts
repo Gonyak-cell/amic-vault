@@ -7,12 +7,18 @@ import type {
   DocumentStatus,
   MatterMemberAccessLevel,
   MatterMemberRole,
+  PermissionAttributeContext,
   PermissionContext,
   PermissionDecision,
   TenantId,
   UserRole,
 } from '@amic-vault/shared';
-import { allowPermission, denyPermission, isUserRole } from '@amic-vault/shared';
+import {
+  allowPermission,
+  denyPermission,
+  evaluatePermissionCondition,
+  isUserRole,
+} from '@amic-vault/shared';
 import {
   effectiveConfidentialityLevel,
   requiresDownloadReason,
@@ -41,14 +47,18 @@ export interface DocumentActorSnapshot {
   userId: string;
   role: UserRole;
   status: string;
+  practiceGroup?: string | null;
 }
 
 export interface DocumentPermissionTarget {
   documentId: string;
   tenantId: TenantId;
   matterId: string;
+  clientId?: string | null;
   status: DocumentStatus;
   matterStatus: string;
+  matterPracticeGroup?: string | null;
+  documentType?: string | null;
   confidentialityLevel: DocumentConfidentialityLevel;
   privilegeStatus: DocumentPrivilegeStatus;
 }
@@ -61,6 +71,8 @@ export interface DocumentMatterMemberSnapshot {
 export interface ExplicitDocumentPermissionRow {
   effect: 'ALLOW' | 'DENY';
   condition_json: Record<string, unknown> | null;
+  permissionId?: string;
+  priority?: number;
 }
 
 export interface DocumentWallDecision {
@@ -78,10 +90,6 @@ function documentAuditTarget(
     targetType: 'document',
     targetId: documentId,
   };
-}
-
-function hasUnsupportedCondition(row: ExplicitDocumentPermissionRow): boolean {
-  return row.condition_json !== null && Object.keys(row.condition_json).length > 0;
 }
 
 @Injectable()
@@ -144,7 +152,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
 
     const explicit = await this.evaluateExplicitDocumentPermissions(
       ctx.tenantId as TenantId,
-      documentId,
+      target,
       actor,
       action,
     );
@@ -183,9 +191,10 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       user_id: string;
       role: string;
       status: string;
+      practice_group: string | null;
     }>(
       `
-        SELECT user_id, role, status
+        SELECT user_id, role, status, practice_group
         FROM users
         WHERE tenant_id = $1
           AND user_id = $2
@@ -195,7 +204,12 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     );
     const row = result.rows[0];
     if (!row || !isUserRole(row.role)) return null;
-    return { userId: row.user_id, role: row.role, status: row.status };
+    return {
+      userId: row.user_id,
+      role: row.role,
+      status: row.status,
+      practiceGroup: row.practice_group,
+    };
   }
 
   protected async findDocumentTarget(
@@ -206,14 +220,18 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       document_id: string;
       tenant_id: TenantId;
       matter_id: string;
+      client_id: string | null;
       status: DocumentStatus;
       matter_status: string;
+      matter_practice_group: string | null;
+      document_type: string | null;
       confidentiality_level: DocumentConfidentialityLevel;
       privilege_status: DocumentPrivilegeStatus;
     }>(
       `
-        SELECT d.document_id, d.tenant_id, d.matter_id, d.status,
-          m.status AS matter_status, d.confidentiality_level, d.privilege_status
+        SELECT d.document_id, d.tenant_id, d.matter_id, m.client_id, d.status,
+          m.status AS matter_status, m.practice_group AS matter_practice_group,
+          d.document_type, d.confidentiality_level, d.privilege_status
         FROM documents d
         JOIN matters m
           ON m.tenant_id = d.tenant_id
@@ -230,8 +248,11 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
           documentId: row.document_id,
           tenantId: row.tenant_id,
           matterId: row.matter_id,
+          clientId: row.client_id,
           status: row.status,
           matterStatus: row.matter_status,
+          matterPracticeGroup: row.matter_practice_group,
+          documentType: row.document_type,
           confidentialityLevel: row.confidentiality_level,
           privilegeStatus: row.privilege_status,
         }
@@ -358,7 +379,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
   ): Promise<ExplicitDocumentPermissionRow[]> {
     const result = await getPool().query<ExplicitDocumentPermissionRow>(
       `
-        SELECT effect, condition_json
+        SELECT permission_id AS "permissionId", effect, condition_json, priority
         FROM permissions p
         WHERE p.tenant_id = $1
           AND p.resource_type = 'document'
@@ -379,7 +400,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
               )
             )
           )
-        ORDER BY priority ASC, effect DESC
+        ORDER BY priority ASC, CASE WHEN effect = 'DENY' THEN 0 ELSE 1 END
       `,
       [tenantId, documentId, actor.userId, actor.role, action],
     );
@@ -388,20 +409,58 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
 
   private async evaluateExplicitDocumentPermissions(
     tenantId: TenantId,
-    documentId: string,
+    target: DocumentPermissionTarget,
     actor: DocumentActorSnapshot,
     action: DocumentPermissionAction,
   ): Promise<PermissionDecision> {
-    const rows = await this.findExplicitDocumentPermissionRows(tenantId, documentId, actor, action);
-    if (rows.some((row) => row.effect === 'DENY')) {
-      return denyPermission('PERMISSION_DENIED', ['permissions:explicit_deny']);
+    const rows = await this.findExplicitDocumentPermissionRows(
+      tenantId,
+      target.documentId,
+      actor,
+      action,
+    );
+    const context = documentConditionContext(actor, target);
+    let matchedAllow = false;
+
+    for (const row of rows) {
+      const evaluation = evaluatePermissionCondition(row.condition_json, context);
+      if (evaluation.outcome === 'invalid') {
+        return denyPermission('PERMISSION_DENIED', [
+          `permissions:condition_invalid:${evaluation.reason ?? 'unknown'}`,
+        ]);
+      }
+      if (evaluation.outcome === 'no_match') continue;
+      if (row.effect === 'DENY') {
+        return denyPermission('PERMISSION_DENIED', ['permissions:explicit_deny']);
+      }
+      matchedAllow = true;
     }
-    if (rows.some((row) => row.effect === 'ALLOW' && !hasUnsupportedCondition(row))) {
+    if (matchedAllow) {
       return allowPermission(['permissions:explicit_allow']);
-    }
-    if (rows.some((row) => row.effect === 'ALLOW' && hasUnsupportedCondition(row))) {
-      return allowPermission(['permissions:allow_condition_ignored']);
     }
     return allowPermission(['permissions:none']);
   }
+}
+
+function documentConditionContext(
+  actor: DocumentActorSnapshot,
+  target: DocumentPermissionTarget,
+): PermissionAttributeContext {
+  return {
+    actor: {
+      role: actor.role,
+      practiceGroup: actor.practiceGroup ?? null,
+    },
+    matter: {
+      status: target.matterStatus,
+      practiceGroup: target.matterPracticeGroup ?? null,
+      clientId: target.clientId ?? null,
+    },
+    document: {
+      status: target.status,
+      documentType: target.documentType ?? null,
+      confidentialityLevel: target.confidentialityLevel,
+      privilegeStatus: target.privilegeStatus,
+    },
+  };
 }

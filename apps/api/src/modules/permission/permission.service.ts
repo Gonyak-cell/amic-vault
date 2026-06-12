@@ -4,6 +4,7 @@ import { isMatterMutationBlockedState, isMatterState } from '@amic-vault/domain'
 import type {
   MatterMemberAccessLevel,
   MatterMemberRole,
+  PermissionAttributeContext,
   PermissionDecision,
   PermissionContext,
   RolePermissionAction,
@@ -13,6 +14,7 @@ import type {
 import {
   allowPermission,
   denyPermission,
+  evaluatePermissionCondition,
   isUserRole,
   rolePermissionDecision,
 } from '@amic-vault/shared';
@@ -39,12 +41,15 @@ export interface ActorSnapshot {
   userId: string;
   role: UserRole;
   status: string;
+  practiceGroup?: string | null;
 }
 
 export interface MatterSnapshot {
   matterId: string;
   tenantId: TenantId;
   status: string;
+  clientId?: string | null;
+  practiceGroup?: string | null;
 }
 
 export interface MatterMemberSnapshot {
@@ -55,6 +60,8 @@ export interface MatterMemberSnapshot {
 export interface ExplicitPermissionRow {
   effect: 'ALLOW' | 'DENY';
   condition_json: Record<string, unknown> | null;
+  permissionId?: string;
+  priority?: number;
 }
 
 type MatterPermissionAction = 'read' | 'edit' | 'upload' | 'manage_members';
@@ -69,10 +76,6 @@ function auditTarget(ctx: PermissionContext, matterId: string): PermissionAuditT
   };
 }
 
-function hasUnsupportedCondition(row: ExplicitPermissionRow): boolean {
-  return row.condition_json !== null && Object.keys(row.condition_json).length > 0;
-}
-
 function rolePermits(action: RolePermissionAction, role: UserRole): boolean {
   return rolePermissionDecision(role, action) !== 'deny';
 }
@@ -80,6 +83,23 @@ function rolePermits(action: RolePermissionAction, role: UserRole): boolean {
 function canEditFromMember(member: MatterMemberSnapshot): boolean {
   if (member.matterRole === 'limited_reviewer') return false;
   return member.matterRole === 'owner' || member.accessLevel === 'edit';
+}
+
+function matterConditionContext(
+  actor: ActorSnapshot,
+  matter: MatterSnapshot,
+): PermissionAttributeContext {
+  return {
+    actor: {
+      role: actor.role,
+      practiceGroup: actor.practiceGroup ?? null,
+    },
+    matter: {
+      status: matter.status,
+      practiceGroup: matter.practiceGroup ?? null,
+      clientId: matter.clientId ?? null,
+    },
+  };
 }
 
 @Injectable()
@@ -232,7 +252,7 @@ export class PermissionService {
 
     const explicit = await this.evaluateExplicitMatterPermissions(
       ctx.tenantId as TenantId,
-      matterId,
+      matter,
       actor,
       'read',
     );
@@ -257,10 +277,12 @@ export class PermissionService {
     if (!actor || !rolePermits('matter.edit', actor.role)) {
       return denyPermission('PERMISSION_DENIED', ['matter.edit:role_deny']);
     }
+    const matter = await this.findMatter(ctx.tenantId as TenantId, matterId);
+    if (!matter) return denyPermission('PERMISSION_DENIED', ['matter:missing']);
 
     const explicit = await this.evaluateExplicitMatterPermissions(
       ctx.tenantId as TenantId,
-      matterId,
+      matter,
       actor,
       'edit',
     );
@@ -293,7 +315,7 @@ export class PermissionService {
     if (!actor) return denyPermission('PERMISSION_DENIED', ['actor:missing']);
     const explicit = await this.evaluateExplicitMatterPermissions(
       ctx.tenantId as TenantId,
-      matterId,
+      matter,
       actor,
       'upload',
     );
@@ -313,10 +335,12 @@ export class PermissionService {
     if (!actor || !rolePermits('matter.member_add', actor.role)) {
       return denyPermission('PERMISSION_DENIED', ['matter.member_manage:role_deny']);
     }
+    const matter = await this.findMatter(ctx.tenantId as TenantId, matterId);
+    if (!matter) return denyPermission('PERMISSION_DENIED', ['matter:missing']);
 
     const explicit = await this.evaluateExplicitMatterPermissions(
       ctx.tenantId as TenantId,
-      matterId,
+      matter,
       actor,
       'manage_members',
     );
@@ -335,9 +359,10 @@ export class PermissionService {
       user_id: string;
       role: string;
       status: string;
+      practice_group: string | null;
     }>(
       `
-        SELECT user_id, role, status
+        SELECT user_id, role, status, practice_group
         FROM users
         WHERE tenant_id = $1
           AND user_id = $2
@@ -347,7 +372,12 @@ export class PermissionService {
     );
     const row = result.rows[0];
     if (!row || !isUserRole(row.role)) return null;
-    return { userId: row.user_id, role: row.role, status: row.status };
+    return {
+      userId: row.user_id,
+      role: row.role,
+      status: row.status,
+      practiceGroup: row.practice_group,
+    };
   }
 
   protected async findMatter(tenantId: TenantId, matterId: string): Promise<MatterSnapshot | null> {
@@ -355,9 +385,11 @@ export class PermissionService {
       matter_id: string;
       tenant_id: TenantId;
       status: string;
+      client_id: string | null;
+      practice_group: string | null;
     }>(
       `
-        SELECT matter_id, tenant_id, status
+        SELECT matter_id, tenant_id, status, client_id, practice_group
         FROM matters
         WHERE tenant_id = $1
           AND matter_id = $2
@@ -366,7 +398,15 @@ export class PermissionService {
       [tenantId, matterId],
     );
     const row = result.rows[0];
-    return row ? { matterId: row.matter_id, tenantId: row.tenant_id, status: row.status } : null;
+    return row
+      ? {
+          matterId: row.matter_id,
+          tenantId: row.tenant_id,
+          status: row.status,
+          clientId: row.client_id,
+          practiceGroup: row.practice_group,
+        }
+      : null;
   }
 
   protected async findMatterMember(
@@ -396,7 +436,7 @@ export class PermissionService {
   ): Promise<ExplicitPermissionRow[]> {
     const result = await getPool().query<ExplicitPermissionRow>(
       `
-        SELECT effect, condition_json
+        SELECT permission_id AS "permissionId", effect, condition_json, priority
         FROM permissions p
         WHERE p.tenant_id = $1
           AND p.resource_type = 'matter'
@@ -417,7 +457,7 @@ export class PermissionService {
               )
             )
           )
-        ORDER BY priority ASC, effect DESC
+        ORDER BY priority ASC, CASE WHEN effect = 'DENY' THEN 0 ELSE 1 END
       `,
       [tenantId, matterId, actor.userId, actor.role, action],
     );
@@ -426,18 +466,28 @@ export class PermissionService {
 
   private async evaluateExplicitMatterPermissions(
     tenantId: TenantId,
-    matterId: string,
+    matter: MatterSnapshot,
     actor: ActorSnapshot,
     action: MatterPermissionAction,
   ): Promise<PermissionDecision> {
-    const rows = await this.findExplicitPermissionRows(tenantId, matterId, actor, action);
-    if (rows.some(hasUnsupportedCondition)) {
-      return denyPermission('PERMISSION_DENIED', ['permissions:condition_unparsed']);
+    const rows = await this.findExplicitPermissionRows(tenantId, matter.matterId, actor, action);
+    const context = matterConditionContext(actor, matter);
+    let matchedAllow = false;
+
+    for (const row of rows) {
+      const evaluation = evaluatePermissionCondition(row.condition_json, context);
+      if (evaluation.outcome === 'invalid') {
+        return denyPermission('PERMISSION_DENIED', [
+          `permissions:condition_invalid:${evaluation.reason ?? 'unknown'}`,
+        ]);
+      }
+      if (evaluation.outcome === 'no_match') continue;
+      if (row.effect === 'DENY') {
+        return denyPermission('PERMISSION_DENIED', ['permissions:explicit_deny']);
+      }
+      matchedAllow = true;
     }
-    if (rows.some((row) => row.effect === 'DENY')) {
-      return denyPermission('PERMISSION_DENIED', ['permissions:explicit_deny']);
-    }
-    if (rows.some((row) => row.effect === 'ALLOW')) {
+    if (matchedAllow) {
       return allowPermission(['permissions:explicit_allow']);
     }
     return allowPermission(['permissions:none']);

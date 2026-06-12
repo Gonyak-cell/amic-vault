@@ -121,6 +121,63 @@ describe('PermissionService matter evaluator', () => {
     });
   });
 
+  it('evaluates ABAC conditions on explicit matter permission rows', async () => {
+    const { service } = createService();
+    service.actor = {
+      userId,
+      role: 'matter_owner',
+      status: 'active',
+      practiceGroup: 'litigation',
+    };
+    service.matter = {
+      matterId,
+      tenantId,
+      status: 'active',
+      clientId: '11111111-1111-4111-8111-111111111122',
+      practiceGroup: 'litigation',
+    };
+    service.explicitRows = [
+      {
+        effect: 'DENY',
+        condition_json: {
+          attribute: 'matter.practice_group',
+          operator: 'eq',
+          value: 'litigation',
+        },
+      },
+    ];
+
+    await expect(service.canReadMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['permissions:explicit_deny'],
+    });
+
+    service.matter = { ...service.matter, practiceGroup: 'tax' };
+    await expect(service.canReadMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'ALLOW',
+    });
+  });
+
+  it('fails closed on unknown ABAC attributes', async () => {
+    const { service } = createService();
+    service.explicitRows = [
+      {
+        effect: 'ALLOW',
+        condition_json: {
+          attribute: 'matter.billing_rate',
+          operator: 'eq',
+          value: 'secret',
+        },
+      },
+    ];
+
+    await expect(service.canReadMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'PERMISSION_DENIED',
+      appliedRules: ['permissions:condition_invalid:unknown_attribute'],
+    });
+  });
+
   it('allows document audit reads for tenant audit roles without matter membership', async () => {
     const { service } = createService();
     service.actor = { userId, role: 'security_admin', status: 'active' };

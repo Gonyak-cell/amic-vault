@@ -166,6 +166,17 @@ export {
   type PermissionEffect,
   type PermissionReasonCode,
 } from './permission/permission-decision';
+export {
+  evaluatePermissionCondition,
+  permissionAttributeKeys,
+  permissionConditionOperators,
+  type PermissionAttributeContext,
+  type PermissionAttributeKey,
+  type PermissionAttributeValue,
+  type PermissionConditionEvaluation,
+  type PermissionConditionEvaluationOutcome,
+  type PermissionConditionOperator,
+} from './permission/attribute-policy';
 export type {
   DocumentPermissionService,
   PermissionContext,
