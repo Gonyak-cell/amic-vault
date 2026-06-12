@@ -7,6 +7,11 @@ import {
 } from '@amic-vault/shared';
 
 const metadataKeySet = new Set<string>(auditMetadataKeys);
+const stringListMetadataKeys = new Set<AuditMetadataKey>([
+  'diff_keys',
+  'included_chunk_ids',
+  'excluded_chunk_ids',
+]);
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -21,10 +26,13 @@ function normalizeScalar(key: AuditMetadataKey, value: unknown): AuditMetadataVa
     }
     return value;
   }
-  if (key === 'diff_keys' && Array.isArray(value)) {
+  if (Array.isArray(value) && stringListMetadataKeys.has(key)) {
+    if (value.length > 200) {
+      throw new Error(`audit metadata list too long: ${key}`);
+    }
     return value.map((entry) => {
       if (typeof entry !== 'string' || entry.length === 0 || entry.length > 64) {
-        throw new Error('audit diff_keys entries must be bounded field names');
+        throw new Error(`audit ${key} entries must be bounded references`);
       }
       return entry;
     });

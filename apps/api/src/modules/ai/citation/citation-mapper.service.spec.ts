@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AuditLogInput, AuditLogResult, AuditService } from '../../audit/audit.service';
 import type { DocumentPermissionService } from '../../permission/document-permission.service';
+import type { AiAuditRecorder } from '../audit/ai-audit-recorder.service';
 import { AiCitationMapperService, type AiCitationRequestContext } from './citation-mapper.service';
 
 const ctx: AiCitationRequestContext = {
@@ -21,6 +22,9 @@ const citation = {
 describe('AiCitationMapperService', () => {
   it('fails closed and logs citation set hashes only when document permission denies', async () => {
     const auditInputs: AuditLogInput[] = [];
+    const aiAuditRecorder = {
+      recordCitedDocument: vi.fn(),
+    } as unknown as AiAuditRecorder;
     const service = new AiCitationMapperService(
       {
         async transaction<T>(_tenantId: string, run: () => Promise<T>): Promise<T> {
@@ -31,6 +35,7 @@ describe('AiCitationMapperService', () => {
           return { eventId: 'event-1', createdAt: new Date('2026-06-12T00:00:00.000Z') };
         },
       } as unknown as AuditService,
+      aiAuditRecorder,
       {
         canReadDocument: vi.fn(async () => ({ effect: 'DENY', reason: 'PERMISSION_DENIED' })),
       } as unknown as DocumentPermissionService,
@@ -55,5 +60,6 @@ describe('AiCitationMapperService', () => {
     });
     expect(JSON.stringify(auditInputs[0]?.metadata)).not.toContain(citation.documentId);
     expect(JSON.stringify(auditInputs[0]?.metadata)).not.toContain(citation.chunkId);
+    expect(aiAuditRecorder.recordCitedDocument).not.toHaveBeenCalled();
   });
 });

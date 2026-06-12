@@ -31,6 +31,11 @@ describe('audit shared types', () => {
         'EMAIL_DUPLICATE_BLOCKED',
         'EMAIL_METADATA_UPDATED',
         'EMAIL_FILED',
+        'AI_QUERY_SUBMITTED',
+        'AI_RETRIEVAL',
+        'AI_RESPONSE',
+        'AI_CITED_DOCUMENT',
+        'AI_RETRIEVAL_EXCLUDED',
       ]),
     );
   });
@@ -50,6 +55,16 @@ describe('audit shared types', () => {
       expires_at: '2026-06-12T12:00:00.000Z',
       result_count: 0,
       duration_ms: 1,
+      ai_session_id: '11111111-1111-4111-8111-111111111144',
+      chunk_id: '11111111-1111-4111-8111-111111111155',
+      included_count: 1,
+      excluded_count: 1,
+      included_chunk_ids: ['11111111-1111-4111-8111-111111111155'],
+      excluded_chunk_ids: ['11111111-1111-4111-8111-111111111166'],
+      response_length: 128,
+      response_token_count: 32,
+      ai_response_status: 'responded',
+      escalation_required: false,
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');

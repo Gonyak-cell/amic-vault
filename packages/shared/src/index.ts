@@ -34,6 +34,7 @@ export {
   r4EmailAuditActions,
   r5AuditConsoleActions,
   r5BreakGlassAuditActions,
+  r6AiAuditActions,
   r6AiPolicyAuditActions,
   type AuditAction,
   type AuditMetadata,
@@ -46,6 +47,7 @@ export {
   type R4EmailAuditAction,
   type R5AuditConsoleAction,
   type R5BreakGlassAuditAction,
+  type R6AiAuditAction,
   type R6AiPolicyAuditAction,
 } from './types/audit';
 export {

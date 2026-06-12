@@ -9,6 +9,7 @@ export {
   r5AuditConsoleActions,
   r5BreakGlassAuditActions,
   r5DlpAuditActions,
+  r6AiAuditActions,
   r6AiPolicyAuditActions,
   type AuditAction,
   type R1AuditAction,
@@ -19,6 +20,7 @@ export {
   type R5AuditConsoleAction,
   type R5BreakGlassAuditAction,
   type R5DlpAuditAction,
+  type R6AiAuditAction,
   type R6AiPolicyAuditAction,
 } from '../audit/audit-event-types';
 export {

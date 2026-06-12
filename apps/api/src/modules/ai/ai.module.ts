@@ -5,6 +5,7 @@ import { DlpModule } from '../dlp/dlp.module';
 import { PermissionModule } from '../permission/permission.module';
 import { SearchModule } from '../search/search.module';
 import { AiCitationController } from './citation/ai-citation.controller';
+import { AiAuditRecorder } from './audit/ai-audit-recorder.service';
 import { AiCitationMapperService } from './citation/citation-mapper.service';
 import { AiCitationVerifier } from './citation/citation-verifier';
 import { AiContextRanker } from './context/context-ranker';
@@ -23,6 +24,7 @@ import { AiRetrievalOrchestratorService } from './retrieval/retrieval-orchestrat
   controllers: [AiCitationController, AiSessionController],
   providers: [
     AiCitationMapperService,
+    AiAuditRecorder,
     AiCitationVerifier,
     AiContextRanker,
     AiContextWindowManager,
@@ -36,6 +38,7 @@ import { AiRetrievalOrchestratorService } from './retrieval/retrieval-orchestrat
   ],
   exports: [
     AiCitationMapperService,
+    AiAuditRecorder,
     AiCitationVerifier,
     AiEvidencePackBuilder,
     AiRetrievalOrchestratorService,
