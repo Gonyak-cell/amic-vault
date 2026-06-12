@@ -350,6 +350,20 @@ export {
   type AiCitationWarningCode,
 } from './ai/citation';
 export {
+  aiSummaryRequestSchema,
+  aiSummaryResponseSchema,
+  aiSummarySectionSchema,
+  aiSummaryStatusSchema,
+  aiSummaryTaskSchema,
+  aiSummaryWarningCodeSchema,
+  type AiSummaryRequestDto,
+  type AiSummaryResponseDto,
+  type AiSummarySectionDto,
+  type AiSummaryStatus,
+  type AiSummaryTask,
+  type AiSummaryWarningCode,
+} from './ai/summary';
+export {
   aiSessionChunkDetailSchema,
   aiSessionChunkLogSchema,
   aiSessionChunkReasonCodeSchema,
