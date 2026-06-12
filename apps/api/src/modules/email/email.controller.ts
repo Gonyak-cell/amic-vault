@@ -8,18 +8,26 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   emailMatterSuggestionQuerySchema,
   fileEmailToMatterSchema,
+  uploadEmailToMatterFieldsSchema,
 } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
+import { mapDocumentUploadError } from '../document/document-error.mapper';
+import { multipartFieldName, multipartUploadOptions } from '../document/multipart.config';
+import type { UploadedDiskFile } from '../document/document-upload.service';
 import { EmailService } from './email.service';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const emailFileRoute = 'emails/:emailId/file';
 const emailMatterSuggestionsRoute = 'emails/:emailId/matter-suggestions';
 const matterEmailTimelineRoute = 'matters/:matterId/email-timeline';
+const matterEmailUploadRoute = 'matters/:matterId/emails';
 
 function validationFailed(): BadRequestException {
   return new BadRequestException({ code: 'VALIDATION_FAILED' });
@@ -52,9 +60,37 @@ function parseSuggestionQuery(query: unknown) {
   }
 }
 
+function parseUploadFields(body: unknown) {
+  try {
+    return uploadEmailToMatterFieldsSchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
 @Controller()
 export class EmailController {
   constructor(@Inject(EmailService) private readonly emailService: EmailService) {}
+
+  @Post(matterEmailUploadRoute)
+  @UseInterceptors(FileInterceptor(multipartFieldName, multipartUploadOptions()))
+  async uploadEmailToMatter(
+    @Req() request: RequestWithSession,
+    @Param('matterId') matterId: string,
+    @Body() body: unknown,
+    @UploadedFile() file: UploadedDiskFile | undefined,
+  ) {
+    try {
+      return await this.emailService.uploadRawEmailToMatter(
+        sessionUserId(request),
+        parseUuid(matterId),
+        parseUploadFields(body),
+        file,
+      );
+    } catch (error) {
+      throw mapDocumentUploadError(error);
+    }
+  }
 
   @Post(emailFileRoute)
   fileEmailToMatter(

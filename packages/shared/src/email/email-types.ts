@@ -34,9 +34,49 @@ export interface EmailMessageDto {
   createdAt: string;
 }
 
+export const emailMatterWarningCodes = ['outside_participant', 'matter_metadata_mismatch'] as const;
+export type EmailMatterWarningCode = (typeof emailMatterWarningCodes)[number];
+
+export const emailPrivilegeTagSuggestions = ['attorney_client_privilege', 'confidential'] as const;
+export type EmailPrivilegeTagSuggestion = (typeof emailPrivilegeTagSuggestions)[number];
+
+export const emailPrivilegeSuggestionReasonCodes = ['subject_keyword'] as const;
+export type EmailPrivilegeSuggestionReasonCode =
+  (typeof emailPrivilegeSuggestionReasonCodes)[number];
+
+export interface EmailPrivilegeTagSuggestionDto {
+  tag: EmailPrivilegeTagSuggestion;
+  reasonCodes: readonly EmailPrivilegeSuggestionReasonCode[];
+  requiresUserConfirmation: true;
+}
+
+export interface EmailThreadSummaryDto {
+  rootMessageHash: string;
+  directReferenceCount: number;
+  relatedEmailCount: number;
+  referenceHashes: readonly string[];
+}
+
 export const fileEmailToMatterSchema = z
   .object({
     matterId: z.string().uuid(),
+  })
+  .strict();
+
+function parseTenantDomains(value: unknown): string[] | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const entries = Array.isArray(value) ? value : String(value).split(',');
+  return entries
+    .map((entry) => String(entry).trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+}
+
+export const uploadEmailToMatterFieldsSchema = z
+  .object({
+    tenantDomains: z.preprocess(
+      parseTenantDomains,
+      z.array(z.string().min(1).max(255)).max(20).optional(),
+    ),
   })
   .strict();
 
@@ -54,6 +94,9 @@ export interface EmailMatterFilingDto {
   subject: string | null;
   sentAt: string | null;
   hasOutsideParticipants: boolean;
+  warningCodes: readonly EmailMatterWarningCode[];
+  privilegeTagSuggestion: EmailPrivilegeTagSuggestionDto | null;
+  thread: EmailThreadSummaryDto;
   documentIds: readonly string[];
   filedBy: string;
   filedAt: string;
@@ -76,5 +119,11 @@ export interface EmailTimelineDto {
   items: readonly EmailMatterFilingDto[];
 }
 
+export interface UploadEmailToMatterResponseDto {
+  email: EmailMessageDto;
+  filing: EmailMatterFilingDto;
+}
+
 export type FileEmailToMatterDto = z.infer<typeof fileEmailToMatterSchema>;
+export type UploadEmailToMatterFieldsDto = z.infer<typeof uploadEmailToMatterFieldsSchema>;
 export type EmailMatterSuggestionQueryDto = z.infer<typeof emailMatterSuggestionQuerySchema>;
