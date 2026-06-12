@@ -23,6 +23,15 @@ describe('search query DTO', () => {
       },
       page: 1,
       pageSize: 25,
+      mode: 'keyword',
+    });
+  });
+
+  it('requires query text for semantic and hybrid retrieval modes', () => {
+    expect(() => searchQuerySchema.parse({ mode: 'semantic' })).toThrow();
+    expect(searchQuerySchema.parse({ mode: 'hybrid', query: 'termination' })).toMatchObject({
+      mode: 'hybrid',
+      query: 'termination',
     });
   });
 

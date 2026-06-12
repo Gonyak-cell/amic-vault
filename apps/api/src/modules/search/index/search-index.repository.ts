@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type { QueryClient } from '../../audit/audit.service';
+import { buildParentChildChunks, type BuiltDocumentChunk } from '../semantic/document-chunker';
+import {
+  deterministicEmbeddingVector,
+  embeddingHash,
+  vectorToSqlLiteral,
+} from '../semantic/local-embedding';
 
 const maxIndexedContentBytes = 1024 * 1024;
 
@@ -50,6 +56,10 @@ interface SearchIndexDbRow {
   source_text_hash: string;
   indexed_at: Date;
   updated_at: Date;
+}
+
+interface ChunkDbRow {
+  chunk_id: string;
 }
 
 export function truncateUtf8(input: string, maxBytes = maxIndexedContentBytes): string {
@@ -141,6 +151,13 @@ export class SearchIndexRepository {
       ],
     );
     const row = result.rows[0] as SearchIndexDbRow | undefined;
+    await this.upsertChunksAndEmbeddings(client, {
+      tenantId: source.tenant_id,
+      documentId: source.document_id,
+      versionId: source.version_id,
+      contentText: truncatedContent,
+      sourceTextHash,
+    });
     return row ? mapRow(row) : null;
   }
 
@@ -191,5 +208,140 @@ export class SearchIndexRepository {
       [input.tenantId, input.documentId, input.versionId],
     );
     return (result.rows[0] as SearchIndexSourceRow | undefined) ?? null;
+  }
+
+  private async upsertChunksAndEmbeddings(
+    client: QueryClient,
+    input: {
+      tenantId: string;
+      documentId: string;
+      versionId: string;
+      contentText: string;
+      sourceTextHash: string;
+    },
+  ): Promise<void> {
+    await client.query(
+      `
+        UPDATE document_chunk_embeddings
+        SET stale = true, updated_at = now()
+        WHERE tenant_id = $1
+          AND version_id = $2
+      `,
+      [input.tenantId, input.versionId],
+    );
+    await client.query(
+      `
+        UPDATE document_chunks
+        SET stale = true, updated_at = now()
+        WHERE tenant_id = $1
+          AND version_id = $2
+      `,
+      [input.tenantId, input.versionId],
+    );
+
+    const chunks = buildParentChildChunks({
+      text: input.contentText,
+      sourceTextHash: input.sourceTextHash,
+    });
+    const parentChunkIds = new Map<number, string>();
+
+    for (const chunk of chunks.filter((candidate) => candidate.chunkKind === 'parent')) {
+      const chunkId = await this.upsertChunk(client, input, chunk, null);
+      parentChunkIds.set(chunk.chunkOrdinal, chunkId);
+    }
+
+    for (const chunk of chunks.filter((candidate) => candidate.chunkKind === 'child')) {
+      const parentChunkId =
+        chunk.parentOrdinal === null ? undefined : parentChunkIds.get(chunk.parentOrdinal);
+      if (!parentChunkId) throw new Error('child chunk missing parent provenance');
+      const chunkId = await this.upsertChunk(client, input, chunk, parentChunkId);
+      await this.upsertEmbedding(client, input, chunk, chunkId);
+    }
+  }
+
+  private async upsertChunk(
+    client: QueryClient,
+    input: { tenantId: string; documentId: string; versionId: string },
+    chunk: BuiltDocumentChunk,
+    parentChunkId: string | null,
+  ): Promise<string> {
+    const result = await client.query(
+      `
+        INSERT INTO document_chunks (
+          tenant_id, document_id, version_id, parent_chunk_id, chunk_kind, chunk_ordinal,
+          char_start, char_end, token_count, chunk_text, text_hash, source_text_hash,
+          stale, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, now())
+        ON CONFLICT (tenant_id, version_id, chunk_ordinal)
+        DO UPDATE SET
+          document_id = EXCLUDED.document_id,
+          parent_chunk_id = EXCLUDED.parent_chunk_id,
+          chunk_kind = EXCLUDED.chunk_kind,
+          char_start = EXCLUDED.char_start,
+          char_end = EXCLUDED.char_end,
+          token_count = EXCLUDED.token_count,
+          chunk_text = EXCLUDED.chunk_text,
+          text_hash = EXCLUDED.text_hash,
+          source_text_hash = EXCLUDED.source_text_hash,
+          stale = false,
+          updated_at = EXCLUDED.updated_at
+        RETURNING chunk_id
+      `,
+      [
+        input.tenantId,
+        input.documentId,
+        input.versionId,
+        parentChunkId,
+        chunk.chunkKind,
+        chunk.chunkOrdinal,
+        chunk.charStart,
+        chunk.charEnd,
+        chunk.tokenCount,
+        chunk.chunkText,
+        chunk.textHash,
+        chunk.sourceTextHash,
+      ],
+    );
+    const row = result.rows[0] as ChunkDbRow | undefined;
+    if (!row) throw new Error('chunk upsert returned no row');
+    return row.chunk_id;
+  }
+
+  private async upsertEmbedding(
+    client: QueryClient,
+    input: { tenantId: string; documentId: string; versionId: string; sourceTextHash: string },
+    chunk: BuiltDocumentChunk,
+    chunkId: string,
+  ): Promise<void> {
+    const vector = deterministicEmbeddingVector(chunk.chunkText);
+    await client.query(
+      `
+        INSERT INTO document_chunk_embeddings (
+          tenant_id, chunk_id, document_id, version_id, model_route, model_tier,
+          embedding, embedding_hash, source_text_hash, stale, updated_at
+        )
+        VALUES ($1, $2, $3, $4, 'local_gemma', 'local', $5::vector, $6, $7, false, now())
+        ON CONFLICT (tenant_id, chunk_id, model_route)
+        DO UPDATE SET
+          document_id = EXCLUDED.document_id,
+          version_id = EXCLUDED.version_id,
+          model_tier = EXCLUDED.model_tier,
+          embedding = EXCLUDED.embedding,
+          embedding_hash = EXCLUDED.embedding_hash,
+          source_text_hash = EXCLUDED.source_text_hash,
+          stale = false,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [
+        input.tenantId,
+        chunkId,
+        input.documentId,
+        input.versionId,
+        vectorToSqlLiteral(vector),
+        embeddingHash(vector),
+        input.sourceTextHash,
+      ],
+    );
   }
 }
