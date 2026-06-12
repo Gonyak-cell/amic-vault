@@ -1,4 +1,5 @@
 import { expect } from 'vitest';
+import type { SearchResponseDto } from '@amic-vault/shared';
 import { SESSION_COOKIE_NAME } from '../../../apps/api/src/modules/auth/session.repository';
 
 export interface LoginInput {
@@ -7,17 +8,7 @@ export interface LoginInput {
   password: string;
 }
 
-export interface SearchHttpResponse {
-  total: number;
-  results: Array<{
-    documentId: string;
-    versionId: string;
-    matterId: string;
-    title: string;
-    snippet: string;
-  }>;
-  facets?: unknown;
-}
+export type SearchHttpResponse = SearchResponseDto;
 
 export async function loginSearchUser(baseUrl: string, input: LoginInput): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/auth/login`, {
