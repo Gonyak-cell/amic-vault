@@ -304,6 +304,16 @@ export {
   type AiChunkKind,
   type DocumentChunkProvenanceDto,
 } from './ai/chunk';
+export {
+  evidencePackChunkSchema,
+  evidencePackSchema,
+  evidencePackSourceTypeSchema,
+  evidencePackTaskTypeSchema,
+  evidencePackTaskTypes,
+  type EvidencePackChunkDto,
+  type EvidencePackDto,
+  type EvidencePackTaskType,
+} from './ai/evidence-pack';
 
 export {
   clientConfidentialityLevels,
