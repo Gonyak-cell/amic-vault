@@ -1,6 +1,8 @@
 import { createReadStream } from 'node:fs';
-import { unlink } from 'node:fs/promises';
+import { mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   BadRequestException,
   ForbiddenException,
@@ -45,6 +47,17 @@ export interface UploadDocumentInput {
   matterId: string;
   fields: UploadDocumentFieldsDto;
   file: UploadedDiskFile | undefined;
+  sourceSystem?: 'upload' | 'email_ingest';
+}
+
+export interface UploadBufferedDocumentInput {
+  actorUserId: string;
+  matterId: string;
+  fields: UploadDocumentFieldsDto;
+  originalFilename: string;
+  mimeType: string;
+  body: Buffer;
+  sourceSystem?: 'upload' | 'email_ingest';
 }
 
 export interface AddDocumentVersionInput {
@@ -104,6 +117,28 @@ export class DocumentUploadService {
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
+
+  async uploadBuffer(input: UploadBufferedDocumentInput): Promise<UploadDocumentResponseDto> {
+    const dir = await mkdtemp(join(tmpdir(), 'amic-vault-buffer-upload-'));
+    const path = join(dir, 'payload');
+    await writeFile(path, input.body);
+    try {
+      return await this.upload({
+        actorUserId: input.actorUserId,
+        matterId: input.matterId,
+        fields: input.fields,
+        sourceSystem: input.sourceSystem ?? 'upload',
+        file: {
+          path,
+          originalname: input.originalFilename,
+          mimetype: input.mimeType,
+          size: input.body.length,
+        },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
 
   async upload(input: UploadDocumentInput): Promise<UploadDocumentResponseDto> {
     const context = this.tenantContext.require();
@@ -173,6 +208,7 @@ export class DocumentUploadService {
               sizeBytes: file.size,
               sha256,
               encryptionKeyId: storage.encryptionKeyId,
+              sourceSystem: input.sourceSystem ?? 'upload',
               createdBy: input.actorUserId,
             },
             tx,

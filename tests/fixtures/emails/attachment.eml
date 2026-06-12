@@ -1,0 +1,17 @@
+Message-ID: <attachment-fixture@example.test>
+From: Sender <sender@example.test>
+To: Internal <internal@amic.test>
+Subject: Attachment Fixture
+Content-Type: multipart/mixed; boundary="amic-boundary"
+
+--amic-boundary
+Content-Type: text/plain
+
+This body is fixture content and must not be logged or stored as attachment metadata.
+--amic-boundary
+Content-Type: application/pdf; name="../unsafe fixture?.pdf"
+Content-Disposition: attachment; filename="../unsafe fixture?.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjcKQU1JQyBBdHRhY2htZW50IEZpeHR1cmUKJSVFT0YK
+--amic-boundary--

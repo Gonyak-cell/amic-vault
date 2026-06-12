@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import {
   EmlParseError,
   normalizeEmailMetadata,
@@ -9,8 +16,12 @@ import {
   type EmailParserKind,
   type EmailParseStatus,
   type NormalizedEmailMetadata,
+  type UploadDocumentFieldsDto,
+  type UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DocumentUploadService } from '../document/document-upload.service';
+import { PermissionService } from '../permission/permission.service';
 import {
   emailDuplicateBlockedAudit,
   emailImportedAudit,
@@ -19,6 +30,7 @@ import {
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { extractEmlAttachments, type ParsedEmailAttachment } from './email-attachment.parser';
 
 export interface ImportRawEmailInput {
   tenantId?: string;
@@ -27,6 +39,8 @@ export interface ImportRawEmailInput {
   mimeType?: string | null;
   body: Buffer;
   tenantDomains?: readonly string[];
+  matterId?: string;
+  attachmentDocumentFields?: UploadDocumentFieldsDto;
 }
 
 interface EmailMessageRow {
@@ -53,6 +67,34 @@ interface ExistingEmailRow {
   email_id: string;
 }
 
+interface EmailDocumentLinkRow {
+  link_id: string;
+  tenant_id: string;
+  email_id: string;
+  document_id: string;
+  file_object_id: string;
+  attachment_index: number;
+  attachment_filename: string;
+  media_type: string;
+  size_bytes: string;
+  sha256: string;
+  created_at: Date;
+}
+
+export interface EmailDocumentLinkDto {
+  linkId: string;
+  tenantId: string;
+  emailId: string;
+  documentId: string;
+  fileObjectId: string;
+  attachmentIndex: number;
+  attachmentFilename: string;
+  mediaType: string;
+  sizeBytes: number;
+  sha256: string;
+  createdAt: string;
+}
+
 interface PreparedEmailEnvelope {
   parser: EmailParserKind;
   parseStatus: EmailParseStatus;
@@ -60,6 +102,7 @@ interface PreparedEmailEnvelope {
   messageIdHash: string;
   contentType: string;
   metadata: PreparedEmailMetadata | null;
+  attachments: readonly ParsedEmailAttachment[];
 }
 
 type ImportTransactionResult =
@@ -139,6 +182,22 @@ function mapEmailRow(row: EmailMessageRow): EmailMessageDto {
   };
 }
 
+function mapEmailDocumentLinkRow(row: EmailDocumentLinkRow): EmailDocumentLinkDto {
+  return {
+    linkId: row.link_id,
+    tenantId: row.tenant_id,
+    emailId: row.email_id,
+    documentId: row.document_id,
+    fileObjectId: row.file_object_id,
+    attachmentIndex: row.attachment_index,
+    attachmentFilename: row.attachment_filename,
+    mediaType: row.media_type,
+    sizeBytes: Number(row.size_bytes),
+    sha256: row.sha256,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
 function isUniqueViolation(error: unknown): boolean {
   const pgError = error as { code?: unknown };
   return typeof error === 'object' && error !== null && pgError.code === '23505';
@@ -153,6 +212,12 @@ export class EmailService {
     @Inject(FileObjectService) private readonly fileObjectService: FileObjectService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(DocumentUploadService)
+    private readonly documentUploadService?: DocumentUploadService,
+    @Optional()
+    @Inject(PermissionService)
+    private readonly permissionService?: PermissionService,
   ) {}
 
   async importRawEmail(input: ImportRawEmailInput): Promise<EmailMessageDto> {
@@ -269,6 +334,14 @@ export class EmailService {
         storageCompensated = true;
         throw new EmailDuplicateMessageError();
       }
+      await this.importAttachments({
+        tenantId,
+        actorUserId: input.actorUserId ?? null,
+        emailId: result.email.emailId,
+        matterId: input.matterId,
+        fields: input.attachmentDocumentFields ?? {},
+        attachments: prepared.attachments,
+      });
       return result.email;
     } catch (error) {
       if (!storageCompensated) {
@@ -305,6 +378,7 @@ export class EmailService {
         messageIdHash: namespacedHash('email-raw-sha256', rawSha256),
         contentType: mimeType?.trim() || 'application/vnd.ms-outlook',
         metadata: null,
+        attachments: [],
       };
     }
 
@@ -318,6 +392,7 @@ export class EmailService {
         messageIdHash: namespacedHash('email-message-id', parsed.normalizedMessageId),
         contentType: mimeType?.trim() || 'message/rfc822',
         metadata: this.prepareMetadata(parsed),
+        attachments: extractEmlAttachments(raw),
       };
     } catch (error) {
       const reasonCode =
@@ -329,6 +404,7 @@ export class EmailService {
         messageIdHash: namespacedHash('email-raw-sha256', rawSha256),
         contentType: mimeType?.trim() || 'message/rfc822',
         metadata: null,
+        attachments: [],
       };
     }
   }
@@ -466,6 +542,139 @@ export class EmailService {
           participant.isOutside,
         ],
       );
+    }
+  }
+
+  async listDocumentLinksForEmail(
+    actorUserId: string,
+    emailId: string,
+  ): Promise<EmailDocumentLinkDto[]> {
+    const tenantId = this.tenantContext.require().tenantId;
+    const rows = await this.auditService.transaction(tenantId, async (tx) => {
+      const result = await tx.query(
+        `
+          SELECT link_id, tenant_id, email_id, document_id, file_object_id,
+            attachment_index, attachment_filename, media_type, size_bytes::text, sha256, created_at
+          FROM email_document_links
+          WHERE tenant_id = $1
+            AND email_id = $2
+          ORDER BY attachment_index ASC, created_at ASC
+        `,
+        [tenantId, emailId],
+      );
+      return result.rows as EmailDocumentLinkRow[];
+    });
+    const allowed: EmailDocumentLinkDto[] = [];
+    for (const row of rows) {
+      if (await this.canReadDocument(tenantId, actorUserId, row.document_id)) {
+        allowed.push(mapEmailDocumentLinkRow(row));
+      }
+    }
+    return allowed;
+  }
+
+  async listEmailLinksForDocument(
+    actorUserId: string,
+    documentId: string,
+  ): Promise<EmailDocumentLinkDto[]> {
+    const tenantId = this.tenantContext.require().tenantId;
+    if (!(await this.canReadDocument(tenantId, actorUserId, documentId))) {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    return this.auditService.transaction(tenantId, async (tx) => {
+      const result = await tx.query(
+        `
+          SELECT link_id, tenant_id, email_id, document_id, file_object_id,
+            attachment_index, attachment_filename, media_type, size_bytes::text, sha256, created_at
+          FROM email_document_links
+          WHERE tenant_id = $1
+            AND document_id = $2
+          ORDER BY created_at ASC, attachment_index ASC
+        `,
+        [tenantId, documentId],
+      );
+      return (result.rows as EmailDocumentLinkRow[]).map(mapEmailDocumentLinkRow);
+    });
+  }
+
+  private async importAttachments(input: {
+    tenantId: string;
+    actorUserId: string | null;
+    emailId: string;
+    matterId: string | undefined;
+    fields: UploadDocumentFieldsDto;
+    attachments: readonly ParsedEmailAttachment[];
+  }): Promise<void> {
+    if (!input.matterId || input.attachments.length === 0) return;
+    if (!input.actorUserId || !this.documentUploadService) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+    }
+    for (const attachment of input.attachments) {
+      const document = await this.documentUploadService.uploadBuffer({
+        actorUserId: input.actorUserId,
+        matterId: input.matterId,
+        fields: {
+          title: input.fields.title ?? attachment.normalizedFilename,
+          documentType: input.fields.documentType ?? 'correspondence',
+          subtype: input.fields.subtype,
+          confidentialityLevel: input.fields.confidentialityLevel,
+          privilegeStatus: input.fields.privilegeStatus,
+        },
+        originalFilename: attachment.normalizedFilename,
+        mimeType: attachment.contentType,
+        body: attachment.body,
+        sourceSystem: 'email_ingest',
+      });
+      await this.insertEmailDocumentLink(input.tenantId, input.emailId, attachment, document);
+    }
+  }
+
+  private async insertEmailDocumentLink(
+    tenantId: string,
+    emailId: string,
+    attachment: ParsedEmailAttachment,
+    document: UploadDocumentResponseDto,
+  ): Promise<void> {
+    await this.auditService.transaction(tenantId, async (tx) => {
+      await tx.query(
+        `
+          INSERT INTO email_document_links (
+            tenant_id, email_id, document_id, file_object_id, attachment_index,
+            attachment_filename, media_type, size_bytes, sha256
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT (tenant_id, email_id, attachment_index) DO NOTHING
+        `,
+        [
+          tenantId,
+          emailId,
+          document.documentId,
+          document.fileObjectId,
+          attachment.attachmentIndex,
+          attachment.normalizedFilename,
+          attachment.mediaHint,
+          attachment.sizeBytes,
+          attachment.sha256,
+        ],
+      );
+    });
+  }
+
+  private async canReadDocument(
+    tenantId: string,
+    actorUserId: string,
+    documentId: string,
+  ): Promise<boolean> {
+    if (!this.permissionService) return false;
+    try {
+      const decision = await this.permissionService.canReadDocument(
+        { tenantId, userId: actorUserId },
+        documentId,
+      );
+      return decision.effect === 'ALLOW';
+    } catch {
+      this.logger.warn({ code: 'PERM_EVAL_ERROR', documentId });
+      return false;
     }
   }
 

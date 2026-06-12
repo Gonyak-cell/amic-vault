@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from email import policy
 from email.parser import BytesParser
 from email.utils import getaddresses, parsedate_to_datetime
+from hashlib import sha256
+from pathlib import PurePath
+import re
 
 
 @dataclass(frozen=True)
@@ -15,6 +18,15 @@ class EmailParticipant:
 
 
 @dataclass(frozen=True)
+class EmailAttachment:
+    attachment_index: int
+    normalized_filename: str
+    media_type: str
+    size_bytes: int
+    sha256: str
+
+
+@dataclass(frozen=True)
 class EmailParseResult:
     parser: str
     status: str
@@ -22,6 +34,7 @@ class EmailParseResult:
     subject: str | None = None
     sent_at: str | None = None
     participants: tuple[EmailParticipant, ...] = ()
+    attachments: tuple[EmailAttachment, ...] = ()
     failure_reason_code: str | None = None
 
 
@@ -78,6 +91,34 @@ def _date_iso(value: str | None) -> str | None:
     return parsed.isoformat()
 
 
+def _safe_filename(value: str | None, index: int) -> str:
+    name = PurePath(value or f"attachment-{index}").name
+    normalized = re.sub(r"[^A-Za-z0-9._ -]", "_", name).strip()
+    if normalized in {"", ".", ".."}:
+        normalized = f"attachment-{index}"
+    return normalized[:255]
+
+
+def _attachments(message) -> tuple[EmailAttachment, ...]:
+    output: list[EmailAttachment] = []
+    for part in message.iter_attachments():
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            continue
+        index = len(output)
+        media_type = part.get_content_type().lower()
+        output.append(
+            EmailAttachment(
+                attachment_index=index,
+                normalized_filename=_safe_filename(part.get_filename(), index),
+                media_type=media_type,
+                size_bytes=len(payload),
+                sha256=sha256(payload).hexdigest(),
+            )
+        )
+    return tuple(output)
+
+
 def parse_eml_envelope(payload: bytes) -> EmailParseResult:
     try:
         message = BytesParser(policy=policy.default).parsebytes(payload)
@@ -92,6 +133,7 @@ def parse_eml_envelope(payload: bytes) -> EmailParseResult:
                 *_participants("to", message.get_all("To", [])),
                 *_participants("cc", message.get_all("Cc", [])),
             ),
+            attachments=_attachments(message),
         )
     except ValueError as error:
         return EmailParseResult(

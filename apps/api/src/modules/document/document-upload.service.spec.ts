@@ -160,6 +160,7 @@ describe('DocumentUploadService', () => {
     expect(createFileObject).toHaveBeenCalledWith(
       expect.objectContaining({
         mimeType: 'application/pdf',
+        sourceSystem: 'upload',
         sha256: 'd274f10f823f4da5c383bedc6bf03b4aed26b05f8306cf082b8402ae78a456a5',
       }),
       expect.anything(),
@@ -204,6 +205,30 @@ describe('DocumentUploadService', () => {
       date: '2026-06-12',
       versionLabel: 'v2',
     });
+  });
+
+  it('uploads buffered email attachments through the same pipeline with email source', async () => {
+    const { createFileObject, service } = createService();
+
+    const response = await service.uploadBuffer({
+      actorUserId,
+      matterId,
+      fields: { title: 'Attachment' },
+      originalFilename: 'attachment.pdf',
+      mimeType: 'application/pdf',
+      body: Buffer.from('%PDF-1.7\nattachment\n%%EOF\n'),
+      sourceSystem: 'email_ingest',
+    });
+
+    expect(response.documentId).toEqual(expect.any(String));
+    expect(createFileObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalFilename: 'attachment.pdf',
+        normalizedFilename: 'attachment.pdf',
+        sourceSystem: 'email_ingest',
+      }),
+      expect.anything(),
+    );
   });
 
   it('fails closed before storage when upload permission denies', async () => {
