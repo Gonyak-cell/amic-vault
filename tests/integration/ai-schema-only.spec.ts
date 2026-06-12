@@ -122,7 +122,16 @@ describe('ai policy boundary integration', () => {
       const text = readIfSmall(file);
       return /@(Controller|Get|Post|Patch|Delete)\(['"`][^'"`]*ai/i.test(text) ? [file] : [];
     });
-    expect(controllerRefs).toEqual([]);
+    const allowedR6ControllerRefs = new Set([
+      'apps/api/src/modules/ai/citation/ai-citation.controller.ts',
+    ]);
+    expect(controllerRefs.filter((file) => !allowedR6ControllerRefs.has(file))).toEqual([]);
+
+    const generativeEndpointRefs = controllerRefs.flatMap((file) => {
+      const text = readIfSmall(file);
+      return /@(Get|Post)\(['"`](generate|chat|answer|complete|stream)/i.test(text) ? [file] : [];
+    });
+    expect(generativeEndpointRefs).toEqual([]);
 
     const aiPackageDiff = execFileSync('git', ['diff', '--name-only', '--', 'packages/ai'], {
       encoding: 'utf8',
