@@ -101,4 +101,20 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).not.toContain(query);
     expect(built.params).toContain(query);
   });
+
+  it('builds bounded AI context chunk candidates from the same vector CTE', () => {
+    const built = builder().buildVectorChunks(
+      { query: 'termination', mode: 'hybrid', page: 1, pageSize: 10 },
+      scope,
+      '[0.000000,0.100000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000]',
+      'hybrid',
+      6,
+    );
+
+    expect(built.sql).toContain('chunk_id');
+    expect(built.sql).toContain('token_count');
+    expect(built.sql).toContain('source_text_hash');
+    expect(built.sql).toContain('LIMIT $6');
+    expect(built.params.at(-1)).toBe(6);
+  });
 });
