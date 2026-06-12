@@ -114,6 +114,13 @@ async function insertEmailFixture(
     `,
     [tenantId, emailId, documentId, attachmentFileObjectId, attachmentSha256],
   );
+  await client.query(
+    `
+      INSERT INTO email_matter_filings (tenant_id, email_id, matter_id, created_by)
+      VALUES ($1, $2, $3, $4)
+    `,
+    [tenantId, emailId, matterId, ownerUserId],
+  );
   return emailId;
 }
 
@@ -139,6 +146,11 @@ describe('email_messages RLS', () => {
         [alphaEmailId],
       );
       expect(alphaLinkVisible.rows[0]?.count).toBe('1');
+      const alphaFilingVisible = await client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM email_matter_filings WHERE email_id = $1',
+        [alphaEmailId],
+      );
+      expect(alphaFilingVisible.rows[0]?.count).toBe('1');
 
       await setTenant(client, tenantBetaId);
       const betaCannotSeeAlpha = await client.query<{ count: string }>(
@@ -156,6 +168,11 @@ describe('email_messages RLS', () => {
         [alphaEmailId],
       );
       expect(betaCannotSeeAlphaLink.rows[0]?.count).toBe('0');
+      const betaCannotSeeAlphaFiling = await client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM email_matter_filings WHERE email_id = $1',
+        [alphaEmailId],
+      );
+      expect(betaCannotSeeAlphaFiling.rows[0]?.count).toBe('0');
 
       await expect(insertEmailFixture(client, tenantBetaId, sharedMessageIdHash)).resolves.toEqual(
         expect.any(String),

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const emailParserKinds = ['eml', 'msg'] as const;
 export type EmailParserKind = (typeof emailParserKinds)[number];
 
@@ -31,3 +33,48 @@ export interface EmailMessageDto {
   createdBy: string | null;
   createdAt: string;
 }
+
+export const fileEmailToMatterSchema = z
+  .object({
+    matterId: z.string().uuid(),
+  })
+  .strict();
+
+export const emailMatterSuggestionQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(10).default(5),
+  })
+  .strict();
+
+export interface EmailMatterFilingDto {
+  filingId: string;
+  tenantId: string;
+  emailId: string;
+  matterId: string;
+  subject: string | null;
+  sentAt: string | null;
+  hasOutsideParticipants: boolean;
+  documentIds: readonly string[];
+  filedBy: string;
+  filedAt: string;
+}
+
+export interface EmailMatterSuggestionDto {
+  matterId: string;
+  matterCode: string;
+  matterName: string;
+  clientId: string;
+  reasonCodes: readonly ('subject' | 'participant_domain')[];
+  score: number;
+}
+
+export interface EmailMatterSuggestionListDto {
+  items: readonly EmailMatterSuggestionDto[];
+}
+
+export interface EmailTimelineDto {
+  items: readonly EmailMatterFilingDto[];
+}
+
+export type FileEmailToMatterDto = z.infer<typeof fileEmailToMatterSchema>;
+export type EmailMatterSuggestionQueryDto = z.infer<typeof emailMatterSuggestionQuerySchema>;

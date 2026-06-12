@@ -74,3 +74,32 @@ export function emailMetadataUpdatedAudit(
     },
   };
 }
+
+export function emailFiledAudit(
+  input: BaseEmailEventInput & {
+    matterId: string;
+    documentIds: readonly string[];
+  },
+): AuditLogInput {
+  const [firstDocumentId] = input.documentIds;
+  const filterRefs = input.documentIds
+    .slice(0, 4)
+    .map((documentId) => `document_id:${documentId}`)
+    .join(',');
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId ?? null,
+    action: 'EMAIL_FILED',
+    targetType: 'email',
+    targetId: input.emailId,
+    matterId: input.matterId,
+    metadata: {
+      scope_type: 'email_filing',
+      scope_id: input.emailId,
+      matter_id: input.matterId,
+      result_count: input.documentIds.length,
+      ...(firstDocumentId ? { document_id: firstDocumentId } : {}),
+      ...(filterRefs ? { filter_refs: filterRefs } : {}),
+    },
+  };
+}

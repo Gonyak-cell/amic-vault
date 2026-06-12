@@ -16,6 +16,8 @@ describe('email audit coverage', () => {
   it('allows email audit actions without raw header or body metadata', async () => {
     const emailId = randomUUID();
     const fileObjectId = randomUUID();
+    const matterId = randomUUID();
+    const documentId = randomUUID();
     const rawSha256 = sha256Hex('raw email bytes');
     const messageIdHash = sha256Hex('message-id:case-001@example.test');
 
@@ -29,7 +31,8 @@ describe('email audit coverage', () => {
           VALUES
             ($1, 'system', 'EMAIL_IMPORTED', 'email', $2, 'success', $3::jsonb),
             ($1, 'system', 'EMAIL_DUPLICATE_BLOCKED', 'email', $2, 'denied', $4::jsonb),
-            ($1, 'system', 'EMAIL_METADATA_UPDATED', 'email', $2, 'success', $5::jsonb)
+            ($1, 'system', 'EMAIL_METADATA_UPDATED', 'email', $2, 'success', $5::jsonb),
+            ($1, 'system', 'EMAIL_FILED', 'email', $2, 'success', $6::jsonb)
         `,
         [
           tenantAlphaId,
@@ -53,6 +56,14 @@ describe('email audit coverage', () => {
             result_count: 2,
             reason_code: 'MALFORMED_DATE',
           }),
+          JSON.stringify({
+            scope_type: 'email_filing',
+            scope_id: emailId,
+            matter_id: matterId,
+            document_id: documentId,
+            filter_refs: `document_id:${documentId}`,
+            result_count: 1,
+          }),
         ],
       );
 
@@ -67,7 +78,12 @@ describe('email audit coverage', () => {
                  )::text AS unsafe
           FROM audit_events
           WHERE tenant_id = $1
-            AND action IN ('EMAIL_IMPORTED', 'EMAIL_DUPLICATE_BLOCKED', 'EMAIL_METADATA_UPDATED')
+            AND action IN (
+              'EMAIL_IMPORTED',
+              'EMAIL_DUPLICATE_BLOCKED',
+              'EMAIL_METADATA_UPDATED',
+              'EMAIL_FILED'
+            )
             AND target_id = $5
           GROUP BY action
           ORDER BY action
@@ -77,6 +93,7 @@ describe('email audit coverage', () => {
 
       expect(audit.rows).toEqual([
         { action: 'EMAIL_DUPLICATE_BLOCKED', count: '1', unsafe: '0' },
+        { action: 'EMAIL_FILED', count: '1', unsafe: '0' },
         { action: 'EMAIL_IMPORTED', count: '1', unsafe: '0' },
         { action: 'EMAIL_METADATA_UPDATED', count: '1', unsafe: '0' },
       ]);

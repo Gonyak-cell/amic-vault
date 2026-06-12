@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   emailDuplicateBlockedAudit,
+  emailFiledAudit,
   emailImportedAudit,
   emailMetadataUpdatedAudit,
 } from './email-events';
@@ -70,6 +71,34 @@ describe('email audit event builders', () => {
       },
     });
     expect(JSON.stringify(event)).not.toContain('Subject');
+    expect(JSON.stringify(event)).not.toContain('person@example.test');
+  });
+
+  it('records filing metadata as email, matter, and document references only', () => {
+    const matterId = '11111111-1111-4111-8111-111111111122';
+    const documentId = '11111111-1111-4111-8111-111111111133';
+    const event = emailFiledAudit({
+      ...base,
+      matterId,
+      documentIds: [documentId],
+    });
+
+    expect(event).toMatchObject({
+      action: 'EMAIL_FILED',
+      targetType: 'email',
+      targetId: base.emailId,
+      matterId,
+      metadata: {
+        scope_type: 'email_filing',
+        scope_id: base.emailId,
+        matter_id: matterId,
+        document_id: documentId,
+        filter_refs: `document_id:${documentId}`,
+        result_count: 1,
+      },
+    });
+    expect(JSON.stringify(event)).not.toContain('Subject');
+    expect(JSON.stringify(event)).not.toContain('body');
     expect(JSON.stringify(event)).not.toContain('person@example.test');
   });
 });

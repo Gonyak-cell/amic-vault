@@ -5,31 +5,40 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   Optional,
 } from '@nestjs/common';
 import {
   EmlParseError,
+  type EmailMatterFilingDto,
+  type EmailMatterSuggestionListDto,
+  type EmailMatterSuggestionQueryDto,
   normalizeEmailMetadata,
   type EmailMetadataWarningCode,
   type EmailFailureReasonCode,
   type EmailMessageDto,
   type EmailParserKind,
   type EmailParseStatus,
+  type EmailTimelineDto,
+  type FileEmailToMatterDto,
   type NormalizedEmailMetadata,
   type UploadDocumentFieldsDto,
   type UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { DocumentUploadService } from '../document/document-upload.service';
+import { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import { PermissionService } from '../permission/permission.service';
 import {
   emailDuplicateBlockedAudit,
+  emailFiledAudit,
   emailImportedAudit,
   emailMetadataUpdatedAudit,
 } from '../audit/events/email-events';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { UserService } from '../user/user.service';
 import { extractEmlAttachments, type ParsedEmailAttachment } from './email-attachment.parser';
 
 export interface ImportRawEmailInput {
@@ -79,6 +88,28 @@ interface EmailDocumentLinkRow {
   size_bytes: string;
   sha256: string;
   created_at: Date;
+}
+
+interface EmailMatterFilingRow {
+  filing_id: string;
+  tenant_id: string;
+  email_id: string;
+  matter_id: string;
+  subject: string | null;
+  sent_at: Date | null;
+  has_outside_participants: boolean;
+  document_ids: readonly string[] | null;
+  created_by: string;
+  created_at: Date;
+}
+
+interface EmailMatterSuggestionRow {
+  matter_id: string;
+  matter_code: string;
+  matter_name: string;
+  client_id: string;
+  reason_codes: readonly ('subject' | 'participant_domain')[];
+  score: string;
 }
 
 export interface EmailDocumentLinkDto {
@@ -198,6 +229,32 @@ function mapEmailDocumentLinkRow(row: EmailDocumentLinkRow): EmailDocumentLinkDt
   };
 }
 
+function mapEmailMatterFilingRow(row: EmailMatterFilingRow): EmailMatterFilingDto {
+  return {
+    filingId: row.filing_id,
+    tenantId: row.tenant_id,
+    emailId: row.email_id,
+    matterId: row.matter_id,
+    subject: row.subject,
+    sentAt: row.sent_at?.toISOString() ?? null,
+    hasOutsideParticipants: row.has_outside_participants,
+    documentIds: [...(row.document_ids ?? [])],
+    filedBy: row.created_by,
+    filedAt: row.created_at.toISOString(),
+  };
+}
+
+function mapEmailMatterSuggestionRow(row: EmailMatterSuggestionRow) {
+  return {
+    matterId: row.matter_id,
+    matterCode: row.matter_code,
+    matterName: row.matter_name,
+    clientId: row.client_id,
+    reasonCodes: row.reason_codes,
+    score: Number(row.score),
+  };
+}
+
 function isUniqueViolation(error: unknown): boolean {
   const pgError = error as { code?: unknown };
   return typeof error === 'object' && error !== null && pgError.code === '23505';
@@ -218,6 +275,12 @@ export class EmailService {
     @Optional()
     @Inject(PermissionService)
     private readonly permissionService?: PermissionService,
+    @Optional()
+    @Inject(PermissionQueryBuilder)
+    private readonly permissionQueryBuilder?: PermissionQueryBuilder,
+    @Optional()
+    @Inject(UserService)
+    private readonly userService?: UserService,
   ) {}
 
   async importRawEmail(input: ImportRawEmailInput): Promise<EmailMessageDto> {
@@ -545,6 +608,162 @@ export class EmailService {
     }
   }
 
+  async fileEmailToMatter(
+    actorUserId: string,
+    emailId: string,
+    input: FileEmailToMatterDto,
+  ): Promise<EmailMatterFilingDto> {
+    const tenantId = this.tenantContext.require().tenantId;
+    await this.assertCanUploadToMatter(tenantId, actorUserId, input.matterId);
+
+    return this.auditService.transaction(tenantId, async (tx) => {
+      const emailExists = await this.emailExists(tx, tenantId, emailId);
+      if (!emailExists) throw new NotFoundException({ code: 'PERMISSION_DENIED' });
+
+      await tx.query(
+        `
+          INSERT INTO email_matter_filings (tenant_id, email_id, matter_id, created_by)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (tenant_id, email_id, matter_id) DO NOTHING
+        `,
+        [tenantId, emailId, input.matterId, actorUserId],
+      );
+      const row = await this.findFilingRow(tx, tenantId, emailId, input.matterId);
+      if (!row) throw new Error('email matter filing returned no row');
+      const documentIds = [...(row.document_ids ?? [])];
+      await this.auditService.log(
+        emailFiledAudit({
+          tenantId,
+          actorId: actorUserId,
+          emailId,
+          matterId: input.matterId,
+          documentIds,
+        }),
+        tx,
+      );
+      return mapEmailMatterFilingRow(row);
+    });
+  }
+
+  async suggestMattersForEmail(
+    actorUserId: string,
+    emailId: string,
+    query: EmailMatterSuggestionQueryDto,
+  ): Promise<EmailMatterSuggestionListDto> {
+    const tenantId = this.tenantContext.require().tenantId;
+    const user = await this.userService?.findByTenantAndId(tenantId, actorUserId);
+    const permissionQueryBuilder = this.permissionQueryBuilder;
+    if (!user || user.status !== 'active' || !permissionQueryBuilder) return { items: [] };
+
+    return this.auditService.transaction(tenantId, async (tx) => {
+      const context = await this.emailSuggestionContext(tx, tenantId, emailId);
+      if (!context) throw new NotFoundException({ code: 'PERMISSION_DENIED' });
+      const params: unknown[] = [tenantId];
+      const permission = permissionQueryBuilder.buildMatterFilter(
+        { tenantId, userId: actorUserId, role: user.role },
+        params.length + 1,
+        'm',
+      );
+      params.push(...permission.params);
+      const subjectParam = params.push(context.subject ?? '');
+      const domainsParam = params.push(context.domains);
+      const limitParam = params.push(query.limit);
+      const result = await tx.query(
+        `
+          WITH candidates AS (
+            SELECT
+              m.matter_id,
+              m.matter_code,
+              m.matter_name,
+              m.client_id,
+              (
+                lower($${subjectParam}::text) LIKE '%' || lower(m.matter_code) || '%'
+                OR lower($${subjectParam}::text) LIKE '%' || lower(m.matter_name) || '%'
+              ) AS subject_match,
+              (
+                lower(coalesce(m.metadata_json->>'domain', '')) = ANY($${domainsParam}::text[])
+                OR lower(coalesce(c.metadata_json->>'domain', '')) = ANY($${domainsParam}::text[])
+              ) AS domain_match
+            FROM matters m
+            JOIN clients c
+              ON c.tenant_id = m.tenant_id
+             AND c.client_id = m.client_id
+            WHERE m.tenant_id = $1
+              AND ${permission.sql}
+          )
+          SELECT matter_id, matter_code, matter_name, client_id,
+            array_remove(ARRAY[
+              CASE WHEN subject_match THEN 'subject' END,
+              CASE WHEN domain_match THEN 'participant_domain' END
+            ], NULL) AS reason_codes,
+            ((CASE WHEN subject_match THEN 70 ELSE 0 END)
+              + (CASE WHEN domain_match THEN 30 ELSE 0 END))::text AS score
+          FROM candidates
+          WHERE subject_match OR domain_match
+          ORDER BY ((CASE WHEN subject_match THEN 70 ELSE 0 END)
+              + (CASE WHEN domain_match THEN 30 ELSE 0 END)) DESC,
+            matter_code ASC,
+            matter_id ASC
+          LIMIT $${limitParam}
+        `,
+        params,
+      );
+      return {
+        items: (result.rows as EmailMatterSuggestionRow[]).map(mapEmailMatterSuggestionRow),
+      };
+    });
+  }
+
+  async listMatterEmailTimeline(
+    actorUserId: string,
+    matterId: string,
+  ): Promise<EmailTimelineDto> {
+    const tenantId = this.tenantContext.require().tenantId;
+    const user = await this.userService?.findByTenantAndId(tenantId, actorUserId);
+    const permissionQueryBuilder = this.permissionQueryBuilder;
+    if (!user || user.status !== 'active' || !permissionQueryBuilder) return { items: [] };
+
+    return this.auditService.transaction(tenantId, async (tx) => {
+      const params: unknown[] = [tenantId, matterId];
+      const permission = permissionQueryBuilder.buildMatterFilter(
+        { tenantId, userId: actorUserId, role: user.role },
+        params.length + 1,
+        'm',
+      );
+      params.push(...permission.params);
+      const result = await tx.query(
+        `
+          SELECT f.filing_id, f.tenant_id, f.email_id, f.matter_id,
+            e.subject, e.sent_at, e.has_outside_participants,
+            f.created_by, f.created_at,
+            coalesce(
+              array_agg(edl.document_id::text ORDER BY edl.attachment_index)
+                FILTER (WHERE edl.document_id IS NOT NULL),
+              ARRAY[]::text[]
+            ) AS document_ids
+          FROM email_matter_filings f
+          JOIN matters m
+            ON m.tenant_id = f.tenant_id
+           AND m.matter_id = f.matter_id
+          JOIN email_messages e
+            ON e.tenant_id = f.tenant_id
+           AND e.email_id = f.email_id
+          LEFT JOIN email_document_links edl
+            ON edl.tenant_id = f.tenant_id
+           AND edl.email_id = f.email_id
+          WHERE f.tenant_id = $1
+            AND f.matter_id = $2
+            AND ${permission.sql}
+          GROUP BY f.filing_id, f.tenant_id, f.email_id, f.matter_id,
+            e.subject, e.sent_at, e.has_outside_participants, f.created_by, f.created_at
+          ORDER BY f.created_at DESC, f.filing_id ASC
+        `,
+        params,
+      );
+      return { items: (result.rows as EmailMatterFilingRow[]).map(mapEmailMatterFilingRow) };
+    });
+  }
+
   async listDocumentLinksForEmail(
     actorUserId: string,
     emailId: string,
@@ -595,6 +814,113 @@ export class EmailService {
       );
       return (result.rows as EmailDocumentLinkRow[]).map(mapEmailDocumentLinkRow);
     });
+  }
+
+  private async assertCanUploadToMatter(
+    tenantId: string,
+    actorUserId: string,
+    matterId: string,
+  ): Promise<void> {
+    if (!this.permissionService) {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    const decision = await this.permissionService.canUploadToMatter(
+      { tenantId, userId: actorUserId },
+      matterId,
+    );
+    if (decision.effect === 'ALLOW') return;
+    if (decision.reasonCode === 'ETHICAL_WALL_BLOCKED') {
+      throw new ForbiddenException({ code: 'ETHICAL_WALL_BLOCKED' });
+    }
+    throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+  }
+
+  private async emailExists(
+    client: QueryClient,
+    tenantId: string,
+    emailId: string,
+  ): Promise<boolean> {
+    const result = await client.query(
+      `
+        SELECT 1
+        FROM email_messages
+        WHERE tenant_id = $1
+          AND email_id = $2
+        LIMIT 1
+      `,
+      [tenantId, emailId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  private async findFilingRow(
+    client: QueryClient,
+    tenantId: string,
+    emailId: string,
+    matterId: string,
+  ): Promise<EmailMatterFilingRow | null> {
+    const result = await client.query(
+      `
+        SELECT f.filing_id, f.tenant_id, f.email_id, f.matter_id,
+          e.subject, e.sent_at, e.has_outside_participants,
+          f.created_by, f.created_at,
+          coalesce(
+            array_agg(edl.document_id::text ORDER BY edl.attachment_index)
+              FILTER (WHERE edl.document_id IS NOT NULL),
+            ARRAY[]::text[]
+          ) AS document_ids
+        FROM email_matter_filings f
+        JOIN email_messages e
+          ON e.tenant_id = f.tenant_id
+         AND e.email_id = f.email_id
+        LEFT JOIN email_document_links edl
+          ON edl.tenant_id = f.tenant_id
+         AND edl.email_id = f.email_id
+        WHERE f.tenant_id = $1
+          AND f.email_id = $2
+          AND f.matter_id = $3
+        GROUP BY f.filing_id, f.tenant_id, f.email_id, f.matter_id,
+          e.subject, e.sent_at, e.has_outside_participants, f.created_by, f.created_at
+        LIMIT 1
+      `,
+      [tenantId, emailId, matterId],
+    );
+    return (result.rows[0] as EmailMatterFilingRow | undefined) ?? null;
+  }
+
+  private async emailSuggestionContext(
+    client: QueryClient,
+    tenantId: string,
+    emailId: string,
+  ): Promise<{ subject: string | null; domains: string[] } | null> {
+    const email = await client.query(
+      `
+        SELECT subject
+        FROM email_messages
+        WHERE tenant_id = $1
+          AND email_id = $2
+        LIMIT 1
+      `,
+      [tenantId, emailId],
+    );
+    const row = email.rows[0] as { subject: string | null } | undefined;
+    if (!row) return null;
+    const participants = await client.query(
+      `
+        SELECT DISTINCT domain_ref
+        FROM email_participants
+        WHERE tenant_id = $1
+          AND email_id = $2
+        ORDER BY domain_ref
+        LIMIT 20
+      `,
+      [tenantId, emailId],
+    );
+    const participantRows = participants.rows as { domain_ref: string }[];
+    return {
+      subject: row.subject,
+      domains: participantRows.map((participant) => participant.domain_ref.toLowerCase()),
+    };
   }
 
   private async importAttachments(input: {

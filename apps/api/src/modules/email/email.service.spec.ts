@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AuditService, QueryClient } from '../audit/audit.service';
 import type { DocumentUploadService } from '../document/document-upload.service';
+import type { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import type { PermissionService } from '../permission/permission.service';
 import type { FileObjectService } from '../storage/file-object.service';
 import type { StorageService } from '../storage/storage.service';
 import type { TenantContextService } from '../tenant/tenant-context';
+import type { UserService } from '../user/user.service';
 import { EmailDuplicateMessageError, EmailService } from './email.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
@@ -19,6 +21,9 @@ function createService(
     if (sql.includes('SELECT email_id')) {
       const rows = selectRows.shift() ?? [];
       return { rows, rowCount: rows.length };
+    }
+    if (sql.includes('SELECT 1') && sql.includes('FROM email_messages')) {
+      return { rows: [{ '?column?': 1 }], rowCount: 1 };
     }
     if (sql.includes('INSERT INTO email_messages')) {
       const referencesJson = typeof params?.[11] === 'string' ? JSON.parse(params[11]) : [];
@@ -52,6 +57,28 @@ function createService(
     }
     if (sql.includes('INSERT INTO email_document_links')) {
       return { rows: [], rowCount: 1 };
+    }
+    if (sql.includes('INSERT INTO email_matter_filings')) {
+      return { rows: [], rowCount: 1 };
+    }
+    if (sql.includes('FROM email_matter_filings f')) {
+      return {
+        rows: [
+          {
+            filing_id: '11111111-1111-4111-8111-1111111111fa',
+            tenant_id: tenantId,
+            email_id: existingEmailId,
+            matter_id: '11111111-1111-4111-8111-1111111111a0',
+            subject: 'Filed subject',
+            sent_at: new Date('2026-06-12T00:00:00.000Z'),
+            has_outside_participants: false,
+            document_ids: ['11111111-1111-4111-8111-1111111111d0'],
+            created_by: actorUserId,
+            created_at: new Date('2026-06-12T00:00:00.000Z'),
+          },
+        ],
+        rowCount: 1,
+      };
     }
     if (sql.includes('FROM email_document_links')) {
       return {
@@ -104,7 +131,7 @@ function createService(
   } as unknown as TenantContextService;
   const uploadBuffer = vi.fn(async () => ({
     documentId: '11111111-1111-4111-8111-1111111111d0',
-    matterId: '11111111-1111-4111-8111-1111111111m0',
+    matterId: '11111111-1111-4111-8111-1111111111a0',
     fileObjectId: '11111111-1111-4111-8111-1111111111f0',
     status: 'draft' as const,
     title: 'attachment.pdf',
@@ -117,10 +144,18 @@ function createService(
   }));
   const documentUploadService = { uploadBuffer } as unknown as DocumentUploadService;
   const canReadDocument = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
-  const permissionService = { canReadDocument } as unknown as PermissionService;
+  const canUploadToMatter = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
+  const permissionService = { canReadDocument, canUploadToMatter } as unknown as PermissionService;
+  const permissionQueryBuilder = {
+    buildMatterFilter: vi.fn(() => ({ sql: 'TRUE', params: [], appliedRules: [] })),
+  } as unknown as PermissionQueryBuilder;
+  const userService = {
+    findByTenantAndId: vi.fn(async () => ({ role: 'matter_owner', status: 'active' })),
+  } as unknown as UserService;
 
   return {
     auditLog,
+    canUploadToMatter,
     canReadDocument,
     client,
     documentUploadService,
@@ -133,6 +168,8 @@ function createService(
       tenantContext,
       documentUploadService,
       permissionService,
+      permissionQueryBuilder,
+      userService,
     ),
     storageService,
     uploadBuffer,
@@ -249,7 +286,7 @@ describe('EmailService', () => {
     await service.importRawEmail({
       tenantId,
       actorUserId,
-      matterId: '11111111-1111-4111-8111-1111111111m0',
+      matterId: '11111111-1111-4111-8111-1111111111a0',
       originalFilename: 'with-attachment.eml',
       body: Buffer.from(
         [
@@ -336,6 +373,41 @@ describe('EmailService', () => {
     ).rejects.toMatchObject({
       response: { code: 'PERMISSION_DENIED' },
     });
+  });
+
+  it('files an email to a matter through upload permission and records reference-only audit', async () => {
+    const { auditLog, canUploadToMatter, query, service } = createService();
+
+    const filed = await service.fileEmailToMatter(actorUserId, existingEmailId, {
+      matterId: '11111111-1111-4111-8111-1111111111a0',
+    });
+
+    expect(canUploadToMatter).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId },
+      '11111111-1111-4111-8111-1111111111a0',
+    );
+    expect(query.mock.calls.some(([sql]) => String(sql).includes('email_matter_filings'))).toBe(
+      true,
+    );
+    expect(filed).toMatchObject({
+      emailId: existingEmailId,
+      documentIds: ['11111111-1111-4111-8111-1111111111d0'],
+    });
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'EMAIL_FILED',
+        targetType: 'email',
+        targetId: existingEmailId,
+        metadata: expect.objectContaining({
+          scope_type: 'email_filing',
+          scope_id: existingEmailId,
+          result_count: 1,
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Filed subject');
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('person@example.test');
   });
 
   it('blocks same-tenant duplicate Message-ID and records a denied audit event', async () => {

@@ -23,6 +23,7 @@ describe('audit shared types', () => {
         'EMAIL_IMPORTED',
         'EMAIL_DUPLICATE_BLOCKED',
         'EMAIL_METADATA_UPDATED',
+        'EMAIL_FILED',
       ]),
     );
   });
