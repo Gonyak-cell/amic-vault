@@ -159,7 +159,7 @@ describe('AI retrieval orchestrator integration', () => {
     );
   });
 
-  it('returns scoped unsupported results for graph and rule-dependent questions', async () => {
+  it('supports graph-oriented retrieval in R7 while keeping rule-dependent questions blocked', async () => {
     const graph = await retrieval.retrieve({
       tenantId: tenantAlphaId,
       userId: alphaOwnerUserId,
@@ -176,10 +176,12 @@ describe('AI retrieval orchestrator integration', () => {
     });
 
     expect(graph).toMatchObject({
-      status: 'unsupported',
-      questionKind: 'unsupported_graph',
-      chunks: [],
+      status: 'ready',
+      questionKind: 'retrieval',
     });
+    expect(graph.appliedRules).toContain('question.graph:supported_r7');
+    expect(graph.chunks).toHaveLength(1);
+    expectNoDeniedReference(graph);
     expect(rule).toMatchObject({
       status: 'unsupported',
       questionKind: 'unsupported_rule',

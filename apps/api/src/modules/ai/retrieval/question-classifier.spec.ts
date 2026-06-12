@@ -8,11 +8,11 @@ describe('AiQuestionClassifier', () => {
     expect(classifier.classify('find the termination covenant').kind).toBe('retrieval');
   });
 
-  it('blocks graph-dependent questions before R7', () => {
+  it('routes graph-dependent questions to R7 graph-enabled retrieval', () => {
     const result = classifier.classify('show the relationship graph for these parties');
 
-    expect(result.kind).toBe('unsupported_graph');
-    expect(result.appliedRules).toContain('question.graph:unsupported_before_r7');
+    expect(result.kind).toBe('retrieval');
+    expect(result.appliedRules).toContain('question.graph:supported_r7');
   });
 
   it('blocks rule-finding questions before R8', () => {

@@ -37,6 +37,9 @@ describe('audit shared types', () => {
         'AI_CITED_DOCUMENT',
         'AI_RETRIEVAL_EXCLUDED',
         'AI_FEEDBACK_RECORDED',
+        'GRAPH_SYNCED',
+        'GRAPH_QUERY_EXECUTED',
+        'GRAPH_CONSISTENCY_CHECKED',
       ]),
     );
   });
@@ -72,6 +75,13 @@ describe('audit shared types', () => {
       correction_type: 'minor_edit',
       error_types: ['incorrect_citation'],
       edit_distance: 12,
+      sync_run_id: '11111111-1111-4111-8111-111111111188',
+      node_count: 2,
+      edge_count: 1,
+      stale_count: 0,
+      drift_count: 0,
+      graph_scope: 'matter',
+      consistency_status: 'consistent',
     } satisfies AuditMetadata;
 
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');

@@ -111,4 +111,59 @@ describe('AiEvidencePackBuilder', () => {
       }),
     ).toThrow(ForbiddenException);
   });
+
+  it('includes R7 graph facts only as bounded ID relationships', () => {
+    const builder = new AiEvidencePackBuilder(
+      new AiContextRanker(),
+      new AiContextWindowManager(),
+    );
+
+    const pack = builder.build({
+      tenantId,
+      matterId,
+      userQuestion: 'show graph context',
+      retrieval: readyRetrieval([chunk({})]),
+      graphFacts: [
+        {
+          edgeId: '11111111-1111-4111-8111-111111111401',
+          edgeType: 'HAS_DOCUMENT',
+          matterId,
+          documentId: '11111111-1111-4111-8111-111111111201',
+          sourceHash,
+          source: {
+            nodeId: '11111111-1111-4111-8111-111111111402',
+            nodeType: 'matter',
+            sourceId: matterId,
+            matterId,
+            documentId: null,
+            versionId: null,
+          },
+          target: {
+            nodeId: '11111111-1111-4111-8111-111111111403',
+            nodeType: 'document',
+            sourceId: '11111111-1111-4111-8111-111111111201',
+            matterId,
+            documentId: '11111111-1111-4111-8111-111111111201',
+            versionId: null,
+          },
+        },
+      ],
+    });
+
+    expect(pack.graphFacts).toEqual([
+      {
+        edgeId: '11111111-1111-4111-8111-111111111401',
+        edgeType: 'HAS_DOCUMENT',
+        matterId,
+        documentId: '11111111-1111-4111-8111-111111111201',
+        sourceNodeId: '11111111-1111-4111-8111-111111111402',
+        sourceNodeType: 'matter',
+        targetNodeId: '11111111-1111-4111-8111-111111111403',
+        targetNodeType: 'document',
+        sourceHash,
+      },
+    ]);
+    expect(JSON.stringify(pack.graphFacts)).not.toMatch(/body|snippet|raw|content|text/u);
+    expect(pack.ruleFindings).toEqual([]);
+  });
 });

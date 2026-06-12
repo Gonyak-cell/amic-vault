@@ -7,6 +7,7 @@ import { AiEvidencePackBuilder } from '../context/evidence-pack.builder';
 import { AiRetrievalOrchestratorService } from '../retrieval/retrieval-orchestrator.service';
 import { AiModelRoutingService } from '../routing/model-routing.service';
 import { AiSessionLogService } from '../session/ai-session-log.service';
+import { GraphQueryService } from '../../graph/graph-query.service';
 import { AiSummaryService } from './ai-summary.service';
 
 const ctx = {
@@ -29,6 +30,7 @@ describe('AiSummaryService', () => {
       { resolveSources: vi.fn() } as unknown as AiCitationMapperService,
       { verify: vi.fn() } as unknown as AiCitationVerifier,
       sessions as unknown as AiSessionLogService,
+      { listFacts: vi.fn() } as unknown as GraphQueryService,
     );
 
     await expect(service.createSummary(ctx, request())).rejects.toBeInstanceOf(ForbiddenException);

@@ -56,6 +56,13 @@ export const auditMetadataKeys = [
   'correction_type',
   'error_types',
   'edit_distance',
+  'sync_run_id',
+  'node_count',
+  'edge_count',
+  'stale_count',
+  'drift_count',
+  'graph_scope',
+  'consistency_status',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];
