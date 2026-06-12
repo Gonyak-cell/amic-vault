@@ -8,6 +8,7 @@ import { MetricsModule } from './common/metrics/metrics.module';
 import { LogErrorTracker } from './common/errors/error-tracker';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BreakGlassModule } from './modules/break-glass/break-glass.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
@@ -39,6 +40,7 @@ class AppController {
     LoggerModule,
     MetricsModule,
     AuditModule,
+    BreakGlassModule,
     TenantModule,
     AuthModule,
     HealthModule,

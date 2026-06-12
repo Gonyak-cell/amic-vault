@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Pool } from 'pg';
 import type {
   DocumentConfidentialityLevel,
@@ -24,6 +24,7 @@ import {
   FailClosedPermissionWrapper,
   type PermissionAuditTarget,
 } from './fail-closed.wrapper';
+import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -88,6 +89,9 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
   constructor(
     @Inject(FailClosedPermissionWrapper)
     private readonly wrapper: FailClosedPermissionWrapper,
+    @Optional()
+    @Inject(BreakGlassOverrideReader)
+    private readonly breakGlassOverrideReader?: BreakGlassOverrideReader,
   ) {}
 
   canReadDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
@@ -307,9 +311,39 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     );
     for (const wall of result.rows) {
       if (wall.user_is_excluded) {
+        const override = await this.breakGlassOverrideReader?.findActiveOverride(
+          tenantId,
+          matterId,
+          userId,
+          wall.wall_id,
+        );
+        if (override) {
+          await this.breakGlassOverrideReader?.recordOverrideUsed({
+            tenantId,
+            actorId: userId,
+            matterId,
+            override,
+          });
+          continue;
+        }
         return { blocked: true, appliedRules: ['ethical_wall:excluded'] };
       }
       if (wall.has_insider && !wall.user_is_insider) {
+        const override = await this.breakGlassOverrideReader?.findActiveOverride(
+          tenantId,
+          matterId,
+          userId,
+          wall.wall_id,
+        );
+        if (override) {
+          await this.breakGlassOverrideReader?.recordOverrideUsed({
+            tenantId,
+            actorId: userId,
+            matterId,
+            override,
+          });
+          continue;
+        }
         return { blocked: true, appliedRules: ['ethical_wall:insider_required'] };
       }
     }

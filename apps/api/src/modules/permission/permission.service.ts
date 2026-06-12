@@ -22,6 +22,7 @@ import {
 } from './fail-closed.wrapper';
 import { WallMembershipReader } from './wall-membership.reader';
 import { DocumentPermissionService } from './document-permission.service';
+import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -87,6 +88,9 @@ export class PermissionService {
     @Inject(FailClosedPermissionWrapper)
     private readonly wrapper: FailClosedPermissionWrapper,
     @Inject(WallMembershipReader) private readonly wallMembershipReader: WallMembershipReader,
+    @Optional()
+    @Inject(BreakGlassOverrideReader)
+    private readonly breakGlassOverrideReader?: BreakGlassOverrideReader,
     @Optional()
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService?: DocumentPermissionService,
@@ -172,7 +176,15 @@ export class PermissionService {
         ctx.userId,
       );
       if (wall.isExcluded) {
-        return denyPermission('ETHICAL_WALL_BLOCKED', ['ethical_wall:excluded']);
+        const overridden = await this.allExcludedWallsOverridden(
+          ctx.tenantId as TenantId,
+          matterId,
+          ctx.userId,
+          wall.excludedWallIds ?? wall.wallIds,
+        );
+        if (!overridden) {
+          return denyPermission('ETHICAL_WALL_BLOCKED', ['ethical_wall:excluded']);
+        }
       }
       return allowPermission([
         'audit.read.matter:owner',
@@ -204,7 +216,15 @@ export class PermissionService {
       ctx.userId,
     );
     if (wall.isExcluded) {
-      return denyPermission('ETHICAL_WALL_BLOCKED', ['ethical_wall:excluded']);
+      const overridden = await this.allExcludedWallsOverridden(
+        ctx.tenantId as TenantId,
+        matterId,
+        ctx.userId,
+        wall.excludedWallIds ?? wall.wallIds,
+      );
+      if (!overridden) {
+        return denyPermission('ETHICAL_WALL_BLOCKED', ['ethical_wall:excluded']);
+      }
     }
 
     const member = await this.findMatterMember(ctx.tenantId as TenantId, matterId, ctx.userId);
@@ -421,5 +441,30 @@ export class PermissionService {
       return allowPermission(['permissions:explicit_allow']);
     }
     return allowPermission(['permissions:none']);
+  }
+
+  private async allExcludedWallsOverridden(
+    tenantId: TenantId,
+    matterId: string,
+    userId: string,
+    wallIds: readonly string[],
+  ): Promise<boolean> {
+    if (!this.breakGlassOverrideReader || wallIds.length === 0) return false;
+    for (const wallId of wallIds) {
+      const override = await this.breakGlassOverrideReader.findActiveOverride(
+        tenantId,
+        matterId,
+        userId,
+        wallId,
+      );
+      if (!override) return false;
+      await this.breakGlassOverrideReader.recordOverrideUsed({
+        tenantId,
+        actorId: userId,
+        matterId,
+        override,
+      });
+    }
+    return true;
   }
 }

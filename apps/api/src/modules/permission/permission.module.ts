@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { BreakGlassModule } from '../break-glass/break-glass.module';
 import { DocumentPermissionService } from './document-permission.service';
 import { DocumentPermissionStub } from './document-permission.stub';
 import { FailClosedPermissionWrapper } from './fail-closed.wrapper';
@@ -8,7 +9,7 @@ import { PermissionService } from './permission.service';
 import { WallMembershipReader } from './wall-membership.reader';
 
 @Module({
-  imports: [forwardRef(() => AuditModule)],
+  imports: [forwardRef(() => AuditModule), forwardRef(() => BreakGlassModule)],
   providers: [
     DocumentPermissionStub,
     DocumentPermissionService,

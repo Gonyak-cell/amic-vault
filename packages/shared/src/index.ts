@@ -32,6 +32,7 @@ export {
   r3SearchAuditActions,
   r4DlpAuditActions,
   r4EmailAuditActions,
+  r5BreakGlassAuditActions,
   type AuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
@@ -41,7 +42,19 @@ export {
   type R3SearchAuditAction,
   type R4DlpAuditAction,
   type R4EmailAuditAction,
+  type R5BreakGlassAuditAction,
 } from './types/audit';
+export {
+  breakGlassReasonCodes,
+  breakGlassRequestStatuses,
+  createBreakGlassRequestSchema,
+  revokeBreakGlassRequestSchema,
+  type BreakGlassReasonCode,
+  type BreakGlassRequestDto,
+  type BreakGlassRequestStatus,
+  type CreateBreakGlassRequestDto,
+  type RevokeBreakGlassRequestDto,
+} from './break-glass/break-glass.dto';
 
 export {
   tenantStatuses,
