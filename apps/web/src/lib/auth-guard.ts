@@ -5,6 +5,7 @@ const protectedPaths = [
   '/contracts',
   '/dd',
   '/litigation',
+  '/records',
   '/audit',
   '/walls',
 ] as const;

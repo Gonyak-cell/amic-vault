@@ -109,6 +109,16 @@ export const auditMetadataKeys = [
   'access_status',
   'nda_version',
   'watermark_ref',
+  'retention_policy_id',
+  'legal_hold_id',
+  'archive_id',
+  'disposal_request_id',
+  'certificate_id',
+  'certificate_hash',
+  'retention_days',
+  'deleted_row_count',
+  'storage_object_count',
+  'executor_user_id',
 ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

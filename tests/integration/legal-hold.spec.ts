@@ -131,14 +131,23 @@ async function legalHoldAuditRows(targetId: string) {
   });
 }
 
-async function forbiddenRecordsTablesCount(): Promise<number> {
+async function r12RecordsTablesProtectedCount(): Promise<number> {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{ count: string }>(
       `
         SELECT count(*)::text
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-          AND table_name IN ('legal_holds', 'retention_policies', 'disposal_jobs')
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname IN (
+            'retention_policies',
+            'legal_holds',
+            'records_archives',
+            'disposal_requests',
+            'disposal_certificates'
+          )
+          AND c.relrowsecurity
+          AND c.relforcerowsecurity
       `,
     );
     return Number(result.rows[0]?.count ?? '0');
@@ -216,7 +225,7 @@ describe('legal-hold integration', () => {
     await app.close();
   });
 
-  it('allows only legal-hold admins to change flags, audits changes, and keeps R12 tables absent', async () => {
+  it('allows only legal-hold admins to change flags, audits changes, and protects R12 tables', async () => {
     const denied = await patchLegalHold(baseUrl, alphaOwnerCookie, 'matters', matterId, true);
     const deniedBody = await denied.text();
     expect(denied.status, deniedBody).toBe(403);
@@ -268,7 +277,7 @@ describe('legal-hold integration', () => {
       after_ref: 'legal_hold:true',
     });
     expect(JSON.stringify([...matterAudits, ...documentAudits])).not.toContain('LEGAL-HOLD');
-    await expect(forbiddenRecordsTablesCount()).resolves.toBe(0);
+    await expect(r12RecordsTablesProtectedCount()).resolves.toBe(5);
 
     expect(() => assertDeletable({ documentLegalHold: true, matterLegalHold: false })).toThrow(
       LegalHoldBlockedError,
