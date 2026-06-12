@@ -317,6 +317,19 @@ export {
   type EvidencePackTaskType,
 } from './ai/evidence-pack';
 export {
+  aiModelRouteSchema,
+  aiModelTierSchema,
+  aiRoutingDecisionSchema,
+  aiRoutingEffectSchema,
+  aiTaskKindSchema,
+  aiTaskRiskSchema,
+  type AiModelRoute,
+  type AiRoutingDecisionDto,
+  type AiRoutingEffect,
+  type AiTaskKind,
+  type AiTaskRisk,
+} from './ai/model-routing';
+export {
   aiCitationClaimSchema,
   aiCitationSchema,
   aiCitationSourceRequestSchema,

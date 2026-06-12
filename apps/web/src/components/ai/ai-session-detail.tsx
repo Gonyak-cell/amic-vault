@@ -24,6 +24,11 @@ export function AiSessionDetail({ session }: { session: AiSessionDetailDto }) {
           <div className="break-all font-mono text-xs">{session.responseHash ?? 'pending'}</div>
         </div>
       </div>
+      {session.escalationRequired ? (
+        <div className="border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Review required{session.blockedReason ? `: ${session.blockedReason}` : ''}
+        </div>
+      ) : null}
       <div className="text-sm text-slate-700">
         Sources visible: {session.chunks.length}
         {session.hiddenSourceCount > 0 ? ` / hidden: ${session.hiddenSourceCount}` : ''}
