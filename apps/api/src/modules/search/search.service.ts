@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import type {
   AuditMetadata,
+  SearchFacetBucketDto,
+  SearchFacetsDto,
   SearchQueryDto,
   SearchResponseDto,
   SearchResultDto,
@@ -27,6 +29,10 @@ interface SearchDbRow {
   score: number | string;
   raw_snippet: string | null;
   total: number | string;
+}
+
+interface SearchFacetDbRow {
+  facets: unknown;
 }
 
 function permissionDenied(): ForbiddenException {
@@ -103,9 +109,12 @@ export class SearchService {
 
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       const built = this.queryBuilder.build(input, scopeDecision.scope);
+      const facetQuery = this.queryBuilder.buildFacets(input, scopeDecision.scope);
       const result = await client.query(built.sql, built.params);
+      const facetResult = await client.query(facetQuery.sql, facetQuery.params);
       const rows = result.rows as SearchDbRow[];
-      const response = this.mapRows(rows);
+      const facetRows = facetResult.rows as SearchFacetDbRow[];
+      const response = this.mapRows(rows, parseFacets(facetRows[0]?.facets));
       await this.recordSearchAudit(
         client,
         ctx,
@@ -157,9 +166,10 @@ export class SearchService {
     );
   }
 
-  private mapRows(rows: SearchDbRow[]): SearchResponseDto {
+  private mapRows(rows: SearchDbRow[], facets: SearchFacetsDto): SearchResponseDto {
     const total = Number(rows[0]?.total ?? 0);
     return {
+      facets,
       total,
       results: rows.map((row): SearchResultDto => {
         const parsed = this.snippetBuilder.parseHeadline(row.raw_snippet);
@@ -179,4 +189,49 @@ export class SearchService {
       }),
     };
   }
+}
+
+const emptyFacets: SearchFacetsDto = {
+  clients: [],
+  matters: [],
+  documentTypes: [],
+  versionStatuses: [],
+  dateRanges: [],
+};
+
+function parseFacets(input: unknown): SearchFacetsDto {
+  if (!isRecord(input)) return emptyFacets;
+  return {
+    clients: parseBuckets(input.clients),
+    matters: parseBuckets(input.matters),
+    documentTypes: parseBuckets(input.documentTypes),
+    versionStatuses: parseBuckets(input.versionStatuses),
+    dateRanges: parseDateRanges(input.dateRanges),
+  };
+}
+
+function parseBuckets(input: unknown): SearchFacetBucketDto[] {
+  if (!Array.isArray(input)) return [];
+  return input.flatMap((item) => {
+    if (!isRecord(item) || typeof item.value !== 'string') return [];
+    const count = Number(item.count);
+    if (!Number.isFinite(count) || count <= 0) return [];
+    return [{ value: item.value, count }];
+  });
+}
+
+function parseDateRanges(input: unknown): SearchFacetsDto['dateRanges'] {
+  if (!Array.isArray(input)) return [];
+  return input.flatMap((item) => {
+    if (!isRecord(item) || typeof item.value !== 'string' || typeof item.label !== 'string') {
+      return [];
+    }
+    const count = Number(item.count);
+    if (!Number.isFinite(count) || count <= 0) return [];
+    return [{ value: item.value, label: item.label, count }];
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

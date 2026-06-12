@@ -154,8 +154,8 @@ describe('search metadata leakage integration', () => {
 
     expect(response.total).toBe(0);
     expect(response.results).toEqual([]);
+    expect(response.facets).toEqual(emptyFacets());
     expectNoHiddenReferences(response);
-    expect(response.facets).toBeUndefined();
   });
 
   it('counts only authorized rows when allowed and denied documents share the query', async () => {
@@ -168,8 +168,10 @@ describe('search metadata leakage integration', () => {
 
     expect(response.total).toBe(2);
     expect(resultTitles(response).sort()).toEqual([...corpus.visibleTitles].sort());
+    expect(response.facets.clients).toEqual([{ value: clientId, count: 2 }]);
+    expect(sumCounts(response.facets.documentTypes)).toBe(2);
+    expect(sumCounts(response.facets.matters)).toBe(2);
     expectNoHiddenReferences(response);
-    expect(response.facets).toBeUndefined();
   });
 
   it('does not fill authorized page slots with unauthorized rows', async () => {
@@ -195,6 +197,20 @@ describe('search metadata leakage integration', () => {
     expect(raw).not.toContain(corpus.deniedOnlyToken);
   }
 });
+
+function emptyFacets(): SearchHttpResponse['facets'] {
+  return {
+    clients: [],
+    matters: [],
+    documentTypes: [],
+    versionStatuses: [],
+    dateRanges: [],
+  };
+}
+
+function sumCounts(buckets: readonly { count: number }[]): number {
+  return buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+}
 
 async function insertLeakageRow(input: {
   matterId: string;

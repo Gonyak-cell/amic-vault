@@ -44,6 +44,7 @@ jobs:
       - run: pnpm test:integration -- cross-tenant
       - run: pnpm test:integration -- fail-closed
       - run: pnpm test:integration -- permission-matrix
+      - run: pnpm test:integration -- search-filter
       - run: pnpm test:integration -- search-permission
       - run: pnpm test:integration -- metadata-leakage
       - run: pnpm test:integration

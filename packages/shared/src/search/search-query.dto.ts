@@ -68,7 +68,25 @@ export interface SearchResultDto {
   updatedAt: string;
 }
 
+export interface SearchFacetBucketDto {
+  value: string;
+  count: number;
+}
+
+export interface SearchDateRangeFacetDto extends SearchFacetBucketDto {
+  label: string;
+}
+
+export interface SearchFacetsDto {
+  clients: SearchFacetBucketDto[];
+  matters: SearchFacetBucketDto[];
+  documentTypes: SearchFacetBucketDto[];
+  versionStatuses: SearchFacetBucketDto[];
+  dateRanges: SearchDateRangeFacetDto[];
+}
+
 export interface SearchResponseDto {
+  facets: SearchFacetsDto;
   results: SearchResultDto[];
   total: number;
 }

@@ -40,4 +40,27 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).not.toContain('idx.version_status =');
     expect(built.params).toEqual([tenantId, 'deleted', ['contract'], 5, 5]);
   });
+
+  it('builds facet aggregation from the same filtered and full-text scoped rows', () => {
+    const query = "closing'; DROP TABLE document_search_index; --";
+    const clientId = '11111111-1111-4111-8111-111111111155';
+    const built = builder().buildFacets(
+      {
+        query,
+        filters: { clientId, documentType: 'memo', versionStatus: 'all' },
+        page: 1,
+        pageSize: 10,
+      },
+      scope,
+    );
+
+    expect(built.sql).toContain('WITH tsq AS');
+    expect(built.sql).toContain('filtered AS');
+    expect(built.sql).toContain('FROM filtered');
+    expect(built.sql).toContain('idx.client_id = $3');
+    expect(built.sql).toContain('idx.document_type = ANY($4::text[])');
+    expect(built.sql).not.toContain('idx.version_status =');
+    expect(built.sql).not.toContain(query);
+    expect(built.params).toEqual([tenantId, 'deleted', clientId, ['memo'], query]);
+  });
 });
