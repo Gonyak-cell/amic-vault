@@ -53,3 +53,24 @@ export function emailDuplicateBlockedAudit(
     },
   };
 }
+
+export function emailMetadataUpdatedAudit(
+  input: BaseEmailEventInput & {
+    participantCount: number;
+    warningCode?: string | null;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId ?? null,
+    action: 'EMAIL_METADATA_UPDATED',
+    targetType: 'email',
+    targetId: input.emailId,
+    metadata: {
+      scope_type: 'email_metadata',
+      scope_id: input.emailId,
+      result_count: input.participantCount,
+      ...(input.warningCode ? { reason_code: input.warningCode } : {}),
+    },
+  };
+}

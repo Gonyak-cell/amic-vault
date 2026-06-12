@@ -28,7 +28,8 @@ describe('email audit coverage', () => {
           )
           VALUES
             ($1, 'system', 'EMAIL_IMPORTED', 'email', $2, 'success', $3::jsonb),
-            ($1, 'system', 'EMAIL_DUPLICATE_BLOCKED', 'email', $2, 'denied', $4::jsonb)
+            ($1, 'system', 'EMAIL_DUPLICATE_BLOCKED', 'email', $2, 'denied', $4::jsonb),
+            ($1, 'system', 'EMAIL_METADATA_UPDATED', 'email', $2, 'success', $5::jsonb)
         `,
         [
           tenantAlphaId,
@@ -46,6 +47,12 @@ describe('email audit coverage', () => {
             hash: messageIdHash,
             reason_code: 'DUPLICATE_MESSAGE_ID',
           }),
+          JSON.stringify({
+            scope_type: 'email_metadata',
+            scope_id: emailId,
+            result_count: 2,
+            reason_code: 'MALFORMED_DATE',
+          }),
         ],
       );
 
@@ -60,7 +67,7 @@ describe('email audit coverage', () => {
                  )::text AS unsafe
           FROM audit_events
           WHERE tenant_id = $1
-            AND action IN ('EMAIL_IMPORTED', 'EMAIL_DUPLICATE_BLOCKED')
+            AND action IN ('EMAIL_IMPORTED', 'EMAIL_DUPLICATE_BLOCKED', 'EMAIL_METADATA_UPDATED')
             AND target_id = $5
           GROUP BY action
           ORDER BY action
@@ -71,6 +78,7 @@ describe('email audit coverage', () => {
       expect(audit.rows).toEqual([
         { action: 'EMAIL_DUPLICATE_BLOCKED', count: '1', unsafe: '0' },
         { action: 'EMAIL_IMPORTED', count: '1', unsafe: '0' },
+        { action: 'EMAIL_METADATA_UPDATED', count: '1', unsafe: '0' },
       ]);
     });
   });

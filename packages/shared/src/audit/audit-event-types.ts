@@ -39,7 +39,11 @@ export const r3SearchAuditActions = ['SEARCH_REINDEX_REQUESTED', 'SEARCH_EXECUTE
 
 export const r4DlpAuditActions = ['DLP_SCAN_COMPLETED', 'DLP_FINDING_RECORDED'] as const;
 
-export const r4EmailAuditActions = ['EMAIL_IMPORTED', 'EMAIL_DUPLICATE_BLOCKED'] as const;
+export const r4EmailAuditActions = [
+  'EMAIL_IMPORTED',
+  'EMAIL_DUPLICATE_BLOCKED',
+  'EMAIL_METADATA_UPDATED',
+] as const;
 
 export const auditActions = [
   ...r1AuditActions,

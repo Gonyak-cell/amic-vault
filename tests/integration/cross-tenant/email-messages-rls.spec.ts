@@ -39,6 +39,16 @@ async function insertEmailFixture(
     `,
     [emailId, tenantId, fileObjectId, messageIdHash, rawSha256],
   );
+  await client.query(
+    `
+      INSERT INTO email_participants (
+        tenant_id, email_id, role, address_hash, domain_ref, display_name, is_outside
+      )
+      VALUES ($1, $2, 'from', $3, 'outside.test', 'Outside Sender', true)
+      ON CONFLICT DO NOTHING
+    `,
+    [tenantId, emailId, sha256Hex(`address:${tenantId}:${emailId}`)],
+  );
   return emailId;
 }
 
@@ -54,6 +64,11 @@ describe('email_messages RLS', () => {
         [alphaEmailId],
       );
       expect(alphaVisible.rows[0]?.count).toBe('1');
+      const alphaParticipantVisible = await client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM email_participants WHERE email_id = $1',
+        [alphaEmailId],
+      );
+      expect(alphaParticipantVisible.rows[0]?.count).toBe('1');
 
       await setTenant(client, tenantBetaId);
       const betaCannotSeeAlpha = await client.query<{ count: string }>(
@@ -61,6 +76,11 @@ describe('email_messages RLS', () => {
         [alphaEmailId],
       );
       expect(betaCannotSeeAlpha.rows[0]?.count).toBe('0');
+      const betaCannotSeeAlphaParticipant = await client.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM email_participants WHERE email_id = $1',
+        [alphaEmailId],
+      );
+      expect(betaCannotSeeAlphaParticipant.rows[0]?.count).toBe('0');
 
       await expect(insertEmailFixture(client, tenantBetaId, sharedMessageIdHash)).resolves.toEqual(
         expect.any(String),

@@ -19,7 +19,13 @@ export interface EmailMessageDto {
   parser: EmailParserKind;
   parseStatus: EmailParseStatus;
   failureReasonCode: EmailFailureReasonCode | null;
+  subject: string | null;
+  sentAt: string | null;
+  receivedAt: string | null;
+  metadataWarningCode: string | null;
+  hasOutsideParticipants: boolean;
   messageIdHash: string;
+  references: readonly string[];
   rawSha256: string;
   rawSizeBytes: number;
   createdBy: string | null;

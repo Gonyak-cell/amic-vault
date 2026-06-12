@@ -4,7 +4,9 @@ from app.parsers.email import parse_eml_envelope, parse_msg_skeleton
 def test_eml_parser_normalizes_message_id_without_body_text() -> None:
     result = parse_eml_envelope(
         b"From: Sender <sender@example.test>\r\n"
+        b"To: Internal <internal@amic.test>, Outside <outside@example.test>\r\n"
         b"Message-ID: <Case-001@Example.TEST>\r\n"
+        b"Date: Fri, 12 Jun 2026 10:15:30 +0900\r\n"
         b"Subject: Fixture\r\n"
         b"\r\n"
         b"body must not be returned"
@@ -13,6 +15,10 @@ def test_eml_parser_normalizes_message_id_without_body_text() -> None:
     assert result.status == "parsed"
     assert result.parser == "eml"
     assert result.normalized_message_id == "case-001@example.test"
+    assert result.subject == "Fixture"
+    assert result.sent_at is not None
+    assert len(result.participants) == 3
+    assert result.participants[0].normalized_address == "sender@example.test"
     assert "body must not be returned" not in repr(result)
 
 

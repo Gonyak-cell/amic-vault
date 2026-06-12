@@ -2,16 +2,19 @@ import { createHash, randomUUID } from 'node:crypto';
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import {
   EmlParseError,
-  parseEmlEnvelope,
+  normalizeEmailMetadata,
+  type EmailMetadataWarningCode,
   type EmailFailureReasonCode,
   type EmailMessageDto,
   type EmailParserKind,
   type EmailParseStatus,
+  type NormalizedEmailMetadata,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import {
   emailDuplicateBlockedAudit,
   emailImportedAudit,
+  emailMetadataUpdatedAudit,
 } from '../audit/events/email-events';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -23,6 +26,7 @@ export interface ImportRawEmailInput {
   originalFilename: string;
   mimeType?: string | null;
   body: Buffer;
+  tenantDomains?: readonly string[];
 }
 
 interface EmailMessageRow {
@@ -33,6 +37,12 @@ interface EmailMessageRow {
   parser: EmailParserKind;
   parse_status: EmailParseStatus;
   failure_reason_code: EmailFailureReasonCode | null;
+  subject: string | null;
+  sent_at: Date | null;
+  received_at: Date | null;
+  metadata_warning_code: EmailMetadataWarningCode | null;
+  references_json: readonly string[];
+  has_outside_participants: boolean;
   raw_sha256: string;
   raw_size_bytes: string;
   created_by: string | null;
@@ -49,11 +59,30 @@ interface PreparedEmailEnvelope {
   failureReasonCode: EmailFailureReasonCode | null;
   messageIdHash: string;
   contentType: string;
+  metadata: PreparedEmailMetadata | null;
 }
 
 type ImportTransactionResult =
   | { kind: 'imported'; email: EmailMessageDto }
   | { kind: 'duplicate'; emailId: string };
+
+interface PreparedEmailParticipant {
+  role: 'from' | 'to' | 'cc';
+  addressHash: string;
+  domainRef: string;
+  displayName: string | null;
+  isOutside: boolean;
+}
+
+interface PreparedEmailMetadata {
+  subject: string | null;
+  sentAt: string | null;
+  receivedAt: string | null;
+  warningCode: EmailMetadataWarningCode | null;
+  references: readonly string[];
+  participants: readonly PreparedEmailParticipant[];
+  hasOutsideParticipants: boolean;
+}
 
 export class EmailDuplicateMessageError extends Error {
   constructor() {
@@ -96,7 +125,13 @@ function mapEmailRow(row: EmailMessageRow): EmailMessageDto {
     parser: row.parser,
     parseStatus: row.parse_status,
     failureReasonCode: row.failure_reason_code,
+    subject: row.subject,
+    sentAt: row.sent_at?.toISOString() ?? null,
+    receivedAt: row.received_at?.toISOString() ?? null,
+    metadataWarningCode: row.metadata_warning_code,
+    hasOutsideParticipants: row.has_outside_participants,
     messageIdHash: row.message_id_hash,
+    references: row.references_json,
     rawSha256: row.raw_sha256,
     rawSizeBytes: Number(row.raw_size_bytes),
     createdBy: row.created_by,
@@ -125,7 +160,13 @@ export class EmailService {
     const body = Buffer.from(input.body);
     const rawSha256 = sha256Hex(body);
     const originalFilename = normalizeFilename(input.originalFilename, 'message.eml');
-    const prepared = this.prepareEnvelope(originalFilename, input.mimeType, body, rawSha256);
+    const prepared = this.prepareEnvelope({
+      originalFilename,
+      mimeType: input.mimeType,
+      body,
+      rawSha256,
+      tenantDomains: input.tenantDomains ?? [],
+    });
 
     const existing = await this.recordDuplicateIfExisting({
       tenantId,
@@ -194,6 +235,7 @@ export class EmailService {
             body.length,
             input.actorUserId ?? null,
           );
+          await this.insertEmailParticipants(tx, tenantId, emailId, prepared.metadata);
           await this.auditService.log(
             emailImportedAudit({
               tenantId,
@@ -206,6 +248,18 @@ export class EmailService {
             }),
             tx,
           );
+          if (prepared.metadata) {
+            await this.auditService.log(
+              emailMetadataUpdatedAudit({
+                tenantId,
+                actorId: input.actorUserId ?? null,
+                emailId,
+                participantCount: prepared.metadata.participants.length,
+                warningCode: prepared.metadata.warningCode,
+              }),
+              tx,
+            );
+          }
           return { kind: 'imported', email };
         },
       );
@@ -234,12 +288,14 @@ export class EmailService {
     }
   }
 
-  private prepareEnvelope(
-    originalFilename: string,
-    mimeType: string | null | undefined,
-    body: Buffer,
-    rawSha256: string,
-  ): PreparedEmailEnvelope {
+  private prepareEnvelope(input: {
+    originalFilename: string;
+    mimeType: string | null | undefined;
+    body: Buffer;
+    rawSha256: string;
+    tenantDomains: readonly string[];
+  }): PreparedEmailEnvelope {
+    const { originalFilename, mimeType, body, rawSha256, tenantDomains } = input;
     const extension = extensionFromFilename(originalFilename);
     if (extension === 'msg') {
       return {
@@ -248,17 +304,20 @@ export class EmailService {
         failureReasonCode: 'UNSUPPORTED_MSG',
         messageIdHash: namespacedHash('email-raw-sha256', rawSha256),
         contentType: mimeType?.trim() || 'application/vnd.ms-outlook',
+        metadata: null,
       };
     }
 
     try {
-      const parsed = parseEmlEnvelope(body.toString('utf8'));
+      const raw = body.toString('utf8');
+      const parsed = normalizeEmailMetadata(raw, { tenantDomains });
       return {
         parser: 'eml',
         parseStatus: 'parsed',
         failureReasonCode: null,
         messageIdHash: namespacedHash('email-message-id', parsed.normalizedMessageId),
         contentType: mimeType?.trim() || 'message/rfc822',
+        metadata: this.prepareMetadata(parsed),
       };
     } catch (error) {
       const reasonCode =
@@ -269,8 +328,29 @@ export class EmailService {
         failureReasonCode: reasonCode,
         messageIdHash: namespacedHash('email-raw-sha256', rawSha256),
         contentType: mimeType?.trim() || 'message/rfc822',
+        metadata: null,
       };
     }
+  }
+
+  private prepareMetadata(metadata: NormalizedEmailMetadata): PreparedEmailMetadata {
+    return {
+      subject: metadata.subject,
+      sentAt: metadata.sentAt,
+      receivedAt: metadata.receivedAt,
+      warningCode: metadata.warningCode,
+      references: metadata.normalizedReferenceIds.map((reference) =>
+        namespacedHash('email-reference-message-id', reference),
+      ),
+      participants: metadata.participants.map((participant) => ({
+        role: participant.role,
+        addressHash: namespacedHash('email-address', participant.normalizedAddress),
+        domainRef: participant.domainRef,
+        displayName: participant.displayName,
+        isOutside: participant.isOutside,
+      })),
+      hasOutsideParticipants: metadata.hasOutsideParticipants,
+    };
   }
 
   private async recordDuplicateIfExisting(input: {
@@ -326,11 +406,15 @@ export class EmailService {
       `
         INSERT INTO email_messages (
           email_id, tenant_id, raw_file_object_id, message_id_hash, parser,
-          parse_status, failure_reason_code, raw_sha256, raw_size_bytes, created_by
+          parse_status, failure_reason_code, subject, sent_at, received_at,
+          metadata_warning_code, references_json, has_outside_participants,
+          raw_sha256, raw_size_bytes, created_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16)
         RETURNING email_id, tenant_id, raw_file_object_id, message_id_hash, parser,
-          parse_status, failure_reason_code, raw_sha256, raw_size_bytes::text, created_by, created_at
+          parse_status, failure_reason_code, subject, sent_at, received_at,
+          metadata_warning_code, references_json, has_outside_participants,
+          raw_sha256, raw_size_bytes::text, created_by, created_at
       `,
       [
         emailId,
@@ -340,6 +424,12 @@ export class EmailService {
         prepared.parser,
         prepared.parseStatus,
         prepared.failureReasonCode,
+        prepared.metadata?.subject ?? null,
+        prepared.metadata?.sentAt ?? null,
+        prepared.metadata?.receivedAt ?? null,
+        prepared.metadata?.warningCode ?? null,
+        JSON.stringify(prepared.metadata?.references ?? []),
+        prepared.metadata?.hasOutsideParticipants ?? false,
         rawSha256,
         rawSizeBytes,
         actorUserId,
@@ -348,6 +438,35 @@ export class EmailService {
     const row = result.rows[0] as EmailMessageRow | undefined;
     if (!row) throw new Error('email message insert returned no row');
     return mapEmailRow(row);
+  }
+
+  private async insertEmailParticipants(
+    client: QueryClient,
+    tenantId: string,
+    emailId: string,
+    metadata: PreparedEmailMetadata | null,
+  ): Promise<void> {
+    if (!metadata) return;
+    for (const participant of metadata.participants) {
+      await client.query(
+        `
+          INSERT INTO email_participants (
+            tenant_id, email_id, role, address_hash, domain_ref, display_name, is_outside
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (tenant_id, email_id, role, address_hash) DO NOTHING
+        `,
+        [
+          tenantId,
+          emailId,
+          participant.role,
+          participant.addressHash,
+          participant.domainRef,
+          participant.displayName,
+          participant.isOutside,
+        ],
+      );
+    }
   }
 
   private async compensateStorageObject(tenantId: string, storageUri: string): Promise<void> {
