@@ -11,7 +11,9 @@ import {
 } from '@nestjs/common';
 import {
   acceptExternalNdaRequestSchema,
+  createExternalAnswerRequestSchema,
   createExternalLinkRequestSchema,
+  createExternalQuestionRequestSchema,
   createExternalUserRequestSchema,
   createExternalWorkspaceRequestSchema,
 } from '@amic-vault/shared';
@@ -97,6 +99,21 @@ export class ExternalController {
     return this.external.revokeLink(permissionContext(request), linkId);
   }
 
+  @Get('workspaces/:workspaceId/qa')
+  listWorkspaceQa(@Req() request: RequestWithSession, @Param('workspaceId') workspaceId: string) {
+    return this.external.listWorkspaceQa(permissionContext(request), workspaceId);
+  }
+
+  @Post('qa/:messageId/answers')
+  createAnswer(
+    @Req() request: RequestWithSession,
+    @Param('messageId') messageId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => createExternalAnswerRequestSchema.parse(body ?? {}));
+    return this.external.createAnswer(permissionContext(request), messageId, input);
+  }
+
   @Public()
   @Get('access/:token')
   accessStatus(@Param('token') token: string, @Req() request: RequestWithMetadata) {
@@ -122,6 +139,33 @@ export class ExternalController {
   @Get('access/:token/manifest')
   manifest(@Param('token') token: string, @Req() request: RequestWithMetadata) {
     return this.external.manifest(parseToken(token), {
+      actorRef: externalActorRefHash(request),
+    });
+  }
+
+  @Public()
+  @Get('access/:token/download-ticket')
+  downloadTicket(@Param('token') token: string, @Req() request: RequestWithMetadata) {
+    return this.external.downloadTicket(parseToken(token), {
+      actorRef: externalActorRefHash(request),
+    });
+  }
+
+  @Public()
+  @Get('access/:token/qa')
+  listQa(@Param('token') token: string) {
+    return this.external.listQa(parseToken(token));
+  }
+
+  @Public()
+  @Post('access/:token/qa/questions')
+  createQuestion(
+    @Param('token') token: string,
+    @Body() body: unknown,
+    @Req() request: RequestWithMetadata,
+  ) {
+    const input = parseOrValidation(() => createExternalQuestionRequestSchema.parse(body ?? {}));
+    return this.external.createQuestion(parseToken(token), input, {
       actorRef: externalActorRefHash(request),
     });
   }
