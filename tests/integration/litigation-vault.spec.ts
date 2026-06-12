@@ -169,7 +169,7 @@ describe('Litigation Vault integration', () => {
     expect(audit).toBeUndefined();
   });
 
-  it('does not introduce e-filing or external transmission tables after R11 core opens', async () => {
+  it('does not introduce e-filing or external transmission tables after R11 portal Q&A opens', async () => {
     const unexpectedExternalTables = await withClient(createOwnerClient(), async (client) => {
       await setTenant(client, tenantAlphaId);
       const result = await client.query<{ table_name: string }>(
@@ -185,7 +185,8 @@ describe('Litigation Vault integration', () => {
                   'external_users',
                   'external_workspace_members',
                   'external_secure_links',
-                  'external_nda_acceptances'
+                  'external_nda_acceptances',
+                  'external_qa_messages'
                 )
               )
               OR table_name LIKE '%efile%'

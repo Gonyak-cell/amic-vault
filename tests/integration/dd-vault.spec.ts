@@ -173,7 +173,7 @@ describe('DD Vault integration', () => {
     expect(audit).toBeUndefined();
   });
 
-  it('keeps DD scope free of VDR delivery and external Q&A tables after R11 core opens', async () => {
+  it('keeps DD scope free of VDR delivery tables after R11 portal Q&A opens', async () => {
     const unexpectedExternalTables = await withClient(createOwnerClient(), async (client) => {
       await setTenant(client, tenantAlphaId);
       const result = await client.query<{ table_name: string }>(
@@ -189,11 +189,11 @@ describe('DD Vault integration', () => {
                   'external_users',
                   'external_workspace_members',
                   'external_secure_links',
-                  'external_nda_acceptances'
+                  'external_nda_acceptances',
+                  'external_qa_messages'
                 )
               )
               OR table_name LIKE '%vdr%'
-              OR table_name LIKE '%external_q%'
             )
           ORDER BY table_name
         `,

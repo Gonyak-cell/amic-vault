@@ -11,25 +11,35 @@ import { Pool, type PoolClient } from 'pg';
 import {
   externalAccessManifestSchema,
   externalAccessStatusResponseSchema,
+  externalDownloadTicketSchema,
   externalLinkCreatedResponseSchema,
   externalLinkSchema,
   externalNdaAcceptanceSchema,
+  externalQaListResponseSchema,
+  externalQaMessageSchema,
   externalUserSchema,
   externalWorkspaceSchema,
   type AcceptExternalNdaRequestDto,
+  type CreateExternalAnswerRequestDto,
   type CreateExternalLinkRequestDto,
+  type CreateExternalQuestionRequestDto,
   type CreateExternalUserRequestDto,
   type CreateExternalWorkspaceRequestDto,
+  type DlpDetection,
   type ExternalAccessManifestDto,
   type ExternalAccessStatusResponseDto,
+  type ExternalDownloadTicketDto,
   type ExternalLinkCreatedResponseDto,
   type ExternalLinkDto,
   type ExternalNdaAcceptanceDto,
+  type ExternalQaListResponseDto,
+  type ExternalQaMessageDto,
   type ExternalUserDto,
   type ExternalWorkspaceDto,
   type PermissionContext,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
+import { DlpService } from '../dlp/dlp.service';
 import { DocumentPermissionService } from '../permission/document-permission.service';
 import { PermissionService } from '../permission/permission.service';
 
@@ -77,6 +87,10 @@ interface LinkRow {
   expires_at: Date;
   nda_required: boolean;
   watermark_required: boolean;
+  dlp_warning_status: string;
+  dlp_result_hash: string | null;
+  dlp_finding_count: number;
+  dlp_override_reason_code: string | null;
   created_at: Date;
   updated_at: Date;
   matter_id: string;
@@ -86,6 +100,41 @@ interface LinkRow {
   document_status: string;
   document_legal_hold: boolean;
   matter_legal_hold: boolean;
+}
+
+interface QaMessageRow {
+  qa_message_id: string;
+  workspace_id: string;
+  link_id: string;
+  external_user_id: string;
+  parent_message_id: string | null;
+  direction: string;
+  message_text: string;
+  message_hash: string;
+  created_at: Date;
+  matter_id: string;
+  document_id: string;
+  version_id: string | null;
+  expires_at: Date;
+}
+
+interface DlpTextRow {
+  scan_text: string;
+}
+
+interface ExternalDlpEvaluation {
+  findingCount: number;
+  resultHash: string | null;
+}
+
+interface ExternalQaAuditScope {
+  tenant_id: string;
+  matter_id: string;
+  workspace_id: string;
+  external_user_id: string;
+  link_id: string;
+  document_id: string;
+  version_id: string | null;
 }
 
 interface DocumentTargetRow {
@@ -179,6 +228,7 @@ function mapLink(row: Pick<
   | 'expires_at'
   | 'nda_required'
   | 'watermark_required'
+  | 'dlp_warning_status'
   | 'created_at'
   | 'updated_at'
 >): ExternalLinkDto {
@@ -192,9 +242,36 @@ function mapLink(row: Pick<
     expiresAt: iso(row.expires_at),
     ndaRequired: row.nda_required,
     watermarkRequired: row.watermark_required,
+    dlpWarningStatus: row.dlp_warning_status,
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
   });
+}
+
+function mapQaMessage(row: QaMessageRow): ExternalQaMessageDto {
+  return externalQaMessageSchema.parse({
+    messageId: row.qa_message_id,
+    workspaceId: row.workspace_id,
+    linkId: row.link_id,
+    externalUserId: row.external_user_id,
+    parentMessageId: row.parent_message_id,
+    direction: row.direction,
+    messageText: row.message_text,
+    messageHash: row.message_hash,
+    createdAt: iso(row.created_at),
+  });
+}
+
+function dlpScanHash(detections: readonly DlpDetection[]): string {
+  return sha256Hex(detections.map((item) => `${item.ruleId}:${item.valueHash}`).join('|'));
+}
+
+function watermarkRefFor(link: LinkRow): string {
+  return `watermark:${link.link_id}:${link.external_user_id}`;
+}
+
+function downloadRefFor(link: LinkRow): string {
+  return `download:${link.link_id}:${randomBytes(16).toString('hex')}`;
 }
 
 @Injectable()
@@ -204,6 +281,7 @@ export class ExternalService {
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: DocumentPermissionService,
+    @Inject(DlpService) private readonly dlpService: DlpService,
   ) {}
 
   async createWorkspace(
@@ -340,6 +418,14 @@ export class ExternalService {
     if (target.document_status === 'deleted' || target.document_legal_hold || target.matter_legal_hold) {
       throw validationFailed('EXTERNAL_LINK_DOCUMENT_LOCKED');
     }
+    const dlpEvaluation = await this.evaluateExternalDlp(ctx.tenantId, target);
+    if (dlpEvaluation.findingCount > 0 && !input.dlpWarningAccepted) {
+      await this.auditDlpWarningBlocked(ctx, workspace, input, target, dlpEvaluation);
+      throw validationFailed('EXTERNAL_DLP_WARNING_REQUIRED');
+    }
+    if (dlpEvaluation.findingCount === 0 && input.dlpWarningAccepted) {
+      throw validationFailed('EXTERNAL_DLP_WARNING_NOT_REQUIRED');
+    }
 
     const linkToken = newLinkToken();
     const tokenHash = sha256Hex(linkToken);
@@ -348,13 +434,16 @@ export class ExternalService {
         `
           INSERT INTO external_secure_links (
             tenant_id, workspace_id, external_user_id, document_id, version_id,
-            token_hash, expires_at, nda_required, watermark_required, created_by
+            token_hash, expires_at, nda_required, watermark_required,
+            dlp_warning_status, dlp_result_hash, dlp_finding_count, dlp_override_reason_code,
+            created_by
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, $9)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8, $9, $10, $11, $12, $13)
           RETURNING link_id, tenant_id, workspace_id, external_user_id, document_id,
             version_id, status, expires_at, nda_required, watermark_required,
+            dlp_warning_status, dlp_result_hash, dlp_finding_count, dlp_override_reason_code,
             created_at, updated_at,
-            $10::uuid AS matter_id,
+            $14::uuid AS matter_id,
             'active' AS workspace_status,
             'active' AS external_user_status,
             'active' AS membership_status,
@@ -371,11 +460,42 @@ export class ExternalService {
           tokenHash,
           expiresAt,
           input.watermarkRequired,
+          dlpEvaluation.findingCount > 0 ? 'accepted' : 'not_required',
+          dlpEvaluation.resultHash,
+          dlpEvaluation.findingCount,
+          input.dlpOverrideReasonCode ?? null,
           ctx.userId,
           workspace.matter_id,
         ],
       );
       const link = mapLink(requiredRow(result.rows[0]));
+      if (dlpEvaluation.findingCount > 0) {
+        await this.auditService.log(
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            sessionId: ctx.sessionId ?? null,
+            action: 'EXTERNAL_DLP_WARNING_ACCEPTED',
+            targetType: 'external_link',
+            targetId: link.linkId,
+            matterId: workspace.matter_id,
+            metadata: {
+              matter_id: workspace.matter_id,
+              document_id: link.documentId,
+              version_id: link.versionId,
+              external_workspace_id: link.workspaceId,
+              external_user_id: link.externalUserId,
+              external_link_id: link.linkId,
+              scope_type: 'external_link_dlp_warning',
+              scope_id: link.versionId ?? link.documentId,
+              result_count: dlpEvaluation.findingCount,
+              hash: requiredDlpHash(dlpEvaluation),
+              reason_code: input.dlpOverrideReasonCode ?? 'DLP_OVERRIDE_ACCEPTED',
+            },
+          },
+          client,
+        );
+      }
       await this.auditService.log(
         {
           tenantId: ctx.tenantId,
@@ -419,6 +539,7 @@ export class ExternalService {
             AND link_id = $2
           RETURNING link_id, tenant_id, workspace_id, external_user_id, document_id,
             version_id, status, expires_at, nda_required, watermark_required,
+            dlp_warning_status, dlp_result_hash, dlp_finding_count, dlp_override_reason_code,
             created_at, updated_at,
             $4::uuid AS matter_id,
             'active' AS workspace_status,
@@ -534,11 +655,8 @@ export class ExternalService {
     token: string,
     metadata: { actorRef: string | null },
   ): Promise<ExternalAccessManifestDto> {
-    const link = await this.resolveToken(token);
-    if (!(await this.hasNdaAcceptance(link))) {
-      throw permissionDenied();
-    }
-    const watermarkRef = `watermark:${link.link_id}:${link.external_user_id}`;
+    const link = await this.resolveReadyToken(token);
+    const watermarkRef = watermarkRefFor(link);
     return this.auditService.transaction(link.tenant_id, async (client) => {
       await client.query(
         `
@@ -564,6 +682,211 @@ export class ExternalService {
         watermarkApplied: true,
         watermarkRef,
       });
+    });
+  }
+
+  async downloadTicket(
+    token: string,
+    metadata: { actorRef: string | null },
+  ): Promise<ExternalDownloadTicketDto> {
+    const link = await this.resolveReadyToken(token);
+    const watermarkRef = watermarkRefFor(link);
+    const downloadRef = downloadRefFor(link);
+    return this.auditService.transaction(link.tenant_id, async (client) => {
+      await client.query(
+        `
+          UPDATE external_secure_links
+          SET access_count = access_count + 1,
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND link_id = $2
+        `,
+        [link.tenant_id, link.link_id],
+      );
+      await this.auditService.log(
+        {
+          tenantId: link.tenant_id,
+          actorType: 'system',
+          actorId: null,
+          action: 'EXTERNAL_DOWNLOAD_REQUESTED',
+          targetType: 'external_link',
+          targetId: link.link_id,
+          matterId: link.matter_id,
+          metadata: {
+            matter_id: link.matter_id,
+            document_id: link.document_id,
+            version_id: link.version_id,
+            external_workspace_id: link.workspace_id,
+            external_user_id: link.external_user_id,
+            external_link_id: link.link_id,
+            access_status: 'download_ticket_issued',
+            scope_type: 'download_ticket',
+            scope_id: downloadRef,
+            watermark_ref: watermarkRef,
+            ...(metadata.actorRef ? { hash: sha256Hex(metadata.actorRef) } : {}),
+          },
+        },
+        client,
+      );
+      return externalDownloadTicketSchema.parse({
+        status: 'ready',
+        workspaceId: link.workspace_id,
+        externalUserId: link.external_user_id,
+        documentId: link.document_id,
+        versionId: link.version_id,
+        expiresAt: iso(link.expires_at),
+        watermarkApplied: true,
+        watermarkRef,
+        downloadRef,
+      });
+    });
+  }
+
+  async listQa(token: string): Promise<ExternalQaListResponseDto> {
+    const link = await this.resolveReadyToken(token);
+    const result = await getPool().query<QaMessageRow>(
+      `
+        SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
+          q.parent_message_id, q.direction, q.message_text, q.message_hash, q.created_at,
+          w.matter_id, l.document_id, l.version_id, l.expires_at
+        FROM external_qa_messages q
+        JOIN external_secure_links l
+          ON l.tenant_id = q.tenant_id
+         AND l.link_id = q.link_id
+        JOIN external_workspaces w
+          ON w.tenant_id = q.tenant_id
+         AND w.workspace_id = q.workspace_id
+        WHERE q.tenant_id = $1
+          AND q.link_id = $2
+        ORDER BY q.created_at ASC, q.qa_message_id ASC
+        LIMIT 200
+      `,
+      [link.tenant_id, link.link_id],
+    );
+    return externalQaListResponseSchema.parse({
+      messages: result.rows.map(mapQaMessage),
+    });
+  }
+
+  async createQuestion(
+    token: string,
+    input: CreateExternalQuestionRequestDto,
+    metadata: { actorRef: string | null },
+  ): Promise<ExternalQaMessageDto> {
+    const link = await this.resolveReadyToken(token);
+    const messageHash = sha256Hex(input.messageText);
+    return this.auditService.transaction(link.tenant_id, async (client) => {
+      const result = await client.query<QaMessageRow>(
+        `
+          INSERT INTO external_qa_messages (
+            tenant_id, workspace_id, link_id, external_user_id, direction,
+            message_text, message_hash, actor_ref_hash
+          )
+          VALUES ($1, $2, $3, $4, 'external_question', $5, $6, $7)
+          RETURNING qa_message_id, workspace_id, link_id, external_user_id,
+            parent_message_id, direction, message_text, message_hash, created_at
+        `,
+        [
+          link.tenant_id,
+          link.workspace_id,
+          link.link_id,
+          link.external_user_id,
+          input.messageText,
+          messageHash,
+          metadata.actorRef ? sha256Hex(metadata.actorRef) : null,
+        ],
+      );
+      const message = mapQaMessage(requiredRow(result.rows[0]));
+      await this.auditService.log(
+        externalQaAudit(link, message, 'external_question'),
+        client,
+      );
+      return message;
+    });
+  }
+
+  async listWorkspaceQa(
+    ctx: PermissionContext,
+    workspaceId: string,
+  ): Promise<ExternalQaListResponseDto> {
+    if (!uuidPattern.test(workspaceId)) throw notFoundDenied();
+    const workspace = await this.findWorkspace(ctx.tenantId, workspaceId);
+    if (!workspace) throw notFoundDenied();
+    await this.assertCanManageExternalMatter(ctx, workspace.matter_id);
+    const result = await getPool().query<QaMessageRow>(
+      `
+        SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
+          q.parent_message_id, q.direction, q.message_text, q.message_hash, q.created_at,
+          w.matter_id, l.document_id, l.version_id, l.expires_at
+        FROM external_qa_messages q
+        JOIN external_secure_links l
+          ON l.tenant_id = q.tenant_id
+         AND l.link_id = q.link_id
+        JOIN external_workspaces w
+          ON w.tenant_id = q.tenant_id
+         AND w.workspace_id = q.workspace_id
+        WHERE q.tenant_id = $1
+          AND q.workspace_id = $2
+        ORDER BY q.created_at ASC, q.qa_message_id ASC
+        LIMIT 200
+      `,
+      [ctx.tenantId, workspaceId],
+    );
+    return externalQaListResponseSchema.parse({
+      messages: result.rows.map(mapQaMessage),
+    });
+  }
+
+  async createAnswer(
+    ctx: PermissionContext,
+    messageId: string,
+    input: CreateExternalAnswerRequestDto,
+  ): Promise<ExternalQaMessageDto> {
+    if (!uuidPattern.test(messageId)) throw notFoundDenied();
+    const parent = await this.findQaMessageForAdmin(ctx.tenantId, messageId);
+    if (!parent || !parent.matter_id) throw notFoundDenied();
+    if (parent.direction !== 'external_question') {
+      throw validationFailed('EXTERNAL_QA_PARENT_INVALID');
+    }
+    await this.assertCanManageExternalMatter(ctx, parent.matter_id);
+    const messageHash = sha256Hex(input.messageText);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<QaMessageRow>(
+        `
+          INSERT INTO external_qa_messages (
+            tenant_id, workspace_id, link_id, external_user_id, parent_message_id,
+            direction, message_text, message_hash, created_by_internal_user_id
+          )
+          VALUES ($1, $2, $3, $4, $5, 'internal_answer', $6, $7, $8)
+          RETURNING qa_message_id, workspace_id, link_id, external_user_id,
+            parent_message_id, direction, message_text, message_hash, created_at
+        `,
+        [
+          ctx.tenantId,
+          parent.workspace_id,
+          parent.link_id,
+          parent.external_user_id,
+          parent.qa_message_id,
+          input.messageText,
+          messageHash,
+          ctx.userId,
+        ],
+      );
+      const message = mapQaMessage(requiredRow(result.rows[0]));
+      await this.auditService.log(
+        {
+          ...externalQaAudit(
+            qaAuditScope(ctx.tenantId, parent),
+            message,
+            'internal_answer',
+          ),
+          actorType: 'user',
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+        },
+        client,
+      );
+      return message;
     });
   }
 
@@ -603,6 +926,110 @@ export class ExternalService {
   private async assertCanReadDocument(ctx: PermissionContext, documentId: string): Promise<void> {
     const decision = await this.documentPermissionService.canReadDocument(ctx, documentId);
     if (decision.effect !== 'ALLOW') throw permissionDenied();
+  }
+
+  private async resolveReadyToken(token: string): Promise<LinkRow> {
+    const link = await this.resolveToken(token);
+    if (!(await this.hasNdaAcceptance(link))) {
+      throw permissionDenied();
+    }
+    return link;
+  }
+
+  private async evaluateExternalDlp(
+    tenantId: string,
+    target: DocumentTargetRow,
+  ): Promise<ExternalDlpEvaluation> {
+    const text = await this.findDocumentTextForDlp(
+      tenantId,
+      target.document_id,
+      target.version_id,
+    );
+    if (!text) return { findingCount: 0, resultHash: null };
+    const detections = this.dlpService.scanText(text);
+    if (detections.length === 0) return { findingCount: 0, resultHash: null };
+    return { findingCount: detections.length, resultHash: dlpScanHash(detections) };
+  }
+
+  private async auditDlpWarningBlocked(
+    ctx: PermissionContext,
+    workspace: { workspace_id: string; matter_id: string },
+    input: CreateExternalLinkRequestDto,
+    target: DocumentTargetRow,
+    dlpEvaluation: ExternalDlpEvaluation,
+  ): Promise<void> {
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      await this.auditService.log(
+        {
+          tenantId: ctx.tenantId,
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+          action: 'EXTERNAL_DLP_WARNING_BLOCKED',
+          targetType: 'document',
+          targetId: target.document_id,
+          matterId: workspace.matter_id,
+          result: 'denied',
+          metadata: {
+            matter_id: workspace.matter_id,
+            document_id: target.document_id,
+            version_id: target.version_id,
+            external_workspace_id: workspace.workspace_id,
+            external_user_id: input.externalUserId,
+            scope_type: 'external_link_dlp_warning',
+            scope_id: target.version_id ?? target.document_id,
+            result_count: dlpEvaluation.findingCount,
+            hash: requiredDlpHash(dlpEvaluation),
+            reason_code: 'EXTERNAL_DLP_WARNING_REQUIRED',
+          },
+        },
+        client,
+      );
+    });
+  }
+
+  private async findDocumentTextForDlp(
+    tenantId: string,
+    documentId: string,
+    versionId: string | null,
+  ): Promise<string | null> {
+    const canonical = await getPool().query<DlpTextRow>(
+      `
+        SELECT cd.body_text AS scan_text
+        FROM canonical_documents cd
+        JOIN document_versions v
+          ON v.tenant_id = cd.tenant_id
+         AND v.version_id = cd.version_id
+        WHERE cd.tenant_id = $1
+          AND v.document_id = $2
+          AND ($3::uuid IS NULL OR v.version_id = $3::uuid)
+          AND cd.extraction_status = 'ready'
+          AND char_length(cd.body_text) > 0
+        ORDER BY
+          CASE WHEN v.version_status = 'current' THEN 0 ELSE 1 END,
+          cd.updated_at DESC
+        LIMIT 1
+      `,
+      [tenantId, documentId, versionId],
+    );
+    const canonicalText = canonical.rows[0]?.scan_text;
+    if (canonicalText) return canonicalText;
+
+    const indexed = await getPool().query<DlpTextRow>(
+      `
+        SELECT content_text AS scan_text
+        FROM document_search_index
+        WHERE tenant_id = $1
+          AND document_id = $2
+          AND ($3::uuid IS NULL OR version_id = $3::uuid)
+          AND document_status <> 'deleted'
+          AND version_status = 'current'
+          AND char_length(content_text) > 0
+        ORDER BY updated_at DESC
+        LIMIT 1
+      `,
+      [tenantId, documentId, versionId],
+    );
+    return indexed.rows[0]?.scan_text ?? null;
   }
 
   private async assertActiveWorkspace(tenantId: string, workspaceId: string): Promise<void> {
@@ -726,7 +1153,8 @@ export class ExternalService {
       `
         SELECT l.link_id, l.tenant_id, l.workspace_id, l.external_user_id,
           l.document_id, l.version_id, l.status, l.expires_at, l.nda_required,
-          l.watermark_required, l.created_at, l.updated_at,
+          l.watermark_required, l.dlp_warning_status, l.dlp_result_hash,
+          l.dlp_finding_count, l.dlp_override_reason_code, l.created_at, l.updated_at,
           w.matter_id, w.status AS workspace_status, u.status AS external_user_status,
           m.status AS membership_status, d.status AS document_status,
           d.legal_hold AS document_legal_hold, mt.legal_hold AS matter_legal_hold
@@ -756,13 +1184,39 @@ export class ExternalService {
     return result.rows[0] ?? null;
   }
 
+  private async findQaMessageForAdmin(
+    tenantId: string,
+    messageId: string,
+  ): Promise<QaMessageRow | null> {
+    const result = await getPool().query<QaMessageRow>(
+      `
+        SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
+          q.parent_message_id, q.direction, q.message_text, q.message_hash, q.created_at,
+          w.matter_id, l.document_id, l.version_id, l.expires_at
+        FROM external_qa_messages q
+        JOIN external_secure_links l
+          ON l.tenant_id = q.tenant_id
+         AND l.link_id = q.link_id
+        JOIN external_workspaces w
+          ON w.tenant_id = q.tenant_id
+         AND w.workspace_id = q.workspace_id
+        WHERE q.tenant_id = $1
+          AND q.qa_message_id = $2
+        LIMIT 1
+      `,
+      [tenantId, messageId],
+    );
+    return result.rows[0] ?? null;
+  }
+
   private async resolveToken(token: string): Promise<LinkRow> {
     const tokenHash = sha256Hex(token);
     const result = await getPool().query<LinkRow>(
       `
         SELECT l.link_id, l.tenant_id, l.workspace_id, l.external_user_id,
           l.document_id, l.version_id, l.status, l.expires_at, l.nda_required,
-          l.watermark_required, l.created_at, l.updated_at,
+          l.watermark_required, l.dlp_warning_status, l.dlp_result_hash,
+          l.dlp_finding_count, l.dlp_override_reason_code, l.created_at, l.updated_at,
           w.matter_id, w.status AS workspace_status, u.status AS external_user_status,
           m.status AS membership_status, d.status AS document_status,
           d.legal_hold AS document_legal_hold, mt.legal_hold AS matter_legal_hold
@@ -859,6 +1313,23 @@ function requiredRow<T>(row: T | undefined): T {
   return row;
 }
 
+function requiredDlpHash(dlpEvaluation: ExternalDlpEvaluation): string {
+  if (!dlpEvaluation.resultHash) throw validationFailed('DLP_RESULT_HASH_REQUIRED');
+  return dlpEvaluation.resultHash;
+}
+
+function qaAuditScope(tenantId: string, row: QaMessageRow): ExternalQaAuditScope {
+  return {
+    tenant_id: tenantId,
+    matter_id: row.matter_id,
+    workspace_id: row.workspace_id,
+    external_user_id: row.external_user_id,
+    link_id: row.link_id,
+    document_id: row.document_id,
+    version_id: row.version_id,
+  };
+}
+
 function externalAccessAudit(
   link: LinkRow,
   accessStatus: 'ready' | 'nda_required',
@@ -884,6 +1355,35 @@ function externalAccessAudit(
       expires_at: iso(link.expires_at),
       ...(watermarkRef ? { watermark_ref: watermarkRef } : {}),
       ...(actorRef ? { hash: sha256Hex(actorRef) } : {}),
+    },
+  };
+}
+
+function externalQaAudit(
+  scope: ExternalQaAuditScope,
+  message: ExternalQaMessageDto,
+  direction: 'external_question' | 'internal_answer',
+) {
+  return {
+    tenantId: scope.tenant_id,
+    actorType: 'system' as const,
+    actorId: null,
+    action: 'EXTERNAL_QA_MESSAGE_RECORDED' as const,
+    targetType: 'external_qa_message',
+    targetId: message.messageId,
+    matterId: scope.matter_id,
+    metadata: {
+      matter_id: scope.matter_id,
+      document_id: scope.document_id,
+      version_id: scope.version_id,
+      external_workspace_id: scope.workspace_id,
+      external_user_id: scope.external_user_id,
+      external_link_id: scope.link_id,
+      scope_type: 'external_qa_message',
+      scope_id: message.messageId,
+      hash: message.messageHash,
+      access_status: direction,
+      result_count: 1,
     },
   };
 }
