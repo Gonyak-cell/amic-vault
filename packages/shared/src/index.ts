@@ -314,6 +314,26 @@ export {
   type EvidencePackDto,
   type EvidencePackTaskType,
 } from './ai/evidence-pack';
+export {
+  aiCitationClaimSchema,
+  aiCitationSchema,
+  aiCitationSourceRequestSchema,
+  aiCitationSourceResponseSchema,
+  aiCitationSourceSchema,
+  aiCitationVerificationRequestSchema,
+  aiCitationVerificationResponseSchema,
+  aiCitationVerificationWarningSchema,
+  aiCitationWarningCodeSchema,
+  type AiCitationClaimDto,
+  type AiCitationDto,
+  type AiCitationSourceDto,
+  type AiCitationSourceRequestDto,
+  type AiCitationSourceResponseDto,
+  type AiCitationVerificationRequestDto,
+  type AiCitationVerificationResponseDto,
+  type AiCitationVerificationWarningDto,
+  type AiCitationWarningCode,
+} from './ai/citation';
 
 export {
   clientConfidentialityLevels,
