@@ -124,6 +124,7 @@ describe('ai policy boundary integration', () => {
     });
     const allowedR6ControllerRefs = new Set([
       'apps/api/src/modules/ai/citation/ai-citation.controller.ts',
+      'apps/api/src/modules/ai/session/ai-session.controller.ts',
     ]);
     expect(controllerRefs.filter((file) => !allowedR6ControllerRefs.has(file))).toEqual([]);
 

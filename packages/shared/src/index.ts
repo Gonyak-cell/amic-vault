@@ -334,6 +334,24 @@ export {
   type AiCitationVerificationWarningDto,
   type AiCitationWarningCode,
 } from './ai/citation';
+export {
+  aiSessionChunkDetailSchema,
+  aiSessionChunkLogSchema,
+  aiSessionChunkReasonCodeSchema,
+  aiSessionCreateSchema,
+  aiSessionDetailSchema,
+  aiSessionModelRouteSchema,
+  aiSessionResponseLogSchema,
+  aiSessionStatusSchema,
+  type AiSessionChunkDetailDto,
+  type AiSessionChunkLogDto,
+  type AiSessionChunkReasonCode,
+  type AiSessionCreateDto,
+  type AiSessionDetailDto,
+  type AiSessionModelRoute,
+  type AiSessionResponseLogDto,
+  type AiSessionStatus,
+} from './ai/session';
 
 export {
   clientConfidentialityLevels,

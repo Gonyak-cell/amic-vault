@@ -10,6 +10,8 @@ import { AiCitationVerifier } from './citation/citation-verifier';
 import { AiContextRanker } from './context/context-ranker';
 import { AiContextWindowManager } from './context/context-window.manager';
 import { AiEvidencePackBuilder } from './context/evidence-pack.builder';
+import { AiSessionController } from './session/ai-session.controller';
+import { AiSessionLogService } from './session/ai-session-log.service';
 import { AiMetadataFilterBuilder } from './retrieval/metadata-filter.builder';
 import { AiQuestionClassifier } from './retrieval/question-classifier';
 import { AiRedactionPreprocessor } from './retrieval/redaction-preprocessor';
@@ -18,7 +20,7 @@ import { AiRetrievalOrchestratorService } from './retrieval/retrieval-orchestrat
 
 @Module({
   imports: [AiPolicyModule, AuditModule, DlpModule, PermissionModule, SearchModule],
-  controllers: [AiCitationController],
+  controllers: [AiCitationController, AiSessionController],
   providers: [
     AiCitationMapperService,
     AiCitationVerifier,
@@ -30,12 +32,14 @@ import { AiRetrievalOrchestratorService } from './retrieval/retrieval-orchestrat
     AiQuestionClassifier,
     AiRedactionPreprocessor,
     AiRetrievalOrchestratorService,
+    AiSessionLogService,
   ],
   exports: [
     AiCitationMapperService,
     AiCitationVerifier,
     AiEvidencePackBuilder,
     AiRetrievalOrchestratorService,
+    AiSessionLogService,
   ],
 })
 export class AiModule {}
