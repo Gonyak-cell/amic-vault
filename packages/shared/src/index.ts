@@ -30,6 +30,7 @@ export {
   r1AuditActions,
   r2DocumentAuditActions,
   r3SearchAuditActions,
+  r4DlpAuditActions,
   type AuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
@@ -37,6 +38,7 @@ export {
   type R1AuditAction,
   type R2DocumentAuditAction,
   type R3SearchAuditAction,
+  type R4DlpAuditAction,
 } from './types/audit';
 
 export {
@@ -68,6 +70,14 @@ export {
   type DocumentStatus,
   type DocumentType,
 } from './types/document';
+export {
+  dlpFindingTypes,
+  dlpRuleIds,
+  type DlpDetection,
+  type DlpFindingType,
+  type DlpRuleId,
+  type DlpScanOptions,
+} from './dlp/dlp-types';
 export {
   canIssueSessionForRole,
   isUserRole,
