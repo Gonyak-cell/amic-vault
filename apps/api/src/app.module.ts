@@ -9,6 +9,7 @@ import { LogErrorTracker } from './common/errors/error-tracker';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiPolicyModule } from './modules/ai-policy/ai-policy.module';
+import { AiModule } from './modules/ai/ai.module';
 import { BreakGlassModule } from './modules/break-glass/break-glass.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantModule } from './modules/tenant/tenant.module';
@@ -40,6 +41,7 @@ class AppController {
   imports: [
     LoggerModule,
     MetricsModule,
+    AiModule,
     AiPolicyModule,
     AuditModule,
     BreakGlassModule,

@@ -256,6 +256,32 @@ export class SearchQueryBuilder {
     };
   }
 
+  buildVectorChunks(
+    input: SearchQueryDto,
+    scope: SearchSqlFragment,
+    queryVector: string,
+    mode: VectorSearchMode,
+    limit: number,
+  ): BuiltSearchQuery {
+    const params: SearchSqlValue[] = [];
+    const cteSql = this.vectorCandidateCte(input, scope, queryVector, mode, params);
+    params.push(limit);
+    const limitParam = `$${params.length}`;
+
+    return {
+      sql: `
+        ${cteSql}
+        SELECT document_id, version_id, matter_id, client_id, title, document_type,
+          version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
+          token_count, chunk_text, text_hash, source_text_hash, score::float8 AS score
+        FROM best
+        ORDER BY score DESC, updated_at DESC, version_id, chunk_ordinal
+        LIMIT ${limitParam}
+      `,
+      params,
+    };
+  }
+
   private filteredRowsCte(
     input: SearchQueryDto,
     whereSql: string,
@@ -335,7 +361,8 @@ export class SearchQueryBuilder {
       candidates AS (
         SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
           idx.title, idx.document_type, idx.version_status, idx.updated_at,
-          chunk.chunk_id, chunk.chunk_ordinal, chunk.chunk_text,
+          chunk.chunk_id, chunk.parent_chunk_id, chunk.chunk_ordinal,
+          chunk.token_count, chunk.chunk_text, chunk.text_hash, chunk.source_text_hash,
           ${keywordScoreSql} AS keyword_score,
           ${semanticScoreSql} AS semantic_score,
           ${scoreSql} AS score
@@ -367,7 +394,8 @@ export class SearchQueryBuilder {
       ),
       best AS (
         SELECT document_id, version_id, matter_id, client_id, title, document_type,
-          version_status, updated_at, chunk_text, score
+          version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
+          token_count, chunk_text, text_hash, source_text_hash, score
         FROM ranked
         WHERE best_rank = 1
       )
