@@ -63,4 +63,42 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).not.toContain(query);
     expect(built.params).toEqual([tenantId, 'deleted', clientId, ['memo'], query]);
   });
+
+  it('builds semantic search from permission-scoped aiAllowed chunk candidates', () => {
+    const built = builder().buildVector(
+      { query: 'termination', mode: 'semantic', page: 1, pageSize: 10 },
+      scope,
+      '[0.100000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000]',
+      'semantic',
+    );
+
+    expect(built.sql).toContain('JOIN documents ai_doc');
+    expect(built.sql).toContain('ai_doc.ai_allowed = true');
+    expect(built.sql).toContain('JOIN document_chunks chunk');
+    expect(built.sql).toContain('JOIN document_chunk_embeddings emb');
+    expect(built.sql).toContain('emb.embedding <=> $4::vector');
+    expect(built.sql).toContain('idx.tenant_id = $1');
+    expect(built.params.slice(0, 4)).toEqual([
+      tenantId,
+      'deleted',
+      'current',
+      '[0.100000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000]',
+    ]);
+  });
+
+  it('combines keyword and vector scores deterministically for hybrid search', () => {
+    const query = "closing'; DROP TABLE document_chunks; --";
+    const built = builder().buildVector(
+      { query, mode: 'hybrid', page: 1, pageSize: 10 },
+      scope,
+      '[0.000000,0.100000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000]',
+      'hybrid',
+    );
+
+    expect(built.sql).toContain('websearch_to_tsquery');
+    expect(built.sql).toContain('* 0.55');
+    expect(built.sql).toContain('* 0.45');
+    expect(built.sql).not.toContain(query);
+    expect(built.params).toContain(query);
+  });
 });

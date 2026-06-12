@@ -1,4 +1,10 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { buildParentChildChunks } from '../../../apps/api/src/modules/search/semantic/document-chunker';
+import {
+  deterministicEmbeddingVector,
+  embeddingHash,
+  vectorToSqlLiteral,
+} from '../../../apps/api/src/modules/search/semantic/local-embedding';
 import {
   createOwnerClient,
   setTenant,
@@ -60,6 +66,10 @@ export interface AddExplicitPermissionInput {
 
 function hexHash(index: number): string {
   return index.toString(16).padStart(64, '0').slice(-64);
+}
+
+function sha256Hex(input: string): string {
+  return createHash('sha256').update(input).digest('hex');
 }
 
 function makeStorageUri(input: {
@@ -172,6 +182,180 @@ export async function setDocumentSecurity(input: {
         input.privilegeStatus ?? 'none',
       ],
     );
+  });
+}
+
+export async function setDocumentAiAllowed(input: {
+  tenantId: string;
+  documentId: string;
+  aiAllowed: boolean;
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        UPDATE documents
+        SET ai_allowed = $3,
+          updated_at = now()
+        WHERE tenant_id = $1
+          AND document_id = $2
+      `,
+      [input.tenantId, input.documentId, input.aiAllowed],
+    );
+  });
+}
+
+export async function seedSemanticChunksForVersion(input: {
+  tenantId: string;
+  documentId: string;
+  versionId: string;
+  contentText: string;
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    const sourceTextHash = sha256Hex(input.contentText);
+    const chunks = buildParentChildChunks({ text: input.contentText, sourceTextHash });
+    const parentChunkIds = new Map<number, string>();
+    await client.query('BEGIN');
+    try {
+      await setTenant(client, input.tenantId);
+      await client.query(
+        `
+          UPDATE document_chunk_embeddings
+          SET stale = true, updated_at = now()
+          WHERE tenant_id = $1
+            AND version_id = $2
+        `,
+        [input.tenantId, input.versionId],
+      );
+      await client.query(
+        `
+          UPDATE document_chunks
+          SET stale = true, updated_at = now()
+          WHERE tenant_id = $1
+            AND version_id = $2
+        `,
+        [input.tenantId, input.versionId],
+      );
+
+      for (const chunk of chunks.filter((candidate) => candidate.chunkKind === 'parent')) {
+        const result = await client.query<{ chunk_id: string }>(
+          `
+            INSERT INTO document_chunks (
+              tenant_id, document_id, version_id, parent_chunk_id, chunk_kind, chunk_ordinal,
+              char_start, char_end, token_count, chunk_text, text_hash, source_text_hash,
+              stale, updated_at
+            )
+            VALUES ($1, $2, $3, NULL, 'parent', $4, $5, $6, $7, $8, $9, $10, false, now())
+            ON CONFLICT (tenant_id, version_id, chunk_ordinal)
+            DO UPDATE SET
+              document_id = EXCLUDED.document_id,
+              parent_chunk_id = NULL,
+              chunk_kind = 'parent',
+              char_start = EXCLUDED.char_start,
+              char_end = EXCLUDED.char_end,
+              token_count = EXCLUDED.token_count,
+              chunk_text = EXCLUDED.chunk_text,
+              text_hash = EXCLUDED.text_hash,
+              source_text_hash = EXCLUDED.source_text_hash,
+              stale = false,
+              updated_at = EXCLUDED.updated_at
+            RETURNING chunk_id
+          `,
+          [
+            input.tenantId,
+            input.documentId,
+            input.versionId,
+            chunk.chunkOrdinal,
+            chunk.charStart,
+            chunk.charEnd,
+            chunk.tokenCount,
+            chunk.chunkText,
+            chunk.textHash,
+            chunk.sourceTextHash,
+          ],
+        );
+        const chunkId = result.rows[0]?.chunk_id;
+        if (!chunkId) throw new Error('parent chunk seed returned no row');
+        parentChunkIds.set(chunk.chunkOrdinal, chunkId);
+      }
+
+      for (const chunk of chunks.filter((candidate) => candidate.chunkKind === 'child')) {
+        const parentChunkId =
+          chunk.parentOrdinal === null ? undefined : parentChunkIds.get(chunk.parentOrdinal);
+        if (!parentChunkId) throw new Error('child chunk seed missing parent');
+        const chunkResult = await client.query<{ chunk_id: string }>(
+          `
+            INSERT INTO document_chunks (
+              tenant_id, document_id, version_id, parent_chunk_id, chunk_kind, chunk_ordinal,
+              char_start, char_end, token_count, chunk_text, text_hash, source_text_hash,
+              stale, updated_at
+            )
+            VALUES ($1, $2, $3, $4, 'child', $5, $6, $7, $8, $9, $10, $11, false, now())
+            ON CONFLICT (tenant_id, version_id, chunk_ordinal)
+            DO UPDATE SET
+              document_id = EXCLUDED.document_id,
+              parent_chunk_id = EXCLUDED.parent_chunk_id,
+              chunk_kind = 'child',
+              char_start = EXCLUDED.char_start,
+              char_end = EXCLUDED.char_end,
+              token_count = EXCLUDED.token_count,
+              chunk_text = EXCLUDED.chunk_text,
+              text_hash = EXCLUDED.text_hash,
+              source_text_hash = EXCLUDED.source_text_hash,
+              stale = false,
+              updated_at = EXCLUDED.updated_at
+            RETURNING chunk_id
+          `,
+          [
+            input.tenantId,
+            input.documentId,
+            input.versionId,
+            parentChunkId,
+            chunk.chunkOrdinal,
+            chunk.charStart,
+            chunk.charEnd,
+            chunk.tokenCount,
+            chunk.chunkText,
+            chunk.textHash,
+            chunk.sourceTextHash,
+          ],
+        );
+        const chunkId = chunkResult.rows[0]?.chunk_id;
+        if (!chunkId) throw new Error('child chunk seed returned no row');
+        const vector = deterministicEmbeddingVector(chunk.chunkText);
+        await client.query(
+          `
+            INSERT INTO document_chunk_embeddings (
+              tenant_id, chunk_id, document_id, version_id, model_route, model_tier,
+              embedding, embedding_hash, source_text_hash, stale, updated_at
+            )
+            VALUES ($1, $2, $3, $4, 'local_gemma', 'local', $5::vector, $6, $7, false, now())
+            ON CONFLICT (tenant_id, chunk_id, model_route)
+            DO UPDATE SET
+              document_id = EXCLUDED.document_id,
+              version_id = EXCLUDED.version_id,
+              embedding = EXCLUDED.embedding,
+              embedding_hash = EXCLUDED.embedding_hash,
+              source_text_hash = EXCLUDED.source_text_hash,
+              stale = false,
+              updated_at = EXCLUDED.updated_at
+          `,
+          [
+            input.tenantId,
+            chunkId,
+            input.documentId,
+            input.versionId,
+            vectorToSqlLiteral(vector),
+            embeddingHash(vector),
+            sourceTextHash,
+          ],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
   });
 }
 

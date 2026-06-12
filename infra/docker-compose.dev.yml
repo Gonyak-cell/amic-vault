@@ -2,7 +2,7 @@ name: amic-vault-dev
 
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-amic_vault}
       POSTGRES_USER: ${POSTGRES_USER:-amic_vault}

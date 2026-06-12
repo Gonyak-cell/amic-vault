@@ -6,6 +6,8 @@ const documentId = '11111111-1111-4111-8111-111111111122';
 const versionId = '11111111-1111-4111-8111-111111111133';
 const matterId = '11111111-1111-4111-8111-111111111144';
 const clientId = '11111111-1111-4111-8111-111111111155';
+const parentChunkId = '11111111-1111-4111-8111-111111111177';
+const childChunkId = '11111111-1111-4111-8111-111111111188';
 
 describe('SearchIndexRepository', () => {
   it('truncates content by UTF-8 bytes without splitting characters', () => {
@@ -55,6 +57,20 @@ describe('SearchIndexRepository', () => {
             },
           ],
           rowCount: 1,
+        })
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+        .mockResolvedValueOnce({
+          rows: [{ chunk_id: parentChunkId }],
+          rowCount: 1,
+        })
+        .mockResolvedValueOnce({
+          rows: [{ chunk_id: childChunkId }],
+          rowCount: 1,
+        })
+        .mockResolvedValueOnce({
+          rows: [],
+          rowCount: 1,
         }),
     };
 
@@ -74,5 +90,6 @@ describe('SearchIndexRepository', () => {
       updatedAt: new Date('2026-06-11T00:00:00.000Z'),
     });
     expect(client.query.mock.calls[1]?.[1]).not.toContain('body');
+    expect(client.query.mock.calls[6]?.[1]).toContain(childChunkId);
   });
 });

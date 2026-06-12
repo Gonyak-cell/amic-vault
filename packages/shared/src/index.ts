@@ -279,6 +279,8 @@ export {
   searchDocumentTypeFilterSchema,
   searchFiltersSchema,
   searchIsoDateTimeSchema,
+  searchModeSchema,
+  searchModes,
   searchQuerySchema,
   searchVersionStatusSchema,
   searchVersionStatusValues,
@@ -288,11 +290,20 @@ export {
   type SearchFacetsDto,
   type SearchFiltersDto,
   type SearchHighlightDto,
+  type SearchMode,
   type SearchQueryDto,
   type SearchResponseDto,
   type SearchResultDto,
   type SearchVersionStatus,
 } from './search/search-query.dto';
+export {
+  aiChunkKindSchema,
+  aiChunkKinds,
+  aiEmbeddingDimension,
+  documentChunkProvenanceSchema,
+  type AiChunkKind,
+  type DocumentChunkProvenanceDto,
+} from './ai/chunk';
 
 export {
   clientConfidentialityLevels,

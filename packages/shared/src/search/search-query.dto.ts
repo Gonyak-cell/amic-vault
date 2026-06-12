@@ -11,6 +11,8 @@ export const searchDocumentTypeFilterSchema = z.union([
 
 export const searchVersionStatusValues = ['current', 'superseded', 'all'] as const;
 export const searchVersionStatusSchema = z.enum(searchVersionStatusValues);
+export const searchModes = ['keyword', 'semantic', 'hybrid'] as const;
+export const searchModeSchema = z.enum(searchModes);
 
 export const searchIsoDateTimeSchema = z
   .string()
@@ -43,11 +45,21 @@ export const searchFiltersSchema = z
 export const searchQuerySchema = z
   .object({
     query: z.string().trim().min(1).max(2000).optional(),
+    mode: searchModeSchema.default('keyword'),
     filters: searchFiltersSchema.optional(),
     page: z.coerce.number().int().min(1).max(1000).default(1),
     pageSize: z.coerce.number().int().min(1).max(50).default(25),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if ((value.mode === 'semantic' || value.mode === 'hybrid') && !value.query) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'semantic and hybrid search require query',
+        path: ['query'],
+      });
+    }
+  });
 
 export interface SearchHighlightDto {
   start: number;
@@ -93,5 +105,7 @@ export interface SearchResponseDto {
 
 export type SearchDocumentTypeFilterDto = z.infer<typeof searchDocumentTypeFilterSchema>;
 export type SearchVersionStatus = (typeof searchVersionStatusValues)[number];
+export type SearchMode = (typeof searchModes)[number];
 export type SearchFiltersDto = z.infer<typeof searchFiltersSchema>;
-export type SearchQueryDto = z.infer<typeof searchQuerySchema>;
+type ParsedSearchQueryDto = z.infer<typeof searchQuerySchema>;
+export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode'> & { mode?: SearchMode };

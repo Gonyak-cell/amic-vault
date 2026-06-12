@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import type {
   AuditMetadata,
+  SearchMode,
   SearchFacetBucketDto,
   SearchFacetsDto,
   SearchQueryDto,
@@ -16,6 +17,7 @@ import {
 } from './permission/search-permission-scope.provider';
 import { SearchQueryBuilder } from './query/search-query.builder';
 import { SnippetBuilder } from './query/snippet-builder';
+import { deterministicEmbeddingVector, vectorToSqlLiteral } from './semantic/local-embedding';
 
 interface SearchDbRow {
   document_id: string;
@@ -43,8 +45,13 @@ function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
 
+function searchMode(input: SearchQueryDto): SearchMode {
+  return input.mode ?? 'keyword';
+}
+
 function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): string {
   const refs: string[] = [];
+  refs.push(`mode:${searchMode(input)}`);
   const filters = input.filters;
   if (filters) {
     if (filters.matterId) refs.push(`matter_id:${filters.matterId}`);
@@ -79,6 +86,7 @@ function searchAuditMetadata(
     filter_refs: filterRefs(input, scopeRules),
     result_count: resultCount,
     duration_ms: durationMs,
+    scope_type: searchMode(input),
   };
 }
 
@@ -108,8 +116,19 @@ export class SearchService {
     }
 
     return this.auditService.transaction(ctx.tenantId, async (client) => {
-      const built = this.queryBuilder.build(input, scopeDecision.scope);
-      const facetQuery = this.queryBuilder.buildFacets(input, scopeDecision.scope);
+      const mode = searchMode(input);
+      const queryVector =
+        mode === 'keyword'
+          ? null
+          : vectorToSqlLiteral(deterministicEmbeddingVector(input.query ?? ''));
+      const built =
+        mode === 'keyword'
+          ? this.queryBuilder.build(input, scopeDecision.scope)
+          : this.queryBuilder.buildVector(input, scopeDecision.scope, queryVector!, mode);
+      const facetQuery =
+        mode === 'keyword'
+          ? this.queryBuilder.buildFacets(input, scopeDecision.scope)
+          : this.queryBuilder.buildVectorFacets(input, scopeDecision.scope, queryVector!, mode);
       const result = await client.query(built.sql, built.params);
       const facetResult = await client.query(facetQuery.sql, facetQuery.params);
       const rows = result.rows as SearchDbRow[];
