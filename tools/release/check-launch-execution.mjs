@@ -12,6 +12,14 @@ const requiredFiles = [
   'docs/release/launch-blocker-ledger.md',
   'docs/release/uat-checklist.md',
   'docs/release/security-evidence-index.md',
+  'docs/release/rc-freeze-decision-pack.md',
+  'docs/release/release-notes-rc-a0c1e60.md',
+  'docs/release/evidence-register.md',
+  'docs/release/remaining-launch-tuw.md',
+  'docs/release/local-synthetic-uat-walkthrough.md',
+  'docs/release/env.staging-smoke.example',
+  'tools/release/staging-smoke.mjs',
+  'package.json',
 ];
 
 const blockerIds = Array.from({ length: 14 }, (_, index) => `LRB-${String(index + 1).padStart(3, '0')}`);
@@ -59,6 +67,12 @@ const executionPlan = contents.get('docs/release/launch-execution-plan.md');
 const decisionSheet = contents.get('docs/release/operator-decision-sheet.md');
 const uatTemplate = contents.get('docs/release/uat-evidence-template.md');
 const smokePlan = contents.get('docs/release/staging-smoke-plan.md');
+const rcFreeze = contents.get('docs/release/rc-freeze-decision-pack.md');
+const evidenceRegister = contents.get('docs/release/evidence-register.md');
+const remainingTuw = contents.get('docs/release/remaining-launch-tuw.md');
+const localWalkthrough = contents.get('docs/release/local-synthetic-uat-walkthrough.md');
+const smokeScript = contents.get('tools/release/staging-smoke.mjs');
+const packageJson = contents.get('package.json');
 
 for (const blockerId of blockerIds) {
   assertContains(executionPlan, blockerId, 'docs/release/launch-execution-plan.md');
@@ -71,16 +85,37 @@ for (const uatId of uatIds) {
 
 for (const smokeId of ['SMOKE-001', 'SMOKE-004', 'SMOKE-010']) {
   assertContains(smokePlan, smokeId, 'docs/release/staging-smoke-plan.md');
+  assertContains(smokeScript, smokeId, 'tools/release/staging-smoke.mjs');
 }
+
+for (const expected of ['a0c1e60', '#66', '#67']) {
+  assertContains(rcFreeze, expected, 'docs/release/rc-freeze-decision-pack.md');
+}
+
+for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-PROD-005']) {
+  assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
+}
+
+for (const expected of ['REL-RC-FREEZE-TUW-001', 'REL-SMOKE-AUTO-TUW-004', 'REL-PROD-REL-TUW-010']) {
+  assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
+}
+
+for (const expected of ['pnpm release:smoke -- --dry-run', 'pnpm release:smoke -- --local']) {
+  assertContains(localWalkthrough, expected, 'docs/release/local-synthetic-uat-walkthrough.md');
+}
+
+assertContains(smokeScript, 'SMOKE_REQUIRE_AUTH', 'tools/release/staging-smoke.mjs');
+assertContains(packageJson, '"release:smoke"', 'package.json');
 
 for (const phrase of [
   'Do not commit secrets',
   'Do not record',
   'docs/package/',
   'Codex must not invent or approve',
+  'pnpm release:smoke',
 ]) {
   assertContains(
-    `${executionPlan}\n${decisionSheet}\n${smokePlan}`,
+    `${executionPlan}\n${decisionSheet}\n${smokePlan}\n${localWalkthrough}`,
     phrase,
     'launch execution artifacts',
   );

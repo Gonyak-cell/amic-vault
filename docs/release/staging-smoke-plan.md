@@ -10,9 +10,11 @@ contain or require private endpoint values in the repository.
 | Input | Source |
 |---|---|
 | Staging base URL | Approved evidence ref for LRB-002 |
+| API base URL | Approved evidence ref for LRB-002 |
 | Smoke user/session | Approved test user or synthetic session controlled outside repo |
 | Release SHA | Frozen staging candidate SHA |
 | Image digests | Approved registry refs from LRB-003 |
+| Smoke env template | `docs/release/env.staging-smoke.example` |
 
 ## Public Smoke Checks
 
@@ -36,6 +38,31 @@ synthetic session outside the repository.
 | SMOKE-008 | Call representative protected API | tenant-scoped response |
 | SMOKE-009 | Permission negative check | denied response hides target existence |
 | SMOKE-010 | Audit event check | reference-only event exists |
+
+## Automation
+
+Use the repo-local smoke runner:
+
+```bash
+pnpm release:smoke -- --dry-run
+pnpm release:smoke -- --local
+pnpm release:smoke -- --json
+```
+
+For approved staging, provide `WEB_BASE_URL`, `API_BASE_URL`,
+`SMOKE_TARGET_REF`, `RELEASE_SHA`, and approved non-production credentials from
+outside the repository. Set `SMOKE_REQUIRE_AUTH=1` for gate evidence.
+
+Vault route mapping:
+
+| Smoke item | Vault route |
+|---|---|
+| API health | `/v1/health/live` and `/v1/health/ready` |
+| Login page | `/login` |
+| Protected dashboard | `/dashboard` |
+| Protected search | `/search` |
+| Protected tenant API | `/v1/tenant/settings` |
+| Audit evidence API | `/v1/audit-events?limit=1` |
 
 ## Evidence Output
 

@@ -13,13 +13,16 @@ data, cloud, DNS, registry, secret, or production release decision.
 - Launch preparation: `pnpm launch:readiness` green.
 - Deployment state: staging and production intentionally disabled.
 - Human/company decisions: tracked by `docs/release/launch-blocker-ledger.md`.
-- UI release-candidate branch: `codex/activity-console-ui`.
+- Release candidate SHA under consideration: `a0c1e60`.
+- Included release-candidate PRs: PR #66 and PR #67.
 
 ## Phase 0 - Release Candidate Closure
 
 | Task | Owner | Evidence | Blocks |
 |---|---|---|---|
 | Decide whether the activity-console UI branch is part of the first release SHA. | Operator | PR URL or release note | Release SHA freeze |
+| Confirm whether `a0c1e60` is the frozen RC SHA. | Operator | `docs/release/rc-freeze-decision-pack.md` evidence ref | Staging image build |
+| Keep RC release notes aligned with PR #66/#67 scope. | Codex | `docs/release/release-notes-rc-a0c1e60.md` | Staging handoff |
 | Keep `docs/package/` frozen. | Codex | `pnpm docs:frozen` | All phases |
 | Keep launch readiness artifacts internally consistent. | Codex | `pnpm launch:readiness` and `pnpm launch:execution` | All phases |
 | Confirm no uncommitted secret, real data, or private endpoint is in the repo. | Codex | `git diff --check`, release validators | All phases |
@@ -58,6 +61,7 @@ LRB-001, LRB-002, LRB-003, LRB-004, and LRB-008.
 Staging exit criteria:
 
 - Smoke checks pass.
+- `pnpm release:smoke` evidence is captured with a non-secret target ref.
 - UAT-001 through UAT-020 have evidence refs.
 - No high or critical finding remains unresolved.
 - Any failure is either fixed or listed as a launch blocker.
@@ -143,6 +147,7 @@ Codex can continue to prepare and validate:
 - Staging smoke runner and evidence templates.
 - UAT checklist bookkeeping.
 - Release notes and ledger entries after approved evidence exists.
+- Local synthetic walkthroughs using seeded development data.
 
 Codex must not invent or approve:
 

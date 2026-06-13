@@ -15,6 +15,7 @@
     "backlog:validate": "node tools/backlog/validate-all.mjs",
     "launch:readiness": "node tools/release/check-launch-readiness.mjs",
     "launch:execution": "node tools/release/check-launch-execution.mjs",
+    "release:smoke": "node tools/release/staging-smoke.mjs",
     "docs:frozen": "node infra/ci/scripts/check-docs-package-frozen.mjs",
     "db:migrate": "node tools/db/migrate.mjs up",
     "db:rollback": "node tools/db/migrate.mjs down 999",
