@@ -24,3 +24,13 @@ with secrets, real customer data, or private endpoints in this repository.
 | LRB-014 | Post-launch support owner | approval-required | Named owner for support triage, incident handling, and rollback authority. | Pilot, GA | TBD |
 
 Machine-actionable preparation status: complete for this pack.
+
+## Current Technical Preparation
+
+- Candidate SHA under consideration: `a0c1e60`.
+- Included PRs: `#66`, `#67`.
+- RC freeze remains an operator decision and does not resolve LRB-001 through
+  LRB-014.
+- Repo-local smoke automation exists at `tools/release/staging-smoke.mjs`, but
+  approved staging execution remains blocked until LRB-001/002/003/004/008 have
+  evidence refs.

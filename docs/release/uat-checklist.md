@@ -5,6 +5,10 @@ Status: PREPARED - NOT EXECUTED
 Use approved synthetic or explicitly approved pilot data only. Do not upload real
 customer documents until customer-data approval is recorded.
 
+For local development confidence before staging exists, use
+`docs/release/local-synthetic-uat-walkthrough.md`. That walkthrough does not
+replace the evidence refs required below.
+
 | ID | Area | Scenario | Pass Criteria | Evidence |
 |---|---|---|---|---|
 | UAT-001 | Auth | Internal user logs in and receives tenant context. | Session is scoped to one tenant. | TBD |

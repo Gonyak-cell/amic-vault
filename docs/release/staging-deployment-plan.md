@@ -31,6 +31,8 @@ with approved non-production data before any production release attempt.
 ## Deployment Flow
 
 1. Build api, web, and ingestion images from the same Git SHA.
+   - The web image must include `.next/standalone`, `.next/static`, and
+     `public`; `apps/web/Dockerfile` copies all three.
 2. Push images to the approved registry.
 3. Take a pre-migration staging database snapshot.
 4. Acquire the migration lock.
@@ -38,8 +40,9 @@ with approved non-production data before any production release attempt.
 6. Deploy the api service.
 7. Deploy the web service.
 8. Deploy the ingestion worker.
-9. Run smoke checks for `/health`, `/login`, `/scale`, and representative
-   authenticated API calls.
+9. Run `pnpm release:smoke` against the approved staging target, including
+   static asset, unauthenticated redirect, authenticated dashboard/search,
+   protected API, negative role, and audit checks.
 10. Run the UAT checklist in `docs/release/uat-checklist.md`.
 
 ## Exit Criteria

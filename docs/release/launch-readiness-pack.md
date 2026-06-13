@@ -12,11 +12,11 @@ product release boundary.
 
 ## Baseline
 
-- Code baseline: `main` at `a3d46d0`.
+- Code baseline: `main` at `a0c1e60`.
 - Technical gate baseline: R14 Scale & Learning technical pass with remaining
   blockers 0.
-- Latest verified main CI baseline before this pack:
-  `https://github.com/Gonyak-cell/amic-vault/actions/runs/27446678134`.
+- Release-candidate PR baseline: PR #66 and PR #67 merged.
+- Latest verified candidate CI baseline: PR #67 checks green before merge.
 - Deployment baseline: staging and production are disabled until approval
   blockers are resolved.
 
@@ -37,6 +37,13 @@ product release boundary.
 | Staging smoke plan | `docs/release/staging-smoke-plan.md` | Prepared, awaits staging target |
 | Security evidence index | `docs/release/security-evidence-index.md` | Prepared |
 | Launch blocker ledger | `docs/release/launch-blocker-ledger.md` | Prepared |
+| RC freeze decision pack | `docs/release/rc-freeze-decision-pack.md` | Prepared, awaits operator decision |
+| RC release notes | `docs/release/release-notes-rc-a0c1e60.md` | Draft |
+| Evidence register | `docs/release/evidence-register.md` | Prepared |
+| Remaining launch TUW backlog | `docs/release/remaining-launch-tuw.md` | Prepared |
+| Local synthetic UAT walkthrough | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared |
+| Staging smoke env template | `docs/release/env.staging-smoke.example` | Prepared, placeholders only |
+| Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
 | Readiness validator | `tools/release/check-launch-readiness.mjs` | CI wired |
 | Execution validator | `tools/release/check-launch-execution.mjs` | Prepared |
 
@@ -63,6 +70,10 @@ product release boundary.
 ## Completion Criteria For This Pack
 
 - `pnpm launch:readiness` passes.
+- `pnpm launch:execution` passes.
+- `pnpm release:smoke -- --dry-run` passes.
+- `pnpm release:smoke -- --local` passes when local Web/API/dev infra are
+  running with seeded development data.
 - `pnpm docs:frozen` passes.
 - `git diff --check` passes.
 - No launch artifact contains real secrets, real customer data, or external

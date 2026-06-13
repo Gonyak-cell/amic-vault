@@ -25,6 +25,12 @@ Allowed values in this file:
 | LRB-004 | TBD | Security | TBD | Secret manager and runtime secret refs approval. |
 | LRB-008 | TBD | Security/Ops | TBD | Monitoring sink, alert destination, incident response, and evidence retention approval. |
 
+## RC Freeze Decision
+
+| Decision | Status | Owner Role | Evidence Ref | Decision Summary |
+|---|---|---|---|---|
+| RC-FREEZE-001 | TBD | Operator | TBD | Decide whether `a0c1e60` is the frozen release-candidate SHA for staging. |
+
 ## Pilot Decisions
 
 | Blocker | Status | Owner Role | Evidence Ref | Decision Summary |

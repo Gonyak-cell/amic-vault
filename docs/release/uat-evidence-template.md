@@ -6,6 +6,10 @@ Use approved synthetic data unless LRB-007 explicitly approves pilot customer
 data and controls. Evidence refs may point to external systems when they include
 private deployment metadata or screenshots.
 
+Local development walkthrough evidence may be collected with
+`docs/release/local-synthetic-uat-walkthrough.md`, but local evidence does not
+accept UAT for staging or production.
+
 | UAT ID | Result | Evidence Ref | Notes |
 |---|---|---|---|
 | UAT-001 | TBD | TBD | Auth and tenant context. |
