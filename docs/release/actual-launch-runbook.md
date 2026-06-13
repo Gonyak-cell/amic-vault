@@ -14,9 +14,11 @@ this repository.
 
 | Item | Value |
 |---|---|
-| Candidate SHA under consideration | `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` |
+| Default application candidate under consideration | `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` |
+| Frozen release SHA | Operator-supplied evidence ref before build or deploy |
 | Source branch | `main` |
 | Included PRs | `#66`, `#67`, `#68`, `#69` |
+| Launch documentation baseline | `main` at or after PR #70 |
 | Local routes | `/login`, `/dashboard`, `/launch` |
 | Prepared smoke checks | `SMOKE-001` through `SMOKE-011` |
 | Staging/prod state | Disabled until LRB evidence refs exist |
@@ -25,13 +27,17 @@ this repository.
 
 Owner: Codex or release engineer.
 
-Run from a clean checkout of the candidate SHA:
+Run launch artifact checks from current `main`, then confirm the chosen frozen
+release SHA exists:
 
 ```bash
+export FROZEN_RELEASE_SHA=9e346d9e48c962448bcccbbef9e30d9c3e468e4f
+
 git fetch origin main
 git switch main
 git pull --ff-only origin main
 git rev-parse HEAD
+git cat-file -e "$FROZEN_RELEASE_SHA^{commit}"
 pnpm install --frozen-lockfile
 pnpm lint
 pnpm typecheck
@@ -45,13 +51,13 @@ pnpm release:smoke -- --dry-run
 
 Expected evidence:
 
-- Command log ref for the exact SHA.
+- Command log ref for current launch docs and the chosen frozen release SHA.
 - No `docs/package/` diff.
 - No secret, real data, or private endpoint in the diff or command output.
 
-Stop if any command fails, the SHA is not the frozen candidate, or any
-permission, tenant isolation, audit, DLP, records, external portal, or AI
-invariant is weakened.
+Stop if any command fails, the frozen SHA is not reachable, or any permission,
+tenant isolation, audit, DLP, records, external portal, or AI invariant is
+weakened.
 
 ## 1. Freeze The Release Candidate
 
@@ -60,9 +66,9 @@ Owner: Operator.
 How to do it:
 
 1. Review `docs/release/rc-freeze-decision-pack.md`.
-2. Confirm whether the release candidate is
+2. Confirm whether the default application candidate is
    `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
-3. Store the approval in the external evidence system.
+3. Store the exact frozen release SHA approval in the external evidence system.
 4. Record only the evidence ref in `docs/release/operator-decision-sheet.md`
    and `docs/release/evidence-register.md`.
 
@@ -109,7 +115,8 @@ Prerequisites:
 Command template:
 
 ```bash
-export RELEASE_SHA=9e346d9e48c962448bcccbbef9e30d9c3e468e4f
+export FROZEN_RELEASE_SHA=9e346d9e48c962448bcccbbef9e30d9c3e468e4f
+export RELEASE_SHA="$FROZEN_RELEASE_SHA"
 export IMAGE_NAMESPACE="$APPROVED_REGISTRY_NAMESPACE_REF"
 
 git fetch origin main
@@ -170,7 +177,8 @@ Owner: Ops or Codex with approved deployment access.
 Run migrations from the candidate image or approved release runner:
 
 ```bash
-export RELEASE_SHA=9e346d9e48c962448bcccbbef9e30d9c3e468e4f
+export FROZEN_RELEASE_SHA=9e346d9e48c962448bcccbbef9e30d9c3e468e4f
+export RELEASE_SHA="$FROZEN_RELEASE_SHA"
 pnpm db:migrate
 ```
 
@@ -198,7 +206,8 @@ Use secret-manager or CI-secret values for the environment. The command below is
 a shape, not a place to write secrets into the repo:
 
 ```bash
-export RELEASE_SHA=9e346d9e48c962448bcccbbef9e30d9c3e468e4f
+export FROZEN_RELEASE_SHA=9e346d9e48c962448bcccbbef9e30d9c3e468e4f
+export RELEASE_SHA="$FROZEN_RELEASE_SHA"
 export SMOKE_TARGET_REF="$APPROVED_STAGING_TARGET_REF"
 export SMOKE_REQUIRE_AUTH=1
 pnpm release:smoke -- --json

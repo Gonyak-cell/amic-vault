@@ -27,8 +27,9 @@ Machine-actionable preparation status: complete for this pack.
 
 ## Current Technical Preparation
 
-- Candidate SHA under consideration:
+- Candidate application SHA under consideration:
   `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- Exact frozen release SHA remains pending operator evidence.
 - Included PRs: `#66`, `#67`, `#68`, `#69`.
 - RC freeze remains an operator decision and does not resolve LRB-001 through
   LRB-014.
