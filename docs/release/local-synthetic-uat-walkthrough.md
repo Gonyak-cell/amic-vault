@@ -50,11 +50,11 @@ Negative-role local smoke user:
 |---|---|---|
 | 1 | `pnpm launch:readiness` | Launch readiness artifacts verified. |
 | 2 | `pnpm launch:execution` | Launch execution artifacts verified. |
-| 3 | `pnpm release:smoke -- --dry-run` | SMOKE-001 through SMOKE-010 are planned without touching a network target. |
+| 3 | `pnpm release:smoke -- --dry-run` | SMOKE-001 through SMOKE-011 are planned without touching a network target. |
 | 4 | `pnpm release:smoke -- --local` | Local Web/API smoke checks pass with synthetic seed users. |
 | 5 | Open `/login` | AMIC Vault login renders with Korean default and English toggle. |
 | 6 | Login as the primary local smoke user | Browser reaches `/dashboard`. |
-| 7 | Open `/dashboard`, `/search`, `/scale` | Protected app shell renders. |
+| 7 | Open `/dashboard`, `/search`, `/scale`, `/launch` | Protected app shell renders. |
 | 8 | Call `/v1/tenant/settings` with the session cookie | Tenant-scoped response for Tenant Alpha. |
 | 9 | Call `/v1/tenant/settings` as the negative-role user | Safe denial with `PERMISSION_DENIED` or `AUTH_REQUIRED`. |
 | 10 | Call `/v1/audit-events?limit=1` as firm admin | Audit list returns reference-only event metadata. |

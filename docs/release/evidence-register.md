@@ -8,8 +8,8 @@ URLs, real customer documents, cookies, or tokens.
 
 | Evidence ID | Gate | Status | Owner Role | External Ref | Notes |
 |---|---|---|---|---|---|
-| EV-RC-001 | RC freeze | pending | Operator | TBD | Decide whether `a0c1e60` is the frozen release candidate. |
-| EV-RC-002 | RC validation | ready | Codex | PR #66, PR #67, CI refs | Candidate code has merged to `main`. |
+| EV-RC-001 | RC freeze | pending | Operator | TBD | Decide whether `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` is the frozen release candidate. |
+| EV-RC-002 | RC validation | ready | Codex | PR #66, PR #67, PR #68, PR #69, CI refs | Candidate code has merged to `main`. |
 | EV-STAGE-001 | Staging open | blocked | Operator | LRB-001 | Cloud provider and region approval. |
 | EV-STAGE-002 | Staging open | blocked | Operator | LRB-002 | DNS/TLS endpoint approval. |
 | EV-STAGE-003 | Staging open | blocked | Operator | LRB-003 | Registry/signing approval. |

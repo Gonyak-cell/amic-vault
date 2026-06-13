@@ -17,13 +17,14 @@ const requiredFiles = [
   'docs/release/security-evidence-index.md',
   'docs/release/launch-blocker-ledger.md',
   'docs/release/rc-freeze-decision-pack.md',
-  'docs/release/release-notes-rc-a0c1e60.md',
+  'docs/release/release-notes-rc-9e346d9.md',
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
   'docs/release/staging-input-checklist.md',
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
+  'docs/release/actual-launch-runbook.md',
   'docs/release/env.staging-smoke.example',
   'infra/ci/staging-deploy.yml',
   'infra/ci/prod-gate.yml',
@@ -93,19 +94,20 @@ for (const file of requiredFiles.slice(1, 11)) {
 }
 for (const file of [
   'docs/release/rc-freeze-decision-pack.md',
-  'docs/release/release-notes-rc-a0c1e60.md',
+  'docs/release/release-notes-rc-9e346d9.md',
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
   'docs/release/staging-input-checklist.md',
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
+  'docs/release/actual-launch-runbook.md',
   'tools/release/staging-smoke.mjs',
 ]) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
 }
 assertContains(pack, 'PREPARED - NOT LAUNCHED', 'docs/release/launch-readiness-pack.md');
-assertContains(pack, 'a0c1e60', 'docs/release/launch-readiness-pack.md');
+assertContains(pack, '9e346d9e48c962448bcccbbef9e30d9c3e468e4f', 'docs/release/launch-readiness-pack.md');
 assertContains(pack, 'docs/package/', 'docs/release/launch-readiness-pack.md');
 
 const blockerLedger = contents.get('docs/release/launch-blocker-ledger.md');
@@ -159,7 +161,7 @@ for (const evidence of [
 }
 
 const rcFreeze = contents.get('docs/release/rc-freeze-decision-pack.md');
-for (const expected of ['a0c1e60', '#66', '#67', 'operator decision']) {
+for (const expected of ['9e346d9e48c962448bcccbbef9e30d9c3e468e4f', '#66', '#67', '#68', '#69', 'operator decision']) {
   assertContains(rcFreeze, expected, 'docs/release/rc-freeze-decision-pack.md');
 }
 
@@ -169,8 +171,25 @@ for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-UAT-001', 'EV-PROD-005'
 }
 
 const remainingTuw = contents.get('docs/release/remaining-launch-tuw.md');
-for (const expected of ['REL-RC-FREEZE-TUW-001', 'REL-SMOKE-AUTO-TUW-004', 'REL-PROD-REL-TUW-010']) {
+for (const expected of [
+  'REL-RC-FREEZE-TUW-001',
+  'REL-SMOKE-AUTO-TUW-004',
+  'REL-ACTUAL-RUNBOOK-TUW-007B',
+  'REL-PROD-REL-TUW-010',
+]) {
   assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
+}
+
+const actualLaunchRunbook = contents.get('docs/release/actual-launch-runbook.md');
+for (const expected of [
+  'READY FOR OPERATOR INPUT - NO DEPLOYMENT EXECUTED',
+  '9e346d9e48c962448bcccbbef9e30d9c3e468e4f',
+  'SMOKE-011',
+  'LRB-001',
+  'LRB-013',
+  'production-release-runbook.md',
+]) {
+  assertContains(actualLaunchRunbook, expected, 'docs/release/actual-launch-runbook.md');
 }
 
 const smokeScript = contents.get('tools/release/staging-smoke.mjs');

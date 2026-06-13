@@ -13,17 +13,20 @@ data, cloud, DNS, registry, secret, or production release decision.
 - Launch preparation: `pnpm launch:readiness` green.
 - Deployment state: staging and production intentionally disabled.
 - Human/company decisions: tracked by `docs/release/launch-blocker-ledger.md`.
-- Release candidate SHA under consideration: `a0c1e60`.
-- Included release-candidate PRs: PR #66 and PR #67.
+- Release candidate SHA under consideration:
+  `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- Included release-candidate PRs: PR #66, PR #67, PR #68, and PR #69.
 - Release-completion prep PR: PR #68.
+- Pre-launch quality hardening PR: PR #69.
 
 ## Phase 0 - Release Candidate Closure
 
 | Task | Owner | Evidence | Blocks |
 |---|---|---|---|
 | Decide whether the activity-console UI branch is part of the first release SHA. | Operator | PR URL or release note | Release SHA freeze |
-| Confirm whether `a0c1e60` is the frozen RC SHA. | Operator | `docs/release/rc-freeze-decision-pack.md` evidence ref | Staging image build |
-| Keep RC release notes aligned with PR #66/#67 scope. | Codex | `docs/release/release-notes-rc-a0c1e60.md` | Staging handoff |
+| Confirm whether `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` is the frozen RC SHA. | Operator | `docs/release/rc-freeze-decision-pack.md` evidence ref | Staging image build |
+| Keep RC release notes aligned with PR #66/#67/#68/#69 scope. | Codex | `docs/release/release-notes-rc-9e346d9.md` | Staging handoff |
+| Keep the actual launch runbook aligned with the active blocker ledger. | Codex | `docs/release/actual-launch-runbook.md` | Staging handoff |
 | Keep `docs/package/` frozen. | Codex | `pnpm docs:frozen` | All phases |
 | Keep launch readiness artifacts internally consistent. | Codex | `pnpm launch:readiness` and `pnpm launch:execution` | All phases |
 | Confirm no uncommitted secret, real data, or private endpoint is in the repo. | Codex | `git diff --check`, release validators | All phases |

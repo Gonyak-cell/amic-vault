@@ -12,12 +12,13 @@ product release boundary.
 
 ## Baseline
 
-- Application RC candidate baseline: `a0c1e60`.
-- Launch package baseline: `main` includes PR #68 release-completion prep.
+- Application RC candidate baseline: `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- Launch package baseline: `main` includes PR #68 release-completion prep and
+  PR #69 pre-launch quality hardening.
 - Technical gate baseline: R14 Scale & Learning technical pass with remaining
   blockers 0.
-- Release-candidate PR baseline: PR #66 and PR #67 merged.
-- Latest verified candidate CI baseline: PR #67 checks green before merge.
+- Release-candidate PR baseline: PR #66, PR #67, PR #68, and PR #69 merged.
+- Latest verified candidate CI baseline: PR #69 checks green before merge.
 - Deployment baseline: staging and production are disabled until approval
   blockers are resolved.
 
@@ -39,10 +40,11 @@ product release boundary.
 | Security evidence index | `docs/release/security-evidence-index.md` | Prepared |
 | Launch blocker ledger | `docs/release/launch-blocker-ledger.md` | Prepared |
 | RC freeze decision pack | `docs/release/rc-freeze-decision-pack.md` | Prepared, awaits operator decision |
-| RC release notes | `docs/release/release-notes-rc-a0c1e60.md` | Draft |
+| RC release notes | `docs/release/release-notes-rc-9e346d9.md` | Draft |
 | Evidence register | `docs/release/evidence-register.md` | Prepared |
 | Remaining launch TUW backlog | `docs/release/remaining-launch-tuw.md` | Prepared |
 | Local synthetic UAT walkthrough | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared |
+| Actual launch runbook | `docs/release/actual-launch-runbook.md` | Prepared, awaits operator inputs |
 | Staging smoke env template | `docs/release/env.staging-smoke.example` | Prepared, placeholders only |
 | Staging input checklist | `docs/release/staging-input-checklist.md` | Prepared, awaits approved evidence refs |
 | Synthetic UAT scenarios | `docs/release/synthetic-uat-scenarios.md` | Prepared, local/staging execution paths |
