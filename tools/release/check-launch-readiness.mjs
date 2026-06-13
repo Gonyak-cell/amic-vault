@@ -21,12 +21,16 @@ const requiredFiles = [
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
+  'docs/release/staging-input-checklist.md',
+  'docs/release/synthetic-uat-scenarios.md',
+  'docs/release/launch-control-sheet.md',
   'docs/release/env.staging-smoke.example',
   'infra/ci/staging-deploy.yml',
   'infra/ci/prod-gate.yml',
   'infra/ci/PROD_GATE.md',
   'tools/release/check-launch-execution.mjs',
   'tools/release/staging-smoke.mjs',
+  '.github/workflows/ci.yml',
   'package.json',
 ];
 
@@ -93,6 +97,9 @@ for (const file of [
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
+  'docs/release/staging-input-checklist.md',
+  'docs/release/synthetic-uat-scenarios.md',
+  'docs/release/launch-control-sheet.md',
   'tools/release/staging-smoke.mjs',
 ]) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
@@ -127,6 +134,21 @@ for (const uatId of ['UAT-001', 'UAT-010', 'UAT-020']) {
   assertContains(uat, uatId, 'docs/release/uat-checklist.md');
 }
 
+const stagingInputChecklist = contents.get('docs/release/staging-input-checklist.md');
+for (const expected of ['STAGE-IN-001', 'STAGE-IN-008', 'Evidence ref only']) {
+  assertContains(stagingInputChecklist, expected, 'docs/release/staging-input-checklist.md');
+}
+
+const syntheticUatScenarios = contents.get('docs/release/synthetic-uat-scenarios.md');
+for (const expected of ['UAT-001', 'UAT-020', 'EV-UAT-020']) {
+  assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
+}
+
+const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
+for (const expected of ['PREPARED - NOT LAUNCHED', 'pnpm launch:execution', 'LRB-013']) {
+  assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
+}
+
 const evidenceIndex = contents.get('docs/release/security-evidence-index.md');
 for (const evidence of [
   'docs/ledger/gates/R14_gate.md',
@@ -152,12 +174,16 @@ for (const expected of ['REL-RC-FREEZE-TUW-001', 'REL-SMOKE-AUTO-TUW-004', 'REL-
 }
 
 const smokeScript = contents.get('tools/release/staging-smoke.mjs');
-for (const expected of ['SMOKE-001', 'SMOKE-010', 'SMOKE_REQUIRE_AUTH']) {
+for (const expected of ['SMOKE-001', 'SMOKE-010', 'SMOKE-011', 'SMOKE_REQUIRE_AUTH']) {
   assertContains(smokeScript, expected, 'tools/release/staging-smoke.mjs');
 }
 
 const packageJson = contents.get('package.json');
 assertContains(packageJson, '"release:smoke"', 'package.json');
+
+const ciWorkflow = contents.get('.github/workflows/ci.yml');
+assertContains(ciWorkflow, 'pnpm launch:readiness', '.github/workflows/ci.yml');
+assertContains(ciWorkflow, 'pnpm launch:execution', '.github/workflows/ci.yml');
 
 const docsPackageDiff = execFileSync('git', ['diff', '--name-only', '--', 'docs/package'], {
   cwd: repoRoot,

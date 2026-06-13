@@ -19,6 +19,7 @@ describe('AppShell', () => {
     expect(html).toContain('Matter, document, event 검색');
     expect(html).toContain('Dashboard payload');
     expect(html).toContain('href="/dashboard"');
+    expect(html).toContain('href="/launch"');
     expect(html).toContain('href="/records"');
   });
 });

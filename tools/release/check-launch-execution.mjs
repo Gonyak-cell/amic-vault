@@ -17,8 +17,12 @@ const requiredFiles = [
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
+  'docs/release/staging-input-checklist.md',
+  'docs/release/synthetic-uat-scenarios.md',
+  'docs/release/launch-control-sheet.md',
   'docs/release/env.staging-smoke.example',
   'tools/release/staging-smoke.mjs',
+  '.github/workflows/ci.yml',
   'package.json',
 ];
 
@@ -71,7 +75,11 @@ const rcFreeze = contents.get('docs/release/rc-freeze-decision-pack.md');
 const evidenceRegister = contents.get('docs/release/evidence-register.md');
 const remainingTuw = contents.get('docs/release/remaining-launch-tuw.md');
 const localWalkthrough = contents.get('docs/release/local-synthetic-uat-walkthrough.md');
+const stagingInputChecklist = contents.get('docs/release/staging-input-checklist.md');
+const syntheticUatScenarios = contents.get('docs/release/synthetic-uat-scenarios.md');
+const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
 const smokeScript = contents.get('tools/release/staging-smoke.mjs');
+const ciWorkflow = contents.get('.github/workflows/ci.yml');
 const packageJson = contents.get('package.json');
 
 for (const blockerId of blockerIds) {
@@ -81,9 +89,10 @@ for (const blockerId of blockerIds) {
 
 for (const uatId of uatIds) {
   assertContains(uatTemplate, uatId, 'docs/release/uat-evidence-template.md');
+  assertContains(syntheticUatScenarios, uatId, 'docs/release/synthetic-uat-scenarios.md');
 }
 
-for (const smokeId of ['SMOKE-001', 'SMOKE-004', 'SMOKE-010']) {
+for (const smokeId of ['SMOKE-001', 'SMOKE-004', 'SMOKE-010', 'SMOKE-011']) {
   assertContains(smokePlan, smokeId, 'docs/release/staging-smoke-plan.md');
   assertContains(smokeScript, smokeId, 'tools/release/staging-smoke.mjs');
 }
@@ -99,12 +108,33 @@ for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-PROD-005']) {
 for (const expected of ['REL-RC-FREEZE-TUW-001', 'REL-SMOKE-AUTO-TUW-004', 'REL-PROD-REL-TUW-010']) {
   assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
 }
+for (const expected of [
+  'REL-STAGE-INPUT-TUW-004A',
+  'REL-UAT-SCENARIOS-TUW-006A',
+  'REL-LAUNCH-CONTROL-TUW-007A',
+]) {
+  assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
+}
 
 for (const expected of ['pnpm release:smoke -- --dry-run', 'pnpm release:smoke -- --local']) {
   assertContains(localWalkthrough, expected, 'docs/release/local-synthetic-uat-walkthrough.md');
+  assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
+}
+
+for (const expected of ['STAGE-IN-001', 'STAGE-IN-008', 'Evidence ref only']) {
+  assertContains(stagingInputChecklist, expected, 'docs/release/staging-input-checklist.md');
+}
+
+for (const expected of ['EV-UAT-001', 'EV-UAT-020', 'negative permission']) {
+  assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
+}
+
+for (const expected of ['PREPARED - NOT LAUNCHED', 'LRB-001', 'pnpm launch:execution']) {
+  assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
 
 assertContains(smokeScript, 'SMOKE_REQUIRE_AUTH', 'tools/release/staging-smoke.mjs');
+assertContains(ciWorkflow, 'pnpm launch:execution', '.github/workflows/ci.yml');
 assertContains(packageJson, '"release:smoke"', 'package.json');
 
 for (const phrase of [
