@@ -12,7 +12,9 @@ product release boundary.
 
 ## Baseline
 
-- Application RC candidate baseline: `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- Application RC candidate baseline under consideration:
+  `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- Exact frozen release SHA remains an operator decision.
 - Launch package baseline: `main` includes PR #68 release-completion prep and
   PR #69 pre-launch quality hardening.
 - Technical gate baseline: R14 Scale & Learning technical pass with remaining

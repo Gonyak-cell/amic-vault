@@ -13,8 +13,10 @@ data, cloud, DNS, registry, secret, or production release decision.
 - Launch preparation: `pnpm launch:readiness` green.
 - Deployment state: staging and production intentionally disabled.
 - Human/company decisions: tracked by `docs/release/launch-blocker-ledger.md`.
-- Release candidate SHA under consideration:
+- Release candidate application SHA under consideration:
   `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- Exact frozen release SHA remains an operator decision and may be recorded as
+  the application candidate or a later documentation-only launch commit.
 - Included release-candidate PRs: PR #66, PR #67, PR #68, and PR #69.
 - Release-completion prep PR: PR #68.
 - Pre-launch quality hardening PR: PR #69.

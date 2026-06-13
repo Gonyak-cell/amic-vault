@@ -7,9 +7,10 @@ Date: 2026-06-13
 
 | Field | Value |
 |---|---|
-| Candidate SHA | `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` |
+| Candidate application SHA | `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` |
 | Source branch | `main` |
 | Included PRs | `#66`, `#67`, `#68`, `#69` |
+| Launch documentation baseline | `main` at or after PR #70 |
 | Local repo state at preparation | `main...origin/main` |
 | Staging/prod deployment state | Disabled until LRB approvals |
 
@@ -24,10 +25,12 @@ Date: 2026-06-13
 
 ## Freeze Decision Needed
 
-The operator must decide whether
-`9e346d9e48c962448bcccbbef9e30d9c3e468e4f` is the first release-candidate SHA.
-Until this is approved, staging image build and registry push remain blocked.
-This is an operator decision and cannot be inferred from local validation alone.
+The operator must decide the exact frozen release SHA before any staging image
+build or registry push. The default application candidate under consideration is
+`9e346d9e48c962448bcccbbef9e30d9c3e468e4f`; documentation-only launch commits
+after that SHA may be used for runbook/validator guidance without changing the
+application candidate. This is an operator decision and cannot be inferred from
+local validation alone.
 
 Allowed evidence:
 
@@ -42,7 +45,8 @@ Forbidden evidence:
 
 ## Freeze Acceptance Criteria
 
-- `main` points at `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- The exact frozen release SHA is recorded in an external evidence ref.
+- The chosen release SHA is reachable from `main`.
 - PR #66, #67, #68, and #69 are merged.
 - `pnpm launch:readiness` and `pnpm launch:execution` are green.
 - `pnpm release:smoke -- --local` is green with seeded development data.
