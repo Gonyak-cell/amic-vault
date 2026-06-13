@@ -3,6 +3,8 @@
 ALTER TABLE audit_events
   DROP CONSTRAINT IF EXISTS audit_events_action_check;
 
+-- audit_events is append-only. After R14 scale audit rows have been recorded,
+-- rollback cannot safely remove the R14 scale actions from the allow-list.
 ALTER TABLE audit_events
   ADD CONSTRAINT audit_events_action_check CHECK (
     action IN (
@@ -416,6 +418,13 @@ ALTER TABLE audit_events
       'BACKUP_SNAPSHOT_RECORDED',
       'COMPLIANCE_EVIDENCE_RECORDED',
       'ENTERPRISE_READINESS_VIEWED',
+      'SCALE_PERFORMANCE_RECORDED',
+      'SCALE_COST_SNAPSHOT_RECORDED',
+      'SCALE_EVAL_RUN_RECORDED',
+      'SCALE_MIGRATION_DRILL_RECORDED',
+      'SCALE_LEARNING_EVENT_RECORDED',
+      'ADVANCED_AI_GATE_REVIEWED',
+      'SCALE_READINESS_VIEWED',
       'EMAIL_IMPORTED',
       'EMAIL_DUPLICATE_BLOCKED',
       'EMAIL_METADATA_UPDATED',

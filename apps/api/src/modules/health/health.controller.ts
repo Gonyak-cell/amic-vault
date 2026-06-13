@@ -1,4 +1,4 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Optional, Res } from '@nestjs/common';
 import { Client } from 'pg';
 import { Public } from '../auth/public.decorator';
 
@@ -7,6 +7,7 @@ const databaseUrl =
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export type ReadinessProbe = () => Promise<boolean>;
+export const READINESS_PROBE = Symbol('READINESS_PROBE');
 
 interface ResponseLike {
   status(code: number): void;
@@ -35,7 +36,11 @@ async function defaultReadinessProbe(): Promise<boolean> {
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly readinessProbe: ReadinessProbe = defaultReadinessProbe) {}
+  constructor(
+    @Optional()
+    @Inject(READINESS_PROBE)
+    private readonly readinessProbe: ReadinessProbe = defaultReadinessProbe,
+  ) {}
 
   @Public()
   @Get('live')
