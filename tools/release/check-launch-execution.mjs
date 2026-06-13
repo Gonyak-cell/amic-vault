@@ -13,13 +13,14 @@ const requiredFiles = [
   'docs/release/uat-checklist.md',
   'docs/release/security-evidence-index.md',
   'docs/release/rc-freeze-decision-pack.md',
-  'docs/release/release-notes-rc-a0c1e60.md',
+  'docs/release/release-notes-rc-9e346d9.md',
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
   'docs/release/staging-input-checklist.md',
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
+  'docs/release/actual-launch-runbook.md',
   'docs/release/env.staging-smoke.example',
   'tools/release/staging-smoke.mjs',
   '.github/workflows/ci.yml',
@@ -78,6 +79,7 @@ const localWalkthrough = contents.get('docs/release/local-synthetic-uat-walkthro
 const stagingInputChecklist = contents.get('docs/release/staging-input-checklist.md');
 const syntheticUatScenarios = contents.get('docs/release/synthetic-uat-scenarios.md');
 const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
+const actualLaunchRunbook = contents.get('docs/release/actual-launch-runbook.md');
 const smokeScript = contents.get('tools/release/staging-smoke.mjs');
 const ciWorkflow = contents.get('.github/workflows/ci.yml');
 const packageJson = contents.get('package.json');
@@ -97,7 +99,7 @@ for (const smokeId of ['SMOKE-001', 'SMOKE-004', 'SMOKE-010', 'SMOKE-011']) {
   assertContains(smokeScript, smokeId, 'tools/release/staging-smoke.mjs');
 }
 
-for (const expected of ['a0c1e60', '#66', '#67']) {
+for (const expected of ['9e346d9e48c962448bcccbbef9e30d9c3e468e4f', '#66', '#67', '#68', '#69']) {
   assertContains(rcFreeze, expected, 'docs/release/rc-freeze-decision-pack.md');
 }
 
@@ -112,6 +114,7 @@ for (const expected of [
   'REL-STAGE-INPUT-TUW-004A',
   'REL-UAT-SCENARIOS-TUW-006A',
   'REL-LAUNCH-CONTROL-TUW-007A',
+  'REL-ACTUAL-RUNBOOK-TUW-007B',
 ]) {
   assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
 }
@@ -131,6 +134,19 @@ for (const expected of ['EV-UAT-001', 'EV-UAT-020', 'negative permission']) {
 
 for (const expected of ['PREPARED - NOT LAUNCHED', 'LRB-001', 'pnpm launch:execution']) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
+}
+
+for (const expected of [
+  'READY FOR OPERATOR INPUT - NO DEPLOYMENT EXECUTED',
+  '9e346d9e48c962448bcccbbef9e30d9c3e468e4f',
+  'SMOKE-011',
+  'LRB-001',
+  'LRB-013',
+  'Do not commit secrets',
+  'pnpm release:smoke -- --json',
+  'production-release-runbook.md',
+]) {
+  assertContains(actualLaunchRunbook, expected, 'docs/release/actual-launch-runbook.md');
 }
 
 assertContains(smokeScript, 'SMOKE_REQUIRE_AUTH', 'tools/release/staging-smoke.mjs');

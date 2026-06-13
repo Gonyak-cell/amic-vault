@@ -32,7 +32,7 @@ Allowed values in this file:
 
 | Decision | Status | Owner Role | Evidence Ref | Decision Summary |
 |---|---|---|---|---|
-| RC-FREEZE-001 | TBD | Operator | TBD | Decide whether `a0c1e60` is the frozen release-candidate SHA for staging. |
+| RC-FREEZE-001 | TBD | Operator | TBD | Decide whether `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` is the frozen release-candidate SHA for staging. |
 
 ## Pilot Decisions
 
