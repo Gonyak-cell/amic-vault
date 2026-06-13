@@ -31,9 +31,14 @@ product release boundary.
 | Production release runbook | `docs/release/production-release-runbook.md` | Prepared |
 | Rollback runbook | `docs/release/rollback-runbook.md` | Prepared |
 | UAT checklist | `docs/release/uat-checklist.md` | Prepared |
+| Launch execution plan | `docs/release/launch-execution-plan.md` | Prepared |
+| Operator decision sheet | `docs/release/operator-decision-sheet.md` | Prepared, decisions unresolved |
+| UAT evidence template | `docs/release/uat-evidence-template.md` | Prepared, not executed |
+| Staging smoke plan | `docs/release/staging-smoke-plan.md` | Prepared, awaits staging target |
 | Security evidence index | `docs/release/security-evidence-index.md` | Prepared |
 | Launch blocker ledger | `docs/release/launch-blocker-ledger.md` | Prepared |
 | Readiness validator | `tools/release/check-launch-readiness.mjs` | CI wired |
+| Execution validator | `tools/release/check-launch-execution.mjs` | Prepared |
 
 ## Launch Modes
 
