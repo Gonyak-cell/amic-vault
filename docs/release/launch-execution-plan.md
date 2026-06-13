@@ -15,6 +15,7 @@ data, cloud, DNS, registry, secret, or production release decision.
 - Human/company decisions: tracked by `docs/release/launch-blocker-ledger.md`.
 - Release candidate SHA under consideration: `a0c1e60`.
 - Included release-candidate PRs: PR #66 and PR #67.
+- Release-completion prep PR: PR #68.
 
 ## Phase 0 - Release Candidate Closure
 
@@ -26,6 +27,7 @@ data, cloud, DNS, registry, secret, or production release decision.
 | Keep `docs/package/` frozen. | Codex | `pnpm docs:frozen` | All phases |
 | Keep launch readiness artifacts internally consistent. | Codex | `pnpm launch:readiness` and `pnpm launch:execution` | All phases |
 | Confirm no uncommitted secret, real data, or private endpoint is in the repo. | Codex | `git diff --check`, release validators | All phases |
+| Keep CI aligned with launch execution validator. | Codex | `.github/workflows/ci.yml` runs `pnpm launch:execution` | All phases |
 
 ## Phase 1 - Staging Decisions
 
@@ -42,7 +44,9 @@ documents, or provider console screenshots to this repository.
 | LRB-008 | Monitoring and incident response. | Alert sink ref, on-call owner ref, severity policy ref |
 
 Exit criteria: `docs/release/operator-decision-sheet.md` has evidence refs for
-LRB-001, LRB-002, LRB-003, LRB-004, and LRB-008.
+LRB-001, LRB-002, LRB-003, LRB-004, and LRB-008. Use
+`docs/release/staging-input-checklist.md` for the required non-secret input
+categories.
 
 ## Phase 2 - Staging Deployment
 
@@ -72,6 +76,8 @@ Use `docs/release/uat-evidence-template.md` to record evidence refs. The
 evidence itself may live outside this repository when it contains private
 deployment metadata, customer approval context, private endpoints, or screenshots
 that should not be public.
+Use `docs/release/synthetic-uat-scenarios.md` for the expanded step and
+negative-check matrix.
 
 Critical UAT groups:
 
@@ -146,6 +152,9 @@ Codex can continue to prepare and validate:
 - Launch package consistency validators.
 - Staging smoke runner and evidence templates.
 - UAT checklist bookkeeping.
+- Staging input checklist maintenance.
+- Synthetic UAT scenario maintenance.
+- Launch control sheet maintenance.
 - Release notes and ledger entries after approved evidence exists.
 - Local synthetic walkthroughs using seeded development data.
 

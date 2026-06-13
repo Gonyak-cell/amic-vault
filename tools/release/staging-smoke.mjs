@@ -48,6 +48,7 @@ const plannedChecks = [
   ['SMOKE-008', 'Protected tenant API returns tenant-scoped response'],
   ['SMOKE-009', 'Negative role check denies tenant settings'],
   ['SMOKE-010', 'Audit event query returns reference-only event list'],
+  ['SMOKE-011', 'Launch control page renders with session cookie'],
 ];
 
 if (dryRun) {
@@ -191,6 +192,19 @@ if (publicOnly) {
     const rendered = JSON.stringify(body.items);
     assert(!/(raw_body|document_body|source_text|password|secret|token)/i.test(rendered), 'audit response included unsafe raw field marker');
     return { status: response.status, items: body.items.length };
+  });
+
+  await run('SMOKE-011', 'Launch control page renders with session cookie', async () => {
+    assert(sessionCookie, 'missing session cookie from SMOKE-005');
+    const response = await fetchWithTimeout(webUrl('/launch'), {
+      headers: { cookie: sessionCookie },
+    });
+    assert(response.status === 200, `launch status ${response.status}`);
+    const html = await response.text();
+    assert(html.includes('Launch Control'), 'launch page missing control title');
+    assert(html.includes('approval blocked'), 'launch page missing approval blocked state');
+    assert(html.includes('pnpm launch:execution'), 'launch page missing execution validator command');
+    return { status: response.status };
   });
 }
 

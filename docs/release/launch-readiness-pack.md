@@ -12,7 +12,8 @@ product release boundary.
 
 ## Baseline
 
-- Code baseline: `main` at `a0c1e60`.
+- Application RC candidate baseline: `a0c1e60`.
+- Launch package baseline: `main` includes PR #68 release-completion prep.
 - Technical gate baseline: R14 Scale & Learning technical pass with remaining
   blockers 0.
 - Release-candidate PR baseline: PR #66 and PR #67 merged.
@@ -43,9 +44,12 @@ product release boundary.
 | Remaining launch TUW backlog | `docs/release/remaining-launch-tuw.md` | Prepared |
 | Local synthetic UAT walkthrough | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared |
 | Staging smoke env template | `docs/release/env.staging-smoke.example` | Prepared, placeholders only |
+| Staging input checklist | `docs/release/staging-input-checklist.md` | Prepared, awaits approved evidence refs |
+| Synthetic UAT scenarios | `docs/release/synthetic-uat-scenarios.md` | Prepared, local/staging execution paths |
+| Launch control sheet | `docs/release/launch-control-sheet.md` | Prepared |
 | Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
 | Readiness validator | `tools/release/check-launch-readiness.mjs` | CI wired |
-| Execution validator | `tools/release/check-launch-execution.mjs` | Prepared |
+| Execution validator | `tools/release/check-launch-execution.mjs` | CI wired |
 
 ## Launch Modes
 
@@ -71,6 +75,7 @@ product release boundary.
 
 - `pnpm launch:readiness` passes.
 - `pnpm launch:execution` passes.
+- CI `verify` runs both `pnpm launch:readiness` and `pnpm launch:execution`.
 - `pnpm release:smoke -- --dry-run` passes.
 - `pnpm release:smoke -- --local` passes when local Web/API/dev infra are
   running with seeded development data.

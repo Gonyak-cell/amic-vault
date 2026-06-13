@@ -38,6 +38,7 @@ synthetic session outside the repository.
 | SMOKE-008 | Call representative protected API | tenant-scoped response |
 | SMOKE-009 | Permission negative check | denied response hides target existence |
 | SMOKE-010 | Audit event check | reference-only event exists |
+| SMOKE-011 | Open `/launch` | launch control renders and remains approval-blocked |
 
 ## Automation
 
@@ -61,6 +62,7 @@ Vault route mapping:
 | Login page | `/login` |
 | Protected dashboard | `/dashboard` |
 | Protected search | `/search` |
+| Launch control | `/launch` |
 | Protected tenant API | `/v1/tenant/settings` |
 | Audit evidence API | `/v1/audit-events?limit=1` |
 

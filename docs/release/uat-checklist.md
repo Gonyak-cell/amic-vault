@@ -6,8 +6,9 @@ Use approved synthetic or explicitly approved pilot data only. Do not upload rea
 customer documents until customer-data approval is recorded.
 
 For local development confidence before staging exists, use
-`docs/release/local-synthetic-uat-walkthrough.md`. That walkthrough does not
-replace the evidence refs required below.
+`docs/release/local-synthetic-uat-walkthrough.md`. For scenario-by-scenario
+steps and negative checks, use `docs/release/synthetic-uat-scenarios.md`. These
+local materials do not replace the evidence refs required below.
 
 | ID | Area | Scenario | Pass Criteria | Evidence |
 |---|---|---|---|---|

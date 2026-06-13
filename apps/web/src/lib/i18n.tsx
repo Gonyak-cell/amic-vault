@@ -39,6 +39,7 @@ const translations = {
   'nav.dashboard': { ko: 'Dashboard', en: 'Dashboard' },
   'nav.matters': { ko: 'Matters', en: 'Matters' },
   'nav.search': { ko: 'Search', en: 'Search' },
+  'nav.launch': { ko: 'Launch', en: 'Launch' },
   'nav.contracts': { ko: 'Contracts', en: 'Contracts' },
   'nav.dd': { ko: 'DD Vault', en: 'DD Vault' },
   'nav.litigation': { ko: 'Litigation', en: 'Litigation' },

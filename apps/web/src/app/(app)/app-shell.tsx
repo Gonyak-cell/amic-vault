@@ -17,6 +17,7 @@ import {
   Gauge,
   LayoutDashboard,
   Menu,
+  Rocket,
   ScrollText,
   Search,
   Settings,
@@ -94,6 +95,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </NavLink>
             <NavLink href="/search" label={t('nav.search')}>
               <FileSearch className="h-5 w-5" />
+            </NavLink>
+            <NavLink href="/launch" label={t('nav.launch')}>
+              <Rocket className="h-5 w-5" />
             </NavLink>
             <NavLink href="/contracts" label={t('nav.contracts')}>
               <FileCog className="h-5 w-5" />

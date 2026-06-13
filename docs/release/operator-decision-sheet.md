@@ -6,6 +6,9 @@ Use this sheet to track decision evidence refs. Do not commit secrets, private
 endpoints, credentials, real customer data, raw legal terms, private contracts,
 or provider-console screenshots to this repository.
 
+Use `docs/release/staging-input-checklist.md` for the staging input categories
+and repository-safe recording rules.
+
 Allowed values in this file:
 
 - decision status,
