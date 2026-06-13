@@ -10,11 +10,16 @@ const requiredFiles = [
   'docs/release/production-release-runbook.md',
   'docs/release/rollback-runbook.md',
   'docs/release/uat-checklist.md',
+  'docs/release/launch-execution-plan.md',
+  'docs/release/operator-decision-sheet.md',
+  'docs/release/uat-evidence-template.md',
+  'docs/release/staging-smoke-plan.md',
   'docs/release/security-evidence-index.md',
   'docs/release/launch-blocker-ledger.md',
   'infra/ci/staging-deploy.yml',
   'infra/ci/prod-gate.yml',
   'infra/ci/PROD_GATE.md',
+  'tools/release/check-launch-execution.mjs',
 ];
 
 const requiredBlockers = [
@@ -71,7 +76,7 @@ for (const file of requiredFiles) {
 }
 
 const pack = contents.get('docs/release/launch-readiness-pack.md');
-for (const file of requiredFiles.slice(1, 7)) {
+for (const file of requiredFiles.slice(1, 11)) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
 }
 assertContains(pack, 'PREPARED - NOT LAUNCHED', 'docs/release/launch-readiness-pack.md');
