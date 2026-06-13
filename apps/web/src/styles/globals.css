@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-display: swap;
+  font-family: 'AMIC Pretendard';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/amic/Pretendard-Regular.otf') format('opentype');
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'AMIC Pretendard';
+  font-style: normal;
+  font-weight: 500;
+  src: url('/fonts/amic/Pretendard-Medium.otf') format('opentype');
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'AMIC Pretendard';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/amic/Pretendard-SemiBold.otf') format('opentype');
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'AMIC SUITE';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/amic/SUITE-Regular.otf') format('opentype');
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'AMIC SUITE';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/amic/SUITE-SemiBold.otf') format('opentype');
+}
+
+@font-face {
+  font-display: swap;
+  font-family: 'AMIC SUITE';
+  font-style: normal;
+  font-weight: 700;
+  src: url('/fonts/amic/SUITE-Bold.otf') format('opentype');
+}
+
 :root {
   --background: 210 20% 98%;
   --foreground: 217 28% 14%;
@@ -19,6 +67,13 @@
   --input: 214 22% 85%;
   --ring: 186 58% 25%;
   --radius: 0.5rem;
+  --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: var(--font-body);
+}
+
+html[data-language='ko'] {
+  --font-body: 'AMIC Pretendard', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'AMIC SUITE', 'AMIC Pretendard', ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
@@ -34,4 +89,14 @@ body {
   min-height: 100%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
 }

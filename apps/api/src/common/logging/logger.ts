@@ -1,8 +1,9 @@
 import pino, { type DestinationStream } from 'pino';
-import { Injectable, type LoggerService } from '@nestjs/common';
+import { Inject, Injectable, Optional, type LoggerService } from '@nestjs/common';
 import { currentRequestId } from './correlation.middleware';
 
 export const REDACTED = '[REDACTED]';
+export const STRUCTURED_LOGGER_DESTINATION = Symbol('STRUCTURED_LOGGER_DESTINATION');
 
 export const SENSITIVE_LOG_KEYS = [
   'authorization',
@@ -74,8 +75,12 @@ function createPinoLogger(destination: DestinationStream) {
 export class StructuredLogger implements LoggerService {
   private readonly logger: ReturnType<typeof createPinoLogger>;
 
-  constructor(destination: DestinationStream = process.stdout) {
-    this.logger = createPinoLogger(destination);
+  constructor(
+    @Optional()
+    @Inject(STRUCTURED_LOGGER_DESTINATION)
+    destination?: DestinationStream,
+  ) {
+    this.logger = createPinoLogger(destination ?? process.stdout);
   }
 
   log(message: unknown, context?: string): void {

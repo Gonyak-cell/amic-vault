@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { TenantId } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { login } from '@/lib/auth';
+import { LanguageToggle, useI18n } from '@/lib/i18n';
 
 export function LoginForm() {
+  const { t } = useI18n();
   const [tenantId, setTenantId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +24,7 @@ export function LoginForm() {
       await login({ tenantId: tenantId as TenantId, email, password });
       window.location.assign('/dashboard');
     } catch {
-      setError('로그인 정보를 확인할 수 없습니다.');
+      setError(t('auth.invalid'));
     } finally {
       setPending(false);
     }
@@ -31,8 +33,13 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>AMIC Vault</CardTitle>
-        <CardDescription>Tenant, email, password로 접속합니다.</CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle>AMIC Vault</CardTitle>
+            <CardDescription>{t('auth.description')}</CardDescription>
+          </div>
+          <LanguageToggle />
+        </div>
       </CardHeader>
       <CardContent>
         <form className="flex flex-col gap-4" onSubmit={submit}>
@@ -67,7 +74,7 @@ export function LoginForm() {
           </label>
           {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
           <Button disabled={pending} type="submit">
-            {pending ? '확인 중' : '로그인'}
+            {pending ? t('auth.pending') : t('auth.login')}
           </Button>
         </form>
       </CardContent>
