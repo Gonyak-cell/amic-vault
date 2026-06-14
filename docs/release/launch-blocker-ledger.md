@@ -29,10 +29,10 @@ Machine-actionable preparation status: complete for this pack.
 
 - Candidate application SHA under consideration:
   `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
-- Exact frozen release SHA remains pending operator evidence.
+- Frozen release SHA approved for staging image build, smoke, and UAT
+  preparation via `CHAT-2026-06-14-RC-FREEZE`.
 - Included PRs: `#66`, `#67`, `#68`, `#69`.
-- RC freeze remains an operator decision and does not resolve LRB-001 through
-  LRB-014.
+- RC freeze is complete and does not resolve LRB-001 through LRB-014.
 - Repo-local smoke automation exists at `tools/release/staging-smoke.mjs`, but
   approved staging execution remains blocked until LRB-001/002/003/004/008 have
   evidence refs.

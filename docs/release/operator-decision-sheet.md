@@ -32,7 +32,7 @@ Allowed values in this file:
 
 | Decision | Status | Owner Role | Evidence Ref | Decision Summary |
 |---|---|---|---|---|
-| RC-FREEZE-001 | TBD | Operator | TBD | Decide whether `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` is the frozen release-candidate SHA for staging. |
+| RC-FREEZE-001 | approved | Operator | CHAT-2026-06-14-RC-FREEZE | Frozen release SHA `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` approved for staging image build, smoke, and UAT preparation. Production still requires LRB-013. |
 
 ## Pilot Decisions
 
