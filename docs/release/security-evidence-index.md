@@ -16,13 +16,15 @@ a substitute for operational security approval.
 | External portal is controlled by token hash, expiry/revoke, NDA, DLP, and audit. | `docs/ledger/gates/R11_gate.md`, `docs/reports/R11_external_portal_gate.md` |
 | Records disposal is controlled and hard delete is gated. | `docs/ledger/gates/R12_gate.md`, `docs/reports/R12_records_governance.md` |
 | Enterprise SSO/BYOK/SIEM/backup/compliance are reference-only. | `docs/ledger/gates/R13_gate.md`, `docs/reports/R13_enterprise_readiness.md` |
-| Launch deployment remains disabled until approvals. | `infra/ci/staging-deploy.yml`, `infra/ci/prod-gate.yml`, `docs/release/launch-blocker-ledger.md` |
+| Automatic deployment workflows remain disabled unless a future release path explicitly opens them. | `infra/ci/staging-deploy.yml`, `infra/ci/prod-gate.yml`, `docs/release/launch-blocker-ledger.md` |
+| Production bootstrap and smoke used production-specific refs, not staging reuse. | `PROD-INFRA-AWS-001`, `PROD-DEPLOY-WORKFLOW-AWS-001`, `PROD-SMOKE-AWS-001`, `docs/release/production-execution-preflight.md` |
 | Package docs remain frozen. | `pnpm docs:frozen` |
 | Launch readiness artifacts are present and internally consistent. | `pnpm launch:readiness` |
 
-## Operational Review Required
+## Operational Review Status
 
-Before production, security owner review must cover:
+Operational security approval is recorded under `APPROVAL-LRB-009-2026-06-14`.
+Post-launch monitoring should continue to cover:
 
 - Runtime network boundaries.
 - Secret manager policy.

@@ -1,14 +1,15 @@
 # Launch Readiness Pack
 
-Date: 2026-06-13
-Status: PREPARED - NOT LAUNCHED
+Date: 2026-06-14
+Status: PRODUCTION DEPLOYED - MONITORING ACTIVE
 
 ## Scope
 
 This pack converts the post-R14 technical completion state into a launch-ready
-operations package. It does not deploy AMIC Vault, connect to a cloud provider,
-create secrets, use real customer data, call external services, or change the
-product release boundary.
+operations package and records the later AWS staging, UAT, production bootstrap,
+and post-deploy smoke evidence. Repository-tracked files do not include secrets,
+private endpoints, provider-console metadata, account IDs, ARNs, real customer
+data, or raw smoke artifacts.
 
 ## Baseline
 
@@ -23,8 +24,8 @@ product release boundary.
 - Release-candidate PR baseline: PR #66, PR #67, PR #68, and PR #69 merged.
 - Latest verified candidate CI baseline: PR #69 checks green before merge.
 - Deployment baseline: AWS staging technical deployment, smoke, UAT technical
-  evidence, and approval refs are recorded. Production execution remains a
-  separate runbook step.
+  evidence, approval refs, production bootstrap refs, and production smoke refs
+  are recorded. Post-launch monitoring is active.
 
 ## Deliverables
 
@@ -34,8 +35,8 @@ product release boundary.
 | Staging deployment plan | `docs/release/staging-deployment-plan.md` | AWS staging technical pass recorded |
 | Production gate contract | `infra/ci/prod-gate.yml` | Prepared; approvals recorded, deploy disabled until explicit execution |
 | Production gate policy | `infra/ci/PROD_GATE.md` | Updated |
-| Production release runbook | `docs/release/production-release-runbook.md` | Approved, blocked on production infrastructure |
-| Production execution preflight | `docs/release/production-execution-preflight.md` | Blocked on production infrastructure |
+| Production release runbook | `docs/release/production-release-runbook.md` | Deployed; post-launch monitoring active |
+| Production execution preflight | `docs/release/production-execution-preflight.md` | Passed; production smoke recorded |
 | Rollback runbook | `docs/release/rollback-runbook.md` | Prepared |
 | UAT checklist | `docs/release/uat-checklist.md` | Accepted |
 | Synthetic UAT technical evidence | `docs/release/synthetic-uat-evidence.md` | Accepted under LRB-011 |
@@ -51,11 +52,11 @@ product release boundary.
 | Remaining launch TUW backlog | `docs/release/remaining-launch-tuw.md` | Prepared |
 | Local synthetic UAT walkthrough | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared |
 | Local staging preflight | `docs/release/local-staging-preflight.md` | Passed locally |
-| Actual launch runbook | `docs/release/actual-launch-runbook.md` | Prepared; approvals recorded, execution pending |
+| Actual launch runbook | `docs/release/actual-launch-runbook.md` | Production execution recorded |
 | Staging smoke env template | `docs/release/env.staging-smoke.example` | Prepared, placeholders only |
 | Staging input checklist | `docs/release/staging-input-checklist.md` | AWS staging decisions approved |
 | Synthetic UAT scenarios | `docs/release/synthetic-uat-scenarios.md` | Prepared, local/staging execution paths |
-| Launch control sheet | `docs/release/launch-control-sheet.md` | Prepared |
+| Launch control sheet | `docs/release/launch-control-sheet.md` | Production deployed; monitoring active |
 | Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
 | Synthetic UAT validator | `tools/release/synthetic-uat-evidence.mjs` | CI wired |
 | Local staging preflight automation | `tools/release/local-staging-preflight.mjs` | Prepared and executed locally |
@@ -88,8 +89,8 @@ product release boundary.
 - `pnpm launch:readiness` passes.
 - `pnpm launch:execution` passes.
 - `pnpm release:uat` passes.
-- `pnpm release:prod-preflight` passes and reports `blocked-prod-infra` until
-  production infrastructure evidence refs exist.
+- `pnpm release:prod-preflight` passes and reports `production-smoke-passed`
+  with `PROD-SMOKE-AWS-001`.
 - CI `verify` runs both `pnpm launch:readiness` and `pnpm launch:execution`.
 - `pnpm release:smoke -- --dry-run` passes.
 - `pnpm release:smoke -- --local` passes when local Web/API/dev infra are
@@ -101,15 +102,16 @@ product release boundary.
 - No launch artifact contains real secrets, real customer data, or external
   endpoint credentials.
 - Every launch decision is recorded with a non-secret evidence ref.
-- Deployment skeletons remain disabled until the real production execution path
-  is intentionally opened and run.
+- Automatic deployment skeletons remain disabled unless a future approved
+  release path intentionally opens them.
 
 ## Current Launch Status
 
 Machine-actionable launch preparation is complete for this pack. AWS staging
 decisions, pilot decisions, UAT acceptance, restore acceptance, security review,
-Risk=C disposition, production release approval, and support ownership are
-recorded in `docs/release/launch-blocker-ledger.md`. Actual production
-deployment remains blocked on production infrastructure and is governed by
+Risk=C disposition, production release approval, production bootstrap, smoke,
+and support ownership are recorded in `docs/release/launch-blocker-ledger.md`.
+Production release evidence is governed by
 `docs/release/production-execution-preflight.md` and
-`docs/release/production-release-runbook.md`.
+`docs/release/production-release-runbook.md`; post-launch monitoring remains
+active under `PROD-MONITOR-AWS-001`.

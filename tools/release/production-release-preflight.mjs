@@ -56,39 +56,47 @@ for (const file of requiredFiles) {
 const preflight = contents.get('docs/release/production-execution-preflight.md');
 for (const expected of [
   'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
-  'BLOCKED - PRODUCTION INFRASTRUCTURE NOT PROVISIONED',
-  'bb1973d99f0ce09954ef6bdb3a45170a144eaafb',
+  'PASSED - PRODUCTION BOOTSTRAP AND SMOKE VERIFIED',
+  '5ff600f60d86d7eb1122c882b265e9686ee02dc7',
+  '65e2db1b401f02c52c58b87bd7af755b24b68483',
   'synthetic-data-only',
   'Do not reuse the AWS staging target as production',
-  'Production ECS cluster and services | missing',
-  'Production migration runner or deployment workflow | missing',
+  'PROD-INFRA-AWS-001',
+  'PROD-DEPLOY-WORKFLOW-AWS-001',
+  'PROD-SMOKE-AWS-001',
+  'SMOKE-011',
 ]) {
   assertContains(preflight, expected, 'docs/release/production-execution-preflight.md');
 }
 
 assertContains(
   contents.get('docs/release/remaining-launch-tuw.md'),
-  'blocked-prod-infra',
+  'EV-PROD-006 / EV-PROD-007 / PROD-SMOKE-AWS-001',
+  'docs/release/remaining-launch-tuw.md',
+);
+assertContains(
+  contents.get('docs/release/remaining-launch-tuw.md'),
+  'active-monitoring',
   'docs/release/remaining-launch-tuw.md',
 );
 assertContains(
   contents.get('docs/release/evidence-register.md'),
-  'EV-PROD-006',
+  'EV-PROD-007',
   'docs/release/evidence-register.md',
 );
 assertContains(
   contents.get('docs/release/launch-control-sheet.md'),
-  'Production execution preflight',
+  'production-smoke-passed',
   'docs/release/launch-control-sheet.md',
 );
 assertContains(
   contents.get('docs/release/production-release-runbook.md'),
-  'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
+  'DEPLOYED - POST-LAUNCH MONITORING',
   'docs/release/production-release-runbook.md',
 );
 assertContains(
   contents.get('docs/release/launch-blocker-ledger.md'),
-  'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
+  'PROD-SMOKE-AWS-001',
   'docs/release/launch-blocker-ledger.md',
 );
 
@@ -101,9 +109,9 @@ if (docsPackageDiff.length > 0) {
 }
 
 const result = {
-  evidenceRef: 'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
-  status: 'blocked-prod-infra',
-  deploymentExecuted: false,
+  evidenceRef: 'PROD-SMOKE-AWS-001',
+  status: 'production-smoke-passed',
+  deploymentExecuted: true,
 };
 
 if (process.argv.includes('--json')) {

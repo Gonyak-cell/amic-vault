@@ -1,6 +1,6 @@
 # Production Release Runbook
 
-Status: APPROVED - PRODUCTION INFRASTRUCTURE BLOCKED
+Status: DEPLOYED - POST-LAUNCH MONITORING
 
 ## Entry Criteria
 
@@ -15,15 +15,23 @@ Status: APPROVED - PRODUCTION INFRASTRUCTURE BLOCKED
 - Current release approval ref is
   `APPROVAL-LRB-013-PROD-RELEASE-2026-06-14`.
 - Production execution preflight ref
-  `PROD-REL-PREFLIGHT-AWS-2026-06-14-001` is currently blocked because
-  production-specific infrastructure has not been provisioned.
+  `PROD-REL-PREFLIGHT-AWS-2026-06-14-001` is closed by production bootstrap
+  refs `PROD-INFRA-AWS-001`, `PROD-REGISTRY-AWS-001`,
+  `PROD-SECRETS-AWS-001`, `PROD-BACKUP-AWS-001`,
+  `PROD-DEPLOY-WORKFLOW-AWS-001`, `PROD-HTTPS-TEMP-AWS-001`,
+  `PROD-MONITOR-AWS-001`, and `PROD-SMOKE-AWS-001`.
 
-## Current Blocker
+## Current Execution State
 
-Do not execute this runbook against the AWS staging target. Before step 5 can
-start, production-specific ECS/ECR/RDS/Secrets/Object Storage/ALB/logging and
-deployment workflow evidence refs must exist outside the repository and be
-recorded only as non-secret refs.
+Do not execute this runbook against the AWS staging target. The current
+execution used production-specific ECS/ECR/RDS/Secrets/Object Storage/ALB,
+temporary HTTPS, logging, monitoring, and deployment workflow evidence refs.
+
+Production smoke passed for release-control SHA
+`65e2db1b401f02c52c58b87bd7af755b24b68483` under `PROD-SMOKE-AWS-001` with
+SMOKE-001 through SMOKE-011 pass=11 fail=0 skip=0. Concrete endpoints, account
+IDs, ARNs, provider-console metadata, cookies, tokens, secret values, and
+customer data remain outside this repository.
 
 ## Release Steps
 
