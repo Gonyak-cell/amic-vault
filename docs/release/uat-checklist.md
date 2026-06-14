@@ -1,6 +1,6 @@
 # UAT Checklist
 
-Status: PREPARED - NOT EXECUTED
+Status: PARTIAL - UAT-001 PASSED, UAT-002 THROUGH UAT-020 NOT FULLY EXECUTED
 
 Use approved synthetic or explicitly approved pilot data only. Do not upload real
 customer documents until customer-data approval is recorded.
@@ -12,7 +12,7 @@ local materials do not replace the evidence refs required below.
 
 | ID | Area | Scenario | Pass Criteria | Evidence |
 |---|---|---|---|---|
-| UAT-001 | Auth | Internal user logs in and receives tenant context. | Session is scoped to one tenant. | TBD |
+| UAT-001 | Auth | Internal user logs in and receives tenant context. | Session is scoped to one tenant. | EV-UAT-001 / STAGE-RUNTIME-RLS-AWS-001 |
 | UAT-002 | Matter | Create client, matter, party, and matter team. | Audit events exist; non-member access denied. | TBD |
 | UAT-003 | Permission | Ethical wall excludes a user. | Search, document, email, graph, AI, and external flows deny access. | TBD |
 | UAT-004 | Document | Upload, version, preview, download, and soft-delete document. | Immutable original, download reason, view/download/delete audit. | TBD |

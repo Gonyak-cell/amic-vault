@@ -1,6 +1,6 @@
 # Launch Blocker Ledger
 
-Status: OPEN - STAGING SMOKE PASSED, PILOT/PRODUCTION APPROVALS REQUIRED
+Status: OPEN - STAGING SMOKE/RUNTIME TECHNICAL PASS, PILOT/PRODUCTION APPROVALS REQUIRED
 
 Rows remain unresolved until an operator or responsible owner records an
 approved value or evidence reference. Rows marked `approved` record only
@@ -20,7 +20,7 @@ secrets, real customer data, or private endpoints in this repository.
 | LRB-009 | Security review | approval-required | Operational security review over deployment, secrets, backup, logging, and network boundaries. | Production | TBD |
 | LRB-010 | Risk C review disposition | approval-required | Confirm operational treatment of historical Risk=C waiver before production. | Production | TBD |
 | LRB-011 | Staging UAT acceptance | approval-required | Approved UAT evidence for all critical workflows. | Production | TBD |
-| LRB-012 | Backup and restore rehearsal | approval-required | Approved restore drill evidence using non-production data. | Production | TBD |
+| LRB-012 | Backup and restore rehearsal | approval-required | Approve restore drill evidence using non-production data. | Production | RESTORE-DRILL-AWS-001 technical evidence; acceptance pending |
 | LRB-013 | Production release approval | approval-required | Operator release sign-off for the release SHA. | Production | TBD |
 | LRB-014 | Post-launch support owner | approval-required | Named owner for support triage, incident handling, and rollback authority. | Pilot, GA | TBD |
 
@@ -32,6 +32,8 @@ Machine-actionable preparation status: complete for this pack.
   `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
 - AWS staging technical candidate deployed for temporary-target smoke after the
   web Docker same-origin staging fix: `1b3b1580be29cdaa83b9d627c3bd1c76d9b3059d`.
+- AWS staging runtime-RLS hardening candidate deployed after removing the
+  runtime DB owner workaround: `f0eb94457659b30e36e7ca9f5d0eb451bc1e936f`.
 - Frozen release SHA approved for staging image build, smoke, and UAT
   preparation via `CHAT-2026-06-14-RC-FREEZE`.
 - Included PRs: `#66`, `#67`, `#68`, `#69`.
@@ -42,9 +44,17 @@ Machine-actionable preparation status: complete for this pack.
 - AWS staging resources, ECR images, runtime secret values in AWS Secrets
   Manager, ECS services, ALB target health, and staging smoke have been
   completed under evidence refs `STAGE-PROVISION-AWS-001`,
-  `STAGE-DEPLOY-AWS-001`, and `STAGE-SMOKE-AWS-001`.
+  `STAGE-DEPLOY-AWS-001`, `STAGE-SMOKE-AWS-001`, and
+  `STAGE-RUNTIME-RLS-AWS-001`.
+- Runtime DB owner workaround is resolved in staging: API runtime now uses the
+  `vault_app` role, runtime auth helper functions are present, RLS FORCE and
+  audit append-only invariants were verified, and RDS ingress was returned to
+  ECS-only access.
+- Non-production AWS staging backup/restore technical rehearsal passed under
+  `RESTORE-DRILL-AWS-001`; human acceptance remains required for LRB-012.
 - Concrete endpoint values, account identifiers, private URLs, screenshots,
   cookies, tokens, secret values, and provider-console metadata remain outside
   this repository.
 - Production remains blocked by LRB-009 through LRB-013. Security review must
-  address the current staging runtime DB owner workaround before production.
+  still review deployment, secrets, backup, logging, and network boundaries
+  before production approval.

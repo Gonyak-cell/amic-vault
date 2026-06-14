@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import type { TenantId } from '@amic-vault/shared';
 import type { QueryClient } from '../audit/audit.service';
 
@@ -13,6 +13,25 @@ let pool: Pool | undefined;
 function getPool(): Pool {
   pool ??= new Pool({ connectionString: databaseUrl });
   return pool;
+}
+
+async function withTenantClient<T>(
+  tenantId: TenantId,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
+    const result = await run(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export const SESSION_COOKIE_NAME = 'amic_session';
@@ -58,7 +77,10 @@ export function hashOpaqueToken(token: string): string {
   return `sha256:${createHash('sha256').update(token).digest('hex')}`;
 }
 
-export function readCookie(header: string | string[] | undefined, name: string): string | undefined {
+export function readCookie(
+  header: string | string[] | undefined,
+  name: string,
+): string | undefined {
   const cookieHeader = Array.isArray(header) ? header.join('; ') : header;
   if (!cookieHeader) return undefined;
   const cookies = cookieHeader.split(';').map((part) => part.trim());
@@ -68,14 +90,22 @@ export function readCookie(header: string | string[] | undefined, name: string):
 
 @Injectable()
 export class SessionRepository {
-  async createSession(input: {
-    tenantId: TenantId;
-    userId: string;
-    tokenHash: string;
-    ipAddress: string | null;
-    userAgent: string | null;
-    expiresAt: Date;
-  }, client: QueryClient = getPool()): Promise<SessionRecord> {
+  async createSession(
+    input: {
+      tenantId: TenantId;
+      userId: string;
+      tokenHash: string;
+      ipAddress: string | null;
+      userAgent: string | null;
+      expiresAt: Date;
+    },
+    client?: QueryClient,
+  ): Promise<SessionRecord> {
+    if (!client) {
+      return withTenantClient(input.tenantId, (tenantClient) =>
+        this.createSession(input, tenantClient),
+      );
+    }
     const result = await client.query(
       `
         INSERT INTO sessions (
@@ -104,10 +134,7 @@ export class SessionRepository {
     const result = await getPool().query<SessionRow>(
       `
         SELECT session_id, tenant_id, user_id, token_hash, mfa_verified, expires_at, revoked_at
-        FROM sessions
-        WHERE token_hash = $1
-          AND revoked_at IS NULL
-          AND expires_at > now()
+        FROM app_find_active_session_by_token_hash($1)
       `,
       [tokenHash],
     );
@@ -118,24 +145,24 @@ export class SessionRepository {
   async revokeByTokenHash(tokenHash: string): Promise<void> {
     await getPool().query(
       `
-        UPDATE sessions
-        SET revoked_at = COALESCE(revoked_at, now())
-        WHERE token_hash = $1
+        SELECT app_revoke_session_by_token_hash($1)
       `,
       [tokenHash],
     );
   }
 
   async revokeAllForUser(tenantId: TenantId, userId: string): Promise<void> {
-    await getPool().query(
-      `
+    await withTenantClient(tenantId, async (client) => {
+      await client.query(
+        `
         UPDATE sessions
         SET revoked_at = COALESCE(revoked_at, now())
         WHERE tenant_id = $1
           AND user_id = $2
           AND revoked_at IS NULL
       `,
-      [tenantId, userId],
-    );
+        [tenantId, userId],
+      );
+    });
   }
 }

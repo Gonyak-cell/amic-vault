@@ -1,5 +1,5 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import type {
   PasswordResetAcceptedDto,
   PasswordResetConfirmDto,
@@ -24,6 +24,25 @@ function getPool(): Pool {
   return pool;
 }
 
+async function withTenantClient<T>(
+  tenantId: TenantId,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
+    const result = await run(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 const PASSWORD_RESET_TTL_MS = 1000 * 60 * 30;
 
 export interface ConsumedPasswordResetToken {
@@ -45,16 +64,18 @@ export interface PasswordResetStore {
 
 export class PgPasswordResetStore implements PasswordResetStore {
   async revokeOpenTokensForUser(tenantId: TenantId, userId: string): Promise<void> {
-    await getPool().query(
-      `
+    await withTenantClient(tenantId, async (client) => {
+      await client.query(
+        `
         UPDATE password_reset_tokens
         SET used_at = COALESCE(used_at, now())
         WHERE tenant_id = $1
           AND user_id = $2
           AND used_at IS NULL
       `,
-      [tenantId, userId],
-    );
+        [tenantId, userId],
+      );
+    });
   }
 
   async createToken(input: {
@@ -63,24 +84,22 @@ export class PgPasswordResetStore implements PasswordResetStore {
     tokenHash: string;
     expiresAt: Date;
   }): Promise<void> {
-    await getPool().query(
-      `
+    await withTenantClient(input.tenantId, async (client) => {
+      await client.query(
+        `
         INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
         VALUES ($1, $2, $3, $4)
       `,
-      [input.tenantId, input.userId, input.tokenHash, input.expiresAt],
-    );
+        [input.tenantId, input.userId, input.tokenHash, input.expiresAt],
+      );
+    });
   }
 
   async consumeTokenHash(tokenHash: string): Promise<ConsumedPasswordResetToken | null> {
     const result = await getPool().query<{ tenant_id: string; user_id: string }>(
       `
-        UPDATE password_reset_tokens
-        SET used_at = now()
-        WHERE token_hash = $1
-          AND used_at IS NULL
-          AND expires_at > now()
-        RETURNING tenant_id, user_id
+        SELECT tenant_id, user_id
+        FROM app_consume_password_reset_token_hash($1)
       `,
       [tokenHash],
     );
@@ -93,16 +112,18 @@ export class PgPasswordResetStore implements PasswordResetStore {
     userId: string,
     passwordHash: string,
   ): Promise<void> {
-    await getPool().query(
-      `
+    await withTenantClient(tenantId, async (client) => {
+      await client.query(
+        `
         UPDATE users
         SET password_hash = $3,
             updated_at = now()
         WHERE tenant_id = $1
           AND user_id = $2
       `,
-      [tenantId, userId, passwordHash],
-    );
+        [tenantId, userId, passwordHash],
+      );
+    });
   }
 }
 

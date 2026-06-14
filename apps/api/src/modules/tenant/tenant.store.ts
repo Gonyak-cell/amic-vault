@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import type { TenantId, TenantStatus } from '@amic-vault/shared';
 import type { TenantEntity } from './tenant.entity';
 import type { WorkspaceEntity } from './workspace.entity';
@@ -12,6 +12,25 @@ let pool: Pool | undefined;
 function getPool(): Pool {
   pool ??= new Pool({ connectionString: databaseUrl });
   return pool;
+}
+
+async function withTenantClient<T>(
+  tenantId: TenantId,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
+    const result = await run(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 interface TenantRow {
@@ -110,33 +129,37 @@ export class PgTenantStore implements TenantStore {
   }
 
   async listWorkspacesByTenant(tenantId: TenantId): Promise<WorkspaceEntity[]> {
-    const result = await getPool().query<WorkspaceRow>(
-      `
+    return withTenantClient(tenantId, async (client) => {
+      const result = await client.query<WorkspaceRow>(
+        `
         SELECT workspace_id, tenant_id, name, status, created_at, updated_at
         FROM workspaces
         WHERE tenant_id = $1
         ORDER BY name
       `,
-      [tenantId],
-    );
-    return result.rows.map(mapWorkspace);
+        [tenantId],
+      );
+      return result.rows.map(mapWorkspace);
+    });
   }
 
   async findWorkspaceByIdForTenant(
     tenantId: TenantId,
     workspaceId: string,
   ): Promise<WorkspaceEntity | null> {
-    const result = await getPool().query<WorkspaceRow>(
-      `
+    return withTenantClient(tenantId, async (client) => {
+      const result = await client.query<WorkspaceRow>(
+        `
         SELECT workspace_id, tenant_id, name, status, created_at, updated_at
         FROM workspaces
         WHERE tenant_id = $1
           AND workspace_id = $2
       `,
-      [tenantId, workspaceId],
-    );
-    const row = result.rows[0];
-    return row ? mapWorkspace(row) : null;
+        [tenantId, workspaceId],
+      );
+      const row = result.rows[0];
+      return row ? mapWorkspace(row) : null;
+    });
   }
 }
 
