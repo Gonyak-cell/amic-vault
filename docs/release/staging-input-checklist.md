@@ -13,7 +13,7 @@ customer data to this repository.
 | Input ID | LRB | Required Input | Allowed Repository Value | Blocked Until |
 |---|---|---|---|---|
 | STAGE-IN-001 | LRB-001 | Cloud provider, domestic/private region, network isolation model. | Evidence ref only. | Operator approval evidence exists. |
-| STAGE-IN-002 | LRB-002 | Staging and production DNS/TLS ownership. | Domain evidence ref only, not the private endpoint. | DNS/TLS owner evidence exists. |
+| STAGE-IN-002 | LRB-002 | Staging target ownership. | Temporary AWS target evidence ref only, not the private endpoint. | Staging target owner evidence exists. |
 | STAGE-IN-003 | LRB-003 | Container registry namespace, retention, signing policy. | Registry evidence ref and image namespace ref only. | Registry evidence exists. |
 | STAGE-IN-004 | LRB-004 | Secret manager and runtime secret names. | Secret names only, never values. | Security approval evidence exists. |
 | STAGE-IN-005 | LRB-008 | Monitoring, alert sink, incident policy, evidence retention. | Alert sink ref and policy ref only. | Ops/Security approval evidence exists. |
@@ -26,7 +26,7 @@ customer data to this repository.
 | Input ID | Approved Decision | Evidence Ref |
 |---|---|---|
 | STAGE-IN-001 | AWS Seoul `ap-northeast-2`, separate staging/prod network boundaries. | STAGE-CLOUD-AWS-001 |
-| STAGE-IN-002 | Route 53 plus ACM-managed TLS; actual domain and private endpoint values remain external. | STAGE-DNS-AWS-001 |
+| STAGE-IN-002 | No custom staging domain. Use an AWS-managed temporary service or load-balancer target ref; actual endpoint values remain external. Production custom domain/TLS is deferred. | STAGE-TEMP-TARGET-AWS-001 |
 | STAGE-IN-003 | Amazon ECR with frozen-SHA tags, digest pinning, and lifecycle retention policy. | STAGE-REGISTRY-ECR-001 |
 | STAGE-IN-004 | AWS Secrets Manager plus KMS; secret names only in repo, values only in AWS. | STAGE-SECRETS-AWS-001 |
 | STAGE-IN-005 | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing. | STAGE-MONITOR-AWS-001 |

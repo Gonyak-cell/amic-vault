@@ -12,7 +12,7 @@ with approved non-production data before any production release attempt.
 | Decision | Blocker |
 |---|---|
 | AWS Seoul `ap-northeast-2`; separate staging/prod network boundaries | LRB-001 / STAGE-CLOUD-AWS-001 |
-| Route 53 plus ACM-managed TLS; private endpoints remain external | LRB-002 / STAGE-DNS-AWS-001 |
+| No custom staging domain; use AWS-managed temporary service or load-balancer target ref | LRB-002 / STAGE-TEMP-TARGET-AWS-001 |
 | Amazon ECR with frozen-SHA tags and digest pinning | LRB-003 / STAGE-REGISTRY-ECR-001 |
 | AWS Secrets Manager plus KMS with runtime secret names only | LRB-004 / STAGE-SECRETS-AWS-001 |
 | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing | LRB-008 / STAGE-MONITOR-AWS-001 |
@@ -27,9 +27,12 @@ with approved non-production data before any production release attempt.
 | Container image registry | ECR |
 | Runtime secrets and encryption references | Secrets Manager plus KMS |
 | Logs, alarms, and incident alerts | CloudWatch plus SNS/email |
+| Staging target | AWS-managed temporary service/load-balancer target ref, recorded outside repo |
 
 No AWS account identifiers, private endpoints, secret values, provider-console
-screenshots, or real customer data may be committed to this repository.
+screenshots, custom domain values, or real customer data may be committed to
+this repository. Production custom domain and TLS ownership remain deferred to
+the production gate.
 
 ## Preflight
 
@@ -41,8 +44,8 @@ screenshots, or real customer data may be committed to this repository.
 - No real data or secret committed.
 - Staging target values recorded outside the repository through approved secret
   management.
-- AWS resource refs, image digests, and smoke target refs recorded only as
-  non-secret evidence refs after provisioning.
+- AWS resource refs, image digests, and temporary smoke target refs recorded
+  only as non-secret evidence refs after provisioning.
 
 ## Deployment Flow
 

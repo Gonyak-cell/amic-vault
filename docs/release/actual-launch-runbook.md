@@ -92,7 +92,7 @@ Use `docs/release/staging-input-checklist.md`.
 | Input | Blocker | How to complete |
 |---|---|---|
 | Cloud and region | LRB-001 | Choose provider, domestic/private region, and network isolation model. Record evidence ref only. |
-| DNS/TLS | LRB-002 | Choose staging and production domain refs, CA policy, and ownership evidence. Do not commit private endpoint values. |
+| Staging target | LRB-002 | Use an AWS-managed temporary service or load-balancer target ref for staging. Do not commit private endpoint values. Production custom domain/TLS is deferred. |
 | Registry | LRB-003 | Choose image namespace, retention, signing, and digest evidence policy. Record registry refs only. |
 | Secret manager | LRB-004 | Choose secret manager and runtime secret names for API, web, and worker. Do not record secret values. |
 | Monitoring | LRB-008 | Choose alert sink, on-call owner ref, incident policy, and evidence retention. |
@@ -102,7 +102,7 @@ Exit criteria:
 - `operator-decision-sheet.md` has evidence refs for LRB-001, LRB-002,
   LRB-003, LRB-004, and LRB-008.
 - Required secret names are recorded as names or refs only.
-- No actual secret or private endpoint is committed.
+- No actual secret, custom domain value, or private endpoint is committed.
 
 ## 3. Build And Push Staging Images
 

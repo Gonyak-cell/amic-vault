@@ -43,7 +43,7 @@ documents, or provider console screenshots to this repository.
 | Blocker | Decision Needed | Minimum Output |
 |---|---|---|
 | LRB-001 | Cloud provider and domestic/private region. | Provider, region, isolation model, evidence ref |
-| LRB-002 | DNS/TLS ownership. | Staging domain ref, production domain ref, CA policy ref |
+| LRB-002 | Staging target ownership. | AWS-managed temporary staging target ref; production domain/TLS deferred |
 | LRB-003 | Container registry. | Registry ref, image namespace ref, signing/retention policy ref |
 | LRB-004 | Secret manager. | Secret manager ref and required secret names only |
 | LRB-008 | Monitoring and incident response. | Alert sink ref, on-call owner ref, severity policy ref |

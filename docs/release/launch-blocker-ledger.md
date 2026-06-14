@@ -10,7 +10,7 @@ secrets, real customer data, or private endpoints in this repository.
 | ID | Area | Status | Required Decision | Blocks | Evidence Ref |
 |---|---|---|---|---|---|
 | LRB-001 | Cloud provider and region | approved | AWS Seoul `ap-northeast-2`; staging/prod network boundaries remain separate. | Staging, production | STAGE-CLOUD-AWS-001 |
-| LRB-002 | DNS and TLS | approved | Route 53 plus ACM-managed TLS; concrete domain/private endpoint values stay outside repo. | Staging, production | STAGE-DNS-AWS-001 |
+| LRB-002 | DNS and TLS | approved | No custom staging domain. Use an AWS-managed temporary service or load-balancer target ref for staging smoke; concrete endpoint values stay outside repo. Production custom domain/TLS remains deferred to the production gate. | Staging; production domain deferred | STAGE-TEMP-TARGET-AWS-001 |
 | LRB-003 | Container registry | approved | Amazon ECR with frozen-SHA tags, digest pinning, and lifecycle retention policy. | Staging, production | STAGE-REGISTRY-ECR-001 |
 | LRB-004 | Secret management | approved | AWS Secrets Manager plus KMS with runtime secret names only. | Staging, production | STAGE-SECRETS-AWS-001 |
 | LRB-005 | Legal terms | approval-required | Terms, privacy notice, DPA, external portal terms, retention/disposal language. | Pilot, GA | TBD |
@@ -35,9 +35,11 @@ Machine-actionable preparation status: complete for this pack.
 - Included PRs: `#66`, `#67`, `#68`, `#69`.
 - RC freeze is complete and staging-opening decisions LRB-001/002/003/004/008
   are approved for the AWS path via `CHAT-2026-06-14-AWS-STAGING-APPROVAL`.
+  Staging uses an AWS-managed temporary target ref instead of a custom domain
+  via `CHAT-2026-06-14-AWS-TEMP-STAGING-TARGET`.
 - No AWS resource provisioning, private endpoint recording, secret value
   recording, image push, staging deploy, or staging smoke execution has been
   performed by this ledger update.
 - Repo-local smoke automation exists at `tools/release/staging-smoke.mjs`, but
   staging smoke remains blocked until AWS resources, image digests, runtime
-  secret values in AWS, and an approved non-secret target ref exist.
+  secret values in AWS, and an approved non-secret temporary target ref exist.
