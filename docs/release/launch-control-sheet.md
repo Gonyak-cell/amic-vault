@@ -1,6 +1,6 @@
 # Launch Control Sheet
 
-Status: APPROVALS RECORDED - PRODUCTION EXECUTION PENDING
+Status: APPROVALS RECORDED - PRODUCTION INFRASTRUCTURE BLOCKED
 Date: 2026-06-14
 
 This is the one-page control sheet for the release-completion lane. It shows the
@@ -9,7 +9,8 @@ have been recorded.
 
 Previous baseline label `PREPARED - NOT LAUNCHED` remains true for actual
 production execution: AWS staging is technically passed and approvals are
-recorded, but production deployment has not been executed.
+recorded, but production deployment has not been executed and production
+infrastructure is not yet provisioned.
 
 ## Current Technical State
 
@@ -24,6 +25,7 @@ recorded, but production deployment has not been executed.
 | Synthetic UAT technical evidence | accepted | SYNTH-UAT-TECH-2026-06-14-001 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / `pnpm release:uat` |
 | Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 / APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
 | Production gate approvals | approved | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
+| Production execution preflight | blocked-prod-infra | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / `pnpm release:prod-preflight` |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
 
@@ -33,6 +35,7 @@ recorded, but production deployment has not been executed.
 pnpm launch:readiness
 pnpm launch:execution
 pnpm release:uat
+pnpm release:prod-preflight
 pnpm release:smoke -- --dry-run
 pnpm release:smoke -- --local
 pnpm release:local-preflight
@@ -65,6 +68,8 @@ approvals stay outside the repository.
 - Keep validators and CI aligned with release artifacts.
 - Run local synthetic smoke and UI QA.
 - Append execution ledger entries for technical preparation work.
+- Prepare production infrastructure evidence refs without recording private
+  provider metadata.
 - Prepare PRs and merge green CI changes when operator scope allows it.
 
 ## Codex Must Stop

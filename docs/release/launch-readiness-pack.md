@@ -34,7 +34,8 @@ product release boundary.
 | Staging deployment plan | `docs/release/staging-deployment-plan.md` | AWS staging technical pass recorded |
 | Production gate contract | `infra/ci/prod-gate.yml` | Prepared; approvals recorded, deploy disabled until explicit execution |
 | Production gate policy | `infra/ci/PROD_GATE.md` | Updated |
-| Production release runbook | `docs/release/production-release-runbook.md` | Approved, execution pending |
+| Production release runbook | `docs/release/production-release-runbook.md` | Approved, blocked on production infrastructure |
+| Production execution preflight | `docs/release/production-execution-preflight.md` | Blocked on production infrastructure |
 | Rollback runbook | `docs/release/rollback-runbook.md` | Prepared |
 | UAT checklist | `docs/release/uat-checklist.md` | Accepted |
 | Synthetic UAT technical evidence | `docs/release/synthetic-uat-evidence.md` | Accepted under LRB-011 |
@@ -58,6 +59,7 @@ product release boundary.
 | Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
 | Synthetic UAT validator | `tools/release/synthetic-uat-evidence.mjs` | CI wired |
 | Local staging preflight automation | `tools/release/local-staging-preflight.mjs` | Prepared and executed locally |
+| Production release preflight validator | `tools/release/production-release-preflight.mjs` | CI wired |
 | Readiness validator | `tools/release/check-launch-readiness.mjs` | CI wired |
 | Execution validator | `tools/release/check-launch-execution.mjs` | CI wired |
 
@@ -86,6 +88,8 @@ product release boundary.
 - `pnpm launch:readiness` passes.
 - `pnpm launch:execution` passes.
 - `pnpm release:uat` passes.
+- `pnpm release:prod-preflight` passes and reports `blocked-prod-infra` until
+  production infrastructure evidence refs exist.
 - CI `verify` runs both `pnpm launch:readiness` and `pnpm launch:execution`.
 - `pnpm release:smoke -- --dry-run` passes.
 - `pnpm release:smoke -- --local` passes when local Web/API/dev infra are
@@ -106,5 +110,6 @@ Machine-actionable launch preparation is complete for this pack. AWS staging
 decisions, pilot decisions, UAT acceptance, restore acceptance, security review,
 Risk=C disposition, production release approval, and support ownership are
 recorded in `docs/release/launch-blocker-ledger.md`. Actual production
-deployment remains a separate execution step governed by
+deployment remains blocked on production infrastructure and is governed by
+`docs/release/production-execution-preflight.md` and
 `docs/release/production-release-runbook.md`.
