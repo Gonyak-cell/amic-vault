@@ -1,6 +1,6 @@
 # Launch Blocker Ledger
 
-Status: OPEN - STAGING DECISIONS APPROVED, PILOT/PRODUCTION APPROVALS REQUIRED
+Status: OPEN - STAGING SMOKE PASSED, PILOT/PRODUCTION APPROVALS REQUIRED
 
 Rows remain unresolved until an operator or responsible owner records an
 approved value or evidence reference. Rows marked `approved` record only
@@ -28,8 +28,10 @@ Machine-actionable preparation status: complete for this pack.
 
 ## Current Technical Preparation
 
-- Candidate application SHA under consideration:
+- Candidate application SHA originally approved for staging preparation:
   `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
+- AWS staging technical candidate deployed for temporary-target smoke after the
+  web Docker same-origin staging fix: `1b3b1580be29cdaa83b9d627c3bd1c76d9b3059d`.
 - Frozen release SHA approved for staging image build, smoke, and UAT
   preparation via `CHAT-2026-06-14-RC-FREEZE`.
 - Included PRs: `#66`, `#67`, `#68`, `#69`.
@@ -37,9 +39,12 @@ Machine-actionable preparation status: complete for this pack.
   are approved for the AWS path via `CHAT-2026-06-14-AWS-STAGING-APPROVAL`.
   Staging uses an AWS-managed temporary target ref instead of a custom domain
   via `CHAT-2026-06-14-AWS-TEMP-STAGING-TARGET`.
-- No AWS resource provisioning, private endpoint recording, secret value
-  recording, image push, staging deploy, or staging smoke execution has been
-  performed by this ledger update.
-- Repo-local smoke automation exists at `tools/release/staging-smoke.mjs`, but
-  staging smoke remains blocked until AWS resources, image digests, runtime
-  secret values in AWS, and an approved non-secret temporary target ref exist.
+- AWS staging resources, ECR images, runtime secret values in AWS Secrets
+  Manager, ECS services, ALB target health, and staging smoke have been
+  completed under evidence refs `STAGE-PROVISION-AWS-001`,
+  `STAGE-DEPLOY-AWS-001`, and `STAGE-SMOKE-AWS-001`.
+- Concrete endpoint values, account identifiers, private URLs, screenshots,
+  cookies, tokens, secret values, and provider-console metadata remain outside
+  this repository.
+- Production remains blocked by LRB-009 through LRB-013. Security review must
+  address the current staging runtime DB owner workaround before production.
