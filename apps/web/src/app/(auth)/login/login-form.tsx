@@ -35,7 +35,13 @@ export function LoginForm() {
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>AMIC Vault</CardTitle>
+            <CardTitle className="flex items-center">
+              <img
+                src="/icons/amic-vault-wordmark.svg"
+                alt="AMIC Vault"
+                className="h-[22px] w-[106px]"
+              />
+            </CardTitle>
             <CardDescription>{t('auth.description')}</CardDescription>
           </div>
           <LanguageToggle />

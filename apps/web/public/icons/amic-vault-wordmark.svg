@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 160" role="img" aria-label="VAULT">
+  <title>VAULT</title>
+  <g fill="#050a0f">
+    <path d="M22 34h34l38 86 38-86h34l-55 112H78L22 34Z" />
+    <path d="M184 146 236 34h38l52 112h-34l-37-82-37 82h-34Z" />
+    <path
+      d="M350 34h31v66c0 15 10 23 26 23s26-8 26-23V34h31v68c0 29-22 47-57 47s-57-18-57-47V34Z"
+    />
+    <path d="M497 34h31v85h67v27h-98V34Z" />
+    <path d="M616 34h112v27h-40v85h-32V61h-40V34Z" />
+  </g>
+</svg>

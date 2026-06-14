@@ -6,7 +6,11 @@ const PRECACHE_URLS = [
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/icons/amic-vault-icon.svg',
+  '/icons/amic-vault-icon-192.png',
+  '/icons/amic-vault-icon-512.png',
   '/icons/amic-vault-maskable.svg',
+  '/icons/amic-vault-maskable-512.png',
+  '/icons/amic-vault-wordmark.svg',
 ];
 const ALLOWED_CACHE_PREFIXES = ['/_next/static/', '/fonts/amic/', '/icons/'];
 const ALLOWED_CACHE_PATHS = new Set(['/manifest.webmanifest', OFFLINE_URL]);

@@ -25,7 +25,10 @@ describe('desktop offline leakage integration', () => {
     expect(manifest.start_url).toBe('/dashboard?source=pwa');
     expect(manifest.icons.map((icon) => icon.src)).toEqual([
       '/icons/amic-vault-icon.svg',
+      '/icons/amic-vault-icon-192.png',
+      '/icons/amic-vault-icon-512.png',
       '/icons/amic-vault-maskable.svg',
+      '/icons/amic-vault-maskable-512.png',
     ]);
     expect(JSON.stringify(manifest)).not.toContain('/v1/');
   });
