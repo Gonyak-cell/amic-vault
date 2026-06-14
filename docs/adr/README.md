@@ -1,8 +1,8 @@
 # Architecture Decision Records
 
-These ADR files are the repo-local rendering of `docs/package/codex/01_Adopted_Decisions_ADR.md`.
+ADR-001 through ADR-012 are repo-local renderings of `docs/package/codex/01_Adopted_Decisions_ADR.md`. ADR-013 and later are repo-native decision records that must name their trace sources directly and be backed by the Decision Ledger when accepted.
 
-Status note: each file is marked `Accepted` under the 2026-06-12 operator waiver recorded in `docs/ledger/decision.md`. The underlying DEC decisions remain binding through `docs/package/codex/00_Master_Brief.md` and `docs/package/codex/01_Adopted_Decisions_ADR.md`.
+Status note: ADR-001 through ADR-012 inherit their accepted status from `docs/package/codex/01_Adopted_Decisions_ADR.md` and the 2026-06-12 operator waiver recorded in `docs/ledger/decision.md`. Repo-native ADRs state `Accepted` or `Proposed` in the file; proposed ADRs remain non-binding until operator/human acceptance is recorded. The underlying DEC decisions remain binding through `docs/package/codex/00_Master_Brief.md` and `docs/package/codex/01_Adopted_Decisions_ADR.md`.
 
 | ADR | Topic | DEC / Correction Trace |
 |---|---|---|
@@ -18,5 +18,7 @@ Status note: each file is marked `Accepted` under the 2026-06-12 operator waiver
 | ADR-010 | API versioning | DEC-14 |
 | ADR-011 | Model gateway policy | DEC-11, DEC-17, DEC-18 |
 | ADR-012 | Evaluation dataset strategy | DEC-16, DEC-18 |
+| ADR-013 | Permission model freeze | DEC-15, C-1, PACK-R1-07, DEVOPS-FREEZE-PERMMODEL-TUW-001, `docs/package/codex/21_Permission_Model.md` |
+| ADR-014 | Desktop client strategy | DEC-01, DEC-03, DEC-04, DEC-09, DEC-11, DEC-14, DEC-17, DEC-18 |
 
 ADR changes require human approval and a Decision Ledger append.
