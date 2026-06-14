@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import type { TenantId, UserRole, UserStatus } from '@amic-vault/shared';
 import type { QueryClient } from '../audit/audit.service';
 import { hashPassword, normalizeEmail } from './password';
@@ -14,6 +14,25 @@ let pool: Pool | undefined;
 function getPool(): Pool {
   pool ??= new Pool({ connectionString: databaseUrl });
   return pool;
+}
+
+async function withTenantClient<T>(
+  tenantId: TenantId,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
+    const result = await run(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 interface UserRow {
@@ -75,8 +94,9 @@ export interface UserStore {
 
 export class PgUserStore implements UserStore {
   async createUser(input: CreateUserInput & { passwordHash: string }): Promise<UserEntity> {
-    const result = await getPool().query<UserRow>(
-      `
+    return withTenantClient(input.tenantId, async (client) => {
+      const result = await client.query<UserRow>(
+        `
         INSERT INTO users (
           tenant_id, email, name, role, practice_group, status, password_hash, mfa_enabled
         )
@@ -84,50 +104,55 @@ export class PgUserStore implements UserStore {
         RETURNING user_id, tenant_id, email, name, role, practice_group, status,
           password_hash, mfa_enabled, last_login_at, created_at, updated_at
       `,
-      [
-        input.tenantId,
-        input.email,
-        input.name,
-        input.role,
-        input.practiceGroup,
-        input.passwordHash,
-      ],
-    );
-    const row = result.rows[0];
-    if (!row) {
-      throw new Error('user insert returned no row');
-    }
-    return mapUser(row);
+        [
+          input.tenantId,
+          input.email,
+          input.name,
+          input.role,
+          input.practiceGroup,
+          input.passwordHash,
+        ],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new Error('user insert returned no row');
+      }
+      return mapUser(row);
+    });
   }
 
   async findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
-    const result = await getPool().query<UserRow>(
-      `
+    return withTenantClient(tenantId, async (client) => {
+      const result = await client.query<UserRow>(
+        `
         SELECT user_id, tenant_id, email, name, role, practice_group, status,
           password_hash, mfa_enabled, last_login_at, created_at, updated_at
         FROM users
         WHERE tenant_id = $1
           AND lower(email) = lower($2)
       `,
-      [tenantId, email],
-    );
-    const row = result.rows[0];
-    return row ? mapUser(row) : null;
+        [tenantId, email],
+      );
+      const row = result.rows[0];
+      return row ? mapUser(row) : null;
+    });
   }
 
   async findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null> {
-    const result = await getPool().query<UserRow>(
-      `
+    return withTenantClient(tenantId, async (client) => {
+      const result = await client.query<UserRow>(
+        `
         SELECT user_id, tenant_id, email, name, role, practice_group, status,
           password_hash, mfa_enabled, last_login_at, created_at, updated_at
         FROM users
         WHERE tenant_id = $1
           AND user_id = $2
       `,
-      [tenantId, userId],
-    );
-    const row = result.rows[0];
-    return row ? mapUser(row) : null;
+        [tenantId, userId],
+      );
+      const row = result.rows[0];
+      return row ? mapUser(row) : null;
+    });
   }
 
   async updatePasswordHash(
@@ -135,29 +160,33 @@ export class PgUserStore implements UserStore {
     userId: string,
     passwordHash: string,
   ): Promise<void> {
-    await getPool().query(
-      `
+    await withTenantClient(tenantId, async (client) => {
+      await client.query(
+        `
         UPDATE users
         SET password_hash = $3,
             updated_at = now()
         WHERE tenant_id = $1
           AND user_id = $2
       `,
-      [tenantId, userId, passwordHash],
-    );
+        [tenantId, userId, passwordHash],
+      );
+    });
   }
 
   async setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void> {
-    await getPool().query(
-      `
+    await withTenantClient(tenantId, async (client) => {
+      await client.query(
+        `
         UPDATE users
         SET mfa_enabled = $3,
             updated_at = now()
         WHERE tenant_id = $1
           AND user_id = $2
       `,
-      [tenantId, userId, enabled],
-    );
+        [tenantId, userId, enabled],
+      );
+    });
   }
 
   async recordLoginSuccess(
@@ -181,8 +210,13 @@ export class PgUserStore implements UserStore {
     tenantId: TenantId,
     userId: string,
     role: UserRole,
-    client: QueryClient = getPool(),
+    client?: QueryClient,
   ): Promise<UserEntity | null> {
+    if (!client) {
+      return withTenantClient(tenantId, (tenantClient) =>
+        this.updateRole(tenantId, userId, role, tenantClient),
+      );
+    }
     const result = await client.query(
       `
         UPDATE users
@@ -200,17 +234,19 @@ export class PgUserStore implements UserStore {
   }
 
   async countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number> {
-    const result = await getPool().query<{ count: string }>(
-      `
+    return withTenantClient(tenantId, async (client) => {
+      const result = await client.query<{ count: string }>(
+        `
         SELECT count(*)::text AS count
         FROM users
         WHERE tenant_id = $1
           AND role = $2
           AND status = 'active'
       `,
-      [tenantId, role],
-    );
-    return Number(result.rows[0]?.count ?? '0');
+        [tenantId, role],
+      );
+      return Number(result.rows[0]?.count ?? '0');
+    });
   }
 }
 

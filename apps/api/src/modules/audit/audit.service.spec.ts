@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { TenantId } from '@amic-vault/shared';
 import { TenantContextService } from '../tenant/tenant-context';
 import { AuditMetadataNormalizer } from './audit-metadata.normalizer';
@@ -29,23 +29,26 @@ describe('AuditService', () => {
     const service = createService(context);
     const client = new MemoryClient();
 
-    await context.run({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }, async () => {
-      await expect(
-        service.log(
-          {
-            action: 'CLIENT_CREATED',
-            actorId: '11111111-1111-4111-8111-111111111101',
-            targetType: 'client',
-            targetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-            metadata: {
-              client_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-              name: 'not stored',
+    await context.run(
+      { tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' },
+      async () => {
+        await expect(
+          service.log(
+            {
+              action: 'CLIENT_CREATED',
+              actorId: '11111111-1111-4111-8111-111111111101',
+              targetType: 'client',
+              targetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+              metadata: {
+                client_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+                name: 'not stored',
+              },
             },
-          },
-          client,
-        ),
-      ).resolves.toMatchObject({ eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
-    });
+            client,
+          ),
+        ).resolves.toMatchObject({ eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
+      },
+    );
 
     const params = client.params[0] ?? [];
     expect(params[0]).toBe(tenantId);
@@ -65,5 +68,25 @@ describe('AuditService', () => {
         new MemoryClient(),
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('uses a tenant-aware transaction for standalone audit writes', async () => {
+    const service = createService();
+    const client = new MemoryClient();
+    const transaction = vi
+      .spyOn(service, 'transaction')
+      .mockImplementation(async (_tenantId, run) => run(client as never));
+
+    await expect(
+      service.log({
+        tenantId,
+        action: 'LOGIN_SUCCESS',
+        actorId: '11111111-1111-4111-8111-111111111101',
+        targetType: 'auth',
+      }),
+    ).resolves.toMatchObject({ eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
+
+    expect(transaction).toHaveBeenCalledWith(tenantId, expect.any(Function));
+    expect(client.params[0]?.[0]).toBe(tenantId);
   });
 });

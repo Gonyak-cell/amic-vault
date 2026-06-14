@@ -22,7 +22,10 @@ function getPool(): Pool {
 }
 
 export interface QueryClient {
-  query(sql: string, params?: readonly unknown[]): Promise<{ rows: unknown[]; rowCount: number | null }>;
+  query(
+    sql: string,
+    params?: readonly unknown[],
+  ): Promise<{ rows: unknown[]; rowCount: number | null }>;
 }
 
 export interface AuditLogInput {
@@ -57,10 +60,7 @@ export class AuditService {
     private readonly metadataNormalizer: AuditMetadataNormalizer,
   ) {}
 
-  async transaction<T>(
-    tenantId: string,
-    run: (client: PoolClient) => Promise<T>,
-  ): Promise<T> {
+  async transaction<T>(tenantId: string, run: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await getPool().connect();
     try {
       await client.query('BEGIN');
@@ -84,8 +84,19 @@ export class AuditService {
     if (!tenantId) {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
+    if (!client) {
+      return this.transaction(tenantId, (tx) => this.insertLog(input, tenantId, tx));
+    }
+
+    return this.insertLog(input, tenantId, client);
+  }
+
+  private async insertLog(
+    input: AuditLogInput,
+    tenantId: string,
+    queryClient: QueryClient,
+  ): Promise<AuditLogResult> {
     const metadata = this.metadataNormalizer.normalize(input.metadata);
-    const queryClient = client ?? getPool();
     const result = await queryClient.query(
       `
         INSERT INTO audit_events (
@@ -108,7 +119,7 @@ export class AuditService {
         JSON.stringify(metadata),
         input.metadata && hasMetadataValue(input.metadata, 'correlation_id')
           ? String((input.metadata as Record<string, unknown>).correlation_id)
-          : currentRequestId() ?? null,
+          : (currentRequestId() ?? null),
         input.retentionLabel ?? 'PERMANENT',
       ],
     );
