@@ -1,11 +1,14 @@
 # Launch Control Sheet
 
-Status: PREPARED - NOT LAUNCHED
-Date: 2026-06-13
+Status: STAGING TECHNICAL PASS - NOT LAUNCHED
+Date: 2026-06-14
 
 This is the one-page control sheet for the release-completion lane. It shows the
 current technical state, the commands Codex can run, and the approvals that
 remain blocked outside the repository.
+
+Previous baseline label `PREPARED - NOT LAUNCHED` remains true for production:
+AWS staging is technically passed, but pilot and production are not launched.
 
 ## Current Technical State
 
@@ -16,6 +19,7 @@ remain blocked outside the repository.
 | Launch execution artifacts | prepared | `pnpm launch:execution` |
 | Staging smoke automation | prepared | `pnpm release:smoke -- --dry-run` and `pnpm release:smoke -- --local` |
 | Local staging preflight | passed locally | `pnpm release:local-preflight` / EV-SMOKE-002 |
+| AWS staging main alignment | passed | STAGE-MAIN-MERGE-AWS-001 / EV-STAGE-009 / EV-SMOKE-005 |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
 
@@ -36,10 +40,11 @@ pnpm build
 
 ## Blocked Decisions
 
+Resolved staging evidence: LRB-001, LRB-002, LRB-003, LRB-004, and LRB-008 are
+approved for the AWS temporary-target staging path.
+
 | Gate | Required Evidence |
 |---|---|
-| Staging open | LRB-001, LRB-002, LRB-003, LRB-004, LRB-008 |
-| RC freeze | RC-FREEZE-001 |
 | Pilot entry | LRB-005, LRB-006, LRB-007, LRB-014 |
 | Production entry | LRB-009, LRB-010, LRB-011, LRB-012, LRB-013 |
 

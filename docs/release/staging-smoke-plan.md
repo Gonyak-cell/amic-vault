@@ -1,6 +1,6 @@
 # Staging Smoke Plan
 
-Status: READY - AWAITS STAGING TARGET
+Status: PASSED - CURRENT MAIN-MERGE STAGING TARGET
 
 This plan defines smoke checks for an approved staging deployment. It does not
 contain or require private endpoint values in the repository.
@@ -91,3 +91,11 @@ Do not record:
 isolated local database/object-storage/worker set, runs migration rollback and
 reapply, starts API/Web on local-only ports, and executes the local smoke suite.
 It does not resolve approved staging blockers.
+
+## Current Staging Smoke Evidence
+
+- Evidence ref: `STAGE-MAIN-MERGE-AWS-001`.
+- Release SHA: `9ed101081484e0f1d0f417652549d4dea762c6de`.
+- Result: SMOKE-001 through SMOKE-011 pass=11 fail=0 skip=0.
+- Private endpoint values, cookies, tokens, credentials, screenshots, and
+  provider-console metadata remain outside this repository.

@@ -1,6 +1,6 @@
 # Launch Blocker Ledger
 
-Status: OPEN - STAGING SMOKE/RUNTIME TECHNICAL PASS, PILOT/PRODUCTION APPROVALS REQUIRED
+Status: OPEN - MAIN-MERGE STAGING TECHNICAL PASS, PILOT/PRODUCTION APPROVALS REQUIRED
 
 Rows remain unresolved until an operator or responsible owner records an
 approved value or evidence reference. Rows marked `approved` record only
@@ -36,7 +36,8 @@ Machine-actionable preparation status: complete for this pack.
   runtime DB owner workaround: `f0eb94457659b30e36e7ca9f5d0eb451bc1e936f`.
 - Frozen release SHA approved for staging image build, smoke, and UAT
   preparation via `CHAT-2026-06-14-RC-FREEZE`.
-- Included PRs: `#66`, `#67`, `#68`, `#69`.
+- Included release-prep PRs: `#66`, `#67`, `#68`, `#69`; post-merge
+  staging hardening/alignment PR: `#78`.
 - RC freeze is complete and staging-opening decisions LRB-001/002/003/004/008
   are approved for the AWS path via `CHAT-2026-06-14-AWS-STAGING-APPROVAL`.
   Staging uses an AWS-managed temporary target ref instead of a custom domain
@@ -46,6 +47,10 @@ Machine-actionable preparation status: complete for this pack.
   completed under evidence refs `STAGE-PROVISION-AWS-001`,
   `STAGE-DEPLOY-AWS-001`, `STAGE-SMOKE-AWS-001`, and
   `STAGE-RUNTIME-RLS-AWS-001`.
+- Current AWS staging deployment is aligned to main merge SHA
+  `9ed101081484e0f1d0f417652549d4dea762c6de` under evidence ref
+  `STAGE-MAIN-MERGE-AWS-001`: API/Web/ingestion digest refs were pushed, ECS
+  API/Web rollouts completed, and SMOKE-001 through SMOKE-011 passed.
 - Runtime DB owner workaround is resolved in staging: API runtime now uses the
   `vault_app` role, runtime auth helper functions are present, RLS FORCE and
   audit append-only invariants were verified, and RDS ingress was returned to
@@ -55,6 +60,7 @@ Machine-actionable preparation status: complete for this pack.
 - Concrete endpoint values, account identifiers, private URLs, screenshots,
   cookies, tokens, secret values, and provider-console metadata remain outside
   this repository.
-- Production remains blocked by LRB-009 through LRB-013. Security review must
-  still review deployment, secrets, backup, logging, and network boundaries
-  before production approval.
+- Pilot remains blocked by LRB-005, LRB-006, LRB-007, and LRB-014. Production
+  remains blocked by LRB-009 through LRB-013. Security review must still review
+  deployment, secrets, backup, logging, and network boundaries before
+  production approval.

@@ -16,6 +16,7 @@ It does not replace the R0-R14 implementation ledger.
 | REL-STAGE-LOCAL-PREFLIGHT-TUW-004B | Provide one-command local staging preflight before approved cloud staging exists. | Codex | REL-RC-FREEZE-TUW-001, REL-SMOKE-AUTO-TUW-004 | EV-SMOKE-002 / `pnpm release:local-preflight` | done |
 | REL-SMOKE-EXEC-TUW-005 | Execute staging smoke against approved staging target. | Ops/Codex | REL-AWS-STAGE-PROVISION-TUW-004C | EV-SMOKE-003 / STAGE-SMOKE-AWS-001 | done |
 | REL-STAGE-RUNTIME-RLS-TUW-005A | Remove staging runtime DB owner workaround and verify app-role runtime invariants. | Codex/Ops | REL-SMOKE-EXEC-TUW-005 | EV-STAGE-008 / EV-SMOKE-004 / STAGE-RUNTIME-RLS-AWS-001 | done |
+| REL-STAGE-MAIN-ALIGN-TUW-005B | Align AWS staging image set and smoke evidence with merged main SHA. | Codex/Ops | REL-STAGE-RUNTIME-RLS-TUW-005A | EV-STAGE-009 / EV-SMOKE-005 / STAGE-MAIN-MERGE-AWS-001 | done |
 | REL-UAT-SYNTH-TUW-006 | Prepare local synthetic UAT walkthrough. | Codex | none | `docs/release/local-synthetic-uat-walkthrough.md` | prepared |
 | REL-UAT-SCENARIOS-TUW-006A | Expand UAT-001 through UAT-020 into step and negative-check matrix. | Codex | none | `docs/release/synthetic-uat-scenarios.md` | prepared |
 | REL-UAT-EXEC-TUW-007 | Execute UAT-001 through UAT-020. | Product/QA/Codex | staging smoke pass | UAT evidence refs | ready |

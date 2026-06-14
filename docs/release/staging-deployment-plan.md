@@ -1,6 +1,6 @@
 # Staging Deployment Plan
 
-Status: AWS STAGING DECISIONS APPROVED - DEPLOYMENT NOT EXECUTED
+Status: AWS STAGING DEPLOYED - MAIN-MERGE SMOKE PASS
 
 ## Purpose
 
@@ -33,6 +33,18 @@ No AWS account identifiers, private endpoints, secret values, provider-console
 screenshots, custom domain values, or real customer data may be committed to
 this repository. Production custom domain and TLS ownership remain deferred to
 the production gate.
+
+## Current Staging Evidence
+
+- Current staging evidence ref: `STAGE-MAIN-MERGE-AWS-001`.
+- Current staging-aligned main SHA:
+  `9ed101081484e0f1d0f417652549d4dea762c6de`.
+- API/Web/ingestion image digest refs are recorded in
+  `docs/ledger/execution.md`; concrete registry hosts and account identifiers
+  remain outside this repository.
+- ECS API and Web service rollouts completed with desired=1/running=1/pending=0.
+- `pnpm release:smoke -- --json` passed SMOKE-001 through SMOKE-011 with
+  pass=11 fail=0 skip=0.
 
 ## Preflight
 
