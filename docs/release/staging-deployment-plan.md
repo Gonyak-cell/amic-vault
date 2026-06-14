@@ -52,6 +52,8 @@ the production gate.
 1. Build api, web, and ingestion images from the same Git SHA.
    - The web image must include `.next/standalone`, `.next/static`, and
      `public`; `apps/web/Dockerfile` copies all three.
+   - For the single temporary AWS load-balancer address, build the web image
+     with `NEXT_PUBLIC_API_BASE_URL=/v1` so browser calls stay same-origin.
 2. Push images to the approved registry.
 3. Take a pre-migration staging database snapshot.
 4. Acquire the migration lock.
