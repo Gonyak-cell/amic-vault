@@ -11,6 +11,8 @@ COPY packages/shared/package.json packages/shared/package.json
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
+ARG NEXT_PUBLIC_API_BASE_URL=/v1
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 COPY apps/web apps/web
 COPY packages/shared packages/shared
 RUN pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/web build
