@@ -61,6 +61,9 @@ data, or raw smoke artifacts.
 | Desktop threat model                   | `docs/security/desktop-threat-model.md`           | Prepared                                                               |
 | Desktop cache policy                   | `docs/security/desktop-cache-policy.md`           | Enforced by PWA smoke and integration tests                            |
 | Desktop origin policy                  | `docs/release/desktop-origin-policy.md`           | Prepared; no private endpoint values                                   |
+| Desktop Tauri thin shell               | `apps/desktop`                                    | Phase 3 feasibility scaffold prepared                                  |
+| Desktop signing plan                   | `docs/release/desktop-signing-plan.md`            | Prepared; no signing secrets                                           |
+| Desktop update policy                  | `docs/release/desktop-update-policy.md`           | Prepared; updater disabled in Phase 3                                  |
 | Staging smoke automation               | `tools/release/staging-smoke.mjs`                 | Prepared                                                               |
 | Synthetic UAT validator                | `tools/release/synthetic-uat-evidence.mjs`        | CI wired                                                               |
 | Local staging preflight automation     | `tools/release/local-staging-preflight.mjs`       | Prepared and executed locally                                          |
@@ -104,6 +107,9 @@ data, or raw smoke artifacts.
   worker, offline shell, and installability checks.
 - `pnpm release:local-preflight` passes before approved staging credentials are
   requested.
+- `pnpm --filter @amic-vault/desktop validate` passes and verifies the signed
+  origin fixture, empty native capability allow-list, and forbidden plugin
+  deny-list.
 - `pnpm docs:frozen` passes.
 - `git diff --check` passes.
 - No launch artifact contains real secrets, real customer data, or external
@@ -121,6 +127,6 @@ and support ownership are recorded in `docs/release/launch-blocker-ledger.md`.
 Production release evidence is governed by
 `docs/release/production-execution-preflight.md` and
 `docs/release/production-release-runbook.md`; post-launch monitoring remains
-active under `PROD-MONITOR-AWS-001`. Desktop/PWA release evidence is tracked in
-`EV-DESKTOP-001` through `EV-DESKTOP-004`; installed app behavior remains a
-server-authoritative access layer, not a local vault runtime.
+active under `PROD-MONITOR-AWS-001`. Desktop/PWA and Tauri thin-shell release
+evidence is tracked in `EV-DESKTOP-001` through `EV-DESKTOP-006`; installed app
+behavior remains a server-authoritative access layer, not a local vault runtime.
