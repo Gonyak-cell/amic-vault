@@ -21,6 +21,7 @@ export function listAuditEvents(query: AuditQueryInput): Promise<AuditEventListD
 
 export async function exportAuditEventsCsv(query: AuditQueryInput): Promise<string> {
   const response = await fetch(`${apiBaseUrl()}/audit-events/export.csv${queryString(query)}`, {
+    cache: 'no-store',
     credentials: 'include',
   });
   if (!response.ok) throw new Error('AUDIT_EXPORT_FAILED');

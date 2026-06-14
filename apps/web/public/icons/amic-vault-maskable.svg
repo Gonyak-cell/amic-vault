@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="AMIC Vault">
+  <rect width="192" height="192" fill="#174f56" />
+  <circle cx="96" cy="96" r="78" fill="#f7f9fb" />
+  <path d="M68 82C68 68.7 78.7 58 92 58h8c13.3 0 24 10.7 24 24v9h-13V82c0-6.1-4.9-11-11-11h-8c-6.1 0-11 4.9-11 11v9H68v-9Z" fill="#174f56" />
+  <path d="M61 89h70v48H61V89Z" fill="#d7b46a" />
+  <circle cx="96" cy="111" r="8" fill="#174f56" />
+  <path d="M93 112h6v14h-6v-14Z" fill="#174f56" />
+</svg>

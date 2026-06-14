@@ -1,0 +1,27 @@
+{
+  "name": "AMIC Vault",
+  "short_name": "Vault",
+  "description": "Matter-centric legal data OS",
+  "id": "/?source=pwa",
+  "start_url": "/dashboard?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f9fb",
+  "theme_color": "#174f56",
+  "categories": ["productivity", "business"],
+  "icons": [
+    {
+      "src": "/icons/amic-vault-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/amic-vault-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
