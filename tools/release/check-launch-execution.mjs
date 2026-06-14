@@ -24,6 +24,10 @@ const requiredFiles = [
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
   'docs/release/production-execution-preflight.md',
+  'docs/desktop/desktop-app-plan.md',
+  'docs/security/desktop-threat-model.md',
+  'docs/security/desktop-cache-policy.md',
+  'docs/release/desktop-origin-policy.md',
   'docs/release/env.staging-smoke.example',
   'tools/release/staging-smoke.mjs',
   'tools/release/synthetic-uat-evidence.mjs',
@@ -33,8 +37,14 @@ const requiredFiles = [
   'package.json',
 ];
 
-const blockerIds = Array.from({ length: 14 }, (_, index) => `LRB-${String(index + 1).padStart(3, '0')}`);
-const uatIds = Array.from({ length: 20 }, (_, index) => `UAT-${String(index + 1).padStart(3, '0')}`);
+const blockerIds = Array.from(
+  { length: 14 },
+  (_, index) => `LRB-${String(index + 1).padStart(3, '0')}`,
+);
+const uatIds = Array.from(
+  { length: 20 },
+  (_, index) => `UAT-${String(index + 1).padStart(3, '0')}`,
+);
 
 const forbiddenSecretPatterns = [
   /AKIA[0-9A-Z]{16}/,
@@ -102,10 +112,21 @@ for (const uatId of uatIds) {
   assertContains(uatTemplate, uatId, 'docs/release/uat-evidence-template.md');
   assertContains(syntheticUatScenarios, uatId, 'docs/release/synthetic-uat-scenarios.md');
   assertContains(syntheticUatEvidence, uatId, 'docs/release/synthetic-uat-evidence.md');
-  assertContains(syntheticUatEvidence, `EV-UAT-${uatId.slice(4)}`, 'docs/release/synthetic-uat-evidence.md');
+  assertContains(
+    syntheticUatEvidence,
+    `EV-UAT-${uatId.slice(4)}`,
+    'docs/release/synthetic-uat-evidence.md',
+  );
 }
 
-for (const smokeId of ['SMOKE-001', 'SMOKE-004', 'SMOKE-010', 'SMOKE-011']) {
+for (const smokeId of [
+  'SMOKE-001',
+  'SMOKE-004',
+  'SMOKE-010',
+  'SMOKE-011',
+  'SMOKE-012',
+  'SMOKE-015',
+]) {
   assertContains(smokePlan, smokeId, 'docs/release/staging-smoke-plan.md');
   assertContains(smokeScript, smokeId, 'tools/release/staging-smoke.mjs');
 }
@@ -114,11 +135,23 @@ for (const expected of ['9e346d9e48c962448bcccbbef9e30d9c3e468e4f', '#66', '#67'
   assertContains(rcFreeze, expected, 'docs/release/rc-freeze-decision-pack.md');
 }
 
-for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-PROD-005', 'EV-PROD-006', 'EV-PROD-007']) {
+for (const expected of [
+  'EV-RC-001',
+  'EV-STAGE-001',
+  'EV-DESKTOP-001',
+  'EV-DESKTOP-004',
+  'EV-PROD-005',
+  'EV-PROD-006',
+  'EV-PROD-007',
+]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
 
-for (const expected of ['REL-RC-FREEZE-TUW-001', 'REL-SMOKE-AUTO-TUW-004', 'REL-PROD-REL-TUW-010']) {
+for (const expected of [
+  'REL-RC-FREEZE-TUW-001',
+  'REL-SMOKE-AUTO-TUW-004',
+  'REL-PROD-REL-TUW-010',
+]) {
   assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
 }
 for (const expected of [
@@ -135,12 +168,7 @@ for (const expected of ['pnpm release:smoke -- --dry-run', 'pnpm release:smoke -
   assertContains(localWalkthrough, expected, 'docs/release/local-synthetic-uat-walkthrough.md');
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
-for (const expected of [
-  'pnpm release:local-preflight',
-  'PRE-020',
-  'LRB-001',
-  'isolated local',
-]) {
+for (const expected of ['pnpm release:local-preflight', 'PRE-020', 'LRB-001', 'isolated local']) {
   assertContains(localPreflight, expected, 'docs/release/local-staging-preflight.md');
 }
 
@@ -148,7 +176,13 @@ for (const expected of ['STAGE-IN-001', 'STAGE-IN-008', 'Evidence ref only']) {
   assertContains(stagingInputChecklist, expected, 'docs/release/staging-input-checklist.md');
 }
 
-for (const expected of ['EV-UAT-001', 'EV-UAT-020', 'negative permission']) {
+for (const expected of [
+  'EV-UAT-001',
+  'EV-UAT-020',
+  'DESKTOP-UAT-001',
+  'DESKTOP-UAT-005',
+  'negative permission',
+]) {
   assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
 }
 for (const expected of [
@@ -169,7 +203,12 @@ for (const expected of [
   assertContains(productionPreflight, expected, 'docs/release/production-execution-preflight.md');
 }
 
-for (const expected of ['PRODUCTION DEPLOYED - MONITORING ACTIVE', 'LRB-001', 'pnpm launch:execution', 'pnpm release:uat']) {
+for (const expected of [
+  'PRODUCTION DEPLOYED - MONITORING ACTIVE',
+  'LRB-001',
+  'pnpm launch:execution',
+  'pnpm release:uat',
+]) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
 
@@ -189,6 +228,20 @@ for (const expected of [
 }
 
 assertContains(smokeScript, 'SMOKE_REQUIRE_AUTH', 'tools/release/staging-smoke.mjs');
+for (const expected of ['authCheckIds', 'assertNoDesktopOfflineLeakage', 'safe-denylist']) {
+  assertContains(smokeScript, expected, 'tools/release/staging-smoke.mjs');
+}
+const desktopPlan = contents.get('docs/desktop/desktop-app-plan.md');
+for (const expected of ['Phase 2 implemented', 'DESKTOP-EVID-004', 'SMOKE-015', 'EV-DESKTOP-004']) {
+  assertContains(desktopPlan, expected, 'docs/desktop/desktop-app-plan.md');
+}
+for (const [file, expected] of [
+  ['docs/security/desktop-threat-model.md', 'Threat Model'],
+  ['docs/security/desktop-cache-policy.md', 'no-store'],
+  ['docs/release/desktop-origin-policy.md', 'approved Vault web origin'],
+]) {
+  assertContains(contents.get(file), expected, file);
+}
 assertContains(
   contents.get('tools/release/local-staging-preflight.mjs'),
   'local-staging-preflight',

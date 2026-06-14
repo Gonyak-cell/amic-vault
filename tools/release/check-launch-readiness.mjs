@@ -28,6 +28,10 @@ const requiredFiles = [
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
   'docs/release/production-execution-preflight.md',
+  'docs/desktop/desktop-app-plan.md',
+  'docs/security/desktop-threat-model.md',
+  'docs/security/desktop-cache-policy.md',
+  'docs/release/desktop-origin-policy.md',
   'docs/release/env.staging-smoke.example',
   'infra/ci/staging-deploy.yml',
   'infra/ci/prod-gate.yml',
@@ -111,6 +115,10 @@ for (const file of [
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
   'docs/release/production-execution-preflight.md',
+  'docs/desktop/desktop-app-plan.md',
+  'docs/security/desktop-threat-model.md',
+  'docs/security/desktop-cache-policy.md',
+  'docs/release/desktop-origin-policy.md',
   'tools/release/staging-smoke.mjs',
   'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
@@ -118,8 +126,16 @@ for (const file of [
 ]) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
 }
-assertContains(pack, 'PRODUCTION DEPLOYED - MONITORING ACTIVE', 'docs/release/launch-readiness-pack.md');
-assertContains(pack, '9e346d9e48c962448bcccbbef9e30d9c3e468e4f', 'docs/release/launch-readiness-pack.md');
+assertContains(
+  pack,
+  'PRODUCTION DEPLOYED - MONITORING ACTIVE',
+  'docs/release/launch-readiness-pack.md',
+);
+assertContains(
+  pack,
+  '9e346d9e48c962448bcccbbef9e30d9c3e468e4f',
+  'docs/release/launch-readiness-pack.md',
+);
 assertContains(pack, 'docs/package/', 'docs/release/launch-readiness-pack.md');
 
 const blockerLedger = contents.get('docs/release/launch-blocker-ledger.md');
@@ -161,7 +177,7 @@ for (const expected of ['STAGE-IN-001', 'STAGE-IN-008', 'Evidence ref only']) {
 }
 
 const syntheticUatScenarios = contents.get('docs/release/synthetic-uat-scenarios.md');
-for (const expected of ['UAT-001', 'UAT-020', 'EV-UAT-020']) {
+for (const expected of ['UAT-001', 'UAT-020', 'EV-UAT-020', 'DESKTOP-UAT-001', 'DESKTOP-UAT-005']) {
   assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
 }
 const syntheticUatEvidence = contents.get('docs/release/synthetic-uat-evidence.md');
@@ -175,10 +191,19 @@ for (const expected of [
 }
 
 const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
-for (const expected of ['PRODUCTION DEPLOYED - MONITORING ACTIVE', 'pnpm launch:execution', 'pnpm release:uat', 'LRB-013']) {
+for (const expected of [
+  'PRODUCTION DEPLOYED - MONITORING ACTIVE',
+  'pnpm launch:execution',
+  'pnpm release:uat',
+  'LRB-013',
+]) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
-assertContains(launchControlSheet, 'pnpm release:local-preflight', 'docs/release/launch-control-sheet.md');
+assertContains(
+  launchControlSheet,
+  'pnpm release:local-preflight',
+  'docs/release/launch-control-sheet.md',
+);
 
 const evidenceIndex = contents.get('docs/release/security-evidence-index.md');
 for (const evidence of [
@@ -190,12 +215,28 @@ for (const evidence of [
 }
 
 const rcFreeze = contents.get('docs/release/rc-freeze-decision-pack.md');
-for (const expected of ['9e346d9e48c962448bcccbbef9e30d9c3e468e4f', '#66', '#67', '#68', '#69', 'operator decision']) {
+for (const expected of [
+  '9e346d9e48c962448bcccbbef9e30d9c3e468e4f',
+  '#66',
+  '#67',
+  '#68',
+  '#69',
+  'operator decision',
+]) {
   assertContains(rcFreeze, expected, 'docs/release/rc-freeze-decision-pack.md');
 }
 
 const evidenceRegister = contents.get('docs/release/evidence-register.md');
-for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-UAT-001', 'EV-PROD-005', 'EV-PROD-006', 'EV-PROD-007']) {
+for (const expected of [
+  'EV-RC-001',
+  'EV-STAGE-001',
+  'EV-DESKTOP-001',
+  'EV-DESKTOP-004',
+  'EV-UAT-001',
+  'EV-PROD-005',
+  'EV-PROD-006',
+  'EV-PROD-007',
+]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
 
@@ -235,8 +276,30 @@ for (const expected of [
 }
 
 const smokeScript = contents.get('tools/release/staging-smoke.mjs');
-for (const expected of ['SMOKE-001', 'SMOKE-010', 'SMOKE-011', 'SMOKE_REQUIRE_AUTH']) {
+for (const expected of [
+  'SMOKE-001',
+  'SMOKE-010',
+  'SMOKE-011',
+  'SMOKE-012',
+  'SMOKE-015',
+  'SMOKE_REQUIRE_AUTH',
+]) {
   assertContains(smokeScript, expected, 'tools/release/staging-smoke.mjs');
+}
+const smokePlan = contents.get('docs/release/staging-smoke-plan.md');
+for (const expected of ['SMOKE-012', 'SMOKE-015', 'EV-DESKTOP-002']) {
+  assertContains(smokePlan, expected, 'docs/release/staging-smoke-plan.md');
+}
+const desktopPlan = contents.get('docs/desktop/desktop-app-plan.md');
+for (const expected of ['Phase 2 implemented', 'DESKTOP-EVID-004', 'SMOKE-015', 'EV-DESKTOP-004']) {
+  assertContains(desktopPlan, expected, 'docs/desktop/desktop-app-plan.md');
+}
+for (const [file, expected] of [
+  ['docs/security/desktop-threat-model.md', 'Threat Model'],
+  ['docs/security/desktop-cache-policy.md', 'no-store'],
+  ['docs/release/desktop-origin-policy.md', 'approved Vault web origin'],
+]) {
+  assertContains(contents.get(file), expected, file);
 }
 const localPreflight = contents.get('docs/release/local-staging-preflight.md');
 for (const expected of ['pnpm release:local-preflight', 'PRE-020', 'isolated local']) {

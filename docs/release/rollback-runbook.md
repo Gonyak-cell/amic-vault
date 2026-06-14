@@ -28,6 +28,32 @@ Status: PREPARED - REHEARSAL REQUIRED BEFORE PRODUCTION
 3. Verify audit writes after rollback.
 4. Verify queue workers are not replaying unsafe jobs.
 
+## Desktop/PWA Rollback
+
+Use this path when the installed PWA, service worker, manifest, offline shell,
+or desktop install surface is suspected of caching unsafe content, hiding
+permission failures, or confusing users during incident response.
+
+1. Stop promoting the installed-app path and direct users to the approved
+   browser URL for the same environment.
+2. Deploy a web build that disables new service worker registration in
+   `apps/web/src/app/pwa-registration.tsx` or roll back to the previous
+   known-good web image.
+3. Replace `/sw.js` with a same-origin, `no-store` unregister worker that
+   deletes `amic-vault-desktop-shell-*` caches and calls
+   `registration.unregister()` for active clients.
+4. Keep `/v1`, `/dashboard`, `/search`, `/documents`, `/audit`, `/records`,
+   `/ai`, `/external`, and `/login` outside every cache allow-list while the
+   rollback is active.
+5. Keep `/offline.html` limited to a safe unavailable message with no tenant,
+   matter, document, search, audit, AI, token, secret, or client markers.
+6. Ask affected users to close and reopen the installed app. If it still uses
+   the old worker, remove the installed app and continue in the browser-only
+   path until SMOKE-012 through SMOKE-015 are green again.
+7. Record only reference IDs, release SHA, check IDs, and non-secret incident
+   refs. Do not record screenshots with private URLs, cookies, tokens, local
+   storage dumps, document names, snippets, or customer data.
+
 ## Database Rollback
 
 Database rollback is allowed only when:
@@ -46,5 +72,8 @@ forward fix passes smoke checks.
 - Previous known-good application version is live or forward fix is deployed.
 - Permission, tenant isolation, audit, DLP, search, external portal, records, and
   AI policy smoke checks pass.
+- Desktop/PWA rollback, if used, proves service worker invalidation or
+  browser-only fallback and SMOKE-012 through SMOKE-015 pass or are explicitly
+  disabled by an approved incident ref.
 - Incident evidence is reference-only and logged in the learning ledger.
 - Any unresolved item is recorded in the launch blocker ledger.
