@@ -35,7 +35,21 @@ describe('api client', () => {
     await expect(apiFetch<{ ok: boolean }>('/health/live')).resolves.toEqual({ ok: true });
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/v1/health/live',
-      expect.objectContaining({ credentials: 'include' }),
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('forces API fetches to no-store even when a caller passes cache options', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiFetch<{ ok: boolean }>('/health/live', { cache: 'force-cache' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/health/live',
+      expect.objectContaining({ cache: 'no-store' }),
     );
   });
 

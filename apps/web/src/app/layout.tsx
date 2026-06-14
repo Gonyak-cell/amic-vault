@@ -1,12 +1,30 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import '@/styles/globals.css';
 import { Toaster } from '@/components/ui/toast';
 import { LanguageProvider } from '@/lib/i18n';
+import { PwaRegistration } from './pwa-registration';
 
 export const metadata: Metadata = {
   title: 'AMIC Vault',
   description: 'Matter-centric legal data OS',
+  applicationName: 'AMIC Vault',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [{ url: '/icons/amic-vault-icon.svg', type: 'image/svg+xml' }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'AMIC Vault',
+    statusBarStyle: 'black-translucent',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#174f56',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -15,6 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <LanguageProvider>
           {children}
+          <PwaRegistration />
           <Toaster />
         </LanguageProvider>
       </body>

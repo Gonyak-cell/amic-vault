@@ -40,6 +40,7 @@ describe('external portal API client', () => {
       'http://localhost:3001/v1/external/access/tok_123/qa/questions',
     ]);
     expect(calls.every((call) => call.init.credentials === undefined)).toBe(true);
+    expect(calls.every((call) => call.init.cache === 'no-store')).toBe(true);
     expect(calls[5]?.init.body ?? '').toBe(JSON.stringify({ messageText: 'Please clarify item 1.' }));
   });
 });

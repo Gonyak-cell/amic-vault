@@ -1,6 +1,7 @@
 import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { configureApp } from './main';
+import { noStoreApiMiddleware } from './common/security/no-store.middleware';
 
 const originalEnv = {
   NODE_ENV: process.env.NODE_ENV,
@@ -11,6 +12,7 @@ function appDouble() {
   return {
     enableCors: vi.fn(),
     setGlobalPrefix: vi.fn(),
+    use: vi.fn(),
   } as unknown as INestApplication;
 }
 
@@ -34,6 +36,7 @@ describe('configureApp', () => {
     expect(app.setGlobalPrefix).toHaveBeenCalledWith('v1', {
       exclude: [{ path: 'metrics', method: RequestMethod.GET }],
     });
+    expect(app.use).toHaveBeenCalledWith(noStoreApiMiddleware);
   });
 
   it('requires an explicit web origin before enabling CORS in production', () => {

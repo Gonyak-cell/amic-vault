@@ -11,6 +11,7 @@ import { apiBaseUrl } from '../config';
 async function externalPortalFetch<T>(token: string, suffix: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiBaseUrl()}/external/access/${encodeURIComponent(token)}${suffix}`, {
     ...init,
+    cache: 'no-store',
     headers: {
       'content-type': 'application/json',
       ...init.headers,

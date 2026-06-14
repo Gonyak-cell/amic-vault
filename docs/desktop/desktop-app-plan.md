@@ -1,8 +1,8 @@
 # AMIC Vault Desktop App Plan
 
-Status: Proposed
+Status: Phase 1 implemented
 Date: 2026-06-14
-Owner: Codex planning branch `codex/desktop-app-plan`
+Owner: Codex implementation branch `codex/desktop-pwa-phase1`
 Related ADR: `docs/adr/ADR-014-desktop-client-strategy.md`
 
 ## Position
@@ -23,6 +23,15 @@ Electron and fully native rewrites are fallback paths, not the recommended imple
 - AWS staging evidence, smoke, and synthetic UAT evidence exist in the release lane.
 - Production deployment is still governed by the production runbook and disabled gate.
 - Current launch scope does not approve real customer documents in this repository.
+
+## Phase 1 Implementation Evidence
+
+- PWA manifest, icons, production-only service worker registration, and safe offline shell are implemented.
+- Service worker caching is limited to static shell assets; `/v1`, authenticated app surfaces, external portal, and login routes are denied before cache lookup.
+- Web middleware applies `no-store` to matched sensitive surfaces and redirects.
+- API bootstrap applies no-store globally and guards downstream `Cache-Control` overrides.
+- Document view/download desktop regression confirms server-side `DOCUMENT_VIEWED`/`DOCUMENT_DOWNLOADED` audit events plus no-store response headers.
+- Claude Code `ultrareview` could not launch because free ultrareviews were exhausted. Claude Code `opus` xhigh read-only review was run twice; the first Medium finding about direct `fetch()` no-store gaps was fixed, and the second review returned no findings.
 
 ## Non-Negotiable Desktop Invariants
 

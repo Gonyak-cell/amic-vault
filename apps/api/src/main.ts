@@ -4,8 +4,10 @@ import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { StructuredLogger } from './common/logging/logger';
+import { noStoreApiMiddleware } from './common/security/no-store.middleware';
 
 export function configureApp(app: INestApplication): void {
+  app.use(noStoreApiMiddleware);
   const webOrigin =
     process.env.WEB_ORIGIN ?? (process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:3000');
   if (webOrigin) {

@@ -50,6 +50,7 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const response = await fetch(`${apiBaseUrl()}${path}`, {
     ...init,
+    cache: 'no-store',
     credentials: 'include',
     headers: {
       'content-type': 'application/json',
