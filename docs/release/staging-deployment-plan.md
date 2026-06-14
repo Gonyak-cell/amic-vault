@@ -1,6 +1,6 @@
 # Staging Deployment Plan
 
-Status: PREPARED - DISABLED UNTIL APPROVALS
+Status: AWS STAGING DECISIONS APPROVED - DEPLOYMENT NOT EXECUTED
 
 ## Purpose
 
@@ -11,11 +11,25 @@ with approved non-production data before any production release attempt.
 
 | Decision | Blocker |
 |---|---|
-| Cloud provider and region | LRB-001 |
-| DNS and TLS naming | LRB-002 |
-| Container registry | LRB-003 |
-| Secret manager and runtime secret refs | LRB-004 |
-| Monitoring sink | LRB-008 |
+| AWS Seoul `ap-northeast-2`; separate staging/prod network boundaries | LRB-001 / STAGE-CLOUD-AWS-001 |
+| Route 53 plus ACM-managed TLS; private endpoints remain external | LRB-002 / STAGE-DNS-AWS-001 |
+| Amazon ECR with frozen-SHA tags and digest pinning | LRB-003 / STAGE-REGISTRY-ECR-001 |
+| AWS Secrets Manager plus KMS with runtime secret names only | LRB-004 / STAGE-SECRETS-AWS-001 |
+| CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing | LRB-008 / STAGE-MONITOR-AWS-001 |
+
+## Approved AWS Target Shape
+
+| Runtime Need | Approved AWS Service |
+|---|---|
+| API, Web, ingestion worker containers | ECS Fargate or equivalent AWS managed container runtime |
+| PostgreSQL database | RDS for PostgreSQL |
+| Document/object storage | S3 |
+| Container image registry | ECR |
+| Runtime secrets and encryption references | Secrets Manager plus KMS |
+| Logs, alarms, and incident alerts | CloudWatch plus SNS/email |
+
+No AWS account identifiers, private endpoints, secret values, provider-console
+screenshots, or real customer data may be committed to this repository.
 
 ## Preflight
 
@@ -27,6 +41,8 @@ with approved non-production data before any production release attempt.
 - No real data or secret committed.
 - Staging target values recorded outside the repository through approved secret
   management.
+- AWS resource refs, image digests, and smoke target refs recorded only as
+  non-secret evidence refs after provisioning.
 
 ## Deployment Flow
 
