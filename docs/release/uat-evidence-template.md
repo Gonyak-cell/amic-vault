@@ -12,7 +12,7 @@ accept UAT for staging or production.
 
 | UAT ID | Result | Evidence Ref | Notes |
 |---|---|---|---|
-| UAT-001 | pass | EV-UAT-001 / STAGE-RUNTIME-RLS-AWS-001 | Auth, tenant context, unauthenticated redirect, authenticated dashboard, tenant-scoped API response, and negative role denial passed in staging smoke. |
+| UAT-001 | pass | EV-UAT-001 / STAGE-MAIN-MERGE-AWS-001 | Auth, tenant context, unauthenticated redirect, authenticated dashboard, tenant-scoped API response, and negative role denial passed in current main-merge staging smoke. |
 | UAT-002 | TBD | TBD | Client, matter, party, team, audit, non-member denial. |
 | UAT-003 | TBD | TBD | Ethical wall denial across search, document, email, graph, AI, external. |
 | UAT-004 | TBD | TBD | Upload, version, preview, download, soft-delete, audit. |
