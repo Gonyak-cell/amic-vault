@@ -48,6 +48,7 @@ Use the repo-local smoke runner:
 pnpm release:smoke -- --dry-run
 pnpm release:smoke -- --local
 pnpm release:smoke -- --json
+pnpm release:local-preflight
 ```
 
 For approved staging, provide `WEB_BASE_URL`, `API_BASE_URL`,
@@ -85,3 +86,8 @@ Do not record:
 - tokens,
 - raw customer document content,
 - raw audit metadata containing sensitive text.
+
+`pnpm release:local-preflight` is the local rehearsal command. It starts an
+isolated local database/object-storage/worker set, runs migration rollback and
+reapply, starts API/Web on local-only ports, and executes the local smoke suite.
+It does not resolve approved staging blockers.

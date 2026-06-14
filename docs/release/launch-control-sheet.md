@@ -15,6 +15,7 @@ remain blocked outside the repository.
 | Launch readiness artifacts | prepared | `pnpm launch:readiness` |
 | Launch execution artifacts | prepared | `pnpm launch:execution` |
 | Staging smoke automation | prepared | `pnpm release:smoke -- --dry-run` and `pnpm release:smoke -- --local` |
+| Local staging preflight | passed locally | `pnpm release:local-preflight` / EV-SMOKE-002 |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
 
@@ -25,6 +26,7 @@ pnpm launch:readiness
 pnpm launch:execution
 pnpm release:smoke -- --dry-run
 pnpm release:smoke -- --local
+pnpm release:local-preflight
 pnpm docs:frozen
 pnpm lint
 pnpm typecheck

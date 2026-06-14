@@ -12,6 +12,7 @@ It does not replace the R0-R14 implementation ledger.
 | REL-LRB-STAGE-TUW-003 | Resolve staging-opening LRB-001/002/003/004/008. | Operator/Security/Ops | REL-RC-FREEZE-TUW-001 | LRB evidence refs | blocked |
 | REL-SMOKE-AUTO-TUW-004 | Provide endpoint-configurable staging smoke automation. | Codex | none | `pnpm release:smoke -- --dry-run` and local smoke | prepared |
 | REL-STAGE-INPUT-TUW-004A | Provide staging input checklist with safe evidence-ref recording rules. | Codex | none | `docs/release/staging-input-checklist.md` | prepared |
+| REL-STAGE-LOCAL-PREFLIGHT-TUW-004B | Provide one-command local staging preflight before approved cloud staging exists. | Codex | REL-RC-FREEZE-TUW-001, REL-SMOKE-AUTO-TUW-004 | EV-SMOKE-002 / `pnpm release:local-preflight` | done |
 | REL-SMOKE-EXEC-TUW-005 | Execute staging smoke against approved staging target. | Ops/Codex | REL-LRB-STAGE-TUW-003 | EV-SMOKE evidence ref | blocked |
 | REL-UAT-SYNTH-TUW-006 | Prepare local synthetic UAT walkthrough. | Codex | none | `docs/release/local-synthetic-uat-walkthrough.md` | prepared |
 | REL-UAT-SCENARIOS-TUW-006A | Expand UAT-001 through UAT-020 into step and negative-check matrix. | Codex | none | `docs/release/synthetic-uat-scenarios.md` | prepared |
