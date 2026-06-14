@@ -68,3 +68,8 @@ Machine-actionable preparation status: complete for this pack.
   Actual production deployment has not been executed in this repository and
   remains governed by `docs/release/production-release-runbook.md` and
   `infra/ci/prod-gate.yml`.
+- Production release execution preflight is recorded under
+  `PROD-REL-PREFLIGHT-AWS-2026-06-14-001`: production infrastructure has not
+  been provisioned, staging resources must not be reused as production, and
+  `REL-PROD-REL-TUW-010` remains blocked until production-specific evidence
+  refs exist.

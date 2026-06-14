@@ -1,6 +1,6 @@
 # Production Release Runbook
 
-Status: APPROVED - PRODUCTION EXECUTION PENDING
+Status: APPROVED - PRODUCTION INFRASTRUCTURE BLOCKED
 
 ## Entry Criteria
 
@@ -14,6 +14,16 @@ Status: APPROVED - PRODUCTION EXECUTION PENDING
   sign-off are recorded outside the repository or by an approved ledger entry.
 - Current release approval ref is
   `APPROVAL-LRB-013-PROD-RELEASE-2026-06-14`.
+- Production execution preflight ref
+  `PROD-REL-PREFLIGHT-AWS-2026-06-14-001` is currently blocked because
+  production-specific infrastructure has not been provisioned.
+
+## Current Blocker
+
+Do not execute this runbook against the AWS staging target. Before step 5 can
+start, production-specific ECS/ECR/RDS/Secrets/Object Storage/ALB/logging and
+deployment workflow evidence refs must exist outside the repository and be
+recorded only as non-secret refs.
 
 ## Release Steps
 

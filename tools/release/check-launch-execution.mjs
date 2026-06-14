@@ -23,10 +23,12 @@ const requiredFiles = [
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
+  'docs/release/production-execution-preflight.md',
   'docs/release/env.staging-smoke.example',
   'tools/release/staging-smoke.mjs',
   'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
+  'tools/release/production-release-preflight.mjs',
   '.github/workflows/ci.yml',
   'package.json',
 ];
@@ -87,6 +89,7 @@ const syntheticUatScenarios = contents.get('docs/release/synthetic-uat-scenarios
 const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
 const actualLaunchRunbook = contents.get('docs/release/actual-launch-runbook.md');
 const smokeScript = contents.get('tools/release/staging-smoke.mjs');
+const productionPreflight = contents.get('docs/release/production-execution-preflight.md');
 const ciWorkflow = contents.get('.github/workflows/ci.yml');
 const packageJson = contents.get('package.json');
 
@@ -111,7 +114,7 @@ for (const expected of ['9e346d9e48c962448bcccbbef9e30d9c3e468e4f', '#66', '#67'
   assertContains(rcFreeze, expected, 'docs/release/rc-freeze-decision-pack.md');
 }
 
-for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-PROD-005']) {
+for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-PROD-005', 'EV-PROD-006']) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
 
@@ -157,6 +160,14 @@ for (const expected of [
   assertContains(syntheticUatEvidence, expected, 'docs/release/synthetic-uat-evidence.md');
 }
 
+for (const expected of [
+  'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
+  'blocked-prod-infra',
+  'Do not reuse the AWS staging target as production',
+]) {
+  assertContains(productionPreflight, expected, 'docs/release/production-execution-preflight.md');
+}
+
 for (const expected of ['PREPARED - NOT LAUNCHED', 'LRB-001', 'pnpm launch:execution', 'pnpm release:uat']) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
@@ -181,10 +192,17 @@ assertContains(
   'local-staging-preflight',
   'tools/release/local-staging-preflight.mjs',
 );
+assertContains(
+  contents.get('tools/release/production-release-preflight.mjs'),
+  'Production release preflight',
+  'tools/release/production-release-preflight.mjs',
+);
 assertContains(ciWorkflow, 'pnpm launch:execution', '.github/workflows/ci.yml');
+assertContains(ciWorkflow, 'pnpm release:prod-preflight', '.github/workflows/ci.yml');
 assertContains(packageJson, '"release:smoke"', 'package.json');
 assertContains(packageJson, '"release:uat"', 'package.json');
 assertContains(packageJson, '"release:local-preflight"', 'package.json');
+assertContains(packageJson, '"release:prod-preflight"', 'package.json');
 
 for (const phrase of [
   'Do not commit secrets',

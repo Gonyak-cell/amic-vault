@@ -16,6 +16,7 @@
     "launch:readiness": "node tools/release/check-launch-readiness.mjs",
     "launch:execution": "node tools/release/check-launch-execution.mjs",
     "release:uat": "node tools/release/synthetic-uat-evidence.mjs",
+    "release:prod-preflight": "node tools/release/production-release-preflight.mjs",
     "release:smoke": "node tools/release/staging-smoke.mjs",
     "release:local-preflight": "node tools/release/local-staging-preflight.mjs",
     "docs:frozen": "node infra/ci/scripts/check-docs-package-frozen.mjs",

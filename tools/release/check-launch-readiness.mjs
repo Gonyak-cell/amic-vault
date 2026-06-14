@@ -27,6 +27,7 @@ const requiredFiles = [
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
+  'docs/release/production-execution-preflight.md',
   'docs/release/env.staging-smoke.example',
   'infra/ci/staging-deploy.yml',
   'infra/ci/prod-gate.yml',
@@ -35,6 +36,7 @@ const requiredFiles = [
   'tools/release/staging-smoke.mjs',
   'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
+  'tools/release/production-release-preflight.mjs',
   '.github/workflows/ci.yml',
   'package.json',
 ];
@@ -108,9 +110,11 @@ for (const file of [
   'docs/release/synthetic-uat-evidence.md',
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
+  'docs/release/production-execution-preflight.md',
   'tools/release/staging-smoke.mjs',
   'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
+  'tools/release/production-release-preflight.mjs',
 ]) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
 }
@@ -191,7 +195,7 @@ for (const expected of ['9e346d9e48c962448bcccbbef9e30d9c3e468e4f', '#66', '#67'
 }
 
 const evidenceRegister = contents.get('docs/release/evidence-register.md');
-for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-UAT-001', 'EV-PROD-005']) {
+for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-UAT-001', 'EV-PROD-005', 'EV-PROD-006']) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
 
@@ -219,6 +223,15 @@ for (const expected of [
   assertContains(actualLaunchRunbook, expected, 'docs/release/actual-launch-runbook.md');
 }
 
+const productionPreflight = contents.get('docs/release/production-execution-preflight.md');
+for (const expected of [
+  'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
+  'BLOCKED - PRODUCTION INFRASTRUCTURE NOT PROVISIONED',
+  'Do not reuse the AWS staging target as production',
+]) {
+  assertContains(productionPreflight, expected, 'docs/release/production-execution-preflight.md');
+}
+
 const smokeScript = contents.get('tools/release/staging-smoke.mjs');
 for (const expected of ['SMOKE-001', 'SMOKE-010', 'SMOKE-011', 'SMOKE_REQUIRE_AUTH']) {
   assertContains(smokeScript, expected, 'tools/release/staging-smoke.mjs');
@@ -232,16 +245,23 @@ assertContains(
   'local-staging-preflight',
   'tools/release/local-staging-preflight.mjs',
 );
+assertContains(
+  contents.get('tools/release/production-release-preflight.mjs'),
+  'Production release preflight',
+  'tools/release/production-release-preflight.mjs',
+);
 
 const packageJson = contents.get('package.json');
 assertContains(packageJson, '"release:smoke"', 'package.json');
 assertContains(packageJson, '"release:uat"', 'package.json');
 assertContains(packageJson, '"release:local-preflight"', 'package.json');
+assertContains(packageJson, '"release:prod-preflight"', 'package.json');
 
 const ciWorkflow = contents.get('.github/workflows/ci.yml');
 assertContains(ciWorkflow, 'pnpm launch:readiness', '.github/workflows/ci.yml');
 assertContains(ciWorkflow, 'pnpm launch:execution', '.github/workflows/ci.yml');
 assertContains(ciWorkflow, 'pnpm release:uat', '.github/workflows/ci.yml');
+assertContains(ciWorkflow, 'pnpm release:prod-preflight', '.github/workflows/ci.yml');
 
 const docsPackageDiff = execFileSync('git', ['diff', '--name-only', '--', 'docs/package'], {
   cwd: repoRoot,
