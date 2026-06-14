@@ -14,7 +14,8 @@ product release boundary.
 
 - Application RC candidate baseline under consideration:
   `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
-- Exact frozen release SHA remains an operator decision.
+- Frozen release SHA is approved for staging image build, smoke, and UAT
+  preparation via `CHAT-2026-06-14-RC-FREEZE`.
 - Launch package baseline: `main` includes PR #68 release-completion prep and
   PR #69 pre-launch quality hardening.
 - Technical gate baseline: R14 Scale & Learning technical pass with remaining
@@ -46,12 +47,14 @@ product release boundary.
 | Evidence register | `docs/release/evidence-register.md` | Prepared |
 | Remaining launch TUW backlog | `docs/release/remaining-launch-tuw.md` | Prepared |
 | Local synthetic UAT walkthrough | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared |
+| Local staging preflight | `docs/release/local-staging-preflight.md` | Passed locally |
 | Actual launch runbook | `docs/release/actual-launch-runbook.md` | Prepared, awaits operator inputs |
 | Staging smoke env template | `docs/release/env.staging-smoke.example` | Prepared, placeholders only |
 | Staging input checklist | `docs/release/staging-input-checklist.md` | Prepared, awaits approved evidence refs |
 | Synthetic UAT scenarios | `docs/release/synthetic-uat-scenarios.md` | Prepared, local/staging execution paths |
 | Launch control sheet | `docs/release/launch-control-sheet.md` | Prepared |
 | Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
+| Local staging preflight automation | `tools/release/local-staging-preflight.mjs` | Prepared and executed locally |
 | Readiness validator | `tools/release/check-launch-readiness.mjs` | CI wired |
 | Execution validator | `tools/release/check-launch-execution.mjs` | CI wired |
 
@@ -83,6 +86,8 @@ product release boundary.
 - `pnpm release:smoke -- --dry-run` passes.
 - `pnpm release:smoke -- --local` passes when local Web/API/dev infra are
   running with seeded development data.
+- `pnpm release:local-preflight` passes before approved staging credentials are
+  requested.
 - `pnpm docs:frozen` passes.
 - `git diff --check` passes.
 - No launch artifact contains real secrets, real customer data, or external

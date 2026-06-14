@@ -47,6 +47,7 @@ pnpm launch:readiness
 pnpm launch:execution
 pnpm docs:frozen
 pnpm release:smoke -- --dry-run
+pnpm release:local-preflight
 ```
 
 Expected evidence:
@@ -54,6 +55,8 @@ Expected evidence:
 - Command log ref for current launch docs and the chosen frozen release SHA.
 - No `docs/package/` diff.
 - No secret, real data, or private endpoint in the diff or command output.
+- Local preflight uses only isolated local services and does not resolve
+  staging or production approvals.
 
 Stop if any command fails, the frozen SHA is not reachable, or any permission,
 tenant isolation, audit, DLP, records, external portal, or AI invariant is

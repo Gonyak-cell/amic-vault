@@ -21,6 +21,7 @@ const requiredFiles = [
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
+  'docs/release/local-staging-preflight.md',
   'docs/release/staging-input-checklist.md',
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
@@ -31,6 +32,7 @@ const requiredFiles = [
   'infra/ci/PROD_GATE.md',
   'tools/release/check-launch-execution.mjs',
   'tools/release/staging-smoke.mjs',
+  'tools/release/local-staging-preflight.mjs',
   '.github/workflows/ci.yml',
   'package.json',
 ];
@@ -98,11 +100,13 @@ for (const file of [
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
+  'docs/release/local-staging-preflight.md',
   'docs/release/staging-input-checklist.md',
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
   'tools/release/staging-smoke.mjs',
+  'tools/release/local-staging-preflight.mjs',
 ]) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
 }
@@ -150,6 +154,7 @@ const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
 for (const expected of ['PREPARED - NOT LAUNCHED', 'pnpm launch:execution', 'LRB-013']) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
+assertContains(launchControlSheet, 'pnpm release:local-preflight', 'docs/release/launch-control-sheet.md');
 
 const evidenceIndex = contents.get('docs/release/security-evidence-index.md');
 for (const evidence of [
@@ -174,6 +179,7 @@ const remainingTuw = contents.get('docs/release/remaining-launch-tuw.md');
 for (const expected of [
   'REL-RC-FREEZE-TUW-001',
   'REL-SMOKE-AUTO-TUW-004',
+  'REL-STAGE-LOCAL-PREFLIGHT-TUW-004B',
   'REL-ACTUAL-RUNBOOK-TUW-007B',
   'REL-PROD-REL-TUW-010',
 ]) {
@@ -187,6 +193,7 @@ for (const expected of [
   'SMOKE-011',
   'LRB-001',
   'LRB-013',
+  'pnpm release:local-preflight',
   'production-release-runbook.md',
 ]) {
   assertContains(actualLaunchRunbook, expected, 'docs/release/actual-launch-runbook.md');
@@ -196,9 +203,19 @@ const smokeScript = contents.get('tools/release/staging-smoke.mjs');
 for (const expected of ['SMOKE-001', 'SMOKE-010', 'SMOKE-011', 'SMOKE_REQUIRE_AUTH']) {
   assertContains(smokeScript, expected, 'tools/release/staging-smoke.mjs');
 }
+const localPreflight = contents.get('docs/release/local-staging-preflight.md');
+for (const expected of ['pnpm release:local-preflight', 'PRE-020', 'isolated local']) {
+  assertContains(localPreflight, expected, 'docs/release/local-staging-preflight.md');
+}
+assertContains(
+  contents.get('tools/release/local-staging-preflight.mjs'),
+  'local-staging-preflight',
+  'tools/release/local-staging-preflight.mjs',
+);
 
 const packageJson = contents.get('package.json');
 assertContains(packageJson, '"release:smoke"', 'package.json');
+assertContains(packageJson, '"release:local-preflight"', 'package.json');
 
 const ciWorkflow = contents.get('.github/workflows/ci.yml');
 assertContains(ciWorkflow, 'pnpm launch:readiness', '.github/workflows/ci.yml');

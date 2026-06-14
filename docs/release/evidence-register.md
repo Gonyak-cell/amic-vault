@@ -16,6 +16,7 @@ URLs, real customer documents, cookies, or tokens.
 | EV-STAGE-004 | Staging open | blocked | Security | LRB-004 | Secret manager and secret refs. |
 | EV-STAGE-005 | Staging open | blocked | Security/Ops | LRB-008 | Monitoring and incident response. |
 | EV-SMOKE-001 | Staging smoke | prepared | Codex/Ops | `pnpm release:smoke -- --dry-run` | Smoke automation is repo-local and endpoint-configurable. |
+| EV-SMOKE-002 | Local staging preflight | passed | Codex | `pnpm release:local-preflight` | Local-only rehearsal passed for frozen SHA `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`: isolated infra, migration round trip, Docker image builds, SMOKE-001 through SMOKE-011 pass, full integration 81 files / 204 tests, and worker pytest 17 tests. |
 | EV-UAT-001 | UAT | prepared | Product/QA | `docs/release/uat-evidence-template.md` | UAT rows remain unexecuted until staging is available. |
 | EV-PILOT-001 | Pilot | blocked | Legal/Product | LRB-005 | Legal terms and privacy/DPA approvals. |
 | EV-PILOT-002 | Pilot | blocked | Product/Finance/Ops | LRB-006 | Pricing, support, SLA, billing owner. |

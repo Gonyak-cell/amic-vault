@@ -52,6 +52,7 @@ Negative-role local smoke user:
 | 2 | `pnpm launch:execution` | Launch execution artifacts verified. |
 | 3 | `pnpm release:smoke -- --dry-run` | SMOKE-001 through SMOKE-011 are planned without touching a network target. |
 | 4 | `pnpm release:smoke -- --local` | Local Web/API smoke checks pass with synthetic seed users. |
+| 4A | `pnpm release:local-preflight` | Isolated local staging rehearsal passes with frozen SHA, Docker images, DB migration round trip, seeded data, and local smoke. |
 | 5 | Open `/login` | AMIC Vault login renders with Korean default and English toggle. |
 | 6 | Login as the primary local smoke user | Browser reaches `/dashboard`. |
 | 7 | Open `/dashboard`, `/search`, `/scale`, `/launch` | Protected app shell renders. |

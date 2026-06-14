@@ -17,12 +17,14 @@ const requiredFiles = [
   'docs/release/evidence-register.md',
   'docs/release/remaining-launch-tuw.md',
   'docs/release/local-synthetic-uat-walkthrough.md',
+  'docs/release/local-staging-preflight.md',
   'docs/release/staging-input-checklist.md',
   'docs/release/synthetic-uat-scenarios.md',
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
   'docs/release/env.staging-smoke.example',
   'tools/release/staging-smoke.mjs',
+  'tools/release/local-staging-preflight.mjs',
   '.github/workflows/ci.yml',
   'package.json',
 ];
@@ -76,6 +78,7 @@ const rcFreeze = contents.get('docs/release/rc-freeze-decision-pack.md');
 const evidenceRegister = contents.get('docs/release/evidence-register.md');
 const remainingTuw = contents.get('docs/release/remaining-launch-tuw.md');
 const localWalkthrough = contents.get('docs/release/local-synthetic-uat-walkthrough.md');
+const localPreflight = contents.get('docs/release/local-staging-preflight.md');
 const stagingInputChecklist = contents.get('docs/release/staging-input-checklist.md');
 const syntheticUatScenarios = contents.get('docs/release/synthetic-uat-scenarios.md');
 const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
@@ -112,6 +115,7 @@ for (const expected of ['REL-RC-FREEZE-TUW-001', 'REL-SMOKE-AUTO-TUW-004', 'REL-
 }
 for (const expected of [
   'REL-STAGE-INPUT-TUW-004A',
+  'REL-STAGE-LOCAL-PREFLIGHT-TUW-004B',
   'REL-UAT-SCENARIOS-TUW-006A',
   'REL-LAUNCH-CONTROL-TUW-007A',
   'REL-ACTUAL-RUNBOOK-TUW-007B',
@@ -122,6 +126,14 @@ for (const expected of [
 for (const expected of ['pnpm release:smoke -- --dry-run', 'pnpm release:smoke -- --local']) {
   assertContains(localWalkthrough, expected, 'docs/release/local-synthetic-uat-walkthrough.md');
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
+}
+for (const expected of [
+  'pnpm release:local-preflight',
+  'PRE-020',
+  'LRB-001',
+  'isolated local',
+]) {
+  assertContains(localPreflight, expected, 'docs/release/local-staging-preflight.md');
 }
 
 for (const expected of ['STAGE-IN-001', 'STAGE-IN-008', 'Evidence ref only']) {
@@ -144,14 +156,21 @@ for (const expected of [
   'LRB-013',
   'Do not commit secrets',
   'pnpm release:smoke -- --json',
+  'pnpm release:local-preflight',
   'production-release-runbook.md',
 ]) {
   assertContains(actualLaunchRunbook, expected, 'docs/release/actual-launch-runbook.md');
 }
 
 assertContains(smokeScript, 'SMOKE_REQUIRE_AUTH', 'tools/release/staging-smoke.mjs');
+assertContains(
+  contents.get('tools/release/local-staging-preflight.mjs'),
+  'local-staging-preflight',
+  'tools/release/local-staging-preflight.mjs',
+);
 assertContains(ciWorkflow, 'pnpm launch:execution', '.github/workflows/ci.yml');
 assertContains(packageJson, '"release:smoke"', 'package.json');
+assertContains(packageJson, '"release:local-preflight"', 'package.json');
 
 for (const phrase of [
   'Do not commit secrets',

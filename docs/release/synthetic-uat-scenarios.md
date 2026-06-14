@@ -50,6 +50,7 @@ Use this loop before approved staging exists:
 ```bash
 pnpm release:smoke -- --dry-run
 pnpm release:smoke -- --local
+pnpm release:local-preflight
 pnpm launch:readiness
 pnpm launch:execution
 pnpm docs:frozen
