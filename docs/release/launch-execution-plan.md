@@ -105,7 +105,8 @@ Critical UAT groups:
 Pilot entry criteria:
 
 - Staging exit criteria complete.
-- LRB-005, LRB-006, LRB-007, and LRB-014 resolved.
+- LRB-005, LRB-006, LRB-007, and LRB-014 resolved; current launch scope is
+  synthetic-data-only for pilot/customer data.
 - Pilot users and tenant scope are approved outside the repository.
 
 ## Phase 5 - Production Gate Decisions
@@ -124,6 +125,8 @@ Production entry criteria:
 - `docs/release/security-evidence-index.md` reviewed.
 - Rollback rehearsal completed.
 - Release SHA frozen.
+- Current production release approval ref:
+  `APPROVAL-LRB-013-PROD-RELEASE-2026-06-14`.
 
 ## Phase 6 - Production Release Window
 

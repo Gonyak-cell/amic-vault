@@ -122,8 +122,15 @@ const blockerLedger = contents.get('docs/release/launch-blocker-ledger.md');
 for (const blocker of requiredBlockers) {
   assertContains(blockerLedger, blocker, 'docs/release/launch-blocker-ledger.md');
 }
-assertContains(blockerLedger, 'approval-required', 'docs/release/launch-blocker-ledger.md');
-assertContains(blockerLedger, 'TBD', 'docs/release/launch-blocker-ledger.md');
+for (const approvalRef of [
+  'APPROVAL-LRB-005-2026-06-14',
+  'APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14',
+  'APPROVAL-LRB-011-SYNTH-UAT-2026-06-14',
+  'APPROVAL-LRB-013-PROD-RELEASE-2026-06-14',
+  'APPROVAL-LRB-014-JWS-ADMIN-2026-06-14',
+]) {
+  assertContains(blockerLedger, approvalRef, 'docs/release/launch-blocker-ledger.md');
+}
 
 const staging = contents.get('infra/ci/staging-deploy.yml');
 assertContains(staging, 'launch_readiness_version: 1', 'infra/ci/staging-deploy.yml');
@@ -154,7 +161,12 @@ for (const expected of ['UAT-001', 'UAT-020', 'EV-UAT-020']) {
   assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
 }
 const syntheticUatEvidence = contents.get('docs/release/synthetic-uat-evidence.md');
-for (const expected of ['SYNTH-UAT-TECH-2026-06-14-001', 'technical-pass', 'EV-UAT-020', 'LRB-011']) {
+for (const expected of [
+  'SYNTH-UAT-TECH-2026-06-14-001',
+  'accepted',
+  'EV-UAT-020',
+  'APPROVAL-LRB-011-SYNTH-UAT-2026-06-14',
+]) {
   assertContains(syntheticUatEvidence, expected, 'docs/release/synthetic-uat-evidence.md');
 }
 

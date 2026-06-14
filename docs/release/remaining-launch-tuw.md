@@ -1,6 +1,6 @@
 # Remaining Launch TUW Backlog
 
-Status: ACTIVE - APPROVAL DEPENDENT
+Status: ACTIVE - PRODUCTION EXECUTION PENDING
 
 This backlog decomposes the release-completion lane after R14 technical pass.
 It does not replace the R0-R14 implementation ledger.
@@ -20,18 +20,18 @@ It does not replace the R0-R14 implementation ledger.
 | REL-UAT-SYNTH-TUW-006 | Prepare local synthetic UAT walkthrough. | Codex | none | `docs/release/local-synthetic-uat-walkthrough.md` | prepared |
 | REL-UAT-SCENARIOS-TUW-006A | Expand UAT-001 through UAT-020 into step and negative-check matrix. | Codex | none | `docs/release/synthetic-uat-scenarios.md` | prepared |
 | REL-UAT-TECH-EVIDENCE-TUW-007C | Map UAT-001 through UAT-020 to Codex-executable synthetic technical evidence and validator coverage. | Codex | staging smoke pass, REL-UAT-SCENARIOS-TUW-006A | SYNTH-UAT-TECH-2026-06-14-001 / `pnpm release:uat` | technical-pass |
-| REL-UAT-EXEC-TUW-007 | Execute and accept UAT-001 through UAT-020. | Product/QA/Codex | staging smoke pass, REL-UAT-TECH-EVIDENCE-TUW-007C | UAT evidence refs plus LRB-011 acceptance | technical-ready; acceptance pending |
+| REL-UAT-EXEC-TUW-007 | Execute and accept UAT-001 through UAT-020. | Product/QA/Codex | staging smoke pass, REL-UAT-TECH-EVIDENCE-TUW-007C | UAT evidence refs plus APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 | done |
 | REL-LAUNCH-CONTROL-TUW-007A | Provide one-page launch control sheet. | Codex | REL-SMOKE-AUTO-TUW-004 | `docs/release/launch-control-sheet.md` | prepared |
 | REL-ACTUAL-RUNBOOK-TUW-007B | Provide step-by-step actual launch runbook with commands, owners, evidence, and stop conditions. | Codex | REL-LAUNCH-CONTROL-TUW-007A | `docs/release/actual-launch-runbook.md` | prepared |
-| REL-PILOT-GATE-TUW-008 | Resolve pilot LRB-005/006/007/014. | Legal/Product/Ops | UAT pass | pilot evidence refs | blocked |
-| REL-PROD-GATE-TUW-009 | Resolve production LRB-009/010/011/012/013. | Security/Ops/Operator | pilot gate | production gate evidence refs | blocked |
+| REL-PILOT-GATE-TUW-008 | Resolve pilot LRB-005/006/007/014. | Legal/Product/Ops | UAT pass | APPROVAL-LRB-005-2026-06-14, APPROVAL-LRB-006-2026-06-14, APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14, APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 | done |
+| REL-PROD-GATE-TUW-009 | Resolve production LRB-009/010/011/012/013. | Security/Ops/Operator | pilot gate | APPROVAL-LRB-009-2026-06-14, APPROVAL-LRB-010-2026-06-14, APPROVAL-LRB-011-SYNTH-UAT-2026-06-14, APPROVAL-LRB-012-RESTORE-2026-06-14, APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 | done |
 | REL-BACKUP-RESTORE-DRILL-TUW-009A | Execute non-production AWS staging backup/restore technical rehearsal. | Codex/Ops | REL-STAGE-RUNTIME-RLS-TUW-005A | EV-PROD-004 / RESTORE-DRILL-AWS-001 | technical-pass |
-| REL-PROD-REL-TUW-010 | Execute production release runbook. | Ops/Codex | production gate approved | production release evidence ref | blocked |
+| REL-PROD-REL-TUW-010 | Execute production release runbook. | Ops/Codex | production gate approved | production release evidence ref | ready |
 | REL-MONITOR-TUW-011 | Start post-launch monitoring window. | Ops/Security | production release | monitoring window evidence ref | blocked |
 
 ## Stop Conditions
 
-- Any approval-required LRB lacks an evidence ref at its gate.
+- Any release gate approval lacks an evidence ref at its gate.
 - Any secret, private endpoint, token, cookie, or real customer document would
   need to be committed to the repository.
 - Any permission, tenant isolation, audit, DLP, records, external portal, or AI

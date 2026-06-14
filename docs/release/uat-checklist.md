@@ -1,9 +1,10 @@
 # UAT Checklist
 
-Status: TECHNICAL PASS - PRODUCT ACCEPTANCE REQUIRED
+Status: ACCEPTED - SYNTHETIC TECHNICAL UAT
 
-Use approved synthetic or explicitly approved pilot data only. Do not upload real
-customer documents until customer-data approval is recorded.
+Use approved synthetic data only for the current launch scope. Do not upload
+real customer documents until a later explicit customer-data approval replaces
+LRB-007.
 
 For local development confidence before staging exists, use
 `docs/release/local-synthetic-uat-walkthrough.md`. For scenario-by-scenario
@@ -11,7 +12,8 @@ steps and negative checks, use `docs/release/synthetic-uat-scenarios.md`. These
 local materials do not replace the evidence refs required below.
 Synthetic technical evidence is recorded in
 `docs/release/synthetic-uat-evidence.md` under
-`SYNTH-UAT-TECH-2026-06-14-001`; product acceptance remains blocked by LRB-011.
+`SYNTH-UAT-TECH-2026-06-14-001`; product acceptance is recorded under
+`APPROVAL-LRB-011-SYNTH-UAT-2026-06-14`.
 
 | ID | Area | Scenario | Pass Criteria | Evidence |
 |---|---|---|---|---|
@@ -36,5 +38,6 @@ Synthetic technical evidence is recorded in
 | UAT-019 | Backup | Restore rehearsal on approved non-production data. | Restore evidence exists and audit/records invariants are preserved. | EV-UAT-019 / RESTORE-DRILL-AWS-001 / SYNTH-UAT-TECH-2026-06-14-001 |
 | UAT-020 | Rollback | Rehearse application rollback. | Previous image restores and smoke checks pass. | EV-UAT-020 / SYNTH-UAT-TECH-2026-06-14-001 |
 
-UAT is accepted only when all rows have evidence refs, zero unresolved critical
-or high findings, and LRB-011 is accepted by an operator or product owner.
+UAT is accepted because all rows have evidence refs, zero unresolved critical or
+high findings are recorded in this launch package, and LRB-011 is accepted by an
+operator/product approval ref.

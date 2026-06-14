@@ -22,37 +22,37 @@ product release boundary.
   blockers 0.
 - Release-candidate PR baseline: PR #66, PR #67, PR #68, and PR #69 merged.
 - Latest verified candidate CI baseline: PR #69 checks green before merge.
-- Deployment baseline: AWS staging-opening decisions are approved, but staging
-  and production deployments remain disabled until resource provisioning,
-  runtime secret placement, image push, smoke, UAT, and later gates complete.
+- Deployment baseline: AWS staging technical deployment, smoke, UAT technical
+  evidence, and approval refs are recorded. Production execution remains a
+  separate runbook step.
 
 ## Deliverables
 
 | Deliverable | Path | Status |
 |---|---|---|
-| Staging deployment contract | `infra/ci/staging-deploy.yml` | Prepared, disabled pending AWS provisioning |
-| Staging deployment plan | `docs/release/staging-deployment-plan.md` | AWS staging decisions approved, deploy not executed |
-| Production gate contract | `infra/ci/prod-gate.yml` | Prepared, disabled pending approvals |
+| Staging deployment contract | `infra/ci/staging-deploy.yml` | Prepared; staging technical evidence recorded separately |
+| Staging deployment plan | `docs/release/staging-deployment-plan.md` | AWS staging technical pass recorded |
+| Production gate contract | `infra/ci/prod-gate.yml` | Prepared; approvals recorded, deploy disabled until explicit execution |
 | Production gate policy | `infra/ci/PROD_GATE.md` | Updated |
-| Production release runbook | `docs/release/production-release-runbook.md` | Prepared |
+| Production release runbook | `docs/release/production-release-runbook.md` | Approved, execution pending |
 | Rollback runbook | `docs/release/rollback-runbook.md` | Prepared |
-| UAT checklist | `docs/release/uat-checklist.md` | Prepared |
-| Synthetic UAT technical evidence | `docs/release/synthetic-uat-evidence.md` | Technical pass; product acceptance pending |
+| UAT checklist | `docs/release/uat-checklist.md` | Accepted |
+| Synthetic UAT technical evidence | `docs/release/synthetic-uat-evidence.md` | Accepted under LRB-011 |
 | Launch execution plan | `docs/release/launch-execution-plan.md` | Prepared |
-| Operator decision sheet | `docs/release/operator-decision-sheet.md` | AWS staging decisions approved; pilot/prod unresolved |
-| UAT evidence template | `docs/release/uat-evidence-template.md` | Prepared, not executed |
-| Staging smoke plan | `docs/release/staging-smoke-plan.md` | Prepared, awaits staging target |
+| Operator decision sheet | `docs/release/operator-decision-sheet.md` | Pilot/prod approvals recorded |
+| UAT evidence template | `docs/release/uat-evidence-template.md` | Accepted |
+| Staging smoke plan | `docs/release/staging-smoke-plan.md` | Staging smoke evidence recorded |
 | Security evidence index | `docs/release/security-evidence-index.md` | Prepared |
-| Launch blocker ledger | `docs/release/launch-blocker-ledger.md` | AWS staging decisions approved; pilot/prod unresolved |
-| RC freeze decision pack | `docs/release/rc-freeze-decision-pack.md` | Prepared, awaits operator decision |
+| Launch blocker ledger | `docs/release/launch-blocker-ledger.md` | Approvals recorded |
+| RC freeze decision pack | `docs/release/rc-freeze-decision-pack.md` | Approved |
 | RC release notes | `docs/release/release-notes-rc-9e346d9.md` | Draft |
 | Evidence register | `docs/release/evidence-register.md` | Prepared |
 | Remaining launch TUW backlog | `docs/release/remaining-launch-tuw.md` | Prepared |
 | Local synthetic UAT walkthrough | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared |
 | Local staging preflight | `docs/release/local-staging-preflight.md` | Passed locally |
-| Actual launch runbook | `docs/release/actual-launch-runbook.md` | Prepared, awaits operator inputs |
+| Actual launch runbook | `docs/release/actual-launch-runbook.md` | Prepared; approvals recorded, execution pending |
 | Staging smoke env template | `docs/release/env.staging-smoke.example` | Prepared, placeholders only |
-| Staging input checklist | `docs/release/staging-input-checklist.md` | AWS staging decisions approved, provisioning pending |
+| Staging input checklist | `docs/release/staging-input-checklist.md` | AWS staging decisions approved |
 | Synthetic UAT scenarios | `docs/release/synthetic-uat-scenarios.md` | Prepared, local/staging execution paths |
 | Launch control sheet | `docs/release/launch-control-sheet.md` | Prepared |
 | Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
@@ -96,13 +96,15 @@ product release boundary.
 - `git diff --check` passes.
 - No launch artifact contains real secrets, real customer data, or external
   endpoint credentials.
-- Every remaining human/company decision is listed as an `approval-required`
-  blocker, while approved AWS staging decisions retain non-secret evidence refs.
-- Deployment skeletons remain disabled until those blockers are resolved.
+- Every launch decision is recorded with a non-secret evidence ref.
+- Deployment skeletons remain disabled until the real production execution path
+  is intentionally opened and run.
 
 ## Current Launch Status
 
 Machine-actionable launch preparation is complete for this pack. AWS staging
-decisions are approved, but product launch itself is blocked by AWS resource
-provisioning, staging smoke/UAT execution, and the remaining approval-required
-items in `docs/release/launch-blocker-ledger.md`.
+decisions, pilot decisions, UAT acceptance, restore acceptance, security review,
+Risk=C disposition, production release approval, and support ownership are
+recorded in `docs/release/launch-blocker-ledger.md`. Actual production
+deployment remains a separate execution step governed by
+`docs/release/production-release-runbook.md`.

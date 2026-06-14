@@ -1,17 +1,19 @@
 # Production Release Runbook
 
-Status: PREPARED - PRODUCTION DISABLED UNTIL APPROVALS
+Status: APPROVED - PRODUCTION EXECUTION PENDING
 
 ## Entry Criteria
 
 - `infra/ci/prod-gate.yml` required-before-continue items are satisfied.
-- Every `approval-required` row in `docs/release/launch-blocker-ledger.md` is
-  resolved with an evidence reference.
+- Every launch blocker row in `docs/release/launch-blocker-ledger.md` is
+  approved with an evidence reference.
 - Staging deployment and UAT are green.
 - Security evidence index is reviewed.
 - Rollback runbook is rehearsed.
 - Production data handling, legal terms, pricing, support, and operator
   sign-off are recorded outside the repository or by an approved ledger entry.
+- Current release approval ref is
+  `APPROVAL-LRB-013-PROD-RELEASE-2026-06-14`.
 
 ## Release Steps
 
