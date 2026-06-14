@@ -1,6 +1,6 @@
 # UAT Evidence Template
 
-Status: TEMPLATE - NOT EXECUTED
+Status: PARTIAL - UAT-001 PASSED, REMAINING ROWS TEMPLATE
 
 Use approved synthetic data unless LRB-007 explicitly approves pilot customer
 data and controls. Evidence refs may point to external systems when they include
@@ -12,7 +12,7 @@ accept UAT for staging or production.
 
 | UAT ID | Result | Evidence Ref | Notes |
 |---|---|---|---|
-| UAT-001 | TBD | TBD | Auth and tenant context. |
+| UAT-001 | pass | EV-UAT-001 / STAGE-RUNTIME-RLS-AWS-001 | Auth, tenant context, unauthenticated redirect, authenticated dashboard, tenant-scoped API response, and negative role denial passed in staging smoke. |
 | UAT-002 | TBD | TBD | Client, matter, party, team, audit, non-member denial. |
 | UAT-003 | TBD | TBD | Ethical wall denial across search, document, email, graph, AI, external. |
 | UAT-004 | TBD | TBD | Upload, version, preview, download, soft-delete, audit. |

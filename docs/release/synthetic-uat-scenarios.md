@@ -1,7 +1,7 @@
 # Synthetic UAT Scenarios
 
-Status: PREPARED - LOCAL ONLY UNTIL STAGING APPROVAL
-Date: 2026-06-13
+Status: STAGING AVAILABLE - SYNTHETIC ONLY
+Date: 2026-06-14
 
 These scenarios expand UAT-001 through UAT-020 into executable paths. They use
 seeded development tenants locally, or approved synthetic/pilot data in staging.
