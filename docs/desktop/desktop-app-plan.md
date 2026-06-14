@@ -1,8 +1,8 @@
 # AMIC Vault Desktop App Plan
 
-Status: Phase 1 implemented
+Status: Phase 2 implemented
 Date: 2026-06-14
-Owner: Codex implementation branch `codex/desktop-pwa-phase1`
+Owner: Codex implementation branches `codex/desktop-pwa-phase1`, `codex/desktop-pwa-phase2`
 Related ADR: `docs/adr/ADR-014-desktop-client-strategy.md`
 
 ## Position
@@ -33,16 +33,28 @@ Electron and fully native rewrites are fallback paths, not the recommended imple
 - Document view/download desktop regression confirms server-side `DOCUMENT_VIEWED`/`DOCUMENT_DOWNLOADED` audit events plus no-store response headers.
 - Claude Code `ultrareview` could not launch because free ultrareviews were exhausted. Claude Code `opus` xhigh read-only review was run twice; the first Medium finding about direct `fetch()` no-store gaps was fixed, and the second review returned no findings.
 
+## Phase 2 Implementation Evidence
+
+- Launch evidence register records `EV-DESKTOP-001` through `EV-DESKTOP-004`
+  for desktop implementation, smoke, UAT addendum, and rollback readiness.
+- Staging smoke automation includes SMOKE-012 through SMOKE-015 for manifest,
+  service worker cache policy, safe offline shell, and installability metadata.
+- Synthetic UAT scenarios include DESKTOP-UAT-001 through DESKTOP-UAT-005
+  without expanding the synthetic-only launch data scope.
+- Rollback runbook includes a PWA rollback path for disabling registration,
+  unregistering service workers, deleting desktop shell caches, and returning
+  users to browser-only access.
+
 ## Non-Negotiable Desktop Invariants
 
-| Invariant | Desktop Interpretation |
-|---|---|
-| Permission-before-search | Desktop never builds a local searchable corpus; all search stays server-scoped. |
-| Permission-before-AI | Desktop never sends local document content to AI; AI calls stay server-gated. |
-| Audit-by-default | View/download/native-open paths must retain server audit events. |
-| Fail-closed | Missing origin, session, update, policy, or capability config blocks access. |
-| Immutable original | Desktop cannot overwrite or mutate stored originals locally. |
-| No silent external sharing | Desktop cannot expose share sheets, native mail compose, public links, or external handoff without the server-approved R11+ path. |
+| Invariant                    | Desktop Interpretation                                                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Permission-before-search     | Desktop never builds a local searchable corpus; all search stays server-scoped.                                                                                     |
+| Permission-before-AI         | Desktop never sends local document content to AI; AI calls stay server-gated.                                                                                       |
+| Audit-by-default             | View/download/native-open paths must retain server audit events.                                                                                                    |
+| Fail-closed                  | Missing origin, session, update, policy, or capability config blocks access.                                                                                        |
+| Immutable original           | Desktop cannot overwrite or mutate stored originals locally.                                                                                                        |
+| No silent external sharing   | Desktop cannot expose share sheets, native mail compose, public links, or external handoff without the server-approved R11+ path.                                   |
 | Sensitive data is not logged | Desktop logs contain only app version, approved origin ref, OS, release channel, and correlation refs, not document text, names, snippets, tokens, or private URLs. |
 
 ## Recommended Architecture
@@ -83,12 +95,12 @@ Goal: freeze the desktop strategy before code changes.
 
 Tasks:
 
-| ID | Task | Files |
-|---|---|---|
-| DESKTOP-PLAN-001 | Accept or revise ADR-014 with operator review. | `docs/adr/ADR-014-desktop-client-strategy.md` |
-| DESKTOP-PLAN-002 | Create desktop threat model covering browser PWA, Tauri webview, update server, deep links, local logs, and downloads. | `docs/security/desktop-threat-model.md` |
-| DESKTOP-PLAN-003 | Define approved origins and environment names for local, staging, production. | `docs/release/desktop-origin-policy.md` |
-| DESKTOP-PLAN-004 | Define cache classification for every web/API route. | `docs/security/desktop-cache-policy.md` |
+| ID               | Task                                                                                                                   | Files                                         |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| DESKTOP-PLAN-001 | Accept or revise ADR-014 with operator review.                                                                         | `docs/adr/ADR-014-desktop-client-strategy.md` |
+| DESKTOP-PLAN-002 | Create desktop threat model covering browser PWA, Tauri webview, update server, deep links, local logs, and downloads. | `docs/security/desktop-threat-model.md`       |
+| DESKTOP-PLAN-003 | Define approved origins and environment names for local, staging, production.                                          | `docs/release/desktop-origin-policy.md`       |
+| DESKTOP-PLAN-004 | Define cache classification for every web/API route.                                                                   | `docs/security/desktop-cache-policy.md`       |
 
 Exit criteria:
 
@@ -103,13 +115,13 @@ Goal: make the existing web app desktop-installable without sensitive offline da
 
 Tasks:
 
-| ID | Task | Files |
-|---|---|---|
-| DESKTOP-PWA-001 | Add web app manifest with AMIC Vault app identity, icons, theme colors, and standalone display. | `apps/web/public/manifest.webmanifest`, `apps/web/src/app/layout.tsx` |
-| DESKTOP-PWA-002 | Add icon set for macOS/Windows/browser install surfaces. | `apps/web/public/icons/*` |
-| DESKTOP-PWA-003 | Add minimal service worker that caches only static build assets and app-shell fonts. | `apps/web/public/sw.js`, `apps/web/src/app/pwa-registration.tsx` |
-| DESKTOP-PWA-004 | Enforce `no-store` for sensitive routes and API responses in web middleware/config. | `apps/web/src/middleware.ts`, `apps/web/next.config.mjs` |
-| DESKTOP-PWA-005 | Add install/offline UX that never displays cached matter/document/search content. | `apps/web/src/components/pwa/*` |
+| ID              | Task                                                                                                                                                                      | Files                                                                                                                                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DESKTOP-PWA-001 | Add web app manifest with AMIC Vault app identity, icons, theme colors, and standalone display.                                                                           | `apps/web/public/manifest.webmanifest`, `apps/web/src/app/layout.tsx`                                                                                                                                                                                      |
+| DESKTOP-PWA-002 | Add icon set for macOS/Windows/browser install surfaces.                                                                                                                  | `apps/web/public/icons/*`                                                                                                                                                                                                                                  |
+| DESKTOP-PWA-003 | Add minimal service worker that caches only static build assets and app-shell fonts.                                                                                      | `apps/web/public/sw.js`, `apps/web/src/app/pwa-registration.tsx`                                                                                                                                                                                           |
+| DESKTOP-PWA-004 | Enforce `no-store` for sensitive routes and API responses in web middleware/config.                                                                                       | `apps/web/src/middleware.ts`, `apps/web/next.config.mjs`                                                                                                                                                                                                   |
+| DESKTOP-PWA-005 | Add install/offline UX that never displays cached matter/document/search content.                                                                                         | `apps/web/src/components/pwa/*`                                                                                                                                                                                                                            |
 | DESKTOP-PWA-006 | Add tests for manifest validity, cache allow-list, offline behavior, and no sensitive cache keys. Route integration specs into existing canonical suite directories only. | `apps/web/src/**/*.test.tsx`, `tests/integration/metadata-leakage/desktop-offline-leakage.int.spec.ts`, `tests/integration/document-access/desktop-document-cache.int.spec.ts`, `tests/integration/audit-coverage/desktop-view-download-audit.int.spec.ts` |
 
 Cache allow-list:
@@ -150,12 +162,12 @@ Goal: connect PWA desktop behavior to launch evidence.
 
 Tasks:
 
-| ID | Task | Files |
-|---|---|---|
-| DESKTOP-EVID-001 | Add desktop/PWA rows to launch readiness and evidence register. | `docs/release/launch-readiness-pack.md`, `docs/release/evidence-register.md` |
-| DESKTOP-EVID-002 | Add smoke checks for manifest, service worker, offline safe screen, and desktop installability. | `tools/release/staging-smoke.mjs` |
-| DESKTOP-EVID-003 | Add staging UAT scenarios for installed app launch, login redirect, document view audit, denied search, and offline safe failure. | `docs/release/synthetic-uat-scenarios.md` |
-| DESKTOP-EVID-004 | Add incident and rollback notes for disabling service worker registrations. | `docs/release/rollback-runbook.md` |
+| ID               | Task                                                                                                                              | Files                                                                        |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| DESKTOP-EVID-001 | Add desktop/PWA rows to launch readiness and evidence register.                                                                   | `docs/release/launch-readiness-pack.md`, `docs/release/evidence-register.md` |
+| DESKTOP-EVID-002 | Add smoke checks for manifest, service worker, offline safe screen, and desktop installability.                                   | `tools/release/staging-smoke.mjs`                                            |
+| DESKTOP-EVID-003 | Add staging UAT scenarios for installed app launch, login redirect, document view audit, denied search, and offline safe failure. | `docs/release/synthetic-uat-scenarios.md`                                    |
+| DESKTOP-EVID-004 | Add incident and rollback notes for disabling service worker registrations.                                                       | `docs/release/rollback-runbook.md`                                           |
 
 Exit criteria:
 
@@ -169,14 +181,14 @@ Goal: prove a native installer can wrap the approved Vault origin without expand
 
 Tasks:
 
-| ID | Task | Files |
-|---|---|---|
-| DESKTOP-TAURI-001 | Create `apps/desktop` package scaffold with Tauri v2, configured as a thin shell. | `apps/desktop/*`, `pnpm-workspace.yaml`, `turbo.json` |
-| DESKTOP-TAURI-002 | Load only allow-listed Vault origins from signed config. | `apps/desktop/src-tauri/*` |
-| DESKTOP-TAURI-003 | Disable native capabilities by default; add explicit capability tests. | `apps/desktop/src-tauri/capabilities/*` |
-| DESKTOP-TAURI-004 | Add macOS and Windows signing/notarization planning docs without committing secrets. | `docs/release/desktop-signing-plan.md` |
-| DESKTOP-TAURI-005 | Add updater policy requiring signed artifacts and approved update channel. | `docs/release/desktop-update-policy.md` |
-| DESKTOP-TAURI-006 | Add shell QA: origin allow-list, blocked unapproved origin, no local document persistence, update signature failure blocks. | `apps/desktop/tests/*` |
+| ID                | Task                                                                                                                        | Files                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| DESKTOP-TAURI-001 | Create `apps/desktop` package scaffold with Tauri v2, configured as a thin shell.                                           | `apps/desktop/*`, `pnpm-workspace.yaml`, `turbo.json` |
+| DESKTOP-TAURI-002 | Load only allow-listed Vault origins from signed config.                                                                    | `apps/desktop/src-tauri/*`                            |
+| DESKTOP-TAURI-003 | Disable native capabilities by default; add explicit capability tests.                                                      | `apps/desktop/src-tauri/capabilities/*`               |
+| DESKTOP-TAURI-004 | Add macOS and Windows signing/notarization planning docs without committing secrets.                                        | `docs/release/desktop-signing-plan.md`                |
+| DESKTOP-TAURI-005 | Add updater policy requiring signed artifacts and approved update channel.                                                  | `docs/release/desktop-update-policy.md`               |
+| DESKTOP-TAURI-006 | Add shell QA: origin allow-list, blocked unapproved origin, no local document persistence, update signature failure blocks. | `apps/desktop/tests/*`                                |
 
 Tauri shell rules:
 
@@ -202,13 +214,13 @@ Goal: prepare real IT deployment without weakening security controls.
 
 Tasks:
 
-| ID | Task | Files |
-|---|---|---|
-| DESKTOP-PKG-001 | Create macOS notarization procedure. | `docs/release/desktop-macos-distribution.md` |
-| DESKTOP-PKG-002 | Create Windows signing/MSIX or installer procedure. | `docs/release/desktop-windows-distribution.md` |
-| DESKTOP-PKG-003 | Define release channels: local, staging, pilot, production. | `docs/release/desktop-release-channels.md` |
-| DESKTOP-PKG-004 | Define customer IT handoff pack: hashes, signer identity, update URL refs, rollback instructions. | `docs/release/desktop-it-handoff.md` |
-| DESKTOP-PKG-005 | Add production gate rows for desktop artifact signing and update-channel approval. | `infra/ci/PROD_GATE.md`, `infra/ci/prod-gate.yml` |
+| ID              | Task                                                                                              | Files                                             |
+| --------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| DESKTOP-PKG-001 | Create macOS notarization procedure.                                                              | `docs/release/desktop-macos-distribution.md`      |
+| DESKTOP-PKG-002 | Create Windows signing/MSIX or installer procedure.                                               | `docs/release/desktop-windows-distribution.md`    |
+| DESKTOP-PKG-003 | Define release channels: local, staging, pilot, production.                                       | `docs/release/desktop-release-channels.md`        |
+| DESKTOP-PKG-004 | Define customer IT handoff pack: hashes, signer identity, update URL refs, rollback instructions. | `docs/release/desktop-it-handoff.md`              |
+| DESKTOP-PKG-005 | Add production gate rows for desktop artifact signing and update-channel approval.                | `infra/ci/PROD_GATE.md`, `infra/ci/prod-gate.yml` |
 
 Exit criteria:
 
@@ -242,16 +254,16 @@ Each item requires:
 
 ## Validation Matrix
 
-| Risk | Required Test |
-|---|---|
-| Sensitive route cached | Static cache manifest and runtime cache deny-list tests |
-| Search leakage offline | Offline `/search` shows safe unavailable state only |
-| Document body persisted | Browser storage and service worker cache inspection |
-| Session/token leaked in logs | log fixture scan for token/cookie/private URL patterns |
-| Native origin spoofing | Tauri origin allow-list tests |
-| Native capability bypass | Tauri capability deny-by-default tests |
-| Audit missing on native open/download | API integration test proves server audit event before response |
-| Production auto-deploy by accident | `infra/ci/prod-gate.yml` remains disabled until explicit production execution |
+| Risk                                  | Required Test                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| Sensitive route cached                | Static cache manifest and runtime cache deny-list tests                       |
+| Search leakage offline                | Offline `/search` shows safe unavailable state only                           |
+| Document body persisted               | Browser storage and service worker cache inspection                           |
+| Session/token leaked in logs          | log fixture scan for token/cookie/private URL patterns                        |
+| Native origin spoofing                | Tauri origin allow-list tests                                                 |
+| Native capability bypass              | Tauri capability deny-by-default tests                                        |
+| Audit missing on native open/download | API integration test proves server audit event before response                |
+| Production auto-deploy by accident    | `infra/ci/prod-gate.yml` remains disabled until explicit production execution |
 
 ## Suggested Branch And Review Flow
 

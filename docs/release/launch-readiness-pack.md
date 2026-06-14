@@ -29,48 +29,52 @@ data, or raw smoke artifacts.
 
 ## Deliverables
 
-| Deliverable | Path | Status |
-|---|---|---|
-| Staging deployment contract | `infra/ci/staging-deploy.yml` | Prepared; staging technical evidence recorded separately |
-| Staging deployment plan | `docs/release/staging-deployment-plan.md` | AWS staging technical pass recorded |
-| Production gate contract | `infra/ci/prod-gate.yml` | Prepared; approvals recorded, deploy disabled until explicit execution |
-| Production gate policy | `infra/ci/PROD_GATE.md` | Updated |
-| Production release runbook | `docs/release/production-release-runbook.md` | Deployed; post-launch monitoring active |
-| Production execution preflight | `docs/release/production-execution-preflight.md` | Passed; production smoke recorded |
-| Rollback runbook | `docs/release/rollback-runbook.md` | Prepared |
-| UAT checklist | `docs/release/uat-checklist.md` | Accepted |
-| Synthetic UAT technical evidence | `docs/release/synthetic-uat-evidence.md` | Accepted under LRB-011 |
-| Launch execution plan | `docs/release/launch-execution-plan.md` | Prepared |
-| Operator decision sheet | `docs/release/operator-decision-sheet.md` | Pilot/prod approvals recorded |
-| UAT evidence template | `docs/release/uat-evidence-template.md` | Accepted |
-| Staging smoke plan | `docs/release/staging-smoke-plan.md` | Staging smoke evidence recorded |
-| Security evidence index | `docs/release/security-evidence-index.md` | Prepared |
-| Launch blocker ledger | `docs/release/launch-blocker-ledger.md` | Approvals recorded |
-| RC freeze decision pack | `docs/release/rc-freeze-decision-pack.md` | Approved |
-| RC release notes | `docs/release/release-notes-rc-9e346d9.md` | Draft |
-| Evidence register | `docs/release/evidence-register.md` | Prepared |
-| Remaining launch TUW backlog | `docs/release/remaining-launch-tuw.md` | Prepared |
-| Local synthetic UAT walkthrough | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared |
-| Local staging preflight | `docs/release/local-staging-preflight.md` | Passed locally |
-| Actual launch runbook | `docs/release/actual-launch-runbook.md` | Production execution recorded |
-| Staging smoke env template | `docs/release/env.staging-smoke.example` | Prepared, placeholders only |
-| Staging input checklist | `docs/release/staging-input-checklist.md` | AWS staging decisions approved |
-| Synthetic UAT scenarios | `docs/release/synthetic-uat-scenarios.md` | Prepared, local/staging execution paths |
-| Launch control sheet | `docs/release/launch-control-sheet.md` | Production deployed; monitoring active |
-| Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
-| Synthetic UAT validator | `tools/release/synthetic-uat-evidence.mjs` | CI wired |
-| Local staging preflight automation | `tools/release/local-staging-preflight.mjs` | Prepared and executed locally |
-| Production release preflight validator | `tools/release/production-release-preflight.mjs` | CI wired |
-| Readiness validator | `tools/release/check-launch-readiness.mjs` | CI wired |
-| Execution validator | `tools/release/check-launch-execution.mjs` | CI wired |
+| Deliverable                            | Path                                              | Status                                                                 |
+| -------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| Staging deployment contract            | `infra/ci/staging-deploy.yml`                     | Prepared; staging technical evidence recorded separately               |
+| Staging deployment plan                | `docs/release/staging-deployment-plan.md`         | AWS staging technical pass recorded                                    |
+| Production gate contract               | `infra/ci/prod-gate.yml`                          | Prepared; approvals recorded, deploy disabled until explicit execution |
+| Production gate policy                 | `infra/ci/PROD_GATE.md`                           | Updated                                                                |
+| Production release runbook             | `docs/release/production-release-runbook.md`      | Deployed; post-launch monitoring active                                |
+| Production execution preflight         | `docs/release/production-execution-preflight.md`  | Passed; production smoke recorded                                      |
+| Rollback runbook                       | `docs/release/rollback-runbook.md`                | Prepared                                                               |
+| UAT checklist                          | `docs/release/uat-checklist.md`                   | Accepted                                                               |
+| Synthetic UAT technical evidence       | `docs/release/synthetic-uat-evidence.md`          | Accepted under LRB-011                                                 |
+| Launch execution plan                  | `docs/release/launch-execution-plan.md`           | Prepared                                                               |
+| Operator decision sheet                | `docs/release/operator-decision-sheet.md`         | Pilot/prod approvals recorded                                          |
+| UAT evidence template                  | `docs/release/uat-evidence-template.md`           | Accepted                                                               |
+| Staging smoke plan                     | `docs/release/staging-smoke-plan.md`              | Staging smoke evidence recorded                                        |
+| Security evidence index                | `docs/release/security-evidence-index.md`         | Prepared                                                               |
+| Launch blocker ledger                  | `docs/release/launch-blocker-ledger.md`           | Approvals recorded                                                     |
+| RC freeze decision pack                | `docs/release/rc-freeze-decision-pack.md`         | Approved                                                               |
+| RC release notes                       | `docs/release/release-notes-rc-9e346d9.md`        | Draft                                                                  |
+| Evidence register                      | `docs/release/evidence-register.md`               | Prepared                                                               |
+| Remaining launch TUW backlog           | `docs/release/remaining-launch-tuw.md`            | Prepared                                                               |
+| Local synthetic UAT walkthrough        | `docs/release/local-synthetic-uat-walkthrough.md` | Prepared                                                               |
+| Local staging preflight                | `docs/release/local-staging-preflight.md`         | Passed locally                                                         |
+| Actual launch runbook                  | `docs/release/actual-launch-runbook.md`           | Production execution recorded                                          |
+| Staging smoke env template             | `docs/release/env.staging-smoke.example`          | Prepared, placeholders only                                            |
+| Staging input checklist                | `docs/release/staging-input-checklist.md`         | AWS staging decisions approved                                         |
+| Synthetic UAT scenarios                | `docs/release/synthetic-uat-scenarios.md`         | Prepared, local/staging execution paths                                |
+| Launch control sheet                   | `docs/release/launch-control-sheet.md`            | Production deployed; monitoring active                                 |
+| Desktop app plan                       | `docs/desktop/desktop-app-plan.md`                | Phase 2 release evidence connected                                     |
+| Desktop threat model                   | `docs/security/desktop-threat-model.md`           | Prepared                                                               |
+| Desktop cache policy                   | `docs/security/desktop-cache-policy.md`           | Enforced by PWA smoke and integration tests                            |
+| Desktop origin policy                  | `docs/release/desktop-origin-policy.md`           | Prepared; no private endpoint values                                   |
+| Staging smoke automation               | `tools/release/staging-smoke.mjs`                 | Prepared                                                               |
+| Synthetic UAT validator                | `tools/release/synthetic-uat-evidence.mjs`        | CI wired                                                               |
+| Local staging preflight automation     | `tools/release/local-staging-preflight.mjs`       | Prepared and executed locally                                          |
+| Production release preflight validator | `tools/release/production-release-preflight.mjs`  | CI wired                                                               |
+| Readiness validator                    | `tools/release/check-launch-readiness.mjs`        | CI wired                                                               |
+| Execution validator                    | `tools/release/check-launch-execution.mjs`        | CI wired                                                               |
 
 ## Launch Modes
 
-| Mode | Purpose | Required before entry |
-|---|---|---|
+| Mode             | Purpose                                                             | Required before entry                                                                  |
+| ---------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Internal staging | Exercise deployment, smoke tests, and UAT with synthetic data only. | AWS resources provisioned, runtime secrets placed outside repo, image digests recorded |
-| Controlled pilot | Limited operator-approved users and approved customer/test data. | Staging green, security review, legal/customer data approval |
-| GA | Production availability for the approved market scope. | All launch blockers resolved and production gate signed |
+| Controlled pilot | Limited operator-approved users and approved customer/test data.    | Staging green, security review, legal/customer data approval                           |
+| GA               | Production availability for the approved market scope.              | All launch blockers resolved and production gate signed                                |
 
 ## Invariants
 
@@ -93,8 +97,11 @@ data, or raw smoke artifacts.
   with `PROD-SMOKE-AWS-001`.
 - CI `verify` runs both `pnpm launch:readiness` and `pnpm launch:execution`.
 - `pnpm release:smoke -- --dry-run` passes.
+- `pnpm release:smoke -- --dry-run` includes SMOKE-012 through SMOKE-015
+  desktop PWA checks.
 - `pnpm release:smoke -- --local` passes when local Web/API/dev infra are
-  running with seeded development data.
+  running with seeded development data, including desktop manifest, service
+  worker, offline shell, and installability checks.
 - `pnpm release:local-preflight` passes before approved staging credentials are
   requested.
 - `pnpm docs:frozen` passes.
@@ -114,4 +121,6 @@ and support ownership are recorded in `docs/release/launch-blocker-ledger.md`.
 Production release evidence is governed by
 `docs/release/production-execution-preflight.md` and
 `docs/release/production-release-runbook.md`; post-launch monitoring remains
-active under `PROD-MONITOR-AWS-001`.
+active under `PROD-MONITOR-AWS-001`. Desktop/PWA release evidence is tracked in
+`EV-DESKTOP-001` through `EV-DESKTOP-004`; installed app behavior remains a
+server-authoritative access layer, not a local vault runtime.
