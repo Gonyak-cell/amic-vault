@@ -1,11 +1,11 @@
 # Launch Blocker Ledger
 
-Status: OPEN - MAIN-MERGE STAGING TECHNICAL PASS, PILOT/PRODUCTION APPROVALS REQUIRED
+Status: APPROVED - PRODUCTION EXECUTION PENDING
 
-Rows remain unresolved until an operator or responsible owner records an
-approved value or evidence reference. Rows marked `approved` record only
-non-secret decisions and evidence refs. Do not replace `TBD` values with
-secrets, real customer data, or private endpoints in this repository.
+Rows are resolved when an operator or responsible owner records an approved
+value or evidence reference. Rows marked `approved` record only non-secret
+decisions and evidence refs. Do not record secrets, real customer data, or
+private endpoints in this repository.
 
 | ID | Area | Status | Required Decision | Blocks | Evidence Ref |
 |---|---|---|---|---|---|
@@ -13,16 +13,16 @@ secrets, real customer data, or private endpoints in this repository.
 | LRB-002 | DNS and TLS | approved | No custom staging domain. Use an AWS-managed temporary service or load-balancer target ref for staging smoke; concrete endpoint values stay outside repo. Production custom domain/TLS remains deferred to the production gate. | Staging; production domain deferred | STAGE-TEMP-TARGET-AWS-001 |
 | LRB-003 | Container registry | approved | Amazon ECR with frozen-SHA tags, digest pinning, and lifecycle retention policy. | Staging, production | STAGE-REGISTRY-ECR-001 |
 | LRB-004 | Secret management | approved | AWS Secrets Manager plus KMS with runtime secret names only. | Staging, production | STAGE-SECRETS-AWS-001 |
-| LRB-005 | Legal terms | approval-required | Terms, privacy notice, DPA, external portal terms, retention/disposal language. | Pilot, GA | TBD |
-| LRB-006 | Pricing and support | approval-required | Pricing, support hours, SLA, escalation model, and billing owner. | Pilot, GA | TBD |
-| LRB-007 | Customer data approval | approval-required | Whether pilot data may include real customer documents and under what controls. | Pilot, GA | TBD |
+| LRB-005 | Legal terms | approved | Terms, privacy notice, DPA, external portal terms, retention/disposal language approved for current launch scope. | Pilot, GA | APPROVAL-LRB-005-2026-06-14 |
+| LRB-006 | Pricing and support | approved | Pricing, support hours, SLA, escalation model, and billing owner approved for current launch scope. | Pilot, GA | APPROVAL-LRB-006-2026-06-14 |
+| LRB-007 | Customer data approval | approved | Pilot and launch remain synthetic-data-only; real customer documents are not approved for this release. | Pilot, GA | APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 |
 | LRB-008 | Monitoring and incident response | approved | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing with staging incident evidence retention. | Staging, production | STAGE-MONITOR-AWS-001 |
-| LRB-009 | Security review | approval-required | Operational security review over deployment, secrets, backup, logging, and network boundaries. | Production | TBD |
-| LRB-010 | Risk C review disposition | approval-required | Confirm operational treatment of historical Risk=C waiver before production. | Production | TBD |
-| LRB-011 | Staging UAT acceptance | approval-required | Approved UAT evidence for all critical workflows. | Production | SYNTH-UAT-TECH-2026-06-14-001 technical evidence; acceptance pending |
-| LRB-012 | Backup and restore rehearsal | approval-required | Approve restore drill evidence using non-production data. | Production | RESTORE-DRILL-AWS-001 technical evidence; acceptance pending |
-| LRB-013 | Production release approval | approval-required | Operator release sign-off for the release SHA. | Production | TBD |
-| LRB-014 | Post-launch support owner | approval-required | Named owner for support triage, incident handling, and rollback authority. | Pilot, GA | TBD |
+| LRB-009 | Security review | approved | Operational security review over deployment, secrets, backup, logging, and network boundaries approved. | Production | APPROVAL-LRB-009-2026-06-14 |
+| LRB-010 | Risk C review disposition | approved | Historical Risk=C waiver operational treatment approved for this production release gate. | Production | APPROVAL-LRB-010-2026-06-14 |
+| LRB-011 | Staging UAT acceptance | approved | UAT-001 through UAT-020 accepted using synthetic technical evidence. | Production | APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / SYNTH-UAT-TECH-2026-06-14-001 |
+| LRB-012 | Backup and restore rehearsal | approved | Non-production backup/restore rehearsal evidence accepted. | Production | APPROVAL-LRB-012-RESTORE-2026-06-14 / RESTORE-DRILL-AWS-001 |
+| LRB-013 | Production release approval | approved | Operator release sign-off recorded for current release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`. | Production | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
+| LRB-014 | Post-launch support owner | approved | Support triage, incident handling, and rollback authority owner is `jws-admin / Operator`. | Pilot, GA | APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
 
 Machine-actionable preparation status: complete for this pack.
 
@@ -56,14 +56,15 @@ Machine-actionable preparation status: complete for this pack.
   audit append-only invariants were verified, and RDS ingress was returned to
   ECS-only access.
 - Non-production AWS staging backup/restore technical rehearsal passed under
-  `RESTORE-DRILL-AWS-001`; human acceptance remains required for LRB-012.
+  `RESTORE-DRILL-AWS-001`; LRB-012 acceptance is recorded under
+  `APPROVAL-LRB-012-RESTORE-2026-06-14`.
 - Synthetic technical UAT evidence for UAT-001 through UAT-020 is recorded under
-  `SYNTH-UAT-TECH-2026-06-14-001`; product acceptance remains required for
-  LRB-011.
+  `SYNTH-UAT-TECH-2026-06-14-001`; LRB-011 acceptance is recorded under
+  `APPROVAL-LRB-011-SYNTH-UAT-2026-06-14`.
 - Concrete endpoint values, account identifiers, private URLs, screenshots,
   cookies, tokens, secret values, and provider-console metadata remain outside
   this repository.
-- Pilot remains blocked by LRB-005, LRB-006, LRB-007, and LRB-014. Production
-  remains blocked by LRB-009 through LRB-013. Security review must still review
-  deployment, secrets, backup, logging, and network boundaries before
-  production approval.
+- Pilot and production gate approvals LRB-005 through LRB-014 are recorded.
+  Actual production deployment has not been executed in this repository and
+  remains governed by `docs/release/production-release-runbook.md` and
+  `infra/ci/prod-gate.yml`.

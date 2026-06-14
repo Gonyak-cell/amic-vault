@@ -1,6 +1,6 @@
 # Operator Decision Sheet
 
-Status: STAGING DECISIONS APPROVED - PILOT AND PRODUCTION DECISIONS REQUIRED
+Status: PILOT AND PRODUCTION APPROVALS RECORDED - PRODUCTION EXECUTION PENDING
 
 Use this sheet to track decision evidence refs. Do not commit secrets, private
 endpoints, credentials, real customer data, raw legal terms, private contracts,
@@ -38,20 +38,20 @@ Allowed values in this file:
 
 | Blocker | Status | Owner Role | Evidence Ref | Decision Summary |
 |---|---|---|---|---|
-| LRB-005 | TBD | Legal/Product | TBD | Terms, privacy notice, DPA, external portal terms, retention/disposal language. |
-| LRB-006 | TBD | Product/Finance/Ops | TBD | Pricing, support hours, SLA, escalation, billing owner. |
-| LRB-007 | TBD | Operator/Customer Owner | TBD | Pilot customer-data permission and controls. |
-| LRB-014 | TBD | Operator/Ops | TBD | Support triage, incident handling, and rollback authority owner. |
+| LRB-005 | approved | Legal/Product | APPROVAL-LRB-005-2026-06-14 | Pilot/launch terms, privacy notice, DPA, external portal terms, and retention/disposal language approved for the current launch scope. |
+| LRB-006 | approved | Product/Finance/Ops | APPROVAL-LRB-006-2026-06-14 | Pricing, support hours, SLA, escalation model, and billing owner approved for the current launch scope. |
+| LRB-007 | approved | Operator/Customer Owner | APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 | Pilot customer data is not approved for real customer documents; launch remains synthetic-data-only until a later explicit customer-data approval changes this row. |
+| LRB-014 | approved | Operator/Ops | APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 | Post-launch support triage, incident handling, and rollback authority owner is `jws-admin / Operator`. |
 
 ## Production Decisions
 
 | Blocker | Status | Owner Role | Evidence Ref | Decision Summary |
 |---|---|---|---|---|
-| LRB-009 | TBD | Security | TBD | Operational security review over deployment, secrets, backup, logging, and network boundaries. |
-| LRB-010 | TBD | Operator/Security | TBD | Operational treatment of historical Risk=C waiver before production. |
-| LRB-011 | TBD | Operator/Product | SYNTH-UAT-TECH-2026-06-14-001 technical evidence; acceptance pending | Staging UAT acceptance for all critical workflows. |
-| LRB-012 | TBD | Ops/Security | TBD | Backup and restore rehearsal evidence using non-production data. |
-| LRB-013 | TBD | Operator | TBD | Production release approval for the frozen release SHA. |
+| LRB-009 | approved | Security | APPROVAL-LRB-009-2026-06-14 | Operational security review over deployment, secrets, backup, logging, and network boundaries approved for the current launch scope. |
+| LRB-010 | approved | Operator/Security | APPROVAL-LRB-010-2026-06-14 | Operational treatment of historical Risk=C waiver approved for this production release gate. |
+| LRB-011 | approved | Operator/Product | APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / SYNTH-UAT-TECH-2026-06-14-001 | UAT-001 through UAT-020 accepted using synthetic technical UAT evidence. |
+| LRB-012 | approved | Ops/Security | APPROVAL-LRB-012-RESTORE-2026-06-14 / RESTORE-DRILL-AWS-001 | Non-production backup/restore rehearsal evidence accepted. |
+| LRB-013 | approved | Operator | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 | Production release approved for current release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`; current staging application runtime evidence remains `STAGE-MAIN-MERGE-AWS-001`. |
 
 ## Required Secret Names
 

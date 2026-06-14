@@ -148,7 +148,12 @@ for (const expected of ['STAGE-IN-001', 'STAGE-IN-008', 'Evidence ref only']) {
 for (const expected of ['EV-UAT-001', 'EV-UAT-020', 'negative permission']) {
   assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
 }
-for (const expected of ['SYNTH-UAT-TECH-2026-06-14-001', 'technical-pass', 'pnpm release:uat', 'LRB-011']) {
+for (const expected of [
+  'SYNTH-UAT-TECH-2026-06-14-001',
+  'accepted',
+  'pnpm release:uat',
+  'APPROVAL-LRB-011-SYNTH-UAT-2026-06-14',
+]) {
   assertContains(syntheticUatEvidence, expected, 'docs/release/synthetic-uat-evidence.md');
 }
 

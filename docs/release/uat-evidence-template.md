@@ -1,6 +1,6 @@
 # UAT Evidence Template
 
-Status: TECHNICAL PASS - PRODUCT ACCEPTANCE REQUIRED
+Status: ACCEPTED - SYNTHETIC TECHNICAL UAT
 
 Use approved synthetic data unless LRB-007 explicitly approves pilot customer
 data and controls. Evidence refs may point to external systems when they include
@@ -11,7 +11,8 @@ Local development walkthrough evidence may be collected with
 accept UAT for staging or production.
 Synthetic technical evidence is recorded in
 `docs/release/synthetic-uat-evidence.md` under
-`SYNTH-UAT-TECH-2026-06-14-001`. Product acceptance remains blocked by LRB-011.
+`SYNTH-UAT-TECH-2026-06-14-001`. Product acceptance is recorded under
+`APPROVAL-LRB-011-SYNTH-UAT-2026-06-14`.
 
 | UAT ID | Result | Evidence Ref | Notes |
 |---|---|---|---|
@@ -33,17 +34,18 @@ Synthetic technical evidence is recorded in
 | UAT-016 | technical-pass | EV-UAT-016 / SYNTH-UAT-TECH-2026-06-14-001 | SSO, BYOK, SIEM, backup, and compliance reference registries covered by enterprise hardening evidence. |
 | UAT-017 | technical-pass | EV-UAT-017 / SYNTH-UAT-TECH-2026-06-14-001 | Scale evidence and `/v1/scale/readiness` covered by scale-learning evidence. |
 | UAT-018 | technical-pass | EV-UAT-018 / SYNTH-UAT-TECH-2026-06-14-001 | Audit query/export, immutability, logger, coverage, and allow-listed metadata covered by integration evidence. |
-| UAT-019 | technical-pass | EV-UAT-019 / RESTORE-DRILL-AWS-001 / SYNTH-UAT-TECH-2026-06-14-001 | Backup restore rehearsal technical evidence exists; LRB-012 acceptance remains pending. |
+| UAT-019 | technical-pass | EV-UAT-019 / RESTORE-DRILL-AWS-001 / SYNTH-UAT-TECH-2026-06-14-001 | Backup restore rehearsal technical evidence exists; LRB-012 acceptance is recorded under `APPROVAL-LRB-012-RESTORE-2026-06-14`. |
 | UAT-020 | technical-pass | EV-UAT-020 / SYNTH-UAT-TECH-2026-06-14-001 | Rollback-readiness evidence exists through smoke dry-run, migration/docs gates, and launch validators; production rollback is not executed. |
 
 ## Acceptance Rule
 
-UAT is accepted only when:
+UAT acceptance is valid because:
 
 - all rows are `pass` or `technical-pass`,
 - all rows have evidence refs,
 - no high or critical finding remains unresolved,
 - LRB-011 is accepted by an operator or product owner before pilot or
-  production entry,
+  production entry; current acceptance ref is
+  `APPROVAL-LRB-011-SYNTH-UAT-2026-06-14`,
 - no raw document body, customer data, secret, token, or private endpoint is
   committed to this repository.

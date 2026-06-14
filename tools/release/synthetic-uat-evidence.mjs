@@ -98,8 +98,8 @@ function runCheck() {
   }
   for (const expected of [
     evidenceRef,
-    'technical-pass',
-    'Product acceptance remains blocked by LRB-011',
+    'accepted',
+    'APPROVAL-LRB-011-SYNTH-UAT-2026-06-14',
     'No raw screenshots',
     'customer documents are committed',
   ]) {
@@ -146,9 +146,9 @@ if (args.has('--json')) {
     JSON.stringify(
       {
         evidenceRef,
-        status: 'technical-pass',
+        status: 'accepted',
         uatCount: uatIds.length,
-        productAcceptance: 'blocked by LRB-011',
+        productAcceptance: 'accepted under APPROVAL-LRB-011-SYNTH-UAT-2026-06-14',
       },
       null,
       2,

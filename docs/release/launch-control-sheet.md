@@ -1,14 +1,15 @@
 # Launch Control Sheet
 
-Status: STAGING TECHNICAL PASS - NOT LAUNCHED
+Status: APPROVALS RECORDED - PRODUCTION EXECUTION PENDING
 Date: 2026-06-14
 
 This is the one-page control sheet for the release-completion lane. It shows the
-current technical state, the commands Codex can run, and the approvals that
-remain blocked outside the repository.
+current technical state, the commands Codex can run, and the approval refs that
+have been recorded.
 
-Previous baseline label `PREPARED - NOT LAUNCHED` remains true for production:
-AWS staging is technically passed, but pilot and production are not launched.
+Previous baseline label `PREPARED - NOT LAUNCHED` remains true for actual
+production execution: AWS staging is technically passed and approvals are
+recorded, but production deployment has not been executed.
 
 ## Current Technical State
 
@@ -20,7 +21,9 @@ AWS staging is technically passed, but pilot and production are not launched.
 | Staging smoke automation | prepared | `pnpm release:smoke -- --dry-run` and `pnpm release:smoke -- --local` |
 | Local staging preflight | passed locally | `pnpm release:local-preflight` / EV-SMOKE-002 |
 | AWS staging main alignment | passed | STAGE-MAIN-MERGE-AWS-001 / EV-STAGE-009 / EV-SMOKE-005 |
-| Synthetic UAT technical evidence | technical-pass; acceptance pending | SYNTH-UAT-TECH-2026-06-14-001 / `pnpm release:uat` |
+| Synthetic UAT technical evidence | accepted | SYNTH-UAT-TECH-2026-06-14-001 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / `pnpm release:uat` |
+| Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 / APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
+| Production gate approvals | approved | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
 
@@ -40,15 +43,15 @@ pnpm test
 pnpm build
 ```
 
-## Blocked Decisions
+## Resolved Decisions
 
 Resolved staging evidence: LRB-001, LRB-002, LRB-003, LRB-004, and LRB-008 are
 approved for the AWS temporary-target staging path.
 
 | Gate | Required Evidence |
 |---|---|
-| Pilot entry | LRB-005, LRB-006, LRB-007, LRB-014 |
-| Production entry | LRB-009, LRB-010, LRB-011, LRB-012, LRB-013 |
+| Pilot entry | LRB-005, LRB-006, LRB-007, LRB-014 approved |
+| Production entry | LRB-009, LRB-010, LRB-011, LRB-012, LRB-013 approved |
 
 ## Operator-Provided Values
 

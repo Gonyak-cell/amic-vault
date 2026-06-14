@@ -1,6 +1,7 @@
 # Production release gate contract.
-# Real production deployment remains disabled until every approval-required
-# blocker is resolved and the manual release gate is recorded.
+# Real production deployment remains disabled until an explicit production
+# execution workflow replaces this gate contract, even after approval refs are
+# recorded.
 name: prod-gate
 trigger: manual
 launch_readiness_version: 1
@@ -38,7 +39,7 @@ manual_approvals:
     - product_owner
 deploy:
   enabled: false
-  reason: "Production release requires operator, security, legal, product, and customer-data approvals."
+  reason: "Production approvals are recorded; automatic production deployment remains disabled until explicit execution workflow activation."
   staging_contract: infra/ci/staging-deploy.yml
   production_runbook: docs/release/production-release-runbook.md
   rollback_runbook: docs/release/rollback-runbook.md
