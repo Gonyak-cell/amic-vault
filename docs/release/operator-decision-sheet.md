@@ -1,6 +1,6 @@
 # Operator Decision Sheet
 
-Status: OPEN - DECISIONS REQUIRED
+Status: STAGING DECISIONS APPROVED - PILOT AND PRODUCTION DECISIONS REQUIRED
 
 Use this sheet to track decision evidence refs. Do not commit secrets, private
 endpoints, credentials, real customer data, raw legal terms, private contracts,
@@ -22,11 +22,11 @@ Allowed values in this file:
 
 | Blocker | Status | Owner Role | Evidence Ref | Decision Summary |
 |---|---|---|---|---|
-| LRB-001 | TBD | Operator | TBD | Cloud provider and domestic/private region approval. |
-| LRB-002 | TBD | Operator | TBD | DNS, TLS, certificate authority, and ownership approval. |
-| LRB-003 | TBD | Operator | TBD | Container registry, namespace, retention, and image signing policy approval. |
-| LRB-004 | TBD | Security | TBD | Secret manager and runtime secret refs approval. |
-| LRB-008 | TBD | Security/Ops | TBD | Monitoring sink, alert destination, incident response, and evidence retention approval. |
+| LRB-001 | approved | Operator | STAGE-CLOUD-AWS-001 | AWS Seoul `ap-northeast-2` approved for staging-first launch path with separate staging/prod network boundaries. Operator chat approval ref: `CHAT-2026-06-14-AWS-STAGING-APPROVAL`. |
+| LRB-002 | approved | Operator | STAGE-DNS-AWS-001 | Route 53 and ACM-managed TLS approved; concrete domain names and private endpoints remain outside the repository until provisioned. |
+| LRB-003 | approved | Operator | STAGE-REGISTRY-ECR-001 | Amazon ECR approved with frozen-SHA image tags, digest pinning, and lifecycle retention policy. |
+| LRB-004 | approved | Security | STAGE-SECRETS-AWS-001 | AWS Secrets Manager plus KMS approved for runtime secret refs; values must never be committed. |
+| LRB-008 | approved | Security/Ops | STAGE-MONITOR-AWS-001 | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing approved for staging monitoring and incident evidence. |
 
 ## RC Freeze Decision
 
@@ -59,13 +59,13 @@ Record only secret names or approved refs here, never values.
 
 | Runtime | Required Ref Name | Status |
 |---|---|---|
-| API database connection | TBD | TBD |
-| API session signing | TBD | TBD |
-| API object storage access | TBD | TBD |
-| API encryption material ref | TBD | TBD |
-| Web API base URL ref | TBD | TBD |
-| Ingestion worker database connection | TBD | TBD |
-| Ingestion worker object storage access | TBD | TBD |
+| API database connection | `/amic-vault/staging/api/database-url` | approved ref name only |
+| API session signing | `/amic-vault/staging/api/session-signing` | approved ref name only |
+| API object storage access | `/amic-vault/staging/api/object-storage` | approved ref name only |
+| API encryption material ref | `/amic-vault/staging/api/encryption-material-ref` | approved ref name only |
+| Web API base URL ref | `/amic-vault/staging/web/api-base-url` | approved ref name only |
+| Ingestion worker database connection | `/amic-vault/staging/worker/database-url` | approved ref name only |
+| Ingestion worker object storage access | `/amic-vault/staging/worker/object-storage` | approved ref name only |
 
 ## Completion Rule
 
