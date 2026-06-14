@@ -15,8 +15,11 @@ URLs, real customer documents, cookies, or tokens.
 | EV-STAGE-003 | Staging open | approved | Operator | STAGE-REGISTRY-ECR-001 | Amazon ECR approved for frozen-SHA tags, digest pinning, and lifecycle retention policy. |
 | EV-STAGE-004 | Staging open | approved | Security | STAGE-SECRETS-AWS-001 | AWS Secrets Manager plus KMS approved; repository records secret names only, never values. |
 | EV-STAGE-005 | Staging open | approved | Security/Ops | STAGE-MONITOR-AWS-001 | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing approved for staging monitoring. |
+| EV-STAGE-006 | Staging provision | passed | Codex/Ops | STAGE-PROVISION-AWS-001 | AWS Seoul staging resources provisioned for synthetic-data validation. Resource identifiers, account identifiers, private endpoints, and secret values remain outside the repository. |
+| EV-STAGE-007 | Staging deploy | passed | Codex/Ops | STAGE-DEPLOY-AWS-001 | ECR image digest refs, RDS migration/seed, ECS Fargate services, ALB target health, and CloudWatch log groups verified for release SHA `1b3b1580be29cdaa83b9d627c3bd1c76d9b3059d`. Concrete endpoint values remain outside the repository. |
 | EV-SMOKE-001 | Staging smoke | prepared | Codex/Ops | `pnpm release:smoke -- --dry-run` | Smoke automation is repo-local and endpoint-configurable. |
 | EV-SMOKE-002 | Local staging preflight | passed | Codex | `pnpm release:local-preflight` | Local-only rehearsal passed for frozen SHA `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`: isolated infra, migration round trip, Docker image builds, SMOKE-001 through SMOKE-011 pass, full integration 81 files / 204 tests, and worker pytest 17 tests. |
+| EV-SMOKE-003 | Staging smoke | passed | Codex/Ops | STAGE-SMOKE-AWS-001 | AWS temporary-target staging smoke passed for release SHA `1b3b1580be29cdaa83b9d627c3bd1c76d9b3059d`: SMOKE-001 through SMOKE-011 pass=11 fail=0 skip=0. |
 | EV-UAT-001 | UAT | prepared | Product/QA | `docs/release/uat-evidence-template.md` | UAT rows remain unexecuted until staging is available. |
 | EV-PILOT-001 | Pilot | blocked | Legal/Product | LRB-005 | Legal terms and privacy/DPA approvals. |
 | EV-PILOT-002 | Pilot | blocked | Product/Finance/Ops | LRB-006 | Pricing, support, SLA, billing owner. |
