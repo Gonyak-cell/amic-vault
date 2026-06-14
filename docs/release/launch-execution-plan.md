@@ -82,7 +82,9 @@ evidence itself may live outside this repository when it contains private
 deployment metadata, customer approval context, private endpoints, or screenshots
 that should not be public.
 Use `docs/release/synthetic-uat-scenarios.md` for the expanded step and
-negative-check matrix.
+negative-check matrix. Use `docs/release/synthetic-uat-evidence.md` and
+`pnpm release:uat` for repository-safe synthetic technical evidence. This
+technical evidence does not accept LRB-011 by itself.
 
 Critical UAT groups:
 

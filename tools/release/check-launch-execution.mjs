@@ -8,6 +8,7 @@ const requiredFiles = [
   'docs/release/launch-execution-plan.md',
   'docs/release/operator-decision-sheet.md',
   'docs/release/uat-evidence-template.md',
+  'docs/release/synthetic-uat-evidence.md',
   'docs/release/staging-smoke-plan.md',
   'docs/release/launch-blocker-ledger.md',
   'docs/release/uat-checklist.md',
@@ -24,6 +25,7 @@ const requiredFiles = [
   'docs/release/actual-launch-runbook.md',
   'docs/release/env.staging-smoke.example',
   'tools/release/staging-smoke.mjs',
+  'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
   '.github/workflows/ci.yml',
   'package.json',
@@ -73,6 +75,7 @@ for (const file of requiredFiles) {
 const executionPlan = contents.get('docs/release/launch-execution-plan.md');
 const decisionSheet = contents.get('docs/release/operator-decision-sheet.md');
 const uatTemplate = contents.get('docs/release/uat-evidence-template.md');
+const syntheticUatEvidence = contents.get('docs/release/synthetic-uat-evidence.md');
 const smokePlan = contents.get('docs/release/staging-smoke-plan.md');
 const rcFreeze = contents.get('docs/release/rc-freeze-decision-pack.md');
 const evidenceRegister = contents.get('docs/release/evidence-register.md');
@@ -95,6 +98,8 @@ for (const blockerId of blockerIds) {
 for (const uatId of uatIds) {
   assertContains(uatTemplate, uatId, 'docs/release/uat-evidence-template.md');
   assertContains(syntheticUatScenarios, uatId, 'docs/release/synthetic-uat-scenarios.md');
+  assertContains(syntheticUatEvidence, uatId, 'docs/release/synthetic-uat-evidence.md');
+  assertContains(syntheticUatEvidence, `EV-UAT-${uatId.slice(4)}`, 'docs/release/synthetic-uat-evidence.md');
 }
 
 for (const smokeId of ['SMOKE-001', 'SMOKE-004', 'SMOKE-010', 'SMOKE-011']) {
@@ -143,8 +148,11 @@ for (const expected of ['STAGE-IN-001', 'STAGE-IN-008', 'Evidence ref only']) {
 for (const expected of ['EV-UAT-001', 'EV-UAT-020', 'negative permission']) {
   assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
 }
+for (const expected of ['SYNTH-UAT-TECH-2026-06-14-001', 'technical-pass', 'pnpm release:uat', 'LRB-011']) {
+  assertContains(syntheticUatEvidence, expected, 'docs/release/synthetic-uat-evidence.md');
+}
 
-for (const expected of ['PREPARED - NOT LAUNCHED', 'LRB-001', 'pnpm launch:execution']) {
+for (const expected of ['PREPARED - NOT LAUNCHED', 'LRB-001', 'pnpm launch:execution', 'pnpm release:uat']) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
 
@@ -170,6 +178,7 @@ assertContains(
 );
 assertContains(ciWorkflow, 'pnpm launch:execution', '.github/workflows/ci.yml');
 assertContains(packageJson, '"release:smoke"', 'package.json');
+assertContains(packageJson, '"release:uat"', 'package.json');
 assertContains(packageJson, '"release:local-preflight"', 'package.json');
 
 for (const phrase of [

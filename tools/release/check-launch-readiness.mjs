@@ -10,6 +10,7 @@ const requiredFiles = [
   'docs/release/production-release-runbook.md',
   'docs/release/rollback-runbook.md',
   'docs/release/uat-checklist.md',
+  'docs/release/synthetic-uat-evidence.md',
   'docs/release/launch-execution-plan.md',
   'docs/release/operator-decision-sheet.md',
   'docs/release/uat-evidence-template.md',
@@ -32,6 +33,7 @@ const requiredFiles = [
   'infra/ci/PROD_GATE.md',
   'tools/release/check-launch-execution.mjs',
   'tools/release/staging-smoke.mjs',
+  'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
   '.github/workflows/ci.yml',
   'package.json',
@@ -103,9 +105,11 @@ for (const file of [
   'docs/release/local-staging-preflight.md',
   'docs/release/staging-input-checklist.md',
   'docs/release/synthetic-uat-scenarios.md',
+  'docs/release/synthetic-uat-evidence.md',
   'docs/release/launch-control-sheet.md',
   'docs/release/actual-launch-runbook.md',
   'tools/release/staging-smoke.mjs',
+  'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
 ]) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
@@ -149,9 +153,13 @@ const syntheticUatScenarios = contents.get('docs/release/synthetic-uat-scenarios
 for (const expected of ['UAT-001', 'UAT-020', 'EV-UAT-020']) {
   assertContains(syntheticUatScenarios, expected, 'docs/release/synthetic-uat-scenarios.md');
 }
+const syntheticUatEvidence = contents.get('docs/release/synthetic-uat-evidence.md');
+for (const expected of ['SYNTH-UAT-TECH-2026-06-14-001', 'technical-pass', 'EV-UAT-020', 'LRB-011']) {
+  assertContains(syntheticUatEvidence, expected, 'docs/release/synthetic-uat-evidence.md');
+}
 
 const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
-for (const expected of ['PREPARED - NOT LAUNCHED', 'pnpm launch:execution', 'LRB-013']) {
+for (const expected of ['PREPARED - NOT LAUNCHED', 'pnpm launch:execution', 'pnpm release:uat', 'LRB-013']) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
 assertContains(launchControlSheet, 'pnpm release:local-preflight', 'docs/release/launch-control-sheet.md');
@@ -215,11 +223,13 @@ assertContains(
 
 const packageJson = contents.get('package.json');
 assertContains(packageJson, '"release:smoke"', 'package.json');
+assertContains(packageJson, '"release:uat"', 'package.json');
 assertContains(packageJson, '"release:local-preflight"', 'package.json');
 
 const ciWorkflow = contents.get('.github/workflows/ci.yml');
 assertContains(ciWorkflow, 'pnpm launch:readiness', '.github/workflows/ci.yml');
 assertContains(ciWorkflow, 'pnpm launch:execution', '.github/workflows/ci.yml');
+assertContains(ciWorkflow, 'pnpm release:uat', '.github/workflows/ci.yml');
 
 const docsPackageDiff = execFileSync('git', ['diff', '--name-only', '--', 'docs/package'], {
   cwd: repoRoot,

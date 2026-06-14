@@ -19,7 +19,8 @@ It does not replace the R0-R14 implementation ledger.
 | REL-STAGE-MAIN-ALIGN-TUW-005B | Align AWS staging image set and smoke evidence with merged main SHA. | Codex/Ops | REL-STAGE-RUNTIME-RLS-TUW-005A | EV-STAGE-009 / EV-SMOKE-005 / STAGE-MAIN-MERGE-AWS-001 | done |
 | REL-UAT-SYNTH-TUW-006 | Prepare local synthetic UAT walkthrough. | Codex | none | `docs/release/local-synthetic-uat-walkthrough.md` | prepared |
 | REL-UAT-SCENARIOS-TUW-006A | Expand UAT-001 through UAT-020 into step and negative-check matrix. | Codex | none | `docs/release/synthetic-uat-scenarios.md` | prepared |
-| REL-UAT-EXEC-TUW-007 | Execute UAT-001 through UAT-020. | Product/QA/Codex | staging smoke pass | UAT evidence refs | ready |
+| REL-UAT-TECH-EVIDENCE-TUW-007C | Map UAT-001 through UAT-020 to Codex-executable synthetic technical evidence and validator coverage. | Codex | staging smoke pass, REL-UAT-SCENARIOS-TUW-006A | SYNTH-UAT-TECH-2026-06-14-001 / `pnpm release:uat` | technical-pass |
+| REL-UAT-EXEC-TUW-007 | Execute and accept UAT-001 through UAT-020. | Product/QA/Codex | staging smoke pass, REL-UAT-TECH-EVIDENCE-TUW-007C | UAT evidence refs plus LRB-011 acceptance | technical-ready; acceptance pending |
 | REL-LAUNCH-CONTROL-TUW-007A | Provide one-page launch control sheet. | Codex | REL-SMOKE-AUTO-TUW-004 | `docs/release/launch-control-sheet.md` | prepared |
 | REL-ACTUAL-RUNBOOK-TUW-007B | Provide step-by-step actual launch runbook with commands, owners, evidence, and stop conditions. | Codex | REL-LAUNCH-CONTROL-TUW-007A | `docs/release/actual-launch-runbook.md` | prepared |
 | REL-PILOT-GATE-TUW-008 | Resolve pilot LRB-005/006/007/014. | Legal/Product/Ops | UAT pass | pilot evidence refs | blocked |

@@ -37,6 +37,7 @@ product release boundary.
 | Production release runbook | `docs/release/production-release-runbook.md` | Prepared |
 | Rollback runbook | `docs/release/rollback-runbook.md` | Prepared |
 | UAT checklist | `docs/release/uat-checklist.md` | Prepared |
+| Synthetic UAT technical evidence | `docs/release/synthetic-uat-evidence.md` | Technical pass; product acceptance pending |
 | Launch execution plan | `docs/release/launch-execution-plan.md` | Prepared |
 | Operator decision sheet | `docs/release/operator-decision-sheet.md` | AWS staging decisions approved; pilot/prod unresolved |
 | UAT evidence template | `docs/release/uat-evidence-template.md` | Prepared, not executed |
@@ -55,6 +56,7 @@ product release boundary.
 | Synthetic UAT scenarios | `docs/release/synthetic-uat-scenarios.md` | Prepared, local/staging execution paths |
 | Launch control sheet | `docs/release/launch-control-sheet.md` | Prepared |
 | Staging smoke automation | `tools/release/staging-smoke.mjs` | Prepared |
+| Synthetic UAT validator | `tools/release/synthetic-uat-evidence.mjs` | CI wired |
 | Local staging preflight automation | `tools/release/local-staging-preflight.mjs` | Prepared and executed locally |
 | Readiness validator | `tools/release/check-launch-readiness.mjs` | CI wired |
 | Execution validator | `tools/release/check-launch-execution.mjs` | CI wired |
@@ -83,6 +85,7 @@ product release boundary.
 
 - `pnpm launch:readiness` passes.
 - `pnpm launch:execution` passes.
+- `pnpm release:uat` passes.
 - CI `verify` runs both `pnpm launch:readiness` and `pnpm launch:execution`.
 - `pnpm release:smoke -- --dry-run` passes.
 - `pnpm release:smoke -- --local` passes when local Web/API/dev infra are
