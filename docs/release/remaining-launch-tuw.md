@@ -7,7 +7,7 @@ It does not replace the R0-R14 implementation ledger.
 
 | TUW ID | Title | Owner | Depends On | Exit Evidence | Status |
 |---|---|---|---|---|---|
-| REL-RC-FREEZE-TUW-001 | Confirm RC SHA `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`. | Operator | PR #66, PR #67, PR #68, PR #69 merged | EV-RC-001 | blocked |
+| REL-RC-FREEZE-TUW-001 | Confirm RC SHA `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`. | Operator | PR #66, PR #67, PR #68, PR #69 merged | EV-RC-001 / CHAT-2026-06-14-RC-FREEZE | done |
 | REL-RC-NOTES-TUW-002 | Fill RC release notes with PR scope, migration, and security notes. | Codex | REL-RC-FREEZE-TUW-001 | `docs/release/release-notes-rc-9e346d9.md` | prepared |
 | REL-LRB-STAGE-TUW-003 | Resolve staging-opening LRB-001/002/003/004/008. | Operator/Security/Ops | REL-RC-FREEZE-TUW-001 | LRB evidence refs | blocked |
 | REL-SMOKE-AUTO-TUW-004 | Provide endpoint-configurable staging smoke automation. | Codex | none | `pnpm release:smoke -- --dry-run` and local smoke | prepared |

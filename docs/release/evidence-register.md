@@ -8,7 +8,7 @@ URLs, real customer documents, cookies, or tokens.
 
 | Evidence ID | Gate | Status | Owner Role | External Ref | Notes |
 |---|---|---|---|---|---|
-| EV-RC-001 | RC freeze | pending | Operator | TBD | Decide the exact frozen release SHA; default application candidate is `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`. |
+| EV-RC-001 | RC freeze | approved | Operator | CHAT-2026-06-14-RC-FREEZE | Frozen release SHA `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` approved for staging image build, smoke, and UAT preparation; production still requires LRB-013. |
 | EV-RC-002 | RC validation | ready | Codex | PR #66, PR #67, PR #68, PR #69, CI refs | Candidate code has merged to `main`. |
 | EV-STAGE-001 | Staging open | blocked | Operator | LRB-001 | Cloud provider and region approval. |
 | EV-STAGE-002 | Staging open | blocked | Operator | LRB-002 | DNS/TLS endpoint approval. |
