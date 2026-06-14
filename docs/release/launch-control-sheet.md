@@ -1,16 +1,16 @@
 # Launch Control Sheet
 
-Status: APPROVALS RECORDED - PRODUCTION INFRASTRUCTURE BLOCKED
+Status: PRODUCTION DEPLOYED - MONITORING ACTIVE
 Date: 2026-06-14
 
 This is the one-page control sheet for the release-completion lane. It shows the
 current technical state, the commands Codex can run, and the approval refs that
 have been recorded.
 
-Previous baseline label `PREPARED - NOT LAUNCHED` remains true for actual
-production execution: AWS staging is technically passed and approvals are
-recorded, but production deployment has not been executed and production
-infrastructure is not yet provisioned.
+Previous baseline label `PREPARED - NOT LAUNCHED` is superseded for the current
+release-control SHA. AWS staging passed, approvals were recorded, production
+bootstrap executed under non-secret evidence refs, and post-deploy smoke passed
+with synthetic data only.
 
 ## Current Technical State
 
@@ -25,7 +25,8 @@ infrastructure is not yet provisioned.
 | Synthetic UAT technical evidence | accepted | SYNTH-UAT-TECH-2026-06-14-001 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / `pnpm release:uat` |
 | Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 / APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
 | Production gate approvals | approved | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
-| Production execution preflight | blocked-prod-infra | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / `pnpm release:prod-preflight` |
+| Production execution preflight | production-smoke-passed | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / `pnpm release:prod-preflight` |
+| Production monitoring | active-monitoring | PROD-MONITOR-AWS-001 |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
 
@@ -68,9 +69,10 @@ approvals stay outside the repository.
 - Keep validators and CI aligned with release artifacts.
 - Run local synthetic smoke and UI QA.
 - Append execution ledger entries for technical preparation work.
-- Prepare production infrastructure evidence refs without recording private
-  provider metadata.
-- Prepare PRs and merge green CI changes when operator scope allows it.
+- Maintain production release evidence refs without recording private provider
+  metadata.
+- Prepare PRs for operator merge after green CI.
+- Continue post-launch monitoring checks and rollback-readiness documentation.
 
 ## Codex Must Stop
 

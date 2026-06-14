@@ -1,6 +1,6 @@
 # Launch Blocker Ledger
 
-Status: APPROVED - PRODUCTION EXECUTION PENDING
+Status: APPROVED - PRODUCTION DEPLOYED / MONITORING ACTIVE
 
 Rows are resolved when an operator or responsible owner records an approved
 value or evidence reference. Rows marked `approved` record only non-secret
@@ -24,7 +24,8 @@ private endpoints in this repository.
 | LRB-013 | Production release approval | approved | Operator release sign-off recorded for current release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`. | Production | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
 | LRB-014 | Post-launch support owner | approved | Support triage, incident handling, and rollback authority owner is `jws-admin / Operator`. | Pilot, GA | APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
 
-Machine-actionable preparation status: complete for this pack.
+Machine-actionable preparation status: production release executed and
+post-launch monitoring active for this pack.
 
 ## Current Technical Preparation
 
@@ -65,11 +66,27 @@ Machine-actionable preparation status: complete for this pack.
   cookies, tokens, secret values, and provider-console metadata remain outside
   this repository.
 - Pilot and production gate approvals LRB-005 through LRB-014 are recorded.
-  Actual production deployment has not been executed in this repository and
-  remains governed by `docs/release/production-release-runbook.md` and
+  Production deployment is recorded only through non-secret refs and remains
+  governed by `docs/release/production-release-runbook.md` and
   `infra/ci/prod-gate.yml`.
 - Production release execution preflight is recorded under
-  `PROD-REL-PREFLIGHT-AWS-2026-06-14-001`: production infrastructure has not
-  been provisioned, staging resources must not be reused as production, and
-  `REL-PROD-REL-TUW-010` remains blocked until production-specific evidence
-  refs exist.
+  `PROD-REL-PREFLIGHT-AWS-2026-06-14-001`: it initially found no
+  production-specific infrastructure, so staging resources were not reused as
+  production.
+- Production bootstrap then created a separate production boundary under
+  evidence refs `PROD-INFRA-AWS-001`, `PROD-REGISTRY-AWS-001`,
+  `PROD-SECRETS-AWS-001`, `PROD-BACKUP-AWS-001`,
+  `PROD-DEPLOY-WORKFLOW-AWS-001`, `PROD-HTTPS-TEMP-AWS-001`, and
+  `PROD-MONITOR-AWS-001`.
+- Production release-control SHA
+  `65e2db1b401f02c52c58b87bd7af755b24b68483` was deployed with synthetic-only
+  data. Database migration completed, runtime DB role credentials were rotated
+  away from development credentials, API and web services reached
+  desired=1/running=1/pending=0, temporary HTTPS status was deployed, and
+  temporary local RDS ingress was revoked after verification.
+- Production smoke evidence `PROD-SMOKE-AWS-001` passed SMOKE-001 through
+  SMOKE-011 with pass=11 fail=0 skip=0. Negative permission behavior returned
+  safe `PERMISSION_DENIED`; audit metadata remained reference-only.
+- Concrete endpoint values, account identifiers, ARNs, private URLs,
+  screenshots, cookies, tokens, secret values, provider-console metadata, and
+  customer data remain outside this repository.

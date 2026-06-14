@@ -1,7 +1,7 @@
 # Actual Launch Runbook
 
-Status: READY FOR OPERATOR INPUT - NO DEPLOYMENT EXECUTED
-Date: 2026-06-13
+Status: PRODUCTION EXECUTED - MONITORING ACTIVE
+Date: 2026-06-14
 
 This runbook explains how to move AMIC Vault from the current technical
 completion state to staging, pilot, production, and monitoring. It separates
@@ -15,13 +15,36 @@ this repository.
 | Item | Value |
 |---|---|
 | Default application candidate under consideration | `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` |
-| Frozen release SHA | Operator-supplied evidence ref before build or deploy |
+| Frozen release SHA | `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` for staging preparation |
+| Production release-control SHA | `65e2db1b401f02c52c58b87bd7af755b24b68483` |
 | Source branch | `main` |
-| Included PRs | `#66`, `#67`, `#68`, `#69` |
-| Launch documentation baseline | `main` at or after PR #70 |
+| Included PRs | `#66`, `#67`, `#68`, `#69`, `#78`, `#80`, `#81`, `#82` |
+| Launch documentation baseline | `main` at or after PR #82 |
 | Local routes | `/login`, `/dashboard`, `/launch` |
 | Prepared smoke checks | `SMOKE-001` through `SMOKE-011` |
-| Staging/prod state | Disabled until LRB evidence refs exist |
+| Staging/prod state | AWS staging and production evidence recorded; automatic deploy workflow remains disabled |
+
+## Current Production Evidence
+
+Production release execution is recorded under non-secret evidence refs:
+
+- `PROD-INFRA-AWS-001`
+- `PROD-REGISTRY-AWS-001`
+- `PROD-SECRETS-AWS-001`
+- `PROD-BACKUP-AWS-001`
+- `PROD-DEPLOY-WORKFLOW-AWS-001`
+- `PROD-HTTPS-TEMP-AWS-001`
+- `PROD-MONITOR-AWS-001`
+- `PROD-SMOKE-AWS-001`
+
+`PROD-SMOKE-AWS-001` passed SMOKE-001 through SMOKE-011 with pass=11 fail=0
+skip=0 against the production temporary HTTPS target using synthetic identities
+only. Permission negative checks failed closed with `PERMISSION_DENIED`, and
+audit metadata remained reference-only.
+
+Concrete endpoints, account IDs, ARNs, provider-console metadata, screenshots,
+cookies, tokens, secret values, and customer data remain outside this
+repository.
 
 ## 0. Technical Sanity Check
 

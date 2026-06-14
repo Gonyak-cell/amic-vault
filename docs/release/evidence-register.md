@@ -52,8 +52,9 @@ URLs, real customer documents, cookies, or tokens.
 | EV-PROD-002 | Production gate | approved | Operator/Security | APPROVAL-LRB-010-2026-06-14 | Historical Risk=C waiver treatment approval recorded. |
 | EV-PROD-003 | Production gate | approved | Product/Operator | APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 | UAT acceptance recorded for UAT-001 through UAT-020. |
 | EV-PROD-004 | Production gate | approved | Codex/Ops | APPROVAL-LRB-012-RESTORE-2026-06-14 / RESTORE-DRILL-AWS-001 | Non-production AWS staging backup/restore rehearsal accepted. |
-| EV-PROD-005 | Production release | approved | Operator | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 | Production release approval recorded for release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`; actual production deployment is not yet executed. |
-| EV-PROD-006 | Production release preflight | blocked | Codex/Ops | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 | Post-approval AWS discovery found staging resources only and no production-specific ECS/ECR/RDS/Secrets/Object Storage/ALB/logging/deploy workflow boundary. Production deployment is not executed; do not reuse staging as production. |
+| EV-PROD-005 | Production release | approved | Operator | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 | Production release approval recorded for release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`; production execution evidence is recorded under EV-PROD-006 and EV-PROD-007. |
+| EV-PROD-006 | Production release preflight | passed | Codex/Ops | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-INFRA-AWS-001 / PROD-DEPLOY-WORKFLOW-AWS-001 | Initial post-approval discovery blocked on missing production infrastructure; follow-up production bootstrap created a separate production boundary and executed migration/deploy without reusing staging or committing account IDs, ARNs, endpoints, secrets, provider metadata, or customer data. |
+| EV-PROD-007 | Production smoke | passed | Codex/Ops | PROD-SMOKE-AWS-001 | Production temporary HTTPS target smoke passed for release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`: SMOKE-001 through SMOKE-011 pass=11 fail=0 skip=0 with synthetic-only identities, safe permission denial, and reference-only audit metadata. |
 
 ## Evidence ID Rules
 

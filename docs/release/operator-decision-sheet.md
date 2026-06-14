@@ -1,6 +1,6 @@
 # Operator Decision Sheet
 
-Status: PILOT AND PRODUCTION APPROVALS RECORDED - PRODUCTION EXECUTION PENDING
+Status: PILOT AND PRODUCTION APPROVALS RECORDED - PRODUCTION EXECUTED
 
 Use this sheet to track decision evidence refs. Do not commit secrets, private
 endpoints, credentials, real customer data, raw legal terms, private contracts,
@@ -51,7 +51,7 @@ Allowed values in this file:
 | LRB-010 | approved | Operator/Security | APPROVAL-LRB-010-2026-06-14 | Operational treatment of historical Risk=C waiver approved for this production release gate. |
 | LRB-011 | approved | Operator/Product | APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / SYNTH-UAT-TECH-2026-06-14-001 | UAT-001 through UAT-020 accepted using synthetic technical UAT evidence. |
 | LRB-012 | approved | Ops/Security | APPROVAL-LRB-012-RESTORE-2026-06-14 / RESTORE-DRILL-AWS-001 | Non-production backup/restore rehearsal evidence accepted. |
-| LRB-013 | approved | Operator | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 | Production release approved for current release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`; current staging application runtime evidence remains `STAGE-MAIN-MERGE-AWS-001`. |
+| LRB-013 | approved | Operator | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 | Production release approved for release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`; production execution is recorded under EV-PROD-006 and EV-PROD-007, while staging runtime evidence remains `STAGE-MAIN-MERGE-AWS-001`. |
 
 ## Required Secret Names
 
