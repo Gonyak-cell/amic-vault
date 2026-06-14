@@ -1,8 +1,8 @@
 # AMIC Vault Desktop App Plan
 
-Status: Phase 2 implemented
+Status: Phase 3 implemented
 Date: 2026-06-14
-Owner: Codex implementation branches `codex/desktop-pwa-phase1`, `codex/desktop-pwa-phase2`
+Owner: Codex implementation branches `codex/desktop-pwa-phase1`, `codex/desktop-pwa-phase2`, `codex/desktop-tauri-phase3`
 Related ADR: `docs/adr/ADR-014-desktop-client-strategy.md`
 
 ## Position
@@ -44,6 +44,21 @@ Electron and fully native rewrites are fallback paths, not the recommended imple
 - Rollback runbook includes a PWA rollback path for disabling registration,
   unregistering service workers, deleting desktop shell caches, and returning
   users to browser-only access.
+
+## Phase 3 Implementation Evidence
+
+- Launch evidence register records `EV-DESKTOP-005` and `EV-DESKTOP-006` for
+  the Tauri thin-shell scaffold and signed-origin/capability policy checks.
+- `apps/desktop` is a Tauri v2 thin shell package. It creates no default window
+  before the signed origin config is verified.
+- The local fixture uses a signed `LOCAL-DEV` origin only. Staging and
+  production configs must use HTTPS origins and `STAGE-*` or `PROD-*` refs.
+- The `vault-thin-shell` capability file has an empty permission allow-list.
+  File system, shell, dialog, clipboard, share, and updater plugins are not
+  present in the Phase 3 shell.
+- Signing and update policies are documented without committing secrets,
+  private endpoints, account IDs, signing identities, certificates, or raw
+  artifacts.
 
 ## Non-Negotiable Desktop Invariants
 
@@ -202,10 +217,12 @@ Tauri shell rules:
 
 Exit criteria:
 
-- Tauri build works locally for macOS.
-- Unsigned update is rejected.
-- Unapproved origin is blocked.
-- No local document/search/AI/audit storage exists in the shell.
+- Tauri build works locally for macOS via `pnpm --filter @amic-vault/desktop tauri:build`.
+- Unsigned or wrong-channel updates remain unavailable because the updater is
+  not enabled in Phase 3.
+- Unapproved or tampered origins are blocked by signed-origin validation.
+- No local document/search/AI/audit storage or native plugin capability exists
+  in the shell.
 - Existing web/API test suite remains green.
 
 ## Phase 4 - Enterprise Packaging

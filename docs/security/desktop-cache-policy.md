@@ -5,15 +5,15 @@ Scope: PWA Phase 1 and later thin desktop shells.
 
 ## Classification
 
-| Class | Examples | Browser/PWA Policy |
-|---|---|---|
-| Public shell static | `/_next/static/*`, approved local fonts, icons, `manifest.webmanifest` | Cacheable by service worker or browser headers. |
-| Offline shell | `/offline.html` | Cacheable only as a static safe fallback. Must not contain tenant, matter, document, search, audit, or AI state. |
-| Authenticated app surfaces | `/dashboard`, `/matters`, `/search`, `/documents`, `/audit`, `/records`, `/ai`, `/contracts`, `/dd`, `/litigation`, `/enterprise`, `/scale`, `/walls` | `Cache-Control: no-store`; service worker bypass. |
-| API responses | `/v1/*` | `Cache-Control: no-store`; service worker bypass. |
-| API metrics | `/metrics` | `Cache-Control: no-store`; excluded from `/v1` but covered by the same API middleware. |
-| External portal surfaces | `/external/*` | `Cache-Control: no-store`; service worker bypass. |
-| Session and auth surfaces | `/login`, cookies, authorization headers | `Cache-Control: no-store`; never cache auth-bearing requests. |
+| Class                      | Examples                                                                                                                                              | Browser/PWA Policy                                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Public shell static        | `/_next/static/*`, approved local fonts, icons, `manifest.webmanifest`                                                                                | Cacheable by service worker or browser headers.                                                                  |
+| Offline shell              | `/offline.html`                                                                                                                                       | Cacheable only as a static safe fallback. Must not contain tenant, matter, document, search, audit, or AI state. |
+| Authenticated app surfaces | `/dashboard`, `/matters`, `/search`, `/documents`, `/audit`, `/records`, `/ai`, `/contracts`, `/dd`, `/litigation`, `/enterprise`, `/scale`, `/walls` | `Cache-Control: no-store`; service worker bypass.                                                                |
+| API responses              | `/v1/*`                                                                                                                                               | `Cache-Control: no-store`; service worker bypass.                                                                |
+| API metrics                | `/metrics`                                                                                                                                            | `Cache-Control: no-store`; excluded from `/v1` but covered by the same API middleware.                           |
+| External portal surfaces   | `/external/*`                                                                                                                                         | `Cache-Control: no-store`; service worker bypass.                                                                |
+| Session and auth surfaces  | `/login`, cookies, authorization headers                                                                                                              | `Cache-Control: no-store`; never cache auth-bearing requests.                                                    |
 
 ## Allowed Service Worker Cache Keys
 
@@ -63,6 +63,14 @@ Static shell assets may use long-lived public caching only when they cannot cont
 ## Shell Cache Rotation
 
 The service worker is cache-first only for the static shell allow-list. Change `CACHE_NAME` in `apps/web/public/sw.js` whenever shell cache membership, manifest behavior, icons, or offline fallback content changes. Production release notes should mention the cache name when a desktop shell rotation is intentional.
+
+## Tauri Thin Shell
+
+The Phase 3 Tauri shell does not add a local cache, database, search index, AI
+context store, document store, audit store, file system plugin, shell plugin,
+dialog plugin, clipboard plugin, share capability, or updater plugin. It opens
+the approved Vault web origin after signed-origin validation, so browser/PWA
+cache rules and server `no-store` headers remain authoritative.
 
 ## Desktop Logs
 

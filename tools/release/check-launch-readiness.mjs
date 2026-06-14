@@ -32,6 +32,16 @@ const requiredFiles = [
   'docs/security/desktop-threat-model.md',
   'docs/security/desktop-cache-policy.md',
   'docs/release/desktop-origin-policy.md',
+  'docs/release/desktop-signing-plan.md',
+  'docs/release/desktop-update-policy.md',
+  'apps/desktop/package.json',
+  'apps/desktop/src-tauri/Cargo.toml',
+  'apps/desktop/src-tauri/tauri.conf.json',
+  'apps/desktop/src-tauri/capabilities/vault-thin-shell.json',
+  'apps/desktop/src-tauri/config/local.signed.json',
+  'apps/desktop/src-tauri/src/main.rs',
+  'apps/desktop/src-tauri/src/origin.rs',
+  'apps/desktop/tools/validate-tauri-policy.mjs',
   'docs/release/env.staging-smoke.example',
   'infra/ci/staging-deploy.yml',
   'infra/ci/prod-gate.yml',
@@ -119,6 +129,9 @@ for (const file of [
   'docs/security/desktop-threat-model.md',
   'docs/security/desktop-cache-policy.md',
   'docs/release/desktop-origin-policy.md',
+  'docs/release/desktop-signing-plan.md',
+  'docs/release/desktop-update-policy.md',
+  'apps/desktop',
   'tools/release/staging-smoke.mjs',
   'tools/release/synthetic-uat-evidence.mjs',
   'tools/release/local-staging-preflight.mjs',
@@ -232,6 +245,7 @@ for (const expected of [
   'EV-STAGE-001',
   'EV-DESKTOP-001',
   'EV-DESKTOP-004',
+  'EV-DESKTOP-006',
   'EV-UAT-001',
   'EV-PROD-005',
   'EV-PROD-006',
@@ -291,13 +305,21 @@ for (const expected of ['SMOKE-012', 'SMOKE-015', 'EV-DESKTOP-002']) {
   assertContains(smokePlan, expected, 'docs/release/staging-smoke-plan.md');
 }
 const desktopPlan = contents.get('docs/desktop/desktop-app-plan.md');
-for (const expected of ['Phase 2 implemented', 'DESKTOP-EVID-004', 'SMOKE-015', 'EV-DESKTOP-004']) {
+for (const expected of [
+  'Phase 3 implemented',
+  'DESKTOP-TAURI-006',
+  'SMOKE-015',
+  'EV-DESKTOP-006',
+]) {
   assertContains(desktopPlan, expected, 'docs/desktop/desktop-app-plan.md');
 }
 for (const [file, expected] of [
-  ['docs/security/desktop-threat-model.md', 'Threat Model'],
-  ['docs/security/desktop-cache-policy.md', 'no-store'],
-  ['docs/release/desktop-origin-policy.md', 'approved Vault web origin'],
+  ['docs/security/desktop-threat-model.md', 'signed-origin validation'],
+  ['docs/security/desktop-cache-policy.md', 'Tauri Thin Shell'],
+  ['docs/release/desktop-origin-policy.md', 'AMIC_VAULT_DESKTOP_ORIGIN_CONFIG'],
+  ['docs/release/desktop-signing-plan.md', 'Do not commit signing secrets'],
+  ['docs/release/desktop-update-policy.md', 'updater remains disabled'],
+  ['apps/desktop/tools/validate-tauri-policy.mjs', 'Desktop Tauri policy verified'],
 ]) {
   assertContains(contents.get(file), expected, file);
 }
