@@ -19,7 +19,7 @@ secrets, real customer data, or private endpoints in this repository.
 | LRB-008 | Monitoring and incident response | approved | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing with staging incident evidence retention. | Staging, production | STAGE-MONITOR-AWS-001 |
 | LRB-009 | Security review | approval-required | Operational security review over deployment, secrets, backup, logging, and network boundaries. | Production | TBD |
 | LRB-010 | Risk C review disposition | approval-required | Confirm operational treatment of historical Risk=C waiver before production. | Production | TBD |
-| LRB-011 | Staging UAT acceptance | approval-required | Approved UAT evidence for all critical workflows. | Production | TBD |
+| LRB-011 | Staging UAT acceptance | approval-required | Approved UAT evidence for all critical workflows. | Production | SYNTH-UAT-TECH-2026-06-14-001 technical evidence; acceptance pending |
 | LRB-012 | Backup and restore rehearsal | approval-required | Approve restore drill evidence using non-production data. | Production | RESTORE-DRILL-AWS-001 technical evidence; acceptance pending |
 | LRB-013 | Production release approval | approval-required | Operator release sign-off for the release SHA. | Production | TBD |
 | LRB-014 | Post-launch support owner | approval-required | Named owner for support triage, incident handling, and rollback authority. | Pilot, GA | TBD |
@@ -57,6 +57,9 @@ Machine-actionable preparation status: complete for this pack.
   ECS-only access.
 - Non-production AWS staging backup/restore technical rehearsal passed under
   `RESTORE-DRILL-AWS-001`; human acceptance remains required for LRB-012.
+- Synthetic technical UAT evidence for UAT-001 through UAT-020 is recorded under
+  `SYNTH-UAT-TECH-2026-06-14-001`; product acceptance remains required for
+  LRB-011.
 - Concrete endpoint values, account identifiers, private URLs, screenshots,
   cookies, tokens, secret values, and provider-console metadata remain outside
   this repository.

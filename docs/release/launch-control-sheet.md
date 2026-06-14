@@ -20,6 +20,7 @@ AWS staging is technically passed, but pilot and production are not launched.
 | Staging smoke automation | prepared | `pnpm release:smoke -- --dry-run` and `pnpm release:smoke -- --local` |
 | Local staging preflight | passed locally | `pnpm release:local-preflight` / EV-SMOKE-002 |
 | AWS staging main alignment | passed | STAGE-MAIN-MERGE-AWS-001 / EV-STAGE-009 / EV-SMOKE-005 |
+| Synthetic UAT technical evidence | technical-pass; acceptance pending | SYNTH-UAT-TECH-2026-06-14-001 / `pnpm release:uat` |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
 
@@ -28,6 +29,7 @@ AWS staging is technically passed, but pilot and production are not launched.
 ```bash
 pnpm launch:readiness
 pnpm launch:execution
+pnpm release:uat
 pnpm release:smoke -- --dry-run
 pnpm release:smoke -- --local
 pnpm release:local-preflight

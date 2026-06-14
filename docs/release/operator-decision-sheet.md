@@ -49,7 +49,7 @@ Allowed values in this file:
 |---|---|---|---|---|
 | LRB-009 | TBD | Security | TBD | Operational security review over deployment, secrets, backup, logging, and network boundaries. |
 | LRB-010 | TBD | Operator/Security | TBD | Operational treatment of historical Risk=C waiver before production. |
-| LRB-011 | TBD | Operator/Product | TBD | Staging UAT acceptance for all critical workflows. |
+| LRB-011 | TBD | Operator/Product | SYNTH-UAT-TECH-2026-06-14-001 technical evidence; acceptance pending | Staging UAT acceptance for all critical workflows. |
 | LRB-012 | TBD | Ops/Security | TBD | Backup and restore rehearsal evidence using non-production data. |
 | LRB-013 | TBD | Operator | TBD | Production release approval for the frozen release SHA. |
 
