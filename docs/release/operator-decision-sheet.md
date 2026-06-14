@@ -23,7 +23,7 @@ Allowed values in this file:
 | Blocker | Status | Owner Role | Evidence Ref | Decision Summary |
 |---|---|---|---|---|
 | LRB-001 | approved | Operator | STAGE-CLOUD-AWS-001 | AWS Seoul `ap-northeast-2` approved for staging-first launch path with separate staging/prod network boundaries. Operator chat approval ref: `CHAT-2026-06-14-AWS-STAGING-APPROVAL`. |
-| LRB-002 | approved | Operator | STAGE-DNS-AWS-001 | Route 53 and ACM-managed TLS approved; concrete domain names and private endpoints remain outside the repository until provisioned. |
+| LRB-002 | approved | Operator | STAGE-TEMP-TARGET-AWS-001 | No custom staging domain. Staging will use an AWS-managed temporary service or load-balancer target ref; concrete endpoint values remain outside the repository. Production custom domain/TLS remains deferred to the production gate. |
 | LRB-003 | approved | Operator | STAGE-REGISTRY-ECR-001 | Amazon ECR approved with frozen-SHA image tags, digest pinning, and lifecycle retention policy. |
 | LRB-004 | approved | Security | STAGE-SECRETS-AWS-001 | AWS Secrets Manager plus KMS approved for runtime secret refs; values must never be committed. |
 | LRB-008 | approved | Security/Ops | STAGE-MONITOR-AWS-001 | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing approved for staging monitoring and incident evidence. |

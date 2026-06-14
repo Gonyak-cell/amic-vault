@@ -11,7 +11,7 @@ URLs, real customer documents, cookies, or tokens.
 | EV-RC-001 | RC freeze | approved | Operator | CHAT-2026-06-14-RC-FREEZE | Frozen release SHA `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` approved for staging image build, smoke, and UAT preparation; production still requires LRB-013. |
 | EV-RC-002 | RC validation | ready | Codex | PR #66, PR #67, PR #68, PR #69, CI refs | Candidate code has merged to `main`. |
 | EV-STAGE-001 | Staging open | approved | Operator | STAGE-CLOUD-AWS-001 | AWS Seoul `ap-northeast-2` staging-first cloud path approved; no resource provisioning or deploy executed. |
-| EV-STAGE-002 | Staging open | approved | Operator | STAGE-DNS-AWS-001 | Route 53 and ACM-managed TLS approved; concrete domains/private endpoints remain outside repo until provisioned. |
+| EV-STAGE-002 | Staging open | approved | Operator | STAGE-TEMP-TARGET-AWS-001 | No custom staging domain. Staging will use an AWS-managed temporary target ref; concrete endpoint values remain outside repo. Production custom domain/TLS remains deferred. |
 | EV-STAGE-003 | Staging open | approved | Operator | STAGE-REGISTRY-ECR-001 | Amazon ECR approved for frozen-SHA tags, digest pinning, and lifecycle retention policy. |
 | EV-STAGE-004 | Staging open | approved | Security | STAGE-SECRETS-AWS-001 | AWS Secrets Manager plus KMS approved; repository records secret names only, never values. |
 | EV-STAGE-005 | Staging open | approved | Security/Ops | STAGE-MONITOR-AWS-001 | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing approved for staging monitoring. |
