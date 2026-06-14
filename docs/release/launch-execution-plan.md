@@ -1,22 +1,26 @@
 # Launch Execution Plan
 
-Status: READY FOR OPERATOR DECISIONS
-Date: 2026-06-13
+Status: EXECUTED - POST-LAUNCH MONITORING ACTIVE
+Date: 2026-06-14
 
 This plan converts the prepared launch package into an executable release
-sequence. It does not approve any company, legal, security, pricing, customer
-data, cloud, DNS, registry, secret, or production release decision.
+sequence. It records only non-secret evidence refs for the later approvals,
+staging execution, UAT acceptance, production bootstrap, and production smoke.
+It does not commit company-private approvals, legal text, pricing terms,
+customer data, cloud endpoints, provider metadata, registry credentials, secret
+values, or raw production evidence.
 
 ## Current Baseline
 
 - Technical completion: R14 Gate technical pass.
 - Launch preparation: `pnpm launch:readiness` green.
-- Deployment state: staging and production intentionally disabled.
+- Deployment state: AWS staging and production evidence recorded; automatic
+  deploy workflows remain disabled.
 - Human/company decisions: tracked by `docs/release/launch-blocker-ledger.md`.
 - Release candidate application SHA under consideration:
   `9e346d9e48c962448bcccbbef9e30d9c3e468e4f`.
-- Exact frozen release SHA remains an operator decision and may be recorded as
-  the application candidate or a later documentation-only launch commit.
+- Production release-control SHA:
+  `65e2db1b401f02c52c58b87bd7af755b24b68483`.
 - Included release-candidate PRs: PR #66, PR #67, PR #68, and PR #69.
 - Release-completion prep PR: PR #68.
 - Pre-launch quality hardening PR: PR #69.
@@ -158,7 +162,7 @@ The first monitoring window must cover:
 
 Codex can continue to prepare and validate:
 
-- PR, CI, and merge flow for release-candidate code.
+- PR and CI flow for release-candidate code.
 - Launch package consistency validators.
 - Staging smoke runner and evidence templates.
 - UAT checklist bookkeeping.

@@ -118,7 +118,7 @@ for (const file of [
 ]) {
   assertContains(pack, file, 'docs/release/launch-readiness-pack.md');
 }
-assertContains(pack, 'PREPARED - NOT LAUNCHED', 'docs/release/launch-readiness-pack.md');
+assertContains(pack, 'PRODUCTION DEPLOYED - MONITORING ACTIVE', 'docs/release/launch-readiness-pack.md');
 assertContains(pack, '9e346d9e48c962448bcccbbef9e30d9c3e468e4f', 'docs/release/launch-readiness-pack.md');
 assertContains(pack, 'docs/package/', 'docs/release/launch-readiness-pack.md');
 
@@ -175,7 +175,7 @@ for (const expected of [
 }
 
 const launchControlSheet = contents.get('docs/release/launch-control-sheet.md');
-for (const expected of ['PREPARED - NOT LAUNCHED', 'pnpm launch:execution', 'pnpm release:uat', 'LRB-013']) {
+for (const expected of ['PRODUCTION DEPLOYED - MONITORING ACTIVE', 'pnpm launch:execution', 'pnpm release:uat', 'LRB-013']) {
   assertContains(launchControlSheet, expected, 'docs/release/launch-control-sheet.md');
 }
 assertContains(launchControlSheet, 'pnpm release:local-preflight', 'docs/release/launch-control-sheet.md');
@@ -195,7 +195,7 @@ for (const expected of ['9e346d9e48c962448bcccbbef9e30d9c3e468e4f', '#66', '#67'
 }
 
 const evidenceRegister = contents.get('docs/release/evidence-register.md');
-for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-UAT-001', 'EV-PROD-005', 'EV-PROD-006']) {
+for (const expected of ['EV-RC-001', 'EV-STAGE-001', 'EV-UAT-001', 'EV-PROD-005', 'EV-PROD-006', 'EV-PROD-007']) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
 
@@ -212,8 +212,9 @@ for (const expected of [
 
 const actualLaunchRunbook = contents.get('docs/release/actual-launch-runbook.md');
 for (const expected of [
-  'READY FOR OPERATOR INPUT - NO DEPLOYMENT EXECUTED',
+  'PRODUCTION EXECUTED - MONITORING ACTIVE',
   '9e346d9e48c962448bcccbbef9e30d9c3e468e4f',
+  '65e2db1b401f02c52c58b87bd7af755b24b68483',
   'SMOKE-011',
   'LRB-001',
   'LRB-013',
@@ -226,8 +227,9 @@ for (const expected of [
 const productionPreflight = contents.get('docs/release/production-execution-preflight.md');
 for (const expected of [
   'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
-  'BLOCKED - PRODUCTION INFRASTRUCTURE NOT PROVISIONED',
+  'PASSED - PRODUCTION BOOTSTRAP AND SMOKE VERIFIED',
   'Do not reuse the AWS staging target as production',
+  'PROD-SMOKE-AWS-001',
 ]) {
   assertContains(productionPreflight, expected, 'docs/release/production-execution-preflight.md');
 }

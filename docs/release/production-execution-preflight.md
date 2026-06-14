@@ -1,44 +1,49 @@
 # Production Execution Preflight
 
-Status: BLOCKED - PRODUCTION INFRASTRUCTURE NOT PROVISIONED
+Status: PASSED - PRODUCTION BOOTSTRAP AND SMOKE VERIFIED
 Date: 2026-06-14
-Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001
-Machine Status: blocked-prod-infra
+Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001
+Machine Status: production-smoke-passed
 
-This preflight records the first post-approval production release execution
-check after PR #81 merged. It does not deploy production, create production
-resources, expose endpoints, or commit provider-console evidence.
+This preflight records the post-approval production release execution path after
+PR #82 merged. The earlier preflight ref
+`PROD-REL-PREFLIGHT-AWS-2026-06-14-001` found no production-specific
+infrastructure and blocked release execution. The follow-up bootstrap created a
+separate production boundary, deployed the approved release-control SHA, and ran
+synthetic-only smoke evidence without committing provider-console evidence.
 
 ## Release State Checked
 
 | Item | Result |
 |---|---|
-| Current `main` merge SHA | `bb1973d99f0ce09954ef6bdb3a45170a144eaafb` |
+| Current `main` merge SHA | `5ff600f60d86d7eb1122c882b265e9686ee02dc7` |
+| Production release-control SHA | `65e2db1b401f02c52c58b87bd7af755b24b68483` |
 | Launch blocker approvals | LRB-005 through LRB-014 approved |
-| Main CI after PR #81 merge | green |
+| Main CI after PR #82 merge | green |
 | AWS CLI access | available outside the repository through SSO profile |
 | AWS region checked | `ap-northeast-2` |
 | Customer data scope | synthetic-data-only |
 
-## Non-Secret AWS Discovery Summary
+## Non-Secret AWS Execution Summary
 
-The AWS account currently contains the previously prepared staging environment
-classes: staging ECS, staging ECR repositories, staging RDS, staging Secrets
-Manager refs, staging ALB, staging object storage, and staging logs.
+The AWS account contains the previously prepared staging environment classes and
+now also contains production-specific runtime classes. Staging and production
+are kept as separate environment boundaries.
 
-The production execution preflight did not find production-specific resources
-under the expected AMIC Vault production boundary:
+The production release bootstrap recorded the following non-secret evidence
+refs:
 
-| Required Production Class | Preflight Result |
+| Required Production Class | Execution Result |
 |---|---|
-| Production ECS cluster and services | missing |
-| Production ECR repositories or approved production image namespace | missing |
-| Production PostgreSQL/RDS instance or cluster | missing |
-| Production Secrets Manager runtime refs | missing |
-| Production object storage bucket | missing |
-| Production load balancer, target groups, and listener rules | missing |
-| Production log groups, alarms, and notification routing | missing |
-| Production migration runner or deployment workflow | missing |
+| Production environment boundary and networking | `PROD-INFRA-AWS-001` |
+| Production ECR repositories and linux/amd64 image manifests | `PROD-REGISTRY-AWS-001` |
+| Production PostgreSQL/RDS instance, migration, and runtime DB role rotation | `PROD-BACKUP-AWS-001` |
+| Production Secrets Manager runtime refs | `PROD-SECRETS-AWS-001` |
+| Production object storage with public block, encryption, and versioning | `PROD-INFRA-AWS-001` |
+| Production load balancer and temporary HTTPS distribution | `PROD-HTTPS-TEMP-AWS-001` |
+| Production logs, alarms, and monitoring start | `PROD-MONITOR-AWS-001` |
+| Production migration/deploy workflow execution | `PROD-DEPLOY-WORKFLOW-AWS-001` |
+| Production post-deploy synthetic smoke | `PROD-SMOKE-AWS-001` |
 
 Concrete account IDs, ARNs, private endpoints, secret names beyond already
 approved public-safe refs, screenshots, cookies, tokens, and provider-console
@@ -46,28 +51,29 @@ metadata are intentionally not recorded in this repository.
 
 ## Decision
 
-`REL-PROD-REL-TUW-010` cannot execute yet. Production release approval exists,
-but production infrastructure does not.
+`REL-PROD-REL-TUW-010` executed for the approved release-control SHA
+`65e2db1b401f02c52c58b87bd7af755b24b68483`. Production infrastructure exists
+under production-specific refs, database migration completed, API and web ECS
+services reached desired=1/running=1/pending=0, and CloudFront temporary HTTPS
+status was deployed.
 
 Do not reuse the AWS staging target as production. That would collapse the
 staging/production boundary and would make the production release evidence
 ambiguous.
 
-## Required Next Evidence
+## Smoke Evidence
 
-Before production release execution can resume, record non-secret evidence refs
-for:
+`PROD-SMOKE-AWS-001` records:
 
-- production environment boundary and naming policy,
-- production ECR/image namespace or digest promotion policy,
-- production database and pre-release backup snapshot,
-- production runtime secret refs,
-- production object storage,
-- production load balancer target ref,
-- production monitoring and rollback evidence,
-- production migration runner or explicit deployment workflow.
+- target ref: `PROD-SMOKE-AWS-001`;
+- release SHA: `65e2db1b401f02c52c58b87bd7af755b24b68483`;
+- smoke checks: `SMOKE-001` through `SMOKE-011`;
+- result: pass=11, fail=0, skip=0;
+- data scope: synthetic smoke identities only;
+- negative permission check returned safe `PERMISSION_DENIED`;
+- audit metadata check remained reference-only.
 
-Suggested refs:
+## Current Evidence Refs
 
 - `PROD-INFRA-AWS-001`
 - `PROD-REGISTRY-AWS-001`
@@ -75,6 +81,8 @@ Suggested refs:
 - `PROD-BACKUP-AWS-001`
 - `PROD-DEPLOY-WORKFLOW-AWS-001`
 - `PROD-MONITOR-AWS-001`
+- `PROD-HTTPS-TEMP-AWS-001`
+- `PROD-SMOKE-AWS-001`
 
 ## Stop Conditions
 
