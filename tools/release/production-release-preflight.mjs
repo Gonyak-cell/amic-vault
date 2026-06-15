@@ -57,6 +57,7 @@ const preflight = contents.get('docs/release/production-execution-preflight.md')
 for (const expected of [
   'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
   'PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED',
+  '42e7b29665406dc1b6f110acf4a79e8453e2c8c5',
   'f4b69249c28ebf9e4465f36841af5d6c40fe7743',
   '65e2db1b401f02c52c58b87bd7af755b24b68483',
   'approved customer documents through app-controlled upload/versioning only',
@@ -67,6 +68,8 @@ for (const expected of [
   'SMOKE-011',
   'PROD-PATCH-D80FBB5-DEPLOY-2026-06-15',
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
+  'PROD-PATCH-42E7B29-DEPLOY-2026-06-15',
+  'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
   'd80fbb5d5bf339ed11ddd6bca27b9e937bd83811',
   'SMOKE-015',
   'PROD-MONITOR-ALARMS-AWS-2026-06-15',
@@ -97,7 +100,14 @@ assertContains(
   'EV-PROD-007',
   'docs/release/evidence-register.md',
 );
-for (const expected of ['EV-PROD-008', 'EV-PROD-009', 'EV-PROD-010', 'EV-PROD-011']) {
+for (const expected of [
+  'EV-PROD-008',
+  'EV-PROD-009',
+  'EV-PROD-010',
+  'EV-PROD-011',
+  'EV-PROD-012',
+  'EV-PROD-013',
+]) {
   assertContains(
     contents.get('docs/release/evidence-register.md'),
     expected,
@@ -109,31 +119,46 @@ assertContains(
   'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
   'docs/release/launch-control-sheet.md',
 );
-assertContains(
-  contents.get('docs/release/launch-control-sheet.md'),
+for (const expected of [
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
-  'docs/release/launch-control-sheet.md',
-);
+  'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
+]) {
+  assertContains(
+    contents.get('docs/release/launch-control-sheet.md'),
+    expected,
+    'docs/release/launch-control-sheet.md',
+  );
+}
 assertContains(
   contents.get('docs/release/production-release-runbook.md'),
   'DEPLOYED - POST-LAUNCH MONITORING',
   'docs/release/production-release-runbook.md',
 );
-assertContains(
-  contents.get('docs/release/production-release-runbook.md'),
+for (const expected of [
   'PROD-PATCH-D80FBB5-DEPLOY-2026-06-15',
-  'docs/release/production-release-runbook.md',
-);
+  'PROD-PATCH-42E7B29-DEPLOY-2026-06-15',
+]) {
+  assertContains(
+    contents.get('docs/release/production-release-runbook.md'),
+    expected,
+    'docs/release/production-release-runbook.md',
+  );
+}
 assertContains(
   contents.get('docs/release/launch-blocker-ledger.md'),
   'PROD-SMOKE-AWS-001',
   'docs/release/launch-blocker-ledger.md',
 );
-assertContains(
-  contents.get('docs/release/launch-blocker-ledger.md'),
+for (const expected of [
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
-  'docs/release/launch-blocker-ledger.md',
-);
+  'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
+]) {
+  assertContains(
+    contents.get('docs/release/launch-blocker-ledger.md'),
+    expected,
+    'docs/release/launch-blocker-ledger.md',
+  );
+}
 assertContains(
   contents.get('docs/release/launch-blocker-ledger.md'),
   'APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15',

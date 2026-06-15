@@ -148,6 +148,8 @@ for (const expected of [
   'EV-PROD-009',
   'EV-PROD-010',
   'EV-PROD-011',
+  'EV-PROD-012',
+  'EV-PROD-013',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
@@ -209,6 +211,7 @@ for (const expected of [
   'Do not reuse the AWS staging target as production',
   'PROD-SMOKE-AWS-001',
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
+  'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
   'PROD-MONITOR-ALARMS-AWS-2026-06-15',
   'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
 ]) {

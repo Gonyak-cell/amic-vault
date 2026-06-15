@@ -113,6 +113,17 @@ post-launch monitoring active for this pack.
   `f4b69249c28ebf9e4465f36841af5d6c40fe7743` against the production temporary
   HTTPS target ref. The smoke run used synthetic smoke identities and did not
   upload or expose customer documents.
+- Production patch `PROD-PATCH-42E7B29-DEPLOY-2026-06-15` deployed current
+  main HEAD `42e7b29665406dc1b6f110acf4a79e8453e2c8c5` after PR #94 merged.
+  API, web, and ingestion image manifests were pushed; a pre-patch RDS snapshot
+  reached available status; migrations `0064` through `0068` were applied by a
+  one-off ECS migrator task with exitCode 0 and the migrator task definition was
+  deregistered; production API/Web ECS services reached
+  desired=1/running=1/pending=0 on task revisions 5 and 9; Local Gemma execution
+  flags remain explicitly disabled in production task env pending separate
+  operator approval; `PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15` passed
+  SMOKE-001 through SMOKE-015 with pass=15 fail=0 skip=0; target groups ended
+  healthy-only and production alarms were OK.
 - Concrete endpoint values, account identifiers, ARNs, private URLs,
   screenshots, cookies, tokens, secret values, provider-console metadata, and
   customer data remain outside this repository.
