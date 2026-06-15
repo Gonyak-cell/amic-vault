@@ -346,6 +346,36 @@ describe('AiPrepProcessor', () => {
     );
   });
 
+  it('uses the artifact retrieval plan when building and storing prep evidence', async () => {
+    const { repository, processor } = createProcessor();
+
+    await processor.handle(payload);
+
+    expect(repository.buildEvidencePack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chunks: [
+          expect.objectContaining({
+            chunkId: sourceChunk.chunkId,
+            redactedText: sourceChunk.chunkText,
+          }),
+        ],
+        tokenBudget: 1200,
+        appliedRules: expect.arrayContaining([
+          'ai_prep.retrieval_plan:document_profile',
+          'ai_prep.metadata_filter:current_version',
+          'ai_prep.metadata_filter:ai_allowed_true',
+          'ai_prep.permission_filter:query_stage',
+        ]),
+      }),
+    );
+    expect(repository.upsertCompleted).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        sourceChunks: [sourceChunk],
+      }),
+    );
+  });
+
   it('fails closed before Gemma generation when evidence source refs are mismatched', async () => {
     const { auditLogs, generation, repository, processor } = createProcessor({
       packSourceRefs: ['chunk:unknown'],

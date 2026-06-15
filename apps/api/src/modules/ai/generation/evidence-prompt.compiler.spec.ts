@@ -82,4 +82,93 @@ describe('AiEvidencePromptCompiler', () => {
     expect(compiled.prompt).toContain('"kind":"summary|key_fact"');
     expect(compiled.prompt).not.toMatch(/risk|issue|clause/u);
   });
+
+  it('keeps prep graph facts relation-only and excludes risk/issue/clause inference nodes', () => {
+    const pack = {
+      ...evidencePack(),
+      graphFacts: [
+        {
+          edgeId: '11111111-1111-4111-8111-111111111020',
+          edgeType: 'HAS_DOCUMENT' as const,
+          matterId: '11111111-1111-4111-8111-111111111002',
+          documentId: '11111111-1111-4111-8111-111111111005',
+          sourceNodeId: '11111111-1111-4111-8111-111111111002',
+          sourceNodeType: 'matter' as const,
+          targetNodeId: '11111111-1111-4111-8111-111111111005',
+          targetNodeType: 'document' as const,
+          sourceHash,
+        },
+        {
+          edgeId: '11111111-1111-4111-8111-111111111021',
+          edgeType: 'HAS_RISK' as const,
+          matterId: '11111111-1111-4111-8111-111111111002',
+          documentId: '11111111-1111-4111-8111-111111111005',
+          sourceNodeId: '11111111-1111-4111-8111-111111111005',
+          sourceNodeType: 'document' as const,
+          targetNodeId: '11111111-1111-4111-8111-111111111022',
+          targetNodeType: 'risk' as const,
+          sourceHash,
+        },
+      ],
+    };
+
+    const compiled = new AiEvidencePromptCompiler().compile(pack, {
+      purpose: 'file_organization_prep',
+      artifactKind: 'source_outline',
+      allowedClaimKinds: ['summary', 'key_fact'],
+    });
+
+    expect(compiled.prompt).toContain('HAS_DOCUMENT');
+    expect(compiled.prompt).not.toContain('HAS_RISK');
+    expect(compiled.prompt).not.toContain('11111111-1111-4111-8111-111111111022');
+  });
+
+  it('keeps only safe filing/classification rule findings in prep prompts', () => {
+    const pack = {
+      ...evidencePack(),
+      ruleFindings: [
+        {
+          findingId: 'b'.repeat(64),
+          matterId: '11111111-1111-4111-8111-111111111002',
+          documentId: '11111111-1111-4111-8111-111111111005',
+          versionId: '11111111-1111-4111-8111-111111111006',
+          clauseId: null,
+          ruleId: '11111111-1111-4111-8111-111111111030',
+          ruleKey: 'classification.document_type',
+          ruleVersion: 1,
+          severity: 'info' as const,
+          status: 'pass' as const,
+          findingCode: 'classification.document_type.contract',
+          findingHash: 'c'.repeat(64),
+          evidenceRefs: ['chunk:11111111-1111-4111-8111-111111111004'],
+        },
+        {
+          findingId: 'd'.repeat(64),
+          matterId: '11111111-1111-4111-8111-111111111002',
+          documentId: '11111111-1111-4111-8111-111111111005',
+          versionId: '11111111-1111-4111-8111-111111111006',
+          clauseId: '11111111-1111-4111-8111-111111111031',
+          ruleId: '11111111-1111-4111-8111-111111111032',
+          ruleKey: 'nda.section.required',
+          ruleVersion: 1,
+          severity: 'critical' as const,
+          status: 'fail' as const,
+          findingCode: 'required_clause.section.fail',
+          findingHash: 'e'.repeat(64),
+          evidenceRefs: ['clause:11111111-1111-4111-8111-111111111031'],
+        },
+      ],
+    };
+
+    const compiled = new AiEvidencePromptCompiler().compile(pack, {
+      purpose: 'file_organization_prep',
+      artifactKind: 'filing_suggestions',
+      allowedClaimKinds: ['summary', 'key_fact'],
+    });
+
+    expect(compiled.prompt).toContain('classification.document_type');
+    expect(compiled.prompt).not.toContain('nda.section.required');
+    expect(compiled.prompt).not.toContain('required_clause.section.fail');
+    expect(compiled.prompt).not.toContain('clause:11111111-1111-4111-8111-111111111031');
+  });
 });
