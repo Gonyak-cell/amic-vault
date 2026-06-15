@@ -14,6 +14,7 @@ export const aiSummaryTaskSchema = z.enum([
   'email_thread_summary',
   'clause_analysis',
   'risk_extraction',
+  'matter_qa',
 ]);
 
 export const aiSummaryStatusSchema = z.enum(['completed', 'escalated']);

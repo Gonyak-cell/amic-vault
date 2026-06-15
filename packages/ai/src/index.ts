@@ -222,7 +222,12 @@ function defaultTransport(): GatewayTransport {
       if (init.body) requestInit.body = init.body;
       if (init.signal) requestInit.signal = init.signal;
       const response = await fetch(url, requestInit);
-      return { ok: response.ok, status: response.status };
+      return {
+        ok: response.ok,
+        status: response.status,
+        json: () => response.json() as Promise<unknown>,
+        text: () => response.text(),
+      };
     },
   };
 }

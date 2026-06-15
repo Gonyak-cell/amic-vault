@@ -17,6 +17,13 @@ describe('AI summary schemas', () => {
         filters: { matterId },
       }),
     ).toMatchObject({ matterId, task: 'matter_summary' });
+    expect(
+      aiSummaryRequestSchema.parse({
+        matterId,
+        task: 'matter_qa',
+        query: 'answer from authorized matter evidence only',
+      }),
+    ).toMatchObject({ matterId, task: 'matter_qa' });
 
     expect(() =>
       aiSummaryRequestSchema.parse({

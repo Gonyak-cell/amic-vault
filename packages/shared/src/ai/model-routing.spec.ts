@@ -13,6 +13,7 @@ describe('AI model routing contracts', () => {
 
   it('parses conservative task kinds and routing decisions', () => {
     expect(aiTaskKindSchema.parse('legal_conclusion')).toBe('legal_conclusion');
+    expect(aiTaskKindSchema.parse('matter_qa')).toBe('matter_qa');
     expect(
       aiRoutingDecisionSchema.parse({
         effect: 'ESCALATE',
