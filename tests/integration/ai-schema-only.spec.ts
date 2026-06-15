@@ -125,6 +125,7 @@ describe('ai policy boundary integration', () => {
     const allowedR6ControllerRefs = new Set([
       'apps/api/src/modules/ai/citation/ai-citation.controller.ts',
       'apps/api/src/modules/ai/feedback/ai-feedback.controller.ts',
+      'apps/api/src/modules/ai/prep/ai-prep-status.controller.ts',
       'apps/api/src/modules/ai/session/ai-session.controller.ts',
       'apps/api/src/modules/ai/features/ai-summary.controller.ts',
       'apps/api/src/modules/scale/scale.controller.ts',

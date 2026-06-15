@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PgRoleLookup, RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { AiPolicyModule } from '../ai-policy/ai-policy.module';
 import { AuditModule } from '../audit/audit.module';
 import { ContractIntelModule } from '../contract-intel/contract-intel.module';
@@ -23,6 +24,8 @@ import { LocalGemmaGenerationService } from './generation/local-gemma-generation
 import { AiPrepProcessor } from './prep/ai-prep.processor';
 import { AiPrepQueueService } from './prep/ai-prep-queue.service';
 import { AiPrepRepository } from './prep/ai-prep.repository';
+import { AiPrepStatusController } from './prep/ai-prep-status.controller';
+import { AiPrepStatusService } from './prep/ai-prep-status.service';
 import { AiSessionController } from './session/ai-session.controller';
 import { AiSessionLogService } from './session/ai-session-log.service';
 import { AiMetadataFilterBuilder } from './retrieval/metadata-filter.builder';
@@ -43,7 +46,13 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     PermissionModule,
     SearchModule,
   ],
-  controllers: [AiCitationController, AiFeedbackController, AiSessionController, AiSummaryController],
+  controllers: [
+    AiCitationController,
+    AiFeedbackController,
+    AiPrepStatusController,
+    AiSessionController,
+    AiSummaryController,
+  ],
   providers: [
     AiCitationMapperService,
     AiAuditRecorder,
@@ -62,9 +71,12 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiEvidencePromptCompiler,
     AiGroundedOutputGuard,
     LocalGemmaGenerationService,
+    PgRoleLookup,
+    RequireRolesGuard,
     AiPrepProcessor,
     AiPrepQueueService,
     AiPrepRepository,
+    AiPrepStatusService,
     AiSummaryService,
     AiFeedbackService,
   ],
@@ -82,6 +94,7 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     LocalGemmaGenerationService,
     AiPrepQueueService,
     AiPrepRepository,
+    AiPrepStatusService,
     AiSummaryService,
     AiFeedbackService,
   ],

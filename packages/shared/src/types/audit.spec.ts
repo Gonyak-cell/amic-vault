@@ -118,6 +118,8 @@ describe('audit shared types', () => {
       stale_reason: 'new_version',
       dead_letter_id: 'job:ai-prep-dead',
       feedback_id: '11111111-1111-4111-8111-111111111177',
+      feedback_kind: 'incorrect',
+      feedback_reason_code: 'missing_citation',
       rating: 4,
       helpful: true,
       correction_type: 'minor_edit',
