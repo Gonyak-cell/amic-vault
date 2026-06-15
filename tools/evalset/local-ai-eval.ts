@@ -8,7 +8,8 @@ const defaultDatabaseUrl =
   process.env.DATABASE_URL ??
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
-const maxTechnicalFallbackRate = 0.8;
+const maxTechnicalFallbackRate = 0.5;
+const minTechnicalGeneratedOutputCount = 5;
 
 export interface LocalAiEvalInput {
   tenantId: string;
@@ -23,6 +24,7 @@ interface EvaluationCaseRow {
 interface ArtifactEvalRow {
   output_count: string;
   fallback_count: string;
+  generated_output_count: string;
   unsupported_count: string;
   leakage_count: string;
   prep_schema_violation_count: string;
@@ -38,6 +40,7 @@ export function computeLocalAiEvalReport(input: {
   deidentifiedCaseCount: number;
   outputCount: number;
   fallbackCount: number;
+  generatedOutputCount?: number | undefined;
   unsupportedCount: number;
   leakageCount: number;
   prepSchemaViolationCount: number;
@@ -48,14 +51,21 @@ export function computeLocalAiEvalReport(input: {
 }): LocalAiEvalReportDto {
   const citationAccuracy =
     input.totalSourceRefs === 0 ? 1 : input.matchedSourceRefs / input.totalSourceRefs;
+  const generatedOutputCount =
+    input.generatedOutputCount ?? Math.max(input.outputCount - input.fallbackCount, 0);
   const unsupportedClaimRate =
-    input.outputCount === 0 ? 0 : input.unsupportedCount / input.outputCount;
+    generatedOutputCount + input.unsupportedCount === 0
+      ? 0
+      : input.unsupportedCount / (generatedOutputCount + input.unsupportedCount);
   const fallbackRate = input.outputCount === 0 ? 0 : input.fallbackCount / input.outputCount;
   const koreanLegalLanguagePass =
-    input.outputCount === 0 ? true : input.koreanOutputCount === input.outputCount;
+    generatedOutputCount === 0 ? true : input.koreanOutputCount === generatedOutputCount;
   const warnings: string[] = [];
   if (input.caseCount === 0) warnings.push('No evaluation_cases loaded for tenant.');
   if (input.outputCount === 0) warnings.push('No completed local AI outputs observed.');
+  if (generatedOutputCount < minTechnicalGeneratedOutputCount) {
+    warnings.push('Insufficient non-fallback generated local AI outputs observed.');
+  }
   if (input.caseCount !== input.deidentifiedCaseCount) {
     warnings.push('Evaluation cases include non-deidentified rows.');
   }
@@ -72,6 +82,7 @@ export function computeLocalAiEvalReport(input: {
     deidentifiedCaseCount: input.deidentifiedCaseCount,
     completedOutputCount: input.outputCount,
     fallbackArtifactCount: input.fallbackCount,
+    generatedOutputCount,
     permissionLeakageCount: input.leakageCount,
     prepSchemaViolationCount: input.prepSchemaViolationCount,
     citationAccuracy,
@@ -81,6 +92,7 @@ export function computeLocalAiEvalReport(input: {
     p95LatencyMs: input.p95LatencyMs,
     technicalPass:
       input.outputCount > 0 &&
+      generatedOutputCount >= minTechnicalGeneratedOutputCount &&
       input.caseCount === input.deidentifiedCaseCount &&
       input.leakageCount === 0 &&
       input.prepSchemaViolationCount === 0 &&
@@ -105,6 +117,7 @@ export async function collectLocalAiEval(input: LocalAiEvalInput): Promise<Local
       deidentifiedCaseCount: Number(cases.deidentified_count),
       outputCount: Number(artifacts.output_count),
       fallbackCount: Number(artifacts.fallback_count),
+      generatedOutputCount: Number(artifacts.generated_output_count),
       unsupportedCount: Number(artifacts.unsupported_count),
       leakageCount: Number(artifacts.leakage_count),
       prepSchemaViolationCount: Number(artifacts.prep_schema_violation_count),
@@ -145,13 +158,45 @@ async function collectArtifactEval(client: Client, tenantId: string): Promise<Ar
           AND status = 'completed'
           AND is_stale = false
       ),
+      fallback_audits AS (
+        SELECT DISTINCT target_id AS ai_prep_artifact_id
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'AI_PREP_COMPLETED'
+          AND target_type = 'ai_prep_artifact'
+          AND target_id IS NOT NULL
+          AND metadata_json->>'generation_result' = 'fallback'
+          AND metadata_json ? 'fallback_reason_code'
+      ),
+      completed_with_signal AS (
+        SELECT c.*,
+          (
+            (
+              jsonb_typeof(c.payload_json->'warnings') = 'array'
+              AND EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements_text(c.payload_json->'warnings') AS warning(value)
+                WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+              )
+            )
+            OR fa.ai_prep_artifact_id IS NOT NULL
+          ) AS is_fallback
+        FROM completed c
+        LEFT JOIN fallback_audits fa
+          ON fa.ai_prep_artifact_id = c.ai_prep_artifact_id
+      ),
+      generated AS (
+        SELECT *
+        FROM completed_with_signal
+        WHERE is_fallback = false
+      ),
       refs AS (
         SELECT c.ai_prep_artifact_id, ref.value AS source_ref,
           ARRAY(
             SELECT 'chunk:' || chunk_id::text
             FROM unnest(c.source_chunk_ids) AS chunk_id
           ) AS allowed_refs
-        FROM completed c
+        FROM generated c
         CROSS JOIN LATERAL jsonb_array_elements_text(
           CASE
             WHEN jsonb_typeof(c.payload_json->'source_refs') = 'array'
@@ -176,16 +221,8 @@ async function collectArtifactEval(client: Client, tenantId: string): Promise<Ar
       )
       SELECT
         (SELECT count(*)::text FROM completed) AS output_count,
-        (
-          SELECT count(*)::text
-          FROM completed
-          WHERE jsonb_typeof(payload_json->'warnings') = 'array'
-            AND EXISTS (
-              SELECT 1
-              FROM jsonb_array_elements_text(payload_json->'warnings') AS warning(value)
-              WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
-            )
-        ) AS fallback_count,
+        (SELECT count(*)::text FROM completed_with_signal WHERE is_fallback = true) AS fallback_count,
+        (SELECT count(*)::text FROM generated) AS generated_output_count,
         (
           SELECT count(*)::text
           FROM ai_prep_artifacts
@@ -272,7 +309,7 @@ async function collectArtifactEval(client: Client, tenantId: string): Promise<Ar
         ) AS matched_source_refs,
         (
           SELECT count(*)::text
-          FROM completed
+          FROM generated
           WHERE payload_json::text ~ '[가-힣]'
         ) AS korean_output_count,
         (
@@ -287,6 +324,7 @@ async function collectArtifactEval(client: Client, tenantId: string): Promise<Ar
     result.rows[0] ?? {
       output_count: '0',
       fallback_count: '0',
+      generated_output_count: '0',
       unsupported_count: '0',
       leakage_count: '0',
       prep_schema_violation_count: '0',

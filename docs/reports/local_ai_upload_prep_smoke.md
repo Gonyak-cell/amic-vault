@@ -32,6 +32,7 @@ Result:
 | completedCount | 25 |
 | fallbackPayloadWarningCount | 18 |
 | fallbackAuditReasonCount | 0 |
+| fallbackSignalCount | 18 |
 | rawPayloadKeyCount | 0 |
 | rawAuditMetadataKeyCount | 0 |
 | legalClaimCount | 0 |
@@ -41,7 +42,9 @@ Result:
 | disallowedArtifactKindCount | 0 |
 | technicalPass | true |
 
-`fallbackAuditReasonCount` is 0 for the historical smoke rows because they were produced before PACK-LAI fallback audit hardening. New `AI_PREP_COMPLETED` events now include bounded `generation_result` and `fallback_reason_code` metadata; unit coverage verifies the new write path.
+`fallbackAuditReasonCount` is 0 for the historical smoke rows because they were produced before PACK-LAI fallback audit hardening. New `AI_PREP_COMPLETED` events include bounded `generation_result` and `fallback_reason_code` metadata, and scan/eval now count fallback via audit metadata first plus historical payload warning compatibility.
+
+The storage scan still passes safety checks, but `pnpm eval:local-ai` now blocks this historical sample because 18 of 25 completed artifacts are fallbacks. The current evidence proves safe fallback behavior, not sufficient Gemma-generated prep quality.
 
 ## Sample Manifest
 

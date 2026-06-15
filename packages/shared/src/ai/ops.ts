@@ -45,6 +45,7 @@ export const localAiEvalReportSchema = z
     deidentifiedCaseCount: z.number().int().min(0),
     completedOutputCount: z.number().int().min(0),
     fallbackArtifactCount: z.number().int().min(0),
+    generatedOutputCount: z.number().int().min(0),
     permissionLeakageCount: z.number().int().min(0),
     prepSchemaViolationCount: z.number().int().min(0),
     citationAccuracy: z.number().min(0).max(1),

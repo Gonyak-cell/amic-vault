@@ -57,7 +57,7 @@ export interface LocalGemmaGenerateTextInput {
   prompt: string;
   system?: string | undefined;
   model?: string | undefined;
-  format?: 'json' | undefined;
+  format?: 'json' | Record<string, unknown> | undefined;
   temperature?: number | undefined;
   maxTokens?: number | undefined;
   timeoutMs?: number | undefined;
@@ -190,7 +190,7 @@ export class LocalGemmaGateway {
     input: LocalGemmaGenerateTextInput,
     parse: (value: unknown) => T,
   ): Promise<LocalGemmaGenerateJsonResult<T>> {
-    const result = await this.generateText({ ...input, format: 'json' });
+    const result = await this.generateText({ ...input, format: input.format ?? 'json' });
     if (result.status !== 'completed' || !result.response) return result;
     let decoded: unknown;
     try {

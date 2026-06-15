@@ -7,20 +7,23 @@ WORKDIR /app
 FROM base AS deps
 COPY .npmrc package.json pnpm-lock.yaml* pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY apps/api/package.json apps/api/package.json
+COPY packages/ai/package.json packages/ai/package.json
 COPY packages/domain/package.json packages/domain/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY apps/api apps/api
+COPY packages/ai packages/ai
 COPY packages/domain packages/domain
 COPY packages/shared packages/shared
-RUN pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/api build
+RUN pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/ai build && pnpm --filter @amic-vault/api build
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/apps/api/dist apps/api/dist
+COPY --from=build /app/packages/ai packages/ai
 COPY --from=build /app/packages/domain packages/domain
 COPY --from=build /app/packages/shared packages/shared
 COPY --from=deps /app/node_modules node_modules

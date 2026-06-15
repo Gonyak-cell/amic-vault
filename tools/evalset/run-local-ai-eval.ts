@@ -24,6 +24,7 @@ console.log(
       ...report,
       citationAccuracyPercent: formatPercent(report.citationAccuracy),
       unsupportedClaimRatePercent: formatPercent(report.unsupportedClaimRate),
+      fallbackRatePercent: formatPercent(report.fallbackRate),
     },
     null,
     2,

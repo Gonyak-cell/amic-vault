@@ -80,6 +80,9 @@ Latest observed gate values:
 | LAI-N-048 | eval | zero completed output | `eval:local-ai` fails |
 | LAI-N-049 | eval | prep schema violation count positive | `eval:local-ai` fails |
 | LAI-N-050 | eval | raw/leakage count positive | `eval:local-ai` fails |
+| LAI-N-051 | eval | fallbackRate above 0.5 | `eval:local-ai` fails |
+| LAI-N-052 | eval | fewer than 5 non-fallback generated outputs | `eval:local-ai` fails |
+| LAI-N-053 | eval | fallback warning absent but audit metadata says fallback | fallback counted |
 
 ## Residual Notes
 

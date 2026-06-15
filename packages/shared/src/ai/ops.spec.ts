@@ -46,6 +46,7 @@ describe('local AI ops shared contract', () => {
       deidentifiedCaseCount: 2,
       completedOutputCount: 1,
       fallbackArtifactCount: 0,
+      generatedOutputCount: 1,
       permissionLeakageCount: 1,
       prepSchemaViolationCount: 0,
       citationAccuracy: 1,

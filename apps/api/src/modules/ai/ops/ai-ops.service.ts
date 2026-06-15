@@ -198,7 +198,17 @@ export class AiOpsService {
   private async collectMetrics(client: PoolClient, tenantId: string): Promise<OpsMetricsRow> {
     const result = await client.query<OpsMetricsRow>(
       `
-        WITH prep AS (
+        WITH fallback_audits AS (
+          SELECT DISTINCT target_id AS ai_prep_artifact_id
+          FROM audit_events
+          WHERE tenant_id = $1
+            AND action = 'AI_PREP_COMPLETED'
+            AND target_type = 'ai_prep_artifact'
+            AND target_id IS NOT NULL
+            AND metadata_json->>'generation_result' = 'fallback'
+            AND metadata_json ? 'fallback_reason_code'
+        ),
+        prep AS (
           SELECT
             count(*) FILTER (WHERE status = 'completed')::int AS prep_completed_count,
             count(*) FILTER (WHERE status = 'blocked')::int AS prep_blocked_count,
@@ -206,11 +216,16 @@ export class AiOpsService {
             count(*) FILTER (WHERE status = 'stale' OR is_stale = true)::int AS prep_stale_count,
             count(*) FILTER (
               WHERE status = 'completed'
-                AND jsonb_typeof(payload_json->'warnings') = 'array'
-                AND EXISTS (
-                  SELECT 1
-                  FROM jsonb_array_elements_text(payload_json->'warnings') AS warning(value)
-                  WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+                AND (
+                  ai_prep_artifact_id IN (SELECT ai_prep_artifact_id FROM fallback_audits)
+                  OR (
+                    jsonb_typeof(payload_json->'warnings') = 'array'
+                    AND EXISTS (
+                      SELECT 1
+                      FROM jsonb_array_elements_text(payload_json->'warnings') AS warning(value)
+                      WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+                    )
+                  )
                 )
             )::int AS prep_fallback_count,
             count(*) FILTER (WHERE is_stale = true)::int AS stale_rebuild_count,

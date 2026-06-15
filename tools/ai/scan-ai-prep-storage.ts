@@ -9,6 +9,7 @@ interface ScanRow {
   completed_count: string;
   fallback_payload_warning_count: string;
   fallback_audit_reason_count: string;
+  fallback_signal_count: string;
   raw_payload_key_count: string;
   raw_audit_metadata_key_count: string;
   legal_claim_count: string;
@@ -24,6 +25,7 @@ interface ScanReport {
   completedCount: number;
   fallbackPayloadWarningCount: number;
   fallbackAuditReasonCount: number;
+  fallbackSignalCount: number;
   rawPayloadKeyCount: number;
   rawAuditMetadataKeyCount: number;
   legalClaimCount: number;
@@ -61,6 +63,16 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
         FROM ai_prep_artifacts
         WHERE tenant_id = $1
           AND is_stale = false
+      ),
+      fallback_audits AS (
+        SELECT DISTINCT target_id AS ai_prep_artifact_id
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'AI_PREP_COMPLETED'
+          AND target_type = 'ai_prep_artifact'
+          AND target_id IS NOT NULL
+          AND metadata_json->>'generation_result' = 'fallback'
+          AND metadata_json ? 'fallback_reason_code'
       ),
       claims AS (
         SELECT a.ai_prep_artifact_id, a.artifact_kind, a.payload_json,
@@ -109,6 +121,22 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
             AND metadata_json->>'generation_result' = 'fallback'
             AND metadata_json ? 'fallback_reason_code'
         ) AS fallback_audit_reason_count,
+        (
+          SELECT count(*)::text
+          FROM artifacts a
+          WHERE a.status = 'completed'
+            AND (
+              a.ai_prep_artifact_id IN (SELECT ai_prep_artifact_id FROM fallback_audits)
+              OR (
+                jsonb_typeof(a.payload_json->'warnings') = 'array'
+                AND EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements_text(a.payload_json->'warnings') AS warning(value)
+                  WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+                )
+              )
+            )
+        ) AS fallback_signal_count,
         (
           SELECT count(*)::text
           FROM artifacts
@@ -179,6 +207,7 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
       completed_count: '0',
       fallback_payload_warning_count: '0',
       fallback_audit_reason_count: '0',
+      fallback_signal_count: '0',
       raw_payload_key_count: '0',
       raw_audit_metadata_key_count: '0',
       legal_claim_count: '0',
@@ -197,6 +226,7 @@ function toReport(tenantId: string, row: ScanRow): ScanReport {
     completedCount: Number(row.completed_count),
     fallbackPayloadWarningCount: Number(row.fallback_payload_warning_count),
     fallbackAuditReasonCount: Number(row.fallback_audit_reason_count),
+    fallbackSignalCount: Number(row.fallback_signal_count),
     rawPayloadKeyCount: Number(row.raw_payload_key_count),
     rawAuditMetadataKeyCount: Number(row.raw_audit_metadata_key_count),
     legalClaimCount: Number(row.legal_claim_count),

@@ -145,6 +145,40 @@ describe('LocalGemmaGateway', () => {
     ).resolves.toMatchObject({ status: 'blocked', reasonCode: 'schema_invalid' });
   });
 
+  it('passes structured JSON schema format through to Ollama generation', async () => {
+    const schema = {
+      type: 'object',
+      required: ['answer'],
+      properties: { answer: { type: 'string' } },
+    };
+    const transport = {
+      fetch: vi.fn(async (url: string, init) => {
+        if (url.endsWith('/api/tags')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ models: [{ name: 'gemma4:12b', model: 'gemma4:12b' }] }),
+          };
+        }
+        expect(JSON.parse(init.body ?? '{}')).toMatchObject({ format: schema });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ model: 'gemma4:12b', response: '{"answer":"ok"}' }),
+        };
+      }),
+    } satisfies GatewayTransport;
+
+    const gateway = new LocalGemmaGateway(
+      { route: 'local_gemma', enabled: true, endpoint: 'http://127.0.0.1:11434' },
+      transport,
+    );
+
+    await expect(
+      gateway.generateJson({ prompt: 'json', format: schema }, (value) => value),
+    ).resolves.toMatchObject({ status: 'completed', json: { answer: 'ok' } });
+  });
+
   it('default transport exposes response json for health and generation', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.endsWith('/api/tags')) {
