@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
+import { adaptEvidencePackToPrepSourceRefs } from '@amic-vault/shared';
 import type { AiRetrievalResult, AiRetrievedChunk } from '../retrieval/ai-retrieval.types';
 import { AiContextRanker } from './context-ranker';
 import { AiContextWindowManager } from './context-window.manager';
@@ -85,6 +86,9 @@ describe('AiEvidencePackBuilder', () => {
       'chunk:11111111-1111-4111-8111-111111111302',
       'chunk:11111111-1111-4111-8111-111111111303',
     ]);
+    const adapter = adaptEvidencePackToPrepSourceRefs(pack);
+    expect(adapter.source_refs).toEqual(pack.citationRequirements.sourceRefs);
+    expect(JSON.stringify(adapter)).not.toContain('safe context with [REDACTED:email_address]');
     const serialized = JSON.stringify(pack);
     expect(serialized).not.toContain('privileged title leakage');
     expect(serialized).not.toContain('snippet leakage');
@@ -110,6 +114,28 @@ describe('AiEvidencePackBuilder', () => {
         },
       }),
     ).toThrow(ForbiddenException);
+  });
+
+  it('fails closed when retrieved chunks produce duplicate source refs', () => {
+    const builder = new AiEvidencePackBuilder(
+      new AiContextRanker(),
+      new AiContextWindowManager(),
+    );
+    const duplicateChunk = chunk({
+      documentId: '11111111-1111-4111-8111-111111111202',
+      chunkId: '11111111-1111-4111-8111-111111111301',
+      score: 0.8,
+      redactedText: 'second authorized context',
+    });
+
+    expect(() =>
+      builder.build({
+        tenantId,
+        matterId,
+        userQuestion: 'dedupe refs',
+        retrieval: readyRetrieval([chunk({}), duplicateChunk]),
+      }),
+    ).toThrow(/unique|duplicate/u);
   });
 
   it('includes R7 graph facts only as bounded ID relationships', () => {

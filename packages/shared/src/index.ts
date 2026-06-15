@@ -671,11 +671,16 @@ export {
   evidencePackSourceTypeSchema,
   evidencePackTaskTypeSchema,
   evidencePackTaskTypes,
+  evidencePackV2PrepAdapterSchema,
+  evidencePackV2PrepSourceRefEntrySchema,
+  adaptEvidencePackToPrepSourceRefs,
   type EvidencePackChunkDto,
   type EvidencePackDto,
   type EvidencePackGraphFactDto,
   type EvidencePackRuleFindingDto,
   type EvidencePackTaskType,
+  type EvidencePackV2PrepAdapterDto,
+  type EvidencePackV2PrepSourceRefEntryDto,
 } from './ai/evidence-pack';
 export {
   graphConsistencyDriftSchema,

@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { evidencePackSchema, type EvidencePackDto } from '@amic-vault/shared';
+import {
+  adaptEvidencePackToPrepSourceRefs,
+  evidencePackSchema,
+  type EvidencePackDto,
+} from '@amic-vault/shared';
 import type { QueryClient } from '../../audit/audit.service';
 import { SearchFilterBuilder } from '../../search/query/search-filter.builder';
 import type { SearchSqlFragment } from '../../search/query/search-filter.builder';
@@ -144,7 +148,7 @@ export class AiPrepRepository {
       input.chunks.reduce((total, chunk) => total + chunk.tokenCount, 0),
     );
     const sourceRefs = input.chunks.map((chunk) => `chunk:${chunk.chunkId}`);
-    return evidencePackSchema.parse({
+    const pack = evidencePackSchema.parse({
       packId: randomUUID(),
       userQuestion: questionForArtifactKind(input.artifactKind, input.source.title),
       rewrittenQueries: [queryForArtifactKind(input.artifactKind, input.source.title)],
@@ -202,6 +206,8 @@ export class AiPrepRepository {
       outputFormat: { kind: taskTypeForArtifactKind(input.artifactKind), locale: 'ko-KR' },
       escalationFlags: [],
     });
+    adaptEvidencePackToPrepSourceRefs(pack);
+    return pack;
   }
 
   async markSupersededArtifactsStale(

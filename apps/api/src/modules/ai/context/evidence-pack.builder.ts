@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import {
+  adaptEvidencePackToPrepSourceRefs,
   evidencePackSchema,
   type EvidencePackDto,
   type EvidencePackGraphFactDto,
@@ -87,7 +88,9 @@ export class AiEvidencePackBuilder {
       escalationFlags: [],
     };
 
-    return evidencePackSchema.parse(pack);
+    const parsed = evidencePackSchema.parse(pack);
+    adaptEvidencePackToPrepSourceRefs(parsed);
+    return parsed;
   }
 
   private assertScopedReadyRetrieval(retrieval: AiRetrievalResult): void {
