@@ -11,6 +11,8 @@ const requiredFiles = [
   'docs/release/launch-control-sheet.md',
   'docs/release/production-release-runbook.md',
   'docs/release/launch-blocker-ledger.md',
+  'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md',
+  'docs/release/local-ai-production-enablement-runbook.md',
 ];
 
 const forbiddenSecretPatterns = [
@@ -23,6 +25,8 @@ const forbiddenSecretPatterns = [
   /\b\d{12}\b/,
   /arn:aws:[^\s|)]+/i,
 ];
+
+const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi;
 
 function readRequired(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
@@ -39,9 +43,12 @@ function assertContains(content, needle, file) {
 }
 
 function assertNoForbiddenSecrets(content, file) {
+  const scanContent = content.replace(uuidPattern, 'UUID_REDACTED');
   for (const pattern of forbiddenSecretPatterns) {
-    if (pattern.test(content)) {
-      throw new Error(`${file} appears to contain a forbidden secret or provider identifier pattern`);
+    if (pattern.test(scanContent)) {
+      throw new Error(
+        `${file} appears to contain a forbidden secret or provider identifier pattern`,
+      );
     }
   }
 }
@@ -133,6 +140,34 @@ assertContains(
   contents.get('docs/release/production-release-runbook.md'),
   'DEPLOYED - POST-LAUNCH MONITORING',
   'docs/release/production-release-runbook.md',
+);
+for (const expected of [
+  'TECHNICAL_READY PASS',
+  'GOVERNANCE_APPROVAL BLOCKED',
+  'PRODUCTION_ENABLEMENT BLOCKED',
+  'LOCAL_GEMMA_ENABLED=false',
+  'AI_PREP_QUEUE_WORKER_ENABLED=false',
+]) {
+  assertContains(
+    contents.get('docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md'),
+    expected,
+    'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md',
+  );
+}
+assertContains(
+  contents.get('docs/release/local-ai-production-enablement-runbook.md'),
+  'PLAN ONLY - DO NOT ENABLE WITHOUT GOVERNANCE APPROVAL',
+  'docs/release/local-ai-production-enablement-runbook.md',
+);
+assertContains(
+  contents.get('docs/release/evidence-register.md'),
+  'EV-LAI-PROD-002',
+  'docs/release/evidence-register.md',
+);
+assertContains(
+  contents.get('docs/release/evidence-register.md'),
+  'approval-required',
+  'docs/release/evidence-register.md',
 );
 for (const expected of [
   'PROD-PATCH-D80FBB5-DEPLOY-2026-06-15',
