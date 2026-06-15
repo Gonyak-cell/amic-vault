@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { LanguageProvider } from '@/lib/i18n';
 import { ExternalPortalClient } from './external-portal-client';
 
 vi.mock('@/components/ui/button', () => ({
@@ -34,9 +35,15 @@ vi.mock('@/lib/api/external-portal', () => ({
 
 describe('ExternalPortalClient', () => {
   it('renders outside the internal app shell', () => {
-    const html = renderToStaticMarkup(<ExternalPortalClient token="opaque-token" />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <ExternalPortalClient token="opaque-token" />
+      </LanguageProvider>,
+    );
 
-    expect(html).toContain('AMIC Vault External Portal');
+    expect(html).toContain('AMIC Vault 외부 공유');
+    expect(html).toContain('공유 문서');
+    expect(html).not.toContain('External Portal');
     expect(html).not.toContain('Matter document control');
     expect(html).not.toContain('Dashboard');
     expect(html).not.toContain('Logout');

@@ -3,6 +3,7 @@
 import React from 'react';
 import type { SearchResponseDto } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/lib/i18n';
 import { ResultCard } from './result-card';
 
 interface SearchResultsProps {
@@ -15,16 +16,35 @@ interface SearchResultsProps {
 }
 
 export function SearchResults({ response, page, pageSize, busy, error, onPage }: SearchResultsProps) {
+  const { language } = useI18n();
+  const copy = language === 'ko'
+    ? {
+        loading: '검색 결과를 불러오는 중입니다.',
+        start: '검색어를 입력하면 접근 권한이 있는 파일만 보여줍니다.',
+        empty: '검색 결과가 없습니다.',
+        results: (total: number) => `결과 ${total}개`,
+        previous: '이전',
+        next: '다음',
+      }
+    : {
+        loading: 'Loading results.',
+        start: 'Enter a search term to see files you can access.',
+        empty: 'No results.',
+        results: (total: number) => `${total} results`,
+        previous: 'Previous',
+        next: 'Next',
+      };
+
   if (error) return <p className="text-sm text-muted-foreground">{error}</p>;
-  if (busy && !response) return <p className="text-sm text-muted-foreground">Loading</p>;
-  if (!response) return <p className="text-sm text-muted-foreground">Enter a search term</p>;
-  if (response.results.length === 0) return <p className="text-sm text-muted-foreground">No results</p>;
+  if (busy && !response) return <p className="text-sm text-muted-foreground">{copy.loading}</p>;
+  if (!response) return <p className="text-sm text-muted-foreground">{copy.start}</p>;
+  if (response.results.length === 0) return <p className="text-sm text-muted-foreground">{copy.empty}</p>;
 
   const totalPages = Math.max(1, Math.ceil(response.total / pageSize));
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{response.total} results</p>
+        <p className="text-sm text-muted-foreground">{copy.results(response.total)}</p>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -33,7 +53,7 @@ export function SearchResults({ response, page, pageSize, busy, error, onPage }:
             disabled={page <= 1 || busy}
             onClick={() => onPage(page - 1)}
           >
-            Previous
+            {copy.previous}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -45,7 +65,7 @@ export function SearchResults({ response, page, pageSize, busy, error, onPage }:
             disabled={page >= totalPages || busy}
             onClick={() => onPage(page + 1)}
           >
-            Next
+            {copy.next}
           </Button>
         </div>
       </div>

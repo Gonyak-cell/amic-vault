@@ -18,10 +18,84 @@ import {
   getExternalManifest,
   listExternalQa,
 } from '@/lib/api/external-portal';
+import { useI18n, type Language } from '@/lib/i18n';
 
 type PortalState = 'loading' | 'nda_required' | 'ready' | 'blocked';
 
+const portalCopy: Record<
+  Language,
+  {
+    eyebrow: string;
+    title: string;
+    loading: string;
+    blocked: string;
+    ndaTitle: string;
+    expires: string;
+    acceptNda: string;
+    documentAccess: string;
+    document: string;
+    watermark: string;
+    download: string;
+    downloadReady: string;
+    qa: string;
+    emptyMessages: string;
+    question: string;
+    answer: string;
+    questionPlaceholder: string;
+    send: string;
+    unknownDate: string;
+    ref: string;
+  }
+> = {
+  ko: {
+    eyebrow: 'AMIC Vault 외부 공유',
+    title: '공유 문서',
+    loading: '접근 상태를 확인하는 중입니다.',
+    blocked: '이 링크로는 더 이상 접근할 수 없습니다.',
+    ndaTitle: '비밀유지 약관 확인',
+    expires: '만료일',
+    acceptNda: '동의하고 열람하기',
+    documentAccess: '문서 열람',
+    document: '문서',
+    watermark: '워터마크',
+    download: '다운로드 준비',
+    downloadReady: '다운로드 ID',
+    qa: '질문과 답변',
+    emptyMessages: '아직 등록된 질문이 없습니다.',
+    question: '질문',
+    answer: '답변',
+    questionPlaceholder: '자료와 관련된 질문을 입력하세요.',
+    send: '질문 보내기',
+    unknownDate: '확인 중',
+    ref: 'ID',
+  },
+  en: {
+    eyebrow: 'AMIC Vault external access',
+    title: 'Shared documents',
+    loading: 'Checking access status.',
+    blocked: 'This link is no longer available.',
+    ndaTitle: 'Review confidentiality terms',
+    expires: 'Expires',
+    acceptNda: 'Accept and view',
+    documentAccess: 'Document access',
+    document: 'Document',
+    watermark: 'Watermark',
+    download: 'Prepare download',
+    downloadReady: 'Download ref',
+    qa: 'Q&A',
+    emptyMessages: 'No questions yet.',
+    question: 'Question',
+    answer: 'Answer',
+    questionPlaceholder: 'Ask a question about the shared materials.',
+    send: 'Send question',
+    unknownDate: 'Checking',
+    ref: 'Ref',
+  },
+};
+
 export function ExternalPortalClient({ token }: { token: string }) {
+  const { language } = useI18n();
+  const copy = portalCopy[language];
   const [state, setState] = useState<PortalState>('loading');
   const [status, setStatus] = useState<ExternalAccessStatusResponseDto | null>(null);
   const [manifest, setManifest] = useState<ExternalAccessManifestDto | null>(null);
@@ -74,26 +148,28 @@ export function ExternalPortalClient({ token }: { token: string }) {
     <main className="min-h-screen bg-background">
       <section className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
         <header className="flex flex-col gap-2 border-b pb-5">
-          <p className="text-sm font-medium text-muted-foreground">AMIC Vault External Portal</p>
-          <h1 className="text-2xl font-semibold tracking-normal">Shared Matter Room</h1>
+          <p className="text-sm font-medium text-muted-foreground">{copy.eyebrow}</p>
+          <h1 className="text-2xl font-semibold tracking-normal">{copy.title}</h1>
         </header>
 
-        {state === 'loading' ? <p className="text-sm text-muted-foreground">Loading access state</p> : null}
-        {state === 'blocked' ? <p className="text-sm text-destructive">Access unavailable</p> : null}
+        {state === 'loading' ? <p className="text-sm text-muted-foreground">{copy.loading}</p> : null}
+        {state === 'blocked' ? <p className="text-sm text-destructive">{copy.blocked}</p> : null}
 
         {state === 'nda_required' ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5" />
-                NDA Required
+                {copy.ndaTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">Expires {formatDate(status?.expiresAt)}</p>
+              <p className="text-sm text-muted-foreground">
+                {copy.expires} {formatDate(status?.expiresAt, copy.unknownDate)}
+              </p>
               <Button type="button" onClick={handleAcceptNda}>
                 <ShieldCheck className="h-4 w-4" />
-                Accept NDA
+                {copy.acceptNda}
               </Button>
             </CardContent>
           </Card>
@@ -105,23 +181,29 @@ export function ExternalPortalClient({ token }: { token: string }) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  Document Access
+                  {copy.documentAccess}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3 text-sm">
                 <p>
-                  <span className="font-medium">Document</span> {manifest.documentId}
+                  <span className="font-medium">{copy.document}</span> {copy.ref}{' '}
+                  {formatRef(manifest.documentId)}
                 </p>
                 <p>
-                  <span className="font-medium">Watermark</span> {manifest.watermarkRef}
+                  <span className="font-medium">{copy.watermark}</span> {copy.ref}{' '}
+                  {formatRef(manifest.watermarkRef)}
                 </p>
-                <p className="text-muted-foreground">Expires {formatDate(manifest.expiresAt)}</p>
+                <p className="text-muted-foreground">
+                  {copy.expires} {formatDate(manifest.expiresAt, copy.unknownDate)}
+                </p>
                 <Button type="button" onClick={handleDownload}>
                   <Download className="h-4 w-4" />
-                  Download Ticket
+                  {copy.download}
                 </Button>
                 {download ? (
-                  <p className="break-all rounded-md border bg-muted p-3 text-xs">{download.downloadRef}</p>
+                  <p className="break-all rounded-md border bg-muted p-3 text-xs">
+                    {copy.downloadReady} {formatRef(download.downloadRef)}
+                  </p>
                 ) : null}
               </CardContent>
             </Card>
@@ -130,18 +212,18 @@ export function ExternalPortalClient({ token }: { token: string }) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
-                  Q&A
+                  {copy.qa}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div className="flex max-h-64 flex-col gap-3 overflow-auto">
                   {messages.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No messages</p>
+                    <p className="text-sm text-muted-foreground">{copy.emptyMessages}</p>
                   ) : (
                     messages.map((message) => (
                       <div key={message.messageId} className="rounded-md border p-3 text-sm">
                         <p className="font-medium">
-                          {message.direction === 'external_question' ? 'Question' : 'Answer'}
+                          {message.direction === 'external_question' ? copy.question : copy.answer}
                         </p>
                         <p className="mt-1 text-muted-foreground">{message.messageText}</p>
                       </div>
@@ -154,10 +236,11 @@ export function ExternalPortalClient({ token }: { token: string }) {
                     onChange={(event) => setQuestion(event.target.value)}
                     className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                     maxLength={2000}
+                    placeholder={copy.questionPlaceholder}
                   />
                   <Button type="submit" disabled={!question.trim()}>
                     <Send className="h-4 w-4" />
-                    Send
+                    {copy.send}
                   </Button>
                 </form>
               </CardContent>
@@ -181,7 +264,11 @@ async function loadReady(
   setMessages(qa.messages);
 }
 
-function formatDate(value: string | undefined): string {
-  if (!value) return 'unknown';
+function formatDate(value: string | undefined, fallback: string): string {
+  if (!value) return fallback;
   return new Date(value).toISOString().slice(0, 10);
+}
+
+function formatRef(value: string): string {
+  return value.length > 12 ? value.slice(0, 12) : value;
 }

@@ -11,6 +11,7 @@ import type {
 import { matterMemberAccessLevels, matterMemberRoles } from '@amic-vault/shared';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { useI18n, type Language } from '@/lib/i18n';
 
 export interface AddMemberDialogProps {
   disabled?: boolean;
@@ -18,18 +19,68 @@ export interface AddMemberDialogProps {
   onAddMember?: (input: AddMatterMemberDto) => void;
 }
 
-function safeError(errorCode?: ErrorCode | null): string | null {
+type AddMemberCopy = {
+  userRef: string;
+  role: string;
+  access: string;
+  add: string;
+  denied: string;
+  failed: string;
+  roleLabels: Record<MatterMemberRole, string>;
+  accessLabels: Record<MatterMemberAccessLevel, string>;
+};
+
+const addMemberCopy: Record<Language, AddMemberCopy> = {
+  ko: {
+    userRef: '사용자 ID',
+    role: '역할',
+    access: '접근 권한',
+    add: '구성원 추가',
+    denied: '이 작업을 할 권한이 없습니다.',
+    failed: '요청을 처리하지 못했습니다. 다시 시도해 주세요.',
+    roleLabels: {
+      owner: '소유자',
+      member: '팀원',
+      limited_reviewer: '제한된 검토자',
+    },
+    accessLabels: {
+      read: '보기',
+      edit: '편집',
+    },
+  },
+  en: {
+    userRef: 'User ref',
+    role: 'Role',
+    access: 'Access',
+    add: 'Add member',
+    denied: 'Request denied.',
+    failed: 'Request failed.',
+    roleLabels: {
+      owner: 'Owner',
+      member: 'Member',
+      limited_reviewer: 'Limited reviewer',
+    },
+    accessLabels: {
+      read: 'View',
+      edit: 'Edit',
+    },
+  },
+};
+
+function safeError(errorCode: ErrorCode | null | undefined, copy: AddMemberCopy): string | null {
   if (!errorCode) return null;
   if (errorCode === 'PERMISSION_DENIED' || errorCode === 'ETHICAL_WALL_BLOCKED')
-    return 'Request denied';
-  return 'Request failed';
+    return copy.denied;
+  return copy.failed;
 }
 
 export function AddMemberDialog({ disabled, errorCode, onAddMember }: AddMemberDialogProps) {
+  const { language } = useI18n();
+  const copy = addMemberCopy[language];
   const [userId, setUserId] = useState('');
   const [matterRole, setMatterRole] = useState<MatterMemberRole>('member');
   const [accessLevel, setAccessLevel] = useState<MatterMemberAccessLevel>('read');
-  const error = safeError(errorCode);
+  const error = safeError(errorCode, copy);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,14 +95,14 @@ export function AddMemberDialog({ disabled, errorCode, onAddMember }: AddMemberD
       onSubmit={submit}
     >
       <Input
-        aria-label="User ID"
+        aria-label={copy.userRef}
         value={userId}
         disabled={disabled}
-        placeholder="User UUID"
+        placeholder={copy.userRef}
         onChange={(event) => setUserId(event.target.value)}
       />
       <select
-        aria-label="Matter role"
+        aria-label={copy.role}
         className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={matterRole}
         disabled={disabled}
@@ -63,12 +114,12 @@ export function AddMemberDialog({ disabled, errorCode, onAddMember }: AddMemberD
       >
         {matterMemberRoles.map((role) => (
           <option key={role} value={role}>
-            {role}
+            {copy.roleLabels[role]}
           </option>
         ))}
       </select>
       <select
-        aria-label="Access level"
+        aria-label={copy.access}
         className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={accessLevel}
         disabled={disabled || matterRole === 'limited_reviewer'}
@@ -76,13 +127,13 @@ export function AddMemberDialog({ disabled, errorCode, onAddMember }: AddMemberD
       >
         {matterMemberAccessLevels.map((level) => (
           <option key={level} value={level}>
-            {level}
+            {copy.accessLabels[level]}
           </option>
         ))}
       </select>
       <Button
-        aria-label="Add team member"
-        title="Add team member"
+        aria-label={copy.add}
+        title={copy.add}
         type="submit"
         disabled={disabled}
       >

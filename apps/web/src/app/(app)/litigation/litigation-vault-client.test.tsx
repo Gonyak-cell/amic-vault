@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { LanguageProvider } from '@/lib/i18n';
 import { LitigationVaultClient } from './litigation-vault-client';
 
 vi.mock('@/components/ui/button', () => ({
@@ -32,9 +33,14 @@ vi.mock('@/lib/api/error-messages', () => ({
 
 describe('LitigationVaultClient', () => {
   it('renders internal litigation workbench without external sharing language', () => {
-    const html = renderToStaticMarkup(<LitigationVaultClient />);
-    expect(html).toContain('Litigation Vault');
-    expect(html).toContain('Save Evidence');
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <LitigationVaultClient />
+      </LanguageProvider>,
+    );
+    expect(html).toContain('소송 자료');
+    expect(html).toContain('증거 저장');
+    expect(html).not.toContain('Litigation Vault');
     expect(html).not.toMatch(/external|share|secure link|portal|vdr|e-filing|efile/iu);
   });
 });

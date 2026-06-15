@@ -16,12 +16,14 @@ import {
   removeMatterMember,
   updateMatterMember,
 } from '@/lib/api-client';
+import { useI18n } from '@/lib/i18n';
 
 function errorCode(error: unknown): ErrorCode | null {
   return error instanceof ApiClientError ? error.code : 'VALIDATION_FAILED';
 }
 
 export default function MatterTeamPage({ params }: { params: { matterId: string } }) {
+  const { language } = useI18n();
   const [members, setMembers] = useState<MatterMemberDto[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -94,8 +96,12 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-5 px-6 py-6">
       <section className="flex items-center justify-between gap-4 border-b pb-4">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">{params.matterId}</p>
-          <h1 className="text-2xl font-semibold tracking-normal">Matter Team</h1>
+          <p className="text-sm font-medium text-muted-foreground">
+            {language === 'ko' ? 'Matter ID' : 'Matter ID'} {params.matterId.slice(0, 8)}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-normal">
+            {language === 'ko' ? '팀 관리' : 'Team access'}
+          </h1>
         </div>
       </section>
       {canManage ? (

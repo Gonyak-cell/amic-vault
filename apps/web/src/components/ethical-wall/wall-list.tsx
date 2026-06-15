@@ -1,7 +1,10 @@
+'use client';
+
 import React from 'react';
 import { UserMinus } from 'lucide-react';
-import type { EthicalWallDetailDto } from '@amic-vault/shared';
+import type { EthicalWallDetailDto, WallMembershipType } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import { useI18n, type Language } from '@/lib/i18n';
 
 export interface WallListProps {
   items: EthicalWallDetailDto[];
@@ -9,18 +12,70 @@ export interface WallListProps {
   onRemoveMembership?: (wallId: string, membershipId: string) => void;
 }
 
+const copyByLanguage: Record<
+  Language,
+  {
+    title: string;
+    barrier: string;
+    matter: string;
+    status: string;
+    members: string;
+    remove: string;
+    emptyMembers: string;
+    emptyBarriers: string;
+    ref: string;
+    user: string;
+    membershipLabels: Record<WallMembershipType, string>;
+  }
+> = {
+  ko: {
+    title: '정보 장벽 목록',
+    barrier: '차단 규칙',
+    matter: 'Matter',
+    status: '상태',
+    members: '구성원',
+    remove: '구성원 제거',
+    emptyMembers: '등록된 구성원이 없습니다.',
+    emptyBarriers: '등록된 정보 장벽이 없습니다.',
+    ref: 'ID',
+    user: '사용자',
+    membershipLabels: {
+      insider: '차단 예외',
+      excluded: '접근 차단',
+    },
+  },
+  en: {
+    title: 'Information barriers',
+    barrier: 'Barrier',
+    matter: 'Matter',
+    status: 'Status',
+    members: 'Members',
+    remove: 'Remove member',
+    emptyMembers: 'No members yet.',
+    emptyBarriers: 'No information barriers yet.',
+    ref: 'Ref',
+    user: 'User',
+    membershipLabels: {
+      insider: 'Insider',
+      excluded: 'Blocked',
+    },
+  },
+};
+
 export function WallList({ items, busyMembershipId, onRemoveMembership }: WallListProps) {
+  const { language } = useI18n();
+  const copy = copyByLanguage[language];
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold tracking-normal">Walls</h2>
+      <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
       <div className="overflow-hidden rounded-md border bg-card">
         <table className="w-full border-collapse text-sm">
           <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-medium">Wall</th>
-              <th className="px-4 py-3 font-medium">Matter</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Memberships</th>
+              <th className="px-4 py-3 font-medium">{copy.barrier}</th>
+              <th className="px-4 py-3 font-medium">{copy.matter}</th>
+              <th className="px-4 py-3 font-medium">{copy.status}</th>
+              <th className="px-4 py-3 font-medium">{copy.members}</th>
             </tr>
           </thead>
           <tbody>
@@ -29,12 +84,14 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-1">
                     <span className="font-medium">{item.wall.wallName}</span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {item.wall.wallId}
+                    <span className="text-xs text-muted-foreground">
+                      {copy.ref} {formatRef(item.wall.wallId)}
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 font-mono text-xs">{item.wall.matterId}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  {copy.ref} {formatRef(item.wall.matterId)}
+                </td>
                 <td className="px-4 py-3">{item.wall.status}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-2">
@@ -44,14 +101,16 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
                         className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2"
                       >
                         <div className="flex min-w-0 flex-col">
-                          <span className="font-mono text-xs">{membership.subjectId}</span>
+                          <span className="text-xs">
+                            {copy.user} {formatRef(membership.subjectId)}
+                          </span>
                           <span className="text-xs text-muted-foreground">
-                            {membership.subjectType}:{membership.membershipType}
+                            {copy.membershipLabels[membership.membershipType]}
                           </span>
                         </div>
                         <Button
-                          aria-label="Remove wall membership"
-                          title="Remove wall membership"
+                          aria-label={copy.remove}
+                          title={copy.remove}
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -65,7 +124,7 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
                       </div>
                     ))}
                     {item.memberships.length === 0 ? (
-                      <span className="text-sm text-muted-foreground">No memberships</span>
+                      <span className="text-sm text-muted-foreground">{copy.emptyMembers}</span>
                     ) : null}
                   </div>
                 </td>
@@ -74,7 +133,7 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
             {items.length === 0 ? (
               <tr>
                 <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={4}>
-                  No walls
+                  {copy.emptyBarriers}
                 </td>
               </tr>
             ) : null}
@@ -83,4 +142,8 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
       </div>
     </section>
   );
+}
+
+function formatRef(value: string): string {
+  return value.length > 8 ? value.slice(0, 8) : value;
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { LanguageProvider } from '@/lib/i18n';
 import { ContractIntelClient } from './contract-intel-client';
 
 vi.mock('@/components/ui/button', () => ({
@@ -27,11 +28,16 @@ vi.mock('@/lib/api/error-messages', () => ({
 
 describe('ContractIntelClient', () => {
   it('renders the contract intelligence work surface without document body placeholders', () => {
-    const html = renderToStaticMarkup(<ContractIntelClient />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <ContractIntelClient />
+      </LanguageProvider>,
+    );
 
-    expect(html).toContain('Contracts');
-    expect(html).toContain('Clause Bank');
-    expect(html).toContain('Rule Findings');
+    expect(html).toContain('계약 검토');
+    expect(html).toContain('조항 목록');
+    expect(html).toContain('규칙 검토 결과');
+    expect(html).not.toContain('Expression JSON');
     expect(html).not.toContain('Confidential Information means');
     expect(html).not.toContain('raw clause body');
   });

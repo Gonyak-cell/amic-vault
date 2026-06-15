@@ -18,11 +18,128 @@ import {
   processContractDocument,
 } from '@/lib/api/contract-intel';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { useI18n, type Language } from '@/lib/i18n';
 
 const ruleTypes: PlaybookRuleType[] = ['required_clause', 'prohibited_term', 'threshold'];
 const severities: PlaybookRuleSeverity[] = ['info', 'warning', 'critical'];
 
+const contractCopy: Record<
+  Language,
+  {
+    matterRef: string;
+    documentRef: string;
+    processTitle: string;
+    process: string;
+    clauses: string;
+    findings: string;
+    title: string;
+    ruleKey: string;
+    ruleType: string;
+    severity: string;
+    expression: string;
+    saveRule: string;
+    result: string;
+    type: string;
+    clauseCount: string;
+    terms: string;
+    redlines: string;
+    clauseBank: string;
+    clause: string;
+    kind: string;
+    citation: string;
+    hash: string;
+    ruleFindings: string;
+    rule: string;
+    status: string;
+    finding: string;
+    evidence: string;
+    ruleTypes: Record<PlaybookRuleType, string>;
+    severities: Record<PlaybookRuleSeverity, string>;
+  }
+> = {
+  ko: {
+    matterRef: 'Matter ID',
+    documentRef: '파일 ID',
+    processTitle: '파일 검토 실행',
+    process: '검토 실행',
+    clauses: '조항 보기',
+    findings: '결과 보기',
+    title: '계약 검토',
+    ruleKey: '규칙 ID',
+    ruleType: '규칙 유형',
+    severity: '중요도',
+    expression: '규칙 조건',
+    saveRule: '규칙 저장',
+    result: '검토 결과',
+    type: '유형',
+    clauseCount: '조항',
+    terms: '정의어',
+    redlines: '변경점',
+    clauseBank: '조항 목록',
+    clause: '조항',
+    kind: '분류',
+    citation: '근거 자료',
+    hash: '해시',
+    ruleFindings: '규칙 검토 결과',
+    rule: '규칙',
+    status: '상태',
+    finding: '결과',
+    evidence: '근거 자료',
+    ruleTypes: {
+      required_clause: '필수 조항',
+      prohibited_term: '금지 표현',
+      threshold: '기준값',
+    },
+    severities: {
+      info: '참고',
+      warning: '주의',
+      critical: '중요',
+    },
+  },
+  en: {
+    matterRef: 'Matter ref',
+    documentRef: 'File ref',
+    processTitle: 'Run file review',
+    process: 'Run review',
+    clauses: 'View clauses',
+    findings: 'View findings',
+    title: 'Contract review',
+    ruleKey: 'Rule ref',
+    ruleType: 'Rule type',
+    severity: 'Severity',
+    expression: 'Rule condition',
+    saveRule: 'Save rule',
+    result: 'Review result',
+    type: 'Type',
+    clauseCount: 'Clauses',
+    terms: 'Terms',
+    redlines: 'Redlines',
+    clauseBank: 'Clause list',
+    clause: 'Clause',
+    kind: 'Kind',
+    citation: 'Evidence',
+    hash: 'Hash',
+    ruleFindings: 'Rule findings',
+    rule: 'Rule',
+    status: 'Status',
+    finding: 'Finding',
+    evidence: 'Evidence',
+    ruleTypes: {
+      required_clause: 'Required clause',
+      prohibited_term: 'Prohibited term',
+      threshold: 'Threshold',
+    },
+    severities: {
+      info: 'Info',
+      warning: 'Warning',
+      critical: 'Critical',
+    },
+  },
+};
+
 export function ContractIntelClient() {
+  const { language } = useI18n();
+  const copy = contractCopy[language];
   const [matterId, setMatterId] = useState('');
   const [documentId, setDocumentId] = useState('');
   const [ruleKey, setRuleKey] = useState('nda.section.required');
@@ -99,19 +216,19 @@ export function ContractIntelClient() {
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-3 border-b pb-4">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Matter ID" value={matterId} onChange={setMatterId} />
-          <Field label="Document ID" value={documentId} onChange={setDocumentId} />
-          <Button onClick={processDocument} disabled={busy || !documentId.trim()} title="Process document">
+          <Field label={copy.matterRef} value={matterId} onChange={setMatterId} />
+          <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
+          <Button onClick={processDocument} disabled={busy || !documentId.trim()} title={copy.processTitle}>
             <Play className="h-4 w-4" />
-            Process
+            {copy.process}
           </Button>
-          <Button onClick={loadClauses} disabled={busy || !matterId.trim()} variant="outline" title="Load clauses">
+          <Button onClick={loadClauses} disabled={busy || !matterId.trim()} variant="outline" title={copy.clauses}>
             <ListFilter className="h-4 w-4" />
-            Clauses
+            {copy.clauses}
           </Button>
-          <Button onClick={loadFindings} disabled={busy || !matterId.trim()} variant="outline" title="Load findings">
+          <Button onClick={loadFindings} disabled={busy || !matterId.trim()} variant="outline" title={copy.findings}>
             <ShieldCheck className="h-4 w-4" />
-            Findings
+            {copy.findings}
           </Button>
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -121,11 +238,11 @@ export function ContractIntelClient() {
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <div className="flex items-center gap-2">
             <FileCog className="h-4 w-4" />
-            <h1 className="text-lg font-semibold tracking-normal">Contracts</h1>
+            <h1 className="text-lg font-semibold tracking-normal">{copy.title}</h1>
           </div>
-          <Field label="Rule key" value={ruleKey} onChange={setRuleKey} />
+          <Field label={copy.ruleKey} value={ruleKey} onChange={setRuleKey} />
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Rule type</span>
+            <span className="font-medium">{copy.ruleType}</span>
             <select
               className="h-10 rounded-md border bg-background px-3 text-sm"
               value={ruleType}
@@ -133,13 +250,13 @@ export function ContractIntelClient() {
             >
               {ruleTypes.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {copy.ruleTypes[value]}
                 </option>
               ))}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Severity</span>
+            <span className="font-medium">{copy.severity}</span>
             <select
               className="h-10 rounded-md border bg-background px-3 text-sm"
               value={severity}
@@ -147,29 +264,29 @@ export function ContractIntelClient() {
             >
               {severities.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {copy.severities[value]}
                 </option>
               ))}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Expression JSON</span>
+            <span className="font-medium">{copy.expression}</span>
             <textarea
               className="min-h-28 rounded-md border bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={expression}
               onChange={(event) => setExpression(event.target.value)}
             />
           </label>
-          <Button onClick={saveRule} disabled={busy || !ruleKey.trim()} title="Save playbook rule">
+          <Button onClick={saveRule} disabled={busy || !ruleKey.trim()} title={copy.saveRule}>
             <ShieldCheck className="h-4 w-4" />
-            Save Rule
+            {copy.saveRule}
           </Button>
         </div>
 
         <div className="flex flex-col gap-4">
-          <StatusPanel processing={processing} />
-          <ClauseBankTable clauseBank={clauseBank} />
-          <RuleFindingTable findings={findings} />
+          <StatusPanel processing={processing} copy={copy} />
+          <ClauseBankTable clauseBank={clauseBank} copy={copy} />
+          <RuleFindingTable findings={findings} copy={copy} />
         </div>
       </section>
     </main>
@@ -193,35 +310,47 @@ function Field({
   );
 }
 
-function StatusPanel({ processing }: { processing: ContractProcessResponseDto | null }) {
+function StatusPanel({
+  processing,
+  copy,
+}: {
+  processing: ContractProcessResponseDto | null;
+  copy: (typeof contractCopy)[Language];
+}) {
   if (!processing) return null;
   return (
     <section className="rounded-md border p-4">
-      <h2 className="mb-3 text-base font-semibold tracking-normal">Process Result</h2>
+      <h2 className="mb-3 text-base font-semibold tracking-normal">{copy.result}</h2>
       <dl className="grid gap-2 text-sm sm:grid-cols-4">
-        <Metric label="Type" value={processing.classification.contractType} />
-        <Metric label="Clauses" value={processing.clauseCount} />
-        <Metric label="Terms" value={processing.definedTermCount} />
-        <Metric label="Redlines" value={processing.redlineChangeCount} />
+        <Metric label={copy.type} value={processing.classification.contractType} />
+        <Metric label={copy.clauseCount} value={processing.clauseCount} />
+        <Metric label={copy.terms} value={processing.definedTermCount} />
+        <Metric label={copy.redlines} value={processing.redlineChangeCount} />
       </dl>
     </section>
   );
 }
 
-function ClauseBankTable({ clauseBank }: { clauseBank: ContractClauseBankResponseDto | null }) {
+function ClauseBankTable({
+  clauseBank,
+  copy,
+}: {
+  clauseBank: ContractClauseBankResponseDto | null;
+  copy: (typeof contractCopy)[Language];
+}) {
   return (
     <section className="rounded-md border p-4">
-      <h2 className="mb-3 text-base font-semibold tracking-normal">Clause Bank</h2>
+      <h2 className="mb-3 text-base font-semibold tracking-normal">{copy.clauseBank}</h2>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="py-2 pr-4">Clause</th>
-              <th className="py-2 pr-4">Kind</th>
-              <th className="py-2 pr-4">Terms</th>
-              <th className="py-2 pr-4">Redlines</th>
-              <th className="py-2 pr-4">Citation</th>
-              <th className="py-2 pr-4">Hash</th>
+              <th className="py-2 pr-4">{copy.clause}</th>
+              <th className="py-2 pr-4">{copy.kind}</th>
+              <th className="py-2 pr-4">{copy.terms}</th>
+              <th className="py-2 pr-4">{copy.redlines}</th>
+              <th className="py-2 pr-4">{copy.citation}</th>
+              <th className="py-2 pr-4">{copy.hash}</th>
             </tr>
           </thead>
           <tbody>
@@ -242,20 +371,26 @@ function ClauseBankTable({ clauseBank }: { clauseBank: ContractClauseBankRespons
   );
 }
 
-function RuleFindingTable({ findings }: { findings: ContractRuleFindingsResponseDto | null }) {
+function RuleFindingTable({
+  findings,
+  copy,
+}: {
+  findings: ContractRuleFindingsResponseDto | null;
+  copy: (typeof contractCopy)[Language];
+}) {
   return (
     <section className="rounded-md border p-4">
-      <h2 className="mb-3 text-base font-semibold tracking-normal">Rule Findings</h2>
+      <h2 className="mb-3 text-base font-semibold tracking-normal">{copy.ruleFindings}</h2>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="py-2 pr-4">Rule</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Severity</th>
-              <th className="py-2 pr-4">Finding</th>
-              <th className="py-2 pr-4">Evidence</th>
-              <th className="py-2 pr-4">Hash</th>
+              <th className="py-2 pr-4">{copy.rule}</th>
+              <th className="py-2 pr-4">{copy.status}</th>
+              <th className="py-2 pr-4">{copy.severity}</th>
+              <th className="py-2 pr-4">{copy.finding}</th>
+              <th className="py-2 pr-4">{copy.evidence}</th>
+              <th className="py-2 pr-4">{copy.hash}</th>
             </tr>
           </thead>
           <tbody>

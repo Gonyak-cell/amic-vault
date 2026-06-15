@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { SearchResultDto } from '@amic-vault/shared';
+import { LanguageProvider } from '@/lib/i18n';
 import { ResultCard } from './result-card';
 
 vi.mock('next/link', () => ({
@@ -34,14 +35,21 @@ const result: SearchResultDto = {
 
 describe('ResultCard', () => {
   it('renders only authorized result fields with escaped highlight markup', () => {
-    const html = renderToStaticMarkup(<ResultCard result={result} />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <ResultCard result={result} />
+      </LanguageProvider>,
+    );
 
     expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111201"');
     expect(html).toContain('Escrow Closing Memo');
     expect(html).toContain('memo');
     expect(html).toContain('2026-06-12');
-    expect(html).toContain(result.matterId);
-    expect(html).toContain(result.clientId);
+    expect(html).toContain('Matter');
+    expect(html).toContain('고객');
+    expect(html).toContain('ID 11111111');
+    expect(html).not.toContain(result.matterId);
+    expect(html).not.toContain(result.clientId);
     expect(html).toContain('<mark');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(html).not.toContain('<script>');

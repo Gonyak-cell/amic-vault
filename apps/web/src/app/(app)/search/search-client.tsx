@@ -8,10 +8,12 @@ import { SearchFacets, type SearchFacetSelection } from '@/components/search/sea
 import { SearchResults } from '@/components/search/search-results';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { searchDocuments } from '@/lib/api/search';
+import { useI18n } from '@/lib/i18n';
 
 const pageSize = 10;
 
 export function SearchClient() {
+  const { language } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const initial = useMemo(() => stateFromParams(params), [params]);
@@ -66,7 +68,9 @@ export function SearchClient() {
   return (
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-normal">Search</h1>
+        <h1 className="text-2xl font-semibold tracking-normal">
+          {language === 'ko' ? '파일 검색' : 'Search files'}
+        </h1>
         <SearchBar
           initialQuery={query}
           busy={busy}

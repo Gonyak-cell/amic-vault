@@ -37,10 +37,84 @@ import {
   listScaleMigrationDrills,
   listScalePerformanceRuns,
 } from '@/lib/api/scale';
+import { useI18n, type Language } from '@/lib/i18n';
 
 const sampleHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 
+const scaleCopy: Record<
+  Language,
+  {
+    evidenceRef: string;
+    patternCode: string;
+    refreshTitle: string;
+    refresh: string;
+    title: string;
+    performance: string;
+    cost: string;
+    eval: string;
+    migration: string;
+    learning: string;
+    aiGate: string;
+    readiness: string;
+    externalAi: string;
+    technicalPass: string;
+    yes: string;
+    no: string;
+    noRecords: string;
+    unit: string;
+    statusOpen: string;
+    statusClosed: string;
+  }
+> = {
+  ko: {
+    evidenceRef: '증빙 ID',
+    patternCode: '패턴 ID',
+    refreshTitle: '시스템 상태 새로고침',
+    refresh: '새로고침',
+    title: '시스템 상태 증빙',
+    performance: '성능',
+    cost: '비용',
+    eval: '검증',
+    migration: '마이그레이션',
+    learning: '학습 기록',
+    aiGate: 'AI 사용 통제',
+    readiness: '준비 상태',
+    externalAi: '외부 AI 허용 여부',
+    technicalPass: '시스템 점검',
+    yes: '통과',
+    no: '미통과',
+    noRecords: '표시할 기록이 없습니다.',
+    unit: '건',
+    statusOpen: '허용',
+    statusClosed: '차단',
+  },
+  en: {
+    evidenceRef: 'Evidence ref',
+    patternCode: 'Pattern ref',
+    refreshTitle: 'Refresh system health',
+    refresh: 'Refresh',
+    title: 'System health evidence',
+    performance: 'Performance',
+    cost: 'Cost',
+    eval: 'Validation',
+    migration: 'Migration',
+    learning: 'Learning log',
+    aiGate: 'AI controls',
+    readiness: 'Readiness',
+    externalAi: 'External AI allowed',
+    technicalPass: 'Technical check',
+    yes: 'Pass',
+    no: 'Not passed',
+    noRecords: 'No records to show.',
+    unit: 'items',
+    statusOpen: 'Open',
+    statusClosed: 'Closed',
+  },
+};
+
 export function ScaleLearningClient() {
+  const { language } = useI18n();
+  const copy = scaleCopy[language];
   const [evidenceRef, setEvidenceRef] = useState('r14/gate-evidence');
   const [patternCode, setPatternCode] = useState('R14.GATE.GREEN');
   const [performance, setPerformance] = useState<ScalePerformanceRunListResponseDto | null>(null);
@@ -176,11 +250,11 @@ export function ScaleLearningClient() {
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-3 border-b pb-4">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Evidence ref" value={evidenceRef} onChange={setEvidenceRef} />
-          <Field label="Pattern code" value={patternCode} onChange={setPatternCode} />
-          <Button onClick={refreshAll} disabled={busy} title="Refresh scale readiness">
+          <Field label={copy.evidenceRef} value={evidenceRef} onChange={setEvidenceRef} />
+          <Field label={copy.patternCode} value={patternCode} onChange={setPatternCode} />
+          <Button onClick={refreshAll} disabled={busy} title={copy.refreshTitle}>
             <RefreshCw className="h-4 w-4" />
-            Refresh
+            {copy.refresh}
           </Button>
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -188,48 +262,50 @@ export function ScaleLearningClient() {
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="flex flex-col gap-3 rounded-md border p-4">
-          <PanelTitle icon={<Gauge className="h-4 w-4" />} label="Scale Evidence" />
+          <PanelTitle icon={<Gauge className="h-4 w-4" />} label={copy.title} />
           <Button onClick={recordPerformance} disabled={busy || !evidenceRef.trim()}>
             <Gauge className="h-4 w-4" />
-            Performance
+            {copy.performance}
           </Button>
           <Button onClick={recordCost} disabled={busy || !evidenceRef.trim()}>
             <CircleDollarSign className="h-4 w-4" />
-            Cost
+            {copy.cost}
           </Button>
           <Button onClick={recordEval} disabled={busy || !evidenceRef.trim()}>
             <ListChecks className="h-4 w-4" />
-            Eval
+            {copy.eval}
           </Button>
           <Button onClick={recordMigrationDrill} disabled={busy || !evidenceRef.trim()}>
             <DatabaseZap className="h-4 w-4" />
-            Migration
+            {copy.migration}
           </Button>
           <Button onClick={recordLearning} disabled={busy || !evidenceRef.trim() || !patternCode.trim()}>
             <CheckCircle2 className="h-4 w-4" />
-            Learning
+            {copy.learning}
           </Button>
           <Button onClick={recordAiGate} disabled={busy || !evidenceRef.trim()}>
             <BrainCircuit className="h-4 w-4" />
-            AI Gate
+            {copy.aiGate}
           </Button>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SummaryPanel
-            title="Readiness"
+            title={copy.readiness}
+            empty={copy.noRecords}
             rows={[
-              ['Performance', String(readiness?.passingPerformanceRunCount ?? 0)],
-              ['Cost', String(readiness?.costSnapshotCount ?? 0)],
-              ['Eval', String(readiness?.passingEvalRunCount ?? 0)],
-              ['Migration', String(readiness?.passingMigrationDrillCount ?? 0)],
-              ['Learning', String(readiness?.learningEventCount ?? 0)],
-              ['External AI open', String(readiness?.externalModelAllowedCount ?? 0)],
-              ['Technical pass', readiness?.technicalPass ? 'yes' : 'no'],
+              [copy.performance, String(readiness?.passingPerformanceRunCount ?? 0)],
+              [copy.cost, String(readiness?.costSnapshotCount ?? 0)],
+              [copy.eval, String(readiness?.passingEvalRunCount ?? 0)],
+              [copy.migration, String(readiness?.passingMigrationDrillCount ?? 0)],
+              [copy.learning, String(readiness?.learningEventCount ?? 0)],
+              [copy.externalAi, String(readiness?.externalModelAllowedCount ?? 0)],
+              [copy.technicalPass, readiness?.technicalPass ? copy.yes : copy.no],
             ]}
           />
           <SummaryPanel
-            title="Performance"
+            title={copy.performance}
+            empty={copy.noRecords}
             rows={performance?.runs.map((item) => [
               item.scenario,
               `p95 ${item.p95Ms}ms`,
@@ -237,7 +313,8 @@ export function ScaleLearningClient() {
             ])}
           />
           <SummaryPanel
-            title="Cost"
+            title={copy.cost}
+            empty={copy.noRecords}
             rows={costs?.snapshots.map((item) => [
               item.scope,
               `${item.estimatedCostCents} ${item.currency}`,
@@ -245,7 +322,8 @@ export function ScaleLearningClient() {
             ])}
           />
           <SummaryPanel
-            title="Eval"
+            title={copy.eval}
+            empty={copy.noRecords}
             rows={evals?.runs.map((item) => [
               item.suite,
               `${item.passCount}/${item.caseCount}`,
@@ -253,7 +331,8 @@ export function ScaleLearningClient() {
             ])}
           />
           <SummaryPanel
-            title="Migration"
+            title={copy.migration}
+            empty={copy.noRecords}
             rows={drills?.drills.map((item) => [
               item.scope,
               `${item.durationMs}ms`,
@@ -261,7 +340,8 @@ export function ScaleLearningClient() {
             ])}
           />
           <SummaryPanel
-            title="Learning"
+            title={copy.learning}
+            empty={copy.noRecords}
             rows={learning?.events.map((item) => [
               item.patternCode,
               item.category,
@@ -269,11 +349,12 @@ export function ScaleLearningClient() {
             ])}
           />
           <SummaryPanel
-            title="AI Gate"
+            title={copy.aiGate}
+            empty={copy.noRecords}
             rows={aiReviews?.reviews.map((item) => [
               item.candidateRoute,
               item.decision,
-              item.externalModelAllowed ? 'open' : 'closed',
+              item.externalModelAllowed ? copy.statusOpen : copy.statusClosed,
             ])}
           />
         </div>
@@ -308,12 +389,20 @@ function PanelTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
-function SummaryPanel({ title, rows }: { title: string; rows?: string[][] | undefined }) {
+function SummaryPanel({
+  title,
+  rows,
+  empty,
+}: {
+  title: string;
+  rows?: string[][] | undefined;
+  empty: string;
+}) {
   return (
     <section className="rounded-md border p-4">
       <h2 className="text-sm font-semibold">{title}</h2>
       <div className="mt-3 flex flex-col gap-2">
-        {(rows?.length ? rows : [['No records', '', '']]).map((row, index) => (
+        {(rows?.length ? rows : [[empty, '', '']]).map((row, index) => (
           <div key={`${title}-${index}`} className="grid grid-cols-3 gap-3 text-sm">
             <span className="truncate font-medium">{row[0]}</span>
             <span className="truncate text-muted-foreground">{row[1]}</span>

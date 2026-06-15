@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import type { TenantId } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +51,7 @@ export function LoginForm() {
       <CardContent>
         <form className="flex flex-col gap-4" onSubmit={submit}>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Tenant ID
+            {t('auth.tenantId')}
             <Input
               autoComplete="organization"
               required
@@ -59,7 +60,7 @@ export function LoginForm() {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Email
+            {t('auth.email')}
             <Input
               autoComplete="email"
               required
@@ -69,7 +70,7 @@ export function LoginForm() {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Password
+            {t('auth.password')}
             <Input
               autoComplete="current-password"
               required
@@ -82,6 +83,12 @@ export function LoginForm() {
           <Button disabled={pending} type="submit">
             {pending ? t('auth.pending') : t('auth.login')}
           </Button>
+          <Link
+            href="/showcase?theme=saas"
+            className="text-center text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            디자인 테마 보기
+          </Link>
         </form>
       </CardContent>
     </Card>

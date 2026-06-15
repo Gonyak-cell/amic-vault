@@ -15,8 +15,8 @@ describe('AppShell', () => {
     );
 
     expect(html).toContain('AMIC Vault');
-    expect(html).toContain('aria-label="Navigation 열기"');
-    expect(html).toContain('Matter, document, event 검색');
+    expect(html).toContain('aria-label="메뉴 열기"');
+    expect(html).toContain('Matter, 파일, 활동 검색');
     expect(html).toContain('Dashboard payload');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('href="/launch"');
