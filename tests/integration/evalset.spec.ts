@@ -36,7 +36,7 @@ async function visibleCaseCount(viewerTenantId: string, caseNo: string): Promise
 }
 
 describe('evalset integration', () => {
-  it('loads deidentified fixtures idempotently and warns below the operational target', async () => {
+  it('loads 100+ deidentified fixtures idempotently without warning', async () => {
     await withClient(createOwnerClient(), async (client) => {
       await expect(
         loadEvaluationCases({
@@ -44,7 +44,7 @@ describe('evalset integration', () => {
           tenantId: tenantAlphaId,
           directory: 'tests/fixtures/evalset-v0',
         }),
-      ).resolves.toMatchObject({ loaded: 2, warnings: expect.arrayContaining([expect.stringContaining('20-50')]) });
+      ).resolves.toMatchObject({ loaded: 102, warnings: [] });
     });
     await expect(caseCount(tenantAlphaId, 'EV-0001')).resolves.toBe(1);
 
@@ -55,7 +55,7 @@ describe('evalset integration', () => {
           tenantId: tenantAlphaId,
           directory: 'tests/fixtures/evalset-v0',
         }),
-      ).resolves.toMatchObject({ loaded: 2 });
+      ).resolves.toMatchObject({ loaded: 102, warnings: [] });
     });
     await expect(caseCount(tenantAlphaId, 'EV-0001')).resolves.toBe(1);
   });

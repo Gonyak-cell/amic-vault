@@ -1,0 +1,1102 @@
+[
+  {
+    "caseNo": "EV-PREP-0001",
+    "sourceDocRef": "doc:synthetic-upload-prep-0001",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (contract-intake synthetic 0001)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0001"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0002",
+    "sourceDocRef": "doc:synthetic-upload-prep-0002",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (invoice-support synthetic 0002)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0002"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0003",
+    "sourceDocRef": "doc:synthetic-upload-prep-0003",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (board-material synthetic 0003)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0003"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0004",
+    "sourceDocRef": "doc:synthetic-upload-prep-0004",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (employment-file synthetic 0004)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0004"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0005",
+    "sourceDocRef": "doc:synthetic-upload-prep-0005",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (lease-record synthetic 0005)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0005"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0006",
+    "sourceDocRef": "doc:synthetic-upload-prep-0006",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (closing-binder synthetic 0006)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0006"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0007",
+    "sourceDocRef": "doc:synthetic-upload-prep-0007",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (regulatory-upload synthetic 0007)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0007"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0008",
+    "sourceDocRef": "doc:synthetic-upload-prep-0008",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (email-attachment synthetic 0008)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0008"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0009",
+    "sourceDocRef": "doc:synthetic-upload-prep-0009",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (litigation-index synthetic 0009)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0009"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0010",
+    "sourceDocRef": "doc:synthetic-upload-prep-0010",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (diligence-record synthetic 0010)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0010"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0011",
+    "sourceDocRef": "doc:synthetic-upload-prep-0011",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (contract-intake synthetic 0011)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0011"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0012",
+    "sourceDocRef": "doc:synthetic-upload-prep-0012",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (invoice-support synthetic 0012)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0012"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0013",
+    "sourceDocRef": "doc:synthetic-upload-prep-0013",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (board-material synthetic 0013)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0013"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0014",
+    "sourceDocRef": "doc:synthetic-upload-prep-0014",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (employment-file synthetic 0014)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0014"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0015",
+    "sourceDocRef": "doc:synthetic-upload-prep-0015",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (lease-record synthetic 0015)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0015"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0016",
+    "sourceDocRef": "doc:synthetic-upload-prep-0016",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (closing-binder synthetic 0016)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0016"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0017",
+    "sourceDocRef": "doc:synthetic-upload-prep-0017",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (regulatory-upload synthetic 0017)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0017"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0018",
+    "sourceDocRef": "doc:synthetic-upload-prep-0018",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (email-attachment synthetic 0018)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0018"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0019",
+    "sourceDocRef": "doc:synthetic-upload-prep-0019",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (litigation-index synthetic 0019)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0019"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0020",
+    "sourceDocRef": "doc:synthetic-upload-prep-0020",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (diligence-record synthetic 0020)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0020"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0021",
+    "sourceDocRef": "doc:synthetic-upload-prep-0021",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (contract-intake synthetic 0021)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0021"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0022",
+    "sourceDocRef": "doc:synthetic-upload-prep-0022",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (invoice-support synthetic 0022)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0022"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0023",
+    "sourceDocRef": "doc:synthetic-upload-prep-0023",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (board-material synthetic 0023)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0023"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0024",
+    "sourceDocRef": "doc:synthetic-upload-prep-0024",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (employment-file synthetic 0024)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0024"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0025",
+    "sourceDocRef": "doc:synthetic-upload-prep-0025",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (lease-record synthetic 0025)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0025"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0026",
+    "sourceDocRef": "doc:synthetic-upload-prep-0026",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (closing-binder synthetic 0026)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0026"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0027",
+    "sourceDocRef": "doc:synthetic-upload-prep-0027",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (regulatory-upload synthetic 0027)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0027"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0028",
+    "sourceDocRef": "doc:synthetic-upload-prep-0028",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (email-attachment synthetic 0028)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0028"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0029",
+    "sourceDocRef": "doc:synthetic-upload-prep-0029",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (litigation-index synthetic 0029)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0029"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0030",
+    "sourceDocRef": "doc:synthetic-upload-prep-0030",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (diligence-record synthetic 0030)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0030"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0031",
+    "sourceDocRef": "doc:synthetic-upload-prep-0031",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (contract-intake synthetic 0031)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0031"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0032",
+    "sourceDocRef": "doc:synthetic-upload-prep-0032",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (invoice-support synthetic 0032)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0032"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0033",
+    "sourceDocRef": "doc:synthetic-upload-prep-0033",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (board-material synthetic 0033)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0033"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0034",
+    "sourceDocRef": "doc:synthetic-upload-prep-0034",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (employment-file synthetic 0034)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0034"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0035",
+    "sourceDocRef": "doc:synthetic-upload-prep-0035",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (lease-record synthetic 0035)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0035"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0036",
+    "sourceDocRef": "doc:synthetic-upload-prep-0036",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (closing-binder synthetic 0036)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0036"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0037",
+    "sourceDocRef": "doc:synthetic-upload-prep-0037",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (regulatory-upload synthetic 0037)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0037"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0038",
+    "sourceDocRef": "doc:synthetic-upload-prep-0038",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (email-attachment synthetic 0038)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0038"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0039",
+    "sourceDocRef": "doc:synthetic-upload-prep-0039",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (litigation-index synthetic 0039)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0039"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0040",
+    "sourceDocRef": "doc:synthetic-upload-prep-0040",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (diligence-record synthetic 0040)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0040"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0041",
+    "sourceDocRef": "doc:synthetic-upload-prep-0041",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (contract-intake synthetic 0041)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0041"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0042",
+    "sourceDocRef": "doc:synthetic-upload-prep-0042",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (invoice-support synthetic 0042)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0042"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0043",
+    "sourceDocRef": "doc:synthetic-upload-prep-0043",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (board-material synthetic 0043)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0043"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0044",
+    "sourceDocRef": "doc:synthetic-upload-prep-0044",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (employment-file synthetic 0044)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0044"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0045",
+    "sourceDocRef": "doc:synthetic-upload-prep-0045",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (lease-record synthetic 0045)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0045"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0046",
+    "sourceDocRef": "doc:synthetic-upload-prep-0046",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (closing-binder synthetic 0046)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0046"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0047",
+    "sourceDocRef": "doc:synthetic-upload-prep-0047",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (regulatory-upload synthetic 0047)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0047"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0048",
+    "sourceDocRef": "doc:synthetic-upload-prep-0048",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (email-attachment synthetic 0048)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0048"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0049",
+    "sourceDocRef": "doc:synthetic-upload-prep-0049",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (litigation-index synthetic 0049)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0049"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0050",
+    "sourceDocRef": "doc:synthetic-upload-prep-0050",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (diligence-record synthetic 0050)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0050"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0051",
+    "sourceDocRef": "doc:synthetic-upload-prep-0051",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (contract-intake synthetic 0051)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0051"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0052",
+    "sourceDocRef": "doc:synthetic-upload-prep-0052",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (invoice-support synthetic 0052)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0052"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0053",
+    "sourceDocRef": "doc:synthetic-upload-prep-0053",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (board-material synthetic 0053)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0053"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0054",
+    "sourceDocRef": "doc:synthetic-upload-prep-0054",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (employment-file synthetic 0054)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0054"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0055",
+    "sourceDocRef": "doc:synthetic-upload-prep-0055",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (lease-record synthetic 0055)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0055"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0056",
+    "sourceDocRef": "doc:synthetic-upload-prep-0056",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (closing-binder synthetic 0056)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0056"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0057",
+    "sourceDocRef": "doc:synthetic-upload-prep-0057",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (regulatory-upload synthetic 0057)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0057"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0058",
+    "sourceDocRef": "doc:synthetic-upload-prep-0058",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (email-attachment synthetic 0058)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0058"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0059",
+    "sourceDocRef": "doc:synthetic-upload-prep-0059",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (litigation-index synthetic 0059)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0059"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0060",
+    "sourceDocRef": "doc:synthetic-upload-prep-0060",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (diligence-record synthetic 0060)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0060"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0061",
+    "sourceDocRef": "doc:synthetic-upload-prep-0061",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (contract-intake synthetic 0061)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0061"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0062",
+    "sourceDocRef": "doc:synthetic-upload-prep-0062",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (invoice-support synthetic 0062)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0062"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0063",
+    "sourceDocRef": "doc:synthetic-upload-prep-0063",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (board-material synthetic 0063)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0063"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0064",
+    "sourceDocRef": "doc:synthetic-upload-prep-0064",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (employment-file synthetic 0064)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0064"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0065",
+    "sourceDocRef": "doc:synthetic-upload-prep-0065",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (lease-record synthetic 0065)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0065"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0066",
+    "sourceDocRef": "doc:synthetic-upload-prep-0066",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (closing-binder synthetic 0066)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0066"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0067",
+    "sourceDocRef": "doc:synthetic-upload-prep-0067",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (regulatory-upload synthetic 0067)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0067"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0068",
+    "sourceDocRef": "doc:synthetic-upload-prep-0068",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (email-attachment synthetic 0068)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0068"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0069",
+    "sourceDocRef": "doc:synthetic-upload-prep-0069",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (litigation-index synthetic 0069)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0069"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0070",
+    "sourceDocRef": "doc:synthetic-upload-prep-0070",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (diligence-record synthetic 0070)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0070"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0071",
+    "sourceDocRef": "doc:synthetic-upload-prep-0071",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (contract-intake synthetic 0071)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0071"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0072",
+    "sourceDocRef": "doc:synthetic-upload-prep-0072",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (invoice-support synthetic 0072)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0072"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0073",
+    "sourceDocRef": "doc:synthetic-upload-prep-0073",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (board-material synthetic 0073)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0073"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0074",
+    "sourceDocRef": "doc:synthetic-upload-prep-0074",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (employment-file synthetic 0074)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0074"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0075",
+    "sourceDocRef": "doc:synthetic-upload-prep-0075",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (lease-record synthetic 0075)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0075"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0076",
+    "sourceDocRef": "doc:synthetic-upload-prep-0076",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (closing-binder synthetic 0076)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0076"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0077",
+    "sourceDocRef": "doc:synthetic-upload-prep-0077",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (regulatory-upload synthetic 0077)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0077"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0078",
+    "sourceDocRef": "doc:synthetic-upload-prep-0078",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (email-attachment synthetic 0078)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0078"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0079",
+    "sourceDocRef": "doc:synthetic-upload-prep-0079",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (litigation-index synthetic 0079)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0079"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0080",
+    "sourceDocRef": "doc:synthetic-upload-prep-0080",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (diligence-record synthetic 0080)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0080"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0081",
+    "sourceDocRef": "doc:synthetic-upload-prep-0081",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (contract-intake synthetic 0081)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0081"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0082",
+    "sourceDocRef": "doc:synthetic-upload-prep-0082",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (invoice-support synthetic 0082)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0082"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0083",
+    "sourceDocRef": "doc:synthetic-upload-prep-0083",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (board-material synthetic 0083)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0083"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0084",
+    "sourceDocRef": "doc:synthetic-upload-prep-0084",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (employment-file synthetic 0084)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0084"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0085",
+    "sourceDocRef": "doc:synthetic-upload-prep-0085",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (lease-record synthetic 0085)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0085"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0086",
+    "sourceDocRef": "doc:synthetic-upload-prep-0086",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (closing-binder synthetic 0086)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0086"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0087",
+    "sourceDocRef": "doc:synthetic-upload-prep-0087",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (regulatory-upload synthetic 0087)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0087"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0088",
+    "sourceDocRef": "doc:synthetic-upload-prep-0088",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (email-attachment synthetic 0088)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0088"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0089",
+    "sourceDocRef": "doc:synthetic-upload-prep-0089",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (litigation-index synthetic 0089)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0089"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0090",
+    "sourceDocRef": "doc:synthetic-upload-prep-0090",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (diligence-record synthetic 0090)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0090"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0091",
+    "sourceDocRef": "doc:synthetic-upload-prep-0091",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (contract-intake synthetic 0091)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0091"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0092",
+    "sourceDocRef": "doc:synthetic-upload-prep-0092",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (invoice-support synthetic 0092)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0092"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0093",
+    "sourceDocRef": "doc:synthetic-upload-prep-0093",
+    "caseType": "upload_prep_keyword_tags",
+    "queryText": "업로드 문서의 검색 태그 후보를 중립적으로 정리하라 (board-material synthetic 0093)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0093"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep keyword_tags case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0094",
+    "sourceDocRef": "doc:synthetic-upload-prep-0094",
+    "caseType": "upload_prep_filing_suggestions",
+    "queryText": "업로드 문서의 보관 위치 후보를 중립적으로 제안하라 (employment-file synthetic 0094)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0094"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep filing_suggestions case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0095",
+    "sourceDocRef": "doc:synthetic-upload-prep-0095",
+    "caseType": "upload_prep_source_outline",
+    "queryText": "업로드 문서의 출처 개요를 중립적으로 정리하라 (lease-record synthetic 0095)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0095"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep source_outline case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0096",
+    "sourceDocRef": "doc:synthetic-upload-prep-0096",
+    "caseType": "upload_prep_retrieval_hints",
+    "queryText": "업로드 문서의 향후 검색 힌트를 중립적으로 정리하라 (closing-binder synthetic 0096)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0096"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep retrieval_hints case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0097",
+    "sourceDocRef": "doc:synthetic-upload-prep-0097",
+    "caseType": "upload_prep_document_profile",
+    "queryText": "업로드 문서의 중립적인 파일 프로필을 정리하라 (regulatory-upload synthetic 0097)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0097"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep document_profile case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0098",
+    "sourceDocRef": "doc:synthetic-upload-prep-0098",
+    "caseType": "upload_prep_key_fields",
+    "queryText": "업로드 문서에서 파일 정리에 필요한 주요 필드만 정리하라 (email-attachment synthetic 0098)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0098"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep key_fields case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0099",
+    "sourceDocRef": "doc:synthetic-upload-prep-0099",
+    "caseType": "upload_prep_date_facts",
+    "queryText": "업로드 문서의 날짜 단서를 파일 정리용으로만 정리하라 (litigation-index synthetic 0099)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0099"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep date_facts case; no client, person, phone, email, account, or raw document text"
+  },
+  {
+    "caseNo": "EV-PREP-0100",
+    "sourceDocRef": "doc:synthetic-upload-prep-0100",
+    "caseType": "upload_prep_people_organizations",
+    "queryText": "업로드 문서의 사람과 조직 단서를 파일 정리용으로만 정리하라 (diligence-record synthetic 0100)",
+    "expectedRefs": [
+      "doc:synthetic-upload-prep-0100"
+    ],
+    "deidentified": true,
+    "notes": "synthetic deidentified upload-prep people_organizations case; no client, person, phone, email, account, or raw document text"
+  }
+]

@@ -7,8 +7,8 @@ describe('local AI eval metrics', () => {
   it('passes when deidentified cases, citations, leakage, and latency satisfy the gate', () => {
     const report = computeLocalAiEvalReport({
       tenantId,
-      caseCount: 2,
-      deidentifiedCaseCount: 2,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
       outputCount: 6,
       fallbackCount: 1,
       rejectedCount: 0,
@@ -32,8 +32,8 @@ describe('local AI eval metrics', () => {
   it('fails closed when leakage is observed', () => {
     const report = computeLocalAiEvalReport({
       tenantId,
-      caseCount: 2,
-      deidentifiedCaseCount: 2,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
       outputCount: 1,
       fallbackCount: 0,
       rejectedCount: 0,
@@ -54,8 +54,8 @@ describe('local AI eval metrics', () => {
   it('fails closed when no completed local AI output exists', () => {
     const report = computeLocalAiEvalReport({
       tenantId,
-      caseCount: 2,
-      deidentifiedCaseCount: 2,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
       outputCount: 0,
       fallbackCount: 0,
       rejectedCount: 0,
@@ -77,8 +77,8 @@ describe('local AI eval metrics', () => {
   it('fails closed when prep artifact schema violations are observed', () => {
     const report = computeLocalAiEvalReport({
       tenantId,
-      caseCount: 2,
-      deidentifiedCaseCount: 2,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
       outputCount: 2,
       fallbackCount: 0,
       rejectedCount: 0,
@@ -100,8 +100,8 @@ describe('local AI eval metrics', () => {
   it('fails closed when the fallback rate exceeds the technical threshold', () => {
     const report = computeLocalAiEvalReport({
       tenantId,
-      caseCount: 2,
-      deidentifiedCaseCount: 2,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
       outputCount: 5,
       fallbackCount: 5,
       rejectedCount: 0,
@@ -123,8 +123,8 @@ describe('local AI eval metrics', () => {
   it('fails closed when fallback rows would otherwise dilute quality denominators', () => {
     const report = computeLocalAiEvalReport({
       tenantId,
-      caseCount: 8,
-      deidentifiedCaseCount: 8,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
       outputCount: 8,
       fallbackCount: 7,
       rejectedCount: 0,
@@ -148,8 +148,8 @@ describe('local AI eval metrics', () => {
   it('fails closed when rejected model output would otherwise dilute quality denominators', () => {
     const report = computeLocalAiEvalReport({
       tenantId,
-      caseCount: 8,
-      deidentifiedCaseCount: 8,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
       outputCount: 6,
       fallbackCount: 0,
       rejectedCount: 2,
@@ -169,5 +169,90 @@ describe('local AI eval metrics', () => {
     expect(report.warnings).toContain(
       'Unsupported or rejected prep output rate exceeds the technical threshold.',
     );
+  });
+
+  it('fails closed when the deidentified corpus is below 100 cases', () => {
+    const report = computeLocalAiEvalReport({
+      tenantId,
+      caseCount: 99,
+      deidentifiedCaseCount: 99,
+      outputCount: 6,
+      fallbackCount: 0,
+      rejectedCount: 0,
+      generatedOutputCount: 6,
+      unsupportedCount: 0,
+      leakageCount: 0,
+      prepSchemaViolationCount: 0,
+      totalSourceRefs: 6,
+      matchedSourceRefs: 6,
+      koreanOutputCount: 6,
+      p95LatencyMs: 1200,
+    });
+
+    expect(report.technicalPass).toBe(false);
+    expect(report.warnings).toContain(
+      'Deidentified local AI eval corpus is below the 100-case technical threshold.',
+    );
+  });
+
+  it('fails closed when prep queue age exceeds the technical threshold', () => {
+    const report = computeLocalAiEvalReport({
+      tenantId,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
+      outputCount: 6,
+      fallbackCount: 0,
+      rejectedCount: 0,
+      generatedOutputCount: 6,
+      unsupportedCount: 0,
+      leakageCount: 0,
+      prepSchemaViolationCount: 0,
+      totalSourceRefs: 6,
+      matchedSourceRefs: 6,
+      koreanOutputCount: 6,
+      p95LatencyMs: 1200,
+      pendingPrepCount: 1,
+      maxPendingAgeSeconds: 901,
+    });
+
+    expect(report.technicalPass).toBe(false);
+    expect(report.warnings).toContain('AI prep queue age exceeds the technical threshold.');
+  });
+
+  it('fails closed when per-artifact completion thresholds are not met', () => {
+    const report = computeLocalAiEvalReport({
+      tenantId,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
+      outputCount: 6,
+      fallbackCount: 0,
+      rejectedCount: 0,
+      generatedOutputCount: 6,
+      unsupportedCount: 0,
+      leakageCount: 0,
+      prepSchemaViolationCount: 0,
+      totalSourceRefs: 6,
+      matchedSourceRefs: 6,
+      koreanOutputCount: 6,
+      p95LatencyMs: 1200,
+      artifactKindMetrics: [
+        {
+          artifactKind: 'document_profile',
+          minimumCompletedCount: 20,
+          completedCount: 19,
+          generatedOutputCount: 19,
+          fallbackArtifactCount: 0,
+          rejectedOutputCount: 0,
+          fallbackRate: 0,
+          rejectedRate: 0,
+          p95LatencyMs: 1200,
+          technicalPass: false,
+        },
+      ],
+    });
+
+    expect(report.technicalPass).toBe(false);
+    expect(report.artifactKindMetrics[0]?.technicalPass).toBe(false);
+    expect(report.warnings).toContain('Per-artifact local AI prep threshold failed.');
   });
 });

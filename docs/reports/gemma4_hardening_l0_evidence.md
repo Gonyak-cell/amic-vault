@@ -113,7 +113,7 @@ Read-only reviewer/explorer findings accepted into the continuation plan:
 | EvidencePack v2 not versioned as a stable adapter contract | Addressed by `evidence_pack.v2.prep_adapter` compatible with Evidence Pack v1 | PACK-LAI-15 |
 | Stale/rebuild semantics are not fully covered for permission/policy/metadata/source changes | Addressed by PACK-LAI-16 bounded stale reason contract, permission/wall/metadata/source invalidation hooks, and stale/rejected/fallback rebuild tool path | PACK-LAI-16 |
 | Retrieval plans are not artifact-specific enough for quality growth | Addressed by PACK-LAI-17 deterministic artifact retrieval plans, canonical metadata normalization, and prep-only graph/rule prompt filtering | PACK-LAI-17 |
-| Eval corpus is still technical and small | Safety pass is not equivalent to operational quality proof | PACK-LAI-18 |
+| Eval corpus is still technical and small | Addressed by PACK-LAI-18 100-case synthetic/deidentified upload-prep fixture, 100-case negative matrix, queue/rejected/per-artifact eval thresholds, and refreshed bench-only catalog; still not a customer-data pilot | PACK-LAI-18 |
 | UI/ops wording and metrics need terminal-state clarity | Users/admins may misread fallback/rejected/stale states | PACK-LAI-19 |
 | Production readiness and production authorization are not separate gates | Technical pass could be mistaken for enablement approval | PACK-LAI-20 |
 

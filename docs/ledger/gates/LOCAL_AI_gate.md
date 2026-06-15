@@ -30,12 +30,12 @@ This gate covers PACK-LAI-01 through PACK-LAI-07:
 | Local AI eval suite fails on leakage | PASS |
 | Existing R6 AI gate | PASS; external model call attempts 0 |
 | Bench-only candidate lane default-off and local/private only | PASS |
-| Gemma 4 12B local baseline bench | PASS; 2/2 synthetic cases completed |
+| Gemma 4 12B local baseline bench | PASS; 2/2 smoke-limited synthetic cases completed against 102-case fixture |
 | Post-upload Gemma prep smoke | PASS; 20+ synthetic upload samples completed |
 | Post-upload prep evidence report | PASS; `docs/reports/local_ai_upload_prep_smoke.md` |
-| Negative case matrix | PASS; `docs/reports/local_ai_negative_case_matrix.md` |
+| Negative case matrix | PASS; 100 synthetic cases in `docs/reports/local_ai_negative_case_matrix.md` |
 | AI prep storage scan | PASS; raw/leakage/legal/external counts 0 |
-| Local AI eval completed-output gate | PASS; completedOutputCount 25, fallbackArtifactCount 1, generatedOutputCount 24, fallbackRate 4.0%, prepSchemaViolationCount 0, warnings empty |
+| Local AI eval completed-output gate | PASS; caseCount 102, completedOutputCount 25, fallbackArtifactCount 1, generatedOutputCount 24, fallbackRate 4.0%, rejectedRate 0.0%, pendingPrepCount 0, prepSchemaViolationCount 0 |
 | Non-Gemma product route proposal | NOT PROPOSED |
 | Full unit/build/integration validation | PASS; integration 85 files / 212 tests |
 
@@ -54,7 +54,7 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm eval:ai-gate -- --tenant-id 111111
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:scan -- --tenant-id 11111111-1111-4111-8111-111111111111
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm exec vitest run tools/bench/local-model-bench.spec.ts
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm bench:local-models -- --models gemma4-12b-baseline,qwen3-8b
-AI_BENCH_HARNESS_ENABLED=true PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm bench:local-models -- --models gemma4-12b-baseline
+AI_BENCH_HARNESS_ENABLED=true PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm bench:local-models -- --models gemma4-12b-baseline --case-limit 2
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm test:integration -- ai-schema-only
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm test:integration
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm docs:frozen
@@ -65,12 +65,12 @@ git diff --check
 ## Current Limitations
 
 - `pnpm db:rollback` down-all remains unsuitable on a dirty dev DB after append-only AI audit rows exist; new migrations are verified with targeted down/up roundtrips.
-- The committed eval set is still the deidentified technical subset and not the future operational corpus.
-- `pnpm eval:local-ai` now requires completed prep outputs, at least 5 non-fallback generated outputs, generated-only citation/unsupported-claim denominators, and `fallbackRate <= 0.5`; the current reprocessed evidence passes with fallbackRate 4.0%.
+- The committed eval set now meets the LAI-18 100-case deidentified technical threshold, but it is still synthetic and not the future operational customer-data corpus.
+- `pnpm eval:local-ai` now requires completed prep outputs, at least 5 non-fallback generated outputs, generated-only citation/unsupported-claim denominators, `fallbackRate <= 0.5`, `rejectedRate <= 0.05`, pending queue age under 900 seconds, and per-artifact technical thresholds; the current reprocessed evidence passes with fallbackRate 4.0%.
 - Fallback evidence can be refreshed with `pnpm ai-prep:reprocess-fallbacks -- --tenant-id <tenant_uuid>`; the tool reuses the existing local-only `AiPrepProcessor` and writes bounded `AI_PREP_REQUESTED`/`AI_PREP_COMPLETED` audit records.
 - The 20+ upload smoke used synthetic/deidentified local documents. It proves the upload -> indexing -> async prep -> completed artifact path, not customer-data quality.
 - Historical smoke rows were generated before fallback audit reason metadata was added, so fallback detection uses audit metadata when present and payload warning markers for historical compatibility.
-- PACK-LAI-06 benchmark used the same 2-case synthetic fixture, so it proves harness safety and Gemma runtime availability but not model superiority.
+- PACK-LAI-18 benchmark refresh uses the 102-case synthetic fixture but live smoke should use `--case-limit` unless the operator intentionally wants a full local model run. It proves harness safety and Gemma runtime availability, not model superiority.
 - Post-upload Gemma prep is scoped to file organization: document profile, key fields, date facts, people/organizations, keyword tags, filing suggestions, source outline, and retrieval hints.
 - If Gemma returns invalid JSON, unsupported claim kinds, raw text, or legal-analysis shaped output, the worker discards that model output and stores only a deterministic bounded file-organization fallback artifact.
 - This gate is not production authorization and does not approve external AI models.
