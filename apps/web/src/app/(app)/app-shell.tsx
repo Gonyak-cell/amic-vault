@@ -38,10 +38,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </HeaderIconButton>
             <Link href="/dashboard" className="flex shrink-0 items-center gap-2 sm:min-w-36">
-              <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-                A
+              <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-md border bg-[#f1f3f5]">
+                <img src="/icons/amic-vault-icon.svg" alt="" className="h-9 w-9" />
               </span>
-              <span className="hidden text-base font-semibold sm:inline">AMIC Vault</span>
+              <img
+                src="/icons/amic-vault-wordmark.svg"
+                alt="AMIC Vault"
+                className="hidden h-[18px] w-[86px] sm:block"
+              />
             </Link>
             <Link
               href="/matters"

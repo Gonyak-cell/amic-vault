@@ -18,9 +18,27 @@
       "purpose": "any"
     },
     {
+      "src": "/icons/amic-vault-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/amic-vault-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icons/amic-vault-maskable.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/amic-vault-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]
