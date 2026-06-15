@@ -1,9 +1,9 @@
 # Production Execution Preflight
 
-Status: PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED
+Status: PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED / PRODUCTION PATCH 42E7B29 SMOKE VERIFIED
 Date: 2026-06-15
-Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15
-Machine Status: customer-launch-smoke-passed
+Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15
+Machine Status: customer-launch-smoke-passed / prod-patch-42e7b29-smoke-passed
 
 This preflight records the post-approval production release execution path after
 PR #82 merged. The earlier preflight ref
@@ -16,10 +16,10 @@ synthetic-only smoke evidence without committing provider-console evidence.
 
 | Item | Result |
 |---|---|
-| Current `main` merge SHA | `f4b69249c28ebf9e4465f36841af5d6c40fe7743` |
+| Current `main` merge SHA | `42e7b29665406dc1b6f110acf4a79e8453e2c8c5` (supersedes final-smoke baseline `f4b69249c28ebf9e4465f36841af5d6c40fe7743`) |
 | Production release-control SHA | `65e2db1b401f02c52c58b87bd7af755b24b68483` |
 | Launch blocker approvals | LRB-005 through LRB-014 approved |
-| Main CI after PR #82 merge | green |
+| Main CI after PR #82 and PR #94 merges | green |
 | AWS CLI access | available outside the repository through SSO profile |
 | AWS region checked | `ap-northeast-2` |
 | Customer data scope | approved customer documents through app-controlled upload/versioning only |
@@ -91,6 +91,27 @@ for current main HEAD `d80fbb5d5bf339ed11ddd6bca27b9e937bd83811`.
 - smoke: `PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15` passed SMOKE-001 through
   SMOKE-015 with pass=15 fail=0 skip=0.
 
+`PROD-PATCH-42E7B29-DEPLOY-2026-06-15` records the production patch deployment
+for current main HEAD `42e7b29665406dc1b6f110acf4a79e8453e2c8c5`.
+
+- deployment target: existing separate production ECS/ECR/RDS/Secrets/Object
+  Storage/ALB/temporary HTTPS boundary;
+- image set: API, web, and ingestion linux/amd64 manifests built from
+  `42e7b29665406dc1b6f110acf4a79e8453e2c8c5`;
+- backup: a pre-patch production RDS snapshot reached available status under a
+  non-secret evidence ref;
+- migration: `0064_create_ai_prep_artifacts` through
+  `0068_harden_ai_prep_completed_payload` applied through a one-off ECS
+  migrator task; the migrator task definition was deregistered after exitCode 0;
+- runtime: production API and web ECS services reached desired=1/running=1/pending=0
+  on task revisions 5 and 9;
+- AI runtime gate: Local Gemma execution env flags are explicitly false in the
+  production API task until separate operator approval enables Gemma runtime;
+- smoke: `PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15` passed SMOKE-001 through
+  SMOKE-015 with pass=15 fail=0 skip=0;
+- monitoring: API/Web target groups ended healthy-only and production alarms
+  were OK after deployment.
+
 Concrete account IDs, ARNs, private endpoints, secret names beyond already
 approved public-safe refs, screenshots, cookies, tokens, and provider-console
 metadata remain outside this repository.
@@ -134,6 +155,8 @@ upload/versioning path.
 - `PROD-SMOKE-AWS-001`
 - `PROD-PATCH-D80FBB5-DEPLOY-2026-06-15`
 - `PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15`
+- `PROD-PATCH-42E7B29-DEPLOY-2026-06-15`
+- `PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15`
 - `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15`
 - `APPROVAL-LRB-014-JWS-OWNER-2026-06-15`
 - `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15`

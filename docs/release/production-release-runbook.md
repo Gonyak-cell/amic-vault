@@ -42,6 +42,20 @@ pass=15 fail=0 skip=0. Concrete endpoints, account IDs, ARNs, provider-console
 metadata, cookies, tokens, secret values, and customer data remain outside this
 repository.
 
+Production patch `PROD-PATCH-42E7B29-DEPLOY-2026-06-15` deployed current main
+HEAD `42e7b29665406dc1b6f110acf4a79e8453e2c8c5` after PR #94 merged. The patch
+updated API, web, and ingestion image manifests, created an available
+pre-patch RDS snapshot evidence ref, applied migrations `0064` through `0068`
+through a one-off ECS migrator task, deregistered the migrator task definition,
+and rolled production API/Web ECS services to task revisions 5 and 9. Local AI
+runtime execution gates were left explicitly disabled in production task env
+until a separate operator approval enables Gemma runtime. The patch passed
+`PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15` with SMOKE-001 through SMOKE-015
+pass=15 fail=0 skip=0. Target groups ended healthy-only and production
+CloudWatch alarms were OK. Concrete endpoints, account IDs, ARNs,
+provider-console metadata, cookies, tokens, secret values, and customer data
+remain outside this repository.
+
 Customer-launch evidence `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` approves
 actual customer documents only through the Vault app-controlled
 upload/versioning path. `APPROVAL-LRB-014-JWS-OWNER-2026-06-15` assigns support

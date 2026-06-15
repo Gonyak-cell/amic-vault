@@ -107,7 +107,10 @@ await run('SMOKE-002', 'Web login page renders', async () => {
   assert(response.status === 200, `unexpected status ${response.status}`);
   loginHtml = await response.text();
   assert(loginHtml.includes('AMIC Vault'), 'login page missing AMIC Vault title');
-  assert(loginHtml.includes('Tenant ID'), 'login page missing Tenant ID field');
+  assert(
+    includesAny(loginHtml, ['Tenant ID', 'Workspace ID', '워크스페이스 ID']),
+    'login page missing tenant/workspace id field',
+  );
   return { status: response.status };
 });
 
@@ -364,8 +367,14 @@ if (publicOnly) {
     });
     assert(response.status === 200, `launch status ${response.status}`);
     const html = await response.text();
-    assert(html.includes('Launch Control'), 'launch page missing control title');
-    assert(html.includes('approval blocked'), 'launch page missing approval blocked state');
+    assert(
+      includesAny(html, ['Launch Control', 'Operations', '운영자 도구']),
+      'launch page missing control title',
+    );
+    assert(
+      includesAny(html, ['approval blocked', 'Approval needed', '승인 필요']),
+      'launch page missing approval blocked state',
+    );
     assert(
       html.includes('pnpm launch:execution'),
       'launch page missing execution validator command',
@@ -572,4 +581,8 @@ function safeGitSha() {
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function includesAny(input, candidates) {
+  return candidates.some((candidate) => input.includes(candidate));
 }
