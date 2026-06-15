@@ -59,6 +59,8 @@ export const auditMetadataKeys = [
   'stale_reason',
   'dead_letter_id',
   'feedback_id',
+  'feedback_kind',
+  'feedback_reason_code',
   'rating',
   'helpful',
   'correction_type',
