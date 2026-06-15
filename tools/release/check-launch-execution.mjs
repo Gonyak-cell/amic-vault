@@ -140,11 +140,14 @@ for (const expected of [
   'EV-STAGE-001',
   'EV-DESKTOP-001',
   'EV-DESKTOP-004',
+  'EV-PILOT-005',
   'EV-PROD-005',
   'EV-PROD-006',
   'EV-PROD-007',
   'EV-PROD-008',
   'EV-PROD-009',
+  'EV-PROD-010',
+  'EV-PROD-011',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
@@ -154,6 +157,9 @@ for (const expected of [
   'REL-SMOKE-AUTO-TUW-004',
   'REL-PROD-REL-TUW-010',
   'REL-PROD-PATCH-D80FBB5-TUW-010A',
+  'REL-PROD-CUSTOMER-DATA-TUW-011A',
+  'REL-PROD-MONITOR-ALARMS-TUW-011B',
+  'REL-PROD-FINAL-SMOKE-TUW-011C',
 ]) {
   assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
 }
@@ -199,10 +205,12 @@ for (const expected of [
 
 for (const expected of [
   'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
-  'production-smoke-passed',
+  'customer-launch-smoke-passed',
   'Do not reuse the AWS staging target as production',
   'PROD-SMOKE-AWS-001',
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
+  'PROD-MONITOR-ALARMS-AWS-2026-06-15',
+  'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
 ]) {
   assertContains(productionPreflight, expected, 'docs/release/production-execution-preflight.md');
 }

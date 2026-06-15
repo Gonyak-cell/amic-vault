@@ -7,9 +7,10 @@ Status: PRODUCTION DEPLOYED - MONITORING ACTIVE
 
 This pack converts the post-R14 technical completion state into a launch-ready
 operations package and records the later AWS staging, UAT, production bootstrap,
-and post-deploy smoke evidence. Repository-tracked files do not include secrets,
-private endpoints, provider-console metadata, account IDs, ARNs, real customer
-data, or raw smoke artifacts.
+post-deploy smoke, customer-data approval, strengthened production alarm, and
+final customer-launch smoke evidence. Repository-tracked files do not include
+secrets, private endpoints, provider-console metadata, account IDs, ARNs, real
+customer data, raw document bodies, or raw smoke artifacts.
 
 ## Baseline
 
@@ -24,8 +25,9 @@ data, or raw smoke artifacts.
 - Release-candidate PR baseline: PR #66, PR #67, PR #68, and PR #69 merged.
 - Latest verified candidate CI baseline: PR #69 checks green before merge.
 - Deployment baseline: AWS staging technical deployment, smoke, UAT technical
-  evidence, approval refs, production bootstrap refs, and production smoke refs
-  are recorded. Post-launch monitoring is active.
+  evidence, approval refs, production bootstrap refs, production smoke refs,
+  customer-document launch approval, strengthened production alarms, and final
+  customer-launch smoke are recorded. Post-launch monitoring is active.
 
 ## Deliverables
 
@@ -36,7 +38,7 @@ data, or raw smoke artifacts.
 | Production gate contract               | `infra/ci/prod-gate.yml`                          | Prepared; approvals recorded, deploy disabled until explicit execution |
 | Production gate policy                 | `infra/ci/PROD_GATE.md`                           | Updated                                                                |
 | Production release runbook             | `docs/release/production-release-runbook.md`      | Deployed; post-launch monitoring active                                |
-| Production execution preflight         | `docs/release/production-execution-preflight.md`  | Passed; production smoke recorded                                      |
+| Production execution preflight         | `docs/release/production-execution-preflight.md`  | Passed; customer-launch smoke recorded                                 |
 | Rollback runbook                       | `docs/release/rollback-runbook.md`                | Prepared                                                               |
 | UAT checklist                          | `docs/release/uat-checklist.md`                   | Accepted                                                               |
 | Synthetic UAT technical evidence       | `docs/release/synthetic-uat-evidence.md`          | Accepted under LRB-011                                                 |
@@ -73,7 +75,7 @@ data, or raw smoke artifacts.
 | Mode             | Purpose                                                             | Required before entry                                                                  |
 | ---------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Internal staging | Exercise deployment, smoke tests, and UAT with synthetic data only. | AWS resources provisioned, runtime secrets placed outside repo, image digests recorded |
-| Controlled pilot | Limited operator-approved users and approved customer/test data.    | Staging green, security review, legal/customer data approval                           |
+| Controlled pilot | Limited operator-approved users and approved customer/test data.    | Staging green, security review, legal/customer data approval and governed upload path   |
 | GA               | Production availability for the approved market scope.              | All launch blockers resolved and production gate signed                                |
 
 ## Invariants
@@ -93,8 +95,9 @@ data, or raw smoke artifacts.
 - `pnpm launch:readiness` passes.
 - `pnpm launch:execution` passes.
 - `pnpm release:uat` passes.
-- `pnpm release:prod-preflight` passes and reports `production-smoke-passed`
-  with `PROD-SMOKE-AWS-001`.
+- `pnpm release:prod-preflight` passes and reports
+  `customer-launch-smoke-passed` with
+  `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15`.
 - CI `verify` runs both `pnpm launch:readiness` and `pnpm launch:execution`.
 - `pnpm release:smoke -- --dry-run` passes.
 - `pnpm release:smoke -- --dry-run` includes SMOKE-012 through SMOKE-015
@@ -106,8 +109,9 @@ data, or raw smoke artifacts.
   requested.
 - `pnpm docs:frozen` passes.
 - `git diff --check` passes.
-- No launch artifact contains real secrets, real customer data, or external
-  endpoint credentials.
+- No launch artifact contains real secrets, raw customer documents, document
+  bodies, external endpoint credentials, account identifiers, ARNs, cookies, or
+  tokens.
 - Every launch decision is recorded with a non-secret evidence ref.
 - Automatic deployment skeletons remain disabled unless a future approved
   release path intentionally opens them.
@@ -117,10 +121,12 @@ data, or raw smoke artifacts.
 Machine-actionable launch preparation is complete for this pack. AWS staging
 decisions, pilot decisions, UAT acceptance, restore acceptance, security review,
 Risk=C disposition, production release approval, production bootstrap, smoke,
-and support ownership are recorded in `docs/release/launch-blocker-ledger.md`.
-Production release evidence is governed by
-`docs/release/production-execution-preflight.md` and
+customer-document launch approval, strengthened production alarms, final
+customer-launch smoke, and support ownership are recorded in
+`docs/release/launch-blocker-ledger.md`. Production release evidence is governed
+by `docs/release/production-execution-preflight.md` and
 `docs/release/production-release-runbook.md`; post-launch monitoring remains
-active under `PROD-MONITOR-AWS-001`. Desktop/PWA release evidence is tracked in
-`EV-DESKTOP-001` through `EV-DESKTOP-004`; installed app behavior remains a
+active under `PROD-MONITOR-AWS-001` and
+`PROD-MONITOR-ALARMS-AWS-2026-06-15`. Desktop/PWA release evidence is tracked
+in `EV-DESKTOP-001` through `EV-DESKTOP-004`; installed app behavior remains a
 server-authoritative access layer, not a local vault runtime.

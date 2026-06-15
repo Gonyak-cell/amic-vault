@@ -42,6 +42,17 @@ pass=15 fail=0 skip=0. Concrete endpoints, account IDs, ARNs, provider-console
 metadata, cookies, tokens, secret values, and customer data remain outside this
 repository.
 
+Customer-launch evidence `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` approves
+actual customer documents only through the Vault app-controlled
+upload/versioning path. `APPROVAL-LRB-014-JWS-OWNER-2026-06-15` assigns support
+triage, customer contact, incident handling, and rollback authority to `jws`.
+Operational alarms were strengthened under `PROD-MONITOR-ALARMS-AWS-2026-06-15`;
+SNS email delivery requires external email confirmation. Final smoke
+`PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15` passed SMOKE-001 through
+SMOKE-015 with pass=15 fail=0 skip=0 at current main HEAD
+`f4b69249c28ebf9e4465f36841af5d6c40fe7743`. The smoke run used synthetic
+smoke identities and did not upload or expose customer documents.
+
 ## Release Steps
 
 1. Freeze release SHA.
@@ -71,6 +82,7 @@ repository.
 - External portal token failures.
 - Records disposal denial and approval paths.
 - AI policy blocked/allowed evidence counts.
+- Alert delivery confirmation for the `jws` SNS subscription.
 
 ## Hold Conditions
 

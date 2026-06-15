@@ -18,7 +18,7 @@ this repository.
 | Frozen release SHA | `9e346d9e48c962448bcccbbef9e30d9c3e468e4f` for staging preparation |
 | Production release-control SHA | `65e2db1b401f02c52c58b87bd7af755b24b68483` |
 | Source branch | `main` |
-| Included PRs | `#66`, `#67`, `#68`, `#69`, `#78`, `#80`, `#81`, `#82` |
+| Included PRs | `#66`, `#67`, `#68`, `#69`, `#78`, `#80`, `#81`, `#82`, `#87`, `#88` |
 | Launch documentation baseline | `main` at or after PR #82 |
 | Local routes | `/login`, `/dashboard`, `/launch` |
 | Prepared smoke checks | `SMOKE-001` through `SMOKE-011` |
@@ -41,6 +41,20 @@ Production release execution is recorded under non-secret evidence refs:
 skip=0 against the production temporary HTTPS target using synthetic identities
 only. Permission negative checks failed closed with `PERMISSION_DENIED`, and
 audit metadata remained reference-only.
+
+Customer-launch approval and smoke evidence are recorded under:
+
+- `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15`
+- `APPROVAL-LRB-014-JWS-OWNER-2026-06-15`
+- `PROD-MONITOR-ALARMS-AWS-2026-06-15`
+- `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15`
+
+Actual customer documents may be uploaded only through the Vault app-controlled
+upload/versioning path. Final customer-launch smoke passed SMOKE-001 through
+SMOKE-015 with pass=15 fail=0 skip=0 at current main HEAD
+`f4b69249c28ebf9e4465f36841af5d6c40fe7743`; it used synthetic smoke identities
+and did not upload or expose customer documents. Support triage, customer
+contact, incident handling, and rollback authority are assigned to `jws`.
 
 Concrete endpoints, account IDs, ARNs, provider-console metadata, screenshots,
 cookies, tokens, secret values, and customer data remain outside this
@@ -271,7 +285,10 @@ Use:
 How to do it:
 
 1. Run UAT-001 through UAT-020 with approved synthetic data.
-2. Use pilot customer data only if LRB-007 explicitly approves it.
+2. Use pilot customer data only under
+   `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15`, through the app-controlled
+   upload/versioning path, and without copying raw customer documents into
+   release evidence.
 3. Record each result as an external evidence ref.
 4. Record unresolved findings with severity and owner.
 

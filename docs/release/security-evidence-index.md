@@ -18,6 +18,9 @@ a substitute for operational security approval.
 | Enterprise SSO/BYOK/SIEM/backup/compliance are reference-only. | `docs/ledger/gates/R13_gate.md`, `docs/reports/R13_enterprise_readiness.md` |
 | Automatic deployment workflows remain disabled unless a future release path explicitly opens them. | `infra/ci/staging-deploy.yml`, `infra/ci/prod-gate.yml`, `docs/release/launch-blocker-ledger.md` |
 | Production bootstrap and smoke used production-specific refs, not staging reuse. | `PROD-INFRA-AWS-001`, `PROD-DEPLOY-WORKFLOW-AWS-001`, `PROD-SMOKE-AWS-001`, `docs/release/production-execution-preflight.md` |
+| Customer-document production launch remains governed and reference-only. | `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15`, `EV-PILOT-005`, permission/DLP/audit/immutable-original gate evidence |
+| Production operational alerting is configured for the customer launch. | `PROD-MONITOR-ALARMS-AWS-2026-06-15`, `EV-PROD-010`, SNS email confirmation pending outside repository evidence |
+| Final production customer-launch smoke passed without exposing customer documents. | `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15`, `EV-PROD-011`, `docs/release/production-execution-preflight.md` |
 | Package docs remain frozen. | `pnpm docs:frozen` |
 | Launch readiness artifacts are present and internally consistent. | `pnpm launch:readiness` |
 
@@ -33,3 +36,4 @@ Post-launch monitoring should continue to cover:
 - Monitoring, alert routing, retention, and incident response.
 - Approved data handling for pilot or production data.
 - Release rollback authority and communications.
+- SNS alert subscription confirmation for `jws`.

@@ -15,14 +15,14 @@ private endpoints in this repository.
 | LRB-004 | Secret management | approved | AWS Secrets Manager plus KMS with runtime secret names only. | Staging, production | STAGE-SECRETS-AWS-001 |
 | LRB-005 | Legal terms | approved | Terms, privacy notice, DPA, external portal terms, retention/disposal language approved for current launch scope. | Pilot, GA | APPROVAL-LRB-005-2026-06-14 |
 | LRB-006 | Pricing and support | approved | Pricing, support hours, SLA, escalation model, and billing owner approved for current launch scope. | Pilot, GA | APPROVAL-LRB-006-2026-06-14 |
-| LRB-007 | Customer data approval | approved | Pilot and launch remain synthetic-data-only; real customer documents are not approved for this release. | Pilot, GA | APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 |
+| LRB-007 | Customer data approval | approved | Actual customer documents are approved for production/pilot use only through the Vault app-controlled upload/versioning path; no raw customer document, document body, private endpoint, account identifier, ARN, secret, token, cookie, or private-data screenshot may be committed to repository evidence. | Pilot, GA | APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15 |
 | LRB-008 | Monitoring and incident response | approved | CloudWatch Logs, CloudWatch Alarms, and SNS/email alert routing with staging incident evidence retention. | Staging, production | STAGE-MONITOR-AWS-001 |
 | LRB-009 | Security review | approved | Operational security review over deployment, secrets, backup, logging, and network boundaries approved. | Production | APPROVAL-LRB-009-2026-06-14 |
 | LRB-010 | Risk C review disposition | approved | Historical Risk=C waiver operational treatment approved for this production release gate. | Production | APPROVAL-LRB-010-2026-06-14 |
 | LRB-011 | Staging UAT acceptance | approved | UAT-001 through UAT-020 accepted using synthetic technical evidence. | Production | APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / SYNTH-UAT-TECH-2026-06-14-001 |
 | LRB-012 | Backup and restore rehearsal | approved | Non-production backup/restore rehearsal evidence accepted. | Production | APPROVAL-LRB-012-RESTORE-2026-06-14 / RESTORE-DRILL-AWS-001 |
 | LRB-013 | Production release approval | approved | Operator release sign-off recorded for current release-control SHA `65e2db1b401f02c52c58b87bd7af755b24b68483`. | Production | APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
-| LRB-014 | Post-launch support owner | approved | Support triage, incident handling, and rollback authority owner is `jws-admin / Operator`. | Pilot, GA | APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
+| LRB-014 | Post-launch support owner | approved | Support triage, customer contact, incident handling, and rollback authority owner is `jws`; console/operator execution identity may remain `jws-admin`. | Pilot, GA | APPROVAL-LRB-014-JWS-OWNER-2026-06-15 / APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
 
 Machine-actionable preparation status: production release executed and
 post-launch monitoring active for this pack.
@@ -95,6 +95,24 @@ post-launch monitoring active for this pack.
   `PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15` passed SMOKE-001 through SMOKE-015
   with pass=15 fail=0 skip=0. The smoke run used synthetic-only identities; no
   real customer data was introduced.
+- Customer-document launch approval supersedes the earlier synthetic-only pilot
+  scope under `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15`. Actual customer
+  documents may enter production only through the Vault app-controlled
+  upload/versioning path. Release artifacts must still omit raw customer
+  documents, document bodies, screenshots with private data, private endpoints,
+  account identifiers, ARNs, secrets, cookies, and tokens.
+- Production operational alarms were strengthened under
+  `PROD-MONITOR-ALARMS-AWS-2026-06-15`: CloudWatch alarms now cover ALB 5xx,
+  API/Web target health, API/Web ECS CPU and memory, RDS CPU, RDS free storage,
+  and RDS connection count; an EventBridge ECS stopped-task rule routes to the
+  production alert topic. The SNS email subscription was requested for `jws`
+  and remains effective after email confirmation outside the repository.
+- Final customer-launch smoke
+  `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15` passed SMOKE-001 through
+  SMOKE-015 with pass=15 fail=0 skip=0 at current main HEAD
+  `f4b69249c28ebf9e4465f36841af5d6c40fe7743` against the production temporary
+  HTTPS target ref. The smoke run used synthetic smoke identities and did not
+  upload or expose customer documents.
 - Concrete endpoint values, account identifiers, ARNs, private URLs,
   screenshots, cookies, tokens, secret values, provider-console metadata, and
   customer data remain outside this repository.

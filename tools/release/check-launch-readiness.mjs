@@ -144,10 +144,10 @@ for (const blocker of requiredBlockers) {
 }
 for (const approvalRef of [
   'APPROVAL-LRB-005-2026-06-14',
-  'APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14',
+  'APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15',
   'APPROVAL-LRB-011-SYNTH-UAT-2026-06-14',
   'APPROVAL-LRB-013-PROD-RELEASE-2026-06-14',
-  'APPROVAL-LRB-014-JWS-ADMIN-2026-06-14',
+  'APPROVAL-LRB-014-JWS-OWNER-2026-06-15',
 ]) {
   assertContains(blockerLedger, approvalRef, 'docs/release/launch-blocker-ledger.md');
 }
@@ -233,11 +233,14 @@ for (const expected of [
   'EV-DESKTOP-001',
   'EV-DESKTOP-004',
   'EV-UAT-001',
+  'EV-PILOT-005',
   'EV-PROD-005',
   'EV-PROD-006',
   'EV-PROD-007',
   'EV-PROD-008',
   'EV-PROD-009',
+  'EV-PROD-010',
+  'EV-PROD-011',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
@@ -250,6 +253,9 @@ for (const expected of [
   'REL-ACTUAL-RUNBOOK-TUW-007B',
   'REL-PROD-REL-TUW-010',
   'REL-PROD-PATCH-D80FBB5-TUW-010A',
+  'REL-PROD-CUSTOMER-DATA-TUW-011A',
+  'REL-PROD-MONITOR-ALARMS-TUW-011B',
+  'REL-PROD-FINAL-SMOKE-TUW-011C',
 ]) {
   assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
 }
@@ -271,10 +277,12 @@ for (const expected of [
 const productionPreflight = contents.get('docs/release/production-execution-preflight.md');
 for (const expected of [
   'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
-  'PASSED - PRODUCTION BOOTSTRAP AND SMOKE VERIFIED',
+  'PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED',
   'Do not reuse the AWS staging target as production',
   'PROD-SMOKE-AWS-001',
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
+  'PROD-MONITOR-ALARMS-AWS-2026-06-15',
+  'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
 ]) {
   assertContains(productionPreflight, expected, 'docs/release/production-execution-preflight.md');
 }
