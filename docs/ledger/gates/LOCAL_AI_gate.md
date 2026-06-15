@@ -1,6 +1,7 @@
 # LOCAL AI Gate
 
-Status: local-only baseline implemented; fallback quality gate PASS on reprocessed evidence.
+Status: local-only baseline implemented; fallback quality and product-ops gates
+PASS on reprocessed evidence.
 
 ## Scope
 
@@ -14,6 +15,13 @@ This gate covers PACK-LAI-01 through PACK-LAI-07:
 - Bench-only candidate model catalog, default-off harness, and no-route-change decision
 - Prep-only claim schema hardening, source-ref enforcement, and legal-analysis claim rejection
 
+Continuation hardening through PACK-LAI-19 adds:
+
+- Rejected prep terminal state and stale lifecycle hardening
+- EvidencePack v2 prep adapter and artifact-specific retrieval orchestration
+- 100-case synthetic/deidentified eval corpus and negative matrix
+- File-organization status UI, admin ops breakdown, structured feedback reason codes, and production-disabled runbook language
+
 ## Required Evidence
 
 | Evidence | Status |
@@ -26,7 +34,9 @@ This gate covers PACK-LAI-01 through PACK-LAI-07:
 | Stored prep claims reject `risk`, `issue`, `clause`, and legal conclusion markers | PASS |
 | Artifact JSON raw top-level key scan | PASS; forbidden key count 0 |
 | Admin-only local AI ops health/metrics | PASS |
-| Structured prep feedback has no free-form comments | PASS |
+| Admin ops breakdown exposes fallback/stale/rejected counts without raw endpoint, prompt, source, response, or secret values | PASS |
+| Structured prep feedback has no free-form comments | PASS; reason codes include incorrect field/tag/filing suggestion, missing source ref, stale artifact, and rejected output |
+| Product prep UI uses file-organization wording and hides stale/rejected payloads as not-ready cards | PASS |
 | Local AI eval suite fails on leakage | PASS |
 | Existing R6 AI gate | PASS; external model call attempts 0 |
 | Bench-only candidate lane default-off and local/private only | PASS |
