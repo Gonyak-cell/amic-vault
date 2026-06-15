@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { MatterMemberDto } from '@amic-vault/shared';
+import { LanguageProvider } from '@/lib/i18n';
 import { AddMemberDialog } from './add-member-dialog';
 import { TeamMemberList } from './team-member-list';
 
@@ -31,27 +32,38 @@ const member: MatterMemberDto = {
 
 describe('TeamMemberList', () => {
   it('renders members without management controls for read-only viewers', () => {
-    const html = renderToStaticMarkup(<TeamMemberList members={[member]} canManage={false} />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <TeamMemberList members={[member]} canManage={false} />
+      </LanguageProvider>,
+    );
     expect(html).toContain(member.userId);
-    expect(html).toContain('member');
+    expect(html).toContain('팀원');
+    expect(html).toContain('보기');
     expect(html).not.toContain('Save team member');
     expect(html).not.toContain('Remove team member');
   });
 
   it('renders safe denied copy without target leakage', () => {
     const html = renderToStaticMarkup(
-      <TeamMemberList members={[member]} canManage errorCode="PERMISSION_DENIED" />,
+      <LanguageProvider>
+        <TeamMemberList members={[member]} canManage errorCode="PERMISSION_DENIED" />
+      </LanguageProvider>,
     );
-    expect(html).toContain('Request denied');
+    expect(html).toContain('이 작업을 할 권한이 없습니다.');
     expect(html).not.toContain('PERMISSION_DENIED');
   });
 });
 
 describe('AddMemberDialog', () => {
   it('renders role and access controls', () => {
-    const html = renderToStaticMarkup(<AddMemberDialog />);
-    expect(html).toContain('Matter role');
-    expect(html).toContain('Access level');
-    expect(html).toContain('Add team member');
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <AddMemberDialog />
+      </LanguageProvider>,
+    );
+    expect(html).toContain('역할');
+    expect(html).toContain('접근 권한');
+    expect(html).toContain('구성원 추가');
   });
 });

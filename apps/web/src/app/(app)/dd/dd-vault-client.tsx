@@ -39,8 +39,118 @@ import {
   loadDdTraceability,
 } from '@/lib/api/dd';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { useI18n, type Language } from '@/lib/i18n';
+
+const ddCopy: Record<
+  Language,
+  {
+    matterRef: string;
+    refreshTitle: string;
+    refresh: string;
+    title: string;
+    rfiCode: string;
+    rfiTitle: string;
+    priority: string;
+    saveRfi: string;
+    documentRef: string;
+    section: string;
+    mappingStatus: string;
+    saveMapping: string;
+    issueCode: string;
+    issueTitle: string;
+    severity: string;
+    saveIssue: string;
+    riskCode: string;
+    likelihood: string;
+    saveRisk: string;
+    traceability: string;
+    rfis: string;
+    mappings: string;
+    issues: string;
+    risks: string;
+    traces: string;
+    code: string;
+    status: string;
+    due: string;
+    sectionHeader: string;
+    rfi: string;
+    document: string;
+    refs: string;
+  }
+> = {
+  ko: {
+    matterRef: 'Matter ID',
+    refreshTitle: '실사 자료 새로고침',
+    refresh: '새로고침',
+    title: '실사 자료',
+    rfiCode: '요청 ID',
+    rfiTitle: '요청 제목',
+    priority: '우선순위',
+    saveRfi: '요청 저장',
+    documentRef: '파일 ID',
+    section: '자료 위치',
+    mappingStatus: '매핑 상태',
+    saveMapping: '매핑 저장',
+    issueCode: '이슈 ID',
+    issueTitle: '이슈 제목',
+    severity: '중요도',
+    saveIssue: '이슈 저장',
+    riskCode: '리스크 ID',
+    likelihood: '발생 가능성',
+    saveRisk: '리스크 저장',
+    traceability: '연결 현황',
+    rfis: '자료 요청',
+    mappings: '자료 매핑',
+    issues: '이슈',
+    risks: '리스크',
+    traces: '연결',
+    code: 'ID',
+    status: '상태',
+    due: '기한',
+    sectionHeader: '위치',
+    rfi: '요청',
+    document: '파일',
+    refs: 'ID',
+  },
+  en: {
+    matterRef: 'Matter ref',
+    refreshTitle: 'Refresh diligence data',
+    refresh: 'Refresh',
+    title: 'Diligence materials',
+    rfiCode: 'Request ref',
+    rfiTitle: 'Request title',
+    priority: 'Priority',
+    saveRfi: 'Save request',
+    documentRef: 'File ref',
+    section: 'Folder path',
+    mappingStatus: 'Mapping status',
+    saveMapping: 'Save mapping',
+    issueCode: 'Issue ref',
+    issueTitle: 'Issue title',
+    severity: 'Severity',
+    saveIssue: 'Save issue',
+    riskCode: 'Risk ref',
+    likelihood: 'Likelihood',
+    saveRisk: 'Save risk',
+    traceability: 'Traceability',
+    rfis: 'Requests',
+    mappings: 'Material mapping',
+    issues: 'Issues',
+    risks: 'Risks',
+    traces: 'Trace links',
+    code: 'Ref',
+    status: 'Status',
+    due: 'Due',
+    sectionHeader: 'Location',
+    rfi: 'Request',
+    document: 'File',
+    refs: 'Refs',
+  },
+};
 
 export function DdVaultClient() {
+  const { language } = useI18n();
+  const copy = ddCopy[language];
   const [matterId, setMatterId] = useState('');
   const [rfiCode, setRfiCode] = useState('RFI-001');
   const [rfiTitle, setRfiTitle] = useState('Corporate charter documents');
@@ -161,10 +271,10 @@ export function DdVaultClient() {
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-3 border-b pb-4">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Matter ID" value={matterId} onChange={setMatterId} />
-          <Button onClick={refreshAll} disabled={busy || !trimmedMatterId} title="Refresh DD data">
+          <Field label={copy.matterRef} value={matterId} onChange={setMatterId} />
+          <Button onClick={refreshAll} disabled={busy || !trimmedMatterId} title={copy.refreshTitle}>
             <ListTree className="h-4 w-4" />
-            Refresh
+            {copy.refresh}
           </Button>
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -172,69 +282,73 @@ export function DdVaultClient() {
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="flex flex-col gap-3 rounded-md border p-4">
-          <PanelTitle icon={<ClipboardList className="h-4 w-4" />} label="DD Vault" />
-          <Field label="RFI code" value={rfiCode} onChange={setRfiCode} />
-          <Field label="RFI title" value={rfiTitle} onChange={setRfiTitle} />
+          <PanelTitle icon={<ClipboardList className="h-4 w-4" />} label={copy.title} />
+          <Field label={copy.rfiCode} value={rfiCode} onChange={setRfiCode} />
+          <Field label={copy.rfiTitle} value={rfiTitle} onChange={setRfiTitle} />
           <SelectField
-            label="Priority"
+            label={copy.priority}
             value={priority}
             values={ddPriorities}
+            language={language}
             onChange={(value) => setPriority(value as DdPriority)}
           />
           <Button onClick={saveRfi} disabled={busy || !trimmedMatterId || !rfiTitle.trim()}>
             <ClipboardCheck className="h-4 w-4" />
-            Save RFI
+            {copy.saveRfi}
           </Button>
 
           <div className="border-t pt-3" />
-          <Field label="Document ID" value={documentId} onChange={setDocumentId} />
-          <Field label="Section path" value={sectionPath} onChange={setSectionPath} />
+          <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
+          <Field label={copy.section} value={sectionPath} onChange={setSectionPath} />
           <SelectField
-            label="Mapping status"
+            label={copy.mappingStatus}
             value={mappingStatus}
             values={ddMappingStatuses}
+            language={language}
             onChange={(value) => setMappingStatus(value as DdMappingStatus)}
           />
           <Button onClick={saveMapping} disabled={busy || !trimmedMatterId || !sectionPath.trim()}>
             <FileSymlink className="h-4 w-4" />
-            Save Mapping
+            {copy.saveMapping}
           </Button>
 
           <div className="border-t pt-3" />
-          <Field label="Issue code" value={issueCode} onChange={setIssueCode} />
-          <Field label="Issue title" value={issueTitle} onChange={setIssueTitle} />
+          <Field label={copy.issueCode} value={issueCode} onChange={setIssueCode} />
+          <Field label={copy.issueTitle} value={issueTitle} onChange={setIssueTitle} />
           <SelectField
-            label="Severity"
+            label={copy.severity}
             value={severity}
             values={ddIssueSeverities}
+            language={language}
             onChange={(value) => setSeverity(value as DdIssueSeverity)}
           />
           <Button onClick={saveIssue} disabled={busy || !trimmedMatterId || !issueTitle.trim()}>
             <ShieldAlert className="h-4 w-4" />
-            Save Issue
+            {copy.saveIssue}
           </Button>
 
           <div className="border-t pt-3" />
-          <Field label="Risk code" value={riskCode} onChange={setRiskCode} />
+          <Field label={copy.riskCode} value={riskCode} onChange={setRiskCode} />
           <SelectField
-            label="Likelihood"
+            label={copy.likelihood}
             value={likelihood}
             values={ddRiskLikelihoods}
+            language={language}
             onChange={(value) => setLikelihood(value as DdRiskLikelihood)}
           />
           <Button onClick={saveRisk} disabled={busy || !trimmedMatterId || !riskCode.trim()}>
             <ShieldAlert className="h-4 w-4" />
-            Save Risk
+            {copy.saveRisk}
           </Button>
         </div>
 
         <div className="flex flex-col gap-4">
-          <Metrics trace={trace} />
-          <RfiTable rfis={rfis} />
-          <MappingTable mappings={mappings} />
-          <IssueTable issues={issues} />
-          <RiskTable risks={risks} />
-          <TraceTable trace={trace} />
+          <Metrics trace={trace} copy={copy} />
+          <RfiTable rfis={rfis} copy={copy} language={language} />
+          <MappingTable mappings={mappings} copy={copy} language={language} />
+          <IssueTable issues={issues} copy={copy} language={language} />
+          <RiskTable risks={risks} copy={copy} language={language} />
+          <TraceTable trace={trace} copy={copy} />
         </div>
       </section>
     </main>
@@ -262,11 +376,13 @@ function SelectField({
   label,
   value,
   values,
+  language,
   onChange,
 }: {
   label: string;
   value: string;
   values: readonly string[];
+  language: Language;
   onChange: (value: string) => void;
 }) {
   return (
@@ -279,7 +395,7 @@ function SelectField({
       >
         {values.map((entry) => (
           <option key={entry} value={entry}>
-            {entry}
+            {formatDdValue(entry, language)}
           </option>
         ))}
       </select>
@@ -296,30 +412,44 @@ function PanelTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
-function Metrics({ trace }: { trace: DdTraceabilityResponseDto | null }) {
+function Metrics({
+  trace,
+  copy,
+}: {
+  trace: DdTraceabilityResponseDto | null;
+  copy: (typeof ddCopy)[Language];
+}) {
   if (!trace) return null;
   return (
     <section className="rounded-md border p-4">
-      <h2 className="mb-3 text-base font-semibold tracking-normal">Traceability</h2>
+      <h2 className="mb-3 text-base font-semibold tracking-normal">{copy.traceability}</h2>
       <dl className="grid gap-2 text-sm sm:grid-cols-5">
-        <Metric label="RFIs" value={trace.rfiCount} />
-        <Metric label="Mappings" value={trace.mappingCount} />
-        <Metric label="Issues" value={trace.issueCount} />
-        <Metric label="Risks" value={trace.riskCount} />
-        <Metric label="Traces" value={trace.traces.length} />
+        <Metric label={copy.rfis} value={trace.rfiCount} />
+        <Metric label={copy.mappings} value={trace.mappingCount} />
+        <Metric label={copy.issues} value={trace.issueCount} />
+        <Metric label={copy.risks} value={trace.riskCount} />
+        <Metric label={copy.traces} value={trace.traces.length} />
       </dl>
     </section>
   );
 }
 
-function RfiTable({ rfis }: { rfis: DdRfiListResponseDto | null }) {
+function RfiTable({
+  rfis,
+  copy,
+  language,
+}: {
+  rfis: DdRfiListResponseDto | null;
+  copy: (typeof ddCopy)[Language];
+  language: Language;
+}) {
   return (
-    <Table title="RFIs" headers={['Code', 'Status', 'Priority', 'Due']}>
+    <Table title={copy.rfis} headers={[copy.code, copy.status, copy.priority, copy.due]}>
       {(rfis?.rfis ?? []).map((rfi) => (
         <tr key={rfi.rfiId} className="border-t">
           <Cell>{rfi.rfiCode}</Cell>
-          <Cell>{rfi.status}</Cell>
-          <Cell>{rfi.priority}</Cell>
+          <Cell>{formatDdValue(rfi.status, language)}</Cell>
+          <Cell>{formatDdValue(rfi.priority, language)}</Cell>
           <Cell>{rfi.dueDate ?? '-'}</Cell>
         </tr>
       ))}
@@ -327,13 +457,21 @@ function RfiTable({ rfis }: { rfis: DdRfiListResponseDto | null }) {
   );
 }
 
-function MappingTable({ mappings }: { mappings: DdDataRoomMappingListResponseDto | null }) {
+function MappingTable({
+  mappings,
+  copy,
+  language,
+}: {
+  mappings: DdDataRoomMappingListResponseDto | null;
+  copy: (typeof ddCopy)[Language];
+  language: Language;
+}) {
   return (
-    <Table title="Data Room Mapping" headers={['Section', 'Status', 'RFI', 'Document']}>
+    <Table title={copy.mappings} headers={[copy.sectionHeader, copy.status, copy.rfi, copy.document]}>
       {(mappings?.mappings ?? []).map((mapping) => (
         <tr key={mapping.mappingId} className="border-t">
           <Cell>{mapping.sectionPath}</Cell>
-          <Cell>{mapping.mappingStatus}</Cell>
+          <Cell>{formatDdValue(mapping.mappingStatus, language)}</Cell>
           <Cell mono>{shortId(mapping.rfiId)}</Cell>
           <Cell mono>{shortId(mapping.documentId)}</Cell>
         </tr>
@@ -342,14 +480,22 @@ function MappingTable({ mappings }: { mappings: DdDataRoomMappingListResponseDto
   );
 }
 
-function IssueTable({ issues }: { issues: DdIssueListResponseDto | null }) {
+function IssueTable({
+  issues,
+  copy,
+  language,
+}: {
+  issues: DdIssueListResponseDto | null;
+  copy: (typeof ddCopy)[Language];
+  language: Language;
+}) {
   return (
-    <Table title="Issues" headers={['Code', 'Status', 'Severity', 'Document']}>
+    <Table title={copy.issues} headers={[copy.code, copy.status, copy.severity, copy.document]}>
       {(issues?.issues ?? []).map((issue) => (
         <tr key={issue.issueId} className="border-t">
           <Cell>{issue.issueCode}</Cell>
-          <Cell>{issue.status}</Cell>
-          <Cell>{issue.severity}</Cell>
+          <Cell>{formatDdValue(issue.status, language)}</Cell>
+          <Cell>{formatDdValue(issue.severity, language)}</Cell>
           <Cell mono>{shortId(issue.documentId)}</Cell>
         </tr>
       ))}
@@ -357,24 +503,38 @@ function IssueTable({ issues }: { issues: DdIssueListResponseDto | null }) {
   );
 }
 
-function RiskTable({ risks }: { risks: DdRiskListResponseDto | null }) {
+function RiskTable({
+  risks,
+  copy,
+  language,
+}: {
+  risks: DdRiskListResponseDto | null;
+  copy: (typeof ddCopy)[Language];
+  language: Language;
+}) {
   return (
-    <Table title="Risks" headers={['Code', 'Status', 'Severity', 'Likelihood']}>
+    <Table title={copy.risks} headers={[copy.code, copy.status, copy.severity, copy.likelihood]}>
       {(risks?.risks ?? []).map((risk) => (
         <tr key={risk.riskId} className="border-t">
           <Cell>{risk.riskCode}</Cell>
-          <Cell>{risk.status}</Cell>
-          <Cell>{risk.severity}</Cell>
-          <Cell>{risk.likelihood}</Cell>
+          <Cell>{formatDdValue(risk.status, language)}</Cell>
+          <Cell>{formatDdValue(risk.severity, language)}</Cell>
+          <Cell>{formatDdValue(risk.likelihood, language)}</Cell>
         </tr>
       ))}
     </Table>
   );
 }
 
-function TraceTable({ trace }: { trace: DdTraceabilityResponseDto | null }) {
+function TraceTable({
+  trace,
+  copy,
+}: {
+  trace: DdTraceabilityResponseDto | null;
+  copy: (typeof ddCopy)[Language];
+}) {
   return (
-    <Table title="Trace Links" headers={['RFI', 'Mapping', 'Issue', 'Risk', 'Refs']}>
+    <Table title={copy.traces} headers={[copy.rfi, copy.mappings, copy.issues, copy.risks, copy.refs]}>
       {(trace?.traces ?? []).map((item, index) => (
         <tr key={`${item.rfiId ?? 'rfi'}:${item.issueId ?? 'issue'}:${item.riskId ?? index}`} className="border-t">
           <Cell mono>{shortId(item.rfiId)}</Cell>
@@ -433,4 +593,24 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 
 function shortId(value: string | null | undefined): string {
   return value ? `${value.slice(0, 8)}...` : '-';
+}
+
+function formatDdValue(value: string, language: Language): string {
+  if (language === 'en') {
+    return value.replaceAll('_', ' ');
+  }
+  const labels: Record<string, string> = {
+    low: '낮음',
+    medium: '보통',
+    high: '높음',
+    critical: '매우 중요',
+    info: '참고',
+    mapped: '연결됨',
+    missing: '누락',
+    supplement_requested: '보완 요청',
+    requested: '요청됨',
+    open: '열림',
+    closed: '종료',
+  };
+  return labels[value] ?? value.replaceAll('_', ' ');
 }

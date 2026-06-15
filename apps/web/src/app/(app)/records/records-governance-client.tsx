@@ -25,8 +25,118 @@ import {
   releaseLegalHold,
 } from '@/lib/api/records';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { useI18n, type Language } from '@/lib/i18n';
+
+const recordsCopy: Record<
+  Language,
+  {
+    matterRef: string;
+    documentRef: string;
+    refreshTitle: string;
+    refresh: string;
+    title: string;
+    policyCode: string;
+    policyLabel: string;
+    retentionDays: string;
+    savePolicy: string;
+    reason: string;
+    matterHold: string;
+    documentHold: string;
+    holdRef: string;
+    releaseHold: string;
+    archive: string;
+    requestDisposal: string;
+    disposalRef: string;
+    approve: string;
+    execute: string;
+    certificate: string;
+    policies: string;
+    holds: string;
+    archivePanel: string;
+    disposal: string;
+    certificateRef: string;
+    requestRef: string;
+    documentHash: string;
+    certificateHash: string;
+    noCertificate: string;
+    noRows: string;
+    indefinite: string;
+    days: string;
+  }
+> = {
+  ko: {
+    matterRef: 'Matter ID',
+    documentRef: '파일 ID',
+    refreshTitle: '보존 정보 새로고침',
+    refresh: '새로고침',
+    title: '보존 관리',
+    policyCode: '정책 ID',
+    policyLabel: '정책 이름',
+    retentionDays: '보존 기간',
+    savePolicy: '정책 저장',
+    reason: '사유',
+    matterHold: 'Matter 삭제 금지',
+    documentHold: '파일 삭제 금지',
+    holdRef: '삭제 금지 ID',
+    releaseHold: '삭제 금지 해제',
+    archive: '보관 처리',
+    requestDisposal: '삭제 요청',
+    disposalRef: '삭제 요청 ID',
+    approve: '승인',
+    execute: '실행',
+    certificate: '증명서',
+    policies: '보존 정책',
+    holds: '삭제 금지',
+    archivePanel: '보관 상태',
+    disposal: '삭제 요청',
+    certificateRef: '증명서 ID',
+    requestRef: '요청 ID',
+    documentHash: '파일 해시',
+    certificateHash: '증명서 해시',
+    noCertificate: '불러온 증명서가 없습니다.',
+    noRows: '표시할 항목이 없습니다.',
+    indefinite: '무기한',
+    days: '일',
+  },
+  en: {
+    matterRef: 'Matter ref',
+    documentRef: 'File ref',
+    refreshTitle: 'Refresh retention data',
+    refresh: 'Refresh',
+    title: 'Retention settings',
+    policyCode: 'Policy ref',
+    policyLabel: 'Policy name',
+    retentionDays: 'Retention days',
+    savePolicy: 'Save policy',
+    reason: 'Reason',
+    matterHold: 'Hold matter',
+    documentHold: 'Hold file',
+    holdRef: 'Hold ref',
+    releaseHold: 'Release hold',
+    archive: 'Archive',
+    requestDisposal: 'Request disposal',
+    disposalRef: 'Disposal request ref',
+    approve: 'Approve',
+    execute: 'Execute',
+    certificate: 'Certificate',
+    policies: 'Retention policies',
+    holds: 'Legal holds',
+    archivePanel: 'Archive status',
+    disposal: 'Disposal requests',
+    certificateRef: 'Certificate ref',
+    requestRef: 'Request ref',
+    documentHash: 'File hash',
+    certificateHash: 'Certificate hash',
+    noCertificate: 'No certificate loaded.',
+    noRows: 'No items to show.',
+    indefinite: 'indefinite',
+    days: 'days',
+  },
+};
 
 export function RecordsGovernanceClient() {
+  const { language } = useI18n();
+  const copy = recordsCopy[language];
   const [matterId, setMatterId] = useState('');
   const [documentId, setDocumentId] = useState('');
   const [policyCode, setPolicyCode] = useState('RET-INDEFINITE');
@@ -139,11 +249,11 @@ export function RecordsGovernanceClient() {
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-3 border-b pb-4">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Matter ID" value={matterId} onChange={setMatterId} />
-          <Field label="Document ID" value={documentId} onChange={setDocumentId} />
-          <Button onClick={refreshAll} disabled={busy} title="Refresh records data">
+          <Field label={copy.matterRef} value={matterId} onChange={setMatterId} />
+          <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
+          <Button onClick={refreshAll} disabled={busy} title={copy.refreshTitle}>
             <ListTree className="h-4 w-4" />
-            Refresh
+            {copy.refresh}
           </Button>
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -151,107 +261,113 @@ export function RecordsGovernanceClient() {
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="flex flex-col gap-3 rounded-md border p-4">
-          <PanelTitle icon={<FileClock className="h-4 w-4" />} label="Records Governance" />
-          <Field label="Policy code" value={policyCode} onChange={setPolicyCode} />
-          <Field label="Policy label" value={policyLabel} onChange={setPolicyLabel} />
-          <Field label="Retention days" value={retentionDays} onChange={setRetentionDays} />
+          <PanelTitle icon={<FileClock className="h-4 w-4" />} label={copy.title} />
+          <Field label={copy.policyCode} value={policyCode} onChange={setPolicyCode} />
+          <Field label={copy.policyLabel} value={policyLabel} onChange={setPolicyLabel} />
+          <Field label={copy.retentionDays} value={retentionDays} onChange={setRetentionDays} />
           <Button onClick={savePolicy} disabled={busy || !policyCode.trim() || !policyLabel.trim()}>
             <Scale className="h-4 w-4" />
-            Save Policy
+            {copy.savePolicy}
           </Button>
 
           <div className="border-t pt-3" />
-          <Field label="Reason code" value={reasonCode} onChange={setReasonCode} />
+          <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
           <Button onClick={() => saveHold('matter')} disabled={busy || !trimmedMatterId || !trimmedReason}>
             <ShieldCheck className="h-4 w-4" />
-            Matter Hold
+            {copy.matterHold}
           </Button>
           <Button
             onClick={() => saveHold('document')}
             disabled={busy || !trimmedMatterId || !trimmedDocumentId || !trimmedReason}
           >
             <ShieldCheck className="h-4 w-4" />
-            Document Hold
+            {copy.documentHold}
           </Button>
-          <Field label="Legal hold ID" value={legalHoldId} onChange={setLegalHoldId} />
+          <Field label={copy.holdRef} value={legalHoldId} onChange={setLegalHoldId} />
           <Button onClick={releaseHold} disabled={busy || !activeLegalHoldId}>
             <ShieldCheck className="h-4 w-4" />
-            Release Hold
+            {copy.releaseHold}
           </Button>
 
           <div className="border-t pt-3" />
           <Button onClick={saveArchive} disabled={busy || !trimmedDocumentId || !trimmedReason}>
             <Archive className="h-4 w-4" />
-            Archive
+            {copy.archive}
           </Button>
           <Button onClick={requestDisposal} disabled={busy || !trimmedDocumentId || !trimmedReason}>
             <Trash2 className="h-4 w-4" />
-            Request Disposal
+            {copy.requestDisposal}
           </Button>
           <Field
-            label="Disposal request ID"
+            label={copy.disposalRef}
             value={disposalRequestId}
             onChange={setDisposalRequestId}
           />
           <Button onClick={approveDisposal} disabled={busy || !activeDisposalRequestId}>
             <ShieldCheck className="h-4 w-4" />
-            Approve
+            {copy.approve}
           </Button>
           <Button onClick={executeDisposal} disabled={busy || !activeDisposalRequestId}>
             <Trash2 className="h-4 w-4" />
-            Execute
+            {copy.execute}
           </Button>
           <Button onClick={loadCertificate} disabled={busy || !activeDisposalRequestId}>
             <FileClock className="h-4 w-4" />
-            Certificate
+            {copy.certificate}
           </Button>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SummaryPanel
-            title="Policies"
+            title={copy.policies}
+            empty={copy.noRows}
             rows={policies?.policies.map((item) => [
               item.policyCode,
-              item.retentionDays === null ? 'indefinite' : `${item.retentionDays} days`,
+              item.retentionDays === null
+                ? copy.indefinite
+                : `${item.retentionDays} ${copy.days}`,
               item.status,
             ])}
           />
           <SummaryPanel
-            title="Legal Holds"
+            title={copy.holds}
+            empty={copy.noRows}
             rows={holds?.holds.map((item) => [
               item.reasonCode,
               item.holdScope,
               item.status,
-              item.documentId ?? item.matterId,
+              formatRef(item.documentId ?? item.matterId),
             ])}
           />
           <SummaryPanel
-            title="Archive"
+            title={copy.archivePanel}
+            empty={copy.noRows}
             rows={
               archive
-                ? [[archive.documentId, archive.previousStatus, archive.archiveStatus]]
+                ? [[formatRef(archive.documentId), archive.previousStatus, archive.archiveStatus]]
                 : undefined
             }
           />
           <SummaryPanel
-            title="Disposal"
+            title={copy.disposal}
+            empty={copy.noRows}
             rows={
               disposal
-                ? [[disposal.disposalRequestId, disposal.status, disposal.documentId]]
+                ? [[formatRef(disposal.disposalRequestId), disposal.status, formatRef(disposal.documentId)]]
                 : undefined
             }
           />
           <div className="rounded-md border p-4 lg:col-span-2">
-            <PanelTitle icon={<FileClock className="h-4 w-4" />} label="Certificate" />
+            <PanelTitle icon={<FileClock className="h-4 w-4" />} label={copy.certificate} />
             {certificate ? (
               <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                <Value label="Certificate ID" value={certificate.certificateId} />
-                <Value label="Request ID" value={certificate.disposalRequestId} />
-                <Value label="Document hash" value={certificate.documentHash} />
-                <Value label="Certificate hash" value={certificate.certificateHash} />
+                <Value label={copy.certificateRef} value={certificate.certificateId} />
+                <Value label={copy.requestRef} value={certificate.disposalRequestId} />
+                <Value label={copy.documentHash} value={certificate.documentHash} />
+                <Value label={copy.certificateHash} value={certificate.certificateHash} />
               </dl>
             ) : (
-              <p className="mt-3 text-sm text-muted-foreground">No certificate loaded</p>
+              <p className="mt-3 text-sm text-muted-foreground">{copy.noCertificate}</p>
             )}
           </div>
         </div>
@@ -286,7 +402,15 @@ function PanelTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
-function SummaryPanel({ title, rows }: { title: string; rows: string[][] | undefined }) {
+function SummaryPanel({
+  title,
+  rows,
+  empty,
+}: {
+  title: string;
+  rows: string[][] | undefined;
+  empty: string;
+}) {
   return (
     <div className="rounded-md border p-4">
       <PanelTitle icon={<ListTree className="h-4 w-4" />} label={title} />
@@ -304,7 +428,7 @@ function SummaryPanel({ title, rows }: { title: string; rows: string[][] | undef
             ))}
             {!rows?.length ? (
               <tr>
-                <td className="px-3 py-2 text-muted-foreground">No rows</td>
+                <td className="px-3 py-2 text-muted-foreground">{empty}</td>
               </tr>
             ) : null}
           </tbody>
@@ -321,4 +445,8 @@ function Value({ label, value }: { label: string; value: string }) {
       <dd className="truncate font-mono text-xs">{value}</dd>
     </div>
   );
+}
+
+function formatRef(value: string): string {
+  return value.length > 12 ? value.slice(0, 12) : value;
 }

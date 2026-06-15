@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { exportAuditEventsCsv, listAuditEvents } from '@/lib/api/audit';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { useI18n } from '@/lib/i18n';
 
 interface FilterState {
   actorId: string;
@@ -32,6 +33,48 @@ const emptyFilters: FilterState = {
 };
 
 export function AuditConsoleClient() {
+  const { language } = useI18n();
+  const copy = language === 'ko'
+    ? {
+        title: '활동 기록',
+        actor: '수행자 ID',
+        actorPlaceholder: '수행자 ID',
+        action: '활동',
+        allActions: '모든 활동',
+        result: '결과',
+        allResults: '모든 결과',
+        success: '성공',
+        denied: '접근 제한',
+        failure: '실패',
+        targetType: '대상 유형',
+        targetId: '대상 ID',
+        matterId: 'Matter ID',
+        from: '시작일',
+        to: '종료일',
+        search: '활동 기록 검색',
+        export: 'CSV 내보내기',
+        more: '더 보기',
+      }
+    : {
+        title: 'Activity log',
+        actor: 'Actor ref',
+        actorPlaceholder: 'Actor ID',
+        action: 'Activity',
+        allActions: 'All activity',
+        result: 'Result',
+        allResults: 'All results',
+        success: 'Success',
+        denied: 'Access restricted',
+        failure: 'Failure',
+        targetType: 'Target type',
+        targetId: 'Target ref',
+        matterId: 'Matter ref',
+        from: 'From',
+        to: 'To',
+        search: 'Search activity',
+        export: 'Export CSV',
+        more: 'More',
+      };
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(emptyFilters);
   const [events, setEvents] = useState<Awaited<ReturnType<typeof listAuditEvents>>['items']>([]);
@@ -89,80 +132,80 @@ export function AuditConsoleClient() {
   return (
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-normal">Audit</h1>
+        <h1 className="text-2xl font-semibold tracking-normal">{copy.title}</h1>
         <form className="grid gap-3 lg:grid-cols-4" onSubmit={submit}>
           <Input
-            aria-label="Actor ID"
-            placeholder="Actor UUID"
+            aria-label={copy.actor}
+            placeholder={copy.actorPlaceholder}
             value={filters.actorId}
             onChange={(event) => setFilters({ ...filters, actorId: event.target.value })}
           />
           <select
-            aria-label="Action"
+            aria-label={copy.action}
             className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={filters.action}
             onChange={(event) => setFilters({ ...filters, action: event.target.value })}
           >
-            <option value="">Action</option>
+            <option value="">{copy.allActions}</option>
             {auditActions.map((action) => (
               <option key={action} value={action}>
-                {action}
+                {formatAction(action)}
               </option>
             ))}
           </select>
           <select
-            aria-label="Result"
+            aria-label={copy.result}
             className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={filters.result}
             onChange={(event) => setFilters({ ...filters, result: event.target.value })}
           >
-            <option value="">Result</option>
-            <option value="success">success</option>
-            <option value="denied">denied</option>
-            <option value="failure">failure</option>
+            <option value="">{copy.allResults}</option>
+            <option value="success">{copy.success}</option>
+            <option value="denied">{copy.denied}</option>
+            <option value="failure">{copy.failure}</option>
           </select>
           <Input
-            aria-label="Target type"
-            placeholder="Target type"
+            aria-label={copy.targetType}
+            placeholder={copy.targetType}
             value={filters.targetType}
             onChange={(event) => setFilters({ ...filters, targetType: event.target.value })}
           />
           <Input
-            aria-label="Target ID"
-            placeholder="Target UUID"
+            aria-label={copy.targetId}
+            placeholder={copy.targetId}
             value={filters.targetId}
             onChange={(event) => setFilters({ ...filters, targetId: event.target.value })}
           />
           <Input
-            aria-label="Matter ID"
-            placeholder="Matter UUID"
+            aria-label={copy.matterId}
+            placeholder={copy.matterId}
             value={filters.matterId}
             onChange={(event) => setFilters({ ...filters, matterId: event.target.value })}
           />
           <Input
-            aria-label="From"
-            placeholder="From ISO"
+            aria-label={copy.from}
+            placeholder={copy.from}
             value={filters.from}
             onChange={(event) => setFilters({ ...filters, from: event.target.value })}
           />
           <Input
-            aria-label="To"
-            placeholder="To ISO"
+            aria-label={copy.to}
+            placeholder={copy.to}
             value={filters.to}
             onChange={(event) => setFilters({ ...filters, to: event.target.value })}
           />
           <div className="flex gap-2 lg:col-span-4">
             <Button
-              aria-label="Search audit events"
-              title="Search audit events"
+              aria-label={copy.search}
+              title={copy.search}
               type="submit"
               disabled={busy}
             >
               <Search className="h-4 w-4" />
             </Button>
             <Button
-              aria-label="Export audit CSV"
-              title="Export audit CSV"
+              aria-label={copy.export}
+              title={copy.export}
               type="button"
               variant="outline"
               disabled={busy}
@@ -176,18 +219,27 @@ export function AuditConsoleClient() {
       <AuditEventTable events={events} busy={busy} error={error} />
       {nextCursor ? (
         <Button
-          aria-label="Load more audit events"
-          title="Load more audit events"
+          aria-label={copy.more}
+          title={copy.more}
           type="button"
           variant="outline"
           disabled={busy}
           onClick={() => load(nextCursor)}
         >
-          More
+          {copy.more}
         </Button>
       ) : null}
     </main>
   );
+}
+
+function formatAction(value: string): string {
+  return value
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function queryFromFilters(filters: FilterState) {

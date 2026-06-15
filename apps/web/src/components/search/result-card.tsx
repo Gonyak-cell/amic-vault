@@ -3,12 +3,15 @@
 import Link from 'next/link';
 import React, { type ReactNode } from 'react';
 import type { SearchHighlightDto, SearchResultDto } from '@amic-vault/shared';
+import { useI18n, type Language } from '@/lib/i18n';
 
 interface ResultCardProps {
   result: SearchResultDto;
 }
 
 export function ResultCard({ result }: ResultCardProps) {
+  const { language } = useI18n();
+  const copy = resultCopy[language];
   const title = result.title || result.documentId;
   return (
     <article className="rounded-md border bg-card p-4">
@@ -30,16 +33,28 @@ export function ResultCard({ result }: ResultCardProps) {
       </p>
       <dl className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
         <div className="min-w-0">
-          <dt className="font-medium text-foreground">Matter</dt>
-          <dd className="truncate font-mono">{result.matterId}</dd>
+          <dt className="font-medium text-foreground">{copy.matter}</dt>
+          <dd className="truncate">{formatRef(result.matterId, language)}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="font-medium text-foreground">Client</dt>
-          <dd className="truncate font-mono">{result.clientId}</dd>
+          <dt className="font-medium text-foreground">{copy.client}</dt>
+          <dd className="truncate">{formatRef(result.clientId, language)}</dd>
         </div>
       </dl>
     </article>
   );
+}
+
+const resultCopy = {
+  ko: { matter: 'Matter', client: '고객', ref: 'ID' },
+  en: { matter: 'Matter', client: 'Client', ref: 'Ref' },
+} as const;
+
+function formatRef(value: string, language: Language): string {
+  if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value)) {
+    return `${resultCopy[language].ref} ${value.slice(0, 8)}`;
+  }
+  return value;
 }
 
 function highlightSnippet(

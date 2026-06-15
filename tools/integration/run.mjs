@@ -21,6 +21,14 @@ if (sharedBuild.status !== 0) {
   process.exit(sharedBuild.status ?? 1);
 }
 
+const aiBuild = spawnSync('pnpm', ['--filter', '@amic-vault/ai', 'build'], {
+  stdio: 'inherit',
+});
+
+if (aiBuild.status !== 0) {
+  process.exit(aiBuild.status ?? 1);
+}
+
 const seed = spawnSync('pnpm', ['db:seed'], {
   stdio: 'inherit',
 });

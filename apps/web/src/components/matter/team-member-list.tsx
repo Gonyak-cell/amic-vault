@@ -10,6 +10,7 @@ import type {
   UpdateMatterMemberDto,
 } from '@amic-vault/shared';
 import { matterMemberAccessLevels, matterMemberRoles } from '@amic-vault/shared';
+import { useI18n, type Language } from '@/lib/i18n';
 import { Button } from '../ui/button';
 
 type Drafts = Record<
@@ -26,11 +27,71 @@ export interface TeamMemberListProps {
   onRemoveMember?: (userId: string) => void;
 }
 
-function safeError(errorCode?: ErrorCode | null): string | null {
+type TeamCopy = {
+  title: string;
+  user: string;
+  role: string;
+  access: string;
+  actions: string;
+  save: string;
+  remove: string;
+  empty: string;
+  denied: string;
+  failed: string;
+  roleLabels: Record<MatterMemberRole, string>;
+  accessLabels: Record<MatterMemberAccessLevel, string>;
+};
+
+const teamCopy: Record<Language, TeamCopy> = {
+  ko: {
+    title: '팀 구성원',
+    user: '사용자',
+    role: '역할',
+    access: '접근 권한',
+    actions: '작업',
+    save: '구성원 저장',
+    remove: '구성원 제거',
+    empty: '등록된 구성원이 없습니다.',
+    denied: '이 작업을 할 권한이 없습니다.',
+    failed: '요청을 처리하지 못했습니다. 다시 시도해 주세요.',
+    roleLabels: {
+      owner: '소유자',
+      member: '팀원',
+      limited_reviewer: '제한된 검토자',
+    },
+    accessLabels: {
+      read: '보기',
+      edit: '편집',
+    },
+  },
+  en: {
+    title: 'Team members',
+    user: 'User',
+    role: 'Role',
+    access: 'Access',
+    actions: 'Actions',
+    save: 'Save member',
+    remove: 'Remove member',
+    empty: 'No members yet.',
+    denied: 'Request denied.',
+    failed: 'Request failed.',
+    roleLabels: {
+      owner: 'Owner',
+      member: 'Member',
+      limited_reviewer: 'Limited reviewer',
+    },
+    accessLabels: {
+      read: 'View',
+      edit: 'Edit',
+    },
+  },
+};
+
+function safeError(errorCode: ErrorCode | null | undefined, copy: TeamCopy): string | null {
   if (!errorCode) return null;
   if (errorCode === 'PERMISSION_DENIED' || errorCode === 'ETHICAL_WALL_BLOCKED')
-    return 'Request denied';
-  return 'Request failed';
+    return copy.denied;
+  return copy.failed;
 }
 
 function initialDrafts(members: readonly MatterMemberDto[]): Drafts {
@@ -50,8 +111,10 @@ export function TeamMemberList({
   onUpdateMember,
   onRemoveMember,
 }: TeamMemberListProps) {
+  const { language } = useI18n();
+  const copy = teamCopy[language];
   const [drafts, setDrafts] = useState<Drafts>(() => initialDrafts(members));
-  const error = safeError(errorCode);
+  const error = safeError(errorCode, copy);
 
   useEffect(() => {
     setDrafts(initialDrafts(members));
@@ -75,18 +138,18 @@ export function TeamMemberList({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-normal">Team</h2>
+        <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
         {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
       </div>
       <div className="overflow-hidden rounded-md border bg-card">
         <table className="w-full border-collapse text-sm">
           <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-medium">User</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Access</th>
+              <th className="px-4 py-3 font-medium">{copy.user}</th>
+              <th className="px-4 py-3 font-medium">{copy.role}</th>
+              <th className="px-4 py-3 font-medium">{copy.access}</th>
               {canManage ? (
-                <th className="w-28 px-4 py-3 text-right font-medium">Actions</th>
+                <th className="w-28 px-4 py-3 text-right font-medium">{copy.actions}</th>
               ) : null}
             </tr>
           </thead>
@@ -118,12 +181,12 @@ export function TeamMemberList({
                       >
                         {matterMemberRoles.map((role) => (
                           <option key={role} value={role}>
-                            {role}
+                            {copy.roleLabels[role]}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      member.matterRole
+                      copy.roleLabels[member.matterRole]
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -142,20 +205,20 @@ export function TeamMemberList({
                       >
                         {matterMemberAccessLevels.map((level) => (
                           <option key={level} value={level}>
-                            {level}
+                            {copy.accessLabels[level]}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      member.accessLevel
+                      copy.accessLabels[member.accessLevel]
                     )}
                   </td>
                   {canManage ? (
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
                         <Button
-                          aria-label="Save team member"
-                          title="Save team member"
+                          aria-label={copy.save}
+                          title={copy.save}
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -165,8 +228,8 @@ export function TeamMemberList({
                           <Save className="h-4 w-4" />
                         </Button>
                         <Button
-                          aria-label="Remove team member"
-                          title="Remove team member"
+                          aria-label={copy.remove}
+                          title={copy.remove}
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -184,7 +247,7 @@ export function TeamMemberList({
             {members.length === 0 ? (
               <tr>
                 <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={canManage ? 4 : 3}>
-                  No members
+                  {copy.empty}
                 </td>
               </tr>
             ) : null}

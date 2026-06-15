@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { SearchResponseDto } from '@amic-vault/shared';
+import { LanguageProvider } from '@/lib/i18n';
 import { SearchResults } from './search-results';
 
 vi.mock('next/link', () => ({
@@ -54,46 +55,52 @@ const response: SearchResponseDto = {
 describe('SearchResults', () => {
   it('renders result cards and stable pagination', () => {
     const html = renderToStaticMarkup(
-      <SearchResults
-        response={response}
-        page={2}
-        pageSize={10}
-        busy={false}
-        error={null}
-        onPage={() => undefined}
-      />,
+      <LanguageProvider>
+        <SearchResults
+          response={response}
+          page={2}
+          pageSize={10}
+          busy={false}
+          error={null}
+          onPage={() => undefined}
+        />
+      </LanguageProvider>,
     );
 
-    expect(html).toContain('12 results');
+    expect(html).toContain('결과 12개');
     expect(html).toContain('Search Result One');
     expect(html).toContain('2 / 2');
-    expect(html).toContain('Previous');
-    expect(html).toContain('Next');
+    expect(html).toContain('이전');
+    expect(html).toContain('다음');
   });
 
   it('shows safe empty and error states without server internals', () => {
     const emptyHtml = renderToStaticMarkup(
-      <SearchResults
-        response={{ ...response, total: 0, results: [] }}
-        page={1}
-        pageSize={10}
-        busy={false}
-        error={null}
-        onPage={() => undefined}
-      />,
+      <LanguageProvider>
+        <SearchResults
+          response={{ ...response, total: 0, results: [] }}
+          page={1}
+          pageSize={10}
+          busy={false}
+          error={null}
+          onPage={() => undefined}
+        />
+      </LanguageProvider>,
     );
     const errorHtml = renderToStaticMarkup(
-      <SearchResults
-        response={null}
-        page={1}
-        pageSize={10}
-        busy={false}
-        error="Access unavailable"
-        onPage={() => undefined}
-      />,
+      <LanguageProvider>
+        <SearchResults
+          response={null}
+          page={1}
+          pageSize={10}
+          busy={false}
+          error="Access unavailable"
+          onPage={() => undefined}
+        />
+      </LanguageProvider>,
     );
 
-    expect(emptyHtml).toContain('No results');
+    expect(emptyHtml).toContain('검색 결과가 없습니다.');
     expect(errorHtml).toContain('Access unavailable');
     expect(errorHtml).not.toContain('PERMISSION_DENIED');
   });

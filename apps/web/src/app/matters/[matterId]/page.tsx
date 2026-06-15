@@ -1,16 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Mail, ShieldCheck, Users } from 'lucide-react';
-import type { EmailMatterFilingDto, MatterDto } from '@amic-vault/shared';
+import type { AiPrepMatterReadinessDto, EmailMatterFilingDto, MatterDto } from '@amic-vault/shared';
 import { getMatter, listMatterEmailTimeline } from '@/lib/api-client';
+import { AiPrepMatterDashboard } from '@/components/ai/ai-prep-matter-dashboard';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
 import { Button } from '@/components/ui/button';
+import { getMatterAiPrepReadiness } from '@/lib/api/ai-prep';
+import { safeApiErrorMessage } from '@/lib/api/error-messages';
 
 export default function MatterDetailPage({ params }: { params: { matterId: string } }) {
   const [matter, setMatter] = useState<MatterDto | null>(null);
   const [emails, setEmails] = useState<EmailMatterFilingDto[]>([]);
+  const [readiness, setReadiness] = useState<AiPrepMatterReadinessDto | null>(null);
+  const [readinessError, setReadinessError] = useState<string | null>(null);
+
+  const refreshReadiness = useCallback(() => {
+    getMatterAiPrepReadiness(params.matterId)
+      .then((result) => {
+        setReadiness(result);
+        setReadinessError(null);
+      })
+      .catch((caught) => {
+        setReadiness(null);
+        setReadinessError(safeApiErrorMessage(caught));
+      });
+  }, [params.matterId]);
 
   useEffect(() => {
     let active = true;
@@ -24,6 +41,17 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
         if (!active) return;
         setMatter(null);
         setEmails([]);
+      });
+    getMatterAiPrepReadiness(params.matterId)
+      .then((result) => {
+        if (!active) return;
+        setReadiness(result);
+        setReadinessError(null);
+      })
+      .catch((caught) => {
+        if (!active) return;
+        setReadiness(null);
+        setReadinessError(safeApiErrorMessage(caught));
       });
     return () => {
       active = false;
@@ -118,6 +146,10 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
           </div>
         </section>
       ) : null}
+      {readiness ? (
+        <AiPrepMatterDashboard readiness={readiness} onRetryComplete={refreshReadiness} />
+      ) : null}
+      {readinessError ? <p className="text-sm text-muted-foreground">{readinessError}</p> : null}
     </main>
   );
 }

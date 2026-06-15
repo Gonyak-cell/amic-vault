@@ -13,8 +13,10 @@ describe('LoginForm', () => {
     );
 
     expect(html).toContain('AMIC Vault');
-    expect(html).toContain('Tenant, email, password로 접속합니다.');
+    expect(html).toContain('워크스페이스 ID, 이메일, 비밀번호로 로그인하세요.');
+    expect(html).toContain('워크스페이스 ID');
     expect(html).toContain('로그인');
+    expect(html).toContain('디자인 테마 보기');
     expect(html).toContain('한국어');
     expect(html).toContain('English');
   });

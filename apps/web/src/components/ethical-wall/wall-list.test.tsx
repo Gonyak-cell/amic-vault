@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { EthicalWallDetailDto } from '@amic-vault/shared';
+import { LanguageProvider } from '@/lib/i18n';
 import { WallList } from './wall-list';
 
 vi.mock('@/components/ui/button', () => ({
@@ -38,10 +39,16 @@ const item: EthicalWallDetailDto = {
 
 describe('WallList', () => {
   it('renders wall memberships without free-text reason details', () => {
-    const html = renderToStaticMarkup(<WallList items={[item]} />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <WallList items={[item]} />
+      </LanguageProvider>,
+    );
 
     expect(html).toContain('Conflict wall');
-    expect(html).toContain('excluded');
+    expect(html).toContain('접근 차단');
+    expect(html).toContain('ID 11111111');
+    expect(html).not.toContain('excluded');
     expect(html).not.toContain('conflict_check');
   });
 });

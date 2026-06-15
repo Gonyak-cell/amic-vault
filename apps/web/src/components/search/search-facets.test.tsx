@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { SearchFacetsDto } from '@amic-vault/shared';
+import { LanguageProvider } from '@/lib/i18n';
 import { SearchFacets } from './search-facets';
 
 vi.mock('@/components/ui/button', () => ({
@@ -31,17 +32,19 @@ const facets: SearchFacetsDto = {
 describe('SearchFacets', () => {
   it('renders server-provided facet buckets without zero-count rows', () => {
     const html = renderToStaticMarkup(
-      <SearchFacets facets={facets} selection={{ documentType: 'memo' }} onChange={() => undefined} />,
+      <LanguageProvider>
+        <SearchFacets facets={facets} selection={{ documentType: 'memo' }} onChange={() => undefined} />
+      </LanguageProvider>,
     );
 
-    expect(html).toContain('Type');
-    expect(html).toContain('memo');
-    expect(html).toContain('contract');
-    expect(html).toContain('Last 7 days');
-    expect(html).toContain('11111111-1111-4111-8111-111111111301');
+    expect(html).toContain('파일 유형');
+    expect(html).toContain('메모');
+    expect(html).toContain('계약서');
+    expect(html).toContain('최근 7일');
+    expect(html).toContain('ID 11111111');
     expect(html).not.toContain('22222222-2222-4222-8222-222222222301');
     expect(html).not.toContain('Older');
     expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain('Clear');
+    expect(html).toContain('필터 초기화');
   });
 });

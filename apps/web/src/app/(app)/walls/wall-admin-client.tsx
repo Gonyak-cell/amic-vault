@@ -14,8 +14,64 @@ import {
   removeEthicalWallMembership,
 } from '@/lib/api/ethical-walls';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { useI18n, type Language } from '@/lib/i18n';
+
+const wallCopy: Record<
+  Language,
+  {
+    title: string;
+    matterFilter: string;
+    filterTitle: string;
+    matterRef: string;
+    wallName: string;
+    reason: string;
+    createTitle: string;
+    wallRef: string;
+    userRef: string;
+    membershipType: string;
+    addMemberTitle: string;
+    membershipLabels: Record<WallMembershipType, string>;
+  }
+> = {
+  ko: {
+    title: '정보 장벽',
+    matterFilter: 'Matter ID로 찾기',
+    filterTitle: '정보 장벽 검색',
+    matterRef: 'Matter ID',
+    wallName: '정보 장벽 이름',
+    reason: '설정 사유',
+    createTitle: '정보 장벽 추가',
+    wallRef: '정보 장벽 ID',
+    userRef: '사용자 ID',
+    membershipType: '구성원 유형',
+    addMemberTitle: '구성원 추가',
+    membershipLabels: {
+      insider: '차단 예외',
+      excluded: '접근 차단',
+    },
+  },
+  en: {
+    title: 'Information barriers',
+    matterFilter: 'Find by matter ref',
+    filterTitle: 'Search information barriers',
+    matterRef: 'Matter ref',
+    wallName: 'Barrier name',
+    reason: 'Barrier reason',
+    createTitle: 'Add information barrier',
+    wallRef: 'Barrier ref',
+    userRef: 'User ref',
+    membershipType: 'Member type',
+    addMemberTitle: 'Add member',
+    membershipLabels: {
+      insider: 'Insider',
+      excluded: 'Blocked',
+    },
+  },
+};
 
 export function WallAdminClient() {
+  const { language } = useI18n();
+  const copy = wallCopy[language];
   const [items, setItems] = useState<EthicalWallDetailDto[]>([]);
   const [matterFilter, setMatterFilter] = useState('');
   const [busy, setBusy] = useState(false);
@@ -110,15 +166,15 @@ export function WallAdminClient() {
   return (
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-normal">Walls</h1>
+        <h1 className="text-2xl font-semibold tracking-normal">{copy.title}</h1>
         <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submitFilter}>
           <Input
-            aria-label="Matter filter"
-            placeholder="Matter UUID"
+            aria-label={copy.matterFilter}
+            placeholder={copy.matterFilter}
             value={matterFilter}
             onChange={(event) => setMatterFilter(event.target.value)}
           />
-          <Button aria-label="Filter walls" title="Filter walls" type="submit" disabled={busy}>
+          <Button aria-label={copy.filterTitle} title={copy.filterTitle} type="submit" disabled={busy}>
             <Search className="h-4 w-4" />
           </Button>
         </form>
@@ -129,24 +185,24 @@ export function WallAdminClient() {
         onSubmit={submitWall}
       >
         <Input
-          aria-label="Wall matter ID"
-          placeholder="Matter UUID"
+          aria-label={copy.matterRef}
+          placeholder={copy.matterRef}
           value={newWall.matterId}
           onChange={(event) => setNewWall({ ...newWall, matterId: event.target.value })}
         />
         <Input
-          aria-label="Wall name"
-          placeholder="Wall name"
+          aria-label={copy.wallName}
+          placeholder={copy.wallName}
           value={newWall.wallName}
           onChange={(event) => setNewWall({ ...newWall, wallName: event.target.value })}
         />
         <Input
-          aria-label="Wall reason code"
-          placeholder="Reason code"
+          aria-label={copy.reason}
+          placeholder={copy.reason}
           value={newWall.reason}
           onChange={(event) => setNewWall({ ...newWall, reason: event.target.value })}
         />
-        <Button aria-label="Create wall" title="Create wall" type="submit" disabled={busy}>
+        <Button aria-label={copy.createTitle} title={copy.createTitle} type="submit" disabled={busy}>
           <Plus className="h-4 w-4" />
         </Button>
       </form>
@@ -156,21 +212,21 @@ export function WallAdminClient() {
         onSubmit={submitMembership}
       >
         <Input
-          aria-label="Membership wall ID"
-          placeholder="Wall UUID"
+          aria-label={copy.wallRef}
+          placeholder={copy.wallRef}
           value={newMembership.wallId}
           onChange={(event) => setNewMembership({ ...newMembership, wallId: event.target.value })}
         />
         <Input
-          aria-label="Membership user ID"
-          placeholder="User UUID"
+          aria-label={copy.userRef}
+          placeholder={copy.userRef}
           value={newMembership.subjectId}
           onChange={(event) =>
             setNewMembership({ ...newMembership, subjectId: event.target.value })
           }
         />
         <select
-          aria-label="Membership type"
+          aria-label={copy.membershipType}
           className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={newMembership.membershipType}
           onChange={(event) =>
@@ -182,13 +238,13 @@ export function WallAdminClient() {
         >
           {wallMembershipTypes.map((type) => (
             <option key={type} value={type}>
-              {type}
+              {copy.membershipLabels[type]}
             </option>
           ))}
         </select>
         <Button
-          aria-label="Add wall membership"
-          title="Add wall membership"
+          aria-label={copy.addMemberTitle}
+          title={copy.addMemberTitle}
           type="submit"
           disabled={busy}
         >

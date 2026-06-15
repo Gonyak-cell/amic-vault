@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PgRoleLookup, RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { MetricsModule } from '../../common/metrics/metrics.module';
 import { AuditModule } from '../audit/audit.module';
+import { AiPrepQueueService } from '../ai/prep/ai-prep-queue.service';
 import { BreakGlassModule } from '../break-glass/break-glass.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { IndexFailureHandler } from './index/index-failure.handler';
@@ -30,6 +31,7 @@ import { SnippetBuilder } from './query/snippet-builder';
   controllers: [ReindexController, SearchController],
   providers: [
     DenyAllSearchPermissionScopeProvider,
+    AiPrepQueueService,
     DocumentScopeFilter,
     IndexFailureHandler,
     IndexingProcessor,

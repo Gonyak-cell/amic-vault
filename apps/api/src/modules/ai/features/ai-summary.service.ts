@@ -9,6 +9,7 @@ import {
   type AiSummarySectionDto,
   type AiSummaryTask,
   type AiSummaryWarningCode,
+  type AiGroundedGenerationOutputDto,
   type EvidencePackChunkDto,
   type EvidencePackDto,
   type PermissionContext,
@@ -21,6 +22,7 @@ import { AiModelRoutingService } from '../routing/model-routing.service';
 import { AiSessionLogService, type AiSessionRequestContext } from '../session/ai-session-log.service';
 import { GraphQueryService } from '../../graph/graph-query.service';
 import { ContractIntelService } from '../../contract-intel/contract-intel.service';
+import { LocalGemmaGenerationService } from '../generation/local-gemma-generation.service';
 
 interface RenderedSummary {
   status: 'completed' | 'escalated';
@@ -43,6 +45,8 @@ export class AiSummaryService {
     @Inject(AiSessionLogService) private readonly sessions: AiSessionLogService,
     @Inject(GraphQueryService) private readonly graphQuery: GraphQueryService,
     @Inject(ContractIntelService) private readonly contracts: ContractIntelService,
+    @Inject(LocalGemmaGenerationService)
+    private readonly localGemma: LocalGemmaGenerationService,
   ) {}
 
   async createSummary(
@@ -122,7 +126,7 @@ export class AiSummaryService {
         retrieval,
         graphFacts: graphFacts.facts,
         ruleFindings: ruleFindings.findings,
-        taskType: 'summary',
+        taskType: evidenceTaskTypeForSummaryTask(input.task),
         tokenBudget: 2400,
         locale: input.locale,
       });
@@ -130,7 +134,9 @@ export class AiSummaryService {
       await this.recordBlockedResponse(ctx, created.sessionId, startedAt, 'validation_failed');
       throw new BadRequestException({ code: 'VALIDATION_FAILED' });
     }
-    const rendered = renderSummary(pack, input, routing.escalationRequired);
+    const rendered =
+      (await this.tryRenderGemmaSummary(pack, input, routing.escalationRequired)) ??
+      renderSummary(pack, input, routing.escalationRequired, true);
     if (rendered.citations.length === 0) {
       await this.recordBlockedResponse(ctx, created.sessionId, startedAt, 'validation_failed');
       throw new BadRequestException({ code: 'VALIDATION_FAILED' });
@@ -204,6 +210,23 @@ export class AiSummaryService {
       blockedReason,
     });
   }
+
+  private async tryRenderGemmaSummary(
+    pack: EvidencePackDto,
+    input: AiSummaryRequestDto,
+    routingEscalationRequired: boolean,
+  ): Promise<RenderedSummary | null> {
+    if (!summaryGemmaEnabled()) return null;
+    if (!gemmaFileOrganizationTask(input.task)) return null;
+    let generated: Awaited<ReturnType<LocalGemmaGenerationService['generateGrounded']>>;
+    try {
+      generated = await this.localGemma.generateGrounded(pack);
+    } catch {
+      return null;
+    }
+    if (generated.status !== 'completed' || !generated.output) return null;
+    return renderGeneratedSummary(pack, input, generated.output, routingEscalationRequired);
+  }
 }
 
 function permissionContext(ctx: AiSessionRequestContext): PermissionContext {
@@ -218,12 +241,13 @@ function renderSummary(
   pack: EvidencePackDto,
   input: AiSummaryRequestDto,
   routingEscalationRequired: boolean,
+  degraded: boolean,
 ): RenderedSummary {
   const candidateChunks = input.targetDocumentId
     ? pack.retrievedChunks.filter((chunk) => chunk.documentId === input.targetDocumentId)
     : pack.retrievedChunks;
   const chunks = selectChunksForTask(input.task, candidateChunks);
-  const warnings = warningCodesForTask(input.task);
+  const warnings = warningCodesForTask(input.task, degraded);
   const citations = uniqueCitations(chunks);
   const escalationRequired =
     routingEscalationRequired || input.task === 'risk_extraction' || input.task === 'clause_analysis';
@@ -244,6 +268,61 @@ function renderSummary(
     citations,
     claims,
     warnings,
+    escalationRequired,
+  };
+}
+
+function renderGeneratedSummary(
+  pack: EvidencePackDto,
+  input: AiSummaryRequestDto,
+  output: AiGroundedGenerationOutputDto,
+  routingEscalationRequired: boolean,
+): RenderedSummary | null {
+  const candidateChunks = input.targetDocumentId
+    ? pack.retrievedChunks.filter((chunk) => chunk.documentId === input.targetDocumentId)
+    : pack.retrievedChunks;
+  const allowedRefs = new Set(candidateChunks.map((chunk) => chunk.citationRef));
+  const citedRefs = new Set<string>();
+
+  for (const section of output.sections) {
+    if (!section.source_refs.every((ref) => allowedRefs.has(ref))) return null;
+    section.source_refs.forEach((ref) => citedRefs.add(ref));
+  }
+  for (const claim of output.claims) {
+    if (!claim.source_refs.every((ref) => allowedRefs.has(ref))) return null;
+    claim.source_refs.forEach((ref) => citedRefs.add(ref));
+  }
+  if (citedRefs.size === 0) return null;
+
+  const chunks = candidateChunks.filter((chunk) => citedRefs.has(chunk.citationRef));
+  const citations = uniqueCitations(chunks);
+  if (citations.length === 0) return null;
+
+  const escalationRequired =
+    routingEscalationRequired ||
+    input.task === 'risk_extraction' ||
+    input.task === 'clause_analysis' ||
+    output.claims.some((claim) => claim.is_legal_conclusion === true);
+  const sections = output.sections.slice(0, 12).map((section) => ({
+    sectionId: section.section_id,
+    heading: section.heading,
+    text: section.text,
+    citationRefs: section.source_refs,
+    ...(escalationRequired ? { escalationRequired: true } : {}),
+  }));
+  const claims = output.claims.slice(0, 100).map((claim) => ({
+    claimId: claim.claim_id,
+    claimHash: sha256Hex(`${claim.kind}:${claim.text}:${claim.source_refs.join('|')}`),
+    citationRefs: claim.source_refs,
+    ...(claim.is_legal_conclusion ? { isLegalConclusion: true } : {}),
+  }));
+
+  return {
+    status: escalationRequired ? 'escalated' : 'completed',
+    sections,
+    citations,
+    claims,
+    warnings: warningCodesForTask(input.task, false),
     escalationRequired,
   };
 }
@@ -298,6 +377,7 @@ function headingForTask(task: AiSummaryTask, index: number): string {
     email_thread_summary: 'Filed email thread evidence',
     clause_analysis: 'Clause analysis template',
     risk_extraction: 'Risk review template',
+    matter_qa: 'Matter Q&A evidence',
   };
   return `${labels[task]} ${index + 1}`;
 }
@@ -309,15 +389,14 @@ function prefixForTask(task: AiSummaryTask): string {
     email_thread_summary: 'Filed authorized email context:',
     clause_analysis: 'Rule findings active; cited clause evidence only:',
     risk_extraction: 'Human review required; cited rule and chunk evidence only:',
+    matter_qa: 'Cited answer from authorized matter evidence only:',
   };
   return prefixes[task];
 }
 
-function warningCodesForTask(task: AiSummaryTask): AiSummaryWarningCode[] {
-  const warnings = new Set<AiSummaryWarningCode>([
-    'EVIDENCE_ONLY_DEGRADED',
-    'NO_DENIED_SOURCES_INCLUDED',
-  ]);
+function warningCodesForTask(task: AiSummaryTask, degraded: boolean): AiSummaryWarningCode[] {
+  const warnings = new Set<AiSummaryWarningCode>(['NO_DENIED_SOURCES_INCLUDED']);
+  if (degraded) warnings.add('EVIDENCE_ONLY_DEGRADED');
   if (task === 'clause_analysis' || task === 'risk_extraction') warnings.add('HUMAN_REVIEW_REQUIRED');
   if (task === 'risk_extraction') warnings.add('HUMAN_REVIEW_REQUIRED');
   return [...warnings];
@@ -329,4 +408,24 @@ function compactEvidenceText(text: string): string {
 
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
+}
+
+function summaryGemmaEnabled(): boolean {
+  const defaultValue = process.env.NODE_ENV === 'test' ? 'false' : 'true';
+  const raw = process.env.AI_SUMMARY_GEMMA_ENABLED ?? defaultValue;
+  return ['1', 'true', 'yes'].includes(raw.trim().toLowerCase());
+}
+
+function gemmaFileOrganizationTask(task: AiSummaryTask): boolean {
+  return (
+    task === 'document_summary' ||
+    task === 'matter_summary' ||
+    task === 'email_thread_summary'
+  );
+}
+
+function evidenceTaskTypeForSummaryTask(task: AiSummaryTask): EvidencePackDto['taskType'] {
+  if (task === 'matter_qa') return 'retrieval';
+  if (task === 'clause_analysis' || task === 'risk_extraction') return 'review';
+  return 'summary';
 }

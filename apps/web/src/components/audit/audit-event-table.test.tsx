@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { AuditEventDto } from '@amic-vault/shared';
+import { LanguageProvider } from '@/lib/i18n';
 import { AuditEventTable } from './audit-event-table';
 
 const event: AuditEventDto = {
@@ -20,16 +21,26 @@ const event: AuditEventDto = {
 
 describe('AuditEventTable', () => {
   it('renders server-provided audit rows without raw metadata fields', () => {
-    const html = renderToStaticMarkup(<AuditEventTable events={[event]} />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <AuditEventTable events={[event]} />
+      </LanguageProvider>,
+    );
 
-    expect(html).toContain('AUDIT_QUERY_EXECUTED');
+    expect(html).toContain('활동');
+    expect(html).toContain('Audit Query Executed');
     expect(html).toContain('audit_console');
+    expect(html).toContain('11111111');
     expect(html).not.toContain('metadata_json');
     expect(html).not.toContain('tenant_audit');
   });
 
   it('renders safe error state', () => {
-    const html = renderToStaticMarkup(<AuditEventTable events={[]} error="Access unavailable" />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <AuditEventTable events={[]} error="Access unavailable" />
+      </LanguageProvider>,
+    );
 
     expect(html).toContain('Access unavailable');
     expect(html).not.toContain('PERMISSION_DENIED');

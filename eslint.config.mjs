@@ -62,7 +62,7 @@ export default [
     },
   },
   {
-    files: ['apps/api/src/**/*.{ts,tsx}', 'apps/web/src/**/*.{ts,tsx}'],
+    files: ['apps/web/src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -70,7 +70,7 @@ export default [
           paths: [
             {
               name: '@amic-vault/ai',
-              message: 'R6 AI Governance Gate before apps may import packages/ai.',
+              message: 'Web must not import packages/ai; local model calls stay server-side.',
             },
           ],
         },
