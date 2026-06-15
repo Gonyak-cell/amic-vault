@@ -27,6 +27,7 @@
     "eval:ai-gate": "node tools/evalset/run-ai-gate-metrics.ts",
     "eval:local-ai": "node tools/evalset/run-local-ai-eval.ts",
     "ai-prep:scan": "node tools/ai/scan-ai-prep-storage.ts",
+    "ai-prep:reprocess-fallbacks": "pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/ai build && pnpm --filter @amic-vault/api build && node apps/api/dist/tools/reprocess-ai-prep-fallbacks.js",
     "bench:local-models": "node tools/bench/run-local-model-bench.ts",
     "eval:contract-gate": "pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/api build && node tools/evalset/run-contract-intel-gate.ts",
     "graph:check": "node tools/graph/check-consistency.ts",

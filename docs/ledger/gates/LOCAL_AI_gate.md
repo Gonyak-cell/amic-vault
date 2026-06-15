@@ -1,6 +1,6 @@
 # LOCAL AI Gate
 
-Status: local-only baseline implemented; fallback quality gate blocked until reprocessed evidence passes.
+Status: local-only baseline implemented; fallback quality gate PASS on reprocessed evidence.
 
 ## Scope
 
@@ -35,7 +35,7 @@ This gate covers PACK-LAI-01 through PACK-LAI-07:
 | Post-upload prep evidence report | PASS; `docs/reports/local_ai_upload_prep_smoke.md` |
 | Negative case matrix | PASS; `docs/reports/local_ai_negative_case_matrix.md` |
 | AI prep storage scan | PASS; raw/leakage/legal/external counts 0 |
-| Local AI eval completed-output gate | BLOCKED; completedOutputCount 25, fallbackArtifactCount 18, generatedOutputCount 7, fallbackRate 72.0%, prepSchemaViolationCount 0, warning `Fallback artifact rate exceeds the technical threshold.` |
+| Local AI eval completed-output gate | PASS; completedOutputCount 25, fallbackArtifactCount 1, generatedOutputCount 24, fallbackRate 4.0%, prepSchemaViolationCount 0, warnings empty |
 | Non-Gemma product route proposal | NOT PROPOSED |
 | Full unit/build/integration validation | PASS; integration 85 files / 212 tests |
 
@@ -66,7 +66,8 @@ git diff --check
 
 - `pnpm db:rollback` down-all remains unsuitable on a dirty dev DB after append-only AI audit rows exist; new migrations are verified with targeted down/up roundtrips.
 - The committed eval set is still the deidentified technical subset and not the future operational corpus.
-- `pnpm eval:local-ai` now requires completed prep outputs, at least 5 non-fallback generated outputs, generated-only citation/unsupported-claim denominators, and `fallbackRate <= 0.5`; the current historical evidence fails with fallbackRate 72.0%.
+- `pnpm eval:local-ai` now requires completed prep outputs, at least 5 non-fallback generated outputs, generated-only citation/unsupported-claim denominators, and `fallbackRate <= 0.5`; the current reprocessed evidence passes with fallbackRate 4.0%.
+- Fallback evidence can be refreshed with `pnpm ai-prep:reprocess-fallbacks -- --tenant-id <tenant_uuid>`; the tool reuses the existing local-only `AiPrepProcessor` and writes bounded `AI_PREP_REQUESTED`/`AI_PREP_COMPLETED` audit records.
 - The 20+ upload smoke used synthetic/deidentified local documents. It proves the upload -> indexing -> async prep -> completed artifact path, not customer-data quality.
 - Historical smoke rows were generated before fallback audit reason metadata was added, so fallback detection uses audit metadata when present and payload warning markers for historical compatibility.
 - PACK-LAI-06 benchmark used the same 2-case synthetic fixture, so it proves harness safety and Gemma runtime availability but not model superiority.

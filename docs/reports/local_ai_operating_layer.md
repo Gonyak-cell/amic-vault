@@ -29,15 +29,15 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 
 - `pnpm lint`: PASS
 - `pnpm typecheck`: PASS
-- `pnpm test`: PASS; API 104 files / 266 tests, shared 27 files / 91 tests, web 37 files / 55 tests
+- `pnpm test`: PASS; API 105 files / 269 tests, shared 27 files / 91 tests, web 37 files / 55 tests
 - `pnpm build`: PASS
 - `pnpm db:migrate`: PASS; includes `0068_harden_ai_prep_completed_payload.sql`
 - targeted migration roundtrip: PASS; `node tools/db/migrate.mjs down 1 && node tools/db/migrate.mjs up`
 - `pnpm db:seed`: PASS; tenants=2 users=11
 - `pnpm test:integration`: PASS; 85 files / 212 tests
-- `pnpm eval:local-ai`: BLOCKED; completedOutputCount 25, fallbackArtifactCount 18, generatedOutputCount 7, fallbackRate 72.0%, prepSchemaViolationCount 0, permission leakage 0, generated-only citation accuracy 100.0%, unsupported claim rate 0.0%, warning `Fallback artifact rate exceeds the technical threshold.`
+- `pnpm eval:local-ai`: PASS; completedOutputCount 25, fallbackArtifactCount 1, generatedOutputCount 24, fallbackRate 4.0%, prepSchemaViolationCount 0, permission leakage 0, generated-only citation accuracy 100.0%, unsupported claim rate 0.0%, warnings empty
 - `pnpm eval:ai-gate`: PASS; external model call attempts 0, audit coverage 100.0%
-- `pnpm ai-prep:scan`: PASS; completedCount 25, fallbackSignalCount 18, raw payload/audit key count 0, legal claim count 0, missing/mismatched source ref count 0, external model route count 0
+- `pnpm ai-prep:scan`: PASS; completedCount 25, fallbackSignalCount 1, raw payload/audit key count 0, legal claim count 0, missing/mismatched source ref count 0, external model route count 0
 - direct local Gemma JSON Schema smoke: PASS; `gemma4:12b` returned valid JSON with exact source refs for a synthetic one-chunk file-organization prompt
 - `pnpm exec vitest run tools/bench/local-model-bench.spec.ts`: PASS; 4 tests
 - `pnpm bench:local-models -- --models gemma4-12b-baseline,qwen3-8b`: PASS disabled/default-off
@@ -67,4 +67,4 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 - Full `pnpm db:rollback` still fails on the dirty dev database because existing append-only AI prep audit rows block the older 0065 down constraint; PACK-LAI migrations were verified with targeted down/up roundtrips.
 - The 20+ completed-output smoke used synthetic/deidentified local documents. Production customer-data quality and deployment authorization are separate gates.
 - The current executable eval corpus remains a technical subset; 100-case/1000-case operational corpus expansion remains a future quality gate, not a claim made by this report.
-- Current historical upload-prep evidence is blocked by fallback quality: 18 of 25 completed artifacts are fallback artifacts, above the 0.5 technical threshold. The next acceptance run must reprocess prep artifacts with the JSON Schema gateway hardening and bring `fallbackRate <= 0.5`.
+- Fallback quality is resolved for the current synthetic upload-prep evidence: reprocessing 18 fallback artifacts through the JSON Schema-hardened local Gemma path reduced fallback artifacts to 1 of 25 and `fallbackRate` to 4.0%, below the 0.5 technical threshold.
