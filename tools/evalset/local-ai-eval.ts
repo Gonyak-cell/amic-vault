@@ -24,6 +24,7 @@ interface EvaluationCaseRow {
 interface ArtifactEvalRow {
   output_count: string;
   fallback_count: string;
+  rejected_count: string;
   generated_output_count: string;
   unsupported_count: string;
   leakage_count: string;
@@ -40,6 +41,7 @@ export function computeLocalAiEvalReport(input: {
   deidentifiedCaseCount: number;
   outputCount: number;
   fallbackCount: number;
+  rejectedCount?: number | undefined;
   generatedOutputCount?: number | undefined;
   unsupportedCount: number;
   leakageCount: number;
@@ -53,10 +55,12 @@ export function computeLocalAiEvalReport(input: {
     input.totalSourceRefs === 0 ? 1 : input.matchedSourceRefs / input.totalSourceRefs;
   const generatedOutputCount =
     input.generatedOutputCount ?? Math.max(input.outputCount - input.fallbackCount, 0);
+  const rejectedOutputCount = input.rejectedCount ?? 0;
   const unsupportedClaimRate =
-    generatedOutputCount + input.unsupportedCount === 0
+    generatedOutputCount + input.unsupportedCount + rejectedOutputCount === 0
       ? 0
-      : input.unsupportedCount / (generatedOutputCount + input.unsupportedCount);
+      : (input.unsupportedCount + rejectedOutputCount) /
+        (generatedOutputCount + input.unsupportedCount + rejectedOutputCount);
   const fallbackRate = input.outputCount === 0 ? 0 : input.fallbackCount / input.outputCount;
   const koreanLegalLanguagePass =
     generatedOutputCount === 0 ? true : input.koreanOutputCount === generatedOutputCount;
@@ -74,6 +78,9 @@ export function computeLocalAiEvalReport(input: {
   if (fallbackRate > maxTechnicalFallbackRate) {
     warnings.push('Fallback artifact rate exceeds the technical threshold.');
   }
+  if (unsupportedClaimRate > 0.05) {
+    warnings.push('Unsupported or rejected prep output rate exceeds the technical threshold.');
+  }
   if (!koreanLegalLanguagePass) warnings.push('Korean legal language heuristic failed.');
 
   return localAiEvalReportSchema.parse({
@@ -82,6 +89,7 @@ export function computeLocalAiEvalReport(input: {
     deidentifiedCaseCount: input.deidentifiedCaseCount,
     completedOutputCount: input.outputCount,
     fallbackArtifactCount: input.fallbackCount,
+    rejectedOutputCount,
     generatedOutputCount,
     permissionLeakageCount: input.leakageCount,
     prepSchemaViolationCount: input.prepSchemaViolationCount,
@@ -117,6 +125,7 @@ export async function collectLocalAiEval(input: LocalAiEvalInput): Promise<Local
       deidentifiedCaseCount: Number(cases.deidentified_count),
       outputCount: Number(artifacts.output_count),
       fallbackCount: Number(artifacts.fallback_count),
+      rejectedCount: Number(artifacts.rejected_count),
       generatedOutputCount: Number(artifacts.generated_output_count),
       unsupportedCount: Number(artifacts.unsupported_count),
       leakageCount: Number(artifacts.leakage_count),
@@ -222,12 +231,19 @@ async function collectArtifactEval(client: Client, tenantId: string): Promise<Ar
       SELECT
         (SELECT count(*)::text FROM completed) AS output_count,
         (SELECT count(*)::text FROM completed_with_signal WHERE is_fallback = true) AS fallback_count,
+        (
+          SELECT count(*)::text
+          FROM ai_prep_artifacts
+          WHERE tenant_id = $1
+            AND status = 'rejected'
+            AND is_stale = false
+        ) AS rejected_count,
         (SELECT count(*)::text FROM generated) AS generated_output_count,
         (
           SELECT count(*)::text
           FROM ai_prep_artifacts
           WHERE tenant_id = $1
-            AND status = 'blocked'
+            AND status IN ('blocked', 'rejected')
             AND failure_reason_code IN ('UNSUPPORTED_CLAIM', 'AI_PREP_VALIDATION_FAILED')
         ) AS unsupported_count,
         (
@@ -324,6 +340,7 @@ async function collectArtifactEval(client: Client, tenantId: string): Promise<Ar
     result.rows[0] ?? {
       output_count: '0',
       fallback_count: '0',
+      rejected_count: '0',
       generated_output_count: '0',
       unsupported_count: '0',
       leakage_count: '0',

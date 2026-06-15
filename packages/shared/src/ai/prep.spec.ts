@@ -40,6 +40,7 @@ describe('ai prep shared contract', () => {
     expect(() => aiPrepArtifactKindSchema.parse('risk_candidates')).toThrow();
     expect(aiPrepStatusSchema.parse('completed')).toBe('completed');
     expect(aiPrepStatusSchema.parse('blocked')).toBe('blocked');
+    expect(aiPrepStatusSchema.parse('rejected')).toBe('rejected');
   });
 
   it('accepts grounded payloads with source refs', () => {
@@ -121,6 +122,29 @@ describe('ai prep shared contract', () => {
     expect(JSON.stringify(parsed)).not.toMatch(/prompt|response|raw|snippet/u);
   });
 
+  it('allows rejected readiness without exposing a payload', () => {
+    const parsed = aiPrepDocumentStatusSchema.parse({
+      documentId: '11111111-1111-4111-8111-111111111100',
+      versionId: '11111111-1111-4111-8111-111111111101',
+      readinessStatus: 'rejected',
+      artifacts: [
+        {
+          artifactId: '11111111-1111-4111-8111-111111111102',
+          artifactKind: 'document_profile',
+          status: 'rejected',
+          isStale: false,
+          sourceChunkCount: 1,
+          generatedAt: null,
+          updatedAt: '2026-06-15T00:00:01.000Z',
+          payload: null,
+        },
+      ],
+    });
+
+    expect(parsed.readinessStatus).toBe('rejected');
+    expect(parsed.artifacts[0]?.payload).toBeNull();
+  });
+
   it('accepts structured prep feedback without free-form comments', () => {
     const parsed = aiPrepFeedbackRequestSchema.parse({
       artifactId: '11111111-1111-4111-8111-111111111102',
@@ -147,11 +171,13 @@ describe('ai prep shared contract', () => {
       partialDocumentCount: 0,
       blockedDocumentCount: 0,
       failedDocumentCount: 0,
+      rejectedDocumentCount: 0,
       staleDocumentCount: 0,
       notReadyDocumentCount: 0,
       pendingJobCount: 0,
       staleArtifactCount: 0,
       blockedArtifactCount: 0,
+      rejectedArtifactCount: 0,
       documents: [
         {
           documentId: '11111111-1111-4111-8111-111111111201',
@@ -164,6 +190,7 @@ describe('ai prep shared contract', () => {
           pendingArtifactCount: 0,
           blockedArtifactCount: 0,
           failedArtifactCount: 0,
+          rejectedArtifactCount: 0,
           staleArtifactCount: 0,
           updatedAt: '2026-06-15T00:00:00.000Z',
         },

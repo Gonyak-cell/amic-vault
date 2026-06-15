@@ -265,6 +265,35 @@ export class AiPrepRepository {
     return result.ai_prep_artifact_id;
   }
 
+  async upsertRejected(
+    client: QueryClient,
+    input: {
+      source: AiPrepSource;
+      artifactKind: AiPrepArtifactKind;
+      sourceChunks: readonly AiPrepSourceChunk[];
+      reasonCode: string;
+      promptHash: string;
+      responseHash: string;
+      payload: AiPrepArtifactPayloadDto;
+      modelName?: string | undefined;
+      latencyMs?: number | undefined;
+    },
+  ): Promise<string> {
+    const result = await this.upsertArtifact(client, {
+      source: input.source,
+      artifactKind: input.artifactKind,
+      status: 'rejected',
+      sourceChunks: input.sourceChunks,
+      failureReasonCode: input.reasonCode,
+      promptHash: input.promptHash,
+      responseHash: input.responseHash,
+      payload: input.payload,
+      modelName: input.modelName,
+      latencyMs: input.latencyMs,
+    });
+    return result.ai_prep_artifact_id;
+  }
+
   async upsertCompleted(
     client: QueryClient,
     input: {
@@ -297,7 +326,7 @@ export class AiPrepRepository {
     input: {
       source: AiPrepSource;
       artifactKind: AiPrepArtifactKind;
-      status: 'completed' | 'blocked' | 'failed';
+      status: 'completed' | 'blocked' | 'failed' | 'rejected';
       sourceChunks: readonly AiPrepSourceChunk[];
       failureReasonCode?: string | undefined;
       promptHash?: string | undefined;

@@ -48,6 +48,7 @@ export const aiPrepStatuses = [
   'completed',
   'blocked',
   'failed',
+  'rejected',
   'stale',
 ] as const;
 
@@ -148,6 +149,7 @@ export const aiPrepDocumentReadinessStatuses = [
   'partial',
   'blocked',
   'failed',
+  'rejected',
   'stale',
 ] as const;
 
@@ -226,6 +228,7 @@ export const aiPrepMatterDocumentReadinessSchema = z
     pendingArtifactCount: z.number().int().min(0).max(20),
     blockedArtifactCount: z.number().int().min(0).max(20),
     failedArtifactCount: z.number().int().min(0).max(20),
+    rejectedArtifactCount: z.number().int().min(0).max(20),
     staleArtifactCount: z.number().int().min(0).max(20),
     updatedAt: z.string().datetime().nullable(),
   })
@@ -241,11 +244,13 @@ export const aiPrepMatterReadinessSchema = z
     partialDocumentCount: z.number().int().min(0),
     blockedDocumentCount: z.number().int().min(0),
     failedDocumentCount: z.number().int().min(0),
+    rejectedDocumentCount: z.number().int().min(0),
     staleDocumentCount: z.number().int().min(0),
     notReadyDocumentCount: z.number().int().min(0),
     pendingJobCount: z.number().int().min(0),
     staleArtifactCount: z.number().int().min(0),
     blockedArtifactCount: z.number().int().min(0),
+    rejectedArtifactCount: z.number().int().min(0),
     documents: z.array(aiPrepMatterDocumentReadinessSchema).max(100),
   })
   .strict();

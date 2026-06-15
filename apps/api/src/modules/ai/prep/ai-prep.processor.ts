@@ -147,60 +147,101 @@ export class AiPrepProcessor {
       parseOutput: (value) => aiPrepGroundedGenerationOutputSchema.parse(value),
     });
 
-    let payloadJson: AiPrepArtifactPayloadDto;
-    let generationResultKind: 'gemma' | 'fallback' = 'gemma';
-    let fallbackReasonCode: string | undefined;
     if (generationResult.status === 'completed' && generationResult.output) {
       try {
-        payloadJson = parsePrepPayload(
+        const payloadJson = parsePrepPayload(
           {
             ...generationResult.output,
             source_refs: pack.citationRequirements.sourceRefs,
           },
           payload.artifactKind,
         );
+        const responseHash = sha256Hex(JSON.stringify(payloadJson));
+        await this.auditService.transaction(source.tenantId, async (tx) => {
+          const artifactId = await this.repository.upsertCompleted(tx, {
+            source,
+            artifactKind: payload.artifactKind,
+            sourceChunks: source.chunks,
+            promptHash,
+            responseHash,
+            payload: payloadJson,
+            modelName: generationResult.model,
+            latencyMs: generationResult.latencyMs,
+          });
+          await this.recordArtifactAudit(tx, {
+            action: 'AI_PREP_COMPLETED',
+            artifactId,
+            source,
+            payload,
+            status: 'completed',
+            result: 'success',
+            sourceChunkCount: source.chunks.length,
+            promptHash,
+            responseHash,
+            generationResult: 'gemma',
+          });
+        });
+        return;
       } catch {
-        generationResultKind = 'fallback';
-        fallbackReasonCode = 'AI_PREP_VALIDATION_FAILED';
-        payloadJson = buildDeterministicPrepPayload(
-          pack,
-          payload.artifactKind,
-          fallbackReasonCode,
-        );
+        await this.recordRejected(source, payload, pack, {
+          reasonCode: 'AI_PREP_VALIDATION_FAILED',
+          promptHash,
+          modelName: generationResult.model,
+          latencyMs: generationResult.latencyMs,
+        });
+        return;
       }
-    } else {
-      generationResultKind = 'fallback';
-      fallbackReasonCode = normalizeBlockedReason(generationResult.reasonCode);
-      payloadJson = buildDeterministicPrepPayload(
-        pack,
-        payload.artifactKind,
-        fallbackReasonCode,
-      );
     }
+
+    await this.recordRejected(source, payload, pack, {
+      reasonCode: normalizeBlockedReason(generationResult.reasonCode),
+      promptHash,
+      modelName: generationResult.model,
+      latencyMs: generationResult.latencyMs,
+    });
+  }
+
+  private async recordRejected(
+    source: AiPrepSource,
+    payload: AiPrepJobPayload,
+    pack: EvidencePackDto,
+    input: {
+      reasonCode: string;
+      promptHash: string;
+      modelName?: string | undefined;
+      latencyMs?: number | undefined;
+    },
+  ): Promise<void> {
+    const payloadJson = buildDeterministicRejectedPayload(
+      pack,
+      payload.artifactKind,
+      input.reasonCode,
+    );
     const responseHash = sha256Hex(JSON.stringify(payloadJson));
     await this.auditService.transaction(source.tenantId, async (tx) => {
-      const artifactId = await this.repository.upsertCompleted(tx, {
+      const artifactId = await this.repository.upsertRejected(tx, {
         source,
         artifactKind: payload.artifactKind,
         sourceChunks: source.chunks,
-        promptHash,
+        reasonCode: input.reasonCode,
+        promptHash: input.promptHash,
         responseHash,
         payload: payloadJson,
-        modelName: generationResult.model,
-        latencyMs: generationResult.latencyMs,
+        modelName: input.modelName,
+        latencyMs: input.latencyMs,
       });
       await this.recordArtifactAudit(tx, {
-        action: 'AI_PREP_COMPLETED',
+        action: 'AI_PREP_REJECTED',
         artifactId,
         source,
         payload,
-        status: 'completed',
-        result: 'success',
+        status: 'rejected',
+        result: 'failure',
         sourceChunkCount: source.chunks.length,
-        promptHash,
+        reasonCode: input.reasonCode,
+        promptHash: input.promptHash,
         responseHash,
-        generationResult: generationResultKind,
-        fallbackReasonCode,
+        generationResult: 'rejected',
       });
     });
   }
@@ -258,17 +299,21 @@ export class AiPrepProcessor {
   private async recordArtifactAudit(
     tx: QueryClient,
     input: {
-      action: 'AI_PREP_COMPLETED' | 'AI_PREP_BLOCKED' | 'AI_PREP_FAILED';
+      action:
+        | 'AI_PREP_COMPLETED'
+        | 'AI_PREP_BLOCKED'
+        | 'AI_PREP_FAILED'
+        | 'AI_PREP_REJECTED';
       artifactId: string;
       source: AiPrepSource;
       payload: AiPrepJobPayload;
-      status: 'completed' | 'blocked' | 'failed';
+      status: 'completed' | 'blocked' | 'failed' | 'rejected';
       result: 'success' | 'denied' | 'failure';
       sourceChunkCount?: number | undefined;
       reasonCode?: string | undefined;
       promptHash?: string | undefined;
       responseHash?: string | undefined;
-      generationResult?: 'gemma' | 'fallback' | undefined;
+      generationResult?: 'gemma' | 'rejected' | undefined;
       fallbackReasonCode?: string | undefined;
       deadLetterId?: string | undefined;
     },
@@ -311,7 +356,7 @@ function parsePrepPayload(
   return parseAiPrepArtifactPayload(input, artifactKind);
 }
 
-function buildDeterministicPrepPayload(
+function buildDeterministicRejectedPayload(
   pack: EvidencePackDto,
   artifactKind: AiPrepArtifactKind,
   reasonCode: string,
@@ -319,7 +364,7 @@ function buildDeterministicPrepPayload(
   const sourceRefs = pack.citationRequirements.sourceRefs.slice(0, 50);
   const primarySourceRef = sourceRefs[0];
   if (!primarySourceRef) {
-    throw new Error('deterministic ai prep fallback requires source refs');
+    throw new Error('deterministic ai prep rejected artifact requires source refs');
   }
   const sectionRefs = sourceRefs.slice(0, 20);
   const allowedKinds = aiPrepArtifactAllowedClaimKinds(artifactKind);
@@ -328,41 +373,41 @@ function buildDeterministicPrepPayload(
   const normalizedReason = normalizeBlockedReason(reasonCode);
   return parseAiPrepArtifactPayload(
     {
-      answer: fallbackAnswer(artifactKind, sourceCount),
+      answer: rejectedAnswer(artifactKind, sourceCount),
       sections: [
         {
-          section_id: 'prep_fallback',
+          section_id: 'prep_rejected',
           heading: '파일 정리 준비',
-          text: fallbackSectionText(artifactKind, sourceCount),
+          text: rejectedSectionText(artifactKind, sourceCount),
           source_refs: sectionRefs,
         },
       ],
       claims: [
         {
-          claim_id: 'prep_fallback_1',
+          claim_id: 'prep_rejected_1',
           kind: claimKind,
-          text: fallbackClaimText(artifactKind, sourceCount),
+          text: rejectedClaimText(artifactKind, sourceCount),
           source_refs: [primarySourceRef],
           is_legal_conclusion: false,
         },
       ],
-      warnings: [`LOCAL_GEMMA_${normalizedReason}_FALLBACK`],
+      warnings: [`LOCAL_GEMMA_${normalizedReason}_REJECTED`],
       source_refs: sourceRefs,
     },
     artifactKind,
   );
 }
 
-function fallbackAnswer(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
-  return `${artifactLabel(artifactKind)} 준비가 완료되었습니다. 권한 통과 source ref ${sourceCount}개를 기준으로 안전한 파일 정리용 fallback을 저장했습니다.`;
+function rejectedAnswer(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
+  return `${artifactLabel(artifactKind)} 모델 출력이 거부되었습니다. 권한 통과 source ref ${sourceCount}개를 기준으로 거부 상태만 기록했습니다.`;
 }
 
-function fallbackSectionText(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
-  return `로컬 Gemma 출력이 저장 기준을 충족하지 않아 원본 모델 응답은 폐기했습니다. ${artifactLabel(artifactKind)}용 source ref ${sourceCount}개만 연결합니다.`;
+function rejectedSectionText(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
+  return `로컬 Gemma 출력이 저장 기준을 충족하지 않아 원본 모델 응답은 폐기했습니다. ${artifactLabel(artifactKind)}용 source ref ${sourceCount}개만 참조로 남깁니다.`;
 }
 
-function fallbackClaimText(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
-  return `${artifactLabel(artifactKind)} artifact는 권한 통과 source ref ${sourceCount}개와 연결되어 있으며, 법률 쟁점·위험·조항 분석 claim은 저장하지 않았습니다.`;
+function rejectedClaimText(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
+  return `${artifactLabel(artifactKind)} artifact는 rejected 상태이며, 권한 통과 source ref ${sourceCount}개와 연결되어 있고 법률 쟁점·위험·조항 분석 claim은 저장하지 않았습니다.`;
 }
 
 function artifactLabel(artifactKind: AiPrepArtifactKind): string {

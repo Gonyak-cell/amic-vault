@@ -40,10 +40,10 @@ type CompletedPrepPayload = {
   warnings?: string[];
 };
 
-function firstCompletedPayload(repository: {
-  upsertCompleted: ReturnType<typeof vi.fn>;
+function firstRejectedPayload(repository: {
+  upsertRejected: ReturnType<typeof vi.fn>;
 }): CompletedPrepPayload | undefined {
-  const calls = repository.upsertCompleted.mock.calls as unknown as Array<
+  const calls = repository.upsertRejected.mock.calls as unknown as Array<
     [unknown, { payload: CompletedPrepPayload }]
   >;
   return calls[0]?.[1].payload;
@@ -139,6 +139,7 @@ function createProcessor(
     })),
     upsertCompleted: vi.fn(async () => 'artifact-completed'),
     upsertBlocked: vi.fn(async () => 'artifact-blocked'),
+    upsertRejected: vi.fn(async () => 'artifact-rejected'),
   };
   const promptCompiler = {
     compile: vi.fn(() => ({
@@ -211,6 +212,7 @@ describe('AiPrepProcessor', () => {
     await processor.handle(payload);
 
     expect(repository.upsertBlocked).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).not.toHaveBeenCalled();
     expect(repository.upsertCompleted).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -233,7 +235,7 @@ describe('AiPrepProcessor', () => {
     );
   });
 
-  it('discards legal-analysis claim kinds and stores a safe fallback artifact', async () => {
+  it('discards legal-analysis claim kinds and records a rejected artifact', async () => {
     const { auditLogs, repository, processor } = createProcessor({
       generationOutput: {
         answer: 'answer',
@@ -260,22 +262,29 @@ describe('AiPrepProcessor', () => {
     await processor.handle(payload);
 
     expect(repository.upsertBlocked).not.toHaveBeenCalled();
-    expect(repository.upsertCompleted).toHaveBeenCalled();
-    const completedPayload = firstCompletedPayload(repository);
-    expect(completedPayload).toBeDefined();
-    if (!completedPayload) throw new Error('expected completed fallback payload');
-    expect(JSON.stringify(completedPayload)).not.toContain('not allowed in prep');
-    expect(completedPayload.claims.map((claim) => claim.kind)).toEqual(['key_fact']);
-    expect(completedPayload.warnings).toContain(
-      'LOCAL_GEMMA_AI_PREP_VALIDATION_FAILED_FALLBACK',
+    expect(repository.upsertCompleted).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        reasonCode: 'AI_PREP_VALIDATION_FAILED',
+        promptHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+        responseHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      }),
     );
+    const rejectedPayload = firstRejectedPayload(repository);
+    expect(rejectedPayload).toBeDefined();
+    if (!rejectedPayload) throw new Error('expected rejected payload');
+    expect(JSON.stringify(rejectedPayload)).not.toContain('not allowed in prep');
+    expect(rejectedPayload.claims.map((claim) => claim.kind)).toEqual(['key_fact']);
+    expect(rejectedPayload.warnings).toContain('LOCAL_GEMMA_AI_PREP_VALIDATION_FAILED_REJECTED');
     expect(auditLogs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          action: 'AI_PREP_COMPLETED',
+          action: 'AI_PREP_REJECTED',
           metadata: expect.objectContaining({
-            generation_result: 'fallback',
-            fallback_reason_code: 'AI_PREP_VALIDATION_FAILED',
+            ai_prep_status: 'rejected',
+            generation_result: 'rejected',
+            reason_code: 'AI_PREP_VALIDATION_FAILED',
             response_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
           }),
         }),
@@ -307,23 +316,28 @@ describe('AiPrepProcessor', () => {
     );
   });
 
-  it('falls back on unsupported model output without storing a raw response', async () => {
+  it('records unsupported model output as rejected without storing a raw response', async () => {
     const { auditLogs, repository, processor } = createProcessor({ generationStatus: 'blocked' });
     await processor.handle(payload);
 
     expect(repository.upsertBlocked).not.toHaveBeenCalled();
-    expect(repository.upsertCompleted).toHaveBeenCalled();
-    const completedPayload = firstCompletedPayload(repository);
-    expect(completedPayload).toBeDefined();
-    if (!completedPayload) throw new Error('expected completed fallback payload');
-    expect(completedPayload.warnings).toContain('LOCAL_GEMMA_UNSUPPORTED_CLAIM_FALLBACK');
+    expect(repository.upsertCompleted).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ reasonCode: 'UNSUPPORTED_CLAIM' }),
+    );
+    const rejectedPayload = firstRejectedPayload(repository);
+    expect(rejectedPayload).toBeDefined();
+    if (!rejectedPayload) throw new Error('expected rejected payload');
+    expect(rejectedPayload.warnings).toContain('LOCAL_GEMMA_UNSUPPORTED_CLAIM_REJECTED');
     expect(auditLogs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          action: 'AI_PREP_COMPLETED',
+          action: 'AI_PREP_REJECTED',
           metadata: expect.objectContaining({
-            generation_result: 'fallback',
-            fallback_reason_code: 'UNSUPPORTED_CLAIM',
+            ai_prep_status: 'rejected',
+            generation_result: 'rejected',
+            reason_code: 'UNSUPPORTED_CLAIM',
           }),
         }),
       ]),

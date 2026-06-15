@@ -11,6 +11,7 @@ describe('local AI eval metrics', () => {
       deidentifiedCaseCount: 2,
       outputCount: 6,
       fallbackCount: 1,
+      rejectedCount: 0,
       generatedOutputCount: 5,
       unsupportedCount: 0,
       leakageCount: 0,
@@ -23,6 +24,7 @@ describe('local AI eval metrics', () => {
 
     expect(report.technicalPass).toBe(true);
     expect(report.fallbackArtifactCount).toBe(1);
+    expect(report.rejectedOutputCount).toBe(0);
     expect(report.generatedOutputCount).toBe(5);
     expect(report.fallbackRate).toBeCloseTo(1 / 6);
   });
@@ -34,6 +36,7 @@ describe('local AI eval metrics', () => {
       deidentifiedCaseCount: 2,
       outputCount: 1,
       fallbackCount: 0,
+      rejectedCount: 0,
       generatedOutputCount: 1,
       unsupportedCount: 0,
       leakageCount: 1,
@@ -55,6 +58,7 @@ describe('local AI eval metrics', () => {
       deidentifiedCaseCount: 2,
       outputCount: 0,
       fallbackCount: 0,
+      rejectedCount: 0,
       generatedOutputCount: 0,
       unsupportedCount: 0,
       leakageCount: 0,
@@ -77,6 +81,7 @@ describe('local AI eval metrics', () => {
       deidentifiedCaseCount: 2,
       outputCount: 2,
       fallbackCount: 0,
+      rejectedCount: 0,
       generatedOutputCount: 2,
       unsupportedCount: 1,
       leakageCount: 0,
@@ -99,6 +104,7 @@ describe('local AI eval metrics', () => {
       deidentifiedCaseCount: 2,
       outputCount: 5,
       fallbackCount: 5,
+      rejectedCount: 0,
       generatedOutputCount: 0,
       unsupportedCount: 0,
       leakageCount: 0,
@@ -121,6 +127,7 @@ describe('local AI eval metrics', () => {
       deidentifiedCaseCount: 8,
       outputCount: 8,
       fallbackCount: 7,
+      rejectedCount: 0,
       generatedOutputCount: 1,
       unsupportedCount: 0,
       leakageCount: 0,
@@ -135,6 +142,32 @@ describe('local AI eval metrics', () => {
     expect(report.generatedOutputCount).toBe(1);
     expect(report.warnings).toContain(
       'Insufficient non-fallback generated local AI outputs observed.',
+    );
+  });
+
+  it('fails closed when rejected model output would otherwise dilute quality denominators', () => {
+    const report = computeLocalAiEvalReport({
+      tenantId,
+      caseCount: 8,
+      deidentifiedCaseCount: 8,
+      outputCount: 6,
+      fallbackCount: 0,
+      rejectedCount: 2,
+      generatedOutputCount: 6,
+      unsupportedCount: 0,
+      leakageCount: 0,
+      prepSchemaViolationCount: 0,
+      totalSourceRefs: 6,
+      matchedSourceRefs: 6,
+      koreanOutputCount: 6,
+      p95LatencyMs: 1200,
+    });
+
+    expect(report.technicalPass).toBe(false);
+    expect(report.rejectedOutputCount).toBe(2);
+    expect(report.unsupportedClaimRate).toBeCloseTo(2 / 8);
+    expect(report.warnings).toContain(
+      'Unsupported or rejected prep output rate exceeds the technical threshold.',
     );
   });
 });

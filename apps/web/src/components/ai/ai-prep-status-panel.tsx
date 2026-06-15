@@ -18,6 +18,7 @@ const statusLabel: Record<AiPrepDocumentReadinessStatus, string> = {
   partial: 'Partial',
   blocked: 'Blocked',
   failed: 'Failed',
+  rejected: 'Rejected',
   stale: 'Stale',
 };
 

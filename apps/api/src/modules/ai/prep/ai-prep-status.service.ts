@@ -65,6 +65,7 @@ interface MatterReadinessRow {
   pending_artifact_count: number;
   blocked_artifact_count: number;
   failed_artifact_count: number;
+  rejected_artifact_count: number;
   stale_artifact_count: number;
   updated_at: Date | null;
 }
@@ -145,6 +146,7 @@ export class AiPrepStatusService {
           pendingArtifactCount: row.pending_artifact_count,
           blockedArtifactCount: row.blocked_artifact_count,
           failedArtifactCount: row.failed_artifact_count,
+          rejectedArtifactCount: row.rejected_artifact_count,
           staleArtifactCount: row.stale_artifact_count,
           updatedAt: row.updated_at?.toISOString() ?? null,
         };
@@ -163,6 +165,9 @@ export class AiPrepStatusService {
           .length,
         failedDocumentCount: documents.filter((document) => document.readinessStatus === 'failed')
           .length,
+        rejectedDocumentCount: documents.filter(
+          (document) => document.readinessStatus === 'rejected',
+        ).length,
         staleDocumentCount: documents.filter((document) => document.readinessStatus === 'stale')
           .length,
         notReadyDocumentCount: documents.filter(
@@ -178,6 +183,10 @@ export class AiPrepStatusService {
         ),
         blockedArtifactCount: documents.reduce(
           (total, document) => total + document.blockedArtifactCount,
+          0,
+        ),
+        rejectedArtifactCount: documents.reduce(
+          (total, document) => total + document.rejectedArtifactCount,
           0,
         ),
         documents,
@@ -446,6 +455,9 @@ export class AiPrepStatusService {
             WHERE a.status = 'failed' AND a.is_stale = false
           )::int AS failed_artifact_count,
           count(a.ai_prep_artifact_id) FILTER (
+            WHERE a.status = 'rejected' AND a.is_stale = false
+          )::int AS rejected_artifact_count,
+          count(a.ai_prep_artifact_id) FILTER (
             WHERE a.status = 'stale' OR a.is_stale = true
           )::int AS stale_artifact_count,
           max(a.updated_at) AS updated_at
@@ -495,7 +507,7 @@ export class AiPrepStatusService {
               FROM ai_prep_artifacts a
               WHERE a.tenant_id = d.tenant_id
                 AND a.document_version_id = dv.version_id
-                AND (a.is_stale = true OR a.status IN ('stale', 'blocked', 'failed'))
+                AND (a.is_stale = true OR a.status IN ('stale', 'blocked', 'failed', 'rejected'))
             )
           )
         ORDER BY d.updated_at DESC, d.document_id ASC
@@ -514,6 +526,7 @@ function readinessStatus(artifacts: readonly ArtifactRow[]): AiPrepDocumentReadi
   if (artifacts.some((artifact) => artifact.status === 'completed')) return 'partial';
   if (artifacts.every((artifact) => artifact.status === 'blocked')) return 'blocked';
   if (artifacts.every((artifact) => artifact.status === 'failed')) return 'failed';
+  if (artifacts.every((artifact) => artifact.status === 'rejected')) return 'rejected';
   return 'pending';
 }
 
@@ -525,6 +538,7 @@ function matterDocumentReadiness(row: MatterReadinessRow): AiPrepDocumentReadine
   if (row.completed_artifact_count > 0) return 'partial';
   if (row.blocked_artifact_count === row.total_artifact_count) return 'blocked';
   if (row.failed_artifact_count === row.total_artifact_count) return 'failed';
+  if (row.rejected_artifact_count === row.total_artifact_count) return 'rejected';
   return 'pending';
 }
 
