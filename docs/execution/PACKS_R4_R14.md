@@ -60,6 +60,33 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R13-01 | `feat/pack-r13-01-enterprise-hardening` | 8 | `ENT-SSO-SAML-TUW-001` through `ENT-GATE-REPORT-TUW-001` (`docs/execution/TUW_R13_ENTERPRISE_HARDENING.md`) |
 | PACK-R14-01 | `feat/pack-r14-01-scale-learning` | 8 | `SCALE-PERF-BENCH-TUW-001` through `SCALE-GATE-REPORT-TUW-001` (`docs/execution/TUW_R14_SCALE_LEARNING.md`) |
 
+## PACK-LAI Local AI Operating Layer Family
+
+Status: post-R14 extension family, registered for implementation after the
+operator adopts `docs/execution/TUW_LOCAL_AI_OPERATING_LAYER.md` as the active
+execution contract. This family preserves DEC-11: product routes remain
+`local_gemma` only, external model calls remain blocked, and `docs/package/`
+remains read-only.
+
+| PACK | Branch | TUW count | TUW range |
+|---|---|---:|---|
+| PACK-LAI-00 | `feat/pack-lai-00-local-ai-plan` | 2 | `AI-LOCALPLAN-SCOPE-TUW-001` through `AI-LOCALPLAN-REVIEW-TUW-002` |
+| PACK-LAI-01 | `feat/pack-lai-01-gemma-runtime` | 6 | `AI-GEMMAGATE-HEALTH-TUW-001` through `AI-GEMMAGATE-CITESCHEMA-TUW-006` |
+| PACK-LAI-02 | `feat/pack-lai-02-post-upload-ai-prep` | 7 | `AI-PREP-SCHEMA-TUW-001` through `AI-PREP-INVALIDATE-TUW-007` |
+| PACK-LAI-03 | `feat/pack-lai-03-local-ai-workflows` | 6 | `AI-WORK-DOCSUMMARY-TUW-001` through `AI-WORK-QA-TUW-006` |
+| PACK-LAI-04 | `feat/pack-lai-04-ai-prep-ui` | 4 | `AI-UI-STATUS-TUW-001` through `AI-UI-FEEDBACK-TUW-004` |
+| PACK-LAI-05 | `feat/pack-lai-05-ai-ops-eval` | 5 | `AI-OPS-HEALTH-TUW-001` through `AI-OPS-GATE-TUW-005` |
+| PACK-LAI-06 | `feat/pack-lai-06-local-model-bench` | 3 | `AI-BENCH-CATALOG-TUW-001` through `AI-BENCH-DECISION-TUW-003` |
+
+Trigger conditions:
+
+- R14 technical completion remains intact.
+- The local Gemma runtime is available on a local/private endpoint or the
+  gateway degrades safely.
+- `packages/shared/src/types/ai-policy.ts` keeps `aiModelRouteKeys` restricted
+  to `local_gemma`.
+- Bench-only candidate models never add product routes or tenant-table output.
+
 ## Gate Reports
 
 Each release closes with a `docs/ledger/gates/R{N}_gate.md` report and an
