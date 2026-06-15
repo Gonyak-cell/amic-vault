@@ -21,6 +21,8 @@ import { AiSummaryService } from './features/ai-summary.service';
 import { AiEvidencePromptCompiler } from './generation/evidence-prompt.compiler';
 import { AiGroundedOutputGuard } from './generation/grounded-output.guard';
 import { LocalGemmaGenerationService } from './generation/local-gemma-generation.service';
+import { AiOpsController } from './ops/ai-ops.controller';
+import { AiOpsService } from './ops/ai-ops.service';
 import { AiPrepProcessor } from './prep/ai-prep.processor';
 import { AiPrepQueueService } from './prep/ai-prep-queue.service';
 import { AiPrepRepository } from './prep/ai-prep.repository';
@@ -49,6 +51,7 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
   controllers: [
     AiCitationController,
     AiFeedbackController,
+    AiOpsController,
     AiPrepStatusController,
     AiSessionController,
     AiSummaryController,
@@ -71,6 +74,7 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiEvidencePromptCompiler,
     AiGroundedOutputGuard,
     LocalGemmaGenerationService,
+    AiOpsService,
     PgRoleLookup,
     RequireRolesGuard,
     AiPrepProcessor,
@@ -92,6 +96,7 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiEvidencePromptCompiler,
     AiGroundedOutputGuard,
     LocalGemmaGenerationService,
+    AiOpsService,
     AiPrepQueueService,
     AiPrepRepository,
     AiPrepStatusService,

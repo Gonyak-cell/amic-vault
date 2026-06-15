@@ -819,6 +819,20 @@ export {
   type AiPrepStatus,
 } from './ai/prep';
 export {
+  localAiEndpointClasses,
+  localAiEndpointClassSchema,
+  localAiEvalReportSchema,
+  localAiOpsHealthSchema,
+  localAiOpsMetricsSchema,
+  localAiRuntimeStatuses,
+  localAiRuntimeStatusSchema,
+  type LocalAiEndpointClass,
+  type LocalAiEvalReportDto,
+  type LocalAiOpsHealthDto,
+  type LocalAiOpsMetricsDto,
+  type LocalAiRuntimeStatus,
+} from './ai/ops';
+export {
   aiSummaryRequestSchema,
   aiSummaryResponseSchema,
   aiSummarySectionSchema,
