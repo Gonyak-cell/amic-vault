@@ -180,6 +180,13 @@ export const auditMetadataKeys = [
   'candidate_route',
   'external_model_allowed',
   'control_hash',
+  'mailbox_fingerprint_hash',
+  'message_hash',
+  'attachment_count',
+  'filed_attachment_count',
+  'idempotency_hash',
+  'client_request_hash',
+  'outlook_status',
   ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

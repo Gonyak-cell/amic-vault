@@ -156,6 +156,22 @@ export const r4EmailAuditActions = [
   'EMAIL_FILED',
 ] as const;
 
+export const outlookAuditActions = [
+  'OUTLOOK_EMAIL_FILE_REQUESTED',
+  'OUTLOOK_EMAIL_FILE_COMPLETED',
+  'OUTLOOK_EMAIL_FILE_DENIED',
+  'OUTLOOK_EMAIL_FILE_FAILED',
+  'OUTLOOK_EMAIL_FILE_CANCELLED',
+  'OUTLOOK_ATTACHMENT_FILED',
+  'OUTLOOK_MATTER_SUGGESTIONS_VIEWED',
+  'OUTLOOK_SEND_FILE_REQUESTED',
+  'OUTLOOK_SEND_FILE_DENIED',
+  'OUTLOOK_DOCUMENT_INSERT_REQUESTED',
+  'OUTLOOK_DOCUMENT_INSERT_DENIED',
+  'OUTLOOK_FOLDER_MAPPING_CHANGED',
+  'OUTLOOK_AUTOFILE_JOB_RECORDED',
+] as const;
+
 export const auditActions = [
   ...r1AuditActions,
   ...r0CompatibilityActions,
@@ -178,6 +194,7 @@ export const auditActions = [
   ...r13EnterpriseAuditActions,
   ...r14ScaleLearningAuditActions,
   ...r4EmailAuditActions,
+  ...outlookAuditActions,
 ] as const;
 
 export type R1AuditAction = (typeof r1AuditActions)[number];
@@ -200,6 +217,7 @@ export type R12RecordsAuditAction = (typeof r12RecordsAuditActions)[number];
 export type R13EnterpriseAuditAction = (typeof r13EnterpriseAuditActions)[number];
 export type R14ScaleLearningAuditAction = (typeof r14ScaleLearningAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
+export type OutlookAuditAction = (typeof outlookAuditActions)[number];
 export type AuditAction = (typeof auditActions)[number];
 
 export function isAuditAction(value: string): value is AuditAction {

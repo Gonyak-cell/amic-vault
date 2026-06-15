@@ -30,6 +30,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { DocumentModule } from './modules/document/document.module';
 import { DlpModule } from './modules/dlp/dlp.module';
 import { EmailModule } from './modules/email/email.module';
+import { OutlookModule } from './modules/outlook/outlook.module';
 import { PreviewModule } from './modules/preview/preview.module';
 import { SearchModule } from './modules/search/search.module';
 
@@ -73,6 +74,7 @@ class AppController {
     SearchModule,
     DlpModule,
     EmailModule,
+    OutlookModule,
     DocumentModule,
     PreviewModule,
   ],
