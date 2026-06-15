@@ -106,6 +106,32 @@ Trigger conditions:
   to `local_gemma`.
 - Bench-only candidate models never add product routes or tenant-table output.
 
+## PACK-OA Outlook Add-in / Desktop Integration Family
+
+Status: planning extension registered after ADR-015 proposal. This family
+preserves ADR-014's desktop boundary: the Outlook add-in is a thin Office.js
+client over Vault APIs, not a desktop shell embed, local runtime, local cache, or
+audit authority. Live Microsoft 365, Graph, NAA, Smart Alert, folder mapping,
+auto-file, and tenant deployment behavior remain blocked until their explicit
+integration gates open.
+
+| PACK | Branch | TUW count | TUW range |
+|---|---|---:|---|
+| PACK-OA-00 | `codex/outlook-oa11-plan` | 4 | `OUTLOOK-ADR-TUW-001` through `OUTLOOK-EVIDENCE-TUW-001` |
+| PACK-OA-01 | future | 5 | `OUTLOOK-SERVERMAP-TUW-001` through `OUTLOOK-SERVERMAP-TUW-005` |
+| PACK-OA-02 | future | 5 | `OUTLOOK-API-CONTRACT-TUW-001` through `OUTLOOK-AUDIT-CONTRACT-TUW-001` |
+| PACK-OA-03 | future | 5 | `OUTLOOK-MAILBOX-TUW-001` through `OUTLOOK-AUDIT-META-TUW-001` |
+| PACK-OA-04 | future | 6 | `OUTLOOK-FILEAPI-TUW-001` through `OUTLOOK-IDEMP-TUW-002` |
+| PACK-OA-05 | future | 6 | `OUTLOOK-ADDIN-SHELL-TUW-001` through `OUTLOOK-ADDIN-ERROR-TUW-001` |
+| PACK-OA-06 | future | 5 | `OUTLOOK-AUTH-TUW-001` through `OUTLOOK-GRAPH-AUDIT-TUW-001` |
+| PACK-OA-07 | future | 5 | `OUTLOOK-SMART-TUW-001` through `OUTLOOK-SENDFILE-TUW-003` |
+| PACK-OA-08 | future | 5 | `OUTLOOK-INSERT-TUW-001` through `OUTLOOK-INSERT-TUW-005` |
+| PACK-OA-09 | future | 5 | `OUTLOOK-FOLDERMAP-TUW-001` through `OUTLOOK-AUTOFILE-TUW-002` |
+| PACK-OA-10 | future | 4 | `OUTLOOK-DEPLOY-TUW-001` through `OUTLOOK-DEPLOY-TUW-004` |
+| PACK-OA-11 | future | 8 | `OUTLOOK-VERIFY-TUW-001` through `OUTLOOK-VERIFY-TUW-008` |
+
+Planning contract: `docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md`.
+
 ## Gate Reports
 
 Each release closes with a `docs/ledger/gates/R{N}_gate.md` report and an

@@ -1,0 +1,85 @@
+# Outlook Add-in Threat Model Delta
+
+Date: 2026-06-16
+Scope: AMIC Vault Outlook Web Add-in strategy and OA00-OA11 planning.
+Related ADRs: `docs/adr/ADR-014-desktop-client-strategy.md`,
+`docs/adr/ADR-015-outlook-addin-strategy.md`.
+
+## Boundary
+
+The Outlook add-in is a thin Office.js client. It is not the AMIC Vault desktop
+client, not a local runtime, not a mailbox crawler, not an audit authority, and
+not a document repository.
+
+Server-owned controls remain authoritative:
+
+- authentication and add-in session validation,
+- tenant and mailbox-to-user mapping,
+- PermissionService and ethical wall decisions,
+- AuditService event creation,
+- PostgreSQL RLS,
+- Email Vault filing and attachment-to-Document lifecycle,
+- SearchPermissionScopeProvider and matter suggestion filtering,
+- records/legal hold policy,
+- external sharing policy,
+- AI policy.
+
+## Assets To Protect
+
+| Asset | Outlook Add-in Risk | Required Control |
+|---|---|---|
+| Vault session | Add-in tries to reuse PWA/browser cookies | Shared identity only; separate add-in session exchange. |
+| Mailbox identity | Tenant/user mismatch or stale mailbox mapping | Server-side mailbox fingerprint, tenant binding, and fail-closed mapping. |
+| Matter metadata | Recent/suggested matters leak unauthorized matters | Server-side query-stage permission filters; no client post-filtering. |
+| Email body and headers | Subject/body/raw headers appear in logs or evidence | Store only approved email records; audit metadata uses refs/hashes/counts. |
+| Attachments | Add-in or browser cache holds document bytes | Fetch through approved Graph/Office path only after gate; no local Vault cache. |
+| Filing jobs | Duplicate retries create duplicate filed emails | Idempotency key and canonical message hash. |
+| Inserted documents | Insert action becomes silent external sharing | R11+ policy gate; no public/guest/secure links before allowed. |
+| Folder mappings | Folder names expose client/matter information | Tenant RLS, reference-only audit, admin/user approval, no repo evidence values. |
+| Graph scopes | Excessive consent grants mailbox or file access | Least-privilege scope registry and deployment evidence. |
+| Smart Alerts | Client event failure bypasses filing policy | Treat as UX layer; server policy and audit remain source of truth. |
+
+## Threats And Mitigations
+
+| Threat | Mitigation | Evidence |
+|---|---|---|
+| Add-in shares PWA session cookies | Dedicated add-in session exchange; no cookie reuse assumption | OA06 auth contract tests |
+| Unauthorized matter suggestion | Search gateway injects PermissionService scope before result construction | OA11 permission negative tests |
+| Client post-filters search results | Server returns only authorized results; client never receives denied IDs | OA11 metadata leakage tests |
+| Duplicate filing from retry or resend | `Idempotency-Key`, mailbox fingerprint, `internetMessageId`, canonical hash | OA05 idempotency tests |
+| Raw mail content enters audit/logs | Metadata allow-list; unsafe key scan; audit refs/hashes only | OA11 audit coverage |
+| Smart Alert failure treated as compliance pass | Send-and-file policy stored server-side; event handler only prompts/blocks UX | OA07 Smart Alert fallback tests |
+| Insert creates external link before R11 | Insert action denied unless external sharing policy permits the exact channel | OA08 external-recipient tests |
+| Folder mapping leaks matter metadata | Folder mapping is tenant-scoped, permission-checked, and audited | OA09 folder mapping tests |
+| Graph scope overreach | Minimum-scope matrix and deployment approval | OA10 admin deployment evidence |
+| Local/offline cache stores Vault data | No local queue/cache for Vault copies; offline state is pending/unavailable only | OA11 offline negative tests |
+
+## Stop Conditions
+
+Stop Outlook add-in implementation if any change:
+
+- stores document bytes, email body, matter records, search results, AI context,
+  prompt/response, or audit rows locally;
+- logs or commits email subjects, bodies, filenames, raw headers, private
+  endpoints, account identifiers, cookies, tokens, or customer data;
+- performs matter suggestion, filing, insert, folder mapping, or status lookup
+  without PermissionService and tenant validation;
+- treats Smart Alerts as the only compliance control;
+- introduces live Graph/NAA/Outlook event behavior without an approved
+  integration gate;
+- creates public/guest/secure/external links before R11+ policy gates;
+- changes `docs/package/**`.
+
+## Test Hooks Required Before Live Implementation
+
+- Permission negative tests for suggestion, recent matter, filing, insert,
+  folder mapping, and job status.
+- Metadata leakage tests for denied responses, job status payloads, UI error
+  copy, logs, and audit metadata.
+- Tenant isolation tests for mailbox mapping and message/attachment dedupe.
+- Audit coverage tests for requested, completed, denied, failed, retried, and
+  cancelled transitions.
+- Idempotency tests for retry, resend, forward, migrated messages, and duplicate
+  attachments.
+- Offline/network failure tests proving no local Vault queue/cache.
+- Graph scope and deployment tests before tenant rollout.
