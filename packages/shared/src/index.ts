@@ -772,6 +772,17 @@ export {
   type AiCitationWarningCode,
 } from './ai/citation';
 export {
+  aiGroundedClaimKindSchema,
+  aiGroundedClaimSchema,
+  aiGroundedGenerationOutputSchema,
+  aiGroundedSectionSchema,
+  aiGroundedSourceRefSchema,
+  type AiGroundedClaimDto,
+  type AiGroundedClaimKind,
+  type AiGroundedGenerationOutputDto,
+  type AiGroundedSectionDto,
+} from './ai/generation';
+export {
   aiSummaryRequestSchema,
   aiSummaryResponseSchema,
   aiSummarySectionSchema,
