@@ -52,6 +52,7 @@ function firstRejectedPayload(repository: {
 function createProcessor(
   options: {
     generationStatus?: 'completed' | 'blocked';
+    packSourceRefs?: string[] | undefined;
     generationOutput?: {
       answer: string;
       sections: Array<{
@@ -132,7 +133,7 @@ function createProcessor(
       citationRequirements: {
         required: true,
         style: 'chunk_ref',
-        sourceRefs: [`chunk:${sourceChunk.chunkId}`],
+        sourceRefs: options.packSourceRefs ?? [`chunk:${sourceChunk.chunkId}`],
       },
       outputFormat: { kind: 'summary', locale: 'ko-KR' },
       escalationFlags: [],
@@ -313,6 +314,33 @@ describe('AiPrepProcessor', () => {
           artifactKind: 'document_profile',
         }),
       }),
+    );
+  });
+
+  it('fails closed before Gemma generation when evidence source refs are mismatched', async () => {
+    const { auditLogs, generation, repository, processor } = createProcessor({
+      packSourceRefs: ['chunk:unknown'],
+    });
+
+    await processor.handle(payload);
+
+    expect(generation.generateGrounded).not.toHaveBeenCalled();
+    expect(repository.upsertCompleted).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).not.toHaveBeenCalled();
+    expect(repository.upsertBlocked).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ reasonCode: 'AI_PREP_EVIDENCE_SOURCE_REF_MISMATCH' }),
+    );
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_BLOCKED',
+          metadata: expect.objectContaining({
+            ai_prep_status: 'blocked',
+            reason_code: 'AI_PREP_EVIDENCE_SOURCE_REF_MISMATCH',
+          }),
+        }),
+      ]),
     );
   });
 

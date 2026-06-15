@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
+  adaptEvidencePackToPrepSourceRefs,
   aiPrepArtifactAllowedClaimKinds,
   aiPrepGroundedGenerationOutputSchema,
   parseAiPrepArtifactPayload,
@@ -135,6 +136,18 @@ export class AiPrepProcessor {
         'ai_prep.policy:local_gemma_allowed',
       ],
     });
+    let prepAdapter: ReturnType<typeof adaptEvidencePackToPrepSourceRefs>;
+    try {
+      prepAdapter = adaptEvidencePackToPrepSourceRefs(pack);
+    } catch {
+      await this.recordBlocked(
+        source,
+        payload,
+        'AI_PREP_EVIDENCE_SOURCE_REF_MISMATCH',
+        source.chunks,
+      );
+      return;
+    }
     const compileOptions = {
       purpose: 'file_organization_prep' as const,
       artifactKind: payload.artifactKind,
@@ -152,7 +165,7 @@ export class AiPrepProcessor {
         const payloadJson = parsePrepPayload(
           {
             ...generationResult.output,
-            source_refs: pack.citationRequirements.sourceRefs,
+            source_refs: prepAdapter.source_refs,
           },
           payload.artifactKind,
         );
@@ -212,8 +225,9 @@ export class AiPrepProcessor {
       latencyMs?: number | undefined;
     },
   ): Promise<void> {
+    const prepAdapter = adaptEvidencePackToPrepSourceRefs(pack);
     const payloadJson = buildDeterministicRejectedPayload(
-      pack,
+      prepAdapter.source_refs,
       payload.artifactKind,
       input.reasonCode,
     );
@@ -357,11 +371,11 @@ function parsePrepPayload(
 }
 
 function buildDeterministicRejectedPayload(
-  pack: EvidencePackDto,
+  sourceRefsInput: readonly string[],
   artifactKind: AiPrepArtifactKind,
   reasonCode: string,
 ): AiPrepArtifactPayloadDto {
-  const sourceRefs = pack.citationRequirements.sourceRefs.slice(0, 50);
+  const sourceRefs = sourceRefsInput.slice(0, 50);
   const primarySourceRef = sourceRefs[0];
   if (!primarySourceRef) {
     throw new Error('deterministic ai prep rejected artifact requires source refs');

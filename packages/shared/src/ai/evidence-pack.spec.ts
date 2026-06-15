@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { evidencePackSchema } from './evidence-pack';
+import {
+  adaptEvidencePackToPrepSourceRefs,
+  evidencePackSchema,
+  type EvidencePackDto,
+} from './evidence-pack';
 
 const uuid = '11111111-1111-4111-8111-111111111111';
 const hash = 'a'.repeat(64);
 
-function validPack() {
-  return {
+function validPack(): EvidencePackDto {
+  return evidencePackSchema.parse({
     packId: uuid,
     userQuestion: 'summarize the termination clause',
     rewrittenQueries: ['summarize the termination clause'],
@@ -57,7 +61,7 @@ function validPack() {
     },
     outputFormat: { kind: 'retrieval', locale: 'ko-KR' },
     escalationFlags: [],
-  };
+  });
 }
 
 describe('evidencePackSchema', () => {
@@ -118,5 +122,64 @@ describe('evidencePackSchema', () => {
         window: { tokenBudget: 4, tokenCount: 5 },
       }),
     ).toThrow(/window token count exceeds budget/u);
+  });
+
+  it('adapts v1 evidence pack refs to v2 prep source_refs without raw text', () => {
+    const adapter = adaptEvidencePackToPrepSourceRefs(validPack());
+
+    expect(adapter.schema_version).toBe('evidence_pack.v2.prep_adapter');
+    expect(adapter.compatible_with).toEqual(['evidence_pack.v1']);
+    expect(adapter.source_refs).toEqual([`chunk:${uuid}`]);
+    expect(adapter.source_ref_map[0]).toMatchObject({
+      source_ref: `chunk:${uuid}`,
+      citation_ref: `chunk:${uuid}`,
+      chunk_id: uuid,
+      text_hash: hash,
+      source_text_hash: hash,
+    });
+    expect(JSON.stringify(adapter)).not.toMatch(/redacted context|body|snippet|raw|content/u);
+  });
+
+  it('fails closed when prep adapter refs are empty, duplicate, unknown, or mismatched', () => {
+    expect(() =>
+      adaptEvidencePackToPrepSourceRefs({
+        ...validPack(),
+        citationRequirements: { required: true, style: 'chunk_ref', sourceRefs: [] },
+      }),
+    ).toThrow(/requires source refs/u);
+
+    expect(() =>
+      adaptEvidencePackToPrepSourceRefs({
+        ...validPack(),
+        citationRequirements: {
+          required: true,
+          style: 'chunk_ref',
+          sourceRefs: [`chunk:${uuid}`, `chunk:${uuid}`],
+        },
+      }),
+    ).toThrow(/count mismatch|unique/u);
+
+    expect(() =>
+      adaptEvidencePackToPrepSourceRefs({
+        ...validPack(),
+        citationRequirements: {
+          required: true,
+          style: 'chunk_ref',
+          sourceRefs: ['chunk:22222222-2222-4222-8222-222222222222'],
+        },
+      }),
+    ).toThrow(/match chunk citations/u);
+
+    expect(() =>
+      adaptEvidencePackToPrepSourceRefs({
+        ...validPack(),
+        retrievedChunks: [
+          {
+            ...validPack().retrievedChunks[0]!,
+            citationRef: 'chunk:22222222-2222-4222-8222-222222222222',
+          },
+        ],
+      }),
+    ).toThrow(/match chunk citations/u);
   });
 });

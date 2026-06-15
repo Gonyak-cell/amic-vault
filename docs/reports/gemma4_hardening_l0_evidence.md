@@ -109,8 +109,8 @@ Read-only reviewer/explorer findings accepted into the continuation plan:
 | Gap | Impact | Continuation pack |
 |---|---|---|
 | No explicit `rejected` prep status or equivalent terminal contract | Addressed by ADR-GEMMA4-PREP-STATUS and migration `0069_add_ai_prep_rejected_status.sql` | PACK-LAI-14 |
-| Prep output schema and Evidence Pack source-ref shapes are only implicitly bridged | Ref mismatch risks adapter drift | PACK-LAI-15 |
-| EvidencePack v2 not versioned as a stable adapter contract | Future prompt/build changes can silently alter prep inputs | PACK-LAI-15 |
+| Prep output schema and Evidence Pack source-ref shapes are only implicitly bridged | Addressed by PACK-LAI-15 v2 prep adapter and scan gate | PACK-LAI-15 |
+| EvidencePack v2 not versioned as a stable adapter contract | Addressed by `evidence_pack.v2.prep_adapter` compatible with Evidence Pack v1 | PACK-LAI-15 |
 | Stale/rebuild semantics are not fully covered for permission/policy/metadata/source changes | Old artifacts may be treated as fresher than their source authorization | PACK-LAI-16 |
 | Retrieval plans are not artifact-specific enough for quality growth | File-organization quality can plateau despite safety pass | PACK-LAI-17 |
 | Eval corpus is still technical and small | Safety pass is not equivalent to operational quality proof | PACK-LAI-18 |
