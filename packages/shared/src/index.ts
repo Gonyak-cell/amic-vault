@@ -814,6 +814,8 @@ export {
   aiPrepPayloadBannedTopLevelKeys,
   aiPrepGroundedGenerationOutputSchema,
   parseAiPrepArtifactPayload,
+  aiPrepStaleReasons,
+  aiPrepStaleReasonSchema,
   aiPrepStatuses,
   aiPrepStatusSchema,
   type AiPrepArtifactKind,
@@ -829,6 +831,7 @@ export {
   type AiPrepMatterDocumentReadinessDto,
   type AiPrepMatterReadinessDto,
   type AiPrepMatterRetryResponseDto,
+  type AiPrepStaleReason,
   type AiPrepStatus,
 } from './ai/prep';
 export {

@@ -9,7 +9,12 @@ import type { QueryClient } from '../../audit/audit.service';
 import { SearchFilterBuilder } from '../../search/query/search-filter.builder';
 import type { SearchSqlFragment } from '../../search/query/search-filter.builder';
 import type { AiRetrievedChunk } from '../retrieval/ai-retrieval.types';
-import type { AiPrepArtifactKind, AiPrepArtifactPayloadDto } from '@amic-vault/shared';
+import type {
+  AiPrepArtifactKind,
+  AiPrepArtifactPayloadDto,
+  AiPrepStaleReason,
+} from '@amic-vault/shared';
+import { markAiPrepArtifactsStale } from './ai-prep-lifecycle';
 import type { AiPrepJobPayload, AiPrepSource, AiPrepSourceChunk } from './ai-prep.types';
 
 interface TargetRow {
@@ -214,23 +219,26 @@ export class AiPrepRepository {
     client: QueryClient,
     input: { tenantId: string; documentId: string; currentVersionId: string },
   ): Promise<ArtifactRow[]> {
-    const result = await client.query(
-      `
-        UPDATE ai_prep_artifacts
-        SET is_stale = true,
-          status = CASE WHEN status = 'pending' THEN 'stale' ELSE status END,
-          stale_reason = 'new_version',
-          stale_at = now(),
-          updated_at = now()
-        WHERE tenant_id = $1
-          AND document_id = $2
-          AND document_version_id <> $3
-          AND is_stale = false
-        RETURNING ai_prep_artifact_id, artifact_kind
-      `,
-      [input.tenantId, input.documentId, input.currentVersionId],
-    );
-    return result.rows as ArtifactRow[];
+    return this.markArtifactsStale(client, {
+      tenantId: input.tenantId,
+      documentId: input.documentId,
+      excludeVersionId: input.currentVersionId,
+      staleReason: 'new_version',
+    });
+  }
+
+  async markArtifactsStale(
+    client: QueryClient,
+    input: {
+      tenantId: string;
+      staleReason: AiPrepStaleReason;
+      matterId?: string | null | undefined;
+      documentId?: string | null | undefined;
+      versionId?: string | null | undefined;
+      excludeVersionId?: string | null | undefined;
+    },
+  ): Promise<ArtifactRow[]> {
+    return markAiPrepArtifactsStale(client, input);
   }
 
   async upsertBlocked(

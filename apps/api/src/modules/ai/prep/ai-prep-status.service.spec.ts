@@ -146,6 +146,35 @@ describe('AiPrepStatusService', () => {
     });
   });
 
+  it('returns stale prep artifacts without displaying stored completed payloads as ready', async () => {
+    const { service } = createService([
+      [{ document_id: documentId, version_id: versionId }],
+      [
+        {
+          ai_prep_artifact_id: artifactId,
+          artifact_kind: 'document_profile',
+          status: 'completed',
+          is_stale: true,
+          stale_reason: 'permission_changed',
+          source_chunk_ids: [chunkId],
+          generated_at: new Date('2026-06-15T00:00:00.000Z'),
+          updated_at: new Date('2026-06-15T00:00:01.000Z'),
+          payload_json: payload(),
+        },
+      ],
+    ]);
+
+    const status = await service.getDocumentStatus({ tenantId, userId }, documentId);
+
+    expect(status.readinessStatus).toBe('stale');
+    expect(status.artifacts[0]).toMatchObject({
+      status: 'completed',
+      isStale: true,
+      staleReason: 'permission_changed',
+      payload: null,
+    });
+  });
+
 
   it('fails closed before querying artifacts when document permission is denied', async () => {
     const { audit, documentPermission, service } = createService();

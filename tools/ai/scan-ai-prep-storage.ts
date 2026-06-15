@@ -18,6 +18,7 @@ interface ScanRow {
   source_ref_mismatch_count: string;
   source_ref_chunk_mismatch_count: string;
   source_hash_invalid_count: string;
+  invalid_stale_reason_count: string;
   external_model_route_count: string;
   disallowed_artifact_kind_count: string;
 }
@@ -37,6 +38,7 @@ interface ScanReport {
   sourceRefMismatchCount: number;
   sourceRefChunkMismatchCount: number;
   sourceHashInvalidCount: number;
+  invalidStaleReasonCount: number;
   externalModelRouteCount: number;
   disallowedArtifactKindCount: number;
   technicalPass: boolean;
@@ -224,6 +226,28 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
         ) AS source_hash_invalid_count,
         (
           SELECT count(*)::text
+          FROM ai_prep_artifacts
+          WHERE tenant_id = $1
+            AND stale_reason IS NOT NULL
+            AND stale_reason NOT IN (
+              'new_version',
+              'document_metadata_changed',
+              'document_ai_disabled',
+              'document_ai_enabled',
+              'matter_ai_policy_changed',
+              'ai_policy_parse_failed',
+              'permission_changed',
+              'ethical_wall_changed',
+              'source_chunks_changed',
+              'source_hash_changed',
+              'operator_retry',
+              'operator_rebuild',
+              'operator_reprocess_fallback',
+              'operator_reprocess_rejected'
+            )
+        ) AS invalid_stale_reason_count,
+        (
+          SELECT count(*)::text
           FROM artifacts
           WHERE model_route <> 'local_gemma'
         ) AS external_model_route_count,
@@ -259,6 +283,7 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
       source_ref_mismatch_count: '0',
       source_ref_chunk_mismatch_count: '0',
       source_hash_invalid_count: '0',
+      invalid_stale_reason_count: '0',
       external_model_route_count: '0',
       disallowed_artifact_kind_count: '0',
     }
@@ -281,6 +306,7 @@ function toReport(tenantId: string, row: ScanRow): ScanReport {
     sourceRefMismatchCount: Number(row.source_ref_mismatch_count),
     sourceRefChunkMismatchCount: Number(row.source_ref_chunk_mismatch_count),
     sourceHashInvalidCount: Number(row.source_hash_invalid_count),
+    invalidStaleReasonCount: Number(row.invalid_stale_reason_count),
     externalModelRouteCount: Number(row.external_model_route_count),
     disallowedArtifactKindCount: Number(row.disallowed_artifact_kind_count),
   };
@@ -295,6 +321,7 @@ function toReport(tenantId: string, row: ScanRow): ScanReport {
       report.sourceRefMismatchCount === 0 &&
       report.sourceRefChunkMismatchCount === 0 &&
       report.sourceHashInvalidCount === 0 &&
+      report.invalidStaleReasonCount === 0 &&
       report.externalModelRouteCount === 0 &&
       report.disallowedArtifactKindCount === 0,
   };

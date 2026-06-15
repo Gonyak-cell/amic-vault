@@ -7,6 +7,7 @@ import {
   aiPrepMatterReadinessSchema,
   aiPrepMatterRetryResponseSchema,
   parseAiPrepArtifactPayload,
+  type AiPrepStaleReason,
   type AiPrepArtifactKind,
   type AiPrepDocumentReadinessStatus,
   type AiPrepDocumentStatusDto,
@@ -31,6 +32,7 @@ interface ArtifactRow {
   artifact_kind: AiPrepArtifactKind;
   status: AiPrepStatus;
   is_stale: boolean;
+  stale_reason: AiPrepStaleReason | null;
   source_chunk_ids: string[];
   generated_at: Date | null;
   updated_at: Date;
@@ -113,6 +115,7 @@ export class AiPrepStatusService {
           artifactKind: artifact.artifact_kind,
           status: artifact.status,
           isStale: artifact.is_stale,
+          staleReason: artifact.stale_reason ?? null,
           sourceChunkCount: artifact.source_chunk_ids.length,
           generatedAt: artifact.generated_at?.toISOString() ?? null,
           updatedAt: artifact.updated_at.toISOString(),
@@ -227,7 +230,7 @@ export class AiPrepStatusService {
           metadata: {
             matter_id: matterId,
             enqueued_job_count: jobIds.length,
-            stale_reason: 'operator_retry',
+            stale_reason: 'operator_retry' satisfies AiPrepStaleReason,
           },
         },
         tx,
@@ -348,7 +351,7 @@ export class AiPrepStatusService {
     const result = await tx.query(
       `
         SELECT ai_prep_artifact_id, artifact_kind, status, is_stale,
-          source_chunk_ids, generated_at, updated_at, payload_json
+          stale_reason, source_chunk_ids, generated_at, updated_at, payload_json
         FROM ai_prep_artifacts
         WHERE tenant_id = $1
           AND document_version_id = $2

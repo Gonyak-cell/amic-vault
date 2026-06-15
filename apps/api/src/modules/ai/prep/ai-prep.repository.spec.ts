@@ -52,4 +52,54 @@ describe('AiPrepRepository', () => {
     expect(source?.chunks).toHaveLength(1);
     expect(source?.chunks[0]?.sourceTextHash).toBe(sourceRow.source_text_hash);
   });
+
+  it('marks scoped artifacts stale with allow-listed reasons only', async () => {
+    const repository = new AiPrepRepository({ build: vi.fn() } as never);
+    const client = {
+      query: vi.fn(async () => ({
+        rows: [
+          {
+            ai_prep_artifact_id: '11111111-1111-4111-8111-111111111119',
+            artifact_kind: 'document_profile',
+            matter_id: sourceRow.matter_id,
+            document_id: sourceRow.document_id,
+            document_version_id: sourceRow.version_id,
+          },
+        ],
+        rowCount: 1,
+      })),
+    };
+
+    const rows = await repository.markArtifactsStale(client, {
+      tenantId: sourceRow.tenant_id,
+      documentId: sourceRow.document_id,
+      staleReason: 'document_ai_disabled',
+    });
+
+    expect(rows).toHaveLength(1);
+    const firstCall = client.query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(firstCall[0]).toContain('stale_reason = $2');
+    expect(firstCall[0]).toContain('document_id = $3');
+    expect(firstCall[1]).toEqual([
+      sourceRow.tenant_id,
+      'document_ai_disabled',
+      sourceRow.document_id,
+    ]);
+  });
+
+  it('rejects free-form stale reasons before issuing SQL', async () => {
+    const repository = new AiPrepRepository({ build: vi.fn() } as never);
+    const client = {
+      query: vi.fn(async () => ({ rows: [], rowCount: 0 })),
+    };
+
+    await expect(
+      repository.markArtifactsStale(client, {
+        tenantId: sourceRow.tenant_id,
+        documentId: sourceRow.document_id,
+        staleReason: 'operator wrote a note' as never,
+      }),
+    ).rejects.toThrow();
+    expect(client.query).not.toHaveBeenCalled();
+  });
 });
