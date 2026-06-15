@@ -1,9 +1,9 @@
 # Production Execution Preflight
 
-Status: PASSED - PRODUCTION BOOTSTRAP AND SMOKE VERIFIED
-Date: 2026-06-14
-Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001
-Machine Status: production-smoke-passed
+Status: PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED
+Date: 2026-06-15
+Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15
+Machine Status: customer-launch-smoke-passed
 
 This preflight records the post-approval production release execution path after
 PR #82 merged. The earlier preflight ref
@@ -16,13 +16,13 @@ synthetic-only smoke evidence without committing provider-console evidence.
 
 | Item | Result |
 |---|---|
-| Current `main` merge SHA | `5ff600f60d86d7eb1122c882b265e9686ee02dc7` |
+| Current `main` merge SHA | `f4b69249c28ebf9e4465f36841af5d6c40fe7743` |
 | Production release-control SHA | `65e2db1b401f02c52c58b87bd7af755b24b68483` |
 | Launch blocker approvals | LRB-005 through LRB-014 approved |
 | Main CI after PR #82 merge | green |
 | AWS CLI access | available outside the repository through SSO profile |
 | AWS region checked | `ap-northeast-2` |
-| Customer data scope | synthetic-data-only |
+| Customer data scope | approved customer documents through app-controlled upload/versioning only |
 
 ## Non-Secret AWS Execution Summary
 
@@ -95,6 +95,32 @@ Concrete account IDs, ARNs, private endpoints, secret names beyond already
 approved public-safe refs, screenshots, cookies, tokens, and provider-console
 metadata remain outside this repository.
 
+## Customer Launch Evidence: 2026-06-15
+
+`APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` records that actual customer
+documents may be used for production/pilot launch only through the Vault
+app-controlled upload/versioning path. Customer documents, document bodies,
+private endpoint values, account identifiers, ARNs, screenshots containing
+private data, cookies, tokens, and secret values must not be committed to this
+repository or release evidence.
+
+`APPROVAL-LRB-014-JWS-OWNER-2026-06-15` records `jws` as support triage,
+customer contact, incident handling, and rollback authority owner.
+
+`PROD-MONITOR-ALARMS-AWS-2026-06-15` records strengthened production alarms:
+ALB 5xx, API/Web unhealthy targets, API/Web ECS CPU and memory, RDS CPU, RDS
+free storage, RDS connection count, and ECS stopped-task EventBridge routing to
+the production alert topic. The SNS email subscription for `jws` was requested
+and requires external email confirmation before notifications are delivered.
+
+`PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15` records final production
+temporary HTTPS target smoke for current main HEAD
+`f4b69249c28ebf9e4465f36841af5d6c40fe7743`: SMOKE-001 through SMOKE-015
+passed with pass=15 fail=0 skip=0. The smoke run used synthetic smoke
+identities and did not upload or expose customer documents; actual customer
+documents are approved separately and must enter only through the app-controlled
+upload/versioning path.
+
 ## Current Evidence Refs
 
 - `PROD-INFRA-AWS-001`
@@ -103,10 +129,14 @@ metadata remain outside this repository.
 - `PROD-BACKUP-AWS-001`
 - `PROD-DEPLOY-WORKFLOW-AWS-001`
 - `PROD-MONITOR-AWS-001`
+- `PROD-MONITOR-ALARMS-AWS-2026-06-15`
 - `PROD-HTTPS-TEMP-AWS-001`
 - `PROD-SMOKE-AWS-001`
 - `PROD-PATCH-D80FBB5-DEPLOY-2026-06-15`
 - `PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15`
+- `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15`
+- `APPROVAL-LRB-014-JWS-OWNER-2026-06-15`
+- `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15`
 
 ## Stop Conditions
 

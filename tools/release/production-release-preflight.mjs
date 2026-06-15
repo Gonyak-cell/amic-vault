@@ -56,10 +56,10 @@ for (const file of requiredFiles) {
 const preflight = contents.get('docs/release/production-execution-preflight.md');
 for (const expected of [
   'PROD-REL-PREFLIGHT-AWS-2026-06-14-001',
-  'PASSED - PRODUCTION BOOTSTRAP AND SMOKE VERIFIED',
-  '5ff600f60d86d7eb1122c882b265e9686ee02dc7',
+  'PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED',
+  'f4b69249c28ebf9e4465f36841af5d6c40fe7743',
   '65e2db1b401f02c52c58b87bd7af755b24b68483',
-  'synthetic-data-only',
+  'approved customer documents through app-controlled upload/versioning only',
   'Do not reuse the AWS staging target as production',
   'PROD-INFRA-AWS-001',
   'PROD-DEPLOY-WORKFLOW-AWS-001',
@@ -69,6 +69,10 @@ for (const expected of [
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
   'd80fbb5d5bf339ed11ddd6bca27b9e937bd83811',
   'SMOKE-015',
+  'PROD-MONITOR-ALARMS-AWS-2026-06-15',
+  'APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15',
+  'APPROVAL-LRB-014-JWS-OWNER-2026-06-15',
+  'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
 ]) {
   assertContains(preflight, expected, 'docs/release/production-execution-preflight.md');
 }
@@ -93,7 +97,7 @@ assertContains(
   'EV-PROD-007',
   'docs/release/evidence-register.md',
 );
-for (const expected of ['EV-PROD-008', 'EV-PROD-009']) {
+for (const expected of ['EV-PROD-008', 'EV-PROD-009', 'EV-PROD-010', 'EV-PROD-011']) {
   assertContains(
     contents.get('docs/release/evidence-register.md'),
     expected,
@@ -102,7 +106,7 @@ for (const expected of ['EV-PROD-008', 'EV-PROD-009']) {
 }
 assertContains(
   contents.get('docs/release/launch-control-sheet.md'),
-  'production-smoke-passed',
+  'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
   'docs/release/launch-control-sheet.md',
 );
 assertContains(
@@ -130,6 +134,11 @@ assertContains(
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
   'docs/release/launch-blocker-ledger.md',
 );
+assertContains(
+  contents.get('docs/release/launch-blocker-ledger.md'),
+  'APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15',
+  'docs/release/launch-blocker-ledger.md',
+);
 
 const docsPackageDiff = execFileSync('git', ['diff', '--name-only', '--', 'docs/package'], {
   cwd: repoRoot,
@@ -140,8 +149,8 @@ if (docsPackageDiff.length > 0) {
 }
 
 const result = {
-  evidenceRef: 'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
-  status: 'production-patch-smoke-passed',
+  evidenceRef: 'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
+  status: 'customer-launch-smoke-passed',
   deploymentExecuted: true,
 };
 

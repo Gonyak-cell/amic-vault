@@ -1,7 +1,7 @@
 # Launch Control Sheet
 
 Status: PRODUCTION DEPLOYED - MONITORING ACTIVE
-Date: 2026-06-14
+Date: 2026-06-15
 
 This is the one-page control sheet for the release-completion lane. It shows the
 current technical state, the commands Codex can run, and the approval refs that
@@ -9,8 +9,9 @@ have been recorded.
 
 Previous baseline label `PREPARED - NOT LAUNCHED` is superseded for the current
 release-control SHA. AWS staging passed, approvals were recorded, production
-bootstrap executed under non-secret evidence refs, and post-deploy smoke passed
-with synthetic data only.
+bootstrap executed under non-secret evidence refs, operational alarms were
+strengthened, final smoke passed, and actual customer documents are approved
+only through the app-controlled upload/versioning path.
 
 ## Current Technical State
 
@@ -23,11 +24,12 @@ with synthetic data only.
 | Local staging preflight | passed locally | `pnpm release:local-preflight` / EV-SMOKE-002 |
 | AWS staging main alignment | passed | STAGE-MAIN-MERGE-AWS-001 / EV-STAGE-009 / EV-SMOKE-005 |
 | Synthetic UAT technical evidence | accepted | SYNTH-UAT-TECH-2026-06-14-001 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / `pnpm release:uat` |
-| Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 / APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
+| Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15 / APPROVAL-LRB-014-JWS-OWNER-2026-06-15 |
 | Production gate approvals | approved | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
 | Production execution preflight | production-smoke-passed | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / `pnpm release:prod-preflight` |
 | Production patch release | production-smoke-passed | PROD-PATCH-D80FBB5-DEPLOY-2026-06-15 / PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15 |
-| Production monitoring | active-monitoring | PROD-MONITOR-AWS-001 |
+| Production monitoring | active-monitoring | PROD-MONITOR-AWS-001 / PROD-MONITOR-ALARMS-AWS-2026-06-15 |
+| Customer launch final smoke | passed | PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / EV-PROD-011 |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
 
@@ -74,6 +76,8 @@ approvals stay outside the repository.
   metadata.
 - Prepare PRs for operator merge after green CI.
 - Continue post-launch monitoring checks and rollback-readiness documentation.
+- Keep customer-document launch evidence reference-only while users upload
+  approved customer documents through the app-controlled path.
 
 ## Codex Must Stop
 

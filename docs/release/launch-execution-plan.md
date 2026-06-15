@@ -110,7 +110,9 @@ Pilot entry criteria:
 
 - Staging exit criteria complete.
 - LRB-005, LRB-006, LRB-007, and LRB-014 resolved; current launch scope is
-  synthetic-data-only for pilot/customer data.
+  approved for actual customer documents only through the Vault app-controlled
+  upload/versioning path, with no raw customer documents or private data copied
+  into release evidence.
 - Pilot users and tenant scope are approved outside the repository.
 
 ## Phase 5 - Production Gate Decisions

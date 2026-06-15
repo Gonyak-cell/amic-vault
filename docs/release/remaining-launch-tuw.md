@@ -23,12 +23,15 @@ It does not replace the R0-R14 implementation ledger.
 | REL-UAT-EXEC-TUW-007 | Execute and accept UAT-001 through UAT-020. | Product/QA/Codex | staging smoke pass, REL-UAT-TECH-EVIDENCE-TUW-007C | UAT evidence refs plus APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 | done |
 | REL-LAUNCH-CONTROL-TUW-007A | Provide one-page launch control sheet. | Codex | REL-SMOKE-AUTO-TUW-004 | `docs/release/launch-control-sheet.md` | prepared |
 | REL-ACTUAL-RUNBOOK-TUW-007B | Provide step-by-step actual launch runbook with commands, owners, evidence, and stop conditions. | Codex | REL-LAUNCH-CONTROL-TUW-007A | `docs/release/actual-launch-runbook.md` | prepared |
-| REL-PILOT-GATE-TUW-008 | Resolve pilot LRB-005/006/007/014. | Legal/Product/Ops | UAT pass | APPROVAL-LRB-005-2026-06-14, APPROVAL-LRB-006-2026-06-14, APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14, APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 | done |
+| REL-PILOT-GATE-TUW-008 | Resolve pilot LRB-005/006/007/014. | Legal/Product/Ops | UAT pass | APPROVAL-LRB-005-2026-06-14, APPROVAL-LRB-006-2026-06-14, APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15, APPROVAL-LRB-014-JWS-OWNER-2026-06-15 | done |
 | REL-PROD-GATE-TUW-009 | Resolve production LRB-009/010/011/012/013. | Security/Ops/Operator | pilot gate | APPROVAL-LRB-009-2026-06-14, APPROVAL-LRB-010-2026-06-14, APPROVAL-LRB-011-SYNTH-UAT-2026-06-14, APPROVAL-LRB-012-RESTORE-2026-06-14, APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 | done |
 | REL-BACKUP-RESTORE-DRILL-TUW-009A | Execute non-production AWS staging backup/restore technical rehearsal. | Codex/Ops | REL-STAGE-RUNTIME-RLS-TUW-005A | EV-PROD-004 / RESTORE-DRILL-AWS-001 | technical-pass |
 | REL-PROD-REL-TUW-010 | Execute production release runbook. | Ops/Codex | production gate approved | EV-PROD-006 / EV-PROD-007 / PROD-SMOKE-AWS-001 | done |
 | REL-PROD-PATCH-D80FBB5-TUW-010A | Deploy current main patch SHA with desktop/PWA/icon hardening to production. | Ops/Codex | production release executed, operator patch instruction | EV-PROD-008 / EV-PROD-009 / PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15 | done |
 | REL-MONITOR-TUW-011 | Start post-launch monitoring window. | Ops/Security | production release | PROD-MONITOR-AWS-001 | active-monitoring |
+| REL-PROD-CUSTOMER-DATA-TUW-011A | Approve actual customer document launch scope and controls. | Operator/Customer Owner | production release executed | EV-PILOT-005 / APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15 | done |
+| REL-PROD-MONITOR-ALARMS-TUW-011B | Strengthen production operational alarm routing for customer launch. | Codex/Ops | REL-MONITOR-TUW-011 | EV-PROD-010 / PROD-MONITOR-ALARMS-AWS-2026-06-15 | done |
+| REL-PROD-FINAL-SMOKE-TUW-011C | Run final production smoke against the temporary HTTPS target ref. | Codex/Ops | REL-PROD-MONITOR-ALARMS-TUW-011B | EV-PROD-011 / PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 | done |
 
 ## Stop Conditions
 

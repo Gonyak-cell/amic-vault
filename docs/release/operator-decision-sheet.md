@@ -40,8 +40,8 @@ Allowed values in this file:
 |---|---|---|---|---|
 | LRB-005 | approved | Legal/Product | APPROVAL-LRB-005-2026-06-14 | Pilot/launch terms, privacy notice, DPA, external portal terms, and retention/disposal language approved for the current launch scope. |
 | LRB-006 | approved | Product/Finance/Ops | APPROVAL-LRB-006-2026-06-14 | Pricing, support hours, SLA, escalation model, and billing owner approved for the current launch scope. |
-| LRB-007 | approved | Operator/Customer Owner | APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 | Pilot customer data is not approved for real customer documents; launch remains synthetic-data-only until a later explicit customer-data approval changes this row. |
-| LRB-014 | approved | Operator/Ops | APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 | Post-launch support triage, incident handling, and rollback authority owner is `jws-admin / Operator`. |
+| LRB-007 | approved | Operator/Customer Owner | APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15 / CHAT-2026-06-15-CUSTOMER-DATA-LAUNCH | Actual customer documents are approved for production/pilot use only through the Vault app-controlled upload/versioning path. No raw customer document, document body, private endpoint, account identifier, ARN, secret, token, cookie, or screenshot containing private data may be committed to the repository or release evidence. Permission, tenant isolation, DLP, audit, immutable-original, no external AI model route, and external-sharing controls remain mandatory. |
+| LRB-014 | approved | Operator/Ops | APPROVAL-LRB-014-JWS-OWNER-2026-06-15 / APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 | Post-launch support triage, customer contact, incident handling, and rollback authority owner is `jws`. Console/operator execution identity may remain `jws-admin`. |
 
 ## Production Decisions
 
