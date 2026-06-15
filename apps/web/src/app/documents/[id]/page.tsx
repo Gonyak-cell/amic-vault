@@ -50,7 +50,7 @@ export default function DocumentDetailPage({ params }: { params: { id: string } 
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-5 px-6 py-6">
       <section className="border-b pb-4">
         <p className="text-sm font-medium text-muted-foreground">{params.id}</p>
-        <h1 className="text-2xl font-semibold tracking-normal">{summary?.title ?? 'Document'}</h1>
+        <h1 className="text-2xl font-semibold tracking-normal">{summary?.title ?? '파일'}</h1>
       </section>
       {summary ? <DocumentPermissionPanel summary={summary} /> : null}
       {prepStatus ? <AiPrepStatusPanel status={prepStatus} /> : null}

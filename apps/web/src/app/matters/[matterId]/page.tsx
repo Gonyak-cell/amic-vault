@@ -66,14 +66,14 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
             {matter?.matterCode ?? params.matterId}
           </p>
           <h1 className="text-2xl font-semibold tracking-normal">
-            {matter?.matterName ?? 'Matter'}
+            {matter?.matterName ?? '사건'}
           </h1>
         </div>
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" size="sm">
             <Link
-              aria-label="Open matter team"
-              title="Open matter team"
+              aria-label="사건 팀 열기"
+              title="사건 팀 열기"
               href={`/matters/${params.matterId}/team`}
             >
               <Users className="h-4 w-4" />
@@ -85,11 +85,11 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
       {matter ? (
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div className="rounded-md border p-3">
-            <dt className="text-xs uppercase text-muted-foreground">Type</dt>
+            <dt className="text-xs uppercase text-muted-foreground">유형</dt>
             <dd className="mt-1 font-medium">{matter.matterType}</dd>
           </div>
           <div className="rounded-md border p-3">
-            <dt className="text-xs uppercase text-muted-foreground">Client</dt>
+            <dt className="text-xs uppercase text-muted-foreground">고객</dt>
             <dd className="mt-1 font-medium">{matter.clientId}</dd>
           </div>
         </dl>
@@ -98,7 +98,7 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold tracking-normal">Filed emails</h2>
+            <h2 className="text-base font-semibold tracking-normal">등록된 이메일</h2>
           </div>
           <div className="overflow-hidden rounded-md border">
             {emails.length > 0 ? (
@@ -111,8 +111,8 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
                     <div className="min-w-0">
                       <p className="truncate font-medium">{email.subject ?? email.emailId}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span>{email.documentIds.length} documents</span>
-                        <span>{email.thread.relatedEmailCount} related</span>
+                        <span>파일 {email.documentIds.length}개</span>
+                        <span>관련 이메일 {email.thread.relatedEmailCount}개</span>
                         {email.warningCodes.map((code) => (
                           <span
                             key={code}
@@ -120,16 +120,16 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
                           >
                             <AlertTriangle className="h-3 w-3" />
                             {code === 'outside_participant'
-                              ? 'Outside recipient'
-                              : 'Matter mismatch'}
+                              ? '외부 수신자'
+                              : '사건 불일치'}
                           </span>
                         ))}
                         {email.privilegeTagSuggestion ? (
                           <span className="inline-flex items-center gap-1 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-800">
                             <ShieldCheck className="h-3 w-3" />
                             {email.privilegeTagSuggestion.tag === 'attorney_client_privilege'
-                              ? 'Privilege suggested'
-                              : 'Confidential suggested'}
+                              ? '비밀특권 제안'
+                              : '기밀 제안'}
                           </span>
                         ) : null}
                       </div>
@@ -141,7 +141,7 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
                 ))}
               </ul>
             ) : (
-              <p className="px-4 py-3 text-sm text-muted-foreground">No filed emails</p>
+              <p className="px-4 py-3 text-sm text-muted-foreground">등록된 이메일이 없습니다.</p>
             )}
           </div>
         </section>

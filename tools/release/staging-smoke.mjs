@@ -107,10 +107,9 @@ await run('SMOKE-002', 'Web login page renders', async () => {
   assert(response.status === 200, `unexpected status ${response.status}`);
   loginHtml = await response.text();
   assert(loginHtml.includes('AMIC Vault'), 'login page missing AMIC Vault title');
-  assert(
-    loginHtml.includes('Tenant ID') || loginHtml.includes('워크스페이스 ID'),
-    'login page missing workspace id field',
-  );
+  assert(loginHtml.includes('워크스페이스 ID'), 'login page missing Korean workspace id field');
+  assert(!loginHtml.includes('Tenant ID'), 'login page still renders English tenant label');
+  assert(!loginHtml.includes('English'), 'login page still renders English language option');
   return { status: response.status };
 });
 
@@ -281,8 +280,8 @@ if (publicOnly) {
     const html = await response.text();
     assert(html.includes('AMIC Vault'), 'dashboard missing app shell');
     assert(
-      html.includes('Live Activity') || html.includes('Matter'),
-      'dashboard missing activity content',
+      html.includes('최근 활동') || html.includes('사건 대시보드'),
+      'dashboard missing Korean activity content',
     );
     return { status: response.status };
   });

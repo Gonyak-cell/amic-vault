@@ -16,31 +16,34 @@ import { Button } from '@/components/ui/button';
 
 type ActivityTab = 'activity' | 'documents' | 'permissions' | 'ai' | 'records';
 
-const tabs: Array<{ id: ActivityTab; label: string; summary: string }> = [
+const tabSummaries: Record<ActivityTab, string> = {
+  activity: '실제 감사 이벤트가 연결되면 최근 활동이 표시됩니다.',
+  documents: '실제 파일 버전과 보존 상태가 연결되면 표시됩니다.',
+  permissions: '실제 멤버 권한과 정보 차단 상태가 표시됩니다.',
+  ai: '승인된 실제 AI 근거 검토가 있을 때만 출처가 표시됩니다.',
+  records: '실제 보존 기간과 삭제 금지 상태가 연결되면 표시됩니다.',
+};
+
+const tabs: Array<{ id: ActivityTab; label: string }> = [
   {
     id: 'activity',
     label: '최근 활동',
-    summary: '실제 감사 이벤트가 연결되면 최근 활동이 표시됩니다.',
   },
   {
     id: 'documents',
     label: '파일',
-    summary: '실제 파일 버전과 보존 상태가 연결되면 표시됩니다.',
   },
   {
     id: 'permissions',
     label: '접근 권한',
-    summary: '실제 멤버 권한과 정보 차단 상태가 표시됩니다.',
   },
   {
     id: 'ai',
     label: 'AI 검토 근거',
-    summary: '승인된 실제 AI 근거 검토가 있을 때만 출처가 표시됩니다.',
   },
   {
     id: 'records',
     label: '보존 관리',
-    summary: '실제 보존 기간과 삭제 금지 상태가 연결되면 표시됩니다.',
   },
 ];
 
@@ -77,7 +80,7 @@ const emptyCopy = {
 
 export function VaultActivityClient() {
   const [activeTab, setActiveTab] = useState<ActivityTab>('activity');
-  const activeTabSummary = tabs.find((tab) => tab.id === activeTab)?.summary ?? tabs[0].summary;
+  const activeTabSummary = tabSummaries[activeTab];
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">

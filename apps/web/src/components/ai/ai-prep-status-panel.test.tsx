@@ -8,11 +8,13 @@ describe('AiPrepStatusPanel', () => {
   it('renders authorized prep output with citation refs and no raw hidden fields', () => {
     const html = renderToStaticMarkup(<AiPrepStatusPanel status={status()} />);
 
-    expect(html).toContain('AI prep');
+    expect(html).toContain('AI 준비');
     expect(html).toContain('document_brief');
     expect(html).toContain('Grounded answer.');
     expect(html).toContain('chunk:11111111-1111-4111-8111-111111111118');
-    expect(html).toContain('Mark document_brief useful');
+    expect(html).toContain('document_brief 유용함 표시');
+    expect(html).toContain('준비 완료');
+    expect(html).toContain('출처 1개');
     expect(html).not.toMatch(/prompt|raw source|model response|hidden unauthorized/i);
   });
 });
