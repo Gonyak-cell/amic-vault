@@ -53,6 +53,10 @@ function createProcessor(
   options: {
     generationStatus?: 'completed' | 'blocked';
     packSourceRefs?: string[] | undefined;
+    staleRows?: Array<{
+      ai_prep_artifact_id: string;
+      artifact_kind: 'document_profile';
+    }> | undefined;
     generationOutput?: {
       answer: string;
       sections: Array<{
@@ -83,7 +87,7 @@ function createProcessor(
   };
   const repository = {
     findTarget: vi.fn(async () => source),
-    markSupersededArtifactsStale: vi.fn(async () => []),
+    markSupersededArtifactsStale: vi.fn(async () => options.staleRows ?? []),
     findScopedSource: vi.fn(async () => source),
     buildEvidencePack: vi.fn(() => ({
       packId: '11111111-1111-4111-8111-111111111118',
@@ -230,6 +234,31 @@ describe('AiPrepProcessor', () => {
             generation_result: 'gemma',
             prompt_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
             response_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('audits superseded prep artifacts as stale with a bounded reason', async () => {
+    const { auditLogs, processor } = createProcessor({
+      staleRows: [
+        {
+          ai_prep_artifact_id: '11111111-1111-4111-8111-111111111199',
+          artifact_kind: 'document_profile',
+        },
+      ],
+    });
+
+    await processor.handle(payload);
+
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_STALE',
+          metadata: expect.objectContaining({
+            ai_prep_status: 'stale',
+            stale_reason: 'new_version',
           }),
         }),
       ]),

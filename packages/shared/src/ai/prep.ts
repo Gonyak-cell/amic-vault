@@ -54,6 +54,25 @@ export const aiPrepStatuses = [
 
 export const aiPrepStatusSchema = z.enum(aiPrepStatuses);
 
+export const aiPrepStaleReasons = [
+  'new_version',
+  'document_metadata_changed',
+  'document_ai_disabled',
+  'document_ai_enabled',
+  'matter_ai_policy_changed',
+  'ai_policy_parse_failed',
+  'permission_changed',
+  'ethical_wall_changed',
+  'source_chunks_changed',
+  'source_hash_changed',
+  'operator_retry',
+  'operator_rebuild',
+  'operator_reprocess_fallback',
+  'operator_reprocess_rejected',
+] as const;
+
+export const aiPrepStaleReasonSchema = z.enum(aiPrepStaleReasons);
+
 export const aiPrepPayloadBannedTopLevelKeys = [
   'body',
   'content',
@@ -161,6 +180,7 @@ export const aiPrepArtifactSummarySchema = z
     artifactKind: aiPrepArtifactKindSchema,
     status: aiPrepStatusSchema,
     isStale: z.boolean(),
+    staleReason: aiPrepStaleReasonSchema.nullable(),
     sourceChunkCount: z.number().int().min(0).max(50),
     generatedAt: z.string().datetime().nullable(),
     updatedAt: z.string().datetime(),
@@ -265,6 +285,7 @@ export const aiPrepMatterRetryResponseSchema = z
   .strict();
 
 export type AiPrepStatus = z.infer<typeof aiPrepStatusSchema>;
+export type AiPrepStaleReason = z.infer<typeof aiPrepStaleReasonSchema>;
 export type AiPrepArtifactPayloadDto = z.infer<typeof aiPrepArtifactPayloadSchema>;
 export type AiPrepDocumentReadinessStatus = z.infer<
   typeof aiPrepDocumentReadinessStatusSchema

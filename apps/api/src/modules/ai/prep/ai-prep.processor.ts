@@ -7,6 +7,7 @@ import {
   parseAiPrepArtifactPayload,
   type AiPrepArtifactKind,
   type AiPrepArtifactPayloadDto,
+  type AiPrepStaleReason,
   type EvidencePackDto,
 } from '@amic-vault/shared';
 import { AiPolicyService } from '../../ai-policy/ai-policy.service';
@@ -24,6 +25,7 @@ import type { AiPrepJobPayload, AiPrepSource, AiPrepSourceChunk } from './ai-pre
 @Injectable()
 export class AiPrepProcessor {
   private readonly logger = new Logger(AiPrepProcessor.name);
+  private readonly newVersionStaleReason: AiPrepStaleReason = 'new_version';
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -65,7 +67,7 @@ export class AiPrepProcessor {
                 document_id: payload.documentId,
                 version_id: payload.versionId,
                 matter_id: found.matterId,
-                stale_reason: 'new_version',
+                stale_reason: this.newVersionStaleReason,
               },
             },
             tx,

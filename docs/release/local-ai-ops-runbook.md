@@ -48,8 +48,8 @@ The response exposes model route, model tag, endpoint class, queue backlog, bloc
 ## Degradation
 
 - Runtime unavailable: health status `blocked`, prep upload/indexing continues without blocking document ingestion.
-- Invalid model output: artifact is `blocked`; raw response is not persisted.
-- Stale artifacts: matter dashboard retry reuses `ai.prep` singleton jobs and records `AI_PREP_REQUESTED`.
+- Invalid model output: artifact is `rejected`; raw response is not persisted.
+- Stale artifacts: status APIs hide stored payloads, record bounded `AI_PREP_STALE` reasons, and rebuild only through `ai.prep` singleton jobs.
 - Permission/policy uncertainty: fail closed as `PERMISSION_DENIED` or `AI_POLICY_BLOCKED`.
 
 ## Evaluation
@@ -60,13 +60,15 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm eval:local-ai -- --tenant-id 11111
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm eval:ai-gate -- --tenant-id 11111111-1111-4111-8111-111111111111
 ```
 
-## Reprocess Fallback Prep
+## Reprocess Prep Artifacts
 
-When `eval:local-ai` reports a high fallback rate after local Gemma hardening, reprocess current completed fallback artifacts through the same local-only `AiPrepProcessor` path. The tool logs bounded `AI_PREP_REQUESTED` audit records and processor completion logs `AI_PREP_COMPLETED`; it does not store prompts, source text, or raw model responses.
+When `eval:local-ai` reports a high fallback rate, or ops show stale/rejected prep artifacts after permission, policy, metadata, version, or source-chunk changes, reprocess artifacts through the same local-only `AiPrepProcessor` path. The tool logs bounded `AI_PREP_REQUESTED` audit records and processor completion logs `AI_PREP_COMPLETED` or `AI_PREP_REJECTED`; it does not update payloads directly and does not store prompts, source text, or raw model responses.
 
 ```bash
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --dry-run
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --limit 25
+PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --include all --dry-run
+PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --include stale,rejected,fallback --limit 25
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm eval:local-ai -- --tenant-id 11111111-1111-4111-8111-111111111111
 ```
 

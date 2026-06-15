@@ -4,6 +4,7 @@ import { Client } from 'pg';
 import {
   aiPrepArtifactKindSchema,
   type AiPrepArtifactKind,
+  type AiPrepStaleReason,
   type AuditMetadata,
 } from '@amic-vault/shared';
 import { AppModule } from '../app.module';
@@ -16,11 +17,16 @@ const defaultDatabaseUrl =
   process.env.DATABASE_URL ??
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
+const reprocessReasons = ['fallback', 'stale', 'rejected'] as const;
+
+type ReprocessReason = (typeof reprocessReasons)[number];
+
 export interface ReprocessArgs {
   tenantId: string;
   databaseUrl: string;
   limit: number;
   dryRun: boolean;
+  include: readonly ReprocessReason[];
   documentId?: string | undefined;
   artifactKind?: AiPrepArtifactKind | undefined;
 }
@@ -32,12 +38,14 @@ interface ReprocessCandidateRow {
   version_id: string;
   matter_id: string;
   artifact_kind: AiPrepArtifactKind;
-  fallback_reason_code: string;
+  candidate_reason: ReprocessReason;
+  reprocess_reason_code: string;
 }
 
 interface ReprocessResult {
   tenantId: string;
   dryRun: boolean;
+  include: readonly ReprocessReason[];
   candidateCount: number;
   processedCount: number;
   failedCount: number;
@@ -47,7 +55,8 @@ interface ReprocessResult {
     versionId: string;
     matterId: string;
     artifactKind: AiPrepArtifactKind;
-    fallbackReasonCode: string;
+    candidateReason: ReprocessReason;
+    reprocessReasonCode: string;
   }>;
 }
 
@@ -75,6 +84,7 @@ export function parseReprocessArgs(argv: readonly string[]): ReprocessArgs {
     databaseUrl: argValue(argv, '--database-url') ?? defaultDatabaseUrl,
     limit,
     dryRun: hasFlag(argv, '--dry-run'),
+    include: parseInclude(argValue(argv, '--include') ?? 'fallback'),
     documentId: argValue(argv, '--document-id'),
     artifactKind,
   };
@@ -159,6 +169,15 @@ async function collectReprocessCandidates(
       params.push(args.artifactKind);
       filters.push(`a.artifact_kind = $${params.length}`);
     }
+    params.push(
+      args.include.includes('fallback'),
+      args.include.includes('stale'),
+      args.include.includes('rejected'),
+    );
+    const includeFallbackPlaceholder = `$${params.length - 2}`;
+    const includeStalePlaceholder = `$${params.length - 1}`;
+    const includeRejectedPlaceholder = `$${params.length}`;
+
     params.push(args.limit);
     const limitPlaceholder = `$${params.length}`;
 
@@ -175,37 +194,59 @@ async function collectReprocessCandidates(
             AND metadata_json->>'generation_result' = 'fallback'
             AND metadata_json ? 'fallback_reason_code'
         )
-        SELECT a.ai_prep_artifact_id, a.tenant_id, a.document_id,
-          a.document_version_id AS version_id, a.matter_id, a.artifact_kind,
-          COALESCE(fa.fallback_reason_code, 'LOCAL_GEMMA_PAYLOAD_FALLBACK') AS fallback_reason_code
+        SELECT DISTINCT ON (a.document_id, current_dv.version_id, a.artifact_kind)
+          a.ai_prep_artifact_id, a.tenant_id, a.document_id,
+          current_dv.version_id, d.matter_id, a.artifact_kind,
+          CASE
+            WHEN a.is_stale = true OR a.status = 'stale' THEN 'stale'
+            WHEN a.status = 'rejected' THEN 'rejected'
+            ELSE 'fallback'
+          END AS candidate_reason,
+          CASE
+            WHEN a.is_stale = true OR a.status = 'stale' THEN COALESCE(a.stale_reason, 'operator_rebuild')
+            WHEN a.status = 'rejected' THEN COALESCE(a.failure_reason_code, 'AI_PREP_REJECTED')
+            ELSE COALESCE(fa.fallback_reason_code, 'LOCAL_GEMMA_PAYLOAD_FALLBACK')
+          END AS reprocess_reason_code
         FROM ai_prep_artifacts a
-        JOIN document_versions dv
-          ON dv.tenant_id = a.tenant_id
-          AND dv.document_id = a.document_id
-          AND dv.version_id = a.document_version_id
-          AND dv.version_status = 'current'
         JOIN documents d
           ON d.tenant_id = a.tenant_id
           AND d.document_id = a.document_id
           AND d.status <> 'deleted'
           AND d.ai_allowed = true
+        JOIN LATERAL (
+          SELECT version_id
+          FROM document_versions
+          WHERE tenant_id = d.tenant_id
+            AND document_id = d.document_id
+            AND version_status = 'current'
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) current_dv ON true
         LEFT JOIN fallback_audits fa
           ON fa.ai_prep_artifact_id = a.ai_prep_artifact_id
         WHERE ${filters.join('\n          AND ')}
-          AND a.status = 'completed'
-          AND a.is_stale = false
           AND (
-            fa.ai_prep_artifact_id IS NOT NULL
-            OR (
-              jsonb_typeof(a.payload_json->'warnings') = 'array'
-              AND EXISTS (
-                SELECT 1
-                FROM jsonb_array_elements_text(a.payload_json->'warnings') AS warning(value)
-                WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+            (
+              ${includeFallbackPlaceholder}::boolean = true
+              AND a.status = 'completed'
+              AND a.is_stale = false
+              AND (
+                fa.ai_prep_artifact_id IS NOT NULL
+                OR (
+                  jsonb_typeof(a.payload_json->'warnings') = 'array'
+                  AND EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements_text(a.payload_json->'warnings') AS warning(value)
+                    WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+                  )
+                )
               )
             )
+            OR (${includeStalePlaceholder}::boolean = true AND (a.is_stale = true OR a.status = 'stale'))
+            OR (${includeRejectedPlaceholder}::boolean = true AND a.status = 'rejected' AND a.is_stale = false)
           )
-        ORDER BY a.updated_at ASC, a.ai_prep_artifact_id ASC
+        ORDER BY a.document_id, current_dv.version_id, a.artifact_kind, a.updated_at ASC,
+          a.ai_prep_artifact_id ASC
         LIMIT ${limitPlaceholder}
       `,
       params,
@@ -217,17 +258,20 @@ async function collectReprocessCandidates(
 }
 
 function prepReprocessAuditMetadata(candidate: ReprocessCandidateRow): AuditMetadata {
-  return {
+  const metadata: AuditMetadata = {
     document_id: candidate.document_id,
     version_id: candidate.version_id,
     matter_id: candidate.matter_id,
     ai_prep_artifact_id: candidate.ai_prep_artifact_id,
     ai_prep_kind: candidate.artifact_kind,
     ai_prep_status: 'pending',
-    reason_code: 'AI_PREP_FALLBACK_REPROCESS',
-    fallback_reason_code: candidate.fallback_reason_code,
-    stale_reason: 'operator_reprocess_fallback',
+    reason_code: reprocessAuditReasonCode(candidate.candidate_reason),
+    stale_reason: reprocessStaleReason(candidate.candidate_reason),
   };
+  if (candidate.candidate_reason === 'fallback') {
+    metadata.fallback_reason_code = candidate.reprocess_reason_code;
+  }
+  return metadata;
 }
 
 function toJobPayload(candidate: ReprocessCandidateRow): AiPrepJobPayload {
@@ -249,6 +293,7 @@ function printResult(
   const result: ReprocessResult = {
     tenantId: args.tenantId,
     dryRun: args.dryRun,
+    include: args.include,
     candidateCount: candidates.length,
     processedCount,
     failedCount,
@@ -258,7 +303,8 @@ function printResult(
       versionId: candidate.version_id,
       matterId: candidate.matter_id,
       artifactKind: candidate.artifact_kind,
-      fallbackReasonCode: candidate.fallback_reason_code,
+      candidateReason: candidate.candidate_reason,
+      reprocessReasonCode: candidate.reprocess_reason_code,
     })),
   };
   console.log(JSON.stringify(result, null, 2));
@@ -271,6 +317,44 @@ function argValue(argv: readonly string[], name: string): string | undefined {
 
 function hasFlag(argv: readonly string[], name: string): boolean {
   return argv.includes(name);
+}
+
+function parseInclude(raw: string): ReprocessReason[] {
+  const values = raw
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (values.includes('all')) return [...reprocessReasons];
+  const parsed = [...new Set(values)];
+  if (
+    parsed.length === 0 ||
+    parsed.some((value) => !(reprocessReasons as readonly string[]).includes(value))
+  ) {
+    throw new Error('--include must be fallback, stale, rejected, or all');
+  }
+  return parsed as ReprocessReason[];
+}
+
+function reprocessAuditReasonCode(reason: ReprocessReason): string {
+  switch (reason) {
+    case 'fallback':
+      return 'AI_PREP_FALLBACK_REPROCESS';
+    case 'stale':
+      return 'AI_PREP_STALE_REBUILD';
+    case 'rejected':
+      return 'AI_PREP_REJECTED_REPROCESS';
+  }
+}
+
+function reprocessStaleReason(reason: ReprocessReason): AiPrepStaleReason {
+  switch (reason) {
+    case 'fallback':
+      return 'operator_reprocess_fallback';
+    case 'stale':
+      return 'operator_rebuild';
+    case 'rejected':
+      return 'operator_reprocess_rejected';
+  }
 }
 
 if (require.main === module) {

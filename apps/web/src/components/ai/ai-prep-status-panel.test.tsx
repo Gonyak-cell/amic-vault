@@ -29,6 +29,7 @@ function status(): AiPrepDocumentStatusDto {
         artifactKind: 'document_profile',
         status: 'completed',
         isStale: false,
+        staleReason: null,
         sourceChunkCount: 1,
         generatedAt: '2026-06-15T00:00:00.000Z',
         updatedAt: '2026-06-15T00:00:01.000Z',

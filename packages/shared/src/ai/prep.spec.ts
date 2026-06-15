@@ -7,6 +7,7 @@ import {
   aiPrepFeedbackRequestSchema,
   aiPrepMatterReadinessSchema,
   aiPrepPayloadBannedTopLevelKeys,
+  aiPrepStaleReasonSchema,
   aiPrepStatusSchema,
   parseAiPrepArtifactPayload,
 } from './prep';
@@ -41,6 +42,9 @@ describe('ai prep shared contract', () => {
     expect(aiPrepStatusSchema.parse('completed')).toBe('completed');
     expect(aiPrepStatusSchema.parse('blocked')).toBe('blocked');
     expect(aiPrepStatusSchema.parse('rejected')).toBe('rejected');
+    expect(aiPrepStaleReasonSchema.parse('new_version')).toBe('new_version');
+    expect(aiPrepStaleReasonSchema.parse('permission_changed')).toBe('permission_changed');
+    expect(() => aiPrepStaleReasonSchema.parse('operator free-form note')).toThrow();
   });
 
   it('accepts grounded payloads with source refs', () => {
@@ -110,6 +114,7 @@ describe('ai prep shared contract', () => {
           artifactKind: 'document_profile',
           status: 'completed',
           isStale: false,
+          staleReason: null,
           sourceChunkCount: 1,
           generatedAt: '2026-06-15T00:00:00.000Z',
           updatedAt: '2026-06-15T00:00:01.000Z',
@@ -133,6 +138,7 @@ describe('ai prep shared contract', () => {
           artifactKind: 'document_profile',
           status: 'rejected',
           isStale: false,
+          staleReason: null,
           sourceChunkCount: 1,
           generatedAt: null,
           updatedAt: '2026-06-15T00:00:01.000Z',
