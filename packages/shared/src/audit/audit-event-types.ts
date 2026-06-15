@@ -62,6 +62,14 @@ export const r6AiAuditActions = [
   'AI_RETRIEVAL_EXCLUDED',
 ] as const;
 
+export const r6AiPrepAuditActions = [
+  'AI_PREP_REQUESTED',
+  'AI_PREP_COMPLETED',
+  'AI_PREP_BLOCKED',
+  'AI_PREP_FAILED',
+  'AI_PREP_STALE',
+] as const;
+
 export const r6AiFeedbackAuditActions = ['AI_FEEDBACK_RECORDED'] as const;
 
 export const r7GraphAuditActions = [
@@ -158,6 +166,7 @@ export const auditActions = [
   ...r5AuditConsoleActions,
   ...r6AiPolicyAuditActions,
   ...r6AiAuditActions,
+  ...r6AiPrepAuditActions,
   ...r6AiFeedbackAuditActions,
   ...r7GraphAuditActions,
   ...r8ContractAuditActions,
@@ -179,6 +188,7 @@ export type R5BreakGlassAuditAction = (typeof r5BreakGlassAuditActions)[number];
 export type R5AuditConsoleAction = (typeof r5AuditConsoleActions)[number];
 export type R6AiPolicyAuditAction = (typeof r6AiPolicyAuditActions)[number];
 export type R6AiAuditAction = (typeof r6AiAuditActions)[number];
+export type R6AiPrepAuditAction = (typeof r6AiPrepAuditActions)[number];
 export type R6AiFeedbackAuditAction = (typeof r6AiFeedbackAuditActions)[number];
 export type R7GraphAuditAction = (typeof r7GraphAuditActions)[number];
 export type R8ContractAuditAction = (typeof r8ContractAuditActions)[number];
