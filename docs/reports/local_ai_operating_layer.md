@@ -4,7 +4,7 @@ Date: 2026-06-15
 
 ## Summary
 
-The Local AI Operating Layer is implemented as a local-only Gemma route with permission-scoped retrieval, post-upload prep artifacts, UI status surfaces, structured feedback, and operations/eval checks.
+The Local AI Operating Layer is implemented as a local-only Gemma route with permission-scoped retrieval, post-upload prep artifacts, UI status surfaces, structured feedback, operations/eval checks, and a bench-only lane for comparing newer local candidates without changing the product route.
 
 ## Implemented Controls
 
@@ -18,6 +18,7 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 | Structured feedback | Prep artifact feedback stores reason codes only. |
 | Operations surface | Admin health/metrics expose endpoint class and aggregate counts only. |
 | Eval gate | `pnpm eval:local-ai` checks deidentified cases, leakage, citations, unsupported claims, Korean output heuristic, and latency. |
+| Bench-only candidates | `tools/bench` compares cataloged local candidates with default-off execution and hash-only ignored outputs. |
 
 ## Verification Snapshot
 
@@ -30,6 +31,9 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 - `pnpm test:integration`: PASS; 85 files / 212 tests
 - `pnpm eval:local-ai`: PASS; permission leakage 0, citation accuracy 100.0%, unsupported claim rate 0.0%
 - `pnpm eval:ai-gate`: PASS; external model call attempts 0, audit coverage 100.0%
+- `pnpm exec vitest run tools/bench/local-model-bench.spec.ts`: PASS; 4 tests
+- `pnpm bench:local-models -- --models gemma4-12b-baseline,qwen3-8b`: PASS disabled/default-off
+- `AI_BENCH_HARNESS_ENABLED=true pnpm bench:local-models -- --models gemma4-12b-baseline`: PASS; `gemma4:12b` 2/2 completed on synthetic deidentified fixture
 - `ai_prep_artifacts` payload scan: PASS; forbidden top-level key count 0, max payload bytes 0 in current seeded DB
 - `pnpm docs:frozen`: PASS
 - `pnpm backlog:validate`: PASS
@@ -43,6 +47,7 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 - No prompt, raw source, or raw model response top-level keys in AI prep artifacts.
 - No free-text prep feedback comments.
 - No production authorization implied by this report.
+- No non-Gemma candidate is proposed as a product route by PACK-LAI-06.
 
 ## Open Readiness Items
 
