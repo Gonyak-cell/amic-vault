@@ -21,6 +21,7 @@ export {
   r12RecordsAuditActions,
   r13EnterpriseAuditActions,
   r14ScaleLearningAuditActions,
+  outlookAuditActions,
   type AuditAction,
   type R1AuditAction,
   type R2DocumentAuditAction,
@@ -42,6 +43,7 @@ export {
   type R12RecordsAuditAction,
   type R13EnterpriseAuditAction,
   type R14ScaleLearningAuditAction,
+  type OutlookAuditAction,
 } from '../audit/audit-event-types';
 export {
   auditMetadataKeys,

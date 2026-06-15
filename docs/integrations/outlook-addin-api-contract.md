@@ -18,17 +18,17 @@ authorized by this document.
 
 ## Endpoint Summary
 
-| Endpoint | Method | DTO | Gate |
-|---|---|---|---|
-| `/v1/m365/outlook/filing-requests` | POST | `CreateOutlookEmailFilingRequestDto` | OA04 |
-| `/v1/m365/outlook/filing-requests/:id` | GET | `OutlookFilingRequestStatusDto` | OA04 |
-| `/v1/m365/outlook/filing-requests/:id/cancel` | POST | `CancelOutlookFilingRequestDto` | OA04 |
-| `/v1/search/matter-suggestions` | POST | `MatterSuggestionQueryDto` | OA04, Search Gate |
-| `/v1/m365/outlook/send-file-requests` | POST | `CreateOutlookSendFileRequestDto` | OA07 |
-| `/v1/m365/outlook/document-insertions` | POST | `CreateOutlookDocumentInsertionDto` | OA08, R11/R13 gates |
-| `/v1/m365/outlook/folder-mappings` | POST | `CreateOutlookFolderMappingDto` | OA09 |
-| `/v1/m365/outlook/folder-mappings/:id` | PATCH | `UpdateOutlookFolderMappingDto` | OA09 |
-| `/v1/m365/outlook/deployment-readiness` | GET | `OutlookDeploymentReadinessDto` | OA10 |
+| Endpoint                                      | Method | DTO                                  | Gate                |
+| --------------------------------------------- | ------ | ------------------------------------ | ------------------- |
+| `/v1/m365/outlook/filing-requests`            | POST   | `CreateOutlookEmailFilingRequestDto` | OA04                |
+| `/v1/m365/outlook/filing-requests/:id`        | GET    | `OutlookFilingRequestStatusDto`      | OA04                |
+| `/v1/m365/outlook/filing-requests/:id/cancel` | POST   | `CancelOutlookFilingRequestDto`      | OA04                |
+| `/v1/search/matter-suggestions`               | POST   | `MatterSuggestionQueryDto`           | OA04, Search Gate   |
+| `/v1/m365/outlook/send-file-requests`         | POST   | `CreateOutlookSendFileRequestDto`    | OA07                |
+| `/v1/m365/outlook/document-insertions`        | POST   | `CreateOutlookDocumentInsertionDto`  | OA08, R11/R13 gates |
+| `/v1/m365/outlook/folder-mappings`            | POST   | `CreateOutlookFolderMappingDto`      | OA09                |
+| `/v1/m365/outlook/folder-mappings/:id`        | PATCH  | `UpdateOutlookFolderMappingDto`      | OA09                |
+| `/v1/m365/outlook/deployment-readiness`       | GET    | `OutlookDeploymentReadinessDto`      | OA10                |
 
 ## Core DTOs
 
@@ -38,7 +38,7 @@ authorized by this document.
 type OutlookItemRefDto = {
   mailboxFingerprint: string;
   outlookItemIdHash: string;
-  internetMessageId?: string;
+  internetMessageIdHash?: string;
   conversationIdHash?: string;
   canonicalMessageSha256: string;
   sentAt?: string;
@@ -48,8 +48,9 @@ type OutlookItemRefDto = {
 };
 ```
 
-Do not include subject, body, raw headers, raw participant addresses, or
-attachment filenames in the DTO.
+Do not include raw mailbox address, raw Outlook/Graph item id, subject, body,
+raw headers, raw participant addresses, raw Internet Message-ID, or attachment
+filenames in the DTO.
 
 ### `OutlookAttachmentRefDto`
 
@@ -75,7 +76,7 @@ type CreateOutlookEmailFilingRequestDto = {
   matterId: string;
   message: OutlookItemRefDto;
   attachments: OutlookAttachmentRefDto[];
-  sourceClient: "outlook-web-addin";
+  sourceClient: 'outlook-web-addin';
   clientRequestId: string;
   idempotencyKey: string;
 };
@@ -83,6 +84,8 @@ type CreateOutlookEmailFilingRequestDto = {
 
 Server behavior:
 
+- default gate: when `OUTLOOK_ADDIN_ENABLED` is not `true`, deny fail-closed
+  and record `OUTLOOK_EMAIL_FILE_DENIED` with reference-only metadata;
 - validate tenant, user, mailbox mapping, and `matterId`;
 - call PermissionService for upload/file-to-matter permission;
 - create a filing request and pg-boss job in one transaction;
@@ -94,13 +97,13 @@ Server behavior:
 ```ts
 type OutlookFilingRequestStatusDto = {
   id: string;
-  status: "queued" | "processing" | "completed" | "denied" | "failed" | "cancelled";
+  status: 'queued' | 'processing' | 'completed' | 'denied' | 'failed' | 'cancelled';
   matterId: string;
   createdAt: string;
   updatedAt: string;
   emailRecordId?: string;
   filedAttachmentCount?: number;
-  deniedReasonCode?: "permission_denied" | "policy_denied" | "stale_mailbox" | "duplicate";
+  deniedReasonCode?: 'permission_denied' | 'policy_denied' | 'stale_mailbox' | 'duplicate';
 };
 ```
 
@@ -111,7 +114,7 @@ is returned.
 
 ```ts
 type MatterSuggestionQueryDto = {
-  sourceClient: "outlook-web-addin";
+  sourceClient: 'outlook-web-addin';
   mailboxFingerprint: string;
   participantDomainHashes: string[];
   subjectHash?: string;
@@ -133,7 +136,7 @@ Server behavior:
 type CreateOutlookSendFileRequestDto = {
   matterId?: string;
   message: OutlookItemRefDto;
-  selectedPolicyMode: "allow" | "warn" | "block";
+  selectedPolicyMode: 'allow' | 'warn' | 'block';
   clientRequestId: string;
   idempotencyKey: string;
 };
@@ -149,7 +152,7 @@ type CreateOutlookDocumentInsertionDto = {
   documentId: string;
   versionId?: string;
   targetMessage: OutlookItemRefDto;
-  insertionMode: "attach-copy" | "internal-reference";
+  insertionMode: 'attach-copy' | 'internal-reference';
   hasExternalRecipients: boolean;
   clientRequestId: string;
   idempotencyKey: string;
@@ -185,6 +188,7 @@ Initial event catalog:
 - `OUTLOOK_EMAIL_FILE_COMPLETED`
 - `OUTLOOK_EMAIL_FILE_DENIED`
 - `OUTLOOK_EMAIL_FILE_FAILED`
+- `OUTLOOK_EMAIL_FILE_CANCELLED`
 - `OUTLOOK_ATTACHMENT_FILED`
 - `OUTLOOK_MATTER_SUGGESTIONS_VIEWED`
 - `OUTLOOK_SEND_FILE_REQUESTED`
@@ -209,6 +213,8 @@ Audit metadata allow-list:
 - `policy_mode`,
 - `reason_code`,
 - `idempotency_hash`.
+- `client_request_hash`,
+- `outlook_status`.
 
 ## Error Handling
 

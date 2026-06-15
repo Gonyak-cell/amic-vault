@@ -46,6 +46,7 @@ export {
   r12RecordsAuditActions,
   r13EnterpriseAuditActions,
   r14ScaleLearningAuditActions,
+  outlookAuditActions,
   type AuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
@@ -69,6 +70,7 @@ export {
   type R12RecordsAuditAction,
   type R13EnterpriseAuditAction,
   type R14ScaleLearningAuditAction,
+  type OutlookAuditAction,
 } from './types/audit';
 
 export {
@@ -503,6 +505,24 @@ export {
   type UploadEmailToMatterFieldsDto,
   type UploadEmailToMatterResponseDto,
 } from './email/email-types';
+export {
+  cancelOutlookFilingRequestSchema,
+  createOutlookEmailFilingRequestSchema,
+  outlookAttachmentRefSchema,
+  outlookDeniedReasonCodes,
+  outlookFilingRequestStatuses,
+  outlookHashSchema,
+  outlookItemRefSchema,
+  outlookSourceClients,
+  type CancelOutlookFilingRequestDto,
+  type CreateOutlookEmailFilingRequestDto,
+  type OutlookAttachmentRefDto,
+  type OutlookDeniedReasonCode,
+  type OutlookFilingRequestStatus,
+  type OutlookFilingRequestStatusDto,
+  type OutlookItemRefDto,
+  type OutlookSourceClient,
+} from './outlook/outlook-types';
 export {
   emailMetadataWarningCodes,
   emailParticipantRoles,
