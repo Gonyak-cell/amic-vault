@@ -13,6 +13,7 @@ export const aiTaskKindSchema = z.enum([
   'email_thread_summary',
   'clause_analysis',
   'risk_extraction',
+  'matter_qa',
   'legal_conclusion',
   'external_communication',
   'unsupported_graph',

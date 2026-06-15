@@ -22,6 +22,7 @@ const mediumRiskTasks = new Set<AiTaskKind>([
   'matter_summary',
   'email_thread_summary',
   'clause_analysis',
+  'matter_qa',
 ]);
 const highRiskTasks = new Set<AiTaskKind>([
   'risk_extraction',

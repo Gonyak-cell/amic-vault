@@ -97,6 +97,12 @@ function purposeForTask(taskKind: AiTaskKind | undefined): AiPolicyPurpose {
   ) {
     return 'summary';
   }
-  if (taskKind === 'retrieval' || taskKind === 'query_rewrite') return 'retrieval';
+  if (
+    taskKind === 'retrieval' ||
+    taskKind === 'query_rewrite' ||
+    taskKind === 'matter_qa'
+  ) {
+    return 'retrieval';
+  }
   return 'evaluation';
 }

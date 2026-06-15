@@ -145,6 +145,44 @@ describe('LocalGemmaGateway', () => {
     ).resolves.toMatchObject({ status: 'blocked', reasonCode: 'schema_invalid' });
   });
 
+  it('default transport exposes response json for health and generation', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/tags')) {
+        return new Response(
+          JSON.stringify({ models: [{ name: 'gemma4:12b', model: 'gemma4:12b' }] }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ model: 'gemma4:12b', response: '{"answer":"ok"}' }), {
+        status: 200,
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const gateway = new LocalGemmaGateway({
+      route: 'local_gemma',
+      enabled: true,
+      endpoint: 'http://127.0.0.1:11434',
+    });
+
+    try {
+      await expect(
+        gateway.generateJson({ prompt: 'json' }, (value) => {
+          if (
+            value &&
+            typeof value === 'object' &&
+            'answer' in value &&
+            typeof value.answer === 'string'
+          ) {
+            return value;
+          }
+          throw new Error('schema invalid');
+        }),
+      ).resolves.toMatchObject({ status: 'completed', json: { answer: 'ok' } });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('keeps local_gemma as the only R6 enabled model route', () => {
     expect(isR6EnabledModelRoute('local_gemma')).toBe(true);
     expect(isR6EnabledModelRoute('openai_gpt4')).toBe(false);
