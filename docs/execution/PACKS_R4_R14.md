@@ -78,6 +78,25 @@ remains read-only.
 | PACK-LAI-05 | `feat/pack-lai-05-ai-ops-eval` | 5 | `AI-OPS-HEALTH-TUW-001` through `AI-OPS-GATE-TUW-005` |
 | PACK-LAI-06 | `feat/pack-lai-06-local-model-bench` | 3 | `AI-BENCH-CATALOG-TUW-001` through `AI-BENCH-DECISION-TUW-003` |
 
+## PACK-LAI Gemma4 Hardening Continuation Family
+
+Status: active continuation family registered by
+`docs/execution/TUW_GEMMA4_HARDENING_CONTINUATION.md`. This family starts from
+the already implemented local-only Gemma/upload-prep baseline and closes the
+remaining schema, adapter, stale/rebuild, quality, UI/ops, and production-gate
+gaps without enabling production Gemma runtime.
+
+| PACK | Branch | TUW count | TUW range |
+|---|---|---:|---|
+| PACK-LAI-13 | `feat/pack-lai-13-hardening-plan` | 3 | `AI-HARDEN-BASELINE-TUW-001` through `AI-HARDEN-REVIEW-TUW-003` |
+| PACK-LAI-14 | `feat/pack-lai-14-prep-schema-decision` | 4 | `AI-HARDEN-SCHEMADEC-TUW-001` through `AI-HARDEN-PREPSUMMARY-TUW-004` |
+| PACK-LAI-15 | `feat/pack-lai-15-evidencepack-v2-adapter` | 3 | `AI-HARDEN-EVIDENCEV2-TUW-001` through `AI-HARDEN-EVIDSCAN-TUW-003` |
+| PACK-LAI-16 | `feat/pack-lai-16-prep-lifecycle` | 4 | `AI-HARDEN-STALECONTRACT-TUW-001` through `AI-HARDEN-REBUILD-TUW-004` |
+| PACK-LAI-17 | `feat/pack-lai-17-retrieval-orchestration` | 4 | `AI-HARDEN-RETRIEVEPLAN-TUW-001` through `AI-HARDEN-PLAYBOOKBOUND-TUW-004` |
+| PACK-LAI-18 | `feat/pack-lai-18-quality-eval` | 4 | `AI-HARDEN-EVAL100-TUW-001` through `AI-HARDEN-BENCHSAFE-TUW-004` |
+| PACK-LAI-19 | `feat/pack-lai-19-product-ops` | 4 | `AI-HARDEN-UISTATE-TUW-001` through `AI-HARDEN-RUNBOOK-TUW-004` |
+| PACK-LAI-20 | `feat/pack-lai-20-production-readiness` | 4 | `AI-HARDEN-TECHREADY-TUW-001` through `AI-HARDEN-CLOSEOUT-TUW-004` |
+
 Trigger conditions:
 
 - R14 technical completion remains intact.
