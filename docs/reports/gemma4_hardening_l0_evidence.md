@@ -114,7 +114,7 @@ Read-only reviewer/explorer findings accepted into the continuation plan:
 | Stale/rebuild semantics are not fully covered for permission/policy/metadata/source changes | Addressed by PACK-LAI-16 bounded stale reason contract, permission/wall/metadata/source invalidation hooks, and stale/rejected/fallback rebuild tool path | PACK-LAI-16 |
 | Retrieval plans are not artifact-specific enough for quality growth | Addressed by PACK-LAI-17 deterministic artifact retrieval plans, canonical metadata normalization, and prep-only graph/rule prompt filtering | PACK-LAI-17 |
 | Eval corpus is still technical and small | Addressed by PACK-LAI-18 100-case synthetic/deidentified upload-prep fixture, 100-case negative matrix, queue/rejected/per-artifact eval thresholds, and refreshed bench-only catalog; still not a customer-data pilot | PACK-LAI-18 |
-| UI/ops wording and metrics need terminal-state clarity | Users/admins may misread fallback/rejected/stale states | PACK-LAI-19 |
+| UI/ops wording and metrics need terminal-state clarity | Addressed by PACK-LAI-19 file-organization status wording, stale/rejected payload hiding, admin fallback/stale/rejected counts, bounded feedback reason codes, and production-disabled ops runbook | PACK-LAI-19 |
 | Production readiness and production authorization are not separate gates | Technical pass could be mistaken for enablement approval | PACK-LAI-20 |
 
 ## L0 Conclusion
@@ -125,7 +125,7 @@ recorded Local AI gate. It is not yet authorized for production runtime
 execution, and the continuation should start with schema/status decision rather
 than UI or production enablement.
 
-Immediate next pack after current continuation state: PACK-LAI-18 quality and
-eval expansion. PACK-LAI-14 through PACK-LAI-17 are implemented as PR-ready
+Immediate next pack after current continuation state: PACK-LAI-20 production
+readiness split. PACK-LAI-14 through PACK-LAI-19 are implemented as PR-ready
 technical-pass branches, but production Gemma runtime authorization remains
 separate and disabled until PACK-LAI-20 governance approval.

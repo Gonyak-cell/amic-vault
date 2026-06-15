@@ -69,6 +69,7 @@ interface MatterReadinessRow {
   failed_artifact_count: number;
   rejected_artifact_count: number;
   stale_artifact_count: number;
+  fallback_artifact_count: number;
   updated_at: Date | null;
 }
 
@@ -151,6 +152,7 @@ export class AiPrepStatusService {
           failedArtifactCount: row.failed_artifact_count,
           rejectedArtifactCount: row.rejected_artifact_count,
           staleArtifactCount: row.stale_artifact_count,
+          fallbackArtifactCount: row.fallback_artifact_count,
           updatedAt: row.updated_at?.toISOString() ?? null,
         };
       });
@@ -190,6 +192,10 @@ export class AiPrepStatusService {
         ),
         rejectedArtifactCount: documents.reduce(
           (total, document) => total + document.rejectedArtifactCount,
+          0,
+        ),
+        fallbackArtifactCount: documents.reduce(
+          (total, document) => total + document.fallbackArtifactCount,
           0,
         ),
         documents,
@@ -425,7 +431,17 @@ export class AiPrepStatusService {
   ): Promise<MatterReadinessRow[]> {
     const result = await tx.query(
       `
-        WITH current_docs AS (
+        WITH fallback_audits AS (
+          SELECT DISTINCT target_id AS ai_prep_artifact_id
+          FROM audit_events
+          WHERE tenant_id = $1
+            AND action = 'AI_PREP_COMPLETED'
+            AND target_type = 'ai_prep_artifact'
+            AND target_id IS NOT NULL
+            AND metadata_json->>'generation_result' = 'fallback'
+            AND metadata_json ? 'fallback_reason_code'
+        ),
+        current_docs AS (
           SELECT d.document_id, d.title, d.ai_allowed, dv.version_id
           FROM documents d
           LEFT JOIN LATERAL (
@@ -463,11 +479,28 @@ export class AiPrepStatusService {
           count(a.ai_prep_artifact_id) FILTER (
             WHERE a.status = 'stale' OR a.is_stale = true
           )::int AS stale_artifact_count,
+          count(a.ai_prep_artifact_id) FILTER (
+            WHERE a.status = 'completed'
+              AND a.is_stale = false
+              AND (
+                fa.ai_prep_artifact_id IS NOT NULL
+                OR (
+                  jsonb_typeof(a.payload_json->'warnings') = 'array'
+                  AND EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements_text(a.payload_json->'warnings') AS warning(value)
+                    WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+                  )
+                )
+              )
+          )::int AS fallback_artifact_count,
           max(a.updated_at) AS updated_at
         FROM current_docs cd
         LEFT JOIN ai_prep_artifacts a
           ON a.tenant_id = $1
           AND a.document_version_id = cd.version_id
+        LEFT JOIN fallback_audits fa
+          ON fa.ai_prep_artifact_id = a.ai_prep_artifact_id
         GROUP BY cd.document_id, cd.title, cd.ai_allowed, cd.version_id
         ORDER BY cd.title ASC, cd.document_id ASC
       `,
@@ -524,7 +557,8 @@ export class AiPrepStatusService {
 
 function readinessStatus(artifacts: readonly ArtifactRow[]): AiPrepDocumentReadinessStatus {
   if (artifacts.length === 0) return 'pending';
-  if (artifacts.some((artifact) => artifact.is_stale || artifact.status === 'stale')) return 'stale';
+  if (artifacts.some((artifact) => artifact.is_stale || artifact.status === 'stale'))
+    return 'stale';
   if (artifacts.every((artifact) => artifact.status === 'completed')) return 'ready';
   if (artifacts.some((artifact) => artifact.status === 'completed')) return 'partial';
   if (artifacts.every((artifact) => artifact.status === 'blocked')) return 'blocked';

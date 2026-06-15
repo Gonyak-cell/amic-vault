@@ -82,7 +82,10 @@ describe('AiPrepStatusService', () => {
 
     const status = await service.getDocumentStatus({ tenantId, userId }, documentId);
 
-    expect(documentPermission.canReadDocument).toHaveBeenCalledWith({ tenantId, userId }, documentId);
+    expect(documentPermission.canReadDocument).toHaveBeenCalledWith(
+      { tenantId, userId },
+      documentId,
+    );
     expect(status.readinessStatus).toBe('ready');
     expect(status.artifacts[0]).toMatchObject({
       artifactId,
@@ -175,7 +178,6 @@ describe('AiPrepStatusService', () => {
     });
   });
 
-
   it('fails closed before querying artifacts when document permission is denied', async () => {
     const { audit, documentPermission, service } = createService();
     documentPermission.canReadDocument.mockResolvedValueOnce({ effect: 'DENY' });
@@ -201,6 +203,7 @@ describe('AiPrepStatusService', () => {
           failed_artifact_count: 0,
           rejected_artifact_count: 0,
           stale_artifact_count: 0,
+          fallback_artifact_count: 1,
           updated_at: new Date('2026-06-15T00:00:01.000Z'),
         },
       ],
@@ -213,7 +216,9 @@ describe('AiPrepStatusService', () => {
       documentCount: 1,
       partialDocumentCount: 1,
       pendingJobCount: 1,
+      fallbackArtifactCount: 1,
     });
+    expect(readiness.documents[0]?.fallbackArtifactCount).toBe(1);
   });
 
   it('counts rejected matter readiness separately from blocked and failed', async () => {
@@ -233,6 +238,7 @@ describe('AiPrepStatusService', () => {
           failed_artifact_count: 0,
           rejected_artifact_count: 1,
           stale_artifact_count: 0,
+          fallback_artifact_count: 0,
           updated_at: new Date('2026-06-15T00:00:01.000Z'),
         },
       ],
@@ -267,7 +273,7 @@ describe('AiPrepStatusService', () => {
           document_id: documentId,
           actor_id: userId,
           feedback_kind: 'incorrect',
-          reason_code: 'missing_citation',
+          reason_code: 'missing_source_ref',
           created_at: new Date('2026-06-15T00:00:02.000Z'),
         },
       ],
@@ -275,7 +281,7 @@ describe('AiPrepStatusService', () => {
 
     const feedback = await service.recordArtifactFeedback(
       { tenantId, userId, sessionId: 'session-1' },
-      { artifactId, feedbackKind: 'incorrect', reasonCode: 'missing_citation' },
+      { artifactId, feedbackKind: 'incorrect', reasonCode: 'missing_source_ref' },
     );
 
     expect(documentPermission.canReadDocument).toHaveBeenCalledWith(
@@ -289,7 +295,7 @@ describe('AiPrepStatusService', () => {
         metadata: expect.objectContaining({
           feedback_id: feedbackId,
           ai_prep_artifact_id: artifactId,
-          feedback_reason_code: 'missing_citation',
+          feedback_reason_code: 'missing_source_ref',
         }),
       }),
       expect.anything(),

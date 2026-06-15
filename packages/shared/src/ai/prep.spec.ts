@@ -70,13 +70,15 @@ describe('ai prep shared contract', () => {
 
   it('enforces artifact-specific prep claim kind allowlists', () => {
     expect(aiPrepArtifactAllowedClaimKinds('date_facts')).toContain('timeline');
-    expect(parseAiPrepArtifactPayload(
-      {
-        ...validPayload,
-        claims: [{ ...validPayload.claims[0], kind: 'timeline' }],
-      },
-      'date_facts',
-    ).claims[0]?.kind).toBe('timeline');
+    expect(
+      parseAiPrepArtifactPayload(
+        {
+          ...validPayload,
+          claims: [{ ...validPayload.claims[0], kind: 'timeline' }],
+        },
+        'date_facts',
+      ).claims[0]?.kind,
+    ).toBe('timeline');
     expect(() =>
       parseAiPrepArtifactPayload(
         {
@@ -155,10 +157,18 @@ describe('ai prep shared contract', () => {
     const parsed = aiPrepFeedbackRequestSchema.parse({
       artifactId: '11111111-1111-4111-8111-111111111102',
       feedbackKind: 'incorrect',
-      reasonCode: 'missing_citation',
+      reasonCode: 'missing_source_ref',
     });
 
     expect(parsed.feedbackKind).toBe('incorrect');
+    expect(parsed.reasonCode).toBe('missing_source_ref');
+    expect(
+      aiPrepFeedbackRequestSchema.parse({
+        artifactId: '11111111-1111-4111-8111-111111111102',
+        feedbackKind: 'incorrect',
+        reasonCode: 'rejected_output',
+      }).reasonCode,
+    ).toBe('rejected_output');
     expect(() =>
       aiPrepFeedbackRequestSchema.parse({
         ...parsed,
@@ -184,6 +194,7 @@ describe('ai prep shared contract', () => {
       staleArtifactCount: 0,
       blockedArtifactCount: 0,
       rejectedArtifactCount: 0,
+      fallbackArtifactCount: 0,
       documents: [
         {
           documentId: '11111111-1111-4111-8111-111111111201',
@@ -198,6 +209,7 @@ describe('ai prep shared contract', () => {
           failedArtifactCount: 0,
           rejectedArtifactCount: 0,
           staleArtifactCount: 0,
+          fallbackArtifactCount: 0,
           updatedAt: '2026-06-15T00:00:00.000Z',
         },
       ],

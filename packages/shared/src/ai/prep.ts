@@ -208,7 +208,9 @@ export const aiPrepFeedbackReasonCodes = [
   'incorrect_tags',
   'incorrect_filing_suggestion',
   'missing_citation',
+  'missing_source_ref',
   'stale_artifact',
+  'rejected_output',
   'permission_concern',
   'other_structured',
 ] as const;
@@ -250,6 +252,7 @@ export const aiPrepMatterDocumentReadinessSchema = z
     failedArtifactCount: z.number().int().min(0).max(20),
     rejectedArtifactCount: z.number().int().min(0).max(20),
     staleArtifactCount: z.number().int().min(0).max(20),
+    fallbackArtifactCount: z.number().int().min(0).max(20),
     updatedAt: z.string().datetime().nullable(),
   })
   .strict();
@@ -271,6 +274,7 @@ export const aiPrepMatterReadinessSchema = z
     staleArtifactCount: z.number().int().min(0),
     blockedArtifactCount: z.number().int().min(0),
     rejectedArtifactCount: z.number().int().min(0),
+    fallbackArtifactCount: z.number().int().min(0),
     documents: z.array(aiPrepMatterDocumentReadinessSchema).max(100),
   })
   .strict();
