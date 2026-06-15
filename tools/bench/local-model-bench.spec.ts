@@ -35,7 +35,7 @@ describe('local model bench harness', () => {
 
     expect(report.status).toBe('disabled');
     expect(report.outputPath).toBeNull();
-    expect(report.caseCount).toBe(2);
+    expect(report.caseCount).toBe(102);
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -59,6 +59,7 @@ describe('local model bench harness', () => {
       endpoint: 'http://127.0.0.1:11434',
       candidateIds: ['gemma4-12b-baseline'],
       fixtureDir: 'tests/fixtures/evalset-v0',
+      caseLimit: 2,
       outputDir,
       transport,
       now: new Date('2026-06-15T00:00:00.000Z'),
@@ -67,6 +68,7 @@ describe('local model bench harness', () => {
     expect(report.status).toBe('completed');
     expect(report.outputPath?.startsWith(outputDir)).toBe(true);
     expect(report.runs).toHaveLength(2);
+    expect(report.warnings).toContain('Bench case limit applied: 2 of 102 cases.');
     expect(report.runs[0]).toEqual(
       expect.objectContaining({
         status: 'completed',

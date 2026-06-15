@@ -1,6 +1,6 @@
 # Local AI Operating Layer Report
 
-Date: 2026-06-15
+Date: 2026-06-16
 
 ## Summary
 
@@ -21,7 +21,7 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 | Structured feedback | Prep artifact feedback stores reason codes only. |
 | Operations surface | Admin health/metrics expose endpoint class and aggregate counts only. |
 | Structured Gemma output | Local Ollama generation now receives a JSON Schema with exact source-ref enums and artifact claim-kind enums, reducing invalid JSON and source-ref typo fallbacks while preserving fail-closed citation checks. |
-| Eval gate | `pnpm eval:local-ai` checks deidentified cases, completed outputs, non-fallback generated outputs, fallback count/rate, prep schema violations, leakage, generated-only citations, unsupported claims, Korean output heuristic, and latency. The technical fallbackRate threshold is 0.5. |
+| Eval gate | `pnpm eval:local-ai` checks 100+ deidentified cases, completed outputs, non-fallback generated outputs, fallback/rejected rate, pending queue age, per-artifact completion thresholds, prep schema violations, leakage, generated-only citations, unsupported claims, Korean output heuristic, and latency. The technical fallbackRate threshold is 0.5. |
 | Storage scan | `pnpm ai-prep:scan` checks raw payload/audit leakage, legal claim leakage, source-ref integrity, artifact allow-list, and external-route regression. |
 | Bench-only candidates | `tools/bench` compares cataloged local candidates with default-off execution and hash-only ignored outputs. |
 
@@ -35,13 +35,13 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 - targeted migration roundtrip: PASS; `node tools/db/migrate.mjs down 1 && node tools/db/migrate.mjs up`
 - `pnpm db:seed`: PASS; tenants=2 users=11
 - `pnpm test:integration`: PASS; 85 files / 212 tests
-- `pnpm eval:local-ai`: PASS; completedOutputCount 25, fallbackArtifactCount 1, generatedOutputCount 24, fallbackRate 4.0%, prepSchemaViolationCount 0, permission leakage 0, generated-only citation accuracy 100.0%, unsupported claim rate 0.0%, warnings empty
+- `pnpm eval:local-ai`: PASS; 102 deidentified cases loaded, completedOutputCount 25, fallbackArtifactCount 1, generatedOutputCount 24, fallbackRate 4.0%, rejectedRate 0.0%, pendingPrepCount 0, prepSchemaViolationCount 0, permission leakage 0, generated-only citation accuracy 100.0%, unsupported claim rate 0.0%, per-artifact threshold pass
 - `pnpm eval:ai-gate`: PASS; external model call attempts 0, audit coverage 100.0%
 - `pnpm ai-prep:scan`: PASS; completedCount 25, fallbackSignalCount 1, raw payload/audit key count 0, legal claim count 0, missing/mismatched source ref count 0, external model route count 0
 - direct local Gemma JSON Schema smoke: PASS; `gemma4:12b` returned valid JSON with exact source refs for a synthetic one-chunk file-organization prompt
 - `pnpm exec vitest run tools/bench/local-model-bench.spec.ts`: PASS; 4 tests
 - `pnpm bench:local-models -- --models gemma4-12b-baseline,qwen3-8b`: PASS disabled/default-off
-- `AI_BENCH_HARNESS_ENABLED=true pnpm bench:local-models -- --models gemma4-12b-baseline`: PASS; `gemma4:12b` 2/2 completed on synthetic deidentified fixture
+- `AI_BENCH_HARNESS_ENABLED=true pnpm bench:local-models -- --models gemma4-12b-baseline --case-limit 2`: PASS; `gemma4:12b` 2/2 completed on bounded synthetic deidentified fixture smoke
 - 20+ synthetic upload prep smoke: PASS; upload API -> search indexing -> `ai.prep` -> completed `document_profile` artifacts
 - `ai_prep_artifacts` payload scan: PASS; forbidden top-level key count 0, prep schema violation count 0
 - `pnpm docs:frozen`: PASS
@@ -66,5 +66,5 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 
 - Full `pnpm db:rollback` still fails on the dirty dev database because existing append-only AI prep audit rows block the older 0065 down constraint; PACK-LAI migrations were verified with targeted down/up roundtrips.
 - The 20+ completed-output smoke used synthetic/deidentified local documents. Production customer-data quality and deployment authorization are separate gates.
-- The current executable eval corpus remains a technical subset; 100-case/1000-case operational corpus expansion remains a future quality gate, not a claim made by this report.
+- The current executable eval corpus meets the LAI-18 100-case synthetic/deidentified technical threshold. A 1000-case operational/customer-data-quality corpus remains a later governance gate, not a claim made by this report.
 - Fallback quality is resolved for the current synthetic upload-prep evidence: reprocessing 18 fallback artifacts through the JSON Schema-hardened local Gemma path reduced fallback artifacts to 1 of 25 and `fallbackRate` to 4.0%, below the 0.5 technical threshold.

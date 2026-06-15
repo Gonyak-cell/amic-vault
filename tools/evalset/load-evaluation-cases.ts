@@ -86,7 +86,9 @@ export async function loadEvaluationCases(
 ): Promise<LoadEvaluationCasesResult> {
   const cases = readEvaluationCases(input.directory);
   const warnings: string[] = [];
-  if (cases.length < 20) warnings.push(`evalset contains ${cases.length} cases; R3 target is 20-50`);
+  if (cases.length < 100) {
+    warnings.push(`evalset contains ${cases.length} cases; LAI-18 technical target is 100`);
+  }
 
   await input.client.query('BEGIN');
   try {

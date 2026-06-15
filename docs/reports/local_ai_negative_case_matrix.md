@@ -1,8 +1,8 @@
 # Local AI Negative Case Matrix
 
-Date: 2026-06-15
+Date: 2026-06-16
 
-Scope: synthetic security matrix for Gemma4/local AI prep. This matrix binds the checklist requirement for 50 negative cases to existing executable suites and LAI-specific denial paths.
+Scope: synthetic security matrix for Gemma4/local AI prep. This matrix binds the checklist requirement for 100 negative cases to existing executable suites and LAI-specific denial paths.
 
 ## Gate
 
@@ -83,9 +83,56 @@ Latest observed gate values:
 | LAI-N-051 | eval | fallbackRate above 0.5 | `eval:local-ai` fails |
 | LAI-N-052 | eval | fewer than 5 non-fallback generated outputs | `eval:local-ai` fails |
 | LAI-N-053 | eval | fallback warning absent but audit metadata says fallback | fallback counted |
+| LAI-N-054 | eval | deidentified eval corpus below 100 cases | `eval:local-ai` fails |
+| LAI-N-055 | eval | non-deidentified eval row present | `eval:local-ai` fails |
+| LAI-N-056 | eval | rejectedRate above 5% | `eval:local-ai` fails |
+| LAI-N-057 | eval | pending prep queue older than threshold | `eval:local-ai` fails |
+| LAI-N-058 | eval | document_profile completions below threshold | `eval:local-ai` fails |
+| LAI-N-059 | eval | generated-only citation accuracy below 98% | `eval:local-ai` fails |
+| LAI-N-060 | eval | p95 prep latency above 30000ms | `eval:local-ai` fails |
+| LAI-N-061 | source_ref | completed payload source_ref not in source_chunk_ids | `ai-prep:scan` flags mismatch |
+| LAI-N-062 | source_ref | claim source_ref not in top-level source_refs | shared/API/DB reject |
+| LAI-N-063 | source_ref | source hash not 64-hex | `ai-prep:scan` flags invalid hash |
+| LAI-N-064 | source_ref | source_ref array missing on completed output | `eval:local-ai` schema violation |
+| LAI-N-065 | source_ref | section cites unknown chunk ref | shared/API/DB reject |
+| LAI-N-066 | rejected | rejected artifact exposes payload on document UI | web/API status tests hide payload |
+| LAI-N-067 | rejected | rejected artifact missing bounded failure reason | DB constraint rejects |
+| LAI-N-068 | rejected | rejected artifact missing prompt/response hashes | DB constraint rejects |
+| LAI-N-069 | rejected | rejected artifact counted as generated output | `eval:local-ai` separates denominator |
+| LAI-N-070 | stale | stale completed artifact displayed as ready | web/API status tests hide stale payload |
+| LAI-N-071 | stale | stale reason free-form text | shared/API/DB stale reason contract rejects |
+| LAI-N-072 | stale | permission change leaves ready prep artifact | permission recorder stale tests mark stale |
+| LAI-N-073 | stale | source chunk refresh leaves ready prep artifact | indexing processor stale tests mark stale |
+| LAI-N-074 | stale | metadata update leaves ready prep artifact | document service stale tests mark stale |
+| LAI-N-075 | reprocess | stale reprocess mutates payload directly | reprocess tool uses processor path only |
+| LAI-N-076 | reprocess | rejected reprocess skips audit request | reprocess tool emits `AI_PREP_REQUESTED` |
+| LAI-N-077 | reprocess | fallback reprocess touches superseded version | reprocess candidate query uses current version |
+| LAI-N-078 | prompt | prep prompt includes risk graph relation | prompt compiler prep filter excludes |
+| LAI-N-079 | prompt | prep prompt includes issue graph relation | prompt compiler prep filter excludes |
+| LAI-N-080 | prompt | prep prompt includes clause graph relation | prompt compiler prep filter excludes |
+| LAI-N-081 | prompt | prep prompt includes contract risk rule | prompt compiler prep filter excludes |
+| LAI-N-082 | prompt | prep prompt includes required_clause rule | prompt compiler prep filter excludes |
+| LAI-N-083 | prompt | prep prompt uses raw title with email/phone | metadata normalizer redacts |
+| LAI-N-084 | retrieval | planner selects unauthorized chunks post-query | planner contract requires query-stage filtering |
+| LAI-N-085 | retrieval | planner ignores aiAllowed filter | planner appliedRules include ai_allowed_true |
+| LAI-N-086 | retrieval | planner ignores current version filter | planner appliedRules include current_version |
+| LAI-N-087 | retrieval | planner exceeds artifact max chunk budget | planner unit tests enforce maxChunks |
+| LAI-N-088 | retrieval | planner exceeds token budget | planner unit tests enforce tokenBudget |
+| LAI-N-089 | ops | admin metrics expose endpoint URL | ops service tests expose endpoint class only |
+| LAI-N-090 | ops | admin metrics expose prompt/source/response | ops service tests use aggregate-only DTO |
+| LAI-N-091 | ops | non-admin retry stale/rejected artifacts | admin guard denies |
+| LAI-N-092 | feedback | free-form comment accepted | feedback schema/API/DB has bounded reason only |
+| LAI-N-093 | feedback | feedback references other tenant artifact | RLS/foreign-key tenant scope denies |
+| LAI-N-094 | feedback | missing source ref feedback uses raw excerpt | feedback schema has no excerpt/comment field |
+| LAI-N-095 | bench | bench harness calls model while disabled | bench unit test verifies no fetch |
+| LAI-N-096 | bench | bench endpoint is public URL | bench endpoint classifier rejects |
+| LAI-N-097 | bench | bench output stores raw prompt | bench output hash-only test rejects |
+| LAI-N-098 | bench | bench output stores raw response | bench output hash-only test rejects |
+| LAI-N-099 | bench | unknown candidate creates product route | bench candidate selector rejects |
+| LAI-N-100 | route | non-Gemma candidate added to `aiModelRouteKeys` | model routing tests and catalog decision forbid |
 
 ## Residual Notes
 
 - The matrix is synthetic and security-oriented. It is not a customer-data pilot report.
-- The current executable eval set remains a technical MVP subset, not the future 1000-case operational corpus.
+- The committed executable eval fixture is synthetic/deidentified and now meets the LAI-18 100-case technical threshold; it is still not a customer-data pilot report.
 - UI screenshot evidence is intentionally replaced with synthetic API/DB evidence and UI unit tests to avoid committing sensitive screenshots.
