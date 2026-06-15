@@ -26,6 +26,7 @@ interface OpsMetricsRow {
   prep_completed_count: number;
   prep_blocked_count: number;
   prep_failed_count: number;
+  prep_rejected_count: number;
   prep_stale_count: number;
   prep_fallback_count: number;
   stale_rebuild_count: number;
@@ -97,6 +98,7 @@ export class AiOpsService {
         prepCompletedCount: Number(row.prep_completed_count),
         prepBlockedCount: Number(row.prep_blocked_count),
         prepFailedCount: Number(row.prep_failed_count),
+        prepRejectedCount: Number(row.prep_rejected_count),
         prepStaleCount: Number(row.prep_stale_count),
         prepFallbackCount: Number(row.prep_fallback_count),
         staleRebuildCount: Number(row.stale_rebuild_count),
@@ -180,7 +182,7 @@ export class AiOpsService {
         SELECT
           count(*) FILTER (WHERE status = 'pending' AND is_stale = false)::int
             AS queue_backlog_count,
-          count(*) FILTER (WHERE status IN ('blocked', 'failed'))::int
+          count(*) FILTER (WHERE status IN ('blocked', 'failed', 'rejected'))::int
             AS blocked_prep_count,
           percentile_disc(0.95) WITHIN GROUP (ORDER BY latency_ms) FILTER (
             WHERE latency_ms IS NOT NULL
@@ -213,6 +215,7 @@ export class AiOpsService {
             count(*) FILTER (WHERE status = 'completed')::int AS prep_completed_count,
             count(*) FILTER (WHERE status = 'blocked')::int AS prep_blocked_count,
             count(*) FILTER (WHERE status = 'failed')::int AS prep_failed_count,
+            count(*) FILTER (WHERE status = 'rejected')::int AS prep_rejected_count,
             count(*) FILTER (WHERE status = 'stale' OR is_stale = true)::int AS prep_stale_count,
             count(*) FILTER (
               WHERE status = 'completed'
@@ -230,7 +233,13 @@ export class AiOpsService {
             )::int AS prep_fallback_count,
             count(*) FILTER (WHERE is_stale = true)::int AS stale_rebuild_count,
             count(*) FILTER (
-              WHERE failure_reason_code IN ('UNSUPPORTED_CLAIM', 'SCHEMA_INVALID', 'INVALID_OUTPUT')
+              WHERE status = 'rejected'
+                OR failure_reason_code IN (
+                  'UNSUPPORTED_CLAIM',
+                  'AI_PREP_VALIDATION_FAILED',
+                  'SCHEMA_INVALID',
+                  'INVALID_OUTPUT'
+                )
             )::int AS invalid_output_count,
             percentile_disc(0.95) WITHIN GROUP (ORDER BY latency_ms) FILTER (
               WHERE latency_ms IS NOT NULL
@@ -265,6 +274,7 @@ export class AiOpsService {
         prep_completed_count: 0,
         prep_blocked_count: 0,
         prep_failed_count: 0,
+        prep_rejected_count: 0,
         prep_stale_count: 0,
         prep_fallback_count: 0,
         stale_rebuild_count: 0,

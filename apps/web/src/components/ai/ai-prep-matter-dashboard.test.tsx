@@ -19,6 +19,7 @@ describe('AiPrepMatterDashboard', () => {
 
     expect(html).toContain('AI readiness');
     expect(html).toContain('Ready');
+    expect(html).toContain('Rejected');
     expect(html).toContain('Contract.pdf');
     expect(html).toContain('partial');
     expect(html).toContain('Retry AI prep');
@@ -35,11 +36,13 @@ function readiness(): AiPrepMatterReadinessDto {
     partialDocumentCount: 1,
     blockedDocumentCount: 0,
     failedDocumentCount: 0,
+    rejectedDocumentCount: 0,
     staleDocumentCount: 0,
     notReadyDocumentCount: 0,
     pendingJobCount: 1,
     staleArtifactCount: 0,
     blockedArtifactCount: 0,
+    rejectedArtifactCount: 0,
     documents: [
       {
         documentId: '11111111-1111-4111-8111-111111111114',
@@ -52,6 +55,7 @@ function readiness(): AiPrepMatterReadinessDto {
         pendingArtifactCount: 1,
         blockedArtifactCount: 0,
         failedArtifactCount: 0,
+        rejectedArtifactCount: 0,
         staleArtifactCount: 0,
         updatedAt: '2026-06-15T00:00:00.000Z',
       },

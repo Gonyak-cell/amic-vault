@@ -48,6 +48,7 @@ describe('audit shared types', () => {
         'AI_PREP_COMPLETED',
         'AI_PREP_BLOCKED',
         'AI_PREP_FAILED',
+        'AI_PREP_REJECTED',
         'AI_PREP_STALE',
         'AI_FEEDBACK_RECORDED',
         'GRAPH_SYNCED',

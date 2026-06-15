@@ -116,6 +116,37 @@ describe('AiPrepStatusService', () => {
     await expect(service.getDocumentStatus({ tenantId, userId }, documentId)).rejects.toThrow();
   });
 
+  it('returns rejected prep artifacts without exposing stored payloads', async () => {
+    const { service } = createService([
+      [{ document_id: documentId, version_id: versionId }],
+      [
+        {
+          ai_prep_artifact_id: artifactId,
+          artifact_kind: 'document_profile',
+          status: 'rejected',
+          is_stale: false,
+          source_chunk_ids: [chunkId],
+          generated_at: null,
+          updated_at: new Date('2026-06-15T00:00:01.000Z'),
+          payload_json: {
+            ...payload(),
+            warnings: ['LOCAL_GEMMA_AI_PREP_VALIDATION_FAILED_REJECTED'],
+          },
+        },
+      ],
+    ]);
+
+    const status = await service.getDocumentStatus({ tenantId, userId }, documentId);
+
+    expect(status.readinessStatus).toBe('rejected');
+    expect(status.artifacts[0]).toMatchObject({
+      artifactId,
+      status: 'rejected',
+      payload: null,
+    });
+  });
+
+
   it('fails closed before querying artifacts when document permission is denied', async () => {
     const { audit, documentPermission, service } = createService();
     documentPermission.canReadDocument.mockResolvedValueOnce({ effect: 'DENY' });
@@ -139,6 +170,7 @@ describe('AiPrepStatusService', () => {
           pending_artifact_count: 1,
           blocked_artifact_count: 0,
           failed_artifact_count: 0,
+          rejected_artifact_count: 0,
           stale_artifact_count: 0,
           updated_at: new Date('2026-06-15T00:00:01.000Z'),
         },
@@ -153,6 +185,39 @@ describe('AiPrepStatusService', () => {
       partialDocumentCount: 1,
       pendingJobCount: 1,
     });
+  });
+
+  it('counts rejected matter readiness separately from blocked and failed', async () => {
+    const { service } = createService([
+      [{ role: 'security_admin', status: 'active' }],
+      [{ matter_id: matterId }],
+      [
+        {
+          document_id: documentId,
+          title: 'Matter file',
+          ai_allowed: true,
+          version_id: versionId,
+          total_artifact_count: 1,
+          completed_artifact_count: 0,
+          pending_artifact_count: 0,
+          blocked_artifact_count: 0,
+          failed_artifact_count: 0,
+          rejected_artifact_count: 1,
+          stale_artifact_count: 0,
+          updated_at: new Date('2026-06-15T00:00:01.000Z'),
+        },
+      ],
+    ]);
+
+    const readiness = await service.getMatterReadiness({ tenantId, userId }, matterId);
+
+    expect(readiness).toMatchObject({
+      rejectedDocumentCount: 1,
+      rejectedArtifactCount: 1,
+      blockedDocumentCount: 0,
+      failedDocumentCount: 0,
+    });
+    expect(readiness.documents[0]?.readinessStatus).toBe('rejected');
   });
 
   it('records structured artifact feedback and audits reference metadata only', async () => {

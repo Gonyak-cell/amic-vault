@@ -10,6 +10,7 @@ interface ScanRow {
   fallback_payload_warning_count: string;
   fallback_audit_reason_count: string;
   fallback_signal_count: string;
+  rejected_count: string;
   raw_payload_key_count: string;
   raw_audit_metadata_key_count: string;
   legal_claim_count: string;
@@ -26,6 +27,7 @@ interface ScanReport {
   fallbackPayloadWarningCount: number;
   fallbackAuditReasonCount: number;
   fallbackSignalCount: number;
+  rejectedCount: number;
   rawPayloadKeyCount: number;
   rawAuditMetadataKeyCount: number;
   legalClaimCount: number;
@@ -86,7 +88,7 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
             ELSE '[]'::jsonb
           END
         ) AS claim(value)
-        WHERE a.status = 'completed'
+        WHERE a.status IN ('completed', 'rejected')
       ),
       claim_source_refs AS (
         SELECT c.ai_prep_artifact_id, ref.value AS source_ref
@@ -102,6 +104,7 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
       SELECT
         (SELECT count(*)::text FROM artifacts) AS artifact_count,
         (SELECT count(*)::text FROM artifacts WHERE status = 'completed') AS completed_count,
+        (SELECT count(*)::text FROM artifacts WHERE status = 'rejected') AS rejected_count,
         (
           SELECT count(*)::text
           FROM artifacts
@@ -208,6 +211,7 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
       fallback_payload_warning_count: '0',
       fallback_audit_reason_count: '0',
       fallback_signal_count: '0',
+      rejected_count: '0',
       raw_payload_key_count: '0',
       raw_audit_metadata_key_count: '0',
       legal_claim_count: '0',
@@ -227,6 +231,7 @@ function toReport(tenantId: string, row: ScanRow): ScanReport {
     fallbackPayloadWarningCount: Number(row.fallback_payload_warning_count),
     fallbackAuditReasonCount: Number(row.fallback_audit_reason_count),
     fallbackSignalCount: Number(row.fallback_signal_count),
+    rejectedCount: Number(row.rejected_count),
     rawPayloadKeyCount: Number(row.raw_payload_key_count),
     rawAuditMetadataKeyCount: Number(row.raw_audit_metadata_key_count),
     legalClaimCount: Number(row.legal_claim_count),

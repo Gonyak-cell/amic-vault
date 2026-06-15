@@ -61,8 +61,10 @@ export function AiPrepMatterDashboard({
         <Metric label="Stale" value={readiness.staleDocumentCount} />
         <Metric label="Blocked" value={readiness.blockedDocumentCount} />
         <Metric label="Failed" value={readiness.failedDocumentCount} />
+        <Metric label="Rejected" value={readiness.rejectedDocumentCount} />
         <Metric label="Jobs" value={readiness.pendingJobCount} />
         <Metric label="Stale refs" value={readiness.staleArtifactCount} />
+        <Metric label="Rejected refs" value={readiness.rejectedArtifactCount} />
       </dl>
 
       <div className="overflow-hidden rounded-md border">

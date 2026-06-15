@@ -38,6 +38,9 @@ The repo already implements and records evidence for:
   raw model response.
 - Fallback behavior: invalid Gemma output is discarded and deterministic
   file-organization fallback may be persisted with bounded fallback metadata.
+- PACK-LAI-14 decision: new invalid Gemma output is represented as first-class
+  `rejected` prep state rather than completed fallback, with only bounded
+  deterministic payload retained for ops and no user-visible rejected payload.
 - Eval and scan gates: `pnpm eval:local-ai` and `pnpm ai-prep:scan` are part of
   the Local AI gate.
 - Bench-only local candidate lane: non-Gemma candidate comparison remains
@@ -105,7 +108,7 @@ Read-only reviewer/explorer findings accepted into the continuation plan:
 
 | Gap | Impact | Continuation pack |
 |---|---|---|
-| No explicit `rejected` prep status or equivalent terminal contract | Model-output rejection is not distinct enough from blocked/failed | PACK-LAI-14 |
+| No explicit `rejected` prep status or equivalent terminal contract | Addressed by ADR-GEMMA4-PREP-STATUS and migration `0069_add_ai_prep_rejected_status.sql` | PACK-LAI-14 |
 | Prep output schema and Evidence Pack source-ref shapes are only implicitly bridged | Ref mismatch risks adapter drift | PACK-LAI-15 |
 | EvidencePack v2 not versioned as a stable adapter contract | Future prompt/build changes can silently alter prep inputs | PACK-LAI-15 |
 | Stale/rebuild semantics are not fully covered for permission/policy/metadata/source changes | Old artifacts may be treated as fresher than their source authorization | PACK-LAI-16 |
