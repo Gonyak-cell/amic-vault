@@ -33,6 +33,15 @@ SMOKE-001 through SMOKE-011 pass=11 fail=0 skip=0. Concrete endpoints, account
 IDs, ARNs, provider-console metadata, cookies, tokens, secret values, and
 customer data remain outside this repository.
 
+Production patch `PROD-PATCH-D80FBB5-DEPLOY-2026-06-15` deployed current main
+HEAD `d80fbb5d5bf339ed11ddd6bca27b9e937bd83811` after PR #87 merged. The patch
+updated API, web, and ingestion image manifests, rolled production API/Web ECS
+services to task revisions 4, required no schema migration, and passed
+`PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15` with SMOKE-001 through SMOKE-015
+pass=15 fail=0 skip=0. Concrete endpoints, account IDs, ARNs, provider-console
+metadata, cookies, tokens, secret values, and customer data remain outside this
+repository.
+
 ## Release Steps
 
 1. Freeze release SHA.

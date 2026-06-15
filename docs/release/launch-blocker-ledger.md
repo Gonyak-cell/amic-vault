@@ -87,6 +87,14 @@ post-launch monitoring active for this pack.
 - Production smoke evidence `PROD-SMOKE-AWS-001` passed SMOKE-001 through
   SMOKE-011 with pass=11 fail=0 skip=0. Negative permission behavior returned
   safe `PERMISSION_DENIED`; audit metadata remained reference-only.
+- Production patch `PROD-PATCH-D80FBB5-DEPLOY-2026-06-15` deployed current main
+  HEAD `d80fbb5d5bf339ed11ddd6bca27b9e937bd83811` after PR #87 merged. API,
+  web, and ingestion image manifests were pushed from that SHA, production
+  API/Web ECS services reached desired=1/running=1/pending=0 on task revisions
+  4, no schema migration was required, and
+  `PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15` passed SMOKE-001 through SMOKE-015
+  with pass=15 fail=0 skip=0. The smoke run used synthetic-only identities; no
+  real customer data was introduced.
 - Concrete endpoint values, account identifiers, ARNs, private URLs,
   screenshots, cookies, tokens, secret values, provider-console metadata, and
   customer data remain outside this repository.

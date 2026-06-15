@@ -143,6 +143,8 @@ for (const expected of [
   'EV-PROD-005',
   'EV-PROD-006',
   'EV-PROD-007',
+  'EV-PROD-008',
+  'EV-PROD-009',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
@@ -151,6 +153,7 @@ for (const expected of [
   'REL-RC-FREEZE-TUW-001',
   'REL-SMOKE-AUTO-TUW-004',
   'REL-PROD-REL-TUW-010',
+  'REL-PROD-PATCH-D80FBB5-TUW-010A',
 ]) {
   assertContains(remainingTuw, expected, 'docs/release/remaining-launch-tuw.md');
 }
@@ -199,6 +202,7 @@ for (const expected of [
   'production-smoke-passed',
   'Do not reuse the AWS staging target as production',
   'PROD-SMOKE-AWS-001',
+  'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
 ]) {
   assertContains(productionPreflight, expected, 'docs/release/production-execution-preflight.md');
 }

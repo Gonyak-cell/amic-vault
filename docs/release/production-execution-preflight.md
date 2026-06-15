@@ -73,6 +73,28 @@ ambiguous.
 - negative permission check returned safe `PERMISSION_DENIED`;
 - audit metadata check remained reference-only.
 
+## Patch Evidence: 2026-06-15
+
+`PROD-PATCH-D80FBB5-DEPLOY-2026-06-15` records the production patch deployment
+for current main HEAD `d80fbb5d5bf339ed11ddd6bca27b9e937bd83811`.
+
+- deployment target: existing separate production ECS/ECR/RDS/Secrets/Object
+  Storage/ALB/temporary HTTPS boundary;
+- image set: API, web, and ingestion linux/amd64 manifests built from
+  `d80fbb5d5bf339ed11ddd6bca27b9e937bd83811`;
+- migration: no `db/migrations` or `tools/db` changes in the patch diff;
+- runtime: production API and web ECS services reached desired=1/running=1/pending=0
+  on task revisions 4;
+- smoke seed: minimum synthetic-only smoke tenants/users inserted through a
+  one-off ECS maintenance task, then the maintenance task definition was
+  deregistered;
+- smoke: `PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15` passed SMOKE-001 through
+  SMOKE-015 with pass=15 fail=0 skip=0.
+
+Concrete account IDs, ARNs, private endpoints, secret names beyond already
+approved public-safe refs, screenshots, cookies, tokens, and provider-console
+metadata remain outside this repository.
+
 ## Current Evidence Refs
 
 - `PROD-INFRA-AWS-001`
@@ -83,6 +105,8 @@ ambiguous.
 - `PROD-MONITOR-AWS-001`
 - `PROD-HTTPS-TEMP-AWS-001`
 - `PROD-SMOKE-AWS-001`
+- `PROD-PATCH-D80FBB5-DEPLOY-2026-06-15`
+- `PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15`
 
 ## Stop Conditions
 
