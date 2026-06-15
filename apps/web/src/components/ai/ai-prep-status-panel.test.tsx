@@ -9,10 +9,10 @@ describe('AiPrepStatusPanel', () => {
     const html = renderToStaticMarkup(<AiPrepStatusPanel status={status()} />);
 
     expect(html).toContain('AI prep');
-    expect(html).toContain('document_brief');
+    expect(html).toContain('document_profile');
     expect(html).toContain('Grounded answer.');
     expect(html).toContain('chunk:11111111-1111-4111-8111-111111111118');
-    expect(html).toContain('Mark document_brief useful');
+    expect(html).toContain('Mark document_profile useful');
     expect(html).not.toMatch(/prompt|raw source|model response|hidden unauthorized/i);
   });
 });
@@ -26,7 +26,7 @@ function status(): AiPrepDocumentStatusDto {
     artifacts: [
       {
         artifactId: '11111111-1111-4111-8111-111111111116',
-        artifactKind: 'document_brief',
+        artifactKind: 'document_profile',
         status: 'completed',
         isStale: false,
         sourceChunkCount: 1,

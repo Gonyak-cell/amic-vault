@@ -59,6 +59,31 @@ describe('AiSummaryService', () => {
       recordRetrievedChunks: vi.fn(async () => undefined),
       recordResponse: vi.fn(async () => undefined),
     };
+    const generation = {
+      generateGrounded: vi.fn(async () => ({
+        status: 'completed',
+        output: {
+          answer: 'generated answer',
+          sections: [
+            {
+              section_id: 'generated-section',
+              heading: 'Generated',
+              text: 'Generated cited summary',
+              source_refs: [`chunk:${chunkId}`],
+            },
+          ],
+          claims: [
+            {
+              claim_id: 'generated-claim',
+              kind: 'summary',
+              text: 'Generated cited summary',
+              source_refs: [`chunk:${chunkId}`],
+              is_legal_conclusion: false,
+            },
+          ],
+        },
+      })),
+    };
     const service = new AiSummaryService(
       { decide: vi.fn(async () => ({ effect: 'ALLOW', escalationRequired: false })) } as unknown as AiModelRoutingService,
       {
@@ -95,31 +120,7 @@ describe('AiSummaryService', () => {
       sessions as unknown as AiSessionLogService,
       { listFacts: vi.fn(async () => ({ facts: [] })) } as unknown as GraphQueryService,
       { evaluateRuleFindings: vi.fn(async () => ({ findings: [] })) } as unknown as ContractIntelService,
-      {
-        generateGrounded: vi.fn(async () => ({
-          status: 'completed',
-          output: {
-            answer: 'generated answer',
-            sections: [
-              {
-                section_id: 'generated-section',
-                heading: 'Generated',
-                text: 'Generated cited summary',
-                source_refs: [`chunk:${chunkId}`],
-              },
-            ],
-            claims: [
-              {
-                claim_id: 'generated-claim',
-                kind: 'summary',
-                text: 'Generated cited summary',
-                source_refs: [`chunk:${chunkId}`],
-                is_legal_conclusion: false,
-              },
-            ],
-          },
-        })),
-      } as unknown as LocalGemmaGenerationService,
+      generation as unknown as LocalGemmaGenerationService,
     );
 
     try {
@@ -134,6 +135,14 @@ describe('AiSummaryService', () => {
         sessionId,
         expect.objectContaining({ status: 'responded' }),
       );
+      const riskSummary = await service.createSummary(ctx, {
+        ...request(),
+        task: 'risk_extraction',
+        query: 'find risks',
+      });
+      expect(riskSummary.status).toBe('escalated');
+      expect(riskSummary.sections[0]?.sectionId).toBe('risk_extraction-1');
+      expect(generation.generateGrounded).toHaveBeenCalledTimes(1);
     } finally {
       if (previous === undefined) delete process.env.AI_SUMMARY_GEMMA_ENABLED;
       else process.env.AI_SUMMARY_GEMMA_ENABLED = previous;

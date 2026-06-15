@@ -52,7 +52,7 @@ Already implemented:
 Not yet implemented:
 
 - Real Gemma/Ollama generation calls in `packages/ai`.
-- Post-upload `ai.prep` queue, status, and stored artifacts.
+- Post-upload `ai.prep` queue, status, and stored file-organization artifacts.
 - Version-scoped AI prep invalidation/rebuild semantics.
 - User-visible AI prep status.
 - Citation-grounded LLM output parsing with full-response rejection on unsupported claims.
@@ -61,7 +61,7 @@ Not yet implemented:
 
 ## Operating Rule
 
-Local AI may prepare, summarize, classify, suggest, and retrieve only from data that passed Permission-before-AI. Local AI must not decide permissions, override ethical walls, auto-approve legal conclusions, create external sharing, store raw prompt/source/response in audit metadata or AI prep artifact JSON, or become merge/production authority.
+Local AI may organize, summarize, classify, tag, and retrieve only from data that passed Permission-before-AI. Local AI must not perform legal analysis, decide permissions, override ethical walls, auto-approve legal conclusions, create external sharing, store raw prompt/source/response in audit metadata or AI prep artifact JSON, or become merge/production authority.
 
 ## Global Boundaries For All PACK-LAI Work
 
@@ -207,11 +207,11 @@ Purpose: Start useful AI work as soon as upload-derived text and chunks are read
 
 ### AI-PREP-BUILDER-TUW-006
 
-- Title: Artifact builder from Evidence Pack
+- Title: File-organization artifact builder from Evidence Pack
 - Risk: C
-- Objective: Build document brief, key terms, issue/risk candidates, timeline candidates, clause pointers, and suggested questions from authorized Evidence Pack only.
+- Objective: Build document profile, key fields, date facts, people/organization lists, keyword tags, filing suggestions, source outline, and retrieval hints from authorized Evidence Pack only.
 - Files create: `apps/api/src/modules/ai/prep/ai-prep.processor.ts`, `apps/api/src/modules/ai/prep/ai-prep-artifact.builder.ts`, tests.
-- Verification: every artifact stores source refs/hashes; no uncited generated fact persists; invalid Gemma output blocked; artifact JSON uses per-kind key allow-list and never stores raw source/prompt/response text.
+- Verification: every artifact stores source refs/hashes; no uncited generated fact persists; invalid Gemma output blocked; artifact JSON uses per-kind key allow-list and never stores raw source/prompt/response text; artifact prompts do not ask for legal issue, risk, or clause analysis.
 
 ### AI-PREP-INVALIDATE-TUW-007
 
@@ -287,7 +287,7 @@ Purpose: Surface AI readiness without exposing stale or unauthorized artifacts.
 
 - Title: Document detail AI panel
 - Risk: M
-- Objective: Show prepared summary, key terms, suggested questions, and citation refs when authorized.
+- Objective: Show prepared file profile, key fields, keyword tags, filing suggestions, and citation refs when authorized.
 - Verification: no raw prompt/source text in UI state; empty/degraded states professional and clear.
 
 ### AI-UI-MATTERDASH-TUW-003

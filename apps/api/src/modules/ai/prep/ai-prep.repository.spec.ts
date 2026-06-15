@@ -37,7 +37,7 @@ describe('AiPrepRepository', () => {
         documentId: sourceRow.document_id,
         versionId: sourceRow.version_id,
         matterId: sourceRow.matter_id,
-        artifactKind: 'document_brief',
+        artifactKind: 'document_profile',
       },
       { sql: 'idx.tenant_id = ?', params: [sourceRow.tenant_id] },
     );

@@ -33,8 +33,9 @@ const validPayload = {
 
 describe('ai prep shared contract', () => {
   it('defines bounded artifact kinds and statuses', () => {
-    expect(aiPrepArtifactKindSchema.parse('document_brief')).toBe('document_brief');
-    expect(aiPrepArtifactKindSchema.parse('risk_candidates')).toBe('risk_candidates');
+    expect(aiPrepArtifactKindSchema.parse('document_profile')).toBe('document_profile');
+    expect(aiPrepArtifactKindSchema.parse('key_fields')).toBe('key_fields');
+    expect(() => aiPrepArtifactKindSchema.parse('risk_candidates')).toThrow();
     expect(aiPrepStatusSchema.parse('completed')).toBe('completed');
     expect(aiPrepStatusSchema.parse('blocked')).toBe('blocked');
   });
@@ -60,7 +61,7 @@ describe('ai prep shared contract', () => {
       artifacts: [
         {
           artifactId: '11111111-1111-4111-8111-111111111102',
-          artifactKind: 'document_brief',
+          artifactKind: 'document_profile',
           status: 'completed',
           isStale: false,
           sourceChunkCount: 1,

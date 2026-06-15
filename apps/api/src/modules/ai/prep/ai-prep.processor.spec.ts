@@ -32,7 +32,7 @@ const payload = {
   documentId: source.documentId,
   versionId: source.versionId,
   matterId: source.matterId,
-  artifactKind: 'document_brief' as const,
+  artifactKind: 'document_profile' as const,
 };
 
 function createProcessor(options: { generationStatus?: 'completed' | 'blocked' } = {}) {

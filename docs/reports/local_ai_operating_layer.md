@@ -4,7 +4,7 @@ Date: 2026-06-15
 
 ## Summary
 
-The Local AI Operating Layer is implemented as a local-only Gemma route with permission-scoped retrieval, post-upload prep artifacts, UI status surfaces, structured feedback, operations/eval checks, and a bench-only lane for comparing newer local candidates without changing the product route.
+The Local AI Operating Layer is implemented as a local-only Gemma route with permission-scoped retrieval, post-upload file-organization prep artifacts, UI status surfaces, structured feedback, operations/eval checks, and a bench-only lane for comparing newer local candidates without changing the product route.
 
 ## Implemented Controls
 
@@ -13,7 +13,8 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 | Permission-before-AI | Prep and summaries reuse policy, DLP, and scoped retrieval decisions before generation. |
 | Local-only model route | `local_gemma` remains the only production route. |
 | No raw AI persistence | Prep artifacts and audit metadata store hashes, refs, statuses, bounded generated payloads. |
-| Post-upload async prep | Search indexing success enqueues `ai.prep` jobs without blocking upload. |
+| Post-upload async prep | Search indexing success enqueues file-organization `ai.prep` jobs without blocking upload. |
+| No legal prep analysis | Prep artifact kinds exclude issue, risk, clause analysis, and Gemma summary calls are limited to summary/file-organization tasks. |
 | User visibility | Document detail shows prep status/artifacts; matter detail shows admin readiness and retry. |
 | Structured feedback | Prep artifact feedback stores reason codes only. |
 | Operations surface | Admin health/metrics expose endpoint class and aggregate counts only. |
@@ -48,6 +49,7 @@ The Local AI Operating Layer is implemented as a local-only Gemma route with per
 - No free-text prep feedback comments.
 - No production authorization implied by this report.
 - No non-Gemma candidate is proposed as a product route by PACK-LAI-06.
+- No post-upload AI prep artifact asks Gemma to extract legal issues, legal risks, or clause analysis.
 
 ## Open Readiness Items
 

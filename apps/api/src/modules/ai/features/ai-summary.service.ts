@@ -217,6 +217,7 @@ export class AiSummaryService {
     routingEscalationRequired: boolean,
   ): Promise<RenderedSummary | null> {
     if (!summaryGemmaEnabled()) return null;
+    if (!gemmaFileOrganizationTask(input.task)) return null;
     let generated: Awaited<ReturnType<LocalGemmaGenerationService['generateGrounded']>>;
     try {
       generated = await this.localGemma.generateGrounded(pack);
@@ -413,6 +414,14 @@ function summaryGemmaEnabled(): boolean {
   const defaultValue = process.env.NODE_ENV === 'test' ? 'false' : 'true';
   const raw = process.env.AI_SUMMARY_GEMMA_ENABLED ?? defaultValue;
   return ['1', 'true', 'yes'].includes(raw.trim().toLowerCase());
+}
+
+function gemmaFileOrganizationTask(task: AiSummaryTask): boolean {
+  return (
+    task === 'document_summary' ||
+    task === 'matter_summary' ||
+    task === 'email_thread_summary'
+  );
 }
 
 function evidenceTaskTypeForSummaryTask(task: AiSummaryTask): EvidencePackDto['taskType'] {

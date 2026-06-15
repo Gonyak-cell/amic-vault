@@ -12,9 +12,10 @@ CREATE TABLE ai_prep_feedback_items (
   reason_code text NOT NULL CHECK (
     reason_code IN (
       'useful',
-      'incorrect_summary',
-      'incorrect_key_terms',
-      'incorrect_risk',
+      'incorrect_profile',
+      'incorrect_fields',
+      'incorrect_tags',
+      'incorrect_filing_suggestion',
       'missing_citation',
       'stale_artifact',
       'permission_concern',

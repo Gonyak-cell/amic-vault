@@ -69,7 +69,7 @@ describe('AiPrepStatusService', () => {
       [
         {
           ai_prep_artifact_id: artifactId,
-          artifact_kind: 'document_brief',
+          artifact_kind: 'document_profile',
           status: 'completed',
           is_stale: false,
           source_chunk_ids: [chunkId],
@@ -86,7 +86,7 @@ describe('AiPrepStatusService', () => {
     expect(status.readinessStatus).toBe('ready');
     expect(status.artifacts[0]).toMatchObject({
       artifactId,
-      artifactKind: 'document_brief',
+      artifactKind: 'document_profile',
       sourceChunkCount: 1,
       payload: expect.objectContaining({ answer: 'authorized prep' }),
     });

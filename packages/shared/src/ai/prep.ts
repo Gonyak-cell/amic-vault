@@ -2,13 +2,14 @@ import { z } from 'zod';
 import { aiGroundedGenerationOutputSchema } from './generation';
 
 export const aiPrepArtifactKinds = [
-  'document_brief',
-  'key_terms',
-  'issue_candidates',
-  'risk_candidates',
-  'timeline_candidates',
-  'clause_pointers',
-  'suggested_questions',
+  'document_profile',
+  'key_fields',
+  'date_facts',
+  'people_organizations',
+  'keyword_tags',
+  'filing_suggestions',
+  'source_outline',
+  'retrieval_hints',
 ] as const;
 
 export const aiPrepArtifactKindSchema = z.enum(aiPrepArtifactKinds);
@@ -91,9 +92,10 @@ export const aiPrepFeedbackKindSchema = z.enum(aiPrepFeedbackKinds);
 
 export const aiPrepFeedbackReasonCodes = [
   'useful',
-  'incorrect_summary',
-  'incorrect_key_terms',
-  'incorrect_risk',
+  'incorrect_profile',
+  'incorrect_fields',
+  'incorrect_tags',
+  'incorrect_filing_suggestion',
   'missing_citation',
   'stale_artifact',
   'permission_concern',

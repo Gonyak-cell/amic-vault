@@ -50,7 +50,7 @@ export function aiPrepQueueSendOptions(
 
 export function defaultAiPrepArtifactKinds(): AiPrepJobPayload['artifactKind'][] {
   const raw = process.env.AI_PREP_ARTIFACT_KINDS;
-  if (!raw) return ['document_brief', 'key_terms', 'risk_candidates', 'suggested_questions'];
+  if (!raw) return ['document_profile', 'key_fields', 'keyword_tags', 'filing_suggestions'];
   const parsed = raw
     .split(',')
     .map((entry) => entry.trim())

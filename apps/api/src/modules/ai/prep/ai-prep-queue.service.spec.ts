@@ -11,14 +11,14 @@ const payload: AiPrepJobPayload = {
   matterId: '11111111-1111-4111-8111-111111111112',
   documentId: '11111111-1111-4111-8111-111111111113',
   versionId: '11111111-1111-4111-8111-111111111114',
-  artifactKind: 'document_brief',
+  artifactKind: 'document_profile',
 };
 
 describe('AiPrepQueueService options', () => {
   it('uses singleton jobs, retries, exponential backoff, and a dead letter queue', () => {
     const client = { query: vi.fn() };
     expect(aiPrepQueueSendOptions(payload, client as never)).toMatchObject({
-      singletonKey: `${payload.versionId}:document_brief`,
+      singletonKey: `${payload.versionId}:document_profile`,
       retryLimit: 5,
       retryDelay: 2,
       retryBackoff: true,
@@ -28,10 +28,10 @@ describe('AiPrepQueueService options', () => {
 
   it('defaults to bounded high-value artifact kinds', () => {
     expect(defaultAiPrepArtifactKinds()).toEqual([
-      'document_brief',
-      'key_terms',
-      'risk_candidates',
-      'suggested_questions',
+      'document_profile',
+      'key_fields',
+      'keyword_tags',
+      'filing_suggestions',
     ]);
   });
 

@@ -111,7 +111,7 @@ describe('audit shared types', () => {
       escalation_required: false,
       ai_prep_artifact_id: '11111111-1111-4111-8111-111111111156',
       ai_prep_status: 'completed',
-      ai_prep_kind: 'document_brief',
+      ai_prep_kind: 'document_profile',
       source_chunk_count: 1,
       prompt_hash: '1'.repeat(64),
       response_hash: '2'.repeat(64),

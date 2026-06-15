@@ -366,20 +366,22 @@ export class AiPrepRepository {
 function questionForArtifactKind(kind: AiPrepArtifactKind, title: string): string {
   const label = title.trim() || 'uploaded document';
   switch (kind) {
-    case 'key_terms':
-      return `Extract key defined terms from ${label}.`;
-    case 'issue_candidates':
-      return `Identify issue candidates from ${label}.`;
-    case 'risk_candidates':
-      return `Identify risk candidates from ${label} without legal conclusions.`;
-    case 'timeline_candidates':
-      return `Extract timeline candidate events from ${label}.`;
-    case 'clause_pointers':
-      return `Identify clause pointers from ${label}.`;
-    case 'suggested_questions':
-      return `Suggest grounded follow-up questions for ${label}.`;
-    case 'document_brief':
-      return `Prepare a concise grounded brief for ${label}.`;
+    case 'document_profile':
+      return `Summarize what kind of file ${label} is and what it contains. Do not analyze legal issues.`;
+    case 'key_fields':
+      return `Extract basic file fields from ${label}: dates, amounts, identifiers, parties, senders, recipients, and reference numbers.`;
+    case 'date_facts':
+      return `List dated facts found in ${label} without interpreting legal significance.`;
+    case 'people_organizations':
+      return `List people and organizations mentioned in ${label} with their document-stated roles only.`;
+    case 'keyword_tags':
+      return `Create search keywords and tags for finding ${label} later.`;
+    case 'filing_suggestions':
+      return `Suggest filing categories or matter-folder placement for ${label} based only on document metadata and wording.`;
+    case 'source_outline':
+      return `Create a section and heading outline for ${label}.`;
+    case 'retrieval_hints':
+      return `Create neutral search hints for retrieving ${label} later.`;
   }
 }
 
@@ -388,8 +390,6 @@ function queryForArtifactKind(kind: AiPrepArtifactKind, title: string): string {
 }
 
 function taskTypeForArtifactKind(kind: AiPrepArtifactKind): EvidencePackDto['taskType'] {
-  if (kind === 'risk_candidates' || kind === 'issue_candidates' || kind === 'clause_pointers') {
-    return 'review';
-  }
+  void kind;
   return 'summary';
 }

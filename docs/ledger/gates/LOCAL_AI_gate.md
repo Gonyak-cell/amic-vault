@@ -19,7 +19,8 @@ This gate covers PACK-LAI-01 through PACK-LAI-06:
 |---|---|
 | Local-only route key remains `local_gemma` | PASS |
 | No external AI SDK/API key/model route added | PASS |
-| Upload prep artifacts store hashes, refs, and bounded generated payload only | PASS |
+| Upload prep artifacts store hashes, refs, and bounded file-organization payload only | PASS |
+| Upload prep artifact kinds exclude issue/risk/clause analysis | PASS |
 | Artifact JSON raw top-level key scan | PASS; forbidden key count 0 |
 | Admin-only local AI ops health/metrics | PASS |
 | Structured prep feedback has no free-form comments | PASS |
@@ -58,4 +59,5 @@ git diff --check
 - The committed eval set is still the deidentified technical subset and not the future operational corpus.
 - `pnpm eval:local-ai` currently passes the technical gate with no completed live local AI outputs observed; live Gemma output sampling remains a production-readiness task.
 - PACK-LAI-06 benchmark used the same 2-case synthetic fixture, so it proves harness safety and Gemma runtime availability but not model superiority.
+- Post-upload Gemma prep is scoped to file organization: document profile, key fields, date facts, people/organizations, keyword tags, filing suggestions, source outline, and retrieval hints.
 - This gate is not production authorization and does not approve external AI models.

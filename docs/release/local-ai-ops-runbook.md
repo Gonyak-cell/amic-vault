@@ -30,7 +30,7 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/api build
 Operational flags:
 
 - `AI_PREP_QUEUE_WORKER_ENABLED`: enables `ai.prep` worker polling.
-- `AI_PREP_ARTIFACT_KINDS`: comma-separated artifact kinds; defaults to document brief, key terms, risk candidates, and suggested questions.
+- `AI_PREP_ARTIFACT_KINDS`: comma-separated artifact kinds; defaults to document profile, key fields, keyword tags, and filing suggestions.
 - `AI_PREP_TENANT_MAX_CONCURRENCY`: per-tenant prep concurrency ceiling.
 - `LOCAL_GEMMA_ENABLED`: local generation route gate.
 - `LOCAL_GEMMA_MODEL`: model tag; default `gemma4:12b`.

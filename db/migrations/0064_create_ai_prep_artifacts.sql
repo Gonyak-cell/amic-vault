@@ -36,13 +36,14 @@ CREATE TABLE ai_prep_artifacts (
   document_version_id uuid NOT NULL,
   artifact_kind text NOT NULL CHECK (
     artifact_kind IN (
-      'document_brief',
-      'key_terms',
-      'issue_candidates',
-      'risk_candidates',
-      'timeline_candidates',
-      'clause_pointers',
-      'suggested_questions'
+      'document_profile',
+      'key_fields',
+      'date_facts',
+      'people_organizations',
+      'keyword_tags',
+      'filing_suggestions',
+      'source_outline',
+      'retrieval_hints'
     )
   ),
   status text NOT NULL DEFAULT 'pending' CHECK (
@@ -132,7 +133,7 @@ GRANT UPDATE (
 ) ON ai_prep_artifacts TO vault_app;
 
 COMMENT ON TABLE ai_prep_artifacts IS
-  'Local-only post-upload AI preparation artifacts. Payloads store bounded grounded outputs and hashes, never raw source text, prompts, or raw model responses.';
+  'Local-only post-upload AI preparation artifacts. Payloads store bounded file-organization outputs and hashes, never legal analysis, raw source text, prompts, or raw model responses.';
 
 COMMENT ON COLUMN ai_prep_artifacts.prompt_hash IS
   'SHA-256 hash of the compiled local prompt. Prompt text is never stored.';
