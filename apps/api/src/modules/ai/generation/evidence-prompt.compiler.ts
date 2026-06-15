@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { EvidencePackDto } from '@amic-vault/shared';
 
+export interface EvidencePromptCompileOptions {
+  purpose?: 'grounded_answer' | 'file_organization_prep' | undefined;
+  artifactKind?: string | undefined;
+  allowedClaimKinds?: readonly string[] | undefined;
+}
+
 export interface EvidencePromptCompilation {
   system: string;
   prompt: string;
@@ -9,8 +15,13 @@ export interface EvidencePromptCompilation {
 
 @Injectable()
 export class AiEvidencePromptCompiler {
-  compile(pack: EvidencePackDto): EvidencePromptCompilation {
+  compile(pack: EvidencePackDto, options: EvidencePromptCompileOptions = {}): EvidencePromptCompilation {
     const sourceRefs = pack.citationRequirements.sourceRefs;
+    const exampleSourceRef = sourceRefs[0] ?? 'chunk:source-ref';
+    const allowedClaimKinds = options.allowedClaimKinds?.length
+      ? [...new Set(options.allowedClaimKinds)]
+      : ['summary', 'key_fact', 'risk', 'issue', 'timeline', 'question', 'clause', 'answer'];
+    const isPrep = options.purpose === 'file_organization_prep';
     const chunks = pack.retrievedChunks
       .map(
         (chunk) =>
@@ -42,14 +53,29 @@ export class AiEvidencePromptCompiler {
         'You are AMIC Vault local_gemma.',
         'Use only the supplied Evidence Pack.',
         'Every claim must cite source_refs from the allowed SOURCE_REF list.',
+        'Copy source_refs exactly from ALLOWED_SOURCE_REFS; never invent placeholder refs.',
         'Return JSON only with answer, sections, claims, and optional warnings.',
         'Do not include facts without citations. Do not approve legal conclusions.',
+        ...(isPrep
+          ? [
+              'This is post-upload file-organization prep only.',
+              'Do not create legal issue, legal risk, clause-analysis, or legal-advice claims.',
+            ]
+          : []),
       ].join(' '),
       prompt: [
+        ...(isPrep
+          ? [
+              'PURPOSE: file_organization_prep',
+              `ARTIFACT_KIND: ${options.artifactKind ?? pack.outputFormat.kind}`,
+            ]
+          : []),
         `TASK: ${pack.taskType}`,
         `LOCALE: ${pack.outputFormat.locale}`,
         `QUESTION: ${pack.userQuestion}`,
+        `CLAIM_KIND_ALLOWLIST: ${allowedClaimKinds.join(', ')}`,
         `ALLOWED_SOURCE_REFS: ${sourceRefs.join(', ')}`,
+        'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
         'RETRIEVED_CHUNKS:',
         chunks || 'none',
         'GRAPH_FACTS:',
@@ -64,15 +90,15 @@ export class AiEvidencePromptCompiler {
               section_id: 'string',
               heading: 'string',
               text: 'string',
-              source_refs: ['chunk:<id>'],
+              source_refs: [exampleSourceRef],
             },
           ],
           claims: [
             {
               claim_id: 'string',
-              kind: 'summary|key_fact|risk|issue|timeline|question|clause|answer',
+              kind: allowedClaimKinds.join('|'),
               text: 'string',
-              source_refs: ['chunk:<id>'],
+              source_refs: [exampleSourceRef],
               is_legal_conclusion: false,
             },
           ],

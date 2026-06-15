@@ -35,7 +35,41 @@ const payload = {
   artifactKind: 'document_profile' as const,
 };
 
-function createProcessor(options: { generationStatus?: 'completed' | 'blocked' } = {}) {
+type CompletedPrepPayload = {
+  claims: Array<{ kind: string }>;
+  warnings?: string[];
+};
+
+function firstCompletedPayload(repository: {
+  upsertCompleted: ReturnType<typeof vi.fn>;
+}): CompletedPrepPayload | undefined {
+  const calls = repository.upsertCompleted.mock.calls as unknown as Array<
+    [unknown, { payload: CompletedPrepPayload }]
+  >;
+  return calls[0]?.[1].payload;
+}
+
+function createProcessor(
+  options: {
+    generationStatus?: 'completed' | 'blocked';
+    generationOutput?: {
+      answer: string;
+      sections: Array<{
+        section_id: string;
+        heading: string;
+        text: string;
+        source_refs: string[];
+      }>;
+      claims: Array<{
+        claim_id: string;
+        kind: string;
+        text: string;
+        source_refs: string[];
+        is_legal_conclusion?: boolean;
+      }>;
+    };
+  } = {},
+) {
   const auditLogs: unknown[] = [];
   const audit = {
     transaction: vi.fn(async (_tenantId: string, run: (client: never) => Promise<unknown>) =>
@@ -106,6 +140,44 @@ function createProcessor(options: { generationStatus?: 'completed' | 'blocked' }
     upsertCompleted: vi.fn(async () => 'artifact-completed'),
     upsertBlocked: vi.fn(async () => 'artifact-blocked'),
   };
+  const promptCompiler = {
+    compile: vi.fn(() => ({
+      system: 'system',
+      prompt: 'prompt',
+      sourceRefs: [`chunk:${sourceChunk.chunkId}`],
+    })),
+  };
+  const generation = {
+    generateGrounded: vi.fn(async () =>
+      options.generationStatus === 'blocked'
+        ? { status: 'blocked', reasonCode: 'unsupported_claim' }
+        : {
+            status: 'completed',
+            model: 'gemma4:12b',
+            latencyMs: 7,
+            output: options.generationOutput ?? {
+              answer: 'answer',
+              sections: [
+                {
+                  section_id: 'brief',
+                  heading: 'Brief',
+                  text: 'answer',
+                  source_refs: [`chunk:${sourceChunk.chunkId}`],
+                },
+              ],
+              claims: [
+                {
+                  claim_id: 'claim-1',
+                  kind: 'summary',
+                  text: 'answer',
+                  source_refs: [`chunk:${sourceChunk.chunkId}`],
+                  is_legal_conclusion: false,
+                },
+              ],
+            },
+          },
+    ),
+  };
   const processor = new AiPrepProcessor(
     audit as never,
     { evaluate: vi.fn(async () => ({ effect: 'ALLOW' })) } as never,
@@ -127,46 +199,10 @@ function createProcessor(options: { generationStatus?: 'completed' | 'blocked' }
         appliedRules: ['dlp.redaction:no_findings'],
       })),
     } as never,
-    {
-      compile: vi.fn(() => ({
-        system: 'system',
-        prompt: 'prompt',
-        sourceRefs: [`chunk:${sourceChunk.chunkId}`],
-      })),
-    } as never,
-    {
-      generateGrounded: vi.fn(async () =>
-        options.generationStatus === 'blocked'
-          ? { status: 'blocked', reasonCode: 'unsupported_claim' }
-          : {
-              status: 'completed',
-              model: 'gemma4:12b',
-              latencyMs: 7,
-              output: {
-                answer: 'answer',
-                sections: [
-                  {
-                    section_id: 'brief',
-                    heading: 'Brief',
-                    text: 'answer',
-                    source_refs: [`chunk:${sourceChunk.chunkId}`],
-                  },
-                ],
-                claims: [
-                  {
-                    claim_id: 'claim-1',
-                    kind: 'summary',
-                    text: 'answer',
-                    source_refs: [`chunk:${sourceChunk.chunkId}`],
-                    is_legal_conclusion: false,
-                  },
-                ],
-              },
-            },
-      ),
-    } as never,
+    promptCompiler as never,
+    generation as never,
   );
-  return { audit, auditLogs, repository, processor };
+  return { audit, auditLogs, generation, promptCompiler, repository, processor };
 }
 
 describe('AiPrepProcessor', () => {
@@ -174,6 +210,7 @@ describe('AiPrepProcessor', () => {
     const { auditLogs, repository, processor } = createProcessor();
     await processor.handle(payload);
 
+    expect(repository.upsertBlocked).not.toHaveBeenCalled();
     expect(repository.upsertCompleted).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -187,6 +224,7 @@ describe('AiPrepProcessor', () => {
         expect.objectContaining({
           action: 'AI_PREP_COMPLETED',
           metadata: expect.objectContaining({
+            generation_result: 'gemma',
             prompt_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
             response_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
           }),
@@ -195,21 +233,101 @@ describe('AiPrepProcessor', () => {
     );
   });
 
-  it('blocks unsupported model output without storing a raw response', async () => {
-    const { auditLogs, repository, processor } = createProcessor({ generationStatus: 'blocked' });
+  it('discards legal-analysis claim kinds and stores a safe fallback artifact', async () => {
+    const { auditLogs, repository, processor } = createProcessor({
+      generationOutput: {
+        answer: 'answer',
+        sections: [
+          {
+            section_id: 'brief',
+            heading: 'Brief',
+            text: 'answer',
+            source_refs: [`chunk:${sourceChunk.chunkId}`],
+          },
+        ],
+        claims: [
+          {
+            claim_id: 'claim-1',
+            kind: 'risk',
+            text: 'not allowed in prep',
+            source_refs: [`chunk:${sourceChunk.chunkId}`],
+            is_legal_conclusion: false,
+          },
+        ],
+      },
+    });
+
     await processor.handle(payload);
 
-    expect(repository.upsertBlocked).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ reasonCode: 'UNSUPPORTED_CLAIM' }),
+    expect(repository.upsertBlocked).not.toHaveBeenCalled();
+    expect(repository.upsertCompleted).toHaveBeenCalled();
+    const completedPayload = firstCompletedPayload(repository);
+    expect(completedPayload).toBeDefined();
+    if (!completedPayload) throw new Error('expected completed fallback payload');
+    expect(JSON.stringify(completedPayload)).not.toContain('not allowed in prep');
+    expect(completedPayload.claims.map((claim) => claim.kind)).toEqual(['key_fact']);
+    expect(completedPayload.warnings).toContain(
+      'LOCAL_GEMMA_AI_PREP_VALIDATION_FAILED_FALLBACK',
     );
     expect(auditLogs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          action: 'AI_PREP_BLOCKED',
-          metadata: expect.not.objectContaining({ response: expect.anything() }),
+          action: 'AI_PREP_COMPLETED',
+          metadata: expect.objectContaining({
+            generation_result: 'fallback',
+            fallback_reason_code: 'AI_PREP_VALIDATION_FAILED',
+            response_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
         }),
       ]),
     );
+  });
+
+  it('passes file-organization compile options into Gemma generation', async () => {
+    const { generation, processor, promptCompiler } = createProcessor();
+
+    await processor.handle(payload);
+
+    expect(promptCompiler.compile).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        purpose: 'file_organization_prep',
+        artifactKind: 'document_profile',
+        allowedClaimKinds: ['summary', 'key_fact'],
+      }),
+    );
+    expect(generation.generateGrounded).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        compileOptions: expect.objectContaining({
+          purpose: 'file_organization_prep',
+          artifactKind: 'document_profile',
+        }),
+      }),
+    );
+  });
+
+  it('falls back on unsupported model output without storing a raw response', async () => {
+    const { auditLogs, repository, processor } = createProcessor({ generationStatus: 'blocked' });
+    await processor.handle(payload);
+
+    expect(repository.upsertBlocked).not.toHaveBeenCalled();
+    expect(repository.upsertCompleted).toHaveBeenCalled();
+    const completedPayload = firstCompletedPayload(repository);
+    expect(completedPayload).toBeDefined();
+    if (!completedPayload) throw new Error('expected completed fallback payload');
+    expect(completedPayload.warnings).toContain('LOCAL_GEMMA_UNSUPPORTED_CLAIM_FALLBACK');
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_COMPLETED',
+          metadata: expect.objectContaining({
+            generation_result: 'fallback',
+            fallback_reason_code: 'UNSUPPORTED_CLAIM',
+          }),
+        }),
+      ]),
+    );
+    expect(JSON.stringify(auditLogs)).not.toMatch(/"response"|"prompt"|"raw"/u);
   });
 });

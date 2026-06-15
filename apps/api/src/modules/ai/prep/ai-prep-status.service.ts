@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import {
-  aiPrepArtifactPayloadSchema,
   aiPrepDocumentStatusSchema,
   aiPrepFeedbackRequestSchema,
   aiPrepFeedbackResponseSchema,
   aiPrepMatterReadinessSchema,
   aiPrepMatterRetryResponseSchema,
+  parseAiPrepArtifactPayload,
   type AiPrepArtifactKind,
   type AiPrepDocumentReadinessStatus,
   type AiPrepDocumentStatusDto,
@@ -117,7 +117,7 @@ export class AiPrepStatusService {
           updatedAt: artifact.updated_at.toISOString(),
           payload:
             artifact.status === 'completed' && !artifact.is_stale
-              ? aiPrepArtifactPayloadSchema.parse(artifact.payload_json)
+              ? parseAiPrepArtifactPayload(artifact.payload_json, artifact.artifact_kind)
               : null,
         })),
       });

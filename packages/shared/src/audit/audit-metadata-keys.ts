@@ -54,6 +54,8 @@ export const auditMetadataKeys = [
   'ai_prep_status',
   'ai_prep_kind',
   'source_chunk_count',
+  'generation_result',
+  'fallback_reason_code',
   'prompt_hash',
   'response_hash',
   'stale_reason',

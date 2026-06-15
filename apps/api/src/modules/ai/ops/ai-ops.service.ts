@@ -27,6 +27,7 @@ interface OpsMetricsRow {
   prep_blocked_count: number;
   prep_failed_count: number;
   prep_stale_count: number;
+  prep_fallback_count: number;
   stale_rebuild_count: number;
   generation_completed_count: number;
   generation_blocked_count: number;
@@ -97,6 +98,7 @@ export class AiOpsService {
         prepBlockedCount: Number(row.prep_blocked_count),
         prepFailedCount: Number(row.prep_failed_count),
         prepStaleCount: Number(row.prep_stale_count),
+        prepFallbackCount: Number(row.prep_fallback_count),
         staleRebuildCount: Number(row.stale_rebuild_count),
         generationCompletedCount: Number(row.generation_completed_count),
         generationBlockedCount: Number(row.generation_blocked_count),
@@ -202,6 +204,15 @@ export class AiOpsService {
             count(*) FILTER (WHERE status = 'blocked')::int AS prep_blocked_count,
             count(*) FILTER (WHERE status = 'failed')::int AS prep_failed_count,
             count(*) FILTER (WHERE status = 'stale' OR is_stale = true)::int AS prep_stale_count,
+            count(*) FILTER (
+              WHERE status = 'completed'
+                AND jsonb_typeof(payload_json->'warnings') = 'array'
+                AND EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements_text(payload_json->'warnings') AS warning(value)
+                  WHERE warning.value LIKE 'LOCAL_GEMMA_%_FALLBACK'
+                )
+            )::int AS prep_fallback_count,
             count(*) FILTER (WHERE is_stale = true)::int AS stale_rebuild_count,
             count(*) FILTER (
               WHERE failure_reason_code IN ('UNSUPPORTED_CLAIM', 'SCHEMA_INVALID', 'INVALID_OUTPUT')
@@ -240,6 +251,7 @@ export class AiOpsService {
         prep_blocked_count: 0,
         prep_failed_count: 0,
         prep_stale_count: 0,
+        prep_fallback_count: 0,
         stale_rebuild_count: 0,
         generation_completed_count: 0,
         generation_blocked_count: 0,

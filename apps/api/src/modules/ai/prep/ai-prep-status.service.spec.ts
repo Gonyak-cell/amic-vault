@@ -93,6 +93,29 @@ describe('AiPrepStatusService', () => {
     expect(JSON.stringify(status)).not.toMatch(/prompt|raw|response/u);
   });
 
+  it('rejects stored completed prep payloads with legal-analysis claim kinds', async () => {
+    const { service } = createService([
+      [{ document_id: documentId, version_id: versionId }],
+      [
+        {
+          ai_prep_artifact_id: artifactId,
+          artifact_kind: 'document_profile',
+          status: 'completed',
+          is_stale: false,
+          source_chunk_ids: [chunkId],
+          generated_at: new Date('2026-06-15T00:00:00.000Z'),
+          updated_at: new Date('2026-06-15T00:00:01.000Z'),
+          payload_json: {
+            ...payload(),
+            claims: [{ ...payload().claims[0], kind: 'risk' }],
+          },
+        },
+      ],
+    ]);
+
+    await expect(service.getDocumentStatus({ tenantId, userId }, documentId)).rejects.toThrow();
+  });
+
   it('fails closed before querying artifacts when document permission is denied', async () => {
     const { audit, documentPermission, service } = createService();
     documentPermission.canReadDocument.mockResolvedValueOnce({ effect: 'DENY' });

@@ -5,7 +5,10 @@ import {
   type AiGroundedGenerationOutputDto,
   type EvidencePackDto,
 } from '@amic-vault/shared';
-import { AiEvidencePromptCompiler } from './evidence-prompt.compiler';
+import {
+  AiEvidencePromptCompiler,
+  type EvidencePromptCompileOptions,
+} from './evidence-prompt.compiler';
 import { AiGroundedOutputGuard } from './grounded-output.guard';
 
 export interface LocalGemmaGroundedGenerationResult {
@@ -16,6 +19,11 @@ export interface LocalGemmaGroundedGenerationResult {
   latencyMs?: number | undefined;
 }
 
+export interface LocalGemmaGroundedGenerationOptions {
+  compileOptions?: EvidencePromptCompileOptions | undefined;
+  parseOutput?: ((value: unknown) => AiGroundedGenerationOutputDto) | undefined;
+}
+
 @Injectable()
 export class LocalGemmaGenerationService {
   constructor(
@@ -23,7 +31,10 @@ export class LocalGemmaGenerationService {
     private readonly guard: AiGroundedOutputGuard,
   ) {}
 
-  async generateGrounded(pack: EvidencePackDto): Promise<LocalGemmaGroundedGenerationResult> {
+  async generateGrounded(
+    pack: EvidencePackDto,
+    options: LocalGemmaGroundedGenerationOptions = {},
+  ): Promise<LocalGemmaGroundedGenerationResult> {
     const gateway = new LocalGemmaGateway({
       route: 'local_gemma',
       enabled: localGemmaEnabled(),
@@ -32,7 +43,7 @@ export class LocalGemmaGenerationService {
       timeoutMs: localGemmaTimeoutMs(),
       maxResponseChars: 24_000,
     });
-    const compiled = this.compiler.compile(pack);
+    const compiled = this.compiler.compile(pack, options.compileOptions);
     const startedAt = performance.now();
     const generated = await gateway.generateJson(
       {
@@ -42,7 +53,7 @@ export class LocalGemmaGenerationService {
         temperature: 0,
         maxTokens: 1400,
       },
-      (value) => aiGroundedGenerationOutputSchema.parse(value),
+      options.parseOutput ?? ((value) => aiGroundedGenerationOutputSchema.parse(value)),
     );
     if (generated.status !== 'completed' || !generated.json) {
       return {

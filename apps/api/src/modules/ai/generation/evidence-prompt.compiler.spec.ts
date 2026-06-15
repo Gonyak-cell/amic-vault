@@ -60,6 +60,26 @@ describe('AiEvidencePromptCompiler', () => {
     expect(compiled.sourceRefs).toEqual(['chunk:11111111-1111-4111-8111-111111111004']);
     expect(compiled.prompt).toContain('허가된 [REDACTED:email_address] 문맥');
     expect(compiled.prompt).toContain('source_refs');
+    expect(compiled.prompt).toContain('"source_refs":["chunk:11111111-1111-4111-8111-111111111004"]');
+    expect(compiled.prompt).not.toContain('chunk:<id>');
     expect(compiled.prompt).not.toMatch(/title|snippet|raw body|lawyer@example/u);
+  });
+
+  it('limits prep prompts to file-organization claim kinds', () => {
+    const compiled = new AiEvidencePromptCompiler().compile(evidencePack(), {
+      purpose: 'file_organization_prep',
+      artifactKind: 'document_profile',
+      allowedClaimKinds: ['summary', 'key_fact'],
+    });
+
+    expect(compiled.system).toContain('file-organization prep');
+    expect(compiled.prompt).toContain('PURPOSE: file_organization_prep');
+    expect(compiled.prompt).toContain('ARTIFACT_KIND: document_profile');
+    expect(compiled.prompt).toContain('CLAIM_KIND_ALLOWLIST: summary, key_fact');
+    expect(compiled.prompt).toContain(
+      'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
+    );
+    expect(compiled.prompt).toContain('"kind":"summary|key_fact"');
+    expect(compiled.prompt).not.toMatch(/risk|issue|clause/u);
   });
 });

@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { aiGroundedGenerationOutputSchema } from './generation';
+import {
+  aiGroundedClaimSchema,
+  aiGroundedGenerationOutputSchema,
+  type AiGroundedClaimKind,
+} from './generation';
 
 export const aiPrepArtifactKinds = [
   'document_profile',
@@ -13,6 +17,31 @@ export const aiPrepArtifactKinds = [
 ] as const;
 
 export const aiPrepArtifactKindSchema = z.enum(aiPrepArtifactKinds);
+
+export type AiPrepArtifactKind = z.infer<typeof aiPrepArtifactKindSchema>;
+
+export const aiPrepClaimKinds = [
+  'summary',
+  'key_fact',
+  'timeline',
+  'question',
+  'answer',
+] as const satisfies readonly AiGroundedClaimKind[];
+
+export const aiPrepClaimKindSchema = z.enum(aiPrepClaimKinds);
+
+export type AiPrepClaimKind = z.infer<typeof aiPrepClaimKindSchema>;
+
+export const aiPrepArtifactClaimKindAllowlist = {
+  document_profile: ['summary', 'key_fact'],
+  key_fields: ['key_fact'],
+  date_facts: ['timeline', 'key_fact'],
+  people_organizations: ['key_fact'],
+  keyword_tags: ['key_fact'],
+  filing_suggestions: ['answer', 'key_fact'],
+  source_outline: ['summary', 'key_fact'],
+  retrieval_hints: ['question', 'answer', 'key_fact'],
+} as const satisfies Record<AiPrepArtifactKind, readonly AiPrepClaimKind[]>;
 
 export const aiPrepStatuses = [
   'pending',
@@ -34,7 +63,16 @@ export const aiPrepPayloadBannedTopLevelKeys = [
   'response',
 ] as const;
 
-const aiPrepPayloadBaseSchema = aiGroundedGenerationOutputSchema.extend({
+const aiPrepGroundedClaimSchema = aiGroundedClaimSchema.extend({
+  kind: aiPrepClaimKindSchema,
+  is_legal_conclusion: z.literal(false).optional(),
+});
+
+export const aiPrepGroundedGenerationOutputSchema = aiGroundedGenerationOutputSchema.extend({
+  claims: z.array(aiPrepGroundedClaimSchema).min(1).max(100),
+});
+
+const aiPrepPayloadBaseSchema = aiPrepGroundedGenerationOutputSchema.extend({
   source_refs: z.array(z.string().min(1).max(120)).min(1).max(50),
 });
 
@@ -49,8 +87,59 @@ export const aiPrepArtifactPayloadSchema = aiPrepPayloadBaseSchema.superRefine(
         });
       }
     }
+    const topLevelRefs = new Set(value.source_refs);
+    value.sections.forEach((section, sectionIndex) => {
+      section.source_refs.forEach((ref, refIndex) => {
+        if (!topLevelRefs.has(ref)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'section source_ref must be included in payload source_refs',
+            path: ['sections', sectionIndex, 'source_refs', refIndex],
+          });
+        }
+      });
+    });
+    value.claims.forEach((claim, claimIndex) => {
+      claim.source_refs.forEach((ref, refIndex) => {
+        if (!topLevelRefs.has(ref)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'claim source_ref must be included in payload source_refs',
+            path: ['claims', claimIndex, 'source_refs', refIndex],
+          });
+        }
+      });
+    });
   },
 );
+
+export function aiPrepArtifactAllowedClaimKinds(
+  artifactKind: AiPrepArtifactKind,
+): readonly AiPrepClaimKind[] {
+  return aiPrepArtifactClaimKindAllowlist[artifactKind];
+}
+
+export function aiPrepArtifactPayloadForKindSchema(artifactKind: AiPrepArtifactKind) {
+  const allowedKinds = new Set(aiPrepArtifactAllowedClaimKinds(artifactKind));
+  return aiPrepArtifactPayloadSchema.superRefine((value, ctx) => {
+    value.claims.forEach((claim, claimIndex) => {
+      if (!allowedKinds.has(claim.kind)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim kind ${claim.kind} is not allowed for ${artifactKind}`,
+          path: ['claims', claimIndex, 'kind'],
+        });
+      }
+    });
+  });
+}
+
+export function parseAiPrepArtifactPayload(
+  input: unknown,
+  artifactKind: AiPrepArtifactKind,
+): AiPrepArtifactPayloadDto {
+  return aiPrepArtifactPayloadForKindSchema(artifactKind).parse(input);
+}
 
 export const aiPrepDocumentReadinessStatuses = [
   'not_ready',
@@ -170,7 +259,6 @@ export const aiPrepMatterRetryResponseSchema = z
   })
   .strict();
 
-export type AiPrepArtifactKind = z.infer<typeof aiPrepArtifactKindSchema>;
 export type AiPrepStatus = z.infer<typeof aiPrepStatusSchema>;
 export type AiPrepArtifactPayloadDto = z.infer<typeof aiPrepArtifactPayloadSchema>;
 export type AiPrepDocumentReadinessStatus = z.infer<

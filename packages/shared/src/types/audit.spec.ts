@@ -113,6 +113,8 @@ describe('audit shared types', () => {
       ai_prep_status: 'completed',
       ai_prep_kind: 'document_profile',
       source_chunk_count: 1,
+      generation_result: 'fallback',
+      fallback_reason_code: 'UNSUPPORTED_CLAIM',
       prompt_hash: '1'.repeat(64),
       response_hash: '2'.repeat(64),
       stale_reason: 'new_version',

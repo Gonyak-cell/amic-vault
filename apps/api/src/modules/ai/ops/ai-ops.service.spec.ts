@@ -82,6 +82,7 @@ describe('AiOpsService', () => {
           prep_blocked_count: 1,
           prep_failed_count: 0,
           prep_stale_count: 1,
+          prep_fallback_count: 2,
           stale_rebuild_count: 1,
           generation_completed_count: 2,
           generation_blocked_count: 0,
@@ -96,6 +97,7 @@ describe('AiOpsService', () => {
     const metrics = await service.getMetrics({ tenantId, userId, sessionId });
 
     expect(metrics.prepCompletedCount).toBe(3);
+    expect(metrics.prepFallbackCount).toBe(2);
     expect(JSON.stringify(metrics)).not.toMatch(/body|content|snippet|raw|prompt|response/i);
   });
 

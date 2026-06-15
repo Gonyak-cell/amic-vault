@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   aiPrepArtifactKindSchema,
+  aiPrepArtifactAllowedClaimKinds,
   aiPrepDocumentStatusSchema,
   aiPrepArtifactPayloadSchema,
   aiPrepFeedbackRequestSchema,
   aiPrepMatterReadinessSchema,
   aiPrepPayloadBannedTopLevelKeys,
   aiPrepStatusSchema,
+  parseAiPrepArtifactPayload,
 } from './prep';
 
 const validPayload = {
@@ -45,6 +47,49 @@ describe('ai prep shared contract', () => {
       answer: validPayload.answer,
       source_refs: validPayload.source_refs,
     });
+    expect(parseAiPrepArtifactPayload(validPayload, 'document_profile')).toMatchObject({
+      answer: validPayload.answer,
+    });
+  });
+
+  it('rejects legal-analysis claim kinds in prep payloads', () => {
+    for (const kind of ['risk', 'issue', 'clause'] as const) {
+      expect(() =>
+        aiPrepArtifactPayloadSchema.parse({
+          ...validPayload,
+          claims: [{ ...validPayload.claims[0], kind }],
+        }),
+      ).toThrow();
+    }
+  });
+
+  it('enforces artifact-specific prep claim kind allowlists', () => {
+    expect(aiPrepArtifactAllowedClaimKinds('date_facts')).toContain('timeline');
+    expect(parseAiPrepArtifactPayload(
+      {
+        ...validPayload,
+        claims: [{ ...validPayload.claims[0], kind: 'timeline' }],
+      },
+      'date_facts',
+    ).claims[0]?.kind).toBe('timeline');
+    expect(() =>
+      parseAiPrepArtifactPayload(
+        {
+          ...validPayload,
+          claims: [{ ...validPayload.claims[0], kind: 'timeline' }],
+        },
+        'document_profile',
+      ),
+    ).toThrow();
+  });
+
+  it('rejects payload refs that are not declared in top-level source refs', () => {
+    expect(() =>
+      aiPrepArtifactPayloadSchema.parse({
+        ...validPayload,
+        source_refs: ['chunk:22222222-2222-4222-8222-222222222222'],
+      }),
+    ).toThrow();
   });
 
   it('rejects raw prompt, source body, or response top-level keys', () => {

@@ -1,6 +1,13 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { aiPrepArtifactPayloadSchema, type AiPrepArtifactPayloadDto } from '@amic-vault/shared';
+import {
+  aiPrepArtifactAllowedClaimKinds,
+  aiPrepGroundedGenerationOutputSchema,
+  parseAiPrepArtifactPayload,
+  type AiPrepArtifactKind,
+  type AiPrepArtifactPayloadDto,
+  type EvidencePackDto,
+} from '@amic-vault/shared';
 import { AiPolicyService } from '../../ai-policy/ai-policy.service';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import {
@@ -128,24 +135,48 @@ export class AiPrepProcessor {
         'ai_prep.policy:local_gemma_allowed',
       ],
     });
-    const compiled = this.promptCompiler.compile(pack);
+    const compileOptions = {
+      purpose: 'file_organization_prep' as const,
+      artifactKind: payload.artifactKind,
+      allowedClaimKinds: aiPrepArtifactAllowedClaimKinds(payload.artifactKind),
+    };
+    const compiled = this.promptCompiler.compile(pack, compileOptions);
     const promptHash = sha256Hex(`${compiled.system}\n\n${compiled.prompt}`);
-    const generationResult = await this.generation.generateGrounded(pack);
-
-    if (generationResult.status !== 'completed' || !generationResult.output) {
-      await this.recordBlocked(
-        source,
-        payload,
-        normalizeBlockedReason(generationResult.reasonCode),
-        source.chunks,
-      );
-      return;
-    }
-
-    const payloadJson = parsePrepPayload({
-      ...generationResult.output,
-      source_refs: pack.citationRequirements.sourceRefs,
+    const generationResult = await this.generation.generateGrounded(pack, {
+      compileOptions,
+      parseOutput: (value) => aiPrepGroundedGenerationOutputSchema.parse(value),
     });
+
+    let payloadJson: AiPrepArtifactPayloadDto;
+    let generationResultKind: 'gemma' | 'fallback' = 'gemma';
+    let fallbackReasonCode: string | undefined;
+    if (generationResult.status === 'completed' && generationResult.output) {
+      try {
+        payloadJson = parsePrepPayload(
+          {
+            ...generationResult.output,
+            source_refs: pack.citationRequirements.sourceRefs,
+          },
+          payload.artifactKind,
+        );
+      } catch {
+        generationResultKind = 'fallback';
+        fallbackReasonCode = 'AI_PREP_VALIDATION_FAILED';
+        payloadJson = buildDeterministicPrepPayload(
+          pack,
+          payload.artifactKind,
+          fallbackReasonCode,
+        );
+      }
+    } else {
+      generationResultKind = 'fallback';
+      fallbackReasonCode = normalizeBlockedReason(generationResult.reasonCode);
+      payloadJson = buildDeterministicPrepPayload(
+        pack,
+        payload.artifactKind,
+        fallbackReasonCode,
+      );
+    }
     const responseHash = sha256Hex(JSON.stringify(payloadJson));
     await this.auditService.transaction(source.tenantId, async (tx) => {
       const artifactId = await this.repository.upsertCompleted(tx, {
@@ -168,6 +199,8 @@ export class AiPrepProcessor {
         sourceChunkCount: source.chunks.length,
         promptHash,
         responseHash,
+        generationResult: generationResultKind,
+        fallbackReasonCode,
       });
     });
   }
@@ -235,6 +268,8 @@ export class AiPrepProcessor {
       reasonCode?: string | undefined;
       promptHash?: string | undefined;
       responseHash?: string | undefined;
+      generationResult?: 'gemma' | 'fallback' | undefined;
+      fallbackReasonCode?: string | undefined;
       deadLetterId?: string | undefined;
     },
   ): Promise<void> {
@@ -256,6 +291,8 @@ export class AiPrepProcessor {
           document_id: input.source.documentId,
           version_id: input.source.versionId,
           source_chunk_count: input.sourceChunkCount ?? 0,
+          ...(input.generationResult ? { generation_result: input.generationResult } : {}),
+          ...(input.fallbackReasonCode ? { fallback_reason_code: input.fallbackReasonCode } : {}),
           ...(input.reasonCode ? { reason_code: input.reasonCode } : {}),
           ...(input.promptHash ? { prompt_hash: input.promptHash } : {}),
           ...(input.responseHash ? { response_hash: input.responseHash } : {}),
@@ -267,8 +304,86 @@ export class AiPrepProcessor {
   }
 }
 
-function parsePrepPayload(input: unknown): AiPrepArtifactPayloadDto {
-  return aiPrepArtifactPayloadSchema.parse(input);
+function parsePrepPayload(
+  input: unknown,
+  artifactKind: AiPrepJobPayload['artifactKind'],
+): AiPrepArtifactPayloadDto {
+  return parseAiPrepArtifactPayload(input, artifactKind);
+}
+
+function buildDeterministicPrepPayload(
+  pack: EvidencePackDto,
+  artifactKind: AiPrepArtifactKind,
+  reasonCode: string,
+): AiPrepArtifactPayloadDto {
+  const sourceRefs = pack.citationRequirements.sourceRefs.slice(0, 50);
+  const primarySourceRef = sourceRefs[0];
+  if (!primarySourceRef) {
+    throw new Error('deterministic ai prep fallback requires source refs');
+  }
+  const sectionRefs = sourceRefs.slice(0, 20);
+  const allowedKinds = aiPrepArtifactAllowedClaimKinds(artifactKind);
+  const claimKind = allowedKinds.includes('key_fact') ? 'key_fact' : (allowedKinds[0] ?? 'summary');
+  const sourceCount = sourceRefs.length;
+  const normalizedReason = normalizeBlockedReason(reasonCode);
+  return parseAiPrepArtifactPayload(
+    {
+      answer: fallbackAnswer(artifactKind, sourceCount),
+      sections: [
+        {
+          section_id: 'prep_fallback',
+          heading: '파일 정리 준비',
+          text: fallbackSectionText(artifactKind, sourceCount),
+          source_refs: sectionRefs,
+        },
+      ],
+      claims: [
+        {
+          claim_id: 'prep_fallback_1',
+          kind: claimKind,
+          text: fallbackClaimText(artifactKind, sourceCount),
+          source_refs: [primarySourceRef],
+          is_legal_conclusion: false,
+        },
+      ],
+      warnings: [`LOCAL_GEMMA_${normalizedReason}_FALLBACK`],
+      source_refs: sourceRefs,
+    },
+    artifactKind,
+  );
+}
+
+function fallbackAnswer(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
+  return `${artifactLabel(artifactKind)} 준비가 완료되었습니다. 권한 통과 source ref ${sourceCount}개를 기준으로 안전한 파일 정리용 fallback을 저장했습니다.`;
+}
+
+function fallbackSectionText(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
+  return `로컬 Gemma 출력이 저장 기준을 충족하지 않아 원본 모델 응답은 폐기했습니다. ${artifactLabel(artifactKind)}용 source ref ${sourceCount}개만 연결합니다.`;
+}
+
+function fallbackClaimText(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
+  return `${artifactLabel(artifactKind)} artifact는 권한 통과 source ref ${sourceCount}개와 연결되어 있으며, 법률 쟁점·위험·조항 분석 claim은 저장하지 않았습니다.`;
+}
+
+function artifactLabel(artifactKind: AiPrepArtifactKind): string {
+  switch (artifactKind) {
+    case 'document_profile':
+      return '문서 프로필';
+    case 'key_fields':
+      return '주요 필드';
+    case 'date_facts':
+      return '날짜 정보';
+    case 'people_organizations':
+      return '인물·조직 정보';
+    case 'keyword_tags':
+      return '키워드 태그';
+    case 'filing_suggestions':
+      return '파일링 제안';
+    case 'source_outline':
+      return '출처 개요';
+    case 'retrieval_hints':
+      return '검색 힌트';
+  }
 }
 
 function sha256Hex(input: string): string {
