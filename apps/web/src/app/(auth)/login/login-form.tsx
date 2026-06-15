@@ -50,7 +50,7 @@ export function LoginForm() {
       <CardContent>
         <form className="flex flex-col gap-4" onSubmit={submit}>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Tenant ID
+            워크스페이스 ID
             <Input
               autoComplete="organization"
               required
@@ -59,7 +59,7 @@ export function LoginForm() {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Email
+            이메일
             <Input
               autoComplete="email"
               required
@@ -69,7 +69,7 @@ export function LoginForm() {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
-            Password
+            비밀번호
             <Input
               autoComplete="current-password"
               required

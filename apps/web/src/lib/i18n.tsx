@@ -20,47 +20,47 @@ type Translation = {
 const storageKey = 'amic-vault-language';
 
 const translations = {
-  'language.label': { ko: '언어', en: 'Language' },
-  'language.korean': { ko: '한국어', en: 'Korean' },
-  'language.english': { ko: 'English', en: 'English' },
-  'nav.toggle': { ko: 'Navigation 열기', en: 'Toggle navigation' },
-  'nav.create': { ko: 'Create', en: 'Create' },
-  'nav.recent': { ko: 'Recent', en: 'Recent' },
-  'nav.favorites': { ko: 'Favorites', en: 'Favorites' },
-  'nav.spaces': { ko: 'Spaces', en: 'Spaces' },
+  'language.label': { ko: '언어', en: '언어' },
+  'language.korean': { ko: '한국어', en: '한국어' },
+  'language.english': { ko: '영어', en: '영어' },
+  'nav.toggle': { ko: '내비게이션 열기', en: '내비게이션 열기' },
+  'nav.create': { ko: '새 사건', en: '새 사건' },
+  'nav.recent': { ko: '최근 항목', en: '최근 항목' },
+  'nav.favorites': { ko: '즐겨찾기', en: '즐겨찾기' },
+  'nav.spaces': { ko: '공간', en: '공간' },
   'nav.globalSearch': {
-    ko: 'Matter, document, event 검색',
-    en: 'Search matters, documents, events',
+    ko: '사건, 파일, 활동 검색',
+    en: '사건, 파일, 활동 검색',
   },
-  'nav.securityQueue': { ko: 'Security Queue', en: 'Security Queue' },
-  'nav.notifications': { ko: '알림', en: 'Notifications' },
-  'nav.help': { ko: '도움말', en: 'Help' },
-  'nav.settings': { ko: '설정', en: 'Settings' },
-  'nav.dashboard': { ko: 'Dashboard', en: 'Dashboard' },
-  'nav.matters': { ko: 'Matters', en: 'Matters' },
-  'nav.search': { ko: 'Search', en: 'Search' },
-  'nav.launch': { ko: 'Launch', en: 'Launch' },
-  'nav.contracts': { ko: 'Contracts', en: 'Contracts' },
-  'nav.dd': { ko: 'DD Vault', en: 'DD Vault' },
-  'nav.litigation': { ko: 'Litigation', en: 'Litigation' },
-  'nav.records': { ko: 'Records', en: 'Records' },
-  'nav.enterprise': { ko: 'Enterprise', en: 'Enterprise' },
-  'nav.scale': { ko: 'Scale', en: 'Scale' },
-  'nav.audit': { ko: 'Audit', en: 'Audit' },
-  'nav.walls': { ko: 'Walls', en: 'Walls' },
-  'nav.liveActivity': { ko: 'Live Activity', en: 'Live Activity' },
-  'nav.aiEvidence': { ko: 'AI Evidence', en: 'AI Evidence' },
+  'nav.securityQueue': { ko: '보안 알림', en: '보안 알림' },
+  'nav.notifications': { ko: '알림', en: '알림' },
+  'nav.help': { ko: '도움말', en: '도움말' },
+  'nav.settings': { ko: '설정', en: '설정' },
+  'nav.dashboard': { ko: '홈', en: '홈' },
+  'nav.matters': { ko: '사건', en: '사건' },
+  'nav.search': { ko: '검색', en: '검색' },
+  'nav.launch': { ko: '운영 상태', en: '운영 상태' },
+  'nav.contracts': { ko: '계약 검토', en: '계약 검토' },
+  'nav.dd': { ko: '실사 자료실', en: '실사 자료실' },
+  'nav.litigation': { ko: '소송 자료실', en: '소송 자료실' },
+  'nav.records': { ko: '기록 보존', en: '기록 보존' },
+  'nav.enterprise': { ko: '관리 설정', en: '관리 설정' },
+  'nav.scale': { ko: '운영 지표', en: '운영 지표' },
+  'nav.audit': { ko: '접근 기록', en: '접근 기록' },
+  'nav.walls': { ko: '정보 차단', en: '정보 차단' },
+  'nav.liveActivity': { ko: '실시간 활동', en: '실시간 활동' },
+  'nav.aiEvidence': { ko: 'AI 근거', en: 'AI 근거' },
   'auth.description': {
-    ko: 'Tenant, email, password로 접속합니다.',
-    en: 'Sign in with tenant, email, and password.',
+    ko: '워크스페이스 ID, 이메일, 비밀번호로 로그인하세요.',
+    en: '워크스페이스 ID, 이메일, 비밀번호로 로그인하세요.',
   },
   'auth.invalid': {
     ko: '로그인 정보를 확인할 수 없습니다.',
-    en: 'We could not verify those login details.',
+    en: '로그인 정보를 확인할 수 없습니다.',
   },
-  'auth.pending': { ko: '확인 중', en: 'Checking' },
-  'auth.login': { ko: '로그인', en: 'Log in' },
-  'auth.logout': { ko: '로그아웃', en: 'Log out' },
+  'auth.pending': { ko: '확인 중', en: '확인 중' },
+  'auth.login': { ko: '로그인', en: '로그인' },
+  'auth.logout': { ko: '로그아웃', en: '로그아웃' },
 } as const satisfies Record<string, Translation>;
 
 export type TranslationKey = keyof typeof translations;
@@ -77,15 +77,6 @@ export function getTranslation(key: TranslationKey, language: Language): string 
   return translations[key][language];
 }
 
-function readStoredLanguage(): Language | undefined {
-  try {
-    const stored = window.localStorage.getItem(storageKey);
-    return stored === 'ko' || stored === 'en' ? stored : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function writeStoredLanguage(language: Language): void {
   try {
     window.localStorage.setItem(storageKey, language);
@@ -98,19 +89,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('ko');
 
   useEffect(() => {
-    const stored = readStoredLanguage();
-    if (stored) {
-      setLanguageState(stored);
-    }
+    document.documentElement.lang = 'ko';
+    document.documentElement.dataset.language = 'ko';
+    writeStoredLanguage('ko');
+    setLanguageState('ko');
   }, []);
 
-  useEffect(() => {
-    document.documentElement.lang = language === 'ko' ? 'ko' : 'en';
-    document.documentElement.dataset.language = language;
-    writeStoredLanguage(language);
-  }, [language]);
-
-  const setLanguage = useCallback((next: Language) => setLanguageState(next), []);
+  const setLanguage = useCallback(() => setLanguageState('ko'), []);
   const t = useCallback((key: TranslationKey) => getTranslation(key, language), [language]);
 
   const value = useMemo<I18nContextValue>(
@@ -130,26 +115,16 @@ export function useI18n(): I18nContextValue {
 }
 
 export function LanguageToggle() {
-  const { language, setLanguage, t } = useI18n();
+  const { t } = useI18n();
   return (
     <div
       aria-label={t('language.label')}
       className="inline-flex h-9 shrink-0 items-center rounded-md border bg-background p-1 text-xs font-semibold"
-      role="group"
+      role="status"
     >
-      {(['ko', 'en'] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          className={`h-7 rounded px-2.5 transition-colors ${
-            language === option ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-          aria-pressed={language === option}
-          onClick={() => setLanguage(option)}
-        >
-          {option === 'ko' ? t('language.korean') : t('language.english')}
-        </button>
-      ))}
+      <span className="inline-flex h-7 items-center rounded bg-primary px-2.5 text-primary-foreground">
+        {t('language.korean')}
+      </span>
     </div>
   );
 }

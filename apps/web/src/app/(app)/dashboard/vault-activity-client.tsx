@@ -1,316 +1,261 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
+  Activity,
+  Archive,
+  CheckCircle2,
   ChevronRight,
   Clock3,
-  FileText,
-  List,
-  Pencil,
+  FileSearch,
+  LockKeyhole,
+  Search,
+  ShieldCheck,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-type ActivityId = 'file' | 'nda' | 'citation' | 'disposal' | 'hold';
+type ActivityTab = 'activity' | 'documents' | 'permissions' | 'ai' | 'records';
 
-type ActivityDetail = {
-  copy: string;
-  keys: Array<[string, string]>;
-  refs: Array<[string, string]>;
-  target: string;
-  time: string;
-  title: string;
-};
-
-const activityDetails = {
-  file: {
-    time: '18:42',
-    title: '새 파일이 추가됨',
-    target: '주식매매계약서_v3.pdf 업로드',
-    copy: '주식매매계약서_v3.pdf가 자료실에 추가되었습니다. 접근 권한이 있는 팀원에게만 보입니다.',
-    refs: [
-      ['파일', 'DOC-204'],
-      ['활동', 'ACT-001'],
-    ],
-    keys: [
-      ['수행자', '정서연'],
-      ['대상', '주식매매계약서_v3.pdf'],
-      ['처리', '업로드 완료'],
-      ['영향', '팀원 열람 가능'],
-    ],
+const tabs: Array<{ id: ActivityTab; label: string; summary: string }> = [
+  {
+    id: 'activity',
+    label: '최근 활동',
+    summary: '실제 감사 이벤트가 연결되면 최근 활동이 표시됩니다.',
   },
-  nda: {
-    time: '18:31',
-    title: 'NDA 동의 대기 중',
-    target: '외부 검토자 김민준 님의 접근 보류',
-    copy: '김민준 님은 자료실을 볼 수 있지만, NDA 동의 전에는 파일을 다운로드할 수 없습니다.',
-    refs: [
-      ['공유', 'EXT-ROOM-B'],
-      ['기록', 'NDA-WATCH-019'],
-    ],
-    keys: [
-      ['담당자', '딜팀'],
-      ['대상', '외부 검토자 김민준'],
-      ['조건', 'NDA 동의 필요'],
-      ['영향', '다운로드 보류'],
-    ],
+  {
+    id: 'documents',
+    label: '파일',
+    summary: '실제 파일 버전과 보존 상태가 연결되면 표시됩니다.',
   },
-  citation: {
-    time: '18:17',
-    title: 'AI 요약 출처 확인됨',
-    target: '요약에 사용된 12개 파일 출처 확인',
-    copy: 'AI 요약에 사용된 문장이 허용된 파일 출처와 연결되어 있습니다.',
-    refs: [
-      ['출처', 'CIT-012'],
-      ['AI', '요약 검토'],
-    ],
-    keys: [
-      ['수행자', 'AI 검토 기능'],
-      ['대상', '계약 검토 요약'],
-      ['조건', '허용된 파일만 사용'],
-      ['영향', '요약 표시 가능'],
-    ],
+  {
+    id: 'permissions',
+    label: '접근 권한',
+    summary: '실제 멤버 권한과 정보 차단 상태가 표시됩니다.',
   },
-  disposal: {
-    time: '17:58',
-    title: '폐기 승인 필요',
-    target: '보존 기간이 끝난 파일 3개 검토 대기',
-    copy: '보존 기간이 끝난 파일은 승인 전까지 폐기되지 않습니다.',
-    refs: [
-      ['승인', 'APR-014'],
-      ['기록', 'DISPOSAL-HOLD'],
-    ],
-    keys: [
-      ['담당자', '기록 관리자'],
-      ['대상', '폐기 검토 파일 3개'],
-      ['조건', '관리자 승인 필요'],
-      ['영향', '폐기 보류'],
-    ],
+  {
+    id: 'ai',
+    label: 'AI 검토 근거',
+    summary: '승인된 실제 AI 근거 검토가 있을 때만 출처가 표시됩니다.',
   },
-  hold: {
-    time: '17:44',
-    title: '삭제 금지 범위 변경',
-    target: '주요 파일 4개가 삭제 금지로 지정됨',
-    copy: '분쟁 가능성이 있는 주요 파일 4개가 삭제 금지로 지정되었습니다.',
-    refs: [
-      ['기록', 'HOLD-044'],
-      ['파일', '4개'],
-    ],
-    keys: [
-      ['수행자', '기록 관리자'],
-      ['대상', '주요 파일 4개'],
-      ['조건', '삭제 금지 우선'],
-      ['영향', '파일 삭제 차단'],
-    ],
+  {
+    id: 'records',
+    label: '보존 관리',
+    summary: '실제 보존 기간과 삭제 금지 상태가 연결되면 표시됩니다.',
   },
-} satisfies Record<ActivityId, ActivityDetail>;
-
-const activityOrder: ActivityId[] = ['file', 'nda', 'citation', 'disposal', 'hold'];
-
-const matterFacts: Array<[string, string]> = [
-  ['담당팀', '법무 운영팀'],
-  ['보존 기간', '7년'],
-  ['공유 상태', '워터마크 적용'],
-  ['다음 작업', '외부 검토자 NDA 확인'],
 ];
 
+const emptyCopy = {
+  profile: {
+    title: '사건 선택 필요',
+    body: '실제 사건을 선택하면 고객, 권한, 보존 상태가 표시됩니다.',
+  },
+  activity: {
+    title: '실제 사건 데이터가 없습니다.',
+    body: '활동 기록은 API에서 수신한 감사 이벤트만 표시합니다.',
+  },
+  selectedActivity: {
+    title: '선택된 활동이 없습니다.',
+    body: '활동 기록이 연결되면 세부 메타데이터가 이 영역에 표시됩니다.',
+  },
+  security: {
+    title: '보안 상태 데이터가 없습니다.',
+    body: '권한 평가와 정보 차단 상태가 실제 응답으로 연결된 뒤 표시됩니다.',
+  },
+  summary: {
+    title: '요약 수치가 없습니다.',
+    body: '파일 수, 제한 건수, 감사 완료율 같은 수치는 실데이터만 표시합니다.',
+  },
+  diagnostics: {
+    title: '진단 결과가 없습니다.',
+    body: '보호 상태 점검 결과가 연결되기 전에는 상태를 표시하지 않습니다.',
+  },
+  profileProperties: {
+    title: '표시할 사건 속성이 없습니다.',
+    body: '고객명, 사건 번호, 보안 등급은 실제 선택 항목에서만 표시됩니다.',
+  },
+};
+
 export function VaultActivityClient() {
-  const [selectedActivityId, setSelectedActivityId] = useState<ActivityId>('file');
-  const selectedActivity = useMemo(
-    () => activityDetails[selectedActivityId],
-    [selectedActivityId],
-  );
+  const [activeTab, setActiveTab] = useState<ActivityTab>('activity');
+  const activeTabSummary = tabs.find((tab) => tab.id === activeTab)?.summary ?? tabs[0].summary;
 
   return (
-    <main className="mx-auto w-full max-w-[1480px]">
-      <section className="border-b border-[#e8ecf4] pb-4">
-        <nav
-          aria-label="이동 경로"
-          className="flex flex-wrap items-center gap-1.5 text-[13px] text-[#4a5a70]"
-        >
-          <span>Vault</span>
-          <ChevronRight className="h-4 w-4" />
-          <strong className="text-[#1a1f36]">홈</strong>
-        </nav>
-        <h1 className="mt-2 text-xl font-bold leading-[1.35] tracking-normal text-[#1a1f36]">홈</h1>
-        <p className="mt-1.5 max-w-[860px] text-sm leading-6 text-[#4a5a70]">
-          이 사건의 파일, 접근 권한, 최근 활동을 한곳에서 확인합니다.
-        </p>
+    <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-5">
+      <section className="flex flex-wrap items-end justify-between gap-4 border-b border-[#e8ecf4] pb-4">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-[#4a5a70]">
+            <span>홈</span>
+            <ChevronRight className="h-4 w-4" />
+            <span>사건</span>
+            <ChevronRight className="h-4 w-4" />
+            <strong className="text-[#1a1f36]">선택 없음</strong>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[30px] font-semibold leading-tight tracking-normal text-[#1a1f36]">
+              사건 대시보드
+            </h1>
+            <StatusPill>데이터 미연결</StatusPill>
+            <StatusPill>실데이터만 표시</StatusPill>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" title="활동 검색">
+            <Search className="h-4 w-4" />
+            활동 검색
+          </Button>
+          <Button variant="outline" size="sm" title="기록 내보내기">
+            <Archive className="h-4 w-4" />
+            기록 내보내기
+          </Button>
+        </div>
       </section>
 
-      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="grid min-w-0 gap-4">
-          <PermissionBanner />
-          <MatterPanel />
-          <ActivityPanel selectedActivityId={selectedActivityId} onSelect={setSelectedActivityId} />
-        </div>
+      <section className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <MatterProfile />
 
-        <DetailInspector activity={selectedActivity} />
-      </div>
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-7 border-b border-[#e8ecf4]">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`h-11 border-b-2 text-sm font-semibold transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-[#1464e8] text-[#1464e8]'
+                    : 'border-transparent text-[#4a5a70] hover:text-[#1a1f36]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <section className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+              <PanelHeader
+                icon={<Activity className="h-4 w-4" />}
+                title="활동 기록"
+                meta={activeTabSummary}
+              />
+              <div className="border-t border-[#f0f3f9]">
+                <EmptyState title={emptyCopy.activity.title} body={emptyCopy.activity.body} />
+              </div>
+            </div>
+
+            <aside className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+              <PanelHeader
+                icon={<FileSearch className="h-4 w-4" />}
+                title="선택한 활동"
+                meta={emptyCopy.selectedActivity.title}
+              />
+              <div className="border-t border-[#f0f3f9] p-5">
+                <EmptyState
+                  title={emptyCopy.selectedActivity.title}
+                  body={emptyCopy.selectedActivity.body}
+                  compact
+                />
+              </div>
+            </aside>
+          </section>
+
+          <section className="grid gap-4 2xl:grid-cols-[420px_minmax(0,1fr)]">
+            <div className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+              <PanelHeader
+                icon={<ShieldCheck className="h-4 w-4" />}
+                title="보안 상태"
+                meta="데이터 없음"
+              />
+              <div className="border-t border-[#f0f3f9] p-5">
+                <EmptyState title={emptyCopy.security.title} body={emptyCopy.security.body} compact />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+              <PanelHeader
+                icon={<CheckCircle2 className="h-4 w-4" />}
+                title="요약"
+                meta="데이터 없음"
+              />
+              <div className="border-t border-[#f0f3f9]">
+                <EmptyState title={emptyCopy.summary.title} body={emptyCopy.summary.body} />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+            <PanelHeader icon={<Clock3 className="h-4 w-4" />} title="보호 상태" meta="데이터 없음" />
+            <div className="border-t border-[#f0f3f9]">
+              <EmptyState title={emptyCopy.diagnostics.title} body={emptyCopy.diagnostics.body} />
+            </div>
+          </section>
+        </div>
+      </section>
     </main>
   );
 }
 
-function PermissionBanner() {
+function MatterProfile() {
   return (
-    <section className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
-      <div className="flex flex-col gap-3 p-4 sm:p-[18px] md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-[15px] font-bold text-[#1a1f36]">이 사건에 접근할 수 있습니다</div>
-          <p className="mt-1 text-[13px] leading-6 text-[#4a5a70]">
-            현재 계정의 권한과 정보 차단 설정을 확인했습니다. 허용된 파일과 활동만 표시됩니다.
-          </p>
+    <aside className="rounded-lg border border-[#e5e7eb] bg-white p-6 shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+      <div className="flex flex-col items-center border-b border-[#f0f3f9] pb-6 text-center">
+        <div className="grid h-[72px] w-[72px] place-items-center rounded-full bg-[#f1f5fb] text-2xl font-semibold text-[#1464e8]">
+          -
         </div>
-        <button
-          type="button"
-          className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[7px] border border-[#e8ecf4] bg-white px-3 text-[13px] font-bold leading-none text-[#1a1f36] transition hover:bg-[#f1f5fb]"
-        >
-          <Pencil className="h-4 w-4" />
-          접근 권한 보기
-        </button>
+        <h2 className="mt-4 text-xl font-semibold text-[#1a1f36]">{emptyCopy.profile.title}</h2>
+        <p className="mt-1 text-sm text-[#4a5a70]">{emptyCopy.profile.body}</p>
       </div>
-    </section>
-  );
-}
 
-function MatterPanel() {
-  return (
-    <section className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
-      <PanelHeader
-        icon={<List className="h-4 w-4" />}
-        title="사건 정보"
-        meta="파일 보관, 담당자, 보존 상태"
-      />
-      <div className="border-t border-[#f0f3f9] p-4 sm:p-[18px]">
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0">
-            <h2 className="text-xl font-bold leading-tight tracking-normal text-[#1a1f36]">
-              계약 검토 자료실
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#4a5a70]">
-              계약서와 검토 자료를 모아두고, 누가 어떤 파일을 열람했는지 확인하는 공간입니다.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <RecordRef label="파일" value="DOC-204" />
-              <RecordRef label="활동" value="ACT-001" />
-              <RecordRef label="보류" value="HOLD-017" />
-            </div>
-          </div>
-          <KeyGrid items={matterFacts} />
+      <div className="py-5">
+        <div className="mb-3 flex h-10 items-center gap-2 rounded-md border border-[#e8ecf4] bg-white px-3 text-sm text-[#4a5a70]">
+          <Search className="h-4 w-4" />
+          속성 검색
         </div>
-      </div>
-    </section>
-  );
-}
-
-function ActivityPanel({
-  onSelect,
-  selectedActivityId,
-}: {
-  onSelect: (activityId: ActivityId) => void;
-  selectedActivityId: ActivityId;
-}) {
-  return (
-    <section className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
-      <PanelHeader
-        icon={<Clock3 className="h-4 w-4" />}
-        title="활동 기록"
-        meta="최근 파일 및 권한 활동"
-      />
-      <div className="border-t border-[#f0f3f9]">
-        {activityOrder.map((activityId) => {
-          const activity = activityDetails[activityId];
-          const active = selectedActivityId === activityId;
-          return (
-            <button
-              key={activityId}
-              type="button"
-              onClick={() => onSelect(activityId)}
-              className={`grid w-full grid-cols-[54px_minmax(0,1fr)] gap-2 border-b border-[#f0f3f9] px-3.5 py-3 text-left transition-colors last:border-b-0 sm:grid-cols-[92px_minmax(0,1fr)] sm:gap-4 sm:px-[18px] ${
-                active ? 'bg-[#f1f5fb]' : 'bg-white hover:bg-[#f8fafd]'
-              }`}
-            >
-              <span className="font-mono text-[12px] font-semibold text-[#4a5a70]">{activity.time}</span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-bold text-[#1a1f36]">{activity.title}</span>
-                <span className="block truncate text-[12px] text-[#4a5a70] sm:whitespace-normal">
-                  {activity.target}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function DetailInspector({ activity }: { activity: ActivityDetail }) {
-  return (
-    <aside className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)] xl:sticky xl:top-20 xl:self-start">
-      <PanelHeader icon={<FileText className="h-4 w-4" />} title="상세 정보" meta="선택한 활동" />
-      <div className="border-t border-[#f0f3f9] p-4 sm:p-[18px]">
-        <h3 className="text-[15px] font-bold text-[#1a1f36]">{activity.title}</h3>
-        <p className="mt-2 text-[13px] leading-6 text-[#4a5a70]">{activity.copy}</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {activity.refs.map(([label, value]) => (
-            <RecordRef key={`${label}-${value}`} label={label} value={value} />
-          ))}
-        </div>
-
-        <div className="my-4 h-px bg-[#f0f3f9]" />
-        <KeyGrid items={activity.keys} />
-
-        <div className="my-4 h-px bg-[#f0f3f9]" />
-        <div className="grid gap-3 border-t border-[#f0f3f9] pt-4">
-          <div className="flex items-center justify-between gap-3 text-[13px]">
-            <span className="text-[#4a5a70]">외부 공유 공간</span>
-            <strong className="text-right text-[#1a1f36]">외부 검토자 김민준</strong>
-          </div>
-          <div className="flex items-center justify-between gap-3 text-[13px]">
-            <span className="text-[#4a5a70]">만료</span>
-            <strong className="text-right text-[#1a1f36]">2026-06-15 13:00 KST</strong>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <RecordRef label="기록" value="WM-EXT-044" />
-            <RecordRef label="기록" value="DLT-0091" />
-          </div>
-        </div>
+        <EmptyState
+          title={emptyCopy.profileProperties.title}
+          body={emptyCopy.profileProperties.body}
+          compact
+        />
       </div>
     </aside>
   );
 }
 
-function PanelHeader({ icon, meta, title }: { icon: React.ReactNode; meta: string; title: string }) {
+function PanelHeader({ icon, title, meta }: { icon: React.ReactNode; title: string; meta: string }) {
   return (
-    <div className="flex min-h-16 items-center justify-between gap-3 px-4 py-3.5 sm:px-[18px]">
-      <div className="flex min-w-0 items-center gap-2.5">
+    <div className="flex min-h-16 items-center justify-between gap-4 px-5 py-4">
+      <div className="flex min-w-0 items-center gap-3">
         <span className="text-[#1464e8]">{icon}</span>
         <div className="min-w-0">
-          <h2 className="truncate text-[15px] font-bold tracking-normal text-[#1a1f36]">{title}</h2>
-          <p className="truncate text-[11px] text-[#4a5a70]">{meta}</p>
+          <h2 className="truncate text-lg font-semibold tracking-normal text-[#1a1f36]">{title}</h2>
+          <p className="truncate text-xs text-[#4a5a70]">{meta}</p>
         </div>
       </div>
+      <LockKeyhole className="h-4 w-4 shrink-0 text-[#8a97a8]" />
     </div>
   );
 }
 
-function RecordRef({ label, value }: { label: string; value: string }) {
+function EmptyState({ title, body, compact = false }: { title: string; body: string; compact?: boolean }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 text-[11px] font-bold text-[#4a5a70]">
-      <b className="font-extrabold text-[#1464e8]">{label}</b>
-      <code className="truncate font-mono text-[11px]">{value}</code>
-    </span>
+    <div
+      className={`flex flex-col items-center justify-center text-center ${
+        compact ? 'min-h-28 p-3' : 'min-h-44 p-6'
+      }`}
+    >
+      <div className="mb-3 grid h-9 w-9 place-items-center rounded-full bg-[#f1f5fb] text-[#1464e8]">
+        <LockKeyhole className="h-4 w-4" />
+      </div>
+      <p className="text-sm font-semibold text-[#1a1f36]">{title}</p>
+      <p className="mt-1 max-w-md text-xs leading-5 text-[#4a5a70]">{body}</p>
+    </div>
   );
 }
 
-function KeyGrid({ items }: { items: Array<[string, string]> }) {
+function StatusPill({ children }: { children: React.ReactNode }) {
   return (
-    <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-      {items.map(([label, value]) => (
-        <div key={`${label}-${value}`} className="min-w-0">
-          <dt className="truncate text-[11px] font-bold text-[#4a5a70]">{label}</dt>
-          <dd className="mt-1 break-words text-sm font-bold text-[#1a1f36]">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <span className="rounded-sm bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+      {children}
+    </span>
   );
 }

@@ -19,7 +19,6 @@ import { LanguageToggle } from '@/lib/i18n';
 import { LogoutButton } from './logout-button';
 
 type NavigationItem = {
-  count?: string;
   href: string;
   icon: LucideIcon;
   label: string;
@@ -27,16 +26,16 @@ type NavigationItem = {
 
 const vaultNavigation: NavigationItem[] = [
   { href: '/dashboard', label: '홈', icon: CheckSquare },
-  { href: '/matters', label: '사건', icon: FolderKanban, count: '18' },
-  { href: '/search', label: '파일', icon: FileText, count: '642' },
+  { href: '/matters', label: '사건', icon: FolderKanban },
+  { href: '/search', label: '파일', icon: FileText },
   { href: '/search', label: '검색', icon: Search },
 ];
 
 const governanceNavigation: NavigationItem[] = [
   { href: '/records', label: '기록 보존', icon: Archive },
-  { href: '/audit', label: '접근 기록', icon: History, count: '9' },
+  { href: '/audit', label: '접근 기록', icon: History },
   { href: '/walls', label: '정보 차단', icon: Shield },
-  { href: '/launch', label: '공유 요청', icon: Activity },
+  { href: '/launch', label: '운영 상태', icon: Activity },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -46,12 +45,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link
           href="/dashboard"
           aria-label="AMIC Vault 홈"
-          className="flex h-full min-w-0 items-center px-[18px] md:border-r md:border-white/15"
+          className="flex h-full min-w-0 items-center gap-2 px-[18px] md:border-r md:border-white/15"
         >
+          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[7px] bg-white">
+            <img src="/icons/amic-vault-icon.svg" alt="" className="h-9 w-9" draggable={false} />
+          </span>
           <img
             src="/icons/amic-vault-wordmark.svg"
             alt="AMIC Vault"
-            className="h-10 w-[139px] object-contain brightness-0 invert"
+            className="h-7 w-[104px] object-contain brightness-0 invert"
             draggable={false}
           />
         </Link>
@@ -87,8 +89,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <div className="m-3.5 rounded-lg border border-[#e8ecf4] bg-white p-3">
             <div className="text-[11px] font-bold uppercase text-[#8a97a8]">워크스페이스</div>
-            <div className="mt-1 text-sm font-bold text-[#1a1f36]">Gonyak Legal Ops</div>
-            <div className="mt-0.5 text-xs text-[#4a5a70]">워크스페이스 ID: amic-prod-shadow</div>
+            <div className="mt-1 text-sm font-bold text-[#1a1f36]">Vault 워크스페이스</div>
+            <div className="mt-0.5 text-xs text-[#4a5a70]">실제 워크스페이스 연결 후 표시됩니다.</div>
           </div>
 
           <nav className="px-2.5 pb-3">
@@ -112,9 +114,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mt-auto border-t border-[#e8ecf4] px-3.5 py-3 text-xs text-[#4a5a70]">
             <div className="flex items-center justify-between gap-2">
               <span>기록 동기화</span>
-              <span className="h-2 w-2 rounded-full bg-[#1464e8]" aria-hidden="true" />
+              <span className="h-2 w-2 rounded-full bg-[#8a97a8]" aria-hidden="true" />
             </div>
-            <div className="mt-0.5">최근 활동 18:42 KST</div>
+            <div className="mt-0.5">실제 동기화 상태 연결 후 표시됩니다.</div>
           </div>
         </aside>
 
@@ -125,13 +127,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <footer className="flex min-h-7 flex-wrap items-start justify-between gap-x-3 gap-y-1 border-t border-[#e8ecf4] bg-[#f4f6fb] px-3.5 py-1.5 text-[11px] font-semibold text-[#4a5a70] md:items-center md:py-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>Vault 상태: 정상</span>
-          <span>정보 차단: 적용 중</span>
-          <span>활동 기록: 자동 저장</span>
+          <span>Vault 상태: 실데이터 기준</span>
+          <span>정보 차단: 서버 정책 기준</span>
+          <span>활동 기록: 감사 이벤트 기준</span>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>미리보기 모드</span>
-          <span>18:42 KST</span>
+          <span>운영 화면</span>
         </div>
       </footer>
     </main>
@@ -156,9 +157,6 @@ function NavItem({ item }: { item: NavigationItem }) {
       ) : null}
       <Icon className="h-4 w-4 shrink-0" />
       <span>{item.label}</span>
-      {item.count ? (
-        <span className="ml-auto text-[11px] font-bold text-[#8a97a8]">{item.count}</span>
-      ) : null}
     </Link>
   );
 }
