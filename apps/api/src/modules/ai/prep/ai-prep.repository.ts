@@ -15,6 +15,7 @@ import type {
   AiPrepStaleReason,
 } from '@amic-vault/shared';
 import { markAiPrepArtifactsStale } from './ai-prep-lifecycle';
+import { normalizeAiPrepMetadata } from './ai-prep-metadata-normalizer';
 import type { AiPrepJobPayload, AiPrepSource, AiPrepSourceChunk } from './ai-prep.types';
 
 interface TargetRow {
@@ -146,8 +147,13 @@ export class AiPrepRepository {
     chunks: readonly AiRetrievedChunk[];
     artifactKind: AiPrepArtifactKind;
     appliedRules: readonly string[];
+    tokenBudget?: number | undefined;
   }): EvidencePackDto {
-    const tokenBudget = 2400;
+    const metadata = normalizeAiPrepMetadata({
+      title: input.source.title,
+      sourceTextHashes: input.chunks.map((chunk) => chunk.sourceTextHash),
+    });
+    const tokenBudget = input.tokenBudget ?? 2400;
     const tokenCount = Math.min(
       tokenBudget,
       input.chunks.reduce((total, chunk) => total + chunk.tokenCount, 0),
@@ -155,8 +161,8 @@ export class AiPrepRepository {
     const sourceRefs = input.chunks.map((chunk) => `chunk:${chunk.chunkId}`);
     const pack = evidencePackSchema.parse({
       packId: randomUUID(),
-      userQuestion: questionForArtifactKind(input.artifactKind, input.source.title),
-      rewrittenQueries: [queryForArtifactKind(input.artifactKind, input.source.title)],
+      userQuestion: questionForArtifactKind(input.artifactKind, metadata.safeTitle),
+      rewrittenQueries: [queryForArtifactKind(input.artifactKind, metadata.safeTitle)],
       taskType: taskTypeForArtifactKind(input.artifactKind),
       matterContext: { matterId: input.source.matterId },
       retrievalScope: {
@@ -164,7 +170,10 @@ export class AiPrepRepository {
         matterId: input.source.matterId,
         mode: 'hybrid',
         modelRoute: 'local_gemma',
-        appliedRules: [...input.appliedRules],
+        appliedRules: [
+          ...input.appliedRules,
+          `ai_prep.metadata:canonicalized:${metadata.metadataHash.slice(0, 16)}`,
+        ],
       },
       relevantDocuments: [
         {
@@ -201,6 +210,7 @@ export class AiPrepRepository {
       prohibitedAssumptions: [
         'Do not use facts outside retrieved chunks.',
         'Do not provide legal conclusions or advice.',
+        'Use canonical metadata only for neutral file organization labels.',
         'Treat this as post-upload preparation only; user-facing answers must re-check permissions.',
       ],
       citationRequirements: {
