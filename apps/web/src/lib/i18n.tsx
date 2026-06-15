@@ -39,7 +39,7 @@ const translations = {
   'nav.dashboard': { ko: '홈', en: 'Home' },
   'nav.matters': { ko: 'Matter', en: 'Matters' },
   'nav.search': { ko: '검색', en: 'Search' },
-  'nav.launch': { ko: '운영 관리', en: 'Operations' },
+  'nav.launch': { ko: '운영자 도구', en: 'Operator tools' },
   'nav.contracts': { ko: '계약 검토', en: 'Contract review' },
   'nav.dd': { ko: '실사 자료', en: 'Diligence' },
   'nav.litigation': { ko: '소송 자료', en: 'Litigation' },

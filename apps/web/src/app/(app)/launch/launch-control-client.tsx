@@ -68,51 +68,51 @@ const launchCopy: Record<
       production: '프로덕션',
     },
     breadcrumb: ['운영', '배포 관리', '읽기 전용'],
-    title: '운영 관리',
-    pills: ['시스템 점검 완료', '승인 필요'],
-    versionLabel: '현재 버전',
+    title: '운영자 도구',
+    pills: ['기술 점검 완료', '승인 필요'],
+    versionLabel: '배포 기준: 2026.06.15',
     readOnly: '이 화면에서는 배포를 실행하지 않습니다.',
     overviewTitle: '배포 상태 요약',
     overviewMeta: '운영자용 읽기 전용 화면',
     metrics: [
-      ['시스템 점검', '완료', 'R14 기준 충족'],
-      ['승인 항목', '14', '증빙 필요'],
-      ['화면에서 배포', '없음', '절차 안내만 제공'],
+      ['배포 전 점검', '완료', '필수 기준 충족'],
+      ['승인 항목', '14', '확인 자료 필요'],
+      ['화면 배포 실행', '없음', '절차 안내만 제공'],
     ],
-    table: ['항목', '상태', '증빙', '메모'],
+    table: ['항목', '상태', '확인 자료', '메모'],
     gateRows: [
-      ['R14 시스템 점검', 'green', 'docs/ledger/gates/R14_gate.md', '시스템 상태 점검 완료'],
-      ['출시 준비 점검', 'green', 'pnpm launch:readiness', '필수 문서와 증빙이 서로 맞습니다.'],
-      ['출시 실행 점검', 'green', 'pnpm launch:execution', '실행 계획과 증빙이 준비되어 있습니다.'],
-      ['로컬 스모크 테스트', 'green', 'pnpm release:smoke -- --local', '합성 데이터 기준 스모크 테스트 완료'],
-      ['스테이징 오픈 승인', 'blocked', 'LRB-001/002/003/004/008', '승인 증빙이 필요합니다.'],
+      ['배포 전 시스템 점검', 'green', 'docs/ledger/gates/R14_gate.md', '시스템 상태 점검 완료'],
+      ['출시 준비 점검', 'green', 'pnpm launch:readiness', '필수 문서와 확인 자료가 서로 맞습니다.'],
+      ['출시 실행 점검', 'green', 'pnpm launch:execution', '실행 계획과 확인 자료가 준비되어 있습니다.'],
+      ['로컬 동작 확인', 'green', 'pnpm release:smoke -- --local', '합성 데이터 기준 동작 확인 완료'],
+      ['스테이징 오픈 승인', 'blocked', 'LRB-001/002/003/004/008', '승인 확인 자료가 필요합니다.'],
       ['프로덕션 배포 승인', 'blocked', 'LRB-009/010/011/012/013', '회사/운영자 승인이 필요합니다.'],
     ],
     invariantTitle: '운영 원칙',
     invariantMeta: '배포 경계',
     invariants: [
       ['화면에서 직접 배포 없음', '배포는 승인된 운영 절차에서만 진행합니다.'],
-      ['시크릿 저장 금지', '저장소에는 증빙 ID만 남깁니다.'],
+      ['시크릿 저장 금지', '저장소에는 확인 자료 ID만 남깁니다.'],
       ['실데이터 보호', '합성 데이터 또는 승인된 파일만 사용합니다.'],
       ['외부 AI 제한', '외부 AI 연결은 닫힌 상태를 유지합니다.'],
     ],
     commandTitle: '검증 명령',
     commandMeta: '운영자/개발자용',
-    stopTitle: '중단 조건',
+    stopTitle: '진행 중단 기준',
     stopMeta: '안전 차단',
     stopConditions: [
       '시크릿, 비공개 엔드포인트, 고객 데이터가 저장소에 저장되어야 하는 경우',
-      '권한, 테넌트 격리, 감사, DLP, 보존, 외부 공유, AI 보호 조건 중 하나라도 실패한 경우',
-      '버전이나 배포 대상이 증빙 없이 바뀐 경우',
+      '권한, 워크스페이스 격리, 감사, DLP, 보존, 외부 공유, AI 보호 조건 중 하나라도 실패한 경우',
+      '확인 자료 없이 버전이나 배포 대상이 바뀐 경우',
     ],
-    itemTable: ['항목', '증빙', '상태'],
+    itemTable: ['항목', '확인 자료', '상태'],
     stageInputs: [
       ['클라우드/리전', 'LRB-001', 'blocked'],
       ['DNS/TLS', 'LRB-002', 'blocked'],
       ['레지스트리/서명', 'LRB-003', 'blocked'],
-      ['시크릿 관리자 ID', 'LRB-004', 'blocked'],
+      ['Secret Manager ID', 'LRB-004', 'blocked'],
       ['모니터링/장애 대응', 'LRB-008', 'blocked'],
-      ['릴리스 후보 고정', 'RC-FREEZE-001', 'blocked'],
+      ['배포 후보 버전 확정', 'RC-FREEZE-001', 'blocked'],
     ],
     uatRows: [
       ['UAT-001..004', '인증, Matter, 권한, 파일', 'prepared'],
@@ -144,7 +144,7 @@ const launchCopy: Record<
     breadcrumb: ['Operations', 'Release management', 'Read-only'],
     title: 'Operations',
     pills: ['Technical checks complete', 'Approval needed'],
-    versionLabel: 'Current version',
+    versionLabel: 'Deployment baseline: 2026-06-15',
     readOnly: 'Deployments are not started from this screen.',
     overviewTitle: 'Release status summary',
     overviewMeta: 'Read-only operator view',
@@ -233,7 +233,7 @@ export function LaunchControlClient() {
           </div>
         </div>
         <div className="grid gap-2 text-right text-sm">
-          <span className="font-mono text-xs text-muted-foreground">{copy.versionLabel} a0c1e60</span>
+          <span className="text-xs text-muted-foreground">{copy.versionLabel}</span>
           <span className="font-semibold">{copy.readOnly}</span>
         </div>
       </section>

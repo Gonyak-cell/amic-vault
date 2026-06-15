@@ -12,8 +12,8 @@ describe('LaunchControlClient', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('운영 관리');
-    expect(html).toContain('시스템 점검 완료');
+    expect(html).toContain('운영자 도구');
+    expect(html).toContain('기술 점검 완료');
     expect(html).toContain('승인 필요');
     expect(html).toContain('pnpm launch:execution');
     expect(html).toContain('LRB-001/002/003/004/008');

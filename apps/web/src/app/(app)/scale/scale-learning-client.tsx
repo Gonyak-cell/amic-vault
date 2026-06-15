@@ -67,17 +67,17 @@ const scaleCopy: Record<
   }
 > = {
   ko: {
-    evidenceRef: '증빙 ID',
+    evidenceRef: '확인 자료 ID',
     patternCode: '패턴 ID',
     refreshTitle: '시스템 상태 새로고침',
     refresh: '새로고침',
-    title: '시스템 상태 증빙',
+    title: '시스템 상태 확인 자료',
     performance: '성능',
     cost: '비용',
     eval: '검증',
     migration: '마이그레이션',
     learning: '학습 기록',
-    aiGate: 'AI 사용 통제',
+    aiGate: 'AI 사용 관리',
     readiness: '준비 상태',
     externalAi: '외부 AI 허용 여부',
     technicalPass: '시스템 점검',

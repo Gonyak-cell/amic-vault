@@ -49,13 +49,13 @@ const overviewCards = [
   {
     icon: FileCog,
     title: '맞춤형 업무 흐름',
-    body: '검토, 업로드, 파일링, 특권 검토, 증거 인계를 업무 그룹의 실제 흐름에 맞게 구성합니다.',
+    body: '검토, 업로드, 파일 정리, 특권 검토, 자료 인계를 팀의 실제 업무 흐름에 맞게 구성합니다.',
     accent: 'text-[#14a3c7] bg-[#e9fbff]',
   },
   {
     icon: GitBranch,
-    title: '하위 업무와 체크리스트',
-    body: '인입, 마스킹, OCR, 승인 단계를 담당자, 상태, 기한이 남는 추적 가능한 업무로 전환합니다.',
+    title: '하위 업무와 확인 목록',
+    body: '자료 접수, 마스킹, OCR, 승인 단계를 담당자, 상태, 기한이 남는 업무로 전환합니다.',
     accent: 'text-[#d8a305] bg-[#fff8d7]',
   },
   {
@@ -84,7 +84,7 @@ const customizationCards = [
   {
     icon: ListChecks,
     title: '템플릿',
-    body: 'Matter 인입, 클로징 바인더, 소송 패키지, 실사 체크리스트를 필수 통제와 함께 시작합니다.',
+    body: '새 Matter 등록, 종결 자료, 소송 패키지, 실사 확인 목록을 필수 보안 기준과 함께 시작합니다.',
     color: 'bg-[#fff7df] text-[#8b6500]',
   },
   {
@@ -96,7 +96,7 @@ const customizationCards = [
   {
     icon: DatabaseZap,
     title: '연동',
-    body: '파일, 이메일, 감사 로그, 보존 서비스를 명확한 증빙 ID와 워크스페이스 보안 경로로 정렬합니다.',
+    body: '파일, 이메일, 감사 로그, 보존 서비스를 명확한 확인 자료 ID와 워크스페이스 보안 경로로 정렬합니다.',
     color: 'bg-[#e8fbff] text-[#08748e]',
   },
 ];
@@ -111,7 +111,7 @@ const reportingCards = [
   {
     icon: ClipboardCheck,
     title: '업무량과 검토',
-    body: '검토자 부하, 대기 승인, 장기 미처리 Matter, 예외 큐를 업무 지연 전에 확인합니다.',
+    body: '검토자 업무량, 승인 대기, 오래 멈춘 Matter, 예외 대기 목록을 업무가 지연되기 전에 확인합니다.',
     tint: 'from-[#6b5cff] to-[#9a8cff]',
   },
   {
@@ -128,8 +128,8 @@ const reportingCards = [
   },
   {
     icon: Bell,
-    title: '펄스',
-    body: '감사 이상, 오래된 권한, 누락된 체크, 검색 회귀를 운영 신호로 드러냅니다.',
+    title: '알림',
+    body: '감사 이상, 오래된 권한, 누락된 확인 항목, 검색 오류를 운영 알림으로 보여줍니다.',
     tint: 'from-[#29b7d4] to-[#8fe7f6]',
   },
 ];
@@ -138,13 +138,13 @@ const timeCards = [
   {
     icon: Timer,
     title: '추적',
-    body: 'Matter 활동, 문서 처리, 게이트 작업이 감사 스트림에 시간과 함께 기록됩니다.',
+    body: 'Matter 활동, 문서 처리, 승인 작업이 활동 기록에 시간과 함께 남습니다.',
     accent: 'bg-[#ffb13b]',
   },
   {
     icon: FileCheck2,
     title: '예측',
-    body: '현재 증거 상태를 기준으로 검토 창, 마이그레이션 리허설, 큐 깊이를 계획합니다.',
+    body: '현재 확인 자료를 기준으로 검토 일정, 이전 리허설, 대기 업무량을 계획합니다.',
     accent: 'bg-[#596bff]',
   },
   {
@@ -157,7 +157,7 @@ const timeCards = [
 
 const footerColumns = [
   ['제품', '홈', 'Matter', '검색', '감사 로그', '보존 관리'],
-  ['보안', '권한 필터', '정보 장벽', 'DLP 점검', 'AI 정책', '워크스페이스 격리'],
+  ['보안', '권한 적용 검색', '정보 장벽', 'DLP 점검', 'AI 정책', '워크스페이스 격리'],
   ['워크플로', '업로드 검토', '계약 검토', '실사 자료', '소송 자료', '운영 관리'],
   ['회사', '소개', '운영', '승인 관리', '상태', '문의'],
 ];
@@ -193,13 +193,13 @@ function ThemeSelector({ activeTheme }: { activeTheme: ShowcaseTheme }) {
     {
       theme: 'classic',
       label: '기존 Vault 테마',
-      description: '컬러풀한 쇼케이스형 화면',
+      description: '기존 쇼케이스 화면',
       href: '/showcase?theme=classic',
     },
     {
       theme: 'saas',
       label: 'SaaS Design System 테마',
-      description: '실제 업무 화면에 가까운 새 테마',
+      description: '업무 화면에 맞춘 새 테마',
       href: '/showcase?theme=saas',
     },
   ];
@@ -213,7 +213,7 @@ function ThemeSelector({ activeTheme }: { activeTheme: ShowcaseTheme }) {
           </span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-[#17202a]">디자인 테마 선택</p>
-            <p className="text-xs font-medium text-[#667085]">운영자가 비교할 테마를 선택할 수 있습니다.</p>
+            <p className="text-xs font-medium text-[#667085]">테마를 선택해 화면을 비교해 보세요.</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -318,7 +318,7 @@ function SaasDesignSystemTheme() {
                     <p className="text-xs font-bold uppercase text-[#8a97a8]">홈</p>
                     <h1 className="mt-2 text-3xl font-bold tracking-normal text-[#1a1f36] sm:text-4xl">오늘 처리할 법무 업무</h1>
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-[#4a5a70]">
-                      Matter, 파일, 권한, 감사 로그를 한 화면에서 확인하고 필요한 작업부터 진행합니다.
+                      Matter, 파일, 권한, 감사 로그를 한눈에 확인하고 필요한 일부터 처리하세요.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -333,7 +333,7 @@ function SaasDesignSystemTheme() {
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <SaasMetricCard label="검토 대기" value="18" helper="어제보다 4건 감소" tone="blue" />
-                  <SaasMetricCard label="권한 차단" value="0" helper="누수 없음" tone="green" />
+                  <SaasMetricCard label="차단된 접근" value="0" helper="권한 밖 열람 없음" tone="green" />
                   <SaasMetricCard label="감사 이벤트" value="1,842" helper="오늘 기록" tone="amber" />
                   <SaasMetricCard label="보존 항목" value="3" helper="검토 필요" tone="rose" />
                 </div>
@@ -342,7 +342,7 @@ function SaasDesignSystemTheme() {
                   <article className="rounded-lg border border-[#e8ecf4] bg-white p-4 shadow-[0_2px_16px_rgb(45_45_45_/_6%)]">
                     <div className="flex flex-col gap-3 border-b border-[#f0f3f9] pb-4 md:flex-row md:items-center md:justify-between">
                       <div>
-                        <h2 className="text-lg font-bold tracking-normal text-[#1a1f36]">Matter 작업 큐</h2>
+                        <h2 className="text-lg font-bold tracking-normal text-[#1a1f36]">Matter 업무 목록</h2>
                         <p className="mt-1 text-sm text-[#4a5a70]">담당자, 상태, 권한 범위를 함께 확인합니다.</p>
                       </div>
                       <div className="flex gap-2 text-xs font-bold">
@@ -378,11 +378,11 @@ function SaasDesignSystemTheme() {
 
                   <article className="rounded-lg border border-[#e8ecf4] bg-white p-4 shadow-[0_2px_16px_rgb(45_45_45_/_6%)]">
                     <h2 className="text-lg font-bold tracking-normal text-[#1a1f36]">권한과 감사</h2>
-                    <p className="mt-1 text-sm text-[#4a5a70]">외부 노출 없이 내부 통제 상태만 보여줍니다.</p>
+                    <p className="mt-1 text-sm text-[#4a5a70]">권한과 감사 상태를 필요한 범위에서 보여줍니다.</p>
                     <div className="mt-5 space-y-3">
-                      <SaasQueueCard label="권한 범위 적용" value="정상" tone="green" />
-                      <SaasQueueCard label="정보 장벽 체크" value="통과" tone="blue" />
-                      <SaasQueueCard label="AI 정책" value="외부 AI 차단" tone="amber" />
+                      <SaasQueueCard label="권한 범위 확인" value="정상" tone="green" />
+                      <SaasQueueCard label="정보 장벽 확인" value="통과" tone="blue" />
+                      <SaasQueueCard label="AI 정책" value="외부 AI 사용 차단" tone="amber" />
                       <SaasQueueCard label="감사 로그" value="기록 중" tone="blue" />
                     </div>
                   </article>
@@ -415,7 +415,7 @@ function SaasDesignSystemTheme() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h2 className="text-lg font-bold tracking-normal text-[#1a1f36]">오늘의 감사 타임라인</h2>
-                        <p className="mt-1 text-sm text-[#4a5a70]">사용자에게 필요한 표현만 남긴 새 운영형 테마입니다.</p>
+                        <p className="mt-1 text-sm text-[#4a5a70]">업무에 필요한 기록만 시간순으로 보여줍니다.</p>
                       </div>
                       <span className="rounded-md bg-[#fff3e0] px-3 py-1.5 text-xs font-bold text-[#9a5c00]">실시간</span>
                     </div>
@@ -436,7 +436,7 @@ function SaasDesignSystemTheme() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-bold tracking-normal text-[#1a1f36]">SaaS Design System 미리보기</h2>
-            <p className="mt-1 text-sm text-[#4a5a70]">새 테마는 운영형 Vault 화면에 맞춰 AWS 배포 페이지에 포함됩니다.</p>
+            <p className="mt-1 text-sm text-[#4a5a70]">새 테마는 현재 배포된 Vault 화면에서 바로 확인할 수 있습니다.</p>
           </div>
           <Link href="/login" className="inline-flex h-10 items-center justify-center rounded-md bg-[#1464e8] px-4 text-sm font-bold text-white">
             로그인으로 돌아가기
@@ -634,7 +634,7 @@ function HeroWorkspaceMockup() {
             {[
               ['문서', '248'],
               ['감사 이벤트', '1,842'],
-              ['차단 누수', '0'],
+              ['권한 밖 열람', '0'],
             ].map(([label, value]) => (
               <div key={label} className="rounded-md border border-[#e7eaf1] bg-[#fbfcff] p-3">
                 <p className="text-xs text-[#667085]">{label}</p>
@@ -665,7 +665,7 @@ function HeroWorkspaceMockup() {
           <p className="text-xs font-bold uppercase text-[#6b7280]">감사 추적</p>
           {[
             ['09:44', '열람 허용'],
-            ['09:41', '장벽 체크 통과'],
+            ['09:41', '정보 장벽 확인됨'],
             ['09:36', '버전 생성'],
             ['09:20', '검색 범위 적용'],
           ].map(([time, event]) => (
@@ -757,7 +757,7 @@ function MatterBoardMockup() {
             </span>
           ))}
         </div>
-        <span className="text-xs font-semibold text-[#667085]">라이브 통제</span>
+        <span className="text-xs font-semibold text-[#667085]">실시간 보안 상태</span>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1.1fr]">
         <div className="space-y-3">
@@ -778,7 +778,7 @@ function MatterBoardMockup() {
           ))}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {['인입', '검토', '장벽 체크', '파일링', '보존', '내보내기'].map((item, index) => (
+          {['자료 접수', '검토', '정보 장벽 확인', '파일 정리', '보존', '내보내기'].map((item, index) => (
             <div key={item} className="rounded-md bg-[#f8f9ff] p-3">
               <span className="text-xs font-bold text-[#667085]">0{index + 1}</span>
               <p className="mt-2 text-sm font-bold">{item}</p>
@@ -882,7 +882,7 @@ function CustomizationSection() {
     <section id="governance" className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
       <div className="mx-auto max-w-2xl text-center">
         <h2 className="text-[32px] font-bold leading-tight tracking-normal sm:text-[42px]">
-          어떤 업무 그룹에도 맞게 AMIC Vault를 구성하세요.
+          어떤 팀의 업무에도 맞게 AMIC Vault를 구성하세요.
         </h2>
         <p className="mt-4 text-base leading-7 text-[#667085]">
           워크스페이스 격리, 정보 장벽, 감사 정책, 기록 통제를 느슨하게 만들지 않고 업무 화면을 구성합니다.
@@ -893,13 +893,13 @@ function CustomizationSection() {
           <Blocks className="h-8 w-8" />
           <h3 className="mt-5 text-2xl font-bold tracking-normal">보안 Vault 앱을 조합하세요</h3>
           <p className="mt-3 text-sm leading-6 opacity-80">
-            Matter 대시보드, 실사룸, 검색 큐, 거버넌스 리포트를 동일한 통제 프리미티브 위에서 구성합니다.
+            Matter 대시보드, 실사 자료실, 검색 목록, 거버넌스 리포트를 동일한 권한과 감사 기준 위에서 구성합니다.
           </p>
           <Link
             href="/launch"
             className="mt-6 inline-flex h-10 items-center gap-2 rounded-md bg-white px-4 text-sm font-bold text-[#503d00]"
           >
-            출시 보기
+            운영 관리 보기
             <ArrowRight className="h-4 w-4" />
           </Link>
         </article>
@@ -1024,7 +1024,7 @@ function DocumentSection() {
           모든 문서를 팀과 함께 라우팅하고 기록하세요.
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/84">
-          업로드, 버전, 레드라인, 결정, 감사 이벤트가 함께 남아 모든 파일에 방어 가능한 이력이 생깁니다.
+          업로드, 버전, 레드라인, 결정, 감사 이벤트가 함께 남아 모든 파일의 처리 이력을 확인할 수 있습니다.
         </p>
         <DocumentMockup />
       </div>
@@ -1081,7 +1081,7 @@ function ReportingSection() {
           실시간 리포팅으로 흐름을 놓치지 마세요.
         </h2>
         <p className="mt-4 text-base leading-7 text-[#667085]">
-          위험, 업무량, 게이트, 문서 운영이 차단 요인이 되기 전에 한눈에 보이게 합니다.
+          위험, 업무량, 승인 상태, 문서 흐름이 지연 요인이 되기 전에 한눈에 보이게 합니다.
         </p>
       </div>
       <div className="mt-12 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
@@ -1089,7 +1089,7 @@ function ReportingSection() {
           <LayoutDashboard className="h-9 w-9" />
           <h3 className="mt-5 text-2xl font-bold tracking-normal">대시보드</h3>
           <p className="mt-3 text-sm leading-6 text-white/82">
-            기술 증거와 법무 업무 상태를 리더가 빠르게 훑을 수 있는 대시보드로 전환합니다.
+            시스템 점검 결과와 법무 업무 상태를 리더가 빠르게 훑을 수 있는 대시보드로 보여줍니다.
           </p>
         </article>
         <ReportingMockup />
@@ -1122,9 +1122,9 @@ function ReportingMockup() {
           </div>
         </div>
         <div className="rounded-md bg-[#fbfcff] p-4">
-          <p className="text-xs font-bold text-[#667085]">게이트 상태</p>
+          <p className="text-xs font-bold text-[#667085]">승인 상태</p>
           <div className="mt-6 space-y-3">
-            {['권한', '감사', '기록', 'AI 게이트'].map((item, index) => (
+            {['권한', '감사', '기록', 'AI 정책'].map((item, index) => (
               <div key={item} className="flex items-center justify-between text-sm">
                 <span>{item}</span>
                 <span className={index === 3 ? 'text-[#f59e0b]' : 'text-[#12a87d]'}>{index === 3 ? '관찰' : '통과'}</span>
@@ -1178,13 +1178,13 @@ function MoreSection() {
     <section className="mx-auto max-w-6xl px-5 py-20 text-center sm:px-8">
       <h2 className="text-[32px] font-bold leading-tight tracking-normal sm:text-[42px]">그리고 더 있습니다.</h2>
       <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#667085]">
-        AMIC Vault는 매일의 법무 운영을 동일한 증거 기반 통제면에 묶어 둡니다.
+        AMIC Vault는 매일의 법무 업무를 같은 권한과 감사 기준 안에서 관리합니다.
       </p>
       <div className="mt-12 grid gap-5 md:grid-cols-3">
         {[
-          ['업무 관리', '배정', '기한', '검토 큐', '에스컬레이션'],
-          ['통합 캘린더', '게이트 기간', '마이그레이션 리허설', 'Matter 마감', '기록 마일스톤'],
-          ['팀 협업', '내부 코멘트', '감사 안전 메모', '역할 기반 멘션', '결정 이력'],
+          ['업무 관리', '배정', '기한', '검토 대기 목록', '상급 검토 요청'],
+          ['통합 캘린더', '승인 일정', '이전 리허설', 'Matter 마감', '기록 마일스톤'],
+          ['팀 협업', '내부 코멘트', '감사 기록 메모', '역할 기반 멘션', '결정 이력'],
         ].map(([title, ...items], index) => (
           <article key={title} className="rounded-lg border border-[#e8ebf2] bg-white p-6 text-left shadow-[0_16px_45px_rgb(18_32_54_/_8%)]">
             <span className={`grid h-9 w-9 place-items-center rounded-md text-white ${index === 0 ? 'bg-[#6b5cff]' : index === 1 ? 'bg-[#17b8d6]' : 'bg-[#ef4d86]'}`}>
