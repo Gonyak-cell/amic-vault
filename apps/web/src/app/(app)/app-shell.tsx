@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
             <Link
               href="/matters"
-              className="hidden h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:inline-flex"
+              className="hidden h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:inline-flex"
             >
               {t('nav.create')}
             </Link>
@@ -160,7 +160,7 @@ function HeaderMenu({ label }: { label: string }) {
   return (
     <button
       type="button"
-      className="hidden h-10 items-center gap-1 rounded-md px-2 text-sm font-medium hover:bg-muted xl:inline-flex"
+      className="hidden h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 text-sm font-medium hover:bg-muted 2xl:inline-flex"
       title={label}
     >
       {label}

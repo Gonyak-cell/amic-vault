@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Activity,
   Archive,
@@ -17,6 +17,7 @@ import { useI18n, type Language } from '@/lib/i18n';
 
 type ActivityTab = 'activity' | 'documents' | 'permissions' | 'ai' | 'records';
 type EventTone = 'allow' | 'watch' | 'blocked';
+type StatusTone = EventTone | 'neutral';
 
 type VaultEvent = {
   id: string;
@@ -46,12 +47,10 @@ const dashboardCopy: Record<
     actions: [string, string];
     tabs: Record<ActivityTab, string>;
     tabSummaries: Record<ActivityTab, string>;
-    events: [VaultEvent, ...VaultEvent[]];
+    events: VaultEvent[];
     profile: {
-      client: string;
+      title: string;
       description: string;
-      firstSeen: string;
-      lastEvent: string;
       search: string;
       properties: Array<[string, string]>;
     };
@@ -66,15 +65,19 @@ const dashboardCopy: Record<
       diagnosticsMeta: string;
       table: [string, string, string];
     };
+    emptyStates: Record<'activity' | 'selectedActivity' | 'security' | 'summary' | 'diagnostics' | 'profile', {
+      title: string;
+      body: string;
+    }>;
     controlRows: Array<[string, string, string]>;
     metrics: Array<[string, string, string]>;
     diagnosticsRows: Array<[string, string, string]>;
   }
 > = {
   ko: {
-    breadcrumb: ['홈', 'Matter', 'M-2026-0147'],
-    title: '계약 자료실',
-    pills: ['접근 가능', '삭제 금지 적용'],
+    breadcrumb: ['홈', 'Matter', '선택 없음'],
+    title: 'Matter 대시보드',
+    pills: ['데이터 미연결', '실데이터만 표시'],
     actions: ['활동 검색', '기록 내보내기'],
     tabs: {
       activity: '최근 활동',
@@ -84,141 +87,64 @@ const dashboardCopy: Record<
       records: '보존 관리',
     },
     tabSummaries: {
-      activity: '최근 파일 열람, 검색, 권한 변경 내역입니다.',
-      documents: '파일 버전, 미리보기, 다운로드, 삭제 금지 상태입니다.',
-      permissions: '멤버 접근 권한과 정보 장벽 상태입니다.',
-      ai: 'AI 요약에 사용된 파일 출처와 제한 상태입니다.',
-      records: '보존 기간, 삭제 금지, 폐기 검토 상태입니다.',
+      activity: '실제 감사 이벤트가 연결되면 최근 활동이 표시됩니다.',
+      documents: '실제 파일 버전과 보존 상태가 연결되면 표시됩니다.',
+      permissions: '실제 멤버 접근 권한과 정보 장벽 상태가 표시됩니다.',
+      ai: '실제 AI 근거 검토가 승인된 경우에만 출처가 표시됩니다.',
+      records: '실제 보존 기간과 삭제 금지 상태가 표시됩니다.',
     },
-    events: [
-      {
-        id: 'evt-001',
-        time: '09:42',
-        label: '파일 열람',
-        actor: 'Matter 담당자',
-        target: '주식매매계약서 v3 미리보기',
-        status: '접근 가능',
-        tone: 'allow',
-        metadata: [
-          ['워크스페이스', 'Alpha'],
-          ['Matter', 'M-2026-0147'],
-          ['파일', '주식매매계약서 v3'],
-          ['버전', '3'],
-          ['열람 방식', '미리보기'],
-          ['본문 기록', '기록 안 함'],
-        ],
-      },
-      {
-        id: 'evt-002',
-        time: '09:41',
-        label: '검색 실행',
-        actor: '제한된 검토자',
-        target: '접근 권한이 있는 파일만 검색됨',
-        status: '권한 적용됨',
-        tone: 'allow',
-        metadata: [
-          ['검색어', '해시로 저장'],
-          ['범위', 'Matter 멤버와 정보 장벽 기준'],
-          ['사후 필터링', '사용 안 함'],
-          ['결과', '12개'],
-          ['숨겨진 결과 노출', '0건'],
-        ],
-      },
-      {
-        id: 'evt-003',
-        time: '09:40',
-        label: '외부 AI 사용 제한',
-        actor: '지식 관리자',
-        target: '외부 모델 연결',
-        status: '제한됨',
-        tone: 'blocked',
-        metadata: [
-          ['요청 경로', '외부 모델'],
-          ['외부 AI', '허용 안 됨'],
-          ['근거 자료', 'AI 검토 기준'],
-          ['사유', 'AI 정책에 따라 제한'],
-        ],
-      },
-      {
-        id: 'evt-004',
-        time: '09:39',
-        label: '삭제 금지 적용',
-        actor: '기록 관리자',
-        target: 'M-2026-0147 Matter',
-        status: '확인 필요',
-        tone: 'watch',
-        metadata: [
-          ['보존 관리', '삭제 금지 204'],
-          ['범위', 'Matter'],
-          ['폐기', '보류'],
-          ['증명서', '필요'],
-        ],
-      },
-      {
-        id: 'evt-005',
-        time: '09:37',
-        label: '접근 제한',
-        actor: '외부 검토자',
-        target: '제한된 자료실',
-        status: '제한됨',
-        tone: 'blocked',
-        metadata: [
-          ['응답', '접근 제한'],
-          ['안전한 안내', '사용'],
-          ['대상 표시', '숨김'],
-          ['정보 장벽', '적용됨'],
-        ],
-      },
-    ],
+    events: [],
     profile: {
-      client: 'Cobalt Energy Holdings',
-      description: '비식별 고객 프로필',
-      firstSeen: '처음 등록',
-      lastEvent: '최근 활동',
+      title: 'Matter 선택 필요',
+      description: '실제 Matter를 선택하면 고객, 권한, 보존 상태가 표시됩니다.',
       search: '속성 검색',
-      properties: [
-        ['Matter 번호', 'M-2026-0147'],
-        ['고객', 'Cobalt Energy Holdings'],
-        ['보안 등급', '제한됨'],
-        ['정보 장벽', '적용 중'],
-        ['AI 정책', '승인된 자료만 사용'],
-        ['보존 상태', '삭제 금지 적용'],
-      ],
+      properties: [],
     },
     sections: {
       activity: '활동 기록',
       selectedActivity: '선택한 활동',
       securityStatus: '보안 상태',
-      securityMeta: '정상',
+      securityMeta: '데이터 없음',
       summary: '요약',
-      summaryMeta: '현재 Matter',
+      summaryMeta: '데이터 없음',
       diagnostics: '보호 상태',
-      diagnosticsMeta: '최근 30일',
+      diagnosticsMeta: '데이터 없음',
       table: ['항목', '상태', '설명'],
     },
-    controlRows: [
-      ['검색 전 접근 권한 확인', '정상', '검색하기 전에 볼 수 있는 파일만 추립니다.'],
-      ['AI 사용 전 권한 확인', '정상', '허용된 파일 출처만 AI 요약에 사용됩니다.'],
-      ['활동 자동 기록', '정상', '파일 열람과 권한 변경은 활동 기록에 남습니다.'],
-      ['민감정보 보호', '정상', '본문 대신 ID와 해시만 기록합니다.'],
-    ],
-    metrics: [
-      ['파일', '1,284', '현재 버전'],
-      ['접근 제한', '7', '안전하게 안내됨'],
-      ['활동 기록', '100%', '필수 기록 완료'],
-      ['외부 AI', '0', '열린 경로 없음'],
-    ],
-    diagnosticsRows: [
-      ['워크스페이스 격리', '적용 중', '다른 워크스페이스 자료는 표시되지 않습니다.'],
-      ['검색 보호', '정상', '권한 없는 제목과 본문은 숨겨집니다.'],
-      ['보존 관리', '삭제 금지 적용', '검토 전에는 파일이 폐기되지 않습니다.'],
-      ['공유 링크', '보호됨', '원본 토큰은 저장하지 않습니다.'],
-    ],
+    emptyStates: {
+      activity: {
+        title: '실제 Matter 데이터가 없습니다.',
+        body: '활동 기록은 API에서 수신한 감사 이벤트만 표시합니다.',
+      },
+      selectedActivity: {
+        title: '선택된 활동이 없습니다.',
+        body: '활동 기록이 연결되면 세부 메타데이터가 이 영역에 표시됩니다.',
+      },
+      security: {
+        title: '보안 상태 데이터가 없습니다.',
+        body: '권한 평가와 정보 장벽 상태가 실제 응답으로 연결된 뒤 표시됩니다.',
+      },
+      summary: {
+        title: '요약 수치가 없습니다.',
+        body: '파일 수, 제한 건수, 감사 완료율 같은 수치는 실데이터만 표시합니다.',
+      },
+      diagnostics: {
+        title: '진단 결과가 없습니다.',
+        body: '보호 상태 점검 결과가 연결되기 전에는 상태를 표시하지 않습니다.',
+      },
+      profile: {
+        title: '표시할 Matter 속성이 없습니다.',
+        body: '고객명, Matter 번호, 보안 등급은 실제 선택 항목에서만 표시됩니다.',
+      },
+    },
+    controlRows: [],
+    metrics: [],
+    diagnosticsRows: [],
   },
   en: {
-    breadcrumb: ['Home', 'Matter', 'M-2026-0147'],
-    title: 'Contract workspace',
-    pills: ['Accessible', 'Hold applied'],
+    breadcrumb: ['Home', 'Matter', 'None selected'],
+    title: 'Matter dashboard',
+    pills: ['Data not connected', 'Live data only'],
     actions: ['Search activity', 'Export log'],
     tabs: {
       activity: 'Recent activity',
@@ -228,136 +154,59 @@ const dashboardCopy: Record<
       records: 'Retention',
     },
     tabSummaries: {
-      activity: 'Recent file views, searches, and access changes.',
-      documents: 'File versions, previews, downloads, and hold status.',
-      permissions: 'Member access and information barrier status.',
-      ai: 'File sources and restrictions used for AI summaries.',
-      records: 'Retention periods, holds, and disposal review status.',
+      activity: 'Recent activity appears after live audit events are connected.',
+      documents: 'Live file versions and retention status appear after connection.',
+      permissions: 'Live member access and information barrier status appear here.',
+      ai: 'AI evidence appears only when a real governed review is available.',
+      records: 'Live retention periods and holds appear after connection.',
     },
-    events: [
-      {
-        id: 'evt-001',
-        time: '09:42',
-        label: 'File viewed',
-        actor: 'Matter owner',
-        target: 'Share Purchase Agreement v3 preview',
-        status: 'Accessible',
-        tone: 'allow',
-        metadata: [
-          ['Workspace', 'Alpha'],
-          ['Matter', 'M-2026-0147'],
-          ['File', 'Share Purchase Agreement v3'],
-          ['Version', '3'],
-          ['View type', 'Preview'],
-          ['Body stored', 'No'],
-        ],
-      },
-      {
-        id: 'evt-002',
-        time: '09:41',
-        label: 'Search run',
-        actor: 'Limited reviewer',
-        target: 'Only accessible files were searched',
-        status: 'Access applied',
-        tone: 'allow',
-        metadata: [
-          ['Query', 'Stored as hash'],
-          ['Scope', 'Matter membership and barriers'],
-          ['Post-filtering', 'Not used'],
-          ['Results', '12'],
-          ['Hidden result exposure', '0'],
-        ],
-      },
-      {
-        id: 'evt-003',
-        time: '09:40',
-        label: 'External AI restricted',
-        actor: 'Knowledge manager',
-        target: 'External model connection',
-        status: 'Restricted',
-        tone: 'blocked',
-        metadata: [
-          ['Requested route', 'External model'],
-          ['External AI', 'Not allowed'],
-          ['Evidence set', 'AI review policy'],
-          ['Reason', 'Restricted by AI policy'],
-        ],
-      },
-      {
-        id: 'evt-004',
-        time: '09:39',
-        label: 'Hold applied',
-        actor: 'Records manager',
-        target: 'Matter M-2026-0147',
-        status: 'Needs review',
-        tone: 'watch',
-        metadata: [
-          ['Retention setting', 'Hold 204'],
-          ['Scope', 'Matter'],
-          ['Disposal', 'On hold'],
-          ['Certificate', 'Required'],
-        ],
-      },
-      {
-        id: 'evt-005',
-        time: '09:37',
-        label: 'Access restricted',
-        actor: 'External reviewer',
-        target: 'Restricted workspace',
-        status: 'Restricted',
-        tone: 'blocked',
-        metadata: [
-          ['Response', 'Access restricted'],
-          ['Safe message', 'Used'],
-          ['Target visibility', 'Hidden'],
-          ['Information barrier', 'Applied'],
-        ],
-      },
-    ],
+    events: [],
     profile: {
-      client: 'Cobalt Energy Holdings',
-      description: 'De-identified client profile',
-      firstSeen: 'First added',
-      lastEvent: 'Latest activity',
+      title: 'Select a matter',
+      description: 'Client, access, and retention state appear after a live matter is selected.',
       search: 'Search properties',
-      properties: [
-        ['Matter number', 'M-2026-0147'],
-        ['Client', 'Cobalt Energy Holdings'],
-        ['Security level', 'Restricted'],
-        ['Information barrier', 'Applied'],
-        ['AI policy', 'Approved sources only'],
-        ['Retention status', 'Hold applied'],
-      ],
+      properties: [],
     },
     sections: {
       activity: 'Activity log',
       selectedActivity: 'Selected activity',
       securityStatus: 'Security status',
-      securityMeta: 'Healthy',
+      securityMeta: 'No data',
       summary: 'Summary',
-      summaryMeta: 'Current matter',
+      summaryMeta: 'No data',
       diagnostics: 'Protection status',
-      diagnosticsMeta: 'Last 30 days',
+      diagnosticsMeta: 'No data',
       table: ['Item', 'Status', 'Details'],
     },
-    controlRows: [
-      ['Access checked before search', 'Healthy', 'Search only includes files the user can view.'],
-      ['Access checked before AI', 'Healthy', 'Only allowed file sources can be used in AI summaries.'],
-      ['Activity recorded automatically', 'Healthy', 'File views and access changes are logged.'],
-      ['Sensitive information protected', 'Healthy', 'References and hashes are logged instead of body text.'],
-    ],
-    metrics: [
-      ['Files', '1,284', 'Current versions'],
-      ['Restricted', '7', 'Safe responses'],
-      ['Activity log', '100%', 'Required events'],
-      ['External AI', '0', 'Open routes'],
-    ],
-    diagnosticsRows: [
-      ['Workspace isolation', 'Applied', 'Other workspaces are not shown.'],
-      ['Search protection', 'Healthy', 'Unauthorized titles and snippets stay hidden.'],
-      ['Retention settings', 'Hold applied', 'Files are not disposed before review.'],
-      ['Shared links', 'Protected', 'Raw tokens are not stored.'],
-    ],
+    emptyStates: {
+      activity: {
+        title: 'No live matter data.',
+        body: 'The dashboard renders only audit events received from the API.',
+      },
+      selectedActivity: {
+        title: 'No activity selected.',
+        body: 'Event metadata appears here after live activity is connected.',
+      },
+      security: {
+        title: 'No security status data.',
+        body: 'Permission and barrier state appears after live responses are connected.',
+      },
+      summary: {
+        title: 'No summary metrics.',
+        body: 'File counts, restriction counts, and audit coverage are shown only from live data.',
+      },
+      diagnostics: {
+        title: 'No diagnostic results.',
+        body: 'The UI no longer invents healthy status before real checks are available.',
+      },
+      profile: {
+        title: 'No matter properties to display.',
+        body: 'Client, matter number, and security level appear only from the selected live matter.',
+      },
+    },
+    controlRows: [],
+    metrics: [],
+    diagnosticsRows: [],
   },
 };
 
@@ -365,11 +214,8 @@ export function VaultActivityClient() {
   const { language } = useI18n();
   const copy = dashboardCopy[language];
   const [activeTab, setActiveTab] = useState<ActivityTab>('activity');
-  const [selectedEventId, setSelectedEventId] = useState(copy.events[0].id);
-  const selectedEvent = useMemo<VaultEvent>(
-    () => copy.events.find((event) => event.id === selectedEventId) ?? copy.events[0],
-    [copy.events, selectedEventId],
-  );
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const selectedEvent = copy.events.find((event) => event.id === selectedEventId);
 
   return (
     <main className="flex flex-col gap-5">
@@ -384,8 +230,8 @@ export function VaultActivityClient() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-[30px] font-semibold leading-tight tracking-normal">{copy.title}</h1>
-            <StatusPill tone="allow">{copy.pills[0]}</StatusPill>
-            <StatusPill tone="watch">{copy.pills[1]}</StatusPill>
+            <StatusPill tone="neutral">{copy.pills[0]}</StatusPill>
+            <StatusPill tone="neutral">{copy.pills[1]}</StatusPill>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -429,46 +275,58 @@ export function VaultActivityClient() {
                 meta={copy.tabSummaries[activeTab]}
               />
               <div className="border-t">
-                {copy.events.map((event) => (
-                  <button
-                    key={event.id}
-                    type="button"
-                    onClick={() => setSelectedEventId(event.id)}
-                    className={`grid w-full grid-cols-[64px_12px_minmax(0,1fr)] items-center gap-3 border-b px-4 py-3 text-left text-sm transition-colors last:border-b-0 sm:grid-cols-[92px_16px_minmax(0,1fr)_140px] sm:gap-4 sm:px-5 ${
-                      selectedEvent.id === event.id ? 'bg-secondary/70' : 'hover:bg-muted'
-                    }`}
-                  >
-                    <span className="font-mono text-xs text-muted-foreground">{event.time}</span>
-                    <span className={`h-2.5 w-2.5 rounded-full ${toneDotClass(event.tone)}`} />
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold">{event.label}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{event.target}</span>
-                    </span>
-                    <span
-                      className={`hidden justify-self-end rounded-sm px-2 py-1 text-xs sm:inline-flex ${toneBadgeClass(event.tone)}`}
+                {copy.events.length === 0 ? (
+                  <EmptyState title={copy.emptyStates.activity.title} body={copy.emptyStates.activity.body} />
+                ) : (
+                  copy.events.map((event) => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => setSelectedEventId(event.id)}
+                      className={`grid w-full grid-cols-[64px_12px_minmax(0,1fr)] items-center gap-3 border-b px-4 py-3 text-left text-sm transition-colors last:border-b-0 sm:grid-cols-[92px_16px_minmax(0,1fr)_140px] sm:gap-4 sm:px-5 ${
+                        selectedEvent?.id === event.id ? 'bg-secondary/70' : 'hover:bg-muted'
+                      }`}
                     >
-                      {event.status}
-                    </span>
-                  </button>
-                ))}
+                      <span className="font-mono text-xs text-muted-foreground">{event.time}</span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${toneDotClass(event.tone)}`} />
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">{event.label}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{event.target}</span>
+                      </span>
+                      <span
+                        className={`hidden justify-self-end rounded-sm px-2 py-1 text-xs sm:inline-flex ${toneBadgeClass(event.tone)}`}
+                      >
+                        {event.status}
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
             <aside className="rounded-md border bg-card">
               <PanelHeader
                 icon={<FileSearch className="h-4 w-4" />}
-                title={selectedEvent.label}
-                meta={`${copy.sections.selectedActivity} · ${selectedEvent.actor}`}
+                title={selectedEvent?.label ?? copy.sections.selectedActivity}
+                meta={selectedEvent ? `${copy.sections.selectedActivity} · ${selectedEvent.actor}` : copy.emptyStates.selectedActivity.title}
               />
               <div className="border-t p-5">
-                <dl className="grid gap-3 text-sm">
-                  {selectedEvent.metadata.map(([key, value]) => (
-                    <div key={key} className="grid grid-cols-[150px_minmax(0,1fr)] gap-4">
-                      <dt className="font-mono text-xs text-muted-foreground">{key}</dt>
-                      <dd className="truncate font-medium">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
+                {selectedEvent ? (
+                  <dl className="grid gap-3 text-sm">
+                    {selectedEvent.metadata.map(([key, value]) => (
+                      <div key={key} className="grid grid-cols-[150px_minmax(0,1fr)] gap-4">
+                        <dt className="font-mono text-xs text-muted-foreground">{key}</dt>
+                        <dd className="truncate font-medium">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <EmptyState
+                    title={copy.emptyStates.selectedActivity.title}
+                    body={copy.emptyStates.selectedActivity.body}
+                    compact
+                  />
+                )}
               </div>
             </aside>
           </section>
@@ -481,9 +339,13 @@ export function VaultActivityClient() {
                 meta={copy.sections.securityMeta}
               />
               <div className="space-y-4 border-t p-5">
-                {copy.controlRows.map(([label, status, detail]) => (
-                  <QualityRow key={label} label={label} status={status} detail={detail} />
-                ))}
+                {copy.controlRows.length === 0 ? (
+                  <EmptyState title={copy.emptyStates.security.title} body={copy.emptyStates.security.body} compact />
+                ) : (
+                  copy.controlRows.map(([label, status, detail]) => (
+                    <QualityRow key={label} label={label} status={status} detail={detail} />
+                  ))
+                )}
               </div>
             </div>
 
@@ -494,35 +356,47 @@ export function VaultActivityClient() {
                 meta={copy.sections.summaryMeta}
               />
               <div className="grid gap-0 border-t md:grid-cols-4">
-                {copy.metrics.map(([label, value, detail]) => (
-                  <Metric key={label} label={label} value={value} detail={detail} />
-                ))}
+                {copy.metrics.length === 0 ? (
+                  <div className="md:col-span-4">
+                    <EmptyState title={copy.emptyStates.summary.title} body={copy.emptyStates.summary.body} />
+                  </div>
+                ) : (
+                  copy.metrics.map(([label, value, detail]) => (
+                    <Metric key={label} label={label} value={value} detail={detail} />
+                  ))
+                )}
               </div>
             </div>
           </section>
 
           <section className="rounded-md border bg-card">
             <PanelHeader icon={<Clock3 className="h-4 w-4" />} title={copy.sections.diagnostics} meta={copy.sections.diagnosticsMeta} />
-            <div className="overflow-x-auto border-t">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead className="bg-muted/70 text-xs uppercase tracking-normal text-muted-foreground">
-                  <tr>
-                    <th className="px-5 py-3 font-semibold">{copy.sections.table[0]}</th>
-                    <th className="px-5 py-3 font-semibold">{copy.sections.table[1]}</th>
-                    <th className="px-5 py-3 font-semibold">{copy.sections.table[2]}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {copy.diagnosticsRows.map(([control, state, evidence]) => (
-                    <tr key={control} className="border-t">
-                      <td className="px-5 py-3 font-semibold">{control}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{state}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{evidence}</td>
+            {copy.diagnosticsRows.length === 0 ? (
+              <div className="border-t">
+                <EmptyState title={copy.emptyStates.diagnostics.title} body={copy.emptyStates.diagnostics.body} />
+              </div>
+            ) : (
+              <div className="overflow-x-auto border-t">
+                <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                  <thead className="bg-muted/70 text-xs uppercase tracking-normal text-muted-foreground">
+                    <tr>
+                      <th className="px-5 py-3 font-semibold">{copy.sections.table[0]}</th>
+                      <th className="px-5 py-3 font-semibold">{copy.sections.table[1]}</th>
+                      <th className="px-5 py-3 font-semibold">{copy.sections.table[2]}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {copy.diagnosticsRows.map(([control, state, evidence]) => (
+                      <tr key={control} className="border-t">
+                        <td className="px-5 py-3 font-semibold">{control}</td>
+                        <td className="px-5 py-3 text-muted-foreground">{state}</td>
+                        <td className="px-5 py-3 text-muted-foreground">{evidence}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </div>
       </section>
@@ -538,15 +412,10 @@ function MatterProfile() {
     <aside className="rounded-md border bg-card p-6">
       <div className="flex flex-col items-center border-b pb-6 text-center">
         <div className="grid h-[72px] w-[72px] place-items-center rounded-full bg-secondary text-2xl font-semibold text-primary">
-          C
+          -
         </div>
-        <h2 className="mt-4 text-xl font-semibold">{copy.client}</h2>
+        <h2 className="mt-4 text-xl font-semibold">{copy.title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 border-b py-5">
-        <ProfileStat label={copy.firstSeen} value="2026-06-11" />
-        <ProfileStat label={copy.lastEvent} value="09:42 KST" />
       </div>
 
       <div className="py-5">
@@ -555,9 +424,13 @@ function MatterProfile() {
           {copy.search}
         </div>
         <div className="space-y-4">
-          {copy.properties.map(([label, value]) => (
-            <PropertyRow key={label} label={label} value={value} />
-          ))}
+          {copy.properties.length === 0 ? (
+            <EmptyState title={dashboardCopy[language].emptyStates.profile.title} body={dashboardCopy[language].emptyStates.profile.body} compact />
+          ) : (
+            copy.properties.map(([label, value]) => (
+              <PropertyRow key={label} label={label} value={value} />
+            ))
+          )}
         </div>
       </div>
     </aside>
@@ -575,15 +448,6 @@ function PanelHeader({ icon, title, meta }: { icon: React.ReactNode; title: stri
         </div>
       </div>
       <LockKeyhole className="h-4 w-4 shrink-0 text-muted-foreground" />
-    </div>
-  );
-}
-
-function ProfileStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold">{value}</p>
     </div>
   );
 }
@@ -624,7 +488,19 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
   );
 }
 
-function StatusPill({ tone, children }: { tone: EventTone; children: React.ReactNode }) {
+function EmptyState({ title, body, compact = false }: { title: string; body: string; compact?: boolean }) {
+  return (
+    <div className={`flex flex-col items-center justify-center text-center ${compact ? 'min-h-28 p-3' : 'min-h-44 p-6'}`}>
+      <div className="mb-3 grid h-9 w-9 place-items-center rounded-full bg-secondary text-primary">
+        <LockKeyhole className="h-4 w-4" />
+      </div>
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
+function StatusPill({ tone, children }: { tone: StatusTone; children: React.ReactNode }) {
   return <span className={`rounded-sm px-2.5 py-1 text-xs font-semibold ${toneBadgeClass(tone)}`}>{children}</span>;
 }
 
@@ -634,8 +510,9 @@ function toneDotClass(tone: EventTone): string {
   return 'bg-emerald-500';
 }
 
-function toneBadgeClass(tone: EventTone): string {
+function toneBadgeClass(tone: StatusTone): string {
   if (tone === 'blocked') return 'bg-red-50 text-red-700 ring-1 ring-red-200';
   if (tone === 'watch') return 'bg-amber-50 text-amber-700 ring-1 ring-amber-200';
+  if (tone === 'neutral') return 'bg-slate-50 text-slate-700 ring-1 ring-slate-200';
   return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200';
 }

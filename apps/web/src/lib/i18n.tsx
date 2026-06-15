@@ -80,15 +80,6 @@ export function getTranslation(key: TranslationKey, language: Language): string 
   return translations[key][language];
 }
 
-function readStoredLanguage(): Language | undefined {
-  try {
-    const stored = window.localStorage.getItem(storageKey);
-    return stored === 'ko' || stored === 'en' ? stored : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function writeStoredLanguage(language: Language): void {
   try {
     window.localStorage.setItem(storageKey, language);
@@ -101,19 +92,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('ko');
 
   useEffect(() => {
-    const stored = readStoredLanguage();
-    if (stored) {
-      setLanguageState(stored);
-    }
+    document.documentElement.lang = 'ko';
+    document.documentElement.dataset.language = 'ko';
+    writeStoredLanguage('ko');
+    setLanguageState('ko');
   }, []);
 
-  useEffect(() => {
-    document.documentElement.lang = language === 'ko' ? 'ko' : 'en';
-    document.documentElement.dataset.language = language;
-    writeStoredLanguage(language);
-  }, [language]);
-
-  const setLanguage = useCallback((next: Language) => setLanguageState(next), []);
+  const setLanguage = useCallback(() => setLanguageState('ko'), []);
   const t = useCallback((key: TranslationKey) => getTranslation(key, language), [language]);
 
   const value = useMemo<I18nContextValue>(
@@ -133,26 +118,16 @@ export function useI18n(): I18nContextValue {
 }
 
 export function LanguageToggle() {
-  const { language, setLanguage, t } = useI18n();
+  const { t } = useI18n();
   return (
     <div
       aria-label={t('language.label')}
       className="inline-flex h-9 shrink-0 items-center rounded-md border bg-background p-1 text-xs font-semibold"
-      role="group"
+      role="status"
     >
-      {(['ko', 'en'] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          className={`h-7 rounded px-2.5 transition-colors ${
-            language === option ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-          aria-pressed={language === option}
-          onClick={() => setLanguage(option)}
-        >
-          {option === 'ko' ? t('language.korean') : t('language.english')}
-        </button>
-      ))}
+      <span className="inline-flex h-7 items-center rounded bg-primary px-2.5 text-primary-foreground">
+        {t('language.korean')}
+      </span>
     </div>
   );
 }
