@@ -2,417 +2,315 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  Activity,
-  Archive,
-  CheckCircle2,
   ChevronRight,
   Clock3,
-  FileSearch,
-  LockKeyhole,
-  Search,
-  ShieldCheck,
+  FileText,
+  List,
+  Pencil,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
-type ActivityTab = 'activity' | 'documents' | 'permissions' | 'ai' | 'records';
-type EventTone = 'allow' | 'watch' | 'blocked';
+type ActivityId = 'file' | 'nda' | 'citation' | 'disposal' | 'hold';
 
-type VaultEvent = {
-  id: string;
-  time: string;
-  label: string;
-  actor: string;
+type ActivityDetail = {
+  copy: string;
+  keys: Array<[string, string]>;
+  refs: Array<[string, string]>;
   target: string;
-  status: string;
-  tone: EventTone;
-  metadata: Array<[string, string]>;
+  time: string;
+  title: string;
 };
 
-const tabs: Array<{ id: ActivityTab; label: string }> = [
-  { id: 'activity', label: 'Activity' },
-  { id: 'documents', label: 'Documents' },
-  { id: 'permissions', label: 'Permissions' },
-  { id: 'ai', label: 'AI Evidence' },
-  { id: 'records', label: 'Records' },
-];
+const activityDetails = {
+  file: {
+    time: '18:42',
+    title: '새 파일이 추가됨',
+    target: '주식매매계약서_v3.pdf 업로드',
+    copy: '주식매매계약서_v3.pdf가 자료실에 추가되었습니다. 접근 권한이 있는 팀원에게만 보입니다.',
+    refs: [
+      ['파일', 'DOC-204'],
+      ['활동', 'ACT-001'],
+    ],
+    keys: [
+      ['수행자', '정서연'],
+      ['대상', '주식매매계약서_v3.pdf'],
+      ['처리', '업로드 완료'],
+      ['영향', '팀원 열람 가능'],
+    ],
+  },
+  nda: {
+    time: '18:31',
+    title: 'NDA 동의 대기 중',
+    target: '외부 검토자 김민준 님의 접근 보류',
+    copy: '김민준 님은 자료실을 볼 수 있지만, NDA 동의 전에는 파일을 다운로드할 수 없습니다.',
+    refs: [
+      ['공유', 'EXT-ROOM-B'],
+      ['기록', 'NDA-WATCH-019'],
+    ],
+    keys: [
+      ['담당자', '딜팀'],
+      ['대상', '외부 검토자 김민준'],
+      ['조건', 'NDA 동의 필요'],
+      ['영향', '다운로드 보류'],
+    ],
+  },
+  citation: {
+    time: '18:17',
+    title: 'AI 요약 출처 확인됨',
+    target: '요약에 사용된 12개 파일 출처 확인',
+    copy: 'AI 요약에 사용된 문장이 허용된 파일 출처와 연결되어 있습니다.',
+    refs: [
+      ['출처', 'CIT-012'],
+      ['AI', '요약 검토'],
+    ],
+    keys: [
+      ['수행자', 'AI 검토 기능'],
+      ['대상', '계약 검토 요약'],
+      ['조건', '허용된 파일만 사용'],
+      ['영향', '요약 표시 가능'],
+    ],
+  },
+  disposal: {
+    time: '17:58',
+    title: '폐기 승인 필요',
+    target: '보존 기간이 끝난 파일 3개 검토 대기',
+    copy: '보존 기간이 끝난 파일은 승인 전까지 폐기되지 않습니다.',
+    refs: [
+      ['승인', 'APR-014'],
+      ['기록', 'DISPOSAL-HOLD'],
+    ],
+    keys: [
+      ['담당자', '기록 관리자'],
+      ['대상', '폐기 검토 파일 3개'],
+      ['조건', '관리자 승인 필요'],
+      ['영향', '폐기 보류'],
+    ],
+  },
+  hold: {
+    time: '17:44',
+    title: '삭제 금지 범위 변경',
+    target: '주요 파일 4개가 삭제 금지로 지정됨',
+    copy: '분쟁 가능성이 있는 주요 파일 4개가 삭제 금지로 지정되었습니다.',
+    refs: [
+      ['기록', 'HOLD-044'],
+      ['파일', '4개'],
+    ],
+    keys: [
+      ['수행자', '기록 관리자'],
+      ['대상', '주요 파일 4개'],
+      ['조건', '삭제 금지 우선'],
+      ['영향', '파일 삭제 차단'],
+    ],
+  },
+} satisfies Record<ActivityId, ActivityDetail>;
 
-const tabSummaries: Record<ActivityTab, string> = {
-  activity: 'Live audit stream with reference-only event metadata.',
-  documents: 'Document versions, holds, previews, and download events.',
-  permissions: 'Matter membership, wall state, and fail-closed decisions.',
-  ai: 'Local-only evidence flow with external model routes closed.',
-  records: 'Retention, legal hold, archive, and disposal controls.',
-};
+const activityOrder: ActivityId[] = ['file', 'nda', 'citation', 'disposal', 'hold'];
 
-const vaultEvents = [
-  {
-    id: 'evt-001',
-    time: '09:42:18',
-    label: 'DOCUMENT_VIEWED',
-    actor: 'matter-owner',
-    target: 'doc_8f31 / version_03',
-    status: 'allowed',
-    tone: 'allow',
-    metadata: [
-      ['tenant_id', 'tenant_alpha'],
-      ['matter_id', 'm_2026_0147'],
-      ['document_id', 'doc_8f31'],
-      ['version_id', 'ver_03'],
-      ['channel', 'preview'],
-      ['body_logged', 'false'],
-    ],
-  },
-  {
-    id: 'evt-002',
-    time: '09:41:55',
-    label: 'SEARCH_EXECUTED',
-    actor: 'limited-reviewer',
-    target: 'permission-scoped index',
-    status: 'permission filter applied',
-    tone: 'allow',
-    metadata: [
-      ['query_hash', 'sha256:4ac9...'],
-      ['scope', 'matter_membership + wall'],
-      ['post_filtering', 'false'],
-      ['result_count', '12'],
-      ['snippet_leakage', '0'],
-    ],
-  },
-  {
-    id: 'evt-003',
-    time: '09:40:31',
-    label: 'AI_POLICY_BLOCKED',
-    actor: 'knowledge-manager',
-    target: 'external_model route',
-    status: 'blocked',
-    tone: 'blocked',
-    metadata: [
-      ['candidate_route', 'external_model'],
-      ['external_model_allowed', 'false'],
-      ['evidence_pack_ref', 'ai_gate_2026_06_12'],
-      ['reason_code', 'AI_POLICY_BLOCKED'],
-    ],
-  },
-  {
-    id: 'evt-004',
-    time: '09:39:04',
-    label: 'LEGAL_HOLD_CHANGED',
-    actor: 'records-admin',
-    target: 'matter m_2026_0147',
-    status: 'active',
-    tone: 'watch',
-    metadata: [
-      ['hold_id', 'hold_204'],
-      ['scope', 'matter'],
-      ['disposal_blocked', 'true'],
-      ['certificate_required', 'true'],
-    ],
-  },
-  {
-    id: 'evt-005',
-    time: '09:37:44',
-    label: 'ACCESS_DENIED',
-    actor: 'external-user',
-    target: 'restricted data room',
-    status: 'denied',
-    tone: 'blocked',
-    metadata: [
-      ['error_code', 'PERMISSION_DENIED'],
-      ['safe_message', 'true'],
-      ['target_visible', 'false'],
-      ['wall_state', 'excluded'],
-    ],
-  },
-] satisfies [VaultEvent, ...VaultEvent[]];
-
-const controlRows: Array<[string, string, string]> = [
-  ['Permission-before-search', 'green', 'Query scope injected before FTS execution'],
-  ['Permission-before-AI', 'green', 'Only authorized evidence refs can enter AI workflow'],
-  ['Audit-by-default', 'green', 'Event write is part of the action transaction'],
-  ['Sensitive logging', 'green', 'Reference IDs and hashes only'],
-];
-
-const diagnosticsRows: Array<[string, string, string]> = [
-  ['Tenant RLS', 'FORCE RLS enabled', '0 destructive runtime grants'],
-  ['Search leakage', 'metadata leakage 0', 'snippet/title hidden on deny'],
-  ['Records hold', 'hard delete controlled', 'active hold blocks disposal'],
-  ['External portal', 'token hash only', 'raw token not stored'],
+const matterFacts: Array<[string, string]> = [
+  ['담당팀', '법무 운영팀'],
+  ['보존 기간', '7년'],
+  ['공유 상태', '워터마크 적용'],
+  ['다음 작업', '외부 검토자 NDA 확인'],
 ];
 
 export function VaultActivityClient() {
-  const [activeTab, setActiveTab] = useState<ActivityTab>('activity');
-  const [selectedEventId, setSelectedEventId] = useState(vaultEvents[0]?.id ?? '');
-  const selectedEvent = useMemo<VaultEvent>(
-    () => vaultEvents.find((event) => event.id === selectedEventId) ?? vaultEvents[0],
-    [selectedEventId],
+  const [selectedActivityId, setSelectedActivityId] = useState<ActivityId>('file');
+  const selectedActivity = useMemo(
+    () => activityDetails[selectedActivityId],
+    [selectedActivityId],
   );
 
   return (
-    <main className="flex flex-col gap-5">
-      <section className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>default</span>
-            <ChevronRight className="h-4 w-4" />
-            <span>Matter Vault</span>
-            <ChevronRight className="h-4 w-4" />
-            <strong className="text-foreground">M-2026-0147</strong>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-[30px] font-semibold leading-tight tracking-normal">Cobalt M&amp;A Data Room</h1>
-            <StatusPill tone="allow">Gate green</StatusPill>
-            <StatusPill tone="watch">Legal hold</StatusPill>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" title="Search scoped matter activity">
-            <Search className="h-4 w-4" />
-            Scope
-          </Button>
-          <Button variant="outline" size="sm" title="Export reference-only evidence">
-            <Archive className="h-4 w-4" />
-            Evidence
-          </Button>
-        </div>
+    <main className="mx-auto w-full max-w-[1480px]">
+      <section className="border-b border-[#e8ecf4] pb-4">
+        <nav
+          aria-label="이동 경로"
+          className="flex flex-wrap items-center gap-1.5 text-[13px] text-[#4a5a70]"
+        >
+          <span>Vault</span>
+          <ChevronRight className="h-4 w-4" />
+          <strong className="text-[#1a1f36]">홈</strong>
+        </nav>
+        <h1 className="mt-2 text-xl font-bold leading-[1.35] tracking-normal text-[#1a1f36]">홈</h1>
+        <p className="mt-1.5 max-w-[860px] text-sm leading-6 text-[#4a5a70]">
+          이 사건의 파일, 접근 권한, 최근 활동을 한곳에서 확인합니다.
+        </p>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <MatterProfile />
-
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-7 border-b">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`h-11 border-b-2 text-sm font-semibold transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <section className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="rounded-md border bg-card">
-              <PanelHeader
-                icon={<Activity className="h-4 w-4" />}
-                title="Event Stream"
-                meta={tabSummaries[activeTab]}
-              />
-              <div className="border-t">
-                {vaultEvents.map((event) => (
-                  <button
-                    key={event.id}
-                    type="button"
-                    onClick={() => setSelectedEventId(event.id)}
-                    className={`grid w-full grid-cols-[64px_12px_minmax(0,1fr)] items-center gap-3 border-b px-4 py-3 text-left text-sm transition-colors last:border-b-0 sm:grid-cols-[92px_16px_minmax(0,1fr)_140px] sm:gap-4 sm:px-5 ${
-                      selectedEvent.id === event.id ? 'bg-secondary/70' : 'hover:bg-muted'
-                    }`}
-                  >
-                    <span className="font-mono text-xs text-muted-foreground">{event.time}</span>
-                    <span className={`h-2.5 w-2.5 rounded-full ${toneDotClass(event.tone)}`} />
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold">{event.label}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{event.target}</span>
-                    </span>
-                    <span
-                      className={`hidden justify-self-end rounded-sm px-2 py-1 text-xs sm:inline-flex ${toneBadgeClass(event.tone)}`}
-                    >
-                      {event.status}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <aside className="rounded-md border bg-card">
-              <PanelHeader
-                icon={<FileSearch className="h-4 w-4" />}
-                title={selectedEvent.label}
-                meta={selectedEvent.actor}
-              />
-              <div className="border-t p-5">
-                <dl className="grid gap-3 text-sm">
-                  {selectedEvent.metadata.map(([key, value]) => (
-                    <div key={key} className="grid grid-cols-[150px_minmax(0,1fr)] gap-4">
-                      <dt className="font-mono text-xs text-muted-foreground">{key}</dt>
-                      <dd className="truncate font-medium">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            </aside>
-          </section>
-
-          <section className="grid gap-4 2xl:grid-cols-[420px_minmax(0,1fr)]">
-            <div className="rounded-md border bg-card">
-              <PanelHeader
-                icon={<ShieldCheck className="h-4 w-4" />}
-                title="Data Quality"
-                meta="in progress"
-              />
-              <div className="space-y-4 border-t p-5">
-                {controlRows.map(([label, status, detail]) => (
-                  <QualityRow key={label} label={label} status={status} detail={detail} />
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-md border bg-card">
-              <PanelHeader
-                icon={<CheckCircle2 className="h-4 w-4" />}
-                title="Summary"
-                meta="technical launch prepared"
-              />
-              <div className="grid gap-0 border-t md:grid-cols-4">
-                <Metric label="Documents" value="1,284" detail="current versions" />
-                <Metric label="Denied" value="7" detail="safe responses" />
-                <Metric label="Audit" value="100%" detail="required events" />
-                <Metric label="External AI" value="0" detail="open routes" />
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-md border bg-card">
-            <PanelHeader icon={<Clock3 className="h-4 w-4" />} title="Diagnostics" meta="last 30 days" />
-            <div className="overflow-x-auto border-t">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead className="bg-muted/70 text-xs uppercase tracking-normal text-muted-foreground">
-                  <tr>
-                    <th className="px-5 py-3 font-semibold">Control</th>
-                    <th className="px-5 py-3 font-semibold">State</th>
-                    <th className="px-5 py-3 font-semibold">Evidence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {diagnosticsRows.map(([control, state, evidence]) => (
-                    <tr key={control} className="border-t">
-                      <td className="px-5 py-3 font-semibold">{control}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{state}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{evidence}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid min-w-0 gap-4">
+          <PermissionBanner />
+          <MatterPanel />
+          <ActivityPanel selectedActivityId={selectedActivityId} onSelect={setSelectedActivityId} />
         </div>
-      </section>
+
+        <DetailInspector activity={selectedActivity} />
+      </div>
     </main>
   );
 }
 
-function MatterProfile() {
+function PermissionBanner() {
   return (
-    <aside className="rounded-md border bg-card p-6">
-      <div className="flex flex-col items-center border-b pb-6 text-center">
-        <div className="grid h-[72px] w-[72px] place-items-center rounded-full bg-secondary text-2xl font-semibold text-primary">
-          C
+    <section className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+      <div className="flex flex-col gap-3 p-4 sm:p-[18px] md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="text-[15px] font-bold text-[#1a1f36]">이 사건에 접근할 수 있습니다</div>
+          <p className="mt-1 text-[13px] leading-6 text-[#4a5a70]">
+            현재 계정의 권한과 정보 차단 설정을 확인했습니다. 허용된 파일과 활동만 표시됩니다.
+          </p>
         </div>
-        <h2 className="mt-4 text-xl font-semibold">Cobalt Energy Holdings</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Anonymous client profile</p>
+        <button
+          type="button"
+          className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[7px] border border-[#e8ecf4] bg-white px-3 text-[13px] font-bold leading-none text-[#1a1f36] transition hover:bg-[#f1f5fb]"
+        >
+          <Pencil className="h-4 w-4" />
+          접근 권한 보기
+        </button>
       </div>
+    </section>
+  );
+}
 
-      <div className="grid grid-cols-2 gap-3 border-b py-5">
-        <ProfileStat label="First seen" value="Jun 11, 2026" />
-        <ProfileStat label="Last event" value="09:42 KST" />
-      </div>
-
-      <div className="py-5">
-        <div className="mb-3 flex h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm text-muted-foreground">
-          <Search className="h-4 w-4" />
-          Search properties
+function MatterPanel() {
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+      <PanelHeader
+        icon={<List className="h-4 w-4" />}
+        title="사건 정보"
+        meta="파일 보관, 담당자, 보존 상태"
+      />
+      <div className="border-t border-[#f0f3f9] p-4 sm:p-[18px]">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold leading-tight tracking-normal text-[#1a1f36]">
+              계약 검토 자료실
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#4a5a70]">
+              계약서와 검토 자료를 모아두고, 누가 어떤 파일을 열람했는지 확인하는 공간입니다.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <RecordRef label="파일" value="DOC-204" />
+              <RecordRef label="활동" value="ACT-001" />
+              <RecordRef label="보류" value="HOLD-017" />
+            </div>
+          </div>
+          <KeyGrid items={matterFacts} />
         </div>
-        <div className="space-y-4">
-          <PropertyRow label="Matter ID" value="M-2026-0147" />
-          <PropertyRow label="Client" value="Cobalt Energy Holdings" />
-          <PropertyRow label="Confidentiality" value="restricted" />
-          <PropertyRow label="Ethical wall" value="active" />
-          <PropertyRow label="AI policy" value="local evidence only" />
-          <PropertyRow label="Records" value="legal hold active" />
+      </div>
+    </section>
+  );
+}
+
+function ActivityPanel({
+  onSelect,
+  selectedActivityId,
+}: {
+  onSelect: (activityId: ActivityId) => void;
+  selectedActivityId: ActivityId;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)]">
+      <PanelHeader
+        icon={<Clock3 className="h-4 w-4" />}
+        title="활동 기록"
+        meta="최근 파일 및 권한 활동"
+      />
+      <div className="border-t border-[#f0f3f9]">
+        {activityOrder.map((activityId) => {
+          const activity = activityDetails[activityId];
+          const active = selectedActivityId === activityId;
+          return (
+            <button
+              key={activityId}
+              type="button"
+              onClick={() => onSelect(activityId)}
+              className={`grid w-full grid-cols-[54px_minmax(0,1fr)] gap-2 border-b border-[#f0f3f9] px-3.5 py-3 text-left transition-colors last:border-b-0 sm:grid-cols-[92px_minmax(0,1fr)] sm:gap-4 sm:px-[18px] ${
+                active ? 'bg-[#f1f5fb]' : 'bg-white hover:bg-[#f8fafd]'
+              }`}
+            >
+              <span className="font-mono text-[12px] font-semibold text-[#4a5a70]">{activity.time}</span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-[#1a1f36]">{activity.title}</span>
+                <span className="block truncate text-[12px] text-[#4a5a70] sm:whitespace-normal">
+                  {activity.target}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function DetailInspector({ activity }: { activity: ActivityDetail }) {
+  return (
+    <aside className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white shadow-[0_2px_16px_rgba(45,45,45,0.06)] xl:sticky xl:top-20 xl:self-start">
+      <PanelHeader icon={<FileText className="h-4 w-4" />} title="상세 정보" meta="선택한 활동" />
+      <div className="border-t border-[#f0f3f9] p-4 sm:p-[18px]">
+        <h3 className="text-[15px] font-bold text-[#1a1f36]">{activity.title}</h3>
+        <p className="mt-2 text-[13px] leading-6 text-[#4a5a70]">{activity.copy}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {activity.refs.map(([label, value]) => (
+            <RecordRef key={`${label}-${value}`} label={label} value={value} />
+          ))}
+        </div>
+
+        <div className="my-4 h-px bg-[#f0f3f9]" />
+        <KeyGrid items={activity.keys} />
+
+        <div className="my-4 h-px bg-[#f0f3f9]" />
+        <div className="grid gap-3 border-t border-[#f0f3f9] pt-4">
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="text-[#4a5a70]">외부 공유 공간</span>
+            <strong className="text-right text-[#1a1f36]">외부 검토자 김민준</strong>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="text-[#4a5a70]">만료</span>
+            <strong className="text-right text-[#1a1f36]">2026-06-15 13:00 KST</strong>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <RecordRef label="기록" value="WM-EXT-044" />
+            <RecordRef label="기록" value="DLT-0091" />
+          </div>
         </div>
       </div>
     </aside>
   );
 }
 
-function PanelHeader({ icon, title, meta }: { icon: React.ReactNode; title: string; meta: string }) {
+function PanelHeader({ icon, meta, title }: { icon: React.ReactNode; meta: string; title: string }) {
   return (
-    <div className="flex min-h-16 items-center justify-between gap-4 px-5 py-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="text-primary">{icon}</span>
+    <div className="flex min-h-16 items-center justify-between gap-3 px-4 py-3.5 sm:px-[18px]">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="text-[#1464e8]">{icon}</span>
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-semibold">{title}</h2>
-          <p className="truncate text-xs text-muted-foreground">{meta}</p>
+          <h2 className="truncate text-[15px] font-bold tracking-normal text-[#1a1f36]">{title}</h2>
+          <p className="truncate text-[11px] text-[#4a5a70]">{meta}</p>
         </div>
       </div>
-      <LockKeyhole className="h-4 w-4 shrink-0 text-muted-foreground" />
     </div>
   );
 }
 
-function ProfileStat({ label, value }: { label: string; value: string }) {
+function RecordRef({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0">
-      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold">{value}</p>
-    </div>
+    <span className="inline-flex max-w-full items-center gap-1.5 text-[11px] font-bold text-[#4a5a70]">
+      <b className="font-extrabold text-[#1464e8]">{label}</b>
+      <code className="truncate font-mono text-[11px]">{value}</code>
+    </span>
   );
 }
 
-function PropertyRow({ label, value }: { label: string; value: string }) {
+function KeyGrid({ items }: { items: Array<[string, string]> }) {
   return (
-    <div className="border-b pb-3 last:border-b-0 last:pb-0">
-      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-1 break-words text-sm font-medium">{value}</p>
-    </div>
+    <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+      {items.map(([label, value]) => (
+        <div key={`${label}-${value}`} className="min-w-0">
+          <dt className="truncate text-[11px] font-bold text-[#4a5a70]">{label}</dt>
+          <dd className="mt-1 break-words text-sm font-bold text-[#1a1f36]">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
-}
-
-function QualityRow({ label, status, detail }: { label: string; status: string; detail: string }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold">{label}</p>
-        <span className="rounded-sm bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-          {status}
-        </span>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-      <div className="mt-2 h-1.5 rounded-full bg-emerald-100">
-        <div className="h-1.5 w-full rounded-full bg-emerald-300" />
-      </div>
-    </div>
-  );
-}
-
-function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="border-b px-5 py-5 md:border-b-0 md:border-r md:last:border-r-0">
-      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-    </div>
-  );
-}
-
-function StatusPill({ tone, children }: { tone: EventTone; children: React.ReactNode }) {
-  return <span className={`rounded-sm px-2.5 py-1 text-xs font-semibold ${toneBadgeClass(tone)}`}>{children}</span>;
-}
-
-function toneDotClass(tone: EventTone): string {
-  if (tone === 'blocked') return 'bg-red-500';
-  if (tone === 'watch') return 'bg-amber-500';
-  return 'bg-emerald-500';
-}
-
-function toneBadgeClass(tone: EventTone): string {
-  if (tone === 'blocked') return 'bg-red-50 text-red-700 ring-1 ring-red-200';
-  if (tone === 'watch') return 'bg-amber-50 text-amber-700 ring-1 ring-amber-200';
-  return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200';
 }
