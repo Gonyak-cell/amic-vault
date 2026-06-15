@@ -35,6 +35,7 @@ export {
   r5AuditConsoleActions,
   r5BreakGlassAuditActions,
   r6AiAuditActions,
+  r6AiPrepAuditActions,
   r6AiFeedbackAuditActions,
   r6AiPolicyAuditActions,
   r7GraphAuditActions,
@@ -57,6 +58,7 @@ export {
   type R5AuditConsoleAction,
   type R5BreakGlassAuditAction,
   type R6AiAuditAction,
+  type R6AiPrepAuditAction,
   type R6AiFeedbackAuditAction,
   type R6AiPolicyAuditAction,
   type R7GraphAuditAction,
@@ -782,6 +784,17 @@ export {
   type AiGroundedGenerationOutputDto,
   type AiGroundedSectionDto,
 } from './ai/generation';
+export {
+  aiPrepArtifactKinds,
+  aiPrepArtifactKindSchema,
+  aiPrepArtifactPayloadSchema,
+  aiPrepPayloadBannedTopLevelKeys,
+  aiPrepStatuses,
+  aiPrepStatusSchema,
+  type AiPrepArtifactKind,
+  type AiPrepArtifactPayloadDto,
+  type AiPrepStatus,
+} from './ai/prep';
 export {
   aiSummaryRequestSchema,
   aiSummaryResponseSchema,

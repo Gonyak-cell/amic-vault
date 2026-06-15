@@ -44,6 +44,11 @@ describe('audit shared types', () => {
         'AI_RESPONSE',
         'AI_CITED_DOCUMENT',
         'AI_RETRIEVAL_EXCLUDED',
+        'AI_PREP_REQUESTED',
+        'AI_PREP_COMPLETED',
+        'AI_PREP_BLOCKED',
+        'AI_PREP_FAILED',
+        'AI_PREP_STALE',
         'AI_FEEDBACK_RECORDED',
         'GRAPH_SYNCED',
         'GRAPH_QUERY_EXECUTED',
@@ -104,6 +109,14 @@ describe('audit shared types', () => {
       response_token_count: 32,
       ai_response_status: 'responded',
       escalation_required: false,
+      ai_prep_artifact_id: '11111111-1111-4111-8111-111111111156',
+      ai_prep_status: 'completed',
+      ai_prep_kind: 'document_brief',
+      source_chunk_count: 1,
+      prompt_hash: '1'.repeat(64),
+      response_hash: '2'.repeat(64),
+      stale_reason: 'new_version',
+      dead_letter_id: 'job:ai-prep-dead',
       feedback_id: '11111111-1111-4111-8111-111111111177',
       rating: 4,
       helpful: true,
@@ -168,7 +181,10 @@ describe('audit shared types', () => {
     expect(metadata.client_id).toBe('11111111-1111-4111-8111-111111111111');
     expect(auditMetadataKeys).not.toContain('body');
     expect(auditMetadataKeys).not.toContain('content');
+    expect(auditMetadataKeys).not.toContain('text');
     expect(auditMetadataKeys).not.toContain('snippet');
+    expect(auditMetadataKeys).not.toContain('prompt');
+    expect(auditMetadataKeys).not.toContain('response');
     expect(auditMetadataKeys).not.toContain('link_token');
     expectTypeOf<AuditMetadata>().not.toHaveProperty('body');
   });

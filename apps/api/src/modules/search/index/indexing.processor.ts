@@ -1,5 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { AuditService } from '../../audit/audit.service';
+import { AiPrepQueueService } from '../../ai/prep/ai-prep-queue.service';
 import { IndexFailureHandler } from './index-failure.handler';
 import type { SearchIndexJobPayload } from './indexing.service';
 import { SearchIndexRepository } from './search-index.repository';
@@ -12,6 +13,9 @@ export class IndexingProcessor {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(IndexFailureHandler) private readonly failureHandler: IndexFailureHandler,
     @Inject(SearchIndexRepository) private readonly repository: SearchIndexRepository,
+    @Optional()
+    @Inject(AiPrepQueueService)
+    private readonly aiPrepQueue?: AiPrepQueueService,
   ) {}
 
   async handle(payload: SearchIndexJobPayload): Promise<void> {
@@ -21,6 +25,15 @@ export class IndexingProcessor {
         this.logger.warn({ code: 'SEARCH_INDEX_TARGET_MISSING', versionId: payload.versionId });
         throw new Error('search index target missing');
       }
+      await this.aiPrepQueue?.enqueueVersionArtifacts(
+        {
+          tenantId: payload.tenantId,
+          documentId: payload.documentId,
+          versionId: payload.versionId,
+          matterId: indexed.matterId,
+        },
+        tx,
+      );
     });
   }
 

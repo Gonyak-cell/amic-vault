@@ -20,6 +20,9 @@ import { AiSummaryService } from './features/ai-summary.service';
 import { AiEvidencePromptCompiler } from './generation/evidence-prompt.compiler';
 import { AiGroundedOutputGuard } from './generation/grounded-output.guard';
 import { LocalGemmaGenerationService } from './generation/local-gemma-generation.service';
+import { AiPrepProcessor } from './prep/ai-prep.processor';
+import { AiPrepQueueService } from './prep/ai-prep-queue.service';
+import { AiPrepRepository } from './prep/ai-prep.repository';
 import { AiSessionController } from './session/ai-session.controller';
 import { AiSessionLogService } from './session/ai-session-log.service';
 import { AiMetadataFilterBuilder } from './retrieval/metadata-filter.builder';
@@ -59,6 +62,9 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiEvidencePromptCompiler,
     AiGroundedOutputGuard,
     LocalGemmaGenerationService,
+    AiPrepProcessor,
+    AiPrepQueueService,
+    AiPrepRepository,
     AiSummaryService,
     AiFeedbackService,
   ],
@@ -74,6 +80,8 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiEvidencePromptCompiler,
     AiGroundedOutputGuard,
     LocalGemmaGenerationService,
+    AiPrepQueueService,
+    AiPrepRepository,
     AiSummaryService,
     AiFeedbackService,
   ],
