@@ -26,6 +26,7 @@ with synthetic data only.
 | Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-SYNTHETIC-ONLY-2026-06-14 / APPROVAL-LRB-014-JWS-ADMIN-2026-06-14 |
 | Production gate approvals | approved | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
 | Production execution preflight | production-smoke-passed | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / `pnpm release:prod-preflight` |
+| Production patch release | production-smoke-passed | PROD-PATCH-D80FBB5-DEPLOY-2026-06-15 / PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15 |
 | Production monitoring | active-monitoring | PROD-MONITOR-AWS-001 |
 | docs/package freeze | enforced | `pnpm docs:frozen` |
 | Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |

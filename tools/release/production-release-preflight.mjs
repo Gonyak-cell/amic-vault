@@ -65,6 +65,10 @@ for (const expected of [
   'PROD-DEPLOY-WORKFLOW-AWS-001',
   'PROD-SMOKE-AWS-001',
   'SMOKE-011',
+  'PROD-PATCH-D80FBB5-DEPLOY-2026-06-15',
+  'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
+  'd80fbb5d5bf339ed11ddd6bca27b9e937bd83811',
+  'SMOKE-015',
 ]) {
   assertContains(preflight, expected, 'docs/release/production-execution-preflight.md');
 }
@@ -80,13 +84,30 @@ assertContains(
   'docs/release/remaining-launch-tuw.md',
 );
 assertContains(
+  contents.get('docs/release/remaining-launch-tuw.md'),
+  'REL-PROD-PATCH-D80FBB5-TUW-010A',
+  'docs/release/remaining-launch-tuw.md',
+);
+assertContains(
   contents.get('docs/release/evidence-register.md'),
   'EV-PROD-007',
   'docs/release/evidence-register.md',
 );
+for (const expected of ['EV-PROD-008', 'EV-PROD-009']) {
+  assertContains(
+    contents.get('docs/release/evidence-register.md'),
+    expected,
+    'docs/release/evidence-register.md',
+  );
+}
 assertContains(
   contents.get('docs/release/launch-control-sheet.md'),
   'production-smoke-passed',
+  'docs/release/launch-control-sheet.md',
+);
+assertContains(
+  contents.get('docs/release/launch-control-sheet.md'),
+  'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
   'docs/release/launch-control-sheet.md',
 );
 assertContains(
@@ -95,8 +116,18 @@ assertContains(
   'docs/release/production-release-runbook.md',
 );
 assertContains(
+  contents.get('docs/release/production-release-runbook.md'),
+  'PROD-PATCH-D80FBB5-DEPLOY-2026-06-15',
+  'docs/release/production-release-runbook.md',
+);
+assertContains(
   contents.get('docs/release/launch-blocker-ledger.md'),
   'PROD-SMOKE-AWS-001',
+  'docs/release/launch-blocker-ledger.md',
+);
+assertContains(
+  contents.get('docs/release/launch-blocker-ledger.md'),
+  'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
   'docs/release/launch-blocker-ledger.md',
 );
 
@@ -109,8 +140,8 @@ if (docsPackageDiff.length > 0) {
 }
 
 const result = {
-  evidenceRef: 'PROD-SMOKE-AWS-001',
-  status: 'production-smoke-passed',
+  evidenceRef: 'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
+  status: 'production-patch-smoke-passed',
   deploymentExecuted: true,
 };
 
