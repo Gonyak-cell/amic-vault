@@ -69,6 +69,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@amic-vault/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@amic-vault/domain':
         specifier: workspace:*
         version: link:../../packages/domain
