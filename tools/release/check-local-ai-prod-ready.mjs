@@ -59,9 +59,9 @@ for (const file of requiredFiles) {
 const gate = contents.get('docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md');
 for (const expected of [
   'TECHNICAL_READY PASS',
-  'GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY',
-  'PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE',
-  'UPLOAD_PREP_ENABLEMENT ACTIVE_CANARY_FILE_ORG_PREP',
+  'GOVERNANCE_APPROVAL APPROVED_FOR_FILE_ORG_FULL_RELEASE',
+  'PRODUCTION_ENABLEMENT FULL_RELEASE_ACTIVE',
+  'UPLOAD_PREP_ENABLEMENT FULL_RELEASE_FILE_ORG_PREP',
   'local_gemma',
   'gemma4:12b',
   'externalModelCallAttempts 0',
@@ -72,22 +72,25 @@ for (const expected of [
   'AI_PREP_QUEUE_WORKER_ENABLED=true',
   'PGBOSS_MIGRATE_ENABLED=false',
   'PGBOSS_CREATE_SCHEMA_ENABLED=false',
-  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=true',
-  'AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>',
+  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=false',
+  'AI_PREP_CANARY_TENANT_IDS=<empty>',
   'AI_PREP_TENANT_MAX_CONCURRENCY=1',
   'AI_SUMMARY_GEMMA_ENABLED=false',
   'APPROVAL-LAI-PROD-OPERATOR-2026-06-16',
   'APPROVAL-LAI-PROD-SECURITY-2026-06-16',
   'APPROVAL-LAI-PROD-LEGAL-DATA-2026-06-16',
   'APPROVAL-LAI-PROD-CUSTOMER-SCOPE-2026-06-16',
+  'APPROVAL-LAI-PROD-FILE-ORG-FULL-2026-06-16',
   'PROD-LAI-ENV-AUDIT-2026-06-16',
   'PROD-LAI-ALERT-STATE-2026-06-16',
-  'PROD-LAI-ALERT-DELIVERY-PENDING',
+  'PROD-LAI-ALERT-DELIVERY-2026-06-16',
   'PROD-LAI-ROLLBACK-OWNER-2026-06-16',
   'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
   'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-ENABLE-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16',
   'pnpm local-ai:prod-ready',
 ]) {
   assertContains(gate, expected, 'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md');
@@ -101,16 +104,19 @@ if (gate.includes('YYYY-MM-DD')) {
 
 const enablement = contents.get('docs/release/local-ai-production-enablement-runbook.md');
 for (const expected of [
-  'RUNTIME CANARY ACTIVE',
-  'UPLOAD PREP QUEUE ACTIVE FOR FILE ORGANIZATION CANARY ONLY',
+  'FILE ORGANIZATION PREP FULL RELEASE ACTIVE',
+  'SUMMARY AND LEGAL ANALYSIS DISABLED',
   'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
+  'APPROVAL-LAI-PROD-FILE-ORG-FULL-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-ENABLE-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16',
   'pnpm ai-prep:prepare-queue',
   'PGBOSS_MIGRATE_ENABLED=false',
   'AI_PREP_TENANT_MAX_CONCURRENCY=1',
-  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=true',
-  'AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>',
+  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=false',
+  'AI_PREP_CANARY_TENANT_IDS=<empty>',
   'AI_SUMMARY_GEMMA_ENABLED=false',
   'Rollback',
   'Emergency Disable',
@@ -121,13 +127,13 @@ for (const expected of [
 
 const opsRunbook = contents.get('docs/release/local-ai-ops-runbook.md');
 for (const expected of [
-  'Production canary boundary',
+  'Production full release boundary',
   'LOCAL_GEMMA_ENABLED=true',
   'AI_PREP_ENABLED=true',
   'AI_PREP_QUEUE_WORKER_ENABLED=true',
   'PGBOSS_MIGRATE_ENABLED',
   'AI_PREP_REQUIRE_TENANT_ALLOWLIST',
-  'AI_PREP_CANARY_TENANT_IDS',
+  'Full file-organization release keeps this empty',
 ]) {
   assertContains(opsRunbook, expected, 'docs/release/local-ai-ops-runbook.md');
 }
@@ -136,10 +142,11 @@ const productionRunbook = contents.get('docs/release/production-release-runbook.
 for (const expected of [
   'LOCAL_AI_PROD_READY_gate.md',
   'local-ai-production-enablement-runbook.md',
-  'Local Gemma runtime and upload-prep file-organization canary are active',
+  'Local Gemma runtime and upload-prep file-organization full release are active',
   'AI_PREP_ENABLED=true',
   'AI_PREP_QUEUE_WORKER_ENABLED=true',
-  'pg-boss queue prepare evidence and upload-prep canary public smoke evidence',
+  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=false',
+  'pg-boss queue prepare evidence, alert delivery evidence, and full release',
 ]) {
   assertContains(productionRunbook, expected, 'docs/release/production-release-runbook.md');
 }
@@ -153,13 +160,19 @@ for (const expected of [
   'EV-LAI-PROD-005',
   'EV-LAI-PROD-006',
   'EV-LAI-PROD-007',
+  'EV-LAI-PROD-008',
+  'EV-LAI-PROD-009',
   'approved-runtime-canary',
   'active-runtime-canary',
   'active-canary',
+  'approved-full-release',
+  'active-full-release',
   'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
   'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-ENABLE-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }

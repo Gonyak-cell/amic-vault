@@ -150,6 +150,24 @@ canary enablement for current main HEAD `62b35cd497e1482e5e0fb5bd898e09ffa88270b
 - monitoring: recent `AI_PREP_QUEUE_ERROR` count was 0 during the post-enable
   sanity check.
 
+`PROD-LAI-FILE-ORG-FULL-ENABLE-2026-06-16` records the Gemma A option full
+production release for current main HEAD `c9dc922d50fe7b39b52f023d1942d8b7c5ad4cac`.
+
+- approval: `APPROVAL-LAI-PROD-FILE-ORG-FULL-2026-06-16` authorizes full
+  production tenant scope for file organization prep only;
+- scope: summary generation, legal analysis, external model routes, raw
+  prompt/source/model-response storage, and automatic reprocessing remain
+  excluded;
+- runtime: production API runs with `LOCAL_GEMMA_ENABLED=true`,
+  `AI_PREP_ENABLED=true`, `AI_PREP_QUEUE_WORKER_ENABLED=true`,
+  `AI_PREP_REQUIRE_TENANT_ALLOWLIST=false`, empty canary tenant refs, tenant
+  concurrency 1, runtime pg-boss migrations disabled, and
+  `AI_SUMMARY_GEMMA_ENABLED=false`;
+- monitoring: alert delivery is confirmed under
+  `PROD-LAI-ALERT-DELIVERY-2026-06-16`;
+- smoke: `PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16` passed with pass=8 fail=0
+  skip=7.
+
 Concrete account IDs, ARNs, private endpoints, secret names beyond already
 approved public-safe refs, screenshots, cookies, tokens, and provider-console
 metadata remain outside this repository.

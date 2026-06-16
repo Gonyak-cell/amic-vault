@@ -1,7 +1,7 @@
 # Local AI Operations Runbook
 
-Status: production runtime and upload-prep file-organization canary active.
-Execution is limited to one approved synthetic/canary tenant scope.
+Status: production runtime and upload-prep file-organization full release
+active. Execution is open to production tenants for file organization prep only.
 
 ## Runtime
 
@@ -24,8 +24,8 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/ai test
 ```bash
 AI_PREP_ENABLED=true \
 AI_PREP_QUEUE_WORKER_ENABLED=true \
-AI_PREP_REQUIRE_TENANT_ALLOWLIST=true \
-AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo> \
+AI_PREP_REQUIRE_TENANT_ALLOWLIST=false \
+AI_PREP_CANARY_TENANT_IDS= \
 PGBOSS_MIGRATE_ENABLED=false \
 LOCAL_GEMMA_ENABLED=true \
 LOCAL_GEMMA_MODEL=gemma4:12b \
@@ -37,10 +37,10 @@ Operational flags:
 - `AI_PREP_ENABLED`: enables upload-prep enqueue eligibility. When false,
   enqueue records bounded `AI_PREP_BLOCKED` audit and returns no jobs.
 - `AI_PREP_QUEUE_WORKER_ENABLED`: enables `ai.prep` worker polling.
-- `AI_PREP_REQUIRE_TENANT_ALLOWLIST`: fails closed when no canary tenant
-  allowlist is present.
-- `AI_PREP_CANARY_TENANT_IDS`: comma-separated canary tenant ids. Values stay
-  outside repo evidence.
+- `AI_PREP_REQUIRE_TENANT_ALLOWLIST`: when true, fails closed unless the tenant
+  is listed. Full file-organization release runs with this false.
+- `AI_PREP_CANARY_TENANT_IDS`: comma-separated tenant ids for rollback or
+  canary mode. Full file-organization release keeps this empty.
 - `AI_PREP_ARTIFACT_KINDS`: comma-separated artifact kinds; defaults to document profile, key fields, keyword tags, and filing suggestions.
 - `AI_PREP_TENANT_MAX_CONCURRENCY`: per-tenant prep concurrency ceiling.
 - `PGBOSS_MIGRATE_ENABLED`: must be false in production runtime tasks; queue
@@ -50,16 +50,16 @@ Operational flags:
 - `LOCAL_GEMMA_MODEL`: model tag; default `gemma4:12b`.
 - `LOCAL_GEMMA_TIMEOUT_MS`: generation timeout.
 
-Production canary boundary:
+Production full release boundary:
 
-- `LOCAL_GEMMA_ENABLED=true` is approved only for the 2026-06-16 runtime
-  canary.
+- `LOCAL_GEMMA_ENABLED=true` is approved for the 2026-06-16 file organization
+  prep full release.
 - `AI_PREP_ENABLED=true` and `AI_PREP_QUEUE_WORKER_ENABLED=true` are active
-  only for file organization prep in the approved canary scope.
+  only for file organization prep.
 - `PGBOSS_MIGRATE_ENABLED=false`; pg-boss schema/queue preparation is handled
   by the migration-role one-off task, not production runtime tasks.
-- `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true` and exactly one approved canary tenant
-  ref are required during upload-prep queue execution.
+- `AI_PREP_REQUIRE_TENANT_ALLOWLIST=false`; rollback may set it true with an
+  approved tenant list.
 - `AI_SUMMARY_GEMMA_ENABLED=false`; legal analysis remains out of scope.
 - External model routes remain disallowed; do not add remote model endpoints or
   API keys as a workaround.
