@@ -75,9 +75,12 @@ export class LocalGemmaGenerationService {
       };
     }
     try {
+      const output = isPrep
+        ? normalizePrepSourceRefs(generated.json, pack.citationRequirements.sourceRefs)
+        : generated.json;
       return {
         status: 'completed',
-        output: this.guard.parseAndAssert({ output: generated.json, pack }),
+        output: this.guard.parseAndAssert({ output, pack }),
         model: generated.model,
         latencyMs: Math.round(performance.now() - startedAt),
       };
@@ -119,12 +122,36 @@ function localGemmaMaxTokens(purpose: EvidencePromptCompileOptions['purpose']): 
     const parsed = Number(process.env[envName]);
     if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
   }
-  return purpose === 'file_organization_prep' ? 180 : 1400;
+  return purpose === 'file_organization_prep' ? 320 : 1400;
 }
 
 function localGemmaPrepFormatMode(): 'json' | 'schema' {
   const raw = process.env.LOCAL_GEMMA_PREP_FORMAT?.trim().toLowerCase();
   return raw === 'schema' ? 'schema' : 'json';
+}
+
+function normalizePrepSourceRefs(
+  output: AiGroundedGenerationOutputDto,
+  allowedSourceRefs: readonly string[],
+): AiGroundedGenerationOutputDto {
+  if (allowedSourceRefs.length !== 1) return output;
+  const fallbackRef = allowedSourceRefs[0];
+  if (!fallbackRef) return output;
+  return {
+    ...output,
+    sections: output.sections.map((section) => ({
+      ...section,
+      source_refs: normalizeRefs(section.source_refs, fallbackRef),
+    })),
+    claims: output.claims.map((claim) => ({
+      ...claim,
+      source_refs: normalizeRefs(claim.source_refs, fallbackRef),
+    })),
+  };
+}
+
+function normalizeRefs(refs: readonly string[], fallbackRef: string): string[] {
+  return refs.includes(fallbackRef) ? [fallbackRef] : [fallbackRef];
 }
 
 function groundedJsonSchema(input: {

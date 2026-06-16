@@ -123,8 +123,70 @@ describe('LocalGemmaGenerationService', () => {
     expect(generateBodies).toHaveLength(1);
     const body = generateBodies[0]!;
     expect(body.prompt).toContain('OUTPUT_LIMIT: exactly one section, exactly one claim');
-    expect(body.options).toMatchObject({ num_predict: 180 });
+    expect(body.options).toMatchObject({ num_predict: 320 });
     expect(body.format).toBe('json');
+  });
+
+  it('normalizes placeholder source refs for single-source prep output', async () => {
+    vi.stubEnv('LOCAL_GEMMA_ENABLED', 'true');
+    vi.stubEnv('LOCAL_GEMMA_ENDPOINT', 'http://127.0.0.1:11434');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.endsWith('/api/tags')) {
+          return new Response(
+            JSON.stringify({ models: [{ name: 'gemma4:12b', model: 'gemma4:12b' }] }),
+            { status: 200 },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            model: 'gemma4:12b',
+            response: JSON.stringify({
+              answer: '회의 메모',
+              sections: [
+                {
+                  section_id: 's1',
+                  heading: '문서 성격',
+                  text: '계약 검토 관련 회의 메모입니다.',
+                  source_refs: ['chunk:placeholder'],
+                },
+              ],
+              claims: [
+                {
+                  claim_id: 'c1',
+                  kind: 'summary',
+                  text: '계약 검토 회의 메모입니다.',
+                  source_refs: ['chunk:placeholder'],
+                  is_legal_conclusion: false,
+                },
+              ],
+              warnings: [],
+            }),
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    await expect(
+      new LocalGemmaGenerationService(
+        new AiEvidencePromptCompiler(),
+        new AiGroundedOutputGuard(),
+      ).generateGrounded(evidencePack(), {
+        compileOptions: {
+          purpose: 'file_organization_prep',
+          artifactKind: 'document_profile',
+          allowedClaimKinds: ['summary', 'key_fact'],
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      output: {
+        sections: [expect.objectContaining({ source_refs: [sourceRef] })],
+        claims: [expect.objectContaining({ source_refs: [sourceRef] })],
+      },
+    });
   });
 
   it('can opt back into structured schema format for prep', async () => {

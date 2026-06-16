@@ -342,7 +342,6 @@ function ollamaGenerateResponseSchema(body: unknown): {
 function extractJsonPayload(value: string): string {
   const stripped = stripJsonFence(value);
   const direct = stripped.trim();
-  if (direct.startsWith('{') || direct.startsWith('[')) return direct;
   return firstJsonValue(direct) ?? direct;
 }
 
