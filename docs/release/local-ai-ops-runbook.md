@@ -1,7 +1,8 @@
 # Local AI Operations Runbook
 
 Status: production runtime canary active. Upload-prep queue execution remains
-disabled until the canary tenant allowlist patch is merged and deployed.
+disabled until pg-boss queue preparation succeeds and the worker task is
+audited.
 
 ## Runtime
 
@@ -26,6 +27,7 @@ AI_PREP_ENABLED=true \
 AI_PREP_QUEUE_WORKER_ENABLED=true \
 AI_PREP_REQUIRE_TENANT_ALLOWLIST=true \
 AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo> \
+PGBOSS_MIGRATE_ENABLED=false \
 LOCAL_GEMMA_ENABLED=true \
 LOCAL_GEMMA_MODEL=gemma4:12b \
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/api build
@@ -42,6 +44,9 @@ Operational flags:
   outside repo evidence.
 - `AI_PREP_ARTIFACT_KINDS`: comma-separated artifact kinds; defaults to document profile, key fields, keyword tags, and filing suggestions.
 - `AI_PREP_TENANT_MAX_CONCURRENCY`: per-tenant prep concurrency ceiling.
+- `PGBOSS_MIGRATE_ENABLED`: must be false in production runtime tasks; queue
+  schema preparation runs through `pnpm ai-prep:prepare-queue` as a migration
+  role one-off task.
 - `LOCAL_GEMMA_ENABLED`: local generation route gate.
 - `LOCAL_GEMMA_MODEL`: model tag; default `gemma4:12b`.
 - `LOCAL_GEMMA_TIMEOUT_MS`: generation timeout.
@@ -50,8 +55,8 @@ Production canary boundary:
 
 - `LOCAL_GEMMA_ENABLED=true` is approved only for the 2026-06-16 runtime
   canary.
-- `AI_PREP_ENABLED=false` and `AI_PREP_QUEUE_WORKER_ENABLED=false` until the
-  canary tenant allowlist patch is merged, deployed, and audited.
+- `AI_PREP_ENABLED=false` and `AI_PREP_QUEUE_WORKER_ENABLED=false` until
+  pg-boss queue preparation is complete and audited.
 - `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true` and exactly one approved canary tenant
   ref are required before upload-prep queue execution.
 - `AI_SUMMARY_GEMMA_ENABLED=false`; legal analysis remains out of scope.

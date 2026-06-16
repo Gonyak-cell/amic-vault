@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type { Job, PgBoss, SendOptions } from 'pg-boss';
+import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
 import { ExtractionDispatcher } from './extraction-dispatcher';
 import {
   extractionDeadLetterQueueName,
@@ -94,9 +95,12 @@ export class ExtractionQueueService implements OnModuleInit, OnModuleDestroy {
     const { PgBoss } = await import('pg-boss');
     const boss = new PgBoss({
       connectionString: databaseUrl,
-      application_name: 'amic-vault-extraction-queue',
-      supervise: true,
-      migrate: true,
+      ...pgBossRuntimeOptions({
+        applicationName: 'amic-vault-extraction-queue',
+        migrateEnvName: 'EXTRACTION_QUEUE_MIGRATE_ENABLED',
+        createSchemaEnvName: 'EXTRACTION_QUEUE_CREATE_SCHEMA_ENABLED',
+        superviseEnvName: 'EXTRACTION_QUEUE_SUPERVISE_ENABLED',
+      }),
     });
     boss.on('error', (error) => {
       this.logger.warn({ code: 'EXTRACTION_QUEUE_ERROR', message: String(error.message) });

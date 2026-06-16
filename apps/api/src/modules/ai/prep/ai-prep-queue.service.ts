@@ -13,6 +13,7 @@ import {
   aiPrepArtifactKinds,
   type AuditMetadata,
 } from '@amic-vault/shared';
+import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
 import { AuditService } from '../../audit/audit.service';
 import { pgBossDbFromPoolClient } from '../../document/extraction/pool-client-db-adapter';
 import { AiPrepProcessor } from './ai-prep.processor';
@@ -278,9 +279,12 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
     const { PgBoss } = await import('pg-boss');
     const boss = new PgBoss({
       connectionString: databaseUrl,
-      application_name: 'amic-vault-ai-prep-queue',
-      supervise: true,
-      migrate: true,
+      ...pgBossRuntimeOptions({
+        applicationName: 'amic-vault-ai-prep-queue',
+        migrateEnvName: 'AI_PREP_QUEUE_MIGRATE_ENABLED',
+        createSchemaEnvName: 'AI_PREP_QUEUE_CREATE_SCHEMA_ENABLED',
+        superviseEnvName: 'AI_PREP_QUEUE_SUPERVISE_ENABLED',
+      }),
     });
     boss.on('error', (error) => {
       this.logger.warn({ code: 'AI_PREP_QUEUE_ERROR', message: String(error.message) });

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type { PgBoss, SendOptions } from 'pg-boss';
+import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
 import { pgBossDbFromPoolClient } from '../../document/extraction/pool-client-db-adapter';
 import { IndexingProcessor } from './indexing.processor';
 
@@ -154,9 +155,12 @@ export class SearchIndexingService implements OnModuleInit, OnModuleDestroy {
     const { PgBoss } = await import('pg-boss');
     const boss = new PgBoss({
       connectionString: databaseUrl,
-      application_name: 'amic-vault-search-index-queue',
-      supervise: true,
-      migrate: true,
+      ...pgBossRuntimeOptions({
+        applicationName: 'amic-vault-search-index-queue',
+        migrateEnvName: 'SEARCH_INDEX_QUEUE_MIGRATE_ENABLED',
+        createSchemaEnvName: 'SEARCH_INDEX_QUEUE_CREATE_SCHEMA_ENABLED',
+        superviseEnvName: 'SEARCH_INDEX_QUEUE_SUPERVISE_ENABLED',
+      }),
     });
     boss.on('error', (error) => {
       this.logger.warn({ code: 'SEARCH_INDEX_QUEUE_ERROR', message: String(error.message) });
