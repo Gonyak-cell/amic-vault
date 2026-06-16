@@ -122,7 +122,7 @@ integration gates open.
 | PACK-OA-02 | future | 5 | `OUTLOOK-API-CONTRACT-TUW-001` through `OUTLOOK-AUDIT-CONTRACT-TUW-001` |
 | PACK-OA-03 | `codex/outlook-oa03-oa04-skeleton` | 5 | `OUTLOOK-MAILBOX-TUW-001` through `OUTLOOK-AUDIT-META-TUW-001` |
 | PACK-OA-04 | `codex/outlook-oa03-oa04-skeleton` | 6 | `OUTLOOK-FILEAPI-TUW-001` through `OUTLOOK-IDEMP-TUW-002` |
-| PACK-OA-05 | future | 6 | `OUTLOOK-ADDIN-SHELL-TUW-001` through `OUTLOOK-ADDIN-ERROR-TUW-001` |
+| PACK-OA-05 | `codex/outlook-addin-client` | 6 | `OUTLOOK-ADDIN-SHELL-TUW-001` through `OUTLOOK-ADDIN-ERROR-TUW-001` |
 | PACK-OA-06 | future | 5 | `OUTLOOK-AUTH-TUW-001` through `OUTLOOK-GRAPH-AUDIT-TUW-001` |
 | PACK-OA-07 | future | 5 | `OUTLOOK-SMART-TUW-001` through `OUTLOOK-SENDFILE-TUW-003` |
 | PACK-OA-08 | future | 5 | `OUTLOOK-INSERT-TUW-001` through `OUTLOOK-INSERT-TUW-005` |
