@@ -127,7 +127,7 @@ integration gates open.
 | PACK-OA-07 | `codex/outlook-send-file-smart-alerts` | 5 | `OUTLOOK-SMART-TUW-001` through `OUTLOOK-SENDFILE-TUW-003` |
 | PACK-OA-08 | `codex/outlook-insert-from-vault` | 5 | `OUTLOOK-INSERT-TUW-001` through `OUTLOOK-INSERT-TUW-005` |
 | PACK-OA-09 | `codex/outlook-folder-mapping-autofile` | 5 | `OUTLOOK-FOLDERMAP-TUW-001` through `OUTLOOK-AUTOFILE-TUW-002` |
-| PACK-OA-10 | future | 4 | `OUTLOOK-DEPLOY-TUW-001` through `OUTLOOK-DEPLOY-TUW-004` |
+| PACK-OA-10 | `codex/outlook-deployment-rollback` | 4 | `OUTLOOK-DEPLOY-TUW-001` through `OUTLOOK-DEPLOY-TUW-004` |
 | PACK-OA-11 | future | 8 | `OUTLOOK-VERIFY-TUW-001` through `OUTLOOK-VERIFY-TUW-008` |
 
 Planning contract: `docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md`.
