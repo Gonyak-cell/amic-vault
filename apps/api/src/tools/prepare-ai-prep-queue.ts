@@ -107,15 +107,41 @@ export function buildPgBossRuntimeGrantSql(schema: string, runtimeRole: string):
   const roleSql = quoteIdentifier(runtimeRole);
   return [
     `GRANT USAGE ON SCHEMA ${schemaSql} TO ${roleSql}`,
-    `GRANT USAGE ON ALL TYPES IN SCHEMA ${schemaSql} TO ${roleSql}`,
     `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schemaSql} TO ${roleSql}`,
     `GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA ${schemaSql} TO ${roleSql}`,
     `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${schemaSql} TO ${roleSql}`,
+    pgBossRuntimeTypeGrantBlock(schema, runtimeRole),
     `ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaSql} GRANT USAGE ON TYPES TO ${roleSql}`,
     `ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaSql} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${roleSql}`,
     `ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaSql} GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ${roleSql}`,
     `ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaSql} GRANT EXECUTE ON FUNCTIONS TO ${roleSql}`,
   ];
+}
+
+function pgBossRuntimeTypeGrantBlock(schema: string, runtimeRole: string): string {
+  const schemaLiteral = sqlLiteral(schema);
+  const roleLiteral = sqlLiteral(runtimeRole);
+  return `
+DO $$
+DECLARE
+  target_type record;
+BEGIN
+  FOR target_type IN
+    SELECT t.typname
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = ${schemaLiteral}
+      AND t.typtype IN ('b', 'c', 'd', 'e', 'r')
+      AND t.typcategory <> 'A'
+  LOOP
+    -- pg-boss may leave internal/derived types that cannot receive explicit privileges.
+    BEGIN
+      EXECUTE format('GRANT USAGE ON TYPE %I.%I TO %I', ${schemaLiteral}, target_type.typname, ${roleLiteral});
+    EXCEPTION WHEN OTHERS THEN
+      NULL;
+    END;
+  END LOOP;
+END $$`.trim();
 }
 
 async function main(): Promise<void> {
@@ -161,6 +187,10 @@ async function grantPgBossRuntimePrivileges(
 function quoteIdentifier(identifier: string): string {
   assertPgIdentifier(identifier, 'identifier');
   return `"${identifier}"`;
+}
+
+function sqlLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function assertPgIdentifier(identifier: string, label: string): void {

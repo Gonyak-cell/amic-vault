@@ -105,8 +105,8 @@ for current main HEAD `42e7b29665406dc1b6f110acf4a79e8453e2c8c5`.
   migrator task; the migrator task definition was deregistered after exitCode 0;
 - runtime: production API and web ECS services reached desired=1/running=1/pending=0
   on task revisions 5 and 9;
-- AI runtime gate: Local Gemma execution env flags are explicitly false in the
-  production API task until separate operator approval enables Gemma runtime;
+- AI runtime gate at patch time: Local Gemma execution env flags were explicitly
+  false in the production API task pending separate operator approval;
 - smoke: `PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15` passed SMOKE-001 through
   SMOKE-015 with pass=15 fail=0 skip=0;
 - monitoring: API/Web target groups ended healthy-only and production alarms
@@ -128,12 +128,27 @@ for current main HEAD `46c6b14c4d0fd143b478e3184018635c9f96568a`.
   `Migrations complete!`; migrator task definitions were deregistered;
 - runtime: production API and web ECS services reached desired=1/running=1/pending=0
   on task revisions 6 and 10;
-- AI runtime gate: Local Gemma execution env flags are explicitly false in the
-  production API task until separate operator approval enables Gemma runtime;
+- AI runtime gate at patch time: Local Gemma execution env flags were explicitly
+  false in the production API task pending separate operator approval;
 - smoke: `PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16` passed SMOKE-001 through
   SMOKE-015 with pass=15 fail=0 skip=0;
 - monitoring: API/Web target groups ended healthy-only and production alarms
   were OK after deployment.
+
+`PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16` records the later Local AI
+canary enablement for current main HEAD `62b35cd497e1482e5e0fb5bd898e09ffa88270b`.
+
+- scope: file organization prep only; legal analysis, external model routes,
+  tenant expansion, and automatic reprocessing remain excluded;
+- queue prep: `PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16` prepared `ai.prep` and
+  `ai.prep.dead` with runtime grants through a migration-role one-off task;
+- runtime: production API/Web services reached desired=1/running=1/pending=0,
+  the Gemma sidecar was RUNNING/HEALTHY, and upload-prep worker flags were
+  active only with the canary tenant allowlist and tenant concurrency 1;
+- smoke: `PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16` passed with
+  pass=8 fail=0 skip=7;
+- monitoring: recent `AI_PREP_QUEUE_ERROR` count was 0 during the post-enable
+  sanity check.
 
 Concrete account IDs, ARNs, private endpoints, secret names beyond already
 approved public-safe refs, screenshots, cookies, tokens, and provider-console

@@ -1,12 +1,13 @@
 # LOCAL AI Production Readiness Gate
 
-Status: TECHNICAL_READY PASS; GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY; PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE; UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_PGBOSS_QUEUE_PREP.
+Status: TECHNICAL_READY PASS; GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY; PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE; UPLOAD_PREP_ENABLEMENT ACTIVE_CANARY_FILE_ORG_PREP.
 
 This gate separates technical readiness from authority to enable Local Gemma in
 production. The runtime canary approval below authorizes a local Gemma sidecar
-only for file-organization prep readiness checks. It does not approve legal
-analysis, external model routes, raw prompt/source/model-response storage, or
-unscoped upload-prep queue execution.
+and upload-prep worker only for file-organization prep readiness checks in the
+approved canary scope. It does not approve legal analysis, external model
+routes, raw prompt/source/model-response storage, or unscoped upload-prep queue
+execution.
 
 ## Scope
 
@@ -14,8 +15,8 @@ unscoped upload-prep queue execution.
 - Default local model: `gemma4:12b`.
 - Product scope: post-upload file organization prep only.
 - Explicitly excluded: legal analysis, external AI APIs, remote model routes,
-  raw prompt/source/model-response storage, and automatic production flag
-  enablement.
+  raw prompt/source/model-response storage, automatic reprocessing of existing
+  customer documents, and expansion beyond the approved canary scope.
 
 ## Required Technical Evidence
 
@@ -30,7 +31,7 @@ unscoped upload-prep queue execution.
 | Bench harness safe                         | disabled bench and explicit live Gemma smoke with `--case-limit 2`                                                          | PASS; disabled mode made no model calls over 102-case fixture, live Gemma smoke completed 2/2            |
 | Product surface safe                       | stale/rejected payloads not displayed as ready; no legal-analysis product copy                                              | PASS                                                                                                     |
 | Admin ops safe                             | rejected/fallback/stale aggregate counts admin-only; no endpoint URL, prompt, source, response, secret, or raw text exposed | PASS                                                                                                     |
-| Production flags scoped by canary evidence | repo/deploy evidence must show runtime-only canary state and upload-prep queue disabled until pg-boss queue prep evidence | PASS for runtime canary evidence; upload-prep queue remains blocked pending pg-boss queue prepare/deploy evidence |
+| Production flags scoped by canary evidence | repo/deploy evidence must show runtime canary state, pg-boss queue prep evidence, worker audit, and canary allowlist controls | PASS for runtime and upload-prep file-organization canary evidence; expansion remains blocked |
 
 Canonical command set:
 
@@ -59,9 +60,9 @@ git diff --check
 ## Governance Approval Evidence
 
 Technical readiness is not authorization. These evidence refs are required for
-the 2026-06-16 runtime canary. The canary tenant allowlist patch is deployed,
-and upload-prep queue execution remains blocked until pg-boss queue preparation
-is completed by a migration-role one-off task and audited:
+the 2026-06-16 runtime and upload-prep file-organization canary. The canary
+tenant allowlist patch is deployed, pg-boss queue preparation is complete, and
+the worker task is active only inside the approved canary boundary:
 
 | Evidence ref                                  | Required owner            | Status                                               |
 | --------------------------------------------- | ------------------------- | ---------------------------------------------------- |
@@ -71,10 +72,12 @@ is completed by a migration-role one-off task and audited:
 | `APPROVAL-LAI-PROD-CUSTOMER-SCOPE-2026-06-16` | Customer/data scope owner | APPROVED for synthetic or one approved canary tenant |
 | `PROD-LAI-ENV-AUDIT-2026-06-16`               | Ops/security              | PASS; records runtime canary flags as refs only      |
 | `PROD-LAI-ALERT-STATE-2026-06-16`             | Ops                       | PASS; production alarms OK during runtime canary     |
-| `PROD-LAI-ALERT-DELIVERY-PENDING`             | Ops                       | REQUIRED before expanding beyond runtime canary      |
+| `PROD-LAI-ALERT-DELIVERY-PENDING`             | Ops                       | REQUIRED before expanding beyond current canary      |
 | `PROD-LAI-ROLLBACK-OWNER-2026-06-16`          | Operator/Ops              | APPROVED; rollback owner `jws`                       |
 | `PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16`  | Codex/Ops                 | PASS; deployed before upload-prep queue true         |
-| `PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16`       | Codex/Ops                 | IN PROGRESS; required before upload-prep queue true  |
+| `PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16`       | Codex/Ops                 | PASS; queue and runtime grants prepared              |
+| `PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16` | Codex/Ops               | PASS; worker enabled for approved canary scope       |
+| `PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16` | Codex/Ops       | PASS; public smoke pass=8 fail=0 skip=7              |
 
 No date placeholder is allowed after runtime canary activation.
 
@@ -83,21 +86,25 @@ previous production release approval.
 
 ## Production Flag Boundary
 
-Current production runtime canary state:
+Current production upload-prep canary state:
 
 ```text
 LOCAL_GEMMA_ENABLED=true
 LOCAL_GEMMA_ENDPOINT=loopback sidecar
 LOCAL_GEMMA_MODEL=gemma4:12b
-AI_PREP_ENABLED=false
-AI_PREP_QUEUE_WORKER_ENABLED=false
+AI_PREP_ENABLED=true
+AI_PREP_QUEUE_WORKER_ENABLED=true
+AI_PREP_REQUIRE_TENANT_ALLOWLIST=true
+AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>
+AI_PREP_TENANT_MAX_CONCURRENCY=1
 AI_SUMMARY_GEMMA_ENABLED=false
+PGBOSS_MIGRATE_ENABLED=false
+PGBOSS_CREATE_SCHEMA_ENABLED=false
 ```
 
-Upload-prep queue execution must remain disabled until pg-boss runtime
-migration is disabled in the API task, `pnpm ai-prep:prepare-queue` has run as
-a migration-role one-off task, and the production task is audited with exactly
-one approved synthetic or canary tenant reference outside the repository:
+Expansion beyond the current canary remains blocked unless a new evidence ref
+and owner approval explicitly authorizes the expansion. The required expansion
+boundary remains:
 
 ```text
 PGBOSS_MIGRATE_ENABLED=false

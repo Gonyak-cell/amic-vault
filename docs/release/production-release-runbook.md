@@ -74,12 +74,12 @@ CloudWatch alarms were OK. Concrete endpoints, account IDs, ARNs,
 provider-console metadata, cookies, tokens, secret values, and customer data
 remain outside this repository.
 
-Local Gemma runtime canary is active for production after the separate
-2026-06-16 Local AI approval. The canary is limited to the local sidecar runtime
-and file-organization prep readiness checks. Upload-prep queue execution remains
-disabled until pg-boss queue preparation is run by a migration-role one-off task
-and the worker task is audited. Do not treat the general production release
-approval as Local AI runtime or upload-prep approval. Required refs:
+Local Gemma runtime and upload-prep file-organization canary are active for
+production after the separate 2026-06-16 Local AI approval. The canary is
+limited to the local sidecar runtime, file-organization prep only, and one
+approved synthetic/canary tenant scope. Do not treat the general production
+release approval as Local AI runtime, upload-prep, legal-analysis, or expansion
+approval. Required refs:
 
 - `docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md`
 - `docs/release/local-ai-production-enablement-runbook.md`
@@ -87,10 +87,12 @@ approval as Local AI runtime or upload-prep approval. Required refs:
 - operator/security/legal-data/customer-scope approval evidence refs dated
   2026-06-16
 - live production env audit evidence confirming `LOCAL_GEMMA_ENABLED=true`,
-  loopback sidecar route, `AI_PREP_ENABLED=false`,
-  `AI_PREP_QUEUE_WORKER_ENABLED=false`, and `AI_SUMMARY_GEMMA_ENABLED=false`
+  loopback sidecar route, `AI_PREP_ENABLED=true`,
+  `AI_PREP_QUEUE_WORKER_ENABLED=true`, `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true`,
+  `AI_PREP_TENANT_MAX_CONCURRENCY=1`, and `AI_SUMMARY_GEMMA_ENABLED=false`
 - canary allowlist patch evidence before upload-prep queue execution
-- pg-boss queue prepare evidence before upload-prep queue execution
+- pg-boss queue prepare evidence and upload-prep canary public smoke evidence
+  before any expansion
 
 Customer-launch evidence `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` approves
 actual customer documents only through the Vault app-controlled

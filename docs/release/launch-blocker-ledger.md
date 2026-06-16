@@ -136,17 +136,18 @@ post-launch monitoring active for this pack.
   separate operator approval; `PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16`
   passed SMOKE-001 through SMOKE-015 with pass=15 fail=0 skip=0; target groups
   ended healthy-only and production alarms were OK.
-- Local Gemma runtime canary is active under
+- Local Gemma runtime and upload-prep file-organization canary are active under
   `PROD-LAI-CANARY-RUNTIME-2026-06-16` after
   `APPROVAL-LAI-PROD-OPERATOR-2026-06-16`,
   `APPROVAL-LAI-PROD-SECURITY-2026-06-16`,
   `APPROVAL-LAI-PROD-LEGAL-DATA-2026-06-16`, and
   `APPROVAL-LAI-PROD-CUSTOMER-SCOPE-2026-06-16`. Scope is file organization
-  prep only, legal analysis excluded, rollback owner `jws`. Upload-prep queue
-  execution remains blocked because `AI_PREP_ENABLED=false` and
-  `AI_PREP_QUEUE_WORKER_ENABLED=false` until pg-boss queue preparation is run
-  by a migration-role one-off task and audited with one approved
-  synthetic/canary tenant ref outside the repository.
+  prep only, legal analysis excluded, rollback owner `jws`. pg-boss queue
+  preparation passed under `PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16`, and
+  upload-prep canary enablement is recorded under
+  `PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16` with one approved
+  synthetic/canary tenant ref outside the repository. Expansion beyond that
+  canary scope remains blocked pending new owner approval and evidence.
 - Concrete endpoint values, account identifiers, ARNs, private URLs,
   screenshots, cookies, tokens, secret values, provider-console metadata, and
   customer data remain outside this repository.
