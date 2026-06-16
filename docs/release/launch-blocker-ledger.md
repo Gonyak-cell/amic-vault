@@ -144,9 +144,9 @@ post-launch monitoring active for this pack.
   `APPROVAL-LAI-PROD-CUSTOMER-SCOPE-2026-06-16`. Scope is file organization
   prep only, legal analysis excluded, rollback owner `jws`. Upload-prep queue
   execution remains blocked because `AI_PREP_ENABLED=false` and
-  `AI_PREP_QUEUE_WORKER_ENABLED=false` until the canary tenant allowlist patch
-  is merged, deployed, and audited with one approved synthetic/canary tenant ref
-  outside the repository.
+  `AI_PREP_QUEUE_WORKER_ENABLED=false` until pg-boss queue preparation is run
+  by a migration-role one-off task and audited with one approved
+  synthetic/canary tenant ref outside the repository.
 - Concrete endpoint values, account identifiers, ARNs, private URLs,
   screenshots, cookies, tokens, secret values, provider-console metadata, and
   customer data remain outside this repository.

@@ -1,6 +1,6 @@
 # Local AI Production Enablement Runbook
 
-Status: RUNTIME CANARY ACTIVE; UPLOAD PREP QUEUE DO NOT ENABLE UNTIL CANARY ALLOWLIST PATCH IS MERGED AND DEPLOYED.
+Status: RUNTIME CANARY ACTIVE; UPLOAD PREP QUEUE DO NOT ENABLE UNTIL PG-BOSS QUEUE PREP ONE-OFF SUCCEEDS AND WORKER TASK IS AUDITED.
 
 This runbook records the approved 2026-06-16 production Gemma runtime canary
 and the remaining conditions before upload-prep queue execution can be enabled.
@@ -27,6 +27,9 @@ and the remaining conditions before upload-prep queue execution can be enabled.
   remains required before expansion beyond the runtime canary.
 - The deployed API code enforces `AI_PREP_ENABLED` before enqueueing prep jobs
   and re-checks `AI_PREP_CANARY_TENANT_IDS` in both enqueue and worker paths.
+- Production pg-boss runtime migration is disabled before queue flags are
+  enabled; schema creation and grants are performed only by the migration-role
+  one-off queue prepare task.
 - No external model route, API key, SDK, or remote endpoint is introduced.
 
 ## Enablement Order After Approval
@@ -37,19 +40,28 @@ and the remaining conditions before upload-prep queue execution can be enabled.
    on the production sidecar task revision while queue workers stay disabled.
 4. Check `GET /v1/ai/ops/health` as an admin and record only bounded status
    fields.
-5. Deploy the canary allowlist patch and confirm `pnpm local-ai:prod-ready`
+5. Confirm the canary allowlist patch is deployed and `pnpm local-ai:prod-ready`
    passes on the deployed SHA.
-6. Enable upload-prep eligibility only with all of these flags present:
+6. Run the queue prepare task with the migration DB secret before enabling the
+   worker:
+   ```bash
+   NODE_ENV=production pnpm ai-prep:prepare-queue -- --runtime-role <runtime-role-ref-outside-repo>
+   ```
+   Record only bounded output fields: code, schema, queue names, and grant
+   status. Do not record database URLs, secret names, task ARNs, account IDs, or
+   private endpoints.
+7. Enable upload-prep eligibility only with all of these flags present:
+   - `PGBOSS_MIGRATE_ENABLED=false`
    - `AI_PREP_ENABLED=true`
    - `AI_PREP_QUEUE_WORKER_ENABLED=true`
    - `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true`
    - `AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>`
    - `AI_PREP_TENANT_MAX_CONCURRENCY=1`
-7. Keep `AI_SUMMARY_GEMMA_ENABLED=false` until upload prep has a separate
+8. Keep `AI_SUMMARY_GEMMA_ENABLED=false` until upload prep has a separate
    production stability approval.
-8. Run canary upload prep on approved canary/synthetic documents only.
-9. Run smoke/eval/scan commands and record reference-only evidence refs.
-10. Expand tenant/artifact scope only after monitoring remains green and the
+9. Run canary upload prep on approved canary/synthetic documents only.
+10. Run smoke/eval/scan commands and record reference-only evidence refs.
+11. Expand tenant/artifact scope only after monitoring remains green and the
     operator records the expansion evidence.
 
 ## Canary Scope

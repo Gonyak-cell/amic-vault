@@ -61,7 +61,7 @@ for (const expected of [
   'TECHNICAL_READY PASS',
   'GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY',
   'PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE',
-  'UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_ALLOWLIST_PATCH_DEPLOY',
+  'UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_PGBOSS_QUEUE_PREP',
   'local_gemma',
   'gemma4:12b',
   'externalModelCallAttempts 0',
@@ -70,6 +70,7 @@ for (const expected of [
   'LOCAL_GEMMA_MODEL=gemma4:12b',
   'AI_PREP_ENABLED=false',
   'AI_PREP_QUEUE_WORKER_ENABLED=false',
+  'PGBOSS_MIGRATE_ENABLED=false',
   'AI_PREP_REQUIRE_TENANT_ALLOWLIST=true',
   'AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>',
   'AI_SUMMARY_GEMMA_ENABLED=false',
@@ -82,6 +83,7 @@ for (const expected of [
   'PROD-LAI-ALERT-DELIVERY-PENDING',
   'PROD-LAI-ROLLBACK-OWNER-2026-06-16',
   'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
+  'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
   'pnpm local-ai:prod-ready',
 ]) {
   assertContains(gate, expected, 'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md');
@@ -97,7 +99,9 @@ const enablement = contents.get('docs/release/local-ai-production-enablement-run
 for (const expected of [
   'RUNTIME CANARY ACTIVE',
   'UPLOAD PREP QUEUE DO NOT ENABLE',
-  'canary allowlist patch',
+  'PG-BOSS QUEUE PREP',
+  'pnpm ai-prep:prepare-queue',
+  'PGBOSS_MIGRATE_ENABLED=false',
   'AI_PREP_TENANT_MAX_CONCURRENCY=1',
   'AI_PREP_REQUIRE_TENANT_ALLOWLIST=true',
   'AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>',
@@ -115,6 +119,7 @@ for (const expected of [
   'LOCAL_GEMMA_ENABLED=true',
   'AI_PREP_ENABLED=false',
   'AI_PREP_QUEUE_WORKER_ENABLED=false',
+  'PGBOSS_MIGRATE_ENABLED',
   'AI_PREP_REQUIRE_TENANT_ALLOWLIST',
   'AI_PREP_CANARY_TENANT_IDS',
 ]) {
@@ -127,7 +132,7 @@ for (const expected of [
   'local-ai-production-enablement-runbook.md',
   'Local Gemma runtime canary is active',
   'Upload-prep queue execution remains',
-  'disabled until the canary tenant allowlist patch',
+  'pg-boss queue prepare evidence before upload-prep queue execution',
 ]) {
   assertContains(productionRunbook, expected, 'docs/release/production-release-runbook.md');
 }
@@ -139,9 +144,11 @@ for (const expected of [
   'EV-LAI-PROD-003',
   'EV-LAI-PROD-004',
   'EV-LAI-PROD-005',
+  'EV-LAI-PROD-006',
   'approved-runtime-canary',
   'active-runtime-canary',
   'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
+  'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
