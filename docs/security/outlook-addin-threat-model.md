@@ -28,11 +28,11 @@ Server-owned controls remain authoritative:
 
 | Asset | Outlook Add-in Risk | Required Control |
 |---|---|---|
-| Vault session | Add-in tries to reuse PWA/browser cookies | Shared identity only; separate add-in session exchange. |
-| Mailbox identity | Tenant/user mismatch or stale mailbox mapping | Server-side mailbox fingerprint, tenant binding, and fail-closed mapping. |
+| Vault session | Add-in tries to reuse PWA/browser cookies | Shared identity only; separate add-in session exchange with default-off verifier. |
+| Mailbox identity | Tenant/user mismatch or stale mailbox mapping | Server-side mailbox fingerprint, tenant binding, add-in session TTL, and fail-closed mapping. |
 | Matter metadata | Recent/suggested matters leak unauthorized matters | Server-side query-stage permission filters; no client post-filtering. |
 | Email body and headers | Subject/body/raw headers appear in logs or evidence | Store only approved email records; audit metadata uses refs/hashes/counts. |
-| Attachments | Add-in or browser cache holds document bytes | Fetch through approved Graph/Office path only after gate; no local Vault cache. |
+| Attachments | Add-in or browser cache holds document bytes | Fetch through approved server-side Graph adapter only after gate; no local Vault cache or raw payload evidence. |
 | Filing jobs | Duplicate retries create duplicate filed emails | Idempotency key and canonical message hash. |
 | Inserted documents | Insert action becomes silent external sharing | R11+ policy gate; no public/guest/secure links before allowed. |
 | Folder mappings | Folder names expose client/matter information | Tenant RLS, reference-only audit, admin/user approval, no repo evidence values. |
@@ -43,7 +43,7 @@ Server-owned controls remain authoritative:
 
 | Threat | Mitigation | Evidence |
 |---|---|---|
-| Add-in shares PWA session cookies | Dedicated add-in session exchange; no cookie reuse assumption | OA06 auth contract tests |
+| Add-in shares PWA session cookies | Dedicated add-in session exchange; no cookie reuse assumption; `outlook_addin_sessions` uses separate ids and TTL | OA06 auth contract tests |
 | Unauthorized matter suggestion | Search gateway injects PermissionService scope before result construction | OA11 permission negative tests |
 | Client post-filters search results | Server returns only authorized results; client never receives denied IDs | OA11 metadata leakage tests |
 | Duplicate filing from retry or resend | `Idempotency-Key`, mailbox fingerprint, `internetMessageId`, canonical hash | OA05 idempotency tests |
@@ -51,7 +51,7 @@ Server-owned controls remain authoritative:
 | Smart Alert failure treated as compliance pass | Send-and-file policy stored server-side; event handler only prompts/blocks UX | OA07 Smart Alert fallback tests |
 | Insert creates external link before R11 | Insert action denied unless external sharing policy permits the exact channel | OA08 external-recipient tests |
 | Folder mapping leaks matter metadata | Folder mapping is tenant-scoped, permission-checked, and audited | OA09 folder mapping tests |
-| Graph scope overreach | Minimum-scope matrix and deployment approval | OA10 admin deployment evidence |
+| Graph scope overreach | Minimum-scope matrix, default-off Graph transport, and deployment approval | OA06 scope matrix + OA10 admin deployment evidence |
 | Local/offline cache stores Vault data | No local queue/cache for Vault copies; offline state is pending/unavailable only | OA11 offline negative tests |
 
 ## Stop Conditions
