@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   buildCreateDocumentInsertionRequest,
   buildCreateFilingRequest,
+  buildCreateFolderMappingRequest,
   buildCreateSendFileRequest,
   buildMatterSuggestionQuery,
   buildOutlookItemSnapshot,
@@ -12,6 +13,7 @@ import {
   createOutlookSendFileRequestSchema,
   createOutlookDocumentInsertionSchema,
   createOutlookEmailFilingRequestSchema,
+  createOutlookFolderMappingSchema,
   evaluateOutlookSendPolicySchema,
   matterSuggestionQuerySchema,
 } from '@amic-vault/shared';
@@ -33,6 +35,8 @@ describe('Outlook item hashing helpers', () => {
         userProfile: { emailAddress: 'lawyer@amic.test' },
         item: {
           itemId: 'outlook-raw-id',
+          folderId: 'raw-folder-id',
+          folderPath: 'Inbox/Project Alpha Confidential',
           internetMessageId: '<raw-message-id@amic.test>',
           conversationId: 'conversation-raw-id',
           subject: 'Privileged acquisition draft',
@@ -48,6 +52,8 @@ describe('Outlook item hashing helpers', () => {
     const serialized = JSON.stringify(snapshot);
     expect(snapshot.message.mailboxFingerprint).toMatch(/^[0-9a-f]{64}$/);
     expect(snapshot.subjectHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(snapshot.folderRefHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(snapshot.folderPathHash).toMatch(/^[0-9a-f]{64}$/);
     expect(snapshot.attachmentRefs).toHaveLength(1);
     expect(snapshot.message.hasExternalParticipants).toBe(true);
     expect(serialized).not.toContain('Privileged acquisition draft');
@@ -55,6 +61,8 @@ describe('Outlook item hashing helpers', () => {
     expect(serialized).not.toContain('counterparty@example.com');
     expect(serialized).not.toContain('board-minutes.pdf');
     expect(serialized).not.toContain('outlook-raw-id');
+    expect(serialized).not.toContain('raw-folder-id');
+    expect(serialized).not.toContain('Project Alpha Confidential');
     expect(serialized).not.toContain('raw-message-id');
 
     expect(() => matterSuggestionQuerySchema.parse(buildMatterSuggestionQuery(snapshot))).not.toThrow();
@@ -86,6 +94,11 @@ describe('Outlook item hashing helpers', () => {
         }),
       ),
     ).not.toThrow();
+    expect(() =>
+      createOutlookFolderMappingSchema.parse(
+        buildCreateFolderMappingRequest(snapshot, '11111111-1111-4111-8111-111111111111'),
+      ),
+    ).not.toThrow();
   });
 
   it('fails closed when required mailbox or item identifiers are unavailable', async () => {
@@ -98,6 +111,25 @@ describe('Outlook item hashing helpers', () => {
         hashString,
       ),
     ).rejects.toThrow('OUTLOOK_ITEM_UNAVAILABLE');
+  });
+
+  it('fails closed when folder mapping is requested without a folder ref hash', async () => {
+    const snapshot = await buildOutlookItemSnapshot(
+      {
+        userProfile: { emailAddress: 'lawyer@amic.test' },
+        item: {
+          itemId: 'outlook-raw-id',
+          dateTimeCreated: '2026-06-16T01:02:03.000Z',
+          from: { emailAddress: 'lawyer@amic.test' },
+          attachments: [],
+        },
+      },
+      hashString,
+    );
+
+    expect(() =>
+      buildCreateFolderMappingRequest(snapshot, '11111111-1111-4111-8111-111111111111'),
+    ).toThrow('OUTLOOK_FOLDER_REF_UNAVAILABLE');
   });
 
   it('formats attachment byte counts compactly', () => {

@@ -383,8 +383,10 @@ Required tests:
 
 ## 12. PACK-OA09 Folder Mapping / Auto-File
 
-Future implementation pack. This is high-risk because folder names and mappings
-can expose matter information.
+Implementation pack. This is high-risk because folder names and mappings can
+expose matter information. OA09 therefore stores and audits only hashed folder
+refs, keeps auto-file default-off, and requires user/admin approval before any
+mapping can become active.
 
 | TUW                         | Objective                                                                    |
 | --------------------------- | ---------------------------------------------------------------------------- |
@@ -398,7 +400,10 @@ Verification:
 
 - mapping creation denied for unauthorized matter,
 - folder ref is bounded/hash-only in audit,
-- auto-file is disabled by default until tenant approval.
+- auto-file is disabled by default until tenant/admin approval and
+  `OUTLOOK_AUTOFILE_ENABLED=true`,
+- auto-file job rows cover disabled, dedupe, retry, and wrong-matter safe status
+  paths without invoking live Graph execution.
 
 ## 13. PACK-OA10 Deployment / Rollback
 

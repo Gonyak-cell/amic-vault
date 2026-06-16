@@ -334,6 +334,83 @@ Server behavior:
 - record `OUTLOOK_DOCUMENT_INSERT_REQUESTED` or
   `OUTLOOK_DOCUMENT_INSERT_DENIED` with reference-only metadata.
 
+### `CreateOutlookFolderMappingDto`
+
+```ts
+type CreateOutlookFolderMappingDto = {
+  matterId: string;
+  mailboxFingerprint: string;
+  folderRefHash: string;
+  folderPathHash?: string;
+  mappingMode: 'manual' | 'auto_file';
+  autoFileRequested: boolean;
+  sourceClient: 'outlook-web-addin';
+  clientRequestId: string;
+  idempotencyKey: string;
+};
+```
+
+```ts
+type UpdateOutlookFolderMappingDto = {
+  approvalDecision: 'approve' | 'disable' | 'revoke';
+  autoFileEnabled: boolean;
+  clientRequestId: string;
+};
+```
+
+```ts
+type OutlookFolderMappingDto = {
+  mappingId: string;
+  matterId: string;
+  mailboxFingerprint: string;
+  folderRefHash: string;
+  folderPathHash?: string;
+  mappingMode: 'manual' | 'auto_file';
+  approvalStatus:
+    | 'pending_user'
+    | 'pending_admin'
+    | 'active'
+    | 'disabled'
+    | 'revoked'
+    | 'denied';
+  autoFileEnabled: boolean;
+  sourceClient: 'outlook-web-addin';
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+  deniedReasonCode?:
+    | 'permission_denied'
+    | 'policy_denied'
+    | 'integration_gate_closed'
+    | 'approval_required';
+};
+```
+
+Server behavior:
+
+- default gate: when `OUTLOOK_FOLDER_MAPPING_ENABLED` is not `true`, deny
+  fail-closed and record `OUTLOOK_FOLDER_MAPPING_CHANGED` with
+  `reason_code='integration_gate_closed'`;
+- accept only `mailboxFingerprint`, `folderRefHash`, and optional
+  `folderPathHash`. Raw folder name, raw folder path, raw Graph folder id,
+  mailbox address, subject, body, and filenames are strict schema rejects;
+- require `PermissionService.canUploadToMatter` before creating or approving a
+  mapping;
+- create mappings as `pending_user` unless `autoFileRequested` or
+  `mappingMode='auto_file'` requires `pending_admin`; `pending_admin` approval
+  requires an admin actor and cannot be self-approved under user scope;
+- user/admin approval records `status_before`, `status_after`,
+  `approval_scope`, and `auto_file_enabled` in reference-only audit metadata;
+- `autoFileEnabled=true` requires both `OUTLOOK_AUTOFILE_ENABLED=true` and an
+  admin approval actor. It remains false by default.
+
+`outlook_autofile_jobs` are server-internal OA09 records for later scheduled or
+notification-based Graph sync. No public endpoint is exposed in OA09. A job row
+contains mapping id, matter id, mailbox/folder/message hashes, a dedupe hash,
+bounded retry count, status, and safe reason code only. Until the auto-file gate
+and mapping approval are active, attempts are recorded as `disabled` with
+reference-only `OUTLOOK_AUTOFILE_JOB_RECORDED` audit metadata.
+
 ## Idempotency And Dedupe
 
 Use both an `Idempotency-Key` header and server-side unique constraints.

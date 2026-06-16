@@ -3,16 +3,19 @@
 import type {
   CreateOutlookDocumentInsertionDto,
   CreateOutlookEmailFilingRequestDto,
+  CreateOutlookFolderMappingDto,
   CreateOutlookSendFileRequestDto,
   EvaluateOutlookSendPolicyDto,
   MatterSuggestionListDto,
   MatterSuggestionQueryDto,
   OutlookFilingRequestStatusDto,
   OutlookDocumentInsertionDto,
+  OutlookFolderMappingDto,
   OutlookSendFileRequestStatusDto,
   OutlookSendPolicyDecisionDto,
   SearchQueryDto,
   SearchResponseDto,
+  UpdateOutlookFolderMappingDto,
 } from '@amic-vault/shared';
 import { apiFetch } from '../api-client';
 
@@ -69,6 +72,27 @@ export function createOutlookDocumentInsertion(
 ): Promise<OutlookDocumentInsertionDto> {
   return apiFetch<OutlookDocumentInsertionDto>('/m365/outlook/document-insertions', {
     method: 'POST',
+    body: JSON.stringify(input),
+    redirectOnAuthRequired: false,
+  });
+}
+
+export function createOutlookFolderMapping(
+  input: CreateOutlookFolderMappingDto,
+): Promise<OutlookFolderMappingDto> {
+  return apiFetch<OutlookFolderMappingDto>('/m365/outlook/folder-mappings', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    redirectOnAuthRequired: false,
+  });
+}
+
+export function updateOutlookFolderMapping(
+  mappingId: string,
+  input: UpdateOutlookFolderMappingDto,
+): Promise<OutlookFolderMappingDto> {
+  return apiFetch<OutlookFolderMappingDto>(`/m365/outlook/folder-mappings/${mappingId}`, {
+    method: 'PATCH',
     body: JSON.stringify(input),
     redirectOnAuthRequired: false,
   });

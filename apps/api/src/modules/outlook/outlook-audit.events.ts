@@ -3,6 +3,11 @@ import type {
   OutlookDocumentInsertionDeniedReasonCode,
   OutlookDocumentInsertionMode,
   OutlookDocumentInsertionStatus,
+  OutlookAutofileDeniedReasonCode,
+  OutlookAutofileJobStatus,
+  OutlookFolderMappingApprovalStatus,
+  OutlookFolderMappingDeniedReasonCode,
+  OutlookFolderMappingMode,
   OutlookFilingRequestKind,
   OutlookFilingRequestStatus,
   OutlookSendPolicyDecision,
@@ -70,6 +75,34 @@ interface BaseOutlookDocumentInsertionAuditInput {
   insertionMode: OutlookDocumentInsertionMode;
 }
 
+interface BaseOutlookFolderMappingAuditInput {
+  tenantId: string;
+  actorId: string;
+  mappingId: string;
+  matterId: string;
+  mailboxFingerprintHash: string;
+  folderRefHash: string;
+  folderPathHash?: string | null;
+  mappingMode: OutlookFolderMappingMode;
+  clientRequestHash: string;
+  idempotencyHash?: string;
+}
+
+interface BaseOutlookAutofileJobAuditInput {
+  tenantId: string;
+  actorId: string;
+  jobId: string;
+  mappingId: string;
+  matterId: string;
+  mailboxFingerprintHash: string;
+  folderRefHash: string;
+  messageHash: string;
+  dedupeHash: string;
+  clientRequestHash: string;
+  idempotencyHash: string;
+  retryCount: number;
+}
+
 function baseMetadata(input: BaseOutlookAuditInput) {
   return {
     request_id: input.requestId,
@@ -127,6 +160,34 @@ function baseDocumentInsertionMetadata(input: BaseOutlookDocumentInsertionAuditI
     idempotency_hash: input.idempotencyHash,
     client_request_hash: input.clientRequestHash,
     policy_mode: input.insertionMode,
+  };
+}
+
+function baseFolderMappingMetadata(input: BaseOutlookFolderMappingAuditInput) {
+  return {
+    mapping_id: input.mappingId,
+    matter_id: input.matterId,
+    mailbox_fingerprint_hash: input.mailboxFingerprintHash,
+    folder_ref_hash: input.folderRefHash,
+    ...(input.folderPathHash ? { folder_path_hash: input.folderPathHash } : {}),
+    policy_mode: input.mappingMode,
+    client_request_hash: input.clientRequestHash,
+    ...(input.idempotencyHash ? { idempotency_hash: input.idempotencyHash } : {}),
+  };
+}
+
+function baseAutofileJobMetadata(input: BaseOutlookAutofileJobAuditInput) {
+  return {
+    job_id: input.jobId,
+    mapping_id: input.mappingId,
+    matter_id: input.matterId,
+    mailbox_fingerprint_hash: input.mailboxFingerprintHash,
+    folder_ref_hash: input.folderRefHash,
+    message_hash: input.messageHash,
+    dedupe_hash: input.dedupeHash,
+    client_request_hash: input.clientRequestHash,
+    idempotency_hash: input.idempotencyHash,
+    retry_count: input.retryCount,
   };
 }
 
@@ -342,6 +403,90 @@ export function outlookDocumentInsertDeniedAudit(
       ...baseDocumentInsertionMetadata(input),
       outlook_status: 'denied',
       reason_code: input.reasonCode,
+    },
+  };
+}
+
+export function outlookFolderMappingChangedAudit(
+  input: BaseOutlookFolderMappingAuditInput & {
+    statusBefore?: OutlookFolderMappingApprovalStatus;
+    statusAfter: OutlookFolderMappingApprovalStatus;
+    autoFileEnabled: boolean;
+    approvalScope: 'user' | 'admin';
+    duplicate?: boolean;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'OUTLOOK_FOLDER_MAPPING_CHANGED',
+    targetType: 'outlook_folder_mapping',
+    targetId: input.mappingId,
+    matterId: input.matterId,
+    metadata: {
+      ...baseFolderMappingMetadata(input),
+      ...(input.statusBefore ? { status_before: input.statusBefore } : {}),
+      status_after: input.statusAfter,
+      mapping_status: input.statusAfter,
+      outlook_status: input.statusAfter,
+      auto_file_enabled: input.autoFileEnabled,
+      approval_scope: input.approvalScope,
+      ...(input.duplicate ? { reason_code: 'duplicate' } : {}),
+    },
+  };
+}
+
+export function outlookFolderMappingDeniedAudit(
+  input: BaseOutlookFolderMappingAuditInput & {
+    reasonCode: OutlookFolderMappingDeniedReasonCode;
+    statusBefore?: OutlookFolderMappingApprovalStatus;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'OUTLOOK_FOLDER_MAPPING_CHANGED',
+    targetType: 'outlook_folder_mapping',
+    targetId: input.mappingId,
+    matterId: input.matterId,
+    result: 'denied',
+    metadata: {
+      ...baseFolderMappingMetadata(input),
+      ...(input.statusBefore ? { status_before: input.statusBefore } : {}),
+      status_after: 'denied',
+      mapping_status: 'denied',
+      outlook_status: 'denied',
+      auto_file_enabled: false,
+      reason_code: input.reasonCode,
+    },
+  };
+}
+
+export function outlookAutofileJobRecordedAudit(
+  input: BaseOutlookAutofileJobAuditInput & {
+    status: OutlookAutofileJobStatus;
+    reasonCode?: OutlookAutofileDeniedReasonCode;
+    duplicate?: boolean;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'OUTLOOK_AUTOFILE_JOB_RECORDED',
+    targetType: 'outlook_autofile_job',
+    targetId: input.jobId,
+    matterId: input.matterId,
+    result:
+      input.status === 'denied' || input.status === 'disabled'
+        ? 'denied'
+        : input.status === 'failed'
+          ? 'failure'
+          : 'success',
+    metadata: {
+      ...baseAutofileJobMetadata(input),
+      outlook_status: input.status,
+      ...(input.reasonCode ? { reason_code: input.reasonCode } : {}),
+      ...(input.duplicate ? { reason_code: 'duplicate' } : {}),
     },
   };
 }

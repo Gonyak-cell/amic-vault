@@ -4,11 +4,13 @@ import {
   createOutlookDocumentInsertionSchema,
   createOutlookSendFileRequestSchema,
   createOutlookEmailFilingRequestSchema,
+  createOutlookFolderMappingSchema,
   evaluateOutlookSendPolicySchema,
   matterSuggestionQuerySchema,
   outlookAddinSessionExchangeSchema,
   outlookAttachmentRefSchema,
   outlookItemRefSchema,
+  updateOutlookFolderMappingSchema,
 } from './outlook-types';
 import {
   outlookApprovedGraphScopeRegistry,
@@ -324,5 +326,56 @@ describe('Outlook add-in DTO contracts', () => {
         idempotencyKey: 'oa08-insert-idem-1',
       }),
     ).toThrow();
+  });
+
+  it('accepts folder mappings only as hash-only folder refs', () => {
+    expect(
+      createOutlookFolderMappingSchema.parse({
+        sourceClient: 'outlook-web-addin',
+        matterId: '11111111-1111-4111-8111-111111111111',
+        mailboxFingerprint: hash,
+        folderRefHash: hash,
+        folderPathHash: hash,
+        mappingMode: 'manual',
+        autoFileRequested: false,
+        clientRequestId: 'oa09-folder-1',
+        idempotencyKey: 'oa09-folder-idem-1',
+      }),
+    ).toMatchObject({
+      matterId: '11111111-1111-4111-8111-111111111111',
+      folderRefHash: hash,
+      mappingMode: 'manual',
+      autoFileRequested: false,
+    });
+  });
+
+  it('rejects raw folder mapping names, paths, mailbox addresses, and Graph IDs', () => {
+    expect(() =>
+      createOutlookFolderMappingSchema.parse({
+        sourceClient: 'outlook-web-addin',
+        matterId: '11111111-1111-4111-8111-111111111111',
+        mailboxFingerprint: hash,
+        mailboxAddress: 'lawyer@example.com',
+        folderRefHash: hash,
+        folderName: 'Project Alpha Confidential',
+        folderPath: 'Inbox/Project Alpha Confidential',
+        graphFolderId: 'AAMkFolderId',
+        clientRequestId: 'oa09-folder-1',
+        idempotencyKey: 'oa09-folder-idem-1',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts bounded folder mapping approval decisions', () => {
+    expect(
+      updateOutlookFolderMappingSchema.parse({
+        approvalDecision: 'approve',
+        autoFileEnabled: false,
+        clientRequestId: 'oa09-approve-1',
+      }),
+    ).toMatchObject({
+      approvalDecision: 'approve',
+      autoFileEnabled: false,
+    });
   });
 });

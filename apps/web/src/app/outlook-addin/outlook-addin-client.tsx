@@ -6,6 +6,7 @@ import type {
   MatterSuggestionListDto,
   OutlookDocumentInsertionDto,
   OutlookFilingRequestStatusDto,
+  OutlookFolderMappingDto,
   OutlookSendFileRequestStatusDto,
   OutlookSendPolicyDecisionDto,
   OutlookSendWarningReasonCode,
@@ -15,6 +16,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   FileText,
+  Folder,
   Inbox,
   Paperclip,
   RefreshCw,
@@ -28,14 +30,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   createOutlookDocumentInsertion,
+  createOutlookFolderMapping,
   createOutlookSendFileRequest,
   createOutlookFilingRequest,
   evaluateOutlookSendPolicy,
   getOutlookFilingRequestStatus,
   getOutlookMatterSuggestions,
   searchOutlookInsertableDocuments,
+  updateOutlookFolderMapping,
 } from '@/lib/api/outlook-addin';
 import {
+  buildCreateFolderMappingRequest,
   buildCreateDocumentInsertionRequest,
   buildCreateFilingRequest,
   buildCreateSendFileRequest,
@@ -91,6 +96,7 @@ export function OutlookAddinClient({
   const [status, setStatus] = useState<OutlookFilingRequestStatusDto | undefined>(initialStatus);
   const [sendPolicy, setSendPolicy] = useState<OutlookSendPolicyDecisionDto | undefined>();
   const [sendStatus, setSendStatus] = useState<OutlookSendFileRequestStatusDto | undefined>();
+  const [folderMapping, setFolderMapping] = useState<OutlookFolderMappingDto | undefined>();
   const [documentQuery, setDocumentQuery] = useState('');
   const [documentResults, setDocumentResults] = useState<SearchResultDto[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState('');
@@ -105,6 +111,8 @@ export function OutlookAddinClient({
     | 'status'
     | 'send-policy'
     | 'send-file'
+    | 'folder-map'
+    | 'folder-approve'
     | 'doc-search'
     | 'insert-doc'
     | null
@@ -116,6 +124,16 @@ export function OutlookAddinClient({
   const canEvaluateSend = Boolean(snapshot && busyAction !== 'send-policy');
   const canCreateSendFile = Boolean(
     snapshot && selectedMatterId && sendPolicy?.decision !== 'block' && busyAction !== 'send-file',
+  );
+  const canCreateFolderMapping = Boolean(
+    snapshot?.folderRefHash && selectedMatterId && busyAction !== 'folder-map',
+  );
+  const canApproveFolderMapping = Boolean(
+    folderMapping &&
+      (folderMapping.approvalStatus === 'pending_user' ||
+        folderMapping.approvalStatus === 'pending_admin' ||
+        folderMapping.approvalStatus === 'disabled') &&
+      busyAction !== 'folder-approve',
   );
   const selectedDocument = documentResults.find((item) => item.documentId === selectedDocumentId);
   const canSearchDocuments = Boolean(documentQuery.trim() && busyAction !== 'doc-search');
@@ -233,6 +251,47 @@ export function OutlookAddinClient({
     }
   }, [acknowledgedWarningCodes, selectedAttachmentHashes, selectedMatterId, snapshot]);
 
+  const submitFolderMapping = useCallback(async () => {
+    if (!snapshot || !selectedMatterId || !snapshot.folderRefHash) return;
+    setBusyAction('folder-map');
+    setSafeError(null);
+    try {
+      setFolderMapping(
+        await createOutlookFolderMapping(
+          buildCreateFolderMappingRequest(snapshot, selectedMatterId, {
+            mappingMode: 'manual',
+            autoFileRequested: false,
+          }),
+        ),
+      );
+    } catch (error) {
+      setSafeError(safeApiErrorMessage(error));
+    } finally {
+      setBusyAction(null);
+    }
+  }, [selectedMatterId, snapshot]);
+
+  const approveFolderMapping = useCallback(async () => {
+    if (!folderMapping) return;
+    setBusyAction('folder-approve');
+    setSafeError(null);
+    try {
+      setFolderMapping(
+        await updateOutlookFolderMapping(folderMapping.mappingId, {
+          approvalDecision: 'approve',
+          autoFileEnabled: false,
+          clientRequestId: `oa09-approve:${Date.now().toString(36)}:${shortHash(
+            folderMapping.mappingId.replaceAll('-', ''),
+          )}`,
+        }),
+      );
+    } catch (error) {
+      setSafeError(safeApiErrorMessage(error));
+    } finally {
+      setBusyAction(null);
+    }
+  }, [folderMapping]);
+
   const refreshDocumentResults = useCallback(async () => {
     const query = documentQuery.trim();
     if (!query) return;
@@ -310,6 +369,10 @@ export function OutlookAddinClient({
     setSendStatus(undefined);
     setAcknowledgedWarningCodes(new Set());
   }, [selectedAttachmentHashes, selectedMatterId, snapshot]);
+
+  useEffect(() => {
+    setFolderMapping(undefined);
+  }, [selectedMatterId, snapshot]);
 
   const statusTone = useMemo(() => statusToneClass(status?.status), [status?.status]);
 
@@ -523,6 +586,56 @@ export function OutlookAddinClient({
                 추천 없음
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-md shadow-none">
+          <CardHeader className="flex-row items-center justify-between gap-2 p-3">
+            <div className="flex items-center gap-2">
+              <Folder className="h-4 w-4 text-[#1d5b63]" aria-hidden />
+              <CardTitle className="text-sm">폴더 매핑</CardTitle>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => void submitFolderMapping()}
+              disabled={!canCreateFolderMapping}
+            >
+              <Folder className="h-4 w-4" aria-hidden />
+              생성
+            </Button>
+          </CardHeader>
+          <CardContent className="grid gap-2 p-3 pt-0 text-sm">
+            {snapshot?.folderRefHash ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Metric label="Folder" value={shortHash(snapshot.folderRefHash)} />
+                <Metric
+                  label="Matter"
+                  value={selectedMatterId ? shortHash(selectedMatterId.replaceAll('-', '')) : 'none'}
+                />
+              </div>
+            ) : (
+              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+                폴더 ref 없음
+              </p>
+            )}
+            {folderMapping ? (
+              <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
+                {folderMapping.approvalStatus} · {shortHash(folderMapping.mappingId.replaceAll('-', ''))}
+                {folderMapping.autoFileEnabled ? ' · auto-file' : ''}
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              className="h-10"
+              onClick={() => void approveFolderMapping()}
+              disabled={!canApproveFolderMapping}
+            >
+              <CheckCircle2 className="h-4 w-4" aria-hidden />
+              승인
+            </Button>
           </CardContent>
         </Card>
 
