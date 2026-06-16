@@ -79,6 +79,7 @@ describe('AiEvidencePromptCompiler', () => {
     expect(compiled.prompt).toContain(
       'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
     );
+    expect(compiled.prompt).toContain('OUTPUT_LIMIT: one section, one to three claims');
     expect(compiled.prompt).toContain('"kind":"summary|key_fact"');
     expect(compiled.prompt).not.toMatch(/risk|issue|clause/u);
   });

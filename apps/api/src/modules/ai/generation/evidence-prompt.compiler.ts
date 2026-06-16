@@ -64,6 +64,7 @@ export class AiEvidencePromptCompiler {
           ? [
               'This is post-upload file-organization prep only.',
               'Do not create legal issue, legal risk, clause-analysis, or legal-advice claims.',
+              'Return compact JSON with one short section and one to three short claims.',
             ]
           : []),
       ].join(' '),
@@ -80,6 +81,11 @@ export class AiEvidencePromptCompiler {
         `CLAIM_KIND_ALLOWLIST: ${allowedClaimKinds.join(', ')}`,
         `ALLOWED_SOURCE_REFS: ${sourceRefs.join(', ')}`,
         'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
+        ...(isPrep
+          ? [
+              'OUTPUT_LIMIT: one section, one to three claims, concise field values, warnings may be empty.',
+            ]
+          : []),
         'RETRIEVED_CHUNKS:',
         chunks || 'none',
         'GRAPH_FACTS:',

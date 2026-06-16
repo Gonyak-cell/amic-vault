@@ -22,6 +22,7 @@ export interface LocalGemmaGroundedGenerationResult {
 export interface LocalGemmaGroundedGenerationOptions {
   compileOptions?: EvidencePromptCompileOptions | undefined;
   parseOutput?: ((value: unknown) => AiGroundedGenerationOutputDto) | undefined;
+  maxTokens?: number | undefined;
 }
 
 @Injectable()
@@ -47,6 +48,7 @@ export class LocalGemmaGenerationService {
     const format = groundedJsonSchema({
       sourceRefs: compiled.sourceRefs,
       allowedClaimKinds: options.compileOptions?.allowedClaimKinds,
+      purpose: options.compileOptions?.purpose,
     });
     const startedAt = performance.now();
     const generated = await gateway.generateJson(
@@ -56,7 +58,7 @@ export class LocalGemmaGenerationService {
         format,
         model: localGemmaModel(),
         temperature: 0,
-        maxTokens: 1400,
+        maxTokens: options.maxTokens ?? localGemmaMaxTokens(options.compileOptions?.purpose),
       },
       options.parseOutput ?? ((value) => aiGroundedGenerationOutputSchema.parse(value)),
     );
@@ -104,15 +106,29 @@ function localGemmaTimeoutMs(): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 30_000;
 }
 
+function localGemmaMaxTokens(purpose: EvidencePromptCompileOptions['purpose']): number {
+  const envNames =
+    purpose === 'file_organization_prep'
+      ? ['LOCAL_GEMMA_PREP_MAX_TOKENS', 'LOCAL_GEMMA_MAX_TOKENS']
+      : ['LOCAL_GEMMA_MAX_TOKENS'];
+  for (const envName of envNames) {
+    const parsed = Number(process.env[envName]);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  return purpose === 'file_organization_prep' ? 180 : 1400;
+}
+
 function groundedJsonSchema(input: {
   sourceRefs: readonly string[];
   allowedClaimKinds: readonly string[] | undefined;
+  purpose: EvidencePromptCompileOptions['purpose'];
 }): Record<string, unknown> {
   const sourceRefs = input.sourceRefs.length > 0 ? input.sourceRefs : ['chunk:source-ref'];
   const allowedClaimKinds =
     input.allowedClaimKinds && input.allowedClaimKinds.length > 0
       ? [...new Set(input.allowedClaimKinds)]
       : ['summary', 'key_fact', 'risk', 'issue', 'timeline', 'question', 'clause', 'answer'];
+  const isPrep = input.purpose === 'file_organization_prep';
   return {
     type: 'object',
     additionalProperties: false,
@@ -122,7 +138,7 @@ function groundedJsonSchema(input: {
       sections: {
         type: 'array',
         minItems: 1,
-        maxItems: 12,
+        maxItems: isPrep ? 1 : 12,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -143,7 +159,7 @@ function groundedJsonSchema(input: {
       claims: {
         type: 'array',
         minItems: 1,
-        maxItems: 100,
+        maxItems: isPrep ? 3 : 100,
         items: {
           type: 'object',
           additionalProperties: false,
