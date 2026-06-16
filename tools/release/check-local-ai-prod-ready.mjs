@@ -59,41 +59,48 @@ for (const file of requiredFiles) {
 const gate = contents.get('docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md');
 for (const expected of [
   'TECHNICAL_READY PASS',
-  'GOVERNANCE_APPROVAL BLOCKED',
-  'PRODUCTION_ENABLEMENT BLOCKED',
+  'GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY',
+  'PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE',
+  'UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_ALLOWLIST_PATCH_DEPLOY',
   'local_gemma',
   'gemma4:12b',
   'externalModelCallAttempts 0',
-  'LOCAL_GEMMA_ENABLED=false',
+  'LOCAL_GEMMA_ENABLED=true',
+  'LOCAL_GEMMA_ENDPOINT=loopback sidecar',
+  'LOCAL_GEMMA_MODEL=gemma4:12b',
   'AI_PREP_ENABLED=false',
   'AI_PREP_QUEUE_WORKER_ENABLED=false',
+  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=true',
+  'AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>',
   'AI_SUMMARY_GEMMA_ENABLED=false',
-  'APPROVAL-LAI-PROD-OPERATOR',
-  'APPROVAL-LAI-PROD-SECURITY',
-  'APPROVAL-LAI-PROD-LEGAL-DATA',
-  'APPROVAL-LAI-PROD-CUSTOMER-SCOPE',
-  'PROD-LAI-ENV-AUDIT',
-  'PROD-LAI-ALERT-DELIVERY',
-  'PROD-LAI-ROLLBACK-OWNER',
+  'APPROVAL-LAI-PROD-OPERATOR-2026-06-16',
+  'APPROVAL-LAI-PROD-SECURITY-2026-06-16',
+  'APPROVAL-LAI-PROD-LEGAL-DATA-2026-06-16',
+  'APPROVAL-LAI-PROD-CUSTOMER-SCOPE-2026-06-16',
+  'PROD-LAI-ENV-AUDIT-2026-06-16',
+  'PROD-LAI-ALERT-STATE-2026-06-16',
+  'PROD-LAI-ALERT-DELIVERY-PENDING',
+  'PROD-LAI-ROLLBACK-OWNER-2026-06-16',
+  'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
   'pnpm local-ai:prod-ready',
 ]) {
   assertContains(gate, expected, 'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md');
 }
 
-if (
-  gate.includes('YYYY-MM-DD') &&
-  (!gate.includes('GOVERNANCE_APPROVAL BLOCKED') || !gate.includes('PRODUCTION_ENABLEMENT BLOCKED'))
-) {
+if (gate.includes('YYYY-MM-DD')) {
   throw new Error(
-    'LOCAL_AI_PROD_READY_gate.md cannot retain YYYY-MM-DD placeholders after governance or enablement is unblocked',
+    'LOCAL_AI_PROD_READY_gate.md cannot retain YYYY-MM-DD placeholders after runtime canary activation',
   );
 }
 
 const enablement = contents.get('docs/release/local-ai-production-enablement-runbook.md');
 for (const expected of [
-  'PLAN ONLY - DO NOT ENABLE',
-  'Enablement Order After Approval',
+  'RUNTIME CANARY ACTIVE',
+  'UPLOAD PREP QUEUE DO NOT ENABLE',
+  'canary allowlist patch',
   'AI_PREP_TENANT_MAX_CONCURRENCY=1',
+  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=true',
+  'AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>',
   'AI_SUMMARY_GEMMA_ENABLED=false',
   'Rollback',
   'Emergency Disable',
@@ -104,10 +111,12 @@ for (const expected of [
 
 const opsRunbook = contents.get('docs/release/local-ai-ops-runbook.md');
 for (const expected of [
-  'Production-disabled defaults',
-  'LOCAL_GEMMA_ENABLED=false',
+  'Production canary boundary',
+  'LOCAL_GEMMA_ENABLED=true',
+  'AI_PREP_ENABLED=false',
   'AI_PREP_QUEUE_WORKER_ENABLED=false',
-  'PACK-LAI-20 governance gate',
+  'AI_PREP_REQUIRE_TENANT_ALLOWLIST',
+  'AI_PREP_CANARY_TENANT_IDS',
 ]) {
   assertContains(opsRunbook, expected, 'docs/release/local-ai-ops-runbook.md');
 }
@@ -116,7 +125,9 @@ const productionRunbook = contents.get('docs/release/production-release-runbook.
 for (const expected of [
   'LOCAL_AI_PROD_READY_gate.md',
   'local-ai-production-enablement-runbook.md',
-  'Local Gemma runtime execution remains disabled',
+  'Local Gemma runtime canary is active',
+  'Upload-prep queue execution remains',
+  'disabled until the canary tenant allowlist patch',
 ]) {
   assertContains(productionRunbook, expected, 'docs/release/production-release-runbook.md');
 }
@@ -126,7 +137,11 @@ for (const expected of [
   'EV-LAI-PROD-001',
   'EV-LAI-PROD-002',
   'EV-LAI-PROD-003',
-  'approval-required',
+  'EV-LAI-PROD-004',
+  'EV-LAI-PROD-005',
+  'approved-runtime-canary',
+  'active-runtime-canary',
+  'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }

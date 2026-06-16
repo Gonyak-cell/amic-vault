@@ -1,15 +1,22 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type { Job, PgBoss, SendOptions } from 'pg-boss';
-import { aiPrepArtifactKindSchema, aiPrepArtifactKinds, type AuditMetadata } from '@amic-vault/shared';
+import {
+  aiPrepArtifactKindSchema,
+  aiPrepArtifactKinds,
+  type AuditMetadata,
+} from '@amic-vault/shared';
 import { AuditService } from '../../audit/audit.service';
 import { pgBossDbFromPoolClient } from '../../document/extraction/pool-client-db-adapter';
 import { AiPrepProcessor } from './ai-prep.processor';
-import {
-  aiPrepDeadLetterQueueName,
-  aiPrepQueueName,
-  type AiPrepJobPayload,
-} from './ai-prep.types';
+import { aiPrepDeadLetterQueueName, aiPrepQueueName, type AiPrepJobPayload } from './ai-prep.types';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -19,6 +26,47 @@ function workerEnabled(): boolean {
   return ['1', 'true', 'yes'].includes(
     (process.env.AI_PREP_QUEUE_WORKER_ENABLED ?? '').trim().toLowerCase(),
   );
+}
+
+function truthy(raw: string | undefined): boolean {
+  return ['1', 'true', 'yes'].includes((raw ?? '').trim().toLowerCase());
+}
+
+export function aiPrepEnabled(): boolean {
+  return truthy(process.env.AI_PREP_ENABLED);
+}
+
+export function aiPrepCanaryTenantIds(raw = process.env.AI_PREP_CANARY_TENANT_IDS): Set<string> {
+  return new Set(
+    (raw ?? '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  );
+}
+
+function tenantAllowlistRequired(): boolean {
+  const explicit = process.env.AI_PREP_REQUIRE_TENANT_ALLOWLIST;
+  if (explicit !== undefined) return truthy(explicit);
+  return process.env.NODE_ENV === 'production';
+}
+
+export function aiPrepTenantAllowed(
+  tenantId: string,
+  options: { canaryTenantIds?: ReadonlySet<string>; requireAllowlist?: boolean } = {},
+): boolean {
+  const allowedTenantIds = options.canaryTenantIds ?? aiPrepCanaryTenantIds();
+  const requireAllowlist = options.requireAllowlist ?? tenantAllowlistRequired();
+  if (allowedTenantIds.size === 0) return !requireAllowlist;
+  return allowedTenantIds.has(tenantId);
+}
+
+export function aiPrepGateFailureReason(
+  tenantId: string,
+): 'AI_PREP_DISABLED' | 'AI_PREP_SCOPE_DENIED' | null {
+  if (!aiPrepEnabled()) return 'AI_PREP_DISABLED';
+  if (!aiPrepTenantAllowed(tenantId)) return 'AI_PREP_SCOPE_DENIED';
+  return null;
 }
 
 function parsePositiveInteger(raw: string | undefined, fallback: number): number {
@@ -34,10 +82,7 @@ export function aiPrepTenantConcurrencyAllows(
   return (activeTenantCounts.get(tenantId) ?? 0) < maxTenantConcurrency;
 }
 
-export function aiPrepQueueSendOptions(
-  payload: AiPrepJobPayload,
-  client: PoolClient,
-): SendOptions {
+export function aiPrepQueueSendOptions(payload: AiPrepJobPayload, client: PoolClient): SendOptions {
   return {
     singletonKey: `${payload.versionId}:${payload.artifactKind}`,
     retryLimit: 5,
@@ -94,6 +139,30 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
   ): Promise<string[]> {
     const targetMatterId = input.matterId ?? (await this.findMatterId(input, client));
     if (!targetMatterId) return [];
+    const gateFailureReason = aiPrepGateFailureReason(input.tenantId);
+    if (gateFailureReason) {
+      await this.auditService.log(
+        {
+          tenantId: input.tenantId,
+          actorType: 'system',
+          actorId: null,
+          action: 'AI_PREP_BLOCKED',
+          targetType: 'document_version',
+          targetId: input.versionId,
+          matterId: targetMatterId,
+          result: 'denied',
+          metadata: prepAuditMetadata({
+            document_id: input.documentId,
+            version_id: input.versionId,
+            matter_id: targetMatterId,
+            ai_prep_status: 'blocked',
+            reason_code: gateFailureReason,
+          }),
+        },
+        client,
+      );
+      return [];
+    }
     const jobIds: string[] = [];
     for (const artifactKind of defaultAiPrepArtifactKinds()) {
       const payload: AiPrepJobPayload = {
@@ -104,7 +173,11 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
         artifactKind,
       };
       const boss = await this.ensureStarted();
-      const jobId = await boss.send(aiPrepQueueName, payload, aiPrepQueueSendOptions(payload, client));
+      const jobId = await boss.send(
+        aiPrepQueueName,
+        payload,
+        aiPrepQueueSendOptions(payload, client),
+      );
       if (!jobId) throw new Error('ai prep job enqueue returned no id');
       jobIds.push(jobId);
       await this.auditService.log(
@@ -156,6 +229,28 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async handleQueuedJob(job: Job<AiPrepJobPayload>): Promise<void> {
     if (!this.processor) return;
+    const gateFailureReason = aiPrepGateFailureReason(job.data.tenantId);
+    if (gateFailureReason) {
+      await this.auditService.log({
+        tenantId: job.data.tenantId,
+        actorType: 'system',
+        actorId: null,
+        action: 'AI_PREP_BLOCKED',
+        targetType: 'document_version',
+        targetId: job.data.versionId,
+        matterId: job.data.matterId ?? null,
+        result: 'denied',
+        metadata: prepAuditMetadata({
+          document_id: job.data.documentId,
+          version_id: job.data.versionId,
+          matter_id: job.data.matterId ?? null,
+          ai_prep_kind: job.data.artifactKind,
+          ai_prep_status: 'blocked',
+          reason_code: gateFailureReason,
+        }),
+      });
+      return;
+    }
     if (!aiPrepTenantConcurrencyAllows(this.activeTenantCounts, job.data.tenantId)) {
       throw new Error('ai prep tenant concurrency limit reached');
     }
