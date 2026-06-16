@@ -1,7 +1,7 @@
 # Launch Control Sheet
 
 Status: PRODUCTION DEPLOYED - MONITORING ACTIVE
-Date: 2026-06-15
+Date: 2026-06-16
 
 This is the one-page control sheet for the release-completion lane. It shows the
 current technical state, the commands Codex can run, and the approval refs that
@@ -11,7 +11,7 @@ Previous baseline label `PREPARED - NOT LAUNCHED` is superseded for the current
 release-control SHA. AWS staging passed, approvals were recorded, production
 bootstrap executed under non-secret evidence refs, operational alarms were
 strengthened, final smoke passed, the latest production patch
-`PROD-PATCH-42E7B29-DEPLOY-2026-06-15` passed full smoke, and actual customer
+`PROD-PATCH-46C6B14-DEPLOY-2026-06-16` passed full smoke, and actual customer
 documents are approved only through the app-controlled upload/versioning path.
 
 ## Current Technical State
@@ -28,7 +28,7 @@ documents are approved only through the app-controlled upload/versioning path.
 | Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15 / APPROVAL-LRB-014-JWS-OWNER-2026-06-15 |
 | Production gate approvals | approved | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
 | Production execution preflight | production-smoke-passed | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / `pnpm release:prod-preflight` |
-| Production patch release | production-smoke-passed | PROD-PATCH-D80FBB5-DEPLOY-2026-06-15 / PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15 |
+| Production patch release | production-smoke-passed | PROD-PATCH-D80FBB5-DEPLOY-2026-06-15 / PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15 / PROD-PATCH-46C6B14-DEPLOY-2026-06-16 / PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16 |
 | Production monitoring | active-monitoring | PROD-MONITOR-AWS-001 / PROD-MONITOR-ALARMS-AWS-2026-06-15 |
 | Customer launch final smoke | passed | PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / EV-PROD-011 |
 | docs/package freeze | enforced | `pnpm docs:frozen` |

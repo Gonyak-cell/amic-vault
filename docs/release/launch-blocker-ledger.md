@@ -124,6 +124,18 @@ post-launch monitoring active for this pack.
   operator approval; `PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15` passed
   SMOKE-001 through SMOKE-015 with pass=15 fail=0 skip=0; target groups ended
   healthy-only and production alarms were OK.
+- Production patch `PROD-PATCH-46C6B14-DEPLOY-2026-06-16` deployed current
+  main HEAD `46c6b14c4d0fd143b478e3184018635c9f96568a`. API, web, ingestion,
+  and one-off migrator image manifests were pushed; a pre-patch RDS snapshot
+  reached available status; the first migrator task exited before schema
+  mutation on app-role permission denial; the migration-role rerun applied
+  migrations `0069` through `0076` with exitCode 0 and migrator task
+  definitions were deregistered; production API/Web ECS services reached
+  desired=1/running=1/pending=0 on task revisions 6 and 10; Local Gemma
+  execution flags remain explicitly disabled in production task env pending
+  separate operator approval; `PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16`
+  passed SMOKE-001 through SMOKE-015 with pass=15 fail=0 skip=0; target groups
+  ended healthy-only and production alarms were OK.
 - Concrete endpoint values, account identifiers, ARNs, private URLs,
   screenshots, cookies, tokens, secret values, provider-console metadata, and
   customer data remain outside this repository.
