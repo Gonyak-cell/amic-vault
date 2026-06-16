@@ -206,7 +206,7 @@ Required tests:
 
 ## 8. PACK-OA05 Add-in MVP Client
 
-Future implementation pack. The add-in remains a thin client.
+Implementation pack. The add-in remains a thin client.
 
 | TUW                            | Objective                                                              |
 | ------------------------------ | ---------------------------------------------------------------------- |
@@ -216,6 +216,19 @@ Future implementation pack. The add-in remains a thin client.
 | `OUTLOOK-ADDIN-FILE-TUW-001`   | Submit selected message/attachments to filing request endpoint.        |
 | `OUTLOOK-ADDIN-STATUS-TUW-001` | Display safe queued/processing/completed/denied/failed statuses.       |
 | `OUTLOOK-ADDIN-ERROR-TUW-001`  | Use safe denied/unavailable states without leaking resource existence. |
+
+Implementation notes:
+
+- Branch/worktree: `codex/outlook-addin-client` at
+  `/Users/jws/Projects/amic-vault-outlook-oa05`.
+- Client surface: `apps/web/src/app/outlook-addin/page.tsx`.
+- Manifest surface: `apps/web/public/outlook-addin/manifest.xml`.
+- Hash-only extraction utilities live under `apps/web/src/lib/outlook-addin/`.
+- Matter suggestions are consumed only from `POST /v1/search/matter-suggestions`;
+  the client does not locally filter unauthorized matter IDs.
+- Filing requests are submitted only through
+  `POST /v1/m365/outlook/filing-requests`; the client displays returned status
+  and does not assume offline filing success.
 
 Stop conditions:
 
