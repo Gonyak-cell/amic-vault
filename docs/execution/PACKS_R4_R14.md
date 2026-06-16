@@ -129,6 +129,7 @@ integration gates open.
 | PACK-OA-09 | `codex/outlook-folder-mapping-autofile` | 5 | `OUTLOOK-FOLDERMAP-TUW-001` through `OUTLOOK-AUTOFILE-TUW-002` |
 | PACK-OA-10 | `codex/outlook-deployment-rollback` | 4 | `OUTLOOK-DEPLOY-TUW-001` through `OUTLOOK-DEPLOY-TUW-004` |
 | PACK-OA-11 | `codex/outlook-verification-evidence` | 8 | `OUTLOOK-VERIFY-TUW-001` through `OUTLOOK-VERIFY-TUW-008` |
+| PACK-OPS-OA-01 | `codex/outlook-operational-gates` | 10 | `OPS-OA-01` through `OPS-OA-08`, `OPS-OA-10`, `OPS-OA-11` |
 
 Planning contract: `docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md`.
 

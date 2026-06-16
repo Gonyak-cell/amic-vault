@@ -21,6 +21,8 @@
     "release:local-preflight": "node tools/release/local-staging-preflight.mjs",
     "outlook:deployment:check": "node tools/release/check-outlook-deployment.mjs",
     "outlook:verification:check": "node tools/release/check-outlook-verification.mjs",
+    "outlook:operational:check": "node --experimental-strip-types tools/release/check-outlook-operational.ts",
+    "outlook:redaction:check": "node --experimental-strip-types tools/release/check-outlook-redaction.ts --changed",
     "docs:frozen": "node infra/ci/scripts/check-docs-package-frozen.mjs",
     "db:migrate": "node tools/db/migrate.mjs up",
     "db:rollback": "node tools/db/migrate.mjs down 999",

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   CreateOutlookEmailFilingRequestDto,
   OutlookAttachmentRefDto,
@@ -15,6 +15,7 @@ import {
   outlookEmailFileDeniedAudit,
   outlookEmailFileRequestedAudit,
 } from './outlook-audit.events';
+import { OutlookOperationalGateService } from './outlook-operational-gate';
 
 interface OutlookFilingRequestRow {
   request_id: string;
@@ -68,10 +69,6 @@ function namespacedHash(namespace: string, value: string): string {
   return createHash('sha256').update(namespace).update('\0').update(value).digest('hex');
 }
 
-function isOutlookAddinEnabled(): boolean {
-  return process.env.OUTLOOK_ADDIN_ENABLED === 'true';
-}
-
 function attachmentSetHash(attachments: readonly OutlookAttachmentRefDto[]): string {
   const selected = attachments
     .filter((attachment) => attachment.selectedForFiling)
@@ -120,10 +117,15 @@ function toStatusDto(row: OutlookFilingRequestRow): OutlookFilingRequestStatusDt
 
 @Injectable()
 export class OutlookService {
+  private readonly fallbackOperationalGate = new OutlookOperationalGateService();
+
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(OutlookOperationalGateService)
+    private readonly operationalGate?: OutlookOperationalGateService,
   ) {}
 
   async createFilingRequest(
@@ -133,7 +135,7 @@ export class OutlookService {
     const tenantId = this.tenantContext.require().tenantId;
     const normalized = normalizeInput(input);
 
-    if (!isOutlookAddinEnabled()) {
+    if (!this.isOutlookFeatureAllowed()) {
       await this.recordDenied(
         tenantId,
         actorUserId,
@@ -181,6 +183,12 @@ export class OutlookService {
     });
 
     return toStatusDto(row);
+  }
+
+  private isOutlookFeatureAllowed(): boolean {
+    return (this.operationalGate ?? this.fallbackOperationalGate).isFeatureAllowed(
+      'ADDIN_BOOTSTRAP',
+    );
   }
 
   async getFilingRequestStatus(

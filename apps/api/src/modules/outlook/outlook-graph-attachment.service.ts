@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import {
   outlookApprovedScopeSetHashSource,
   outlookApprovedScopeNames,
@@ -21,6 +21,7 @@ import {
   OUTLOOK_GRAPH_ATTACHMENT_TRANSPORT,
   type OutlookGraphAttachmentTransport,
 } from './outlook-graph-attachment-transport';
+import { OutlookOperationalGateService } from './outlook-operational-gate';
 
 interface OutlookFilingRequestRow {
   request_id: string;
@@ -81,16 +82,14 @@ function namespacedHash(namespace: string, value: string): string {
   return createHash('sha256').update(namespace).update('\0').update(value).digest('hex');
 }
 
-function isGraphAttachmentAcquisitionEnabled(): boolean {
-  return process.env.OUTLOOK_GRAPH_ATTACHMENT_ACQUISITION_ENABLED === 'true';
-}
-
 function scopeSetHash(): string {
   return createHash('sha256').update(outlookApprovedScopeSetHashSource()).digest('hex');
 }
 
 @Injectable()
 export class OutlookGraphAttachmentService {
+  private readonly fallbackOperationalGate = new OutlookOperationalGateService();
+
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
@@ -98,6 +97,9 @@ export class OutlookGraphAttachmentService {
     @Inject(OutlookAuthService) private readonly authService: OutlookAuthService,
     @Inject(OUTLOOK_GRAPH_ATTACHMENT_TRANSPORT)
     private readonly graphTransport: OutlookGraphAttachmentTransport,
+    @Optional()
+    @Inject(OutlookOperationalGateService)
+    private readonly operationalGate?: OutlookOperationalGateService,
   ) {}
 
   async acquireAttachment(
@@ -113,7 +115,7 @@ export class OutlookGraphAttachmentService {
     const scopeCount = outlookApprovedScopeNames().length;
     const graphScopeSetHash = scopeSetHash();
 
-    if (!isGraphAttachmentAcquisitionEnabled()) {
+    if (!this.isOutlookFeatureAllowed()) {
       await this.recordAcquireDenied({
         tenantId,
         actorUserId,
@@ -253,6 +255,12 @@ export class OutlookGraphAttachmentService {
     });
 
     return this.toDto(row);
+  }
+
+  private isOutlookFeatureAllowed(): boolean {
+    return (this.operationalGate ?? this.fallbackOperationalGate).isFeatureAllowed(
+      'GRAPH_ATTACHMENT_ACQUISITION',
+    );
   }
 
   private async findRequest(

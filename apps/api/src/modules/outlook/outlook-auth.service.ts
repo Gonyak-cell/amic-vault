@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   OutlookAddinSessionDto,
   OutlookAddinSessionExchangeDto,
@@ -15,6 +15,7 @@ import {
   OUTLOOK_IDENTITY_VERIFIER,
   type OutlookIdentityVerifier,
 } from './outlook-identity-verifier';
+import { OutlookOperationalGateService } from './outlook-operational-gate';
 
 const ADDIN_SESSION_TTL_MS = 1000 * 60 * 30;
 
@@ -45,17 +46,18 @@ function namespacedHash(namespace: string, value: string): string {
   return createHash('sha256').update(namespace).update('\0').update(value).digest('hex');
 }
 
-function isOutlookAuthExchangeEnabled(): boolean {
-  return process.env.OUTLOOK_AUTH_EXCHANGE_ENABLED === 'true';
-}
-
 @Injectable()
 export class OutlookAuthService {
+  private readonly fallbackOperationalGate = new OutlookOperationalGateService();
+
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(OUTLOOK_IDENTITY_VERIFIER)
     private readonly identityVerifier: OutlookIdentityVerifier,
+    @Optional()
+    @Inject(OutlookOperationalGateService)
+    private readonly operationalGate?: OutlookOperationalGateService,
   ) {}
 
   async exchangeAddinSession(
@@ -67,7 +69,7 @@ export class OutlookAuthService {
     const addinSessionId = randomUUID();
     const clientRequestHash = namespacedHash('outlook-auth-client-request', input.clientRequestId);
 
-    if (!isOutlookAuthExchangeEnabled()) {
+    if (!this.isOutlookFeatureAllowed()) {
       await this.recordSessionDenied({
         tenantId,
         actorUserId,
@@ -149,6 +151,12 @@ export class OutlookAuthService {
       sourceClient: input.sourceClient,
       expiresAt: row.expires_at.toISOString(),
     };
+  }
+
+  private isOutlookFeatureAllowed(): boolean {
+    return (this.operationalGate ?? this.fallbackOperationalGate).isFeatureAllowed(
+      'AUTH_EXCHANGE',
+    );
   }
 
   async findActiveAddinSession(

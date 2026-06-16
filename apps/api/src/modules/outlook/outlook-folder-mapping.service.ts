@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   CreateOutlookFolderMappingDto,
   OutlookAutofileDeniedReasonCode,
@@ -20,6 +20,7 @@ import {
   outlookFolderMappingChangedAudit,
   outlookFolderMappingDeniedAudit,
 } from './outlook-audit.events';
+import { OutlookOperationalGateService } from './outlook-operational-gate';
 
 interface OutlookFolderMappingRow {
   mapping_id: string;
@@ -107,14 +108,6 @@ function namespacedHash(namespace: string, value: string): string {
   return createHash('sha256').update(namespace).update('\0').update(value).digest('hex');
 }
 
-function isOutlookFolderMappingEnabled(): boolean {
-  return process.env.OUTLOOK_FOLDER_MAPPING_ENABLED === 'true';
-}
-
-function isOutlookAutofileEnabled(): boolean {
-  return process.env.OUTLOOK_AUTOFILE_ENABLED === 'true';
-}
-
 function initialApprovalStatus(
   input: CreateOutlookFolderMappingDto,
 ): OutlookFolderMappingApprovalStatus {
@@ -172,6 +165,7 @@ function normalizeMappingInput(
 function normalizeAutofileJobInput(
   input: RecordOutlookAutofileJobInput,
   mapping: OutlookFolderMappingRow,
+  autoFileGateOpen: boolean,
 ): NormalizedAutofileJobInput {
   const retryCount = Math.max(0, Math.min(10, Math.trunc(input.retryCount ?? 0)));
   const dedupeHash = sha256Hex(
@@ -184,7 +178,7 @@ function normalizeAutofileJobInput(
   );
   const wrongMatter =
     input.expectedMatterId !== undefined && input.expectedMatterId !== mapping.matter_id;
-  const closedGate = !isOutlookAutofileEnabled();
+  const closedGate = !autoFileGateOpen;
   const inactiveMapping = mapping.approval_status !== 'active' || !mapping.auto_file_enabled;
   const deniedReasonCode: OutlookAutofileDeniedReasonCode | null = closedGate
     ? 'integration_gate_closed'
@@ -214,10 +208,15 @@ function normalizeAutofileJobInput(
 
 @Injectable()
 export class OutlookFolderMappingService {
+  private readonly fallbackOperationalGate = new OutlookOperationalGateService();
+
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(OutlookOperationalGateService)
+    private readonly operationalGate?: OutlookOperationalGateService,
   ) {}
 
   async createFolderMapping(
@@ -227,7 +226,7 @@ export class OutlookFolderMappingService {
     const tenantId = this.tenantContext.require().tenantId;
     const normalized = normalizeMappingInput(input);
 
-    if (!isOutlookFolderMappingEnabled()) {
+    if (!this.isOutlookFeatureAllowed('FOLDER_MAPPING')) {
       await this.recordMappingDenied(
         tenantId,
         actorUserId,
@@ -297,7 +296,7 @@ export class OutlookFolderMappingService {
       );
       throw permissionDenied();
     }
-    if (!isOutlookFolderMappingEnabled() && input.approvalDecision !== 'revoke') {
+    if (!this.isOutlookFeatureAllowed('FOLDER_MAPPING') && input.approvalDecision !== 'revoke') {
       await this.recordExistingMappingDenied(
         tenantId,
         actorUserId,
@@ -342,13 +341,14 @@ export class OutlookFolderMappingService {
       );
       throw permissionDenied();
     }
-    if (input.autoFileEnabled && (!isOutlookAutofileEnabled() || !isAdminRole(actorRole))) {
+    const autoFileGateOpen = this.isOutlookFeatureAllowed('AUTOFILE');
+    if (input.autoFileEnabled && (!autoFileGateOpen || !isAdminRole(actorRole))) {
       await this.recordExistingMappingDenied(
         tenantId,
         actorUserId,
         mapping,
         input.clientRequestId,
-        isOutlookAutofileEnabled() ? 'approval_required' : 'integration_gate_closed',
+        autoFileGateOpen ? 'approval_required' : 'integration_gate_closed',
       );
       throw permissionDenied();
     }
@@ -419,7 +419,11 @@ export class OutlookFolderMappingService {
       throw permissionDenied();
     }
 
-    const normalized = normalizeAutofileJobInput(input, mapping);
+    const normalized = normalizeAutofileJobInput(
+      input,
+      mapping,
+      this.isOutlookFeatureAllowed('AUTOFILE'),
+    );
     const row = await this.auditService.transaction(tenantId, async (tx) => {
       const inserted = await this.insertOrFindAutofileJob(tx, tenantId, mapping, input, normalized);
       await this.auditService.log(
@@ -445,6 +449,10 @@ export class OutlookFolderMappingService {
       return inserted;
     });
     return toAutofileDto(row);
+  }
+
+  private isOutlookFeatureAllowed(feature: 'FOLDER_MAPPING' | 'AUTOFILE'): boolean {
+    return (this.operationalGate ?? this.fallbackOperationalGate).isFeatureAllowed(feature);
   }
 
   private nextStatus(

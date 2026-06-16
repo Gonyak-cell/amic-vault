@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   CreateOutlookSendFileRequestDto,
   EvaluateOutlookSendPolicyDto,
@@ -21,6 +21,7 @@ import {
   outlookSendFileRequestedAudit,
   outlookSendPolicyEvaluatedAudit,
 } from './outlook-audit.events';
+import { OutlookOperationalGateService } from './outlook-operational-gate';
 
 interface OutlookSendFilingRequestRow {
   request_id: string;
@@ -82,14 +83,6 @@ function sha256Hex(value: string): string {
 
 function namespacedHash(namespace: string, value: string): string {
   return createHash('sha256').update(namespace).update('\0').update(value).digest('hex');
-}
-
-function isOutlookSmartAlertsEnabled(): boolean {
-  return process.env.OUTLOOK_SMART_ALERTS_ENABLED === 'true';
-}
-
-function isOutlookSendFileEnabled(): boolean {
-  return process.env.OUTLOOK_SEND_FILE_ENABLED === 'true';
 }
 
 function attachmentSetHash(attachments: readonly OutlookAttachmentRefDto[]): string {
@@ -175,11 +168,16 @@ function toSendStatusDto(row: OutlookSendFilingRequestRow): OutlookSendFileReque
 
 @Injectable()
 export class OutlookSendFileService {
+  private readonly fallbackOperationalGate = new OutlookOperationalGateService();
+
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(SearchService) private readonly searchService: SearchService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(OutlookOperationalGateService)
+    private readonly operationalGate?: OutlookOperationalGateService,
   ) {}
 
   async evaluateSendPolicy(
@@ -189,7 +187,7 @@ export class OutlookSendFileService {
     const tenantId = this.tenantContext.require().tenantId;
     const normalized = normalizePolicyInput(input);
 
-    if (!isOutlookSmartAlertsEnabled()) {
+    if (!this.isOutlookFeatureAllowed('SMART_ALERTS')) {
       await this.recordPolicyEvaluation(tenantId, actorUserId, input.matterId ?? null, {
         normalized,
         decision: 'block',
@@ -220,7 +218,7 @@ export class OutlookSendFileService {
     const tenantId = this.tenantContext.require().tenantId;
     const normalized = normalizeSendInput(input);
 
-    if (!isOutlookSendFileEnabled()) {
+    if (!this.isOutlookFeatureAllowed('SEND_FILE')) {
       await this.recordSendDenied(
         tenantId,
         actorUserId,
@@ -230,7 +228,7 @@ export class OutlookSendFileService {
       );
       throw permissionDenied();
     }
-    if (!isOutlookSmartAlertsEnabled()) {
+    if (!this.isOutlookFeatureAllowed('SMART_ALERTS')) {
       await this.recordSendDenied(
         tenantId,
         actorUserId,
@@ -321,6 +319,10 @@ export class OutlookSendFileService {
     });
 
     return toSendStatusDto(row);
+  }
+
+  private isOutlookFeatureAllowed(feature: 'SMART_ALERTS' | 'SEND_FILE'): boolean {
+    return (this.operationalGate ?? this.fallbackOperationalGate).isFeatureAllowed(feature);
   }
 
   private async evaluatePolicyInternal(
