@@ -25,6 +25,7 @@ import {
 import { WallMembershipReader } from './wall-membership.reader';
 import { DocumentPermissionService } from './document-permission.service';
 import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
+import { tenantQuery } from '../../common/db/tenant-query';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -355,12 +356,14 @@ export class PermissionService {
   }
 
   protected async findActor(tenantId: TenantId, userId: string): Promise<ActorSnapshot | null> {
-    const result = await getPool().query<{
+    const result = await tenantQuery<{
       user_id: string;
       role: string;
       status: string;
       practice_group: string | null;
     }>(
+      getPool(),
+      tenantId,
       `
         SELECT user_id, role, status, practice_group
         FROM users
@@ -381,13 +384,15 @@ export class PermissionService {
   }
 
   protected async findMatter(tenantId: TenantId, matterId: string): Promise<MatterSnapshot | null> {
-    const result = await getPool().query<{
+    const result = await tenantQuery<{
       matter_id: string;
       tenant_id: TenantId;
       status: string;
       client_id: string | null;
       practice_group: string | null;
     }>(
+      getPool(),
+      tenantId,
       `
         SELECT matter_id, tenant_id, status, client_id, practice_group
         FROM matters
@@ -414,7 +419,9 @@ export class PermissionService {
     matterId: string,
     userId: string,
   ): Promise<MatterMemberSnapshot | null> {
-    const result = await getPool().query<MatterMemberSnapshot>(
+    const result = await tenantQuery<MatterMemberSnapshot>(
+      getPool(),
+      tenantId,
       `
         SELECT matter_role AS "matterRole", access_level AS "accessLevel"
         FROM matter_members
@@ -434,7 +441,9 @@ export class PermissionService {
     actor: ActorSnapshot,
     action: MatterPermissionAction,
   ): Promise<ExplicitPermissionRow[]> {
-    const result = await getPool().query<ExplicitPermissionRow>(
+    const result = await tenantQuery<ExplicitPermissionRow>(
+      getPool(),
+      tenantId,
       `
         SELECT permission_id AS "permissionId", effect, condition_json, priority
         FROM permissions p

@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 import type { TenantId } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -30,11 +31,13 @@ export class BreakGlassOverrideReader {
     userId: string,
     wallId?: string,
   ): Promise<BreakGlassOverride | null> {
-    const result = await getPool().query<{
+    const result = await tenantQuery<{
       request_id: string;
       wall_id: string;
       expires_at: Date;
     }>(
+      getPool(),
+      tenantId,
       `
         SELECT bgr.request_id, bgr.wall_id, bgr.expires_at
         FROM break_glass_requests bgr
