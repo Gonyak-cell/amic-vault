@@ -56,6 +56,16 @@ CloudWatch alarms were OK. Concrete endpoints, account IDs, ARNs,
 provider-console metadata, cookies, tokens, secret values, and customer data
 remain outside this repository.
 
+Local Gemma runtime execution remains disabled for production until the separate
+Local AI production readiness and governance flow is complete. Do not treat the
+general production release approval as Local AI runtime approval. Required refs:
+
+- `docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md`
+- `docs/release/local-ai-production-enablement-runbook.md`
+- `pnpm local-ai:prod-ready`
+- operator/security/legal-data/customer-scope approval evidence refs
+- live production env audit evidence confirming disabled flags before change
+
 Customer-launch evidence `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` approves
 actual customer documents only through the Vault app-controlled
 upload/versioning path. `APPROVAL-LRB-014-JWS-OWNER-2026-06-15` assigns support
@@ -107,5 +117,7 @@ Stop the release if any of these occur:
 - Any secret, real customer data, or raw sensitive document content is exposed in
   logs or release artifacts.
 - External model route opens unexpectedly.
+- Local AI production flags are enabled without
+  `LOCAL_AI_PROD_READY_gate.md` and governance approval refs.
 - External sharing behavior differs from R11 gate evidence.
 - Operator, security, legal, product, or data approval is missing.

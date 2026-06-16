@@ -1,6 +1,7 @@
 # Local AI Operations Runbook
 
-Status: PACK-LAI-05 local-only operations baseline.
+Status: PACK-LAI-19 product-ops surface. Production enablement remains disabled
+until the separate PACK-LAI-20 governance gate is approved.
 
 ## Runtime
 
@@ -36,6 +37,15 @@ Operational flags:
 - `LOCAL_GEMMA_MODEL`: model tag; default `gemma4:12b`.
 - `LOCAL_GEMMA_TIMEOUT_MS`: generation timeout.
 
+Production-disabled defaults:
+
+- `LOCAL_GEMMA_ENABLED=false` unless the production readiness gate and
+  governance approval gate both have current evidence.
+- `AI_PREP_QUEUE_WORKER_ENABLED=false` for production deploys until the same
+  approval evidence exists.
+- External model routes remain disallowed; do not add remote model endpoints or
+  API keys as a workaround.
+
 ## Health And Metrics
 
 Admin-only endpoints:
@@ -45,11 +55,38 @@ Admin-only endpoints:
 
 The response exposes model route, model tag, endpoint class, queue backlog, blocked counts, and latency aggregates. It never returns endpoint URLs, prompts, source text, model responses, API keys, tokens, or private host details.
 
+Admin metrics must keep rejected, stale, and fallback prep counts separate:
+
+- `prepRejectedCount`: local model output was discarded and raw output was not
+  stored.
+- `prepStaleCount`: stored file-organization artifacts need rebuild after
+  source, permission, policy, or metadata changes.
+- `prepFallbackCount`: bounded deterministic fallback artifacts were produced
+  instead of a validated local model output.
+
+Non-admin users must not see aggregate ops state.
+
+## Product Status Surface
+
+User-facing prep surfaces describe file organization only:
+
+- Prepared: completed, non-stale file organization card.
+- Preparing: queued or pending prep work.
+- Stale: card is hidden and requires rebuild.
+- Blocked: policy or permission guard blocked prep.
+- Failed: retry is required.
+- Discarded: invalid local output was rejected; no generated card is shown.
+- Fallback: bounded deterministic fallback card, tracked separately from a
+  validated model output.
+
+Do not describe these cards as legal analysis, issue spotting, merits review, or
+advice.
+
 ## Degradation
 
 - Runtime unavailable: health status `blocked`, prep upload/indexing continues without blocking document ingestion.
-- Invalid model output: artifact is `blocked`; raw response is not persisted.
-- Stale artifacts: matter dashboard retry reuses `ai.prep` singleton jobs and records `AI_PREP_REQUESTED`.
+- Invalid model output: artifact is `rejected`; raw response is not persisted.
+- Stale artifacts: status APIs hide stored payloads, record bounded `AI_PREP_STALE` reasons, and rebuild only through `ai.prep` singleton jobs.
 - Permission/policy uncertainty: fail closed as `PERMISSION_DENIED` or `AI_POLICY_BLOCKED`.
 
 ## Evaluation
@@ -60,15 +97,37 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm eval:local-ai -- --tenant-id 11111
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm eval:ai-gate -- --tenant-id 11111111-1111-4111-8111-111111111111
 ```
 
-## Reprocess Fallback Prep
+## Reprocess Prep Artifacts
 
-When `eval:local-ai` reports a high fallback rate after local Gemma hardening, reprocess current completed fallback artifacts through the same local-only `AiPrepProcessor` path. The tool logs bounded `AI_PREP_REQUESTED` audit records and processor completion logs `AI_PREP_COMPLETED`; it does not store prompts, source text, or raw model responses.
+When `eval:local-ai` reports a high fallback rate, or ops show stale/rejected prep artifacts after permission, policy, metadata, version, or source-chunk changes, reprocess artifacts through the same local-only `AiPrepProcessor` path. The tool logs bounded `AI_PREP_REQUESTED` audit records and processor completion logs `AI_PREP_COMPLETED` or `AI_PREP_REJECTED`; it does not update payloads directly and does not store prompts, source text, or raw model responses.
 
 ```bash
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --dry-run
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --limit 25
+PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --include all --dry-run
+PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm ai-prep:reprocess-fallbacks -- --tenant-id 11111111-1111-4111-8111-111111111111 --include stale,rejected,fallback --limit 25
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm eval:local-ai -- --tenant-id 11111111-1111-4111-8111-111111111111
 ```
+
+## Structured Feedback
+
+Feedback is recorded only with bounded reason codes and audited reference
+metadata:
+
+- `useful`
+- `incorrect_profile`
+- `incorrect_fields`
+- `incorrect_tags`
+- `incorrect_filing_suggestion`
+- `missing_citation`
+- `missing_source_ref`
+- `stale_artifact`
+- `rejected_output`
+- `permission_concern`
+- `other_structured`
+
+Do not add a free-form comment column, document excerpt, prompt, source text, or
+model response to feedback records.
 
 Gate expectations:
 

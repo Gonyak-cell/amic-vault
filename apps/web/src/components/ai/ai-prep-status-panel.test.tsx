@@ -8,14 +8,64 @@ describe('AiPrepStatusPanel', () => {
   it('renders authorized prep output with citation refs and no raw hidden fields', () => {
     const html = renderToStaticMarkup(<AiPrepStatusPanel status={status()} />);
 
-    expect(html).toContain('AI prep');
-    expect(html).toContain('document_profile');
+    expect(html).toContain('File organization prep');
+    expect(html).toContain('Document profile');
     expect(html).toContain('Grounded answer.');
     expect(html).toContain('chunk:11111111-1111-4111-8111-111111111118');
-    expect(html).toContain('Mark document_profile useful');
-    expect(html).not.toMatch(/prompt|raw source|model response|hidden unauthorized/i);
+    expect(html).toContain('Mark Document profile useful');
+    expect(html).toContain('missing source ref');
+    expect(html).not.toMatch(
+      /legal analysis|prompt|raw source|model response|hidden unauthorized/i,
+    );
+  });
+
+  it('does not display stale payloads as prepared cards', () => {
+    const html = renderToStaticMarkup(
+      <AiPrepStatusPanel
+        status={{
+          ...status(),
+          readinessStatus: 'stale',
+          artifacts: [
+            {
+              ...artifact(),
+              isStale: true,
+              staleReason: 'permission_changed',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain('Rebuild needed.');
+    expect(html).not.toContain('Grounded answer.');
+  });
+
+  it('does not display rejected payloads as prepared cards', () => {
+    const html = renderToStaticMarkup(
+      <AiPrepStatusPanel
+        status={{
+          ...status(),
+          readinessStatus: 'rejected',
+          artifacts: [
+            {
+              ...artifact(),
+              status: 'rejected',
+              generatedAt: null,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain('Generated output discarded.');
+    expect(html).toContain('rejected output');
+    expect(html).not.toContain('Grounded answer.');
   });
 });
+
+function artifact(): AiPrepDocumentStatusDto['artifacts'][number] {
+  return status().artifacts[0]!;
+}
 
 function status(): AiPrepDocumentStatusDto {
   const chunkId = '11111111-1111-4111-8111-111111111118';
@@ -29,6 +79,7 @@ function status(): AiPrepDocumentStatusDto {
         artifactKind: 'document_profile',
         status: 'completed',
         isStale: false,
+        staleReason: null,
         sourceChunkCount: 1,
         generatedAt: '2026-06-15T00:00:00.000Z',
         updatedAt: '2026-06-15T00:00:01.000Z',

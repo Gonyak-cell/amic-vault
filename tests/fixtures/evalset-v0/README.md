@@ -4,4 +4,12 @@ This directory may contain only deidentified JSON evaluation cases. Raw contract
 
 Use `pnpm evalset:load -- --tenant-id <tenant_uuid> --dir tests/fixtures/evalset-v0` to load fixtures into `evaluation_cases`.
 
-The committed sample is synthetic and intentionally below the 20-case operational target; production R3 Gate notes must record the real reviewed count.
+The committed LAI-18 fixture includes 100 synthetic upload-prep cases plus the
+original two retrieval smoke cases. Regenerate the upload-prep set with:
+
+```bash
+pnpm evalset:generate-upload-prep
+```
+
+The generator is deterministic and may only emit synthetic/deidentified
+file-organization prompts, never raw customer text.

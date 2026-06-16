@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
+  adaptEvidencePackToPrepSourceRefs,
   aiPrepArtifactAllowedClaimKinds,
   aiPrepGroundedGenerationOutputSchema,
   parseAiPrepArtifactPayload,
   type AiPrepArtifactKind,
   type AiPrepArtifactPayloadDto,
+  type AiPrepStaleReason,
   type EvidencePackDto,
 } from '@amic-vault/shared';
 import { AiPolicyService } from '../../ai-policy/ai-policy.service';
@@ -18,11 +20,13 @@ import { AiEvidencePromptCompiler } from '../generation/evidence-prompt.compiler
 import { LocalGemmaGenerationService } from '../generation/local-gemma-generation.service';
 import { AiRedactionPreprocessor } from '../retrieval/redaction-preprocessor';
 import { AiPrepRepository } from './ai-prep.repository';
+import { applyAiPrepRetrievalPlan, planAiPrepRetrieval } from './ai-prep-retrieval-planner';
 import type { AiPrepJobPayload, AiPrepSource, AiPrepSourceChunk } from './ai-prep.types';
 
 @Injectable()
 export class AiPrepProcessor {
   private readonly logger = new Logger(AiPrepProcessor.name);
+  private readonly newVersionStaleReason: AiPrepStaleReason = 'new_version';
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -64,7 +68,7 @@ export class AiPrepProcessor {
                 document_id: payload.documentId,
                 version_id: payload.versionId,
                 matter_id: found.matterId,
-                stale_reason: 'new_version',
+                stale_reason: this.newVersionStaleReason,
               },
             },
             tx,
@@ -124,17 +128,50 @@ export class AiPrepProcessor {
       return;
     }
 
+    const retrievalPlan = planAiPrepRetrieval({
+      artifactKind: payload.artifactKind,
+      matterId: source.matterId,
+    });
+    const plannedRedactedChunks = applyAiPrepRetrievalPlan(redacted.chunks, retrievalPlan);
+    if (plannedRedactedChunks.length === 0) {
+      await this.recordBlocked(source, payload, 'AI_PREP_NO_SOURCE_CHUNKS', []);
+      return;
+    }
+    const plannedChunkIds = new Set(plannedRedactedChunks.map((chunk) => chunk.chunkId));
+    const plannedSource: AiPrepSource = {
+      ...source,
+      chunks: source.chunks.filter((chunk) => plannedChunkIds.has(chunk.chunkId)),
+    };
+    if (plannedSource.chunks.length !== plannedRedactedChunks.length) {
+      await this.recordBlocked(source, payload, 'AI_PREP_EVIDENCE_SOURCE_REF_MISMATCH', []);
+      return;
+    }
+
     const pack = this.repository.buildEvidencePack({
-      source,
-      chunks: redacted.chunks,
+      source: plannedSource,
+      chunks: plannedRedactedChunks,
       artifactKind: payload.artifactKind,
       appliedRules: [
         ...(scopeDecision.appliedRules ?? []),
         ...redacted.appliedRules,
+        ...retrievalPlan.appliedRules,
         'ai_prep.permission:created_by_scope',
         'ai_prep.policy:local_gemma_allowed',
       ],
+      tokenBudget: retrievalPlan.tokenBudget,
     });
+    let prepAdapter: ReturnType<typeof adaptEvidencePackToPrepSourceRefs>;
+    try {
+      prepAdapter = adaptEvidencePackToPrepSourceRefs(pack);
+    } catch {
+      await this.recordBlocked(
+        plannedSource,
+        payload,
+        'AI_PREP_EVIDENCE_SOURCE_REF_MISMATCH',
+        plannedSource.chunks,
+      );
+      return;
+    }
     const compileOptions = {
       purpose: 'file_organization_prep' as const,
       artifactKind: payload.artifactKind,
@@ -152,16 +189,16 @@ export class AiPrepProcessor {
         const payloadJson = parsePrepPayload(
           {
             ...generationResult.output,
-            source_refs: pack.citationRequirements.sourceRefs,
+            source_refs: prepAdapter.source_refs,
           },
           payload.artifactKind,
         );
         const responseHash = sha256Hex(JSON.stringify(payloadJson));
         await this.auditService.transaction(source.tenantId, async (tx) => {
           const artifactId = await this.repository.upsertCompleted(tx, {
-            source,
+            source: plannedSource,
             artifactKind: payload.artifactKind,
-            sourceChunks: source.chunks,
+            sourceChunks: plannedSource.chunks,
             promptHash,
             responseHash,
             payload: payloadJson,
@@ -171,11 +208,11 @@ export class AiPrepProcessor {
           await this.recordArtifactAudit(tx, {
             action: 'AI_PREP_COMPLETED',
             artifactId,
-            source,
+            source: plannedSource,
             payload,
             status: 'completed',
             result: 'success',
-            sourceChunkCount: source.chunks.length,
+            sourceChunkCount: plannedSource.chunks.length,
             promptHash,
             responseHash,
             generationResult: 'gemma',
@@ -183,7 +220,7 @@ export class AiPrepProcessor {
         });
         return;
       } catch {
-        await this.recordRejected(source, payload, pack, {
+        await this.recordRejected(plannedSource, payload, pack, {
           reasonCode: 'AI_PREP_VALIDATION_FAILED',
           promptHash,
           modelName: generationResult.model,
@@ -193,7 +230,7 @@ export class AiPrepProcessor {
       }
     }
 
-    await this.recordRejected(source, payload, pack, {
+    await this.recordRejected(plannedSource, payload, pack, {
       reasonCode: normalizeBlockedReason(generationResult.reasonCode),
       promptHash,
       modelName: generationResult.model,
@@ -212,8 +249,9 @@ export class AiPrepProcessor {
       latencyMs?: number | undefined;
     },
   ): Promise<void> {
+    const prepAdapter = adaptEvidencePackToPrepSourceRefs(pack);
     const payloadJson = buildDeterministicRejectedPayload(
-      pack,
+      prepAdapter.source_refs,
       payload.artifactKind,
       input.reasonCode,
     );
@@ -357,11 +395,11 @@ function parsePrepPayload(
 }
 
 function buildDeterministicRejectedPayload(
-  pack: EvidencePackDto,
+  sourceRefsInput: readonly string[],
   artifactKind: AiPrepArtifactKind,
   reasonCode: string,
 ): AiPrepArtifactPayloadDto {
-  const sourceRefs = pack.citationRequirements.sourceRefs.slice(0, 50);
+  const sourceRefs = sourceRefsInput.slice(0, 50);
   const primarySourceRef = sourceRefs[0];
   if (!primarySourceRef) {
     throw new Error('deterministic ai prep rejected artifact requires source refs');

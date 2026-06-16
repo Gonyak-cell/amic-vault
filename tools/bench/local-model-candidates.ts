@@ -14,7 +14,7 @@ export interface LocalModelBenchCandidate {
   sourceUrls: readonly string[];
 }
 
-export const localModelBenchCatalogDate = '2026-06-15';
+export const localModelBenchCatalogDate = '2026-06-16';
 
 export const localModelBenchCandidates = [
   {
@@ -55,6 +55,42 @@ export const localModelBenchCandidates = [
     sourceUrls: ['https://qwenlm.github.io/blog/qwen3/', 'https://ollama.com/library/qwen3'],
   },
   {
+    id: 'qwen3-5-9b',
+    ollamaModel: 'qwen3.5:9b',
+    workload: 'generation',
+    role: 'candidate',
+    parameterClass: '9B multimodal',
+    licenseNote: 'Verify exact Qwen3.5 tag license before any non-bench use.',
+    resourceNote: 'Practical local candidate for structured output and Korean prep comparisons.',
+    strengths: [
+      'Ollama lists Qwen3.5 as a newer multimodal Qwen family with tools/thinking support.',
+      'Smaller local option for comparing against Gemma 4 12B latency and JSON discipline.',
+    ],
+    risks: [
+      'Newer family requires prompt-template and license recheck before product discussion.',
+      'Must remain bench-only until a later approved route gate.',
+    ],
+    sourceUrls: ['https://ollama.com/library/qwen3.5'],
+  },
+  {
+    id: 'qwen3-5-35b',
+    ollamaModel: 'qwen3.5:35b',
+    workload: 'generation',
+    role: 'watchlist',
+    parameterClass: '35B multimodal',
+    licenseNote: 'Verify exact Qwen3.5 tag license before any non-bench use.',
+    resourceNote: 'Higher-memory workstation candidate; not a laptop default.',
+    strengths: [
+      'Potential quality comparator for difficult Korean file-organization prompts.',
+      'Useful for measuring whether larger local models reduce rejected/fallback rates.',
+    ],
+    risks: [
+      'May exceed current local runtime memory and latency budget.',
+      'Not eligible for product route without separate governance and sizing proof.',
+    ],
+    sourceUrls: ['https://ollama.com/library/qwen3.5'],
+  },
+  {
     id: 'qwen3-30b-a3b',
     ollamaModel: 'qwen3:30b',
     workload: 'generation',
@@ -71,6 +107,24 @@ export const localModelBenchCandidates = [
       'Must not be added to product route schema by this PACK.',
     ],
     sourceUrls: ['https://github.com/QwenLM/Qwen3', 'https://ollama.com/library/qwen3'],
+  },
+  {
+    id: 'qwen3-coder-30b',
+    ollamaModel: 'qwen3-coder:30b',
+    workload: 'generation',
+    role: 'watchlist',
+    parameterClass: '30B code/agentic',
+    licenseNote: 'Verify exact Qwen3-Coder tag license before any non-bench use.',
+    resourceNote: 'Structured-output and tool-use comparator; not a legal prep default.',
+    strengths: [
+      'Ollama lists Qwen3-Coder 30B as a local agentic/code model.',
+      'Can stress JSON/schema discipline in the bench harness without product exposure.',
+    ],
+    risks: [
+      'Domain fit is coding/agentic rather than legal file organization.',
+      'Must not be proposed as product route from this PACK.',
+    ],
+    sourceUrls: ['https://ollama.com/library/qwen3-coder'],
   },
   {
     id: 'deepseek-r1-8b-0528',
@@ -110,6 +164,24 @@ export const localModelBenchCandidates = [
       'Larger than Gemma 4 12B baseline in common local setups.',
     ],
     sourceUrls: ['https://ollama.com/library/mistral-small3.2', 'https://mistral.ai/news/mistral-small-3-1/'],
+  },
+  {
+    id: 'mistral-small4-open',
+    ollamaModel: 'mistral-small4:119b',
+    workload: 'generation',
+    role: 'watchlist',
+    parameterClass: '119B MoE',
+    licenseNote: 'Open-weight Mistral terms and exact serving artifact require legal review.',
+    resourceNote: 'High-resource server candidate; not suitable for laptop Gemma replacement.',
+    strengths: [
+      'Mistral describes Small 4 as a hybrid instruct/reasoning/coding model.',
+      'Useful future server-local comparator if hardware and license review are available.',
+    ],
+    risks: [
+      'No product route or tenant-table output is allowed by this bench lane.',
+      'Likely requires GPU/server-local deployment rather than current desktop Ollama smoke.',
+    ],
+    sourceUrls: ['https://mistral.ai/news/mistral-small-4/', 'https://docs.mistral.ai/models/overview'],
   },
   {
     id: 'llama4-scout',

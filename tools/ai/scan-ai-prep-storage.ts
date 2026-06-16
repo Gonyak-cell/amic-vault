@@ -16,6 +16,9 @@ interface ScanRow {
   legal_claim_count: string;
   missing_claim_source_ref_count: string;
   source_ref_mismatch_count: string;
+  source_ref_chunk_mismatch_count: string;
+  source_hash_invalid_count: string;
+  invalid_stale_reason_count: string;
   external_model_route_count: string;
   disallowed_artifact_kind_count: string;
 }
@@ -33,6 +36,9 @@ interface ScanReport {
   legalClaimCount: number;
   missingClaimSourceRefCount: number;
   sourceRefMismatchCount: number;
+  sourceRefChunkMismatchCount: number;
+  sourceHashInvalidCount: number;
+  invalidStaleReasonCount: number;
   externalModelRouteCount: number;
   disallowedArtifactKindCount: number;
   technicalPass: boolean;
@@ -61,7 +67,8 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
   const result = await client.query<ScanRow>(
     `
       WITH artifacts AS (
-        SELECT ai_prep_artifact_id, artifact_kind, status, model_route, payload_json
+        SELECT ai_prep_artifact_id, artifact_kind, status, model_route, payload_json,
+          source_chunk_ids, source_hashes
         FROM ai_prep_artifacts
         WHERE tenant_id = $1
           AND is_stale = false
@@ -100,6 +107,22 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
             ELSE '[]'::jsonb
           END
         ) AS ref(value)
+      ),
+      payload_source_refs AS (
+        SELECT a.ai_prep_artifact_id, ref.value AS source_ref,
+          ARRAY(
+            SELECT 'chunk:' || chunk_id::text
+            FROM unnest(a.source_chunk_ids) AS chunk_id
+          ) AS allowed_refs
+        FROM artifacts a
+        CROSS JOIN LATERAL jsonb_array_elements_text(
+          CASE
+            WHEN jsonb_typeof(a.payload_json->'source_refs') = 'array'
+            THEN a.payload_json->'source_refs'
+            ELSE '[]'::jsonb
+          END
+        ) AS ref(value)
+        WHERE a.status IN ('completed', 'rejected')
       )
       SELECT
         (SELECT count(*)::text FROM artifacts) AS artifact_count,
@@ -184,6 +207,47 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
         ) AS source_ref_mismatch_count,
         (
           SELECT count(*)::text
+          FROM payload_source_refs psr
+          WHERE NOT (psr.source_ref = ANY(psr.allowed_refs))
+        ) AS source_ref_chunk_mismatch_count,
+        (
+          SELECT count(*)::text
+          FROM artifacts
+          WHERE status IN ('completed', 'rejected')
+            AND (
+              jsonb_typeof(source_hashes) <> 'array'
+              OR jsonb_array_length(source_hashes) = 0
+              OR EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements_text(source_hashes) AS source_hash(value)
+                WHERE source_hash.value !~ '^[0-9a-f]{64}$'
+              )
+            )
+        ) AS source_hash_invalid_count,
+        (
+          SELECT count(*)::text
+          FROM ai_prep_artifacts
+          WHERE tenant_id = $1
+            AND stale_reason IS NOT NULL
+            AND stale_reason NOT IN (
+              'new_version',
+              'document_metadata_changed',
+              'document_ai_disabled',
+              'document_ai_enabled',
+              'matter_ai_policy_changed',
+              'ai_policy_parse_failed',
+              'permission_changed',
+              'ethical_wall_changed',
+              'source_chunks_changed',
+              'source_hash_changed',
+              'operator_retry',
+              'operator_rebuild',
+              'operator_reprocess_fallback',
+              'operator_reprocess_rejected'
+            )
+        ) AS invalid_stale_reason_count,
+        (
+          SELECT count(*)::text
           FROM artifacts
           WHERE model_route <> 'local_gemma'
         ) AS external_model_route_count,
@@ -217,6 +281,9 @@ async function collectScan(client: Client, tenantId: string): Promise<ScanRow> {
       legal_claim_count: '0',
       missing_claim_source_ref_count: '0',
       source_ref_mismatch_count: '0',
+      source_ref_chunk_mismatch_count: '0',
+      source_hash_invalid_count: '0',
+      invalid_stale_reason_count: '0',
       external_model_route_count: '0',
       disallowed_artifact_kind_count: '0',
     }
@@ -237,6 +304,9 @@ function toReport(tenantId: string, row: ScanRow): ScanReport {
     legalClaimCount: Number(row.legal_claim_count),
     missingClaimSourceRefCount: Number(row.missing_claim_source_ref_count),
     sourceRefMismatchCount: Number(row.source_ref_mismatch_count),
+    sourceRefChunkMismatchCount: Number(row.source_ref_chunk_mismatch_count),
+    sourceHashInvalidCount: Number(row.source_hash_invalid_count),
+    invalidStaleReasonCount: Number(row.invalid_stale_reason_count),
     externalModelRouteCount: Number(row.external_model_route_count),
     disallowedArtifactKindCount: Number(row.disallowed_artifact_kind_count),
   };
@@ -249,6 +319,9 @@ function toReport(tenantId: string, row: ScanRow): ScanReport {
       report.legalClaimCount === 0 &&
       report.missingClaimSourceRefCount === 0 &&
       report.sourceRefMismatchCount === 0 &&
+      report.sourceRefChunkMismatchCount === 0 &&
+      report.sourceHashInvalidCount === 0 &&
+      report.invalidStaleReasonCount === 0 &&
       report.externalModelRouteCount === 0 &&
       report.disallowedArtifactKindCount === 0,
   };

@@ -759,11 +759,16 @@ export {
   evidencePackSourceTypeSchema,
   evidencePackTaskTypeSchema,
   evidencePackTaskTypes,
+  evidencePackV2PrepAdapterSchema,
+  evidencePackV2PrepSourceRefEntrySchema,
+  adaptEvidencePackToPrepSourceRefs,
   type EvidencePackChunkDto,
   type EvidencePackDto,
   type EvidencePackGraphFactDto,
   type EvidencePackRuleFindingDto,
   type EvidencePackTaskType,
+  type EvidencePackV2PrepAdapterDto,
+  type EvidencePackV2PrepSourceRefEntryDto,
 } from './ai/evidence-pack';
 export {
   graphConsistencyDriftSchema,
@@ -897,6 +902,8 @@ export {
   aiPrepPayloadBannedTopLevelKeys,
   aiPrepGroundedGenerationOutputSchema,
   parseAiPrepArtifactPayload,
+  aiPrepStaleReasons,
+  aiPrepStaleReasonSchema,
   aiPrepStatuses,
   aiPrepStatusSchema,
   type AiPrepArtifactKind,
@@ -912,6 +919,7 @@ export {
   type AiPrepMatterDocumentReadinessDto,
   type AiPrepMatterReadinessDto,
   type AiPrepMatterRetryResponseDto,
+  type AiPrepStaleReason,
   type AiPrepStatus,
 } from './ai/prep';
 export {

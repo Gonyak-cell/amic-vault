@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuditMetadata, ErrorCode } from '@amic-vault/shared';
+import type { AiPrepStaleReason, AuditMetadata, ErrorCode } from '@amic-vault/shared';
+import { markAndAuditAiPrepArtifactsStale } from '../ai/prep/ai-prep-lifecycle';
 import { AuditService, type QueryClient } from './audit.service';
 
 export interface PermissionChangedInput {
@@ -33,7 +34,7 @@ export interface AccessDeniedInput {
 export class PermissionEventRecorder {
   constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
 
-  recordPermissionChanged(input: PermissionChangedInput, client: QueryClient) {
+  async recordPermissionChanged(input: PermissionChangedInput, client: QueryClient): Promise<void> {
     const metadata: AuditMetadata = {
       before_ref: input.beforeRef,
       after_ref: input.afterRef,
@@ -43,7 +44,7 @@ export class PermissionEventRecorder {
     if (input.wallId) metadata.wall_id = input.wallId;
     if (input.matterId) metadata.matter_id = input.matterId;
 
-    return this.auditService.log(
+    await this.auditService.log(
       {
         tenantId: input.tenantId,
         actorId: input.actorId,
@@ -55,6 +56,13 @@ export class PermissionEventRecorder {
       },
       client,
     );
+    if (!input.matterId) return;
+    await markAndAuditAiPrepArtifactsStale(this.auditService, client, {
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      staleReason: staleReasonForPermissionChange(input),
+      matterId: input.matterId,
+    });
   }
 
   async recordAccessDenied(input: AccessDeniedInput): Promise<void> {
@@ -75,4 +83,9 @@ export class PermissionEventRecorder {
       // Denial must still be returned if audit storage is temporarily unavailable.
     }
   }
+}
+
+function staleReasonForPermissionChange(input: PermissionChangedInput): AiPrepStaleReason {
+  if (input.targetType === 'ethical_wall' || input.wallId) return 'ethical_wall_changed';
+  return 'permission_changed';
 }

@@ -7,6 +7,7 @@ import {
   type AiPolicyEvaluationRequest,
   type AiPolicyEvaluationResult,
 } from '@amic-vault/shared';
+import { markAndAuditAiPrepArtifactsStale } from '../ai/prep/ai-prep-lifecycle';
 import { AuditService } from '../audit/audit.service';
 import {
   evaluateAiPolicySnapshot,
@@ -86,6 +87,16 @@ export class AiPolicyService {
         matterId: input.matterId,
         documentDecisions: [],
         appliedRules: ['ai_policy:evaluation_error'],
+      });
+    }
+    if (decision.reasonCode === 'evaluation_error') {
+      await this.auditService.transaction(input.tenantId, async (tx) => {
+        await markAndAuditAiPrepArtifactsStale(this.auditService, tx, {
+          tenantId: input.tenantId,
+          actorId: input.userId,
+          matterId: input.matterId,
+          staleReason: 'ai_policy_parse_failed',
+        });
       });
     }
 

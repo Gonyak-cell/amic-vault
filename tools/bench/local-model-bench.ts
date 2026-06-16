@@ -33,6 +33,7 @@ export interface RunLocalModelBenchInput {
   endpoint: string;
   candidateIds: readonly string[];
   fixtureDir: string;
+  caseLimit?: number | undefined;
   outputDir?: string | undefined;
   timeoutMs?: number | undefined;
   transport?: LocalBenchTransport | undefined;
@@ -86,10 +87,17 @@ export async function runLocalModelBench(
 ): Promise<LocalModelBenchReport> {
   const endpointClass = classifyBenchEndpoint(input.endpoint);
   const candidates = selectCandidates(input.candidateIds);
-  const cases = readEvaluationCases(input.fixtureDir);
+  const allCases = readEvaluationCases(input.fixtureDir);
+  const cases =
+    input.caseLimit && input.caseLimit > 0 ? allCases.slice(0, input.caseLimit) : allCases;
   const generatedAt = (input.now ?? new Date()).toISOString();
   const warnings: string[] = [];
-  if (cases.length < 20) warnings.push(`Bench fixture has ${cases.length} cases; operational target is 20-50.`);
+  if (allCases.length < 100) {
+    warnings.push(`Bench fixture has ${allCases.length} cases; LAI-18 target is 100.`);
+  }
+  if (cases.length < allCases.length) {
+    warnings.push(`Bench case limit applied: ${cases.length} of ${allCases.length} cases.`);
+  }
 
   if (!input.enabled) {
     return {
