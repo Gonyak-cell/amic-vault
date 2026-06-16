@@ -77,7 +77,10 @@ for (const expected of [
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
   'PROD-PATCH-42E7B29-DEPLOY-2026-06-15',
   'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
+  'PROD-PATCH-46C6B14-DEPLOY-2026-06-16',
+  'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
   'd80fbb5d5bf339ed11ddd6bca27b9e937bd83811',
+  '46c6b14c4d0fd143b478e3184018635c9f96568a',
   'SMOKE-015',
   'PROD-MONITOR-ALARMS-AWS-2026-06-15',
   'APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15',
@@ -114,6 +117,8 @@ for (const expected of [
   'EV-PROD-011',
   'EV-PROD-012',
   'EV-PROD-013',
+  'EV-PROD-014',
+  'EV-PROD-015',
 ]) {
   assertContains(
     contents.get('docs/release/evidence-register.md'),
@@ -129,6 +134,7 @@ assertContains(
 for (const expected of [
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
   'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
+  'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
 ]) {
   assertContains(
     contents.get('docs/release/launch-control-sheet.md'),
@@ -172,6 +178,7 @@ assertContains(
 for (const expected of [
   'PROD-PATCH-D80FBB5-DEPLOY-2026-06-15',
   'PROD-PATCH-42E7B29-DEPLOY-2026-06-15',
+  'PROD-PATCH-46C6B14-DEPLOY-2026-06-16',
 ]) {
   assertContains(
     contents.get('docs/release/production-release-runbook.md'),
@@ -187,6 +194,7 @@ assertContains(
 for (const expected of [
   'PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15',
   'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
+  'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
 ]) {
   assertContains(
     contents.get('docs/release/launch-blocker-ledger.md'),
@@ -209,8 +217,8 @@ if (docsPackageDiff.length > 0) {
 }
 
 const result = {
-  evidenceRef: 'PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15',
-  status: 'customer-launch-smoke-passed',
+  evidenceRef: 'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
+  status: 'prod-patch-46c6b14-smoke-passed',
   deploymentExecuted: true,
 };
 

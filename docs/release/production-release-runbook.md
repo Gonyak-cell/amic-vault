@@ -56,6 +56,24 @@ CloudWatch alarms were OK. Concrete endpoints, account IDs, ARNs,
 provider-console metadata, cookies, tokens, secret values, and customer data
 remain outside this repository.
 
+Production patch `PROD-PATCH-46C6B14-DEPLOY-2026-06-16` deployed current main
+HEAD `46c6b14c4d0fd143b478e3184018635c9f96568a`. The patch updated API, web,
+ingestion, and one-off migrator image manifests, created an available
+pre-patch RDS snapshot evidence ref, and applied migrations
+`0069_add_ai_prep_rejected_status` through
+`0076_extend_ai_prep_feedback_reasons` through a one-off ECS migrator task.
+The first migrator run used the app runtime DB role and exited before schema
+mutation on permission denial; the rerun used the migration role, exited 0, and
+recorded `Migrations complete!`. Migrator task definitions were deregistered,
+and production API/Web ECS services rolled to task revisions 6 and 10. Local AI
+runtime execution gates were left explicitly disabled in production task env
+until a separate operator approval enables Gemma runtime. The patch passed
+`PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16` with SMOKE-001 through SMOKE-015
+pass=15 fail=0 skip=0. Target groups ended healthy-only and production
+CloudWatch alarms were OK. Concrete endpoints, account IDs, ARNs,
+provider-console metadata, cookies, tokens, secret values, and customer data
+remain outside this repository.
+
 Local Gemma runtime execution remains disabled for production until the separate
 Local AI production readiness and governance flow is complete. Do not treat the
 general production release approval as Local AI runtime approval. Required refs:
