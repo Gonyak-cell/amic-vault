@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 import type { TenantId } from '@amic-vault/shared';
+import { tenantQuery } from '../../common/db/tenant-query';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -34,7 +35,9 @@ export class WallMembershipReader {
     matterId: string,
     userId: string,
   ): Promise<MatterWallMembershipState> {
-    const result = await getPool().query<WallMembershipRow>(
+    const result = await tenantQuery<WallMembershipRow>(
+      getPool(),
+      tenantId,
       `
         SELECT ew.wall_id, ewm.membership_type
         FROM ethical_walls ew
@@ -67,7 +70,9 @@ export class WallMembershipReader {
   }
 
   private async hasActiveMatterWall(tenantId: TenantId, matterId: string): Promise<boolean> {
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      getPool(),
+      tenantId,
       `
         SELECT 1
         FROM ethical_walls

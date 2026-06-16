@@ -16,6 +16,7 @@ import type {
   UpdateClientDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { ClientEntity } from './client.entity';
@@ -216,18 +217,19 @@ export class ClientService {
   private async findByIdForTenant(
     tenantId: TenantId,
     clientId: string,
-    queryClient: QueryClient = getPool(),
+    queryClient?: QueryClient,
   ): Promise<ClientEntity | null> {
-    const result = await queryClient.query(
-      `
+    const sql = `
         SELECT client_id, tenant_id, name, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at
         FROM clients
         WHERE tenant_id = $1
           AND client_id = $2
-      `,
-      [tenantId, clientId],
-    );
+      `;
+    const params = [tenantId, clientId];
+    const result = queryClient
+      ? await queryClient.query(sql, params)
+      : await tenantQuery<ClientRow>(getPool(), tenantId, sql, params);
     const row = result.rows[0] as ClientRow | undefined;
     return row ? mapClient(row) : null;
   }
@@ -251,7 +253,9 @@ export class ClientService {
       filters.push(`name ILIKE $${params.length} ESCAPE '\\'`);
     }
     params.push(query.pageSize, (query.page - 1) * query.pageSize);
-    const result = await getPool().query<ClientListRow>(
+    const result = await tenantQuery<ClientListRow>(
+      getPool(),
+      tenantId,
       `
         SELECT client_id, tenant_id, name, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at, count(*) OVER()::text AS total_count

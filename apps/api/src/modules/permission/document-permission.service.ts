@@ -31,6 +31,7 @@ import {
   type PermissionAuditTarget,
 } from './fail-closed.wrapper';
 import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
+import { tenantQuery } from '../../common/db/tenant-query';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -187,12 +188,14 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     tenantId: TenantId,
     userId: string,
   ): Promise<DocumentActorSnapshot | null> {
-    const result = await getPool().query<{
+    const result = await tenantQuery<{
       user_id: string;
       role: string;
       status: string;
       practice_group: string | null;
     }>(
+      getPool(),
+      tenantId,
       `
         SELECT user_id, role, status, practice_group
         FROM users
@@ -216,7 +219,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     tenantId: TenantId,
     documentId: string,
   ): Promise<DocumentPermissionTarget | null> {
-    const result = await getPool().query<{
+    const result = await tenantQuery<{
       document_id: string;
       tenant_id: TenantId;
       matter_id: string;
@@ -228,6 +231,8 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       confidentiality_level: DocumentConfidentialityLevel;
       privilege_status: DocumentPrivilegeStatus;
     }>(
+      getPool(),
+      tenantId,
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, m.client_id, d.status,
           m.status AS matter_status, m.practice_group AS matter_practice_group,
@@ -264,7 +269,9 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     matterId: string,
     userId: string,
   ): Promise<DocumentMatterMemberSnapshot | null> {
-    const result = await getPool().query<DocumentMatterMemberSnapshot>(
+    const result = await tenantQuery<DocumentMatterMemberSnapshot>(
+      getPool(),
+      tenantId,
       `
         SELECT matter_role AS "matterRole", access_level AS "accessLevel"
         FROM matter_members
@@ -283,12 +290,14 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     matterId: string,
     userId: string,
   ): Promise<DocumentWallDecision> {
-    const result = await getPool().query<{
+    const result = await tenantQuery<{
       wall_id: string;
       has_insider: boolean;
       user_is_insider: boolean;
       user_is_excluded: boolean;
     }>(
+      getPool(),
+      tenantId,
       `
         WITH user_subjects AS (
           SELECT 'user'::text AS subject_type, $3::text AS subject_id
@@ -377,7 +386,9 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     actor: DocumentActorSnapshot,
     action: DocumentPermissionAction,
   ): Promise<ExplicitDocumentPermissionRow[]> {
-    const result = await getPool().query<ExplicitDocumentPermissionRow>(
+    const result = await tenantQuery<ExplicitDocumentPermissionRow>(
+      getPool(),
+      tenantId,
       `
         SELECT permission_id AS "permissionId", effect, condition_json, priority
         FROM permissions p

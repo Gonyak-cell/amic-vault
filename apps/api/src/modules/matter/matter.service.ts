@@ -26,6 +26,7 @@ import type {
 } from '@amic-vault/shared';
 import { isUserRole } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 import { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
@@ -376,7 +377,9 @@ export class MatterService {
   }
 
   private async clientExistsForTenant(tenantId: TenantId, clientId: string): Promise<boolean> {
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      getPool(),
+      tenantId,
       'SELECT 1 FROM clients WHERE tenant_id = $1 AND client_id = $2 LIMIT 1',
       [tenantId, clientId],
     );
@@ -437,19 +440,20 @@ export class MatterService {
   private async findByIdForTenant(
     tenantId: TenantId,
     matterId: string,
-    queryClient: QueryClient = getPool(),
+    queryClient?: QueryClient,
   ): Promise<MatterEntity | null> {
-    const result = await queryClient.query(
-      `
+    const sql = `
         SELECT matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
           legal_hold, created_by, created_at, updated_at
         FROM matters
         WHERE tenant_id = $1
           AND matter_id = $2
-      `,
-      [tenantId, matterId],
-    );
+      `;
+    const params = [tenantId, matterId];
+    const result = queryClient
+      ? await queryClient.query(sql, params)
+      : await tenantQuery<MatterRow>(getPool(), tenantId, sql, params);
     const row = result.rows[0] as MatterRow | undefined;
     return row ? mapMatter(row) : null;
   }
@@ -575,7 +579,9 @@ export class MatterService {
     }
 
     params.push(query.pageSize, (query.page - 1) * query.pageSize);
-    const result = await getPool().query<MatterListRow>(
+    const result = await tenantQuery<MatterListRow>(
+      getPool(),
+      tenantId,
       `
         SELECT matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
