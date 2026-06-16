@@ -1,11 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '../api-client';
 import {
+  createOutlookDocumentInsertion,
   createOutlookSendFileRequest,
   createOutlookFilingRequest,
   evaluateOutlookSendPolicy,
   getOutlookFilingRequestStatus,
   getOutlookMatterSuggestions,
+  searchOutlookInsertableDocuments,
 } from './outlook-addin';
 
 vi.mock('../api-client', () => ({
@@ -15,6 +17,10 @@ vi.mock('../api-client', () => ({
 const hash = 'a'.repeat(64);
 
 describe('Outlook add-in API client', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('posts hash-only matter suggestion queries without auth redirects', async () => {
     await getOutlookMatterSuggestions({
       sourceClient: 'outlook-web-addin',
@@ -37,6 +43,28 @@ describe('Outlook add-in API client', () => {
     });
   });
 
+  it('searches insertable documents through permission-bound search without auth redirects', async () => {
+    await searchOutlookInsertableDocuments({
+      query: 'closing',
+      mode: 'keyword',
+      filters: { versionStatus: 'current' },
+      page: 1,
+      pageSize: 5,
+    });
+
+    expect(apiFetch).toHaveBeenCalledWith('/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        query: 'closing',
+        mode: 'keyword',
+        filters: { versionStatus: 'current' },
+        page: 1,
+        pageSize: 5,
+      }),
+      redirectOnAuthRequired: false,
+    });
+  });
+
   it('creates and reads filing requests through the gated M365 endpoints', async () => {
     await createOutlookFilingRequest({
       matterId: '11111111-1111-4111-8111-111111111111',
@@ -54,7 +82,7 @@ describe('Outlook add-in API client', () => {
     });
     await getOutlookFilingRequestStatus('11111111-1111-4111-8111-111111111112');
 
-    expect(apiFetch).toHaveBeenNthCalledWith(2, '/m365/outlook/filing-requests', {
+    expect(apiFetch).toHaveBeenNthCalledWith(1, '/m365/outlook/filing-requests', {
       method: 'POST',
       body: JSON.stringify({
         matterId: '11111111-1111-4111-8111-111111111111',
@@ -73,7 +101,7 @@ describe('Outlook add-in API client', () => {
       redirectOnAuthRequired: false,
     });
     expect(apiFetch).toHaveBeenNthCalledWith(
-      3,
+      2,
       '/m365/outlook/filing-requests/11111111-1111-4111-8111-111111111112',
       {
         redirectOnAuthRequired: false,
@@ -113,7 +141,7 @@ describe('Outlook add-in API client', () => {
       acknowledgedWarningCodes: ['external_recipient'],
     });
 
-    expect(apiFetch).toHaveBeenNthCalledWith(4, '/m365/outlook/send-policy-decisions', {
+    expect(apiFetch).toHaveBeenNthCalledWith(1, '/m365/outlook/send-policy-decisions', {
       method: 'POST',
       body: JSON.stringify({
         sourceClient: 'outlook-web-addin',
@@ -131,7 +159,7 @@ describe('Outlook add-in API client', () => {
       }),
       redirectOnAuthRequired: false,
     });
-    expect(apiFetch).toHaveBeenNthCalledWith(5, '/m365/outlook/send-file-requests', {
+    expect(apiFetch).toHaveBeenNthCalledWith(2, '/m365/outlook/send-file-requests', {
       method: 'POST',
       body: JSON.stringify({
         sourceClient: 'outlook-web-addin',
@@ -148,6 +176,46 @@ describe('Outlook add-in API client', () => {
         clientRequestId: 'oa07:file',
         idempotencyKey: `oa07:${hash}`,
         acknowledgedWarningCodes: ['external_recipient'],
+      }),
+      redirectOnAuthRequired: false,
+    });
+  });
+
+  it('posts document insertion requests through the gated M365 endpoint', async () => {
+    await createOutlookDocumentInsertion({
+      sourceClient: 'outlook-web-addin',
+      documentId: '11111111-1111-4111-8111-111111111111',
+      versionId: '11111111-1111-4111-8111-111111111112',
+      targetMessage: {
+        mailboxFingerprint: hash,
+        outlookItemIdHash: hash,
+        canonicalMessageSha256: hash,
+        hasExternalParticipants: false,
+        participantDomainHashes: [],
+      },
+      insertionMode: 'internal-reference',
+      hasExternalRecipients: false,
+      clientRequestId: 'oa08:insert',
+      idempotencyKey: `oa08:${hash}`,
+    });
+
+    expect(apiFetch).toHaveBeenLastCalledWith('/m365/outlook/document-insertions', {
+      method: 'POST',
+      body: JSON.stringify({
+        sourceClient: 'outlook-web-addin',
+        documentId: '11111111-1111-4111-8111-111111111111',
+        versionId: '11111111-1111-4111-8111-111111111112',
+        targetMessage: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          hasExternalParticipants: false,
+          participantDomainHashes: [],
+        },
+        insertionMode: 'internal-reference',
+        hasExternalRecipients: false,
+        clientRequestId: 'oa08:insert',
+        idempotencyKey: `oa08:${hash}`,
       }),
       redirectOnAuthRequired: false,
     });

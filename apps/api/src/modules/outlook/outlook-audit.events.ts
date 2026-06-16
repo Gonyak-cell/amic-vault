@@ -1,5 +1,8 @@
 import type {
   OutlookDeniedReasonCode,
+  OutlookDocumentInsertionDeniedReasonCode,
+  OutlookDocumentInsertionMode,
+  OutlookDocumentInsertionStatus,
   OutlookFilingRequestKind,
   OutlookFilingRequestStatus,
   OutlookSendPolicyDecision,
@@ -53,6 +56,20 @@ interface BaseOutlookGraphAcquisitionAuditInput {
   scopeSetHash: string;
 }
 
+interface BaseOutlookDocumentInsertionAuditInput {
+  tenantId: string;
+  actorId: string;
+  insertionId: string;
+  documentId: string;
+  versionId?: string;
+  matterId?: string | null;
+  mailboxFingerprintHash: string;
+  messageHash: string;
+  idempotencyHash: string;
+  clientRequestHash: string;
+  insertionMode: OutlookDocumentInsertionMode;
+}
+
 function baseMetadata(input: BaseOutlookAuditInput) {
   return {
     request_id: input.requestId,
@@ -96,6 +113,20 @@ function baseGraphAcquisitionMetadata(input: BaseOutlookGraphAcquisitionAuditInp
     client_request_hash: input.clientRequestHash,
     scope_count: input.scopeCount,
     scope_set_hash: input.scopeSetHash,
+  };
+}
+
+function baseDocumentInsertionMetadata(input: BaseOutlookDocumentInsertionAuditInput) {
+  return {
+    request_id: input.insertionId,
+    document_id: input.documentId,
+    ...(input.versionId ? { version_id: input.versionId } : {}),
+    ...(input.matterId ? { matter_id: input.matterId } : {}),
+    mailbox_fingerprint_hash: input.mailboxFingerprintHash,
+    message_hash: input.messageHash,
+    idempotency_hash: input.idempotencyHash,
+    client_request_hash: input.clientRequestHash,
+    policy_mode: input.insertionMode,
   };
 }
 
@@ -267,6 +298,48 @@ export function outlookGraphAttachmentAcquireDeniedAudit(
     result: 'denied',
     metadata: {
       ...baseGraphAcquisitionMetadata(input),
+      outlook_status: 'denied',
+      reason_code: input.reasonCode,
+    },
+  };
+}
+
+export function outlookDocumentInsertRequestedAudit(
+  input: BaseOutlookDocumentInsertionAuditInput & {
+    status: Extract<OutlookDocumentInsertionStatus, 'ready'>;
+    duplicate: boolean;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'OUTLOOK_DOCUMENT_INSERT_REQUESTED',
+    targetType: 'outlook_document_insertion',
+    targetId: input.insertionId,
+    matterId: input.matterId ?? null,
+    metadata: {
+      ...baseDocumentInsertionMetadata(input),
+      outlook_status: input.status,
+      ...(input.duplicate ? { reason_code: 'duplicate' } : {}),
+    },
+  };
+}
+
+export function outlookDocumentInsertDeniedAudit(
+  input: BaseOutlookDocumentInsertionAuditInput & {
+    reasonCode: OutlookDocumentInsertionDeniedReasonCode;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'OUTLOOK_DOCUMENT_INSERT_DENIED',
+    targetType: 'outlook_document_insertion',
+    targetId: input.insertionId,
+    matterId: input.matterId ?? null,
+    result: 'denied',
+    metadata: {
+      ...baseDocumentInsertionMetadata(input),
       outlook_status: 'denied',
       reason_code: input.reasonCode,
     },

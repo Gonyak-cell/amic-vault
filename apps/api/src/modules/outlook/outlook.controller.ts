@@ -11,6 +11,7 @@ import {
 import {
   acquireOutlookGraphAttachmentSchema,
   cancelOutlookFilingRequestSchema,
+  createOutlookDocumentInsertionSchema,
   createOutlookSendFileRequestSchema,
   createOutlookEmailFilingRequestSchema,
   evaluateOutlookSendPolicySchema,
@@ -18,6 +19,7 @@ import {
 } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
 import { OutlookAuthService } from './outlook-auth.service';
+import { OutlookDocumentInsertionService } from './outlook-document-insertion.service';
 import { OutlookGraphAttachmentService } from './outlook-graph-attachment.service';
 import { OutlookSendFileService } from './outlook-send-file.service';
 import { OutlookService } from './outlook.service';
@@ -94,6 +96,14 @@ function parseGraphAttachmentBody(body: unknown) {
   }
 }
 
+function parseDocumentInsertionBody(body: unknown) {
+  try {
+    return createOutlookDocumentInsertionSchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
 @Controller('m365/outlook')
 export class OutlookController {
   constructor(
@@ -103,6 +113,8 @@ export class OutlookController {
     private readonly outlookGraphAttachmentService: OutlookGraphAttachmentService,
     @Inject(OutlookSendFileService)
     private readonly outlookSendFileService: OutlookSendFileService,
+    @Inject(OutlookDocumentInsertionService)
+    private readonly outlookDocumentInsertionService: OutlookDocumentInsertionService,
   ) {}
 
   @Post('session-exchanges')
@@ -141,6 +153,14 @@ export class OutlookController {
     return this.outlookGraphAttachmentService.acquireAttachment(
       sessionUserId(request),
       parseGraphAttachmentBody(body),
+    );
+  }
+
+  @Post('document-insertions')
+  createDocumentInsertion(@Req() request: RequestWithSession, @Body() body: unknown) {
+    return this.outlookDocumentInsertionService.createDocumentInsertion(
+      sessionUserId(request),
+      parseDocumentInsertionBody(body),
     );
   }
 
