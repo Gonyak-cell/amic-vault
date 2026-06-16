@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import type { SearchResponseDto } from '@amic-vault/shared';
+import type { MatterSuggestionListDto, SearchResponseDto } from '@amic-vault/shared';
 import { SESSION_COOKIE_NAME } from '../../../apps/api/src/modules/auth/session.repository';
 
 export interface LoginInput {
@@ -9,6 +9,7 @@ export interface LoginInput {
 }
 
 export type SearchHttpResponse = SearchResponseDto;
+export type MatterSuggestionHttpResponse = MatterSuggestionListDto;
 
 export async function loginSearchUser(baseUrl: string, input: LoginInput): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/auth/login`, {
@@ -40,6 +41,21 @@ export async function postSearch(
   const text = await response.text();
   expect(response.status, text).toBe(201);
   return JSON.parse(text) as SearchHttpResponse;
+}
+
+export async function postMatterSuggestions(
+  baseUrl: string,
+  cookie: string,
+  body: Record<string, unknown>,
+): Promise<MatterSuggestionHttpResponse> {
+  const response = await fetch(`${baseUrl}/v1/search/matter-suggestions`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  expect(response.status, text).toBe(201);
+  return JSON.parse(text) as MatterSuggestionHttpResponse;
 }
 
 export function resultTitles(response: SearchHttpResponse): string[] {

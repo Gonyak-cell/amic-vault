@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createOutlookEmailFilingRequestSchema,
+  matterSuggestionQuerySchema,
   outlookAttachmentRefSchema,
   outlookItemRefSchema,
 } from './outlook-types';
@@ -60,6 +61,37 @@ describe('Outlook add-in DTO contracts', () => {
         sourceClient: 'outlook-web-addin',
         clientRequestId: 'client-1',
         idempotencyKey: 'idem-1',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts matter suggestion inputs only as bounded hashes', () => {
+    expect(
+      matterSuggestionQuerySchema.parse({
+        sourceClient: 'outlook-web-addin',
+        mailboxFingerprint: hash,
+        participantDomainHashes: [hash],
+        subjectHash: hash,
+        conversationIdHash: hash,
+        limit: 5,
+      }),
+    ).toMatchObject({
+      mailboxFingerprint: hash,
+      participantDomainHashes: [hash],
+      limit: 5,
+    });
+  });
+
+  it('rejects raw matter suggestion subject, mailbox, and domain fields', () => {
+    expect(() =>
+      matterSuggestionQuerySchema.parse({
+        sourceClient: 'outlook-web-addin',
+        mailboxFingerprint: hash,
+        mailboxAddress: 'lawyer@example.com',
+        participantDomainHashes: [hash],
+        participantDomains: ['example.com'],
+        subject: 'Privileged subject',
+        limit: 5,
       }),
     ).toThrow();
   });

@@ -123,11 +123,27 @@ type MatterSuggestionQueryDto = {
 };
 ```
 
+```ts
+type MatterSuggestionListDto = {
+  items: Array<{
+    matterId: string;
+    matterCode: string;
+    matterName: string;
+    clientId: string;
+    reasonCodes: Array<'subject_hash' | 'participant_domain_hash'>;
+    score: number;
+  }>;
+};
+```
+
 Server behavior:
 
 - build search/matter candidate query with PermissionService and
   SearchPermissionScopeProvider before result construction;
 - never return unauthorized IDs for client-side filtering;
+- match Outlook signals only by bounded hashes. Subject matching is exact hash
+  comparison against matter code, matter name, or client name; participant domain
+  matching is exact hash comparison against stored matter/client domain metadata;
 - audit `OUTLOOK_MATTER_SUGGESTIONS_VIEWED` with query hash and result count.
 
 ### `CreateOutlookSendFileRequestDto`

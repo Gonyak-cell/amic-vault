@@ -25,6 +25,9 @@ export type OutlookDeniedReasonCode = (typeof outlookDeniedReasonCodes)[number];
 
 export const outlookHashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
+export const matterSuggestionReasonCodes = ['subject_hash', 'participant_domain_hash'] as const;
+export type MatterSuggestionReasonCode = (typeof matterSuggestionReasonCodes)[number];
+
 export const outlookItemRefSchema = z
   .object({
     mailboxFingerprint: outlookHashSchema,
@@ -74,6 +77,17 @@ export const cancelOutlookFilingRequestSchema = z
   })
   .strict();
 
+export const matterSuggestionQuerySchema = z
+  .object({
+    sourceClient: z.enum(outlookSourceClients),
+    mailboxFingerprint: outlookHashSchema,
+    participantDomainHashes: z.array(outlookHashSchema).max(50).default([]),
+    subjectHash: outlookHashSchema.optional(),
+    conversationIdHash: outlookHashSchema.optional(),
+    limit: z.number().int().min(1).max(10).default(5),
+  })
+  .strict();
+
 export interface OutlookFilingRequestStatusDto {
   id: string;
   status: OutlookFilingRequestStatus;
@@ -85,9 +99,23 @@ export interface OutlookFilingRequestStatusDto {
   deniedReasonCode?: OutlookDeniedReasonCode;
 }
 
+export interface MatterSuggestionDto {
+  matterId: string;
+  matterCode: string;
+  matterName: string;
+  clientId: string;
+  reasonCodes: MatterSuggestionReasonCode[];
+  score: number;
+}
+
+export interface MatterSuggestionListDto {
+  items: MatterSuggestionDto[];
+}
+
 export type OutlookItemRefDto = z.infer<typeof outlookItemRefSchema>;
 export type OutlookAttachmentRefDto = z.infer<typeof outlookAttachmentRefSchema>;
 export type CreateOutlookEmailFilingRequestDto = z.infer<
   typeof createOutlookEmailFilingRequestSchema
 >;
 export type CancelOutlookFilingRequestDto = z.infer<typeof cancelOutlookFilingRequestSchema>;
+export type MatterSuggestionQueryDto = z.infer<typeof matterSuggestionQuerySchema>;
