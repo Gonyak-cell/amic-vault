@@ -149,9 +149,11 @@ assertContains(
 );
 for (const expected of [
   'TECHNICAL_READY PASS',
-  'GOVERNANCE_APPROVAL BLOCKED',
-  'PRODUCTION_ENABLEMENT BLOCKED',
-  'LOCAL_GEMMA_ENABLED=false',
+  'GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY',
+  'PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE',
+  'UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_ALLOWLIST_PATCH_DEPLOY',
+  'LOCAL_GEMMA_ENABLED=true',
+  'AI_PREP_ENABLED=false',
   'AI_PREP_QUEUE_WORKER_ENABLED=false',
 ]) {
   assertContains(
@@ -162,7 +164,7 @@ for (const expected of [
 }
 assertContains(
   contents.get('docs/release/local-ai-production-enablement-runbook.md'),
-  'PLAN ONLY - DO NOT ENABLE WITHOUT GOVERNANCE APPROVAL',
+  'RUNTIME CANARY ACTIVE',
   'docs/release/local-ai-production-enablement-runbook.md',
 );
 assertContains(
@@ -172,7 +174,7 @@ assertContains(
 );
 assertContains(
   contents.get('docs/release/evidence-register.md'),
-  'approval-required',
+  'approved-runtime-canary',
   'docs/release/evidence-register.md',
 );
 for (const expected of [

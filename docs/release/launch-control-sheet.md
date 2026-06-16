@@ -16,23 +16,25 @@ documents are approved only through the app-controlled upload/versioning path.
 
 ## Current Technical State
 
-| Item | State | Evidence |
-|---|---|---|
-| R14 technical completion | technical-pass | `docs/ledger/gates/R14_gate.md` |
-| Launch readiness artifacts | prepared | `pnpm launch:readiness` |
-| Launch execution artifacts | prepared | `pnpm launch:execution` |
-| Staging smoke automation | prepared | `pnpm release:smoke -- --dry-run` and `pnpm release:smoke -- --local` |
-| Local staging preflight | passed locally | `pnpm release:local-preflight` / EV-SMOKE-002 |
-| AWS staging main alignment | passed | STAGE-MAIN-MERGE-AWS-001 / EV-STAGE-009 / EV-SMOKE-005 |
-| Synthetic UAT technical evidence | accepted | SYNTH-UAT-TECH-2026-06-14-001 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / `pnpm release:uat` |
-| Pilot approvals | approved | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15 / APPROVAL-LRB-014-JWS-OWNER-2026-06-15 |
-| Production gate approvals | approved | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14 |
-| Production execution preflight | production-smoke-passed | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / `pnpm release:prod-preflight` |
-| Production patch release | production-smoke-passed | PROD-PATCH-D80FBB5-DEPLOY-2026-06-15 / PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15 / PROD-PATCH-46C6B14-DEPLOY-2026-06-16 / PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16 |
-| Production monitoring | active-monitoring | PROD-MONITOR-AWS-001 / PROD-MONITOR-ALARMS-AWS-2026-06-15 |
-| Customer launch final smoke | passed | PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / EV-PROD-011 |
-| docs/package freeze | enforced | `pnpm docs:frozen` |
-| Local UI routes | prepared | `/login`, `/dashboard`, `/launch` |
+| Item                             | State                            | Evidence                                                                                                                                                                                                                                            |
+| -------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R14 technical completion         | technical-pass                   | `docs/ledger/gates/R14_gate.md`                                                                                                                                                                                                                     |
+| Launch readiness artifacts       | prepared                         | `pnpm launch:readiness`                                                                                                                                                                                                                             |
+| Launch execution artifacts       | prepared                         | `pnpm launch:execution`                                                                                                                                                                                                                             |
+| Staging smoke automation         | prepared                         | `pnpm release:smoke -- --dry-run` and `pnpm release:smoke -- --local`                                                                                                                                                                               |
+| Local staging preflight          | passed locally                   | `pnpm release:local-preflight` / EV-SMOKE-002                                                                                                                                                                                                       |
+| AWS staging main alignment       | passed                           | STAGE-MAIN-MERGE-AWS-001 / EV-STAGE-009 / EV-SMOKE-005                                                                                                                                                                                              |
+| Synthetic UAT technical evidence | accepted                         | SYNTH-UAT-TECH-2026-06-14-001 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / `pnpm release:uat`                                                                                                                                                          |
+| Pilot approvals                  | approved                         | APPROVAL-LRB-005-2026-06-14 / APPROVAL-LRB-006-2026-06-14 / APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15 / APPROVAL-LRB-014-JWS-OWNER-2026-06-15                                                                                                       |
+| Production gate approvals        | approved                         | APPROVAL-LRB-009-2026-06-14 / APPROVAL-LRB-010-2026-06-14 / APPROVAL-LRB-011-SYNTH-UAT-2026-06-14 / APPROVAL-LRB-012-RESTORE-2026-06-14 / APPROVAL-LRB-013-PROD-RELEASE-2026-06-14                                                                  |
+| Production execution preflight   | production-smoke-passed          | PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / `pnpm release:prod-preflight`                                                                                                                                                          |
+| Production patch release         | production-smoke-passed          | PROD-PATCH-D80FBB5-DEPLOY-2026-06-15 / PROD-PATCH-D80FBB5-FULL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15 / PROD-PATCH-46C6B14-DEPLOY-2026-06-16 / PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16 |
+| Production monitoring            | active-monitoring                | PROD-MONITOR-AWS-001 / PROD-MONITOR-ALARMS-AWS-2026-06-15                                                                                                                                                                                           |
+| Customer launch final smoke      | passed                           | PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / EV-PROD-011                                                                                                                                                                                           |
+| Local Gemma runtime canary       | active-runtime-canary            | EV-LAI-PROD-002 / EV-LAI-PROD-004 / PROD-LAI-CANARY-RUNTIME-2026-06-16                                                                                                                                                                              |
+| Local AI upload-prep queue       | blocked-pending-allowlist-deploy | EV-LAI-PROD-005 / `AI_PREP_ENABLED=false` / `AI_PREP_QUEUE_WORKER_ENABLED=false`                                                                                                                                                                    |
+| docs/package freeze              | enforced                         | `pnpm docs:frozen`                                                                                                                                                                                                                                  |
+| Local UI routes                  | prepared                         | `/login`, `/dashboard`, `/launch`                                                                                                                                                                                                                   |
 
 ## Control Commands
 
@@ -56,9 +58,9 @@ pnpm build
 Resolved staging evidence: LRB-001, LRB-002, LRB-003, LRB-004, and LRB-008 are
 approved for the AWS temporary-target staging path.
 
-| Gate | Required Evidence |
-|---|---|
-| Pilot entry | LRB-005, LRB-006, LRB-007, LRB-014 approved |
+| Gate             | Required Evidence                                    |
+| ---------------- | ---------------------------------------------------- |
+| Pilot entry      | LRB-005, LRB-006, LRB-007, LRB-014 approved          |
 | Production entry | LRB-009, LRB-010, LRB-011, LRB-012, LRB-013 approved |
 
 ## Operator-Provided Values

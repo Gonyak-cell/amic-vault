@@ -68,18 +68,23 @@ From `docs/ledger/gates/LOCAL_AI_gate.md` and
 
 ## Production Boundary
 
-The latest production patch applied migrations `0064` through `0068`, but
-runtime execution remains disabled in production until separate operator
-approval.
+The latest production patch applied migrations through `0076`. After the
+2026-06-16 operator/security/legal-data/customer-scope approval, production
+runtime canary is active for the local Gemma sidecar only. Upload-prep queue
+execution remains disabled until the canary tenant allowlist patch is merged and
+deployed.
 
-Production task env recorded in the ledger:
+Current production canary boundary recorded in the ledger:
 
-- `LOCAL_GEMMA_ENABLED=false`
+- `LOCAL_GEMMA_ENABLED=true`
+- `LOCAL_GEMMA_ENDPOINT=loopback sidecar`
+- `LOCAL_GEMMA_MODEL=gemma4:12b`
 - `AI_PREP_ENABLED=false`
 - `AI_PREP_QUEUE_WORKER_ENABLED=false`
 - `AI_SUMMARY_GEMMA_ENABLED=false`
 
-This L0 register is not production authorization.
+This L0 register is not upload-prep queue authorization and does not approve
+legal analysis or external model routes.
 
 ## Review Inputs
 

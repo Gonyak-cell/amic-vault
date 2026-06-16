@@ -1,7 +1,7 @@
 # Local AI Operations Runbook
 
-Status: PACK-LAI-19 product-ops surface. Production enablement remains disabled
-until the separate PACK-LAI-20 governance gate is approved.
+Status: production runtime canary active. Upload-prep queue execution remains
+disabled until the canary tenant allowlist patch is merged and deployed.
 
 ## Runtime
 
@@ -22,7 +22,10 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/ai test
 ## Queue Worker
 
 ```bash
+AI_PREP_ENABLED=true \
 AI_PREP_QUEUE_WORKER_ENABLED=true \
+AI_PREP_REQUIRE_TENANT_ALLOWLIST=true \
+AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo> \
 LOCAL_GEMMA_ENABLED=true \
 LOCAL_GEMMA_MODEL=gemma4:12b \
 PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/api build
@@ -30,19 +33,28 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/api build
 
 Operational flags:
 
+- `AI_PREP_ENABLED`: enables upload-prep enqueue eligibility. When false,
+  enqueue records bounded `AI_PREP_BLOCKED` audit and returns no jobs.
 - `AI_PREP_QUEUE_WORKER_ENABLED`: enables `ai.prep` worker polling.
+- `AI_PREP_REQUIRE_TENANT_ALLOWLIST`: fails closed when no canary tenant
+  allowlist is present.
+- `AI_PREP_CANARY_TENANT_IDS`: comma-separated canary tenant ids. Values stay
+  outside repo evidence.
 - `AI_PREP_ARTIFACT_KINDS`: comma-separated artifact kinds; defaults to document profile, key fields, keyword tags, and filing suggestions.
 - `AI_PREP_TENANT_MAX_CONCURRENCY`: per-tenant prep concurrency ceiling.
 - `LOCAL_GEMMA_ENABLED`: local generation route gate.
 - `LOCAL_GEMMA_MODEL`: model tag; default `gemma4:12b`.
 - `LOCAL_GEMMA_TIMEOUT_MS`: generation timeout.
 
-Production-disabled defaults:
+Production canary boundary:
 
-- `LOCAL_GEMMA_ENABLED=false` unless the production readiness gate and
-  governance approval gate both have current evidence.
-- `AI_PREP_QUEUE_WORKER_ENABLED=false` for production deploys until the same
-  approval evidence exists.
+- `LOCAL_GEMMA_ENABLED=true` is approved only for the 2026-06-16 runtime
+  canary.
+- `AI_PREP_ENABLED=false` and `AI_PREP_QUEUE_WORKER_ENABLED=false` until the
+  canary tenant allowlist patch is merged, deployed, and audited.
+- `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true` and exactly one approved canary tenant
+  ref are required before upload-prep queue execution.
+- `AI_SUMMARY_GEMMA_ENABLED=false`; legal analysis remains out of scope.
 - External model routes remain disallowed; do not add remote model endpoints or
   API keys as a workaround.
 

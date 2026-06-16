@@ -1,10 +1,12 @@
 # LOCAL AI Production Readiness Gate
 
-Status: TECHNICAL_READY PASS; GOVERNANCE_APPROVAL BLOCKED; PRODUCTION_ENABLEMENT BLOCKED.
+Status: TECHNICAL_READY PASS; GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY; PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE; UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_ALLOWLIST_PATCH_DEPLOY.
 
 This gate separates technical readiness from authority to enable Local Gemma in
-production. It does not turn on production flags and it does not approve any
-external model route.
+production. The runtime canary approval below authorizes a local Gemma sidecar
+only for file-organization prep readiness checks. It does not approve legal
+analysis, external model routes, raw prompt/source/model-response storage, or
+unscoped upload-prep queue execution.
 
 ## Scope
 
@@ -17,18 +19,18 @@ external model route.
 
 ## Required Technical Evidence
 
-| Requirement                                                  | Required evidence                                                                                                           | Current LAI-20 result                                                                                    |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Lint/typecheck/unit/build green                              | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`                                                                    | PASS                                                                                                     |
-| Full integration green                                       | `pnpm test:integration`                                                                                                     | PASS; 85 files / 212 tests                                                                               |
-| DB migration roundtrip current                               | `pnpm db:migrate`, targeted down/up for latest migration, `pnpm db:seed`                                                    | PASS; `0071` down/up verified                                                                            |
-| Local AI eval green                                          | `pnpm eval:local-ai -- --tenant-id 11111111-1111-4111-8111-111111111111`                                                    | PASS; caseCount 102, fallbackRate 4.0%, rejectedRate 0.0%, pendingPrepCount 0                            |
-| Existing AI gate green                                       | `pnpm eval:ai-gate -- --tenant-id 11111111-1111-4111-8111-111111111111`                                                     | PASS; externalModelCallAttempts 0                                                                        |
-| Storage/audit scan green                                     | `pnpm ai-prep:scan -- --tenant-id 11111111-1111-4111-8111-111111111111`                                                     | PASS; raw/legal/source/external/disallowed counts 0                                                      |
-| Bench harness safe                                           | disabled bench and explicit live Gemma smoke with `--case-limit 2`                                                          | PASS; disabled mode made no model calls over 102-case fixture, live Gemma smoke completed 2/2            |
-| Product surface safe                                         | stale/rejected payloads not displayed as ready; no legal-analysis product copy                                              | PASS                                                                                                     |
-| Admin ops safe                                               | rejected/fallback/stale aggregate counts admin-only; no endpoint URL, prompt, source, response, secret, or raw text exposed | PASS                                                                                                     |
-| Production flags still false in recorded production evidence | repo/deploy evidence must show disabled defaults                                                                            | PASS for recorded production patch evidence; live production env re-audit required before any enablement |
+| Requirement                                | Required evidence                                                                                                           | Current LAI-20 result                                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Lint/typecheck/unit/build green            | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`                                                                    | PASS                                                                                                     |
+| Full integration green                     | `pnpm test:integration`                                                                                                     | PASS; 85 files / 212 tests                                                                               |
+| DB migration roundtrip current             | `pnpm db:migrate`, targeted down/up for latest migration, `pnpm db:seed`                                                    | PASS; `0071` down/up verified                                                                            |
+| Local AI eval green                        | `pnpm eval:local-ai -- --tenant-id 11111111-1111-4111-8111-111111111111`                                                    | PASS; caseCount 102, fallbackRate 4.0%, rejectedRate 0.0%, pendingPrepCount 0                            |
+| Existing AI gate green                     | `pnpm eval:ai-gate -- --tenant-id 11111111-1111-4111-8111-111111111111`                                                     | PASS; externalModelCallAttempts 0                                                                        |
+| Storage/audit scan green                   | `pnpm ai-prep:scan -- --tenant-id 11111111-1111-4111-8111-111111111111`                                                     | PASS; raw/legal/source/external/disallowed counts 0                                                      |
+| Bench harness safe                         | disabled bench and explicit live Gemma smoke with `--case-limit 2`                                                          | PASS; disabled mode made no model calls over 102-case fixture, live Gemma smoke completed 2/2            |
+| Product surface safe                       | stale/rejected payloads not displayed as ready; no legal-analysis product copy                                              | PASS                                                                                                     |
+| Admin ops safe                             | rejected/fallback/stale aggregate counts admin-only; no endpoint URL, prompt, source, response, secret, or raw text exposed | PASS                                                                                                     |
+| Production flags scoped by canary evidence | repo/deploy evidence must show runtime-only canary state and upload-prep queue disabled until allowlist patch deploy        | PASS for runtime canary evidence; upload-prep queue remains blocked pending canary allowlist code deploy |
 
 Canonical command set:
 
@@ -56,40 +58,56 @@ git diff --check
 
 ## Governance Approval Evidence
 
-Technical readiness is not authorization. These evidence refs are required
-before any production Local Gemma runtime flag can be turned on:
+Technical readiness is not authorization. These evidence refs are required for
+the 2026-06-16 runtime canary, and upload-prep queue execution remains blocked
+until the canary tenant allowlist patch is merged, deployed, and audited:
 
-| Evidence ref                                  | Required owner            | Status                                              |
-| --------------------------------------------- | ------------------------- | --------------------------------------------------- |
-| `APPROVAL-LAI-PROD-OPERATOR-YYYY-MM-DD`       | Operator                  | REQUIRED                                            |
-| `APPROVAL-LAI-PROD-SECURITY-YYYY-MM-DD`       | Security                  | REQUIRED                                            |
-| `APPROVAL-LAI-PROD-LEGAL-DATA-YYYY-MM-DD`     | Legal/data owner          | REQUIRED                                            |
-| `APPROVAL-LAI-PROD-CUSTOMER-SCOPE-YYYY-MM-DD` | Customer/data scope owner | REQUIRED                                            |
-| `PROD-LAI-ENV-AUDIT-YYYY-MM-DD`               | Ops/security              | REQUIRED; records flag states as evidence refs only |
-| `PROD-LAI-ALERT-DELIVERY-YYYY-MM-DD`          | Ops                       | REQUIRED                                            |
-| `PROD-LAI-ROLLBACK-OWNER-YYYY-MM-DD`          | Operator/Ops              | REQUIRED                                            |
+| Evidence ref                                  | Required owner            | Status                                               |
+| --------------------------------------------- | ------------------------- | ---------------------------------------------------- |
+| `APPROVAL-LAI-PROD-OPERATOR-2026-06-16`       | Operator                  | APPROVED for runtime canary                          |
+| `APPROVAL-LAI-PROD-SECURITY-2026-06-16`       | Security                  | APPROVED for runtime canary                          |
+| `APPROVAL-LAI-PROD-LEGAL-DATA-2026-06-16`     | Legal/data owner          | APPROVED for file-organization prep only             |
+| `APPROVAL-LAI-PROD-CUSTOMER-SCOPE-2026-06-16` | Customer/data scope owner | APPROVED for synthetic or one approved canary tenant |
+| `PROD-LAI-ENV-AUDIT-2026-06-16`               | Ops/security              | PASS; records runtime canary flags as refs only      |
+| `PROD-LAI-ALERT-STATE-2026-06-16`             | Ops                       | PASS; production alarms OK during runtime canary     |
+| `PROD-LAI-ALERT-DELIVERY-PENDING`             | Ops                       | REQUIRED before expanding beyond runtime canary      |
+| `PROD-LAI-ROLLBACK-OWNER-2026-06-16`          | Operator/Ops              | APPROVED; rollback owner `jws`                       |
+| `PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16`  | Codex/Ops                 | IN PROGRESS; required before upload-prep queue true  |
 
-The literal `YYYY-MM-DD` placeholders are allowed only while
-`GOVERNANCE_APPROVAL` and `PRODUCTION_ENABLEMENT` are BLOCKED. They must be
-replaced by concrete evidence refs before either status can change.
+No date placeholder is allowed after runtime canary activation.
 
 No approval may be inferred from passing tests, local evals, PR review, or a
 previous production release approval.
 
 ## Production Flag Boundary
 
-Flags must remain false until every governance approval evidence ref is present:
+Current production runtime canary state:
 
 ```text
-LOCAL_GEMMA_ENABLED=false
+LOCAL_GEMMA_ENABLED=true
+LOCAL_GEMMA_ENDPOINT=loopback sidecar
+LOCAL_GEMMA_MODEL=gemma4:12b
 AI_PREP_ENABLED=false
 AI_PREP_QUEUE_WORKER_ENABLED=false
 AI_SUMMARY_GEMMA_ENABLED=false
 ```
 
-The enablement plan may discuss setting these flags after approval, but repo
-evidence must not claim they are enabled until an operator records the approval
-refs and live production env audit refs.
+Upload-prep queue execution must remain disabled until the allowlist patch is
+merged and the production task is audited with exactly one approved synthetic or
+canary tenant reference outside the repository:
+
+```text
+AI_PREP_ENABLED=true
+AI_PREP_QUEUE_WORKER_ENABLED=true
+AI_PREP_REQUIRE_TENANT_ALLOWLIST=true
+AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>
+AI_PREP_TENANT_MAX_CONCURRENCY=1
+AI_SUMMARY_GEMMA_ENABLED=false
+```
+
+Repository evidence must not include concrete tenant ids, private endpoints,
+account identifiers, ARNs, cookies, tokens, secrets, prompts, source text, model
+responses, or customer document content.
 
 ## Closeout
 
