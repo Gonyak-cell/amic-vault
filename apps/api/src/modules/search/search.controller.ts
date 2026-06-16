@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Inject, Post, Req } from '@nestjs/common';
-import { searchQuerySchema } from '@amic-vault/shared';
+import { matterSuggestionQuerySchema, searchQuerySchema } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
 import { SearchService } from './search.service';
 
@@ -15,7 +15,19 @@ function parseSearchBody(body: unknown) {
   }
 }
 
-function sessionParts(request: RequestWithSession): { tenantId: string; userId: string; sessionId: string } {
+function parseMatterSuggestionBody(body: unknown) {
+  try {
+    return matterSuggestionQuerySchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function sessionParts(request: RequestWithSession): {
+  tenantId: string;
+  userId: string;
+  sessionId: string;
+} {
   const tenantId = request.session?.tenantId;
   const userId = request.session?.userId;
   const sessionId = request.session?.sessionId;
@@ -30,5 +42,13 @@ export class SearchController {
   @Post()
   search(@Req() request: RequestWithSession, @Body() body: unknown) {
     return this.searchService.search(sessionParts(request), parseSearchBody(body));
+  }
+
+  @Post('matter-suggestions')
+  suggestMatters(@Req() request: RequestWithSession, @Body() body: unknown) {
+    return this.searchService.suggestMatters(
+      sessionParts(request),
+      parseMatterSuggestionBody(body),
+    );
   }
 }

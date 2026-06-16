@@ -189,8 +189,12 @@ Current implementation notes:
 - Status/cancel paths require same user plus current `canReadMatter`.
 - Disabled gate and permission-denied paths record bounded Outlook audit events
   and return safe `PERMISSION_DENIED`.
-- Matter suggestions, worker execution, and Microsoft acquisition remain
-  deferred.
+- Implemented `POST /v1/search/matter-suggestions` through the existing Search
+  Gateway. The endpoint accepts hash-only Outlook inputs, applies
+  `SearchPermissionScopeProvider` to `document_search_index idx` before matter
+  candidate construction, and records bounded
+  `OUTLOOK_MATTER_SUGGESTIONS_VIEWED` audit metadata.
+- Worker execution and Microsoft acquisition remain deferred.
 
 Required tests:
 

@@ -448,6 +448,46 @@ export async function addWallMembership(input: {
   });
 }
 
+export async function setMatterSuggestionDomains(input: {
+  tenantId: string;
+  matterId: string;
+  clientId: string;
+  matterDomain?: string;
+  clientDomain?: string;
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, input.tenantId);
+    await client.query(
+      `
+        UPDATE matters
+        SET metadata_json = jsonb_set(
+          coalesce(metadata_json, '{}'::jsonb),
+          '{domain}',
+          to_jsonb($3::text),
+          true
+        )
+        WHERE tenant_id = $1
+          AND matter_id = $2
+      `,
+      [input.tenantId, input.matterId, input.matterDomain ?? ''],
+    );
+    await client.query(
+      `
+        UPDATE clients
+        SET metadata_json = jsonb_set(
+          coalesce(metadata_json, '{}'::jsonb),
+          '{domain}',
+          to_jsonb($3::text),
+          true
+        )
+        WHERE tenant_id = $1
+          AND client_id = $2
+      `,
+      [input.tenantId, input.clientId, input.clientDomain ?? ''],
+    );
+  });
+}
+
 export async function insertSearchIndexedRow(
   row: SearchIndexedFixtureRow,
   index: number,
@@ -669,7 +709,9 @@ export async function createSearchFixture(marker: string): Promise<SearchFixture
     alphaDocumentIds: rows
       .filter((row) => row.tenantId === tenantAlphaId)
       .map((row) => row.documentId),
-    alphaVersionIds: rows.filter((row) => row.tenantId === tenantAlphaId).map((row) => row.versionId),
+    alphaVersionIds: rows
+      .filter((row) => row.tenantId === tenantAlphaId)
+      .map((row) => row.versionId),
     betaVersionIds: rows.filter((row) => row.tenantId === tenantBetaId).map((row) => row.versionId),
   };
 }
