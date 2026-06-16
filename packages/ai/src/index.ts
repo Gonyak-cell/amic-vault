@@ -194,7 +194,7 @@ export class LocalGemmaGateway {
     if (result.status !== 'completed' || !result.response) return result;
     let decoded: unknown;
     try {
-      decoded = JSON.parse(stripJsonFence(result.response));
+      decoded = JSON.parse(extractJsonPayload(result.response));
     } catch {
       return { ...result, status: 'blocked', reasonCode: 'invalid_json', rawResponse: result.response };
     }
@@ -339,8 +339,55 @@ function ollamaGenerateResponseSchema(body: unknown): {
   };
 }
 
+function extractJsonPayload(value: string): string {
+  const stripped = stripJsonFence(value);
+  const direct = stripped.trim();
+  if (direct.startsWith('{') || direct.startsWith('[')) return direct;
+  return firstJsonValue(direct) ?? direct;
+}
+
 function stripJsonFence(value: string): string {
   const trimmed = value.trim();
   const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/u.exec(trimmed);
   return fenced?.[1]?.trim() ?? trimmed;
+}
+
+function firstJsonValue(value: string): string | null {
+  const start = value.search(/[\[{]/u);
+  if (start < 0) return null;
+
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < value.length; index += 1) {
+    const char = value[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') {
+      stack.push('}');
+      continue;
+    }
+    if (char === '[') {
+      stack.push(']');
+      continue;
+    }
+    if (char === '}' || char === ']') {
+      if (stack.pop() !== char) return null;
+      if (stack.length === 0) return value.slice(start, index + 1).trim();
+    }
+  }
+  return null;
 }

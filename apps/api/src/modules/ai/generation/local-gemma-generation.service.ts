@@ -106,8 +106,8 @@ function localGemmaEnabled(): boolean {
 }
 
 function localGemmaTimeoutMs(): number {
-  const parsed = Number(process.env.LOCAL_GEMMA_TIMEOUT_MS ?? '30000');
-  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 30_000;
+  const parsed = Number(process.env.LOCAL_GEMMA_TIMEOUT_MS ?? '300000');
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 300_000;
 }
 
 function localGemmaMaxTokens(purpose: EvidencePromptCompileOptions['purpose']): number {

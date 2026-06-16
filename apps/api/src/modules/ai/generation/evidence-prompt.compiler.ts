@@ -45,16 +45,18 @@ export class AiEvidencePromptCompiler {
       warnings: [],
     });
     const chunks = pack.retrievedChunks
-      .map(
-        (chunk) =>
-          [
-            `SOURCE_REF: ${chunk.citationRef}`,
-            `DOCUMENT_ID: ${chunk.documentId}`,
-            `VERSION_ID: ${chunk.versionId}`,
-            `CHUNK_ORDINAL: ${chunk.chunkOrdinal}`,
-            `TEXT: ${chunk.redactedText}`,
-          ].join('\n'),
-      )
+      .map((chunk) => {
+        const lines = isPrep
+          ? [`SOURCE_REF: ${chunk.citationRef}`, `TEXT: ${boundedPrepText(chunk.redactedText)}`]
+          : [
+              `SOURCE_REF: ${chunk.citationRef}`,
+              `DOCUMENT_ID: ${chunk.documentId}`,
+              `VERSION_ID: ${chunk.versionId}`,
+              `CHUNK_ORDINAL: ${chunk.chunkOrdinal}`,
+              `TEXT: ${chunk.redactedText}`,
+            ];
+        return lines.join('\n');
+      })
       .join('\n\n');
     const graphFactsForPrompt = isPrep ? pack.graphFacts.filter(isPrepSafeGraphFact) : pack.graphFacts;
     const ruleFindingsForPrompt = isPrep
@@ -97,9 +99,9 @@ export class AiEvidencePromptCompiler {
               `ARTIFACT_KIND: ${options.artifactKind ?? pack.outputFormat.kind}`,
             ]
           : []),
-        `TASK: ${pack.taskType}`,
+        ...(isPrep ? [] : [`TASK: ${pack.taskType}`]),
         `LOCALE: ${pack.outputFormat.locale}`,
-        `QUESTION: ${pack.userQuestion}`,
+        ...(isPrep ? [] : [`QUESTION: ${pack.userQuestion}`]),
         `CLAIM_KIND_ALLOWLIST: ${allowedClaimKinds.join(', ')}`,
         `ALLOWED_SOURCE_REFS: ${sourceRefs.join(', ')}`,
         'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
@@ -111,10 +113,7 @@ export class AiEvidencePromptCompiler {
           : []),
         'RETRIEVED_CHUNKS:',
         chunks || 'none',
-        'GRAPH_FACTS:',
-        graphFacts || 'none',
-        'RULE_FINDINGS:',
-        ruleFindings || 'none',
+        ...(isPrep ? [] : ['GRAPH_FACTS:', graphFacts || 'none', 'RULE_FINDINGS:', ruleFindings || 'none']),
         'OUTPUT_SCHEMA:',
         JSON.stringify({
           answer: 'string',
@@ -140,6 +139,11 @@ export class AiEvidencePromptCompiler {
       ].join('\n'),
     };
   }
+}
+
+function boundedPrepText(text: string): string {
+  const normalized = text.replace(/\s+/gu, ' ').trim();
+  return normalized.length > 1600 ? `${normalized.slice(0, 1600)}...` : normalized;
 }
 
 const prepSafeGraphEdgeTypes = new Set(['HAS_MATTER', 'HAS_DOCUMENT', 'HAS_VERSION', 'RELATED_TO']);
