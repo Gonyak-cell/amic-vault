@@ -14,6 +14,11 @@ import {
   DefaultOutlookIdentityVerifier,
   OUTLOOK_IDENTITY_VERIFIER,
 } from './outlook-identity-verifier';
+import {
+  OUTLOOK_OPERATIONAL_CONFIG_PROVIDER,
+  OutlookOperationalGateService,
+  ProcessOutlookOperationalConfigProvider,
+} from './outlook-operational-gate';
 import { OutlookDocumentInsertionService } from './outlook-document-insertion.service';
 import { OutlookFolderMappingService } from './outlook-folder-mapping.service';
 import { OutlookSendFileService } from './outlook-send-file.service';
@@ -29,8 +34,14 @@ import { OutlookService } from './outlook.service';
     OutlookSendFileService,
     OutlookDocumentInsertionService,
     OutlookFolderMappingService,
+    OutlookOperationalGateService,
+    ProcessOutlookOperationalConfigProvider,
     DefaultOutlookIdentityVerifier,
     DisabledOutlookGraphAttachmentTransport,
+    {
+      provide: OUTLOOK_OPERATIONAL_CONFIG_PROVIDER,
+      useExisting: ProcessOutlookOperationalConfigProvider,
+    },
     {
       provide: OUTLOOK_IDENTITY_VERIFIER,
       useExisting: DefaultOutlookIdentityVerifier,
@@ -47,6 +58,7 @@ import { OutlookService } from './outlook.service';
     OutlookSendFileService,
     OutlookDocumentInsertionService,
     OutlookFolderMappingService,
+    OutlookOperationalGateService,
   ],
 })
 export class OutlookModule {}

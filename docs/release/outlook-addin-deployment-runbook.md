@@ -55,6 +55,8 @@ cache, mailbox sync authority, or audit authority.
 | `EV-OUTLOOK-008` | Insert-from-Vault evidence prepared | PACK-OA-08 |
 | `EV-OUTLOOK-009` | Folder mapping and auto-file evidence prepared | PACK-OA-09 |
 | `EV-OUTLOOK-010` | OA10 deployment readiness checklist prepared | This runbook and `pnpm outlook:deployment:check` |
+| `EV-OUTLOOK-011` | OA11 verification closeout prepared | `docs/release/outlook-addin-verification-matrix.md` |
+| `EV-OUTLOOK-012` | Operational gate implementation prepared | `docs/release/outlook-operational-gates.md` and `pnpm outlook:operational:check` |
 
 ## Runtime Gate Order
 
@@ -159,11 +161,18 @@ evidence:
 - [ ] API contract is implemented or explicitly marked deferred for every
       endpoint in the target rollout scope.
 - [ ] `EV-OUTLOOK-001` through `EV-OUTLOOK-010` are present and current.
+- [ ] `EV-OUTLOOK-011` and `EV-OUTLOOK-012` are present and current.
 - [ ] `EV-OUTLOOK-002` manifest validation is no longer blocked for the target
       non-production tenant.
 - [ ] `EV-OUTLOOK-003` admin consent evidence is no longer blocked for the
       approved Graph scope set.
 - [ ] `pnpm outlook:deployment:check` passes.
+- [ ] `pnpm outlook:verification:check` passes.
+- [ ] `pnpm outlook:redaction:check` passes.
+- [ ] `pnpm outlook:operational:check -- --target production --mode enforce` passes.
+- [ ] Production runtime uses `NODE_ENV=production`, approved rollout ring,
+      opaque evidence refs, and `OUTLOOK_AUDIT_AVAILABLE=true` before any
+      Outlook feature flag is enabled.
 - [ ] `pnpm docs:frozen` passes.
 - [ ] OA11 permission, audit, leakage, tenant isolation, idempotency, Graph
       scope, offline, Smart Alert, and evidence matrices pass.

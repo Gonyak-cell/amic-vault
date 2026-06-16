@@ -6,6 +6,7 @@ const repoRoot = process.cwd();
 const requiredFiles = [
   'docs/release/outlook-addin-deployment-runbook.md',
   'docs/release/outlook-addin-graph-scope-matrix.md',
+  'docs/release/outlook-operational-gates.md',
   'docs/release/evidence-register.md',
   'docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md',
   'docs/execution/PACKS_R4_R14.md',
@@ -13,6 +14,8 @@ const requiredFiles = [
   'docs/integrations/outlook-addin-api-contract.md',
   'apps/web/public/outlook-addin/manifest.xml',
   'apps/web/public/outlook-addin/smart-alerts.js',
+  'tools/release/check-outlook-operational.ts',
+  'tools/release/check-outlook-redaction.ts',
   'package.json',
 ];
 
@@ -121,6 +124,7 @@ const packs = contents.get('docs/execution/PACKS_R4_R14.md');
 const manifest = contents.get('apps/web/public/outlook-addin/manifest.xml');
 const smartAlerts = contents.get('apps/web/public/outlook-addin/smart-alerts.js');
 const packageJson = contents.get('package.json');
+const operationalGates = contents.get('docs/release/outlook-operational-gates.md');
 
 for (const file of [
   'docs/release/outlook-addin-deployment-runbook.md',
@@ -163,7 +167,7 @@ for (const flag of [
   assertContains(runbook, flag, 'docs/release/outlook-addin-deployment-runbook.md');
 }
 
-for (const evidenceId of Array.from({ length: 10 }, (_, index) => {
+for (const evidenceId of Array.from({ length: 12 }, (_, index) => {
   return `EV-OUTLOOK-${String(index + 1).padStart(3, '0')}`;
 })) {
   assertContains(evidence, evidenceId, 'docs/release/evidence-register.md');
@@ -181,6 +185,8 @@ for (const [evidenceId, expectedStatus] of [
   ['EV-OUTLOOK-008', 'prepared'],
   ['EV-OUTLOOK-009', 'prepared'],
   ['EV-OUTLOOK-010', 'prepared'],
+  ['EV-OUTLOOK-011', 'prepared'],
+  ['EV-OUTLOOK-012', 'prepared'],
 ]) {
   const row = evidenceRow(evidence, evidenceId);
   if (row.status !== expectedStatus) {
@@ -194,6 +200,7 @@ for (const [evidenceId, expectedRef] of [
   ['EV-OUTLOOK-002', 'PENDING-M365-INTEGRATION-GATE'],
   ['EV-OUTLOOK-003', 'PENDING-TENANT-ADMIN-CONSENT'],
   ['EV-OUTLOOK-010', 'pnpm outlook:deployment:check'],
+  ['EV-OUTLOOK-012', 'pnpm outlook:operational:check'],
 ]) {
   const row = evidenceRow(evidence, evidenceId);
   if (!row.evidenceRef.includes(expectedRef) && !row.notes.includes(expectedRef)) {
@@ -208,7 +215,9 @@ for (const expected of [
   'PENDING-TENANT-ADMIN-CONSENT',
   'docs/release/outlook-addin-graph-scope-matrix.md',
   'docs/release/outlook-addin-deployment-runbook.md',
+  'docs/release/outlook-operational-gates.md',
   'pnpm outlook:deployment:check',
+  'pnpm outlook:operational:check',
 ]) {
   assertContains(evidence, expected, 'docs/release/evidence-register.md');
 }
@@ -259,5 +268,10 @@ for (const forbidden of ['localStorage', 'sessionStorage', 'indexedDB', 'accessT
 }
 
 assertContains(packageJson, 'outlook:deployment:check', 'package.json');
+assertContains(packageJson, 'outlook:operational:check', 'package.json');
+assertContains(packageJson, 'outlook:redaction:check', 'package.json');
+for (const expected of ['OutlookOperationalGateService', 'R0_ADMIN_ONLY', 'R3_PRODUCTION']) {
+  assertContains(operationalGates, expected, 'docs/release/outlook-operational-gates.md');
+}
 
 console.log('outlook deployment check passed');

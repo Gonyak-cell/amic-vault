@@ -7,10 +7,14 @@ const requiredFiles = [
   'docs/release/outlook-addin-verification-matrix.md',
   'docs/release/outlook-addin-deployment-runbook.md',
   'docs/release/outlook-addin-graph-scope-matrix.md',
+  'docs/release/outlook-operational-gates.md',
   'docs/release/evidence-register.md',
   'docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md',
   'docs/execution/PACKS_R4_R14.md',
   'tools/release/check-outlook-deployment.mjs',
+  'tools/release/check-outlook-operational.ts',
+  'tools/release/check-outlook-redaction.ts',
+  'tools/release/outlook-operational-policy.ts',
   'package.json',
   '.github/workflows/ci.yml',
   'apps/api/src/modules/outlook/outlook-audit.events.ts',
@@ -138,11 +142,13 @@ const packs = contents.get('docs/execution/PACKS_R4_R14.md');
 const packageJson = contents.get('package.json');
 const ci = contents.get('.github/workflows/ci.yml');
 const auditEvents = contents.get('apps/api/src/modules/outlook/outlook-audit.events.ts');
+const operationalGates = contents.get('docs/release/outlook-operational-gates.md');
 
 const tenantEvidenceFiles = [
   'docs/release/outlook-addin-verification-matrix.md',
   'docs/release/outlook-addin-deployment-runbook.md',
   'docs/release/outlook-addin-graph-scope-matrix.md',
+  'docs/release/outlook-operational-gates.md',
   'docs/release/evidence-register.md',
   'docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md',
   'docs/execution/PACKS_R4_R14.md',
@@ -182,13 +188,18 @@ assertContains(
   'docs/execution/PACKS_R4_R14.md',
 );
 assertContains(packageJson, 'outlook:verification:check', 'package.json');
+assertContains(packageJson, 'outlook:operational:check', 'package.json');
+assertContains(packageJson, 'outlook:redaction:check', 'package.json');
 assertContains(ci, 'pnpm outlook:verification:check', '.github/workflows/ci.yml');
+assertContains(ci, 'pnpm outlook:operational:check', '.github/workflows/ci.yml');
+assertContains(ci, 'pnpm outlook:redaction:check', '.github/workflows/ci.yml');
 
 for (const [evidenceId, expectedStatus] of [
   ['EV-OUTLOOK-002', 'blocked'],
   ['EV-OUTLOOK-003', 'blocked'],
   ['EV-OUTLOOK-004', 'prepared'],
   ['EV-OUTLOOK-011', 'prepared'],
+  ['EV-OUTLOOK-012', 'prepared'],
 ]) {
   const row = evidenceRow(evidence, evidenceId);
   if (row.status !== expectedStatus) {
@@ -204,9 +215,22 @@ for (const expected of [
   'EV-OUTLOOK-002',
   'EV-OUTLOOK-003',
   'EV-OUTLOOK-011',
+  'EV-OUTLOOK-012',
 ]) {
   assertContains(evidence, expected, 'docs/release/evidence-register.md');
-  assertContains(matrix, expected, 'docs/release/outlook-addin-verification-matrix.md');
+  if (expected !== 'EV-OUTLOOK-012') {
+    assertContains(matrix, expected, 'docs/release/outlook-addin-verification-matrix.md');
+  }
+}
+
+for (const expected of [
+  'OutlookOperationalGateService',
+  'pnpm outlook:operational:check',
+  'pnpm outlook:redaction:check',
+  'R0_ADMIN_ONLY',
+  'R3_PRODUCTION',
+]) {
+  assertContains(operationalGates, expected, 'docs/release/outlook-operational-gates.md');
 }
 
 for (const action of [

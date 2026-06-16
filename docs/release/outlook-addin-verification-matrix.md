@@ -156,15 +156,20 @@ raw Graph id, token, cookie, provider metadata, tenant id, or endpoint values.
 - `EV-OUTLOOK-009`: folder mapping prepared.
 - `EV-OUTLOOK-010`: deployment readiness prepared.
 - `EV-OUTLOOK-011`: OA11 closeout verification prepared.
+- `EV-OUTLOOK-012`: operational gate implementation prepared.
 
 Live Outlook production enablement remains blocked until `EV-OUTLOOK-002` and
 `EV-OUTLOOK-003` are no longer blocked by external, reference-only evidence and
-an operator explicitly approves rollout.
+an operator explicitly approves rollout. OPS-OA-01 additionally requires
+`pnpm outlook:operational:check` and `pnpm outlook:redaction:check` before any
+production Outlook gate is enabled.
 
 ## Required Repo-Local Verification Commands
 
 - `pnpm outlook:deployment:check`
 - `pnpm outlook:verification:check`
+- `pnpm outlook:redaction:check`
+- `pnpm outlook:operational:check -- --target pr --mode advisory`
 - `pnpm docs:frozen`
 - `pnpm backlog:validate`
 - `pnpm lint`

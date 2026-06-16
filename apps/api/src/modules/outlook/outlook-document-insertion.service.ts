@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import type {
   CreateOutlookDocumentInsertionDto,
   OutlookDocumentInsertionDeniedReasonCode,
@@ -15,6 +22,7 @@ import {
   outlookDocumentInsertDeniedAudit,
   outlookDocumentInsertRequestedAudit,
 } from './outlook-audit.events';
+import { OutlookOperationalGateService } from './outlook-operational-gate';
 
 interface NormalizedDocumentInsertionInput {
   insertionId: string;
@@ -68,10 +76,6 @@ function namespacedHash(namespace: string, value: string): string {
   return createHash('sha256').update(namespace).update('\0').update(value).digest('hex');
 }
 
-function isOutlookDocumentInsertionEnabled(): boolean {
-  return process.env.OUTLOOK_DOCUMENT_INSERTION_ENABLED === 'true';
-}
-
 function normalizeInput(input: CreateOutlookDocumentInsertionDto): NormalizedDocumentInsertionInput {
   return {
     insertionId: randomUUID(),
@@ -113,7 +117,12 @@ export class OutlookDocumentInsertionService {
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: Pick<DocumentPermissionService, 'canReadDocument'>,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(OutlookOperationalGateService)
+    private readonly operationalGate?: OutlookOperationalGateService,
   ) {}
+
+  private readonly fallbackOperationalGate = new OutlookOperationalGateService();
 
   async createDocumentInsertion(
     actorUserId: string,
@@ -122,7 +131,7 @@ export class OutlookDocumentInsertionService {
     const tenantId = this.tenantContext.require().tenantId;
     const normalized = normalizeInput(input);
 
-    if (!isOutlookDocumentInsertionEnabled()) {
+    if (!this.isOutlookFeatureAllowed()) {
       await this.recordDenied(tenantId, actorUserId, input, normalized, 'integration_gate_closed');
       throw permissionDenied();
     }
@@ -184,6 +193,12 @@ export class OutlookDocumentInsertionService {
     });
 
     return toDto(row);
+  }
+
+  private isOutlookFeatureAllowed(): boolean {
+    return (this.operationalGate ?? this.fallbackOperationalGate).isFeatureAllowed(
+      'DOCUMENT_INSERTION',
+    );
   }
 
   private isRecordsLocked(target: DocumentInsertionTargetRow): boolean {
