@@ -22,6 +22,28 @@ export class AiEvidencePromptCompiler {
       ? [...new Set(options.allowedClaimKinds)]
       : ['summary', 'key_fact', 'risk', 'issue', 'timeline', 'question', 'clause', 'answer'];
     const isPrep = options.purpose === 'file_organization_prep';
+    const prepClaimKind = allowedClaimKinds[0] ?? 'summary';
+    const prepCompactExample = JSON.stringify({
+      answer: '짧은 파일 정리 정보',
+      sections: [
+        {
+          section_id: 's1',
+          heading: '문서 성격',
+          text: '짧은 정리 문장',
+          source_refs: [exampleSourceRef],
+        },
+      ],
+      claims: [
+        {
+          claim_id: 'c1',
+          kind: prepClaimKind,
+          text: '짧은 근거 문장',
+          source_refs: [exampleSourceRef],
+          is_legal_conclusion: false,
+        },
+      ],
+      warnings: [],
+    });
     const chunks = pack.retrievedChunks
       .map(
         (chunk) =>
@@ -64,7 +86,7 @@ export class AiEvidencePromptCompiler {
           ? [
               'This is post-upload file-organization prep only.',
               'Do not create legal issue, legal risk, clause-analysis, or legal-advice claims.',
-              'Return compact JSON with one short section and one to three short claims.',
+              'Return one-line minified JSON only with exactly one short section and one short claim.',
             ]
           : []),
       ].join(' '),
@@ -83,7 +105,8 @@ export class AiEvidencePromptCompiler {
         'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
         ...(isPrep
           ? [
-              'OUTPUT_LIMIT: one section, one to three claims, concise field values, warnings may be empty.',
+              'OUTPUT_LIMIT: exactly one section, exactly one claim, warnings []. Keep answer/heading/text fields under 80 characters each.',
+              `PREP_COMPACT_JSON_EXAMPLE: ${prepCompactExample}`,
             ]
           : []),
         'RETRIEVED_CHUNKS:',

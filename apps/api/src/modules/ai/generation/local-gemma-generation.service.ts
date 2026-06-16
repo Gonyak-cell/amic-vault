@@ -168,7 +168,7 @@ function groundedJsonSchema(input: {
       claims: {
         type: 'array',
         minItems: 1,
-        maxItems: isPrep ? 3 : 100,
+        maxItems: isPrep ? 1 : 100,
         items: {
           type: 'object',
           additionalProperties: false,

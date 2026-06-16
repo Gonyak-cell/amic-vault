@@ -122,7 +122,7 @@ describe('LocalGemmaGenerationService', () => {
 
     expect(generateBodies).toHaveLength(1);
     const body = generateBodies[0]!;
-    expect(body.prompt).toContain('OUTPUT_LIMIT: one section, one to three claims');
+    expect(body.prompt).toContain('OUTPUT_LIMIT: exactly one section, exactly one claim');
     expect(body.options).toMatchObject({ num_predict: 180 });
     expect(body.format).toBe('json');
   });
@@ -186,7 +186,7 @@ describe('LocalGemmaGenerationService', () => {
     expect(generateBodies[0]?.format).toMatchObject({
       properties: {
         sections: { maxItems: 1 },
-        claims: { maxItems: 3 },
+        claims: { maxItems: 1 },
       },
     });
   });
