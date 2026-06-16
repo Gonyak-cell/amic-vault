@@ -352,7 +352,10 @@ function stripJsonFence(value: string): string {
 }
 
 function firstJsonValue(value: string): string | null {
-  const start = value.search(/[\[{]/u);
+  const objectStart = value.indexOf('{');
+  const arrayStart = value.indexOf('[');
+  const starts = [objectStart, arrayStart].filter((index) => index >= 0);
+  const start = starts.length > 0 ? Math.min(...starts) : -1;
   if (start < 0) return null;
 
   const stack: string[] = [];

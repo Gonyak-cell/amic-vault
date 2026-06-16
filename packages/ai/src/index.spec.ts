@@ -160,7 +160,7 @@ describe('LocalGemmaGateway', () => {
           status: 200,
           json: async () => ({
             model: 'gemma4:12b',
-            response: '완료했습니다.\\n```json\\n{\"answer\":\"ok\",\"note\":\"brace } in string\"}\\n```',
+            response: '완료했습니다.\\n```json\\n{"answer":"ok","note":"brace } in string"}\\n```',
           }),
         };
       }),
