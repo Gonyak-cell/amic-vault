@@ -45,11 +45,15 @@ export class LocalGemmaGenerationService {
       maxResponseChars: 24_000,
     });
     const compiled = this.compiler.compile(pack, options.compileOptions);
-    const format = groundedJsonSchema({
-      sourceRefs: compiled.sourceRefs,
-      allowedClaimKinds: options.compileOptions?.allowedClaimKinds,
-      purpose: options.compileOptions?.purpose,
-    });
+    const isPrep = options.compileOptions?.purpose === 'file_organization_prep';
+    const format =
+      isPrep && localGemmaPrepFormatMode() === 'json'
+        ? 'json'
+        : groundedJsonSchema({
+            sourceRefs: compiled.sourceRefs,
+            allowedClaimKinds: options.compileOptions?.allowedClaimKinds,
+            purpose: options.compileOptions?.purpose,
+          });
     const startedAt = performance.now();
     const generated = await gateway.generateJson(
       {
@@ -116,6 +120,11 @@ function localGemmaMaxTokens(purpose: EvidencePromptCompileOptions['purpose']): 
     if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
   }
   return purpose === 'file_organization_prep' ? 180 : 1400;
+}
+
+function localGemmaPrepFormatMode(): 'json' | 'schema' {
+  const raw = process.env.LOCAL_GEMMA_PREP_FORMAT?.trim().toLowerCase();
+  return raw === 'schema' ? 'schema' : 'json';
 }
 
 function groundedJsonSchema(input: {
