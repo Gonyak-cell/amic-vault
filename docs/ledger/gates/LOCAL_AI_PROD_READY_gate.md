@@ -1,13 +1,12 @@
 # LOCAL AI Production Readiness Gate
 
-Status: TECHNICAL_READY PASS; GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY; PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE; UPLOAD_PREP_ENABLEMENT ACTIVE_CANARY_FILE_ORG_PREP.
+Status: TECHNICAL_READY PASS; GOVERNANCE_APPROVAL APPROVED_FOR_FILE_ORG_FULL_RELEASE; PRODUCTION_ENABLEMENT FULL_RELEASE_ACTIVE; UPLOAD_PREP_ENABLEMENT FULL_RELEASE_FILE_ORG_PREP.
 
 This gate separates technical readiness from authority to enable Local Gemma in
-production. The runtime canary approval below authorizes a local Gemma sidecar
-and upload-prep worker only for file-organization prep readiness checks in the
-approved canary scope. It does not approve legal analysis, external model
-routes, raw prompt/source/model-response storage, or unscoped upload-prep queue
-execution.
+production. The approval below authorizes a local Gemma sidecar and upload-prep
+worker for file-organization prep across the production tenant scope. It does
+not approve legal analysis, summary generation, external model routes, or raw
+prompt/source/model-response storage.
 
 ## Scope
 
@@ -16,7 +15,7 @@ execution.
 - Product scope: post-upload file organization prep only.
 - Explicitly excluded: legal analysis, external AI APIs, remote model routes,
   raw prompt/source/model-response storage, automatic reprocessing of existing
-  customer documents, and expansion beyond the approved canary scope.
+  customer documents, and summary generation.
 
 ## Required Technical Evidence
 
@@ -31,7 +30,7 @@ execution.
 | Bench harness safe                         | disabled bench and explicit live Gemma smoke with `--case-limit 2`                                                          | PASS; disabled mode made no model calls over 102-case fixture, live Gemma smoke completed 2/2            |
 | Product surface safe                       | stale/rejected payloads not displayed as ready; no legal-analysis product copy                                              | PASS                                                                                                     |
 | Admin ops safe                             | rejected/fallback/stale aggregate counts admin-only; no endpoint URL, prompt, source, response, secret, or raw text exposed | PASS                                                                                                     |
-| Production flags scoped by canary evidence | repo/deploy evidence must show runtime canary state, pg-boss queue prep evidence, worker audit, and canary allowlist controls | PASS for runtime and upload-prep file-organization canary evidence; expansion remains blocked |
+| Production flags scoped by release evidence | repo/deploy evidence must show full file-organization release state, pg-boss queue prep evidence, worker audit, alert delivery, and rollback controls | PASS for file-organization full release evidence; summary/legal/external routes remain blocked |
 
 Canonical command set:
 
@@ -60,9 +59,10 @@ git diff --check
 ## Governance Approval Evidence
 
 Technical readiness is not authorization. These evidence refs are required for
-the 2026-06-16 runtime and upload-prep file-organization canary. The canary
-tenant allowlist patch is deployed, pg-boss queue preparation is complete, and
-the worker task is active only inside the approved canary boundary:
+the 2026-06-16 upload-prep file-organization full release. The tenant allowlist
+guard remains available for rollback, pg-boss queue preparation is complete,
+alert delivery is confirmed, and the worker task is active only for the
+file-organization prep scope:
 
 | Evidence ref                                  | Required owner            | Status                                               |
 | --------------------------------------------- | ------------------------- | ---------------------------------------------------- |
@@ -70,14 +70,17 @@ the worker task is active only inside the approved canary boundary:
 | `APPROVAL-LAI-PROD-SECURITY-2026-06-16`       | Security                  | APPROVED for runtime canary                          |
 | `APPROVAL-LAI-PROD-LEGAL-DATA-2026-06-16`     | Legal/data owner          | APPROVED for file-organization prep only             |
 | `APPROVAL-LAI-PROD-CUSTOMER-SCOPE-2026-06-16` | Customer/data scope owner | APPROVED for synthetic or one approved canary tenant |
+| `APPROVAL-LAI-PROD-FILE-ORG-FULL-2026-06-16`  | Operator/Security/Legal/Data | APPROVED for full file-organization prep release |
 | `PROD-LAI-ENV-AUDIT-2026-06-16`               | Ops/security              | PASS; records runtime canary flags as refs only      |
 | `PROD-LAI-ALERT-STATE-2026-06-16`             | Ops                       | PASS; production alarms OK during runtime canary     |
-| `PROD-LAI-ALERT-DELIVERY-PENDING`             | Ops                       | REQUIRED before expanding beyond current canary      |
+| `PROD-LAI-ALERT-DELIVERY-2026-06-16`          | Ops                       | PASS; alert delivery confirmed before full release   |
 | `PROD-LAI-ROLLBACK-OWNER-2026-06-16`          | Operator/Ops              | APPROVED; rollback owner `jws`                       |
 | `PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16`  | Codex/Ops                 | PASS; deployed before upload-prep queue true         |
 | `PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16`       | Codex/Ops                 | PASS; queue and runtime grants prepared              |
 | `PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16` | Codex/Ops               | PASS; worker enabled for approved canary scope       |
 | `PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16` | Codex/Ops       | PASS; public smoke pass=8 fail=0 skip=7              |
+| `PROD-LAI-FILE-ORG-FULL-ENABLE-2026-06-16`    | Codex/Ops                 | PASS; allowlist lifted for file-organization prep    |
+| `PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16`     | Codex/Ops                 | PASS; public smoke pass=8 fail=0 skip=7              |
 
 No date placeholder is allowed after runtime canary activation.
 
@@ -86,7 +89,7 @@ previous production release approval.
 
 ## Production Flag Boundary
 
-Current production upload-prep canary state:
+Current production file-organization full release state:
 
 ```text
 LOCAL_GEMMA_ENABLED=true
@@ -94,24 +97,24 @@ LOCAL_GEMMA_ENDPOINT=loopback sidecar
 LOCAL_GEMMA_MODEL=gemma4:12b
 AI_PREP_ENABLED=true
 AI_PREP_QUEUE_WORKER_ENABLED=true
-AI_PREP_REQUIRE_TENANT_ALLOWLIST=true
-AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>
+AI_PREP_REQUIRE_TENANT_ALLOWLIST=false
+AI_PREP_CANARY_TENANT_IDS=<empty>
 AI_PREP_TENANT_MAX_CONCURRENCY=1
 AI_SUMMARY_GEMMA_ENABLED=false
 PGBOSS_MIGRATE_ENABLED=false
 PGBOSS_CREATE_SCHEMA_ENABLED=false
 ```
 
-Expansion beyond the current canary remains blocked unless a new evidence ref
-and owner approval explicitly authorizes the expansion. The required expansion
-boundary remains:
+Expansion beyond file-organization prep remains blocked unless a new evidence
+ref and owner approval explicitly authorizes that expansion. The required
+file-organization release boundary remains:
 
 ```text
 PGBOSS_MIGRATE_ENABLED=false
 AI_PREP_ENABLED=true
 AI_PREP_QUEUE_WORKER_ENABLED=true
-AI_PREP_REQUIRE_TENANT_ALLOWLIST=true
-AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>
+AI_PREP_REQUIRE_TENANT_ALLOWLIST=false
+AI_PREP_CANARY_TENANT_IDS=<empty>
 AI_PREP_TENANT_MAX_CONCURRENCY=1
 AI_SUMMARY_GEMMA_ENABLED=false
 ```

@@ -81,9 +81,12 @@ for (const expected of [
   'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-ENABLE-2026-06-16',
+  'PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16',
   'd80fbb5d5bf339ed11ddd6bca27b9e937bd83811',
   '46c6b14c4d0fd143b478e3184018635c9f96568a',
   '62b35cd497e1482e5e0fb5bd898e09ffa88270b',
+  'c9dc922d50fe7b39b52f023d1942d8b7c5ad4cac',
   'SMOKE-015',
   'PROD-MONITOR-ALARMS-AWS-2026-06-15',
   'APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15',
@@ -152,12 +155,13 @@ assertContains(
 );
 for (const expected of [
   'TECHNICAL_READY PASS',
-  'GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY',
-  'PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE',
-  'UPLOAD_PREP_ENABLEMENT ACTIVE_CANARY_FILE_ORG_PREP',
+  'GOVERNANCE_APPROVAL APPROVED_FOR_FILE_ORG_FULL_RELEASE',
+  'PRODUCTION_ENABLEMENT FULL_RELEASE_ACTIVE',
+  'UPLOAD_PREP_ENABLEMENT FULL_RELEASE_FILE_ORG_PREP',
   'LOCAL_GEMMA_ENABLED=true',
   'AI_PREP_ENABLED=true',
   'AI_PREP_QUEUE_WORKER_ENABLED=true',
+  'AI_PREP_REQUIRE_TENANT_ALLOWLIST=false',
   'PGBOSS_MIGRATE_ENABLED=false',
   'PGBOSS_CREATE_SCHEMA_ENABLED=false',
 ]) {
@@ -169,7 +173,7 @@ for (const expected of [
 }
 assertContains(
   contents.get('docs/release/local-ai-production-enablement-runbook.md'),
-  'UPLOAD PREP QUEUE ACTIVE FOR FILE ORGANIZATION CANARY ONLY',
+  'FILE ORGANIZATION PREP FULL RELEASE ACTIVE',
   'docs/release/local-ai-production-enablement-runbook.md',
 );
 assertContains(
@@ -190,6 +194,16 @@ assertContains(
 assertContains(
   contents.get('docs/release/evidence-register.md'),
   'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
+  'docs/release/evidence-register.md',
+);
+assertContains(
+  contents.get('docs/release/evidence-register.md'),
+  'EV-LAI-PROD-009',
+  'docs/release/evidence-register.md',
+);
+assertContains(
+  contents.get('docs/release/evidence-register.md'),
+  'active-full-release',
   'docs/release/evidence-register.md',
 );
 for (const expected of [

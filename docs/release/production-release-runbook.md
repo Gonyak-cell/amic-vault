@@ -74,12 +74,11 @@ CloudWatch alarms were OK. Concrete endpoints, account IDs, ARNs,
 provider-console metadata, cookies, tokens, secret values, and customer data
 remain outside this repository.
 
-Local Gemma runtime and upload-prep file-organization canary are active for
-production after the separate 2026-06-16 Local AI approval. The canary is
-limited to the local sidecar runtime, file-organization prep only, and one
-approved synthetic/canary tenant scope. Do not treat the general production
-release approval as Local AI runtime, upload-prep, legal-analysis, or expansion
-approval. Required refs:
+Local Gemma runtime and upload-prep file-organization full release are active
+for production after the separate 2026-06-16 Local AI A option approval. The
+release is limited to the local sidecar runtime and file-organization prep only.
+Do not treat this as summary, legal-analysis, external model, raw-output
+storage, or automatic reprocessing approval. Required refs:
 
 - `docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md`
 - `docs/release/local-ai-production-enablement-runbook.md`
@@ -88,11 +87,11 @@ approval. Required refs:
   2026-06-16
 - live production env audit evidence confirming `LOCAL_GEMMA_ENABLED=true`,
   loopback sidecar route, `AI_PREP_ENABLED=true`,
-  `AI_PREP_QUEUE_WORKER_ENABLED=true`, `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true`,
+  `AI_PREP_QUEUE_WORKER_ENABLED=true`, `AI_PREP_REQUIRE_TENANT_ALLOWLIST=false`,
   `AI_PREP_TENANT_MAX_CONCURRENCY=1`, and `AI_SUMMARY_GEMMA_ENABLED=false`
-- canary allowlist patch evidence before upload-prep queue execution
-- pg-boss queue prepare evidence and upload-prep canary public smoke evidence
-  before any expansion
+- tenant allowlist rollback patch evidence before upload-prep queue execution
+- pg-boss queue prepare evidence, alert delivery evidence, and full release
+  smoke evidence
 
 Customer-launch evidence `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` approves
 actual customer documents only through the Vault app-controlled
@@ -146,7 +145,8 @@ Stop the release if any of these occur:
   logs or release artifacts.
 - External model route opens unexpectedly.
 - Local AI upload-prep queue flags are enabled without
-  `LOCAL_AI_PROD_READY_gate.md`, governance approval refs, deployed canary
-  tenant allowlist evidence, and pg-boss queue prepare evidence.
+  `LOCAL_AI_PROD_READY_gate.md`, governance approval refs, deployed rollback
+  tenant allowlist support, pg-boss queue prepare evidence, and full release
+  smoke evidence.
 - External sharing behavior differs from R11 gate evidence.
 - Operator, security, legal, product, or data approval is missing.
