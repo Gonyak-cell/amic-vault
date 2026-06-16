@@ -26,6 +26,7 @@ authorized by this document.
 | `/v1/search/matter-suggestions`               | POST   | `MatterSuggestionQueryDto`           | OA04, Search Gate   |
 | `/v1/m365/outlook/session-exchanges`          | POST   | `OutlookAddinSessionExchangeDto`     | OA06, auth gate     |
 | `/v1/m365/outlook/attachment-acquisitions`    | POST   | `AcquireOutlookGraphAttachmentDto`   | OA06, Graph gate    |
+| `/v1/m365/outlook/send-policy-decisions`      | POST   | `EvaluateOutlookSendPolicyDto`       | OA07, Smart Alert   |
 | `/v1/m365/outlook/send-file-requests`         | POST   | `CreateOutlookSendFileRequestDto`    | OA07                |
 | `/v1/m365/outlook/document-insertions`        | POST   | `CreateOutlookDocumentInsertionDto`  | OA08, R11/R13 gates |
 | `/v1/m365/outlook/folder-mappings`            | POST   | `CreateOutlookFolderMappingDto`      | OA09                |
@@ -201,20 +202,80 @@ Server behavior:
 - record acquisition requested/acquired/denied audit with refs, hashes, counts,
   scope-set hash, and safe status only.
 
+### `EvaluateOutlookSendPolicyDto`
+
+```ts
+type EvaluateOutlookSendPolicyDto = {
+  matterId?: string;
+  sourceClient: 'outlook-web-addin';
+  message: OutlookItemRefDto;
+  attachments: OutlookAttachmentRefDto[];
+  subjectHash?: string;
+  clientRequestId: string;
+};
+```
+
+```ts
+type OutlookSendPolicyDecisionDto = {
+  decisionId: string;
+  decision: 'allow' | 'warn' | 'block';
+  sourceClient: 'outlook-web-addin';
+  matterId?: string;
+  warningReasonCodes: Array<'no_matter' | 'wrong_matter' | 'external_recipient'>;
+  deniedReasonCode?: 'permission_denied' | 'policy_denied' | 'integration_gate_closed';
+  selectedAttachmentCount: number;
+};
+```
+
+Server behavior:
+
+- default gate: when `OUTLOOK_SMART_ALERTS_ENABLED` is not `true`, deny
+  fail-closed and record `OUTLOOK_SEND_POLICY_EVALUATED`;
+- evaluate no-matter, wrong-matter, external-recipient, and permission-denied
+  paths on the server from hash-only context;
+- use server-side matter suggestions for wrong-matter detection. The add-in does
+  not receive unauthorized matter ids for local filtering;
+- return only a bounded decision, reason codes, and counts. No subject, body,
+  recipient, domain, filename, raw Outlook id, token, or Graph payload is
+  returned.
+
 ### `CreateOutlookSendFileRequestDto`
 
 ```ts
 type CreateOutlookSendFileRequestDto = {
-  matterId?: string;
+  matterId: string;
+  sourceClient: 'outlook-web-addin';
   message: OutlookItemRefDto;
-  selectedPolicyMode: 'allow' | 'warn' | 'block';
+  attachments: OutlookAttachmentRefDto[];
+  subjectHash?: string;
   clientRequestId: string;
   idempotencyKey: string;
+  acknowledgedWarningCodes: Array<'no_matter' | 'wrong_matter' | 'external_recipient'>;
 };
 ```
 
-Smart Alerts are a client event surface only. The server returns policy decisions
-and records audit transitions.
+```ts
+type OutlookSendFileRequestStatusDto = OutlookFilingRequestStatusDto & {
+  requestKind: 'send_and_file';
+  sendPolicyDecision: 'allow' | 'warn';
+  warningReasonCodes: Array<'no_matter' | 'wrong_matter' | 'external_recipient'>;
+};
+```
+
+Server behavior:
+
+- default gate: when `OUTLOOK_SEND_FILE_ENABLED` is not `true`, deny fail-closed
+  and record `OUTLOOK_SEND_FILE_DENIED`;
+- call the same server policy evaluator before queueing a send-and-file request;
+- block decisions and unacknowledged warnings deny with safe
+  `PERMISSION_DENIED`;
+- accepted requests store `request_kind='send_and_file'`, `send_policy_decision`,
+  bounded warning codes, idempotency hashes, and selected attachment refs only;
+- record `OUTLOOK_SEND_FILE_REQUESTED` with reference-only metadata.
+
+Smart Alerts are a client event surface only. The server policy and audit trail
+remain authoritative. If the event runtime is offline or unavailable, the client
+must show unavailable/pending state and must not perform local filing.
 
 ### `CreateOutlookDocumentInsertionDto`
 
@@ -264,6 +325,7 @@ Initial event catalog:
 - `OUTLOOK_EMAIL_FILE_CANCELLED`
 - `OUTLOOK_ATTACHMENT_FILED`
 - `OUTLOOK_MATTER_SUGGESTIONS_VIEWED`
+- `OUTLOOK_SEND_POLICY_EVALUATED`
 - `OUTLOOK_SEND_FILE_REQUESTED`
 - `OUTLOOK_SEND_FILE_DENIED`
 - `OUTLOOK_DOCUMENT_INSERT_REQUESTED`
@@ -291,8 +353,12 @@ Audit metadata allow-list:
 - `mailbox_fingerprint_hash`,
 - `mailbox_binding_id`,
 - `policy_mode`,
+- `policy_decision`,
 - `reason_code`,
-- `idempotency_hash`.
+- `request_kind`,
+- `warning_count`,
+- `warning_codes`,
+- `idempotency_hash`,
 - `client_request_hash`,
 - `scope_count`,
 - `scope_set_hash`,

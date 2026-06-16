@@ -38,6 +38,10 @@ desktop PWA/Tauri path.
 - Matter suggestion permission tests green.
 - Audit event allow-list updated and tested.
 - Graph scope matrix approved.
+- Smart Alert manifest/runtime validation completed in a non-production tenant.
+- Send-and-file warning and offline/unavailable fallback matrix green.
+- If the add-in host and API host differ, CORS and cookie-domain alignment is
+  validated before enabling Smart Alert policy calls.
 - Tenant admin consent external evidence ref recorded outside repo.
 - Add-in manifest validated in a non-production tenant.
 - Rollback rehearsal completed.
@@ -62,7 +66,9 @@ Steps:
 
 1. Disable the add-in in Microsoft 365 admin center for the affected group.
 2. Confirm task pane/ribbon commands disappear for pilot users.
-3. Disable corresponding Vault feature flags if server endpoints were enabled.
+3. Disable corresponding Vault feature flags if server endpoints were enabled:
+   `OUTLOOK_SMART_ALERTS_ENABLED`, `OUTLOOK_SEND_FILE_ENABLED`,
+   `OUTLOOK_GRAPH_ATTACHMENT_ACQUISITION_ENABLED`, and `OUTLOOK_ADDIN_ENABLED`.
 4. Keep PWA/browser filing paths available.
 5. Preserve filing request/job/audit records; do not delete evidence rows.
 6. Record a reference-only rollback evidence ref.
@@ -76,6 +82,8 @@ Track only bounded counters and refs:
 - duplicate idempotency hit count,
 - matter suggestion denied count,
 - Smart Alert unavailable count,
+- Smart Alert allow/warn/block policy count,
+- send-and-file requested/denied count,
 - Graph acquisition denied count,
 - insert policy denied count,
 - folder mapping disabled/changed count.
@@ -93,5 +101,7 @@ Use the `EV-OUTLOOK-*` family:
 - `EV-OUTLOOK-003`: Graph scope/admin consent reference prepared.
 - `EV-OUTLOOK-004`: OA11 verification matrix prepared.
 - `EV-OUTLOOK-005`: deployment rollback rehearsal prepared.
+- `EV-OUTLOOK-006`: auth and Graph gate implementation evidence prepared.
+- `EV-OUTLOOK-007`: Smart Alert send-and-file implementation evidence prepared.
 
 All concrete tenant/provider evidence remains outside the repository.

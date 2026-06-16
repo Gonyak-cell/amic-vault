@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '../api-client';
 import {
+  createOutlookSendFileRequest,
   createOutlookFilingRequest,
+  evaluateOutlookSendPolicy,
   getOutlookFilingRequestStatus,
   getOutlookMatterSuggestions,
 } from './outlook-addin';
@@ -77,5 +79,77 @@ describe('Outlook add-in API client', () => {
         redirectOnAuthRequired: false,
       },
     );
+  });
+
+  it('posts Smart Alert policy and send-and-file requests without auth redirects', async () => {
+    await evaluateOutlookSendPolicy({
+      sourceClient: 'outlook-web-addin',
+      matterId: '11111111-1111-4111-8111-111111111111',
+      message: {
+        mailboxFingerprint: hash,
+        outlookItemIdHash: hash,
+        canonicalMessageSha256: hash,
+        hasExternalParticipants: true,
+        participantDomainHashes: [hash],
+      },
+      attachments: [],
+      subjectHash: hash,
+      clientRequestId: 'oa07:policy',
+    });
+    await createOutlookSendFileRequest({
+      sourceClient: 'outlook-web-addin',
+      matterId: '11111111-1111-4111-8111-111111111111',
+      message: {
+        mailboxFingerprint: hash,
+        outlookItemIdHash: hash,
+        canonicalMessageSha256: hash,
+        hasExternalParticipants: true,
+        participantDomainHashes: [hash],
+      },
+      attachments: [],
+      subjectHash: hash,
+      clientRequestId: 'oa07:file',
+      idempotencyKey: `oa07:${hash}`,
+      acknowledgedWarningCodes: ['external_recipient'],
+    });
+
+    expect(apiFetch).toHaveBeenNthCalledWith(4, '/m365/outlook/send-policy-decisions', {
+      method: 'POST',
+      body: JSON.stringify({
+        sourceClient: 'outlook-web-addin',
+        matterId: '11111111-1111-4111-8111-111111111111',
+        message: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          hasExternalParticipants: true,
+          participantDomainHashes: [hash],
+        },
+        attachments: [],
+        subjectHash: hash,
+        clientRequestId: 'oa07:policy',
+      }),
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenNthCalledWith(5, '/m365/outlook/send-file-requests', {
+      method: 'POST',
+      body: JSON.stringify({
+        sourceClient: 'outlook-web-addin',
+        matterId: '11111111-1111-4111-8111-111111111111',
+        message: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          hasExternalParticipants: true,
+          participantDomainHashes: [hash],
+        },
+        attachments: [],
+        subjectHash: hash,
+        clientRequestId: 'oa07:file',
+        idempotencyKey: `oa07:${hash}`,
+        acknowledgedWarningCodes: ['external_recipient'],
+      }),
+      redirectOnAuthRequired: false,
+    });
   });
 });

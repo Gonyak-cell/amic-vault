@@ -279,7 +279,8 @@ Implementation notes:
 
 ## 10. PACK-OA07 Send-And-File / Smart Alerts
 
-Future implementation pack.
+Implementation pack. Repository defaults remain fail-closed until Security/Ops
+opens the Smart Alert and send-and-file feature gates for an approved tenant.
 
 | TUW                        | Objective                                                                    |
 | -------------------------- | ---------------------------------------------------------------------------- |
@@ -292,6 +293,44 @@ Future implementation pack.
 Block only when server policy says the send must not proceed. Warn when the user
 can still send but filing is recommended. Do not treat Smart Alerts as the only
 compliance control.
+
+Implementation notes:
+
+- Branch/worktree: `codex/outlook-send-file-smart-alerts` at
+  `/Users/jws/Projects/amic-vault-outlook-oa07`.
+- Added `POST /v1/m365/outlook/send-policy-decisions` behind
+  `OUTLOOK_SMART_ALERTS_ENABLED=false` by default. The endpoint accepts only
+  hash-only message, subject, participant domain, mailbox, and attachment refs.
+- Added `POST /v1/m365/outlook/send-file-requests` behind
+  `OUTLOOK_SEND_FILE_ENABLED=false` by default. The endpoint reuses the server
+  policy evaluator, requires unblocked decisions and acknowledged warnings, then
+  stores `request_kind='send_and_file'`, safe status, idempotency hashes, and
+  bounded warning metadata.
+- Added `OUTLOOK_SEND_POLICY_EVALUATED`, `OUTLOOK_SEND_FILE_REQUESTED`, and
+  `OUTLOOK_SEND_FILE_DENIED` audit coverage with refs/hashes/counts/reason codes
+  only.
+- Updated the add-in task pane with a send policy check and send-and-file action.
+  The client does not locally filter unauthorized matter IDs and does not create
+  local filing records.
+- Added an Office.js event runtime and add-in-only manifest `OnMessageSend`
+  `LaunchEvent` with `SendMode="SoftBlock"`. The runtime is stateless, calls the
+  server policy endpoint with hash-only context, prompts/blocks through the
+  Outlook event API, and treats network/runtime failure as send-allowed plus
+  policy-unavailable rather than local filing success.
+- No live tenant deployment, Graph/NAA provider activation, admin consent,
+  folder mapping, auto-file, document insertion, external sharing link creation,
+  or `docs/package/**` modification is introduced.
+
+Required tests:
+
+- Smart Alert disabled gate denies with `OUTLOOK_SEND_POLICY_EVALUATED`;
+- no-matter, wrong-matter, and external-recipient warnings are bounded and
+  reference-only;
+- permission denial blocks and fails closed;
+- unacknowledged send-and-file warnings deny with safe `PERMISSION_DENIED`;
+- acknowledged send-and-file requests are idempotent and audited;
+- manifest/runtime static tests prove `OnMessageSend` is declared without
+  forbidden storage, token, Graph, or broad mailbox scope behavior.
 
 ## 11. PACK-OA08 Insert From Vault
 

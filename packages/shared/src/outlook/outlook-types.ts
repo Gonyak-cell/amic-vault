@@ -23,6 +23,19 @@ export const outlookDeniedReasonCodes = [
 ] as const;
 export type OutlookDeniedReasonCode = (typeof outlookDeniedReasonCodes)[number];
 
+export const outlookSendPolicyDecisions = ['allow', 'warn', 'block'] as const;
+export type OutlookSendPolicyDecision = (typeof outlookSendPolicyDecisions)[number];
+
+export const outlookSendWarningReasonCodes = [
+  'no_matter',
+  'wrong_matter',
+  'external_recipient',
+] as const;
+export type OutlookSendWarningReasonCode = (typeof outlookSendWarningReasonCodes)[number];
+
+export const outlookFilingRequestKinds = ['manual_file', 'send_and_file'] as const;
+export type OutlookFilingRequestKind = (typeof outlookFilingRequestKinds)[number];
+
 export const outlookHashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 export const matterSuggestionReasonCodes = ['subject_hash', 'participant_domain_hash'] as const;
@@ -92,6 +105,30 @@ export const createOutlookEmailFilingRequestSchema = z
   })
   .strict();
 
+const outlookSendPolicyBaseSchema = z
+  .object({
+    sourceClient: z.enum(outlookSourceClients),
+    message: outlookItemRefSchema,
+    attachments: z.array(outlookAttachmentRefSchema).max(200).default([]),
+    subjectHash: outlookHashSchema.optional(),
+    clientRequestId: boundedClientTokenSchema,
+  })
+  .strict();
+
+export const evaluateOutlookSendPolicySchema = outlookSendPolicyBaseSchema
+  .extend({
+    matterId: z.string().uuid().optional(),
+  })
+  .strict();
+
+export const createOutlookSendFileRequestSchema = outlookSendPolicyBaseSchema
+  .extend({
+    matterId: z.string().uuid(),
+    idempotencyKey: boundedClientTokenSchema,
+    acknowledgedWarningCodes: z.array(z.enum(outlookSendWarningReasonCodes)).max(8).default([]),
+  })
+  .strict();
+
 export const cancelOutlookFilingRequestSchema = z
   .object({
     reasonCode: z.enum(['cancelled']).default('cancelled'),
@@ -140,6 +177,22 @@ export interface OutlookFilingRequestStatusDto {
   deniedReasonCode?: OutlookDeniedReasonCode;
 }
 
+export interface OutlookSendPolicyDecisionDto {
+  decisionId: string;
+  decision: OutlookSendPolicyDecision;
+  sourceClient: OutlookSourceClient;
+  matterId?: string;
+  warningReasonCodes: OutlookSendWarningReasonCode[];
+  deniedReasonCode?: OutlookDeniedReasonCode;
+  selectedAttachmentCount: number;
+}
+
+export interface OutlookSendFileRequestStatusDto extends OutlookFilingRequestStatusDto {
+  requestKind: Extract<OutlookFilingRequestKind, 'send_and_file'>;
+  sendPolicyDecision: Exclude<OutlookSendPolicyDecision, 'block'>;
+  warningReasonCodes: OutlookSendWarningReasonCode[];
+}
+
 export interface MatterSuggestionDto {
   matterId: string;
   matterCode: string;
@@ -177,6 +230,8 @@ export type OutlookAttachmentRefDto = z.infer<typeof outlookAttachmentRefSchema>
 export type CreateOutlookEmailFilingRequestDto = z.infer<
   typeof createOutlookEmailFilingRequestSchema
 >;
+export type EvaluateOutlookSendPolicyDto = z.infer<typeof evaluateOutlookSendPolicySchema>;
+export type CreateOutlookSendFileRequestDto = z.infer<typeof createOutlookSendFileRequestSchema>;
 export type CancelOutlookFilingRequestDto = z.infer<typeof cancelOutlookFilingRequestSchema>;
 export type MatterSuggestionQueryDto = z.infer<typeof matterSuggestionQuerySchema>;
 export type OutlookAddinSessionExchangeDto = z.infer<typeof outlookAddinSessionExchangeSchema>;

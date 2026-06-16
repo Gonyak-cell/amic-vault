@@ -5,8 +5,12 @@ import type {
   MatterSuggestionDto,
   MatterSuggestionListDto,
   OutlookFilingRequestStatusDto,
+  OutlookSendFileRequestStatusDto,
+  OutlookSendPolicyDecisionDto,
+  OutlookSendWarningReasonCode,
 } from '@amic-vault/shared';
 import {
+  AlertTriangle,
   CheckCircle2,
   Inbox,
   Paperclip,
@@ -20,14 +24,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
+  createOutlookSendFileRequest,
   createOutlookFilingRequest,
+  evaluateOutlookSendPolicy,
   getOutlookFilingRequestStatus,
   getOutlookMatterSuggestions,
 } from '@/lib/api/outlook-addin';
 import {
   buildCreateFilingRequest,
+  buildCreateSendFileRequest,
   buildMatterSuggestionQuery,
   buildOutlookItemSnapshot,
+  buildSendPolicyRequest,
   formatBytes,
   shortHash,
   type OfficeMailboxLike,
@@ -75,11 +83,22 @@ export function OutlookAddinClient({
       ),
   );
   const [status, setStatus] = useState<OutlookFilingRequestStatusDto | undefined>(initialStatus);
-  const [busyAction, setBusyAction] = useState<'load' | 'suggest' | 'file' | 'status' | null>(null);
+  const [sendPolicy, setSendPolicy] = useState<OutlookSendPolicyDecisionDto | undefined>();
+  const [sendStatus, setSendStatus] = useState<OutlookSendFileRequestStatusDto | undefined>();
+  const [acknowledgedWarningCodes, setAcknowledgedWarningCodes] = useState<
+    Set<OutlookSendWarningReasonCode>
+  >(() => new Set());
+  const [busyAction, setBusyAction] = useState<
+    'load' | 'suggest' | 'file' | 'status' | 'send-policy' | 'send-file' | null
+  >(null);
   const [safeError, setSafeError] = useState<string | null>(null);
 
   const selectedCount = selectedAttachmentHashes.size;
   const canFile = Boolean(snapshot && selectedMatterId && busyAction !== 'file');
+  const canEvaluateSend = Boolean(snapshot && busyAction !== 'send-policy');
+  const canCreateSendFile = Boolean(
+    snapshot && selectedMatterId && sendPolicy?.decision !== 'block' && busyAction !== 'send-file',
+  );
 
   const loadOfficeItem = useCallback(async () => {
     if (initialSnapshot) return;
@@ -155,6 +174,44 @@ export function OutlookAddinClient({
     }
   }, [selectedAttachmentHashes, selectedMatterId, snapshot]);
 
+  const checkSendPolicy = useCallback(async () => {
+    if (!snapshot) return;
+    setBusyAction('send-policy');
+    setSafeError(null);
+    try {
+      const decision = await evaluateOutlookSendPolicy(
+        buildSendPolicyRequest(snapshot, selectedMatterId || undefined, selectedAttachmentHashes),
+      );
+      setSendPolicy(decision);
+      setAcknowledgedWarningCodes(new Set());
+    } catch (error) {
+      setSafeError(safeApiErrorMessage(error));
+    } finally {
+      setBusyAction(null);
+    }
+  }, [selectedAttachmentHashes, selectedMatterId, snapshot]);
+
+  const submitSendFile = useCallback(async () => {
+    if (!snapshot || !selectedMatterId) return;
+    setBusyAction('send-file');
+    setSafeError(null);
+    try {
+      const nextStatus = await createOutlookSendFileRequest(
+        buildCreateSendFileRequest(
+          snapshot,
+          selectedMatterId,
+          selectedAttachmentHashes,
+          [...acknowledgedWarningCodes],
+        ),
+      );
+      setSendStatus(nextStatus);
+    } catch (error) {
+      setSafeError(safeApiErrorMessage(error));
+    } finally {
+      setBusyAction(null);
+    }
+  }, [acknowledgedWarningCodes, selectedAttachmentHashes, selectedMatterId, snapshot]);
+
   const refreshStatus = useCallback(async () => {
     if (!status) return;
     setBusyAction('status');
@@ -180,6 +237,12 @@ export function OutlookAddinClient({
     if (!snapshot || initialSuggestions.length > 0) return;
     void refreshSuggestions();
   }, [initialSuggestions.length, refreshSuggestions, snapshot]);
+
+  useEffect(() => {
+    setSendPolicy(undefined);
+    setSendStatus(undefined);
+    setAcknowledgedWarningCodes(new Set());
+  }, [selectedAttachmentHashes, selectedMatterId, snapshot]);
 
   const statusTone = useMemo(() => statusToneClass(status?.status), [status?.status]);
 
@@ -215,6 +278,60 @@ export function OutlookAddinClient({
           </CardHeader>
           <CardContent className="grid gap-2 p-3 pt-0 text-sm">
             {snapshot ? <MessageSummary snapshot={snapshot} /> : <UnavailableState />}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-md shadow-none">
+          <CardHeader className="flex-row items-center justify-between gap-2 p-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-[#8a5a10]" aria-hidden />
+              <CardTitle className="text-sm">Send</CardTitle>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => void checkSendPolicy()}
+              disabled={!canEvaluateSend}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden />
+              정책
+            </Button>
+          </CardHeader>
+          <CardContent className="grid gap-2 p-3 pt-0 text-sm">
+            {sendPolicy ? (
+              <SendPolicyPanel
+                policy={sendPolicy}
+                acknowledgedWarningCodes={acknowledgedWarningCodes}
+                onToggleWarning={(code) =>
+                  setAcknowledgedWarningCodes((current) => {
+                    const next = new Set(current);
+                    if (next.has(code)) next.delete(code);
+                    else next.add(code);
+                    return next;
+                  })
+                }
+              />
+            ) : (
+              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+                정책 대기
+              </p>
+            )}
+            {sendStatus ? (
+              <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
+                send-and-file {sendStatus.status} · {shortHash(sendStatus.id.replaceAll('-', ''))}
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              className="h-10"
+              onClick={() => void submitSendFile()}
+              disabled={!canCreateSendFile}
+            >
+              <Send className="h-4 w-4" aria-hidden />
+              Send+File
+            </Button>
           </CardContent>
         </Card>
 
@@ -378,6 +495,47 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-md bg-[#eef3f4] px-3 py-2">
       <dt className="text-xs text-[#5c6e75]">{label}</dt>
       <dd className="truncate font-mono text-xs">{value}</dd>
+    </div>
+  );
+}
+
+function SendPolicyPanel({
+  policy,
+  acknowledgedWarningCodes,
+  onToggleWarning,
+}: {
+  policy: OutlookSendPolicyDecisionDto;
+  acknowledgedWarningCodes: ReadonlySet<OutlookSendWarningReasonCode>;
+  onToggleWarning: (code: OutlookSendWarningReasonCode) => void;
+}) {
+  const tone =
+    policy.decision === 'allow'
+      ? 'border-[#b9dfce] bg-[#effaf4] text-[#1d6b4e]'
+      : policy.decision === 'warn'
+        ? 'border-[#ead6a8] bg-[#fff9e9] text-[#80580d]'
+        : 'border-[#e0c7c9] bg-[#fff7f7] text-[#8a1f2a]';
+  return (
+    <div className={`rounded-md border px-3 py-2 ${tone}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold">{policy.decision}</span>
+        <span className="font-mono text-xs">{shortHash(policy.decisionId.replaceAll('-', ''))}</span>
+      </div>
+      {policy.warningReasonCodes.length > 0 ? (
+        <div className="mt-2 grid gap-1">
+          {policy.warningReasonCodes.map((code) => (
+            <label key={code} className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 accent-[#174f56]"
+                checked={acknowledgedWarningCodes.has(code)}
+                onChange={() => onToggleWarning(code)}
+              />
+              <span>{code}</span>
+            </label>
+          ))}
+        </div>
+      ) : null}
+      {policy.deniedReasonCode ? <div className="mt-1 text-xs">{policy.deniedReasonCode}</div> : null}
     </div>
   );
 }

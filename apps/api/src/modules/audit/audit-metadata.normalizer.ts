@@ -13,6 +13,7 @@ const stringListMetadataKeys = new Set<AuditMetadataKey>([
   'included_chunk_ids',
   'excluded_chunk_ids',
   'error_types',
+  'warning_codes',
 ]);
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
