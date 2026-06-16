@@ -144,6 +144,29 @@ describe('OutlookService', () => {
     );
   });
 
+  it('marks duplicate manual filing requests in audit metadata', async () => {
+    process.env.OUTLOOK_ADDIN_ENABLED = 'true';
+    permissionService.canUploadToMatter.mockResolvedValue({ effect: 'ALLOW' });
+    query.mockResolvedValueOnce({ rows: [createRow({ duplicate: true })], rowCount: 1 });
+
+    await expect(service.createFilingRequest(userId, createInput())).resolves.toMatchObject({
+      id: requestId,
+      status: 'queued',
+    });
+
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'OUTLOOK_EMAIL_FILE_REQUESTED',
+        metadata: expect.objectContaining({
+          reason_code: 'duplicate',
+          idempotency_hash: hash,
+        }),
+      }),
+      expect.anything(),
+    );
+  });
+
   it('requires the same user and current matter read permission for status lookup', async () => {
     permissionService.canReadMatter.mockResolvedValue({ effect: 'ALLOW' });
     query.mockResolvedValueOnce({ rows: [createRow()], rowCount: 1 });
