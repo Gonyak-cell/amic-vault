@@ -181,11 +181,17 @@ export const auditMetadataKeys = [
   'external_model_allowed',
   'control_hash',
   'mailbox_fingerprint_hash',
+  'mailbox_binding_id',
+  'addin_session_id',
+  'acquisition_id',
   'message_hash',
   'attachment_count',
+  'attachment_id_hash',
   'filed_attachment_count',
   'idempotency_hash',
   'client_request_hash',
+  'scope_count',
+  'scope_set_hash',
   'outlook_status',
   ] as const;
 

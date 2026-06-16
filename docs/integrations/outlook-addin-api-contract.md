@@ -24,6 +24,8 @@ authorized by this document.
 | `/v1/m365/outlook/filing-requests/:id`        | GET    | `OutlookFilingRequestStatusDto`      | OA04                |
 | `/v1/m365/outlook/filing-requests/:id/cancel` | POST   | `CancelOutlookFilingRequestDto`      | OA04                |
 | `/v1/search/matter-suggestions`               | POST   | `MatterSuggestionQueryDto`           | OA04, Search Gate   |
+| `/v1/m365/outlook/session-exchanges`          | POST   | `OutlookAddinSessionExchangeDto`     | OA06, auth gate     |
+| `/v1/m365/outlook/attachment-acquisitions`    | POST   | `AcquireOutlookGraphAttachmentDto`   | OA06, Graph gate    |
 | `/v1/m365/outlook/send-file-requests`         | POST   | `CreateOutlookSendFileRequestDto`    | OA07                |
 | `/v1/m365/outlook/document-insertions`        | POST   | `CreateOutlookDocumentInsertionDto`  | OA08, R11/R13 gates |
 | `/v1/m365/outlook/folder-mappings`            | POST   | `CreateOutlookFolderMappingDto`      | OA09                |
@@ -146,6 +148,59 @@ Server behavior:
   matching is exact hash comparison against stored matter/client domain metadata;
 - audit `OUTLOOK_MATTER_SUGGESTIONS_VIEWED` with query hash and result count.
 
+### `OutlookAddinSessionExchangeDto`
+
+```ts
+type OutlookAddinSessionExchangeDto = {
+  sourceClient: 'outlook-web-addin';
+  mailboxFingerprint: string;
+  identityAssertion: string;
+  clientRequestId: string;
+};
+```
+
+The `identityAssertion` is transient request input for a server-side verifier.
+The server hashes it before persistence, never stores token/assertion values,
+and never records it in audit metadata or repo evidence.
+
+Server behavior:
+
+- default gate: when `OUTLOOK_AUTH_EXCHANGE_ENABLED` is not `true`, deny
+  fail-closed and record `OUTLOOK_ADDIN_SESSION_DENIED`;
+- require an active Vault session, but issue a separate `outlook_addin_session`
+  instead of reusing the PWA/browser cookie;
+- require the identity verifier to allow the assertion;
+- require an active `(tenant, user, mailbox_fingerprint_hash)` binding;
+- record `OUTLOOK_ADDIN_SESSION_EXCHANGED` with session id, binding id,
+  mailbox hash, client request hash, and expiry only.
+
+### `AcquireOutlookGraphAttachmentDto`
+
+```ts
+type AcquireOutlookGraphAttachmentDto = {
+  sourceClient: 'outlook-web-addin';
+  addinSessionId: string;
+  filingRequestId: string;
+  message: OutlookItemRefDto;
+  attachment: OutlookAttachmentRefDto;
+  clientRequestId: string;
+};
+```
+
+Server behavior:
+
+- default gate: when `OUTLOOK_GRAPH_ATTACHMENT_ACQUISITION_ENABLED` is not
+  `true`, deny fail-closed and record
+  `OUTLOOK_GRAPH_ATTACHMENT_ACQUIRE_DENIED`;
+- require active add-in session + active mailbox binding + same-user filing
+  request + current `PermissionService.canUploadToMatter`;
+- accept only hash/ref DTOs from the add-in. Raw Graph message ids, attachment
+  ids, tokens, filenames, provider payloads, and attachment bytes are not DTO
+  fields;
+- call only the approved server-side acquisition adapter after all checks pass;
+- record acquisition requested/acquired/denied audit with refs, hashes, counts,
+  scope-set hash, and safe status only.
+
 ### `CreateOutlookSendFileRequestDto`
 
 ```ts
@@ -200,6 +255,8 @@ instead of creating another email or attachment record.
 
 Initial event catalog:
 
+- `OUTLOOK_ADDIN_SESSION_EXCHANGED`
+- `OUTLOOK_ADDIN_SESSION_DENIED`
 - `OUTLOOK_EMAIL_FILE_REQUESTED`
 - `OUTLOOK_EMAIL_FILE_COMPLETED`
 - `OUTLOOK_EMAIL_FILE_DENIED`
@@ -213,6 +270,9 @@ Initial event catalog:
 - `OUTLOOK_DOCUMENT_INSERT_DENIED`
 - `OUTLOOK_FOLDER_MAPPING_CHANGED`
 - `OUTLOOK_AUTOFILE_JOB_RECORDED`
+- `OUTLOOK_GRAPH_ATTACHMENT_ACQUIRE_REQUESTED`
+- `OUTLOOK_GRAPH_ATTACHMENT_ACQUIRED`
+- `OUTLOOK_GRAPH_ATTACHMENT_ACQUIRE_DENIED`
 
 Audit metadata allow-list:
 
@@ -223,13 +283,19 @@ Audit metadata allow-list:
 - `version_id`,
 - `email_record_id`,
 - `attachment_count`,
+- `attachment_id_hash`,
+- `acquisition_id`,
+- `addin_session_id`,
 - `filed_attachment_count`,
 - `message_hash`,
 - `mailbox_fingerprint_hash`,
+- `mailbox_binding_id`,
 - `policy_mode`,
 - `reason_code`,
 - `idempotency_hash`.
 - `client_request_hash`,
+- `scope_count`,
+- `scope_set_hash`,
 - `outlook_status`.
 
 ## Error Handling

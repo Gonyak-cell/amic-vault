@@ -28,6 +28,21 @@ export const outlookHashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 export const matterSuggestionReasonCodes = ['subject_hash', 'participant_domain_hash'] as const;
 export type MatterSuggestionReasonCode = (typeof matterSuggestionReasonCodes)[number];
 
+export const outlookAddinSessionStatuses = ['active', 'denied', 'expired', 'revoked'] as const;
+export type OutlookAddinSessionStatus = (typeof outlookAddinSessionStatuses)[number];
+
+export const outlookMailboxBindingStatuses = ['active', 'stale', 'revoked'] as const;
+export type OutlookMailboxBindingStatus = (typeof outlookMailboxBindingStatuses)[number];
+
+export const outlookGraphAttachmentAcquisitionStatuses = [
+  'queued',
+  'acquired',
+  'denied',
+  'failed',
+] as const;
+export type OutlookGraphAttachmentAcquisitionStatus =
+  (typeof outlookGraphAttachmentAcquisitionStatuses)[number];
+
 export const outlookItemRefSchema = z
   .object({
     mailboxFingerprint: outlookHashSchema,
@@ -60,6 +75,12 @@ const boundedClientTokenSchema = z
   .max(128)
   .regex(/^[A-Za-z0-9._:-]+$/);
 
+const identityAssertionSchema = z
+  .string()
+  .min(16)
+  .max(8192)
+  .regex(/^[A-Za-z0-9._~+/=-]+$/);
+
 export const createOutlookEmailFilingRequestSchema = z
   .object({
     matterId: z.string().uuid(),
@@ -88,6 +109,26 @@ export const matterSuggestionQuerySchema = z
   })
   .strict();
 
+export const outlookAddinSessionExchangeSchema = z
+  .object({
+    sourceClient: z.enum(outlookSourceClients),
+    mailboxFingerprint: outlookHashSchema,
+    identityAssertion: identityAssertionSchema,
+    clientRequestId: boundedClientTokenSchema,
+  })
+  .strict();
+
+export const acquireOutlookGraphAttachmentSchema = z
+  .object({
+    sourceClient: z.enum(outlookSourceClients),
+    addinSessionId: z.string().uuid(),
+    filingRequestId: z.string().uuid(),
+    message: outlookItemRefSchema,
+    attachment: outlookAttachmentRefSchema,
+    clientRequestId: boundedClientTokenSchema,
+  })
+  .strict();
+
 export interface OutlookFilingRequestStatusDto {
   id: string;
   status: OutlookFilingRequestStatus;
@@ -112,6 +153,25 @@ export interface MatterSuggestionListDto {
   items: MatterSuggestionDto[];
 }
 
+export interface OutlookAddinSessionDto {
+  addinSessionId: string;
+  status: Extract<OutlookAddinSessionStatus, 'active'>;
+  mailboxBindingStatus: Extract<OutlookMailboxBindingStatus, 'active'>;
+  sourceClient: OutlookSourceClient;
+  expiresAt: string;
+}
+
+export interface OutlookGraphAttachmentAcquisitionDto {
+  acquisitionId: string;
+  status: OutlookGraphAttachmentAcquisitionStatus;
+  filingRequestId: string;
+  attachmentIdHash: string;
+  createdAt: string;
+  contentSha256?: string;
+  sizeBytes?: number;
+  deniedReasonCode?: OutlookDeniedReasonCode;
+}
+
 export type OutlookItemRefDto = z.infer<typeof outlookItemRefSchema>;
 export type OutlookAttachmentRefDto = z.infer<typeof outlookAttachmentRefSchema>;
 export type CreateOutlookEmailFilingRequestDto = z.infer<
@@ -119,3 +179,7 @@ export type CreateOutlookEmailFilingRequestDto = z.infer<
 >;
 export type CancelOutlookFilingRequestDto = z.infer<typeof cancelOutlookFilingRequestSchema>;
 export type MatterSuggestionQueryDto = z.infer<typeof matterSuggestionQuerySchema>;
+export type OutlookAddinSessionExchangeDto = z.infer<typeof outlookAddinSessionExchangeSchema>;
+export type AcquireOutlookGraphAttachmentDto = z.infer<
+  typeof acquireOutlookGraphAttachmentSchema
+>;

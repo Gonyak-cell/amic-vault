@@ -238,8 +238,10 @@ Stop conditions:
 
 ## 9. PACK-OA06 Auth And Graph Gate
 
-Future implementation pack. This is the first pack that may touch live Microsoft
-365 auth after approval.
+Implementation pack. This is the first pack that defines the live Microsoft 365
+auth and Graph boundary, but repository defaults remain fail-closed until
+Security/Ops provides tenant/admin consent evidence and a reviewed provider
+implementation.
 
 | TUW                            | Objective                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------- |
@@ -255,6 +257,25 @@ Required evidence:
 - tenant admin consent external ref,
 - no stored access token values,
 - no raw Graph payload in repo evidence.
+
+Implementation notes:
+
+- Branch/worktree: `codex/outlook-auth-graph-gate` at
+  `/Users/jws/Projects/amic-vault-outlook-oa06`.
+- Added `/v1/m365/outlook/session-exchanges` for separate add-in session
+  exchange. The current Vault session is only the authenticated request
+  context; the add-in receives a separate add-in session id.
+- Added `outlook_mailbox_bindings`, `outlook_addin_sessions`, and
+  `outlook_graph_attachment_acquisitions` with `tenant_id NOT NULL`, RLS, FORCE
+  RLS, rollback, and reference-only columns.
+- Added an approved scope registry and scope matrix at
+  `docs/release/outlook-addin-graph-scope-matrix.md`.
+- `EV-OUTLOOK-003` remains blocked pending real tenant/admin consent. OA06 code
+  gates remain default-off and the default identity verifier/Graph transport
+  deny until a reviewed live provider is wired in.
+- No access token, refresh token, raw identity assertion, raw Graph payload, raw
+  mailbox address, tenant id, account id, raw Graph id, filename, or attachment
+  byte is stored or committed as repo evidence.
 
 ## 10. PACK-OA07 Send-And-File / Smart Alerts
 
