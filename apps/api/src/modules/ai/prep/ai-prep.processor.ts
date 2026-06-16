@@ -152,6 +152,7 @@ export class AiPrepProcessor {
       chunks: plannedRedactedChunks,
       artifactKind: payload.artifactKind,
       appliedRules: [
+        'retrieval.hybrid:query_stage_scope',
         ...(scopeDecision.appliedRules ?? []),
         ...redacted.appliedRules,
         ...retrievalPlan.appliedRules,

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import {
   aiPolicyBlockedResponse,
   type AiDocumentPolicyDecision,
@@ -46,6 +46,12 @@ interface DocumentAiPolicyRow {
   ai_allowed: boolean;
 }
 
+interface PolicySnapshot {
+  matterPolicy: MatterPolicySnapshot | null;
+  modelAccessPolicy: ModelAccessPolicySnapshot | null;
+  documents: AiDocumentPolicyDecision[];
+}
+
 @Injectable()
 export class AiPolicyService {
   private readonly logger = new Logger(AiPolicyService.name);
@@ -62,17 +68,13 @@ export class AiPolicyService {
         evaluateAiPolicySnapshot({
           matterId: input.matterId,
           modelRoute: input.modelRoute ?? 'local_gemma',
-          matterPolicy: await this.findMatterPolicy(input.tenantId, input.matterId),
-          modelAccessPolicy: await this.findModelAccessPolicy(
-            input.tenantId,
-            input.modelRoute ?? 'local_gemma',
-          ),
-          requestedDocumentIds: documentIds,
-          documents: await this.findDocumentDecisions(
+          ...(await this.findPolicySnapshot(
             input.tenantId,
             input.matterId,
+            input.modelRoute ?? 'local_gemma',
             documentIds,
-          ),
+          )),
+          requestedDocumentIds: documentIds,
         }),
       );
     } catch {
@@ -132,11 +134,44 @@ export class AiPolicyService {
     return decision;
   }
 
+  private async findPolicySnapshot(
+    tenantId: string,
+    matterId: string,
+    modelRoute: string,
+    documentIds: readonly string[],
+  ): Promise<PolicySnapshot> {
+    return this.withTenantClient(tenantId, async (client) => ({
+      matterPolicy: await this.findMatterPolicy(client, tenantId, matterId),
+      modelAccessPolicy: await this.findModelAccessPolicy(client, tenantId, modelRoute),
+      documents: await this.findDocumentDecisions(client, tenantId, matterId, documentIds),
+    }));
+  }
+
+  private async withTenantClient<T>(
+    tenantId: string,
+    callback: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    const client = await getPool().connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   private async findMatterPolicy(
+    client: PoolClient,
     tenantId: string,
     matterId: string,
   ): Promise<MatterPolicySnapshot | null> {
-    const result = await getPool().query<MatterPolicyRow>(
+    const result = await client.query<MatterPolicyRow>(
       `
         SELECT
           m.ai_policy_id,
@@ -164,10 +199,11 @@ export class AiPolicyService {
   }
 
   private async findModelAccessPolicy(
+    client: PoolClient,
     tenantId: string,
     modelRoute: string,
   ): Promise<ModelAccessPolicySnapshot | null> {
-    const result = await getPool().query<ModelAccessPolicyRow>(
+    const result = await client.query<ModelAccessPolicyRow>(
       `
         SELECT route_key, model_tier, status, external_model_allowed
         FROM ai_model_access_policies
@@ -188,12 +224,13 @@ export class AiPolicyService {
   }
 
   private async findDocumentDecisions(
+    client: PoolClient,
     tenantId: string,
     matterId: string,
     documentIds: readonly string[],
   ): Promise<AiDocumentPolicyDecision[]> {
     if (documentIds.length === 0) return [];
-    const result = await getPool().query<DocumentAiPolicyRow>(
+    const result = await client.query<DocumentAiPolicyRow>(
       `
         SELECT document_id, ai_allowed
         FROM documents

@@ -145,6 +145,71 @@ describe('LocalGemmaGateway', () => {
     ).resolves.toMatchObject({ status: 'blocked', reasonCode: 'schema_invalid' });
   });
 
+  it('extracts a generated JSON object from prose without storing source text', async () => {
+    const transport = {
+      fetch: vi.fn(async (url: string) => {
+        if (url.endsWith('/api/tags')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ models: [{ name: 'gemma4:12b', model: 'gemma4:12b' }] }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            model: 'gemma4:12b',
+            response: '완료했습니다.\\n```json\\n{"answer":"ok","note":"brace } in string"}\\n```',
+          }),
+        };
+      }),
+    } satisfies GatewayTransport;
+
+    const gateway = new LocalGemmaGateway(
+      { route: 'local_gemma', enabled: true, endpoint: 'http://127.0.0.1:11434' },
+      transport,
+    );
+
+    await expect(
+      gateway.generateJson({ prompt: 'json' }, (value) => value),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      json: { answer: 'ok', note: 'brace } in string' },
+    });
+  });
+
+  it('extracts a generated JSON object before trailing prose', async () => {
+    const transport = {
+      fetch: vi.fn(async (url: string) => {
+        if (url.endsWith('/api/tags')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ models: [{ name: 'gemma4:12b', model: 'gemma4:12b' }] }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            model: 'gemma4:12b',
+            response: '{"answer":"ok"}\\n처리가 끝났습니다.',
+          }),
+        };
+      }),
+    } satisfies GatewayTransport;
+
+    const gateway = new LocalGemmaGateway(
+      { route: 'local_gemma', enabled: true, endpoint: 'http://127.0.0.1:11434' },
+      transport,
+    );
+
+    await expect(
+      gateway.generateJson({ prompt: 'json' }, (value) => value),
+    ).resolves.toMatchObject({ status: 'completed', json: { answer: 'ok' } });
+  });
+
   it('passes structured JSON schema format through to Ollama generation', async () => {
     const schema = {
       type: 'object',

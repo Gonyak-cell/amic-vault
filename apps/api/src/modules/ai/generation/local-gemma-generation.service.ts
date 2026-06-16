@@ -22,6 +22,7 @@ export interface LocalGemmaGroundedGenerationResult {
 export interface LocalGemmaGroundedGenerationOptions {
   compileOptions?: EvidencePromptCompileOptions | undefined;
   parseOutput?: ((value: unknown) => AiGroundedGenerationOutputDto) | undefined;
+  maxTokens?: number | undefined;
 }
 
 @Injectable()
@@ -44,10 +45,15 @@ export class LocalGemmaGenerationService {
       maxResponseChars: 24_000,
     });
     const compiled = this.compiler.compile(pack, options.compileOptions);
-    const format = groundedJsonSchema({
-      sourceRefs: compiled.sourceRefs,
-      allowedClaimKinds: options.compileOptions?.allowedClaimKinds,
-    });
+    const isPrep = options.compileOptions?.purpose === 'file_organization_prep';
+    const format =
+      isPrep && localGemmaPrepFormatMode() === 'json'
+        ? 'json'
+        : groundedJsonSchema({
+            sourceRefs: compiled.sourceRefs,
+            allowedClaimKinds: options.compileOptions?.allowedClaimKinds,
+            purpose: options.compileOptions?.purpose,
+          });
     const startedAt = performance.now();
     const generated = await gateway.generateJson(
       {
@@ -56,7 +62,7 @@ export class LocalGemmaGenerationService {
         format,
         model: localGemmaModel(),
         temperature: 0,
-        maxTokens: 1400,
+        maxTokens: options.maxTokens ?? localGemmaMaxTokens(options.compileOptions?.purpose),
       },
       options.parseOutput ?? ((value) => aiGroundedGenerationOutputSchema.parse(value)),
     );
@@ -69,9 +75,12 @@ export class LocalGemmaGenerationService {
       };
     }
     try {
+      const output = isPrep
+        ? normalizePrepSourceRefs(generated.json, pack.citationRequirements.sourceRefs)
+        : generated.json;
       return {
         status: 'completed',
-        output: this.guard.parseAndAssert({ output: generated.json, pack }),
+        output: this.guard.parseAndAssert({ output, pack }),
         model: generated.model,
         latencyMs: Math.round(performance.now() - startedAt),
       };
@@ -100,19 +109,62 @@ function localGemmaEnabled(): boolean {
 }
 
 function localGemmaTimeoutMs(): number {
-  const parsed = Number(process.env.LOCAL_GEMMA_TIMEOUT_MS ?? '30000');
-  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 30_000;
+  const parsed = Number(process.env.LOCAL_GEMMA_TIMEOUT_MS ?? '300000');
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 300_000;
+}
+
+function localGemmaMaxTokens(purpose: EvidencePromptCompileOptions['purpose']): number {
+  const envNames =
+    purpose === 'file_organization_prep'
+      ? ['LOCAL_GEMMA_PREP_MAX_TOKENS', 'LOCAL_GEMMA_MAX_TOKENS']
+      : ['LOCAL_GEMMA_MAX_TOKENS'];
+  for (const envName of envNames) {
+    const parsed = Number(process.env[envName]);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  return purpose === 'file_organization_prep' ? 320 : 1400;
+}
+
+function localGemmaPrepFormatMode(): 'json' | 'schema' {
+  const raw = process.env.LOCAL_GEMMA_PREP_FORMAT?.trim().toLowerCase();
+  return raw === 'schema' ? 'schema' : 'json';
+}
+
+function normalizePrepSourceRefs(
+  output: AiGroundedGenerationOutputDto,
+  allowedSourceRefs: readonly string[],
+): AiGroundedGenerationOutputDto {
+  if (allowedSourceRefs.length !== 1) return output;
+  const fallbackRef = allowedSourceRefs[0];
+  if (!fallbackRef) return output;
+  return {
+    ...output,
+    sections: output.sections.map((section) => ({
+      ...section,
+      source_refs: normalizeRefs(section.source_refs, fallbackRef),
+    })),
+    claims: output.claims.map((claim) => ({
+      ...claim,
+      source_refs: normalizeRefs(claim.source_refs, fallbackRef),
+    })),
+  };
+}
+
+function normalizeRefs(refs: readonly string[], fallbackRef: string): string[] {
+  return refs.includes(fallbackRef) ? [fallbackRef] : [fallbackRef];
 }
 
 function groundedJsonSchema(input: {
   sourceRefs: readonly string[];
   allowedClaimKinds: readonly string[] | undefined;
+  purpose: EvidencePromptCompileOptions['purpose'];
 }): Record<string, unknown> {
   const sourceRefs = input.sourceRefs.length > 0 ? input.sourceRefs : ['chunk:source-ref'];
   const allowedClaimKinds =
     input.allowedClaimKinds && input.allowedClaimKinds.length > 0
       ? [...new Set(input.allowedClaimKinds)]
       : ['summary', 'key_fact', 'risk', 'issue', 'timeline', 'question', 'clause', 'answer'];
+  const isPrep = input.purpose === 'file_organization_prep';
   return {
     type: 'object',
     additionalProperties: false,
@@ -122,7 +174,7 @@ function groundedJsonSchema(input: {
       sections: {
         type: 'array',
         minItems: 1,
-        maxItems: 12,
+        maxItems: isPrep ? 1 : 12,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -143,7 +195,7 @@ function groundedJsonSchema(input: {
       claims: {
         type: 'array',
         minItems: 1,
-        maxItems: 100,
+        maxItems: isPrep ? 1 : 100,
         items: {
           type: 'object',
           additionalProperties: false,

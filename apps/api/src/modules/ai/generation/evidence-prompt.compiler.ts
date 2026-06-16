@@ -22,17 +22,41 @@ export class AiEvidencePromptCompiler {
       ? [...new Set(options.allowedClaimKinds)]
       : ['summary', 'key_fact', 'risk', 'issue', 'timeline', 'question', 'clause', 'answer'];
     const isPrep = options.purpose === 'file_organization_prep';
+    const prepClaimKind = allowedClaimKinds[0] ?? 'summary';
+    const prepCompactExample = JSON.stringify({
+      answer: '짧은 파일 정리 정보',
+      sections: [
+        {
+          section_id: 's1',
+          heading: '문서 성격',
+          text: '짧은 정리 문장',
+          source_refs: [exampleSourceRef],
+        },
+      ],
+      claims: [
+        {
+          claim_id: 'c1',
+          kind: prepClaimKind,
+          text: '짧은 근거 문장',
+          source_refs: [exampleSourceRef],
+          is_legal_conclusion: false,
+        },
+      ],
+      warnings: [],
+    });
     const chunks = pack.retrievedChunks
-      .map(
-        (chunk) =>
-          [
-            `SOURCE_REF: ${chunk.citationRef}`,
-            `DOCUMENT_ID: ${chunk.documentId}`,
-            `VERSION_ID: ${chunk.versionId}`,
-            `CHUNK_ORDINAL: ${chunk.chunkOrdinal}`,
-            `TEXT: ${chunk.redactedText}`,
-          ].join('\n'),
-      )
+      .map((chunk) => {
+        const lines = isPrep
+          ? [`SOURCE_REF: ${chunk.citationRef}`, `TEXT: ${boundedPrepText(chunk.redactedText)}`]
+          : [
+              `SOURCE_REF: ${chunk.citationRef}`,
+              `DOCUMENT_ID: ${chunk.documentId}`,
+              `VERSION_ID: ${chunk.versionId}`,
+              `CHUNK_ORDINAL: ${chunk.chunkOrdinal}`,
+              `TEXT: ${chunk.redactedText}`,
+            ];
+        return lines.join('\n');
+      })
       .join('\n\n');
     const graphFactsForPrompt = isPrep ? pack.graphFacts.filter(isPrepSafeGraphFact) : pack.graphFacts;
     const ruleFindingsForPrompt = isPrep
@@ -64,6 +88,7 @@ export class AiEvidencePromptCompiler {
           ? [
               'This is post-upload file-organization prep only.',
               'Do not create legal issue, legal risk, clause-analysis, or legal-advice claims.',
+              'Return one-line minified JSON only with exactly one short section and one short claim.',
             ]
           : []),
       ].join(' '),
@@ -74,18 +99,21 @@ export class AiEvidencePromptCompiler {
               `ARTIFACT_KIND: ${options.artifactKind ?? pack.outputFormat.kind}`,
             ]
           : []),
-        `TASK: ${pack.taskType}`,
+        ...(isPrep ? [] : [`TASK: ${pack.taskType}`]),
         `LOCALE: ${pack.outputFormat.locale}`,
-        `QUESTION: ${pack.userQuestion}`,
+        ...(isPrep ? [] : [`QUESTION: ${pack.userQuestion}`]),
         `CLAIM_KIND_ALLOWLIST: ${allowedClaimKinds.join(', ')}`,
         `ALLOWED_SOURCE_REFS: ${sourceRefs.join(', ')}`,
         'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
+        ...(isPrep
+          ? [
+              'OUTPUT_LIMIT: exactly one section, exactly one claim, warnings []. Keep answer/heading/text fields under 80 characters each.',
+              `PREP_COMPACT_JSON_EXAMPLE: ${prepCompactExample}`,
+            ]
+          : []),
         'RETRIEVED_CHUNKS:',
         chunks || 'none',
-        'GRAPH_FACTS:',
-        graphFacts || 'none',
-        'RULE_FINDINGS:',
-        ruleFindings || 'none',
+        ...(isPrep ? [] : ['GRAPH_FACTS:', graphFacts || 'none', 'RULE_FINDINGS:', ruleFindings || 'none']),
         'OUTPUT_SCHEMA:',
         JSON.stringify({
           answer: 'string',
@@ -111,6 +139,11 @@ export class AiEvidencePromptCompiler {
       ].join('\n'),
     };
   }
+}
+
+function boundedPrepText(text: string): string {
+  const normalized = text.replace(/\s+/gu, ' ').trim();
+  return normalized.length > 1600 ? `${normalized.slice(0, 1600)}...` : normalized;
 }
 
 const prepSafeGraphEdgeTypes = new Set(['HAS_MATTER', 'HAS_DOCUMENT', 'HAS_VERSION', 'RELATED_TO']);

@@ -79,11 +79,17 @@ describe('AiEvidencePromptCompiler', () => {
     expect(compiled.prompt).toContain(
       'SOURCE_REF_RULE: source_refs values must be exact strings from ALLOWED_SOURCE_REFS.',
     );
+    expect(compiled.prompt).toContain('OUTPUT_LIMIT: exactly one section, exactly one claim');
+    expect(compiled.prompt).toContain('PREP_COMPACT_JSON_EXAMPLE');
     expect(compiled.prompt).toContain('"kind":"summary|key_fact"');
+    expect(compiled.prompt).not.toContain('DOCUMENT_ID:');
+    expect(compiled.prompt).not.toContain('VERSION_ID:');
+    expect(compiled.prompt).not.toContain('GRAPH_FACTS:');
+    expect(compiled.prompt).not.toContain('RULE_FINDINGS:');
     expect(compiled.prompt).not.toMatch(/risk|issue|clause/u);
   });
 
-  it('keeps prep graph facts relation-only and excludes risk/issue/clause inference nodes', () => {
+  it('omits graph facts from prep prompts', () => {
     const pack = {
       ...evidencePack(),
       graphFacts: [
@@ -118,12 +124,13 @@ describe('AiEvidencePromptCompiler', () => {
       allowedClaimKinds: ['summary', 'key_fact'],
     });
 
-    expect(compiled.prompt).toContain('HAS_DOCUMENT');
+    expect(compiled.prompt).not.toContain('GRAPH_FACTS:');
+    expect(compiled.prompt).not.toContain('HAS_DOCUMENT');
     expect(compiled.prompt).not.toContain('HAS_RISK');
     expect(compiled.prompt).not.toContain('11111111-1111-4111-8111-111111111022');
   });
 
-  it('keeps only safe filing/classification rule findings in prep prompts', () => {
+  it('omits rule findings from prep prompts', () => {
     const pack = {
       ...evidencePack(),
       ruleFindings: [
@@ -166,7 +173,8 @@ describe('AiEvidencePromptCompiler', () => {
       allowedClaimKinds: ['summary', 'key_fact'],
     });
 
-    expect(compiled.prompt).toContain('classification.document_type');
+    expect(compiled.prompt).not.toContain('RULE_FINDINGS:');
+    expect(compiled.prompt).not.toContain('classification.document_type');
     expect(compiled.prompt).not.toContain('nda.section.required');
     expect(compiled.prompt).not.toContain('required_clause.section.fail');
     expect(compiled.prompt).not.toContain('clause:11111111-1111-4111-8111-111111111031');
