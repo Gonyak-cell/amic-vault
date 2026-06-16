@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   acquireOutlookGraphAttachmentSchema,
+  createOutlookDocumentInsertionSchema,
   createOutlookSendFileRequestSchema,
   createOutlookEmailFilingRequestSchema,
   evaluateOutlookSendPolicySchema,
@@ -275,5 +276,53 @@ describe('Outlook add-in DTO contracts', () => {
     ).toMatchObject({
       acknowledgedWarningCodes: ['external_recipient', 'wrong_matter'],
     });
+  });
+
+  it('accepts document insertion requests with hash-only target message refs', () => {
+    expect(
+      createOutlookDocumentInsertionSchema.parse({
+        sourceClient: 'outlook-web-addin',
+        documentId: '11111111-1111-4111-8111-111111111111',
+        versionId: '11111111-1111-4111-8111-111111111112',
+        targetMessage: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          hasExternalParticipants: false,
+          participantDomainHashes: [hash],
+        },
+        insertionMode: 'internal-reference',
+        hasExternalRecipients: false,
+        clientRequestId: 'oa08-insert-1',
+        idempotencyKey: 'oa08-insert-idem-1',
+      }),
+    ).toMatchObject({
+      documentId: '11111111-1111-4111-8111-111111111111',
+      insertionMode: 'internal-reference',
+    });
+  });
+
+  it('rejects raw document insertion target data and filenames', () => {
+    expect(() =>
+      createOutlookDocumentInsertionSchema.parse({
+        sourceClient: 'outlook-web-addin',
+        documentId: '11111111-1111-4111-8111-111111111111',
+        targetMessage: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          subject: 'Privileged insert target',
+          body: 'Confidential body',
+          to: ['counterparty@example.com'],
+          hasExternalParticipants: false,
+          participantDomainHashes: [],
+        },
+        insertionMode: 'attach-copy',
+        hasExternalRecipients: true,
+        filename: 'vault-document.pdf',
+        clientRequestId: 'oa08-insert-1',
+        idempotencyKey: 'oa08-insert-idem-1',
+      }),
+    ).toThrow();
   });
 });

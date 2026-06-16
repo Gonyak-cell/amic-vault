@@ -103,5 +103,6 @@ Use the `EV-OUTLOOK-*` family:
 - `EV-OUTLOOK-005`: deployment rollback rehearsal prepared.
 - `EV-OUTLOOK-006`: auth and Graph gate implementation evidence prepared.
 - `EV-OUTLOOK-007`: Smart Alert send-and-file implementation evidence prepared.
+- `EV-OUTLOOK-008`: insert-from-Vault implementation evidence prepared.
 
 All concrete tenant/provider evidence remains outside the repository.

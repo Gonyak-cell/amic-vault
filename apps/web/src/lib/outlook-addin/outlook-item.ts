@@ -1,4 +1,5 @@
 import type {
+  CreateOutlookDocumentInsertionDto,
   CreateOutlookEmailFilingRequestDto,
   CreateOutlookSendFileRequestDto,
   EvaluateOutlookSendPolicyDto,
@@ -210,6 +211,29 @@ export function buildCreateSendFileRequest(
     clientRequestId: `oa07-file:${Date.now().toString(36)}:${snapshot.itemHashPreview}`,
     idempotencyKey: `oa07:${snapshot.message.canonicalMessageSha256}:${matterId.replaceAll('-', '')}`,
     acknowledgedWarningCodes: [...acknowledgedWarningCodes],
+  };
+}
+
+export function buildCreateDocumentInsertionRequest(
+  snapshot: OutlookItemSnapshot,
+  input: {
+    documentId: string;
+    versionId?: string;
+    insertionMode?: CreateOutlookDocumentInsertionDto['insertionMode'];
+  },
+): CreateOutlookDocumentInsertionDto {
+  return {
+    sourceClient: 'outlook-web-addin',
+    documentId: input.documentId,
+    ...(input.versionId ? { versionId: input.versionId } : {}),
+    targetMessage: snapshot.message,
+    insertionMode: input.insertionMode ?? 'internal-reference',
+    hasExternalRecipients: snapshot.message.hasExternalParticipants,
+    clientRequestId: `oa08-insert:${Date.now().toString(36)}:${snapshot.itemHashPreview}`,
+    idempotencyKey: `oa08:${snapshot.message.canonicalMessageSha256.slice(0, 48)}:${input.documentId.replaceAll(
+      '-',
+      '',
+    )}:${(input.versionId ?? 'current').replaceAll('-', '')}`,
   };
 }
 

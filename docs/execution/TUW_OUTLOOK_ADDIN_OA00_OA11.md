@@ -334,7 +334,24 @@ Required tests:
 
 ## 11. PACK-OA08 Insert From Vault
 
-Future implementation pack with R11/R13 dependencies.
+Implementation pack for server-owned document insertion from Vault into the
+Outlook add-in. The first implementation is intentionally narrow and
+default-off:
+
+- `POST /v1/m365/outlook/document-insertions` is behind
+  `OUTLOOK_DOCUMENT_INSERTION_ENABLED=false` by default.
+- The task pane searches insertable documents through the existing
+  permission-scoped `/v1/search` path. It does not locally filter unauthorized
+  document ids.
+- `internal-reference` is the only ready insertion mode. The response returns a
+  Vault internal reference URI and never creates public, guest, secure, VDR, or
+  external links.
+- `attach-copy` is accepted by the DTO contract but policy-denied until a
+  reviewed copy/transport gate exists.
+- Messages with external participants or explicit external-recipient signals are
+  policy-denied before any insertion row can become ready.
+- Active legal hold, disposal-locked document/matter state, and active
+  requested/approved disposal requests return safe `DOCUMENT_LOCKED` denial.
 
 | TUW                      | Objective                                                                                       |
 | ------------------------ | ----------------------------------------------------------------------------------------------- |
@@ -348,6 +365,21 @@ Stop conditions:
 
 - Any public, guest, secure, VDR, or external link before R11+ controls.
 - Any insert path that bypasses document permission checks.
+- Any copy/attachment path that transports Vault bytes before a reviewed
+  server-side copy gate.
+
+Required tests:
+
+- document insertion gate disabled records
+  `OUTLOOK_DOCUMENT_INSERT_DENIED` and fails closed;
+- external recipients and `attach-copy` are policy-denied with safe
+  `PERMISSION_DENIED`;
+- document permission denial fails closed before ready insertion;
+- active legal hold / disposal state returns `DOCUMENT_LOCKED`;
+- successful `internal-reference` insertion is idempotent and audited with
+  reference-only metadata;
+- `outlook_document_insertions` has tenant RLS/FORCE RLS and no raw payload,
+  token, URL, guest, or link storage columns.
 
 ## 12. PACK-OA09 Folder Mapping / Auto-File
 

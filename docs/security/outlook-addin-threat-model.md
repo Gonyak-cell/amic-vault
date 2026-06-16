@@ -52,7 +52,9 @@ Server-owned controls remain authoritative:
 | Smart Alert failure treated as compliance pass | Send-and-file policy stored server-side; event handler only prompts/blocks UX and falls open for send availability without local filing | OA07 Smart Alert fallback tests |
 | Smart Alert runtime leaks raw Outlook data | Runtime sends hash-only mailbox, subject, participant domain, message, and attachment refs to Vault APIs | OA07 manifest/runtime static tests |
 | Unacknowledged send-and-file warnings | Server denies send-and-file request until warning reason codes are acknowledged | OA07 send-and-file policy tests |
-| Insert creates external link before R11 | Insert action denied unless external sharing policy permits the exact channel | OA08 external-recipient tests |
+| Insert creates external link before R11 | OA08 creates only internal Vault references; public/guest/secure/VDR links are not generated and external-recipient insertions are policy-denied | OA08 external-recipient and link-column tests |
+| Insert transports Vault bytes into Outlook before copy gate | `attach-copy` is policy-denied; no document bytes, filenames, URLs, or provider payloads are stored in insertion rows | OA08 attach-copy denial and schema leakage tests |
+| Insert ignores legal hold or records policy | Document/matter legal hold, disposal-locked state, and active requested/approved disposal requests return safe `DOCUMENT_LOCKED` | OA08 records policy tests |
 | Folder mapping leaks matter metadata | Folder mapping is tenant-scoped, permission-checked, and audited | OA09 folder mapping tests |
 | Graph scope overreach | Minimum-scope matrix, default-off Graph transport, and deployment approval | OA06 scope matrix + OA10 admin deployment evidence |
 | Local/offline cache stores Vault data | No local queue/cache for Vault copies; offline state is pending/unavailable only | OA11 offline negative tests |
@@ -72,6 +74,8 @@ Stop Outlook add-in implementation if any change:
   integration gate;
 - treats Smart Alert network failure as a completed Vault filing event;
 - creates public/guest/secure/external links before R11+ policy gates;
+- transports Vault document bytes to Outlook before a reviewed copy/transport
+  gate;
 - changes `docs/package/**`.
 
 ## Test Hooks Required Before Live Implementation

@@ -14,6 +14,7 @@ import {
   DefaultOutlookIdentityVerifier,
   OUTLOOK_IDENTITY_VERIFIER,
 } from './outlook-identity-verifier';
+import { OutlookDocumentInsertionService } from './outlook-document-insertion.service';
 import { OutlookSendFileService } from './outlook-send-file.service';
 import { OutlookService } from './outlook.service';
 
@@ -25,6 +26,7 @@ import { OutlookService } from './outlook.service';
     OutlookAuthService,
     OutlookGraphAttachmentService,
     OutlookSendFileService,
+    OutlookDocumentInsertionService,
     DefaultOutlookIdentityVerifier,
     DisabledOutlookGraphAttachmentTransport,
     {
@@ -41,6 +43,7 @@ import { OutlookService } from './outlook.service';
     OutlookAuthService,
     OutlookGraphAttachmentService,
     OutlookSendFileService,
+    OutlookDocumentInsertionService,
   ],
 })
 export class OutlookModule {}

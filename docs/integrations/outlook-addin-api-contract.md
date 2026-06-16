@@ -28,7 +28,7 @@ authorized by this document.
 | `/v1/m365/outlook/attachment-acquisitions`    | POST   | `AcquireOutlookGraphAttachmentDto`   | OA06, Graph gate    |
 | `/v1/m365/outlook/send-policy-decisions`      | POST   | `EvaluateOutlookSendPolicyDto`       | OA07, Smart Alert   |
 | `/v1/m365/outlook/send-file-requests`         | POST   | `CreateOutlookSendFileRequestDto`    | OA07                |
-| `/v1/m365/outlook/document-insertions`        | POST   | `CreateOutlookDocumentInsertionDto`  | OA08, R11/R13 gates |
+| `/v1/m365/outlook/document-insertions`        | POST   | `CreateOutlookDocumentInsertionDto`  | OA08, copy/link gates |
 | `/v1/m365/outlook/folder-mappings`            | POST   | `CreateOutlookFolderMappingDto`      | OA09                |
 | `/v1/m365/outlook/folder-mappings/:id`        | PATCH  | `UpdateOutlookFolderMappingDto`      | OA09                |
 | `/v1/m365/outlook/deployment-readiness`       | GET    | `OutlookDeploymentReadinessDto`      | OA10                |
@@ -283,6 +283,7 @@ must show unavailable/pending state and must not perform local filing.
 type CreateOutlookDocumentInsertionDto = {
   documentId: string;
   versionId?: string;
+  sourceClient: 'outlook-web-addin';
   targetMessage: OutlookItemRefDto;
   insertionMode: 'attach-copy' | 'internal-reference';
   hasExternalRecipients: boolean;
@@ -291,8 +292,47 @@ type CreateOutlookDocumentInsertionDto = {
 };
 ```
 
-Before the R11+ external-sharing policy permits it, this endpoint must deny any
-action that would create public, guest, secure, VDR, or externally usable links.
+```ts
+type OutlookDocumentInsertionDto = {
+  insertionId: string;
+  status: 'ready' | 'denied';
+  documentId: string;
+  versionId: string;
+  insertionMode: 'attach-copy' | 'internal-reference';
+  sourceClient: 'outlook-web-addin';
+  createdAt: string;
+  updatedAt: string;
+  internalReference?: string;
+  deniedReasonCode?:
+    | 'permission_denied'
+    | 'policy_denied'
+    | 'integration_gate_closed'
+    | 'document_locked';
+};
+```
+
+Server behavior:
+
+- default gate: when `OUTLOOK_DOCUMENT_INSERTION_ENABLED` is not `true`, deny
+  fail-closed and record `OUTLOOK_DOCUMENT_INSERT_DENIED`;
+- use existing `/v1/search` for task-pane document lookup so
+  SearchPermissionScopeProvider/PermissionService scopes are injected before
+  result construction;
+- resolve the requested current or explicit version server-side and require
+  `PermissionService.canReadDocument`;
+- deny external-recipient and `targetMessage.hasExternalParticipants` requests
+  before any ready insertion is created;
+- accept `attach-copy` only as a forward-compatible DTO value and deny it at
+  runtime until a reviewed document-copy transport gate exists;
+- block document/matter legal hold, disposal-locked state, and active
+  requested/approved disposal requests with safe `DOCUMENT_LOCKED`;
+- create only `internalReference` values such as
+  `amic-vault://documents/{documentId}/versions/{versionId}`. These are not
+  public, guest, secure, VDR, or externally usable links;
+- store only tenant/user/document/version refs, Outlook hashes, bounded
+  mode/status/reason values, and request/idempotency hashes;
+- record `OUTLOOK_DOCUMENT_INSERT_REQUESTED` or
+  `OUTLOOK_DOCUMENT_INSERT_DENIED` with reference-only metadata.
 
 ## Idempotency And Dedupe
 

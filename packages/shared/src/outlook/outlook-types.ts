@@ -36,6 +36,21 @@ export type OutlookSendWarningReasonCode = (typeof outlookSendWarningReasonCodes
 export const outlookFilingRequestKinds = ['manual_file', 'send_and_file'] as const;
 export type OutlookFilingRequestKind = (typeof outlookFilingRequestKinds)[number];
 
+export const outlookDocumentInsertionModes = ['attach-copy', 'internal-reference'] as const;
+export type OutlookDocumentInsertionMode = (typeof outlookDocumentInsertionModes)[number];
+
+export const outlookDocumentInsertionStatuses = ['ready', 'denied'] as const;
+export type OutlookDocumentInsertionStatus = (typeof outlookDocumentInsertionStatuses)[number];
+
+export const outlookDocumentInsertionDeniedReasonCodes = [
+  'permission_denied',
+  'policy_denied',
+  'integration_gate_closed',
+  'document_locked',
+] as const;
+export type OutlookDocumentInsertionDeniedReasonCode =
+  (typeof outlookDocumentInsertionDeniedReasonCodes)[number];
+
 export const outlookHashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 export const matterSuggestionReasonCodes = ['subject_hash', 'participant_domain_hash'] as const;
@@ -107,7 +122,7 @@ export const createOutlookEmailFilingRequestSchema = z
 
 const outlookSendPolicyBaseSchema = z
   .object({
-    sourceClient: z.enum(outlookSourceClients),
+    sourceClient: z.literal('outlook-web-addin'),
     message: outlookItemRefSchema,
     attachments: z.array(outlookAttachmentRefSchema).max(200).default([]),
     subjectHash: outlookHashSchema.optional(),
@@ -163,6 +178,19 @@ export const acquireOutlookGraphAttachmentSchema = z
     message: outlookItemRefSchema,
     attachment: outlookAttachmentRefSchema,
     clientRequestId: boundedClientTokenSchema,
+  })
+  .strict();
+
+export const createOutlookDocumentInsertionSchema = z
+  .object({
+    documentId: z.string().uuid(),
+    versionId: z.string().uuid().optional(),
+    targetMessage: outlookItemRefSchema,
+    insertionMode: z.enum(outlookDocumentInsertionModes),
+    hasExternalRecipients: z.boolean(),
+    sourceClient: z.enum(outlookSourceClients),
+    clientRequestId: boundedClientTokenSchema,
+    idempotencyKey: boundedClientTokenSchema,
   })
   .strict();
 
@@ -225,6 +253,19 @@ export interface OutlookGraphAttachmentAcquisitionDto {
   deniedReasonCode?: OutlookDeniedReasonCode;
 }
 
+export interface OutlookDocumentInsertionDto {
+  insertionId: string;
+  status: OutlookDocumentInsertionStatus;
+  documentId: string;
+  versionId?: string;
+  insertionMode: OutlookDocumentInsertionMode;
+  sourceClient: OutlookSourceClient;
+  createdAt: string;
+  updatedAt: string;
+  internalReference?: string;
+  deniedReasonCode?: OutlookDocumentInsertionDeniedReasonCode;
+}
+
 export type OutlookItemRefDto = z.infer<typeof outlookItemRefSchema>;
 export type OutlookAttachmentRefDto = z.infer<typeof outlookAttachmentRefSchema>;
 export type CreateOutlookEmailFilingRequestDto = z.infer<
@@ -237,4 +278,7 @@ export type MatterSuggestionQueryDto = z.infer<typeof matterSuggestionQuerySchem
 export type OutlookAddinSessionExchangeDto = z.infer<typeof outlookAddinSessionExchangeSchema>;
 export type AcquireOutlookGraphAttachmentDto = z.infer<
   typeof acquireOutlookGraphAttachmentSchema
+>;
+export type CreateOutlookDocumentInsertionDto = z.infer<
+  typeof createOutlookDocumentInsertionSchema
 >;

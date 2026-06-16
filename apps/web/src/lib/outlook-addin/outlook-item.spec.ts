@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import {
+  buildCreateDocumentInsertionRequest,
   buildCreateFilingRequest,
   buildCreateSendFileRequest,
   buildMatterSuggestionQuery,
@@ -9,6 +10,7 @@ import {
 } from './outlook-item';
 import {
   createOutlookSendFileRequestSchema,
+  createOutlookDocumentInsertionSchema,
   createOutlookEmailFilingRequestSchema,
   evaluateOutlookSendPolicySchema,
   matterSuggestionQuerySchema,
@@ -74,6 +76,14 @@ describe('Outlook item hashing helpers', () => {
           new Set(snapshot.attachmentRefs.map((attachment) => attachment.attachmentIdHash)),
           ['external_recipient'],
         ),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      createOutlookDocumentInsertionSchema.parse(
+        buildCreateDocumentInsertionRequest(snapshot, {
+          documentId: '11111111-1111-4111-8111-111111111111',
+          versionId: '11111111-1111-4111-8111-111111111112',
+        }),
       ),
     ).not.toThrow();
   });

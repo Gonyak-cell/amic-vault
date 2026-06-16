@@ -4,14 +4,17 @@ import Script from 'next/script';
 import type {
   MatterSuggestionDto,
   MatterSuggestionListDto,
+  OutlookDocumentInsertionDto,
   OutlookFilingRequestStatusDto,
   OutlookSendFileRequestStatusDto,
   OutlookSendPolicyDecisionDto,
   OutlookSendWarningReasonCode,
+  SearchResultDto,
 } from '@amic-vault/shared';
 import {
   AlertTriangle,
   CheckCircle2,
+  FileText,
   Inbox,
   Paperclip,
   RefreshCw,
@@ -24,13 +27,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
+  createOutlookDocumentInsertion,
   createOutlookSendFileRequest,
   createOutlookFilingRequest,
   evaluateOutlookSendPolicy,
   getOutlookFilingRequestStatus,
   getOutlookMatterSuggestions,
+  searchOutlookInsertableDocuments,
 } from '@/lib/api/outlook-addin';
 import {
+  buildCreateDocumentInsertionRequest,
   buildCreateFilingRequest,
   buildCreateSendFileRequest,
   buildMatterSuggestionQuery,
@@ -85,11 +91,23 @@ export function OutlookAddinClient({
   const [status, setStatus] = useState<OutlookFilingRequestStatusDto | undefined>(initialStatus);
   const [sendPolicy, setSendPolicy] = useState<OutlookSendPolicyDecisionDto | undefined>();
   const [sendStatus, setSendStatus] = useState<OutlookSendFileRequestStatusDto | undefined>();
+  const [documentQuery, setDocumentQuery] = useState('');
+  const [documentResults, setDocumentResults] = useState<SearchResultDto[]>([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState('');
+  const [documentInsertion, setDocumentInsertion] = useState<OutlookDocumentInsertionDto | undefined>();
   const [acknowledgedWarningCodes, setAcknowledgedWarningCodes] = useState<
     Set<OutlookSendWarningReasonCode>
   >(() => new Set());
   const [busyAction, setBusyAction] = useState<
-    'load' | 'suggest' | 'file' | 'status' | 'send-policy' | 'send-file' | null
+    | 'load'
+    | 'suggest'
+    | 'file'
+    | 'status'
+    | 'send-policy'
+    | 'send-file'
+    | 'doc-search'
+    | 'insert-doc'
+    | null
   >(null);
   const [safeError, setSafeError] = useState<string | null>(null);
 
@@ -99,6 +117,9 @@ export function OutlookAddinClient({
   const canCreateSendFile = Boolean(
     snapshot && selectedMatterId && sendPolicy?.decision !== 'block' && busyAction !== 'send-file',
   );
+  const selectedDocument = documentResults.find((item) => item.documentId === selectedDocumentId);
+  const canSearchDocuments = Boolean(documentQuery.trim() && busyAction !== 'doc-search');
+  const canInsertDocument = Boolean(snapshot && selectedDocument && busyAction !== 'insert-doc');
 
   const loadOfficeItem = useCallback(async () => {
     if (initialSnapshot) return;
@@ -212,6 +233,52 @@ export function OutlookAddinClient({
     }
   }, [acknowledgedWarningCodes, selectedAttachmentHashes, selectedMatterId, snapshot]);
 
+  const refreshDocumentResults = useCallback(async () => {
+    const query = documentQuery.trim();
+    if (!query) return;
+    setBusyAction('doc-search');
+    setSafeError(null);
+    try {
+      const response = await searchOutlookInsertableDocuments({
+        query,
+        mode: 'keyword',
+        filters: { versionStatus: 'current' },
+        page: 1,
+        pageSize: 5,
+      });
+      setDocumentResults(response.results);
+      setSelectedDocumentId((current) =>
+        response.results.some((item) => item.documentId === current)
+          ? current
+          : response.results[0]?.documentId ?? '',
+      );
+      setDocumentInsertion(undefined);
+    } catch (error) {
+      setSafeError(safeApiErrorMessage(error));
+    } finally {
+      setBusyAction(null);
+    }
+  }, [documentQuery]);
+
+  const submitDocumentInsertion = useCallback(async () => {
+    if (!snapshot || !selectedDocument) return;
+    setBusyAction('insert-doc');
+    setSafeError(null);
+    try {
+      const nextInsertion = await createOutlookDocumentInsertion(
+        buildCreateDocumentInsertionRequest(snapshot, {
+          documentId: selectedDocument.documentId,
+          versionId: selectedDocument.versionId,
+        }),
+      );
+      setDocumentInsertion(nextInsertion);
+    } catch (error) {
+      setSafeError(safeApiErrorMessage(error));
+    } finally {
+      setBusyAction(null);
+    }
+  }, [selectedDocument, snapshot]);
+
   const refreshStatus = useCallback(async () => {
     if (!status) return;
     setBusyAction('status');
@@ -278,6 +345,84 @@ export function OutlookAddinClient({
           </CardHeader>
           <CardContent className="grid gap-2 p-3 pt-0 text-sm">
             {snapshot ? <MessageSummary snapshot={snapshot} /> : <UnavailableState />}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-md shadow-none">
+          <CardHeader className="flex-row items-center justify-between gap-2 p-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-[#1d5b63]" aria-hidden />
+              <CardTitle className="text-sm">Vault 문서</CardTitle>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => void refreshDocumentResults()}
+              disabled={!canSearchDocuments}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden />
+              검색
+            </Button>
+          </CardHeader>
+          <CardContent className="grid gap-2 p-3 pt-0 text-sm">
+            <input
+              value={documentQuery}
+              onChange={(event) => setDocumentQuery(event.target.value)}
+              className="h-9 rounded-md border border-[#cbd6d9] bg-white px-3 text-sm outline-none focus:border-[#1d5b63]"
+              maxLength={120}
+              placeholder="문서 검색"
+            />
+            {documentResults.length > 0 ? (
+              <div className="grid gap-2">
+                {documentResults.map((result) => (
+                  <label
+                    key={result.documentId}
+                    className="flex cursor-pointer items-start gap-2 rounded-md border border-[#d8e0e3] bg-white px-3 py-2"
+                  >
+                    <input
+                      type="radio"
+                      name="outlook-document"
+                      className="mt-1 h-4 w-4 accent-[#174f56]"
+                      checked={selectedDocumentId === result.documentId}
+                      onChange={() => {
+                        setSelectedDocumentId(result.documentId);
+                        setDocumentInsertion(undefined);
+                      }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{result.title}</span>
+                      <span className="block truncate text-xs text-[#5c6e75]">
+                        {result.documentType} · {shortHash(result.documentId.replaceAll('-', ''))}
+                      </span>
+                    </span>
+                    <span className="rounded-sm bg-[#e9f1f2] px-1.5 py-0.5 text-xs text-[#1d5b63]">
+                      {Math.round(result.score)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+                문서 없음
+              </p>
+            )}
+            {documentInsertion ? (
+              <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
+                insert {documentInsertion.status} ·{' '}
+                {shortHash(documentInsertion.insertionId.replaceAll('-', ''))}
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              className="h-10"
+              onClick={() => void submitDocumentInsertion()}
+              disabled={!canInsertDocument}
+            >
+              <FileText className="h-4 w-4" aria-hidden />
+              내부 참조
+            </Button>
           </CardContent>
         </Card>
 

@@ -1,14 +1,18 @@
 'use client';
 
 import type {
+  CreateOutlookDocumentInsertionDto,
   CreateOutlookEmailFilingRequestDto,
   CreateOutlookSendFileRequestDto,
   EvaluateOutlookSendPolicyDto,
   MatterSuggestionListDto,
   MatterSuggestionQueryDto,
   OutlookFilingRequestStatusDto,
+  OutlookDocumentInsertionDto,
   OutlookSendFileRequestStatusDto,
   OutlookSendPolicyDecisionDto,
+  SearchQueryDto,
+  SearchResponseDto,
 } from '@amic-vault/shared';
 import { apiFetch } from '../api-client';
 
@@ -16,6 +20,14 @@ export function getOutlookMatterSuggestions(
   input: MatterSuggestionQueryDto,
 ): Promise<MatterSuggestionListDto> {
   return apiFetch<MatterSuggestionListDto>('/search/matter-suggestions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    redirectOnAuthRequired: false,
+  });
+}
+
+export function searchOutlookInsertableDocuments(input: SearchQueryDto): Promise<SearchResponseDto> {
+  return apiFetch<SearchResponseDto>('/search', {
     method: 'POST',
     body: JSON.stringify(input),
     redirectOnAuthRequired: false,
@@ -46,6 +58,16 @@ export function createOutlookSendFileRequest(
   input: CreateOutlookSendFileRequestDto,
 ): Promise<OutlookSendFileRequestStatusDto> {
   return apiFetch<OutlookSendFileRequestStatusDto>('/m365/outlook/send-file-requests', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    redirectOnAuthRequired: false,
+  });
+}
+
+export function createOutlookDocumentInsertion(
+  input: CreateOutlookDocumentInsertionDto,
+): Promise<OutlookDocumentInsertionDto> {
+  return apiFetch<OutlookDocumentInsertionDto>('/m365/outlook/document-insertions', {
     method: 'POST',
     body: JSON.stringify(input),
     redirectOnAuthRequired: false,
