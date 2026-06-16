@@ -51,6 +51,54 @@ export const outlookDocumentInsertionDeniedReasonCodes = [
 export type OutlookDocumentInsertionDeniedReasonCode =
   (typeof outlookDocumentInsertionDeniedReasonCodes)[number];
 
+export const outlookFolderMappingModes = ['manual', 'auto_file'] as const;
+export type OutlookFolderMappingMode = (typeof outlookFolderMappingModes)[number];
+
+export const outlookFolderMappingApprovalStatuses = [
+  'pending_user',
+  'pending_admin',
+  'active',
+  'disabled',
+  'revoked',
+  'denied',
+] as const;
+export type OutlookFolderMappingApprovalStatus =
+  (typeof outlookFolderMappingApprovalStatuses)[number];
+
+export const outlookFolderMappingApprovalDecisions = ['approve', 'disable', 'revoke'] as const;
+export type OutlookFolderMappingApprovalDecision =
+  (typeof outlookFolderMappingApprovalDecisions)[number];
+
+export const outlookFolderMappingDeniedReasonCodes = [
+  'permission_denied',
+  'policy_denied',
+  'integration_gate_closed',
+  'approval_required',
+] as const;
+export type OutlookFolderMappingDeniedReasonCode =
+  (typeof outlookFolderMappingDeniedReasonCodes)[number];
+
+export const outlookAutofileJobStatuses = [
+  'disabled',
+  'queued',
+  'processing',
+  'completed',
+  'denied',
+  'failed',
+  'retrying',
+] as const;
+export type OutlookAutofileJobStatus = (typeof outlookAutofileJobStatuses)[number];
+
+export const outlookAutofileDeniedReasonCodes = [
+  'permission_denied',
+  'policy_denied',
+  'stale_mailbox',
+  'duplicate',
+  'integration_gate_closed',
+  'wrong_matter',
+] as const;
+export type OutlookAutofileDeniedReasonCode = (typeof outlookAutofileDeniedReasonCodes)[number];
+
 export const outlookHashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 export const matterSuggestionReasonCodes = ['subject_hash', 'participant_domain_hash'] as const;
@@ -194,6 +242,28 @@ export const createOutlookDocumentInsertionSchema = z
   })
   .strict();
 
+export const createOutlookFolderMappingSchema = z
+  .object({
+    matterId: z.string().uuid(),
+    mailboxFingerprint: outlookHashSchema,
+    folderRefHash: outlookHashSchema,
+    folderPathHash: outlookHashSchema.optional(),
+    mappingMode: z.enum(outlookFolderMappingModes).default('manual'),
+    autoFileRequested: z.boolean().default(false),
+    sourceClient: z.enum(outlookSourceClients),
+    clientRequestId: boundedClientTokenSchema,
+    idempotencyKey: boundedClientTokenSchema,
+  })
+  .strict();
+
+export const updateOutlookFolderMappingSchema = z
+  .object({
+    approvalDecision: z.enum(outlookFolderMappingApprovalDecisions),
+    autoFileEnabled: z.boolean().default(false),
+    clientRequestId: boundedClientTokenSchema,
+  })
+  .strict();
+
 export interface OutlookFilingRequestStatusDto {
   id: string;
   status: OutlookFilingRequestStatus;
@@ -266,6 +336,33 @@ export interface OutlookDocumentInsertionDto {
   deniedReasonCode?: OutlookDocumentInsertionDeniedReasonCode;
 }
 
+export interface OutlookFolderMappingDto {
+  mappingId: string;
+  matterId: string;
+  mailboxFingerprint: string;
+  folderRefHash: string;
+  folderPathHash?: string;
+  mappingMode: OutlookFolderMappingMode;
+  approvalStatus: OutlookFolderMappingApprovalStatus;
+  autoFileEnabled: boolean;
+  sourceClient: OutlookSourceClient;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+  deniedReasonCode?: OutlookFolderMappingDeniedReasonCode;
+}
+
+export interface OutlookAutofileJobDto {
+  jobId: string;
+  mappingId: string;
+  matterId: string;
+  status: OutlookAutofileJobStatus;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+  deniedReasonCode?: OutlookAutofileDeniedReasonCode;
+}
+
 export type OutlookItemRefDto = z.infer<typeof outlookItemRefSchema>;
 export type OutlookAttachmentRefDto = z.infer<typeof outlookAttachmentRefSchema>;
 export type CreateOutlookEmailFilingRequestDto = z.infer<
@@ -282,3 +379,5 @@ export type AcquireOutlookGraphAttachmentDto = z.infer<
 export type CreateOutlookDocumentInsertionDto = z.infer<
   typeof createOutlookDocumentInsertionSchema
 >;
+export type CreateOutlookFolderMappingDto = z.infer<typeof createOutlookFolderMappingSchema>;
+export type UpdateOutlookFolderMappingDto = z.infer<typeof updateOutlookFolderMappingSchema>;

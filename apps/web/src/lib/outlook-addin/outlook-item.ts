@@ -1,6 +1,7 @@
 import type {
   CreateOutlookDocumentInsertionDto,
   CreateOutlookEmailFilingRequestDto,
+  CreateOutlookFolderMappingDto,
   CreateOutlookSendFileRequestDto,
   EvaluateOutlookSendPolicyDto,
   MatterSuggestionQueryDto,
@@ -23,6 +24,9 @@ export interface OfficeAttachmentLike {
 
 export interface OfficeMessageLike {
   itemId?: string | null;
+  folderId?: string | null;
+  parentFolderId?: string | null;
+  folderPath?: string | null;
   internetMessageId?: string | null;
   conversationId?: string | null;
   subject?: string | null;
@@ -45,6 +49,8 @@ export interface OutlookItemSnapshot {
   message: OutlookItemRefDto;
   attachmentRefs: OutlookAttachmentRefDto[];
   subjectHash?: string;
+  folderRefHash?: string;
+  folderPathHash?: string;
   mailboxHashPreview: string;
   itemHashPreview: string;
   participantDomainHashCount: number;
@@ -89,6 +95,14 @@ export async function buildOutlookItemSnapshot(
   );
   const conversationIdHash = await optionalHash(hashString, 'conversation-id', item.conversationId);
   const subjectHash = await optionalHash(hashString, 'subject', item.subject, { lower: true });
+  const folderRefHash = await optionalHash(
+    hashString,
+    'outlook-folder-ref',
+    item.folderId ?? item.parentFolderId,
+  );
+  const folderPathHash = await optionalHash(hashString, 'outlook-folder-path', item.folderPath, {
+    lower: true,
+  });
 
   const participantDomains = domainsFromRecipients([item.from, ...(item.to ?? []), ...(item.cc ?? [])]);
   const participantDomainHashes = (
@@ -127,6 +141,8 @@ export async function buildOutlookItemSnapshot(
     },
     attachmentRefs,
     ...(subjectHash ? { subjectHash } : {}),
+    ...(folderRefHash ? { folderRefHash } : {}),
+    ...(folderPathHash ? { folderPathHash } : {}),
     mailboxHashPreview: shortHash(mailboxFingerprint),
     itemHashPreview: shortHash(outlookItemIdHash),
     participantDomainHashCount: participantDomainHashes.length,
@@ -234,6 +250,33 @@ export function buildCreateDocumentInsertionRequest(
       '-',
       '',
     )}:${(input.versionId ?? 'current').replaceAll('-', '')}`,
+  };
+}
+
+export function buildCreateFolderMappingRequest(
+  snapshot: OutlookItemSnapshot,
+  matterId: string,
+  input: {
+    mappingMode?: CreateOutlookFolderMappingDto['mappingMode'];
+    autoFileRequested?: boolean;
+  } = {},
+): CreateOutlookFolderMappingDto {
+  if (!snapshot.folderRefHash) {
+    throw new Error('OUTLOOK_FOLDER_REF_UNAVAILABLE');
+  }
+  return {
+    sourceClient: 'outlook-web-addin',
+    matterId,
+    mailboxFingerprint: snapshot.message.mailboxFingerprint,
+    folderRefHash: snapshot.folderRefHash,
+    ...(snapshot.folderPathHash ? { folderPathHash: snapshot.folderPathHash } : {}),
+    mappingMode: input.mappingMode ?? 'manual',
+    autoFileRequested: input.autoFileRequested ?? false,
+    clientRequestId: `oa09-folder:${Date.now().toString(36)}:${snapshot.itemHashPreview}`,
+    idempotencyKey: `oa09:${snapshot.message.mailboxFingerprint.slice(0, 32)}:${snapshot.folderRefHash.slice(
+      0,
+      32,
+    )}:${matterId.replaceAll('-', '')}:${input.mappingMode ?? 'manual'}`,
   };
 }
 

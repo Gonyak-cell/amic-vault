@@ -35,7 +35,7 @@ Server-owned controls remain authoritative:
 | Attachments | Add-in or browser cache holds document bytes | Fetch through approved server-side Graph adapter only after gate; no local Vault cache or raw payload evidence. |
 | Filing jobs | Duplicate retries create duplicate filed emails | Idempotency key and canonical message hash. |
 | Inserted documents | Insert action becomes silent external sharing | R11+ policy gate; no public/guest/secure links before allowed. |
-| Folder mappings | Folder names expose client/matter information | Tenant RLS, reference-only audit, admin/user approval, no repo evidence values. |
+| Folder mappings | Folder names expose client/matter information | Tenant RLS, hash-only folder refs, reference-only audit, admin/user approval, no repo evidence values. |
 | Graph scopes | Excessive consent grants mailbox or file access | Least-privilege scope registry and deployment evidence. |
 | Smart Alerts | Client event failure bypasses filing policy | Treat as UX layer; server policy and audit remain source of truth; offline/unavailable never becomes local filing. |
 | Send-and-file warnings | User files to wrong matter or skips filing context | Server policy returns bounded allow/warn/block decisions; warnings must be acknowledged before queueing send-and-file. |
@@ -55,7 +55,8 @@ Server-owned controls remain authoritative:
 | Insert creates external link before R11 | OA08 creates only internal Vault references; public/guest/secure/VDR links are not generated and external-recipient insertions are policy-denied | OA08 external-recipient and link-column tests |
 | Insert transports Vault bytes into Outlook before copy gate | `attach-copy` is policy-denied; no document bytes, filenames, URLs, or provider payloads are stored in insertion rows | OA08 attach-copy denial and schema leakage tests |
 | Insert ignores legal hold or records policy | Document/matter legal hold, disposal-locked state, and active requested/approved disposal requests return safe `DOCUMENT_LOCKED` | OA08 records policy tests |
-| Folder mapping leaks matter metadata | Folder mapping is tenant-scoped, permission-checked, and audited | OA09 folder mapping tests |
+| Folder mapping leaks matter metadata | Folder mapping is tenant-scoped, permission-checked, hash-only, and audited | OA09 folder mapping tests |
+| Auto-file runs before tenant approval | Auto-file is default-off, requires active mapping approval plus `OUTLOOK_AUTOFILE_ENABLED=true`, and records disabled attempts safely | OA09 auto-file disabled/wrong-matter tests |
 | Graph scope overreach | Minimum-scope matrix, default-off Graph transport, and deployment approval | OA06 scope matrix + OA10 admin deployment evidence |
 | Local/offline cache stores Vault data | No local queue/cache for Vault copies; offline state is pending/unavailable only | OA11 offline negative tests |
 

@@ -195,8 +195,16 @@ export const auditMetadataKeys = [
   'outlook_status',
   'request_kind',
   'policy_decision',
+  'policy_mode',
   'warning_count',
   'warning_codes',
+  'folder_ref_hash',
+  'folder_path_hash',
+  'auto_file_enabled',
+  'approval_scope',
+  'job_id',
+  'dedupe_hash',
+  'retry_count',
   ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];

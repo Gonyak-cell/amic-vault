@@ -5,6 +5,7 @@ import {
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
@@ -13,13 +14,16 @@ import {
   cancelOutlookFilingRequestSchema,
   createOutlookDocumentInsertionSchema,
   createOutlookSendFileRequestSchema,
+  createOutlookFolderMappingSchema,
   createOutlookEmailFilingRequestSchema,
   evaluateOutlookSendPolicySchema,
   outlookAddinSessionExchangeSchema,
+  updateOutlookFolderMappingSchema,
 } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
 import { OutlookAuthService } from './outlook-auth.service';
 import { OutlookDocumentInsertionService } from './outlook-document-insertion.service';
+import { OutlookFolderMappingService } from './outlook-folder-mapping.service';
 import { OutlookGraphAttachmentService } from './outlook-graph-attachment.service';
 import { OutlookSendFileService } from './outlook-send-file.service';
 import { OutlookService } from './outlook.service';
@@ -104,6 +108,22 @@ function parseDocumentInsertionBody(body: unknown) {
   }
 }
 
+function parseFolderMappingBody(body: unknown) {
+  try {
+    return createOutlookFolderMappingSchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function parseUpdateFolderMappingBody(body: unknown) {
+  try {
+    return updateOutlookFolderMappingSchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
 @Controller('m365/outlook')
 export class OutlookController {
   constructor(
@@ -115,6 +135,8 @@ export class OutlookController {
     private readonly outlookSendFileService: OutlookSendFileService,
     @Inject(OutlookDocumentInsertionService)
     private readonly outlookDocumentInsertionService: OutlookDocumentInsertionService,
+    @Inject(OutlookFolderMappingService)
+    private readonly outlookFolderMappingService: OutlookFolderMappingService,
   ) {}
 
   @Post('session-exchanges')
@@ -161,6 +183,27 @@ export class OutlookController {
     return this.outlookDocumentInsertionService.createDocumentInsertion(
       sessionUserId(request),
       parseDocumentInsertionBody(body),
+    );
+  }
+
+  @Post('folder-mappings')
+  createFolderMapping(@Req() request: RequestWithSession, @Body() body: unknown) {
+    return this.outlookFolderMappingService.createFolderMapping(
+      sessionUserId(request),
+      parseFolderMappingBody(body),
+    );
+  }
+
+  @Patch('folder-mappings/:id')
+  updateFolderMapping(
+    @Req() request: RequestWithSession,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.outlookFolderMappingService.updateFolderMapping(
+      sessionUserId(request),
+      parseUuid(id),
+      parseUpdateFolderMappingBody(body),
     );
   }
 

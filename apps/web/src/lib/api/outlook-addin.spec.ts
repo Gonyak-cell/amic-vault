@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '../api-client';
 import {
   createOutlookDocumentInsertion,
+  createOutlookFolderMapping,
   createOutlookSendFileRequest,
   createOutlookFilingRequest,
   evaluateOutlookSendPolicy,
   getOutlookFilingRequestStatus,
   getOutlookMatterSuggestions,
   searchOutlookInsertableDocuments,
+  updateOutlookFolderMapping,
 } from './outlook-addin';
 
 vi.mock('../api-client', () => ({
@@ -219,5 +221,53 @@ describe('Outlook add-in API client', () => {
       }),
       redirectOnAuthRequired: false,
     });
+  });
+
+  it('posts folder mapping creation and approval through the gated M365 endpoints', async () => {
+    await createOutlookFolderMapping({
+      sourceClient: 'outlook-web-addin',
+      matterId: '11111111-1111-4111-8111-111111111111',
+      mailboxFingerprint: hash,
+      folderRefHash: hash,
+      folderPathHash: hash,
+      mappingMode: 'manual',
+      autoFileRequested: false,
+      clientRequestId: 'oa09:folder',
+      idempotencyKey: `oa09:${hash}`,
+    });
+    await updateOutlookFolderMapping('11111111-1111-4111-8111-111111111112', {
+      approvalDecision: 'approve',
+      autoFileEnabled: false,
+      clientRequestId: 'oa09:approve',
+    });
+
+    expect(apiFetch).toHaveBeenNthCalledWith(1, '/m365/outlook/folder-mappings', {
+      method: 'POST',
+      body: JSON.stringify({
+        sourceClient: 'outlook-web-addin',
+        matterId: '11111111-1111-4111-8111-111111111111',
+        mailboxFingerprint: hash,
+        folderRefHash: hash,
+        folderPathHash: hash,
+        mappingMode: 'manual',
+        autoFileRequested: false,
+        clientRequestId: 'oa09:folder',
+        idempotencyKey: `oa09:${hash}`,
+      }),
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      2,
+      '/m365/outlook/folder-mappings/11111111-1111-4111-8111-111111111112',
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          approvalDecision: 'approve',
+          autoFileEnabled: false,
+          clientRequestId: 'oa09:approve',
+        }),
+        redirectOnAuthRequired: false,
+      },
+    );
   });
 });
