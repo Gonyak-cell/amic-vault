@@ -79,8 +79,11 @@ for (const expected of [
   'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
   'PROD-PATCH-46C6B14-DEPLOY-2026-06-16',
   'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
   'd80fbb5d5bf339ed11ddd6bca27b9e937bd83811',
   '46c6b14c4d0fd143b478e3184018635c9f96568a',
+  '62b35cd497e1482e5e0fb5bd898e09ffa88270b',
   'SMOKE-015',
   'PROD-MONITOR-ALARMS-AWS-2026-06-15',
   'APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15',
@@ -151,11 +154,12 @@ for (const expected of [
   'TECHNICAL_READY PASS',
   'GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY',
   'PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE',
-  'UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_PGBOSS_QUEUE_PREP',
+  'UPLOAD_PREP_ENABLEMENT ACTIVE_CANARY_FILE_ORG_PREP',
   'LOCAL_GEMMA_ENABLED=true',
-  'AI_PREP_ENABLED=false',
-  'AI_PREP_QUEUE_WORKER_ENABLED=false',
+  'AI_PREP_ENABLED=true',
+  'AI_PREP_QUEUE_WORKER_ENABLED=true',
   'PGBOSS_MIGRATE_ENABLED=false',
+  'PGBOSS_CREATE_SCHEMA_ENABLED=false',
 ]) {
   assertContains(
     contents.get('docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md'),
@@ -165,7 +169,7 @@ for (const expected of [
 }
 assertContains(
   contents.get('docs/release/local-ai-production-enablement-runbook.md'),
-  'RUNTIME CANARY ACTIVE',
+  'UPLOAD PREP QUEUE ACTIVE FOR FILE ORGANIZATION CANARY ONLY',
   'docs/release/local-ai-production-enablement-runbook.md',
 );
 assertContains(
@@ -176,6 +180,16 @@ assertContains(
 assertContains(
   contents.get('docs/release/evidence-register.md'),
   'approved-runtime-canary',
+  'docs/release/evidence-register.md',
+);
+assertContains(
+  contents.get('docs/release/evidence-register.md'),
+  'EV-LAI-PROD-007',
+  'docs/release/evidence-register.md',
+);
+assertContains(
+  contents.get('docs/release/evidence-register.md'),
+  'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
   'docs/release/evidence-register.md',
 );
 for (const expected of [

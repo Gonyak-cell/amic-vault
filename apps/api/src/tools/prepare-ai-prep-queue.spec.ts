@@ -38,17 +38,20 @@ describe('prepare ai prep queue tool', () => {
   });
 
   it('builds runtime grants for pg-boss tables, functions, sequences, and types', () => {
-    expect(buildPgBossRuntimeGrantSql('pgboss', 'vault_app')).toEqual([
+    const grants = buildPgBossRuntimeGrantSql('pgboss', 'vault_app');
+    expect(grants).toEqual([
       'GRANT USAGE ON SCHEMA "pgboss" TO "vault_app"',
-      'GRANT USAGE ON ALL TYPES IN SCHEMA "pgboss" TO "vault_app"',
       'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "pgboss" TO "vault_app"',
       'GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA "pgboss" TO "vault_app"',
       'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA "pgboss" TO "vault_app"',
+      expect.stringContaining("GRANT USAGE ON TYPE %I.%I TO %I', 'pgboss'"),
       'ALTER DEFAULT PRIVILEGES IN SCHEMA "pgboss" GRANT USAGE ON TYPES TO "vault_app"',
       'ALTER DEFAULT PRIVILEGES IN SCHEMA "pgboss" GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "vault_app"',
       'ALTER DEFAULT PRIVILEGES IN SCHEMA "pgboss" GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO "vault_app"',
       'ALTER DEFAULT PRIVILEGES IN SCHEMA "pgboss" GRANT EXECUTE ON FUNCTIONS TO "vault_app"',
     ]);
+    expect(grants.join('\n')).not.toContain('GRANT USAGE ON ALL TYPES IN SCHEMA');
+    expect(grants.join('\n')).toContain("t.typcategory <> 'A'");
   });
 
   it('returns bounded dry-run output without connecting to the database', async () => {

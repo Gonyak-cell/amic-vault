@@ -1,43 +1,55 @@
 # Local AI Production Enablement Runbook
 
-Status: RUNTIME CANARY ACTIVE; UPLOAD PREP QUEUE DO NOT ENABLE UNTIL PG-BOSS QUEUE PREP ONE-OFF SUCCEEDS AND WORKER TASK IS AUDITED.
+Status: RUNTIME CANARY ACTIVE; UPLOAD PREP QUEUE ACTIVE FOR FILE ORGANIZATION CANARY ONLY.
 
 This runbook records the approved 2026-06-16 production Gemma runtime canary
-and the remaining conditions before upload-prep queue execution can be enabled.
+and upload-prep file-organization canary. It is not approval for legal analysis,
+tenant expansion, external model routes, or automatic reprocessing of existing
+customer documents.
 
 ## Entry Criteria
 
 - `docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md` is current and technical
   evidence is PASS.
 - `pnpm local-ai:prod-ready` passes.
-- `pnpm local-ai:prod-ready` fails if runtime canary evidence drifts back to
-  placeholder refs or if upload-prep queue enablement is documented without the
-  canary allowlist controls.
+- `pnpm local-ai:prod-ready` fails if canary evidence drifts back to placeholder
+  refs or if upload-prep queue enablement is documented without the canary
+  allowlist controls.
 - Runtime canary governance approval evidence refs in the Local AI production
   readiness gate are present.
-- Live production env audit evidence confirms the current runtime canary
-  boundary before upload-prep queue enablement:
+- Live production env audit evidence confirms the current canary boundary:
   - `LOCAL_GEMMA_ENABLED=true`
   - `LOCAL_GEMMA_ENDPOINT=loopback sidecar`
   - `LOCAL_GEMMA_MODEL=gemma4:12b`
-  - `AI_PREP_ENABLED=false`
-  - `AI_PREP_QUEUE_WORKER_ENABLED=false`
+  - `AI_PREP_ENABLED=true`
+  - `AI_PREP_QUEUE_WORKER_ENABLED=true`
+  - `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true`
+  - `AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>`
+  - `AI_PREP_TENANT_MAX_CONCURRENCY=1`
   - `AI_SUMMARY_GEMMA_ENABLED=false`
 - Alert state and rollback owner evidence refs are current; alert delivery
-  remains required before expansion beyond the runtime canary.
+  remains required before expansion beyond the current canary.
 - The deployed API code enforces `AI_PREP_ENABLED` before enqueueing prep jobs
   and re-checks `AI_PREP_CANARY_TENANT_IDS` in both enqueue and worker paths.
-- Production pg-boss runtime migration is disabled before queue flags are
-  enabled; schema creation and grants are performed only by the migration-role
-  one-off queue prepare task.
+- Production pg-boss runtime migration is disabled; schema creation and grants
+  were performed only by the migration-role one-off queue prepare task.
 - No external model route, API key, SDK, or remote endpoint is introduced.
+
+Current production canary evidence refs:
+
+- `PROD-LAI-CANARY-RUNTIME-2026-06-16`
+- `PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16`
+- `PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16`
+- `PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16`
 
 ## Enablement Order After Approval
 
+Completed production canary sequence:
+
 1. Record a pre-change env audit evidence ref without secret values.
 2. Confirm production backup/snapshot evidence and rollback window.
-3. Keep the current runtime canary active with `LOCAL_GEMMA_ENABLED=true` only
-   on the production sidecar task revision while queue workers stay disabled.
+3. Keep the runtime canary active with `LOCAL_GEMMA_ENABLED=true` on the
+   production sidecar task revision.
 4. Check `GET /v1/ai/ops/health` as an admin and record only bounded status
    fields.
 5. Confirm the canary allowlist patch is deployed and `pnpm local-ai:prod-ready`
@@ -62,7 +74,7 @@ and the remaining conditions before upload-prep queue execution can be enabled.
 9. Run canary upload prep on approved canary/synthetic documents only.
 10. Run smoke/eval/scan commands and record reference-only evidence refs.
 11. Expand tenant/artifact scope only after monitoring remains green and the
-    operator records the expansion evidence.
+    operator records a new expansion approval evidence ref.
 
 ## Canary Scope
 

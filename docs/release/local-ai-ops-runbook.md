@@ -1,8 +1,7 @@
 # Local AI Operations Runbook
 
-Status: production runtime canary active. Upload-prep queue execution remains
-disabled until pg-boss queue preparation succeeds and the worker task is
-audited.
+Status: production runtime and upload-prep file-organization canary active.
+Execution is limited to one approved synthetic/canary tenant scope.
 
 ## Runtime
 
@@ -55,10 +54,12 @@ Production canary boundary:
 
 - `LOCAL_GEMMA_ENABLED=true` is approved only for the 2026-06-16 runtime
   canary.
-- `AI_PREP_ENABLED=false` and `AI_PREP_QUEUE_WORKER_ENABLED=false` until
-  pg-boss queue preparation is complete and audited.
+- `AI_PREP_ENABLED=true` and `AI_PREP_QUEUE_WORKER_ENABLED=true` are active
+  only for file organization prep in the approved canary scope.
+- `PGBOSS_MIGRATE_ENABLED=false`; pg-boss schema/queue preparation is handled
+  by the migration-role one-off task, not production runtime tasks.
 - `AI_PREP_REQUIRE_TENANT_ALLOWLIST=true` and exactly one approved canary tenant
-  ref are required before upload-prep queue execution.
+  ref are required during upload-prep queue execution.
 - `AI_SUMMARY_GEMMA_ENABLED=false`; legal analysis remains out of scope.
 - External model routes remain disallowed; do not add remote model endpoints or
   API keys as a workaround.

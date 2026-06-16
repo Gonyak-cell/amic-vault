@@ -61,18 +61,20 @@ for (const expected of [
   'TECHNICAL_READY PASS',
   'GOVERNANCE_APPROVAL APPROVED_FOR_RUNTIME_CANARY',
   'PRODUCTION_ENABLEMENT RUNTIME_CANARY_ACTIVE',
-  'UPLOAD_PREP_ENABLEMENT BLOCKED_PENDING_PGBOSS_QUEUE_PREP',
+  'UPLOAD_PREP_ENABLEMENT ACTIVE_CANARY_FILE_ORG_PREP',
   'local_gemma',
   'gemma4:12b',
   'externalModelCallAttempts 0',
   'LOCAL_GEMMA_ENABLED=true',
   'LOCAL_GEMMA_ENDPOINT=loopback sidecar',
   'LOCAL_GEMMA_MODEL=gemma4:12b',
-  'AI_PREP_ENABLED=false',
-  'AI_PREP_QUEUE_WORKER_ENABLED=false',
+  'AI_PREP_ENABLED=true',
+  'AI_PREP_QUEUE_WORKER_ENABLED=true',
   'PGBOSS_MIGRATE_ENABLED=false',
+  'PGBOSS_CREATE_SCHEMA_ENABLED=false',
   'AI_PREP_REQUIRE_TENANT_ALLOWLIST=true',
   'AI_PREP_CANARY_TENANT_IDS=<one-approved-tenant-ref-outside-repo>',
+  'AI_PREP_TENANT_MAX_CONCURRENCY=1',
   'AI_SUMMARY_GEMMA_ENABLED=false',
   'APPROVAL-LAI-PROD-OPERATOR-2026-06-16',
   'APPROVAL-LAI-PROD-SECURITY-2026-06-16',
@@ -84,6 +86,8 @@ for (const expected of [
   'PROD-LAI-ROLLBACK-OWNER-2026-06-16',
   'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
   'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
   'pnpm local-ai:prod-ready',
 ]) {
   assertContains(gate, expected, 'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md');
@@ -98,8 +102,10 @@ if (gate.includes('YYYY-MM-DD')) {
 const enablement = contents.get('docs/release/local-ai-production-enablement-runbook.md');
 for (const expected of [
   'RUNTIME CANARY ACTIVE',
-  'UPLOAD PREP QUEUE DO NOT ENABLE',
-  'PG-BOSS QUEUE PREP',
+  'UPLOAD PREP QUEUE ACTIVE FOR FILE ORGANIZATION CANARY ONLY',
+  'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
   'pnpm ai-prep:prepare-queue',
   'PGBOSS_MIGRATE_ENABLED=false',
   'AI_PREP_TENANT_MAX_CONCURRENCY=1',
@@ -117,8 +123,8 @@ const opsRunbook = contents.get('docs/release/local-ai-ops-runbook.md');
 for (const expected of [
   'Production canary boundary',
   'LOCAL_GEMMA_ENABLED=true',
-  'AI_PREP_ENABLED=false',
-  'AI_PREP_QUEUE_WORKER_ENABLED=false',
+  'AI_PREP_ENABLED=true',
+  'AI_PREP_QUEUE_WORKER_ENABLED=true',
   'PGBOSS_MIGRATE_ENABLED',
   'AI_PREP_REQUIRE_TENANT_ALLOWLIST',
   'AI_PREP_CANARY_TENANT_IDS',
@@ -130,9 +136,10 @@ const productionRunbook = contents.get('docs/release/production-release-runbook.
 for (const expected of [
   'LOCAL_AI_PROD_READY_gate.md',
   'local-ai-production-enablement-runbook.md',
-  'Local Gemma runtime canary is active',
-  'Upload-prep queue execution remains',
-  'pg-boss queue prepare evidence before upload-prep queue execution',
+  'Local Gemma runtime and upload-prep file-organization canary are active',
+  'AI_PREP_ENABLED=true',
+  'AI_PREP_QUEUE_WORKER_ENABLED=true',
+  'pg-boss queue prepare evidence and upload-prep canary public smoke evidence',
 ]) {
   assertContains(productionRunbook, expected, 'docs/release/production-release-runbook.md');
 }
@@ -145,10 +152,14 @@ for (const expected of [
   'EV-LAI-PROD-004',
   'EV-LAI-PROD-005',
   'EV-LAI-PROD-006',
+  'EV-LAI-PROD-007',
   'approved-runtime-canary',
   'active-runtime-canary',
+  'active-canary',
   'PROD-LAI-CANARY-ALLOWLIST-PATCH-2026-06-16',
   'PROD-LAI-PGBOSS-QUEUE-PREP-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
+  'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
 ]) {
   assertContains(evidenceRegister, expected, 'docs/release/evidence-register.md');
 }
