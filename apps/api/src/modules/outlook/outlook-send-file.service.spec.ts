@@ -298,4 +298,29 @@ describe('OutlookSendFileService', () => {
       expect.anything(),
     );
   });
+
+  it('marks duplicate send-and-file requests in audit metadata', async () => {
+    process.env.OUTLOOK_SMART_ALERTS_ENABLED = 'true';
+    process.env.OUTLOOK_SEND_FILE_ENABLED = 'true';
+    permissionService.canUploadToMatter.mockResolvedValue({ effect: 'ALLOW' });
+    query.mockResolvedValueOnce({ rows: [createRow({ duplicate: true })], rowCount: 1 });
+
+    await expect(service.createSendFileRequest(userId, sendInput())).resolves.toMatchObject({
+      id: requestId,
+      requestKind: 'send_and_file',
+    });
+
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'OUTLOOK_SEND_FILE_REQUESTED',
+        metadata: expect.objectContaining({
+          request_kind: 'send_and_file',
+          reason_code: 'duplicate',
+          idempotency_hash: hash,
+        }),
+      }),
+      expect.anything(),
+    );
+  });
 });

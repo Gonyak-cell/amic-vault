@@ -32,6 +32,7 @@ jobs:
       - run: pnpm release:uat
       - run: pnpm release:prod-preflight
       - run: pnpm outlook:deployment:check
+      - run: pnpm outlook:verification:check
       - run: node infra/ci/scripts/check-docs-package-frozen.mjs
       - run: node tools/db/check-migration-conventions.mjs
 
