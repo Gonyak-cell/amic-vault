@@ -11,12 +11,15 @@ import {
 import {
   acquireOutlookGraphAttachmentSchema,
   cancelOutlookFilingRequestSchema,
+  createOutlookSendFileRequestSchema,
   createOutlookEmailFilingRequestSchema,
+  evaluateOutlookSendPolicySchema,
   outlookAddinSessionExchangeSchema,
 } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
 import { OutlookAuthService } from './outlook-auth.service';
 import { OutlookGraphAttachmentService } from './outlook-graph-attachment.service';
+import { OutlookSendFileService } from './outlook-send-file.service';
 import { OutlookService } from './outlook.service';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,6 +49,22 @@ function sessionIdentity(request: RequestWithSession): { userId: string; session
 function parseCreateBody(body: unknown) {
   try {
     return createOutlookEmailFilingRequestSchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function parseSendPolicyBody(body: unknown) {
+  try {
+    return evaluateOutlookSendPolicySchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function parseSendFileBody(body: unknown) {
+  try {
+    return createOutlookSendFileRequestSchema.parse(body ?? {});
   } catch {
     throw validationFailed();
   }
@@ -82,6 +101,8 @@ export class OutlookController {
     @Inject(OutlookAuthService) private readonly outlookAuthService: OutlookAuthService,
     @Inject(OutlookGraphAttachmentService)
     private readonly outlookGraphAttachmentService: OutlookGraphAttachmentService,
+    @Inject(OutlookSendFileService)
+    private readonly outlookSendFileService: OutlookSendFileService,
   ) {}
 
   @Post('session-exchanges')
@@ -97,6 +118,22 @@ export class OutlookController {
   @Post('filing-requests')
   createFilingRequest(@Req() request: RequestWithSession, @Body() body: unknown) {
     return this.outlookService.createFilingRequest(sessionUserId(request), parseCreateBody(body));
+  }
+
+  @Post('send-policy-decisions')
+  evaluateSendPolicy(@Req() request: RequestWithSession, @Body() body: unknown) {
+    return this.outlookSendFileService.evaluateSendPolicy(
+      sessionUserId(request),
+      parseSendPolicyBody(body),
+    );
+  }
+
+  @Post('send-file-requests')
+  createSendFileRequest(@Req() request: RequestWithSession, @Body() body: unknown) {
+    return this.outlookSendFileService.createSendFileRequest(
+      sessionUserId(request),
+      parseSendFileBody(body),
+    );
   }
 
   @Post('attachment-acquisitions')

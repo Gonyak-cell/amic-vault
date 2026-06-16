@@ -1,12 +1,16 @@
 import { createHash } from 'node:crypto';
 import {
   buildCreateFilingRequest,
+  buildCreateSendFileRequest,
   buildMatterSuggestionQuery,
   buildOutlookItemSnapshot,
+  buildSendPolicyRequest,
   formatBytes,
 } from './outlook-item';
 import {
+  createOutlookSendFileRequestSchema,
   createOutlookEmailFilingRequestSchema,
+  evaluateOutlookSendPolicySchema,
   matterSuggestionQuerySchema,
 } from '@amic-vault/shared';
 import { describe, expect, it } from 'vitest';
@@ -55,6 +59,21 @@ describe('Outlook item hashing helpers', () => {
     expect(() =>
       createOutlookEmailFilingRequestSchema.parse(
         buildCreateFilingRequest(snapshot, '11111111-1111-4111-8111-111111111111'),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      evaluateOutlookSendPolicySchema.parse(
+        buildSendPolicyRequest(snapshot, '11111111-1111-4111-8111-111111111111'),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      createOutlookSendFileRequestSchema.parse(
+        buildCreateSendFileRequest(
+          snapshot,
+          '11111111-1111-4111-8111-111111111111',
+          new Set(snapshot.attachmentRefs.map((attachment) => attachment.attachmentIdHash)),
+          ['external_recipient'],
+        ),
       ),
     ).not.toThrow();
   });

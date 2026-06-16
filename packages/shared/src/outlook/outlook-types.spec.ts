@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   acquireOutlookGraphAttachmentSchema,
+  createOutlookSendFileRequestSchema,
   createOutlookEmailFilingRequestSchema,
+  evaluateOutlookSendPolicySchema,
   matterSuggestionQuerySchema,
   outlookAddinSessionExchangeSchema,
   outlookAttachmentRefSchema,
@@ -200,5 +202,78 @@ describe('Outlook add-in DTO contracts', () => {
     );
     expect(outlookRejectedGraphScopes).toContain('Mail.ReadWrite');
     expect(outlookRejectedGraphScopes).toContain('Mail.Send');
+  });
+
+  it('accepts Smart Alert policy decisions with hash-only message context', () => {
+    expect(
+      evaluateOutlookSendPolicySchema.parse({
+        sourceClient: 'outlook-web-addin',
+        matterId: '11111111-1111-4111-8111-111111111111',
+        message: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          hasExternalParticipants: true,
+          participantDomainHashes: [hash],
+        },
+        attachments: [],
+        subjectHash: hash,
+        clientRequestId: 'send-policy-1',
+      }),
+    ).toMatchObject({
+      matterId: '11111111-1111-4111-8111-111111111111',
+      subjectHash: hash,
+    });
+  });
+
+  it('rejects raw Smart Alert subject, body, recipients, and filenames', () => {
+    expect(() =>
+      evaluateOutlookSendPolicySchema.parse({
+        sourceClient: 'outlook-web-addin',
+        message: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          hasExternalParticipants: true,
+          participantDomainHashes: [hash],
+          subject: 'Settlement draft',
+          body: 'Privileged body',
+          to: ['counterparty@example.com'],
+        },
+        attachments: [
+          {
+            attachmentIdHash: hash,
+            filename: 'privileged.pdf',
+            ordinal: 0,
+            sizeBytes: 42,
+            selectedForFiling: true,
+          },
+        ],
+        clientRequestId: 'send-policy-1',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts send-and-file requests only with bounded warning acknowledgements', () => {
+    expect(
+      createOutlookSendFileRequestSchema.parse({
+        sourceClient: 'outlook-web-addin',
+        matterId: '11111111-1111-4111-8111-111111111111',
+        message: {
+          mailboxFingerprint: hash,
+          outlookItemIdHash: hash,
+          canonicalMessageSha256: hash,
+          hasExternalParticipants: true,
+          participantDomainHashes: [hash],
+        },
+        attachments: [],
+        subjectHash: hash,
+        clientRequestId: 'send-file-1',
+        idempotencyKey: 'send-file-idem-1',
+        acknowledgedWarningCodes: ['external_recipient', 'wrong_matter'],
+      }),
+    ).toMatchObject({
+      acknowledgedWarningCodes: ['external_recipient', 'wrong_matter'],
+    });
   });
 });

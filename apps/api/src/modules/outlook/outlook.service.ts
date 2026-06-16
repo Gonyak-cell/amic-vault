@@ -322,6 +322,7 @@ export class OutlookService {
           FROM outlook_filing_requests
           WHERE tenant_id = $2
             AND user_id = $3
+            AND request_kind = 'manual_file'
             AND (
               idempotency_key_hash = $17
               OR client_request_id_hash = $16

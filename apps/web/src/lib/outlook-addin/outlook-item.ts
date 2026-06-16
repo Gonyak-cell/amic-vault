@@ -1,8 +1,11 @@
 import type {
   CreateOutlookEmailFilingRequestDto,
+  CreateOutlookSendFileRequestDto,
+  EvaluateOutlookSendPolicyDto,
   MatterSuggestionQueryDto,
   OutlookAttachmentRefDto,
   OutlookItemRefDto,
+  OutlookSendWarningReasonCode,
 } from '@amic-vault/shared';
 
 export interface OfficeRecipientLike {
@@ -173,6 +176,43 @@ export function buildCreateFilingRequest(
   };
 }
 
+export function buildSendPolicyRequest(
+  snapshot: OutlookItemSnapshot,
+  matterId?: string,
+  selectedAttachmentHashes: ReadonlySet<string> = new Set(
+    snapshot.attachmentRefs
+      .filter((attachment) => attachment.selectedForFiling)
+      .map((attachment) => attachment.attachmentIdHash),
+  ),
+): EvaluateOutlookSendPolicyDto {
+  return {
+    sourceClient: 'outlook-web-addin',
+    ...(matterId ? { matterId } : {}),
+    message: snapshot.message,
+    attachments: selectedAttachmentRefs(snapshot, selectedAttachmentHashes),
+    ...(snapshot.subjectHash ? { subjectHash: snapshot.subjectHash } : {}),
+    clientRequestId: `oa07-policy:${Date.now().toString(36)}:${snapshot.itemHashPreview}`,
+  };
+}
+
+export function buildCreateSendFileRequest(
+  snapshot: OutlookItemSnapshot,
+  matterId: string,
+  selectedAttachmentHashes: ReadonlySet<string>,
+  acknowledgedWarningCodes: readonly OutlookSendWarningReasonCode[] = [],
+): CreateOutlookSendFileRequestDto {
+  return {
+    sourceClient: 'outlook-web-addin',
+    matterId,
+    message: snapshot.message,
+    attachments: selectedAttachmentRefs(snapshot, selectedAttachmentHashes),
+    ...(snapshot.subjectHash ? { subjectHash: snapshot.subjectHash } : {}),
+    clientRequestId: `oa07-file:${Date.now().toString(36)}:${snapshot.itemHashPreview}`,
+    idempotencyKey: `oa07:${snapshot.message.canonicalMessageSha256}:${matterId.replaceAll('-', '')}`,
+    acknowledgedWarningCodes: [...acknowledgedWarningCodes],
+  };
+}
+
 export function shortHash(hash: string): string {
   return hash.length <= 12 ? hash : `${hash.slice(0, 8)}.${hash.slice(-4)}`;
 }
@@ -203,6 +243,15 @@ async function buildAttachmentRefs(
       };
     }),
   );
+}
+
+function selectedAttachmentRefs(
+  snapshot: OutlookItemSnapshot,
+  selectedAttachmentHashes: ReadonlySet<string>,
+): OutlookAttachmentRefDto[] {
+  return snapshot.attachmentRefs
+    .filter((attachment) => selectedAttachmentHashes.has(attachment.attachmentIdHash))
+    .map((attachment) => ({ ...attachment, selectedForFiling: true }));
 }
 
 async function optionalHash(

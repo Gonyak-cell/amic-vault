@@ -37,7 +37,8 @@ Server-owned controls remain authoritative:
 | Inserted documents | Insert action becomes silent external sharing | R11+ policy gate; no public/guest/secure links before allowed. |
 | Folder mappings | Folder names expose client/matter information | Tenant RLS, reference-only audit, admin/user approval, no repo evidence values. |
 | Graph scopes | Excessive consent grants mailbox or file access | Least-privilege scope registry and deployment evidence. |
-| Smart Alerts | Client event failure bypasses filing policy | Treat as UX layer; server policy and audit remain source of truth. |
+| Smart Alerts | Client event failure bypasses filing policy | Treat as UX layer; server policy and audit remain source of truth; offline/unavailable never becomes local filing. |
+| Send-and-file warnings | User files to wrong matter or skips filing context | Server policy returns bounded allow/warn/block decisions; warnings must be acknowledged before queueing send-and-file. |
 
 ## Threats And Mitigations
 
@@ -48,7 +49,9 @@ Server-owned controls remain authoritative:
 | Client post-filters search results | Server returns only authorized results; client never receives denied IDs | OA11 metadata leakage tests |
 | Duplicate filing from retry or resend | `Idempotency-Key`, mailbox fingerprint, `internetMessageId`, canonical hash | OA05 idempotency tests |
 | Raw mail content enters audit/logs | Metadata allow-list; unsafe key scan; audit refs/hashes only | OA11 audit coverage |
-| Smart Alert failure treated as compliance pass | Send-and-file policy stored server-side; event handler only prompts/blocks UX | OA07 Smart Alert fallback tests |
+| Smart Alert failure treated as compliance pass | Send-and-file policy stored server-side; event handler only prompts/blocks UX and falls open for send availability without local filing | OA07 Smart Alert fallback tests |
+| Smart Alert runtime leaks raw Outlook data | Runtime sends hash-only mailbox, subject, participant domain, message, and attachment refs to Vault APIs | OA07 manifest/runtime static tests |
+| Unacknowledged send-and-file warnings | Server denies send-and-file request until warning reason codes are acknowledged | OA07 send-and-file policy tests |
 | Insert creates external link before R11 | Insert action denied unless external sharing policy permits the exact channel | OA08 external-recipient tests |
 | Folder mapping leaks matter metadata | Folder mapping is tenant-scoped, permission-checked, and audited | OA09 folder mapping tests |
 | Graph scope overreach | Minimum-scope matrix, default-off Graph transport, and deployment approval | OA06 scope matrix + OA10 admin deployment evidence |
@@ -67,6 +70,7 @@ Stop Outlook add-in implementation if any change:
 - treats Smart Alerts as the only compliance control;
 - introduces live Graph/NAA/Outlook event behavior without an approved
   integration gate;
+- treats Smart Alert network failure as a completed Vault filing event;
 - creates public/guest/secure/external links before R11+ policy gates;
 - changes `docs/package/**`.
 

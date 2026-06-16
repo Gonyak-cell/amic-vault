@@ -193,6 +193,10 @@ export const auditMetadataKeys = [
   'scope_count',
   'scope_set_hash',
   'outlook_status',
+  'request_kind',
+  'policy_decision',
+  'warning_count',
+  'warning_codes',
   ] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];
