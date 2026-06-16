@@ -25,6 +25,7 @@ import type {
   UserRole,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { markAndAuditAiPrepArtifactsStale } from '../ai/prep/ai-prep-lifecycle';
 import {
   documentMetadataChangedAudit,
   documentViewedAudit,
@@ -242,6 +243,12 @@ export class DocumentService {
         }),
         tx,
       );
+      await markAndAuditAiPrepArtifactsStale(auditService, tx, {
+        tenantId: context.tenantId,
+        actorId: actorUserId,
+        documentId,
+        staleReason: 'document_metadata_changed',
+      });
       await this.searchIndexSync?.enqueueCurrentVersionForDocument(
         { tenantId: context.tenantId, documentId },
         tx,

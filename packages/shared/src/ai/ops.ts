@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+const localAiEvalArtifactKinds = [
+  'document_profile',
+  'key_fields',
+  'date_facts',
+  'people_organizations',
+  'keyword_tags',
+  'filing_suggestions',
+  'source_outline',
+  'retrieval_hints',
+] as const;
+
+const localAiEvalArtifactKindSchema = z.enum(localAiEvalArtifactKinds);
+
 export const localAiRuntimeStatuses = ['ready', 'blocked', 'degraded'] as const;
 export const localAiEndpointClasses = ['loopback', 'private_network', 'blocked'] as const;
 
@@ -39,6 +52,21 @@ export const localAiOpsMetricsSchema = z
   })
   .strict();
 
+export const localAiEvalArtifactKindMetricSchema = z
+  .object({
+    artifactKind: localAiEvalArtifactKindSchema,
+    minimumCompletedCount: z.number().int().min(0),
+    completedCount: z.number().int().min(0),
+    generatedOutputCount: z.number().int().min(0),
+    fallbackArtifactCount: z.number().int().min(0),
+    rejectedOutputCount: z.number().int().min(0),
+    fallbackRate: z.number().min(0).max(1),
+    rejectedRate: z.number().min(0).max(1),
+    p95LatencyMs: z.number().int().min(0).nullable(),
+    technicalPass: z.boolean(),
+  })
+  .strict();
+
 export const localAiEvalReportSchema = z
   .object({
     tenantId: z.string().uuid(),
@@ -53,8 +81,12 @@ export const localAiEvalReportSchema = z
     citationAccuracy: z.number().min(0).max(1),
     unsupportedClaimRate: z.number().min(0).max(1),
     fallbackRate: z.number().min(0).max(1),
+    rejectedRate: z.number().min(0).max(1),
     koreanLegalLanguagePass: z.boolean(),
     p95LatencyMs: z.number().int().min(0).nullable(),
+    pendingPrepCount: z.number().int().min(0),
+    maxPendingAgeSeconds: z.number().int().min(0).nullable(),
+    artifactKindMetrics: z.array(localAiEvalArtifactKindMetricSchema).max(8),
     technicalPass: z.boolean(),
     warnings: z.array(z.string().min(1).max(200)).max(20),
   })
@@ -64,4 +96,7 @@ export type LocalAiRuntimeStatus = z.infer<typeof localAiRuntimeStatusSchema>;
 export type LocalAiEndpointClass = z.infer<typeof localAiEndpointClassSchema>;
 export type LocalAiOpsHealthDto = z.infer<typeof localAiOpsHealthSchema>;
 export type LocalAiOpsMetricsDto = z.infer<typeof localAiOpsMetricsSchema>;
+export type LocalAiEvalArtifactKindMetricDto = z.infer<
+  typeof localAiEvalArtifactKindMetricSchema
+>;
 export type LocalAiEvalReportDto = z.infer<typeof localAiEvalReportSchema>;

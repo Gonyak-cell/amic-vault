@@ -52,4 +52,102 @@ describe('AiPrepRepository', () => {
     expect(source?.chunks).toHaveLength(1);
     expect(source?.chunks[0]?.sourceTextHash).toBe(sourceRow.source_text_hash);
   });
+
+  it('marks scoped artifacts stale with allow-listed reasons only', async () => {
+    const repository = new AiPrepRepository({ build: vi.fn() } as never);
+    const client = {
+      query: vi.fn(async () => ({
+        rows: [
+          {
+            ai_prep_artifact_id: '11111111-1111-4111-8111-111111111119',
+            artifact_kind: 'document_profile',
+            matter_id: sourceRow.matter_id,
+            document_id: sourceRow.document_id,
+            document_version_id: sourceRow.version_id,
+          },
+        ],
+        rowCount: 1,
+      })),
+    };
+
+    const rows = await repository.markArtifactsStale(client, {
+      tenantId: sourceRow.tenant_id,
+      documentId: sourceRow.document_id,
+      staleReason: 'document_ai_disabled',
+    });
+
+    expect(rows).toHaveLength(1);
+    const firstCall = client.query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(firstCall[0]).toContain('stale_reason = $2');
+    expect(firstCall[0]).toContain('document_id = $3');
+    expect(firstCall[1]).toEqual([
+      sourceRow.tenant_id,
+      'document_ai_disabled',
+      sourceRow.document_id,
+    ]);
+  });
+
+  it('rejects free-form stale reasons before issuing SQL', async () => {
+    const repository = new AiPrepRepository({ build: vi.fn() } as never);
+    const client = {
+      query: vi.fn(async () => ({ rows: [], rowCount: 0 })),
+    };
+
+    await expect(
+      repository.markArtifactsStale(client, {
+        tenantId: sourceRow.tenant_id,
+        documentId: sourceRow.document_id,
+        staleReason: 'operator wrote a note' as never,
+      }),
+    ).rejects.toThrow();
+    expect(client.query).not.toHaveBeenCalled();
+  });
+
+  it('builds prep evidence packs from canonical metadata and planned budget only', () => {
+    const repository = new AiPrepRepository({ build: vi.fn() } as never);
+
+    const pack = repository.buildEvidencePack({
+      source: {
+        tenantId: sourceRow.tenant_id,
+        documentId: sourceRow.document_id,
+        versionId: sourceRow.version_id,
+        matterId: sourceRow.matter_id,
+        actorId: sourceRow.created_by,
+        title: 'Fixture lawyer@example.com 010-1234-5678',
+        chunks: [],
+      },
+      chunks: [
+        {
+          documentId: sourceRow.document_id,
+          versionId: sourceRow.version_id,
+          matterId: sourceRow.matter_id,
+          chunkId: sourceRow.chunk_id,
+          parentChunkId: sourceRow.parent_chunk_id,
+          chunkOrdinal: sourceRow.chunk_ordinal,
+          tokenCount: sourceRow.token_count,
+          score: 0.9,
+          redactedText: sourceRow.chunk_text,
+          textHash: sourceRow.text_hash,
+          sourceTextHash: sourceRow.source_text_hash,
+        },
+      ],
+      artifactKind: 'filing_suggestions',
+      appliedRules: ['retrieval.hybrid:query_stage_scope', 'ai_prep.retrieval_plan:filing_suggestions'],
+      tokenBudget: 1800,
+    });
+
+    expect(pack.window).toEqual({ tokenBudget: 1800, tokenCount: sourceRow.token_count });
+    expect(pack.userQuestion).toContain('[REDACTED:email]');
+    expect(pack.userQuestion).toContain('[REDACTED:phone]');
+    expect(pack.userQuestion).not.toMatch(/lawyer@example|010-1234-5678/u);
+    expect(pack.retrievalScope.appliedRules).toEqual(
+      expect.arrayContaining([
+        'ai_prep.retrieval_plan:filing_suggestions',
+        expect.stringMatching(/^ai_prep\.metadata:canonicalized:[0-9a-f]{16}$/u),
+      ]),
+    );
+    expect(pack.prohibitedAssumptions).toContain(
+      'Use canonical metadata only for neutral file organization labels.',
+    );
+  });
 });

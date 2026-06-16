@@ -1,11 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { evidencePackSchema, type EvidencePackDto } from '@amic-vault/shared';
+import {
+  adaptEvidencePackToPrepSourceRefs,
+  evidencePackSchema,
+  type EvidencePackDto,
+} from '@amic-vault/shared';
 import type { QueryClient } from '../../audit/audit.service';
 import { SearchFilterBuilder } from '../../search/query/search-filter.builder';
 import type { SearchSqlFragment } from '../../search/query/search-filter.builder';
 import type { AiRetrievedChunk } from '../retrieval/ai-retrieval.types';
-import type { AiPrepArtifactKind, AiPrepArtifactPayloadDto } from '@amic-vault/shared';
+import type {
+  AiPrepArtifactKind,
+  AiPrepArtifactPayloadDto,
+  AiPrepStaleReason,
+} from '@amic-vault/shared';
+import { markAiPrepArtifactsStale } from './ai-prep-lifecycle';
+import { normalizeAiPrepMetadata } from './ai-prep-metadata-normalizer';
 import type { AiPrepJobPayload, AiPrepSource, AiPrepSourceChunk } from './ai-prep.types';
 
 interface TargetRow {
@@ -137,17 +147,22 @@ export class AiPrepRepository {
     chunks: readonly AiRetrievedChunk[];
     artifactKind: AiPrepArtifactKind;
     appliedRules: readonly string[];
+    tokenBudget?: number | undefined;
   }): EvidencePackDto {
-    const tokenBudget = 2400;
+    const metadata = normalizeAiPrepMetadata({
+      title: input.source.title,
+      sourceTextHashes: input.chunks.map((chunk) => chunk.sourceTextHash),
+    });
+    const tokenBudget = input.tokenBudget ?? 2400;
     const tokenCount = Math.min(
       tokenBudget,
       input.chunks.reduce((total, chunk) => total + chunk.tokenCount, 0),
     );
     const sourceRefs = input.chunks.map((chunk) => `chunk:${chunk.chunkId}`);
-    return evidencePackSchema.parse({
+    const pack = evidencePackSchema.parse({
       packId: randomUUID(),
-      userQuestion: questionForArtifactKind(input.artifactKind, input.source.title),
-      rewrittenQueries: [queryForArtifactKind(input.artifactKind, input.source.title)],
+      userQuestion: questionForArtifactKind(input.artifactKind, metadata.safeTitle),
+      rewrittenQueries: [queryForArtifactKind(input.artifactKind, metadata.safeTitle)],
       taskType: taskTypeForArtifactKind(input.artifactKind),
       matterContext: { matterId: input.source.matterId },
       retrievalScope: {
@@ -155,7 +170,10 @@ export class AiPrepRepository {
         matterId: input.source.matterId,
         mode: 'hybrid',
         modelRoute: 'local_gemma',
-        appliedRules: [...input.appliedRules],
+        appliedRules: [
+          ...input.appliedRules,
+          `ai_prep.metadata:canonicalized:${metadata.metadataHash.slice(0, 16)}`,
+        ],
       },
       relevantDocuments: [
         {
@@ -192,6 +210,7 @@ export class AiPrepRepository {
       prohibitedAssumptions: [
         'Do not use facts outside retrieved chunks.',
         'Do not provide legal conclusions or advice.',
+        'Use canonical metadata only for neutral file organization labels.',
         'Treat this as post-upload preparation only; user-facing answers must re-check permissions.',
       ],
       citationRequirements: {
@@ -202,29 +221,34 @@ export class AiPrepRepository {
       outputFormat: { kind: taskTypeForArtifactKind(input.artifactKind), locale: 'ko-KR' },
       escalationFlags: [],
     });
+    adaptEvidencePackToPrepSourceRefs(pack);
+    return pack;
   }
 
   async markSupersededArtifactsStale(
     client: QueryClient,
     input: { tenantId: string; documentId: string; currentVersionId: string },
   ): Promise<ArtifactRow[]> {
-    const result = await client.query(
-      `
-        UPDATE ai_prep_artifacts
-        SET is_stale = true,
-          status = CASE WHEN status = 'pending' THEN 'stale' ELSE status END,
-          stale_reason = 'new_version',
-          stale_at = now(),
-          updated_at = now()
-        WHERE tenant_id = $1
-          AND document_id = $2
-          AND document_version_id <> $3
-          AND is_stale = false
-        RETURNING ai_prep_artifact_id, artifact_kind
-      `,
-      [input.tenantId, input.documentId, input.currentVersionId],
-    );
-    return result.rows as ArtifactRow[];
+    return this.markArtifactsStale(client, {
+      tenantId: input.tenantId,
+      documentId: input.documentId,
+      excludeVersionId: input.currentVersionId,
+      staleReason: 'new_version',
+    });
+  }
+
+  async markArtifactsStale(
+    client: QueryClient,
+    input: {
+      tenantId: string;
+      staleReason: AiPrepStaleReason;
+      matterId?: string | null | undefined;
+      documentId?: string | null | undefined;
+      versionId?: string | null | undefined;
+      excludeVersionId?: string | null | undefined;
+    },
+  ): Promise<ArtifactRow[]> {
+    return markAiPrepArtifactsStale(client, input);
   }
 
   async upsertBlocked(

@@ -34,13 +34,17 @@ export class AiEvidencePromptCompiler {
           ].join('\n'),
       )
       .join('\n\n');
-    const graphFacts = pack.graphFacts
+    const graphFactsForPrompt = isPrep ? pack.graphFacts.filter(isPrepSafeGraphFact) : pack.graphFacts;
+    const ruleFindingsForPrompt = isPrep
+      ? pack.ruleFindings.filter(isPrepSafeRuleFinding)
+      : pack.ruleFindings;
+    const graphFacts = graphFactsForPrompt
       .map(
         (fact) =>
           `GRAPH_REF: graph:${fact.edgeId} ${fact.sourceNodeType}:${fact.sourceNodeId} -> ${fact.edgeType} -> ${fact.targetNodeType}:${fact.targetNodeId} HASH:${fact.sourceHash}`,
       )
       .join('\n');
-    const ruleFindings = pack.ruleFindings
+    const ruleFindings = ruleFindingsForPrompt
       .map(
         (finding) =>
           `RULE_REF: rule:${finding.findingId} ${finding.ruleKey}@${finding.ruleVersion} ${finding.status} ${finding.findingCode} HASH:${finding.findingHash}`,
@@ -107,4 +111,38 @@ export class AiEvidencePromptCompiler {
       ].join('\n'),
     };
   }
+}
+
+const prepSafeGraphEdgeTypes = new Set(['HAS_MATTER', 'HAS_DOCUMENT', 'HAS_VERSION', 'RELATED_TO']);
+const prepSafeGraphNodeTypes = new Set(['client', 'matter', 'document', 'version']);
+const prepSafeRulePrefixes = [
+  'classification.',
+  'filing.',
+  'file_organization.',
+  'document_profile.',
+  'metadata.',
+];
+const prepUnsafeRulePattern = /\b(risk|issue|clause|required_clause|prohibited_term|legal)\b/u;
+
+function isPrepSafeGraphFact(fact: EvidencePackDto['graphFacts'][number]): boolean {
+  return (
+    fact.documentId !== null &&
+    prepSafeGraphEdgeTypes.has(fact.edgeType) &&
+    prepSafeGraphNodeTypes.has(fact.sourceNodeType) &&
+    prepSafeGraphNodeTypes.has(fact.targetNodeType)
+  );
+}
+
+function isPrepSafeRuleFinding(finding: EvidencePackDto['ruleFindings'][number]): boolean {
+  const ruleKey = finding.ruleKey.toLowerCase();
+  const findingCode = finding.findingCode.toLowerCase();
+  const refs = finding.evidenceRefs.join(' ').toLowerCase();
+  const hasSafePrefix =
+    prepSafeRulePrefixes.some((prefix) => ruleKey.startsWith(prefix)) ||
+    prepSafeRulePrefixes.some((prefix) => findingCode.startsWith(prefix));
+  return (
+    finding.clauseId === null &&
+    hasSafePrefix &&
+    !prepUnsafeRulePattern.test(`${ruleKey} ${findingCode} ${refs}`)
+  );
 }

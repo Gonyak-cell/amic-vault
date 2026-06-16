@@ -97,7 +97,19 @@ describe('DocumentService', () => {
       query: vi
         .fn()
         .mockResolvedValueOnce({ rowCount: 1, rows: [documentRow()] })
-        .mockResolvedValueOnce({ rowCount: 1, rows: [updatedRow] }),
+        .mockResolvedValueOnce({ rowCount: 1, rows: [updatedRow] })
+        .mockResolvedValueOnce({
+          rowCount: 1,
+          rows: [
+            {
+              ai_prep_artifact_id: '11111111-1111-4111-8111-111111111199',
+              artifact_kind: 'document_profile',
+              matter_id: matterId,
+              document_id: documentId,
+              document_version_id: '11111111-1111-4111-8111-111111111198',
+            },
+          ],
+        }),
     };
     const auditLog = vi.fn(async () => undefined);
     const transaction = vi.fn(
@@ -132,6 +144,16 @@ describe('DocumentService', () => {
           diff_keys: ['title', 'document_type', 'confidentiality_level'],
           before_ref: expect.stringMatching(/^document_metadata:[0-9a-f]{64}$/),
           after_ref: expect.stringMatching(/^document_metadata:[0-9a-f]{64}$/),
+        }),
+      }),
+      tx,
+    );
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'AI_PREP_STALE',
+        metadata: expect.objectContaining({
+          stale_reason: 'document_metadata_changed',
+          ai_prep_status: 'stale',
         }),
       }),
       tx,

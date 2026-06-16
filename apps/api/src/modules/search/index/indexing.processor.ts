@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { AuditService } from '../../audit/audit.service';
 import { AiPrepQueueService } from '../../ai/prep/ai-prep-queue.service';
+import { markAndAuditAiPrepArtifactsStale } from '../../ai/prep/ai-prep-lifecycle';
 import { IndexFailureHandler } from './index-failure.handler';
 import type { SearchIndexJobPayload } from './indexing.service';
 import { SearchIndexRepository } from './search-index.repository';
@@ -25,6 +26,13 @@ export class IndexingProcessor {
         this.logger.warn({ code: 'SEARCH_INDEX_TARGET_MISSING', versionId: payload.versionId });
         throw new Error('search index target missing');
       }
+      await markAndAuditAiPrepArtifactsStale(this.auditService, tx, {
+        tenantId: payload.tenantId,
+        actorType: 'system',
+        documentId: payload.documentId,
+        versionId: payload.versionId,
+        staleReason: 'source_chunks_changed',
+      });
       await this.aiPrepQueue?.enqueueVersionArtifacts(
         {
           tenantId: payload.tenantId,

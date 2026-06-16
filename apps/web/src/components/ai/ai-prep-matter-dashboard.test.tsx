@@ -17,12 +17,14 @@ describe('AiPrepMatterDashboard', () => {
   it('renders matter readiness counts and retry control', () => {
     const html = renderToStaticMarkup(<AiPrepMatterDashboard readiness={readiness()} />);
 
-    expect(html).toContain('AI readiness');
+    expect(html).toContain('File organization readiness');
     expect(html).toContain('Ready');
     expect(html).toContain('Rejected');
+    expect(html).toContain('Fallback refs');
     expect(html).toContain('Contract.pdf');
     expect(html).toContain('partial');
-    expect(html).toContain('Retry AI prep');
+    expect(html).toContain('Reprocess file organization prep');
+    expect(html).not.toMatch(/endpoint|prompt|source text|model response|secret|raw text/i);
   });
 });
 
@@ -43,6 +45,7 @@ function readiness(): AiPrepMatterReadinessDto {
     staleArtifactCount: 0,
     blockedArtifactCount: 0,
     rejectedArtifactCount: 0,
+    fallbackArtifactCount: 1,
     documents: [
       {
         documentId: '11111111-1111-4111-8111-111111111114',
@@ -57,6 +60,7 @@ function readiness(): AiPrepMatterReadinessDto {
         failedArtifactCount: 0,
         rejectedArtifactCount: 0,
         staleArtifactCount: 0,
+        fallbackArtifactCount: 1,
         updatedAt: '2026-06-15T00:00:00.000Z',
       },
     ],

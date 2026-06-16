@@ -7,20 +7,20 @@ Continuation branch: `feat/pack-lai-13-hardening-plan`
 
 ## Baseline Snapshot
 
-| Item | Evidence |
-|---|---|
-| Worktree branch before continuation | `codex/prod-patch-42e7b29` |
-| Continuation branch | `feat/pack-lai-13-hardening-plan` |
-| Baseline HEAD | `87c65c0f7af27d161e24ed0a3d2f0f67c9cb2c72` |
-| Worktree cleanliness before edits | clean |
-| Normative brief checked | `docs/package/codex/00_Master_Brief.md` |
-| Existing Local AI plan | `docs/execution/TUW_LOCAL_AI_OPERATING_LAYER.md` |
-| Existing Local AI gate | `docs/ledger/gates/LOCAL_AI_gate.md` |
-| Existing Local AI report | `docs/reports/local_ai_operating_layer.md` |
-| Existing upload prep smoke | `docs/reports/local_ai_upload_prep_smoke.md` |
-| Existing negative matrix | `docs/reports/local_ai_negative_case_matrix.md` |
-| Production preflight | `docs/release/production-execution-preflight.md` |
-| Production evidence register | `docs/release/evidence-register.md` |
+| Item                                | Evidence                                         |
+| ----------------------------------- | ------------------------------------------------ |
+| Worktree branch before continuation | `codex/prod-patch-42e7b29`                       |
+| Continuation branch                 | `feat/pack-lai-13-hardening-plan`                |
+| Baseline HEAD                       | `87c65c0f7af27d161e24ed0a3d2f0f67c9cb2c72`       |
+| Worktree cleanliness before edits   | clean                                            |
+| Normative brief checked             | `docs/package/codex/00_Master_Brief.md`          |
+| Existing Local AI plan              | `docs/execution/TUW_LOCAL_AI_OPERATING_LAYER.md` |
+| Existing Local AI gate              | `docs/ledger/gates/LOCAL_AI_gate.md`             |
+| Existing Local AI report            | `docs/reports/local_ai_operating_layer.md`       |
+| Existing upload prep smoke          | `docs/reports/local_ai_upload_prep_smoke.md`     |
+| Existing negative matrix            | `docs/reports/local_ai_negative_case_matrix.md`  |
+| Production preflight                | `docs/release/production-execution-preflight.md` |
+| Production evidence register        | `docs/release/evidence-register.md`              |
 
 ## Implemented Baseline
 
@@ -51,20 +51,20 @@ The repo already implements and records evidence for:
 From `docs/ledger/gates/LOCAL_AI_gate.md` and
 `docs/reports/local_ai_operating_layer.md`:
 
-| Metric | Latest recorded value |
-|---|---:|
-| completedOutputCount | 25 |
-| fallbackArtifactCount | 1 |
-| generatedOutputCount | 24 |
-| fallbackRate | 4.0% |
-| prepSchemaViolationCount | 0 |
-| permission leakage | 0 |
-| generated-only citation accuracy | 100.0% |
-| unsupported claim rate | 0.0% |
-| raw payload/audit key count | 0 |
-| legal claim count | 0 |
-| missing/mismatched source ref count | 0 |
-| external model route count | 0 |
+| Metric                              | Latest recorded value |
+| ----------------------------------- | --------------------: |
+| completedOutputCount                |                    25 |
+| fallbackArtifactCount               |                     1 |
+| generatedOutputCount                |                    24 |
+| fallbackRate                        |                  4.0% |
+| prepSchemaViolationCount            |                     0 |
+| permission leakage                  |                     0 |
+| generated-only citation accuracy    |                100.0% |
+| unsupported claim rate              |                  0.0% |
+| raw payload/audit key count         |                     0 |
+| legal claim count                   |                     0 |
+| missing/mismatched source ref count |                     0 |
+| external model route count          |                     0 |
 
 ## Production Boundary
 
@@ -106,16 +106,16 @@ Read-only reviewer/explorer findings accepted into the continuation plan:
 
 ## Gap Register
 
-| Gap | Impact | Continuation pack |
-|---|---|---|
-| No explicit `rejected` prep status or equivalent terminal contract | Addressed by ADR-GEMMA4-PREP-STATUS and migration `0069_add_ai_prep_rejected_status.sql` | PACK-LAI-14 |
-| Prep output schema and Evidence Pack source-ref shapes are only implicitly bridged | Ref mismatch risks adapter drift | PACK-LAI-15 |
-| EvidencePack v2 not versioned as a stable adapter contract | Future prompt/build changes can silently alter prep inputs | PACK-LAI-15 |
-| Stale/rebuild semantics are not fully covered for permission/policy/metadata/source changes | Old artifacts may be treated as fresher than their source authorization | PACK-LAI-16 |
-| Retrieval plans are not artifact-specific enough for quality growth | File-organization quality can plateau despite safety pass | PACK-LAI-17 |
-| Eval corpus is still technical and small | Safety pass is not equivalent to operational quality proof | PACK-LAI-18 |
-| UI/ops wording and metrics need terminal-state clarity | Users/admins may misread fallback/rejected/stale states | PACK-LAI-19 |
-| Production readiness and production authorization are not separate gates | Technical pass could be mistaken for enablement approval | PACK-LAI-20 |
+| Gap                                                                                         | Impact                                                                                                                                                                                                                 | Continuation pack |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| No explicit `rejected` prep status or equivalent terminal contract                          | Addressed by ADR-GEMMA4-PREP-STATUS and migration `0069_add_ai_prep_rejected_status.sql`                                                                                                                               | PACK-LAI-14       |
+| Prep output schema and Evidence Pack source-ref shapes are only implicitly bridged          | Addressed by PACK-LAI-15 v2 prep adapter and scan gate                                                                                                                                                                 | PACK-LAI-15       |
+| EvidencePack v2 not versioned as a stable adapter contract                                  | Addressed by `evidence_pack.v2.prep_adapter` compatible with Evidence Pack v1                                                                                                                                          | PACK-LAI-15       |
+| Stale/rebuild semantics are not fully covered for permission/policy/metadata/source changes | Addressed by PACK-LAI-16 bounded stale reason contract, permission/wall/metadata/source invalidation hooks, and stale/rejected/fallback rebuild tool path                                                              | PACK-LAI-16       |
+| Retrieval plans are not artifact-specific enough for quality growth                         | Addressed by PACK-LAI-17 deterministic artifact retrieval plans, canonical metadata normalization, and prep-only graph/rule prompt filtering                                                                           | PACK-LAI-17       |
+| Eval corpus is still technical and small                                                    | Addressed by PACK-LAI-18 100-case synthetic/deidentified upload-prep fixture, 100-case negative matrix, queue/rejected/per-artifact eval thresholds, and refreshed bench-only catalog; still not a customer-data pilot | PACK-LAI-18       |
+| UI/ops wording and metrics need terminal-state clarity                                      | Addressed by PACK-LAI-19 file-organization status wording, stale/rejected payload hiding, admin fallback/stale/rejected counts, bounded feedback reason codes, and production-disabled ops runbook                     | PACK-LAI-19       |
+| Production readiness and production authorization are not separate gates                    | Addressed by PACK-LAI-20 technical-ready gate, governance approval blocker, enablement/rollback runbook, validator, and evidence register refs; production flags remain disabled                                       | PACK-LAI-20       |
 
 ## L0 Conclusion
 
@@ -125,5 +125,7 @@ recorded Local AI gate. It is not yet authorized for production runtime
 execution, and the continuation should start with schema/status decision rather
 than UI or production enablement.
 
-Immediate next pack: PACK-LAI-14, after PACK-LAI-13 documentation verification
-passes.
+Immediate continuation state: PACK-LAI-14 through PACK-LAI-20 are implemented as
+PR-ready technical-pass branches. Production Gemma runtime authorization remains
+separate and blocked until the PACK-LAI-20 governance approval evidence refs are
+recorded.

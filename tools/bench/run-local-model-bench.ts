@@ -14,6 +14,12 @@ function splitCsv(value: string | undefined): string[] {
     : [];
 }
 
+function positiveInt(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const report = await runLocalModelBench({
@@ -21,6 +27,7 @@ async function main(): Promise<void> {
     endpoint: argValue(args, '--endpoint') ?? process.env.AI_BENCH_ENDPOINT ?? defaultLocalModelBenchEndpoint,
     candidateIds: splitCsv(argValue(args, '--models') ?? process.env.AI_BENCH_MODELS),
     fixtureDir: argValue(args, '--dir') ?? 'tests/fixtures/evalset-v0',
+    caseLimit: positiveInt(argValue(args, '--case-limit') ?? process.env.AI_BENCH_CASE_LIMIT),
     outputDir: argValue(args, '--output-dir'),
   });
   console.log(JSON.stringify(report, null, 2));

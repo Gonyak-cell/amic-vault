@@ -34,7 +34,10 @@
     "eval:contract-gate": "pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/api build && node tools/evalset/run-contract-intel-gate.ts",
     "graph:check": "node tools/graph/check-consistency.ts",
     "search:eval:korean": "node tools/search-eval/run-korean-eval.ts",
-    "test:integration": "node tools/integration/run.mjs"
+    "test:integration": "node tools/integration/run.mjs",
+    "local-ai:prod-ready": "node tools/release/check-local-ai-prod-ready.mjs",
+    "evalset:generate-upload-prep": "node tools/evalset/generate-upload-prep-cases.ts",
+    "evalset:seed-local-ai-prep": "node tools/evalset/seed-local-ai-prep-artifacts.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

@@ -52,6 +52,11 @@ function firstRejectedPayload(repository: {
 function createProcessor(
   options: {
     generationStatus?: 'completed' | 'blocked';
+    packSourceRefs?: string[] | undefined;
+    staleRows?: Array<{
+      ai_prep_artifact_id: string;
+      artifact_kind: 'document_profile';
+    }> | undefined;
     generationOutput?: {
       answer: string;
       sections: Array<{
@@ -82,7 +87,7 @@ function createProcessor(
   };
   const repository = {
     findTarget: vi.fn(async () => source),
-    markSupersededArtifactsStale: vi.fn(async () => []),
+    markSupersededArtifactsStale: vi.fn(async () => options.staleRows ?? []),
     findScopedSource: vi.fn(async () => source),
     buildEvidencePack: vi.fn(() => ({
       packId: '11111111-1111-4111-8111-111111111118',
@@ -132,7 +137,7 @@ function createProcessor(
       citationRequirements: {
         required: true,
         style: 'chunk_ref',
-        sourceRefs: [`chunk:${sourceChunk.chunkId}`],
+        sourceRefs: options.packSourceRefs ?? [`chunk:${sourceChunk.chunkId}`],
       },
       outputFormat: { kind: 'summary', locale: 'ko-KR' },
       escalationFlags: [],
@@ -235,6 +240,31 @@ describe('AiPrepProcessor', () => {
     );
   });
 
+  it('audits superseded prep artifacts as stale with a bounded reason', async () => {
+    const { auditLogs, processor } = createProcessor({
+      staleRows: [
+        {
+          ai_prep_artifact_id: '11111111-1111-4111-8111-111111111199',
+          artifact_kind: 'document_profile',
+        },
+      ],
+    });
+
+    await processor.handle(payload);
+
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_STALE',
+          metadata: expect.objectContaining({
+            ai_prep_status: 'stale',
+            stale_reason: 'new_version',
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('discards legal-analysis claim kinds and records a rejected artifact', async () => {
     const { auditLogs, repository, processor } = createProcessor({
       generationOutput: {
@@ -313,6 +343,63 @@ describe('AiPrepProcessor', () => {
           artifactKind: 'document_profile',
         }),
       }),
+    );
+  });
+
+  it('uses the artifact retrieval plan when building and storing prep evidence', async () => {
+    const { repository, processor } = createProcessor();
+
+    await processor.handle(payload);
+
+    expect(repository.buildEvidencePack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chunks: [
+          expect.objectContaining({
+            chunkId: sourceChunk.chunkId,
+            redactedText: sourceChunk.chunkText,
+          }),
+        ],
+        tokenBudget: 1200,
+        appliedRules: expect.arrayContaining([
+          'ai_prep.retrieval_plan:document_profile',
+          'ai_prep.metadata_filter:current_version',
+          'ai_prep.metadata_filter:ai_allowed_true',
+          'ai_prep.permission_filter:query_stage',
+        ]),
+      }),
+    );
+    expect(repository.upsertCompleted).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        sourceChunks: [sourceChunk],
+      }),
+    );
+  });
+
+  it('fails closed before Gemma generation when evidence source refs are mismatched', async () => {
+    const { auditLogs, generation, repository, processor } = createProcessor({
+      packSourceRefs: ['chunk:unknown'],
+    });
+
+    await processor.handle(payload);
+
+    expect(generation.generateGrounded).not.toHaveBeenCalled();
+    expect(repository.upsertCompleted).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).not.toHaveBeenCalled();
+    expect(repository.upsertBlocked).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ reasonCode: 'AI_PREP_EVIDENCE_SOURCE_REF_MISMATCH' }),
+    );
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_BLOCKED',
+          metadata: expect.objectContaining({
+            ai_prep_status: 'blocked',
+            reason_code: 'AI_PREP_EVIDENCE_SOURCE_REF_MISMATCH',
+          }),
+        }),
+      ]),
     );
   });
 
