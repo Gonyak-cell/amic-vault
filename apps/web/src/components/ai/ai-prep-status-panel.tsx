@@ -122,7 +122,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold tracking-normal">File organization prep</h2>
-          <p className="text-sm text-muted-foreground">{status.versionId ?? status.documentId}</p>
+          <p className="text-sm text-muted-foreground">권한이 확인된 파일 정리 준비 상태만 표시됩니다.</p>
           <p className="mt-1 text-sm text-muted-foreground">{statusHelp[status.readinessStatus]}</p>
         </div>
         <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium">
@@ -170,13 +170,9 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                   <div className="mt-3 space-y-2">
                     <h3 className="text-sm font-semibold tracking-normal">{content.heading}</h3>
                     <p className="text-sm text-muted-foreground">{content.text}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {content.sourceRefs.map((ref) => (
-                        <span key={ref} className="rounded bg-muted px-2 py-1 font-mono text-xs">
-                          {ref}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {content.sourceRefs.length} checked source refs
+                    </p>
                   </div>
                 ) : (
                   <p className="mt-3 text-sm text-muted-foreground">{unavailableText(artifact)}</p>

@@ -39,7 +39,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold tracking-normal">File organization readiness</h2>
-          <p className="text-sm text-muted-foreground">{readiness.matterId}</p>
+          <p className="text-sm text-muted-foreground">권한이 확인된 파일 정리 준비 상태만 표시됩니다.</p>
         </div>
         <Button
           type="button"
@@ -83,7 +83,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
               key={document.documentId}
               className="grid grid-cols-[1fr_auto_auto] gap-3 border-b px-3 py-2 text-sm last:border-b-0"
             >
-              <span className="min-w-0 truncate">{document.title}</span>
+              <span className="min-w-0 truncate">{document.title || '표시 가능한 제목 없음'}</span>
               <span className="rounded bg-muted px-2 py-0.5 text-xs">
                 {document.readinessStatus}
               </span>

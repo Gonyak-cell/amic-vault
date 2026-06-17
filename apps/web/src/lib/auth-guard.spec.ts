@@ -7,6 +7,7 @@ describe('auth guard paths', () => {
     expect(isProtectedAppPath('/contracts/rules')).toBe(true);
     expect(isProtectedAppPath('/dd')).toBe(true);
     expect(isProtectedAppPath('/litigation')).toBe(true);
+    expect(isProtectedAppPath('/documents/11111111-1111-4111-8111-111111111177')).toBe(true);
     expect(isProtectedAppPath('/audit')).toBe(true);
     expect(isProtectedAppPath('/walls')).toBe(true);
     expect(isProtectedAppPath('/external/opaque-token')).toBe(false);
