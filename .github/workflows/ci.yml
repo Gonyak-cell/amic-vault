@@ -25,6 +25,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm check:production-ui-literals
       - run: pnpm build
       - run: pnpm backlog:validate
       - run: pnpm launch:readiness

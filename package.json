@@ -12,6 +12,7 @@
     "typecheck": "turbo run typecheck --filter='./apps/*' --filter='./packages/*'",
     "test": "turbo run test --filter='./apps/*' --filter='./packages/*'",
     "build": "turbo run build --filter='./apps/*' --filter='./packages/*'",
+    "check:production-ui-literals": "node tools/quality/check-production-ui-literals.mjs",
     "backlog:validate": "node tools/backlog/validate-all.mjs",
     "launch:readiness": "node tools/release/check-launch-readiness.mjs",
     "launch:execution": "node tools/release/check-launch-execution.mjs",

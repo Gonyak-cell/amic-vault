@@ -41,7 +41,8 @@ describe('SearchFacets', () => {
     expect(html).toContain('메모');
     expect(html).toContain('계약서');
     expect(html).toContain('최근 7일');
-    expect(html).toContain('ID 11111111');
+    expect(html).toContain('표시 가능한 라벨 없음');
+    expect(html).not.toContain('ID 11111111');
     expect(html).not.toContain('22222222-2222-4222-8222-222222222301');
     expect(html).not.toContain('Older');
     expect(html).toContain('aria-pressed="true"');
