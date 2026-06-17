@@ -47,6 +47,8 @@ const literalPatterns = [
   { name: 'placeholder brand', pattern: /Gonyak/ },
   { name: 'theme selector copy', pattern: /디자인 테마/ },
   { name: 'workspace id label', pattern: /워크스페이스 ID/ },
+  { name: 'matter id label', pattern: /Matter ID/ },
+  { name: 'file id label', pattern: /파일 ID/ },
   { name: 'user id label', pattern: /사용자 ID/ },
   { name: 'download id label', pattern: /다운로드 ID/ },
   { name: 'download ref label', pattern: /Download ref/ },
