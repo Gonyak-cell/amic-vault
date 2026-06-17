@@ -8,9 +8,13 @@ describe('VaultActivityClient', () => {
     const html = renderToStaticMarkup(<VaultActivityClient />);
 
     expect(html).toContain('권한이 확인된 실제 파일과 활동만 표시됩니다.');
-    expect(html).toContain('표시할 파일이 없습니다.');
+    expect(html).toContain('최근 접근 파일');
     expect(html).toContain('최근 활동');
-    expect(html).toContain('표시할 활동이 없습니다.');
+    expect(html).toContain('권한/정책 알림');
+    expect(html).toContain('AI Prep 상태');
+    expect(html).toContain('통합 상태');
+    expect(html).toContain('운영 데이터 연결 상태');
+    expect(html).toContain('운영 데이터 연결 대기 중입니다.');
     expect(html).not.toContain('계약 검토 자료실');
     expect(html).not.toContain('새 파일이 추가됨');
     expect(html).not.toContain('NDA 동의 대기 중');
