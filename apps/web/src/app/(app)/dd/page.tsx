@@ -1,5 +1,6 @@
-import { DdVaultClient } from './dd-vault-client';
+import React from 'react';
+import { RouteBlockedState } from '@/components/security/route-blocked-state';
 
 export default function DdPage() {
-  return <DdVaultClient />;
+  return <RouteBlockedState area="실사 자료" />;
 }
