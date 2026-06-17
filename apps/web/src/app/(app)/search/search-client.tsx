@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { SearchFiltersDto, SearchResponseDto } from '@amic-vault/shared';
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
-import { SearchResults } from '@/components/search/search-results';
-import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { SearchResults, type SearchErrorKind } from '@/components/search/search-results';
+import { ApiClientError } from '@/lib/api-client';
 import { searchDocuments } from '@/lib/api/search';
 import { useI18n } from '@/lib/i18n';
 
@@ -23,7 +23,7 @@ export function SearchClient() {
   const [page, setPage] = useState(initial.page);
   const [response, setResponse] = useState<SearchResponseDto | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SearchErrorKind | null>(null);
 
   const runSearch = useCallback(
     async (nextQuery: string, nextSelection: SearchFacetSelection, nextPage: number) => {
@@ -45,7 +45,7 @@ export function SearchClient() {
         setResponse(result);
       } catch (caught) {
         setResponse(null);
-        setError(safeApiErrorMessage(caught));
+        setError(searchErrorKind(caught));
       } finally {
         setBusy(false);
       }
@@ -160,4 +160,16 @@ function datesForRange(value: string | undefined): { dateFrom?: string; dateTo?:
     return { dateTo: now.toISOString() };
   }
   return {};
+}
+
+function searchErrorKind(error: unknown): SearchErrorKind {
+  if (error instanceof ApiClientError && error.code === 'AUTH_REQUIRED') return 'auth';
+  if (error instanceof ApiClientError && error.code === 'PERMISSION_DENIED') return 'permission';
+  if (
+    error instanceof ApiClientError &&
+    ['ETHICAL_WALL_BLOCKED', 'AI_POLICY_BLOCKED', 'TENANT_ISOLATION_VIOLATION'].includes(error.code)
+  ) {
+    return 'policy';
+  }
+  return 'api';
 }
