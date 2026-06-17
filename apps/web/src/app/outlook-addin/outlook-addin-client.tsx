@@ -79,7 +79,9 @@ export function OutlookAddinClient({
   initialSuggestions = [],
   initialStatus,
 }: OutlookAddinClientProps) {
-  const [clientState, setClientState] = useState<ClientState>(initialSnapshot ? 'ready' : 'loading');
+  const [clientState, setClientState] = useState<ClientState>(
+    initialSnapshot ? 'ready' : 'loading',
+  );
   const [snapshot, setSnapshot] = useState<OutlookItemSnapshot | null>(initialSnapshot ?? null);
   const [suggestions, setSuggestions] = useState<MatterSuggestionDto[]>(initialSuggestions);
   const [selectedMatterId, setSelectedMatterId] = useState<string>(
@@ -100,7 +102,9 @@ export function OutlookAddinClient({
   const [documentQuery, setDocumentQuery] = useState('');
   const [documentResults, setDocumentResults] = useState<SearchResultDto[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState('');
-  const [documentInsertion, setDocumentInsertion] = useState<OutlookDocumentInsertionDto | undefined>();
+  const [documentInsertion, setDocumentInsertion] = useState<
+    OutlookDocumentInsertionDto | undefined
+  >();
   const [acknowledgedWarningCodes, setAcknowledgedWarningCodes] = useState<
     Set<OutlookSendWarningReasonCode>
   >(() => new Set());
@@ -130,10 +134,10 @@ export function OutlookAddinClient({
   );
   const canApproveFolderMapping = Boolean(
     folderMapping &&
-      (folderMapping.approvalStatus === 'pending_user' ||
-        folderMapping.approvalStatus === 'pending_admin' ||
-        folderMapping.approvalStatus === 'disabled') &&
-      busyAction !== 'folder-approve',
+    (folderMapping.approvalStatus === 'pending_user' ||
+      folderMapping.approvalStatus === 'pending_admin' ||
+      folderMapping.approvalStatus === 'disabled') &&
+    busyAction !== 'folder-approve',
   );
   const selectedDocument = documentResults.find((item) => item.documentId === selectedDocumentId);
   const canSearchDocuments = Boolean(documentQuery.trim() && busyAction !== 'doc-search');
@@ -188,7 +192,7 @@ export function OutlookAddinClient({
       setSelectedMatterId((current) =>
         response.items.some((item) => item.matterId === current)
           ? current
-          : response.items[0]?.matterId ?? '',
+          : (response.items[0]?.matterId ?? ''),
       );
     } catch (error) {
       setSafeError(safeApiErrorMessage(error));
@@ -236,12 +240,9 @@ export function OutlookAddinClient({
     setSafeError(null);
     try {
       const nextStatus = await createOutlookSendFileRequest(
-        buildCreateSendFileRequest(
-          snapshot,
-          selectedMatterId,
-          selectedAttachmentHashes,
-          [...acknowledgedWarningCodes],
-        ),
+        buildCreateSendFileRequest(snapshot, selectedMatterId, selectedAttachmentHashes, [
+          ...acknowledgedWarningCodes,
+        ]),
       );
       setSendStatus(nextStatus);
     } catch (error) {
@@ -309,7 +310,7 @@ export function OutlookAddinClient({
       setSelectedDocumentId((current) =>
         response.results.some((item) => item.documentId === current)
           ? current
-          : response.results[0]?.documentId ?? '',
+          : (response.results[0]?.documentId ?? ''),
       );
       setDocumentInsertion(undefined);
     } catch (error) {
@@ -388,7 +389,9 @@ export function OutlookAddinClient({
       <div className="mx-auto box-border flex min-h-screen w-full max-w-[520px] flex-col gap-3 p-3">
         <header className="flex items-center justify-between border-b border-[#d6dde0] pb-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-normal text-[#47626c]">AMIC Vault</p>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[#47626c]">
+              AMIC Vault
+            </p>
             <h1 className="truncate text-lg font-semibold leading-6">Outlook Filing</h1>
           </div>
           <StatePill state={clientState} />
@@ -457,7 +460,7 @@ export function OutlookAddinClient({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{result.title}</span>
                       <span className="block truncate text-xs text-[#5c6e75]">
-                        {result.documentType} · {shortHash(result.documentId.replaceAll('-', ''))}
+                        {result.documentType} · 문서 후보
                       </span>
                     </span>
                     <span className="rounded-sm bg-[#e9f1f2] px-1.5 py-0.5 text-xs text-[#1d5b63]">
@@ -473,8 +476,7 @@ export function OutlookAddinClient({
             )}
             {documentInsertion ? (
               <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
-                insert {documentInsertion.status} ·{' '}
-                {shortHash(documentInsertion.insertionId.replaceAll('-', ''))}
+                insert {documentInsertion.status} · 요청 기록됨
               </div>
             ) : null}
             <Button
@@ -528,7 +530,7 @@ export function OutlookAddinClient({
             )}
             {sendStatus ? (
               <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
-                send-and-file {sendStatus.status} · {shortHash(sendStatus.id.replaceAll('-', ''))}
+                send-and-file {sendStatus.status} · 요청 기록됨
               </div>
             ) : null}
             <Button
@@ -610,11 +612,8 @@ export function OutlookAddinClient({
           <CardContent className="grid gap-2 p-3 pt-0 text-sm">
             {snapshot?.folderRefHash ? (
               <div className="grid grid-cols-2 gap-2">
-                <Metric label="Folder" value={shortHash(snapshot.folderRefHash)} />
-                <Metric
-                  label="Matter"
-                  value={selectedMatterId ? shortHash(selectedMatterId.replaceAll('-', '')) : 'none'}
-                />
+                <Metric label="Folder" value="연결됨" />
+                <Metric label="Matter" value={selectedMatterId ? '선택됨' : '없음'} />
               </div>
             ) : (
               <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
@@ -623,7 +622,7 @@ export function OutlookAddinClient({
             )}
             {folderMapping ? (
               <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
-                {folderMapping.approvalStatus} · {shortHash(folderMapping.mappingId.replaceAll('-', ''))}
+                {folderMapping.approvalStatus} · 매핑 기록됨
                 {folderMapping.autoFileEnabled ? ' · auto-file' : ''}
               </div>
             ) : null}
@@ -687,10 +686,10 @@ export function OutlookAddinClient({
             <div className={`rounded-md border px-3 py-2 text-sm ${statusTone}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{status.status}</span>
-                <span className="font-mono text-xs">{shortHash(status.id.replaceAll('-', ''))}</span>
+                <span className="text-xs">요청 기록됨</span>
               </div>
               <div className="mt-1 text-xs">
-                Matter {shortHash(status.matterId.replaceAll('-', ''))}
+                파일링 요청이 Matter에 연결됨
                 {status.filedAttachmentCount !== undefined
                   ? ` · 첨부 ${status.filedAttachmentCount}`
                   : ''}
@@ -720,8 +719,7 @@ export function OutlookAddinClient({
             </Button>
           </div>
           <p className="text-xs text-[#5c6e75]">
-            선택 Matter {selectedMatterId ? shortHash(selectedMatterId.replaceAll('-', '')) : '없음'} ·
-            첨부 {selectedCount}
+            선택 Matter {selectedMatterId ? '있음' : '없음'} · 첨부 {selectedCount}
           </p>
         </section>
       </div>
@@ -741,7 +739,9 @@ function MessageSummary({ snapshot }: { snapshot: OutlookItemSnapshot }) {
       {snapshot.message.receivedAt ? (
         <div className="col-span-2 rounded-md bg-[#eef3f4] px-3 py-2">
           <dt className="text-xs text-[#5c6e75]">Received</dt>
-          <dd className="font-mono text-xs">{new Date(snapshot.message.receivedAt).toLocaleString('ko-KR')}</dd>
+          <dd className="font-mono text-xs">
+            {new Date(snapshot.message.receivedAt).toLocaleString('ko-KR')}
+          </dd>
         </div>
       ) : null}
     </dl>
@@ -776,7 +776,7 @@ function SendPolicyPanel({
     <div className={`rounded-md border px-3 py-2 ${tone}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold">{policy.decision}</span>
-        <span className="font-mono text-xs">{shortHash(policy.decisionId.replaceAll('-', ''))}</span>
+        <span className="text-xs">정책 확인됨</span>
       </div>
       {policy.warningReasonCodes.length > 0 ? (
         <div className="mt-2 grid gap-1">
@@ -793,7 +793,9 @@ function SendPolicyPanel({
           ))}
         </div>
       ) : null}
-      {policy.deniedReasonCode ? <div className="mt-1 text-xs">{policy.deniedReasonCode}</div> : null}
+      {policy.deniedReasonCode ? (
+        <div className="mt-1 text-xs">{policy.deniedReasonCode}</div>
+      ) : null}
     </div>
   );
 }
@@ -834,7 +836,8 @@ function StatePill({ state }: { state: ClientState }) {
 
 function statusToneClass(status: OutlookFilingRequestStatusDto['status'] | undefined): string {
   if (status === 'completed') return 'border-[#b9dfce] bg-[#effaf4] text-[#1d6b4e]';
-  if (status === 'denied' || status === 'failed') return 'border-[#e0c7c9] bg-[#fff7f7] text-[#8a1f2a]';
+  if (status === 'denied' || status === 'failed')
+    return 'border-[#e0c7c9] bg-[#fff7f7] text-[#8a1f2a]';
   if (status === 'cancelled') return 'border-[#d6dde0] bg-[#f4f6f7] text-[#5c6e75]';
   return 'border-[#c9dce0] bg-[#f0f8fa] text-[#1d5b63]';
 }

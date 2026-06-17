@@ -30,11 +30,14 @@ describe('OutlookAddinClient', () => {
     expect(html).toContain('Vault 문서');
     expect(html).toContain('Project Maple');
     expect(html).toContain('첨부 1');
+    expect(html).toContain('선택 Matter 있음');
     expect(html).not.toContain('Privileged acquisition draft');
     expect(html).not.toContain('lawyer@amic.test');
     expect(html).not.toContain('counterparty@example.com');
     expect(html).not.toContain('board-minutes.pdf');
     expect(html).not.toContain('raw-message-id');
+    expect(html).not.toContain(suggestion.matterId);
+    expect(html).not.toContain('11111111');
   });
 });
 
