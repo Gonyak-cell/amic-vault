@@ -9,31 +9,50 @@ export interface AuditEventTableProps {
   events: AuditEventDto[];
   busy?: boolean;
   error?: string | null;
+  onSelectEvent?: (event: AuditEventDto) => void;
+  selectedEventId?: string | null;
 }
 
-export function AuditEventTable({ events, busy = false, error = null }: AuditEventTableProps) {
+export function AuditEventTable({
+  events,
+  busy = false,
+  error = null,
+  onSelectEvent,
+  selectedEventId = null,
+}: AuditEventTableProps) {
   const { language } = useI18n();
-  const copy = language === 'ko'
-    ? {
-        time: '시간',
-        action: '활동',
-        actor: '수행자',
-        target: '대상',
-        result: '결과',
-        loading: '활동 기록을 불러오는 중입니다.',
-        empty: '표시할 활동 기록이 없습니다.',
-        actorFallback: '표시 가능한 수행자 없음',
-      }
-    : {
-        time: 'Time',
-        action: 'Activity',
-        actor: 'Actor',
-        target: 'Target',
-        result: 'Result',
-        loading: 'Loading activity.',
-        empty: 'No activity to show.',
-        actorFallback: 'No display actor available',
-      };
+  const copy =
+    language === 'ko'
+      ? {
+          time: '시간',
+          action: '활동',
+          actor: '수행자',
+          target: '대상',
+          result: '결과',
+          loading: '활동 기록을 불러오는 중입니다.',
+          empty: '표시할 활동 기록이 없습니다.',
+          actorFallback: '표시 가능한 수행자 없음',
+          systemActor: '시스템',
+          userActor: '사용자',
+          success: '성공',
+          denied: '접근 제한',
+          failure: '실패',
+        }
+      : {
+          time: 'Time',
+          action: 'Activity',
+          actor: 'Actor',
+          target: 'Target',
+          result: 'Result',
+          loading: 'Loading activity.',
+          empty: 'No activity to show.',
+          actorFallback: 'No display actor available',
+          systemActor: 'System',
+          userActor: 'User',
+          success: 'Success',
+          denied: 'Access restricted',
+          failure: 'Failure',
+        };
 
   if (error) {
     return <p className="text-sm font-medium text-destructive">{error}</p>;
@@ -52,18 +71,36 @@ export function AuditEventTable({ events, busy = false, error = null }: AuditEve
         </thead>
         <tbody>
           {events.map((event) => (
-            <tr key={event.eventId} className="border-t">
+            <tr
+              aria-selected={selectedEventId === event.eventId}
+              className="cursor-pointer border-t transition-colors hover:bg-muted/50 aria-selected:bg-primary/5"
+              key={event.eventId}
+              onClick={() => onSelectEvent?.(event)}
+              onKeyDown={(keyboardEvent) => {
+                if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+                  keyboardEvent.preventDefault();
+                  onSelectEvent?.(event);
+                }
+              }}
+              tabIndex={onSelectEvent ? 0 : undefined}
+            >
               <td className="px-4 py-3 font-mono text-xs">{event.createdAt}</td>
               <td className="px-4 py-3 font-medium">{formatAction(event.action)}</td>
-              <td className="px-4 py-3 text-xs">{event.actorType ?? copy.actorFallback}</td>
+              <td className="px-4 py-3 text-xs">
+                {event.actorType === 'system'
+                  ? copy.systemActor
+                  : event.actorType === 'user'
+                    ? copy.userActor
+                    : copy.actorFallback}
+              </td>
               <td className="px-4 py-3">
                 <div className="flex flex-col gap-1">
                   <span>{event.targetType}</span>
                 </div>
               </td>
               <td className="px-4 py-3">
-                <StatusBadge tone={event.result === 'failure' ? 'blocked' : 'neutral'}>
-                  {event.result}
+                <StatusBadge tone={toneForResult(event.result)}>
+                  {labelForResult(event.result, copy)}
                 </StatusBadge>
               </td>
             </tr>
@@ -79,6 +116,21 @@ export function AuditEventTable({ events, busy = false, error = null }: AuditEve
       </table>
     </div>
   );
+}
+
+function toneForResult(result: AuditEventDto['result']) {
+  if (result === 'success') return 'success';
+  if (result === 'denied') return 'warning';
+  return 'blocked';
+}
+
+function labelForResult(
+  result: AuditEventDto['result'],
+  copy: { success: string; denied: string; failure: string },
+) {
+  if (result === 'success') return copy.success;
+  if (result === 'denied') return copy.denied;
+  return copy.failure;
 }
 
 function formatAction(value: string): string {

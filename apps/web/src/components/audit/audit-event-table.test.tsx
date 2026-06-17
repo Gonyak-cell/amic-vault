@@ -30,7 +30,10 @@ describe('AuditEventTable', () => {
     expect(html).toContain('활동');
     expect(html).toContain('Audit Query Executed');
     expect(html).toContain('audit_console');
+    expect(html).toContain('사용자');
+    expect(html).toContain('성공');
     expect(html).not.toContain(event.actorId);
+    expect(html).not.toContain(event.eventId);
     expect(html).not.toContain('metadata_json');
     expect(html).not.toContain('tenant_audit');
   });
