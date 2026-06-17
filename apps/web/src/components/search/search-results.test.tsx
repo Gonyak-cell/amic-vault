@@ -94,14 +94,44 @@ describe('SearchResults', () => {
           page={1}
           pageSize={10}
           busy={false}
-          error="Access unavailable"
+          error="permission"
           onPage={() => undefined}
         />
       </LanguageProvider>,
     );
 
     expect(emptyHtml).toContain('검색 결과가 없습니다.');
-    expect(errorHtml).toContain('Access unavailable');
+    expect(errorHtml).toContain('이 항목을 볼 권한이 없습니다.');
     expect(errorHtml).not.toContain('PERMISSION_DENIED');
+  });
+
+  it('separates pre-search and policy-blocked states', () => {
+    const startHtml = renderToStaticMarkup(
+      <LanguageProvider>
+        <SearchResults
+          response={null}
+          page={1}
+          pageSize={10}
+          busy={false}
+          error={null}
+          onPage={() => undefined}
+        />
+      </LanguageProvider>,
+    );
+    const blockedHtml = renderToStaticMarkup(
+      <LanguageProvider>
+        <SearchResults
+          response={null}
+          page={1}
+          pageSize={10}
+          busy={false}
+          error="policy"
+          onPage={() => undefined}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(startHtml).toContain('검색어를 입력하면 접근 권한이 있는 파일만 보여줍니다.');
+    expect(blockedHtml).toContain('정보 차단 또는 권한 정책으로 표시할 수 없습니다.');
   });
 });
