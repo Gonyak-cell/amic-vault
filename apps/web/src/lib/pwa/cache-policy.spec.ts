@@ -21,6 +21,8 @@ describe('desktop PWA cache policy', () => {
       '/v1/search',
       '/dashboard',
       '/matters/matter-id',
+      '/files',
+      '/files/recent',
       '/search',
       '/documents/document-id',
       '/audit',
