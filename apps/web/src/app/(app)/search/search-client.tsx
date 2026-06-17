@@ -6,7 +6,7 @@ import type { SearchFiltersDto, SearchResponseDto } from '@amic-vault/shared';
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
 import { SearchResults, type SearchErrorKind } from '@/components/search/search-results';
-import { ApiClientError } from '@/lib/api-client';
+import { uiErrorKindForApiError } from '@/lib/api/error-messages';
 import { searchDocuments } from '@/lib/api/search';
 import { useI18n } from '@/lib/i18n';
 
@@ -163,13 +163,5 @@ function datesForRange(value: string | undefined): { dateFrom?: string; dateTo?:
 }
 
 function searchErrorKind(error: unknown): SearchErrorKind {
-  if (error instanceof ApiClientError && error.code === 'AUTH_REQUIRED') return 'auth';
-  if (error instanceof ApiClientError && error.code === 'PERMISSION_DENIED') return 'permission';
-  if (
-    error instanceof ApiClientError &&
-    ['ETHICAL_WALL_BLOCKED', 'AI_POLICY_BLOCKED', 'TENANT_ISOLATION_VIOLATION'].includes(error.code)
-  ) {
-    return 'policy';
-  }
-  return 'api';
+  return uiErrorKindForApiError(error);
 }

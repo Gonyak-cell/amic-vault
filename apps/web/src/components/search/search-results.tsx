@@ -4,10 +4,11 @@ import React from 'react';
 import type { SearchResponseDto } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { emptyStateVariantForUiErrorKind, type UiErrorKind } from '@/lib/api/error-messages';
 import { useI18n } from '@/lib/i18n';
 import { ResultCard } from './result-card';
 
-export type SearchErrorKind = 'auth' | 'permission' | 'policy' | 'api';
+export type SearchErrorKind = UiErrorKind;
 
 interface SearchResultsProps {
   response: SearchResponseDto | null;
@@ -47,12 +48,7 @@ export function SearchResults({ response, page, pageSize, busy, error, onPage }:
       };
 
   if (error) {
-    const variant =
-      error === 'permission' || error === 'auth'
-        ? 'no-access'
-        : error === 'policy'
-          ? 'policy-blocked'
-          : 'api-error';
+    const variant = emptyStateVariantForUiErrorKind(error);
     return <EmptyState variant={variant} title={copy[error]} />;
   }
   if (busy && !response) return <EmptyState variant="api-unavailable" title={copy.loading} />;
