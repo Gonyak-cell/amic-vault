@@ -34,7 +34,9 @@ const portalCopy: Record<
     acceptNda: string;
     documentAccess: string;
     document: string;
+    documentReady: string;
     watermark: string;
+    watermarkReady: string;
     download: string;
     downloadReady: string;
     qa: string;
@@ -44,7 +46,6 @@ const portalCopy: Record<
     questionPlaceholder: string;
     send: string;
     unknownDate: string;
-    ref: string;
   }
 > = {
   ko: {
@@ -57,9 +58,11 @@ const portalCopy: Record<
     acceptNda: '동의하고 열람하기',
     documentAccess: '문서 열람',
     document: '문서',
+    documentReady: '열람 가능한 문서가 준비되었습니다.',
     watermark: '워터마크',
+    watermarkReady: '워터마크가 적용됩니다.',
     download: '다운로드 준비',
-    downloadReady: '다운로드 ID',
+    downloadReady: '다운로드가 준비되었습니다.',
     qa: '질문과 답변',
     emptyMessages: '아직 등록된 질문이 없습니다.',
     question: '질문',
@@ -67,7 +70,6 @@ const portalCopy: Record<
     questionPlaceholder: '자료와 관련된 질문을 입력하세요.',
     send: '질문 보내기',
     unknownDate: '확인 중',
-    ref: 'ID',
   },
   en: {
     eyebrow: 'AMIC Vault external access',
@@ -79,9 +81,11 @@ const portalCopy: Record<
     acceptNda: 'Accept and view',
     documentAccess: 'Document access',
     document: 'Document',
+    documentReady: 'A shared document is ready to view.',
     watermark: 'Watermark',
+    watermarkReady: 'Watermarking will be applied.',
     download: 'Prepare download',
-    downloadReady: 'Download ref',
+    downloadReady: 'Download is ready.',
     qa: 'Q&A',
     emptyMessages: 'No questions yet.',
     question: 'Question',
@@ -89,7 +93,6 @@ const portalCopy: Record<
     questionPlaceholder: 'Ask a question about the shared materials.',
     send: 'Send question',
     unknownDate: 'Checking',
-    ref: 'Ref',
   },
 };
 
@@ -126,7 +129,11 @@ export function ExternalPortalClient({ token }: { token: string }) {
 
   async function handleAcceptNda() {
     await acceptExternalNda(token);
-    setStatus({ status: 'ready', ndaRequired: false, expiresAt: status?.expiresAt ?? new Date().toISOString() });
+    setStatus({
+      status: 'ready',
+      ndaRequired: false,
+      expiresAt: status?.expiresAt ?? new Date().toISOString(),
+    });
     await loadReady(token, true, setManifest, setMessages);
     setState('ready');
   }
@@ -152,7 +159,9 @@ export function ExternalPortalClient({ token }: { token: string }) {
           <h1 className="text-2xl font-semibold tracking-normal">{copy.title}</h1>
         </header>
 
-        {state === 'loading' ? <p className="text-sm text-muted-foreground">{copy.loading}</p> : null}
+        {state === 'loading' ? (
+          <p className="text-sm text-muted-foreground">{copy.loading}</p>
+        ) : null}
         {state === 'blocked' ? <p className="text-sm text-destructive">{copy.blocked}</p> : null}
 
         {state === 'nda_required' ? (
@@ -186,12 +195,10 @@ export function ExternalPortalClient({ token }: { token: string }) {
               </CardHeader>
               <CardContent className="flex flex-col gap-3 text-sm">
                 <p>
-                  <span className="font-medium">{copy.document}</span> {copy.ref}{' '}
-                  {formatRef(manifest.documentId)}
+                  <span className="font-medium">{copy.document}</span> {copy.documentReady}
                 </p>
                 <p>
-                  <span className="font-medium">{copy.watermark}</span> {copy.ref}{' '}
-                  {formatRef(manifest.watermarkRef)}
+                  <span className="font-medium">{copy.watermark}</span> {copy.watermarkReady}
                 </p>
                 <p className="text-muted-foreground">
                   {copy.expires} {formatDate(manifest.expiresAt, copy.unknownDate)}
@@ -201,9 +208,7 @@ export function ExternalPortalClient({ token }: { token: string }) {
                   {copy.download}
                 </Button>
                 {download ? (
-                  <p className="break-all rounded-md border bg-muted p-3 text-xs">
-                    {copy.downloadReady} {formatRef(download.downloadRef)}
-                  </p>
+                  <p className="rounded-md border bg-muted p-3 text-xs">{copy.downloadReady}</p>
                 ) : null}
               </CardContent>
             </Card>
@@ -267,8 +272,4 @@ async function loadReady(
 function formatDate(value: string | undefined, fallback: string): string {
   if (!value) return fallback;
   return new Date(value).toISOString().slice(0, 10);
-}
-
-function formatRef(value: string): string {
-  return value.length > 12 ? value.slice(0, 12) : value;
 }

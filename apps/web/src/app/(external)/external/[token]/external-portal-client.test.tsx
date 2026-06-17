@@ -5,14 +5,15 @@ import { LanguageProvider } from '@/lib/i18n';
 import { ExternalPortalClient } from './external-portal-client';
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
+  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
 }));
 
 vi.mock('@/components/ui/card', () => ({
-  Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <section {...props}>{children}</section>,
+  Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <section {...props}>{children}</section>
+  ),
   CardContent: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
     <div {...props}>{children}</div>
   ),
@@ -48,5 +49,7 @@ describe('ExternalPortalClient', () => {
     expect(html).not.toContain('Dashboard');
     expect(html).not.toContain('Logout');
     expect(html).not.toContain('opaque-token');
+    expect(html).not.toContain('다운로드 ID');
+    expect(html).not.toContain('Download ref');
   });
 });
