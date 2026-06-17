@@ -3,15 +3,17 @@
 import { useEffect, useState } from 'react';
 import type { MatterDto } from '@amic-vault/shared';
 import { FileSearch, FolderKanban } from 'lucide-react';
-import { ApiClientError, listMatters } from '@/lib/api-client';
+import { listMatters } from '@/lib/api-client';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import { dataStateStatusForApiError } from '@/lib/api/error-messages';
+import type { DataState } from '@/lib/data-state';
 import { useI18n, type Language } from '@/lib/i18n';
 
-type MatterLoadState = 'loading' | 'ready' | 'api-error' | 'no-access' | 'policy-blocked';
+type MatterLoadState = DataState<MatterDto[]>['status'];
 
 const mattersCopy: Record<
   Language,
@@ -76,7 +78,7 @@ export default function MattersPage() {
       .then((result) => {
         if (!active) return;
         setMatters(result.items);
-        setLoadState('ready');
+        setLoadState(result.items.length === 0 ? 'empty' : 'ready');
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -137,16 +139,16 @@ export default function MattersPage() {
         {loadState === 'loading' ? (
           <EmptyState variant="api-unavailable" title={copy.loading} className="m-5" />
         ) : null}
-        {loadState === 'ready' && matters.length === 0 ? (
+        {loadState === 'empty' ? (
           <EmptyState title={copy.empty} className="m-5" />
         ) : null}
-        {loadState === 'api-error' ? (
+        {loadState === 'error' ? (
           <EmptyState variant="api-error" title={copy.apiError} className="m-5" />
         ) : null}
-        {loadState === 'no-access' ? (
+        {loadState === 'forbidden' ? (
           <EmptyState variant="no-access" title={copy.noAccess} className="m-5" />
         ) : null}
-        {loadState === 'policy-blocked' ? (
+        {loadState === 'blocked' ? (
           <EmptyState variant="policy-blocked" title={copy.policyBlocked} className="m-5" />
         ) : null}
       </SectionCard>
@@ -155,12 +157,5 @@ export default function MattersPage() {
 }
 
 function matterLoadStateForError(error: unknown): MatterLoadState {
-  if (error instanceof ApiClientError && error.code === 'PERMISSION_DENIED') return 'no-access';
-  if (
-    error instanceof ApiClientError &&
-    ['ETHICAL_WALL_BLOCKED', 'AI_POLICY_BLOCKED', 'TENANT_ISOLATION_VIOLATION'].includes(error.code)
-  ) {
-    return 'policy-blocked';
-  }
-  return 'api-error';
+  return dataStateStatusForApiError(error);
 }
