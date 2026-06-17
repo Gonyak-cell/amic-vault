@@ -27,6 +27,7 @@ jobs:
       - run: pnpm test
       - run: pnpm check:production-ui-literals
       - run: pnpm ui:production-smoke
+      - run: pnpm check:ui-pr-checklist
       - run: pnpm build
       - run: pnpm backlog:validate
       - run: pnpm launch:readiness
