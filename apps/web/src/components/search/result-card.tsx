@@ -12,7 +12,7 @@ interface ResultCardProps {
 export function ResultCard({ result }: ResultCardProps) {
   const { language } = useI18n();
   const copy = resultCopy[language];
-  const title = result.title || copy.hiddenTitle;
+  const title = result.displayName || result.title || copy.hiddenTitle;
   return (
     <article className="rounded-md border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">

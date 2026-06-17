@@ -4,6 +4,7 @@ import type {
   ClientStatus,
   ClientType,
 } from '@amic-vault/shared';
+import { buildSafeLabel } from '@amic-vault/shared';
 
 export interface ClientEntityProps {
   clientId: string;
@@ -26,6 +27,9 @@ export class ClientEntity {
       clientId: this.props.clientId,
       tenantId: this.props.tenantId,
       name: this.props.name,
+      displayName: this.props.name,
+      safeLabel: buildSafeLabel(this.props.name),
+      canViewSensitiveRef: false,
       clientType: this.props.clientType,
       confidentialityLevel: this.props.confidentialityLevel,
       status: this.props.status,

@@ -47,7 +47,8 @@ export class SearchQueryBuilder {
             SELECT websearch_to_tsquery('simple', ${queryParam}) AS query
           )
           SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
-            idx.title, idx.document_type, idx.version_status, idx.updated_at,
+            idx.title, m.matter_name, m.matter_code, c.name AS client_name,
+            idx.document_type, idx.version_status, idx.updated_at,
             ts_rank_cd(
               setweight(idx.title_tsv, 'A') || setweight(idx.content_tsv, 'B'),
               tsq.query
@@ -56,6 +57,12 @@ export class SearchQueryBuilder {
             count(*) OVER()::int AS total
           FROM document_search_index idx
           CROSS JOIN tsq
+          LEFT JOIN matters m
+            ON m.tenant_id = idx.tenant_id
+            AND m.matter_id = idx.matter_id
+          LEFT JOIN clients c
+            ON c.tenant_id = idx.tenant_id
+            AND c.client_id = idx.client_id
           ${filters.whereSql}
             AND (idx.title_tsv @@ tsq.query OR idx.content_tsv @@ tsq.query)
           ORDER BY score DESC, idx.updated_at DESC, idx.version_id
@@ -74,11 +81,18 @@ export class SearchQueryBuilder {
     return {
       sql: `
         SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
-          idx.title, idx.document_type, idx.version_status, idx.updated_at,
+          idx.title, m.matter_name, m.matter_code, c.name AS client_name,
+          idx.document_type, idx.version_status, idx.updated_at,
           0::float8 AS score,
           left(COALESCE(NULLIF(idx.content_text, ''), idx.title), 200) AS raw_snippet,
           count(*) OVER()::int AS total
         FROM document_search_index idx
+        LEFT JOIN matters m
+          ON m.tenant_id = idx.tenant_id
+          AND m.matter_id = idx.matter_id
+        LEFT JOIN clients c
+          ON c.tenant_id = idx.tenant_id
+          AND c.client_id = idx.client_id
         ${filters.whereSql}
         ORDER BY idx.updated_at DESC, idx.version_id
         LIMIT ${limitParam}
@@ -98,19 +112,48 @@ export class SearchQueryBuilder {
         ${withSql}
         SELECT jsonb_build_object(
           'clients', COALESCE((
-            SELECT jsonb_agg(jsonb_build_object('value', client_id::text, 'count', row_count) ORDER BY row_count DESC, client_id::text)
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'value', client_id::text,
+                'label', client_name,
+                'count', row_count,
+                'canViewSensitiveRef', false
+              )
+              ORDER BY row_count DESC, client_name, client_id::text
+            )
             FROM (
-              SELECT client_id, count(*)::int AS row_count
+              SELECT filtered.client_id, nullif(max(c.name), '') AS client_name,
+                count(*)::int AS row_count
               FROM filtered
-              GROUP BY client_id
+              LEFT JOIN clients c
+                ON c.tenant_id = filtered.tenant_id
+                AND c.client_id = filtered.client_id
+              GROUP BY filtered.client_id
             ) client_counts
           ), '[]'::jsonb),
           'matters', COALESCE((
-            SELECT jsonb_agg(jsonb_build_object('value', matter_id::text, 'count', row_count) ORDER BY row_count DESC, matter_id::text)
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'value', matter_id::text,
+                'label', safe_label,
+                'count', row_count,
+                'canViewSensitiveRef', false
+              )
+              ORDER BY row_count DESC, safe_label, matter_id::text
+            )
             FROM (
-              SELECT matter_id, count(*)::int AS row_count
+              SELECT
+                filtered.matter_id,
+                nullif(
+                  max(concat_ws(' · ', nullif(m.matter_code, ''), nullif(m.matter_name, ''))),
+                  ''
+                ) AS safe_label,
+                count(*)::int AS row_count
               FROM filtered
-              GROUP BY matter_id
+              LEFT JOIN matters m
+                ON m.tenant_id = filtered.tenant_id
+                AND m.matter_id = filtered.matter_id
+              GROUP BY filtered.matter_id
             ) matter_counts
           ), '[]'::jsonb),
           'documentTypes', COALESCE((
@@ -170,12 +213,19 @@ export class SearchQueryBuilder {
     return {
       sql: `
         ${cteSql}
-        SELECT document_id, version_id, matter_id, client_id,
-          title, document_type, version_status, updated_at,
+        SELECT best.document_id, best.version_id, best.matter_id, best.client_id,
+          best.title, m.matter_name, m.matter_code, c.name AS client_name,
+          best.document_type, best.version_status, best.updated_at,
           score::float8 AS score,
           left(chunk_text, 200) AS raw_snippet,
           count(*) OVER()::int AS total
         FROM best
+        LEFT JOIN matters m
+          ON m.tenant_id = best.tenant_id
+          AND m.matter_id = best.matter_id
+        LEFT JOIN clients c
+          ON c.tenant_id = best.tenant_id
+          AND c.client_id = best.client_id
         ORDER BY score DESC, updated_at DESC, version_id
         LIMIT ${limitParam}
         OFFSET ${offsetParam}
@@ -197,24 +247,53 @@ export class SearchQueryBuilder {
       sql: `
         ${cteSql},
         filtered AS (
-          SELECT client_id, matter_id, document_type, version_status, updated_at
+          SELECT tenant_id, client_id, matter_id, document_type, version_status, updated_at
           FROM best
         )
         SELECT jsonb_build_object(
           'clients', COALESCE((
-            SELECT jsonb_agg(jsonb_build_object('value', client_id::text, 'count', row_count) ORDER BY row_count DESC, client_id::text)
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'value', client_id::text,
+                'label', client_name,
+                'count', row_count,
+                'canViewSensitiveRef', false
+              )
+              ORDER BY row_count DESC, client_name, client_id::text
+            )
             FROM (
-              SELECT client_id, count(*)::int AS row_count
+              SELECT filtered.client_id, nullif(max(c.name), '') AS client_name,
+                count(*)::int AS row_count
               FROM filtered
-              GROUP BY client_id
+              LEFT JOIN clients c
+                ON c.tenant_id = filtered.tenant_id
+                AND c.client_id = filtered.client_id
+              GROUP BY filtered.client_id
             ) client_counts
           ), '[]'::jsonb),
           'matters', COALESCE((
-            SELECT jsonb_agg(jsonb_build_object('value', matter_id::text, 'count', row_count) ORDER BY row_count DESC, matter_id::text)
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'value', matter_id::text,
+                'label', safe_label,
+                'count', row_count,
+                'canViewSensitiveRef', false
+              )
+              ORDER BY row_count DESC, safe_label, matter_id::text
+            )
             FROM (
-              SELECT matter_id, count(*)::int AS row_count
+              SELECT
+                filtered.matter_id,
+                nullif(
+                  max(concat_ws(' · ', nullif(m.matter_code, ''), nullif(m.matter_name, ''))),
+                  ''
+                ) AS safe_label,
+                count(*)::int AS row_count
               FROM filtered
-              GROUP BY matter_id
+              LEFT JOIN matters m
+                ON m.tenant_id = filtered.tenant_id
+                AND m.matter_id = filtered.matter_id
+              GROUP BY filtered.matter_id
             ) matter_counts
           ), '[]'::jsonb),
           'documentTypes', COALESCE((
@@ -290,7 +369,8 @@ export class SearchQueryBuilder {
     if (!input.query) {
       return `
         WITH filtered AS (
-          SELECT idx.client_id, idx.matter_id, idx.document_type, idx.version_status, idx.updated_at
+          SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+            idx.version_status, idx.updated_at
           FROM document_search_index idx
           ${whereSql}
         )
@@ -304,7 +384,8 @@ export class SearchQueryBuilder {
         SELECT websearch_to_tsquery('simple', ${queryParam}) AS query
       ),
       filtered AS (
-        SELECT idx.client_id, idx.matter_id, idx.document_type, idx.version_status, idx.updated_at
+        SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+          idx.version_status, idx.updated_at
         FROM document_search_index idx
         CROSS JOIN tsq
         ${whereSql}
@@ -359,7 +440,7 @@ export class SearchQueryBuilder {
     return `
       WITH ${tsqSql}
       candidates AS (
-        SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
+        SELECT idx.tenant_id, idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
           idx.title, idx.document_type, idx.version_status, idx.updated_at,
           chunk.chunk_id, chunk.parent_chunk_id, chunk.chunk_ordinal,
           chunk.token_count, chunk.chunk_text, chunk.text_hash, chunk.source_text_hash,
@@ -393,7 +474,7 @@ export class SearchQueryBuilder {
         FROM candidates
       ),
       best AS (
-        SELECT document_id, version_id, matter_id, client_id, title, document_type,
+        SELECT tenant_id, document_id, version_id, matter_id, client_id, title, document_type,
           version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
           token_count, chunk_text, text_hash, source_text_hash, score
         FROM ranked

@@ -12,6 +12,7 @@ import type {
   SearchResponseDto,
   SearchResultDto,
 } from '@amic-vault/shared';
+import { buildSafeLabel } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import {
   SEARCH_PERMISSION_SCOPE_PROVIDER,
@@ -27,7 +28,10 @@ interface SearchDbRow {
   document_id: string;
   version_id: string;
   matter_id: string;
+  matter_name: string | null;
+  matter_code: string | null;
   client_id: string;
+  client_name: string | null;
   title: string;
   document_type: string;
   version_status: string;
@@ -411,8 +415,14 @@ export class SearchService {
           documentId: row.document_id,
           versionId: row.version_id,
           matterId: row.matter_id,
+          matterDisplayName: row.matter_name,
+          matterDisplayCode: row.matter_code,
           clientId: row.client_id,
+          clientDisplayName: row.client_name,
           title: row.title,
+          displayName: row.title,
+          safeLabel: buildSafeLabel(row.title, row.matter_code, row.matter_name),
+          canViewSensitiveRef: false,
           snippet: parsed.snippet,
           highlights: parsed.highlights,
           documentType: row.document_type,

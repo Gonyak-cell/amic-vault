@@ -26,6 +26,10 @@ export class MatterMemberEntity {
       matterId: this.props.matterId,
       tenantId: this.props.tenantId,
       userId: this.props.userId,
+      displayName: null,
+      displayEmail: null,
+      safeLabel: null,
+      canViewSensitiveRef: false,
       matterRole: this.props.matterRole,
       accessLevel: this.props.accessLevel,
       addedBy: this.props.addedBy,
@@ -33,4 +37,3 @@ export class MatterMemberEntity {
     };
   }
 }
-

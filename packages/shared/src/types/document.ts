@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
 export const documentTypes = [
   'contract',
@@ -55,10 +56,12 @@ export type DocumentPrivilegeStatus = (typeof documentPrivilegeStatuses)[number]
 export type DocumentExtractionStatus = (typeof documentExtractionStatuses)[number];
 export type DocumentExtractionMethod = (typeof documentExtractionMethods)[number];
 
-export interface DocumentDto {
+export interface DocumentDto extends DisplayFieldsDto {
   documentId: string;
   tenantId: string;
   matterId: string;
+  matterDisplayName?: string | null;
+  matterDisplayCode?: string | null;
   documentFamilyId: string;
   title: string;
   status: DocumentStatus;

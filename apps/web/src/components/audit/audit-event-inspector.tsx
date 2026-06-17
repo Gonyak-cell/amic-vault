@@ -92,8 +92,8 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
             </StatusBadge>
           </dd>
         </div>
-        <Value label={copy.actor} value={labelForActor(event.actorType, copy)} />
-        <Value label={copy.target} value={event.targetType} />
+        <Value label={copy.actor} value={labelForActor(event, copy)} />
+        <Value label={copy.target} value={event.safeLabel ?? event.targetDisplayName ?? event.targetType} />
         <Value label={copy.time} value={event.createdAt} />
       </dl>
 
@@ -140,10 +140,11 @@ function Value({ label, value }: { label: string; value: string }) {
 }
 
 function labelForActor(
-  actorType: AuditEventDto['actorType'],
+  event: AuditEventDto,
   copy: { systemActor: string; userActor: string },
 ) {
-  return actorType === 'system' ? copy.systemActor : copy.userActor;
+  if (event.actorType === 'system') return copy.systemActor;
+  return event.actorDisplayName ?? event.actorDisplayEmail ?? copy.userActor;
 }
 
 function toneForResult(result: AuditEventDto['result']) {

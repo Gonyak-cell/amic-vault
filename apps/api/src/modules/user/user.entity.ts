@@ -1,4 +1,4 @@
-import type { TenantId, UserRole, UserStatus, UserSummary } from '@amic-vault/shared';
+import { buildSafeLabel, type TenantId, type UserRole, type UserStatus, type UserSummary } from '@amic-vault/shared';
 
 export interface UserEntityProps {
   userId: string;
@@ -50,6 +50,10 @@ export class UserEntity {
       tenantId: this.tenantId,
       email: this.email,
       name: this.name,
+      displayName: this.name,
+      displayEmail: this.email,
+      safeLabel: buildSafeLabel(this.name, this.email),
+      canViewSensitiveRef: false,
       role: this.role,
       practiceGroup: this.practiceGroup,
       status: this.status,

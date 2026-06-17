@@ -24,6 +24,7 @@ import type {
   UpdateLegalHoldDto,
   UserRole,
 } from '@amic-vault/shared';
+import { buildSafeLabel } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { markAndAuditAiPrepArtifactsStale } from '../ai/prep/ai-prep-lifecycle';
 import {
@@ -60,6 +61,8 @@ interface DocumentRow {
   document_id: string;
   tenant_id: string;
   matter_id: string;
+  matter_name?: string | null;
+  matter_code?: string | null;
   document_family_id: string;
   title: string;
   status: DocumentStatus;
@@ -86,8 +89,13 @@ function mapDocument(row: DocumentRow): DocumentDto {
     documentId: row.document_id,
     tenantId: row.tenant_id,
     matterId: row.matter_id,
+    matterDisplayName: row.matter_name ?? null,
+    matterDisplayCode: row.matter_code ?? null,
     documentFamilyId: row.document_family_id,
     title: row.title,
+    displayName: row.title,
+    safeLabel: buildSafeLabel(row.title),
+    canViewSensitiveRef: false,
     status: row.status,
     documentType: row.document_type,
     subtype: row.subtype,

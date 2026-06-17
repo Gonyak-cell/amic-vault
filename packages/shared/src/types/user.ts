@@ -1,11 +1,12 @@
 import type { TenantId } from './tenant';
 import type { UserRole } from '../permission/roles';
+import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
 export const userStatuses = ['active', 'inactive', 'locked'] as const;
 
 export type UserStatus = (typeof userStatuses)[number];
 
-export interface UserSummary {
+export interface UserSummary extends DisplayFieldsDto {
   userId: string;
   tenantId: TenantId;
   email: string;

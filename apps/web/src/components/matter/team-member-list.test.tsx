@@ -24,6 +24,8 @@ const member: MatterMemberDto = {
   matterId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   tenantId: '11111111-1111-4111-8111-111111111111',
   userId: '11111111-1111-4111-8111-111111111102',
+  userDisplayName: '조우상',
+  userDisplayEmail: 'jwsuh@amic.kr',
   matterRole: 'member',
   accessLevel: 'read',
   addedBy: '11111111-1111-4111-8111-111111111101',
@@ -37,8 +39,10 @@ describe('TeamMemberList', () => {
         <TeamMemberList members={[member]} canManage={false} />
       </LanguageProvider>,
     );
-    expect(html).toContain('표시 가능한 사용자 정보 없음');
-    expect(html).toContain('내부 참조는 표시하지 않음');
+    expect(html).toContain('조우상');
+    expect(html).toContain('jwsuh@amic.kr');
+    expect(html).not.toContain('표시 가능한 사용자 정보 없음');
+    expect(html).not.toContain('내부 참조는 표시하지 않음');
     expect(html).toContain('팀 구성원 표');
     expect(html).toContain('min-w-[720px]');
     expect(html).not.toContain(member.userId);

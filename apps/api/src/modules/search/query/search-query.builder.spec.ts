@@ -19,6 +19,8 @@ describe('SearchQueryBuilder', () => {
     );
 
     expect(built.sql).toContain('websearch_to_tsquery');
+    expect(built.sql).toContain('LEFT JOIN matters m');
+    expect(built.sql).toContain('LEFT JOIN clients c');
     expect(built.sql).not.toContain(malicious);
     expect(built.sql).toContain('idx.document_status <> $2');
     expect(built.sql).toContain('idx.version_status = $3');
@@ -57,6 +59,8 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain('WITH tsq AS');
     expect(built.sql).toContain('filtered AS');
     expect(built.sql).toContain('FROM filtered');
+    expect(built.sql).toContain("'label', client_name");
+    expect(built.sql).toContain("'label', safe_label");
     expect(built.sql).toContain('idx.client_id = $3');
     expect(built.sql).toContain('idx.document_type = ANY($4::text[])');
     expect(built.sql).not.toContain('idx.version_status =');
@@ -100,6 +104,23 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain('* 0.45');
     expect(built.sql).not.toContain(query);
     expect(built.params).toContain(query);
+  });
+
+  it('keeps tenant ids available for semantic facet display labels', () => {
+    const built = builder().buildVectorFacets(
+      { query: 'termination', mode: 'semantic', page: 1, pageSize: 10 },
+      scope,
+      '[0.100000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000]',
+      'semantic',
+    );
+
+    expect(built.sql).toContain(
+      'SELECT tenant_id, client_id, matter_id, document_type, version_status, updated_at',
+    );
+    expect(built.sql).toContain('c.tenant_id = filtered.tenant_id');
+    expect(built.sql).toContain('m.tenant_id = filtered.tenant_id');
+    expect(built.sql).toContain("'label', client_name");
+    expect(built.sql).toContain("'label', safe_label");
   });
 
   it('builds bounded AI context chunk candidates from the same vector CTE', () => {

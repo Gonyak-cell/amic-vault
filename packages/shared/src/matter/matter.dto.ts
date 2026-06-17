@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { matterTypeSchema } from './matter-type';
+import type { DisplayFieldsDto } from '../display/display-fields.dto';
 import {
   containsSensitiveMatterMetadataKey,
   isMatterDateRangeValid,
@@ -72,7 +73,7 @@ export const updateMatterStatusSchema = z
   })
   .strict();
 
-export interface MatterDto {
+export interface MatterDto extends DisplayFieldsDto {
   matterId: string;
   tenantId: string;
   clientId: string;
@@ -83,6 +84,8 @@ export interface MatterDto {
   openedAt: string | null;
   closedAt: string | null;
   leadLawyerId: string | null;
+  leadLawyerDisplayName?: string | null;
+  leadLawyerDisplayEmail?: string | null;
   practiceGroup: string | null;
   metadata: Record<string, string>;
   legalHold: boolean;
