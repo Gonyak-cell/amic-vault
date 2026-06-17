@@ -9,6 +9,7 @@ const sensitivePathPrefixes = [
   '/v1',
   '/dashboard',
   '/matters',
+  '/files',
   '/search',
   '/documents',
   '/audit',
