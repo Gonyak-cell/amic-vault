@@ -93,6 +93,7 @@ Review visual and interaction consistency:
 
 - shared design tokens for primary color, focus ring, background, border, surface, text, and muted text
 - shared PageHeader, SectionCard, EmptyState, StatusBadge, table/list/filter patterns where applicable
+- `docs/ui/design-system-checklist.md` reviewed for affected screens
 - no route-specific theme, custom blue, custom shadow, custom gradient, or one-off panel style without design-system justification
 - login, shell, dashboard, matter/file/search, governance, audit, walls, admin, AI Prep, and integrations feel like one enterprise SaaS product
 - profile displays user name and email only

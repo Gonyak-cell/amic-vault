@@ -50,6 +50,15 @@ const blockedRouteForbiddenLiterals = [
   /Corporate charter documents/,
 ];
 
+const designSystemChecklistPatterns = [
+  { name: 'screen inventory', pattern: /Login[\s\S]*AppShell[\s\S]*Dashboard[\s\S]*Matters[\s\S]*Search[\s\S]*Records[\s\S]*Audit[\s\S]*Admin/ },
+  { name: 'token and raw hex rules', pattern: /shared CSS tokens[\s\S]*raw hex color literals/i },
+  { name: 'component rules', pattern: /PageHeader[\s\S]*SectionCard[\s\S]*EmptyState[\s\S]*StatusBadge/ },
+  { name: 'shadow and gradient rules', pattern: /custom shadows[\s\S]*custom gradient/i },
+  { name: 'responsive viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
+  { name: 'fake data and reference safety', pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*AI Prep/i },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -148,11 +157,21 @@ function checkBlockedRoutes() {
   }
 }
 
+function checkDesignSystemChecklist() {
+  const source = readRequired('docs/ui/design-system-checklist.md');
+  for (const { name, pattern } of designSystemChecklistPatterns) {
+    if (!pattern.test(source)) {
+      fail(`Design system checklist missing ${name}`);
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
   checkRouteVisibility();
   checkBlockedRoutes();
+  checkDesignSystemChecklist();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
