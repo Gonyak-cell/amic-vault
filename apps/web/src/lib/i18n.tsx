@@ -57,6 +57,8 @@ const translations = {
   'auth.tenantId': { ko: '워크스페이스 ID', en: 'Workspace ID' },
   'auth.email': { ko: '이메일', en: 'Email' },
   'auth.password': { ko: '비밀번호', en: 'Password' },
+  'auth.newPassword': { ko: '새 비밀번호', en: 'New password' },
+  'auth.confirmPassword': { ko: '비밀번호 확인', en: 'Confirm password' },
   'auth.invalid': {
     ko: '로그인 정보를 확인할 수 없습니다. 워크스페이스 ID와 계정을 다시 확인해 주세요.',
     en: 'We could not verify those login details.',
@@ -64,6 +66,33 @@ const translations = {
   'auth.pending': { ko: '로그인 중', en: 'Signing in' },
   'auth.login': { ko: '로그인', en: 'Log in' },
   'auth.logout': { ko: '로그아웃', en: 'Log out' },
+  'auth.resetDescription': {
+    ko: '새 비밀번호를 설정하면 계정이 활성화됩니다.',
+    en: 'Set a new password to activate your account.',
+  },
+  'auth.resetMissingToken': {
+    ko: '재설정 링크가 유효하지 않습니다.',
+    en: 'The reset link is not valid.',
+  },
+  'auth.resetPasswordTooShort': {
+    ko: '비밀번호는 8자 이상이어야 합니다.',
+    en: 'Password must be at least 8 characters.',
+  },
+  'auth.resetPasswordMismatch': {
+    ko: '비밀번호가 일치하지 않습니다.',
+    en: 'Passwords do not match.',
+  },
+  'auth.resetFailed': {
+    ko: '링크가 만료되었거나 이미 사용되었습니다.',
+    en: 'The link has expired or has already been used.',
+  },
+  'auth.resetPending': { ko: '활성화 중', en: 'Activating' },
+  'auth.resetSubmit': { ko: '계정 활성화', en: 'Activate account' },
+  'auth.resetComplete': {
+    ko: '계정이 활성화되었습니다. 새 비밀번호로 로그인하세요.',
+    en: 'Your account is active. Sign in with your new password.',
+  },
+  'auth.resetLogin': { ko: '로그인으로 이동', en: 'Go to log in' },
 } as const satisfies Record<string, Translation>;
 
 export type TranslationKey = keyof typeof translations;
