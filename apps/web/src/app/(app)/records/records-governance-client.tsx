@@ -30,10 +30,14 @@ import {
 } from '@/lib/api/records';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { useI18n, type Language } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
+
+type RecordsTab = 'policies' | 'holds' | 'archive' | 'disposal' | 'certificates';
 
 const recordsCopy: Record<
   Language,
   {
+    tabs: Record<RecordsTab, string>;
     matterRef: string;
     documentRef: string;
     refreshTitle: string;
@@ -41,6 +45,11 @@ const recordsCopy: Record<
     pageTitle: string;
     pageDescription: string;
     title: string;
+    policyMeta: string;
+    holdMeta: string;
+    archiveMeta: string;
+    disposalMeta: string;
+    certificateMeta: string;
     policyCode: string;
     policyLabel: string;
     retentionDays: string;
@@ -62,14 +71,16 @@ const recordsCopy: Record<
     disposal: string;
     certificateRef: string;
     requestRef: string;
-    documentHash: string;
-    certificateHash: string;
+    certificateEvidence: string;
     noCertificate: string;
+    noPolicies: string;
+    noHolds: string;
+    noArchive: string;
+    noDisposal: string;
     noRows: string;
     indefinite: string;
     days: string;
     advancedRefs: string;
-    advancedRefsMeta: string;
     certificateReady: string;
     evidencePreserved: string;
     targetDocument: string;
@@ -78,6 +89,13 @@ const recordsCopy: Record<
   }
 > = {
   ko: {
+    tabs: {
+      policies: '보존 정책',
+      holds: '삭제 금지',
+      archive: '보관',
+      disposal: '삭제 요청',
+      certificates: '증명서',
+    },
     matterRef: 'Matter 참조',
     documentRef: '파일 참조',
     refreshTitle: '보존 정보 새로고침',
@@ -85,6 +103,11 @@ const recordsCopy: Record<
     pageTitle: '기록 보존',
     pageDescription: '보존 정책, 삭제 금지, 보관·삭제 처리를 운영 데이터 기준으로 관리합니다.',
     title: '보존 관리',
+    policyMeta: '승인된 정책 값만 저장합니다.',
+    holdMeta: '표시명 선택 API 연결 전에는 고급 영역에서만 처리합니다.',
+    archiveMeta: '보관 처리는 권한과 감사 기록을 통과한 파일에만 적용됩니다.',
+    disposalMeta: '삭제 요청, 승인, 실행은 단계별 감사 기록과 함께 처리됩니다.',
+    certificateMeta: '증명서 상태만 표시하고 내부 검증 참조는 기본 화면에 노출하지 않습니다.',
     policyCode: '정책 코드',
     policyLabel: '정책 이름',
     retentionDays: '보존 기간',
@@ -106,14 +129,16 @@ const recordsCopy: Record<
     disposal: '삭제 요청',
     certificateRef: '증명서',
     requestRef: '삭제 요청',
-    documentHash: '파일 검증값',
-    certificateHash: '증명서 검증값',
+    certificateEvidence: '감사 증명 보존',
     noCertificate: '불러온 증명서가 없습니다.',
+    noPolicies: '등록된 보존 정책이 없습니다.',
+    noHolds: '적용된 삭제 금지가 없습니다.',
+    noArchive: '보관 처리 결과가 없습니다.',
+    noDisposal: '연결된 삭제 요청이 없습니다.',
     noRows: '표시할 항목이 없습니다.',
     indefinite: '무기한',
     days: '일',
     advancedRefs: '고급 참조 입력',
-    advancedRefsMeta: '표시명 선택 API가 연결되기 전까지 운영자 전용으로 사용합니다.',
     certificateReady: '증명서 생성됨',
     evidencePreserved: '감사 저장소에 보존됨',
     targetDocument: '대상 파일',
@@ -121,6 +146,13 @@ const recordsCopy: Record<
     requestReady: '삭제 요청 연결됨',
   },
   en: {
+    tabs: {
+      policies: 'Policies',
+      holds: 'Legal holds',
+      archive: 'Archive',
+      disposal: 'Disposal',
+      certificates: 'Certificates',
+    },
     matterRef: 'Matter ref',
     documentRef: 'File ref',
     refreshTitle: 'Refresh retention data',
@@ -129,6 +161,11 @@ const recordsCopy: Record<
     pageDescription:
       'Manage retention policies, legal holds, archive, and disposal operations from approved data.',
     title: 'Retention settings',
+    policyMeta: 'Save approved policy values only.',
+    holdMeta: 'Use the advanced area only until display-name picker APIs are connected.',
+    archiveMeta: 'Archive actions apply only after permission and audit checks.',
+    disposalMeta: 'Request, approve, and execute disposal through audited stages.',
+    certificateMeta: 'Show certificate status without exposing internal verification references.',
     policyCode: 'Policy code',
     policyLabel: 'Policy name',
     retentionDays: 'Retention days',
@@ -150,14 +187,16 @@ const recordsCopy: Record<
     disposal: 'Disposal requests',
     certificateRef: 'Certificate ref',
     requestRef: 'Request ref',
-    documentHash: 'File hash',
-    certificateHash: 'Certificate hash',
+    certificateEvidence: 'Audit evidence preserved',
     noCertificate: 'No certificate loaded.',
+    noPolicies: 'No retention policies are registered.',
+    noHolds: 'No legal holds are applied.',
+    noArchive: 'No archive result is available.',
+    noDisposal: 'No disposal request is linked.',
     noRows: 'No items to show.',
     indefinite: 'indefinite',
     days: 'days',
     advancedRefs: 'Advanced reference input',
-    advancedRefsMeta: 'Operator-only until display-name picker APIs are available.',
     certificateReady: 'Certificate generated',
     evidencePreserved: 'Preserved in audit storage',
     targetDocument: 'Target file',
@@ -169,6 +208,7 @@ const recordsCopy: Record<
 export function RecordsGovernanceClient() {
   const { language } = useI18n();
   const copy = recordsCopy[language];
+  const [activeTab, setActiveTab] = useState<RecordsTab>('policies');
   const [matterId, setMatterId] = useState('');
   const [documentId, setDocumentId] = useState('');
   const [policyCode, setPolicyCode] = useState('');
@@ -291,9 +331,15 @@ export function RecordsGovernanceClient() {
       />
       {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
-      <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4">
-          <SectionCard icon={<FileClock className="h-4 w-4" />} title={copy.title}>
+      <TabBar activeTab={activeTab} labels={copy.tabs} onChange={setActiveTab} />
+
+      {activeTab === 'policies' ? (
+        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+          <SectionCard
+            icon={<FileClock className="h-4 w-4" />}
+            title={copy.title}
+            meta={copy.policyMeta}
+          >
             <Field label={copy.policyCode} value={policyCode} onChange={setPolicyCode} />
             <Field label={copy.policyLabel} value={policyLabel} onChange={setPolicyLabel} />
             <Field label={copy.retentionDays} value={retentionDays} onChange={setRetentionDays} />
@@ -305,132 +351,199 @@ export function RecordsGovernanceClient() {
               {copy.savePolicy}
             </Button>
           </SectionCard>
-
-          <SectionCard title={copy.advancedRefs} meta={copy.advancedRefsMeta}>
-            <details>
-              <summary className="cursor-pointer text-sm font-medium text-foreground">
-                {copy.advancedRefs}
-              </summary>
-              <div className="mt-4 flex flex-col gap-3">
-                <Field label={copy.matterRef} value={matterId} onChange={setMatterId} />
-                <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
-                <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
-                <Button
-                  onClick={() => saveHold('matter')}
-                  disabled={busy || !trimmedMatterId || !trimmedReason}
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  {copy.matterHold}
-                </Button>
-                <Button
-                  onClick={() => saveHold('document')}
-                  disabled={busy || !trimmedMatterId || !trimmedDocumentId || !trimmedReason}
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  {copy.documentHold}
-                </Button>
-                <Field label={copy.holdRef} value={legalHoldId} onChange={setLegalHoldId} />
-                <Button onClick={releaseHold} disabled={busy || !activeLegalHoldId}>
-                  <ShieldCheck className="h-4 w-4" />
-                  {copy.releaseHold}
-                </Button>
-
-                <div className="border-t pt-3" />
-                <Button
-                  onClick={saveArchive}
-                  disabled={busy || !trimmedDocumentId || !trimmedReason}
-                >
-                  <Archive className="h-4 w-4" />
-                  {copy.archive}
-                </Button>
-                <Button
-                  onClick={requestDisposal}
-                  disabled={busy || !trimmedDocumentId || !trimmedReason}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  {copy.requestDisposal}
-                </Button>
-                <Field
-                  label={copy.disposalRef}
-                  value={disposalRequestId}
-                  onChange={setDisposalRequestId}
-                />
-                <Button onClick={approveDisposal} disabled={busy || !activeDisposalRequestId}>
-                  <ShieldCheck className="h-4 w-4" />
-                  {copy.approve}
-                </Button>
-                <Button onClick={executeDisposal} disabled={busy || !activeDisposalRequestId}>
-                  <Trash2 className="h-4 w-4" />
-                  {copy.execute}
-                </Button>
-                <Button onClick={loadCertificate} disabled={busy || !activeDisposalRequestId}>
-                  <FileClock className="h-4 w-4" />
-                  {copy.certificate}
-                </Button>
-              </div>
-            </details>
-          </SectionCard>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
           <SummaryPanel
             title={copy.policies}
-            empty={copy.noRows}
+            empty={copy.noPolicies}
             rows={policies?.policies.map((item) => [
               item.policyCode,
               item.retentionDays === null ? copy.indefinite : `${item.retentionDays} ${copy.days}`,
               item.status,
             ])}
           />
+        </section>
+      ) : null}
+
+      {activeTab === 'holds' ? (
+        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+          <AdvancedRefsPanel meta={copy.holdMeta} title={copy.advancedRefs}>
+            <Field label={copy.matterRef} value={matterId} onChange={setMatterId} />
+            <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
+            <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
+            <Button
+              onClick={() => saveHold('matter')}
+              disabled={busy || !trimmedMatterId || !trimmedReason}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              {copy.matterHold}
+            </Button>
+            <Button
+              onClick={() => saveHold('document')}
+              disabled={busy || !trimmedMatterId || !trimmedDocumentId || !trimmedReason}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              {copy.documentHold}
+            </Button>
+            <div className="border-t pt-3" />
+            <Field label={copy.holdRef} value={legalHoldId} onChange={setLegalHoldId} />
+            <Button onClick={releaseHold} disabled={busy || !activeLegalHoldId}>
+              <ShieldCheck className="h-4 w-4" />
+              {copy.releaseHold}
+            </Button>
+          </AdvancedRefsPanel>
           <SummaryPanel
             title={copy.holds}
-            empty={copy.noRows}
+            empty={copy.noHolds}
             rows={holds?.holds.map((item) => [
               item.reasonCode,
               item.holdScope === 'document' ? copy.targetDocument : copy.targetMatter,
               item.status,
             ])}
           />
+        </section>
+      ) : null}
+
+      {activeTab === 'archive' ? (
+        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+          <AdvancedRefsPanel meta={copy.archiveMeta} title={copy.advancedRefs}>
+            <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
+            <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
+            <Button onClick={saveArchive} disabled={busy || !trimmedDocumentId || !trimmedReason}>
+              <Archive className="h-4 w-4" />
+              {copy.archive}
+            </Button>
+          </AdvancedRefsPanel>
           <SummaryPanel
             title={copy.archivePanel}
-            empty={copy.noRows}
+            empty={copy.noArchive}
             rows={
               archive
                 ? [[copy.targetDocument, archive.previousStatus, archive.archiveStatus]]
                 : undefined
             }
           />
+        </section>
+      ) : null}
+
+      {activeTab === 'disposal' ? (
+        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+          <AdvancedRefsPanel meta={copy.disposalMeta} title={copy.advancedRefs}>
+            <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
+            <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
+            <Button
+              onClick={requestDisposal}
+              disabled={busy || !trimmedDocumentId || !trimmedReason}
+            >
+              <Trash2 className="h-4 w-4" />
+              {copy.requestDisposal}
+            </Button>
+            <div className="border-t pt-3" />
+            <Field
+              label={copy.disposalRef}
+              value={disposalRequestId}
+              onChange={setDisposalRequestId}
+            />
+            <Button onClick={approveDisposal} disabled={busy || !activeDisposalRequestId}>
+              <ShieldCheck className="h-4 w-4" />
+              {copy.approve}
+            </Button>
+            <Button onClick={executeDisposal} disabled={busy || !activeDisposalRequestId}>
+              <Trash2 className="h-4 w-4" />
+              {copy.execute}
+            </Button>
+          </AdvancedRefsPanel>
           <SummaryPanel
             title={copy.disposal}
-            empty={copy.noRows}
+            empty={copy.noDisposal}
             rows={
               disposal ? [[copy.requestReady, disposal.status, copy.targetDocument]] : undefined
             }
           />
+        </section>
+      ) : null}
+
+      {activeTab === 'certificates' ? (
+        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+          <AdvancedRefsPanel meta={copy.certificateMeta} title={copy.advancedRefs}>
+            <Field
+              label={copy.disposalRef}
+              value={disposalRequestId}
+              onChange={setDisposalRequestId}
+            />
+            <Button onClick={loadCertificate} disabled={busy || !activeDisposalRequestId}>
+              <FileClock className="h-4 w-4" />
+              {copy.certificate}
+            </Button>
+          </AdvancedRefsPanel>
           <SectionCard
-            className="lg:col-span-2"
             icon={<FileClock className="h-4 w-4" />}
             title={copy.certificate}
+            meta={copy.certificateMeta}
           >
             {certificate ? (
-              <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              <dl className="grid gap-2 text-sm sm:grid-cols-3">
                 <Value label={copy.certificateRef} value={copy.certificateReady} />
                 <Value label={copy.requestRef} value={copy.requestReady} />
-                <Value label={copy.documentHash} value={copy.evidencePreserved} />
-                <Value label={copy.certificateHash} value={copy.evidencePreserved} />
+                <Value label={copy.certificateEvidence} value={copy.evidencePreserved} />
               </dl>
             ) : (
-              <EmptyState
-                className="mt-3"
-                variant="no-data"
-                title={copy.noCertificate}
-                description={copy.noRows}
-              />
+              <EmptyState variant="no-data" title={copy.noCertificate} description={copy.noRows} />
             )}
           </SectionCard>
-        </div>
-      </section>
+        </section>
+      ) : null}
     </PageShell>
+  );
+}
+
+function TabBar({
+  activeTab,
+  labels,
+  onChange,
+}: {
+  activeTab: RecordsTab;
+  labels: Record<RecordsTab, string>;
+  onChange: (tab: RecordsTab) => void;
+}) {
+  const tabs: RecordsTab[] = ['policies', 'holds', 'archive', 'disposal', 'certificates'];
+  return (
+    <div className="flex flex-wrap gap-2 rounded-md border bg-card p-1" role="tablist">
+      {tabs.map((tab) => (
+        <button
+          aria-selected={activeTab === tab}
+          className={cn(
+            'h-9 rounded-sm px-3 text-sm font-medium text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            activeTab === tab
+              ? 'bg-primary text-primary-foreground'
+              : 'hover:bg-muted hover:text-foreground',
+          )}
+          key={tab}
+          onClick={() => onChange(tab)}
+          role="tab"
+          type="button"
+        >
+          {labels[tab]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AdvancedRefsPanel({
+  children,
+  meta,
+  title,
+}: {
+  children: React.ReactNode;
+  meta: string;
+  title: string;
+}) {
+  return (
+    <SectionCard title={title} meta={meta}>
+      <details>
+        <summary className="cursor-pointer text-sm font-medium text-foreground">{title}</summary>
+        <div className="mt-4 flex flex-col gap-3">{children}</div>
+      </details>
+    </SectionCard>
   );
 }
 
@@ -451,15 +564,6 @@ function Field({
   );
 }
 
-function PanelTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm font-semibold">
-      {icon}
-      <span>{label}</span>
-    </div>
-  );
-}
-
 function SummaryPanel({
   title,
   rows,
@@ -470,8 +574,7 @@ function SummaryPanel({
   empty: string;
 }) {
   return (
-    <div className="rounded-md border p-4">
-      <PanelTitle icon={<ListTree className="h-4 w-4" />} label={title} />
+    <SectionCard icon={<ListTree className="h-4 w-4" />} title={title}>
       <div className="mt-3 overflow-hidden rounded-md border">
         <table className="w-full table-fixed text-sm">
           <tbody>
@@ -492,7 +595,7 @@ function SummaryPanel({
           </tbody>
         </table>
       </div>
-    </div>
+    </SectionCard>
   );
 }
 
