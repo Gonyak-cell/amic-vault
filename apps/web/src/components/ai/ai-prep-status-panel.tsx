@@ -14,45 +14,45 @@ import type {
 import { recordAiPrepFeedback } from '@/lib/api/ai-prep';
 
 const statusLabel: Record<AiPrepDocumentReadinessStatus, string> = {
-  not_ready: 'Not ready',
-  pending: 'Preparing',
-  ready: 'Prepared',
-  partial: 'Partial',
-  blocked: 'Blocked',
-  failed: 'Failed',
-  rejected: 'Discarded',
-  stale: 'Stale',
+  not_ready: '준비 전',
+  pending: '정리 중',
+  ready: '정리됨',
+  partial: '일부 정리됨',
+  blocked: '정책 차단',
+  failed: '재시도 필요',
+  rejected: '폐기됨',
+  stale: '재정리 필요',
 };
 
 const statusHelp: Record<AiPrepDocumentReadinessStatus, string> = {
-  not_ready: 'Local prep is unavailable for this version.',
-  pending: 'Queued for local file organization prep.',
-  ready: 'Prepared file organization cards are available.',
-  partial: 'Some file organization cards are prepared.',
-  blocked: 'Policy or permission guard blocked prep.',
-  failed: 'Retry is required for file organization prep.',
-  rejected: 'Generated output was discarded; no file card is shown.',
-  stale: 'Source or permission changes require a rebuild.',
+  not_ready: '이 버전은 아직 파일 정리 준비가 시작되지 않았습니다.',
+  pending: '권한 확인 후 파일 정리 준비가 진행 중입니다.',
+  ready: '파일 정리 카드가 준비되었습니다.',
+  partial: '일부 파일 정리 카드만 준비되었습니다.',
+  blocked: '권한 또는 정보 차단 정책으로 파일 정리 준비가 차단되었습니다.',
+  failed: '파일 정리 준비를 다시 시도해야 합니다.',
+  rejected: '검수에서 폐기된 정리 결과는 표시하지 않습니다.',
+  stale: '파일 또는 권한 변경으로 다시 정리해야 합니다.',
 };
 
 const artifactStatusLabel: Record<AiPrepStatus, string> = {
-  pending: 'Preparing',
-  completed: 'Prepared',
-  blocked: 'Blocked',
-  failed: 'Failed',
-  rejected: 'Discarded',
-  stale: 'Stale',
+  pending: '정리 중',
+  completed: '정리됨',
+  blocked: '정책 차단',
+  failed: '실패',
+  rejected: '폐기됨',
+  stale: '재정리 필요',
 };
 
 const artifactKindLabel: Record<AiPrepArtifactKind, string> = {
-  document_profile: 'Document profile',
-  key_fields: 'Key fields',
-  date_facts: 'Date facts',
-  people_organizations: 'People and organizations',
-  keyword_tags: 'Keyword tags',
-  filing_suggestions: 'Filing suggestions',
-  source_outline: 'Source outline',
-  retrieval_hints: 'Retrieval hints',
+  document_profile: '파일 개요',
+  key_fields: '주요 정보',
+  date_facts: '날짜 정보',
+  people_organizations: '사람 및 기관',
+  keyword_tags: '키워드',
+  filing_suggestions: '보관 위치 제안',
+  source_outline: '문서 구조',
+  retrieval_hints: '검색 힌트',
 };
 
 function primaryText(artifact: AiPrepArtifactSummaryDto): {
@@ -87,11 +87,11 @@ function feedbackKey(
 }
 
 function unavailableText(artifact: AiPrepArtifactSummaryDto): string {
-  if (artifact.isStale || artifact.status === 'stale') return 'Rebuild needed.';
-  if (artifact.status === 'rejected') return 'Generated output discarded.';
-  if (artifact.status === 'blocked') return 'Policy or permission block.';
-  if (artifact.status === 'failed') return 'Retry required.';
-  return 'File card pending.';
+  if (artifact.isStale || artifact.status === 'stale') return '다시 정리해야 합니다.';
+  if (artifact.status === 'rejected') return '폐기된 정리 결과는 표시하지 않습니다.';
+  if (artifact.status === 'blocked') return '권한 또는 정보 차단 정책으로 표시할 수 없습니다.';
+  if (artifact.status === 'failed') return '파일 정리 준비를 다시 시도해야 합니다.';
+  return '파일 정리 카드 준비 중입니다.';
 }
 
 export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto }) {
@@ -118,10 +118,10 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
   }
 
   return (
-    <section aria-label="File organization prep status" className="rounded-md border p-4">
+    <section aria-label="파일 정리 준비 상태" className="rounded-md border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold tracking-normal">File organization prep</h2>
+          <h2 className="text-base font-semibold tracking-normal">파일 정리 준비</h2>
           <p className="text-sm text-muted-foreground">권한이 확인된 파일 정리 준비 상태만 표시됩니다.</p>
           <p className="mt-1 text-sm text-muted-foreground">{statusHelp[status.readinessStatus]}</p>
         </div>
@@ -131,7 +131,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
       </div>
 
       {status.artifacts.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">File prep is queued.</p>
+        <p className="mt-4 text-sm text-muted-foreground">파일 정리 준비가 대기 중입니다.</p>
       ) : (
         <div className="mt-4 space-y-3">
           {status.artifacts.map((artifact) => {
@@ -147,22 +147,22 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     </span>
                     {artifact.isStale ? (
                       <span className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">
-                        Rebuild
+                        재정리
                       </span>
                     ) : null}
                     {artifact.status === 'rejected' ? (
                       <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-900">
-                        Discarded
+                        폐기됨
                       </span>
                     ) : null}
                     {hasFallbackWarning(artifact) ? (
                       <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-900">
-                        Fallback
+                        대체 정리
                       </span>
                     ) : null}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {artifact.sourceChunkCount} refs
+                    {artifact.sourceChunkCount > 0 ? '근거 확인됨' : '근거 없음'}
                   </span>
                 </div>
 
@@ -171,7 +171,9 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     <h3 className="text-sm font-semibold tracking-normal">{content.heading}</h3>
                     <p className="text-sm text-muted-foreground">{content.text}</p>
                     <p className="text-xs text-muted-foreground">
-                      {content.sourceRefs.length} checked source refs
+                      {content.sourceRefs.length > 0
+                        ? '권한 확인된 근거로 생성됨'
+                        : '표시 가능한 근거 없음'}
                     </p>
                   </div>
                 ) : (
@@ -181,8 +183,8 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    aria-label={`Mark ${artifactLabel} useful`}
-                    title={`Mark ${artifactLabel} useful`}
+                    aria-label={`${artifactLabel} 유용함 표시`}
+                    title={`${artifactLabel} 유용함 표시`}
                     disabled={
                       busyKey !== null || artifact.status !== 'completed' || artifact.isStale
                     }
@@ -193,8 +195,8 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                   </button>
                   <button
                     type="button"
-                    aria-label={`Mark ${artifactLabel} incorrect field`}
-                    title={`Mark ${artifactLabel} incorrect field`}
+                    aria-label={`${artifactLabel} 주요 정보 오류 표시`}
+                    title={`${artifactLabel} 주요 정보 오류 표시`}
                     disabled={
                       busyKey !== null || artifact.status !== 'completed' || artifact.isStale
                     }
@@ -207,8 +209,8 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                   </button>
                   <button
                     type="button"
-                    aria-label={`Mark ${artifactLabel} missing source ref`}
-                    title={`Mark ${artifactLabel} missing source ref`}
+                    aria-label={`${artifactLabel} 근거 부족 표시`}
+                    title={`${artifactLabel} 근거 부족 표시`}
                     disabled={
                       busyKey !== null || artifact.status !== 'completed' || artifact.isStale
                     }
@@ -217,24 +219,24 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     }
                     className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2 text-xs hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   >
-                    Ref
+                    근거
                   </button>
                   <button
                     type="button"
-                    aria-label={`Mark ${artifactLabel} incorrect tag`}
-                    title={`Mark ${artifactLabel} incorrect tag`}
+                    aria-label={`${artifactLabel} 태그 오류 표시`}
+                    title={`${artifactLabel} 태그 오류 표시`}
                     disabled={
                       busyKey !== null || artifact.status !== 'completed' || artifact.isStale
                     }
                     onClick={() => sendFeedback(artifact.artifactId, 'incorrect', 'incorrect_tags')}
                     className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2 text-xs hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   >
-                    Tag
+                    태그
                   </button>
                   <button
                     type="button"
-                    aria-label={`Mark ${artifactLabel} incorrect filing suggestion`}
-                    title={`Mark ${artifactLabel} incorrect filing suggestion`}
+                    aria-label={`${artifactLabel} 보관 위치 제안 오류 표시`}
+                    title={`${artifactLabel} 보관 위치 제안 오류 표시`}
                     disabled={
                       busyKey !== null || artifact.status !== 'completed' || artifact.isStale
                     }
@@ -243,12 +245,12 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     }
                     className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2 text-xs hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   >
-                    Filing
+                    분류
                   </button>
                   <button
                     type="button"
-                    aria-label={`Mark ${artifactLabel} stale`}
-                    title={`Mark ${artifactLabel} stale`}
+                    aria-label={`${artifactLabel} 재정리 필요 표시`}
+                    title={`${artifactLabel} 재정리 필요 표시`}
                     disabled={busyKey !== null}
                     onClick={() => sendFeedback(artifact.artifactId, 'stale', 'stale_artifact')}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
@@ -258,21 +260,21 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                   {artifact.status === 'rejected' ? (
                     <button
                       type="button"
-                      aria-label={`Mark ${artifactLabel} rejected output`}
-                      title={`Mark ${artifactLabel} rejected output`}
+                      aria-label={`${artifactLabel} 폐기 결과 표시`}
+                      title={`${artifactLabel} 폐기 결과 표시`}
                       disabled={busyKey !== null}
                       onClick={() =>
                         sendFeedback(artifact.artifactId, 'incorrect', 'rejected_output')
                       }
                       className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2 text-xs hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                     >
-                      Discarded
+                      폐기됨
                     </button>
                   ) : null}
                   {Object.keys(recorded).some((key) => key.startsWith(artifact.artifactId)) ? (
                     <span className="inline-flex h-8 items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 text-xs text-emerald-900">
                       <Check className="h-3 w-3" />
-                      recorded
+                      기록됨
                     </span>
                   ) : null}
                 </div>
@@ -285,7 +287,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
       {error ? (
         <p className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="h-4 w-4" />
-          Feedback unavailable
+          피드백을 기록할 수 없습니다.
         </p>
       ) : null}
     </section>
