@@ -48,7 +48,7 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         buckets={facets.matters}
         selected={selection.matterId}
         onSelect={(value) => onChange({ ...selection, matterId: value })}
-        compact
+        hideUndisplayableRefs
         language={language}
       />
       <FacetGroup
@@ -56,7 +56,7 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         buckets={facets.clients}
         selected={selection.clientId}
         onSelect={(value) => onChange({ ...selection, clientId: value })}
-        compact
+        hideUndisplayableRefs
         language={language}
       />
       <FacetGroup
@@ -101,17 +101,19 @@ function FacetGroup({
   buckets,
   selected,
   onSelect,
-  compact = false,
+  hideUndisplayableRefs = false,
   language,
 }: {
   title: string;
   buckets: readonly (SearchFacetBucketDto | SearchDateRangeFacetDto)[];
   selected?: string | undefined;
   onSelect: (value: string | undefined) => void;
-  compact?: boolean;
+  hideUndisplayableRefs?: boolean;
   language: Language;
 }) {
-  const visible = buckets.filter((bucket) => bucket.count > 0);
+  const visible = buckets.filter(
+    (bucket) => bucket.count > 0 && (!hideUndisplayableRefs || hasDisplayableLabel(bucket)),
+  );
   if (visible.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
@@ -128,9 +130,7 @@ function FacetGroup({
               data-active={active ? 'true' : 'false'}
               onClick={() => onSelect(active ? undefined : bucket.value)}
             >
-              <span className={compact ? 'truncate text-xs' : 'truncate'}>
-                {labelForBucket(bucket, language)}
-              </span>
+              <span className="truncate">{labelForBucket(bucket, language)}</span>
               <span className="text-xs text-muted-foreground">{bucket.count}</span>
             </button>
           );
@@ -138,6 +138,11 @@ function FacetGroup({
       </div>
     </section>
   );
+}
+
+function hasDisplayableLabel(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto): boolean {
+  const raw = 'label' in bucket && typeof bucket.label === 'string' ? bucket.label : bucket.value;
+  return !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(raw.trim());
 }
 
 function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, language: Language): string {

@@ -45,9 +45,9 @@ describe('ResultCard', () => {
     expect(html).toContain('Escrow Closing Memo');
     expect(html).toContain('memo');
     expect(html).toContain('2026-06-12');
-    expect(html).toContain('Matter');
-    expect(html).toContain('고객');
-    expect(html).toContain('표시 가능한 정보 없음');
+    expect(html).not.toContain('Matter');
+    expect(html).not.toContain('고객');
+    expect(html).not.toContain('표시 가능한 정보 없음');
     expect(html).not.toContain('ID 11111111');
     expect(html).not.toContain(result.matterId);
     expect(html).not.toContain(result.clientId);
