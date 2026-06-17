@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req, Res } from '@nestjs/common';
 import type {
   LoginRequestDto,
   PasswordResetConfirmDto,
@@ -68,6 +68,11 @@ export class AuthController {
     await this.authService.logoutByTokenHash(request.session?.tokenHash);
     response.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
     return { accepted: true };
+  }
+
+  @Get('me')
+  currentUser(@Req() request: RequestWithSession) {
+    return this.authService.currentUser(request.session);
   }
 
   @Public()

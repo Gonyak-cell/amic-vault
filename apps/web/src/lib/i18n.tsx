@@ -9,6 +9,7 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export type Language = 'ko' | 'en';
 
@@ -54,13 +55,12 @@ const translations = {
     ko: '이메일과 비밀번호로 로그인하세요.',
     en: 'Sign in with your email and password.',
   },
-  'auth.tenantId': { ko: '워크스페이스 ID', en: 'Workspace ID' },
   'auth.email': { ko: '이메일', en: 'Email' },
   'auth.password': { ko: '비밀번호', en: 'Password' },
   'auth.newPassword': { ko: '새 비밀번호', en: 'New password' },
   'auth.confirmPassword': { ko: '비밀번호 확인', en: 'Confirm password' },
   'auth.invalid': {
-    ko: '로그인 정보를 확인할 수 없습니다. 워크스페이스 ID와 계정을 다시 확인해 주세요.',
+    ko: '로그인 정보를 확인할 수 없습니다. 이메일과 비밀번호를 다시 확인해 주세요.',
     en: 'We could not verify those login details.',
   },
   'auth.pending': { ko: '로그인 중', en: 'Signing in' },
@@ -165,23 +165,18 @@ export function LanguageToggle() {
   const { language, setLanguage, t } = useI18n();
   return (
     <div
-      aria-label={t('language.label')}
-      className="inline-flex h-9 shrink-0 items-center rounded-md border bg-background p-1 text-xs font-semibold"
-      role="group"
+      className="relative inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background text-xs font-semibold text-foreground shadow-sm"
     >
-      {(['ko', 'en'] as const).map((option) => (
-        <button
-          key={option}
-          type="button"
-          className={`h-7 rounded px-2.5 transition-colors ${
-            language === option ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-          aria-pressed={language === option}
-          onClick={() => setLanguage(option)}
-        >
-          {option === 'ko' ? t('language.korean') : t('language.english')}
-        </button>
-      ))}
+      <select
+        aria-label={t('language.label')}
+        className="h-full appearance-none rounded-md bg-transparent py-0 pl-3 pr-8 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        value={language}
+        onChange={(event) => setLanguage(event.target.value as Language)}
+      >
+        <option value="ko">{t('language.korean')}</option>
+        <option value="en">{t('language.english')}</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-muted-foreground" />
     </div>
   );
 }

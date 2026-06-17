@@ -69,6 +69,9 @@ function fakeUserService(
     async findByTenantAndEmail() {
       return entity;
     },
+    async findByTenantAndId() {
+      return entity;
+    },
     async recordLoginSuccess() {},
   } as unknown as UserService;
 }
@@ -108,6 +111,18 @@ class MemoryAuditService {
   }
 }
 
+function sessionFor(entity: UserEntity): SessionRecord {
+  return {
+    sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    tenantId: entity.tenantId,
+    userId: entity.userId,
+    tokenHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    mfaVerified: false,
+    expiresAt: new Date(Date.now() + 60_000),
+    revokedAt: null,
+  };
+}
+
 function createService(entity: UserEntity | null, tenantEntity: TenantEntity | null = tenant()) {
   const auditService = new MemoryAuditService();
   return new AuthService(
@@ -145,6 +160,35 @@ describe('AuthService', () => {
 
     expect(result.user.email).toBe('alpha@test.local');
     expect(result.session.tenantId).toBe(tenantId);
+  });
+
+  it('returns the current user profile from an active session', async () => {
+    const existingUser = await user('secret-password');
+    const service = createService(existingUser);
+
+    await expect(service.currentUser(sessionFor(existingUser))).resolves.toMatchObject({
+      user: {
+        email: 'alpha@test.local',
+        name: 'Alpha',
+      },
+    });
+  });
+
+  it('fails closed when the current user session is missing or stale', async () => {
+    const service = createService(null);
+
+    await expect(service.currentUser(undefined)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      service.currentUser({
+        sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        tenantId,
+        userId: '11111111-1111-4111-8111-111111111101',
+        tokenHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        mfaVerified: false,
+        expiresAt: new Date(Date.now() + 60_000),
+        revokedAt: null,
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('fails closed for email-only login when no unique tenant candidate exists', async () => {

@@ -653,6 +653,7 @@ export type {
 } from './permission/document-permission.interface';
 export { assignUserRoleSchema, type AssignUserRoleDto } from './user/user-role.dto';
 export type {
+  CurrentUserResponseDto,
   LoginRequestDto,
   LoginResponseDto,
   PasswordResetAcceptedDto,

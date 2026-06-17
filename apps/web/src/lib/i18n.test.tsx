@@ -17,7 +17,7 @@ describe('i18n shell helpers', () => {
     );
 
     expect(html).toContain('aria-label="언어"');
-    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('<select');
     expect(html).toContain('한국어');
     expect(html).toContain('English');
   });
