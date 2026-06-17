@@ -28,6 +28,8 @@ describe('AuditEventTable', () => {
     );
 
     expect(html).toContain('활동');
+    expect(html).toContain('활동 기록 표');
+    expect(html).toContain('min-w-[760px]');
     expect(html).toContain('Audit Query Executed');
     expect(html).toContain('audit_console');
     expect(html).toContain('사용자');

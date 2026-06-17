@@ -46,6 +46,8 @@ describe('WallList', () => {
     );
 
     expect(html).toContain('Conflict wall');
+    expect(html).toContain('정보 장벽 목록 표');
+    expect(html).toContain('min-w-[720px]');
     expect(html).toContain('접근 차단');
     expect(html).toContain('사용자');
     expect(html).not.toContain(item.wall.wallId);

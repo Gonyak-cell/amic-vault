@@ -1,6 +1,15 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bell, Menu, Search, X } from 'lucide-react';
@@ -25,6 +34,15 @@ export function AppShell({
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileNavCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const closeMobileNav = useCallback((returnFocus = true) => {
+    setMobileNavOpen(false);
+    if (returnFocus) {
+      window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus());
+    }
+  }, []);
 
   useEffect(() => {
     if (initialCurrentUser !== undefined) {
@@ -52,6 +70,27 @@ export function AppShell({
     };
   }, [initialCurrentUser]);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.requestAnimationFrame(() => mobileNavCloseButtonRef.current?.focus());
+
+    function closeOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMobileNav();
+      }
+    }
+
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [closeMobileNav, mobileNavOpen]);
+
   const navigationGroups = useMemo(
     () => getNavigationGroups(currentUser?.role, language),
     [currentUser?.role, language],
@@ -61,8 +100,29 @@ export function AppShell({
     event.preventDefault();
     const trimmedQuery = searchQuery.trim();
     if (!trimmedQuery) return;
-    setMobileNavOpen(false);
+    closeMobileNav(false);
     router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
+  }
+
+  function trapMobileNavFocus(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   return (
@@ -83,11 +143,13 @@ export function AppShell({
 
         <div className="flex items-center gap-2 pr-3.5 md:hidden">
           <button
+            ref={mobileMenuButtonRef}
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/12 text-white ring-1 ring-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label={t('nav.toggle')}
             aria-expanded={mobileNavOpen}
-            onClick={() => setMobileNavOpen((open) => !open)}
+            aria-controls="vault-mobile-navigation"
+            onClick={() => (mobileNavOpen ? closeMobileNav(false) : setMobileNavOpen(true))}
           >
             {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
@@ -113,21 +175,32 @@ export function AppShell({
       </header>
 
       {mobileNavOpen ? (
-        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true">
+        <div
+          id="vault-mobile-navigation"
+          className="fixed inset-0 z-40 md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('nav.mobileLabel')}
+        >
           <button
             type="button"
+            tabIndex={-1}
             className="absolute inset-0 bg-foreground/30"
             aria-label="메뉴 닫기"
-            onClick={() => setMobileNavOpen(false)}
+            onClick={() => closeMobileNav()}
           />
-          <aside className="relative flex h-full w-[min(22rem,calc(100vw-2rem))] flex-col border-r bg-background shadow-xl">
+          <aside
+            className="relative flex h-full w-[min(22rem,calc(100vw-2rem))] flex-col border-r bg-background shadow-xl"
+            onKeyDown={trapMobileNavFocus}
+          >
             <div className="flex h-[63px] items-center justify-between border-b px-4">
               <img src="/icons/amic-vault-wordmark.svg" alt="AMIC Vault" className="h-8 w-[132px]" draggable={false} />
               <button
+                ref={mobileNavCloseButtonRef}
                 type="button"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="메뉴 닫기"
-                onClick={() => setMobileNavOpen(false)}
+                onClick={() => closeMobileNav()}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -142,7 +215,7 @@ export function AppShell({
               />
             </div>
             <ProfilePanel status={profileStatus} user={currentUser} />
-            <NavigationList groups={navigationGroups} onNavigate={() => setMobileNavOpen(false)} />
+            <NavigationList groups={navigationGroups} onNavigate={() => closeMobileNav(false)} />
             <div className="mt-auto border-t p-3">
               <LanguageToggle />
             </div>

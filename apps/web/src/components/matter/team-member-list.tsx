@@ -34,6 +34,7 @@ type TeamCopy = {
   userHidden: string;
   role: string;
   access: string;
+  caption: string;
   actions: string;
   save: string;
   remove: string;
@@ -52,6 +53,7 @@ const teamCopy: Record<Language, TeamCopy> = {
     userHidden: '내부 참조는 표시하지 않음',
     role: '역할',
     access: '접근 권한',
+    caption: '팀 구성원 표',
     actions: '작업',
     save: '구성원 저장',
     remove: '구성원 제거',
@@ -75,6 +77,7 @@ const teamCopy: Record<Language, TeamCopy> = {
     userHidden: 'Internal reference hidden',
     role: 'Role',
     access: 'Access',
+    caption: 'Team members table',
     actions: 'Actions',
     save: 'Save member',
     remove: 'Remove member',
@@ -146,8 +149,9 @@ export function TeamMemberList({
         <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
         {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
       </div>
-      <div className="overflow-hidden rounded-md border bg-card">
-        <table className="w-full border-collapse text-sm">
+      <div className="overflow-x-auto rounded-md border bg-card">
+        <table className="min-w-[720px] w-full border-collapse text-sm">
+          <caption className="sr-only">{copy.caption}</caption>
           <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">{copy.user}</th>

@@ -23,6 +23,7 @@ const copyByLanguage: Record<
     barrier: string;
     status: string;
     members: string;
+    caption: string;
     remove: string;
     emptyMembers: string;
     emptyTitle: string;
@@ -39,6 +40,7 @@ const copyByLanguage: Record<
     barrier: '차단 규칙',
     status: '상태',
     members: '구성원',
+    caption: '정보 장벽 목록 표',
     remove: '구성원 제거',
     emptyMembers: '등록된 구성원이 없습니다.',
     emptyTitle: '등록된 정보 장벽이 없습니다.',
@@ -60,6 +62,7 @@ const copyByLanguage: Record<
     barrier: 'Barrier',
     status: 'Status',
     members: 'Members',
+    caption: 'Information barriers table',
     remove: 'Remove member',
     emptyMembers: 'No members yet.',
     emptyTitle: 'No information barriers yet.',
@@ -99,8 +102,9 @@ export function WallList({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
-      <div className="overflow-hidden rounded-md border bg-card">
-        <table className="w-full border-collapse text-sm">
+      <div className="overflow-x-auto rounded-md border bg-card">
+        <table className="min-w-[720px] w-full border-collapse text-sm">
+          <caption className="sr-only">{copy.caption}</caption>
           <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">{copy.barrier}</th>

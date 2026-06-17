@@ -333,18 +333,19 @@ function SettingsPanel({
 }) {
   return (
     <SectionCard icon={icon} title={title} meta={meta}>
-      {rows ? <Rows empty={empty} rows={rows} /> : <Unavailable copy={unavailableCopy} />}
+      {rows ? <Rows caption={title} empty={empty} rows={rows} /> : <Unavailable copy={unavailableCopy} />}
     </SectionCard>
   );
 }
 
-function Rows({ empty, rows }: { empty: string; rows: Row[] }) {
+function Rows({ caption, empty, rows }: { caption: string; empty: string; rows: Row[] }) {
   if (rows.length === 0) {
     return <EmptyState variant="no-data" title={empty} />;
   }
   return (
-    <div className="overflow-hidden rounded-md border">
-      <table className="w-full table-fixed text-sm">
+    <div className="overflow-x-auto rounded-md border">
+      <table className="min-w-[520px] w-full table-fixed text-sm">
+        <caption className="sr-only">{caption}</caption>
         <tbody>
           {rows.slice(0, 8).map((row, index) => (
             <tr key={`${row[0]}-${index}`} className="border-b last:border-b-0">
