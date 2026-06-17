@@ -29,6 +29,7 @@ export function AuditEventTable({
           actor: '수행자',
           target: '대상',
           result: '결과',
+          caption: '활동 기록 표',
           loading: '활동 기록을 불러오는 중입니다.',
           empty: '표시할 활동 기록이 없습니다.',
           actorFallback: '표시 가능한 수행자 없음',
@@ -44,6 +45,7 @@ export function AuditEventTable({
           actor: 'Actor',
           target: 'Target',
           result: 'Result',
+          caption: 'Activity log table',
           loading: 'Loading activity.',
           empty: 'No activity to show.',
           actorFallback: 'No display actor available',
@@ -58,8 +60,9 @@ export function AuditEventTable({
     return <p className="text-sm font-medium text-destructive">{error}</p>;
   }
   return (
-    <div className="overflow-hidden rounded-md border bg-card">
-      <table className="w-full border-collapse text-sm">
+    <div className="overflow-x-auto rounded-md border bg-card">
+      <table className="min-w-[760px] w-full border-collapse text-sm">
+        <caption className="sr-only">{copy.caption}</caption>
         <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-3 font-medium">{copy.time}</th>

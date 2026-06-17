@@ -33,6 +33,8 @@ describe('AppShell', () => {
 
     expect(html).toContain('AMIC Vault');
     expect(html).toContain('aria-label="Vault 검색"');
+    expect(html).toContain('aria-controls="vault-mobile-navigation"');
+    expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('사건, 파일, 담당자 검색');
     expect(html).toContain('조우상');
     expect(html).toContain('jwsuh@amic.kr');

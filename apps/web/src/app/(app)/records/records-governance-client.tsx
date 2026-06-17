@@ -575,8 +575,9 @@ function SummaryPanel({
 }) {
   return (
     <SectionCard icon={<ListTree className="h-4 w-4" />} title={title}>
-      <div className="mt-3 overflow-hidden rounded-md border">
-        <table className="w-full table-fixed text-sm">
+      <div className="mt-3 overflow-x-auto rounded-md border">
+        <table className="min-w-[520px] w-full table-fixed text-sm">
+          <caption className="sr-only">{title}</caption>
           <tbody>
             {(rows ?? []).slice(0, 8).map((row, index) => (
               <tr key={`${title}-${index}`} className="border-b last:border-b-0">

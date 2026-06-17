@@ -39,6 +39,8 @@ describe('TeamMemberList', () => {
     );
     expect(html).toContain('표시 가능한 사용자 정보 없음');
     expect(html).toContain('내부 참조는 표시하지 않음');
+    expect(html).toContain('팀 구성원 표');
+    expect(html).toContain('min-w-[720px]');
     expect(html).not.toContain(member.userId);
     expect(html).toContain('팀원');
     expect(html).toContain('보기');

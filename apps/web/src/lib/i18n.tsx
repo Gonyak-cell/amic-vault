@@ -25,6 +25,7 @@ const translations = {
   'language.korean': { ko: '한국어', en: 'Korean' },
   'language.english': { ko: 'English', en: 'English' },
   'nav.toggle': { ko: '메뉴 열기', en: 'Toggle navigation' },
+  'nav.mobileLabel': { ko: 'Vault 내비게이션', en: 'Vault navigation' },
   'nav.create': { ko: '새 Matter', en: 'New matter' },
   'nav.recent': { ko: '최근 항목', en: 'Recent' },
   'nav.favorites': { ko: '즐겨찾기', en: 'Favorites' },
