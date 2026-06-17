@@ -5,7 +5,9 @@ import type {
   PasswordResetConfirmDto,
   PasswordResetRequestDto,
   TenantId,
+  UserStatus,
 } from '@amic-vault/shared';
+import { AuditService, type QueryClient } from '../audit/audit.service';
 import type { TenantEntity } from '../tenant/tenant.entity';
 import { TenantService } from '../tenant/tenant.service';
 import { hashPassword, normalizeEmail } from '../user/password';
@@ -50,6 +52,11 @@ export interface ConsumedPasswordResetToken {
   userId: string;
 }
 
+export interface CompletedPasswordReset {
+  statusBefore: UserStatus;
+  statusAfter: UserStatus;
+}
+
 export interface PasswordResetStore {
   revokeOpenTokensForUser(tenantId: TenantId, userId: string): Promise<void>;
   createToken(input: {
@@ -59,7 +66,12 @@ export interface PasswordResetStore {
     expiresAt: Date;
   }): Promise<void>;
   consumeTokenHash(tokenHash: string): Promise<ConsumedPasswordResetToken | null>;
-  updateUserPasswordHash(tenantId: TenantId, userId: string, passwordHash: string): Promise<void>;
+  updateUserPasswordHashAndActivate(
+    tenantId: TenantId,
+    userId: string,
+    passwordHash: string,
+    client?: QueryClient,
+  ): Promise<CompletedPasswordReset | null>;
 }
 
 export class PgPasswordResetStore implements PasswordResetStore {
@@ -107,23 +119,51 @@ export class PgPasswordResetStore implements PasswordResetStore {
     return row ? { tenantId: row.tenant_id as TenantId, userId: row.user_id } : null;
   }
 
-  async updateUserPasswordHash(
+  async updateUserPasswordHashAndActivate(
     tenantId: TenantId,
     userId: string,
     passwordHash: string,
-  ): Promise<void> {
-    await withTenantClient(tenantId, async (client) => {
-      await client.query(
-        `
-        UPDATE users
-        SET password_hash = $3,
-            updated_at = now()
-        WHERE tenant_id = $1
-          AND user_id = $2
-      `,
-        [tenantId, userId, passwordHash],
+    client?: QueryClient,
+  ): Promise<CompletedPasswordReset | null> {
+    if (!client) {
+      return withTenantClient(tenantId, (tenantClient) =>
+        this.updateUserPasswordHashAndActivate(tenantId, userId, passwordHash, tenantClient),
       );
-    });
+    }
+    const result = await client.query(
+      `
+        WITH target AS (
+          SELECT status
+          FROM users
+          WHERE tenant_id = $1
+            AND user_id = $2
+          FOR UPDATE
+        ),
+        updated AS (
+          UPDATE users
+          SET password_hash = $3,
+              status = 'active',
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND user_id = $2
+            AND (SELECT status FROM target) IN ('active', 'inactive')
+          RETURNING status
+        )
+        SELECT target.status AS status_before,
+               updated.status AS status_after
+        FROM target
+        LEFT JOIN updated ON true
+      `,
+      [tenantId, userId, passwordHash],
+    );
+    const row = result.rows[0] as
+      | { status_before: UserStatus; status_after: UserStatus | null }
+      | undefined;
+    if (!row || !row.status_after) return null;
+    return {
+      statusBefore: row.status_before,
+      statusAfter: row.status_after,
+    };
   }
 }
 
@@ -136,6 +176,7 @@ export class PasswordResetService {
     @Inject(UserService) private readonly userService: UserService,
     @Inject(SessionRepository) private readonly sessions: SessionRepository,
     @Inject(MailerStub) private readonly mailer: MailerStub,
+    @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PASSWORD_RESET_STORE) private readonly store: PasswordResetStore,
   ) {}
 
@@ -147,7 +188,7 @@ export class PasswordResetService {
         ? await this.userService.findByTenantAndEmail(tenant.tenantId, email)
         : null;
 
-    if (tenant?.status === 'active' && user?.status === 'active') {
+    if (tenant?.status === 'active' && user && ['active', 'inactive'].includes(user.status)) {
       const token = createOpaqueToken();
       const tokenHash = hashOpaqueToken(token);
       const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
@@ -177,8 +218,38 @@ export class PasswordResetService {
     }
 
     const passwordHash = await hashPassword(input.password);
-    await this.store.updateUserPasswordHash(consumed.tenantId, consumed.userId, passwordHash);
-    await this.sessions.revokeAllForUser(consumed.tenantId, consumed.userId);
+    const completed = await this.auditService.transaction(consumed.tenantId, async (client) => {
+      const reset = await this.store.updateUserPasswordHashAndActivate(
+        consumed.tenantId,
+        consumed.userId,
+        passwordHash,
+        client,
+      );
+      if (!reset) return null;
+      await this.sessions.revokeAllForUser(consumed.tenantId, consumed.userId, client);
+      if (reset.statusBefore === 'inactive' && reset.statusAfter === 'active') {
+        await this.auditService.log(
+          {
+            tenantId: consumed.tenantId,
+            actorType: 'system',
+            action: 'PERMISSION_CHANGED',
+            targetType: 'user',
+            targetId: consumed.userId,
+            metadata: {
+              reason_code: 'password_reset_activation',
+              status_before: reset.statusBefore,
+              status_after: reset.statusAfter,
+            },
+          },
+          client,
+        );
+      }
+      return reset;
+    });
+
+    if (!completed) {
+      throw new UnauthorizedException({ code: 'AUTH_REQUIRED' });
+    }
     return { accepted: true };
   }
 
