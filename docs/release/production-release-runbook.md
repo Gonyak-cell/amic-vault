@@ -93,6 +93,18 @@ storage, or automatic reprocessing approval. Required refs:
 - pg-boss queue prepare evidence, alert delivery evidence, and full release
   smoke evidence
 
+Production hotfix `PROD-PATCH-F9E0F0D-GEMMA-HOTFIX-DEPLOY-2026-06-17` deployed
+PR #122 merge commit `f9e0f0d727694bde1c4637c039e3d702b6c90472` for the
+Gemma file-organization prep path. Migration
+`0077_grant_search_index_chunk_upsert_privileges` was applied by one-off ECS
+migrator with exitCode 0 and `Migrations complete!`. Production API service
+rolled to task revision 26 with the existing 50 GiB ephemeral storage setting
+preserved for the Gemma sidecar, and public smoke
+`PROD-PATCH-F9E0F0D-GEMMA-HOTFIX-PUBLIC-SMOKE-2026-06-17` passed with pass=8
+fail=0 skip=7. The release boundary remains file-organization prep only:
+summary, legal analysis, external model routes, raw prompt/source/model-response
+storage, and automatic reprocessing remain excluded.
+
 Customer-launch evidence `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` approves
 actual customer documents only through the Vault app-controlled
 upload/versioning path. `APPROVAL-LRB-014-JWS-OWNER-2026-06-15` assigns support

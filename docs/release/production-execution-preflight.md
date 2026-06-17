@@ -168,6 +168,27 @@ production release for current main HEAD `c9dc922d50fe7b39b52f023d1942d8b7c5ad4c
 - smoke: `PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16` passed with pass=8 fail=0
   skip=7.
 
+`PROD-PATCH-F9E0F0D-GEMMA-HOTFIX-DEPLOY-2026-06-17` records the
+post-merge production hotfix for PR #122 at current main HEAD
+`f9e0f0d727694bde1c4637c039e3d702b6c90472`.
+
+- scope: Gemma file-organization prep hotfix only; summary generation, legal
+  analysis, external model routes, raw prompt/source/model-response storage, and
+  automatic reprocessing remain excluded;
+- migration: one-off ECS migrator applied
+  `0077_grant_search_index_chunk_upsert_privileges`, exited 0, and recorded
+  `Migrations complete!`; the migrator task definition was deregistered;
+- runtime: production API service reached desired=1/running=1/pending=0 on task
+  revision 26 with the existing 50 GiB ephemeral storage setting preserved for
+  the Gemma sidecar;
+- rollout note: task revision 25 omitted that ephemeral storage setting and
+  failed during sidecar image extraction before serving traffic; revision 24
+  stayed healthy until revision 26 completed;
+- monitoring: Gemma sidecar was RUNNING/HEALTHY and recent
+  `AI_PREP_QUEUE_ERROR` count was 0;
+- smoke: `PROD-PATCH-F9E0F0D-GEMMA-HOTFIX-PUBLIC-SMOKE-2026-06-17` passed with
+  pass=8 fail=0 skip=7.
+
 Concrete account IDs, ARNs, private endpoints, secret names beyond already
 approved public-safe refs, screenshots, cookies, tokens, and provider-console
 metadata remain outside this repository.
