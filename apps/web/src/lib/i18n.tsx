@@ -51,8 +51,8 @@ const translations = {
   'nav.liveActivity': { ko: '최근 활동', en: 'Recent activity' },
   'nav.aiEvidence': { ko: 'AI 검토 근거', en: 'AI evidence' },
   'auth.description': {
-    ko: '워크스페이스 ID, 이메일, 비밀번호로 로그인하세요.',
-    en: 'Sign in with your workspace ID, email, and password.',
+    ko: '이메일과 비밀번호로 로그인하세요.',
+    en: 'Sign in with your email and password.',
   },
   'auth.tenantId': { ko: '워크스페이스 ID', en: 'Workspace ID' },
   'auth.email': { ko: '이메일', en: 'Email' },

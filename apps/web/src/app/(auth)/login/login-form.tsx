@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import type { TenantId } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,7 +10,6 @@ import { LanguageToggle, useI18n } from '@/lib/i18n';
 
 export function LoginForm() {
   const { t } = useI18n();
-  const [tenantId, setTenantId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +20,7 @@ export function LoginForm() {
     setPending(true);
     setError('');
     try {
-      await login({ tenantId: tenantId as TenantId, email, password });
+      await login({ email, password });
       window.location.assign('/dashboard');
     } catch {
       setError(t('auth.invalid'));
@@ -50,15 +48,6 @@ export function LoginForm() {
       </CardHeader>
       <CardContent>
         <form className="flex flex-col gap-4" onSubmit={submit}>
-          <label className="flex flex-col gap-2 text-sm font-medium">
-            {t('auth.tenantId')}
-            <Input
-              autoComplete="organization"
-              required
-              value={tenantId}
-              onChange={(event) => setTenantId(event.target.value)}
-            />
-          </label>
           <label className="flex flex-col gap-2 text-sm font-medium">
             {t('auth.email')}
             <Input
