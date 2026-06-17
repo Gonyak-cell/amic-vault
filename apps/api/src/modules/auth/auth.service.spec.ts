@@ -56,8 +56,16 @@ function fakeTenantService(entity: TenantEntity | null): TenantService {
   } as unknown as TenantService;
 }
 
-function fakeUserService(entity: UserEntity | null): UserService {
+function fakeUserService(
+  entity: UserEntity | null,
+  loginCandidate: { tenant: TenantEntity; user: UserEntity } | null = entity
+    ? { tenant: tenant(), user: entity }
+    : null,
+): UserService {
   return {
+    async findUniqueLoginCandidateByEmail() {
+      return loginCandidate;
+    },
     async findByTenantAndEmail() {
       return entity;
     },
@@ -125,6 +133,37 @@ describe('AuthService', () => {
     expect(result.user.email).toBe('alpha@test.local');
     expect(JSON.stringify(service.securityEvents())).not.toContain('secret-password');
     expect(JSON.stringify(service.securityEvents())).not.toContain(result.session.tokenHash);
+  });
+
+  it('creates a session with email and password only when the email maps to one active tenant', async () => {
+    const service = createService(await user('secret-password'));
+
+    const result = await service.login(
+      { email: 'Alpha@Test.Local', password: 'secret-password' },
+      { ipAddress: '127.0.0.1', userAgent: 'vitest' },
+    );
+
+    expect(result.user.email).toBe('alpha@test.local');
+    expect(result.session.tenantId).toBe(tenantId);
+  });
+
+  it('fails closed for email-only login when no unique tenant candidate exists', async () => {
+    const service = new AuthService(
+      fakeTenantService(null),
+      fakeUserService(null, null),
+      new MemorySessionRepository() as unknown as SessionRepository,
+      new MfaPolicy(),
+      new MemoryAuditService() as unknown as AuditService,
+    );
+
+    await expect(
+      service.login(
+        { email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'AUTH_REQUIRED' },
+    });
   });
 
   it('returns the same AUTH_REQUIRED shape for invalid password, missing user, and missing tenant', async () => {

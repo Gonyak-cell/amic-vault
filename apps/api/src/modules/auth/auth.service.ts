@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import type { TenantEntity } from '../tenant/tenant.entity';
 import { TenantService } from '../tenant/tenant.service';
 import { normalizeEmail, verifyPasswordHash, verifyPasswordOrDummy } from '../user/password';
+import type { UserEntity } from '../user/user.entity';
 import { UserService } from '../user/user.service';
 import { MfaPolicy } from './mfa.policy';
 import {
@@ -57,11 +58,9 @@ export class AuthService {
     metadata: { ipAddress: string | null; userAgent: string | null },
   ): Promise<LoginResult> {
     const normalizedEmail = normalizeEmail(input.email);
-    const tenant = await this.resolveTenant(input);
-    const user =
-      tenant?.status === 'active'
-        ? await this.userService.findByTenantAndEmail(tenant.tenantId, normalizedEmail)
-        : null;
+    const candidate = await this.resolveLoginCandidate(input, normalizedEmail);
+    const tenant = candidate?.tenant ?? null;
+    const user = candidate?.user ?? null;
 
     const passwordOk =
       user?.status === 'active'
@@ -174,6 +173,26 @@ export class AuthService {
 
   securityEvents(): AuthSecurityEvent[] {
     return [...this.events];
+  }
+
+  private async resolveLoginCandidate(
+    input: LoginRequestDto,
+    normalizedEmail: string,
+  ): Promise<{ tenant: TenantEntity; user: UserEntity | null } | null> {
+    const tenant = await this.resolveTenant(input);
+    if (tenant) {
+      return {
+        tenant,
+        user:
+          tenant.status === 'active'
+            ? await this.userService.findByTenantAndEmail(tenant.tenantId, normalizedEmail)
+            : null,
+      };
+    }
+    if (!input.tenantId && !input.tenantSlug) {
+      return this.userService.findUniqueLoginCandidateByEmail(normalizedEmail);
+    }
+    return null;
   }
 
   private async resolveTenant(input: LoginRequestDto): Promise<TenantEntity | null> {

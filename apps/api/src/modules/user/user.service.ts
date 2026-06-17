@@ -1,7 +1,8 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { Pool, type PoolClient } from 'pg';
-import type { TenantId, UserRole, UserStatus } from '@amic-vault/shared';
+import type { TenantId, TenantStatus, UserRole, UserStatus } from '@amic-vault/shared';
 import type { QueryClient } from '../audit/audit.service';
+import type { TenantEntity } from '../tenant/tenant.entity';
 import { hashPassword, normalizeEmail } from './password';
 import { UserEntity } from './user.entity';
 
@@ -50,6 +51,28 @@ interface UserRow {
   updated_at: Date;
 }
 
+interface LoginCandidateRow {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  tenant_region: string;
+  tenant_data_residency: string;
+  tenant_status: TenantStatus;
+  tenant_created_at: Date;
+  tenant_updated_at: Date;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  user_role: UserRole;
+  user_practice_group: string | null;
+  user_status: UserStatus;
+  user_password_hash: string;
+  user_mfa_enabled: boolean;
+  user_last_login_at: Date | null;
+  user_created_at: Date;
+  user_updated_at: Date;
+}
+
 function mapUser(row: UserRow): UserEntity {
   return new UserEntity({
     userId: row.user_id,
@@ -67,6 +90,34 @@ function mapUser(row: UserRow): UserEntity {
   });
 }
 
+function mapLoginCandidate(row: LoginCandidateRow): LoginCandidate {
+  const tenant: TenantEntity = {
+    tenantId: row.tenant_id as TenantId,
+    name: row.tenant_name,
+    slug: row.tenant_slug,
+    region: row.tenant_region,
+    dataResidency: row.tenant_data_residency,
+    status: row.tenant_status,
+    createdAt: row.tenant_created_at,
+    updatedAt: row.tenant_updated_at,
+  };
+  const user = new UserEntity({
+    userId: row.user_id,
+    tenantId: row.tenant_id as TenantId,
+    email: row.user_email,
+    name: row.user_name,
+    role: row.user_role,
+    practiceGroup: row.user_practice_group,
+    status: row.user_status,
+    passwordHash: row.user_password_hash,
+    mfaEnabled: row.user_mfa_enabled,
+    lastLoginAt: row.user_last_login_at,
+    createdAt: row.user_created_at,
+    updatedAt: row.user_updated_at,
+  });
+  return { tenant, user };
+}
+
 export interface CreateUserInput {
   tenantId: TenantId;
   email: string;
@@ -76,8 +127,14 @@ export interface CreateUserInput {
   password: string;
 }
 
+export interface LoginCandidate {
+  tenant: TenantEntity;
+  user: UserEntity;
+}
+
 export interface UserStore {
   createUser(input: CreateUserInput & { passwordHash: string }): Promise<UserEntity>;
+  findUniqueLoginCandidateByEmail(email: string): Promise<LoginCandidate | null>;
   findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null>;
   findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null>;
   updatePasswordHash(tenantId: TenantId, userId: string, passwordHash: string): Promise<void>;
@@ -119,6 +176,21 @@ export class PgUserStore implements UserStore {
       }
       return mapUser(row);
     });
+  }
+
+  async findUniqueLoginCandidateByEmail(email: string): Promise<LoginCandidate | null> {
+    const result = await getPool().query<LoginCandidateRow>(
+      `
+        SELECT tenant_id, tenant_name, tenant_slug, tenant_region, tenant_data_residency,
+          tenant_status, tenant_created_at, tenant_updated_at, user_id, user_email,
+          user_name, user_role, user_practice_group, user_status, user_password_hash,
+          user_mfa_enabled, user_last_login_at, user_created_at, user_updated_at
+        FROM app_find_unique_login_candidate_by_email($1)
+      `,
+      [email],
+    );
+    const row = result.rows[0];
+    return row ? mapLoginCandidate(row) : null;
   }
 
   async findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
@@ -268,6 +340,10 @@ export class UserService {
       email: normalizedEmail,
       passwordHash,
     });
+  }
+
+  findUniqueLoginCandidateByEmail(email: string): Promise<LoginCandidate | null> {
+    return this.store.findUniqueLoginCandidateByEmail(normalizeEmail(email));
   }
 
   findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
