@@ -106,6 +106,23 @@ describe('SearchQueryBuilder', () => {
     expect(built.params).toContain(query);
   });
 
+  it('keeps tenant ids available for semantic facet display labels', () => {
+    const built = builder().buildVectorFacets(
+      { query: 'termination', mode: 'semantic', page: 1, pageSize: 10 },
+      scope,
+      '[0.100000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000]',
+      'semantic',
+    );
+
+    expect(built.sql).toContain(
+      'SELECT tenant_id, client_id, matter_id, document_type, version_status, updated_at',
+    );
+    expect(built.sql).toContain('c.tenant_id = filtered.tenant_id');
+    expect(built.sql).toContain('m.tenant_id = filtered.tenant_id');
+    expect(built.sql).toContain("'label', client_name");
+    expect(built.sql).toContain("'label', safe_label");
+  });
+
   it('builds bounded AI context chunk candidates from the same vector CTE', () => {
     const built = builder().buildVectorChunks(
       { query: 'termination', mode: 'hybrid', page: 1, pageSize: 10 },

@@ -247,7 +247,7 @@ export class SearchQueryBuilder {
       sql: `
         ${cteSql},
         filtered AS (
-          SELECT client_id, matter_id, document_type, version_status, updated_at
+          SELECT tenant_id, client_id, matter_id, document_type, version_status, updated_at
           FROM best
         )
         SELECT jsonb_build_object(
