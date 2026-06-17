@@ -4,6 +4,7 @@ import {
   FileText,
   FolderKanban,
   History,
+  MailCheck,
   Search,
   Shield,
   type LucideIcon,
@@ -12,7 +13,7 @@ import type { UserRole } from '@amic-vault/shared';
 import type { Language } from '@/lib/i18n';
 import { canShowRouteInNavigation, routeVisibilityPolicies } from '@/lib/features';
 
-export type NavigationGroupKey = 'Vault' | 'Governance' | 'Audit' | 'Security';
+export type NavigationGroupKey = 'Vault' | 'Governance' | 'Audit' | 'Security' | 'Integrations';
 
 export interface NavigationItem {
   href: string;
@@ -31,6 +32,7 @@ const groupLabels = {
   Governance: { ko: 'Governance', en: 'Governance' },
   Audit: { ko: 'Audit', en: 'Audit' },
   Security: { ko: 'Security', en: 'Security' },
+  Integrations: { ko: 'Integrations', en: 'Integrations' },
 } as const satisfies Record<NavigationGroupKey, Record<Language, string>>;
 
 const routeNavigation = {
@@ -69,9 +71,14 @@ const routeNavigation = {
     icon: FileText,
     label: { ko: '파일', en: 'Files' },
   },
+  '/integrations/outlook': {
+    group: 'Integrations',
+    icon: MailCheck,
+    label: { ko: 'Outlook', en: 'Outlook' },
+  },
 } as const;
 
-const groupOrder: NavigationGroupKey[] = ['Vault', 'Governance', 'Audit', 'Security'];
+const groupOrder: NavigationGroupKey[] = ['Vault', 'Governance', 'Audit', 'Security', 'Integrations'];
 
 export function getNavigationGroups(
   role: UserRole | null | undefined,
