@@ -37,7 +37,9 @@ describe('TeamMemberList', () => {
         <TeamMemberList members={[member]} canManage={false} />
       </LanguageProvider>,
     );
-    expect(html).toContain(member.userId);
+    expect(html).toContain('표시 가능한 사용자 정보 없음');
+    expect(html).toContain('내부 참조는 표시하지 않음');
+    expect(html).not.toContain(member.userId);
     expect(html).toContain('팀원');
     expect(html).toContain('보기');
     expect(html).not.toContain('Save team member');
@@ -65,5 +67,7 @@ describe('AddMemberDialog', () => {
     expect(html).toContain('역할');
     expect(html).toContain('접근 권한');
     expect(html).toContain('구성원 추가');
+    expect(html).toContain('고급 사용자 참조 입력');
+    expect(html).not.toContain('사용자 ID');
   });
 });
