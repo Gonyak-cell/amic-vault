@@ -21,6 +21,8 @@ export interface AddMemberDialogProps {
 
 type AddMemberCopy = {
   userRef: string;
+  advancedTitle: string;
+  advancedDescription: string;
   role: string;
   access: string;
   add: string;
@@ -32,7 +34,9 @@ type AddMemberCopy = {
 
 const addMemberCopy: Record<Language, AddMemberCopy> = {
   ko: {
-    userRef: '사용자 ID',
+    userRef: '사용자 참조',
+    advancedTitle: '고급 사용자 참조 입력',
+    advancedDescription: '조직 구성원 선택 API가 연결되기 전까지 권한 관리자만 사용합니다.',
     role: '역할',
     access: '접근 권한',
     add: '구성원 추가',
@@ -50,6 +54,9 @@ const addMemberCopy: Record<Language, AddMemberCopy> = {
   },
   en: {
     userRef: 'User ref',
+    advancedTitle: 'Advanced user reference input',
+    advancedDescription:
+      'Access administrators only until the organization member picker is available.',
     role: 'Role',
     access: 'Access',
     add: 'Add member',
@@ -69,8 +76,7 @@ const addMemberCopy: Record<Language, AddMemberCopy> = {
 
 function safeError(errorCode: ErrorCode | null | undefined, copy: AddMemberCopy): string | null {
   if (!errorCode) return null;
-  if (errorCode === 'PERMISSION_DENIED' || errorCode === 'ETHICAL_WALL_BLOCKED')
-    return copy.denied;
+  if (errorCode === 'PERMISSION_DENIED' || errorCode === 'ETHICAL_WALL_BLOCKED') return copy.denied;
   return copy.failed;
 }
 
@@ -90,56 +96,62 @@ export function AddMemberDialog({ disabled, errorCode, onAddMember }: AddMemberD
   }
 
   return (
-    <form
-      className="grid gap-3 rounded-md border bg-card p-4 sm:grid-cols-[minmax(18rem,1fr)_10rem_8rem_auto]"
-      onSubmit={submit}
-    >
-      <Input
-        aria-label={copy.userRef}
-        value={userId}
-        disabled={disabled}
-        placeholder={copy.userRef}
-        onChange={(event) => setUserId(event.target.value)}
-      />
-      <select
-        aria-label={copy.role}
-        className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        value={matterRole}
-        disabled={disabled}
-        onChange={(event) => {
-          const nextRole = event.target.value as MatterMemberRole;
-          setMatterRole(nextRole);
-          if (nextRole === 'limited_reviewer') setAccessLevel('read');
-        }}
-      >
-        {matterMemberRoles.map((role) => (
-          <option key={role} value={role}>
-            {copy.roleLabels[role]}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label={copy.access}
-        className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        value={accessLevel}
-        disabled={disabled || matterRole === 'limited_reviewer'}
-        onChange={(event) => setAccessLevel(event.target.value as MatterMemberAccessLevel)}
-      >
-        {matterMemberAccessLevels.map((level) => (
-          <option key={level} value={level}>
-            {copy.accessLabels[level]}
-          </option>
-        ))}
-      </select>
-      <Button
-        aria-label={copy.add}
-        title={copy.add}
-        type="submit"
-        disabled={disabled}
-      >
-        <UserPlus className="h-4 w-4" />
-      </Button>
-      {error ? <p className="text-sm font-medium text-destructive sm:col-span-4">{error}</p> : null}
-    </form>
+    <section className="rounded-md border bg-card p-4">
+      <details>
+        <summary className="cursor-pointer text-sm font-medium text-foreground">
+          {copy.advancedTitle}
+        </summary>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{copy.advancedDescription}</p>
+        <form
+          className="mt-4 grid gap-3 sm:grid-cols-[minmax(18rem,1fr)_10rem_8rem_auto]"
+          onSubmit={submit}
+        >
+          <Input
+            aria-label={copy.userRef}
+            value={userId}
+            disabled={disabled}
+            placeholder={copy.userRef}
+            onChange={(event) => setUserId(event.target.value)}
+          />
+          <select
+            aria-label={copy.role}
+            className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={matterRole}
+            disabled={disabled}
+            onChange={(event) => {
+              const nextRole = event.target.value as MatterMemberRole;
+              setMatterRole(nextRole);
+              if (nextRole === 'limited_reviewer') setAccessLevel('read');
+            }}
+          >
+            {matterMemberRoles.map((role) => (
+              <option key={role} value={role}>
+                {copy.roleLabels[role]}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={copy.access}
+            className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={accessLevel}
+            disabled={disabled || matterRole === 'limited_reviewer'}
+            onChange={(event) => setAccessLevel(event.target.value as MatterMemberAccessLevel)}
+          >
+            {matterMemberAccessLevels.map((level) => (
+              <option key={level} value={level}>
+                {copy.accessLabels[level]}
+              </option>
+            ))}
+          </select>
+          <Button aria-label={copy.add} title={copy.add} type="submit" disabled={disabled}>
+            <UserPlus className="h-4 w-4" />
+            {copy.add}
+          </Button>
+          {error ? (
+            <p className="text-sm font-medium text-destructive sm:col-span-4">{error}</p>
+          ) : null}
+        </form>
+      </details>
+    </section>
   );
 }

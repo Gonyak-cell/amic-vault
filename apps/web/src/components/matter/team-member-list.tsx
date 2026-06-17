@@ -30,6 +30,8 @@ export interface TeamMemberListProps {
 type TeamCopy = {
   title: string;
   user: string;
+  userFallback: string;
+  userHidden: string;
   role: string;
   access: string;
   actions: string;
@@ -46,6 +48,8 @@ const teamCopy: Record<Language, TeamCopy> = {
   ko: {
     title: '팀 구성원',
     user: '사용자',
+    userFallback: '표시 가능한 사용자 정보 없음',
+    userHidden: '내부 참조는 표시하지 않음',
     role: '역할',
     access: '접근 권한',
     actions: '작업',
@@ -67,6 +71,8 @@ const teamCopy: Record<Language, TeamCopy> = {
   en: {
     title: 'Team members',
     user: 'User',
+    userFallback: 'No display user available',
+    userHidden: 'Internal reference hidden',
     role: 'Role',
     access: 'Access',
     actions: 'Actions',
@@ -89,8 +95,7 @@ const teamCopy: Record<Language, TeamCopy> = {
 
 function safeError(errorCode: ErrorCode | null | undefined, copy: TeamCopy): string | null {
   if (!errorCode) return null;
-  if (errorCode === 'PERMISSION_DENIED' || errorCode === 'ETHICAL_WALL_BLOCKED')
-    return copy.denied;
+  if (errorCode === 'PERMISSION_DENIED' || errorCode === 'ETHICAL_WALL_BLOCKED') return copy.denied;
   return copy.failed;
 }
 
@@ -164,7 +169,12 @@ export function TeamMemberList({
               const busy = busyUserId === member.userId;
               return (
                 <tr key={member.userId} className="border-t">
-                  <td className="px-4 py-3 font-mono text-xs">{member.userId}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-sm font-medium">{copy.userFallback}</span>
+                      <span className="text-xs text-muted-foreground">{copy.userHidden}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     {canManage ? (
                       <select
