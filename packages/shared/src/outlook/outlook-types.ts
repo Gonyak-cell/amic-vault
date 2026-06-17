@@ -363,6 +363,51 @@ export interface OutlookAutofileJobDto {
   deniedReasonCode?: OutlookAutofileDeniedReasonCode;
 }
 
+export type OutlookIntegrationAdminFeature =
+  | 'ADDIN_BOOTSTRAP'
+  | 'AUTH_EXCHANGE'
+  | 'GRAPH_ATTACHMENT_ACQUISITION'
+  | 'SMART_ALERTS'
+  | 'SEND_FILE'
+  | 'DOCUMENT_INSERTION'
+  | 'FOLDER_MAPPING'
+  | 'AUTOFILE';
+
+export type OutlookIntegrationAdminRing =
+  | 'R0_ADMIN_ONLY'
+  | 'R1_PILOT_PRACTICE'
+  | 'R2_BROADER_PILOT'
+  | 'R3_PRODUCTION';
+
+export type OutlookIntegrationAdminEvidenceKind =
+  | 'EV-OUTLOOK-002'
+  | 'EV-OUTLOOK-003'
+  | 'OPERATOR-APPROVAL'
+  | 'DISABLE-REMOVE-REHEARSAL';
+
+export interface OutlookIntegrationAdminFeatureStatusDto {
+  feature: OutlookIntegrationAdminFeature;
+  configured: boolean;
+  allowed: boolean;
+  reasonCode?: string;
+}
+
+export interface OutlookIntegrationAdminEvidenceStatusDto {
+  kind: OutlookIntegrationAdminEvidenceKind;
+  present: boolean;
+  validFormat: boolean;
+}
+
+export interface OutlookIntegrationAdminStatusDto {
+  provider: 'outlook';
+  operationalGateEnforced: boolean;
+  rolloutRing: OutlookIntegrationAdminRing | null;
+  auditAvailable: boolean;
+  features: OutlookIntegrationAdminFeatureStatusDto[];
+  evidence: OutlookIntegrationAdminEvidenceStatusDto[];
+  generatedAt: string;
+}
+
 export type OutlookItemRefDto = z.infer<typeof outlookItemRefSchema>;
 export type OutlookAttachmentRefDto = z.infer<typeof outlookAttachmentRefSchema>;
 export type CreateOutlookEmailFilingRequestDto = z.infer<

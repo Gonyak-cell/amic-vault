@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import {
   acquireOutlookGraphAttachmentSchema,
@@ -20,11 +21,14 @@ import {
   outlookAddinSessionExchangeSchema,
   updateOutlookFolderMappingSchema,
 } from '@amic-vault/shared';
+import { RequireRoles } from '../../common/decorators/require-roles.decorator';
+import { RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import type { RequestWithSession } from '../auth/session.guard';
 import { OutlookAuthService } from './outlook-auth.service';
 import { OutlookDocumentInsertionService } from './outlook-document-insertion.service';
 import { OutlookFolderMappingService } from './outlook-folder-mapping.service';
 import { OutlookGraphAttachmentService } from './outlook-graph-attachment.service';
+import { OutlookIntegrationStatusService } from './outlook-integration-status.service';
 import { OutlookSendFileService } from './outlook-send-file.service';
 import { OutlookService } from './outlook.service';
 
@@ -137,7 +141,16 @@ export class OutlookController {
     private readonly outlookDocumentInsertionService: OutlookDocumentInsertionService,
     @Inject(OutlookFolderMappingService)
     private readonly outlookFolderMappingService: OutlookFolderMappingService,
+    @Inject(OutlookIntegrationStatusService)
+    private readonly outlookIntegrationStatusService: OutlookIntegrationStatusService,
   ) {}
+
+  @Get('admin-status')
+  @RequireRoles('firm_admin', 'security_admin')
+  @UseGuards(RequireRolesGuard)
+  getAdminStatus() {
+    return this.outlookIntegrationStatusService.getAdminStatus();
+  }
 
   @Post('session-exchanges')
   exchangeAddinSession(@Req() request: RequestWithSession, @Body() body: unknown) {

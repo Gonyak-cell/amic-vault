@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PgRoleLookup, RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { AuditModule } from '../audit/audit.module';
 import { PermissionModule } from '../permission/permission.module';
 import { SearchModule } from '../search/search.module';
@@ -21,6 +22,7 @@ import {
 } from './outlook-operational-gate';
 import { OutlookDocumentInsertionService } from './outlook-document-insertion.service';
 import { OutlookFolderMappingService } from './outlook-folder-mapping.service';
+import { OutlookIntegrationStatusService } from './outlook-integration-status.service';
 import { OutlookSendFileService } from './outlook-send-file.service';
 import { OutlookService } from './outlook.service';
 
@@ -31,6 +33,7 @@ import { OutlookService } from './outlook.service';
     OutlookService,
     OutlookAuthService,
     OutlookGraphAttachmentService,
+    OutlookIntegrationStatusService,
     OutlookSendFileService,
     OutlookDocumentInsertionService,
     OutlookFolderMappingService,
@@ -50,11 +53,14 @@ import { OutlookService } from './outlook.service';
       provide: OUTLOOK_GRAPH_ATTACHMENT_TRANSPORT,
       useExisting: DisabledOutlookGraphAttachmentTransport,
     },
+    PgRoleLookup,
+    RequireRolesGuard,
   ],
   exports: [
     OutlookService,
     OutlookAuthService,
     OutlookGraphAttachmentService,
+    OutlookIntegrationStatusService,
     OutlookSendFileService,
     OutlookDocumentInsertionService,
     OutlookFolderMappingService,
