@@ -1,7 +1,7 @@
 # Production UI Rollout Checklist
 
-Status: Draft for operator execution  
-Scope: AMIC Vault production UI/UX release verification  
+Status: Draft for operator execution
+Scope: AMIC Vault production UI/UX release verification
 Data handling: Evidence refs only. Do not paste customer file contents, secrets, raw prompts, source text, model responses, cookies, access tokens, or screenshots that expose confidential matter data.
 
 ## 1. Execution Header
