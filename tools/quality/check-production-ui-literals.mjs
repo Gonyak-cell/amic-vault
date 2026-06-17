@@ -10,7 +10,6 @@ const sourceRoot = path.join(repoRoot, 'apps/web/src');
 const excludedPathParts = [
   `${path.sep}__fixtures__${path.sep}`,
   `${path.sep}__mocks__${path.sep}`,
-  `${path.sep}app${path.sep}showcase${path.sep}`,
   `${path.sep}tests${path.sep}`,
 ];
 
@@ -45,6 +44,14 @@ const literalPatterns = [
   { name: 'placeholder person', pattern: /정서연/ },
   { name: 'placeholder team', pattern: /법무 운영팀/ },
   { name: 'placeholder document', pattern: /주식매매계약서/ },
+  { name: 'placeholder brand', pattern: /Gonyak/ },
+  { name: 'theme selector copy', pattern: /디자인 테마/ },
+  { name: 'workspace id label', pattern: /워크스페이스 ID/ },
+  { name: 'user id label', pattern: /사용자 ID/ },
+  { name: 'download id label', pattern: /다운로드 ID/ },
+  { name: 'download ref label', pattern: /Download ref/ },
+  { name: 'outlook filing matter short ref', pattern: /shortHash\(status\.matterId/ },
+  { name: 'outlook selected matter short ref', pattern: /selectedMatterId \? shortHash/ },
 ];
 
 function shouldScanFile(filePath) {
