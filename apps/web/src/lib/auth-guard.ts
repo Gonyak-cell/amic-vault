@@ -1,6 +1,7 @@
 const protectedPaths = [
   '/dashboard',
   '/matters',
+  '/documents',
   '/search',
   '/contracts',
   '/dd',

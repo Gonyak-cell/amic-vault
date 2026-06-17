@@ -11,7 +11,8 @@ describe('AiPrepStatusPanel', () => {
     expect(html).toContain('File organization prep');
     expect(html).toContain('Document profile');
     expect(html).toContain('Grounded answer.');
-    expect(html).toContain('chunk:11111111-1111-4111-8111-111111111118');
+    expect(html).toContain('1 checked source refs');
+    expect(html).not.toContain('chunk:11111111-1111-4111-8111-111111111118');
     expect(html).toContain('Mark Document profile useful');
     expect(html).toContain('missing source ref');
     expect(html).not.toMatch(

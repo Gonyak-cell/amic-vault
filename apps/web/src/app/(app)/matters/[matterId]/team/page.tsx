@@ -9,6 +9,9 @@ import type {
 } from '@amic-vault/shared';
 import { AddMemberDialog } from '@/components/matter/add-member-dialog';
 import { TeamMemberList } from '@/components/matter/team-member-list';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageShell } from '@/components/ui/page-shell';
 import {
   addMatterMember,
   ApiClientError,
@@ -92,18 +95,16 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
     }
   }
 
+  const title = language === 'ko' ? '팀 관리' : 'Team access';
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-5 px-6 py-6">
-      <section className="flex items-center justify-between gap-4 border-b pb-4">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">
-            {language === 'ko' ? 'Matter ID' : 'Matter ID'} {params.matterId.slice(0, 8)}
-          </p>
-          <h1 className="text-2xl font-semibold tracking-normal">
-            {language === 'ko' ? '팀 관리' : 'Team access'}
-          </h1>
-        </div>
-      </section>
+    <PageShell>
+      <PageHeader
+        breadcrumbs={['Vault', 'Matter', title]}
+        title={title}
+        description="권한이 확인된 팀원과 접근 설정만 표시됩니다."
+      />
+      {listError && !loaded ? <EmptyState variant="api-error" title="팀 정보를 표시할 수 없습니다." /> : null}
       {canManage ? (
         <AddMemberDialog
           disabled={!loaded || Boolean(busyUserId)}
@@ -119,6 +120,6 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
         onUpdateMember={handleUpdate}
         onRemoveMember={handleRemove}
       />
-    </main>
+    </PageShell>
   );
 }
