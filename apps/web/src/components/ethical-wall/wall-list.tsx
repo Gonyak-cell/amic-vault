@@ -4,6 +4,14 @@ import React from 'react';
 import { UserMinus } from 'lucide-react';
 import type { EthicalWallDetailDto, WallMembershipType } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useI18n, type Language } from '@/lib/i18n';
@@ -102,81 +110,71 @@ export function WallList({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
-      <div className="overflow-x-auto rounded-md border bg-card">
-        <table className="min-w-[720px] w-full border-collapse text-sm">
-          <caption className="sr-only">{copy.caption}</caption>
-          <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">{copy.barrier}</th>
-              <th className="px-4 py-3 font-medium">{copy.status}</th>
-              <th className="px-4 py-3 font-medium">{copy.members}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr
-                aria-selected={selectedWallId === item.wall.wallId}
-                className="cursor-pointer border-t align-top transition-colors hover:bg-muted/50 aria-selected:bg-primary/5"
-                key={item.wall.wallId}
-                onClick={() => onSelectWall?.(item)}
-                onKeyDown={(keyboardEvent) => {
-                  if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-                    keyboardEvent.preventDefault();
-                    onSelectWall?.(item);
-                  }
-                }}
-                tabIndex={onSelectWall ? 0 : undefined}
-              >
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{item.wall.wallName}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge tone={item.wall.status === 'active' ? 'success' : 'blocked'}>
-                    {item.wall.status === 'active' ? copy.active : copy.released}
-                  </StatusBadge>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-2">
-                    {item.memberships.map((membership) => (
-                      <div
-                        key={membership.membershipId}
-                        className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2"
-                      >
-                        <div className="flex min-w-0 flex-col">
-                          <span className="text-xs">
-                            {copy.subjectLabels[membership.subjectType] ?? copy.memberUnavailable}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {copy.membershipLabels[membership.membershipType]}
-                          </span>
-                        </div>
-                        <Button
-                          aria-label={copy.remove}
-                          title={copy.remove}
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={busyMembershipId === membership.membershipId}
-                          onClick={() =>
-                            onRemoveMembership?.(item.wall.wallId, membership.membershipId)
-                          }
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </Button>
+      <DataTable caption={copy.caption}>
+        <DataTableHeader>
+          <tr>
+            <DataTableHead>{copy.barrier}</DataTableHead>
+            <DataTableHead>{copy.status}</DataTableHead>
+            <DataTableHead>{copy.members}</DataTableHead>
+          </tr>
+        </DataTableHeader>
+        <DataTableBody>
+          {items.map((item) => (
+            <DataTableRow
+              className="align-top"
+              key={item.wall.wallId}
+              selected={selectedWallId === item.wall.wallId}
+              onSelect={onSelectWall ? () => onSelectWall(item) : undefined}
+            >
+              <DataTableCell>
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium">{item.wall.wallName}</span>
+                </div>
+              </DataTableCell>
+              <DataTableCell>
+                <StatusBadge tone={item.wall.status === 'active' ? 'success' : 'blocked'}>
+                  {item.wall.status === 'active' ? copy.active : copy.released}
+                </StatusBadge>
+              </DataTableCell>
+              <DataTableCell>
+                <div className="flex flex-col gap-2">
+                  {item.memberships.map((membership) => (
+                    <div
+                      key={membership.membershipId}
+                      className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2"
+                    >
+                      <div className="flex min-w-0 flex-col">
+                        <span className="text-xs">
+                          {copy.subjectLabels[membership.subjectType] ?? copy.memberUnavailable}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {copy.membershipLabels[membership.membershipType]}
+                        </span>
                       </div>
-                    ))}
-                    {item.memberships.length === 0 ? (
-                      <span className="text-sm text-muted-foreground">{copy.emptyMembers}</span>
-                    ) : null}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                      <Button
+                        aria-label={copy.remove}
+                        title={copy.remove}
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={busyMembershipId === membership.membershipId}
+                        onClick={() =>
+                          onRemoveMembership?.(item.wall.wallId, membership.membershipId)
+                        }
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {item.memberships.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">{copy.emptyMembers}</span>
+                  ) : null}
+                </div>
+              </DataTableCell>
+            </DataTableRow>
+          ))}
+        </DataTableBody>
+      </DataTable>
     </section>
   );
 }

@@ -12,6 +12,15 @@ import type {
 import { matterMemberAccessLevels, matterMemberRoles } from '@amic-vault/shared';
 import { useI18n, type Language } from '@/lib/i18n';
 import { Button } from '../ui/button';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableEmptyRow,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from '../ui/data-table';
 
 type Drafts = Record<
   string,
@@ -149,129 +158,122 @@ export function TeamMemberList({
         <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
         {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
       </div>
-      <div className="overflow-x-auto rounded-md border bg-card">
-        <table className="min-w-[720px] w-full border-collapse text-sm">
-          <caption className="sr-only">{copy.caption}</caption>
-          <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">{copy.user}</th>
-              <th className="px-4 py-3 font-medium">{copy.role}</th>
-              <th className="px-4 py-3 font-medium">{copy.access}</th>
-              {canManage ? (
-                <th className="w-28 px-4 py-3 text-right font-medium">{copy.actions}</th>
-              ) : null}
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => {
-              const draft = drafts[member.userId] ?? {
-                matterRole: member.matterRole,
-                accessLevel: member.accessLevel,
-              };
-              const changed =
-                draft.matterRole !== member.matterRole || draft.accessLevel !== member.accessLevel;
-              const busy = busyUserId === member.userId;
-              const displayName = member.userDisplayName ?? member.displayName ?? null;
-              const displayEmail = member.userDisplayEmail ?? member.displayEmail ?? null;
-              return (
-                <tr key={member.userId} className="border-t">
-                  <td className="px-4 py-3">
-                    <div className="flex min-w-0 flex-col">
-                      <span className="text-sm font-medium">{displayName ?? copy.userFallback}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {displayEmail ?? copy.userHidden}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {canManage ? (
-                      <select
-                        className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        value={draft.matterRole}
-                        disabled={busy}
-                        onChange={(event) =>
-                          updateDraft(
-                            member.userId,
-                            'matterRole',
-                            event.target.value as MatterMemberRole,
-                          )
-                        }
-                      >
-                        {matterMemberRoles.map((role) => (
-                          <option key={role} value={role}>
-                            {copy.roleLabels[role]}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      copy.roleLabels[member.matterRole]
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {canManage ? (
-                      <select
-                        className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        value={draft.accessLevel}
-                        disabled={busy || draft.matterRole === 'limited_reviewer'}
-                        onChange={(event) =>
-                          updateDraft(
-                            member.userId,
-                            'accessLevel',
-                            event.target.value as MatterMemberAccessLevel,
-                          )
-                        }
-                      >
-                        {matterMemberAccessLevels.map((level) => (
-                          <option key={level} value={level}>
-                            {copy.accessLabels[level]}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      copy.accessLabels[member.accessLevel]
-                    )}
-                  </td>
-                  {canManage ? (
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          aria-label={copy.save}
-                          title={copy.save}
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={!changed || busy}
-                          onClick={() => onUpdateMember?.(member.userId, draft)}
-                        >
-                          <Save className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          aria-label={copy.remove}
-                          title={copy.remove}
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => onRemoveMember?.(member.userId)}
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  ) : null}
-                </tr>
-              );
-            })}
-            {members.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={canManage ? 4 : 3}>
-                  {copy.empty}
-                </td>
-              </tr>
+      <DataTable caption={copy.caption}>
+        <DataTableHeader>
+          <tr>
+            <DataTableHead>{copy.user}</DataTableHead>
+            <DataTableHead>{copy.role}</DataTableHead>
+            <DataTableHead>{copy.access}</DataTableHead>
+            {canManage ? (
+              <DataTableHead className="w-28 text-right">{copy.actions}</DataTableHead>
             ) : null}
-          </tbody>
-        </table>
-      </div>
+          </tr>
+        </DataTableHeader>
+        <DataTableBody>
+          {members.map((member) => {
+            const draft = drafts[member.userId] ?? {
+              matterRole: member.matterRole,
+              accessLevel: member.accessLevel,
+            };
+            const changed =
+              draft.matterRole !== member.matterRole || draft.accessLevel !== member.accessLevel;
+            const busy = busyUserId === member.userId;
+            const displayName = member.userDisplayName ?? member.displayName ?? null;
+            const displayEmail = member.userDisplayEmail ?? member.displayEmail ?? null;
+            return (
+              <DataTableRow key={member.userId}>
+                <DataTableCell>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="text-sm font-medium">{displayName ?? copy.userFallback}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {displayEmail ?? copy.userHidden}
+                    </span>
+                  </div>
+                </DataTableCell>
+                <DataTableCell>
+                  {canManage ? (
+                    <select
+                      className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={draft.matterRole}
+                      disabled={busy}
+                      onChange={(event) =>
+                        updateDraft(
+                          member.userId,
+                          'matterRole',
+                          event.target.value as MatterMemberRole,
+                        )
+                      }
+                    >
+                      {matterMemberRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {copy.roleLabels[role]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    copy.roleLabels[member.matterRole]
+                  )}
+                </DataTableCell>
+                <DataTableCell>
+                  {canManage ? (
+                    <select
+                      className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={draft.accessLevel}
+                      disabled={busy || draft.matterRole === 'limited_reviewer'}
+                      onChange={(event) =>
+                        updateDraft(
+                          member.userId,
+                          'accessLevel',
+                          event.target.value as MatterMemberAccessLevel,
+                        )
+                      }
+                    >
+                      {matterMemberAccessLevels.map((level) => (
+                        <option key={level} value={level}>
+                          {copy.accessLabels[level]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    copy.accessLabels[member.accessLevel]
+                  )}
+                </DataTableCell>
+                {canManage ? (
+                  <DataTableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        aria-label={copy.save}
+                        title={copy.save}
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={!changed || busy}
+                        onClick={() => onUpdateMember?.(member.userId, draft)}
+                      >
+                        <Save className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={copy.remove}
+                        title={copy.remove}
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => onRemoveMember?.(member.userId)}
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </DataTableCell>
+                ) : null}
+              </DataTableRow>
+            );
+          })}
+          {members.length === 0 ? (
+            <DataTableEmptyRow colSpan={canManage ? 4 : 3}>{copy.empty}</DataTableEmptyRow>
+          ) : null}
+        </DataTableBody>
+      </DataTable>
     </section>
   );
 }
