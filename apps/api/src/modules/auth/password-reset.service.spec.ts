@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import type { TenantId } from '@amic-vault/shared';
+import type { TenantId, UserStatus } from '@amic-vault/shared';
+import type { AuditLogInput, AuditService, QueryClient } from '../audit/audit.service';
 import type { TenantEntity } from '../tenant/tenant.entity';
 import type { TenantService } from '../tenant/tenant.service';
 import { hashPassword, verifyPasswordHash } from '../user/password';
@@ -8,6 +9,7 @@ import { UserEntity } from '../user/user.entity';
 import type { UserService } from '../user/user.service';
 import { MailerStub } from './mailer.stub';
 import {
+  type CompletedPasswordReset,
   type ConsumedPasswordResetToken,
   type PasswordResetStore,
   PasswordResetService,
@@ -30,7 +32,7 @@ function tenant(): TenantEntity {
   };
 }
 
-async function user(): Promise<UserEntity> {
+async function user(status: UserStatus = 'active'): Promise<UserEntity> {
   const now = new Date('2026-06-11T00:00:00Z');
   return new UserEntity({
     userId: '11111111-1111-4111-8111-111111111101',
@@ -39,7 +41,7 @@ async function user(): Promise<UserEntity> {
     name: 'Alpha',
     role: 'matter_owner',
     practiceGroup: 'corporate',
-    status: 'active',
+    status,
     passwordHash: await hashPassword('old-password'),
     mfaEnabled: false,
     lastLoginAt: null,
@@ -59,6 +61,8 @@ interface StoredResetToken {
 class MemoryPasswordResetStore implements PasswordResetStore {
   readonly tokens: StoredResetToken[] = [];
   passwordHash: string | undefined;
+  statusBefore: UserStatus = 'active';
+  statusAfter: UserStatus | undefined;
 
   async revokeOpenTokensForUser(tenantIdInput: TenantId, userId: string): Promise<void> {
     for (const token of this.tokens) {
@@ -87,12 +91,19 @@ class MemoryPasswordResetStore implements PasswordResetStore {
     return { tenantId: token.tenantId, userId: token.userId };
   }
 
-  async updateUserPasswordHash(
+  async updateUserPasswordHashAndActivate(
     _tenantId: TenantId,
     _userId: string,
     passwordHash: string,
-  ): Promise<void> {
+  ): Promise<CompletedPasswordReset | null> {
+    if (this.statusBefore === 'locked') return null;
     this.passwordHash = passwordHash;
+    const result = {
+      statusBefore: this.statusBefore,
+      statusAfter: 'active' as const,
+    };
+    this.statusAfter = result.statusAfter;
+    return result;
   }
 }
 
@@ -120,6 +131,23 @@ function fakeSessions(revoked: string[]): SessionRepository {
   } as unknown as SessionRepository;
 }
 
+function fakeAuditService(logs: AuditLogInput[] = []): AuditService {
+  const client = {
+    async query() {
+      return { rows: [], rowCount: 0 };
+    },
+  } satisfies QueryClient;
+  return {
+    async transaction(_tenantId: string, run: (tx: QueryClient) => Promise<unknown>) {
+      return run(client);
+    },
+    async log(input: AuditLogInput) {
+      logs.push(input);
+      return { eventId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', createdAt: new Date() };
+    },
+  } as unknown as AuditService;
+}
+
 describe('PasswordResetService', () => {
   it('accepts nonexistent accounts without sending reset material', async () => {
     const mailer = new MailerStub();
@@ -128,6 +156,7 @@ describe('PasswordResetService', () => {
       fakeUserService(null),
       fakeSessions([]),
       mailer,
+      fakeAuditService(),
       new MemoryPasswordResetStore(),
     );
 
@@ -146,6 +175,7 @@ describe('PasswordResetService', () => {
       fakeUserService(await user()),
       fakeSessions(revokedUsers),
       mailer,
+      fakeAuditService(),
       store,
     );
 
@@ -167,5 +197,60 @@ describe('PasswordResetService', () => {
     await expect(
       service.confirmReset({ token: message?.token ?? '', password: 'newer-password' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('allows inactive users to activate through password reset with audit', async () => {
+    const mailer = new MailerStub();
+    const store = new MemoryPasswordResetStore();
+    store.statusBefore = 'inactive';
+    const revokedUsers: string[] = [];
+    const auditLogs: AuditLogInput[] = [];
+    const service = new PasswordResetService(
+      fakeTenantService(),
+      fakeUserService(await user('inactive')),
+      fakeSessions(revokedUsers),
+      mailer,
+      fakeAuditService(auditLogs),
+      store,
+    );
+
+    await service.requestReset({ tenantId, email: 'alpha@test.local' });
+    const message = mailer.latestForEmail('alpha@test.local');
+
+    expect(message).toBeDefined();
+    await expect(
+      service.confirmReset({ token: message?.token ?? '', password: 'new-password' }),
+    ).resolves.toEqual({ accepted: true });
+    expect(store.statusAfter).toBe('active');
+    expect(revokedUsers).toEqual(['11111111-1111-4111-8111-111111111101']);
+    expect(auditLogs).toContainEqual(
+      expect.objectContaining({
+        action: 'PERMISSION_CHANGED',
+        targetType: 'user',
+        targetId: '11111111-1111-4111-8111-111111111101',
+        metadata: {
+          reason_code: 'password_reset_activation',
+          status_before: 'inactive',
+          status_after: 'active',
+        },
+      }),
+    );
+  });
+
+  it('does not issue reset material for locked users', async () => {
+    const mailer = new MailerStub();
+    const service = new PasswordResetService(
+      fakeTenantService(),
+      fakeUserService(await user('locked')),
+      fakeSessions([]),
+      mailer,
+      fakeAuditService(),
+      new MemoryPasswordResetStore(),
+    );
+
+    await expect(
+      service.requestReset({ tenantId, email: 'alpha@test.local' }),
+    ).resolves.toEqual({ accepted: true });
+    expect(mailer.sentMessages()).toHaveLength(0);
   });
 });

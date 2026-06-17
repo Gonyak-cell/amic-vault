@@ -151,18 +151,21 @@ export class SessionRepository {
     );
   }
 
-  async revokeAllForUser(tenantId: TenantId, userId: string): Promise<void> {
-    await withTenantClient(tenantId, async (client) => {
-      await client.query(
-        `
+  async revokeAllForUser(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void> {
+    if (!client) {
+      return withTenantClient(tenantId, (tenantClient) =>
+        this.revokeAllForUser(tenantId, userId, tenantClient),
+      );
+    }
+    await client.query(
+      `
         UPDATE sessions
         SET revoked_at = COALESCE(revoked_at, now())
         WHERE tenant_id = $1
           AND user_id = $2
           AND revoked_at IS NULL
       `,
-        [tenantId, userId],
-      );
-    });
+      [tenantId, userId],
+    );
   }
 }
