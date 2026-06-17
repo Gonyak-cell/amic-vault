@@ -27,6 +27,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   createOutlookDocumentInsertion,
@@ -378,7 +379,7 @@ export function OutlookAddinClient({
   const statusTone = useMemo(() => statusToneClass(status?.status), [status?.status]);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f5f7f8] text-[#16242b]">
+    <main className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <Script
         src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"
         strategy="afterInteractive"
@@ -387,9 +388,9 @@ export function OutlookAddinClient({
         }}
       />
       <div className="mx-auto box-border flex min-h-screen w-full max-w-[520px] flex-col gap-3 p-3">
-        <header className="flex items-center justify-between border-b border-[#d6dde0] pb-3">
+        <header className="flex items-center justify-between border-b pb-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-normal text-[#47626c]">
+            <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
               AMIC Vault
             </p>
             <h1 className="truncate text-lg font-semibold leading-6">Outlook Filing</h1>
@@ -398,7 +399,7 @@ export function OutlookAddinClient({
         </header>
 
         {safeError ? (
-          <div className="flex items-center gap-2 rounded-md border border-[#e0c7c9] bg-[#fff7f7] px-3 py-2 text-sm text-[#8a1f2a]">
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden />
             <span>{safeError}</span>
           </div>
@@ -406,7 +407,7 @@ export function OutlookAddinClient({
 
         <Card className="rounded-md shadow-none">
           <CardHeader className="flex-row items-center gap-2 p-3">
-            <Inbox className="h-4 w-4 text-[#1d5b63]" aria-hidden />
+            <Inbox className="h-4 w-4 text-primary" aria-hidden />
             <CardTitle className="text-sm">메일</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 p-3 pt-0 text-sm">
@@ -417,7 +418,7 @@ export function OutlookAddinClient({
         <Card className="rounded-md shadow-none">
           <CardHeader className="flex-row items-center justify-between gap-2 p-3">
             <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[#1d5b63]" aria-hidden />
+              <FileText className="h-4 w-4 text-primary" aria-hidden />
               <CardTitle className="text-sm">Vault 문서</CardTitle>
             </div>
             <Button
@@ -433,10 +434,10 @@ export function OutlookAddinClient({
             </Button>
           </CardHeader>
           <CardContent className="grid gap-2 p-3 pt-0 text-sm">
-            <input
+            <Input
               value={documentQuery}
               onChange={(event) => setDocumentQuery(event.target.value)}
-              className="h-9 rounded-md border border-[#cbd6d9] bg-white px-3 text-sm outline-none focus:border-[#1d5b63]"
+              className="h-9 bg-card"
               maxLength={120}
               placeholder="문서 검색"
             />
@@ -445,12 +446,12 @@ export function OutlookAddinClient({
                 {documentResults.map((result) => (
                   <label
                     key={result.documentId}
-                    className="flex cursor-pointer items-start gap-2 rounded-md border border-[#d8e0e3] bg-white px-3 py-2"
+                    className="flex cursor-pointer items-start gap-2 rounded-md border bg-background px-3 py-2"
                   >
                     <input
                       type="radio"
                       name="outlook-document"
-                      className="mt-1 h-4 w-4 accent-[#174f56]"
+                      className="mt-1 h-4 w-4 accent-primary"
                       checked={selectedDocumentId === result.documentId}
                       onChange={() => {
                         setSelectedDocumentId(result.documentId);
@@ -459,23 +460,23 @@ export function OutlookAddinClient({
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{result.title}</span>
-                      <span className="block truncate text-xs text-[#5c6e75]">
+                      <span className="block truncate text-xs text-muted-foreground">
                         {result.documentType} · 문서 후보
                       </span>
                     </span>
-                    <span className="rounded-sm bg-[#e9f1f2] px-1.5 py-0.5 text-xs text-[#1d5b63]">
+                    <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-xs text-primary">
                       {Math.round(result.score)}
                     </span>
                   </label>
                 ))}
               </div>
             ) : (
-              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+              <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
                 문서 없음
               </p>
             )}
             {documentInsertion ? (
-              <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
+              <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
                 insert {documentInsertion.status} · 요청 기록됨
               </div>
             ) : null}
@@ -494,7 +495,7 @@ export function OutlookAddinClient({
         <Card className="rounded-md shadow-none">
           <CardHeader className="flex-row items-center justify-between gap-2 p-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-[#8a5a10]" aria-hidden />
+              <AlertTriangle className="h-4 w-4 text-amber-700" aria-hidden />
               <CardTitle className="text-sm">Send</CardTitle>
             </div>
             <Button
@@ -524,12 +525,12 @@ export function OutlookAddinClient({
                 }
               />
             ) : (
-              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+              <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
                 정책 대기
               </p>
             )}
             {sendStatus ? (
-              <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
+              <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
                 send-and-file {sendStatus.status} · 요청 기록됨
               </div>
             ) : null}
@@ -565,26 +566,26 @@ export function OutlookAddinClient({
               suggestions.map((suggestion) => (
                 <label
                   key={suggestion.matterId}
-                  className="flex cursor-pointer items-start gap-2 rounded-md border border-[#d8e0e3] bg-white px-3 py-2 text-sm"
+                  className="flex cursor-pointer items-start gap-2 rounded-md border bg-background px-3 py-2 text-sm"
                 >
                   <input
                     type="radio"
                     name="outlook-matter"
-                    className="mt-1 h-4 w-4 accent-[#174f56]"
+                    className="mt-1 h-4 w-4 accent-primary"
                     checked={selectedMatterId === suggestion.matterId}
                     onChange={() => setSelectedMatterId(suggestion.matterId)}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{suggestion.matterName}</span>
-                    <span className="block text-xs text-[#5c6e75]">{suggestion.matterCode}</span>
+                    <span className="block text-xs text-muted-foreground">{suggestion.matterCode}</span>
                   </span>
-                  <span className="rounded-sm bg-[#e9f1f2] px-1.5 py-0.5 text-xs text-[#1d5b63]">
+                  <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-xs text-primary">
                     {Math.round(suggestion.score)}
                   </span>
                 </label>
               ))
             ) : (
-              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+              <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
                 추천 없음
               </p>
             )}
@@ -594,7 +595,7 @@ export function OutlookAddinClient({
         <Card className="rounded-md shadow-none">
           <CardHeader className="flex-row items-center justify-between gap-2 p-3">
             <div className="flex items-center gap-2">
-              <Folder className="h-4 w-4 text-[#1d5b63]" aria-hidden />
+              <Folder className="h-4 w-4 text-primary" aria-hidden />
               <CardTitle className="text-sm">폴더 매핑</CardTitle>
             </div>
             <Button
@@ -616,12 +617,12 @@ export function OutlookAddinClient({
                 <Metric label="Matter" value={selectedMatterId ? '선택됨' : '없음'} />
               </div>
             ) : (
-              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+              <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
                 폴더 ref 없음
               </p>
             )}
             {folderMapping ? (
-              <div className="rounded-md border border-[#c9dce0] bg-[#f0f8fa] px-3 py-2 text-xs text-[#1d5b63]">
+              <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
                 {folderMapping.approvalStatus} · 매핑 기록됨
                 {folderMapping.autoFileEnabled ? ' · auto-file' : ''}
               </div>
@@ -640,7 +641,7 @@ export function OutlookAddinClient({
 
         <Card className="rounded-md shadow-none">
           <CardHeader className="flex-row items-center gap-2 p-3">
-            <Paperclip className="h-4 w-4 text-[#1d5b63]" aria-hidden />
+            <Paperclip className="h-4 w-4 text-primary" aria-hidden />
             <CardTitle className="text-sm">첨부</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 p-3 pt-0">
@@ -648,11 +649,11 @@ export function OutlookAddinClient({
               snapshot.attachmentRefs.map((attachment, index) => (
                 <label
                   key={attachment.attachmentIdHash}
-                  className="flex items-center gap-2 rounded-md border border-[#d8e0e3] bg-white px-3 py-2 text-sm"
+                  className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm"
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 accent-[#174f56]"
+                    className="h-4 w-4 accent-primary"
                     checked={selectedAttachmentHashes.has(attachment.attachmentIdHash)}
                     onChange={() =>
                       setSelectedAttachmentHashes((current) => {
@@ -667,21 +668,21 @@ export function OutlookAddinClient({
                     }
                   />
                   <span className="font-medium">첨부 {index + 1}</span>
-                  <span className="ml-auto text-xs text-[#5c6e75]">
+                  <span className="ml-auto text-xs text-muted-foreground">
                     {formatBytes(attachment.sizeBytes)}
                     {attachment.mimeType ? ` · ${attachment.mimeType}` : ''}
                   </span>
                 </label>
               ))
             ) : (
-              <p className="rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+              <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
                 첨부 없음
               </p>
             )}
           </CardContent>
         </Card>
 
-        <section className="mt-auto grid gap-2 border-t border-[#d6dde0] pt-3">
+        <section className="mt-auto grid gap-2 border-t pt-3">
           {status ? (
             <div className={`rounded-md border px-3 py-2 text-sm ${statusTone}`}>
               <div className="flex items-center justify-between gap-2">
@@ -718,7 +719,7 @@ export function OutlookAddinClient({
               <RefreshCw className="h-4 w-4" aria-hidden />
             </Button>
           </div>
-          <p className="text-xs text-[#5c6e75]">
+          <p className="text-xs text-muted-foreground">
             선택 Matter {selectedMatterId ? '있음' : '없음'} · 첨부 {selectedCount}
           </p>
         </section>
@@ -737,8 +738,8 @@ function MessageSummary({ snapshot }: { snapshot: OutlookItemSnapshot }) {
       <Metric label="Attachments" value={String(snapshot.attachmentSummary.count)} />
       <Metric label="Selected" value={String(snapshot.attachmentSummary.selectedCount)} />
       {snapshot.message.receivedAt ? (
-        <div className="col-span-2 rounded-md bg-[#eef3f4] px-3 py-2">
-          <dt className="text-xs text-[#5c6e75]">Received</dt>
+        <div className="col-span-2 rounded-md bg-muted/60 px-3 py-2">
+          <dt className="text-xs text-muted-foreground">Received</dt>
           <dd className="font-mono text-xs">
             {new Date(snapshot.message.receivedAt).toLocaleString('ko-KR')}
           </dd>
@@ -750,8 +751,8 @@ function MessageSummary({ snapshot }: { snapshot: OutlookItemSnapshot }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-[#eef3f4] px-3 py-2">
-      <dt className="text-xs text-[#5c6e75]">{label}</dt>
+    <div className="rounded-md bg-muted/60 px-3 py-2">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="truncate font-mono text-xs">{value}</dd>
     </div>
   );
@@ -768,10 +769,10 @@ function SendPolicyPanel({
 }) {
   const tone =
     policy.decision === 'allow'
-      ? 'border-[#b9dfce] bg-[#effaf4] text-[#1d6b4e]'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
       : policy.decision === 'warn'
-        ? 'border-[#ead6a8] bg-[#fff9e9] text-[#80580d]'
-        : 'border-[#e0c7c9] bg-[#fff7f7] text-[#8a1f2a]';
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-destructive/40 bg-destructive/5 text-destructive';
   return (
     <div className={`rounded-md border px-3 py-2 ${tone}`}>
       <div className="flex items-center justify-between gap-2">
@@ -784,7 +785,7 @@ function SendPolicyPanel({
             <label key={code} className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
-                className="h-3.5 w-3.5 accent-[#174f56]"
+                className="h-3.5 w-3.5 accent-primary"
                 checked={acknowledgedWarningCodes.has(code)}
                 onChange={() => onToggleWarning(code)}
               />
@@ -802,7 +803,7 @@ function SendPolicyPanel({
 
 function UnavailableState() {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-dashed border-[#d8e0e3] px-3 py-3 text-sm text-[#5c6e75]">
+    <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
       <XCircle className="h-4 w-4 shrink-0" aria-hidden />
       <span>Office 항목 없음</span>
     </div>
@@ -812,7 +813,7 @@ function UnavailableState() {
 function StatePill({ state }: { state: ClientState }) {
   if (state === 'ready') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-sm bg-[#ddf2ea] px-2 py-1 text-xs font-medium text-[#1d6b4e]">
+      <span className="inline-flex items-center gap-1 rounded-sm bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800">
         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
         ready
       </span>
@@ -820,14 +821,14 @@ function StatePill({ state }: { state: ClientState }) {
   }
   if (state === 'loading') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-sm bg-[#eef3f4] px-2 py-1 text-xs font-medium text-[#47626c]">
+      <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
         <RefreshCw className="h-3.5 w-3.5" aria-hidden />
         loading
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-sm bg-[#fff0dd] px-2 py-1 text-xs font-medium text-[#89520d]">
+    <span className="inline-flex items-center gap-1 rounded-sm bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
       <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
       unavailable
     </span>
@@ -835,9 +836,9 @@ function StatePill({ state }: { state: ClientState }) {
 }
 
 function statusToneClass(status: OutlookFilingRequestStatusDto['status'] | undefined): string {
-  if (status === 'completed') return 'border-[#b9dfce] bg-[#effaf4] text-[#1d6b4e]';
+  if (status === 'completed') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
   if (status === 'denied' || status === 'failed')
-    return 'border-[#e0c7c9] bg-[#fff7f7] text-[#8a1f2a]';
-  if (status === 'cancelled') return 'border-[#d6dde0] bg-[#f4f6f7] text-[#5c6e75]';
-  return 'border-[#c9dce0] bg-[#f0f8fa] text-[#1d5b63]';
+    return 'border-destructive/40 bg-destructive/5 text-destructive';
+  if (status === 'cancelled') return 'border-border bg-muted text-muted-foreground';
+  return 'border-primary/20 bg-primary/5 text-primary';
 }
