@@ -3,6 +3,7 @@
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Search } from 'lucide-react';
 import { auditActions, type AuditAction } from '@amic-vault/shared';
+import { AuditEventInspector } from '@/components/audit/audit-event-inspector';
 import { AuditEventTable } from '@/components/audit/audit-event-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,10 +93,15 @@ export function AuditConsoleClient() {
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(emptyFilters);
   const [events, setEvents] = useState<Awaited<ReturnType<typeof listAuditEvents>>['items']>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const query = useMemo(() => queryFromFilters(appliedFilters), [appliedFilters]);
+  const selectedEvent = useMemo(
+    () => events.find((event) => event.eventId === selectedEventId) ?? null,
+    [events, selectedEventId],
+  );
 
   const load = useCallback(
     async (cursor?: string | null) => {
@@ -104,9 +110,11 @@ export function AuditConsoleClient() {
       try {
         const result = await listAuditEvents({ ...query, cursor: cursor ?? undefined, limit: 50 });
         setEvents((current) => (cursor ? [...current, ...result.items] : result.items));
+        if (!cursor) setSelectedEventId(result.items[0]?.eventId ?? null);
         setNextCursor(result.nextCursor);
       } catch (caught) {
         setEvents([]);
+        setSelectedEventId(null);
         setNextCursor(null);
         setError(safeApiErrorMessage(caught));
       } finally {
@@ -238,7 +246,16 @@ export function AuditConsoleClient() {
           </div>
         </form>
       </SectionCard>
-      <AuditEventTable events={events} busy={busy} error={error} />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <AuditEventTable
+          events={events}
+          busy={busy}
+          error={error}
+          onSelectEvent={(event) => setSelectedEventId(event.eventId)}
+          selectedEventId={selectedEventId}
+        />
+        <AuditEventInspector event={selectedEvent} />
+      </section>
       {nextCursor ? (
         <Button
           aria-label={copy.more}
