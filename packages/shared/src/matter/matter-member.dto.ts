@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
 export const matterMemberRoles = ['owner', 'member', 'limited_reviewer'] as const;
 export const matterMemberAccessLevels = ['read', 'edit'] as const;
@@ -41,10 +42,12 @@ export const updateMatterMemberSchema = z
     },
   );
 
-export interface MatterMemberDto {
+export interface MatterMemberDto extends DisplayFieldsDto {
   matterId: string;
   tenantId: string;
   userId: string;
+  userDisplayName?: string | null;
+  userDisplayEmail?: string | null;
   matterRole: MatterMemberRole;
   accessLevel: MatterMemberAccessLevel;
   addedBy: string;

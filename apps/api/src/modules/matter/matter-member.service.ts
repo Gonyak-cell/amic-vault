@@ -16,6 +16,7 @@ import type {
   TenantId,
   UpdateMatterMemberDto,
 } from '@amic-vault/shared';
+import { buildSafeLabel } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { PermissionService } from '../permission/permission.service';
@@ -39,6 +40,8 @@ interface MatterMemberRow {
   matter_id: string;
   tenant_id: string;
   user_id: string;
+  user_name?: string | null;
+  user_email?: string | null;
   matter_role: MatterMemberRole;
   access_level: MatterMemberAccessLevel;
   added_by: string;
@@ -60,6 +63,21 @@ function mapMatterMember(row: MatterMemberRow): MatterMemberEntity {
     addedBy: row.added_by,
     addedAt: row.added_at,
   });
+}
+
+function mapMatterMemberDto(row: MatterMemberRow) {
+  const dto = mapMatterMember(row).toDto();
+  const userDisplayName = row.user_name ?? null;
+  const userDisplayEmail = row.user_email ?? null;
+  return {
+    ...dto,
+    displayName: userDisplayName,
+    displayEmail: userDisplayEmail,
+    userDisplayName,
+    userDisplayEmail,
+    safeLabel: buildSafeLabel(userDisplayName, userDisplayEmail),
+    canViewSensitiveRef: false,
+  };
 }
 
 function memberRef(member: MatterMemberEntity | null): string {
@@ -104,16 +122,20 @@ export class MatterMemberService {
     const canManage = await this.canManageMembers(context.tenantId, actorUserId, matterId);
     const result = await getPool().query<MatterMemberRow>(
       `
-        SELECT matter_id, tenant_id, user_id, matter_role, access_level, added_by, added_at
-        FROM matter_members
-        WHERE tenant_id = $1
-          AND matter_id = $2
-        ORDER BY matter_role = 'owner' DESC, added_at ASC, user_id
+        SELECT mm.matter_id, mm.tenant_id, mm.user_id, u.name AS user_name, u.email AS user_email,
+          mm.matter_role, mm.access_level, mm.added_by, mm.added_at
+        FROM matter_members mm
+        LEFT JOIN users u
+          ON u.tenant_id = mm.tenant_id
+          AND u.user_id = mm.user_id
+        WHERE mm.tenant_id = $1
+          AND mm.matter_id = $2
+        ORDER BY mm.matter_role = 'owner' DESC, mm.added_at ASC, mm.user_id
       `,
       [context.tenantId, matterId],
     );
     return {
-      items: result.rows.map(mapMatterMember).map((member) => member.toDto()),
+      items: result.rows.map(mapMatterMemberDto),
       canManage,
     };
   }

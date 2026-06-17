@@ -1,4 +1,4 @@
-import type { MatterDto } from '@amic-vault/shared';
+import { buildSafeLabel, type MatterDto } from '@amic-vault/shared';
 
 export interface MatterEntityProps {
   matterId: string;
@@ -29,6 +29,10 @@ export class MatterEntity {
       clientId: this.props.clientId,
       matterCode: this.props.matterCode,
       matterName: this.props.matterName,
+      displayName: this.props.matterName,
+      displayCode: this.props.matterCode,
+      safeLabel: buildSafeLabel(this.props.matterCode, this.props.matterName),
+      canViewSensitiveRef: false,
       matterType: this.props.matterType,
       status: this.props.status,
       openedAt: this.props.openedAt?.toISOString() ?? null,

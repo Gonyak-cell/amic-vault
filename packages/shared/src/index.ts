@@ -451,6 +451,10 @@ export {
 export { userStatuses, type UserStatus, type UserSummary } from './types/user';
 export type { FileObjectDto } from './types/file-object';
 export {
+  buildSafeLabel,
+  type DisplayFieldsDto,
+} from './display/display-fields.dto';
+export {
   documentConfidentialityLevelSchema,
   documentConfidentialityLevels,
   documentPrivilegeStatusSchema,

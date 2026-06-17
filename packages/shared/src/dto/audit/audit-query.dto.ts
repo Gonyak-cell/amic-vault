@@ -6,6 +6,7 @@ import {
   type AuditMetadata,
   type R2DocumentAuditAction,
 } from '../../types/audit';
+import type { DisplayFieldsDto } from '../../display/display-fields.dto';
 
 export const documentAuditQueryEventTypeSchema = z.enum(r2DocumentAuditActions);
 export const auditQueryActionSchema = z.enum(auditActions);
@@ -102,15 +103,21 @@ export type DocumentAuditQueryDto = z.infer<typeof documentAuditQuerySchema>;
 export type AuditQueryDto = z.infer<typeof auditQuerySchema>;
 export type AuditExportQueryDto = z.infer<typeof auditExportQuerySchema>;
 
-export interface DocumentAuditEventDto {
+export interface DocumentAuditEventDto extends DisplayFieldsDto {
   eventId: string;
   action: DocumentAuditQueryEventType;
   actorType: 'user' | 'system';
   actorId: string | null;
+  actorDisplayName?: string | null;
+  actorDisplayEmail?: string | null;
   result: 'success' | 'denied' | 'failure';
   targetType: 'document';
   targetId: string;
+  targetDisplayName?: string | null;
+  targetDisplayCode?: string | null;
   matterId: string | null;
+  matterDisplayName?: string | null;
+  matterDisplayCode?: string | null;
   metadata: AuditMetadata;
   createdAt: string;
 }
@@ -120,16 +127,22 @@ export interface DocumentAuditEventListDto {
   nextCursor: string | null;
 }
 
-export interface AuditEventDto {
+export interface AuditEventDto extends DisplayFieldsDto {
   eventId: string;
   action: AuditAction;
   actorType: 'user' | 'system';
   actorId: string | null;
+  actorDisplayName?: string | null;
+  actorDisplayEmail?: string | null;
   sessionId: string | null;
   result: 'success' | 'denied' | 'failure';
   targetType: string;
   targetId: string | null;
+  targetDisplayName?: string | null;
+  targetDisplayCode?: string | null;
   matterId: string | null;
+  matterDisplayName?: string | null;
+  matterDisplayCode?: string | null;
   metadata: AuditMetadata;
   createdAt: string;
 }

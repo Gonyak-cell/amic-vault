@@ -14,10 +14,16 @@ vi.mock('@/components/ui/button', () => ({
 
 const facets: SearchFacetsDto = {
   clients: [
-    { value: '11111111-1111-4111-8111-111111111301', count: 2 },
+    { value: '11111111-1111-4111-8111-111111111301', label: 'AMIC', count: 2 },
     { value: '22222222-2222-4222-8222-222222222301', count: 0 },
   ],
-  matters: [{ value: '11111111-1111-4111-8111-111111111302', count: 2 }],
+  matters: [
+    {
+      value: '11111111-1111-4111-8111-111111111302',
+      label: 'AMIC-2026 · Vault UI',
+      count: 2,
+    },
+  ],
   documentTypes: [
     { value: 'memo', count: 1 },
     { value: 'contract', count: 1 },
@@ -40,9 +46,11 @@ describe('SearchFacets', () => {
     expect(html).toContain('파일 유형');
     expect(html).toContain('메모');
     expect(html).toContain('계약서');
+    expect(html).toContain('Matter');
+    expect(html).toContain('고객');
+    expect(html).toContain('AMIC-2026 · Vault UI');
+    expect(html).toContain('AMIC');
     expect(html).toContain('최근 7일');
-    expect(html).not.toContain('Matter');
-    expect(html).not.toContain('고객');
     expect(html).not.toContain('표시 가능한 라벨 없음');
     expect(html).not.toContain('ID 11111111');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111301');

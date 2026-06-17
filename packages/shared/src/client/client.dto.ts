@@ -4,6 +4,7 @@ import {
   clientStatusSchema,
   clientTypeSchema,
 } from './client-enums';
+import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
 const metadataSchema = z.record(z.string().min(1).max(64), z.string().max(256)).default({});
 
@@ -31,7 +32,7 @@ export const listClientsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }).strict();
 
-export interface ClientDto {
+export interface ClientDto extends DisplayFieldsDto {
   clientId: string;
   tenantId: string;
   name: string;

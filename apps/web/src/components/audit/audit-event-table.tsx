@@ -93,12 +93,12 @@ export function AuditEventTable({
                 {event.actorType === 'system'
                   ? copy.systemActor
                   : event.actorType === 'user'
-                    ? copy.userActor
+                    ? (event.actorDisplayName ?? event.actorDisplayEmail ?? copy.userActor)
                     : copy.actorFallback}
               </td>
               <td className="px-4 py-3">
                 <div className="flex flex-col gap-1">
-                  <span>{event.targetType}</span>
+                  <span>{event.safeLabel ?? event.targetDisplayName ?? event.targetType}</span>
                 </div>
               </td>
               <td className="px-4 py-3">

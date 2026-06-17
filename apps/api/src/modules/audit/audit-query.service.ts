@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
 import {
+  buildSafeLabel,
   type AuditAction,
   type AuditEventDto,
   type AuditEventListDto,
@@ -41,11 +42,17 @@ interface AuditEventRow {
   action: AuditAction;
   actor_type: 'user' | 'system';
   actor_id: string | null;
+  actor_name?: string | null;
+  actor_email?: string | null;
   session_id: string | null;
   result: 'success' | 'denied' | 'failure';
   target_type: string;
   target_id: string | null;
+  target_display_name?: string | null;
+  target_display_code?: string | null;
   matter_id: string | null;
+  matter_display_name?: string | null;
+  matter_display_code?: string | null;
   metadata_json: AuditMetadata;
   created_at: Date;
 }
@@ -280,21 +287,35 @@ export class AuditQueryService {
   ): Promise<AuditEventRow[]> {
     const result = await getPool().query<AuditEventRow>(
       `
-        SELECT event_id, action, actor_type, actor_id, result, target_type, target_id,
-          session_id, matter_id, metadata_json, created_at
-        FROM audit_events
-        WHERE tenant_id = $1
-          AND target_type = 'document'
-          AND target_id = $2
-          AND action = ANY($9::text[])
-          AND ($3::text IS NULL OR action = $3)
-          AND ($4::timestamptz IS NULL OR created_at >= $4)
-          AND ($5::timestamptz IS NULL OR created_at <= $5)
+        SELECT ae.event_id, ae.action, ae.actor_type, ae.actor_id,
+          actor_user.name AS actor_name, actor_user.email AS actor_email,
+          ae.result, ae.target_type, ae.target_id, document_target.title AS target_display_name,
+          null::text AS target_display_code, ae.session_id, ae.matter_id,
+          matter_target.matter_name AS matter_display_name,
+          matter_target.matter_code AS matter_display_code,
+          ae.metadata_json, ae.created_at
+        FROM audit_events ae
+        LEFT JOIN users actor_user
+          ON actor_user.tenant_id = ae.tenant_id
+          AND actor_user.user_id = ae.actor_id
+        LEFT JOIN documents document_target
+          ON document_target.tenant_id = ae.tenant_id
+          AND document_target.document_id = ae.target_id
+        LEFT JOIN matters matter_target
+          ON matter_target.tenant_id = ae.tenant_id
+          AND matter_target.matter_id = ae.matter_id
+        WHERE ae.tenant_id = $1
+          AND ae.target_type = 'document'
+          AND ae.target_id = $2
+          AND ae.action = ANY($9::text[])
+          AND ($3::text IS NULL OR ae.action = $3)
+          AND ($4::timestamptz IS NULL OR ae.created_at >= $4)
+          AND ($5::timestamptz IS NULL OR ae.created_at <= $5)
           AND (
             $6::timestamptz IS NULL
-            OR (created_at, event_id) < ($6::timestamptz, $7::uuid)
+            OR (ae.created_at, ae.event_id) < ($6::timestamptz, $7::uuid)
           )
-        ORDER BY created_at DESC, event_id DESC
+        ORDER BY ae.created_at DESC, ae.event_id DESC
         LIMIT $8
       `,
       [
@@ -318,23 +339,61 @@ export class AuditQueryService {
   ): Promise<AuditEventRow[]> {
     const result = await getPool().query<AuditEventRow>(
       `
-        SELECT event_id, action, actor_type, actor_id, session_id, result, target_type,
-          target_id, matter_id, metadata_json, created_at
-        FROM audit_events
-        WHERE tenant_id = $1
-          AND ($2::uuid IS NULL OR actor_id = $2)
-          AND ($3::text IS NULL OR action = $3)
-          AND ($4::text IS NULL OR result = $4)
-          AND ($5::text IS NULL OR target_type = $5)
-          AND ($6::uuid IS NULL OR target_id = $6)
-          AND ($7::uuid IS NULL OR matter_id = $7)
-          AND ($8::timestamptz IS NULL OR created_at >= $8)
-          AND ($9::timestamptz IS NULL OR created_at <= $9)
+        SELECT ae.event_id, ae.action, ae.actor_type, ae.actor_id,
+          actor_user.name AS actor_name, actor_user.email AS actor_email,
+          ae.session_id, ae.result, ae.target_type, ae.target_id,
+          CASE
+            WHEN ae.target_type = 'document' THEN document_target.title
+            WHEN ae.target_type = 'matter' THEN matter_target.matter_name
+            WHEN ae.target_type = 'client' THEN client_target.name
+            WHEN ae.target_type IN ('auth', 'user') THEN target_user.name
+            ELSE null
+          END AS target_display_name,
+          CASE
+            WHEN ae.target_type = 'matter' THEN matter_target.matter_code
+            ELSE null
+          END AS target_display_code,
+          ae.matter_id,
+          event_matter.matter_name AS matter_display_name,
+          event_matter.matter_code AS matter_display_code,
+          ae.metadata_json, ae.created_at
+        FROM audit_events ae
+        LEFT JOIN users actor_user
+          ON actor_user.tenant_id = ae.tenant_id
+          AND actor_user.user_id = ae.actor_id
+        LEFT JOIN documents document_target
+          ON document_target.tenant_id = ae.tenant_id
+          AND ae.target_type = 'document'
+          AND document_target.document_id = ae.target_id
+        LEFT JOIN matters matter_target
+          ON matter_target.tenant_id = ae.tenant_id
+          AND ae.target_type = 'matter'
+          AND matter_target.matter_id = ae.target_id
+        LEFT JOIN clients client_target
+          ON client_target.tenant_id = ae.tenant_id
+          AND ae.target_type = 'client'
+          AND client_target.client_id = ae.target_id
+        LEFT JOIN users target_user
+          ON target_user.tenant_id = ae.tenant_id
+          AND ae.target_type IN ('auth', 'user')
+          AND target_user.user_id = ae.target_id
+        LEFT JOIN matters event_matter
+          ON event_matter.tenant_id = ae.tenant_id
+          AND event_matter.matter_id = ae.matter_id
+        WHERE ae.tenant_id = $1
+          AND ($2::uuid IS NULL OR ae.actor_id = $2)
+          AND ($3::text IS NULL OR ae.action = $3)
+          AND ($4::text IS NULL OR ae.result = $4)
+          AND ($5::text IS NULL OR ae.target_type = $5)
+          AND ($6::uuid IS NULL OR ae.target_id = $6)
+          AND ($7::uuid IS NULL OR ae.matter_id = $7)
+          AND ($8::timestamptz IS NULL OR ae.created_at >= $8)
+          AND ($9::timestamptz IS NULL OR ae.created_at <= $9)
           AND (
             $10::timestamptz IS NULL
-            OR (created_at, event_id) < ($10::timestamptz, $11::uuid)
+            OR (ae.created_at, ae.event_id) < ($10::timestamptz, $11::uuid)
           )
-        ORDER BY created_at DESC, event_id DESC
+        ORDER BY ae.created_at DESC, ae.event_id DESC
         LIMIT $12
       `,
       [
@@ -390,31 +449,55 @@ export class AuditQueryService {
 }
 
 function mapAuditRow(row: AuditEventRow): DocumentAuditEventDto {
+  const targetDisplayName = row.target_display_name ?? null;
+  const targetDisplayCode = row.target_display_code ?? null;
   return {
     eventId: row.event_id,
     action: row.action as R2DocumentAuditAction,
     actorType: row.actor_type,
     actorId: row.actor_id,
+    actorDisplayName: row.actor_name ?? null,
+    actorDisplayEmail: row.actor_email ?? null,
     result: row.result,
     targetType: 'document',
     targetId: row.target_id ?? '',
+    targetDisplayName,
+    targetDisplayCode,
     matterId: row.matter_id,
+    matterDisplayName: row.matter_display_name ?? null,
+    matterDisplayCode: row.matter_display_code ?? null,
+    displayName: targetDisplayName,
+    displayCode: targetDisplayCode,
+    safeLabel: buildSafeLabel(targetDisplayCode, targetDisplayName),
+    canViewSensitiveRef: false,
     metadata: row.metadata_json,
     createdAt: row.created_at.toISOString(),
   };
 }
 
 function mapTenantAuditRow(row: AuditEventRow): AuditEventDto {
+  const targetDisplayName = row.target_display_name ?? null;
+  const targetDisplayCode = row.target_display_code ?? null;
   return {
     eventId: row.event_id,
     action: row.action,
     actorType: row.actor_type,
     actorId: row.actor_id,
+    actorDisplayName: row.actor_name ?? null,
+    actorDisplayEmail: row.actor_email ?? null,
     sessionId: row.session_id,
     result: row.result,
     targetType: row.target_type,
     targetId: row.target_id,
+    targetDisplayName,
+    targetDisplayCode,
     matterId: row.matter_id,
+    matterDisplayName: row.matter_display_name ?? null,
+    matterDisplayCode: row.matter_display_code ?? null,
+    displayName: targetDisplayName,
+    displayCode: targetDisplayCode,
+    safeLabel: buildSafeLabel(targetDisplayCode, targetDisplayName) ?? row.target_type,
+    canViewSensitiveRef: false,
     metadata: row.metadata_json,
     createdAt: row.created_at.toISOString(),
   };

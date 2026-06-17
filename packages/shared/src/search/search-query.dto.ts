@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { documentTypeSchema, documentTypes } from '../types/document';
+import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
 const isoDateTimePattern =
   /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2}))?$/;
@@ -66,11 +67,14 @@ export interface SearchHighlightDto {
   end: number;
 }
 
-export interface SearchResultDto {
+export interface SearchResultDto extends DisplayFieldsDto {
   documentId: string;
   versionId: string;
   matterId: string;
+  matterDisplayName?: string | null;
+  matterDisplayCode?: string | null;
   clientId: string;
+  clientDisplayName?: string | null;
   title: string;
   snippet: string;
   highlights: SearchHighlightDto[];
@@ -82,7 +86,9 @@ export interface SearchResultDto {
 
 export interface SearchFacetBucketDto {
   value: string;
+  label?: string | null;
   count: number;
+  canViewSensitiveRef?: boolean;
 }
 
 export interface SearchDateRangeFacetDto extends SearchFacetBucketDto {

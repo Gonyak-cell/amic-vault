@@ -171,12 +171,16 @@ export function TeamMemberList({
               const changed =
                 draft.matterRole !== member.matterRole || draft.accessLevel !== member.accessLevel;
               const busy = busyUserId === member.userId;
+              const displayName = member.userDisplayName ?? member.displayName ?? null;
+              const displayEmail = member.userDisplayEmail ?? member.displayEmail ?? null;
               return (
                 <tr key={member.userId} className="border-t">
                   <td className="px-4 py-3">
                     <div className="flex min-w-0 flex-col">
-                      <span className="text-sm font-medium">{copy.userFallback}</span>
-                      <span className="text-xs text-muted-foreground">{copy.userHidden}</span>
+                      <span className="text-sm font-medium">{displayName ?? copy.userFallback}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {displayEmail ?? copy.userHidden}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3">

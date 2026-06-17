@@ -19,6 +19,8 @@ describe('SearchQueryBuilder', () => {
     );
 
     expect(built.sql).toContain('websearch_to_tsquery');
+    expect(built.sql).toContain('LEFT JOIN matters m');
+    expect(built.sql).toContain('LEFT JOIN clients c');
     expect(built.sql).not.toContain(malicious);
     expect(built.sql).toContain('idx.document_status <> $2');
     expect(built.sql).toContain('idx.version_status = $3');
@@ -57,6 +59,8 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain('WITH tsq AS');
     expect(built.sql).toContain('filtered AS');
     expect(built.sql).toContain('FROM filtered');
+    expect(built.sql).toContain("'label', client_name");
+    expect(built.sql).toContain("'label', safe_label");
     expect(built.sql).toContain('idx.client_id = $3');
     expect(built.sql).toContain('idx.document_type = ANY($4::text[])');
     expect(built.sql).not.toContain('idx.version_status =');
