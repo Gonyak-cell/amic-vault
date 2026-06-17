@@ -1,6 +1,6 @@
 'use client';
 
-import React, { type ReactNode } from 'react';
+import React, { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -15,11 +15,12 @@ import {
   Shield,
   type LucideIcon,
 } from 'lucide-react';
+import type { UserSummary } from '@amic-vault/shared';
+import { getCurrentUser } from '@/lib/auth';
 import { LanguageToggle } from '@/lib/i18n';
 import { LogoutButton } from './logout-button';
 
 type NavigationItem = {
-  count?: string;
   href: string;
   icon: LucideIcon;
   label: string;
@@ -27,21 +28,58 @@ type NavigationItem = {
 
 const vaultNavigation: NavigationItem[] = [
   { href: '/dashboard', label: '홈', icon: CheckSquare },
-  { href: '/matters', label: '사건', icon: FolderKanban, count: '18' },
-  { href: '/search', label: '파일', icon: FileText, count: '642' },
+  { href: '/matters', label: '사건', icon: FolderKanban },
+  { href: '/search', label: '파일', icon: FileText },
   { href: '/search', label: '검색', icon: Search },
 ];
 
 const governanceNavigation: NavigationItem[] = [
   { href: '/records', label: '기록 보존', icon: Archive },
-  { href: '/audit', label: '접근 기록', icon: History, count: '9' },
+  { href: '/audit', label: '접근 기록', icon: History },
   { href: '/walls', label: '정보 차단', icon: Shield },
   { href: '/launch', label: '공유 요청', icon: Activity },
 ];
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  currentUser: initialCurrentUser,
+}: {
+  children: ReactNode;
+  currentUser?: UserSummary | null;
+}) {
+  const [currentUser, setCurrentUser] = useState<UserSummary | null>(() => initialCurrentUser ?? null);
+  const [profileStatus, setProfileStatus] = useState<'loading' | 'ready' | 'error'>(() =>
+    initialCurrentUser === undefined ? 'loading' : 'ready',
+  );
+
+  useEffect(() => {
+    if (initialCurrentUser !== undefined) {
+      setCurrentUser(initialCurrentUser);
+      setProfileStatus('ready');
+      return undefined;
+    }
+
+    let active = true;
+    setProfileStatus('loading');
+    getCurrentUser()
+      .then((response) => {
+        if (!active) return;
+        setCurrentUser(response.user);
+        setProfileStatus('ready');
+      })
+      .catch(() => {
+        if (!active) return;
+        setCurrentUser(null);
+        setProfileStatus('error');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [initialCurrentUser]);
+
   return (
-    <main className="grid min-h-screen grid-rows-[63px_minmax(0,1fr)_auto] overflow-x-hidden bg-[#f8fafd] text-[#1a1f36]">
+    <main className="grid min-h-screen grid-rows-[63px_minmax(0,1fr)] overflow-x-hidden bg-[#f8fafd] text-[#1a1f36]">
       <header className="sticky top-0 z-30 grid h-[63px] grid-cols-[minmax(0,1fr)_auto] items-center bg-[linear-gradient(90deg,#1448c4_0%,#1448c4_42%,#1464e8_100%)] text-white shadow-sm md:grid-cols-[255px_minmax(0,1fr)]">
         <Link
           href="/dashboard"
@@ -85,11 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           aria-label="Vault 내비게이션"
           className="hidden min-h-0 flex-col border-r border-[#e5e5e5] bg-[#fafafa] md:flex"
         >
-          <div className="m-3.5 rounded-lg border border-[#e8ecf4] bg-white p-3">
-            <div className="text-[11px] font-bold uppercase text-[#8a97a8]">워크스페이스</div>
-            <div className="mt-1 text-sm font-bold text-[#1a1f36]">Gonyak Legal Ops</div>
-            <div className="mt-0.5 text-xs text-[#4a5a70]">워크스페이스 ID: amic-prod-shadow</div>
-          </div>
+          <ProfilePanel status={profileStatus} user={currentUser} />
 
           <nav className="px-2.5 pb-3">
             <div className="px-2 pb-1.5 pt-2 text-[11px] font-bold uppercase text-[#8a97a8]">
@@ -109,32 +143,38 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <div className="mt-auto border-t border-[#e8ecf4] px-3.5 py-3 text-xs text-[#4a5a70]">
-            <div className="flex items-center justify-between gap-2">
-              <span>기록 동기화</span>
-              <span className="h-2 w-2 rounded-full bg-[#1464e8]" aria-hidden="true" />
-            </div>
-            <div className="mt-0.5">최근 활동 18:42 KST</div>
-          </div>
+          <div className="mt-auto" />
         </aside>
 
         <div className="min-w-0 overflow-x-hidden bg-[#f8fafd] px-3.5 py-3.5 sm:px-5 sm:py-5 md:px-6">
           {children}
         </div>
       </div>
-
-      <footer className="flex min-h-7 flex-wrap items-start justify-between gap-x-3 gap-y-1 border-t border-[#e8ecf4] bg-[#f4f6fb] px-3.5 py-1.5 text-[11px] font-semibold text-[#4a5a70] md:items-center md:py-0">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>Vault 상태: 정상</span>
-          <span>정보 차단: 적용 중</span>
-          <span>활동 기록: 자동 저장</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>미리보기 모드</span>
-          <span>18:42 KST</span>
-        </div>
-      </footer>
     </main>
+  );
+}
+
+function ProfilePanel({ status, user }: { status: 'loading' | 'ready' | 'error'; user: UserSummary | null }) {
+  let body: ReactNode;
+  if (user) {
+    body = (
+      <>
+        <div className="truncate text-sm font-bold text-[#1a1f36]">{user.name}</div>
+        <div className="mt-0.5 truncate text-xs text-[#4a5a70]">{user.email}</div>
+      </>
+    );
+  } else {
+    body = (
+      <div className="text-xs font-semibold text-[#4a5a70]">
+        {status === 'error' ? '계정 정보를 표시할 수 없습니다' : '계정 정보 불러오는 중'}
+      </div>
+    );
+  }
+
+  return (
+    <section aria-label="사용자 프로필" className="m-3.5 rounded-lg border border-[#e8ecf4] bg-white p-3">
+      {body}
+    </section>
   );
 }
 
@@ -156,9 +196,6 @@ function NavItem({ item }: { item: NavigationItem }) {
       ) : null}
       <Icon className="h-4 w-4 shrink-0" />
       <span>{item.label}</span>
-      {item.count ? (
-        <span className="ml-auto text-[11px] font-bold text-[#8a97a8]">{item.count}</span>
-      ) : null}
     </Link>
   );
 }

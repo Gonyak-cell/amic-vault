@@ -3,6 +3,7 @@ import {
   canIssueSessionForRole,
   type LoginRequestDto,
   type LoginResponseDto,
+  type CurrentUserResponseDto,
   type PasswordResetAcceptedDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
@@ -169,6 +170,17 @@ export class AuthService {
       this.recordEvent('SESSION_REVOKED', null, null, 'logout');
     }
     return { accepted: true };
+  }
+
+  async currentUser(session: SessionRecord | undefined): Promise<CurrentUserResponseDto> {
+    if (!session) {
+      throw authRequired();
+    }
+    const user = await this.userService.findByTenantAndId(session.tenantId, session.userId);
+    if (!user || user.status !== 'active') {
+      throw authRequired();
+    }
+    return { user: user.toSummary() };
   }
 
   securityEvents(): AuthSecurityEvent[] {

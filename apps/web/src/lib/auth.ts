@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  CurrentUserResponseDto,
   LoginRequestDto,
   LoginResponseDto,
   PasswordResetAcceptedDto,
@@ -21,6 +22,10 @@ export function logout(): Promise<PasswordResetAcceptedDto> {
     method: 'POST',
     redirectOnAuthRequired: false,
   });
+}
+
+export function getCurrentUser(): Promise<CurrentUserResponseDto> {
+  return apiFetch<CurrentUserResponseDto>('/auth/me');
 }
 
 export function confirmPasswordReset(

@@ -13,6 +13,10 @@ export interface LoginResponseDto {
   mfaEnabled: boolean;
 }
 
+export interface CurrentUserResponseDto {
+  user: UserSummary;
+}
+
 export interface PasswordResetRequestDto {
   tenantId?: TenantId;
   tenantSlug?: string;
