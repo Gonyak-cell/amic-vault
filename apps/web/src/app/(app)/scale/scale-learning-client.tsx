@@ -2,12 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  BrainCircuit,
-  CheckCircle2,
-  CircleDollarSign,
-  DatabaseZap,
   Gauge,
-  ListChecks,
   RefreshCw,
 } from 'lucide-react';
 import type {
@@ -23,12 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
-  createScaleAiGateReview,
-  createScaleCostSnapshot,
-  createScaleEvalRun,
-  createScaleLearningEvent,
-  createScaleMigrationDrill,
-  createScalePerformanceRun,
   getScaleReadiness,
   listScaleAiGateReviews,
   listScaleCostSnapshots,
@@ -38,8 +27,6 @@ import {
   listScalePerformanceRuns,
 } from '@/lib/api/scale';
 import { useI18n, type Language } from '@/lib/i18n';
-
-const sampleHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 
 const scaleCopy: Record<
   Language,
@@ -115,8 +102,8 @@ const scaleCopy: Record<
 export function ScaleLearningClient() {
   const { language } = useI18n();
   const copy = scaleCopy[language];
-  const [evidenceRef, setEvidenceRef] = useState('r14/gate-evidence');
-  const [patternCode, setPatternCode] = useState('R14.GATE.GREEN');
+  const [evidenceRef, setEvidenceRef] = useState('');
+  const [patternCode, setPatternCode] = useState('');
   const [performance, setPerformance] = useState<ScalePerformanceRunListResponseDto | null>(null);
   const [costs, setCosts] = useState<ScaleCostSnapshotListResponseDto | null>(null);
   const [evals, setEvals] = useState<ScaleEvalRunListResponseDto | null>(null);
@@ -160,92 +147,6 @@ export function ScaleLearningClient() {
     if (nextReadiness) setReadiness(nextReadiness);
   }
 
-  async function recordPerformance() {
-    const result = await run(() =>
-      createScalePerformanceRun({
-        scenario: 'search_query',
-        sampleCount: 201,
-        p50Ms: 80,
-        p95Ms: 180,
-        p99Ms: 260,
-        targetP95Ms: 250,
-        measurementHash: sampleHash,
-        evidenceRef: evidenceRef.trim(),
-      }),
-    );
-    if (result) await refreshAll();
-  }
-
-  async function recordCost() {
-    const result = await run(() =>
-      createScaleCostSnapshot({
-        scope: 'total',
-        periodStart: '2026-06-01',
-        periodEnd: '2026-06-12',
-        unitCount: 174,
-        estimatedCostCents: 0,
-        currency: 'USD',
-        costModelHash: sampleHash,
-        evidenceRef: evidenceRef.trim(),
-      }),
-    );
-    if (result) await refreshAll();
-  }
-
-  async function recordEval() {
-    const result = await run(() =>
-      createScaleEvalRun({
-        suite: 'full_regression',
-        caseCount: 201,
-        passCount: 201,
-        failCount: 0,
-        metricHash: sampleHash,
-        evidenceRef: evidenceRef.trim(),
-      }),
-    );
-    if (result) await refreshAll();
-  }
-
-  async function recordMigrationDrill() {
-    const result = await run(() =>
-      createScaleMigrationDrill({
-        scope: 'full_roundtrip',
-        durationMs: 18000,
-        schemaHashBefore: sampleHash,
-        schemaHashAfter: sampleHash,
-        status: 'pass',
-        evidenceRef: evidenceRef.trim(),
-      }),
-    );
-    if (result) await refreshAll();
-  }
-
-  async function recordLearning() {
-    const result = await run(() =>
-      createScaleLearningEvent({
-        category: 'gate',
-        severity: 'low',
-        patternCode: patternCode.trim(),
-        evidenceRef: evidenceRef.trim(),
-        resolutionRef: 'docs/ledger/gates/R14_gate.md',
-      }),
-    );
-    if (result) await refreshAll();
-  }
-
-  async function recordAiGate() {
-    const result = await run(() =>
-      createScaleAiGateReview({
-        candidateRoute: 'external_model',
-        decision: 'external_blocked',
-        externalModelAllowed: false,
-        controlHash: sampleHash,
-        evidenceRef: evidenceRef.trim(),
-      }),
-    );
-    if (result) await refreshAll();
-  }
-
   return (
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-3 border-b pb-4">
@@ -263,37 +164,14 @@ export function ScaleLearningClient() {
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <PanelTitle icon={<Gauge className="h-4 w-4" />} label={copy.title} />
-          <Button onClick={recordPerformance} disabled={busy || !evidenceRef.trim()}>
-            <Gauge className="h-4 w-4" />
-            {copy.performance}
-          </Button>
-          <Button onClick={recordCost} disabled={busy || !evidenceRef.trim()}>
-            <CircleDollarSign className="h-4 w-4" />
-            {copy.cost}
-          </Button>
-          <Button onClick={recordEval} disabled={busy || !evidenceRef.trim()}>
-            <ListChecks className="h-4 w-4" />
-            {copy.eval}
-          </Button>
-          <Button onClick={recordMigrationDrill} disabled={busy || !evidenceRef.trim()}>
-            <DatabaseZap className="h-4 w-4" />
-            {copy.migration}
-          </Button>
-          <Button onClick={recordLearning} disabled={busy || !evidenceRef.trim() || !patternCode.trim()}>
-            <CheckCircle2 className="h-4 w-4" />
-            {copy.learning}
-          </Button>
-          <Button onClick={recordAiGate} disabled={busy || !evidenceRef.trim()}>
-            <BrainCircuit className="h-4 w-4" />
-            {copy.aiGate}
-          </Button>
+          <p className="text-sm leading-6 text-muted-foreground">{copy.noRecords}</p>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SummaryPanel
             title={copy.readiness}
             empty={copy.noRecords}
-            rows={[
+            rows={readiness ? [
               [copy.performance, String(readiness?.passingPerformanceRunCount ?? 0)],
               [copy.cost, String(readiness?.costSnapshotCount ?? 0)],
               [copy.eval, String(readiness?.passingEvalRunCount ?? 0)],
@@ -301,7 +179,7 @@ export function ScaleLearningClient() {
               [copy.learning, String(readiness?.learningEventCount ?? 0)],
               [copy.externalAi, String(readiness?.externalModelAllowedCount ?? 0)],
               [copy.technicalPass, readiness?.technicalPass ? copy.yes : copy.no],
-            ]}
+            ] : undefined}
           />
           <SummaryPanel
             title={copy.performance}

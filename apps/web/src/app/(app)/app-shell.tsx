@@ -1,44 +1,14 @@
 'use client';
 
-import React, { useEffect, useState, type ReactNode } from 'react';
+import React, { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import {
-  Activity,
-  Archive,
-  Bell,
-  CheckSquare,
-  FileText,
-  FolderKanban,
-  History,
-  Search,
-  Shield,
-  type LucideIcon,
-} from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Bell, Menu, Search, X } from 'lucide-react';
 import type { UserSummary } from '@amic-vault/shared';
 import { getCurrentUser } from '@/lib/auth';
-import { LanguageToggle } from '@/lib/i18n';
+import { LanguageToggle, useI18n } from '@/lib/i18n';
+import { getNavigationGroups, type NavigationGroup, type NavigationItem } from '@/lib/navigation';
 import { LogoutButton } from './logout-button';
-
-type NavigationItem = {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-};
-
-const vaultNavigation: NavigationItem[] = [
-  { href: '/dashboard', label: '홈', icon: CheckSquare },
-  { href: '/matters', label: '사건', icon: FolderKanban },
-  { href: '/search', label: '파일', icon: FileText },
-  { href: '/search', label: '검색', icon: Search },
-];
-
-const governanceNavigation: NavigationItem[] = [
-  { href: '/records', label: '기록 보존', icon: Archive },
-  { href: '/audit', label: '접근 기록', icon: History },
-  { href: '/walls', label: '정보 차단', icon: Shield },
-  { href: '/launch', label: '공유 요청', icon: Activity },
-];
 
 export function AppShell({
   children,
@@ -47,10 +17,14 @@ export function AppShell({
   children: ReactNode;
   currentUser?: UserSummary | null;
 }) {
+  const router = useRouter();
+  const { language, t } = useI18n();
   const [currentUser, setCurrentUser] = useState<UserSummary | null>(() => initialCurrentUser ?? null);
   const [profileStatus, setProfileStatus] = useState<'loading' | 'ready' | 'error'>(() =>
     initialCurrentUser === undefined ? 'loading' : 'ready',
   );
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (initialCurrentUser !== undefined) {
@@ -78,9 +52,22 @@ export function AppShell({
     };
   }, [initialCurrentUser]);
 
+  const navigationGroups = useMemo(
+    () => getNavigationGroups(currentUser?.role, language),
+    [currentUser?.role, language],
+  );
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) return;
+    setMobileNavOpen(false);
+    router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
+  }
+
   return (
-    <main className="grid min-h-screen grid-rows-[63px_minmax(0,1fr)] overflow-x-hidden bg-[#f8fafd] text-[#1a1f36]">
-      <header className="sticky top-0 z-30 grid h-[63px] grid-cols-[minmax(0,1fr)_auto] items-center bg-[linear-gradient(90deg,#1448c4_0%,#1448c4_42%,#1464e8_100%)] text-white shadow-sm md:grid-cols-[255px_minmax(0,1fr)]">
+    <main className="grid min-h-screen grid-rows-[63px_minmax(0,1fr)] overflow-x-hidden bg-background text-foreground">
+      <header className="sticky top-0 z-30 grid h-[63px] grid-cols-[minmax(0,1fr)_auto] items-center bg-[linear-gradient(90deg,hsl(var(--primary-strong))_0%,hsl(var(--primary))_100%)] text-primary-foreground shadow-sm md:grid-cols-[255px_minmax(0,1fr)]">
         <Link
           href="/dashboard"
           aria-label="AMIC Vault 홈"
@@ -95,21 +82,28 @@ export function AppShell({
         </Link>
 
         <div className="flex items-center gap-2 pr-3.5 md:hidden">
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/12 text-white ring-1 ring-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            aria-label={t('nav.toggle')}
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((open) => !open)}
+          >
+            {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
           <LogoutButton compact />
         </div>
 
         <div className="hidden min-w-0 items-center justify-between gap-4 px-5 md:flex">
-          <label className="flex h-9 w-full max-w-[560px] items-center gap-2.5 rounded-lg bg-white/15 px-3 text-sm text-white/75">
-            <Search className="h-4 w-4 shrink-0" />
-            <input
-              aria-label="Vault 검색"
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-white/70"
-              placeholder="사건, 파일, 담당자 검색"
-            />
-          </label>
+          <SearchForm
+            ariaLabel="Vault 검색"
+            onSubmit={submitSearch}
+            query={searchQuery}
+            setQuery={setSearchQuery}
+          />
           <div className="flex shrink-0 items-center gap-2">
             <LanguageToggle />
-            <span className="hidden h-9 items-center gap-2 rounded-md bg-white/12 px-3 text-xs font-semibold text-white/86 ring-1 ring-white/16 lg:inline-flex">
+            <span className="hidden h-9 items-center gap-2 rounded-md bg-white/12 px-3 text-xs font-semibold text-white/90 ring-1 ring-white/16 lg:inline-flex">
               <Bell className="h-4 w-4" />
               알림
             </span>
@@ -118,39 +112,118 @@ export function AppShell({
         </div>
       </header>
 
+      {mobileNavOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="absolute inset-0 bg-foreground/30"
+            aria-label="메뉴 닫기"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="relative flex h-full w-[min(22rem,calc(100vw-2rem))] flex-col border-r bg-background shadow-xl">
+            <div className="flex h-[63px] items-center justify-between border-b px-4">
+              <img src="/icons/amic-vault-wordmark.svg" alt="AMIC Vault" className="h-8 w-[132px]" draggable={false} />
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="메뉴 닫기"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="border-b p-3">
+              <SearchForm
+                ariaLabel="Vault 검색"
+                onSubmit={submitSearch}
+                query={searchQuery}
+                setQuery={setSearchQuery}
+                compact
+              />
+            </div>
+            <ProfilePanel status={profileStatus} user={currentUser} />
+            <NavigationList groups={navigationGroups} onNavigate={() => setMobileNavOpen(false)} />
+            <div className="mt-auto border-t p-3">
+              <LanguageToggle />
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
       <div className="grid min-h-0 grid-cols-1 md:grid-cols-[255px_minmax(0,1fr)]">
-        <aside
-          aria-label="Vault 내비게이션"
-          className="hidden min-h-0 flex-col border-r border-[#e5e5e5] bg-[#fafafa] md:flex"
-        >
+        <aside aria-label="Vault 내비게이션" className="hidden min-h-0 flex-col border-r bg-background md:flex">
           <ProfilePanel status={profileStatus} user={currentUser} />
-
-          <nav className="px-2.5 pb-3">
-            <div className="px-2 pb-1.5 pt-2 text-[11px] font-bold uppercase text-[#8a97a8]">
-              Vault
-            </div>
-            {vaultNavigation.map((item) => (
-              <NavItem key={`${item.href}-${item.label}`} item={item} />
-            ))}
-          </nav>
-
-          <nav className="px-2.5 pb-3">
-            <div className="px-2 pb-1.5 pt-2 text-[11px] font-bold uppercase text-[#8a97a8]">
-              관리
-            </div>
-            {governanceNavigation.map((item) => (
-              <NavItem key={`${item.href}-${item.label}`} item={item} />
-            ))}
-          </nav>
-
+          <NavigationList groups={navigationGroups} />
           <div className="mt-auto" />
         </aside>
 
-        <div className="min-w-0 overflow-x-hidden bg-[#f8fafd] px-3.5 py-3.5 sm:px-5 sm:py-5 md:px-6">
+        <div className="min-w-0 overflow-x-hidden bg-background px-3.5 py-3.5 sm:px-5 sm:py-5 md:px-6">
           {children}
         </div>
       </div>
     </main>
+  );
+}
+
+function SearchForm({
+  ariaLabel,
+  compact = false,
+  onSubmit,
+  query,
+  setQuery,
+}: {
+  ariaLabel: string;
+  compact?: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  query: string;
+  setQuery: (query: string) => void;
+}) {
+  return (
+    <form
+      className={
+        compact
+          ? 'flex h-9 w-full items-center gap-2 rounded-lg border bg-card px-3 text-sm text-muted-foreground'
+          : 'flex h-9 w-full max-w-[560px] items-center gap-2.5 rounded-lg bg-white/15 px-3 text-sm text-white/75'
+      }
+      onSubmit={onSubmit}
+      role="search"
+    >
+      <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <input
+        aria-label={ariaLabel}
+        className={
+          compact
+            ? 'min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground'
+            : 'min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-white/70'
+        }
+        placeholder="사건, 파일, 담당자 검색"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+    </form>
+  );
+}
+
+function NavigationList({
+  groups,
+  onNavigate,
+}: {
+  groups: NavigationGroup[];
+  onNavigate?: (() => void) | undefined;
+}) {
+  return (
+    <nav className="px-2.5 pb-3">
+      {groups.map((group) => (
+        <div key={group.key} className="pb-3">
+          <div className="px-2 pb-1.5 pt-2 text-[11px] font-bold uppercase text-muted-foreground">
+            {group.label}
+          </div>
+          {group.items.map((item) => (
+            <NavItem key={`${item.href}-${item.label}`} item={item} onNavigate={onNavigate} />
+          ))}
+        </div>
+      ))}
+    </nav>
   );
 }
 
@@ -159,41 +232,44 @@ function ProfilePanel({ status, user }: { status: 'loading' | 'ready' | 'error';
   if (user) {
     body = (
       <>
-        <div className="truncate text-sm font-bold text-[#1a1f36]">{user.name}</div>
-        <div className="mt-0.5 truncate text-xs text-[#4a5a70]">{user.email}</div>
+        <div className="truncate text-sm font-semibold text-foreground">{user.name}</div>
+        <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</div>
       </>
     );
   } else {
     body = (
-      <div className="text-xs font-semibold text-[#4a5a70]">
+      <div className="text-xs font-semibold text-muted-foreground">
         {status === 'error' ? '계정 정보를 표시할 수 없습니다' : '계정 정보 불러오는 중'}
       </div>
     );
   }
 
   return (
-    <section aria-label="사용자 프로필" className="m-3.5 rounded-lg border border-[#e8ecf4] bg-white p-3">
+    <section aria-label="사용자 프로필" className="m-3.5 rounded-lg border bg-card p-3">
       {body}
     </section>
   );
 }
 
-function NavItem({ item }: { item: NavigationItem }) {
+function NavItem({ item, onNavigate }: { item: NavigationItem; onNavigate?: (() => void) | undefined }) {
   const pathname = usePathname();
   const Icon = item.icon;
-  const active = pathname === item.href || (item.href === '/dashboard' && pathname === '/');
+  const active =
+    pathname === item.href ||
+    (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`)) ||
+    (item.href === '/dashboard' && pathname === '/');
+  const clickProps = onNavigate ? { onClick: onNavigate } : {};
 
   return (
     <Link
       href={item.href}
-      className={`relative flex min-h-9 items-center gap-2.5 rounded-[7px] px-2.5 text-[13px] font-semibold transition-colors ${
-        active ? 'bg-[#1464e8]/10 text-[#1464e8]' : 'text-[#1a1f36] hover:bg-black/[0.06]'
+      className={`relative flex min-h-9 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-semibold transition-colors ${
+        active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
       }`}
       aria-current={active ? 'page' : undefined}
+      {...clickProps}
     >
-      {active ? (
-        <span className="absolute -left-2.5 top-2 h-5 w-[3px] rounded-full bg-[#1464e8]" />
-      ) : null}
+      {active ? <span className="absolute -left-2.5 top-2 h-5 w-[3px] rounded-full bg-primary" /> : null}
       <Icon className="h-4 w-4 shrink-0" />
       <span>{item.label}</span>
     </Link>

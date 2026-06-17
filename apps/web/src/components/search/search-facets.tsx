@@ -83,7 +83,7 @@ const facetCopy = {
     client: '고객',
     updated: '수정일',
     clear: '필터 초기화',
-      ref: 'ID',
+    unavailable: '표시 가능한 라벨 없음',
   },
   en: {
     type: 'File type',
@@ -92,7 +92,7 @@ const facetCopy = {
     client: 'Client',
     updated: 'Updated',
     clear: 'Clear filters',
-    ref: 'Ref',
+    unavailable: 'No display label available',
   },
 } as const;
 
@@ -155,7 +155,7 @@ function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, 
   };
   if (commonLabels[normalized]) return commonLabels[normalized][language];
   if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(raw)) {
-    return `${facetCopy[language].ref} ${raw.slice(0, 8)}`;
+    return facetCopy[language].unavailable;
   }
   return raw;
 }

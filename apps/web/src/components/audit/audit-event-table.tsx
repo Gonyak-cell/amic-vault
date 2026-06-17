@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { AuditEventDto } from '@amic-vault/shared';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useI18n } from '@/lib/i18n';
 
 export interface AuditEventTableProps {
@@ -21,7 +22,7 @@ export function AuditEventTable({ events, busy = false, error = null }: AuditEve
         result: '결과',
         loading: '활동 기록을 불러오는 중입니다.',
         empty: '표시할 활동 기록이 없습니다.',
-        actorFallback: '시스템',
+        actorFallback: '표시 가능한 수행자 없음',
       }
     : {
         time: 'Time',
@@ -31,7 +32,7 @@ export function AuditEventTable({ events, busy = false, error = null }: AuditEve
         result: 'Result',
         loading: 'Loading activity.',
         empty: 'No activity to show.',
-        actorFallback: 'System',
+        actorFallback: 'No display actor available',
       };
 
   if (error) {
@@ -54,18 +55,17 @@ export function AuditEventTable({ events, busy = false, error = null }: AuditEve
             <tr key={event.eventId} className="border-t">
               <td className="px-4 py-3 font-mono text-xs">{event.createdAt}</td>
               <td className="px-4 py-3 font-medium">{formatAction(event.action)}</td>
-              <td className="px-4 py-3 text-xs">{formatRef(event.actorId ?? event.actorType ?? copy.actorFallback)}</td>
+              <td className="px-4 py-3 text-xs">{event.actorType ?? copy.actorFallback}</td>
               <td className="px-4 py-3">
                 <div className="flex flex-col gap-1">
                   <span>{event.targetType}</span>
-                  {event.targetId ? (
-                    <span className="text-xs text-muted-foreground">
-                      {event.targetId}
-                    </span>
-                  ) : null}
                 </div>
               </td>
-              <td className="px-4 py-3">{event.result}</td>
+              <td className="px-4 py-3">
+                <StatusBadge tone={event.result === 'failure' ? 'blocked' : 'neutral'}>
+                  {event.result}
+                </StatusBadge>
+              </td>
             </tr>
           ))}
           {events.length === 0 ? (
@@ -88,9 +88,4 @@ function formatAction(value: string): string {
     .filter(Boolean)
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function formatRef(value: string): string {
-  if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value)) return value.slice(0, 8);
-  return value;
 }

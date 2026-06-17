@@ -139,10 +139,10 @@ export function RecordsGovernanceClient() {
   const copy = recordsCopy[language];
   const [matterId, setMatterId] = useState('');
   const [documentId, setDocumentId] = useState('');
-  const [policyCode, setPolicyCode] = useState('RET-INDEFINITE');
-  const [policyLabel, setPolicyLabel] = useState('Indefinite retention');
+  const [policyCode, setPolicyCode] = useState('');
+  const [policyLabel, setPolicyLabel] = useState('');
   const [retentionDays, setRetentionDays] = useState('');
-  const [reasonCode, setReasonCode] = useState('CLIENT_RECORDS');
+  const [reasonCode, setReasonCode] = useState('');
   const [legalHoldId, setLegalHoldId] = useState('');
   const [disposalRequestId, setDisposalRequestId] = useState('');
   const [policies, setPolicies] = useState<RetentionPolicyListResponseDto | null>(null);

@@ -1,9 +1,14 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { TenantId, UserSummary } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
 import { AppShell } from './app-shell';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 describe('AppShell', () => {
   it('renders the Vault workspace shell with business navigation labels', () => {
@@ -32,10 +37,10 @@ describe('AppShell', () => {
     expect(html).toContain('조우상');
     expect(html).toContain('jwsuh@amic.kr');
     expect(html).toContain('접근 기록');
-    expect(html).toContain('공유 요청');
+    expect(html).toContain('정보 차단');
     expect(html).toContain('Dashboard payload');
     expect(html).toContain('href="/dashboard"');
-    expect(html).toContain('href="/launch"');
+    expect(html).not.toContain('href="/launch"');
     expect(html).toContain('href="/records"');
     expect(html).not.toContain('Gonyak Legal Ops');
     expect(html).not.toContain('amic-prod-shadow');
@@ -47,5 +52,6 @@ describe('AppShell', () => {
     expect(html).not.toContain('최근 활동 18:42 KST');
     expect(html).not.toContain('감사 로그');
     expect(html).not.toContain('출시 관리');
+    expect(html).not.toContain('공유 요청');
   });
 });

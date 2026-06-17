@@ -9,7 +9,7 @@ describe('VaultActivityClient', () => {
 
     expect(html).toContain('권한이 확인된 실제 파일과 활동만 표시됩니다.');
     expect(html).toContain('표시할 파일이 없습니다.');
-    expect(html).toContain('활동 기록');
+    expect(html).toContain('최근 활동');
     expect(html).toContain('표시할 활동이 없습니다.');
     expect(html).not.toContain('계약 검토 자료실');
     expect(html).not.toContain('새 파일이 추가됨');

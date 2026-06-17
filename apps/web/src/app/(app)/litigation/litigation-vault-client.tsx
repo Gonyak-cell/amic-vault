@@ -144,18 +144,18 @@ export function LitigationVaultClient() {
   const copy = litigationCopy[language];
   const [matterId, setMatterId] = useState('');
   const [documentId, setDocumentId] = useState('');
-  const [evidenceCode, setEvidenceCode] = useState('EV-001');
-  const [exhibitLabel, setExhibitLabel] = useState('Exhibit A');
+  const [evidenceCode, setEvidenceCode] = useState('');
+  const [exhibitLabel, setExhibitLabel] = useState('');
   const [custodyStatus, setCustodyStatus] =
     useState<LitigationCustodyStatus>('collected');
   const [admittedStatus, setAdmittedStatus] =
     useState<LitigationAdmittedStatus>('unknown');
-  const [factCode, setFactCode] = useState('FACT-001');
-  const [factSummary, setFactSummary] = useState('Witness timeline aligns with exhibit date.');
+  const [factCode, setFactCode] = useState('');
+  const [factSummary, setFactSummary] = useState('');
   const [materiality, setMateriality] = useState<LitigationMateriality>('high');
-  const [issueCode, setIssueCode] = useState('ISSUE-001');
-  const [issueLabel, setIssueLabel] = useState('Breach element');
-  const [pleadingCode, setPleadingCode] = useState('PLD-001');
+  const [issueCode, setIssueCode] = useState('');
+  const [issueLabel, setIssueLabel] = useState('');
+  const [pleadingCode, setPleadingCode] = useState('');
   const [pleadingStatus, setPleadingStatus] =
     useState<LitigationPleadingStatus>('internal_draft');
   const [evidence, setEvidence] = useState<LitigationEvidenceListResponseDto | null>(null);

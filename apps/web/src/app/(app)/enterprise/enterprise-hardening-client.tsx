@@ -4,10 +4,7 @@ import React, { useState } from 'react';
 import {
   Building2,
   CheckCircle2,
-  DatabaseBackup,
-  FileCheck2,
   KeyRound,
-  RadioTower,
 } from 'lucide-react';
 import type {
   EnterpriseBackupSnapshotListResponseDto,
@@ -23,11 +20,6 @@ import { Input } from '@/components/ui/input';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   activateEnterpriseSsoProvider,
-  createEnterpriseBackupSnapshot,
-  createEnterpriseComplianceEvidence,
-  createEnterpriseKeyReference,
-  createEnterpriseSiemExport,
-  createEnterpriseSsoProvider,
   getEnterpriseReadiness,
   getEnterpriseSsoMetadata,
   listEnterpriseBackupSnapshots,
@@ -38,9 +30,6 @@ import {
   verifyEnterpriseKeyReference,
 } from '@/lib/api/enterprise';
 import { useI18n, type Language } from '@/lib/i18n';
-
-const sampleHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const sampleFingerprint = 'AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD';
 
 const enterpriseCopy: Record<
   Language,
@@ -140,11 +129,11 @@ const enterpriseCopy: Record<
 export function EnterpriseHardeningClient() {
   const { language } = useI18n();
   const copy = enterpriseCopy[language];
-  const [providerKey, setProviderKey] = useState('corp-idp');
+  const [providerKey, setProviderKey] = useState('');
   const [providerId, setProviderId] = useState('');
   const [keyReferenceId, setKeyReferenceId] = useState('');
-  const [controlId, setControlId] = useState('CC6.1');
-  const [evidenceRef, setEvidenceRef] = useState('soc2-access-control');
+  const [controlId, setControlId] = useState('');
+  const [evidenceRef, setEvidenceRef] = useState('');
   const [providers, setProviders] = useState<EnterpriseSsoProviderListResponseDto | null>(null);
   const [metadata, setMetadata] = useState<EnterpriseSsoSpMetadataDto | null>(null);
   const [keys, setKeys] = useState<EnterpriseKeyReferenceListResponseDto | null>(null);
@@ -188,76 +177,15 @@ export function EnterpriseHardeningClient() {
     if (nextReadiness) setReadiness(nextReadiness);
   }
 
-  async function saveSsoProvider() {
-    const result = await run(() =>
-      createEnterpriseSsoProvider({
-        providerKey: providerKey.trim(),
-        displayName: 'Corporate IdP',
-        idpEntityId: 'corp-idp-entity',
-        ssoUrlHash: sampleHash,
-        certificateFingerprint: sampleFingerprint,
-        metadataHash: sampleHash,
-        defaultRole: 'matter_member',
-        enforcementMode: 'password_disabled',
-      }),
-    );
-    if (result) {
-      setProviderId(result.providerId);
-      await refreshAll();
-    }
-  }
-
   async function activateProvider() {
     const activeProviderId = providerId.trim() || providers?.providers[0]?.providerId || '';
     const result = await run(() => activateEnterpriseSsoProvider(activeProviderId));
     if (result) await refreshAll();
   }
 
-  async function saveKeyReference() {
-    const result = await run(() =>
-      createEnterpriseKeyReference({
-        keyLabel: 'Tenant HSM reference',
-        keyProvider: 'hsm',
-        keyRefHash: sampleHash,
-        keyFingerprint: sampleHash,
-      }),
-    );
-    if (result) {
-      setKeyReferenceId(result.keyReferenceId);
-      await refreshAll();
-    }
-  }
-
   async function verifyKey() {
     const activeKeyId = keyReferenceId.trim() || keys?.keys[0]?.keyReferenceId || '';
     const result = await run(() => verifyEnterpriseKeyReference(activeKeyId));
-    if (result) await refreshAll();
-  }
-
-  async function recordSiemExport() {
-    const result = await run(() =>
-      createEnterpriseSiemExport({ sinkType: 'syslog', endpointHash: sampleHash }),
-    );
-    if (result) await refreshAll();
-  }
-
-  async function recordBackup() {
-    const result = await run(() =>
-      createEnterpriseBackupSnapshot({ scope: 'tenant', reasonCode: 'R13_GATE' }),
-    );
-    if (result) await refreshAll();
-  }
-
-  async function recordEvidence() {
-    const result = await run(() =>
-      createEnterpriseComplianceEvidence({
-        framework: 'soc2',
-        controlId: controlId.trim(),
-        status: 'ready',
-        evidenceRef: evidenceRef.trim(),
-        evidenceHash: sampleHash,
-      }),
-    );
     if (result) await refreshAll();
   }
 
@@ -280,10 +208,6 @@ export function EnterpriseHardeningClient() {
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <PanelTitle icon={<Building2 className="h-4 w-4" />} label={copy.title} />
-          <Button onClick={saveSsoProvider} disabled={busy || !providerKey.trim()}>
-            <Building2 className="h-4 w-4" />
-            {copy.saveSso}
-          </Button>
           <Input
             aria-label={copy.providerRef}
             placeholder={copy.providerRef}
@@ -294,10 +218,6 @@ export function EnterpriseHardeningClient() {
             <CheckCircle2 className="h-4 w-4" />
             {copy.activateSso}
           </Button>
-          <Button onClick={saveKeyReference} disabled={busy}>
-            <KeyRound className="h-4 w-4" />
-            {copy.saveKey}
-          </Button>
           <Input
             aria-label={copy.keyRef}
             placeholder={copy.keyRef}
@@ -307,14 +227,6 @@ export function EnterpriseHardeningClient() {
           <Button onClick={verifyKey} disabled={busy || !(keyReferenceId || keys?.keys[0])}>
             <KeyRound className="h-4 w-4" />
             {copy.verifyKey}
-          </Button>
-          <Button onClick={recordSiemExport} disabled={busy}>
-            <RadioTower className="h-4 w-4" />
-            {copy.siemExport}
-          </Button>
-          <Button onClick={recordBackup} disabled={busy}>
-            <DatabaseBackup className="h-4 w-4" />
-            {copy.backup}
           </Button>
           <div className="grid grid-cols-2 gap-2">
             <Input
@@ -328,24 +240,20 @@ export function EnterpriseHardeningClient() {
               onChange={(event) => setEvidenceRef(event.target.value)}
             />
           </div>
-          <Button onClick={recordEvidence} disabled={busy || !controlId.trim() || !evidenceRef.trim()}>
-            <FileCheck2 className="h-4 w-4" />
-            {copy.evidence}
-          </Button>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SummaryPanel
             title={copy.readiness}
             empty={copy.noRecords}
-            rows={[
+            rows={readiness ? [
               [copy.sso, String(readiness?.activeSsoProviderCount ?? 0)],
               [copy.byok, String(readiness?.activeKeyReferenceCount ?? 0)],
               [copy.siem, String(readiness?.siemExportCount ?? 0)],
               [copy.backupTitle, String(readiness?.backupSnapshotCount ?? 0)],
               [copy.gaps, String(readiness?.complianceGapCount ?? 0)],
               [copy.technicalPass, readiness?.technicalPass ? copy.yes : copy.no],
-            ]}
+            ] : undefined}
           />
           <SummaryPanel
             title={copy.sso}
@@ -360,7 +268,7 @@ export function EnterpriseHardeningClient() {
           <SummaryPanel
             title={copy.byok}
             empty={copy.noRecords}
-            rows={keys?.keys.map((item) => [item.keyProvider, item.status, item.keyFingerprint.slice(0, 12)])}
+            rows={keys?.keys.map((item) => [item.keyProvider, item.status])}
           />
           <SummaryPanel
             title={copy.siem}
@@ -368,7 +276,6 @@ export function EnterpriseHardeningClient() {
             rows={exports?.exports.map((item) => [
               item.sinkType,
               `${item.eventCount} ${copy.events}`,
-              item.manifestHash.slice(0, 12),
             ])}
           />
           <SummaryPanel
@@ -377,7 +284,6 @@ export function EnterpriseHardeningClient() {
             rows={snapshots?.snapshots.map((item) => [
               item.scope,
               `${item.tableCount} ${copy.tables}`,
-              item.rowCountsHash.slice(0, 12),
             ])}
           />
           <SummaryPanel

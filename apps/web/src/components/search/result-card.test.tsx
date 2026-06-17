@@ -47,7 +47,8 @@ describe('ResultCard', () => {
     expect(html).toContain('2026-06-12');
     expect(html).toContain('Matter');
     expect(html).toContain('고객');
-    expect(html).toContain('ID 11111111');
+    expect(html).toContain('표시 가능한 정보 없음');
+    expect(html).not.toContain('ID 11111111');
     expect(html).not.toContain(result.matterId);
     expect(html).not.toContain(result.clientId);
     expect(html).toContain('<mark');
@@ -56,5 +57,16 @@ describe('ResultCard', () => {
     expect(html).not.toContain('0.753');
     expect(html).not.toContain('current');
     expect(html).not.toMatch(/\bAI\b|semantic|recommend/i);
+  });
+
+  it('does not use document id as a title fallback', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <ResultCard result={{ ...result, title: '' }} />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('표시 가능한 제목 없음');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111201</a>');
   });
 });
