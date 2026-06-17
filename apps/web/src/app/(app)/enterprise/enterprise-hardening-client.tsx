@@ -1,11 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Building2,
-  CheckCircle2,
-  KeyRound,
-} from 'lucide-react';
+import { Building2, Database, KeyRound, LockKeyhole, ShieldCheck, UploadCloud } from 'lucide-react';
 import type {
   EnterpriseBackupSnapshotListResponseDto,
   EnterpriseComplianceEvidenceListResponseDto,
@@ -13,133 +9,152 @@ import type {
   EnterpriseReadinessSummaryDto,
   EnterpriseSiemExportListResponseDto,
   EnterpriseSsoProviderListResponseDto,
-  EnterpriseSsoSpMetadataDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageShell } from '@/components/ui/page-shell';
+import { SectionCard } from '@/components/ui/section-card';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
-  activateEnterpriseSsoProvider,
   getEnterpriseReadiness,
-  getEnterpriseSsoMetadata,
   listEnterpriseBackupSnapshots,
   listEnterpriseComplianceEvidence,
   listEnterpriseKeyReferences,
   listEnterpriseSiemExports,
   listEnterpriseSsoProviders,
-  verifyEnterpriseKeyReference,
 } from '@/lib/api/enterprise';
 import { useI18n, type Language } from '@/lib/i18n';
+
+type Row = [string, string, string?];
 
 const enterpriseCopy: Record<
   Language,
   {
-    providerKey: string;
+    pageTitle: string;
+    pageDescription: string;
     refreshTitle: string;
     refresh: string;
-    title: string;
-    saveSso: string;
-    providerRef: string;
-    activateSso: string;
-    saveKey: string;
-    keyRef: string;
-    verifyKey: string;
-    siemExport: string;
-    backup: string;
-    controlRef: string;
-    evidenceRef: string;
-    evidence: string;
     readiness: string;
+    readinessMeta: string;
     sso: string;
+    ssoMeta: string;
+    mfa: string;
+    mfaMeta: string;
     byok: string;
+    byokMeta: string;
     siem: string;
-    backupTitle: string;
+    siemMeta: string;
+    backup: string;
+    backupMeta: string;
     compliance: string;
-    gaps: string;
-    technicalPass: string;
-    yes: string;
-    no: string;
+    complianceMeta: string;
+    apiUnavailableTitle: string;
+    apiUnavailableDescription: string;
+    noRecords: string;
+    active: string;
+    inactive: string;
+    pass: string;
+    notPassed: string;
+    count: string;
     events: string;
     tables: string;
-    noRecords: string;
+    ssoProviders: string;
+    keyReferences: string;
+    siemExports: string;
+    backupSnapshots: string;
+    complianceGaps: string;
+    technicalCheck: string;
   }
 > = {
   ko: {
-    providerKey: 'SSO 제공자 ID',
+    pageTitle: '관리자 설정',
+    pageDescription:
+      'SSO, MFA, 고객 관리 키, 감사 내보내기, 백업, 컴플라이언스 상태를 운영 데이터 기준으로 확인합니다.',
     refreshTitle: '관리자 설정 새로고침',
     refresh: '새로고침',
-    title: '관리자 설정',
-    saveSso: 'SSO 저장',
-    providerRef: '제공자 ID',
-    activateSso: 'SSO 활성화',
-    saveKey: '키 ID 저장',
-    keyRef: '키 ID',
-    verifyKey: '키 검증',
-    siemExport: '감사 내보내기',
-    backup: '백업 기록',
-    controlRef: '관리 항목',
-    evidenceRef: '확인 자료 ID',
-    evidence: '확인 자료 기록',
     readiness: '준비 상태',
+    readinessMeta: 'API 성공 시에만 수치 표시',
     sso: 'SSO',
+    ssoMeta: '인증 제공자 상태',
+    mfa: 'MFA',
+    mfaMeta: '세션 보안 정책',
     byok: '고객 관리 키',
-    siem: '감사 내보내기',
-    backupTitle: '백업',
+    byokMeta: '키 참조 검증 상태',
+    siem: 'SIEM',
+    siemMeta: '감사 이벤트 내보내기',
+    backup: '백업',
+    backupMeta: '운영 백업 스냅샷',
     compliance: '컴플라이언스',
-    gaps: '미충족 항목',
-    technicalPass: '시스템 점검',
-    yes: '통과',
-    no: '미통과',
-    events: '건',
-    tables: '개 테이블',
+    complianceMeta: '컴플라이언스 증빙 상태',
+    apiUnavailableTitle: '운영 데이터가 아직 연결되지 않았습니다.',
+    apiUnavailableDescription: 'API 응답이 확인되면 이 섹션에 실제 설정 상태만 표시됩니다.',
     noRecords: '표시할 기록이 없습니다.',
+    active: '활성',
+    inactive: '비활성',
+    pass: '통과',
+    notPassed: '미통과',
+    count: '건',
+    events: '이벤트',
+    tables: '테이블',
+    ssoProviders: 'SSO 제공자',
+    keyReferences: '키 참조',
+    siemExports: '내보내기',
+    backupSnapshots: '스냅샷',
+    complianceGaps: '미충족 항목',
+    technicalCheck: '시스템 점검',
   },
   en: {
-    providerKey: 'SSO provider ref',
-    refreshTitle: 'Refresh admin readiness',
+    pageTitle: 'Admin settings',
+    pageDescription:
+      'Review SSO, MFA, customer-managed keys, audit exports, backups, and compliance from operational data.',
+    refreshTitle: 'Refresh admin settings',
     refresh: 'Refresh',
-    title: 'Admin settings',
-    saveSso: 'Save SSO',
-    providerRef: 'Provider ref',
-    activateSso: 'Activate SSO',
-    saveKey: 'Save key ref',
-    keyRef: 'Key ref',
-    verifyKey: 'Verify key',
-    siemExport: 'Audit export',
-    backup: 'Record backup',
-    controlRef: 'Control ref',
-    evidenceRef: 'Evidence ref',
-    evidence: 'Record evidence',
     readiness: 'Readiness',
+    readinessMeta: 'Counts render only after API success',
     sso: 'SSO',
+    ssoMeta: 'Identity provider status',
+    mfa: 'MFA',
+    mfaMeta: 'Session security policy',
     byok: 'Customer-managed keys',
-    siem: 'Audit exports',
-    backupTitle: 'Backups',
+    byokMeta: 'Key reference verification',
+    siem: 'SIEM',
+    siemMeta: 'Audit event exports',
+    backup: 'Backup',
+    backupMeta: 'Operational backup snapshots',
     compliance: 'Compliance',
-    gaps: 'Gaps',
-    technicalPass: 'Technical check',
-    yes: 'Pass',
-    no: 'Not passed',
+    complianceMeta: 'Control evidence status',
+    apiUnavailableTitle: 'Operational data is not connected yet.',
+    apiUnavailableDescription:
+      'Only real settings returned by the API will appear in this section.',
+    noRecords: 'No records to show.',
+    active: 'Active',
+    inactive: 'Inactive',
+    pass: 'Pass',
+    notPassed: 'Not passed',
+    count: 'items',
     events: 'events',
     tables: 'tables',
-    noRecords: 'No records to show.',
+    ssoProviders: 'SSO providers',
+    keyReferences: 'Key references',
+    siemExports: 'Exports',
+    backupSnapshots: 'Snapshots',
+    complianceGaps: 'Gaps',
+    technicalCheck: 'Technical check',
   },
 };
 
 export function EnterpriseHardeningClient() {
   const { language } = useI18n();
   const copy = enterpriseCopy[language];
-  const [providerKey, setProviderKey] = useState('');
-  const [providerId, setProviderId] = useState('');
-  const [keyReferenceId, setKeyReferenceId] = useState('');
-  const [controlId, setControlId] = useState('');
-  const [evidenceRef, setEvidenceRef] = useState('');
   const [providers, setProviders] = useState<EnterpriseSsoProviderListResponseDto | null>(null);
-  const [metadata, setMetadata] = useState<EnterpriseSsoSpMetadataDto | null>(null);
   const [keys, setKeys] = useState<EnterpriseKeyReferenceListResponseDto | null>(null);
   const [exports, setExports] = useState<EnterpriseSiemExportListResponseDto | null>(null);
   const [snapshots, setSnapshots] = useState<EnterpriseBackupSnapshotListResponseDto | null>(null);
-  const [evidence, setEvidence] = useState<EnterpriseComplianceEvidenceListResponseDto | null>(null);
+  const [evidence, setEvidence] = useState<EnterpriseComplianceEvidenceListResponseDto | null>(
+    null,
+  );
   const [readiness, setReadiness] = useState<EnterpriseReadinessSummaryDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,10 +173,9 @@ export function EnterpriseHardeningClient() {
   }
 
   async function refreshAll() {
-    const [nextProviders, nextMetadata, nextKeys, nextExports, nextSnapshots, nextEvidence, nextReadiness] =
+    const [nextProviders, nextKeys, nextExports, nextSnapshots, nextEvidence, nextReadiness] =
       await Promise.all([
         run(() => listEnterpriseSsoProviders()),
-        run(() => getEnterpriseSsoMetadata()),
         run(() => listEnterpriseKeyReferences()),
         run(() => listEnterpriseSiemExports()),
         run(() => listEnterpriseBackupSnapshots()),
@@ -169,7 +183,6 @@ export function EnterpriseHardeningClient() {
         run(() => getEnterpriseReadiness()),
       ]);
     if (nextProviders) setProviders(nextProviders);
-    if (nextMetadata) setMetadata(nextMetadata);
     if (nextKeys) setKeys(nextKeys);
     if (nextExports) setExports(nextExports);
     if (nextSnapshots) setSnapshots(nextSnapshots);
@@ -177,163 +190,190 @@ export function EnterpriseHardeningClient() {
     if (nextReadiness) setReadiness(nextReadiness);
   }
 
-  async function activateProvider() {
-    const activeProviderId = providerId.trim() || providers?.providers[0]?.providerId || '';
-    const result = await run(() => activateEnterpriseSsoProvider(activeProviderId));
-    if (result) await refreshAll();
-  }
-
-  async function verifyKey() {
-    const activeKeyId = keyReferenceId.trim() || keys?.keys[0]?.keyReferenceId || '';
-    const result = await run(() => verifyEnterpriseKeyReference(activeKeyId));
-    if (result) await refreshAll();
-  }
-
   return (
-    <main className="flex flex-col gap-5">
-      <section className="flex flex-col gap-3 border-b pb-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex min-w-64 flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">{copy.providerKey}</label>
-            <Input value={providerKey} onChange={(event) => setProviderKey(event.target.value)} />
-          </div>
-          <Button onClick={refreshAll} disabled={busy} title={copy.refreshTitle}>
+    <PageShell>
+      <PageHeader
+        title={copy.pageTitle}
+        description={copy.pageDescription}
+        actions={
+          <Button onClick={refreshAll} disabled={busy} title={copy.refreshTitle} type="button">
             <Building2 className="h-4 w-4" />
             {copy.refresh}
           </Button>
-        </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      </section>
+        }
+      />
+      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className="flex flex-col gap-3 rounded-md border p-4">
-          <PanelTitle icon={<Building2 className="h-4 w-4" />} label={copy.title} />
-          <Input
-            aria-label={copy.providerRef}
-            placeholder={copy.providerRef}
-            value={providerId}
-            onChange={(event) => setProviderId(event.target.value)}
-          />
-          <Button onClick={activateProvider} disabled={busy || !(providerId || providers?.providers[0])}>
-            <CheckCircle2 className="h-4 w-4" />
-            {copy.activateSso}
-          </Button>
-          <Input
-            aria-label={copy.keyRef}
-            placeholder={copy.keyRef}
-            value={keyReferenceId}
-            onChange={(event) => setKeyReferenceId(event.target.value)}
-          />
-          <Button onClick={verifyKey} disabled={busy || !(keyReferenceId || keys?.keys[0])}>
-            <KeyRound className="h-4 w-4" />
-            {copy.verifyKey}
-          </Button>
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              aria-label={copy.controlRef}
-              value={controlId}
-              onChange={(event) => setControlId(event.target.value)}
-            />
-            <Input
-              aria-label={copy.evidenceRef}
-              value={evidenceRef}
-              onChange={(event) => setEvidenceRef(event.target.value)}
-            />
-          </div>
-        </div>
+        <SectionCard
+          icon={<ShieldCheck className="h-4 w-4" />}
+          title={copy.readiness}
+          meta={copy.readinessMeta}
+        >
+          {readiness ? (
+            <dl className="grid gap-3 text-sm">
+              <Value
+                label={copy.ssoProviders}
+                value={`${readiness.activeSsoProviderCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.keyReferences}
+                value={`${readiness.activeKeyReferenceCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.siemExports}
+                value={`${readiness.siemExportCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.backupSnapshots}
+                value={`${readiness.backupSnapshotCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.complianceGaps}
+                value={`${readiness.complianceGapCount} ${copy.count}`}
+              />
+              <div className="min-w-0">
+                <dt className="text-muted-foreground">{copy.technicalCheck}</dt>
+                <dd className="mt-1">
+                  <StatusBadge tone={readiness.technicalPass ? 'success' : 'warning'}>
+                    {readiness.technicalPass ? copy.pass : copy.notPassed}
+                  </StatusBadge>
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <Unavailable copy={copy} />
+          )}
+        </SectionCard>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <SummaryPanel
-            title={copy.readiness}
+          <SettingsPanel
             empty={copy.noRecords}
-            rows={readiness ? [
-              [copy.sso, String(readiness?.activeSsoProviderCount ?? 0)],
-              [copy.byok, String(readiness?.activeKeyReferenceCount ?? 0)],
-              [copy.siem, String(readiness?.siemExportCount ?? 0)],
-              [copy.backupTitle, String(readiness?.backupSnapshotCount ?? 0)],
-              [copy.gaps, String(readiness?.complianceGapCount ?? 0)],
-              [copy.technicalPass, readiness?.technicalPass ? copy.yes : copy.no],
-            ] : undefined}
-          />
-          <SummaryPanel
-            title={copy.sso}
-            empty={copy.noRecords}
+            icon={<LockKeyhole className="h-4 w-4" />}
+            meta={copy.ssoMeta}
             rows={providers?.providers.map((item) => [
-              item.providerKey,
-              item.status,
+              item.displayName,
+              item.status === 'active' ? copy.active : copy.inactive,
               item.enforcementMode,
             ])}
-            footer={metadata ? `SP ${metadata.entityId}` : undefined}
+            title={copy.sso}
+            unavailableCopy={copy}
           />
-          <SummaryPanel
+          <SectionCard
+            icon={<ShieldCheck className="h-4 w-4" />}
+            title={copy.mfa}
+            meta={copy.mfaMeta}
+          >
+            <Unavailable copy={copy} />
+          </SectionCard>
+          <SettingsPanel
+            empty={copy.noRecords}
+            icon={<KeyRound className="h-4 w-4" />}
+            meta={copy.byokMeta}
+            rows={keys?.keys.map((item) => [
+              item.keyProvider,
+              item.status === 'active' ? copy.active : item.status,
+              item.lastVerifiedAt ?? copy.notPassed,
+            ])}
             title={copy.byok}
-            empty={copy.noRecords}
-            rows={keys?.keys.map((item) => [item.keyProvider, item.status])}
+            unavailableCopy={copy}
           />
-          <SummaryPanel
-            title={copy.siem}
+          <SettingsPanel
             empty={copy.noRecords}
+            icon={<UploadCloud className="h-4 w-4" />}
+            meta={copy.siemMeta}
             rows={exports?.exports.map((item) => [
               item.sinkType,
               `${item.eventCount} ${copy.events}`,
+              item.createdAt,
             ])}
+            title={copy.siem}
+            unavailableCopy={copy}
           />
-          <SummaryPanel
-            title={copy.backupTitle}
+          <SettingsPanel
             empty={copy.noRecords}
+            icon={<Database className="h-4 w-4" />}
+            meta={copy.backupMeta}
             rows={snapshots?.snapshots.map((item) => [
               item.scope,
               `${item.tableCount} ${copy.tables}`,
+              item.createdAt,
             ])}
+            title={copy.backup}
+            unavailableCopy={copy}
           />
-          <SummaryPanel
-            title={copy.compliance}
+          <SettingsPanel
             empty={copy.noRecords}
-            rows={evidence?.evidence.map((item) => [
-              item.framework,
-              item.controlId,
-              item.status,
-            ])}
+            icon={<ShieldCheck className="h-4 w-4" />}
+            meta={copy.complianceMeta}
+            rows={evidence?.evidence.map((item) => [item.framework, item.controlId, item.status])}
+            title={copy.compliance}
+            unavailableCopy={copy}
           />
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }
 
-function PanelTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
+function SettingsPanel({
+  empty,
+  icon,
+  meta,
+  rows,
+  title,
+  unavailableCopy,
+}: {
+  empty: string;
+  icon: React.ReactNode;
+  meta: string;
+  rows?: Row[] | undefined;
+  title: string;
+  unavailableCopy: (typeof enterpriseCopy)[Language];
+}) {
   return (
-    <div className="flex items-center gap-2 text-sm font-semibold">
-      {icon}
-      <span>{label}</span>
+    <SectionCard icon={icon} title={title} meta={meta}>
+      {rows ? <Rows empty={empty} rows={rows} /> : <Unavailable copy={unavailableCopy} />}
+    </SectionCard>
+  );
+}
+
+function Rows({ empty, rows }: { empty: string; rows: Row[] }) {
+  if (rows.length === 0) {
+    return <EmptyState variant="no-data" title={empty} />;
+  }
+  return (
+    <div className="overflow-hidden rounded-md border">
+      <table className="w-full table-fixed text-sm">
+        <tbody>
+          {rows.slice(0, 8).map((row, index) => (
+            <tr key={`${row[0]}-${index}`} className="border-b last:border-b-0">
+              <td className="truncate px-3 py-2 font-medium">{row[0]}</td>
+              <td className="truncate px-3 py-2 text-muted-foreground">{row[1]}</td>
+              <td className="truncate px-3 py-2 text-muted-foreground">{row[2] ?? ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function SummaryPanel({
-  title,
-  rows,
-  footer,
-  empty,
-}: {
-  title: string;
-  rows?: string[][] | undefined;
-  footer?: string | undefined;
-  empty: string;
-}) {
+function Unavailable({ copy }: { copy: (typeof enterpriseCopy)[Language] }) {
   return (
-    <section className="rounded-md border p-4">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="mt-3 flex flex-col gap-2">
-        {(rows?.length ? rows : [[empty, '', '']]).map((row, index) => (
-          <div key={`${title}-${index}`} className="grid grid-cols-3 gap-3 text-sm">
-            <span className="truncate font-medium">{row[0]}</span>
-            <span className="truncate text-muted-foreground">{row[1]}</span>
-            <span className="truncate text-muted-foreground">{row[2]}</span>
-          </div>
-        ))}
-      </div>
-      {footer ? <p className="mt-3 truncate text-xs text-muted-foreground">{footer}</p> : null}
-    </section>
+    <EmptyState
+      variant="api-unavailable"
+      title={copy.apiUnavailableTitle}
+      description={copy.apiUnavailableDescription}
+    />
+  );
+}
+
+function Value({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="truncate font-medium text-foreground">{value}</dd>
+    </div>
   );
 }
