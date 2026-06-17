@@ -13,7 +13,9 @@ describe('WallAdminClient', () => {
     );
 
     expect(html).toContain('정보 장벽');
-    expect(html).toContain('고급 참조 입력');
+    expect(html).toContain('정책 작업');
+    expect(html).toContain('정책 작업을 표시할 수 없습니다.');
+    expect(html).toContain('보안 운영 참조 입력');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain('정보 장벽 ID');
     expect(html).not.toContain('사용자 ID');
