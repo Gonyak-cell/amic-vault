@@ -14,6 +14,7 @@ import { BreakGlassModule } from './modules/break-glass/break-glass.module';
 import { HealthModule } from './modules/health/health.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { ContractIntelModule } from './modules/contract-intel/contract-intel.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DdModule } from './modules/dd/dd.module';
 import { LitigationModule } from './modules/litigation/litigation.module';
 import { ExternalModule } from './modules/external/external.module';
@@ -58,6 +59,7 @@ class AppController {
     AuthModule,
     GraphModule,
     ContractIntelModule,
+    DashboardModule,
     DdModule,
     LitigationModule,
     ExternalModule,

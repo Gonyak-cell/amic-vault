@@ -219,6 +219,22 @@ export {
   type RetentionPolicyListResponseDto,
 } from './records/records-types';
 export {
+  dashboardAiPrepStatusSchema,
+  dashboardIntegrationStatusSchema,
+  dashboardOverviewSchema,
+  dashboardPolicyAlertSchema,
+  dashboardRecentActivitySchema,
+  dashboardRecentFileSchema,
+  dashboardSectionIds,
+  type DashboardAiPrepStatusDto,
+  type DashboardIntegrationStatusDto,
+  type DashboardOverviewDto,
+  type DashboardPolicyAlertDto,
+  type DashboardRecentActivityDto,
+  type DashboardRecentFileDto,
+  type DashboardSectionId,
+} from './dashboard/dashboard-types';
+export {
   createDdDataRoomMappingRequestSchema,
   createDdIssueRequestSchema,
   createDdRfiRequestSchema,

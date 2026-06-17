@@ -1,46 +1,31 @@
+import type {
+  DashboardAiPrepStatusDto,
+  DashboardIntegrationStatusDto,
+  DashboardOverviewDto,
+  DashboardPolicyAlertDto,
+  DashboardRecentActivityDto,
+  DashboardRecentFileDto,
+  DashboardSectionId,
+} from '@amic-vault/shared';
+import { apiFetch } from '../api-client';
 import type { DataState } from '@/lib/data-state';
+import { uiErrorStateForApiError } from './error-messages';
 
-export type DashboardSectionId =
-  | 'recentFiles'
-  | 'recentActivity'
-  | 'permissionPolicyAlerts'
-  | 'aiPrepStatus'
-  | 'integrationStatus';
-
-export interface DashboardRecentFile {
-  title: string;
-  matterLabel?: string;
-  lastAccessedAt?: string;
-}
-
-export interface DashboardRecentActivity {
-  actionLabel: string;
-  targetLabel: string;
-  resultLabel: string;
-  occurredAt: string;
-}
-
-export interface DashboardPolicyAlert {
-  title: string;
-  description: string;
-}
-
-export interface DashboardAiPrepStatus {
-  matterLabel: string;
-  statusLabel: string;
-}
-
-export interface DashboardIntegrationStatus {
-  integrationLabel: string;
-  statusLabel: string;
-}
+export type {
+  DashboardAiPrepStatusDto as DashboardAiPrepStatus,
+  DashboardIntegrationStatusDto as DashboardIntegrationStatus,
+  DashboardPolicyAlertDto as DashboardPolicyAlert,
+  DashboardRecentActivityDto as DashboardRecentActivity,
+  DashboardRecentFileDto as DashboardRecentFile,
+  DashboardSectionId,
+};
 
 export interface DashboardOverviewState {
-  recentFiles: DataState<DashboardRecentFile[]>;
-  recentActivity: DataState<DashboardRecentActivity[]>;
-  permissionPolicyAlerts: DataState<DashboardPolicyAlert[]>;
-  aiPrepStatus: DataState<DashboardAiPrepStatus[]>;
-  integrationStatus: DataState<DashboardIntegrationStatus[]>;
+  recentFiles: DataState<DashboardRecentFileDto[]>;
+  recentActivity: DataState<DashboardRecentActivityDto[]>;
+  permissionPolicyAlerts: DataState<DashboardPolicyAlertDto[]>;
+  aiPrepStatus: DataState<DashboardAiPrepStatusDto[]>;
+  integrationStatus: DataState<DashboardIntegrationStatusDto[]>;
 }
 
 export function createDashboardUnavailableState(): DashboardOverviewState {
@@ -51,4 +36,36 @@ export function createDashboardUnavailableState(): DashboardOverviewState {
     aiPrepStatus: { status: 'unavailable' },
     integrationStatus: { status: 'unavailable' },
   };
+}
+
+function arrayState<T>(items: T[]): DataState<T[]> {
+  return items.length > 0 ? { status: 'ready', data: items } : { status: 'empty' };
+}
+
+export function dashboardOverviewToState(overview: DashboardOverviewDto): DashboardOverviewState {
+  return {
+    recentFiles: arrayState(overview.recentFiles),
+    recentActivity: arrayState(overview.recentActivity),
+    permissionPolicyAlerts: arrayState(overview.permissionPolicyAlerts),
+    aiPrepStatus: arrayState(overview.aiPrepStatus),
+    integrationStatus: arrayState(overview.integrationStatus),
+  };
+}
+
+export function dashboardErrorState(error: unknown): DashboardOverviewState {
+  const { dataStatus, kind } = uiErrorStateForApiError(error);
+  const message = kind === 'api' ? '운영 데이터 연결을 확인할 수 없습니다.' : '접근 권한을 확인할 수 없습니다.';
+  return {
+    recentFiles: { status: dataStatus, error: message },
+    recentActivity: { status: dataStatus, error: message },
+    permissionPolicyAlerts: { status: dataStatus, error: message },
+    aiPrepStatus: { status: dataStatus, error: message },
+    integrationStatus: { status: dataStatus, error: message },
+  };
+}
+
+export function getDashboardOverview(): Promise<DashboardOverviewDto> {
+  return apiFetch<DashboardOverviewDto>('/dashboard/overview', {
+    redirectOnAuthRequired: false,
+  });
 }
