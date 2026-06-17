@@ -4,6 +4,8 @@ import React from 'react';
 import { UserMinus } from 'lucide-react';
 import type { EthicalWallDetailDto, WallMembershipType } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useI18n, type Language } from '@/lib/i18n';
 
 export interface WallListProps {
@@ -17,28 +19,31 @@ const copyByLanguage: Record<
   {
     title: string;
     barrier: string;
-    matter: string;
     status: string;
     members: string;
     remove: string;
     emptyMembers: string;
-    emptyBarriers: string;
-    ref: string;
-    user: string;
+    emptyTitle: string;
+    emptyDescription: string;
+    memberUnavailable: string;
+    subjectLabels: Record<string, string>;
     membershipLabels: Record<WallMembershipType, string>;
   }
 > = {
   ko: {
     title: '정보 장벽 목록',
     barrier: '차단 규칙',
-    matter: 'Matter',
     status: '상태',
     members: '구성원',
     remove: '구성원 제거',
     emptyMembers: '등록된 구성원이 없습니다.',
-    emptyBarriers: '등록된 정보 장벽이 없습니다.',
-    ref: 'ID',
-    user: '사용자',
+    emptyTitle: '등록된 정보 장벽이 없습니다.',
+    emptyDescription: '운영 데이터가 연결되면 접근 제한 규칙만 표시됩니다.',
+    memberUnavailable: '표시 가능한 구성원 정보 없음',
+    subjectLabels: {
+      user: '사용자',
+      group: '그룹',
+    },
     membershipLabels: {
       insider: '차단 예외',
       excluded: '접근 차단',
@@ -47,14 +52,17 @@ const copyByLanguage: Record<
   en: {
     title: 'Information barriers',
     barrier: 'Barrier',
-    matter: 'Matter',
     status: 'Status',
     members: 'Members',
     remove: 'Remove member',
     emptyMembers: 'No members yet.',
-    emptyBarriers: 'No information barriers yet.',
-    ref: 'Ref',
-    user: 'User',
+    emptyTitle: 'No information barriers yet.',
+    emptyDescription: 'Only permission-checked barrier rules will appear here.',
+    memberUnavailable: 'No display member available',
+    subjectLabels: {
+      user: 'User',
+      group: 'Group',
+    },
     membershipLabels: {
       insider: 'Insider',
       excluded: 'Blocked',
@@ -65,6 +73,15 @@ const copyByLanguage: Record<
 export function WallList({ items, busyMembershipId, onRemoveMembership }: WallListProps) {
   const { language } = useI18n();
   const copy = copyByLanguage[language];
+  if (items.length === 0) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
+        <EmptyState variant="no-data" title={copy.emptyTitle} description={copy.emptyDescription} />
+      </section>
+    );
+  }
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold tracking-normal">{copy.title}</h2>
@@ -73,7 +90,6 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
           <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">{copy.barrier}</th>
-              <th className="px-4 py-3 font-medium">{copy.matter}</th>
               <th className="px-4 py-3 font-medium">{copy.status}</th>
               <th className="px-4 py-3 font-medium">{copy.members}</th>
             </tr>
@@ -84,15 +100,13 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-1">
                     <span className="font-medium">{item.wall.wallName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {copy.ref} {formatRef(item.wall.wallId)}
-                    </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {copy.ref} {formatRef(item.wall.matterId)}
+                <td className="px-4 py-3">
+                  <StatusBadge tone={item.wall.status === 'active' ? 'neutral' : 'blocked'}>
+                    {item.wall.status}
+                  </StatusBadge>
                 </td>
-                <td className="px-4 py-3">{item.wall.status}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-2">
                     {item.memberships.map((membership) => (
@@ -102,7 +116,7 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
                       >
                         <div className="flex min-w-0 flex-col">
                           <span className="text-xs">
-                            {copy.user} {formatRef(membership.subjectId)}
+                            {copy.subjectLabels[membership.subjectType] ?? copy.memberUnavailable}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {copy.membershipLabels[membership.membershipType]}
@@ -130,20 +144,9 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
                 </td>
               </tr>
             ))}
-            {items.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={4}>
-                  {copy.emptyBarriers}
-                </td>
-              </tr>
-            ) : null}
           </tbody>
         </table>
       </div>
     </section>
   );
-}
-
-function formatRef(value: string): string {
-  return value.length > 8 ? value.slice(0, 8) : value;
 }

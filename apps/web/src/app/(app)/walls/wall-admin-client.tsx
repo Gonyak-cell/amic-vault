@@ -1,12 +1,15 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Plus, Search, UserPlus } from 'lucide-react';
 import type { EthicalWallDetailDto, WallMembershipType } from '@amic-vault/shared';
 import { wallMembershipTypes } from '@amic-vault/shared';
 import { WallList } from '@/components/ethical-wall/wall-list';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageShell } from '@/components/ui/page-shell';
+import { SectionCard } from '@/components/ui/section-card';
 import {
   addEthicalWallMembership,
   createEthicalWall,
@@ -20,8 +23,14 @@ const wallCopy: Record<
   Language,
   {
     title: string;
+    description: string;
+    searchCard: string;
+    searchMeta: string;
     matterFilter: string;
     filterTitle: string;
+    advancedFilter: string;
+    advancedActions: string;
+    advancedActionsMeta: string;
     matterRef: string;
     wallName: string;
     reason: string;
@@ -35,14 +44,20 @@ const wallCopy: Record<
 > = {
   ko: {
     title: '정보 장벽',
-    matterFilter: 'Matter ID로 찾기',
-    filterTitle: '정보 장벽 검색',
-    matterRef: 'Matter ID',
+    description: '권한이 확인된 정보 장벽과 구성원 차단 상태만 표시합니다.',
+    searchCard: '정보 장벽 조회',
+    searchMeta: '운영 데이터 기준',
+    matterFilter: 'Matter 참조',
+    filterTitle: '검색',
+    advancedFilter: '고급 참조 필터',
+    advancedActions: '고급 참조 입력',
+    advancedActionsMeta: '표시명 선택 API가 연결되기 전까지 보안 관리자만 사용합니다.',
+    matterRef: 'Matter 참조',
     wallName: '정보 장벽 이름',
     reason: '설정 사유',
     createTitle: '정보 장벽 추가',
-    wallRef: '정보 장벽 ID',
-    userRef: '사용자 ID',
+    wallRef: '정보 장벽 참조',
+    userRef: '사용자 참조',
     membershipType: '구성원 유형',
     addMemberTitle: '구성원 추가',
     membershipLabels: {
@@ -52,8 +67,16 @@ const wallCopy: Record<
   },
   en: {
     title: 'Information barriers',
+    description:
+      'Displays permission-checked information barriers and membership blocking status only.',
+    searchCard: 'Information barrier lookup',
+    searchMeta: 'Operational data',
     matterFilter: 'Find by matter ref',
-    filterTitle: 'Search information barriers',
+    filterTitle: 'Search',
+    advancedFilter: 'Advanced reference filter',
+    advancedActions: 'Advanced reference input',
+    advancedActionsMeta:
+      'Security administrators only until display-name picker APIs are available.',
     matterRef: 'Matter ref',
     wallName: 'Barrier name',
     reason: 'Barrier reason',
@@ -164,93 +187,128 @@ export function WallAdminClient() {
   }
 
   return (
-    <main className="flex flex-col gap-5">
-      <section className="flex flex-col gap-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-normal">{copy.title}</h1>
-        <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submitFilter}>
-          <Input
-            aria-label={copy.matterFilter}
-            placeholder={copy.matterFilter}
-            value={matterFilter}
-            onChange={(event) => setMatterFilter(event.target.value)}
-          />
-          <Button aria-label={copy.filterTitle} title={copy.filterTitle} type="submit" disabled={busy}>
+    <PageShell>
+      <PageHeader title={copy.title} description={copy.description} />
+
+      <SectionCard
+        icon={<Search className="h-4 w-4" />}
+        title={copy.searchCard}
+        meta={copy.searchMeta}
+      >
+        <form className="flex flex-col gap-3" onSubmit={submitFilter}>
+          <details className="rounded-md border bg-muted/20 p-3">
+            <summary className="cursor-pointer text-sm font-medium text-foreground">
+              {copy.advancedFilter}
+            </summary>
+            <Input
+              className="mt-3"
+              aria-label={copy.matterFilter}
+              placeholder={copy.matterFilter}
+              value={matterFilter}
+              onChange={(event) => setMatterFilter(event.target.value)}
+            />
+          </details>
+          <Button
+            aria-label={copy.filterTitle}
+            title={copy.filterTitle}
+            type="submit"
+            disabled={busy}
+          >
             <Search className="h-4 w-4" />
+            {copy.filterTitle}
           </Button>
         </form>
-      </section>
+      </SectionCard>
 
-      <form
-        className="grid gap-3 rounded-md border bg-card p-4 lg:grid-cols-[1fr_1fr_1fr_auto]"
-        onSubmit={submitWall}
-      >
-        <Input
-          aria-label={copy.matterRef}
-          placeholder={copy.matterRef}
-          value={newWall.matterId}
-          onChange={(event) => setNewWall({ ...newWall, matterId: event.target.value })}
-        />
-        <Input
-          aria-label={copy.wallName}
-          placeholder={copy.wallName}
-          value={newWall.wallName}
-          onChange={(event) => setNewWall({ ...newWall, wallName: event.target.value })}
-        />
-        <Input
-          aria-label={copy.reason}
-          placeholder={copy.reason}
-          value={newWall.reason}
-          onChange={(event) => setNewWall({ ...newWall, reason: event.target.value })}
-        />
-        <Button aria-label={copy.createTitle} title={copy.createTitle} type="submit" disabled={busy}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </form>
+      <SectionCard title={copy.advancedActions} meta={copy.advancedActionsMeta}>
+        <details>
+          <summary className="cursor-pointer text-sm font-medium text-foreground">
+            {copy.advancedActions}
+          </summary>
+          <div className="mt-4 grid gap-3">
+            <form
+              className="grid gap-3 rounded-md border bg-muted/20 p-3 lg:grid-cols-[1fr_1fr_1fr_auto]"
+              onSubmit={submitWall}
+            >
+              <Input
+                aria-label={copy.matterRef}
+                placeholder={copy.matterRef}
+                value={newWall.matterId}
+                onChange={(event) => setNewWall({ ...newWall, matterId: event.target.value })}
+              />
+              <Input
+                aria-label={copy.wallName}
+                placeholder={copy.wallName}
+                value={newWall.wallName}
+                onChange={(event) => setNewWall({ ...newWall, wallName: event.target.value })}
+              />
+              <Input
+                aria-label={copy.reason}
+                placeholder={copy.reason}
+                value={newWall.reason}
+                onChange={(event) => setNewWall({ ...newWall, reason: event.target.value })}
+              />
+              <Button
+                aria-label={copy.createTitle}
+                title={copy.createTitle}
+                type="submit"
+                disabled={busy}
+              >
+                <Plus className="h-4 w-4" />
+                {copy.createTitle}
+              </Button>
+            </form>
 
-      <form
-        className="grid gap-3 rounded-md border bg-card p-4 lg:grid-cols-[1fr_1fr_12rem_auto]"
-        onSubmit={submitMembership}
-      >
-        <Input
-          aria-label={copy.wallRef}
-          placeholder={copy.wallRef}
-          value={newMembership.wallId}
-          onChange={(event) => setNewMembership({ ...newMembership, wallId: event.target.value })}
-        />
-        <Input
-          aria-label={copy.userRef}
-          placeholder={copy.userRef}
-          value={newMembership.subjectId}
-          onChange={(event) =>
-            setNewMembership({ ...newMembership, subjectId: event.target.value })
-          }
-        />
-        <select
-          aria-label={copy.membershipType}
-          className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          value={newMembership.membershipType}
-          onChange={(event) =>
-            setNewMembership({
-              ...newMembership,
-              membershipType: event.target.value as WallMembershipType,
-            })
-          }
-        >
-          {wallMembershipTypes.map((type) => (
-            <option key={type} value={type}>
-              {copy.membershipLabels[type]}
-            </option>
-          ))}
-        </select>
-        <Button
-          aria-label={copy.addMemberTitle}
-          title={copy.addMemberTitle}
-          type="submit"
-          disabled={busy}
-        >
-          <UserPlus className="h-4 w-4" />
-        </Button>
-      </form>
+            <form
+              className="grid gap-3 rounded-md border bg-muted/20 p-3 lg:grid-cols-[1fr_1fr_12rem_auto]"
+              onSubmit={submitMembership}
+            >
+              <Input
+                aria-label={copy.wallRef}
+                placeholder={copy.wallRef}
+                value={newMembership.wallId}
+                onChange={(event) =>
+                  setNewMembership({ ...newMembership, wallId: event.target.value })
+                }
+              />
+              <Input
+                aria-label={copy.userRef}
+                placeholder={copy.userRef}
+                value={newMembership.subjectId}
+                onChange={(event) =>
+                  setNewMembership({ ...newMembership, subjectId: event.target.value })
+                }
+              />
+              <select
+                aria-label={copy.membershipType}
+                className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={newMembership.membershipType}
+                onChange={(event) =>
+                  setNewMembership({
+                    ...newMembership,
+                    membershipType: event.target.value as WallMembershipType,
+                  })
+                }
+              >
+                {wallMembershipTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {copy.membershipLabels[type]}
+                  </option>
+                ))}
+              </select>
+              <Button
+                aria-label={copy.addMemberTitle}
+                title={copy.addMemberTitle}
+                type="submit"
+                disabled={busy}
+              >
+                <UserPlus className="h-4 w-4" />
+                {copy.addMemberTitle}
+              </Button>
+            </form>
+          </div>
+        </details>
+      </SectionCard>
 
       {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
       <WallList
@@ -258,6 +316,6 @@ export function WallAdminClient() {
         busyMembershipId={busyMembershipId}
         onRemoveMembership={removeMembership}
       />
-    </main>
+    </PageShell>
   );
 }
