@@ -34,6 +34,12 @@ const emptyStateIcons = {
   'integrations-none': Database,
 } as const;
 
+const alertVariants = new Set<EmptyStateVariant>([
+  'api-error',
+  'no-access',
+  'policy-blocked',
+]);
+
 export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: EmptyStateVariant;
   title?: string;
@@ -47,24 +53,41 @@ export function EmptyState({
   description,
   title = '표시할 항목이 없습니다.',
   variant = 'no-data',
+  role,
+  'aria-atomic': ariaAtomic,
+  'aria-describedby': ariaDescribedBy,
+  'aria-labelledby': ariaLabelledBy,
+  'aria-live': ariaLive,
   ...props
 }: EmptyStateProps) {
   const Icon = emptyStateIcons[variant];
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+  const resolvedDescription = description ?? emptyStateCopy[variant];
+  const resolvedRole = role ?? (alertVariants.has(variant) ? 'alert' : 'status');
+  const resolvedLive = ariaLive ?? (resolvedRole === 'alert' ? 'assertive' : 'polite');
+
   return (
     <div
       className={cn(
         'flex min-h-32 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 py-8 text-center',
         className,
       )}
-      role="status"
+      role={resolvedRole}
+      aria-atomic={ariaAtomic ?? true}
+      aria-describedby={ariaDescribedBy ?? descriptionId}
+      aria-labelledby={ariaLabelledBy ?? titleId}
+      aria-live={resolvedLive}
       {...props}
     >
       <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-background text-muted-foreground ring-1 ring-border">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
-      <p className="text-[15px] font-semibold text-foreground">{title}</p>
-      <p className="mt-1 max-w-[38rem] text-sm leading-6 text-muted-foreground">
-        {description ?? emptyStateCopy[variant]}
+      <p id={titleId} className="text-[15px] font-semibold text-foreground">
+        {title}
+      </p>
+      <p id={descriptionId} className="mt-1 max-w-[38rem] text-sm leading-6 text-muted-foreground">
+        {resolvedDescription}
       </p>
       {actions ? <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{actions}</div> : null}
     </div>
