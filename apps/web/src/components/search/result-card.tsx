@@ -31,31 +31,14 @@ export function ResultCard({ result }: ResultCardProps) {
       <p className="mt-3 break-words text-sm leading-6 text-muted-foreground">
         {highlightSnippet(result.snippet, result.highlights)}
       </p>
-      <dl className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-        <div className="min-w-0">
-          <dt className="font-medium text-foreground">{copy.matter}</dt>
-          <dd className="truncate">{safeDisplayRef(result.matterId, copy.unavailable)}</dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="font-medium text-foreground">{copy.client}</dt>
-          <dd className="truncate">{safeDisplayRef(result.clientId, copy.unavailable)}</dd>
-        </div>
-      </dl>
     </article>
   );
 }
 
 const resultCopy = {
-  ko: { matter: 'Matter', client: '고객', hiddenTitle: '표시 가능한 제목 없음', unavailable: '표시 가능한 정보 없음' },
-  en: { matter: 'Matter', client: 'Client', hiddenTitle: 'No display title available', unavailable: 'No display label available' },
+  ko: { hiddenTitle: '표시 가능한 제목 없음' },
+  en: { hiddenTitle: 'No display title available' },
 } as const;
-
-function safeDisplayRef(value: string, fallback: string): string {
-  if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value)) {
-    return fallback;
-  }
-  return value;
-}
 
 function highlightSnippet(
   snippet: string,
