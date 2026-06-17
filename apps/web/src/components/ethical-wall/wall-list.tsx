@@ -12,6 +12,8 @@ export interface WallListProps {
   items: EthicalWallDetailDto[];
   busyMembershipId?: string | null;
   onRemoveMembership?: (wallId: string, membershipId: string) => void;
+  onSelectWall?: (wall: EthicalWallDetailDto) => void;
+  selectedWallId?: string | null;
 }
 
 const copyByLanguage: Record<
@@ -26,6 +28,8 @@ const copyByLanguage: Record<
     emptyTitle: string;
     emptyDescription: string;
     memberUnavailable: string;
+    active: string;
+    released: string;
     subjectLabels: Record<string, string>;
     membershipLabels: Record<WallMembershipType, string>;
   }
@@ -40,6 +44,8 @@ const copyByLanguage: Record<
     emptyTitle: '등록된 정보 장벽이 없습니다.',
     emptyDescription: '운영 데이터가 연결되면 접근 제한 규칙만 표시됩니다.',
     memberUnavailable: '표시 가능한 구성원 정보 없음',
+    active: '활성',
+    released: '해제됨',
     subjectLabels: {
       user: '사용자',
       group: '그룹',
@@ -59,6 +65,8 @@ const copyByLanguage: Record<
     emptyTitle: 'No information barriers yet.',
     emptyDescription: 'Only permission-checked barrier rules will appear here.',
     memberUnavailable: 'No display member available',
+    active: 'Active',
+    released: 'Released',
     subjectLabels: {
       user: 'User',
       group: 'Group',
@@ -70,7 +78,13 @@ const copyByLanguage: Record<
   },
 };
 
-export function WallList({ items, busyMembershipId, onRemoveMembership }: WallListProps) {
+export function WallList({
+  items,
+  busyMembershipId,
+  onRemoveMembership,
+  onSelectWall,
+  selectedWallId = null,
+}: WallListProps) {
   const { language } = useI18n();
   const copy = copyByLanguage[language];
   if (items.length === 0) {
@@ -96,15 +110,27 @@ export function WallList({ items, busyMembershipId, onRemoveMembership }: WallLi
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.wall.wallId} className="border-t align-top">
+              <tr
+                aria-selected={selectedWallId === item.wall.wallId}
+                className="cursor-pointer border-t align-top transition-colors hover:bg-muted/50 aria-selected:bg-primary/5"
+                key={item.wall.wallId}
+                onClick={() => onSelectWall?.(item)}
+                onKeyDown={(keyboardEvent) => {
+                  if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+                    keyboardEvent.preventDefault();
+                    onSelectWall?.(item);
+                  }
+                }}
+                tabIndex={onSelectWall ? 0 : undefined}
+              >
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-1">
                     <span className="font-medium">{item.wall.wallName}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <StatusBadge tone={item.wall.status === 'active' ? 'neutral' : 'blocked'}>
-                    {item.wall.status}
+                  <StatusBadge tone={item.wall.status === 'active' ? 'success' : 'blocked'}>
+                    {item.wall.status === 'active' ? copy.active : copy.released}
                   </StatusBadge>
                 </td>
                 <td className="px-4 py-3">

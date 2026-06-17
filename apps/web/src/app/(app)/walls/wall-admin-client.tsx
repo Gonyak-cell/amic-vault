@@ -1,11 +1,13 @@
 'use client';
 
-import React, { FormEvent, useCallback, useEffect, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Search, UserPlus } from 'lucide-react';
 import type { EthicalWallDetailDto, WallMembershipType } from '@amic-vault/shared';
 import { wallMembershipTypes } from '@amic-vault/shared';
 import { WallList } from '@/components/ethical-wall/wall-list';
+import { WallPolicyInspector } from '@/components/ethical-wall/wall-policy-inspector';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -31,6 +33,10 @@ const wallCopy: Record<
     advancedFilter: string;
     advancedActions: string;
     advancedActionsMeta: string;
+    policyActions: string;
+    policyActionsMeta: string;
+    pickerUnavailableTitle: string;
+    pickerUnavailableDescription: string;
     matterRef: string;
     wallName: string;
     reason: string;
@@ -50,8 +56,13 @@ const wallCopy: Record<
     matterFilter: 'Matter 참조',
     filterTitle: '검색',
     advancedFilter: '고급 참조 필터',
-    advancedActions: '고급 참조 입력',
+    advancedActions: '보안 운영 참조 입력',
     advancedActionsMeta: '표시명 선택 API가 연결되기 전까지 보안 관리자만 사용합니다.',
+    policyActions: '정책 작업',
+    policyActionsMeta: 'Matter 및 사용자 선택 API 필요',
+    pickerUnavailableTitle: '정책 작업을 표시할 수 없습니다.',
+    pickerUnavailableDescription:
+      'Matter 선택과 사용자 조회 API가 연결되면 생성 및 구성원 변경 작업이 이 영역에 표시됩니다.',
     matterRef: 'Matter 참조',
     wallName: '정보 장벽 이름',
     reason: '설정 사유',
@@ -74,9 +85,14 @@ const wallCopy: Record<
     matterFilter: 'Find by matter ref',
     filterTitle: 'Search',
     advancedFilter: 'Advanced reference filter',
-    advancedActions: 'Advanced reference input',
+    advancedActions: 'Security operations reference input',
     advancedActionsMeta:
       'Security administrators only until display-name picker APIs are available.',
+    policyActions: 'Policy actions',
+    policyActionsMeta: 'Matter and user picker APIs required',
+    pickerUnavailableTitle: 'Policy actions are unavailable.',
+    pickerUnavailableDescription:
+      'Create and membership actions will appear here after matter selection and user lookup APIs are connected.',
     matterRef: 'Matter ref',
     wallName: 'Barrier name',
     reason: 'Barrier reason',
@@ -96,6 +112,7 @@ export function WallAdminClient() {
   const { language } = useI18n();
   const copy = wallCopy[language];
   const [items, setItems] = useState<EthicalWallDetailDto[]>([]);
+  const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const [matterFilter, setMatterFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [busyMembershipId, setBusyMembershipId] = useState<string | null>(null);
@@ -106,6 +123,10 @@ export function WallAdminClient() {
     subjectId: '',
     membershipType: 'excluded' as WallMembershipType,
   });
+  const selectedWall = useMemo(
+    () => items.find((item) => item.wall.wallId === selectedWallId) ?? null,
+    [items, selectedWallId],
+  );
 
   const load = useCallback(async (matterId: string) => {
     setBusy(true);
@@ -117,8 +138,10 @@ export function WallAdminClient() {
         limit: 50,
       });
       setItems(result.items);
+      setSelectedWallId(result.items[0]?.wall.wallId ?? null);
     } catch (caught) {
       setItems([]);
+      setSelectedWallId(null);
       setError(safeApiErrorMessage(caught));
     } finally {
       setBusy(false);
@@ -220,6 +243,27 @@ export function WallAdminClient() {
         </form>
       </SectionCard>
 
+      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <WallList
+          items={items}
+          busyMembershipId={busyMembershipId}
+          onRemoveMembership={removeMembership}
+          onSelectWall={(item) => setSelectedWallId(item.wall.wallId)}
+          selectedWallId={selectedWallId}
+        />
+        <WallPolicyInspector item={selectedWall} />
+      </section>
+
+      <SectionCard title={copy.policyActions} meta={copy.policyActionsMeta}>
+        <EmptyState
+          variant="api-unavailable"
+          title={copy.pickerUnavailableTitle}
+          description={copy.pickerUnavailableDescription}
+        />
+      </SectionCard>
+
       <SectionCard title={copy.advancedActions} meta={copy.advancedActionsMeta}>
         <details>
           <summary className="cursor-pointer text-sm font-medium text-foreground">
@@ -309,13 +353,6 @@ export function WallAdminClient() {
           </div>
         </details>
       </SectionCard>
-
-      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
-      <WallList
-        items={items}
-        busyMembershipId={busyMembershipId}
-        onRemoveMembership={removeMembership}
-      />
     </PageShell>
   );
 }
