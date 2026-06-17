@@ -30,7 +30,7 @@ export function LogoutButton({
       aria-label={compact ? label : undefined}
       title={compact ? label : undefined}
       className={cn(
-        'border-white/45 bg-white text-[#1448c4] hover:bg-white/90',
+        'border-white/45 bg-white text-primary hover:bg-white/90',
         compact ? 'h-9 w-9 px-0' : undefined,
         className,
       )}
