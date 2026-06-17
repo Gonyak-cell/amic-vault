@@ -1,11 +1,14 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Search } from 'lucide-react';
 import { auditActions, type AuditAction } from '@amic-vault/shared';
 import { AuditEventTable } from '@/components/audit/audit-event-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageShell } from '@/components/ui/page-shell';
+import { SectionCard } from '@/components/ui/section-card';
 import { exportAuditEventsCsv, listAuditEvents } from '@/lib/api/audit';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { useI18n } from '@/lib/i18n';
@@ -34,47 +37,58 @@ const emptyFilters: FilterState = {
 
 export function AuditConsoleClient() {
   const { language } = useI18n();
-  const copy = language === 'ko'
-    ? {
-        title: '활동 기록',
-        actor: '수행자 ID',
-        actorPlaceholder: '수행자 ID',
-        action: '활동',
-        allActions: '모든 활동',
-        result: '결과',
-        allResults: '모든 결과',
-        success: '성공',
-        denied: '접근 제한',
-        failure: '실패',
-        targetType: '대상 유형',
-        targetId: '대상 ID',
-        matterId: 'Matter ID',
-        from: '시작일',
-        to: '종료일',
-        search: '활동 기록 검색',
-        export: 'CSV 내보내기',
-        more: '더 보기',
-      }
-    : {
-        title: 'Activity log',
-        actor: 'Actor ref',
-        actorPlaceholder: 'Actor ID',
-        action: 'Activity',
-        allActions: 'All activity',
-        result: 'Result',
-        allResults: 'All results',
-        success: 'Success',
-        denied: 'Access restricted',
-        failure: 'Failure',
-        targetType: 'Target type',
-        targetId: 'Target ref',
-        matterId: 'Matter ref',
-        from: 'From',
-        to: 'To',
-        search: 'Search activity',
-        export: 'Export CSV',
-        more: 'More',
-      };
+  const copy =
+    language === 'ko'
+      ? {
+          title: '활동 기록',
+          description:
+            '권한이 확인된 감사 이벤트만 조회합니다. 내부 참조 필터는 고급 영역에서만 사용합니다.',
+          filterTitle: '활동 기록 필터',
+          filterMeta: '운영 데이터 기준',
+          advancedFilters: '고급 참조 필터',
+          actor: '수행자 참조',
+          actorPlaceholder: '수행자 참조',
+          action: '활동',
+          allActions: '모든 활동',
+          result: '결과',
+          allResults: '모든 결과',
+          success: '성공',
+          denied: '접근 제한',
+          failure: '실패',
+          targetType: '대상 유형',
+          targetId: '대상 참조',
+          matterId: 'Matter 참조',
+          from: '시작일',
+          to: '종료일',
+          search: '검색',
+          export: 'CSV 내보내기',
+          more: '더 보기',
+        }
+      : {
+          title: 'Activity log',
+          description:
+            'Only permission-checked audit events are displayed. Internal reference filters stay in the advanced area.',
+          filterTitle: 'Activity filters',
+          filterMeta: 'Operational data',
+          advancedFilters: 'Advanced reference filters',
+          actor: 'Actor ref',
+          actorPlaceholder: 'Actor ref',
+          action: 'Activity',
+          allActions: 'All activity',
+          result: 'Result',
+          allResults: 'All results',
+          success: 'Success',
+          denied: 'Access restricted',
+          failure: 'Failure',
+          targetType: 'Target type',
+          targetId: 'Target ref',
+          matterId: 'Matter ref',
+          from: 'From',
+          to: 'To',
+          search: 'Search activity',
+          export: 'Export CSV',
+          more: 'More',
+        };
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(emptyFilters);
   const [events, setEvents] = useState<Awaited<ReturnType<typeof listAuditEvents>>['items']>([]);
@@ -130,16 +144,14 @@ export function AuditConsoleClient() {
   }
 
   return (
-    <main className="flex flex-col gap-5">
-      <section className="flex flex-col gap-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-normal">{copy.title}</h1>
+    <PageShell>
+      <PageHeader title={copy.title} description={copy.description} />
+      <SectionCard
+        icon={<Search className="h-4 w-4" />}
+        title={copy.filterTitle}
+        meta={copy.filterMeta}
+      >
         <form className="grid gap-3 lg:grid-cols-4" onSubmit={submit}>
-          <Input
-            aria-label={copy.actor}
-            placeholder={copy.actorPlaceholder}
-            value={filters.actorId}
-            onChange={(event) => setFilters({ ...filters, actorId: event.target.value })}
-          />
           <select
             aria-label={copy.action}
             className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -171,18 +183,6 @@ export function AuditConsoleClient() {
             onChange={(event) => setFilters({ ...filters, targetType: event.target.value })}
           />
           <Input
-            aria-label={copy.targetId}
-            placeholder={copy.targetId}
-            value={filters.targetId}
-            onChange={(event) => setFilters({ ...filters, targetId: event.target.value })}
-          />
-          <Input
-            aria-label={copy.matterId}
-            placeholder={copy.matterId}
-            value={filters.matterId}
-            onChange={(event) => setFilters({ ...filters, matterId: event.target.value })}
-          />
-          <Input
             aria-label={copy.from}
             placeholder={copy.from}
             value={filters.from}
@@ -194,14 +194,35 @@ export function AuditConsoleClient() {
             value={filters.to}
             onChange={(event) => setFilters({ ...filters, to: event.target.value })}
           />
-          <div className="flex gap-2 lg:col-span-4">
-            <Button
-              aria-label={copy.search}
-              title={copy.search}
-              type="submit"
-              disabled={busy}
-            >
+          <details className="rounded-md border bg-muted/20 p-3 lg:col-span-4">
+            <summary className="cursor-pointer text-sm font-medium text-foreground">
+              {copy.advancedFilters}
+            </summary>
+            <div className="mt-3 grid gap-3 lg:grid-cols-3">
+              <Input
+                aria-label={copy.actor}
+                placeholder={copy.actorPlaceholder}
+                value={filters.actorId}
+                onChange={(event) => setFilters({ ...filters, actorId: event.target.value })}
+              />
+              <Input
+                aria-label={copy.targetId}
+                placeholder={copy.targetId}
+                value={filters.targetId}
+                onChange={(event) => setFilters({ ...filters, targetId: event.target.value })}
+              />
+              <Input
+                aria-label={copy.matterId}
+                placeholder={copy.matterId}
+                value={filters.matterId}
+                onChange={(event) => setFilters({ ...filters, matterId: event.target.value })}
+              />
+            </div>
+          </details>
+          <div className="flex flex-wrap gap-2 lg:col-span-4">
+            <Button aria-label={copy.search} title={copy.search} type="submit" disabled={busy}>
               <Search className="h-4 w-4" />
+              {copy.search}
             </Button>
             <Button
               aria-label={copy.export}
@@ -212,10 +233,11 @@ export function AuditConsoleClient() {
               onClick={exportCsv}
             >
               <Download className="h-4 w-4" />
+              {copy.export}
             </Button>
           </div>
         </form>
-      </section>
+      </SectionCard>
       <AuditEventTable events={events} busy={busy} error={error} />
       {nextCursor ? (
         <Button
@@ -229,7 +251,7 @@ export function AuditConsoleClient() {
           {copy.more}
         </Button>
       ) : null}
-    </main>
+    </PageShell>
   );
 }
 

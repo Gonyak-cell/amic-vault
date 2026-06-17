@@ -38,7 +38,7 @@ const item: EthicalWallDetailDto = {
 };
 
 describe('WallList', () => {
-  it('renders wall memberships without free-text reason details', () => {
+  it('renders wall memberships without raw wall or user references', () => {
     const html = renderToStaticMarkup(
       <LanguageProvider>
         <WallList items={[item]} />
@@ -47,7 +47,11 @@ describe('WallList', () => {
 
     expect(html).toContain('Conflict wall');
     expect(html).toContain('접근 차단');
-    expect(html).toContain('ID 11111111');
+    expect(html).toContain('사용자');
+    expect(html).not.toContain(item.wall.wallId);
+    expect(html).not.toContain(item.wall.matterId);
+    expect(html).not.toContain(item.memberships[0]?.subjectId);
+    expect(html).not.toContain('11111111');
     expect(html).not.toContain('excluded');
     expect(html).not.toContain('conflict_check');
   });
