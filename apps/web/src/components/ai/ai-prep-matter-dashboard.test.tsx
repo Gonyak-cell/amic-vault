@@ -17,14 +17,16 @@ describe('AiPrepMatterDashboard', () => {
   it('renders matter readiness counts and retry control', () => {
     const html = renderToStaticMarkup(<AiPrepMatterDashboard readiness={readiness()} />);
 
-    expect(html).toContain('File organization readiness');
-    expect(html).toContain('Ready');
-    expect(html).toContain('Rejected');
-    expect(html).toContain('Fallback refs');
+    expect(html).toContain('파일 정리 준비 상태');
+    expect(html).toContain('정리됨');
+    expect(html).toContain('폐기');
+    expect(html).toContain('대체 정리 항목');
     expect(html).toContain('Contract.pdf');
-    expect(html).toContain('partial');
-    expect(html).toContain('Reprocess file organization prep');
-    expect(html).not.toMatch(/endpoint|prompt|source text|model response|secret|raw text/i);
+    expect(html).toContain('일부 정리됨');
+    expect(html).toContain('파일 정리 준비 다시 실행');
+    expect(html).not.toMatch(
+      /legal analysis|summary|external model|endpoint|prompt|source text|model response|secret|raw text/i,
+    );
   });
 });
 

@@ -8,15 +8,15 @@ describe('AiPrepStatusPanel', () => {
   it('renders authorized prep output with citation refs and no raw hidden fields', () => {
     const html = renderToStaticMarkup(<AiPrepStatusPanel status={status()} />);
 
-    expect(html).toContain('File organization prep');
-    expect(html).toContain('Document profile');
+    expect(html).toContain('파일 정리 준비');
+    expect(html).toContain('파일 개요');
     expect(html).toContain('Grounded answer.');
-    expect(html).toContain('1 checked source refs');
+    expect(html).toContain('권한 확인된 근거로 생성됨');
     expect(html).not.toContain('chunk:11111111-1111-4111-8111-111111111118');
-    expect(html).toContain('Mark Document profile useful');
-    expect(html).toContain('missing source ref');
+    expect(html).toContain('파일 개요 유용함 표시');
+    expect(html).toContain('근거 부족 표시');
     expect(html).not.toMatch(
-      /legal analysis|prompt|raw source|model response|hidden unauthorized/i,
+      /legal analysis|summary|external model|prompt|raw source|model response|hidden unauthorized/i,
     );
   });
 
@@ -37,7 +37,7 @@ describe('AiPrepStatusPanel', () => {
       />,
     );
 
-    expect(html).toContain('Rebuild needed.');
+    expect(html).toContain('다시 정리해야 합니다.');
     expect(html).not.toContain('Grounded answer.');
   });
 
@@ -58,8 +58,8 @@ describe('AiPrepStatusPanel', () => {
       />,
     );
 
-    expect(html).toContain('Generated output discarded.');
-    expect(html).toContain('rejected output');
+    expect(html).toContain('폐기된 정리 결과는 표시하지 않습니다.');
+    expect(html).toContain('폐기 결과 표시');
     expect(html).not.toContain('Grounded answer.');
   });
 });
