@@ -7,6 +7,7 @@ import {
   createOutlookFilingRequest,
   evaluateOutlookSendPolicy,
   getOutlookFilingRequestStatus,
+  getOutlookIntegrationAdminStatus,
   getOutlookMatterSuggestions,
   searchOutlookInsertableDocuments,
   updateOutlookFolderMapping,
@@ -109,6 +110,12 @@ describe('Outlook add-in API client', () => {
         redirectOnAuthRequired: false,
       },
     );
+  });
+
+  it('reads the admin integration status through the app-authenticated route', async () => {
+    await getOutlookIntegrationAdminStatus();
+
+    expect(apiFetch).toHaveBeenCalledWith('/m365/outlook/admin-status');
   });
 
   it('posts Smart Alert policy and send-and-file requests without auth redirects', async () => {

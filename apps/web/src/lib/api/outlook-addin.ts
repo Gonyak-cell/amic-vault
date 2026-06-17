@@ -11,6 +11,7 @@ import type {
   OutlookFilingRequestStatusDto,
   OutlookDocumentInsertionDto,
   OutlookFolderMappingDto,
+  OutlookIntegrationAdminStatusDto,
   OutlookSendFileRequestStatusDto,
   OutlookSendPolicyDecisionDto,
   SearchQueryDto,
@@ -104,4 +105,8 @@ export function getOutlookFilingRequestStatus(
   return apiFetch<OutlookFilingRequestStatusDto>(`/m365/outlook/filing-requests/${requestId}`, {
     redirectOnAuthRequired: false,
   });
+}
+
+export function getOutlookIntegrationAdminStatus(): Promise<OutlookIntegrationAdminStatusDto> {
+  return apiFetch<OutlookIntegrationAdminStatusDto>('/m365/outlook/admin-status');
 }

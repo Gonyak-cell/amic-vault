@@ -378,4 +378,35 @@ describe('Outlook add-in DTO contracts', () => {
       autoFileEnabled: false,
     });
   });
+
+  it('models admin integration status without evidence ref values', () => {
+    const status = {
+      provider: 'outlook',
+      operationalGateEnforced: true,
+      rolloutRing: 'R1_PILOT_PRACTICE',
+      auditAvailable: true,
+      features: [
+        {
+          feature: 'SEND_FILE',
+          configured: true,
+          allowed: true,
+        },
+      ],
+      evidence: [
+        {
+          kind: 'EV-OUTLOOK-002',
+          present: true,
+          validFormat: true,
+        },
+      ],
+      generatedAt: '2026-06-17T00:00:00.000Z',
+    };
+
+    expect(JSON.stringify(status)).not.toContain('EVREF-OUTLOOK-002');
+    expect(status.evidence[0]).toEqual({
+      kind: 'EV-OUTLOOK-002',
+      present: true,
+      validFormat: true,
+    });
+  });
 });
