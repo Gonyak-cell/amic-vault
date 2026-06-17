@@ -25,6 +25,7 @@ describe('desktop PWA cache policy', () => {
       '/documents/document-id',
       '/audit',
       '/records',
+      '/integrations/outlook',
       '/ai/sessions/session-id',
       '/external/token',
       '/login',

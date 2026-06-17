@@ -10,6 +10,7 @@ describe('auth guard paths', () => {
     expect(isProtectedAppPath('/documents/11111111-1111-4111-8111-111111111177')).toBe(true);
     expect(isProtectedAppPath('/audit')).toBe(true);
     expect(isProtectedAppPath('/walls')).toBe(true);
+    expect(isProtectedAppPath('/integrations/outlook')).toBe(true);
     expect(isProtectedAppPath('/external/opaque-token')).toBe(false);
   });
 });

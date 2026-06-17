@@ -18,6 +18,7 @@ const sensitivePathPrefixes = [
   '/dd',
   '/litigation',
   '/enterprise',
+  '/integrations',
   '/scale',
   '/walls',
   '/external',

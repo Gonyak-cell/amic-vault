@@ -8,6 +8,7 @@ const protectedPaths = [
   '/litigation',
   '/records',
   '/enterprise',
+  '/integrations',
   '/scale',
   '/audit',
   '/walls',
