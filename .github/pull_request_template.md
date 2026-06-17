@@ -29,6 +29,7 @@
 - [ ] Search and AI surfaces keep Permission-before-search and Permission-before-AI boundaries.
 - [ ] AI Prep wording is limited to file organization prep/readiness; no legal analysis, summary, external model route, raw prompt, raw source, source text, or model response appears.
 - [ ] Login, AppShell, Dashboard, Matters, Files, Search, Records, Audit, Walls, Admin, AI Prep, and Integrations use the shared SaaS design tokens/components without route-specific theme drift.
+- [ ] `docs/ui/design-system-checklist.md` was reviewed for affected screens, including raw hex, custom shadow, custom gradient, duplicated status badge, and custom table/list drift checks.
 - [ ] New UI copy is covered by ko/en i18n keys or an explicit existing-copy reuse decision.
 - [ ] Mobile navigation, keyboard focus, accessible names, empty/error status text, and responsive table/inspector behavior were checked for affected screens.
 - [ ] Evidence uses refs only; no secrets, customer file contents, raw prompts, source text, model responses, cookies, tokens, or confidential screenshots are pasted into the PR.

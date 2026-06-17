@@ -9,6 +9,7 @@ const repoRoot = process.cwd();
 const requiredFiles = [
   '.github/pull_request_template.md',
   'docs/ui/pr-review-checklist.md',
+  'docs/ui/design-system-checklist.md',
 ];
 
 const requiredPatterns = [
@@ -22,6 +23,9 @@ const requiredPatterns = [
   { label: 'AI Prep scope review', pattern: /file organization prep/i },
   { label: 'raw AI data exclusion review', pattern: /raw prompt.*model response|raw prompt, raw source.*model response/is },
   { label: 'design-system review', pattern: /SaaS design tokens|SaaS Design System/i },
+  { label: 'design-system checklist review', pattern: /docs\/ui\/design-system-checklist\.md/ },
+  { label: 'visual drift review', pattern: /raw hex.*custom shadow.*custom gradient|custom shadow.*custom gradient/is },
+  { label: 'shared component review', pattern: /PageHeader.*SectionCard.*EmptyState.*StatusBadge|StatusBadge.*table\/list\/filter/is },
   { label: 'i18n review', pattern: /i18n|ko\/en/i },
   { label: 'responsive review', pattern: /375px.*768px.*1440px|1440px.*768px.*375px/is },
   { label: 'accessibility review', pattern: /keyboard focus|accessible names|aria-current/i },
