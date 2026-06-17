@@ -39,7 +39,7 @@ const copyByLanguage: Record<
     emptyDescription: '정보 장벽 행을 선택하면 정책 범위와 감사 맥락이 표시됩니다.',
     barrier: '정보 장벽',
     status: '상태',
-    matter: 'Matter',
+    matter: '사건',
     matterHidden: '내부 참조는 기본 화면에 표시하지 않음',
     members: '구성원 상태',
     createdAt: '생성 시각',

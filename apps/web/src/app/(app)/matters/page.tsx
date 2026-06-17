@@ -34,16 +34,16 @@ const mattersCopy: Record<
   }
 > = {
   ko: {
-    title: 'Matter 목록',
-    description: '접근 권한이 확인된 Matter만 표시됩니다.',
-    scoped: '워크스페이스 권한으로 보호됨',
-    matter: 'Matter',
+    title: '사건 목록',
+    description: '접근 권한이 확인된 사건만 표시됩니다.',
+    scoped: '권한으로 보호됨',
+    matter: '사건',
     type: '유형',
     status: '상태',
     security: '보안',
     protected: '보호됨',
-    empty: '표시할 Matter가 없습니다.',
-    loading: 'Matter 목록을 불러오는 중입니다.',
+    empty: '표시할 사건이 없습니다.',
+    loading: '사건 목록을 불러오는 중입니다.',
     apiError: '데이터를 표시할 수 없습니다.',
     noAccess: '이 항목을 볼 권한이 없습니다.',
     policyBlocked: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
@@ -93,7 +93,7 @@ export default function MattersPage() {
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', 'Matter']}
+        breadcrumbs={['Vault', copy.matter]}
         title={copy.title}
         description={copy.description}
         actions={

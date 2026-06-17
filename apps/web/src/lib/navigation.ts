@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { UserRole } from '@amic-vault/shared';
-import type { Language } from '@/lib/i18n';
+import { getTranslation, type Language, type TranslationKey } from '@/lib/i18n';
 import { canShowRouteInNavigation, routeVisibilityPolicies } from '@/lib/features';
 
 export type NavigationGroupKey = 'Vault' | 'Governance' | 'Audit' | 'Security' | 'Integrations';
@@ -27,54 +27,54 @@ export interface NavigationGroup {
   items: NavigationItem[];
 }
 
-const groupLabels = {
-  Vault: { ko: 'Vault', en: 'Vault' },
-  Governance: { ko: 'Governance', en: 'Governance' },
-  Audit: { ko: 'Audit', en: 'Audit' },
-  Security: { ko: 'Security', en: 'Security' },
-  Integrations: { ko: 'Integrations', en: 'Integrations' },
-} as const satisfies Record<NavigationGroupKey, Record<Language, string>>;
+const groupLabelKeys = {
+  Vault: 'nav.group.vault',
+  Governance: 'nav.group.governance',
+  Audit: 'nav.group.audit',
+  Security: 'nav.group.security',
+  Integrations: 'nav.group.integrations',
+} as const satisfies Record<NavigationGroupKey, TranslationKey>;
 
 const routeNavigation = {
   '/dashboard': {
     group: 'Vault',
     icon: CheckSquare,
-    label: { ko: '홈', en: 'Home' },
+    labelKey: 'nav.dashboard',
   },
   '/matters': {
     group: 'Vault',
     icon: FolderKanban,
-    label: { ko: 'Matter', en: 'Matters' },
+    labelKey: 'nav.matters',
   },
   '/search': {
     group: 'Vault',
     icon: Search,
-    label: { ko: '검색', en: 'Search' },
+    labelKey: 'nav.search',
   },
   '/records': {
     group: 'Governance',
     icon: Archive,
-    label: { ko: '기록 보존', en: 'Records' },
+    labelKey: 'nav.records',
   },
   '/audit': {
     group: 'Audit',
     icon: History,
-    label: { ko: '접근 기록', en: 'Access logs' },
+    labelKey: 'nav.audit',
   },
   '/walls': {
     group: 'Security',
     icon: Shield,
-    label: { ko: '정보 차단', en: 'Information barriers' },
+    labelKey: 'nav.walls',
   },
   '/files': {
     group: 'Vault',
     icon: FileText,
-    label: { ko: '파일', en: 'Files' },
+    labelKey: 'nav.files',
   },
   '/integrations/outlook': {
     group: 'Integrations',
     icon: MailCheck,
-    label: { ko: 'Outlook', en: 'Outlook' },
+    labelKey: 'nav.outlook',
   },
 } as const;
 
@@ -96,14 +96,14 @@ export function getNavigationGroups(
     groups.get(item.group)?.push({
       href: policy.route,
       icon: item.icon,
-      label: item.label[language],
+      label: getTranslation(item.labelKey, language),
     });
   }
 
   return groupOrder
     .map((key) => ({
       key,
-      label: groupLabels[key][language],
+      label: getTranslation(groupLabelKeys[key], language),
       items: groups.get(key) ?? [],
     }))
     .filter((group) => group.items.length > 0);

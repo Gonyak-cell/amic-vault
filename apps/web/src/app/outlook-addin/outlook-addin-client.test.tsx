@@ -24,13 +24,13 @@ describe('OutlookAddinClient', () => {
     );
 
     expect(html).toContain('AMIC Vault');
-    expect(html).toContain('Outlook Filing');
+    expect(html).toContain('Outlook 파일링');
     expect(html).toContain('메일');
-    expect(html).toContain('Matter');
+    expect(html).toContain('사건');
     expect(html).toContain('Vault 문서');
     expect(html).toContain('Project Maple');
     expect(html).toContain('첨부 1');
-    expect(html).toContain('선택 Matter 있음');
+    expect(html).toContain('선택 사건 있음');
     expect(html).not.toContain('Privileged acquisition draft');
     expect(html).not.toContain('lawyer@amic.test');
     expect(html).not.toContain('counterparty@example.com');

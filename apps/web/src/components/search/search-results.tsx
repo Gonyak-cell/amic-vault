@@ -5,7 +5,7 @@ import type { SearchResponseDto } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { emptyStateVariantForUiErrorKind, type UiErrorKind } from '@/lib/api/error-messages';
-import { useI18n } from '@/lib/i18n';
+import { formatSearchResultCount, useI18n, type TranslationKey } from '@/lib/i18n';
 import { ResultCard } from './result-card';
 
 export type SearchErrorKind = UiErrorKind;
@@ -20,46 +20,21 @@ interface SearchResultsProps {
 }
 
 export function SearchResults({ response, page, pageSize, busy, error, onPage }: SearchResultsProps) {
-  const { language } = useI18n();
-  const copy = language === 'ko'
-    ? {
-        loading: '검색 결과를 불러오는 중입니다.',
-        start: '검색어를 입력하면 접근 권한이 있는 파일만 보여줍니다.',
-        empty: '검색 결과가 없습니다.',
-        auth: '로그인이 필요합니다.',
-        permission: '이 항목을 볼 권한이 없습니다.',
-        policy: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
-        api: '데이터를 표시할 수 없습니다.',
-        results: (total: number) => `결과 ${total}개`,
-        previous: '이전',
-        next: '다음',
-      }
-    : {
-        loading: 'Loading results.',
-        start: 'Enter a search term to see files you can access.',
-        empty: 'No results.',
-        auth: 'Sign in required.',
-        permission: 'You do not have permission to view this item.',
-        policy: 'Information barrier or permission policy prevents display.',
-        api: 'Unable to display data.',
-        results: (total: number) => `${total} results`,
-        previous: 'Previous',
-        next: 'Next',
-      };
+  const { language, t } = useI18n();
 
   if (error) {
     const variant = emptyStateVariantForUiErrorKind(error);
-    return <EmptyState variant={variant} title={copy[error]} />;
+    return <EmptyState variant={variant} title={t(searchErrorKey(error))} />;
   }
-  if (busy && !response) return <EmptyState variant="api-unavailable" title={copy.loading} />;
-  if (!response) return <EmptyState variant="pre-search" title={copy.start} />;
-  if (response.results.length === 0) return <EmptyState title={copy.empty} />;
+  if (busy && !response) return <EmptyState variant="api-unavailable" title={t('search.loading')} />;
+  if (!response) return <EmptyState variant="pre-search" title={t('search.start')} />;
+  if (response.results.length === 0) return <EmptyState title={t('search.empty')} />;
 
   const totalPages = Math.max(1, Math.ceil(response.total / pageSize));
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{copy.results(response.total)}</p>
+        <p className="text-sm text-muted-foreground">{formatSearchResultCount(response.total, language)}</p>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -68,7 +43,7 @@ export function SearchResults({ response, page, pageSize, busy, error, onPage }:
             disabled={page <= 1 || busy}
             onClick={() => onPage(page - 1)}
           >
-            {copy.previous}
+            {t('search.previous')}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -80,7 +55,7 @@ export function SearchResults({ response, page, pageSize, busy, error, onPage }:
             disabled={page >= totalPages || busy}
             onClick={() => onPage(page + 1)}
           >
-            {copy.next}
+            {t('search.next')}
           </Button>
         </div>
       </div>
@@ -91,4 +66,8 @@ export function SearchResults({ response, page, pageSize, busy, error, onPage }:
       </div>
     </section>
   );
+}
+
+function searchErrorKey(error: SearchErrorKind): TranslationKey {
+  return `search.${error}` as TranslationKey;
 }

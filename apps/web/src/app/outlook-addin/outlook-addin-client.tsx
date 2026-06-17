@@ -166,7 +166,7 @@ export function OutlookAddinClient({
         setClientState('ready');
       } catch {
         setClientState('unavailable');
-        setSafeError('Access unavailable');
+        setSafeError('접근 상태를 확인할 수 없습니다.');
       } finally {
         setBusyAction(null);
       }
@@ -393,7 +393,7 @@ export function OutlookAddinClient({
             <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
               AMIC Vault
             </p>
-            <h1 className="truncate text-lg font-semibold leading-6">Outlook Filing</h1>
+            <h1 className="truncate text-lg font-semibold leading-6">Outlook 파일링</h1>
           </div>
           <StatePill state={clientState} />
         </header>
@@ -531,7 +531,7 @@ export function OutlookAddinClient({
             )}
             {sendStatus ? (
               <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
-                send-and-file {sendStatus.status} · 요청 기록됨
+                전송 및 보관 {sendStatus.status} · 요청 기록됨
               </div>
             ) : null}
             <Button
@@ -541,14 +541,14 @@ export function OutlookAddinClient({
               disabled={!canCreateSendFile}
             >
               <Send className="h-4 w-4" aria-hidden />
-              Send+File
+              전송+보관
             </Button>
           </CardContent>
         </Card>
 
         <Card className="rounded-md shadow-none">
           <CardHeader className="flex-row items-center justify-between gap-2 p-3">
-            <CardTitle className="text-sm">Matter</CardTitle>
+            <CardTitle className="text-sm">사건</CardTitle>
             <Button
               type="button"
               variant="outline"
@@ -613,8 +613,8 @@ export function OutlookAddinClient({
           <CardContent className="grid gap-2 p-3 pt-0 text-sm">
             {snapshot?.folderRefHash ? (
               <div className="grid grid-cols-2 gap-2">
-                <Metric label="Folder" value="연결됨" />
-                <Metric label="Matter" value={selectedMatterId ? '선택됨' : '없음'} />
+                <Metric label="폴더" value="연결됨" />
+                <Metric label="사건" value={selectedMatterId ? '선택됨' : '없음'} />
               </div>
             ) : (
               <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
@@ -624,7 +624,7 @@ export function OutlookAddinClient({
             {folderMapping ? (
               <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
                 {folderMapping.approvalStatus} · 매핑 기록됨
-                {folderMapping.autoFileEnabled ? ' · auto-file' : ''}
+                {folderMapping.autoFileEnabled ? ' · 자동 파일링' : ''}
               </div>
             ) : null}
             <Button
@@ -690,7 +690,7 @@ export function OutlookAddinClient({
                 <span className="text-xs">요청 기록됨</span>
               </div>
               <div className="mt-1 text-xs">
-                파일링 요청이 Matter에 연결됨
+                파일링 요청이 사건에 연결됨
                 {status.filedAttachmentCount !== undefined
                   ? ` · 첨부 ${status.filedAttachmentCount}`
                   : ''}
@@ -720,7 +720,7 @@ export function OutlookAddinClient({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            선택 Matter {selectedMatterId ? '있음' : '없음'} · 첨부 {selectedCount}
+            선택 사건 {selectedMatterId ? '있음' : '없음'} · 첨부 {selectedCount}
           </p>
         </section>
       </div>
@@ -731,15 +731,15 @@ export function OutlookAddinClient({
 function MessageSummary({ snapshot }: { snapshot: OutlookItemSnapshot }) {
   return (
     <dl className="grid grid-cols-2 gap-2">
-      <Metric label="Message" value={snapshot.itemHashPreview} />
-      <Metric label="Mailbox" value={snapshot.mailboxHashPreview} />
-      <Metric label="Domains" value={String(snapshot.participantDomainHashCount)} />
-      <Metric label="External" value={snapshot.message.hasExternalParticipants ? 'Yes' : 'No'} />
-      <Metric label="Attachments" value={String(snapshot.attachmentSummary.count)} />
-      <Metric label="Selected" value={String(snapshot.attachmentSummary.selectedCount)} />
+      <Metric label="메시지" value={snapshot.itemHashPreview} />
+      <Metric label="메일함" value={snapshot.mailboxHashPreview} />
+      <Metric label="도메인" value={String(snapshot.participantDomainHashCount)} />
+      <Metric label="외부 참여자" value={snapshot.message.hasExternalParticipants ? '있음' : '없음'} />
+      <Metric label="첨부" value={String(snapshot.attachmentSummary.count)} />
+      <Metric label="선택됨" value={String(snapshot.attachmentSummary.selectedCount)} />
       {snapshot.message.receivedAt ? (
         <div className="col-span-2 rounded-md bg-muted/60 px-3 py-2">
-          <dt className="text-xs text-muted-foreground">Received</dt>
+          <dt className="text-xs text-muted-foreground">수신 시각</dt>
           <dd className="font-mono text-xs">
             {new Date(snapshot.message.receivedAt).toLocaleString('ko-KR')}
           </dd>
@@ -815,7 +815,7 @@ function StatePill({ state }: { state: ClientState }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-sm bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800">
         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-        ready
+        준비됨
       </span>
     );
   }
@@ -823,14 +823,14 @@ function StatePill({ state }: { state: ClientState }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
         <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-        loading
+        불러오는 중
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 rounded-sm bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
       <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
-      unavailable
+      사용할 수 없음
     </span>
   );
 }

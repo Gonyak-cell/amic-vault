@@ -10,9 +10,8 @@ interface ResultCardProps {
 }
 
 export function ResultCard({ result }: ResultCardProps) {
-  const { language } = useI18n();
-  const copy = resultCopy[language];
-  const title = result.displayName || result.title || copy.hiddenTitle;
+  const { t } = useI18n();
+  const title = result.displayName || result.title || t('search.result.hiddenTitle');
   return (
     <article className="rounded-md border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -34,11 +33,6 @@ export function ResultCard({ result }: ResultCardProps) {
     </article>
   );
 }
-
-const resultCopy = {
-  ko: { hiddenTitle: '표시 가능한 제목 없음' },
-  en: { hiddenTitle: 'No display title available' },
-} as const;
 
 function highlightSnippet(
   snippet: string,

@@ -41,7 +41,7 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
           actorRef: '수행자 참조',
           sessionRef: '세션 참조',
           targetRef: '대상 참조',
-          matterRef: 'Matter 참조',
+          matterRef: '사건 참조',
           noReference: '참조 없음',
         }
       : {

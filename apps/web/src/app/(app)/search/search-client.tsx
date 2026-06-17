@@ -13,7 +13,7 @@ import { useI18n } from '@/lib/i18n';
 const pageSize = 10;
 
 export function SearchClient() {
-  const { language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const initial = useMemo(() => stateFromParams(params), [params]);
@@ -69,7 +69,7 @@ export function SearchClient() {
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-2 border-b pb-4">
         <h1 className="text-2xl font-semibold tracking-normal">
-          {language === 'ko' ? '파일 검색' : 'Search files'}
+          {t('search.title')}
         </h1>
         <SearchBar
           initialQuery={query}

@@ -46,7 +46,7 @@ describe('SearchFacets', () => {
     expect(html).toContain('파일 유형');
     expect(html).toContain('메모');
     expect(html).toContain('계약서');
-    expect(html).toContain('Matter');
+    expect(html).toContain('사건');
     expect(html).toContain('고객');
     expect(html).toContain('AMIC-2026 · Vault UI');
     expect(html).toContain('AMIC');

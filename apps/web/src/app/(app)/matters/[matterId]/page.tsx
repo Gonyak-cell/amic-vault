@@ -71,9 +71,9 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', 'Matter']}
-        title={matter?.matterName ?? 'Matter'}
-        description={matter ? matter.matterCode : '권한이 확인된 Matter 정보만 표시됩니다.'}
+        breadcrumbs={['Vault', '사건']}
+        title={matter?.matterName ?? '사건'}
+        description={matter ? matter.matterCode : '권한이 확인된 사건 정보만 표시됩니다.'}
         actions={matter ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
@@ -87,27 +87,27 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
         ) : undefined}
       />
 
-      {loadStatus === 'error' ? <EmptyState variant="api-error" title="Matter를 표시할 수 없습니다." /> : null}
+      {loadStatus === 'error' ? <EmptyState variant="api-error" title="사건을 표시할 수 없습니다." /> : null}
 
       {matter ? (
         <dl className="grid gap-3 text-sm sm:grid-cols-3">
           <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">Type</dt>
+            <dt className="text-xs uppercase text-muted-foreground">유형</dt>
             <dd className="mt-1 font-medium">{matter.matterType}</dd>
           </div>
           <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">Practice group</dt>
+            <dt className="text-xs uppercase text-muted-foreground">그룹</dt>
             <dd className="mt-1 font-medium">{matter.practiceGroup ?? '표시할 항목이 없습니다.'}</dd>
           </div>
           <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">Legal hold</dt>
+            <dt className="text-xs uppercase text-muted-foreground">보존 제한</dt>
             <dd className="mt-1 font-medium">{matter.legalHold ? '적용됨' : '없음'}</dd>
           </div>
         </dl>
       ) : null}
 
       {matter ? (
-        <SectionCard icon={<Mail className="h-4 w-4" />} title="Filed emails" meta="권한이 확인된 이메일만 표시">
+        <SectionCard icon={<Mail className="h-4 w-4" />} title="보관된 이메일" meta="권한이 확인된 이메일만 표시">
           {emails.length > 0 ? (
             <ul className="divide-y overflow-hidden rounded-md border">
               {emails.map((email) => (
@@ -115,23 +115,23 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
                   <div className="min-w-0">
                     <p className="truncate font-medium">{email.subject ?? '표시 가능한 제목 없음'}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>{email.documentIds.length} documents</span>
-                      <span>{email.thread.relatedEmailCount} related</span>
+                      <span>문서 {email.documentIds.length}건</span>
+                      <span>관련 이메일 {email.thread.relatedEmailCount}건</span>
                       {email.warningCodes.map((code) => (
                         <span
                           key={code}
                           className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800"
                         >
                           <AlertTriangle className="h-3 w-3" />
-                          {code === 'outside_participant' ? 'Outside recipient' : 'Matter mismatch'}
+                          {code === 'outside_participant' ? '외부 수신자' : '사건 불일치'}
                         </span>
                       ))}
                       {email.privilegeTagSuggestion ? (
                         <span className="inline-flex items-center gap-1 rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-800">
                           <ShieldCheck className="h-3 w-3" />
                           {email.privilegeTagSuggestion.tag === 'attorney_client_privilege'
-                            ? 'Privilege suggested'
-                            : 'Confidential suggested'}
+                            ? '비밀특권 후보'
+                            : '기밀 후보'}
                         </span>
                       ) : null}
                     </div>

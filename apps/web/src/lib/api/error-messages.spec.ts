@@ -56,7 +56,7 @@ describe('uiErrorStateForApiError', () => {
     expect(uiErrorKindForApiError(error)).toBe('policy');
     expect(dataStateStatusForApiError(error)).toBe('blocked');
     expect(emptyStateVariantForUiErrorKind('policy')).toBe('policy-blocked');
-    expect(safeApiErrorMessage(apiError('AUTH_REQUIRED', 401))).toBe('Sign in required');
-    expect(safeApiErrorMessage(error)).toBe('Access unavailable');
+    expect(safeApiErrorMessage(apiError('AUTH_REQUIRED', 401))).toBe('로그인이 필요합니다.');
+    expect(safeApiErrorMessage(error)).toBe('접근 상태를 확인할 수 없습니다.');
   });
 });
