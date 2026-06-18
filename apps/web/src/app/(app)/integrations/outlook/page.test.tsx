@@ -9,7 +9,11 @@ import { OutlookIntegrationStatusContent } from './outlook-integration-status-cl
 describe('integration status routes', () => {
   it('renders only empty operational states before integration APIs are connected', () => {
     const html = [
-      renderToStaticMarkup(<IntegrationsPage />),
+      renderToStaticMarkup(
+        <LanguageProvider>
+          <IntegrationsPage />
+        </LanguageProvider>,
+      ),
       renderToStaticMarkup(
         <LanguageProvider>
           <OutlookIntegrationPage />

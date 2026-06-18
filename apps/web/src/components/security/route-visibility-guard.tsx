@@ -8,6 +8,7 @@ import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { getCurrentUser } from '@/lib/auth';
 import { canRoleViewRoute, findRouteVisibilityPolicy } from '@/lib/features';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { RouteBlockedState } from './route-blocked-state';
 
 type GuardState =
@@ -17,14 +18,18 @@ type GuardState =
 
 export function RouteVisibilityGuard({
   area,
+  areaKey,
   children,
   route,
 }: {
-  area: string;
+  area?: string;
+  areaKey?: TranslationKey;
   children: ReactNode;
   route: string;
 }) {
+  const { t } = useI18n();
   const policy = useMemo(() => findRouteVisibilityPolicy(route), [route]);
+  const displayArea = areaKey ? t(areaKey) : area ?? t('route.blocked.defaultArea');
   const [state, setState] = useState<GuardState>({ status: 'loading' });
 
   useEffect(() => {
@@ -52,8 +57,8 @@ export function RouteVisibilityGuard({
   if (state.status === 'blocked') {
     return (
       <RouteBlockedState
-        area={area}
-        reason="이 화면은 관리자 권한과 운영 정책이 확인된 계정에만 표시됩니다."
+        area={displayArea}
+        reason={t('route.blocked.adminReason')}
       />
     );
   }
@@ -61,15 +66,15 @@ export function RouteVisibilityGuard({
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', area]}
-        title={area}
-        description="권한과 운영 정책을 확인한 뒤 화면을 표시합니다."
+        breadcrumbs={['Vault', displayArea]}
+        title={displayArea}
+        description={t('route.loading.description')}
       />
-      <SectionCard title="접근 상태 확인" meta="권한 확인 중">
+      <SectionCard title={t('route.loading.cardTitle')} meta={t('route.loading.cardMeta')}>
         <EmptyState
           variant="api-unavailable"
-          title="접근 상태 확인 중"
-          description="관리자 화면은 계정 권한이 확인되기 전까지 표시하지 않습니다."
+          title={t('route.loading.title')}
+          description={t('route.loading.descriptionLong')}
         />
       </SectionCard>
     </PageShell>

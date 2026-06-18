@@ -81,7 +81,7 @@ export const routeVisibilityPolicies = [
     group: 'Admin',
     production: 'visible_admin_only',
     roles: adminRoles,
-    showInNavigation: false,
+    showInNavigation: true,
   },
   {
     route: '/integrations/outlook',

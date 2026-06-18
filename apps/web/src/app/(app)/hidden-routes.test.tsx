@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { LanguageProvider } from '@/lib/i18n';
 import ContractsPage from './contracts/page';
 import DdPage from './dd/page';
 import LaunchPage from './launch/page';
@@ -10,11 +11,31 @@ import ScalePage from './scale/page';
 describe('hidden production routes', () => {
   it('renders safe blocked states instead of route clients', () => {
     const html = [
-      renderToStaticMarkup(<LaunchPage />),
-      renderToStaticMarkup(<ScalePage />),
-      renderToStaticMarkup(<ContractsPage />),
-      renderToStaticMarkup(<DdPage />),
-      renderToStaticMarkup(<LitigationPage />),
+      renderToStaticMarkup(
+        <LanguageProvider>
+          <LaunchPage />
+        </LanguageProvider>,
+      ),
+      renderToStaticMarkup(
+        <LanguageProvider>
+          <ScalePage />
+        </LanguageProvider>,
+      ),
+      renderToStaticMarkup(
+        <LanguageProvider>
+          <ContractsPage />
+        </LanguageProvider>,
+      ),
+      renderToStaticMarkup(
+        <LanguageProvider>
+          <DdPage />
+        </LanguageProvider>,
+      ),
+      renderToStaticMarkup(
+        <LanguageProvider>
+          <LitigationPage />
+        </LanguageProvider>,
+      ),
     ].join('\n');
 
     expect(html).toContain('운영 노출 차단');
