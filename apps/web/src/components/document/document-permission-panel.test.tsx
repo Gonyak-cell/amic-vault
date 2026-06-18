@@ -21,7 +21,11 @@ describe('DocumentPermissionPanel', () => {
     );
     expect(html).toContain('접근 권한');
     expect(html).toContain('높음');
+    expect(html).toContain('보안 설정 저장');
+    expect(html).toContain('disabled=""');
+    expect(html).toContain('rounded-md');
     expect(html).not.toContain('Confidentiality');
     expect(html).not.toContain('PermissionService');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111177');
   });
 });
