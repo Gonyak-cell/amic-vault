@@ -94,6 +94,7 @@ export function AuditConsoleClient() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [auditReady, setAuditReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const query = useMemo(() => queryFromFilters(appliedFilters), [appliedFilters]);
   const selectedEvent = useMemo(
@@ -110,10 +111,12 @@ export function AuditConsoleClient() {
         setEvents((current) => (cursor ? [...current, ...result.items] : result.items));
         if (!cursor) setSelectedEventId(result.items[0]?.eventId ?? null);
         setNextCursor(result.nextCursor);
+        setAuditReady(true);
       } catch (caught) {
         setEvents([]);
         setSelectedEventId(null);
         setNextCursor(null);
+        setAuditReady(false);
         setError(safeApiErrorMessage(caught));
       } finally {
         setBusy(false);
@@ -135,7 +138,7 @@ export function AuditConsoleClient() {
     setBusy(true);
     setError(null);
     try {
-      const csv = await exportAuditEventsCsv({ ...queryFromFilters(filters), limit: 1000 });
+      const csv = await exportAuditEventsCsv({ ...query, limit: 1000 });
       const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -165,7 +168,7 @@ export function AuditConsoleClient() {
                 title={copy.export}
                 type="button"
                 variant="outline"
-                disabled={busy}
+                disabled={busy || !auditReady}
                 onClick={exportCsv}
               >
                 <Download className="h-4 w-4" />

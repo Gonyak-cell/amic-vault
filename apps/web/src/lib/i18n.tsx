@@ -149,6 +149,8 @@ const translations = {
   'route.area.dd': { ko: '실사 자료', en: 'Diligence' },
   'route.area.litigation': { ko: '소송 자료', en: 'Litigation' },
   'route.area.enterprise': { ko: '관리자 설정', en: 'Admin settings' },
+  'route.area.admin': { ko: '관리자 설정', en: 'Admin settings' },
+  'route.area.adminSecurity': { ko: '보안 설정', en: 'Security settings' },
   'files.page.title': { ko: '파일', en: 'Files' },
   'files.page.description': {
     ko: '파일 목록 API가 연결되기 전까지 운영 데이터만 표시합니다.',

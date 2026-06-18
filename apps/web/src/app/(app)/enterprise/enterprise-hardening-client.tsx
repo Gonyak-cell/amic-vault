@@ -208,7 +208,7 @@ export function EnterpriseHardeningClient() {
           </Button>
         }
       />
-      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
+      {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <SectionCard

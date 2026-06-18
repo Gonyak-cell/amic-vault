@@ -6,19 +6,28 @@ import {
 } from './features';
 
 describe('route visibility policies', () => {
-  it('uses the real enterprise admin route instead of a stale admin placeholder', () => {
-    expect(findRouteVisibilityPolicy('/admin')).toBeUndefined();
-    expect(findRouteVisibilityPolicy('/enterprise')).toMatchObject({
+  it('uses /admin as the canonical admin settings route with /enterprise as a hidden compatibility route', () => {
+    expect(findRouteVisibilityPolicy('/admin')).toMatchObject({
       group: 'Admin',
       production: 'visible_admin_only',
       showInNavigation: true,
     });
+    expect(findRouteVisibilityPolicy('/admin/security')).toMatchObject({
+      group: 'Admin',
+      production: 'visible_admin_only',
+      showInNavigation: false,
+    });
+    expect(findRouteVisibilityPolicy('/enterprise')).toMatchObject({
+      group: 'Admin',
+      production: 'visible_admin_only',
+      showInNavigation: false,
+    });
   });
 
   it('keeps admin settings limited to admin roles', () => {
-    const policy = findRouteVisibilityPolicy('/enterprise');
+    const policy = findRouteVisibilityPolicy('/admin');
     expect(policy).toBeDefined();
-    if (!policy) throw new Error('missing enterprise route policy');
+    if (!policy) throw new Error('missing admin route policy');
 
     expect(canRoleViewRoute(policy, 'firm_admin')).toBe(true);
     expect(canRoleViewRoute(policy, 'security_admin')).toBe(true);
@@ -36,10 +45,11 @@ describe('route visibility policies', () => {
     }
   });
 
-  it('does not keep policies for routes that are not part of the app inventory', () => {
+  it('keeps legacy enterprise policy out of primary navigation', () => {
     const policyRoutes: readonly string[] = routeVisibilityPolicies.map((policy) => policy.route);
-    const staleRoutes = policyRoutes.filter((route) => route === '/admin');
+    const staleRoutes = policyRoutes.filter((route) => route === '/admin-old');
 
     expect(staleRoutes).toEqual([]);
+    expect(findRouteVisibilityPolicy('/enterprise')?.showInNavigation).toBe(false);
   });
 });

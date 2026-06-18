@@ -76,7 +76,7 @@ const routeNavigation = {
     icon: Shield,
     labelKey: 'nav.walls',
   },
-  '/enterprise': {
+  '/admin': {
     group: 'Admin',
     icon: Settings,
     labelKey: 'nav.enterprise',

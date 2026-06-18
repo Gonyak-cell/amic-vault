@@ -11,6 +11,13 @@ import type {
   RetentionPolicyListResponseDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableEmptyRow,
+  DataTableRow,
+} from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterBar, FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
@@ -330,7 +337,7 @@ export function RecordsGovernanceClient() {
           </Button>
         }
       />
-      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
+      {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
       <TabBar activeTab={activeTab} labels={copy.tabs} onChange={setActiveTab} />
 
@@ -674,26 +681,21 @@ function SummaryPanel({
 }) {
   return (
     <SectionCard icon={<ListTree className="h-4 w-4" />} title={title}>
-      <div className="mt-3 overflow-x-auto rounded-md border">
-        <table className="min-w-[520px] w-full table-fixed text-sm">
-          <caption className="sr-only">{title}</caption>
-          <tbody>
+      <div className="mt-3">
+        <DataTable caption={title} minWidthClassName="min-w-[520px]">
+          <DataTableBody>
             {(rows ?? []).slice(0, 8).map((row, index) => (
-              <tr key={`${title}-${index}`} className="border-b last:border-b-0">
+              <DataTableRow key={`${title}-${index}`}>
                 {row.map((cell, cellIndex) => (
-                  <td key={`${title}-${index}-${cellIndex}`} className="truncate px-3 py-2">
+                  <DataTableCell key={`${title}-${index}-${cellIndex}`} className="truncate">
                     {cell}
-                  </td>
+                  </DataTableCell>
                 ))}
-              </tr>
+              </DataTableRow>
             ))}
-            {!rows?.length ? (
-              <tr>
-                <td className="px-3 py-2 text-muted-foreground">{empty}</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+            {!rows?.length ? <DataTableEmptyRow colSpan={3}>{empty}</DataTableEmptyRow> : null}
+          </DataTableBody>
+        </DataTable>
       </div>
     </SectionCard>
   );

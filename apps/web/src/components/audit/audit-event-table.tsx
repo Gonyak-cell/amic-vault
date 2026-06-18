@@ -11,6 +11,7 @@ import {
   DataTableHeader,
   DataTableRow,
 } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useI18n } from '@/lib/i18n';
 
@@ -66,7 +67,7 @@ export function AuditEventTable({
         };
 
   if (error) {
-    return <p className="text-sm font-medium text-destructive">{error}</p>;
+    return <EmptyState variant="api-error" title={error} className="items-start text-left" />;
   }
   return (
     <DataTable caption={copy.caption} minWidthClassName="min-w-[760px]">

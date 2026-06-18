@@ -27,7 +27,9 @@ This inventory records which routes may be shown in production navigation, which
 | `/records` | Governance | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin, matter owner | AppShell route | No prefilled retention/disposal/certificate values |
 | `/audit` | Audit | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Display-safe actor/action/result/target/time only |
 | `/walls` | Security | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Default list hides wall/matter/user raw references |
-| `/enterprise` | Admin | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Guarded admin settings route | SSO/MFA/BYOK/SIEM/Backup/Compliance data only after API success |
+| `/admin` | Admin | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Guarded admin settings route | SSO/MFA/BYOK/SIEM/Backup/Compliance data only after API success |
+| `/admin/security` | Admin | `visible_admin_only` | Hidden | Firm admin, security admin | Guarded security settings route | Same real-data-only Admin Settings policy; no separate mock security data |
+| `/enterprise` | Admin | `visible_admin_only` | Hidden | Firm admin, security admin | Compatibility guarded admin settings route | Alias only; not shown in navigation |
 | `/integrations` | Integrations | `visible_admin_only` | Parent route hidden | Firm admin, security admin | Empty/unavailable status route | No connected state before API success |
 | `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only; Office task pane stays separate |
 | `/integrations/onedrive` | Integrations | `hidden_until_api_ready` | Hidden | Firm admin, security admin after API readiness | No production route until contract is approved | Must not claim OneDrive connection |

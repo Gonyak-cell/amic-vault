@@ -250,7 +250,7 @@ export function WallAdminClient() {
         </FilterBar>
       </form>
 
-      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
+      {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <WallList
