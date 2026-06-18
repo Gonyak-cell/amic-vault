@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { canChangeLegalHoldRole, canCreateMatterRole } from './matter.service';
+import {
+  DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME,
+  canChangeLegalHoldRole,
+  canCreateMatterRole,
+} from './matter.service';
 
 describe('matter conservative guards', () => {
   it('allows only firm admin and matter owner to create matters', () => {
@@ -13,5 +17,9 @@ describe('matter conservative guards', () => {
     expect(canChangeLegalHoldRole('security_admin')).toBe(true);
     expect(canChangeLegalHoldRole('matter_owner')).toBe(false);
     expect(canChangeLegalHoldRole('matter_member')).toBe(false);
+  });
+
+  it('keeps the default local AI policy name narrow to file organization prep', () => {
+    expect(DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME).toBe('AMIC local file organization prep');
   });
 });

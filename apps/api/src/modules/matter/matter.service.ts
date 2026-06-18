@@ -39,6 +39,7 @@ import { MatterEntity } from './matter.entity';
 const databaseUrl =
   process.env.DATABASE_URL ??
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
+export const DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME = 'AMIC local file organization prep';
 
 let pool: Pool | undefined;
 
@@ -68,6 +69,10 @@ interface MatterRow {
 
 interface MatterListRow extends MatterRow {
   total_count: string;
+}
+
+interface DefaultAiPolicyRow {
+  policy_id: string;
 }
 
 export function canCreateMatterRole(role: string): boolean {
@@ -167,12 +172,14 @@ export class MatterService {
     await this.assertLeadLawyerUsable(context.tenantId, leadLawyerId);
 
     const matter = await this.auditService.transaction(context.tenantId, async (tx) => {
+      const defaultAiPolicyId = await this.findDefaultLocalAiPolicyId(tx, context.tenantId);
       const created = await this.insertMatter(
         tx,
         context.tenantId,
         actorUserId,
         leadLawyerId,
         input,
+        defaultAiPolicyId,
       );
       await this.matterMemberService.addLeadOwner(
         tx,
@@ -406,14 +413,16 @@ export class MatterService {
     createdBy: string,
     leadLawyerId: string,
     input: CreateMatterDto,
+    aiPolicyId: string | null,
   ): Promise<MatterEntity> {
     const result = await client.query(
       `
         INSERT INTO matters (
           tenant_id, client_id, matter_code, matter_name, matter_type, status,
-          opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json, created_by
+          opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json, created_by,
+          ai_policy_id
         )
-        VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7, $8, $9, $10::jsonb, $11)
+        VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7, $8, $9, $10::jsonb, $11, $12)
         RETURNING matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
           status, opened_at, closed_at, lead_lawyer_id, practice_group, metadata_json,
           legal_hold, created_by, created_at, updated_at
@@ -430,11 +439,34 @@ export class MatterService {
         input.practiceGroup ?? null,
         JSON.stringify(input.metadata ?? {}),
         createdBy,
+        aiPolicyId,
       ],
     );
     const row = result.rows[0] as MatterRow | undefined;
     if (!row) throw new Error('matter insert returned no row');
     return mapMatter(row);
+  }
+
+  private async findDefaultLocalAiPolicyId(
+    client: QueryClient,
+    tenantId: TenantId,
+  ): Promise<string | null> {
+    const result = await client.query(
+      `
+        SELECT policy_id
+        FROM ai_policies
+        WHERE tenant_id = $1
+          AND name = $2
+          AND allowed_model_tiers = ARRAY['local']::text[]
+          AND external_model_allowed = false
+          AND default_effect = 'DENY'
+        ORDER BY updated_at DESC, created_at DESC, policy_id
+        LIMIT 1
+      `,
+      [tenantId, DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME],
+    );
+    const row = result.rows[0] as DefaultAiPolicyRow | undefined;
+    return row?.policy_id ?? null;
   }
 
   private async findByIdForTenant(
