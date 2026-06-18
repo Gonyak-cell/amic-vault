@@ -60,6 +60,8 @@ export interface LocalGemmaGenerateTextInput {
   format?: 'json' | Record<string, unknown> | undefined;
   temperature?: number | undefined;
   maxTokens?: number | undefined;
+  contextLength?: number | undefined;
+  keepAlive?: string | undefined;
   timeoutMs?: number | undefined;
 }
 
@@ -156,9 +158,11 @@ export class LocalGemmaGateway {
           stream: false,
           ...(input.format ? { format: input.format } : {}),
           ...(input.system ? { system: input.system } : {}),
+          ...(input.keepAlive ? { keep_alive: input.keepAlive } : {}),
           options: {
             ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
             ...(input.maxTokens === undefined ? {} : { num_predict: input.maxTokens }),
+            ...(input.contextLength === undefined ? {} : { num_ctx: input.contextLength }),
           },
         }),
       });

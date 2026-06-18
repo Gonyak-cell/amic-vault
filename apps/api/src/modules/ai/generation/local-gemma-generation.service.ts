@@ -63,6 +63,8 @@ export class LocalGemmaGenerationService {
         model: localGemmaModel(),
         temperature: 0,
         maxTokens: options.maxTokens ?? localGemmaMaxTokens(options.compileOptions?.purpose),
+        contextLength: localGemmaContextLength(options.compileOptions?.purpose),
+        keepAlive: localGemmaKeepAlive(options.compileOptions?.purpose),
       },
       options.parseOutput ?? ((value) => aiGroundedGenerationOutputSchema.parse(value)),
     );
@@ -123,6 +125,18 @@ function localGemmaMaxTokens(purpose: EvidencePromptCompileOptions['purpose']): 
     if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
   }
   return purpose === 'file_organization_prep' ? 320 : 1400;
+}
+
+function localGemmaContextLength(purpose: EvidencePromptCompileOptions['purpose']): number | undefined {
+  const parsed = Number(process.env.LOCAL_GEMMA_NUM_CTX);
+  if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  return purpose === 'file_organization_prep' ? 2048 : undefined;
+}
+
+function localGemmaKeepAlive(purpose: EvidencePromptCompileOptions['purpose']): string | undefined {
+  const raw = process.env.LOCAL_GEMMA_KEEP_ALIVE?.trim();
+  if (raw) return raw;
+  return purpose === 'file_organization_prep' ? '30s' : undefined;
 }
 
 function localGemmaPrepFormatMode(): 'json' | 'schema' {

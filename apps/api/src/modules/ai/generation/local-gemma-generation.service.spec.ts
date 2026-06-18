@@ -123,8 +123,76 @@ describe('LocalGemmaGenerationService', () => {
     expect(generateBodies).toHaveLength(1);
     const body = generateBodies[0]!;
     expect(body.prompt).toContain('OUTPUT_LIMIT: exactly one section, exactly one claim');
-    expect(body.options).toMatchObject({ num_predict: 320 });
+    expect(body.options).toMatchObject({ num_predict: 320, num_ctx: 2048 });
+    expect(body.keep_alive).toBe('30s');
     expect(body.format).toBe('json');
+  });
+
+  it('honors production Gemma prep runtime overrides', async () => {
+    vi.stubEnv('LOCAL_GEMMA_ENABLED', 'true');
+    vi.stubEnv('LOCAL_GEMMA_ENDPOINT', 'http://127.0.0.1:11434');
+    vi.stubEnv('LOCAL_GEMMA_PREP_MAX_TOKENS', '128');
+    vi.stubEnv('LOCAL_GEMMA_NUM_CTX', '1024');
+    vi.stubEnv('LOCAL_GEMMA_KEEP_ALIVE', '5m');
+    const generateBodies: Array<Record<string, unknown>> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/api/tags')) {
+          return new Response(
+            JSON.stringify({ models: [{ name: 'gemma4:12b', model: 'gemma4:12b' }] }),
+            { status: 200 },
+          );
+        }
+        generateBodies.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>);
+        return new Response(
+          JSON.stringify({
+            model: 'gemma4:12b',
+            response: JSON.stringify({
+              answer: '회의 메모',
+              sections: [
+                {
+                  section_id: 's1',
+                  heading: '문서 성격',
+                  text: '계약 검토 관련 회의 메모입니다.',
+                  source_refs: [sourceRef],
+                },
+              ],
+              claims: [
+                {
+                  claim_id: 'c1',
+                  kind: 'summary',
+                  text: '계약 검토 회의 메모입니다.',
+                  source_refs: [sourceRef],
+                  is_legal_conclusion: false,
+                },
+              ],
+              warnings: [],
+            }),
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    await new LocalGemmaGenerationService(
+      new AiEvidencePromptCompiler(),
+      new AiGroundedOutputGuard(),
+    ).generateGrounded(evidencePack(), {
+      compileOptions: {
+        purpose: 'file_organization_prep',
+        artifactKind: 'document_profile',
+        allowedClaimKinds: ['summary', 'key_fact'],
+      },
+    });
+
+    expect(generateBodies[0]).toMatchObject({
+      keep_alive: '5m',
+      options: {
+        num_predict: 128,
+        num_ctx: 1024,
+      },
+    });
   });
 
   it('normalizes placeholder source refs for single-source prep output', async () => {
