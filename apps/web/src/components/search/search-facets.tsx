@@ -7,7 +7,7 @@ import type {
   SearchFacetsDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
-import { useI18n, type Language } from '@/lib/i18n';
+import { getTranslation, useI18n, type Language, type TranslationKey } from '@/lib/i18n';
 
 export interface SearchFacetSelection {
   clientId?: string | undefined;
@@ -24,27 +24,26 @@ interface SearchFacetsProps {
 }
 
 export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps) {
-  const { language } = useI18n();
-  const copy = facetCopy[language];
+  const { language, t } = useI18n();
 
   return (
     <aside className="flex flex-col gap-5 rounded-md border bg-card p-4">
       <FacetGroup
-        title={copy.type}
+        title={t('search.facet.type')}
         buckets={facets.documentTypes}
         selected={selection.documentType}
         onSelect={(value) => onChange({ ...selection, documentType: value })}
         language={language}
       />
       <FacetGroup
-        title={copy.version}
+        title={t('search.facet.version')}
         buckets={facets.versionStatuses}
         selected={selection.versionStatus}
         onSelect={(value) => onChange({ ...selection, versionStatus: value })}
         language={language}
       />
       <FacetGroup
-        title={copy.matter}
+        title={t('search.facet.matter')}
         buckets={facets.matters}
         selected={selection.matterId}
         onSelect={(value) => onChange({ ...selection, matterId: value })}
@@ -52,7 +51,7 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         language={language}
       />
       <FacetGroup
-        title={copy.client}
+        title={t('search.facet.client')}
         buckets={facets.clients}
         selected={selection.clientId}
         onSelect={(value) => onChange({ ...selection, clientId: value })}
@@ -60,7 +59,7 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         language={language}
       />
       <FacetGroup
-        title={copy.updated}
+        title={t('search.facet.updated')}
         buckets={facets.dateRanges}
         selected={selection.dateRange}
         onSelect={(value) => onChange({ ...selection, dateRange: value })}
@@ -68,33 +67,12 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
       />
       {hasSelection(selection) ? (
         <Button type="button" variant="outline" size="sm" onClick={() => onChange({})}>
-          {copy.clear}
+          {t('search.facet.clear')}
         </Button>
       ) : null}
     </aside>
   );
 }
-
-const facetCopy = {
-  ko: {
-    type: '파일 유형',
-    version: '버전 상태',
-    matter: 'Matter',
-    client: '고객',
-    updated: '수정일',
-    clear: '필터 초기화',
-    unavailable: '표시 가능한 라벨 없음',
-  },
-  en: {
-    type: 'File type',
-    version: 'Version status',
-    matter: 'Matter',
-    client: 'Client',
-    updated: 'Updated',
-    clear: 'Clear filters',
-    unavailable: 'No display label available',
-  },
-} as const;
 
 function FacetGroup({
   title,
@@ -148,19 +126,19 @@ function hasDisplayableLabel(bucket: SearchFacetBucketDto | SearchDateRangeFacet
 function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, language: Language): string {
   const raw = 'label' in bucket && typeof bucket.label === 'string' ? bucket.label : bucket.value;
   const normalized = raw.trim().toLowerCase();
-  const commonLabels: Record<string, { ko: string; en: string }> = {
-    contract: { ko: '계약서', en: 'Contract' },
-    memo: { ko: '메모', en: 'Memo' },
-    current: { ko: '최신 버전', en: 'Current' },
-    superseded: { ko: '이전 버전', en: 'Superseded' },
-    last_7_days: { ko: '최근 7일', en: 'Last 7 days' },
-    'last 7 days': { ko: '최근 7일', en: 'Last 7 days' },
-    last_30_days: { ko: '최근 30일', en: 'Last 30 days' },
-    older: { ko: '30일 이전', en: 'Older' },
+  const commonLabels: Record<string, TranslationKey> = {
+    contract: 'search.facet.contract',
+    memo: 'search.facet.memo',
+    current: 'search.facet.current',
+    superseded: 'search.facet.superseded',
+    last_7_days: 'search.facet.last7Days',
+    'last 7 days': 'search.facet.last7Days',
+    last_30_days: 'search.facet.last30Days',
+    older: 'search.facet.older',
   };
-  if (commonLabels[normalized]) return commonLabels[normalized][language];
+  if (commonLabels[normalized]) return getTranslation(commonLabels[normalized], language);
   if (/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(raw)) {
-    return facetCopy[language].unavailable;
+    return getTranslation('search.facet.unavailable', language);
   }
   return raw;
 }

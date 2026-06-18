@@ -1,33 +1,49 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import type { OutlookIntegrationAdminStatusDto } from '@amic-vault/shared';
+import type { OutlookIntegrationAdminFeature, OutlookIntegrationAdminStatusDto } from '@amic-vault/shared';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { getOutlookIntegrationAdminStatus } from '@/lib/api/outlook-addin';
+import { getTranslation, useI18n, type Language, type TranslationKey } from '@/lib/i18n';
 
 type StatusState =
   | { status: 'loading' }
   | { status: 'ready'; data: OutlookIntegrationAdminStatusDto }
   | { status: 'error' };
 
-const featureLabels: Record<string, string> = {
-  ADDIN_BOOTSTRAP: 'Add-in bootstrap',
-  AUTH_EXCHANGE: '인증 교환',
-  GRAPH_ATTACHMENT_ACQUISITION: 'Graph 첨부 획득',
-  SMART_ALERTS: 'Smart Alerts',
-  SEND_FILE: 'Send and file',
-  DOCUMENT_INSERTION: 'Vault 문서 삽입',
-  FOLDER_MAPPING: '폴더 매핑',
-  AUTOFILE: '자동 파일링',
+const featureLabelKeys: Record<OutlookIntegrationAdminFeature, TranslationKey> = {
+  ADDIN_BOOTSTRAP: 'outlook.feature.addinBootstrap',
+  AUTH_EXCHANGE: 'outlook.feature.authExchange',
+  GRAPH_ATTACHMENT_ACQUISITION: 'outlook.feature.graphAttachment',
+  SMART_ALERTS: 'outlook.feature.smartAlerts',
+  SEND_FILE: 'outlook.feature.sendFile',
+  DOCUMENT_INSERTION: 'outlook.feature.documentInsertion',
+  FOLDER_MAPPING: 'outlook.feature.folderMapping',
+  AUTOFILE: 'outlook.feature.autofile',
 };
 
-const evidenceLabels: Record<string, string> = {
-  'EV-OUTLOOK-002': 'Manifest 검증',
-  'EV-OUTLOOK-003': 'Graph consent 검증',
-  'OPERATOR-APPROVAL': '운영 승인',
-  'DISABLE-REMOVE-REHEARSAL': '비활성화 리허설',
+const evidenceLabelKeys: Record<string, TranslationKey> = {
+  'EV-OUTLOOK-002': 'outlook.evidence.manifest',
+  'EV-OUTLOOK-003': 'outlook.evidence.graphConsent',
+  'OPERATOR-APPROVAL': 'outlook.evidence.operatorApproval',
+  'DISABLE-REMOVE-REHEARSAL': 'outlook.evidence.rollbackRehearsal',
+};
+
+const reasonLabelKeys: Record<string, TranslationKey> = {
+  AUDIT_UNAVAILABLE: 'outlook.reason.auditUnavailable',
+  GLOBAL_DISABLED: 'outlook.reason.globalDisabled',
+  FEATURE_DISABLED: 'outlook.reason.featureDisabled',
+  RING_NOT_ALLOWED: 'outlook.reason.ringNotAllowed',
+  MISSING_EVIDENCE_REF: 'outlook.reason.missingEvidence',
+  MALFORMED_EVIDENCE_REF: 'outlook.reason.malformedEvidence',
+  MISSING_GRAPH_CONSENT_REF: 'outlook.reason.graphConsentMissing',
+  MISSING_MANIFEST_VALIDATION_REF: 'outlook.reason.manifestMissing',
+  MISSING_OPERATOR_APPROVAL_REF: 'outlook.reason.operatorApprovalMissing',
+  MISSING_ROLLBACK_REHEARSAL_REF: 'outlook.reason.rollbackMissing',
+  UNKNOWN_FEATURE: 'outlook.reason.unknownFeature',
+  UNKNOWN_RING: 'outlook.reason.unknownRing',
 };
 
 export function OutlookIntegrationStatusClient() {
@@ -51,12 +67,14 @@ export function OutlookIntegrationStatusClient() {
 }
 
 export function OutlookIntegrationStatusContent({ state }: { state: StatusState }) {
+  const { language, t } = useI18n();
+
   if (state.status === 'loading') {
     return (
       <EmptyState
         variant="api-unavailable"
-        title="Outlook 운영 상태를 불러오는 중입니다."
-        description="상태 API 응답 전에는 연결 여부나 배포 상태를 표시하지 않습니다."
+        title={t('outlook.loading.title')}
+        description={t('outlook.loading.description')}
       />
     );
   }
@@ -65,8 +83,8 @@ export function OutlookIntegrationStatusContent({ state }: { state: StatusState 
     return (
       <EmptyState
         variant="api-error"
-        title="Outlook 운영 상태를 표시할 수 없습니다."
-        description="권한 또는 상태 API 연결을 확인해 주세요."
+        title={t('outlook.error.title')}
+        description={t('outlook.error.description')}
       />
     );
   }
@@ -74,71 +92,75 @@ export function OutlookIntegrationStatusContent({ state }: { state: StatusState 
   const status = state.data;
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(22rem,0.7fr)]">
-      <SectionCard title="운영 게이트" meta="API 응답 기준">
+      <SectionCard title={t('outlook.gate.title')} meta={t('outlook.gate.meta')}>
         <dl className="grid gap-3 sm:grid-cols-3">
           <StatusValue
-            label="게이트 적용"
-            value={status.operationalGateEnforced ? '적용 중' : '개발 모드'}
+            label={t('outlook.gate.enforced')}
+            value={status.operationalGateEnforced ? t('outlook.status.enforced') : t('outlook.status.devMode')}
             tone={status.operationalGateEnforced ? 'success' : 'neutral'}
           />
           <StatusValue
-            label="Rollout ring"
-            value={status.rolloutRing ?? '설정되지 않음'}
+            label={t('outlook.gate.rolloutRing')}
+            value={status.rolloutRing ?? t('outlook.status.unset')}
             tone={status.rolloutRing ? 'neutral' : 'warning'}
           />
           <StatusValue
-            label="Audit availability"
-            value={status.auditAvailable ? '확인됨' : '미확인'}
+            label={t('outlook.gate.auditAvailability')}
+            value={status.auditAvailable ? t('outlook.status.confirmed') : t('outlook.status.unconfirmed')}
             tone={status.auditAvailable ? 'success' : 'blocked'}
           />
         </dl>
       </SectionCard>
 
-      <SectionCard title="Evidence 상태" meta="참조값 원문 비노출">
+      <SectionCard title={t('outlook.evidence.title')} meta={t('outlook.evidence.meta')}>
         <div className="flex flex-col gap-2">
           {status.evidence.map((item) => (
             <div key={item.kind} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
               <span className="min-w-0 truncate text-sm font-medium">
-                {evidenceLabels[item.kind] ?? item.kind}
+                {labelForKey(evidenceLabelKeys[item.kind], language, 'outlook.evidence.missing')}
               </span>
               <StatusBadge tone={item.present && item.validFormat ? 'success' : 'warning'}>
-                {item.present ? (item.validFormat ? '형식 확인' : '형식 확인 필요') : '미제출'}
+                {item.present
+                  ? item.validFormat
+                    ? t('outlook.evidence.valid')
+                    : t('outlook.evidence.invalid')
+                  : t('outlook.evidence.missing')}
               </StatusBadge>
             </div>
           ))}
         </div>
       </SectionCard>
 
-      <SectionCard className="lg:col-span-2" title="기능별 운영 상태" meta="feature flag + gate decision">
+      <SectionCard className="lg:col-span-2" title={t('outlook.features.title')} meta={t('outlook.features.meta')}>
         <div className="overflow-x-auto rounded-md border">
           <table className="min-w-[760px] w-full border-collapse text-sm">
-            <caption className="sr-only">Outlook 기능별 운영 상태</caption>
+            <caption className="sr-only">{t('outlook.features.caption')}</caption>
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-4 py-3 font-medium">기능</th>
-                <th className="px-4 py-3 font-medium">설정</th>
-                <th className="px-4 py-3 font-medium">Gate</th>
-                <th className="px-4 py-3 font-medium">차단 사유</th>
+                <th className="px-4 py-3 font-medium">{t('outlook.features.feature')}</th>
+                <th className="px-4 py-3 font-medium">{t('outlook.features.configuration')}</th>
+                <th className="px-4 py-3 font-medium">{t('outlook.features.gate')}</th>
+                <th className="px-4 py-3 font-medium">{t('outlook.features.reason')}</th>
               </tr>
             </thead>
             <tbody>
               {status.features.map((feature) => (
                 <tr key={feature.feature} className="border-t">
                   <td className="px-4 py-3 font-medium">
-                    {featureLabels[feature.feature] ?? feature.feature}
+                    {labelForKey(featureLabelKeys[feature.feature], language, 'outlook.feature.unknown')}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge tone={feature.configured ? 'success' : 'neutral'}>
-                      {feature.configured ? '활성화' : '비활성'}
+                      {feature.configured ? t('outlook.features.enabled') : t('outlook.features.disabled')}
                     </StatusBadge>
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge tone={feature.allowed ? 'success' : 'blocked'}>
-                      {feature.allowed ? '허용' : '차단'}
+                      {feature.allowed ? t('outlook.features.allowed') : t('outlook.features.blocked')}
                     </StatusBadge>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {feature.allowed ? '없음' : (feature.reasonCode ?? '정책 확인 필요')}
+                    {feature.allowed ? t('outlook.features.noReason') : reasonLabel(feature.reasonCode, language)}
                   </td>
                 </tr>
               ))}
@@ -148,6 +170,18 @@ export function OutlookIntegrationStatusContent({ state }: { state: StatusState 
       </SectionCard>
     </div>
   );
+}
+
+function labelForKey(
+  key: TranslationKey | undefined,
+  language: Language,
+  fallbackKey: TranslationKey,
+): string {
+  return getTranslation(key ?? fallbackKey, language);
+}
+
+function reasonLabel(reasonCode: string | undefined, language: Language): string {
+  return labelForKey(reasonCode ? reasonLabelKeys[reasonCode] : undefined, language, 'outlook.features.policyReview');
 }
 
 function StatusValue({

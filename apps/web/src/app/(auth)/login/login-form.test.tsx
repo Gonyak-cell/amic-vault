@@ -18,7 +18,7 @@ describe('LoginForm', () => {
     expect(html).toContain('로그인');
     expect(html).not.toContain('디자인 테마 보기');
     expect(html).toContain('한국어');
-    expect(html).toContain('English');
+    expect(html).toContain('영어');
     expect(html).toContain('<select');
   });
 });

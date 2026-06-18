@@ -58,7 +58,7 @@ export function AuditConsoleClient() {
           failure: '실패',
           targetType: '대상 유형',
           targetId: '대상 참조',
-          matterId: 'Matter 참조',
+          matterId: '사건 참조',
           from: '시작일',
           to: '종료일',
           search: '검색',

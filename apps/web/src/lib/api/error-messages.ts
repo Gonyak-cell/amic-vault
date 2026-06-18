@@ -60,5 +60,5 @@ export function emptyStateVariantForUiErrorKind(kind: UiErrorKind): EmptyStateVa
 }
 
 export function safeApiErrorMessage(error: unknown): string {
-  return uiErrorStateForApiError(error).kind === 'auth' ? 'Sign in required' : 'Access unavailable';
+  return uiErrorStateForApiError(error).kind === 'auth' ? '로그인이 필요합니다.' : '접근 상태를 확인할 수 없습니다.';
 }

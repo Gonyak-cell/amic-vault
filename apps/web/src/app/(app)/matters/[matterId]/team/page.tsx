@@ -100,7 +100,7 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', 'Matter', title]}
+        breadcrumbs={['Vault', language === 'ko' ? '사건' : 'Matter', title]}
         title={title}
         description="권한이 확인된 팀원과 접근 설정만 표시됩니다."
       />

@@ -18,7 +18,7 @@ describe('PasswordResetConfirmPanel', () => {
     expect(html).toContain('비밀번호 확인');
     expect(html).toContain('계정 활성화');
     expect(html).toContain('한국어');
-    expect(html).toContain('English');
+    expect(html).toContain('영어');
     expect(html).not.toContain('secret-reset-token');
   });
 });

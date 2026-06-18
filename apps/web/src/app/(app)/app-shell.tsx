@@ -130,7 +130,7 @@ export function AppShell({
       <header className="sticky top-0 z-30 grid h-[63px] grid-cols-[minmax(0,1fr)_auto] items-center bg-[linear-gradient(90deg,hsl(var(--primary-strong))_0%,hsl(var(--primary))_100%)] text-primary-foreground shadow-sm md:grid-cols-[255px_minmax(0,1fr)]">
         <Link
           href="/dashboard"
-          aria-label="AMIC Vault 홈"
+          aria-label={t('app.homeAria')}
           className="flex h-full min-w-0 items-center px-[18px] md:border-r md:border-white/15"
         >
           <img
@@ -158,8 +158,9 @@ export function AppShell({
 
         <div className="hidden min-w-0 items-center justify-between gap-4 px-5 md:flex">
           <SearchForm
-            ariaLabel="Vault 검색"
+            ariaLabel={t('nav.searchAria')}
             onSubmit={submitSearch}
+            placeholder={t('nav.searchPlaceholder')}
             query={searchQuery}
             setQuery={setSearchQuery}
           />
@@ -167,7 +168,7 @@ export function AppShell({
             <LanguageToggle />
             <span className="hidden h-9 items-center gap-2 rounded-md bg-white/12 px-3 text-xs font-semibold text-white/90 ring-1 ring-white/16 lg:inline-flex">
               <Bell className="h-4 w-4" />
-              알림
+              {t('nav.notifications')}
             </span>
             <LogoutButton />
           </div>
@@ -186,7 +187,7 @@ export function AppShell({
             type="button"
             tabIndex={-1}
             className="absolute inset-0 bg-foreground/30"
-            aria-label="메뉴 닫기"
+            aria-label={t('nav.close')}
             onClick={() => closeMobileNav()}
           />
           <aside
@@ -199,7 +200,7 @@ export function AppShell({
                 ref={mobileNavCloseButtonRef}
                 type="button"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="메뉴 닫기"
+                aria-label={t('nav.close')}
                 onClick={() => closeMobileNav()}
               >
                 <X className="h-4 w-4" />
@@ -207,8 +208,9 @@ export function AppShell({
             </div>
             <div className="border-b p-3">
               <SearchForm
-                ariaLabel="Vault 검색"
+                ariaLabel={t('nav.searchAria')}
                 onSubmit={submitSearch}
+                placeholder={t('nav.searchPlaceholder')}
                 query={searchQuery}
                 setQuery={setSearchQuery}
                 compact
@@ -224,7 +226,7 @@ export function AppShell({
       ) : null}
 
       <div className="grid min-h-0 grid-cols-1 md:grid-cols-[255px_minmax(0,1fr)]">
-        <aside aria-label="Vault 내비게이션" className="hidden min-h-0 flex-col border-r bg-background md:flex">
+        <aside aria-label={t('nav.mobileLabel')} className="hidden min-h-0 flex-col border-r bg-background md:flex">
           <ProfilePanel status={profileStatus} user={currentUser} />
           <NavigationList groups={navigationGroups} />
           <div className="mt-auto" />
@@ -242,12 +244,14 @@ function SearchForm({
   ariaLabel,
   compact = false,
   onSubmit,
+  placeholder,
   query,
   setQuery,
 }: {
   ariaLabel: string;
   compact?: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  placeholder: string;
   query: string;
   setQuery: (query: string) => void;
 }) {
@@ -269,7 +273,7 @@ function SearchForm({
             ? 'min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground'
             : 'min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-white/70'
         }
-        placeholder="사건, 파일, 담당자 검색"
+        placeholder={placeholder}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
@@ -301,6 +305,7 @@ function NavigationList({
 }
 
 function ProfilePanel({ status, user }: { status: 'loading' | 'ready' | 'error'; user: UserSummary | null }) {
+  const { t } = useI18n();
   let body: ReactNode;
   if (user) {
     body = (
@@ -312,13 +317,13 @@ function ProfilePanel({ status, user }: { status: 'loading' | 'ready' | 'error';
   } else {
     body = (
       <div className="text-xs font-semibold text-muted-foreground">
-        {status === 'error' ? '계정 정보를 표시할 수 없습니다' : '계정 정보 불러오는 중'}
+        {status === 'error' ? t('profile.error') : t('profile.loading')}
       </div>
     );
   }
 
   return (
-    <section aria-label="사용자 프로필" className="m-3.5 rounded-lg border bg-card p-3">
+    <section aria-label={t('profile.aria')} className="m-3.5 rounded-lg border bg-card p-3">
       {body}
     </section>
   );

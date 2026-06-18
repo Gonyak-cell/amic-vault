@@ -13,11 +13,8 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ initialQuery, busy, onSearch }: SearchBarProps) {
-  const { language } = useI18n();
+  const { t } = useI18n();
   const [query, setQuery] = useState(initialQuery);
-  const copy = language === 'ko'
-    ? { label: '파일 검색', placeholder: '계약서, Matter, 키워드 검색', submit: '검색 실행' }
-    : { label: 'Search files', placeholder: 'Search contracts, matters, or keywords', submit: 'Run search' };
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -33,13 +30,13 @@ export function SearchBar({ initialQuery, busy, onSearch }: SearchBarProps) {
   return (
     <form className="flex gap-2" onSubmit={submit}>
       <Input
-        aria-label={copy.label}
+        aria-label={t('search.label')}
         value={query}
-        placeholder={copy.placeholder}
+        placeholder={t('search.placeholder')}
         disabled={busy}
         onChange={(event) => setQuery(event.target.value)}
       />
-      <Button aria-label={copy.submit} title={copy.submit} type="submit" disabled={busy || !query.trim()}>
+      <Button aria-label={t('search.submit')} title={t('search.submit')} type="submit" disabled={busy || !query.trim()}>
         <Search className="h-4 w-4" />
       </Button>
     </form>

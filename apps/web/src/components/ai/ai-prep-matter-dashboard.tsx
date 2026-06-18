@@ -46,7 +46,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
 
   return (
     <section
-      aria-label="Matter file organization readiness"
+      aria-label="사건 파일 정리 준비 상태"
       className="space-y-3 rounded-md border p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">

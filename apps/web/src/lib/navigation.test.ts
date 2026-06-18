@@ -14,7 +14,7 @@ describe('navigation visibility', () => {
     const labels = labelsForRole('matter_member');
 
     expect(labels).toContain('홈');
-    expect(labels).toContain('Matter');
+    expect(labels).toContain('사건');
     expect(labels).toContain('검색');
     expect(labels).not.toContain('Outlook');
     expect(labels).not.toContain('접근 기록');
