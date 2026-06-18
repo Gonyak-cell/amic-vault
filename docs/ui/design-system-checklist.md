@@ -29,7 +29,7 @@ Check affected screens directly, and include unchanged adjacent screens when a s
 
 ## 3. Component Rules
 
-- Prefer shared PageHeader, SectionCard, EmptyState, StatusBadge, Button, Input, and table/list/filter patterns.
+- Prefer shared PageHeader, SectionCard, EmptyState, StatusBadge, Button, Input, DataTable, FilterBar, and DetailInspector patterns.
 - Do not create duplicate local status badge components when StatusBadge can express the state.
 - Do not create custom card/panel/header/table anatomy for one route unless the PR explains the design-system reason.
 - Do not nest cards inside cards.
