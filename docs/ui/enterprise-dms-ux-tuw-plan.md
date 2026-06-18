@@ -699,6 +699,16 @@ PR-C implementation note:
 - Acceptance:
   - User has an actionable governance/work queue, not only static admin pages.
 
+PR-D implementation note:
+
+- Document detail now includes contextual governance rows for access basis, confidentiality, privilege, legal hold, extraction state, update time, and file organization prep readiness.
+- Matter detail now includes contextual governance rows for Matter Code, status, practice group, lead display, legal hold, and file organization prep readiness.
+- Document and matter pages now derive workflow/ops tasks only from real DTO/status fields: missing subtype, OCR/extraction pending or failed, legal hold, and AI prep readiness conditions.
+- Dashboard now includes an API-derived action queue for permission/policy alerts, file organization prep readiness, integration status, and API connection failure states. It does not show fake task counts before a unified workflow API exists.
+- Wall admin now uses `MatterCodePicker` for common wall lookup/create flow; raw wall/user refs remain only in the clearly marked security-operations advanced area until user/group picker APIs exist.
+- AI prep copy remains limited to file organization prep; legal analysis, external model route, raw prompt/source/model-response copy remains guarded by tests and smoke checks.
+- Unified task DB/API, notifications, saved work queues, records disposal task APIs, and user/group picker APIs remain deferred to PR-E/F or backend-approved follow-up work.
+
 ### PR-E Admin Configuration And Integrations
 
 #### DMS-UX-601 Taxonomy Admin Contract

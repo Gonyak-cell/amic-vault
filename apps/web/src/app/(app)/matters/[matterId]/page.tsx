@@ -6,6 +6,10 @@ import { AlertTriangle, Mail, ShieldCheck, Users } from 'lucide-react';
 import type { AiPrepMatterReadinessDto, EmailMatterFilingDto, MatterDto } from '@amic-vault/shared';
 import { AiPrepMatterDashboard } from '@/components/ai/ai-prep-matter-dashboard';
 import { MatterFileSection } from '@/components/document/matter-file-section';
+import {
+  MatterGovernanceContextPanel,
+  MatterWorkflowOpsPanel,
+} from '@/components/governance/governance-context-panel';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -107,6 +111,8 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
         </dl>
       ) : null}
 
+      {matter ? <MatterGovernanceContextPanel matter={matter} readiness={readiness} /> : null}
+
       {matter ? <MatterFileSection matter={matter} /> : null}
 
       {matter ? (
@@ -150,6 +156,7 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
       ) : null}
 
       {readiness ? <AiPrepMatterDashboard readiness={readiness} onRetryComplete={refreshReadiness} /> : null}
+      {matter ? <MatterWorkflowOpsPanel matter={matter} readiness={readiness} /> : null}
       {readinessError ? <p className="text-sm text-muted-foreground">{readinessError}</p> : null}
     </PageShell>
   );
