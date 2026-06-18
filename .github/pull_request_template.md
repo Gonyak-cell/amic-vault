@@ -15,6 +15,7 @@
 - [ ] `pnpm test`
 - [ ] `pnpm build`
 - [ ] `pnpm check:production-ui-literals`
+- [ ] `pnpm ui:production-smoke`
 - [ ] `pnpm check:ui-pr-checklist`
 - [ ] Production UI smoke gate reviewed for this change, or marked not applicable with reason
 
@@ -26,6 +27,7 @@
 - [ ] Current-user profile shows only the user's display name and email address.
 - [ ] Role, feature, and route visibility gates are fail-closed while auth/capabilities are loading.
 - [ ] Hidden or out-of-scope routes do not appear in production navigation and direct access renders a safe blocked/empty state.
+- [ ] `docs/ui/production-ui-inventory.md` was reviewed or updated for route/navigation visibility changes.
 - [ ] Search and AI surfaces keep Permission-before-search and Permission-before-AI boundaries.
 - [ ] AI Prep wording is limited to file organization prep/readiness; no legal analysis, summary, external model route, raw prompt, raw source, source text, or model response appears.
 - [ ] Login, AppShell, Dashboard, Matters, Files, Search, Records, Audit, Walls, Admin, AI Prep, and Integrations use the shared SaaS design tokens/components without route-specific theme drift.

@@ -27,8 +27,9 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | UI-PRE-001 | CI `verify`, `db-integration`, `docker-build`, `python-worker` are green on the release commit | All required checks green | Operator |  |  |
 | UI-PRE-002 | Production UI literal guard passed | No fake/mock/sample/demo operating data literals | Operator |  |  |
 | UI-PRE-003 | Production UI smoke gate passed | Hidden routes, raw hex, `?? 0`, unsafe ID fallback checks pass | Operator |  |  |
-| UI-PRE-004 | `docs/package/` unchanged unless separately approved | Normative package remains frozen | Security reviewer |  |  |
-| UI-PRE-005 | Feature scope confirmed | File organization prep only; no legal analysis, summary, external model route, raw prompt/source/model-response storage | Legal-data owner |  |  |
+| UI-PRE-004 | Production UI inventory reviewed | `docs/ui/production-ui-inventory.md` matches route visibility and navigation policy | Security reviewer |  |  |
+| UI-PRE-005 | `docs/package/` unchanged unless separately approved | Normative package remains frozen | Security reviewer |  |  |
+| UI-PRE-006 | Feature scope confirmed | File organization prep only; no legal analysis, summary, external model route, raw prompt/source/model-response storage | Legal-data owner |  |  |
 
 ## 3. Auth And Shell Smoke
 

@@ -1,0 +1,67 @@
+# Production UI Inventory
+
+Status: production UI policy source for the UI/UX package closeout
+Scope: AMIC Vault web production routes and navigation exposure
+Related TUW: TUW-UI-001, TUW-UI-002, TUW-UI-003, TUW-UI-004, TUW-UI-701, TUW-UI-702, TUW-UI-703, TUW-UI-704
+
+This inventory records which routes may be shown in production navigation, which routes must be gated, and which routes must remain hidden until an approved API or product scope exists. It complements `apps/web/src/lib/features.ts`; code changes to route visibility should update both files in the same PR.
+
+## Status Definitions
+
+| Status | Meaning | Production navigation |
+|---|---|---|
+| `visible` | Route is in current production scope for internal users with the listed role policy. | Allowed when role policy allows it |
+| `visible_admin_only` | Route is in current production scope for approved admin/security/operator roles. | Allowed only for approved admin/security/operator roles |
+| `visible_limited` | Route is in production scope but intentionally hidden from primary navigation unless another approved entry point links to it. | Hidden by default |
+| `hidden_until_api_ready` | Route shell may exist, but production must not claim connected data before the backing API/contract is approved. | Hidden |
+| `hidden` | Route is out of current production scope or internal-only. Direct access must render a safe blocked/not-found state without placeholder data. | Hidden |
+
+## Production App Routes
+
+| Route | Group | Status | Navigation | Roles / audience | Direct access behavior | Data policy |
+|---|---|---|---|---|---|---|
+| `/dashboard` | Vault | `visible` | Shown | Internal production users | AppShell route | Real API data only; empty/unavailable before success |
+| `/matters` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-scoped matters only |
+| `/search` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-before-search; no ID fallback |
+| `/files` | Vault | `hidden_until_api_ready` | Hidden | Internal production users after API readiness | Empty/unavailable route only | No file list, count, document ID, or placeholder data before API readiness |
+| `/records` | Governance | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin, matter owner | AppShell route | No prefilled retention/disposal/certificate values |
+| `/audit` | Audit | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Display-safe actor/action/result/target/time only |
+| `/walls` | Security | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Default list hides wall/matter/user raw references |
+| `/enterprise` | Admin | `visible_admin_only` | Hidden from primary nav until Admin IA migration | Firm admin, security admin | Guarded admin settings route | SSO/MFA/BYOK/SIEM/Backup/Compliance data only after API success |
+| `/integrations` | Integrations | `visible_admin_only` | Parent route hidden | Firm admin, security admin | Empty/unavailable status route | No connected state before API success |
+| `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only; Office task pane stays separate |
+| `/integrations/onedrive` | Integrations | `hidden_until_api_ready` | Hidden | Firm admin, security admin after API readiness | No production route until contract is approved | Must not claim OneDrive connection |
+| `/ai-prep` | AI Prep/Ops | `visible_limited` | Hidden by default | Firm admin, security admin, matter owner, knowledge manager | Approved linked entry points only | File organization prep/readiness only |
+
+## Hidden And Out-Of-Scope Routes
+
+| Route | Group | Status | Required behavior |
+|---|---|---|---|
+| `/launch` | Internal Ops | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
+| `/scale` | Internal Ops | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
+| `/contracts` | Out of scope | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
+| `/dd` | Out of scope | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
+| `/litigation` | Out of scope | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
+| `/showcase` | Out of scope | `hidden` | No navigation entry; direct access returns Next `notFound()` |
+| `/external/[token]` | External route | out of current UIUX batch scope | Not part of internal AppShell navigation; external scope remains governed by release gates |
+| `/outlook-addin` | Office task pane | task-pane-only | Not shown in internal console navigation; managed through `/integrations/outlook` status |
+
+## Production Invariants
+
+- Production navigation must be derived from `apps/web/src/lib/features.ts` and `apps/web/src/lib/navigation.ts`, not local route arrays.
+- Role/capability loading must fail closed. Admin, Security, Audit, Integrations, AI Prep, Internal Ops, and Out-of-scope routes must not appear optimistically.
+- Production UI must not render fake/mock/sample/demo operating data, default people, default documents, default teams, hard-coded dates, placeholder metrics, or connected/completed states before real API success.
+- Default UI must not show workspace ID, tenant ID, user ID, matter ID, document ID, version ID, raw UUID slices, or ID-derived labels.
+- AI Prep production UI is limited to file organization prep/readiness. Legal analysis, summary, external model route, raw prompt, raw source/source text, and model response UI/copy/storage remain out of scope.
+- Evidence for rollout or review must use refs only. Do not paste secrets, customer file contents, raw prompts, source text, model responses, cookies, tokens, or confidential screenshots into PRs or release records.
+
+## Batch Closeout Evidence
+
+Before merging a UI/UX batch that changes production routes or navigation, include:
+
+- `pnpm check:production-ui-literals`
+- `pnpm ui:production-smoke`
+- `pnpm check:ui-pr-checklist`
+- role/navigation evidence for affected routes
+- direct hidden-route evidence when hidden route files change
+- confirmation that `docs/package/` was not modified
