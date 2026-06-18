@@ -18,10 +18,7 @@ import type {
   UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
-import {
-  documentUploadedAudit,
-  documentVersionAddedAudit,
-} from '../audit/events/document-events';
+import { documentUploadedAudit, documentVersionAddedAudit } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -193,6 +190,7 @@ export class DocumentUploadService {
               subtype: input.fields.subtype,
               confidentialityLevel: input.fields.confidentialityLevel,
               privilegeStatus: input.fields.privilegeStatus,
+              aiAllowed: input.fields.aiAllowed,
               createdBy: input.actorUserId,
             },
             tx,
@@ -261,6 +259,7 @@ export class DocumentUploadService {
         subtype: uploaded.document.subtype,
         confidentialityLevel: uploaded.document.confidentialityLevel,
         privilegeStatus: uploaded.document.privilegeStatus,
+        aiAllowed: uploaded.document.aiAllowed,
         metadataSuggestion,
         duplicates: uploaded.duplicates,
       };

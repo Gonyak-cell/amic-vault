@@ -29,10 +29,7 @@ import type {
 import { buildSafeLabel } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { markAndAuditAiPrepArtifactsStale } from '../ai/prep/ai-prep-lifecycle';
-import {
-  documentMetadataChangedAudit,
-  documentViewedAudit,
-} from '../audit/events/document-events';
+import { documentMetadataChangedAudit, documentViewedAudit } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import {
@@ -61,6 +58,7 @@ export interface CreateDraftDocumentInput {
   subtype?: string | null | undefined;
   confidentialityLevel?: DocumentConfidentialityLevel | undefined;
   privilegeStatus?: DocumentPrivilegeStatus | undefined;
+  aiAllowed?: boolean | undefined;
   createdBy: string;
 }
 
@@ -77,6 +75,7 @@ interface DocumentRow {
   subtype: string | null;
   confidentiality_level: DocumentConfidentialityLevel;
   privilege_status: DocumentPrivilegeStatus;
+  ai_allowed: boolean;
   legal_hold: boolean;
   version_id?: string | null;
   extraction_status?: DocumentExtractionStatus | null;
@@ -112,6 +111,7 @@ function mapDocument(row: DocumentRow): DocumentDto {
     subtype: row.subtype,
     confidentialityLevel: row.confidentiality_level,
     privilegeStatus: row.privilege_status,
+    aiAllowed: row.ai_allowed,
     legalHold: row.legal_hold,
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
@@ -228,12 +228,12 @@ export class DocumentService {
       `
         INSERT INTO documents (
           document_id, tenant_id, matter_id, document_family_id, title, status,
-          document_type, subtype, confidentiality_level, privilege_status, created_by
+          document_type, subtype, confidentiality_level, privilege_status, ai_allowed, created_by
         )
-        VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10, $11)
         RETURNING document_id, tenant_id, matter_id, document_family_id, title,
           status, document_type, subtype, confidentiality_level, privilege_status,
-          legal_hold, created_by, created_at, updated_at
+          ai_allowed, legal_hold, created_by, created_at, updated_at
       `,
       [
         input.documentId,
@@ -245,6 +245,7 @@ export class DocumentService {
         input.subtype ?? null,
         input.confidentialityLevel ?? 'standard',
         input.privilegeStatus ?? 'none',
+        input.aiAllowed ?? false,
         input.createdBy,
       ],
     );
@@ -361,6 +362,7 @@ export class DocumentService {
             doc.subtype,
             doc.confidentiality_level,
             doc.privilege_status,
+            doc.ai_allowed,
             doc.legal_hold,
             doc.created_by,
             doc.created_at,
@@ -497,7 +499,8 @@ export class DocumentService {
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.legal_hold, d.created_by, d.created_at, d.updated_at, m.status AS matter_status
+          d.ai_allowed, d.legal_hold, d.created_by, d.created_at, d.updated_at,
+          m.status AS matter_status
         FROM documents d
         JOIN matters m
           ON m.tenant_id = d.tenant_id
@@ -520,7 +523,7 @@ export class DocumentService {
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.legal_hold, dv.version_id, cd.extraction_status, cd.extraction_method,
+          d.ai_allowed, d.legal_hold, dv.version_id, cd.extraction_status, cd.extraction_method,
           cd.confidence::float8 AS extraction_confidence,
           d.created_by, d.created_at, d.updated_at, m.status AS matter_status
         FROM documents d
@@ -580,7 +583,8 @@ export class DocumentService {
           AND m.matter_id = d.matter_id
         RETURNING d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.legal_hold, d.created_by, d.created_at, d.updated_at, m.status AS matter_status
+          d.ai_allowed, d.legal_hold, d.created_by, d.created_at, d.updated_at,
+          m.status AS matter_status
       `,
       params,
     );
@@ -605,7 +609,8 @@ export class DocumentService {
           AND m.matter_id = d.matter_id
         RETURNING d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.legal_hold, d.created_by, d.created_at, d.updated_at, m.status AS matter_status
+          d.ai_allowed, d.legal_hold, d.created_by, d.created_at, d.updated_at,
+          m.status AS matter_status
       `,
       [tenantId, documentId, legalHold],
     );

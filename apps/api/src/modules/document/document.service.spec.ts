@@ -20,6 +20,7 @@ function documentRow(overrides: Record<string, unknown> = {}) {
     subtype: null,
     confidentiality_level: 'standard',
     privilege_status: 'none',
+    ai_allowed: false,
     legal_hold: false,
     version_id: versionId,
     created_by: actorUserId,
@@ -45,6 +46,7 @@ describe('DocumentService', () => {
           'signed',
           'high',
           'privileged',
+          false,
           actorUserId,
         ]);
         return {
@@ -54,6 +56,7 @@ describe('DocumentService', () => {
               subtype: 'signed',
               confidentiality_level: 'high',
               privilege_status: 'privileged',
+              ai_allowed: false,
             }),
           ],
         };
@@ -83,6 +86,40 @@ describe('DocumentService', () => {
       subtype: 'signed',
       confidentialityLevel: 'high',
       privilegeStatus: 'privileged',
+      aiAllowed: false,
+    });
+  });
+
+  it('stores explicit upload prep consent on draft creation', async () => {
+    const client = {
+      async query(_sql: string, params?: readonly unknown[]) {
+        expect(params?.[9]).toBe(true);
+        return {
+          rowCount: 1,
+          rows: [
+            documentRow({
+              ai_allowed: true,
+            }),
+          ],
+        };
+      },
+    };
+
+    await expect(
+      new DocumentService().createDraft(
+        {
+          documentId,
+          tenantId,
+          matterId,
+          documentFamilyId: documentId,
+          title: 'Draft Agreement',
+          aiAllowed: true,
+          createdBy: actorUserId,
+        },
+        client as never,
+      ),
+    ).resolves.toMatchObject({
+      aiAllowed: true,
     });
   });
 

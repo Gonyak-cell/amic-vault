@@ -15,6 +15,14 @@ export const uploadDocumentFieldsSchema = z
     subtype: z.string().trim().min(1).max(128).optional(),
     confidentialityLevel: documentConfidentialityLevelSchema.optional(),
     privilegeStatus: documentPrivilegeStatusSchema.optional(),
+    aiAllowed: z
+      .preprocess((value) => {
+        if (value === true || value === false || value === undefined) return value;
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+      }, z.boolean())
+      .optional(),
   })
   .strict();
 
@@ -34,6 +42,7 @@ export interface UploadDocumentResponseDto {
   subtype: string | null;
   confidentialityLevel: DocumentConfidentialityLevel;
   privilegeStatus: DocumentPrivilegeStatus;
+  aiAllowed: boolean;
   metadataSuggestion: DocumentMetadataSuggestionDto;
   duplicates: Array<{
     documentId: string;

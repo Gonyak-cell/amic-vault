@@ -134,6 +134,7 @@ describe('api client', () => {
             subtype: null,
             confidentialityLevel: 'standard',
             privilegeStatus: 'none',
+            aiAllowed: true,
             metadataSuggestion: {},
             duplicates: [],
           }),
@@ -146,6 +147,7 @@ describe('api client', () => {
     await uploadDocument('matter-ref', file, {
       confidentialityLevel: 'standard',
       documentType: 'contract',
+      aiAllowed: true,
       title: 'Contract',
     });
 
@@ -153,6 +155,10 @@ describe('api client', () => {
       'http://localhost:3001/v1/matters/matter-ref/documents',
       expect.objectContaining({ body: expect.any(FormData), method: 'POST' }),
     );
+    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit | undefined] | undefined;
+    if (!firstCall) throw new Error('missing upload request');
+    const body = firstCall[1]?.body as FormData;
+    expect(body.get('aiAllowed')).toBe('true');
   });
 
   it('lists matter documents through the matter-scoped endpoint', async () => {
@@ -290,7 +296,9 @@ describe('api client', () => {
   });
 
   it('builds preview and controlled download URLs without exposing raw refs beyond the route id', () => {
-    expect(documentPreviewUrl('doc-ref')).toBe('http://localhost:3001/v1/documents/doc-ref/preview');
+    expect(documentPreviewUrl('doc-ref')).toBe(
+      'http://localhost:3001/v1/documents/doc-ref/preview',
+    );
     expect(documentDownloadUrl('doc-ref', 'casework')).toBe(
       'http://localhost:3001/v1/documents/doc-ref/download?reasonCode=casework',
     );

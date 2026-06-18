@@ -57,6 +57,7 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     subtype: 'signed',
     confidentialityLevel: 'high' as const,
     privilegeStatus: 'privileged' as const,
+    aiAllowed: false,
     legalHold: false,
     createdBy: actorUserId,
     createdAt: new Date().toISOString(),
@@ -154,6 +155,7 @@ describe('DocumentUploadService', () => {
         subtype: undefined,
         confidentialityLevel: undefined,
         privilegeStatus: undefined,
+        aiAllowed: undefined,
       }),
       expect.anything(),
     );
@@ -197,6 +199,7 @@ describe('DocumentUploadService', () => {
         subtype: 'review',
         confidentialityLevel: 'restricted',
         privilegeStatus: 'work_product',
+        aiAllowed: undefined,
       }),
       expect.anything(),
     );
@@ -205,6 +208,25 @@ describe('DocumentUploadService', () => {
       date: '2026-06-12',
       versionLabel: 'v2',
     });
+  });
+
+  it('passes explicit file organization prep consent into document creation', async () => {
+    const file = await tempUploadFile('Contract.PDF');
+    const { createDraft, service } = createService();
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: { aiAllowed: true },
+      file,
+    });
+
+    expect(createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aiAllowed: true,
+      }),
+      expect.anything(),
+    );
   });
 
   it('uploads buffered email attachments through the same pipeline with email source', async () => {

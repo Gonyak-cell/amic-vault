@@ -17,6 +17,7 @@ const document = {
   subtype: 'closing',
   confidentialityLevel: 'high',
   privilegeStatus: 'privileged',
+  aiAllowed: true,
   legalHold: false,
   extractionStatus: 'ready',
   extractionMethod: 'pdf_text',
