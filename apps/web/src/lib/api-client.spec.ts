@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiClientError, apiFetch } from './api-client';
+import {
+  ApiClientError,
+  apiFetch,
+  apiFetchFormData,
+  listMatterDocuments,
+  uploadDocument,
+} from './api-client';
 
 describe('api client', () => {
   afterEach(() => {
@@ -72,6 +78,96 @@ describe('api client', () => {
 
     await expect(apiFetch('/boom', { redirectOnAuthRequired: false })).rejects.toBeInstanceOf(
       ApiClientError,
+    );
+  });
+
+  it('sends multipart form data without forcing a JSON content type', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const formData = new FormData();
+    formData.set('file', new Blob(['pdf']), 'contract.pdf');
+
+    await expect(
+      apiFetchFormData<{ ok: boolean }>('/matters/matter-ref/documents', formData, {
+        headers: { 'content-type': 'application/json', 'x-requested-by': 'web' },
+        method: 'POST',
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit] | undefined;
+    if (!call) throw new Error('missing fetch call');
+    const init = call[1];
+    expect(init).toEqual(
+      expect.objectContaining({
+        body: formData,
+        cache: 'no-store',
+        credentials: 'include',
+        method: 'POST',
+      }),
+    );
+    expect(init?.headers).toBeInstanceOf(Headers);
+    const headers = init.headers as Headers;
+    expect(headers.get('content-type')).toBeNull();
+    expect(headers.get('x-requested-by')).toBe('web');
+  });
+
+  it('uploads documents through the matter-scoped document endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            documentId: 'doc-ref',
+            matterId: 'matter-ref',
+            fileObjectId: 'file-ref',
+            status: 'draft',
+            title: 'Contract',
+            documentType: 'contract',
+            subtype: null,
+            confidentialityLevel: 'standard',
+            privilegeStatus: 'none',
+            metadataSuggestion: {},
+            duplicates: [],
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const file = new File(['pdf'], 'contract.pdf', { type: 'application/pdf' });
+    await uploadDocument('matter-ref', file, {
+      confidentialityLevel: 'standard',
+      documentType: 'contract',
+      title: 'Contract',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/matters/matter-ref/documents',
+      expect.objectContaining({ body: expect.any(FormData), method: 'POST' }),
+    );
+  });
+
+  it('lists matter documents through the matter-scoped endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [], page: 2, pageSize: 10, totalCount: 0 }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listMatterDocuments('matter-ref', { page: 2, pageSize: 10 })).resolves.toEqual({
+      items: [],
+      page: 2,
+      pageSize: 10,
+      totalCount: 0,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/matters/matter-ref/documents?page=2&pageSize=10',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
     );
   });
 });

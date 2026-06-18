@@ -481,13 +481,16 @@ export {
   documentStatuses,
   documentTypeSchema,
   documentTypes,
+  listDocumentsQuerySchema,
   type DocumentConfidentialityLevel,
   type DocumentDto,
   type DocumentExtractionMethod,
   type DocumentExtractionStatus,
+  type DocumentListDto,
   type DocumentPrivilegeStatus,
   type DocumentStatus,
   type DocumentType,
+  type ListDocumentsQueryDto,
 } from './types/document';
 export {
   dlpFindingTypes,

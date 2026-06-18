@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, Mail, ShieldCheck, Users } from 'lucide-react';
 import type { AiPrepMatterReadinessDto, EmailMatterFilingDto, MatterDto } from '@amic-vault/shared';
 import { AiPrepMatterDashboard } from '@/components/ai/ai-prep-matter-dashboard';
+import { MatterFileSection } from '@/components/document/matter-file-section';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -105,6 +106,8 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
           </div>
         </dl>
       ) : null}
+
+      {matter ? <MatterFileSection matter={matter} /> : null}
 
       {matter ? (
         <SectionCard icon={<Mail className="h-4 w-4" />} title="보관된 이메일" meta="권한이 확인된 이메일만 표시">

@@ -101,7 +101,33 @@ Review visual and interaction consistency:
 - profile displays user name and email only
 - language control follows the header design system
 
-## 9. Responsive And Accessibility
+## 9. Enterprise DMS Core Flow
+
+Review DMS operational completeness against `docs/ui/enterprise-dms-ux-baseline-gap-audit.md`.
+
+Reject or explicitly defer the PR when a production-ready API exists but the UI has no corresponding operator flow for:
+
+- matter creation/selection by canonical Matter app Matter Code or display name
+- matter workspace home with profile, members, files, activity, tasks, and governance context when those APIs are in scope
+- file upload into an allowed matter
+- matter-code/name selection before file upload, with no free-floating document upload
+- bulk upload/import review, retry, and progress when bulk APIs are production-ready
+- email filing and attachment filing into matter/folder from Outlook or equivalent approved integration
+- file browse/list by matter or filing location
+- document profile and metadata review/edit
+- version history and add-version flow
+- check-out/check-in, coauthoring, or an explicit ADR deferral for controlled editing state
+- preview/download/open action surface
+- contextual audit/activity timeline for matter and document pages when audit APIs are production-ready
+- workflow/action inbox for document review, approval, metadata completion, extraction/OCR remediation, and records actions when task APIs are production-ready
+- sensitivity/confidentiality/DLP/security-label status where those policies are in production scope
+- permission-aware disabled/denied states for document actions
+- user/matter/folder pickers for normal operators instead of raw reference entry
+- enterprise search controls for body/full-text, metadata/profile, matter/client/folder scope, document type, author/uploader, date ranges, confidentiality/privilege/security status, OCR/extraction status, version status, saved searches, result sorting/grouping, and preview hit navigation when search APIs are production-ready
+
+For `/files`, do not treat a hidden or empty route as production-complete after upload/list APIs are approved. The PR must either implement upload/browse UX or state a release-scoped deferral with owner and follow-up TUW.
+
+## 10. Responsive And Accessibility
 
 For affected screens, check:
 
@@ -113,7 +139,7 @@ For affected screens, check:
 - icon-only buttons have accessible names and are not used for primary actions without visible text
 - empty/error states include readable status text and do not rely only on color
 
-## 10. Reviewer Decision
+## 11. Reviewer Decision
 
 Approve only when:
 

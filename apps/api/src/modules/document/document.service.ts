@@ -15,9 +15,11 @@ import type {
   DocumentDto,
   DocumentExtractionMethod,
   DocumentExtractionStatus,
+  DocumentListDto,
   DocumentPrivilegeStatus,
   DocumentStatus,
   DocumentType,
+  ListDocumentsQueryDto,
   PermissionDecision,
   TenantId,
   UpdateDocumentMetadataDto,
@@ -33,6 +35,11 @@ import {
 } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
+import {
+  SEARCH_PERMISSION_SCOPE_PROVIDER,
+  type SearchPermissionScopeProvider,
+} from '../search/permission/search-permission-scope.provider';
+import type { SearchSqlFragment } from '../search/query/search-filter.builder';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { assertDocumentMutationAllowed } from './guards/immutable-state.guard';
@@ -82,6 +89,10 @@ interface DocumentRow {
 
 interface DocumentWithMatterRow extends DocumentRow {
   matter_status: string;
+}
+
+interface IndexedDocumentListRow extends DocumentRow {
+  total: number | string;
 }
 
 function mapDocument(row: DocumentRow): DocumentDto {
@@ -173,6 +184,28 @@ function isLegalHoldAdminRole(role: UserRole): boolean {
   return role === 'firm_admin' || role === 'security_admin';
 }
 
+function pushParam(params: unknown[], value: unknown): string {
+  params.push(value);
+  return `$${params.length}`;
+}
+
+function bindSearchScope(scope: SearchSqlFragment): { sql: string; params: unknown[] } {
+  const params: unknown[] = [];
+  let nextParam = 0;
+  const sql = scope.sql.replace(/\?/g, () => {
+    if (nextParam >= scope.params.length) {
+      throw new Error('Search SQL fragment has fewer params than placeholders');
+    }
+    params.push(scope.params[nextParam]);
+    nextParam += 1;
+    return `$${params.length}`;
+  });
+  if (nextParam !== scope.params.length) {
+    throw new Error('Search SQL fragment has more params than placeholders');
+  }
+  return { sql, params };
+}
+
 @Injectable()
 export class DocumentService {
   private readonly logger = new Logger(DocumentService.name);
@@ -185,6 +218,9 @@ export class DocumentService {
     @Optional()
     @Inject(SearchIndexSyncHook)
     private readonly searchIndexSync?: SearchIndexSyncHook,
+    @Optional()
+    @Inject(SEARCH_PERMISSION_SCOPE_PROVIDER)
+    private readonly searchPermissionScope?: SearchPermissionScopeProvider,
   ) {}
 
   async createDraft(input: CreateDraftDocumentInput, client: PoolClient): Promise<DocumentDto> {
@@ -289,6 +325,74 @@ export class DocumentService {
     });
   }
 
+  async listMatterDocuments(
+    actorUserId: string,
+    matterId: string,
+    input: ListDocumentsQueryDto,
+  ): Promise<DocumentListDto> {
+    const auditService = this.requireAuditService();
+    const context = this.requireTenantContext().require();
+    const scopeDecision = await this.requireSearchPermissionScope().scopeForSearch({
+      tenantId: context.tenantId,
+      userId: actorUserId,
+    });
+    if (scopeDecision.effect !== 'ALLOW') throw permissionDenied();
+
+    return auditService.transaction(context.tenantId, async (tx) => {
+      const bound = bindSearchScope(scopeDecision.scope);
+      const params = [...bound.params];
+      const matterParam = pushParam(params, matterId);
+      const deletedParam = pushParam(params, 'deleted');
+      const currentParam = pushParam(params, 'current');
+      const limitParam = pushParam(params, input.pageSize);
+      const offsetParam = pushParam(params, (input.page - 1) * input.pageSize);
+      const result = await tx.query(
+        `
+          SELECT
+            doc.document_id,
+            doc.tenant_id,
+            doc.matter_id,
+            m.matter_name,
+            m.matter_code,
+            doc.document_family_id,
+            idx.title,
+            doc.status,
+            idx.document_type,
+            doc.subtype,
+            doc.confidentiality_level,
+            doc.privilege_status,
+            doc.legal_hold,
+            doc.created_by,
+            doc.created_at,
+            doc.updated_at,
+            count(*) OVER() AS total
+          FROM document_search_index idx
+          JOIN documents doc
+            ON doc.tenant_id = idx.tenant_id
+           AND doc.document_id = idx.document_id
+          JOIN matters m
+            ON m.tenant_id = idx.tenant_id
+           AND m.matter_id = idx.matter_id
+          WHERE (${bound.sql})
+            AND idx.matter_id = ${matterParam}::uuid
+            AND idx.document_status <> ${deletedParam}
+            AND idx.version_status = ${currentParam}
+          ORDER BY idx.updated_at DESC, idx.document_id ASC
+          LIMIT ${limitParam}
+          OFFSET ${offsetParam}
+        `,
+        params,
+      );
+      const rows = result.rows as IndexedDocumentListRow[];
+      return {
+        items: rows.map((row) => mapDocument(row)),
+        totalCount: rows[0] ? Number(rows[0].total) : 0,
+        page: input.page,
+        pageSize: input.pageSize,
+      };
+    });
+  }
+
   async updateLegalHold(
     actorUserId: string,
     documentId: string,
@@ -372,6 +476,11 @@ export class DocumentService {
   private assertMatterMutationAllowed(status: string): void {
     if (!isMatterState(status)) throw validationFailed();
     if (isMatterMutationBlockedState(status)) throw validationFailed('MATTER_MUTATION_BLOCKED');
+  }
+
+  private requireSearchPermissionScope(): SearchPermissionScopeProvider {
+    if (!this.searchPermissionScope) throw permissionDenied();
+    return this.searchPermissionScope;
   }
 
   private async assertLegalHoldAdmin(tenantId: TenantId, actorUserId: string): Promise<void> {

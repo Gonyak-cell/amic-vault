@@ -3,8 +3,11 @@
 Status: production UI policy source for the UI/UX package closeout
 Scope: AMIC Vault web production routes and navigation exposure
 Related TUW: TUW-UI-001, TUW-UI-002, TUW-UI-003, TUW-UI-004, TUW-UI-701, TUW-UI-702, TUW-UI-703, TUW-UI-704
+Enterprise DMS UX baseline: `docs/ui/enterprise-dms-ux-baseline-gap-audit.md`
 
 This inventory records which routes may be shown in production navigation, which routes must be gated, and which routes must remain hidden until an approved API or product scope exists. It complements `apps/web/src/lib/features.ts`; code changes to route visibility should update both files in the same PR.
+
+For DMS core routes, backend API readiness alone is not enough to declare production UX readiness. Once upload/list/version/download APIs are approved for production, the UI must provide the corresponding upload, browse, document profile, version, and document action flows, or the release checklist must explicitly record a scoped deferral.
 
 ## Status Definitions
 
@@ -21,9 +24,9 @@ This inventory records which routes may be shown in production navigation, which
 | Route | Group | Status | Navigation | Roles / audience | Direct access behavior | Data policy |
 |---|---|---|---|---|---|---|
 | `/dashboard` | Vault | `visible` | Shown | Internal production users | AppShell route | Real API data only; empty/unavailable before success |
-| `/matters` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-scoped matters only |
-| `/search` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-before-search; no ID fallback |
-| `/files` | Vault | `hidden_until_api_ready` | Hidden | Internal production users after API readiness | Empty/unavailable route only | No file list, count, document ID, or placeholder data before API readiness |
+| `/matters` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-scoped matters only; Matter Code/display data must align with the canonical Matter app source of truth |
+| `/search` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-before-search; no ID fallback; enterprise search scope/filter UX follows `docs/ui/enterprise-dms-ux-baseline-gap-audit.md` |
+| `/files` | Vault | `hidden_until_api_ready` | Hidden | Internal production users after Matter app source and authenticated smoke readiness | AppShell route with Matter Code picker, upload panel, and matter-scoped list foundation; navigation remains gated until source-of-truth setup is ready | No file count, document ID, or placeholder data; upload/list UX must stay Matter Code-gated and fail closed when Matter app source is unconfigured |
 | `/records` | Governance | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin, matter owner | AppShell route | No prefilled retention/disposal/certificate values |
 | `/audit` | Audit | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Display-safe actor/action/result/target/time only |
 | `/walls` | Security | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Default list hides wall/matter/user raw references |

@@ -1,0 +1,164 @@
+'use client';
+
+import * as React from 'react';
+import { Check, Loader2, Search } from 'lucide-react';
+import type { MatterListDto } from '@amic-vault/shared';
+import { listMatters } from '@/lib/api-client';
+import {
+  filterMatterCodeOptions,
+  isMatterAppSourceAvailable,
+  matterAppSourceMode,
+  toMatterCodeOption,
+  type MatterAppSourceMode,
+  type MatterCodeOption,
+} from '@/lib/matter-app';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+
+export interface MatterCodePickerProps {
+  selectedMatter: MatterCodeOption | null;
+  onMatterSelected: (matter: MatterCodeOption | null) => void;
+  sourceMode?: MatterAppSourceMode;
+}
+
+const sourceModeLabels = {
+  matter_app_api: 'Matter app API',
+  matter_app_event_projection: 'Matter app 동기화',
+  vault_projection_only: 'Vault projection',
+} as const satisfies Record<Exclude<MatterAppSourceMode, 'unconfigured'>, string>;
+
+function mattersToOptions(
+  response: MatterListDto,
+  sourceMode: MatterAppSourceMode,
+): MatterCodeOption[] {
+  return response.items.map((matter) => toMatterCodeOption(matter, sourceMode));
+}
+
+export function MatterCodePicker({
+  onMatterSelected,
+  selectedMatter,
+  sourceMode,
+}: MatterCodePickerProps) {
+  const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
+  const [query, setQuery] = React.useState('');
+  const [options, setOptions] = React.useState<MatterCodeOption[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [hasLoadError, setHasLoadError] = React.useState(false);
+  const sourceAvailable = isMatterAppSourceAvailable(resolvedSourceMode);
+
+  React.useEffect(() => {
+    if (!sourceAvailable) return;
+    let active = true;
+    setIsLoading(true);
+    setHasLoadError(false);
+    listMatters({ pageSize: 50 })
+      .then((response) => {
+        if (active) setOptions(mattersToOptions(response, resolvedSourceMode));
+      })
+      .catch(() => {
+        if (active) setHasLoadError(true);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [resolvedSourceMode, sourceAvailable]);
+
+  if (!sourceAvailable) {
+    return (
+      <EmptyState
+        variant="api-unavailable"
+        title="Matter app 연결 필요"
+        description="파일 업로드는 Matter app에서 확인된 Matter Code 선택 후 시작됩니다."
+      />
+    );
+  }
+
+  const filteredOptions = filterMatterCodeOptions(options, query).slice(0, 12);
+  const sourceLabel =
+    sourceModeLabels[resolvedSourceMode as Exclude<MatterAppSourceMode, 'unconfigured'>];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <label className="flex-1">
+          <span className="sr-only">Matter Code 검색</span>
+          <span className="relative block">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              className="pl-9"
+              value={query}
+              placeholder="Matter Code 또는 이름 검색"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </span>
+        </label>
+        <div className="text-xs font-medium text-muted-foreground">{sourceLabel}</div>
+      </div>
+
+      {hasLoadError ? (
+        <EmptyState
+          variant="api-error"
+          title="Matter Code를 불러올 수 없습니다."
+          description="권한 또는 Matter app 연결 상태를 확인해 주세요."
+        />
+      ) : null}
+
+      {isLoading ? (
+        <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed bg-muted/30 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+          Matter Code를 확인하는 중입니다.
+        </div>
+      ) : null}
+
+      {!isLoading && !hasLoadError ? (
+        <div className="grid gap-2" role="listbox" aria-label="Matter Code 선택">
+          {filteredOptions.map((option) => {
+            const isSelected = selectedMatter?.matterReference === option.matterReference;
+            return (
+              <button
+                className={cn(
+                  'flex min-h-16 w-full items-center justify-between gap-3 rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  isSelected && 'border-primary bg-primary/5',
+                )}
+                key={option.matterReference}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => onMatterSelected(option)}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-foreground">
+                    {option.matterCode}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {option.matterName}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                  {option.practiceGroup ? <span>{option.practiceGroup}</span> : null}
+                  {isSelected ? <Check className="h-4 w-4 text-primary" aria-hidden="true" /> : null}
+                </span>
+              </button>
+            );
+          })}
+          {filteredOptions.length === 0 ? (
+            <EmptyState
+              variant="no-data"
+              title="선택 가능한 Matter Code가 없습니다."
+              description="접근 권한이 있는 Matter만 표시됩니다."
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export { mattersToOptions };

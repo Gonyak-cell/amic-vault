@@ -22,6 +22,7 @@ import {
   addDocumentVersionFieldsSchema,
   documentDownloadReasonQuerySchema,
   listDocumentVersionsQuerySchema,
+  listDocumentsQuerySchema,
   updateDocumentMetadataSchema,
   updateLegalHoldSchema,
   uploadDocumentFieldsSchema,
@@ -78,6 +79,14 @@ function parseVersionListQuery(query: unknown) {
   }
 }
 
+function parseDocumentListQuery(query: unknown) {
+  try {
+    return listDocumentsQuerySchema.parse(query ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
 function parseLegalHoldBody(body: unknown) {
   try {
     return updateLegalHoldSchema.parse(body ?? {});
@@ -109,7 +118,21 @@ function sessionUserId(request: RequestWithSession): string {
 export class DocumentController {
   constructor(
     @Inject(DocumentUploadService) private readonly uploadService: DocumentUploadService,
+    @Inject(DocumentService) private readonly documentService: DocumentService,
   ) {}
+
+  @Get()
+  list(
+    @Req() request: RequestWithSession,
+    @Param('matterId') matterId: string,
+    @Query() query: Record<string, unknown>,
+  ) {
+    return this.documentService.listMatterDocuments(
+      sessionUserId(request),
+      parseUuid(matterId),
+      parseDocumentListQuery(query),
+    );
+  }
 
   @Post()
   @UseInterceptors(FileInterceptor(multipartFieldName, multipartUploadOptions()))

@@ -2,13 +2,17 @@ import type {
   ApiErrorResponse,
   ErrorCode,
   AddMatterMemberDto,
+  DocumentListDto,
   EmailTimelineDto,
+  ListDocumentsQueryDto,
   ListMattersQueryDto,
   MatterDto,
   MatterMemberDto,
   MatterMemberListDto,
   MatterListDto,
   UpdateMatterMemberDto,
+  UploadDocumentFieldsDto,
+  UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { ERROR_CODES } from '@amic-vault/shared';
 import { apiBaseUrl } from './config';
@@ -44,6 +48,26 @@ async function parseError(response: Response): Promise<ApiErrorResponse> {
   };
 }
 
+async function handleApiResponse<T>(
+  response: Response,
+  redirectOnAuthRequired: boolean | undefined,
+): Promise<T> {
+  if (!response.ok) {
+    const error = new ApiClientError(response.status, await parseError(response));
+    if (
+      error.code === 'AUTH_REQUIRED' &&
+      redirectOnAuthRequired !== false &&
+      typeof window !== 'undefined'
+    ) {
+      window.location.assign('/login');
+    }
+    throw error;
+  }
+
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit & { redirectOnAuthRequired?: boolean } = {},
@@ -58,20 +82,33 @@ export async function apiFetch<T>(
     },
   });
 
-  if (!response.ok) {
-    const error = new ApiClientError(response.status, await parseError(response));
-    if (
-      error.code === 'AUTH_REQUIRED' &&
-      init.redirectOnAuthRequired !== false &&
-      typeof window !== 'undefined'
-    ) {
-      window.location.assign('/login');
-    }
-    throw error;
-  }
+  return handleApiResponse<T>(response, init.redirectOnAuthRequired);
+}
 
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+function withoutContentType(headers: HeadersInit | undefined): Headers | undefined {
+  if (!headers) return undefined;
+  const sanitized = new Headers(headers);
+  sanitized.delete('content-type');
+  return sanitized;
+}
+
+export async function apiFetchFormData<T>(
+  path: string,
+  formData: FormData,
+  init: RequestInit & { redirectOnAuthRequired?: boolean } = {},
+): Promise<T> {
+  const { redirectOnAuthRequired, headers, ...fetchInit } = init;
+  const sanitizedHeaders = withoutContentType(headers);
+  const requestInit: RequestInit = {
+    ...fetchInit,
+    body: formData,
+    cache: 'no-store',
+    credentials: 'include',
+  };
+  if (sanitizedHeaders) requestInit.headers = sanitizedHeaders;
+  const response = await fetch(`${apiBaseUrl()}${path}`, requestInit);
+
+  return handleApiResponse<T>(response, redirectOnAuthRequired);
 }
 
 // Server components must forward cookies explicitly when calling API routes.
@@ -126,4 +163,30 @@ export function removeMatterMember(matterId: string, userId: string): Promise<vo
 
 export function listMatterEmailTimeline(matterId: string): Promise<EmailTimelineDto> {
   return apiFetch<EmailTimelineDto>(`/matters/${matterId}/email-timeline`);
+}
+
+export function listMatterDocuments(
+  matterReference: string,
+  query: Partial<ListDocumentsQueryDto> = {},
+): Promise<DocumentListDto> {
+  return apiFetch<DocumentListDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents${matterQueryString(query)}`,
+  );
+}
+
+export function uploadDocument(
+  matterReference: string,
+  file: File,
+  fields: UploadDocumentFieldsDto = {},
+): Promise<UploadDocumentResponseDto> {
+  const formData = new FormData();
+  formData.set('file', file);
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) formData.set(key, String(value));
+  }
+  return apiFetchFormData<UploadDocumentResponseDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents`,
+    formData,
+    { method: 'POST' },
+  );
 }
