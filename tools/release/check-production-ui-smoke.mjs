@@ -71,6 +71,71 @@ const productionInventoryPatterns = [
   { name: 'AI scope exclusion', pattern: /Legal analysis[\s\S]*summary[\s\S]*external model[\s\S]*raw prompt[\s\S]*model response/i },
 ];
 
+const uploadBrowseFlowFiles = [
+  {
+    path: 'apps/web/src/app/(app)/files/page.tsx',
+    patterns: [
+      { name: 'Matter Code picker on files route', pattern: /MatterCodePicker/ },
+      { name: 'matter-scoped upload panel on files route', pattern: /DocumentUploadPanel/ },
+      { name: 'matter document list on files route', pattern: /MatterDocumentList/ },
+      { name: 'Matter app source mode on files route', pattern: /matterAppSourceMode/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
+    patterns: [
+      { name: 'matter detail file section', pattern: /MatterFileSection/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/api-client.ts',
+    patterns: [
+      { name: 'FormData helper', pattern: /apiFetchFormData/ },
+      { name: 'matter document list client', pattern: /listMatterDocuments/ },
+      { name: 'matter-scoped upload client', pattern: /uploadDocument/ },
+      { name: 'multipart content type guard', pattern: /withoutContentType/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/matter-app.ts',
+    patterns: [
+      { name: 'Matter app configured flag', pattern: /NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED/ },
+      { name: 'projection fallback production guard', pattern: /NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE/ },
+      { name: 'source mode fail closed', pattern: /return isMatterAppSourceConfigured\(mode\) \? mode : 'unconfigured'/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-code-picker.tsx',
+    patterns: [
+      { name: 'no unconfigured Matter app upload', pattern: /Matter app 연결 필요/ },
+      { name: 'permission-scoped matter list lookup', pattern: /listMatters\(\{ pageSize: 50 \}\)/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-upload-panel.tsx',
+    patterns: [
+      { name: 'selected matter required before upload', pattern: /Matter Code를 먼저 선택해 주세요/ },
+      { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
+      { name: 'matter-scoped upload call', pattern: /uploadDocument\(selectedMatter\.matterReference/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/matter-document-list.tsx',
+    patterns: [
+      { name: 'selected matter required before list', pattern: /Matter Code를 선택하면 파일 목록이 표시됩니다/ },
+      { name: 'matter-scoped list call', pattern: /listMatterDocuments\(selectedMatter\.matterReference/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/document/document.service.ts',
+    patterns: [
+      { name: 'query-stage document list source', pattern: /FROM document_search_index idx/ },
+      { name: 'search permission scope for document list', pattern: /scopeForSearch/ },
+      { name: 'matter-scoped document list API service', pattern: /listMatterDocuments/ },
+    ],
+  },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -242,6 +307,17 @@ function checkProductionUiInventory() {
   }
 }
 
+function checkUploadBrowseFlowGuard() {
+  for (const file of uploadBrowseFlowFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Upload/browse production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -249,6 +325,7 @@ try {
   checkBlockedRoutes();
   checkDesignSystemChecklist();
   checkProductionUiInventory();
+  checkUploadBrowseFlowGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

@@ -48,6 +48,12 @@ export const documentTypeSchema = z.enum(documentTypes);
 export const documentStatusSchema = z.enum(documentStatuses);
 export const documentConfidentialityLevelSchema = z.enum(documentConfidentialityLevels);
 export const documentPrivilegeStatusSchema = z.enum(documentPrivilegeStatuses);
+export const listDocumentsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
 
 export type DocumentType = (typeof documentTypes)[number];
 export type DocumentStatus = (typeof documentStatuses)[number];
@@ -77,3 +83,12 @@ export interface DocumentDto extends DisplayFieldsDto {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface DocumentListDto {
+  items: DocumentDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export type ListDocumentsQueryDto = z.infer<typeof listDocumentsQuerySchema>;

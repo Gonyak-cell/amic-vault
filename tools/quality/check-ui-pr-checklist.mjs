@@ -11,6 +11,10 @@ const requiredFiles = [
   'docs/ui/pr-review-checklist.md',
   'docs/ui/design-system-checklist.md',
   'docs/ui/production-ui-inventory.md',
+  'docs/ui/enterprise-dms-ux-baseline-gap-audit.md',
+  'docs/ui/enterprise-dms-ux-tuw-plan.md',
+  'docs/ui/enterprise-dms-ux-route-capability-inventory.md',
+  'docs/integrations/matter-app-vault-contract.md',
 ];
 
 const requiredPatterns = [
@@ -35,6 +39,12 @@ const requiredPatterns = [
   { label: 'checklist guard command', pattern: /pnpm check:ui-pr-checklist/ },
   { label: 'production smoke gate', pattern: /Production UI smoke gate|production UI smoke gate/i },
   { label: 'evidence redaction review', pattern: /no secrets.*customer file contents|Evidence uses refs only/is },
+  { label: 'enterprise DMS UX baseline review', pattern: /Enterprise DMS UX Baseline Gap Audit/i },
+  { label: 'enterprise DMS TUW plan review', pattern: /Enterprise DMS UX TUW Plan/i },
+  { label: 'route capability inventory review', pattern: /Route Capability Inventory/i },
+  { label: 'Matter app source-of-truth review', pattern: /Matter app.*source of truth|source-of-truth.*Matter app/is },
+  { label: 'no independent Vault-only Matter Code namespace review', pattern: /No independent Vault-only Matter Code namespace/i },
+  { label: 'no free-floating upload review', pattern: /No free-floating document upload/i },
 ];
 
 const issues = [];
