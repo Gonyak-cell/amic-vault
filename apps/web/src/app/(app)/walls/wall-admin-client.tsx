@@ -8,6 +8,7 @@ import { WallList } from '@/components/ethical-wall/wall-list';
 import { WallPolicyInspector } from '@/components/ethical-wall/wall-policy-inspector';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FilterBar, FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -213,35 +214,41 @@ export function WallAdminClient() {
     <PageShell>
       <PageHeader title={copy.title} description={copy.description} />
 
-      <SectionCard
-        icon={<Search className="h-4 w-4" />}
-        title={copy.searchCard}
-        meta={copy.searchMeta}
-      >
-        <form className="flex flex-col gap-3" onSubmit={submitFilter}>
-          <details className="rounded-md border bg-muted/20 p-3">
+      <form onSubmit={submitFilter}>
+        <FilterBar
+          actions={
+            <Button
+              aria-label={copy.filterTitle}
+              title={copy.filterTitle}
+              type="submit"
+              disabled={busy}
+            >
+              <Search className="h-4 w-4" />
+              {copy.filterTitle}
+            </Button>
+          }
+          label={copy.searchCard}
+          title={copy.searchCard}
+          description={copy.searchMeta}
+        >
+          <details className="rounded-md border bg-muted/20 p-3 sm:col-span-full">
             <summary className="cursor-pointer text-sm font-medium text-foreground">
               {copy.advancedFilter}
             </summary>
-            <Input
+            <FilterField
               className="mt-3"
-              aria-label={copy.matterFilter}
-              placeholder={copy.matterFilter}
-              value={matterFilter}
-              onChange={(event) => setMatterFilter(event.target.value)}
-            />
+              htmlFor="wall-matter-ref-filter"
+              label={copy.matterFilter}
+            >
+              <Input
+                id="wall-matter-ref-filter"
+                value={matterFilter}
+                onChange={(event) => setMatterFilter(event.target.value)}
+              />
+            </FilterField>
           </details>
-          <Button
-            aria-label={copy.filterTitle}
-            title={copy.filterTitle}
-            type="submit"
-            disabled={busy}
-          >
-            <Search className="h-4 w-4" />
-            {copy.filterTitle}
-          </Button>
-        </form>
-      </SectionCard>
+        </FilterBar>
+      </form>
 
       {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
 
