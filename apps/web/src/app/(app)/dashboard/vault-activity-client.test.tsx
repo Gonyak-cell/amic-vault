@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { VaultActivityClient } from './vault-activity-client';
+import { VaultActivityClient, VaultActivityContent } from './vault-activity-client';
 
 describe('VaultActivityClient', () => {
   it('renders a real-data-only dashboard without mock activity details', () => {
@@ -33,5 +33,45 @@ describe('VaultActivityClient', () => {
     expect(html).not.toContain('Gate green');
     expect(html).not.toContain('Amplitude');
     expect(html).not.toContain('Request a demo');
+  });
+
+  it('renders dashboard API data only when supplied by ready state', () => {
+    const html = renderToStaticMarkup(
+      <VaultActivityContent
+        dashboardState={{
+          recentFiles: {
+            status: 'ready',
+            data: [{ title: 'Board minutes', matterLabel: 'M-001 · Governance' }],
+          },
+          recentActivity: {
+            status: 'ready',
+            data: [
+              {
+                actionLabel: 'Document viewed',
+                targetLabel: 'M-001 · Governance',
+                resultLabel: 'Success',
+                occurredAt: '2026-06-17T00:00:00.000Z',
+              },
+            ],
+          },
+          permissionPolicyAlerts: { status: 'empty' },
+          aiPrepStatus: {
+            status: 'ready',
+            data: [{ matterLabel: 'M-001 · Governance', statusLabel: '준비 완료 2건' }],
+          },
+          integrationStatus: {
+            status: 'ready',
+            data: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain('Board minutes');
+    expect(html).toContain('Document viewed');
+    expect(html).toContain('준비 완료 2건');
+    expect(html).toContain('Outlook 파일링');
+    expect(html).not.toContain('DOC-204');
+    expect(html).not.toContain('김민준');
   });
 });

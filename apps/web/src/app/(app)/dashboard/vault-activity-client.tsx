@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Activity,
   Bell,
@@ -17,6 +17,9 @@ import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import {
   createDashboardUnavailableState,
+  dashboardErrorState,
+  dashboardOverviewToState,
+  getDashboardOverview,
   type DashboardAiPrepStatus,
   type DashboardIntegrationStatus,
   type DashboardOverviewState,
@@ -35,9 +38,33 @@ const dashboardSectionLabels = {
   integrationStatus: '통합 상태',
 } as const satisfies Record<DashboardSectionId, string>;
 
-const dashboardState = createDashboardUnavailableState();
-
 export function VaultActivityClient() {
+  const [dashboardState, setDashboardState] = useState<DashboardOverviewState>(() =>
+    createDashboardUnavailableState(),
+  );
+
+  useEffect(() => {
+    let active = true;
+    getDashboardOverview()
+      .then((overview) => {
+        if (active) setDashboardState(dashboardOverviewToState(overview));
+      })
+      .catch((error: unknown) => {
+        if (active) setDashboardState(dashboardErrorState(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return <VaultActivityContent dashboardState={dashboardState} />;
+}
+
+export function VaultActivityContent({
+  dashboardState,
+}: {
+  dashboardState: DashboardOverviewState;
+}) {
   return (
     <PageShell>
       <PageHeader
@@ -57,7 +84,7 @@ export function VaultActivityClient() {
             renderItems={(items) => (
               <DashboardList>
                 {items.map((item) => (
-                  <DashboardListItem key={`${item.title}-${item.lastAccessedAt ?? item.matterLabel ?? 'file'}`}>
+                  <DashboardListItem key={`${item.title}-${item.updatedAt ?? item.matterLabel ?? 'file'}`}>
                     <div className="font-medium text-foreground">{item.title}</div>
                     {item.matterLabel ? (
                       <div className="mt-1 text-[12px] text-muted-foreground">{item.matterLabel}</div>
@@ -104,7 +131,11 @@ export function VaultActivityClient() {
         </div>
 
         <aside className="grid gap-4 xl:sticky xl:top-20 xl:self-start">
-          <SectionCard icon={<Bot className="h-4 w-4" />} title={dashboardSectionLabels.aiPrepStatus} meta="운영 데이터 연결 대기">
+          <SectionCard
+            icon={<Bot className="h-4 w-4" />}
+            title={dashboardSectionLabels.aiPrepStatus}
+            meta={dashboardMeta(dashboardState.aiPrepStatus)}
+          >
             <DashboardStateBody<DashboardAiPrepStatus>
               state={dashboardState.aiPrepStatus}
               emptyTitle="파일 정리 준비 상태가 없습니다."
@@ -120,7 +151,11 @@ export function VaultActivityClient() {
               )}
             />
           </SectionCard>
-          <SectionCard icon={<PlugZap className="h-4 w-4" />} title={dashboardSectionLabels.integrationStatus} meta="운영 데이터 연결 대기">
+          <SectionCard
+            icon={<PlugZap className="h-4 w-4" />}
+            title={dashboardSectionLabels.integrationStatus}
+            meta={dashboardMeta(dashboardState.integrationStatus)}
+          >
             <DashboardStateBody<DashboardIntegrationStatus>
               state={dashboardState.integrationStatus}
               emptyTitle="연결된 통합이 없습니다."
