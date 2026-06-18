@@ -13,6 +13,8 @@ describe('WallAdminClient', () => {
     );
 
     expect(html).toContain('정보 장벽');
+    expect(html).toContain('aria-label="정보 장벽 조회"');
+    expect(html).toContain('for="wall-matter-ref-filter"');
     expect(html).toContain('정책 작업');
     expect(html).toContain('정책 작업을 표시할 수 없습니다.');
     expect(html).toContain('보안 운영 참조 입력');
