@@ -31,11 +31,11 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 | `/records` | Governance | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin, matter owner | AppShell route | No prefilled retention/disposal/certificate values |
 | `/audit` | Audit | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Display-safe actor/action/result/target/time only |
 | `/walls` | Security | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Default list hides wall/matter/user raw references; common lookup/create uses Matter Code picker, while user/group membership refs remain in clearly marked advanced security operations until picker APIs exist |
-| `/admin` | Admin | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Guarded admin settings route | SSO/MFA/BYOK/SIEM/Backup/Compliance data only after API success |
+| `/admin` | Admin | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Guarded admin settings route | SSO/MFA/BYOK/SIEM/Backup/Compliance data only after API success; taxonomy/template/refiner IA is read-only until save/audit APIs are approved |
 | `/admin/security` | Admin | `visible_admin_only` | Hidden | Firm admin, security admin | Guarded security settings route | Same real-data-only Admin Settings policy; no separate mock security data |
 | `/enterprise` | Admin | `visible_admin_only` | Hidden | Firm admin, security admin | Compatibility guarded admin settings route | Alias only; not shown in navigation |
-| `/integrations` | Integrations | `visible_admin_only` | Parent route hidden | Firm admin, security admin | Empty/unavailable status route | No connected state before API success |
-| `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only; Office task pane stays separate |
+| `/integrations` | Integrations | `visible_admin_only` | Parent route hidden | Firm admin, security admin | Safe integration matrix route | Outlook links to real status; OneDrive/Office remain gated without connected-state claims |
+| `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only plus Vault filing-path alignment; Office task pane stays separate |
 | `/integrations/onedrive` | Integrations | `hidden_until_api_ready` | Hidden | Firm admin, security admin after API readiness | No production route until contract is approved | Must not claim OneDrive connection |
 | `/ai-prep` | AI Prep/Ops | `visible_limited` | Hidden by default | Firm admin, security admin, matter owner, knowledge manager | Approved linked entry points only | File organization prep/readiness only |
 

@@ -277,6 +277,35 @@ const governanceWorkflowOpsFiles = [
   },
 ];
 
+const adminIntegrationsFiles = [
+  {
+    path: 'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
+    patterns: [
+      { name: 'DMS configuration IA panel', pattern: /AdminDmsConfigurationPanel/ },
+      { name: 'taxonomy admin contract state', pattern: /taxonomy/ },
+      { name: 'matter template admin contract state', pattern: /templates/ },
+      { name: 'search refiner admin contract state', pattern: /refiners/ },
+      { name: 'read-only until API approved copy', pattern: /저장 API 승인 전 읽기 전용/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/page.tsx',
+    patterns: [
+      { name: 'Outlook status route link', pattern: /\/integrations\/outlook/ },
+      { name: 'OneDrive gate copy', pattern: /승인 전 숨김/ },
+      { name: 'Office contract gate copy', pattern: /계약 필요/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/outlook/page.tsx',
+    patterns: [
+      { name: 'Vault filing path section', pattern: /Vault 파일링 경로/ },
+      { name: 'same document model copy', pattern: /동일 문서 모델/ },
+      { name: 'search/detail flow link', pattern: /\/search/ },
+    ],
+  },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -492,6 +521,17 @@ function checkGovernanceWorkflowOpsGuard() {
   }
 }
 
+function checkAdminIntegrationsGuard() {
+  for (const file of adminIntegrationsFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Admin/integrations production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -503,6 +543,7 @@ try {
   checkDocumentActionCenterGuard();
   checkEnterpriseSearchGuard();
   checkGovernanceWorkflowOpsGuard();
+  checkAdminIntegrationsGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

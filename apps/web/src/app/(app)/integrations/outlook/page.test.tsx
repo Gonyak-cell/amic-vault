@@ -22,9 +22,15 @@ describe('integration status routes', () => {
     ].join('\n');
 
     expect(html).toContain('통합');
-    expect(html).toContain('연결된 통합이 없습니다.');
+    expect(html).toContain('Outlook');
+    expect(html).toContain('상태 API');
+    expect(html).toContain('OneDrive');
+    expect(html).toContain('승인 전 숨김');
+    expect(html).toContain('Office 열기/저장');
     expect(html).toContain('Outlook 운영 상태');
     expect(html).toContain('Outlook 운영 상태를 불러오는 중입니다.');
+    expect(html).toContain('Vault 파일링 경로');
+    expect(html).toContain('동일 문서 모델');
     expect(html).toContain('상태 API 응답 전에는 연결 여부나 배포 상태를 표시하지 않습니다.');
     expect(html).not.toContain('OneDrive 연결됨');
     expect(html).not.toContain('Microsoft 365 연결됨');

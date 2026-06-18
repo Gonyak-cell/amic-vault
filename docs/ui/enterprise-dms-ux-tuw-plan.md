@@ -800,6 +800,14 @@ PR-D implementation note:
 - Acceptance:
   - Admin can configure and inspect DMS behavior safely.
 
+PR-E implementation note:
+
+- Admin settings now include a DMS configuration IA panel for taxonomy, Matter templates, and search refiners. These surfaces are read-only contract states until save/audit APIs are approved.
+- The integration parent route now shows a safe integration matrix: Outlook links to the real status route; OneDrive and Office open/save remain gated with no connected-state claim.
+- Outlook integration now includes a Vault filing path section that aligns Outlook attachment filing with the same Matter permission, audit, document detail, and search UX model.
+- Admin and integration tests assert no fake connected states, no sample defaults, and no raw reference inputs.
+- Persisted taxonomy/template/refiner administration, Office/OneDrive sync/open-save, coauthoring/lock, and full mobile/offline decisions remain deferred to backend-approved contracts and PR-F hardening evidence.
+
 ### PR-F Release Hardening
 
 #### DMS-UX-801 End-To-End Authenticated Smoke
