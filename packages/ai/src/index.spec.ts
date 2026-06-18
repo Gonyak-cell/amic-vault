@@ -62,7 +62,8 @@ describe('LocalGemmaGateway', () => {
 
   it('generates text through the local Ollama endpoint only after health passes', async () => {
     const transport = {
-      fetch: vi.fn(async (url: string) => {
+      fetch: vi.fn(async (url: string, _init) => {
+        void _init;
         if (url.endsWith('/api/tags')) {
           return {
             ok: true,
@@ -88,7 +89,7 @@ describe('LocalGemmaGateway', () => {
       new LocalGemmaGateway(
         { route: 'local_gemma', enabled: true, endpoint: 'http://127.0.0.1:11434' },
         transport,
-      ).generateText({ prompt: 'health check', maxTokens: 12 }),
+      ).generateText({ prompt: 'health check', maxTokens: 12, contextLength: 2048, keepAlive: '30s' }),
     ).resolves.toMatchObject({
       status: 'completed',
       route: 'local_gemma',
@@ -103,8 +104,19 @@ describe('LocalGemmaGateway', () => {
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: expect.stringContaining('"keep_alive":"30s"'),
       }),
     );
+    const requestBody = JSON.parse(String(transport.fetch.mock.calls.at(-1)?.[1].body)) as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody).toMatchObject({
+      options: {
+        num_predict: 12,
+        num_ctx: 2048,
+      },
+    });
   });
 
   it('rejects invalid json and schema-invalid generated output', async () => {
