@@ -61,6 +61,8 @@ describe('DocumentUploadPanel', () => {
     expect(html).toContain('Investment Advisory');
     expect(html).toContain('type="file"');
     expect(html).toContain('업로드');
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain('파일 정리 준비');
     expect(html).not.toContain(selectedMatter.matterReference);
   });
 });

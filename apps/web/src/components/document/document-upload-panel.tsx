@@ -22,8 +22,10 @@ export interface DocumentUploadPanelProps {
 export function DocumentUploadPanel({ selectedMatter, sourceMode }: DocumentUploadPanelProps) {
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
   const uploadSourceReady = isMatterUploadSourceMode(resolvedSourceMode);
+  const prepInputId = React.useId();
   const [file, setFile] = React.useState<File | null>(null);
   const [title, setTitle] = React.useState('');
+  const [prepEnabled, setPrepEnabled] = React.useState(true);
   const [isUploading, setIsUploading] = React.useState(false);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -38,6 +40,7 @@ export function DocumentUploadPanel({ selectedMatter, sourceMode }: DocumentUplo
     setErrorMessage(null);
     try {
       const result = await uploadDocument(selectedMatter.matterReference, file, {
+        aiAllowed: prepEnabled,
         ...(title.trim() ? { title: title.trim() } : {}),
       });
       setFile(null);
@@ -92,6 +95,20 @@ export function DocumentUploadPanel({ selectedMatter, sourceMode }: DocumentUplo
           placeholder="비워두면 파일명으로 저장됩니다."
           onChange={(event) => setTitle(event.target.value)}
         />
+      </label>
+
+      <label
+        htmlFor={prepInputId}
+        className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground"
+      >
+        <input
+          id={prepInputId}
+          type="checkbox"
+          className="h-4 w-4 accent-primary"
+          checked={prepEnabled}
+          onChange={(event) => setPrepEnabled(event.currentTarget.checked)}
+        />
+        파일 정리 준비
       </label>
 
       <div className="flex flex-wrap items-center gap-2">

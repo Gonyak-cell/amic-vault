@@ -22,6 +22,7 @@ const document: DocumentDto = {
   documentFamilyId: '11111111-1111-4111-8111-111111111102',
   documentId: '11111111-1111-4111-8111-111111111103',
   documentType: 'memo',
+  aiAllowed: true,
   legalHold: true,
   matterDisplayCode: 'AMIC-2026-001',
   matterDisplayName: 'Governance',

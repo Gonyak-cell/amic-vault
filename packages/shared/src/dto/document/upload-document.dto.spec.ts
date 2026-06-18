@@ -1,0 +1,18 @@
+import { describe, expect, it } from 'vitest';
+import { uploadDocumentFieldsSchema } from './upload-document.dto';
+
+describe('uploadDocumentFieldsSchema', () => {
+  it('parses multipart file organization prep consent explicitly', () => {
+    expect(uploadDocumentFieldsSchema.parse({ aiAllowed: 'true' })).toMatchObject({
+      aiAllowed: true,
+    });
+    expect(uploadDocumentFieldsSchema.parse({ aiAllowed: 'false' })).toMatchObject({
+      aiAllowed: false,
+    });
+    expect(uploadDocumentFieldsSchema.parse({})).toEqual({});
+  });
+
+  it('rejects ambiguous boolean transport values', () => {
+    expect(() => uploadDocumentFieldsSchema.parse({ aiAllowed: 'yes' })).toThrow();
+  });
+});

@@ -75,6 +75,7 @@ export interface DocumentDto extends DisplayFieldsDto {
   subtype: string | null;
   confidentialityLevel: DocumentConfidentialityLevel;
   privilegeStatus: DocumentPrivilegeStatus;
+  aiAllowed: boolean;
   legalHold: boolean;
   extractionStatus?: DocumentExtractionStatus | null;
   extractionMethod?: DocumentExtractionMethod | null;
