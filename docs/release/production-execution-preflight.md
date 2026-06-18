@@ -1,9 +1,9 @@
 # Production Execution Preflight
 
-Status: PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED / PRODUCTION PATCH 46C6B14 SMOKE VERIFIED
-Date: 2026-06-16
-Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15 / PROD-PATCH-46C6B14-DEPLOY-2026-06-16 / PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16
-Machine Status: customer-launch-smoke-passed / prod-patch-46c6b14-smoke-passed
+Status: PASSED - PRODUCTION CUSTOMER LAUNCH SMOKE VERIFIED / PRODUCTION UIUX PATCH PUBLIC SMOKE VERIFIED
+Date: 2026-06-18
+Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15 / PROD-PATCH-46C6B14-DEPLOY-2026-06-16 / PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16 / PROD-PATCH-70F0944-UIUX-DEPLOY-2026-06-18 / PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18
+Machine Status: customer-launch-smoke-passed / prod-patch-46c6b14-smoke-passed / prod-patch-70f0944-uiux-public-smoke-passed
 
 This preflight records the post-approval production release execution path after
 PR #82 merged. The earlier preflight ref
@@ -16,10 +16,10 @@ synthetic-only smoke evidence without committing provider-console evidence.
 
 | Item | Result |
 |---|---|
-| Current `main` merge SHA | `46c6b14c4d0fd143b478e3184018635c9f96568a` (supersedes patch baseline `42e7b29665406dc1b6f110acf4a79e8453e2c8c5` and final-smoke baseline `f4b69249c28ebf9e4465f36841af5d6c40fe7743`) |
+| Current `main` merge SHA | `70f094490b1eab41b04b1c48137b47a585263f5c` (supersedes UIUX patch baseline `f9e0f0d727694bde1c4637c039e3d702b6c90472`, Gemma patch baseline `46c6b14c4d0fd143b478e3184018635c9f96568a`, and final-smoke baseline `f4b69249c28ebf9e4465f36841af5d6c40fe7743`) |
 | Production release-control SHA | `65e2db1b401f02c52c58b87bd7af755b24b68483` |
 | Launch blocker approvals | LRB-005 through LRB-014 approved |
-| Main CI after PR #82 and PR #94 merges | green |
+| Main CI after PR #82, PR #94, and PR #176 merges | green |
 | AWS CLI access | available outside the repository through SSO profile |
 | AWS region checked | `ap-northeast-2` |
 | Customer data scope | approved customer documents through app-controlled upload/versioning only |
@@ -189,6 +189,30 @@ post-merge production hotfix for PR #122 at current main HEAD
 - smoke: `PROD-PATCH-F9E0F0D-GEMMA-HOTFIX-PUBLIC-SMOKE-2026-06-17` passed with
   pass=8 fail=0 skip=7.
 
+`PROD-PATCH-70F0944-UIUX-DEPLOY-2026-06-18` records the post-merge production
+UIUX rollout for PR #176 at current main HEAD
+`70f094490b1eab41b04b1c48137b47a585263f5c`.
+
+- scope: Vault enterprise UIUX, admin governance surfaces, and email/password
+  login without workspace id; Gemma remains limited to file-organization prep;
+- image set: API and web linux/amd64 manifests built from
+  `70f094490b1eab41b04b1c48137b47a585263f5c`; existing ingestion and Gemma
+  sidecar images were retained;
+- migration: a one-off migration task using the app runtime DB role exited
+  before schema mutation on permission denial; the migration-role rerun exited 0
+  and recorded `No migrations to run!` plus `Migrations complete!`, because
+  required migrations through `0079_email_only_login_candidate_helper` were
+  already applied;
+- runtime: production API and web ECS services reached desired=1/running=1/pending=0
+  on task revisions 30 and 15;
+- monitoring: post-deploy API/Web log scan over the immediate release window
+  matched 0 error/fatal/panic events;
+- smoke: `PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18` passed with
+  SMOKE-001 through SMOKE-004 and SMOKE-012 through SMOKE-015 pass=8 fail=0
+  skip=7, including API health, email/password-only login rendering,
+  unauthenticated dashboard redirect, static asset, manifest, service worker
+  denylist, offline shell, and installability checks.
+
 Concrete account IDs, ARNs, private endpoints, secret names beyond already
 approved public-safe refs, screenshots, cookies, tokens, and provider-console
 metadata remain outside this repository.
@@ -236,6 +260,8 @@ upload/versioning path.
 - `PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15`
 - `PROD-PATCH-46C6B14-DEPLOY-2026-06-16`
 - `PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16`
+- `PROD-PATCH-70F0944-UIUX-DEPLOY-2026-06-18`
+- `PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18`
 - `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15`
 - `APPROVAL-LRB-014-JWS-OWNER-2026-06-15`
 - `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15`

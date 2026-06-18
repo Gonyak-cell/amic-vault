@@ -57,7 +57,10 @@ pnpm release:local-preflight
 
 For approved staging, provide `WEB_BASE_URL`, `API_BASE_URL`,
 `SMOKE_TARGET_REF`, `RELEASE_SHA`, and approved non-production credentials from
-outside the repository. Set `SMOKE_REQUIRE_AUTH=1` for gate evidence.
+outside the repository. `SMOKE_TENANT_ID` or `SMOKE_TENANT_SLUG` is optional for
+email-only login and should be supplied only when an approved smoke identity is
+intentionally tenant-disambiguated. Set `SMOKE_REQUIRE_AUTH=1` for gate
+evidence.
 
 Vault route mapping:
 
