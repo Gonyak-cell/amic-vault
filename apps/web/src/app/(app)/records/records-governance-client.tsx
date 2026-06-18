@@ -12,6 +12,7 @@ import type {
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FilterBar, FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -335,22 +336,50 @@ export function RecordsGovernanceClient() {
 
       {activeTab === 'policies' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <SectionCard
-            icon={<FileClock className="h-4 w-4" />}
-            title={copy.title}
-            meta={copy.policyMeta}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (busy || !policyCode.trim() || !policyLabel.trim()) return;
+              void savePolicy();
+            }}
           >
-            <Field label={copy.policyCode} value={policyCode} onChange={setPolicyCode} />
-            <Field label={copy.policyLabel} value={policyLabel} onChange={setPolicyLabel} />
-            <Field label={copy.retentionDays} value={retentionDays} onChange={setRetentionDays} />
-            <Button
-              onClick={savePolicy}
-              disabled={busy || !policyCode.trim() || !policyLabel.trim()}
+            <FilterBar
+              actions={
+                <Button
+                  aria-label={copy.savePolicy}
+                  disabled={busy || !policyCode.trim() || !policyLabel.trim()}
+                  title={copy.savePolicy}
+                  type="submit"
+                >
+                  <Scale className="h-4 w-4" />
+                  {copy.savePolicy}
+                </Button>
+              }
+              label={copy.title}
+              title={copy.title}
+              description={copy.policyMeta}
             >
-              <Scale className="h-4 w-4" />
-              {copy.savePolicy}
-            </Button>
-          </SectionCard>
+              <Field
+                id="records-policy-code"
+                label={copy.policyCode}
+                value={policyCode}
+                onChange={setPolicyCode}
+              />
+              <Field
+                id="records-policy-label"
+                label={copy.policyLabel}
+                value={policyLabel}
+                onChange={setPolicyLabel}
+              />
+              <Field
+                id="records-retention-days"
+                label={copy.retentionDays}
+                type="number"
+                value={retentionDays}
+                onChange={setRetentionDays}
+              />
+            </FilterBar>
+          </form>
           <SummaryPanel
             title={copy.policies}
             empty={copy.noPolicies}
@@ -366,12 +395,28 @@ export function RecordsGovernanceClient() {
       {activeTab === 'holds' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <AdvancedRefsPanel meta={copy.holdMeta} title={copy.advancedRefs}>
-            <Field label={copy.matterRef} value={matterId} onChange={setMatterId} />
-            <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
-            <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
+            <Field
+              id="records-hold-matter-ref"
+              label={copy.matterRef}
+              value={matterId}
+              onChange={setMatterId}
+            />
+            <Field
+              id="records-hold-document-ref"
+              label={copy.documentRef}
+              value={documentId}
+              onChange={setDocumentId}
+            />
+            <Field
+              id="records-hold-reason"
+              label={copy.reason}
+              value={reasonCode}
+              onChange={setReasonCode}
+            />
             <Button
               onClick={() => saveHold('matter')}
               disabled={busy || !trimmedMatterId || !trimmedReason}
+              type="button"
             >
               <ShieldCheck className="h-4 w-4" />
               {copy.matterHold}
@@ -379,13 +424,23 @@ export function RecordsGovernanceClient() {
             <Button
               onClick={() => saveHold('document')}
               disabled={busy || !trimmedMatterId || !trimmedDocumentId || !trimmedReason}
+              type="button"
             >
               <ShieldCheck className="h-4 w-4" />
               {copy.documentHold}
             </Button>
-            <div className="border-t pt-3" />
-            <Field label={copy.holdRef} value={legalHoldId} onChange={setLegalHoldId} />
-            <Button onClick={releaseHold} disabled={busy || !activeLegalHoldId}>
+            <div className="border-t pt-3 sm:col-span-full" />
+            <Field
+              id="records-hold-ref"
+              label={copy.holdRef}
+              value={legalHoldId}
+              onChange={setLegalHoldId}
+            />
+            <Button
+              onClick={releaseHold}
+              disabled={busy || !activeLegalHoldId}
+              type="button"
+            >
               <ShieldCheck className="h-4 w-4" />
               {copy.releaseHold}
             </Button>
@@ -405,9 +460,23 @@ export function RecordsGovernanceClient() {
       {activeTab === 'archive' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <AdvancedRefsPanel meta={copy.archiveMeta} title={copy.advancedRefs}>
-            <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
-            <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
-            <Button onClick={saveArchive} disabled={busy || !trimmedDocumentId || !trimmedReason}>
+            <Field
+              id="records-archive-document-ref"
+              label={copy.documentRef}
+              value={documentId}
+              onChange={setDocumentId}
+            />
+            <Field
+              id="records-archive-reason"
+              label={copy.reason}
+              value={reasonCode}
+              onChange={setReasonCode}
+            />
+            <Button
+              onClick={saveArchive}
+              disabled={busy || !trimmedDocumentId || !trimmedReason}
+              type="button"
+            >
               <Archive className="h-4 w-4" />
               {copy.archive}
             </Button>
@@ -427,26 +496,46 @@ export function RecordsGovernanceClient() {
       {activeTab === 'disposal' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <AdvancedRefsPanel meta={copy.disposalMeta} title={copy.advancedRefs}>
-            <Field label={copy.documentRef} value={documentId} onChange={setDocumentId} />
-            <Field label={copy.reason} value={reasonCode} onChange={setReasonCode} />
+            <Field
+              id="records-disposal-document-ref"
+              label={copy.documentRef}
+              value={documentId}
+              onChange={setDocumentId}
+            />
+            <Field
+              id="records-disposal-reason"
+              label={copy.reason}
+              value={reasonCode}
+              onChange={setReasonCode}
+            />
             <Button
               onClick={requestDisposal}
               disabled={busy || !trimmedDocumentId || !trimmedReason}
+              type="button"
             >
               <Trash2 className="h-4 w-4" />
               {copy.requestDisposal}
             </Button>
-            <div className="border-t pt-3" />
+            <div className="border-t pt-3 sm:col-span-full" />
             <Field
+              id="records-disposal-request-ref"
               label={copy.disposalRef}
               value={disposalRequestId}
               onChange={setDisposalRequestId}
             />
-            <Button onClick={approveDisposal} disabled={busy || !activeDisposalRequestId}>
+            <Button
+              onClick={approveDisposal}
+              disabled={busy || !activeDisposalRequestId}
+              type="button"
+            >
               <ShieldCheck className="h-4 w-4" />
               {copy.approve}
             </Button>
-            <Button onClick={executeDisposal} disabled={busy || !activeDisposalRequestId}>
+            <Button
+              onClick={executeDisposal}
+              disabled={busy || !activeDisposalRequestId}
+              type="button"
+            >
               <Trash2 className="h-4 w-4" />
               {copy.execute}
             </Button>
@@ -465,11 +554,16 @@ export function RecordsGovernanceClient() {
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <AdvancedRefsPanel meta={copy.certificateMeta} title={copy.advancedRefs}>
             <Field
+              id="records-certificate-disposal-ref"
               label={copy.disposalRef}
               value={disposalRequestId}
               onChange={setDisposalRequestId}
             />
-            <Button onClick={loadCertificate} disabled={busy || !activeDisposalRequestId}>
+            <Button
+              onClick={loadCertificate}
+              disabled={busy || !activeDisposalRequestId}
+              type="button"
+            >
               <FileClock className="h-4 w-4" />
               {copy.certificate}
             </Button>
@@ -538,29 +632,34 @@ function AdvancedRefsPanel({
   title: string;
 }) {
   return (
-    <SectionCard title={title} meta={meta}>
-      <details>
+    <FilterBar label={title} title={title} description={meta}>
+      <details className="rounded-md border bg-muted/20 p-3 sm:col-span-full">
         <summary className="cursor-pointer text-sm font-medium text-foreground">{title}</summary>
-        <div className="mt-4 flex flex-col gap-3">{children}</div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
+          {children}
+        </div>
       </details>
-    </SectionCard>
+    </FilterBar>
   );
 }
 
 function Field({
+  id,
   label,
+  type = 'text',
   value,
   onChange,
 }: {
+  id: string;
   label: string;
+  type?: React.HTMLInputTypeAttribute;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex min-w-72 flex-1 flex-col gap-1 text-sm">
-      <span className="font-medium">{label}</span>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
+    <FilterField htmlFor={id} label={label}>
+      <Input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </FilterField>
   );
 }
 
