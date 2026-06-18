@@ -19,7 +19,7 @@ Source baseline:
 | `/matters/[matterId]` | Matter workspace home. | Partial. Profile/team shell and matter-scoped file section exist; records context, activity, task context incomplete. | DMS-UX-113, 405, 406 |
 | `/matters/[matterId]/team` | Matter membership/admin view. | Partial. Uses safe labels, but broader picker/source-of-truth alignment is still needed. | DMS-UX-107, 401, 402 |
 | `/files` | File upload and browse surface. | Partial. Matter Code picker, upload panel, and matter-scoped browse surface exist; production navigation remains gated until Matter app source is configured and authenticated smoke is ready. | DMS-UX-102, 108, 111 |
-| `/documents/[id]` | Document detail/action center. | Partial. Document route exists, but preview/download/profile edit/version/action center are incomplete. | DMS-UX-201 to 212 |
+| `/documents/[id]` | Document detail/action center. | Partial. Action center foundation exists with profile read/edit, preview panel, controlled download reason, version list, and add-version flow. Check-out/Office live edit remains deferred by ADR-016; contextual audit/activity and related-item APIs remain incomplete. | DMS-UX-406, 407, 501, 606 |
 | `/search` | Permission-bound enterprise search. | Partial. Backend title/body FTS, snippets, facets, audit exist; advanced scope/filter/refiner UX incomplete. | DMS-UX-301 to 314 |
 | `/records` | Records lifecycle console. | Partial/strong backend. Needs contextual matter/document panels and picker cleanup. | DMS-UX-405, 505 |
 | `/audit` | Admin audit search/export. | Partial/strong. Needs contextual timelines on matter/document pages. | DMS-UX-406 |
@@ -41,11 +41,11 @@ Source baseline:
 | Matter members | `apps/api/src/modules/matter/matter-member*` | Exists. Picker/source contract cleanup needed. | DMS-UX-107, 401 |
 | Matter suggestions | `POST /search/matter-suggestions` | Exists for Outlook hash-only suggestion use. May be reusable after Matter app contract alignment. | DMS-UX-004 |
 | Document upload | `POST /matters/:matterId/documents` plus web FormData helper | Exists. Browser flow is Matter Code-gated and blocks when Matter app source is unconfigured. | DMS-UX-102, 108 |
-| Document metadata update | `PATCH /documents/:documentId/metadata` | Exists. Profile editor missing. | DMS-UX-205 |
-| Document download | `GET /documents/:documentId/download` | Exists. Controlled UI flow incomplete. | DMS-UX-203 |
-| Document versions | add/list version endpoints | Exists. Version UI missing. | DMS-UX-206, 207 |
+| Document metadata update | `PATCH /documents/:documentId/metadata` | Exists and is wired to the document action center profile editor. | DMS-UX-401, 405 |
+| Document download | `GET /documents/:documentId/download` | Exists and is wired to a controlled download UI with reason-code selection. | DMS-UX-406 |
+| Document versions | add/list version endpoints | Exists and is wired to version history plus add-version UI; immutable-original rule remains server-owned. | DMS-UX-407 |
 | Document list/browse | `GET /matters/:matterId/documents` through `document_search_index idx` and search permission scope | Exists for matter-scoped current document listing; broader global `/documents` browse remains deferred. | DMS-UX-104, 108 |
-| Preview | Preview module exists in repo. | UI integration incomplete. | DMS-UX-202, 308 |
+| Preview | Preview module exists in repo. | Document action center embeds the preview endpoint with unavailable/error handled by the server response; search hit preview navigation remains incomplete. | DMS-UX-308 |
 | Search title/body | `document_search_index` with `title_tsv` and `content_tsv` | Exists. Advanced scope/filter UX incomplete. | DMS-UX-301 to 314 |
 | Records | Records APIs and route exist. | Strong backend; contextual UX incomplete. | DMS-UX-405, 505 |
 | Audit | Audit query/export exists. | Strong backend; contextual timelines incomplete. | DMS-UX-406 |
@@ -66,3 +66,11 @@ The safest PR-A order is:
 3. FormData upload helper.
 4. Upload UI behind a readiness gate that requires a permitted matter and does not claim production Matter app integration unless configured.
 5. Smoke guard that fails when production says upload is ready but Matter app lookup/picker/upload/list are not ready.
+
+## Immediate PR-B Decision
+
+PR-B may expose document detail operations backed by existing approved APIs:
+profile read/edit, preview, controlled download, version list, and add-version.
+It must not expose check-out/check-in, Office live edit, coauthoring, or external
+sharing controls until the required API/audit/security contracts are approved.
+Those edit/open decisions are captured in `docs/adr/ADR-016-document-editing-and-office-flow.md`.

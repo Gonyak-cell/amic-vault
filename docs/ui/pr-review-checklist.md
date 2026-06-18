@@ -116,7 +116,7 @@ Reject or explicitly defer the PR when a production-ready API exists but the UI 
 - file browse/list by matter or filing location
 - document profile and metadata review/edit
 - version history and add-version flow
-- check-out/check-in, coauthoring, or an explicit ADR deferral for controlled editing state
+- check-out/check-in, coauthoring, or an explicit ADR deferral for controlled editing state; current PR-B deferral is `docs/adr/ADR-016-document-editing-and-office-flow.md`
 - preview/download/open action surface
 - contextual audit/activity timeline for matter and document pages when audit APIs are production-ready
 - workflow/action inbox for document review, approval, metadata completion, extraction/OCR remediation, and records actions when task APIs are production-ready

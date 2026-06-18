@@ -1,0 +1,515 @@
+'use client';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Download,
+  Eye,
+  FileText,
+  History,
+  Link2,
+  Pencil,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Upload,
+  X,
+} from 'lucide-react';
+import type {
+  AiPrepDocumentStatusDto,
+  DocumentConfidentialityLevel,
+  DocumentDownloadReasonCode,
+  DocumentDto,
+  DocumentType,
+  DocumentVersionDto,
+} from '@amic-vault/shared';
+import {
+  documentConfidentialityLevels,
+  documentDownloadReasonCodes,
+  documentTypes,
+} from '@amic-vault/shared';
+import { AiPrepStatusPanel } from '@/components/ai/ai-prep-status-panel';
+import { Button } from '@/components/ui/button';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableEmptyRow,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { SectionCard } from '@/components/ui/section-card';
+import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import {
+  addDocumentVersion,
+  documentDownloadUrl,
+  documentPreviewUrl,
+  getDocument,
+  listDocumentVersions,
+  updateDocumentMetadata,
+} from '@/lib/api-client';
+import { getDocumentAiPrepStatus } from '@/lib/api/ai-prep';
+import { safeApiErrorMessage } from '@/lib/api/error-messages';
+
+interface DocumentActionCenterProps {
+  documentId: string;
+  disableInitialLoad?: boolean;
+  initialDocument?: DocumentDto;
+  initialVersions?: DocumentVersionDto[];
+}
+
+interface ProfileDraft {
+  title: string;
+  documentType: DocumentType;
+  subtype: string;
+  confidentialityLevel: DocumentConfidentialityLevel;
+}
+
+const typeLabels = {
+  contract: '계약서',
+  memo: '메모',
+  opinion: '의견서',
+  court_filing: '법원 제출 문서',
+  evidence: '증거',
+  correspondence: '서신',
+  corporate_record: '회사 기록',
+  financial: '재무',
+  other: '기타',
+} as const satisfies Record<DocumentType, string>;
+
+const confidentialityLabels = {
+  standard: '일반',
+  high: '높음',
+  restricted: '제한됨',
+} as const satisfies Record<DocumentConfidentialityLevel, string>;
+
+const downloadReasonLabels = {
+  casework: '업무 처리',
+  client_request: '의뢰인 요청',
+  court_filing: '법원 제출',
+  compliance: '컴플라이언스',
+  other: '기타',
+} as const satisfies Record<DocumentDownloadReasonCode, string>;
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '확인 불가';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '확인 불가';
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function statusTone(status: string): StatusBadgeTone {
+  if (status === 'final' || status === 'executed' || status === 'ready') return 'success';
+  if (status === 'failed' || status === 'deleted' || status === 'archived') return 'blocked';
+  if (status.includes('pending') || status === 'draft') return 'warning';
+  return 'neutral';
+}
+
+function draftFromDocument(document: DocumentDto): ProfileDraft {
+  return {
+    title: document.title,
+    documentType: document.documentType,
+    subtype: document.subtype ?? '',
+    confidentialityLevel: document.confidentialityLevel,
+  };
+}
+
+function ProfileField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 truncate text-sm font-semibold text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
+  if (versions.length === 0) {
+    return <DataTableEmptyRow colSpan={4}>표시할 버전이 없습니다.</DataTableEmptyRow>;
+  }
+
+  return versions.map((version) => (
+    <DataTableRow key={version.versionId}>
+      <DataTableCell className="font-semibold">v{version.versionNo}</DataTableCell>
+      <DataTableCell>
+        <StatusBadge tone={statusTone(version.versionStatus)}>{version.versionStatus}</StatusBadge>
+      </DataTableCell>
+      <DataTableCell>{formatDateTime(version.createdAt)}</DataTableCell>
+      <DataTableCell>{version.supersedesVersionId ? '이전 버전 보존' : '최초 버전'}</DataTableCell>
+    </DataTableRow>
+  ));
+}
+
+export function DocumentActionCenter({
+  disableInitialLoad = false,
+  documentId,
+  initialDocument,
+  initialVersions = [],
+}: DocumentActionCenterProps) {
+  const [document, setDocument] = useState<DocumentDto | null>(initialDocument ?? null);
+  const [versions, setVersions] = useState<DocumentVersionDto[]>(initialVersions);
+  const [prepStatus, setPrepStatus] = useState<AiPrepDocumentStatusDto | null>(null);
+  const [loading, setLoading] = useState(!initialDocument);
+  const [error, setError] = useState<string | null>(null);
+  const [prepError, setPrepError] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<ProfileDraft | null>(
+    initialDocument ? draftFromDocument(initialDocument) : null,
+  );
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [versionFile, setVersionFile] = useState<File | null>(null);
+  const [versionSaving, setVersionSaving] = useState(false);
+  const [versionError, setVersionError] = useState<string | null>(null);
+  const [versionInputKey, setVersionInputKey] = useState(0);
+  const [downloadReason, setDownloadReason] = useState<DocumentDownloadReasonCode>('casework');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [documentResult, versionResult] = await Promise.all([
+        getDocument(documentId),
+        listDocumentVersions(documentId),
+      ]);
+      setDocument(documentResult);
+      setProfileDraft(draftFromDocument(documentResult));
+      setVersions(versionResult.items);
+    } catch (caught) {
+      setDocument(null);
+      setProfileDraft(null);
+      setVersions([]);
+      setError(safeApiErrorMessage(caught));
+    } finally {
+      setLoading(false);
+    }
+
+    getDocumentAiPrepStatus(documentId)
+      .then((result) => {
+        setPrepStatus(result);
+        setPrepError(null);
+      })
+      .catch((caught) => {
+        setPrepStatus(null);
+        setPrepError(safeApiErrorMessage(caught));
+      });
+  }, [documentId]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    void load();
+  }, [disableInitialLoad, load]);
+
+  const matterLabel = useMemo(() => {
+    if (!document) return 'Matter 확인 중';
+    const code = document.matterDisplayCode?.trim();
+    const name = document.matterDisplayName?.trim();
+    if (code && name) return `${code} · ${name}`;
+    if (code) return code;
+    if (name) return name;
+    return 'Matter app 표시명 없음';
+  }, [document]);
+
+  async function saveProfile() {
+    if (!document || !profileDraft || profileSaving) return;
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      const updated = await updateDocumentMetadata(document.documentId, {
+        confidentialityLevel: profileDraft.confidentialityLevel,
+        documentType: profileDraft.documentType,
+        subtype: profileDraft.subtype.trim() ? profileDraft.subtype.trim() : null,
+        title: profileDraft.title.trim(),
+      });
+      setDocument(updated);
+      setProfileDraft(draftFromDocument(updated));
+      setEditingProfile(false);
+    } catch (caught) {
+      setProfileError(safeApiErrorMessage(caught));
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function submitNewVersion() {
+    if (!document || !versionFile || versionSaving) return;
+    setVersionSaving(true);
+    setVersionError(null);
+    try {
+      await addDocumentVersion(document.documentId, versionFile);
+      setVersionFile(null);
+      setVersionInputKey((current) => current + 1);
+      const [updated, versionResult] = await Promise.all([
+        getDocument(document.documentId),
+        listDocumentVersions(document.documentId),
+      ]);
+      setDocument(updated);
+      setProfileDraft(draftFromDocument(updated));
+      setVersions(versionResult.items);
+    } catch (caught) {
+      setVersionError(safeApiErrorMessage(caught));
+    } finally {
+      setVersionSaving(false);
+    }
+  }
+
+  function downloadCurrentDocument() {
+    if (!document) return;
+    window.location.assign(documentDownloadUrl(document.documentId, downloadReason));
+  }
+
+  return (
+    <>
+      <PageHeader
+        breadcrumbs={['Vault', '파일']}
+        title={document?.title || '표시 가능한 제목 없음'}
+        description="권한이 확인된 파일 정보만 표시됩니다."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => void load()} disabled={loading}>
+              <RefreshCw className="h-4 w-4" />
+              새로고침
+            </Button>
+            <Button type="button" onClick={downloadCurrentDocument} disabled={!document}>
+              <Download className="h-4 w-4" />
+              다운로드
+            </Button>
+          </div>
+        }
+      />
+
+      {error ? <EmptyState variant="api-error" title="파일 정보를 표시할 수 없습니다." description={error} /> : null}
+
+      {document ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+          <div className="space-y-4">
+            <SectionCard
+              icon={<FileText className="h-4 w-4" />}
+              title="문서 프로필"
+              meta={matterLabel}
+              actions={<StatusBadge tone={statusTone(document.status)}>{document.status}</StatusBadge>}
+            >
+              <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <ProfileField label="Matter" value={matterLabel} />
+                <ProfileField label="문서 유형" value={typeLabels[document.documentType]} />
+                <ProfileField label="세부 유형" value={document.subtype || '없음'} />
+                <ProfileField
+                  label="보안 등급"
+                  value={confidentialityLabels[document.confidentialityLevel]}
+                />
+                <ProfileField label="특권 상태" value={document.privilegeStatus} />
+                <ProfileField label="업데이트" value={formatDateTime(document.updatedAt)} />
+                <ProfileField label="추출 상태" value={document.extractionStatus ?? '확인 불가'} />
+                <ProfileField label="추출 방식" value={document.extractionMethod ?? '확인 불가'} />
+                <ProfileField label="Legal Hold" value={document.legalHold ? '적용' : '미적용'} />
+              </dl>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingProfile((current) => !current)}
+                >
+                  {editingProfile ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                  {editingProfile ? '닫기' : '프로필 편집'}
+                </Button>
+              </div>
+
+              {editingProfile && profileDraft ? (
+                <div className="mt-4 grid gap-3 rounded-md border bg-muted/20 p-3 sm:grid-cols-2">
+                  <label className="space-y-1 text-sm font-medium">
+                    제목
+                    <Input
+                      value={profileDraft.title}
+                      onChange={(event) =>
+                        setProfileDraft((current) =>
+                          current ? { ...current, title: event.target.value } : current,
+                        )
+                      }
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm font-medium">
+                    문서 유형
+                    <select
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={profileDraft.documentType}
+                      onChange={(event) =>
+                        setProfileDraft((current) =>
+                          current
+                            ? { ...current, documentType: event.target.value as DocumentType }
+                            : current,
+                        )
+                      }
+                    >
+                      {documentTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {typeLabels[type]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1 text-sm font-medium">
+                    세부 유형
+                    <Input
+                      value={profileDraft.subtype}
+                      onChange={(event) =>
+                        setProfileDraft((current) =>
+                          current ? { ...current, subtype: event.target.value } : current,
+                        )
+                      }
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm font-medium">
+                    보안 등급
+                    <select
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={profileDraft.confidentialityLevel}
+                      onChange={(event) =>
+                        setProfileDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                confidentialityLevel: event.target
+                                  .value as DocumentConfidentialityLevel,
+                              }
+                            : current,
+                        )
+                      }
+                    >
+                      {documentConfidentialityLevels.map((level) => (
+                        <option key={level} value={level}>
+                          {confidentialityLabels[level]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex items-end gap-2 sm:col-span-2">
+                    <Button type="button" size="sm" onClick={saveProfile} disabled={profileSaving}>
+                      <Save className="h-4 w-4" />
+                      {profileSaving ? '저장 중' : '저장'}
+                    </Button>
+                    {profileError ? (
+                      <p className="text-sm text-destructive">{profileError}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard
+              icon={<Eye className="h-4 w-4" />}
+              title="미리보기"
+              meta="권한 확인 후 제공"
+              actions={<StatusBadge tone="neutral">preview</StatusBadge>}
+            >
+              <div className="aspect-[16/10] overflow-hidden rounded-md border bg-muted">
+                <iframe
+                  className="h-full w-full bg-background"
+                  src={documentPreviewUrl(document.documentId)}
+                  title={`${document.title} preview`}
+                />
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                미리보기가 준비되지 않은 파일은 서버가 안전한 오류 상태를 반환합니다.
+              </p>
+            </SectionCard>
+
+            {prepStatus ? <AiPrepStatusPanel status={prepStatus} /> : null}
+            {prepError ? <p className="text-sm text-muted-foreground">{prepError}</p> : null}
+          </div>
+
+          <aside className="space-y-4">
+            <SectionCard
+              icon={<Download className="h-4 w-4" />}
+              title="다운로드"
+              meta="감사 기록 대상"
+              actions={<ShieldCheck className="h-4 w-4 text-primary" />}
+            >
+              <label className="space-y-1 text-sm font-medium">
+                사유
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={downloadReason}
+                  onChange={(event) =>
+                    setDownloadReason(event.target.value as DocumentDownloadReasonCode)
+                  }
+                >
+                  {documentDownloadReasonCodes.map((reason) => (
+                    <option key={reason} value={reason}>
+                      {downloadReasonLabels[reason]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="button" className="mt-3 w-full" onClick={downloadCurrentDocument}>
+                <Download className="h-4 w-4" />
+                다운로드 시작
+              </Button>
+            </SectionCard>
+
+            <SectionCard
+              icon={<History className="h-4 w-4" />}
+              title="버전"
+              meta="원본 보존"
+              actions={<StatusBadge tone="neutral">{versions.length}</StatusBadge>}
+            >
+              <DataTable caption="문서 버전 목록" minWidthClassName="min-w-[520px]">
+                <DataTableHeader>
+                  <DataTableRow>
+                    <DataTableHead>버전</DataTableHead>
+                    <DataTableHead>상태</DataTableHead>
+                    <DataTableHead>생성</DataTableHead>
+                    <DataTableHead>관계</DataTableHead>
+                  </DataTableRow>
+                </DataTableHeader>
+                <DataTableBody>
+                  <VersionRows versions={versions} />
+                </DataTableBody>
+              </DataTable>
+
+              <div className="mt-4 rounded-md border bg-muted/20 p-3">
+                <label className="space-y-1 text-sm font-medium">
+                  새 버전 파일
+                  <Input
+                    key={versionInputKey}
+                    type="file"
+                    onChange={(event) => setVersionFile(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  className="mt-3 w-full"
+                  onClick={submitNewVersion}
+                  disabled={!versionFile || versionSaving}
+                >
+                  <Upload className="h-4 w-4" />
+                  {versionSaving ? '업로드 중' : '새 버전 추가'}
+                </Button>
+                {versionError ? <p className="mt-2 text-sm text-destructive">{versionError}</p> : null}
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              icon={<Link2 className="h-4 w-4" />}
+              title="연결 항목"
+              meta="권한 범위 내 표시"
+            >
+              <p className="text-sm text-muted-foreground">표시할 연결 항목이 없습니다.</p>
+            </SectionCard>
+          </aside>
+        </div>
+      ) : null}
+
+      {!document && !error && !loading ? (
+        <EmptyState title="표시할 문서가 없습니다." description="권한이 있거나 존재하는 문서만 열람할 수 있습니다." />
+      ) : null}
+    </>
+  );
+}

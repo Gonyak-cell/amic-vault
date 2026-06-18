@@ -1,15 +1,22 @@
 import type {
+  AddDocumentVersionFieldsDto,
+  AddDocumentVersionResponseDto,
   ApiErrorResponse,
   ErrorCode,
   AddMatterMemberDto,
+  DocumentDto,
   DocumentListDto,
+  DocumentDownloadReasonCode,
+  DocumentVersionListDto,
   EmailTimelineDto,
+  ListDocumentVersionsQueryDto,
   ListDocumentsQueryDto,
   ListMattersQueryDto,
   MatterDto,
   MatterMemberDto,
   MatterMemberListDto,
   MatterListDto,
+  UpdateDocumentMetadataDto,
   UpdateMatterMemberDto,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
@@ -113,7 +120,7 @@ export async function apiFetchFormData<T>(
 
 // Server components must forward cookies explicitly when calling API routes.
 
-function matterQueryString(query: Partial<ListMattersQueryDto> = {}): string {
+function queryString(query: Record<string, unknown> = {}): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined) params.set(key, String(value));
@@ -123,7 +130,7 @@ function matterQueryString(query: Partial<ListMattersQueryDto> = {}): string {
 }
 
 export function listMatters(query: Partial<ListMattersQueryDto> = {}): Promise<MatterListDto> {
-  return apiFetch<MatterListDto>(`/matters${matterQueryString(query)}`);
+  return apiFetch<MatterListDto>(`/matters${queryString(query)}`);
 }
 
 export function getMatter(matterId: string): Promise<MatterDto> {
@@ -170,7 +177,7 @@ export function listMatterDocuments(
   query: Partial<ListDocumentsQueryDto> = {},
 ): Promise<DocumentListDto> {
   return apiFetch<DocumentListDto>(
-    `/matters/${encodeURIComponent(matterReference)}/documents${matterQueryString(query)}`,
+    `/matters/${encodeURIComponent(matterReference)}/documents${queryString(query)}`,
   );
 }
 
@@ -189,4 +196,60 @@ export function uploadDocument(
     formData,
     { method: 'POST' },
   );
+}
+
+export function getDocument(documentId: string): Promise<DocumentDto> {
+  return apiFetch<DocumentDto>(`/documents/${encodeURIComponent(documentId)}`);
+}
+
+export function updateDocumentMetadata(
+  documentId: string,
+  input: UpdateDocumentMetadataDto,
+): Promise<DocumentDto> {
+  return apiFetch<DocumentDto>(`/documents/${encodeURIComponent(documentId)}/metadata`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listDocumentVersions(
+  documentId: string,
+  query: Partial<ListDocumentVersionsQueryDto> = {},
+): Promise<DocumentVersionListDto> {
+  return apiFetch<DocumentVersionListDto>(
+    `/documents/${encodeURIComponent(documentId)}/versions${queryString(query)}`,
+  );
+}
+
+export function addDocumentVersion(
+  documentId: string,
+  file: File,
+  fields: AddDocumentVersionFieldsDto = {},
+): Promise<AddDocumentVersionResponseDto> {
+  const formData = new FormData();
+  formData.set('file', file);
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) formData.set(key, String(value));
+  }
+  return apiFetchFormData<AddDocumentVersionResponseDto>(
+    `/documents/${encodeURIComponent(documentId)}/versions`,
+    formData,
+    { method: 'POST' },
+  );
+}
+
+export function documentPreviewUrl(documentId: string): string {
+  return `${apiBaseUrl()}/documents/${encodeURIComponent(documentId)}/preview`;
+}
+
+export function documentDownloadUrl(
+  documentId: string,
+  reasonCode?: DocumentDownloadReasonCode,
+): string {
+  const params = new URLSearchParams();
+  if (reasonCode) params.set('reasonCode', reasonCode);
+  const queryString = params.toString();
+  return `${apiBaseUrl()}/documents/${encodeURIComponent(documentId)}/download${
+    queryString ? `?${queryString}` : ''
+  }`;
 }
