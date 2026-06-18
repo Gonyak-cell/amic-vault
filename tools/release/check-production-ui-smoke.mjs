@@ -136,6 +136,48 @@ const uploadBrowseFlowFiles = [
   },
 ];
 
+const documentActionCenterFiles = [
+  {
+    path: 'apps/web/src/app/(app)/documents/[id]/page.tsx',
+    patterns: [
+      { name: 'document detail action center route', pattern: /DocumentActionCenter/ },
+      { name: 'document detail app shell wrapper', pattern: /PageShell/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-action-center.tsx',
+    patterns: [
+      { name: 'document profile read view', pattern: /문서 프로필/ },
+      { name: 'document metadata edit flow', pattern: /updateDocumentMetadata/ },
+      { name: 'preview panel integration', pattern: /documentPreviewUrl/ },
+      { name: 'controlled download flow', pattern: /documentDownloadUrl/ },
+      { name: 'download reason selector', pattern: /documentDownloadReasonCodes/ },
+      { name: 'version list integration', pattern: /listDocumentVersions/ },
+      { name: 'new version upload flow', pattern: /addDocumentVersion/ },
+      { name: 'related items safe state', pattern: /표시할 연결 항목이 없습니다/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/api-client.ts',
+    patterns: [
+      { name: 'document detail client', pattern: /getDocument/ },
+      { name: 'document metadata update client', pattern: /updateDocumentMetadata/ },
+      { name: 'document version list client', pattern: /listDocumentVersions/ },
+      { name: 'new document version client', pattern: /addDocumentVersion/ },
+      { name: 'document preview URL helper', pattern: /documentPreviewUrl/ },
+      { name: 'document download URL helper', pattern: /documentDownloadUrl/ },
+    ],
+  },
+  {
+    path: 'docs/adr/ADR-016-document-editing-and-office-flow.md',
+    patterns: [
+      { name: 'document editing model decision', pattern: /read\/download-only launch/i },
+      { name: 'check-out deferred', pattern: /check-out\/check-in/i },
+      { name: 'Office integration deferred', pattern: /Office integration/i },
+    ],
+  },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -318,6 +360,17 @@ function checkUploadBrowseFlowGuard() {
   }
 }
 
+function checkDocumentActionCenterGuard() {
+  for (const file of documentActionCenterFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Document action center production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -326,6 +379,7 @@ try {
   checkDesignSystemChecklist();
   checkProductionUiInventory();
   checkUploadBrowseFlowGuard();
+  checkDocumentActionCenterGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

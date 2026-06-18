@@ -395,6 +395,14 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 - Acceptance:
   - Document lifecycle can be demonstrated end to end.
 
+PR-B implementation note:
+
+- Document detail action center foundation is implemented in `apps/web/src/components/document/document-action-center.tsx`.
+- `/documents/[id]` routes through that action center.
+- Existing APIs are used for profile read/edit, preview, controlled download, version list, and add-version.
+- Check-out/check-in and Office live edit remain deferred by `docs/adr/ADR-016-document-editing-and-office-flow.md`.
+- Related items remain a safe empty state until approved related-item APIs exist.
+
 ### PR-C Enterprise Search
 
 #### DMS-UX-301 Search Scope Model
