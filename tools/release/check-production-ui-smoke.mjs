@@ -306,6 +306,21 @@ const adminIntegrationsFiles = [
   },
 ];
 
+const releaseHardeningPatterns = [
+  { name: 'authenticated main loop smoke', pattern: /Login[\s\S]*Matter Code[\s\S]*Upload[\s\S]*document detail[\s\S]*Search/i },
+  { name: 'negative auth smoke', pattern: /Non-member[\s\S]*Wall-blocked[\s\S]*Non-admin/i },
+  { name: 'no fake data sweep', pattern: /DMS-UX-803 No Fake Data Sweep/ },
+  { name: 'internal ref sweep', pattern: /DMS-UX-804 Internal Ref Sweep/ },
+  { name: 'AI scope sweep', pattern: /DMS-UX-805 AI Scope Sweep/ },
+  { name: 'responsive QA viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
+  { name: 'accessibility QA', pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i },
+  { name: 'evidence package refs only', pattern: /Evidence package[\s\S]*refs only/i },
+  { name: 'rollout checklist', pattern: /DMS-UX-809 Rollout Checklist/ },
+  { name: 'rollback plan', pattern: /DMS-UX-810 Rollback Plan/ },
+  { name: 'production monitor', pattern: /DMS-UX-811 Production Monitor/ },
+  { name: 'release signoff owners', pattern: /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -532,6 +547,15 @@ function checkAdminIntegrationsGuard() {
   }
 }
 
+function checkReleaseHardeningGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-release-hardening.md');
+  for (const { name, pattern } of releaseHardeningPatterns) {
+    if (!pattern.test(source)) {
+      fail(`Release hardening production smoke guard missing ${name}`);
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -544,6 +568,7 @@ try {
   checkEnterpriseSearchGuard();
   checkGovernanceWorkflowOpsGuard();
   checkAdminIntegrationsGuard();
+  checkReleaseHardeningGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

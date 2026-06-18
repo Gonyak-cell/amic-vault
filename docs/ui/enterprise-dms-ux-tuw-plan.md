@@ -906,6 +906,14 @@ PR-E implementation note:
 - Acceptance:
   - Production launch scope is explicit and approved.
 
+PR-F implementation note:
+
+- Added `docs/ui/enterprise-dms-release-hardening.md` as the release hardening baseline for authenticated main-loop smoke, negative auth smoke, no-fake-data sweep, internal-ref sweep, AI scope sweep, responsive/accessibility QA, evidence package, rollout checklist, rollback, production monitor, and signoff.
+- UI PR checklist now requires the release hardening document for production-readiness changes.
+- `pnpm check:ui-pr-checklist` now requires the hardening document and checks for authenticated DMS smoke, negative auth, rollback, and monitor coverage.
+- `pnpm ui:production-smoke` now validates the release hardening baseline in addition to production route/UI guards.
+- Actual authenticated smoke receipts still require approved production/staging credentials and must be attached as refs only before production signoff.
+
 ## Dependency Ladder
 
 1. DMS-UX-001 to 003 before any Matter-scoped production UI flow.
