@@ -71,6 +71,7 @@ Check these viewports for affected surfaces:
 - No fake/mock/sample/demo operational data may appear in production UI.
 - API-unready states must not show hard-coded counts, dates, approvals, connected states, or completed states.
 - Default UI must not show workspace ID, tenant ID, user ID, matter ID, document ID, version ID, raw UUID slices, or ID-derived labels.
+- Internal refs that are approved for an advanced security/admin area must use `SecureRef`; never introduce a new `slice(0, 8)` or local ref formatter.
 - AI Prep remains file organization prep/readiness only, with no legal analysis, summary, external model, raw prompt, raw source, source text, or model response wording.
 
 ## 9. Evidence

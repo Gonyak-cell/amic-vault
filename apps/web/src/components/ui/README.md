@@ -11,3 +11,5 @@ panel anatomy:
 - `FilterBar` and `FilterField` for labeled search, audit, admin, and policy filters.
 - `DetailInspector` for right-side detail panels that hide internal refs by default.
 - `EmptyState` and `StatusBadge` for no-data, blocked, warning, and readiness states.
+- `SecureRef` from `components/security` for any internal reference display in
+  approved advanced/security areas.

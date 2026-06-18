@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { FileText, ShieldCheck } from 'lucide-react';
 import type { AuditEventDto } from '@amic-vault/shared';
+import { SecureRef } from '@/components/security/secure-ref';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
@@ -43,6 +44,7 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
           targetRef: '대상 참조',
           matterRef: '사건 참조',
           noReference: '참조 없음',
+          hiddenReference: '내부 참조 숨김',
         }
       : {
           title: 'Details',
@@ -70,6 +72,7 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
           targetRef: 'Target ref',
           matterRef: 'Matter ref',
           noReference: 'No reference',
+          hiddenReference: 'Internal reference hidden',
         };
 
   if (!event) {
@@ -118,11 +121,41 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
         </Button>
         {showRefs ? (
           <dl className="mt-3 grid gap-2 text-xs">
-            <Value label={copy.eventRef} value={event.eventId} />
-            <Value label={copy.actorRef} value={event.actorId ?? copy.noReference} />
-            <Value label={copy.sessionRef} value={event.sessionId ?? copy.noReference} />
-            <Value label={copy.targetRef} value={event.targetId ?? copy.noReference} />
-            <Value label={copy.matterRef} value={event.matterId ?? copy.noReference} />
+            <SecureRef
+              emptyText={copy.noReference}
+              hiddenText={copy.hiddenReference}
+              label={copy.eventRef}
+              reveal
+              value={event.eventId}
+            />
+            <SecureRef
+              emptyText={copy.noReference}
+              hiddenText={copy.hiddenReference}
+              label={copy.actorRef}
+              reveal
+              value={event.actorId}
+            />
+            <SecureRef
+              emptyText={copy.noReference}
+              hiddenText={copy.hiddenReference}
+              label={copy.sessionRef}
+              reveal
+              value={event.sessionId}
+            />
+            <SecureRef
+              emptyText={copy.noReference}
+              hiddenText={copy.hiddenReference}
+              label={copy.targetRef}
+              reveal
+              value={event.targetId}
+            />
+            <SecureRef
+              emptyText={copy.noReference}
+              hiddenText={copy.hiddenReference}
+              label={copy.matterRef}
+              reveal
+              value={event.matterId}
+            />
           </dl>
         ) : null}
       </div>
