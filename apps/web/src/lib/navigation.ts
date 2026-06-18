@@ -6,6 +6,7 @@ import {
   History,
   MailCheck,
   Search,
+  Settings,
   Shield,
   type LucideIcon,
 } from 'lucide-react';
@@ -13,7 +14,14 @@ import type { UserRole } from '@amic-vault/shared';
 import { getTranslation, type Language, type TranslationKey } from '@/lib/i18n';
 import { canShowRouteInNavigation, routeVisibilityPolicies } from '@/lib/features';
 
-export type NavigationGroupKey = 'Vault' | 'Governance' | 'Audit' | 'Security' | 'Integrations';
+export type NavigationGroupKey =
+  | 'Vault'
+  | 'Governance'
+  | 'Audit'
+  | 'Security'
+  | 'Admin'
+  | 'Integrations'
+  | 'AI Prep/Ops';
 
 export interface NavigationItem {
   href: string;
@@ -32,7 +40,9 @@ const groupLabelKeys = {
   Governance: 'nav.group.governance',
   Audit: 'nav.group.audit',
   Security: 'nav.group.security',
+  Admin: 'nav.group.admin',
   Integrations: 'nav.group.integrations',
+  'AI Prep/Ops': 'nav.group.aiPrep',
 } as const satisfies Record<NavigationGroupKey, TranslationKey>;
 
 const routeNavigation = {
@@ -66,6 +76,11 @@ const routeNavigation = {
     icon: Shield,
     labelKey: 'nav.walls',
   },
+  '/enterprise': {
+    group: 'Admin',
+    icon: Settings,
+    labelKey: 'nav.enterprise',
+  },
   '/files': {
     group: 'Vault',
     icon: FileText,
@@ -78,7 +93,15 @@ const routeNavigation = {
   },
 } as const;
 
-const groupOrder: NavigationGroupKey[] = ['Vault', 'Governance', 'Audit', 'Security', 'Integrations'];
+const groupOrder: NavigationGroupKey[] = [
+  'Vault',
+  'Governance',
+  'Audit',
+  'Security',
+  'Admin',
+  'Integrations',
+  'AI Prep/Ops',
+];
 
 export function getNavigationGroups(
   role: UserRole | null | undefined,

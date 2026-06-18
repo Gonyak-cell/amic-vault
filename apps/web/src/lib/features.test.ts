@@ -11,7 +11,7 @@ describe('route visibility policies', () => {
     expect(findRouteVisibilityPolicy('/enterprise')).toMatchObject({
       group: 'Admin',
       production: 'visible_admin_only',
-      showInNavigation: false,
+      showInNavigation: true,
     });
   });
 

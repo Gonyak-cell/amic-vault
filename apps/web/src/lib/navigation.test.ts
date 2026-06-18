@@ -27,6 +27,7 @@ describe('navigation visibility', () => {
     expect(labels).toContain('기록 보존');
     expect(labels).toContain('접근 기록');
     expect(labels).toContain('정보 차단');
+    expect(labels).toContain('관리자 설정');
     expect(labels).toContain('Outlook');
     expect(labels).not.toContain('공유 요청');
   });

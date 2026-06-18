@@ -1,29 +1,44 @@
+'use client';
+
 import * as React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 
 export function RouteBlockedState({
   area,
-  reason = '현재 운영 범위에 포함되지 않은 화면입니다.',
+  areaKey,
+  reason,
+  reasonKey,
 }: {
-  area: string;
+  area?: string;
+  areaKey?: TranslationKey;
   reason?: string;
+  reasonKey?: TranslationKey;
 }) {
+  const { t } = useI18n();
+  const displayArea = areaKey ? t(areaKey) : area ?? t('route.blocked.defaultArea');
+  const displayReason = reasonKey ? t(reasonKey) : reason ?? t('route.blocked.defaultReason');
+
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', area]}
-        title={area}
-        description="권한과 운영 정책이 확인된 화면만 표시됩니다."
+        breadcrumbs={['Vault', displayArea]}
+        title={displayArea}
+        description={t('route.blocked.description')}
       />
-      <SectionCard icon={<ShieldAlert className="h-4 w-4" />} title="표시할 수 없는 화면" meta="운영 노출 차단">
+      <SectionCard
+        icon={<ShieldAlert className="h-4 w-4" />}
+        title={t('route.blocked.cardTitle')}
+        meta={t('route.blocked.cardMeta')}
+      >
         <EmptyState
           variant="policy-blocked"
-          title="이 화면은 표시할 수 없습니다."
-          description={reason}
+          title={t('route.blocked.title')}
+          description={displayReason}
         />
       </SectionCard>
     </PageShell>

@@ -1,22 +1,31 @@
+'use client';
+
 import React from 'react';
 import { FileText } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import { useI18n } from '@/lib/i18n';
 
 export default function FilesPage() {
+  const { t } = useI18n();
+
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', '파일']}
-        title="파일"
-        description="파일 목록 API가 연결되기 전까지 운영 데이터만 표시합니다."
+        breadcrumbs={['Vault', t('files.page.title')]}
+        title={t('files.page.title')}
+        description={t('files.page.description')}
       />
-      <SectionCard icon={<FileText className="h-4 w-4" />} title="파일 목록" meta="운영 데이터 미연결">
+      <SectionCard
+        icon={<FileText className="h-4 w-4" />}
+        title={t('files.section.title')}
+        meta={t('files.section.meta')}
+      >
         <EmptyState
           variant="api-unavailable"
-          title="파일 목록을 표시할 수 없습니다."
+          title={t('files.empty.title')}
         />
       </SectionCard>
     </PageShell>

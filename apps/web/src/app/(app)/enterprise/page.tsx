@@ -4,7 +4,7 @@ import { EnterpriseHardeningClient } from './enterprise-hardening-client';
 
 export default function EnterprisePage() {
   return (
-    <RouteVisibilityGuard area="관리자 설정" route="/enterprise">
+    <RouteVisibilityGuard areaKey="route.area.enterprise" route="/enterprise">
       <EnterpriseHardeningClient />
     </RouteVisibilityGuard>
   );

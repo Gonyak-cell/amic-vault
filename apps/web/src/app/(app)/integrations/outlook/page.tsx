@@ -1,19 +1,28 @@
+'use client';
+
 import React from 'react';
 import { MailCheck } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import { useI18n } from '@/lib/i18n';
 import { OutlookIntegrationStatusClient } from './outlook-integration-status-client';
 
 export default function OutlookIntegrationPage() {
+  const { t } = useI18n();
+
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', '통합', 'Outlook']}
-        title="Outlook 통합"
-        description="Office 작업 창과 별도로, 관리자용 연결 상태만 표시합니다."
+        breadcrumbs={['Vault', t('integrations.page.title'), t('outlook.page.title')]}
+        title={t('outlook.page.title')}
+        description={t('outlook.page.description')}
       />
-      <SectionCard icon={<MailCheck className="h-4 w-4" />} title="Outlook 운영 상태" meta="상태 API 기준">
+      <SectionCard
+        icon={<MailCheck className="h-4 w-4" />}
+        title={t('outlook.section.statusTitle')}
+        meta={t('outlook.section.statusMeta')}
+      >
         <OutlookIntegrationStatusClient />
       </SectionCard>
     </PageShell>

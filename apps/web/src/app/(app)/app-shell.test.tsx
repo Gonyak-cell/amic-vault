@@ -40,6 +40,8 @@ describe('AppShell', () => {
     expect(html).toContain('jwsuh@amic.kr');
     expect(html).toContain('접근 기록');
     expect(html).toContain('정보 차단');
+    expect(html).toContain('관리자 설정');
+    expect(html).toContain('href="/enterprise"');
     expect(html).toContain('href="/integrations/outlook"');
     expect(html).toContain('Dashboard payload');
     expect(html).toContain('href="/dashboard"');

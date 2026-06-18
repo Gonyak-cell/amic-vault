@@ -1,11 +1,16 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { LanguageProvider } from '@/lib/i18n';
 import FilesPage from './page';
 
 describe('FilesPage', () => {
   it('renders only an API-unavailable empty state before the files API is connected', () => {
-    const html = renderToStaticMarkup(<FilesPage />);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <FilesPage />
+      </LanguageProvider>,
+    );
 
     expect(html).toContain('파일');
     expect(html).toContain('파일 목록을 표시할 수 없습니다.');
