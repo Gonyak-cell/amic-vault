@@ -17,6 +17,7 @@ describe('AuditConsoleClient', () => {
     expect(html).toContain('for="audit-result-filter"');
     expect(html).toContain('고급 참조 필터');
     expect(html).toContain('CSV 내보내기');
+    expect(html).toContain('disabled=""');
     expect(html).not.toContain('수행자 ID');
     expect(html).not.toContain('대상 ID');
     expect(html).not.toContain('Matter ID');
