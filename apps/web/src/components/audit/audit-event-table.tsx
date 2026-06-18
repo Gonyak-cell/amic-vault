@@ -2,6 +2,15 @@
 
 import React from 'react';
 import type { AuditEventDto } from '@amic-vault/shared';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableEmptyRow,
+  DataTableHead,
+  DataTableHeader,
+  DataTableRow,
+} from '@/components/ui/data-table';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useI18n } from '@/lib/i18n';
 
@@ -60,64 +69,49 @@ export function AuditEventTable({
     return <p className="text-sm font-medium text-destructive">{error}</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-md border bg-card">
-      <table className="min-w-[760px] w-full border-collapse text-sm">
-        <caption className="sr-only">{copy.caption}</caption>
-        <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
-          <tr>
-            <th className="px-4 py-3 font-medium">{copy.time}</th>
-            <th className="px-4 py-3 font-medium">{copy.action}</th>
-            <th className="px-4 py-3 font-medium">{copy.actor}</th>
-            <th className="px-4 py-3 font-medium">{copy.target}</th>
-            <th className="px-4 py-3 font-medium">{copy.result}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((event) => (
-            <tr
-              aria-selected={selectedEventId === event.eventId}
-              className="cursor-pointer border-t transition-colors hover:bg-muted/50 aria-selected:bg-primary/5"
-              key={event.eventId}
-              onClick={() => onSelectEvent?.(event)}
-              onKeyDown={(keyboardEvent) => {
-                if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-                  keyboardEvent.preventDefault();
-                  onSelectEvent?.(event);
-                }
-              }}
-              tabIndex={onSelectEvent ? 0 : undefined}
-            >
-              <td className="px-4 py-3 font-mono text-xs">{event.createdAt}</td>
-              <td className="px-4 py-3 font-medium">{formatAction(event.action)}</td>
-              <td className="px-4 py-3 text-xs">
-                {event.actorType === 'system'
-                  ? copy.systemActor
-                  : event.actorType === 'user'
-                    ? (event.actorDisplayName ?? event.actorDisplayEmail ?? copy.userActor)
-                    : copy.actorFallback}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex flex-col gap-1">
-                  <span>{event.safeLabel ?? event.targetDisplayName ?? event.targetType}</span>
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <StatusBadge tone={toneForResult(event.result)}>
-                  {labelForResult(event.result, copy)}
-                </StatusBadge>
-              </td>
-            </tr>
-          ))}
-          {events.length === 0 ? (
-            <tr>
-              <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={5}>
-                {busy ? copy.loading : copy.empty}
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </div>
+    <DataTable caption={copy.caption} minWidthClassName="min-w-[760px]">
+      <DataTableHeader>
+        <tr>
+          <DataTableHead>{copy.time}</DataTableHead>
+          <DataTableHead>{copy.action}</DataTableHead>
+          <DataTableHead>{copy.actor}</DataTableHead>
+          <DataTableHead>{copy.target}</DataTableHead>
+          <DataTableHead>{copy.result}</DataTableHead>
+        </tr>
+      </DataTableHeader>
+      <DataTableBody>
+        {events.map((event) => (
+          <DataTableRow
+            key={event.eventId}
+            selected={selectedEventId === event.eventId}
+            onSelect={onSelectEvent ? () => onSelectEvent(event) : undefined}
+          >
+            <DataTableCell className="font-mono text-xs">{event.createdAt}</DataTableCell>
+            <DataTableCell className="font-medium">{formatAction(event.action)}</DataTableCell>
+            <DataTableCell className="text-xs">
+              {event.actorType === 'system'
+                ? copy.systemActor
+                : event.actorType === 'user'
+                  ? (event.actorDisplayName ?? event.actorDisplayEmail ?? copy.userActor)
+                  : copy.actorFallback}
+            </DataTableCell>
+            <DataTableCell>
+              <div className="flex flex-col gap-1">
+                <span>{event.safeLabel ?? event.targetDisplayName ?? event.targetType}</span>
+              </div>
+            </DataTableCell>
+            <DataTableCell>
+              <StatusBadge tone={toneForResult(event.result)}>
+                {labelForResult(event.result, copy)}
+              </StatusBadge>
+            </DataTableCell>
+          </DataTableRow>
+        ))}
+        {events.length === 0 ? (
+          <DataTableEmptyRow colSpan={5}>{busy ? copy.loading : copy.empty}</DataTableEmptyRow>
+        ) : null}
+      </DataTableBody>
+    </DataTable>
   );
 }
 
