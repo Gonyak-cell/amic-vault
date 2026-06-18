@@ -11,6 +11,12 @@ import type {
   EnterpriseSsoProviderListResponseDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCell,
+  DataTableRow,
+} from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -343,20 +349,17 @@ function Rows({ caption, empty, rows }: { caption: string; empty: string; rows: 
     return <EmptyState variant="no-data" title={empty} />;
   }
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="min-w-[520px] w-full table-fixed text-sm">
-        <caption className="sr-only">{caption}</caption>
-        <tbody>
-          {rows.slice(0, 8).map((row, index) => (
-            <tr key={`${row[0]}-${index}`} className="border-b last:border-b-0">
-              <td className="truncate px-3 py-2 font-medium">{row[0]}</td>
-              <td className="truncate px-3 py-2 text-muted-foreground">{row[1]}</td>
-              <td className="truncate px-3 py-2 text-muted-foreground">{row[2] ?? ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable caption={caption} minWidthClassName="min-w-[520px]">
+      <DataTableBody>
+        {rows.slice(0, 8).map((row, index) => (
+          <DataTableRow key={`${row[0]}-${index}`}>
+            <DataTableCell className="truncate font-medium">{row[0]}</DataTableCell>
+            <DataTableCell className="truncate text-muted-foreground">{row[1]}</DataTableCell>
+            <DataTableCell className="truncate text-muted-foreground">{row[2] ?? ''}</DataTableCell>
+          </DataTableRow>
+        ))}
+      </DataTableBody>
+    </DataTable>
   );
 }
 
