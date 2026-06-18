@@ -5,16 +5,16 @@ import type { AiPrepDocumentStatusDto } from '@amic-vault/shared';
 import { AiPrepStatusPanel } from './ai-prep-status-panel';
 
 describe('AiPrepStatusPanel', () => {
-  it('renders authorized prep output with citation refs and no raw hidden fields', () => {
+  it('renders authorized file prep output without raw hidden fields', () => {
     const html = renderToStaticMarkup(<AiPrepStatusPanel status={status()} />);
 
     expect(html).toContain('파일 정리 준비');
     expect(html).toContain('파일 개요');
-    expect(html).toContain('Grounded answer.');
-    expect(html).toContain('권한 확인된 근거로 생성됨');
+    expect(html).toContain('파일 유형 PDF, 기준일 2026-06-15.');
+    expect(html).toContain('권한 확인된 파일 정보로 정리됨');
     expect(html).not.toContain('chunk:11111111-1111-4111-8111-111111111118');
     expect(html).toContain('파일 개요 유용함 표시');
-    expect(html).toContain('근거 부족 표시');
+    expect(html).toContain('참조 부족 표시');
     expect(html).not.toMatch(
       /legal analysis|summary|external model|prompt|raw source|model response|hidden unauthorized/i,
     );
@@ -38,7 +38,7 @@ describe('AiPrepStatusPanel', () => {
     );
 
     expect(html).toContain('다시 정리해야 합니다.');
-    expect(html).not.toContain('Grounded answer.');
+    expect(html).not.toContain('파일 유형 PDF, 기준일 2026-06-15.');
   });
 
   it('does not display rejected payloads as prepared cards', () => {
@@ -60,7 +60,7 @@ describe('AiPrepStatusPanel', () => {
 
     expect(html).toContain('폐기된 정리 결과는 표시하지 않습니다.');
     expect(html).toContain('폐기 결과 표시');
-    expect(html).not.toContain('Grounded answer.');
+    expect(html).not.toContain('파일 유형 PDF, 기준일 2026-06-15.');
   });
 });
 
@@ -89,16 +89,16 @@ function status(): AiPrepDocumentStatusDto {
           sections: [
             {
               section_id: 'brief',
-              heading: 'Brief',
-              text: 'Grounded answer.',
+              heading: '파일 정보',
+              text: '파일 유형 PDF, 기준일 2026-06-15.',
               source_refs: [`chunk:${chunkId}`],
             },
           ],
           claims: [
             {
               claim_id: 'claim-1',
-              kind: 'summary',
-              text: 'Grounded answer.',
+              kind: 'key_fact',
+              text: '파일 유형 PDF, 기준일 2026-06-15.',
               source_refs: [`chunk:${chunkId}`],
               is_legal_conclusion: false,
             },
