@@ -21,6 +21,7 @@ Required for UI production PRs:
 - `pnpm test`
 - `pnpm build`
 - `pnpm check:production-ui-literals`
+- `pnpm ui:production-smoke`
 - `pnpm check:ui-pr-checklist`
 - production UI smoke gate review, including route visibility and ID/raw-data exposure checks, when the PR touches production UI routes or release readiness
 
@@ -51,6 +52,7 @@ Advanced/security inspectors may show bounded references only when the screen in
 
 Review that navigation and direct route behavior are fail-closed:
 
+- route visibility changes update `docs/ui/production-ui-inventory.md` and `apps/web/src/lib/features.ts` together
 - role/capability loading must not expose Admin, Security, Audit, Integrations, AI Prep, or internal operations routes optimistically
 - matter-member users see only allowed Vault routes
 - firm/security admins see only allowed admin/security surfaces

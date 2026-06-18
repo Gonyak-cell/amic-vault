@@ -59,6 +59,18 @@ const designSystemChecklistPatterns = [
   { name: 'fake data and reference safety', pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*AI Prep/i },
 ];
 
+const productionInventoryPatterns = [
+  { name: 'status definitions', pattern: /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/ },
+  { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`/ },
+  { name: 'admin and governance routes', pattern: /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/ },
+  { name: 'API-unready routes', pattern: /\/files[\s\S]*`hidden_until_api_ready`[\s\S]*\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/ },
+  { name: 'AI Prep limited route', pattern: /\/ai-prep[\s\S]*`visible_limited`[\s\S]*File organization prep\/readiness only/i },
+  { name: 'hidden route list', pattern: /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`[\s\S]*\/contracts[\s\S]*`hidden`[\s\S]*\/dd[\s\S]*`hidden`[\s\S]*\/litigation[\s\S]*`hidden`/ },
+  { name: 'route policy source link', pattern: /apps\/web\/src\/lib\/features\.ts[\s\S]*apps\/web\/src\/lib\/navigation\.ts/ },
+  { name: 'production data invariants', pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*tenant ID[\s\S]*raw UUID slices/i },
+  { name: 'AI scope exclusion', pattern: /Legal analysis[\s\S]*summary[\s\S]*external model[\s\S]*raw prompt[\s\S]*model response/i },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -103,6 +115,41 @@ function assertRoutePolicy(featuresSource, route, production, showInNavigation) 
   if (!block.includes(`showInNavigation: ${showInNavigation}`)) {
     fail(`${route} must have showInNavigation: ${showInNavigation}`);
   }
+}
+
+function parseFeaturePolicyMap(featuresSource) {
+  const map = new Map();
+  const routeMatches = [...featuresSource.matchAll(/route: '([^']+)'/g)];
+  for (const [index, match] of routeMatches.entries()) {
+    const route = match[1];
+    const routeStart = match.index ?? -1;
+    const nextRouteStart = routeMatches[index + 1]?.index ?? featuresSource.length;
+    const block = featuresSource.slice(routeStart, nextRouteStart);
+    const production = block.match(/production: '([^']+)'/)?.[1];
+    const navigation = block.match(/showInNavigation: (true|false)/)?.[1];
+    if (route && production && navigation) {
+      map.set(route, {
+        production,
+        showInNavigation: navigation === 'true',
+      });
+    }
+  }
+  return map;
+}
+
+function parseInventoryPolicyMap(inventorySource) {
+  const map = new Map();
+  const rowPattern = /^\|\s*`(\/[^`]+)`\s*\|[^|]*\|\s*`([^`]+)`\s*\|\s*([^|]+)\|/gm;
+  for (const match of inventorySource.matchAll(rowPattern)) {
+    const route = match[1];
+    const production = match[2];
+    const navigationCell = match[3].trim();
+    map.set(route, {
+      production,
+      showInNavigation: navigationCell.startsWith('Shown'),
+    });
+  }
+  return map;
 }
 
 function runExistingLiteralCheck() {
@@ -166,12 +213,42 @@ function checkDesignSystemChecklist() {
   }
 }
 
+function checkProductionUiInventory() {
+  const source = readRequired('docs/ui/production-ui-inventory.md');
+  const featuresSource = readRequired('apps/web/src/lib/features.ts');
+  const featurePolicies = parseFeaturePolicyMap(featuresSource);
+  const inventoryPolicies = parseInventoryPolicyMap(source);
+  for (const { name, pattern } of productionInventoryPatterns) {
+    if (!pattern.test(source)) {
+      fail(`Production UI inventory missing ${name}`);
+    }
+  }
+  for (const [route, policy] of featurePolicies) {
+    const inventory = inventoryPolicies.get(route);
+    if (!inventory) {
+      fail(`Production UI inventory missing route from features.ts: ${route}`);
+      continue;
+    }
+    if (inventory.production !== policy.production) {
+      fail(
+        `Production UI inventory status mismatch for ${route}: inventory ${inventory.production}, features.ts ${policy.production}`,
+      );
+    }
+    if (inventory.showInNavigation !== policy.showInNavigation) {
+      fail(
+        `Production UI inventory navigation mismatch for ${route}: inventory ${inventory.showInNavigation}, features.ts ${policy.showInNavigation}`,
+      );
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
   checkRouteVisibility();
   checkBlockedRoutes();
   checkDesignSystemChecklist();
+  checkProductionUiInventory();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
