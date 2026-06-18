@@ -70,4 +70,5 @@ Before merging a UI/UX batch that changes production routes or navigation, inclu
 - `pnpm check:ui-pr-checklist`
 - role/navigation evidence for affected routes
 - direct hidden-route evidence when hidden route files change
+- `docs/ui/enterprise-dms-release-hardening.md` review for release-readiness PRs
 - confirmation that `docs/package/` was not modified

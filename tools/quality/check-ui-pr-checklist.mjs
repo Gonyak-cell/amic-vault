@@ -14,6 +14,7 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-ux-baseline-gap-audit.md',
   'docs/ui/enterprise-dms-ux-tuw-plan.md',
   'docs/ui/enterprise-dms-ux-route-capability-inventory.md',
+  'docs/ui/enterprise-dms-release-hardening.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
 
@@ -45,6 +46,10 @@ const requiredPatterns = [
   { label: 'Matter app source-of-truth review', pattern: /Matter app.*source of truth|source-of-truth.*Matter app/is },
   { label: 'no independent Vault-only Matter Code namespace review', pattern: /No independent Vault-only Matter Code namespace/i },
   { label: 'no free-floating upload review', pattern: /No free-floating document upload/i },
+  { label: 'release hardening review', pattern: /Enterprise DMS Release Hardening/i },
+  { label: 'authenticated DMS smoke review', pattern: /Matter Code.*upload.*document detail.*search/is },
+  { label: 'negative auth smoke review', pattern: /Non-member.*Wall-blocked.*Non-admin/is },
+  { label: 'rollback and monitor review', pattern: /Rollback Plan[\s\S]*Production Monitor/i },
 ];
 
 const issues = [];
