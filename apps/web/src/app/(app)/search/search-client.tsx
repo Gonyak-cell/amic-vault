@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { SearchFiltersDto, SearchResponseDto } from '@amic-vault/shared';
+import type {
+  SearchFiltersDto,
+  SearchGroupBy,
+  SearchResponseDto,
+  SearchSort,
+  SearchTarget,
+} from '@amic-vault/shared';
+import { SearchAdvancedControls } from '@/components/search/search-advanced-controls';
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
 import { SearchResults, type SearchErrorKind } from '@/components/search/search-results';
@@ -36,12 +43,16 @@ export function SearchClient() {
       setPage(nextPage);
       router.replace(urlForState(trimmed, nextSelection, nextPage));
       try {
-        const result = await searchDocuments({
+        const request = {
           query: trimmed,
           filters: filtersForSelection(nextSelection),
           page: nextPage,
           pageSize,
-        });
+          ...(nextSelection.groupBy ? { groupBy: nextSelection.groupBy } : {}),
+          ...(nextSelection.sortBy ? { sortBy: nextSelection.sortBy } : {}),
+          ...(nextSelection.target ? { target: nextSelection.target } : {}),
+        };
+        const result = await searchDocuments(request);
         setResponse(result);
       } catch (caught) {
         setResponse(null);
@@ -77,6 +88,12 @@ export function SearchClient() {
           onSearch={(nextQuery) => runSearch(nextQuery, selection, 1)}
         />
       </section>
+      <SearchAdvancedControls
+        busy={busy}
+        selection={selection}
+        onApply={(advanced) => runSearch(query, { ...selection, ...advanced }, 1)}
+        onReset={() => runSearch(query, resetAdvancedSelection(selection), 1)}
+      />
       <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <SearchFacets
           facets={response?.facets ?? emptyFacets}
@@ -88,6 +105,7 @@ export function SearchClient() {
           page={page}
           pageSize={pageSize}
           busy={busy}
+          groupBy={selection.groupBy ?? 'none'}
           error={error}
           onPage={(nextPage) => runSearch(query, selection, nextPage)}
         />
@@ -114,6 +132,13 @@ function stateFromParams(params: { get(name: string): string | null }) {
       documentType: params.get('documentType') ?? undefined,
       versionStatus: params.get('versionStatus') ?? undefined,
       dateRange: params.get('dateRange') ?? undefined,
+      clientName: params.get('clientName') ?? undefined,
+      groupBy: parseGroupBy(params.get('groupBy')),
+      matterCode: params.get('matterCode') ?? undefined,
+      matterName: params.get('matterName') ?? undefined,
+      sortBy: parseSort(params.get('sortBy')),
+      target: parseTarget(params.get('target')),
+      title: params.get('title') ?? undefined,
     },
   };
 }
@@ -127,6 +152,13 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.documentType) params.set('documentType', selection.documentType);
   if (selection.versionStatus) params.set('versionStatus', selection.versionStatus);
   if (selection.dateRange) params.set('dateRange', selection.dateRange);
+  if (selection.clientName) params.set('clientName', selection.clientName);
+  if (selection.groupBy && selection.groupBy !== 'none') params.set('groupBy', selection.groupBy);
+  if (selection.matterCode) params.set('matterCode', selection.matterCode);
+  if (selection.matterName) params.set('matterName', selection.matterName);
+  if (selection.sortBy && selection.sortBy !== 'relevance') params.set('sortBy', selection.sortBy);
+  if (selection.target && selection.target !== 'all') params.set('target', selection.target);
+  if (selection.title) params.set('title', selection.title);
   return `/search?${params.toString()}`;
 }
 
@@ -134,6 +166,10 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
   const filters: SearchFiltersDto = {};
   if (selection.matterId) filters.matterId = selection.matterId;
   if (selection.clientId) filters.clientId = selection.clientId;
+  if (selection.clientName) filters.clientName = selection.clientName;
+  if (selection.matterCode) filters.matterCode = selection.matterCode;
+  if (selection.matterName) filters.matterName = selection.matterName;
+  if (selection.title) filters.title = selection.title;
   if (selection.documentType) filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
   if (selection.versionStatus) {
     filters.versionStatus = selection.versionStatus as SearchFiltersDto['versionStatus'];
@@ -142,6 +178,40 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
   if (dateRange.dateFrom) filters.dateFrom = dateRange.dateFrom;
   if (dateRange.dateTo) filters.dateTo = dateRange.dateTo;
   return filters;
+}
+
+function resetAdvancedSelection(selection: SearchFacetSelection): SearchFacetSelection {
+  return {
+    clientId: selection.clientId,
+    dateRange: selection.dateRange,
+    documentType: selection.documentType,
+    matterId: selection.matterId,
+    versionStatus: selection.versionStatus,
+  };
+}
+
+function parseTarget(value: string | null): SearchTarget | undefined {
+  return value === 'title' || value === 'body' || value === 'all' ? value : undefined;
+}
+
+function parseSort(value: string | null): SearchSort | undefined {
+  if (
+    value === 'relevance' ||
+    value === 'updated_desc' ||
+    value === 'updated_asc' ||
+    value === 'title_asc' ||
+    value === 'matter_asc' ||
+    value === 'type_asc'
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parseGroupBy(value: string | null): SearchGroupBy | undefined {
+  return value === 'matter' || value === 'client' || value === 'type' || value === 'none'
+    ? value
+    : undefined;
 }
 
 function datesForRange(value: string | undefined): { dateFrom?: string; dateTo?: string } {

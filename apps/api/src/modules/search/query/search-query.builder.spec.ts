@@ -27,10 +27,41 @@ describe('SearchQueryBuilder', () => {
     expect(built.params).toContain(malicious);
   });
 
+  it('limits keyword matching to title or body scope and applies safe sort SQL', () => {
+    const titleBuilt = builder().build(
+      {
+        query: 'closing',
+        page: 1,
+        pageSize: 10,
+        sortBy: 'title_asc',
+        target: 'title',
+      },
+      scope,
+    );
+    const bodyBuilt = builder().build(
+      {
+        query: 'closing',
+        page: 1,
+        pageSize: 10,
+        sortBy: 'updated_asc',
+        target: 'body',
+      },
+      scope,
+    );
+
+    expect(titleBuilt.sql).toContain('idx.title_tsv @@ tsq.query');
+    expect(titleBuilt.sql).not.toContain('idx.content_tsv @@ tsq.query OR');
+    expect(titleBuilt.sql).toContain('ORDER BY lower(idx.title) ASC');
+    expect(bodyBuilt.sql).toContain('idx.content_tsv @@ tsq.query');
+    expect(bodyBuilt.sql).not.toContain('idx.title_tsv @@ tsq.query OR');
+    expect(bodyBuilt.sql).toContain('ORDER BY idx.updated_at ASC');
+  });
+
   it('supports metadata-only search without full-text predicates', () => {
     const built = builder().build(
       {
         filters: { documentType: 'contract', versionStatus: 'all' },
+        sortBy: 'matter_asc',
         page: 2,
         pageSize: 5,
       },
@@ -40,6 +71,7 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).not.toContain('websearch_to_tsquery');
     expect(built.sql).toContain('idx.document_type = ANY($3::text[])');
     expect(built.sql).not.toContain('idx.version_status =');
+    expect(built.sql).toContain("ORDER BY lower(coalesce(m.matter_code, m.matter_name, '')) ASC");
     expect(built.params).toEqual([tenantId, 'deleted', ['contract'], 5, 5]);
   });
 
@@ -49,9 +81,17 @@ describe('SearchQueryBuilder', () => {
     const built = builder().buildFacets(
       {
         query,
-        filters: { clientId, documentType: 'memo', versionStatus: 'all' },
+        filters: {
+          clientId,
+          clientName: 'AMIC',
+          documentType: 'memo',
+          matterCode: 'AMIC-2026',
+          title: 'closing',
+          versionStatus: 'all',
+        },
         page: 1,
         pageSize: 10,
+        target: 'title',
       },
       scope,
     );
@@ -62,10 +102,23 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain("'label', client_name");
     expect(built.sql).toContain("'label', safe_label");
     expect(built.sql).toContain('idx.client_id = $3');
-    expect(built.sql).toContain('idx.document_type = ANY($4::text[])');
+    expect(built.sql).toContain('idx.title ILIKE $4');
+    expect(built.sql).toContain('matter_filter.matter_code ILIKE $5');
+    expect(built.sql).toContain('client_filter.name ILIKE $6');
+    expect(built.sql).toContain('idx.document_type = ANY($7::text[])');
+    expect(built.sql).toContain('idx.title_tsv @@ tsq.query');
     expect(built.sql).not.toContain('idx.version_status =');
     expect(built.sql).not.toContain(query);
-    expect(built.params).toEqual([tenantId, 'deleted', clientId, ['memo'], query]);
+    expect(built.params).toEqual([
+      tenantId,
+      'deleted',
+      clientId,
+      '%closing%',
+      '%AMIC-2026%',
+      '%AMIC%',
+      ['memo'],
+      query,
+    ]);
   });
 
   it('builds semantic search from permission-scoped aiAllowed chunk candidates', () => {
@@ -93,13 +146,16 @@ describe('SearchQueryBuilder', () => {
   it('combines keyword and vector scores deterministically for hybrid search', () => {
     const query = "closing'; DROP TABLE document_chunks; --";
     const built = builder().buildVector(
-      { query, mode: 'hybrid', page: 1, pageSize: 10 },
+      { query, mode: 'hybrid', page: 1, pageSize: 10, target: 'body' },
       scope,
       '[0.000000,0.100000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000]',
       'hybrid',
     );
 
     expect(built.sql).toContain('websearch_to_tsquery');
+    expect(built.sql).toContain('idx.content_tsv @@ tsq.query');
+    expect(built.sql).not.toContain('idx.title_tsv @@ tsq.query OR');
+    expect(built.sql).not.toContain('function keywordScoreSql');
     expect(built.sql).toContain('* 0.55');
     expect(built.sql).toContain('* 0.45');
     expect(built.sql).not.toContain(query);
