@@ -31,6 +31,10 @@ interface BindingState {
   params: SearchSqlValue[];
 }
 
+function likeContains(value: string): string {
+  return `%${value.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+}
+
 @Injectable()
 export class SearchFilterBuilder {
   build(input: BuildSearchFilterInput = {}): BuiltSearchFilter {
@@ -50,6 +54,51 @@ export class SearchFilterBuilder {
     }
     if (filters.clientId) {
       fragments.push({ sql: 'idx.client_id = ?', params: [filters.clientId] });
+    }
+    if (filters.title) {
+      fragments.push({ sql: "idx.title ILIKE ? ESCAPE '\\'", params: [likeContains(filters.title)] });
+    }
+    if (filters.matterCode) {
+      fragments.push({
+        sql: `
+          EXISTS (
+            SELECT 1
+            FROM matters matter_filter
+            WHERE matter_filter.tenant_id = idx.tenant_id
+              AND matter_filter.matter_id = idx.matter_id
+              AND matter_filter.matter_code ILIKE ? ESCAPE '\\'
+          )
+        `,
+        params: [likeContains(filters.matterCode)],
+      });
+    }
+    if (filters.matterName) {
+      fragments.push({
+        sql: `
+          EXISTS (
+            SELECT 1
+            FROM matters matter_filter
+            WHERE matter_filter.tenant_id = idx.tenant_id
+              AND matter_filter.matter_id = idx.matter_id
+              AND matter_filter.matter_name ILIKE ? ESCAPE '\\'
+          )
+        `,
+        params: [likeContains(filters.matterName)],
+      });
+    }
+    if (filters.clientName) {
+      fragments.push({
+        sql: `
+          EXISTS (
+            SELECT 1
+            FROM clients client_filter
+            WHERE client_filter.tenant_id = idx.tenant_id
+              AND client_filter.client_id = idx.client_id
+              AND client_filter.name ILIKE ? ESCAPE '\\'
+          )
+        `,
+        params: [likeContains(filters.clientName)],
+      });
     }
     if (filters.documentType) {
       const types = Array.isArray(filters.documentType)

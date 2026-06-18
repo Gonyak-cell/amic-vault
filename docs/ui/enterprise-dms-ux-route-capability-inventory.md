@@ -20,7 +20,7 @@ Source baseline:
 | `/matters/[matterId]/team` | Matter membership/admin view. | Partial. Uses safe labels, but broader picker/source-of-truth alignment is still needed. | DMS-UX-107, 401, 402 |
 | `/files` | File upload and browse surface. | Partial. Matter Code picker, upload panel, and matter-scoped browse surface exist; production navigation remains gated until Matter app source is configured and authenticated smoke is ready. | DMS-UX-102, 108, 111 |
 | `/documents/[id]` | Document detail/action center. | Partial. Action center foundation exists with profile read/edit, preview panel, controlled download reason, version list, and add-version flow. Check-out/Office live edit remains deferred by ADR-016; contextual audit/activity and related-item APIs remain incomplete. | DMS-UX-406, 407, 501, 606 |
-| `/search` | Permission-bound enterprise search. | Partial. Backend title/body FTS, snippets, facets, audit exist; advanced scope/filter/refiner UX incomplete. | DMS-UX-301 to 314 |
+| `/search` | Permission-bound enterprise search. | Partial. Backend title/body FTS, snippets, facets, audit, target scope, display-safe title/Matter Code/client filters, sort, URL state, and display-safe grouping exist. OCR/extraction, retention, saved searches, search folders, and preview hit controls remain incomplete. | DMS-UX-308 to 314, 503, 609 |
 | `/records` | Records lifecycle console. | Partial/strong backend. Needs contextual matter/document panels and picker cleanup. | DMS-UX-405, 505 |
 | `/audit` | Admin audit search/export. | Partial/strong. Needs contextual timelines on matter/document pages. | DMS-UX-406 |
 | `/walls` | Ethical wall/security admin. | Partial. Wall surfaces exist; normal operations still need picker-first UX and raw-ref reduction. | DMS-UX-402 |
@@ -46,7 +46,7 @@ Source baseline:
 | Document versions | add/list version endpoints | Exists and is wired to version history plus add-version UI; immutable-original rule remains server-owned. | DMS-UX-407 |
 | Document list/browse | `GET /matters/:matterId/documents` through `document_search_index idx` and search permission scope | Exists for matter-scoped current document listing; broader global `/documents` browse remains deferred. | DMS-UX-104, 108 |
 | Preview | Preview module exists in repo. | Document action center embeds the preview endpoint with unavailable/error handled by the server response; search hit preview navigation remains incomplete. | DMS-UX-308 |
-| Search title/body | `document_search_index` with `title_tsv` and `content_tsv` | Exists. Advanced scope/filter UX incomplete. | DMS-UX-301 to 314 |
+| Search title/body | `document_search_index` with `title_tsv` and `content_tsv` | Exists. Query target can be all/title/body; UI exposes target/sort/group and display-safe text filters. | DMS-UX-308 to 314 |
 | Records | Records APIs and route exist. | Strong backend; contextual UX incomplete. | DMS-UX-405, 505 |
 | Audit | Audit query/export exists. | Strong backend; contextual timelines incomplete. | DMS-UX-406 |
 | AI prep | Local Gemma file-organization prep status exists. | Approved narrow scope. Keep guarded. | DMS-UX-509 |

@@ -525,6 +525,15 @@ PR-B implementation note:
 - Acceptance:
   - Search is demonstrably body/metadata/filter capable and safe.
 
+PR-C implementation note:
+
+- Search request DTO now supports `target`, `sortBy`, `groupBy`, and display-safe filters for title, Matter Code/name, and client name.
+- Backend filters remain permission-bound and use bound parameters plus wildcard escaping.
+- Keyword search can target all/title/body; sort SQL is enum-driven.
+- Search UI exposes target, sort, group, Matter Code, title, and client filters with URL state.
+- Result cards and grouped headings use display labels, not raw matter/client/version/file references.
+- OCR/searchability filters, saved searches/search folders, admin analytics, and preview hit controls remain deferred until supporting APIs/schema are approved.
+
 ### PR-D Governance, Workflow, Ops
 
 #### DMS-UX-401 Effective Access Panel

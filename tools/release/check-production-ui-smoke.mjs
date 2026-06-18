@@ -178,6 +178,61 @@ const documentActionCenterFiles = [
   },
 ];
 
+const enterpriseSearchFiles = [
+  {
+    path: 'packages/shared/src/search/search-query.dto.ts',
+    patterns: [
+      { name: 'search target DTO', pattern: /searchTargets/ },
+      { name: 'search sort DTO', pattern: /searchSorts/ },
+      { name: 'search group DTO', pattern: /searchGroupBys/ },
+      { name: 'display text filters', pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/query/search-filter.builder.ts',
+    patterns: [
+      { name: 'title filter', pattern: /idx\.title ILIKE/ },
+      { name: 'Matter Code filter', pattern: /matter_filter\.matter_code ILIKE/ },
+      { name: 'client name filter', pattern: /client_filter\.name ILIKE/ },
+      { name: 'LIKE wildcard escaping', pattern: /likeContains/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/query/search-query.builder.ts',
+    patterns: [
+      { name: 'target-scoped keyword search', pattern: /keywordMatchSql/ },
+      { name: 'safe sort switch', pattern: /orderBySql/ },
+      { name: 'title search target', pattern: /idx\.title_tsv @@ tsq\.query/ },
+      { name: 'body search target', pattern: /idx\.content_tsv @@ tsq\.query/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/search/search-client.tsx',
+    patterns: [
+      { name: 'advanced search controls wired', pattern: /SearchAdvancedControls/ },
+      { name: 'target URL state', pattern: /target/ },
+      { name: 'sort URL state', pattern: /sortBy/ },
+      { name: 'group URL state', pattern: /groupBy/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-advanced-controls.tsx',
+    patterns: [
+      { name: 'Matter Code filter UI', pattern: /Matter Code/ },
+      { name: 'search range selector', pattern: /검색 범위/ },
+      { name: 'sort selector', pattern: /정렬/ },
+      { name: 'group selector', pattern: /그룹/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-results.tsx',
+    patterns: [
+      { name: 'display-safe result grouping', pattern: /groupResults/ },
+      { name: 'Matter display label grouping', pattern: /matterDisplayCode/ },
+    ],
+  },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -371,6 +426,17 @@ function checkDocumentActionCenterGuard() {
   }
 }
 
+function checkEnterpriseSearchGuard() {
+  for (const file of enterpriseSearchFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Enterprise search production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -380,6 +446,7 @@ try {
   checkProductionUiInventory();
   checkUploadBrowseFlowGuard();
   checkDocumentActionCenterGuard();
+  checkEnterpriseSearchGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

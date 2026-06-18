@@ -41,7 +41,10 @@ const response: SearchResponseDto = {
       versionId: '11111111-1111-4111-8111-111111111402',
       matterId: '11111111-1111-4111-8111-111111111403',
       clientId: '11111111-1111-4111-8111-111111111404',
+      clientDisplayName: 'AMIC',
       title: 'Search Result One',
+      matterDisplayCode: 'AMIC-2026-0007',
+      matterDisplayName: 'Vault Upgrade',
       snippet: 'authorized snippet',
       highlights: [],
       documentType: 'contract',
@@ -72,6 +75,26 @@ describe('SearchResults', () => {
     expect(html).toContain('2 / 2');
     expect(html).toContain('이전');
     expect(html).toContain('다음');
+  });
+
+  it('groups results by display-safe matter labels', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <SearchResults
+          response={response}
+          page={1}
+          pageSize={10}
+          busy={false}
+          error={null}
+          groupBy="matter"
+          onPage={() => undefined}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('AMIC-2026-0007 · Vault Upgrade');
+    expect(html).not.toContain(response.results[0]?.matterId);
+    expect(html).not.toContain(response.results[0]?.clientId);
   });
 
   it('shows safe empty and error states without server internals', () => {

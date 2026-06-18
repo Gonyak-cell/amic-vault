@@ -23,7 +23,10 @@ const result: SearchResultDto = {
   documentId: '11111111-1111-4111-8111-111111111201',
   versionId: '11111111-1111-4111-8111-111111111202',
   matterId: '11111111-1111-4111-8111-111111111203',
+  matterDisplayCode: 'AMIC-2026-0007',
+  matterDisplayName: 'Vault Upgrade',
   clientId: '11111111-1111-4111-8111-111111111204',
+  clientDisplayName: 'AMIC',
   title: 'Escrow Closing Memo',
   snippet: 'Escrow <script>alert(1)</script> closing memo',
   highlights: [{ start: 0, end: 6 }],
@@ -43,6 +46,8 @@ describe('ResultCard', () => {
 
     expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111201"');
     expect(html).toContain('Escrow Closing Memo');
+    expect(html).toContain('AMIC-2026-0007 · Vault Upgrade');
+    expect(html).toContain('AMIC');
     expect(html).toContain('memo');
     expect(html).toContain('2026-06-12');
     expect(html).not.toContain('Matter');

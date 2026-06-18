@@ -9,21 +9,33 @@ describe('search query DTO', () => {
       searchQuerySchema.parse({
         filters: {
           matterId,
+          matterCode: 'AMIC-2026',
+          clientName: 'AMIC',
+          title: 'closing',
           documentType: ['contract', 'memo'],
           dateFrom: '2026-06-12T09:00:00+09:00',
           versionStatus: 'current',
         },
+        groupBy: 'matter',
+        sortBy: 'updated_desc',
+        target: 'body',
       }),
     ).toMatchObject({
       filters: {
         matterId,
+        matterCode: 'AMIC-2026',
+        clientName: 'AMIC',
+        title: 'closing',
         documentType: ['contract', 'memo'],
         dateFrom: '2026-06-12T09:00:00+09:00',
         versionStatus: 'current',
       },
+      groupBy: 'matter',
       page: 1,
       pageSize: 25,
       mode: 'keyword',
+      sortBy: 'updated_desc',
+      target: 'body',
     });
   });
 
@@ -38,6 +50,10 @@ describe('search query DTO', () => {
   it('rejects invalid identifiers, unknown document types, and inverted date ranges', () => {
     expect(() => searchFiltersSchema.parse({ matterId: 'not-a-uuid' })).toThrow();
     expect(() => searchFiltersSchema.parse({ documentType: 'MA' })).toThrow();
+    expect(() => searchFiltersSchema.parse({ matterCode: '' })).toThrow();
+    expect(() => searchFiltersSchema.parse({ clientName: 'x'.repeat(129) })).toThrow();
+    expect(() => searchQuerySchema.parse({ query: 'closing', target: 'metadata' })).toThrow();
+    expect(() => searchQuerySchema.parse({ query: 'closing', sortBy: 'random' })).toThrow();
     expect(() =>
       searchFiltersSchema.parse({
         dateFrom: '2026-06-13T00:00:00Z',
