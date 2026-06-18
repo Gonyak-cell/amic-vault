@@ -14,6 +14,11 @@ describe('RecordsGovernanceClient', () => {
 
     expect(html).toContain('기록 보존');
     expect(html).toContain('정책 코드');
+    expect(html).toContain('aria-label="보존 관리"');
+    expect(html).toContain('for="records-policy-code"');
+    expect(html).toContain('id="records-policy-code"');
+    expect(html).toContain('id="records-retention-days"');
+    expect(html).toContain('type="number"');
     expect(html).toContain('보존 정책');
     expect(html).toContain('삭제 금지');
     expect(html).toContain('증명서');
