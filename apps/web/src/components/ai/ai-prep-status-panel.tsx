@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertTriangle, Check, Clock, RotateCcw, ThumbsUp } from 'lucide-react';
+import { AlertTriangle, Check, Clock, FileText, RotateCcw, ThumbsUp } from 'lucide-react';
 import type {
   AiPrepArtifactKind,
   AiPrepArtifactSummaryDto,
@@ -12,6 +12,8 @@ import type {
   AiPrepStatus,
 } from '@amic-vault/shared';
 import { recordAiPrepFeedback } from '@/lib/api/ai-prep';
+import { SectionCard } from '@/components/ui/section-card';
+import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
 
 const statusLabel: Record<AiPrepDocumentReadinessStatus, string> = {
   not_ready: '준비 전',
@@ -54,6 +56,20 @@ const artifactKindLabel: Record<AiPrepArtifactKind, string> = {
   source_outline: '문서 구조',
   retrieval_hints: '검색 힌트',
 };
+
+function documentStatusTone(status: AiPrepDocumentReadinessStatus): StatusBadgeTone {
+  if (status === 'ready') return 'success';
+  if (status === 'partial' || status === 'pending' || status === 'stale') return 'warning';
+  if (status === 'blocked' || status === 'failed' || status === 'rejected') return 'blocked';
+  return 'neutral';
+}
+
+function artifactStatusTone(status: AiPrepStatus, isStale: boolean): StatusBadgeTone {
+  if (isStale || status === 'stale' || status === 'pending') return 'warning';
+  if (status === 'completed') return 'success';
+  if (status === 'blocked' || status === 'failed' || status === 'rejected') return 'blocked';
+  return 'neutral';
+}
 
 function primaryText(artifact: AiPrepArtifactSummaryDto): {
   heading: string;
@@ -118,17 +134,18 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
   }
 
   return (
-    <section aria-label="파일 정리 준비 상태" className="rounded-md border p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold tracking-normal">파일 정리 준비</h2>
-          <p className="text-sm text-muted-foreground">권한이 확인된 파일 정리 준비 상태만 표시됩니다.</p>
-          <p className="mt-1 text-sm text-muted-foreground">{statusHelp[status.readinessStatus]}</p>
-        </div>
-        <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium">
+    <SectionCard
+      aria-label="파일 정리 준비 상태"
+      icon={<FileText className="h-4 w-4" />}
+      title="파일 정리 준비"
+      meta="권한 확인된 파일 정보만 표시"
+      actions={
+        <StatusBadge tone={documentStatusTone(status.readinessStatus)}>
           {statusLabel[status.readinessStatus]}
-        </span>
-      </div>
+        </StatusBadge>
+      }
+    >
+      <p className="text-sm text-muted-foreground">{statusHelp[status.readinessStatus]}</p>
 
       {status.artifacts.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">파일 정리 준비가 대기 중입니다.</p>
@@ -138,31 +155,26 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
             const content = primaryText(artifact);
             const artifactLabel = artifactKindLabel[artifact.artifactKind];
             return (
-              <article key={artifact.artifactId} className="rounded-md border p-3">
+              <article
+                key={artifact.artifactId}
+                className="border-t pt-3 first:border-t-0 first:pt-0"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium">{artifactLabel}</span>
-                    <span className="rounded border px-2 py-0.5 text-xs">
+                    <StatusBadge tone={artifactStatusTone(artifact.status, artifact.isStale)}>
                       {artifactStatusLabel[artifact.status]}
-                    </span>
-                    {artifact.isStale ? (
-                      <span className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">
-                        재정리
-                      </span>
-                    ) : null}
+                    </StatusBadge>
+                    {artifact.isStale ? <StatusBadge tone="warning">재정리</StatusBadge> : null}
                     {artifact.status === 'rejected' ? (
-                      <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-900">
-                        폐기됨
-                      </span>
+                      <StatusBadge tone="blocked">폐기됨</StatusBadge>
                     ) : null}
                     {hasFallbackWarning(artifact) ? (
-                      <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-900">
-                        대체 정리
-                      </span>
+                      <StatusBadge tone="neutral">대체 정리</StatusBadge>
                     ) : null}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {artifact.sourceChunkCount > 0 ? '근거 확인됨' : '근거 없음'}
+                    {artifact.sourceChunkCount > 0 ? '참조 확인됨' : '참조 없음'}
                   </span>
                 </div>
 
@@ -172,8 +184,8 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     <p className="text-sm text-muted-foreground">{content.text}</p>
                     <p className="text-xs text-muted-foreground">
                       {content.sourceRefs.length > 0
-                        ? '권한 확인된 근거로 생성됨'
-                        : '표시 가능한 근거 없음'}
+                        ? '권한 확인된 파일 정보로 정리됨'
+                        : '표시 가능한 참조 없음'}
                     </p>
                   </div>
                 ) : (
@@ -209,8 +221,8 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                   </button>
                   <button
                     type="button"
-                    aria-label={`${artifactLabel} 근거 부족 표시`}
-                    title={`${artifactLabel} 근거 부족 표시`}
+                    aria-label={`${artifactLabel} 참조 부족 표시`}
+                    title={`${artifactLabel} 참조 부족 표시`}
                     disabled={
                       busyKey !== null || artifact.status !== 'completed' || artifact.isStale
                     }
@@ -219,7 +231,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     }
                     className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2 text-xs hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   >
-                    근거
+                    참조
                   </button>
                   <button
                     type="button"
@@ -290,6 +302,6 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
           피드백을 기록할 수 없습니다.
         </p>
       ) : null}
-    </section>
+    </SectionCard>
   );
 }

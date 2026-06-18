@@ -18,12 +18,15 @@ describe('AiPrepMatterDashboard', () => {
     const html = renderToStaticMarkup(<AiPrepMatterDashboard readiness={readiness()} />);
 
     expect(html).toContain('파일 정리 준비 상태');
+    expect(html).toContain('사건 파일 정리 준비 목록');
     expect(html).toContain('정리됨');
     expect(html).toContain('폐기');
     expect(html).toContain('대체 정리 항목');
     expect(html).toContain('Contract.pdf');
     expect(html).toContain('일부 정리됨');
     expect(html).toContain('파일 정리 준비 다시 실행');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111113');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111114');
     expect(html).not.toMatch(
       /legal analysis|summary|external model|endpoint|prompt|source text|model response|secret|raw text/i,
     );
