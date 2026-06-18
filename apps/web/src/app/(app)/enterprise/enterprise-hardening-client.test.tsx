@@ -19,6 +19,11 @@ describe('EnterpriseHardeningClient', () => {
     expect(html).toContain('SIEM');
     expect(html).toContain('백업');
     expect(html).toContain('컴플라이언스');
+    expect(html).toContain('DMS 구성');
+    expect(html).toContain('문서 taxonomy');
+    expect(html).toContain('Matter 템플릿');
+    expect(html).toContain('검색 refiner');
+    expect(html).toContain('저장 API 승인 전 읽기 전용');
     expect(html).toContain('운영 데이터가 아직 연결되지 않았습니다.');
     expect(html).not.toContain('SSO 제공자 ID');
     expect(html).not.toContain('제공자 ID');

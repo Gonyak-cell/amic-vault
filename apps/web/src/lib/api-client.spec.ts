@@ -3,7 +3,13 @@ import {
   ApiClientError,
   apiFetch,
   apiFetchFormData,
+  addDocumentVersion,
+  documentDownloadUrl,
+  documentPreviewUrl,
+  getDocument,
+  listDocumentVersions,
   listMatterDocuments,
+  updateDocumentMetadata,
   uploadDocument,
 } from './api-client';
 
@@ -168,6 +174,125 @@ describe('api client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/v1/matters/matter-ref/documents?page=2&pageSize=10',
       expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('loads and updates document detail metadata through document endpoints', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            documentId: 'doc-ref',
+            tenantId: 'tenant-ref',
+            matterId: 'matter-ref',
+            documentFamilyId: 'family-ref',
+            title: 'Contract',
+            status: 'draft',
+            documentType: 'contract',
+            subtype: null,
+            confidentialityLevel: 'standard',
+            privilegeStatus: 'none',
+            legalHold: false,
+            createdBy: 'user-ref',
+            createdAt: '2026-06-18T00:00:00.000Z',
+            updatedAt: '2026-06-18T00:00:00.000Z',
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            documentId: 'doc-ref',
+            tenantId: 'tenant-ref',
+            matterId: 'matter-ref',
+            documentFamilyId: 'family-ref',
+            title: 'Updated',
+            status: 'draft',
+            documentType: 'memo',
+            subtype: 'closing',
+            confidentialityLevel: 'high',
+            privilegeStatus: 'none',
+            legalHold: false,
+            createdBy: 'user-ref',
+            createdAt: '2026-06-18T00:00:00.000Z',
+            updatedAt: '2026-06-18T00:00:01.000Z',
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getDocument('doc-ref');
+    await updateDocumentMetadata('doc-ref', {
+      confidentialityLevel: 'high',
+      documentType: 'memo',
+      subtype: 'closing',
+      title: 'Updated',
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3001/v1/documents/doc-ref',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3001/v1/documents/doc-ref/metadata',
+      expect.objectContaining({
+        body: JSON.stringify({
+          confidentialityLevel: 'high',
+          documentType: 'memo',
+          subtype: 'closing',
+          title: 'Updated',
+        }),
+        method: 'PATCH',
+      }),
+    );
+  });
+
+  it('lists document versions and uploads a new immutable version', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            documentId: 'doc-ref',
+            matterId: 'matter-ref',
+            versionId: 'version-ref',
+            versionNo: 2,
+            versionStatus: 'current',
+            fileObjectId: 'file-ref',
+            sha256: 'abc',
+            metadataSuggestion: {},
+            duplicates: [],
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listDocumentVersions('doc-ref', { status: 'current' });
+    await addDocumentVersion('doc-ref', new File(['v2'], 'contract-v2.pdf'));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3001/v1/documents/doc-ref/versions?status=current',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3001/v1/documents/doc-ref/versions',
+      expect.objectContaining({ body: expect.any(FormData), method: 'POST' }),
+    );
+  });
+
+  it('builds preview and controlled download URLs without exposing raw refs beyond the route id', () => {
+    expect(documentPreviewUrl('doc-ref')).toBe('http://localhost:3001/v1/documents/doc-ref/preview');
+    expect(documentDownloadUrl('doc-ref', 'casework')).toBe(
+      'http://localhost:3001/v1/documents/doc-ref/download?reasonCode=casework',
     );
   });
 });

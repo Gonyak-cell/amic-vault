@@ -12,6 +12,9 @@ interface ResultCardProps {
 export function ResultCard({ result }: ResultCardProps) {
   const { t } = useI18n();
   const title = result.displayName || result.title || t('search.result.hiddenTitle');
+  const context = [matterLabel(result), result.clientDisplayName, result.documentType, formatDate(result.updatedAt)]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <article className="rounded-md border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -23,7 +26,7 @@ export function ResultCard({ result }: ResultCardProps) {
             {title}
           </Link>
           <p className="mt-1 text-xs text-muted-foreground">
-            {result.documentType} · {formatDate(result.updatedAt)}
+            {context}
           </p>
         </div>
       </div>
@@ -32,6 +35,13 @@ export function ResultCard({ result }: ResultCardProps) {
       </p>
     </article>
   );
+}
+
+function matterLabel(result: SearchResultDto): string | undefined {
+  const code = result.matterDisplayCode?.trim();
+  const name = result.matterDisplayName?.trim();
+  if (code && name) return `${code} · ${name}`;
+  return code || name || undefined;
 }
 
 function highlightSnippet(

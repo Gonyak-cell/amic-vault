@@ -11,10 +11,12 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('최근 접근 파일');
     expect(html).toContain('최근 활동');
     expect(html).toContain('권한/정책 알림');
+    expect(html).toContain('작업 큐');
     expect(html).toContain('AI Prep 상태');
     expect(html).toContain('통합 상태');
     expect(html).toContain('운영 데이터 연결 상태');
     expect(html).toContain('운영 데이터 연결 대기 중입니다.');
+    expect(html).toContain('실제 운영 데이터에서 발생한 작업만 표시됩니다.');
     expect(html).not.toContain('계약 검토 자료실');
     expect(html).not.toContain('새 파일이 추가됨');
     expect(html).not.toContain('NDA 동의 대기 중');
@@ -71,6 +73,9 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('Document viewed');
     expect(html).toContain('준비 완료 2건');
     expect(html).toContain('Outlook 파일링');
+    expect(html).toContain('파일 정리 준비 상태 확인');
+    expect(html).toContain('통합 상태 확인');
+    expect(html).not.toContain('표시할 작업이 없습니다.');
     expect(html).not.toContain('DOC-204');
     expect(html).not.toContain('김민준');
   });

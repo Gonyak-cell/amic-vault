@@ -395,6 +395,14 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 - Acceptance:
   - Document lifecycle can be demonstrated end to end.
 
+PR-B implementation note:
+
+- Document detail action center foundation is implemented in `apps/web/src/components/document/document-action-center.tsx`.
+- `/documents/[id]` routes through that action center.
+- Existing APIs are used for profile read/edit, preview, controlled download, version list, and add-version.
+- Check-out/check-in and Office live edit remain deferred by `docs/adr/ADR-016-document-editing-and-office-flow.md`.
+- Related items remain a safe empty state until approved related-item APIs exist.
+
 ### PR-C Enterprise Search
 
 #### DMS-UX-301 Search Scope Model
@@ -516,6 +524,15 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
   - UI, API, integration, smoke, accessibility checks.
 - Acceptance:
   - Search is demonstrably body/metadata/filter capable and safe.
+
+PR-C implementation note:
+
+- Search request DTO now supports `target`, `sortBy`, `groupBy`, and display-safe filters for title, Matter Code/name, and client name.
+- Backend filters remain permission-bound and use bound parameters plus wildcard escaping.
+- Keyword search can target all/title/body; sort SQL is enum-driven.
+- Search UI exposes target, sort, group, Matter Code, title, and client filters with URL state.
+- Result cards and grouped headings use display labels, not raw matter/client/version/file references.
+- OCR/searchability filters, saved searches/search folders, admin analytics, and preview hit controls remain deferred until supporting APIs/schema are approved.
 
 ### PR-D Governance, Workflow, Ops
 
@@ -682,6 +699,16 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 - Acceptance:
   - User has an actionable governance/work queue, not only static admin pages.
 
+PR-D implementation note:
+
+- Document detail now includes contextual governance rows for access basis, confidentiality, privilege, legal hold, extraction state, update time, and file organization prep readiness.
+- Matter detail now includes contextual governance rows for Matter Code, status, practice group, lead display, legal hold, and file organization prep readiness.
+- Document and matter pages now derive workflow/ops tasks only from real DTO/status fields: missing subtype, OCR/extraction pending or failed, legal hold, and AI prep readiness conditions.
+- Dashboard now includes an API-derived action queue for permission/policy alerts, file organization prep readiness, integration status, and API connection failure states. It does not show fake task counts before a unified workflow API exists.
+- Wall admin now uses `MatterCodePicker` for common wall lookup/create flow; raw wall/user refs remain only in the clearly marked security-operations advanced area until user/group picker APIs exist.
+- AI prep copy remains limited to file organization prep; legal analysis, external model route, raw prompt/source/model-response copy remains guarded by tests and smoke checks.
+- Unified task DB/API, notifications, saved work queues, records disposal task APIs, and user/group picker APIs remain deferred to PR-E/F or backend-approved follow-up work.
+
 ### PR-E Admin Configuration And Integrations
 
 #### DMS-UX-601 Taxonomy Admin Contract
@@ -772,6 +799,14 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
   - Admin tests, route gates, no fake data, responsive pass.
 - Acceptance:
   - Admin can configure and inspect DMS behavior safely.
+
+PR-E implementation note:
+
+- Admin settings now include a DMS configuration IA panel for taxonomy, Matter templates, and search refiners. These surfaces are read-only contract states until save/audit APIs are approved.
+- The integration parent route now shows a safe integration matrix: Outlook links to the real status route; OneDrive and Office open/save remain gated with no connected-state claim.
+- Outlook integration now includes a Vault filing path section that aligns Outlook attachment filing with the same Matter permission, audit, document detail, and search UX model.
+- Admin and integration tests assert no fake connected states, no sample defaults, and no raw reference inputs.
+- Persisted taxonomy/template/refiner administration, Office/OneDrive sync/open-save, coauthoring/lock, and full mobile/offline decisions remain deferred to backend-approved contracts and PR-F hardening evidence.
 
 ### PR-F Release Hardening
 
@@ -870,6 +905,14 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
   - Security, legal-data, operator, customer-scope owners review evidence.
 - Acceptance:
   - Production launch scope is explicit and approved.
+
+PR-F implementation note:
+
+- Added `docs/ui/enterprise-dms-release-hardening.md` as the release hardening baseline for authenticated main-loop smoke, negative auth smoke, no-fake-data sweep, internal-ref sweep, AI scope sweep, responsive/accessibility QA, evidence package, rollout checklist, rollback, production monitor, and signoff.
+- UI PR checklist now requires the release hardening document for production-readiness changes.
+- `pnpm check:ui-pr-checklist` now requires the hardening document and checks for authenticated DMS smoke, negative auth, rollback, and monitor coverage.
+- `pnpm ui:production-smoke` now validates the release hardening baseline in addition to production route/UI guards.
+- Actual authenticated smoke receipts still require approved production/staging credentials and must be attached as refs only before production signoff.
 
 ## Dependency Ladder
 

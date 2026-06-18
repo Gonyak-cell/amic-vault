@@ -14,6 +14,20 @@ export const searchVersionStatusValues = ['current', 'superseded', 'all'] as con
 export const searchVersionStatusSchema = z.enum(searchVersionStatusValues);
 export const searchModes = ['keyword', 'semantic', 'hybrid'] as const;
 export const searchModeSchema = z.enum(searchModes);
+export const searchTargets = ['all', 'title', 'body'] as const;
+export const searchTargetSchema = z.enum(searchTargets);
+export const searchSorts = [
+  'relevance',
+  'updated_desc',
+  'updated_asc',
+  'title_asc',
+  'matter_asc',
+  'type_asc',
+] as const;
+export const searchSortSchema = z.enum(searchSorts);
+export const searchGroupBys = ['none', 'matter', 'client', 'type'] as const;
+export const searchGroupBySchema = z.enum(searchGroupBys);
+const searchTextFilterSchema = z.string().trim().min(1).max(128);
 
 export const searchIsoDateTimeSchema = z
   .string()
@@ -27,6 +41,10 @@ export const searchFiltersSchema = z
   .object({
     matterId: z.string().uuid().optional(),
     clientId: z.string().uuid().optional(),
+    matterCode: searchTextFilterSchema.optional(),
+    matterName: searchTextFilterSchema.optional(),
+    clientName: searchTextFilterSchema.optional(),
+    title: searchTextFilterSchema.optional(),
     documentType: searchDocumentTypeFilterSchema.optional(),
     dateFrom: searchIsoDateTimeSchema.optional(),
     dateTo: searchIsoDateTimeSchema.optional(),
@@ -47,6 +65,9 @@ export const searchQuerySchema = z
   .object({
     query: z.string().trim().min(1).max(2000).optional(),
     mode: searchModeSchema.default('keyword'),
+    target: searchTargetSchema.default('all'),
+    sortBy: searchSortSchema.default('relevance'),
+    groupBy: searchGroupBySchema.default('none'),
     filters: searchFiltersSchema.optional(),
     page: z.coerce.number().int().min(1).max(1000).default(1),
     pageSize: z.coerce.number().int().min(1).max(50).default(25),
@@ -112,6 +133,14 @@ export interface SearchResponseDto {
 export type SearchDocumentTypeFilterDto = z.infer<typeof searchDocumentTypeFilterSchema>;
 export type SearchVersionStatus = (typeof searchVersionStatusValues)[number];
 export type SearchMode = (typeof searchModes)[number];
+export type SearchTarget = (typeof searchTargets)[number];
+export type SearchSort = (typeof searchSorts)[number];
+export type SearchGroupBy = (typeof searchGroupBys)[number];
 export type SearchFiltersDto = z.infer<typeof searchFiltersSchema>;
 type ParsedSearchQueryDto = z.infer<typeof searchQuerySchema>;
-export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode'> & { mode?: SearchMode };
+export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode' | 'target' | 'sortBy' | 'groupBy'> & {
+  groupBy?: SearchGroupBy;
+  mode?: SearchMode;
+  sortBy?: SearchSort;
+  target?: SearchTarget;
+};

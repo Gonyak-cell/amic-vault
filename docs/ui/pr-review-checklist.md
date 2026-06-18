@@ -24,6 +24,7 @@ Required for UI production PRs:
 - `pnpm ui:production-smoke`
 - `pnpm check:ui-pr-checklist`
 - production UI smoke gate review, including route visibility and ID/raw-data exposure checks, when the PR touches production UI routes or release readiness
+- `docs/ui/enterprise-dms-release-hardening.md` reviewed when the PR changes release readiness, production route visibility, core DMS flows, or UI smoke guards
 
 If the PR changes database-backed display behavior, include the relevant integration tests or state that the PR is UI-only and does not alter API/data contracts.
 
@@ -116,7 +117,7 @@ Reject or explicitly defer the PR when a production-ready API exists but the UI 
 - file browse/list by matter or filing location
 - document profile and metadata review/edit
 - version history and add-version flow
-- check-out/check-in, coauthoring, or an explicit ADR deferral for controlled editing state
+- check-out/check-in, coauthoring, or an explicit ADR deferral for controlled editing state; current PR-B deferral is `docs/adr/ADR-016-document-editing-and-office-flow.md`
 - preview/download/open action surface
 - contextual audit/activity timeline for matter and document pages when audit APIs are production-ready
 - workflow/action inbox for document review, approval, metadata completion, extraction/OCR remediation, and records actions when task APIs are production-ready
@@ -150,3 +151,17 @@ Approve only when:
 - the change preserves the existing SaaS design-system theme
 
 Hold or request changes when evidence is missing, hidden routes leak, fake data appears, internal refs are displayed as user-facing labels, or mobile navigation/accessibility is not checked for affected screens.
+
+## 12. Release Hardening
+
+For release-candidate or production-readiness PRs, review
+`docs/ui/enterprise-dms-release-hardening.md` and confirm the PR body or release
+record covers:
+
+- authenticated main loop smoke: login -> Matter Code -> upload -> processing -> list -> detail -> search -> preview/version -> records/audit links
+- negative auth smoke for non-member, wall-blocked, non-admin, denied upload/download/search, and stale-content clearing
+- no fake data sweep, internal ref sweep, and AI Prep scope sweep
+- responsive QA at 1440px, 768px, and 375px
+- accessibility QA for keyboard focus, accessible names, `aria-current`, and readable error states
+- evidence package refs only, no secrets or customer file contents
+- rollback owner, route/feature/worker rollback controls, production monitor, and owner signoff

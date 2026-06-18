@@ -23,18 +23,19 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 
 | Route | Group | Status | Navigation | Roles / audience | Direct access behavior | Data policy |
 |---|---|---|---|---|---|---|
-| `/dashboard` | Vault | `visible` | Shown | Internal production users | AppShell route | Real API data only; empty/unavailable before success |
+| `/dashboard` | Vault | `visible` | Shown | Internal production users | AppShell route | Real API data only; empty/unavailable before success; action queue derives only from dashboard API sections and connection states |
 | `/matters` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-scoped matters only; Matter Code/display data must align with the canonical Matter app source of truth |
-| `/search` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-before-search; no ID fallback; enterprise search scope/filter UX follows `docs/ui/enterprise-dms-ux-baseline-gap-audit.md` |
+| `/search` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-before-search; no ID fallback; supports title/body/all target, display-safe Matter Code/client/title filters, URL state, sort, and grouping; OCR/searchability and saved-search controls remain explicitly deferred |
 | `/files` | Vault | `hidden_until_api_ready` | Hidden | Internal production users after Matter app source and authenticated smoke readiness | AppShell route with Matter Code picker, upload panel, and matter-scoped list foundation; navigation remains gated until source-of-truth setup is ready | No file count, document ID, or placeholder data; upload/list UX must stay Matter Code-gated and fail closed when Matter app source is unconfigured |
+| `/documents/[id]` | Vault | `visible_limited` | Hidden by default | Internal production users with document permission through approved entry points | AppShell action route | Profile read/edit, preview, controlled download, version operations, governance context, records/audit links, and real-status work queue use real data only; no check-out, Office live edit, external sharing, raw ID display, or fake related-item data |
 | `/records` | Governance | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin, matter owner | AppShell route | No prefilled retention/disposal/certificate values |
 | `/audit` | Audit | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Display-safe actor/action/result/target/time only |
-| `/walls` | Security | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Default list hides wall/matter/user raw references |
-| `/admin` | Admin | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Guarded admin settings route | SSO/MFA/BYOK/SIEM/Backup/Compliance data only after API success |
+| `/walls` | Security | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | AppShell route | Default list hides wall/matter/user raw references; common lookup/create uses Matter Code picker, while user/group membership refs remain in clearly marked advanced security operations until picker APIs exist |
+| `/admin` | Admin | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Guarded admin settings route | SSO/MFA/BYOK/SIEM/Backup/Compliance data only after API success; taxonomy/template/refiner IA is read-only until save/audit APIs are approved |
 | `/admin/security` | Admin | `visible_admin_only` | Hidden | Firm admin, security admin | Guarded security settings route | Same real-data-only Admin Settings policy; no separate mock security data |
 | `/enterprise` | Admin | `visible_admin_only` | Hidden | Firm admin, security admin | Compatibility guarded admin settings route | Alias only; not shown in navigation |
-| `/integrations` | Integrations | `visible_admin_only` | Parent route hidden | Firm admin, security admin | Empty/unavailable status route | No connected state before API success |
-| `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only; Office task pane stays separate |
+| `/integrations` | Integrations | `visible_admin_only` | Parent route hidden | Firm admin, security admin | Safe integration matrix route | Outlook links to real status; OneDrive/Office remain gated without connected-state claims |
+| `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only plus Vault filing-path alignment; Office task pane stays separate |
 | `/integrations/onedrive` | Integrations | `hidden_until_api_ready` | Hidden | Firm admin, security admin after API readiness | No production route until contract is approved | Must not claim OneDrive connection |
 | `/ai-prep` | AI Prep/Ops | `visible_limited` | Hidden by default | Firm admin, security admin, matter owner, knowledge manager | Approved linked entry points only | File organization prep/readiness only |
 
@@ -69,4 +70,5 @@ Before merging a UI/UX batch that changes production routes or navigation, inclu
 - `pnpm check:ui-pr-checklist`
 - role/navigation evidence for affected routes
 - direct hidden-route evidence when hidden route files change
+- `docs/ui/enterprise-dms-release-hardening.md` review for release-readiness PRs
 - confirmation that `docs/package/` was not modified

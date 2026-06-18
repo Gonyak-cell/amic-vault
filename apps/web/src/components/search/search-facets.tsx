@@ -8,8 +8,9 @@ import type {
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { getTranslation, useI18n, type Language, type TranslationKey } from '@/lib/i18n';
+import type { SearchAdvancedSelection } from './search-advanced-controls';
 
-export interface SearchFacetSelection {
+export interface SearchFacetSelection extends SearchAdvancedSelection {
   clientId?: string | undefined;
   matterId?: string | undefined;
   documentType?: string | undefined;

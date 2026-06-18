@@ -26,7 +26,11 @@ describe('SearchFilterBuilder', () => {
       filters: {
         matterId,
         clientId,
+        clientName: 'AMIC',
         documentType: ['contract', 'memo'],
+        matterCode: 'AMIC-2026',
+        matterName: 'Vault',
+        title: 'Closing',
         dateFrom: '2026-06-12T09:00:00+09:00',
         dateTo: '2026-06-12T10:00:00+09:00',
       },
@@ -39,21 +43,60 @@ describe('SearchFilterBuilder', () => {
         '  AND (idx.version_status = $3)',
         '  AND (idx.matter_id = $4)',
         '  AND (idx.client_id = $5)',
-        '  AND (idx.document_type = ANY($6::text[]))',
-        '  AND (idx.updated_at >= $7)',
-        '  AND (idx.updated_at <= $8)',
+        "  AND (idx.title ILIKE $6 ESCAPE '\\')",
+        '  AND (\n          EXISTS (',
+        '            SELECT 1',
+        '            FROM matters matter_filter',
+        '            WHERE matter_filter.tenant_id = idx.tenant_id',
+        '              AND matter_filter.matter_id = idx.matter_id',
+        "              AND matter_filter.matter_code ILIKE $7 ESCAPE '\\'",
+        '          )',
+        '        )',
+        '  AND (\n          EXISTS (',
+        '            SELECT 1',
+        '            FROM matters matter_filter',
+        '            WHERE matter_filter.tenant_id = idx.tenant_id',
+        '              AND matter_filter.matter_id = idx.matter_id',
+        "              AND matter_filter.matter_name ILIKE $8 ESCAPE '\\'",
+        '          )',
+        '        )',
+        '  AND (\n          EXISTS (',
+        '            SELECT 1',
+        '            FROM clients client_filter',
+        '            WHERE client_filter.tenant_id = idx.tenant_id',
+        '              AND client_filter.client_id = idx.client_id',
+        "              AND client_filter.name ILIKE $9 ESCAPE '\\'",
+        '          )',
+        '        )',
+        '  AND (idx.document_type = ANY($10::text[]))',
+        '  AND (idx.updated_at >= $11)',
+        '  AND (idx.updated_at <= $12)',
       ].join('\n'),
     );
-    expect(built.params.slice(0, 6)).toEqual([
+    expect(built.params.slice(0, 10)).toEqual([
       tenantId,
       'deleted',
       'current',
       matterId,
       clientId,
+      '%Closing%',
+      '%AMIC-2026%',
+      '%Vault%',
+      '%AMIC%',
       ['contract', 'memo'],
     ]);
-    expect(built.params[6]).toEqual(new Date('2026-06-12T00:00:00.000Z'));
-    expect(built.params[7]).toEqual(new Date('2026-06-12T01:00:00.000Z'));
+    expect(built.params[10]).toEqual(new Date('2026-06-12T00:00:00.000Z'));
+    expect(built.params[11]).toEqual(new Date('2026-06-12T01:00:00.000Z'));
+  });
+
+  it('escapes wildcard characters in text filters', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: { clientName: 'A%_\\B' },
+    });
+
+    expect(built.whereSql).toContain("client_filter.name ILIKE $4 ESCAPE '\\'");
+    expect(built.params).toContain('%A\\%\\_\\\\B%');
   });
 
   it('binds malicious scope input without interpolating it into SQL', () => {

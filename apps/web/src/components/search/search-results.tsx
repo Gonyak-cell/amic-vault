@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import type { SearchResponseDto } from '@amic-vault/shared';
+import type { SearchGroupBy, SearchResponseDto, SearchResultDto } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { emptyStateVariantForUiErrorKind, type UiErrorKind } from '@/lib/api/error-messages';
@@ -15,11 +15,20 @@ interface SearchResultsProps {
   page: number;
   pageSize: number;
   busy: boolean;
+  groupBy?: SearchGroupBy;
   error: SearchErrorKind | null;
   onPage: (page: number) => void;
 }
 
-export function SearchResults({ response, page, pageSize, busy, error, onPage }: SearchResultsProps) {
+export function SearchResults({
+  response,
+  page,
+  pageSize,
+  busy,
+  error,
+  groupBy = 'none',
+  onPage,
+}: SearchResultsProps) {
   const { language, t } = useI18n();
 
   if (error) {
@@ -59,13 +68,63 @@ export function SearchResults({ response, page, pageSize, busy, error, onPage }:
           </Button>
         </div>
       </div>
+      <GroupedResults groupBy={groupBy} results={response.results} />
+    </section>
+  );
+}
+
+function GroupedResults({
+  groupBy,
+  results,
+}: {
+  groupBy: SearchGroupBy;
+  results: SearchResultDto[];
+}) {
+  if (groupBy === 'none') {
+    return (
       <div className="flex flex-col gap-3">
-        {response.results.map((result) => (
+        {results.map((result) => (
           <ResultCard key={result.versionId} result={result} />
         ))}
       </div>
-    </section>
+    );
+  }
+
+  const groups = groupResults(results, groupBy);
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.map((group) => (
+        <section key={group.label} className="flex flex-col gap-2">
+          <h2 className="text-xs font-semibold uppercase text-muted-foreground">{group.label}</h2>
+          <div className="flex flex-col gap-3">
+            {group.items.map((result) => (
+              <ResultCard key={result.versionId} result={result} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
   );
+}
+
+function groupResults(results: SearchResultDto[], groupBy: Exclude<SearchGroupBy, 'none'>) {
+  const groups = new Map<string, SearchResultDto[]>();
+  for (const result of results) {
+    const label = groupLabel(result, groupBy);
+    groups.set(label, [...(groups.get(label) ?? []), result]);
+  }
+  return [...groups.entries()].map(([label, items]) => ({ items, label }));
+}
+
+function groupLabel(result: SearchResultDto, groupBy: Exclude<SearchGroupBy, 'none'>): string {
+  if (groupBy === 'type') return result.documentType || '파일 유형 없음';
+  if (groupBy === 'client') return result.clientDisplayName || '고객 표시명 없음';
+  const code = result.matterDisplayCode?.trim();
+  const name = result.matterDisplayName?.trim();
+  if (code && name) return `${code} · ${name}`;
+  if (code) return code;
+  if (name) return name;
+  return 'Matter 표시명 없음';
 }
 
 function searchErrorKey(error: SearchErrorKind): TranslationKey {

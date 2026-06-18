@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { SearchMode, SearchQueryDto } from '@amic-vault/shared';
+import type { SearchMode, SearchQueryDto, SearchSort, SearchTarget } from '@amic-vault/shared';
 import {
   SearchFilterBuilder,
   type SearchSqlFragment,
@@ -13,6 +13,48 @@ export interface BuiltSearchQuery {
 }
 
 type VectorSearchMode = Extract<SearchMode, 'semantic' | 'hybrid'>;
+
+function targetFor(input: SearchQueryDto): SearchTarget {
+  return input.target ?? 'all';
+}
+
+function sortFor(input: SearchQueryDto): SearchSort {
+  return input.sortBy ?? 'relevance';
+}
+
+function keywordMatchSql(target: SearchTarget): string {
+  if (target === 'title') return 'idx.title_tsv @@ tsq.query';
+  if (target === 'body') return 'idx.content_tsv @@ tsq.query';
+  return '(idx.title_tsv @@ tsq.query OR idx.content_tsv @@ tsq.query)';
+}
+
+function keywordSnippetSourceSql(target: SearchTarget): string {
+  if (target === 'title') return 'idx.title';
+  if (target === 'body') return 'idx.content_text';
+  return 'CASE WHEN idx.content_tsv @@ tsq.query THEN idx.content_text ELSE idx.title END';
+}
+
+function keywordScoreSql(target: SearchTarget): string {
+  if (target === 'title') return "ts_rank_cd(setweight(idx.title_tsv, 'A'), tsq.query)::float8";
+  if (target === 'body') return "ts_rank_cd(setweight(idx.content_tsv, 'B'), tsq.query)::float8";
+  return `
+    ts_rank_cd(
+      setweight(idx.title_tsv, 'A') || setweight(idx.content_tsv, 'B'),
+      tsq.query
+    )::float8
+  `;
+}
+
+function orderBySql(sortBy: SearchSort, hasQuery: boolean): string {
+  if (sortBy === 'updated_asc') return 'idx.updated_at ASC, idx.version_id';
+  if (sortBy === 'updated_desc') return 'idx.updated_at DESC, idx.version_id';
+  if (sortBy === 'title_asc') return 'lower(idx.title) ASC, idx.updated_at DESC, idx.version_id';
+  if (sortBy === 'matter_asc') {
+    return "lower(coalesce(m.matter_code, m.matter_name, '')) ASC, idx.updated_at DESC, idx.version_id";
+  }
+  if (sortBy === 'type_asc') return 'idx.document_type ASC, idx.updated_at DESC, idx.version_id';
+  return hasQuery ? 'score DESC, idx.updated_at DESC, idx.version_id' : 'idx.updated_at DESC, idx.version_id';
+}
 
 @Injectable()
 export class SearchQueryBuilder {
@@ -30,6 +72,8 @@ export class SearchQueryBuilder {
     const offset = (input.page - 1) * pageSize;
 
     if (input.query) {
+      const target = targetFor(input);
+      const matchSql = keywordMatchSql(target);
       params.push(input.query);
       const queryParam = `$${params.length}`;
       params.push(pageSize);
@@ -37,9 +81,11 @@ export class SearchQueryBuilder {
       params.push(offset);
       const offsetParam = `$${params.length}`;
       const headlineSql = this.snippetBuilder.headlineSql(
-        `CASE WHEN idx.content_tsv @@ tsq.query THEN idx.content_text ELSE idx.title END`,
+        keywordSnippetSourceSql(target),
         'tsq.query',
       );
+      const scoreSql = keywordScoreSql(target);
+      const orderSql = orderBySql(sortFor(input), true);
 
       return {
         sql: `
@@ -49,10 +95,7 @@ export class SearchQueryBuilder {
           SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
             idx.title, m.matter_name, m.matter_code, c.name AS client_name,
             idx.document_type, idx.version_status, idx.updated_at,
-            ts_rank_cd(
-              setweight(idx.title_tsv, 'A') || setweight(idx.content_tsv, 'B'),
-              tsq.query
-            )::float8 AS score,
+            ${scoreSql} AS score,
             ${headlineSql} AS raw_snippet,
             count(*) OVER()::int AS total
           FROM document_search_index idx
@@ -64,8 +107,8 @@ export class SearchQueryBuilder {
             ON c.tenant_id = idx.tenant_id
             AND c.client_id = idx.client_id
           ${filters.whereSql}
-            AND (idx.title_tsv @@ tsq.query OR idx.content_tsv @@ tsq.query)
-          ORDER BY score DESC, idx.updated_at DESC, idx.version_id
+            AND ${matchSql}
+          ORDER BY ${orderSql}
           LIMIT ${limitParam}
           OFFSET ${offsetParam}
         `,
@@ -77,6 +120,7 @@ export class SearchQueryBuilder {
     const limitParam = `$${params.length}`;
     params.push(offset);
     const offsetParam = `$${params.length}`;
+    const orderSql = orderBySql(sortFor(input), false);
 
     return {
       sql: `
@@ -94,7 +138,7 @@ export class SearchQueryBuilder {
           ON c.tenant_id = idx.tenant_id
           AND c.client_id = idx.client_id
         ${filters.whereSql}
-        ORDER BY idx.updated_at DESC, idx.version_id
+        ORDER BY ${orderSql}
         LIMIT ${limitParam}
         OFFSET ${offsetParam}
       `,
@@ -389,7 +433,7 @@ export class SearchQueryBuilder {
         FROM document_search_index idx
         CROSS JOIN tsq
         ${whereSql}
-          AND (idx.title_tsv @@ tsq.query OR idx.content_tsv @@ tsq.query)
+          AND ${keywordMatchSql(targetFor(input))}
       )
     `;
   }
@@ -418,23 +462,23 @@ export class SearchQueryBuilder {
           })()
         : '';
     const joinTsqSql = mode === 'hybrid' ? 'CROSS JOIN tsq' : '';
-    const keywordScoreSql =
+    const target = targetFor(input);
+    const matchSql = keywordMatchSql(target);
+    const lexicalScoreSql = keywordScoreSql(target);
+    const keywordScoreExpression =
       mode === 'hybrid'
         ? `
           CASE
-            WHEN idx.title_tsv @@ tsq.query OR idx.content_tsv @@ tsq.query THEN
-              ts_rank_cd(
-                setweight(idx.title_tsv, 'A') || setweight(idx.content_tsv, 'B'),
-                tsq.query
-              )::float8
+            WHEN ${matchSql} THEN
+              ${lexicalScoreSql}
             ELSE 0::float8
           END
         `
-        : '0::float8';
+      : '0::float8';
     const semanticScoreSql = `(1 - (emb.embedding <=> ${vectorParam}::vector))`;
     const scoreSql =
       mode === 'hybrid'
-        ? `((${keywordScoreSql}) * 0.55 + GREATEST(${semanticScoreSql}, 0) * 0.45)`
+        ? `((${keywordScoreExpression}) * 0.55 + GREATEST(${semanticScoreSql}, 0) * 0.45)`
         : semanticScoreSql;
 
     return `
@@ -444,7 +488,7 @@ export class SearchQueryBuilder {
           idx.title, idx.document_type, idx.version_status, idx.updated_at,
           chunk.chunk_id, chunk.parent_chunk_id, chunk.chunk_ordinal,
           chunk.token_count, chunk.chunk_text, chunk.text_hash, chunk.source_text_hash,
-          ${keywordScoreSql} AS keyword_score,
+          ${keywordScoreExpression} AS keyword_score,
           ${semanticScoreSql} AS semantic_score,
           ${scoreSql} AS score
         FROM document_search_index idx

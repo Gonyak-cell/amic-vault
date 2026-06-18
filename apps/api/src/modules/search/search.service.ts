@@ -69,10 +69,17 @@ function searchMode(input: SearchQueryDto): SearchMode {
 function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): string {
   const refs: string[] = [];
   refs.push(`mode:${searchMode(input)}`);
+  refs.push(`target:${input.target ?? 'all'}`);
+  refs.push(`sort:${input.sortBy ?? 'relevance'}`);
+  refs.push(`group:${input.groupBy ?? 'none'}`);
   const filters = input.filters;
   if (filters) {
     if (filters.matterId) refs.push(`matter_id:${filters.matterId}`);
     if (filters.clientId) refs.push(`client_id:${filters.clientId}`);
+    if (filters.matterCode) refs.push('matter_code_filter:present');
+    if (filters.matterName) refs.push('matter_name_filter:present');
+    if (filters.clientName) refs.push('client_name_filter:present');
+    if (filters.title) refs.push('title_filter:present');
     if (filters.documentType) {
       const value = Array.isArray(filters.documentType)
         ? filters.documentType.join(',')

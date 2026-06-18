@@ -136,6 +136,191 @@ const uploadBrowseFlowFiles = [
   },
 ];
 
+const documentActionCenterFiles = [
+  {
+    path: 'apps/web/src/app/(app)/documents/[id]/page.tsx',
+    patterns: [
+      { name: 'document detail action center route', pattern: /DocumentActionCenter/ },
+      { name: 'document detail app shell wrapper', pattern: /PageShell/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-action-center.tsx',
+    patterns: [
+      { name: 'document profile read view', pattern: /문서 프로필/ },
+      { name: 'document metadata edit flow', pattern: /updateDocumentMetadata/ },
+      { name: 'preview panel integration', pattern: /documentPreviewUrl/ },
+      { name: 'controlled download flow', pattern: /documentDownloadUrl/ },
+      { name: 'download reason selector', pattern: /documentDownloadReasonCodes/ },
+      { name: 'version list integration', pattern: /listDocumentVersions/ },
+      { name: 'new version upload flow', pattern: /addDocumentVersion/ },
+      { name: 'related items safe state', pattern: /표시할 연결 항목이 없습니다/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/api-client.ts',
+    patterns: [
+      { name: 'document detail client', pattern: /getDocument/ },
+      { name: 'document metadata update client', pattern: /updateDocumentMetadata/ },
+      { name: 'document version list client', pattern: /listDocumentVersions/ },
+      { name: 'new document version client', pattern: /addDocumentVersion/ },
+      { name: 'document preview URL helper', pattern: /documentPreviewUrl/ },
+      { name: 'document download URL helper', pattern: /documentDownloadUrl/ },
+    ],
+  },
+  {
+    path: 'docs/adr/ADR-016-document-editing-and-office-flow.md',
+    patterns: [
+      { name: 'document editing model decision', pattern: /read\/download-only launch/i },
+      { name: 'check-out deferred', pattern: /check-out\/check-in/i },
+      { name: 'Office integration deferred', pattern: /Office integration/i },
+    ],
+  },
+];
+
+const enterpriseSearchFiles = [
+  {
+    path: 'packages/shared/src/search/search-query.dto.ts',
+    patterns: [
+      { name: 'search target DTO', pattern: /searchTargets/ },
+      { name: 'search sort DTO', pattern: /searchSorts/ },
+      { name: 'search group DTO', pattern: /searchGroupBys/ },
+      { name: 'display text filters', pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/query/search-filter.builder.ts',
+    patterns: [
+      { name: 'title filter', pattern: /idx\.title ILIKE/ },
+      { name: 'Matter Code filter', pattern: /matter_filter\.matter_code ILIKE/ },
+      { name: 'client name filter', pattern: /client_filter\.name ILIKE/ },
+      { name: 'LIKE wildcard escaping', pattern: /likeContains/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/query/search-query.builder.ts',
+    patterns: [
+      { name: 'target-scoped keyword search', pattern: /keywordMatchSql/ },
+      { name: 'safe sort switch', pattern: /orderBySql/ },
+      { name: 'title search target', pattern: /idx\.title_tsv @@ tsq\.query/ },
+      { name: 'body search target', pattern: /idx\.content_tsv @@ tsq\.query/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/search/search-client.tsx',
+    patterns: [
+      { name: 'advanced search controls wired', pattern: /SearchAdvancedControls/ },
+      { name: 'target URL state', pattern: /target/ },
+      { name: 'sort URL state', pattern: /sortBy/ },
+      { name: 'group URL state', pattern: /groupBy/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-advanced-controls.tsx',
+    patterns: [
+      { name: 'Matter Code filter UI', pattern: /Matter Code/ },
+      { name: 'search range selector', pattern: /검색 범위/ },
+      { name: 'sort selector', pattern: /정렬/ },
+      { name: 'group selector', pattern: /그룹/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-results.tsx',
+    patterns: [
+      { name: 'display-safe result grouping', pattern: /groupResults/ },
+      { name: 'Matter display label grouping', pattern: /matterDisplayCode/ },
+    ],
+  },
+];
+
+const governanceWorkflowOpsFiles = [
+  {
+    path: 'apps/web/src/components/governance/governance-context-panel.tsx',
+    patterns: [
+      { name: 'document governance panel', pattern: /DocumentGovernanceContextPanel/ },
+      { name: 'matter governance panel', pattern: /MatterGovernanceContextPanel/ },
+      { name: 'document workflow ops panel', pattern: /DocumentWorkflowOpsPanel/ },
+      { name: 'matter workflow ops panel', pattern: /MatterWorkflowOpsPanel/ },
+      { name: 'file organization prep scope copy', pattern: /파일 정리 준비 범위/ },
+      { name: 'real-state-only task copy', pattern: /실제 문서·사건 상태에서 발생한 작업만 표시/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-action-center.tsx',
+    patterns: [
+      { name: 'document governance panel wired', pattern: /DocumentGovernanceContextPanel/ },
+      { name: 'document workflow ops panel wired', pattern: /DocumentWorkflowOpsPanel/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
+    patterns: [
+      { name: 'matter governance panel wired', pattern: /MatterGovernanceContextPanel/ },
+      { name: 'matter workflow ops panel wired', pattern: /MatterWorkflowOpsPanel/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/dashboard/vault-activity-client.tsx',
+    patterns: [
+      { name: 'dashboard action queue', pattern: /DashboardActionQueue/ },
+      { name: 'real operations task copy', pattern: /실제 운영 데이터에서 발생한 작업만 표시/ },
+      { name: 'no fake dashboard queue counts', pattern: /dashboardActionItems/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/walls/wall-admin-client.tsx',
+    patterns: [
+      { name: 'wall Matter Code picker', pattern: /MatterCodePicker/ },
+      { name: 'selected Matter display', pattern: /selectedMatter/ },
+      { name: 'advanced user refs only', pattern: /사용자 선택 API/ },
+    ],
+  },
+];
+
+const adminIntegrationsFiles = [
+  {
+    path: 'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
+    patterns: [
+      { name: 'DMS configuration IA panel', pattern: /AdminDmsConfigurationPanel/ },
+      { name: 'taxonomy admin contract state', pattern: /taxonomy/ },
+      { name: 'matter template admin contract state', pattern: /templates/ },
+      { name: 'search refiner admin contract state', pattern: /refiners/ },
+      { name: 'read-only until API approved copy', pattern: /저장 API 승인 전 읽기 전용/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/page.tsx',
+    patterns: [
+      { name: 'Outlook status route link', pattern: /\/integrations\/outlook/ },
+      { name: 'OneDrive gate copy', pattern: /승인 전 숨김/ },
+      { name: 'Office contract gate copy', pattern: /계약 필요/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/outlook/page.tsx',
+    patterns: [
+      { name: 'Vault filing path section', pattern: /Vault 파일링 경로/ },
+      { name: 'same document model copy', pattern: /동일 문서 모델/ },
+      { name: 'search/detail flow link', pattern: /\/search/ },
+    ],
+  },
+];
+
+const releaseHardeningPatterns = [
+  { name: 'authenticated main loop smoke', pattern: /Login[\s\S]*Matter Code[\s\S]*Upload[\s\S]*document detail[\s\S]*Search/i },
+  { name: 'negative auth smoke', pattern: /Non-member[\s\S]*Wall-blocked[\s\S]*Non-admin/i },
+  { name: 'no fake data sweep', pattern: /DMS-UX-803 No Fake Data Sweep/ },
+  { name: 'internal ref sweep', pattern: /DMS-UX-804 Internal Ref Sweep/ },
+  { name: 'AI scope sweep', pattern: /DMS-UX-805 AI Scope Sweep/ },
+  { name: 'responsive QA viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
+  { name: 'accessibility QA', pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i },
+  { name: 'evidence package refs only', pattern: /Evidence package[\s\S]*refs only/i },
+  { name: 'rollout checklist', pattern: /DMS-UX-809 Rollout Checklist/ },
+  { name: 'rollback plan', pattern: /DMS-UX-810 Rollback Plan/ },
+  { name: 'production monitor', pattern: /DMS-UX-811 Production Monitor/ },
+  { name: 'release signoff owners', pattern: /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -318,6 +503,59 @@ function checkUploadBrowseFlowGuard() {
   }
 }
 
+function checkDocumentActionCenterGuard() {
+  for (const file of documentActionCenterFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Document action center production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function checkEnterpriseSearchGuard() {
+  for (const file of enterpriseSearchFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Enterprise search production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function checkGovernanceWorkflowOpsGuard() {
+  for (const file of governanceWorkflowOpsFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Governance/workflow/ops production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function checkAdminIntegrationsGuard() {
+  for (const file of adminIntegrationsFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Admin/integrations production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function checkReleaseHardeningGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-release-hardening.md');
+  for (const { name, pattern } of releaseHardeningPatterns) {
+    if (!pattern.test(source)) {
+      fail(`Release hardening production smoke guard missing ${name}`);
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -326,6 +564,11 @@ try {
   checkDesignSystemChecklist();
   checkProductionUiInventory();
   checkUploadBrowseFlowGuard();
+  checkDocumentActionCenterGuard();
+  checkEnterpriseSearchGuard();
+  checkGovernanceWorkflowOpsGuard();
+  checkAdminIntegrationsGuard();
+  checkReleaseHardeningGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

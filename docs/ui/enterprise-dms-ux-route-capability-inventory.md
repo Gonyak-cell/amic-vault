@@ -14,20 +14,20 @@ Source baseline:
 
 | Route | DMS role | Current state | Required next TUW |
 | --- | --- | --- | --- |
-| `/dashboard` | Entry point for recent activity, AI prep status, integrations, action links. | Partial. API-backed dashboard exists, but it is not yet a full DMS action launcher. | DMS-UX-507 |
+| `/dashboard` | Entry point for recent activity, AI prep status, integrations, action links. | Partial. API-backed dashboard exists with real-data-only action queue derived from policy alerts, file organization prep readiness, integration state, and API connection failures. Unified task API remains missing. | DMS-UX-501 to 507 |
 | `/matters` | Matter app-backed matter list and workspace entry. | Partial. Vault matter list exists, but Matter app source-of-truth contract is not implemented. | DMS-UX-003, 004, 113 |
-| `/matters/[matterId]` | Matter workspace home. | Partial. Profile/team shell and matter-scoped file section exist; records context, activity, task context incomplete. | DMS-UX-113, 405, 406 |
+| `/matters/[matterId]` | Matter workspace home. | Partial. Profile/team shell, matter-scoped file section, governance context, records links, and real-status work queue exist; contextual audit event feed and unified task API remain incomplete. | DMS-UX-406, 501 to 506 |
 | `/matters/[matterId]/team` | Matter membership/admin view. | Partial. Uses safe labels, but broader picker/source-of-truth alignment is still needed. | DMS-UX-107, 401, 402 |
 | `/files` | File upload and browse surface. | Partial. Matter Code picker, upload panel, and matter-scoped browse surface exist; production navigation remains gated until Matter app source is configured and authenticated smoke is ready. | DMS-UX-102, 108, 111 |
-| `/documents/[id]` | Document detail/action center. | Partial. Document route exists, but preview/download/profile edit/version/action center are incomplete. | DMS-UX-201 to 212 |
-| `/search` | Permission-bound enterprise search. | Partial. Backend title/body FTS, snippets, facets, audit exist; advanced scope/filter/refiner UX incomplete. | DMS-UX-301 to 314 |
-| `/records` | Records lifecycle console. | Partial/strong backend. Needs contextual matter/document panels and picker cleanup. | DMS-UX-405, 505 |
+| `/documents/[id]` | Document detail/action center. | Partial. Action center exists with profile read/edit, preview, controlled download reason, version list, add-version flow, governance context, records/audit links, and real-status work queue. Check-out/Office live edit remains deferred by ADR-016; contextual audit event feed and related-item APIs remain incomplete. | DMS-UX-406, 407, 501, 606 |
+| `/search` | Permission-bound enterprise search. | Partial. Backend title/body FTS, snippets, facets, audit, target scope, display-safe title/Matter Code/client filters, sort, URL state, and display-safe grouping exist. OCR/extraction, retention, saved searches, search folders, and preview hit controls remain incomplete. | DMS-UX-308 to 314, 503, 609 |
+| `/records` | Records lifecycle console. | Partial/strong backend. Matter/document pages now link records context; records route still needs picker cleanup and disposal-task workflow integration. | DMS-UX-505 |
 | `/audit` | Admin audit search/export. | Partial/strong. Needs contextual timelines on matter/document pages. | DMS-UX-406 |
-| `/walls` | Ethical wall/security admin. | Partial. Wall surfaces exist; normal operations still need picker-first UX and raw-ref reduction. | DMS-UX-402 |
-| `/admin` | Enterprise/admin settings. | Partial. SSO/BYOK/SIEM/backup/compliance surfaces exist; taxonomy/template/admin ops missing. | DMS-UX-601 to 610 |
+| `/walls` | Ethical wall/security admin. | Partial. Wall surfaces exist and common Matter lookup/create now uses Matter Code picker; user/group membership changes still need picker APIs before raw refs can be removed from advanced security operations. | DMS-UX-402 |
+| `/admin` | Enterprise/admin settings. | Partial. SSO/BYOK/SIEM/backup/compliance surfaces exist; DMS taxonomy/template/refiner IA is visible as read-only contract state until save/audit APIs are approved. | DMS-UX-601 to 610 |
 | `/admin/security` | Security/admin compatibility route. | Partial. Same admin/security route policy as `/admin`. | DMS-UX-401 to 404 |
-| `/integrations` | Integration status parent. | Partial/hidden parent. Must avoid fake connected states. | DMS-UX-607, 610 |
-| `/integrations/outlook` | Outlook filing/admin status. | Partial. Outlook foundations exist; unified DMS filing UX incomplete. | DMS-UX-606 |
+| `/integrations` | Integration status parent. | Partial. Shows safe integration matrix: Outlook links to real status, OneDrive/Office remain gated without connected-state claims. | DMS-UX-607, 610 |
+| `/integrations/outlook` | Outlook filing/admin status. | Partial. Outlook operations status exists and now documents the Vault filing path into Matter/document/search UX; deeper filing smoke remains required. | DMS-UX-606 |
 | `/integrations/onedrive` | Future OneDrive/Office integration. | Hidden/gated. No production claim before contract approval. | DMS-UX-607 |
 | `/ai-prep` | Local AI file-organization prep status. | Limited/approved. Must remain file organization only. | DMS-UX-509 |
 | `/external/[token]` | Future external sharing/client portal. | Intentionally gated/out of current internal UX scope. | DMS-UX-510 |
@@ -41,18 +41,18 @@ Source baseline:
 | Matter members | `apps/api/src/modules/matter/matter-member*` | Exists. Picker/source contract cleanup needed. | DMS-UX-107, 401 |
 | Matter suggestions | `POST /search/matter-suggestions` | Exists for Outlook hash-only suggestion use. May be reusable after Matter app contract alignment. | DMS-UX-004 |
 | Document upload | `POST /matters/:matterId/documents` plus web FormData helper | Exists. Browser flow is Matter Code-gated and blocks when Matter app source is unconfigured. | DMS-UX-102, 108 |
-| Document metadata update | `PATCH /documents/:documentId/metadata` | Exists. Profile editor missing. | DMS-UX-205 |
-| Document download | `GET /documents/:documentId/download` | Exists. Controlled UI flow incomplete. | DMS-UX-203 |
-| Document versions | add/list version endpoints | Exists. Version UI missing. | DMS-UX-206, 207 |
+| Document metadata update | `PATCH /documents/:documentId/metadata` | Exists and is wired to the document action center profile editor. | DMS-UX-401, 405 |
+| Document download | `GET /documents/:documentId/download` | Exists and is wired to a controlled download UI with reason-code selection. | DMS-UX-406 |
+| Document versions | add/list version endpoints | Exists and is wired to version history plus add-version UI; immutable-original rule remains server-owned. | DMS-UX-407 |
 | Document list/browse | `GET /matters/:matterId/documents` through `document_search_index idx` and search permission scope | Exists for matter-scoped current document listing; broader global `/documents` browse remains deferred. | DMS-UX-104, 108 |
-| Preview | Preview module exists in repo. | UI integration incomplete. | DMS-UX-202, 308 |
-| Search title/body | `document_search_index` with `title_tsv` and `content_tsv` | Exists. Advanced scope/filter UX incomplete. | DMS-UX-301 to 314 |
-| Records | Records APIs and route exist. | Strong backend; contextual UX incomplete. | DMS-UX-405, 505 |
+| Preview | Preview module exists in repo. | Document action center embeds the preview endpoint with unavailable/error handled by the server response; search hit preview navigation remains incomplete. | DMS-UX-308 |
+| Search title/body | `document_search_index` with `title_tsv` and `content_tsv` | Exists. Query target can be all/title/body; UI exposes target/sort/group and display-safe text filters. | DMS-UX-308 to 314 |
+| Records | Records APIs and route exist. | Strong backend; contextual document/matter links exist; workflow task integration incomplete. | DMS-UX-505 |
 | Audit | Audit query/export exists. | Strong backend; contextual timelines incomplete. | DMS-UX-406 |
 | AI prep | Local Gemma file-organization prep status exists. | Approved narrow scope. Keep guarded. | DMS-UX-509 |
-| Workflow/task inbox | No unified DMS task API identified. | Gap. | DMS-UX-501 to 507 |
+| Workflow/task inbox | No unified DMS task API identified. | Partial UI only. Dashboard and context pages derive safe tasks from real status fields, but no persisted assignment/due/status workflow model exists. | DMS-UX-501 to 507 |
 | Notifications | No unified notification API identified. | Gap. | DMS-UX-506 |
-| Taxonomy/templates | No DMS taxonomy/template admin API identified. | Gap. | DMS-UX-601 to 605 |
+| Taxonomy/templates | No DMS taxonomy/template admin API identified. | UI IA exists as read-only contract state; persisted administration remains a gap. | DMS-UX-601 to 605 |
 | Matter app lookup/sync | Matter app runtime endpoint not found in this checkout. | Gap/blocker for production-grade Matter Code picker. | DMS-UX-003, 004 |
 
 ## Immediate PR-A Decision
@@ -66,3 +66,26 @@ The safest PR-A order is:
 3. FormData upload helper.
 4. Upload UI behind a readiness gate that requires a permitted matter and does not claim production Matter app integration unless configured.
 5. Smoke guard that fails when production says upload is ready but Matter app lookup/picker/upload/list are not ready.
+
+## Immediate PR-B Decision
+
+PR-B may expose document detail operations backed by existing approved APIs:
+profile read/edit, preview, controlled download, version list, and add-version.
+It must not expose check-out/check-in, Office live edit, coauthoring, or external
+sharing controls until the required API/audit/security contracts are approved.
+Those edit/open decisions are captured in `docs/adr/ADR-016-document-editing-and-office-flow.md`.
+
+## Immediate PR-D Decision
+
+PR-D may expose governance and workflow context only from approved, already-present
+DTO/API fields: document confidentiality/privilege/legal hold/extraction state,
+Matter legal hold/status/display fields, dashboard overview sections, and AI prep
+readiness. It must not invent a task API, notification center, user/group picker,
+or records disposal task engine before backend contracts exist.
+
+## Immediate PR-E Decision
+
+PR-E may expose admin configuration categories and integration status only as
+API-backed data or explicitly gated contract states. Taxonomy, templates,
+search refiners, OneDrive, and Office open/save must not present editable or
+connected production states until save/sync/audit contracts are approved.
