@@ -77,7 +77,7 @@ export const routeVisibilityPolicies = [
     showInNavigation: true,
   },
   {
-    route: '/admin',
+    route: '/enterprise',
     group: 'Admin',
     production: 'visible_admin_only',
     roles: adminRoles,
@@ -145,6 +145,10 @@ export function canRoleViewRoute(policy: RouteVisibilityPolicy, role: UserRole |
   if (policy.production === 'hidden' || policy.production === 'hidden_until_api_ready') return false;
   if (!role) return policy.route === '/dashboard';
   return policy.roles.includes(role);
+}
+
+export function findRouteVisibilityPolicy(route: string): RouteVisibilityPolicy | undefined {
+  return routeVisibilityPolicies.find((policy) => policy.route === route);
 }
 
 export function canShowRouteInNavigation(
