@@ -6,10 +6,10 @@ import { auditActions, type AuditAction } from '@amic-vault/shared';
 import { AuditEventInspector } from '@/components/audit/audit-event-inspector';
 import { AuditEventTable } from '@/components/audit/audit-event-table';
 import { Button } from '@/components/ui/button';
+import { FilterBar, FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
-import { SectionCard } from '@/components/ui/section-card';
 import { exportAuditEventsCsv, listAuditEvents } from '@/lib/api/audit';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { useI18n } from '@/lib/i18n';
@@ -48,7 +48,6 @@ export function AuditConsoleClient() {
           filterMeta: '운영 데이터 기준',
           advancedFilters: '고급 참조 필터',
           actor: '수행자 참조',
-          actorPlaceholder: '수행자 참조',
           action: '활동',
           allActions: '모든 활동',
           result: '결과',
@@ -73,7 +72,6 @@ export function AuditConsoleClient() {
           filterMeta: 'Operational data',
           advancedFilters: 'Advanced reference filters',
           actor: 'Actor ref',
-          actorPlaceholder: 'Actor ref',
           action: 'Activity',
           allActions: 'All activity',
           result: 'Result',
@@ -154,98 +152,117 @@ export function AuditConsoleClient() {
   return (
     <PageShell>
       <PageHeader title={copy.title} description={copy.description} />
-      <SectionCard
-        icon={<Search className="h-4 w-4" />}
-        title={copy.filterTitle}
-        meta={copy.filterMeta}
-      >
-        <form className="grid gap-3 lg:grid-cols-4" onSubmit={submit}>
-          <select
-            aria-label={copy.action}
-            className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={filters.action}
-            onChange={(event) => setFilters({ ...filters, action: event.target.value })}
-          >
-            <option value="">{copy.allActions}</option>
-            {auditActions.map((action) => (
-              <option key={action} value={action}>
-                {formatAction(action)}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label={copy.result}
-            className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={filters.result}
-            onChange={(event) => setFilters({ ...filters, result: event.target.value })}
-          >
-            <option value="">{copy.allResults}</option>
-            <option value="success">{copy.success}</option>
-            <option value="denied">{copy.denied}</option>
-            <option value="failure">{copy.failure}</option>
-          </select>
-          <Input
-            aria-label={copy.targetType}
-            placeholder={copy.targetType}
-            value={filters.targetType}
-            onChange={(event) => setFilters({ ...filters, targetType: event.target.value })}
-          />
-          <Input
-            aria-label={copy.from}
-            placeholder={copy.from}
-            value={filters.from}
-            onChange={(event) => setFilters({ ...filters, from: event.target.value })}
-          />
-          <Input
-            aria-label={copy.to}
-            placeholder={copy.to}
-            value={filters.to}
-            onChange={(event) => setFilters({ ...filters, to: event.target.value })}
-          />
-          <details className="rounded-md border bg-muted/20 p-3 lg:col-span-4">
+      <form onSubmit={submit}>
+        <FilterBar
+          actions={
+            <>
+              <Button aria-label={copy.search} title={copy.search} type="submit" disabled={busy}>
+                <Search className="h-4 w-4" />
+                {copy.search}
+              </Button>
+              <Button
+                aria-label={copy.export}
+                title={copy.export}
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={exportCsv}
+              >
+                <Download className="h-4 w-4" />
+                {copy.export}
+              </Button>
+            </>
+          }
+          label={copy.filterTitle}
+          title={copy.filterTitle}
+          description={copy.filterMeta}
+        >
+          <FilterField htmlFor="audit-action-filter" label={copy.action}>
+            <select
+              id="audit-action-filter"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filters.action}
+              onChange={(event) => setFilters({ ...filters, action: event.target.value })}
+            >
+              <option value="">{copy.allActions}</option>
+              {auditActions.map((action) => (
+                <option key={action} value={action}>
+                  {formatAction(action)}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+
+          <FilterField htmlFor="audit-result-filter" label={copy.result}>
+            <select
+              id="audit-result-filter"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filters.result}
+              onChange={(event) => setFilters({ ...filters, result: event.target.value })}
+            >
+              <option value="">{copy.allResults}</option>
+              <option value="success">{copy.success}</option>
+              <option value="denied">{copy.denied}</option>
+              <option value="failure">{copy.failure}</option>
+            </select>
+          </FilterField>
+
+          <FilterField htmlFor="audit-target-type-filter" label={copy.targetType}>
+            <Input
+              id="audit-target-type-filter"
+              value={filters.targetType}
+              onChange={(event) => setFilters({ ...filters, targetType: event.target.value })}
+            />
+          </FilterField>
+
+          <FilterField htmlFor="audit-from-filter" label={copy.from}>
+            <Input
+              id="audit-from-filter"
+              type="date"
+              value={filters.from}
+              onChange={(event) => setFilters({ ...filters, from: event.target.value })}
+            />
+          </FilterField>
+
+          <FilterField htmlFor="audit-to-filter" label={copy.to}>
+            <Input
+              id="audit-to-filter"
+              type="date"
+              value={filters.to}
+              onChange={(event) => setFilters({ ...filters, to: event.target.value })}
+            />
+          </FilterField>
+
+          <details className="rounded-md border bg-muted/20 p-3 sm:col-span-full">
             <summary className="cursor-pointer text-sm font-medium text-foreground">
               {copy.advancedFilters}
             </summary>
             <div className="mt-3 grid gap-3 lg:grid-cols-3">
-              <Input
-                aria-label={copy.actor}
-                placeholder={copy.actorPlaceholder}
-                value={filters.actorId}
-                onChange={(event) => setFilters({ ...filters, actorId: event.target.value })}
-              />
-              <Input
-                aria-label={copy.targetId}
-                placeholder={copy.targetId}
-                value={filters.targetId}
-                onChange={(event) => setFilters({ ...filters, targetId: event.target.value })}
-              />
-              <Input
-                aria-label={copy.matterId}
-                placeholder={copy.matterId}
-                value={filters.matterId}
-                onChange={(event) => setFilters({ ...filters, matterId: event.target.value })}
-              />
+              <FilterField htmlFor="audit-actor-ref-filter" label={copy.actor}>
+                <Input
+                  id="audit-actor-ref-filter"
+                  value={filters.actorId}
+                  onChange={(event) => setFilters({ ...filters, actorId: event.target.value })}
+                />
+              </FilterField>
+              <FilterField htmlFor="audit-target-ref-filter" label={copy.targetId}>
+                <Input
+                  id="audit-target-ref-filter"
+                  value={filters.targetId}
+                  onChange={(event) => setFilters({ ...filters, targetId: event.target.value })}
+                />
+              </FilterField>
+              <FilterField htmlFor="audit-matter-ref-filter" label={copy.matterId}>
+                <Input
+                  id="audit-matter-ref-filter"
+                  value={filters.matterId}
+                  onChange={(event) => setFilters({ ...filters, matterId: event.target.value })}
+                />
+              </FilterField>
             </div>
           </details>
-          <div className="flex flex-wrap gap-2 lg:col-span-4">
-            <Button aria-label={copy.search} title={copy.search} type="submit" disabled={busy}>
-              <Search className="h-4 w-4" />
-              {copy.search}
-            </Button>
-            <Button
-              aria-label={copy.export}
-              title={copy.export}
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={exportCsv}
-            >
-              <Download className="h-4 w-4" />
-              {copy.export}
-            </Button>
-          </div>
-        </form>
-      </SectionCard>
+        </FilterBar>
+      </form>
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <AuditEventTable
           events={events}

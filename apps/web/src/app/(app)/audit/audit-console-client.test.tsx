@@ -12,6 +12,9 @@ describe('AuditConsoleClient', () => {
       </LanguageProvider>,
     );
 
+    expect(html).toContain('aria-label="활동 기록 필터"');
+    expect(html).toContain('for="audit-action-filter"');
+    expect(html).toContain('for="audit-result-filter"');
     expect(html).toContain('고급 참조 필터');
     expect(html).toContain('CSV 내보내기');
     expect(html).not.toContain('수행자 ID');
