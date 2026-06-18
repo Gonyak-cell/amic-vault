@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Building2, Database, KeyRound, LockKeyhole, ShieldCheck, UploadCloud } from 'lucide-react';
+import {
+  Building2,
+  Database,
+  FileCog,
+  FolderKanban,
+  KeyRound,
+  LockKeyhole,
+  SearchCheck,
+  ShieldCheck,
+  UploadCloud,
+} from 'lucide-react';
 import type {
   EnterpriseBackupSnapshotListResponseDto,
   EnterpriseComplianceEvidenceListResponseDto,
@@ -56,6 +66,16 @@ const enterpriseCopy: Record<
     backupMeta: string;
     compliance: string;
     complianceMeta: string;
+    dmsConfiguration: string;
+    dmsConfigurationMeta: string;
+    taxonomy: string;
+    taxonomyMeta: string;
+    templates: string;
+    templatesMeta: string;
+    refiners: string;
+    refinersMeta: string;
+    contractRequired: string;
+    governedByBackend: string;
     apiUnavailableTitle: string;
     apiUnavailableDescription: string;
     noRecords: string;
@@ -94,6 +114,16 @@ const enterpriseCopy: Record<
     backupMeta: '운영 백업 스냅샷',
     compliance: '컴플라이언스',
     complianceMeta: '컴플라이언스 증빙 상태',
+    dmsConfiguration: 'DMS 구성',
+    dmsConfigurationMeta: 'Taxonomy, 템플릿, 검색 refiner 승인 상태',
+    taxonomy: '문서 taxonomy',
+    taxonomyMeta: '문서 유형, 세부 유형, 필수 메타데이터',
+    templates: 'Matter 템플릿',
+    templatesMeta: '업무 유형별 기본 문서 세트',
+    refiners: '검색 refiner',
+    refinersMeta: '검색 가능한 메타데이터 필드',
+    contractRequired: '계약 필요',
+    governedByBackend: '저장 API 승인 전 읽기 전용',
     apiUnavailableTitle: '운영 데이터가 아직 연결되지 않았습니다.',
     apiUnavailableDescription: 'API 응답이 확인되면 이 섹션에 실제 설정 상태만 표시됩니다.',
     noRecords: '표시할 기록이 없습니다.',
@@ -131,6 +161,16 @@ const enterpriseCopy: Record<
     backupMeta: 'Operational backup snapshots',
     compliance: 'Compliance',
     complianceMeta: 'Control evidence status',
+    dmsConfiguration: 'DMS configuration',
+    dmsConfigurationMeta: 'Taxonomy, templates, and search refiner approval status',
+    taxonomy: 'Document taxonomy',
+    taxonomyMeta: 'Document types, subtypes, and required metadata',
+    templates: 'Matter templates',
+    templatesMeta: 'Default document sets by matter type',
+    refiners: 'Search refiners',
+    refinersMeta: 'Queryable metadata fields',
+    contractRequired: 'Contract required',
+    governedByBackend: 'Read-only until save APIs are approved',
     apiUnavailableTitle: 'Operational data is not connected yet.',
     apiUnavailableDescription:
       'Only real settings returned by the API will appear in this section.',
@@ -209,6 +249,8 @@ export function EnterpriseHardeningClient() {
         }
       />
       {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
+
+      <AdminDmsConfigurationPanel copy={copy} />
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <SectionCard
@@ -319,6 +361,51 @@ export function EnterpriseHardeningClient() {
         </div>
       </section>
     </PageShell>
+  );
+}
+
+function AdminDmsConfigurationPanel({ copy }: { copy: (typeof enterpriseCopy)[Language] }) {
+  const cards = [
+    {
+      title: copy.taxonomy,
+      meta: copy.taxonomyMeta,
+      icon: <FileCog className="h-4 w-4" />,
+    },
+    {
+      title: copy.templates,
+      meta: copy.templatesMeta,
+      icon: <FolderKanban className="h-4 w-4" />,
+    },
+    {
+      title: copy.refiners,
+      meta: copy.refinersMeta,
+      icon: <SearchCheck className="h-4 w-4" />,
+    },
+  ];
+  return (
+    <SectionCard
+      icon={<FileCog className="h-4 w-4" />}
+      title={copy.dmsConfiguration}
+      meta={copy.dmsConfigurationMeta}
+    >
+      <div className="grid gap-3 lg:grid-cols-3">
+        {cards.map((card) => (
+          <div key={card.title} className="rounded-md border bg-background p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                {card.icon}
+                <span className="truncate text-sm font-semibold text-foreground">{card.title}</span>
+              </div>
+              <StatusBadge tone="warning">{copy.contractRequired}</StatusBadge>
+            </div>
+            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{card.meta}</p>
+            <p className="mt-3 text-[12px] font-medium text-muted-foreground">
+              {copy.governedByBackend}
+            </p>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
   );
 }
 
