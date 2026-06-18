@@ -6,9 +6,10 @@ import type { EthicalWallDetailDto, WallMembershipType } from '@amic-vault/share
 import { wallMembershipTypes } from '@amic-vault/shared';
 import { WallList } from '@/components/ethical-wall/wall-list';
 import { WallPolicyInspector } from '@/components/ethical-wall/wall-policy-inspector';
+import { MatterCodePicker } from '@/components/matter/matter-code-picker';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { FilterBar, FilterField } from '@/components/ui/filter-bar';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -21,6 +22,7 @@ import {
 } from '@/lib/api/ethical-walls';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { useI18n, type Language } from '@/lib/i18n';
+import type { MatterCodeOption } from '@/lib/matter-app';
 
 const wallCopy: Record<
   Language,
@@ -36,8 +38,8 @@ const wallCopy: Record<
     advancedActionsMeta: string;
     policyActions: string;
     policyActionsMeta: string;
-    pickerUnavailableTitle: string;
-    pickerUnavailableDescription: string;
+    selectedMatter: string;
+    noMatterSelected: string;
     matterRef: string;
     wallName: string;
     reason: string;
@@ -54,17 +56,16 @@ const wallCopy: Record<
     description: '권한이 확인된 정보 장벽과 구성원 차단 상태만 표시합니다.',
     searchCard: '정보 장벽 조회',
     searchMeta: '운영 데이터 기준',
-    matterFilter: '사건 참조',
+    matterFilter: 'Matter Code',
     filterTitle: '검색',
     advancedFilter: '고급 참조 필터',
     advancedActions: '보안 운영 참조 입력',
-    advancedActionsMeta: '표시명 선택 API가 연결되기 전까지 보안 관리자만 사용합니다.',
+    advancedActionsMeta: '사용자 선택 API가 연결되기 전까지 보안 관리자만 사용합니다.',
     policyActions: '정책 작업',
-    policyActionsMeta: '사건 및 사용자 선택 API 필요',
-    pickerUnavailableTitle: '정책 작업을 표시할 수 없습니다.',
-    pickerUnavailableDescription:
-      '사건 선택과 사용자 조회 API가 연결되면 생성 및 구성원 변경 작업이 이 영역에 표시됩니다.',
-    matterRef: '사건 참조',
+    policyActionsMeta: 'Matter Code 기준',
+    selectedMatter: '선택된 Matter',
+    noMatterSelected: 'Matter Code를 먼저 선택하세요.',
+    matterRef: 'Matter 참조',
     wallName: '정보 장벽 이름',
     reason: '설정 사유',
     createTitle: '정보 장벽 추가',
@@ -83,17 +84,16 @@ const wallCopy: Record<
       'Displays permission-checked information barriers and membership blocking status only.',
     searchCard: 'Information barrier lookup',
     searchMeta: 'Operational data',
-    matterFilter: 'Find by matter ref',
+    matterFilter: 'Matter Code',
     filterTitle: 'Search',
     advancedFilter: 'Advanced reference filter',
     advancedActions: 'Security operations reference input',
     advancedActionsMeta:
-      'Security administrators only until display-name picker APIs are available.',
+      'Security administrators only until user picker APIs are available.',
     policyActions: 'Policy actions',
-    policyActionsMeta: 'Matter and user picker APIs required',
-    pickerUnavailableTitle: 'Policy actions are unavailable.',
-    pickerUnavailableDescription:
-      'Create and membership actions will appear here after matter selection and user lookup APIs are connected.',
+    policyActionsMeta: 'Matter Code based',
+    selectedMatter: 'Selected Matter',
+    noMatterSelected: 'Select a Matter Code first.',
     matterRef: 'Matter ref',
     wallName: 'Barrier name',
     reason: 'Barrier reason',
@@ -114,11 +114,12 @@ export function WallAdminClient() {
   const copy = wallCopy[language];
   const [items, setItems] = useState<EthicalWallDetailDto[]>([]);
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
-  const [matterFilter, setMatterFilter] = useState('');
+  const [filterMatter, setFilterMatter] = useState<MatterCodeOption | null>(null);
+  const [newWallMatter, setNewWallMatter] = useState<MatterCodeOption | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyMembershipId, setBusyMembershipId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [newWall, setNewWall] = useState({ matterId: '', wallName: '', reason: '' });
+  const [newWall, setNewWall] = useState({ wallName: '', reason: '' });
   const [newMembership, setNewMembership] = useState({
     wallId: '',
     subjectId: '',
@@ -155,22 +156,27 @@ export function WallAdminClient() {
 
   async function submitFilter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await load(matterFilter);
+    await load(filterMatter?.matterReference ?? '');
   }
 
   async function submitWall(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!newWallMatter) {
+      setError(copy.noMatterSelected);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       await createEthicalWall({
-        matterId: newWall.matterId.trim(),
+        matterId: newWallMatter.matterReference,
         wallName: newWall.wallName.trim(),
         reason: newWall.reason.trim(),
         members: [],
       });
-      setNewWall({ matterId: '', wallName: '', reason: '' });
-      await load(matterFilter);
+      setNewWall({ wallName: '', reason: '' });
+      setNewWallMatter(null);
+      await load(filterMatter?.matterReference ?? '');
     } catch (caught) {
       setError(safeApiErrorMessage(caught));
     } finally {
@@ -189,7 +195,7 @@ export function WallAdminClient() {
         membershipType: newMembership.membershipType,
       });
       setNewMembership({ wallId: '', subjectId: '', membershipType: 'excluded' });
-      await load(matterFilter);
+      await load(filterMatter?.matterReference ?? '');
     } catch (caught) {
       setError(safeApiErrorMessage(caught));
     } finally {
@@ -202,7 +208,7 @@ export function WallAdminClient() {
     setError(null);
     try {
       await removeEthicalWallMembership(wallId, membershipId);
-      await load(matterFilter);
+      await load(filterMatter?.matterReference ?? '');
     } catch (caught) {
       setError(safeApiErrorMessage(caught));
     } finally {
@@ -231,22 +237,12 @@ export function WallAdminClient() {
           title={copy.searchCard}
           description={copy.searchMeta}
         >
-          <details className="rounded-md border bg-muted/20 p-3 sm:col-span-full">
-            <summary className="cursor-pointer text-sm font-medium text-foreground">
-              {copy.advancedFilter}
-            </summary>
-            <FilterField
-              className="mt-3"
-              htmlFor="wall-matter-ref-filter"
-              label={copy.matterFilter}
-            >
-              <Input
-                id="wall-matter-ref-filter"
-                value={matterFilter}
-                onChange={(event) => setMatterFilter(event.target.value)}
-              />
-            </FilterField>
-          </details>
+          <div className="sm:col-span-full">
+            <MatterCodePicker
+              selectedMatter={filterMatter}
+              onMatterSelected={setFilterMatter}
+            />
+          </div>
         </FilterBar>
       </form>
 
@@ -264,11 +260,40 @@ export function WallAdminClient() {
       </section>
 
       <SectionCard title={copy.policyActions} meta={copy.policyActionsMeta}>
-        <EmptyState
-          variant="api-unavailable"
-          title={copy.pickerUnavailableTitle}
-          description={copy.pickerUnavailableDescription}
-        />
+        <form className="grid gap-3" onSubmit={submitWall}>
+          <MatterCodePicker selectedMatter={newWallMatter} onMatterSelected={setNewWallMatter} />
+          {newWallMatter ? (
+            <div className="rounded-md border bg-muted/20 p-3 text-sm">
+              <span className="font-medium text-foreground">{copy.selectedMatter}</span>
+              <span className="ml-2 text-muted-foreground">
+                {newWallMatter.matterCode} · {newWallMatter.matterName}
+              </span>
+            </div>
+          ) : null}
+          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+            <Input
+              aria-label={copy.wallName}
+              placeholder={copy.wallName}
+              value={newWall.wallName}
+              onChange={(event) => setNewWall({ ...newWall, wallName: event.target.value })}
+            />
+            <Input
+              aria-label={copy.reason}
+              placeholder={copy.reason}
+              value={newWall.reason}
+              onChange={(event) => setNewWall({ ...newWall, reason: event.target.value })}
+            />
+            <Button
+              aria-label={copy.createTitle}
+              title={copy.createTitle}
+              type="submit"
+              disabled={busy || !newWallMatter}
+            >
+              <Plus className="h-4 w-4" />
+              {copy.createTitle}
+            </Button>
+          </div>
+        </form>
       </SectionCard>
 
       <SectionCard title={copy.advancedActions} meta={copy.advancedActionsMeta}>
@@ -277,39 +302,6 @@ export function WallAdminClient() {
             {copy.advancedActions}
           </summary>
           <div className="mt-4 grid gap-3">
-            <form
-              className="grid gap-3 rounded-md border bg-muted/20 p-3 lg:grid-cols-[1fr_1fr_1fr_auto]"
-              onSubmit={submitWall}
-            >
-              <Input
-                aria-label={copy.matterRef}
-                placeholder={copy.matterRef}
-                value={newWall.matterId}
-                onChange={(event) => setNewWall({ ...newWall, matterId: event.target.value })}
-              />
-              <Input
-                aria-label={copy.wallName}
-                placeholder={copy.wallName}
-                value={newWall.wallName}
-                onChange={(event) => setNewWall({ ...newWall, wallName: event.target.value })}
-              />
-              <Input
-                aria-label={copy.reason}
-                placeholder={copy.reason}
-                value={newWall.reason}
-                onChange={(event) => setNewWall({ ...newWall, reason: event.target.value })}
-              />
-              <Button
-                aria-label={copy.createTitle}
-                title={copy.createTitle}
-                type="submit"
-                disabled={busy}
-              >
-                <Plus className="h-4 w-4" />
-                {copy.createTitle}
-              </Button>
-            </form>
-
             <form
               className="grid gap-3 rounded-md border bg-muted/20 p-3 lg:grid-cols-[1fr_1fr_12rem_auto]"
               onSubmit={submitMembership}

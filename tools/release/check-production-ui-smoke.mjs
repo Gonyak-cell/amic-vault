@@ -233,6 +233,50 @@ const enterpriseSearchFiles = [
   },
 ];
 
+const governanceWorkflowOpsFiles = [
+  {
+    path: 'apps/web/src/components/governance/governance-context-panel.tsx',
+    patterns: [
+      { name: 'document governance panel', pattern: /DocumentGovernanceContextPanel/ },
+      { name: 'matter governance panel', pattern: /MatterGovernanceContextPanel/ },
+      { name: 'document workflow ops panel', pattern: /DocumentWorkflowOpsPanel/ },
+      { name: 'matter workflow ops panel', pattern: /MatterWorkflowOpsPanel/ },
+      { name: 'file organization prep scope copy', pattern: /파일 정리 준비 범위/ },
+      { name: 'real-state-only task copy', pattern: /실제 문서·사건 상태에서 발생한 작업만 표시/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-action-center.tsx',
+    patterns: [
+      { name: 'document governance panel wired', pattern: /DocumentGovernanceContextPanel/ },
+      { name: 'document workflow ops panel wired', pattern: /DocumentWorkflowOpsPanel/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
+    patterns: [
+      { name: 'matter governance panel wired', pattern: /MatterGovernanceContextPanel/ },
+      { name: 'matter workflow ops panel wired', pattern: /MatterWorkflowOpsPanel/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/dashboard/vault-activity-client.tsx',
+    patterns: [
+      { name: 'dashboard action queue', pattern: /DashboardActionQueue/ },
+      { name: 'real operations task copy', pattern: /실제 운영 데이터에서 발생한 작업만 표시/ },
+      { name: 'no fake dashboard queue counts', pattern: /dashboardActionItems/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/walls/wall-admin-client.tsx',
+    patterns: [
+      { name: 'wall Matter Code picker', pattern: /MatterCodePicker/ },
+      { name: 'selected Matter display', pattern: /selectedMatter/ },
+      { name: 'advanced user refs only', pattern: /사용자 선택 API/ },
+    ],
+  },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -437,6 +481,17 @@ function checkEnterpriseSearchGuard() {
   }
 }
 
+function checkGovernanceWorkflowOpsGuard() {
+  for (const file of governanceWorkflowOpsFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Governance/workflow/ops production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -447,6 +502,7 @@ try {
   checkUploadBrowseFlowGuard();
   checkDocumentActionCenterGuard();
   checkEnterpriseSearchGuard();
+  checkGovernanceWorkflowOpsGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

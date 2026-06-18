@@ -28,6 +28,10 @@ import {
   documentTypes,
 } from '@amic-vault/shared';
 import { AiPrepStatusPanel } from '@/components/ai/ai-prep-status-panel';
+import {
+  DocumentGovernanceContextPanel,
+  DocumentWorkflowOpsPanel,
+} from '@/components/governance/governance-context-panel';
 import { Button } from '@/components/ui/button';
 import {
   DataTable,
@@ -403,6 +407,8 @@ export function DocumentActionCenter({
               ) : null}
             </SectionCard>
 
+            <DocumentGovernanceContextPanel document={document} prepStatus={prepStatus} />
+
             <SectionCard
               icon={<Eye className="h-4 w-4" />}
               title="미리보기"
@@ -426,6 +432,8 @@ export function DocumentActionCenter({
           </div>
 
           <aside className="space-y-4">
+            <DocumentWorkflowOpsPanel document={document} prepStatus={prepStatus} />
+
             <SectionCard
               icon={<Download className="h-4 w-4" />}
               title="다운로드"
