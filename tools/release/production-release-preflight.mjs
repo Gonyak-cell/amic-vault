@@ -79,12 +79,15 @@ for (const expected of [
   'PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15',
   'PROD-PATCH-46C6B14-DEPLOY-2026-06-16',
   'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
+  'PROD-PATCH-70F0944-UIUX-DEPLOY-2026-06-18',
+  'PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18',
   'PROD-LAI-UPLOAD-PREP-CANARY-ENABLE-2026-06-16',
   'PROD-LAI-UPLOAD-PREP-CANARY-PUBLIC-SMOKE-2026-06-16',
   'PROD-LAI-FILE-ORG-FULL-ENABLE-2026-06-16',
   'PROD-LAI-FILE-ORG-FULL-SMOKE-2026-06-16',
   'd80fbb5d5bf339ed11ddd6bca27b9e937bd83811',
   '46c6b14c4d0fd143b478e3184018635c9f96568a',
+  '70f094490b1eab41b04b1c48137b47a585263f5c',
   '62b35cd497e1482e5e0fb5bd898e09ffa88270b',
   'c9dc922d50fe7b39b52f023d1942d8b7c5ad4cac',
   'SMOKE-015',
@@ -125,6 +128,8 @@ for (const expected of [
   'EV-PROD-013',
   'EV-PROD-014',
   'EV-PROD-015',
+  'EV-PROD-016',
+  'EV-PROD-017',
 ]) {
   assertContains(
     contents.get('docs/release/evidence-register.md'),
@@ -210,6 +215,8 @@ for (const expected of [
   'PROD-PATCH-D80FBB5-DEPLOY-2026-06-15',
   'PROD-PATCH-42E7B29-DEPLOY-2026-06-15',
   'PROD-PATCH-46C6B14-DEPLOY-2026-06-16',
+  'PROD-PATCH-70F0944-UIUX-DEPLOY-2026-06-18',
+  'PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18',
 ]) {
   assertContains(
     contents.get('docs/release/production-release-runbook.md'),
@@ -248,8 +255,8 @@ if (docsPackageDiff.length > 0) {
 }
 
 const result = {
-  evidenceRef: 'PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16',
-  status: 'prod-patch-46c6b14-smoke-passed',
+  evidenceRef: 'PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18',
+  status: 'prod-patch-70f0944-uiux-public-smoke-passed',
   deploymentExecuted: true,
 };
 

@@ -107,9 +107,11 @@ await run('SMOKE-002', 'Web login page renders', async () => {
   assert(response.status === 200, `unexpected status ${response.status}`);
   loginHtml = await response.text();
   assert(loginHtml.includes('AMIC Vault'), 'login page missing AMIC Vault title');
+  assert(includesAny(loginHtml, ['Email', '이메일']), 'login page missing email field');
+  assert(includesAny(loginHtml, ['Password', '비밀번호']), 'login page missing password field');
   assert(
-    includesAny(loginHtml, ['Tenant ID', 'Workspace ID', '워크스페이스 ID']),
-    'login page missing tenant/workspace id field',
+    !includesAny(loginHtml, ['Tenant ID', 'Workspace ID', '워크스페이스 ID', '테넌트 ID']),
+    'login page must not expose tenant/workspace id field',
   );
   return { status: response.status };
 });
@@ -320,11 +322,7 @@ if (publicOnly) {
     const login = await fetchWithTimeout(apiUrl('/auth/login'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        tenantId: config.negativeTenantId,
-        email: config.negativeEmail,
-        password: config.negativePassword,
-      }),
+      body: JSON.stringify(negativeLoginPayload(config)),
     });
     assert(login.status === 201 || login.status === 200, `negative login status ${login.status}`);
     const negativeCookie = extractSessionCookie(login.headers.get('set-cookie'));
@@ -503,11 +501,11 @@ function value(name, fallback) {
 }
 
 function hasPrimaryCredentials() {
-  return Boolean((config.tenantId || config.tenantSlug) && config.email && config.password);
+  return Boolean(config.email && config.password);
 }
 
 function hasNegativeCredentials() {
-  return Boolean(config.negativeTenantId && config.negativeEmail && config.negativePassword);
+  return Boolean(config.negativeEmail && config.negativePassword);
 }
 
 function loginPayload(input) {
@@ -517,6 +515,15 @@ function loginPayload(input) {
   };
   if (input.tenantId) payload.tenantId = input.tenantId;
   if (input.tenantSlug) payload.tenantSlug = input.tenantSlug;
+  return payload;
+}
+
+function negativeLoginPayload(input) {
+  const payload = {
+    email: input.negativeEmail,
+    password: input.negativePassword,
+  };
+  if (input.negativeTenantId) payload.tenantId = input.negativeTenantId;
   return payload;
 }
 

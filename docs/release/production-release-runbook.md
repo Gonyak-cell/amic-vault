@@ -105,6 +105,19 @@ fail=0 skip=7. The release boundary remains file-organization prep only:
 summary, legal analysis, external model routes, raw prompt/source/model-response
 storage, and automatic reprocessing remain excluded.
 
+Production UIUX patch `PROD-PATCH-70F0944-UIUX-DEPLOY-2026-06-18` deployed
+PR #176 merge commit `70f094490b1eab41b04b1c48137b47a585263f5c`. API and web
+linux/amd64 image manifests were pushed from that SHA; existing ingestion and
+Gemma sidecar images were retained. The migration-role one-off task exited 0
+with `No migrations to run!` and `Migrations complete!`, confirming required
+migrations through `0079_email_only_login_candidate_helper` were already
+applied. Production API/Web services rolled to task revisions 30 and 15 with
+desired=1/running=1/pending=0. Public smoke
+`PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18` passed SMOKE-001 through
+SMOKE-004 and SMOKE-012 through SMOKE-015 with pass=8 fail=0 skip=7, including
+the email/password-only login check and no workspace id exposure. The Local AI
+release boundary remains file-organization prep only.
+
 Customer-launch evidence `APPROVAL-LRB-007-CUSTOMER-DATA-2026-06-15` approves
 actual customer documents only through the Vault app-controlled
 upload/versioning path. `APPROVAL-LRB-014-JWS-OWNER-2026-06-15` assigns support
