@@ -23,6 +23,7 @@ a substitute for operational security approval.
 | Final production customer-launch smoke passed without exposing customer documents. | `PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15`, `EV-PROD-011`, `docs/release/production-execution-preflight.md` |
 | Package docs remain frozen. | `pnpm docs:frozen` |
 | Launch readiness artifacts are present and internally consistent. | `pnpm launch:readiness` |
+| Enterprise DMS UI release evidence is reference-only and covers rollout, rollback, monitor, route visibility, negative auth, and AI prep scope. | `docs/release/enterprise-dms-ui-release-evidence.md`, `docs/ui/enterprise-dms-release-hardening.md`, `pnpm ui:production-smoke`, `pnpm check:ui-pr-checklist` |
 
 ## Operational Review Status
 
@@ -36,4 +37,6 @@ Post-launch monitoring should continue to cover:
 - Monitoring, alert routing, retention, and incident response.
 - Approved data handling for pilot or production data.
 - Release rollback authority and communications.
+- Matter-first DMS UI upload, browse, search, governance, integration, and AI
+  prep file-organization monitor signals.
 - SNS alert subscription confirmation for `jws`.
