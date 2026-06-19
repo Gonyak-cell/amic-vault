@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bell,
   CheckSquare,
   FileText,
   FolderKanban,
@@ -91,6 +92,11 @@ const routeNavigation = {
     group: 'Vault',
     icon: ListChecks,
     labelKey: 'nav.workQueue',
+  },
+  '/notifications': {
+    group: 'Vault',
+    icon: Bell,
+    labelKey: 'nav.notifications',
   },
   '/integrations/outlook': {
     group: 'Integrations',

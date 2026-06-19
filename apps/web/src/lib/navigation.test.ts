@@ -17,6 +17,7 @@ describe('navigation visibility', () => {
     expect(labels).toContain('사건');
     expect(labels).toContain('문서함');
     expect(labels).toContain('작업함');
+    expect(labels).toContain('알림');
     expect(labels).toContain('문서 검색');
     expect(labels).not.toContain('Outlook');
     expect(labels).not.toContain('접근 기록');
@@ -28,6 +29,7 @@ describe('navigation visibility', () => {
 
     expect(labels).toContain('기록 보존');
     expect(labels).toContain('작업함');
+    expect(labels).toContain('알림');
     expect(labels).toContain('접근 기록');
     expect(labels).toContain('정보 차단');
     expect(labels).toContain('관리자 설정');
