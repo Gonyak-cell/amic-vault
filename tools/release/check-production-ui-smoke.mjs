@@ -404,6 +404,12 @@ const governanceWorkflowOpsFiles = [
     patterns: [
       { name: 'work queue page heading', pattern: /작업함/ },
       { name: 'work queue dashboard source', pattern: /getDashboardOverview/ },
+      { name: 'work queue file cabinet filters', pattern: /문서함 조치 필터/ },
+      { name: 'work queue extraction failed link', pattern: /\/files\?extractionStatus=failed/ },
+      {
+        name: 'work queue AI prep file link',
+        pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/,
+      },
     ],
   },
   {

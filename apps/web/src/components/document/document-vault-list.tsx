@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import {
   documentConfidentialityLevels,
@@ -9,6 +10,7 @@ import {
   documentPrivilegeStatuses,
   documentStatuses,
   documentTypes,
+  listDocumentSortValues,
   type DocumentConfidentialityLevel,
   type DocumentDto,
   type DocumentExtractionStatus,
@@ -164,6 +166,62 @@ function cleanFilters(filters: DocumentVaultFilterState): DocumentVaultFilterSta
   };
 }
 
+function enumParam<T extends readonly string[]>(values: T, value: string | null): T[number] | '' {
+  return value && (values as readonly string[]).includes(value) ? (value as T[number]) : '';
+}
+
+function booleanParam(value: string | null): BooleanFilterValue {
+  if (value === 'true' || value === 'false') return value;
+  return '';
+}
+
+export function documentVaultFiltersFromParams(params: {
+  get(name: string): string | null;
+}): DocumentVaultFilterState {
+  return {
+    aiAllowed: booleanParam(params.get('aiAllowed')),
+    confidentialityLevel: enumParam(
+      documentConfidentialityLevels,
+      params.get('confidentialityLevel'),
+    ),
+    documentType: enumParam(documentTypes, params.get('documentType')),
+    extractionStatus: enumParam(documentExtractionStatuses, params.get('extractionStatus')),
+    legalHold: booleanParam(params.get('legalHold')),
+    matterCode: params.get('matterCode')?.trim() ?? '',
+    privilegeStatus: enumParam(documentPrivilegeStatuses, params.get('privilegeStatus')),
+    sortBy: enumParam(listDocumentSortValues, params.get('sortBy')) || 'updated_desc',
+    status: enumParam(documentStatuses, params.get('status')),
+    title: params.get('title')?.trim() ?? '',
+  };
+}
+
+export function documentVaultPageFromParams(params: { get(name: string): string | null }): number {
+  return Math.max(1, Number(params.get('page') ?? '1') || 1);
+}
+
+export function documentVaultUrlForFilters(
+  filters: DocumentVaultFilterState,
+  page: number,
+): string {
+  const cleaned = cleanFilters(filters);
+  const params = new URLSearchParams();
+  if (page > 1) params.set('page', String(page));
+  if (cleaned.title) params.set('title', cleaned.title);
+  if (cleaned.matterCode) params.set('matterCode', cleaned.matterCode);
+  if (cleaned.documentType) params.set('documentType', cleaned.documentType);
+  if (cleaned.status) params.set('status', cleaned.status);
+  if (cleaned.confidentialityLevel) {
+    params.set('confidentialityLevel', cleaned.confidentialityLevel);
+  }
+  if (cleaned.privilegeStatus) params.set('privilegeStatus', cleaned.privilegeStatus);
+  if (cleaned.extractionStatus) params.set('extractionStatus', cleaned.extractionStatus);
+  if (cleaned.aiAllowed) params.set('aiAllowed', cleaned.aiAllowed);
+  if (cleaned.legalHold) params.set('legalHold', cleaned.legalHold);
+  if (cleaned.sortBy !== 'updated_desc') params.set('sortBy', cleaned.sortBy);
+  const queryString = params.toString();
+  return queryString ? `/files?${queryString}` : '/files';
+}
+
 export function documentVaultListQueryFromFilters(
   filters: DocumentVaultFilterState,
   page: number,
@@ -200,12 +258,15 @@ function countActiveFilters(filters: DocumentVaultFilterState): number {
 }
 
 export function DocumentVaultList() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const initialFilters = React.useMemo(() => documentVaultFiltersFromParams(params), [params]);
+  const initialPage = React.useMemo(() => documentVaultPageFromParams(params), [params]);
   const [documents, setDocuments] = React.useState<DocumentDto[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
-  const [page, setPage] = React.useState(1);
-  const [draftFilters, setDraftFilters] =
-    React.useState<DocumentVaultFilterState>(emptyDocumentVaultFilters);
-  const [filters, setFilters] = React.useState<DocumentVaultFilterState>(emptyDocumentVaultFilters);
+  const [page, setPage] = React.useState(initialPage);
+  const [draftFilters, setDraftFilters] = React.useState<DocumentVaultFilterState>(initialFilters);
+  const [filters, setFilters] = React.useState<DocumentVaultFilterState>(initialFilters);
   const [isLoading, setIsLoading] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
@@ -239,14 +300,22 @@ export function DocumentVaultList() {
 
   function applyFilters(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const cleaned = cleanFilters(draftFilters);
     setPage(1);
-    setFilters(cleanFilters(draftFilters));
+    setFilters(cleaned);
+    router.replace(documentVaultUrlForFilters(cleaned, 1));
   }
 
   function resetFilters() {
     setDraftFilters(emptyDocumentVaultFilters);
     setFilters(emptyDocumentVaultFilters);
     setPage(1);
+    router.replace('/files');
+  }
+
+  function goToPage(nextPage: number) {
+    setPage(nextPage);
+    router.replace(documentVaultUrlForFilters(filters, nextPage));
   }
 
   const activeFilterCount = countActiveFilters(filters);
@@ -490,7 +559,7 @@ export function DocumentVaultList() {
             variant="outline"
             size="sm"
             disabled={page <= 1 || isLoading}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            onClick={() => goToPage(Math.max(1, page - 1))}
           >
             이전
           </Button>
@@ -502,7 +571,7 @@ export function DocumentVaultList() {
             variant="outline"
             size="sm"
             disabled={page >= totalPages || isLoading}
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            onClick={() => goToPage(Math.min(totalPages, page + 1))}
           >
             다음
           </Button>

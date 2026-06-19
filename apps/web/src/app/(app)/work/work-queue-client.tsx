@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Activity, Bell, Bot, PlugZap } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, Bell, Bot, FileSearch, PlugZap } from 'lucide-react';
 import {
   dashboardActionItems,
   DashboardWorkQueueSection,
 } from '@/components/dashboard/dashboard-work-queue';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -50,15 +52,42 @@ export function WorkQueueContent({ dashboardState }: { dashboardState: Dashboard
         breadcrumbs={['Vault', '작업함']}
         title="작업함"
         description="권한과 운영 상태가 확인된 작업만 표시됩니다."
-        actions={<StatusBadge tone={actionItems.length > 0 ? 'warning' : 'success'}>실제 상태 기반</StatusBadge>}
+        actions={
+          <StatusBadge tone={actionItems.length > 0 ? 'warning' : 'success'}>
+            실제 상태 기반
+          </StatusBadge>
+        }
       />
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
           <DashboardWorkQueueSection state={dashboardState} title="내 작업" />
+          <SectionCard
+            icon={<FileSearch className="h-4 w-4" />}
+            title="문서함 조치 필터"
+            meta="실시간 문서함"
+          >
+            <p className="text-sm text-muted-foreground">
+              작업 API가 없는 항목은 가짜 작업으로 만들지 않고, 권한 내 문서함 필터로 바로 엽니다.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/files?extractionStatus=failed">추출 실패</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/files?extractionStatus=ocr_pending">OCR 필요</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/files?aiAllowed=true&sortBy=matter_asc">파일 정리 준비</Link>
+              </Button>
+            </div>
+          </SectionCard>
           <SectionCard icon={<Activity className="h-4 w-4" />} title="작업 출처" meta="운영 데이터">
             <ul className="grid gap-2 sm:grid-cols-2">
-              <SourceStateItem label="권한/정책 알림" state={dashboardState.permissionPolicyAlerts} />
+              <SourceStateItem
+                label="권한/정책 알림"
+                state={dashboardState.permissionPolicyAlerts}
+              />
               <SourceStateItem label="파일 정리 준비" state={dashboardState.aiPrepStatus} />
               <SourceStateItem label="통합 상태" state={dashboardState.integrationStatus} />
               <SourceStateItem label="운영 데이터 연결" state={dashboardState.recentActivity} />
@@ -121,22 +150,32 @@ function SourceStateItem<T>({ label, state }: { label: string; state: DataState<
 function SourceStateBody<T>({ emptyTitle, state }: { emptyTitle: string; state: DataState<T[]> }) {
   if (state.status === 'ready') {
     return state.data.length > 0 ? (
-      <p className="text-sm text-muted-foreground">{state.data.length}건이 작업함에 반영되었습니다.</p>
+      <p className="text-sm text-muted-foreground">
+        {state.data.length}건이 작업함에 반영되었습니다.
+      </p>
     ) : (
       <EmptyState title={emptyTitle} />
     );
   }
   if (state.status === 'empty') return <EmptyState title={emptyTitle} />;
-  if (state.status === 'error') return <EmptyState variant="api-error" title="데이터를 표시할 수 없습니다." />;
-  if (state.status === 'forbidden') return <EmptyState variant="no-access" title="이 항목을 볼 권한이 없습니다." />;
+  if (state.status === 'error')
+    return <EmptyState variant="api-error" title="데이터를 표시할 수 없습니다." />;
+  if (state.status === 'forbidden')
+    return <EmptyState variant="no-access" title="이 항목을 볼 권한이 없습니다." />;
   if (state.status === 'blocked') {
-    return <EmptyState variant="policy-blocked" title="정보 차단 또는 권한 정책으로 표시할 수 없습니다." />;
+    return (
+      <EmptyState
+        variant="policy-blocked"
+        title="정보 차단 또는 권한 정책으로 표시할 수 없습니다."
+      />
+    );
   }
   return <EmptyState variant="api-unavailable" title="운영 데이터 연결 대기 중입니다." />;
 }
 
 function sourceMeta<T>(state: DataState<T[]>): string {
-  if (state.status === 'ready') return state.data.length > 0 ? `${state.data.length}건` : '표시할 항목 없음';
+  if (state.status === 'ready')
+    return state.data.length > 0 ? `${state.data.length}건` : '표시할 항목 없음';
   if (state.status === 'empty') return '표시할 항목 없음';
   if (state.status === 'error') return '연결 확인 필요';
   if (state.status === 'forbidden' || state.status === 'blocked') return '권한 정책 적용';
