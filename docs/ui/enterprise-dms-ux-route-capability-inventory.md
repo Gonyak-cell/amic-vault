@@ -27,7 +27,7 @@ Source baseline:
 | `/records` | Records lifecycle console. | Partial/strong backend. Document pages now link records actions with display-safe context labels, and records route consumes those labels through a normal action-readiness panel for hold, archive, disposal, and certificate review without showing raw refs. Persisted disposal-task workflow storage remains incomplete. | DMS-UX-405, 505 |
 | `/audit` | Admin audit search/export. | Partial/strong. Contextual matter/document timelines exist and clear stale rows on denied/error reloads; deeper admin audit remains separate. | DMS-UX-406, 511 |
 | `/walls` | Ethical wall/security admin. | Partial. Wall surfaces exist and common Matter lookup/create now uses Matter Code picker; user/group membership changes still need picker APIs before raw refs can be removed from advanced security operations. | DMS-UX-402 |
-| `/admin` | Enterprise/admin settings. | Partial. SSO/BYOK/SIEM/backup/compliance surfaces exist; DMS taxonomy/template/refiner IA is visible as read-only contract state until save/audit APIs are approved. Search index reprocessing is wired to the admin reindex endpoint and search health now shows index coverage, stale index counts, extraction/OCR status, stale chunk/embedding counts, and no-result search audit hashes without raw query/body/snippet content. Operations health uses local file organization prep health/metrics only and does not expose raw content. | DMS-UX-311, 508, 601 to 610 |
+| `/admin` | Enterprise/admin settings. | Partial. SSO/BYOK/SIEM/backup/compliance surfaces exist; DMS taxonomy and search refiner configuration are API-backed with admin-only save/list/disable behavior, tenant RLS, validation, and reference-only audit. Matter/folder templates remain gated until folder/document-set semantics are approved. Search index reprocessing is wired to the admin reindex endpoint and search health now shows index coverage, stale index counts, extraction/OCR status, stale chunk/embedding counts, and no-result search audit hashes without raw query/body/snippet content. Operations health uses local file organization prep health/metrics only and does not expose raw content. | DMS-UX-311, 508, 601 to 610 |
 | `/admin/security` | Security/admin compatibility route. | Partial. Same admin/security route policy as `/admin`. | DMS-UX-401 to 404 |
 | `/integrations` | Integration status parent. | Partial. Shows safe integration matrix: Matter app links to source/gate status, Outlook links to real status, OneDrive/Office remain gated without connected-state claims. | DMS-UX-003, 607, 610 |
 | `/integrations/matter-app` | Matter app source/gate status. | Partial. Shows Matter Code source mode, upload-authoritative gate, projection fallback policy, and setup-required state without exposing endpoints, tokens, internal Matter IDs, or connected-state claims before configuration. Runtime Matter app endpoint remains a blocker. | DMS-UX-003, 004, 801 |
@@ -57,7 +57,7 @@ Source baseline:
 | Saved searches/search folders | `saved_searches`, `GET/POST/DELETE /search/saved-searches`, `/search/folders` | Partial. User-scoped saved searches persist validated `SearchQueryDto` only, audit hash/filter refs, and appear as search folders. Admin-shared folders and analytics remain deferred. | DMS-UX-309 |
 | Workflow/task inbox | `GET /work/items` | Server-derived API exists and returns display-safe work items from permission-scoped dashboard operating state. The web route filters those items by source/status and links remediation to approved document and records entry points. It does not claim persisted assignment/due/status workflow storage. | DMS-UX-501 to 507 |
 | Notifications | `GET /notifications` | Server-derived API exists and returns display-safe notification items from permission-scoped dashboard operating state and recent activity. The web route filters those items by source/status and links each item to an approved source surface. It does not claim persisted notification storage. | DMS-UX-506 |
-| Taxonomy/templates | No DMS taxonomy/template admin API identified. | UI IA exists as read-only contract state; persisted administration remains a gap. | DMS-UX-601 to 605 |
+| Taxonomy/templates | `enterprise_dms_taxonomies`, `enterprise_dms_search_refiners`, `GET/POST /enterprise/dms/taxonomies`, `POST /enterprise/dms/taxonomies/:taxonomyId/disable`, `GET/POST /enterprise/dms/search-refiners`, `POST /enterprise/dms/search-refiners/:refinerId/disable` | Taxonomy and search refiners are persisted, tenant-scoped, RLS-protected, validated, admin-only, and audited with reference-only metadata. Matter/folder templates remain gated pending folder/document-set semantics. | DMS-UX-601 to 605 |
 | Matter app lookup/sync | Matter app runtime endpoint not found in this checkout. | Gap/blocker for production-grade Matter Code picker. `/integrations/matter-app` now exposes the safe source/gate status so operators can see why upload is blocked without leaking endpoint or internal refs. | DMS-UX-003, 004 |
 
 ## Immediate PR-A Decision
@@ -99,14 +99,15 @@ picker APIs, and access-request workflow.
 ## Immediate PR-E Decision
 
 PR-E may expose admin configuration categories and integration status only as
-API-backed data or explicitly gated contract states. Taxonomy, templates,
-search refiners, OneDrive, and Office open/save must not present editable or
-connected production states until save/sync/audit contracts are approved.
+API-backed data or explicitly gated contract states. Taxonomy and search
+refiners are API-backed in the admin surface. Matter templates, folder
+templates, OneDrive, and Office open/save must not present editable or connected
+production states until save/sync/audit contracts are approved.
 
 PR-E closeout evidence is fixed in `docs/ui/enterprise-dms-pr-e-closeout.md`.
-The evidence requires read-only taxonomy, Matter template, folder template, and
-search refiner contract states; Outlook filing unification route evidence;
-OneDrive/Office gated planning; admin IA cleanup; and integration status safety.
-It preserves deferred items for persisted taxonomy/template/refiner APIs,
-folder inheritance semantics, OneDrive open-save-sync runtime, Office
-coauthoring/lock/rollback, and mobile/offline operating mode.
+The evidence requires API-backed taxonomy/search refiner administration,
+read-only Matter/folder template contract states, Outlook filing unification
+route evidence, OneDrive/Office gated planning, admin IA cleanup, and
+integration status safety. It preserves deferred items for Matter/folder
+template APIs, folder inheritance semantics, OneDrive open-save-sync runtime,
+Office coauthoring/lock/rollback, and mobile/offline operating mode.

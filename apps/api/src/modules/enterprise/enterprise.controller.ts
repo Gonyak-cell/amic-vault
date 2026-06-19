@@ -11,6 +11,8 @@ import {
 import {
   createEnterpriseBackupSnapshotRequestSchema,
   createEnterpriseComplianceEvidenceRequestSchema,
+  upsertEnterpriseDmsSearchRefinerRequestSchema,
+  upsertEnterpriseDmsTaxonomyRequestSchema,
   createEnterpriseKeyReferenceRequestSchema,
   createEnterpriseSiemExportRequestSchema,
   createEnterpriseSsoProviderRequestSchema,
@@ -142,5 +144,47 @@ export class EnterpriseController {
   @Get('readiness')
   readiness(@Req() request: RequestWithSession) {
     return this.enterprise.readiness(permissionContext(request));
+  }
+
+  @Post('dms/taxonomies')
+  upsertDmsTaxonomy(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() =>
+      upsertEnterpriseDmsTaxonomyRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.upsertDmsTaxonomy(permissionContext(request), input);
+  }
+
+  @Get('dms/taxonomies')
+  listDmsTaxonomies(@Req() request: RequestWithSession) {
+    return this.enterprise.listDmsTaxonomies(permissionContext(request));
+  }
+
+  @Post('dms/taxonomies/:taxonomyId/disable')
+  disableDmsTaxonomy(@Req() request: RequestWithSession, @Param('taxonomyId') taxonomyId: string) {
+    return this.enterprise.disableDmsTaxonomy(
+      permissionContext(request),
+      parseUuidParam(taxonomyId),
+    );
+  }
+
+  @Post('dms/search-refiners')
+  upsertDmsSearchRefiner(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() =>
+      upsertEnterpriseDmsSearchRefinerRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.upsertDmsSearchRefiner(permissionContext(request), input);
+  }
+
+  @Get('dms/search-refiners')
+  listDmsSearchRefiners(@Req() request: RequestWithSession) {
+    return this.enterprise.listDmsSearchRefiners(permissionContext(request));
+  }
+
+  @Post('dms/search-refiners/:refinerId/disable')
+  disableDmsSearchRefiner(@Req() request: RequestWithSession, @Param('refinerId') refinerId: string) {
+    return this.enterprise.disableDmsSearchRefiner(
+      permissionContext(request),
+      parseUuidParam(refinerId),
+    );
   }
 }

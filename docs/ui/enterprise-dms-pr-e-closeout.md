@@ -17,16 +17,18 @@ contracts.
 
 The current PR-E scope proves:
 
-- Taxonomy Admin Contract is visible as a read-only DMS configuration contract
-  state for document taxonomy, subtypes, and required metadata.
-- Taxonomy Admin UI does not claim editable production save/audit behavior
-  before approved taxonomy APIs exist.
+- Taxonomy Admin Contract is API-backed for tenant document taxonomy,
+  subtypes, required metadata fields, validation, disable flow, and
+  reference-only audit.
+- Taxonomy Admin UI exposes save/list/disable behavior through approved
+  admin-only APIs and does not display raw content, source text, prompts, or
+  model responses.
 - Matter Template Admin is visible as a read-only contract state for default
   document sets by matter type.
 - Folder Template Admin remains deferred because no approved folder inheritance
   semantics exist in this lane.
-- Search Refiner Admin is visible as a read-only contract state for queryable
-  metadata fields and does not claim saved refiner administration.
+- Search Refiner Admin is API-backed for tenant refiner field keys, source,
+  type, sort order, save/list/disable behavior, and reference-only audit.
 - Outlook Filing Unification is documented on the Outlook integration route so
   filed emails and attachments align with Matter permission, audit, document
   detail, and search UX.
@@ -44,11 +46,11 @@ The current PR-E scope proves:
 
 | Area | Route or component evidence | TUW |
 | --- | --- | --- |
-| Taxonomy Admin Contract | `AdminDmsConfigurationPanel` taxonomy card in `apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx` | DMS-UX-601 |
-| Taxonomy Admin UI | `contractRequired` and `governedByBackend` copy in `AdminDmsConfigurationPanel` | DMS-UX-602 |
+| Taxonomy Admin Contract | `enterprise_dms_taxonomies`, `GET/POST /enterprise/dms/taxonomies`, and `AdminDmsConfigurationPanel` | DMS-UX-601 |
+| Taxonomy Admin UI | `AdminDmsConfigurationPanel` taxonomy save/list/disable flow | DMS-UX-602 |
 | Matter Template Admin | `AdminDmsConfigurationPanel` templates card | DMS-UX-603 |
 | Folder Template Admin | no folder template UI beyond read-only contract state before backend semantics | DMS-UX-604 |
-| Search Refiner Admin | `AdminDmsConfigurationPanel` refiners card | DMS-UX-605 |
+| Search Refiner Admin | `enterprise_dms_search_refiners`, `GET/POST /enterprise/dms/search-refiners`, and `AdminDmsConfigurationPanel` | DMS-UX-605 |
 | Outlook Filing Unification | `apps/web/src/app/(app)/integrations/outlook/page.tsx` Vault filing path section | DMS-UX-606 |
 | Office/OneDrive Integration Plan | `apps/web/src/app/(app)/integrations/page.tsx` OneDrive and Office gated cards | DMS-UX-607 |
 | Mobile/Desktop/PWA Decision | `docs/ui/enterprise-dms-release-hardening.md` responsive QA gate | DMS-UX-608 |
@@ -60,8 +62,10 @@ The current PR-E scope proves:
 - No fake/mock/sample/demo connected states are shown for integrations.
 - No OneDrive connected, Office open/save, coauthoring, lock, or sync success is
   claimed before approved backend contracts.
-- No editable taxonomy/template/refiner save action is exposed before save,
-  validation, and audit APIs are approved.
+- No editable Matter template or folder template save action is exposed before
+  folder/document-set semantics and audit APIs are approved.
+- Taxonomy and search refiner save/list/disable actions are admin-only,
+  tenant-scoped, validated, and audited with reference-only metadata.
 - Search index operations show only audit-safe queue/request state after an
   operator request.
 - Operations health uses local file organization prep health/metrics only and
@@ -95,10 +99,8 @@ in this lane, but they remain explicit follow-up work:
 
 | Deferred item | Reason | Follow-up |
 | --- | --- | --- |
-| Persisted taxonomy save/audit APIs | Admin panel is read-only contract state | Admin taxonomy TUW |
 | Persisted Matter template save/audit APIs | Template card is read-only contract state | Matter template TUW |
 | Folder template inheritance semantics | Folder model is not approved in this lane | Folder model ADR/TUW |
-| Search refiner administration APIs | Refiner card is read-only contract state | Search admin TUW |
 | OneDrive open/save/sync runtime | Integration card remains gated | Office/OneDrive TUW |
 | Office coauthoring, check-out/check-in, lock, rollback | Deferred by document editing and Office flow ADR | Office editing TUW |
 | Mobile/offline/PWA operating mode | Responsive QA exists; offline/sync contract is not approved | PR-F/mobile TUW |

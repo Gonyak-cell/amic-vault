@@ -98,12 +98,12 @@ const requiredPatterns = [
   {
     label: 'PR-E gated integration evidence',
     pattern:
-      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/is,
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*No editable Matter template or folder template save action[\s\S]*Taxonomy and search refiner save\/list\/disable actions[\s\S]*AI Prep remains file organization prep/is,
   },
   {
     label: 'PR-E deferred item evidence',
     pattern:
-      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring/is,
+      /Remaining Deferred Items[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring/is,
   },
   {
     label: 'PR-F readiness split evidence',

@@ -6,6 +6,10 @@ import {
   enterpriseBackupSnapshotSchema,
   enterpriseComplianceEvidenceListResponseSchema,
   enterpriseComplianceEvidenceSchema,
+  enterpriseDmsSearchRefinerListResponseSchema,
+  enterpriseDmsSearchRefinerSchema,
+  enterpriseDmsTaxonomyListResponseSchema,
+  enterpriseDmsTaxonomySchema,
   enterpriseKeyReferenceListResponseSchema,
   enterpriseKeyReferenceSchema,
   enterpriseReadinessSummarySchema,
@@ -23,6 +27,10 @@ import {
   type EnterpriseBackupSnapshotListResponseDto,
   type EnterpriseComplianceEvidenceDto,
   type EnterpriseComplianceEvidenceListResponseDto,
+  type EnterpriseDmsSearchRefinerDto,
+  type EnterpriseDmsSearchRefinerListResponseDto,
+  type EnterpriseDmsTaxonomyDto,
+  type EnterpriseDmsTaxonomyListResponseDto,
   type EnterpriseKeyReferenceDto,
   type EnterpriseKeyReferenceListResponseDto,
   type EnterpriseReadinessSummaryDto,
@@ -32,6 +40,8 @@ import {
   type EnterpriseSsoProviderListResponseDto,
   type EnterpriseSsoSpMetadataDto,
   type PermissionContext,
+  type UpsertEnterpriseDmsSearchRefinerRequestDto,
+  type UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 
@@ -111,6 +121,33 @@ interface ComplianceEvidenceRow {
   evidence_ref: string;
   evidence_hash: string;
   owner_user_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface DmsTaxonomyRow {
+  taxonomy_id: string;
+  document_type_code: string;
+  display_name: string;
+  description: string | null;
+  status: 'active' | 'disabled';
+  subtypes_json: unknown;
+  metadata_fields_json: unknown;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface DmsSearchRefinerRow {
+  refiner_id: string;
+  field_key: string;
+  display_name: string;
+  field_type: 'text' | 'date' | 'user' | 'matter' | 'boolean' | 'number' | 'select';
+  source: 'document_profile' | 'matter_profile' | 'records' | 'system';
+  searchable: boolean;
+  refinable: boolean;
+  filterable: boolean;
+  status: 'active' | 'disabled';
+  sort_order: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -654,6 +691,233 @@ export class EnterpriseService {
     });
   }
 
+  async upsertDmsTaxonomy(
+    ctx: PermissionContext,
+    input: UpsertEnterpriseDmsTaxonomyRequestDto,
+  ): Promise<EnterpriseDmsTaxonomyDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<DmsTaxonomyRow>(
+        `
+          INSERT INTO enterprise_dms_taxonomies (
+            tenant_id, document_type_code, display_name, description, status,
+            subtypes_json, metadata_fields_json, created_by, updated_by
+          )
+          VALUES ($1, $2, $3, $4, 'active', $5::jsonb, $6::jsonb, $7, $7)
+          ON CONFLICT (tenant_id, document_type_code)
+          DO UPDATE SET
+            display_name = EXCLUDED.display_name,
+            description = EXCLUDED.description,
+            status = 'active',
+            subtypes_json = EXCLUDED.subtypes_json,
+            metadata_fields_json = EXCLUDED.metadata_fields_json,
+            updated_by = EXCLUDED.updated_by,
+            updated_at = now()
+          RETURNING taxonomy_id, document_type_code, display_name, description,
+            status, subtypes_json, metadata_fields_json, created_at, updated_at
+        `,
+        [
+          ctx.tenantId,
+          input.documentTypeCode,
+          input.displayName,
+          input.description ?? null,
+          JSON.stringify(input.subtypes),
+          JSON.stringify(input.metadataFields),
+          ctx.userId,
+        ],
+      );
+      const taxonomy = mapDmsTaxonomy(result.rows[0]);
+      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
+        taxonomy_id: taxonomy.taxonomyId,
+        document_type_code: taxonomy.documentTypeCode,
+        subtype_count: taxonomy.subtypes.length,
+        metadata_field_count: taxonomy.metadataFields.length,
+        status_after: taxonomy.status,
+      });
+      return taxonomy;
+    });
+  }
+
+  async listDmsTaxonomies(
+    ctx: PermissionContext,
+  ): Promise<EnterpriseDmsTaxonomyListResponseDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    const result = await getPool().query<DmsTaxonomyRow>(
+      `
+        SELECT taxonomy_id, document_type_code, display_name, description,
+          status, subtypes_json, metadata_fields_json, created_at, updated_at
+        FROM enterprise_dms_taxonomies
+        WHERE tenant_id = $1
+        ORDER BY status, document_type_code
+        LIMIT 100
+      `,
+      [ctx.tenantId],
+    );
+    return enterpriseDmsTaxonomyListResponseSchema.parse({
+      taxonomies: result.rows.map(mapDmsTaxonomy),
+    });
+  }
+
+  async disableDmsTaxonomy(
+    ctx: PermissionContext,
+    taxonomyId: string,
+  ): Promise<EnterpriseDmsTaxonomyDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<DmsTaxonomyRow>(
+        `
+          UPDATE enterprise_dms_taxonomies
+          SET status = 'disabled',
+              updated_by = $3,
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND taxonomy_id = $2
+          RETURNING taxonomy_id, document_type_code, display_name, description,
+            status, subtypes_json, metadata_fields_json, created_at, updated_at
+        `,
+        [ctx.tenantId, taxonomyId, ctx.userId],
+      );
+      const taxonomy = mapDmsTaxonomy(requiredRow(result.rows[0]));
+      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
+        taxonomy_id: taxonomy.taxonomyId,
+        document_type_code: taxonomy.documentTypeCode,
+        subtype_count: taxonomy.subtypes.length,
+        metadata_field_count: taxonomy.metadataFields.length,
+        status_after: taxonomy.status,
+      });
+      return taxonomy;
+    });
+  }
+
+  async upsertDmsSearchRefiner(
+    ctx: PermissionContext,
+    input: UpsertEnterpriseDmsSearchRefinerRequestDto,
+  ): Promise<EnterpriseDmsSearchRefinerDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<DmsSearchRefinerRow>(
+        `
+          INSERT INTO enterprise_dms_search_refiners (
+            tenant_id, field_key, display_name, field_type, source, searchable,
+            refinable, filterable, status, sort_order, created_by, updated_by
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9, $10, $10)
+          ON CONFLICT (tenant_id, field_key)
+          DO UPDATE SET
+            display_name = EXCLUDED.display_name,
+            field_type = EXCLUDED.field_type,
+            source = EXCLUDED.source,
+            searchable = EXCLUDED.searchable,
+            refinable = EXCLUDED.refinable,
+            filterable = EXCLUDED.filterable,
+            status = 'active',
+            sort_order = EXCLUDED.sort_order,
+            updated_by = EXCLUDED.updated_by,
+            updated_at = now()
+          RETURNING refiner_id, field_key, display_name, field_type, source,
+            searchable, refinable, filterable, status, sort_order, created_at, updated_at
+        `,
+        [
+          ctx.tenantId,
+          input.fieldKey,
+          input.displayName,
+          input.fieldType,
+          input.source,
+          input.searchable,
+          input.refinable,
+          input.filterable,
+          input.sortOrder,
+          ctx.userId,
+        ],
+      );
+      const refiner = mapDmsSearchRefiner(result.rows[0]);
+      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_search_refiner', refiner.refinerId, {
+        refiner_id: refiner.refinerId,
+        field_key: refiner.fieldKey,
+        status_after: refiner.status,
+      });
+      return refiner;
+    });
+  }
+
+  async listDmsSearchRefiners(
+    ctx: PermissionContext,
+  ): Promise<EnterpriseDmsSearchRefinerListResponseDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    const result = await getPool().query<DmsSearchRefinerRow>(
+      `
+        SELECT refiner_id, field_key, display_name, field_type, source,
+          searchable, refinable, filterable, status, sort_order, created_at, updated_at
+        FROM enterprise_dms_search_refiners
+        WHERE tenant_id = $1
+        ORDER BY status, sort_order, field_key
+        LIMIT 100
+      `,
+      [ctx.tenantId],
+    );
+    return enterpriseDmsSearchRefinerListResponseSchema.parse({
+      refiners: result.rows.map(mapDmsSearchRefiner),
+    });
+  }
+
+  async disableDmsSearchRefiner(
+    ctx: PermissionContext,
+    refinerId: string,
+  ): Promise<EnterpriseDmsSearchRefinerDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<DmsSearchRefinerRow>(
+        `
+          UPDATE enterprise_dms_search_refiners
+          SET status = 'disabled',
+              updated_by = $3,
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND refiner_id = $2
+          RETURNING refiner_id, field_key, display_name, field_type, source,
+            searchable, refinable, filterable, status, sort_order, created_at, updated_at
+        `,
+        [ctx.tenantId, refinerId, ctx.userId],
+      );
+      const refiner = mapDmsSearchRefiner(requiredRow(result.rows[0]));
+      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_search_refiner', refiner.refinerId, {
+        refiner_id: refiner.refinerId,
+        field_key: refiner.fieldKey,
+        status_after: refiner.status,
+      });
+      return refiner;
+    });
+  }
+
+  private async logDmsConfigurationChange(
+    client: PoolClient,
+    ctx: PermissionContext,
+    targetType: string,
+    targetId: string,
+    metadata: {
+      taxonomy_id?: string;
+      document_type_code?: string;
+      subtype_count?: number;
+      metadata_field_count?: number;
+      refiner_id?: string;
+      field_key?: string;
+      status_after: string;
+    },
+  ): Promise<void> {
+    await this.auditService.log(
+      {
+        tenantId: ctx.tenantId,
+        actorId: ctx.userId,
+        sessionId: ctx.sessionId ?? null,
+        action: 'ENTERPRISE_DMS_CONFIGURATION_CHANGED',
+        targetType,
+        targetId,
+        metadata,
+      },
+      client,
+    );
+  }
+
   private async assertEnterpriseAdmin(ctx: PermissionContext): Promise<void> {
     const result = await getPool().query<ActorRoleRow>(
       `
@@ -753,6 +1017,41 @@ function mapComplianceEvidence(
     evidenceRef: value.evidence_ref,
     evidenceHash: value.evidence_hash,
     ownerUserId: value.owner_user_id,
+    createdAt: value.created_at.toISOString(),
+    updatedAt: value.updated_at.toISOString(),
+  });
+}
+
+function mapDmsTaxonomy(row: DmsTaxonomyRow | undefined): EnterpriseDmsTaxonomyDto {
+  const value = requiredRow(row);
+  return enterpriseDmsTaxonomySchema.parse({
+    taxonomyId: value.taxonomy_id,
+    documentTypeCode: value.document_type_code,
+    displayName: value.display_name,
+    description: value.description,
+    status: value.status,
+    subtypes: value.subtypes_json,
+    metadataFields: value.metadata_fields_json,
+    createdAt: value.created_at.toISOString(),
+    updatedAt: value.updated_at.toISOString(),
+  });
+}
+
+function mapDmsSearchRefiner(
+  row: DmsSearchRefinerRow | undefined,
+): EnterpriseDmsSearchRefinerDto {
+  const value = requiredRow(row);
+  return enterpriseDmsSearchRefinerSchema.parse({
+    refinerId: value.refiner_id,
+    fieldKey: value.field_key,
+    displayName: value.display_name,
+    fieldType: value.field_type,
+    source: value.source,
+    searchable: value.searchable,
+    refinable: value.refinable,
+    filterable: value.filterable,
+    status: value.status,
+    sortOrder: value.sort_order,
     createdAt: value.created_at.toISOString(),
     updatedAt: value.updated_at.toISOString(),
   });

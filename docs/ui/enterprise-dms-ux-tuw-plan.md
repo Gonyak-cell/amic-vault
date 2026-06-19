@@ -832,12 +832,12 @@ PR-E implementation note:
 - Closeout evidence is recorded in `docs/ui/enterprise-dms-pr-e-closeout.md`;
   the UI checklist and production smoke guards require that file so PR-E
   admin/integration claims remain tied to route-level implementation.
-- Admin settings now include a DMS configuration IA panel for taxonomy, Matter templates, and search refiners. These surfaces are read-only contract states until save/audit APIs are approved.
+- Admin settings now include a DMS configuration panel for taxonomy, Matter templates, and search refiners. Taxonomy and search refiners are API-backed with admin-only save/list/disable behavior, tenant RLS, validation, and reference-only audit. Matter templates remain read-only until folder/document-set semantics and save/audit APIs are approved.
 - Admin settings now include search index operations wired to the admin reindex endpoint; the UI only shows audit-safe queue counts after an operator request.
 - The integration parent route now shows a safe integration matrix: Outlook links to the real status route; OneDrive and Office open/save remain gated with no connected-state claim.
 - Outlook integration now includes a Vault filing path section that aligns Outlook attachment filing with the same Matter permission, audit, document detail, and search UX model.
 - Admin and integration tests assert no fake connected states, no sample defaults, and no raw reference inputs.
-- Persisted taxonomy/template/refiner administration, Office/OneDrive sync/open-save, coauthoring/lock, and full mobile/offline decisions remain deferred to backend-approved contracts and PR-F hardening evidence.
+- Persisted Matter template administration, Office/OneDrive sync/open-save, coauthoring/lock, and full mobile/offline decisions remain deferred to backend-approved contracts and PR-F hardening evidence.
 
 ### PR-F Release Hardening
 

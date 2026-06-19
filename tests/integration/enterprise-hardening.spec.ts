@@ -6,6 +6,8 @@ import type { INestApplication } from '@nestjs/common';
 import type {
   EnterpriseBackupSnapshotDto,
   EnterpriseComplianceEvidenceDto,
+  EnterpriseDmsSearchRefinerDto,
+  EnterpriseDmsTaxonomyDto,
   EnterpriseKeyReferenceDto,
   EnterpriseReadinessSummaryDto,
   EnterpriseSiemExportDto,
@@ -123,6 +125,75 @@ describe('Enterprise Hardening integration', () => {
     expect(auditText).not.toContain('Tenant HSM');
   });
 
+  it('manages DMS taxonomy and search refiners with reference-only audit', async () => {
+    const taxonomy = await postJson<EnterpriseDmsTaxonomyDto>('/v1/enterprise/dms/taxonomies', {
+      documentTypeCode: `CONTRACT_${marker.toUpperCase()}`,
+      displayName: `Contract ${marker}`,
+      description: 'Commercial agreement filing profile',
+      subtypes: [{ subtypeCode: 'MSA', displayName: 'Master service agreement' }],
+      metadataFields: [
+        {
+          fieldKey: `counterparty_${marker}`,
+          displayName: `Counterparty ${marker}`,
+          fieldType: 'text',
+          required: true,
+          searchable: true,
+          refinable: true,
+        },
+      ],
+    });
+    expect(taxonomy.status).toBe('active');
+    expect(taxonomy.subtypes).toHaveLength(1);
+    expect(taxonomy.metadataFields).toHaveLength(1);
+
+    const refiner = await postJson<EnterpriseDmsSearchRefinerDto>(
+      '/v1/enterprise/dms/search-refiners',
+      {
+        fieldKey: `counterparty_${marker}`,
+        displayName: `Counterparty ${marker}`,
+        fieldType: 'text',
+        source: 'document_profile',
+        sortOrder: 20,
+      },
+    );
+    expect(refiner.status).toBe('active');
+    expect(refiner.refinable).toBe(true);
+
+    const disabledTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>(
+      `/v1/enterprise/dms/taxonomies/${taxonomy.taxonomyId}/disable`,
+      {},
+    );
+    expect(disabledTaxonomy.status).toBe('disabled');
+
+    const disabledRefiner = await postJson<EnterpriseDmsSearchRefinerDto>(
+      `/v1/enterprise/dms/search-refiners/${refiner.refinerId}/disable`,
+      {},
+    );
+    expect(disabledRefiner.status).toBe('disabled');
+
+    const taxonomies = await getJson<{ taxonomies: EnterpriseDmsTaxonomyDto[] }>(
+      '/v1/enterprise/dms/taxonomies',
+    );
+    expect(taxonomies.taxonomies.some((item) => item.taxonomyId === taxonomy.taxonomyId)).toBe(
+      true,
+    );
+
+    const refiners = await getJson<{ refiners: EnterpriseDmsSearchRefinerDto[] }>(
+      '/v1/enterprise/dms/search-refiners',
+    );
+    expect(refiners.refiners.some((item) => item.refinerId === refiner.refinerId)).toBe(true);
+
+    const audits = await enterpriseDmsConfigurationAudits();
+    const auditText = JSON.stringify(audits.map((row) => row.metadata_json));
+    expect(auditText).toContain(taxonomy.taxonomyId);
+    expect(auditText).toContain(refiner.refinerId);
+    expect(auditText).toContain(`CONTRACT_${marker.toUpperCase()}`);
+    expect(auditText).toContain(`counterparty_${marker}`);
+    expect(auditText).not.toContain('Commercial agreement filing profile');
+    expect(auditText).not.toContain(`Contract ${marker}`);
+    expect(auditText).not.toContain(`Counterparty ${marker}`);
+  });
+
   it('blocks non-admin enterprise configuration', async () => {
     const response = await fetch(`${baseUrl}/v1/enterprise/sso-providers`, {
       method: 'POST',
@@ -141,6 +212,20 @@ describe('Enterprise Hardening integration', () => {
     const text = await response.text();
     expect(response.status, text).toBe(403);
     expect(text).not.toContain(`blocked-${marker}`);
+
+    const taxonomyResponse = await fetch(`${baseUrl}/v1/enterprise/dms/taxonomies`, {
+      method: 'POST',
+      headers: { cookie: memberCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        documentTypeCode: `BLOCKED_${marker.toUpperCase()}`,
+        displayName: 'Blocked Taxonomy',
+        subtypes: [],
+        metadataFields: [],
+      }),
+    });
+    const taxonomyText = await taxonomyResponse.text();
+    expect(taxonomyResponse.status, taxonomyText).toBe(403);
+    expect(taxonomyText).not.toContain(`BLOCKED_${marker.toUpperCase()}`);
   });
 
   it('keeps R13 tables RLS-protected and free of raw secret columns', async () => {
@@ -154,6 +239,8 @@ describe('Enterprise Hardening integration', () => {
           SELECT relname AS table_name, relrowsecurity AS rls, relforcerowsecurity AS force_rls
           FROM pg_class
           WHERE relname IN (
+            'enterprise_dms_search_refiners',
+            'enterprise_dms_taxonomies',
             'enterprise_sso_providers',
             'enterprise_key_references',
             'enterprise_siem_exports',
@@ -169,6 +256,8 @@ describe('Enterprise Hardening integration', () => {
     expect(rows).toEqual([
       { table_name: 'enterprise_backup_snapshots', rls: true, force_rls: true },
       { table_name: 'enterprise_compliance_evidence', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_search_refiners', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_taxonomies', rls: true, force_rls: true },
       { table_name: 'enterprise_key_references', rls: true, force_rls: true },
       { table_name: 'enterprise_siem_exports', rls: true, force_rls: true },
       { table_name: 'enterprise_sso_providers', rls: true, force_rls: true },
@@ -192,7 +281,7 @@ describe('Enterprise Hardening integration', () => {
           FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name LIKE 'enterprise_%'
-            AND column_name ~* '(secret|token|password|private_key|key_material|endpoint_url|metadata_xml|assertion_xml)'
+            AND column_name ~* '(secret|token|password|private_key|key_material|endpoint_url|metadata_xml|assertion_xml|body_text|snippet_text|prompt_text|response_text)'
           ORDER BY table_name, column_name
         `,
       );
@@ -238,8 +327,28 @@ async function enterpriseAudits(): Promise<Array<{ action: string; metadata_json
             'SIEM_EXPORT_RECORDED',
             'BACKUP_SNAPSHOT_RECORDED',
             'COMPLIANCE_EVIDENCE_RECORDED',
+            'ENTERPRISE_DMS_CONFIGURATION_CHANGED',
             'ENTERPRISE_READINESS_VIEWED'
           )
+        ORDER BY created_at DESC
+        LIMIT 20
+      `,
+      [tenantAlphaId],
+    );
+    return result.rows;
+  });
+}
+
+async function enterpriseDmsConfigurationAudits(): Promise<
+  Array<{ action: string; metadata_json: unknown }>
+> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ action: string; metadata_json: unknown }>(
+      `
+        SELECT action, metadata_json
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'ENTERPRISE_DMS_CONFIGURATION_CHANGED'
         ORDER BY created_at DESC
         LIMIT 20
       `,
