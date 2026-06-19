@@ -237,6 +237,7 @@ const documentActionCenterFiles = [
     patterns: [
       { name: 'document detail action center route', pattern: /DocumentActionCenter/ },
       { name: 'document detail app shell wrapper', pattern: /PageShell/ },
+      { name: 'document search hit context route params', pattern: /searchHitContextFromParams/ },
     ],
   },
   {
@@ -251,6 +252,8 @@ const documentActionCenterFiles = [
       { name: 'new version upload flow', pattern: /addDocumentVersion/ },
       { name: 'document audit timeline integration', pattern: /DocumentAuditTimeline/ },
       { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
+      { name: 'search hit context panel', pattern: /검색 결과 문맥/ },
+      { name: 'bounded search hit parser', pattern: /boundedInteger/ },
       { name: 'records action entry points', pattern: /recordsUrlForDocument/ },
       { name: 'file cabinet return link', pattern: /fileCabinetUrlForDocument/ },
     ],

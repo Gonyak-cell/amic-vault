@@ -3,22 +3,23 @@
 import Link from 'next/link';
 import React, { type ReactNode } from 'react';
 import { ExternalLink, Eye, FileSearch } from 'lucide-react';
-import type { SearchHighlightDto, SearchResultDto } from '@amic-vault/shared';
+import type { SearchHighlightDto, SearchResultDto, SearchTarget } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { documentPreviewUrl } from '@/lib/api-client';
 import { useI18n } from '@/lib/i18n';
 
 interface ResultCardProps {
   result: SearchResultDto;
+  target?: SearchTarget;
 }
 
-export function ResultCard({ result }: ResultCardProps) {
+export function ResultCard({ result, target = 'all' }: ResultCardProps) {
   const { t } = useI18n();
   const title = result.displayName || result.title || t('search.result.hiddenTitle');
   const context = [matterLabel(result), result.clientDisplayName, result.documentType, formatDate(result.updatedAt)]
     .filter(Boolean)
     .join(' · ');
-  const documentHref = `/documents/${result.documentId}`;
+  const documentHref = documentSearchHitUrlForSearchResult(result, target);
   const fileCabinetHref = fileCabinetUrlForSearchResult(result);
   return (
     <article className="rounded-md border bg-card p-4">
@@ -77,6 +78,21 @@ export function fileCabinetUrlForSearchResult(result: SearchResultDto): string {
   if (title) params.set('title', title);
   const queryString = params.toString();
   return queryString ? `/files?${queryString}` : '/files';
+}
+
+export function documentSearchHitUrlForSearchResult(
+  result: SearchResultDto,
+  target: SearchTarget = 'all',
+): string {
+  const params = new URLSearchParams();
+  params.set('from', 'search');
+  params.set('target', target);
+  const hitCount = result.highlights.length;
+  if (hitCount > 0) {
+    params.set('hit', '1');
+    params.set('hitCount', String(hitCount));
+  }
+  return `/documents/${encodeURIComponent(result.documentId)}?${params.toString()}`;
 }
 
 function highlightSnippet(
