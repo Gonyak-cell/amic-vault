@@ -61,7 +61,7 @@ const designSystemChecklistPatterns = [
 
 const productionInventoryPatterns = [
   { name: 'status definitions', pattern: /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/ },
-  { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`/ },
+  { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`/ },
   { name: 'admin and governance routes', pattern: /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/admin[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/ },
   { name: 'document vault visible route', pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i },
   { name: 'API-unready routes', pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/ },
@@ -302,9 +302,25 @@ const governanceWorkflowOpsFiles = [
   {
     path: 'apps/web/src/app/(app)/dashboard/vault-activity-client.tsx',
     patterns: [
-      { name: 'dashboard action queue', pattern: /DashboardActionQueue/ },
+      { name: 'dashboard action queue', pattern: /DashboardWorkQueueSection/ },
+      { name: 'no fake dashboard queue counts', pattern: /DashboardWorkQueueSection/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/work/work-queue-client.tsx',
+    patterns: [
+      { name: 'work queue page heading', pattern: /작업함/ },
+      { name: 'work queue dashboard source', pattern: /getDashboardOverview/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/dashboard/dashboard-work-queue.tsx',
+    patterns: [
+      { name: 'shared dashboard action derivation', pattern: /dashboardActionItems/ },
       { name: 'real operations task copy', pattern: /실제 운영 데이터에서 발생한 작업만 표시/ },
-      { name: 'no fake dashboard queue counts', pattern: /dashboardActionItems/ },
+      { name: 'permission policy task', pattern: /권한\/정책 알림 확인/ },
+      { name: 'file organization prep task', pattern: /파일 정리 준비 상태 확인/ },
+      { name: 'no persisted task claim', pattern: /DashboardOverviewState/ },
     ],
   },
   {

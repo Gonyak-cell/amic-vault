@@ -49,6 +49,13 @@ export const routeVisibilityPolicies = [
     showInNavigation: true,
   },
   {
+    route: '/work',
+    group: 'Vault',
+    production: 'visible',
+    roles: internalUserRoles,
+    showInNavigation: true,
+  },
+  {
     route: '/search',
     group: 'Vault',
     production: 'visible',
