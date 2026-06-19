@@ -35,6 +35,7 @@ const result: SearchResultDto = {
   snippet: 'Escrow <script>alert(1)</script> closing memo',
   highlights: [{ start: 0, end: 6 }],
   documentType: 'memo',
+  extractionStatus: 'ocr_pending',
   versionStatus: 'current',
   score: 0.753,
   updatedAt: '2026-06-12T10:00:00.000Z',
@@ -63,6 +64,8 @@ describe('ResultCard', () => {
     expect(html).toContain('AMIC');
     expect(html).toContain('memo');
     expect(html).toContain('2026-06-12');
+    expect(html).toContain('OCR 필요');
+    expect(html).toContain('본문 검색 품질이 제한될 수 있습니다.');
     expect(html).not.toContain('Matter');
     expect(html).not.toContain('고객');
     expect(html).not.toContain('표시 가능한 정보 없음');

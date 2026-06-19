@@ -168,7 +168,14 @@ describe('search metadata leakage integration', () => {
 
     expect(response.total).toBe(2);
     expect(resultTitles(response).sort()).toEqual([...corpus.visibleTitles].sort());
-    expect(response.facets.clients).toEqual([{ value: clientId, count: 2 }]);
+    expect(response.facets.clients).toEqual([
+      {
+        value: clientId,
+        label: `${corpus.visibleTitles[0]} Client`,
+        count: 2,
+        canViewSensitiveRef: false,
+      },
+    ]);
     expect(sumCounts(response.facets.documentTypes)).toBe(2);
     expect(sumCounts(response.facets.matters)).toBe(2);
     expectNoHiddenReferences(response);
@@ -203,6 +210,7 @@ function emptyFacets(): SearchHttpResponse['facets'] {
     clients: [],
     matters: [],
     documentTypes: [],
+    extractionStatuses: [],
     versionStatuses: [],
     dateRanges: [],
   };

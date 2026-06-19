@@ -201,6 +201,7 @@ const translations = {
   'search.facet.matter': { ko: '사건', en: 'Matter' },
   'search.facet.client': { ko: '고객', en: 'Client' },
   'search.facet.updated': { ko: '수정일', en: 'Updated' },
+  'search.facet.searchability': { ko: '추출/OCR', en: 'Extraction/OCR' },
   'search.facet.clear': { ko: '필터 초기화', en: 'Clear filters' },
   'search.facet.unavailable': {
     ko: '표시 가능한 라벨 없음',
@@ -210,6 +211,10 @@ const translations = {
   'search.facet.memo': { ko: '메모', en: 'Memo' },
   'search.facet.current': { ko: '최신 버전', en: 'Current' },
   'search.facet.superseded': { ko: '이전 버전', en: 'Superseded' },
+  'search.facet.extractionReady': { ko: '본문 검색 가능', en: 'Body searchable' },
+  'search.facet.extractionPending': { ko: '추출 대기', en: 'Extraction pending' },
+  'search.facet.extractionOcrPending': { ko: 'OCR 필요', en: 'OCR required' },
+  'search.facet.extractionFailed': { ko: '추출 실패', en: 'Extraction failed' },
   'search.facet.last7Days': { ko: '최근 7일', en: 'Last 7 days' },
   'search.facet.last30Days': { ko: '최근 30일', en: 'Last 30 days' },
   'search.facet.older': { ko: '30일 이전', en: 'Older' },

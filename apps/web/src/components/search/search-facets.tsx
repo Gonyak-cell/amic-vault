@@ -45,6 +45,18 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         language={language}
       />
       <FacetGroup
+        title={t('search.facet.searchability')}
+        buckets={facets.extractionStatuses}
+        selected={selection.extractionStatus}
+        onSelect={(value) =>
+          onChange({
+            ...selection,
+            extractionStatus: value as SearchFacetSelection['extractionStatus'],
+          })
+        }
+        language={language}
+      />
+      <FacetGroup
         title={t('search.facet.matter')}
         buckets={facets.matters}
         selected={selection.matterId}
@@ -135,6 +147,10 @@ function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, 
     memo: 'search.facet.memo',
     current: 'search.facet.current',
     superseded: 'search.facet.superseded',
+    ready: 'search.facet.extractionReady',
+    pending: 'search.facet.extractionPending',
+    ocr_pending: 'search.facet.extractionOcrPending',
+    failed: 'search.facet.extractionFailed',
     last_7_days: 'search.facet.last7Days',
     'last 7 days': 'search.facet.last7Days',
     last_30_days: 'search.facet.last30Days',
@@ -152,6 +168,7 @@ function hasSelection(selection: SearchFacetSelection): boolean {
     selection.clientId ||
       selection.matterId ||
       selection.documentType ||
+      selection.extractionStatus ||
       selection.versionStatus ||
       selection.dateRange,
   );

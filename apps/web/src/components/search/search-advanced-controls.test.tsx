@@ -26,6 +26,7 @@ describe('SearchAdvancedControls', () => {
           clientName: 'AMIC',
           dateRange: 'last_30_days',
           documentType: 'contract',
+          extractionStatus: 'ocr_pending',
           groupBy: 'matter',
           matterCode: 'AMIC-2026-0007',
           matterName: 'Vault Upgrade',
@@ -49,6 +50,8 @@ describe('SearchAdvancedControls', () => {
     expect(html).toContain('계약서');
     expect(html).toContain('버전 상태');
     expect(html).toContain('현재 버전');
+    expect(html).toContain('추출/OCR');
+    expect(html).toContain('OCR 필요');
     expect(html).toContain('수정 기간');
     expect(html).toContain('최근 30일');
     expect(html).toContain('Matter Code');

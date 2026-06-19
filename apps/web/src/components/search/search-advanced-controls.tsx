@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { HelpCircle, SlidersHorizontal, X } from 'lucide-react';
 import {
+  documentExtractionStatuses,
   documentTypes,
   searchVersionStatusValues,
+  type DocumentExtractionStatus,
   type DocumentType,
   type SearchGroupBy,
   type SearchSort,
@@ -22,6 +24,7 @@ export interface SearchAdvancedSelection {
   clientName?: string | undefined;
   dateRange?: SearchDateRange | undefined;
   documentType?: DocumentType | undefined;
+  extractionStatus?: DocumentExtractionStatus | undefined;
   groupBy?: SearchGroupBy | undefined;
   matterCode?: string | undefined;
   matterName?: string | undefined;
@@ -44,6 +47,7 @@ type SearchAdvancedDraft = Required<
   clientName: string;
   dateRange: SearchDateRange | '';
   documentType: DocumentType | '';
+  extractionStatus: DocumentExtractionStatus | '';
   matterCode: string;
   matterName: string;
   title: string;
@@ -96,6 +100,13 @@ const dateRangeLabels = {
   older: '30일 이전',
 } as const satisfies Record<SearchDateRange, string>;
 
+const extractionStatusLabels = {
+  ready: '본문 검색 가능',
+  pending: '추출 대기',
+  ocr_pending: 'OCR 필요',
+  failed: '추출 실패',
+} as const satisfies Record<DocumentExtractionStatus, string>;
+
 function normalizeInput(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
@@ -106,6 +117,7 @@ function normalizedDraft(draft: SearchAdvancedDraft): SearchAdvancedSelection {
     clientName: normalizeInput(draft.clientName),
     dateRange: draft.dateRange || undefined,
     documentType: draft.documentType || undefined,
+    extractionStatus: draft.extractionStatus || undefined,
     groupBy: draft.groupBy,
     matterCode: normalizeInput(draft.matterCode),
     matterName: normalizeInput(draft.matterName),
@@ -121,6 +133,7 @@ function countAdvanced(selection: SearchAdvancedSelection): number {
     selection.clientName,
     selection.dateRange,
     selection.documentType,
+    selection.extractionStatus,
     selection.groupBy && selection.groupBy !== 'none' ? selection.groupBy : undefined,
     selection.matterCode,
     selection.matterName,
@@ -141,6 +154,7 @@ export function SearchAdvancedControls({
     clientName: selection.clientName ?? '',
     dateRange: selection.dateRange ?? '',
     documentType: selection.documentType ?? '',
+    extractionStatus: selection.extractionStatus ?? '',
     groupBy: selection.groupBy ?? 'none',
     matterCode: selection.matterCode ?? '',
     matterName: selection.matterName ?? '',
@@ -155,6 +169,7 @@ export function SearchAdvancedControls({
       clientName: selection.clientName ?? '',
       dateRange: selection.dateRange ?? '',
       documentType: selection.documentType ?? '',
+      extractionStatus: selection.extractionStatus ?? '',
       groupBy: selection.groupBy ?? 'none',
       matterCode: selection.matterCode ?? '',
       matterName: selection.matterName ?? '',
@@ -252,6 +267,27 @@ export function SearchAdvancedControls({
             {documentTypes.map((type) => (
               <option key={type} value={type}>
                 {documentTypeLabels[type]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          추출/OCR
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.extractionStatus}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                extractionStatus: event.target.value as DocumentExtractionStatus | '',
+              }))
+            }
+          >
+            <option value="">전체 상태</option>
+            {documentExtractionStatuses.map((status) => (
+              <option key={status} value={status}>
+                {extractionStatusLabels[status]}
               </option>
             ))}
           </select>
@@ -415,6 +451,9 @@ function activeSearchChips(selection: SearchAdvancedSelection): Array<{ label: s
   }
   if (selection.documentType) {
     chips.push({ label: '유형', value: documentTypeLabels[selection.documentType] });
+  }
+  if (selection.extractionStatus) {
+    chips.push({ label: '추출/OCR', value: extractionStatusLabels[selection.extractionStatus] });
   }
   if (selection.versionStatus) {
     chips.push({ label: '버전', value: versionStatusLabels[selection.versionStatus] });

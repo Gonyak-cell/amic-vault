@@ -378,6 +378,7 @@ const enterpriseSearchFiles = [
       { name: 'Matter Code filter UI', pattern: /Matter Code/ },
       { name: 'Matter name filter UI', pattern: /Matter 이름/ },
       { name: 'document type filter UI', pattern: /문서 유형/ },
+      { name: 'searchability filter UI', pattern: /추출\/OCR/ },
       { name: 'version status filter UI', pattern: /버전 상태/ },
       { name: 'updated date range filter UI', pattern: /수정 기간/ },
       { name: 'search range selector', pattern: /검색 범위/ },
@@ -386,6 +387,21 @@ const enterpriseSearchFiles = [
       { name: 'active search filter chips', pattern: /활성 필터/ },
       { name: 'query syntax help', pattern: /검색식 도움말/ },
       { name: 'exact phrase query hint', pattern: /정확한 문구/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-facets.tsx',
+    patterns: [
+      { name: 'searchability facet group', pattern: /search\.facet\.searchability/ },
+      { name: 'extraction failed facet label', pattern: /search\.facet\.extractionFailed/ },
+      { name: 'extraction status selection', pattern: /extractionStatus/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/result-card.tsx',
+    patterns: [
+      { name: 'searchability result status', pattern: /extractionStatus/ },
+      { name: 'body search limitation copy', pattern: /본문 검색 품질이 제한/ },
     ],
   },
   {

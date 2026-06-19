@@ -99,6 +99,18 @@ describe('SearchFilterBuilder', () => {
     expect(built.params).toContain('%A\\%\\_\\\\B%');
   });
 
+  it('filters extraction and OCR status with a bound status code', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: { extractionStatus: 'ocr_pending' },
+    });
+
+    expect(built.whereSql).toContain('FROM canonical_documents cd');
+    expect(built.whereSql).toContain('cd.version_id = idx.version_id');
+    expect(built.whereSql).toContain("), 'pending')");
+    expect(built.params).toEqual([tenantId, 'deleted', 'current', 'ocr_pending']);
+  });
+
   it('binds malicious scope input without interpolating it into SQL', () => {
     const malicious = "'; DROP TABLE document_search_index; --";
     const built = new SearchFilterBuilder().build({
