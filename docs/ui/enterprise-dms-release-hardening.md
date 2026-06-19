@@ -26,17 +26,25 @@ candidate branch:
 - `pnpm check:production-ui-literals`
 - `pnpm ui:production-smoke`
 - `pnpm check:ui-pr-checklist`
+- `pnpm release:dms-smoke -- --json` with approved synthetic or canary DMS
+  credentials
 - `git diff --check`
 
 The production UI smoke gate must cover route visibility, hidden route blocking,
 fake/mock/sample/demo data exclusion, workspace/tenant/internal ref exclusion,
 AI Prep scope exclusion, Matter-scoped upload/browse foundations, document
 detail actions, enterprise search controls, governance/workflow/ops context, and
-admin/integration safety.
+admin/integration safety. The DMS main-loop smoke gate must then verify the
+runtime path with approved data: login, Matter Code source resolution,
+matter-scoped upload, document detail, preview or safe preview-unavailable
+state, versions, matter file list visibility, title/body/metadata search,
+records/audit refs, and negative-auth non-discovery.
 
 ## DMS-UX-801 Authenticated Main Loop Smoke
 
-Manual receipt required with an approved tenant and user:
+Automated receipt required through `pnpm release:dms-smoke -- --json` with an
+approved tenant and user. Manual visual receipt may supplement the command
+output, but cannot replace a failing command.
 
 1. Login with email and password only.
 2. Select a canonical Matter app Matter Code or approved Matter projection.

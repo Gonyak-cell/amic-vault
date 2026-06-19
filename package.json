@@ -21,6 +21,7 @@
     "release:uat": "node tools/release/synthetic-uat-evidence.mjs",
     "release:prod-preflight": "node tools/release/production-release-preflight.mjs",
     "release:smoke": "node tools/release/staging-smoke.mjs",
+    "release:dms-smoke": "node tools/release/dms-main-loop-smoke.mjs",
     "release:local-preflight": "node tools/release/local-staging-preflight.mjs",
     "outlook:deployment:check": "node tools/release/check-outlook-deployment.mjs",
     "outlook:verification:check": "node tools/release/check-outlook-verification.mjs",
