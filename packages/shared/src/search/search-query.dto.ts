@@ -83,6 +83,24 @@ export const searchQuerySchema = z
     }
   });
 
+export const savedSearchNameSchema = z.string().trim().min(1).max(80);
+
+export const createSavedSearchSchema = z
+  .object({
+    name: savedSearchNameSchema,
+    query: searchQuerySchema,
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!value.query.query?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'saved search requires a query',
+        path: ['query', 'query'],
+      });
+    }
+  });
+
 export interface SearchHighlightDto {
   start: number;
   end: number;
@@ -130,6 +148,18 @@ export interface SearchResponseDto {
   total: number;
 }
 
+export interface SavedSearchDto {
+  createdAt: string;
+  name: string;
+  query: SearchQueryDto;
+  savedSearchId: string;
+  updatedAt: string;
+}
+
+export interface SavedSearchListDto {
+  items: SavedSearchDto[];
+}
+
 export type SearchDocumentTypeFilterDto = z.infer<typeof searchDocumentTypeFilterSchema>;
 export type SearchVersionStatus = (typeof searchVersionStatusValues)[number];
 export type SearchMode = (typeof searchModes)[number];
@@ -144,3 +174,7 @@ export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode' | 'target' | 'sor
   sortBy?: SearchSort;
   target?: SearchTarget;
 };
+export interface CreateSavedSearchDto {
+  name: string;
+  query: SearchQueryDto;
+}
