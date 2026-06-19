@@ -742,6 +742,29 @@ const prECloseoutPatterns = [
   },
 ];
 
+const prFReadinessPatterns = [
+  {
+    name: 'PR-F readiness split',
+    pattern:
+      /PR-F Readiness Evidence[\s\S]*Readiness Decision[\s\S]*Manual Receipt Requirements[\s\S]*Automated Evidence Matrix[\s\S]*Hold Criteria/i,
+  },
+  {
+    name: 'PR-F manual receipts',
+    pattern:
+      /DMS-UX-801[\s\S]*Authenticated main loop[\s\S]*DMS-UX-802[\s\S]*Negative auth[\s\S]*DMS-UX-806[\s\S]*Responsive visual QA[\s\S]*DMS-UX-807[\s\S]*Keyboard and screen-reader basics/i,
+  },
+  {
+    name: 'PR-F automated guards',
+    pattern:
+      /Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/i,
+  },
+  {
+    name: 'PR-F hold criteria',
+    pattern:
+      /approved staging\/production credentials are missing[\s\S]*approved negative-role credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*free-floating[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/i,
+  },
+];
+
 const responsiveAccessibilityFiles = [
   {
     path: 'apps/web/src/app/(app)/app-shell.tsx',
@@ -1079,6 +1102,15 @@ function checkPrECloseoutGuard() {
   }
 }
 
+function checkPrFReadinessGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-pr-f-readiness.md');
+  for (const { name, pattern } of prFReadinessPatterns) {
+    if (!pattern.test(source)) {
+      fail(`PR-F readiness production smoke guard missing ${name}`);
+    }
+  }
+}
+
 function checkResponsiveAccessibilityGuard() {
   for (const file of responsiveAccessibilityFiles) {
     const source = readRequired(file.path);
@@ -1106,6 +1138,7 @@ try {
   checkEnterpriseDmsReleaseEvidenceGuard();
   checkPrDCloseoutGuard();
   checkPrECloseoutGuard();
+  checkPrFReadinessGuard();
   checkResponsiveAccessibilityGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

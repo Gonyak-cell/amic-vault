@@ -143,6 +143,12 @@ integration status claims remain tied to approved route evidence. Read-only
 contract states must not look editable, and gated integrations must not imply a
 connected production state.
 
+For PR-F release-hardening PRs, review
+`docs/ui/enterprise-dms-pr-f-readiness.md` and confirm the PR separates
+machine-guarded readiness from external authenticated main-loop, negative-auth,
+responsive, and accessibility receipts. Do not approve production signoff when
+credential-backed DMS upload/search/detail receipts are missing.
+
 ## 10. Responsive And Accessibility
 
 For affected screens, check:
@@ -184,3 +190,5 @@ record covers:
   remains aligned with `docs/ui/enterprise-dms-pr-d-closeout.md`
 - PR-E closeout evidence, when admin/integration routes are touched, remains
   aligned with `docs/ui/enterprise-dms-pr-e-closeout.md`
+- PR-F readiness evidence, when release hardening is touched, remains aligned
+  with `docs/ui/enterprise-dms-pr-f-readiness.md`

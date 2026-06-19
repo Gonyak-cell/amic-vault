@@ -937,6 +937,11 @@ PR-E implementation note:
 
 PR-F implementation note:
 
+- PR-F readiness split is recorded in
+  `docs/ui/enterprise-dms-pr-f-readiness.md`; the UI checklist and production
+  smoke guards require that file so automated release-hardening evidence is not
+  confused with the still-required external authenticated main-loop,
+  negative-auth, responsive, and accessibility receipts.
 - DMS-UX-808 through DMS-UX-812 are implemented as release hardening contracts:
   `docs/release/enterprise-dms-ui-release-evidence.md`,
   `docs/release/production-ui-rollout-checklist.md`,

@@ -4,6 +4,10 @@ Status: PR-F release hardening baseline
 Date: 2026-06-18
 Related TUW: DMS-UX-801 to DMS-UX-812
 
+Readiness split: `docs/ui/enterprise-dms-pr-f-readiness.md` records which
+DMS-UX-801 through DMS-UX-807 checks are machine-guarded and which require
+external reference-only receipts before production signoff.
+
 This document is the production release checklist for the AMIC Vault enterprise
 DMS UI batch. It is intentionally reference-only: evidence must cite command
 receipts, PRs, audit refs, route refs, or approved screenshots. Do not paste

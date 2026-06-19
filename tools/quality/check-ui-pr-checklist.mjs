@@ -17,6 +17,7 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-release-hardening.md',
   'docs/ui/enterprise-dms-pr-d-closeout.md',
   'docs/ui/enterprise-dms-pr-e-closeout.md',
+  'docs/ui/enterprise-dms-pr-f-readiness.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
@@ -103,6 +104,21 @@ const requiredPatterns = [
     label: 'PR-E deferred item evidence',
     pattern:
       /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring/is,
+  },
+  {
+    label: 'PR-F readiness split evidence',
+    pattern:
+      /PR-F Readiness Evidence[\s\S]*DMS-UX-801[\s\S]*DMS-UX-802[\s\S]*DMS-UX-806[\s\S]*DMS-UX-807[\s\S]*Manual Receipt Requirements/is,
+  },
+  {
+    label: 'PR-F automated evidence matrix',
+    pattern:
+      /Automated Evidence Matrix[\s\S]*Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/is,
+  },
+  {
+    label: 'PR-F hold criteria',
+    pattern:
+      /Hold Criteria[\s\S]*approved staging\/production credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/is,
   },
 ];
 
