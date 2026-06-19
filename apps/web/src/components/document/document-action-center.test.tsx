@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { DocumentDto, DocumentVersionDto } from '@amic-vault/shared';
+import type { DocumentAuditEventDto, DocumentDto, DocumentVersionDto } from '@amic-vault/shared';
 import { DocumentActionCenter } from './document-action-center';
 
 const document = {
@@ -52,14 +52,37 @@ const versions = [
   },
 ] satisfies DocumentVersionDto[];
 
+const auditEvents = [
+  {
+    eventId: '11111111-1111-4111-8111-111111111701',
+    action: 'DOCUMENT_DOWNLOADED',
+    actorType: 'user',
+    actorId: '11111111-1111-4111-8111-111111111401',
+    actorDisplayName: '서지원',
+    actorDisplayEmail: 'jwsuh@amic.kr',
+    result: 'success',
+    targetType: 'document',
+    targetId: document.documentId,
+    targetDisplayName: document.title,
+    matterId: document.matterId,
+    matterDisplayCode: document.matterDisplayCode,
+    matterDisplayName: document.matterDisplayName,
+    metadata: { reason_code: 'casework' },
+    createdAt: '2026-06-18T02:00:00.000Z',
+  },
+] satisfies DocumentAuditEventDto[];
+
 describe('DocumentActionCenter', () => {
   it('renders document operations from real document data without user-facing raw refs', () => {
     const currentVersion = versions[0];
     if (!currentVersion) throw new Error('missing current version fixture');
+    const currentAuditEvent = auditEvents[0];
+    if (!currentAuditEvent) throw new Error('missing audit event fixture');
     const html = renderToStaticMarkup(
       <DocumentActionCenter
         disableInitialLoad
         documentId={document.documentId}
+        initialAuditEvents={auditEvents}
         initialDocument={document}
         initialVersions={versions}
       />,
@@ -73,6 +96,10 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('다운로드');
     expect(html).toContain('업무 처리');
     expect(html).toContain('버전');
+    expect(html).toContain('업로드 및 처리 큐');
+    expect(html).toContain('문서 감사 타임라인');
+    expect(html).toContain('다운로드');
+    expect(html).toContain('서지원');
     expect(html).toContain('v2');
     expect(html).toContain('v1');
     expect(html).toContain('새 버전 추가');
@@ -81,6 +108,8 @@ describe('DocumentActionCenter', () => {
     expect(html).not.toContain(currentVersion.versionId);
     expect(html).not.toContain(currentVersion.fileObjectId);
     expect(html).not.toContain(currentVersion.fileHash);
+    expect(html).not.toContain(currentAuditEvent.eventId);
+    expect(html).not.toContain(currentAuditEvent.actorId);
   });
 
   it('renders a bounded empty state before document data is available', () => {
