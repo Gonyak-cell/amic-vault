@@ -929,13 +929,13 @@ PR-E implementation note:
 
 PR-F implementation note:
 
-- DMS-UX-808 through DMS-UX-811 are implemented as release hardening contracts:
+- DMS-UX-808 through DMS-UX-812 are implemented as release hardening contracts:
   `docs/release/enterprise-dms-ui-release-evidence.md`,
   `docs/release/production-ui-rollout-checklist.md`,
   `docs/release/rollback-runbook.md`, and
   `tools/release/check-production-ui-smoke.mjs` now make evidence package,
-  rollout, rollback, and monitor requirements machine-checkable at the
-  production UI smoke layer.
+  rollout, rollback, monitor, and owner signoff requirements machine-checkable
+  at the production UI smoke layer.
 
 - Added `docs/ui/enterprise-dms-release-hardening.md` as the release hardening baseline for authenticated main-loop smoke, negative auth smoke, no-fake-data sweep, internal-ref sweep, AI scope sweep, responsive/accessibility QA, evidence package, rollout checklist, rollback, production monitor, and signoff.
 - UI PR checklist now requires the release hardening document for production-readiness changes.

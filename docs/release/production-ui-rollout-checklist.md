@@ -112,7 +112,7 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 ## 10. DMS Evidence Handoff
 
 Use `docs/release/enterprise-dms-ui-release-evidence.md` as the external
-evidence package template for DMS-UX-808 through DMS-UX-811. The repository copy
+evidence package template for DMS-UX-808 through DMS-UX-812. The repository copy
 is a template only. Completed evidence must remain outside the repository when
 it includes production URLs, provider metadata, screenshots, customer matter
 data, secrets, cookies, tokens, raw prompts, raw source/source text, or model
@@ -125,6 +125,10 @@ responses.
 | Release decision | `APPROVE` / `HOLD` / `ROLLBACK` |
 | Decision timestamp |  |
 | Approver |  |
+| Exact production scope |  |
+| Excluded scopes |  |
+| Approved tenant class or tenant refs |  |
+| Rollback owner |  |
 | Required follow-up PRs/issues |  |
 | Evidence register refs |  |
 | Customer-data exposure confirmed absent | `YES` / `NO` |
