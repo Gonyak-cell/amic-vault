@@ -4,6 +4,7 @@ import {
   aiPrepCanaryTenantIds,
   aiPrepEnabled,
   aiPrepGateFailureReason,
+  aiPrepQueueExpireSeconds,
   aiPrepQueueSendOptions,
   aiPrepTenantConcurrencyAllows,
   aiPrepTenantAllowed,
@@ -31,11 +32,24 @@ describe('AiPrepQueueService options', () => {
     const client = { query: vi.fn() };
     expect(aiPrepQueueSendOptions(payload, client as never)).toMatchObject({
       singletonKey: `${payload.versionId}:document_profile`,
+      expireInSeconds: 420,
       retryLimit: 5,
       retryDelay: 2,
       retryBackoff: true,
       deadLetter: 'ai.prep.dead',
     });
+  });
+
+  it('bounds active worker leases near the local Gemma timeout', () => {
+    delete process.env.AI_PREP_QUEUE_EXPIRE_SECONDS;
+    process.env.LOCAL_GEMMA_TIMEOUT_MS = '300000';
+    expect(aiPrepQueueExpireSeconds()).toBe(420);
+
+    process.env.LOCAL_GEMMA_TIMEOUT_MS = '600000';
+    expect(aiPrepQueueExpireSeconds()).toBe(660);
+
+    process.env.AI_PREP_QUEUE_EXPIRE_SECONDS = '180';
+    expect(aiPrepQueueExpireSeconds()).toBe(180);
   });
 
   it('defaults to bounded high-value artifact kinds', () => {
@@ -154,5 +168,40 @@ describe('AiPrepQueueService options', () => {
       }),
       client,
     );
+  });
+
+  it('marks unexpected worker exceptions as failed artifacts and releases tenant concurrency', async () => {
+    process.env.AI_PREP_ENABLED = 'true';
+    const processor = {
+      handle: vi.fn(async () => {
+        throw new Error('boom');
+      }),
+      markWorkerFailure: vi.fn(async () => undefined),
+    };
+    const service = new AiPrepQueueService({ log: vi.fn() } as never, processor as never);
+
+    await expect(
+      (
+        service as unknown as {
+          handleQueuedJob: (job: { data: AiPrepJobPayload }) => Promise<void>;
+        }
+      ).handleQueuedJob({ data: payload }),
+    ).resolves.toBeUndefined();
+
+    expect(processor.markWorkerFailure).toHaveBeenCalledWith(
+      payload,
+      'AI_PREP_WORKER_EXCEPTION',
+    );
+    expect(
+      aiPrepTenantConcurrencyAllows(
+        (
+          service as unknown as {
+            activeTenantCounts: ReadonlyMap<string, number>;
+          }
+        ).activeTenantCounts,
+        payload.tenantId,
+        1,
+      ),
+    ).toBe(true);
   });
 });

@@ -309,6 +309,30 @@ export class AiPrepProcessor {
     });
   }
 
+  async markWorkerFailure(payload: AiPrepJobPayload, reasonCode: string): Promise<void> {
+    const target = await this.auditService.transaction(payload.tenantId, (tx) =>
+      this.repository.findTarget(tx, payload),
+    );
+    if (!target) return;
+    const normalizedReasonCode = normalizeBlockedReason(reasonCode);
+    await this.auditService.transaction(payload.tenantId, async (tx) => {
+      const artifactId = await this.repository.upsertFailed(tx, {
+        source: target,
+        artifactKind: payload.artifactKind,
+        reasonCode: normalizedReasonCode,
+      });
+      await this.recordArtifactAudit(tx, {
+        action: 'AI_PREP_FAILED',
+        artifactId,
+        source: target,
+        payload,
+        status: 'failed',
+        result: 'failure',
+        reasonCode: normalizedReasonCode,
+      });
+    });
+  }
+
   private async recordBlocked(
     source: AiPrepSource,
     payload: AiPrepJobPayload,

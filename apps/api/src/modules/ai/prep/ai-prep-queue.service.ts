@@ -75,6 +75,13 @@ function parsePositiveInteger(raw: string | undefined, fallback: number): number
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+export function aiPrepQueueExpireSeconds(): number {
+  const configured = Number(process.env.AI_PREP_QUEUE_EXPIRE_SECONDS ?? '');
+  if (Number.isInteger(configured) && configured > 0) return configured;
+  const timeoutMs = parsePositiveInteger(process.env.LOCAL_GEMMA_TIMEOUT_MS, 300_000);
+  return Math.max(420, Math.ceil(timeoutMs / 1000) + 60);
+}
+
 export function aiPrepTenantConcurrencyAllows(
   activeTenantCounts: ReadonlyMap<string, number>,
   tenantId: string,
@@ -86,6 +93,7 @@ export function aiPrepTenantConcurrencyAllows(
 export function aiPrepQueueSendOptions(payload: AiPrepJobPayload, client: PoolClient): SendOptions {
   return {
     singletonKey: `${payload.versionId}:${payload.artifactKind}`,
+    expireInSeconds: aiPrepQueueExpireSeconds(),
     retryLimit: 5,
     retryDelay: 2,
     retryBackoff: true,
@@ -261,6 +269,14 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
     );
     try {
       await this.processor.handle(job.data);
+    } catch (error) {
+      this.logger.warn({
+        code: 'AI_PREP_WORKER_EXCEPTION',
+        artifactKind: job.data.artifactKind,
+        versionId: job.data.versionId,
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+      await this.processor.markWorkerFailure(job.data, 'AI_PREP_WORKER_EXCEPTION');
     } finally {
       const nextCount = (this.activeTenantCounts.get(job.data.tenantId) ?? 1) - 1;
       if (nextCount > 0) this.activeTenantCounts.set(job.data.tenantId, nextCount);
@@ -296,6 +312,7 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
       deleteAfterSeconds: 7 * 24 * 60 * 60,
     });
     await boss.createQueue(aiPrepQueueName, {
+      expireInSeconds: aiPrepQueueExpireSeconds(),
       retryLimit: 5,
       retryDelay: 2,
       retryBackoff: true,
