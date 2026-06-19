@@ -540,11 +540,11 @@ PR-C implementation note:
 - Backend filters remain permission-bound and use bound parameters plus wildcard escaping.
 - Keyword search can target all/title/body; sort SQL is enum-driven.
 - Search UI exposes target, sort, group, Matter Code, title, and client filters with URL state.
-- Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; virtual search folders remain explicitly API/IA-gated.
+- Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; `/search/folders` exposes those saved searches as user-scoped search folders.
 - Result cards and grouped headings use display labels, not raw matter/client/version/file references.
 - Search result cards link to document detail, the approved preview endpoint, and URL-backed file-cabinet filters without showing raw refs as labels.
 - Search result cards pass bounded hit count/index context into document detail without URL-storing snippets, search terms, or raw source text.
-- Virtual search folders, admin analytics, and true preview anchor highlighting remain deferred until supporting APIs/schema are approved.
+- Admin-shared search folders, admin analytics, and true preview anchor highlighting remain deferred until supporting APIs/schema are approved.
 
 ### PR-D Governance, Workflow, Ops
 

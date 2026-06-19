@@ -250,7 +250,7 @@ function defaultSavedSearchName(query: string, selection: SearchFacetSelection):
   return `${trimmed.slice(0, 40)} · ${scope}`;
 }
 
-function savedSearchSummary(query: SearchQueryDto): string {
+export function savedSearchSummary(query: SearchQueryDto): string {
   const selection: SearchFacetSelection = {
     clientName: query.filters?.clientName,
     dateRange: undefined,

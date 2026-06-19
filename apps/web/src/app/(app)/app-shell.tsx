@@ -337,7 +337,7 @@ function NavItem({ item, onNavigate }: { item: NavigationItem; onNavigate?: (() 
   const Icon = item.icon;
   const active =
     pathname === item.href ||
-    (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`)) ||
+    (item.href !== '/dashboard' && item.href !== '/search' && pathname.startsWith(`${item.href}/`)) ||
     (item.href === '/dashboard' && pathname === '/');
   const clickProps = onNavigate ? { onClick: onNavigate } : {};
 
