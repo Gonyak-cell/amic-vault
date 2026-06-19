@@ -15,6 +15,7 @@ import { SearchAdvancedControls } from '@/components/search/search-advanced-cont
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
 import { SearchResults, type SearchErrorKind } from '@/components/search/search-results';
+import { SearchSavePanel } from '@/components/search/search-save-panel';
 import { uiErrorKindForApiError } from '@/lib/api/error-messages';
 import { searchDocuments } from '@/lib/api/search';
 import { useI18n } from '@/lib/i18n';
@@ -33,6 +34,7 @@ export function SearchClient() {
   const [response, setResponse] = useState<SearchResponseDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SearchErrorKind | null>(null);
+  const reusableSearchUrl = useMemo(() => urlForState(query, selection, 1), [query, selection]);
 
   const runSearch = useCallback(
     async (nextQuery: string, nextSelection: SearchFacetSelection, nextPage: number) => {
@@ -95,6 +97,12 @@ export function SearchClient() {
         selection={selection}
         onApply={(advanced) => runSearch(query, { ...selection, ...advanced }, 1)}
         onReset={() => runSearch(query, resetAdvancedSelection(selection), 1)}
+      />
+      <SearchSavePanel
+        busy={busy}
+        query={query}
+        selection={selection}
+        reusableUrl={reusableSearchUrl}
       />
       <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <SearchFacets
