@@ -5,10 +5,14 @@ import { HelpCircle, SlidersHorizontal, X } from 'lucide-react';
 import {
   documentExtractionStatuses,
   documentTypes,
+  searchLegalHoldValues,
+  searchRecordsStatusValues,
   searchVersionStatusValues,
   type DocumentExtractionStatus,
   type DocumentType,
   type SearchGroupBy,
+  type SearchLegalHold,
+  type SearchRecordsStatus,
   type SearchSort,
   type SearchTarget,
   type SearchVersionStatus,
@@ -26,8 +30,10 @@ export interface SearchAdvancedSelection {
   documentType?: DocumentType | undefined;
   extractionStatus?: DocumentExtractionStatus | undefined;
   groupBy?: SearchGroupBy | undefined;
+  legalHold?: SearchLegalHold | undefined;
   matterCode?: string | undefined;
   matterName?: string | undefined;
+  recordsStatus?: SearchRecordsStatus | undefined;
   sortBy?: SearchSort | undefined;
   target?: SearchTarget | undefined;
   title?: string | undefined;
@@ -50,6 +56,8 @@ type SearchAdvancedDraft = Required<
   extractionStatus: DocumentExtractionStatus | '';
   matterCode: string;
   matterName: string;
+  legalHold: SearchLegalHold | '';
+  recordsStatus: SearchRecordsStatus | '';
   title: string;
   versionStatus: SearchVersionStatus | '';
 };
@@ -107,6 +115,18 @@ const extractionStatusLabels = {
   failed: '추출 실패',
 } as const satisfies Record<DocumentExtractionStatus, string>;
 
+const legalHoldLabels = {
+  document_hold: '파일 삭제 금지',
+  matter_hold: '사건 삭제 금지',
+  no_hold: '보존 조치 없음',
+} as const satisfies Record<SearchLegalHold, string>;
+
+const recordsStatusLabels = {
+  active: '운영 중',
+  archived: '보관됨',
+  disposal_locked: '처분 잠금',
+} as const satisfies Record<SearchRecordsStatus, string>;
+
 function normalizeInput(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
@@ -119,8 +139,10 @@ function normalizedDraft(draft: SearchAdvancedDraft): SearchAdvancedSelection {
     documentType: draft.documentType || undefined,
     extractionStatus: draft.extractionStatus || undefined,
     groupBy: draft.groupBy,
+    legalHold: draft.legalHold || undefined,
     matterCode: normalizeInput(draft.matterCode),
     matterName: normalizeInput(draft.matterName),
+    recordsStatus: draft.recordsStatus || undefined,
     sortBy: draft.sortBy,
     target: draft.target,
     title: normalizeInput(draft.title),
@@ -135,8 +157,10 @@ function countAdvanced(selection: SearchAdvancedSelection): number {
     selection.documentType,
     selection.extractionStatus,
     selection.groupBy && selection.groupBy !== 'none' ? selection.groupBy : undefined,
+    selection.legalHold,
     selection.matterCode,
     selection.matterName,
+    selection.recordsStatus,
     selection.sortBy && selection.sortBy !== 'relevance' ? selection.sortBy : undefined,
     selection.target && selection.target !== 'all' ? selection.target : undefined,
     selection.title,
@@ -156,8 +180,10 @@ export function SearchAdvancedControls({
     documentType: selection.documentType ?? '',
     extractionStatus: selection.extractionStatus ?? '',
     groupBy: selection.groupBy ?? 'none',
+    legalHold: selection.legalHold ?? '',
     matterCode: selection.matterCode ?? '',
     matterName: selection.matterName ?? '',
+    recordsStatus: selection.recordsStatus ?? '',
     sortBy: selection.sortBy ?? 'relevance',
     target: selection.target ?? 'all',
     title: selection.title ?? '',
@@ -171,8 +197,10 @@ export function SearchAdvancedControls({
       documentType: selection.documentType ?? '',
       extractionStatus: selection.extractionStatus ?? '',
       groupBy: selection.groupBy ?? 'none',
+      legalHold: selection.legalHold ?? '',
       matterCode: selection.matterCode ?? '',
       matterName: selection.matterName ?? '',
+      recordsStatus: selection.recordsStatus ?? '',
       sortBy: selection.sortBy ?? 'relevance',
       target: selection.target ?? 'all',
       title: selection.title ?? '',
@@ -288,6 +316,48 @@ export function SearchAdvancedControls({
             {documentExtractionStatuses.map((status) => (
               <option key={status} value={status}>
                 {extractionStatusLabels[status]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          보존/삭제 금지
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.legalHold}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                legalHold: event.target.value as SearchLegalHold | '',
+              }))
+            }
+          >
+            <option value="">전체</option>
+            {searchLegalHoldValues.map((status) => (
+              <option key={status} value={status}>
+                {legalHoldLabels[status]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          기록 상태
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.recordsStatus}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                recordsStatus: event.target.value as SearchRecordsStatus | '',
+              }))
+            }
+          >
+            <option value="">전체 상태</option>
+            {searchRecordsStatusValues.map((status) => (
+              <option key={status} value={status}>
+                {recordsStatusLabels[status]}
               </option>
             ))}
           </select>
@@ -454,6 +524,12 @@ function activeSearchChips(selection: SearchAdvancedSelection): Array<{ label: s
   }
   if (selection.extractionStatus) {
     chips.push({ label: '추출/OCR', value: extractionStatusLabels[selection.extractionStatus] });
+  }
+  if (selection.legalHold) {
+    chips.push({ label: '보존', value: legalHoldLabels[selection.legalHold] });
+  }
+  if (selection.recordsStatus) {
+    chips.push({ label: '기록', value: recordsStatusLabels[selection.recordsStatus] });
   }
   if (selection.versionStatus) {
     chips.push({ label: '버전', value: versionStatusLabels[selection.versionStatus] });

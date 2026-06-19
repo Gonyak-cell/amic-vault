@@ -68,6 +68,18 @@ const extractionStatusLabels = {
   failed: '추출 실패',
 } as const;
 
+const legalHoldLabels = {
+  document_hold: '파일 삭제 금지',
+  matter_hold: '사건 삭제 금지',
+  no_hold: '보존 조치 없음',
+} as const;
+
+const recordsStatusLabels = {
+  active: '운영 중',
+  archived: '보관됨',
+  disposal_locked: '처분 잠금',
+} as const;
+
 export function SearchSavePanel({
   busy,
   onDeleteSavedSearch,
@@ -251,6 +263,12 @@ export function searchPatternItems(
       value: extractionStatusLabels[selection.extractionStatus],
     });
   }
+  if (selection.legalHold) {
+    items.push({ label: '보존', value: legalHoldLabels[selection.legalHold] });
+  }
+  if (selection.recordsStatus) {
+    items.push({ label: '기록', value: recordsStatusLabels[selection.recordsStatus] });
+  }
   if (selection.versionStatus) items.push({ label: '버전 상태', value: selection.versionStatus });
   if (selection.dateRange) items.push({ label: '수정 기간', value: dateRangeLabels[selection.dateRange] });
   return items;
@@ -272,8 +290,10 @@ export function savedSearchSummary(query: SearchQueryDto): string {
       : query.filters?.documentType,
     extractionStatus: query.filters?.extractionStatus,
     groupBy: query.groupBy,
+    legalHold: query.filters?.legalHold,
     matterCode: query.filters?.matterCode,
     matterName: query.filters?.matterName,
+    recordsStatus: query.filters?.recordsStatus,
     sortBy: query.sortBy,
     target: query.target,
     title: query.filters?.title,

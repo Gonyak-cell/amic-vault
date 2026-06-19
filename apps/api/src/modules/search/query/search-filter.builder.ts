@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   searchFiltersSchema,
   type SearchFiltersDto,
+  type SearchLegalHold,
+  type SearchRecordsStatus,
   type SearchVersionStatus,
 } from '@amic-vault/shared';
 
@@ -35,6 +37,42 @@ export const searchExtractionStatusSql = `
       AND cd.version_id = idx.version_id
     LIMIT 1
   ), 'pending')
+`;
+
+export const searchDocumentLegalHoldSql = `
+  EXISTS (
+    SELECT 1
+    FROM documents document_hold_filter
+    WHERE document_hold_filter.tenant_id = idx.tenant_id
+      AND document_hold_filter.document_id = idx.document_id
+      AND document_hold_filter.legal_hold = true
+  )
+`;
+
+export const searchMatterLegalHoldSql = `
+  EXISTS (
+    SELECT 1
+    FROM matters matter_hold_filter
+    WHERE matter_hold_filter.tenant_id = idx.tenant_id
+      AND matter_hold_filter.matter_id = idx.matter_id
+      AND matter_hold_filter.legal_hold = true
+  )
+`;
+
+export const searchLegalHoldSql = `
+  CASE
+    WHEN ${searchDocumentLegalHoldSql} THEN 'document_hold'
+    WHEN ${searchMatterLegalHoldSql} THEN 'matter_hold'
+    ELSE 'no_hold'
+  END
+`;
+
+export const searchRecordsStatusSql = `
+  CASE
+    WHEN idx.document_status = 'archived' THEN 'archived'
+    WHEN idx.document_status = 'disposal_locked' THEN 'disposal_locked'
+    ELSE 'active'
+  END
 `;
 
 interface BindingState {
@@ -119,6 +157,12 @@ export class SearchFilterBuilder {
     if (filters.extractionStatus) {
       fragments.push({ sql: `${searchExtractionStatusSql} = ?`, params: [filters.extractionStatus] });
     }
+    if (filters.legalHold) {
+      fragments.push(this.legalHoldFilter(filters.legalHold));
+    }
+    if (filters.recordsStatus) {
+      fragments.push(this.recordsStatusFilter(filters.recordsStatus));
+    }
     if (filters.dateFrom) {
       // document_search_index.updated_at is populated from documents.updated_at by the indexer.
       fragments.push({ sql: 'idx.updated_at >= ?', params: [new Date(filters.dateFrom)] });
@@ -133,6 +177,22 @@ export class SearchFilterBuilder {
       whereSql: `WHERE ${clauses.join('\n  AND ')}`,
       params: state.params,
     };
+  }
+
+  private legalHoldFilter(value: SearchLegalHold): SearchSqlFragment {
+    if (value === 'document_hold') return { sql: searchDocumentLegalHoldSql, params: [] };
+    if (value === 'matter_hold') return { sql: searchMatterLegalHoldSql, params: [] };
+    return {
+      sql: `NOT (${searchDocumentLegalHoldSql}) AND NOT (${searchMatterLegalHoldSql})`,
+      params: [],
+    };
+  }
+
+  private recordsStatusFilter(value: SearchRecordsStatus): SearchSqlFragment {
+    if (value === 'active') {
+      return { sql: "idx.document_status NOT IN ('archived', 'disposal_locked')", params: [] };
+    }
+    return { sql: 'idx.document_status = ?', params: [value] };
   }
 
   private bindFragment(fragment: SearchSqlFragment, state: BindingState): string {

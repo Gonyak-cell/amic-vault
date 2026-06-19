@@ -57,6 +57,30 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         language={language}
       />
       <FacetGroup
+        title={t('search.facet.legalHold')}
+        buckets={facets.legalHolds}
+        selected={selection.legalHold}
+        onSelect={(value) =>
+          onChange({
+            ...selection,
+            legalHold: value as SearchFacetSelection['legalHold'],
+          })
+        }
+        language={language}
+      />
+      <FacetGroup
+        title={t('search.facet.recordsStatus')}
+        buckets={facets.recordsStatuses}
+        selected={selection.recordsStatus}
+        onSelect={(value) =>
+          onChange({
+            ...selection,
+            recordsStatus: value as SearchFacetSelection['recordsStatus'],
+          })
+        }
+        language={language}
+      />
+      <FacetGroup
         title={t('search.facet.matter')}
         buckets={facets.matters}
         selected={selection.matterId}
@@ -151,6 +175,12 @@ function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, 
     pending: 'search.facet.extractionPending',
     ocr_pending: 'search.facet.extractionOcrPending',
     failed: 'search.facet.extractionFailed',
+    document_hold: 'search.facet.documentHold',
+    matter_hold: 'search.facet.matterHold',
+    no_hold: 'search.facet.noHold',
+    active: 'search.facet.recordsActive',
+    archived: 'search.facet.recordsArchived',
+    disposal_locked: 'search.facet.recordsDisposalLocked',
     last_7_days: 'search.facet.last7Days',
     'last 7 days': 'search.facet.last7Days',
     last_30_days: 'search.facet.last30Days',
@@ -169,6 +199,8 @@ function hasSelection(selection: SearchFacetSelection): boolean {
       selection.matterId ||
       selection.documentType ||
       selection.extractionStatus ||
+      selection.legalHold ||
+      selection.recordsStatus ||
       selection.versionStatus ||
       selection.dateRange,
   );

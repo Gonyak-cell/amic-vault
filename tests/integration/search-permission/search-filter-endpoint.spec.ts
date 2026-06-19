@@ -113,6 +113,8 @@ describe('search filter endpoint permission integration', () => {
       matters: [],
       documentTypes: [],
       extractionStatuses: [],
+      legalHolds: [],
+      recordsStatuses: [],
       versionStatuses: [],
       dateRanges: [],
     });

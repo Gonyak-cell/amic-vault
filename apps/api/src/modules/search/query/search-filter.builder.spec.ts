@@ -111,6 +111,34 @@ describe('SearchFilterBuilder', () => {
     expect(built.params).toEqual([tenantId, 'deleted', 'current', 'ocr_pending']);
   });
 
+  it('filters legal hold and records status through approved state columns', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: {
+        legalHold: 'matter_hold',
+        recordsStatus: 'archived',
+      },
+    });
+
+    expect(built.whereSql).toContain('FROM matters matter_hold_filter');
+    expect(built.whereSql).toContain('matter_hold_filter.legal_hold = true');
+    expect(built.whereSql).toContain('idx.document_status = $4');
+    expect(built.params).toEqual([tenantId, 'deleted', 'current', 'archived']);
+  });
+
+  it('filters documents without active hold without exposing hold identifiers', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: { legalHold: 'no_hold', recordsStatus: 'active' },
+    });
+
+    expect(built.whereSql).toContain('NOT (');
+    expect(built.whereSql).toContain('FROM documents document_hold_filter');
+    expect(built.whereSql).toContain('FROM matters matter_hold_filter');
+    expect(built.whereSql).toContain("idx.document_status NOT IN ('archived', 'disposal_locked')");
+    expect(built.params).toEqual([tenantId, 'deleted', 'current']);
+  });
+
   it('binds malicious scope input without interpolating it into SQL', () => {
     const malicious = "'; DROP TABLE document_search_index; --";
     const built = new SearchFilterBuilder().build({

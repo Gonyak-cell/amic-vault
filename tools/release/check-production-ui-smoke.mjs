@@ -309,6 +309,10 @@ const enterpriseSearchFiles = [
         name: 'display text filters',
         pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/,
       },
+      {
+        name: 'records governance filters',
+        pattern: /searchLegalHoldValues[\s\S]*searchRecordsStatusValues/,
+      },
     ],
   },
   {
@@ -356,6 +360,8 @@ const enterpriseSearchFiles = [
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
+      { name: 'legal hold URL state', pattern: /legalHold/ },
+      { name: 'records status URL state', pattern: /recordsStatus/ },
     ],
   },
   {
@@ -385,6 +391,8 @@ const enterpriseSearchFiles = [
       { name: 'Matter name filter UI', pattern: /Matter 이름/ },
       { name: 'document type filter UI', pattern: /문서 유형/ },
       { name: 'searchability filter UI', pattern: /추출\/OCR/ },
+      { name: 'legal hold filter UI', pattern: /보존\/삭제 금지/ },
+      { name: 'records status filter UI', pattern: /기록 상태/ },
       { name: 'version status filter UI', pattern: /버전 상태/ },
       { name: 'updated date range filter UI', pattern: /수정 기간/ },
       { name: 'search range selector', pattern: /검색 범위/ },
@@ -399,8 +407,12 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/components/search/search-facets.tsx',
     patterns: [
       { name: 'searchability facet group', pattern: /search\.facet\.searchability/ },
+      { name: 'legal hold facet group', pattern: /search\.facet\.legalHold/ },
+      { name: 'records status facet group', pattern: /search\.facet\.recordsStatus/ },
       { name: 'extraction failed facet label', pattern: /search\.facet\.extractionFailed/ },
       { name: 'extraction status selection', pattern: /extractionStatus/ },
+      { name: 'legal hold selection', pattern: /legalHold/ },
+      { name: 'records status selection', pattern: /recordsStatus/ },
     ],
   },
   {

@@ -195,6 +195,8 @@ export function searchUrlForSavedQuery(query: SearchQueryDto): string {
   if (query.filters?.extractionStatus) {
     params.set('extractionStatus', query.filters.extractionStatus);
   }
+  if (query.filters?.legalHold) params.set('legalHold', query.filters.legalHold);
+  if (query.filters?.recordsStatus) params.set('recordsStatus', query.filters.recordsStatus);
   if (query.filters?.versionStatus) params.set('versionStatus', query.filters.versionStatus);
   return `/search?${params.toString()}`;
 }
@@ -204,6 +206,18 @@ const extractionStatusLabels = {
   pending: '추출 대기',
   ocr_pending: 'OCR 필요',
   failed: '추출 실패',
+} as const;
+
+const legalHoldLabels = {
+  document_hold: '파일 삭제 금지',
+  matter_hold: '사건 삭제 금지',
+  no_hold: '보존 조치 없음',
+} as const;
+
+const recordsStatusLabels = {
+  active: '운영 중',
+  archived: '보관됨',
+  disposal_locked: '처분 잠금',
 } as const;
 
 function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string; value: string }> {
@@ -218,6 +232,12 @@ function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string;
   }
   if (filters?.extractionStatus) {
     items.push({ label: '추출/OCR', value: extractionStatusLabels[filters.extractionStatus] });
+  }
+  if (filters?.legalHold) {
+    items.push({ label: '보존', value: legalHoldLabels[filters.legalHold] });
+  }
+  if (filters?.recordsStatus) {
+    items.push({ label: '기록', value: recordsStatusLabels[filters.recordsStatus] });
   }
   if (filters?.versionStatus) items.push({ label: '버전', value: filters.versionStatus });
   return items;

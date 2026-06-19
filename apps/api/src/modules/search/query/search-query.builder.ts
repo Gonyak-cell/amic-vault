@@ -3,6 +3,8 @@ import type { SearchMode, SearchQueryDto, SearchSort, SearchTarget } from '@amic
 import {
   SearchFilterBuilder,
   searchExtractionStatusSql,
+  searchLegalHoldSql,
+  searchRecordsStatusSql,
   type SearchSqlFragment,
   type SearchSqlValue,
 } from './search-filter.builder';
@@ -219,6 +221,22 @@ export class SearchQueryBuilder {
               GROUP BY extraction_status
             ) extraction_status_counts
           ), '[]'::jsonb),
+          'legalHolds', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', legal_hold, 'count', row_count) ORDER BY row_count DESC, legal_hold)
+            FROM (
+              SELECT legal_hold, count(*)::int AS row_count
+              FROM filtered
+              GROUP BY legal_hold
+            ) legal_hold_counts
+          ), '[]'::jsonb),
+          'recordsStatuses', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', records_status, 'count', row_count) ORDER BY row_count DESC, records_status)
+            FROM (
+              SELECT records_status, count(*)::int AS row_count
+              FROM filtered
+              GROUP BY records_status
+            ) records_status_counts
+          ), '[]'::jsonb),
           'versionStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', version_status, 'count', row_count) ORDER BY row_count DESC, version_status)
             FROM (
@@ -302,7 +320,8 @@ export class SearchQueryBuilder {
       sql: `
         ${cteSql},
         filtered AS (
-          SELECT tenant_id, client_id, matter_id, document_type, extraction_status, version_status, updated_at
+          SELECT tenant_id, client_id, matter_id, document_type, extraction_status,
+            legal_hold, records_status, version_status, updated_at
           FROM best
         )
         SELECT jsonb_build_object(
@@ -366,6 +385,22 @@ export class SearchQueryBuilder {
               FROM filtered
               GROUP BY extraction_status
             ) extraction_status_counts
+          ), '[]'::jsonb),
+          'legalHolds', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', legal_hold, 'count', row_count) ORDER BY row_count DESC, legal_hold)
+            FROM (
+              SELECT legal_hold, count(*)::int AS row_count
+              FROM filtered
+              GROUP BY legal_hold
+            ) legal_hold_counts
+          ), '[]'::jsonb),
+          'recordsStatuses', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', records_status, 'count', row_count) ORDER BY row_count DESC, records_status)
+            FROM (
+              SELECT records_status, count(*)::int AS row_count
+              FROM filtered
+              GROUP BY records_status
+            ) records_status_counts
           ), '[]'::jsonb),
           'versionStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', version_status, 'count', row_count) ORDER BY row_count DESC, version_status)
@@ -434,6 +469,8 @@ export class SearchQueryBuilder {
         WITH filtered AS (
           SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
             ${searchExtractionStatusSql} AS extraction_status,
+            ${searchLegalHoldSql} AS legal_hold,
+            ${searchRecordsStatusSql} AS records_status,
             idx.version_status, idx.updated_at
           FROM document_search_index idx
           ${whereSql}
@@ -450,6 +487,8 @@ export class SearchQueryBuilder {
       filtered AS (
         SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
           ${searchExtractionStatusSql} AS extraction_status,
+          ${searchLegalHoldSql} AS legal_hold,
+          ${searchRecordsStatusSql} AS records_status,
           idx.version_status, idx.updated_at
         FROM document_search_index idx
         CROSS JOIN tsq
@@ -507,6 +546,8 @@ export class SearchQueryBuilder {
       candidates AS (
         SELECT idx.tenant_id, idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
           idx.title, idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+          ${searchLegalHoldSql} AS legal_hold,
+          ${searchRecordsStatusSql} AS records_status,
           idx.version_status, idx.updated_at,
           chunk.chunk_id, chunk.parent_chunk_id, chunk.chunk_ordinal,
           chunk.token_count, chunk.chunk_text, chunk.text_hash, chunk.source_text_hash,
@@ -541,7 +582,7 @@ export class SearchQueryBuilder {
       ),
       best AS (
         SELECT tenant_id, document_id, version_id, matter_id, client_id, title, document_type,
-          extraction_status, version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
+          extraction_status, legal_hold, records_status, version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
           token_count, chunk_text, text_hash, source_text_hash, score
         FROM ranked
         WHERE best_rank = 1

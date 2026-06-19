@@ -14,6 +14,8 @@ import type {
 import {
   documentExtractionStatuses,
   documentTypes,
+  searchLegalHoldValues,
+  searchRecordsStatusValues,
   searchVersionStatusValues,
 } from '@amic-vault/shared';
 import type { SearchDateRange } from '@/components/search/search-advanced-controls';
@@ -213,6 +215,8 @@ const emptyFacets: SearchResponseDto['facets'] = {
   matters: [],
   documentTypes: [],
   extractionStatuses: [],
+  legalHolds: [],
+  recordsStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
@@ -226,6 +230,8 @@ function stateFromParams(params: { get(name: string): string | null }) {
       clientId: params.get('clientId') ?? undefined,
       documentType: parseDocumentType(params.get('documentType')),
       extractionStatus: parseExtractionStatus(params.get('extractionStatus')),
+      legalHold: parseLegalHold(params.get('legalHold')),
+      recordsStatus: parseRecordsStatus(params.get('recordsStatus')),
       versionStatus: parseVersionStatus(params.get('versionStatus')),
       dateRange: parseDateRange(params.get('dateRange')),
       clientName: params.get('clientName') ?? undefined,
@@ -247,6 +253,8 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.clientId) params.set('clientId', selection.clientId);
   if (selection.documentType) params.set('documentType', selection.documentType);
   if (selection.extractionStatus) params.set('extractionStatus', selection.extractionStatus);
+  if (selection.legalHold) params.set('legalHold', selection.legalHold);
+  if (selection.recordsStatus) params.set('recordsStatus', selection.recordsStatus);
   if (selection.versionStatus) params.set('versionStatus', selection.versionStatus);
   if (selection.dateRange) params.set('dateRange', selection.dateRange);
   if (selection.clientName) params.set('clientName', selection.clientName);
@@ -287,6 +295,12 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
   if (selection.extractionStatus) {
     filters.extractionStatus = selection.extractionStatus as SearchFiltersDto['extractionStatus'];
   }
+  if (selection.legalHold) {
+    filters.legalHold = selection.legalHold as SearchFiltersDto['legalHold'];
+  }
+  if (selection.recordsStatus) {
+    filters.recordsStatus = selection.recordsStatus as SearchFiltersDto['recordsStatus'];
+  }
   if (selection.versionStatus) {
     filters.versionStatus = selection.versionStatus as SearchFiltersDto['versionStatus'];
   }
@@ -307,9 +321,11 @@ function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
     documentType,
     extractionStatus: filters?.extractionStatus,
     groupBy: input.groupBy,
+    legalHold: filters?.legalHold,
     matterCode: filters?.matterCode,
     matterId: filters?.matterId,
     matterName: filters?.matterName,
+    recordsStatus: filters?.recordsStatus,
     sortBy: input.sortBy,
     target: input.target,
     title: filters?.title,
@@ -339,6 +355,18 @@ function parseVersionStatus(value: string | null): SearchFacetSelection['version
 function parseExtractionStatus(value: string | null): SearchFacetSelection['extractionStatus'] {
   return (documentExtractionStatuses as readonly string[]).includes(value ?? '')
     ? (value as SearchFacetSelection['extractionStatus'])
+    : undefined;
+}
+
+function parseLegalHold(value: string | null): SearchFacetSelection['legalHold'] {
+  return (searchLegalHoldValues as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['legalHold'])
+    : undefined;
+}
+
+function parseRecordsStatus(value: string | null): SearchFacetSelection['recordsStatus'] {
+  return (searchRecordsStatusValues as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['recordsStatus'])
     : undefined;
 }
 
