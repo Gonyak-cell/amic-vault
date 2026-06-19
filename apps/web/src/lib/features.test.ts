@@ -94,4 +94,11 @@ describe('route visibility policies', () => {
     expect(staleRoutes).toEqual([]);
     expect(findRouteVisibilityPolicy('/enterprise')?.showInNavigation).toBe(false);
   });
+
+  it('keeps external portal routes out of internal production navigation policy', () => {
+    const policyRoutes: readonly string[] = routeVisibilityPolicies.map((policy) => policy.route);
+
+    expect(findRouteVisibilityPolicy('/external/[token]')).toBeUndefined();
+    expect(policyRoutes.some((route) => route.startsWith('/external'))).toBe(false);
+  });
 });

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import {
+  Activity,
   Building2,
   Database,
   FileCog,
@@ -20,6 +21,8 @@ import type {
   EnterpriseReadinessSummaryDto,
   EnterpriseSiemExportListResponseDto,
   EnterpriseSsoProviderListResponseDto,
+  LocalAiOpsHealthDto,
+  LocalAiOpsMetricsDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +37,7 @@ import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { getLocalAiOpsHealth, getLocalAiOpsMetrics } from '@/lib/api/ai-ops';
 import {
   getEnterpriseReadiness,
   listEnterpriseBackupSnapshots,
@@ -104,6 +108,30 @@ const enterpriseCopy: Record<
     backupSnapshots: string;
     complianceGaps: string;
     technicalCheck: string;
+    opsHealth: string;
+    opsHealthMeta: string;
+    opsHealthScope: string;
+    opsRuntime: string;
+    opsMetrics: string;
+    opsReady: string;
+    opsDegraded: string;
+    opsBlocked: string;
+    queueBacklog: string;
+    blockedPrep: string;
+    p95Latency: string;
+    endpointClass: string;
+    endpointLoopback: string;
+    endpointPrivate: string;
+    endpointBlocked: string;
+    prepCompleted: string;
+    prepFailed: string;
+    prepStale: string;
+    prepRejected: string;
+    prepFallback: string;
+    staleRebuild: string;
+    invalidOutput: string;
+    citationExcluded: string;
+    milliseconds: string;
   }
 > = {
   ko: {
@@ -159,6 +187,30 @@ const enterpriseCopy: Record<
     backupSnapshots: '스냅샷',
     complianceGaps: '미충족 항목',
     technicalCheck: '시스템 점검',
+    opsHealth: '운영 헬스',
+    opsHealthMeta: '검색, 감사, 파일 정리 준비 상태',
+    opsHealthScope: '표시 범위는 업로드 후 파일 정리 준비 전용 상태와 운영 신호로 제한됩니다.',
+    opsRuntime: '파일 정리 준비 런타임',
+    opsMetrics: '파일 정리 준비 지표',
+    opsReady: '정상',
+    opsDegraded: '주의 필요',
+    opsBlocked: '차단',
+    queueBacklog: '대기열',
+    blockedPrep: '차단/실패',
+    p95Latency: 'P95 처리 시간',
+    endpointClass: '실행 위치',
+    endpointLoopback: '서버 내부',
+    endpointPrivate: '사설망',
+    endpointBlocked: '차단됨',
+    prepCompleted: '정리됨',
+    prepFailed: '실패',
+    prepStale: '재정리 필요',
+    prepRejected: '폐기됨',
+    prepFallback: '대체 정리',
+    staleRebuild: '재정리 대기',
+    invalidOutput: '검증 실패',
+    citationExcluded: '참조 제외',
+    milliseconds: 'ms',
   },
   en: {
     pageTitle: 'Admin settings',
@@ -214,6 +266,31 @@ const enterpriseCopy: Record<
     backupSnapshots: 'Snapshots',
     complianceGaps: 'Gaps',
     technicalCheck: 'Technical check',
+    opsHealth: 'Operations health',
+    opsHealthMeta: 'Search, audit, and file organization prep status',
+    opsHealthScope:
+      'This surface is limited to post-upload file organization prep status and operational signals.',
+    opsRuntime: 'File organization prep runtime',
+    opsMetrics: 'File organization prep metrics',
+    opsReady: 'Ready',
+    opsDegraded: 'Needs attention',
+    opsBlocked: 'Blocked',
+    queueBacklog: 'Queue backlog',
+    blockedPrep: 'Blocked or failed',
+    p95Latency: 'P95 processing time',
+    endpointClass: 'Execution location',
+    endpointLoopback: 'Server-local',
+    endpointPrivate: 'Private network',
+    endpointBlocked: 'Blocked',
+    prepCompleted: 'Prepared',
+    prepFailed: 'Failed',
+    prepStale: 'Needs refresh',
+    prepRejected: 'Discarded',
+    prepFallback: 'Fallback prep',
+    staleRebuild: 'Refresh queued',
+    invalidOutput: 'Validation failed',
+    citationExcluded: 'Reference excluded',
+    milliseconds: 'ms',
   },
 };
 
@@ -228,6 +305,8 @@ export function EnterpriseHardeningClient() {
     null,
   );
   const [readiness, setReadiness] = useState<EnterpriseReadinessSummaryDto | null>(null);
+  const [aiOpsHealth, setAiOpsHealth] = useState<LocalAiOpsHealthDto | null>(null);
+  const [aiOpsMetrics, setAiOpsMetrics] = useState<LocalAiOpsMetricsDto | null>(null);
   const [reindexResult, setReindexResult] = useState<TenantSearchReindexResult | null>(null);
   const [reindexError, setReindexError] = useState<string | null>(null);
   const [reindexBusy, setReindexBusy] = useState(false);
@@ -248,14 +327,24 @@ export function EnterpriseHardeningClient() {
   }
 
   async function refreshAll() {
-    const [nextProviders, nextKeys, nextExports, nextSnapshots, nextEvidence, nextReadiness] =
-      await Promise.all([
+    const [
+      nextProviders,
+      nextKeys,
+      nextExports,
+      nextSnapshots,
+      nextEvidence,
+      nextReadiness,
+      nextAiOpsHealth,
+      nextAiOpsMetrics,
+    ] = await Promise.all([
         run(() => listEnterpriseSsoProviders()),
         run(() => listEnterpriseKeyReferences()),
         run(() => listEnterpriseSiemExports()),
         run(() => listEnterpriseBackupSnapshots()),
         run(() => listEnterpriseComplianceEvidence()),
         run(() => getEnterpriseReadiness()),
+        run(() => getLocalAiOpsHealth()),
+        run(() => getLocalAiOpsMetrics()),
       ]);
     if (nextProviders) setProviders(nextProviders);
     if (nextKeys) setKeys(nextKeys);
@@ -263,6 +352,8 @@ export function EnterpriseHardeningClient() {
     if (nextSnapshots) setSnapshots(nextSnapshots);
     if (nextEvidence) setEvidence(nextEvidence);
     if (nextReadiness) setReadiness(nextReadiness);
+    if (nextAiOpsHealth) setAiOpsHealth(nextAiOpsHealth);
+    if (nextAiOpsMetrics) setAiOpsMetrics(nextAiOpsMetrics);
   }
 
   async function requestReindex() {
@@ -299,6 +390,7 @@ export function EnterpriseHardeningClient() {
         onRequest={() => void requestReindex()}
         result={reindexResult}
       />
+      <AdminOpsHealthPanel copy={copy} health={aiOpsHealth} metrics={aiOpsMetrics} />
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <SectionCard
@@ -410,6 +502,92 @@ export function EnterpriseHardeningClient() {
       </section>
     </PageShell>
   );
+}
+
+export function AdminOpsHealthPanel({
+  copy,
+  health,
+  metrics,
+}: {
+  copy: (typeof enterpriseCopy)[Language];
+  health: LocalAiOpsHealthDto | null;
+  metrics: LocalAiOpsMetricsDto | null;
+}) {
+  return (
+    <SectionCard
+      icon={<Activity className="h-4 w-4" />}
+      title={copy.opsHealth}
+      meta={copy.opsHealthMeta}
+      actions={
+        <StatusBadge tone={health ? localAiOpsTone(health.status) : 'neutral'}>
+          {health ? localAiOpsStatusLabel(copy, health.status) : copy.reindexReady}
+        </StatusBadge>
+      }
+    >
+      <p className="text-sm leading-6 text-muted-foreground">{copy.opsHealthScope}</p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-md border bg-background p-3">
+          <h3 className="text-sm font-semibold tracking-normal">{copy.opsRuntime}</h3>
+          {health ? (
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <Value label={copy.queueBacklog} value={`${health.queueBacklogCount} ${copy.count}`} />
+              <Value label={copy.blockedPrep} value={`${health.blockedPrepCount} ${copy.count}`} />
+              <Value label={copy.p95Latency} value={formatLatency(copy, health.p95LatencyMs)} />
+              <Value label={copy.endpointClass} value={endpointClassLabel(copy, health.endpointClass)} />
+            </dl>
+          ) : (
+            <Unavailable copy={copy} />
+          )}
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <h3 className="text-sm font-semibold tracking-normal">{copy.opsMetrics}</h3>
+          {metrics ? (
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <Value label={copy.prepCompleted} value={`${metrics.prepCompletedCount} ${copy.count}`} />
+              <Value label={copy.prepFailed} value={`${metrics.prepFailedCount} ${copy.count}`} />
+              <Value label={copy.prepStale} value={`${metrics.prepStaleCount} ${copy.count}`} />
+              <Value label={copy.prepRejected} value={`${metrics.prepRejectedCount} ${copy.count}`} />
+              <Value label={copy.prepFallback} value={`${metrics.prepFallbackCount} ${copy.count}`} />
+              <Value label={copy.staleRebuild} value={`${metrics.staleRebuildCount} ${copy.count}`} />
+              <Value label={copy.invalidOutput} value={`${metrics.invalidOutputCount} ${copy.count}`} />
+              <Value label={copy.citationExcluded} value={`${metrics.citationRejectedCount} ${copy.count}`} />
+              <Value label={copy.p95Latency} value={formatLatency(copy, metrics.p95PrepLatencyMs)} />
+            </dl>
+          ) : (
+            <Unavailable copy={copy} />
+          )}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function localAiOpsTone(status: LocalAiOpsHealthDto['status']) {
+  if (status === 'ready') return 'success';
+  if (status === 'degraded') return 'warning';
+  return 'blocked';
+}
+
+function localAiOpsStatusLabel(
+  copy: (typeof enterpriseCopy)[Language],
+  status: LocalAiOpsHealthDto['status'],
+): string {
+  if (status === 'ready') return copy.opsReady;
+  if (status === 'degraded') return copy.opsDegraded;
+  return copy.opsBlocked;
+}
+
+function endpointClassLabel(
+  copy: (typeof enterpriseCopy)[Language],
+  endpointClass: LocalAiOpsHealthDto['endpointClass'],
+): string {
+  if (endpointClass === 'loopback') return copy.endpointLoopback;
+  if (endpointClass === 'private_network') return copy.endpointPrivate;
+  return copy.endpointBlocked;
+}
+
+function formatLatency(copy: (typeof enterpriseCopy)[Language], value: number | null): string {
+  return value === null ? copy.notPassed : `${value} ${copy.milliseconds}`;
 }
 
 function AdminSearchOperationsPanel({

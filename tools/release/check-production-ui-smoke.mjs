@@ -545,6 +545,10 @@ const adminIntegrationsFiles = [
     path: 'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
     patterns: [
       { name: 'DMS configuration IA panel', pattern: /AdminDmsConfigurationPanel/ },
+      { name: 'operations health panel', pattern: /AdminOpsHealthPanel/ },
+      { name: 'AI ops health client', pattern: /getLocalAiOpsHealth/ },
+      { name: 'AI ops metrics client', pattern: /getLocalAiOpsMetrics/ },
+      { name: 'file organization prep scoped ops copy', pattern: /파일 정리 준비 전용/ },
       { name: 'taxonomy admin contract state', pattern: /taxonomy/ },
       { name: 'matter template admin contract state', pattern: /templates/ },
       { name: 'search refiner admin contract state', pattern: /refiners/ },
@@ -829,6 +833,12 @@ function checkRouteVisibility() {
   }
   for (const route of hiddenUntilApiRoutes) {
     assertRoutePolicy(featuresSource, route, 'hidden_until_api_ready', 'false');
+  }
+  if (/route: '\/external/.test(featuresSource)) {
+    fail('External portal routes must stay out of internal route visibility policies');
+  }
+  if (/['"]\/external/.test(navigationSource)) {
+    fail('External portal routes must stay out of internal navigation');
   }
 }
 
