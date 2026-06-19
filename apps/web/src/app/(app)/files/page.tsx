@@ -52,7 +52,7 @@ export default function FilesPage() {
       <SectionCard
         icon={<Search className="h-4 w-4" />}
         title="Matter Code 선택"
-        meta="Matter app source-of-truth"
+        meta="Matter 원장 기준"
       >
         <MatterCodePicker
           selectedMatter={selectedMatter}
@@ -63,7 +63,7 @@ export default function FilesPage() {
       <SectionCard
         icon={<FolderUp className="h-4 w-4" />}
         title="파일 업로드"
-        meta="Matter-scoped intake"
+        meta="선택한 Matter에 업로드"
       >
         <DocumentUploadPanel
           selectedMatter={selectedMatter}
@@ -77,7 +77,7 @@ export default function FilesPage() {
       <SectionCard
         icon={<FileText className="h-4 w-4" />}
         title="선택한 Matter 문서"
-        meta="Matter-scoped documents"
+        meta="권한 확인 문서"
       >
         <MatterDocumentList selectedMatter={selectedMatter} />
       </SectionCard>
