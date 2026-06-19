@@ -9,6 +9,8 @@ import type {
   SearchSort,
   SearchTarget,
 } from '@amic-vault/shared';
+import { documentTypes, searchVersionStatusValues } from '@amic-vault/shared';
+import type { SearchDateRange } from '@/components/search/search-advanced-controls';
 import { SearchAdvancedControls } from '@/components/search/search-advanced-controls';
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
@@ -129,9 +131,9 @@ function stateFromParams(params: { get(name: string): string | null }) {
     selection: {
       matterId: params.get('matterId') ?? undefined,
       clientId: params.get('clientId') ?? undefined,
-      documentType: params.get('documentType') ?? undefined,
-      versionStatus: params.get('versionStatus') ?? undefined,
-      dateRange: params.get('dateRange') ?? undefined,
+      documentType: parseDocumentType(params.get('documentType')),
+      versionStatus: parseVersionStatus(params.get('versionStatus')),
+      dateRange: parseDateRange(params.get('dateRange')),
       clientName: params.get('clientName') ?? undefined,
       groupBy: parseGroupBy(params.get('groupBy')),
       matterCode: params.get('matterCode') ?? undefined,
@@ -183,11 +185,26 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
 function resetAdvancedSelection(selection: SearchFacetSelection): SearchFacetSelection {
   return {
     clientId: selection.clientId,
-    dateRange: selection.dateRange,
-    documentType: selection.documentType,
     matterId: selection.matterId,
-    versionStatus: selection.versionStatus,
   };
+}
+
+function parseDocumentType(value: string | null): SearchFacetSelection['documentType'] {
+  return (documentTypes as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['documentType'])
+    : undefined;
+}
+
+function parseVersionStatus(value: string | null): SearchFacetSelection['versionStatus'] {
+  return (searchVersionStatusValues as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['versionStatus'])
+    : undefined;
+}
+
+function parseDateRange(value: string | null): SearchDateRange | undefined {
+  return value === 'last_7_days' || value === 'last_30_days' || value === 'older'
+    ? value
+    : undefined;
 }
 
 function parseTarget(value: string | null): SearchTarget | undefined {
