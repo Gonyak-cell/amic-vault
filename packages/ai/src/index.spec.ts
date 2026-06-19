@@ -55,9 +55,52 @@ describe('LocalGemmaGateway', () => {
         capabilities: ['completion', 'thinking', 'vision'],
       },
     });
-    expect(transport.fetch).toHaveBeenCalledWith('http://127.0.0.1:11434/api/tags', {
-      method: 'GET',
-    });
+    expect(transport.fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:11434/api/tags',
+      expect.objectContaining({
+        method: 'GET',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it('bounds local health checks so busy Ollama does not hold prep jobs active', async () => {
+    vi.useFakeTimers();
+    const transport = {
+      fetch: vi.fn(
+        (_url: string, init: Parameters<GatewayTransport['fetch']>[1]) =>
+          new Promise<never>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+              once: true,
+            });
+          }),
+      ),
+    } satisfies GatewayTransport;
+
+    try {
+      const health = new LocalGemmaGateway(
+        {
+          route: 'local_gemma',
+          enabled: true,
+          endpoint: 'http://127.0.0.1:11434',
+          timeoutMs: 25,
+        },
+        transport,
+      ).health();
+
+      await vi.advanceTimersByTimeAsync(25);
+
+      await expect(health).resolves.toMatchObject({
+        status: 'blocked',
+        reasonCode: 'local_endpoint_unhealthy',
+      });
+      expect(transport.fetch).toHaveBeenCalledWith(
+        'http://127.0.0.1:11434/api/tags',
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('generates text through the local Ollama endpoint only after health passes', async () => {
