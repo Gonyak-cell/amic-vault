@@ -70,6 +70,13 @@ export const routeVisibilityPolicies = [
     showInNavigation: true,
   },
   {
+    route: '/search/folders',
+    group: 'Vault',
+    production: 'visible',
+    roles: internalUserRoles,
+    showInNavigation: true,
+  },
+  {
     route: '/records',
     group: 'Governance',
     production: 'visible_admin_only',

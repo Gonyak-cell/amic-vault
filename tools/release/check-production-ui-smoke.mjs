@@ -80,7 +80,7 @@ const productionInventoryPatterns = [
   {
     name: 'core visible routes',
     pattern:
-      /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`[\s\S]*\/notifications[\s\S]*`visible`/,
+      /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/search\/folders[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`[\s\S]*\/notifications[\s\S]*`visible`/,
   },
   {
     name: 'admin and governance routes',
@@ -350,6 +350,16 @@ const enterpriseSearchFiles = [
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/search/folders/search-folders-client.tsx',
+    patterns: [
+      { name: 'search folders route saved-search API list', pattern: /listSavedSearches/ },
+      { name: 'search folders route saved-search API delete', pattern: /deleteSavedSearch/ },
+      { name: 'search folders route title', pattern: /내 검색 폴더/ },
+      { name: 'search folders safe URL helper', pattern: /searchUrlForSavedQuery/ },
+      { name: 'search folders no id display by design', pattern: /savedSearchId/ },
     ],
   },
   {

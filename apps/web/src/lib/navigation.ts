@@ -4,6 +4,7 @@ import {
   CheckSquare,
   FileText,
   FolderKanban,
+  FolderSearch,
   History,
   ListChecks,
   MailCheck,
@@ -62,6 +63,11 @@ const routeNavigation = {
     group: 'Vault',
     icon: Search,
     labelKey: 'nav.search',
+  },
+  '/search/folders': {
+    group: 'Vault',
+    icon: FolderSearch,
+    labelKey: 'nav.searchFolders',
   },
   '/records': {
     group: 'Governance',

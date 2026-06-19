@@ -64,6 +64,20 @@ describe('route visibility policies', () => {
     expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
   });
 
+  it('shows search folders to internal users as a production Vault route', () => {
+    const policy = findRouteVisibilityPolicy('/search/folders');
+    expect(policy).toMatchObject({
+      group: 'Vault',
+      production: 'visible',
+      showInNavigation: true,
+    });
+    if (!policy) throw new Error('missing search folders route policy');
+
+    expect(canRoleViewRoute(policy, 'matter_member')).toBe(true);
+    expect(canRoleViewRoute(policy, 'limited_reviewer')).toBe(true);
+    expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
+  });
+
   it('keeps hidden internal and out-of-scope routes blocked by policy', () => {
     for (const route of ['/launch', '/scale', '/contracts', '/dd', '/litigation']) {
       const policy = findRouteVisibilityPolicy(route);
