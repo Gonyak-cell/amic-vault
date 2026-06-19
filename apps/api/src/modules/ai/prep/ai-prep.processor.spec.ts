@@ -49,9 +49,19 @@ function firstRejectedPayload(repository: {
   return calls[0]?.[1].payload;
 }
 
+function firstCompletedPayload(repository: {
+  upsertCompleted: ReturnType<typeof vi.fn>;
+}): CompletedPrepPayload | undefined {
+  const calls = repository.upsertCompleted.mock.calls as unknown as Array<
+    [unknown, { payload: CompletedPrepPayload }]
+  >;
+  return calls[0]?.[1].payload;
+}
+
 function createProcessor(
   options: {
     generationStatus?: 'completed' | 'blocked';
+    generationReasonCode?: string | undefined;
     packSourceRefs?: string[] | undefined;
     staleRows?: Array<{
       ai_prep_artifact_id: string;
@@ -157,7 +167,7 @@ function createProcessor(
   const generation = {
     generateGrounded: vi.fn(async () =>
       options.generationStatus === 'blocked'
-        ? { status: 'blocked', reasonCode: 'unsupported_claim' }
+        ? { status: 'blocked', reasonCode: options.generationReasonCode ?? 'unsupported_claim' }
         : {
             status: 'completed',
             model: 'gemma4:12b',
@@ -402,6 +412,46 @@ describe('AiPrepProcessor', () => {
         }),
       ]),
     );
+  });
+
+  it('stores deterministic completed fallback for transient Gemma generation failure', async () => {
+    const { auditLogs, repository, processor } = createProcessor({
+      generationStatus: 'blocked',
+      generationReasonCode: 'generation_failed',
+    });
+
+    await processor.handle(payload);
+
+    expect(repository.upsertBlocked).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).not.toHaveBeenCalled();
+    expect(repository.upsertCompleted).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        promptHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+        responseHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      }),
+    );
+    const completedPayload = firstCompletedPayload(repository);
+    expect(completedPayload).toBeDefined();
+    if (!completedPayload) throw new Error('expected completed fallback payload');
+    expect(completedPayload.claims.map((claim) => claim.kind)).toEqual(['key_fact']);
+    expect(completedPayload.warnings).toContain('LOCAL_GEMMA_GENERATION_FAILED_FALLBACK');
+    expect(JSON.stringify(completedPayload)).not.toContain('source text');
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_COMPLETED',
+          metadata: expect.objectContaining({
+            ai_prep_status: 'completed',
+            generation_result: 'fallback',
+            fallback_reason_code: 'GENERATION_FAILED',
+            prompt_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+            response_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
+        }),
+      ]),
+    );
+    expect(JSON.stringify(auditLogs)).not.toMatch(/"response"|"prompt"|"raw"/u);
   });
 
   it('records unsupported model output as rejected without storing a raw response', async () => {
