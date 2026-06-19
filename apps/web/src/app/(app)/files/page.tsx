@@ -41,7 +41,15 @@ export default function FilesPage() {
         title={t('files.section.title')}
         meta={t('files.section.meta')}
       >
-        <DocumentVaultList />
+        <React.Suspense
+          fallback={
+            <div className="flex min-h-28 items-center justify-center rounded-md border border-dashed bg-muted/30 text-sm text-muted-foreground">
+              전체 문서를 확인하는 중입니다.
+            </div>
+          }
+        >
+          <DocumentVaultList />
+        </React.Suspense>
       </SectionCard>
       <PageHeader
         id="matter-upload"

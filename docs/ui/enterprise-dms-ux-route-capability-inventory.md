@@ -15,7 +15,7 @@ Source baseline:
 | Route | DMS role | Current state | Required next TUW |
 | --- | --- | --- | --- |
 | `/dashboard` | Entry point for recent activity, AI prep status, integrations, action links. | Partial. API-backed dashboard exists with real-data-only action queue derived from policy alerts, file organization prep readiness, integration state, and API connection failures. Unified task API remains missing. | DMS-UX-501 to 507 |
-| `/work` | Work queue / task inbox entry point. | Partial. Dedicated work queue route derives actionable items only from dashboard API sections and connection states; persisted assignment/due/status task API remains missing. | DMS-UX-501 to 507 |
+| `/work` | Work queue / task inbox entry point. | Partial. Dedicated work queue route derives actionable items only from dashboard API sections and connection states and links unresolved extraction/OCR/file-organization work to URL-backed `/files` filters; persisted assignment/due/status task API remains missing. | DMS-UX-501 to 507 |
 | `/notifications` | Notification center entry point. | Partial. Dedicated notification route derives alerts only from dashboard API sections, recent activity, and connection states; persisted notification API remains missing. | DMS-UX-506 |
 | `/matters` | Matter app-backed matter list and workspace entry. | Partial. Vault matter list exists, but Matter app source-of-truth contract is not implemented. | DMS-UX-003, 004, 113 |
 | `/matters/[matterId]` | Matter workspace home. | Partial. Profile/team shell, matter-scoped file section, governance context, Matter-scoped audit timeline, records links, and real-status work queue exist; unified task API remains incomplete. | DMS-UX-501 to 506 |

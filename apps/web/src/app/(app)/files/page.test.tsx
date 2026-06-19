@@ -1,8 +1,13 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
 import FilesPage from './page';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 describe('FilesPage', () => {
   it('requires Matter Code selection before file upload and keeps file list empty until connected', () => {
