@@ -30,6 +30,7 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | UI-PRE-004 | Production UI inventory reviewed | `docs/ui/production-ui-inventory.md` matches route visibility and navigation policy | Security reviewer |  |  |
 | UI-PRE-005 | `docs/package/` unchanged unless separately approved | Normative package remains frozen | Security reviewer |  |  |
 | UI-PRE-006 | Feature scope confirmed | File organization prep only; no legal analysis, summary, external model route, raw prompt/source/model-response storage | Legal-data owner |  |  |
+| UI-PRE-007 | Enterprise DMS UI evidence package prepared | `docs/release/enterprise-dms-ui-release-evidence.md` is copied into the external evidence workspace and every required row has an evidence ref or approved deferral | Operator |  |  |
 
 ## 3. Auth And Shell Smoke
 
@@ -106,8 +107,18 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | UI-POST-003 | Audit trail | UI-facing upload/prep actions have bounded audit events without document body/raw AI data | Security reviewer |  |  |
 | UI-POST-004 | Error monitoring | No spike in auth, route, or UI rendering errors after deploy | Operator |  |  |
 | UI-POST-005 | Rollback readiness | Rollback command/path and owner are confirmed before widening traffic | Operator |  |  |
+| UI-POST-006 | DMS production monitor | Upload, extraction/OCR, search, permission/wall, AI prep file organization, audit, storage, and integration health signals are watched using evidence refs only | Operator |  |  |
 
-## 10. Decision Record
+## 10. DMS Evidence Handoff
+
+Use `docs/release/enterprise-dms-ui-release-evidence.md` as the external
+evidence package template for DMS-UX-808 through DMS-UX-811. The repository copy
+is a template only. Completed evidence must remain outside the repository when
+it includes production URLs, provider metadata, screenshots, customer matter
+data, secrets, cookies, tokens, raw prompts, raw source/source text, or model
+responses.
+
+## 11. Decision Record
 
 | Decision | Value |
 |---|---|

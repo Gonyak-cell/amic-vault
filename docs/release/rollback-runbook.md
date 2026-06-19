@@ -54,6 +54,34 @@ permission failures, or confusing users during incident response.
    refs. Do not record screenshots with private URLs, cookies, tokens, local
    storage dumps, document names, snippets, or customer data.
 
+## Enterprise DMS UI Rollback
+
+Use this path when the Matter-first DMS UI release exposes unsafe upload,
+browse, search, governance, integration, or AI prep behavior.
+
+1. Stop traffic widening and preserve reference-only evidence.
+2. Use route visibility policy to hide unsafe surfaces such as `/files`,
+   `/documents/[id]`, `/search/folders`, `/records`, `/audit`, `/walls`,
+   `/integrations`, `/integrations/outlook`, `/enterprise`, and admin routes.
+3. If Matter app source-of-truth lookup or sync is unhealthy, disable
+   production upload/browse by setting Matter source flags to a fail-closed
+   state: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`,
+   `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, and
+   `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE`.
+4. If file organization prep health is unsafe, stop enqueue and worker paths
+   with `AI_PREP_ENABLED=false`, `AI_PREP_QUEUE_WORKER_ENABLED=false`, and
+   `LOCAL_GEMMA_ENABLED=false`; keep `AI_SUMMARY_GEMMA_ENABLED=false`.
+5. If search or document detail leaks metadata, route traffic back to the
+   previous known-good web/API image and keep search/detail routes hidden until
+   permission-bound smoke passes.
+6. Do not hard delete documents, versions, audit events, storage objects, or
+   AI prep records. Use reviewed migration rollback or a forward-fix only.
+7. Confirm immutable originals, versions, hashes, tenant prefixes, and audit
+   append-only invariants after rollback.
+8. Continue monitoring upload, extraction/OCR, search, permission/wall,
+   AI prep file organization, audit, storage, and integration health until the
+   incident owner closes the rollback.
+
 ## Database Rollback
 
 Database rollback is allowed only when:

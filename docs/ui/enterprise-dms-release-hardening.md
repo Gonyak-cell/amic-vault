@@ -118,6 +118,8 @@ Reviewer must check:
 
 ## DMS-UX-808 Evidence Package
 
+Canonical template: `docs/release/enterprise-dms-ui-release-evidence.md`.
+
 Evidence package must include refs only:
 
 - PR stack and commit SHAs.
@@ -130,6 +132,8 @@ Evidence package must include refs only:
 - Explicit list of deferred items with owner and follow-up TUW.
 
 ## DMS-UX-809 Rollout Checklist
+
+Canonical operator checklist: `docs/release/production-ui-rollout-checklist.md`.
 
 Release cannot pass unless the checklist covers:
 
@@ -146,6 +150,10 @@ Release cannot pass unless the checklist covers:
 
 ## DMS-UX-810 Rollback Plan
 
+Canonical rollback controls:
+`docs/release/enterprise-dms-ui-release-evidence.md` and
+`docs/release/rollback-runbook.md`.
+
 Rollback owner must be named before release. Rollback controls:
 
 - Route visibility policy: hide `/files`, `/documents/[id]`, `/integrations`,
@@ -160,6 +168,8 @@ Rollback owner must be named before release. Rollback controls:
 - Monitoring: keep audit events and error receipts for rollback decision.
 
 ## DMS-UX-811 Production Monitor
+
+Canonical monitor matrix: `docs/release/enterprise-dms-ui-release-evidence.md`.
 
 Monitor after release:
 

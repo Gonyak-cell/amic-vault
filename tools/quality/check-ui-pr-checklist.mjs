@@ -15,6 +15,7 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-ux-tuw-plan.md',
   'docs/ui/enterprise-dms-ux-route-capability-inventory.md',
   'docs/ui/enterprise-dms-release-hardening.md',
+  'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
 
@@ -50,6 +51,22 @@ const requiredPatterns = [
   { label: 'authenticated DMS smoke review', pattern: /Matter Code.*upload.*document detail.*search/is },
   { label: 'negative auth smoke review', pattern: /Non-member.*Wall-blocked.*Non-admin/is },
   { label: 'rollback and monitor review', pattern: /Rollback Plan[\s\S]*Production Monitor/i },
+  {
+    label: 'DMS UI release evidence template',
+    pattern: /Enterprise DMS UI Release Evidence[\s\S]*DMS-UX-808[\s\S]*DMS-UX-811/i,
+  },
+  {
+    label: 'DMS rollout evidence matrix',
+    pattern: /Matter Code selection before upload[\s\S]*Negative auth and wall-blocked[\s\S]*AI Prep remains file organization prep only/i,
+  },
+  {
+    label: 'DMS rollback controls evidence',
+    pattern: /Route visibility policy[\s\S]*Matter app source flags[\s\S]*Worker flags[\s\S]*Database rollback/is,
+  },
+  {
+    label: 'DMS production monitor evidence',
+    pattern: /Upload failure rate[\s\S]*Extraction\/OCR[\s\S]*AI prep queue[\s\S]*Audit write failures/is,
+  },
 ];
 
 const issues = [];

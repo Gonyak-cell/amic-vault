@@ -570,6 +570,48 @@ const releaseHardeningPatterns = [
   },
 ];
 
+const enterpriseDmsReleaseEvidencePatterns = [
+  {
+    name: 'refs-only data handling',
+    pattern:
+      /Status: TEMPLATE - REFS ONLY[\s\S]*Do not record customer file\s+contents[\s\S]*raw prompts[\s\S]*model responses/i,
+  },
+  {
+    name: 'release owners and rollback owner',
+    pattern:
+      /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner/i,
+  },
+  {
+    name: 'DMS-UX-808 automated gate receipts',
+    pattern:
+      /DMS-UX-808 Evidence Package[\s\S]*pnpm lint[\s\S]*pnpm typecheck[\s\S]*pnpm test[\s\S]*pnpm build[\s\S]*pnpm check:production-ui-literals[\s\S]*pnpm ui:production-smoke[\s\S]*pnpm check:ui-pr-checklist[\s\S]*git diff --check/i,
+  },
+  {
+    name: 'authenticated and negative smoke refs',
+    pattern:
+      /Authenticated main loop smoke receipt[\s\S]*Matter Code selection[\s\S]*Negative auth smoke receipt[\s\S]*wall-blocked[\s\S]*stale-content clearing/i,
+  },
+  {
+    name: 'DMS-UX-809 rollout matrix',
+    pattern:
+      /DMS-UX-809 Rollout Checklist[\s\S]*Matter Code selection before upload[\s\S]*Upload and post-upload processing state[\s\S]*Matter-scoped file list[\s\S]*Title\/body\/metadata search[\s\S]*AI Prep remains file organization prep only/i,
+  },
+  {
+    name: 'DMS-UX-810 rollback controls',
+    pattern:
+      /DMS-UX-810 Rollback Plan[\s\S]*Route visibility policy[\s\S]*Matter app source flags[\s\S]*Worker flags[\s\S]*Database rollback[\s\S]*Storage rollback/i,
+  },
+  {
+    name: 'DMS-UX-811 monitor matrix',
+    pattern:
+      /DMS-UX-811 Production Monitor[\s\S]*Upload failure rate[\s\S]*Extraction\/OCR[\s\S]*Search latency[\s\S]*Permission denied[\s\S]*AI prep queue[\s\S]*Audit write failures[\s\S]*Storage write\/read failures/i,
+  },
+  {
+    name: 'deferred item owner and follow-up TUW',
+    pattern: /Deferred Items[\s\S]*Owner[\s\S]*Follow-up TUW[\s\S]*Release blocker/i,
+  },
+];
+
 const responsiveAccessibilityFiles = [
   {
     path: 'apps/web/src/app/(app)/app-shell.tsx',
@@ -874,6 +916,15 @@ function checkReleaseHardeningGuard() {
   }
 }
 
+function checkEnterpriseDmsReleaseEvidenceGuard() {
+  const source = readRequired('docs/release/enterprise-dms-ui-release-evidence.md');
+  for (const { name, pattern } of enterpriseDmsReleaseEvidencePatterns) {
+    if (!pattern.test(source)) {
+      fail(`Enterprise DMS release evidence guard missing ${name}`);
+    }
+  }
+}
+
 function checkResponsiveAccessibilityGuard() {
   for (const file of responsiveAccessibilityFiles) {
     const source = readRequired(file.path);
@@ -898,6 +949,7 @@ try {
   checkGovernanceWorkflowOpsGuard();
   checkAdminIntegrationsGuard();
   checkReleaseHardeningGuard();
+  checkEnterpriseDmsReleaseEvidenceGuard();
   checkResponsiveAccessibilityGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
