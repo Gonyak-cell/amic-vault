@@ -89,6 +89,16 @@ const uploadBrowseFlowFiles = [
     ],
   },
   {
+    path: 'apps/web/src/components/document/matter-file-section.tsx',
+    patterns: [
+      { name: 'matter filing context card', pattern: /파일링 기준/ },
+      { name: 'metadata filing model', pattern: /Matter 메타데이터 기준/ },
+      { name: 'no pseudo folder model', pattern: /폴더 모델[\s\S]*미적용/ },
+      { name: 'matter-scoped browse copy', pattern: /Matter 범위 목록/ },
+      { name: 'Matter Code upload copy', pattern: /Matter Code 기준/ },
+    ],
+  },
+  {
     path: 'apps/web/src/lib/api-client.ts',
     patterns: [
       { name: 'FormData helper', pattern: /apiFetchFormData/ },
