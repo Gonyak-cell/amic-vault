@@ -122,14 +122,23 @@ export class LocalGemmaGateway {
     if (!this.config.endpoint) return blocked('endpoint_missing');
     const endpoint = localEndpoint(this.config.endpoint);
     if (!endpoint) return blocked('non_local_endpoint');
-    const response = await this.transport.fetch(new URL('/api/tags', endpoint).toString(), {
-      method: 'GET',
-    });
-    if (!response.ok) return blocked('local_endpoint_unhealthy');
-    const body = await safeJson(response);
-    const model = findModel(body, this.config.model ?? localGemmaDefaultModel);
-    if (!model) return blocked('model_missing');
-    return { status: 'ready', route: 'local_gemma', model };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), localGemmaHealthTimeoutMs(this.config.timeoutMs));
+    try {
+      const response = await this.transport.fetch(new URL('/api/tags', endpoint).toString(), {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      if (!response.ok) return blocked('local_endpoint_unhealthy');
+      const body = await safeJson(response);
+      const model = findModel(body, this.config.model ?? localGemmaDefaultModel);
+      if (!model) return blocked('model_missing');
+      return { status: 'ready', route: 'local_gemma', model };
+    } catch {
+      return blocked('local_endpoint_unhealthy');
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async generateText(input: LocalGemmaGenerateTextInput): Promise<LocalGemmaGenerateTextResult> {
@@ -216,6 +225,17 @@ export function isR6EnabledModelRoute(route: string): route is AiModelRoute {
 
 function blocked(reasonCode: NonNullable<LocalGemmaHealthResult['reasonCode']>): LocalGemmaHealthResult {
   return { status: 'blocked', route: 'local_gemma', reasonCode };
+}
+
+function localGemmaHealthTimeoutMs(configuredTimeoutMs: number | undefined): number {
+  const fallback = 30_000;
+  const timeoutMs =
+    typeof configuredTimeoutMs === 'number' &&
+    Number.isFinite(configuredTimeoutMs) &&
+    configuredTimeoutMs > 0
+      ? Math.round(configuredTimeoutMs)
+      : fallback;
+  return Math.min(timeoutMs, 10_000);
 }
 
 function defaultTransport(): GatewayTransport {
