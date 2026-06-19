@@ -333,4 +333,88 @@ describe('DocumentService', () => {
     });
     expect(transaction).not.toHaveBeenCalled();
   });
+
+  it('lists all authorized documents through the query-stage search permission scope', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          documentRow({
+            matter_name: 'Investment Advisory',
+            matter_code: 'AMIC-2026-0001',
+            total: '1',
+          }),
+        ],
+      }),
+    };
+    const transaction = vi.fn(
+      async (_tenantId: string, run: (client: typeof tx) => Promise<unknown>) => run(tx),
+    );
+    const scopeForSearch = vi.fn(async () => ({
+      effect: 'ALLOW' as const,
+      scope: {
+        sql: 'idx.tenant_id = ? AND idx.document_status <> ?',
+        params: [tenantId, 'deleted'],
+      },
+    }));
+    const service = new DocumentService(
+      { transaction, log: vi.fn(async () => undefined) } as never,
+      undefined,
+      {
+        require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
+      } as never,
+      undefined,
+      undefined,
+      { scopeForSearch } as never,
+    );
+
+    const result = await service.listDocuments(actorUserId, {
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(scopeForSearch).toHaveBeenCalledWith({ tenantId, userId: actorUserId });
+    expect(tx.query).toHaveBeenCalledOnce();
+    const [sql, params] = tx.query.mock.calls[0] ?? [];
+    expect(sql).toContain('FROM document_search_index idx');
+    expect(sql).toContain('(idx.tenant_id = $1 AND idx.document_status <> $2)');
+    expect(sql).not.toContain('AND idx.matter_id =');
+    expect(params).toEqual([tenantId, 'deleted', 'deleted', 'current', 20, 0]);
+    expect(result).toMatchObject({
+      totalCount: 1,
+      page: 1,
+      pageSize: 20,
+      items: [
+        {
+          documentId,
+          matterDisplayCode: 'AMIC-2026-0001',
+          matterDisplayName: 'Investment Advisory',
+          title: 'Draft Agreement',
+        },
+      ],
+    });
+  });
+
+  it('denies all-document listing before a database list query when scope fails closed', async () => {
+    const transaction = vi.fn();
+    const service = new DocumentService(
+      { transaction, log: vi.fn(async () => undefined) } as never,
+      undefined,
+      {
+        require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
+      } as never,
+      undefined,
+      undefined,
+      {
+        scopeForSearch: vi.fn(async () => ({ effect: 'DENY', reasonCode: 'DENY_ALL' })),
+      } as never,
+    );
+
+    await expect(
+      service.listDocuments(actorUserId, { page: 1, pageSize: 20 }),
+    ).rejects.toMatchObject({
+      response: { code: 'PERMISSION_DENIED' },
+    });
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });

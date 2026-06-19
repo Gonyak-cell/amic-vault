@@ -8,6 +8,7 @@ import {
   documentPreviewUrl,
   getDocument,
   listDocumentVersions,
+  listDocuments,
   listMatterDocuments,
   updateDocumentMetadata,
   uploadDocument,
@@ -179,6 +180,28 @@ describe('api client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/v1/matters/matter-ref/documents?page=2&pageSize=10',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('lists all authorized documents through the document vault endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [], page: 2, pageSize: 10, totalCount: 0 }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listDocuments({ page: 2, pageSize: 10 })).resolves.toEqual({
+      items: [],
+      page: 2,
+      pageSize: 10,
+      totalCount: 0,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/documents?page=2&pageSize=10',
       expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
     );
   });

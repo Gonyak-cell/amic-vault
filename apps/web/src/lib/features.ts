@@ -44,9 +44,9 @@ export const routeVisibilityPolicies = [
   {
     route: '/files',
     group: 'Vault',
-    production: 'hidden_until_api_ready',
+    production: 'visible',
     roles: internalUserRoles,
-    showInNavigation: false,
+    showInNavigation: true,
   },
   {
     route: '/search',

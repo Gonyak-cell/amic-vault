@@ -23,7 +23,7 @@ describe('SearchBar', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('aria-label="파일 검색"');
+    expect(html).toContain('aria-label="문서 검색"');
     expect(html).toContain('value="closing memo"');
     expect(html).toContain('aria-label="검색 실행"');
     expect(html).not.toContain('disabled=""');

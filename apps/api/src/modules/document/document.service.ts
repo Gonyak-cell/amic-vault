@@ -395,6 +395,72 @@ export class DocumentService {
     });
   }
 
+  async listDocuments(
+    actorUserId: string,
+    input: ListDocumentsQueryDto,
+  ): Promise<DocumentListDto> {
+    const auditService = this.requireAuditService();
+    const context = this.requireTenantContext().require();
+    const scopeDecision = await this.requireSearchPermissionScope().scopeForSearch({
+      tenantId: context.tenantId,
+      userId: actorUserId,
+    });
+    if (scopeDecision.effect !== 'ALLOW') throw permissionDenied();
+
+    return auditService.transaction(context.tenantId, async (tx) => {
+      const bound = bindSearchScope(scopeDecision.scope);
+      const params = [...bound.params];
+      const deletedParam = pushParam(params, 'deleted');
+      const currentParam = pushParam(params, 'current');
+      const limitParam = pushParam(params, input.pageSize);
+      const offsetParam = pushParam(params, (input.page - 1) * input.pageSize);
+      const result = await tx.query(
+        `
+          SELECT
+            doc.document_id,
+            doc.tenant_id,
+            doc.matter_id,
+            m.matter_name,
+            m.matter_code,
+            doc.document_family_id,
+            idx.title,
+            doc.status,
+            idx.document_type,
+            doc.subtype,
+            doc.confidentiality_level,
+            doc.privilege_status,
+            doc.ai_allowed,
+            doc.legal_hold,
+            doc.created_by,
+            doc.created_at,
+            doc.updated_at,
+            count(*) OVER() AS total
+          FROM document_search_index idx
+          JOIN documents doc
+            ON doc.tenant_id = idx.tenant_id
+           AND doc.document_id = idx.document_id
+          JOIN matters m
+            ON m.tenant_id = idx.tenant_id
+           AND m.matter_id = idx.matter_id
+          WHERE (${bound.sql})
+            AND idx.document_status <> ${deletedParam}
+            AND idx.version_status = ${currentParam}
+          ORDER BY idx.updated_at DESC, idx.document_id ASC
+          LIMIT ${limitParam}
+          OFFSET ${offsetParam}
+        `,
+        params,
+      );
+      const rows = result.rows as IndexedDocumentListRow[];
+      return {
+        items: rows.map((row) => mapDocument(row)),
+        totalCount: rows[0] ? Number(rows[0].total) : 0,
+        page: input.page,
+        pageSize: input.pageSize,
+      };
+    });
+  }
+
   async updateLegalHold(
     actorUserId: string,
     documentId: string,

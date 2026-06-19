@@ -8,7 +8,7 @@ import process from 'node:process';
 const repoRoot = process.cwd();
 
 const hiddenRoutes = ['/launch', '/scale', '/contracts', '/dd', '/litigation'];
-const hiddenUntilApiRoutes = ['/files', '/integrations/onedrive'];
+const hiddenUntilApiRoutes = ['/integrations/onedrive'];
 const blockedRoutePages = new Map([
   ['/launch', 'apps/web/src/app/(app)/launch/page.tsx'],
   ['/scale', 'apps/web/src/app/(app)/scale/page.tsx'],
@@ -63,7 +63,8 @@ const productionInventoryPatterns = [
   { name: 'status definitions', pattern: /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/ },
   { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`/ },
   { name: 'admin and governance routes', pattern: /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/admin[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/ },
-  { name: 'API-unready routes', pattern: /\/files[\s\S]*`hidden_until_api_ready`[\s\S]*\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/ },
+  { name: 'document vault visible route', pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i },
+  { name: 'API-unready routes', pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/ },
   { name: 'AI Prep limited route', pattern: /\/ai-prep[\s\S]*`visible_limited`[\s\S]*File organization prep\/readiness only/i },
   { name: 'hidden route list', pattern: /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`[\s\S]*\/contracts[\s\S]*`hidden`[\s\S]*\/dd[\s\S]*`hidden`[\s\S]*\/litigation[\s\S]*`hidden`/ },
   { name: 'route policy source link', pattern: /apps\/web\/src\/lib\/features\.ts[\s\S]*apps\/web\/src\/lib\/navigation\.ts/ },

@@ -12,7 +12,11 @@ describe('FilesPage', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('파일');
+    expect(html).toContain('문서함');
+    expect(html).toContain('전체 문서');
+    expect(html).toContain('전체 문서를 확인하는 중입니다.');
+    expect(html).toContain('파일 업로드');
+    expect(html).toContain('Matter 업로드');
     expect(html).toContain('Matter Code 선택');
     expect(html).toContain('Matter app 연결 필요');
     expect(html).toContain('Matter Code를 먼저 선택해 주세요.');
