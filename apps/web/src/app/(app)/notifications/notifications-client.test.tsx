@@ -9,6 +9,10 @@ describe('NotificationsClient', () => {
 
     expect(html).toContain('알림');
     expect(html).toContain('권한이 확인된 실제 운영 이벤트와 상태 알림만 표시됩니다.');
+    expect(html).toContain('알림 조치 콘솔');
+    expect(html).toContain('전체 출처');
+    expect(html).toContain('전체 상태');
+    expect(html).toContain('주의 알림 우선');
     expect(html).toContain('알림 API 연결 대기 중입니다.');
     expect(html).toContain('운영 데이터 연결 대기 중입니다.');
     expect(html).not.toContain('김민준');
@@ -79,6 +83,9 @@ describe('NotificationsClient', () => {
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('문서 업로드 완료');
     expect(html).toContain('알림 센터');
+    expect(html).toContain('2건 표시 · 전체 2건');
+    expect(html).toContain('/audit');
+    expect(html).toContain('열기');
     expect(html).not.toContain('표시할 알림이 없습니다.');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');

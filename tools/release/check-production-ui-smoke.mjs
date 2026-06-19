@@ -489,7 +489,23 @@ const governanceWorkflowOpsFiles = [
       { name: 'notifications dashboard source', pattern: /getDashboardOverview/ },
       { name: 'notifications dedicated API source', pattern: /getNotificationCenter/ },
       { name: 'notifications API state mapping', pattern: /notificationCenterToState/ },
+      { name: 'notifications action console filters', pattern: /알림 조치 콘솔/ },
+      { name: 'notifications source filter', pattern: /notification-source-filter/ },
+      { name: 'notifications status filter', pattern: /notification-status-filter/ },
+      { name: 'notifications attention sort', pattern: /주의 알림 우선/ },
       { name: 'real notification copy', pattern: /실제 운영 이벤트와 상태 알림만 표시/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/dashboard/dashboard-notifications.tsx',
+    patterns: [
+      { name: 'notification source action route', pattern: /notificationHref/ },
+      { name: 'permission notification route', pattern: /permission_policy'\) return '\/audit'/ },
+      {
+        name: 'file organization notification route',
+        pattern: /ai_prep'\) return '\/files\?aiAllowed=true&sortBy=matter_asc'/,
+      },
+      { name: 'integration notification route', pattern: /integration'\) return '\/integrations\/outlook'/ },
     ],
   },
   {
