@@ -40,6 +40,12 @@ const forbiddenPatterns = [
   { name: 'model response copy', pattern: /model response|model-response|모델 응답/i },
   { name: 'external model copy', pattern: /external model|외부 모델/i },
   { name: 'legal analysis copy', pattern: /legal analysis|법률 분석/i },
+  {
+    name: 'fake operational copy',
+    pattern:
+      /가짜\s*(작업|데이터|문서|사건|수)|fake\s+(task|data|document|matter|count)|mock\s+(task|data|document|matter)|sample\s+(default|data|document|matter)|demo\s+(data|tenant|matter|document)/i,
+  },
+  { name: 'implementation fallback copy', pattern: /작업 API가 없는/i },
 ];
 
 const blockedRouteForbiddenLiterals = [

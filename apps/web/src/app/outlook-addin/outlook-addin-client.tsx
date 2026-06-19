@@ -477,7 +477,7 @@ export function OutlookAddinClient({
             )}
             {documentInsertion ? (
               <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
-                insert {documentInsertion.status} · 요청 기록됨
+                문서 연결 {documentInsertion.status} · 요청 기록됨
               </div>
             ) : null}
             <Button
@@ -487,7 +487,7 @@ export function OutlookAddinClient({
               disabled={!canInsertDocument}
             >
               <FileText className="h-4 w-4" aria-hidden />
-              내부 참조
+              문서 연결
             </Button>
           </CardContent>
         </Card>

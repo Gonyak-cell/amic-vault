@@ -12,10 +12,12 @@ describe('WorkQueueClient', () => {
     expect(html).toContain('표시할 작업이 없습니다.');
     expect(html).toContain('실제 운영 데이터에서 발생한 작업만 표시됩니다.');
     expect(html).toContain('문서함 조치 필터');
+    expect(html).toContain('추출, OCR, 파일 정리 항목은 권한 내 문서함 필터로 바로 열 수 있습니다.');
     expect(html).toContain('/files?extractionStatus=failed');
     expect(html).toContain('/files?extractionStatus=ocr_pending');
     expect(html).toContain('/files?aiAllowed=true&amp;sortBy=matter_asc');
     expect(html).toContain('운영 데이터 연결 대기 중입니다.');
+    expect(html).not.toContain('가짜 작업');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');
     expect(html).not.toContain('18:42');
