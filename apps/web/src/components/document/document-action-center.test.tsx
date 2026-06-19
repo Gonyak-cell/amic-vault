@@ -152,9 +152,16 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('검색 결과 문맥');
     expect(html).toContain('본문');
     expect(html).toContain('1 / 2');
+    expect(html).toContain('hit 1/2');
     expect(html).toContain('다음 hit');
     expect(html).toContain(
       'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=body&amp;hit=2&amp;hitCount=2"',
+    );
+    expect(html).toContain(
+      'src="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=2&amp;vault-preview-target=body"',
+    );
+    expect(html).toContain(
+      '검색 hit 위치는 서버로 검색어 또는 스니펫을 보내지 않는 미리보기 fragment로만 연결됩니다.',
     );
     expect(html).toContain('검색으로 돌아가기');
     expect(html).not.toContain('authorized snippet');

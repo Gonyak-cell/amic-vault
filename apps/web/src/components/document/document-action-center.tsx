@@ -202,6 +202,20 @@ function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitC
   return `/documents/${encodeURIComponent(documentId)}?${params.toString()}`;
 }
 
+function previewUrlForDocument(
+  documentId: string,
+  context: DocumentSearchHitContext | null,
+): string {
+  if (!context || context.hitCount < 1) return documentPreviewUrl(documentId);
+  return documentPreviewUrl(documentId, {
+    searchHit: {
+      hitCount: context.hitCount,
+      hitIndex: context.hitIndex,
+      target: context.target,
+    },
+  });
+}
+
 const searchTargetLabels = {
   all: '제목+본문',
   title: '제목',
@@ -427,6 +441,11 @@ export function DocumentActionCenter({
     return 'Matter app 표시명 없음';
   }, [document]);
 
+  const previewSrc = useMemo(
+    () => (document ? previewUrlForDocument(document.documentId, searchHitContext) : ''),
+    [document, searchHitContext],
+  );
+
   async function saveProfile() {
     if (!document || !profileDraft || profileSaving) return;
     setProfileSaving(true);
@@ -623,18 +642,28 @@ export function DocumentActionCenter({
             <SectionCard
               icon={<Eye className="h-4 w-4" />}
               title="미리보기"
-              meta="권한 확인 후 제공"
-              actions={<StatusBadge tone="neutral">preview</StatusBadge>}
+              meta={searchHitContext ? searchTargetLabels[searchHitContext.target] : '권한 확인 후 제공'}
+              actions={
+                searchHitContext?.hitCount ? (
+                  <StatusBadge tone="neutral">
+                    hit {searchHitContext.hitIndex}/{searchHitContext.hitCount}
+                  </StatusBadge>
+                ) : (
+                  <StatusBadge tone="neutral">preview</StatusBadge>
+                )
+              }
             >
               <div className="aspect-[16/10] overflow-hidden rounded-md border bg-muted">
                 <iframe
                   className="h-full w-full bg-background"
-                  src={documentPreviewUrl(document.documentId)}
+                  src={previewSrc}
                   title={`${document.title} preview`}
                 />
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                미리보기가 준비되지 않은 파일은 서버가 안전한 오류 상태를 반환합니다.
+                {searchHitContext?.hitCount
+                  ? '검색 hit 위치는 서버로 검색어 또는 스니펫을 보내지 않는 미리보기 fragment로만 연결됩니다.'
+                  : '미리보기가 준비되지 않은 파일은 서버가 안전한 오류 상태를 반환합니다.'}
               </p>
             </SectionCard>
 

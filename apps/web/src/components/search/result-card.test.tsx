@@ -56,7 +56,7 @@ describe('ResultCard', () => {
     expect(html).toContain('미리보기');
     expect(html).toContain('문서함');
     expect(html).toContain(
-      'href="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview"',
+      'href="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=1&amp;vault-preview-target=all"',
     );
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007&amp;title=Escrow+Closing+Memo"');
     expect(html).toContain('Escrow Closing Memo');
