@@ -726,6 +726,7 @@ PR-D implementation note:
 - Dashboard now includes an API-derived action queue for permission/policy alerts, file organization prep readiness, integration status, and API connection failure states. It does not show fake task counts before a unified workflow API exists.
 - Dashboard now includes a DMS action launcher for Matter upload, file cabinet, search, search folders, work queue, notifications, file organization prep filters, and admin ops health; all links point to approved route surfaces and avoid row-level raw refs.
 - Work queue links extraction failed, OCR-required, and file-organization-ready items to URL-backed `/files` filters instead of creating fake persisted tasks.
+- Document and matter audit timelines clear previous rows before loading and after denied/error reloads so stale governance activity is not displayed across document or Matter context changes.
 - Wall admin now uses `MatterCodePicker` for common wall lookup/create flow; raw wall/user refs remain only in the clearly marked security-operations advanced area until user/group picker APIs exist.
 - AI prep copy remains limited to file organization prep; legal analysis, external model route, raw prompt/source/model-response copy remains guarded by tests and smoke checks.
 - Unified task DB/API, notifications, saved work queues, records disposal task APIs, and user/group picker APIs remain deferred to PR-E/F or backend-approved follow-up work.

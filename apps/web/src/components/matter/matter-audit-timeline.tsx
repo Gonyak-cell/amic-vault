@@ -88,12 +88,16 @@ export function MatterAuditTimeline({
     let active = true;
     setLoading(true);
     setError(null);
+    setEvents([]);
     listMatterAuditEvents(matterId, { limit: 8 })
       .then((result) => {
         if (active) setEvents(result.items);
       })
       .catch((caught) => {
-        if (active) setError(safeApiErrorMessage(caught));
+        if (active) {
+          setEvents([]);
+          setError(safeApiErrorMessage(caught));
+        }
       })
       .finally(() => {
         if (active) setLoading(false);

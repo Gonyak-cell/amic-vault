@@ -82,12 +82,16 @@ export function DocumentAuditTimeline({
     let active = true;
     setLoading(true);
     setError(null);
+    setEvents([]);
     listDocumentAuditEvents(documentId, { limit: 8 })
       .then((result) => {
         if (active) setEvents(result.items);
       })
       .catch((caught) => {
-        if (active) setError(safeApiErrorMessage(caught));
+        if (active) {
+          setEvents([]);
+          setError(safeApiErrorMessage(caught));
+        }
       })
       .finally(() => {
         if (active) setLoading(false);

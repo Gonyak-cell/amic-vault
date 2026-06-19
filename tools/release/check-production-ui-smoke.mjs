@@ -452,6 +452,18 @@ const governanceWorkflowOpsFiles = [
       { name: 'matter-scoped audit endpoint client', pattern: /listMatterAuditEvents/ },
       { name: 'matter audit timeline heading', pattern: /사건 감사 타임라인/ },
       { name: 'matter audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
+      { name: 'matter audit stale row clearing', pattern: /setError\(null\);\s*setEvents\(\[\]\);/ },
+      { name: 'matter audit denied reload clearing', pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-audit-timeline.tsx',
+    patterns: [
+      { name: 'document-scoped audit endpoint client', pattern: /listDocumentAuditEvents/ },
+      { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
+      { name: 'document audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
+      { name: 'document audit stale row clearing', pattern: /setError\(null\);\s*setEvents\(\[\]\);/ },
+      { name: 'document audit denied reload clearing', pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/ },
     ],
   },
   {
