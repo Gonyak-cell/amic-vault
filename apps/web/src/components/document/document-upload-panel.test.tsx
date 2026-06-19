@@ -1,7 +1,11 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { DocumentUploadPanel, uploadStatusMessage } from './document-upload-panel';
+import {
+  DocumentUploadPanel,
+  bulkUploadStatusMessage,
+  uploadStatusMessage,
+} from './document-upload-panel';
 import type { MatterCodeOption } from '@/lib/matter-app';
 
 vi.mock('@/lib/api-client', () => ({
@@ -60,6 +64,7 @@ describe('DocumentUploadPanel', () => {
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('Investment Advisory');
     expect(html).toContain('type="file"');
+    expect(html).toContain('multiple=""');
     expect(html).toContain('업로드');
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('파일 정리 준비');
@@ -83,5 +88,13 @@ describe('DocumentUploadPanel', () => {
         duplicates: [],
       }),
     ).toContain('파일 정리 준비가 자동으로 시작됩니다.');
+  });
+
+  it('summarizes bulk upload partial failures without hiding failed files', () => {
+    expect(bulkUploadStatusMessage(3, 0)).toBe('3개 업로드 완료.');
+    expect(bulkUploadStatusMessage(2, 1)).toBe(
+      '2개 업로드 완료, 1개 실패. 실패 항목을 확인해 주세요.',
+    );
+    expect(bulkUploadStatusMessage(0, 2)).toBe('2개 업로드 실패. 실패 항목을 확인해 주세요.');
   });
 });

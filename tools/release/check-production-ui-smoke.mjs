@@ -188,6 +188,8 @@ const uploadBrowseFlowFiles = [
         name: 'matter-scoped upload call',
         pattern: /uploadDocument\(selectedMatter\.matterReference/,
       },
+      { name: 'bulk file picker', pattern: /multiple/ },
+      { name: 'bulk upload queue', pattern: /업로드 큐/ },
     ],
   },
   {
