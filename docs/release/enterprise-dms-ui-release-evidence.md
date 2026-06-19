@@ -3,6 +3,10 @@
 Status: TEMPLATE - REFS ONLY - NO PRIVATE EVIDENCE COMMITTED
 Related TUW: DMS-UX-808, DMS-UX-809, DMS-UX-810, DMS-UX-811
 
+Readiness split ref: `docs/ui/enterprise-dms-pr-f-readiness.md`. Automated
+guards do not replace the external authenticated main-loop, negative-auth,
+responsive, and accessibility receipts required before DMS-UX-812 signoff.
+
 This template is the canonical release evidence package for the Matter-first
 DMS UI release. It records only evidence references. Do not record customer file
 contents, document titles from real matters, matter descriptions, secrets,
