@@ -61,7 +61,7 @@ const designSystemChecklistPatterns = [
 
 const productionInventoryPatterns = [
   { name: 'status definitions', pattern: /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/ },
-  { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`/ },
+  { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`[\s\S]*\/notifications[\s\S]*`visible`/ },
   { name: 'admin and governance routes', pattern: /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/admin[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/ },
   { name: 'document vault visible route', pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i },
   { name: 'API-unready routes', pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/ },
@@ -314,6 +314,14 @@ const governanceWorkflowOpsFiles = [
     ],
   },
   {
+    path: 'apps/web/src/app/(app)/notifications/notifications-client.tsx',
+    patterns: [
+      { name: 'notifications page heading', pattern: /알림/ },
+      { name: 'notifications dashboard source', pattern: /getDashboardOverview/ },
+      { name: 'real notification copy', pattern: /실제 운영 이벤트와 상태 알림만 표시/ },
+    ],
+  },
+  {
     path: 'apps/web/src/components/dashboard/dashboard-work-queue.tsx',
     patterns: [
       { name: 'shared dashboard action derivation', pattern: /dashboardActionItems/ },
@@ -321,6 +329,14 @@ const governanceWorkflowOpsFiles = [
       { name: 'permission policy task', pattern: /권한\/정책 알림 확인/ },
       { name: 'file organization prep task', pattern: /파일 정리 준비 상태 확인/ },
       { name: 'no persisted task claim', pattern: /DashboardOverviewState/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/dashboard/dashboard-notifications.tsx',
+    patterns: [
+      { name: 'shared dashboard notification derivation', pattern: /dashboardNotificationItems/ },
+      { name: 'real notification empty copy', pattern: /실제 운영 이벤트와 상태에서 발생한 알림만 표시/ },
+      { name: 'no fake notification source', pattern: /DashboardOverviewState/ },
     ],
   },
   {

@@ -16,6 +16,7 @@ Source baseline:
 | --- | --- | --- | --- |
 | `/dashboard` | Entry point for recent activity, AI prep status, integrations, action links. | Partial. API-backed dashboard exists with real-data-only action queue derived from policy alerts, file organization prep readiness, integration state, and API connection failures. Unified task API remains missing. | DMS-UX-501 to 507 |
 | `/work` | Work queue / task inbox entry point. | Partial. Dedicated work queue route derives actionable items only from dashboard API sections and connection states; persisted assignment/due/status task API remains missing. | DMS-UX-501 to 507 |
+| `/notifications` | Notification center entry point. | Partial. Dedicated notification route derives alerts only from dashboard API sections, recent activity, and connection states; persisted notification API remains missing. | DMS-UX-506 |
 | `/matters` | Matter app-backed matter list and workspace entry. | Partial. Vault matter list exists, but Matter app source-of-truth contract is not implemented. | DMS-UX-003, 004, 113 |
 | `/matters/[matterId]` | Matter workspace home. | Partial. Profile/team shell, matter-scoped file section, governance context, Matter-scoped audit timeline, records links, and real-status work queue exist; unified task API remains incomplete. | DMS-UX-501 to 506 |
 | `/matters/[matterId]/team` | Matter membership/admin view. | Partial. Uses safe labels, but broader picker/source-of-truth alignment is still needed. | DMS-UX-107, 401, 402 |
@@ -52,7 +53,7 @@ Source baseline:
 | Audit | Audit query/export exists. | Strong backend; contextual timelines incomplete. | DMS-UX-406 |
 | AI prep | Local Gemma file-organization prep status exists. | Approved narrow scope. Keep guarded. | DMS-UX-509 |
 | Workflow/task inbox | No unified DMS task API identified. | Partial UI only. Dashboard and context pages derive safe tasks from real status fields, but no persisted assignment/due/status workflow model exists. | DMS-UX-501 to 507 |
-| Notifications | No unified notification API identified. | Gap. | DMS-UX-506 |
+| Notifications | No unified notification API identified. | Partial UI only. Notification center derives safe alerts from real dashboard state and recent activity while persisted notification storage remains a gap. | DMS-UX-506 |
 | Taxonomy/templates | No DMS taxonomy/template admin API identified. | UI IA exists as read-only contract state; persisted administration remains a gap. | DMS-UX-601 to 605 |
 | Matter app lookup/sync | Matter app runtime endpoint not found in this checkout. | Gap/blocker for production-grade Matter Code picker. | DMS-UX-003, 004 |
 

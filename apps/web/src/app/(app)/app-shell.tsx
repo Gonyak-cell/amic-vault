@@ -166,10 +166,13 @@ export function AppShell({
           />
           <div className="flex shrink-0 items-center gap-2">
             <LanguageToggle />
-            <span className="hidden h-9 items-center gap-2 rounded-md bg-white/12 px-3 text-xs font-semibold text-white/90 ring-1 ring-white/16 lg:inline-flex">
+            <Link
+              href="/notifications"
+              className="hidden h-9 items-center gap-2 rounded-md bg-white/12 px-3 text-xs font-semibold text-white/90 ring-1 ring-white/16 transition-colors hover:bg-white/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white lg:inline-flex"
+            >
               <Bell className="h-4 w-4" />
               {t('nav.notifications')}
-            </span>
+            </Link>
             <LogoutButton />
           </div>
         </div>

@@ -1,0 +1,67 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { NotificationsClient, NotificationsContent } from './notifications-client';
+
+describe('NotificationsClient', () => {
+  it('renders an unavailable real-data-only notification center before API success', () => {
+    const html = renderToStaticMarkup(<NotificationsClient />);
+
+    expect(html).toContain('알림');
+    expect(html).toContain('권한이 확인된 실제 운영 이벤트와 상태 알림만 표시됩니다.');
+    expect(html).toContain('표시할 알림이 없습니다.');
+    expect(html).toContain('실제 운영 이벤트와 상태에서 발생한 알림만 표시됩니다.');
+    expect(html).toContain('운영 데이터 연결 대기 중입니다.');
+    expect(html).not.toContain('김민준');
+    expect(html).not.toContain('DOC-204');
+    expect(html).not.toContain('18:42');
+  });
+
+  it('renders notifications only from supplied dashboard state', () => {
+    const html = renderToStaticMarkup(
+      <NotificationsContent
+        dashboardState={{
+          recentFiles: { status: 'ready', data: [] },
+          recentActivity: {
+            status: 'ready',
+            data: [
+              {
+                actionLabel: '문서 업로드 완료',
+                targetLabel: 'AMIC-2026-0001',
+                resultLabel: '성공',
+                occurredAt: '2026-06-19T00:00:00.000Z',
+              },
+            ],
+          },
+          permissionPolicyAlerts: {
+            status: 'ready',
+            data: [
+              {
+                title: '요청이 차단됨',
+                description: '문서 다운로드 · 차단',
+                occurredAt: '2026-06-19T00:00:00.000Z',
+              },
+            ],
+          },
+          aiPrepStatus: {
+            status: 'ready',
+            data: [{ matterLabel: 'AMIC-2026-0001', statusLabel: '대기 2건' }],
+          },
+          integrationStatus: {
+            status: 'ready',
+            data: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain('요청이 차단됨');
+    expect(html).toContain('AMIC-2026-0001');
+    expect(html).toContain('Outlook 파일링');
+    expect(html).toContain('문서 업로드 완료');
+    expect(html).toContain('알림 센터');
+    expect(html).not.toContain('표시할 알림이 없습니다.');
+    expect(html).not.toContain('김민준');
+    expect(html).not.toContain('DOC-204');
+  });
+});
