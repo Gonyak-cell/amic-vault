@@ -395,6 +395,77 @@ describe('DocumentService', () => {
     });
   });
 
+  it('applies document vault filters inside the permission-scoped list query', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 0,
+        rows: [],
+      }),
+    };
+    const transaction = vi.fn(
+      async (_tenantId: string, run: (client: typeof tx) => Promise<unknown>) => run(tx),
+    );
+    const scopeForSearch = vi.fn(async () => ({
+      effect: 'ALLOW' as const,
+      scope: {
+        sql: 'idx.tenant_id = ? AND idx.document_status <> ?',
+        params: [tenantId, 'deleted'],
+      },
+    }));
+    const service = new DocumentService(
+      { transaction, log: vi.fn(async () => undefined) } as never,
+      undefined,
+      {
+        require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
+      } as never,
+      undefined,
+      undefined,
+      { scopeForSearch } as never,
+    );
+
+    await service.listDocuments(actorUserId, {
+      aiAllowed: true,
+      confidentialityLevel: 'restricted',
+      documentType: 'contract',
+      legalHold: false,
+      matterCode: 'AMIC-2026',
+      page: 2,
+      pageSize: 10,
+      privilegeStatus: 'privileged',
+      sortBy: 'matter_asc',
+      status: 'final',
+      title: 'Agreement_100%',
+    });
+
+    const [sql, params] = tx.query.mock.calls[0] ?? [];
+    expect(sql).toContain('AND idx.title ILIKE $5');
+    expect(sql).toContain("ESCAPE '\\'");
+    expect(sql).toContain('AND m.matter_code ILIKE $6');
+    expect(sql).toContain('AND idx.document_type = $7');
+    expect(sql).toContain('AND doc.status = $8');
+    expect(sql).toContain('AND doc.confidentiality_level = $9');
+    expect(sql).toContain('AND doc.privilege_status = $10');
+    expect(sql).toContain('AND doc.ai_allowed = $11');
+    expect(sql).toContain('AND doc.legal_hold = $12');
+    expect(sql).toContain("ORDER BY lower(coalesce(m.matter_code, '')) ASC");
+    expect(params).toEqual([
+      tenantId,
+      'deleted',
+      'deleted',
+      'current',
+      '%Agreement\\_100\\%%',
+      '%AMIC-2026%',
+      'contract',
+      'final',
+      'restricted',
+      'privileged',
+      true,
+      false,
+      10,
+      10,
+    ]);
+  });
+
   it('denies all-document listing before a database list query when scope fails closed', async () => {
     const transaction = vi.fn();
     const service = new DocumentService(

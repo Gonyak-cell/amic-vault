@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DocumentVaultList,
   documentVaultMatterLabel,
+  documentVaultListQueryFromFilters,
+  emptyDocumentVaultFilters,
   formatVaultDocumentDate,
 } from './document-vault-list';
 import type { DocumentDto } from '@amic-vault/shared';
@@ -16,9 +18,45 @@ describe('DocumentVaultList', () => {
   it('renders a permission-scoped loading state before client data loads', () => {
     const html = renderToStaticMarkup(<DocumentVaultList />);
 
+    expect(html).toContain('문서함 필터');
+    expect(html).toContain('Matter Code');
+    expect(html).toContain('파일 정리');
+    expect(html).toContain('보안 등급');
     expect(html).toContain('전체 문서를 확인하는 중입니다.');
     expect(html).not.toContain('문서 ID');
     expect(html).not.toContain('Matter ID');
+  });
+
+  it('builds a server-side query from document vault filters', () => {
+    expect(
+      documentVaultListQueryFromFilters(
+        {
+          ...emptyDocumentVaultFilters,
+          aiAllowed: 'true',
+          confidentialityLevel: 'restricted',
+          documentType: 'contract',
+          legalHold: 'false',
+          matterCode: ' AMIC-2026 ',
+          privilegeStatus: 'privileged',
+          sortBy: 'matter_asc',
+          status: 'final',
+          title: ' 계약서 ',
+        },
+        3,
+      ),
+    ).toEqual({
+      aiAllowed: true,
+      confidentialityLevel: 'restricted',
+      documentType: 'contract',
+      legalHold: false,
+      matterCode: 'AMIC-2026',
+      page: 3,
+      pageSize: 25,
+      privilegeStatus: 'privileged',
+      sortBy: 'matter_asc',
+      status: 'final',
+      title: '계약서',
+    });
   });
 
   it('formats matter labels without exposing raw ids', () => {

@@ -25,11 +25,13 @@ const forbiddenPatterns = [
   { name: 'nullish fallback count', pattern: /\?\?\s*0\b/ },
   {
     name: 'unsafe id slice formatter',
-    pattern: /\b(documentId|matterId|clientId|userId|tenantId|workspaceId)\b[^;\n]*\.slice\s*\(\s*0\s*,/i,
+    pattern:
+      /\b(documentId|matterId|clientId|userId|tenantId|workspaceId)\b[^;\n]*\.slice\s*\(\s*0\s*,/i,
   },
   {
     name: 'unsafe id short hash formatter',
-    pattern: /\bshortHash\s*\(\s*(status\.)?(matterId|documentId|clientId|userId|tenantId|workspaceId|selectedMatterId|selectedDocumentId)\b/i,
+    pattern:
+      /\bshortHash\s*\(\s*(status\.)?(matterId|documentId|clientId|userId|tenantId|workspaceId|selectedMatterId|selectedDocumentId)\b/i,
   },
   { name: 'workspace id visible copy', pattern: /workspace\s*id|워크스페이스 ID/i },
   { name: 'theme selector copy', pattern: /디자인 테마|design theme/i },
@@ -51,25 +53,70 @@ const blockedRouteForbiddenLiterals = [
 ];
 
 const designSystemChecklistPatterns = [
-  { name: 'screen inventory', pattern: /Login[\s\S]*AppShell[\s\S]*Dashboard[\s\S]*Matters[\s\S]*Search[\s\S]*Records[\s\S]*Audit[\s\S]*Admin/ },
+  {
+    name: 'screen inventory',
+    pattern:
+      /Login[\s\S]*AppShell[\s\S]*Dashboard[\s\S]*Matters[\s\S]*Search[\s\S]*Records[\s\S]*Audit[\s\S]*Admin/,
+  },
   { name: 'token and raw hex rules', pattern: /shared CSS tokens[\s\S]*raw hex color literals/i },
-  { name: 'component rules', pattern: /PageHeader[\s\S]*SectionCard[\s\S]*EmptyState[\s\S]*StatusBadge/ },
+  {
+    name: 'component rules',
+    pattern: /PageHeader[\s\S]*SectionCard[\s\S]*EmptyState[\s\S]*StatusBadge/,
+  },
   { name: 'shadow and gradient rules', pattern: /custom shadows[\s\S]*custom gradient/i },
   { name: 'responsive viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
-  { name: 'fake data and reference safety', pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*AI Prep/i },
+  {
+    name: 'fake data and reference safety',
+    pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*AI Prep/i,
+  },
 ];
 
 const productionInventoryPatterns = [
-  { name: 'status definitions', pattern: /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/ },
-  { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`[\s\S]*\/notifications[\s\S]*`visible`/ },
-  { name: 'admin and governance routes', pattern: /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/admin[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/ },
-  { name: 'document vault visible route', pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i },
-  { name: 'API-unready routes', pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/ },
-  { name: 'AI Prep limited route', pattern: /\/ai-prep[\s\S]*`visible_limited`[\s\S]*File organization prep\/readiness only/i },
-  { name: 'hidden route list', pattern: /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`[\s\S]*\/contracts[\s\S]*`hidden`[\s\S]*\/dd[\s\S]*`hidden`[\s\S]*\/litigation[\s\S]*`hidden`/ },
-  { name: 'route policy source link', pattern: /apps\/web\/src\/lib\/features\.ts[\s\S]*apps\/web\/src\/lib\/navigation\.ts/ },
-  { name: 'production data invariants', pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*tenant ID[\s\S]*raw UUID slices/i },
-  { name: 'AI scope exclusion', pattern: /Legal analysis[\s\S]*summary[\s\S]*external model[\s\S]*raw prompt[\s\S]*model response/i },
+  {
+    name: 'status definitions',
+    pattern:
+      /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/,
+  },
+  {
+    name: 'core visible routes',
+    pattern:
+      /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`[\s\S]*\/notifications[\s\S]*`visible`/,
+  },
+  {
+    name: 'admin and governance routes',
+    pattern:
+      /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/admin[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/,
+  },
+  {
+    name: 'document vault visible route',
+    pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i,
+  },
+  {
+    name: 'API-unready routes',
+    pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/,
+  },
+  {
+    name: 'AI Prep limited route',
+    pattern: /\/ai-prep[\s\S]*`visible_limited`[\s\S]*File organization prep\/readiness only/i,
+  },
+  {
+    name: 'hidden route list',
+    pattern:
+      /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`[\s\S]*\/contracts[\s\S]*`hidden`[\s\S]*\/dd[\s\S]*`hidden`[\s\S]*\/litigation[\s\S]*`hidden`/,
+  },
+  {
+    name: 'route policy source link',
+    pattern: /apps\/web\/src\/lib\/features\.ts[\s\S]*apps\/web\/src\/lib\/navigation\.ts/,
+  },
+  {
+    name: 'production data invariants',
+    pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*tenant ID[\s\S]*raw UUID slices/i,
+  },
+  {
+    name: 'AI scope exclusion',
+    pattern:
+      /Legal analysis[\s\S]*summary[\s\S]*external model[\s\S]*raw prompt[\s\S]*model response/i,
+  },
 ];
 
 const uploadBrowseFlowFiles = [
@@ -84,9 +131,7 @@ const uploadBrowseFlowFiles = [
   },
   {
     path: 'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
-    patterns: [
-      { name: 'matter detail file section', pattern: /MatterFileSection/ },
-    ],
+    patterns: [{ name: 'matter detail file section', pattern: /MatterFileSection/ }],
   },
   {
     path: 'apps/web/src/components/document/matter-file-section.tsx',
@@ -111,30 +156,61 @@ const uploadBrowseFlowFiles = [
     path: 'apps/web/src/lib/matter-app.ts',
     patterns: [
       { name: 'Matter app configured flag', pattern: /NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED/ },
-      { name: 'projection fallback production guard', pattern: /NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE/ },
-      { name: 'source mode fail closed', pattern: /return isMatterAppSourceConfigured\(mode\) \? mode : 'unconfigured'/ },
+      {
+        name: 'projection fallback production guard',
+        pattern: /NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE/,
+      },
+      {
+        name: 'source mode fail closed',
+        pattern: /return isMatterAppSourceConfigured\(mode\) \? mode : 'unconfigured'/,
+      },
     ],
   },
   {
     path: 'apps/web/src/components/matter/matter-code-picker.tsx',
     patterns: [
       { name: 'no unconfigured Matter app upload', pattern: /Matter app 연결 필요/ },
-      { name: 'permission-scoped matter list lookup', pattern: /listMatters\(\{ pageSize: 50 \}\)/ },
+      {
+        name: 'permission-scoped matter list lookup',
+        pattern: /listMatters\(\{ pageSize: 50 \}\)/,
+      },
     ],
   },
   {
     path: 'apps/web/src/components/document/document-upload-panel.tsx',
     patterns: [
-      { name: 'selected matter required before upload', pattern: /Matter Code를 먼저 선택해 주세요/ },
+      {
+        name: 'selected matter required before upload',
+        pattern: /Matter Code를 먼저 선택해 주세요/,
+      },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
-      { name: 'matter-scoped upload call', pattern: /uploadDocument\(selectedMatter\.matterReference/ },
+      {
+        name: 'matter-scoped upload call',
+        pattern: /uploadDocument\(selectedMatter\.matterReference/,
+      },
     ],
   },
   {
     path: 'apps/web/src/components/document/matter-document-list.tsx',
     patterns: [
-      { name: 'selected matter required before list', pattern: /Matter Code를 선택하면 파일 목록이 표시됩니다/ },
-      { name: 'matter-scoped list call', pattern: /listMatterDocuments\(selectedMatter\.matterReference/ },
+      {
+        name: 'selected matter required before list',
+        pattern: /Matter Code를 선택하면 파일 목록이 표시됩니다/,
+      },
+      {
+        name: 'matter-scoped list call',
+        pattern: /listMatterDocuments\(selectedMatter\.matterReference/,
+      },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-vault-list.tsx',
+    patterns: [
+      { name: 'document vault filter bar', pattern: /문서함 필터/ },
+      { name: 'document vault Matter Code filter', pattern: /document-vault-matter-code/ },
+      { name: 'document vault security filter', pattern: /document-vault-confidentiality/ },
+      { name: 'document vault AI prep filter', pattern: /document-vault-ai-allowed/ },
+      { name: 'server query from vault filters', pattern: /documentVaultListQueryFromFilters/ },
     ],
   },
   {
@@ -143,6 +219,8 @@ const uploadBrowseFlowFiles = [
       { name: 'query-stage document list source', pattern: /FROM document_search_index idx/ },
       { name: 'search permission scope for document list', pattern: /scopeForSearch/ },
       { name: 'matter-scoped document list API service', pattern: /listMatterDocuments/ },
+      { name: 'document list filter SQL', pattern: /documentListFilterClauses/ },
+      { name: 'document list sort whitelist', pattern: /documentListOrderBy/ },
     ],
   },
 ];
@@ -180,9 +258,7 @@ const documentActionCenterFiles = [
   },
   {
     path: 'apps/web/src/lib/api/audit.ts',
-    patterns: [
-      { name: 'document audit API client', pattern: /documents.*audit-events/ },
-    ],
+    patterns: [{ name: 'document audit API client', pattern: /documents.*audit-events/ }],
   },
   {
     path: 'apps/web/src/lib/api-client.ts',
@@ -212,7 +288,10 @@ const enterpriseSearchFiles = [
       { name: 'search target DTO', pattern: /searchTargets/ },
       { name: 'search sort DTO', pattern: /searchSorts/ },
       { name: 'search group DTO', pattern: /searchGroupBys/ },
-      { name: 'display text filters', pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/ },
+      {
+        name: 'display text filters',
+        pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/,
+      },
     ],
   },
   {
@@ -345,7 +424,10 @@ const governanceWorkflowOpsFiles = [
     path: 'apps/web/src/components/dashboard/dashboard-notifications.tsx',
     patterns: [
       { name: 'shared dashboard notification derivation', pattern: /dashboardNotificationItems/ },
-      { name: 'real notification empty copy', pattern: /실제 운영 이벤트와 상태에서 발생한 알림만 표시/ },
+      {
+        name: 'real notification empty copy',
+        pattern: /실제 운영 이벤트와 상태에서 발생한 알림만 표시/,
+      },
       { name: 'no fake notification source', pattern: /DashboardOverviewState/ },
     ],
   },
@@ -389,18 +471,28 @@ const adminIntegrationsFiles = [
 ];
 
 const releaseHardeningPatterns = [
-  { name: 'authenticated main loop smoke', pattern: /Login[\s\S]*Matter Code[\s\S]*Upload[\s\S]*document detail[\s\S]*Search/i },
+  {
+    name: 'authenticated main loop smoke',
+    pattern: /Login[\s\S]*Matter Code[\s\S]*Upload[\s\S]*document detail[\s\S]*Search/i,
+  },
   { name: 'negative auth smoke', pattern: /Non-member[\s\S]*Wall-blocked[\s\S]*Non-admin/i },
   { name: 'no fake data sweep', pattern: /DMS-UX-803 No Fake Data Sweep/ },
   { name: 'internal ref sweep', pattern: /DMS-UX-804 Internal Ref Sweep/ },
   { name: 'AI scope sweep', pattern: /DMS-UX-805 AI Scope Sweep/ },
   { name: 'responsive QA viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
-  { name: 'accessibility QA', pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i },
+  {
+    name: 'accessibility QA',
+    pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i,
+  },
   { name: 'evidence package refs only', pattern: /Evidence package[\s\S]*refs only/i },
   { name: 'rollout checklist', pattern: /DMS-UX-809 Rollout Checklist/ },
   { name: 'rollback plan', pattern: /DMS-UX-810 Rollback Plan/ },
   { name: 'production monitor', pattern: /DMS-UX-811 Production Monitor/ },
-  { name: 'release signoff owners', pattern: /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i },
+  {
+    name: 'release signoff owners',
+    pattern:
+      /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i,
+  },
 ];
 
 const findings = [];
@@ -426,7 +518,10 @@ function walk(directory) {
     const stat = statSync(filePath);
     if (stat.isDirectory()) {
       files.push(...walk(path.relative(repoRoot, filePath)));
-    } else if (/\.[tj]sx?$/.test(filePath) && !excludedFilePatterns.some((pattern) => pattern.test(filePath))) {
+    } else if (
+      /\.[tj]sx?$/.test(filePath) &&
+      !excludedFilePatterns.some((pattern) => pattern.test(filePath))
+    ) {
       files.push(filePath);
     }
   }
