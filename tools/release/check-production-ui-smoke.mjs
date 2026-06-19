@@ -210,6 +210,8 @@ const uploadBrowseFlowFiles = [
       { name: 'document vault Matter Code filter', pattern: /document-vault-matter-code/ },
       { name: 'document vault security filter', pattern: /document-vault-confidentiality/ },
       { name: 'document vault AI prep filter', pattern: /document-vault-ai-allowed/ },
+      { name: 'document vault extraction filter', pattern: /document-vault-extraction-status/ },
+      { name: 'document vault extraction status display', pattern: /extractionStatusLabels/ },
       { name: 'server query from vault filters', pattern: /documentVaultListQueryFromFilters/ },
     ],
   },
@@ -221,6 +223,8 @@ const uploadBrowseFlowFiles = [
       { name: 'matter-scoped document list API service', pattern: /listMatterDocuments/ },
       { name: 'document list filter SQL', pattern: /documentListFilterClauses/ },
       { name: 'document list sort whitelist', pattern: /documentListOrderBy/ },
+      { name: 'document list extraction state join', pattern: /LEFT JOIN canonical_documents cd/ },
+      { name: 'document list extraction filter', pattern: /cd\.extraction_status/ },
     ],
   },
 ];

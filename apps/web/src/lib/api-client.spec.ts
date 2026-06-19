@@ -197,6 +197,7 @@ describe('api client', () => {
       listDocuments({
         aiAllowed: false,
         documentType: 'contract',
+        extractionStatus: 'failed',
         legalHold: true,
         matterCode: 'AMIC-2026',
         page: 2,
@@ -212,7 +213,7 @@ describe('api client', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:3001/v1/documents?aiAllowed=false&documentType=contract&legalHold=true&matterCode=AMIC-2026&page=2&pageSize=10&sortBy=matter_asc&title=%EA%B3%84%EC%95%BD%EC%84%9C',
+      'http://localhost:3001/v1/documents?aiAllowed=false&documentType=contract&extractionStatus=failed&legalHold=true&matterCode=AMIC-2026&page=2&pageSize=10&sortBy=matter_asc&title=%EA%B3%84%EC%95%BD%EC%84%9C',
       expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
     );
   });

@@ -77,6 +77,7 @@ export const listDocumentsQuerySchema = z
     status: documentStatusSchema.optional(),
     confidentialityLevel: documentConfidentialityLevelSchema.optional(),
     privilegeStatus: documentPrivilegeStatusSchema.optional(),
+    extractionStatus: z.enum(documentExtractionStatuses).optional(),
     aiAllowed: optionalBooleanQuerySchema,
     legalHold: optionalBooleanQuerySchema,
     sortBy: listDocumentSortSchema.optional(),

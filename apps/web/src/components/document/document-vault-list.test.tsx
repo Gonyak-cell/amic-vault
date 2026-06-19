@@ -22,6 +22,7 @@ describe('DocumentVaultList', () => {
     expect(html).toContain('Matter Code');
     expect(html).toContain('파일 정리');
     expect(html).toContain('보안 등급');
+    expect(html).toContain('추출/OCR');
     expect(html).toContain('전체 문서를 확인하는 중입니다.');
     expect(html).not.toContain('문서 ID');
     expect(html).not.toContain('Matter ID');
@@ -35,6 +36,7 @@ describe('DocumentVaultList', () => {
           aiAllowed: 'true',
           confidentialityLevel: 'restricted',
           documentType: 'contract',
+          extractionStatus: 'failed',
           legalHold: 'false',
           matterCode: ' AMIC-2026 ',
           privilegeStatus: 'privileged',
@@ -48,6 +50,7 @@ describe('DocumentVaultList', () => {
       aiAllowed: true,
       confidentialityLevel: 'restricted',
       documentType: 'contract',
+      extractionStatus: 'failed',
       legalHold: false,
       matterCode: 'AMIC-2026',
       page: 3,

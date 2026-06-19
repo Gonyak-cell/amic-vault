@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import {
   documentConfidentialityLevels,
+  documentExtractionStatuses,
   documentPrivilegeStatuses,
   documentStatuses,
   documentTypes,
   type DocumentConfidentialityLevel,
   type DocumentDto,
+  type DocumentExtractionStatus,
   type DocumentPrivilegeStatus,
   type DocumentStatus,
   type DocumentType,
@@ -39,6 +41,7 @@ export interface DocumentVaultFilterState {
   aiAllowed: BooleanFilterValue;
   confidentialityLevel: '' | DocumentConfidentialityLevel;
   documentType: '' | DocumentType;
+  extractionStatus: '' | DocumentExtractionStatus;
   legalHold: BooleanFilterValue;
   matterCode: string;
   privilegeStatus: '' | DocumentPrivilegeStatus;
@@ -51,6 +54,7 @@ const emptyDocumentVaultFilters: DocumentVaultFilterState = {
   aiAllowed: '',
   confidentialityLevel: '',
   documentType: '',
+  extractionStatus: '',
   legalHold: '',
   matterCode: '',
   privilegeStatus: '',
@@ -101,6 +105,13 @@ const privilegeLabels = {
   joint_privilege: '공동 특권',
 } as const satisfies Record<DocumentPrivilegeStatus, string>;
 
+const extractionStatusLabels = {
+  pending: '추출 대기',
+  ready: '검색 가능',
+  ocr_pending: 'OCR 필요',
+  failed: '추출 실패',
+} as const satisfies Record<DocumentExtractionStatus, string>;
+
 const sortLabels = {
   updated_desc: '최근 업데이트',
   updated_asc: '오래된 업데이트',
@@ -124,6 +135,19 @@ function matterLabel(document: DocumentDto): string {
   if (code) return code;
   if (name) return name;
   return 'Matter 표시명 없음';
+}
+
+function extractionLabel(status: DocumentExtractionStatus | null | undefined): string {
+  return status ? extractionStatusLabels[status] : '확인 전';
+}
+
+function extractionTone(
+  status: DocumentExtractionStatus | null | undefined,
+): 'blocked' | 'neutral' | 'success' | 'warning' {
+  if (status === 'ready') return 'success';
+  if (status === 'failed') return 'blocked';
+  if (status === 'ocr_pending') return 'warning';
+  return 'neutral';
 }
 
 function booleanFilterValue(value: BooleanFilterValue): boolean | undefined {
@@ -155,6 +179,7 @@ export function documentVaultListQueryFromFilters(
     ...(cleaned.status ? { status: cleaned.status } : {}),
     ...(cleaned.confidentialityLevel ? { confidentialityLevel: cleaned.confidentialityLevel } : {}),
     ...(cleaned.privilegeStatus ? { privilegeStatus: cleaned.privilegeStatus } : {}),
+    ...(cleaned.extractionStatus ? { extractionStatus: cleaned.extractionStatus } : {}),
     ...(cleaned.aiAllowed ? { aiAllowed: booleanFilterValue(cleaned.aiAllowed) } : {}),
     ...(cleaned.legalHold ? { legalHold: booleanFilterValue(cleaned.legalHold) } : {}),
   };
@@ -165,6 +190,7 @@ function countActiveFilters(filters: DocumentVaultFilterState): number {
     filters.aiAllowed,
     filters.confidentialityLevel,
     filters.documentType,
+    filters.extractionStatus,
     filters.legalHold,
     filters.matterCode.trim(),
     filters.privilegeStatus,
@@ -337,6 +363,26 @@ export function DocumentVaultList() {
           <option value="false">정리 제외</option>
         </select>
       </FilterField>
+      <FilterField htmlFor="document-vault-extraction-status" label="추출/OCR">
+        <select
+          id="document-vault-extraction-status"
+          className={selectClassName}
+          value={draftFilters.extractionStatus}
+          onChange={(event) =>
+            updateDraftFilter(
+              'extractionStatus',
+              event.target.value as DocumentVaultFilterState['extractionStatus'],
+            )
+          }
+        >
+          <option value="">전체</option>
+          {documentExtractionStatuses.map((status) => (
+            <option key={status} value={status}>
+              {extractionStatusLabels[status]}
+            </option>
+          ))}
+        </select>
+      </FilterField>
       <FilterField htmlFor="document-vault-legal-hold" label="보존">
         <select
           id="document-vault-legal-hold"
@@ -373,7 +419,7 @@ export function DocumentVaultList() {
       <FilterBar
         label="문서함 필터"
         title="문서함 필터"
-        description="권한이 확인된 문서를 Matter Code, 문서명, 보안 상태, 파일 정리 상태 기준으로 좁힙니다."
+        description="권한이 확인된 문서를 Matter Code, 문서명, 보안 상태, 파일 정리 상태, 추출/OCR 상태 기준으로 좁힙니다."
         resultsSummary={
           isLoading
             ? '문서함을 확인하는 중입니다.'
@@ -471,6 +517,7 @@ export function DocumentVaultList() {
             <DataTableHead>상태</DataTableHead>
             <DataTableHead>보안</DataTableHead>
             <DataTableHead>정리</DataTableHead>
+            <DataTableHead>추출/OCR</DataTableHead>
             <DataTableHead>업데이트</DataTableHead>
           </tr>
         </DataTableHeader>
@@ -510,6 +557,11 @@ export function DocumentVaultList() {
               <DataTableCell>
                 <StatusBadge tone={document.aiAllowed ? 'success' : 'neutral'}>
                   {document.aiAllowed ? '정리 준비' : '제외'}
+                </StatusBadge>
+              </DataTableCell>
+              <DataTableCell>
+                <StatusBadge tone={extractionTone(document.extractionStatus)}>
+                  {extractionLabel(document.extractionStatus)}
                 </StatusBadge>
               </DataTableCell>
               <DataTableCell className="text-muted-foreground">
