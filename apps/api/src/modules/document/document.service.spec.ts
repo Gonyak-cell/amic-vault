@@ -427,6 +427,7 @@ describe('DocumentService', () => {
       aiAllowed: true,
       confidentialityLevel: 'restricted',
       documentType: 'contract',
+      extractionStatus: 'failed',
       legalHold: false,
       matterCode: 'AMIC-2026',
       page: 2,
@@ -445,8 +446,9 @@ describe('DocumentService', () => {
     expect(sql).toContain('AND doc.status = $8');
     expect(sql).toContain('AND doc.confidentiality_level = $9');
     expect(sql).toContain('AND doc.privilege_status = $10');
-    expect(sql).toContain('AND doc.ai_allowed = $11');
-    expect(sql).toContain('AND doc.legal_hold = $12');
+    expect(sql).toContain("AND coalesce(cd.extraction_status, 'pending') = $11");
+    expect(sql).toContain('AND doc.ai_allowed = $12');
+    expect(sql).toContain('AND doc.legal_hold = $13');
     expect(sql).toContain("ORDER BY lower(coalesce(m.matter_code, '')) ASC");
     expect(params).toEqual([
       tenantId,
@@ -459,6 +461,7 @@ describe('DocumentService', () => {
       'final',
       'restricted',
       'privileged',
+      'failed',
       true,
       false,
       10,

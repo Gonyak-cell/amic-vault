@@ -258,6 +258,11 @@ function documentListFilterClauses(params: unknown[], input: ListDocumentsQueryD
   if (input.privilegeStatus) {
     clauses.push(`AND doc.privilege_status = ${pushParam(params, input.privilegeStatus)}`);
   }
+  if (input.extractionStatus) {
+    clauses.push(
+      `AND coalesce(cd.extraction_status, 'pending') = ${pushParam(params, input.extractionStatus)}`,
+    );
+  }
   if (input.aiAllowed !== undefined) {
     clauses.push(`AND doc.ai_allowed = ${pushParam(params, input.aiAllowed)}`);
   }
@@ -426,6 +431,9 @@ export class DocumentService {
             doc.privilege_status,
             doc.ai_allowed,
             doc.legal_hold,
+            cd.extraction_status,
+            cd.extraction_method,
+            cd.confidence::float8 AS extraction_confidence,
             doc.created_by,
             doc.created_at,
             doc.updated_at,
@@ -437,6 +445,9 @@ export class DocumentService {
           JOIN matters m
             ON m.tenant_id = idx.tenant_id
            AND m.matter_id = idx.matter_id
+          LEFT JOIN canonical_documents cd
+            ON cd.tenant_id = idx.tenant_id
+           AND cd.version_id = idx.version_id
           WHERE (${bound.sql})
             AND idx.matter_id = ${matterParam}::uuid
             AND idx.document_status <> ${deletedParam}
@@ -492,6 +503,9 @@ export class DocumentService {
             doc.privilege_status,
             doc.ai_allowed,
             doc.legal_hold,
+            cd.extraction_status,
+            cd.extraction_method,
+            cd.confidence::float8 AS extraction_confidence,
             doc.created_by,
             doc.created_at,
             doc.updated_at,
@@ -503,6 +517,9 @@ export class DocumentService {
           JOIN matters m
             ON m.tenant_id = idx.tenant_id
            AND m.matter_id = idx.matter_id
+          LEFT JOIN canonical_documents cd
+            ON cd.tenant_id = idx.tenant_id
+           AND cd.version_id = idx.version_id
           WHERE (${bound.sql})
             AND idx.document_status <> ${deletedParam}
             AND idx.version_status = ${currentParam}
