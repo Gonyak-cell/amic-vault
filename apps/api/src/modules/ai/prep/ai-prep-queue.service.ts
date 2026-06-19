@@ -7,7 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss, SendOptions } from 'pg-boss';
+import type { Job, PgBoss, SendOptions, WorkOptions } from 'pg-boss';
 import {
   aiPrepArtifactKindSchema,
   aiPrepArtifactKinds,
@@ -22,6 +22,7 @@ import { aiPrepDeadLetterQueueName, aiPrepQueueName, type AiPrepJobPayload } fro
 const databaseUrl =
   process.env.DATABASE_URL ??
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
+const localGemmaPrepGroupId = 'local_gemma';
 
 function workerEnabled(): boolean {
   return ['1', 'true', 'yes'].includes(
@@ -93,12 +94,22 @@ export function aiPrepTenantConcurrencyAllows(
 export function aiPrepQueueSendOptions(payload: AiPrepJobPayload, client: PoolClient): SendOptions {
   return {
     singletonKey: `${payload.versionId}:${payload.artifactKind}`,
+    group: { id: localGemmaPrepGroupId },
     expireInSeconds: aiPrepQueueExpireSeconds(),
     retryLimit: 5,
     retryDelay: 2,
     retryBackoff: true,
     deadLetter: aiPrepDeadLetterQueueName,
     db: pgBossDbFromPoolClient(client),
+  };
+}
+
+export function aiPrepQueueWorkOptions(): WorkOptions {
+  return {
+    batchSize: parsePositiveInteger(process.env.AI_PREP_QUEUE_BATCH_SIZE, 1),
+    localConcurrency: 1,
+    groupConcurrency: 1,
+    pollingIntervalSeconds: 1,
   };
 }
 
@@ -217,10 +228,7 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
     const boss = await this.ensureStarted();
     await boss.work<AiPrepJobPayload>(
       aiPrepQueueName,
-      {
-        batchSize: parsePositiveInteger(process.env.AI_PREP_QUEUE_BATCH_SIZE, 1),
-        pollingIntervalSeconds: 1,
-      },
+      aiPrepQueueWorkOptions(),
       async (jobs) => {
         await Promise.all(jobs.map((job) => this.handleQueuedJob(job)));
       },
