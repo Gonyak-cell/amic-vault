@@ -144,6 +144,7 @@ function createProcessor(
     })),
     upsertCompleted: vi.fn(async () => 'artifact-completed'),
     upsertBlocked: vi.fn(async () => 'artifact-blocked'),
+    upsertFailed: vi.fn(async () => 'artifact-failed'),
     upsertRejected: vi.fn(async () => 'artifact-rejected'),
   };
   const promptCompiler = {
@@ -425,6 +426,34 @@ describe('AiPrepProcessor', () => {
             ai_prep_status: 'rejected',
             generation_result: 'rejected',
             reason_code: 'UNSUPPORTED_CLAIM',
+          }),
+        }),
+      ]),
+    );
+    expect(JSON.stringify(auditLogs)).not.toMatch(/"response"|"prompt"|"raw"/u);
+  });
+
+  it('marks unexpected worker failures as failed without raw prompt or response storage', async () => {
+    const { auditLogs, repository, processor } = createProcessor();
+
+    await processor.markWorkerFailure(payload, 'AI_PREP_WORKER_EXCEPTION');
+
+    expect(repository.upsertFailed).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        artifactKind: 'document_profile',
+        reasonCode: 'AI_PREP_WORKER_EXCEPTION',
+      }),
+    );
+    expect(repository.upsertCompleted).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).not.toHaveBeenCalled();
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_FAILED',
+          metadata: expect.objectContaining({
+            ai_prep_status: 'failed',
+            reason_code: 'AI_PREP_WORKER_EXCEPTION',
           }),
         }),
       ]),
