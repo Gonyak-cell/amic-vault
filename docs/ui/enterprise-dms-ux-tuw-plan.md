@@ -720,6 +720,9 @@ Implementation note:
 
 PR-D implementation note:
 
+- Closeout evidence is recorded in `docs/ui/enterprise-dms-pr-d-closeout.md`;
+  the UI checklist and production smoke guards require that file so PR-D
+  evidence cannot drift away from route-level implementation.
 - Document detail now includes contextual governance rows for access basis, confidentiality, privilege, legal hold, extraction state, update time, and file organization prep readiness.
 - Matter detail now includes contextual governance rows for Matter Code, status, practice group, lead display, legal hold, and file organization prep readiness.
 - Document and matter pages now derive workflow/ops tasks only from real DTO/status fields: missing subtype, OCR/extraction pending or failed, legal hold, and AI prep readiness conditions.

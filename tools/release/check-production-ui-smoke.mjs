@@ -691,6 +691,34 @@ const enterpriseDmsReleaseEvidencePatterns = [
   },
 ];
 
+const prDCloseoutPatterns = [
+  {
+    name: 'PR-D closeout TUW evidence',
+    pattern:
+      /DMS-UX-527 PR-D Closeout[\s\S]*Effective Access[\s\S]*Ethical Wall[\s\S]*Records Context[\s\S]*Matter\/Document Activity Timeline[\s\S]*Action Inbox[\s\S]*Notification Center[\s\S]*Ops Health/i,
+  },
+  {
+    name: 'PR-D scope guards',
+    pattern:
+      /AI Prep file organization only[\s\S]*External sharing gated[\s\S]*Stale-content clearing/i,
+  },
+  {
+    name: 'PR-D route evidence matrix',
+    pattern:
+      /Route Evidence[\s\S]*DocumentGovernanceContextPanel[\s\S]*MatterGovernanceContextPanel[\s\S]*MatterCodePicker[\s\S]*DocumentAuditTimeline[\s\S]*MatterAuditTimeline[\s\S]*DashboardActionLauncher/i,
+  },
+  {
+    name: 'PR-D real data invariants',
+    pattern:
+      /No fake\/mock\/sample\/demo operating counts[\s\S]*No workspace ID[\s\S]*No free-floating workflow or notification data[\s\S]*Legal analysis[\s\S]*model-response display remain excluded/i,
+  },
+  {
+    name: 'PR-D deferred item register',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Unified persisted task DB\/API[\s\S]*Persisted notifications[\s\S]*Records disposal task API[\s\S]*User\/group picker APIs[\s\S]*Access request creation\/approval workflow/i,
+  },
+];
+
 const responsiveAccessibilityFiles = [
   {
     path: 'apps/web/src/app/(app)/app-shell.tsx',
@@ -1010,6 +1038,15 @@ function checkEnterpriseDmsReleaseEvidenceGuard() {
   }
 }
 
+function checkPrDCloseoutGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-pr-d-closeout.md');
+  for (const { name, pattern } of prDCloseoutPatterns) {
+    if (!pattern.test(source)) {
+      fail(`PR-D closeout production smoke guard missing ${name}`);
+    }
+  }
+}
+
 function checkResponsiveAccessibilityGuard() {
   for (const file of responsiveAccessibilityFiles) {
     const source = readRequired(file.path);
@@ -1035,6 +1072,7 @@ try {
   checkAdminIntegrationsGuard();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
+  checkPrDCloseoutGuard();
   checkResponsiveAccessibilityGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

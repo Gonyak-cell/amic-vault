@@ -15,6 +15,7 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-ux-tuw-plan.md',
   'docs/ui/enterprise-dms-ux-route-capability-inventory.md',
   'docs/ui/enterprise-dms-release-hardening.md',
+  'docs/ui/enterprise-dms-pr-d-closeout.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
@@ -71,6 +72,21 @@ const requiredPatterns = [
     label: 'DMS release signoff evidence',
     pattern:
       /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner/is,
+  },
+  {
+    label: 'PR-D closeout evidence',
+    pattern:
+      /DMS-UX-527 PR-D Closeout[\s\S]*Effective Access[\s\S]*Ethical Wall[\s\S]*Records Context[\s\S]*Matter\/Document Activity Timeline[\s\S]*Action Inbox[\s\S]*Notification Center[\s\S]*Ops Health/is,
+  },
+  {
+    label: 'PR-D AI and external scope evidence',
+    pattern:
+      /AI Prep file organization only[\s\S]*External sharing gated[\s\S]*stale-content clearing/is,
+  },
+  {
+    label: 'PR-D deferred item evidence',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Unified persisted task DB\/API[\s\S]*Persisted notifications[\s\S]*Records disposal task API[\s\S]*User\/group picker APIs[\s\S]*Access request creation\/approval workflow/is,
   },
 ];
 

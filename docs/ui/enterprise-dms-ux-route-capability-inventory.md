@@ -87,6 +87,14 @@ Matter legal hold/status/display fields, dashboard overview sections, and AI pre
 readiness. It must not invent a task API, notification center, user/group picker,
 or records disposal task engine before backend contracts exist.
 
+PR-D closeout evidence is fixed in `docs/ui/enterprise-dms-pr-d-closeout.md`.
+The evidence requires route-connected Effective Access, Ethical Wall, Records
+Context, Matter/Document Activity Timeline, Action Inbox, Notification Center,
+Ops Health, AI Prep file organization only scope, External sharing gated scope,
+and stale-content clearing, while preserving explicit deferred items for
+persisted tasks, persisted notifications, records disposal tasks, user/group
+picker APIs, and access-request workflow.
+
 ## Immediate PR-E Decision
 
 PR-E may expose admin configuration categories and integration status only as
