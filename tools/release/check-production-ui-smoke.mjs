@@ -383,6 +383,9 @@ const enterpriseSearchFiles = [
       { name: 'search range selector', pattern: /검색 범위/ },
       { name: 'sort selector', pattern: /정렬/ },
       { name: 'group selector', pattern: /그룹/ },
+      { name: 'active search filter chips', pattern: /활성 필터/ },
+      { name: 'query syntax help', pattern: /검색식 도움말/ },
+      { name: 'exact phrase query hint', pattern: /정확한 문구/ },
     ],
   },
   {
