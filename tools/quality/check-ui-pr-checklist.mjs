@@ -67,6 +67,11 @@ const requiredPatterns = [
     label: 'DMS production monitor evidence',
     pattern: /Upload failure rate[\s\S]*Extraction\/OCR[\s\S]*AI prep queue[\s\S]*Audit write failures/is,
   },
+  {
+    label: 'DMS release signoff evidence',
+    pattern:
+      /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner/is,
+  },
 ];
 
 const issues = [];

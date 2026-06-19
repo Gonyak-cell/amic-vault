@@ -610,6 +610,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
     name: 'deferred item owner and follow-up TUW',
     pattern: /Deferred Items[\s\S]*Owner[\s\S]*Follow-up TUW[\s\S]*Release blocker/i,
   },
+  {
+    name: 'DMS-UX-812 release signoff matrix',
+    pattern:
+      /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner[\s\S]*Exact production scope[\s\S]*Excluded scopes[\s\S]*Approved tenant class[\s\S]*Release timestamp[\s\S]*Evidence package ref/i,
+  },
 ];
 
 const responsiveAccessibilityFiles = [

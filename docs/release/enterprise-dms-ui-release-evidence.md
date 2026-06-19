@@ -88,9 +88,31 @@ trigger. Metrics must be scoped to approved tenants or aggregate-safe views.
 | DMS-MON-007 | Storage write/read failures, duplicate hash, and integrity mismatch signals |  | Security owner | Immutable original, version, tenant prefix, or hash integrity invariant fails |
 | DMS-MON-008 | Outlook and future Office/OneDrive integration status gate failures |  | Operator | Integration UI claims connected or filed state before approved API success |
 
-## 6. Deferred Items
+## 6. DMS-UX-812 Release Signoff
+
+Release signoff must name the exact production scope, excluded scopes, approved
+tenant class or tenant refs, rollback owner, release timestamp, and evidence
+package ref. Signoff is invalid if any owner row is blank.
+
+| Owner role | Required signoff statement | Evidence ref | Status |
+| --- | --- | --- | --- |
+| Operator owner | Approves release execution, production URL/target ref, traffic scope, and rollback authority |  |  |
+| Security owner | Confirms permission-before-search, fail-closed route gating, no internal ref leakage, no secret exposure, and negative auth smoke evidence |  |  |
+| Legal-data owner | Confirms AI Prep remains file organization prep only and excludes legal analysis, summary, external model routes, raw prompt/source/model-response storage or display |  |  |
+| Customer-scope owner | Confirms approved tenant class or tenant refs and customer-data handling boundary |  |  |
+| Rollback owner | Confirms rollback controls, rollback trigger thresholds, and incident communication path |  |  |
+
+| Signoff field | Required value |
+| --- | --- |
+| Exact production scope |  |
+| Excluded scopes |  |
+| Approved tenant class or tenant refs |  |
+| Rollback owner |  |
+| Release timestamp |  |
+| Evidence package ref |  |
+
+## 7. Deferred Items
 
 | Deferred item | Reason | Owner | Follow-up TUW | Release blocker? |
 | --- | --- | --- | --- | --- |
 |  |  |  |  | `YES` / `NO` |
-

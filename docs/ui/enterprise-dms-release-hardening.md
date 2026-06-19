@@ -185,6 +185,8 @@ Monitor after release:
 
 ## DMS-UX-812 Release Signoff
 
+Canonical signoff matrix: `docs/release/enterprise-dms-ui-release-evidence.md`.
+
 Required owner signoff before production release:
 
 - Operator owner.
