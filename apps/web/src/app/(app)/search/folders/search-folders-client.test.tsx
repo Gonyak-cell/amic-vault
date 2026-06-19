@@ -22,6 +22,8 @@ describe('SearchFoldersContent', () => {
                 clientName: 'AMIC',
                 documentType: 'contract',
                 extractionStatus: 'failed',
+                legalHold: 'document_hold',
+                recordsStatus: 'archived',
               },
               page: 1,
               pageSize: 10,
@@ -44,6 +46,10 @@ describe('SearchFoldersContent', () => {
     expect(html).toContain('AMIC');
     expect(html).toContain('추출/OCR');
     expect(html).toContain('추출 실패');
+    expect(html).toContain('보존');
+    expect(html).toContain('파일 삭제 금지');
+    expect(html).toContain('기록');
+    expect(html).toContain('보관됨');
     expect(html).toContain('href="/search?q=NDA');
     expect(html).toContain('target=body');
     expect(html).toContain('sortBy=updated_desc');
@@ -69,6 +75,8 @@ describe('SearchFoldersContent', () => {
           matterCode: 'AMIC-2026-0002',
           title: 'SPA',
           extractionStatus: 'ocr_pending',
+          legalHold: 'matter_hold',
+          recordsStatus: 'disposal_locked',
           versionStatus: 'current',
         },
         groupBy: 'matter',
@@ -77,7 +85,7 @@ describe('SearchFoldersContent', () => {
         target: 'title',
       }),
     ).toBe(
-      '/search?q=%EC%A3%BC%EC%8B%9D%EB%A7%A4%EB%A7%A4%EA%B3%84%EC%95%BD%EC%84%9C&target=title&groupBy=matter&matterCode=AMIC-2026-0002&clientName=AMIC&title=SPA&extractionStatus=ocr_pending&versionStatus=current',
+      '/search?q=%EC%A3%BC%EC%8B%9D%EB%A7%A4%EB%A7%A4%EA%B3%84%EC%95%BD%EC%84%9C&target=title&groupBy=matter&matterCode=AMIC-2026-0002&clientName=AMIC&title=SPA&extractionStatus=ocr_pending&legalHold=matter_hold&recordsStatus=disposal_locked&versionStatus=current',
     );
   });
 });

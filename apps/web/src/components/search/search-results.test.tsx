@@ -37,6 +37,8 @@ const response: SearchResponseDto = {
     matters: [],
     documentTypes: [],
     extractionStatuses: [],
+    legalHolds: [],
+    recordsStatuses: [],
     versionStatuses: [],
     dateRanges: [],
   },

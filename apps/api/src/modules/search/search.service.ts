@@ -103,6 +103,12 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
     if (filters.extractionStatus) {
       refs.push(`extraction_status:${filters.extractionStatus}`);
     }
+    if (filters.legalHold) {
+      refs.push(`legal_hold:${filters.legalHold}`);
+    }
+    if (filters.recordsStatus) {
+      refs.push(`records_status:${filters.recordsStatus}`);
+    }
     if (filters.dateFrom || filters.dateTo) {
       refs.push(`date_range:${filters.dateFrom ?? ''}..${filters.dateTo ?? ''}`);
     }
@@ -648,6 +654,8 @@ const emptyFacets: SearchFacetsDto = {
   matters: [],
   documentTypes: [],
   extractionStatuses: [],
+  legalHolds: [],
+  recordsStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
@@ -659,6 +667,8 @@ function parseFacets(input: unknown): SearchFacetsDto {
     matters: parseBuckets(input.matters),
     documentTypes: parseBuckets(input.documentTypes),
     extractionStatuses: parseBuckets(input.extractionStatuses),
+    legalHolds: parseBuckets(input.legalHolds),
+    recordsStatuses: parseBuckets(input.recordsStatuses),
     versionStatuses: parseBuckets(input.versionStatuses),
     dateRanges: parseDateRanges(input.dateRanges),
   };

@@ -32,6 +32,14 @@ const facets: SearchFacetsDto = {
     { value: 'failed', count: 1 },
     { value: 'ready', count: 0 },
   ],
+  legalHolds: [
+    { value: 'document_hold', count: 1 },
+    { value: 'no_hold', count: 1 },
+  ],
+  recordsStatuses: [
+    { value: 'archived', count: 1 },
+    { value: 'active', count: 1 },
+  ],
   versionStatuses: [{ value: 'current', count: 2 }],
   dateRanges: [
     { value: 'last_7_days', label: 'Last 7 days', count: 2 },
@@ -52,6 +60,12 @@ describe('SearchFacets', () => {
     expect(html).toContain('계약서');
     expect(html).toContain('추출/OCR');
     expect(html).toContain('추출 실패');
+    expect(html).toContain('보존/삭제 금지');
+    expect(html).toContain('파일 삭제 금지');
+    expect(html).toContain('보존 조치 없음');
+    expect(html).toContain('기록 상태');
+    expect(html).toContain('보관됨');
+    expect(html).toContain('운영 중');
     expect(html).not.toContain('본문 검색 가능');
     expect(html).toContain('사건');
     expect(html).toContain('고객');
