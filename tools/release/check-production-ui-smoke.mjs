@@ -457,6 +457,15 @@ const governanceWorkflowOpsFiles = [
   {
     path: 'apps/web/src/app/(app)/dashboard/vault-activity-client.tsx',
     patterns: [
+      { name: 'dashboard DMS action launcher', pattern: /DMS 작업 바로가기/ },
+      { name: 'dashboard upload shortcut', pattern: /\/files#matter-upload/ },
+      { name: 'dashboard file cabinet shortcut', pattern: /전체 문서함/ },
+      { name: 'dashboard search shortcut', pattern: /\/search/ },
+      { name: 'dashboard search folders shortcut', pattern: /\/search\/folders/ },
+      { name: 'dashboard work queue shortcut', pattern: /\/work/ },
+      { name: 'dashboard notifications shortcut', pattern: /\/notifications/ },
+      { name: 'dashboard AI prep file filter shortcut', pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/ },
+      { name: 'dashboard ops health shortcut', pattern: /\/admin/ },
       { name: 'dashboard action queue', pattern: /DashboardWorkQueueSection/ },
       { name: 'no fake dashboard queue counts', pattern: /DashboardWorkQueueSection/ },
     ],

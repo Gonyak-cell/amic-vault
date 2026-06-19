@@ -23,7 +23,7 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 
 | Route | Group | Status | Navigation | Roles / audience | Direct access behavior | Data policy |
 |---|---|---|---|---|---|---|
-| `/dashboard` | Vault | `visible` | Shown | Internal production users | AppShell route | Real API data only; empty/unavailable before success; action queue derives only from dashboard API sections and connection states |
+| `/dashboard` | Vault | `visible` | Shown | Internal production users | AppShell route | Real API data only; empty/unavailable before success; DMS action launcher links only to approved production surfaces; action queue derives only from dashboard API sections and connection states |
 | `/matters` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-scoped matters only; Matter Code/display data must align with the canonical Matter app source of truth |
 | `/search` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-before-search; no ID fallback; supports title/body/all target, display-safe Matter Code/client/title filters, URL state, sort, grouping, user-scoped saved searches, current-search reusable links, and result actions to document detail/preview/file-cabinet filters with bounded hit context |
 | `/search/folders` | Vault | `visible` | Shown | Internal production users | AppShell route backed by saved-search APIs | User-scoped saved searches are exposed as search folders; no fake folder tree, raw saved-search IDs, snippets, document body, prompt/source text, or model responses are displayed or stored by the UI |
