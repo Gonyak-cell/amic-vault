@@ -15,7 +15,8 @@ describe('navigation visibility', () => {
 
     expect(labels).toContain('홈');
     expect(labels).toContain('사건');
-    expect(labels).toContain('검색');
+    expect(labels).toContain('문서함');
+    expect(labels).toContain('문서 검색');
     expect(labels).not.toContain('Outlook');
     expect(labels).not.toContain('접근 기록');
     expect(labels).not.toContain('정보 차단');

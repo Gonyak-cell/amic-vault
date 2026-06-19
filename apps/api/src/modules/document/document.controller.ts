@@ -165,6 +165,14 @@ export class DocumentMetadataController {
     @Inject(DocumentVersionService) private readonly versionService: DocumentVersionService,
   ) {}
 
+  @Get()
+  listDocuments(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
+    return this.documentService.listDocuments(
+      sessionUserId(request),
+      parseDocumentListQuery(query),
+    );
+  }
+
   @Patch(':documentId/metadata')
   @UseGuards(ImmutableStateGuard)
   updateMetadata(

@@ -181,6 +181,12 @@ export function listMatterDocuments(
   );
 }
 
+export function listDocuments(
+  query: Partial<ListDocumentsQueryDto> = {},
+): Promise<DocumentListDto> {
+  return apiFetch<DocumentListDto>(`/documents${queryString(query)}`);
+}
+
 export function uploadDocument(
   matterReference: string,
   file: File,
