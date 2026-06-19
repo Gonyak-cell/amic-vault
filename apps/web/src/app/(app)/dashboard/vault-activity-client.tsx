@@ -1,18 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
   Activity,
   Bell,
   Bot,
   Clock3,
   FileText,
-  ListChecks,
   PlugZap,
   ShieldCheck,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { DashboardWorkQueueSection } from '@/components/dashboard/dashboard-work-queue';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -37,17 +35,9 @@ const dashboardSectionLabels = {
   recentFiles: '최근 접근 파일',
   recentActivity: '최근 활동',
   permissionPolicyAlerts: '권한/정책 알림',
-  actionQueue: '작업 큐',
   aiPrepStatus: 'AI Prep 상태',
   integrationStatus: '통합 상태',
-} as const satisfies Record<DashboardSectionId | 'actionQueue', string>;
-
-interface DashboardActionItem {
-  title: string;
-  description: string;
-  href: string;
-  tone: 'success' | 'warning' | 'blocked' | 'neutral';
-}
+} as const satisfies Record<DashboardSectionId, string>;
 
 export function VaultActivityClient() {
   const [dashboardState, setDashboardState] = useState<DashboardOverviewState>(() =>
@@ -139,7 +129,7 @@ export function VaultActivityContent({
               </DashboardList>
             )}
           />
-          <DashboardActionQueue state={dashboardState} />
+          <DashboardWorkQueueSection state={dashboardState} />
         </div>
 
         <aside className="grid gap-4 xl:sticky xl:top-20 xl:self-start">
@@ -188,80 +178,6 @@ export function VaultActivityContent({
       </div>
     </PageShell>
   );
-}
-
-function DashboardActionQueue({ state }: { state: DashboardOverviewState }) {
-  const items = dashboardActionItems(state);
-  return (
-    <SectionCard
-      icon={<ListChecks className="h-4 w-4" />}
-      title={dashboardSectionLabels.actionQueue}
-      meta={items.length > 0 ? 'API 응답 기준' : '표시할 항목 없음'}
-    >
-      {items.length > 0 ? (
-        <DashboardList>
-          {items.map((item) => (
-            <DashboardListItem key={item.title}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground">{item.title}</span>
-                    <StatusBadge tone={item.tone}>상태 기반</StatusBadge>
-                  </div>
-                  <div className="mt-1 text-[12px] text-muted-foreground">{item.description}</div>
-                </div>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={item.href}>열기</Link>
-                </Button>
-              </div>
-            </DashboardListItem>
-          ))}
-        </DashboardList>
-      ) : (
-        <EmptyState
-          title="표시할 작업이 없습니다."
-          description="실제 운영 데이터에서 발생한 작업만 표시됩니다."
-        />
-      )}
-    </SectionCard>
-  );
-}
-
-function dashboardActionItems(state: DashboardOverviewState): DashboardActionItem[] {
-  const items: DashboardActionItem[] = [];
-  if (state.permissionPolicyAlerts.status === 'ready' && state.permissionPolicyAlerts.data.length > 0) {
-    items.push({
-      title: '권한/정책 알림 확인',
-      description: `${state.permissionPolicyAlerts.data.length}건의 정책 알림이 있습니다.`,
-      href: '/audit',
-      tone: 'warning',
-    });
-  }
-  if (state.aiPrepStatus.status === 'ready' && state.aiPrepStatus.data.length > 0) {
-    items.push({
-      title: '파일 정리 준비 상태 확인',
-      description: `${state.aiPrepStatus.data.length}개 Matter의 파일 정리 준비 상태가 있습니다.`,
-      href: '/matters',
-      tone: 'neutral',
-    });
-  }
-  if (state.integrationStatus.status === 'ready' && state.integrationStatus.data.length > 0) {
-    items.push({
-      title: '통합 상태 확인',
-      description: `${state.integrationStatus.data.length}개 통합 상태가 보고되었습니다.`,
-      href: '/integrations/outlook',
-      tone: 'neutral',
-    });
-  }
-  if (state.recentActivity.status === 'error' || state.recentFiles.status === 'error') {
-    items.push({
-      title: '운영 데이터 연결 확인',
-      description: '최근 파일 또는 활동 데이터를 표시할 수 없습니다.',
-      href: '/audit',
-      tone: 'blocked',
-    });
-  }
-  return items;
 }
 
 function DashboardSection<T>({

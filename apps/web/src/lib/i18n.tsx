@@ -55,6 +55,7 @@ const translations = {
   'nav.dashboard': { ko: '홈', en: 'Home' },
   'nav.matters': { ko: '사건', en: 'Matters' },
   'nav.files': { ko: '문서함', en: 'Document vault' },
+  'nav.workQueue': { ko: '작업함', en: 'Work queue' },
   'nav.search': { ko: '문서 검색', en: 'Document search' },
   'nav.outlook': { ko: 'Outlook', en: 'Outlook' },
   'nav.launch': { ko: '운영자 도구', en: 'Operator tools' },

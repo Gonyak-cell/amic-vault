@@ -6,14 +6,16 @@ import type {
   AuditQueryDto,
   DocumentAuditEventListDto,
   DocumentAuditQueryDto,
+  MatterAuditQueryDto,
 } from '@amic-vault/shared';
 import { apiFetch } from '../api-client';
 import { apiBaseUrl } from '../config';
 
 type AuditQueryInput = Partial<AuditQueryDto | AuditExportQueryDto>;
 type DocumentAuditQueryInput = Partial<DocumentAuditQueryDto>;
+type MatterAuditQueryInput = Partial<MatterAuditQueryDto>;
 
-function queryString(query: AuditQueryInput): string {
+function queryString(query: object): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined && value !== '') params.set(key, String(value));
@@ -32,6 +34,15 @@ export function listDocumentAuditEvents(
 ): Promise<DocumentAuditEventListDto> {
   return apiFetch<DocumentAuditEventListDto>(
     `/documents/${encodeURIComponent(documentId)}/audit-events${queryString(query)}`,
+  );
+}
+
+export function listMatterAuditEvents(
+  matterId: string,
+  query: MatterAuditQueryInput = {},
+): Promise<AuditEventListDto> {
+  return apiFetch<AuditEventListDto>(
+    `/matters/${encodeURIComponent(matterId)}/audit-events${queryString(query)}`,
   );
 }
 

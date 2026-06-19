@@ -23,8 +23,8 @@ const dateTimeSchema = z
 const uuidSchema = z.string().uuid();
 
 interface DateRangeFields {
-  from: string | undefined;
-  to: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
 }
 
 function isOrderedRange(value: DateRangeFields): boolean {
@@ -56,6 +56,19 @@ export const documentAuditQuerySchema = z
     limit: value.limit,
     cursor: value.cursor,
   }));
+
+export const matterAuditQuerySchema = z
+  .object({
+    action: auditQueryActionSchema.optional(),
+    result: auditResultSchema.optional(),
+    from: dateTimeSchema.optional(),
+    to: dateTimeSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(8),
+    cursor: z.string().trim().min(1).max(200).optional(),
+  })
+  .strict()
+  .refine(isOrderedRange, { message: 'from must be before to' })
+  .refine(isBoundedRange, { message: 'audit date range must be bounded' });
 
 function buildAuditQuerySchema(maxLimit: number, defaultLimit: number) {
   return z
@@ -100,6 +113,7 @@ export const auditExportQuerySchema = buildAuditQuerySchema(1000, 1000);
 
 export type DocumentAuditQueryEventType = R2DocumentAuditAction;
 export type DocumentAuditQueryDto = z.infer<typeof documentAuditQuerySchema>;
+export type MatterAuditQueryDto = z.infer<typeof matterAuditQuerySchema>;
 export type AuditQueryDto = z.infer<typeof auditQuerySchema>;
 export type AuditExportQueryDto = z.infer<typeof auditExportQuerySchema>;
 

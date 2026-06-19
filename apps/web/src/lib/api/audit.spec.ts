@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { exportAuditEventsCsv, listDocumentAuditEvents } from './audit';
+import { exportAuditEventsCsv, listDocumentAuditEvents, listMatterAuditEvents } from './audit';
 
 describe('audit API client', () => {
   afterEach(() => {
@@ -35,6 +35,25 @@ describe('audit API client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/audit-events?limit=8',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('lists matter audit events through the matter-scoped endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [], nextCursor: null }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      listMatterAuditEvents('11111111-1111-4111-8111-111111111122', { limit: 8 }),
+    ).resolves.toEqual({ items: [], nextCursor: null });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/matters/11111111-1111-4111-8111-111111111122/audit-events?limit=8',
       expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
     );
   });

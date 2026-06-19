@@ -4,6 +4,7 @@ import {
   FileText,
   FolderKanban,
   History,
+  ListChecks,
   MailCheck,
   Search,
   Settings,
@@ -85,6 +86,11 @@ const routeNavigation = {
     group: 'Vault',
     icon: FileText,
     labelKey: 'nav.files',
+  },
+  '/work': {
+    group: 'Vault',
+    icon: ListChecks,
+    labelKey: 'nav.workQueue',
   },
   '/integrations/outlook': {
     group: 'Integrations',
