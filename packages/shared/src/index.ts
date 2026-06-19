@@ -466,10 +466,7 @@ export {
 } from './types/tenant';
 export { userStatuses, type UserStatus, type UserSummary } from './types/user';
 export type { FileObjectDto } from './types/file-object';
-export {
-  buildSafeLabel,
-  type DisplayFieldsDto,
-} from './display/display-fields.dto';
+export { buildSafeLabel, type DisplayFieldsDto } from './display/display-fields.dto';
 export {
   documentConfidentialityLevelSchema,
   documentConfidentialityLevels,
@@ -481,6 +478,8 @@ export {
   documentStatuses,
   documentTypeSchema,
   documentTypes,
+  listDocumentSortSchema,
+  listDocumentSortValues,
   listDocumentsQuerySchema,
   type DocumentConfidentialityLevel,
   type DocumentDto,
@@ -490,6 +489,7 @@ export {
   type DocumentPrivilegeStatus,
   type DocumentStatus,
   type DocumentType,
+  type ListDocumentSort,
   type ListDocumentsQueryDto,
 } from './types/document';
 export {

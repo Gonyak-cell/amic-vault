@@ -19,6 +19,7 @@ import type {
   DocumentPrivilegeStatus,
   DocumentStatus,
   DocumentType,
+  ListDocumentSort,
   ListDocumentsQueryDto,
   PermissionDecision,
   TenantId,
@@ -206,6 +207,66 @@ function bindSearchScope(scope: SearchSqlFragment): { sql: string; params: unkno
   return { sql, params };
 }
 
+function likeContains(value: string): string {
+  return `%${value.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+}
+
+function documentListOrderBy(sortBy: ListDocumentSort | undefined): string {
+  switch (sortBy) {
+    case 'updated_asc':
+      return 'idx.updated_at ASC, idx.document_id ASC';
+    case 'title_asc':
+      return 'lower(idx.title) ASC, idx.document_id ASC';
+    case 'matter_asc':
+      return "lower(coalesce(m.matter_code, '')) ASC, lower(m.matter_name) ASC, idx.document_id ASC";
+    case 'type_asc':
+      return 'idx.document_type ASC, lower(idx.title) ASC, idx.document_id ASC';
+    case 'status_asc':
+      return 'doc.status ASC, idx.updated_at DESC, idx.document_id ASC';
+    case 'updated_desc':
+    default:
+      return 'idx.updated_at DESC, idx.document_id ASC';
+  }
+}
+
+function documentListFilterClauses(params: unknown[], input: ListDocumentsQueryDto): string[] {
+  const clauses: string[] = [];
+  if (input.title) {
+    clauses.push(`AND idx.title ILIKE ${pushParam(params, likeContains(input.title))} ESCAPE '\\'`);
+  }
+  if (input.matterCode) {
+    clauses.push(
+      `AND m.matter_code ILIKE ${pushParam(params, likeContains(input.matterCode))} ESCAPE '\\'`,
+    );
+  }
+  if (input.matterName) {
+    clauses.push(
+      `AND m.matter_name ILIKE ${pushParam(params, likeContains(input.matterName))} ESCAPE '\\'`,
+    );
+  }
+  if (input.documentType) {
+    clauses.push(`AND idx.document_type = ${pushParam(params, input.documentType)}`);
+  }
+  if (input.status) {
+    clauses.push(`AND doc.status = ${pushParam(params, input.status)}`);
+  }
+  if (input.confidentialityLevel) {
+    clauses.push(
+      `AND doc.confidentiality_level = ${pushParam(params, input.confidentialityLevel)}`,
+    );
+  }
+  if (input.privilegeStatus) {
+    clauses.push(`AND doc.privilege_status = ${pushParam(params, input.privilegeStatus)}`);
+  }
+  if (input.aiAllowed !== undefined) {
+    clauses.push(`AND doc.ai_allowed = ${pushParam(params, input.aiAllowed)}`);
+  }
+  if (input.legalHold !== undefined) {
+    clauses.push(`AND doc.legal_hold = ${pushParam(params, input.legalHold)}`);
+  }
+  return clauses;
+}
+
 @Injectable()
 export class DocumentService {
   private readonly logger = new Logger(DocumentService.name);
@@ -345,6 +406,7 @@ export class DocumentService {
       const matterParam = pushParam(params, matterId);
       const deletedParam = pushParam(params, 'deleted');
       const currentParam = pushParam(params, 'current');
+      const filterClauses = documentListFilterClauses(params, input);
       const limitParam = pushParam(params, input.pageSize);
       const offsetParam = pushParam(params, (input.page - 1) * input.pageSize);
       const result = await tx.query(
@@ -379,7 +441,8 @@ export class DocumentService {
             AND idx.matter_id = ${matterParam}::uuid
             AND idx.document_status <> ${deletedParam}
             AND idx.version_status = ${currentParam}
-          ORDER BY idx.updated_at DESC, idx.document_id ASC
+            ${filterClauses.join('\n            ')}
+          ORDER BY ${documentListOrderBy(input.sortBy)}
           LIMIT ${limitParam}
           OFFSET ${offsetParam}
         `,
@@ -395,10 +458,7 @@ export class DocumentService {
     });
   }
 
-  async listDocuments(
-    actorUserId: string,
-    input: ListDocumentsQueryDto,
-  ): Promise<DocumentListDto> {
+  async listDocuments(actorUserId: string, input: ListDocumentsQueryDto): Promise<DocumentListDto> {
     const auditService = this.requireAuditService();
     const context = this.requireTenantContext().require();
     const scopeDecision = await this.requireSearchPermissionScope().scopeForSearch({
@@ -412,6 +472,7 @@ export class DocumentService {
       const params = [...bound.params];
       const deletedParam = pushParam(params, 'deleted');
       const currentParam = pushParam(params, 'current');
+      const filterClauses = documentListFilterClauses(params, input);
       const limitParam = pushParam(params, input.pageSize);
       const offsetParam = pushParam(params, (input.page - 1) * input.pageSize);
       const result = await tx.query(
@@ -445,7 +506,8 @@ export class DocumentService {
           WHERE (${bound.sql})
             AND idx.document_status <> ${deletedParam}
             AND idx.version_status = ${currentParam}
-          ORDER BY idx.updated_at DESC, idx.document_id ASC
+            ${filterClauses.join('\n            ')}
+          ORDER BY ${documentListOrderBy(input.sortBy)}
           LIMIT ${limitParam}
           OFFSET ${offsetParam}
         `,
