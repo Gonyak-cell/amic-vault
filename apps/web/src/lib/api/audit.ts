@@ -1,10 +1,17 @@
 'use client';
 
-import type { AuditEventListDto, AuditExportQueryDto, AuditQueryDto } from '@amic-vault/shared';
+import type {
+  AuditEventListDto,
+  AuditExportQueryDto,
+  AuditQueryDto,
+  DocumentAuditEventListDto,
+  DocumentAuditQueryDto,
+} from '@amic-vault/shared';
 import { apiFetch } from '../api-client';
 import { apiBaseUrl } from '../config';
 
 type AuditQueryInput = Partial<AuditQueryDto | AuditExportQueryDto>;
+type DocumentAuditQueryInput = Partial<DocumentAuditQueryDto>;
 
 function queryString(query: AuditQueryInput): string {
   const params = new URLSearchParams();
@@ -17,6 +24,15 @@ function queryString(query: AuditQueryInput): string {
 
 export function listAuditEvents(query: AuditQueryInput): Promise<AuditEventListDto> {
   return apiFetch<AuditEventListDto>(`/audit-events${queryString(query)}`);
+}
+
+export function listDocumentAuditEvents(
+  documentId: string,
+  query: DocumentAuditQueryInput = {},
+): Promise<DocumentAuditEventListDto> {
+  return apiFetch<DocumentAuditEventListDto>(
+    `/documents/${encodeURIComponent(documentId)}/audit-events${queryString(query)}`,
+  );
 }
 
 export async function exportAuditEventsCsv(query: AuditQueryInput): Promise<string> {

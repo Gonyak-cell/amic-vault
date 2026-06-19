@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Clock3,
   Download,
   Eye,
   FileText,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 import type {
   AiPrepDocumentStatusDto,
+  DocumentAuditEventDto,
   DocumentConfidentialityLevel,
   DocumentDownloadReasonCode,
   DocumentDto,
@@ -28,6 +30,7 @@ import {
   documentTypes,
 } from '@amic-vault/shared';
 import { AiPrepStatusPanel } from '@/components/ai/ai-prep-status-panel';
+import { DocumentAuditTimeline } from '@/components/document/document-audit-timeline';
 import {
   DocumentGovernanceContextPanel,
   DocumentWorkflowOpsPanel,
@@ -61,6 +64,7 @@ import { safeApiErrorMessage } from '@/lib/api/error-messages';
 interface DocumentActionCenterProps {
   documentId: string;
   disableInitialLoad?: boolean;
+  initialAuditEvents?: DocumentAuditEventDto[];
   initialDocument?: DocumentDto;
   initialVersions?: DocumentVersionDto[];
 }
@@ -70,6 +74,12 @@ interface ProfileDraft {
   documentType: DocumentType;
   subtype: string;
   confidentialityLevel: DocumentConfidentialityLevel;
+}
+
+interface QueueItem {
+  title: string;
+  description: string;
+  tone: StatusBadgeTone;
 }
 
 const typeLabels = {
@@ -150,9 +160,55 @@ function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
   ));
 }
 
+function uploadQueueItems(
+  document: DocumentDto,
+  prepStatus: AiPrepDocumentStatusDto | null,
+  versionFile: File | null,
+  versionSaving: boolean,
+): QueueItem[] {
+  const items: QueueItem[] = [];
+  if (versionSaving) {
+    items.push({
+      title: '새 버전 업로드 중',
+      description: '선택한 파일을 기존 원본을 덮어쓰지 않고 새 버전으로 등록하는 중입니다.',
+      tone: 'warning',
+    });
+  } else if (versionFile) {
+    items.push({
+      title: '새 버전 업로드 대기',
+      description: '새 버전 파일이 선택되었습니다. 업로드를 시작하면 감사 기록 대상이 됩니다.',
+      tone: 'neutral',
+    });
+  }
+
+  if (document.extractionStatus === 'pending' || document.extractionStatus === 'ocr_pending') {
+    items.push({
+      title: '본문 추출 큐',
+      description: '본문 검색과 파일 정리 준비를 위해 추출 작업 완료를 기다립니다.',
+      tone: 'warning',
+    });
+  }
+  if (document.extractionStatus === 'failed') {
+    items.push({
+      title: '본문 추출 실패',
+      description: '검색 가능 상태로 전환되지 않아 운영 확인이 필요합니다.',
+      tone: 'blocked',
+    });
+  }
+  if (prepStatus && prepStatus.readinessStatus !== 'ready') {
+    items.push({
+      title: 'Gemma 파일 정리 준비',
+      description: `현재 준비 상태는 ${prepStatus.readinessStatus}입니다.`,
+      tone: statusTone(prepStatus.readinessStatus),
+    });
+  }
+  return items;
+}
+
 export function DocumentActionCenter({
   disableInitialLoad = false,
   documentId,
+  initialAuditEvents = [],
   initialDocument,
   initialVersions = [],
 }: DocumentActionCenterProps) {
@@ -429,6 +485,12 @@ export function DocumentActionCenter({
 
             {prepStatus ? <AiPrepStatusPanel status={prepStatus} /> : null}
             {prepError ? <p className="text-sm text-muted-foreground">{prepError}</p> : null}
+
+            <DocumentAuditTimeline
+              disableInitialLoad={disableInitialLoad}
+              documentId={document.documentId}
+              initialEvents={initialAuditEvents}
+            />
           </div>
 
           <aside className="space-y-4">
@@ -481,6 +543,32 @@ export function DocumentActionCenter({
                   <VersionRows versions={versions} />
                 </DataTableBody>
               </DataTable>
+
+              <div className="mt-4 rounded-md border bg-background">
+                <div className="flex items-center gap-2 border-b px-3 py-2 text-sm font-semibold">
+                  <Clock3 className="h-4 w-4 text-primary" />
+                  업로드 및 처리 큐
+                </div>
+                {uploadQueueItems(document, prepStatus, versionFile, versionSaving).length > 0 ? (
+                  <ul className="divide-y">
+                    {uploadQueueItems(document, prepStatus, versionFile, versionSaving).map((item) => (
+                      <li key={item.title} className="px-3 py-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-medium">{item.title}</span>
+                          <StatusBadge tone={item.tone}>상태 기반</StatusBadge>
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {item.description}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                    대기 중인 업로드 또는 처리 작업이 없습니다.
+                  </p>
+                )}
+              </div>
 
               <div className="mt-4 rounded-md border bg-muted/20 p-3">
                 <label className="space-y-1 text-sm font-medium">

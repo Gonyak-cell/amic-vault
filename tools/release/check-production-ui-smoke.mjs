@@ -155,7 +155,23 @@ const documentActionCenterFiles = [
       { name: 'download reason selector', pattern: /documentDownloadReasonCodes/ },
       { name: 'version list integration', pattern: /listDocumentVersions/ },
       { name: 'new version upload flow', pattern: /addDocumentVersion/ },
+      { name: 'document audit timeline integration', pattern: /DocumentAuditTimeline/ },
+      { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
       { name: 'related items safe state', pattern: /표시할 연결 항목이 없습니다/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-audit-timeline.tsx',
+    patterns: [
+      { name: 'document audit scoped endpoint client', pattern: /listDocumentAuditEvents/ },
+      { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
+      { name: 'document audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/api/audit.ts',
+    patterns: [
+      { name: 'document audit API client', pattern: /documents.*audit-events/ },
     ],
   },
   {
