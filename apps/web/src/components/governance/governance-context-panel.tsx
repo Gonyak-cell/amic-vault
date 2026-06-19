@@ -403,7 +403,7 @@ export function MatterWorkflowOpsPanel({
       <WorkflowTaskList tasks={matterWorkflowTasks(matter, readiness)} />
       <div className="mt-3 flex items-center gap-2 rounded-md border bg-muted/20 p-3 text-[13px] text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 text-primary" />
-        가짜 작업 수는 표시하지 않습니다.
+        추가로 확인할 작업이 없습니다.
       </div>
     </SectionCard>
   );

@@ -68,7 +68,7 @@ export function WorkQueueContent({ dashboardState }: { dashboardState: Dashboard
             meta="실시간 문서함"
           >
             <p className="text-sm text-muted-foreground">
-              작업 API가 없는 항목은 가짜 작업으로 만들지 않고, 권한 내 문서함 필터로 바로 엽니다.
+              추출, OCR, 파일 정리 항목은 권한 내 문서함 필터로 바로 열 수 있습니다.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button asChild size="sm" variant="outline">
