@@ -468,12 +468,18 @@ const governanceWorkflowOpsFiles = [
       { name: 'work queue dashboard source', pattern: /getDashboardOverview/ },
       { name: 'work queue dedicated API source', pattern: /getWorkQueue/ },
       { name: 'work queue API state mapping', pattern: /workQueueToState/ },
+      { name: 'work queue action console filters', pattern: /작업함 조치 콘솔/ },
+      { name: 'work queue source filter', pattern: /work-source-filter/ },
+      { name: 'work queue status filter', pattern: /work-status-filter/ },
+      { name: 'work queue attention sort', pattern: /주의 항목 우선/ },
       { name: 'work queue file cabinet filters', pattern: /문서함 조치 필터/ },
       { name: 'work queue extraction failed link', pattern: /\/files\?extractionStatus=failed/ },
+      { name: 'work queue metadata completion link', pattern: /\/files\?status=draft/ },
       {
         name: 'work queue AI prep file link',
         pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/,
       },
+      { name: 'work queue records action link', pattern: /\/records/ },
     ],
   },
   {
