@@ -55,7 +55,8 @@ describe('MatterFileSection', () => {
     expect(html).toContain('Matter 메타데이터');
     expect(html).toContain('업무 그룹');
     expect(html).toContain('Finance');
-    expect(html).toContain('Matter app API');
+    expect(html).toContain('Matter 원장');
+    expect(html).toContain('Matter app 확인됨');
     expect(html).toContain('파일링 모델');
     expect(html).toContain('Matter 메타데이터 기준');
     expect(html).toContain('폴더 모델');
@@ -63,10 +64,11 @@ describe('MatterFileSection', () => {
     expect(html).toContain('파일');
     expect(html).toContain('Matter 범위 목록');
     expect(html).toContain('파일 업로드');
-    expect(html).toContain('Matter Code 기준');
+    expect(html).toContain('Matter Code 확인 후 업로드');
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('Investment Advisory');
     expect(html).toContain('type="file"');
+    expect(html).not.toContain('Matter app API');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(matter.matterId);
   });

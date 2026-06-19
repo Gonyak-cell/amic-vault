@@ -7,7 +7,12 @@ import { DocumentUploadPanel } from '@/components/document/document-upload-panel
 import { MatterDocumentList } from '@/components/document/matter-document-list';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
-import { matterAppSourceMode, toMatterCodeOption, type MatterAppSourceMode } from '@/lib/matter-app';
+import {
+  matterAppSourceLabels,
+  matterAppSourceMode,
+  toMatterCodeOption,
+  type MatterAppSourceMode,
+} from '@/lib/matter-app';
 
 export interface MatterFileSectionProps {
   matter: MatterDto;
@@ -30,13 +35,6 @@ const matterStatusLabels: Record<string, string> = {
   disposal_review: '폐기 검토',
   disposed: '폐기',
 };
-
-const sourceModeLabels = {
-  unconfigured: '연결 필요',
-  matter_app_api: 'Matter app API',
-  matter_app_event_projection: 'Matter app 이벤트',
-  vault_projection_only: 'Vault projection',
-} as const satisfies Record<MatterAppSourceMode, string>;
 
 function matterStatusLabel(status: string): string {
   return matterStatusLabels[status] ?? status;
@@ -82,8 +80,8 @@ export function MatterFileSection({ matter, sourceMode }: MatterFileSectionProps
     { label: '업무 그룹', value: matter.practiceGroup ?? '미지정' },
     { label: 'Matter 상태', value: matterStatusLabel(matter.status) },
     {
-      label: 'Matter app 연동',
-      value: sourceModeLabels[resolvedSourceMode],
+      label: 'Matter 원장',
+      value: matterAppSourceLabels[resolvedSourceMode],
       tone: sourceModeTone(resolvedSourceMode),
     },
     {
@@ -114,7 +112,7 @@ export function MatterFileSection({ matter, sourceMode }: MatterFileSectionProps
       <SectionCard
         icon={<FolderUp className="h-4 w-4" />}
         title="파일 업로드"
-        meta="Matter Code 기준"
+        meta="Matter Code 확인 후 업로드"
       >
         <DocumentUploadPanel selectedMatter={matterOption} sourceMode={resolvedSourceMode} />
       </SectionCard>

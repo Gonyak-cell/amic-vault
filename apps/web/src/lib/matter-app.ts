@@ -18,6 +18,20 @@ export interface MatterCodeOption {
   sourceMode: MatterAppSourceMode;
 }
 
+export const matterAppSourceLabels = {
+  unconfigured: '연결 필요',
+  matter_app_api: 'Matter app 확인됨',
+  matter_app_event_projection: 'Matter app 동기화됨',
+  vault_projection_only: '로컬 Matter 목록',
+} as const satisfies Record<MatterAppSourceMode, string>;
+
+export const matterAppSourceDescriptions = {
+  unconfigured: 'Matter app에서 확인된 Matter Code를 사용할 수 있을 때 업로드할 수 있습니다.',
+  matter_app_api: 'Matter app에서 확인된 Matter Code 기준으로 파일 작업을 진행합니다.',
+  matter_app_event_projection: 'Matter app 동기화 데이터 기준으로 파일 작업을 진행합니다.',
+  vault_projection_only: '개발/검증용 로컬 목록입니다. 운영 업로드 source로 사용하지 않습니다.',
+} as const satisfies Record<MatterAppSourceMode, string>;
+
 function envFlagEnabled(value: string | undefined): boolean {
   return value === 'true' || value === '1';
 }

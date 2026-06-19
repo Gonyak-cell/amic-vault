@@ -7,6 +7,8 @@ import { listMatters } from '@/lib/api-client';
 import {
   filterMatterCodeOptions,
   isMatterAppSourceAvailable,
+  matterAppSourceDescriptions,
+  matterAppSourceLabels,
   matterAppSourceMode,
   toMatterCodeOption,
   type MatterAppSourceMode,
@@ -21,12 +23,6 @@ export interface MatterCodePickerProps {
   onMatterSelected: (matter: MatterCodeOption | null) => void;
   sourceMode?: MatterAppSourceMode;
 }
-
-const sourceModeLabels = {
-  matter_app_api: 'Matter app API',
-  matter_app_event_projection: 'Matter app 동기화',
-  vault_projection_only: 'Vault projection',
-} as const satisfies Record<Exclude<MatterAppSourceMode, 'unconfigured'>, string>;
 
 function mattersToOptions(
   response: MatterListDto,
@@ -78,8 +74,7 @@ export function MatterCodePicker({
   }
 
   const filteredOptions = filterMatterCodeOptions(options, query).slice(0, 12);
-  const sourceLabel =
-    sourceModeLabels[resolvedSourceMode as Exclude<MatterAppSourceMode, 'unconfigured'>];
+  const sourceLabel = matterAppSourceLabels[resolvedSourceMode];
 
   return (
     <div className="space-y-3">
@@ -101,6 +96,9 @@ export function MatterCodePicker({
         </label>
         <div className="text-xs font-medium text-muted-foreground">{sourceLabel}</div>
       </div>
+      <p className="text-xs leading-5 text-muted-foreground">
+        {matterAppSourceDescriptions[resolvedSourceMode]}
+      </p>
 
       {hasLoadError ? (
         <EmptyState
