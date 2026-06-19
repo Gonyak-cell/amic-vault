@@ -719,6 +719,29 @@ const prDCloseoutPatterns = [
   },
 ];
 
+const prECloseoutPatterns = [
+  {
+    name: 'PR-E closeout TUW evidence',
+    pattern:
+      /DMS-UX-714 PR-E Closeout[\s\S]*Taxonomy Admin Contract[\s\S]*Taxonomy Admin UI[\s\S]*Matter Template Admin[\s\S]*Folder Template Admin[\s\S]*Search Refiner Admin[\s\S]*Outlook Filing Unification[\s\S]*Office\/OneDrive Integration Plan[\s\S]*Integration Status Safety/i,
+  },
+  {
+    name: 'PR-E route evidence matrix',
+    pattern:
+      /Route Evidence[\s\S]*AdminDmsConfigurationPanel[\s\S]*contractRequired[\s\S]*governedByBackend[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
+  },
+  {
+    name: 'PR-E integration safety invariants',
+    pattern:
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/i,
+  },
+  {
+    name: 'PR-E deferred item register',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
+  },
+];
+
 const responsiveAccessibilityFiles = [
   {
     path: 'apps/web/src/app/(app)/app-shell.tsx',
@@ -1047,6 +1070,15 @@ function checkPrDCloseoutGuard() {
   }
 }
 
+function checkPrECloseoutGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-pr-e-closeout.md');
+  for (const { name, pattern } of prECloseoutPatterns) {
+    if (!pattern.test(source)) {
+      fail(`PR-E closeout production smoke guard missing ${name}`);
+    }
+  }
+}
+
 function checkResponsiveAccessibilityGuard() {
   for (const file of responsiveAccessibilityFiles) {
     const source = readRequired(file.path);
@@ -1073,6 +1105,7 @@ try {
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
   checkPrDCloseoutGuard();
+  checkPrECloseoutGuard();
   checkResponsiveAccessibilityGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
