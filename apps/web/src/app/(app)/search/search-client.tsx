@@ -116,6 +116,7 @@ export function SearchClient() {
           pageSize={pageSize}
           busy={busy}
           groupBy={selection.groupBy ?? 'none'}
+          target={selection.target ?? 'all'}
           error={error}
           onPage={(nextPage) => runSearch(query, selection, nextPage)}
         />

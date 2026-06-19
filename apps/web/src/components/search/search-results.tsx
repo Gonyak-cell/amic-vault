@@ -1,7 +1,12 @@
 'use client';
 
 import React from 'react';
-import type { SearchGroupBy, SearchResponseDto, SearchResultDto } from '@amic-vault/shared';
+import type {
+  SearchGroupBy,
+  SearchResponseDto,
+  SearchResultDto,
+  SearchTarget,
+} from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { emptyStateVariantForUiErrorKind, type UiErrorKind } from '@/lib/api/error-messages';
@@ -16,6 +21,7 @@ interface SearchResultsProps {
   pageSize: number;
   busy: boolean;
   groupBy?: SearchGroupBy;
+  target?: SearchTarget;
   error: SearchErrorKind | null;
   onPage: (page: number) => void;
 }
@@ -27,6 +33,7 @@ export function SearchResults({
   busy,
   error,
   groupBy = 'none',
+  target = 'all',
   onPage,
 }: SearchResultsProps) {
   const { language, t } = useI18n();
@@ -68,7 +75,7 @@ export function SearchResults({
           </Button>
         </div>
       </div>
-      <GroupedResults groupBy={groupBy} results={response.results} />
+      <GroupedResults groupBy={groupBy} results={response.results} target={target} />
     </section>
   );
 }
@@ -76,15 +83,17 @@ export function SearchResults({
 function GroupedResults({
   groupBy,
   results,
+  target,
 }: {
   groupBy: SearchGroupBy;
   results: SearchResultDto[];
+  target: SearchTarget;
 }) {
   if (groupBy === 'none') {
     return (
       <div className="flex flex-col gap-3">
         {results.map((result) => (
-          <ResultCard key={result.versionId} result={result} />
+          <ResultCard key={result.versionId} result={result} target={target} />
         ))}
       </div>
     );
@@ -98,7 +107,7 @@ function GroupedResults({
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">{group.label}</h2>
           <div className="flex flex-col gap-3">
             {group.items.map((result) => (
-              <ResultCard key={result.versionId} result={result} />
+              <ResultCard key={result.versionId} result={result} target={target} />
             ))}
           </div>
         </section>

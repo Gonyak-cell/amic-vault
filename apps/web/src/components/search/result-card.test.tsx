@@ -3,7 +3,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { SearchResultDto } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
-import { ResultCard, fileCabinetUrlForSearchResult } from './result-card';
+import {
+  ResultCard,
+  documentSearchHitUrlForSearchResult,
+  fileCabinetUrlForSearchResult,
+} from './result-card';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -44,7 +48,9 @@ describe('ResultCard', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111201"');
+    expect(html).toContain(
+      'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=all&amp;hit=1&amp;hitCount=1"',
+    );
     expect(html).toContain('문서 열기');
     expect(html).toContain('미리보기');
     expect(html).toContain('문서함');
@@ -69,6 +75,7 @@ describe('ResultCard', () => {
     expect(html).not.toContain('0.753');
     expect(html).not.toContain('>current<');
     expect(html).not.toMatch(/\bAI\b|semantic|recommend/i);
+    expect(html).not.toContain(encodeURIComponent(result.snippet));
   });
 
   it('does not use document id as a title fallback', () => {
@@ -94,5 +101,16 @@ describe('ResultCard', () => {
         displayName: '',
       }),
     ).toBe('/files');
+  });
+
+  it('builds search hit document links without putting snippets or query text in the URL', () => {
+    expect(documentSearchHitUrlForSearchResult(result, 'body')).toBe(
+      '/documents/11111111-1111-4111-8111-111111111201?from=search&target=body&hit=1&hitCount=1',
+    );
+    expect(documentSearchHitUrlForSearchResult({ ...result, highlights: [] }, 'title')).toBe(
+      '/documents/11111111-1111-4111-8111-111111111201?from=search&target=title',
+    );
+    expect(documentSearchHitUrlForSearchResult(result, 'body')).not.toContain('Escrow');
+    expect(documentSearchHitUrlForSearchResult(result, 'body')).not.toContain('closing');
   });
 });
