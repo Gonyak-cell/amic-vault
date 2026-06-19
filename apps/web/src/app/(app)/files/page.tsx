@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
+import type { UploadDocumentResponseDto } from '@amic-vault/shared';
 import { FileText, FolderUp, Search } from 'lucide-react';
+import { AiPrepStatusLoader } from '@/components/ai/ai-prep-status-loader';
 import { MatterDocumentList } from '@/components/document/matter-document-list';
 import { DocumentUploadPanel } from '@/components/document/document-upload-panel';
 import { MatterCodePicker } from '@/components/matter/matter-code-picker';
@@ -15,6 +17,7 @@ export default function FilesPage() {
   const { t } = useI18n();
   const sourceMode = matterAppSourceMode();
   const [selectedMatter, setSelectedMatter] = React.useState<MatterCodeOption | null>(null);
+  const [latestUpload, setLatestUpload] = React.useState<UploadDocumentResponseDto | null>(null);
 
   return (
     <PageShell>
@@ -39,8 +42,15 @@ export default function FilesPage() {
         title="파일 업로드"
         meta="Matter-scoped intake"
       >
-        <DocumentUploadPanel selectedMatter={selectedMatter} sourceMode={sourceMode} />
+        <DocumentUploadPanel
+          selectedMatter={selectedMatter}
+          sourceMode={sourceMode}
+          onUploadComplete={setLatestUpload}
+        />
       </SectionCard>
+      {latestUpload?.aiAllowed ? (
+        <AiPrepStatusLoader documentId={latestUpload.documentId} />
+      ) : null}
       <SectionCard
         icon={<FileText className="h-4 w-4" />}
         title={t('files.section.title')}
