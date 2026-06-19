@@ -8,6 +8,7 @@ import {
   matterAppSourceDescriptions,
   matterAppSourceLabels,
   matterAppSourceMode,
+  matterAppSourceStatus,
   toMatterCodeOption,
 } from './matter-app';
 
@@ -84,6 +85,35 @@ describe('matter app source contract helpers', () => {
     expect(isMatterUploadSourceMode('vault_projection_only')).toBe(false);
     expect(isMatterUploadSourceMode('matter_app_api')).toBe(true);
     expect(isMatterUploadSourceMode('matter_app_event_projection')).toBe(true);
+  });
+
+  it('summarizes Matter app source status without enabling upload from projection fallback', () => {
+    expect(
+      matterAppSourceStatus({
+        sourceMode: 'matter_app_api',
+        sourceConfigured: 'true',
+        nodeEnv: 'production',
+      }),
+    ).toMatchObject({
+      mode: 'matter_app_api',
+      sourceAvailable: true,
+      uploadAuthoritative: true,
+      productionRuntime: true,
+    });
+
+    expect(
+      matterAppSourceStatus({
+        sourceMode: 'vault_projection_only',
+        projectionFallbackAllowed: 'true',
+        nodeEnv: 'production',
+      }),
+    ).toMatchObject({
+      mode: 'unconfigured',
+      sourceAvailable: false,
+      uploadAuthoritative: false,
+      projectionFallbackAllowed: true,
+      productionRuntime: true,
+    });
   });
 
   it('keeps user-facing source labels clear of implementation wording', () => {
