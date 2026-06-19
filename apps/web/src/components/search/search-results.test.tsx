@@ -21,9 +21,13 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/components/ui/button', () => ({
   Button: ({
+    asChild,
     children,
     ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => {
+    void asChild;
+    return <button {...props}>{children}</button>;
+  },
 }));
 
 const response: SearchResponseDto = {

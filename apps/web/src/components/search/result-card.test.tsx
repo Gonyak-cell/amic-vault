@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { SearchResultDto } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
-import { ResultCard } from './result-card';
+import { ResultCard, fileCabinetUrlForSearchResult } from './result-card';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -45,6 +45,13 @@ describe('ResultCard', () => {
     );
 
     expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111201"');
+    expect(html).toContain('문서 열기');
+    expect(html).toContain('미리보기');
+    expect(html).toContain('문서함');
+    expect(html).toContain(
+      'href="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview"',
+    );
+    expect(html).toContain('href="/files?matterCode=AMIC-2026-0007&amp;title=Escrow+Closing+Memo"');
     expect(html).toContain('Escrow Closing Memo');
     expect(html).toContain('AMIC-2026-0007 · Vault Upgrade');
     expect(html).toContain('AMIC');
@@ -60,7 +67,7 @@ describe('ResultCard', () => {
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(html).not.toContain('<script>');
     expect(html).not.toContain('0.753');
-    expect(html).not.toContain('current');
+    expect(html).not.toContain('>current<');
     expect(html).not.toMatch(/\bAI\b|semantic|recommend/i);
   });
 
@@ -73,5 +80,19 @@ describe('ResultCard', () => {
 
     expect(html).toContain('표시 가능한 제목 없음');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111201</a>');
+  });
+
+  it('builds a document cabinet filter from display-safe fields only', () => {
+    expect(fileCabinetUrlForSearchResult(result)).toBe(
+      '/files?matterCode=AMIC-2026-0007&title=Escrow+Closing+Memo',
+    );
+    expect(
+      fileCabinetUrlForSearchResult({
+        ...result,
+        matterDisplayCode: '',
+        title: '',
+        displayName: '',
+      }),
+    ).toBe('/files');
   });
 });

@@ -541,7 +541,8 @@ PR-C implementation note:
 - Search UI exposes target, sort, group, Matter Code, title, and client filters with URL state.
 - Search UI exposes a current-search reusable link and makes persisted saved-search/search-folder storage explicitly API-gated.
 - Result cards and grouped headings use display labels, not raw matter/client/version/file references.
-- OCR/searchability filters, persisted saved searches/search folders, admin analytics, and preview hit controls remain deferred until supporting APIs/schema are approved.
+- Search result cards link to document detail, the approved preview endpoint, and URL-backed file-cabinet filters without showing raw refs as labels.
+- Persisted saved searches/search folders, admin analytics, and in-preview hit controls remain deferred until supporting APIs/schema are approved.
 
 ### PR-D Governance, Workflow, Ops
 
