@@ -121,6 +121,11 @@ const requiredPatterns = [
       /pnpm release:dms-smoke[\s\S]*Matter Code[\s\S]*matter-scoped upload[\s\S]*negative-auth/is,
   },
   {
+    label: 'DMS body-search fixture evidence',
+    pattern:
+      /search-body-fixture\.spec\.ts[\s\S]*body\/full-text[\s\S]*unauthorized[\s\S]*bounded audit metadata/is,
+  },
+  {
     label: 'PR-F hold criteria',
     pattern:
       /Hold Criteria[\s\S]*approved staging\/production credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/is,

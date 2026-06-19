@@ -72,6 +72,7 @@ environment supports the DMS upload flow.
 | Production UI smoke guard | `tools/release/check-production-ui-smoke.mjs` | DMS-UX-803 to 807 |
 | Staging smoke credential gate | `tools/release/staging-smoke.mjs` and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
 | DMS main-loop smoke gate | `tools/release/dms-main-loop-smoke.mjs`, `pnpm release:dms-smoke`, and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
+| DMS body-search fixture gate | `tests/integration/search-permission/search-body-fixture.spec.ts` and `pnpm test:integration -- search-permission` | DMS-UX-312, 313 |
 | Responsive/accessibility component guards | `apps/web/src/app/(app)/app-shell.test.tsx`, `apps/web/src/components/ui/layout-primitives.test.tsx`, `apps/web/src/components/ui/empty-state.test.tsx`, and `apps/web/src/components/ui/data-table.test.tsx` | DMS-UX-806, 807 |
 
 ## Required Commands
@@ -84,6 +85,7 @@ Before this PR-F readiness layer can be accepted, run:
 - `pnpm release:dms-smoke -- --dry-run --json`
 - `pnpm release:dms-smoke -- --json` with approved staging/canary DMS
   credentials before release signoff
+- `pnpm test:integration -- search-permission`
 - `pnpm docs:frozen`
 - focused responsive/accessibility tests:
   `pnpm --filter @amic-vault/web test -- src/app/(app)/app-shell.test.tsx src/components/ui/layout-primitives.test.tsx src/components/ui/empty-state.test.tsx src/components/ui/data-table.test.tsx`

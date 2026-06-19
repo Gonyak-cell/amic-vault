@@ -548,6 +548,12 @@ PR-C implementation note:
 - Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; `/search/folders` exposes those saved searches as user-scoped search folders and preserves legal-hold/records-status filters.
 - Admin-shared search folders and true PDF text anchor highlighting remain deferred until supporting APIs/schema expose safe anchors and shared-folder semantics.
 - Admin search health now exposes DMS-UX-311 bounded analytics: index coverage, stale index counts, extraction/OCR status, stale chunk/embedding counts, and no-result search audit hashes/categories without raw query, body, snippet, source text, prompt, or model-response content.
+- DMS-UX-312/313 body-search fixture coverage is implemented by
+  `tests/integration/search-permission/search-body-fixture.spec.ts`: a
+  synthetic token that exists only in `content_text` is absent from title-only
+  search, returned by body/full-text search for the permitted Matter, hidden
+  from an unauthorized Matter in the same tenant, and recorded in audit only as
+  bounded query hash/length/count metadata.
 
 ### PR-D Governance, Workflow, Ops
 

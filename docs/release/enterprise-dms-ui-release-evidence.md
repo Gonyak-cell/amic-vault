@@ -36,10 +36,11 @@ provider-console metadata.
 | Evidence ID | Required evidence | Required refs | Owner | Status |
 | --- | --- | --- | --- | --- |
 | EV-DMS-UI-001 | PR stack and commit SHAs | PR URLs, base branches, head SHAs | Operator |  |
-| EV-DMS-UI-002 | Automated gate command receipts | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:production-ui-literals`, `pnpm ui:production-smoke`, `pnpm check:ui-pr-checklist`, `pnpm release:dms-smoke -- --json`, `git diff --check`, and CI refs for `verify`, `db-integration`, `docker-build`, `python-worker` | Operator |  |
+| EV-DMS-UI-002 | Automated gate command receipts | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:production-ui-literals`, `pnpm ui:production-smoke`, `pnpm check:ui-pr-checklist`, `pnpm release:dms-smoke -- --json`, `pnpm test:integration -- search-permission`, `git diff --check`, and CI refs for `verify`, `db-integration`, `docker-build`, `python-worker` | Operator |  |
 | EV-DMS-UI-003 | Route inventory refs | `docs/ui/production-ui-inventory.md`, `docs/ui/enterprise-dms-ux-route-capability-inventory.md`, and matching `apps/web/src/lib/features.ts` route policy ref | Security owner |  |
 | EV-DMS-UI-004 | Authenticated main loop smoke receipt | `pnpm release:dms-smoke -- --json` ref for login -> Matter Code selection -> upload -> post-upload processing state -> matter-scoped file list -> document detail -> search -> preview/version -> records/audit links | Operator |  |
 | EV-DMS-UI-005 | Negative auth smoke receipt | `pnpm release:dms-smoke -- --json` ref for non-member, wall-blocked, non-admin, denied upload/download/preview/search, stale-content clearing and non-discovery | Security owner |  |
+| EV-DMS-UI-005A | Body/full-text search fixture receipt | `pnpm test:integration -- search-permission` ref proving title-only vs body/full-text behavior, same-tenant unauthorized non-discovery, and bounded search audit metadata | Security owner |  |
 | EV-DMS-UI-006 | Responsive and accessibility receipt | 1440px, 768px, 375px, keyboard navigation, focus visibility, accessible names, active `aria-current`, empty/error readable text | Operator |  |
 | EV-DMS-UI-007 | Audit refs | Upload, download, search, records, and AI prep file-organization events where available; refs only, no document body or raw AI data | Security owner |  |
 | EV-DMS-UI-008 | Deferred item ledger | Deferred item, owner, risk, follow-up TUW, release blocker status | Operator |  |
