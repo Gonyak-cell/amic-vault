@@ -290,10 +290,11 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 
 PR-A implementation note:
 
-- `/files` now exposes an all-documents vault, Matter Code picker, Matter-scoped upload panel, upload post-processing status hook, and selected-Matter document list.
+- `/files` now exposes an all-documents vault, Matter Code picker, Matter-scoped single/bulk upload panel, upload post-processing status hook, and selected-Matter document list.
 - All-documents browse calls `GET /documents` through the existing query-stage search permission scope.
 - Document vault filters are server-backed for title, Matter Code, document type, document status, confidentiality, privilege, extraction/OCR status, file-organization eligibility, legal hold, and sort order.
 - The upload path remains Matter Code-gated and must fail closed when Matter app source is unconfigured.
+- Bulk upload runs through the same Matter-scoped upload API per file and shows per-file queue results so partial failures are visible.
 - Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
 
 ### PR-B Document Operations
