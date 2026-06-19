@@ -942,6 +942,12 @@ PR-F implementation note:
   closes the UI/API contract gap without introducing fake persisted tasks;
   persisted assignment, due dates, and notification storage remain explicit
   follow-up scope.
+- DMS-UX-508 through DMS-UX-511 now have an admin operations-health and guard
+  layer: `/admin` consumes `GET /ai/ops/health` and `GET /ai/ops/metrics` for
+  local file organization prep status only; production smoke blocks removal of
+  the operations-health panel and blocks external portal routes from internal
+  navigation policy. Broader storage/upload queue probes, persisted workflow
+  assignment, and user/group picker remediation remain explicit follow-up scope.
 
 - Added `docs/ui/enterprise-dms-release-hardening.md` as the release hardening baseline for authenticated main-loop smoke, negative auth smoke, no-fake-data sweep, internal-ref sweep, AI scope sweep, responsive/accessibility QA, evidence package, rollout checklist, rollback, production monitor, and signoff.
 - UI PR checklist now requires the release hardening document for production-readiness changes.
