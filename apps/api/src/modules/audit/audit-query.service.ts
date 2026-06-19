@@ -13,6 +13,7 @@ import {
   type DocumentAuditEventDto,
   type DocumentAuditEventListDto,
   type DocumentAuditQueryDto,
+  type MatterAuditQueryDto,
   type PermissionDecision,
   type R2DocumentAuditAction,
   type TenantId,
@@ -67,6 +68,10 @@ type ResolvedDocumentAuditQuery = Omit<DocumentAuditQueryDto, 'cursor'> & {
 };
 
 type ResolvedAuditQuery = Omit<AuditQueryDto, 'cursor'> & {
+  cursor: DecodedCursor | null;
+};
+
+type ResolvedMatterAuditQuery = Omit<MatterAuditQueryDto, 'cursor'> & {
   cursor: DecodedCursor | null;
 };
 
@@ -185,6 +190,32 @@ export class AuditQueryService {
     };
   }
 
+  async listMatterEvents(
+    actorUserId: string,
+    matterId: string,
+    query: MatterAuditQueryDto,
+  ): Promise<AuditEventListDto> {
+    const context = this.tenantContext.require();
+    await this.assertCanReadMatterAudit(context.tenantId, actorUserId, matterId);
+
+    const cursor = decodeCursor(query.cursor);
+    if (query.cursor && !cursor) throw permissionDenied();
+
+    const rows = await this.findMatterAuditEvents(context.tenantId, matterId, {
+      action: query.action,
+      result: query.result,
+      from: query.from,
+      to: query.to,
+      limit: query.limit,
+      cursor,
+    });
+    const visible = rows.slice(0, query.limit).map(mapTenantAuditRow);
+    return {
+      items: visible,
+      nextCursor: rows.length > query.limit ? encodeCursor(rows[query.limit - 1]!) : null,
+    };
+  }
+
   async listTenantEvents(actorUserId: string, query: AuditQueryDto): Promise<AuditEventListDto> {
     const context = this.tenantContext.require();
     const cursor = decodeCursor(query.cursor);
@@ -280,6 +311,14 @@ export class AuditQueryService {
     if (decision?.effect !== 'ALLOW') throw permissionDenied();
   }
 
+  protected async assertCanReadMatterAudit(
+    tenantId: TenantId,
+    actorUserId: string,
+    matterId: string,
+  ): Promise<void> {
+    await this.assertCanReadDocumentAudit(tenantId, actorUserId, matterId);
+  }
+
   protected async findDocumentAuditEvents(
     tenantId: TenantId,
     documentId: string,
@@ -331,6 +370,25 @@ export class AuditQueryService {
       ],
     );
     return result.rows;
+  }
+
+  protected async findMatterAuditEvents(
+    tenantId: TenantId,
+    matterId: string,
+    query: ResolvedMatterAuditQuery,
+  ): Promise<AuditEventRow[]> {
+    return this.findTenantAuditEvents(tenantId, {
+      actorId: undefined,
+      action: query.action,
+      result: query.result,
+      targetType: undefined,
+      targetId: undefined,
+      matterId,
+      from: query.from,
+      to: query.to,
+      limit: query.limit,
+      cursor: query.cursor,
+    });
   }
 
   protected async findTenantAuditEvents(

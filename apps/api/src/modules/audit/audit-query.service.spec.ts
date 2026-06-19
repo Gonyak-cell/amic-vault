@@ -4,6 +4,7 @@ import {
   type AuditQueryDto,
   denyPermission,
   type DocumentAuditQueryDto,
+  type MatterAuditQueryDto,
   type PermissionContext,
   type PermissionDecision,
   type TenantId,
@@ -21,6 +22,18 @@ function auditQuery(overrides: Partial<DocumentAuditQueryDto> = {}): DocumentAud
     from: undefined,
     to: undefined,
     limit: 50,
+    cursor: undefined,
+    ...overrides,
+  };
+}
+
+function matterAuditQuery(overrides: Partial<MatterAuditQueryDto> = {}): MatterAuditQueryDto {
+  return {
+    action: undefined,
+    result: undefined,
+    from: undefined,
+    to: undefined,
+    limit: 8,
     cursor: undefined,
     ...overrides,
   };
@@ -194,6 +207,28 @@ describe('AuditQueryService', () => {
       service.listDocumentEvents(actorUserId, documentId, auditQuery()),
     ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
     expect(service.request).toBeNull();
+  });
+
+  it('lists matter-scoped audit rows through audit.read.matter permission without console audit side effects', async () => {
+    const service = new TestAuditQueryService();
+    const result = await service.listMatterEvents(
+      actorUserId,
+      matterId,
+      matterAuditQuery({ action: 'DOCUMENT_VIEWED', limit: 1 }),
+    );
+
+    expect(service.request).toEqual({ context: { tenantId, userId: actorUserId }, matterId });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      action: 'DOCUMENT_VIEWED',
+      targetType: 'document',
+      targetDisplayName: 'Draft Agreement',
+      matterDisplayCode: 'AMIC-2026',
+      safeLabel: 'Draft Agreement',
+      metadata: { channel: 'detail' },
+    });
+    expect(result.nextCursor).toEqual(expect.any(String));
+    expect(service.auditLog).not.toHaveBeenCalled();
   });
 
   it('lists tenant audit rows with target preflight and records a reference-only query audit', async () => {

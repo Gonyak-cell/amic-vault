@@ -742,6 +742,7 @@ export {
   auditTargetTypeSchema,
   documentAuditQueryEventTypeSchema,
   documentAuditQuerySchema,
+  matterAuditQuerySchema,
   type AuditEventDto,
   type AuditEventListDto,
   type AuditExportQueryDto,
@@ -751,6 +752,7 @@ export {
   type DocumentAuditEventListDto,
   type DocumentAuditQueryDto,
   type DocumentAuditQueryEventType,
+  type MatterAuditQueryDto,
 } from './dto/audit/audit-query.dto';
 export {
   searchDocumentTypeFilterSchema,

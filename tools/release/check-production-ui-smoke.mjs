@@ -287,7 +287,16 @@ const governanceWorkflowOpsFiles = [
     path: 'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
     patterns: [
       { name: 'matter governance panel wired', pattern: /MatterGovernanceContextPanel/ },
+      { name: 'matter audit timeline wired', pattern: /MatterAuditTimeline/ },
       { name: 'matter workflow ops panel wired', pattern: /MatterWorkflowOpsPanel/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-audit-timeline.tsx',
+    patterns: [
+      { name: 'matter-scoped audit endpoint client', pattern: /listMatterAuditEvents/ },
+      { name: 'matter audit timeline heading', pattern: /사건 감사 타임라인/ },
+      { name: 'matter audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
     ],
   },
   {
