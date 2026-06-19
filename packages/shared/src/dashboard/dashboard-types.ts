@@ -66,3 +66,69 @@ export const dashboardOverviewSchema = z
   })
   .strict();
 export type DashboardOverviewDto = z.infer<typeof dashboardOverviewSchema>;
+
+export const dmsOperationalToneSchema = z.enum(['success', 'warning', 'blocked', 'neutral']);
+export type DmsOperationalTone = z.infer<typeof dmsOperationalToneSchema>;
+
+export const dmsWorkItemSourceSchema = z.enum([
+  'permission_policy',
+  'ai_prep',
+  'integration',
+  'operational_data',
+]);
+export type DmsWorkItemSource = z.infer<typeof dmsWorkItemSourceSchema>;
+
+export const dmsWorkQueueItemSchema = z
+  .object({
+    itemKey: z.string().min(1).max(120),
+    source: dmsWorkItemSourceSchema,
+    sourceLabel: z.string().min(1).max(120),
+    title: z.string().min(1).max(160),
+    description: z.string().min(1).max(500),
+    href: z.string().min(1).max(500),
+    tone: dmsOperationalToneSchema,
+    updatedAt: z.string().datetime({ offset: true }).optional(),
+  })
+  .strict();
+export type DmsWorkQueueItemDto = z.infer<typeof dmsWorkQueueItemSchema>;
+
+export const dmsWorkQueueResponseSchema = z
+  .object({
+    generatedAt: z.string().datetime({ offset: true }),
+    source: z.literal('dashboard_operational_state'),
+    items: z.array(dmsWorkQueueItemSchema).max(20),
+  })
+  .strict();
+export type DmsWorkQueueResponseDto = z.infer<typeof dmsWorkQueueResponseSchema>;
+
+export const dmsNotificationSourceSchema = z.enum([
+  'permission_policy',
+  'ai_prep',
+  'integration',
+  'recent_activity',
+]);
+export type DmsNotificationSource = z.infer<typeof dmsNotificationSourceSchema>;
+
+export const dmsNotificationItemSchema = z
+  .object({
+    itemKey: z.string().min(1).max(120),
+    source: dmsNotificationSourceSchema,
+    category: z.string().min(1).max(120),
+    title: z.string().min(1).max(160),
+    description: z.string().min(1).max(500),
+    tone: dmsOperationalToneSchema,
+    occurredAt: z.string().datetime({ offset: true }).optional(),
+  })
+  .strict();
+export type DmsNotificationItemDto = z.infer<typeof dmsNotificationItemSchema>;
+
+export const dmsNotificationCenterResponseSchema = z
+  .object({
+    generatedAt: z.string().datetime({ offset: true }),
+    source: z.literal('dashboard_operational_state'),
+    items: z.array(dmsNotificationItemSchema).max(20),
+  })
+  .strict();
+export type DmsNotificationCenterResponseDto = z.infer<
+  typeof dmsNotificationCenterResponseSchema
+>;

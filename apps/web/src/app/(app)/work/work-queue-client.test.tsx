@@ -9,8 +9,7 @@ describe('WorkQueueClient', () => {
 
     expect(html).toContain('작업함');
     expect(html).toContain('권한과 운영 상태가 확인된 작업만 표시됩니다.');
-    expect(html).toContain('표시할 작업이 없습니다.');
-    expect(html).toContain('실제 운영 데이터에서 발생한 작업만 표시됩니다.');
+    expect(html).toContain('작업 API 연결 대기 중입니다.');
     expect(html).toContain('문서함 조치 필터');
     expect(html).toContain('추출, OCR, 파일 정리 항목은 권한 내 문서함 필터로 바로 열 수 있습니다.');
     expect(html).toContain('/files?extractionStatus=failed');
@@ -23,7 +22,7 @@ describe('WorkQueueClient', () => {
     expect(html).not.toContain('18:42');
   });
 
-  it('renders work items only from supplied dashboard state', () => {
+  it('renders work items from the dedicated work API state', () => {
     const html = renderToStaticMarkup(
       <WorkQueueContent
         dashboardState={{
@@ -48,12 +47,34 @@ describe('WorkQueueClient', () => {
             data: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
           },
         }}
+        workItemsState={{
+          status: 'ready',
+          data: [
+            {
+              itemKey: 'permission-policy-0',
+              source: 'permission_policy',
+              sourceLabel: '권한/정책',
+              title: '권한/정책 알림 확인',
+              description: '1건의 정책 알림이 있습니다.',
+              href: '/audit',
+              tone: 'warning',
+            },
+            {
+              itemKey: 'ai-prep-0',
+              source: 'ai_prep',
+              sourceLabel: '파일 정리 준비',
+              title: '파일 정리 준비 상태 확인',
+              description: '1개 Matter의 파일 정리 준비 상태가 있습니다.',
+              href: '/files?aiAllowed=true&sortBy=matter_asc',
+              tone: 'neutral',
+            },
+          ],
+        }}
       />,
     );
 
     expect(html).toContain('권한/정책 알림 확인');
     expect(html).toContain('파일 정리 준비 상태 확인');
-    expect(html).toContain('통합 상태 확인');
     expect(html).toContain('1건');
     expect(html).not.toContain('표시할 작업이 없습니다.');
     expect(html).not.toContain('김민준');
