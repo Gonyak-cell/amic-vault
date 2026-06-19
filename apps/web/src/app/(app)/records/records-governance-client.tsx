@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Archive, FileClock, ListTree, Scale, ShieldCheck, Trash2 } from 'lucide-react';
 import type {
   DisposalCertificateDto,
@@ -216,9 +217,12 @@ const recordsCopy: Record<
 export function RecordsGovernanceClient() {
   const { language } = useI18n();
   const copy = recordsCopy[language];
-  const [activeTab, setActiveTab] = useState<RecordsTab>('policies');
-  const [matterId, setMatterId] = useState('');
-  const [documentId, setDocumentId] = useState('');
+  const params = useSearchParams();
+  const documentContextLabel = params.get('documentTitle')?.trim() ?? '';
+  const matterContextLabel = params.get('matterCode')?.trim() ?? '';
+  const [activeTab, setActiveTab] = useState<RecordsTab>(() => parseRecordsTab(params.get('tab')));
+  const [matterId, setMatterId] = useState(() => params.get('matterId')?.trim() ?? '');
+  const [documentId, setDocumentId] = useState(() => params.get('documentId')?.trim() ?? '');
   const [policyCode, setPolicyCode] = useState('');
   const [policyLabel, setPolicyLabel] = useState('');
   const [retentionDays, setRetentionDays] = useState('');
@@ -339,6 +343,23 @@ export function RecordsGovernanceClient() {
       />
       {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
+      {documentContextLabel || matterContextLabel ? (
+        <SectionCard
+          icon={<FileClock className="h-4 w-4" />}
+          title={copy.targetDocument}
+          meta={copy.targetMatter}
+        >
+          <dl className="grid gap-3 sm:grid-cols-2">
+            {documentContextLabel ? (
+              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
+            ) : null}
+            {matterContextLabel ? (
+              <ContextTarget label={copy.matterRef} value={matterContextLabel} />
+            ) : null}
+          </dl>
+        </SectionCard>
+      ) : null}
+
       <TabBar activeTab={activeTab} labels={copy.tabs} onChange={setActiveTab} />
 
       {activeTab === 'policies' ? (
@@ -402,18 +423,26 @@ export function RecordsGovernanceClient() {
       {activeTab === 'holds' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <AdvancedRefsPanel meta={copy.holdMeta} title={copy.advancedRefs}>
-            <Field
-              id="records-hold-matter-ref"
-              label={copy.matterRef}
-              value={matterId}
-              onChange={setMatterId}
-            />
-            <Field
-              id="records-hold-document-ref"
-              label={copy.documentRef}
-              value={documentId}
-              onChange={setDocumentId}
-            />
+            {matterContextLabel ? (
+              <ContextTarget label={copy.matterRef} value={matterContextLabel} />
+            ) : (
+              <Field
+                id="records-hold-matter-ref"
+                label={copy.matterRef}
+                value={matterId}
+                onChange={setMatterId}
+              />
+            )}
+            {documentContextLabel ? (
+              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
+            ) : (
+              <Field
+                id="records-hold-document-ref"
+                label={copy.documentRef}
+                value={documentId}
+                onChange={setDocumentId}
+              />
+            )}
             <Field
               id="records-hold-reason"
               label={copy.reason}
@@ -467,12 +496,16 @@ export function RecordsGovernanceClient() {
       {activeTab === 'archive' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <AdvancedRefsPanel meta={copy.archiveMeta} title={copy.advancedRefs}>
-            <Field
-              id="records-archive-document-ref"
-              label={copy.documentRef}
-              value={documentId}
-              onChange={setDocumentId}
-            />
+            {documentContextLabel ? (
+              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
+            ) : (
+              <Field
+                id="records-archive-document-ref"
+                label={copy.documentRef}
+                value={documentId}
+                onChange={setDocumentId}
+              />
+            )}
             <Field
               id="records-archive-reason"
               label={copy.reason}
@@ -503,12 +536,16 @@ export function RecordsGovernanceClient() {
       {activeTab === 'disposal' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <AdvancedRefsPanel meta={copy.disposalMeta} title={copy.advancedRefs}>
-            <Field
-              id="records-disposal-document-ref"
-              label={copy.documentRef}
-              value={documentId}
-              onChange={setDocumentId}
-            />
+            {documentContextLabel ? (
+              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
+            ) : (
+              <Field
+                id="records-disposal-document-ref"
+                label={copy.documentRef}
+                value={documentId}
+                onChange={setDocumentId}
+              />
+            )}
             <Field
               id="records-disposal-reason"
               label={copy.reason}
@@ -593,6 +630,24 @@ export function RecordsGovernanceClient() {
         </section>
       ) : null}
     </PageShell>
+  );
+}
+
+function parseRecordsTab(value: string | null): RecordsTab {
+  return value === 'holds' ||
+    value === 'archive' ||
+    value === 'disposal' ||
+    value === 'certificates'
+    ? value
+    : 'policies';
+}
+
+function ContextTarget({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-foreground">{value}</p>
+    </div>
   );
 }
 

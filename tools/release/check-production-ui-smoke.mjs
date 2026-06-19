@@ -249,7 +249,8 @@ const documentActionCenterFiles = [
       { name: 'new version upload flow', pattern: /addDocumentVersion/ },
       { name: 'document audit timeline integration', pattern: /DocumentAuditTimeline/ },
       { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
-      { name: 'related items safe state', pattern: /표시할 연결 항목이 없습니다/ },
+      { name: 'records action entry points', pattern: /recordsUrlForDocument/ },
+      { name: 'file cabinet return link', pattern: /fileCabinetUrlForDocument/ },
     ],
   },
   {
