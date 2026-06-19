@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
   DocumentUploadPanel,
+  UploadQueueReceipt,
   bulkUploadStatusMessage,
   uploadStatusMessage,
 } from './document-upload-panel';
@@ -14,12 +15,14 @@ vi.mock('@/lib/api-client', () => ({
 
 vi.mock('@/components/ui/button', () => ({
   Button: ({
+    asChild,
     children,
     ...props
   }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    asChild?: boolean;
     variant?: string;
     size?: string;
-  }) => <button {...props}>{children}</button>,
+  }) => (asChild ? <>{children}</> : <button {...props}>{children}</button>),
 }));
 
 vi.mock('@/components/ui/input', () => ({
@@ -85,9 +88,37 @@ describe('DocumentUploadPanel', () => {
         privilegeStatus: 'none',
         aiAllowed: true,
         metadataSuggestion: {},
-        duplicates: [],
+        duplicates: [
+          {
+            documentId: '11111111-1111-4111-8111-111111111117',
+            fileObjectId: '11111111-1111-4111-8111-111111111118',
+            sha256: 'a'.repeat(64),
+          },
+        ],
       }),
     ).toContain('파일 정리 준비가 자동으로 시작됩니다.');
+    expect(
+      uploadStatusMessage({
+        documentId: '11111111-1111-4111-8111-111111111114',
+        matterId: '11111111-1111-4111-8111-111111111115',
+        fileObjectId: '11111111-1111-4111-8111-111111111116',
+        status: 'draft',
+        title: '투자계약서.pdf',
+        documentType: 'contract',
+        subtype: null,
+        confidentialityLevel: 'standard',
+        privilegeStatus: 'none',
+        aiAllowed: true,
+        metadataSuggestion: {},
+        duplicates: [
+          {
+            documentId: '11111111-1111-4111-8111-111111111117',
+            fileObjectId: '11111111-1111-4111-8111-111111111118',
+            sha256: 'a'.repeat(64),
+          },
+        ],
+      }),
+    ).toContain('중복 후보 1건이 감지되었습니다.');
   });
 
   it('summarizes bulk upload partial failures without hiding failed files', () => {
@@ -96,5 +127,32 @@ describe('DocumentUploadPanel', () => {
       '2개 업로드 완료, 1개 실패. 실패 항목을 확인해 주세요.',
     );
     expect(bulkUploadStatusMessage(0, 2)).toBe('2개 업로드 실패. 실패 항목을 확인해 주세요.');
+  });
+
+  it('renders uploaded document receipt actions without exposing Matter references as text', () => {
+    const html = renderToStaticMarkup(
+      <UploadQueueReceipt
+        selectedMatter={selectedMatter}
+        queue={[
+          {
+            documentId: '22222222-2222-4222-8222-222222222222',
+            duplicateCount: 2,
+            fileName: 'draft.pdf',
+            message: '투자계약서.pdf 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.',
+            status: 'uploaded',
+            title: '투자계약서.pdf',
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('업로드 큐');
+    expect(html).toContain('프로필, 버전, 처리 상태');
+    expect(html).toContain('완료');
+    expect(html).toContain('문서 열기');
+    expect(html).toContain('Matter 문서함');
+    expect(html).toContain('중복 후보 2건이 감지되었습니다.');
+    expect(html).toContain('/files?matterCode=AMIC-2026-0001');
+    expect(html).not.toContain(selectedMatter.matterReference);
   });
 });

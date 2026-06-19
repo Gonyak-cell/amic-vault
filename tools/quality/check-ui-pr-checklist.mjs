@@ -126,6 +126,11 @@ const requiredPatterns = [
       /search-body-fixture\.spec\.ts[\s\S]*body\/full-text[\s\S]*unauthorized[\s\S]*bounded audit metadata/is,
   },
   {
+    label: 'DMS upload receipt evidence',
+    pattern:
+      /UploadQueueReceipt[\s\S]*document-detail[\s\S]*Matter file-cabinet[\s\S]*file-organization prep[\s\S]*duplicate-candidate/is,
+  },
+  {
     label: 'PR-F hold criteria',
     pattern:
       /Hold Criteria[\s\S]*approved staging\/production credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/is,

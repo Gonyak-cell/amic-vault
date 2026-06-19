@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import type { UploadDocumentResponseDto } from '@amic-vault/shared';
-import { FileUp, Loader2 } from 'lucide-react';
+import { ExternalLink, FileSearch, FileUp, Loader2 } from 'lucide-react';
 import { uploadDocument } from '@/lib/api-client';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
@@ -14,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
+import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
 
 export interface DocumentUploadPanelProps {
   onUploadComplete?: (result: UploadDocumentResponseDto) => void;
@@ -23,11 +25,28 @@ export interface DocumentUploadPanelProps {
 
 type UploadQueueStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
 
-interface UploadQueueRow {
+export interface UploadQueueRow {
+  duplicateCount?: number;
+  documentId?: string;
   fileName: string;
   message: string;
   status: UploadQueueStatus;
+  title?: string;
 }
+
+const uploadQueueStatusLabels = {
+  pending: '대기',
+  uploading: '업로드 중',
+  uploaded: '완료',
+  failed: '실패',
+} as const satisfies Record<UploadQueueStatus, string>;
+
+const uploadQueueStatusTones = {
+  pending: 'neutral',
+  uploading: 'warning',
+  uploaded: 'success',
+  failed: 'blocked',
+} as const satisfies Record<UploadQueueStatus, StatusBadgeTone>;
 
 export function DocumentUploadPanel({
   onUploadComplete,
@@ -76,8 +95,11 @@ export function DocumentUploadPanel({
           successCount += 1;
           setUploadQueue((current) =>
             updateUploadQueue(current, index, {
+              documentId: result.documentId,
+              duplicateCount: result.duplicates.length,
               message: uploadStatusMessage(result),
               status: 'uploaded',
+              title: result.title,
             }),
           );
           onUploadComplete?.(result);
@@ -203,39 +225,99 @@ export function DocumentUploadPanel({
       </div>
 
       {uploadQueue.length > 0 ? (
-        <div className="rounded-md border bg-background">
-          <div className="border-b px-3 py-2 text-sm font-semibold">업로드 큐</div>
-          <ul className="divide-y">
-            {uploadQueue.map((item, index) => (
-              <li
-                key={`${item.fileName}-${index}`}
-                className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
-              >
-                <span className="truncate font-medium">{item.fileName}</span>
-                <span className={item.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}>
-                  {item.message}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <UploadQueueReceipt queue={uploadQueue} selectedMatter={selectedMatter} />
       ) : null}
     </form>
+  );
+}
+
+export function UploadQueueReceipt({
+  queue,
+  selectedMatter,
+}: {
+  queue: UploadQueueRow[];
+  selectedMatter: MatterCodeOption;
+}) {
+  return (
+    <div className="rounded-md border bg-background">
+      <div className="border-b px-3 py-2">
+        <p className="text-sm font-semibold">업로드 큐</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          업로드된 문서는 문서 상세에서 프로필, 버전, 처리 상태를 이어서 확인할 수 있습니다.
+        </p>
+      </div>
+      <ul className="divide-y">
+        {queue.map((item, index) => (
+          <li
+            key={`${item.fileName}-${index}`}
+            className="grid gap-2 px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_auto]"
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="min-w-0 truncate font-medium">{item.title ?? item.fileName}</span>
+                <StatusBadge tone={uploadQueueStatusTones[item.status]}>
+                  {uploadQueueStatusLabels[item.status]}
+                </StatusBadge>
+              </div>
+              <p
+                className={
+                  item.status === 'failed'
+                    ? 'mt-1 text-sm text-destructive'
+                    : 'mt-1 text-sm text-muted-foreground'
+                }
+              >
+                {item.message}
+              </p>
+              {item.duplicateCount && item.duplicateCount > 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  중복 후보 {item.duplicateCount}건이 감지되었습니다. 문서 상세에서 안전하게 확인해
+                  주세요.
+                </p>
+              ) : null}
+            </div>
+            {item.documentId ? (
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/documents/${encodeURIComponent(item.documentId)}`}>
+                    <ExternalLink className="h-4 w-4" />
+                    문서 열기
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={matterFileCabinetHref(selectedMatter)}>
+                    <FileSearch className="h-4 w-4" />
+                    Matter 문서함
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
 function updateUploadQueue(
   queue: UploadQueueRow[],
   index: number,
-  patch: Pick<UploadQueueRow, 'message' | 'status'>,
+  patch: Partial<UploadQueueRow> & Pick<UploadQueueRow, 'message' | 'status'>,
 ): UploadQueueRow[] {
   return queue.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
 }
 
+function matterFileCabinetHref(selectedMatter: MatterCodeOption): string {
+  const params = new URLSearchParams();
+  params.set('matterCode', selectedMatter.matterCode);
+  return `/files?${params.toString()}`;
+}
+
 export function uploadStatusMessage(result: UploadDocumentResponseDto): string {
+  const duplicateMessage =
+    result.duplicates.length > 0 ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.` : '';
   return result.aiAllowed
-    ? `${result.title} 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.`
-    : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.`;
+    ? `${result.title} 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.${duplicateMessage}`
+    : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.${duplicateMessage}`;
 }
 
 export function bulkUploadStatusMessage(successCount: number, failureCount: number): string {

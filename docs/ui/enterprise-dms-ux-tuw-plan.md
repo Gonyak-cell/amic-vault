@@ -295,6 +295,10 @@ PR-A implementation note:
 - Document vault filters are server-backed for title, Matter Code, document type, document status, confidentiality, privilege, extraction/OCR status, file-organization eligibility, legal hold, and sort order.
 - The upload path remains Matter Code-gated and must fail closed when Matter app source is unconfigured.
 - Bulk upload runs through the same Matter-scoped upload API per file and shows per-file queue results so partial failures are visible.
+- `UploadQueueReceipt` turns each successful upload into an operational receipt with
+  document-detail and Matter file-cabinet actions, file-organization prep status
+  text, and duplicate-candidate counts without exposing raw Matter references as
+  visible text.
 - Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
 
 ### PR-B Document Operations
