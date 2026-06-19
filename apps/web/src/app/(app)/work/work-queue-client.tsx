@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Activity, Bell, Bot, FileSearch, PlugZap } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@/components/dashboard/dashboard-work-queue';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FilterBar, FilterField } from '@/components/ui/filter-bar';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
@@ -28,6 +29,39 @@ import {
   type DmsWorkQueueItem,
 } from '@/lib/api/work-ops';
 import type { DataState } from '@/lib/data-state';
+
+type WorkSourceFilter = 'all' | DmsWorkQueueItem['source'];
+type WorkToneFilter = 'all' | DmsWorkQueueItem['tone'];
+type WorkSortMode = 'attention' | 'updated_desc' | 'source';
+
+const selectClassName =
+  'flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
+
+const sourceFilterLabels = {
+  all: '전체 출처',
+  permission_policy: '권한/정책',
+  ai_prep: '파일 정리 준비',
+  integration: '통합',
+  operational_data: '운영 데이터',
+} as const satisfies Record<WorkSourceFilter, string>;
+
+const toneFilterLabels = {
+  all: '전체 상태',
+  blocked: '차단/확인 필요',
+  warning: '주의',
+  neutral: '상태 확인',
+  success: '정상',
+} as const satisfies Record<WorkToneFilter, string>;
+
+const sortModeLabels = {
+  attention: '주의 항목 우선',
+  updated_desc: '최근 업데이트',
+  source: '출처별',
+} as const satisfies Record<WorkSortMode, string>;
+
+const sourceFilterOptions = Object.keys(sourceFilterLabels) as WorkSourceFilter[];
+const toneFilterOptions = Object.keys(toneFilterLabels) as WorkToneFilter[];
+const sortModeOptions = Object.keys(sortModeLabels) as WorkSortMode[];
 
 export function WorkQueueClient() {
   const [dashboardState, setDashboardState] = useState<DashboardOverviewState>(() =>
@@ -75,8 +109,19 @@ export function WorkQueueContent({
   dashboardState: DashboardOverviewState;
   workItemsState?: DataState<DmsWorkQueueItem[]>;
 }) {
+  const [sourceFilter, setSourceFilter] = useState<WorkSourceFilter>('all');
+  const [toneFilter, setToneFilter] = useState<WorkToneFilter>('all');
+  const [sortMode, setSortMode] = useState<WorkSortMode>('attention');
   const actionItems =
     workItemsState?.status === 'ready' ? workItemsState.data : dashboardActionItems(dashboardState);
+  const visibleActionItems = useMemo(
+    () => filterWorkItems(actionItems, sourceFilter, toneFilter, sortMode),
+    [actionItems, sortMode, sourceFilter, toneFilter],
+  );
+  const visibleItemsState = useMemo(
+    () => filteredWorkItemsState(workItemsState, visibleActionItems),
+    [visibleActionItems, workItemsState],
+  );
   return (
     <PageShell>
       <PageHeader
@@ -92,8 +137,76 @@ export function WorkQueueContent({
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
+          <FilterBar
+            label="작업함 조치 콘솔"
+            title="작업함 조치 콘솔"
+            description="실제 문서·사건 상태에서 발생한 작업만 출처와 상태 기준으로 좁힙니다."
+            resultsSummary={workFilterSummary(workItemsState, visibleActionItems, actionItems)}
+            controls={
+              <>
+                <FilterField htmlFor="work-source-filter" label="출처">
+                  <select
+                    id="work-source-filter"
+                    className={selectClassName}
+                    value={sourceFilter}
+                    onChange={(event) => setSourceFilter(event.target.value as WorkSourceFilter)}
+                  >
+                    {sourceFilterOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {sourceFilterLabels[option]}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+                <FilterField htmlFor="work-status-filter" label="상태">
+                  <select
+                    id="work-status-filter"
+                    className={selectClassName}
+                    value={toneFilter}
+                    onChange={(event) => setToneFilter(event.target.value as WorkToneFilter)}
+                  >
+                    {toneFilterOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {toneFilterLabels[option]}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+                <FilterField htmlFor="work-sort" label="정렬">
+                  <select
+                    id="work-sort"
+                    className={selectClassName}
+                    value={sortMode}
+                    onChange={(event) => setSortMode(event.target.value as WorkSortMode)}
+                  >
+                    {sortModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {sortModeLabels[option]}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+              </>
+            }
+            actions={
+              sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSourceFilter('all');
+                    setToneFilter('all');
+                    setSortMode('attention');
+                  }}
+                >
+                  초기화
+                </Button>
+              ) : null
+            }
+          />
           <DashboardWorkQueueSection
-            itemsState={workItemsState}
+            itemsState={visibleItemsState}
             state={dashboardState}
             title="내 작업"
           />
@@ -113,7 +226,13 @@ export function WorkQueueContent({
                 <Link href="/files?extractionStatus=ocr_pending">OCR 필요</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
+                <Link href="/files?status=draft">메타데이터 보완</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
                 <Link href="/files?aiAllowed=true&sortBy=matter_asc">파일 정리 준비</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/records">보존 조치</Link>
               </Button>
             </div>
           </SectionCard>
@@ -223,4 +342,74 @@ function statusTone<T>(state: DataState<T[]>): 'success' | 'warning' | 'blocked'
   if (state.status === 'error' || state.status === 'blocked') return 'blocked';
   if (state.status === 'forbidden') return 'warning';
   return 'neutral';
+}
+
+function filteredWorkItemsState(
+  state: DataState<DmsWorkQueueItem[]> | undefined,
+  items: DmsWorkQueueItem[],
+): DataState<DmsWorkQueueItem[]> | undefined {
+  if (!state) return undefined;
+  if (state.status !== 'ready') return state;
+  return { status: 'ready', data: items };
+}
+
+function filterWorkItems(
+  items: DmsWorkQueueItem[],
+  sourceFilter: WorkSourceFilter,
+  toneFilter: WorkToneFilter,
+  sortMode: WorkSortMode,
+): DmsWorkQueueItem[] {
+  return [...items]
+    .filter((item) => sourceFilter === 'all' || item.source === sourceFilter)
+    .filter((item) => toneFilter === 'all' || item.tone === toneFilter)
+    .sort((left, right) => compareWorkItems(left, right, sortMode));
+}
+
+function compareWorkItems(
+  left: DmsWorkQueueItem,
+  right: DmsWorkQueueItem,
+  sortMode: WorkSortMode,
+): number {
+  if (sortMode === 'source') {
+    const sourceDelta = sourceRank(left.source) - sourceRank(right.source);
+    if (sourceDelta !== 0) return sourceDelta;
+  }
+  if (sortMode === 'attention') {
+    const toneDelta = toneRank(left.tone) - toneRank(right.tone);
+    if (toneDelta !== 0) return toneDelta;
+  }
+  const updatedDelta = updatedRank(right.updatedAt) - updatedRank(left.updatedAt);
+  if (updatedDelta !== 0) return updatedDelta;
+  return left.itemKey.localeCompare(right.itemKey);
+}
+
+function toneRank(tone: DmsWorkQueueItem['tone']): number {
+  if (tone === 'blocked') return 0;
+  if (tone === 'warning') return 1;
+  if (tone === 'neutral') return 2;
+  return 3;
+}
+
+function sourceRank(source: DmsWorkQueueItem['source']): number {
+  if (source === 'permission_policy') return 0;
+  if (source === 'ai_prep') return 1;
+  if (source === 'integration') return 2;
+  return 3;
+}
+
+function updatedRank(updatedAt: string | undefined): number {
+  if (!updatedAt) return 0;
+  const time = Date.parse(updatedAt);
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function workFilterSummary(
+  state: DataState<DmsWorkQueueItem[]> | undefined,
+  visibleItems: DmsWorkQueueItem[],
+  allItems: DmsWorkQueueItem[],
+): string {
+  if (state?.status === 'error') return '운영 데이터 연결 확인 필요';
+  if (state?.status === 'forbidden' || state?.status === 'blocked') return '권한 정책 적용';
+  if (state && state.status !== 'ready') return '작업 데이터 연결 대기';
+  return `${visibleItems.length}건 표시 · 전체 ${allItems.length}건`;
 }
