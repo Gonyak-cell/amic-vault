@@ -27,6 +27,16 @@ export const denyAllSearchScope: SearchSqlFragment = {
   params: [],
 };
 
+export const searchExtractionStatusSql = `
+  coalesce((
+    SELECT cd.extraction_status
+    FROM canonical_documents cd
+    WHERE cd.tenant_id = idx.tenant_id
+      AND cd.version_id = idx.version_id
+    LIMIT 1
+  ), 'pending')
+`;
+
 interface BindingState {
   params: SearchSqlValue[];
 }
@@ -105,6 +115,9 @@ export class SearchFilterBuilder {
         ? filters.documentType
         : [filters.documentType];
       fragments.push({ sql: 'idx.document_type = ANY(?::text[])', params: [types] });
+    }
+    if (filters.extractionStatus) {
+      fragments.push({ sql: `${searchExtractionStatusSql} = ?`, params: [filters.extractionStatus] });
     }
     if (filters.dateFrom) {
       // document_search_index.updated_at is populated from documents.updated_at by the indexer.

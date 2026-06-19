@@ -757,6 +757,7 @@ export {
 export {
   createSavedSearchSchema,
   searchDocumentTypeFilterSchema,
+  searchExtractionStatusSchema,
   searchFiltersSchema,
   searchIsoDateTimeSchema,
   searchGroupBySchema,

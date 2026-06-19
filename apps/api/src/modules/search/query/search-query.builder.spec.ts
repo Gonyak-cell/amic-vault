@@ -101,6 +101,7 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain('FROM filtered');
     expect(built.sql).toContain("'label', client_name");
     expect(built.sql).toContain("'label', safe_label");
+    expect(built.sql).toContain("'extractionStatuses'");
     expect(built.sql).toContain('idx.client_id = $3');
     expect(built.sql).toContain('idx.title ILIKE $4');
     expect(built.sql).toContain('matter_filter.matter_code ILIKE $5');
@@ -171,12 +172,13 @@ describe('SearchQueryBuilder', () => {
     );
 
     expect(built.sql).toContain(
-      'SELECT tenant_id, client_id, matter_id, document_type, version_status, updated_at',
+      'SELECT tenant_id, client_id, matter_id, document_type, extraction_status, version_status, updated_at',
     );
     expect(built.sql).toContain('c.tenant_id = filtered.tenant_id');
     expect(built.sql).toContain('m.tenant_id = filtered.tenant_id');
     expect(built.sql).toContain("'label', client_name");
     expect(built.sql).toContain("'label', safe_label");
+    expect(built.sql).toContain("'extractionStatuses'");
   });
 
   it('builds bounded AI context chunk candidates from the same vector CTE', () => {

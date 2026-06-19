@@ -17,6 +17,7 @@ describe('search query DTO', () => {
           clientName: 'AMIC',
           title: 'closing',
           documentType: ['contract', 'memo'],
+          extractionStatus: 'ocr_pending',
           dateFrom: '2026-06-12T09:00:00+09:00',
           versionStatus: 'current',
         },
@@ -31,6 +32,7 @@ describe('search query DTO', () => {
         clientName: 'AMIC',
         title: 'closing',
         documentType: ['contract', 'memo'],
+        extractionStatus: 'ocr_pending',
         dateFrom: '2026-06-12T09:00:00+09:00',
         versionStatus: 'current',
       },
@@ -54,6 +56,7 @@ describe('search query DTO', () => {
   it('rejects invalid identifiers, unknown document types, and inverted date ranges', () => {
     expect(() => searchFiltersSchema.parse({ matterId: 'not-a-uuid' })).toThrow();
     expect(() => searchFiltersSchema.parse({ documentType: 'MA' })).toThrow();
+    expect(() => searchFiltersSchema.parse({ extractionStatus: 'unsearchable' })).toThrow();
     expect(() => searchFiltersSchema.parse({ matterCode: '' })).toThrow();
     expect(() => searchFiltersSchema.parse({ clientName: 'x'.repeat(129) })).toThrow();
     expect(() => searchQuerySchema.parse({ query: 'closing', target: 'metadata' })).toThrow();

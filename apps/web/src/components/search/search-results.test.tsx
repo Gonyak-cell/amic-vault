@@ -36,6 +36,7 @@ const response: SearchResponseDto = {
     clients: [],
     matters: [],
     documentTypes: [],
+    extractionStatuses: [],
     versionStatuses: [],
     dateRanges: [],
   },
@@ -52,6 +53,7 @@ const response: SearchResponseDto = {
       snippet: 'authorized snippet',
       highlights: [],
       documentType: 'contract',
+      extractionStatus: 'failed',
       versionStatus: 'current',
       score: 0.42,
       updatedAt: '2026-06-12T10:00:00.000Z',
@@ -76,6 +78,8 @@ describe('SearchResults', () => {
 
     expect(html).toContain('결과 12개');
     expect(html).toContain('Search Result One');
+    expect(html).toContain('추출 실패');
+    expect(html).toContain('본문 검색 품질이 제한될 수 있습니다.');
     expect(html).toContain('2 / 2');
     expect(html).toContain('이전');
     expect(html).toContain('다음');

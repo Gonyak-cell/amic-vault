@@ -11,7 +11,11 @@ import type {
   SearchSort,
   SearchTarget,
 } from '@amic-vault/shared';
-import { documentTypes, searchVersionStatusValues } from '@amic-vault/shared';
+import {
+  documentExtractionStatuses,
+  documentTypes,
+  searchVersionStatusValues,
+} from '@amic-vault/shared';
 import type { SearchDateRange } from '@/components/search/search-advanced-controls';
 import { SearchAdvancedControls } from '@/components/search/search-advanced-controls';
 import { SearchBar } from '@/components/search/search-bar';
@@ -208,6 +212,7 @@ const emptyFacets: SearchResponseDto['facets'] = {
   clients: [],
   matters: [],
   documentTypes: [],
+  extractionStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
@@ -220,6 +225,7 @@ function stateFromParams(params: { get(name: string): string | null }) {
       matterId: params.get('matterId') ?? undefined,
       clientId: params.get('clientId') ?? undefined,
       documentType: parseDocumentType(params.get('documentType')),
+      extractionStatus: parseExtractionStatus(params.get('extractionStatus')),
       versionStatus: parseVersionStatus(params.get('versionStatus')),
       dateRange: parseDateRange(params.get('dateRange')),
       clientName: params.get('clientName') ?? undefined,
@@ -240,6 +246,7 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.matterId) params.set('matterId', selection.matterId);
   if (selection.clientId) params.set('clientId', selection.clientId);
   if (selection.documentType) params.set('documentType', selection.documentType);
+  if (selection.extractionStatus) params.set('extractionStatus', selection.extractionStatus);
   if (selection.versionStatus) params.set('versionStatus', selection.versionStatus);
   if (selection.dateRange) params.set('dateRange', selection.dateRange);
   if (selection.clientName) params.set('clientName', selection.clientName);
@@ -277,6 +284,9 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
   if (selection.matterName) filters.matterName = selection.matterName;
   if (selection.title) filters.title = selection.title;
   if (selection.documentType) filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
+  if (selection.extractionStatus) {
+    filters.extractionStatus = selection.extractionStatus as SearchFiltersDto['extractionStatus'];
+  }
   if (selection.versionStatus) {
     filters.versionStatus = selection.versionStatus as SearchFiltersDto['versionStatus'];
   }
@@ -295,6 +305,7 @@ function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
     clientId: filters?.clientId,
     clientName: filters?.clientName,
     documentType,
+    extractionStatus: filters?.extractionStatus,
     groupBy: input.groupBy,
     matterCode: filters?.matterCode,
     matterId: filters?.matterId,
@@ -322,6 +333,12 @@ function parseDocumentType(value: string | null): SearchFacetSelection['document
 function parseVersionStatus(value: string | null): SearchFacetSelection['versionStatus'] {
   return (searchVersionStatusValues as readonly string[]).includes(value ?? '')
     ? (value as SearchFacetSelection['versionStatus'])
+    : undefined;
+}
+
+function parseExtractionStatus(value: string | null): SearchFacetSelection['extractionStatus'] {
+  return (documentExtractionStatuses as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['extractionStatus'])
     : undefined;
 }
 

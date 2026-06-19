@@ -37,6 +37,7 @@ interface SearchDbRow {
   client_name: string | null;
   title: string;
   document_type: string;
+  extraction_status: string | null;
   version_status: string;
   updated_at: Date;
   score: number | string;
@@ -98,6 +99,9 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
         ? filters.documentType.join(',')
         : filters.documentType;
       refs.push(`document_type:${value}`);
+    }
+    if (filters.extractionStatus) {
+      refs.push(`extraction_status:${filters.extractionStatus}`);
     }
     if (filters.dateFrom || filters.dateTo) {
       refs.push(`date_range:${filters.dateFrom ?? ''}..${filters.dateTo ?? ''}`);
@@ -576,6 +580,7 @@ export class SearchService {
           snippet: parsed.snippet,
           highlights: parsed.highlights,
           documentType: row.document_type,
+          extractionStatus: parseExtractionStatus(row.extraction_status),
           versionStatus: row.version_status,
           score: Number(row.score),
           updatedAt: row.updated_at.toISOString(),
@@ -642,6 +647,7 @@ const emptyFacets: SearchFacetsDto = {
   clients: [],
   matters: [],
   documentTypes: [],
+  extractionStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
@@ -652,6 +658,7 @@ function parseFacets(input: unknown): SearchFacetsDto {
     clients: parseBuckets(input.clients),
     matters: parseBuckets(input.matters),
     documentTypes: parseBuckets(input.documentTypes),
+    extractionStatuses: parseBuckets(input.extractionStatuses),
     versionStatuses: parseBuckets(input.versionStatuses),
     dateRanges: parseDateRanges(input.dateRanges),
   };
@@ -663,7 +670,16 @@ function parseBuckets(input: unknown): SearchFacetBucketDto[] {
     if (!isRecord(item) || typeof item.value !== 'string') return [];
     const count = Number(item.count);
     if (!Number.isFinite(count) || count <= 0) return [];
-    return [{ value: item.value, count }];
+    return [
+      {
+        value: item.value,
+        count,
+        ...(typeof item.label === 'string' ? { label: item.label } : {}),
+        ...(typeof item.canViewSensitiveRef === 'boolean'
+          ? { canViewSensitiveRef: item.canViewSensitiveRef }
+          : {}),
+      },
+    ];
   });
 }
 
@@ -681,4 +697,13 @@ function parseDateRanges(input: unknown): SearchFacetsDto['dateRanges'] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseExtractionStatus(
+  value: string | null,
+): NonNullable<SearchResultDto['extractionStatus']> | null {
+  if (value === 'pending' || value === 'ready' || value === 'ocr_pending' || value === 'failed') {
+    return value;
+  }
+  return null;
 }

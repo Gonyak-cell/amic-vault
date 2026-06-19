@@ -30,6 +30,7 @@ describe('SearchSavePanel', () => {
           target: 'body',
           sortBy: 'updated_desc',
           groupBy: 'matter',
+          extractionStatus: 'ocr_pending',
         }}
       />,
     );
@@ -40,6 +41,7 @@ describe('SearchSavePanel', () => {
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('본문');
     expect(html).toContain('최근 수정');
+    expect(html).toContain('OCR 필요');
     expect(html).toContain('저장 이름');
     expect(html).toContain('검색 목록');
     expect(html).toContain('계약서 본문 검색');
@@ -67,6 +69,7 @@ describe('SearchSavePanel', () => {
       searchPatternItems('NDA', {
         clientName: 'AMIC',
         dateRange: 'last_30_days',
+        extractionStatus: 'failed',
         groupBy: 'client',
         matterName: 'Vault Upgrade',
         sortBy: 'title_asc',
@@ -80,6 +83,7 @@ describe('SearchSavePanel', () => {
         { label: '그룹', value: '고객' },
         { label: 'Matter 이름', value: 'Vault Upgrade' },
         { label: '고객명', value: 'AMIC' },
+        { label: '추출/OCR', value: '추출 실패' },
         { label: '수정 기간', value: '최근 30일' },
       ]),
     );

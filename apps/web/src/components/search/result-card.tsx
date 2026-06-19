@@ -5,6 +5,7 @@ import React, { type ReactNode } from 'react';
 import { ExternalLink, Eye, FileSearch } from 'lucide-react';
 import type { SearchHighlightDto, SearchResultDto, SearchTarget } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { documentPreviewUrl } from '@/lib/api-client';
 import { useI18n } from '@/lib/i18n';
 
@@ -59,6 +60,14 @@ export function ResultCard({ result, target = 'all' }: ResultCardProps) {
       <p className="mt-3 break-words text-sm leading-6 text-muted-foreground">
         {highlightSnippet(result.snippet, result.highlights)}
       </p>
+      {result.extractionStatus && result.extractionStatus !== 'ready' ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <StatusBadge tone={result.extractionStatus === 'failed' ? 'blocked' : 'warning'}>
+            {extractionStatusLabel(result.extractionStatus)}
+          </StatusBadge>
+          <span>본문 검색 품질이 제한될 수 있습니다.</span>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -129,4 +138,11 @@ function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toISOString().slice(0, 10);
+}
+
+function extractionStatusLabel(status: NonNullable<SearchResultDto['extractionStatus']>): string {
+  if (status === 'failed') return '추출 실패';
+  if (status === 'ocr_pending') return 'OCR 필요';
+  if (status === 'pending') return '추출 대기';
+  return '본문 검색 가능';
 }

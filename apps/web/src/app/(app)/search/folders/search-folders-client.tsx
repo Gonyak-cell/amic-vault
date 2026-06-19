@@ -192,9 +192,19 @@ export function searchUrlForSavedQuery(query: SearchQueryDto): string {
   if (typeof query.filters?.documentType === 'string') {
     params.set('documentType', query.filters.documentType);
   }
+  if (query.filters?.extractionStatus) {
+    params.set('extractionStatus', query.filters.extractionStatus);
+  }
   if (query.filters?.versionStatus) params.set('versionStatus', query.filters.versionStatus);
   return `/search?${params.toString()}`;
 }
+
+const extractionStatusLabels = {
+  ready: '본문 검색 가능',
+  pending: '추출 대기',
+  ocr_pending: 'OCR 필요',
+  failed: '추출 실패',
+} as const;
 
 function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string; value: string }> {
   const filters = query.filters;
@@ -205,6 +215,9 @@ function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string;
   if (filters?.title) items.push({ label: '제목', value: filters.title });
   if (typeof filters?.documentType === 'string') {
     items.push({ label: '문서 유형', value: filters.documentType });
+  }
+  if (filters?.extractionStatus) {
+    items.push({ label: '추출/OCR', value: extractionStatusLabels[filters.extractionStatus] });
   }
   if (filters?.versionStatus) items.push({ label: '버전', value: filters.versionStatus });
   return items;

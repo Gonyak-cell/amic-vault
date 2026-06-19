@@ -61,6 +61,13 @@ const dateRangeLabels = {
   older: '30일 이전',
 } as const;
 
+const extractionStatusLabels = {
+  ready: '본문 검색 가능',
+  pending: '추출 대기',
+  ocr_pending: 'OCR 필요',
+  failed: '추출 실패',
+} as const;
+
 export function SearchSavePanel({
   busy,
   onDeleteSavedSearch,
@@ -238,6 +245,12 @@ export function searchPatternItems(
   if (selection.matterName) items.push({ label: 'Matter 이름', value: selection.matterName });
   if (selection.clientName) items.push({ label: '고객명', value: selection.clientName });
   if (selection.documentType) items.push({ label: '문서 유형', value: selection.documentType });
+  if (selection.extractionStatus) {
+    items.push({
+      label: '추출/OCR',
+      value: extractionStatusLabels[selection.extractionStatus],
+    });
+  }
   if (selection.versionStatus) items.push({ label: '버전 상태', value: selection.versionStatus });
   if (selection.dateRange) items.push({ label: '수정 기간', value: dateRangeLabels[selection.dateRange] });
   return items;
@@ -257,6 +270,7 @@ export function savedSearchSummary(query: SearchQueryDto): string {
     documentType: Array.isArray(query.filters?.documentType)
       ? query.filters.documentType[0]
       : query.filters?.documentType,
+    extractionStatus: query.filters?.extractionStatus,
     groupBy: query.groupBy,
     matterCode: query.filters?.matterCode,
     matterName: query.filters?.matterName,
