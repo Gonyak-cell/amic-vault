@@ -237,9 +237,19 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/app/(app)/search/search-client.tsx',
     patterns: [
       { name: 'advanced search controls wired', pattern: /SearchAdvancedControls/ },
+      { name: 'search save panel wired', pattern: /SearchSavePanel/ },
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-save-panel.tsx',
+    patterns: [
+      { name: 'current search reusable link', pattern: /현재 검색 URL만 재사용/ },
+      { name: 'saved search API gated copy', pattern: /영구 저장 API/ },
+      { name: 'saved search disabled action', pattern: /저장된 검색/ },
+      { name: 'search pattern summary', pattern: /searchPatternItems/ },
     ],
   },
   {
