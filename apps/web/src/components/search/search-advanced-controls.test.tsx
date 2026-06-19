@@ -56,6 +56,10 @@ describe('SearchAdvancedControls', () => {
     expect(html).toContain('Matter 이름');
     expect(html).toContain('Vault Upgrade');
     expect(html).toContain('고객명');
+    expect(html).toContain('활성 필터');
+    expect(html).toContain('검색식 도움말');
+    expect(html).toContain('&quot;정확한 문구&quot;');
+    expect(html).toContain('-제외어');
     expect(html).toContain('적용');
     expect(html).toContain('초기화');
     expect(html).not.toContain('Matter ID');

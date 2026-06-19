@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { HelpCircle, SlidersHorizontal, X } from 'lucide-react';
 import {
   documentTypes,
   searchVersionStatusValues,
@@ -351,6 +351,44 @@ export function SearchAdvancedControls({
           />
         </label>
       </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.5fr)]">
+        <section className="rounded-md border bg-background p-3">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-foreground">활성 필터</h4>
+            <StatusBadge tone={activeCount > 0 ? 'warning' : 'neutral'}>
+              {activeCount > 0 ? `${activeCount}개` : '기본'}
+            </StatusBadge>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {activeSearchChips(selection).map((chip) => (
+              <span
+                key={`${chip.label}-${chip.value}`}
+                className="inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border bg-muted/30 px-2.5 text-xs font-semibold text-foreground"
+              >
+                <span className="text-muted-foreground">{chip.label}</span>
+                <span className="max-w-44 truncate">{chip.value}</span>
+              </span>
+            ))}
+          </div>
+        </section>
+        <section className="rounded-md border bg-background p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <HelpCircle className="h-4 w-4 text-primary" />
+            검색식 도움말
+          </div>
+          <ul className="mt-2 grid gap-1.5 text-xs leading-5 text-muted-foreground">
+            <li>
+              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">"정확한 문구"</code>
+              <span className="ml-2">정확한 문구 우선</span>
+            </li>
+            <li>
+              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">-제외어</code>
+              <span className="ml-2">제외어 반영</span>
+            </li>
+            <li>본문/제목 범위와 Matter Code는 위 필터로 고정</li>
+          </ul>
+        </section>
+      </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={() => onApply(normalizedDraft(draft))} disabled={busy}>
           적용
@@ -362,4 +400,31 @@ export function SearchAdvancedControls({
       </div>
     </SectionCard>
   );
+}
+
+function activeSearchChips(selection: SearchAdvancedSelection): Array<{ label: string; value: string }> {
+  const chips: Array<{ label: string; value: string }> = [];
+  if (selection.target && selection.target !== 'all') {
+    chips.push({ label: '범위', value: targetLabels[selection.target] });
+  }
+  if (selection.sortBy && selection.sortBy !== 'relevance') {
+    chips.push({ label: '정렬', value: sortLabels[selection.sortBy] });
+  }
+  if (selection.groupBy && selection.groupBy !== 'none') {
+    chips.push({ label: '그룹', value: groupLabels[selection.groupBy] });
+  }
+  if (selection.documentType) {
+    chips.push({ label: '유형', value: documentTypeLabels[selection.documentType] });
+  }
+  if (selection.versionStatus) {
+    chips.push({ label: '버전', value: versionStatusLabels[selection.versionStatus] });
+  }
+  if (selection.dateRange) {
+    chips.push({ label: '기간', value: dateRangeLabels[selection.dateRange] });
+  }
+  if (selection.title) chips.push({ label: '제목', value: selection.title });
+  if (selection.matterCode) chips.push({ label: 'Matter Code', value: selection.matterCode });
+  if (selection.matterName) chips.push({ label: 'Matter', value: selection.matterName });
+  if (selection.clientName) chips.push({ label: '고객', value: selection.clientName });
+  return chips.length > 0 ? chips : [{ label: '조건', value: '기본 검색' }];
 }
