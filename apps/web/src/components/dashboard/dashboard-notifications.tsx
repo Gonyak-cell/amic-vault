@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Bell } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -139,6 +141,9 @@ export function DashboardNotificationList({
                 {item.description}
               </div>
             </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href={notificationHref(item)}>열기</Link>
+            </Button>
           </div>
         </li>
       ))}
@@ -203,4 +208,11 @@ function activityNotification(
     tone: activity.resultLabel.includes('차단') ? 'blocked' : 'success',
     occurredAt: activity.occurredAt,
   };
+}
+
+function notificationHref(item: DmsNotificationItemDto): string {
+  if (item.source === 'permission_policy') return '/audit';
+  if (item.source === 'ai_prep') return '/files?aiAllowed=true&sortBy=matter_asc';
+  if (item.source === 'integration') return '/integrations/outlook';
+  return '/audit';
 }
