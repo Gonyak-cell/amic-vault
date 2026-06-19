@@ -49,14 +49,14 @@ The current PR-D scope proves:
 | Ethical Wall | `MatterCodePicker` in `apps/web/src/app/(app)/walls/wall-admin-client.tsx` | DMS-UX-402 |
 | Confidentiality/Privilege | `apps/web/src/components/governance/governance-context-panel.tsx` | DMS-UX-403 |
 | Sensitivity/DLP label stance | Governance rows show safe status only; no unsupported DLP/encryption claim | DMS-UX-404 |
-| Records Context | `apps/web/src/components/document/document-action-center.tsx` and `/records` links | DMS-UX-405 |
+| Records Context | `apps/web/src/components/document/document-action-center.tsx` and `RecordsActionContextPanel` in `/records` | DMS-UX-405 |
 | Matter/Document Activity Timeline | `DocumentAuditTimeline` and `MatterAuditTimeline` | DMS-UX-406 |
 | Access Request Decision | Denied/error states stay safe; no unapproved access-request workflow claim | DMS-UX-407 |
 | Workflow Domain Contract | `packages/shared/src/dashboard/dashboard-types.ts` | DMS-UX-501 |
 | Action Inbox | `apps/web/src/app/(app)/work/work-queue-client.tsx` | DMS-UX-502 |
 | Metadata Completion Tasks | `/files?status=draft` link path from work queue | DMS-UX-503 |
 | OCR/Index Remediation Tasks | `/files?extractionStatus=failed` and OCR-required links | DMS-UX-504 |
-| Records Action Tasks | `/records` action links from work queue and document action center | DMS-UX-505 |
+| Records Action Tasks | `/records` display-label action readiness cards from document/Matter context | DMS-UX-505 |
 | Notification Center | `apps/web/src/app/(app)/notifications/notifications-client.tsx` | DMS-UX-506 |
 | Dashboard Action Links | `DashboardActionLauncher` in dashboard activity client | DMS-UX-507 |
 | Ops Health | `AdminOpsHealthPanel` and local AI ops health/metrics clients | DMS-UX-508 |

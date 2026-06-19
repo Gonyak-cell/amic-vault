@@ -583,6 +583,28 @@ const governanceWorkflowOpsFiles = [
   },
 ];
 
+const recordsActionContextFiles = [
+  {
+    path: 'apps/web/src/app/(app)/records/records-governance-client.tsx',
+    patterns: [
+      { name: 'records context action panel', pattern: /RecordsActionContextPanel/ },
+      { name: 'records action readiness title', pattern: /보존 작업 준비/ },
+      { name: 'display-label document context', pattern: /documentContextLabel/ },
+      { name: 'display-label matter context', pattern: /matterContextLabel/ },
+      { name: 'document-only records actions', pattern: /requiresDocument/ },
+      { name: 'records action cards switch tabs', pattern: /onSelectTab\(action\.tab\)/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/records/records-governance-client.test.tsx',
+    patterns: [
+      { name: 'document context records actions test', pattern: /보관 처리 준비/ },
+      { name: 'matter-only action scope test', pattern: /matter-only records context/ },
+      { name: 'raw record refs hidden test', pattern: /not\.toContain\('11111111-1111-4111/ },
+    ],
+  },
+];
+
 const adminIntegrationsFiles = [
   {
     path: 'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
@@ -719,7 +741,7 @@ const prDCloseoutPatterns = [
   {
     name: 'PR-D route evidence matrix',
     pattern:
-      /Route Evidence[\s\S]*DocumentGovernanceContextPanel[\s\S]*MatterGovernanceContextPanel[\s\S]*MatterCodePicker[\s\S]*DocumentAuditTimeline[\s\S]*MatterAuditTimeline[\s\S]*DashboardActionLauncher/i,
+      /Route Evidence[\s\S]*DocumentGovernanceContextPanel[\s\S]*MatterGovernanceContextPanel[\s\S]*MatterCodePicker[\s\S]*RecordsActionContextPanel[\s\S]*DocumentAuditTimeline[\s\S]*MatterAuditTimeline[\s\S]*DashboardActionLauncher/i,
   },
   {
     name: 'PR-D real data invariants',
@@ -1069,6 +1091,17 @@ function checkGovernanceWorkflowOpsGuard() {
   }
 }
 
+function checkRecordsActionContextGuard() {
+  for (const file of recordsActionContextFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Records action context production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 function checkAdminIntegrationsGuard() {
   for (const file of adminIntegrationsFiles) {
     const source = readRequired(file.path);
@@ -1147,6 +1180,7 @@ try {
   checkDocumentActionCenterGuard();
   checkEnterpriseSearchGuard();
   checkGovernanceWorkflowOpsGuard();
+  checkRecordsActionContextGuard();
   checkAdminIntegrationsGuard();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
