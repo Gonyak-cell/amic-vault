@@ -651,6 +651,11 @@ PR-C implementation note:
 - Acceptance:
   - Records work is not isolated from document operations.
 
+Implementation note:
+
+- Document action center links to Records hold/archive/disposal entry points and passes display-safe document/Matter labels for contextual display.
+- Unified persisted records task assignment remains deferred until the workflow/task API contract is approved.
+
 #### DMS-UX-506 Notification Center
 
 - Objective: Add actionable notifications.

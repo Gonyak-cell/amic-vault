@@ -1,10 +1,22 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
 import { RecordsGovernanceClient } from './records-governance-client';
 
+const navigationMock = vi.hoisted(() => ({
+  searchParams: new URLSearchParams(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => navigationMock.searchParams,
+}));
+
 describe('RecordsGovernanceClient', () => {
+  beforeEach(() => {
+    navigationMock.searchParams = new URLSearchParams();
+  });
+
   it('uses governance copy without exposing internal ID or hash labels', () => {
     const html = renderToStaticMarkup(
       <LanguageProvider>
@@ -33,5 +45,27 @@ describe('RecordsGovernanceClient', () => {
     expect(html).not.toContain('RET-INDEFINITE');
     expect(html).not.toContain('Indefinite retention');
     expect(html).not.toContain('CLIENT_RECORDS');
+  });
+
+  it('uses document context query labels without displaying raw record refs', () => {
+    navigationMock.searchParams = new URLSearchParams({
+      tab: 'archive',
+      documentId: '11111111-1111-4111-8111-111111111201',
+      matterCode: 'AMIC-2026-0007',
+      documentTitle: '계약 검토 자료',
+    });
+
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <RecordsGovernanceClient />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('계약 검토 자료');
+    expect(html).toContain('AMIC-2026-0007');
+    expect(html).toContain('보관 처리');
+    expect(html).not.toContain('id="records-archive-document-ref"');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111201');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111122');
   });
 });

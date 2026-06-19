@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
+  Archive,
   Clock3,
   Download,
   Eye,
+  FileSearch,
   FileText,
   History,
   Link2,
@@ -12,6 +15,7 @@ import {
   RefreshCw,
   Save,
   ShieldCheck,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
@@ -132,6 +136,23 @@ function draftFromDocument(document: DocumentDto): ProfileDraft {
     subtype: document.subtype ?? '',
     confidentialityLevel: document.confidentialityLevel,
   };
+}
+
+function recordsUrlForDocument(document: DocumentDto, tab: 'holds' | 'archive' | 'disposal'): string {
+  const params = new URLSearchParams();
+  params.set('tab', tab);
+  params.set('documentId', document.documentId);
+  if (document.matterDisplayCode?.trim()) params.set('matterCode', document.matterDisplayCode.trim());
+  if (document.title.trim()) params.set('documentTitle', document.title.trim());
+  return `/records?${params.toString()}`;
+}
+
+function fileCabinetUrlForDocument(document: DocumentDto): string {
+  const params = new URLSearchParams();
+  if (document.matterDisplayCode?.trim()) params.set('matterCode', document.matterDisplayCode.trim());
+  if (document.title.trim()) params.set('title', document.title.trim());
+  const queryString = params.toString();
+  return queryString ? `/files?${queryString}` : '/files';
 }
 
 function ProfileField({ label, value }: { label: string; value: string }) {
@@ -594,10 +615,35 @@ export function DocumentActionCenter({
 
             <SectionCard
               icon={<Link2 className="h-4 w-4" />}
-              title="연결 항목"
-              meta="권한 범위 내 표시"
+              title="기록/보존"
+              meta="권한 범위 내 조치"
             >
-              <p className="text-sm text-muted-foreground">표시할 연결 항목이 없습니다.</p>
+              <div className="grid gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={recordsUrlForDocument(document, 'holds')}>
+                    <ShieldCheck className="h-4 w-4" />
+                    삭제 금지
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={recordsUrlForDocument(document, 'archive')}>
+                    <Archive className="h-4 w-4" />
+                    보관 처리
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={recordsUrlForDocument(document, 'disposal')}>
+                    <Trash2 className="h-4 w-4" />
+                    삭제 요청
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={fileCabinetUrlForDocument(document)}>
+                    <FileSearch className="h-4 w-4" />
+                    문서함 위치
+                  </Link>
+                </Button>
+              </div>
             </SectionCard>
           </aside>
         </div>

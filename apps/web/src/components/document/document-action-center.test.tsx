@@ -103,6 +103,17 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('v2');
     expect(html).toContain('v1');
     expect(html).toContain('새 버전 추가');
+    expect(html).toContain('기록/보존');
+    expect(html).toContain('삭제 금지');
+    expect(html).toContain('보관 처리');
+    expect(html).toContain('삭제 요청');
+    expect(html).toContain('문서함 위치');
+    expect(html).toContain(
+      'href="/records?tab=archive&amp;documentId=11111111-1111-4111-8111-111111111201&amp;matterCode=AMIC-2026-0007&amp;documentTitle=%EA%B3%84%EC%95%BD+%EA%B2%80%ED%86%A0+%EC%9E%90%EB%A3%8C"',
+    );
+    expect(html).toContain(
+      'href="/files?matterCode=AMIC-2026-0007&amp;title=%EA%B3%84%EC%95%BD+%EA%B2%80%ED%86%A0+%EC%9E%90%EB%A3%8C"',
+    );
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(document.matterId);
     expect(html).not.toContain(currentVersion.versionId);
