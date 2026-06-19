@@ -19,6 +19,7 @@ import {
 import { AiEvidencePromptCompiler } from '../generation/evidence-prompt.compiler';
 import { LocalGemmaGenerationService } from '../generation/local-gemma-generation.service';
 import { AiRedactionPreprocessor } from '../retrieval/redaction-preprocessor';
+import { normalizeAiPrepMetadata } from './ai-prep-metadata-normalizer';
 import { AiPrepRepository } from './ai-prep.repository';
 import { applyAiPrepRetrievalPlan, planAiPrepRetrieval } from './ai-prep-retrieval-planner';
 import type { AiPrepJobPayload, AiPrepSource, AiPrepSourceChunk } from './ai-prep.types';
@@ -231,11 +232,68 @@ export class AiPrepProcessor {
       }
     }
 
+    const reasonCode = normalizeBlockedReason(generationResult.reasonCode);
+    if (shouldCompleteWithDeterministicFallback(reasonCode)) {
+      await this.recordFallbackCompleted(plannedSource, payload, pack, {
+        reasonCode,
+        promptHash,
+        modelName: generationResult.model,
+        latencyMs: generationResult.latencyMs,
+      });
+      return;
+    }
+
     await this.recordRejected(plannedSource, payload, pack, {
-      reasonCode: normalizeBlockedReason(generationResult.reasonCode),
+      reasonCode,
       promptHash,
       modelName: generationResult.model,
       latencyMs: generationResult.latencyMs,
+    });
+  }
+
+  private async recordFallbackCompleted(
+    source: AiPrepSource,
+    payload: AiPrepJobPayload,
+    pack: EvidencePackDto,
+    input: {
+      reasonCode: string;
+      promptHash: string;
+      modelName?: string | undefined;
+      latencyMs?: number | undefined;
+    },
+  ): Promise<void> {
+    const prepAdapter = adaptEvidencePackToPrepSourceRefs(pack);
+    const payloadJson = buildDeterministicFallbackPayload(
+      source,
+      prepAdapter.source_refs,
+      payload.artifactKind,
+      input.reasonCode,
+    );
+    const responseHash = sha256Hex(JSON.stringify(payloadJson));
+    await this.auditService.transaction(source.tenantId, async (tx) => {
+      const artifactId = await this.repository.upsertCompleted(tx, {
+        source,
+        artifactKind: payload.artifactKind,
+        sourceChunks: source.chunks,
+        promptHash: input.promptHash,
+        responseHash,
+        payload: payloadJson,
+        modelName: input.modelName,
+        latencyMs: input.latencyMs,
+      });
+      await this.recordArtifactAudit(tx, {
+        action: 'AI_PREP_COMPLETED',
+        artifactId,
+        source,
+        payload,
+        status: 'completed',
+        result: 'success',
+        sourceChunkCount: source.chunks.length,
+        promptHash: input.promptHash,
+        responseHash,
+        generationResult: 'fallback',
+        fallbackReasonCode: input.reasonCode,
+      });
     });
   }
 
@@ -376,7 +434,7 @@ export class AiPrepProcessor {
       reasonCode?: string | undefined;
       promptHash?: string | undefined;
       responseHash?: string | undefined;
-      generationResult?: 'gemma' | 'rejected' | undefined;
+      generationResult?: 'gemma' | 'fallback' | 'rejected' | undefined;
       fallbackReasonCode?: string | undefined;
       deadLetterId?: string | undefined;
     },
@@ -417,6 +475,53 @@ function parsePrepPayload(
   artifactKind: AiPrepJobPayload['artifactKind'],
 ): AiPrepArtifactPayloadDto {
   return parseAiPrepArtifactPayload(input, artifactKind);
+}
+
+function buildDeterministicFallbackPayload(
+  source: AiPrepSource,
+  sourceRefsInput: readonly string[],
+  artifactKind: AiPrepArtifactKind,
+  reasonCode: string,
+): AiPrepArtifactPayloadDto {
+  const sourceRefs = sourceRefsInput.slice(0, 50);
+  const primarySourceRef = sourceRefs[0];
+  if (!primarySourceRef) {
+    throw new Error('deterministic ai prep fallback artifact requires source refs');
+  }
+  const sectionRefs = sourceRefs.slice(0, 20);
+  const allowedKinds = aiPrepArtifactAllowedClaimKinds(artifactKind);
+  const claimKind = allowedKinds.includes('key_fact') ? 'key_fact' : (allowedKinds[0] ?? 'summary');
+  const sourceCount = sourceRefs.length;
+  const normalizedReason = normalizeBlockedReason(reasonCode);
+  const metadata = normalizeAiPrepMetadata({
+    title: source.title,
+    sourceTextHashes: source.chunks.map((chunk) => chunk.sourceTextHash),
+  });
+  return parseAiPrepArtifactPayload(
+    {
+      answer: fallbackAnswer(artifactKind, metadata.safeTitle, sourceCount),
+      sections: [
+        {
+          section_id: 'prep_fallback',
+          heading: '파일 정리 준비',
+          text: fallbackSectionText(artifactKind, metadata.safeTitle, sourceCount),
+          source_refs: sectionRefs,
+        },
+      ],
+      claims: [
+        {
+          claim_id: 'prep_fallback_1',
+          kind: claimKind,
+          text: fallbackClaimText(artifactKind, metadata.safeTitle, sourceCount),
+          source_refs: [primarySourceRef],
+          is_legal_conclusion: false,
+        },
+      ],
+      warnings: [`LOCAL_GEMMA_${normalizedReason}_FALLBACK`],
+      source_refs: sourceRefs,
+    },
+    artifactKind,
+  );
 }
 
 function buildDeterministicRejectedPayload(
@@ -461,6 +566,18 @@ function buildDeterministicRejectedPayload(
   );
 }
 
+function fallbackAnswer(artifactKind: AiPrepArtifactKind, title: string, sourceCount: number): string {
+  return `${artifactLabel(artifactKind)} 준비가 완료되었습니다. ${title} 파일은 권한 통과 source ref ${sourceCount}개와 연결되었습니다.`;
+}
+
+function fallbackSectionText(artifactKind: AiPrepArtifactKind, title: string, sourceCount: number): string {
+  return `${title}의 ${artifactLabel(artifactKind)} 항목을 파일 정리용으로 생성했습니다. 본문 원문이나 모델 응답은 저장하지 않았습니다. source ref ${sourceCount}개를 기준으로 다시 처리할 수 있습니다.`;
+}
+
+function fallbackClaimText(artifactKind: AiPrepArtifactKind, title: string, sourceCount: number): string {
+  return `${title} 파일의 ${artifactLabel(artifactKind)} fallback artifact이며, 법률 분석 없이 source ref ${sourceCount}개만 근거로 보존했습니다.`;
+}
+
 function rejectedAnswer(artifactKind: AiPrepArtifactKind, sourceCount: number): string {
   return `${artifactLabel(artifactKind)} 모델 출력이 거부되었습니다. 권한 통과 source ref ${sourceCount}개를 기준으로 거부 상태만 기록했습니다.`;
 }
@@ -496,6 +613,10 @@ function artifactLabel(artifactKind: AiPrepArtifactKind): string {
 
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
+}
+
+function shouldCompleteWithDeterministicFallback(reasonCode: string): boolean {
+  return reasonCode === 'GENERATION_FAILED';
 }
 
 function normalizeBlockedReason(reasonCode: string | undefined): string {
