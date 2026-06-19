@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import {
   Activity,
@@ -7,10 +8,14 @@ import {
   Bot,
   Clock3,
   FileText,
+  FolderSearch,
   PlugZap,
+  SearchCheck,
   ShieldCheck,
+  UploadCloud,
 } from 'lucide-react';
 import { DashboardWorkQueueSection } from '@/components/dashboard/dashboard-work-queue';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -77,7 +82,10 @@ export function VaultActivityContent({
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
           <PermissionBanner />
+          <DashboardActionLauncher />
           <DashboardSection<DashboardRecentFile>
+            actionHref="/files"
+            actionLabel="문서함 열기"
             icon={<FileText className="h-4 w-4" />}
             title={dashboardSectionLabels.recentFiles}
             state={dashboardState.recentFiles}
@@ -85,17 +93,25 @@ export function VaultActivityContent({
             renderItems={(items) => (
               <DashboardList>
                 {items.map((item) => (
-                  <DashboardListItem key={`${item.title}-${item.updatedAt ?? item.matterLabel ?? 'file'}`}>
-                    <div className="font-medium text-foreground">{item.title}</div>
-                    {item.matterLabel ? (
-                      <div className="mt-1 text-[12px] text-muted-foreground">{item.matterLabel}</div>
-                    ) : null}
+                  <DashboardListItem
+                    actionHref={recentFileHref(item)}
+                    actionLabel="필터"
+                    key={`${item.title}-${item.updatedAt ?? item.matterLabel ?? 'file'}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-foreground">{item.title}</div>
+                      {item.matterLabel ? (
+                        <div className="mt-1 text-[12px] text-muted-foreground">{item.matterLabel}</div>
+                      ) : null}
+                    </div>
                   </DashboardListItem>
                 ))}
               </DashboardList>
             )}
           />
           <DashboardSection<DashboardRecentActivity>
+            actionHref="/audit"
+            actionLabel="감사 열기"
             icon={<Clock3 className="h-4 w-4" />}
             title={dashboardSectionLabels.recentActivity}
             state={dashboardState.recentActivity}
@@ -103,10 +119,16 @@ export function VaultActivityContent({
             renderItems={(items) => (
               <DashboardList>
                 {items.map((item) => (
-                  <DashboardListItem key={`${item.actionLabel}-${item.occurredAt}`}>
-                    <div className="font-medium text-foreground">{item.actionLabel}</div>
-                    <div className="mt-1 text-[12px] text-muted-foreground">
-                      {item.targetLabel} · {item.resultLabel}
+                  <DashboardListItem
+                    actionHref="/audit"
+                    actionLabel="감사"
+                    key={`${item.actionLabel}-${item.occurredAt}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-foreground">{item.actionLabel}</div>
+                      <div className="mt-1 text-[12px] text-muted-foreground">
+                        {item.targetLabel} · {item.resultLabel}
+                      </div>
                     </div>
                   </DashboardListItem>
                 ))}
@@ -114,6 +136,8 @@ export function VaultActivityContent({
             )}
           />
           <DashboardSection<DashboardPolicyAlert>
+            actionHref="/notifications"
+            actionLabel="알림 열기"
             icon={<Bell className="h-4 w-4" />}
             title={dashboardSectionLabels.permissionPolicyAlerts}
             state={dashboardState.permissionPolicyAlerts}
@@ -121,9 +145,11 @@ export function VaultActivityContent({
             renderItems={(items) => (
               <DashboardList>
                 {items.map((item) => (
-                  <DashboardListItem key={item.title}>
-                    <div className="font-medium text-foreground">{item.title}</div>
-                    <div className="mt-1 text-[12px] text-muted-foreground">{item.description}</div>
+                  <DashboardListItem actionHref="/notifications" actionLabel="알림" key={item.title}>
+                    <div className="min-w-0">
+                      <div className="font-medium text-foreground">{item.title}</div>
+                      <div className="mt-1 text-[12px] text-muted-foreground">{item.description}</div>
+                    </div>
                   </DashboardListItem>
                 ))}
               </DashboardList>
@@ -137,6 +163,7 @@ export function VaultActivityContent({
             icon={<Bot className="h-4 w-4" />}
             title={dashboardSectionLabels.aiPrepStatus}
             meta={dashboardMeta(dashboardState.aiPrepStatus)}
+            actions={<SectionAction href="/files?aiAllowed=true&sortBy=matter_asc" label="문서함 필터" />}
           >
             <DashboardStateBody<DashboardAiPrepStatus>
               state={dashboardState.aiPrepStatus}
@@ -144,9 +171,15 @@ export function VaultActivityContent({
               renderItems={(items) => (
                 <DashboardList compact>
                   {items.map((item) => (
-                    <DashboardListItem key={item.matterLabel}>
-                      <div className="font-medium text-foreground">{item.matterLabel}</div>
-                      <div className="mt-1 text-[12px] text-muted-foreground">{item.statusLabel}</div>
+                    <DashboardListItem
+                      actionHref="/files?aiAllowed=true&sortBy=matter_asc"
+                      actionLabel="필터"
+                      key={item.matterLabel}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground">{item.matterLabel}</div>
+                        <div className="mt-1 text-[12px] text-muted-foreground">{item.statusLabel}</div>
+                      </div>
                     </DashboardListItem>
                   ))}
                 </DashboardList>
@@ -157,6 +190,7 @@ export function VaultActivityContent({
             icon={<PlugZap className="h-4 w-4" />}
             title={dashboardSectionLabels.integrationStatus}
             meta={dashboardMeta(dashboardState.integrationStatus)}
+            actions={<SectionAction href="/integrations/outlook" label="통합 열기" />}
           >
             <DashboardStateBody<DashboardIntegrationStatus>
               state={dashboardState.integrationStatus}
@@ -164,9 +198,15 @@ export function VaultActivityContent({
               renderItems={(items) => (
                 <DashboardList compact>
                   {items.map((item) => (
-                    <DashboardListItem key={item.integrationLabel}>
-                      <div className="font-medium text-foreground">{item.integrationLabel}</div>
-                      <div className="mt-1 text-[12px] text-muted-foreground">{item.statusLabel}</div>
+                    <DashboardListItem
+                      actionHref="/integrations/outlook"
+                      actionLabel="상태"
+                      key={item.integrationLabel}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground">{item.integrationLabel}</div>
+                        <div className="mt-1 text-[12px] text-muted-foreground">{item.statusLabel}</div>
+                      </div>
                     </DashboardListItem>
                   ))}
                 </DashboardList>
@@ -181,12 +221,16 @@ export function VaultActivityContent({
 }
 
 function DashboardSection<T>({
+  actionHref,
+  actionLabel,
   emptyTitle,
   icon,
   renderItems,
   state,
   title,
 }: {
+  actionHref?: string;
+  actionLabel?: string;
   emptyTitle: string;
   icon: React.ReactNode;
   renderItems: (items: T[]) => React.ReactNode;
@@ -194,7 +238,12 @@ function DashboardSection<T>({
   title: string;
 }) {
   return (
-    <SectionCard icon={icon} title={title} meta={dashboardMeta(state)}>
+    <SectionCard
+      icon={icon}
+      title={title}
+      meta={dashboardMeta(state)}
+      actions={actionHref && actionLabel ? <SectionAction href={actionHref} label={actionLabel} /> : null}
+    >
       <DashboardStateBody state={state} emptyTitle={emptyTitle} renderItems={renderItems} />
     </SectionCard>
   );
@@ -253,8 +302,113 @@ function DashboardList({
   return <ul className={compact ? 'divide-y' : 'divide-y rounded-lg border'}>{children}</ul>;
 }
 
-function DashboardListItem({ children }: { children: React.ReactNode }) {
-  return <li className="px-3.5 py-3 text-[13px] leading-5">{children}</li>;
+function DashboardListItem({
+  actionHref,
+  actionLabel,
+  children,
+}: {
+  actionHref?: string;
+  actionLabel?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="flex flex-col gap-3 px-3.5 py-3 text-[13px] leading-5 sm:flex-row sm:items-center sm:justify-between">
+      {children}
+      {actionHref && actionLabel ? <SectionAction href={actionHref} label={actionLabel} /> : null}
+    </li>
+  );
+}
+
+function DashboardActionLauncher() {
+  const links = [
+    {
+      href: '/files#matter-upload',
+      icon: <UploadCloud className="h-4 w-4" />,
+      title: 'Matter 업로드',
+      description: 'Matter Code 선택 후 파일을 업로드합니다.',
+    },
+    {
+      href: '/files',
+      icon: <FileText className="h-4 w-4" />,
+      title: '전체 문서함',
+      description: '권한 문서를 필터와 정렬로 확인합니다.',
+    },
+    {
+      href: '/search',
+      icon: <SearchCheck className="h-4 w-4" />,
+      title: '본문/메타데이터 검색',
+      description: '허용된 문서 본문과 프로필 필드를 검색합니다.',
+    },
+    {
+      href: '/search/folders',
+      icon: <FolderSearch className="h-4 w-4" />,
+      title: '검색 폴더',
+      description: '저장된 검색으로 반복 업무에 돌아갑니다.',
+    },
+    {
+      href: '/work',
+      icon: <Activity className="h-4 w-4" />,
+      title: '작업함',
+      description: '운영 상태에서 파생된 조치 항목을 엽니다.',
+    },
+    {
+      href: '/notifications',
+      icon: <Bell className="h-4 w-4" />,
+      title: '알림',
+      description: '실제 이벤트와 상태 알림을 확인합니다.',
+    },
+    {
+      href: '/files?aiAllowed=true&sortBy=matter_asc',
+      icon: <Bot className="h-4 w-4" />,
+      title: '파일 정리 준비',
+      description: 'Gemma 적용 가능 파일을 문서함에서 봅니다.',
+    },
+    {
+      href: '/admin',
+      icon: <ShieldCheck className="h-4 w-4" />,
+      title: '검색/운영 헬스',
+      description: '관리자 권한으로 인덱스와 운영 상태를 확인합니다.',
+    },
+  ] as const;
+
+  return (
+    <SectionCard
+      icon={<Activity className="h-4 w-4" />}
+      title="DMS 작업 바로가기"
+      meta="승인된 운영 표면"
+    >
+      <ul className="grid overflow-hidden rounded-lg border md:grid-cols-2 xl:grid-cols-4">
+        {links.map((link) => (
+          <li key={link.href} className="border-b md:border-r xl:[&:nth-child(4n)]:border-r-0">
+            <Link
+              className="flex h-full min-h-24 flex-col gap-2 p-3.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              href={link.href}
+            >
+              <span className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                <span className="text-primary">{link.icon}</span>
+                {link.title}
+              </span>
+              <span className="text-[12px] leading-5 text-muted-foreground">{link.description}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </SectionCard>
+  );
+}
+
+function SectionAction({ href, label }: { href: string; label: string }) {
+  return (
+    <Button asChild size="sm" variant="outline">
+      <Link href={href}>{label}</Link>
+    </Button>
+  );
+}
+
+function recentFileHref(item: DashboardRecentFile): string {
+  const params = new URLSearchParams();
+  params.set('title', item.title);
+  return `/files?${params.toString()}`;
 }
 
 function DashboardConnectionSummary({ state }: { state: DashboardOverviewState }) {
