@@ -13,9 +13,6 @@ import type { SearchAdvancedSelection } from './search-advanced-controls';
 export interface SearchFacetSelection extends SearchAdvancedSelection {
   clientId?: string | undefined;
   matterId?: string | undefined;
-  documentType?: string | undefined;
-  versionStatus?: string | undefined;
-  dateRange?: string | undefined;
 }
 
 interface SearchFacetsProps {
@@ -33,14 +30,18 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         title={t('search.facet.type')}
         buckets={facets.documentTypes}
         selected={selection.documentType}
-        onSelect={(value) => onChange({ ...selection, documentType: value })}
+        onSelect={(value) =>
+          onChange({ ...selection, documentType: value as SearchFacetSelection['documentType'] })
+        }
         language={language}
       />
       <FacetGroup
         title={t('search.facet.version')}
         buckets={facets.versionStatuses}
         selected={selection.versionStatus}
-        onSelect={(value) => onChange({ ...selection, versionStatus: value })}
+        onSelect={(value) =>
+          onChange({ ...selection, versionStatus: value as SearchFacetSelection['versionStatus'] })
+        }
         language={language}
       />
       <FacetGroup
@@ -63,7 +64,9 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         title={t('search.facet.updated')}
         buckets={facets.dateRanges}
         selected={selection.dateRange}
-        onSelect={(value) => onChange({ ...selection, dateRange: value })}
+        onSelect={(value) =>
+          onChange({ ...selection, dateRange: value as SearchFacetSelection['dateRange'] })
+        }
         language={language}
       />
       {hasSelection(selection) ? (

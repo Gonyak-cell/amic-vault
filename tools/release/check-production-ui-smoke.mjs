@@ -236,6 +236,10 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/components/search/search-advanced-controls.tsx',
     patterns: [
       { name: 'Matter Code filter UI', pattern: /Matter Code/ },
+      { name: 'Matter name filter UI', pattern: /Matter 이름/ },
+      { name: 'document type filter UI', pattern: /문서 유형/ },
+      { name: 'version status filter UI', pattern: /버전 상태/ },
+      { name: 'updated date range filter UI', pattern: /수정 기간/ },
       { name: 'search range selector', pattern: /검색 범위/ },
       { name: 'sort selector', pattern: /정렬/ },
       { name: 'group selector', pattern: /그룹/ },
