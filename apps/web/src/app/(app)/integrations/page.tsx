@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { MailCheck, Plug, ShieldAlert } from 'lucide-react';
+import { FolderSearch, MailCheck, Plug, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -25,7 +25,15 @@ export default function IntegrationsPage() {
         title={t('integrations.section.title')}
         meta={t('integrations.section.meta')}
       >
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+          <IntegrationCard
+            icon={<FolderSearch className="h-4 w-4" />}
+            title="Matter app"
+            description="Matter Code source와 업로드 gate를 확인합니다. 연결 전에는 파일 업로드를 열지 않습니다."
+            status="업로드 gate"
+            tone="warning"
+            href="/integrations/matter-app"
+          />
           <IntegrationCard
             icon={<MailCheck className="h-4 w-4" />}
             title="Outlook"

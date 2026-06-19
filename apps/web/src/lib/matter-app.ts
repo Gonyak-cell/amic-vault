@@ -18,6 +18,17 @@ export interface MatterCodeOption {
   sourceMode: MatterAppSourceMode;
 }
 
+export interface MatterAppSourceStatus {
+  mode: MatterAppSourceMode;
+  label: string;
+  description: string;
+  sourceConfigured: boolean;
+  sourceAvailable: boolean;
+  uploadAuthoritative: boolean;
+  productionRuntime: boolean;
+  projectionFallbackAllowed: boolean;
+}
+
 export const matterAppSourceLabels = {
   unconfigured: '연결 필요',
   matter_app_api: 'Matter app 확인됨',
@@ -75,6 +86,45 @@ export function isMatterAppSourceAvailable(mode: MatterAppSourceMode): boolean {
 
 export function isMatterUploadSourceMode(mode: MatterAppSourceMode): boolean {
   return mode === 'matter_app_api' || mode === 'matter_app_event_projection';
+}
+
+export function matterAppSourceStatus(
+  options: {
+    sourceMode?: string | undefined;
+    sourceConfigured?: string | undefined;
+    projectionFallbackAllowed?: string | undefined;
+    nodeEnv?: string | undefined;
+  } = {},
+): MatterAppSourceStatus {
+  const requestedMode = matterAppSourceModes.includes(options.sourceMode as MatterAppSourceMode)
+    ? (options.sourceMode as MatterAppSourceMode)
+    : 'unconfigured';
+  const sourceConfigured = envFlagEnabled(
+    options.sourceConfigured ?? process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED,
+  );
+  const projectionFallbackAllowed = envFlagEnabled(
+    options.projectionFallbackAllowed ??
+      process.env.NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE,
+  );
+  const productionRuntime = (options.nodeEnv ?? process.env.NODE_ENV) === 'production';
+  const mode = isMatterAppSourceConfigured(requestedMode, {
+    sourceConfigured: sourceConfigured ? 'true' : 'false',
+    projectionFallbackAllowed: projectionFallbackAllowed ? 'true' : 'false',
+    nodeEnv: productionRuntime ? 'production' : 'development',
+  })
+    ? requestedMode
+    : 'unconfigured';
+
+  return {
+    mode,
+    label: matterAppSourceLabels[mode],
+    description: matterAppSourceDescriptions[mode],
+    sourceConfigured,
+    sourceAvailable: mode !== 'unconfigured' && (mode !== 'vault_projection_only' || !productionRuntime),
+    uploadAuthoritative: isMatterUploadSourceMode(mode),
+    productionRuntime,
+    projectionFallbackAllowed,
+  };
 }
 
 export function toMatterCodeOption(

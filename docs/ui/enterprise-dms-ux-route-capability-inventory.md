@@ -29,7 +29,8 @@ Source baseline:
 | `/walls` | Ethical wall/security admin. | Partial. Wall surfaces exist and common Matter lookup/create now uses Matter Code picker; user/group membership changes still need picker APIs before raw refs can be removed from advanced security operations. | DMS-UX-402 |
 | `/admin` | Enterprise/admin settings. | Partial. SSO/BYOK/SIEM/backup/compliance surfaces exist; DMS taxonomy/template/refiner IA is visible as read-only contract state until save/audit APIs are approved. Search index reprocessing is wired to the admin reindex endpoint and displays only audit-safe queue counts after an operator request. Operations health uses local file organization prep health/metrics only and does not expose raw content. | DMS-UX-508, 601 to 610 |
 | `/admin/security` | Security/admin compatibility route. | Partial. Same admin/security route policy as `/admin`. | DMS-UX-401 to 404 |
-| `/integrations` | Integration status parent. | Partial. Shows safe integration matrix: Outlook links to real status, OneDrive/Office remain gated without connected-state claims. | DMS-UX-607, 610 |
+| `/integrations` | Integration status parent. | Partial. Shows safe integration matrix: Matter app links to source/gate status, Outlook links to real status, OneDrive/Office remain gated without connected-state claims. | DMS-UX-003, 607, 610 |
+| `/integrations/matter-app` | Matter app source/gate status. | Partial. Shows Matter Code source mode, upload-authoritative gate, projection fallback policy, and setup-required state without exposing endpoints, tokens, internal Matter IDs, or connected-state claims before configuration. Runtime Matter app endpoint remains a blocker. | DMS-UX-003, 004, 801 |
 | `/integrations/outlook` | Outlook filing/admin status. | Partial. Outlook operations status exists and now documents the Vault filing path into Matter/document/search UX; deeper filing smoke remains required. | DMS-UX-606 |
 | `/integrations/onedrive` | Future OneDrive/Office integration. | Hidden/gated. No production claim before contract approval. | DMS-UX-607 |
 | `/ai-prep` | Local AI file-organization prep status. | Limited/approved. Must remain file organization only. | DMS-UX-509 |
@@ -57,7 +58,7 @@ Source baseline:
 | Workflow/task inbox | `GET /work/items` | Server-derived API exists and returns display-safe work items from permission-scoped dashboard operating state. The web route filters those items by source/status and links remediation to approved document and records entry points. It does not claim persisted assignment/due/status workflow storage. | DMS-UX-501 to 507 |
 | Notifications | `GET /notifications` | Server-derived API exists and returns display-safe notification items from permission-scoped dashboard operating state and recent activity. The web route filters those items by source/status and links each item to an approved source surface. It does not claim persisted notification storage. | DMS-UX-506 |
 | Taxonomy/templates | No DMS taxonomy/template admin API identified. | UI IA exists as read-only contract state; persisted administration remains a gap. | DMS-UX-601 to 605 |
-| Matter app lookup/sync | Matter app runtime endpoint not found in this checkout. | Gap/blocker for production-grade Matter Code picker. | DMS-UX-003, 004 |
+| Matter app lookup/sync | Matter app runtime endpoint not found in this checkout. | Gap/blocker for production-grade Matter Code picker. `/integrations/matter-app` now exposes the safe source/gate status so operators can see why upload is blocked without leaking endpoint or internal refs. | DMS-UX-003, 004 |
 
 ## Immediate PR-A Decision
 

@@ -604,9 +604,23 @@ const adminIntegrationsFiles = [
   {
     path: 'apps/web/src/app/(app)/integrations/page.tsx',
     patterns: [
+      { name: 'Matter app status route link', pattern: /\/integrations\/matter-app/ },
+      { name: 'Matter app upload gate copy', pattern: /업로드 gate/ },
       { name: 'Outlook status route link', pattern: /\/integrations\/outlook/ },
       { name: 'OneDrive gate copy', pattern: /승인 전 숨김/ },
       { name: 'Office contract gate copy', pattern: /계약 필요/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/matter-app/page.tsx',
+    patterns: [
+      { name: 'Matter app status page title', pattern: /Matter app 연결 상태/ },
+      { name: 'Matter Code source section', pattern: /Matter Code source/ },
+      { name: 'upload gate status', pattern: /업로드 gate/ },
+      { name: 'free-floating upload blocked', pattern: /free-floating 업로드/ },
+      { name: 'projection fallback policy', pattern: /프로덕션 projection fallback/ },
+      { name: 'no raw refs copy', pattern: /내부 식별자/ },
+      { name: 'Matter source status helper', pattern: /matterAppSourceStatus/ },
     ],
   },
   {
