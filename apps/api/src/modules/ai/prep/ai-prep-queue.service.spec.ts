@@ -6,6 +6,7 @@ import {
   aiPrepGateFailureReason,
   aiPrepQueueExpireSeconds,
   aiPrepQueueSendOptions,
+  aiPrepQueueWorkOptions,
   aiPrepTenantConcurrencyAllows,
   aiPrepTenantAllowed,
   defaultAiPrepArtifactKinds,
@@ -32,11 +33,23 @@ describe('AiPrepQueueService options', () => {
     const client = { query: vi.fn() };
     expect(aiPrepQueueSendOptions(payload, client as never)).toMatchObject({
       singletonKey: `${payload.versionId}:document_profile`,
+      group: { id: 'local_gemma' },
       expireInSeconds: 420,
       retryLimit: 5,
       retryDelay: 2,
       retryBackoff: true,
       deadLetter: 'ai.prep.dead',
+    });
+  });
+
+  it('serializes local Gemma prep workers globally', () => {
+    process.env.AI_PREP_QUEUE_BATCH_SIZE = '4';
+
+    expect(aiPrepQueueWorkOptions()).toMatchObject({
+      batchSize: 4,
+      localConcurrency: 1,
+      groupConcurrency: 1,
+      pollingIntervalSeconds: 1,
     });
   });
 
