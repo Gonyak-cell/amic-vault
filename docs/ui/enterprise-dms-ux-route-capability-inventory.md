@@ -101,3 +101,11 @@ PR-E may expose admin configuration categories and integration status only as
 API-backed data or explicitly gated contract states. Taxonomy, templates,
 search refiners, OneDrive, and Office open/save must not present editable or
 connected production states until save/sync/audit contracts are approved.
+
+PR-E closeout evidence is fixed in `docs/ui/enterprise-dms-pr-e-closeout.md`.
+The evidence requires read-only taxonomy, Matter template, folder template, and
+search refiner contract states; Outlook filing unification route evidence;
+OneDrive/Office gated planning; admin IA cleanup; and integration status safety.
+It preserves deferred items for persisted taxonomy/template/refiner APIs,
+folder inheritance semantics, OneDrive open-save-sync runtime, Office
+coauthoring/lock/rollback, and mobile/offline operating mode.

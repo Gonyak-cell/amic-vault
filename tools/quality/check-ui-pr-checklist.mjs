@@ -16,6 +16,7 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-ux-route-capability-inventory.md',
   'docs/ui/enterprise-dms-release-hardening.md',
   'docs/ui/enterprise-dms-pr-d-closeout.md',
+  'docs/ui/enterprise-dms-pr-e-closeout.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
@@ -87,6 +88,21 @@ const requiredPatterns = [
     label: 'PR-D deferred item evidence',
     pattern:
       /Remaining Deferred Items[\s\S]*Unified persisted task DB\/API[\s\S]*Persisted notifications[\s\S]*Records disposal task API[\s\S]*User\/group picker APIs[\s\S]*Access request creation\/approval workflow/is,
+  },
+  {
+    label: 'PR-E closeout evidence',
+    pattern:
+      /DMS-UX-714 PR-E Closeout[\s\S]*Taxonomy Admin Contract[\s\S]*Matter Template Admin[\s\S]*Search Refiner Admin[\s\S]*Outlook Filing Unification[\s\S]*Office\/OneDrive Integration Plan[\s\S]*Integration Status Safety/is,
+  },
+  {
+    label: 'PR-E gated integration evidence',
+    pattern:
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/is,
+  },
+  {
+    label: 'PR-E deferred item evidence',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring/is,
   },
 ];
 

@@ -136,6 +136,13 @@ Health, AI Prep file organization only scope, External sharing gated scope, and
 stale-content clearing. Remaining deferred items must be named instead of
 presented as complete.
 
+For PR-E admin/integration PRs, review
+`docs/ui/enterprise-dms-pr-e-closeout.md` and confirm taxonomy, Matter template,
+folder template, search refiner, Outlook, OneDrive, Office, admin IA, and
+integration status claims remain tied to approved route evidence. Read-only
+contract states must not look editable, and gated integrations must not imply a
+connected production state.
+
 ## 10. Responsive And Accessibility
 
 For affected screens, check:
@@ -175,3 +182,5 @@ record covers:
 - rollback owner, route/feature/worker rollback controls, production monitor, and owner signoff
 - PR-D closeout evidence, when governance/workflow/ops routes are touched,
   remains aligned with `docs/ui/enterprise-dms-pr-d-closeout.md`
+- PR-E closeout evidence, when admin/integration routes are touched, remains
+  aligned with `docs/ui/enterprise-dms-pr-e-closeout.md`
