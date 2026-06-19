@@ -2,7 +2,16 @@
 
 import React, { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Archive, FileClock, ListTree, Scale, ShieldCheck, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  CheckCircle2,
+  FileClock,
+  ListChecks,
+  ListTree,
+  Scale,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import type {
   DisposalCertificateDto,
   DisposalRequestDto,
@@ -25,6 +34,7 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import { StatusBadge } from '@/components/ui/status-badge';
 import {
   approveDisposalRequest,
   archiveDocument,
@@ -95,6 +105,19 @@ const recordsCopy: Record<
     targetDocument: string;
     targetMatter: string;
     requestReady: string;
+    contextPanelTitle: string;
+    contextPanelMeta: string;
+    contextReady: string;
+    contextActionTarget: string;
+    openAction: string;
+    holdActionTitle: string;
+    holdActionDescription: string;
+    archiveActionTitle: string;
+    archiveActionDescription: string;
+    disposalActionTitle: string;
+    disposalActionDescription: string;
+    certificateActionTitle: string;
+    certificateActionDescription: string;
   }
 > = {
   ko: {
@@ -153,6 +176,19 @@ const recordsCopy: Record<
     targetDocument: '대상 파일',
     targetMatter: '대상 사건',
     requestReady: '삭제 요청 연결됨',
+    contextPanelTitle: '보존 작업 준비',
+    contextPanelMeta: '문서와 사건 표시명을 기준으로 작업을 선택합니다.',
+    contextReady: '준비됨',
+    contextActionTarget: '작업 대상',
+    openAction: '열기',
+    holdActionTitle: '삭제 금지 검토',
+    holdActionDescription: '파일 또는 사건에 보존 조치를 적용합니다.',
+    archiveActionTitle: '보관 처리 준비',
+    archiveActionDescription: '권한과 감사 기록을 통과한 파일에 보관 처리를 요청합니다.',
+    disposalActionTitle: '삭제 요청 준비',
+    disposalActionDescription: '보존 정책 확인 후 단계별 승인 절차로 연결합니다.',
+    certificateActionTitle: '증명서 확인',
+    certificateActionDescription: '실행된 삭제 요청의 감사 증명 상태를 확인합니다.',
   },
   en: {
     tabs: {
@@ -211,6 +247,19 @@ const recordsCopy: Record<
     targetDocument: 'Target file',
     targetMatter: 'Target matter',
     requestReady: 'Disposal request linked',
+    contextPanelTitle: 'Records action readiness',
+    contextPanelMeta: 'Choose actions from the displayed file and matter context.',
+    contextReady: 'Ready',
+    contextActionTarget: 'Action target',
+    openAction: 'Open',
+    holdActionTitle: 'Review legal hold',
+    holdActionDescription: 'Apply retention protection to the file or matter.',
+    archiveActionTitle: 'Prepare archive',
+    archiveActionDescription: 'Request archive after permission and audit checks.',
+    disposalActionTitle: 'Prepare disposal request',
+    disposalActionDescription: 'Continue through retention review and staged approval.',
+    certificateActionTitle: 'Check certificate',
+    certificateActionDescription: 'Review audit evidence for an executed disposal request.',
   },
 };
 
@@ -344,20 +393,13 @@ export function RecordsGovernanceClient() {
       {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
       {documentContextLabel || matterContextLabel ? (
-        <SectionCard
-          icon={<FileClock className="h-4 w-4" />}
-          title={copy.targetDocument}
-          meta={copy.targetMatter}
-        >
-          <dl className="grid gap-3 sm:grid-cols-2">
-            {documentContextLabel ? (
-              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
-            ) : null}
-            {matterContextLabel ? (
-              <ContextTarget label={copy.matterRef} value={matterContextLabel} />
-            ) : null}
-          </dl>
-        </SectionCard>
+        <RecordsActionContextPanel
+          activeTab={activeTab}
+          copy={copy}
+          documentContextLabel={documentContextLabel}
+          matterContextLabel={matterContextLabel}
+          onSelectTab={setActiveTab}
+        />
       ) : null}
 
       <TabBar activeTab={activeTab} labels={copy.tabs} onChange={setActiveTab} />
@@ -648,6 +690,114 @@ function ContextTarget({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold text-foreground">{value}</p>
     </div>
+  );
+}
+
+function RecordsActionContextPanel({
+  activeTab,
+  copy,
+  documentContextLabel,
+  matterContextLabel,
+  onSelectTab,
+}: {
+  activeTab: RecordsTab;
+  copy: (typeof recordsCopy)[Language];
+  documentContextLabel: string;
+  matterContextLabel: string;
+  onSelectTab: (tab: RecordsTab) => void;
+}) {
+  const actions: Array<{
+    tab: RecordsTab;
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    requiresDocument?: boolean;
+  }> = [
+    {
+      tab: 'holds',
+      title: copy.holdActionTitle,
+      description: copy.holdActionDescription,
+      icon: <ShieldCheck className="h-4 w-4" />,
+    },
+    {
+      tab: 'archive',
+      title: copy.archiveActionTitle,
+      description: copy.archiveActionDescription,
+      icon: <Archive className="h-4 w-4" />,
+      requiresDocument: true,
+    },
+    {
+      tab: 'disposal',
+      title: copy.disposalActionTitle,
+      description: copy.disposalActionDescription,
+      icon: <Trash2 className="h-4 w-4" />,
+      requiresDocument: true,
+    },
+    {
+      tab: 'certificates',
+      title: copy.certificateActionTitle,
+      description: copy.certificateActionDescription,
+      icon: <FileClock className="h-4 w-4" />,
+      requiresDocument: true,
+    },
+  ];
+  const visibleActions = actions.filter((action) => !action.requiresDocument || documentContextLabel);
+
+  return (
+    <SectionCard
+      actions={<StatusBadge tone="success">{copy.contextReady}</StatusBadge>}
+      icon={<ListChecks className="h-4 w-4" />}
+      title={copy.contextPanelTitle}
+      meta={copy.contextPanelMeta}
+    >
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+            {copy.contextActionTarget}
+          </p>
+          <dl className="mt-3 grid gap-3">
+            {documentContextLabel ? (
+              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
+            ) : null}
+            {matterContextLabel ? (
+              <ContextTarget label={copy.matterRef} value={matterContextLabel} />
+            ) : null}
+          </dl>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {visibleActions.map((action) => (
+            <button
+              aria-current={activeTab === action.tab ? 'step' : undefined}
+              className={cn(
+                'group flex min-h-[112px] flex-col rounded-md border bg-background p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                activeTab === action.tab
+                  ? 'border-primary bg-primary/5'
+                  : 'hover:border-primary/40 hover:bg-muted/30',
+              )}
+              key={action.tab}
+              onClick={() => onSelectTab(action.tab)}
+              type="button"
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                  <span className="text-primary">{action.icon}</span>
+                  <span className="truncate">{action.title}</span>
+                </span>
+                {activeTab === action.tab ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                ) : null}
+              </span>
+              <span className="mt-2 text-xs leading-5 text-muted-foreground">
+                {action.description}
+              </span>
+              <span className="mt-auto pt-3 text-xs font-semibold text-primary">
+                {copy.openAction}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </SectionCard>
   );
 }
 

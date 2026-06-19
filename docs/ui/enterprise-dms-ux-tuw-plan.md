@@ -658,6 +658,7 @@ PR-C implementation note:
 Implementation note:
 
 - Document action center links to Records hold/archive/disposal entry points and passes display-safe document/Matter labels for contextual display.
+- Records route now renders a display-label action readiness panel for hold, archive, disposal, and certificate review when users arrive from document/Matter context.
 - Unified persisted records task assignment remains deferred until the workflow/task API contract is approved.
 
 #### DMS-UX-506 Notification Center

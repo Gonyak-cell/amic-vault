@@ -78,7 +78,7 @@ const requiredPatterns = [
   {
     label: 'PR-D closeout evidence',
     pattern:
-      /DMS-UX-527 PR-D Closeout[\s\S]*Effective Access[\s\S]*Ethical Wall[\s\S]*Records Context[\s\S]*Matter\/Document Activity Timeline[\s\S]*Action Inbox[\s\S]*Notification Center[\s\S]*Ops Health/is,
+      /DMS-UX-527 PR-D Closeout[\s\S]*Effective Access[\s\S]*Ethical Wall[\s\S]*Records Context[\s\S]*RecordsActionContextPanel[\s\S]*Matter\/Document Activity Timeline[\s\S]*Action Inbox[\s\S]*Notification Center[\s\S]*Ops Health/is,
   },
   {
     label: 'PR-D AI and external scope evidence',
