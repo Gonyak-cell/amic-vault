@@ -570,6 +570,72 @@ const releaseHardeningPatterns = [
   },
 ];
 
+const responsiveAccessibilityFiles = [
+  {
+    path: 'apps/web/src/app/(app)/app-shell.tsx',
+    patterns: [
+      { name: 'app shell is not a main landmark wrapper', pattern: /<div className="grid min-h-screen/ },
+      { name: 'mobile navigation dialog', pattern: /role="dialog"[\s\S]*aria-modal="true"/ },
+      { name: 'mobile nav aria controls', pattern: /aria-controls="vault-mobile-navigation"/ },
+      { name: 'mobile focus trap', pattern: /onKeyDown={trapMobileNavFocus}/ },
+      { name: 'active navigation current page', pattern: /aria-current={active \? 'page' : undefined}/ },
+      { name: 'decorative app shell icons hidden', pattern: /aria-hidden="true"/ },
+      { name: 'mobile overflow lock', pattern: /document\.body\.style\.overflow = 'hidden'/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/page-shell.tsx',
+    patterns: [
+      { name: 'page main landmark', pattern: /<main/ },
+      { name: 'page width min-w-0', pattern: /min-w-0/ },
+      { name: 'bounded desktop width', pattern: /max-w-\[1480px\]/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/page-header.tsx',
+    patterns: [
+      { name: 'responsive header actions', pattern: /flex-col[\s\S]*md:flex-row/ },
+      { name: 'breadcrumb navigation label', pattern: /aria-label="이동 경로"/ },
+      { name: 'active breadcrumb current page', pattern: /aria-current={index === breadcrumbs\.length - 1 \? 'page' : undefined}/ },
+      { name: 'wrapped header actions', pattern: /flex-wrap/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/section-card.tsx',
+    patterns: [
+      { name: 'bounded card overflow', pattern: /overflow-hidden/ },
+      { name: 'wrapped card actions', pattern: /flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/filter-bar.tsx',
+    patterns: [
+      { name: 'filter accessible label', pattern: /aria-label={label}/ },
+      { name: 'responsive filter controls', pattern: /sm:grid-cols-\[repeat\(auto-fit,minmax\(180px,1fr\)\)\]/ },
+      { name: 'filter result live region', pattern: /aria-live="polite"/ },
+      { name: 'wrapped filter actions', pattern: /flex min-w-0 flex-wrap items-center justify-end gap-2/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/data-table.tsx',
+    patterns: [
+      { name: 'table horizontal overflow containment', pattern: /overflow-x-auto/ },
+      { name: 'table screen-reader caption', pattern: /caption className="sr-only"/ },
+      { name: 'selectable row keyboard access', pattern: /tabIndex={selectable \? 0 : undefined}/ },
+      { name: 'selectable row active state', pattern: /aria-selected={selected}/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/empty-state.tsx',
+    patterns: [
+      { name: 'empty state status role', pattern: /role={resolvedRole}/ },
+      { name: 'empty state live region', pattern: /aria-live={resolvedLive}/ },
+      { name: 'empty state labelled by title', pattern: /aria-labelledby={ariaLabelledBy \?\? titleId}/ },
+      { name: 'empty state actions wrap', pattern: /flex flex-wrap items-center justify-center gap-2/ },
+    ],
+  },
+];
+
 const findings = [];
 
 function fail(message) {
@@ -808,6 +874,17 @@ function checkReleaseHardeningGuard() {
   }
 }
 
+function checkResponsiveAccessibilityGuard() {
+  for (const file of responsiveAccessibilityFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Responsive/accessibility production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -821,6 +898,7 @@ try {
   checkGovernanceWorkflowOpsGuard();
   checkAdminIntegrationsGuard();
   checkReleaseHardeningGuard();
+  checkResponsiveAccessibilityGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

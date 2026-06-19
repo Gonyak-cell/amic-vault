@@ -934,6 +934,7 @@ PR-F implementation note:
 - `pnpm check:ui-pr-checklist` now requires the hardening document and checks for authenticated DMS smoke, negative auth, rollback, and monitor coverage.
 - `pnpm ui:production-smoke` now validates the release hardening baseline in addition to production route/UI guards.
 - General-user workflow copy was hardened so fake-task explanations and internal-reference fallback labels are replaced with operating-language empty/unavailable states; `pnpm ui:production-smoke` now blocks those fake operational copy regressions in production app sources.
+- Responsive/accessibility hardening now enforces the AppShell landmark model, mobile navigation dialog controls, active navigation `aria-current`, wrapped responsive layout primitives, table overflow containment, and empty-state live-region contracts through component tests and `pnpm ui:production-smoke`.
 - Actual authenticated smoke receipts still require approved production/staging credentials and must be attached as refs only before production signoff.
 
 ## Dependency Ladder

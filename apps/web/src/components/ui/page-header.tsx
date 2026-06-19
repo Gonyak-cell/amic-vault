@@ -25,7 +25,10 @@ export function PageHeader({
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={`${crumb}-${index}`}>
                 {index > 0 ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : null}
-                <span className={index === breadcrumbs.length - 1 ? 'font-semibold text-foreground' : undefined}>
+                <span
+                  aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined}
+                  className={index === breadcrumbs.length - 1 ? 'font-semibold text-foreground' : undefined}
+                >
                   {crumb}
                 </span>
               </React.Fragment>

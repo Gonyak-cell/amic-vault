@@ -42,6 +42,7 @@ describe('AppShell', () => {
     );
 
     expect(html).toContain('AMIC Vault');
+    expect(html).not.toContain('<main class="grid min-h-screen');
     expect(html).toContain('aria-label="Vault 검색"');
     expect(html).toContain('aria-controls="vault-mobile-navigation"');
     expect(html).toContain('aria-expanded="false"');
@@ -59,6 +60,7 @@ describe('AppShell', () => {
     expect(html).toContain('검색 폴더');
     expect(html).toContain('Dashboard payload');
     expect(html).toContain('href="/dashboard"');
+    expect(html).toContain('aria-hidden="true"');
     expect(html).not.toContain('href="/launch"');
     expect(html).toContain('href="/records"');
     expect(html).not.toContain('Gonyak Legal Ops');

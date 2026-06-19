@@ -126,7 +126,7 @@ export function AppShell({
   }
 
   return (
-    <main className="grid min-h-screen grid-rows-[63px_minmax(0,1fr)] overflow-x-hidden bg-background text-foreground">
+    <div className="grid min-h-screen grid-rows-[63px_minmax(0,1fr)] overflow-x-hidden bg-background text-foreground">
       <header className="sticky top-0 z-30 grid h-[63px] grid-cols-[minmax(0,1fr)_auto] items-center bg-[linear-gradient(90deg,hsl(var(--primary-strong))_0%,hsl(var(--primary))_100%)] text-primary-foreground shadow-sm md:grid-cols-[255px_minmax(0,1fr)]">
         <Link
           href="/dashboard"
@@ -151,7 +151,11 @@ export function AppShell({
             aria-controls="vault-mobile-navigation"
             onClick={() => (mobileNavOpen ? closeMobileNav(false) : setMobileNavOpen(true))}
           >
-            {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {mobileNavOpen ? (
+              <X className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Menu className="h-4 w-4" aria-hidden="true" />
+            )}
           </button>
           <LogoutButton compact />
         </div>
@@ -170,7 +174,7 @@ export function AppShell({
               href="/notifications"
               className="hidden h-9 items-center gap-2 rounded-md bg-white/12 px-3 text-xs font-semibold text-white/90 ring-1 ring-white/16 transition-colors hover:bg-white/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white lg:inline-flex"
             >
-              <Bell className="h-4 w-4" />
+              <Bell className="h-4 w-4" aria-hidden="true" />
               {t('nav.notifications')}
             </Link>
             <LogoutButton />
@@ -206,7 +210,7 @@ export function AppShell({
                 aria-label={t('nav.close')}
                 onClick={() => closeMobileNav()}
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
             <div className="border-b p-3">
@@ -239,7 +243,7 @@ export function AppShell({
           {children}
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -350,8 +354,10 @@ function NavItem({ item, onNavigate }: { item: NavigationItem; onNavigate?: (() 
       aria-current={active ? 'page' : undefined}
       {...clickProps}
     >
-      {active ? <span className="absolute -left-2.5 top-2 h-5 w-[3px] rounded-full bg-primary" /> : null}
-      <Icon className="h-4 w-4 shrink-0" />
+      {active ? (
+        <span className="absolute -left-2.5 top-2 h-5 w-[3px] rounded-full bg-primary" aria-hidden="true" />
+      ) : null}
+      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span>{item.label}</span>
     </Link>
   );

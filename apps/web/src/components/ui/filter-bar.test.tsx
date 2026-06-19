@@ -26,6 +26,9 @@ describe('FilterBar', () => {
     expect(html).toContain('bg-card');
     expect(html).toContain('text-muted-foreground');
     expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]');
+    expect(html).toContain('flex-wrap');
+    expect(html).toContain('justify-end');
     expect(html).toContain('for="actor"');
     expect(html).toContain('적용');
   });

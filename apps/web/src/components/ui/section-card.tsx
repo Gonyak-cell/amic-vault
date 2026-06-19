@@ -29,7 +29,11 @@ export function SectionCard({
             {meta ? <p className="truncate text-[11px] text-muted-foreground">{meta}</p> : null}
           </div>
         </div>
-        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        {actions ? (
+          <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
+            {actions}
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent className="p-4 sm:p-[18px]">{children}</CardContent>
     </Card>
