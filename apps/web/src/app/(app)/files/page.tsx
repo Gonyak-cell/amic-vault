@@ -20,6 +20,12 @@ export default function FilesPage() {
   const sourceMode = matterAppSourceMode();
   const [selectedMatter, setSelectedMatter] = React.useState<MatterCodeOption | null>(null);
   const [latestUpload, setLatestUpload] = React.useState<UploadDocumentResponseDto | null>(null);
+  const [uploadRevision, setUploadRevision] = React.useState(0);
+
+  const handleUploadComplete = React.useCallback((result: UploadDocumentResponseDto) => {
+    setLatestUpload(result);
+    setUploadRevision((current) => current + 1);
+  }, []);
 
   return (
     <PageShell>
@@ -76,7 +82,7 @@ export default function FilesPage() {
         <DocumentUploadPanel
           selectedMatter={selectedMatter}
           sourceMode={sourceMode}
-          onUploadComplete={setLatestUpload}
+          onUploadComplete={handleUploadComplete}
         />
       </SectionCard>
       {latestUpload?.aiAllowed ? (
@@ -87,7 +93,7 @@ export default function FilesPage() {
         title="선택한 Matter 문서"
         meta="권한 확인 문서"
       >
-        <MatterDocumentList selectedMatter={selectedMatter} />
+        <MatterDocumentList refreshKey={uploadRevision} selectedMatter={selectedMatter} />
       </SectionCard>
     </PageShell>
   );

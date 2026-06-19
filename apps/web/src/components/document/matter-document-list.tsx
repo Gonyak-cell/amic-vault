@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 
 export interface MatterDocumentListProps {
+  refreshKey?: number | string;
   selectedMatter: MatterCodeOption | null;
 }
 
@@ -21,7 +22,7 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-export function MatterDocumentList({ selectedMatter }: MatterDocumentListProps) {
+export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDocumentListProps) {
   const [documents, setDocuments] = React.useState<DocumentDto[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -48,7 +49,7 @@ export function MatterDocumentList({ selectedMatter }: MatterDocumentListProps) 
     return () => {
       active = false;
     };
-  }, [selectedMatter]);
+  }, [refreshKey, selectedMatter]);
 
   if (!selectedMatter) {
     return (
