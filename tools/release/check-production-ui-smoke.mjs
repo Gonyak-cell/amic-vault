@@ -25,11 +25,13 @@ const forbiddenPatterns = [
   { name: 'nullish fallback count', pattern: /\?\?\s*0\b/ },
   {
     name: 'unsafe id slice formatter',
-    pattern: /\b(documentId|matterId|clientId|userId|tenantId|workspaceId)\b[^;\n]*\.slice\s*\(\s*0\s*,/i,
+    pattern:
+      /\b(documentId|matterId|clientId|userId|tenantId|workspaceId)\b[^;\n]*\.slice\s*\(\s*0\s*,/i,
   },
   {
     name: 'unsafe id short hash formatter',
-    pattern: /\bshortHash\s*\(\s*(status\.)?(matterId|documentId|clientId|userId|tenantId|workspaceId|selectedMatterId|selectedDocumentId)\b/i,
+    pattern:
+      /\bshortHash\s*\(\s*(status\.)?(matterId|documentId|clientId|userId|tenantId|workspaceId|selectedMatterId|selectedDocumentId)\b/i,
   },
   { name: 'workspace id visible copy', pattern: /workspace\s*id|워크스페이스 ID/i },
   { name: 'theme selector copy', pattern: /디자인 테마|design theme/i },
@@ -38,6 +40,12 @@ const forbiddenPatterns = [
   { name: 'model response copy', pattern: /model response|model-response|모델 응답/i },
   { name: 'external model copy', pattern: /external model|외부 모델/i },
   { name: 'legal analysis copy', pattern: /legal analysis|법률 분석/i },
+  {
+    name: 'fake operational copy',
+    pattern:
+      /가짜\s*(작업|데이터|문서|사건|수)|fake\s+(task|data|document|matter|count)|mock\s+(task|data|document|matter)|sample\s+(default|data|document|matter)|demo\s+(data|tenant|matter|document)/i,
+  },
+  { name: 'implementation fallback copy', pattern: /작업 API가 없는/i },
 ];
 
 const blockedRouteForbiddenLiterals = [
@@ -51,25 +59,70 @@ const blockedRouteForbiddenLiterals = [
 ];
 
 const designSystemChecklistPatterns = [
-  { name: 'screen inventory', pattern: /Login[\s\S]*AppShell[\s\S]*Dashboard[\s\S]*Matters[\s\S]*Search[\s\S]*Records[\s\S]*Audit[\s\S]*Admin/ },
+  {
+    name: 'screen inventory',
+    pattern:
+      /Login[\s\S]*AppShell[\s\S]*Dashboard[\s\S]*Matters[\s\S]*Search[\s\S]*Records[\s\S]*Audit[\s\S]*Admin/,
+  },
   { name: 'token and raw hex rules', pattern: /shared CSS tokens[\s\S]*raw hex color literals/i },
-  { name: 'component rules', pattern: /PageHeader[\s\S]*SectionCard[\s\S]*EmptyState[\s\S]*StatusBadge/ },
+  {
+    name: 'component rules',
+    pattern: /PageHeader[\s\S]*SectionCard[\s\S]*EmptyState[\s\S]*StatusBadge/,
+  },
   { name: 'shadow and gradient rules', pattern: /custom shadows[\s\S]*custom gradient/i },
   { name: 'responsive viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
-  { name: 'fake data and reference safety', pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*AI Prep/i },
+  {
+    name: 'fake data and reference safety',
+    pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*AI Prep/i,
+  },
 ];
 
 const productionInventoryPatterns = [
-  { name: 'status definitions', pattern: /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/ },
-  { name: 'core visible routes', pattern: /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`/ },
-  { name: 'admin and governance routes', pattern: /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/admin[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/ },
-  { name: 'document vault visible route', pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i },
-  { name: 'API-unready routes', pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/ },
-  { name: 'AI Prep limited route', pattern: /\/ai-prep[\s\S]*`visible_limited`[\s\S]*File organization prep\/readiness only/i },
-  { name: 'hidden route list', pattern: /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`[\s\S]*\/contracts[\s\S]*`hidden`[\s\S]*\/dd[\s\S]*`hidden`[\s\S]*\/litigation[\s\S]*`hidden`/ },
-  { name: 'route policy source link', pattern: /apps\/web\/src\/lib\/features\.ts[\s\S]*apps\/web\/src\/lib\/navigation\.ts/ },
-  { name: 'production data invariants', pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*tenant ID[\s\S]*raw UUID slices/i },
-  { name: 'AI scope exclusion', pattern: /Legal analysis[\s\S]*summary[\s\S]*external model[\s\S]*raw prompt[\s\S]*model response/i },
+  {
+    name: 'status definitions',
+    pattern:
+      /visible[\s\S]*visible_admin_only[\s\S]*visible_limited[\s\S]*hidden_until_api_ready[\s\S]*hidden/,
+  },
+  {
+    name: 'core visible routes',
+    pattern:
+      /\/dashboard[\s\S]*`visible`[\s\S]*\/matters[\s\S]*`visible`[\s\S]*\/search[\s\S]*`visible`[\s\S]*\/search\/folders[\s\S]*`visible`[\s\S]*\/work[\s\S]*`visible`[\s\S]*\/notifications[\s\S]*`visible`/,
+  },
+  {
+    name: 'admin and governance routes',
+    pattern:
+      /\/records[\s\S]*`visible_admin_only`[\s\S]*\/audit[\s\S]*`visible_admin_only`[\s\S]*\/walls[\s\S]*`visible_admin_only`[\s\S]*\/admin[\s\S]*`visible_admin_only`[\s\S]*\/enterprise[\s\S]*`visible_admin_only`/,
+  },
+  {
+    name: 'document vault visible route',
+    pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i,
+  },
+  {
+    name: 'API-unready routes',
+    pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/,
+  },
+  {
+    name: 'AI Prep limited route',
+    pattern: /\/ai-prep[\s\S]*`visible_limited`[\s\S]*File organization prep\/readiness only/i,
+  },
+  {
+    name: 'hidden route list',
+    pattern:
+      /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`[\s\S]*\/contracts[\s\S]*`hidden`[\s\S]*\/dd[\s\S]*`hidden`[\s\S]*\/litigation[\s\S]*`hidden`/,
+  },
+  {
+    name: 'route policy source link',
+    pattern: /apps\/web\/src\/lib\/features\.ts[\s\S]*apps\/web\/src\/lib\/navigation\.ts/,
+  },
+  {
+    name: 'production data invariants',
+    pattern: /fake\/mock\/sample\/demo[\s\S]*workspace ID[\s\S]*tenant ID[\s\S]*raw UUID slices/i,
+  },
+  {
+    name: 'AI scope exclusion',
+    pattern:
+      /Legal analysis[\s\S]*summary[\s\S]*external model[\s\S]*raw prompt[\s\S]*model response/i,
+  },
 ];
 
 const uploadBrowseFlowFiles = [
@@ -84,8 +137,16 @@ const uploadBrowseFlowFiles = [
   },
   {
     path: 'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
+    patterns: [{ name: 'matter detail file section', pattern: /MatterFileSection/ }],
+  },
+  {
+    path: 'apps/web/src/components/document/matter-file-section.tsx',
     patterns: [
-      { name: 'matter detail file section', pattern: /MatterFileSection/ },
+      { name: 'matter filing context card', pattern: /파일링 기준/ },
+      { name: 'metadata filing model', pattern: /Matter 메타데이터 기준/ },
+      { name: 'no pseudo folder model', pattern: /폴더 모델[\s\S]*미적용/ },
+      { name: 'matter-scoped browse copy', pattern: /Matter 범위 목록/ },
+      { name: 'Matter Code upload copy', pattern: /Matter Code 확인 후 업로드/ },
     ],
   },
   {
@@ -101,30 +162,65 @@ const uploadBrowseFlowFiles = [
     path: 'apps/web/src/lib/matter-app.ts',
     patterns: [
       { name: 'Matter app configured flag', pattern: /NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED/ },
-      { name: 'projection fallback production guard', pattern: /NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE/ },
-      { name: 'source mode fail closed', pattern: /return isMatterAppSourceConfigured\(mode\) \? mode : 'unconfigured'/ },
+      {
+        name: 'projection fallback production guard',
+        pattern: /NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE/,
+      },
+      {
+        name: 'source mode fail closed',
+        pattern: /return isMatterAppSourceConfigured\(mode\) \? mode : 'unconfigured'/,
+      },
     ],
   },
   {
     path: 'apps/web/src/components/matter/matter-code-picker.tsx',
     patterns: [
       { name: 'no unconfigured Matter app upload', pattern: /Matter app 연결 필요/ },
-      { name: 'permission-scoped matter list lookup', pattern: /listMatters\(\{ pageSize: 50 \}\)/ },
+      {
+        name: 'permission-scoped matter list lookup',
+        pattern: /listMatters\(\{ pageSize: 50 \}\)/,
+      },
     ],
   },
   {
     path: 'apps/web/src/components/document/document-upload-panel.tsx',
     patterns: [
-      { name: 'selected matter required before upload', pattern: /Matter Code를 먼저 선택해 주세요/ },
+      {
+        name: 'selected matter required before upload',
+        pattern: /Matter Code를 먼저 선택해 주세요/,
+      },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
-      { name: 'matter-scoped upload call', pattern: /uploadDocument\(selectedMatter\.matterReference/ },
+      {
+        name: 'matter-scoped upload call',
+        pattern: /uploadDocument\(selectedMatter\.matterReference/,
+      },
+      { name: 'bulk file picker', pattern: /multiple/ },
+      { name: 'bulk upload queue', pattern: /업로드 큐/ },
     ],
   },
   {
     path: 'apps/web/src/components/document/matter-document-list.tsx',
     patterns: [
-      { name: 'selected matter required before list', pattern: /Matter Code를 선택하면 파일 목록이 표시됩니다/ },
-      { name: 'matter-scoped list call', pattern: /listMatterDocuments\(selectedMatter\.matterReference/ },
+      {
+        name: 'selected matter required before list',
+        pattern: /Matter Code를 선택하면 파일 목록이 표시됩니다/,
+      },
+      {
+        name: 'matter-scoped list call',
+        pattern: /listMatterDocuments\(selectedMatter\.matterReference/,
+      },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-vault-list.tsx',
+    patterns: [
+      { name: 'document vault filter bar', pattern: /문서함 필터/ },
+      { name: 'document vault Matter Code filter', pattern: /document-vault-matter-code/ },
+      { name: 'document vault security filter', pattern: /document-vault-confidentiality/ },
+      { name: 'document vault AI prep filter', pattern: /document-vault-ai-allowed/ },
+      { name: 'document vault extraction filter', pattern: /document-vault-extraction-status/ },
+      { name: 'document vault extraction status display', pattern: /extractionStatusLabels/ },
+      { name: 'server query from vault filters', pattern: /documentVaultListQueryFromFilters/ },
     ],
   },
   {
@@ -133,6 +229,10 @@ const uploadBrowseFlowFiles = [
       { name: 'query-stage document list source', pattern: /FROM document_search_index idx/ },
       { name: 'search permission scope for document list', pattern: /scopeForSearch/ },
       { name: 'matter-scoped document list API service', pattern: /listMatterDocuments/ },
+      { name: 'document list filter SQL', pattern: /documentListFilterClauses/ },
+      { name: 'document list sort whitelist', pattern: /documentListOrderBy/ },
+      { name: 'document list extraction state join', pattern: /LEFT JOIN canonical_documents cd/ },
+      { name: 'document list extraction filter', pattern: /cd\.extraction_status/ },
     ],
   },
 ];
@@ -143,6 +243,7 @@ const documentActionCenterFiles = [
     patterns: [
       { name: 'document detail action center route', pattern: /DocumentActionCenter/ },
       { name: 'document detail app shell wrapper', pattern: /PageShell/ },
+      { name: 'document search hit context route params', pattern: /searchHitContextFromParams/ },
     ],
   },
   {
@@ -157,7 +258,10 @@ const documentActionCenterFiles = [
       { name: 'new version upload flow', pattern: /addDocumentVersion/ },
       { name: 'document audit timeline integration', pattern: /DocumentAuditTimeline/ },
       { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
-      { name: 'related items safe state', pattern: /표시할 연결 항목이 없습니다/ },
+      { name: 'search hit context panel', pattern: /검색 결과 문맥/ },
+      { name: 'bounded search hit parser', pattern: /boundedInteger/ },
+      { name: 'records action entry points', pattern: /recordsUrlForDocument/ },
+      { name: 'file cabinet return link', pattern: /fileCabinetUrlForDocument/ },
     ],
   },
   {
@@ -170,9 +274,7 @@ const documentActionCenterFiles = [
   },
   {
     path: 'apps/web/src/lib/api/audit.ts',
-    patterns: [
-      { name: 'document audit API client', pattern: /documents.*audit-events/ },
-    ],
+    patterns: [{ name: 'document audit API client', pattern: /documents.*audit-events/ }],
   },
   {
     path: 'apps/web/src/lib/api-client.ts',
@@ -202,7 +304,27 @@ const enterpriseSearchFiles = [
       { name: 'search target DTO', pattern: /searchTargets/ },
       { name: 'search sort DTO', pattern: /searchSorts/ },
       { name: 'search group DTO', pattern: /searchGroupBys/ },
-      { name: 'display text filters', pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/ },
+      { name: 'saved search DTO', pattern: /createSavedSearchSchema/ },
+      {
+        name: 'display text filters',
+        pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/,
+      },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/search.controller.ts',
+    patterns: [
+      { name: 'saved search list route', pattern: /Get\('saved-searches'\)/ },
+      { name: 'saved search save route', pattern: /Post\('saved-searches'\)/ },
+      { name: 'saved search delete route', pattern: /Delete\('saved-searches\/:savedSearchId'\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/search.service.ts',
+    patterns: [
+      { name: 'saved search table access', pattern: /FROM saved_searches/ },
+      { name: 'saved search scoped delete', pattern: /DELETE FROM saved_searches/ },
+      { name: 'saved search bounded audit refs', pattern: /savedSearchFilterRefs/ },
     ],
   },
   {
@@ -227,18 +349,65 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/app/(app)/search/search-client.tsx',
     patterns: [
       { name: 'advanced search controls wired', pattern: /SearchAdvancedControls/ },
+      { name: 'search save panel wired', pattern: /SearchSavePanel/ },
+      { name: 'saved search API list wired', pattern: /listSavedSearches/ },
+      { name: 'saved search API save wired', pattern: /saveSavedSearch/ },
+      { name: 'saved search API delete wired', pattern: /deleteSavedSearch/ },
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
     ],
   },
   {
+    path: 'apps/web/src/app/(app)/search/folders/search-folders-client.tsx',
+    patterns: [
+      { name: 'search folders route saved-search API list', pattern: /listSavedSearches/ },
+      { name: 'search folders route saved-search API delete', pattern: /deleteSavedSearch/ },
+      { name: 'search folders route title', pattern: /내 검색 폴더/ },
+      { name: 'search folders safe URL helper', pattern: /searchUrlForSavedQuery/ },
+      { name: 'search folders no id display by design', pattern: /savedSearchId/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-save-panel.tsx',
+    patterns: [
+      { name: 'current search reusable link', pattern: /링크 복사/ },
+      { name: 'saved search list', pattern: /검색 목록/ },
+      { name: 'saved search save action', pattern: /onSaveSearch/ },
+      { name: 'saved search delete action', pattern: /onDeleteSavedSearch/ },
+      { name: 'search pattern summary', pattern: /searchPatternItems/ },
+    ],
+  },
+  {
     path: 'apps/web/src/components/search/search-advanced-controls.tsx',
     patterns: [
       { name: 'Matter Code filter UI', pattern: /Matter Code/ },
+      { name: 'Matter name filter UI', pattern: /Matter 이름/ },
+      { name: 'document type filter UI', pattern: /문서 유형/ },
+      { name: 'searchability filter UI', pattern: /추출\/OCR/ },
+      { name: 'version status filter UI', pattern: /버전 상태/ },
+      { name: 'updated date range filter UI', pattern: /수정 기간/ },
       { name: 'search range selector', pattern: /검색 범위/ },
       { name: 'sort selector', pattern: /정렬/ },
       { name: 'group selector', pattern: /그룹/ },
+      { name: 'active search filter chips', pattern: /활성 필터/ },
+      { name: 'query syntax help', pattern: /검색식 도움말/ },
+      { name: 'exact phrase query hint', pattern: /정확한 문구/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/search-facets.tsx',
+    patterns: [
+      { name: 'searchability facet group', pattern: /search\.facet\.searchability/ },
+      { name: 'extraction failed facet label', pattern: /search\.facet\.extractionFailed/ },
+      { name: 'extraction status selection', pattern: /extractionStatus/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/search/result-card.tsx',
+    patterns: [
+      { name: 'searchability result status', pattern: /extractionStatus/ },
+      { name: 'body search limitation copy', pattern: /본문 검색 품질이 제한/ },
     ],
   },
   {
@@ -273,15 +442,135 @@ const governanceWorkflowOpsFiles = [
     path: 'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
     patterns: [
       { name: 'matter governance panel wired', pattern: /MatterGovernanceContextPanel/ },
+      { name: 'matter audit timeline wired', pattern: /MatterAuditTimeline/ },
       { name: 'matter workflow ops panel wired', pattern: /MatterWorkflowOpsPanel/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-audit-timeline.tsx',
+    patterns: [
+      { name: 'matter-scoped audit endpoint client', pattern: /listMatterAuditEvents/ },
+      { name: 'matter audit timeline heading', pattern: /사건 감사 타임라인/ },
+      { name: 'matter audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
+      { name: 'matter audit stale row clearing', pattern: /setError\(null\);\s*setEvents\(\[\]\);/ },
+      { name: 'matter audit denied reload clearing', pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/document-audit-timeline.tsx',
+    patterns: [
+      { name: 'document-scoped audit endpoint client', pattern: /listDocumentAuditEvents/ },
+      { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
+      { name: 'document audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
+      { name: 'document audit stale row clearing', pattern: /setError\(null\);\s*setEvents\(\[\]\);/ },
+      { name: 'document audit denied reload clearing', pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/ },
     ],
   },
   {
     path: 'apps/web/src/app/(app)/dashboard/vault-activity-client.tsx',
     patterns: [
-      { name: 'dashboard action queue', pattern: /DashboardActionQueue/ },
-      { name: 'real operations task copy', pattern: /실제 운영 데이터에서 발생한 작업만 표시/ },
-      { name: 'no fake dashboard queue counts', pattern: /dashboardActionItems/ },
+      { name: 'dashboard DMS action launcher', pattern: /DMS 작업 바로가기/ },
+      { name: 'dashboard upload shortcut', pattern: /\/files#matter-upload/ },
+      { name: 'dashboard file cabinet shortcut', pattern: /전체 문서함/ },
+      { name: 'dashboard search shortcut', pattern: /\/search/ },
+      { name: 'dashboard search folders shortcut', pattern: /\/search\/folders/ },
+      { name: 'dashboard work queue shortcut', pattern: /\/work/ },
+      { name: 'dashboard notifications shortcut', pattern: /\/notifications/ },
+      { name: 'dashboard AI prep file filter shortcut', pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/ },
+      { name: 'dashboard ops health shortcut', pattern: /\/admin/ },
+      { name: 'dashboard action queue', pattern: /DashboardWorkQueueSection/ },
+      { name: 'no fake dashboard queue counts', pattern: /DashboardWorkQueueSection/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/work/work-queue-client.tsx',
+    patterns: [
+      { name: 'work queue page heading', pattern: /작업함/ },
+      { name: 'work queue dashboard source', pattern: /getDashboardOverview/ },
+      { name: 'work queue dedicated API source', pattern: /getWorkQueue/ },
+      { name: 'work queue API state mapping', pattern: /workQueueToState/ },
+      { name: 'work queue action console filters', pattern: /작업함 조치 콘솔/ },
+      { name: 'work queue source filter', pattern: /work-source-filter/ },
+      { name: 'work queue status filter', pattern: /work-status-filter/ },
+      { name: 'work queue attention sort', pattern: /주의 항목 우선/ },
+      { name: 'work queue file cabinet filters', pattern: /문서함 조치 필터/ },
+      { name: 'work queue extraction failed link', pattern: /\/files\?extractionStatus=failed/ },
+      { name: 'work queue metadata completion link', pattern: /\/files\?status=draft/ },
+      {
+        name: 'work queue AI prep file link',
+        pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/,
+      },
+      { name: 'work queue records action link', pattern: /\/records/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/notifications/notifications-client.tsx',
+    patterns: [
+      { name: 'notifications page heading', pattern: /알림/ },
+      { name: 'notifications dashboard source', pattern: /getDashboardOverview/ },
+      { name: 'notifications dedicated API source', pattern: /getNotificationCenter/ },
+      { name: 'notifications API state mapping', pattern: /notificationCenterToState/ },
+      { name: 'notifications action console filters', pattern: /알림 조치 콘솔/ },
+      { name: 'notifications source filter', pattern: /notification-source-filter/ },
+      { name: 'notifications status filter', pattern: /notification-status-filter/ },
+      { name: 'notifications attention sort', pattern: /주의 알림 우선/ },
+      { name: 'real notification copy', pattern: /실제 운영 이벤트와 상태 알림만 표시/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/dashboard/dashboard-notifications.tsx',
+    patterns: [
+      { name: 'notification source action route', pattern: /notificationHref/ },
+      { name: 'permission notification route', pattern: /permission_policy'\) return '\/audit'/ },
+      {
+        name: 'file organization notification route',
+        pattern: /ai_prep'\) return '\/files\?aiAllowed=true&sortBy=matter_asc'/,
+      },
+      { name: 'integration notification route', pattern: /integration'\) return '\/integrations\/outlook'/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/dashboard/dashboard.controller.ts',
+    patterns: [
+      { name: 'work items endpoint', pattern: /@Controller\('work'\)[\s\S]*@Get\('items'\)/ },
+      { name: 'notifications endpoint', pattern: /@Controller\('notifications'\)[\s\S]*@Get\(\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/dashboard/dashboard.service.ts',
+    patterns: [
+      { name: 'work queue response schema', pattern: /dmsWorkQueueResponseSchema/ },
+      { name: 'notification center response schema', pattern: /dmsNotificationCenterResponseSchema/ },
+      { name: 'dashboard-derived work items', pattern: /workItemsFromOverview/ },
+      { name: 'dashboard-derived notifications', pattern: /notificationItemsFromOverview/ },
+    ],
+  },
+  {
+    path: 'packages/shared/src/dashboard/dashboard-types.ts',
+    patterns: [
+      { name: 'DMS work queue response DTO', pattern: /dmsWorkQueueResponseSchema/ },
+      { name: 'DMS notification center response DTO', pattern: /dmsNotificationCenterResponseSchema/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/dashboard/dashboard-work-queue.tsx',
+    patterns: [
+      { name: 'shared dashboard action derivation', pattern: /dashboardActionItems/ },
+      { name: 'work API derived task copy', pattern: /작업 API가 실제 운영 상태에서 파생한 항목만 표시/ },
+      { name: 'permission policy task', pattern: /권한\/정책 알림 확인/ },
+      { name: 'file organization prep task', pattern: /파일 정리 준비 상태 확인/ },
+      { name: 'no persisted task claim', pattern: /DashboardOverviewState/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/dashboard/dashboard-notifications.tsx',
+    patterns: [
+      { name: 'shared dashboard notification derivation', pattern: /dashboardNotificationItems/ },
+      {
+        name: 'real notification empty copy',
+        pattern: /실제 운영 이벤트와 상태에서 발생한 알림만 표시/,
+      },
+      { name: 'no fake notification source', pattern: /DashboardOverviewState/ },
     ],
   },
   {
@@ -299,9 +588,16 @@ const adminIntegrationsFiles = [
     path: 'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
     patterns: [
       { name: 'DMS configuration IA panel', pattern: /AdminDmsConfigurationPanel/ },
+      { name: 'operations health panel', pattern: /AdminOpsHealthPanel/ },
+      { name: 'AI ops health client', pattern: /getLocalAiOpsHealth/ },
+      { name: 'AI ops metrics client', pattern: /getLocalAiOpsMetrics/ },
+      { name: 'file organization prep scoped ops copy', pattern: /파일 정리 준비 전용/ },
       { name: 'taxonomy admin contract state', pattern: /taxonomy/ },
       { name: 'matter template admin contract state', pattern: /templates/ },
       { name: 'search refiner admin contract state', pattern: /refiners/ },
+      { name: 'search index operations panel', pattern: /AdminSearchOperationsPanel/ },
+      { name: 'tenant reindex API client', pattern: /requestTenantSearchReindex/ },
+      { name: 'reindex audit-only status copy', pattern: /감사 기록과 큐 등록 수/ },
       { name: 'read-only until API approved copy', pattern: /저장 API 승인 전 읽기 전용/ },
     ],
   },
@@ -324,18 +620,141 @@ const adminIntegrationsFiles = [
 ];
 
 const releaseHardeningPatterns = [
-  { name: 'authenticated main loop smoke', pattern: /Login[\s\S]*Matter Code[\s\S]*Upload[\s\S]*document detail[\s\S]*Search/i },
+  {
+    name: 'authenticated main loop smoke',
+    pattern: /Login[\s\S]*Matter Code[\s\S]*Upload[\s\S]*document detail[\s\S]*Search/i,
+  },
   { name: 'negative auth smoke', pattern: /Non-member[\s\S]*Wall-blocked[\s\S]*Non-admin/i },
   { name: 'no fake data sweep', pattern: /DMS-UX-803 No Fake Data Sweep/ },
   { name: 'internal ref sweep', pattern: /DMS-UX-804 Internal Ref Sweep/ },
   { name: 'AI scope sweep', pattern: /DMS-UX-805 AI Scope Sweep/ },
   { name: 'responsive QA viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
-  { name: 'accessibility QA', pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i },
+  {
+    name: 'accessibility QA',
+    pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i,
+  },
   { name: 'evidence package refs only', pattern: /Evidence package[\s\S]*refs only/i },
   { name: 'rollout checklist', pattern: /DMS-UX-809 Rollout Checklist/ },
   { name: 'rollback plan', pattern: /DMS-UX-810 Rollback Plan/ },
   { name: 'production monitor', pattern: /DMS-UX-811 Production Monitor/ },
-  { name: 'release signoff owners', pattern: /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i },
+  {
+    name: 'release signoff owners',
+    pattern:
+      /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i,
+  },
+];
+
+const enterpriseDmsReleaseEvidencePatterns = [
+  {
+    name: 'refs-only data handling',
+    pattern:
+      /Status: TEMPLATE - REFS ONLY[\s\S]*Do not record customer file\s+contents[\s\S]*raw prompts[\s\S]*model responses/i,
+  },
+  {
+    name: 'release owners and rollback owner',
+    pattern:
+      /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner/i,
+  },
+  {
+    name: 'DMS-UX-808 automated gate receipts',
+    pattern:
+      /DMS-UX-808 Evidence Package[\s\S]*pnpm lint[\s\S]*pnpm typecheck[\s\S]*pnpm test[\s\S]*pnpm build[\s\S]*pnpm check:production-ui-literals[\s\S]*pnpm ui:production-smoke[\s\S]*pnpm check:ui-pr-checklist[\s\S]*git diff --check/i,
+  },
+  {
+    name: 'authenticated and negative smoke refs',
+    pattern:
+      /Authenticated main loop smoke receipt[\s\S]*Matter Code selection[\s\S]*Negative auth smoke receipt[\s\S]*wall-blocked[\s\S]*stale-content clearing/i,
+  },
+  {
+    name: 'DMS-UX-809 rollout matrix',
+    pattern:
+      /DMS-UX-809 Rollout Checklist[\s\S]*Matter Code selection before upload[\s\S]*Upload and post-upload processing state[\s\S]*Matter-scoped file list[\s\S]*Title\/body\/metadata search[\s\S]*AI Prep remains file organization prep only/i,
+  },
+  {
+    name: 'DMS-UX-810 rollback controls',
+    pattern:
+      /DMS-UX-810 Rollback Plan[\s\S]*Route visibility policy[\s\S]*Matter app source flags[\s\S]*Worker flags[\s\S]*Database rollback[\s\S]*Storage rollback/i,
+  },
+  {
+    name: 'DMS-UX-811 monitor matrix',
+    pattern:
+      /DMS-UX-811 Production Monitor[\s\S]*Upload failure rate[\s\S]*Extraction\/OCR[\s\S]*Search latency[\s\S]*Permission denied[\s\S]*AI prep queue[\s\S]*Audit write failures[\s\S]*Storage write\/read failures/i,
+  },
+  {
+    name: 'deferred item owner and follow-up TUW',
+    pattern: /Deferred Items[\s\S]*Owner[\s\S]*Follow-up TUW[\s\S]*Release blocker/i,
+  },
+  {
+    name: 'DMS-UX-812 release signoff matrix',
+    pattern:
+      /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner[\s\S]*Exact production scope[\s\S]*Excluded scopes[\s\S]*Approved tenant class[\s\S]*Release timestamp[\s\S]*Evidence package ref/i,
+  },
+];
+
+const responsiveAccessibilityFiles = [
+  {
+    path: 'apps/web/src/app/(app)/app-shell.tsx',
+    patterns: [
+      { name: 'app shell is not a main landmark wrapper', pattern: /<div className="grid min-h-screen/ },
+      { name: 'mobile navigation dialog', pattern: /role="dialog"[\s\S]*aria-modal="true"/ },
+      { name: 'mobile nav aria controls', pattern: /aria-controls="vault-mobile-navigation"/ },
+      { name: 'mobile focus trap', pattern: /onKeyDown={trapMobileNavFocus}/ },
+      { name: 'active navigation current page', pattern: /aria-current={active \? 'page' : undefined}/ },
+      { name: 'decorative app shell icons hidden', pattern: /aria-hidden="true"/ },
+      { name: 'mobile overflow lock', pattern: /document\.body\.style\.overflow = 'hidden'/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/page-shell.tsx',
+    patterns: [
+      { name: 'page main landmark', pattern: /<main/ },
+      { name: 'page width min-w-0', pattern: /min-w-0/ },
+      { name: 'bounded desktop width', pattern: /max-w-\[1480px\]/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/page-header.tsx',
+    patterns: [
+      { name: 'responsive header actions', pattern: /flex-col[\s\S]*md:flex-row/ },
+      { name: 'breadcrumb navigation label', pattern: /aria-label="이동 경로"/ },
+      { name: 'active breadcrumb current page', pattern: /aria-current={index === breadcrumbs\.length - 1 \? 'page' : undefined}/ },
+      { name: 'wrapped header actions', pattern: /flex-wrap/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/section-card.tsx',
+    patterns: [
+      { name: 'bounded card overflow', pattern: /overflow-hidden/ },
+      { name: 'wrapped card actions', pattern: /flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/filter-bar.tsx',
+    patterns: [
+      { name: 'filter accessible label', pattern: /aria-label={label}/ },
+      { name: 'responsive filter controls', pattern: /sm:grid-cols-\[repeat\(auto-fit,minmax\(180px,1fr\)\)\]/ },
+      { name: 'filter result live region', pattern: /aria-live="polite"/ },
+      { name: 'wrapped filter actions', pattern: /flex min-w-0 flex-wrap items-center justify-end gap-2/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/data-table.tsx',
+    patterns: [
+      { name: 'table horizontal overflow containment', pattern: /overflow-x-auto/ },
+      { name: 'table screen-reader caption', pattern: /caption className="sr-only"/ },
+      { name: 'selectable row keyboard access', pattern: /tabIndex={selectable \? 0 : undefined}/ },
+      { name: 'selectable row active state', pattern: /aria-selected={selected}/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/ui/empty-state.tsx',
+    patterns: [
+      { name: 'empty state status role', pattern: /role={resolvedRole}/ },
+      { name: 'empty state live region', pattern: /aria-live={resolvedLive}/ },
+      { name: 'empty state labelled by title', pattern: /aria-labelledby={ariaLabelledBy \?\? titleId}/ },
+      { name: 'empty state actions wrap', pattern: /flex flex-wrap items-center justify-center gap-2/ },
+    ],
+  },
 ];
 
 const findings = [];
@@ -361,7 +780,10 @@ function walk(directory) {
     const stat = statSync(filePath);
     if (stat.isDirectory()) {
       files.push(...walk(path.relative(repoRoot, filePath)));
-    } else if (/\.[tj]sx?$/.test(filePath) && !excludedFilePatterns.some((pattern) => pattern.test(filePath))) {
+    } else if (
+      /\.[tj]sx?$/.test(filePath) &&
+      !excludedFilePatterns.some((pattern) => pattern.test(filePath))
+    ) {
       files.push(filePath);
     }
   }
@@ -454,6 +876,12 @@ function checkRouteVisibility() {
   }
   for (const route of hiddenUntilApiRoutes) {
     assertRoutePolicy(featuresSource, route, 'hidden_until_api_ready', 'false');
+  }
+  if (/route: '\/external/.test(featuresSource)) {
+    fail('External portal routes must stay out of internal route visibility policies');
+  }
+  if (/['"]\/external/.test(navigationSource)) {
+    fail('External portal routes must stay out of internal navigation');
   }
 }
 
@@ -573,6 +1001,26 @@ function checkReleaseHardeningGuard() {
   }
 }
 
+function checkEnterpriseDmsReleaseEvidenceGuard() {
+  const source = readRequired('docs/release/enterprise-dms-ui-release-evidence.md');
+  for (const { name, pattern } of enterpriseDmsReleaseEvidencePatterns) {
+    if (!pattern.test(source)) {
+      fail(`Enterprise DMS release evidence guard missing ${name}`);
+    }
+  }
+}
+
+function checkResponsiveAccessibilityGuard() {
+  for (const file of responsiveAccessibilityFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Responsive/accessibility production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -586,6 +1034,8 @@ try {
   checkGovernanceWorkflowOpsGuard();
   checkAdminIntegrationsGuard();
   checkReleaseHardeningGuard();
+  checkEnterpriseDmsReleaseEvidenceGuard();
+  checkResponsiveAccessibilityGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

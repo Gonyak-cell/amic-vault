@@ -1,9 +1,12 @@
 import {
   Archive,
+  Bell,
   CheckSquare,
   FileText,
   FolderKanban,
+  FolderSearch,
   History,
+  ListChecks,
   MailCheck,
   Search,
   Settings,
@@ -61,6 +64,11 @@ const routeNavigation = {
     icon: Search,
     labelKey: 'nav.search',
   },
+  '/search/folders': {
+    group: 'Vault',
+    icon: FolderSearch,
+    labelKey: 'nav.searchFolders',
+  },
   '/records': {
     group: 'Governance',
     icon: Archive,
@@ -85,6 +93,16 @@ const routeNavigation = {
     group: 'Vault',
     icon: FileText,
     labelKey: 'nav.files',
+  },
+  '/work': {
+    group: 'Vault',
+    icon: ListChecks,
+    labelKey: 'nav.workQueue',
+  },
+  '/notifications': {
+    group: 'Vault',
+    icon: Bell,
+    labelKey: 'nav.notifications',
   },
   '/integrations/outlook': {
     group: 'Integrations',

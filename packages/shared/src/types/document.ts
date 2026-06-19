@@ -43,15 +43,44 @@ export const documentExtractionMethods = [
   'ocr_required',
   'failed',
 ] as const;
+export const listDocumentSortValues = [
+  'updated_desc',
+  'updated_asc',
+  'title_asc',
+  'matter_asc',
+  'type_asc',
+  'status_asc',
+] as const;
 
 export const documentTypeSchema = z.enum(documentTypes);
 export const documentStatusSchema = z.enum(documentStatuses);
 export const documentConfidentialityLevelSchema = z.enum(documentConfidentialityLevels);
 export const documentPrivilegeStatusSchema = z.enum(documentPrivilegeStatuses);
+export const listDocumentSortSchema = z.enum(listDocumentSortValues);
+
+const optionalBooleanQuerySchema = z.preprocess((value) => {
+  if (value === undefined || value === '') return undefined;
+  if (value === true || value === false) return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+}, z.boolean().optional());
+
 export const listDocumentsQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    title: z.string().trim().min(1).max(200).optional(),
+    matterCode: z.string().trim().min(1).max(80).optional(),
+    matterName: z.string().trim().min(1).max(200).optional(),
+    documentType: documentTypeSchema.optional(),
+    status: documentStatusSchema.optional(),
+    confidentialityLevel: documentConfidentialityLevelSchema.optional(),
+    privilegeStatus: documentPrivilegeStatusSchema.optional(),
+    extractionStatus: z.enum(documentExtractionStatuses).optional(),
+    aiAllowed: optionalBooleanQuerySchema,
+    legalHold: optionalBooleanQuerySchema,
+    sortBy: listDocumentSortSchema.optional(),
   })
   .strict();
 
@@ -61,6 +90,7 @@ export type DocumentConfidentialityLevel = (typeof documentConfidentialityLevels
 export type DocumentPrivilegeStatus = (typeof documentPrivilegeStatuses)[number];
 export type DocumentExtractionStatus = (typeof documentExtractionStatuses)[number];
 export type DocumentExtractionMethod = (typeof documentExtractionMethods)[number];
+export type ListDocumentSort = (typeof listDocumentSortValues)[number];
 
 export interface DocumentDto extends DisplayFieldsDto {
   documentId: string;

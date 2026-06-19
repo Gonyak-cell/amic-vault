@@ -2,26 +2,33 @@
 
 import Link from 'next/link';
 import React, { type ReactNode } from 'react';
-import type { SearchHighlightDto, SearchResultDto } from '@amic-vault/shared';
+import { ExternalLink, Eye, FileSearch } from 'lucide-react';
+import type { SearchHighlightDto, SearchResultDto, SearchTarget } from '@amic-vault/shared';
+import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { documentPreviewUrl } from '@/lib/api-client';
 import { useI18n } from '@/lib/i18n';
 
 interface ResultCardProps {
   result: SearchResultDto;
+  target?: SearchTarget;
 }
 
-export function ResultCard({ result }: ResultCardProps) {
+export function ResultCard({ result, target = 'all' }: ResultCardProps) {
   const { t } = useI18n();
   const title = result.displayName || result.title || t('search.result.hiddenTitle');
   const context = [matterLabel(result), result.clientDisplayName, result.documentType, formatDate(result.updatedAt)]
     .filter(Boolean)
     .join(' · ');
+  const documentHref = documentSearchHitUrlForSearchResult(result, target);
+  const fileCabinetHref = fileCabinetUrlForSearchResult(result);
   return (
     <article className="rounded-md border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <Link
             className="block truncate text-base font-semibold tracking-normal hover:underline"
-            href={`/documents/${result.documentId}`}
+            href={documentHref}
           >
             {title}
           </Link>
@@ -29,10 +36,38 @@ export function ResultCard({ result }: ResultCardProps) {
             {context}
           </p>
         </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href={documentHref}>
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              문서 열기
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <a href={documentPreviewUrl(result.documentId)} target="_blank" rel="noreferrer">
+              <Eye className="h-4 w-4" aria-hidden="true" />
+              미리보기
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href={fileCabinetHref}>
+              <FileSearch className="h-4 w-4" aria-hidden="true" />
+              문서함
+            </Link>
+          </Button>
+        </div>
       </div>
       <p className="mt-3 break-words text-sm leading-6 text-muted-foreground">
         {highlightSnippet(result.snippet, result.highlights)}
       </p>
+      {result.extractionStatus && result.extractionStatus !== 'ready' ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <StatusBadge tone={result.extractionStatus === 'failed' ? 'blocked' : 'warning'}>
+            {extractionStatusLabel(result.extractionStatus)}
+          </StatusBadge>
+          <span>본문 검색 품질이 제한될 수 있습니다.</span>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -42,6 +77,31 @@ function matterLabel(result: SearchResultDto): string | undefined {
   const name = result.matterDisplayName?.trim();
   if (code && name) return `${code} · ${name}`;
   return code || name || undefined;
+}
+
+export function fileCabinetUrlForSearchResult(result: SearchResultDto): string {
+  const params = new URLSearchParams();
+  const matterCode = result.matterDisplayCode?.trim();
+  const title = (result.title || result.displayName || '').trim();
+  if (matterCode) params.set('matterCode', matterCode);
+  if (title) params.set('title', title);
+  const queryString = params.toString();
+  return queryString ? `/files?${queryString}` : '/files';
+}
+
+export function documentSearchHitUrlForSearchResult(
+  result: SearchResultDto,
+  target: SearchTarget = 'all',
+): string {
+  const params = new URLSearchParams();
+  params.set('from', 'search');
+  params.set('target', target);
+  const hitCount = result.highlights.length;
+  if (hitCount > 0) {
+    params.set('hit', '1');
+    params.set('hitCount', String(hitCount));
+  }
+  return `/documents/${encodeURIComponent(result.documentId)}?${params.toString()}`;
 }
 
 function highlightSnippet(
@@ -78,4 +138,11 @@ function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toISOString().slice(0, 10);
+}
+
+function extractionStatusLabel(status: NonNullable<SearchResultDto['extractionStatus']>): string {
+  if (status === 'failed') return '추출 실패';
+  if (status === 'ocr_pending') return 'OCR 필요';
+  if (status === 'pending') return '추출 대기';
+  return '본문 검색 가능';
 }

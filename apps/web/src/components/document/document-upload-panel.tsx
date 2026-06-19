@@ -21,6 +21,14 @@ export interface DocumentUploadPanelProps {
   sourceMode?: MatterAppSourceMode;
 }
 
+type UploadQueueStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
+
+interface UploadQueueRow {
+  fileName: string;
+  message: string;
+  status: UploadQueueStatus;
+}
+
 export function DocumentUploadPanel({
   onUploadComplete,
   selectedMatter,
@@ -29,32 +37,67 @@ export function DocumentUploadPanel({
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
   const uploadSourceReady = isMatterUploadSourceMode(resolvedSourceMode);
   const prepInputId = React.useId();
-  const [file, setFile] = React.useState<File | null>(null);
+  const [files, setFiles] = React.useState<File[]>([]);
   const [title, setTitle] = React.useState('');
   const [prepEnabled, setPrepEnabled] = React.useState(true);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadQueue, setUploadQueue] = React.useState<UploadQueueRow[]>([]);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const canUpload = Boolean(selectedMatter && file && uploadSourceReady && !isUploading);
+  const canUpload = Boolean(selectedMatter && files.length > 0 && uploadSourceReady && !isUploading);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedMatter || !file || !uploadSourceReady) return;
+    if (!selectedMatter || files.length === 0 || !uploadSourceReady) return;
 
     setIsUploading(true);
     setStatusMessage(null);
     setErrorMessage(null);
+    setUploadQueue(
+      files.map((selectedFile) => ({
+        fileName: selectedFile.name,
+        message: '대기 중',
+        status: 'pending',
+      })),
+    );
+    let successCount = 0;
+    let failureCount = 0;
+    const failedFiles: File[] = [];
     try {
-      const result = await uploadDocument(selectedMatter.matterReference, file, {
-        aiAllowed: prepEnabled,
-        ...(title.trim() ? { title: title.trim() } : {}),
-      });
-      setFile(null);
-      setTitle('');
-      setStatusMessage(uploadStatusMessage(result));
-      onUploadComplete?.(result);
-    } catch (error) {
-      setErrorMessage(safeApiErrorMessage(error));
+      for (const [index, selectedFile] of files.entries()) {
+        setUploadQueue((current) =>
+          updateUploadQueue(current, index, { message: '업로드 중', status: 'uploading' }),
+        );
+        try {
+          const result = await uploadDocument(selectedMatter.matterReference, selectedFile, {
+            aiAllowed: prepEnabled,
+            ...(files.length === 1 && title.trim() ? { title: title.trim() } : {}),
+          });
+          successCount += 1;
+          setUploadQueue((current) =>
+            updateUploadQueue(current, index, {
+              message: uploadStatusMessage(result),
+              status: 'uploaded',
+            }),
+          );
+          onUploadComplete?.(result);
+        } catch (error) {
+          failureCount += 1;
+          failedFiles.push(selectedFile);
+          setUploadQueue((current) =>
+            updateUploadQueue(current, index, {
+              message: safeApiErrorMessage(error),
+              status: 'failed',
+            }),
+          );
+        }
+      }
+      setStatusMessage(bulkUploadStatusMessage(successCount, failureCount));
+      if (successCount > 0) {
+        setFiles(failedFiles);
+        if (failedFiles.length === 0) setTitle('');
+      }
+      if (successCount === 0 && failureCount > 0) setErrorMessage('업로드된 파일이 없습니다.');
     } finally {
       setIsUploading(false);
     }
@@ -91,7 +134,8 @@ export function DocumentUploadPanel({
         <span className="text-sm font-medium text-foreground">파일</span>
         <Input
           type="file"
-          onChange={(event) => setFile(event.currentTarget.files?.item(0) ?? null)}
+          multiple
+          onChange={(event) => setFiles(Array.from(event.currentTarget.files ?? []))}
         />
       </label>
 
@@ -99,10 +143,29 @@ export function DocumentUploadPanel({
         <span className="text-sm font-medium text-foreground">제목</span>
         <Input
           value={title}
-          placeholder="비워두면 파일명으로 저장됩니다."
+          placeholder="단일 파일에서만 적용됩니다. 비워두면 파일명으로 저장됩니다."
+          disabled={files.length > 1}
           onChange={(event) => setTitle(event.target.value)}
         />
       </label>
+
+      {files.length > 0 ? (
+        <div className="rounded-md border bg-background">
+          <div className="border-b px-3 py-2 text-sm font-semibold">
+            선택된 파일 {files.length}개
+          </div>
+          <ul className="divide-y">
+            {files.map((selectedFile, index) => (
+              <li
+                key={`${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}-${index}`}
+                className="px-3 py-2 text-sm"
+              >
+                {selectedFile.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <label
         htmlFor={prepInputId}
@@ -138,12 +201,47 @@ export function DocumentUploadPanel({
           </p>
         ) : null}
       </div>
+
+      {uploadQueue.length > 0 ? (
+        <div className="rounded-md border bg-background">
+          <div className="border-b px-3 py-2 text-sm font-semibold">업로드 큐</div>
+          <ul className="divide-y">
+            {uploadQueue.map((item, index) => (
+              <li
+                key={`${item.fileName}-${index}`}
+                className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
+              >
+                <span className="truncate font-medium">{item.fileName}</span>
+                <span className={item.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}>
+                  {item.message}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </form>
   );
+}
+
+function updateUploadQueue(
+  queue: UploadQueueRow[],
+  index: number,
+  patch: Pick<UploadQueueRow, 'message' | 'status'>,
+): UploadQueueRow[] {
+  return queue.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
 }
 
 export function uploadStatusMessage(result: UploadDocumentResponseDto): string {
   return result.aiAllowed
     ? `${result.title} 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.`
     : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.`;
+}
+
+export function bulkUploadStatusMessage(successCount: number, failureCount: number): string {
+  if (successCount > 0 && failureCount > 0) {
+    return `${successCount}개 업로드 완료, ${failureCount}개 실패. 실패 항목을 확인해 주세요.`;
+  }
+  if (successCount > 0) return `${successCount}개 업로드 완료.`;
+  return `${failureCount}개 업로드 실패. 실패 항목을 확인해 주세요.`;
 }

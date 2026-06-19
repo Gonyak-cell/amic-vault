@@ -5,6 +5,8 @@ import {
   isMatterAppSourceAvailable,
   isMatterAppSourceConfigured,
   isMatterUploadSourceMode,
+  matterAppSourceDescriptions,
+  matterAppSourceLabels,
   matterAppSourceMode,
   toMatterCodeOption,
 } from './matter-app';
@@ -82,6 +84,13 @@ describe('matter app source contract helpers', () => {
     expect(isMatterUploadSourceMode('vault_projection_only')).toBe(false);
     expect(isMatterUploadSourceMode('matter_app_api')).toBe(true);
     expect(isMatterUploadSourceMode('matter_app_event_projection')).toBe(true);
+  });
+
+  it('keeps user-facing source labels clear of implementation wording', () => {
+    expect(matterAppSourceLabels.matter_app_api).toBe('Matter app 확인됨');
+    expect(matterAppSourceLabels.vault_projection_only).toBe('로컬 Matter 목록');
+    expect(matterAppSourceDescriptions.vault_projection_only).toContain('운영 업로드 source로 사용하지 않습니다.');
+    expect(matterAppSourceLabels.vault_projection_only).not.toContain('projection');
   });
 
   it('filters Matter Code options without exposing internal references', () => {

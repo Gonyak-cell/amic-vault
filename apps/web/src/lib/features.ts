@@ -49,7 +49,28 @@ export const routeVisibilityPolicies = [
     showInNavigation: true,
   },
   {
+    route: '/work',
+    group: 'Vault',
+    production: 'visible',
+    roles: internalUserRoles,
+    showInNavigation: true,
+  },
+  {
+    route: '/notifications',
+    group: 'Vault',
+    production: 'visible',
+    roles: internalUserRoles,
+    showInNavigation: true,
+  },
+  {
     route: '/search',
+    group: 'Vault',
+    production: 'visible',
+    roles: internalUserRoles,
+    showInNavigation: true,
+  },
+  {
+    route: '/search/folders',
     group: 'Vault',
     production: 'visible',
     roles: internalUserRoles,

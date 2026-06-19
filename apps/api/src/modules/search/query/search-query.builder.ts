@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { SearchMode, SearchQueryDto, SearchSort, SearchTarget } from '@amic-vault/shared';
 import {
   SearchFilterBuilder,
+  searchExtractionStatusSql,
   type SearchSqlFragment,
   type SearchSqlValue,
 } from './search-filter.builder';
@@ -94,7 +95,8 @@ export class SearchQueryBuilder {
           )
           SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
             idx.title, m.matter_name, m.matter_code, c.name AS client_name,
-            idx.document_type, idx.version_status, idx.updated_at,
+            idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+            idx.version_status, idx.updated_at,
             ${scoreSql} AS score,
             ${headlineSql} AS raw_snippet,
             count(*) OVER()::int AS total
@@ -126,7 +128,8 @@ export class SearchQueryBuilder {
       sql: `
         SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
           idx.title, m.matter_name, m.matter_code, c.name AS client_name,
-          idx.document_type, idx.version_status, idx.updated_at,
+          idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+          idx.version_status, idx.updated_at,
           0::float8 AS score,
           left(COALESCE(NULLIF(idx.content_text, ''), idx.title), 200) AS raw_snippet,
           count(*) OVER()::int AS total
@@ -208,6 +211,14 @@ export class SearchQueryBuilder {
               GROUP BY document_type
             ) document_type_counts
           ), '[]'::jsonb),
+          'extractionStatuses', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', extraction_status, 'count', row_count) ORDER BY row_count DESC, extraction_status)
+            FROM (
+              SELECT extraction_status, count(*)::int AS row_count
+              FROM filtered
+              GROUP BY extraction_status
+            ) extraction_status_counts
+          ), '[]'::jsonb),
           'versionStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', version_status, 'count', row_count) ORDER BY row_count DESC, version_status)
             FROM (
@@ -259,7 +270,7 @@ export class SearchQueryBuilder {
         ${cteSql}
         SELECT best.document_id, best.version_id, best.matter_id, best.client_id,
           best.title, m.matter_name, m.matter_code, c.name AS client_name,
-          best.document_type, best.version_status, best.updated_at,
+          best.document_type, best.extraction_status, best.version_status, best.updated_at,
           score::float8 AS score,
           left(chunk_text, 200) AS raw_snippet,
           count(*) OVER()::int AS total
@@ -291,7 +302,7 @@ export class SearchQueryBuilder {
       sql: `
         ${cteSql},
         filtered AS (
-          SELECT tenant_id, client_id, matter_id, document_type, version_status, updated_at
+          SELECT tenant_id, client_id, matter_id, document_type, extraction_status, version_status, updated_at
           FROM best
         )
         SELECT jsonb_build_object(
@@ -347,6 +358,14 @@ export class SearchQueryBuilder {
               FROM filtered
               GROUP BY document_type
             ) document_type_counts
+          ), '[]'::jsonb),
+          'extractionStatuses', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', extraction_status, 'count', row_count) ORDER BY row_count DESC, extraction_status)
+            FROM (
+              SELECT extraction_status, count(*)::int AS row_count
+              FROM filtered
+              GROUP BY extraction_status
+            ) extraction_status_counts
           ), '[]'::jsonb),
           'versionStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', version_status, 'count', row_count) ORDER BY row_count DESC, version_status)
@@ -414,6 +433,7 @@ export class SearchQueryBuilder {
       return `
         WITH filtered AS (
           SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+            ${searchExtractionStatusSql} AS extraction_status,
             idx.version_status, idx.updated_at
           FROM document_search_index idx
           ${whereSql}
@@ -429,6 +449,7 @@ export class SearchQueryBuilder {
       ),
       filtered AS (
         SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+          ${searchExtractionStatusSql} AS extraction_status,
           idx.version_status, idx.updated_at
         FROM document_search_index idx
         CROSS JOIN tsq
@@ -485,7 +506,8 @@ export class SearchQueryBuilder {
       WITH ${tsqSql}
       candidates AS (
         SELECT idx.tenant_id, idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
-          idx.title, idx.document_type, idx.version_status, idx.updated_at,
+          idx.title, idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+          idx.version_status, idx.updated_at,
           chunk.chunk_id, chunk.parent_chunk_id, chunk.chunk_ordinal,
           chunk.token_count, chunk.chunk_text, chunk.text_hash, chunk.source_text_hash,
           ${keywordScoreExpression} AS keyword_score,
@@ -519,7 +541,7 @@ export class SearchQueryBuilder {
       ),
       best AS (
         SELECT tenant_id, document_id, version_id, matter_id, client_id, title, document_type,
-          version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
+          extraction_status, version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
           token_count, chunk_text, text_hash, source_text_hash, score
         FROM ranked
         WHERE best_rank = 1

@@ -221,6 +221,13 @@ export {
 export {
   dashboardAiPrepStatusSchema,
   dashboardIntegrationStatusSchema,
+  dmsNotificationCenterResponseSchema,
+  dmsNotificationItemSchema,
+  dmsNotificationSourceSchema,
+  dmsOperationalToneSchema,
+  dmsWorkItemSourceSchema,
+  dmsWorkQueueItemSchema,
+  dmsWorkQueueResponseSchema,
   dashboardOverviewSchema,
   dashboardPolicyAlertSchema,
   dashboardRecentActivitySchema,
@@ -228,6 +235,13 @@ export {
   dashboardSectionIds,
   type DashboardAiPrepStatusDto,
   type DashboardIntegrationStatusDto,
+  type DmsNotificationCenterResponseDto,
+  type DmsNotificationItemDto,
+  type DmsNotificationSource,
+  type DmsOperationalTone,
+  type DmsWorkItemSource,
+  type DmsWorkQueueItemDto,
+  type DmsWorkQueueResponseDto,
   type DashboardOverviewDto,
   type DashboardPolicyAlertDto,
   type DashboardRecentActivityDto,
@@ -466,10 +480,7 @@ export {
 } from './types/tenant';
 export { userStatuses, type UserStatus, type UserSummary } from './types/user';
 export type { FileObjectDto } from './types/file-object';
-export {
-  buildSafeLabel,
-  type DisplayFieldsDto,
-} from './display/display-fields.dto';
+export { buildSafeLabel, type DisplayFieldsDto } from './display/display-fields.dto';
 export {
   documentConfidentialityLevelSchema,
   documentConfidentialityLevels,
@@ -481,6 +492,8 @@ export {
   documentStatuses,
   documentTypeSchema,
   documentTypes,
+  listDocumentSortSchema,
+  listDocumentSortValues,
   listDocumentsQuerySchema,
   type DocumentConfidentialityLevel,
   type DocumentDto,
@@ -490,6 +503,7 @@ export {
   type DocumentPrivilegeStatus,
   type DocumentStatus,
   type DocumentType,
+  type ListDocumentSort,
   type ListDocumentsQueryDto,
 } from './types/document';
 export {
@@ -742,6 +756,7 @@ export {
   auditTargetTypeSchema,
   documentAuditQueryEventTypeSchema,
   documentAuditQuerySchema,
+  matterAuditQuerySchema,
   type AuditEventDto,
   type AuditEventListDto,
   type AuditExportQueryDto,
@@ -751,9 +766,12 @@ export {
   type DocumentAuditEventListDto,
   type DocumentAuditQueryDto,
   type DocumentAuditQueryEventType,
+  type MatterAuditQueryDto,
 } from './dto/audit/audit-query.dto';
 export {
+  createSavedSearchSchema,
   searchDocumentTypeFilterSchema,
+  searchExtractionStatusSchema,
   searchFiltersSchema,
   searchIsoDateTimeSchema,
   searchGroupBySchema,
@@ -767,6 +785,9 @@ export {
   searchTargets,
   searchVersionStatusSchema,
   searchVersionStatusValues,
+  type CreateSavedSearchDto,
+  type SavedSearchDto,
+  type SavedSearchListDto,
   type SearchDateRangeFacetDto,
   type SearchDocumentTypeFilterDto,
   type SearchFacetBucketDto,

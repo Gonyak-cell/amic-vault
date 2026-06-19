@@ -2,12 +2,14 @@
 
 import React, { useState } from 'react';
 import {
+  Activity,
   Building2,
   Database,
   FileCog,
   FolderKanban,
   KeyRound,
   LockKeyhole,
+  RefreshCw,
   SearchCheck,
   ShieldCheck,
   UploadCloud,
@@ -19,6 +21,8 @@ import type {
   EnterpriseReadinessSummaryDto,
   EnterpriseSiemExportListResponseDto,
   EnterpriseSsoProviderListResponseDto,
+  LocalAiOpsHealthDto,
+  LocalAiOpsMetricsDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +37,7 @@ import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { getLocalAiOpsHealth, getLocalAiOpsMetrics } from '@/lib/api/ai-ops';
 import {
   getEnterpriseReadiness,
   listEnterpriseBackupSnapshots,
@@ -41,6 +46,10 @@ import {
   listEnterpriseSiemExports,
   listEnterpriseSsoProviders,
 } from '@/lib/api/enterprise';
+import {
+  requestTenantSearchReindex,
+  type TenantSearchReindexResult,
+} from '@/lib/api/search-admin';
 import { useI18n, type Language } from '@/lib/i18n';
 
 type Row = [string, string, string?];
@@ -74,6 +83,13 @@ const enterpriseCopy: Record<
     templatesMeta: string;
     refiners: string;
     refinersMeta: string;
+    searchOps: string;
+    searchOpsMeta: string;
+    reindexTenant: string;
+    reindexBusy: string;
+    reindexAudit: string;
+    reindexAccepted: string;
+    reindexReady: string;
     contractRequired: string;
     governedByBackend: string;
     apiUnavailableTitle: string;
@@ -92,6 +108,30 @@ const enterpriseCopy: Record<
     backupSnapshots: string;
     complianceGaps: string;
     technicalCheck: string;
+    opsHealth: string;
+    opsHealthMeta: string;
+    opsHealthScope: string;
+    opsRuntime: string;
+    opsMetrics: string;
+    opsReady: string;
+    opsDegraded: string;
+    opsBlocked: string;
+    queueBacklog: string;
+    blockedPrep: string;
+    p95Latency: string;
+    endpointClass: string;
+    endpointLoopback: string;
+    endpointPrivate: string;
+    endpointBlocked: string;
+    prepCompleted: string;
+    prepFailed: string;
+    prepStale: string;
+    prepRejected: string;
+    prepFallback: string;
+    staleRebuild: string;
+    invalidOutput: string;
+    citationExcluded: string;
+    milliseconds: string;
   }
 > = {
   ko: {
@@ -122,6 +162,13 @@ const enterpriseCopy: Record<
     templatesMeta: '업무 유형별 기본 문서 세트',
     refiners: '검색 refiner',
     refinersMeta: '검색 가능한 메타데이터 필드',
+    searchOps: '검색 인덱스 운영',
+    searchOpsMeta: '재색인 요청 및 감사 기록',
+    reindexTenant: '전체 재색인 요청',
+    reindexBusy: '요청 중',
+    reindexAudit: '감사 기록 대상',
+    reindexAccepted: '재색인 큐 등록',
+    reindexReady: '요청 전',
     contractRequired: '계약 필요',
     governedByBackend: '저장 API 승인 전 읽기 전용',
     apiUnavailableTitle: '운영 데이터가 아직 연결되지 않았습니다.',
@@ -140,6 +187,30 @@ const enterpriseCopy: Record<
     backupSnapshots: '스냅샷',
     complianceGaps: '미충족 항목',
     technicalCheck: '시스템 점검',
+    opsHealth: '운영 헬스',
+    opsHealthMeta: '검색, 감사, 파일 정리 준비 상태',
+    opsHealthScope: '표시 범위는 업로드 후 파일 정리 준비 전용 상태와 운영 신호로 제한됩니다.',
+    opsRuntime: '파일 정리 준비 런타임',
+    opsMetrics: '파일 정리 준비 지표',
+    opsReady: '정상',
+    opsDegraded: '주의 필요',
+    opsBlocked: '차단',
+    queueBacklog: '대기열',
+    blockedPrep: '차단/실패',
+    p95Latency: 'P95 처리 시간',
+    endpointClass: '실행 위치',
+    endpointLoopback: '서버 내부',
+    endpointPrivate: '사설망',
+    endpointBlocked: '차단됨',
+    prepCompleted: '정리됨',
+    prepFailed: '실패',
+    prepStale: '재정리 필요',
+    prepRejected: '폐기됨',
+    prepFallback: '대체 정리',
+    staleRebuild: '재정리 대기',
+    invalidOutput: '검증 실패',
+    citationExcluded: '참조 제외',
+    milliseconds: 'ms',
   },
   en: {
     pageTitle: 'Admin settings',
@@ -169,6 +240,13 @@ const enterpriseCopy: Record<
     templatesMeta: 'Default document sets by matter type',
     refiners: 'Search refiners',
     refinersMeta: 'Queryable metadata fields',
+    searchOps: 'Search index operations',
+    searchOpsMeta: 'Reindex request and audit trail',
+    reindexTenant: 'Request tenant reindex',
+    reindexBusy: 'Requesting',
+    reindexAudit: 'Audited operation',
+    reindexAccepted: 'Reindex queued',
+    reindexReady: 'Ready',
     contractRequired: 'Contract required',
     governedByBackend: 'Read-only until save APIs are approved',
     apiUnavailableTitle: 'Operational data is not connected yet.',
@@ -188,6 +266,31 @@ const enterpriseCopy: Record<
     backupSnapshots: 'Snapshots',
     complianceGaps: 'Gaps',
     technicalCheck: 'Technical check',
+    opsHealth: 'Operations health',
+    opsHealthMeta: 'Search, audit, and file organization prep status',
+    opsHealthScope:
+      'This surface is limited to post-upload file organization prep status and operational signals.',
+    opsRuntime: 'File organization prep runtime',
+    opsMetrics: 'File organization prep metrics',
+    opsReady: 'Ready',
+    opsDegraded: 'Needs attention',
+    opsBlocked: 'Blocked',
+    queueBacklog: 'Queue backlog',
+    blockedPrep: 'Blocked or failed',
+    p95Latency: 'P95 processing time',
+    endpointClass: 'Execution location',
+    endpointLoopback: 'Server-local',
+    endpointPrivate: 'Private network',
+    endpointBlocked: 'Blocked',
+    prepCompleted: 'Prepared',
+    prepFailed: 'Failed',
+    prepStale: 'Needs refresh',
+    prepRejected: 'Discarded',
+    prepFallback: 'Fallback prep',
+    staleRebuild: 'Refresh queued',
+    invalidOutput: 'Validation failed',
+    citationExcluded: 'Reference excluded',
+    milliseconds: 'ms',
   },
 };
 
@@ -202,6 +305,11 @@ export function EnterpriseHardeningClient() {
     null,
   );
   const [readiness, setReadiness] = useState<EnterpriseReadinessSummaryDto | null>(null);
+  const [aiOpsHealth, setAiOpsHealth] = useState<LocalAiOpsHealthDto | null>(null);
+  const [aiOpsMetrics, setAiOpsMetrics] = useState<LocalAiOpsMetricsDto | null>(null);
+  const [reindexResult, setReindexResult] = useState<TenantSearchReindexResult | null>(null);
+  const [reindexError, setReindexError] = useState<string | null>(null);
+  const [reindexBusy, setReindexBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -219,14 +327,24 @@ export function EnterpriseHardeningClient() {
   }
 
   async function refreshAll() {
-    const [nextProviders, nextKeys, nextExports, nextSnapshots, nextEvidence, nextReadiness] =
-      await Promise.all([
+    const [
+      nextProviders,
+      nextKeys,
+      nextExports,
+      nextSnapshots,
+      nextEvidence,
+      nextReadiness,
+      nextAiOpsHealth,
+      nextAiOpsMetrics,
+    ] = await Promise.all([
         run(() => listEnterpriseSsoProviders()),
         run(() => listEnterpriseKeyReferences()),
         run(() => listEnterpriseSiemExports()),
         run(() => listEnterpriseBackupSnapshots()),
         run(() => listEnterpriseComplianceEvidence()),
         run(() => getEnterpriseReadiness()),
+        run(() => getLocalAiOpsHealth()),
+        run(() => getLocalAiOpsMetrics()),
       ]);
     if (nextProviders) setProviders(nextProviders);
     if (nextKeys) setKeys(nextKeys);
@@ -234,6 +352,20 @@ export function EnterpriseHardeningClient() {
     if (nextSnapshots) setSnapshots(nextSnapshots);
     if (nextEvidence) setEvidence(nextEvidence);
     if (nextReadiness) setReadiness(nextReadiness);
+    if (nextAiOpsHealth) setAiOpsHealth(nextAiOpsHealth);
+    if (nextAiOpsMetrics) setAiOpsMetrics(nextAiOpsMetrics);
+  }
+
+  async function requestReindex() {
+    setReindexBusy(true);
+    setReindexError(null);
+    try {
+      setReindexResult(await requestTenantSearchReindex());
+    } catch (caught) {
+      setReindexError(safeApiErrorMessage(caught));
+    } finally {
+      setReindexBusy(false);
+    }
   }
 
   return (
@@ -251,6 +383,14 @@ export function EnterpriseHardeningClient() {
       {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
       <AdminDmsConfigurationPanel copy={copy} />
+      <AdminSearchOperationsPanel
+        busy={reindexBusy}
+        copy={copy}
+        error={reindexError}
+        onRequest={() => void requestReindex()}
+        result={reindexResult}
+      />
+      <AdminOpsHealthPanel copy={copy} health={aiOpsHealth} metrics={aiOpsMetrics} />
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <SectionCard
@@ -361,6 +501,144 @@ export function EnterpriseHardeningClient() {
         </div>
       </section>
     </PageShell>
+  );
+}
+
+export function AdminOpsHealthPanel({
+  copy,
+  health,
+  metrics,
+}: {
+  copy: (typeof enterpriseCopy)[Language];
+  health: LocalAiOpsHealthDto | null;
+  metrics: LocalAiOpsMetricsDto | null;
+}) {
+  return (
+    <SectionCard
+      icon={<Activity className="h-4 w-4" />}
+      title={copy.opsHealth}
+      meta={copy.opsHealthMeta}
+      actions={
+        <StatusBadge tone={health ? localAiOpsTone(health.status) : 'neutral'}>
+          {health ? localAiOpsStatusLabel(copy, health.status) : copy.reindexReady}
+        </StatusBadge>
+      }
+    >
+      <p className="text-sm leading-6 text-muted-foreground">{copy.opsHealthScope}</p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-md border bg-background p-3">
+          <h3 className="text-sm font-semibold tracking-normal">{copy.opsRuntime}</h3>
+          {health ? (
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <Value label={copy.queueBacklog} value={`${health.queueBacklogCount} ${copy.count}`} />
+              <Value label={copy.blockedPrep} value={`${health.blockedPrepCount} ${copy.count}`} />
+              <Value label={copy.p95Latency} value={formatLatency(copy, health.p95LatencyMs)} />
+              <Value label={copy.endpointClass} value={endpointClassLabel(copy, health.endpointClass)} />
+            </dl>
+          ) : (
+            <Unavailable copy={copy} />
+          )}
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <h3 className="text-sm font-semibold tracking-normal">{copy.opsMetrics}</h3>
+          {metrics ? (
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <Value label={copy.prepCompleted} value={`${metrics.prepCompletedCount} ${copy.count}`} />
+              <Value label={copy.prepFailed} value={`${metrics.prepFailedCount} ${copy.count}`} />
+              <Value label={copy.prepStale} value={`${metrics.prepStaleCount} ${copy.count}`} />
+              <Value label={copy.prepRejected} value={`${metrics.prepRejectedCount} ${copy.count}`} />
+              <Value label={copy.prepFallback} value={`${metrics.prepFallbackCount} ${copy.count}`} />
+              <Value label={copy.staleRebuild} value={`${metrics.staleRebuildCount} ${copy.count}`} />
+              <Value label={copy.invalidOutput} value={`${metrics.invalidOutputCount} ${copy.count}`} />
+              <Value label={copy.citationExcluded} value={`${metrics.citationRejectedCount} ${copy.count}`} />
+              <Value label={copy.p95Latency} value={formatLatency(copy, metrics.p95PrepLatencyMs)} />
+            </dl>
+          ) : (
+            <Unavailable copy={copy} />
+          )}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function localAiOpsTone(status: LocalAiOpsHealthDto['status']) {
+  if (status === 'ready') return 'success';
+  if (status === 'degraded') return 'warning';
+  return 'blocked';
+}
+
+function localAiOpsStatusLabel(
+  copy: (typeof enterpriseCopy)[Language],
+  status: LocalAiOpsHealthDto['status'],
+): string {
+  if (status === 'ready') return copy.opsReady;
+  if (status === 'degraded') return copy.opsDegraded;
+  return copy.opsBlocked;
+}
+
+function endpointClassLabel(
+  copy: (typeof enterpriseCopy)[Language],
+  endpointClass: LocalAiOpsHealthDto['endpointClass'],
+): string {
+  if (endpointClass === 'loopback') return copy.endpointLoopback;
+  if (endpointClass === 'private_network') return copy.endpointPrivate;
+  return copy.endpointBlocked;
+}
+
+function formatLatency(copy: (typeof enterpriseCopy)[Language], value: number | null): string {
+  return value === null ? copy.notPassed : `${value} ${copy.milliseconds}`;
+}
+
+function AdminSearchOperationsPanel({
+  busy,
+  copy,
+  error,
+  onRequest,
+  result,
+}: {
+  busy: boolean;
+  copy: (typeof enterpriseCopy)[Language];
+  error: string | null;
+  onRequest: () => void;
+  result: TenantSearchReindexResult | null;
+}) {
+  return (
+    <SectionCard
+      icon={<SearchCheck className="h-4 w-4" />}
+      title={copy.searchOps}
+      meta={copy.searchOpsMeta}
+      actions={
+        <StatusBadge tone={result ? 'success' : 'neutral'}>
+          {result ? copy.reindexAccepted : copy.reindexReady}
+        </StatusBadge>
+      }
+    >
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <p className="text-sm leading-6 text-muted-foreground">
+            권한이 있는 운영자만 전체 검색 인덱스 재처리를 요청할 수 있습니다. 요청은 감사 기록과 큐 등록 수로만 확인합니다.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <StatusBadge>{copy.reindexAudit}</StatusBadge>
+            {result ? (
+              <StatusBadge tone="success">
+                {result.enqueuedJobCount} {copy.count}
+              </StatusBadge>
+            ) : null}
+          </div>
+          {error ? (
+            <p className="mt-3 text-sm font-medium text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        <Button type="button" onClick={onRequest} disabled={busy}>
+          <RefreshCw className="h-4 w-4" />
+          {busy ? copy.reindexBusy : copy.reindexTenant}
+        </Button>
+      </div>
+    </SectionCard>
   );
 }
 

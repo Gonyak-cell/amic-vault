@@ -119,7 +119,8 @@ describe('governance context panels', () => {
     expect(html).toContain('사건 거버넌스');
     expect(html).toContain('AMIC-2026-001');
     expect(html).toContain('파일 정리 준비 실패 확인');
-    expect(html).toContain('가짜 작업 수는 표시하지 않습니다.');
+    expect(html).toContain('추가로 확인할 작업이 없습니다.');
+    expect(html).not.toContain('가짜 작업');
     expect(html).not.toContain('DOC-204');
     expect(html).not.toContain('김민준');
   });

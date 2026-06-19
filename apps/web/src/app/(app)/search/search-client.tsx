@@ -3,18 +3,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type {
+  SavedSearchDto,
   SearchFiltersDto,
   SearchGroupBy,
+  SearchQueryDto,
   SearchResponseDto,
   SearchSort,
   SearchTarget,
 } from '@amic-vault/shared';
+import {
+  documentExtractionStatuses,
+  documentTypes,
+  searchVersionStatusValues,
+} from '@amic-vault/shared';
+import type { SearchDateRange } from '@/components/search/search-advanced-controls';
 import { SearchAdvancedControls } from '@/components/search/search-advanced-controls';
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
 import { SearchResults, type SearchErrorKind } from '@/components/search/search-results';
-import { uiErrorKindForApiError } from '@/lib/api/error-messages';
-import { searchDocuments } from '@/lib/api/search';
+import { SearchSavePanel } from '@/components/search/search-save-panel';
+import { safeApiErrorMessage, uiErrorKindForApiError } from '@/lib/api/error-messages';
+import {
+  deleteSavedSearch,
+  listSavedSearches,
+  saveSavedSearch,
+  searchDocuments,
+} from '@/lib/api/search';
 import { useI18n } from '@/lib/i18n';
 
 const pageSize = 10;
@@ -31,6 +45,24 @@ export function SearchClient() {
   const [response, setResponse] = useState<SearchResponseDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SearchErrorKind | null>(null);
+  const [savedSearches, setSavedSearches] = useState<SavedSearchDto[]>([]);
+  const [savedSearchBusy, setSavedSearchBusy] = useState(false);
+  const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
+  const reusableSearchUrl = useMemo(() => urlForState(query, selection, 1), [query, selection]);
+
+  const refreshSavedSearches = useCallback(async () => {
+    setSavedSearchBusy(true);
+    setSavedSearchError(null);
+    try {
+      const result = await listSavedSearches();
+      setSavedSearches(result.items);
+    } catch (caught) {
+      setSavedSearchError(safeApiErrorMessage(caught));
+      setSavedSearches([]);
+    } finally {
+      setSavedSearchBusy(false);
+    }
+  }, []);
 
   const runSearch = useCallback(
     async (nextQuery: string, nextSelection: SearchFacetSelection, nextPage: number) => {
@@ -43,15 +75,7 @@ export function SearchClient() {
       setPage(nextPage);
       router.replace(urlForState(trimmed, nextSelection, nextPage));
       try {
-        const request = {
-          query: trimmed,
-          filters: filtersForSelection(nextSelection),
-          page: nextPage,
-          pageSize,
-          ...(nextSelection.groupBy ? { groupBy: nextSelection.groupBy } : {}),
-          ...(nextSelection.sortBy ? { sortBy: nextSelection.sortBy } : {}),
-          ...(nextSelection.target ? { target: nextSelection.target } : {}),
-        };
+        const request = requestForState(trimmed, nextSelection, nextPage);
         const result = await searchDocuments(request);
         setResponse(result);
       } catch (caught) {
@@ -65,6 +89,10 @@ export function SearchClient() {
   );
 
   useEffect(() => {
+    void refreshSavedSearches();
+  }, [refreshSavedSearches]);
+
+  useEffect(() => {
     if (!initial.query) return;
     const initialUrl = urlForState(initial.query, initial.selection, initial.page);
     if (restoredUrl.current === initialUrl) return;
@@ -74,6 +102,59 @@ export function SearchClient() {
 
   function applyFacets(next: SearchFacetSelection) {
     void runSearch(query, next, 1);
+  }
+
+  async function saveCurrentSearch(name: string) {
+    if (!query.trim()) return;
+    setSavedSearchBusy(true);
+    setSavedSearchError(null);
+    try {
+      const saved = await saveSavedSearch({
+        name,
+        query: requestForState(query, selection, 1),
+      });
+      setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, saved)));
+    } catch (caught) {
+      setSavedSearchError(safeApiErrorMessage(caught));
+    } finally {
+      setSavedSearchBusy(false);
+    }
+  }
+
+  async function deleteCurrentSavedSearch(savedSearchId: string) {
+    setSavedSearchBusy(true);
+    setSavedSearchError(null);
+    try {
+      await deleteSavedSearch(savedSearchId);
+      setSavedSearches((current) =>
+        current.filter((savedSearch) => savedSearch.savedSearchId !== savedSearchId),
+      );
+    } catch (caught) {
+      setSavedSearchError(safeApiErrorMessage(caught));
+    } finally {
+      setSavedSearchBusy(false);
+    }
+  }
+
+  async function openSavedSearch(savedSearch: SavedSearchDto) {
+    const nextQuery = savedSearch.query.query?.trim();
+    if (!nextQuery) return;
+    const nextSelection = selectionFromSearchQuery(savedSearch.query);
+    setBusy(true);
+    setError(null);
+    setQuery(nextQuery);
+    setSelection(nextSelection);
+    setPage(1);
+    router.replace(urlForState(nextQuery, nextSelection, 1));
+    try {
+      const result = await searchDocuments({ ...savedSearch.query, page: 1, pageSize });
+      setResponse(result);
+    } catch (caught) {
+      setResponse(null);
+      setError(searchErrorKind(caught));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -94,6 +175,18 @@ export function SearchClient() {
         onApply={(advanced) => runSearch(query, { ...selection, ...advanced }, 1)}
         onReset={() => runSearch(query, resetAdvancedSelection(selection), 1)}
       />
+      <SearchSavePanel
+        busy={busy}
+        onDeleteSavedSearch={(savedSearchId) => void deleteCurrentSavedSearch(savedSearchId)}
+        onOpenSavedSearch={(savedSearch) => void openSavedSearch(savedSearch)}
+        onSaveSearch={(name) => void saveCurrentSearch(name)}
+        query={query}
+        selection={selection}
+        savedSearchBusy={savedSearchBusy}
+        savedSearchError={savedSearchError}
+        savedSearches={savedSearches}
+        reusableUrl={reusableSearchUrl}
+      />
       <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <SearchFacets
           facets={response?.facets ?? emptyFacets}
@@ -106,6 +199,7 @@ export function SearchClient() {
           pageSize={pageSize}
           busy={busy}
           groupBy={selection.groupBy ?? 'none'}
+          target={selection.target ?? 'all'}
           error={error}
           onPage={(nextPage) => runSearch(query, selection, nextPage)}
         />
@@ -118,6 +212,7 @@ const emptyFacets: SearchResponseDto['facets'] = {
   clients: [],
   matters: [],
   documentTypes: [],
+  extractionStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
@@ -129,9 +224,10 @@ function stateFromParams(params: { get(name: string): string | null }) {
     selection: {
       matterId: params.get('matterId') ?? undefined,
       clientId: params.get('clientId') ?? undefined,
-      documentType: params.get('documentType') ?? undefined,
-      versionStatus: params.get('versionStatus') ?? undefined,
-      dateRange: params.get('dateRange') ?? undefined,
+      documentType: parseDocumentType(params.get('documentType')),
+      extractionStatus: parseExtractionStatus(params.get('extractionStatus')),
+      versionStatus: parseVersionStatus(params.get('versionStatus')),
+      dateRange: parseDateRange(params.get('dateRange')),
       clientName: params.get('clientName') ?? undefined,
       groupBy: parseGroupBy(params.get('groupBy')),
       matterCode: params.get('matterCode') ?? undefined,
@@ -150,6 +246,7 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.matterId) params.set('matterId', selection.matterId);
   if (selection.clientId) params.set('clientId', selection.clientId);
   if (selection.documentType) params.set('documentType', selection.documentType);
+  if (selection.extractionStatus) params.set('extractionStatus', selection.extractionStatus);
   if (selection.versionStatus) params.set('versionStatus', selection.versionStatus);
   if (selection.dateRange) params.set('dateRange', selection.dateRange);
   if (selection.clientName) params.set('clientName', selection.clientName);
@@ -162,6 +259,22 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   return `/search?${params.toString()}`;
 }
 
+function requestForState(
+  query: string,
+  selection: SearchFacetSelection,
+  page: number,
+): SearchQueryDto {
+  return {
+    query: query.trim(),
+    filters: filtersForSelection(selection),
+    page,
+    pageSize,
+    ...(selection.groupBy ? { groupBy: selection.groupBy } : {}),
+    ...(selection.sortBy ? { sortBy: selection.sortBy } : {}),
+    ...(selection.target ? { target: selection.target } : {}),
+  };
+}
+
 function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto {
   const filters: SearchFiltersDto = {};
   if (selection.matterId) filters.matterId = selection.matterId;
@@ -171,6 +284,9 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
   if (selection.matterName) filters.matterName = selection.matterName;
   if (selection.title) filters.title = selection.title;
   if (selection.documentType) filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
+  if (selection.extractionStatus) {
+    filters.extractionStatus = selection.extractionStatus as SearchFiltersDto['extractionStatus'];
+  }
   if (selection.versionStatus) {
     filters.versionStatus = selection.versionStatus as SearchFiltersDto['versionStatus'];
   }
@@ -180,14 +296,56 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
   return filters;
 }
 
+function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
+  const filters = input.filters;
+  const documentType = Array.isArray(filters?.documentType)
+    ? filters.documentType[0]
+    : filters?.documentType;
+  return {
+    clientId: filters?.clientId,
+    clientName: filters?.clientName,
+    documentType,
+    extractionStatus: filters?.extractionStatus,
+    groupBy: input.groupBy,
+    matterCode: filters?.matterCode,
+    matterId: filters?.matterId,
+    matterName: filters?.matterName,
+    sortBy: input.sortBy,
+    target: input.target,
+    title: filters?.title,
+    versionStatus: filters?.versionStatus,
+  };
+}
+
 function resetAdvancedSelection(selection: SearchFacetSelection): SearchFacetSelection {
   return {
     clientId: selection.clientId,
-    dateRange: selection.dateRange,
-    documentType: selection.documentType,
     matterId: selection.matterId,
-    versionStatus: selection.versionStatus,
   };
+}
+
+function parseDocumentType(value: string | null): SearchFacetSelection['documentType'] {
+  return (documentTypes as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['documentType'])
+    : undefined;
+}
+
+function parseVersionStatus(value: string | null): SearchFacetSelection['versionStatus'] {
+  return (searchVersionStatusValues as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['versionStatus'])
+    : undefined;
+}
+
+function parseExtractionStatus(value: string | null): SearchFacetSelection['extractionStatus'] {
+  return (documentExtractionStatuses as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['extractionStatus'])
+    : undefined;
+}
+
+function parseDateRange(value: string | null): SearchDateRange | undefined {
+  return value === 'last_7_days' || value === 'last_30_days' || value === 'older'
+    ? value
+    : undefined;
 }
 
 function parseTarget(value: string | null): SearchTarget | undefined {
@@ -234,4 +392,22 @@ function datesForRange(value: string | undefined): { dateFrom?: string; dateTo?:
 
 function searchErrorKind(error: unknown): SearchErrorKind {
   return uiErrorKindForApiError(error);
+}
+
+function upsertSavedSearch(
+  current: SavedSearchDto[],
+  next: SavedSearchDto,
+): SavedSearchDto[] {
+  const withoutExisting = current.filter(
+    (savedSearch) => savedSearch.savedSearchId !== next.savedSearchId,
+  );
+  return [next, ...withoutExisting];
+}
+
+function sortSavedSearches(items: SavedSearchDto[]): SavedSearchDto[] {
+  return [...items].sort((a, b) => {
+    const updated = Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+    if (updated !== 0) return updated;
+    return a.name.localeCompare(b.name);
+  });
 }

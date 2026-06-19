@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Get, Inject, Param, Query, Req } from '@nestjs/common';
-import { documentAuditQuerySchema } from '@amic-vault/shared';
+import { documentAuditQuerySchema, matterAuditQuerySchema } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
 import { AuditQueryService } from './audit-query.service';
 
@@ -14,9 +14,17 @@ function parseUuid(value: string): string {
   return value;
 }
 
-function parseQuery(query: unknown) {
+function parseDocumentQuery(query: unknown) {
   try {
     return documentAuditQuerySchema.parse(query ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function parseMatterQuery(query: unknown) {
+  try {
+    return matterAuditQuerySchema.parse(query ?? {});
   } catch {
     throw validationFailed();
   }
@@ -26,6 +34,24 @@ function sessionUserId(request: RequestWithSession): string {
   const userId = request.session?.userId;
   if (!userId) throw validationFailed();
   return userId;
+}
+
+@Controller('matters/:matterId/audit-events')
+export class MatterAuditQueryController {
+  constructor(@Inject(AuditQueryService) private readonly auditQuery: AuditQueryService) {}
+
+  @Get()
+  listMatterAuditEvents(
+    @Req() request: RequestWithSession,
+    @Param('matterId') matterId: string,
+    @Query() query: Record<string, unknown>,
+  ) {
+    return this.auditQuery.listMatterEvents(
+      sessionUserId(request),
+      parseUuid(matterId),
+      parseMatterQuery(query),
+    );
+  }
 }
 
 @Controller('documents/:documentId/audit-events')
@@ -41,7 +67,7 @@ export class AuditQueryController {
     return this.auditQuery.listDocumentEvents(
       sessionUserId(request),
       parseUuid(documentId),
-      parseQuery(query),
+      parseDocumentQuery(query),
     );
   }
 }

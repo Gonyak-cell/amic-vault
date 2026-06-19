@@ -154,7 +154,14 @@ describe('semantic search permission integration', () => {
 
     expect(response.total).toBe(1);
     expect(resultTitles(response)).toEqual([visible.title]);
-    expect(response.facets.clients).toEqual([{ value: clientId, count: 1 }]);
+    expect(response.facets.clients).toEqual([
+      {
+        value: clientId,
+        label: `${visible.title} Client`,
+        count: 1,
+        canViewSensitiveRef: false,
+      },
+    ]);
     expectNoDeniedReferences(response);
   });
 

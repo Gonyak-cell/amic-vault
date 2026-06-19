@@ -1,21 +1,37 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { SlidersHorizontal, X } from 'lucide-react';
-import type { SearchGroupBy, SearchSort, SearchTarget } from '@amic-vault/shared';
+import { HelpCircle, SlidersHorizontal, X } from 'lucide-react';
+import {
+  documentExtractionStatuses,
+  documentTypes,
+  searchVersionStatusValues,
+  type DocumentExtractionStatus,
+  type DocumentType,
+  type SearchGroupBy,
+  type SearchSort,
+  type SearchTarget,
+  type SearchVersionStatus,
+} from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 
+export type SearchDateRange = 'last_7_days' | 'last_30_days' | 'older';
+
 export interface SearchAdvancedSelection {
   clientName?: string | undefined;
+  dateRange?: SearchDateRange | undefined;
+  documentType?: DocumentType | undefined;
+  extractionStatus?: DocumentExtractionStatus | undefined;
   groupBy?: SearchGroupBy | undefined;
   matterCode?: string | undefined;
   matterName?: string | undefined;
   sortBy?: SearchSort | undefined;
   target?: SearchTarget | undefined;
   title?: string | undefined;
+  versionStatus?: SearchVersionStatus | undefined;
 }
 
 interface SearchAdvancedControlsProps {
@@ -24,6 +40,19 @@ interface SearchAdvancedControlsProps {
   onApply: (selection: SearchAdvancedSelection) => void;
   onReset: () => void;
 }
+
+type SearchAdvancedDraft = Required<
+  Pick<SearchAdvancedSelection, 'groupBy' | 'sortBy' | 'target'>
+> & {
+  clientName: string;
+  dateRange: SearchDateRange | '';
+  documentType: DocumentType | '';
+  extractionStatus: DocumentExtractionStatus | '';
+  matterCode: string;
+  matterName: string;
+  title: string;
+  versionStatus: SearchVersionStatus | '';
+};
 
 const targetLabels = {
   all: '제목+본문',
@@ -47,37 +76,71 @@ const groupLabels = {
   type: '파일 유형',
 } as const satisfies Record<SearchGroupBy, string>;
 
+const documentTypeLabels = {
+  contract: '계약서',
+  memo: '메모',
+  opinion: '의견서',
+  court_filing: '법원 제출 문서',
+  evidence: '증거',
+  correspondence: '서신',
+  corporate_record: '회사 기록',
+  financial: '재무',
+  other: '기타',
+} as const satisfies Record<DocumentType, string>;
+
+const versionStatusLabels = {
+  current: '현재 버전',
+  superseded: '이전 버전',
+  all: '전체 버전',
+} as const satisfies Record<SearchVersionStatus, string>;
+
+const dateRangeLabels = {
+  last_7_days: '최근 7일',
+  last_30_days: '최근 30일',
+  older: '30일 이전',
+} as const satisfies Record<SearchDateRange, string>;
+
+const extractionStatusLabels = {
+  ready: '본문 검색 가능',
+  pending: '추출 대기',
+  ocr_pending: 'OCR 필요',
+  failed: '추출 실패',
+} as const satisfies Record<DocumentExtractionStatus, string>;
+
 function normalizeInput(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
 }
 
-function normalizedDraft(draft: Required<Pick<SearchAdvancedSelection, 'groupBy' | 'sortBy' | 'target'>> & {
-  clientName: string;
-  matterCode: string;
-  matterName: string;
-  title: string;
-}): SearchAdvancedSelection {
+function normalizedDraft(draft: SearchAdvancedDraft): SearchAdvancedSelection {
   return {
     clientName: normalizeInput(draft.clientName),
+    dateRange: draft.dateRange || undefined,
+    documentType: draft.documentType || undefined,
+    extractionStatus: draft.extractionStatus || undefined,
     groupBy: draft.groupBy,
     matterCode: normalizeInput(draft.matterCode),
     matterName: normalizeInput(draft.matterName),
     sortBy: draft.sortBy,
     target: draft.target,
     title: normalizeInput(draft.title),
+    versionStatus: draft.versionStatus || undefined,
   };
 }
 
 function countAdvanced(selection: SearchAdvancedSelection): number {
   return [
     selection.clientName,
+    selection.dateRange,
+    selection.documentType,
+    selection.extractionStatus,
     selection.groupBy && selection.groupBy !== 'none' ? selection.groupBy : undefined,
     selection.matterCode,
     selection.matterName,
     selection.sortBy && selection.sortBy !== 'relevance' ? selection.sortBy : undefined,
     selection.target && selection.target !== 'all' ? selection.target : undefined,
     selection.title,
+    selection.versionStatus,
   ].filter(Boolean).length;
 }
 
@@ -87,25 +150,33 @@ export function SearchAdvancedControls({
   onReset,
   selection,
 }: SearchAdvancedControlsProps) {
-  const [draft, setDraft] = useState({
+  const [draft, setDraft] = useState<SearchAdvancedDraft>({
     clientName: selection.clientName ?? '',
+    dateRange: selection.dateRange ?? '',
+    documentType: selection.documentType ?? '',
+    extractionStatus: selection.extractionStatus ?? '',
     groupBy: selection.groupBy ?? 'none',
     matterCode: selection.matterCode ?? '',
     matterName: selection.matterName ?? '',
     sortBy: selection.sortBy ?? 'relevance',
     target: selection.target ?? 'all',
     title: selection.title ?? '',
+    versionStatus: selection.versionStatus ?? '',
   });
 
   useEffect(() => {
     setDraft({
       clientName: selection.clientName ?? '',
+      dateRange: selection.dateRange ?? '',
+      documentType: selection.documentType ?? '',
+      extractionStatus: selection.extractionStatus ?? '',
       groupBy: selection.groupBy ?? 'none',
       matterCode: selection.matterCode ?? '',
       matterName: selection.matterName ?? '',
       sortBy: selection.sortBy ?? 'relevance',
       target: selection.target ?? 'all',
       title: selection.title ?? '',
+      versionStatus: selection.versionStatus ?? '',
     });
   }, [selection]);
 
@@ -118,7 +189,7 @@ export function SearchAdvancedControls({
       meta="권한 범위 내 결과"
       actions={activeCount > 0 ? <StatusBadge>{activeCount}</StatusBadge> : null}
     >
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
         <label className="space-y-1 text-sm font-medium">
           검색 범위
           <select
@@ -180,7 +251,91 @@ export function SearchAdvancedControls({
           </select>
         </label>
         <label className="space-y-1 text-sm font-medium">
-          제목 필터
+          문서 유형
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.documentType}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                documentType: event.target.value as DocumentType | '',
+              }))
+            }
+          >
+            <option value="">전체</option>
+            {documentTypes.map((type) => (
+              <option key={type} value={type}>
+                {documentTypeLabels[type]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          추출/OCR
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.extractionStatus}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                extractionStatus: event.target.value as DocumentExtractionStatus | '',
+              }))
+            }
+          >
+            <option value="">전체 상태</option>
+            {documentExtractionStatuses.map((status) => (
+              <option key={status} value={status}>
+                {extractionStatusLabels[status]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          버전 상태
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.versionStatus}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                versionStatus: event.target.value as SearchVersionStatus | '',
+              }))
+            }
+          >
+            <option value="">현재 버전 기본</option>
+            {searchVersionStatusValues.map((status) => (
+              <option key={status} value={status}>
+                {versionStatusLabels[status]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          수정 기간
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.dateRange}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                dateRange: event.target.value as SearchDateRange | '',
+              }))
+            }
+          >
+            <option value="">전체 기간</option>
+            {Object.entries(dateRangeLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          제목
           <Input
             value={draft.title}
             disabled={busy}
@@ -206,6 +361,19 @@ export function SearchAdvancedControls({
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
+          Matter 이름
+          <Input
+            value={draft.matterName}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                matterName: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
           고객명
           <Input
             value={draft.clientName}
@@ -219,6 +387,44 @@ export function SearchAdvancedControls({
           />
         </label>
       </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.5fr)]">
+        <section className="rounded-md border bg-background p-3">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-foreground">활성 필터</h4>
+            <StatusBadge tone={activeCount > 0 ? 'warning' : 'neutral'}>
+              {activeCount > 0 ? `${activeCount}개` : '기본'}
+            </StatusBadge>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {activeSearchChips(selection).map((chip) => (
+              <span
+                key={`${chip.label}-${chip.value}`}
+                className="inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border bg-muted/30 px-2.5 text-xs font-semibold text-foreground"
+              >
+                <span className="text-muted-foreground">{chip.label}</span>
+                <span className="max-w-44 truncate">{chip.value}</span>
+              </span>
+            ))}
+          </div>
+        </section>
+        <section className="rounded-md border bg-background p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <HelpCircle className="h-4 w-4 text-primary" />
+            검색식 도움말
+          </div>
+          <ul className="mt-2 grid gap-1.5 text-xs leading-5 text-muted-foreground">
+            <li>
+              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">"정확한 문구"</code>
+              <span className="ml-2">정확한 문구 우선</span>
+            </li>
+            <li>
+              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">-제외어</code>
+              <span className="ml-2">제외어 반영</span>
+            </li>
+            <li>본문/제목 범위와 Matter Code는 위 필터로 고정</li>
+          </ul>
+        </section>
+      </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={() => onApply(normalizedDraft(draft))} disabled={busy}>
           적용
@@ -230,4 +436,34 @@ export function SearchAdvancedControls({
       </div>
     </SectionCard>
   );
+}
+
+function activeSearchChips(selection: SearchAdvancedSelection): Array<{ label: string; value: string }> {
+  const chips: Array<{ label: string; value: string }> = [];
+  if (selection.target && selection.target !== 'all') {
+    chips.push({ label: '범위', value: targetLabels[selection.target] });
+  }
+  if (selection.sortBy && selection.sortBy !== 'relevance') {
+    chips.push({ label: '정렬', value: sortLabels[selection.sortBy] });
+  }
+  if (selection.groupBy && selection.groupBy !== 'none') {
+    chips.push({ label: '그룹', value: groupLabels[selection.groupBy] });
+  }
+  if (selection.documentType) {
+    chips.push({ label: '유형', value: documentTypeLabels[selection.documentType] });
+  }
+  if (selection.extractionStatus) {
+    chips.push({ label: '추출/OCR', value: extractionStatusLabels[selection.extractionStatus] });
+  }
+  if (selection.versionStatus) {
+    chips.push({ label: '버전', value: versionStatusLabels[selection.versionStatus] });
+  }
+  if (selection.dateRange) {
+    chips.push({ label: '기간', value: dateRangeLabels[selection.dateRange] });
+  }
+  if (selection.title) chips.push({ label: '제목', value: selection.title });
+  if (selection.matterCode) chips.push({ label: 'Matter Code', value: selection.matterCode });
+  if (selection.matterName) chips.push({ label: 'Matter', value: selection.matterName });
+  if (selection.clientName) chips.push({ label: '고객', value: selection.clientName });
+  return chips.length > 0 ? chips : [{ label: '조건', value: '기본 검색' }];
 }

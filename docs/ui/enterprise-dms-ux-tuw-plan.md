@@ -288,6 +288,15 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 - Acceptance:
   - PR-A can be reviewed without hidden context.
 
+PR-A implementation note:
+
+- `/files` now exposes an all-documents vault, Matter Code picker, Matter-scoped single/bulk upload panel, upload post-processing status hook, and selected-Matter document list.
+- All-documents browse calls `GET /documents` through the existing query-stage search permission scope.
+- Document vault filters are server-backed for title, Matter Code, document type, document status, confidentiality, privilege, extraction/OCR status, file-organization eligibility, legal hold, and sort order.
+- The upload path remains Matter Code-gated and must fail closed when Matter app source is unconfigured.
+- Bulk upload runs through the same Matter-scoped upload API per file and shows per-file queue results so partial failures are visible.
+- Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
+
 ### PR-B Document Operations
 
 #### DMS-UX-201 Document Detail Information Architecture
@@ -527,12 +536,17 @@ PR-B implementation note:
 
 PR-C implementation note:
 
-- Search request DTO now supports `target`, `sortBy`, `groupBy`, and display-safe filters for title, Matter Code/name, and client name.
+- Search request DTO now supports `target`, `sortBy`, `groupBy`, and display-safe filters for title, Matter Code/name, client name, and extraction/OCR status.
 - Backend filters remain permission-bound and use bound parameters plus wildcard escaping.
 - Keyword search can target all/title/body; sort SQL is enum-driven.
-- Search UI exposes target, sort, group, Matter Code, title, and client filters with URL state.
+- Search UI exposes target, sort, group, Matter Code, title, client, and extraction/OCR filters with URL state.
+- Search facets now include extraction/OCR status so users can find body-search-limited documents.
+- Search UI now shows active filter chips and compact query syntax help in the advanced search console.
+- Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; `/search/folders` exposes those saved searches as user-scoped search folders.
 - Result cards and grouped headings use display labels, not raw matter/client/version/file references.
-- OCR/searchability filters, saved searches/search folders, admin analytics, and preview hit controls remain deferred until supporting APIs/schema are approved.
+- Search result cards link to document detail, the approved preview endpoint, and URL-backed file-cabinet filters without showing raw refs as labels.
+- Search result cards pass bounded hit count/index context into document detail without URL-storing snippets, search terms, or raw source text.
+- Admin-shared search folders, full admin search analytics, retention refiners, and true preview anchor highlighting remain deferred until supporting APIs/schema are approved.
 
 ### PR-D Governance, Workflow, Ops
 
@@ -641,6 +655,11 @@ PR-C implementation note:
 - Acceptance:
   - Records work is not isolated from document operations.
 
+Implementation note:
+
+- Document action center links to Records hold/archive/disposal entry points and passes display-safe document/Matter labels for contextual display.
+- Unified persisted records task assignment remains deferred until the workflow/task API contract is approved.
+
 #### DMS-UX-506 Notification Center
 
 - Objective: Add actionable notifications.
@@ -705,6 +724,9 @@ PR-D implementation note:
 - Matter detail now includes contextual governance rows for Matter Code, status, practice group, lead display, legal hold, and file organization prep readiness.
 - Document and matter pages now derive workflow/ops tasks only from real DTO/status fields: missing subtype, OCR/extraction pending or failed, legal hold, and AI prep readiness conditions.
 - Dashboard now includes an API-derived action queue for permission/policy alerts, file organization prep readiness, integration status, and API connection failure states. It does not show fake task counts before a unified workflow API exists.
+- Dashboard now includes a DMS action launcher for Matter upload, file cabinet, search, search folders, work queue, notifications, file organization prep filters, and admin ops health; all links point to approved route surfaces and avoid row-level raw refs.
+- Work queue links extraction failed, OCR-required, and file-organization-ready items to URL-backed `/files` filters instead of creating fake persisted tasks.
+- Document and matter audit timelines clear previous rows before loading and after denied/error reloads so stale governance activity is not displayed across document or Matter context changes.
 - Wall admin now uses `MatterCodePicker` for common wall lookup/create flow; raw wall/user refs remain only in the clearly marked security-operations advanced area until user/group picker APIs exist.
 - AI prep copy remains limited to file organization prep; legal analysis, external model route, raw prompt/source/model-response copy remains guarded by tests and smoke checks.
 - Unified task DB/API, notifications, saved work queues, records disposal task APIs, and user/group picker APIs remain deferred to PR-E/F or backend-approved follow-up work.
@@ -803,6 +825,7 @@ PR-D implementation note:
 PR-E implementation note:
 
 - Admin settings now include a DMS configuration IA panel for taxonomy, Matter templates, and search refiners. These surfaces are read-only contract states until save/audit APIs are approved.
+- Admin settings now include search index operations wired to the admin reindex endpoint; the UI only shows audit-safe queue counts after an operator request.
 - The integration parent route now shows a safe integration matrix: Outlook links to the real status route; OneDrive and Office open/save remain gated with no connected-state claim.
 - Outlook integration now includes a Vault filing path section that aligns Outlook attachment filing with the same Matter permission, audit, document detail, and search UX model.
 - Admin and integration tests assert no fake connected states, no sample defaults, and no raw reference inputs.
@@ -908,10 +931,32 @@ PR-E implementation note:
 
 PR-F implementation note:
 
+- DMS-UX-808 through DMS-UX-812 are implemented as release hardening contracts:
+  `docs/release/enterprise-dms-ui-release-evidence.md`,
+  `docs/release/production-ui-rollout-checklist.md`,
+  `docs/release/rollback-runbook.md`, and
+  `tools/release/check-production-ui-smoke.mjs` now make evidence package,
+  rollout, rollback, monitor, and owner signoff requirements machine-checkable
+  at the production UI smoke layer.
+- DMS-UX-501 through DMS-UX-506 now have a server-derived operating-data API
+  layer: `GET /work/items` and `GET /notifications` return display-safe items
+  from the same permission-scoped dashboard state used by the cockpit. This
+  closes the UI/API contract gap without introducing fake persisted tasks;
+  persisted assignment, due dates, and notification storage remain explicit
+  follow-up scope.
+- DMS-UX-508 through DMS-UX-511 now have an admin operations-health and guard
+  layer: `/admin` consumes `GET /ai/ops/health` and `GET /ai/ops/metrics` for
+  local file organization prep status only; production smoke blocks removal of
+  the operations-health panel and blocks external portal routes from internal
+  navigation policy. Broader storage/upload queue probes, persisted workflow
+  assignment, and user/group picker remediation remain explicit follow-up scope.
+
 - Added `docs/ui/enterprise-dms-release-hardening.md` as the release hardening baseline for authenticated main-loop smoke, negative auth smoke, no-fake-data sweep, internal-ref sweep, AI scope sweep, responsive/accessibility QA, evidence package, rollout checklist, rollback, production monitor, and signoff.
 - UI PR checklist now requires the release hardening document for production-readiness changes.
 - `pnpm check:ui-pr-checklist` now requires the hardening document and checks for authenticated DMS smoke, negative auth, rollback, and monitor coverage.
 - `pnpm ui:production-smoke` now validates the release hardening baseline in addition to production route/UI guards.
+- General-user workflow copy was hardened so fake-task explanations and internal-reference fallback labels are replaced with operating-language empty/unavailable states; `pnpm ui:production-smoke` now blocks those fake operational copy regressions in production app sources.
+- Responsive/accessibility hardening now enforces the AppShell landmark model, mobile navigation dialog controls, active navigation `aria-current`, wrapped responsive layout primitives, table overflow containment, and empty-state live-region contracts through component tests and `pnpm ui:production-smoke`.
 - Actual authenticated smoke receipts still require approved production/staging credentials and must be attached as refs only before production signoff.
 
 ## Dependency Ladder

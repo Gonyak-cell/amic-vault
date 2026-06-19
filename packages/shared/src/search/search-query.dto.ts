@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { documentTypeSchema, documentTypes } from '../types/document';
+import {
+  documentExtractionStatuses,
+  documentTypeSchema,
+  documentTypes,
+  type DocumentExtractionStatus,
+} from '../types/document';
 import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
 const isoDateTimePattern =
@@ -9,6 +14,7 @@ export const searchDocumentTypeFilterSchema = z.union([
   documentTypeSchema,
   z.array(documentTypeSchema).min(1).max(documentTypes.length),
 ]);
+export const searchExtractionStatusSchema = z.enum(documentExtractionStatuses);
 
 export const searchVersionStatusValues = ['current', 'superseded', 'all'] as const;
 export const searchVersionStatusSchema = z.enum(searchVersionStatusValues);
@@ -46,6 +52,7 @@ export const searchFiltersSchema = z
     clientName: searchTextFilterSchema.optional(),
     title: searchTextFilterSchema.optional(),
     documentType: searchDocumentTypeFilterSchema.optional(),
+    extractionStatus: searchExtractionStatusSchema.optional(),
     dateFrom: searchIsoDateTimeSchema.optional(),
     dateTo: searchIsoDateTimeSchema.optional(),
     versionStatus: searchVersionStatusSchema.optional(),
@@ -83,6 +90,24 @@ export const searchQuerySchema = z
     }
   });
 
+export const savedSearchNameSchema = z.string().trim().min(1).max(80);
+
+export const createSavedSearchSchema = z
+  .object({
+    name: savedSearchNameSchema,
+    query: searchQuerySchema,
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!value.query.query?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'saved search requires a query',
+        path: ['query', 'query'],
+      });
+    }
+  });
+
 export interface SearchHighlightDto {
   start: number;
   end: number;
@@ -100,6 +125,7 @@ export interface SearchResultDto extends DisplayFieldsDto {
   snippet: string;
   highlights: SearchHighlightDto[];
   documentType: string;
+  extractionStatus?: DocumentExtractionStatus | null;
   versionStatus: string;
   score: number;
   updatedAt: string;
@@ -120,6 +146,7 @@ export interface SearchFacetsDto {
   clients: SearchFacetBucketDto[];
   matters: SearchFacetBucketDto[];
   documentTypes: SearchFacetBucketDto[];
+  extractionStatuses: SearchFacetBucketDto[];
   versionStatuses: SearchFacetBucketDto[];
   dateRanges: SearchDateRangeFacetDto[];
 }
@@ -128,6 +155,18 @@ export interface SearchResponseDto {
   facets: SearchFacetsDto;
   results: SearchResultDto[];
   total: number;
+}
+
+export interface SavedSearchDto {
+  createdAt: string;
+  name: string;
+  query: SearchQueryDto;
+  savedSearchId: string;
+  updatedAt: string;
+}
+
+export interface SavedSearchListDto {
+  items: SavedSearchDto[];
 }
 
 export type SearchDocumentTypeFilterDto = z.infer<typeof searchDocumentTypeFilterSchema>;
@@ -144,3 +183,7 @@ export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode' | 'target' | 'sor
   sortBy?: SearchSort;
   target?: SearchTarget;
 };
+export interface CreateSavedSearchDto {
+  name: string;
+  query: SearchQueryDto;
+}

@@ -41,7 +41,8 @@ describe('WallPolicyInspector', () => {
 
     expect(html).toContain('정책 상세');
     expect(html).toContain('Conflict wall');
-    expect(html).toContain('내부 참조는 기본 화면에 표시하지 않음');
+    expect(html).toContain('사건 정보는 권한 확인 후 표시됩니다.');
+    expect(html).not.toContain('내부 참조는 기본 화면에 표시하지 않음');
     expect(html).toContain('접근 차단');
     expect(html).not.toContain(item.wall.wallId);
     expect(html).not.toContain(item.wall.matterId);

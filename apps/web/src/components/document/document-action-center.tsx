@@ -1,10 +1,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
+  Archive,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Download,
   Eye,
+  FileSearch,
   FileText,
   History,
   Link2,
@@ -12,6 +17,7 @@ import {
   RefreshCw,
   Save,
   ShieldCheck,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
@@ -23,6 +29,7 @@ import type {
   DocumentDto,
   DocumentType,
   DocumentVersionDto,
+  SearchTarget,
 } from '@amic-vault/shared';
 import {
   documentConfidentialityLevels,
@@ -67,6 +74,14 @@ interface DocumentActionCenterProps {
   initialAuditEvents?: DocumentAuditEventDto[];
   initialDocument?: DocumentDto;
   initialVersions?: DocumentVersionDto[];
+  searchHitContext?: DocumentSearchHitContext | null;
+}
+
+export interface DocumentSearchHitContext {
+  hitCount: number;
+  hitIndex: number;
+  source: 'search';
+  target: SearchTarget;
 }
 
 interface ProfileDraft {
@@ -134,12 +149,147 @@ function draftFromDocument(document: DocumentDto): ProfileDraft {
   };
 }
 
+function recordsUrlForDocument(document: DocumentDto, tab: 'holds' | 'archive' | 'disposal'): string {
+  const params = new URLSearchParams();
+  params.set('tab', tab);
+  params.set('documentId', document.documentId);
+  if (document.matterDisplayCode?.trim()) params.set('matterCode', document.matterDisplayCode.trim());
+  if (document.title.trim()) params.set('documentTitle', document.title.trim());
+  return `/records?${params.toString()}`;
+}
+
+function fileCabinetUrlForDocument(document: DocumentDto): string {
+  const params = new URLSearchParams();
+  if (document.matterDisplayCode?.trim()) params.set('matterCode', document.matterDisplayCode.trim());
+  if (document.title.trim()) params.set('title', document.title.trim());
+  const queryString = params.toString();
+  return queryString ? `/files?${queryString}` : '/files';
+}
+
+export function searchHitContextFromParams(params: {
+  get(name: string): string | null;
+}): DocumentSearchHitContext | null {
+  if (params.get('from') !== 'search') return null;
+  const target = parseSearchTarget(params.get('target'));
+  const hitCount = boundedInteger(params.get('hitCount'), 0, 50);
+  const hitIndex = hitCount > 0 ? boundedInteger(params.get('hit'), 1, hitCount) : 0;
+  return {
+    hitCount,
+    hitIndex,
+    source: 'search',
+    target,
+  };
+}
+
+function parseSearchTarget(value: string | null): SearchTarget {
+  return value === 'title' || value === 'body' || value === 'all' ? value : 'all';
+}
+
+function boundedInteger(value: string | null, min: number, max: number): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  if (!Number.isFinite(parsed)) return min;
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitContext): string {
+  const params = new URLSearchParams();
+  params.set('from', 'search');
+  params.set('target', context.target);
+  if (context.hitCount > 0) {
+    params.set('hit', String(context.hitIndex));
+    params.set('hitCount', String(context.hitCount));
+  }
+  return `/documents/${encodeURIComponent(documentId)}?${params.toString()}`;
+}
+
+const searchTargetLabels = {
+  all: '제목+본문',
+  title: '제목',
+  body: '본문',
+} as const satisfies Record<SearchTarget, string>;
+
 function ProfileField({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className="mt-1 truncate text-sm font-semibold text-foreground">{value}</dd>
     </div>
+  );
+}
+
+function SearchHitContextPanel({
+  context,
+  documentId,
+}: {
+  context: DocumentSearchHitContext;
+  documentId: string;
+}) {
+  const hasPreviousHit = context.hitCount > 1 && context.hitIndex > 1;
+  const hasNextHit = context.hitCount > 1 && context.hitIndex < context.hitCount;
+  const previousIndex = Math.max(1, context.hitIndex - 1);
+  const nextIndex = Math.min(context.hitCount, context.hitIndex + 1);
+  return (
+    <SectionCard
+      icon={<FileSearch className="h-4 w-4" />}
+      title="검색 결과 문맥"
+      meta={searchTargetLabels[context.target]}
+      actions={
+        context.hitCount > 0 ? (
+          <StatusBadge tone="neutral">
+            {context.hitIndex} / {context.hitCount}
+          </StatusBadge>
+        ) : (
+          <StatusBadge tone="neutral">검색 결과</StatusBadge>
+        )
+      }
+    >
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <p className="text-sm leading-6 text-muted-foreground">
+          검색 결과에서 열린 문서입니다. 표시 위치는 승인된 검색 hit 범위 안에서만 이동합니다.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {hasPreviousHit ? (
+            <Button asChild size="sm" variant="outline">
+              <Link
+                href={searchHitUrlForDocument(documentId, {
+                  ...context,
+                  hitIndex: previousIndex,
+                })}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                이전 hit
+              </Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" disabled type="button">
+              <ChevronLeft className="h-4 w-4" />
+              이전 hit
+            </Button>
+          )}
+          {hasNextHit ? (
+            <Button asChild size="sm" variant="outline">
+              <Link
+                href={searchHitUrlForDocument(documentId, {
+                  ...context,
+                  hitIndex: nextIndex,
+                })}
+              >
+                다음 hit
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" disabled type="button">
+              다음 hit
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
+          <Button asChild size="sm" variant="outline">
+            <Link href="/search">검색으로 돌아가기</Link>
+          </Button>
+        </div>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -211,6 +361,7 @@ export function DocumentActionCenter({
   initialAuditEvents = [],
   initialDocument,
   initialVersions = [],
+  searchHitContext = null,
 }: DocumentActionCenterProps) {
   const [document, setDocument] = useState<DocumentDto | null>(initialDocument ?? null);
   const [versions, setVersions] = useState<DocumentVersionDto[]>(initialVersions);
@@ -465,6 +616,10 @@ export function DocumentActionCenter({
 
             <DocumentGovernanceContextPanel document={document} prepStatus={prepStatus} />
 
+            {searchHitContext ? (
+              <SearchHitContextPanel context={searchHitContext} documentId={document.documentId} />
+            ) : null}
+
             <SectionCard
               icon={<Eye className="h-4 w-4" />}
               title="미리보기"
@@ -594,10 +749,35 @@ export function DocumentActionCenter({
 
             <SectionCard
               icon={<Link2 className="h-4 w-4" />}
-              title="연결 항목"
-              meta="권한 범위 내 표시"
+              title="기록/보존"
+              meta="권한 범위 내 조치"
             >
-              <p className="text-sm text-muted-foreground">표시할 연결 항목이 없습니다.</p>
+              <div className="grid gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={recordsUrlForDocument(document, 'holds')}>
+                    <ShieldCheck className="h-4 w-4" />
+                    삭제 금지
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={recordsUrlForDocument(document, 'archive')}>
+                    <Archive className="h-4 w-4" />
+                    보관 처리
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={recordsUrlForDocument(document, 'disposal')}>
+                    <Trash2 className="h-4 w-4" />
+                    삭제 요청
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={fileCabinetUrlForDocument(document)}>
+                    <FileSearch className="h-4 w-4" />
+                    문서함 위치
+                  </Link>
+                </Button>
+              </div>
             </SectionCard>
           </aside>
         </div>

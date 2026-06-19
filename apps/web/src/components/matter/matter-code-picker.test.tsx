@@ -56,7 +56,9 @@ describe('MatterCodePicker', () => {
     );
 
     expect(html).toContain('Matter Code 또는 이름 검색');
-    expect(html).toContain('Vault projection');
+    expect(html).toContain('로컬 Matter 목록');
+    expect(html).toContain('운영 업로드 source로 사용하지 않습니다.');
+    expect(html).not.toContain('Vault projection');
     expect(html).not.toContain('Matter ID');
   });
 

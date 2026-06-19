@@ -13,9 +13,6 @@ import type { SearchAdvancedSelection } from './search-advanced-controls';
 export interface SearchFacetSelection extends SearchAdvancedSelection {
   clientId?: string | undefined;
   matterId?: string | undefined;
-  documentType?: string | undefined;
-  versionStatus?: string | undefined;
-  dateRange?: string | undefined;
 }
 
 interface SearchFacetsProps {
@@ -33,14 +30,30 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         title={t('search.facet.type')}
         buckets={facets.documentTypes}
         selected={selection.documentType}
-        onSelect={(value) => onChange({ ...selection, documentType: value })}
+        onSelect={(value) =>
+          onChange({ ...selection, documentType: value as SearchFacetSelection['documentType'] })
+        }
         language={language}
       />
       <FacetGroup
         title={t('search.facet.version')}
         buckets={facets.versionStatuses}
         selected={selection.versionStatus}
-        onSelect={(value) => onChange({ ...selection, versionStatus: value })}
+        onSelect={(value) =>
+          onChange({ ...selection, versionStatus: value as SearchFacetSelection['versionStatus'] })
+        }
+        language={language}
+      />
+      <FacetGroup
+        title={t('search.facet.searchability')}
+        buckets={facets.extractionStatuses}
+        selected={selection.extractionStatus}
+        onSelect={(value) =>
+          onChange({
+            ...selection,
+            extractionStatus: value as SearchFacetSelection['extractionStatus'],
+          })
+        }
         language={language}
       />
       <FacetGroup
@@ -63,7 +76,9 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         title={t('search.facet.updated')}
         buckets={facets.dateRanges}
         selected={selection.dateRange}
-        onSelect={(value) => onChange({ ...selection, dateRange: value })}
+        onSelect={(value) =>
+          onChange({ ...selection, dateRange: value as SearchFacetSelection['dateRange'] })
+        }
         language={language}
       />
       {hasSelection(selection) ? (
@@ -132,6 +147,10 @@ function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, 
     memo: 'search.facet.memo',
     current: 'search.facet.current',
     superseded: 'search.facet.superseded',
+    ready: 'search.facet.extractionReady',
+    pending: 'search.facet.extractionPending',
+    ocr_pending: 'search.facet.extractionOcrPending',
+    failed: 'search.facet.extractionFailed',
     last_7_days: 'search.facet.last7Days',
     'last 7 days': 'search.facet.last7Days',
     last_30_days: 'search.facet.last30Days',
@@ -149,6 +168,7 @@ function hasSelection(selection: SearchFacetSelection): boolean {
     selection.clientId ||
       selection.matterId ||
       selection.documentType ||
+      selection.extractionStatus ||
       selection.versionStatus ||
       selection.dateRange,
   );

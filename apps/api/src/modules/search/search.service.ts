@@ -2,9 +2,12 @@ import { createHash } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import type {
   AuditMetadata,
+  CreateSavedSearchDto,
   MatterSuggestionDto,
   MatterSuggestionListDto,
   MatterSuggestionQueryDto,
+  SavedSearchDto,
+  SavedSearchListDto,
   SearchMode,
   SearchFacetBucketDto,
   SearchFacetsDto,
@@ -12,7 +15,7 @@ import type {
   SearchResponseDto,
   SearchResultDto,
 } from '@amic-vault/shared';
-import { buildSafeLabel } from '@amic-vault/shared';
+import { buildSafeLabel, searchQuerySchema } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import {
   SEARCH_PERMISSION_SCOPE_PROVIDER,
@@ -34,6 +37,7 @@ interface SearchDbRow {
   client_name: string | null;
   title: string;
   document_type: string;
+  extraction_status: string | null;
   version_status: string;
   updated_at: Date;
   score: number | string;
@@ -52,6 +56,16 @@ interface MatterSuggestionDbRow {
   client_id: string;
   reason_codes: string[] | null;
   score: number | string;
+}
+
+interface SavedSearchDbRow {
+  created_at: Date;
+  filter_refs: string;
+  name: string;
+  query_hash: string;
+  saved_search_id: string;
+  search_query_json: unknown;
+  updated_at: Date;
 }
 
 function permissionDenied(): ForbiddenException {
@@ -86,6 +100,9 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
         : filters.documentType;
       refs.push(`document_type:${value}`);
     }
+    if (filters.extractionStatus) {
+      refs.push(`extraction_status:${filters.extractionStatus}`);
+    }
     if (filters.dateFrom || filters.dateTo) {
       refs.push(`date_range:${filters.dateFrom ?? ''}..${filters.dateTo ?? ''}`);
     }
@@ -95,6 +112,10 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
     refs.push(`scope:${[...new Set(scopeRules)].join(',')}`);
   }
   return (refs.join('|') || 'none').slice(0, 256);
+}
+
+function savedSearchFilterRefs(operation: 'delete' | 'save', input: SearchQueryDto): string {
+  return `saved_search:${operation}|${filterRefs(input)}`.slice(0, 256);
 }
 
 function searchAuditMetadata(
@@ -253,6 +274,105 @@ export class SearchService {
     });
   }
 
+  async listSavedSearches(ctx: SearchRequestContext): Promise<SavedSearchListDto> {
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query(
+        `
+          SELECT
+            saved_search_id,
+            name,
+            search_query_json,
+            query_hash,
+            filter_refs,
+            created_at,
+            updated_at
+          FROM saved_searches
+          WHERE tenant_id = $1
+            AND user_id = $2
+          ORDER BY updated_at DESC, name ASC, saved_search_id ASC
+          LIMIT 50
+        `,
+        [ctx.tenantId, ctx.userId],
+      );
+      return { items: (result.rows as SavedSearchDbRow[]).map(mapSavedSearchRow) };
+    });
+  }
+
+  async saveSavedSearch(
+    ctx: SearchRequestContext,
+    input: CreateSavedSearchDto,
+  ): Promise<SavedSearchDto> {
+    const queryHash = sha256Hex(input.query.query ?? '');
+    const refs = filterRefs(input.query);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query(
+        `
+          INSERT INTO saved_searches (
+            tenant_id,
+            user_id,
+            name,
+            search_query_json,
+            query_hash,
+            filter_refs
+          )
+          VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+          ON CONFLICT (tenant_id, user_id, name)
+          DO UPDATE SET
+            search_query_json = EXCLUDED.search_query_json,
+            query_hash = EXCLUDED.query_hash,
+            filter_refs = EXCLUDED.filter_refs,
+            updated_at = now()
+          RETURNING
+            saved_search_id,
+            name,
+            search_query_json,
+            query_hash,
+            filter_refs,
+            created_at,
+            updated_at
+        `,
+        [
+          ctx.tenantId,
+          ctx.userId,
+          input.name.trim(),
+          JSON.stringify(input.query),
+          queryHash,
+          refs,
+        ],
+      );
+      const row = result.rows[0] as SavedSearchDbRow | undefined;
+      if (!row) throw permissionDenied();
+      const saved = mapSavedSearchRow(row);
+      await this.recordSavedSearchAudit(client, ctx, saved, 'save');
+      return saved;
+    });
+  }
+
+  async deleteSavedSearch(ctx: SearchRequestContext, savedSearchId: string): Promise<void> {
+    await this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query(
+        `
+          DELETE FROM saved_searches
+          WHERE tenant_id = $1
+            AND user_id = $2
+            AND saved_search_id = $3
+          RETURNING
+            saved_search_id,
+            name,
+            search_query_json,
+            query_hash,
+            filter_refs,
+            created_at,
+            updated_at
+        `,
+        [ctx.tenantId, ctx.userId, savedSearchId],
+      );
+      const row = result.rows[0] as SavedSearchDbRow | undefined;
+      if (!row) throw permissionDenied();
+      await this.recordSavedSearchAudit(client, ctx, mapSavedSearchRow(row), 'delete');
+    });
+  }
+
   private async auditDenied(
     ctx: SearchRequestContext,
     input: SearchQueryDto,
@@ -325,6 +445,33 @@ export class SearchService {
           result,
           scopeRules,
         ),
+      },
+      client,
+    );
+  }
+
+  private async recordSavedSearchAudit(
+    client: QueryClient,
+    ctx: SearchRequestContext,
+    saved: SavedSearchDto,
+    operation: 'delete' | 'save',
+  ): Promise<void> {
+    await this.auditService.log(
+      {
+        tenantId: ctx.tenantId,
+        actorId: ctx.userId,
+        sessionId: ctx.sessionId ?? null,
+        action: 'SEARCH_EXECUTED',
+        targetType: 'saved_search',
+        targetId: saved.savedSearchId,
+        result: 'success',
+        metadata: {
+          filter_refs: savedSearchFilterRefs(operation, saved.query),
+          query_hash: sha256Hex(saved.query.query ?? ''),
+          query_length: saved.query.query?.length ?? 0,
+          request_id: saved.savedSearchId,
+          result_count: 0,
+        },
       },
       client,
     );
@@ -433,6 +580,7 @@ export class SearchService {
           snippet: parsed.snippet,
           highlights: parsed.highlights,
           documentType: row.document_type,
+          extractionStatus: parseExtractionStatus(row.extraction_status),
           versionStatus: row.version_status,
           score: Number(row.score),
           updatedAt: row.updated_at.toISOString(),
@@ -475,6 +623,16 @@ function mapMatterSuggestionRow(row: MatterSuggestionDbRow): MatterSuggestionDto
   };
 }
 
+function mapSavedSearchRow(row: SavedSearchDbRow): SavedSearchDto {
+  return {
+    createdAt: row.created_at.toISOString(),
+    name: row.name,
+    query: searchQuerySchema.parse(row.search_query_json),
+    savedSearchId: row.saved_search_id,
+    updatedAt: row.updated_at.toISOString(),
+  };
+}
+
 function parseMatterSuggestionReasonCodes(
   input: string[] | null,
 ): MatterSuggestionDto['reasonCodes'] {
@@ -489,6 +647,7 @@ const emptyFacets: SearchFacetsDto = {
   clients: [],
   matters: [],
   documentTypes: [],
+  extractionStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
@@ -499,6 +658,7 @@ function parseFacets(input: unknown): SearchFacetsDto {
     clients: parseBuckets(input.clients),
     matters: parseBuckets(input.matters),
     documentTypes: parseBuckets(input.documentTypes),
+    extractionStatuses: parseBuckets(input.extractionStatuses),
     versionStatuses: parseBuckets(input.versionStatuses),
     dateRanges: parseDateRanges(input.dateRanges),
   };
@@ -510,7 +670,16 @@ function parseBuckets(input: unknown): SearchFacetBucketDto[] {
     if (!isRecord(item) || typeof item.value !== 'string') return [];
     const count = Number(item.count);
     if (!Number.isFinite(count) || count <= 0) return [];
-    return [{ value: item.value, count }];
+    return [
+      {
+        value: item.value,
+        count,
+        ...(typeof item.label === 'string' ? { label: item.label } : {}),
+        ...(typeof item.canViewSensitiveRef === 'boolean'
+          ? { canViewSensitiveRef: item.canViewSensitiveRef }
+          : {}),
+      },
+    ];
   });
 }
 
@@ -528,4 +697,13 @@ function parseDateRanges(input: unknown): SearchFacetsDto['dateRanges'] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseExtractionStatus(
+  value: string | null,
+): NonNullable<SearchResultDto['extractionStatus']> | null {
+  if (value === 'pending' || value === 'ready' || value === 'ocr_pending' || value === 'failed') {
+    return value;
+  }
+  return null;
 }

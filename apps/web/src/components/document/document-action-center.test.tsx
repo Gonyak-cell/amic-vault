@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DocumentAuditEventDto, DocumentDto, DocumentVersionDto } from '@amic-vault/shared';
-import { DocumentActionCenter } from './document-action-center';
+import { DocumentActionCenter, searchHitContextFromParams } from './document-action-center';
 
 const document = {
   documentId: '11111111-1111-4111-8111-111111111201',
@@ -103,6 +103,17 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('v2');
     expect(html).toContain('v1');
     expect(html).toContain('새 버전 추가');
+    expect(html).toContain('기록/보존');
+    expect(html).toContain('삭제 금지');
+    expect(html).toContain('보관 처리');
+    expect(html).toContain('삭제 요청');
+    expect(html).toContain('문서함 위치');
+    expect(html).toContain(
+      'href="/records?tab=archive&amp;documentId=11111111-1111-4111-8111-111111111201&amp;matterCode=AMIC-2026-0007&amp;documentTitle=%EA%B3%84%EC%95%BD+%EA%B2%80%ED%86%A0+%EC%9E%90%EB%A3%8C"',
+    );
+    expect(html).toContain(
+      'href="/files?matterCode=AMIC-2026-0007&amp;title=%EA%B3%84%EC%95%BD+%EA%B2%80%ED%86%A0+%EC%9E%90%EB%A3%8C"',
+    );
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(document.matterId);
     expect(html).not.toContain(currentVersion.versionId);
@@ -120,5 +131,52 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('표시 가능한 제목 없음');
     expect(html).not.toContain(document.documentId);
     expect(html).not.toContain(document.matterId);
+  });
+
+  it('renders search hit context without carrying raw snippets into the document route', () => {
+    const html = renderToStaticMarkup(
+      <DocumentActionCenter
+        disableInitialLoad
+        documentId={document.documentId}
+        initialDocument={document}
+        initialVersions={versions}
+        searchHitContext={{
+          hitCount: 2,
+          hitIndex: 1,
+          source: 'search',
+          target: 'body',
+        }}
+      />,
+    );
+
+    expect(html).toContain('검색 결과 문맥');
+    expect(html).toContain('본문');
+    expect(html).toContain('1 / 2');
+    expect(html).toContain('다음 hit');
+    expect(html).toContain(
+      'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=body&amp;hit=2&amp;hitCount=2"',
+    );
+    expect(html).toContain('검색으로 돌아가기');
+    expect(html).not.toContain('authorized snippet');
+    expect(html).not.toContain('search query');
+  });
+
+  it('parses bounded search hit context from route params only', () => {
+    const params = new URLSearchParams({
+      from: 'search',
+      hit: '99',
+      hitCount: '2',
+      q: 'do not carry raw query text',
+      snippet: 'do not carry raw snippet',
+      target: 'body',
+    });
+
+    expect(searchHitContextFromParams(params)).toEqual({
+      hitCount: 2,
+      hitIndex: 2,
+      source: 'search',
+      target: 'body',
+    });
+    expect(searchHitContextFromParams(new URLSearchParams())).toBeNull();
   });
 });
