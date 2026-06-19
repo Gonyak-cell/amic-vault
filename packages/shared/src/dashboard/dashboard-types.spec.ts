@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { dashboardOverviewSchema } from './dashboard-types';
+import {
+  dashboardOverviewSchema,
+  dmsNotificationCenterResponseSchema,
+  dmsWorkQueueResponseSchema,
+} from './dashboard-types';
 
 describe('dashboard DTOs', () => {
   it('accepts display-only operational overview data', () => {
@@ -31,6 +35,65 @@ describe('dashboard DTOs', () => {
         permissionPolicyAlerts: [],
         aiPrepStatus: [],
         integrationStatus: [],
+      }),
+    ).toThrow();
+  });
+
+  it('accepts display-only DMS work queue and notification items', () => {
+    expect(
+      dmsWorkQueueResponseSchema.parse({
+        generatedAt: '2026-06-17T00:00:00.000Z',
+        source: 'dashboard_operational_state',
+        items: [
+          {
+            itemKey: 'permission-policy-0',
+            source: 'permission_policy',
+            sourceLabel: '권한/정책',
+            title: '권한/정책 알림 확인',
+            description: '1건의 정책 알림이 있습니다.',
+            href: '/audit',
+            tone: 'warning',
+          },
+        ],
+      }).items,
+    ).toHaveLength(1);
+
+    expect(
+      dmsNotificationCenterResponseSchema.parse({
+        generatedAt: '2026-06-17T00:00:00.000Z',
+        source: 'dashboard_operational_state',
+        items: [
+          {
+            itemKey: 'recent-activity-0',
+            source: 'recent_activity',
+            category: '최근 활동',
+            title: '문서 업로드',
+            description: 'AMIC-2026-0001 · 성공',
+            tone: 'success',
+            occurredAt: '2026-06-17T00:00:00.000Z',
+          },
+        ],
+      }).items,
+    ).toHaveLength(1);
+  });
+
+  it('rejects internal refs on DMS operational items', () => {
+    expect(() =>
+      dmsWorkQueueResponseSchema.parse({
+        generatedAt: '2026-06-17T00:00:00.000Z',
+        source: 'dashboard_operational_state',
+        items: [
+          {
+            itemKey: 'document-1',
+            source: 'operational_data',
+            sourceLabel: '운영 데이터',
+            title: '문서 확인',
+            description: '확인 필요',
+            href: '/documents/11111111-1111-4111-8111-111111111111',
+            tone: 'neutral',
+            documentId: '11111111-1111-4111-8111-111111111111',
+          },
+        ],
       }),
     ).toThrow();
   });

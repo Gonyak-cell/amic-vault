@@ -1,7 +1,14 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import {
   dashboardOverviewSchema,
+  dmsNotificationCenterResponseSchema,
+  dmsWorkQueueResponseSchema,
   isUserRole,
+  type DmsNotificationCenterResponseDto,
+  type DmsNotificationItemDto,
+  type DmsOperationalTone,
+  type DmsWorkQueueItemDto,
+  type DmsWorkQueueResponseDto,
   type DashboardAiPrepStatusDto,
   type DashboardIntegrationStatusDto,
   type DashboardOverviewDto,
@@ -153,6 +160,27 @@ export class DashboardService {
         aiPrepStatus: await this.listAiPrepStatus(client, actor),
         integrationStatus: await this.listIntegrationStatus(client, actor),
       });
+    });
+  }
+
+  async getWorkQueue(actorUserId: string, now = new Date()): Promise<DmsWorkQueueResponseDto> {
+    const overview = await this.getOverview(actorUserId, now);
+    return dmsWorkQueueResponseSchema.parse({
+      generatedAt: overview.generatedAt,
+      source: 'dashboard_operational_state',
+      items: workItemsFromOverview(overview),
+    });
+  }
+
+  async getNotificationCenter(
+    actorUserId: string,
+    now = new Date(),
+  ): Promise<DmsNotificationCenterResponseDto> {
+    const overview = await this.getOverview(actorUserId, now);
+    return dmsNotificationCenterResponseSchema.parse({
+      generatedAt: overview.generatedAt,
+      source: 'dashboard_operational_state',
+      items: notificationItemsFromOverview(overview),
     });
   }
 
@@ -357,4 +385,111 @@ export class DashboardService {
         ...(isoDate(row.updated_at) ? { updatedAt: isoDate(row.updated_at) } : {}),
       }));
   }
+}
+
+function workItemsFromOverview(overview: DashboardOverviewDto): DmsWorkQueueItemDto[] {
+  const items: DmsWorkQueueItemDto[] = [];
+
+  if (overview.permissionPolicyAlerts.length > 0) {
+    items.push({
+      itemKey: 'permission-policy-0',
+      source: 'permission_policy',
+      sourceLabel: '권한/정책',
+      title: '권한/정책 알림 확인',
+      description: `${overview.permissionPolicyAlerts.length}건의 정책 알림이 있습니다.`,
+      href: '/audit',
+      tone: 'warning',
+      updatedAt: overview.permissionPolicyAlerts[0]?.occurredAt,
+    });
+  }
+
+  if (overview.aiPrepStatus.length > 0) {
+    items.push({
+      itemKey: 'ai-prep-0',
+      source: 'ai_prep',
+      sourceLabel: '파일 정리 준비',
+      title: '파일 정리 준비 상태 확인',
+      description: `${overview.aiPrepStatus.length}개 Matter의 파일 정리 준비 상태가 있습니다.`,
+      href: '/files?aiAllowed=true&sortBy=matter_asc',
+      tone: 'neutral',
+      updatedAt: overview.aiPrepStatus[0]?.updatedAt,
+    });
+  }
+
+  if (overview.integrationStatus.length > 0) {
+    items.push({
+      itemKey: 'integration-0',
+      source: 'integration',
+      sourceLabel: '통합',
+      title: '통합 상태 확인',
+      description: `${overview.integrationStatus.length}개 통합 상태가 보고되었습니다.`,
+      href: '/integrations/outlook',
+      tone: 'neutral',
+      updatedAt: overview.integrationStatus[0]?.updatedAt,
+    });
+  }
+
+  return items;
+}
+
+function notificationItemsFromOverview(
+  overview: DashboardOverviewDto,
+): DmsNotificationItemDto[] {
+  const items: DmsNotificationItemDto[] = [];
+
+  overview.permissionPolicyAlerts.slice(0, 5).forEach((alert, index) => {
+    items.push({
+      itemKey: `permission-policy-${index}`,
+      source: 'permission_policy',
+      category: '권한/정책',
+      title: alert.title,
+      description: alert.description,
+      tone: 'warning',
+      ...(alert.occurredAt ? { occurredAt: alert.occurredAt } : {}),
+    });
+  });
+
+  overview.aiPrepStatus.slice(0, 5).forEach((prep, index) => {
+    items.push({
+      itemKey: `ai-prep-${index}`,
+      source: 'ai_prep',
+      category: '파일 정리 준비',
+      title: prep.matterLabel,
+      description: prep.statusLabel,
+      tone: 'neutral',
+      ...(prep.updatedAt ? { occurredAt: prep.updatedAt } : {}),
+    });
+  });
+
+  overview.integrationStatus.slice(0, 5).forEach((integration, index) => {
+    items.push({
+      itemKey: `integration-${index}`,
+      source: 'integration',
+      category: '통합',
+      title: integration.integrationLabel,
+      description: integration.statusLabel,
+      tone: 'neutral',
+      ...(integration.updatedAt ? { occurredAt: integration.updatedAt } : {}),
+    });
+  });
+
+  overview.recentActivity.slice(0, 5).forEach((activity, index) => {
+    items.push({
+      itemKey: `recent-activity-${index}`,
+      source: 'recent_activity',
+      category: '최근 활동',
+      title: activity.actionLabel,
+      description: `${activity.targetLabel} · ${activity.resultLabel}`,
+      tone: notificationToneForActivity(activity),
+      occurredAt: activity.occurredAt,
+    });
+  });
+
+  return items.slice(0, 20);
+}
+
+function notificationToneForActivity(
+  activity: DashboardRecentActivityDto,
+): DmsOperationalTone {
+  return activity.resultLabel.includes('차단') ? 'blocked' : 'success';
 }

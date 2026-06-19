@@ -113,6 +113,91 @@ describe('DashboardService', () => {
     expect(JSON.stringify(overview)).not.toMatch(/documentId|matterId|tenantId|workspaceId|hash|raw/i);
   });
 
+  it('derives work queue and notification API payloads from permission-scoped dashboard data', async () => {
+    const { context, service } = createService((sql) => {
+      if (sql.includes('FROM users')) return [{ role: 'matter_member', status: 'active' }];
+      if (sql.includes('FROM documents d')) return [];
+      if (sql.includes('FROM audit_events ae')) {
+        return [
+          {
+            action: 'DOCUMENT_UPLOADED',
+            target_type: 'document',
+            result: 'success',
+            matter_label: 'AMIC-2026-0001 · Governance',
+            created_at: new Date('2026-06-17T01:00:00.000Z'),
+          },
+        ];
+      }
+      if (sql.includes('FROM audit_events')) {
+        return [
+          {
+            action: 'PERMISSION_DENIED_HIT',
+            result: 'denied',
+            created_at: new Date('2026-06-17T02:00:00.000Z'),
+          },
+        ];
+      }
+      if (sql.includes('FROM ai_prep_artifacts')) {
+        return [
+          {
+            matter_label: 'AMIC-2026-0001 · Governance',
+            pending_count: 2,
+            completed_count: 0,
+            blocked_count: 0,
+            failed_count: 0,
+            rejected_count: 0,
+            stale_count: 0,
+            updated_at: new Date('2026-06-17T03:00:00.000Z'),
+          },
+        ];
+      }
+      if (sql.includes('FROM outlook_filing_requests')) {
+        return [
+          {
+            integration_label: 'Outlook 파일링',
+            status: 'completed',
+            row_count: 1,
+            updated_at: new Date('2026-06-17T04:00:00.000Z'),
+          },
+        ];
+      }
+      if (sql.includes('FROM outlook_folder_mappings')) return [];
+      return [];
+    });
+
+    const [workQueue, notifications] = await context.run(
+      { tenantId, slug: 'amic', status: 'active', source: 'session' },
+      () =>
+        Promise.all([
+          service.getWorkQueue(userId, new Date('2026-06-17T05:00:00.000Z')),
+          service.getNotificationCenter(userId, new Date('2026-06-17T05:00:00.000Z')),
+        ]),
+    );
+
+    expect(workQueue).toMatchObject({
+      generatedAt: '2026-06-17T05:00:00.000Z',
+      source: 'dashboard_operational_state',
+      items: [
+        { source: 'permission_policy', title: '권한/정책 알림 확인', href: '/audit' },
+        {
+          source: 'ai_prep',
+          title: '파일 정리 준비 상태 확인',
+          href: '/files?aiAllowed=true&sortBy=matter_asc',
+        },
+        { source: 'integration', title: '통합 상태 확인', href: '/integrations/outlook' },
+      ],
+    });
+    expect(notifications.items.map((item) => item.source)).toEqual([
+      'permission_policy',
+      'ai_prep',
+      'integration',
+      'recent_activity',
+    ]);
+    expect(JSON.stringify({ workQueue, notifications })).not.toMatch(
+      /documentId|matterId|tenantId|workspaceId|hash|raw/i,
+    );
+  });
+
   it('fails closed when the actor is not active', async () => {
     const { context, service } = createService((sql) =>
       sql.includes('FROM users') ? [{ role: 'matter_member', status: 'locked' }] : [],

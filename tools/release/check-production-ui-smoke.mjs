@@ -466,6 +466,8 @@ const governanceWorkflowOpsFiles = [
     patterns: [
       { name: 'work queue page heading', pattern: /작업함/ },
       { name: 'work queue dashboard source', pattern: /getDashboardOverview/ },
+      { name: 'work queue dedicated API source', pattern: /getWorkQueue/ },
+      { name: 'work queue API state mapping', pattern: /workQueueToState/ },
       { name: 'work queue file cabinet filters', pattern: /문서함 조치 필터/ },
       { name: 'work queue extraction failed link', pattern: /\/files\?extractionStatus=failed/ },
       {
@@ -479,14 +481,39 @@ const governanceWorkflowOpsFiles = [
     patterns: [
       { name: 'notifications page heading', pattern: /알림/ },
       { name: 'notifications dashboard source', pattern: /getDashboardOverview/ },
+      { name: 'notifications dedicated API source', pattern: /getNotificationCenter/ },
+      { name: 'notifications API state mapping', pattern: /notificationCenterToState/ },
       { name: 'real notification copy', pattern: /실제 운영 이벤트와 상태 알림만 표시/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/dashboard/dashboard.controller.ts',
+    patterns: [
+      { name: 'work items endpoint', pattern: /@Controller\('work'\)[\s\S]*@Get\('items'\)/ },
+      { name: 'notifications endpoint', pattern: /@Controller\('notifications'\)[\s\S]*@Get\(\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/dashboard/dashboard.service.ts',
+    patterns: [
+      { name: 'work queue response schema', pattern: /dmsWorkQueueResponseSchema/ },
+      { name: 'notification center response schema', pattern: /dmsNotificationCenterResponseSchema/ },
+      { name: 'dashboard-derived work items', pattern: /workItemsFromOverview/ },
+      { name: 'dashboard-derived notifications', pattern: /notificationItemsFromOverview/ },
+    ],
+  },
+  {
+    path: 'packages/shared/src/dashboard/dashboard-types.ts',
+    patterns: [
+      { name: 'DMS work queue response DTO', pattern: /dmsWorkQueueResponseSchema/ },
+      { name: 'DMS notification center response DTO', pattern: /dmsNotificationCenterResponseSchema/ },
     ],
   },
   {
     path: 'apps/web/src/components/dashboard/dashboard-work-queue.tsx',
     patterns: [
       { name: 'shared dashboard action derivation', pattern: /dashboardActionItems/ },
-      { name: 'real operations task copy', pattern: /실제 운영 데이터에서 발생한 작업만 표시/ },
+      { name: 'work API derived task copy', pattern: /작업 API가 실제 운영 상태에서 파생한 항목만 표시/ },
       { name: 'permission policy task', pattern: /권한\/정책 알림 확인/ },
       { name: 'file organization prep task', pattern: /파일 정리 준비 상태 확인/ },
       { name: 'no persisted task claim', pattern: /DashboardOverviewState/ },

@@ -19,11 +19,21 @@ import {
   getDashboardOverview,
   type DashboardOverviewState,
 } from '@/lib/api/dashboard';
+import {
+  createNotificationsUnavailableState,
+  getNotificationCenter,
+  notificationCenterToState,
+  operationalApiErrorState,
+  type DmsNotificationItem,
+} from '@/lib/api/work-ops';
 import type { DataState } from '@/lib/data-state';
 
 export function NotificationsClient() {
   const [dashboardState, setDashboardState] = useState<DashboardOverviewState>(() =>
     createDashboardUnavailableState(),
+  );
+  const [notificationState, setNotificationState] = useState<DataState<DmsNotificationItem[]>>(() =>
+    createNotificationsUnavailableState(),
   );
 
   useEffect(() => {
@@ -40,15 +50,34 @@ export function NotificationsClient() {
     };
   }, []);
 
-  return <NotificationsContent dashboardState={dashboardState} />;
+  useEffect(() => {
+    let active = true;
+    getNotificationCenter()
+      .then((response) => {
+        if (active) setNotificationState(notificationCenterToState(response));
+      })
+      .catch((error: unknown) => {
+        if (active) setNotificationState(operationalApiErrorState(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return <NotificationsContent dashboardState={dashboardState} notificationState={notificationState} />;
 }
 
 export function NotificationsContent({
   dashboardState,
+  notificationState,
 }: {
   dashboardState: DashboardOverviewState;
+  notificationState?: DataState<DmsNotificationItem[]>;
 }) {
-  const items = dashboardNotificationItems(dashboardState);
+  const items =
+    notificationState?.status === 'ready'
+      ? notificationState.data
+      : dashboardNotificationItems(dashboardState);
   return (
     <PageShell>
       <PageHeader
@@ -64,8 +93,12 @@ export function NotificationsContent({
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
-          <DashboardNotificationsSection state={dashboardState} title="알림 센터" />
-          <SectionCard icon={<Activity className="h-4 w-4" />} title="알림 출처" meta="운영 데이터">
+          <DashboardNotificationsSection
+            itemsState={notificationState}
+            state={dashboardState}
+            title="알림 센터"
+          />
+          <SectionCard icon={<Activity className="h-4 w-4" />} title="알림 출처" meta="운영 API">
             <ul className="grid gap-2 sm:grid-cols-2">
               <NotificationSourceItem label="권한/정책" state={dashboardState.permissionPolicyAlerts} />
               <NotificationSourceItem label="파일 정리 준비" state={dashboardState.aiPrepStatus} />

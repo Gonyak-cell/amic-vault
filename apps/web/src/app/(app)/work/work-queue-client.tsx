@@ -20,11 +20,21 @@ import {
   getDashboardOverview,
   type DashboardOverviewState,
 } from '@/lib/api/dashboard';
+import {
+  createWorkItemsUnavailableState,
+  getWorkQueue,
+  operationalApiErrorState,
+  workQueueToState,
+  type DmsWorkQueueItem,
+} from '@/lib/api/work-ops';
 import type { DataState } from '@/lib/data-state';
 
 export function WorkQueueClient() {
   const [dashboardState, setDashboardState] = useState<DashboardOverviewState>(() =>
     createDashboardUnavailableState(),
+  );
+  const [workItemsState, setWorkItemsState] = useState<DataState<DmsWorkQueueItem[]>>(() =>
+    createWorkItemsUnavailableState(),
   );
 
   useEffect(() => {
@@ -41,11 +51,32 @@ export function WorkQueueClient() {
     };
   }, []);
 
-  return <WorkQueueContent dashboardState={dashboardState} />;
+  useEffect(() => {
+    let active = true;
+    getWorkQueue()
+      .then((response) => {
+        if (active) setWorkItemsState(workQueueToState(response));
+      })
+      .catch((error: unknown) => {
+        if (active) setWorkItemsState(operationalApiErrorState(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return <WorkQueueContent dashboardState={dashboardState} workItemsState={workItemsState} />;
 }
 
-export function WorkQueueContent({ dashboardState }: { dashboardState: DashboardOverviewState }) {
-  const actionItems = dashboardActionItems(dashboardState);
+export function WorkQueueContent({
+  dashboardState,
+  workItemsState,
+}: {
+  dashboardState: DashboardOverviewState;
+  workItemsState?: DataState<DmsWorkQueueItem[]>;
+}) {
+  const actionItems =
+    workItemsState?.status === 'ready' ? workItemsState.data : dashboardActionItems(dashboardState);
   return (
     <PageShell>
       <PageHeader
@@ -61,7 +92,11 @@ export function WorkQueueContent({ dashboardState }: { dashboardState: Dashboard
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
-          <DashboardWorkQueueSection state={dashboardState} title="내 작업" />
+          <DashboardWorkQueueSection
+            itemsState={workItemsState}
+            state={dashboardState}
+            title="내 작업"
+          />
           <SectionCard
             icon={<FileSearch className="h-4 w-4" />}
             title="문서함 조치 필터"
@@ -82,7 +117,7 @@ export function WorkQueueContent({ dashboardState }: { dashboardState: Dashboard
               </Button>
             </div>
           </SectionCard>
-          <SectionCard icon={<Activity className="h-4 w-4" />} title="작업 출처" meta="운영 데이터">
+          <SectionCard icon={<Activity className="h-4 w-4" />} title="작업 출처" meta="운영 API">
             <ul className="grid gap-2 sm:grid-cols-2">
               <SourceStateItem
                 label="권한/정책 알림"

@@ -9,15 +9,14 @@ describe('NotificationsClient', () => {
 
     expect(html).toContain('알림');
     expect(html).toContain('권한이 확인된 실제 운영 이벤트와 상태 알림만 표시됩니다.');
-    expect(html).toContain('표시할 알림이 없습니다.');
-    expect(html).toContain('실제 운영 이벤트와 상태에서 발생한 알림만 표시됩니다.');
+    expect(html).toContain('알림 API 연결 대기 중입니다.');
     expect(html).toContain('운영 데이터 연결 대기 중입니다.');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');
     expect(html).not.toContain('18:42');
   });
 
-  it('renders notifications only from supplied dashboard state', () => {
+  it('renders notifications from the dedicated notification API state', () => {
     const html = renderToStaticMarkup(
       <NotificationsContent
         dashboardState={{
@@ -52,12 +51,32 @@ describe('NotificationsClient', () => {
             data: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
           },
         }}
+        notificationState={{
+          status: 'ready',
+          data: [
+            {
+              itemKey: 'permission-policy-0',
+              source: 'permission_policy',
+              category: '권한/정책',
+              title: '요청이 차단됨',
+              description: '문서 다운로드 · 차단',
+              tone: 'warning',
+            },
+            {
+              itemKey: 'recent-activity-0',
+              source: 'recent_activity',
+              category: '최근 활동',
+              title: '문서 업로드 완료',
+              description: 'AMIC-2026-0001 · 성공',
+              tone: 'success',
+            },
+          ],
+        }}
       />,
     );
 
     expect(html).toContain('요청이 차단됨');
     expect(html).toContain('AMIC-2026-0001');
-    expect(html).toContain('Outlook 파일링');
     expect(html).toContain('문서 업로드 완료');
     expect(html).toContain('알림 센터');
     expect(html).not.toContain('표시할 알림이 없습니다.');

@@ -936,6 +936,12 @@ PR-F implementation note:
   `tools/release/check-production-ui-smoke.mjs` now make evidence package,
   rollout, rollback, monitor, and owner signoff requirements machine-checkable
   at the production UI smoke layer.
+- DMS-UX-501 through DMS-UX-506 now have a server-derived operating-data API
+  layer: `GET /work/items` and `GET /notifications` return display-safe items
+  from the same permission-scoped dashboard state used by the cockpit. This
+  closes the UI/API contract gap without introducing fake persisted tasks;
+  persisted assignment, due dates, and notification storage remain explicit
+  follow-up scope.
 
 - Added `docs/ui/enterprise-dms-release-hardening.md` as the release hardening baseline for authenticated main-loop smoke, negative auth smoke, no-fake-data sweep, internal-ref sweep, AI scope sweep, responsive/accessibility QA, evidence package, rollout checklist, rollback, production monitor, and signoff.
 - UI PR checklist now requires the release hardening document for production-readiness changes.
