@@ -821,6 +821,7 @@ PR-D implementation note:
 PR-E implementation note:
 
 - Admin settings now include a DMS configuration IA panel for taxonomy, Matter templates, and search refiners. These surfaces are read-only contract states until save/audit APIs are approved.
+- Admin settings now include search index operations wired to the admin reindex endpoint; the UI only shows audit-safe queue counts after an operator request.
 - The integration parent route now shows a safe integration matrix: Outlook links to the real status route; OneDrive and Office open/save remain gated with no connected-state claim.
 - Outlook integration now includes a Vault filing path section that aligns Outlook attachment filing with the same Matter permission, audit, document detail, and search UX model.
 - Admin and integration tests assert no fake connected states, no sample defaults, and no raw reference inputs.

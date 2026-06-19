@@ -8,6 +8,7 @@ import {
   FolderKanban,
   KeyRound,
   LockKeyhole,
+  RefreshCw,
   SearchCheck,
   ShieldCheck,
   UploadCloud,
@@ -41,6 +42,10 @@ import {
   listEnterpriseSiemExports,
   listEnterpriseSsoProviders,
 } from '@/lib/api/enterprise';
+import {
+  requestTenantSearchReindex,
+  type TenantSearchReindexResult,
+} from '@/lib/api/search-admin';
 import { useI18n, type Language } from '@/lib/i18n';
 
 type Row = [string, string, string?];
@@ -74,6 +79,13 @@ const enterpriseCopy: Record<
     templatesMeta: string;
     refiners: string;
     refinersMeta: string;
+    searchOps: string;
+    searchOpsMeta: string;
+    reindexTenant: string;
+    reindexBusy: string;
+    reindexAudit: string;
+    reindexAccepted: string;
+    reindexReady: string;
     contractRequired: string;
     governedByBackend: string;
     apiUnavailableTitle: string;
@@ -122,6 +134,13 @@ const enterpriseCopy: Record<
     templatesMeta: '업무 유형별 기본 문서 세트',
     refiners: '검색 refiner',
     refinersMeta: '검색 가능한 메타데이터 필드',
+    searchOps: '검색 인덱스 운영',
+    searchOpsMeta: '재색인 요청 및 감사 기록',
+    reindexTenant: '전체 재색인 요청',
+    reindexBusy: '요청 중',
+    reindexAudit: '감사 기록 대상',
+    reindexAccepted: '재색인 큐 등록',
+    reindexReady: '요청 전',
     contractRequired: '계약 필요',
     governedByBackend: '저장 API 승인 전 읽기 전용',
     apiUnavailableTitle: '운영 데이터가 아직 연결되지 않았습니다.',
@@ -169,6 +188,13 @@ const enterpriseCopy: Record<
     templatesMeta: 'Default document sets by matter type',
     refiners: 'Search refiners',
     refinersMeta: 'Queryable metadata fields',
+    searchOps: 'Search index operations',
+    searchOpsMeta: 'Reindex request and audit trail',
+    reindexTenant: 'Request tenant reindex',
+    reindexBusy: 'Requesting',
+    reindexAudit: 'Audited operation',
+    reindexAccepted: 'Reindex queued',
+    reindexReady: 'Ready',
     contractRequired: 'Contract required',
     governedByBackend: 'Read-only until save APIs are approved',
     apiUnavailableTitle: 'Operational data is not connected yet.',
@@ -202,6 +228,9 @@ export function EnterpriseHardeningClient() {
     null,
   );
   const [readiness, setReadiness] = useState<EnterpriseReadinessSummaryDto | null>(null);
+  const [reindexResult, setReindexResult] = useState<TenantSearchReindexResult | null>(null);
+  const [reindexError, setReindexError] = useState<string | null>(null);
+  const [reindexBusy, setReindexBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -236,6 +265,18 @@ export function EnterpriseHardeningClient() {
     if (nextReadiness) setReadiness(nextReadiness);
   }
 
+  async function requestReindex() {
+    setReindexBusy(true);
+    setReindexError(null);
+    try {
+      setReindexResult(await requestTenantSearchReindex());
+    } catch (caught) {
+      setReindexError(safeApiErrorMessage(caught));
+    } finally {
+      setReindexBusy(false);
+    }
+  }
+
   return (
     <PageShell>
       <PageHeader
@@ -251,6 +292,13 @@ export function EnterpriseHardeningClient() {
       {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
       <AdminDmsConfigurationPanel copy={copy} />
+      <AdminSearchOperationsPanel
+        busy={reindexBusy}
+        copy={copy}
+        error={reindexError}
+        onRequest={() => void requestReindex()}
+        result={reindexResult}
+      />
 
       <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <SectionCard
@@ -361,6 +409,58 @@ export function EnterpriseHardeningClient() {
         </div>
       </section>
     </PageShell>
+  );
+}
+
+function AdminSearchOperationsPanel({
+  busy,
+  copy,
+  error,
+  onRequest,
+  result,
+}: {
+  busy: boolean;
+  copy: (typeof enterpriseCopy)[Language];
+  error: string | null;
+  onRequest: () => void;
+  result: TenantSearchReindexResult | null;
+}) {
+  return (
+    <SectionCard
+      icon={<SearchCheck className="h-4 w-4" />}
+      title={copy.searchOps}
+      meta={copy.searchOpsMeta}
+      actions={
+        <StatusBadge tone={result ? 'success' : 'neutral'}>
+          {result ? copy.reindexAccepted : copy.reindexReady}
+        </StatusBadge>
+      }
+    >
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <p className="text-sm leading-6 text-muted-foreground">
+            권한이 있는 운영자만 전체 검색 인덱스 재처리를 요청할 수 있습니다. 요청은 감사 기록과 큐 등록 수로만 확인합니다.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <StatusBadge>{copy.reindexAudit}</StatusBadge>
+            {result ? (
+              <StatusBadge tone="success">
+                {result.enqueuedJobCount} {copy.count}
+              </StatusBadge>
+            ) : null}
+          </div>
+          {error ? (
+            <p className="mt-3 text-sm font-medium text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+        <Button type="button" onClick={onRequest} disabled={busy}>
+          <RefreshCw className="h-4 w-4" />
+          {busy ? copy.reindexBusy : copy.reindexTenant}
+        </Button>
+      </div>
+    </SectionCard>
   );
 }
 

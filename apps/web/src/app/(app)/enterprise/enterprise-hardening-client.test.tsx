@@ -23,6 +23,9 @@ describe('EnterpriseHardeningClient', () => {
     expect(html).toContain('문서 taxonomy');
     expect(html).toContain('Matter 템플릿');
     expect(html).toContain('검색 refiner');
+    expect(html).toContain('검색 인덱스 운영');
+    expect(html).toContain('전체 재색인 요청');
+    expect(html).toContain('감사 기록 대상');
     expect(html).toContain('저장 API 승인 전 읽기 전용');
     expect(html).toContain('운영 데이터가 아직 연결되지 않았습니다.');
     expect(html).not.toContain('SSO 제공자 ID');
