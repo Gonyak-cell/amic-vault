@@ -24,6 +24,8 @@ describe('EnterpriseHardeningClient', () => {
     expect(html).toContain('Matter 템플릿');
     expect(html).toContain('검색 refiner');
     expect(html).toContain('검색 인덱스 운영');
+    expect(html).toContain('검색 헬스');
+    expect(html).toContain('인덱스, 추출/OCR, 검색 감사 집계');
     expect(html).toContain('운영 헬스');
     expect(html).toContain('파일 정리 준비 상태');
     expect(html).toContain('파일 정리 준비 전용');

@@ -546,7 +546,8 @@ PR-C implementation note:
 - Search result cards link to document detail, the approved preview endpoint, and URL-backed file-cabinet filters without showing raw refs as labels.
 - Search result cards pass bounded hit count/index context into document detail and preview URL fragments without URL-storing snippets, search terms, or raw source text.
 - Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; `/search/folders` exposes those saved searches as user-scoped search folders and preserves legal-hold/records-status filters.
-- Admin-shared search folders, full admin search analytics, and true PDF text anchor highlighting remain deferred until supporting APIs/schema expose safe anchors and analytics.
+- Admin-shared search folders and true PDF text anchor highlighting remain deferred until supporting APIs/schema expose safe anchors and shared-folder semantics.
+- Admin search health now exposes DMS-UX-311 bounded analytics: index coverage, stale index counts, extraction/OCR status, stale chunk/embedding counts, and no-result search audit hashes/categories without raw query, body, snippet, source text, prompt, or model-response content.
 
 ### PR-D Governance, Workflow, Ops
 
