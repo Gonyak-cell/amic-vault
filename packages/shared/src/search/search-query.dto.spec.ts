@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { searchFiltersSchema, searchQuerySchema } from './search-query.dto';
+import {
+  createSavedSearchSchema,
+  searchFiltersSchema,
+  searchQuerySchema,
+} from './search-query.dto';
 
 const matterId = '11111111-1111-4111-8111-111111111111';
 
@@ -58,6 +62,37 @@ describe('search query DTO', () => {
       searchFiltersSchema.parse({
         dateFrom: '2026-06-13T00:00:00Z',
         dateTo: '2026-06-12T00:00:00Z',
+      }),
+    ).toThrow();
+  });
+
+  it('validates saved searches without accepting empty queries', () => {
+    expect(
+      createSavedSearchSchema.parse({
+        name: 'Closing searches',
+        query: {
+          query: 'closing',
+          filters: { matterCode: 'AMIC-2026' },
+          target: 'body',
+        },
+      }),
+    ).toMatchObject({
+      name: 'Closing searches',
+      query: {
+        query: 'closing',
+        target: 'body',
+      },
+    });
+    expect(() =>
+      createSavedSearchSchema.parse({
+        name: 'No query',
+        query: { filters: { matterCode: 'AMIC-2026' } },
+      }),
+    ).toThrow();
+    expect(() =>
+      createSavedSearchSchema.parse({
+        name: '',
+        query: { query: 'closing' },
       }),
     ).toThrow();
   });

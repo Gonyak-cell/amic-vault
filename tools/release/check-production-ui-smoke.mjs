@@ -298,10 +298,27 @@ const enterpriseSearchFiles = [
       { name: 'search target DTO', pattern: /searchTargets/ },
       { name: 'search sort DTO', pattern: /searchSorts/ },
       { name: 'search group DTO', pattern: /searchGroupBys/ },
+      { name: 'saved search DTO', pattern: /createSavedSearchSchema/ },
       {
         name: 'display text filters',
         pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/,
       },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/search.controller.ts',
+    patterns: [
+      { name: 'saved search list route', pattern: /Get\('saved-searches'\)/ },
+      { name: 'saved search save route', pattern: /Post\('saved-searches'\)/ },
+      { name: 'saved search delete route', pattern: /Delete\('saved-searches\/:savedSearchId'\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/search/search.service.ts',
+    patterns: [
+      { name: 'saved search table access', pattern: /FROM saved_searches/ },
+      { name: 'saved search scoped delete', pattern: /DELETE FROM saved_searches/ },
+      { name: 'saved search bounded audit refs', pattern: /savedSearchFilterRefs/ },
     ],
   },
   {
@@ -327,6 +344,9 @@ const enterpriseSearchFiles = [
     patterns: [
       { name: 'advanced search controls wired', pattern: /SearchAdvancedControls/ },
       { name: 'search save panel wired', pattern: /SearchSavePanel/ },
+      { name: 'saved search API list wired', pattern: /listSavedSearches/ },
+      { name: 'saved search API save wired', pattern: /saveSavedSearch/ },
+      { name: 'saved search API delete wired', pattern: /deleteSavedSearch/ },
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
@@ -335,9 +355,10 @@ const enterpriseSearchFiles = [
   {
     path: 'apps/web/src/components/search/search-save-panel.tsx',
     patterns: [
-      { name: 'current search reusable link', pattern: /현재 검색 URL만 재사용/ },
-      { name: 'saved search API gated copy', pattern: /영구 저장 API/ },
-      { name: 'saved search disabled action', pattern: /저장된 검색/ },
+      { name: 'current search reusable link', pattern: /링크 복사/ },
+      { name: 'saved search list', pattern: /검색 목록/ },
+      { name: 'saved search save action', pattern: /onSaveSearch/ },
+      { name: 'saved search delete action', pattern: /onDeleteSavedSearch/ },
       { name: 'search pattern summary', pattern: /searchPatternItems/ },
     ],
   },

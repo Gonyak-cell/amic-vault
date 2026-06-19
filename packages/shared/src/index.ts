@@ -755,6 +755,7 @@ export {
   type MatterAuditQueryDto,
 } from './dto/audit/audit-query.dto';
 export {
+  createSavedSearchSchema,
   searchDocumentTypeFilterSchema,
   searchFiltersSchema,
   searchIsoDateTimeSchema,
@@ -769,6 +770,9 @@ export {
   searchTargets,
   searchVersionStatusSchema,
   searchVersionStatusValues,
+  type CreateSavedSearchDto,
+  type SavedSearchDto,
+  type SavedSearchListDto,
   type SearchDateRangeFacetDto,
   type SearchDocumentTypeFilterDto,
   type SearchFacetBucketDto,
