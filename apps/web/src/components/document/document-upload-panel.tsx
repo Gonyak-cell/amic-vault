@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import type { UploadDocumentResponseDto } from '@amic-vault/shared';
 import { FileUp, Loader2 } from 'lucide-react';
 import { uploadDocument } from '@/lib/api-client';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
@@ -15,11 +16,16 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 
 export interface DocumentUploadPanelProps {
+  onUploadComplete?: (result: UploadDocumentResponseDto) => void;
   selectedMatter: MatterCodeOption | null;
   sourceMode?: MatterAppSourceMode;
 }
 
-export function DocumentUploadPanel({ selectedMatter, sourceMode }: DocumentUploadPanelProps) {
+export function DocumentUploadPanel({
+  onUploadComplete,
+  selectedMatter,
+  sourceMode,
+}: DocumentUploadPanelProps) {
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
   const uploadSourceReady = isMatterUploadSourceMode(resolvedSourceMode);
   const prepInputId = React.useId();
@@ -45,7 +51,8 @@ export function DocumentUploadPanel({ selectedMatter, sourceMode }: DocumentUplo
       });
       setFile(null);
       setTitle('');
-      setStatusMessage(`${result.title} 업로드 완료`);
+      setStatusMessage(uploadStatusMessage(result));
+      onUploadComplete?.(result);
     } catch (error) {
       setErrorMessage(safeApiErrorMessage(error));
     } finally {
@@ -133,4 +140,10 @@ export function DocumentUploadPanel({ selectedMatter, sourceMode }: DocumentUplo
       </div>
     </form>
   );
+}
+
+export function uploadStatusMessage(result: UploadDocumentResponseDto): string {
+  return result.aiAllowed
+    ? `${result.title} 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.`
+    : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.`;
 }

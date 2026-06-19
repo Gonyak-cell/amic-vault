@@ -1,12 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { DocumentDto } from '@amic-vault/shared';
 import { listMatterDocuments } from '@/lib/api-client';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import type { MatterCodeOption } from '@/lib/matter-app';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export interface MatterDocumentListProps {
   selectedMatter: MatterCodeOption | null;
@@ -95,6 +97,7 @@ export function MatterDocumentList({ selectedMatter }: MatterDocumentListProps) 
             <th className="px-3 py-2 text-left">파일</th>
             <th className="px-3 py-2 text-left">유형</th>
             <th className="px-3 py-2 text-left">상태</th>
+            <th className="px-3 py-2 text-left">정리</th>
             <th className="px-3 py-2 text-left">업데이트</th>
           </tr>
         </thead>
@@ -102,10 +105,20 @@ export function MatterDocumentList({ selectedMatter }: MatterDocumentListProps) 
           {documents.map((document) => (
             <tr key={document.documentId}>
               <td className="max-w-[26rem] truncate px-3 py-2 font-medium text-foreground">
-                {document.title}
+                <Link
+                  href={`/documents/${document.documentId}`}
+                  className="underline-offset-4 hover:text-primary hover:underline"
+                >
+                  {document.title}
+                </Link>
               </td>
               <td className="px-3 py-2 text-muted-foreground">{document.documentType}</td>
               <td className="px-3 py-2 text-muted-foreground">{document.status}</td>
+              <td className="px-3 py-2">
+                <StatusBadge tone={document.aiAllowed ? 'success' : 'neutral'}>
+                  {document.aiAllowed ? '정리 준비' : '제외'}
+                </StatusBadge>
+              </td>
               <td className="px-3 py-2 text-muted-foreground">{formatDate(document.updatedAt)}</td>
             </tr>
           ))}

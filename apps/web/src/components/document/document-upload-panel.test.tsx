@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { DocumentUploadPanel } from './document-upload-panel';
+import { DocumentUploadPanel, uploadStatusMessage } from './document-upload-panel';
 import type { MatterCodeOption } from '@/lib/matter-app';
 
 vi.mock('@/lib/api-client', () => ({
@@ -64,5 +64,24 @@ describe('DocumentUploadPanel', () => {
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('파일 정리 준비');
     expect(html).not.toContain(selectedMatter.matterReference);
+  });
+
+  it('makes post-upload file organization prep visible when the upload opted in', () => {
+    expect(
+      uploadStatusMessage({
+        documentId: '11111111-1111-4111-8111-111111111114',
+        matterId: '11111111-1111-4111-8111-111111111115',
+        fileObjectId: '11111111-1111-4111-8111-111111111116',
+        status: 'draft',
+        title: '투자계약서.pdf',
+        documentType: 'contract',
+        subtype: null,
+        confidentialityLevel: 'standard',
+        privilegeStatus: 'none',
+        aiAllowed: true,
+        metadataSuggestion: {},
+        duplicates: [],
+      }),
+    ).toContain('파일 정리 준비가 자동으로 시작됩니다.');
   });
 });

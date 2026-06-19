@@ -115,6 +115,9 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
 
       {matter ? <MatterFileSection matter={matter} /> : null}
 
+      {readiness ? <AiPrepMatterDashboard readiness={readiness} onRetryComplete={refreshReadiness} /> : null}
+      {readinessError ? <p className="text-sm text-muted-foreground">{readinessError}</p> : null}
+
       {matter ? (
         <SectionCard icon={<Mail className="h-4 w-4" />} title="보관된 이메일" meta="권한이 확인된 이메일만 표시">
           {emails.length > 0 ? (
@@ -155,9 +158,7 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
         </SectionCard>
       ) : null}
 
-      {readiness ? <AiPrepMatterDashboard readiness={readiness} onRetryComplete={refreshReadiness} /> : null}
       {matter ? <MatterWorkflowOpsPanel matter={matter} readiness={readiness} /> : null}
-      {readinessError ? <p className="text-sm text-muted-foreground">{readinessError}</p> : null}
     </PageShell>
   );
 }
