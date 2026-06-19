@@ -260,6 +260,7 @@ const documentActionCenterFiles = [
       { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
       { name: 'search hit context panel', pattern: /검색 결과 문맥/ },
       { name: 'bounded search hit parser', pattern: /boundedInteger/ },
+      { name: 'preview search hit fragment', pattern: /previewUrlForDocument/ },
       { name: 'records action entry points', pattern: /recordsUrlForDocument/ },
       { name: 'file cabinet return link', pattern: /fileCabinetUrlForDocument/ },
     ],
@@ -284,6 +285,7 @@ const documentActionCenterFiles = [
       { name: 'document version list client', pattern: /listDocumentVersions/ },
       { name: 'new document version client', pattern: /addDocumentVersion/ },
       { name: 'document preview URL helper', pattern: /documentPreviewUrl/ },
+      { name: 'document preview hit fragment helper', pattern: /vault-preview-hit/ },
       { name: 'document download URL helper', pattern: /documentDownloadUrl/ },
     ],
   },
@@ -420,6 +422,7 @@ const enterpriseSearchFiles = [
     patterns: [
       { name: 'searchability result status', pattern: /extractionStatus/ },
       { name: 'body search limitation copy', pattern: /본문 검색 품질이 제한/ },
+      { name: 'search result preview hit fragment', pattern: /documentPreviewUrl\(result\.documentId,\s*\{/ },
     ],
   },
   {

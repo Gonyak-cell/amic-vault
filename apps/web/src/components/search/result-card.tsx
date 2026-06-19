@@ -21,6 +21,16 @@ export function ResultCard({ result, target = 'all' }: ResultCardProps) {
     .filter(Boolean)
     .join(' · ');
   const documentHref = documentSearchHitUrlForSearchResult(result, target);
+  const previewHref =
+    result.highlights.length > 0
+      ? documentPreviewUrl(result.documentId, {
+          searchHit: {
+            hitCount: result.highlights.length,
+            hitIndex: 1,
+            target,
+          },
+        })
+      : documentPreviewUrl(result.documentId);
   const fileCabinetHref = fileCabinetUrlForSearchResult(result);
   return (
     <article className="rounded-md border bg-card p-4">
@@ -44,7 +54,7 @@ export function ResultCard({ result, target = 'all' }: ResultCardProps) {
             </Link>
           </Button>
           <Button asChild size="sm" variant="outline">
-            <a href={documentPreviewUrl(result.documentId)} target="_blank" rel="noreferrer">
+            <a href={previewHref} target="_blank" rel="noreferrer">
               <Eye className="h-4 w-4" aria-hidden="true" />
               미리보기
             </a>
