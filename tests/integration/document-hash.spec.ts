@@ -70,9 +70,14 @@ async function createMatter(
   return (JSON.parse(body) as { matterId: string }).matterId;
 }
 
-function uploadForm(filename: string, bytes: Uint8Array): FormData {
+function uploadForm(
+  filename: string,
+  bytes: Uint8Array,
+  fields: { duplicateDecision?: 'new_document' } = {},
+): FormData {
   const form = new FormData();
   form.append('title', `Hash Upload ${randomUUID()}`);
+  if (fields.duplicateDecision) form.append('duplicateDecision', fields.duplicateDecision);
   form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
   return form;
 }
@@ -83,11 +88,12 @@ async function upload(
   matterId: string,
   filename: string,
   bytes: Uint8Array,
+  fields: { duplicateDecision?: 'new_document' } = {},
 ): Promise<UploadResponse> {
   const response = await fetch(`${baseUrl}/v1/matters/${matterId}/documents`, {
     method: 'POST',
     headers: { cookie },
-    body: uploadForm(filename, bytes),
+    body: uploadForm(filename, bytes, fields),
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
@@ -206,7 +212,9 @@ describe('document hash integration', () => {
       'Changed.pdf',
       changedBytes,
     );
-    const second = await upload(baseUrl, betaOwnerCookie, betaMatterAId, 'Second.pdf', sameBytes);
+    const second = await upload(baseUrl, betaOwnerCookie, betaMatterAId, 'Second.pdf', sameBytes, {
+      duplicateDecision: 'new_document',
+    });
 
     const rows = await Promise.all(
       [otherMatter, otherTenant, first, changed, second].map(async (uploaded) => {
