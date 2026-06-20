@@ -99,11 +99,33 @@ describe('search query DTO', () => {
         query: 'closing',
         target: 'body',
       },
+      scope: 'personal',
+    });
+    expect(
+      createSavedSearchSchema.parse({
+        matterId: '11111111-1111-4111-8111-111111111901',
+        name: 'Matter team searches',
+        query: {
+          query: 'closing',
+          filters: { matterId: '11111111-1111-4111-8111-111111111901' },
+        },
+        scope: 'matter-team',
+      }),
+    ).toMatchObject({
+      matterId: '11111111-1111-4111-8111-111111111901',
+      scope: 'matter-team',
     });
     expect(() =>
       createSavedSearchSchema.parse({
         name: 'No query',
         query: { filters: { matterCode: 'AMIC-2026' } },
+      }),
+    ).toThrow();
+    expect(() =>
+      createSavedSearchSchema.parse({
+        name: 'Matter team missing matter',
+        query: { query: 'closing' },
+        scope: 'matter-team',
       }),
     ).toThrow();
     expect(() =>

@@ -421,7 +421,7 @@ const enterpriseSearchFiles = [
     path: 'apps/api/src/modules/search/search.service.ts',
     patterns: [
       { name: 'saved search table access', pattern: /FROM saved_searches/ },
-      { name: 'saved search scoped delete', pattern: /DELETE FROM saved_searches/ },
+      { name: 'saved search scoped revoke', pattern: /UPDATE saved_searches[\s\S]*revoked_at/ },
       { name: 'saved search bounded audit refs', pattern: /savedSearchFilterRefs/ },
       {
         name: 'search audit bounded metadata',

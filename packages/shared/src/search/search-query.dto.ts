@@ -43,6 +43,8 @@ export const searchGroupBys = ['none', 'matter', 'client', 'type'] as const;
 export const searchGroupBySchema = z.enum(searchGroupBys);
 export const searchUrlPrivacyModes = ['plaintext_url', 'private_saved_ref'] as const;
 export const searchUrlPrivacyModeSchema = z.enum(searchUrlPrivacyModes);
+export const savedSearchScopes = ['personal', 'matter-team', 'admin-shared'] as const;
+export const savedSearchScopeSchema = z.enum(savedSearchScopes);
 const searchTextFilterSchema = z.string().trim().min(1).max(128);
 
 export const searchIsoDateTimeSchema = z
@@ -108,8 +110,10 @@ export const savedSearchNameSchema = z.string().trim().min(1).max(80);
 
 export const createSavedSearchSchema = z
   .object({
+    matterId: z.string().uuid().optional(),
     name: savedSearchNameSchema,
     query: searchQuerySchema,
+    scope: savedSearchScopeSchema.default('personal'),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -118,6 +122,13 @@ export const createSavedSearchSchema = z
         code: z.ZodIssueCode.custom,
         message: 'saved search requires a query',
         path: ['query', 'query'],
+      });
+    }
+    if (value.scope === 'matter-team' && !value.matterId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'matter-team saved searches require a matterId',
+        path: ['matterId'],
       });
     }
   });
@@ -198,10 +209,14 @@ export interface SearchResponseDto {
 }
 
 export interface SavedSearchDto {
+  canRevoke: boolean;
   createdAt: string;
+  lastOpenedAt: string | null;
   name: string;
+  openCount: number;
   query: SearchQueryDto;
   savedSearchId: string;
+  scope: SearchFolderScope;
   updatedAt: string;
 }
 
@@ -220,6 +235,7 @@ export type SearchTarget = (typeof searchTargets)[number];
 export type SearchSort = (typeof searchSorts)[number];
 export type SearchGroupBy = (typeof searchGroupBys)[number];
 export type SearchUrlPrivacyMode = (typeof searchUrlPrivacyModes)[number];
+export type SearchFolderScope = (typeof savedSearchScopes)[number];
 export type SearchFiltersDto = z.infer<typeof searchFiltersSchema>;
 export type SearchPrivacySettingsDto = z.infer<typeof searchPrivacySettingsSchema>;
 type ParsedSearchQueryDto = z.infer<typeof searchQuerySchema>;
@@ -230,6 +246,8 @@ export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode' | 'target' | 'sor
   target?: SearchTarget;
 };
 export interface CreateSavedSearchDto {
+  matterId?: string | undefined;
   name: string;
   query: SearchQueryDto;
+  scope?: SearchFolderScope | undefined;
 }

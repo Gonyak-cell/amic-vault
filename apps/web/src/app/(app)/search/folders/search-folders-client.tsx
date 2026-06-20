@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import React from 'react';
 import { FolderSearch, RotateCcw, Search, Trash2 } from 'lucide-react';
 import type {
@@ -8,6 +9,7 @@ import type {
   DocumentPrivilegeStatus,
   DocumentType,
   SavedSearchDto,
+  SearchFolderScope,
   SearchQueryDto,
 } from '@amic-vault/shared';
 import { savedSearchSummary } from '@/components/search/search-save-panel';
@@ -16,9 +18,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
-import { deleteSavedSearch, listSavedSearches } from '@/lib/api/search';
+import { deleteSavedSearch, listSavedSearches, recordSavedSearchOpen } from '@/lib/api/search';
 
 export function SearchFoldersClient() {
+  const router = useRouter();
   const [folders, setFolders] = React.useState<SavedSearchDto[]>([]);
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -54,12 +57,27 @@ export function SearchFoldersClient() {
     }
   }
 
+  async function openFolder(folder: SavedSearchDto) {
+    setBusy(true);
+    setError(null);
+    try {
+      const opened = await recordSavedSearchOpen(folder.savedSearchId);
+      setFolders((current) => sortSavedSearchFolders(upsertSavedSearchFolder(current, opened)));
+      router.push(searchUrlForSavedQuery(folder.query));
+    } catch (caught) {
+      setError(safeApiErrorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <SearchFoldersContent
       busy={busy}
       error={error}
       folders={folders}
       onDelete={(savedSearchId) => void removeFolder(savedSearchId)}
+      onOpen={(folder) => void openFolder(folder)}
     />
   );
 }
@@ -69,11 +87,13 @@ export function SearchFoldersContent({
   error,
   folders,
   onDelete,
+  onOpen,
 }: {
   busy: boolean;
   error?: string | null;
   folders: readonly SavedSearchDto[];
   onDelete?: (savedSearchId: string) => void;
+  onOpen?: (folder: SavedSearchDto) => void;
 }) {
   return (
     <SectionCard
@@ -102,40 +122,52 @@ export function SearchFoldersContent({
                     {savedSearchSummary(folder.query)}
                   </p>
                 </div>
-                <StatusBadge>검색 폴더</StatusBadge>
+                <StatusBadge>{searchFolderScopeLabel(folder.scope)}</StatusBadge>
               </div>
               <SearchFolderFilterChips query={folder.query} />
               <dl className="mt-3 grid gap-2 sm:grid-cols-2">
                 <div className="rounded-md border bg-muted/30 px-3 py-2">
                   <dt className="text-[11px] font-medium text-muted-foreground">검색 범위</dt>
                   <dd className="mt-1 text-[13px] font-semibold text-foreground">
-                    {searchFolderScopeLabel(folder.query)}
+                    {searchFolderTargetLabel(folder.query)}
                   </dd>
                 </div>
                 <div className="rounded-md border bg-muted/30 px-3 py-2">
-                  <dt className="text-[11px] font-medium text-muted-foreground">업데이트</dt>
+                  <dt className="text-[11px] font-medium text-muted-foreground">열기</dt>
                   <dd className="mt-1 text-[13px] font-semibold text-foreground">
-                    {formatSavedSearchDate(folder.updatedAt)}
+                    {folder.openCount}회
                   </dd>
                 </div>
               </dl>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button asChild size="sm">
-                  <Link href={searchUrlForSavedQuery(folder.query)}>
+                {onOpen ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => onOpen(folder)}
+                  >
                     <RotateCcw className="h-4 w-4" />
                     열기
-                  </Link>
-                </Button>
+                  </Button>
+                ) : (
+                  <Button asChild size="sm">
+                    <Link href={searchUrlForSavedQuery(folder.query)}>
+                      <RotateCcw className="h-4 w-4" />
+                      열기
+                    </Link>
+                  </Button>
+                )}
                 {onDelete ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={busy}
+                    disabled={busy || !folder.canRevoke}
                     onClick={() => onDelete(folder.savedSearchId)}
                   >
                     <Trash2 className="h-4 w-4" />
-                    삭제
+                    해제
                   </Button>
                 ) : null}
               </div>
@@ -284,18 +316,30 @@ function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string;
   return items;
 }
 
-function searchFolderScopeLabel(query: SearchQueryDto): string {
+function searchFolderTargetLabel(query: SearchQueryDto): string {
   if (query.target === 'title') return '제목';
   if (query.target === 'body') return '본문';
   return '제목+본문';
 }
 
-function formatSavedSearchDate(value: string): string {
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) return '확인 필요';
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Asia/Seoul',
-  }).format(new Date(timestamp));
+function searchFolderScopeLabel(scope: SearchFolderScope): string {
+  if (scope === 'matter-team') return 'Matter 팀 공유';
+  if (scope === 'admin-shared') return '관리자 공유';
+  return '개인';
+}
+
+function upsertSavedSearchFolder(
+  current: SavedSearchDto[],
+  next: SavedSearchDto,
+): SavedSearchDto[] {
+  const withoutExisting = current.filter((folder) => folder.savedSearchId !== next.savedSearchId);
+  return [next, ...withoutExisting];
+}
+
+function sortSavedSearchFolders(items: SavedSearchDto[]): SavedSearchDto[] {
+  return [...items].sort((a, b) => {
+    const updated = Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+    if (updated !== 0) return updated;
+    return a.name.localeCompare(b.name);
+  });
 }

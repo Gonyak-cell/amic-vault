@@ -13,8 +13,11 @@ describe('SearchFoldersContent', () => {
         busy={false}
         folders={[
           {
+            canRevoke: true,
             createdAt: '2026-06-19T00:00:00.000Z',
+            lastOpenedAt: '2026-06-19T00:05:00.000Z',
             name: 'NDA 본문 폴더',
+            openCount: 7,
             query: {
               query: 'NDA',
               filters: {
@@ -33,6 +36,7 @@ describe('SearchFoldersContent', () => {
               target: 'body',
             },
             savedSearchId: '11111111-1111-4111-8111-111111111902',
+            scope: 'admin-shared',
             updatedAt: '2026-06-19T00:00:00.000Z',
           },
         ]}
@@ -41,7 +45,8 @@ describe('SearchFoldersContent', () => {
 
     expect(html).toContain('내 검색 폴더');
     expect(html).toContain('NDA 본문 폴더');
-    expect(html).toContain('검색 폴더');
+    expect(html).toContain('관리자 공유');
+    expect(html).toContain('7회');
     expect(html).toContain('Matter Code');
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('고객');

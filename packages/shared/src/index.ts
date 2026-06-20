@@ -806,6 +806,8 @@ export {
 } from './dto/audit/audit-query.dto';
 export {
   createSavedSearchSchema,
+  savedSearchScopeSchema,
+  savedSearchScopes,
   searchDocumentTypeFilterSchema,
   searchExtractionStatusSchema,
   searchFiltersSchema,
@@ -837,6 +839,7 @@ export {
   type SearchFacetBucketDto,
   type SearchFacetsDto,
   type SearchFiltersDto,
+  type SearchFolderScope,
   type SearchGroupBy,
   type SearchHighlightDto,
   type SearchLegalHold,
