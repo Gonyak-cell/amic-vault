@@ -12,6 +12,9 @@ import type {
   ListDocumentVersionsQueryDto,
   ListDocumentsQueryDto,
   ListMattersQueryDto,
+  MatterAppLookupQueryDto,
+  MatterAppLookupResponseDto,
+  MatterAppSourceStatusDto,
   MatterDto,
   MatterMemberDto,
   MatterMemberListDto,
@@ -132,6 +135,18 @@ function queryString(query: Record<string, unknown> = {}): string {
 
 export function listMatters(query: Partial<ListMattersQueryDto> = {}): Promise<MatterListDto> {
   return apiFetch<MatterListDto>(`/matters${queryString(query)}`);
+}
+
+export function getMatterAppStatus(): Promise<MatterAppSourceStatusDto> {
+  return apiFetch<MatterAppSourceStatusDto>('/integrations/matter-app/status');
+}
+
+export function lookupMatterAppMatters(
+  query: Partial<MatterAppLookupQueryDto> = {},
+): Promise<MatterAppLookupResponseDto> {
+  return apiFetch<MatterAppLookupResponseDto>(
+    `/integrations/matter-app/matter-lookup${queryString(query)}`,
+  );
 }
 
 export function getMatter(matterId: string): Promise<MatterDto> {

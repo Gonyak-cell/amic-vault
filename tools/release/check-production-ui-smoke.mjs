@@ -182,8 +182,8 @@ const uploadBrowseFlowFiles = [
     patterns: [
       { name: 'no unconfigured Matter app upload', pattern: /Matter app 연결 필요/ },
       {
-        name: 'permission-scoped matter list lookup',
-        pattern: /listMatters\(\{ pageSize: 50 \}\)/,
+        name: 'permission-scoped Matter app lookup',
+        pattern: /lookupMatterAppMatters\(\{ q: query, pageSize: 50 \}\)/,
       },
     ],
   },

@@ -21,6 +21,7 @@ import { ExternalModule } from './modules/external/external.module';
 import { RecordsModule } from './modules/records/records.module';
 import { EnterpriseModule } from './modules/enterprise/enterprise.module';
 import { ScaleModule } from './modules/scale/scale.module';
+import { MatterAppModule } from './modules/integrations/matter-app/matter-app.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
@@ -66,6 +67,7 @@ class AppController {
     RecordsModule,
     EnterpriseModule,
     ScaleModule,
+    MatterAppModule,
     HealthModule,
     ClientModule,
     EthicalWallModule,

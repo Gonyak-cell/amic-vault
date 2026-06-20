@@ -37,14 +37,36 @@ The current `packages/matter` package appears descriptor/contract-oriented rathe
 Runtime guard:
 
 - `matter_app_api` and `matter_app_event_projection` are not considered active unless
+  server-side `MATTER_APP_SOURCE_CONFIGURED=true` and
+  `MATTER_APP_RUNTIME_READY=true` are set. Browser-visible display may also use
+  `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`,
   `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED=true` and
   `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY=true`.
-- `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY` means the approved Matter app lookup
+- `MATTER_APP_RUNTIME_READY` / `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY` means the approved Matter app lookup
   API or event projection is actually reachable, fresh enough for upload, and
   guarded by its owner. A descriptor-only Matter package or planning contract
   does not satisfy this flag.
 - `vault_projection_only` is only a non-production fallback and additionally requires `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE=true`.
+- Server-side `vault_projection_only` additionally requires
+  `ALLOW_VAULT_PROJECTION_MATTER_SOURCE=true`.
 - Production builds must treat `vault_projection_only` as unconfigured unless a later ADR explicitly changes this contract.
+- `MATTER_APP_STALENESS_MAX_SECONDS` defaults to 900 seconds. If
+  `MATTER_APP_SOURCE_UPDATED_AT` or `NEXT_PUBLIC_MATTER_APP_SOURCE_UPDATED_AT`
+  is older than that threshold, mutation-capable source modes are unconfigured.
+
+## Implemented Runtime Surface
+
+Current repo-side runtime endpoints:
+
+- `GET /v1/integrations/matter-app/status`
+- `GET /v1/integrations/matter-app/matter-lookup?q=<text>&pageSize=<n>`
+
+The status endpoint is the backend source for mode, configured/runtime-ready,
+freshness, production projection fallback, and upload-authoritative state. The
+lookup endpoint returns safe empty results when the source is unavailable or
+normal UI input is UUID-shaped. When available, lookup reads the local Matter
+projection only after SQL-stage Matter membership and ethical-wall filters are
+applied.
 
 ## Canonical Matter Fields
 
