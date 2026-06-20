@@ -177,9 +177,17 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('계약 검토 자료');
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('PETRA Bridge Closing');
+    expect(html).toContain('작업 우선순위');
+    expect(html).toContain('읽기/다운로드 전용');
+    expect(html).toContain('검토');
+    expect(html).toContain('감사 다운로드');
+    expect(html).toContain('사유 필수');
+    expect(html).toContain('프로필 메타데이터');
+    expect(html).toContain('버전 및 Records');
+    expect(html).toContain('원본 파일을 직접 수정하는 작업은 별도 승인된 편집 계약 전까지 노출하지 않습니다.');
     expect(html).toContain('문서 프로필');
     expect(html).toContain('미리보기');
-    expect(html).toContain('다운로드');
+    expect(html).toContain('다운로드 사유');
     expect(html).toContain('업무 처리');
     expect(html).toContain('버전');
     expect(html).toContain('업로드 및 처리 큐');
@@ -203,10 +211,14 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('외부 참여자');
     expect(html).toContain('비밀특권 후보');
     expect(html).not.toContain('Unrelated matter filing');
-    expect(html).toContain('삭제 금지');
+    expect(html).toContain('보존 검토');
+    expect(html).toContain('신청 가능');
     expect(html).toContain('보관 처리');
-    expect(html).toContain('삭제 요청');
+    expect(html).toContain('보관 준비');
+    expect(html).toContain('폐기 검토');
+    expect(html).toContain('검토 필요');
     expect(html).toContain('문서함 위치');
+    expect(html).toContain('id="document-download"');
     expect(html).toContain(
       'href="/records?tab=archive&amp;documentId=11111111-1111-4111-8111-111111111201&amp;matterCode=AMIC-2026-0007&amp;documentTitle=%EA%B3%84%EC%95%BD+%EA%B2%80%ED%86%A0+%EC%9E%90%EB%A3%8C"',
     );
@@ -224,6 +236,9 @@ describe('DocumentActionCenter', () => {
     expect(html).not.toContain(currentRelatedEmail.emailId);
     expect(html).not.toContain(currentRelatedEmail.filedBy);
     expect(html).not.toContain('root-message-hash');
+    expect(html).not.toContain('Open in Office');
+    expect(html).not.toContain('check-out');
+    expect(html).not.toContain('check-in');
   });
 
   it('renders a bounded empty state before document data is available', () => {
