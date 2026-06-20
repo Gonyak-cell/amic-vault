@@ -296,9 +296,9 @@ PR-A implementation note:
 - The upload path remains Matter Code-gated and must fail closed when Matter app source is unconfigured.
 - Bulk upload runs through the same Matter-scoped upload API per file and shows per-file queue results so partial failures are visible.
 - `UploadQueueReceipt` turns each successful upload into an operational receipt with
-  document-detail and Matter file-cabinet actions, file-organization prep status
-  text, and duplicate-candidate counts without exposing raw Matter references as
-  visible text.
+  document-detail, all-documents vault, and Matter file-cabinet actions,
+  file-organization prep status text, and duplicate-candidate counts without
+  exposing raw Matter references as visible text.
 - `/files` passes the same upload refresh key into `DocumentVaultList` and
   `MatterDocumentList` so a successful Matter-scoped upload immediately
   re-queries both the all-documents vault and the selected Matter file list

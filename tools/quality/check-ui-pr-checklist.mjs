@@ -128,7 +128,7 @@ const requiredPatterns = [
   {
     label: 'DMS upload receipt evidence',
     pattern:
-      /UploadQueueReceipt[\s\S]*document-detail[\s\S]*Matter file-cabinet[\s\S]*file-organization prep[\s\S]*duplicate-candidate/is,
+      /UploadQueueReceipt[\s\S]*document-detail[\s\S]*all-documents vault[\s\S]*Matter file-cabinet[\s\S]*file-organization prep[\s\S]*duplicate-candidate/is,
   },
   {
     label: 'DMS upload refresh evidence',
