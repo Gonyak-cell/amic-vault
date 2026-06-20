@@ -2,8 +2,13 @@
 
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Search, UserPlus } from 'lucide-react';
-import type { EthicalWallDetailDto, WallMembershipType } from '@amic-vault/shared';
+import type {
+  EthicalWallDetailDto,
+  OrgDirectorySubjectDto,
+  WallMembershipType,
+} from '@amic-vault/shared';
 import { wallMembershipTypes } from '@amic-vault/shared';
+import { OrgSubjectPicker } from '@/components/access/org-subject-picker';
 import { WallList } from '@/components/ethical-wall/wall-list';
 import { WallPolicyInspector } from '@/components/ethical-wall/wall-policy-inspector';
 import { MatterCodePicker } from '@/components/matter/matter-code-picker';
@@ -33,19 +38,18 @@ const wallCopy: Record<
     searchMeta: string;
     matterFilter: string;
     filterTitle: string;
-    advancedFilter: string;
-    advancedActions: string;
-    advancedActionsMeta: string;
+    membershipActions: string;
+    membershipActionsMeta: string;
     policyActions: string;
     policyActionsMeta: string;
     selectedMatter: string;
+    selectedWall: string;
     noMatterSelected: string;
-    matterRef: string;
+    noWallSelected: string;
+    noSubjectSelected: string;
     wallName: string;
     reason: string;
     createTitle: string;
-    wallRef: string;
-    userRef: string;
     membershipType: string;
     addMemberTitle: string;
     membershipLabels: Record<WallMembershipType, string>;
@@ -58,19 +62,18 @@ const wallCopy: Record<
     searchMeta: '운영 데이터 기준',
     matterFilter: 'Matter Code',
     filterTitle: '검색',
-    advancedFilter: '고급 참조 필터',
-    advancedActions: '보안 운영 참조 입력',
-    advancedActionsMeta: '사용자 선택 API가 연결되기 전까지 보안 관리자만 사용합니다.',
+    membershipActions: '정보 장벽 구성원 추가',
+    membershipActionsMeta: '조직 디렉터리에서 표시 가능한 사용자 또는 그룹만 선택합니다.',
     policyActions: '정책 작업',
     policyActionsMeta: 'Matter Code 기준',
     selectedMatter: '선택된 Matter',
+    selectedWall: '선택된 정보 장벽',
     noMatterSelected: 'Matter Code를 먼저 선택하세요.',
-    matterRef: 'Matter 참조',
+    noWallSelected: '목록에서 정보 장벽을 먼저 선택하세요.',
+    noSubjectSelected: '조직 디렉터리에서 사용자 또는 그룹을 선택하세요.',
     wallName: '정보 장벽 이름',
     reason: '설정 사유',
     createTitle: '정보 장벽 추가',
-    wallRef: '정보 장벽 참조',
-    userRef: '사용자 참조',
     membershipType: '구성원 유형',
     addMemberTitle: '구성원 추가',
     membershipLabels: {
@@ -86,20 +89,18 @@ const wallCopy: Record<
     searchMeta: 'Operational data',
     matterFilter: 'Matter Code',
     filterTitle: 'Search',
-    advancedFilter: 'Advanced reference filter',
-    advancedActions: 'Security operations reference input',
-    advancedActionsMeta:
-      'Security administrators only until user picker APIs are available.',
+    membershipActions: 'Add barrier member',
+    membershipActionsMeta: 'Select display-safe users or groups from the organization directory.',
     policyActions: 'Policy actions',
     policyActionsMeta: 'Matter Code based',
     selectedMatter: 'Selected Matter',
+    selectedWall: 'Selected information barrier',
     noMatterSelected: 'Select a Matter Code first.',
-    matterRef: 'Matter ref',
+    noWallSelected: 'Select an information barrier from the list first.',
+    noSubjectSelected: 'Select a user or group from the organization directory.',
     wallName: 'Barrier name',
     reason: 'Barrier reason',
     createTitle: 'Add information barrier',
-    wallRef: 'Barrier ref',
-    userRef: 'User ref',
     membershipType: 'Member type',
     addMemberTitle: 'Add member',
     membershipLabels: {
@@ -120,9 +121,8 @@ export function WallAdminClient() {
   const [busyMembershipId, setBusyMembershipId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newWall, setNewWall] = useState({ wallName: '', reason: '' });
+  const [selectedSubject, setSelectedSubject] = useState<OrgDirectorySubjectDto | null>(null);
   const [newMembership, setNewMembership] = useState({
-    wallId: '',
-    subjectId: '',
     membershipType: 'excluded' as WallMembershipType,
   });
   const selectedWall = useMemo(
@@ -186,17 +186,27 @@ export function WallAdminClient() {
 
   async function submitMembership(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!selectedWall) {
+      setError(copy.noWallSelected);
+      return;
+    }
+    if (!selectedSubject) {
+      setError(copy.noSubjectSelected);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await addEthicalWallMembership(newMembership.wallId.trim(), {
-        subjectType: 'user',
-        subjectId: newMembership.subjectId.trim(),
+      await addEthicalWallMembership(selectedWall.wall.wallId, {
+        subjectType: selectedSubject.subjectType,
+        subjectId: selectedSubject.subjectId,
         membershipType: newMembership.membershipType,
       });
-      setNewMembership({ wallId: '', subjectId: '', membershipType: 'excluded' });
+      setSelectedSubject(null);
+      setNewMembership({ membershipType: 'excluded' });
       await load(filterMatter?.matterReference ?? '');
     } catch (caught) {
+      setSelectedSubject(null);
       setError(safeApiErrorMessage(caught));
     } finally {
       setBusy(false);
@@ -296,61 +306,50 @@ export function WallAdminClient() {
         </form>
       </SectionCard>
 
-      <SectionCard title={copy.advancedActions} meta={copy.advancedActionsMeta}>
-        <details>
-          <summary className="cursor-pointer text-sm font-medium text-foreground">
-            {copy.advancedActions}
-          </summary>
-          <div className="mt-4 grid gap-3">
-            <form
-              className="grid gap-3 rounded-md border bg-muted/20 p-3 lg:grid-cols-[1fr_1fr_12rem_auto]"
-              onSubmit={submitMembership}
+      <SectionCard title={copy.membershipActions} meta={copy.membershipActionsMeta}>
+        <form className="grid gap-4" onSubmit={submitMembership}>
+          {selectedWall ? (
+            <div className="rounded-md border bg-muted/20 p-3 text-sm">
+              <span className="font-medium text-foreground">{copy.selectedWall}</span>
+              <span className="ml-2 text-muted-foreground">{selectedWall.wall.wallName}</span>
+            </div>
+          ) : (
+            <EmptyState variant="pre-search" title={copy.noWallSelected} />
+          )}
+          <OrgSubjectPicker
+            onSubjectSelected={setSelectedSubject}
+            purpose="ethical-wall"
+            selectedSubject={selectedSubject}
+            subjectType="all"
+          />
+          <div className="grid gap-3 lg:grid-cols-[12rem_auto]">
+            <select
+              aria-label={copy.membershipType}
+              className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={newMembership.membershipType}
+              onChange={(event) =>
+                setNewMembership({
+                  membershipType: event.target.value as WallMembershipType,
+                })
+              }
             >
-              <Input
-                aria-label={copy.wallRef}
-                placeholder={copy.wallRef}
-                value={newMembership.wallId}
-                onChange={(event) =>
-                  setNewMembership({ ...newMembership, wallId: event.target.value })
-                }
-              />
-              <Input
-                aria-label={copy.userRef}
-                placeholder={copy.userRef}
-                value={newMembership.subjectId}
-                onChange={(event) =>
-                  setNewMembership({ ...newMembership, subjectId: event.target.value })
-                }
-              />
-              <select
-                aria-label={copy.membershipType}
-                className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={newMembership.membershipType}
-                onChange={(event) =>
-                  setNewMembership({
-                    ...newMembership,
-                    membershipType: event.target.value as WallMembershipType,
-                  })
-                }
-              >
-                {wallMembershipTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {copy.membershipLabels[type]}
-                  </option>
-                ))}
-              </select>
-              <Button
-                aria-label={copy.addMemberTitle}
-                title={copy.addMemberTitle}
-                type="submit"
-                disabled={busy}
-              >
-                <UserPlus className="h-4 w-4" />
-                {copy.addMemberTitle}
-              </Button>
-            </form>
+              {wallMembershipTypes.map((type) => (
+                <option key={type} value={type}>
+                  {copy.membershipLabels[type]}
+                </option>
+              ))}
+            </select>
+            <Button
+              aria-label={copy.addMemberTitle}
+              title={copy.addMemberTitle}
+              type="submit"
+              disabled={busy || !selectedWall || !selectedSubject}
+            >
+              <UserPlus className="h-4 w-4" />
+              {copy.addMemberTitle}
+            </Button>
           </div>
-        </details>
+        </form>
       </SectionCard>
     </PageShell>
   );
