@@ -24,6 +24,7 @@ interface DocumentAuditTimelineProps {
   documentId: string;
   disableInitialLoad?: boolean;
   initialEvents?: DocumentAuditEventDto[];
+  refreshKey?: number | string;
 }
 
 const actionLabels: Partial<Record<DocumentAuditEventDto['action'], string>> = {
@@ -72,6 +73,7 @@ export function DocumentAuditTimeline({
   disableInitialLoad = false,
   documentId,
   initialEvents = [],
+  refreshKey = 0,
 }: DocumentAuditTimelineProps) {
   const [events, setEvents] = useState<DocumentAuditEventDto[]>(initialEvents);
   const [loading, setLoading] = useState(!disableInitialLoad && initialEvents.length === 0);
@@ -99,7 +101,7 @@ export function DocumentAuditTimeline({
     return () => {
       active = false;
     };
-  }, [disableInitialLoad, documentId]);
+  }, [disableInitialLoad, documentId, refreshKey]);
 
   return (
     <SectionCard

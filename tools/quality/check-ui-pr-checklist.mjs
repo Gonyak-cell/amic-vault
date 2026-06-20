@@ -138,7 +138,7 @@ const requiredPatterns = [
   {
     label: 'DMS version receipt evidence',
     pattern:
-      /new-version upload[\s\S]*version list[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,
+      /new-version upload[\s\S]*version list[\s\S]*document-scoped audit timeline[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,
   },
   {
     label: 'PR-F hold criteria',

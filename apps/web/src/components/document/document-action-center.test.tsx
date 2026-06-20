@@ -211,7 +211,7 @@ describe('DocumentActionCenter', () => {
     });
 
     expect(message).toContain('v3 새 버전이 추가되었습니다.');
-    expect(message).toContain('버전 목록과 파일 정리 준비 상태를 갱신했습니다.');
+    expect(message).toContain('버전 목록, 감사 타임라인, 파일 정리 준비 상태를 갱신했습니다.');
     expect(message).toContain('중복 후보 1건이 감지되었습니다.');
     expect(message).not.toContain(document.documentId);
     expect(message).not.toContain(document.matterId);
