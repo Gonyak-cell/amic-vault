@@ -5,7 +5,7 @@ import type { MatterDto } from '@amic-vault/shared';
 import { findMatterCodeOption, MatterCodePicker, mattersToOptions } from './matter-code-picker';
 
 vi.mock('@/lib/api-client', () => ({
-  listMatters: vi.fn(),
+  lookupMatterAppMatters: vi.fn(),
 }));
 
 vi.mock('@/components/ui/input', () => ({

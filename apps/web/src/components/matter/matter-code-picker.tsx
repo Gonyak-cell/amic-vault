@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { Check, Loader2, Search } from 'lucide-react';
-import type { MatterListDto } from '@amic-vault/shared';
-import { listMatters } from '@/lib/api-client';
+import type { MatterAppLookupResponseDto, MatterDto, MatterListDto } from '@amic-vault/shared';
+import { lookupMatterAppMatters } from '@/lib/api-client';
 import {
   filterMatterCodeOptions,
   isMatterAppSourceAvailable,
@@ -27,10 +27,16 @@ export interface MatterCodePickerProps {
 }
 
 function mattersToOptions(
-  response: MatterListDto,
+  response: MatterAppLookupResponseDto | MatterListDto,
   sourceMode: MatterAppSourceMode,
 ): MatterCodeOption[] {
-  return response.items.map((matter) => toMatterCodeOption(matter, sourceMode));
+  return response.items.map((matter) =>
+    isMatterCodeOption(matter) ? matter : toMatterCodeOption(matter, sourceMode),
+  );
+}
+
+function isMatterCodeOption(value: MatterCodeOption | MatterDto): value is MatterCodeOption {
+  return 'matterReference' in value;
 }
 
 export function MatterCodePicker({
@@ -51,6 +57,7 @@ export function MatterCodePicker({
   const [options, setOptions] = React.useState<MatterCodeOption[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [hasLoadError, setHasLoadError] = React.useState(false);
+  const [sourceUnavailable, setSourceUnavailable] = React.useState(false);
   const appliedInitialMatterCodeRef = React.useRef('');
   const sourceAvailable = isMatterAppSourceAvailable(resolvedSourceMode);
 
@@ -76,9 +83,16 @@ export function MatterCodePicker({
     let active = true;
     setIsLoading(true);
     setHasLoadError(false);
-    listMatters({ pageSize: 50 })
+    setSourceUnavailable(false);
+    lookupMatterAppMatters({ q: query, pageSize: 50 })
       .then((response) => {
-        if (active) setOptions(mattersToOptions(response, resolvedSourceMode));
+        if (!active) return;
+        if (!response.lookupAvailable || !response.source.sourceAvailable) {
+          setOptions([]);
+          setSourceUnavailable(true);
+          return;
+        }
+        setOptions(mattersToOptions(response, response.source.mode));
       })
       .catch(() => {
         if (active) setHasLoadError(true);
@@ -89,7 +103,7 @@ export function MatterCodePicker({
     return () => {
       active = false;
     };
-  }, [resolvedSourceMode, sourceAvailable]);
+  }, [query, sourceAvailable]);
 
   React.useEffect(() => {
     if (
@@ -105,7 +119,7 @@ export function MatterCodePicker({
     onMatterSelected(initialOption);
   }, [initialMatterCodeValue, onMatterSelected, options, selectedMatter]);
 
-  if (!sourceAvailable) {
+  if (!sourceAvailable || sourceUnavailable) {
     return (
       <EmptyState
         variant="api-unavailable"

@@ -65,9 +65,14 @@ browse, search, governance, integration, or AI prep behavior.
    `/integrations`, `/integrations/outlook`, `/enterprise`, and admin routes.
 3. If Matter app source-of-truth lookup or sync is unhealthy, disable
    production upload/browse by setting Matter source flags to a fail-closed
-   state: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`,
+   state. Server-side flags are `MATTER_APP_SOURCE_MODE`,
+   `MATTER_APP_SOURCE_CONFIGURED`, `MATTER_APP_RUNTIME_READY`,
+   `ALLOW_VAULT_PROJECTION_MATTER_SOURCE`,
+   `MATTER_APP_SOURCE_UPDATED_AT`, and `MATTER_APP_STALENESS_MAX_SECONDS`.
+   Browser-visible flags are `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`,
    `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`,
-   `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`, and
+   `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`,
+   `NEXT_PUBLIC_MATTER_APP_SOURCE_UPDATED_AT`, and
    `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE`.
 4. If file organization prep health is unsafe, stop enqueue and worker paths
    with `AI_PREP_ENABLED=false`, `AI_PREP_QUEUE_WORKER_ENABLED=false`, and

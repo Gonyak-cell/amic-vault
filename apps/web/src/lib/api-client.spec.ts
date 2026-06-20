@@ -7,9 +7,11 @@ import {
   documentDownloadUrl,
   documentPreviewUrl,
   getDocument,
+  getMatterAppStatus,
   listDocumentVersions,
   listDocuments,
   listMatterDocuments,
+  lookupMatterAppMatters,
   updateDocumentMetadata,
   uploadDocument,
 } from './api-client';
@@ -180,6 +182,82 @@ describe('api client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/v1/matters/matter-ref/documents?page=2&pageSize=10',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('loads Matter app source status through the integration endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            mode: 'matter_app_api',
+            requestedMode: 'matter_app_api',
+            label: 'Matter app API',
+            description: 'Matter app ready',
+            sourceConfigured: true,
+            runtimeReady: true,
+            sourceContractReady: true,
+            sourceAvailable: true,
+            uploadAuthoritative: true,
+            productionRuntime: false,
+            projectionFallbackAllowed: false,
+            stalenessMaxSeconds: 900,
+            sourceUpdatedAt: null,
+            sourceStale: false,
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getMatterAppStatus()).resolves.toMatchObject({
+      mode: 'matter_app_api',
+      sourceAvailable: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/integrations/matter-app/status',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('looks up Matter app matters without using the generic matter list endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            source: {
+              mode: 'matter_app_api',
+              requestedMode: 'matter_app_api',
+              label: 'Matter app API',
+              description: 'Matter app ready',
+              sourceConfigured: true,
+              runtimeReady: true,
+              sourceContractReady: true,
+              sourceAvailable: true,
+              uploadAuthoritative: true,
+              productionRuntime: false,
+              projectionFallbackAllowed: false,
+              stalenessMaxSeconds: 900,
+              sourceUpdatedAt: null,
+              sourceStale: false,
+            },
+            lookupAvailable: true,
+            items: [],
+            totalCount: 0,
+            pageSize: 20,
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(lookupMatterAppMatters({ q: 'AMIC', pageSize: 20 })).resolves.toMatchObject({
+      lookupAvailable: true,
+      items: [],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/integrations/matter-app/matter-lookup?q=AMIC&pageSize=20',
       expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
     );
   });

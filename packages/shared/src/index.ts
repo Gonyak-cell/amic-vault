@@ -1096,6 +1096,22 @@ export {
   type ListClientsQueryDto,
   type UpdateClientDto,
 } from './client/client.dto';
+export {
+  matterAppLookupQuerySchema,
+  matterAppLookupResponseSchema,
+  matterAppMatterOptionSchema,
+  matterAppSourceModeSchema,
+  matterAppSourceModes,
+  matterAppSourceStatusSchema,
+  matterAppUnavailableReasonSchema,
+  matterAppUnavailableReasons,
+  type MatterAppLookupQueryDto,
+  type MatterAppLookupResponseDto,
+  type MatterAppMatterOptionDto,
+  type MatterAppSourceMode,
+  type MatterAppSourceStatusDto,
+  type MatterAppUnavailableReason,
+} from './dto/matter-app/matter-app.dto';
 export { matterTypes, matterTypeSchema, type MatterType } from './matter/matter-type';
 export {
   containsSensitiveMatterMetadataKey,

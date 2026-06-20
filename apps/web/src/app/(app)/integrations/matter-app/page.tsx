@@ -8,18 +8,51 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { getMatterAppStatus } from '@/lib/api-client';
 import { matterAppSourceStatus } from '@/lib/matter-app';
 import { useI18n } from '@/lib/i18n';
 
 export default function MatterAppIntegrationPage() {
   const { t } = useI18n();
-  const status = matterAppSourceStatus({
-    sourceMode: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_MODE,
-    sourceConfigured: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED,
-    projectionFallbackAllowed: process.env.NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE,
-    runtimeReady: process.env.NEXT_PUBLIC_MATTER_APP_RUNTIME_READY,
-    nodeEnv: process.env.NODE_ENV,
-  });
+  const localStatus = React.useMemo(
+    () =>
+      matterAppSourceStatus({
+        sourceMode: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_MODE,
+        sourceConfigured: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED,
+        projectionFallbackAllowed: process.env.NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE,
+        runtimeReady: process.env.NEXT_PUBLIC_MATTER_APP_RUNTIME_READY,
+        nodeEnv: process.env.NODE_ENV,
+      }),
+    [],
+  );
+  const [status, setStatus] = React.useState(localStatus);
+  const [statusSource, setStatusSource] = React.useState<'api' | 'local'>('local');
+  React.useEffect(() => {
+    let active = true;
+    getMatterAppStatus()
+      .then((apiStatus) => {
+        if (!active) return;
+        setStatus({
+          ...localStatus,
+          mode: apiStatus.mode,
+          requestedMode: apiStatus.requestedMode,
+          sourceConfigured: apiStatus.sourceConfigured,
+          runtimeReady: apiStatus.runtimeReady,
+          sourceContractReady: apiStatus.sourceContractReady,
+          sourceAvailable: apiStatus.sourceAvailable,
+          uploadAuthoritative: apiStatus.uploadAuthoritative,
+          productionRuntime: apiStatus.productionRuntime,
+          projectionFallbackAllowed: apiStatus.projectionFallbackAllowed,
+        });
+        setStatusSource('api');
+      })
+      .catch(() => {
+        if (active) setStatusSource('local');
+      });
+    return () => {
+      active = false;
+    };
+  }, [localStatus]);
   const uploadTone: StatusBadgeTone = status.uploadAuthoritative ? 'success' : 'blocked';
 
   return (
@@ -60,7 +93,11 @@ export default function MatterAppIntegrationPage() {
             title="lookup/sync runtime"
             value={status.sourceContractReady ? '준비됨' : '준비 필요'}
             tone={status.sourceContractReady ? 'success' : 'blocked'}
-            description="Matter app source는 configured flag와 runtime ready flag가 모두 확인되어야 합니다."
+            description={
+              statusSource === 'api'
+                ? '백엔드 runtime status endpoint에서 configured/runtime ready 상태를 확인했습니다.'
+                : '백엔드 확인 전에는 public runtime flag 기준으로 보수적으로 표시합니다.'
+            }
           />
           <StatusTile
             icon={<ShieldCheck className="h-4 w-4" />}
