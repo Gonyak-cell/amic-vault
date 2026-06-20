@@ -2,9 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import type { UploadDocumentResponseDto } from '@amic-vault/shared';
+import type {
+  AddDocumentVersionResponseDto,
+  UploadDocumentResponseDto,
+  UploadDuplicateCandidateDto,
+} from '@amic-vault/shared';
 import { ExternalLink, FileSearch, FileUp, Loader2 } from 'lucide-react';
-import { createUploadPreflight, uploadDocument } from '@/lib/api-client';
+import { addDocumentVersion, createUploadPreflight, uploadDocument } from '@/lib/api-client';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   isMatterUploadSourceMode,
@@ -21,9 +25,17 @@ import {
   defaultUploadMetadataProfile,
   uploadMetadataProfileFields,
 } from './upload-metadata-profile';
+import {
+  DuplicateDecisionDialog,
+  type DuplicateDecisionSelection,
+} from './duplicate-decision-dialog';
+
+export type DocumentUploadCompletionResult =
+  | UploadDocumentResponseDto
+  | AddDocumentVersionResponseDto;
 
 export interface DocumentUploadPanelProps {
-  onUploadComplete?: (result: UploadDocumentResponseDto) => void;
+  onUploadComplete?: (result: DocumentUploadCompletionResult) => void;
   selectedMatter: MatterCodeOption | null;
   sourceMode?: MatterAppSourceMode;
 }
@@ -37,6 +49,12 @@ export interface UploadQueueRow {
   message: string;
   status: UploadQueueStatus;
   title?: string;
+}
+
+interface DuplicateDecisionRequest {
+  candidates: UploadDuplicateCandidateDto[];
+  fileName: string;
+  resolve: (selection: DuplicateDecisionSelection) => void;
 }
 
 const uploadQueueStatusLabels = {
@@ -65,9 +83,28 @@ export function DocumentUploadPanel({
   const [metadataProfile, setMetadataProfile] = React.useState(defaultUploadMetadataProfile);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadQueue, setUploadQueue] = React.useState<UploadQueueRow[]>([]);
+  const [duplicateDecisionRequest, setDuplicateDecisionRequest] =
+    React.useState<DuplicateDecisionRequest | null>(null);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const canUpload = Boolean(selectedMatter && files.length > 0 && uploadSourceReady && !isUploading);
+  const canUpload = Boolean(
+    selectedMatter && files.length > 0 && uploadSourceReady && !isUploading,
+  );
+
+  const requestDuplicateDecision = React.useCallback(
+    (fileName: string, candidates: UploadDuplicateCandidateDto[]) =>
+      new Promise<DuplicateDecisionSelection>((resolve) => {
+        setDuplicateDecisionRequest({ candidates, fileName, resolve });
+      }),
+    [],
+  );
+
+  function handleDuplicateDecision(selection: DuplicateDecisionSelection) {
+    const request = duplicateDecisionRequest;
+    if (!request) return;
+    request.resolve(selection);
+    setDuplicateDecisionRequest(null);
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,32 +124,59 @@ export function DocumentUploadPanel({
     let failureCount = 0;
     const failedFiles: File[] = [];
     try {
-      let uploadPreflightRef: string;
-      try {
-        const preflight = await createUploadPreflight(selectedMatter.matterReference);
-        uploadPreflightRef = preflight.preflightRef;
-      } catch (error) {
-        const message = safeApiErrorMessage(error);
-        setUploadQueue((current) =>
-          current.map((item) => ({
-            ...item,
-            message,
-            status: 'failed',
-          })),
-        );
-        setStatusMessage(bulkUploadStatusMessage(0, files.length));
-        setErrorMessage('업로드 준비 확인을 통과하지 못했습니다.');
-        return;
-      }
-
       for (const [index, selectedFile] of files.entries()) {
         setUploadQueue((current) =>
-          updateUploadQueue(current, index, { message: '업로드 중', status: 'uploading' }),
+          updateUploadQueue(current, index, { message: '중복 확인 중', status: 'uploading' }),
         );
         try {
+          const sha256 = await sha256BrowserFile(selectedFile);
+          const preflight = await createUploadPreflight(selectedMatter.matterReference, { sha256 });
+          const duplicateSelection = preflight.duplicateDecisionRequired
+            ? await requestDuplicateDecision(selectedFile.name, preflight.duplicateCandidates)
+            : undefined;
+
+          if (duplicateSelection?.decision === 'cancel') {
+            failureCount += 1;
+            failedFiles.push(selectedFile);
+            setUploadQueue((current) =>
+              updateUploadQueue(current, index, {
+                message: '업로드가 취소되었습니다.',
+                status: 'failed',
+              }),
+            );
+            continue;
+          }
+
+          setUploadQueue((current) =>
+            updateUploadQueue(current, index, { message: '업로드 중', status: 'uploading' }),
+          );
+
+          if (duplicateSelection?.decision === 'new_version') {
+            const result = await addDocumentVersion(
+              duplicateSelection.documentReference,
+              selectedFile,
+              { duplicateDecision: 'new_version' },
+            );
+            successCount += 1;
+            setUploadQueue((current) =>
+              updateUploadQueue(current, index, {
+                documentId: result.documentId,
+                duplicateCount: result.duplicates.length,
+                message: versionUploadStatusMessage(result),
+                status: 'uploaded',
+                title: selectedFile.name,
+              }),
+            );
+            onUploadComplete?.(result);
+            continue;
+          }
+
           const result = await uploadDocument(selectedMatter.matterReference, selectedFile, {
             ...uploadMetadataProfileFields(metadataProfile),
-            uploadPreflightRef,
+            uploadPreflightRef: preflight.preflightRef,
+            ...(duplicateSelection?.decision === 'new_document'
+              ? { duplicateDecision: 'new_document' }
+              : {}),
             ...(files.length === 1 && title.trim() ? { title: title.trim() } : {}),
           });
           successCount += 1;
@@ -238,6 +302,14 @@ export function DocumentUploadPanel({
       {uploadQueue.length > 0 ? (
         <UploadQueueReceipt queue={uploadQueue} selectedMatter={selectedMatter} />
       ) : null}
+
+      {duplicateDecisionRequest ? (
+        <DuplicateDecisionDialog
+          candidates={duplicateDecisionRequest.candidates}
+          fileName={duplicateDecisionRequest.fileName}
+          onSelect={handleDuplicateDecision}
+        />
+      ) : null}
     </form>
   );
 }
@@ -340,10 +412,20 @@ function allDocumentsVaultHref(item: UploadQueueRow, selectedMatter: MatterCodeO
 
 export function uploadStatusMessage(result: UploadDocumentResponseDto): string {
   const duplicateMessage =
-    result.duplicates.length > 0 ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.` : '';
+    result.duplicates.length > 0
+      ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.`
+      : '';
   return result.aiAllowed
     ? `${result.title} 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.${duplicateMessage}`
     : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.${duplicateMessage}`;
+}
+
+export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto): string {
+  const duplicateMessage =
+    result.duplicates.length > 0
+      ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.`
+      : '';
+  return `v${result.versionNo} 새 버전 추가 완료.${duplicateMessage}`;
 }
 
 export function bulkUploadStatusMessage(successCount: number, failureCount: number): string {
@@ -352,4 +434,12 @@ export function bulkUploadStatusMessage(successCount: number, failureCount: numb
   }
   if (successCount > 0) return `${successCount}개 업로드 완료.`;
   return `${failureCount}개 업로드 실패. 실패 항목을 확인해 주세요.`;
+}
+
+async function sha256BrowserFile(file: File): Promise<string> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error('SHA256_UNAVAILABLE');
+  }
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

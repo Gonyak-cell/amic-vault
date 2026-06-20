@@ -115,8 +115,13 @@ function uploadForm(filename: string, bytes: Uint8Array): FormData {
   return form;
 }
 
-function versionForm(filename: string, bytes: Uint8Array): FormData {
+function versionForm(
+  filename: string,
+  bytes: Uint8Array,
+  fields: { duplicateDecision?: 'new_version' } = {},
+): FormData {
   const form = new FormData();
+  if (fields.duplicateDecision) form.append('duplicateDecision', fields.duplicateDecision);
   form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
   return form;
 }
@@ -143,11 +148,12 @@ async function addVersion(
   documentId: string,
   filename: string,
   bytes: Uint8Array,
+  fields: { duplicateDecision?: 'new_version' } = {},
 ): Promise<AddVersionResponse> {
   const response = await fetch(`${baseUrl}/v1/documents/${documentId}/versions`, {
     method: 'POST',
     headers: { cookie },
-    body: versionForm(filename, bytes),
+    body: versionForm(filename, bytes, fields),
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
@@ -298,6 +304,7 @@ describe('document-versioning integration', () => {
       uploaded.documentId,
       'Duplicate.pdf',
       initialBytes,
+      { duplicateDecision: 'new_version' },
     );
     expect(duplicate.versionNo).toBe(2);
     expect(duplicate.duplicates).toEqual([

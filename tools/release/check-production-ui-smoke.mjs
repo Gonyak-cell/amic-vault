@@ -197,15 +197,39 @@ const uploadBrowseFlowFiles = [
       },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
       { name: 'server-side upload preflight call', pattern: /createUploadPreflight/ },
+      { name: 'upload preflight SHA hashing', pattern: /sha256BrowserFile/ },
+      { name: 'duplicate decision dialog', pattern: /DuplicateDecisionDialog/ },
       { name: 'upload metadata profile component', pattern: /UploadMetadataProfile/ },
       { name: 'upload metadata profile forwarding', pattern: /uploadMetadataProfileFields/ },
       {
         name: 'matter-scoped upload call',
         pattern: /uploadDocument\(selectedMatter\.matterReference/,
       },
+      {
+        name: 'duplicate new document decision forwarding',
+        pattern: /duplicateDecision: 'new_document'/,
+      },
+      {
+        name: 'duplicate new version decision forwarding',
+        pattern: /duplicateDecision: 'new_version'/,
+      },
+      { name: 'version upload branch', pattern: /addDocumentVersion/ },
       { name: 'upload preflight ref forwarding', pattern: /uploadPreflightRef/ },
       { name: 'bulk file picker', pattern: /multiple/ },
       { name: 'bulk upload queue', pattern: /업로드 큐/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/duplicate-decision-dialog.tsx',
+    patterns: [
+      { name: 'duplicate decision modal', pattern: /중복 문서 처리/ },
+      {
+        name: 'safe candidate labels',
+        pattern: /candidate\.title[\s\S]*candidate\.matterCode[\s\S]*candidate\.versionLabel/,
+      },
+      { name: 'new document action', pattern: /새 문서로 저장/ },
+      { name: 'new version action', pattern: /선택 문서의 새 버전/ },
+      { name: 'cancel action', pattern: /decision: 'cancel'/ },
     ],
   },
   {

@@ -154,6 +154,7 @@ describe('api client', () => {
       aiAllowed: true,
       title: 'Contract',
       uploadPreflightRef: 'upf_ref',
+      duplicateDecision: 'new_document',
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -165,6 +166,7 @@ describe('api client', () => {
     const body = firstCall[1]?.body as FormData;
     expect(body.get('aiAllowed')).toBe('true');
     expect(body.get('uploadPreflightRef')).toBe('upf_ref');
+    expect(body.get('duplicateDecision')).toBe('new_document');
   });
 
   it('creates upload preflight through the matter-scoped preflight endpoint', async () => {
@@ -181,20 +183,33 @@ describe('api client', () => {
             permissionDecisionRef: 'matter-upload:decision',
             uploadEligible: true,
             blockedReason: null,
+            duplicateDecisionRequired: true,
+            duplicateCandidates: [
+              {
+                documentReference: '11111111-1111-4111-8111-111111111123',
+                matterCode: 'AMIC-2026-0001',
+                matterName: 'Investment Advisory',
+                title: 'Investment memo.pdf',
+                versionLabel: 'v1 current',
+              },
+            ],
           }),
           { status: 200 },
         ),
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createUploadPreflight('matter-ref')).resolves.toMatchObject({
+    await expect(
+      createUploadPreflight('matter-ref', { sha256: 'a'.repeat(64) }),
+    ).resolves.toMatchObject({
       preflightRef: 'upf_ref',
+      duplicateDecisionRequired: true,
       uploadEligible: true,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/v1/matters/matter-ref/documents/upload-preflight',
       expect.objectContaining({
-        body: '{}',
+        body: JSON.stringify({ sha256: 'a'.repeat(64) }),
         cache: 'no-store',
         credentials: 'include',
         method: 'POST',
@@ -432,7 +447,9 @@ describe('api client', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await listDocumentVersions('doc-ref', { status: 'current' });
-    await addDocumentVersion('doc-ref', new File(['v2'], 'contract-v2.pdf'));
+    await addDocumentVersion('doc-ref', new File(['v2'], 'contract-v2.pdf'), {
+      duplicateDecision: 'new_version',
+    });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -444,6 +461,8 @@ describe('api client', () => {
       'http://localhost:3001/v1/documents/doc-ref/versions',
       expect.objectContaining({ body: expect.any(FormData), method: 'POST' }),
     );
+    const body = fetchMock.mock.calls[1]?.[1]?.body as FormData;
+    expect(body.get('duplicateDecision')).toBe('new_version');
   });
 
   it('builds preview and controlled download URLs without exposing raw refs beyond the route id', () => {

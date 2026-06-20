@@ -39,8 +39,8 @@ describe('storage rollback', () => {
     const deleteByStorageUri = vi.fn(async () => undefined);
     const service = new DocumentUploadService(
       {
-        async transaction(_tenantId: string, run: (tx: never) => Promise<void>) {
-          await run({} as never);
+        async transaction<T>(_tenantId: string, run: (tx: never) => Promise<T>): Promise<T> {
+          return run({} as never);
         },
       } as never,
       {
@@ -54,7 +54,10 @@ describe('storage rollback', () => {
         addNextVersion: vi.fn(),
         findDuplicateVersionCandidates: vi.fn(),
       } as never,
-      { findCandidates: vi.fn(async () => []) } as never,
+      {
+        findCandidates: vi.fn(async () => []),
+        findSafeUploadCandidates: vi.fn(async () => []),
+      } as never,
       { create: vi.fn(async () => undefined) } as never,
       { canUploadToMatter: vi.fn(async () => allowPermission()) } as never,
       {

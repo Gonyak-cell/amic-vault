@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import type { DocumentMetadataSuggestionDto } from './upload-document.dto';
+import { uploadDuplicateDecisionSchema } from './upload-preflight.dto';
 
 export const addDocumentVersionFieldsSchema = z
   .object({
     uploadPreflightRef: z.string().trim().min(1).max(160).optional(),
+    duplicateDecision: uploadDuplicateDecisionSchema.optional(),
   })
   .strict();
 

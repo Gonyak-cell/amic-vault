@@ -70,8 +70,11 @@ export interface AddDocumentVersionInput {
   file: UploadedDiskFile | undefined;
 }
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({
+    code: 'VALIDATION_FAILED',
+    ...(reason ? { reason } : {}),
+  });
 }
 
 function permissionDenied(): ForbiddenException {
@@ -101,6 +104,11 @@ function normalizeTransportFilename(filename: string): string {
   const repaired = Buffer.from(filename, 'latin1').toString('utf8');
   return repaired.includes('\uFFFD') ? filename : repaired;
 }
+
+type DuplicateDecisionAudit = {
+  decision: 'new_document' | 'new_version';
+  candidateCount: number;
+};
 
 @Injectable()
 export class DocumentUploadService {
@@ -172,6 +180,12 @@ export class DocumentUploadService {
         declaredMimeType: file.mimetype,
       });
       const sha256 = await sha256File(file.path);
+      const duplicateDecision = await this.assertUploadDuplicateDecision({
+        tenantId: context.tenantId,
+        matterId: input.matterId,
+        sha256,
+        decision: input.fields.duplicateDecision,
+      });
       const title = input.fields.title?.trim() || titleFromFilename(normalizedFilename);
       const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const documentId = randomUUID();
@@ -254,6 +268,7 @@ export class DocumentUploadService {
               versionId: version.versionId,
               hash: sha256,
               ...(matterSourceDecision ? { matterSourceDecision } : {}),
+              ...(duplicateDecision ? { duplicateDecision } : {}),
             }),
             tx,
           );
@@ -316,8 +331,16 @@ export class DocumentUploadService {
         declaredMimeType: file.mimetype,
       });
       const sha256 = await sha256File(file.path);
-      const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const fileObjectId = randomUUID();
+      const duplicateDecision = await this.assertVersionDuplicateDecision({
+        tenantId: context.tenantId,
+        matterId: target.matter_id,
+        documentId: input.documentId,
+        fileObjectId,
+        sha256,
+        decision: input.fields.duplicateDecision,
+      });
+      const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const storage = await this.storageService.putTenantObject({
         tenantId: context.tenantId,
         matterId: target.matter_id,
@@ -384,6 +407,7 @@ export class DocumentUploadService {
               versionId: version.versionId,
               hash: sha256,
               ...(matterSourceDecision ? { matterSourceDecision } : {}),
+              ...(duplicateDecision ? { duplicateDecision } : {}),
             }),
             tx,
           );
@@ -446,6 +470,82 @@ export class DocumentUploadService {
       });
     }
     await this.assertCanUpload(tenantId, actorUserId, matterId);
+    return undefined;
+  }
+
+  private async assertUploadDuplicateDecision(input: {
+    tenantId: TenantId;
+    matterId: string;
+    sha256: string;
+    decision: UploadDocumentFieldsDto['duplicateDecision'];
+  }): Promise<DuplicateDecisionAudit | undefined> {
+    if (input.decision === 'cancel') throw validationFailed('DUPLICATE_UPLOAD_CANCELLED');
+    if (input.decision === 'new_version') {
+      throw validationFailed('DUPLICATE_VERSION_ENDPOINT_REQUIRED');
+    }
+
+    const candidates = await this.auditService.transaction(input.tenantId, (tx) =>
+      this.duplicateDetector.findSafeUploadCandidates(
+        {
+          tenantId: input.tenantId,
+          matterId: input.matterId,
+          sha256: input.sha256,
+          limit: 10,
+        },
+        tx,
+      ),
+    );
+    if (candidates.length > 0 && input.decision !== 'new_document') {
+      throw validationFailed('DUPLICATE_DECISION_REQUIRED');
+    }
+    if (input.decision === 'new_document') {
+      return { decision: 'new_document', candidateCount: candidates.length };
+    }
+    return undefined;
+  }
+
+  private async assertVersionDuplicateDecision(input: {
+    tenantId: TenantId;
+    matterId: string;
+    documentId: string;
+    fileObjectId: string;
+    sha256: string;
+    decision: AddDocumentVersionFieldsDto['duplicateDecision'];
+  }): Promise<DuplicateDecisionAudit | undefined> {
+    if (input.decision === 'cancel') throw validationFailed('DUPLICATE_UPLOAD_CANCELLED');
+    if (input.decision === 'new_document') {
+      throw validationFailed('DUPLICATE_DOCUMENT_ENDPOINT_REQUIRED');
+    }
+
+    const candidateCount = await this.auditService.transaction(input.tenantId, async (tx) => {
+      const versionDuplicates = await this.documentVersionService.findDuplicateVersionCandidates(
+        {
+          tenantId: input.tenantId,
+          documentId: input.documentId,
+          fileObjectId: input.fileObjectId,
+          sha256: input.sha256,
+          limit: 10,
+        },
+        tx,
+      );
+      const documentDuplicates = await this.duplicateDetector.findCandidates(
+        {
+          tenantId: input.tenantId,
+          matterId: input.matterId,
+          documentId: input.documentId,
+          sha256: input.sha256,
+          limit: 10,
+        },
+        tx,
+      );
+      return versionDuplicates.length + documentDuplicates.length;
+    });
+    if (candidateCount > 0 && input.decision !== 'new_version') {
+      throw validationFailed('DUPLICATE_DECISION_REQUIRED');
+    }
+    if (input.decision === 'new_version') {
+      return { decision: 'new_version', candidateCount };
+    }
     return undefined;
   }
 

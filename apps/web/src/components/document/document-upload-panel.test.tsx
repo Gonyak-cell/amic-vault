@@ -6,6 +6,7 @@ import {
   UploadQueueReceipt,
   bulkUploadStatusMessage,
   uploadStatusMessage,
+  versionUploadStatusMessage,
 } from './document-upload-panel';
 import {
   defaultUploadMetadataProfile,
@@ -14,6 +15,7 @@ import {
 import type { MatterCodeOption } from '@/lib/matter-app';
 
 vi.mock('@/lib/api-client', () => ({
+  addDocumentVersion: vi.fn(),
   createUploadPreflight: vi.fn(),
   uploadDocument: vi.fn(),
 }));
@@ -153,6 +155,28 @@ describe('DocumentUploadPanel', () => {
         ],
       }),
     ).toContain('중복 후보 1건이 감지되었습니다.');
+  });
+
+  it('summarizes duplicate new-version upload receipts', () => {
+    expect(
+      versionUploadStatusMessage({
+        documentId: '11111111-1111-4111-8111-111111111114',
+        matterId: '11111111-1111-4111-8111-111111111115',
+        versionId: '11111111-1111-4111-8111-111111111116',
+        versionNo: 2,
+        versionStatus: 'current',
+        fileObjectId: '11111111-1111-4111-8111-111111111117',
+        sha256: 'a'.repeat(64),
+        metadataSuggestion: {},
+        duplicates: [
+          {
+            documentId: '11111111-1111-4111-8111-111111111118',
+            fileObjectId: '11111111-1111-4111-8111-111111111119',
+            sha256: 'b'.repeat(64),
+          },
+        ],
+      }),
+    ).toContain('v2 새 버전 추가 완료. 중복 후보 1건이 감지되었습니다.');
   });
 
   it('summarizes bulk upload partial failures without hiding failed files', () => {

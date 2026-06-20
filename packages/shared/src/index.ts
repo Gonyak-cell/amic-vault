@@ -734,9 +734,13 @@ export {
 } from './dto/document/upload-document.dto';
 export {
   createUploadPreflightRequestSchema,
+  uploadDuplicateCandidateSchema,
+  uploadDuplicateDecisionSchema,
   uploadPreflightPurposeSchema,
   uploadPreflightResponseSchema,
   type CreateUploadPreflightRequestDto,
+  type UploadDuplicateCandidateDto,
+  type UploadDuplicateDecision,
   type UploadPreflightPurpose,
   type UploadPreflightResponseDto,
 } from './dto/document/upload-preflight.dto';
