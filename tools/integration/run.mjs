@@ -3,7 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const filters = process.argv.slice(2).filter((filter) => filter !== '--');
+const filterAliases = new Map([['matter-member', 'matter-team']]);
+const filters = process.argv
+  .slice(2)
+  .filter((filter) => filter !== '--')
+  .map((filter) => filterAliases.get(filter) ?? filter);
 
 const domainBuild = spawnSync('pnpm', ['--filter', '@amic-vault/domain', 'build'], {
   stdio: 'inherit',
