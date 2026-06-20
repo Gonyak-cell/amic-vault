@@ -6,6 +6,7 @@ import type {
   SavedSearchDto,
   SearchFiltersDto,
   SearchGroupBy,
+  SearchPrivacySettingsDto,
   SearchQueryDto,
   SearchResponseDto,
   SearchSort,
@@ -14,6 +15,7 @@ import type {
 import {
   documentExtractionStatuses,
   documentTypes,
+  searchPrivacySettingsSchema,
   searchLegalHoldValues,
   searchRecordsStatusValues,
   searchVersionStatusValues,
@@ -39,8 +41,13 @@ export function SearchClient() {
   const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const initial = useMemo(() => stateFromParams(params), [params]);
+  const searchPrivacySettings = useMemo(() => searchPrivacySettingsFromEnv(), []);
+  const initial = useMemo(
+    () => stateFromParams(params, searchPrivacySettings),
+    [params, searchPrivacySettings],
+  );
   const restoredUrl = useRef<string | null>(null);
+  const restoredSavedSearchRef = useRef<string | null>(null);
   const [query, setQuery] = useState(initial.query);
   const [selection, setSelection] = useState<SearchFacetSelection>(initial.selection);
   const [page, setPage] = useState(initial.page);
@@ -50,7 +57,13 @@ export function SearchClient() {
   const [savedSearches, setSavedSearches] = useState<SavedSearchDto[]>([]);
   const [savedSearchBusy, setSavedSearchBusy] = useState(false);
   const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
-  const reusableSearchUrl = useMemo(() => urlForState(query, selection, 1), [query, selection]);
+  const reusableSearchUrl = useMemo(
+    () =>
+      searchPrivacySettings.allowPlaintextReusableUrls
+        ? urlForState(query, selection, 1)
+        : privateSearchUrl(),
+    [query, searchPrivacySettings.allowPlaintextReusableUrls, selection],
+  );
 
   const refreshSavedSearches = useCallback(async () => {
     setSavedSearchBusy(true);
@@ -67,7 +80,12 @@ export function SearchClient() {
   }, []);
 
   const runSearch = useCallback(
-    async (nextQuery: string, nextSelection: SearchFacetSelection, nextPage: number) => {
+    async (
+      nextQuery: string,
+      nextSelection: SearchFacetSelection,
+      nextPage: number,
+      options: { replaceUrl?: string | null } = {},
+    ) => {
       const trimmed = nextQuery.trim();
       if (!trimmed) return;
       setBusy(true);
@@ -75,7 +93,11 @@ export function SearchClient() {
       setQuery(trimmed);
       setSelection(nextSelection);
       setPage(nextPage);
-      router.replace(urlForState(trimmed, nextSelection, nextPage));
+      const replacementUrl =
+        options.replaceUrl === undefined
+          ? urlForPolicy(searchPrivacySettings, trimmed, nextSelection, nextPage)
+          : options.replaceUrl;
+      if (replacementUrl) router.replace(replacementUrl);
       try {
         const request = requestForState(trimmed, nextSelection, nextPage);
         const result = await searchDocuments(request);
@@ -87,7 +109,35 @@ export function SearchClient() {
         setBusy(false);
       }
     },
-    [router],
+    [router, searchPrivacySettings],
+  );
+
+  const openSavedSearch = useCallback(
+    async (savedSearch: SavedSearchDto) => {
+      const nextQuery = savedSearch.query.query?.trim();
+      if (!nextQuery) return;
+      const nextSelection = selectionFromSearchQuery(savedSearch.query);
+      setBusy(true);
+      setError(null);
+      setQuery(nextQuery);
+      setSelection(nextSelection);
+      setPage(1);
+      router.replace(
+        searchPrivacySettings.urlMode === 'private_saved_ref'
+          ? privateSearchUrl(savedSearch.savedSearchId)
+          : urlForState(nextQuery, nextSelection, 1),
+      );
+      try {
+        const result = await searchDocuments({ ...savedSearch.query, page: 1, pageSize });
+        setResponse(result);
+      } catch (caught) {
+        setResponse(null);
+        setError(searchErrorKind(caught));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [router, searchPrivacySettings.urlMode],
   );
 
   useEffect(() => {
@@ -95,12 +145,36 @@ export function SearchClient() {
   }, [refreshSavedSearches]);
 
   useEffect(() => {
+    if (!searchPrivacySettings.allowPlaintextReusableUrls && params.get('q')) {
+      const savedSearchId = parseSavedSearchRef(params.get('searchRef'));
+      if (savedSearchId) {
+        router.replace(privateSearchUrl(savedSearchId));
+        return;
+      }
+      router.replace(privateSearchUrl());
+      return;
+    }
+  }, [params, router, searchPrivacySettings.allowPlaintextReusableUrls]);
+
+  useEffect(() => {
+    if (!searchPrivacySettings.allowPlaintextReusableUrls) return;
     if (!initial.query) return;
     const initialUrl = urlForState(initial.query, initial.selection, initial.page);
     if (restoredUrl.current === initialUrl) return;
     restoredUrl.current = initialUrl;
-    void runSearch(initial.query, initial.selection, initial.page);
-  }, [initial, runSearch]);
+    void runSearch(initial.query, initial.selection, initial.page, { replaceUrl: initialUrl });
+  }, [initial, runSearch, searchPrivacySettings.allowPlaintextReusableUrls]);
+
+  useEffect(() => {
+    if (!initial.savedSearchId) return;
+    if (restoredSavedSearchRef.current === initial.savedSearchId) return;
+    const savedSearch = savedSearches.find(
+      (item) => item.savedSearchId === initial.savedSearchId,
+    );
+    if (!savedSearch) return;
+    restoredSavedSearchRef.current = initial.savedSearchId;
+    void openSavedSearch(savedSearch);
+  }, [initial.savedSearchId, openSavedSearch, savedSearches]);
 
   function applyFacets(next: SearchFacetSelection) {
     void runSearch(query, next, 1);
@@ -116,6 +190,10 @@ export function SearchClient() {
         query: requestForState(query, selection, 1),
       });
       setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, saved)));
+      if (searchPrivacySettings.urlMode === 'private_saved_ref') {
+        restoredSavedSearchRef.current = saved.savedSearchId;
+        router.replace(privateSearchUrl(saved.savedSearchId));
+      }
     } catch (caught) {
       setSavedSearchError(safeApiErrorMessage(caught));
     } finally {
@@ -135,27 +213,6 @@ export function SearchClient() {
       setSavedSearchError(safeApiErrorMessage(caught));
     } finally {
       setSavedSearchBusy(false);
-    }
-  }
-
-  async function openSavedSearch(savedSearch: SavedSearchDto) {
-    const nextQuery = savedSearch.query.query?.trim();
-    if (!nextQuery) return;
-    const nextSelection = selectionFromSearchQuery(savedSearch.query);
-    setBusy(true);
-    setError(null);
-    setQuery(nextQuery);
-    setSelection(nextSelection);
-    setPage(1);
-    router.replace(urlForState(nextQuery, nextSelection, 1));
-    try {
-      const result = await searchDocuments({ ...savedSearch.query, page: 1, pageSize });
-      setResponse(result);
-    } catch (caught) {
-      setResponse(null);
-      setError(searchErrorKind(caught));
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -187,6 +244,7 @@ export function SearchClient() {
         savedSearchBusy={savedSearchBusy}
         savedSearchError={savedSearchError}
         savedSearches={savedSearches}
+        privacyMode={searchPrivacySettings.urlMode}
         reusableUrl={reusableSearchUrl}
       />
       <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
@@ -221,10 +279,14 @@ const emptyFacets: SearchResponseDto['facets'] = {
   dateRanges: [],
 };
 
-function stateFromParams(params: { get(name: string): string | null }) {
+function stateFromParams(
+  params: { get(name: string): string | null },
+  privacySettings: SearchPrivacySettingsDto,
+) {
   return {
-    query: params.get('q') ?? '',
+    query: privacySettings.allowPlaintextReusableUrls ? params.get('q') ?? '' : '',
     page: Math.max(1, Number(params.get('page') ?? '1') || 1),
+    savedSearchId: parseSavedSearchRef(params.get('searchRef')),
     selection: {
       matterId: params.get('matterId') ?? undefined,
       clientId: params.get('clientId') ?? undefined,
@@ -243,6 +305,16 @@ function stateFromParams(params: { get(name: string): string | null }) {
       title: params.get('title') ?? undefined,
     },
   };
+}
+
+function urlForPolicy(
+  privacySettings: SearchPrivacySettingsDto,
+  query: string,
+  selection: SearchFacetSelection,
+  page: number,
+): string {
+  if (!privacySettings.allowPlaintextReusableUrls) return privateSearchUrl();
+  return urlForState(query, selection, page);
 }
 
 function urlForState(query: string, selection: SearchFacetSelection, page: number): string {
@@ -264,6 +336,13 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.sortBy && selection.sortBy !== 'relevance') params.set('sortBy', selection.sortBy);
   if (selection.target && selection.target !== 'all') params.set('target', selection.target);
   if (selection.title) params.set('title', selection.title);
+  return `/search?${params.toString()}`;
+}
+
+function privateSearchUrl(savedSearchId?: string): string {
+  if (!savedSearchId) return '/search';
+  const params = new URLSearchParams();
+  params.set('searchRef', savedSearchId);
   return `/search?${params.toString()}`;
 }
 
@@ -398,6 +477,23 @@ function parseGroupBy(value: string | null): SearchGroupBy | undefined {
   return value === 'matter' || value === 'client' || value === 'type' || value === 'none'
     ? value
     : undefined;
+}
+
+function parseSavedSearchRef(value: string | null): string | undefined {
+  if (!value) return undefined;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  )
+    ? value
+    : undefined;
+}
+
+export function searchPrivacySettingsFromEnv(): SearchPrivacySettingsDto {
+  const urlMode =
+    process.env.NEXT_PUBLIC_SEARCH_URL_PRIVACY_MODE === 'private_saved_ref'
+      ? 'private_saved_ref'
+      : 'plaintext_url';
+  return searchPrivacySettingsSchema.parse({ urlMode });
 }
 
 function datesForRange(value: string | undefined): { dateFrom?: string; dateTo?: string } {

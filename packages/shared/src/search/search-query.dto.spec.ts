@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createSavedSearchSchema,
   searchFiltersSchema,
+  searchPrivacySettingsSchema,
   searchQuerySchema,
 } from './search-query.dto';
 import { searchAdminHealthSchema } from './search-admin.dto';
@@ -103,6 +104,23 @@ describe('search query DTO', () => {
       createSavedSearchSchema.parse({
         name: '',
         query: { query: 'closing' },
+      }),
+    ).toThrow();
+  });
+
+  it('normalizes search URL privacy settings without allowing mixed private/plaintext mode', () => {
+    expect(searchPrivacySettingsSchema.parse({})).toEqual({
+      allowPlaintextReusableUrls: true,
+      urlMode: 'plaintext_url',
+    });
+    expect(searchPrivacySettingsSchema.parse({ urlMode: 'private_saved_ref' })).toEqual({
+      allowPlaintextReusableUrls: false,
+      urlMode: 'private_saved_ref',
+    });
+    expect(() =>
+      searchPrivacySettingsSchema.parse({
+        allowPlaintextReusableUrls: true,
+        urlMode: 'private_saved_ref',
       }),
     ).toThrow();
   });

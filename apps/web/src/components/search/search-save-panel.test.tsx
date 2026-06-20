@@ -51,6 +51,7 @@ describe('SearchSavePanel', () => {
     expect(html).toContain('계약서 본문 검색');
     expect(html).toContain('열기');
     expect(html).toContain('삭제');
+    expect(html).toContain('/search?q=%EA%B3%84%EC%95%BD%EC%84%9C');
     expect(html).not.toContain('API 준비 전');
     expect(html).not.toContain('임시 저장');
     expect(html).not.toContain('김민준');
@@ -66,6 +67,39 @@ describe('SearchSavePanel', () => {
     expect(html).toContain('검색어를 입력하면 현재 조건을 다시 열 수 있는 링크가 표시됩니다.');
     expect(html).toContain('저장된 검색이 없습니다.');
     expect(html).not.toContain('현재 검색 조건');
+  });
+
+  it('hides plaintext reusable URLs when private saved-search references are required', () => {
+    const html = renderToStaticMarkup(
+      <SearchSavePanel
+        busy={false}
+        privacyMode="private_saved_ref"
+        query="M&A privileged acquisition"
+        reusableUrl="/search?q=M%26A+privileged+acquisition&target=body"
+        savedSearches={[
+          {
+            createdAt: '2026-06-19T00:00:00.000Z',
+            name: 'Private acquisition search',
+            query: {
+              query: 'M&A privileged acquisition',
+              filters: { matterCode: 'AMIC-2026-0001' },
+              page: 1,
+              pageSize: 10,
+              target: 'body',
+            },
+            savedSearchId: '11111111-1111-4111-8111-111111111901',
+            updatedAt: '2026-06-19T00:00:00.000Z',
+          },
+        ]}
+        selection={{ matterCode: 'AMIC-2026-0001', target: 'body' }}
+      />,
+    );
+
+    expect(html).toContain('비공개 저장 참조');
+    expect(html).toContain('참조 복사');
+    expect(html).toContain('Private acquisition search');
+    expect(html).not.toContain('/search?q=');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111901');
   });
 
   it('summarizes display-safe search pattern items', () => {

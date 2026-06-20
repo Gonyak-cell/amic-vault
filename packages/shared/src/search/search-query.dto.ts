@@ -37,6 +37,8 @@ export const searchSorts = [
 export const searchSortSchema = z.enum(searchSorts);
 export const searchGroupBys = ['none', 'matter', 'client', 'type'] as const;
 export const searchGroupBySchema = z.enum(searchGroupBys);
+export const searchUrlPrivacyModes = ['plaintext_url', 'private_saved_ref'] as const;
+export const searchUrlPrivacyModeSchema = z.enum(searchUrlPrivacyModes);
 const searchTextFilterSchema = z.string().trim().min(1).max(128);
 
 export const searchIsoDateTimeSchema = z
@@ -114,6 +116,27 @@ export const createSavedSearchSchema = z
     }
   });
 
+export const searchPrivacySettingsSchema = z
+  .object({
+    urlMode: searchUrlPrivacyModeSchema.default('plaintext_url'),
+    allowPlaintextReusableUrls: z.boolean().optional(),
+  })
+  .strict()
+  .transform((value) => ({
+    urlMode: value.urlMode,
+    allowPlaintextReusableUrls:
+      value.allowPlaintextReusableUrls ?? value.urlMode === 'plaintext_url',
+  }))
+  .superRefine((value, ctx) => {
+    if (value.urlMode === 'private_saved_ref' && value.allowPlaintextReusableUrls) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'private saved-search references cannot expose plaintext reusable URLs',
+        path: ['allowPlaintextReusableUrls'],
+      });
+    }
+  });
+
 export interface SearchHighlightDto {
   start: number;
   end: number;
@@ -185,7 +208,9 @@ export type SearchMode = (typeof searchModes)[number];
 export type SearchTarget = (typeof searchTargets)[number];
 export type SearchSort = (typeof searchSorts)[number];
 export type SearchGroupBy = (typeof searchGroupBys)[number];
+export type SearchUrlPrivacyMode = (typeof searchUrlPrivacyModes)[number];
 export type SearchFiltersDto = z.infer<typeof searchFiltersSchema>;
+export type SearchPrivacySettingsDto = z.infer<typeof searchPrivacySettingsSchema>;
 type ParsedSearchQueryDto = z.infer<typeof searchQuerySchema>;
 export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode' | 'target' | 'sortBy' | 'groupBy'> & {
   groupBy?: SearchGroupBy;
