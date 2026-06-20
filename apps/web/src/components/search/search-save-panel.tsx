@@ -8,6 +8,7 @@ import type {
   SearchQueryDto,
   SearchSort,
   SearchTarget,
+  SearchUrlPrivacyMode,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ export interface SearchSavePanelProps {
   onDeleteSavedSearch?: (savedSearchId: string) => void;
   onOpenSavedSearch?: (savedSearch: SavedSearchDto) => void;
   onSaveSearch?: (name: string) => void;
+  privacyMode?: SearchUrlPrivacyMode;
   query: string;
   selection: SearchFacetSelection;
   savedSearchBusy?: boolean;
@@ -85,6 +87,7 @@ export function SearchSavePanel({
   onDeleteSavedSearch,
   onOpenSavedSearch,
   onSaveSearch,
+  privacyMode = 'plaintext_url',
   query,
   reusableUrl,
   savedSearchBusy = false,
@@ -96,21 +99,33 @@ export function SearchSavePanel({
   const [savedSearchName, setSavedSearchName] = React.useState('');
   const items = searchPatternItems(query, selection);
   const hasReusableSearch = query.trim().length > 0;
+  const allowsPlaintextReusableUrl = privacyMode === 'plaintext_url';
   const canSave = hasReusableSearch && !busy && !savedSearchBusy && Boolean(onSaveSearch);
+  const canCopyReusableUrl =
+    hasReusableSearch && allowsPlaintextReusableUrl && reusableUrl.trim().length > 0 && !busy;
   const effectiveSavedSearchName = savedSearchName.trim() || defaultSavedSearchName(query, selection);
 
-  async function copyReusableUrl() {
-    if (!hasReusableSearch || busy) return;
+  async function copyText(value: string) {
     if (!navigator.clipboard?.writeText) {
       setCopyStatus('error');
       return;
     }
     try {
-      await navigator.clipboard.writeText(reusableUrl);
+      await navigator.clipboard.writeText(value);
       setCopyStatus('copied');
     } catch {
       setCopyStatus('error');
     }
+  }
+
+  async function copyReusableUrl() {
+    if (!canCopyReusableUrl) return;
+    await copyText(reusableUrl);
+  }
+
+  async function copySavedSearchReference(savedSearchId: string) {
+    if (busy || savedSearchBusy) return;
+    await copyText(privateSavedSearchUrl(savedSearchId));
   }
 
   return (
@@ -137,9 +152,15 @@ export function SearchSavePanel({
                   </div>
                 ))}
               </dl>
-              <p className="mt-3 break-all rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                {reusableUrl}
-              </p>
+              {allowsPlaintextReusableUrl ? (
+                <p className="mt-3 break-all rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  {reusableUrl}
+                </p>
+              ) : (
+                <p className="mt-3 rounded-md border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  검색어 포함 URL 비활성화 · 비공개 저장 참조
+                </p>
+              )}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -177,7 +198,7 @@ export function SearchSavePanel({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={!hasReusableSearch || busy}
+                disabled={!canCopyReusableUrl}
                 onClick={copyReusableUrl}
               >
                 <Copy className="h-4 w-4" />
@@ -208,6 +229,18 @@ export function SearchSavePanel({
                       </p>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
+                      {privacyMode === 'private_saved_ref' ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy || savedSearchBusy}
+                          onClick={() => void copySavedSearchReference(savedSearch.savedSearchId)}
+                        >
+                          <Copy className="h-4 w-4" />
+                          참조 복사
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"
@@ -303,4 +336,10 @@ export function savedSearchSummary(query: SearchQueryDto): string {
     .slice(0, 4)
     .map((item) => `${item.label}: ${item.value}`)
     .join(' · ');
+}
+
+function privateSavedSearchUrl(savedSearchId: string): string {
+  const params = new URLSearchParams();
+  params.set('searchRef', savedSearchId);
+  return `/search?${params.toString()}`;
 }

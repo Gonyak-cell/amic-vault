@@ -421,6 +421,10 @@ const enterpriseSearchFiles = [
       { name: 'saved search table access', pattern: /FROM saved_searches/ },
       { name: 'saved search scoped delete', pattern: /DELETE FROM saved_searches/ },
       { name: 'saved search bounded audit refs', pattern: /savedSearchFilterRefs/ },
+      {
+        name: 'search audit bounded metadata',
+        pattern: /searchAuditMetadata[\s\S]*query_hash[\s\S]*query_length[\s\S]*filter_refs/,
+      },
     ],
   },
   {
@@ -449,6 +453,10 @@ const enterpriseSearchFiles = [
       { name: 'saved search API list wired', pattern: /listSavedSearches/ },
       { name: 'saved search API save wired', pattern: /saveSavedSearch/ },
       { name: 'saved search API delete wired', pattern: /deleteSavedSearch/ },
+      { name: 'search privacy setting read', pattern: /searchPrivacySettingsFromEnv/ },
+      { name: 'private saved search reference URL', pattern: /privateSearchUrl/ },
+      { name: 'private saved search ref param', pattern: /searchRef/ },
+      { name: 'tenant private URL policy', pattern: /urlForPolicy/ },
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
@@ -470,10 +478,29 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/components/search/search-save-panel.tsx',
     patterns: [
       { name: 'current search reusable link', pattern: /링크 복사/ },
+      { name: 'private saved search references', pattern: /비공개 저장 참조/ },
+      { name: 'private reference copy action', pattern: /참조 복사/ },
+      { name: 'saved search private URL helper', pattern: /privateSavedSearchUrl/ },
       { name: 'saved search list', pattern: /검색 목록/ },
       { name: 'saved search save action', pattern: /onSaveSearch/ },
       { name: 'saved search delete action', pattern: /onDeleteSavedSearch/ },
       { name: 'search pattern summary', pattern: /searchPatternItems/ },
+    ],
+  },
+  {
+    path: 'packages/shared/src/search/search-query.dto.ts',
+    patterns: [
+      { name: 'search privacy setting schema', pattern: /searchPrivacySettingsSchema/ },
+      { name: 'private saved ref mode', pattern: /private_saved_ref/ },
+      { name: 'plaintext reusable URL mode', pattern: /plaintext_url/ },
+    ],
+  },
+  {
+    path: 'docs/security/search-privacy.md',
+    patterns: [
+      { name: 'search privacy tenant policy doc', pattern: /Tenant URL Policy/ },
+      { name: 'private saved reference doc', pattern: /private_saved_ref/ },
+      { name: 'bounded audit metadata doc', pattern: /query_hash[\s\S]*query_length[\s\S]*filter_refs/ },
     ],
   },
   {
