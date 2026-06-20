@@ -32,6 +32,7 @@ import { safeApiErrorMessage, uiErrorKindForApiError } from '@/lib/api/error-mes
 import {
   deleteSavedSearch,
   listSavedSearches,
+  recordSavedSearchOpen,
   saveSavedSearch,
   searchDocuments,
 } from '@/lib/api/search';
@@ -130,6 +131,8 @@ export function SearchClient() {
           : urlForState(nextQuery, nextSelection, 1),
       );
       try {
+        const opened = await recordSavedSearchOpen(savedSearch.savedSearchId);
+        setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, opened)));
         const result = await searchDocuments({ ...savedSearch.query, page: 1, pageSize });
         setResponse(result);
       } catch (caught) {
@@ -182,14 +185,20 @@ export function SearchClient() {
     void runSearch(query, next, 1);
   }
 
-  async function saveCurrentSearch(name: string) {
+  async function saveCurrentSearch(request: {
+    matterId?: string;
+    name: string;
+    scope: SavedSearchDto['scope'];
+  }) {
     if (!query.trim()) return;
     setSavedSearchBusy(true);
     setSavedSearchError(null);
     try {
       const saved = await saveSavedSearch({
-        name,
+        matterId: request.matterId,
+        name: request.name,
         query: requestForState(query, selection, 1),
+        scope: request.scope,
       });
       setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, saved)));
       if (searchPrivacySettings.urlMode === 'private_saved_ref') {
