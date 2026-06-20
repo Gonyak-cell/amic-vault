@@ -1035,6 +1035,64 @@ const releaseHardeningPatterns = [
   },
 ];
 
+const outlookFilingEvidenceFiles = [
+  {
+    path: 'apps/web/src/app/outlook-addin/outlook-addin-client.tsx',
+    patterns: [
+      { name: 'Matter suggestion query', pattern: /buildMatterSuggestionQuery/ },
+      { name: 'Matter Code safe label', pattern: /suggestion\.matterCode/ },
+      { name: 'Outlook filing request builder', pattern: /buildCreateFilingRequest/ },
+      { name: 'permission-bound document search', pattern: /searchOutlookInsertableDocuments/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/outlook/outlook.service.ts',
+    patterns: [
+      { name: 'Outlook upload permission gate', pattern: /canUploadToMatter/ },
+      { name: 'Outlook status Matter read gate', pattern: /canReadMatter/ },
+      { name: 'Outlook requested audit event', pattern: /outlookEmailFileRequestedAudit/ },
+      { name: 'Outlook denied audit event', pattern: /outlookEmailFileDeniedAudit/ },
+      { name: 'hash-only attachment set', pattern: /attachmentSetHash/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-email-timeline.tsx',
+    patterns: [
+      { name: 'filed email safe title fallback', pattern: /표시 가능한 제목 없음/ },
+      { name: 'permitted document links', pattern: /href=\{`\/documents\/\$\{documentId\}`\}/ },
+      { name: 'safe document link labels', pattern: /문서 \{index \+ 1\} 열기/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/outlook-addin/outlook-addin-client.test.tsx',
+    patterns: [
+      { name: 'Matter Code safe label assertion', pattern: /M-2026-001/ },
+      { name: 'raw Outlook message data excluded', pattern: /raw-message-id/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-email-timeline.test.tsx',
+    patterns: [
+      { name: 'permitted document link test', pattern: /links permitted filed emails/ },
+      { name: 'safe document label test', pattern: /문서 1 열기/ },
+      { name: 'raw filing ref excluded', pattern: /filing-raw-id/ },
+    ],
+  },
+  {
+    path: 'docs/release/enterprise-dms-ui-release-evidence.md',
+    patterns: [
+      { name: 'DMS Outlook bridge', pattern: /DMS-GA-604 Release Evidence Bridge/ },
+      { name: 'DMS Outlook evidence row', pattern: /EV-DMS-UI-004G/ },
+      { name: 'Outlook verification command', pattern: /pnpm outlook:verification:check/ },
+      { name: 'Outlook redaction command', pattern: /pnpm outlook:redaction:check -- --all/ },
+      {
+        name: 'Matter document safe labels',
+        pattern: /permitted Matter documents with safe labels/,
+      },
+    ],
+  },
+];
+
 const enterpriseDmsReleaseEvidencePatterns = [
   {
     name: 'refs-only data handling',
@@ -1055,6 +1113,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
     name: 'authenticated and negative smoke refs',
     pattern:
       /Authenticated main loop smoke receipt[\s\S]*Matter Code selection[\s\S]*Negative auth smoke receipt[\s\S]*wall-blocked[\s\S]*stale-content clearing/i,
+  },
+  {
+    name: 'Outlook filing path evidence guard',
+    pattern:
+      /EV-DMS-UI-004G[\s\S]*Outlook filing path evidence guard[\s\S]*Matter Code suggestions[\s\S]*PermissionService\.canUploadToMatter[\s\S]*raw email body evidence[\s\S]*permitted Matter documents with safe labels/i,
   },
   {
     name: 'DMS-UX-809 rollout matrix',
@@ -1492,6 +1555,17 @@ function checkAdminIntegrationsGuard() {
   }
 }
 
+function checkOutlookFilingEvidenceGuard() {
+  for (const file of outlookFilingEvidenceFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Outlook filing evidence production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 function checkReleaseHardeningGuard() {
   const source = readRequired('docs/ui/enterprise-dms-release-hardening.md');
   for (const { name, pattern } of releaseHardeningPatterns) {
@@ -1561,6 +1635,7 @@ try {
   checkGovernanceWorkflowOpsGuard();
   checkRecordsActionContextGuard();
   checkAdminIntegrationsGuard();
+  checkOutlookFilingEvidenceGuard();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
   checkPrDCloseoutGuard();

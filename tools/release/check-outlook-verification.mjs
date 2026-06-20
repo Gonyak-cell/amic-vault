@@ -8,6 +8,7 @@ const requiredFiles = [
   'docs/release/outlook-addin-deployment-runbook.md',
   'docs/release/outlook-addin-graph-scope-matrix.md',
   'docs/release/outlook-operational-gates.md',
+  'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/release/evidence-register.md',
   'docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md',
   'docs/execution/PACKS_R4_R14.md',
@@ -28,6 +29,7 @@ const requiredFiles = [
   'apps/web/src/lib/outlook-addin/outlook-item.spec.ts',
   'apps/web/src/app/outlook-addin/outlook-addin-client.test.tsx',
   'apps/web/src/app/outlook-addin/outlook-manifest.spec.ts',
+  'apps/web/src/components/matter/matter-email-timeline.test.tsx',
   'tests/integration/cross-tenant/outlook-filing-requests-rls.spec.ts',
   'tests/integration/cross-tenant/outlook-auth-graph-rls.spec.ts',
   'tests/integration/cross-tenant/outlook-document-insertions-rls.spec.ts',
@@ -105,9 +107,7 @@ function isTestFixtureFile(file) {
 }
 
 function evidenceRow(content, evidenceId) {
-  const line = content
-    .split('\n')
-    .find((row) => row.trim().startsWith(`| ${evidenceId} `));
+  const line = content.split('\n').find((row) => row.trim().startsWith(`| ${evidenceId} `));
   if (!line) {
     throw new Error(`docs/release/evidence-register.md must contain row ${evidenceId}`);
   }
@@ -143,12 +143,14 @@ const packageJson = contents.get('package.json');
 const ci = contents.get('.github/workflows/ci.yml');
 const auditEvents = contents.get('apps/api/src/modules/outlook/outlook-audit.events.ts');
 const operationalGates = contents.get('docs/release/outlook-operational-gates.md');
+const dmsReleaseEvidence = contents.get('docs/release/enterprise-dms-ui-release-evidence.md');
 
 const tenantEvidenceFiles = [
   'docs/release/outlook-addin-verification-matrix.md',
   'docs/release/outlook-addin-deployment-runbook.md',
   'docs/release/outlook-addin-graph-scope-matrix.md',
   'docs/release/outlook-operational-gates.md',
+  'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/release/evidence-register.md',
   'docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md',
   'docs/execution/PACKS_R4_R14.md',
@@ -219,6 +221,28 @@ for (const expected of [
 ]) {
   assertContains(evidence, expected, 'docs/release/evidence-register.md');
   if (expected !== 'EV-OUTLOOK-012') {
+    assertContains(matrix, expected, 'docs/release/outlook-addin-verification-matrix.md');
+  }
+}
+
+for (const expected of [
+  'DMS-GA-604 Release Evidence Bridge',
+  'EV-DMS-UI-004G',
+  'Outlook filing path evidence guard',
+  'PermissionService.canUploadToMatter',
+  'tests/integration/search-permission/outlook-matter-suggestions.spec.ts',
+  'apps/web/src/app/outlook-addin/outlook-addin-client.test.tsx',
+  'apps/web/src/components/matter/matter-email-timeline.test.tsx',
+  'hash/ref/count audit metadata',
+  'raw email body evidence',
+  'permitted Matter documents with safe labels',
+]) {
+  assertContains(
+    dmsReleaseEvidence,
+    expected,
+    'docs/release/enterprise-dms-ui-release-evidence.md',
+  );
+  if (expected === 'DMS-GA-604 Release Evidence Bridge' || expected === 'EV-DMS-UI-004G') {
     assertContains(matrix, expected, 'docs/release/outlook-addin-verification-matrix.md');
   }
 }
@@ -320,6 +344,22 @@ for (const [file, markers] of [
     [
       'declares OnMessageSend with a bounded Smart Alerts runtime',
       'keeps the Smart Alerts runtime stateless and server-policy driven',
+    ],
+  ],
+  [
+    'apps/web/src/app/outlook-addin/outlook-addin-client.test.tsx',
+    [
+      'renders a compact filing pane without raw Outlook message data',
+      'M-2026-001',
+      'raw-message-id',
+    ],
+  ],
+  [
+    'apps/web/src/components/matter/matter-email-timeline.test.tsx',
+    [
+      'links permitted filed emails to document detail with safe labels',
+      '문서 1 열기',
+      'filing-raw-id',
     ],
   ],
 ]) {
