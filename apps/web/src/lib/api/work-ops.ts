@@ -53,3 +53,27 @@ export function getNotificationCenter(): Promise<DmsNotificationCenterResponseDt
     redirectOnAuthRequired: false,
   });
 }
+
+export function markNotificationRead(
+  itemKey: string,
+): Promise<{ itemKey: string; status: 'read' }> {
+  return apiFetch<{ itemKey: string; status: 'read' }>(
+    `/notifications/${encodeURIComponent(itemKey)}/read`,
+    {
+      method: 'PATCH',
+      redirectOnAuthRequired: false,
+    },
+  );
+}
+
+export function dismissNotification(
+  itemKey: string,
+): Promise<{ itemKey: string; status: 'dismissed' }> {
+  return apiFetch<{ itemKey: string; status: 'dismissed' }>(
+    `/notifications/${encodeURIComponent(itemKey)}/dismiss`,
+    {
+      method: 'PATCH',
+      redirectOnAuthRequired: false,
+    },
+  );
+}

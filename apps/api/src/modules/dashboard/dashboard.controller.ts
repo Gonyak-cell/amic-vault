@@ -21,13 +21,3 @@ export class DashboardController {
     return this.dashboard.getOverview(sessionUserId(request));
   }
 }
-
-@Controller('notifications')
-export class NotificationsController {
-  constructor(@Inject(DashboardService) private readonly dashboard: DashboardService) {}
-
-  @Get()
-  listNotifications(@Req() request: RequestWithSession) {
-    return this.dashboard.getNotificationCenter(sessionUserId(request));
-  }
-}
