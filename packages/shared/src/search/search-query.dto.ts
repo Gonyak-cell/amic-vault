@@ -138,6 +138,7 @@ export const searchPrivacySettingsSchema = z
   });
 
 export interface SearchHighlightDto {
+  anchorId?: string;
   start: number;
   end: number;
 }

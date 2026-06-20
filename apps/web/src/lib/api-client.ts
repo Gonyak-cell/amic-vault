@@ -277,6 +277,7 @@ export function addDocumentVersion(
 
 interface DocumentPreviewUrlOptions {
   searchHit?: {
+    anchorId?: string;
     hitCount: number;
     hitIndex: number;
     target: SearchTarget;
@@ -292,11 +293,22 @@ function previewHitFragment(searchHit: DocumentPreviewUrlOptions['searchHit']): 
   if (!searchHit || searchHit.hitCount < 1) return '';
   const hitCount = boundedPreviewHit(searchHit.hitCount, 1, 50);
   const hitIndex = boundedPreviewHit(searchHit.hitIndex, 1, hitCount);
+  const anchorId = safePreviewAnchorId(searchHit.anchorId);
   const params = new URLSearchParams();
   params.set('vault-preview-hit', String(hitIndex));
   params.set('vault-preview-hit-count', String(hitCount));
   params.set('vault-preview-target', searchHit.target);
+  if (anchorId) params.set('vault-preview-anchor', anchorId);
   return `#${params.toString()}`;
+}
+
+function safePreviewAnchorId(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return /^vph-([1-9]|[1-4][0-9]|50)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)$/.test(
+    value,
+  )
+    ? value
+    : undefined;
 }
 
 export function documentPreviewUrl(

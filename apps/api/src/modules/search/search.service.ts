@@ -8,6 +8,7 @@ import type {
   MatterSuggestionQueryDto,
   SavedSearchDto,
   SavedSearchListDto,
+  SearchHighlightDto,
   SearchMode,
   SearchFacetBucketDto,
   SearchFacetsDto,
@@ -185,6 +186,27 @@ function matterSuggestionAuditMetadata(
     mailbox_fingerprint_hash: input.mailboxFingerprint,
     outlook_status: result === 'success' ? 'suggestions_viewed' : 'denied',
   };
+}
+
+function previewAnchorsForHighlights(
+  highlights: readonly SearchHighlightDto[],
+): SearchHighlightDto[] {
+  return highlights.slice(0, 50).map((highlight, index) => ({
+    ...highlight,
+    anchorId: previewAnchorId(index, highlight),
+  }));
+}
+
+function previewAnchorId(index: number, highlight: SearchHighlightDto): string {
+  const safeIndex = Math.max(1, Math.min(index + 1, 50));
+  const safeStart = boundedPreviewOffset(highlight.start, 0);
+  const safeEnd = Math.max(safeStart, boundedPreviewOffset(highlight.end, safeStart));
+  return `vph-${safeIndex}-${safeStart}-${safeEnd}`;
+}
+
+function boundedPreviewOffset(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(Math.trunc(value), 200));
 }
 
 @Injectable()
@@ -584,7 +606,7 @@ export class SearchService {
           safeLabel: buildSafeLabel(row.title, row.matter_code, row.matter_name),
           canViewSensitiveRef: false,
           snippet: parsed.snippet,
-          highlights: parsed.highlights,
+          highlights: previewAnchorsForHighlights(parsed.highlights),
           documentType: row.document_type,
           extractionStatus: parseExtractionStatus(row.extraction_status),
           versionStatus: row.version_status,
