@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 export interface MatterCodePickerProps {
+  initialMatterCode?: string;
   selectedMatter: MatterCodeOption | null;
   onMatterSelected: (matter: MatterCodeOption | null) => void;
   sourceMode?: MatterAppSourceMode;
@@ -32,16 +33,25 @@ function mattersToOptions(
 }
 
 export function MatterCodePicker({
+  initialMatterCode,
   onMatterSelected,
   selectedMatter,
   sourceMode,
 }: MatterCodePickerProps) {
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
-  const [query, setQuery] = React.useState('');
+  const initialMatterCodeValue = initialMatterCode?.trim() ?? '';
+  const [query, setQuery] = React.useState(initialMatterCodeValue);
   const [options, setOptions] = React.useState<MatterCodeOption[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [hasLoadError, setHasLoadError] = React.useState(false);
+  const appliedInitialMatterCodeRef = React.useRef('');
   const sourceAvailable = isMatterAppSourceAvailable(resolvedSourceMode);
+
+  React.useEffect(() => {
+    if (!initialMatterCodeValue) return;
+    setQuery(initialMatterCodeValue);
+    appliedInitialMatterCodeRef.current = '';
+  }, [initialMatterCodeValue]);
 
   React.useEffect(() => {
     if (!sourceAvailable) return;
@@ -62,6 +72,20 @@ export function MatterCodePicker({
       active = false;
     };
   }, [resolvedSourceMode, sourceAvailable]);
+
+  React.useEffect(() => {
+    if (
+      !initialMatterCodeValue ||
+      selectedMatter ||
+      appliedInitialMatterCodeRef.current === initialMatterCodeValue
+    ) {
+      return;
+    }
+    const initialOption = findMatterCodeOption(options, initialMatterCodeValue);
+    if (!initialOption) return;
+    appliedInitialMatterCodeRef.current = initialMatterCodeValue;
+    onMatterSelected(initialOption);
+  }, [initialMatterCodeValue, onMatterSelected, options, selectedMatter]);
 
   if (!sourceAvailable) {
     return (
@@ -156,6 +180,17 @@ export function MatterCodePicker({
         </div>
       ) : null}
     </div>
+  );
+}
+
+export function findMatterCodeOption(
+  options: readonly MatterCodeOption[],
+  matterCode: string,
+): MatterCodeOption | null {
+  const normalizedMatterCode = matterCode.trim().toLocaleLowerCase();
+  if (!normalizedMatterCode) return null;
+  return (
+    options.find((option) => option.matterCode.toLocaleLowerCase() === normalizedMatterCode) ?? null
   );
 }
 
