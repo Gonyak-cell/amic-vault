@@ -116,6 +116,11 @@ const requiredPatterns = [
       /Automated Evidence Matrix[\s\S]*Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/is,
   },
   {
+    label: 'PR-F DMS main-loop smoke evidence',
+    pattern:
+      /pnpm release:dms-smoke[\s\S]*Matter Code[\s\S]*matter-scoped upload[\s\S]*negative-auth/is,
+  },
+  {
     label: 'PR-F hold criteria',
     pattern:
       /Hold Criteria[\s\S]*approved staging\/production credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/is,

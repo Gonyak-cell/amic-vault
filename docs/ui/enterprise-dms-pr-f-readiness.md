@@ -15,8 +15,15 @@ model responses, local storage dumps, or provider-console metadata.
 ## Readiness Decision
 
 PR-F is not complete until authenticated DMS main-loop and negative-auth
-receipts are attached in an external evidence workspace. The repository can and
-does enforce the automated readiness layer:
+receipts are attached in an external evidence workspace. The repository now
+ships a command harness for those receipts, while final responsive and
+accessibility receipts still require approved visual/keyboard review:
+
+- DMS-UX-801 Authenticated Main Loop is exercised by
+  `pnpm release:dms-smoke -- --json`, which requires approved synthetic or
+  canary DMS credentials and a Matter Code source before upload.
+- DMS-UX-802 Negative Auth is exercised by the same DMS smoke command through a
+  negative identity that must not read or discover the uploaded document.
 
 - DMS-UX-803 No Fake Data Sweep is enforced by
   `pnpm check:production-ui-literals` and `pnpm ui:production-smoke`.
@@ -41,16 +48,18 @@ endpoints, screenshots, customer data, cookies, tokens, or provider metadata.
 
 | TUW | Required receipt | Evidence location |
 | --- | --- | --- |
-| DMS-UX-801 | Authenticated main loop: login -> Matter Code -> upload -> processing -> matter-scoped file list -> document detail -> search -> preview/version -> records/audit links | External evidence workspace using refs only |
-| DMS-UX-802 | Negative auth: non-member, wall-blocked, non-admin, denied upload/download/preview/search, stale-content clearing | External evidence workspace using refs only |
+| DMS-UX-801 | Authenticated main loop: login -> Matter Code -> upload -> processing -> matter-scoped file list -> document detail -> search -> preview/version -> records/audit links | `pnpm release:dms-smoke -- --json` receipt copied to external evidence workspace using refs only |
+| DMS-UX-802 | Negative auth: non-member, wall-blocked, non-admin, denied upload/download/preview/search, stale-content clearing | `pnpm release:dms-smoke -- --json` negative-auth checks copied to external evidence workspace using refs only |
 | DMS-UX-806 | Responsive visual QA at 1440px, 768px, and 375px for upload, files, matter, document, search, admin, records, and task inbox | External evidence workspace using refs only |
 | DMS-UX-807 | Keyboard and screen-reader basics for navigation, search, filters, upload, document actions, language selector, logout, and error states | External evidence workspace using refs only |
 
 The existing `pnpm release:smoke` / `tools/release/staging-smoke.mjs` credential
 gate covers approved synthetic login, dashboard, search, tenant API, and
-negative role denial. It does not replace the DMS-UX-801 file upload main-loop
-receipt because upload requires a permitted Matter source, a file fixture, and
-post-upload document/search/detail evidence.
+negative role denial. `pnpm release:dms-smoke` /
+`tools/release/dms-main-loop-smoke.mjs` is the DMS-specific gate for Matter Code
+source resolution, matter-scoped upload, document/search/detail evidence, and
+negative non-discovery. Release signoff requires both receipts when the target
+environment supports the DMS upload flow.
 
 ## Automated Evidence Matrix
 
@@ -62,6 +71,7 @@ post-upload document/search/detail evidence.
 | Production UI literal guard | `tools/quality/check-production-ui-literals.mjs` | DMS-UX-803 to 805 |
 | Production UI smoke guard | `tools/release/check-production-ui-smoke.mjs` | DMS-UX-803 to 807 |
 | Staging smoke credential gate | `tools/release/staging-smoke.mjs` and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
+| DMS main-loop smoke gate | `tools/release/dms-main-loop-smoke.mjs`, `pnpm release:dms-smoke`, and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
 | Responsive/accessibility component guards | `apps/web/src/app/(app)/app-shell.test.tsx`, `apps/web/src/components/ui/layout-primitives.test.tsx`, `apps/web/src/components/ui/empty-state.test.tsx`, and `apps/web/src/components/ui/data-table.test.tsx` | DMS-UX-806, 807 |
 
 ## Required Commands
@@ -71,6 +81,9 @@ Before this PR-F readiness layer can be accepted, run:
 - `pnpm check:production-ui-literals`
 - `pnpm ui:production-smoke`
 - `pnpm check:ui-pr-checklist`
+- `pnpm release:dms-smoke -- --dry-run --json`
+- `pnpm release:dms-smoke -- --json` with approved staging/canary DMS
+  credentials before release signoff
 - `pnpm docs:frozen`
 - focused responsive/accessibility tests:
   `pnpm --filter @amic-vault/web test -- src/app/(app)/app-shell.test.tsx src/components/ui/layout-primitives.test.tsx src/components/ui/empty-state.test.tsx src/components/ui/data-table.test.tsx`
@@ -84,9 +97,12 @@ Before this PR-F readiness layer can be accepted, run:
 
 Production release must remain `HOLD` when any of the following is true:
 
-- approved staging/production credentials are missing for authenticated DMS
-  main-loop smoke;
-- approved negative-role credentials are missing for negative-auth smoke;
+- approved staging/production credentials are missing for `pnpm release:dms-smoke`
+  authenticated DMS main-loop smoke;
+- approved negative-role credentials are missing for `pnpm release:dms-smoke`
+  negative-auth smoke;
+- `pnpm release:dms-smoke` is run with `DMS_SMOKE_ALLOW_INDEX_PENDING=1` for
+  release signoff;
 - Matter Code source is not configured or upload falls back to a free-floating
   document path;
 - a smoke receipt includes customer file contents, private URLs, cookies,
