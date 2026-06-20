@@ -28,6 +28,10 @@ const facets: SearchFacetsDto = {
     { value: 'memo', count: 1 },
     { value: 'contract', count: 1 },
   ],
+  confidentialityLevels: [
+    { value: 'restricted', count: 1 },
+    { value: 'standard', count: 1 },
+  ],
   extractionStatuses: [
     { value: 'failed', count: 1 },
     { value: 'ready', count: 0 },
@@ -35,6 +39,10 @@ const facets: SearchFacetsDto = {
   legalHolds: [
     { value: 'document_hold', count: 1 },
     { value: 'no_hold', count: 1 },
+  ],
+  privilegeStatuses: [
+    { value: 'privileged', count: 1 },
+    { value: 'none', count: 1 },
   ],
   recordsStatuses: [
     { value: 'archived', count: 1 },
@@ -58,6 +66,12 @@ describe('SearchFacets', () => {
     expect(html).toContain('파일 유형');
     expect(html).toContain('메모');
     expect(html).toContain('계약서');
+    expect(html).toContain('기밀도');
+    expect(html).toContain('제한');
+    expect(html).toContain('표준');
+    expect(html).toContain('특권 상태');
+    expect(html).toContain('변호사-의뢰인 특권');
+    expect(html).toContain('특권 없음');
     expect(html).toContain('추출/OCR');
     expect(html).toContain('추출 실패');
     expect(html).toContain('보존/삭제 금지');

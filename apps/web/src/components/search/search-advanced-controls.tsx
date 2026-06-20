@@ -3,12 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import { HelpCircle, SlidersHorizontal, X } from 'lucide-react';
 import {
+  documentConfidentialityLevels,
   documentExtractionStatuses,
+  documentPrivilegeStatuses,
   documentTypes,
   searchLegalHoldValues,
   searchRecordsStatusValues,
   searchVersionStatusValues,
+  type DocumentConfidentialityLevel,
   type DocumentExtractionStatus,
+  type DocumentPrivilegeStatus,
   type DocumentType,
   type SearchGroupBy,
   type SearchLegalHold,
@@ -26,6 +30,7 @@ export type SearchDateRange = 'last_7_days' | 'last_30_days' | 'older';
 
 export interface SearchAdvancedSelection {
   clientName?: string | undefined;
+  confidentialityLevel?: DocumentConfidentialityLevel | undefined;
   dateRange?: SearchDateRange | undefined;
   documentType?: DocumentType | undefined;
   extractionStatus?: DocumentExtractionStatus | undefined;
@@ -33,6 +38,7 @@ export interface SearchAdvancedSelection {
   legalHold?: SearchLegalHold | undefined;
   matterCode?: string | undefined;
   matterName?: string | undefined;
+  privilegeStatus?: DocumentPrivilegeStatus | undefined;
   recordsStatus?: SearchRecordsStatus | undefined;
   sortBy?: SearchSort | undefined;
   target?: SearchTarget | undefined;
@@ -51,12 +57,14 @@ type SearchAdvancedDraft = Required<
   Pick<SearchAdvancedSelection, 'groupBy' | 'sortBy' | 'target'>
 > & {
   clientName: string;
+  confidentialityLevel: DocumentConfidentialityLevel | '';
   dateRange: SearchDateRange | '';
   documentType: DocumentType | '';
   extractionStatus: DocumentExtractionStatus | '';
   matterCode: string;
   matterName: string;
   legalHold: SearchLegalHold | '';
+  privilegeStatus: DocumentPrivilegeStatus | '';
   recordsStatus: SearchRecordsStatus | '';
   title: string;
   versionStatus: SearchVersionStatus | '';
@@ -115,6 +123,19 @@ const extractionStatusLabels = {
   failed: '추출 실패',
 } as const satisfies Record<DocumentExtractionStatus, string>;
 
+const confidentialityLabels = {
+  standard: '표준',
+  high: '높음',
+  restricted: '제한',
+} as const satisfies Record<DocumentConfidentialityLevel, string>;
+
+const privilegeLabels = {
+  none: '특권 없음',
+  privileged: '변호사-의뢰인 특권',
+  work_product: '작업 산출물',
+  joint_privilege: '공동 특권',
+} as const satisfies Record<DocumentPrivilegeStatus, string>;
+
 const legalHoldLabels = {
   document_hold: '파일 삭제 금지',
   matter_hold: '사건 삭제 금지',
@@ -135,6 +156,7 @@ function normalizeInput(value: string): string | undefined {
 function normalizedDraft(draft: SearchAdvancedDraft): SearchAdvancedSelection {
   return {
     clientName: normalizeInput(draft.clientName),
+    confidentialityLevel: draft.confidentialityLevel || undefined,
     dateRange: draft.dateRange || undefined,
     documentType: draft.documentType || undefined,
     extractionStatus: draft.extractionStatus || undefined,
@@ -142,6 +164,7 @@ function normalizedDraft(draft: SearchAdvancedDraft): SearchAdvancedSelection {
     legalHold: draft.legalHold || undefined,
     matterCode: normalizeInput(draft.matterCode),
     matterName: normalizeInput(draft.matterName),
+    privilegeStatus: draft.privilegeStatus || undefined,
     recordsStatus: draft.recordsStatus || undefined,
     sortBy: draft.sortBy,
     target: draft.target,
@@ -153,6 +176,7 @@ function normalizedDraft(draft: SearchAdvancedDraft): SearchAdvancedSelection {
 function countAdvanced(selection: SearchAdvancedSelection): number {
   return [
     selection.clientName,
+    selection.confidentialityLevel,
     selection.dateRange,
     selection.documentType,
     selection.extractionStatus,
@@ -160,6 +184,7 @@ function countAdvanced(selection: SearchAdvancedSelection): number {
     selection.legalHold,
     selection.matterCode,
     selection.matterName,
+    selection.privilegeStatus,
     selection.recordsStatus,
     selection.sortBy && selection.sortBy !== 'relevance' ? selection.sortBy : undefined,
     selection.target && selection.target !== 'all' ? selection.target : undefined,
@@ -176,6 +201,7 @@ export function SearchAdvancedControls({
 }: SearchAdvancedControlsProps) {
   const [draft, setDraft] = useState<SearchAdvancedDraft>({
     clientName: selection.clientName ?? '',
+    confidentialityLevel: selection.confidentialityLevel ?? '',
     dateRange: selection.dateRange ?? '',
     documentType: selection.documentType ?? '',
     extractionStatus: selection.extractionStatus ?? '',
@@ -183,6 +209,7 @@ export function SearchAdvancedControls({
     legalHold: selection.legalHold ?? '',
     matterCode: selection.matterCode ?? '',
     matterName: selection.matterName ?? '',
+    privilegeStatus: selection.privilegeStatus ?? '',
     recordsStatus: selection.recordsStatus ?? '',
     sortBy: selection.sortBy ?? 'relevance',
     target: selection.target ?? 'all',
@@ -193,6 +220,7 @@ export function SearchAdvancedControls({
   useEffect(() => {
     setDraft({
       clientName: selection.clientName ?? '',
+      confidentialityLevel: selection.confidentialityLevel ?? '',
       dateRange: selection.dateRange ?? '',
       documentType: selection.documentType ?? '',
       extractionStatus: selection.extractionStatus ?? '',
@@ -200,6 +228,7 @@ export function SearchAdvancedControls({
       legalHold: selection.legalHold ?? '',
       matterCode: selection.matterCode ?? '',
       matterName: selection.matterName ?? '',
+      privilegeStatus: selection.privilegeStatus ?? '',
       recordsStatus: selection.recordsStatus ?? '',
       sortBy: selection.sortBy ?? 'relevance',
       target: selection.target ?? 'all',
@@ -295,6 +324,48 @@ export function SearchAdvancedControls({
             {documentTypes.map((type) => (
               <option key={type} value={type}>
                 {documentTypeLabels[type]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          기밀도
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.confidentialityLevel}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                confidentialityLevel: event.target.value as DocumentConfidentialityLevel | '',
+              }))
+            }
+          >
+            <option value="">전체</option>
+            {documentConfidentialityLevels.map((level) => (
+              <option key={level} value={level}>
+                {confidentialityLabels[level]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          특권 상태
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={draft.privilegeStatus}
+            disabled={busy}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                privilegeStatus: event.target.value as DocumentPrivilegeStatus | '',
+              }))
+            }
+          >
+            <option value="">전체</option>
+            {documentPrivilegeStatuses.map((status) => (
+              <option key={status} value={status}>
+                {privilegeLabels[status]}
               </option>
             ))}
           </select>
@@ -521,6 +592,12 @@ function activeSearchChips(selection: SearchAdvancedSelection): Array<{ label: s
   }
   if (selection.documentType) {
     chips.push({ label: '유형', value: documentTypeLabels[selection.documentType] });
+  }
+  if (selection.confidentialityLevel) {
+    chips.push({ label: '기밀도', value: confidentialityLabels[selection.confidentialityLevel] });
+  }
+  if (selection.privilegeStatus) {
+    chips.push({ label: '특권', value: privilegeLabels[selection.privilegeStatus] });
   }
   if (selection.extractionStatus) {
     chips.push({ label: '추출/OCR', value: extractionStatusLabels[selection.extractionStatus] });

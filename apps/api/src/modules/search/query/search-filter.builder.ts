@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
   searchFiltersSchema,
+  type SearchConfidentialityLevel,
   type SearchFiltersDto,
   type SearchLegalHold,
+  type SearchPrivilegeStatus,
   type SearchRecordsStatus,
   type SearchVersionStatus,
 } from '@amic-vault/shared';
@@ -56,6 +58,26 @@ export const searchMatterLegalHoldSql = `
     WHERE matter_hold_filter.tenant_id = idx.tenant_id
       AND matter_hold_filter.matter_id = idx.matter_id
       AND matter_hold_filter.legal_hold = true
+  )
+`;
+
+export const searchConfidentialityLevelSql = `
+  (
+    SELECT confidentiality_doc.confidentiality_level
+    FROM documents confidentiality_doc
+    WHERE confidentiality_doc.tenant_id = idx.tenant_id
+      AND confidentiality_doc.document_id = idx.document_id
+    LIMIT 1
+  )
+`;
+
+export const searchPrivilegeStatusSql = `
+  (
+    SELECT privilege_doc.privilege_status
+    FROM documents privilege_doc
+    WHERE privilege_doc.tenant_id = idx.tenant_id
+      AND privilege_doc.document_id = idx.document_id
+    LIMIT 1
   )
 `;
 
@@ -154,6 +176,9 @@ export class SearchFilterBuilder {
         : [filters.documentType];
       fragments.push({ sql: 'idx.document_type = ANY(?::text[])', params: [types] });
     }
+    if (filters.confidentialityLevel) {
+      fragments.push(this.confidentialityFilter(filters.confidentialityLevel));
+    }
     if (filters.extractionStatus) {
       fragments.push({ sql: `${searchExtractionStatusSql} = ?`, params: [filters.extractionStatus] });
     }
@@ -162,6 +187,9 @@ export class SearchFilterBuilder {
     }
     if (filters.recordsStatus) {
       fragments.push(this.recordsStatusFilter(filters.recordsStatus));
+    }
+    if (filters.privilegeStatus) {
+      fragments.push(this.privilegeFilter(filters.privilegeStatus));
     }
     if (filters.dateFrom) {
       // document_search_index.updated_at is populated from documents.updated_at by the indexer.
@@ -186,6 +214,14 @@ export class SearchFilterBuilder {
       sql: `NOT (${searchDocumentLegalHoldSql}) AND NOT (${searchMatterLegalHoldSql})`,
       params: [],
     };
+  }
+
+  private confidentialityFilter(value: SearchConfidentialityLevel): SearchSqlFragment {
+    return { sql: `${searchConfidentialityLevelSql} = ?`, params: [value] };
+  }
+
+  private privilegeFilter(value: SearchPrivilegeStatus): SearchSqlFragment {
+    return { sql: `${searchPrivilegeStatusSql} = ?`, params: [value] };
   }
 
   private recordsStatusFilter(value: SearchRecordsStatus): SearchSqlFragment {

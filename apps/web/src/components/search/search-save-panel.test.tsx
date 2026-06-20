@@ -30,8 +30,10 @@ describe('SearchSavePanel', () => {
           target: 'body',
           sortBy: 'updated_desc',
           groupBy: 'matter',
+          confidentialityLevel: 'restricted',
           extractionStatus: 'ocr_pending',
           legalHold: 'document_hold',
+          privilegeStatus: 'privileged',
           recordsStatus: 'archived',
         }}
       />,
@@ -43,6 +45,8 @@ describe('SearchSavePanel', () => {
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('본문');
     expect(html).toContain('최근 수정');
+    expect(html).toContain('제한');
+    expect(html).toContain('변호사-의뢰인 특권');
     expect(html).toContain('OCR 필요');
     expect(html).toContain('파일 삭제 금지');
     expect(html).toContain('보관됨');
@@ -106,11 +110,13 @@ describe('SearchSavePanel', () => {
     expect(
       searchPatternItems('NDA', {
         clientName: 'AMIC',
+        confidentialityLevel: 'high',
         dateRange: 'last_30_days',
         extractionStatus: 'failed',
         groupBy: 'client',
         legalHold: 'matter_hold',
         matterName: 'Vault Upgrade',
+        privilegeStatus: 'work_product',
         recordsStatus: 'disposal_locked',
         sortBy: 'title_asc',
         target: 'title',
@@ -123,6 +129,8 @@ describe('SearchSavePanel', () => {
         { label: '그룹', value: '고객' },
         { label: 'Matter 이름', value: 'Vault Upgrade' },
         { label: '고객명', value: 'AMIC' },
+        { label: '기밀도', value: '높음' },
+        { label: '특권', value: '작업 산출물' },
         { label: '추출/OCR', value: '추출 실패' },
         { label: '보존', value: '사건 삭제 금지' },
         { label: '기록', value: '처분 잠금' },

@@ -24,6 +24,7 @@ describe('SearchAdvancedControls', () => {
         busy={false}
         selection={{
           clientName: 'AMIC',
+          confidentialityLevel: 'restricted',
           dateRange: 'last_30_days',
           documentType: 'contract',
           extractionStatus: 'ocr_pending',
@@ -31,6 +32,7 @@ describe('SearchAdvancedControls', () => {
           legalHold: 'document_hold',
           matterCode: 'AMIC-2026-0007',
           matterName: 'Vault Upgrade',
+          privilegeStatus: 'privileged',
           recordsStatus: 'archived',
           sortBy: 'updated_desc',
           target: 'body',
@@ -50,6 +52,10 @@ describe('SearchAdvancedControls', () => {
     expect(html).toContain('그룹');
     expect(html).toContain('문서 유형');
     expect(html).toContain('계약서');
+    expect(html).toContain('기밀도');
+    expect(html).toContain('제한');
+    expect(html).toContain('특권 상태');
+    expect(html).toContain('변호사-의뢰인 특권');
     expect(html).toContain('버전 상태');
     expect(html).toContain('현재 버전');
     expect(html).toContain('추출/OCR');

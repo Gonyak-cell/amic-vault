@@ -45,6 +45,30 @@ export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps)
         language={language}
       />
       <FacetGroup
+        title={t('search.facet.confidentiality')}
+        buckets={facets.confidentialityLevels}
+        selected={selection.confidentialityLevel}
+        onSelect={(value) =>
+          onChange({
+            ...selection,
+            confidentialityLevel: value as SearchFacetSelection['confidentialityLevel'],
+          })
+        }
+        language={language}
+      />
+      <FacetGroup
+        title={t('search.facet.privilege')}
+        buckets={facets.privilegeStatuses}
+        selected={selection.privilegeStatus}
+        onSelect={(value) =>
+          onChange({
+            ...selection,
+            privilegeStatus: value as SearchFacetSelection['privilegeStatus'],
+          })
+        }
+        language={language}
+      />
+      <FacetGroup
         title={t('search.facet.searchability')}
         buckets={facets.extractionStatuses}
         selected={selection.extractionStatus}
@@ -171,6 +195,13 @@ function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, 
     memo: 'search.facet.memo',
     current: 'search.facet.current',
     superseded: 'search.facet.superseded',
+    standard: 'search.facet.confidentialityStandard',
+    high: 'search.facet.confidentialityHigh',
+    restricted: 'search.facet.confidentialityRestricted',
+    none: 'search.facet.privilegeNone',
+    privileged: 'search.facet.privileged',
+    work_product: 'search.facet.workProduct',
+    joint_privilege: 'search.facet.jointPrivilege',
     ready: 'search.facet.extractionReady',
     pending: 'search.facet.extractionPending',
     ocr_pending: 'search.facet.extractionOcrPending',
@@ -197,9 +228,11 @@ function hasSelection(selection: SearchFacetSelection): boolean {
   return Boolean(
     selection.clientId ||
       selection.matterId ||
+      selection.confidentialityLevel ||
       selection.documentType ||
       selection.extractionStatus ||
       selection.legalHold ||
+      selection.privilegeStatus ||
       selection.recordsStatus ||
       selection.versionStatus ||
       selection.dateRange,

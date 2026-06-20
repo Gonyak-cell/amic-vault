@@ -18,9 +18,11 @@ describe('search query DTO', () => {
           matterCode: 'AMIC-2026',
           clientName: 'AMIC',
           title: 'closing',
+          confidentialityLevel: 'restricted',
           documentType: ['contract', 'memo'],
           extractionStatus: 'ocr_pending',
           legalHold: 'document_hold',
+          privilegeStatus: 'privileged',
           recordsStatus: 'archived',
           dateFrom: '2026-06-12T09:00:00+09:00',
           versionStatus: 'current',
@@ -35,9 +37,11 @@ describe('search query DTO', () => {
         matterCode: 'AMIC-2026',
         clientName: 'AMIC',
         title: 'closing',
+        confidentialityLevel: 'restricted',
         documentType: ['contract', 'memo'],
         extractionStatus: 'ocr_pending',
         legalHold: 'document_hold',
+        privilegeStatus: 'privileged',
         recordsStatus: 'archived',
         dateFrom: '2026-06-12T09:00:00+09:00',
         versionStatus: 'current',
@@ -62,8 +66,10 @@ describe('search query DTO', () => {
   it('rejects invalid identifiers, unknown document types, and inverted date ranges', () => {
     expect(() => searchFiltersSchema.parse({ matterId: 'not-a-uuid' })).toThrow();
     expect(() => searchFiltersSchema.parse({ documentType: 'MA' })).toThrow();
+    expect(() => searchFiltersSchema.parse({ confidentialityLevel: 'secret' })).toThrow();
     expect(() => searchFiltersSchema.parse({ extractionStatus: 'unsearchable' })).toThrow();
     expect(() => searchFiltersSchema.parse({ legalHold: 'hold-id-123' })).toThrow();
+    expect(() => searchFiltersSchema.parse({ privilegeStatus: 'attorney_eyes_only' })).toThrow();
     expect(() => searchFiltersSchema.parse({ recordsStatus: 'deleted' })).toThrow();
     expect(() => searchFiltersSchema.parse({ matterCode: '' })).toThrow();
     expect(() => searchFiltersSchema.parse({ clientName: 'x'.repeat(129) })).toThrow();

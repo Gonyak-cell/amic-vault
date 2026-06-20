@@ -2,8 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { SearchMode, SearchQueryDto, SearchSort, SearchTarget } from '@amic-vault/shared';
 import {
   SearchFilterBuilder,
+  searchConfidentialityLevelSql,
   searchExtractionStatusSql,
   searchLegalHoldSql,
+  searchPrivilegeStatusSql,
   searchRecordsStatusSql,
   type SearchSqlFragment,
   type SearchSqlValue,
@@ -213,6 +215,15 @@ export class SearchQueryBuilder {
               GROUP BY document_type
             ) document_type_counts
           ), '[]'::jsonb),
+          'confidentialityLevels', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', confidentiality_level, 'count', row_count) ORDER BY row_count DESC, confidentiality_level)
+            FROM (
+              SELECT confidentiality_level, count(*)::int AS row_count
+              FROM filtered
+              WHERE confidentiality_level IS NOT NULL
+              GROUP BY confidentiality_level
+            ) confidentiality_level_counts
+          ), '[]'::jsonb),
           'extractionStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', extraction_status, 'count', row_count) ORDER BY row_count DESC, extraction_status)
             FROM (
@@ -228,6 +239,15 @@ export class SearchQueryBuilder {
               FROM filtered
               GROUP BY legal_hold
             ) legal_hold_counts
+          ), '[]'::jsonb),
+          'privilegeStatuses', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', privilege_status, 'count', row_count) ORDER BY row_count DESC, privilege_status)
+            FROM (
+              SELECT privilege_status, count(*)::int AS row_count
+              FROM filtered
+              WHERE privilege_status IS NOT NULL
+              GROUP BY privilege_status
+            ) privilege_status_counts
           ), '[]'::jsonb),
           'recordsStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', records_status, 'count', row_count) ORDER BY row_count DESC, records_status)
@@ -320,8 +340,8 @@ export class SearchQueryBuilder {
       sql: `
         ${cteSql},
         filtered AS (
-          SELECT tenant_id, client_id, matter_id, document_type, extraction_status,
-            legal_hold, records_status, version_status, updated_at
+          SELECT tenant_id, client_id, matter_id, document_type, confidentiality_level,
+            extraction_status, legal_hold, privilege_status, records_status, version_status, updated_at
           FROM best
         )
         SELECT jsonb_build_object(
@@ -378,6 +398,15 @@ export class SearchQueryBuilder {
               GROUP BY document_type
             ) document_type_counts
           ), '[]'::jsonb),
+          'confidentialityLevels', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', confidentiality_level, 'count', row_count) ORDER BY row_count DESC, confidentiality_level)
+            FROM (
+              SELECT confidentiality_level, count(*)::int AS row_count
+              FROM filtered
+              WHERE confidentiality_level IS NOT NULL
+              GROUP BY confidentiality_level
+            ) confidentiality_level_counts
+          ), '[]'::jsonb),
           'extractionStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', extraction_status, 'count', row_count) ORDER BY row_count DESC, extraction_status)
             FROM (
@@ -393,6 +422,15 @@ export class SearchQueryBuilder {
               FROM filtered
               GROUP BY legal_hold
             ) legal_hold_counts
+          ), '[]'::jsonb),
+          'privilegeStatuses', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', privilege_status, 'count', row_count) ORDER BY row_count DESC, privilege_status)
+            FROM (
+              SELECT privilege_status, count(*)::int AS row_count
+              FROM filtered
+              WHERE privilege_status IS NOT NULL
+              GROUP BY privilege_status
+            ) privilege_status_counts
           ), '[]'::jsonb),
           'recordsStatuses', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', records_status, 'count', row_count) ORDER BY row_count DESC, records_status)
@@ -468,8 +506,10 @@ export class SearchQueryBuilder {
       return `
         WITH filtered AS (
           SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+            ${searchConfidentialityLevelSql} AS confidentiality_level,
             ${searchExtractionStatusSql} AS extraction_status,
             ${searchLegalHoldSql} AS legal_hold,
+            ${searchPrivilegeStatusSql} AS privilege_status,
             ${searchRecordsStatusSql} AS records_status,
             idx.version_status, idx.updated_at
           FROM document_search_index idx
@@ -486,8 +526,10 @@ export class SearchQueryBuilder {
       ),
       filtered AS (
         SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+          ${searchConfidentialityLevelSql} AS confidentiality_level,
           ${searchExtractionStatusSql} AS extraction_status,
           ${searchLegalHoldSql} AS legal_hold,
+          ${searchPrivilegeStatusSql} AS privilege_status,
           ${searchRecordsStatusSql} AS records_status,
           idx.version_status, idx.updated_at
         FROM document_search_index idx
@@ -545,8 +587,11 @@ export class SearchQueryBuilder {
       WITH ${tsqSql}
       candidates AS (
         SELECT idx.tenant_id, idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
-          idx.title, idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+          idx.title, idx.document_type,
+          ${searchConfidentialityLevelSql} AS confidentiality_level,
+          ${searchExtractionStatusSql} AS extraction_status,
           ${searchLegalHoldSql} AS legal_hold,
+          ${searchPrivilegeStatusSql} AS privilege_status,
           ${searchRecordsStatusSql} AS records_status,
           idx.version_status, idx.updated_at,
           chunk.chunk_id, chunk.parent_chunk_id, chunk.chunk_ordinal,
@@ -582,7 +627,8 @@ export class SearchQueryBuilder {
       ),
       best AS (
         SELECT tenant_id, document_id, version_id, matter_id, client_id, title, document_type,
-          extraction_status, legal_hold, records_status, version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
+          confidentiality_level, extraction_status, legal_hold, privilege_status,
+          records_status, version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
           token_count, chunk_text, text_hash, source_text_hash, score
         FROM ranked
         WHERE best_rank = 1

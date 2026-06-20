@@ -3,7 +3,13 @@
 import Link from 'next/link';
 import React from 'react';
 import { FolderSearch, RotateCcw, Search, Trash2 } from 'lucide-react';
-import type { SavedSearchDto, SearchQueryDto } from '@amic-vault/shared';
+import type {
+  DocumentConfidentialityLevel,
+  DocumentPrivilegeStatus,
+  DocumentType,
+  SavedSearchDto,
+  SearchQueryDto,
+} from '@amic-vault/shared';
 import { savedSearchSummary } from '@/components/search/search-save-panel';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -189,6 +195,9 @@ export function searchUrlForSavedQuery(query: SearchQueryDto): string {
   if (query.filters?.matterName) params.set('matterName', query.filters.matterName);
   if (query.filters?.clientName) params.set('clientName', query.filters.clientName);
   if (query.filters?.title) params.set('title', query.filters.title);
+  if (query.filters?.confidentialityLevel) {
+    params.set('confidentialityLevel', query.filters.confidentialityLevel);
+  }
   if (typeof query.filters?.documentType === 'string') {
     params.set('documentType', query.filters.documentType);
   }
@@ -196,10 +205,36 @@ export function searchUrlForSavedQuery(query: SearchQueryDto): string {
     params.set('extractionStatus', query.filters.extractionStatus);
   }
   if (query.filters?.legalHold) params.set('legalHold', query.filters.legalHold);
+  if (query.filters?.privilegeStatus) params.set('privilegeStatus', query.filters.privilegeStatus);
   if (query.filters?.recordsStatus) params.set('recordsStatus', query.filters.recordsStatus);
   if (query.filters?.versionStatus) params.set('versionStatus', query.filters.versionStatus);
   return `/search?${params.toString()}`;
 }
+
+const documentTypeLabels = {
+  contract: '계약서',
+  memo: '메모',
+  opinion: '의견서',
+  court_filing: '법원 제출 문서',
+  evidence: '증거',
+  correspondence: '서신',
+  corporate_record: '회사 기록',
+  financial: '재무',
+  other: '기타',
+} as const satisfies Record<DocumentType, string>;
+
+const confidentialityLabels = {
+  standard: '표준',
+  high: '높음',
+  restricted: '제한',
+} as const satisfies Record<DocumentConfidentialityLevel, string>;
+
+const privilegeLabels = {
+  none: '특권 없음',
+  privileged: '변호사-의뢰인 특권',
+  work_product: '작업 산출물',
+  joint_privilege: '공동 특권',
+} as const satisfies Record<DocumentPrivilegeStatus, string>;
 
 const extractionStatusLabels = {
   ready: '본문 검색 가능',
@@ -228,7 +263,13 @@ function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string;
   if (filters?.clientName) items.push({ label: '고객', value: filters.clientName });
   if (filters?.title) items.push({ label: '제목', value: filters.title });
   if (typeof filters?.documentType === 'string') {
-    items.push({ label: '문서 유형', value: filters.documentType });
+    items.push({ label: '문서 유형', value: documentTypeLabels[filters.documentType] });
+  }
+  if (filters?.confidentialityLevel) {
+    items.push({ label: '기밀도', value: confidentialityLabels[filters.confidentialityLevel] });
+  }
+  if (filters?.privilegeStatus) {
+    items.push({ label: '특권', value: privilegeLabels[filters.privilegeStatus] });
   }
   if (filters?.extractionStatus) {
     items.push({ label: '추출/OCR', value: extractionStatusLabels[filters.extractionStatus] });
