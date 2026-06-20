@@ -24,22 +24,41 @@ const event = {
   createdAt: '2026-06-18T02:00:00.000Z',
 } satisfies DocumentAuditEventDto;
 
+const recordsEvent = {
+  ...event,
+  eventId: '11111111-1111-4111-8111-111111111702',
+  action: 'RECORD_ARCHIVED',
+  metadata: {
+    archive_id: '11111111-1111-4111-8111-111111111801',
+    document_id: event.targetId,
+    reason_code: 'client_records',
+  },
+  createdAt: '2026-06-18T03:00:00.000Z',
+} satisfies DocumentAuditEventDto;
+
 describe('DocumentAuditTimeline', () => {
   it('renders document audit activity without displaying internal refs', () => {
     const html = renderToStaticMarkup(
       <DocumentAuditTimeline
         disableInitialLoad
         documentId={event.targetId}
-        initialEvents={[event]}
+        initialEvents={[event, recordsEvent]}
       />,
     );
 
     expect(html).toContain('문서 감사 타임라인');
+    expect(html).toContain('문서 통합 활동');
+    expect(html).toContain('범주');
+    expect(html).toContain('열람/다운로드');
+    expect(html).toContain('Records');
     expect(html).toContain('열람');
+    expect(html).toContain('보관 처리');
     expect(html).toContain('시스템');
     expect(html).toContain('성공');
     expect(html).not.toContain(event.eventId);
+    expect(html).not.toContain(recordsEvent.eventId);
     expect(html).not.toContain(event.matterId);
+    expect(html).not.toContain(String(recordsEvent.metadata.archive_id));
   });
 
   it('renders an empty state when no document audit events are available', () => {

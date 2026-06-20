@@ -333,7 +333,34 @@ const documentActionCenterFiles = [
     patterns: [
       { name: 'document audit scoped endpoint client', pattern: /listDocumentAuditEvents/ },
       { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
+      { name: 'document integrated activity meta', pattern: /문서 통합 활동/ },
+      { name: 'document timeline category labels', pattern: /categoryLabel/ },
+      { name: 'document records lifecycle labels', pattern: /RECORD_ARCHIVED[\s\S]*DISPOSAL_REQUESTED/ },
       { name: 'document audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-audit-timeline.tsx',
+    patterns: [
+      { name: 'matter audit scoped endpoint client', pattern: /listMatterAuditEvents/ },
+      { name: 'matter integrated activity meta', pattern: /Matter 통합 활동/ },
+      { name: 'matter timeline search category', pattern: /SEARCH_EXECUTED/ },
+      { name: 'matter timeline records category', pattern: /DISPOSAL_REQUESTED/ },
+      { name: 'matter audit stale-row refresh key', pattern: /refreshKey = 0/ },
+    ],
+  },
+  {
+    path: 'packages/shared/src/dto/audit/audit-query.dto.ts',
+    patterns: [
+      { name: 'document timeline audit action allow-list', pattern: /documentTimelineAuditActions/ },
+      { name: 'document timeline records actions', pattern: /RECORD_ARCHIVED[\s\S]*DISPOSAL_REQUESTED/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/audit/audit-query.service.ts',
+    patterns: [
+      { name: 'document timeline allow-list in API', pattern: /documentTimelineAuditActions/ },
+      { name: 'document audit permission guard retained', pattern: /assertCanReadDocumentAudit/ },
     ],
   },
   {

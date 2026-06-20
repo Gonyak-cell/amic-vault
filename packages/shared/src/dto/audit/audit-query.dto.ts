@@ -4,11 +4,19 @@ import {
   type AuditAction,
   r2DocumentAuditActions,
   type AuditMetadata,
-  type R2DocumentAuditAction,
 } from '../../types/audit';
 import type { DisplayFieldsDto } from '../../display/display-fields.dto';
 
-export const documentAuditQueryEventTypeSchema = z.enum(r2DocumentAuditActions);
+export const documentTimelineAuditActions = [
+  ...r2DocumentAuditActions,
+  'LEGAL_HOLD_APPLIED',
+  'LEGAL_HOLD_RELEASED',
+  'RECORD_ARCHIVED',
+  'DISPOSAL_REQUESTED',
+  'DISPOSAL_EXECUTED',
+] as const satisfies readonly AuditAction[];
+
+export const documentAuditQueryEventTypeSchema = z.enum(documentTimelineAuditActions);
 export const auditQueryActionSchema = z.enum(auditActions);
 export const auditResultSchema = z.enum(['success', 'denied', 'failure']);
 export const auditTargetTypeSchema = z
@@ -111,7 +119,8 @@ function buildAuditQuerySchema(maxLimit: number, defaultLimit: number) {
 export const auditQuerySchema = buildAuditQuerySchema(100, 50);
 export const auditExportQuerySchema = buildAuditQuerySchema(1000, 1000);
 
-export type DocumentAuditQueryEventType = R2DocumentAuditAction;
+export type DocumentTimelineAuditAction = (typeof documentTimelineAuditActions)[number];
+export type DocumentAuditQueryEventType = DocumentTimelineAuditAction;
 export type DocumentAuditQueryDto = z.infer<typeof documentAuditQuerySchema>;
 export type MatterAuditQueryDto = z.infer<typeof matterAuditQuerySchema>;
 export type AuditQueryDto = z.infer<typeof auditQuerySchema>;

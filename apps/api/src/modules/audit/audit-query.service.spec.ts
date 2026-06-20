@@ -110,6 +110,30 @@ class TestAuditQueryService extends AuditQueryService {
         metadata_json: { document_id: documentId, matter_id: matterId },
         created_at: new Date('2026-06-12T00:00:01.000Z'),
       },
+      {
+        event_id: '11111111-1111-4111-8111-1111111111e0',
+        action: 'RECORD_ARCHIVED' as const,
+        actor_type: 'user' as const,
+        actor_id: actorUserId,
+        actor_name: '조우상',
+        actor_email: 'jwsuh@amic.kr',
+        session_id: '11111111-1111-4111-8111-1111111111f0',
+        result: 'success' as const,
+        target_type: 'document' as const,
+        target_id: documentId,
+        target_display_name: 'Draft Agreement',
+        target_display_code: null,
+        matter_id: matterId,
+        matter_display_name: 'Vault UI',
+        matter_display_code: 'AMIC-2026',
+        metadata_json: {
+          archive_id: '11111111-1111-4111-8111-111111111177',
+          document_id: documentId,
+          matter_id: matterId,
+          reason_code: 'client_records',
+        },
+        created_at: new Date('2026-06-12T00:00:00.000Z'),
+      },
     ];
   }
 
@@ -197,6 +221,26 @@ describe('AuditQueryService', () => {
     await expect(
       service.listDocumentEvents(actorUserId, documentId, auditQuery()),
     ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+  });
+
+  it('includes document-target Records lifecycle rows in document timelines', async () => {
+    const service = new TestAuditQueryService();
+    const result = await service.listDocumentEvents(
+      actorUserId,
+      documentId,
+      auditQuery({ eventType: 'RECORD_ARCHIVED', limit: 3 }),
+    );
+
+    expect(result.items.map((item) => item.action)).toContain('RECORD_ARCHIVED');
+    expect(result.items.find((item) => item.action === 'RECORD_ARCHIVED')).toMatchObject({
+      targetType: 'document',
+      targetId: documentId,
+      safeLabel: 'Draft Agreement',
+      metadata: expect.objectContaining({
+        archive_id: '11111111-1111-4111-8111-111111111177',
+        reason_code: 'client_records',
+      }),
+    });
   });
 
   it('fails closed when the target document is hidden from the tenant', async () => {
