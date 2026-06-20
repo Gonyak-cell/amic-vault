@@ -37,7 +37,34 @@ const actionLabels: Partial<Record<DocumentAuditEventDto['action'], string>> = {
   DOCUMENT_VERSION_ADDED: '새 버전',
   DOCUMENT_INTEGRITY_ALERT: '무결성 알림',
   DOCUMENT_TEXT_EXTRACTED: '본문 추출',
+  DISPOSAL_EXECUTED: '폐기 실행',
+  DISPOSAL_REQUESTED: '폐기 요청',
+  LEGAL_HOLD_APPLIED: 'Legal Hold 적용',
+  LEGAL_HOLD_RELEASED: 'Legal Hold 해제',
+  RECORD_ARCHIVED: '보관 처리',
 };
+
+function categoryLabel(action: DocumentAuditEventDto['action']): string {
+  if (action === 'DOCUMENT_VIEWED' || action === 'DOCUMENT_DOWNLOADED') return '열람/다운로드';
+  if (action === 'DOCUMENT_METADATA_CHANGED') return '메타데이터';
+  if (
+    action === 'DOCUMENT_UPLOADED' ||
+    action === 'DOCUMENT_VERSION_ADDED' ||
+    action === 'DOCUMENT_TEXT_EXTRACTED'
+  ) {
+    return '버전/처리';
+  }
+  if (
+    action === 'LEGAL_HOLD_APPLIED' ||
+    action === 'LEGAL_HOLD_RELEASED' ||
+    action === 'RECORD_ARCHIVED' ||
+    action === 'DISPOSAL_REQUESTED' ||
+    action === 'DISPOSAL_EXECUTED'
+  ) {
+    return 'Records';
+  }
+  return '거버넌스';
+}
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
@@ -107,7 +134,7 @@ export function DocumentAuditTimeline({
     <SectionCard
       icon={<Activity className="h-4 w-4" />}
       title="문서 감사 타임라인"
-      meta="문서 단위 기록"
+      meta="문서 통합 활동"
       actions={
         <Button asChild size="sm" variant="outline">
           <Link
@@ -131,6 +158,7 @@ export function DocumentAuditTimeline({
           <DataTableHeader>
             <DataTableRow>
               <DataTableHead>시간</DataTableHead>
+              <DataTableHead>범주</DataTableHead>
               <DataTableHead>활동</DataTableHead>
               <DataTableHead>수행자</DataTableHead>
               <DataTableHead>결과</DataTableHead>
@@ -140,6 +168,9 @@ export function DocumentAuditTimeline({
             {events.map((event) => (
               <DataTableRow key={event.eventId}>
                 <DataTableCell className="text-xs">{formatDateTime(event.createdAt)}</DataTableCell>
+                <DataTableCell>
+                  <StatusBadge tone="neutral">{categoryLabel(event.action)}</StatusBadge>
+                </DataTableCell>
                 <DataTableCell className="font-medium">{actionLabel(event.action)}</DataTableCell>
                 <DataTableCell className="text-xs">{actorLabel(event)}</DataTableCell>
                 <DataTableCell>
@@ -148,7 +179,7 @@ export function DocumentAuditTimeline({
               </DataTableRow>
             ))}
             {events.length === 0 ? (
-              <DataTableEmptyRow colSpan={4}>
+              <DataTableEmptyRow colSpan={5}>
                 {loading ? '감사 기록을 확인하는 중입니다.' : '표시할 감사 기록이 없습니다.'}
               </DataTableEmptyRow>
             ) : null}

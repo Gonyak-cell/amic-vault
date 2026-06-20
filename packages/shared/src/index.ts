@@ -790,6 +790,7 @@ export {
   auditTargetTypeSchema,
   documentAuditQueryEventTypeSchema,
   documentAuditQuerySchema,
+  documentTimelineAuditActions,
   matterAuditQuerySchema,
   type AuditEventDto,
   type AuditEventListDto,
@@ -800,6 +801,7 @@ export {
   type DocumentAuditEventListDto,
   type DocumentAuditQueryDto,
   type DocumentAuditQueryEventType,
+  type DocumentTimelineAuditAction,
   type MatterAuditQueryDto,
 } from './dto/audit/audit-query.dto';
 export {
