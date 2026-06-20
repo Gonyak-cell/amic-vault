@@ -105,6 +105,24 @@ interface QueueItem {
   tone: StatusBadgeTone;
 }
 
+interface ActionHierarchyItem {
+  title: string;
+  description: string;
+  status: string;
+  tone: StatusBadgeTone;
+}
+
+type RecordsActionTab = 'holds' | 'archive' | 'disposal';
+
+interface RecordsActionRow {
+  buttonLabel: string;
+  description: string;
+  tab: RecordsActionTab;
+  title: string;
+  readiness: string;
+  tone: StatusBadgeTone;
+}
+
 const typeLabels = {
   contract: '계약서',
   memo: '메모',
@@ -172,6 +190,71 @@ function fileCabinetUrlForDocument(document: DocumentDto): string {
   if (document.title.trim()) params.set('title', document.title.trim());
   const queryString = params.toString();
   return queryString ? `/files?${queryString}` : '/files';
+}
+
+function actionHierarchyItems(document: DocumentDto): ActionHierarchyItem[] {
+  return [
+    {
+      title: '검토',
+      description: '권한 확인 후 미리보기와 문서 감사 타임라인을 먼저 확인합니다.',
+      status: document.extractionStatus === 'ready' ? '미리보기 준비' : '서버 상태 확인',
+      tone: statusTone(document.extractionStatus ?? 'pending'),
+    },
+    {
+      title: '감사 다운로드',
+      description: '다운로드는 사유를 선택한 뒤 감사 대상 작업으로 실행합니다.',
+      status: '사유 필수',
+      tone: 'success',
+    },
+    {
+      title: '프로필 메타데이터',
+      description: '제목, 유형, 세부 유형, 보안 등급만 문서 메타데이터로 수정합니다.',
+      status: document.status === 'archived' ? '보관 상태' : '수정 가능',
+      tone: document.status === 'archived' ? 'warning' : 'neutral',
+    },
+    {
+      title: '버전 및 Records',
+      description: '새 파일은 원본을 덮어쓰지 않고 새 버전으로 추가하며 Records 흐름은 별도 검토합니다.',
+      status: document.legalHold ? '보존 적용' : '보존 확인',
+      tone: document.legalHold ? 'warning' : 'neutral',
+    },
+  ];
+}
+
+function recordsActionRows(document: DocumentDto): RecordsActionRow[] {
+  return [
+    {
+      buttonLabel: document.legalHold ? '보존 상태 열기' : '보존 검토',
+      description: document.legalHold
+        ? 'Legal Hold가 적용되어 폐기 흐름에서 차단됩니다.'
+        : '필요 시 Records 화면에서 보존 적용을 검토합니다.',
+      readiness: document.legalHold ? '적용 중' : '신청 가능',
+      tab: 'holds',
+      title: 'Legal Hold',
+      tone: document.legalHold ? 'warning' : 'neutral',
+    },
+    {
+      buttonLabel: '보관 처리',
+      description:
+        document.status === 'archived'
+          ? '이미 보관 상태입니다. 기록 화면에서 보관 근거를 확인합니다.'
+          : '보관 전환은 Records 화면에서 권한과 정책을 다시 확인합니다.',
+      readiness: document.status === 'archived' ? '보관됨' : '보관 준비',
+      tab: 'archive',
+      title: 'Archive',
+      tone: document.status === 'archived' ? 'success' : 'neutral',
+    },
+    {
+      buttonLabel: '폐기 검토',
+      description: document.legalHold
+        ? 'Legal Hold 적용 중에는 폐기 검토를 진행할 수 없습니다.'
+        : '폐기는 Records 정책, 보관 상태, 권한을 통과한 뒤 별도로 검토됩니다.',
+      readiness: document.legalHold ? '보존으로 차단' : '검토 필요',
+      tab: 'disposal',
+      title: 'Disposal',
+      tone: document.legalHold ? 'blocked' : 'warning',
+    },
+  ];
 }
 
 export function relatedMatterDocuments(
@@ -336,6 +419,33 @@ function SearchHitContextPanel({
             <Link href="/search">검색으로 돌아가기</Link>
           </Button>
         </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function DocumentActionHierarchyPanel({ document }: { document: DocumentDto }) {
+  return (
+    <SectionCard
+      icon={<ShieldCheck className="h-4 w-4" />}
+      title="작업 우선순위"
+      meta="읽기/다운로드 전용"
+    >
+      <div className="grid gap-2 md:grid-cols-2">
+        {actionHierarchyItems(document).map((item) => (
+          <div key={item.title} className="rounded-md border bg-background px-3 py-2.5">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <h3 className="truncate text-sm font-semibold text-foreground">{item.title}</h3>
+              <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{item.description}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 rounded-md border bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+        현재 문서 화면은 미리보기, 사유 기반 다운로드, 프로필 메타데이터 수정, 새 버전 추가를
+        지원합니다. 원본 파일을 직접 수정하는 작업은 별도 승인된 편집 계약 전까지 노출하지
+        않습니다.
       </div>
     </SectionCard>
   );
@@ -776,10 +886,19 @@ export function DocumentActionCenter({
               <RefreshCw className="h-4 w-4" />
               새로고침
             </Button>
-            <Button type="button" onClick={downloadCurrentDocument} disabled={!document}>
-              <Download className="h-4 w-4" />
-              다운로드
-            </Button>
+            {document ? (
+              <Button asChild>
+                <a href="#document-download">
+                  <Download className="h-4 w-4" />
+                  다운로드 사유
+                </a>
+              </Button>
+            ) : (
+              <Button type="button" disabled>
+                <Download className="h-4 w-4" />
+                다운로드 사유
+              </Button>
+            )}
           </div>
         }
       />
@@ -789,6 +908,8 @@ export function DocumentActionCenter({
       {document ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
           <div className="space-y-4">
+            <DocumentActionHierarchyPanel document={document} />
+
             <SectionCard
               icon={<FileText className="h-4 w-4" />}
               title="문서 프로필"
@@ -965,6 +1086,7 @@ export function DocumentActionCenter({
             />
 
             <SectionCard
+              id="document-download"
               icon={<Download className="h-4 w-4" />}
               title="다운로드"
               meta="감사 기록 대상"
@@ -1073,25 +1195,35 @@ export function DocumentActionCenter({
               title="기록/보존"
               meta="권한 범위 내 조치"
             >
-              <div className="grid gap-2">
-                <Button asChild size="sm" variant="outline">
-                  <Link href={recordsUrlForDocument(document, 'holds')}>
-                    <ShieldCheck className="h-4 w-4" />
-                    삭제 금지
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={recordsUrlForDocument(document, 'archive')}>
-                    <Archive className="h-4 w-4" />
-                    보관 처리
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={recordsUrlForDocument(document, 'disposal')}>
-                    <Trash2 className="h-4 w-4" />
-                    삭제 요청
-                  </Link>
-                </Button>
+              <div className="space-y-2">
+                {recordsActionRows(document).map((action) => (
+                  <div
+                    key={action.tab}
+                    className="rounded-md border bg-background px-3 py-2.5"
+                  >
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            {action.title}
+                          </span>
+                          <StatusBadge tone={action.tone}>{action.readiness}</StatusBadge>
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {action.description}
+                        </p>
+                      </div>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={recordsUrlForDocument(document, action.tab)}>
+                          {action.tab === 'holds' ? <ShieldCheck className="h-4 w-4" /> : null}
+                          {action.tab === 'archive' ? <Archive className="h-4 w-4" /> : null}
+                          {action.tab === 'disposal' ? <Trash2 className="h-4 w-4" /> : null}
+                          {action.buttonLabel}
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
                 <Button asChild size="sm" variant="outline">
                   <Link href={fileCabinetUrlForDocument(document)}>
                     <FileSearch className="h-4 w-4" />
