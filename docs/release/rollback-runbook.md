@@ -66,7 +66,8 @@ browse, search, governance, integration, or AI prep behavior.
 3. If Matter app source-of-truth lookup or sync is unhealthy, disable
    production upload/browse by setting Matter source flags to a fail-closed
    state: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`,
-   `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, and
+   `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`,
+   `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`, and
    `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE`.
 4. If file organization prep health is unsafe, stop enqueue and worker paths
    with `AI_PREP_ENABLED=false`, `AI_PREP_QUEUE_WORKER_ENABLED=false`, and

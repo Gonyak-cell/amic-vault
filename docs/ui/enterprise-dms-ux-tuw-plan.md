@@ -290,6 +290,10 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 
 PR-A implementation note:
 
+- `DMS-UX-003` Vault-side source-of-truth guard now treats Matter app API/event
+  projection as upload-authoritative only when both source configuration and
+  lookup/sync runtime readiness are explicitly enabled. Descriptor-only Matter
+  packages and planning contracts do not satisfy runtime readiness.
 - `/files` now exposes an all-documents vault, Matter Code picker, Matter-scoped single/bulk upload panel, upload post-processing status hook, and selected-Matter document list.
 - All-documents browse calls `GET /documents` through the existing query-stage search permission scope.
 - Document vault filters are server-backed for title, Matter Code, document type, document status, confidentiality, privilege, extraction/OCR status, file-organization eligibility, legal hold, and sort order.

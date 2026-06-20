@@ -162,13 +162,14 @@ const uploadBrowseFlowFiles = [
     path: 'apps/web/src/lib/matter-app.ts',
     patterns: [
       { name: 'Matter app configured flag', pattern: /NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED/ },
+      { name: 'Matter app runtime ready flag', pattern: /NEXT_PUBLIC_MATTER_APP_RUNTIME_READY/ },
       {
         name: 'projection fallback production guard',
         pattern: /NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE/,
       },
       {
         name: 'source mode fail closed',
-        pattern: /return isMatterAppSourceConfigured\(mode\) \? mode : 'unconfigured'/,
+        pattern: /return isMatterAppSourceContractReady\(mode\) \? mode : 'unconfigured'/,
       },
     ],
   },
