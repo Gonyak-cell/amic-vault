@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const args = new Set(process.argv.slice(2));
 const localMode = args.has('--local');
 const dryRun = args.has('--dry-run');
+const checkEnv = args.has('--check-env');
 const jsonOutput = args.has('--json');
 const verbose = args.has('--verbose');
 
@@ -27,6 +28,7 @@ const config = {
       ),
     ),
     'DMS_SMOKE_API_BASE_URL or API_BASE_URL',
+    { collectOnly: checkEnv },
   ),
   releaseSha: value('RELEASE_SHA', repoSha),
   targetRef: value(
@@ -97,6 +99,16 @@ if (dryRun) {
     checks: plannedChecks.map(([id, name]) => ({ id, name, result: 'planned' })),
   });
   process.exit(0);
+}
+
+const envReadiness = evaluateEnvironmentReadiness();
+if (checkEnv) {
+  printResult(envReadiness);
+  process.exit(envReadiness.status === 'pass' ? 0 : 1);
+}
+
+if (envReadiness.status !== 'pass') {
+  throw new Error(formatEnvironmentReadinessError(envReadiness));
 }
 
 assert(hasPrimaryCredentials(), 'missing primary DMS smoke credentials');
@@ -382,6 +394,148 @@ function printResult(result) {
       `counts pass=${result.counts.pass} fail=${result.counts.fail} skip=${result.counts.skip}`,
     );
   }
+  if (result.missing?.length) {
+    console.log(`missing ${result.missing.join(', ')}`);
+  }
+  if (result.holds?.length) {
+    console.log(`holds ${result.holds.join(', ')}`);
+  }
+}
+
+function evaluateEnvironmentReadiness() {
+  const checks = [];
+  const missing = [];
+  const holds = [];
+
+  addEnvCheck(checks, missing, {
+    id: 'DMS-ENV-001',
+    name: 'API endpoint configured',
+    ok: Boolean(config.apiBaseUrl) && isAbsoluteUrl(config.apiBaseUrl),
+    required: ['DMS_SMOKE_API_BASE_URL', 'API_BASE_URL'],
+    message: config.apiBaseUrl
+      ? 'DMS_SMOKE_API_BASE_URL or API_BASE_URL must be an absolute URL'
+      : 'DMS_SMOKE_API_BASE_URL or API_BASE_URL is required unless --local supplies a development default',
+  });
+  addEnvCheck(checks, missing, {
+    id: 'DMS-ENV-002',
+    name: 'Primary DMS smoke credentials configured',
+    ok: hasPrimaryCredentials(),
+    required: ['DMS_SMOKE_EMAIL', 'DMS_SMOKE_PASSWORD'],
+    alternate: ['SMOKE_EMAIL', 'SMOKE_PASSWORD'],
+    message: 'primary DMS smoke credentials are required',
+  });
+  addEnvCheck(checks, missing, {
+    id: 'DMS-ENV-003',
+    name: 'Matter source configured before upload',
+    ok: Boolean(config.matterId) || config.createSynthetic,
+    required: ['DMS_SMOKE_MATTER_ID'],
+    alternate: ['DMS_SMOKE_CREATE_SYNTHETIC=1', 'DMS_SMOKE_SYNTHETIC_APPROVED=1'],
+    message: 'DMS_SMOKE_MATTER_ID is required unless approved synthetic creation is configured',
+  });
+
+  if (config.createSynthetic && !isLocalOrExplicitSynthetic()) {
+    holds.push('DMS_SMOKE_CREATE_SYNTHETIC=1 requires --local or DMS_SMOKE_SYNTHETIC_APPROVED=1');
+    checks.push({
+      id: 'DMS-ENV-004',
+      name: 'Synthetic creation explicitly approved',
+      result: 'fail',
+      evidence: { required: ['--local', 'DMS_SMOKE_SYNTHETIC_APPROVED=1'] },
+    });
+  } else {
+    checks.push({
+      id: 'DMS-ENV-004',
+      name: 'Synthetic creation explicitly approved',
+      result: 'pass',
+      evidence: { createSynthetic: config.createSynthetic, localMode },
+    });
+  }
+
+  if (config.requireAuth) {
+    addEnvCheck(checks, missing, {
+      id: 'DMS-ENV-005',
+      name: 'Negative DMS smoke credentials configured',
+      ok: hasNegativeCredentials(),
+      required: ['DMS_SMOKE_NEGATIVE_EMAIL', 'DMS_SMOKE_NEGATIVE_PASSWORD'],
+      alternate: ['SMOKE_NEGATIVE_EMAIL', 'SMOKE_NEGATIVE_PASSWORD'],
+      message: 'negative DMS smoke credentials are required when DMS_SMOKE_REQUIRE_AUTH=1',
+    });
+  } else {
+    holds.push('DMS_SMOKE_REQUIRE_AUTH=1 is required for DMS-UX-802 release evidence');
+    checks.push({
+      id: 'DMS-ENV-005',
+      name: 'Negative DMS smoke credentials configured',
+      result: 'fail',
+      evidence: { required: ['DMS_SMOKE_REQUIRE_AUTH=1'] },
+    });
+  }
+
+  if (config.allowIndexPending) {
+    holds.push('DMS_SMOKE_ALLOW_INDEX_PENDING=0 is required for release signoff');
+    checks.push({
+      id: 'DMS-ENV-006',
+      name: 'Indexing must not be bypassed for release signoff',
+      result: 'fail',
+      evidence: { required: ['DMS_SMOKE_ALLOW_INDEX_PENDING=0'] },
+    });
+  } else {
+    checks.push({
+      id: 'DMS-ENV-006',
+      name: 'Indexing must not be bypassed for release signoff',
+      result: 'pass',
+      evidence: { required: ['DMS_SMOKE_ALLOW_INDEX_PENDING=0'] },
+    });
+  }
+
+  const failed = checks.filter((check) => check.result === 'fail');
+  return {
+    status: failed.length === 0 ? 'pass' : 'hold',
+    releaseSha: config.releaseSha,
+    targetRef: config.targetRef,
+    generatedAt: new Date().toISOString(),
+    counts: {
+      pass: checks.length - failed.length,
+      fail: failed.length,
+      skip: 0,
+    },
+    missing,
+    holds,
+    checks,
+  };
+}
+
+function addEnvCheck(checks, missing, input) {
+  if (input.ok) {
+    checks.push({
+      id: input.id,
+      name: input.name,
+      result: 'pass',
+      evidence: {
+        required: input.required,
+        alternate: input.alternate ?? [],
+      },
+    });
+    return;
+  }
+
+  missing.push(input.message);
+  checks.push({
+    id: input.id,
+    name: input.name,
+    result: 'fail',
+    evidence: {
+      required: input.required,
+      alternate: input.alternate ?? [],
+      message: input.message,
+    },
+  });
+}
+
+function formatEnvironmentReadinessError(readiness) {
+  return [
+    'DMS smoke environment is not release-ready',
+    ...readiness.missing.map((item) => `missing: ${item}`),
+    ...readiness.holds.map((item) => `hold: ${item}`),
+  ].join('; ');
 }
 
 async function createSyntheticClient() {
@@ -523,8 +677,11 @@ function joinUrl(base, path) {
   return `${base}${suffix}`;
 }
 
-function normalizeBase(input, name) {
-  if (!input) throw new Error(`${name} is required unless --local supplies a development default`);
+function normalizeBase(input, name, options = {}) {
+  if (!input) {
+    if (options.collectOnly) return undefined;
+    throw new Error(`${name} is required unless --local supplies a development default`);
+  }
   try {
     const url = new URL(input);
     url.pathname = url.pathname.replace(/\/+$/, '');
@@ -532,7 +689,17 @@ function normalizeBase(input, name) {
     url.hash = '';
     return url.toString().replace(/\/$/, '');
   } catch {
+    if (options.collectOnly) return input;
     throw new Error(`${name} must be an absolute URL`);
+  }
+}
+
+function isAbsoluteUrl(input) {
+  try {
+    new URL(input);
+    return true;
+  } catch {
+    return false;
   }
 }
 

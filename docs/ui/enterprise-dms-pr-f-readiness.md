@@ -21,7 +21,10 @@ accessibility receipts still require approved visual/keyboard review:
 
 - DMS-UX-801 Authenticated Main Loop is exercised by
   `pnpm release:dms-smoke -- --json`, which requires approved synthetic or
-  canary DMS credentials and a Matter Code source before upload.
+  canary DMS credentials and a Matter Code source before upload. Use
+  `pnpm release:dms-smoke -- --check-env --json` first to confirm the approved
+  endpoint, credentials, Matter source, negative identity, and release-hold
+  flags are present without making network calls or printing secrets.
 - DMS-UX-802 Negative Auth is exercised by the same DMS smoke command through a
   negative identity that must not read or discover the uploaded document.
 
@@ -71,7 +74,7 @@ environment supports the DMS upload flow.
 | Production UI literal guard | `tools/quality/check-production-ui-literals.mjs` | DMS-UX-803 to 805 |
 | Production UI smoke guard | `tools/release/check-production-ui-smoke.mjs` | DMS-UX-803 to 807 |
 | Staging smoke credential gate | `tools/release/staging-smoke.mjs` and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
-| DMS main-loop smoke gate | `tools/release/dms-main-loop-smoke.mjs`, `pnpm release:dms-smoke`, and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
+| DMS main-loop smoke gate | `tools/release/dms-main-loop-smoke.mjs`, `pnpm release:dms-smoke -- --check-env --json`, `pnpm release:dms-smoke -- --json`, and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
 | DMS Matter app source contract guard | `apps/web/src/lib/matter-app.spec.ts`, `apps/web/src/app/(app)/integrations/matter-app/page.tsx`, `.env.example`, and `docs/integrations/matter-app-vault-contract.md` for configured-plus-runtime-ready source gating, descriptor-only Matter package exclusion, projection fallback blocking in production, and upload-authoritative mode only after lookup/sync readiness | DMS-UX-003 |
 | DMS upload receipt guard | `apps/web/src/components/document/document-upload-panel.test.tsx`, `apps/web/src/app/(app)/files/page.tsx`, `apps/web/src/components/document/document-vault-list.test.tsx`, and `apps/web/src/components/document/matter-file-section.tsx` for `UploadQueueReceipt`, document-detail action, all-documents vault action, Matter file-cabinet action, file-organization prep text, duplicate-candidate count, upload-triggered all-documents vault plus Matter file-list refresh, and no visible raw Matter reference | DMS-UX-101, 102, 104, 107 |
 | DMS Matter Code picker contract guard | `apps/web/src/lib/matter-app.spec.ts` and `apps/web/src/components/matter/matter-code-picker.test.tsx` for Matter Code/name/client safe-label search, unconfigured/loading/error/empty states, URL-provided Matter Code prefill/selection, UUID-shaped Vault internal reference rejection, and no denied-label/count leakage | DMS-UX-004 |
@@ -90,6 +93,7 @@ Before this PR-F readiness layer can be accepted, run:
 - `pnpm check:production-ui-literals`
 - `pnpm ui:production-smoke`
 - `pnpm check:ui-pr-checklist`
+- `pnpm release:dms-smoke -- --check-env --json`
 - `pnpm release:dms-smoke -- --dry-run --json`
 - `pnpm release:dms-smoke -- --json` with approved staging/canary DMS
   credentials before release signoff
