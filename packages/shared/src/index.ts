@@ -810,6 +810,12 @@ export {
   type SearchVersionStatus,
 } from './search/search-query.dto';
 export {
+  searchAdminHealthSchema,
+  searchAdminNoResultQuerySchema,
+  type SearchAdminHealthDto,
+  type SearchAdminNoResultQueryDto,
+} from './search/search-admin.dto';
+export {
   aiChunkKindSchema,
   aiChunkKinds,
   aiEmbeddingDimension,

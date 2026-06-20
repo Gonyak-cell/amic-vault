@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requestTenantSearchReindex } from './search-admin';
+import { getSearchAdminHealth, requestTenantSearchReindex } from './search-admin';
 import { apiFetch } from '../api-client';
 
 vi.mock('../api-client', () => ({
@@ -17,5 +17,11 @@ describe('search admin API client', () => {
     expect(String(vi.mocked(apiFetch).mock.calls[0]?.[1]?.body)).not.toMatch(
       /snippet|bodyText|raw|prompt|response/i,
     );
+  });
+
+  it('reads search health from the admin endpoint without posting search text', async () => {
+    await getSearchAdminHealth();
+
+    expect(apiFetch).toHaveBeenCalledWith('/admin/search/health');
   });
 });

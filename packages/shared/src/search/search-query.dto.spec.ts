@@ -4,6 +4,7 @@ import {
   searchFiltersSchema,
   searchQuerySchema,
 } from './search-query.dto';
+import { searchAdminHealthSchema } from './search-admin.dto';
 
 const matterId = '11111111-1111-4111-8111-111111111111';
 
@@ -102,6 +103,42 @@ describe('search query DTO', () => {
       createSavedSearchSchema.parse({
         name: '',
         query: { query: 'closing' },
+      }),
+    ).toThrow();
+  });
+});
+
+describe('search admin health DTO', () => {
+  it('accepts bounded operational search health without raw query or source fields', () => {
+    const parsed = searchAdminHealthSchema.parse({
+      currentVersionCount: 4,
+      indexedVersionCount: 3,
+      missingIndexCount: 1,
+      staleIndexCount: 1,
+      extractionReadyCount: 2,
+      extractionPendingCount: 1,
+      ocrPendingCount: 1,
+      extractionFailedCount: 0,
+      staleChunkCount: 2,
+      staleEmbeddingCount: 3,
+      queryAuditCount24h: 12,
+      noResultQueryCount24h: 2,
+      p95DurationMs24h: 240,
+      noResultQueries: [
+        {
+          category: 'keyword',
+          count: 2,
+          lastSeenAt: '2026-06-19T15:00:00.000Z',
+          queryHash: 'a'.repeat(64),
+        },
+      ],
+    });
+
+    expect(JSON.stringify(parsed)).not.toMatch(/raw|source|snippet|bodyText|prompt|response/i);
+    expect(() =>
+      searchAdminHealthSchema.parse({
+        ...parsed,
+        noResultQueries: [{ ...parsed.noResultQueries[0], queryHash: 'not-a-hash' }],
       }),
     ).toThrow();
   });

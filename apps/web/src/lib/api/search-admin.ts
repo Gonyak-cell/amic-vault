@@ -1,5 +1,6 @@
 'use client';
 
+import type { SearchAdminHealthDto } from '@amic-vault/shared';
 import { apiFetch } from '../api-client';
 
 export interface TenantSearchReindexResult {
@@ -14,4 +15,8 @@ export function requestTenantSearchReindex(): Promise<TenantSearchReindexResult>
     method: 'POST',
     body: JSON.stringify({ scopeType: 'tenant' }),
   });
+}
+
+export function getSearchAdminHealth(): Promise<SearchAdminHealthDto> {
+  return apiFetch<SearchAdminHealthDto>('/admin/search/health');
 }

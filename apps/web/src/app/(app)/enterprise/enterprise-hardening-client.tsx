@@ -23,6 +23,7 @@ import type {
   EnterpriseSsoProviderListResponseDto,
   LocalAiOpsHealthDto,
   LocalAiOpsMetricsDto,
+  SearchAdminHealthDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +48,7 @@ import {
   listEnterpriseSsoProviders,
 } from '@/lib/api/enterprise';
 import {
+  getSearchAdminHealth,
   requestTenantSearchReindex,
   type TenantSearchReindexResult,
 } from '@/lib/api/search-admin';
@@ -85,6 +87,24 @@ const enterpriseCopy: Record<
     refinersMeta: string;
     searchOps: string;
     searchOpsMeta: string;
+    searchHealth: string;
+    searchHealthMeta: string;
+    currentVersions: string;
+    indexedVersions: string;
+    missingIndex: string;
+    staleIndex: string;
+    extractionReady: string;
+    extractionPending: string;
+    ocrPending: string;
+    extractionFailed: string;
+    staleChunks: string;
+    staleEmbeddings: string;
+    queryAudit24h: string;
+    noResultQueries24h: string;
+    p95SearchDuration: string;
+    noResultRefs: string;
+    queryHash: string;
+    category: string;
     reindexTenant: string;
     reindexBusy: string;
     reindexAudit: string;
@@ -164,6 +184,24 @@ const enterpriseCopy: Record<
     refinersMeta: '검색 가능한 메타데이터 필드',
     searchOps: '검색 인덱스 운영',
     searchOpsMeta: '재색인 요청 및 감사 기록',
+    searchHealth: '검색 헬스',
+    searchHealthMeta: '인덱스, 추출/OCR, 검색 감사 집계',
+    currentVersions: '현재 버전',
+    indexedVersions: '색인됨',
+    missingIndex: '인덱스 누락',
+    staleIndex: '인덱스 재처리 필요',
+    extractionReady: '본문 검색 가능',
+    extractionPending: '추출 대기',
+    ocrPending: 'OCR 대기',
+    extractionFailed: '추출 실패',
+    staleChunks: '재생성 필요 청크',
+    staleEmbeddings: '재생성 필요 임베딩',
+    queryAudit24h: '24시간 검색',
+    noResultQueries24h: '24시간 무결과',
+    p95SearchDuration: '검색 P95',
+    noResultRefs: '무결과 해시 참조',
+    queryHash: '해시 참조',
+    category: '분류',
     reindexTenant: '전체 재색인 요청',
     reindexBusy: '요청 중',
     reindexAudit: '감사 기록 대상',
@@ -242,6 +280,24 @@ const enterpriseCopy: Record<
     refinersMeta: 'Queryable metadata fields',
     searchOps: 'Search index operations',
     searchOpsMeta: 'Reindex request and audit trail',
+    searchHealth: 'Search health',
+    searchHealthMeta: 'Index, extraction/OCR, and search audit aggregates',
+    currentVersions: 'Current versions',
+    indexedVersions: 'Indexed',
+    missingIndex: 'Missing index',
+    staleIndex: 'Needs reindex',
+    extractionReady: 'Body searchable',
+    extractionPending: 'Extraction pending',
+    ocrPending: 'OCR pending',
+    extractionFailed: 'Extraction failed',
+    staleChunks: 'Stale chunks',
+    staleEmbeddings: 'Stale embeddings',
+    queryAudit24h: '24h searches',
+    noResultQueries24h: '24h no results',
+    p95SearchDuration: 'Search P95',
+    noResultRefs: 'No-result hash refs',
+    queryHash: 'Hash ref',
+    category: 'Category',
     reindexTenant: 'Request tenant reindex',
     reindexBusy: 'Requesting',
     reindexAudit: 'Audited operation',
@@ -307,6 +363,7 @@ export function EnterpriseHardeningClient() {
   const [readiness, setReadiness] = useState<EnterpriseReadinessSummaryDto | null>(null);
   const [aiOpsHealth, setAiOpsHealth] = useState<LocalAiOpsHealthDto | null>(null);
   const [aiOpsMetrics, setAiOpsMetrics] = useState<LocalAiOpsMetricsDto | null>(null);
+  const [searchHealth, setSearchHealth] = useState<SearchAdminHealthDto | null>(null);
   const [reindexResult, setReindexResult] = useState<TenantSearchReindexResult | null>(null);
   const [reindexError, setReindexError] = useState<string | null>(null);
   const [reindexBusy, setReindexBusy] = useState(false);
@@ -336,6 +393,7 @@ export function EnterpriseHardeningClient() {
       nextReadiness,
       nextAiOpsHealth,
       nextAiOpsMetrics,
+      nextSearchHealth,
     ] = await Promise.all([
         run(() => listEnterpriseSsoProviders()),
         run(() => listEnterpriseKeyReferences()),
@@ -345,6 +403,7 @@ export function EnterpriseHardeningClient() {
         run(() => getEnterpriseReadiness()),
         run(() => getLocalAiOpsHealth()),
         run(() => getLocalAiOpsMetrics()),
+        run(() => getSearchAdminHealth()),
       ]);
     if (nextProviders) setProviders(nextProviders);
     if (nextKeys) setKeys(nextKeys);
@@ -354,6 +413,7 @@ export function EnterpriseHardeningClient() {
     if (nextReadiness) setReadiness(nextReadiness);
     if (nextAiOpsHealth) setAiOpsHealth(nextAiOpsHealth);
     if (nextAiOpsMetrics) setAiOpsMetrics(nextAiOpsMetrics);
+    if (nextSearchHealth) setSearchHealth(nextSearchHealth);
   }
 
   async function requestReindex() {
@@ -387,6 +447,7 @@ export function EnterpriseHardeningClient() {
         busy={reindexBusy}
         copy={copy}
         error={reindexError}
+        health={searchHealth}
         onRequest={() => void requestReindex()}
         result={reindexResult}
       />
@@ -594,12 +655,14 @@ function AdminSearchOperationsPanel({
   busy,
   copy,
   error,
+  health,
   onRequest,
   result,
 }: {
   busy: boolean;
   copy: (typeof enterpriseCopy)[Language];
   error: string | null;
+  health: SearchAdminHealthDto | null;
   onRequest: () => void;
   result: TenantSearchReindexResult | null;
 }) {
@@ -637,6 +700,55 @@ function AdminSearchOperationsPanel({
           <RefreshCw className="h-4 w-4" />
           {busy ? copy.reindexBusy : copy.reindexTenant}
         </Button>
+      </div>
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="rounded-md border bg-background p-3">
+          <h3 className="text-sm font-semibold tracking-normal">{copy.searchHealth}</h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy.searchHealthMeta}</p>
+          {health ? (
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              <Value label={copy.currentVersions} value={`${health.currentVersionCount} ${copy.count}`} />
+              <Value label={copy.indexedVersions} value={`${health.indexedVersionCount} ${copy.count}`} />
+              <Value label={copy.missingIndex} value={`${health.missingIndexCount} ${copy.count}`} />
+              <Value label={copy.staleIndex} value={`${health.staleIndexCount} ${copy.count}`} />
+              <Value label={copy.extractionReady} value={`${health.extractionReadyCount} ${copy.count}`} />
+              <Value label={copy.extractionPending} value={`${health.extractionPendingCount} ${copy.count}`} />
+              <Value label={copy.ocrPending} value={`${health.ocrPendingCount} ${copy.count}`} />
+              <Value label={copy.extractionFailed} value={`${health.extractionFailedCount} ${copy.count}`} />
+              <Value label={copy.staleChunks} value={`${health.staleChunkCount} ${copy.count}`} />
+              <Value label={copy.staleEmbeddings} value={`${health.staleEmbeddingCount} ${copy.count}`} />
+              <Value label={copy.queryAudit24h} value={`${health.queryAuditCount24h} ${copy.count}`} />
+              <Value label={copy.noResultQueries24h} value={`${health.noResultQueryCount24h} ${copy.count}`} />
+              <Value label={copy.p95SearchDuration} value={formatLatency(copy, health.p95DurationMs24h)} />
+            </dl>
+          ) : (
+            <Unavailable copy={copy} />
+          )}
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <h3 className="text-sm font-semibold tracking-normal">{copy.noResultRefs}</h3>
+          {health?.noResultQueries.length ? (
+            <DataTable caption={copy.noResultRefs} minWidthClassName="min-w-[420px]">
+              <DataTableBody>
+                {health.noResultQueries.map((item) => (
+                  <DataTableRow key={`${item.queryHash}-${item.category}`}>
+                    <DataTableCell className="font-medium">{item.category}</DataTableCell>
+                    <DataTableCell className="font-mono text-xs text-muted-foreground">
+                      {item.queryHash.slice(0, 12)}
+                    </DataTableCell>
+                    <DataTableCell className="text-muted-foreground">
+                      {item.count} {copy.count}
+                    </DataTableCell>
+                  </DataTableRow>
+                ))}
+              </DataTableBody>
+            </DataTable>
+          ) : health ? (
+            <EmptyState variant="no-data" title={copy.noRecords} />
+          ) : (
+            <Unavailable copy={copy} />
+          )}
+        </div>
       </div>
     </SectionCard>
   );
