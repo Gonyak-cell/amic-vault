@@ -8,22 +8,25 @@ import { WorkService } from './work.service';
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
 const actorUserId = '11111111-1111-4111-8111-111111111102';
 
-function createService(rowsFor: (sql: string) => unknown[]) {
+function createService(rowsFor: (sql: string, params: unknown[] | undefined) => unknown[]) {
   const queries: string[] = [];
+  const queryParams: Array<unknown[] | undefined> = [];
   const auditService = {
     async transaction<T>(_tenantId: string, run: (client: { query: typeof query }) => Promise<T>) {
       return run({ query });
     },
   };
 
-  async function query(sql: string) {
+  async function query(sql: string, params?: unknown[]) {
     queries.push(sql);
-    return { rows: rowsFor(sql), rowCount: null };
+    queryParams.push(params);
+    return { rows: rowsFor(sql, params), rowCount: null };
   }
 
   const context = new TenantContextService();
   return {
     context,
+    queryParams,
     queries,
     service: new WorkService(
       auditService as never,
@@ -41,6 +44,7 @@ describe('WorkService', () => {
         return [
           {
             work_item_id: '11111111-1111-4111-8111-1111111111aa',
+            source: 'records',
             kind: 'records_disposal_approval',
             status: 'open',
             due_at: new Date('2026-06-24T00:00:00.000Z'),
@@ -48,6 +52,10 @@ describe('WorkService', () => {
             matter_label: 'AMIC-2026-0001 · Governance',
             disposal_status: 'requested',
             reason_code: 'CLIENT_RECORDS',
+            document_title: null,
+            document_status: null,
+            document_type: null,
+            extraction_status: null,
           },
         ];
       }
@@ -73,8 +81,58 @@ describe('WorkService', () => {
       ],
     });
     expect(queries.some((sql) => sql.includes('FROM matter_members mm'))).toBe(true);
+    expect(queries.some((sql) => sql.includes('INSERT INTO work_items'))).toBe(true);
     expect(JSON.stringify(response)).not.toMatch(
       /workItemId|documentId|matterId|targetId|11111111-1111-4111-8111-1111111111aa/u,
+    );
+  });
+
+  it('materializes and lists real document operational work items for assigned users', async () => {
+    const { context, queries, queryParams, service } = createService((sql) => {
+      if (sql.includes('FROM users')) return [{ role: 'matter_member', status: 'active' }];
+      if (sql.includes('FROM work_items wi')) {
+        return [
+          {
+            work_item_id: '11111111-1111-4111-8111-1111111111bb',
+            source: 'operational_data',
+            kind: 'document_extraction_failed',
+            status: 'open',
+            due_at: new Date('2026-06-22T00:00:00.000Z'),
+            updated_at: new Date('2026-06-20T00:00:00.000Z'),
+            matter_label: 'AMIC-2026-0002 · Evidence',
+            disposal_status: null,
+            reason_code: null,
+            document_title: '계약 증거 파일',
+            document_status: 'draft',
+            document_type: 'contract',
+            extraction_status: 'failed',
+          },
+        ];
+      }
+      return [];
+    });
+
+    const response = await context.run(
+      { tenantId, slug: 'amic', status: 'active', source: 'session' },
+      () => service.listWorkItems(actorUserId, new Date('2026-06-21T00:00:00.000Z')),
+    );
+
+    expect(response.items).toEqual([
+      expect.objectContaining({
+        source: 'operational_data',
+        sourceLabel: '문서 운영',
+        title: '추출 실패 확인',
+        description: 'AMIC-2026-0002 · Evidence · 계약 증거 파일 · 추출 실패',
+        href: '/files?extractionStatus=failed',
+        tone: 'blocked',
+        status: 'open',
+      }),
+    ]);
+    expect(queries.some((sql) => sql.includes('canonical_documents'))).toBe(true);
+    expect(queries.some((sql) => sql.includes("source = 'operational_data'"))).toBe(true);
+    expect(queryParams.some((params) => params?.includes(false))).toBe(true);
+    expect(JSON.stringify(response)).not.toMatch(
+      /workItemId|documentId|matterId|targetId|11111111-1111-4111-8111-1111111111bb/u,
     );
   });
 
