@@ -5,6 +5,8 @@ import type { MatterDto } from '@amic-vault/shared';
 import { MatterFileSection } from './matter-file-section';
 
 vi.mock('@/lib/api-client', () => ({
+  addDocumentVersion: vi.fn(),
+  createUploadPreflight: vi.fn(),
   listMatterDocuments: vi.fn(),
   uploadDocument: vi.fn(),
 }));
