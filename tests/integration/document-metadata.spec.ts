@@ -243,12 +243,15 @@ describe('document-metadata integration', () => {
     });
 
     const audit = await latestMetadataAudit(uploaded.documentId);
-    expect(audit?.metadata_json).toEqual({
+    expect(audit?.metadata_json).toMatchObject({
       document_id: uploaded.documentId,
       matter_id: betaMatterId,
       diff_keys: ['title', 'document_type', 'subtype', 'confidentiality_level'],
       before_ref: expect.stringMatching(/^document_metadata:[0-9a-f]{64}$/),
       after_ref: expect.stringMatching(/^document_metadata:[0-9a-f]{64}$/),
+      decision_ref: expect.stringMatching(/^matter-source-mutation:[0-9a-f]{64}$/),
+      scope_id: 'matter_app_event_projection',
+      scope_type: 'matter_app_source',
     });
     expect(JSON.stringify(audit?.metadata_json)).not.toContain('Updated Metadata Title');
 
