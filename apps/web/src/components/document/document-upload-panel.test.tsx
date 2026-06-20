@@ -33,6 +33,7 @@ const selectedMatter: MatterCodeOption = {
   matterReference: '11111111-1111-4111-8111-111111111122',
   matterCode: 'AMIC-2026-0001',
   matterName: 'Investment Advisory',
+  clientDisplayName: null,
   practiceGroup: 'Finance',
   sourceMode: 'matter_app_api',
   status: 'active',

@@ -136,6 +136,11 @@ const requiredPatterns = [
       /upload refresh key[\s\S]*DocumentVaultList[\s\S]*MatterDocumentList[\s\S]*successful Matter-scoped upload[\s\S]*re-queries both the all-documents vault and the selected Matter file list/is,
   },
   {
+    label: 'DMS Matter Code picker contract evidence',
+    pattern:
+      /DMS Matter Code picker contract guard[\s\S]*Matter Code\/name\/client[\s\S]*UUID-shaped Vault internal reference rejection[\s\S]*no denied-label\/count leakage/is,
+  },
+  {
     label: 'DMS Matter row action evidence',
     pattern:
       /DMS Matter row action guard[\s\S]*Matter Code filtered file cabinet[\s\S]*Matter Code filtered search[\s\S]*without fake counts or raw Matter refs/is,

@@ -24,7 +24,7 @@ const matter = {
   closedAt: null,
   leadLawyerId: null,
   practiceGroup: 'Finance',
-  metadata: {},
+  metadata: { clientDisplayName: 'AMIC Client' },
   legalHold: false,
   createdBy: '11111111-1111-4111-8111-111111111101',
   createdAt: '2026-06-18T00:00:00.000Z',
@@ -56,7 +56,7 @@ describe('MatterCodePicker', () => {
       />,
     );
 
-    expect(html).toContain('Matter Code 또는 이름 검색');
+    expect(html).toContain('Matter Code, 이름 또는 고객 검색');
     expect(html).toContain('value="AMIC-2026-0001"');
     expect(html).toContain('로컬 Matter 목록');
     expect(html).toContain('운영 업로드 source로 사용하지 않습니다.');
@@ -69,6 +69,7 @@ describe('MatterCodePicker', () => {
       expect.objectContaining({
         matterCode: 'AMIC-2026-0001',
         matterName: 'Investment Advisory',
+        clientDisplayName: 'AMIC Client',
         practiceGroup: 'Finance',
         sourceMode: 'matter_app_api',
       }),
@@ -85,5 +86,21 @@ describe('MatterCodePicker', () => {
 
     expect(findMatterCodeOption(options, ' amic-2026-0001 ')).toEqual(option);
     expect(findMatterCodeOption(options, matter.matterId)).toBeNull();
+  });
+
+  it('rejects URL-provided Vault internal references from the picker UI', () => {
+    const html = renderToStaticMarkup(
+      <MatterCodePicker
+        initialMatterCode={matter.matterId}
+        selectedMatter={null}
+        onMatterSelected={() => undefined}
+        sourceMode="vault_projection_only"
+      />,
+    );
+
+    expect(html).toContain('Matter Code 또는 이름으로 검색해 주세요.');
+    expect(html).toContain('Vault 내부 참조를 사용할 수 없습니다.');
+    expect(html).not.toContain(`value="${matter.matterId}"`);
+    expect(html).not.toContain(matter.matterId);
   });
 });

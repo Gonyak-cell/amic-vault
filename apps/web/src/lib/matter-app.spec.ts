@@ -5,6 +5,7 @@ import {
   isMatterAppSourceAvailable,
   isMatterAppSourceConfigured,
   isMatterUploadSourceMode,
+  isVaultInternalReferenceLike,
   matterAppSourceDescriptions,
   matterAppSourceLabels,
   matterAppSourceMode,
@@ -24,7 +25,7 @@ const matter = {
   closedAt: null,
   leadLawyerId: null,
   practiceGroup: 'Finance',
-  metadata: {},
+  metadata: { clientDisplayName: 'AMIC Client' },
   legalHold: false,
   createdBy: '11111111-1111-4111-8111-111111111101',
   createdAt: '2026-06-18T00:00:00.000Z',
@@ -130,9 +131,19 @@ describe('matter app source contract helpers', () => {
       matterReference: matter.matterId,
       matterCode: 'AMIC-2026-0001',
       matterName: 'Investment Advisory',
+      clientDisplayName: 'AMIC Client',
       practiceGroup: 'Finance',
     });
     expect(filterMatterCodeOptions([option], 'finance')).toHaveLength(1);
+    expect(filterMatterCodeOptions([option], 'amic client')).toHaveLength(1);
     expect(filterMatterCodeOptions([option], 'litigation')).toHaveLength(0);
+  });
+
+  it('rejects Vault internal references as normal Matter Code picker queries', () => {
+    const option = toMatterCodeOption(matter, 'matter_app_event_projection');
+
+    expect(isVaultInternalReferenceLike(matter.matterId)).toBe(true);
+    expect(isVaultInternalReferenceLike(matter.matterCode)).toBe(false);
+    expect(filterMatterCodeOptions([option], matter.matterId)).toHaveLength(0);
   });
 });

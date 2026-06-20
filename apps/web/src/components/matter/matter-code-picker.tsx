@@ -7,6 +7,7 @@ import { listMatters } from '@/lib/api-client';
 import {
   filterMatterCodeOptions,
   isMatterAppSourceAvailable,
+  isVaultInternalReferenceLike,
   matterAppSourceDescriptions,
   matterAppSourceLabels,
   matterAppSourceMode,
@@ -39,8 +40,14 @@ export function MatterCodePicker({
   sourceMode,
 }: MatterCodePickerProps) {
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
-  const initialMatterCodeValue = initialMatterCode?.trim() ?? '';
+  const rawInitialMatterCodeValue = initialMatterCode?.trim() ?? '';
+  const initialMatterCodeValue = isVaultInternalReferenceLike(rawInitialMatterCodeValue)
+    ? ''
+    : rawInitialMatterCodeValue;
   const [query, setQuery] = React.useState(initialMatterCodeValue);
+  const [rejectedInternalReference, setRejectedInternalReference] = React.useState(
+    isVaultInternalReferenceLike(rawInitialMatterCodeValue),
+  );
   const [options, setOptions] = React.useState<MatterCodeOption[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [hasLoadError, setHasLoadError] = React.useState(false);
@@ -48,10 +55,21 @@ export function MatterCodePicker({
   const sourceAvailable = isMatterAppSourceAvailable(resolvedSourceMode);
 
   React.useEffect(() => {
-    if (!initialMatterCodeValue) return;
+    if (isVaultInternalReferenceLike(rawInitialMatterCodeValue)) {
+      setQuery('');
+      setRejectedInternalReference(true);
+      appliedInitialMatterCodeRef.current = '';
+      onMatterSelected(null);
+      return;
+    }
+    if (!rawInitialMatterCodeValue) {
+      setRejectedInternalReference(false);
+      return;
+    }
+    setRejectedInternalReference(false);
     setQuery(initialMatterCodeValue);
     appliedInitialMatterCodeRef.current = '';
-  }, [initialMatterCodeValue]);
+  }, [initialMatterCodeValue, onMatterSelected, rawInitialMatterCodeValue]);
 
   React.useEffect(() => {
     if (!sourceAvailable) return;
@@ -99,6 +117,17 @@ export function MatterCodePicker({
 
   const filteredOptions = filterMatterCodeOptions(options, query).slice(0, 12);
   const sourceLabel = matterAppSourceLabels[resolvedSourceMode];
+  const handleQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextQuery = event.target.value;
+    if (isVaultInternalReferenceLike(nextQuery)) {
+      setQuery('');
+      setRejectedInternalReference(true);
+      onMatterSelected(null);
+      return;
+    }
+    setRejectedInternalReference(false);
+    setQuery(nextQuery);
+  };
 
   return (
     <div className="space-y-3">
@@ -113,8 +142,8 @@ export function MatterCodePicker({
             <Input
               className="pl-9"
               value={query}
-              placeholder="Matter Code 또는 이름 검색"
-              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Matter Code, 이름 또는 고객 검색"
+              onChange={handleQueryChange}
             />
           </span>
         </label>
@@ -123,6 +152,14 @@ export function MatterCodePicker({
       <p className="text-xs leading-5 text-muted-foreground">
         {matterAppSourceDescriptions[resolvedSourceMode]}
       </p>
+
+      {rejectedInternalReference ? (
+        <EmptyState
+          variant="no-data"
+          title="Matter Code 또는 이름으로 검색해 주세요."
+          description="일반 문서 작업에서는 Vault 내부 참조를 사용할 수 없습니다."
+        />
+      ) : null}
 
       {hasLoadError ? (
         <EmptyState
@@ -139,10 +176,13 @@ export function MatterCodePicker({
         </div>
       ) : null}
 
-      {!isLoading && !hasLoadError ? (
+      {!isLoading && !hasLoadError && !rejectedInternalReference ? (
         <div className="grid gap-2" role="listbox" aria-label="Matter Code 선택">
           {filteredOptions.map((option) => {
             const isSelected = selectedMatter?.matterReference === option.matterReference;
+            const secondaryLabel = [option.matterName, option.clientDisplayName]
+              .filter(Boolean)
+              .join(' · ');
             return (
               <button
                 className={cn(
@@ -160,7 +200,7 @@ export function MatterCodePicker({
                     {option.matterCode}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {option.matterName}
+                    {secondaryLabel}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
@@ -189,6 +229,7 @@ export function findMatterCodeOption(
 ): MatterCodeOption | null {
   const normalizedMatterCode = matterCode.trim().toLocaleLowerCase();
   if (!normalizedMatterCode) return null;
+  if (isVaultInternalReferenceLike(normalizedMatterCode)) return null;
   return (
     options.find((option) => option.matterCode.toLocaleLowerCase() === normalizedMatterCode) ?? null
   );
