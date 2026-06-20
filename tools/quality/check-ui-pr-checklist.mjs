@@ -141,9 +141,9 @@ const requiredPatterns = [
       /new-version upload[\s\S]*version list[\s\S]*document-scoped audit timeline[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,
   },
   {
-    label: 'DMS related document evidence',
+    label: 'DMS related item evidence',
     pattern:
-      /DMS related document guard[\s\S]*permission-scoped matter document list API[\s\S]*current-document exclusion[\s\S]*no visible raw Matter reference/is,
+      /DMS related item guard[\s\S]*permission-scoped matter document list API[\s\S]*permission-scoped Matter email timeline API[\s\S]*current-document filtering[\s\S]*no visible raw Matter\/email reference/is,
   },
   {
     label: 'PR-F hold criteria',

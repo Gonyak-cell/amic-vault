@@ -1,9 +1,15 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { DocumentAuditEventDto, DocumentDto, DocumentVersionDto } from '@amic-vault/shared';
+import type {
+  DocumentAuditEventDto,
+  DocumentDto,
+  DocumentVersionDto,
+  EmailMatterFilingDto,
+} from '@amic-vault/shared';
 import {
   DocumentActionCenter,
+  relatedMatterEmails,
   relatedMatterDocuments,
   searchHitContextFromParams,
   versionUploadStatusMessage,
@@ -81,6 +87,53 @@ const relatedDocuments = [
   },
 ] satisfies DocumentDto[];
 
+const relatedEmails = [
+  {
+    filingId: '11111111-1111-4111-8111-111111112001',
+    tenantId: document.tenantId,
+    emailId: '11111111-1111-4111-8111-111111112101',
+    matterId: document.matterId,
+    subject: 'Closing checklist follow-up',
+    sentAt: '2026-06-18T02:10:00.000Z',
+    hasOutsideParticipants: true,
+    warningCodes: ['outside_participant'],
+    privilegeTagSuggestion: {
+      tag: 'attorney_client_privilege',
+      reasonCodes: ['subject_keyword'],
+      requiresUserConfirmation: true,
+    },
+    thread: {
+      rootMessageHash: 'root-message-hash',
+      directReferenceCount: 1,
+      relatedEmailCount: 3,
+      referenceHashes: ['reference-message-hash'],
+    },
+    documentIds: [document.documentId, '11111111-1111-4111-8111-111111111202'],
+    filedBy: '11111111-1111-4111-8111-111111112201',
+    filedAt: '2026-06-18T02:20:00.000Z',
+  },
+  {
+    filingId: '11111111-1111-4111-8111-111111112002',
+    tenantId: document.tenantId,
+    emailId: '11111111-1111-4111-8111-111111112102',
+    matterId: document.matterId,
+    subject: 'Unrelated matter filing',
+    sentAt: '2026-06-18T02:30:00.000Z',
+    hasOutsideParticipants: false,
+    warningCodes: [],
+    privilegeTagSuggestion: null,
+    thread: {
+      rootMessageHash: 'other-root-message-hash',
+      directReferenceCount: 0,
+      relatedEmailCount: 1,
+      referenceHashes: [],
+    },
+    documentIds: ['11111111-1111-4111-8111-111111111299'],
+    filedBy: '11111111-1111-4111-8111-111111112202',
+    filedAt: '2026-06-18T02:40:00.000Z',
+  },
+] satisfies EmailMatterFilingDto[];
+
 const auditEvents = [
   {
     eventId: '11111111-1111-4111-8111-111111111701',
@@ -107,12 +160,15 @@ describe('DocumentActionCenter', () => {
     if (!currentVersion) throw new Error('missing current version fixture');
     const currentAuditEvent = auditEvents[0];
     if (!currentAuditEvent) throw new Error('missing audit event fixture');
+    const currentRelatedEmail = relatedEmails[0];
+    if (!currentRelatedEmail) throw new Error('missing related email fixture');
     const html = renderToStaticMarkup(
       <DocumentActionCenter
         disableInitialLoad
         documentId={document.documentId}
         initialAuditEvents={auditEvents}
         initialDocument={document}
+        initialRelatedEmails={relatedEmails}
         initialRelatedDocuments={relatedDocuments}
         initialVersions={versions}
       />,
@@ -140,6 +196,13 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('Due Diligence Memo');
     expect(html).toContain('동일 Matter에서 권한이 확인된 문서');
     expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111202"');
+    expect(html).toContain('관련 이메일');
+    expect(html).toContain('Closing checklist follow-up');
+    expect(html).toContain('문서 2건');
+    expect(html).toContain('관련 이메일 3건');
+    expect(html).toContain('외부 참여자');
+    expect(html).toContain('비밀특권 후보');
+    expect(html).not.toContain('Unrelated matter filing');
     expect(html).toContain('삭제 금지');
     expect(html).toContain('보관 처리');
     expect(html).toContain('삭제 요청');
@@ -157,6 +220,10 @@ describe('DocumentActionCenter', () => {
     expect(html).not.toContain(currentVersion.fileHash);
     expect(html).not.toContain(currentAuditEvent.eventId);
     expect(html).not.toContain(currentAuditEvent.actorId);
+    expect(html).not.toContain(currentRelatedEmail.filingId);
+    expect(html).not.toContain(currentRelatedEmail.emailId);
+    expect(html).not.toContain(currentRelatedEmail.filedBy);
+    expect(html).not.toContain('root-message-hash');
   });
 
   it('renders a bounded empty state before document data is available', () => {
@@ -175,6 +242,13 @@ describe('DocumentActionCenter', () => {
       'Due Diligence Memo',
     ]);
     expect(relatedMatterDocuments(relatedDocuments, document.documentId, 1)).toHaveLength(1);
+  });
+
+  it('derives related Matter emails only when the filing includes the current document', () => {
+    expect(relatedMatterEmails(relatedEmails, document.documentId).map((item) => item.subject)).toEqual([
+      'Closing checklist follow-up',
+    ]);
+    expect(relatedMatterEmails(relatedEmails, document.documentId, 0)).toHaveLength(0);
   });
 
   it('renders search hit context without carrying raw snippets into the document route', () => {

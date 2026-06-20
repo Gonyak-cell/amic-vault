@@ -425,8 +425,12 @@ PR-B implementation note:
 - Related Matter documents are now shown in the document action center through
   the existing permission-scoped `listMatterDocuments` API, excluding the
   current document and displaying only safe document titles, status, type, and
-  updated time. Email, attachment, and duplicate-specific related-item APIs
-  remain deferred until their contracts are approved.
+  updated time. Related emails are also shown through the existing
+  permission-scoped Matter email timeline API when the filing references the
+  current document, displaying only safe subject, filing time, counts, outside
+  participant, and privilege-candidate labels. Attachment and
+  duplicate-specific related-item APIs remain deferred until their contracts are
+  approved.
 
 ### PR-C Enterprise Search
 

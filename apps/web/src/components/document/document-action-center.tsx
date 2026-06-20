@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -13,6 +14,7 @@ import {
   FileText,
   History,
   Link2,
+  Mail,
   Pencil,
   RefreshCw,
   Save,
@@ -30,6 +32,7 @@ import type {
   DocumentDto,
   DocumentType,
   DocumentVersionDto,
+  EmailMatterFilingDto,
   SearchTarget,
 } from '@amic-vault/shared';
 import {
@@ -64,6 +67,7 @@ import {
   documentPreviewUrl,
   getDocument,
   listDocumentVersions,
+  listMatterEmailTimeline,
   listMatterDocuments,
   updateDocumentMetadata,
 } from '@/lib/api-client';
@@ -75,6 +79,7 @@ interface DocumentActionCenterProps {
   disableInitialLoad?: boolean;
   initialAuditEvents?: DocumentAuditEventDto[];
   initialDocument?: DocumentDto;
+  initialRelatedEmails?: EmailMatterFilingDto[];
   initialRelatedDocuments?: DocumentDto[];
   initialVersions?: DocumentVersionDto[];
   searchHitContext?: DocumentSearchHitContext | null;
@@ -176,6 +181,16 @@ export function relatedMatterDocuments(
 ): DocumentDto[] {
   return documents
     .filter((document) => document.documentId !== currentDocumentId)
+    .slice(0, limit);
+}
+
+export function relatedMatterEmails(
+  emails: readonly EmailMatterFilingDto[],
+  currentDocumentId: string,
+  limit = 5,
+): EmailMatterFilingDto[] {
+  return emails
+    .filter((email) => email.documentIds.includes(currentDocumentId))
     .slice(0, limit);
 }
 
@@ -418,6 +433,81 @@ function RelatedDocumentsPanel({
   );
 }
 
+function RelatedEmailsPanel({
+  emails,
+  errorMessage,
+  isLoading,
+}: {
+  emails: EmailMatterFilingDto[];
+  errorMessage: string | null;
+  isLoading: boolean;
+}) {
+  return (
+    <SectionCard
+      icon={<Mail className="h-4 w-4" />}
+      title="관련 이메일"
+      meta="Matter 이메일 타임라인"
+      actions={
+        <StatusBadge tone={isLoading ? 'warning' : 'neutral'}>
+          {isLoading ? '확인 중' : `${emails.length}건`}
+        </StatusBadge>
+      }
+    >
+      {errorMessage ? (
+        <EmptyState
+          variant="api-error"
+          title="관련 이메일을 표시할 수 없습니다."
+          description={errorMessage}
+        />
+      ) : null}
+
+      {!errorMessage && isLoading ? (
+        <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+          현재 문서와 연결된 Matter 이메일을 확인하는 중입니다.
+        </div>
+      ) : null}
+
+      {!errorMessage && !isLoading && emails.length === 0 ? (
+        <EmptyState
+          variant="no-data"
+          title="관련 이메일이 없습니다."
+          description="현재 문서에 연결된 Matter 이메일이 없습니다."
+        />
+      ) : null}
+
+      {!errorMessage && !isLoading && emails.length > 0 ? (
+        <ul className="divide-y rounded-md border bg-background">
+          {emails.map((email) => (
+            <li key={email.filingId} className="px-3 py-2.5">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {email.subject ?? '표시 가능한 제목 없음'}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>보관 {formatDateTime(email.filedAt)}</span>
+                <span>문서 {email.documentIds.length}건</span>
+                <span>관련 이메일 {email.thread.relatedEmailCount}건</span>
+                {email.hasOutsideParticipants ? (
+                  <StatusBadge tone="warning" className="min-h-6 gap-1 px-2">
+                    <AlertTriangle className="h-3 w-3" />
+                    외부 참여자
+                  </StatusBadge>
+                ) : null}
+                {email.privilegeTagSuggestion ? (
+                  <StatusBadge tone="success" className="min-h-6">
+                    {email.privilegeTagSuggestion.tag === 'attorney_client_privilege'
+                      ? '비밀특권 후보'
+                      : '기밀 후보'}
+                  </StatusBadge>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </SectionCard>
+  );
+}
+
 function uploadQueueItems(
   document: DocumentDto,
   prepStatus: AiPrepDocumentStatusDto | null,
@@ -468,6 +558,7 @@ export function DocumentActionCenter({
   documentId,
   initialAuditEvents = [],
   initialDocument,
+  initialRelatedEmails = [],
   initialRelatedDocuments = [],
   initialVersions = [],
   searchHitContext = null,
@@ -479,6 +570,11 @@ export function DocumentActionCenter({
   );
   const [relatedDocumentsLoading, setRelatedDocumentsLoading] = useState(false);
   const [relatedDocumentsError, setRelatedDocumentsError] = useState<string | null>(null);
+  const [relatedEmails, setRelatedEmails] = useState<EmailMatterFilingDto[]>(() =>
+    relatedMatterEmails(initialRelatedEmails, documentId),
+  );
+  const [relatedEmailsLoading, setRelatedEmailsLoading] = useState(false);
+  const [relatedEmailsError, setRelatedEmailsError] = useState<string | null>(null);
   const [prepStatus, setPrepStatus] = useState<AiPrepDocumentStatusDto | null>(null);
   const [loading, setLoading] = useState(!initialDocument);
   const [error, setError] = useState<string | null>(null);
@@ -563,6 +659,37 @@ export function DocumentActionCenter({
       })
       .finally(() => {
         if (active) setRelatedDocumentsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [disableInitialLoad, document]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    if (!document) {
+      setRelatedEmails([]);
+      setRelatedEmailsError(null);
+      setRelatedEmailsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setRelatedEmails([]);
+    setRelatedEmailsError(null);
+    setRelatedEmailsLoading(true);
+    listMatterEmailTimeline(document.matterId)
+      .then((response) => {
+        if (active) setRelatedEmails(relatedMatterEmails(response.items, document.documentId));
+      })
+      .catch((caught) => {
+        if (!active) return;
+        setRelatedEmails([]);
+        setRelatedEmailsError(safeApiErrorMessage(caught));
+      })
+      .finally(() => {
+        if (active) setRelatedEmailsLoading(false);
       });
 
     return () => {
@@ -829,6 +956,12 @@ export function DocumentActionCenter({
               documents={relatedDocuments}
               errorMessage={relatedDocumentsError}
               isLoading={relatedDocumentsLoading}
+            />
+
+            <RelatedEmailsPanel
+              emails={relatedEmails}
+              errorMessage={relatedEmailsError}
+              isLoading={relatedEmailsLoading}
             />
 
             <SectionCard
