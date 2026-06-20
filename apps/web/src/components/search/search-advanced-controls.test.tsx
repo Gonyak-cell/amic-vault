@@ -28,8 +28,10 @@ describe('SearchAdvancedControls', () => {
           documentType: 'contract',
           extractionStatus: 'ocr_pending',
           groupBy: 'matter',
+          legalHold: 'document_hold',
           matterCode: 'AMIC-2026-0007',
           matterName: 'Vault Upgrade',
+          recordsStatus: 'archived',
           sortBy: 'updated_desc',
           target: 'body',
           title: 'closing',
@@ -52,6 +54,10 @@ describe('SearchAdvancedControls', () => {
     expect(html).toContain('현재 버전');
     expect(html).toContain('추출/OCR');
     expect(html).toContain('OCR 필요');
+    expect(html).toContain('보존/삭제 금지');
+    expect(html).toContain('파일 삭제 금지');
+    expect(html).toContain('기록 상태');
+    expect(html).toContain('보관됨');
     expect(html).toContain('수정 기간');
     expect(html).toContain('최근 30일');
     expect(html).toContain('Matter Code');

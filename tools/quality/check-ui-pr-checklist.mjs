@@ -15,6 +15,9 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-ux-tuw-plan.md',
   'docs/ui/enterprise-dms-ux-route-capability-inventory.md',
   'docs/ui/enterprise-dms-release-hardening.md',
+  'docs/ui/enterprise-dms-pr-d-closeout.md',
+  'docs/ui/enterprise-dms-pr-e-closeout.md',
+  'docs/ui/enterprise-dms-pr-f-readiness.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
@@ -71,6 +74,51 @@ const requiredPatterns = [
     label: 'DMS release signoff evidence',
     pattern:
       /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner/is,
+  },
+  {
+    label: 'PR-D closeout evidence',
+    pattern:
+      /DMS-UX-527 PR-D Closeout[\s\S]*Effective Access[\s\S]*Ethical Wall[\s\S]*Records Context[\s\S]*RecordsActionContextPanel[\s\S]*Matter\/Document Activity Timeline[\s\S]*Action Inbox[\s\S]*Notification Center[\s\S]*Ops Health/is,
+  },
+  {
+    label: 'PR-D AI and external scope evidence',
+    pattern:
+      /AI Prep file organization only[\s\S]*External sharing gated[\s\S]*stale-content clearing/is,
+  },
+  {
+    label: 'PR-D deferred item evidence',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Unified persisted task DB\/API[\s\S]*Persisted notifications[\s\S]*Records disposal task API[\s\S]*User\/group picker APIs[\s\S]*Access request creation\/approval workflow/is,
+  },
+  {
+    label: 'PR-E closeout evidence',
+    pattern:
+      /DMS-UX-714 PR-E Closeout[\s\S]*Taxonomy Admin Contract[\s\S]*Matter Template Admin[\s\S]*Search Refiner Admin[\s\S]*Outlook Filing Unification[\s\S]*Office\/OneDrive Integration Plan[\s\S]*Integration Status Safety/is,
+  },
+  {
+    label: 'PR-E gated integration evidence',
+    pattern:
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/is,
+  },
+  {
+    label: 'PR-E deferred item evidence',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring/is,
+  },
+  {
+    label: 'PR-F readiness split evidence',
+    pattern:
+      /PR-F Readiness Evidence[\s\S]*DMS-UX-801[\s\S]*DMS-UX-802[\s\S]*DMS-UX-806[\s\S]*DMS-UX-807[\s\S]*Manual Receipt Requirements/is,
+  },
+  {
+    label: 'PR-F automated evidence matrix',
+    pattern:
+      /Automated Evidence Matrix[\s\S]*Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/is,
+  },
+  {
+    label: 'PR-F hold criteria',
+    pattern:
+      /Hold Criteria[\s\S]*approved staging\/production credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/is,
   },
 ];
 

@@ -334,6 +334,17 @@ describe('api client', () => {
     expect(documentPreviewUrl('doc-ref')).toBe(
       'http://localhost:3001/v1/documents/doc-ref/preview',
     );
+    expect(
+      documentPreviewUrl('doc-ref', {
+        searchHit: {
+          hitCount: 80,
+          hitIndex: 99,
+          target: 'body',
+        },
+      }),
+    ).toBe(
+      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=50&vault-preview-hit-count=50&vault-preview-target=body',
+    );
     expect(documentDownloadUrl('doc-ref', 'casework')).toBe(
       'http://localhost:3001/v1/documents/doc-ref/download?reasonCode=casework',
     );

@@ -31,6 +31,8 @@ describe('SearchSavePanel', () => {
           sortBy: 'updated_desc',
           groupBy: 'matter',
           extractionStatus: 'ocr_pending',
+          legalHold: 'document_hold',
+          recordsStatus: 'archived',
         }}
       />,
     );
@@ -42,6 +44,8 @@ describe('SearchSavePanel', () => {
     expect(html).toContain('본문');
     expect(html).toContain('최근 수정');
     expect(html).toContain('OCR 필요');
+    expect(html).toContain('파일 삭제 금지');
+    expect(html).toContain('보관됨');
     expect(html).toContain('저장 이름');
     expect(html).toContain('검색 목록');
     expect(html).toContain('계약서 본문 검색');
@@ -71,7 +75,9 @@ describe('SearchSavePanel', () => {
         dateRange: 'last_30_days',
         extractionStatus: 'failed',
         groupBy: 'client',
+        legalHold: 'matter_hold',
         matterName: 'Vault Upgrade',
+        recordsStatus: 'disposal_locked',
         sortBy: 'title_asc',
         target: 'title',
       }),
@@ -84,6 +90,8 @@ describe('SearchSavePanel', () => {
         { label: 'Matter 이름', value: 'Vault Upgrade' },
         { label: '고객명', value: 'AMIC' },
         { label: '추출/OCR', value: '추출 실패' },
+        { label: '보존', value: '사건 삭제 금지' },
+        { label: '기록', value: '처분 잠금' },
         { label: '수정 기간', value: '최근 30일' },
       ]),
     );

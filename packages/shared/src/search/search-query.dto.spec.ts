@@ -18,6 +18,8 @@ describe('search query DTO', () => {
           title: 'closing',
           documentType: ['contract', 'memo'],
           extractionStatus: 'ocr_pending',
+          legalHold: 'document_hold',
+          recordsStatus: 'archived',
           dateFrom: '2026-06-12T09:00:00+09:00',
           versionStatus: 'current',
         },
@@ -33,6 +35,8 @@ describe('search query DTO', () => {
         title: 'closing',
         documentType: ['contract', 'memo'],
         extractionStatus: 'ocr_pending',
+        legalHold: 'document_hold',
+        recordsStatus: 'archived',
         dateFrom: '2026-06-12T09:00:00+09:00',
         versionStatus: 'current',
       },
@@ -57,6 +61,8 @@ describe('search query DTO', () => {
     expect(() => searchFiltersSchema.parse({ matterId: 'not-a-uuid' })).toThrow();
     expect(() => searchFiltersSchema.parse({ documentType: 'MA' })).toThrow();
     expect(() => searchFiltersSchema.parse({ extractionStatus: 'unsearchable' })).toThrow();
+    expect(() => searchFiltersSchema.parse({ legalHold: 'hold-id-123' })).toThrow();
+    expect(() => searchFiltersSchema.parse({ recordsStatus: 'deleted' })).toThrow();
     expect(() => searchFiltersSchema.parse({ matterCode: '' })).toThrow();
     expect(() => searchFiltersSchema.parse({ clientName: 'x'.repeat(129) })).toThrow();
     expect(() => searchQuerySchema.parse({ query: 'closing', target: 'metadata' })).toThrow();
@@ -75,7 +81,7 @@ describe('search query DTO', () => {
         name: 'Closing searches',
         query: {
           query: 'closing',
-          filters: { matterCode: 'AMIC-2026' },
+          filters: { matterCode: 'AMIC-2026', legalHold: 'matter_hold' },
           target: 'body',
         },
       }),

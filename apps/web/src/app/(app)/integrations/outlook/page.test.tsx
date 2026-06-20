@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
 import IntegrationsPage from '../page';
+import MatterAppIntegrationPage from '../matter-app/page';
 import OutlookIntegrationPage from './page';
 import { OutlookIntegrationStatusContent } from './outlook-integration-status-client';
 
@@ -19,9 +20,20 @@ describe('integration status routes', () => {
           <OutlookIntegrationPage />
         </LanguageProvider>,
       ),
+      renderToStaticMarkup(
+        <LanguageProvider>
+          <MatterAppIntegrationPage />
+        </LanguageProvider>,
+      ),
     ].join('\n');
 
     expect(html).toContain('통합');
+    expect(html).toContain('Matter app');
+    expect(html).toContain('업로드 gate');
+    expect(html).toContain('Matter app 연결 상태');
+    expect(html).toContain('Matter Code source');
+    expect(html).toContain('업로드 차단');
+    expect(html).toContain('free-floating 업로드');
     expect(html).toContain('Outlook');
     expect(html).toContain('상태 API');
     expect(html).toContain('OneDrive');
@@ -34,6 +46,7 @@ describe('integration status routes', () => {
     expect(html).toContain('상태 API 응답 전에는 연결 여부나 배포 상태를 표시하지 않습니다.');
     expect(html).not.toContain('OneDrive 연결됨');
     expect(html).not.toContain('Microsoft 365 연결됨');
+    expect(html).not.toContain('11111111-1111-4111');
     expect(html).not.toMatch(/>0</);
   });
 

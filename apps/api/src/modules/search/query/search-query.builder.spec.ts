@@ -85,7 +85,9 @@ describe('SearchQueryBuilder', () => {
           clientId,
           clientName: 'AMIC',
           documentType: 'memo',
+          legalHold: 'document_hold',
           matterCode: 'AMIC-2026',
+          recordsStatus: 'archived',
           title: 'closing',
           versionStatus: 'all',
         },
@@ -102,11 +104,15 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain("'label', client_name");
     expect(built.sql).toContain("'label', safe_label");
     expect(built.sql).toContain("'extractionStatuses'");
+    expect(built.sql).toContain("'legalHolds'");
+    expect(built.sql).toContain("'recordsStatuses'");
     expect(built.sql).toContain('idx.client_id = $3');
     expect(built.sql).toContain('idx.title ILIKE $4');
     expect(built.sql).toContain('matter_filter.matter_code ILIKE $5');
     expect(built.sql).toContain('client_filter.name ILIKE $6');
     expect(built.sql).toContain('idx.document_type = ANY($7::text[])');
+    expect(built.sql).toContain('FROM documents document_hold_filter');
+    expect(built.sql).toContain('idx.document_status = $8');
     expect(built.sql).toContain('idx.title_tsv @@ tsq.query');
     expect(built.sql).not.toContain('idx.version_status =');
     expect(built.sql).not.toContain(query);
@@ -118,6 +124,7 @@ describe('SearchQueryBuilder', () => {
       '%AMIC-2026%',
       '%AMIC%',
       ['memo'],
+      'archived',
       query,
     ]);
   });
@@ -172,13 +179,16 @@ describe('SearchQueryBuilder', () => {
     );
 
     expect(built.sql).toContain(
-      'SELECT tenant_id, client_id, matter_id, document_type, extraction_status, version_status, updated_at',
+      'SELECT tenant_id, client_id, matter_id, document_type, extraction_status',
     );
+    expect(built.sql).toContain('legal_hold, records_status, version_status, updated_at');
     expect(built.sql).toContain('c.tenant_id = filtered.tenant_id');
     expect(built.sql).toContain('m.tenant_id = filtered.tenant_id');
     expect(built.sql).toContain("'label', client_name");
     expect(built.sql).toContain("'label', safe_label");
     expect(built.sql).toContain("'extractionStatuses'");
+    expect(built.sql).toContain("'legalHolds'");
+    expect(built.sql).toContain("'recordsStatuses'");
   });
 
   it('builds bounded AI context chunk candidates from the same vector CTE', () => {

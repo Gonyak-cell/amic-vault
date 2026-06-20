@@ -16,6 +16,7 @@ import type {
   MatterMemberDto,
   MatterMemberListDto,
   MatterListDto,
+  SearchTarget,
   UpdateDocumentMetadataDto,
   UpdateMatterMemberDto,
   UploadDocumentFieldsDto,
@@ -244,8 +245,37 @@ export function addDocumentVersion(
   );
 }
 
-export function documentPreviewUrl(documentId: string): string {
-  return `${apiBaseUrl()}/documents/${encodeURIComponent(documentId)}/preview`;
+interface DocumentPreviewUrlOptions {
+  searchHit?: {
+    hitCount: number;
+    hitIndex: number;
+    target: SearchTarget;
+  };
+}
+
+function boundedPreviewHit(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+
+function previewHitFragment(searchHit: DocumentPreviewUrlOptions['searchHit']): string {
+  if (!searchHit || searchHit.hitCount < 1) return '';
+  const hitCount = boundedPreviewHit(searchHit.hitCount, 1, 50);
+  const hitIndex = boundedPreviewHit(searchHit.hitIndex, 1, hitCount);
+  const params = new URLSearchParams();
+  params.set('vault-preview-hit', String(hitIndex));
+  params.set('vault-preview-hit-count', String(hitCount));
+  params.set('vault-preview-target', searchHit.target);
+  return `#${params.toString()}`;
+}
+
+export function documentPreviewUrl(
+  documentId: string,
+  options: DocumentPreviewUrlOptions = {},
+): string {
+  return `${apiBaseUrl()}/documents/${encodeURIComponent(documentId)}/preview${previewHitFragment(
+    options.searchHit,
+  )}`;
 }
 
 export function documentDownloadUrl(

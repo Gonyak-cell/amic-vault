@@ -18,6 +18,10 @@ export const searchExtractionStatusSchema = z.enum(documentExtractionStatuses);
 
 export const searchVersionStatusValues = ['current', 'superseded', 'all'] as const;
 export const searchVersionStatusSchema = z.enum(searchVersionStatusValues);
+export const searchLegalHoldValues = ['document_hold', 'matter_hold', 'no_hold'] as const;
+export const searchLegalHoldSchema = z.enum(searchLegalHoldValues);
+export const searchRecordsStatusValues = ['active', 'archived', 'disposal_locked'] as const;
+export const searchRecordsStatusSchema = z.enum(searchRecordsStatusValues);
 export const searchModes = ['keyword', 'semantic', 'hybrid'] as const;
 export const searchModeSchema = z.enum(searchModes);
 export const searchTargets = ['all', 'title', 'body'] as const;
@@ -53,6 +57,8 @@ export const searchFiltersSchema = z
     title: searchTextFilterSchema.optional(),
     documentType: searchDocumentTypeFilterSchema.optional(),
     extractionStatus: searchExtractionStatusSchema.optional(),
+    legalHold: searchLegalHoldSchema.optional(),
+    recordsStatus: searchRecordsStatusSchema.optional(),
     dateFrom: searchIsoDateTimeSchema.optional(),
     dateTo: searchIsoDateTimeSchema.optional(),
     versionStatus: searchVersionStatusSchema.optional(),
@@ -147,6 +153,8 @@ export interface SearchFacetsDto {
   matters: SearchFacetBucketDto[];
   documentTypes: SearchFacetBucketDto[];
   extractionStatuses: SearchFacetBucketDto[];
+  legalHolds: SearchFacetBucketDto[];
+  recordsStatuses: SearchFacetBucketDto[];
   versionStatuses: SearchFacetBucketDto[];
   dateRanges: SearchDateRangeFacetDto[];
 }
@@ -171,6 +179,8 @@ export interface SavedSearchListDto {
 
 export type SearchDocumentTypeFilterDto = z.infer<typeof searchDocumentTypeFilterSchema>;
 export type SearchVersionStatus = (typeof searchVersionStatusValues)[number];
+export type SearchLegalHold = (typeof searchLegalHoldValues)[number];
+export type SearchRecordsStatus = (typeof searchRecordsStatusValues)[number];
 export type SearchMode = (typeof searchModes)[number];
 export type SearchTarget = (typeof searchTargets)[number];
 export type SearchSort = (typeof searchSorts)[number];

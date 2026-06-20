@@ -211,6 +211,8 @@ function emptyFacets(): SearchHttpResponse['facets'] {
     matters: [],
     documentTypes: [],
     extractionStatuses: [],
+    legalHolds: [],
+    recordsStatuses: [],
     versionStatuses: [],
     dateRanges: [],
   };

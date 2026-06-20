@@ -536,17 +536,17 @@ PR-B implementation note:
 
 PR-C implementation note:
 
-- Search request DTO now supports `target`, `sortBy`, `groupBy`, and display-safe filters for title, Matter Code/name, client name, and extraction/OCR status.
+- Search request DTO now supports `target`, `sortBy`, `groupBy`, and display-safe filters for title, Matter Code/name, client name, extraction/OCR status, legal hold, and records status.
 - Backend filters remain permission-bound and use bound parameters plus wildcard escaping.
 - Keyword search can target all/title/body; sort SQL is enum-driven.
-- Search UI exposes target, sort, group, Matter Code, title, client, and extraction/OCR filters with URL state.
-- Search facets now include extraction/OCR status so users can find body-search-limited documents.
+- Search UI exposes target, sort, group, Matter Code, title, client, extraction/OCR, legal-hold, and records-status filters with URL state.
+- Search facets now include extraction/OCR, legal hold, and records status so users can find body-search-limited and records-governed documents.
 - Search UI now shows active filter chips and compact query syntax help in the advanced search console.
-- Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; `/search/folders` exposes those saved searches as user-scoped search folders.
 - Result cards and grouped headings use display labels, not raw matter/client/version/file references.
 - Search result cards link to document detail, the approved preview endpoint, and URL-backed file-cabinet filters without showing raw refs as labels.
-- Search result cards pass bounded hit count/index context into document detail without URL-storing snippets, search terms, or raw source text.
-- Admin-shared search folders, full admin search analytics, retention refiners, and true preview anchor highlighting remain deferred until supporting APIs/schema are approved.
+- Search result cards pass bounded hit count/index context into document detail and preview URL fragments without URL-storing snippets, search terms, or raw source text.
+- Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; `/search/folders` exposes those saved searches as user-scoped search folders and preserves legal-hold/records-status filters.
+- Admin-shared search folders, full admin search analytics, and true PDF text anchor highlighting remain deferred until supporting APIs/schema expose safe anchors and analytics.
 
 ### PR-D Governance, Workflow, Ops
 
@@ -658,6 +658,7 @@ PR-C implementation note:
 Implementation note:
 
 - Document action center links to Records hold/archive/disposal entry points and passes display-safe document/Matter labels for contextual display.
+- Records route now renders a display-label action readiness panel for hold, archive, disposal, and certificate review when users arrive from document/Matter context.
 - Unified persisted records task assignment remains deferred until the workflow/task API contract is approved.
 
 #### DMS-UX-506 Notification Center
@@ -720,6 +721,9 @@ Implementation note:
 
 PR-D implementation note:
 
+- Closeout evidence is recorded in `docs/ui/enterprise-dms-pr-d-closeout.md`;
+  the UI checklist and production smoke guards require that file so PR-D
+  evidence cannot drift away from route-level implementation.
 - Document detail now includes contextual governance rows for access basis, confidentiality, privilege, legal hold, extraction state, update time, and file organization prep readiness.
 - Matter detail now includes contextual governance rows for Matter Code, status, practice group, lead display, legal hold, and file organization prep readiness.
 - Document and matter pages now derive workflow/ops tasks only from real DTO/status fields: missing subtype, OCR/extraction pending or failed, legal hold, and AI prep readiness conditions.
@@ -824,6 +828,9 @@ PR-D implementation note:
 
 PR-E implementation note:
 
+- Closeout evidence is recorded in `docs/ui/enterprise-dms-pr-e-closeout.md`;
+  the UI checklist and production smoke guards require that file so PR-E
+  admin/integration claims remain tied to route-level implementation.
 - Admin settings now include a DMS configuration IA panel for taxonomy, Matter templates, and search refiners. These surfaces are read-only contract states until save/audit APIs are approved.
 - Admin settings now include search index operations wired to the admin reindex endpoint; the UI only shows audit-safe queue counts after an operator request.
 - The integration parent route now shows a safe integration matrix: Outlook links to the real status route; OneDrive and Office open/save remain gated with no connected-state claim.
@@ -931,6 +938,11 @@ PR-E implementation note:
 
 PR-F implementation note:
 
+- PR-F readiness split is recorded in
+  `docs/ui/enterprise-dms-pr-f-readiness.md`; the UI checklist and production
+  smoke guards require that file so automated release-hardening evidence is not
+  confused with the still-required external authenticated main-loop,
+  negative-auth, responsive, and accessibility receipts.
 - DMS-UX-808 through DMS-UX-812 are implemented as release hardening contracts:
   `docs/release/enterprise-dms-ui-release-evidence.md`,
   `docs/release/production-ui-rollout-checklist.md`,

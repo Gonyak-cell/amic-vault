@@ -260,6 +260,7 @@ const documentActionCenterFiles = [
       { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
       { name: 'search hit context panel', pattern: /검색 결과 문맥/ },
       { name: 'bounded search hit parser', pattern: /boundedInteger/ },
+      { name: 'preview search hit fragment', pattern: /previewUrlForDocument/ },
       { name: 'records action entry points', pattern: /recordsUrlForDocument/ },
       { name: 'file cabinet return link', pattern: /fileCabinetUrlForDocument/ },
     ],
@@ -284,6 +285,7 @@ const documentActionCenterFiles = [
       { name: 'document version list client', pattern: /listDocumentVersions/ },
       { name: 'new document version client', pattern: /addDocumentVersion/ },
       { name: 'document preview URL helper', pattern: /documentPreviewUrl/ },
+      { name: 'document preview hit fragment helper', pattern: /vault-preview-hit/ },
       { name: 'document download URL helper', pattern: /documentDownloadUrl/ },
     ],
   },
@@ -308,6 +310,10 @@ const enterpriseSearchFiles = [
       {
         name: 'display text filters',
         pattern: /matterCode[\s\S]*matterName[\s\S]*clientName[\s\S]*title/,
+      },
+      {
+        name: 'records governance filters',
+        pattern: /searchLegalHoldValues[\s\S]*searchRecordsStatusValues/,
       },
     ],
   },
@@ -356,6 +362,8 @@ const enterpriseSearchFiles = [
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
+      { name: 'legal hold URL state', pattern: /legalHold/ },
+      { name: 'records status URL state', pattern: /recordsStatus/ },
     ],
   },
   {
@@ -385,6 +393,8 @@ const enterpriseSearchFiles = [
       { name: 'Matter name filter UI', pattern: /Matter 이름/ },
       { name: 'document type filter UI', pattern: /문서 유형/ },
       { name: 'searchability filter UI', pattern: /추출\/OCR/ },
+      { name: 'legal hold filter UI', pattern: /보존\/삭제 금지/ },
+      { name: 'records status filter UI', pattern: /기록 상태/ },
       { name: 'version status filter UI', pattern: /버전 상태/ },
       { name: 'updated date range filter UI', pattern: /수정 기간/ },
       { name: 'search range selector', pattern: /검색 범위/ },
@@ -399,8 +409,12 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/components/search/search-facets.tsx',
     patterns: [
       { name: 'searchability facet group', pattern: /search\.facet\.searchability/ },
+      { name: 'legal hold facet group', pattern: /search\.facet\.legalHold/ },
+      { name: 'records status facet group', pattern: /search\.facet\.recordsStatus/ },
       { name: 'extraction failed facet label', pattern: /search\.facet\.extractionFailed/ },
       { name: 'extraction status selection', pattern: /extractionStatus/ },
+      { name: 'legal hold selection', pattern: /legalHold/ },
+      { name: 'records status selection', pattern: /recordsStatus/ },
     ],
   },
   {
@@ -408,6 +422,7 @@ const enterpriseSearchFiles = [
     patterns: [
       { name: 'searchability result status', pattern: /extractionStatus/ },
       { name: 'body search limitation copy', pattern: /본문 검색 품질이 제한/ },
+      { name: 'search result preview hit fragment', pattern: /documentPreviewUrl\(result\.documentId,\s*\{/ },
     ],
   },
   {
@@ -583,6 +598,28 @@ const governanceWorkflowOpsFiles = [
   },
 ];
 
+const recordsActionContextFiles = [
+  {
+    path: 'apps/web/src/app/(app)/records/records-governance-client.tsx',
+    patterns: [
+      { name: 'records context action panel', pattern: /RecordsActionContextPanel/ },
+      { name: 'records action readiness title', pattern: /보존 작업 준비/ },
+      { name: 'display-label document context', pattern: /documentContextLabel/ },
+      { name: 'display-label matter context', pattern: /matterContextLabel/ },
+      { name: 'document-only records actions', pattern: /requiresDocument/ },
+      { name: 'records action cards switch tabs', pattern: /onSelectTab\(action\.tab\)/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/records/records-governance-client.test.tsx',
+    patterns: [
+      { name: 'document context records actions test', pattern: /보관 처리 준비/ },
+      { name: 'matter-only action scope test', pattern: /matter-only records context/ },
+      { name: 'raw record refs hidden test', pattern: /not\.toContain\('11111111-1111-4111/ },
+    ],
+  },
+];
+
 const adminIntegrationsFiles = [
   {
     path: 'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
@@ -604,9 +641,23 @@ const adminIntegrationsFiles = [
   {
     path: 'apps/web/src/app/(app)/integrations/page.tsx',
     patterns: [
+      { name: 'Matter app status route link', pattern: /\/integrations\/matter-app/ },
+      { name: 'Matter app upload gate copy', pattern: /업로드 gate/ },
       { name: 'Outlook status route link', pattern: /\/integrations\/outlook/ },
       { name: 'OneDrive gate copy', pattern: /승인 전 숨김/ },
       { name: 'Office contract gate copy', pattern: /계약 필요/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/matter-app/page.tsx',
+    patterns: [
+      { name: 'Matter app status page title', pattern: /Matter app 연결 상태/ },
+      { name: 'Matter Code source section', pattern: /Matter Code source/ },
+      { name: 'upload gate status', pattern: /업로드 gate/ },
+      { name: 'free-floating upload blocked', pattern: /free-floating 업로드/ },
+      { name: 'projection fallback policy', pattern: /프로덕션 projection fallback/ },
+      { name: 'no raw refs copy', pattern: /내부 식별자/ },
+      { name: 'Matter source status helper', pattern: /matterAppSourceStatus/ },
     ],
   },
   {
@@ -688,6 +739,80 @@ const enterpriseDmsReleaseEvidencePatterns = [
     name: 'DMS-UX-812 release signoff matrix',
     pattern:
       /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner[\s\S]*Exact production scope[\s\S]*Excluded scopes[\s\S]*Approved tenant class[\s\S]*Release timestamp[\s\S]*Evidence package ref/i,
+  },
+];
+
+const prDCloseoutPatterns = [
+  {
+    name: 'PR-D closeout TUW evidence',
+    pattern:
+      /DMS-UX-527 PR-D Closeout[\s\S]*Effective Access[\s\S]*Ethical Wall[\s\S]*Records Context[\s\S]*Matter\/Document Activity Timeline[\s\S]*Action Inbox[\s\S]*Notification Center[\s\S]*Ops Health/i,
+  },
+  {
+    name: 'PR-D scope guards',
+    pattern:
+      /AI Prep file organization only[\s\S]*External sharing gated[\s\S]*Stale-content clearing/i,
+  },
+  {
+    name: 'PR-D route evidence matrix',
+    pattern:
+      /Route Evidence[\s\S]*DocumentGovernanceContextPanel[\s\S]*MatterGovernanceContextPanel[\s\S]*MatterCodePicker[\s\S]*RecordsActionContextPanel[\s\S]*DocumentAuditTimeline[\s\S]*MatterAuditTimeline[\s\S]*DashboardActionLauncher/i,
+  },
+  {
+    name: 'PR-D real data invariants',
+    pattern:
+      /No fake\/mock\/sample\/demo operating counts[\s\S]*No workspace ID[\s\S]*No free-floating workflow or notification data[\s\S]*Legal analysis[\s\S]*model-response display remain excluded/i,
+  },
+  {
+    name: 'PR-D deferred item register',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Unified persisted task DB\/API[\s\S]*Persisted notifications[\s\S]*Records disposal task API[\s\S]*User\/group picker APIs[\s\S]*Access request creation\/approval workflow/i,
+  },
+];
+
+const prECloseoutPatterns = [
+  {
+    name: 'PR-E closeout TUW evidence',
+    pattern:
+      /DMS-UX-714 PR-E Closeout[\s\S]*Taxonomy Admin Contract[\s\S]*Taxonomy Admin UI[\s\S]*Matter Template Admin[\s\S]*Folder Template Admin[\s\S]*Search Refiner Admin[\s\S]*Outlook Filing Unification[\s\S]*Office\/OneDrive Integration Plan[\s\S]*Integration Status Safety/i,
+  },
+  {
+    name: 'PR-E route evidence matrix',
+    pattern:
+      /Route Evidence[\s\S]*AdminDmsConfigurationPanel[\s\S]*contractRequired[\s\S]*governedByBackend[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
+  },
+  {
+    name: 'PR-E integration safety invariants',
+    pattern:
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/i,
+  },
+  {
+    name: 'PR-E deferred item register',
+    pattern:
+      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
+  },
+];
+
+const prFReadinessPatterns = [
+  {
+    name: 'PR-F readiness split',
+    pattern:
+      /PR-F Readiness Evidence[\s\S]*Readiness Decision[\s\S]*Manual Receipt Requirements[\s\S]*Automated Evidence Matrix[\s\S]*Hold Criteria/i,
+  },
+  {
+    name: 'PR-F manual receipts',
+    pattern:
+      /DMS-UX-801[\s\S]*Authenticated main loop[\s\S]*DMS-UX-802[\s\S]*Negative auth[\s\S]*DMS-UX-806[\s\S]*Responsive visual QA[\s\S]*DMS-UX-807[\s\S]*Keyboard and screen-reader basics/i,
+  },
+  {
+    name: 'PR-F automated guards',
+    pattern:
+      /Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/i,
+  },
+  {
+    name: 'PR-F hold criteria',
+    pattern:
+      /approved staging\/production credentials are missing[\s\S]*approved negative-role credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*free-floating[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/i,
   },
 ];
 
@@ -981,6 +1106,17 @@ function checkGovernanceWorkflowOpsGuard() {
   }
 }
 
+function checkRecordsActionContextGuard() {
+  for (const file of recordsActionContextFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Records action context production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 function checkAdminIntegrationsGuard() {
   for (const file of adminIntegrationsFiles) {
     const source = readRequired(file.path);
@@ -1010,6 +1146,33 @@ function checkEnterpriseDmsReleaseEvidenceGuard() {
   }
 }
 
+function checkPrDCloseoutGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-pr-d-closeout.md');
+  for (const { name, pattern } of prDCloseoutPatterns) {
+    if (!pattern.test(source)) {
+      fail(`PR-D closeout production smoke guard missing ${name}`);
+    }
+  }
+}
+
+function checkPrECloseoutGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-pr-e-closeout.md');
+  for (const { name, pattern } of prECloseoutPatterns) {
+    if (!pattern.test(source)) {
+      fail(`PR-E closeout production smoke guard missing ${name}`);
+    }
+  }
+}
+
+function checkPrFReadinessGuard() {
+  const source = readRequired('docs/ui/enterprise-dms-pr-f-readiness.md');
+  for (const { name, pattern } of prFReadinessPatterns) {
+    if (!pattern.test(source)) {
+      fail(`PR-F readiness production smoke guard missing ${name}`);
+    }
+  }
+}
+
 function checkResponsiveAccessibilityGuard() {
   for (const file of responsiveAccessibilityFiles) {
     const source = readRequired(file.path);
@@ -1032,9 +1195,13 @@ try {
   checkDocumentActionCenterGuard();
   checkEnterpriseSearchGuard();
   checkGovernanceWorkflowOpsGuard();
+  checkRecordsActionContextGuard();
   checkAdminIntegrationsGuard();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
+  checkPrDCloseoutGuard();
+  checkPrECloseoutGuard();
+  checkPrFReadinessGuard();
   checkResponsiveAccessibilityGuard();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

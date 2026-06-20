@@ -128,6 +128,27 @@ Reject or explicitly defer the PR when a production-ready API exists but the UI 
 
 For `/files`, do not treat a hidden or empty route as production-complete after upload/list APIs are approved. The PR must either implement upload/browse UX or state a release-scoped deferral with owner and follow-up TUW.
 
+For PR-D governance/workflow/ops PRs, review
+`docs/ui/enterprise-dms-pr-d-closeout.md` and confirm the affected PR keeps the
+closeout evidence true for Effective Access, Ethical Wall, Records Context,
+Matter/Document Activity Timeline, Action Inbox, Notification Center, Ops
+Health, AI Prep file organization only scope, External sharing gated scope, and
+stale-content clearing. Remaining deferred items must be named instead of
+presented as complete.
+
+For PR-E admin/integration PRs, review
+`docs/ui/enterprise-dms-pr-e-closeout.md` and confirm taxonomy, Matter template,
+folder template, search refiner, Outlook, OneDrive, Office, admin IA, and
+integration status claims remain tied to approved route evidence. Read-only
+contract states must not look editable, and gated integrations must not imply a
+connected production state.
+
+For PR-F release-hardening PRs, review
+`docs/ui/enterprise-dms-pr-f-readiness.md` and confirm the PR separates
+machine-guarded readiness from external authenticated main-loop, negative-auth,
+responsive, and accessibility receipts. Do not approve production signoff when
+credential-backed DMS upload/search/detail receipts are missing.
+
 ## 10. Responsive And Accessibility
 
 For affected screens, check:
@@ -165,3 +186,9 @@ record covers:
 - accessibility QA for keyboard focus, accessible names, `aria-current`, and readable error states
 - evidence package refs only, no secrets or customer file contents
 - rollback owner, route/feature/worker rollback controls, production monitor, and owner signoff
+- PR-D closeout evidence, when governance/workflow/ops routes are touched,
+  remains aligned with `docs/ui/enterprise-dms-pr-d-closeout.md`
+- PR-E closeout evidence, when admin/integration routes are touched, remains
+  aligned with `docs/ui/enterprise-dms-pr-e-closeout.md`
+- PR-F readiness evidence, when release hardening is touched, remains aligned
+  with `docs/ui/enterprise-dms-pr-f-readiness.md`

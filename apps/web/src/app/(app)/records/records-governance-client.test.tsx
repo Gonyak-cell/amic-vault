@@ -63,9 +63,36 @@ describe('RecordsGovernanceClient', () => {
 
     expect(html).toContain('계약 검토 자료');
     expect(html).toContain('AMIC-2026-0007');
+    expect(html).toContain('보존 작업 준비');
+    expect(html).toContain('삭제 금지 검토');
+    expect(html).toContain('보관 처리 준비');
+    expect(html).toContain('삭제 요청 준비');
+    expect(html).toContain('증명서 확인');
     expect(html).toContain('보관 처리');
     expect(html).not.toContain('id="records-archive-document-ref"');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111201');
+    expect(html).not.toContain('11111111-1111-4111-8111-111111111122');
+  });
+
+  it('keeps matter-only records context limited to matter-level hold actions', () => {
+    navigationMock.searchParams = new URLSearchParams({
+      tab: 'holds',
+      matterId: '11111111-1111-4111-8111-111111111122',
+      matterCode: 'AMIC-2026-0008',
+    });
+
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <RecordsGovernanceClient />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('보존 작업 준비');
+    expect(html).toContain('AMIC-2026-0008');
+    expect(html).toContain('삭제 금지 검토');
+    expect(html).not.toContain('보관 처리 준비');
+    expect(html).not.toContain('삭제 요청 준비');
+    expect(html).not.toContain('증명서 확인');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111122');
   });
 });
