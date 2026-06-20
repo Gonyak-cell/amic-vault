@@ -299,10 +299,10 @@ PR-A implementation note:
   document-detail and Matter file-cabinet actions, file-organization prep status
   text, and duplicate-candidate counts without exposing raw Matter references as
   visible text.
-- `/files` and `/matters/[matterId]` pass an upload refresh key into
+- `/files` passes the same upload refresh key into `DocumentVaultList` and
   `MatterDocumentList` so a successful Matter-scoped upload immediately
-  re-queries the selected Matter file list instead of leaving the pre-upload
-  browse state stale.
+  re-queries both the all-documents vault and the selected Matter file list
+  instead of leaving the pre-upload browse state stale.
 - Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
 
 ### PR-B Document Operations

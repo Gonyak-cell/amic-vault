@@ -54,7 +54,7 @@ export default function FilesPage() {
             </div>
           }
         >
-          <DocumentVaultList />
+          <DocumentVaultList refreshKey={uploadRevision} />
         </React.Suspense>
       </SectionCard>
       <PageHeader
