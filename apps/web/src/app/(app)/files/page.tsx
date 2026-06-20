@@ -18,9 +18,15 @@ import { matterAppSourceMode, type MatterCodeOption } from '@/lib/matter-app';
 export default function FilesPage() {
   const { t } = useI18n();
   const sourceMode = matterAppSourceMode();
+  const [initialMatterCode, setInitialMatterCode] = React.useState('');
   const [selectedMatter, setSelectedMatter] = React.useState<MatterCodeOption | null>(null);
   const [latestUpload, setLatestUpload] = React.useState<UploadDocumentResponseDto | null>(null);
   const [uploadRevision, setUploadRevision] = React.useState(0);
+
+  React.useEffect(() => {
+    const matterCode = new URLSearchParams(window.location.search).get('matterCode')?.trim() ?? '';
+    setInitialMatterCode(matterCode);
+  }, []);
 
   const handleUploadComplete = React.useCallback((result: UploadDocumentResponseDto) => {
     setLatestUpload(result);
@@ -69,6 +75,7 @@ export default function FilesPage() {
         meta="Matter 원장 기준"
       >
         <MatterCodePicker
+          initialMatterCode={initialMatterCode}
           selectedMatter={selectedMatter}
           onMatterSelected={setSelectedMatter}
           sourceMode={sourceMode}

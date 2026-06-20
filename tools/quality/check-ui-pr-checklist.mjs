@@ -141,6 +141,11 @@ const requiredPatterns = [
       /DMS Matter row action guard[\s\S]*Matter Code filtered file cabinet[\s\S]*Matter Code filtered search[\s\S]*without fake counts or raw Matter refs/is,
   },
   {
+    label: 'DMS Matter workspace action evidence',
+    pattern:
+      /DMS Matter workspace action guard[\s\S]*file cabinet\/search\/work\/records\/audit[\s\S]*URL-provided Matter Code picker prefill\/selection[\s\S]*without fake counts or raw Matter labels/is,
+  },
+  {
     label: 'DMS version receipt evidence',
     pattern:
       /new-version upload[\s\S]*version list[\s\S]*document-scoped audit timeline[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,

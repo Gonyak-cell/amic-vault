@@ -306,6 +306,10 @@ PR-A implementation note:
 - `/matters` now exposes Matter row actions for Matter workspace, Matter Code
   filtered file cabinet, and Matter Code filtered search using display-safe
   Matter Code links instead of fake counts or raw refs as visible labels.
+- Matter workspaces now expose a Matter Code based action panel for file
+  cabinet, enterprise search, work queue, records context, and audit console.
+  `/files?matterCode=...` also pre-fills the Matter Code picker and selects the
+  matching permitted Matter when the Matter source list returns it.
 - Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
 
 ### PR-B Document Operations

@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { FileSearch, FolderKanban, Search } from 'lucide-react';
 import type { MatterDto } from '@amic-vault/shared';
+import { matterFileCabinetUrl, matterSearchUrl } from '@/components/matter/matter-dms-links';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
 import { Button } from '@/components/ui/button';
 
@@ -19,19 +20,7 @@ export interface MatterListTableCopy {
   type: string;
 }
 
-export function matterFileCabinetUrl(matter: MatterDto): string {
-  const params = new URLSearchParams();
-  params.set('matterCode', matter.matterCode);
-  return `/files?${params.toString()}`;
-}
-
-export function matterSearchUrl(matter: MatterDto): string {
-  const params = new URLSearchParams();
-  params.set('matterCode', matter.matterCode);
-  params.set('target', 'all');
-  params.set('groupBy', 'matter');
-  return `/search?${params.toString()}`;
-}
+export { matterFileCabinetUrl, matterSearchUrl } from '@/components/matter/matter-dms-links';
 
 export function MatterListTable({
   copy,

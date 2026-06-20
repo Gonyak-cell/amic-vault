@@ -12,6 +12,7 @@ import {
 } from '@/components/governance/governance-context-panel';
 import { MatterAuditTimeline } from '@/components/matter/matter-audit-timeline';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
+import { MatterWorkspaceActions } from '@/components/matter/matter-workspace-actions';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
@@ -113,6 +114,8 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
       ) : null}
 
       {matter ? <MatterGovernanceContextPanel matter={matter} readiness={readiness} /> : null}
+
+      {matter ? <MatterWorkspaceActions matter={matter} /> : null}
 
       {matter ? <MatterAuditTimeline matterId={matter.matterId} /> : null}
 
