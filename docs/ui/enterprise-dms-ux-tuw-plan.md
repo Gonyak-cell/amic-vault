@@ -417,9 +417,10 @@ PR-B implementation note:
 - Document detail action center foundation is implemented in `apps/web/src/components/document/document-action-center.tsx`.
 - `/documents/[id]` routes through that action center.
 - Existing APIs are used for profile read/edit, preview, controlled download, version list, and add-version.
-- New-version upload now refreshes the document profile, version list, and
-  file-organization prep status together, then shows a bounded version receipt
-  with duplicate-candidate counts and no raw document/version/file refs.
+- New-version upload now refreshes the document profile, version list,
+  document-scoped audit timeline, and file-organization prep status together,
+  then shows a bounded version receipt with duplicate-candidate counts and no
+  raw document/version/file refs.
 - Check-out/check-in and Office live edit remain deferred by `docs/adr/ADR-016-document-editing-and-office-flow.md`.
 - Related items remain a safe empty state until approved related-item APIs exist.
 

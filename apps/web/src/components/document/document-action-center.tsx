@@ -206,7 +206,7 @@ function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitC
 export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto): string {
   const duplicateMessage =
     result.duplicates.length > 0 ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.` : '';
-  return `v${result.versionNo} 새 버전이 추가되었습니다. 버전 목록과 파일 정리 준비 상태를 갱신했습니다.${duplicateMessage}`;
+  return `v${result.versionNo} 새 버전이 추가되었습니다. 버전 목록, 감사 타임라인, 파일 정리 준비 상태를 갱신했습니다.${duplicateMessage}`;
 }
 
 function previewUrlForDocument(
@@ -401,6 +401,7 @@ export function DocumentActionCenter({
   const [versionError, setVersionError] = useState<string | null>(null);
   const [versionSuccessMessage, setVersionSuccessMessage] = useState<string | null>(null);
   const [versionInputKey, setVersionInputKey] = useState(0);
+  const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const [downloadReason, setDownloadReason] = useState<DocumentDownloadReasonCode>('casework');
 
   const refreshPrepStatus = useCallback(async () => {
@@ -495,6 +496,7 @@ export function DocumentActionCenter({
       setProfileDraft(draftFromDocument(updated));
       setVersions(versionResult.items);
       await refreshPrepStatus();
+      setAuditRefreshKey((current) => current + 1);
       setVersionSuccessMessage(versionUploadStatusMessage(result));
     } catch (caught) {
       setVersionError(safeApiErrorMessage(caught));
@@ -688,6 +690,7 @@ export function DocumentActionCenter({
               disableInitialLoad={disableInitialLoad}
               documentId={document.documentId}
               initialEvents={initialAuditEvents}
+              refreshKey={auditRefreshKey}
             />
           </div>
 

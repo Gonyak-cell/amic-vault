@@ -58,5 +58,7 @@ describe('DocumentAuditTimeline', () => {
 
     expect(source).toMatch(/setLoading\(true\);\s*setError\(null\);\s*setEvents\(\[\]\);/);
     expect(source).toMatch(/catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/);
+    expect(source).toMatch(/refreshKey = 0/);
+    expect(source).toMatch(/\[disableInitialLoad, documentId, refreshKey\]/);
   });
 });
