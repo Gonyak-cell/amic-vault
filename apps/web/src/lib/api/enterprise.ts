@@ -1,4 +1,5 @@
 import type {
+  ApplyEnterpriseDmsMatterTemplateRequestDto,
   CreateEnterpriseBackupSnapshotRequestDto,
   CreateEnterpriseComplianceEvidenceRequestDto,
   CreateEnterpriseKeyReferenceRequestDto,
@@ -6,9 +7,13 @@ import type {
   CreateEnterpriseSsoProviderRequestDto,
   EnterpriseBackupSnapshotDto,
   EnterpriseBackupSnapshotListResponseDto,
+  EnterpriseApprovedDmsMatterTemplateCatalogDto,
   EnterpriseApprovedDmsTaxonomyCatalogDto,
   EnterpriseComplianceEvidenceDto,
   EnterpriseComplianceEvidenceListResponseDto,
+  EnterpriseDmsMatterTemplateApplicationDto,
+  EnterpriseDmsMatterTemplateDto,
+  EnterpriseDmsMatterTemplateListResponseDto,
   EnterpriseDmsSearchRefinerDto,
   EnterpriseDmsSearchRefinerListResponseDto,
   EnterpriseDmsTaxonomyDto,
@@ -21,6 +26,8 @@ import type {
   EnterpriseSsoProviderDto,
   EnterpriseSsoProviderListResponseDto,
   EnterpriseSsoSpMetadataDto,
+  MatterType,
+  UpsertEnterpriseDmsMatterTemplateRequestDto,
   UpsertEnterpriseDmsSearchRefinerRequestDto,
   UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
@@ -143,6 +150,53 @@ export function disableEnterpriseDmsTaxonomy(
   return apiFetch<EnterpriseDmsTaxonomyDto>(
     `/enterprise/dms/taxonomies/${taxonomyId}/disable`,
     { method: 'POST' },
+  );
+}
+
+export function upsertEnterpriseDmsMatterTemplate(
+  input: UpsertEnterpriseDmsMatterTemplateRequestDto,
+): Promise<EnterpriseDmsMatterTemplateDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateDto>('/enterprise/dms/matter-templates', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listEnterpriseDmsMatterTemplates(): Promise<EnterpriseDmsMatterTemplateListResponseDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateListResponseDto>(
+    '/enterprise/dms/matter-templates',
+  );
+}
+
+export function listApprovedEnterpriseDmsMatterTemplates(
+  matterType?: MatterType | string,
+): Promise<EnterpriseApprovedDmsMatterTemplateCatalogDto> {
+  const query = matterType ? `?matterType=${encodeURIComponent(matterType)}` : '';
+  return apiFetch<EnterpriseApprovedDmsMatterTemplateCatalogDto>(
+    `/enterprise/dms/matter-templates/approved${query}`,
+    { redirectOnAuthRequired: false },
+  );
+}
+
+export function disableEnterpriseDmsMatterTemplate(
+  templateId: string,
+): Promise<EnterpriseDmsMatterTemplateDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateDto>(
+    `/enterprise/dms/matter-templates/${templateId}/disable`,
+    { method: 'POST' },
+  );
+}
+
+export function applyEnterpriseDmsMatterTemplate(
+  templateId: string,
+  input: ApplyEnterpriseDmsMatterTemplateRequestDto,
+): Promise<EnterpriseDmsMatterTemplateApplicationDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateApplicationDto>(
+    `/enterprise/dms/matter-templates/${templateId}/apply`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
   );
 }
 

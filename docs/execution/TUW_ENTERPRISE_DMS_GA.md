@@ -32,7 +32,7 @@ Excluded from this GA execution lane:
 | PR-3A to PR-3E Search hardening               | DMS-GA-301, DMS-GA-203, DMS-GA-302, DMS-GA-303, DMS-GA-304, DMS-GA-305 | PR-3A implemented on `codex/dms-ga3-search-privacy`; PR-3B implemented on `codex/dms-ga3-search-preview`; PR-3C to PR-3E pending. | Query privacy, preview anchors, refiners, negative leakage proof, governed search folders, reindex evidence.                 |
 | PR-4A to PR-4D Access/team/walls              | DMS-GA-401, DMS-GA-402, DMS-GA-403, DMS-GA-405                         | Pending.                                                                                                 | Permission-scoped org picker, team/wall picker UX, explicit access workflow boundary.                                       |
 | PR-5A to PR-5E Records/workflow/notifications | DMS-GA-501, DMS-GA-502, DMS-GA-503, DMS-GA-504, DMS-GA-505, DMS-GA-506 | Pending.                                                                                                 | Records context pickers, lifecycle/workflow/certificates, real task inbox, real notifications.                              |
-| PR-6A to PR-6E Admin/integrations             | DMS-GA-601, DMS-GA-602, DMS-GA-603, DMS-GA-604, DMS-GA-605             | DMS-GA-601 implemented on `codex/dms-ga6-admin-taxonomy`; DMS-GA-602~605 pending.                        | Tenant-governed taxonomy/refiners/templates, Outlook evidence, Office/OneDrive ADR gate only.                               |
+| PR-6A to PR-6E Admin/integrations             | DMS-GA-601, DMS-GA-602, DMS-GA-603, DMS-GA-604, DMS-GA-605             | DMS-GA-601 implemented on `codex/dms-ga6-admin-taxonomy`; DMS-GA-602 implemented on `codex/dms-ga6-matter-templates`; DMS-GA-603~605 pending. | Tenant-governed taxonomy/refiners/templates, Outlook evidence, Office/OneDrive ADR gate only.                               |
 | PR-7A to PR-7E Production evidence            | DMS-GA-701, DMS-GA-702, DMS-GA-703, DMS-GA-704, DMS-GA-705             | Pending, except GA0 guard baseline exists.                                                               | Monitor map, rollback controls, responsive/a11y receipts, expanded guards, owner signoff package.                           |
 
 ## Verification Contract
@@ -126,3 +126,11 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm release:dms-smoke -- --check-env -
 - Preview URLs add a `vault-preview-anchor` fragment only when the anchor matches the approved bounded format; invalid anchors degrade to the existing hit-count preview fragment.
 - Document detail parses search hit context from route params only, drops invalid anchors, and does not carry the first-hit anchor into previous/next hit navigation.
 - Full unauthorized preview/search non-discovery proof remains tracked under PR-3D / DMS-GA-303.
+
+## Current PR-6B Acceptance
+
+- `enterprise_dms_matter_templates` stores one tenant-governed Matter type document-set contract with RLS, admin-only write paths, safe labels, and no virtual folder path semantics.
+- `enterprise_dms_matter_template_applications` records admin template application receipts for a Matter with audit event refs and reference/count metadata only.
+- `/v1/enterprise/dms/matter-templates` supports save/list/disable for admins, while `/approved` exposes active document-set contracts to internal users without raw template IDs.
+- Matter file sections display approved document-set contracts only when returned by the approved catalog; otherwise they keep the folder model marked `미적용`.
+- `docs/adr/ADR-matter-folder-template.md` keeps folder inheritance and virtual folder trees outside the current repo-side GA scope.

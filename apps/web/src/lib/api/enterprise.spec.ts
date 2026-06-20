@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  applyEnterpriseDmsMatterTemplate,
+  disableEnterpriseDmsMatterTemplate,
   disableEnterpriseDmsSearchRefiner,
   disableEnterpriseDmsTaxonomy,
+  listApprovedEnterpriseDmsMatterTemplates,
   listApprovedEnterpriseDmsTaxonomies,
+  listEnterpriseDmsMatterTemplates,
   listEnterpriseDmsSearchRefiners,
   listEnterpriseDmsTaxonomies,
+  upsertEnterpriseDmsMatterTemplate,
   upsertEnterpriseDmsSearchRefiner,
   upsertEnterpriseDmsTaxonomy,
 } from './enterprise';
@@ -84,5 +89,52 @@ describe('enterprise API client', () => {
     expect(String(vi.mocked(apiFetch).mock.calls[1]?.[1]?.body)).not.toMatch(
       /bodyText|snippet|raw|prompt|response/i,
     );
+  });
+
+  it('uses DMS Matter template endpoints without pseudo-folder payloads', async () => {
+    await listEnterpriseDmsMatterTemplates();
+    await listApprovedEnterpriseDmsMatterTemplates('advisory');
+    await upsertEnterpriseDmsMatterTemplate({
+      matterType: 'advisory',
+      displayName: 'Advisory template',
+      description: 'Advisory matter document set contract',
+      documentSets: [
+        {
+          setKey: 'closing',
+          displayName: 'Closing set',
+          documentTypeCodes: ['contract', 'memo'],
+          required: true,
+          sortOrder: 10,
+        },
+      ],
+    });
+    await applyEnterpriseDmsMatterTemplate('33333333-3333-4333-8333-333333333333', {
+      matterId: '44444444-4444-4444-8444-444444444444',
+    });
+    await disableEnterpriseDmsMatterTemplate('33333333-3333-4333-8333-333333333333');
+
+    expect(apiFetch).toHaveBeenNthCalledWith(1, '/enterprise/dms/matter-templates');
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      2,
+      '/enterprise/dms/matter-templates/approved?matterType=advisory',
+      { redirectOnAuthRequired: false },
+    );
+    expect(apiFetch).toHaveBeenNthCalledWith(3, '/enterprise/dms/matter-templates', {
+      method: 'POST',
+      body: expect.any(String),
+    });
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      4,
+      '/enterprise/dms/matter-templates/33333333-3333-4333-8333-333333333333/apply',
+      { method: 'POST', body: expect.any(String) },
+    );
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      5,
+      '/enterprise/dms/matter-templates/33333333-3333-4333-8333-333333333333/disable',
+      { method: 'POST' },
+    );
+    const payload = String(vi.mocked(apiFetch).mock.calls[2]?.[1]?.body);
+    expect(payload).toContain('documentSets');
+    expect(payload).not.toMatch(/folderPath|bodyText|snippet|raw|prompt|response/i);
   });
 });

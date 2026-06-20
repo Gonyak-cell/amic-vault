@@ -24,8 +24,9 @@ describe('EnterpriseHardeningClient', () => {
     expect(html).toContain('Matter 템플릿');
     expect(html).toContain('검색 refiner');
     expect(html).toContain('Taxonomy 저장');
+    expect(html).toContain('템플릿 저장');
     expect(html).toContain('Refiner 저장');
-    expect(html).toContain('폴더/문서 세트 모델 승인 전 읽기 전용');
+    expect(html).toContain('승인된 문서 세트 계약만 Matter 화면에 표시');
     expect(html).toContain('검색 인덱스 운영');
     expect(html).toContain('검색 헬스');
     expect(html).toContain('인덱스, 추출/OCR, 검색 감사 집계');

@@ -6,8 +6,13 @@ import {
   enterpriseBackupSnapshotSchema,
   enterpriseComplianceEvidenceListResponseSchema,
   enterpriseComplianceEvidenceSchema,
+  enterpriseApprovedDmsMatterTemplateCatalogSchema,
+  enterpriseApprovedDmsMatterTemplateSchema,
   enterpriseApprovedDmsTaxonomyCatalogSchema,
   enterpriseApprovedDmsTaxonomySchema,
+  enterpriseDmsMatterTemplateApplicationSchema,
+  enterpriseDmsMatterTemplateListResponseSchema,
+  enterpriseDmsMatterTemplateSchema,
   enterpriseDmsSearchRefinerListResponseSchema,
   enterpriseDmsSearchRefinerSchema,
   enterpriseDmsTaxonomyListResponseSchema,
@@ -21,6 +26,7 @@ import {
   enterpriseSsoProviderSchema,
   enterpriseSsoSpMetadataSchema,
   documentTypes,
+  type ApplyEnterpriseDmsMatterTemplateRequestDto,
   type CreateEnterpriseBackupSnapshotRequestDto,
   type CreateEnterpriseComplianceEvidenceRequestDto,
   type CreateEnterpriseKeyReferenceRequestDto,
@@ -31,8 +37,13 @@ import {
   type EnterpriseBackupSnapshotListResponseDto,
   type EnterpriseComplianceEvidenceDto,
   type EnterpriseComplianceEvidenceListResponseDto,
+  type EnterpriseApprovedDmsMatterTemplateCatalogDto,
+  type EnterpriseApprovedDmsMatterTemplateDto,
   type EnterpriseApprovedDmsTaxonomyCatalogDto,
   type EnterpriseApprovedDmsTaxonomyDto,
+  type EnterpriseDmsMatterTemplateApplicationDto,
+  type EnterpriseDmsMatterTemplateDto,
+  type EnterpriseDmsMatterTemplateListResponseDto,
   type EnterpriseDmsSearchRefinerDto,
   type EnterpriseDmsSearchRefinerListResponseDto,
   type EnterpriseDmsTaxonomyDto,
@@ -45,7 +56,9 @@ import {
   type EnterpriseSsoProviderDto,
   type EnterpriseSsoProviderListResponseDto,
   type EnterpriseSsoSpMetadataDto,
+  type MatterType,
   type PermissionContext,
+  type UpsertEnterpriseDmsMatterTemplateRequestDto,
   type UpsertEnterpriseDmsSearchRefinerRequestDto,
   type UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
@@ -143,6 +156,27 @@ interface DmsTaxonomyRow {
   last_audit_event_id: string | null;
   created_at: Date;
   updated_at: Date;
+}
+
+interface DmsMatterTemplateRow {
+  template_id: string;
+  matter_type: MatterType;
+  display_name: string;
+  description: string | null;
+  status: 'active' | 'disabled';
+  document_sets_json: unknown;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface DmsMatterTemplateApplicationRow {
+  application_id: string;
+  template_id: string;
+  matter_id: string;
+  matter_type: MatterType;
+  document_set_count: number;
+  audit_event_id: string;
+  applied_at: Date;
 }
 
 interface DmsSearchRefinerRow {
@@ -835,6 +869,222 @@ export class EnterpriseService {
     });
   }
 
+  async upsertDmsMatterTemplate(
+    ctx: PermissionContext,
+    input: UpsertEnterpriseDmsMatterTemplateRequestDto,
+  ): Promise<EnterpriseDmsMatterTemplateDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<DmsMatterTemplateRow>(
+        `
+          INSERT INTO enterprise_dms_matter_templates (
+            tenant_id, matter_type, display_name, description, status,
+            document_sets_json, created_by, updated_by
+          )
+          VALUES ($1, $2, $3, $4, 'active', $5::jsonb, $6, $6)
+          ON CONFLICT (tenant_id, matter_type)
+          DO UPDATE SET
+            display_name = EXCLUDED.display_name,
+            description = EXCLUDED.description,
+            status = 'active',
+            document_sets_json = EXCLUDED.document_sets_json,
+            updated_by = EXCLUDED.updated_by,
+            updated_at = now()
+          RETURNING template_id, matter_type, display_name, description,
+            status, document_sets_json, created_at, updated_at
+        `,
+        [
+          ctx.tenantId,
+          input.matterType,
+          input.displayName,
+          input.description ?? null,
+          JSON.stringify(input.documentSets),
+          ctx.userId,
+        ],
+      );
+      const template = mapDmsMatterTemplate(result.rows[0]);
+      await this.logDmsConfigurationChange(
+        client,
+        ctx,
+        'enterprise_dms_matter_template',
+        template.templateId,
+        {
+          template_id: template.templateId,
+          matter_type: template.matterType,
+          document_set_count: template.documentSets.length,
+          status_after: template.status,
+        },
+      );
+      return template;
+    });
+  }
+
+  async listDmsMatterTemplates(
+    ctx: PermissionContext,
+  ): Promise<EnterpriseDmsMatterTemplateListResponseDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    const result = await getPool().query<DmsMatterTemplateRow>(
+      `
+        SELECT template_id, matter_type, display_name, description, status,
+          document_sets_json, created_at, updated_at
+        FROM enterprise_dms_matter_templates
+        WHERE tenant_id = $1
+        ORDER BY status, matter_type
+        LIMIT 50
+      `,
+      [ctx.tenantId],
+    );
+    return enterpriseDmsMatterTemplateListResponseSchema.parse({
+      templates: result.rows.map(mapDmsMatterTemplate),
+    });
+  }
+
+  async listApprovedDmsMatterTemplates(
+    ctx: PermissionContext,
+    matterType?: MatterType,
+  ): Promise<EnterpriseApprovedDmsMatterTemplateCatalogDto> {
+    await this.assertActiveInternalUser(ctx);
+    const params: unknown[] = [ctx.tenantId];
+    const matterTypeFilter = matterType ? 'AND matter_type = $2' : '';
+    if (matterType) params.push(matterType);
+    const result = await getPool().query<DmsMatterTemplateRow>(
+      `
+        SELECT template_id, matter_type, display_name, description, status,
+          document_sets_json, created_at, updated_at
+        FROM enterprise_dms_matter_templates
+        WHERE tenant_id = $1
+          AND status = 'active'
+          ${matterTypeFilter}
+        ORDER BY matter_type
+        LIMIT 50
+      `,
+      params,
+    );
+    return enterpriseApprovedDmsMatterTemplateCatalogSchema.parse({
+      source: 'tenant_admin_matter_template',
+      generatedAt: new Date().toISOString(),
+      templates: result.rows.map(mapApprovedDmsMatterTemplate),
+    });
+  }
+
+  async disableDmsMatterTemplate(
+    ctx: PermissionContext,
+    templateId: string,
+  ): Promise<EnterpriseDmsMatterTemplateDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<DmsMatterTemplateRow>(
+        `
+          UPDATE enterprise_dms_matter_templates
+          SET status = 'disabled',
+              updated_by = $3,
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND template_id = $2
+          RETURNING template_id, matter_type, display_name, description,
+            status, document_sets_json, created_at, updated_at
+        `,
+        [ctx.tenantId, templateId, ctx.userId],
+      );
+      const template = mapDmsMatterTemplate(requiredRow(result.rows[0]));
+      await this.logDmsConfigurationChange(
+        client,
+        ctx,
+        'enterprise_dms_matter_template',
+        template.templateId,
+        {
+          template_id: template.templateId,
+          matter_type: template.matterType,
+          document_set_count: template.documentSets.length,
+          status_after: template.status,
+        },
+      );
+      return template;
+    });
+  }
+
+  async applyDmsMatterTemplate(
+    ctx: PermissionContext,
+    templateId: string,
+    input: ApplyEnterpriseDmsMatterTemplateRequestDto,
+  ): Promise<EnterpriseDmsMatterTemplateApplicationDto> {
+    await this.assertEnterpriseAdmin(ctx);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const template = mapDmsMatterTemplate(
+        (
+          await client.query<DmsMatterTemplateRow>(
+            `
+              SELECT template_id, matter_type, display_name, description, status,
+                document_sets_json, created_at, updated_at
+              FROM enterprise_dms_matter_templates
+              WHERE tenant_id = $1
+                AND template_id = $2
+                AND status = 'active'
+              LIMIT 1
+            `,
+            [ctx.tenantId, templateId],
+          )
+        ).rows[0],
+      );
+      const matterResult = await client.query<{ matter_id: string; matter_type: MatterType }>(
+        `
+          SELECT matter_id, matter_type
+          FROM matters
+          WHERE tenant_id = $1
+            AND matter_id = $2
+          LIMIT 1
+        `,
+        [ctx.tenantId, input.matterId],
+      );
+      const matter = requiredRow(matterResult.rows[0]);
+      if (matter.matter_type !== template.matterType) {
+        throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+      }
+      const audit = await this.logDmsConfigurationChange(
+        client,
+        ctx,
+        'enterprise_dms_matter_template_application',
+        template.templateId,
+        {
+          template_id: template.templateId,
+          matter_id: input.matterId,
+          matter_type: template.matterType,
+          document_set_count: template.documentSets.length,
+          status_after: 'applied',
+        },
+      );
+      const applicationResult = await client.query<DmsMatterTemplateApplicationRow>(
+        `
+          INSERT INTO enterprise_dms_matter_template_applications (
+            tenant_id, template_id, matter_id, matter_type, document_set_count,
+            applied_by, audit_event_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (tenant_id, matter_id)
+          DO UPDATE SET
+            template_id = EXCLUDED.template_id,
+            matter_type = EXCLUDED.matter_type,
+            document_set_count = EXCLUDED.document_set_count,
+            applied_by = EXCLUDED.applied_by,
+            audit_event_id = EXCLUDED.audit_event_id,
+            applied_at = now()
+          RETURNING application_id, template_id, matter_id, matter_type,
+            document_set_count, audit_event_id, applied_at
+        `,
+        [
+          ctx.tenantId,
+          template.templateId,
+          input.matterId,
+          template.matterType,
+          template.documentSets.length,
+          ctx.userId,
+          audit.eventId,
+        ],
+      );
+      return mapDmsMatterTemplateApplication(applicationResult.rows[0]);
+    });
+  }
+
   async upsertDmsSearchRefiner(
     ctx: PermissionContext,
     input: UpsertEnterpriseDmsSearchRefinerRequestDto,
@@ -947,6 +1197,10 @@ export class EnterpriseService {
       metadata_field_count?: number;
       refiner_id?: string;
       field_key?: string;
+      template_id?: string;
+      matter_id?: string;
+      matter_type?: string;
+      document_set_count?: number;
       version_no?: number;
       status_after: string;
     },
@@ -1174,6 +1428,50 @@ function mapApprovedDmsTaxonomy(
     metadataFields: value.metadata_fields_json,
     versionNo: value.version_no,
     updatedAt: value.updated_at.toISOString(),
+  });
+}
+
+function mapDmsMatterTemplate(
+  row: DmsMatterTemplateRow | undefined,
+): EnterpriseDmsMatterTemplateDto {
+  const value = requiredRow(row);
+  return enterpriseDmsMatterTemplateSchema.parse({
+    templateId: value.template_id,
+    matterType: value.matter_type,
+    displayName: value.display_name,
+    description: value.description,
+    status: value.status,
+    documentSets: value.document_sets_json,
+    createdAt: value.created_at.toISOString(),
+    updatedAt: value.updated_at.toISOString(),
+  });
+}
+
+function mapApprovedDmsMatterTemplate(
+  row: DmsMatterTemplateRow | undefined,
+): EnterpriseApprovedDmsMatterTemplateDto {
+  const value = requiredRow(row);
+  return enterpriseApprovedDmsMatterTemplateSchema.parse({
+    matterType: value.matter_type,
+    displayName: value.display_name,
+    description: value.description,
+    documentSets: value.document_sets_json,
+    updatedAt: value.updated_at.toISOString(),
+  });
+}
+
+function mapDmsMatterTemplateApplication(
+  row: DmsMatterTemplateApplicationRow | undefined,
+): EnterpriseDmsMatterTemplateApplicationDto {
+  const value = requiredRow(row);
+  return enterpriseDmsMatterTemplateApplicationSchema.parse({
+    applicationId: value.application_id,
+    templateId: value.template_id,
+    matterId: value.matter_id,
+    matterType: value.matter_type,
+    documentSetCount: value.document_set_count,
+    auditEventRef: auditRef(value.audit_event_id),
+    appliedAt: value.applied_at.toISOString(),
   });
 }
 
