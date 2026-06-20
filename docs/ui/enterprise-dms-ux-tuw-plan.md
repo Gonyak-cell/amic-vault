@@ -303,6 +303,9 @@ PR-A implementation note:
   `MatterDocumentList` so a successful Matter-scoped upload immediately
   re-queries both the all-documents vault and the selected Matter file list
   instead of leaving the pre-upload browse state stale.
+- `/matters` now exposes Matter row actions for Matter workspace, Matter Code
+  filtered file cabinet, and Matter Code filtered search using display-safe
+  Matter Code links instead of fake counts or raw refs as visible labels.
 - Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
 
 ### PR-B Document Operations
