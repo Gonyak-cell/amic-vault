@@ -150,8 +150,12 @@ describe('DocumentUploadPanel', () => {
     expect(html).toContain('프로필, 버전, 처리 상태');
     expect(html).toContain('완료');
     expect(html).toContain('문서 열기');
+    expect(html).toContain('전체 문서함');
     expect(html).toContain('Matter 문서함');
     expect(html).toContain('중복 후보 2건이 감지되었습니다.');
+    expect(html).toContain(
+      '/files?title=%ED%88%AC%EC%9E%90%EA%B3%84%EC%95%BD%EC%84%9C.pdf&amp;matterCode=AMIC-2026-0001',
+    );
     expect(html).toContain('/files?matterCode=AMIC-2026-0001');
     expect(html).not.toContain(selectedMatter.matterReference);
   });

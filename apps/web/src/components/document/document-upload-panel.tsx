@@ -284,6 +284,12 @@ export function UploadQueueReceipt({
                   </Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
+                  <Link href={allDocumentsVaultHref(item, selectedMatter)}>
+                    <FileSearch className="h-4 w-4" />
+                    전체 문서함
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
                   <Link href={matterFileCabinetHref(selectedMatter)}>
                     <FileSearch className="h-4 w-4" />
                     Matter 문서함
@@ -310,6 +316,15 @@ function matterFileCabinetHref(selectedMatter: MatterCodeOption): string {
   const params = new URLSearchParams();
   params.set('matterCode', selectedMatter.matterCode);
   return `/files?${params.toString()}`;
+}
+
+function allDocumentsVaultHref(item: UploadQueueRow, selectedMatter: MatterCodeOption): string {
+  const params = new URLSearchParams();
+  const title = item.title?.trim() || item.fileName.trim();
+  if (title) params.set('title', title);
+  if (selectedMatter.matterCode.trim()) params.set('matterCode', selectedMatter.matterCode.trim());
+  const queryString = params.toString();
+  return queryString ? `/files?${queryString}` : '/files';
 }
 
 export function uploadStatusMessage(result: UploadDocumentResponseDto): string {
