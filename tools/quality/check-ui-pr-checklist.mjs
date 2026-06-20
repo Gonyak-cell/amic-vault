@@ -136,6 +136,11 @@ const requiredPatterns = [
       /upload refresh key[\s\S]*MatterDocumentList[\s\S]*successful Matter-scoped upload[\s\S]*re-queries the selected Matter file list/is,
   },
   {
+    label: 'DMS version receipt evidence',
+    pattern:
+      /new-version upload[\s\S]*version list[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,
+  },
+  {
     label: 'PR-F hold criteria',
     pattern:
       /Hold Criteria[\s\S]*approved staging\/production credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/is,

@@ -2,7 +2,11 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { DocumentAuditEventDto, DocumentDto, DocumentVersionDto } from '@amic-vault/shared';
-import { DocumentActionCenter, searchHitContextFromParams } from './document-action-center';
+import {
+  DocumentActionCenter,
+  searchHitContextFromParams,
+  versionUploadStatusMessage,
+} from './document-action-center';
 
 const document = {
   documentId: '11111111-1111-4111-8111-111111111201',
@@ -185,5 +189,33 @@ describe('DocumentActionCenter', () => {
       target: 'body',
     });
     expect(searchHitContextFromParams(new URLSearchParams())).toBeNull();
+  });
+
+  it('summarizes new-version upload receipts without raw refs', () => {
+    const message = versionUploadStatusMessage({
+      documentId: document.documentId,
+      matterId: document.matterId,
+      versionId: '11111111-1111-4111-8111-111111111901',
+      versionNo: 3,
+      versionStatus: 'current',
+      fileObjectId: '11111111-1111-4111-8111-111111111902',
+      sha256: 'a'.repeat(64),
+      metadataSuggestion: {},
+      duplicates: [
+        {
+          documentId: '11111111-1111-4111-8111-111111111903',
+          fileObjectId: '11111111-1111-4111-8111-111111111904',
+          sha256: 'b'.repeat(64),
+        },
+      ],
+    });
+
+    expect(message).toContain('v3 새 버전이 추가되었습니다.');
+    expect(message).toContain('버전 목록과 파일 정리 준비 상태를 갱신했습니다.');
+    expect(message).toContain('중복 후보 1건이 감지되었습니다.');
+    expect(message).not.toContain(document.documentId);
+    expect(message).not.toContain(document.matterId);
+    expect(message).not.toContain('11111111-1111-4111-8111-111111111901');
+    expect(message).not.toContain('a'.repeat(64));
   });
 });

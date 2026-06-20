@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import type {
+  AddDocumentVersionResponseDto,
   AiPrepDocumentStatusDto,
   DocumentAuditEventDto,
   DocumentConfidentialityLevel,
@@ -200,6 +201,12 @@ function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitC
     params.set('hitCount', String(context.hitCount));
   }
   return `/documents/${encodeURIComponent(documentId)}?${params.toString()}`;
+}
+
+export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto): string {
+  const duplicateMessage =
+    result.duplicates.length > 0 ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.` : '';
+  return `v${result.versionNo} 새 버전이 추가되었습니다. 버전 목록과 파일 정리 준비 상태를 갱신했습니다.${duplicateMessage}`;
 }
 
 function previewUrlForDocument(
@@ -392,8 +399,20 @@ export function DocumentActionCenter({
   const [versionFile, setVersionFile] = useState<File | null>(null);
   const [versionSaving, setVersionSaving] = useState(false);
   const [versionError, setVersionError] = useState<string | null>(null);
+  const [versionSuccessMessage, setVersionSuccessMessage] = useState<string | null>(null);
   const [versionInputKey, setVersionInputKey] = useState(0);
   const [downloadReason, setDownloadReason] = useState<DocumentDownloadReasonCode>('casework');
+
+  const refreshPrepStatus = useCallback(async () => {
+    try {
+      const result = await getDocumentAiPrepStatus(documentId);
+      setPrepStatus(result);
+      setPrepError(null);
+    } catch (caught) {
+      setPrepStatus(null);
+      setPrepError(safeApiErrorMessage(caught));
+    }
+  }, [documentId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -415,16 +434,8 @@ export function DocumentActionCenter({
       setLoading(false);
     }
 
-    getDocumentAiPrepStatus(documentId)
-      .then((result) => {
-        setPrepStatus(result);
-        setPrepError(null);
-      })
-      .catch((caught) => {
-        setPrepStatus(null);
-        setPrepError(safeApiErrorMessage(caught));
-      });
-  }, [documentId]);
+    void refreshPrepStatus();
+  }, [documentId, refreshPrepStatus]);
 
   useEffect(() => {
     if (disableInitialLoad) return;
@@ -471,8 +482,9 @@ export function DocumentActionCenter({
     if (!document || !versionFile || versionSaving) return;
     setVersionSaving(true);
     setVersionError(null);
+    setVersionSuccessMessage(null);
     try {
-      await addDocumentVersion(document.documentId, versionFile);
+      const result = await addDocumentVersion(document.documentId, versionFile);
       setVersionFile(null);
       setVersionInputKey((current) => current + 1);
       const [updated, versionResult] = await Promise.all([
@@ -482,6 +494,8 @@ export function DocumentActionCenter({
       setDocument(updated);
       setProfileDraft(draftFromDocument(updated));
       setVersions(versionResult.items);
+      await refreshPrepStatus();
+      setVersionSuccessMessage(versionUploadStatusMessage(result));
     } catch (caught) {
       setVersionError(safeApiErrorMessage(caught));
     } finally {
@@ -760,7 +774,10 @@ export function DocumentActionCenter({
                   <Input
                     key={versionInputKey}
                     type="file"
-                    onChange={(event) => setVersionFile(event.target.files?.[0] ?? null)}
+                    onChange={(event) => {
+                      setVersionFile(event.target.files?.[0] ?? null);
+                      setVersionSuccessMessage(null);
+                    }}
                   />
                 </label>
                 <Button
@@ -773,6 +790,11 @@ export function DocumentActionCenter({
                   {versionSaving ? '업로드 중' : '새 버전 추가'}
                 </Button>
                 {versionError ? <p className="mt-2 text-sm text-destructive">{versionError}</p> : null}
+                {versionSuccessMessage ? (
+                  <p className="mt-2 text-sm font-medium text-primary" role="status">
+                    {versionSuccessMessage}
+                  </p>
+                ) : null}
               </div>
             </SectionCard>
 
