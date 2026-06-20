@@ -9,16 +9,22 @@ import {
   Inject,
   Injectable,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { initialDocumentFamilyId } from '@amic-vault/domain';
 import type {
   AddDocumentVersionFieldsDto,
   AddDocumentVersionResponseDto,
+  TenantId,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 import { documentUploadedAudit, documentVersionAddedAudit } from '../audit/events/document-events';
+import {
+  MatterSourcePolicyService,
+  type MatterSourceMutationDecision,
+} from '../integrations/matter-app/matter-source-policy';
 import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -113,6 +119,9 @@ export class DocumentUploadService {
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(MatterSourcePolicyService)
+    private readonly matterSourcePolicy?: MatterSourcePolicyService,
   ) {}
 
   async uploadBuffer(input: UploadBufferedDocumentInput): Promise<UploadDocumentResponseDto> {
@@ -147,7 +156,13 @@ export class DocumentUploadService {
 
     try {
       this.fileSizeValidator.validate(file.size);
-      await this.assertCanUpload(context.tenantId, input.actorUserId, input.matterId);
+      const matterSourceDecision = await this.assertMatterUploadReady(
+        context.tenantId,
+        input.actorUserId,
+        input.matterId,
+        'document_upload',
+        input.fields.uploadPreflightRef,
+      );
       const originalFilename = normalizeTransportFilename(file.originalname);
       const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
       const sniffed = await this.mimeTypeValidator.validate({
@@ -238,6 +253,7 @@ export class DocumentUploadService {
               matterId: input.matterId,
               versionId: version.versionId,
               hash: sha256,
+              ...(matterSourceDecision ? { matterSourceDecision } : {}),
             }),
             tx,
           );
@@ -269,7 +285,6 @@ export class DocumentUploadService {
   }
 
   async addVersion(input: AddDocumentVersionInput): Promise<AddDocumentVersionResponseDto> {
-    void input.fields;
     const context = this.tenantContext.require();
     const file = input.file;
     if (!isUploadedDiskFile(file)) {
@@ -284,7 +299,13 @@ export class DocumentUploadService {
         input.documentId,
       );
       if (!target) throw permissionDenied();
-      await this.assertCanUpload(context.tenantId, input.actorUserId, target.matter_id);
+      const matterSourceDecision = await this.assertMatterUploadReady(
+        context.tenantId,
+        input.actorUserId,
+        target.matter_id,
+        'document_version',
+        input.fields.uploadPreflightRef,
+      );
 
       const originalFilename = normalizeTransportFilename(file.originalname);
       const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
@@ -362,6 +383,7 @@ export class DocumentUploadService {
               matterId: target.matter_id,
               versionId: version.versionId,
               hash: sha256,
+              ...(matterSourceDecision ? { matterSourceDecision } : {}),
             }),
             tx,
           );
@@ -405,6 +427,26 @@ export class DocumentUploadService {
     if (decision?.effect === 'ALLOW') return;
     if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
     throw permissionDenied();
+  }
+
+  private async assertMatterUploadReady(
+    tenantId: TenantId,
+    actorUserId: string,
+    matterId: string,
+    purpose: 'document_upload' | 'document_version',
+    uploadPreflightRef: string | undefined,
+  ): Promise<MatterSourceMutationDecision | undefined> {
+    if (this.matterSourcePolicy) {
+      return this.matterSourcePolicy.assertUploadMutationAllowed({
+        actorUserId,
+        matterId,
+        tenantId,
+        purpose,
+        uploadPreflightRef,
+      });
+    }
+    await this.assertCanUpload(tenantId, actorUserId, matterId);
+    return undefined;
   }
 
   private async compensateStorageObject(tenantId: string, storageUri: string): Promise<void> {

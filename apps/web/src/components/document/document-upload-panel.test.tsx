@@ -10,6 +10,7 @@ import {
 import type { MatterCodeOption } from '@/lib/matter-app';
 
 vi.mock('@/lib/api-client', () => ({
+  createUploadPreflight: vi.fn(),
   uploadDocument: vi.fn(),
 }));
 

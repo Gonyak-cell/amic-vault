@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MetricsModule } from '../../common/metrics/metrics.module';
 import { AuditModule } from '../audit/audit.module';
+import { MatterAppModule } from '../integrations/matter-app/matter-app.module';
 import { PermissionModule } from '../permission/permission.module';
 import { SearchModule } from '../search/search.module';
 import { StorageModule } from '../storage/storage.module';
@@ -16,11 +17,21 @@ import { ExtractionDispatcher } from './extraction/extraction-dispatcher';
 import { ExtractionQueueService } from './extraction/extraction-queue.service';
 import { DuplicateDetectorService } from './integrity/duplicate-detector.service';
 import { IntegrityCheckService } from './integrity/integrity-check.service';
+import { UploadPreflightController } from './upload-preflight.controller';
 import { VersionNumberResolver } from './version-number.resolver';
 
 @Module({
-  imports: [AuditModule, MetricsModule, PermissionModule, SearchModule, StorageModule, TenantModule, UserModule],
-  controllers: [DocumentController, DocumentMetadataController],
+  imports: [
+    AuditModule,
+    MatterAppModule,
+    MetricsModule,
+    PermissionModule,
+    SearchModule,
+    StorageModule,
+    TenantModule,
+    UserModule,
+  ],
+  controllers: [DocumentController, DocumentMetadataController, UploadPreflightController],
   providers: [
     BulkUploadJob,
     DocumentLifecycleService,

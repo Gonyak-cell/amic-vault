@@ -12,6 +12,23 @@ interface BaseDocumentEventInput {
 interface VersionedDocumentEventInput extends BaseDocumentEventInput {
   versionId: string;
   hash?: string;
+  matterSourceDecision?: MatterSourceAuditDecision;
+}
+
+interface MatterSourceAuditDecision {
+  decisionRef: string;
+  preflightRef?: string;
+  sourceMode: string;
+}
+
+function matterSourceMetadata(decision: MatterSourceAuditDecision | undefined) {
+  if (!decision) return {};
+  return {
+    decision_ref: decision.decisionRef,
+    scope_id: decision.sourceMode,
+    scope_type: 'matter_app_source',
+    ...(decision.preflightRef ? { request_id: decision.preflightRef } : {}),
+  };
 }
 
 export function documentUploadedAudit(input: VersionedDocumentEventInput): AuditLogInput {
@@ -27,6 +44,7 @@ export function documentUploadedAudit(input: VersionedDocumentEventInput): Audit
       matter_id: input.matterId,
       version_id: input.versionId,
       ...(input.hash ? { hash: input.hash } : {}),
+      ...matterSourceMetadata(input.matterSourceDecision),
     },
   };
 }
@@ -85,6 +103,7 @@ export function documentMetadataChangedAudit(
     diffKeys: readonly string[];
     beforeRef: string;
     afterRef: string;
+    matterSourceDecision?: MatterSourceAuditDecision;
   },
 ): AuditLogInput {
   return {
@@ -100,6 +119,7 @@ export function documentMetadataChangedAudit(
       diff_keys: input.diffKeys,
       before_ref: input.beforeRef,
       after_ref: input.afterRef,
+      ...matterSourceMetadata(input.matterSourceDecision),
     },
   };
 }

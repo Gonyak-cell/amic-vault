@@ -31,6 +31,10 @@ import { buildSafeLabel } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { markAndAuditAiPrepArtifactsStale } from '../ai/prep/ai-prep-lifecycle';
 import { documentMetadataChangedAudit, documentViewedAudit } from '../audit/events/document-events';
+import {
+  MatterSourcePolicyService,
+  type MatterSourceMutationDecision,
+} from '../integrations/matter-app/matter-source-policy';
 import { PermissionService } from '../permission/permission.service';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import {
@@ -287,6 +291,9 @@ export class DocumentService {
     @Optional()
     @Inject(SEARCH_PERMISSION_SCOPE_PROVIDER)
     private readonly searchPermissionScope?: SearchPermissionScopeProvider,
+    @Optional()
+    @Inject(MatterSourcePolicyService)
+    private readonly matterSourcePolicy?: MatterSourcePolicyService,
   ) {}
 
   async createDraft(input: CreateDraftDocumentInput, client: PoolClient): Promise<DocumentDto> {
@@ -332,6 +339,11 @@ export class DocumentService {
       const before = await this.findByIdForTenant(context.tenantId, documentId, tx);
       if (!before) throw notFoundDenied();
       await this.assertCanEditMatter(context.tenantId, actorUserId, before.matter_id);
+      const matterSourceDecision = await this.assertMatterSourceMutationReady(
+        context.tenantId,
+        before.matter_id,
+        'document_metadata',
+      );
       this.assertMatterMutationAllowed(before.matter_status);
       assertDocumentMutationAllowed({
         documentStatus: before.status,
@@ -351,6 +363,7 @@ export class DocumentService {
           diffKeys,
           beforeRef: metadataRef(before),
           afterRef: metadataRef(updated),
+          ...(matterSourceDecision ? { matterSourceDecision } : {}),
         }),
         tx,
       );
@@ -623,6 +636,19 @@ export class DocumentService {
   private assertMatterMutationAllowed(status: string): void {
     if (!isMatterState(status)) throw validationFailed();
     if (isMatterMutationBlockedState(status)) throw validationFailed('MATTER_MUTATION_BLOCKED');
+  }
+
+  private async assertMatterSourceMutationReady(
+    tenantId: TenantId,
+    matterId: string,
+    purpose: 'document_metadata',
+  ): Promise<MatterSourceMutationDecision | undefined> {
+    if (!this.matterSourcePolicy) return undefined;
+    return this.matterSourcePolicy.assertMatterSourceMutationAllowed({
+      tenantId,
+      matterId,
+      purpose,
+    });
   }
 
   private requireSearchPermissionScope(): SearchPermissionScopeProvider {

@@ -74,6 +74,9 @@ browse, search, governance, integration, or AI prep behavior.
    `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`,
    `NEXT_PUBLIC_MATTER_APP_SOURCE_UPDATED_AT`, and
    `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE`.
+   These flags also make the API upload-preflight and document mutation gates
+   fail closed; any already issued upload preflight refs are short-lived and
+   must not be treated as release evidence.
 4. If file organization prep health is unsafe, stop enqueue and worker paths
    with `AI_PREP_ENABLED=false`, `AI_PREP_QUEUE_WORKER_ENABLED=false`, and
    `LOCAL_GEMMA_ENABLED=false`; keep `AI_SUMMARY_GEMMA_ENABLED=false`.

@@ -22,6 +22,7 @@ import type {
   SearchTarget,
   UpdateDocumentMetadataDto,
   UpdateMatterMemberDto,
+  UploadPreflightResponseDto,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
 } from '@amic-vault/shared';
@@ -217,6 +218,16 @@ export function uploadDocument(
     `/matters/${encodeURIComponent(matterReference)}/documents`,
     formData,
     { method: 'POST' },
+  );
+}
+
+export function createUploadPreflight(matterReference: string): Promise<UploadPreflightResponseDto> {
+  return apiFetch<UploadPreflightResponseDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents/upload-preflight`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
   );
 }
 

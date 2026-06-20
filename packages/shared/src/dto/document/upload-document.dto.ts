@@ -23,6 +23,7 @@ export const uploadDocumentFieldsSchema = z
         return value;
       }, z.boolean())
       .optional(),
+    uploadPreflightRef: z.string().trim().min(1).max(160).optional(),
   })
   .strict();
 

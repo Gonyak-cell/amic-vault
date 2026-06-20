@@ -157,6 +157,7 @@ const uploadBrowseFlowFiles = [
     path: 'apps/web/src/lib/api-client.ts',
     patterns: [
       { name: 'FormData helper', pattern: /apiFetchFormData/ },
+      { name: 'upload preflight client', pattern: /createUploadPreflight/ },
       { name: 'matter document list client', pattern: /listMatterDocuments/ },
       { name: 'matter-scoped upload client', pattern: /uploadDocument/ },
       { name: 'multipart content type guard', pattern: /withoutContentType/ },
@@ -195,10 +196,12 @@ const uploadBrowseFlowFiles = [
         pattern: /Matter Code를 먼저 선택해 주세요/,
       },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
+      { name: 'server-side upload preflight call', pattern: /createUploadPreflight/ },
       {
         name: 'matter-scoped upload call',
         pattern: /uploadDocument\(selectedMatter\.matterReference/,
       },
+      { name: 'upload preflight ref forwarding', pattern: /uploadPreflightRef/ },
       { name: 'bulk file picker', pattern: /multiple/ },
       { name: 'bulk upload queue', pattern: /업로드 큐/ },
     ],

@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import type { DocumentMetadataSuggestionDto } from './upload-document.dto';
 
-export const addDocumentVersionFieldsSchema = z.object({}).strict();
+export const addDocumentVersionFieldsSchema = z
+  .object({
+    uploadPreflightRef: z.string().trim().min(1).max(160).optional(),
+  })
+  .strict();
 
 export interface AddDocumentVersionResponseDto {
   documentId: string;

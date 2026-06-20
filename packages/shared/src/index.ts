@@ -733,6 +733,14 @@ export {
   type UploadDocumentResponseDto,
 } from './dto/document/upload-document.dto';
 export {
+  createUploadPreflightRequestSchema,
+  uploadPreflightPurposeSchema,
+  uploadPreflightResponseSchema,
+  type CreateUploadPreflightRequestDto,
+  type UploadPreflightPurpose,
+  type UploadPreflightResponseDto,
+} from './dto/document/upload-preflight.dto';
+export {
   addDocumentVersionFieldsSchema,
   type AddDocumentVersionFieldsDto,
   type AddDocumentVersionResponseDto,

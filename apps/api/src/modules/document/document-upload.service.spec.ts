@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Readable } from 'node:stream';
+import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { allowPermission, denyPermission } from '@amic-vault/shared';
 import { DocumentUploadService, type UploadedDiskFile } from './document-upload.service';
@@ -35,7 +36,9 @@ async function drainBody(body: Buffer | Readable): Promise<void> {
   expect(bytes).toBeGreaterThanOrEqual(0);
 }
 
-function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {}) {
+function createService(
+  options: { matterSourcePolicy?: 'allow' | 'block'; permission?: 'allow' | 'deny' | 'wall' } = {},
+) {
   const permission =
     options.permission === 'deny'
       ? denyPermission('PERMISSION_DENIED')
@@ -98,6 +101,29 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
       };
     },
   );
+  const matterSourcePolicy =
+    options.matterSourcePolicy === undefined
+      ? undefined
+      : {
+          assertUploadMutationAllowed:
+            options.matterSourcePolicy === 'block'
+              ? vi.fn(async () => {
+                  throw new BadRequestException({
+                    code: 'VALIDATION_FAILED',
+                    reason: 'MATTER_SOURCE_UNAVAILABLE',
+                  });
+                })
+              : vi.fn(async () => ({
+                  decisionRef: 'matter-source-mutation:decision',
+                  matterId,
+                  permissionDecisionRef: 'matter-upload-permission:decision',
+                  preflightRef: 'upf_ref',
+                  preflightExpiresAt: '2026-06-20T00:05:00.000Z',
+                  sourceMode: 'matter_app_api',
+                  sourceRevision: 'source-rev-1',
+                  sourceUpdatedAt: '2026-06-20T00:00:00.000Z',
+                })),
+        };
   const service = new DocumentUploadService(
     { transaction, log: auditLog } as never,
     { createDraft } as never,
@@ -114,11 +140,14 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     {
       require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
     } as never,
+    matterSourcePolicy as never,
   );
   return {
+    auditLog,
     createDraft,
     createFileObject,
     createInitialVersion,
+    matterSourcePolicy,
     putTenantObject,
     service,
   };
@@ -227,6 +256,51 @@ describe('DocumentUploadService', () => {
       }),
       expect.anything(),
     );
+  });
+
+  it('records Matter source decision refs when upload policy is satisfied', async () => {
+    const file = await tempUploadFile('Contract.PDF');
+    const { auditLog, matterSourcePolicy, service } = createService({ matterSourcePolicy: 'allow' });
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: { uploadPreflightRef: 'upf_ref' },
+      file,
+    });
+
+    expect(matterSourcePolicy?.assertUploadMutationAllowed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId,
+        matterId,
+        purpose: 'document_upload',
+        uploadPreflightRef: 'upf_ref',
+      }),
+    );
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DOCUMENT_UPLOADED',
+        metadata: expect.objectContaining({
+          decision_ref: 'matter-source-mutation:decision',
+          request_id: 'upf_ref',
+          scope_id: 'matter_app_api',
+          scope_type: 'matter_app_source',
+        }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('fails closed before storage when Matter source policy blocks upload', async () => {
+    const file = await tempUploadFile('Contract.pdf');
+    const { putTenantObject, service } = createService({ matterSourcePolicy: 'block' });
+
+    await expect(service.upload({ actorUserId, matterId, fields: {}, file })).rejects.toMatchObject(
+      {
+        response: { code: 'VALIDATION_FAILED' },
+      },
+    );
+    expect(putTenantObject).not.toHaveBeenCalled();
   });
 
   it('uploads buffered email attachments through the same pipeline with email source', async () => {
