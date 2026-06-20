@@ -16,6 +16,11 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import {
+  UploadMetadataProfile,
+  defaultUploadMetadataProfile,
+  uploadMetadataProfileFields,
+} from './upload-metadata-profile';
 
 export interface DocumentUploadPanelProps {
   onUploadComplete?: (result: UploadDocumentResponseDto) => void;
@@ -55,10 +60,9 @@ export function DocumentUploadPanel({
 }: DocumentUploadPanelProps) {
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
   const uploadSourceReady = isMatterUploadSourceMode(resolvedSourceMode);
-  const prepInputId = React.useId();
   const [files, setFiles] = React.useState<File[]>([]);
   const [title, setTitle] = React.useState('');
-  const [prepEnabled, setPrepEnabled] = React.useState(true);
+  const [metadataProfile, setMetadataProfile] = React.useState(defaultUploadMetadataProfile);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadQueue, setUploadQueue] = React.useState<UploadQueueRow[]>([]);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
@@ -107,7 +111,7 @@ export function DocumentUploadPanel({
         );
         try {
           const result = await uploadDocument(selectedMatter.matterReference, selectedFile, {
-            aiAllowed: prepEnabled,
+            ...uploadMetadataProfileFields(metadataProfile),
             uploadPreflightRef,
             ...(files.length === 1 && title.trim() ? { title: title.trim() } : {}),
           });
@@ -190,6 +194,8 @@ export function DocumentUploadPanel({
         />
       </label>
 
+      <UploadMetadataProfile profile={metadataProfile} onChange={setMetadataProfile} />
+
       {files.length > 0 ? (
         <div className="rounded-md border bg-background">
           <div className="border-b px-3 py-2 text-sm font-semibold">
@@ -207,20 +213,6 @@ export function DocumentUploadPanel({
           </ul>
         </div>
       ) : null}
-
-      <label
-        htmlFor={prepInputId}
-        className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground"
-      >
-        <input
-          id={prepInputId}
-          type="checkbox"
-          className="h-4 w-4 accent-primary"
-          checked={prepEnabled}
-          onChange={(event) => setPrepEnabled(event.currentTarget.checked)}
-        />
-        파일 정리 준비
-      </label>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={!canUpload}>

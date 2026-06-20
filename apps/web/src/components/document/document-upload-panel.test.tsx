@@ -7,6 +7,10 @@ import {
   bulkUploadStatusMessage,
   uploadStatusMessage,
 } from './document-upload-panel';
+import {
+  defaultUploadMetadataProfile,
+  uploadMetadataProfileFields,
+} from './upload-metadata-profile';
 import type { MatterCodeOption } from '@/lib/matter-app';
 
 vi.mock('@/lib/api-client', () => ({
@@ -70,10 +74,38 @@ describe('DocumentUploadPanel', () => {
     expect(html).toContain('Investment Advisory');
     expect(html).toContain('type="file"');
     expect(html).toContain('multiple=""');
+    expect(html).toContain('업로드 분류 프로필');
+    expect(html).toContain('문서 유형');
+    expect(html).toContain('세부 유형');
+    expect(html).toContain('보안 등급');
+    expect(html).toContain('특권 상태');
+    expect(html).toContain('보존/hold');
+    expect(html).toContain('Matter/Records 정책 적용');
     expect(html).toContain('업로드');
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('파일 정리 준비');
     expect(html).not.toContain(selectedMatter.matterReference);
+    expect(html).not.toContain('법률 분석');
+    expect(html).not.toContain('요약');
+  });
+
+  it('serializes upload metadata profile fields for the upload DTO', () => {
+    expect(
+      uploadMetadataProfileFields({
+        ...defaultUploadMetadataProfile,
+        confidentialityLevel: 'restricted',
+        documentType: 'contract',
+        privilegeStatus: 'work_product',
+        subtype: ' 투자계약 ',
+        aiAllowed: false,
+      }),
+    ).toEqual({
+      aiAllowed: false,
+      confidentialityLevel: 'restricted',
+      documentType: 'contract',
+      privilegeStatus: 'work_product',
+      subtype: '투자계약',
+    });
   });
 
   it('makes post-upload file organization prep visible when the upload opted in', () => {

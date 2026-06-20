@@ -197,6 +197,8 @@ const uploadBrowseFlowFiles = [
       },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
       { name: 'server-side upload preflight call', pattern: /createUploadPreflight/ },
+      { name: 'upload metadata profile component', pattern: /UploadMetadataProfile/ },
+      { name: 'upload metadata profile forwarding', pattern: /uploadMetadataProfileFields/ },
       {
         name: 'matter-scoped upload call',
         pattern: /uploadDocument\(selectedMatter\.matterReference/,
@@ -204,6 +206,17 @@ const uploadBrowseFlowFiles = [
       { name: 'upload preflight ref forwarding', pattern: /uploadPreflightRef/ },
       { name: 'bulk file picker', pattern: /multiple/ },
       { name: 'bulk upload queue', pattern: /업로드 큐/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/upload-metadata-profile.tsx',
+    patterns: [
+      { name: 'approved document type values', pattern: /documentTypes/ },
+      { name: 'approved confidentiality values', pattern: /documentConfidentialityLevels/ },
+      { name: 'approved privilege values', pattern: /documentPrivilegeStatuses/ },
+      { name: 'upload metadata profile title', pattern: /업로드 분류 프로필/ },
+      { name: 'file organization prep only copy', pattern: /파일 정리 준비/ },
+      { name: 'retention hold hint', pattern: /Matter\/Records 정책 적용/ },
     ],
   },
   {
