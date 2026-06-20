@@ -34,6 +34,15 @@ describe('MatterDocumentList', () => {
     expect(html).not.toContain(selectedMatter.matterReference);
   });
 
+  it('accepts upload refresh keys without exposing Matter references', () => {
+    const html = renderToStaticMarkup(
+      <MatterDocumentList refreshKey={2} selectedMatter={selectedMatter} />,
+    );
+
+    expect(html).toContain('표시할 파일이 없습니다.');
+    expect(html).not.toContain(selectedMatter.matterReference);
+  });
+
   it('formats updated timestamps for file lists', () => {
     expect(formatDate('2026-06-18T04:00:00.000Z')).toContain('2026');
   });

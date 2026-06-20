@@ -69,6 +69,7 @@ function FilingContextRows({ rows }: { rows: FilingContextRow[] }) {
 
 export function MatterFileSection({ matter, sourceMode }: MatterFileSectionProps) {
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
+  const [uploadRevision, setUploadRevision] = React.useState(0);
   const matterOption = React.useMemo(
     () => toMatterCodeOption(matter, resolvedSourceMode),
     [matter, resolvedSourceMode],
@@ -107,14 +108,18 @@ export function MatterFileSection({ matter, sourceMode }: MatterFileSectionProps
         title="파일"
         meta="Matter 범위 목록"
       >
-        <MatterDocumentList selectedMatter={matterOption} />
+        <MatterDocumentList refreshKey={uploadRevision} selectedMatter={matterOption} />
       </SectionCard>
       <SectionCard
         icon={<FolderUp className="h-4 w-4" />}
         title="파일 업로드"
         meta="Matter Code 확인 후 업로드"
       >
-        <DocumentUploadPanel selectedMatter={matterOption} sourceMode={resolvedSourceMode} />
+        <DocumentUploadPanel
+          selectedMatter={matterOption}
+          sourceMode={resolvedSourceMode}
+          onUploadComplete={() => setUploadRevision((current) => current + 1)}
+        />
       </SectionCard>
     </>
   );
