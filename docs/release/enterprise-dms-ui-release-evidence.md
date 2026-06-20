@@ -80,7 +80,7 @@ without hard delete and without altering immutable originals or audit history.
 | Control ID | Rollback control | Evidence ref | Owner |
 | --- | --- | --- | --- |
 | DMS-RB-001 | Route visibility policy can hide `/files`, `/documents/[id]`, `/search/folders`, `/records`, `/audit`, `/walls`, `/integrations`, `/integrations/outlook`, `/enterprise`, and admin routes through feature/role policy |  | Operator |
-| DMS-RB-002 | Matter app source flags can block production upload/browse when canonical Matter source is unavailable: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`, `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE` |  | Operator |
+| DMS-RB-002 | Matter app source flags can block production upload/browse when canonical Matter source is unavailable: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`, `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`, `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE` |  | Operator |
 | DMS-RB-003 | Worker flags can stop unsafe processing: `AI_PREP_ENABLED`, `AI_PREP_QUEUE_WORKER_ENABLED`, `LOCAL_GEMMA_ENABLED`, and `AI_SUMMARY_GEMMA_ENABLED=false` |  | Operator |
 | DMS-RB-004 | Database rollback uses reviewed migration rollback or forward-fix only; no hard delete and no audit mutation |  | Security owner |
 | DMS-RB-005 | Storage rollback preserves immutable originals, versions, hashes, and tenant prefixes |  | Security owner |

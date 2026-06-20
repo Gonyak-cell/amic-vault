@@ -172,7 +172,7 @@ Rollback owner must be named before release. Rollback controls:
   `/integrations/outlook`, `/records`, `/audit`, `/walls`, or admin routes by
   role/feature policy if a surface is unsafe.
 - Matter app source flags: disable production upload/browse if canonical Matter
-  source is unavailable.
+  source is unavailable or lookup/sync runtime readiness is not approved.
 - Worker flags: disable upload-prep enqueue/worker and AI prep worker if file
   organization prep health fails.
 - Database migrations: use reviewed rollback path only; no hard delete.

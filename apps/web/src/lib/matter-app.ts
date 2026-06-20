@@ -21,9 +21,12 @@ export interface MatterCodeOption {
 
 export interface MatterAppSourceStatus {
   mode: MatterAppSourceMode;
+  requestedMode: MatterAppSourceMode;
   label: string;
   description: string;
   sourceConfigured: boolean;
+  runtimeReady: boolean;
+  sourceContractReady: boolean;
   sourceAvailable: boolean;
   uploadAuthoritative: boolean;
   productionRuntime: boolean;
@@ -76,12 +79,35 @@ export function isMatterAppSourceConfigured(
   );
 }
 
+export function isMatterAppRuntimeReady(
+  mode: MatterAppSourceMode,
+  options: {
+    runtimeReady?: string | undefined;
+  } = {},
+): boolean {
+  if (mode !== 'matter_app_api' && mode !== 'matter_app_event_projection') return true;
+  return envFlagEnabled(options.runtimeReady ?? process.env.NEXT_PUBLIC_MATTER_APP_RUNTIME_READY);
+}
+
+export function isMatterAppSourceContractReady(
+  mode: MatterAppSourceMode,
+  options: {
+    sourceConfigured?: string | undefined;
+    projectionFallbackAllowed?: string | undefined;
+    runtimeReady?: string | undefined;
+    nodeEnv?: string | undefined;
+  } = {},
+): boolean {
+  if (!isMatterAppSourceConfigured(mode, options)) return false;
+  return isMatterAppRuntimeReady(mode, options);
+}
+
 export function matterAppSourceMode(): MatterAppSourceMode {
   const value = process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_MODE;
   const mode = matterAppSourceModes.includes(value as MatterAppSourceMode)
     ? (value as MatterAppSourceMode)
     : 'unconfigured';
-  return isMatterAppSourceConfigured(mode) ? mode : 'unconfigured';
+  return isMatterAppSourceContractReady(mode) ? mode : 'unconfigured';
 }
 
 export function isMatterAppSourceAvailable(mode: MatterAppSourceMode): boolean {
@@ -97,6 +123,7 @@ export function matterAppSourceStatus(
     sourceMode?: string | undefined;
     sourceConfigured?: string | undefined;
     projectionFallbackAllowed?: string | undefined;
+    runtimeReady?: string | undefined;
     nodeEnv?: string | undefined;
   } = {},
 ): MatterAppSourceStatus {
@@ -110,20 +137,26 @@ export function matterAppSourceStatus(
     options.projectionFallbackAllowed ??
       process.env.NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE,
   );
+  const runtimeReady = envFlagEnabled(
+    options.runtimeReady ?? process.env.NEXT_PUBLIC_MATTER_APP_RUNTIME_READY,
+  );
   const productionRuntime = (options.nodeEnv ?? process.env.NODE_ENV) === 'production';
-  const mode = isMatterAppSourceConfigured(requestedMode, {
+  const sourceContractReady = isMatterAppSourceContractReady(requestedMode, {
     sourceConfigured: sourceConfigured ? 'true' : 'false',
     projectionFallbackAllowed: projectionFallbackAllowed ? 'true' : 'false',
+    runtimeReady: runtimeReady ? 'true' : 'false',
     nodeEnv: productionRuntime ? 'production' : 'development',
-  })
-    ? requestedMode
-    : 'unconfigured';
+  });
+  const mode = sourceContractReady ? requestedMode : 'unconfigured';
 
   return {
     mode,
+    requestedMode,
     label: matterAppSourceLabels[mode],
     description: matterAppSourceDescriptions[mode],
     sourceConfigured,
+    runtimeReady,
+    sourceContractReady,
     sourceAvailable: mode !== 'unconfigured' && (mode !== 'vault_projection_only' || !productionRuntime),
     uploadAuthoritative: isMatterUploadSourceMode(mode),
     productionRuntime,

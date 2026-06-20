@@ -4,6 +4,8 @@ import {
   filterMatterCodeOptions,
   isMatterAppSourceAvailable,
   isMatterAppSourceConfigured,
+  isMatterAppSourceContractReady,
+  isMatterAppRuntimeReady,
   isMatterUploadSourceMode,
   isVaultInternalReferenceLike,
   matterAppSourceDescriptions,
@@ -48,9 +50,10 @@ describe('matter app source contract helpers', () => {
     expect(isMatterUploadSourceMode('unconfigured')).toBe(false);
   });
 
-  it('does not enable an upload-authoritative source mode without the configured flag', () => {
+  it('does not enable an upload-authoritative source mode without configured runtime readiness', () => {
     vi.stubEnv('NEXT_PUBLIC_MATTER_APP_SOURCE_MODE', 'matter_app_api');
-    vi.stubEnv('NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED', '');
+    vi.stubEnv('NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED', 'true');
+    vi.stubEnv('NEXT_PUBLIC_MATTER_APP_RUNTIME_READY', '');
 
     expect(matterAppSourceMode()).toBe('unconfigured');
     expect(
@@ -58,6 +61,19 @@ describe('matter app source contract helpers', () => {
     ).toBe(false);
     expect(
       isMatterAppSourceConfigured('matter_app_api', { sourceConfigured: 'true' }),
+    ).toBe(true);
+    expect(isMatterAppRuntimeReady('matter_app_api', { runtimeReady: 'false' })).toBe(false);
+    expect(
+      isMatterAppSourceContractReady('matter_app_api', {
+        sourceConfigured: 'true',
+        runtimeReady: 'false',
+      }),
+    ).toBe(false);
+    expect(
+      isMatterAppSourceContractReady('matter_app_api', {
+        sourceConfigured: 'true',
+        runtimeReady: 'true',
+      }),
     ).toBe(true);
   });
 
@@ -93,12 +109,31 @@ describe('matter app source contract helpers', () => {
       matterAppSourceStatus({
         sourceMode: 'matter_app_api',
         sourceConfigured: 'true',
+        runtimeReady: 'true',
         nodeEnv: 'production',
       }),
     ).toMatchObject({
       mode: 'matter_app_api',
+      requestedMode: 'matter_app_api',
       sourceAvailable: true,
+      sourceContractReady: true,
       uploadAuthoritative: true,
+      productionRuntime: true,
+    });
+
+    expect(
+      matterAppSourceStatus({
+        sourceMode: 'matter_app_api',
+        sourceConfigured: 'true',
+        runtimeReady: 'false',
+        nodeEnv: 'production',
+      }),
+    ).toMatchObject({
+      mode: 'unconfigured',
+      requestedMode: 'matter_app_api',
+      sourceAvailable: false,
+      sourceContractReady: false,
+      uploadAuthoritative: false,
       productionRuntime: true,
     });
 

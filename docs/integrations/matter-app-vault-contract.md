@@ -36,7 +36,13 @@ The current `packages/matter` package appears descriptor/contract-oriented rathe
 
 Runtime guard:
 
-- `matter_app_api` and `matter_app_event_projection` are not considered active unless `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED=true`.
+- `matter_app_api` and `matter_app_event_projection` are not considered active unless
+  `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED=true` and
+  `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY=true`.
+- `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY` means the approved Matter app lookup
+  API or event projection is actually reachable, fresh enough for upload, and
+  guarded by its owner. A descriptor-only Matter package or planning contract
+  does not satisfy this flag.
 - `vault_projection_only` is only a non-production fallback and additionally requires `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE=true`.
 - Production builds must treat `vault_projection_only` as unconfigured unless a later ADR explicitly changes this contract.
 
@@ -79,7 +85,7 @@ Before `POST /matters/:matterId/documents` or any successor upload endpoint can 
 1. The user selects a canonical Matter app matter by code/name.
 2. Vault resolves that canonical matter to its local projection or creates/refreshes the projection through an approved sync path.
 3. Vault checks upload permission with the resolved matter context.
-4. Vault blocks upload if the Matter app lookup is unavailable, the projection is stale beyond policy, the matter is not upload-eligible, or permission is not `ALLOW`.
+4. Vault blocks upload if the Matter app runtime is not ready, lookup is unavailable, the projection is stale beyond policy, the matter is not upload-eligible, or permission is not `ALLOW`.
 5. Vault records reference-only audit metadata.
 
 ## Staleness And Conflict Policy

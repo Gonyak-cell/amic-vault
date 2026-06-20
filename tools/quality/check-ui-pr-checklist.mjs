@@ -126,6 +126,11 @@ const requiredPatterns = [
       /search-body-fixture\.spec\.ts[\s\S]*body\/full-text[\s\S]*unauthorized[\s\S]*bounded audit metadata/is,
   },
   {
+    label: 'DMS Matter app source contract evidence',
+    pattern:
+      /DMS Matter app source contract guard[\s\S]*configured-plus-runtime-ready[\s\S]*descriptor-only Matter package exclusion[\s\S]*upload-authoritative mode only after lookup\/sync readiness/is,
+  },
+  {
     label: 'DMS upload receipt evidence',
     pattern:
       /UploadQueueReceipt[\s\S]*document-detail[\s\S]*all-documents vault[\s\S]*Matter file-cabinet[\s\S]*file-organization prep[\s\S]*duplicate-candidate/is,
