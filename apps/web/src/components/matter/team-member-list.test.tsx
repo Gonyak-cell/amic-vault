@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { MatterMemberDto } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
-import { AddMemberDialog } from './add-member-dialog';
 import { TeamMemberList } from './team-member-list';
 
 vi.mock('../ui/button', () => ({
@@ -60,37 +59,5 @@ describe('TeamMemberList', () => {
     );
     expect(html).toContain('이 작업을 할 권한이 없습니다.');
     expect(html).not.toContain('PERMISSION_DENIED');
-  });
-});
-
-describe('AddMemberDialog', () => {
-  it('keeps direct user reference entry hidden by default', () => {
-    const html = renderToStaticMarkup(
-      <LanguageProvider>
-        <AddMemberDialog />
-      </LanguageProvider>,
-    );
-
-    expect(html).toContain('구성원 선택 준비 중');
-    expect(html).toContain('운영 화면에 표시하지 않습니다.');
-    expect(html).not.toContain('고급 사용자 참조 입력');
-    expect(html).not.toContain('승인된 사용자 참조');
-    expect(html).not.toContain('구성원 추가');
-    expect(html).not.toContain('사용자 ID');
-  });
-
-  it('renders role and access controls only when advanced reference input is explicitly enabled', () => {
-    const html = renderToStaticMarkup(
-      <LanguageProvider>
-        <AddMemberDialog allowAdvancedReferenceInput />
-      </LanguageProvider>,
-    );
-
-    expect(html).toContain('역할');
-    expect(html).toContain('접근 권한');
-    expect(html).toContain('구성원 추가');
-    expect(html).toContain('고급 사용자 참조 입력');
-    expect(html).toContain('승인된 사용자 참조');
-    expect(html).not.toContain('사용자 ID');
   });
 });

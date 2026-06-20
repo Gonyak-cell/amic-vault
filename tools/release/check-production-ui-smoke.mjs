@@ -711,10 +711,19 @@ const governanceWorkflowOpsFiles = [
   {
     path: 'apps/web/src/components/matter/add-member-dialog.tsx',
     patterns: [
-      { name: 'team member picker pending safe state', pattern: /구성원 선택 준비 중/ },
+      { name: 'team member org picker wired', pattern: /OrgSubjectPicker/ },
+      { name: 'team member picker matter-team purpose', pattern: /purpose="matter-team"/ },
+      { name: 'team member picker user subject scope', pattern: /subjectType="user"/ },
+      { name: 'team member denied stale selection clearing', pattern: /setSelectedSubject\(null\)/ },
       { name: 'direct user reference hidden by default', pattern: /allowAdvancedReferenceInput = false/ },
-      { name: 'organization picker API gate copy', pattern: /조직 구성원 선택 API/ },
       { name: 'advanced user refs explicitly gated', pattern: /고급 사용자 참조 입력/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/api/org-directory.ts',
+    patterns: [
+      { name: 'org directory subject lookup client', pattern: /\/org-directory\/subjects/ },
+      { name: 'org directory query string builder', pattern: /URLSearchParams/ },
     ],
   },
   {
