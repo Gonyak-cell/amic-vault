@@ -1,9 +1,13 @@
 import { z } from 'zod';
 import {
+  documentConfidentialityLevelSchema,
   documentExtractionStatuses,
+  documentPrivilegeStatusSchema,
   documentTypeSchema,
   documentTypes,
+  type DocumentConfidentialityLevel,
   type DocumentExtractionStatus,
+  type DocumentPrivilegeStatus,
 } from '../types/document';
 import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
@@ -57,10 +61,12 @@ export const searchFiltersSchema = z
     matterName: searchTextFilterSchema.optional(),
     clientName: searchTextFilterSchema.optional(),
     title: searchTextFilterSchema.optional(),
+    confidentialityLevel: documentConfidentialityLevelSchema.optional(),
     documentType: searchDocumentTypeFilterSchema.optional(),
     extractionStatus: searchExtractionStatusSchema.optional(),
     legalHold: searchLegalHoldSchema.optional(),
     recordsStatus: searchRecordsStatusSchema.optional(),
+    privilegeStatus: documentPrivilegeStatusSchema.optional(),
     dateFrom: searchIsoDateTimeSchema.optional(),
     dateTo: searchIsoDateTimeSchema.optional(),
     versionStatus: searchVersionStatusSchema.optional(),
@@ -174,10 +180,12 @@ export interface SearchDateRangeFacetDto extends SearchFacetBucketDto {
 
 export interface SearchFacetsDto {
   clients: SearchFacetBucketDto[];
+  confidentialityLevels: SearchFacetBucketDto[];
   matters: SearchFacetBucketDto[];
   documentTypes: SearchFacetBucketDto[];
   extractionStatuses: SearchFacetBucketDto[];
   legalHolds: SearchFacetBucketDto[];
+  privilegeStatuses: SearchFacetBucketDto[];
   recordsStatuses: SearchFacetBucketDto[];
   versionStatuses: SearchFacetBucketDto[];
   dateRanges: SearchDateRangeFacetDto[];
@@ -202,9 +210,11 @@ export interface SavedSearchListDto {
 }
 
 export type SearchDocumentTypeFilterDto = z.infer<typeof searchDocumentTypeFilterSchema>;
+export type SearchConfidentialityLevel = DocumentConfidentialityLevel;
 export type SearchVersionStatus = (typeof searchVersionStatusValues)[number];
 export type SearchLegalHold = (typeof searchLegalHoldValues)[number];
 export type SearchRecordsStatus = (typeof searchRecordsStatusValues)[number];
+export type SearchPrivilegeStatus = DocumentPrivilegeStatus;
 export type SearchMode = (typeof searchModes)[number];
 export type SearchTarget = (typeof searchTargets)[number];
 export type SearchSort = (typeof searchSorts)[number];

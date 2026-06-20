@@ -20,9 +20,11 @@ describe('SearchFoldersContent', () => {
               filters: {
                 matterCode: 'AMIC-2026-0001',
                 clientName: 'AMIC',
+                confidentialityLevel: 'restricted',
                 documentType: 'contract',
                 extractionStatus: 'failed',
                 legalHold: 'document_hold',
+                privilegeStatus: 'privileged',
                 recordsStatus: 'archived',
               },
               page: 1,
@@ -44,6 +46,10 @@ describe('SearchFoldersContent', () => {
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('고객');
     expect(html).toContain('AMIC');
+    expect(html).toContain('기밀도');
+    expect(html).toContain('제한');
+    expect(html).toContain('특권');
+    expect(html).toContain('변호사-의뢰인 특권');
     expect(html).toContain('추출/OCR');
     expect(html).toContain('추출 실패');
     expect(html).toContain('보존');
@@ -72,10 +78,12 @@ describe('SearchFoldersContent', () => {
         query: '주식매매계약서',
         filters: {
           clientName: 'AMIC',
+          confidentialityLevel: 'high',
           matterCode: 'AMIC-2026-0002',
           title: 'SPA',
           extractionStatus: 'ocr_pending',
           legalHold: 'matter_hold',
+          privilegeStatus: 'work_product',
           recordsStatus: 'disposal_locked',
           versionStatus: 'current',
         },
@@ -85,7 +93,7 @@ describe('SearchFoldersContent', () => {
         target: 'title',
       }),
     ).toBe(
-      '/search?q=%EC%A3%BC%EC%8B%9D%EB%A7%A4%EB%A7%A4%EA%B3%84%EC%95%BD%EC%84%9C&target=title&groupBy=matter&matterCode=AMIC-2026-0002&clientName=AMIC&title=SPA&extractionStatus=ocr_pending&legalHold=matter_hold&recordsStatus=disposal_locked&versionStatus=current',
+      '/search?q=%EC%A3%BC%EC%8B%9D%EB%A7%A4%EB%A7%A4%EA%B3%84%EC%95%BD%EC%84%9C&target=title&groupBy=matter&matterCode=AMIC-2026-0002&clientName=AMIC&title=SPA&confidentialityLevel=high&extractionStatus=ocr_pending&legalHold=matter_hold&privilegeStatus=work_product&recordsStatus=disposal_locked&versionStatus=current',
     );
   });
 });

@@ -95,6 +95,9 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
     if (filters.matterName) refs.push('matter_name_filter:present');
     if (filters.clientName) refs.push('client_name_filter:present');
     if (filters.title) refs.push('title_filter:present');
+    if (filters.confidentialityLevel) {
+      refs.push(`confidentiality_level:${filters.confidentialityLevel}`);
+    }
     if (filters.documentType) {
       const value = Array.isArray(filters.documentType)
         ? filters.documentType.join(',')
@@ -109,6 +112,9 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
     }
     if (filters.recordsStatus) {
       refs.push(`records_status:${filters.recordsStatus}`);
+    }
+    if (filters.privilegeStatus) {
+      refs.push(`privilege_status:${filters.privilegeStatus}`);
     }
     if (filters.dateFrom || filters.dateTo) {
       refs.push(`date_range:${filters.dateFrom ?? ''}..${filters.dateTo ?? ''}`);
@@ -673,10 +679,12 @@ function parseMatterSuggestionReasonCodes(
 
 const emptyFacets: SearchFacetsDto = {
   clients: [],
+  confidentialityLevels: [],
   matters: [],
   documentTypes: [],
   extractionStatuses: [],
   legalHolds: [],
+  privilegeStatuses: [],
   recordsStatuses: [],
   versionStatuses: [],
   dateRanges: [],
@@ -686,10 +694,12 @@ function parseFacets(input: unknown): SearchFacetsDto {
   if (!isRecord(input)) return emptyFacets;
   return {
     clients: parseBuckets(input.clients),
+    confidentialityLevels: parseBuckets(input.confidentialityLevels),
     matters: parseBuckets(input.matters),
     documentTypes: parseBuckets(input.documentTypes),
     extractionStatuses: parseBuckets(input.extractionStatuses),
     legalHolds: parseBuckets(input.legalHolds),
+    privilegeStatuses: parseBuckets(input.privilegeStatuses),
     recordsStatuses: parseBuckets(input.recordsStatuses),
     versionStatuses: parseBuckets(input.versionStatuses),
     dateRanges: parseDateRanges(input.dateRanges),

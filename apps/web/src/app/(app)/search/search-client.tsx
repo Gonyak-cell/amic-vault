@@ -13,7 +13,9 @@ import type {
   SearchTarget,
 } from '@amic-vault/shared';
 import {
+  documentConfidentialityLevels,
   documentExtractionStatuses,
+  documentPrivilegeStatuses,
   documentTypes,
   searchPrivacySettingsSchema,
   searchLegalHoldValues,
@@ -272,8 +274,10 @@ const emptyFacets: SearchResponseDto['facets'] = {
   clients: [],
   matters: [],
   documentTypes: [],
+  confidentialityLevels: [],
   extractionStatuses: [],
   legalHolds: [],
+  privilegeStatuses: [],
   recordsStatuses: [],
   versionStatuses: [],
   dateRanges: [],
@@ -290,6 +294,7 @@ function stateFromParams(
     selection: {
       matterId: params.get('matterId') ?? undefined,
       clientId: params.get('clientId') ?? undefined,
+      confidentialityLevel: parseConfidentialityLevel(params.get('confidentialityLevel')),
       documentType: parseDocumentType(params.get('documentType')),
       extractionStatus: parseExtractionStatus(params.get('extractionStatus')),
       legalHold: parseLegalHold(params.get('legalHold')),
@@ -300,6 +305,7 @@ function stateFromParams(
       groupBy: parseGroupBy(params.get('groupBy')),
       matterCode: params.get('matterCode') ?? undefined,
       matterName: params.get('matterName') ?? undefined,
+      privilegeStatus: parsePrivilegeStatus(params.get('privilegeStatus')),
       sortBy: parseSort(params.get('sortBy')),
       target: parseTarget(params.get('target')),
       title: params.get('title') ?? undefined,
@@ -323,6 +329,9 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (page > 1) params.set('page', String(page));
   if (selection.matterId) params.set('matterId', selection.matterId);
   if (selection.clientId) params.set('clientId', selection.clientId);
+  if (selection.confidentialityLevel) {
+    params.set('confidentialityLevel', selection.confidentialityLevel);
+  }
   if (selection.documentType) params.set('documentType', selection.documentType);
   if (selection.extractionStatus) params.set('extractionStatus', selection.extractionStatus);
   if (selection.legalHold) params.set('legalHold', selection.legalHold);
@@ -333,6 +342,7 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.groupBy && selection.groupBy !== 'none') params.set('groupBy', selection.groupBy);
   if (selection.matterCode) params.set('matterCode', selection.matterCode);
   if (selection.matterName) params.set('matterName', selection.matterName);
+  if (selection.privilegeStatus) params.set('privilegeStatus', selection.privilegeStatus);
   if (selection.sortBy && selection.sortBy !== 'relevance') params.set('sortBy', selection.sortBy);
   if (selection.target && selection.target !== 'all') params.set('target', selection.target);
   if (selection.title) params.set('title', selection.title);
@@ -370,12 +380,19 @@ function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto 
   if (selection.matterCode) filters.matterCode = selection.matterCode;
   if (selection.matterName) filters.matterName = selection.matterName;
   if (selection.title) filters.title = selection.title;
+  if (selection.confidentialityLevel) {
+    filters.confidentialityLevel =
+      selection.confidentialityLevel as SearchFiltersDto['confidentialityLevel'];
+  }
   if (selection.documentType) filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
   if (selection.extractionStatus) {
     filters.extractionStatus = selection.extractionStatus as SearchFiltersDto['extractionStatus'];
   }
   if (selection.legalHold) {
     filters.legalHold = selection.legalHold as SearchFiltersDto['legalHold'];
+  }
+  if (selection.privilegeStatus) {
+    filters.privilegeStatus = selection.privilegeStatus as SearchFiltersDto['privilegeStatus'];
   }
   if (selection.recordsStatus) {
     filters.recordsStatus = selection.recordsStatus as SearchFiltersDto['recordsStatus'];
@@ -397,6 +414,7 @@ function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
   return {
     clientId: filters?.clientId,
     clientName: filters?.clientName,
+    confidentialityLevel: filters?.confidentialityLevel,
     documentType,
     extractionStatus: filters?.extractionStatus,
     groupBy: input.groupBy,
@@ -404,6 +422,7 @@ function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
     matterCode: filters?.matterCode,
     matterId: filters?.matterId,
     matterName: filters?.matterName,
+    privilegeStatus: filters?.privilegeStatus,
     recordsStatus: filters?.recordsStatus,
     sortBy: input.sortBy,
     target: input.target,
@@ -422,6 +441,20 @@ function resetAdvancedSelection(selection: SearchFacetSelection): SearchFacetSel
 function parseDocumentType(value: string | null): SearchFacetSelection['documentType'] {
   return (documentTypes as readonly string[]).includes(value ?? '')
     ? (value as SearchFacetSelection['documentType'])
+    : undefined;
+}
+
+function parseConfidentialityLevel(
+  value: string | null,
+): SearchFacetSelection['confidentialityLevel'] {
+  return (documentConfidentialityLevels as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['confidentialityLevel'])
+    : undefined;
+}
+
+function parsePrivilegeStatus(value: string | null): SearchFacetSelection['privilegeStatus'] {
+  return (documentPrivilegeStatuses as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['privilegeStatus'])
     : undefined;
 }
 

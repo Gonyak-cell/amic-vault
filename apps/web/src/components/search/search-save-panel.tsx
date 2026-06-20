@@ -3,6 +3,9 @@
 import React from 'react';
 import { Bookmark, Copy, RotateCcw, Save, Trash2 } from 'lucide-react';
 import type {
+  DocumentConfidentialityLevel,
+  DocumentPrivilegeStatus,
+  DocumentType,
   SavedSearchDto,
   SearchGroupBy,
   SearchQueryDto,
@@ -56,6 +59,31 @@ const groupLabels = {
   client: '고객',
   type: '파일 유형',
 } as const satisfies Record<SearchGroupBy, string>;
+
+const documentTypeLabels = {
+  contract: '계약서',
+  memo: '메모',
+  opinion: '의견서',
+  court_filing: '법원 제출 문서',
+  evidence: '증거',
+  correspondence: '서신',
+  corporate_record: '회사 기록',
+  financial: '재무',
+  other: '기타',
+} as const satisfies Record<DocumentType, string>;
+
+const confidentialityLabels = {
+  standard: '표준',
+  high: '높음',
+  restricted: '제한',
+} as const satisfies Record<DocumentConfidentialityLevel, string>;
+
+const privilegeLabels = {
+  none: '특권 없음',
+  privileged: '변호사-의뢰인 특권',
+  work_product: '작업 산출물',
+  joint_privilege: '공동 특권',
+} as const satisfies Record<DocumentPrivilegeStatus, string>;
 
 const dateRangeLabels = {
   last_7_days: '최근 7일',
@@ -289,7 +317,18 @@ export function searchPatternItems(
   if (selection.matterCode) items.push({ label: 'Matter Code', value: selection.matterCode });
   if (selection.matterName) items.push({ label: 'Matter 이름', value: selection.matterName });
   if (selection.clientName) items.push({ label: '고객명', value: selection.clientName });
-  if (selection.documentType) items.push({ label: '문서 유형', value: selection.documentType });
+  if (selection.documentType) {
+    items.push({ label: '문서 유형', value: documentTypeLabels[selection.documentType] });
+  }
+  if (selection.confidentialityLevel) {
+    items.push({
+      label: '기밀도',
+      value: confidentialityLabels[selection.confidentialityLevel],
+    });
+  }
+  if (selection.privilegeStatus) {
+    items.push({ label: '특권', value: privilegeLabels[selection.privilegeStatus] });
+  }
   if (selection.extractionStatus) {
     items.push({
       label: '추출/OCR',
@@ -317,6 +356,7 @@ function defaultSavedSearchName(query: string, selection: SearchFacetSelection):
 export function savedSearchSummary(query: SearchQueryDto): string {
   const selection: SearchFacetSelection = {
     clientName: query.filters?.clientName,
+    confidentialityLevel: query.filters?.confidentialityLevel,
     dateRange: undefined,
     documentType: Array.isArray(query.filters?.documentType)
       ? query.filters.documentType[0]
@@ -326,6 +366,7 @@ export function savedSearchSummary(query: SearchQueryDto): string {
     legalHold: query.filters?.legalHold,
     matterCode: query.filters?.matterCode,
     matterName: query.filters?.matterName,
+    privilegeStatus: query.filters?.privilegeStatus,
     recordsStatus: query.filters?.recordsStatus,
     sortBy: query.sortBy,
     target: query.target,
