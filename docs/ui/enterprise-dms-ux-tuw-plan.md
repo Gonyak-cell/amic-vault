@@ -773,6 +773,12 @@ PR-D implementation note:
 - Work queue links extraction failed, OCR-required, and file-organization-ready items to URL-backed `/files` filters instead of creating fake persisted tasks.
 - Document and matter audit timelines clear previous rows before loading and after denied/error reloads so stale governance activity is not displayed across document or Matter context changes.
 - Wall admin now uses `MatterCodePicker` for common wall lookup/create flow; raw wall/user refs remain only in the clearly marked security-operations advanced area until user/group picker APIs exist.
+- Matter team management now uses display-safe user name/email labels through
+  `TeamMemberList`, keeps add-member direct raw user reference entry hidden by
+  default through `AddMemberDialog`, and treats the approved organization
+  user/group picker API as a deferred PR-D item rather than an unguarded normal
+  production input. This closes the current DMS-UX-401/402 web-surface cleanup
+  without claiming the future picker API exists.
 - AI prep copy remains limited to file organization prep; legal analysis, external model route, raw prompt/source/model-response copy remains guarded by tests and smoke checks.
 - Unified task DB/API, notifications, saved work queues, records disposal task APIs, and user/group picker APIs remain deferred to PR-E/F or backend-approved follow-up work.
 
