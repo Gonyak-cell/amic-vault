@@ -667,8 +667,22 @@ const governanceWorkflowOpsFiles = [
   {
     path: 'apps/api/src/modules/dashboard/dashboard.controller.ts',
     patterns: [
-      { name: 'work items endpoint', pattern: /@Controller\('work'\)[\s\S]*@Get\('items'\)/ },
       { name: 'notifications endpoint', pattern: /@Controller\('notifications'\)[\s\S]*@Get\(\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/work/work.controller.ts',
+    patterns: [
+      { name: 'work items endpoint', pattern: /@Controller\('work'\)[\s\S]*@Get\('items'\)/ },
+      { name: 'persisted work service source', pattern: /workService\.listWorkItems/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/work/work.service.ts',
+    patterns: [
+      { name: 'persisted work items query', pattern: /FROM work_items wi/ },
+      { name: 'records disposal workflow tasks', pattern: /records_disposal_approval[\s\S]*records_disposal_execution/ },
+      { name: 'permission-scoped matter filter', pattern: /buildMatterFilter/ },
     ],
   },
   {

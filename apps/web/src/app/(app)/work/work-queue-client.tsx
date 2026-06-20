@@ -43,6 +43,7 @@ const sourceFilterLabels = {
   ai_prep: '파일 정리 준비',
   integration: '통합',
   operational_data: '운영 데이터',
+  records: '기록 보존',
 } as const satisfies Record<WorkSourceFilter, string>;
 
 const toneFilterLabels = {
@@ -392,9 +393,10 @@ function toneRank(tone: DmsWorkQueueItem['tone']): number {
 
 function sourceRank(source: DmsWorkQueueItem['source']): number {
   if (source === 'permission_policy') return 0;
-  if (source === 'ai_prep') return 1;
-  if (source === 'integration') return 2;
-  return 3;
+  if (source === 'records') return 1;
+  if (source === 'ai_prep') return 2;
+  if (source === 'integration') return 3;
+  return 4;
 }
 
 function updatedRank(updatedAt: string | undefined): number {

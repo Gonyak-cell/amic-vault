@@ -75,8 +75,17 @@ export const dmsWorkItemSourceSchema = z.enum([
   'ai_prep',
   'integration',
   'operational_data',
+  'records',
 ]);
 export type DmsWorkItemSource = z.infer<typeof dmsWorkItemSourceSchema>;
+
+export const dmsWorkItemStatusSchema = z.enum([
+  'open',
+  'in_progress',
+  'completed',
+  'cancelled',
+]);
+export type DmsWorkItemStatus = z.infer<typeof dmsWorkItemStatusSchema>;
 
 export const dmsWorkQueueItemSchema = z
   .object({
@@ -87,6 +96,9 @@ export const dmsWorkQueueItemSchema = z
     description: z.string().min(1).max(500),
     href: z.string().min(1).max(500),
     tone: dmsOperationalToneSchema,
+    status: dmsWorkItemStatusSchema.optional(),
+    statusLabel: z.string().min(1).max(120).optional(),
+    dueAt: z.string().datetime({ offset: true }).optional(),
     updatedAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict();
@@ -95,7 +107,7 @@ export type DmsWorkQueueItemDto = z.infer<typeof dmsWorkQueueItemSchema>;
 export const dmsWorkQueueResponseSchema = z
   .object({
     generatedAt: z.string().datetime({ offset: true }),
-    source: z.literal('dashboard_operational_state'),
+    source: z.enum(['dashboard_operational_state', 'persisted_work_items']),
     items: z.array(dmsWorkQueueItemSchema).max(20),
   })
   .strict();
