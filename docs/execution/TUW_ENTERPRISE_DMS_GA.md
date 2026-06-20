@@ -26,7 +26,7 @@ Excluded from this GA execution lane:
 | PR-0B Release receipts | DMS-GA-003, DMS-GA-004 | Not repo-implementable alone. | Requires approved staging/canary `release:dms-smoke -- --json` receipt and negative-auth evidence refs. |
 | PR-1A Matter runtime | DMS-GA-101, DMS-GA-102, DMS-GA-105, DMS-GA-404 | Implemented on `codex/dms-ga1-matter-runtime`; pending review/merge. | API status/lookup, permission-scoped Matter Code picker, source freshness, upload eligibility flags, contract/runbook docs. |
 | PR-1B Upload preflight | DMS-GA-103, DMS-GA-104 | Implemented on `codex/dms-ga1-upload-preflight`; pending review/merge. | Server-side Matter app resolution, lifecycle/staleness gate, permission/wall mutation gate, short-lived preflight ref. |
-| PR-1C Upload metadata UX | DMS-GA-106 | Pending. | Tenant taxonomy-backed upload metadata/security profile; no fake taxonomy claims. |
+| PR-1C Upload metadata UX | DMS-GA-106 | Implemented on `codex/dms-ga1-upload-metadata-ux`; pending review/merge. | Upload metadata/security profile exposes approved shared values now; tenant-admin taxonomy management remains PR-6A. |
 | PR-1D Duplicate decision | DMS-GA-107 | Pending. | Persisted staged duplicate/version/cancel decision before final upload action. |
 | PR-2A to PR-2C Document cabinet/detail | DMS-GA-201, DMS-GA-202, DMS-GA-204, DMS-GA-205 | Pending after P1 blockers. | Matter cabinet parity, document action center, audit/activity timeline. |
 | PR-3A to PR-3E Search hardening | DMS-GA-301, DMS-GA-302, DMS-GA-303, DMS-GA-304, DMS-GA-305 | Pending. | Query privacy, refiners, negative leakage proof, governed search folders, reindex evidence. |
@@ -69,3 +69,10 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm release:dms-smoke -- --check-env -
 - Supplied upload preflight refs must be server-issued, unexpired, and bound to the same tenant, actor, matter, Matter source decision, and permission decision.
 - Metadata mutation shares the Matter source lifecycle/staleness gate and keeps the existing document permission/edit checks.
 - Document upload/version/metadata audit metadata remains reference-only: decision refs, source mode, and bounded request refs only.
+
+## Current PR-1C Acceptance
+
+- Upload form exposes document type, subtype, confidentiality level, privilege status, file organization prep eligibility, and retention/hold hint before submit.
+- Metadata profile values come from the current shared approved document enums; no UI copy claims tenant-admin taxonomy management is complete before DMS-GA-601.
+- Upload FormData forwards `documentType`, `subtype`, `confidentialityLevel`, `privilegeStatus`, and `aiAllowed` alongside the server-issued upload preflight ref.
+- File organization copy remains limited to prep/organization. The upload form does not introduce legal analysis, summary, external AI, or raw source claims.
