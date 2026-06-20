@@ -104,6 +104,12 @@ const recordsCopy: Record<
     days: string;
     certificateReady: string;
     evidencePreserved: string;
+    activeHold: string;
+    releasedHold: string;
+    holdAppliedAt: string;
+    holdReleasedAt: string;
+    documentOnHold: string;
+    documentAvailable: string;
     targetDocument: string;
     targetMatter: string;
     requestReady: string;
@@ -184,6 +190,12 @@ const recordsCopy: Record<
     days: '일',
     certificateReady: '증명서 생성됨',
     evidencePreserved: '감사 저장소에 보존됨',
+    activeHold: '활성 삭제 금지',
+    releasedHold: '해제된 삭제 금지',
+    holdAppliedAt: '적용',
+    holdReleasedAt: '해제',
+    documentOnHold: '삭제 금지 적용됨',
+    documentAvailable: '삭제 금지 없음',
     targetDocument: '대상 파일',
     targetMatter: '대상 사건',
     requestReady: '삭제 요청 연결됨',
@@ -264,6 +276,12 @@ const recordsCopy: Record<
     days: 'days',
     certificateReady: 'Certificate generated',
     evidencePreserved: 'Preserved in audit storage',
+    activeHold: 'Active hold',
+    releasedHold: 'Released hold',
+    holdAppliedAt: 'Applied',
+    holdReleasedAt: 'Released',
+    documentOnHold: 'Legal hold active',
+    documentAvailable: 'No legal hold',
     targetDocument: 'Target file',
     targetMatter: 'Target matter',
     requestReady: 'Disposal request linked',
@@ -338,7 +356,8 @@ export function RecordsGovernanceClient() {
   const trimmedReason = reasonCode.trim();
   const activeDisposalRequestId =
     disposalRequestId.trim() || disposal?.disposalRequestId || certificate?.disposalRequestId || '';
-  const activeLegalHoldId = legalHoldId.trim() || holds?.holds[0]?.legalHoldId || '';
+  const activeLegalHoldId =
+    legalHoldId.trim() || holds?.holds.find((hold) => hold.status === 'active')?.legalHoldId || '';
   const handleMatterSelected = React.useCallback((matter: MatterCodeOption | null) => {
     setSelectedMatter(matter);
     setMatterId(matter?.matterReference ?? '');
@@ -396,7 +415,10 @@ export function RecordsGovernanceClient() {
 
   async function releaseHold() {
     const result = await run(() => releaseLegalHold(activeLegalHoldId));
-    if (result) await refreshAll();
+    if (result) {
+      setLegalHoldId(result.status === 'active' ? result.legalHoldId : '');
+      await refreshAll();
+    }
   }
 
   async function saveArchive() {
@@ -566,7 +588,9 @@ export function RecordsGovernanceClient() {
             rows={holds?.holds.map((item) => [
               item.reasonCode,
               item.holdScope === 'document' ? copy.targetDocument : copy.targetMatter,
-              item.status,
+              item.status === 'active' ? copy.activeHold : copy.releasedHold,
+              `${copy.holdAppliedAt}: ${formatDateTime(item.createdAt)}`,
+              item.releasedAt ? `${copy.holdReleasedAt}: ${formatDateTime(item.releasedAt)}` : '',
             ])}
           />
         </section>
@@ -882,6 +906,9 @@ function RecordsDocumentPicker({
               <span className="truncate text-xs text-muted-foreground">
                 {document.matterDisplayCode ?? selectedMatter.matterCode}
               </span>
+              <span className="text-xs text-muted-foreground">
+                {document.legalHold ? copy.documentOnHold : copy.documentAvailable}
+              </span>
             </button>
           );
         })}
@@ -1074,7 +1101,7 @@ function SummaryPanel({
                 ))}
               </DataTableRow>
             ))}
-            {!rows?.length ? <DataTableEmptyRow colSpan={3}>{empty}</DataTableEmptyRow> : null}
+            {!rows?.length ? <DataTableEmptyRow colSpan={5}>{empty}</DataTableEmptyRow> : null}
           </DataTableBody>
         </DataTable>
       </div>
@@ -1089,4 +1116,8 @@ function Value({ label, value }: { label: string; value: string }) {
       <dd className="truncate text-xs font-medium">{value}</dd>
     </div>
   );
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
 }

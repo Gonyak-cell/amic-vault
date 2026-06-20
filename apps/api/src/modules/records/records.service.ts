@@ -199,6 +199,8 @@ interface LegalHoldRow {
   hold_scope: string;
   status: string;
   reason_code: string;
+  created_by: string;
+  released_by: string | null;
   created_at: Date;
   released_at: Date | null;
 }
@@ -358,6 +360,8 @@ function mapLegalHold(row: LegalHoldRow): LegalHoldDto {
     holdScope: row.hold_scope,
     status: row.status,
     reasonCode: row.reason_code,
+    createdBy: row.created_by,
+    releasedBy: row.released_by,
     createdAt: iso(row.created_at),
     releasedAt: row.released_at ? iso(row.released_at) : null,
   });
@@ -521,7 +525,7 @@ export class RecordsService {
           )
           VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-            created_at, released_at
+            created_by, released_by, created_at, released_at
         `,
         [
           ctx.tenantId,
@@ -597,7 +601,7 @@ export class RecordsService {
       const result = await tx.query(
         `
           SELECT legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-            created_at, released_at
+            created_by, released_by, created_at, released_at
           FROM legal_holds
           WHERE ${filters.join(' AND ')}
           ORDER BY created_at DESC, legal_hold_id
@@ -631,7 +635,7 @@ export class RecordsService {
             AND legal_hold_id = $2
             AND status = 'active'
           RETURNING legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-            created_at, released_at
+            created_by, released_by, created_at, released_at
         `,
         [ctx.tenantId, legalHoldId, ctx.userId],
       );
@@ -707,6 +711,13 @@ export class RecordsService {
       if (!mutableRecordStatuses.has(target.status)) {
         throw documentLocked('DOCUMENT_IMMUTABLE_STATE');
       }
+      this.assertNoHoldFlags(target);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        target.matter_id,
+        input.documentId,
+      );
       const updated = await tx.query(
         `
           UPDATE documents
@@ -1240,7 +1251,7 @@ export class RecordsService {
     const result = await client.query(
       `
         SELECT legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-          created_at, released_at
+          created_by, released_by, created_at, released_at
         FROM legal_holds
         WHERE tenant_id = $1
           AND legal_hold_id = $2

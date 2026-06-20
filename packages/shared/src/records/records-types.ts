@@ -68,6 +68,8 @@ export const legalHoldSchema = z
     holdScope: legalHoldScopeSchema,
     status: legalHoldStatusSchema,
     reasonCode: codeSchema,
+    createdBy: uuidSchema,
+    releasedBy: uuidSchema.nullable(),
     createdAt: z.string().datetime(),
     releasedAt: z.string().datetime().nullable(),
   })

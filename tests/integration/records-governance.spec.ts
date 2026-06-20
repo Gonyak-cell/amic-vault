@@ -23,6 +23,7 @@ import { StorageService } from '../../apps/api/src/modules/storage/storage.servi
 import { createOwnerClient, setTenant, tenantAlphaId, withClient } from './helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
+const alphaSecurityAdminUserId = '11111111-1111-4111-8111-111111111110';
 
 interface UploadResponse {
   documentId: string;
@@ -349,6 +350,9 @@ describe('records governance integration', () => {
       },
     );
     expect(hold.status).toBe('active');
+    expect(hold.createdBy).toBe(alphaSecurityAdminUserId);
+    expect(hold.releasedBy).toBeNull();
+    expect(hold.createdAt).toMatch(/T/u);
     await expect(documentFlags(holdDocument.documentId)).resolves.toMatchObject({
       legal_hold: true,
     });
@@ -371,15 +375,46 @@ describe('records governance integration', () => {
     expect(disposalWhileHeld.status, disposalWhileHeldBody).toBe(400);
     expect(disposalWhileHeldBody).toContain('DOCUMENT_LOCKED');
 
+    const archiveWhileHeld = await fetch(`${baseUrl}/v1/records/archives`, {
+      method: 'POST',
+      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        documentId: holdDocument.documentId,
+        reasonCode: 'CLIENT_RECORDS',
+      }),
+    });
+    const archiveWhileHeldBody = await archiveWhileHeld.text();
+    expect(archiveWhileHeld.status, archiveWhileHeldBody).toBe(400);
+    expect(archiveWhileHeldBody).toContain('DOCUMENT_LOCKED');
+
     const released = await postJson<LegalHoldDto>(
       baseUrl,
       securityAdminCookie,
       `/v1/records/legal-holds/${hold.legalHoldId}/release`,
     );
     expect(released.status).toBe('released');
+    expect(released.createdBy).toBe(alphaSecurityAdminUserId);
+    expect(released.releasedBy).toBe(alphaSecurityAdminUserId);
+    expect(released.releasedAt).toMatch(/T/u);
     await expect(documentFlags(holdDocument.documentId)).resolves.toMatchObject({
       legal_hold: false,
     });
+
+    const holdHistory = await fetch(`${baseUrl}/v1/records/legal-holds?matterId=${matterId}`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const holdHistoryBody = await holdHistory.text();
+    expect(holdHistory.status, holdHistoryBody).toBe(200);
+    expect((JSON.parse(holdHistoryBody) as { holds: LegalHoldDto[] }).holds).toContainEqual(
+      expect.objectContaining({
+        legalHoldId: hold.legalHoldId,
+        status: 'released',
+        createdBy: alphaSecurityAdminUserId,
+        releasedBy: alphaSecurityAdminUserId,
+        documentId: holdDocument.documentId,
+        matterId,
+      }),
+    );
 
     const policyAudit = await recordsAudit('RETENTION_POLICY_CHANGED', policy.retentionPolicyId);
     const holdAudit = await recordsAudit('LEGAL_HOLD_APPLIED', holdDocument.documentId);
