@@ -89,6 +89,7 @@ const plannedChecks = [
   ['DMS-SMOKE-010', 'Read records governance link for the matter'],
   ['DMS-SMOKE-011', 'Negative user cannot read uploaded document'],
   ['DMS-SMOKE-012', 'Negative user cannot discover uploaded document in search'],
+  ['DMS-SMOKE-013', 'Negative user cannot preview uploaded document'],
 ];
 
 if (dryRun) {
@@ -321,6 +322,22 @@ await run('DMS-SMOKE-012', 'Negative user cannot discover uploaded document in s
   const found = Array.isArray(body?.results) && body.results.some((item) => item?.documentId === documentId);
   assert(!found, 'negative search discovered uploaded document');
   return { status: response.status, discovered: false, resultCount: Number(body?.total ?? 0) };
+});
+
+await run('DMS-SMOKE-013', 'Negative user cannot preview uploaded document', async () => {
+  if (!hasNegativeCredentials()) {
+    if (config.requireAuth) throw new Error('missing negative DMS smoke credentials');
+    return { skipped: true, reason: 'negative credentials not provided' };
+  }
+  negativeCookie ??= await loginNegativeUser();
+  const denied = await fetchWithTimeout(apiUrl(`/documents/${documentId}/preview`), {
+    headers: { cookie: negativeCookie },
+  });
+  assert([401, 403, 404].includes(denied.status), `negative preview status ${denied.status}`);
+  const body = await safeJson(denied);
+  assertSafeDeniedBody(body);
+  assertNoKnownRefsInBody(body);
+  return { status: denied.status, preview: 'safe-denied', denialCode: body?.code ?? 'safe-denied' };
 });
 
 const failed = results.filter((result) => result.result === 'fail');
