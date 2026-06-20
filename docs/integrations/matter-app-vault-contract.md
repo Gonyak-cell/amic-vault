@@ -106,14 +106,17 @@ Before `POST /matters/:matterId/documents` or any successor upload endpoint can 
 
 1. The user selects a canonical Matter app matter by code/name.
 2. Vault resolves that canonical matter to its local projection or creates/refreshes the projection through an approved sync path.
-3. Vault checks upload permission with the resolved matter context.
-4. Vault blocks upload if the Matter app runtime is not ready, lookup is unavailable, the projection is stale beyond policy, the matter is not upload-eligible, or permission is not `ALLOW`.
-5. Vault records reference-only audit metadata.
+3. The browser upload flow requests `POST /v1/matters/:matterId/documents/upload-preflight` with an empty body.
+4. Vault checks lifecycle/staleness, upload permission, and ethical-wall state with the resolved matter context, then issues a short-lived reference-only preflight ref.
+5. Vault blocks upload if the Matter app runtime is not ready, lookup is unavailable, the projection is stale beyond policy, the matter is not upload-eligible, or permission is not `ALLOW`.
+6. Upload and version-upload mutations re-evaluate the same Matter source and permission rules before storage writes. If a preflight ref is supplied, it must be server-issued, unexpired, and bound to the same tenant, actor, matter, source decision, and permission decision.
+7. Vault records reference-only audit metadata.
 
 ## Staleness And Conflict Policy
 
 - Read-only display may show a stale marker when the projection is stale but not security-sensitive.
 - Upload, filing, metadata mutation, version upload, and document action flows must fail closed when the Matter app projection is stale beyond the approved threshold.
+- Metadata mutation shares the same Matter source lifecycle/staleness gate. Upload and version upload additionally run the upload permission and ethical-wall decision before storage writes.
 - Duplicate Matter Code conflicts must block selection and escalate to admin/operator remediation.
 - Deleted/closed/archived/disposal matters must not accept upload unless a later policy explicitly permits a narrow exception.
 
@@ -132,6 +135,7 @@ Allowed audit metadata:
 - source revision
 - stale/fresh flag
 - permission decision ref
+- upload preflight request ref
 
 Forbidden audit/log metadata:
 

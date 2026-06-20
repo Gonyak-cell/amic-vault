@@ -15,4 +15,11 @@ describe('uploadDocumentFieldsSchema', () => {
   it('rejects ambiguous boolean transport values', () => {
     expect(() => uploadDocumentFieldsSchema.parse({ aiAllowed: 'yes' })).toThrow();
   });
+
+  it('accepts a bounded upload preflight reference', () => {
+    expect(uploadDocumentFieldsSchema.parse({ uploadPreflightRef: 'upf_ref' })).toEqual({
+      uploadPreflightRef: 'upf_ref',
+    });
+    expect(() => uploadDocumentFieldsSchema.parse({ uploadPreflightRef: '' })).toThrow();
+  });
 });

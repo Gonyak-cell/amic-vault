@@ -25,7 +25,7 @@ Excluded from this GA execution lane:
 | PR-0A Release reconciliation | DMS-GA-001, DMS-GA-002 | Reconciled in `codex/dms-ga0-reconcile` at target head `7c8bd748`; guards/docs/routes validated locally. | Repo-side done for GA0; external launch signoff remains separate. |
 | PR-0B Release receipts | DMS-GA-003, DMS-GA-004 | Not repo-implementable alone. | Requires approved staging/canary `release:dms-smoke -- --json` receipt and negative-auth evidence refs. |
 | PR-1A Matter runtime | DMS-GA-101, DMS-GA-102, DMS-GA-105, DMS-GA-404 | Implemented on `codex/dms-ga1-matter-runtime`; pending review/merge. | API status/lookup, permission-scoped Matter Code picker, source freshness, upload eligibility flags, contract/runbook docs. |
-| PR-1B Upload preflight | DMS-GA-103, DMS-GA-104 | Pending next PR. | Server-side Matter app resolution, lifecycle/staleness gate, permission/wall mutation gate, short-lived preflight ref. |
+| PR-1B Upload preflight | DMS-GA-103, DMS-GA-104 | Implemented on `codex/dms-ga1-upload-preflight`; pending review/merge. | Server-side Matter app resolution, lifecycle/staleness gate, permission/wall mutation gate, short-lived preflight ref. |
 | PR-1C Upload metadata UX | DMS-GA-106 | Pending. | Tenant taxonomy-backed upload metadata/security profile; no fake taxonomy claims. |
 | PR-1D Duplicate decision | DMS-GA-107 | Pending. | Persisted staged duplicate/version/cancel decision before final upload action. |
 | PR-2A to PR-2C Document cabinet/detail | DMS-GA-201, DMS-GA-202, DMS-GA-204, DMS-GA-205 | Pending after P1 blockers. | Matter cabinet parity, document action center, audit/activity timeline. |
@@ -60,4 +60,12 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm release:dms-smoke -- --check-env -
 - Matter lookup uses SQL-stage `matter_members` and ethical-wall filters before labels/counts are returned.
 - `MatterCodePicker` uses the Matter app lookup endpoint instead of the generic `/matters` list.
 - `/integrations/matter-app` prefers backend runtime status and falls back to local public flags only as a conservative display state.
-- Upload preflight and mutation gate remain deferred to PR-1B.
+- Upload preflight and mutation gate are implemented in PR-1B.
+
+## Current PR-1B Acceptance
+
+- `POST /v1/matters/:matterId/documents/upload-preflight` issues a short-lived reference-only preflight ref after Matter source, lifecycle, permission, and ethical-wall checks.
+- Upload and add-version paths re-evaluate Matter source readiness, lifecycle/staleness, upload permission, and ethical-wall state before storage writes.
+- Supplied upload preflight refs must be server-issued, unexpired, and bound to the same tenant, actor, matter, Matter source decision, and permission decision.
+- Metadata mutation shares the Matter source lifecycle/staleness gate and keeps the existing document permission/edit checks.
+- Document upload/version/metadata audit metadata remains reference-only: decision refs, source mode, and bounded request refs only.

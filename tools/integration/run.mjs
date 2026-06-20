@@ -59,7 +59,15 @@ if (specs.length === 0) {
   process.exit(1);
 }
 
+const integrationEnv = {
+  ...process.env,
+  MATTER_APP_SOURCE_CONFIGURED: process.env.MATTER_APP_SOURCE_CONFIGURED ?? 'true',
+  MATTER_APP_RUNTIME_READY: process.env.MATTER_APP_RUNTIME_READY ?? 'true',
+  MATTER_APP_SOURCE_MODE: process.env.MATTER_APP_SOURCE_MODE ?? 'matter_app_event_projection',
+};
+
 const result = spawnSync('pnpm', ['exec', 'vitest', 'run', '--no-file-parallelism', ...specs], {
+  env: integrationEnv,
   stdio: 'inherit',
 });
 

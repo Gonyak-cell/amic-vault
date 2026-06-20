@@ -4,6 +4,7 @@ import {
   apiFetch,
   apiFetchFormData,
   addDocumentVersion,
+  createUploadPreflight,
   documentDownloadUrl,
   documentPreviewUrl,
   getDocument,
@@ -152,6 +153,7 @@ describe('api client', () => {
       documentType: 'contract',
       aiAllowed: true,
       title: 'Contract',
+      uploadPreflightRef: 'upf_ref',
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -162,6 +164,42 @@ describe('api client', () => {
     if (!firstCall) throw new Error('missing upload request');
     const body = firstCall[1]?.body as FormData;
     expect(body.get('aiAllowed')).toBe('true');
+    expect(body.get('uploadPreflightRef')).toBe('upf_ref');
+  });
+
+  it('creates upload preflight through the matter-scoped preflight endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            matterReference: 'matter-ref',
+            preflightRef: 'upf_ref',
+            expiresAt: '2026-06-20T00:05:00.000Z',
+            sourceMode: 'matter_app_api',
+            sourceUpdatedAt: null,
+            sourceRevision: 'rev-1',
+            permissionDecisionRef: 'matter-upload:decision',
+            uploadEligible: true,
+            blockedReason: null,
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(createUploadPreflight('matter-ref')).resolves.toMatchObject({
+      preflightRef: 'upf_ref',
+      uploadEligible: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/matters/matter-ref/documents/upload-preflight',
+      expect.objectContaining({
+        body: '{}',
+        cache: 'no-store',
+        credentials: 'include',
+        method: 'POST',
+      }),
+    );
   });
 
   it('lists matter documents through the matter-scoped endpoint', async () => {

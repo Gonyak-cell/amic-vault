@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { UploadDocumentResponseDto } from '@amic-vault/shared';
 import { ExternalLink, FileSearch, FileUp, Loader2 } from 'lucide-react';
-import { uploadDocument } from '@/lib/api-client';
+import { createUploadPreflight, uploadDocument } from '@/lib/api-client';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   isMatterUploadSourceMode,
@@ -83,6 +83,24 @@ export function DocumentUploadPanel({
     let failureCount = 0;
     const failedFiles: File[] = [];
     try {
+      let uploadPreflightRef: string;
+      try {
+        const preflight = await createUploadPreflight(selectedMatter.matterReference);
+        uploadPreflightRef = preflight.preflightRef;
+      } catch (error) {
+        const message = safeApiErrorMessage(error);
+        setUploadQueue((current) =>
+          current.map((item) => ({
+            ...item,
+            message,
+            status: 'failed',
+          })),
+        );
+        setStatusMessage(bulkUploadStatusMessage(0, files.length));
+        setErrorMessage('업로드 준비 확인을 통과하지 못했습니다.');
+        return;
+      }
+
       for (const [index, selectedFile] of files.entries()) {
         setUploadQueue((current) =>
           updateUploadQueue(current, index, { message: '업로드 중', status: 'uploading' }),
@@ -90,6 +108,7 @@ export function DocumentUploadPanel({
         try {
           const result = await uploadDocument(selectedMatter.matterReference, selectedFile, {
             aiAllowed: prepEnabled,
+            uploadPreflightRef,
             ...(files.length === 1 && title.trim() ? { title: title.trim() } : {}),
           });
           successCount += 1;
