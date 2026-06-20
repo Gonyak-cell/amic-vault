@@ -64,6 +64,7 @@ import {
   documentPreviewUrl,
   getDocument,
   listDocumentVersions,
+  listMatterDocuments,
   updateDocumentMetadata,
 } from '@/lib/api-client';
 import { getDocumentAiPrepStatus } from '@/lib/api/ai-prep';
@@ -74,6 +75,7 @@ interface DocumentActionCenterProps {
   disableInitialLoad?: boolean;
   initialAuditEvents?: DocumentAuditEventDto[];
   initialDocument?: DocumentDto;
+  initialRelatedDocuments?: DocumentDto[];
   initialVersions?: DocumentVersionDto[];
   searchHitContext?: DocumentSearchHitContext | null;
 }
@@ -165,6 +167,16 @@ function fileCabinetUrlForDocument(document: DocumentDto): string {
   if (document.title.trim()) params.set('title', document.title.trim());
   const queryString = params.toString();
   return queryString ? `/files?${queryString}` : '/files';
+}
+
+export function relatedMatterDocuments(
+  documents: DocumentDto[],
+  currentDocumentId: string,
+  limit = 5,
+): DocumentDto[] {
+  return documents
+    .filter((document) => document.documentId !== currentDocumentId)
+    .slice(0, limit);
 }
 
 export function searchHitContextFromParams(params: {
@@ -331,6 +343,81 @@ function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
   ));
 }
 
+function RelatedDocumentsPanel({
+  currentDocument,
+  documents,
+  errorMessage,
+  isLoading,
+}: {
+  currentDocument: DocumentDto;
+  documents: DocumentDto[];
+  errorMessage: string | null;
+  isLoading: boolean;
+}) {
+  const matterCode = currentDocument.matterDisplayCode?.trim();
+  const matterName = currentDocument.matterDisplayName?.trim();
+  const sectionMeta = matterCode || matterName || 'Matter 범위';
+
+  return (
+    <SectionCard
+      icon={<Link2 className="h-4 w-4" />}
+      title="관련 문서"
+      meta={sectionMeta}
+      actions={
+        <StatusBadge tone={isLoading ? 'warning' : 'neutral'}>
+          {isLoading ? '확인 중' : `${documents.length}건`}
+        </StatusBadge>
+      }
+    >
+      {errorMessage ? (
+        <EmptyState
+          variant="api-error"
+          title="관련 문서를 표시할 수 없습니다."
+          description={errorMessage}
+        />
+      ) : null}
+
+      {!errorMessage && isLoading ? (
+        <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+          같은 Matter에서 권한이 확인된 관련 문서를 확인하는 중입니다.
+        </div>
+      ) : null}
+
+      {!errorMessage && !isLoading && documents.length === 0 ? (
+        <EmptyState
+          variant="no-data"
+          title="관련 문서가 없습니다."
+          description="현재 권한으로 확인되는 같은 Matter 문서가 없습니다."
+        />
+      ) : null}
+
+      {!errorMessage && !isLoading && documents.length > 0 ? (
+        <ul className="divide-y rounded-md border bg-background">
+          {documents.map((relatedDocument) => (
+            <li key={relatedDocument.documentId} className="px-3 py-2.5">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <Link
+                  href={`/documents/${relatedDocument.documentId}`}
+                  className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline"
+                >
+                  {relatedDocument.title}
+                </Link>
+                <StatusBadge tone={statusTone(relatedDocument.status)}>
+                  {relatedDocument.status}
+                </StatusBadge>
+              </div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                동일 Matter에서 권한이 확인된 문서 · {typeLabels[relatedDocument.documentType]} ·{' '}
+                {formatDateTime(relatedDocument.updatedAt)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </SectionCard>
+  );
+}
+
 function uploadQueueItems(
   document: DocumentDto,
   prepStatus: AiPrepDocumentStatusDto | null,
@@ -381,11 +468,17 @@ export function DocumentActionCenter({
   documentId,
   initialAuditEvents = [],
   initialDocument,
+  initialRelatedDocuments = [],
   initialVersions = [],
   searchHitContext = null,
 }: DocumentActionCenterProps) {
   const [document, setDocument] = useState<DocumentDto | null>(initialDocument ?? null);
   const [versions, setVersions] = useState<DocumentVersionDto[]>(initialVersions);
+  const [relatedDocuments, setRelatedDocuments] = useState<DocumentDto[]>(() =>
+    relatedMatterDocuments(initialRelatedDocuments, documentId),
+  );
+  const [relatedDocumentsLoading, setRelatedDocumentsLoading] = useState(false);
+  const [relatedDocumentsError, setRelatedDocumentsError] = useState<string | null>(null);
   const [prepStatus, setPrepStatus] = useState<AiPrepDocumentStatusDto | null>(null);
   const [loading, setLoading] = useState(!initialDocument);
   const [error, setError] = useState<string | null>(null);
@@ -442,6 +535,40 @@ export function DocumentActionCenter({
     if (disableInitialLoad) return;
     void load();
   }, [disableInitialLoad, load]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    if (!document) {
+      setRelatedDocuments([]);
+      setRelatedDocumentsError(null);
+      setRelatedDocumentsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setRelatedDocuments([]);
+    setRelatedDocumentsError(null);
+    setRelatedDocumentsLoading(true);
+    listMatterDocuments(document.matterId, {
+      pageSize: 6,
+      sortBy: 'updated_desc',
+    })
+      .then((response) => {
+        if (active) setRelatedDocuments(relatedMatterDocuments(response.items, document.documentId));
+      })
+      .catch((caught) => {
+        if (!active) return;
+        setRelatedDocuments([]);
+        setRelatedDocumentsError(safeApiErrorMessage(caught));
+      })
+      .finally(() => {
+        if (active) setRelatedDocumentsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [disableInitialLoad, document]);
 
   const matterLabel = useMemo(() => {
     if (!document) return 'Matter 확인 중';
@@ -696,6 +823,13 @@ export function DocumentActionCenter({
 
           <aside className="space-y-4">
             <DocumentWorkflowOpsPanel document={document} prepStatus={prepStatus} />
+
+            <RelatedDocumentsPanel
+              currentDocument={document}
+              documents={relatedDocuments}
+              errorMessage={relatedDocumentsError}
+              isLoading={relatedDocumentsLoading}
+            />
 
             <SectionCard
               icon={<Download className="h-4 w-4" />}

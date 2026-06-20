@@ -422,7 +422,11 @@ PR-B implementation note:
   then shows a bounded version receipt with duplicate-candidate counts and no
   raw document/version/file refs.
 - Check-out/check-in and Office live edit remain deferred by `docs/adr/ADR-016-document-editing-and-office-flow.md`.
-- Related items remain a safe empty state until approved related-item APIs exist.
+- Related Matter documents are now shown in the document action center through
+  the existing permission-scoped `listMatterDocuments` API, excluding the
+  current document and displaying only safe document titles, status, type, and
+  updated time. Email, attachment, and duplicate-specific related-item APIs
+  remain deferred until their contracts are approved.
 
 ### PR-C Enterprise Search
 

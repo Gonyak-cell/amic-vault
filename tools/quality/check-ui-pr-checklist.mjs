@@ -141,6 +141,11 @@ const requiredPatterns = [
       /new-version upload[\s\S]*version list[\s\S]*document-scoped audit timeline[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,
   },
   {
+    label: 'DMS related document evidence',
+    pattern:
+      /DMS related document guard[\s\S]*permission-scoped matter document list API[\s\S]*current-document exclusion[\s\S]*no visible raw Matter reference/is,
+  },
+  {
     label: 'PR-F hold criteria',
     pattern:
       /Hold Criteria[\s\S]*approved staging\/production credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/is,
