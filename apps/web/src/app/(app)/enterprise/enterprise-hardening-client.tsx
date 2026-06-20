@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import {
   documentTypes,
+  enterpriseDmsSearchRefinerFieldKeys,
   matterTypes,
   type DocumentType,
   type EnterpriseBackupSnapshotListResponseDto,
@@ -39,12 +40,7 @@ import {
   type UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
-import {
-  DataTable,
-  DataTableBody,
-  DataTableCell,
-  DataTableRow,
-} from '@/components/ui/data-table';
+import { DataTable, DataTableBody, DataTableCell, DataTableRow } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
@@ -483,19 +479,19 @@ export function EnterpriseHardeningClient() {
       nextAiOpsMetrics,
       nextSearchHealth,
     ] = await Promise.all([
-        run(() => listEnterpriseSsoProviders()),
-        run(() => listEnterpriseKeyReferences()),
-        run(() => listEnterpriseSiemExports()),
-        run(() => listEnterpriseBackupSnapshots()),
-        run(() => listEnterpriseComplianceEvidence()),
-        run(() => listEnterpriseDmsTaxonomies()),
-        run(() => listEnterpriseDmsMatterTemplates()),
-        run(() => listEnterpriseDmsSearchRefiners()),
-        run(() => getEnterpriseReadiness()),
-        run(() => getLocalAiOpsHealth()),
-        run(() => getLocalAiOpsMetrics()),
-        run(() => getSearchAdminHealth()),
-      ]);
+      run(() => listEnterpriseSsoProviders()),
+      run(() => listEnterpriseKeyReferences()),
+      run(() => listEnterpriseSiemExports()),
+      run(() => listEnterpriseBackupSnapshots()),
+      run(() => listEnterpriseComplianceEvidence()),
+      run(() => listEnterpriseDmsTaxonomies()),
+      run(() => listEnterpriseDmsMatterTemplates()),
+      run(() => listEnterpriseDmsSearchRefiners()),
+      run(() => getEnterpriseReadiness()),
+      run(() => getLocalAiOpsHealth()),
+      run(() => getLocalAiOpsMetrics()),
+      run(() => getSearchAdminHealth()),
+    ]);
     if (nextProviders) setProviders(nextProviders);
     if (nextKeys) setKeys(nextKeys);
     if (nextExports) setExports(nextExports);
@@ -624,7 +620,9 @@ export function EnterpriseHardeningClient() {
           </Button>
         }
       />
-      {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
+      {error ? (
+        <EmptyState variant="api-error" title={error} className="items-start text-left" />
+      ) : null}
 
       <AdminDmsConfigurationPanel
         busy={dmsConfigBusy}
@@ -789,10 +787,16 @@ export function AdminOpsHealthPanel({
           <h3 className="text-sm font-semibold tracking-normal">{copy.opsRuntime}</h3>
           {health ? (
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-              <Value label={copy.queueBacklog} value={`${health.queueBacklogCount} ${copy.count}`} />
+              <Value
+                label={copy.queueBacklog}
+                value={`${health.queueBacklogCount} ${copy.count}`}
+              />
               <Value label={copy.blockedPrep} value={`${health.blockedPrepCount} ${copy.count}`} />
               <Value label={copy.p95Latency} value={formatLatency(copy, health.p95LatencyMs)} />
-              <Value label={copy.endpointClass} value={endpointClassLabel(copy, health.endpointClass)} />
+              <Value
+                label={copy.endpointClass}
+                value={endpointClassLabel(copy, health.endpointClass)}
+              />
             </dl>
           ) : (
             <Unavailable copy={copy} />
@@ -802,15 +806,36 @@ export function AdminOpsHealthPanel({
           <h3 className="text-sm font-semibold tracking-normal">{copy.opsMetrics}</h3>
           {metrics ? (
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-              <Value label={copy.prepCompleted} value={`${metrics.prepCompletedCount} ${copy.count}`} />
+              <Value
+                label={copy.prepCompleted}
+                value={`${metrics.prepCompletedCount} ${copy.count}`}
+              />
               <Value label={copy.prepFailed} value={`${metrics.prepFailedCount} ${copy.count}`} />
               <Value label={copy.prepStale} value={`${metrics.prepStaleCount} ${copy.count}`} />
-              <Value label={copy.prepRejected} value={`${metrics.prepRejectedCount} ${copy.count}`} />
-              <Value label={copy.prepFallback} value={`${metrics.prepFallbackCount} ${copy.count}`} />
-              <Value label={copy.staleRebuild} value={`${metrics.staleRebuildCount} ${copy.count}`} />
-              <Value label={copy.invalidOutput} value={`${metrics.invalidOutputCount} ${copy.count}`} />
-              <Value label={copy.citationExcluded} value={`${metrics.citationRejectedCount} ${copy.count}`} />
-              <Value label={copy.p95Latency} value={formatLatency(copy, metrics.p95PrepLatencyMs)} />
+              <Value
+                label={copy.prepRejected}
+                value={`${metrics.prepRejectedCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.prepFallback}
+                value={`${metrics.prepFallbackCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.staleRebuild}
+                value={`${metrics.staleRebuildCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.invalidOutput}
+                value={`${metrics.invalidOutputCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.citationExcluded}
+                value={`${metrics.citationRejectedCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.p95Latency}
+                value={formatLatency(copy, metrics.p95PrepLatencyMs)}
+              />
             </dl>
           ) : (
             <Unavailable copy={copy} />
@@ -878,7 +903,8 @@ function AdminSearchOperationsPanel({
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <p className="text-sm leading-6 text-muted-foreground">
-            권한이 있는 운영자만 전체 검색 인덱스 재처리를 요청할 수 있습니다. 요청은 감사 기록과 큐 등록 수로만 확인합니다.
+            권한이 있는 운영자만 전체 검색 인덱스 재처리를 요청할 수 있습니다. 요청은 감사 기록과 큐
+            등록 수로만 확인합니다.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <StatusBadge>{copy.reindexAudit}</StatusBadge>
@@ -905,19 +931,49 @@ function AdminSearchOperationsPanel({
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy.searchHealthMeta}</p>
           {health ? (
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-              <Value label={copy.currentVersions} value={`${health.currentVersionCount} ${copy.count}`} />
-              <Value label={copy.indexedVersions} value={`${health.indexedVersionCount} ${copy.count}`} />
-              <Value label={copy.missingIndex} value={`${health.missingIndexCount} ${copy.count}`} />
+              <Value
+                label={copy.currentVersions}
+                value={`${health.currentVersionCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.indexedVersions}
+                value={`${health.indexedVersionCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.missingIndex}
+                value={`${health.missingIndexCount} ${copy.count}`}
+              />
               <Value label={copy.staleIndex} value={`${health.staleIndexCount} ${copy.count}`} />
-              <Value label={copy.extractionReady} value={`${health.extractionReadyCount} ${copy.count}`} />
-              <Value label={copy.extractionPending} value={`${health.extractionPendingCount} ${copy.count}`} />
+              <Value
+                label={copy.extractionReady}
+                value={`${health.extractionReadyCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.extractionPending}
+                value={`${health.extractionPendingCount} ${copy.count}`}
+              />
               <Value label={copy.ocrPending} value={`${health.ocrPendingCount} ${copy.count}`} />
-              <Value label={copy.extractionFailed} value={`${health.extractionFailedCount} ${copy.count}`} />
+              <Value
+                label={copy.extractionFailed}
+                value={`${health.extractionFailedCount} ${copy.count}`}
+              />
               <Value label={copy.staleChunks} value={`${health.staleChunkCount} ${copy.count}`} />
-              <Value label={copy.staleEmbeddings} value={`${health.staleEmbeddingCount} ${copy.count}`} />
-              <Value label={copy.queryAudit24h} value={`${health.queryAuditCount24h} ${copy.count}`} />
-              <Value label={copy.noResultQueries24h} value={`${health.noResultQueryCount24h} ${copy.count}`} />
-              <Value label={copy.p95SearchDuration} value={formatLatency(copy, health.p95DurationMs24h)} />
+              <Value
+                label={copy.staleEmbeddings}
+                value={`${health.staleEmbeddingCount} ${copy.count}`}
+              />
+              <Value
+                label={copy.queryAudit24h}
+                value={`${health.queryAuditCount24h} ${copy.count}`}
+              />
+              <Value
+                label={copy.noResultQueries24h}
+                value={`${health.noResultQueryCount24h} ${copy.count}`}
+              />
+              <Value
+                label={copy.p95SearchDuration}
+                value={formatLatency(copy, health.p95DurationMs24h)}
+              />
             </dl>
           ) : (
             <Unavailable copy={copy} />
@@ -991,7 +1047,8 @@ function AdminDmsConfigurationPanel({
   const [templateDescription, setTemplateDescription] = useState('');
   const [templateDocumentSets, setTemplateDocumentSets] = useState('');
   const [templateDocumentTypes, setTemplateDocumentTypes] = useState('contract');
-  const [refinerFieldKey, setRefinerFieldKey] = useState('');
+  const [refinerFieldKey, setRefinerFieldKey] =
+    useState<UpsertEnterpriseDmsSearchRefinerRequestDto['fieldKey']>('document_type');
   const [refinerDisplayName, setRefinerDisplayName] = useState('');
   const [refinerFieldType, setRefinerFieldType] =
     useState<UpsertEnterpriseDmsSearchRefinerRequestDto['fieldType']>('text');
@@ -1073,7 +1130,9 @@ function AdminDmsConfigurationPanel({
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <FileCog className="h-4 w-4" />
-              <span className="truncate text-sm font-semibold text-foreground">{copy.taxonomy}</span>
+              <span className="truncate text-sm font-semibold text-foreground">
+                {copy.taxonomy}
+              </span>
             </div>
             <StatusBadge>{copy.activeConfiguration}</StatusBadge>
           </div>
@@ -1132,7 +1191,9 @@ function AdminDmsConfigurationPanel({
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <FolderKanban className="h-4 w-4" />
-              <span className="truncate text-sm font-semibold text-foreground">{copy.templates}</span>
+              <span className="truncate text-sm font-semibold text-foreground">
+                {copy.templates}
+              </span>
             </div>
             <StatusBadge>{copy.activeConfiguration}</StatusBadge>
           </div>
@@ -1199,20 +1260,32 @@ function AdminDmsConfigurationPanel({
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <SearchCheck className="h-4 w-4" />
-              <span className="truncate text-sm font-semibold text-foreground">{copy.refiners}</span>
+              <span className="truncate text-sm font-semibold text-foreground">
+                {copy.refiners}
+              </span>
             </div>
             <StatusBadge>{copy.activeConfiguration}</StatusBadge>
           </div>
           <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.refinersMeta}</p>
           <form className="mt-3 grid gap-2" onSubmit={submitRefiner}>
-            <Input
+            <select
               aria-label={copy.fieldKey}
-              placeholder={copy.fieldKey}
+              className="h-10 rounded-md border bg-background px-3 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               value={refinerFieldKey}
-              onChange={(event) => setRefinerFieldKey(event.target.value)}
+              onChange={(event) =>
+                setRefinerFieldKey(
+                  event.target.value as UpsertEnterpriseDmsSearchRefinerRequestDto['fieldKey'],
+                )
+              }
               disabled={busy}
               required
-            />
+            >
+              {enterpriseDmsSearchRefinerFieldKeys.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
             <Input
               aria-label={copy.displayName}
               placeholder={copy.displayName}
@@ -1270,7 +1343,12 @@ function AdminDmsConfigurationPanel({
               {copy.refinerSave}
             </Button>
           </form>
-          <DmsRefinerRows copy={copy} onDisable={onDisableRefiner} refiners={refiners} busy={busy} />
+          <DmsRefinerRows
+            copy={copy}
+            onDisable={onDisableRefiner}
+            refiners={refiners}
+            busy={busy}
+          />
         </div>
       </div>
     </SectionCard>
@@ -1301,7 +1379,9 @@ function DmsTaxonomyRows({
             <DataTableCell className="text-muted-foreground">{item.displayName}</DataTableCell>
             <DataTableCell className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">v{item.versionNo}</span>
-              {item.lastAuditEventRef ? <span className="block">{item.lastAuditEventRef}</span> : null}
+              {item.lastAuditEventRef ? (
+                <span className="block">{item.lastAuditEventRef}</span>
+              ) : null}
             </DataTableCell>
             <DataTableCell>
               <StatusBadge tone={item.status === 'active' ? 'success' : 'neutral'}>
@@ -1499,7 +1579,11 @@ function SettingsPanel({
 }) {
   return (
     <SectionCard icon={icon} title={title} meta={meta}>
-      {rows ? <Rows caption={title} empty={empty} rows={rows} /> : <Unavailable copy={unavailableCopy} />}
+      {rows ? (
+        <Rows caption={title} empty={empty} rows={rows} />
+      ) : (
+        <Unavailable copy={unavailableCopy} />
+      )}
     </SectionCard>
   );
 }

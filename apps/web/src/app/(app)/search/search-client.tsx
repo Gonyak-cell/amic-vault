@@ -12,6 +12,7 @@ import type {
   SearchSort,
   SearchTarget,
   EnterpriseApprovedDmsTaxonomyDto,
+  EnterpriseApprovedDmsSearchRefinerDto,
 } from '@amic-vault/shared';
 import {
   documentConfidentialityLevels,
@@ -37,8 +38,17 @@ import {
   saveSavedSearch,
   searchDocuments,
 } from '@/lib/api/search';
-import { listApprovedEnterpriseDmsTaxonomies } from '@/lib/api/enterprise';
+import {
+  listApprovedEnterpriseDmsSearchRefiners,
+  listApprovedEnterpriseDmsTaxonomies,
+} from '@/lib/api/enterprise';
 import { useI18n } from '@/lib/i18n';
+import {
+  hasSearchRefiner,
+  searchRefinerFieldKeys,
+  searchRefinerKeySet,
+  type SearchRefinerKeySet,
+} from '@/lib/search-refiners';
 
 const pageSize = 10;
 
@@ -61,14 +71,16 @@ export function SearchClient() {
   const [error, setError] = useState<SearchErrorKind | null>(null);
   const [savedSearches, setSavedSearches] = useState<SavedSearchDto[]>([]);
   const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
+  const [refinerCatalog, setRefinerCatalog] = useState<EnterpriseApprovedDmsSearchRefinerDto[]>([]);
   const [savedSearchBusy, setSavedSearchBusy] = useState(false);
   const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
+  const approvedRefinerKeys = useMemo(() => searchRefinerKeySet(refinerCatalog), [refinerCatalog]);
   const reusableSearchUrl = useMemo(
     () =>
       searchPrivacySettings.allowPlaintextReusableUrls
-        ? urlForState(query, selection, 1)
+        ? urlForState(query, constrainSelection(selection, approvedRefinerKeys), 1)
         : privateSearchUrl(),
-    [query, searchPrivacySettings.allowPlaintextReusableUrls, selection],
+    [approvedRefinerKeys, query, searchPrivacySettings.allowPlaintextReusableUrls, selection],
   );
 
   const refreshSavedSearches = useCallback(async () => {
@@ -87,13 +99,16 @@ export function SearchClient() {
 
   useEffect(() => {
     let active = true;
-    listApprovedEnterpriseDmsTaxonomies()
-      .then((catalog) => {
-        if (active) setTaxonomyCatalog(catalog.taxonomies);
-      })
-      .catch(() => {
-        if (active) setTaxonomyCatalog([]);
-      });
+    Promise.allSettled([
+      listApprovedEnterpriseDmsTaxonomies(),
+      listApprovedEnterpriseDmsSearchRefiners(),
+    ]).then(([taxonomyResult, refinerResult]) => {
+      if (!active) return;
+      setTaxonomyCatalog(
+        taxonomyResult.status === 'fulfilled' ? taxonomyResult.value.taxonomies : [],
+      );
+      setRefinerCatalog(refinerResult.status === 'fulfilled' ? refinerResult.value.refiners : []);
+    });
     return () => {
       active = false;
     };
@@ -108,18 +123,24 @@ export function SearchClient() {
     ) => {
       const trimmed = nextQuery.trim();
       if (!trimmed) return;
+      const constrainedSelection = constrainSelection(nextSelection, approvedRefinerKeys);
       setBusy(true);
       setError(null);
       setQuery(trimmed);
-      setSelection(nextSelection);
+      setSelection(constrainedSelection);
       setPage(nextPage);
       const replacementUrl =
         options.replaceUrl === undefined
-          ? urlForPolicy(searchPrivacySettings, trimmed, nextSelection, nextPage)
+          ? urlForPolicy(searchPrivacySettings, trimmed, constrainedSelection, nextPage)
           : options.replaceUrl;
       if (replacementUrl) router.replace(replacementUrl);
       try {
-        const request = requestForState(trimmed, nextSelection, nextPage);
+        const request = requestForState(
+          trimmed,
+          constrainedSelection,
+          nextPage,
+          approvedRefinerKeys,
+        );
         const result = await searchDocuments(request);
         setResponse(result);
       } catch (caught) {
@@ -129,14 +150,17 @@ export function SearchClient() {
         setBusy(false);
       }
     },
-    [router, searchPrivacySettings],
+    [approvedRefinerKeys, router, searchPrivacySettings],
   );
 
   const openSavedSearch = useCallback(
     async (savedSearch: SavedSearchDto) => {
       const nextQuery = savedSearch.query.query?.trim();
       if (!nextQuery) return;
-      const nextSelection = selectionFromSearchQuery(savedSearch.query);
+      const nextSelection = constrainSelection(
+        selectionFromSearchQuery(savedSearch.query),
+        approvedRefinerKeys,
+      );
       setBusy(true);
       setError(null);
       setQuery(nextQuery);
@@ -150,7 +174,9 @@ export function SearchClient() {
       try {
         const opened = await recordSavedSearchOpen(savedSearch.savedSearchId);
         setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, opened)));
-        const result = await searchDocuments({ ...savedSearch.query, page: 1, pageSize });
+        const result = await searchDocuments(
+          requestForState(nextQuery, nextSelection, 1, approvedRefinerKeys),
+        );
         setResponse(result);
       } catch (caught) {
         setResponse(null);
@@ -159,7 +185,7 @@ export function SearchClient() {
         setBusy(false);
       }
     },
-    [router, searchPrivacySettings.urlMode],
+    [approvedRefinerKeys, router, searchPrivacySettings.urlMode],
   );
 
   useEffect(() => {
@@ -181,18 +207,19 @@ export function SearchClient() {
   useEffect(() => {
     if (!searchPrivacySettings.allowPlaintextReusableUrls) return;
     if (!initial.query) return;
-    const initialUrl = urlForState(initial.query, initial.selection, initial.page);
+    const constrainedInitialSelection = constrainSelection(initial.selection, approvedRefinerKeys);
+    const initialUrl = urlForState(initial.query, constrainedInitialSelection, initial.page);
     if (restoredUrl.current === initialUrl) return;
     restoredUrl.current = initialUrl;
-    void runSearch(initial.query, initial.selection, initial.page, { replaceUrl: initialUrl });
-  }, [initial, runSearch, searchPrivacySettings.allowPlaintextReusableUrls]);
+    void runSearch(initial.query, constrainedInitialSelection, initial.page, {
+      replaceUrl: initialUrl,
+    });
+  }, [approvedRefinerKeys, initial, runSearch, searchPrivacySettings.allowPlaintextReusableUrls]);
 
   useEffect(() => {
     if (!initial.savedSearchId) return;
     if (restoredSavedSearchRef.current === initial.savedSearchId) return;
-    const savedSearch = savedSearches.find(
-      (item) => item.savedSearchId === initial.savedSearchId,
-    );
+    const savedSearch = savedSearches.find((item) => item.savedSearchId === initial.savedSearchId);
     if (!savedSearch) return;
     restoredSavedSearchRef.current = initial.savedSearchId;
     void openSavedSearch(savedSearch);
@@ -214,7 +241,7 @@ export function SearchClient() {
       const saved = await saveSavedSearch({
         matterId: request.matterId,
         name: request.name,
-        query: requestForState(query, selection, 1),
+        query: requestForState(query, selection, 1, approvedRefinerKeys),
         scope: request.scope,
       });
       setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, saved)));
@@ -247,9 +274,7 @@ export function SearchClient() {
   return (
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-normal">
-          {t('search.title')}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-normal">{t('search.title')}</h1>
         <SearchBar
           initialQuery={query}
           busy={busy}
@@ -257,6 +282,7 @@ export function SearchClient() {
         />
       </section>
       <SearchAdvancedControls
+        approvedRefinerKeys={approvedRefinerKeys}
         busy={busy}
         taxonomyCatalog={taxonomyCatalog}
         selection={selection}
@@ -278,6 +304,7 @@ export function SearchClient() {
       />
       <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <SearchFacets
+          approvedRefinerKeys={approvedRefinerKeys}
           facets={response?.facets ?? emptyFacets}
           selection={selection}
           onChange={applyFacets}
@@ -315,7 +342,7 @@ function stateFromParams(
   privacySettings: SearchPrivacySettingsDto,
 ) {
   return {
-    query: privacySettings.allowPlaintextReusableUrls ? params.get('q') ?? '' : '',
+    query: privacySettings.allowPlaintextReusableUrls ? (params.get('q') ?? '') : '',
     page: Math.max(1, Number(params.get('page') ?? '1') || 1),
     savedSearchId: parseSavedSearchRef(params.get('searchRef')),
     selection: {
@@ -387,10 +414,11 @@ function requestForState(
   query: string,
   selection: SearchFacetSelection,
   page: number,
+  approvedRefinerKeys: SearchRefinerKeySet,
 ): SearchQueryDto {
   return {
     query: query.trim(),
-    filters: filtersForSelection(selection),
+    filters: filtersForSelection(selection, approvedRefinerKeys),
     page,
     pageSize,
     ...(selection.groupBy ? { groupBy: selection.groupBy } : {}),
@@ -399,38 +427,147 @@ function requestForState(
   };
 }
 
-function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto {
+function filtersForSelection(
+  selection: SearchFacetSelection,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): SearchFiltersDto {
   const filters: SearchFiltersDto = {};
-  if (selection.matterId) filters.matterId = selection.matterId;
-  if (selection.clientId) filters.clientId = selection.clientId;
-  if (selection.clientName) filters.clientName = selection.clientName;
-  if (selection.matterCode) filters.matterCode = selection.matterCode;
-  if (selection.matterName) filters.matterName = selection.matterName;
-  if (selection.title) filters.title = selection.title;
-  if (selection.confidentialityLevel) {
+  if (
+    selection.matterId &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterId)
+  ) {
+    filters.matterId = selection.matterId;
+  }
+  if (
+    selection.clientId &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientId)
+  ) {
+    filters.clientId = selection.clientId;
+  }
+  if (
+    selection.clientName &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientName)
+  ) {
+    filters.clientName = selection.clientName;
+  }
+  if (
+    selection.matterCode &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
+  ) {
+    filters.matterCode = selection.matterCode;
+  }
+  if (
+    selection.matterName &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterName)
+  ) {
+    filters.matterName = selection.matterName;
+  }
+  if (selection.title && hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.title)) {
+    filters.title = selection.title;
+  }
+  if (
+    selection.confidentialityLevel &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.confidentialityLevel)
+  ) {
     filters.confidentialityLevel =
       selection.confidentialityLevel as SearchFiltersDto['confidentialityLevel'];
   }
-  if (selection.documentType) filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
-  if (selection.extractionStatus) {
+  if (
+    selection.documentType &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)
+  ) {
+    filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
+  }
+  if (
+    selection.extractionStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
+  ) {
     filters.extractionStatus = selection.extractionStatus as SearchFiltersDto['extractionStatus'];
   }
-  if (selection.legalHold) {
+  if (
+    selection.legalHold &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
+  ) {
     filters.legalHold = selection.legalHold as SearchFiltersDto['legalHold'];
   }
-  if (selection.privilegeStatus) {
+  if (
+    selection.privilegeStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)
+  ) {
     filters.privilegeStatus = selection.privilegeStatus as SearchFiltersDto['privilegeStatus'];
   }
-  if (selection.recordsStatus) {
+  if (
+    selection.recordsStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)
+  ) {
     filters.recordsStatus = selection.recordsStatus as SearchFiltersDto['recordsStatus'];
   }
-  if (selection.versionStatus) {
+  if (
+    selection.versionStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)
+  ) {
     filters.versionStatus = selection.versionStatus as SearchFiltersDto['versionStatus'];
   }
   const dateRange = datesForRange(selection.dateRange);
-  if (dateRange.dateFrom) filters.dateFrom = dateRange.dateFrom;
-  if (dateRange.dateTo) filters.dateTo = dateRange.dateTo;
+  if (hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)) {
+    if (dateRange.dateFrom) filters.dateFrom = dateRange.dateFrom;
+    if (dateRange.dateTo) filters.dateTo = dateRange.dateTo;
+  }
   return filters;
+}
+
+function constrainSelection(
+  selection: SearchFacetSelection,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): SearchFacetSelection {
+  return {
+    ...selection,
+    clientId: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientId)
+      ? selection.clientId
+      : undefined,
+    clientName: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientName)
+      ? selection.clientName
+      : undefined,
+    confidentialityLevel: hasSearchRefiner(
+      approvedRefinerKeys,
+      searchRefinerFieldKeys.confidentialityLevel,
+    )
+      ? selection.confidentialityLevel
+      : undefined,
+    dateRange: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)
+      ? selection.dateRange
+      : undefined,
+    documentType: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)
+      ? selection.documentType
+      : undefined,
+    extractionStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
+      ? selection.extractionStatus
+      : undefined,
+    legalHold: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
+      ? selection.legalHold
+      : undefined,
+    matterCode: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
+      ? selection.matterCode
+      : undefined,
+    matterId: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterId)
+      ? selection.matterId
+      : undefined,
+    matterName: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterName)
+      ? selection.matterName
+      : undefined,
+    privilegeStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)
+      ? selection.privilegeStatus
+      : undefined,
+    recordsStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)
+      ? selection.recordsStatus
+      : undefined,
+    title: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.title)
+      ? selection.title
+      : undefined,
+    versionStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)
+      ? selection.versionStatus
+      : undefined,
+  };
 }
 
 function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
@@ -541,9 +678,7 @@ function parseGroupBy(value: string | null): SearchGroupBy | undefined {
 
 function parseSavedSearchRef(value: string | null): string | undefined {
   if (!value) return undefined;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  )
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
     ? value
     : undefined;
 }
@@ -578,10 +713,7 @@ function searchErrorKind(error: unknown): SearchErrorKind {
   return uiErrorKindForApiError(error);
 }
 
-function upsertSavedSearch(
-  current: SavedSearchDto[],
-  next: SavedSearchDto,
-): SavedSearchDto[] {
+function upsertSavedSearch(current: SavedSearchDto[], next: SavedSearchDto): SavedSearchDto[] {
   const withoutExisting = current.filter(
     (savedSearch) => savedSearch.savedSearchId !== next.savedSearchId,
   );

@@ -8,11 +8,14 @@ import {
   enterpriseComplianceEvidenceSchema,
   enterpriseApprovedDmsMatterTemplateCatalogSchema,
   enterpriseApprovedDmsMatterTemplateSchema,
+  enterpriseApprovedDmsSearchRefinerCatalogSchema,
+  enterpriseApprovedDmsSearchRefinerSchema,
   enterpriseApprovedDmsTaxonomyCatalogSchema,
   enterpriseApprovedDmsTaxonomySchema,
   enterpriseDmsMatterTemplateApplicationSchema,
   enterpriseDmsMatterTemplateListResponseSchema,
   enterpriseDmsMatterTemplateSchema,
+  enterpriseDmsSearchRefinerFieldKeys,
   enterpriseDmsSearchRefinerListResponseSchema,
   enterpriseDmsSearchRefinerSchema,
   enterpriseDmsTaxonomyListResponseSchema,
@@ -39,6 +42,8 @@ import {
   type EnterpriseComplianceEvidenceListResponseDto,
   type EnterpriseApprovedDmsMatterTemplateCatalogDto,
   type EnterpriseApprovedDmsMatterTemplateDto,
+  type EnterpriseApprovedDmsSearchRefinerCatalogDto,
+  type EnterpriseApprovedDmsSearchRefinerDto,
   type EnterpriseApprovedDmsTaxonomyCatalogDto,
   type EnterpriseApprovedDmsTaxonomyDto,
   type EnterpriseDmsMatterTemplateApplicationDto,
@@ -482,7 +487,12 @@ export class EnterpriseService {
   ): Promise<EnterpriseSiemExportDto> {
     await this.assertEnterpriseAdmin(ctx);
     return this.auditService.transaction(ctx.tenantId, async (client) => {
-      const bounds = await auditBounds(client, ctx.tenantId, input.fromSeq ?? null, input.toSeq ?? null);
+      const bounds = await auditBounds(
+        client,
+        ctx.tenantId,
+        input.fromSeq ?? null,
+        input.toSeq ?? null,
+      );
       const manifestHash = hashJson({
         tenantId: ctx.tenantId,
         sinkType: input.sinkType,
@@ -772,23 +782,27 @@ export class EnterpriseService {
       );
       const row = requiredRow(result.rows[0]);
       const taxonomy = mapDmsTaxonomy(row);
-      const audit = await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
-        taxonomy_id: taxonomy.taxonomyId,
-        document_type_code: taxonomy.documentTypeCode,
-        subtype_count: taxonomy.subtypes.length,
-        metadata_field_count: taxonomy.metadataFields.length,
-        status_after: taxonomy.status,
-        version_no: taxonomy.versionNo,
-      });
+      const audit = await this.logDmsConfigurationChange(
+        client,
+        ctx,
+        'enterprise_dms_taxonomy',
+        taxonomy.taxonomyId,
+        {
+          taxonomy_id: taxonomy.taxonomyId,
+          document_type_code: taxonomy.documentTypeCode,
+          subtype_count: taxonomy.subtypes.length,
+          metadata_field_count: taxonomy.metadataFields.length,
+          status_after: taxonomy.status,
+          version_no: taxonomy.versionNo,
+        },
+      );
       const auditedRow = await this.setDmsTaxonomyAuditEvent(client, ctx, row, audit.eventId);
       await this.recordDmsTaxonomyVersion(client, ctx, auditedRow, 'upsert', audit.eventId);
       return mapDmsTaxonomy(auditedRow);
     });
   }
 
-  async listDmsTaxonomies(
-    ctx: PermissionContext,
-  ): Promise<EnterpriseDmsTaxonomyListResponseDto> {
+  async listDmsTaxonomies(ctx: PermissionContext): Promise<EnterpriseDmsTaxonomyListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
     const result = await getPool().query<DmsTaxonomyRow>(
       `
@@ -855,14 +869,20 @@ export class EnterpriseService {
       );
       const row = requiredRow(result.rows[0]);
       const taxonomy = mapDmsTaxonomy(row);
-      const audit = await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
-        taxonomy_id: taxonomy.taxonomyId,
-        document_type_code: taxonomy.documentTypeCode,
-        subtype_count: taxonomy.subtypes.length,
-        metadata_field_count: taxonomy.metadataFields.length,
-        status_after: taxonomy.status,
-        version_no: taxonomy.versionNo,
-      });
+      const audit = await this.logDmsConfigurationChange(
+        client,
+        ctx,
+        'enterprise_dms_taxonomy',
+        taxonomy.taxonomyId,
+        {
+          taxonomy_id: taxonomy.taxonomyId,
+          document_type_code: taxonomy.documentTypeCode,
+          subtype_count: taxonomy.subtypes.length,
+          metadata_field_count: taxonomy.metadataFields.length,
+          status_after: taxonomy.status,
+          version_no: taxonomy.versionNo,
+        },
+      );
       const auditedRow = await this.setDmsTaxonomyAuditEvent(client, ctx, row, audit.eventId);
       await this.recordDmsTaxonomyVersion(client, ctx, auditedRow, 'disable', audit.eventId);
       return mapDmsTaxonomy(auditedRow);
@@ -1127,11 +1147,17 @@ export class EnterpriseService {
         ],
       );
       const refiner = mapDmsSearchRefiner(result.rows[0]);
-      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_search_refiner', refiner.refinerId, {
-        refiner_id: refiner.refinerId,
-        field_key: refiner.fieldKey,
-        status_after: refiner.status,
-      });
+      await this.logDmsConfigurationChange(
+        client,
+        ctx,
+        'enterprise_dms_search_refiner',
+        refiner.refinerId,
+        {
+          refiner_id: refiner.refinerId,
+          field_key: refiner.fieldKey,
+          status_after: refiner.status,
+        },
+      );
       return refiner;
     });
   }
@@ -1146,13 +1172,39 @@ export class EnterpriseService {
           searchable, refinable, filterable, status, sort_order, created_at, updated_at
         FROM enterprise_dms_search_refiners
         WHERE tenant_id = $1
+          AND field_key = ANY($2::text[])
         ORDER BY status, sort_order, field_key
         LIMIT 100
       `,
-      [ctx.tenantId],
+      [ctx.tenantId, enterpriseDmsSearchRefinerFieldKeys],
     );
     return enterpriseDmsSearchRefinerListResponseSchema.parse({
       refiners: result.rows.map(mapDmsSearchRefiner),
+    });
+  }
+
+  async listApprovedDmsSearchRefiners(
+    ctx: PermissionContext,
+  ): Promise<EnterpriseApprovedDmsSearchRefinerCatalogDto> {
+    await this.assertActiveInternalUser(ctx);
+    const result = await getPool().query<DmsSearchRefinerRow>(
+      `
+        SELECT refiner_id, field_key, display_name, field_type, source,
+          searchable, refinable, filterable, status, sort_order, created_at, updated_at
+        FROM enterprise_dms_search_refiners
+        WHERE tenant_id = $1
+          AND field_key = ANY($2::text[])
+          AND status = 'active'
+          AND (searchable OR refinable OR filterable)
+        ORDER BY sort_order, field_key
+        LIMIT 100
+      `,
+      [ctx.tenantId, enterpriseDmsSearchRefinerFieldKeys],
+    );
+    return enterpriseApprovedDmsSearchRefinerCatalogSchema.parse({
+      source: 'tenant_admin_search_refiner',
+      generatedAt: new Date().toISOString(),
+      refiners: result.rows.map(mapApprovedDmsSearchRefiner),
     });
   }
 
@@ -1170,17 +1222,24 @@ export class EnterpriseService {
               updated_at = now()
           WHERE tenant_id = $1
             AND refiner_id = $2
+            AND field_key = ANY($4::text[])
           RETURNING refiner_id, field_key, display_name, field_type, source,
             searchable, refinable, filterable, status, sort_order, created_at, updated_at
         `,
-        [ctx.tenantId, refinerId, ctx.userId],
+        [ctx.tenantId, refinerId, ctx.userId, enterpriseDmsSearchRefinerFieldKeys],
       );
       const refiner = mapDmsSearchRefiner(requiredRow(result.rows[0]));
-      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_search_refiner', refiner.refinerId, {
-        refiner_id: refiner.refinerId,
-        field_key: refiner.fieldKey,
-        status_after: refiner.status,
-      });
+      await this.logDmsConfigurationChange(
+        client,
+        ctx,
+        'enterprise_dms_search_refiner',
+        refiner.refinerId,
+        {
+          refiner_id: refiner.refinerId,
+          field_key: refiner.fieldKey,
+          status_after: refiner.status,
+        },
+      );
       return refiner;
     });
   }
@@ -1413,9 +1472,7 @@ function mapDmsTaxonomy(row: DmsTaxonomyRow | undefined): EnterpriseDmsTaxonomyD
   });
 }
 
-function mapApprovedDmsTaxonomy(
-  row: DmsTaxonomyRow | undefined,
-): EnterpriseApprovedDmsTaxonomyDto {
+function mapApprovedDmsTaxonomy(row: DmsTaxonomyRow | undefined): EnterpriseApprovedDmsTaxonomyDto {
   const value = requiredRow(row);
   const canonicalDocumentType = canonicalDocumentTypeForCode(value.document_type_code);
   if (!canonicalDocumentType) throw new BadRequestException({ code: 'VALIDATION_FAILED' });
@@ -1487,9 +1544,7 @@ function auditRef(eventId: string | null | undefined): string | null {
   return `audit:${createHash('sha256').update(eventId).digest('hex').slice(0, 12)}`;
 }
 
-function mapDmsSearchRefiner(
-  row: DmsSearchRefinerRow | undefined,
-): EnterpriseDmsSearchRefinerDto {
+function mapDmsSearchRefiner(row: DmsSearchRefinerRow | undefined): EnterpriseDmsSearchRefinerDto {
   const value = requiredRow(row);
   return enterpriseDmsSearchRefinerSchema.parse({
     refinerId: value.refiner_id,
@@ -1507,13 +1562,34 @@ function mapDmsSearchRefiner(
   });
 }
 
+function mapApprovedDmsSearchRefiner(
+  row: DmsSearchRefinerRow | undefined,
+): EnterpriseApprovedDmsSearchRefinerDto {
+  const value = requiredRow(row);
+  return enterpriseApprovedDmsSearchRefinerSchema.parse({
+    fieldKey: value.field_key,
+    displayName: value.display_name,
+    fieldType: value.field_type,
+    source: value.source,
+    searchable: value.searchable,
+    refinable: value.refinable,
+    filterable: value.filterable,
+    sortOrder: value.sort_order,
+    updatedAt: value.updated_at.toISOString(),
+  });
+}
+
 async function auditBounds(
   client: PoolClient,
   tenantId: string,
   fromSeq: number | null,
   toSeq: number | null,
 ): Promise<{ seqStart: number; seqEnd: number; eventCount: number }> {
-  const result = await client.query<{ seq_start: string | null; seq_end: string | null; event_count: string }>(
+  const result = await client.query<{
+    seq_start: string | null;
+    seq_end: string | null;
+    event_count: string;
+  }>(
     `
       SELECT
         COALESCE(min(seq), 0)::text AS seq_start,

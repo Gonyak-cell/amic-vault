@@ -8,6 +8,11 @@ import type {
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { getTranslation, useI18n, type Language, type TranslationKey } from '@/lib/i18n';
+import {
+  hasSearchRefiner,
+  searchRefinerFieldKeys,
+  type SearchRefinerKeySet,
+} from '@/lib/search-refiners';
 import type { SearchAdvancedSelection } from './search-advanced-controls';
 
 export interface SearchFacetSelection extends SearchAdvancedSelection {
@@ -16,120 +21,153 @@ export interface SearchFacetSelection extends SearchAdvancedSelection {
 }
 
 interface SearchFacetsProps {
+  approvedRefinerKeys?: SearchRefinerKeySet;
   facets: SearchFacetsDto;
   selection: SearchFacetSelection;
   onChange: (next: SearchFacetSelection) => void;
 }
 
-export function SearchFacets({ facets, selection, onChange }: SearchFacetsProps) {
+const emptySearchRefinerKeys: SearchRefinerKeySet = new Set();
+
+export function SearchFacets({
+  approvedRefinerKeys = emptySearchRefinerKeys,
+  facets,
+  selection,
+  onChange,
+}: SearchFacetsProps) {
   const { language, t } = useI18n();
+  const allowed = (fieldKey: keyof typeof searchRefinerFieldKeys) =>
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys[fieldKey]);
 
   return (
     <aside className="flex flex-col gap-5 rounded-md border bg-card p-4">
-      <FacetGroup
-        title={t('search.facet.type')}
-        buckets={facets.documentTypes}
-        selected={selection.documentType}
-        onSelect={(value) =>
-          onChange({ ...selection, documentType: value as SearchFacetSelection['documentType'] })
-        }
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.version')}
-        buckets={facets.versionStatuses}
-        selected={selection.versionStatus}
-        onSelect={(value) =>
-          onChange({ ...selection, versionStatus: value as SearchFacetSelection['versionStatus'] })
-        }
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.confidentiality')}
-        buckets={facets.confidentialityLevels}
-        selected={selection.confidentialityLevel}
-        onSelect={(value) =>
-          onChange({
-            ...selection,
-            confidentialityLevel: value as SearchFacetSelection['confidentialityLevel'],
-          })
-        }
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.privilege')}
-        buckets={facets.privilegeStatuses}
-        selected={selection.privilegeStatus}
-        onSelect={(value) =>
-          onChange({
-            ...selection,
-            privilegeStatus: value as SearchFacetSelection['privilegeStatus'],
-          })
-        }
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.searchability')}
-        buckets={facets.extractionStatuses}
-        selected={selection.extractionStatus}
-        onSelect={(value) =>
-          onChange({
-            ...selection,
-            extractionStatus: value as SearchFacetSelection['extractionStatus'],
-          })
-        }
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.legalHold')}
-        buckets={facets.legalHolds}
-        selected={selection.legalHold}
-        onSelect={(value) =>
-          onChange({
-            ...selection,
-            legalHold: value as SearchFacetSelection['legalHold'],
-          })
-        }
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.recordsStatus')}
-        buckets={facets.recordsStatuses}
-        selected={selection.recordsStatus}
-        onSelect={(value) =>
-          onChange({
-            ...selection,
-            recordsStatus: value as SearchFacetSelection['recordsStatus'],
-          })
-        }
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.matter')}
-        buckets={facets.matters}
-        selected={selection.matterId}
-        onSelect={(value) => onChange({ ...selection, matterId: value })}
-        hideUndisplayableRefs
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.client')}
-        buckets={facets.clients}
-        selected={selection.clientId}
-        onSelect={(value) => onChange({ ...selection, clientId: value })}
-        hideUndisplayableRefs
-        language={language}
-      />
-      <FacetGroup
-        title={t('search.facet.updated')}
-        buckets={facets.dateRanges}
-        selected={selection.dateRange}
-        onSelect={(value) =>
-          onChange({ ...selection, dateRange: value as SearchFacetSelection['dateRange'] })
-        }
-        language={language}
-      />
-      {hasSelection(selection) ? (
+      {allowed('documentType') ? (
+        <FacetGroup
+          title={t('search.facet.type')}
+          buckets={facets.documentTypes}
+          selected={selection.documentType}
+          onSelect={(value) =>
+            onChange({ ...selection, documentType: value as SearchFacetSelection['documentType'] })
+          }
+          language={language}
+        />
+      ) : null}
+      {allowed('versionStatus') ? (
+        <FacetGroup
+          title={t('search.facet.version')}
+          buckets={facets.versionStatuses}
+          selected={selection.versionStatus}
+          onSelect={(value) =>
+            onChange({
+              ...selection,
+              versionStatus: value as SearchFacetSelection['versionStatus'],
+            })
+          }
+          language={language}
+        />
+      ) : null}
+      {allowed('confidentialityLevel') ? (
+        <FacetGroup
+          title={t('search.facet.confidentiality')}
+          buckets={facets.confidentialityLevels}
+          selected={selection.confidentialityLevel}
+          onSelect={(value) =>
+            onChange({
+              ...selection,
+              confidentialityLevel: value as SearchFacetSelection['confidentialityLevel'],
+            })
+          }
+          language={language}
+        />
+      ) : null}
+      {allowed('privilegeStatus') ? (
+        <FacetGroup
+          title={t('search.facet.privilege')}
+          buckets={facets.privilegeStatuses}
+          selected={selection.privilegeStatus}
+          onSelect={(value) =>
+            onChange({
+              ...selection,
+              privilegeStatus: value as SearchFacetSelection['privilegeStatus'],
+            })
+          }
+          language={language}
+        />
+      ) : null}
+      {allowed('extractionStatus') ? (
+        <FacetGroup
+          title={t('search.facet.searchability')}
+          buckets={facets.extractionStatuses}
+          selected={selection.extractionStatus}
+          onSelect={(value) =>
+            onChange({
+              ...selection,
+              extractionStatus: value as SearchFacetSelection['extractionStatus'],
+            })
+          }
+          language={language}
+        />
+      ) : null}
+      {allowed('legalHold') ? (
+        <FacetGroup
+          title={t('search.facet.legalHold')}
+          buckets={facets.legalHolds}
+          selected={selection.legalHold}
+          onSelect={(value) =>
+            onChange({
+              ...selection,
+              legalHold: value as SearchFacetSelection['legalHold'],
+            })
+          }
+          language={language}
+        />
+      ) : null}
+      {allowed('recordsStatus') ? (
+        <FacetGroup
+          title={t('search.facet.recordsStatus')}
+          buckets={facets.recordsStatuses}
+          selected={selection.recordsStatus}
+          onSelect={(value) =>
+            onChange({
+              ...selection,
+              recordsStatus: value as SearchFacetSelection['recordsStatus'],
+            })
+          }
+          language={language}
+        />
+      ) : null}
+      {allowed('matterId') ? (
+        <FacetGroup
+          title={t('search.facet.matter')}
+          buckets={facets.matters}
+          selected={selection.matterId}
+          onSelect={(value) => onChange({ ...selection, matterId: value })}
+          hideUndisplayableRefs
+          language={language}
+        />
+      ) : null}
+      {allowed('clientId') ? (
+        <FacetGroup
+          title={t('search.facet.client')}
+          buckets={facets.clients}
+          selected={selection.clientId}
+          onSelect={(value) => onChange({ ...selection, clientId: value })}
+          hideUndisplayableRefs
+          language={language}
+        />
+      ) : null}
+      {allowed('dateRange') ? (
+        <FacetGroup
+          title={t('search.facet.updated')}
+          buckets={facets.dateRanges}
+          selected={selection.dateRange}
+          onSelect={(value) =>
+            onChange({ ...selection, dateRange: value as SearchFacetSelection['dateRange'] })
+          }
+          language={language}
+        />
+      ) : null}
+      {hasSelection(selection, approvedRefinerKeys) ? (
         <Button type="button" variant="outline" size="sm" onClick={() => onChange({})}>
           {t('search.facet.clear')}
         </Button>
@@ -187,7 +225,10 @@ function hasDisplayableLabel(bucket: SearchFacetBucketDto | SearchDateRangeFacet
   return !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(raw.trim());
 }
 
-function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, language: Language): string {
+function labelForBucket(
+  bucket: SearchFacetBucketDto | SearchDateRangeFacetDto,
+  language: Language,
+): string {
   const raw = 'label' in bucket && typeof bucket.label === 'string' ? bucket.label : bucket.value;
   const normalized = raw.trim().toLowerCase();
   const commonLabels: Record<string, TranslationKey> = {
@@ -224,17 +265,30 @@ function labelForBucket(bucket: SearchFacetBucketDto | SearchDateRangeFacetDto, 
   return raw;
 }
 
-function hasSelection(selection: SearchFacetSelection): boolean {
+function hasSelection(
+  selection: SearchFacetSelection,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): boolean {
   return Boolean(
-    selection.clientId ||
-      selection.matterId ||
-      selection.confidentialityLevel ||
-      selection.documentType ||
-      selection.extractionStatus ||
-      selection.legalHold ||
-      selection.privilegeStatus ||
-      selection.recordsStatus ||
-      selection.versionStatus ||
-      selection.dateRange,
+    (selection.clientId &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientId)) ||
+    (selection.matterId &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterId)) ||
+    (selection.confidentialityLevel &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.confidentialityLevel)) ||
+    (selection.documentType &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)) ||
+    (selection.extractionStatus &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)) ||
+    (selection.legalHold &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)) ||
+    (selection.privilegeStatus &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)) ||
+    (selection.recordsStatus &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)) ||
+    (selection.versionStatus &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)) ||
+    (selection.dateRange &&
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)),
   );
 }
