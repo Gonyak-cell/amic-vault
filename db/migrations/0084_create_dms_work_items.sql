@@ -50,14 +50,6 @@ CREATE TABLE work_items (
   CONSTRAINT fk_work_items_completed_by
     FOREIGN KEY (tenant_id, completed_by)
     REFERENCES users (tenant_id, user_id)
-    ON DELETE RESTRICT,
-  CONSTRAINT fk_work_items_created_audit
-    FOREIGN KEY (tenant_id, created_audit_event_id)
-    REFERENCES audit_events (tenant_id, event_id)
-    ON DELETE RESTRICT,
-  CONSTRAINT fk_work_items_last_audit
-    FOREIGN KEY (tenant_id, last_audit_event_id)
-    REFERENCES audit_events (tenant_id, event_id)
     ON DELETE RESTRICT
 );
 
@@ -99,10 +91,6 @@ ALTER TABLE disposal_requests
   ADD CONSTRAINT fk_disposal_requests_workflow_item
     FOREIGN KEY (tenant_id, workflow_item_id)
     REFERENCES work_items (tenant_id, work_item_id)
-    ON DELETE RESTRICT,
-  ADD CONSTRAINT fk_disposal_requests_workflow_audit
-    FOREIGN KEY (tenant_id, workflow_audit_event_id)
-    REFERENCES audit_events (tenant_id, event_id)
     ON DELETE RESTRICT;
 
 CREATE INDEX idx_disposal_requests_tenant_assignee_due
@@ -119,15 +107,18 @@ COMMENT ON TABLE work_items IS
   'Tenant-scoped persisted DMS task inbox. Rows store references, status, assignment scope, due dates, and audit refs only.';
 COMMENT ON COLUMN work_items.document_id IS
   'Reference-only document UUID. No FK so approved records disposal can delete document/file rows while retaining workflow history.';
+COMMENT ON COLUMN work_items.created_audit_event_id IS
+  'Reference-only audit event UUID. No FK so audit_events append-only truncate guards remain the first enforcement path.';
+COMMENT ON COLUMN work_items.last_audit_event_id IS
+  'Reference-only audit event UUID. No FK so audit_events append-only truncate guards remain the first enforcement path.';
 COMMENT ON COLUMN disposal_requests.workflow_item_id IS
   'Current persisted work item for the disposal approval or execution stage.';
 COMMENT ON COLUMN disposal_requests.workflow_audit_event_id IS
-  'Reference to the audit event that opened or advanced the current workflow stage.';
+  'Reference-only audit event UUID for the event that opened or advanced the current workflow stage.';
 
 -- Down Migration
 
 ALTER TABLE disposal_requests
-  DROP CONSTRAINT IF EXISTS fk_disposal_requests_workflow_audit,
   DROP CONSTRAINT IF EXISTS fk_disposal_requests_workflow_item,
   DROP CONSTRAINT IF EXISTS fk_disposal_requests_assigned_to_user;
 
