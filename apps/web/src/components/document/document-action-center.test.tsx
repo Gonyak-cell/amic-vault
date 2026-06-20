@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { DocumentAuditEventDto, DocumentDto, DocumentVersionDto } from '@amic-vault/shared';
 import {
   DocumentActionCenter,
+  relatedMatterDocuments,
   searchHitContextFromParams,
   versionUploadStatusMessage,
 } from './document-action-center';
@@ -56,6 +57,30 @@ const versions = [
   },
 ] satisfies DocumentVersionDto[];
 
+const relatedDocuments = [
+  document,
+  {
+    ...document,
+    documentId: '11111111-1111-4111-8111-111111111202',
+    documentFamilyId: '11111111-1111-4111-8111-111111111302',
+    title: 'Side Letter',
+    status: 'final',
+    documentType: 'correspondence',
+    subtype: 'closing',
+    updatedAt: '2026-06-18T03:00:00.000Z',
+  },
+  {
+    ...document,
+    documentId: '11111111-1111-4111-8111-111111111203',
+    documentFamilyId: '11111111-1111-4111-8111-111111111303',
+    title: 'Due Diligence Memo',
+    status: 'internal_review',
+    documentType: 'memo',
+    subtype: 'diligence',
+    updatedAt: '2026-06-18T02:30:00.000Z',
+  },
+] satisfies DocumentDto[];
+
 const auditEvents = [
   {
     eventId: '11111111-1111-4111-8111-111111111701',
@@ -88,6 +113,7 @@ describe('DocumentActionCenter', () => {
         documentId={document.documentId}
         initialAuditEvents={auditEvents}
         initialDocument={document}
+        initialRelatedDocuments={relatedDocuments}
         initialVersions={versions}
       />,
     );
@@ -108,6 +134,12 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('v1');
     expect(html).toContain('새 버전 추가');
     expect(html).toContain('기록/보존');
+    expect(html).toContain('관련 문서');
+    expect(html).toContain('2건');
+    expect(html).toContain('Side Letter');
+    expect(html).toContain('Due Diligence Memo');
+    expect(html).toContain('동일 Matter에서 권한이 확인된 문서');
+    expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111202"');
     expect(html).toContain('삭제 금지');
     expect(html).toContain('보관 처리');
     expect(html).toContain('삭제 요청');
@@ -135,6 +167,14 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('표시 가능한 제목 없음');
     expect(html).not.toContain(document.documentId);
     expect(html).not.toContain(document.matterId);
+  });
+
+  it('derives related Matter documents without echoing the current document row', () => {
+    expect(relatedMatterDocuments(relatedDocuments, document.documentId).map((item) => item.title)).toEqual([
+      'Side Letter',
+      'Due Diligence Memo',
+    ]);
+    expect(relatedMatterDocuments(relatedDocuments, document.documentId, 1)).toHaveLength(1);
   });
 
   it('renders search hit context without carrying raw snippets into the document route', () => {
