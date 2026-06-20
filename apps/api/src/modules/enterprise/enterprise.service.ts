@@ -6,6 +6,8 @@ import {
   enterpriseBackupSnapshotSchema,
   enterpriseComplianceEvidenceListResponseSchema,
   enterpriseComplianceEvidenceSchema,
+  enterpriseApprovedDmsTaxonomyCatalogSchema,
+  enterpriseApprovedDmsTaxonomySchema,
   enterpriseDmsSearchRefinerListResponseSchema,
   enterpriseDmsSearchRefinerSchema,
   enterpriseDmsTaxonomyListResponseSchema,
@@ -18,15 +20,19 @@ import {
   enterpriseSsoProviderListResponseSchema,
   enterpriseSsoProviderSchema,
   enterpriseSsoSpMetadataSchema,
+  documentTypes,
   type CreateEnterpriseBackupSnapshotRequestDto,
   type CreateEnterpriseComplianceEvidenceRequestDto,
   type CreateEnterpriseKeyReferenceRequestDto,
   type CreateEnterpriseSiemExportRequestDto,
   type CreateEnterpriseSsoProviderRequestDto,
+  type DocumentType,
   type EnterpriseBackupSnapshotDto,
   type EnterpriseBackupSnapshotListResponseDto,
   type EnterpriseComplianceEvidenceDto,
   type EnterpriseComplianceEvidenceListResponseDto,
+  type EnterpriseApprovedDmsTaxonomyCatalogDto,
+  type EnterpriseApprovedDmsTaxonomyDto,
   type EnterpriseDmsSearchRefinerDto,
   type EnterpriseDmsSearchRefinerListResponseDto,
   type EnterpriseDmsTaxonomyDto,
@@ -43,7 +49,7 @@ import {
   type UpsertEnterpriseDmsSearchRefinerRequestDto,
   type UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
-import { AuditService } from '../audit/audit.service';
+import { AuditService, type AuditLogResult } from '../audit/audit.service';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -133,6 +139,8 @@ interface DmsTaxonomyRow {
   status: 'active' | 'disabled';
   subtypes_json: unknown;
   metadata_fields_json: unknown;
+  version_no: number;
+  last_audit_event_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -712,9 +720,11 @@ export class EnterpriseService {
             subtypes_json = EXCLUDED.subtypes_json,
             metadata_fields_json = EXCLUDED.metadata_fields_json,
             updated_by = EXCLUDED.updated_by,
+            version_no = enterprise_dms_taxonomies.version_no + 1,
             updated_at = now()
           RETURNING taxonomy_id, document_type_code, display_name, description,
-            status, subtypes_json, metadata_fields_json, created_at, updated_at
+            status, subtypes_json, metadata_fields_json, version_no,
+            last_audit_event_id, created_at, updated_at
         `,
         [
           ctx.tenantId,
@@ -726,15 +736,19 @@ export class EnterpriseService {
           ctx.userId,
         ],
       );
-      const taxonomy = mapDmsTaxonomy(result.rows[0]);
-      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
+      const row = requiredRow(result.rows[0]);
+      const taxonomy = mapDmsTaxonomy(row);
+      const audit = await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
         taxonomy_id: taxonomy.taxonomyId,
         document_type_code: taxonomy.documentTypeCode,
         subtype_count: taxonomy.subtypes.length,
         metadata_field_count: taxonomy.metadataFields.length,
         status_after: taxonomy.status,
+        version_no: taxonomy.versionNo,
       });
-      return taxonomy;
+      const auditedRow = await this.setDmsTaxonomyAuditEvent(client, ctx, row, audit.eventId);
+      await this.recordDmsTaxonomyVersion(client, ctx, auditedRow, 'upsert', audit.eventId);
+      return mapDmsTaxonomy(auditedRow);
     });
   }
 
@@ -745,7 +759,8 @@ export class EnterpriseService {
     const result = await getPool().query<DmsTaxonomyRow>(
       `
         SELECT taxonomy_id, document_type_code, display_name, description,
-          status, subtypes_json, metadata_fields_json, created_at, updated_at
+          status, subtypes_json, metadata_fields_json, version_no,
+          last_audit_event_id, created_at, updated_at
         FROM enterprise_dms_taxonomies
         WHERE tenant_id = $1
         ORDER BY status, document_type_code
@@ -755,6 +770,31 @@ export class EnterpriseService {
     );
     return enterpriseDmsTaxonomyListResponseSchema.parse({
       taxonomies: result.rows.map(mapDmsTaxonomy),
+    });
+  }
+
+  async listApprovedDmsTaxonomies(
+    ctx: PermissionContext,
+  ): Promise<EnterpriseApprovedDmsTaxonomyCatalogDto> {
+    await this.assertActiveInternalUser(ctx);
+    const result = await getPool().query<DmsTaxonomyRow>(
+      `
+        SELECT taxonomy_id, document_type_code, display_name, description,
+          status, subtypes_json, metadata_fields_json, version_no,
+          last_audit_event_id, created_at, updated_at
+        FROM enterprise_dms_taxonomies
+        WHERE tenant_id = $1
+          AND status = 'active'
+          AND lower(document_type_code) = ANY($2::text[])
+        ORDER BY document_type_code
+        LIMIT 100
+      `,
+      [ctx.tenantId, documentTypes],
+    );
+    return enterpriseApprovedDmsTaxonomyCatalogSchema.parse({
+      source: 'tenant_admin_taxonomy',
+      generatedAt: new Date().toISOString(),
+      taxonomies: result.rows.map(mapApprovedDmsTaxonomy),
     });
   }
 
@@ -769,23 +809,29 @@ export class EnterpriseService {
           UPDATE enterprise_dms_taxonomies
           SET status = 'disabled',
               updated_by = $3,
+              version_no = version_no + 1,
               updated_at = now()
           WHERE tenant_id = $1
             AND taxonomy_id = $2
           RETURNING taxonomy_id, document_type_code, display_name, description,
-            status, subtypes_json, metadata_fields_json, created_at, updated_at
+            status, subtypes_json, metadata_fields_json, version_no,
+            last_audit_event_id, created_at, updated_at
         `,
         [ctx.tenantId, taxonomyId, ctx.userId],
       );
-      const taxonomy = mapDmsTaxonomy(requiredRow(result.rows[0]));
-      await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
+      const row = requiredRow(result.rows[0]);
+      const taxonomy = mapDmsTaxonomy(row);
+      const audit = await this.logDmsConfigurationChange(client, ctx, 'enterprise_dms_taxonomy', taxonomy.taxonomyId, {
         taxonomy_id: taxonomy.taxonomyId,
         document_type_code: taxonomy.documentTypeCode,
         subtype_count: taxonomy.subtypes.length,
         metadata_field_count: taxonomy.metadataFields.length,
         status_after: taxonomy.status,
+        version_no: taxonomy.versionNo,
       });
-      return taxonomy;
+      const auditedRow = await this.setDmsTaxonomyAuditEvent(client, ctx, row, audit.eventId);
+      await this.recordDmsTaxonomyVersion(client, ctx, auditedRow, 'disable', audit.eventId);
+      return mapDmsTaxonomy(auditedRow);
     });
   }
 
@@ -901,10 +947,11 @@ export class EnterpriseService {
       metadata_field_count?: number;
       refiner_id?: string;
       field_key?: string;
+      version_no?: number;
       status_after: string;
     },
-  ): Promise<void> {
-    await this.auditService.log(
+  ): Promise<AuditLogResult> {
+    return this.auditService.log(
       {
         tenantId: ctx.tenantId,
         actorId: ctx.userId,
@@ -915,6 +962,60 @@ export class EnterpriseService {
         metadata,
       },
       client,
+    );
+  }
+
+  private async setDmsTaxonomyAuditEvent(
+    client: PoolClient,
+    ctx: PermissionContext,
+    row: DmsTaxonomyRow,
+    auditEventId: string,
+  ): Promise<DmsTaxonomyRow> {
+    const result = await client.query<DmsTaxonomyRow>(
+      `
+        UPDATE enterprise_dms_taxonomies
+        SET last_audit_event_id = $3
+        WHERE tenant_id = $1
+          AND taxonomy_id = $2
+        RETURNING taxonomy_id, document_type_code, display_name, description,
+          status, subtypes_json, metadata_fields_json, version_no,
+          last_audit_event_id, created_at, updated_at
+      `,
+      [ctx.tenantId, row.taxonomy_id, auditEventId],
+    );
+    return requiredRow(result.rows[0]);
+  }
+
+  private async recordDmsTaxonomyVersion(
+    client: PoolClient,
+    ctx: PermissionContext,
+    row: DmsTaxonomyRow,
+    changeReason: 'upsert' | 'disable',
+    auditEventId: string,
+  ): Promise<void> {
+    await client.query(
+      `
+        INSERT INTO enterprise_dms_taxonomy_versions (
+          tenant_id, taxonomy_id, version_no, document_type_code, display_name,
+          description, status, subtypes_json, metadata_fields_json, change_reason,
+          changed_by, audit_event_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12)
+      `,
+      [
+        ctx.tenantId,
+        row.taxonomy_id,
+        row.version_no,
+        row.document_type_code,
+        row.display_name,
+        row.description,
+        row.status,
+        JSON.stringify(row.subtypes_json),
+        JSON.stringify(row.metadata_fields_json),
+        changeReason,
+        ctx.userId,
+        auditEventId,
+      ],
     );
   }
 
@@ -931,6 +1032,23 @@ export class EnterpriseService {
     );
     const row = result.rows[0];
     if (!row || row.status !== 'active' || !['firm_admin', 'security_admin'].includes(row.role)) {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+  }
+
+  private async assertActiveInternalUser(ctx: PermissionContext): Promise<void> {
+    const result = await getPool().query<ActorRoleRow>(
+      `
+        SELECT role, status
+        FROM users
+        WHERE tenant_id = $1
+          AND user_id = $2
+        LIMIT 1
+      `,
+      [ctx.tenantId, ctx.userId],
+    );
+    const row = result.rows[0];
+    if (!row || row.status !== 'active' || row.role === 'external_user') {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
   }
@@ -1024,17 +1142,51 @@ function mapComplianceEvidence(
 
 function mapDmsTaxonomy(row: DmsTaxonomyRow | undefined): EnterpriseDmsTaxonomyDto {
   const value = requiredRow(row);
+  const canonicalDocumentType = canonicalDocumentTypeForCode(value.document_type_code);
   return enterpriseDmsTaxonomySchema.parse({
     taxonomyId: value.taxonomy_id,
     documentTypeCode: value.document_type_code,
+    ...(canonicalDocumentType ? { canonicalDocumentType } : {}),
     displayName: value.display_name,
     description: value.description,
     status: value.status,
     subtypes: value.subtypes_json,
     metadataFields: value.metadata_fields_json,
+    versionNo: value.version_no,
+    lastAuditEventRef: auditRef(value.last_audit_event_id),
     createdAt: value.created_at.toISOString(),
     updatedAt: value.updated_at.toISOString(),
   });
+}
+
+function mapApprovedDmsTaxonomy(
+  row: DmsTaxonomyRow | undefined,
+): EnterpriseApprovedDmsTaxonomyDto {
+  const value = requiredRow(row);
+  const canonicalDocumentType = canonicalDocumentTypeForCode(value.document_type_code);
+  if (!canonicalDocumentType) throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+  return enterpriseApprovedDmsTaxonomySchema.parse({
+    documentTypeCode: value.document_type_code,
+    canonicalDocumentType,
+    displayName: value.display_name,
+    description: value.description,
+    subtypes: value.subtypes_json,
+    metadataFields: value.metadata_fields_json,
+    versionNo: value.version_no,
+    updatedAt: value.updated_at.toISOString(),
+  });
+}
+
+function canonicalDocumentTypeForCode(code: string): DocumentType | undefined {
+  const normalized = code.toLowerCase();
+  return (documentTypes as readonly string[]).includes(normalized)
+    ? (normalized as DocumentType)
+    : undefined;
+}
+
+function auditRef(eventId: string | null | undefined): string | null {
+  if (!eventId) return null;
+  return `audit:${createHash('sha256').update(eventId).digest('hex').slice(0, 12)}`;
 }
 
 function mapDmsSearchRefiner(

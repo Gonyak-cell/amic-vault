@@ -46,8 +46,8 @@ The current PR-E scope proves:
 
 | Area | Route or component evidence | TUW |
 | --- | --- | --- |
-| Taxonomy Admin Contract | `enterprise_dms_taxonomies`, `GET/POST /enterprise/dms/taxonomies`, and `AdminDmsConfigurationPanel` | DMS-UX-601 |
-| Taxonomy Admin UI | `AdminDmsConfigurationPanel` taxonomy save/list/disable flow | DMS-UX-602 |
+| Taxonomy Admin Contract | `enterprise_dms_taxonomies`, `enterprise_dms_taxonomy_versions`, `GET/POST /enterprise/dms/taxonomies`, `GET /enterprise/dms/taxonomies/approved`, and `AdminDmsConfigurationPanel` | DMS-UX-601 |
+| Taxonomy Admin UI | `AdminDmsConfigurationPanel` taxonomy save/list/disable flow with version/audit ref display, plus approved taxonomy catalog consumption in upload/search/document profile surfaces | DMS-UX-602 |
 | Matter Template Admin | `AdminDmsConfigurationPanel` templates card | DMS-UX-603 |
 | Folder Template Admin | no folder template UI beyond read-only contract state before backend semantics | DMS-UX-604 |
 | Search Refiner Admin | `enterprise_dms_search_refiners`, `GET/POST /enterprise/dms/search-refiners`, and `AdminDmsConfigurationPanel` | DMS-UX-605 |

@@ -6,6 +6,7 @@ import type {
   CreateEnterpriseSsoProviderRequestDto,
   EnterpriseBackupSnapshotDto,
   EnterpriseBackupSnapshotListResponseDto,
+  EnterpriseApprovedDmsTaxonomyCatalogDto,
   EnterpriseComplianceEvidenceDto,
   EnterpriseComplianceEvidenceListResponseDto,
   EnterpriseDmsSearchRefinerDto,
@@ -127,6 +128,13 @@ export function upsertEnterpriseDmsTaxonomy(
 
 export function listEnterpriseDmsTaxonomies(): Promise<EnterpriseDmsTaxonomyListResponseDto> {
   return apiFetch<EnterpriseDmsTaxonomyListResponseDto>('/enterprise/dms/taxonomies');
+}
+
+export function listApprovedEnterpriseDmsTaxonomies(): Promise<EnterpriseApprovedDmsTaxonomyCatalogDto> {
+  return apiFetch<EnterpriseApprovedDmsTaxonomyCatalogDto>(
+    '/enterprise/dms/taxonomies/approved',
+    { redirectOnAuthRequired: false },
+  );
 }
 
 export function disableEnterpriseDmsTaxonomy(

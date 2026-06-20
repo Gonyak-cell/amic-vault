@@ -39,6 +39,18 @@ describe('SearchAdvancedControls', () => {
           title: 'closing',
           versionStatus: 'current',
         }}
+        taxonomyCatalog={[
+          {
+            documentTypeCode: 'CONTRACT',
+            canonicalDocumentType: 'contract',
+            displayName: 'Tenant Contract',
+            description: null,
+            subtypes: [],
+            metadataFields: [],
+            versionNo: 3,
+            updatedAt: '2026-06-20T00:00:00.000Z',
+          },
+        ]}
         onApply={() => undefined}
         onReset={() => undefined}
       />,
@@ -51,7 +63,7 @@ describe('SearchAdvancedControls', () => {
     expect(html).toContain('최근 수정');
     expect(html).toContain('그룹');
     expect(html).toContain('문서 유형');
-    expect(html).toContain('계약서');
+    expect(html).toContain('Tenant Contract');
     expect(html).toContain('기밀도');
     expect(html).toContain('제한');
     expect(html).toContain('특권 상태');

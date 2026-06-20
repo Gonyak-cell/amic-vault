@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type {
   EnterpriseBackupSnapshotDto,
+  EnterpriseApprovedDmsTaxonomyCatalogDto,
   EnterpriseComplianceEvidenceDto,
   EnterpriseDmsSearchRefinerDto,
   EnterpriseDmsTaxonomyDto,
@@ -143,8 +144,53 @@ describe('Enterprise Hardening integration', () => {
       ],
     });
     expect(taxonomy.status).toBe('active');
+    expect(taxonomy.versionNo).toBe(1);
+    expect(taxonomy.lastAuditEventRef).toMatch(/^audit:[0-9a-f]{12}$/);
     expect(taxonomy.subtypes).toHaveLength(1);
     expect(taxonomy.metadataFields).toHaveLength(1);
+
+    const updatedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>('/v1/enterprise/dms/taxonomies', {
+      documentTypeCode: taxonomy.documentTypeCode,
+      displayName: `Contract ${marker} updated`,
+      description: 'Commercial agreement filing profile',
+      subtypes: [
+        { subtypeCode: 'MSA', displayName: 'Master service agreement' },
+        { subtypeCode: 'NDA', displayName: 'Nondisclosure agreement' },
+      ],
+      metadataFields: taxonomy.metadataFields,
+    });
+    expect(updatedTaxonomy.versionNo).toBe(taxonomy.versionNo + 1);
+    expect(updatedTaxonomy.lastAuditEventRef).toMatch(/^audit:[0-9a-f]{12}$/);
+
+    const approvedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>('/v1/enterprise/dms/taxonomies', {
+      documentTypeCode: 'CONTRACT',
+      displayName: `Approved Contract ${marker}`,
+      description: 'Commercial agreement filing profile',
+      subtypes: [{ subtypeCode: 'MSA', displayName: `Approved MSA ${marker}` }],
+      metadataFields: [
+        {
+          fieldKey: `approved_counterparty_${marker}`,
+          displayName: `Approved Counterparty ${marker}`,
+          fieldType: 'text',
+          required: true,
+          searchable: true,
+          refinable: true,
+        },
+      ],
+    });
+    expect(approvedTaxonomy.canonicalDocumentType).toBe('contract');
+
+    const approvedCatalog = await getJsonWithCookie<EnterpriseApprovedDmsTaxonomyCatalogDto>(
+      '/v1/enterprise/dms/taxonomies/approved',
+      memberCookie,
+    );
+    const approvedContract = approvedCatalog.taxonomies.find(
+      (item) => item.canonicalDocumentType === 'contract',
+    );
+    expect(approvedCatalog.source).toBe('tenant_admin_taxonomy');
+    expect(approvedContract?.displayName).toBe(`Approved Contract ${marker}`);
+    expect(approvedContract?.subtypes[0]?.displayName).toBe(`Approved MSA ${marker}`);
+    expect(JSON.stringify(approvedCatalog)).not.toContain(approvedTaxonomy.taxonomyId);
 
     const refiner = await postJson<EnterpriseDmsSearchRefinerDto>(
       '/v1/enterprise/dms/search-refiners',
@@ -164,6 +210,7 @@ describe('Enterprise Hardening integration', () => {
       {},
     );
     expect(disabledTaxonomy.status).toBe('disabled');
+    expect(disabledTaxonomy.versionNo).toBe(updatedTaxonomy.versionNo + 1);
 
     const disabledRefiner = await postJson<EnterpriseDmsSearchRefinerDto>(
       `/v1/enterprise/dms/search-refiners/${refiner.refinerId}/disable`,
@@ -189,9 +236,18 @@ describe('Enterprise Hardening integration', () => {
     expect(auditText).toContain(refiner.refinerId);
     expect(auditText).toContain(`CONTRACT_${marker.toUpperCase()}`);
     expect(auditText).toContain(`counterparty_${marker}`);
+    expect(auditText).toContain('version_no');
     expect(auditText).not.toContain('Commercial agreement filing profile');
     expect(auditText).not.toContain(`Contract ${marker}`);
     expect(auditText).not.toContain(`Counterparty ${marker}`);
+
+    const taxonomyVersions = await dmsTaxonomyVersions(taxonomy.taxonomyId);
+    expect(taxonomyVersions.map((row) => row.version_no)).toEqual([1, 2, 3]);
+    expect(taxonomyVersions.map((row) => row.change_reason)).toEqual([
+      'upsert',
+      'upsert',
+      'disable',
+    ]);
   });
 
   it('blocks non-admin enterprise configuration', async () => {
@@ -241,6 +297,7 @@ describe('Enterprise Hardening integration', () => {
           WHERE relname IN (
             'enterprise_dms_search_refiners',
             'enterprise_dms_taxonomies',
+            'enterprise_dms_taxonomy_versions',
             'enterprise_sso_providers',
             'enterprise_key_references',
             'enterprise_siem_exports',
@@ -258,6 +315,7 @@ describe('Enterprise Hardening integration', () => {
       { table_name: 'enterprise_compliance_evidence', rls: true, force_rls: true },
       { table_name: 'enterprise_dms_search_refiners', rls: true, force_rls: true },
       { table_name: 'enterprise_dms_taxonomies', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_taxonomy_versions', rls: true, force_rls: true },
       { table_name: 'enterprise_key_references', rls: true, force_rls: true },
       { table_name: 'enterprise_siem_exports', rls: true, force_rls: true },
       { table_name: 'enterprise_sso_providers', rls: true, force_rls: true },
@@ -304,8 +362,12 @@ describe('Enterprise Hardening integration', () => {
   }
 
   async function getJson<T>(path: string): Promise<T> {
+    return getJsonWithCookie<T>(path, adminCookie);
+  }
+
+  async function getJsonWithCookie<T>(path: string, cookie: string): Promise<T> {
     const response = await fetch(`${baseUrl}${path}`, {
-      headers: { cookie: adminCookie },
+      headers: { cookie },
     });
     const text = await response.text();
     expect(response.ok, text).toBe(true);
@@ -334,6 +396,24 @@ async function enterpriseAudits(): Promise<Array<{ action: string; metadata_json
         LIMIT 20
       `,
       [tenantAlphaId],
+    );
+    return result.rows;
+  });
+}
+
+async function dmsTaxonomyVersions(
+  taxonomyId: string,
+): Promise<Array<{ change_reason: string; version_no: number }>> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ change_reason: string; version_no: number }>(
+      `
+        SELECT change_reason, version_no
+        FROM enterprise_dms_taxonomy_versions
+        WHERE tenant_id = $1
+          AND taxonomy_id = $2
+        ORDER BY version_no ASC
+      `,
+      [tenantAlphaId, taxonomyId],
     );
     return result.rows;
   });

@@ -156,6 +156,7 @@ export const auditMetadataKeys = [
   'document_type_code',
   'subtype_count',
   'metadata_field_count',
+  'version_no',
   'refiner_id',
   'field_key',
   'performance_run_id',

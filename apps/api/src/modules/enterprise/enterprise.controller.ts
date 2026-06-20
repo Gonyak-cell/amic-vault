@@ -159,6 +159,11 @@ export class EnterpriseController {
     return this.enterprise.listDmsTaxonomies(permissionContext(request));
   }
 
+  @Get('dms/taxonomies/approved')
+  listApprovedDmsTaxonomies(@Req() request: RequestWithSession) {
+    return this.enterprise.listApprovedDmsTaxonomies(permissionContext(request));
+  }
+
   @Post('dms/taxonomies/:taxonomyId/disable')
   disableDmsTaxonomy(@Req() request: RequestWithSession, @Param('taxonomyId') taxonomyId: string) {
     return this.enterprise.disableDmsTaxonomy(

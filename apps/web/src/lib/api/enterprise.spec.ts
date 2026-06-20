@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   disableEnterpriseDmsSearchRefiner,
   disableEnterpriseDmsTaxonomy,
+  listApprovedEnterpriseDmsTaxonomies,
   listEnterpriseDmsSearchRefiners,
   listEnterpriseDmsTaxonomies,
   upsertEnterpriseDmsSearchRefiner,
@@ -20,6 +21,7 @@ describe('enterprise API client', () => {
 
   it('uses DMS taxonomy endpoints without raw content payloads', async () => {
     await listEnterpriseDmsTaxonomies();
+    await listApprovedEnterpriseDmsTaxonomies();
     await upsertEnterpriseDmsTaxonomy({
       documentTypeCode: 'CONTRACT',
       displayName: 'Contract',
@@ -38,16 +40,19 @@ describe('enterprise API client', () => {
     await disableEnterpriseDmsTaxonomy('11111111-1111-4111-8111-111111111111');
 
     expect(apiFetch).toHaveBeenNthCalledWith(1, '/enterprise/dms/taxonomies');
-    expect(apiFetch).toHaveBeenNthCalledWith(2, '/enterprise/dms/taxonomies', {
+    expect(apiFetch).toHaveBeenNthCalledWith(2, '/enterprise/dms/taxonomies/approved', {
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenNthCalledWith(3, '/enterprise/dms/taxonomies', {
       method: 'POST',
       body: expect.any(String),
     });
     expect(apiFetch).toHaveBeenNthCalledWith(
-      3,
+      4,
       '/enterprise/dms/taxonomies/11111111-1111-4111-8111-111111111111/disable',
       { method: 'POST' },
     );
-    expect(String(vi.mocked(apiFetch).mock.calls[1]?.[1]?.body)).not.toMatch(
+    expect(String(vi.mocked(apiFetch).mock.calls[2]?.[1]?.body)).not.toMatch(
       /bodyText|snippet|raw|prompt|response/i,
     );
   });

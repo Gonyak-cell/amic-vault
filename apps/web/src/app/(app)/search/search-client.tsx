@@ -11,6 +11,7 @@ import type {
   SearchResponseDto,
   SearchSort,
   SearchTarget,
+  EnterpriseApprovedDmsTaxonomyDto,
 } from '@amic-vault/shared';
 import {
   documentConfidentialityLevels,
@@ -36,6 +37,7 @@ import {
   saveSavedSearch,
   searchDocuments,
 } from '@/lib/api/search';
+import { listApprovedEnterpriseDmsTaxonomies } from '@/lib/api/enterprise';
 import { useI18n } from '@/lib/i18n';
 
 const pageSize = 10;
@@ -58,6 +60,7 @@ export function SearchClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SearchErrorKind | null>(null);
   const [savedSearches, setSavedSearches] = useState<SavedSearchDto[]>([]);
+  const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
   const [savedSearchBusy, setSavedSearchBusy] = useState(false);
   const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
   const reusableSearchUrl = useMemo(
@@ -80,6 +83,20 @@ export function SearchClient() {
     } finally {
       setSavedSearchBusy(false);
     }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    listApprovedEnterpriseDmsTaxonomies()
+      .then((catalog) => {
+        if (active) setTaxonomyCatalog(catalog.taxonomies);
+      })
+      .catch(() => {
+        if (active) setTaxonomyCatalog([]);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const runSearch = useCallback(
@@ -241,6 +258,7 @@ export function SearchClient() {
       </section>
       <SearchAdvancedControls
         busy={busy}
+        taxonomyCatalog={taxonomyCatalog}
         selection={selection}
         onApply={(advanced) => runSearch(query, { ...selection, ...advanced }, 1)}
         onReset={() => runSearch(query, resetAdvancedSelection(selection), 1)}
