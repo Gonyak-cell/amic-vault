@@ -274,6 +274,7 @@ describe('DocumentActionCenter', () => {
         initialDocument={document}
         initialVersions={versions}
         searchHitContext={{
+          anchorId: 'vph-1-0-18',
           hitCount: 2,
           hitIndex: 1,
           source: 'search',
@@ -291,7 +292,7 @@ describe('DocumentActionCenter', () => {
       'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=body&amp;hit=2&amp;hitCount=2"',
     );
     expect(html).toContain(
-      'src="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=2&amp;vault-preview-target=body"',
+      'src="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=2&amp;vault-preview-target=body&amp;vault-preview-anchor=vph-1-0-18"',
     );
     expect(html).toContain(
       '검색 hit 위치는 서버로 검색어 또는 스니펫을 보내지 않는 미리보기 fragment로만 연결됩니다.',
@@ -305,12 +306,21 @@ describe('DocumentActionCenter', () => {
     const params = new URLSearchParams({
       from: 'search',
       hit: '99',
+      anchor: 'vph-1-0-18',
       hitCount: '2',
       q: 'do not carry raw query text',
       snippet: 'do not carry raw snippet',
       target: 'body',
     });
 
+    expect(searchHitContextFromParams(params)).toEqual({
+      anchorId: 'vph-1-0-18',
+      hitCount: 2,
+      hitIndex: 2,
+      source: 'search',
+      target: 'body',
+    });
+    params.set('anchor', 'raw query');
     expect(searchHitContextFromParams(params)).toEqual({
       hitCount: 2,
       hitIndex: 2,

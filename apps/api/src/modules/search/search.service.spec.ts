@@ -177,7 +177,10 @@ describe('SearchService search privacy', () => {
         })),
       },
       snippetBuilder: {
-        parseHeadline: vi.fn(() => ({ highlights: [], snippet: privateSnippet })),
+        parseHeadline: vi.fn(() => ({
+          highlights: [{ end: 10, start: 0 }],
+          snippet: privateSnippet,
+        })),
       },
     });
 
@@ -190,7 +193,12 @@ describe('SearchService search privacy', () => {
         target: 'body',
       }),
     ).resolves.toMatchObject({
-      results: [expect.objectContaining({ snippet: privateSnippet })],
+      results: [
+        expect.objectContaining({
+          highlights: [{ anchorId: 'vph-1-0-10', end: 10, start: 0 }],
+          snippet: privateSnippet,
+        }),
+      ],
       total: 1,
     });
 

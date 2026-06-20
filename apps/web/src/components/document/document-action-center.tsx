@@ -86,6 +86,7 @@ interface DocumentActionCenterProps {
 }
 
 export interface DocumentSearchHitContext {
+  anchorId?: string;
   hitCount: number;
   hitIndex: number;
   source: 'search';
@@ -284,7 +285,9 @@ export function searchHitContextFromParams(params: {
   const target = parseSearchTarget(params.get('target'));
   const hitCount = boundedInteger(params.get('hitCount'), 0, 50);
   const hitIndex = hitCount > 0 ? boundedInteger(params.get('hit'), 1, hitCount) : 0;
+  const anchorId = parsePreviewAnchorId(params.get('anchor'));
   return {
+    ...(anchorId ? { anchorId } : {}),
     hitCount,
     hitIndex,
     source: 'search',
@@ -302,6 +305,15 @@ function boundedInteger(value: string | null, min: number, max: number): number 
   return Math.max(min, Math.min(max, parsed));
 }
 
+function parsePreviewAnchorId(value: string | null): string | undefined {
+  if (!value) return undefined;
+  return /^vph-([1-9]|[1-4][0-9]|50)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)$/.test(
+    value,
+  )
+    ? value
+    : undefined;
+}
+
 function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitContext): string {
   const params = new URLSearchParams();
   params.set('from', 'search');
@@ -309,6 +321,7 @@ function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitC
   if (context.hitCount > 0) {
     params.set('hit', String(context.hitIndex));
     params.set('hitCount', String(context.hitCount));
+    if (context.anchorId) params.set('anchor', context.anchorId);
   }
   return `/documents/${encodeURIComponent(documentId)}?${params.toString()}`;
 }
@@ -326,6 +339,7 @@ function previewUrlForDocument(
   if (!context || context.hitCount < 1) return documentPreviewUrl(documentId);
   return documentPreviewUrl(documentId, {
     searchHit: {
+      ...(context.anchorId ? { anchorId: context.anchorId } : {}),
       hitCount: context.hitCount,
       hitIndex: context.hitIndex,
       target: context.target,
@@ -383,8 +397,10 @@ function SearchHitContextPanel({
             <Button asChild size="sm" variant="outline">
               <Link
                 href={searchHitUrlForDocument(documentId, {
-                  ...context,
+                  hitCount: context.hitCount,
                   hitIndex: previousIndex,
+                  source: context.source,
+                  target: context.target,
                 })}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -401,8 +417,10 @@ function SearchHitContextPanel({
             <Button asChild size="sm" variant="outline">
               <Link
                 href={searchHitUrlForDocument(documentId, {
-                  ...context,
+                  hitCount: context.hitCount,
                   hitIndex: nextIndex,
+                  source: context.source,
+                  target: context.target,
                 })}
               >
                 다음 hit

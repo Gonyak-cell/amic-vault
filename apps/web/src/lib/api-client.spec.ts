@@ -472,13 +472,26 @@ describe('api client', () => {
     expect(
       documentPreviewUrl('doc-ref', {
         searchHit: {
+          anchorId: 'vph-1-0-12',
           hitCount: 80,
           hitIndex: 99,
           target: 'body',
         },
       }),
     ).toBe(
-      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=50&vault-preview-hit-count=50&vault-preview-target=body',
+      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=50&vault-preview-hit-count=50&vault-preview-target=body&vault-preview-anchor=vph-1-0-12',
+    );
+    expect(
+      documentPreviewUrl('doc-ref', {
+        searchHit: {
+          anchorId: 'raw-query-text',
+          hitCount: 1,
+          hitIndex: 1,
+          target: 'body',
+        },
+      }),
+    ).toBe(
+      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=1&vault-preview-hit-count=1&vault-preview-target=body',
     );
     expect(documentDownloadUrl('doc-ref', 'casework')).toBe(
       'http://localhost:3001/v1/documents/doc-ref/download?reasonCode=casework',
