@@ -310,6 +310,9 @@ PR-A implementation note:
   cabinet, enterprise search, work queue, records context, and audit console.
   `/files?matterCode=...` also pre-fills the Matter Code picker and selects the
   matching permitted Matter when the Matter source list returns it.
+- The shared Matter Code picker now searches by Matter Code, matter name, and
+  client display label when available, and rejects UUID-shaped Vault internal
+  references from URL prefill or normal picker input under DMS-UX-004.
 - Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
 
 ### PR-B Document Operations

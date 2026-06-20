@@ -13,6 +13,7 @@ export interface MatterCodeOption {
   matterReference: string;
   matterCode: string;
   matterName: string;
+  clientDisplayName: string | null;
   status: string;
   practiceGroup: string | null;
   sourceMode: MatterAppSourceMode;
@@ -42,6 +43,9 @@ export const matterAppSourceDescriptions = {
   matter_app_event_projection: 'Matter app 동기화 데이터 기준으로 파일 작업을 진행합니다.',
   vault_projection_only: '개발/검증용 로컬 목록입니다. 운영 업로드 source로 사용하지 않습니다.',
 } as const satisfies Record<MatterAppSourceMode, string>;
+
+const vaultInternalReferencePattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function envFlagEnabled(value: string | undefined): boolean {
   return value === 'true' || value === '1';
@@ -127,6 +131,24 @@ export function matterAppSourceStatus(
   };
 }
 
+export function isVaultInternalReferenceLike(value: string): boolean {
+  return vaultInternalReferencePattern.test(value.trim());
+}
+
+function safeDisplayLabel(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed || isVaultInternalReferenceLike(trimmed)) return null;
+  return trimmed;
+}
+
+function matterClientDisplayName(matter: MatterDto): string | null {
+  return (
+    safeDisplayLabel(matter.metadata.clientDisplayName) ??
+    safeDisplayLabel(matter.metadata.clientName) ??
+    safeDisplayLabel(matter.metadata.client_name)
+  );
+}
+
 export function toMatterCodeOption(
   matter: MatterDto,
   sourceMode: MatterAppSourceMode,
@@ -135,6 +157,7 @@ export function toMatterCodeOption(
     matterReference: matter.matterId,
     matterCode: matter.matterCode,
     matterName: matter.matterName,
+    clientDisplayName: matterClientDisplayName(matter),
     status: matter.status,
     practiceGroup: matter.practiceGroup,
     sourceMode,
@@ -147,8 +170,9 @@ export function filterMatterCodeOptions(
 ): MatterCodeOption[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return [...options];
+  if (isVaultInternalReferenceLike(normalizedQuery)) return [];
   return options.filter((option) =>
-    [option.matterCode, option.matterName, option.practiceGroup ?? '']
+    [option.matterCode, option.matterName, option.clientDisplayName ?? '', option.practiceGroup ?? '']
       .join(' ')
       .toLocaleLowerCase()
       .includes(normalizedQuery),
