@@ -22,6 +22,7 @@ import type {
   SearchTarget,
   UpdateDocumentMetadataDto,
   UpdateMatterMemberDto,
+  CreateUploadPreflightRequestDto,
   UploadPreflightResponseDto,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
@@ -221,12 +222,15 @@ export function uploadDocument(
   );
 }
 
-export function createUploadPreflight(matterReference: string): Promise<UploadPreflightResponseDto> {
+export function createUploadPreflight(
+  matterReference: string,
+  input: CreateUploadPreflightRequestDto = {},
+): Promise<UploadPreflightResponseDto> {
   return apiFetch<UploadPreflightResponseDto>(
     `/matters/${encodeURIComponent(matterReference)}/documents/upload-preflight`,
     {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify(input),
     },
   );
 }

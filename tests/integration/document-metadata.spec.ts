@@ -71,9 +71,13 @@ async function createMatter(baseUrl: string, cookie: string, clientId: string): 
   return (JSON.parse(body) as { matterId: string }).matterId;
 }
 
-function uploadForm(filename: string): FormData {
+function uploadForm(
+  filename: string,
+  fields: { duplicateDecision?: 'new_document' } = {},
+): FormData {
   const form = new FormData();
   form.append('title', 'Metadata Draft');
+  if (fields.duplicateDecision) form.append('duplicateDecision', fields.duplicateDecision);
   form.append(
     'file',
     new Blob([Buffer.from('%PDF-1.7 metadata')], { type: 'application/pdf' }),
@@ -82,11 +86,16 @@ function uploadForm(filename: string): FormData {
   return form;
 }
 
-async function upload(baseUrl: string, cookie: string, matterId: string): Promise<UploadResponse> {
+async function upload(
+  baseUrl: string,
+  cookie: string,
+  matterId: string,
+  fields: { duplicateDecision?: 'new_document' } = {},
+): Promise<UploadResponse> {
   const response = await fetch(`${baseUrl}/v1/matters/${matterId}/documents`, {
     method: 'POST',
     headers: { cookie },
-    body: uploadForm('2026-06-12_계약서_v2.pdf'),
+    body: uploadForm('2026-06-12_계약서_v2.pdf', fields),
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
@@ -271,7 +280,9 @@ describe('document-metadata integration', () => {
   });
 
   it('fails closed for invalid metadata, non-members, and cross-tenant access', async () => {
-    const uploaded = await upload(baseUrl, betaOwnerCookie, betaMatterId);
+    const uploaded = await upload(baseUrl, betaOwnerCookie, betaMatterId, {
+      duplicateDecision: 'new_document',
+    });
     const row = await documentRow(uploaded.documentId);
     if (row?.storage_uri) createdStorageUris.push(row.storage_uri);
 

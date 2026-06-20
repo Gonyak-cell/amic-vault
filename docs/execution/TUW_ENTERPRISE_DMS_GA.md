@@ -20,20 +20,20 @@ Excluded from this GA execution lane:
 
 ## Current Reclassification
 
-| PR lane | DMS-GA IDs | Current repo status | Completion boundary |
-| --- | --- | --- | --- |
-| PR-0A Release reconciliation | DMS-GA-001, DMS-GA-002 | Reconciled in `codex/dms-ga0-reconcile` at target head `7c8bd748`; guards/docs/routes validated locally. | Repo-side done for GA0; external launch signoff remains separate. |
-| PR-0B Release receipts | DMS-GA-003, DMS-GA-004 | Not repo-implementable alone. | Requires approved staging/canary `release:dms-smoke -- --json` receipt and negative-auth evidence refs. |
-| PR-1A Matter runtime | DMS-GA-101, DMS-GA-102, DMS-GA-105, DMS-GA-404 | Implemented on `codex/dms-ga1-matter-runtime`; pending review/merge. | API status/lookup, permission-scoped Matter Code picker, source freshness, upload eligibility flags, contract/runbook docs. |
-| PR-1B Upload preflight | DMS-GA-103, DMS-GA-104 | Implemented on `codex/dms-ga1-upload-preflight`; pending review/merge. | Server-side Matter app resolution, lifecycle/staleness gate, permission/wall mutation gate, short-lived preflight ref. |
-| PR-1C Upload metadata UX | DMS-GA-106 | Implemented on `codex/dms-ga1-upload-metadata-ux`; pending review/merge. | Upload metadata/security profile exposes approved shared values now; tenant-admin taxonomy management remains PR-6A. |
-| PR-1D Duplicate decision | DMS-GA-107 | Pending. | Persisted staged duplicate/version/cancel decision before final upload action. |
-| PR-2A to PR-2C Document cabinet/detail | DMS-GA-201, DMS-GA-202, DMS-GA-204, DMS-GA-205 | Pending after P1 blockers. | Matter cabinet parity, document action center, audit/activity timeline. |
-| PR-3A to PR-3E Search hardening | DMS-GA-301, DMS-GA-302, DMS-GA-303, DMS-GA-304, DMS-GA-305 | Pending. | Query privacy, refiners, negative leakage proof, governed search folders, reindex evidence. |
-| PR-4A to PR-4D Access/team/walls | DMS-GA-401, DMS-GA-402, DMS-GA-403, DMS-GA-405 | Pending. | Permission-scoped org picker, team/wall picker UX, explicit access workflow boundary. |
-| PR-5A to PR-5E Records/workflow/notifications | DMS-GA-501, DMS-GA-502, DMS-GA-503, DMS-GA-504, DMS-GA-505, DMS-GA-506 | Pending. | Records context pickers, lifecycle/workflow/certificates, real task inbox, real notifications. |
-| PR-6A to PR-6E Admin/integrations | DMS-GA-601, DMS-GA-602, DMS-GA-603, DMS-GA-604, DMS-GA-605 | Pending. | Tenant-governed taxonomy/refiners/templates, Outlook evidence, Office/OneDrive ADR gate only. |
-| PR-7A to PR-7E Production evidence | DMS-GA-701, DMS-GA-702, DMS-GA-703, DMS-GA-704, DMS-GA-705 | Pending, except GA0 guard baseline exists. | Monitor map, rollback controls, responsive/a11y receipts, expanded guards, owner signoff package. |
+| PR lane                                       | DMS-GA IDs                                                             | Current repo status                                                                                      | Completion boundary                                                                                                         |
+| --------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| PR-0A Release reconciliation                  | DMS-GA-001, DMS-GA-002                                                 | Reconciled in `codex/dms-ga0-reconcile` at target head `7c8bd748`; guards/docs/routes validated locally. | Repo-side done for GA0; external launch signoff remains separate.                                                           |
+| PR-0B Release receipts                        | DMS-GA-003, DMS-GA-004                                                 | Not repo-implementable alone.                                                                            | Requires approved staging/canary `release:dms-smoke -- --json` receipt and negative-auth evidence refs.                     |
+| PR-1A Matter runtime                          | DMS-GA-101, DMS-GA-102, DMS-GA-105, DMS-GA-404                         | Implemented on `codex/dms-ga1-matter-runtime`; pending review/merge.                                     | API status/lookup, permission-scoped Matter Code picker, source freshness, upload eligibility flags, contract/runbook docs. |
+| PR-1B Upload preflight                        | DMS-GA-103, DMS-GA-104                                                 | Implemented on `codex/dms-ga1-upload-preflight`; pending review/merge.                                   | Server-side Matter app resolution, lifecycle/staleness gate, permission/wall mutation gate, short-lived preflight ref.      |
+| PR-1C Upload metadata UX                      | DMS-GA-106                                                             | Implemented on `codex/dms-ga1-upload-metadata-ux`; pending review/merge.                                 | Upload metadata/security profile exposes approved shared values now; tenant-admin taxonomy management remains PR-6A.        |
+| PR-1D Duplicate decision                      | DMS-GA-107                                                             | Implemented on `codex/dms-ga1-duplicate-decision`; pending review/merge.                                 | Persisted staged duplicate/version/cancel decision before final upload action.                                              |
+| PR-2A to PR-2C Document cabinet/detail        | DMS-GA-201, DMS-GA-202, DMS-GA-204, DMS-GA-205                         | Pending after P1 blockers.                                                                               | Matter cabinet parity, document action center, audit/activity timeline.                                                     |
+| PR-3A to PR-3E Search hardening               | DMS-GA-301, DMS-GA-302, DMS-GA-303, DMS-GA-304, DMS-GA-305             | Pending.                                                                                                 | Query privacy, refiners, negative leakage proof, governed search folders, reindex evidence.                                 |
+| PR-4A to PR-4D Access/team/walls              | DMS-GA-401, DMS-GA-402, DMS-GA-403, DMS-GA-405                         | Pending.                                                                                                 | Permission-scoped org picker, team/wall picker UX, explicit access workflow boundary.                                       |
+| PR-5A to PR-5E Records/workflow/notifications | DMS-GA-501, DMS-GA-502, DMS-GA-503, DMS-GA-504, DMS-GA-505, DMS-GA-506 | Pending.                                                                                                 | Records context pickers, lifecycle/workflow/certificates, real task inbox, real notifications.                              |
+| PR-6A to PR-6E Admin/integrations             | DMS-GA-601, DMS-GA-602, DMS-GA-603, DMS-GA-604, DMS-GA-605             | Pending.                                                                                                 | Tenant-governed taxonomy/refiners/templates, Outlook evidence, Office/OneDrive ADR gate only.                               |
+| PR-7A to PR-7E Production evidence            | DMS-GA-701, DMS-GA-702, DMS-GA-703, DMS-GA-704, DMS-GA-705             | Pending, except GA0 guard baseline exists.                                                               | Monitor map, rollback controls, responsive/a11y receipts, expanded guards, owner signoff package.                           |
 
 ## Verification Contract
 
@@ -76,3 +76,12 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm release:dms-smoke -- --check-env -
 - Metadata profile values come from the current shared approved document enums; no UI copy claims tenant-admin taxonomy management is complete before DMS-GA-601.
 - Upload FormData forwards `documentType`, `subtype`, `confidentialityLevel`, `privilegeStatus`, and `aiAllowed` alongside the server-issued upload preflight ref.
 - File organization copy remains limited to prep/organization. The upload form does not introduce legal analysis, summary, external AI, or raw source claims.
+
+## Current PR-1D Acceptance
+
+- Upload preflight accepts a bounded client-computed SHA-256 hash and returns duplicate decision state with safe candidate labels only.
+- Duplicate candidates are filtered through `canReadDocument`; unreadable candidates can require a decision without exposing titles, raw UUIDs, SHA values, or document contents.
+- New document upload rejects same-matter duplicate hashes before storage unless the user explicitly chooses `new_document`; `new_version` is rejected on the new-document endpoint.
+- Add-version upload rejects duplicate document/version hashes before storage unless the user explicitly chooses `new_version`; `new_document` is rejected on the version endpoint.
+- Duplicate decisions are persisted in audit metadata as bounded `reason_code` and `result_count` values only.
+- The upload panel computes SHA-256 in the browser, opens a duplicate decision dialog, and routes `new_document`, `new_version`, and `cancel` outcomes without rendering raw document references or hashes as labels.

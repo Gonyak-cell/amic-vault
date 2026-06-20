@@ -27,12 +27,12 @@ The current `packages/matter` package appears descriptor/contract-oriented rathe
 
 ## Integration Modes
 
-| Mode | Use | Production rule |
-| --- | --- | --- |
-| `matter_app_api` | Vault calls a Matter app API for lookup and optional profile refresh. | Preferred production mode once the Matter app endpoint is available. |
-| `matter_app_event_projection` | Matter app emits events that update Vault's local matter projection. | Allowed if sync freshness and conflict handling are implemented. |
-| `vault_projection_only` | Vault reads its existing local `matters` projection. | Dev/test fallback only unless an ADR states this projection is the approved Matter app mirror. |
-| `unconfigured` | Matter app lookup/projection cannot be trusted. | Fail closed for upload and other matter-scoped mutations. |
+| Mode                          | Use                                                                   | Production rule                                                                                |
+| ----------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `matter_app_api`              | Vault calls a Matter app API for lookup and optional profile refresh. | Preferred production mode once the Matter app endpoint is available.                           |
+| `matter_app_event_projection` | Matter app emits events that update Vault's local matter projection.  | Allowed if sync freshness and conflict handling are implemented.                               |
+| `vault_projection_only`       | Vault reads its existing local `matters` projection.                  | Dev/test fallback only unless an ADR states this projection is the approved Matter app mirror. |
+| `unconfigured`                | Matter app lookup/projection cannot be trusted.                       | Fail closed for upload and other matter-scoped mutations.                                      |
 
 Runtime guard:
 
@@ -72,19 +72,19 @@ applied.
 
 Vault needs these fields for DMS operations:
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| `matterAppMatterId` | yes | Stable canonical Matter app identifier. May differ from Vault local `matter_id`. |
-| `matterCode` | yes | Human-facing operational code. Unique in the Matter app tenant/customer scope. |
-| `matterName` | yes | Display name. |
-| `clientId` / `clientDisplayName` | yes | Use Matter app/client source-of-truth mapping. |
-| `status` | yes | Must identify upload-blocking states such as closed, archived, disposal, or locked states. |
-| `practiceGroup` | recommended | Supports filtering and ownership. |
-| `responsibleLawyerId` / display name | recommended | Supports upload metadata and browse columns. |
-| `openedAt` / `closedAt` | recommended | Supports search and lifecycle filters. |
-| `legalHold` | conditional | Required if Matter app owns hold state; otherwise Vault Records remains owner. |
-| `sourceUpdatedAt` | yes | Used for stale-data handling. |
-| `sourceRevision` | recommended | Used for conflict detection and audit refs. |
+| Field                                | Required    | Notes                                                                                      |
+| ------------------------------------ | ----------- | ------------------------------------------------------------------------------------------ |
+| `matterAppMatterId`                  | yes         | Stable canonical Matter app identifier. May differ from Vault local `matter_id`.           |
+| `matterCode`                         | yes         | Human-facing operational code. Unique in the Matter app tenant/customer scope.             |
+| `matterName`                         | yes         | Display name.                                                                              |
+| `clientId` / `clientDisplayName`     | yes         | Use Matter app/client source-of-truth mapping.                                             |
+| `status`                             | yes         | Must identify upload-blocking states such as closed, archived, disposal, or locked states. |
+| `practiceGroup`                      | recommended | Supports filtering and ownership.                                                          |
+| `responsibleLawyerId` / display name | recommended | Supports upload metadata and browse columns.                                               |
+| `openedAt` / `closedAt`              | recommended | Supports search and lifecycle filters.                                                     |
+| `legalHold`                          | conditional | Required if Matter app owns hold state; otherwise Vault Records remains owner.             |
+| `sourceUpdatedAt`                    | yes         | Used for stale-data handling.                                                              |
+| `sourceRevision`                     | recommended | Used for conflict detection and audit refs.                                                |
 
 ## Lookup Contract
 
@@ -106,11 +106,15 @@ Before `POST /matters/:matterId/documents` or any successor upload endpoint can 
 
 1. The user selects a canonical Matter app matter by code/name.
 2. Vault resolves that canonical matter to its local projection or creates/refreshes the projection through an approved sync path.
-3. The browser upload flow requests `POST /v1/matters/:matterId/documents/upload-preflight` with an empty body.
+3. The browser upload flow requests `POST /v1/matters/:matterId/documents/upload-preflight`.
+   For duplicate handling, the body may include a bounded SHA-256 hash:
+   `{ "sha256": "<64 hex chars>" }`.
 4. Vault checks lifecycle/staleness, upload permission, and ethical-wall state with the resolved matter context, then issues a short-lived reference-only preflight ref.
 5. Vault blocks upload if the Matter app runtime is not ready, lookup is unavailable, the projection is stale beyond policy, the matter is not upload-eligible, or permission is not `ALLOW`.
-6. Upload and version-upload mutations re-evaluate the same Matter source and permission rules before storage writes. If a preflight ref is supplied, it must be server-issued, unexpired, and bound to the same tenant, actor, matter, source decision, and permission decision.
-7. Vault records reference-only audit metadata.
+6. If same-matter duplicate content exists, Vault may return safe duplicate candidate labels only after document-read permission checks. Unreadable candidates must not expose title, UUID, SHA, or content.
+7. Upload and version-upload mutations re-evaluate the same Matter source and permission rules before storage writes. If a preflight ref is supplied, it must be server-issued, unexpired, and bound to the same tenant, actor, matter, source decision, and permission decision.
+8. New-document upload requires an explicit `new_document` decision when a duplicate hash exists. Version upload requires an explicit `new_version` decision when a duplicate hash exists. `cancel` is a UI outcome and must not create storage objects.
+9. Vault records reference-only audit metadata.
 
 ## Staleness And Conflict Policy
 
@@ -136,6 +140,7 @@ Allowed audit metadata:
 - stale/fresh flag
 - permission decision ref
 - upload preflight request ref
+- duplicate decision code and bounded candidate count
 
 Forbidden audit/log metadata:
 

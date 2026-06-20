@@ -145,6 +145,8 @@ export class MatterSourcePolicyService {
       permissionDecisionRef: decision.permissionDecisionRef,
       uploadEligible: true,
       blockedReason: null,
+      duplicateDecisionRequired: false,
+      duplicateCandidates: [],
     });
   }
 

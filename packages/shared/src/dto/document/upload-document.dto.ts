@@ -7,6 +7,7 @@ import {
   type DocumentPrivilegeStatus,
   type DocumentType,
 } from '../../types/document';
+import { uploadDuplicateDecisionSchema } from './upload-preflight.dto';
 
 export const uploadDocumentFieldsSchema = z
   .object({
@@ -24,6 +25,8 @@ export const uploadDocumentFieldsSchema = z
       }, z.boolean())
       .optional(),
     uploadPreflightRef: z.string().trim().min(1).max(160).optional(),
+    duplicateDecision: uploadDuplicateDecisionSchema.optional(),
+    duplicateTargetDocumentId: z.string().uuid().optional(),
   })
   .strict();
 

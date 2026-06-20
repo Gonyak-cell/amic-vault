@@ -12,7 +12,13 @@ interface BaseDocumentEventInput {
 interface VersionedDocumentEventInput extends BaseDocumentEventInput {
   versionId: string;
   hash?: string;
+  duplicateDecision?: DuplicateDecisionAudit;
   matterSourceDecision?: MatterSourceAuditDecision;
+}
+
+interface DuplicateDecisionAudit {
+  decision: 'new_document' | 'new_version';
+  candidateCount: number;
 }
 
 interface MatterSourceAuditDecision {
@@ -31,6 +37,14 @@ function matterSourceMetadata(decision: MatterSourceAuditDecision | undefined) {
   };
 }
 
+function duplicateDecisionMetadata(decision: DuplicateDecisionAudit | undefined) {
+  if (!decision) return {};
+  return {
+    reason_code: `duplicate_${decision.decision}`,
+    result_count: decision.candidateCount,
+  };
+}
+
 export function documentUploadedAudit(input: VersionedDocumentEventInput): AuditLogInput {
   return {
     tenantId: input.tenantId,
@@ -45,6 +59,7 @@ export function documentUploadedAudit(input: VersionedDocumentEventInput): Audit
       version_id: input.versionId,
       ...(input.hash ? { hash: input.hash } : {}),
       ...matterSourceMetadata(input.matterSourceDecision),
+      ...duplicateDecisionMetadata(input.duplicateDecision),
     },
   };
 }
