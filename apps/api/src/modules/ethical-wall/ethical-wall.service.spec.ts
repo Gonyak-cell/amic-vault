@@ -28,7 +28,7 @@ class TestEthicalWallService extends EthicalWallService {
 }
 
 describe('EthicalWallService', () => {
-  it('rejects group memberships before group wall expansion exists', async () => {
+  it('accepts group subject type in wall membership validation and rejects duplicates', async () => {
     const service = new EthicalWallService(
       {} as unknown as AuditService,
       {} as unknown as PermissionEventRecorder,
@@ -45,6 +45,11 @@ describe('EthicalWallService', () => {
             subjectType: 'group',
             subjectId: '11111111-1111-4111-8111-1111111111bb',
             membershipType: 'excluded',
+          },
+          {
+            subjectType: 'group',
+            subjectId: '11111111-1111-4111-8111-1111111111bb',
+            membershipType: 'insider',
           },
         ],
       }),

@@ -62,6 +62,28 @@ async function createMatter(baseUrl: string, cookie: string, clientId: string): 
   return (JSON.parse(body) as { matterId: string }).matterId;
 }
 
+async function createGroupWithMember(userId: string): Promise<string> {
+  return withClient(createOwnerClient(), async (client) => {
+    const groupId = randomUUID();
+    await setTenant(client, tenantAlphaId);
+    await client.query(
+      `
+        INSERT INTO groups (group_id, tenant_id, name, group_type, created_by)
+        VALUES ($1, $2, $3, 'custom', $4)
+      `,
+      [groupId, tenantAlphaId, `Ethical Wall Group ${groupId}`, alphaOwnerUserId],
+    );
+    await client.query(
+      `
+        INSERT INTO group_members (group_id, tenant_id, user_id, added_by)
+        VALUES ($1, $2, $3, $4)
+      `,
+      [groupId, tenantAlphaId, userId, alphaOwnerUserId],
+    );
+    return groupId;
+  });
+}
+
 async function wallAuditRows(wallId: string) {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{
@@ -177,24 +199,56 @@ describe('ethical wall integration', () => {
     expect(listedMatterIds).not.toContain(matterId);
   });
 
-  it('rejects group memberships before group wall expansion and keeps wall rows tenant-scoped', async () => {
-    const groupDenied = await fetch(`${baseUrl}/v1/ethical-walls`, {
+  it('accepts group memberships, blocks group members, and keeps wall rows tenant-scoped', async () => {
+    const groupMatterId = await createMatter(baseUrl, ownerCookie, clientId);
+    const groupId = await createGroupWithMember(alphaOwnerUserId);
+    const groupWall = await fetch(`${baseUrl}/v1/ethical-walls`, {
       method: 'POST',
       headers: { cookie: securityAdminCookie, 'content-type': 'application/json' },
       body: JSON.stringify({
-        matterId,
+        matterId: groupMatterId,
         wallName: `Group Conflict ${randomUUID()}`,
         reason: 'conflict_check',
         members: [
           {
             subjectType: 'group',
-            subjectId: randomUUID(),
+            subjectId: groupId,
             membershipType: 'excluded',
           },
         ],
       }),
     });
-    expect(groupDenied.status, await groupDenied.text()).toBe(400);
+    const groupWallBody = await groupWall.text();
+    expect(groupWall.status, groupWallBody).toBe(201);
+    const created = JSON.parse(groupWallBody) as {
+      wall: { wallId: string; matterId: string };
+      memberships: Array<{ subjectType: string; subjectId: string; membershipType: string }>;
+    };
+    expect(created.wall.matterId).toBe(groupMatterId);
+    expect(created.memberships).toEqual([
+      expect.objectContaining({
+        subjectType: 'group',
+        subjectId: groupId,
+        membershipType: 'excluded',
+      }),
+    ]);
+
+    const groupBlockedRead = await fetch(`${baseUrl}/v1/matters/${groupMatterId}`, {
+      headers: { cookie: ownerCookie },
+    });
+    const groupBlockedBody = await groupBlockedRead.text();
+    expect(groupBlockedRead.status, groupBlockedBody).toBe(403);
+    expect(groupBlockedBody).toContain('ETHICAL_WALL_BLOCKED');
+
+    const list = await fetch(`${baseUrl}/v1/matters?clientId=${clientId}&pageSize=100`, {
+      headers: { cookie: ownerCookie },
+    });
+    const listBody = await list.text();
+    expect(list.status, listBody).toBe(200);
+    const listedMatterIds = (
+      JSON.parse(listBody) as { items: Array<{ matterId: string }> }
+    ).items.map((item) => item.matterId);
+    expect(listedMatterIds).not.toContain(groupMatterId);
 
     await withClient(createAppClient(), async (client) => {
       await setTenant(client, tenantBetaId);

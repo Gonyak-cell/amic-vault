@@ -739,7 +739,10 @@ const governanceWorkflowOpsFiles = [
     patterns: [
       { name: 'wall Matter Code picker', pattern: /MatterCodePicker/ },
       { name: 'selected Matter display', pattern: /selectedMatter/ },
-      { name: 'advanced user refs only', pattern: /사용자 선택 API/ },
+      { name: 'wall member org picker wired', pattern: /OrgSubjectPicker/ },
+      { name: 'wall member picker ethical-wall purpose', pattern: /purpose="ethical-wall"/ },
+      { name: 'wall member picker user and group scope', pattern: /subjectType="all"/ },
+      { name: 'wall member denied stale selection clearing', pattern: /setSelectedSubject\(null\)/ },
     ],
   },
 ];

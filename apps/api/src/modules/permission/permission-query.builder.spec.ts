@@ -17,6 +17,7 @@ describe('PermissionQueryBuilder', () => {
     expect(filter.sql).toContain('FROM matter_members');
     expect(filter.sql).toContain('NOT EXISTS');
     expect(filter.sql).toContain('ethical_wall_memberships');
+    expect(filter.sql).toContain('FROM group_members gm');
     expect(filter.sql).toContain('$2::uuid');
     expect(filter.sql).toContain('$3::uuid');
     expect(filter.params).toHaveLength(2);
@@ -36,4 +37,3 @@ describe('PermissionQueryBuilder', () => {
     expect(filter.params).toEqual([]);
   });
 });
-
