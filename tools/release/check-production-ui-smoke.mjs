@@ -632,13 +632,17 @@ const adminIntegrationsFiles = [
       { name: 'taxonomy admin contract state', pattern: /taxonomy/ },
       { name: 'matter template admin contract state', pattern: /templates/ },
       { name: 'search refiner admin contract state', pattern: /refiners/ },
+      { name: 'DMS taxonomy save action', pattern: /taxonomySave/ },
+      { name: 'DMS refiner save action', pattern: /refinerSave/ },
+      { name: 'DMS taxonomy API client', pattern: /upsertEnterpriseDmsTaxonomy/ },
+      { name: 'DMS refiner API client', pattern: /upsertEnterpriseDmsSearchRefiner/ },
       { name: 'search index operations panel', pattern: /AdminSearchOperationsPanel/ },
       { name: 'search admin health client', pattern: /getSearchAdminHealth/ },
       { name: 'search health operations panel', pattern: /검색 헬스/ },
       { name: 'search health safe aggregate copy', pattern: /인덱스, 추출\/OCR, 검색 감사 집계/ },
       { name: 'tenant reindex API client', pattern: /requestTenantSearchReindex/ },
       { name: 'reindex audit-only status copy', pattern: /감사 기록과 큐 등록 수/ },
-      { name: 'read-only until API approved copy', pattern: /저장 API 승인 전 읽기 전용/ },
+      { name: 'template gate copy', pattern: /폴더\/문서 세트 모델 승인 전 읽기 전용/ },
     ],
   },
   {
@@ -782,17 +786,17 @@ const prECloseoutPatterns = [
   {
     name: 'PR-E route evidence matrix',
     pattern:
-      /Route Evidence[\s\S]*AdminDmsConfigurationPanel[\s\S]*contractRequired[\s\S]*governedByBackend[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
+      /Route Evidence[\s\S]*enterprise_dms_taxonomies[\s\S]*taxonomy save\/list\/disable[\s\S]*enterprise_dms_search_refiners[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
   },
   {
     name: 'PR-E integration safety invariants',
     pattern:
-      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/i,
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*No editable Matter template or folder template save action[\s\S]*Taxonomy and search refiner save\/list\/disable actions[\s\S]*AI Prep remains file organization prep/i,
   },
   {
     name: 'PR-E deferred item register',
     pattern:
-      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
+      /Remaining Deferred Items[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
   },
 ];
 

@@ -17,6 +17,10 @@ import {
 import type {
   EnterpriseBackupSnapshotListResponseDto,
   EnterpriseComplianceEvidenceListResponseDto,
+  EnterpriseDmsSearchRefinerDto,
+  EnterpriseDmsSearchRefinerListResponseDto,
+  EnterpriseDmsTaxonomyDto,
+  EnterpriseDmsTaxonomyListResponseDto,
   EnterpriseKeyReferenceListResponseDto,
   EnterpriseReadinessSummaryDto,
   EnterpriseSiemExportListResponseDto,
@@ -24,6 +28,8 @@ import type {
   LocalAiOpsHealthDto,
   LocalAiOpsMetricsDto,
   SearchAdminHealthDto,
+  UpsertEnterpriseDmsSearchRefinerRequestDto,
+  UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +39,7 @@ import {
   DataTableRow,
 } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
@@ -41,11 +48,17 @@ import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { getLocalAiOpsHealth, getLocalAiOpsMetrics } from '@/lib/api/ai-ops';
 import {
   getEnterpriseReadiness,
+  disableEnterpriseDmsSearchRefiner,
+  disableEnterpriseDmsTaxonomy,
+  listEnterpriseDmsSearchRefiners,
+  listEnterpriseDmsTaxonomies,
   listEnterpriseBackupSnapshots,
   listEnterpriseComplianceEvidence,
   listEnterpriseKeyReferences,
   listEnterpriseSiemExports,
   listEnterpriseSsoProviders,
+  upsertEnterpriseDmsSearchRefiner,
+  upsertEnterpriseDmsTaxonomy,
 } from '@/lib/api/enterprise';
 import {
   getSearchAdminHealth,
@@ -85,6 +98,21 @@ const enterpriseCopy: Record<
     templatesMeta: string;
     refiners: string;
     refinersMeta: string;
+    taxonomySave: string;
+    refinerSave: string;
+    disable: string;
+    documentTypeCode: string;
+    displayName: string;
+    descriptionLabel: string;
+    subtypeCodes: string;
+    metadataFields: string;
+    fieldKey: string;
+    fieldType: string;
+    refinerSource: string;
+    sortOrder: string;
+    configurationSaved: string;
+    activeConfiguration: string;
+    templateGate: string;
     searchOps: string;
     searchOpsMeta: string;
     searchHealth: string;
@@ -111,7 +139,6 @@ const enterpriseCopy: Record<
     reindexAccepted: string;
     reindexReady: string;
     contractRequired: string;
-    governedByBackend: string;
     apiUnavailableTitle: string;
     apiUnavailableDescription: string;
     noRecords: string;
@@ -182,6 +209,21 @@ const enterpriseCopy: Record<
     templatesMeta: '업무 유형별 기본 문서 세트',
     refiners: '검색 refiner',
     refinersMeta: '검색 가능한 메타데이터 필드',
+    taxonomySave: 'Taxonomy 저장',
+    refinerSave: 'Refiner 저장',
+    disable: '비활성화',
+    documentTypeCode: '문서 유형 코드',
+    displayName: '표시 이름',
+    descriptionLabel: '설명',
+    subtypeCodes: '세부 유형 코드',
+    metadataFields: '필수 메타데이터 필드',
+    fieldKey: '필드 키',
+    fieldType: '필드 유형',
+    refinerSource: '출처',
+    sortOrder: '정렬',
+    configurationSaved: '구성 저장됨',
+    activeConfiguration: '활성 구성',
+    templateGate: '폴더/문서 세트 모델 승인 전 읽기 전용',
     searchOps: '검색 인덱스 운영',
     searchOpsMeta: '재색인 요청 및 감사 기록',
     searchHealth: '검색 헬스',
@@ -208,7 +250,6 @@ const enterpriseCopy: Record<
     reindexAccepted: '재색인 큐 등록',
     reindexReady: '요청 전',
     contractRequired: '계약 필요',
-    governedByBackend: '저장 API 승인 전 읽기 전용',
     apiUnavailableTitle: '운영 데이터가 아직 연결되지 않았습니다.',
     apiUnavailableDescription: 'API 응답이 확인되면 이 섹션에 실제 설정 상태만 표시됩니다.',
     noRecords: '표시할 기록이 없습니다.',
@@ -278,6 +319,21 @@ const enterpriseCopy: Record<
     templatesMeta: 'Default document sets by matter type',
     refiners: 'Search refiners',
     refinersMeta: 'Queryable metadata fields',
+    taxonomySave: 'Save taxonomy',
+    refinerSave: 'Save refiner',
+    disable: 'Disable',
+    documentTypeCode: 'Document type code',
+    displayName: 'Display name',
+    descriptionLabel: 'Description',
+    subtypeCodes: 'Subtype codes',
+    metadataFields: 'Required metadata fields',
+    fieldKey: 'Field key',
+    fieldType: 'Field type',
+    refinerSource: 'Source',
+    sortOrder: 'Sort',
+    configurationSaved: 'Configuration saved',
+    activeConfiguration: 'Active configuration',
+    templateGate: 'Read-only until folder/document-set model approval',
     searchOps: 'Search index operations',
     searchOpsMeta: 'Reindex request and audit trail',
     searchHealth: 'Search health',
@@ -304,7 +360,6 @@ const enterpriseCopy: Record<
     reindexAccepted: 'Reindex queued',
     reindexReady: 'Ready',
     contractRequired: 'Contract required',
-    governedByBackend: 'Read-only until save APIs are approved',
     apiUnavailableTitle: 'Operational data is not connected yet.',
     apiUnavailableDescription:
       'Only real settings returned by the API will appear in this section.',
@@ -360,6 +415,8 @@ export function EnterpriseHardeningClient() {
   const [evidence, setEvidence] = useState<EnterpriseComplianceEvidenceListResponseDto | null>(
     null,
   );
+  const [taxonomies, setTaxonomies] = useState<EnterpriseDmsTaxonomyListResponseDto | null>(null);
+  const [refiners, setRefiners] = useState<EnterpriseDmsSearchRefinerListResponseDto | null>(null);
   const [readiness, setReadiness] = useState<EnterpriseReadinessSummaryDto | null>(null);
   const [aiOpsHealth, setAiOpsHealth] = useState<LocalAiOpsHealthDto | null>(null);
   const [aiOpsMetrics, setAiOpsMetrics] = useState<LocalAiOpsMetricsDto | null>(null);
@@ -367,6 +424,9 @@ export function EnterpriseHardeningClient() {
   const [reindexResult, setReindexResult] = useState<TenantSearchReindexResult | null>(null);
   const [reindexError, setReindexError] = useState<string | null>(null);
   const [reindexBusy, setReindexBusy] = useState(false);
+  const [dmsConfigStatus, setDmsConfigStatus] = useState<string | null>(null);
+  const [dmsConfigError, setDmsConfigError] = useState<string | null>(null);
+  const [dmsConfigBusy, setDmsConfigBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -390,6 +450,8 @@ export function EnterpriseHardeningClient() {
       nextExports,
       nextSnapshots,
       nextEvidence,
+      nextTaxonomies,
+      nextRefiners,
       nextReadiness,
       nextAiOpsHealth,
       nextAiOpsMetrics,
@@ -400,6 +462,8 @@ export function EnterpriseHardeningClient() {
         run(() => listEnterpriseSiemExports()),
         run(() => listEnterpriseBackupSnapshots()),
         run(() => listEnterpriseComplianceEvidence()),
+        run(() => listEnterpriseDmsTaxonomies()),
+        run(() => listEnterpriseDmsSearchRefiners()),
         run(() => getEnterpriseReadiness()),
         run(() => getLocalAiOpsHealth()),
         run(() => getLocalAiOpsMetrics()),
@@ -410,6 +474,8 @@ export function EnterpriseHardeningClient() {
     if (nextExports) setExports(nextExports);
     if (nextSnapshots) setSnapshots(nextSnapshots);
     if (nextEvidence) setEvidence(nextEvidence);
+    if (nextTaxonomies) setTaxonomies(nextTaxonomies);
+    if (nextRefiners) setRefiners(nextRefiners);
     if (nextReadiness) setReadiness(nextReadiness);
     if (nextAiOpsHealth) setAiOpsHealth(nextAiOpsHealth);
     if (nextAiOpsMetrics) setAiOpsMetrics(nextAiOpsMetrics);
@@ -428,6 +494,66 @@ export function EnterpriseHardeningClient() {
     }
   }
 
+  async function saveTaxonomy(input: UpsertEnterpriseDmsTaxonomyRequestDto) {
+    setDmsConfigBusy(true);
+    setDmsConfigError(null);
+    setDmsConfigStatus(null);
+    try {
+      const saved = await upsertEnterpriseDmsTaxonomy(input);
+      setTaxonomies((current) => mergeTaxonomy(current, saved));
+      setDmsConfigStatus(copy.configurationSaved);
+    } catch (caught) {
+      setDmsConfigError(safeApiErrorMessage(caught));
+    } finally {
+      setDmsConfigBusy(false);
+    }
+  }
+
+  async function disableTaxonomy(taxonomyId: string) {
+    setDmsConfigBusy(true);
+    setDmsConfigError(null);
+    setDmsConfigStatus(null);
+    try {
+      const saved = await disableEnterpriseDmsTaxonomy(taxonomyId);
+      setTaxonomies((current) => mergeTaxonomy(current, saved));
+      setDmsConfigStatus(copy.configurationSaved);
+    } catch (caught) {
+      setDmsConfigError(safeApiErrorMessage(caught));
+    } finally {
+      setDmsConfigBusy(false);
+    }
+  }
+
+  async function saveRefiner(input: UpsertEnterpriseDmsSearchRefinerRequestDto) {
+    setDmsConfigBusy(true);
+    setDmsConfigError(null);
+    setDmsConfigStatus(null);
+    try {
+      const saved = await upsertEnterpriseDmsSearchRefiner(input);
+      setRefiners((current) => mergeRefiner(current, saved));
+      setDmsConfigStatus(copy.configurationSaved);
+    } catch (caught) {
+      setDmsConfigError(safeApiErrorMessage(caught));
+    } finally {
+      setDmsConfigBusy(false);
+    }
+  }
+
+  async function disableRefiner(refinerId: string) {
+    setDmsConfigBusy(true);
+    setDmsConfigError(null);
+    setDmsConfigStatus(null);
+    try {
+      const saved = await disableEnterpriseDmsSearchRefiner(refinerId);
+      setRefiners((current) => mergeRefiner(current, saved));
+      setDmsConfigStatus(copy.configurationSaved);
+    } catch (caught) {
+      setDmsConfigError(safeApiErrorMessage(caught));
+    } finally {
+      setDmsConfigBusy(false);
+    }
+  }
+
   return (
     <PageShell>
       <PageHeader
@@ -442,7 +568,18 @@ export function EnterpriseHardeningClient() {
       />
       {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
 
-      <AdminDmsConfigurationPanel copy={copy} />
+      <AdminDmsConfigurationPanel
+        busy={dmsConfigBusy}
+        copy={copy}
+        error={dmsConfigError}
+        onDisableRefiner={(refinerId) => void disableRefiner(refinerId)}
+        onDisableTaxonomy={(taxonomyId) => void disableTaxonomy(taxonomyId)}
+        onSaveRefiner={(input) => void saveRefiner(input)}
+        onSaveTaxonomy={(input) => void saveTaxonomy(input)}
+        refiners={refiners}
+        status={dmsConfigStatus}
+        taxonomies={taxonomies}
+      />
       <AdminSearchOperationsPanel
         busy={reindexBusy}
         copy={copy}
@@ -754,49 +891,378 @@ function AdminSearchOperationsPanel({
   );
 }
 
-function AdminDmsConfigurationPanel({ copy }: { copy: (typeof enterpriseCopy)[Language] }) {
-  const cards = [
-    {
-      title: copy.taxonomy,
-      meta: copy.taxonomyMeta,
-      icon: <FileCog className="h-4 w-4" />,
-    },
-    {
-      title: copy.templates,
-      meta: copy.templatesMeta,
-      icon: <FolderKanban className="h-4 w-4" />,
-    },
-    {
-      title: copy.refiners,
-      meta: copy.refinersMeta,
-      icon: <SearchCheck className="h-4 w-4" />,
-    },
-  ];
+function AdminDmsConfigurationPanel({
+  busy,
+  copy,
+  error,
+  onDisableRefiner,
+  onDisableTaxonomy,
+  onSaveRefiner,
+  onSaveTaxonomy,
+  refiners,
+  status,
+  taxonomies,
+}: {
+  busy: boolean;
+  copy: (typeof enterpriseCopy)[Language];
+  error: string | null;
+  onDisableRefiner: (refinerId: string) => void;
+  onDisableTaxonomy: (taxonomyId: string) => void;
+  onSaveRefiner: (input: UpsertEnterpriseDmsSearchRefinerRequestDto) => void;
+  onSaveTaxonomy: (input: UpsertEnterpriseDmsTaxonomyRequestDto) => void;
+  refiners: EnterpriseDmsSearchRefinerListResponseDto | null;
+  status: string | null;
+  taxonomies: EnterpriseDmsTaxonomyListResponseDto | null;
+}) {
+  const [taxonomyTypeCode, setTaxonomyTypeCode] = useState('');
+  const [taxonomyDisplayName, setTaxonomyDisplayName] = useState('');
+  const [taxonomyDescription, setTaxonomyDescription] = useState('');
+  const [taxonomySubtypeCodes, setTaxonomySubtypeCodes] = useState('');
+  const [taxonomyMetadataFields, setTaxonomyMetadataFields] = useState('');
+  const [refinerFieldKey, setRefinerFieldKey] = useState('');
+  const [refinerDisplayName, setRefinerDisplayName] = useState('');
+  const [refinerFieldType, setRefinerFieldType] =
+    useState<UpsertEnterpriseDmsSearchRefinerRequestDto['fieldType']>('text');
+  const [refinerSource, setRefinerSource] =
+    useState<UpsertEnterpriseDmsSearchRefinerRequestDto['source']>('document_profile');
+  const [refinerSortOrder, setRefinerSortOrder] = useState('100');
+
+  function submitTaxonomy(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveTaxonomy({
+      documentTypeCode: taxonomyTypeCode,
+      displayName: taxonomyDisplayName,
+      description: taxonomyDescription.trim() || undefined,
+      subtypes: splitInput(taxonomySubtypeCodes).map((subtypeCode) => ({
+        subtypeCode,
+        displayName: labelFromKey(subtypeCode),
+        status: 'active',
+      })),
+      metadataFields: splitInput(taxonomyMetadataFields).map((fieldKey) => ({
+        fieldKey: fieldKey.toLowerCase(),
+        displayName: labelFromKey(fieldKey),
+        fieldType: 'text',
+        required: true,
+        searchable: true,
+        refinable: true,
+      })),
+    });
+  }
+
+  function submitRefiner(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSaveRefiner({
+      fieldKey: refinerFieldKey,
+      displayName: refinerDisplayName,
+      fieldType: refinerFieldType,
+      source: refinerSource,
+      sortOrder: Number(refinerSortOrder || '100'),
+      searchable: true,
+      refinable: true,
+      filterable: true,
+    });
+  }
+
   return (
     <SectionCard
       icon={<FileCog className="h-4 w-4" />}
       title={copy.dmsConfiguration}
       meta={copy.dmsConfigurationMeta}
     >
-      <div className="grid gap-3 lg:grid-cols-3">
-        {cards.map((card) => (
-          <div key={card.title} className="rounded-md border bg-background p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
-                {card.icon}
-                <span className="truncate text-sm font-semibold text-foreground">{card.title}</span>
-              </div>
-              <StatusBadge tone="warning">{copy.contractRequired}</StatusBadge>
+      {error ? (
+        <p className="mb-3 text-sm font-medium text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {status ? (
+        <p className="mb-3 text-sm font-medium text-primary" role="status">
+          {status}
+        </p>
+      ) : null}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,1fr)]">
+        <div className="rounded-md border bg-background p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileCog className="h-4 w-4" />
+              <span className="truncate text-sm font-semibold text-foreground">{copy.taxonomy}</span>
             </div>
-            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{card.meta}</p>
-            <p className="mt-3 text-[12px] font-medium text-muted-foreground">
-              {copy.governedByBackend}
-            </p>
+            <StatusBadge>{copy.activeConfiguration}</StatusBadge>
           </div>
-        ))}
+          <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.taxonomyMeta}</p>
+          <form className="mt-3 grid gap-2" onSubmit={submitTaxonomy}>
+            <Input
+              aria-label={copy.documentTypeCode}
+              placeholder={copy.documentTypeCode}
+              value={taxonomyTypeCode}
+              onChange={(event) => setTaxonomyTypeCode(event.target.value)}
+              disabled={busy}
+              required
+            />
+            <Input
+              aria-label={copy.displayName}
+              placeholder={copy.displayName}
+              value={taxonomyDisplayName}
+              onChange={(event) => setTaxonomyDisplayName(event.target.value)}
+              disabled={busy}
+              required
+            />
+            <Input
+              aria-label={copy.descriptionLabel}
+              placeholder={copy.descriptionLabel}
+              value={taxonomyDescription}
+              onChange={(event) => setTaxonomyDescription(event.target.value)}
+              disabled={busy}
+            />
+            <Input
+              aria-label={copy.subtypeCodes}
+              placeholder={copy.subtypeCodes}
+              value={taxonomySubtypeCodes}
+              onChange={(event) => setTaxonomySubtypeCodes(event.target.value)}
+              disabled={busy}
+            />
+            <Input
+              aria-label={copy.metadataFields}
+              placeholder={copy.metadataFields}
+              value={taxonomyMetadataFields}
+              onChange={(event) => setTaxonomyMetadataFields(event.target.value)}
+              disabled={busy}
+            />
+            <Button type="submit" disabled={busy}>
+              <FileCog className="h-4 w-4" />
+              {copy.taxonomySave}
+            </Button>
+          </form>
+          <DmsTaxonomyRows
+            copy={copy}
+            onDisable={onDisableTaxonomy}
+            taxonomies={taxonomies}
+            busy={busy}
+          />
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <FolderKanban className="h-4 w-4" />
+              <span className="truncate text-sm font-semibold text-foreground">{copy.templates}</span>
+            </div>
+            <StatusBadge tone="warning">{copy.contractRequired}</StatusBadge>
+          </div>
+          <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.templatesMeta}</p>
+          <p className="mt-3 text-[12px] font-medium text-muted-foreground">{copy.templateGate}</p>
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <SearchCheck className="h-4 w-4" />
+              <span className="truncate text-sm font-semibold text-foreground">{copy.refiners}</span>
+            </div>
+            <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+          </div>
+          <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.refinersMeta}</p>
+          <form className="mt-3 grid gap-2" onSubmit={submitRefiner}>
+            <Input
+              aria-label={copy.fieldKey}
+              placeholder={copy.fieldKey}
+              value={refinerFieldKey}
+              onChange={(event) => setRefinerFieldKey(event.target.value)}
+              disabled={busy}
+              required
+            />
+            <Input
+              aria-label={copy.displayName}
+              placeholder={copy.displayName}
+              value={refinerDisplayName}
+              onChange={(event) => setRefinerDisplayName(event.target.value)}
+              disabled={busy}
+              required
+            />
+            <select
+              aria-label={copy.fieldType}
+              className="h-10 rounded-md border bg-background px-3 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={refinerFieldType}
+              onChange={(event) =>
+                setRefinerFieldType(
+                  event.target.value as UpsertEnterpriseDmsSearchRefinerRequestDto['fieldType'],
+                )
+              }
+              disabled={busy}
+            >
+              {['text', 'date', 'user', 'matter', 'boolean', 'number', 'select'].map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label={copy.refinerSource}
+              className="h-10 rounded-md border bg-background px-3 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={refinerSource}
+              onChange={(event) =>
+                setRefinerSource(
+                  event.target.value as UpsertEnterpriseDmsSearchRefinerRequestDto['source'],
+                )
+              }
+              disabled={busy}
+            >
+              {['document_profile', 'matter_profile', 'records', 'system'].map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <Input
+              aria-label={copy.sortOrder}
+              placeholder={copy.sortOrder}
+              type="number"
+              min={0}
+              max={999}
+              value={refinerSortOrder}
+              onChange={(event) => setRefinerSortOrder(event.target.value)}
+              disabled={busy}
+            />
+            <Button type="submit" disabled={busy}>
+              <SearchCheck className="h-4 w-4" />
+              {copy.refinerSave}
+            </Button>
+          </form>
+          <DmsRefinerRows copy={copy} onDisable={onDisableRefiner} refiners={refiners} busy={busy} />
+        </div>
       </div>
     </SectionCard>
   );
+}
+
+function DmsTaxonomyRows({
+  busy,
+  copy,
+  onDisable,
+  taxonomies,
+}: {
+  busy: boolean;
+  copy: (typeof enterpriseCopy)[Language];
+  onDisable: (taxonomyId: string) => void;
+  taxonomies: EnterpriseDmsTaxonomyListResponseDto | null;
+}) {
+  if (!taxonomies) return <Unavailable copy={copy} />;
+  if (taxonomies.taxonomies.length === 0) {
+    return <EmptyState variant="no-data" title={copy.noRecords} className="mt-3" />;
+  }
+  return (
+    <DataTable caption={copy.taxonomy} minWidthClassName="min-w-[520px]" className="mt-3">
+      <DataTableBody>
+        {taxonomies.taxonomies.map((item) => (
+          <DataTableRow key={item.taxonomyId}>
+            <DataTableCell className="font-medium">{item.documentTypeCode}</DataTableCell>
+            <DataTableCell className="text-muted-foreground">{item.displayName}</DataTableCell>
+            <DataTableCell>
+              <StatusBadge tone={item.status === 'active' ? 'success' : 'neutral'}>
+                {item.status === 'active' ? copy.active : copy.inactive}
+              </StatusBadge>
+            </DataTableCell>
+            <DataTableCell className="text-right">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || item.status === 'disabled'}
+                onClick={() => onDisable(item.taxonomyId)}
+              >
+                {copy.disable}
+              </Button>
+            </DataTableCell>
+          </DataTableRow>
+        ))}
+      </DataTableBody>
+    </DataTable>
+  );
+}
+
+function DmsRefinerRows({
+  busy,
+  copy,
+  onDisable,
+  refiners,
+}: {
+  busy: boolean;
+  copy: (typeof enterpriseCopy)[Language];
+  onDisable: (refinerId: string) => void;
+  refiners: EnterpriseDmsSearchRefinerListResponseDto | null;
+}) {
+  if (!refiners) return <Unavailable copy={copy} />;
+  if (refiners.refiners.length === 0) {
+    return <EmptyState variant="no-data" title={copy.noRecords} className="mt-3" />;
+  }
+  return (
+    <DataTable caption={copy.refiners} minWidthClassName="min-w-[520px]" className="mt-3">
+      <DataTableBody>
+        {refiners.refiners.map((item) => (
+          <DataTableRow key={item.refinerId}>
+            <DataTableCell className="font-medium">{item.fieldKey}</DataTableCell>
+            <DataTableCell className="text-muted-foreground">{item.displayName}</DataTableCell>
+            <DataTableCell>
+              <StatusBadge tone={item.status === 'active' ? 'success' : 'neutral'}>
+                {item.status === 'active' ? copy.active : copy.inactive}
+              </StatusBadge>
+            </DataTableCell>
+            <DataTableCell className="text-right">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || item.status === 'disabled'}
+                onClick={() => onDisable(item.refinerId)}
+              >
+                {copy.disable}
+              </Button>
+            </DataTableCell>
+          </DataTableRow>
+        ))}
+      </DataTableBody>
+    </DataTable>
+  );
+}
+
+function mergeTaxonomy(
+  current: EnterpriseDmsTaxonomyListResponseDto | null,
+  saved: EnterpriseDmsTaxonomyDto,
+): EnterpriseDmsTaxonomyListResponseDto {
+  const existing = current?.taxonomies ?? [];
+  const withoutSaved = existing.filter((item) => item.taxonomyId !== saved.taxonomyId);
+  return {
+    taxonomies: [...withoutSaved, saved].sort((left, right) =>
+      left.documentTypeCode.localeCompare(right.documentTypeCode),
+    ),
+  };
+}
+
+function mergeRefiner(
+  current: EnterpriseDmsSearchRefinerListResponseDto | null,
+  saved: EnterpriseDmsSearchRefinerDto,
+): EnterpriseDmsSearchRefinerListResponseDto {
+  const existing = current?.refiners ?? [];
+  const withoutSaved = existing.filter((item) => item.refinerId !== saved.refinerId);
+  return {
+    refiners: [...withoutSaved, saved].sort((left, right) => {
+      if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder;
+      return left.fieldKey.localeCompare(right.fieldKey);
+    }),
+  };
+}
+
+function splitInput(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function labelFromKey(value: string): string {
+  return value
+    .split(/[._-]+/u)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
 }
 
 function SettingsPanel({

@@ -8,6 +8,10 @@ import type {
   EnterpriseBackupSnapshotListResponseDto,
   EnterpriseComplianceEvidenceDto,
   EnterpriseComplianceEvidenceListResponseDto,
+  EnterpriseDmsSearchRefinerDto,
+  EnterpriseDmsSearchRefinerListResponseDto,
+  EnterpriseDmsTaxonomyDto,
+  EnterpriseDmsTaxonomyListResponseDto,
   EnterpriseKeyReferenceDto,
   EnterpriseKeyReferenceListResponseDto,
   EnterpriseReadinessSummaryDto,
@@ -16,6 +20,8 @@ import type {
   EnterpriseSsoProviderDto,
   EnterpriseSsoProviderListResponseDto,
   EnterpriseSsoSpMetadataDto,
+  UpsertEnterpriseDmsSearchRefinerRequestDto,
+  UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
 import { apiFetch } from '../api-client';
 
@@ -108,4 +114,48 @@ export function listEnterpriseComplianceEvidence(): Promise<EnterpriseCompliance
 
 export function getEnterpriseReadiness(): Promise<EnterpriseReadinessSummaryDto> {
   return apiFetch<EnterpriseReadinessSummaryDto>('/enterprise/readiness');
+}
+
+export function upsertEnterpriseDmsTaxonomy(
+  input: UpsertEnterpriseDmsTaxonomyRequestDto,
+): Promise<EnterpriseDmsTaxonomyDto> {
+  return apiFetch<EnterpriseDmsTaxonomyDto>('/enterprise/dms/taxonomies', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listEnterpriseDmsTaxonomies(): Promise<EnterpriseDmsTaxonomyListResponseDto> {
+  return apiFetch<EnterpriseDmsTaxonomyListResponseDto>('/enterprise/dms/taxonomies');
+}
+
+export function disableEnterpriseDmsTaxonomy(
+  taxonomyId: string,
+): Promise<EnterpriseDmsTaxonomyDto> {
+  return apiFetch<EnterpriseDmsTaxonomyDto>(
+    `/enterprise/dms/taxonomies/${taxonomyId}/disable`,
+    { method: 'POST' },
+  );
+}
+
+export function upsertEnterpriseDmsSearchRefiner(
+  input: UpsertEnterpriseDmsSearchRefinerRequestDto,
+): Promise<EnterpriseDmsSearchRefinerDto> {
+  return apiFetch<EnterpriseDmsSearchRefinerDto>('/enterprise/dms/search-refiners', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listEnterpriseDmsSearchRefiners(): Promise<EnterpriseDmsSearchRefinerListResponseDto> {
+  return apiFetch<EnterpriseDmsSearchRefinerListResponseDto>('/enterprise/dms/search-refiners');
+}
+
+export function disableEnterpriseDmsSearchRefiner(
+  refinerId: string,
+): Promise<EnterpriseDmsSearchRefinerDto> {
+  return apiFetch<EnterpriseDmsSearchRefinerDto>(
+    `/enterprise/dms/search-refiners/${refinerId}/disable`,
+    { method: 'POST' },
+  );
 }

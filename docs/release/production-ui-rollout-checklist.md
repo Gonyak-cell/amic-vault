@@ -31,6 +31,7 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | UI-PRE-005 | `docs/package/` unchanged unless separately approved | Normative package remains frozen | Security reviewer |  |  |
 | UI-PRE-006 | Feature scope confirmed | File organization prep only; no legal analysis, summary, external model route, raw prompt/source/model-response storage | Legal-data owner |  |  |
 | UI-PRE-007 | Enterprise DMS UI evidence package prepared | `docs/release/enterprise-dms-ui-release-evidence.md` is copied into the external evidence workspace and every required row has an evidence ref or approved deferral | Operator |  |  |
+| UI-PRE-008 | DMS main-loop smoke passed | `pnpm release:dms-smoke -- --json` passes with approved synthetic or canary DMS credentials, Matter Code source, upload, file list, search, detail, records/audit, and negative-auth non-discovery | Operator |  |  |
 
 ## 3. Auth And Shell Smoke
 
@@ -103,7 +104,7 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | ID | Check | Expected | Owner | Evidence ref | Result |
 |---|---|---|---|---|---|
 | UI-POST-001 | First production login | Approved internal account reaches dashboard without workspace ID | Operator |  |  |
-| UI-POST-002 | Real upload smoke | Approved file upload completes and file organization prep stays in scope | Operator |  |  |
+| UI-POST-002 | Real upload smoke | Approved file upload completes through Matter Code-scoped DMS flow and file organization prep stays in scope; use `pnpm release:dms-smoke -- --json` receipt ref | Operator |  |  |
 | UI-POST-003 | Audit trail | UI-facing upload/prep actions have bounded audit events without document body/raw AI data | Security reviewer |  |  |
 | UI-POST-004 | Error monitoring | No spike in auth, route, or UI rendering errors after deploy | Operator |  |  |
 | UI-POST-005 | Rollback readiness | Rollback command/path and owner are confirmed before widening traffic | Operator |  |  |

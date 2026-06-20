@@ -3,6 +3,8 @@ import {
   createEnterpriseKeyReferenceRequestSchema,
   createEnterpriseSsoProviderRequestSchema,
   enterpriseReadinessSummarySchema,
+  upsertEnterpriseDmsSearchRefinerRequestSchema,
+  upsertEnterpriseDmsTaxonomyRequestSchema,
 } from './enterprise-types';
 
 const hash = 'a'.repeat(64);
@@ -47,5 +49,65 @@ describe('enterprise types', () => {
     });
 
     expect(parsed.technicalPass).toBe(true);
+  });
+
+  it('validates DMS taxonomy configuration without raw content fields', () => {
+    const parsed = upsertEnterpriseDmsTaxonomyRequestSchema.parse({
+      documentTypeCode: 'contract',
+      displayName: 'Contract',
+      description: 'Filing profile for signed commercial agreements',
+      subtypes: [{ subtypeCode: 'Msa', displayName: 'Master service agreement' }],
+      metadataFields: [
+        {
+          fieldKey: 'counterparty',
+          displayName: 'Counterparty',
+          fieldType: 'text',
+          required: true,
+          searchable: true,
+          refinable: true,
+        },
+      ],
+    });
+
+    expect(parsed.documentTypeCode).toBe('CONTRACT');
+    expect(parsed.subtypes[0]?.subtypeCode).toBe('MSA');
+  });
+
+  it('rejects unsafe DMS taxonomy descriptions and duplicate metadata keys', () => {
+    expect(() =>
+      upsertEnterpriseDmsTaxonomyRequestSchema.parse({
+        documentTypeCode: 'CONTRACT',
+        displayName: 'Contract',
+        description: 'Stores raw body snippets',
+        metadataFields: [],
+        subtypes: [],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      upsertEnterpriseDmsTaxonomyRequestSchema.parse({
+        documentTypeCode: 'CONTRACT',
+        displayName: 'Contract',
+        metadataFields: [
+          { fieldKey: 'counterparty', displayName: 'Counterparty', fieldType: 'text' },
+          { fieldKey: 'counterparty', displayName: 'Other Counterparty', fieldType: 'text' },
+        ],
+        subtypes: [],
+      }),
+    ).toThrow();
+  });
+
+  it('validates DMS search refiner configuration', () => {
+    const parsed = upsertEnterpriseDmsSearchRefinerRequestSchema.parse({
+      fieldKey: 'counterparty',
+      displayName: 'Counterparty',
+      fieldType: 'text',
+      source: 'document_profile',
+      sortOrder: 20,
+    });
+
+    expect(parsed.searchable).toBe(true);
+    expect(parsed.refinable).toBe(true);
+    expect(parsed.filterable).toBe(true);
   });
 });
