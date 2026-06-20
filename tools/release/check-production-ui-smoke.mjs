@@ -98,6 +98,10 @@ const productionInventoryPatterns = [
     pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i,
   },
   {
+    name: 'matter team limited route',
+    pattern: /\/matters\/\[id\]\/team[\s\S]*`visible_limited`[\s\S]*display-safe user name\/email[\s\S]*raw user reference entry is hidden by default/i,
+  },
+  {
     name: 'API-unready routes',
     pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/,
   },
@@ -587,6 +591,23 @@ const governanceWorkflowOpsFiles = [
         pattern: /실제 운영 이벤트와 상태에서 발생한 알림만 표시/,
       },
       { name: 'no fake notification source', pattern: /DashboardOverviewState/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/add-member-dialog.tsx',
+    patterns: [
+      { name: 'team member picker pending safe state', pattern: /구성원 선택 준비 중/ },
+      { name: 'direct user reference hidden by default', pattern: /allowAdvancedReferenceInput = false/ },
+      { name: 'organization picker API gate copy', pattern: /조직 구성원 선택 API/ },
+      { name: 'advanced user refs explicitly gated', pattern: /고급 사용자 참조 입력/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/team-member-list.tsx',
+    patterns: [
+      { name: 'team member display-safe name', pattern: /userDisplayName/ },
+      { name: 'team member display-safe email', pattern: /userDisplayEmail/ },
+      { name: 'team member no display fallback', pattern: /표시 가능한 사용자 정보 없음/ },
     ],
   },
   {
