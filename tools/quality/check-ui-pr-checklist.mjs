@@ -136,6 +136,11 @@ const requiredPatterns = [
       /upload refresh key[\s\S]*DocumentVaultList[\s\S]*MatterDocumentList[\s\S]*successful Matter-scoped upload[\s\S]*re-queries both the all-documents vault and the selected Matter file list/is,
   },
   {
+    label: 'DMS Matter row action evidence',
+    pattern:
+      /DMS Matter row action guard[\s\S]*Matter Code filtered file cabinet[\s\S]*Matter Code filtered search[\s\S]*without fake counts or raw Matter refs/is,
+  },
+  {
     label: 'DMS version receipt evidence',
     pattern:
       /new-version upload[\s\S]*version list[\s\S]*document-scoped audit timeline[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,

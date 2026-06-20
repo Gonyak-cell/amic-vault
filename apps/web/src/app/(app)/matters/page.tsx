@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { MatterDto } from '@amic-vault/shared';
 import { FileSearch, FolderKanban, FolderUp, ShieldCheck } from 'lucide-react';
 import { listMatters } from '@/lib/api-client';
-import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
+import { MatterListTable } from '@/components/matter/matter-list-table';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
@@ -27,10 +27,14 @@ const mattersCopy: Record<
     type: string;
     status: string;
     security: string;
+    actions: string;
     protected: string;
     empty: string;
     emptyDescription: string;
     upload: string;
+    openMatter: string;
+    fileCabinet: string;
+    searchMatter: string;
     prepTitle: string;
     prepDescription: string;
     loading: string;
@@ -47,10 +51,14 @@ const mattersCopy: Record<
     type: '유형',
     status: '상태',
     security: '보안',
+    actions: '작업',
     protected: '보호됨',
     empty: '표시할 사건이 없습니다.',
     emptyDescription: 'Matter app에서 접근 가능한 Matter Code가 확인되면 파일 업로드와 정리 준비를 시작할 수 있습니다.',
     upload: '파일 업로드',
+    openMatter: '열기',
+    fileCabinet: '파일함',
+    searchMatter: '검색',
     prepTitle: '업로드 후 파일 정리 준비',
     prepDescription:
       '파일은 Matter Code 선택 후 업로드됩니다. 업로드가 완료되면 파일 개요, 주요 정보, 키워드, 보관 위치 제안이 비동기로 준비됩니다.',
@@ -67,11 +75,15 @@ const mattersCopy: Record<
     type: 'Type',
     status: 'Status',
     security: 'Security',
+    actions: 'Actions',
     protected: 'Protected',
     empty: 'No matters to show.',
     emptyDescription:
       'When authorized Matter Codes are available from Matter app, you can upload files and start file organization prep.',
     upload: 'Upload file',
+    openMatter: 'Open',
+    fileCabinet: 'Files',
+    searchMatter: 'Search',
     prepTitle: 'File organization prep after upload',
     prepDescription:
       'Files are uploaded after a Matter Code is selected. After upload, profile, key fields, tags, and filing suggestions are prepared asynchronously.',
@@ -142,38 +154,7 @@ export default function MattersPage() {
       </div>
 
       <SectionCard icon={<FolderKanban className="h-4 w-4" />} title={copy.title} meta={copy.scoped}>
-        <div className="overflow-x-auto">
-          <div className="min-w-[720px]">
-            <div className="grid min-h-16 grid-cols-[minmax(0,1fr)_140px_140px_120px] items-center gap-4 border-b px-5 py-4 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
-              <span>{copy.matter}</span>
-              <span>{copy.type}</span>
-              <span>{copy.status}</span>
-              <span className="text-right">{copy.security}</span>
-            </div>
-            {matters.map((matter) => (
-              <Link
-                key={matter.matterId}
-                href={`/matters/${matter.matterId}`}
-                className="grid grid-cols-[minmax(0,1fr)_140px_140px_120px] items-center gap-4 border-b px-5 py-4 text-sm last:border-b-0"
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-md bg-secondary text-primary">
-                    <FolderKanban className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate font-semibold">{matter.matterName}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{matter.matterCode}</span>
-                  </span>
-                </span>
-                <span className="truncate text-muted-foreground">{matter.matterType}</span>
-                <span>
-                  <MatterStatusBadge status={matter.status} />
-                </span>
-                <span className="text-right text-muted-foreground">{copy.protected}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
+        <MatterListTable copy={copy} matters={matters} />
         {loadState === 'loading' ? (
           <EmptyState variant="api-unavailable" title={copy.loading} className="m-5" />
         ) : null}
