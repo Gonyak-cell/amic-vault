@@ -35,6 +35,7 @@ import { EmailModule } from './modules/email/email.module';
 import { OutlookModule } from './modules/outlook/outlook.module';
 import { PreviewModule } from './modules/preview/preview.module';
 import { SearchModule } from './modules/search/search.module';
+import { OrgDirectoryModule } from './modules/org-directory/org-directory.module';
 
 @Controller()
 class AppController {
@@ -79,6 +80,7 @@ class AppController {
     DlpModule,
     EmailModule,
     OutlookModule,
+    OrgDirectoryModule,
     DocumentModule,
     PreviewModule,
   ],
