@@ -763,6 +763,21 @@ export {
   type UpdateDocumentMetadataDto,
 } from './dto/document/update-document-metadata.dto';
 export {
+  orgDirectoryPurposeSchema,
+  orgDirectoryPurposes,
+  orgDirectorySubjectFilterSchema,
+  orgDirectorySubjectFilters,
+  orgDirectorySubjectQuerySchema,
+  orgDirectorySubjectTypeSchema,
+  orgDirectorySubjectTypes,
+  type OrgDirectoryPurpose,
+  type OrgDirectorySubjectDto,
+  type OrgDirectorySubjectFilter,
+  type OrgDirectorySubjectListDto,
+  type OrgDirectorySubjectQueryDto,
+  type OrgDirectorySubjectType,
+} from './dto/org-directory/org-directory.dto';
+export {
   documentDownloadReasonCodes,
   documentDownloadReasonCodeSchema,
   documentDownloadReasonQuerySchema,
