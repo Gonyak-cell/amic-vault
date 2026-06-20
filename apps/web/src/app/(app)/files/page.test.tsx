@@ -1,5 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
 import FilesPage from './page';
@@ -35,5 +37,13 @@ describe('FilesPage', () => {
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain('파일 ID');
     expect(html).not.toMatch(/>0</);
+  });
+
+  it('wires upload completion to both all-document and selected-Matter refresh paths', () => {
+    const source = readFileSync(fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'), 'utf8');
+
+    expect(source).toMatch(/setUploadRevision\(\(current\) => current \+ 1\)/);
+    expect(source).toMatch(/<DocumentVaultList refreshKey=\{uploadRevision\} \/>/);
+    expect(source).toMatch(/<MatterDocumentList refreshKey=\{uploadRevision\}/);
   });
 });

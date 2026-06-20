@@ -52,6 +52,10 @@ export interface DocumentVaultFilterState {
   title: string;
 }
 
+export interface DocumentVaultListProps {
+  refreshKey?: number | string;
+}
+
 const emptyDocumentVaultFilters: DocumentVaultFilterState = {
   aiAllowed: '',
   confidentialityLevel: '',
@@ -257,7 +261,7 @@ function countActiveFilters(filters: DocumentVaultFilterState): number {
   ].filter(Boolean).length;
 }
 
-export function DocumentVaultList() {
+export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   const router = useRouter();
   const params = useSearchParams();
   const initialFilters = React.useMemo(() => documentVaultFiltersFromParams(params), [params]);
@@ -289,7 +293,7 @@ export function DocumentVaultList() {
     return () => {
       active = false;
     };
-  }, [filters, page]);
+  }, [filters, page, refreshKey]);
 
   function updateDraftFilter<K extends keyof DocumentVaultFilterState>(
     key: K,

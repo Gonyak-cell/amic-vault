@@ -133,7 +133,7 @@ const requiredPatterns = [
   {
     label: 'DMS upload refresh evidence',
     pattern:
-      /upload refresh key[\s\S]*MatterDocumentList[\s\S]*successful Matter-scoped upload[\s\S]*re-queries the selected Matter file list/is,
+      /upload refresh key[\s\S]*DocumentVaultList[\s\S]*MatterDocumentList[\s\S]*successful Matter-scoped upload[\s\S]*re-queries both the all-documents vault and the selected Matter file list/is,
   },
   {
     label: 'DMS version receipt evidence',
