@@ -35,6 +35,7 @@ describe('RecordsGovernanceClient', () => {
     expect(html).toContain('삭제 금지');
     expect(html).toContain('증명서');
     expect(html).toContain('등록된 보존 정책이 없습니다.');
+    expect(html).not.toContain('고급 참조 입력');
     expect(html).not.toContain('파일 ID');
     expect(html).not.toContain('삭제 금지 ID');
     expect(html).not.toContain('삭제 요청 ID');
@@ -68,8 +69,12 @@ describe('RecordsGovernanceClient', () => {
     expect(html).toContain('보관 처리 준비');
     expect(html).toContain('삭제 요청 준비');
     expect(html).toContain('증명서 확인');
+    expect(html).toContain('작업 대상 선택');
+    expect(html).toContain('대상 Matter');
+    expect(html).toContain('대상 파일');
     expect(html).toContain('보관 처리');
     expect(html).not.toContain('id="records-archive-document-ref"');
+    expect(html).not.toContain('고급 참조 입력');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111201');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111122');
   });
@@ -90,9 +95,12 @@ describe('RecordsGovernanceClient', () => {
     expect(html).toContain('보존 작업 준비');
     expect(html).toContain('AMIC-2026-0008');
     expect(html).toContain('삭제 금지 검토');
+    expect(html).toContain('작업 대상 선택');
+    expect(html).toContain('대상 Matter');
     expect(html).not.toContain('보관 처리 준비');
     expect(html).not.toContain('삭제 요청 준비');
     expect(html).not.toContain('증명서 확인');
+    expect(html).not.toContain('고급 참조 입력');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111122');
   });
 });

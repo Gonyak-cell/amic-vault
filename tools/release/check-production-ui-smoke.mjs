@@ -753,6 +753,9 @@ const recordsActionContextFiles = [
     patterns: [
       { name: 'records context action panel', pattern: /RecordsActionContextPanel/ },
       { name: 'records action readiness title', pattern: /보존 작업 준비/ },
+      { name: 'records Matter Code picker wired', pattern: /MatterCodePicker/ },
+      { name: 'records document picker wired', pattern: /RecordsDocumentPicker/ },
+      { name: 'records target picker copy', pattern: /작업 대상 선택/ },
       { name: 'display-label document context', pattern: /documentContextLabel/ },
       { name: 'display-label matter context', pattern: /matterContextLabel/ },
       { name: 'document-only records actions', pattern: /requiresDocument/ },
@@ -764,6 +767,8 @@ const recordsActionContextFiles = [
     patterns: [
       { name: 'document context records actions test', pattern: /보관 처리 준비/ },
       { name: 'matter-only action scope test', pattern: /matter-only records context/ },
+      { name: 'records target picker test', pattern: /작업 대상 선택/ },
+      { name: 'advanced refs removed test', pattern: /고급 참조 입력/ },
       { name: 'raw record refs hidden test', pattern: /not\.toContain\('11111111-1111-4111/ },
     ],
   },
