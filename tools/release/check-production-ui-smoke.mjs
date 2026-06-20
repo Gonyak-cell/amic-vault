@@ -1093,6 +1093,80 @@ const outlookFilingEvidenceFiles = [
   },
 ];
 
+const officeOneDriveAdrGateFiles = [
+  {
+    path: 'docs/adr/ADR-017-office-onedrive-flow.md',
+    patterns: [
+      { name: 'ADR-017 planning gate status', pattern: /Status: Accepted for planning gate only/ },
+      { name: 'no connected claim before contract', pattern: /must not claim OneDrive is\s+connected/i },
+      { name: 'no Office open save claim before contract', pattern: /Office open\/save is available/i },
+      { name: 'no coauthoring live edit claim before contract', pattern: /coauthoring is available[\s\S]*live edit is\s+available/i },
+      {
+        name: 'required runtime contract axes',
+        pattern: /auth[\s\S]*storage[\s\S]*version[\s\S]*audit[\s\S]*callback[\s\S]*rollback/i,
+      },
+      {
+        name: 'route remains hidden until API ready',
+        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/i,
+      },
+      { name: 'no hard delete rollback invariant', pattern: /no hard\s+delete/i },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/features.ts',
+    patterns: [
+      {
+        name: 'OneDrive hidden until API ready policy',
+        pattern: /route: '\/integrations\/onedrive'[\s\S]*production: 'hidden_until_api_ready'[\s\S]*showInNavigation: false/,
+      },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/page.tsx',
+    patterns: [
+      { name: 'OneDrive gated copy', pattern: /승인 전 숨김/ },
+      { name: 'Office contract gated copy', pattern: /계약 필요/ },
+      { name: 'OneDrive gated card', pattern: /title="OneDrive"[\s\S]*status="승인 전 숨김"[\s\S]*tone="warning"/ },
+      { name: 'Office gated card', pattern: /title="Office 열기\/저장"[\s\S]*status="계약 필요"[\s\S]*tone="warning"/ },
+    ],
+  },
+  {
+    path: 'docs/release/rollback-runbook.md',
+    patterns: [
+      { name: 'Office OneDrive rollback section', pattern: /Office\/OneDrive Gate Rollback/ },
+      {
+        name: 'rollback route hiding',
+        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/,
+      },
+      { name: 'rollback callback job rejection', pattern: /Reject Microsoft callback, sync, or save-back jobs/i },
+      { name: 'rollback token disablement', pattern: /token material/i },
+      { name: 'rollback immutable audit preservation', pattern: /Preserve immutable originals[\s\S]*audit append-only/i },
+    ],
+  },
+  {
+    path: 'docs/ui/production-ui-inventory.md',
+    patterns: [
+      {
+        name: 'production inventory ADR contract',
+        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*auth\/storage\/version\/audit\/callback\/rollback/i,
+      },
+      {
+        name: 'production invariant excludes edit claims',
+        pattern: /Office\/OneDrive production UI[\s\S]*connected[\s\S]*open\/save[\s\S]*coauthoring[\s\S]*live edit[\s\S]*lock[\s\S]*sync success/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/release/enterprise-dms-ui-release-evidence.md',
+    patterns: [
+      { name: 'DMS-GA-605 release bridge', pattern: /DMS-GA-605 Release Evidence Bridge/ },
+      { name: 'Office OneDrive evidence row', pattern: /EV-DMS-UI-004H/ },
+      { name: 'Office OneDrive rollback control', pattern: /DMS-RB-007/ },
+      { name: 'ADR-017 contract approval monitor', pattern: /ADR-017 contract approval/ },
+    ],
+  },
+];
+
 const enterpriseDmsReleaseEvidencePatterns = [
   {
     name: 'refs-only data handling',
@@ -1566,6 +1640,43 @@ function checkOutlookFilingEvidenceGuard() {
   }
 }
 
+function checkOfficeOneDriveAdrGate() {
+  for (const file of officeOneDriveAdrGateFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Office/OneDrive ADR gate production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+    if (file.path === 'apps/web/src/app/(app)/integrations/page.tsx') {
+      assertIntegrationCardHasNoHref(source, 'OneDrive');
+      assertIntegrationCardHasNoHref(source, 'Office 열기/저장');
+      if (/OneDrive 연결됨|Office 연결됨|공동편집 가능|실시간 편집 가능|동기화 실행 중/.test(source)) {
+        fail(`${file.path} must not claim connected OneDrive/Office edit or sync states`);
+      }
+    }
+  }
+}
+
+function assertIntegrationCardHasNoHref(source, title) {
+  const marker = `title="${title}"`;
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex === -1) {
+    fail(`Integration card missing title ${title}`);
+    return;
+  }
+  const cardStart = source.lastIndexOf('<IntegrationCard', markerIndex);
+  const cardEnd = source.indexOf('/>', markerIndex);
+  if (cardStart === -1 || cardEnd === -1) {
+    fail(`Integration card block not found for ${title}`);
+    return;
+  }
+  const cardSource = source.slice(cardStart, cardEnd);
+  if (/\bhref=/.test(cardSource)) {
+    fail(`Integration card ${title} must not link to a connected route before ADR-017 approval`);
+  }
+}
+
 function checkReleaseHardeningGuard() {
   const source = readRequired('docs/ui/enterprise-dms-release-hardening.md');
   for (const { name, pattern } of releaseHardeningPatterns) {
@@ -1636,6 +1747,7 @@ try {
   checkRecordsActionContextGuard();
   checkAdminIntegrationsGuard();
   checkOutlookFilingEvidenceGuard();
+  checkOfficeOneDriveAdrGate();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
   checkPrDCloseoutGuard();
