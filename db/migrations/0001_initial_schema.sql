@@ -118,4 +118,11 @@ REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM vault_app;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM vault_app;
 REVOKE USAGE ON SCHEMA public FROM vault_app;
 
-DROP ROLE IF EXISTS vault_app;
+DO $$
+BEGIN
+  DROP ROLE IF EXISTS vault_app;
+EXCEPTION
+  WHEN dependent_objects_still_exist THEN
+    RAISE NOTICE 'leaving shared role vault_app in place because dependent objects exist';
+END
+$$;
