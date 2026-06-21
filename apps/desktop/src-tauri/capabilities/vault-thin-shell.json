@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "vault-thin-shell",
+  "description": "AMIC Vault thin shell starts with no native capability permissions. Permission, audit, tenant, search, AI, records, and external portal authority remains server-side.",
+  "windows": ["main"],
+  "permissions": []
+}

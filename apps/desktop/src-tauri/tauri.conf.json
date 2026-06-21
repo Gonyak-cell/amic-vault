@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AMIC Vault",
+  "version": "0.0.0",
+  "identifier": "com.amicvault.desktop",
+  "build": {
+    "frontendDist": "desktop-shell",
+    "beforeBuildCommand": "",
+    "beforeDevCommand": "",
+    "devUrl": "http://localhost:3000"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "capabilities": ["vault-thin-shell"],
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "icon": []
+  }
+}

@@ -1,0 +1,193 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use serde::Deserialize;
+use std::{env, fs};
+use url::Url;
+
+const CONFIG_PATH_ENV: &str = "AMIC_VAULT_DESKTOP_ORIGIN_CONFIG";
+const SIGNING_PUBLIC_KEY_B64: &str = "y3uFqTX+HBSpd+fJ7p2RdFjIkkVyvhnKWEGGabCCWmE=";
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OriginConfig {
+    pub schema_version: u8,
+    pub release_channel: String,
+    pub origin_ref: String,
+    pub origin: String,
+    pub signature: String,
+}
+
+impl OriginConfig {
+    pub fn load_from_env() -> Result<Self, String> {
+        let path = env::var(CONFIG_PATH_ENV)
+            .map_err(|_| format!("{CONFIG_PATH_ENV} is required for the desktop shell"))?;
+        let content = fs::read_to_string(&path)
+            .map_err(|error| format!("failed to read origin config: {error}"))?;
+        let config: OriginConfig = serde_json::from_str(&content)
+            .map_err(|error| format!("invalid origin config: {error}"))?;
+        config.verify_signature()?;
+        config.validate_origin()?;
+        Ok(config)
+    }
+
+    pub fn vault_url(&self) -> Result<Url, String> {
+        let mut url = self.validate_origin()?;
+        url.set_path("/dashboard");
+        url.set_query(Some("source=tauri"));
+        url.set_fragment(None);
+        Ok(url)
+    }
+
+    pub fn verify_signature(&self) -> Result<(), String> {
+        if self.schema_version != 1 {
+            return Err("origin config schemaVersion must be 1".to_string());
+        }
+
+        let public_key = STANDARD
+            .decode(SIGNING_PUBLIC_KEY_B64)
+            .map_err(|error| format!("invalid signing public key: {error}"))?;
+        let public_key: [u8; 32] = public_key
+            .try_into()
+            .map_err(|_| "signing public key must be 32 bytes".to_string())?;
+        let verifying_key = VerifyingKey::from_bytes(&public_key)
+            .map_err(|error| format!("invalid public key: {error}"))?;
+
+        let signature = STANDARD
+            .decode(&self.signature)
+            .map_err(|error| format!("invalid config signature: {error}"))?;
+        let signature: [u8; 64] = signature
+            .try_into()
+            .map_err(|_| "config signature must be 64 bytes".to_string())?;
+        let signature = Signature::from_bytes(&signature);
+
+        verifying_key
+            .verify(self.signature_payload().as_bytes(), &signature)
+            .map_err(|_| "origin config signature verification failed".to_string())
+    }
+
+    pub fn validate_origin(&self) -> Result<Url, String> {
+        validate_origin_ref(&self.origin_ref)?;
+        let url =
+            Url::parse(&self.origin).map_err(|error| format!("invalid origin URL: {error}"))?;
+        if !url.username().is_empty() || url.password().is_some() {
+            return Err("origin URL must not contain credentials".to_string());
+        }
+        if url.query().is_some() || url.fragment().is_some() {
+            return Err("origin URL must not contain query or fragment".to_string());
+        }
+        if url.path() != "/" {
+            return Err("origin URL must be an origin, not an application path".to_string());
+        }
+
+        match self.release_channel.as_str() {
+            "local" => {
+                if self.origin_ref != "LOCAL-DEV" {
+                    return Err("local origin config must use LOCAL-DEV originRef".to_string());
+                }
+                if !is_local_http_origin(&url) {
+                    return Err(
+                        "local origin must be http://localhost:<port> or http://127.0.0.1:<port>"
+                            .to_string(),
+                    );
+                }
+            }
+            "staging" => {
+                if !self.origin_ref.starts_with("STAGE-") {
+                    return Err("staging originRef must start with STAGE-".to_string());
+                }
+                require_https(&url, "staging")?;
+            }
+            "production" => {
+                if !self.origin_ref.starts_with("PROD-") {
+                    return Err("production originRef must start with PROD-".to_string());
+                }
+                require_https(&url, "production")?;
+            }
+            _ => return Err("releaseChannel must be local, staging, or production".to_string()),
+        }
+
+        Ok(url)
+    }
+
+    fn signature_payload(&self) -> String {
+        format!(
+            "schemaVersion={}\nreleaseChannel={}\noriginRef={}\norigin={}\n",
+            self.schema_version, self.release_channel, self.origin_ref, self.origin
+        )
+    }
+}
+
+fn validate_origin_ref(origin_ref: &str) -> Result<(), String> {
+    if !(2..=120).contains(&origin_ref.len()) {
+        return Err("originRef length is outside the allowed range".to_string());
+    }
+    if !origin_ref.chars().all(|character| {
+        character.is_ascii_uppercase()
+            || character.is_ascii_digit()
+            || matches!(character, '-' | '_' | '.' | '/')
+    }) {
+        return Err("originRef contains unsupported characters".to_string());
+    }
+    Ok(())
+}
+
+fn is_local_http_origin(url: &Url) -> bool {
+    if url.scheme() != "http" {
+        return false;
+    }
+    matches!(url.host_str(), Some("localhost" | "127.0.0.1")) && url.port().is_some()
+}
+
+fn require_https(url: &Url, channel: &str) -> Result<(), String> {
+    if url.scheme() != "https" {
+        return Err(format!("{channel} origin must use https"));
+    }
+    if matches!(url.host_str(), Some("localhost" | "127.0.0.1") | None) {
+        return Err(format!("{channel} origin must not be local"));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::OriginConfig;
+
+    fn signed_local_config() -> OriginConfig {
+        OriginConfig {
+      schema_version: 1,
+      release_channel: "local".to_string(),
+      origin_ref: "LOCAL-DEV".to_string(),
+      origin: "http://localhost:3000".to_string(),
+      signature: "mimOyA6lbi+9Gsh9rvcNLy+I9+s3KtoqH0VnvbzHAYHIiPnB03cDVZI2G1hT6BulcKuxydGhVYkmCL0nIK7mDQ=="
+        .to_string(),
+    }
+    }
+
+    #[test]
+    fn accepts_signed_local_origin() {
+        let config = signed_local_config();
+        config.verify_signature().expect("signature should verify");
+        assert_eq!(
+            config.vault_url().expect("origin should validate").as_str(),
+            "http://localhost:3000/dashboard?source=tauri"
+        );
+    }
+
+    #[test]
+    fn rejects_unsigned_or_tampered_origin() {
+        let mut config = signed_local_config();
+        config.origin = "http://localhost:3100".to_string();
+        assert!(config.verify_signature().is_err());
+    }
+
+    #[test]
+    fn rejects_http_staging_origin() {
+        let config = OriginConfig {
+            release_channel: "staging".to_string(),
+            origin_ref: "STAGE-TEMP-TARGET-AWS-001".to_string(),
+            origin: "http://example.invalid".to_string(),
+            ..signed_local_config()
+        };
+        assert!(config.validate_origin().is_err());
+    }
+}

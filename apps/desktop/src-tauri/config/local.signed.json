@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "releaseChannel": "local",
+  "originRef": "LOCAL-DEV",
+  "origin": "http://localhost:3000",
+  "signature": "mimOyA6lbi+9Gsh9rvcNLy+I9+s3KtoqH0VnvbzHAYHIiPnB03cDVZI2G1hT6BulcKuxydGhVYkmCL0nIK7mDQ=="
+}
