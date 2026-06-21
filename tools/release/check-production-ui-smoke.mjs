@@ -662,12 +662,27 @@ const governanceWorkflowOpsFiles = [
         pattern: /ai_prep'\) return '\/files\?aiAllowed=true&sortBy=matter_asc'/,
       },
       { name: 'integration notification route', pattern: /integration'\) return '\/integrations\/outlook'/ },
+      { name: 'records notification route', pattern: /records'\) return '\/records'/ },
+      {
+        name: 'operational notification route',
+        pattern: /operational_data'\) return '\/files\?sortBy=updated_desc'/,
+      },
     ],
   },
   {
-    path: 'apps/api/src/modules/dashboard/dashboard.controller.ts',
+    path: 'apps/api/src/modules/notifications/notifications.controller.ts',
     patterns: [
       { name: 'notifications endpoint', pattern: /@Controller\('notifications'\)[\s\S]*@Get\(\)/ },
+      { name: 'notification read endpoint', pattern: /@Patch\(':itemKey\/read'\)/ },
+      { name: 'notification dismiss endpoint', pattern: /@Patch\(':itemKey\/dismiss'\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/notifications/notifications.service.ts',
+    patterns: [
+      { name: 'persisted notifications source', pattern: /source: 'persisted_notifications'/ },
+      { name: 'notification table query', pattern: /FROM notifications n/ },
+      { name: 'notification materialization', pattern: /INSERT INTO notifications/ },
     ],
   },
   {

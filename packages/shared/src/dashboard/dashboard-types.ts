@@ -117,9 +117,14 @@ export const dmsNotificationSourceSchema = z.enum([
   'permission_policy',
   'ai_prep',
   'integration',
+  'operational_data',
+  'records',
   'recent_activity',
 ]);
 export type DmsNotificationSource = z.infer<typeof dmsNotificationSourceSchema>;
+
+export const dmsNotificationStatusSchema = z.enum(['unread', 'read']);
+export type DmsNotificationStatus = z.infer<typeof dmsNotificationStatusSchema>;
 
 export const dmsNotificationItemSchema = z
   .object({
@@ -129,6 +134,9 @@ export const dmsNotificationItemSchema = z
     title: z.string().min(1).max(160),
     description: z.string().min(1).max(500),
     tone: dmsOperationalToneSchema,
+    href: z.string().min(1).max(500).optional(),
+    status: dmsNotificationStatusSchema.optional(),
+    statusLabel: z.string().min(1).max(120).optional(),
     occurredAt: z.string().datetime({ offset: true }).optional(),
   })
   .strict();
@@ -137,7 +145,7 @@ export type DmsNotificationItemDto = z.infer<typeof dmsNotificationItemSchema>;
 export const dmsNotificationCenterResponseSchema = z
   .object({
     generatedAt: z.string().datetime({ offset: true }),
-    source: z.literal('dashboard_operational_state'),
+    source: z.enum(['dashboard_operational_state', 'persisted_notifications']),
     items: z.array(dmsNotificationItemSchema).max(20),
   })
   .strict();
