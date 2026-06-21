@@ -1194,6 +1194,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
       /EV-DMS-UI-004G[\s\S]*Outlook filing path evidence guard[\s\S]*Matter Code suggestions[\s\S]*PermissionService\.canUploadToMatter[\s\S]*raw email body evidence[\s\S]*permitted Matter documents with safe labels/i,
   },
   {
+    name: 'DMS reindex monitor evidence guard',
+    pattern:
+      /DMS-GA-305\/DMS-GA-701 Release Evidence Bridge[\s\S]*EV-DMS-UI-005B[\s\S]*SEARCH_REINDEX_REQUESTED[\s\S]*MON-DMS-003B-REINDEX-QUEUE-AGE[\s\S]*MON-DMS-003C-REINDEX-FAILURE-RATE/i,
+  },
+  {
     name: 'DMS-UX-809 rollout matrix',
     pattern:
       /DMS-UX-809 Rollout Checklist[\s\S]*Matter Code selection before upload[\s\S]*Upload and post-upload processing state[\s\S]*Matter-scoped file list[\s\S]*Title\/body\/metadata search[\s\S]*AI Prep remains file organization prep only/i,
@@ -1206,7 +1211,7 @@ const enterpriseDmsReleaseEvidencePatterns = [
   {
     name: 'DMS-UX-811 monitor matrix',
     pattern:
-      /DMS-UX-811 Production Monitor[\s\S]*Upload failure rate[\s\S]*Extraction\/OCR[\s\S]*Search latency[\s\S]*Permission denied[\s\S]*AI prep queue[\s\S]*Audit write failures[\s\S]*Storage write\/read failures/i,
+      /DMS-UX-811 Production Monitor[\s\S]*MON-DMS-001A-UPLOAD-FAILURE-RATE[\s\S]*MON-DMS-002A-EXTRACTION-PENDING-AGE[\s\S]*MON-DMS-003B-REINDEX-QUEUE-AGE[\s\S]*MON-DMS-004A-PERMISSION-DENIED-SPIKE[\s\S]*MON-DMS-005A-AI-PREP-PENDING-AGE[\s\S]*MON-DMS-006A-AUDIT-WRITE-FAILURE[\s\S]*MON-DMS-007A-STORAGE-WRITE-FAILURE[\s\S]*MON-DMS-008A-MATTER-SOURCE-HEALTH/i,
   },
   {
     name: 'deferred item owner and follow-up TUW',

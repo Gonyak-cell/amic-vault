@@ -11,6 +11,9 @@ const requiredFiles = [
   'docs/release/launch-control-sheet.md',
   'docs/release/production-release-runbook.md',
   'docs/release/launch-blocker-ledger.md',
+  'docs/release/enterprise-dms-ui-release-evidence.md',
+  'docs/release/enterprise-dms-monitor-map.md',
+  'docs/release/production-ui-rollout-checklist.md',
   'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md',
   'docs/release/local-ai-production-enablement-runbook.md',
 ];
@@ -180,6 +183,41 @@ assertContains(
   contents.get('docs/release/local-ai-production-enablement-runbook.md'),
   'FILE ORGANIZATION PREP FULL RELEASE ACTIVE',
   'docs/release/local-ai-production-enablement-runbook.md',
+);
+const dmsEvidence = contents.get('docs/release/enterprise-dms-ui-release-evidence.md');
+for (const expected of [
+  'DMS-GA-305/DMS-GA-701 Release Evidence Bridge',
+  'EV-DMS-UI-005B',
+  'MON-DMS-001A-UPLOAD-FAILURE-RATE',
+  'MON-DMS-003B-REINDEX-QUEUE-AGE',
+  'MON-DMS-003C-REINDEX-FAILURE-RATE',
+  'MON-DMS-008C-OFFICE-ONEDRIVE-CLAIM-GATE',
+]) {
+  assertContains(dmsEvidence, expected, 'docs/release/enterprise-dms-ui-release-evidence.md');
+}
+const dmsMonitorMap = contents.get('docs/release/enterprise-dms-monitor-map.md');
+for (const expected of [
+  'Status: REQUIRED BEFORE DMS PRODUCTION SIGNOFF - EXTERNAL REFS ONLY',
+  'DMS-GA-305 Reindex Evidence Contract',
+  'REINDEX-DMS-001',
+  'REINDEX-DMS-002',
+  'REINDEX-DMS-005',
+  'DMS-MON-001',
+  'DMS-MON-002',
+  'DMS-MON-003',
+  'DMS-MON-004',
+  'DMS-MON-005',
+  'DMS-MON-006',
+  'DMS-MON-007',
+  'DMS-MON-008',
+  'Missing query refs are not a code failure, but they are a release blocker.',
+]) {
+  assertContains(dmsMonitorMap, expected, 'docs/release/enterprise-dms-monitor-map.md');
+}
+assertContains(
+  contents.get('docs/release/production-ui-rollout-checklist.md'),
+  'MON-DMS-001*',
+  'docs/release/production-ui-rollout-checklist.md',
 );
 assertContains(
   contents.get('docs/release/evidence-register.md'),
