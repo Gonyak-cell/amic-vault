@@ -82,6 +82,8 @@ describe('WorkService', () => {
     });
     expect(queries.some((sql) => sql.includes('FROM matter_members mm'))).toBe(true);
     expect(queries.some((sql) => sql.includes('INSERT INTO work_items'))).toBe(true);
+    const workItemsSql = queries.find((sql) => sql.includes('FROM work_items wi'));
+    expect(workItemsSql).toContain("CASE WHEN wi.source = 'records' THEN 0 ELSE 1 END");
     expect(JSON.stringify(response)).not.toMatch(
       /workItemId|documentId|matterId|targetId|11111111-1111-4111-8111-1111111111aa/u,
     );

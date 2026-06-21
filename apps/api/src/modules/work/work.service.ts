@@ -457,7 +457,11 @@ export class WorkService {
             OR (wi.target_type = 'document' AND d.document_id IS NOT NULL)
           )
           AND (${matterFilter.sql})
-        ORDER BY wi.due_at ASC, wi.updated_at DESC, wi.work_item_id
+        ORDER BY
+          CASE WHEN wi.source = 'records' THEN 0 ELSE 1 END,
+          wi.due_at ASC,
+          wi.updated_at DESC,
+          wi.work_item_id
         LIMIT 20
       `,
       [actor.tenantId, actor.userId, canViewRecordsAdmin, ...matterFilter.params],
