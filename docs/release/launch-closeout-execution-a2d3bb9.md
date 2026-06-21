@@ -1,6 +1,6 @@
 # Launch Closeout Execution - a2d3bb9
 
-Status: TECHNICAL-READY / EXTERNAL-DMS-AND-PRODUCTION-SIGNOFF-HOLD
+Status: TECHNICAL-READY / EXTERNAL-EVIDENCE-REQUIRED-BEFORE-PROMOTION
 
 Execution date: 2026-06-22 Asia/Seoul
 
@@ -64,7 +64,7 @@ customer document content is committed in this record.
 
 | Gate | Result | Notes |
 | --- | --- | --- |
-| `pnpm release:dms-smoke -- --check-env --json` | HOLD | Exit 1. `releaseSha` was `a2d3bb9bbdf2`; pass=2 fail=4. Required external target and credentials are not in the repo/session. |
+| `pnpm release:dms-smoke -- --check-env --json` | MISSING-ENV | Exit 1. `releaseSha` was `a2d3bb9bbdf2`; pass=2 fail=4. Required external target and credentials are not in the repo/session. |
 | `pnpm release:dms-smoke -- --check-env --local --json` | PASS | Local-dev/synthetic mode passed; pass=6 fail=0 for `a2d3bb9bbdf2`. This does not replace external authenticated DMS smoke. |
 | `DMS_SMOKE_ALLOW_INDEX_PENDING=0` policy check | PASS | Production DMS GA must not rely on index-pending bypass. |
 
@@ -90,8 +90,8 @@ The required DMS owner/evidence refs also remain external:
 
 ## Lane Boundaries
 
-Desktop native distribution remains HOLD even though repo-local desktop gates
-passed. Production desktop distribution still requires artifact digest,
+Desktop native distribution is not yet authorized even though repo-local desktop
+gates passed. Production desktop distribution still requires artifact digest,
 signature/notarization evidence where applicable, trusted update origin evidence,
 customer IT acceptance, rollback reference, and a separate desktop release
 approval.
