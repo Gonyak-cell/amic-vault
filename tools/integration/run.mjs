@@ -3,7 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const filters = process.argv.slice(2).filter((filter) => filter !== '--');
+const filterAliases = new Map([['matter-member', 'matter-team']]);
+const filters = process.argv
+  .slice(2)
+  .filter((filter) => filter !== '--')
+  .map((filter) => filterAliases.get(filter) ?? filter);
 
 const domainBuild = spawnSync('pnpm', ['--filter', '@amic-vault/domain', 'build'], {
   stdio: 'inherit',
@@ -59,7 +63,15 @@ if (specs.length === 0) {
   process.exit(1);
 }
 
+const integrationEnv = {
+  ...process.env,
+  MATTER_APP_SOURCE_CONFIGURED: process.env.MATTER_APP_SOURCE_CONFIGURED ?? 'true',
+  MATTER_APP_RUNTIME_READY: process.env.MATTER_APP_RUNTIME_READY ?? 'true',
+  MATTER_APP_SOURCE_MODE: process.env.MATTER_APP_SOURCE_MODE ?? 'matter_app_event_projection',
+};
+
 const result = spawnSync('pnpm', ['exec', 'vitest', 'run', '--no-file-parallelism', ...specs], {
+  env: integrationEnv,
   stdio: 'inherit',
 });
 

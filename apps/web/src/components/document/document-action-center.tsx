@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -13,6 +14,7 @@ import {
   FileText,
   History,
   Link2,
+  Mail,
   Pencil,
   RefreshCw,
   Save,
@@ -22,19 +24,21 @@ import {
   X,
 } from 'lucide-react';
 import type {
+  AddDocumentVersionResponseDto,
   AiPrepDocumentStatusDto,
   DocumentAuditEventDto,
   DocumentConfidentialityLevel,
   DocumentDownloadReasonCode,
   DocumentDto,
+  EnterpriseApprovedDmsTaxonomyDto,
   DocumentType,
   DocumentVersionDto,
+  EmailMatterFilingDto,
   SearchTarget,
 } from '@amic-vault/shared';
 import {
   documentConfidentialityLevels,
   documentDownloadReasonCodes,
-  documentTypes,
 } from '@amic-vault/shared';
 import { AiPrepStatusPanel } from '@/components/ai/ai-prep-status-panel';
 import { DocumentAuditTimeline } from '@/components/document/document-audit-timeline';
@@ -63,21 +67,33 @@ import {
   documentPreviewUrl,
   getDocument,
   listDocumentVersions,
+  listMatterEmailTimeline,
+  listMatterDocuments,
   updateDocumentMetadata,
 } from '@/lib/api-client';
 import { getDocumentAiPrepStatus } from '@/lib/api/ai-prep';
+import { listApprovedEnterpriseDmsTaxonomies } from '@/lib/api/enterprise';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import {
+  approvedDocumentTypeLabel,
+  approvedDocumentTypeOptions,
+  approvedSubtypeOptions,
+} from '@/lib/dms-taxonomy';
 
 interface DocumentActionCenterProps {
   documentId: string;
   disableInitialLoad?: boolean;
   initialAuditEvents?: DocumentAuditEventDto[];
   initialDocument?: DocumentDto;
+  initialRelatedEmails?: EmailMatterFilingDto[];
+  initialRelatedDocuments?: DocumentDto[];
+  initialTaxonomyCatalog?: EnterpriseApprovedDmsTaxonomyDto[];
   initialVersions?: DocumentVersionDto[];
   searchHitContext?: DocumentSearchHitContext | null;
 }
 
 export interface DocumentSearchHitContext {
+  anchorId?: string;
   hitCount: number;
   hitIndex: number;
   source: 'search';
@@ -94,6 +110,24 @@ interface ProfileDraft {
 interface QueueItem {
   title: string;
   description: string;
+  tone: StatusBadgeTone;
+}
+
+interface ActionHierarchyItem {
+  title: string;
+  description: string;
+  status: string;
+  tone: StatusBadgeTone;
+}
+
+type RecordsActionTab = 'holds' | 'archive' | 'disposal';
+
+interface RecordsActionRow {
+  buttonLabel: string;
+  description: string;
+  tab: RecordsActionTab;
+  title: string;
+  readiness: string;
   tone: StatusBadgeTone;
 }
 
@@ -166,6 +200,91 @@ function fileCabinetUrlForDocument(document: DocumentDto): string {
   return queryString ? `/files?${queryString}` : '/files';
 }
 
+function actionHierarchyItems(document: DocumentDto): ActionHierarchyItem[] {
+  return [
+    {
+      title: '검토',
+      description: '권한 확인 후 미리보기와 문서 감사 타임라인을 먼저 확인합니다.',
+      status: document.extractionStatus === 'ready' ? '미리보기 준비' : '서버 상태 확인',
+      tone: statusTone(document.extractionStatus ?? 'pending'),
+    },
+    {
+      title: '감사 다운로드',
+      description: '다운로드는 사유를 선택한 뒤 감사 대상 작업으로 실행합니다.',
+      status: '사유 필수',
+      tone: 'success',
+    },
+    {
+      title: '프로필 메타데이터',
+      description: '제목, 유형, 세부 유형, 보안 등급만 문서 메타데이터로 수정합니다.',
+      status: document.status === 'archived' ? '보관 상태' : '수정 가능',
+      tone: document.status === 'archived' ? 'warning' : 'neutral',
+    },
+    {
+      title: '버전 및 Records',
+      description: '새 파일은 원본을 덮어쓰지 않고 새 버전으로 추가하며 Records 흐름은 별도 검토합니다.',
+      status: document.legalHold ? '보존 적용' : '보존 확인',
+      tone: document.legalHold ? 'warning' : 'neutral',
+    },
+  ];
+}
+
+function recordsActionRows(document: DocumentDto): RecordsActionRow[] {
+  return [
+    {
+      buttonLabel: document.legalHold ? '보존 상태 열기' : '보존 검토',
+      description: document.legalHold
+        ? 'Legal Hold가 적용되어 폐기 흐름에서 차단됩니다.'
+        : '필요 시 Records 화면에서 보존 적용을 검토합니다.',
+      readiness: document.legalHold ? '적용 중' : '신청 가능',
+      tab: 'holds',
+      title: 'Legal Hold',
+      tone: document.legalHold ? 'warning' : 'neutral',
+    },
+    {
+      buttonLabel: '보관 처리',
+      description:
+        document.status === 'archived'
+          ? '이미 보관 상태입니다. 기록 화면에서 보관 근거를 확인합니다.'
+          : '보관 전환은 Records 화면에서 권한과 정책을 다시 확인합니다.',
+      readiness: document.status === 'archived' ? '보관됨' : '보관 준비',
+      tab: 'archive',
+      title: 'Archive',
+      tone: document.status === 'archived' ? 'success' : 'neutral',
+    },
+    {
+      buttonLabel: '폐기 검토',
+      description: document.legalHold
+        ? 'Legal Hold 적용 중에는 폐기 검토를 진행할 수 없습니다.'
+        : '폐기는 Records 정책, 보관 상태, 권한을 통과한 뒤 별도로 검토됩니다.',
+      readiness: document.legalHold ? '보존으로 차단' : '검토 필요',
+      tab: 'disposal',
+      title: 'Disposal',
+      tone: document.legalHold ? 'blocked' : 'warning',
+    },
+  ];
+}
+
+export function relatedMatterDocuments(
+  documents: DocumentDto[],
+  currentDocumentId: string,
+  limit = 5,
+): DocumentDto[] {
+  return documents
+    .filter((document) => document.documentId !== currentDocumentId)
+    .slice(0, limit);
+}
+
+export function relatedMatterEmails(
+  emails: readonly EmailMatterFilingDto[],
+  currentDocumentId: string,
+  limit = 5,
+): EmailMatterFilingDto[] {
+  return emails
+    .filter((email) => email.documentIds.includes(currentDocumentId))
+    .slice(0, limit);
+}
+
 export function searchHitContextFromParams(params: {
   get(name: string): string | null;
 }): DocumentSearchHitContext | null {
@@ -173,7 +292,9 @@ export function searchHitContextFromParams(params: {
   const target = parseSearchTarget(params.get('target'));
   const hitCount = boundedInteger(params.get('hitCount'), 0, 50);
   const hitIndex = hitCount > 0 ? boundedInteger(params.get('hit'), 1, hitCount) : 0;
+  const anchorId = parsePreviewAnchorId(params.get('anchor'));
   return {
+    ...(anchorId ? { anchorId } : {}),
     hitCount,
     hitIndex,
     source: 'search',
@@ -191,6 +312,15 @@ function boundedInteger(value: string | null, min: number, max: number): number 
   return Math.max(min, Math.min(max, parsed));
 }
 
+function parsePreviewAnchorId(value: string | null): string | undefined {
+  if (!value) return undefined;
+  return /^vph-([1-9]|[1-4][0-9]|50)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)$/.test(
+    value,
+  )
+    ? value
+    : undefined;
+}
+
 function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitContext): string {
   const params = new URLSearchParams();
   params.set('from', 'search');
@@ -198,8 +328,15 @@ function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitC
   if (context.hitCount > 0) {
     params.set('hit', String(context.hitIndex));
     params.set('hitCount', String(context.hitCount));
+    if (context.anchorId) params.set('anchor', context.anchorId);
   }
   return `/documents/${encodeURIComponent(documentId)}?${params.toString()}`;
+}
+
+export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto): string {
+  const duplicateMessage =
+    result.duplicates.length > 0 ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.` : '';
+  return `v${result.versionNo} 새 버전이 추가되었습니다. 버전 목록, 감사 타임라인, 파일 정리 준비 상태를 갱신했습니다.${duplicateMessage}`;
 }
 
 function previewUrlForDocument(
@@ -209,6 +346,7 @@ function previewUrlForDocument(
   if (!context || context.hitCount < 1) return documentPreviewUrl(documentId);
   return documentPreviewUrl(documentId, {
     searchHit: {
+      ...(context.anchorId ? { anchorId: context.anchorId } : {}),
       hitCount: context.hitCount,
       hitIndex: context.hitIndex,
       target: context.target,
@@ -266,8 +404,10 @@ function SearchHitContextPanel({
             <Button asChild size="sm" variant="outline">
               <Link
                 href={searchHitUrlForDocument(documentId, {
-                  ...context,
+                  hitCount: context.hitCount,
                   hitIndex: previousIndex,
+                  source: context.source,
+                  target: context.target,
                 })}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -284,8 +424,10 @@ function SearchHitContextPanel({
             <Button asChild size="sm" variant="outline">
               <Link
                 href={searchHitUrlForDocument(documentId, {
-                  ...context,
+                  hitCount: context.hitCount,
                   hitIndex: nextIndex,
+                  source: context.source,
+                  target: context.target,
                 })}
               >
                 다음 hit
@@ -307,6 +449,33 @@ function SearchHitContextPanel({
   );
 }
 
+function DocumentActionHierarchyPanel({ document }: { document: DocumentDto }) {
+  return (
+    <SectionCard
+      icon={<ShieldCheck className="h-4 w-4" />}
+      title="작업 우선순위"
+      meta="읽기/다운로드 전용"
+    >
+      <div className="grid gap-2 md:grid-cols-2">
+        {actionHierarchyItems(document).map((item) => (
+          <div key={item.title} className="rounded-md border bg-background px-3 py-2.5">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <h3 className="truncate text-sm font-semibold text-foreground">{item.title}</h3>
+              <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{item.description}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 rounded-md border bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+        현재 문서 화면은 미리보기, 사유 기반 다운로드, 프로필 메타데이터 수정, 새 버전 추가를
+        지원합니다. 원본 파일을 직접 수정하는 작업은 별도 승인된 편집 계약 전까지 노출하지
+        않습니다.
+      </div>
+    </SectionCard>
+  );
+}
+
 function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
   if (versions.length === 0) {
     return <DataTableEmptyRow colSpan={4}>표시할 버전이 없습니다.</DataTableEmptyRow>;
@@ -322,6 +491,164 @@ function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
       <DataTableCell>{version.supersedesVersionId ? '이전 버전 보존' : '최초 버전'}</DataTableCell>
     </DataTableRow>
   ));
+}
+
+function RelatedDocumentsPanel({
+  currentDocument,
+  documents,
+  errorMessage,
+  isLoading,
+  taxonomyCatalog,
+}: {
+  currentDocument: DocumentDto;
+  documents: DocumentDto[];
+  errorMessage: string | null;
+  isLoading: boolean;
+  taxonomyCatalog: EnterpriseApprovedDmsTaxonomyDto[];
+}) {
+  const matterCode = currentDocument.matterDisplayCode?.trim();
+  const matterName = currentDocument.matterDisplayName?.trim();
+  const sectionMeta = matterCode || matterName || 'Matter 범위';
+
+  return (
+    <SectionCard
+      icon={<Link2 className="h-4 w-4" />}
+      title="관련 문서"
+      meta={sectionMeta}
+      actions={
+        <StatusBadge tone={isLoading ? 'warning' : 'neutral'}>
+          {isLoading ? '확인 중' : `${documents.length}건`}
+        </StatusBadge>
+      }
+    >
+      {errorMessage ? (
+        <EmptyState
+          variant="api-error"
+          title="관련 문서를 표시할 수 없습니다."
+          description={errorMessage}
+        />
+      ) : null}
+
+      {!errorMessage && isLoading ? (
+        <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+          같은 Matter에서 권한이 확인된 관련 문서를 확인하는 중입니다.
+        </div>
+      ) : null}
+
+      {!errorMessage && !isLoading && documents.length === 0 ? (
+        <EmptyState
+          variant="no-data"
+          title="관련 문서가 없습니다."
+          description="현재 권한으로 확인되는 같은 Matter 문서가 없습니다."
+        />
+      ) : null}
+
+      {!errorMessage && !isLoading && documents.length > 0 ? (
+        <ul className="divide-y rounded-md border bg-background">
+          {documents.map((relatedDocument) => (
+            <li key={relatedDocument.documentId} className="px-3 py-2.5">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <Link
+                  href={`/documents/${relatedDocument.documentId}`}
+                  className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline"
+                >
+                  {relatedDocument.title}
+                </Link>
+                <StatusBadge tone={statusTone(relatedDocument.status)}>
+                  {relatedDocument.status}
+                </StatusBadge>
+              </div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                동일 Matter에서 권한이 확인된 문서 ·{' '}
+                {approvedDocumentTypeLabel(
+                  relatedDocument.documentType,
+                  typeLabels,
+                  taxonomyCatalog,
+                )}{' '}
+                ·{' '}
+                {formatDateTime(relatedDocument.updatedAt)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </SectionCard>
+  );
+}
+
+function RelatedEmailsPanel({
+  emails,
+  errorMessage,
+  isLoading,
+}: {
+  emails: EmailMatterFilingDto[];
+  errorMessage: string | null;
+  isLoading: boolean;
+}) {
+  return (
+    <SectionCard
+      icon={<Mail className="h-4 w-4" />}
+      title="관련 이메일"
+      meta="Matter 이메일 타임라인"
+      actions={
+        <StatusBadge tone={isLoading ? 'warning' : 'neutral'}>
+          {isLoading ? '확인 중' : `${emails.length}건`}
+        </StatusBadge>
+      }
+    >
+      {errorMessage ? (
+        <EmptyState
+          variant="api-error"
+          title="관련 이메일을 표시할 수 없습니다."
+          description={errorMessage}
+        />
+      ) : null}
+
+      {!errorMessage && isLoading ? (
+        <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+          현재 문서와 연결된 Matter 이메일을 확인하는 중입니다.
+        </div>
+      ) : null}
+
+      {!errorMessage && !isLoading && emails.length === 0 ? (
+        <EmptyState
+          variant="no-data"
+          title="관련 이메일이 없습니다."
+          description="현재 문서에 연결된 Matter 이메일이 없습니다."
+        />
+      ) : null}
+
+      {!errorMessage && !isLoading && emails.length > 0 ? (
+        <ul className="divide-y rounded-md border bg-background">
+          {emails.map((email) => (
+            <li key={email.filingId} className="px-3 py-2.5">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {email.subject ?? '표시 가능한 제목 없음'}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>보관 {formatDateTime(email.filedAt)}</span>
+                <span>문서 {email.documentIds.length}건</span>
+                <span>관련 이메일 {email.thread.relatedEmailCount}건</span>
+                {email.hasOutsideParticipants ? (
+                  <StatusBadge tone="warning" className="min-h-6 gap-1 px-2">
+                    <AlertTriangle className="h-3 w-3" />
+                    외부 참여자
+                  </StatusBadge>
+                ) : null}
+                {email.privilegeTagSuggestion ? (
+                  <StatusBadge tone="success" className="min-h-6">
+                    {email.privilegeTagSuggestion.tag === 'attorney_client_privilege'
+                      ? '비밀특권 후보'
+                      : '기밀 후보'}
+                  </StatusBadge>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </SectionCard>
+  );
 }
 
 function uploadQueueItems(
@@ -374,11 +701,24 @@ export function DocumentActionCenter({
   documentId,
   initialAuditEvents = [],
   initialDocument,
+  initialRelatedEmails = [],
+  initialRelatedDocuments = [],
+  initialTaxonomyCatalog = [],
   initialVersions = [],
   searchHitContext = null,
 }: DocumentActionCenterProps) {
   const [document, setDocument] = useState<DocumentDto | null>(initialDocument ?? null);
   const [versions, setVersions] = useState<DocumentVersionDto[]>(initialVersions);
+  const [relatedDocuments, setRelatedDocuments] = useState<DocumentDto[]>(() =>
+    relatedMatterDocuments(initialRelatedDocuments, documentId),
+  );
+  const [relatedDocumentsLoading, setRelatedDocumentsLoading] = useState(false);
+  const [relatedDocumentsError, setRelatedDocumentsError] = useState<string | null>(null);
+  const [relatedEmails, setRelatedEmails] = useState<EmailMatterFilingDto[]>(() =>
+    relatedMatterEmails(initialRelatedEmails, documentId),
+  );
+  const [relatedEmailsLoading, setRelatedEmailsLoading] = useState(false);
+  const [relatedEmailsError, setRelatedEmailsError] = useState<string | null>(null);
   const [prepStatus, setPrepStatus] = useState<AiPrepDocumentStatusDto | null>(null);
   const [loading, setLoading] = useState(!initialDocument);
   const [error, setError] = useState<string | null>(null);
@@ -392,8 +732,33 @@ export function DocumentActionCenter({
   const [versionFile, setVersionFile] = useState<File | null>(null);
   const [versionSaving, setVersionSaving] = useState(false);
   const [versionError, setVersionError] = useState<string | null>(null);
+  const [versionSuccessMessage, setVersionSuccessMessage] = useState<string | null>(null);
   const [versionInputKey, setVersionInputKey] = useState(0);
+  const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const [downloadReason, setDownloadReason] = useState<DocumentDownloadReasonCode>('casework');
+  const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>(
+    initialTaxonomyCatalog,
+  );
+  const subtypeListId = useId();
+  const documentTypeOptions = useMemo(
+    () => approvedDocumentTypeOptions(typeLabels, taxonomyCatalog),
+    [taxonomyCatalog],
+  );
+  const profileSubtypeOptions = useMemo(
+    () => (profileDraft ? approvedSubtypeOptions(profileDraft.documentType, taxonomyCatalog) : []),
+    [profileDraft, taxonomyCatalog],
+  );
+
+  const refreshPrepStatus = useCallback(async () => {
+    try {
+      const result = await getDocumentAiPrepStatus(documentId);
+      setPrepStatus(result);
+      setPrepError(null);
+    } catch (caught) {
+      setPrepStatus(null);
+      setPrepError(safeApiErrorMessage(caught));
+    }
+  }, [documentId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -415,21 +780,93 @@ export function DocumentActionCenter({
       setLoading(false);
     }
 
-    getDocumentAiPrepStatus(documentId)
-      .then((result) => {
-        setPrepStatus(result);
-        setPrepError(null);
-      })
-      .catch((caught) => {
-        setPrepStatus(null);
-        setPrepError(safeApiErrorMessage(caught));
-      });
-  }, [documentId]);
+    void refreshPrepStatus();
+  }, [documentId, refreshPrepStatus]);
 
   useEffect(() => {
     if (disableInitialLoad) return;
     void load();
   }, [disableInitialLoad, load]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    let active = true;
+    listApprovedEnterpriseDmsTaxonomies()
+      .then((catalog) => {
+        if (active) setTaxonomyCatalog(catalog.taxonomies);
+      })
+      .catch(() => {
+        if (active) setTaxonomyCatalog([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [disableInitialLoad]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    if (!document) {
+      setRelatedDocuments([]);
+      setRelatedDocumentsError(null);
+      setRelatedDocumentsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setRelatedDocuments([]);
+    setRelatedDocumentsError(null);
+    setRelatedDocumentsLoading(true);
+    listMatterDocuments(document.matterId, {
+      pageSize: 6,
+      sortBy: 'updated_desc',
+    })
+      .then((response) => {
+        if (active) setRelatedDocuments(relatedMatterDocuments(response.items, document.documentId));
+      })
+      .catch((caught) => {
+        if (!active) return;
+        setRelatedDocuments([]);
+        setRelatedDocumentsError(safeApiErrorMessage(caught));
+      })
+      .finally(() => {
+        if (active) setRelatedDocumentsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [disableInitialLoad, document]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    if (!document) {
+      setRelatedEmails([]);
+      setRelatedEmailsError(null);
+      setRelatedEmailsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setRelatedEmails([]);
+    setRelatedEmailsError(null);
+    setRelatedEmailsLoading(true);
+    listMatterEmailTimeline(document.matterId)
+      .then((response) => {
+        if (active) setRelatedEmails(relatedMatterEmails(response.items, document.documentId));
+      })
+      .catch((caught) => {
+        if (!active) return;
+        setRelatedEmails([]);
+        setRelatedEmailsError(safeApiErrorMessage(caught));
+      })
+      .finally(() => {
+        if (active) setRelatedEmailsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [disableInitialLoad, document]);
 
   const matterLabel = useMemo(() => {
     if (!document) return 'Matter 확인 중';
@@ -471,8 +908,9 @@ export function DocumentActionCenter({
     if (!document || !versionFile || versionSaving) return;
     setVersionSaving(true);
     setVersionError(null);
+    setVersionSuccessMessage(null);
     try {
-      await addDocumentVersion(document.documentId, versionFile);
+      const result = await addDocumentVersion(document.documentId, versionFile);
       setVersionFile(null);
       setVersionInputKey((current) => current + 1);
       const [updated, versionResult] = await Promise.all([
@@ -482,6 +920,9 @@ export function DocumentActionCenter({
       setDocument(updated);
       setProfileDraft(draftFromDocument(updated));
       setVersions(versionResult.items);
+      await refreshPrepStatus();
+      setAuditRefreshKey((current) => current + 1);
+      setVersionSuccessMessage(versionUploadStatusMessage(result));
     } catch (caught) {
       setVersionError(safeApiErrorMessage(caught));
     } finally {
@@ -506,10 +947,19 @@ export function DocumentActionCenter({
               <RefreshCw className="h-4 w-4" />
               새로고침
             </Button>
-            <Button type="button" onClick={downloadCurrentDocument} disabled={!document}>
-              <Download className="h-4 w-4" />
-              다운로드
-            </Button>
+            {document ? (
+              <Button asChild>
+                <a href="#document-download">
+                  <Download className="h-4 w-4" />
+                  다운로드 사유
+                </a>
+              </Button>
+            ) : (
+              <Button type="button" disabled>
+                <Download className="h-4 w-4" />
+                다운로드 사유
+              </Button>
+            )}
           </div>
         }
       />
@@ -519,6 +969,8 @@ export function DocumentActionCenter({
       {document ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
           <div className="space-y-4">
+            <DocumentActionHierarchyPanel document={document} />
+
             <SectionCard
               icon={<FileText className="h-4 w-4" />}
               title="문서 프로필"
@@ -527,7 +979,10 @@ export function DocumentActionCenter({
             >
               <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <ProfileField label="Matter" value={matterLabel} />
-                <ProfileField label="문서 유형" value={typeLabels[document.documentType]} />
+                <ProfileField
+                  label="문서 유형"
+                  value={approvedDocumentTypeLabel(document.documentType, typeLabels, taxonomyCatalog)}
+                />
                 <ProfileField label="세부 유형" value={document.subtype || '없음'} />
                 <ProfileField
                   label="보안 등급"
@@ -578,9 +1033,9 @@ export function DocumentActionCenter({
                         )
                       }
                     >
-                      {documentTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {typeLabels[type]}
+                      {documentTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -589,12 +1044,20 @@ export function DocumentActionCenter({
                     세부 유형
                     <Input
                       value={profileDraft.subtype}
+                      list={profileSubtypeOptions.length > 0 ? subtypeListId : undefined}
                       onChange={(event) =>
                         setProfileDraft((current) =>
                           current ? { ...current, subtype: event.target.value } : current,
                         )
                       }
                     />
+                    {profileSubtypeOptions.length > 0 ? (
+                      <datalist id={subtypeListId}>
+                        {profileSubtypeOptions.map((subtype) => (
+                          <option key={subtype} value={subtype} />
+                        ))}
+                      </datalist>
+                    ) : null}
                   </label>
                   <label className="space-y-1 text-sm font-medium">
                     보안 등급
@@ -674,13 +1137,29 @@ export function DocumentActionCenter({
               disableInitialLoad={disableInitialLoad}
               documentId={document.documentId}
               initialEvents={initialAuditEvents}
+              refreshKey={auditRefreshKey}
             />
           </div>
 
           <aside className="space-y-4">
             <DocumentWorkflowOpsPanel document={document} prepStatus={prepStatus} />
 
+            <RelatedDocumentsPanel
+              currentDocument={document}
+              documents={relatedDocuments}
+              errorMessage={relatedDocumentsError}
+              isLoading={relatedDocumentsLoading}
+              taxonomyCatalog={taxonomyCatalog}
+            />
+
+            <RelatedEmailsPanel
+              emails={relatedEmails}
+              errorMessage={relatedEmailsError}
+              isLoading={relatedEmailsLoading}
+            />
+
             <SectionCard
+              id="document-download"
               icon={<Download className="h-4 w-4" />}
               title="다운로드"
               meta="감사 기록 대상"
@@ -760,7 +1239,10 @@ export function DocumentActionCenter({
                   <Input
                     key={versionInputKey}
                     type="file"
-                    onChange={(event) => setVersionFile(event.target.files?.[0] ?? null)}
+                    onChange={(event) => {
+                      setVersionFile(event.target.files?.[0] ?? null);
+                      setVersionSuccessMessage(null);
+                    }}
                   />
                 </label>
                 <Button
@@ -773,6 +1255,11 @@ export function DocumentActionCenter({
                   {versionSaving ? '업로드 중' : '새 버전 추가'}
                 </Button>
                 {versionError ? <p className="mt-2 text-sm text-destructive">{versionError}</p> : null}
+                {versionSuccessMessage ? (
+                  <p className="mt-2 text-sm font-medium text-primary" role="status">
+                    {versionSuccessMessage}
+                  </p>
+                ) : null}
               </div>
             </SectionCard>
 
@@ -781,25 +1268,35 @@ export function DocumentActionCenter({
               title="기록/보존"
               meta="권한 범위 내 조치"
             >
-              <div className="grid gap-2">
-                <Button asChild size="sm" variant="outline">
-                  <Link href={recordsUrlForDocument(document, 'holds')}>
-                    <ShieldCheck className="h-4 w-4" />
-                    삭제 금지
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={recordsUrlForDocument(document, 'archive')}>
-                    <Archive className="h-4 w-4" />
-                    보관 처리
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={recordsUrlForDocument(document, 'disposal')}>
-                    <Trash2 className="h-4 w-4" />
-                    삭제 요청
-                  </Link>
-                </Button>
+              <div className="space-y-2">
+                {recordsActionRows(document).map((action) => (
+                  <div
+                    key={action.tab}
+                    className="rounded-md border bg-background px-3 py-2.5"
+                  >
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            {action.title}
+                          </span>
+                          <StatusBadge tone={action.tone}>{action.readiness}</StatusBadge>
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {action.description}
+                        </p>
+                      </div>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={recordsUrlForDocument(document, action.tab)}>
+                          {action.tab === 'holds' ? <ShieldCheck className="h-4 w-4" /> : null}
+                          {action.tab === 'archive' ? <Archive className="h-4 w-4" /> : null}
+                          {action.tab === 'disposal' ? <Trash2 className="h-4 w-4" /> : null}
+                          {action.buttonLabel}
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
                 <Button asChild size="sm" variant="outline">
                   <Link href={fileCabinetUrlForDocument(document)}>
                     <FileSearch className="h-4 w-4" />

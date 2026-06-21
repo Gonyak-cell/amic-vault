@@ -21,6 +21,7 @@ import { ExternalModule } from './modules/external/external.module';
 import { RecordsModule } from './modules/records/records.module';
 import { EnterpriseModule } from './modules/enterprise/enterprise.module';
 import { ScaleModule } from './modules/scale/scale.module';
+import { MatterAppModule } from './modules/integrations/matter-app/matter-app.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
@@ -34,6 +35,9 @@ import { EmailModule } from './modules/email/email.module';
 import { OutlookModule } from './modules/outlook/outlook.module';
 import { PreviewModule } from './modules/preview/preview.module';
 import { SearchModule } from './modules/search/search.module';
+import { OrgDirectoryModule } from './modules/org-directory/org-directory.module';
+import { WorkModule } from './modules/work/work.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Controller()
 class AppController {
@@ -66,6 +70,7 @@ class AppController {
     RecordsModule,
     EnterpriseModule,
     ScaleModule,
+    MatterAppModule,
     HealthModule,
     ClientModule,
     EthicalWallModule,
@@ -77,6 +82,9 @@ class AppController {
     DlpModule,
     EmailModule,
     OutlookModule,
+    OrgDirectoryModule,
+    WorkModule,
+    NotificationsModule,
     DocumentModule,
     PreviewModule,
   ],

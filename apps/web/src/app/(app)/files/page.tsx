@@ -6,7 +6,10 @@ import { FileText, FolderUp, Search } from 'lucide-react';
 import { AiPrepStatusLoader } from '@/components/ai/ai-prep-status-loader';
 import { MatterDocumentList } from '@/components/document/matter-document-list';
 import { DocumentVaultList } from '@/components/document/document-vault-list';
-import { DocumentUploadPanel } from '@/components/document/document-upload-panel';
+import {
+  DocumentUploadPanel,
+  type DocumentUploadCompletionResult,
+} from '@/components/document/document-upload-panel';
 import { MatterCodePicker } from '@/components/matter/matter-code-picker';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
@@ -18,8 +21,20 @@ import { matterAppSourceMode, type MatterCodeOption } from '@/lib/matter-app';
 export default function FilesPage() {
   const { t } = useI18n();
   const sourceMode = matterAppSourceMode();
+  const [initialMatterCode, setInitialMatterCode] = React.useState('');
   const [selectedMatter, setSelectedMatter] = React.useState<MatterCodeOption | null>(null);
   const [latestUpload, setLatestUpload] = React.useState<UploadDocumentResponseDto | null>(null);
+  const [uploadRevision, setUploadRevision] = React.useState(0);
+
+  React.useEffect(() => {
+    const matterCode = new URLSearchParams(window.location.search).get('matterCode')?.trim() ?? '';
+    setInitialMatterCode(matterCode);
+  }, []);
+
+  const handleUploadComplete = React.useCallback((result: DocumentUploadCompletionResult) => {
+    setLatestUpload(isUploadDocumentResponse(result) ? result : null);
+    setUploadRevision((current) => current + 1);
+  }, []);
 
   return (
     <PageShell>
@@ -48,7 +63,7 @@ export default function FilesPage() {
             </div>
           }
         >
-          <DocumentVaultList />
+          <DocumentVaultList refreshKey={uploadRevision} />
         </React.Suspense>
       </SectionCard>
       <PageHeader
@@ -63,6 +78,7 @@ export default function FilesPage() {
         meta="Matter 원장 기준"
       >
         <MatterCodePicker
+          initialMatterCode={initialMatterCode}
           selectedMatter={selectedMatter}
           onMatterSelected={setSelectedMatter}
           sourceMode={sourceMode}
@@ -76,19 +92,23 @@ export default function FilesPage() {
         <DocumentUploadPanel
           selectedMatter={selectedMatter}
           sourceMode={sourceMode}
-          onUploadComplete={setLatestUpload}
+          onUploadComplete={handleUploadComplete}
         />
       </SectionCard>
-      {latestUpload?.aiAllowed ? (
-        <AiPrepStatusLoader documentId={latestUpload.documentId} />
-      ) : null}
+      {latestUpload?.aiAllowed ? <AiPrepStatusLoader documentId={latestUpload.documentId} /> : null}
       <SectionCard
         icon={<FileText className="h-4 w-4" />}
         title="선택한 Matter 문서"
         meta="권한 확인 문서"
       >
-        <MatterDocumentList selectedMatter={selectedMatter} />
+        <MatterDocumentList refreshKey={uploadRevision} selectedMatter={selectedMatter} />
       </SectionCard>
     </PageShell>
   );
+}
+
+function isUploadDocumentResponse(
+  result: DocumentUploadCompletionResult,
+): result is UploadDocumentResponseDto {
+  return 'aiAllowed' in result;
 }

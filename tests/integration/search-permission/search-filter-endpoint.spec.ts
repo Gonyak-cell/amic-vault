@@ -53,8 +53,10 @@ describe('search filter endpoint permission integration', () => {
         versionId: randomUUID(),
         title: hiddenTitle,
         contentText: `${marker} hidden unauthorized search text`,
+        confidentialityLevel: 'restricted',
         documentType: 'memo',
         documentStatus: 'draft',
+        privilegeStatus: 'privileged',
         versionStatus: 'current',
         updatedAt: '2026-06-12T00:00:00.000Z',
       },
@@ -105,6 +107,28 @@ describe('search filter endpoint permission integration', () => {
     expectZeroLeakage(response);
   });
 
+  it('does not expose hidden documents when confidentiality filters only match hidden rows', async () => {
+    const response = await postSearch(baseUrl, cookie, {
+      query: marker,
+      filters: { confidentialityLevel: 'restricted' },
+      page: 1,
+      pageSize: 10,
+    });
+
+    expectZeroLeakage(response);
+  });
+
+  it('does not expose hidden documents when privilege filters only match hidden rows', async () => {
+    const response = await postSearch(baseUrl, cookie, {
+      query: marker,
+      filters: { privilegeStatus: 'privileged' },
+      page: 1,
+      pageSize: 10,
+    });
+
+    expectZeroLeakage(response);
+  });
+
   function expectZeroLeakage(response: SearchHttpResponse): void {
     expect(response.total).toBe(0);
     expect(response.results).toEqual([]);
@@ -112,8 +136,10 @@ describe('search filter endpoint permission integration', () => {
       clients: [],
       matters: [],
       documentTypes: [],
+      confidentialityLevels: [],
       extractionStatuses: [],
       legalHolds: [],
+      privilegeStatuses: [],
       recordsStatuses: [],
       versionStatuses: [],
       dateRanges: [],

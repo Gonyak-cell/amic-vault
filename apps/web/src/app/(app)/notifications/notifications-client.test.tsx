@@ -59,33 +59,42 @@ describe('NotificationsClient', () => {
           status: 'ready',
           data: [
             {
-              itemKey: 'permission-policy-0',
-              source: 'permission_policy',
-              category: '권한/정책',
-              title: '요청이 차단됨',
-              description: '문서 다운로드 · 차단',
+              itemKey: 'notification-aabbccddeeff0011',
+              source: 'records',
+              category: '기록 보존',
+              title: '삭제 승인 요청',
+              description: 'AMIC-2026-0001 · CLIENT_RECORDS · requested',
               tone: 'warning',
+              href: '/records?tab=disposal',
+              status: 'unread',
+              statusLabel: '새 알림',
             },
             {
-              itemKey: 'recent-activity-0',
-              source: 'recent_activity',
-              category: '최근 활동',
-              title: '문서 업로드 완료',
-              description: 'AMIC-2026-0001 · 성공',
+              itemKey: 'notification-bbccddeeff001122',
+              source: 'operational_data',
+              category: '문서 처리',
+              title: '문서 처리 완료',
+              description: 'AMIC-2026-0001 · 계약 검토본 · 추출 완료',
               tone: 'success',
+              href: '/files?extractionStatus=ready',
+              status: 'read',
+              statusLabel: '읽음',
             },
           ],
         }}
       />,
     );
 
-    expect(html).toContain('요청이 차단됨');
+    expect(html).toContain('삭제 승인 요청');
     expect(html).toContain('AMIC-2026-0001');
-    expect(html).toContain('문서 업로드 완료');
+    expect(html).toContain('문서 처리 완료');
     expect(html).toContain('알림 센터');
     expect(html).toContain('2건 표시 · 전체 2건');
-    expect(html).toContain('/audit');
+    expect(html).toContain('/records?tab=disposal');
+    expect(html).toContain('/files?extractionStatus=ready');
     expect(html).toContain('열기');
+    expect(html).toContain('새 알림');
+    expect(html).toContain('읽음');
     expect(html).not.toContain('표시할 알림이 없습니다.');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');

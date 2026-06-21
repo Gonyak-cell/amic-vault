@@ -137,6 +137,7 @@ export const r13EnterpriseAuditActions = [
   'BACKUP_SNAPSHOT_RECORDED',
   'COMPLIANCE_EVIDENCE_RECORDED',
   'ENTERPRISE_READINESS_VIEWED',
+  'ENTERPRISE_DMS_CONFIGURATION_CHANGED',
 ] as const;
 
 export const r14ScaleLearningAuditActions = [

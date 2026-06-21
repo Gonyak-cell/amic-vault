@@ -30,6 +30,7 @@ describe('OutlookAddinClient', () => {
     expect(html).toContain('Vault 문서');
     expect(html).toContain('문서 연결');
     expect(html).toContain('Project Maple');
+    expect(html).toContain('M-2026-001');
     expect(html).toContain('첨부 1');
     expect(html).toContain('선택 사건 있음');
     expect(html).not.toContain('Privileged acquisition draft');

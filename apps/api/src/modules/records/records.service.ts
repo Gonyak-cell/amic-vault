@@ -40,6 +40,7 @@ import { PermissionService } from '../permission/permission.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
+import { WorkService } from '../work/work.service';
 
 const mutableRecordStatuses = new Set([
   'draft',
@@ -199,6 +200,8 @@ interface LegalHoldRow {
   hold_scope: string;
   status: string;
   reason_code: string;
+  created_by: string;
+  released_by: string | null;
   created_at: Date;
   released_at: Date | null;
 }
@@ -221,6 +224,11 @@ interface DisposalRequestRow {
   requested_by: string;
   approved_by: string | null;
   executed_by: string | null;
+  assigned_to_user_id: string | null;
+  assigned_role: string;
+  due_at: Date;
+  workflow_item_id: string | null;
+  workflow_audit_event_id: string | null;
   created_at: Date;
   approved_at: Date | null;
   executed_at: Date | null;
@@ -358,6 +366,8 @@ function mapLegalHold(row: LegalHoldRow): LegalHoldDto {
     holdScope: row.hold_scope,
     status: row.status,
     reasonCode: row.reason_code,
+    createdBy: row.created_by,
+    releasedBy: row.released_by,
     createdAt: iso(row.created_at),
     releasedAt: row.released_at ? iso(row.released_at) : null,
   });
@@ -381,6 +391,8 @@ function mapDisposalRequest(row: DisposalRequestRow): DisposalRequestDto {
     documentId: row.document_id,
     status: row.status,
     reasonCode: row.reason_code,
+    assignedRole: row.assigned_role,
+    dueAt: iso(row.due_at),
     approvalCount: row.approved_by ? 1 : 0,
     certificateId: row.certificate_id,
     createdAt: iso(row.created_at),
@@ -421,6 +433,7 @@ export class RecordsService {
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
+    @Inject(WorkService) private readonly workService: WorkService,
   ) {}
 
   async createRetentionPolicy(
@@ -521,7 +534,7 @@ export class RecordsService {
           )
           VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-            created_at, released_at
+            created_by, released_by, created_at, released_at
         `,
         [
           ctx.tenantId,
@@ -597,7 +610,7 @@ export class RecordsService {
       const result = await tx.query(
         `
           SELECT legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-            created_at, released_at
+            created_by, released_by, created_at, released_at
           FROM legal_holds
           WHERE ${filters.join(' AND ')}
           ORDER BY created_at DESC, legal_hold_id
@@ -631,7 +644,7 @@ export class RecordsService {
             AND legal_hold_id = $2
             AND status = 'active'
           RETURNING legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-            created_at, released_at
+            created_by, released_by, created_at, released_at
         `,
         [ctx.tenantId, legalHoldId, ctx.userId],
       );
@@ -707,6 +720,13 @@ export class RecordsService {
       if (!mutableRecordStatuses.has(target.status)) {
         throw documentLocked('DOCUMENT_IMMUTABLE_STATE');
       }
+      this.assertNoHoldFlags(target);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        target.matter_id,
+        input.documentId,
+      );
       const updated = await tx.query(
         `
           UPDATE documents
@@ -788,7 +808,9 @@ export class RecordsService {
           )
           VALUES ($1, $2, $3, $4, $5)
           RETURNING disposal_request_id, matter_id, document_id, status, reason_code,
-            requested_by, approved_by, executed_by, created_at, approved_at, executed_at,
+            requested_by, approved_by, executed_by, assigned_to_user_id, assigned_role,
+            due_at, workflow_item_id, workflow_audit_event_id,
+            created_at, approved_at, executed_at,
             NULL::uuid AS certificate_id
         `,
         [ctx.tenantId, target.matter_id, input.documentId, input.reasonCode, ctx.userId],
@@ -806,7 +828,7 @@ export class RecordsService {
         [ctx.tenantId, input.documentId],
       );
       if (updated.rowCount !== 1) throw validationFailed('DOCUMENT_DISPOSAL_LOCK_FAILED');
-      await this.auditService.log(
+      const audit = await this.auditService.log(
         {
           tenantId: ctx.tenantId,
           actorId: ctx.userId,
@@ -826,7 +848,29 @@ export class RecordsService {
         },
         tx,
       );
-      return mapDisposalRequest(row);
+      const workItem = await this.workService.openRecordsDisposalWork(tx, {
+        tenantId: ctx.tenantId,
+        disposalRequestId: row.disposal_request_id,
+        matterId: target.matter_id,
+        documentId: input.documentId,
+        actorUserId: ctx.userId,
+        auditEventId: audit.eventId,
+        kind: 'records_disposal_approval',
+      });
+      await this.attachDisposalWorkflow(
+        tx,
+        ctx.tenantId,
+        row.disposal_request_id,
+        workItem.workItemId,
+        workItem.dueAt,
+        audit.eventId,
+      );
+      return mapDisposalRequest({
+        ...row,
+        due_at: workItem.dueAt,
+        workflow_item_id: workItem.workItemId,
+        workflow_audit_event_id: audit.eventId,
+      });
     });
   }
 
@@ -861,14 +905,16 @@ export class RecordsService {
             AND disposal_request_id = $2
             AND status = 'requested'
           RETURNING disposal_request_id, matter_id, document_id, status, reason_code,
-            requested_by, approved_by, executed_by, created_at, approved_at, executed_at,
+            requested_by, approved_by, executed_by, assigned_to_user_id, assigned_role,
+            due_at, workflow_item_id, workflow_audit_event_id,
+            created_at, approved_at, executed_at,
             NULL::uuid AS certificate_id
         `,
         [ctx.tenantId, disposalRequestId, ctx.userId],
       );
       const row = result.rows[0] as DisposalRequestRow | undefined;
       if (!row) throw validationFailed('DISPOSAL_APPROVAL_CONFLICT');
-      await this.auditService.log(
+      const audit = await this.auditService.log(
         {
           tenantId: ctx.tenantId,
           actorId: ctx.userId,
@@ -889,7 +935,36 @@ export class RecordsService {
         },
         tx,
       );
-      return mapDisposalRequest(row);
+      await this.workService.completeRecordsDisposalWork(tx, {
+        tenantId: ctx.tenantId,
+        disposalRequestId,
+        actorUserId: ctx.userId,
+        auditEventId: audit.eventId,
+        kind: 'records_disposal_approval',
+      });
+      const workItem = await this.workService.openRecordsDisposalWork(tx, {
+        tenantId: ctx.tenantId,
+        disposalRequestId,
+        matterId: row.matter_id,
+        documentId: row.document_id,
+        actorUserId: ctx.userId,
+        auditEventId: audit.eventId,
+        kind: 'records_disposal_execution',
+      });
+      await this.attachDisposalWorkflow(
+        tx,
+        ctx.tenantId,
+        disposalRequestId,
+        workItem.workItemId,
+        workItem.dueAt,
+        audit.eventId,
+      );
+      return mapDisposalRequest({
+        ...row,
+        due_at: workItem.dueAt,
+        workflow_item_id: workItem.workItemId,
+        workflow_audit_event_id: audit.eventId,
+      });
     });
   }
 
@@ -982,7 +1057,7 @@ export class RecordsService {
         [ctx.tenantId, disposalRequestId, ctx.userId, executedAt],
       );
       if (updateResult.rowCount !== 1) throw validationFailed('DISPOSAL_EXECUTE_CONFLICT');
-      await this.auditService.log(
+      const executedAudit = await this.auditService.log(
         {
           tenantId: ctx.tenantId,
           actorId: ctx.userId,
@@ -1005,6 +1080,19 @@ export class RecordsService {
           },
         },
         tx,
+      );
+      await this.workService.completeRecordsDisposalWork(tx, {
+        tenantId: ctx.tenantId,
+        disposalRequestId,
+        actorUserId: ctx.userId,
+        auditEventId: executedAudit.eventId,
+        kind: 'records_disposal_execution',
+      });
+      await this.markDisposalWorkflowAdvanced(
+        tx,
+        ctx.tenantId,
+        disposalRequestId,
+        executedAudit.eventId,
       );
       await this.auditService.log(
         {
@@ -1240,7 +1328,7 @@ export class RecordsService {
     const result = await client.query(
       `
         SELECT legal_hold_id, matter_id, document_id, hold_scope, status, reason_code,
-          created_at, released_at
+          created_by, released_by, created_at, released_at
         FROM legal_holds
         WHERE tenant_id = $1
           AND legal_hold_id = $2
@@ -1262,6 +1350,8 @@ export class RecordsService {
       `
         SELECT dr.disposal_request_id, dr.matter_id, dr.document_id, dr.status,
           dr.reason_code, dr.requested_by, dr.approved_by, dr.executed_by,
+          dr.assigned_to_user_id, dr.assigned_role, dr.due_at,
+          dr.workflow_item_id, dr.workflow_audit_event_id,
           dr.created_at, dr.approved_at, dr.executed_at, dc.certificate_id
         FROM disposal_requests dr
         LEFT JOIN disposal_certificates dc
@@ -1275,6 +1365,48 @@ export class RecordsService {
       [tenantId, disposalRequestId],
     );
     return (result.rows[0] as DisposalRequestRow | undefined) ?? null;
+  }
+
+  private async attachDisposalWorkflow(
+    client: QueryClient,
+    tenantId: string,
+    disposalRequestId: string,
+    workItemId: string,
+    dueAt: Date,
+    auditEventId: string,
+  ): Promise<void> {
+    const result = await client.query(
+      `
+        UPDATE disposal_requests
+        SET workflow_item_id = $3,
+          workflow_audit_event_id = $4,
+          due_at = $5,
+          updated_at = now()
+        WHERE tenant_id = $1
+          AND disposal_request_id = $2
+      `,
+      [tenantId, disposalRequestId, workItemId, auditEventId, dueAt],
+    );
+    if (rowCount(result) !== 1) throw validationFailed('DISPOSAL_WORKFLOW_ATTACH_FAILED');
+  }
+
+  private async markDisposalWorkflowAdvanced(
+    client: QueryClient,
+    tenantId: string,
+    disposalRequestId: string,
+    auditEventId: string,
+  ): Promise<void> {
+    const result = await client.query(
+      `
+        UPDATE disposal_requests
+        SET workflow_audit_event_id = $3,
+          updated_at = now()
+        WHERE tenant_id = $1
+          AND disposal_request_id = $2
+      `,
+      [tenantId, disposalRequestId, auditEventId],
+    );
+    if (rowCount(result) !== 1) throw validationFailed('DISPOSAL_WORKFLOW_ADVANCE_FAILED');
   }
 
   private async listVersionFiles(

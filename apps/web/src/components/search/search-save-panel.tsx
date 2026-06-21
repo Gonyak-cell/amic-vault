@@ -3,11 +3,16 @@
 import React from 'react';
 import { Bookmark, Copy, RotateCcw, Save, Trash2 } from 'lucide-react';
 import type {
+  DocumentConfidentialityLevel,
+  DocumentPrivilegeStatus,
+  DocumentType,
   SavedSearchDto,
+  SearchFolderScope,
   SearchGroupBy,
   SearchQueryDto,
   SearchSort,
   SearchTarget,
+  SearchUrlPrivacyMode,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,13 +24,20 @@ export interface SearchSavePanelProps {
   busy: boolean;
   onDeleteSavedSearch?: (savedSearchId: string) => void;
   onOpenSavedSearch?: (savedSearch: SavedSearchDto) => void;
-  onSaveSearch?: (name: string) => void;
+  onSaveSearch?: (request: SearchSaveRequest) => void;
+  privacyMode?: SearchUrlPrivacyMode;
   query: string;
   selection: SearchFacetSelection;
   savedSearchBusy?: boolean;
   savedSearchError?: string | null;
   savedSearches?: SavedSearchDto[];
   reusableUrl: string;
+}
+
+export interface SearchSaveRequest {
+  matterId?: string;
+  name: string;
+  scope: SearchFolderScope;
 }
 
 interface SearchPatternItem {
@@ -55,6 +67,31 @@ const groupLabels = {
   type: '파일 유형',
 } as const satisfies Record<SearchGroupBy, string>;
 
+const documentTypeLabels = {
+  contract: '계약서',
+  memo: '메모',
+  opinion: '의견서',
+  court_filing: '법원 제출 문서',
+  evidence: '증거',
+  correspondence: '서신',
+  corporate_record: '회사 기록',
+  financial: '재무',
+  other: '기타',
+} as const satisfies Record<DocumentType, string>;
+
+const confidentialityLabels = {
+  standard: '표준',
+  high: '높음',
+  restricted: '제한',
+} as const satisfies Record<DocumentConfidentialityLevel, string>;
+
+const privilegeLabels = {
+  none: '특권 없음',
+  privileged: '변호사-의뢰인 특권',
+  work_product: '작업 산출물',
+  joint_privilege: '공동 특권',
+} as const satisfies Record<DocumentPrivilegeStatus, string>;
+
 const dateRangeLabels = {
   last_7_days: '최근 7일',
   last_30_days: '최근 30일',
@@ -80,11 +117,18 @@ const recordsStatusLabels = {
   disposal_locked: '처분 잠금',
 } as const;
 
+const savedSearchScopeLabels = {
+  personal: '개인',
+  'matter-team': 'Matter 팀',
+  'admin-shared': '관리자 공유',
+} as const satisfies Record<SearchFolderScope, string>;
+
 export function SearchSavePanel({
   busy,
   onDeleteSavedSearch,
   onOpenSavedSearch,
   onSaveSearch,
+  privacyMode = 'plaintext_url',
   query,
   reusableUrl,
   savedSearchBusy = false,
@@ -94,23 +138,39 @@ export function SearchSavePanel({
 }: SearchSavePanelProps) {
   const [copyStatus, setCopyStatus] = React.useState<'idle' | 'copied' | 'error'>('idle');
   const [savedSearchName, setSavedSearchName] = React.useState('');
+  const [savedSearchScope, setSavedSearchScope] =
+    React.useState<SearchFolderScope>('personal');
   const items = searchPatternItems(query, selection);
   const hasReusableSearch = query.trim().length > 0;
+  const allowsPlaintextReusableUrl = privacyMode === 'plaintext_url';
   const canSave = hasReusableSearch && !busy && !savedSearchBusy && Boolean(onSaveSearch);
+  const canCopyReusableUrl =
+    hasReusableSearch && allowsPlaintextReusableUrl && reusableUrl.trim().length > 0 && !busy;
   const effectiveSavedSearchName = savedSearchName.trim() || defaultSavedSearchName(query, selection);
+  const effectiveSavedSearchScope =
+    savedSearchScope === 'matter-team' && !selection.matterId ? 'personal' : savedSearchScope;
 
-  async function copyReusableUrl() {
-    if (!hasReusableSearch || busy) return;
+  async function copyText(value: string) {
     if (!navigator.clipboard?.writeText) {
       setCopyStatus('error');
       return;
     }
     try {
-      await navigator.clipboard.writeText(reusableUrl);
+      await navigator.clipboard.writeText(value);
       setCopyStatus('copied');
     } catch {
       setCopyStatus('error');
     }
+  }
+
+  async function copyReusableUrl() {
+    if (!canCopyReusableUrl) return;
+    await copyText(reusableUrl);
+  }
+
+  async function copySavedSearchReference(savedSearchId: string) {
+    if (busy || savedSearchBusy) return;
+    await copyText(privateSavedSearchUrl(savedSearchId));
   }
 
   return (
@@ -137,9 +197,15 @@ export function SearchSavePanel({
                   </div>
                 ))}
               </dl>
-              <p className="mt-3 break-all rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                {reusableUrl}
-              </p>
+              {allowsPlaintextReusableUrl ? (
+                <p className="mt-3 break-all rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  {reusableUrl}
+                </p>
+              ) : (
+                <p className="mt-3 rounded-md border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  검색어 포함 URL 비활성화 · 비공개 저장 참조
+                </p>
+              )}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -172,12 +238,28 @@ export function SearchSavePanel({
                 onChange={(event) => setSavedSearchName(event.target.value)}
               />
             </label>
+            <label className="mt-3 block space-y-1 text-sm font-medium">
+              공유 범위
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={savedSearchScope}
+                onChange={(event) =>
+                  setSavedSearchScope(event.target.value as SearchFolderScope)
+                }
+              >
+                <option value="personal">{savedSearchScopeLabels.personal}</option>
+                <option value="matter-team" disabled={!selection.matterId}>
+                  {savedSearchScopeLabels['matter-team']}
+                </option>
+                <option value="admin-shared">{savedSearchScopeLabels['admin-shared']}</option>
+              </select>
+            </label>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={!hasReusableSearch || busy}
+                disabled={!canCopyReusableUrl}
                 onClick={copyReusableUrl}
               >
                 <Copy className="h-4 w-4" />
@@ -187,7 +269,15 @@ export function SearchSavePanel({
                 type="button"
                 size="sm"
                 disabled={!canSave}
-                onClick={() => onSaveSearch?.(effectiveSavedSearchName)}
+                onClick={() =>
+                  onSaveSearch?.({
+                    name: effectiveSavedSearchName,
+                    scope: effectiveSavedSearchScope,
+                    ...(effectiveSavedSearchScope === 'matter-team' && selection.matterId
+                      ? { matterId: selection.matterId }
+                      : {}),
+                  })
+                }
               >
                 <Save className="h-4 w-4" />
                 저장
@@ -206,8 +296,24 @@ export function SearchSavePanel({
                       <p className="mt-1 truncate text-xs text-muted-foreground">
                         {savedSearchSummary(savedSearch.query)}
                       </p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <StatusBadge>{savedSearchScopeLabels[savedSearch.scope]}</StatusBadge>
+                        <StatusBadge tone="neutral">{savedSearch.openCount}회 열림</StatusBadge>
+                      </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
+                      {privacyMode === 'private_saved_ref' ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy || savedSearchBusy}
+                          onClick={() => void copySavedSearchReference(savedSearch.savedSearchId)}
+                        >
+                          <Copy className="h-4 w-4" />
+                          참조 복사
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"
@@ -222,11 +328,11 @@ export function SearchSavePanel({
                         type="button"
                         variant="outline"
                         size="sm"
-                        disabled={savedSearchBusy}
+                        disabled={savedSearchBusy || !savedSearch.canRevoke}
                         onClick={() => onDeleteSavedSearch?.(savedSearch.savedSearchId)}
                       >
                         <Trash2 className="h-4 w-4" />
-                        삭제
+                        해제
                       </Button>
                     </div>
                   </li>
@@ -256,7 +362,18 @@ export function searchPatternItems(
   if (selection.matterCode) items.push({ label: 'Matter Code', value: selection.matterCode });
   if (selection.matterName) items.push({ label: 'Matter 이름', value: selection.matterName });
   if (selection.clientName) items.push({ label: '고객명', value: selection.clientName });
-  if (selection.documentType) items.push({ label: '문서 유형', value: selection.documentType });
+  if (selection.documentType) {
+    items.push({ label: '문서 유형', value: documentTypeLabels[selection.documentType] });
+  }
+  if (selection.confidentialityLevel) {
+    items.push({
+      label: '기밀도',
+      value: confidentialityLabels[selection.confidentialityLevel],
+    });
+  }
+  if (selection.privilegeStatus) {
+    items.push({ label: '특권', value: privilegeLabels[selection.privilegeStatus] });
+  }
   if (selection.extractionStatus) {
     items.push({
       label: '추출/OCR',
@@ -284,6 +401,7 @@ function defaultSavedSearchName(query: string, selection: SearchFacetSelection):
 export function savedSearchSummary(query: SearchQueryDto): string {
   const selection: SearchFacetSelection = {
     clientName: query.filters?.clientName,
+    confidentialityLevel: query.filters?.confidentialityLevel,
     dateRange: undefined,
     documentType: Array.isArray(query.filters?.documentType)
       ? query.filters.documentType[0]
@@ -293,6 +411,7 @@ export function savedSearchSummary(query: SearchQueryDto): string {
     legalHold: query.filters?.legalHold,
     matterCode: query.filters?.matterCode,
     matterName: query.filters?.matterName,
+    privilegeStatus: query.filters?.privilegeStatus,
     recordsStatus: query.filters?.recordsStatus,
     sortBy: query.sortBy,
     target: query.target,
@@ -303,4 +422,10 @@ export function savedSearchSummary(query: SearchQueryDto): string {
     .slice(0, 4)
     .map((item) => `${item.label}: ${item.value}`)
     .join(' · ');
+}
+
+function privateSavedSearchUrl(savedSearchId: string): string {
+  const params = new URLSearchParams();
+  params.set('searchRef', savedSearchId);
+  return `/search?${params.toString()}`;
 }

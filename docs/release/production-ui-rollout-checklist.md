@@ -25,12 +25,14 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | ID | Check | Expected | Owner | Evidence ref | Result |
 |---|---|---|---|---|---|
 | UI-PRE-001 | CI `verify`, `db-integration`, `docker-build`, `python-worker` are green on the release commit | All required checks green | Operator |  |  |
-| UI-PRE-002 | Production UI literal guard passed | No fake/mock/sample/demo operating data literals | Operator |  |  |
-| UI-PRE-003 | Production UI smoke gate passed | Hidden routes, raw hex, `?? 0`, unsafe ID fallback checks pass | Operator |  |  |
+| UI-PRE-002 | Production UI literal guard passed | No fake/mock/sample/demo operating data literals; no workspace ID, tenant ID, document ID, raw UUID, unsafe ID slice, short-hash, legal-analysis, summary, external-model, raw prompt/source, source text, or model-response copy | Operator | `GUARD-DMS-002-NO-FAKE-DATA`, `GUARD-DMS-003-NO-INTERNAL-REFS`, `GUARD-DMS-004-AI-SCOPE-EXCLUSION` refs required |  |
+| UI-PRE-003 | Production UI smoke gate passed | Hidden routes, raw hex, `?? 0`, unsafe ID fallback checks pass across the DMS-GA-704 expanded upload/files/matter/team/search/records/audit/walls/work/notifications/admin/enterprise/integrations/Outlook/AI Prep surfaces | Operator | `GUARD-DMS-001-SURFACE-COVERAGE` ref required |  |
 | UI-PRE-004 | Production UI inventory reviewed | `docs/ui/production-ui-inventory.md` matches route visibility and navigation policy | Security reviewer |  |  |
 | UI-PRE-005 | `docs/package/` unchanged unless separately approved | Normative package remains frozen | Security reviewer |  |  |
 | UI-PRE-006 | Feature scope confirmed | File organization prep only; no legal analysis, summary, external model route, raw prompt/source/model-response storage | Legal-data owner |  |  |
 | UI-PRE-007 | Enterprise DMS UI evidence package prepared | `docs/release/enterprise-dms-ui-release-evidence.md` is copied into the external evidence workspace and every required row has an evidence ref or approved deferral | Operator |  |  |
+| UI-PRE-008 | DMS main-loop smoke passed | `pnpm release:dms-smoke -- --json` passes with approved synthetic or canary DMS credentials, Matter Code source, upload, file list, search, detail, records/audit, and negative-auth non-discovery | Operator |  |  |
+| UI-PRE-009 | DMS-GA-704 expanded guard coverage confirmed | `GUARD-DMS-001-SURFACE-COVERAGE` through `GUARD-DMS-004-AI-SCOPE-EXCLUSION` are present in the evidence package and reference current `pnpm check:production-ui-literals` plus `pnpm ui:production-smoke` receipts | Security reviewer | `GUARD-DMS-001*` through `GUARD-DMS-004*` refs required | `HOLD` until refs attached |
 
 ## 3. Auth And Shell Smoke
 
@@ -91,23 +93,23 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 
 | ID | Viewport / Mode | Check | Expected | Owner | Evidence ref | Result |
 |---|---|---|---|---|---|---|
-| UI-RSP-001 | 375px | Mobile navigation | Drawer opens, closes, and exposes allowed navigation without horizontal page overflow | Operator |  |  |
-| UI-RSP-002 | 768px | Tablet layout | Header, search, side navigation, tables, and inspectors remain readable | Operator |  |  |
-| UI-RSP-003 | 1440px | Desktop layout | Sidebar, top search, content, and inspector spacing align with the SaaS design system | Operator |  |  |
-| UI-A11Y-001 | Keyboard | Shell navigation | Keyboard can reach search, language selector, nav items, and logout | Operator |  |  |
-| UI-A11Y-002 | Keyboard | Search/filter actions | Search, pagination, filter reset, export, and feedback actions have visible labels or accessible names | Operator |  |  |
-| UI-A11Y-003 | Screen reader basics | Empty/error states | Empty/error blocks expose status text without relying only on color or icon | Security reviewer |  |  |
+| UI-RSP-001 | 375px | Mobile navigation | Drawer opens, closes, and exposes allowed navigation without horizontal page overflow across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001C-375` through `RA-DMS-007C-375` external refs required | `HOLD` until refs attached |
+| UI-RSP-002 | 768px | Tablet layout | Header, search, side navigation, tables, filters, upload, document detail, records, walls, work queue, and admin panels remain readable across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001B-768` through `RA-DMS-007B-768` external refs required | `HOLD` until refs attached |
+| UI-RSP-003 | 1440px | Desktop layout | Sidebar, top search, content, inspectors, and admin/integration panels align with the SaaS design system across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001A-1440` through `RA-DMS-007A-1440` external refs required | `HOLD` until refs attached |
+| UI-A11Y-001 | Keyboard | Shell navigation | Keyboard can reach search, language selector, nav items, logout, and mobile drawer controls across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001D-KEYBOARD` through `RA-DMS-007D-KEYBOARD` external refs required | `HOLD` until refs attached |
+| UI-A11Y-002 | Keyboard | Search/filter/actions | Search, pagination, filter reset, upload, document actions, download reason, records/audit links, admin refresh, integration links, export, and feedback actions have visible labels or accessible names | Operator | `RA-DMS-002D-KEYBOARD`, `RA-DMS-004D-KEYBOARD`, `RA-DMS-005D-KEYBOARD`, `RA-DMS-006D-KEYBOARD`, `RA-DMS-007D-KEYBOARD` refs required | `HOLD` until refs attached |
+| UI-A11Y-003 | Screen reader basics | Empty/error states | Empty/error/denied blocks expose status text, active `aria-current`, and accessible names without relying only on color or icon across `DMS-RA-001` through `DMS-RA-007` | Security reviewer | `RA-DMS-001E-SR-BASICS` through `RA-DMS-007E-SR-BASICS` external refs required | `HOLD` until refs attached |
 
 ## 9. Post-Deploy Monitoring
 
 | ID | Check | Expected | Owner | Evidence ref | Result |
 |---|---|---|---|---|---|
 | UI-POST-001 | First production login | Approved internal account reaches dashboard without workspace ID | Operator |  |  |
-| UI-POST-002 | Real upload smoke | Approved file upload completes and file organization prep stays in scope | Operator |  |  |
+| UI-POST-002 | Real upload smoke | Approved file upload completes through Matter Code-scoped DMS flow and file organization prep stays in scope; use `pnpm release:dms-smoke -- --json` receipt ref | Operator |  |  |
 | UI-POST-003 | Audit trail | UI-facing upload/prep actions have bounded audit events without document body/raw AI data | Security reviewer |  |  |
 | UI-POST-004 | Error monitoring | No spike in auth, route, or UI rendering errors after deploy | Operator |  |  |
-| UI-POST-005 | Rollback readiness | Rollback command/path and owner are confirmed before widening traffic | Operator |  |  |
-| UI-POST-006 | DMS production monitor | Upload, extraction/OCR, search, permission/wall, AI prep file organization, audit, storage, and integration health signals are watched using evidence refs only | Operator |  |  |
+| UI-POST-005 | Rollback readiness | Rollback command/path, rollback owner, `DMS-RB-001` through `DMS-RB-007`, and `RB-DMS-*` external drill refs are confirmed before widening traffic; no hard delete or audit mutation allowed | Operator | `RB-DMS-001*` through `RB-DMS-007*` external refs required | `HOLD` until rollback owner and drill refs attached |
+| UI-POST-006 | DMS production monitor | Upload, extraction/OCR, search/reindex, permission/wall, AI prep file organization, audit, storage, Matter source, Outlook, and Office/OneDrive gate signals are watched using refs from `docs/release/enterprise-dms-monitor-map.md` only | Operator | `MON-DMS-001*` through `MON-DMS-008*` external refs required | `HOLD` until external refs attached |
 
 ## 10. DMS Evidence Handoff
 
@@ -118,17 +120,33 @@ it includes production URLs, provider metadata, screenshots, customer matter
 data, secrets, cookies, tokens, raw prompts, raw source/source text, or model
 responses.
 
-## 11. Decision Record
+## 11. DMS-GA-705 Signoff Gate
+
+Production release remains `HOLD` until every signoff row below has an external
+reference-only receipt. Do not paste private endpoint values, customer tenant
+identifiers, screenshots, provider-console metadata, cookies, tokens, raw
+prompts, raw source/source text, or model responses into this repository.
+
+| ID | Required signoff | Evidence ref | Owner | Result |
+|---|---|---|---|---|
+| UI-SIGNOFF-001 | Operator owner approves exact target URL/ref, release commit range, traffic scope, rollback authority, and authenticated DMS main-loop receipt | `DMS-SIGNOFF-OPERATOR-REF`; `DMS-SIGNOFF-SCOPE-REF`; `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF` | Operator owner | `HOLD` until refs attached |
+| UI-SIGNOFF-002 | Security owner approves permission-before-search, fail-closed route gating, no internal ref leakage, no secret exposure, and negative-auth non-discovery receipt | `DMS-SIGNOFF-SECURITY-REF`; negative-auth smoke ref | Security owner | `HOLD` until refs attached |
+| UI-SIGNOFF-003 | Legal-data owner approves file-organization prep scope and confirms no legal analysis, document summary, external model, raw prompt/source, source text, or model-response display | `DMS-SIGNOFF-LEGAL-DATA-REF`; `GUARD-DMS-004-AI-SCOPE-EXCLUSION` | Legal-data owner | `HOLD` until refs attached |
+| UI-SIGNOFF-004 | Customer-scope owner approves tenant class or tenant refs and confirms no customer document content is committed in repo evidence | `DMS-SIGNOFF-CUSTOMER-SCOPE-REF`; `DMS-SIGNOFF-TENANT-SCOPE-REF` | Customer-scope owner | `HOLD` until refs attached |
+| UI-SIGNOFF-005 | Rollback owner approves rollback owner name, trigger thresholds, incident communication path, and drill/incident refs for `DMS-RB-*`, `RB-DMS-*`, and `MON-DMS-*` controls | `DMS-SIGNOFF-ROLLBACK-REF`; `DMS-SIGNOFF-ROLLBACK-OWNER-REF`; rollback drill refs | Rollback owner | `HOLD` until refs attached |
+| UI-SIGNOFF-006 | Release decision names the release timestamp, decision timestamp, exact production scope, exclusions, evidence package ref, and approved tenant class without private data in repo | `DMS-SIGNOFF-TIMESTAMP-REF`; `DMS-SIGNOFF-SCOPE-REF`; `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF` | Release owner | `HOLD` until refs attached |
+
+## 12. Decision Record
 
 | Decision | Value |
 |---|---|
-| Release decision | `APPROVE` / `HOLD` / `ROLLBACK` |
-| Decision timestamp |  |
-| Approver |  |
-| Exact production scope |  |
-| Excluded scopes |  |
-| Approved tenant class or tenant refs |  |
-| Rollback owner |  |
+| Release decision | `HOLD` until `DMS-SIGNOFF-*` refs are complete; then `APPROVE` / `ROLLBACK` may be recorded in the external evidence workspace |
+| Decision timestamp | `DMS-SIGNOFF-TIMESTAMP-REF` external ref required |
+| Approver | `DMS-SIGNOFF-OPERATOR-REF`, `DMS-SIGNOFF-SECURITY-REF`, `DMS-SIGNOFF-LEGAL-DATA-REF`, `DMS-SIGNOFF-CUSTOMER-SCOPE-REF`, and `DMS-SIGNOFF-ROLLBACK-REF` external refs required |
+| Exact production scope | `DMS-SIGNOFF-SCOPE-REF` external ref required |
+| Excluded scopes | Legal analysis, document summary, external model routing, raw prompt/source/model-response storage or display, Office/OneDrive runtime, external sharing/VDR, and production PASS without external smoke/owner refs |
+| Approved tenant class or tenant refs | `DMS-SIGNOFF-TENANT-SCOPE-REF` external ref required |
+| Rollback owner | `DMS-SIGNOFF-ROLLBACK-OWNER-REF` external ref required |
 | Required follow-up PRs/issues |  |
 | Evidence register refs |  |
 | Customer-data exposure confirmed absent | `YES` / `NO` |

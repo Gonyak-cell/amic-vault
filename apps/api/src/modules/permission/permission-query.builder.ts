@@ -45,8 +45,18 @@ export class PermissionQueryBuilder {
           WHERE ew.tenant_id = ${matterAlias}.tenant_id
             AND ew.matter_id = ${matterAlias}.matter_id
             AND ew.status = 'active'
-            AND ewm.subject_type = 'user'
-            AND ewm.subject_id = $${wallParam}::uuid
+            AND (
+              (ewm.subject_type = 'user' AND ewm.subject_id = $${wallParam}::uuid)
+              OR (
+                ewm.subject_type = 'group'
+                AND ewm.subject_id IN (
+                  SELECT gm.group_id
+                  FROM group_members gm
+                  WHERE gm.tenant_id = ${matterAlias}.tenant_id
+                    AND gm.user_id = $${wallParam}::uuid
+                )
+              )
+            )
             AND ewm.membership_type = 'excluded'
         )
       `,
@@ -55,4 +65,3 @@ export class PermissionQueryBuilder {
     };
   }
 }
-

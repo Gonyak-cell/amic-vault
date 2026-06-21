@@ -1,4 +1,5 @@
 import type {
+  ApplyEnterpriseDmsMatterTemplateRequestDto,
   CreateEnterpriseBackupSnapshotRequestDto,
   CreateEnterpriseComplianceEvidenceRequestDto,
   CreateEnterpriseKeyReferenceRequestDto,
@@ -6,8 +7,18 @@ import type {
   CreateEnterpriseSsoProviderRequestDto,
   EnterpriseBackupSnapshotDto,
   EnterpriseBackupSnapshotListResponseDto,
+  EnterpriseApprovedDmsMatterTemplateCatalogDto,
+  EnterpriseApprovedDmsSearchRefinerCatalogDto,
+  EnterpriseApprovedDmsTaxonomyCatalogDto,
   EnterpriseComplianceEvidenceDto,
   EnterpriseComplianceEvidenceListResponseDto,
+  EnterpriseDmsMatterTemplateApplicationDto,
+  EnterpriseDmsMatterTemplateDto,
+  EnterpriseDmsMatterTemplateListResponseDto,
+  EnterpriseDmsSearchRefinerDto,
+  EnterpriseDmsSearchRefinerListResponseDto,
+  EnterpriseDmsTaxonomyDto,
+  EnterpriseDmsTaxonomyListResponseDto,
   EnterpriseKeyReferenceDto,
   EnterpriseKeyReferenceListResponseDto,
   EnterpriseReadinessSummaryDto,
@@ -16,6 +27,10 @@ import type {
   EnterpriseSsoProviderDto,
   EnterpriseSsoProviderListResponseDto,
   EnterpriseSsoSpMetadataDto,
+  MatterType,
+  UpsertEnterpriseDmsMatterTemplateRequestDto,
+  UpsertEnterpriseDmsSearchRefinerRequestDto,
+  UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
 import { apiFetch } from '../api-client';
 
@@ -35,10 +50,9 @@ export function listEnterpriseSsoProviders(): Promise<EnterpriseSsoProviderListR
 export function activateEnterpriseSsoProvider(
   providerId: string,
 ): Promise<EnterpriseSsoProviderDto> {
-  return apiFetch<EnterpriseSsoProviderDto>(
-    `/enterprise/sso-providers/${providerId}/activate`,
-    { method: 'POST' },
-  );
+  return apiFetch<EnterpriseSsoProviderDto>(`/enterprise/sso-providers/${providerId}/activate`, {
+    method: 'POST',
+  });
 }
 
 export function getEnterpriseSsoMetadata(): Promise<EnterpriseSsoSpMetadataDto> {
@@ -108,4 +122,105 @@ export function listEnterpriseComplianceEvidence(): Promise<EnterpriseCompliance
 
 export function getEnterpriseReadiness(): Promise<EnterpriseReadinessSummaryDto> {
   return apiFetch<EnterpriseReadinessSummaryDto>('/enterprise/readiness');
+}
+
+export function upsertEnterpriseDmsTaxonomy(
+  input: UpsertEnterpriseDmsTaxonomyRequestDto,
+): Promise<EnterpriseDmsTaxonomyDto> {
+  return apiFetch<EnterpriseDmsTaxonomyDto>('/enterprise/dms/taxonomies', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listEnterpriseDmsTaxonomies(): Promise<EnterpriseDmsTaxonomyListResponseDto> {
+  return apiFetch<EnterpriseDmsTaxonomyListResponseDto>('/enterprise/dms/taxonomies');
+}
+
+export function listApprovedEnterpriseDmsTaxonomies(): Promise<EnterpriseApprovedDmsTaxonomyCatalogDto> {
+  return apiFetch<EnterpriseApprovedDmsTaxonomyCatalogDto>('/enterprise/dms/taxonomies/approved', {
+    redirectOnAuthRequired: false,
+  });
+}
+
+export function disableEnterpriseDmsTaxonomy(
+  taxonomyId: string,
+): Promise<EnterpriseDmsTaxonomyDto> {
+  return apiFetch<EnterpriseDmsTaxonomyDto>(`/enterprise/dms/taxonomies/${taxonomyId}/disable`, {
+    method: 'POST',
+  });
+}
+
+export function upsertEnterpriseDmsMatterTemplate(
+  input: UpsertEnterpriseDmsMatterTemplateRequestDto,
+): Promise<EnterpriseDmsMatterTemplateDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateDto>('/enterprise/dms/matter-templates', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listEnterpriseDmsMatterTemplates(): Promise<EnterpriseDmsMatterTemplateListResponseDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateListResponseDto>('/enterprise/dms/matter-templates');
+}
+
+export function listApprovedEnterpriseDmsMatterTemplates(
+  matterType?: MatterType | string,
+): Promise<EnterpriseApprovedDmsMatterTemplateCatalogDto> {
+  const query = matterType ? `?matterType=${encodeURIComponent(matterType)}` : '';
+  return apiFetch<EnterpriseApprovedDmsMatterTemplateCatalogDto>(
+    `/enterprise/dms/matter-templates/approved${query}`,
+    { redirectOnAuthRequired: false },
+  );
+}
+
+export function disableEnterpriseDmsMatterTemplate(
+  templateId: string,
+): Promise<EnterpriseDmsMatterTemplateDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateDto>(
+    `/enterprise/dms/matter-templates/${templateId}/disable`,
+    { method: 'POST' },
+  );
+}
+
+export function applyEnterpriseDmsMatterTemplate(
+  templateId: string,
+  input: ApplyEnterpriseDmsMatterTemplateRequestDto,
+): Promise<EnterpriseDmsMatterTemplateApplicationDto> {
+  return apiFetch<EnterpriseDmsMatterTemplateApplicationDto>(
+    `/enterprise/dms/matter-templates/${templateId}/apply`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function upsertEnterpriseDmsSearchRefiner(
+  input: UpsertEnterpriseDmsSearchRefinerRequestDto,
+): Promise<EnterpriseDmsSearchRefinerDto> {
+  return apiFetch<EnterpriseDmsSearchRefinerDto>('/enterprise/dms/search-refiners', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listEnterpriseDmsSearchRefiners(): Promise<EnterpriseDmsSearchRefinerListResponseDto> {
+  return apiFetch<EnterpriseDmsSearchRefinerListResponseDto>('/enterprise/dms/search-refiners');
+}
+
+export function listApprovedEnterpriseDmsSearchRefiners(): Promise<EnterpriseApprovedDmsSearchRefinerCatalogDto> {
+  return apiFetch<EnterpriseApprovedDmsSearchRefinerCatalogDto>(
+    '/enterprise/dms/search-refiners/approved',
+    { redirectOnAuthRequired: false },
+  );
+}
+
+export function disableEnterpriseDmsSearchRefiner(
+  refinerId: string,
+): Promise<EnterpriseDmsSearchRefinerDto> {
+  return apiFetch<EnterpriseDmsSearchRefinerDto>(
+    `/enterprise/dms/search-refiners/${refinerId}/disable`,
+    { method: 'POST' },
+  );
 }

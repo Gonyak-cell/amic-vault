@@ -5,8 +5,18 @@ import type { MatterDto } from '@amic-vault/shared';
 import { MatterFileSection } from './matter-file-section';
 
 vi.mock('@/lib/api-client', () => ({
+  addDocumentVersion: vi.fn(),
+  createUploadPreflight: vi.fn(),
   listMatterDocuments: vi.fn(),
   uploadDocument: vi.fn(),
+}));
+
+vi.mock('@/lib/api/enterprise', () => ({
+  listApprovedEnterpriseDmsMatterTemplates: vi.fn(async () => ({
+    source: 'tenant_admin_matter_template',
+    generatedAt: '2026-06-20T00:00:00.000Z',
+    templates: [],
+  })),
 }));
 
 vi.mock('@/components/ui/button', () => ({
@@ -70,6 +80,45 @@ describe('MatterFileSection', () => {
     expect(html).toContain('type="file"');
     expect(html).not.toContain('Matter app API');
     expect(html).not.toContain('Matter ID');
+    expect(html).not.toContain(matter.matterId);
+  });
+
+  it('renders approved document-set contracts only when supplied by backend catalog', () => {
+    const html = renderToStaticMarkup(
+      <MatterFileSection
+        matter={matter}
+        sourceMode="matter_app_api"
+        initialTemplateCatalog={{
+          source: 'tenant_admin_matter_template',
+          generatedAt: '2026-06-20T00:00:00.000Z',
+          templates: [
+            {
+              matterType: 'advisory',
+              displayName: 'Advisory template',
+              description: 'Advisory document set contract',
+              documentSets: [
+                {
+                  setKey: 'closing',
+                  displayName: 'Closing set',
+                  documentTypeCodes: ['contract', 'memo'],
+                  required: true,
+                  sortOrder: 10,
+                },
+              ],
+              updatedAt: '2026-06-20T00:00:00.000Z',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain('문서 세트 계약');
+    expect(html).toContain('Advisory template');
+    expect(html).toContain('Closing set');
+    expect(html).toContain('contract, memo');
+    expect(html).toContain('승인됨');
+    expect(html).not.toContain('templateId');
+    expect(html).not.toContain('folderPath');
     expect(html).not.toContain(matter.matterId);
   });
 });

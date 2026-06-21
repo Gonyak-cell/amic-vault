@@ -54,22 +54,37 @@ describe('dashboard DTOs', () => {
             href: '/audit',
             tone: 'warning',
           },
+          {
+            itemKey: 'records-disposal-a1b2c3',
+            source: 'records',
+            sourceLabel: '기록 보존',
+            title: '삭제 승인 요청',
+            description: 'AMIC-2026-0001 · 대기 · CLIENT_RECORDS',
+            href: '/records?tab=disposal',
+            tone: 'neutral',
+            status: 'open',
+            statusLabel: '대기',
+            dueAt: '2026-06-24T00:00:00.000Z',
+          },
         ],
       }).items,
-    ).toHaveLength(1);
+    ).toHaveLength(2);
 
     expect(
       dmsNotificationCenterResponseSchema.parse({
         generatedAt: '2026-06-17T00:00:00.000Z',
-        source: 'dashboard_operational_state',
+        source: 'persisted_notifications',
         items: [
           {
-            itemKey: 'recent-activity-0',
-            source: 'recent_activity',
-            category: '최근 활동',
-            title: '문서 업로드',
-            description: 'AMIC-2026-0001 · 성공',
-            tone: 'success',
+            itemKey: 'notification-aabbccddeeff0011',
+            source: 'records',
+            category: '기록 보존',
+            title: '삭제 승인 요청',
+            description: 'AMIC-2026-0001 · CLIENT_RECORDS · requested',
+            tone: 'warning',
+            href: '/records?tab=disposal',
+            status: 'unread',
+            statusLabel: '새 알림',
             occurredAt: '2026-06-17T00:00:00.000Z',
           },
         ],

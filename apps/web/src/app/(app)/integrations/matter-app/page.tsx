@@ -8,17 +8,51 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { getMatterAppStatus } from '@/lib/api-client';
 import { matterAppSourceStatus } from '@/lib/matter-app';
 import { useI18n } from '@/lib/i18n';
 
 export default function MatterAppIntegrationPage() {
   const { t } = useI18n();
-  const status = matterAppSourceStatus({
-    sourceMode: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_MODE,
-    sourceConfigured: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED,
-    projectionFallbackAllowed: process.env.NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE,
-    nodeEnv: process.env.NODE_ENV,
-  });
+  const localStatus = React.useMemo(
+    () =>
+      matterAppSourceStatus({
+        sourceMode: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_MODE,
+        sourceConfigured: process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED,
+        projectionFallbackAllowed: process.env.NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE,
+        runtimeReady: process.env.NEXT_PUBLIC_MATTER_APP_RUNTIME_READY,
+        nodeEnv: process.env.NODE_ENV,
+      }),
+    [],
+  );
+  const [status, setStatus] = React.useState(localStatus);
+  const [statusSource, setStatusSource] = React.useState<'api' | 'local'>('local');
+  React.useEffect(() => {
+    let active = true;
+    getMatterAppStatus()
+      .then((apiStatus) => {
+        if (!active) return;
+        setStatus({
+          ...localStatus,
+          mode: apiStatus.mode,
+          requestedMode: apiStatus.requestedMode,
+          sourceConfigured: apiStatus.sourceConfigured,
+          runtimeReady: apiStatus.runtimeReady,
+          sourceContractReady: apiStatus.sourceContractReady,
+          sourceAvailable: apiStatus.sourceAvailable,
+          uploadAuthoritative: apiStatus.uploadAuthoritative,
+          productionRuntime: apiStatus.productionRuntime,
+          projectionFallbackAllowed: apiStatus.projectionFallbackAllowed,
+        });
+        setStatusSource('api');
+      })
+      .catch(() => {
+        if (active) setStatusSource('local');
+      });
+    return () => {
+      active = false;
+    };
+  }, [localStatus]);
   const uploadTone: StatusBadgeTone = status.uploadAuthoritative ? 'success' : 'blocked';
 
   return (
@@ -39,7 +73,7 @@ export default function MatterAppIntegrationPage() {
         title="Matter Code source"
         meta="source-of-truth gate"
       >
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-4">
           <StatusTile
             icon={<FolderSearch className="h-4 w-4" />}
             title="현재 source"
@@ -52,7 +86,18 @@ export default function MatterAppIntegrationPage() {
             title="업로드 gate"
             value={status.uploadAuthoritative ? '업로드 가능' : '업로드 차단'}
             tone={uploadTone}
-            description="파일 업로드는 Matter app API 또는 Matter app 이벤트 동기화 source에서만 열립니다."
+            description="파일 업로드는 Matter app API 또는 Matter app 이벤트 동기화가 runtime ready일 때만 열립니다."
+          />
+          <StatusTile
+            icon={<ShieldCheck className="h-4 w-4" />}
+            title="lookup/sync runtime"
+            value={status.sourceContractReady ? '준비됨' : '준비 필요'}
+            tone={status.sourceContractReady ? 'success' : 'blocked'}
+            description={
+              statusSource === 'api'
+                ? '백엔드 runtime status endpoint에서 configured/runtime ready 상태를 확인했습니다.'
+                : '백엔드 확인 전에는 public runtime flag 기준으로 보수적으로 표시합니다.'
+            }
           />
           <StatusTile
             icon={<ShieldCheck className="h-4 w-4" />}
@@ -72,9 +117,9 @@ export default function MatterAppIntegrationPage() {
         <div className="grid gap-3 lg:grid-cols-2">
           <ContractRow
             title="Matter app 확인"
-            status={status.sourceConfigured ? '설정됨' : '설정 필요'}
-            tone={status.sourceConfigured ? 'success' : 'blocked'}
-            description="Matter Code, 표시명, 상태, 업무그룹은 Matter app 또는 승인된 이벤트 projection에서 확인되어야 합니다."
+            status={status.sourceContractReady ? '확인됨' : '설정 필요'}
+            tone={status.sourceContractReady ? 'success' : 'blocked'}
+            description="Matter Code, 표시명, 고객, 상태, 업무그룹은 Matter app runtime API 또는 승인된 이벤트 projection에서 확인되어야 합니다."
           />
           <ContractRow
             title="free-floating 업로드"

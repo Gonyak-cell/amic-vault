@@ -30,6 +30,7 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
   const [members, setMembers] = useState<MatterMemberDto[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [listError, setListError] = useState<ErrorCode | null>(null);
   const [addError, setAddError] = useState<ErrorCode | null>(null);
@@ -54,7 +55,8 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
     loadMembers();
   }, [loadMembers]);
 
-  async function handleAdd(input: AddMatterMemberDto) {
+  async function handleAdd(input: AddMatterMemberDto): Promise<boolean> {
+    setAddBusy(true);
     setAddError(null);
     try {
       const created = await addMatterMember(params.matterId, input);
@@ -62,8 +64,12 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
         ...current.filter((member) => member.userId !== created.userId),
         created,
       ]);
+      return true;
     } catch (error) {
       setAddError(errorCode(error));
+      return false;
+    } finally {
+      setAddBusy(false);
     }
   }
 
@@ -107,8 +113,9 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
       {listError && !loaded ? <EmptyState variant="api-error" title="팀 정보를 표시할 수 없습니다." /> : null}
       {canManage ? (
         <AddMemberDialog
-          disabled={!loaded || Boolean(busyUserId)}
+          disabled={!loaded || Boolean(busyUserId) || addBusy}
           errorCode={addError}
+          matterId={params.matterId}
           onAddMember={handleAdd}
         />
       ) : null}

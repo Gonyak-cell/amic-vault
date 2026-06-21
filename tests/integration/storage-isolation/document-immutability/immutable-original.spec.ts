@@ -66,9 +66,14 @@ async function createMatter(baseUrl: string, cookie: string, clientId: string): 
   return (JSON.parse(body) as { matterId: string }).matterId;
 }
 
-function uploadForm(bytes: Uint8Array, filename: string): FormData {
+function uploadForm(
+  bytes: Uint8Array,
+  filename: string,
+  fields: { duplicateDecision?: 'new_document' } = {},
+): FormData {
   const form = new FormData();
   form.append('title', `Immutable Upload ${randomUUID()}`);
+  if (fields.duplicateDecision) form.append('duplicateDecision', fields.duplicateDecision);
   form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
   return form;
 }
@@ -79,11 +84,12 @@ async function upload(
   matterId: string,
   bytes: Uint8Array,
   filename: string,
+  fields: { duplicateDecision?: 'new_document' } = {},
 ): Promise<UploadResponse> {
   const response = await fetch(`${baseUrl}/v1/matters/${matterId}/documents`, {
     method: 'POST',
     headers: { cookie },
-    body: uploadForm(bytes, filename),
+    body: uploadForm(bytes, filename, fields),
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
@@ -150,7 +156,9 @@ describe('document-immutability original object integration', () => {
   it('blocks object re-put and file_objects mutation while new uploads create new rows', async () => {
     const bytes = Buffer.from('%PDF-1.7\nFIXMARK-IMMUTABLE-ORIGINAL\n');
     const first = await upload(baseUrl, ownerCookie, matterId, bytes, 'Immutable.pdf');
-    const second = await upload(baseUrl, ownerCookie, matterId, bytes, 'Immutable-Copy.pdf');
+    const second = await upload(baseUrl, ownerCookie, matterId, bytes, 'Immutable-Copy.pdf', {
+      duplicateDecision: 'new_document',
+    });
     const firstRow = await uploadedRow(first.documentId);
     const secondRow = await uploadedRow(second.documentId);
 

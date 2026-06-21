@@ -5,7 +5,14 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type {
   EnterpriseBackupSnapshotDto,
+  EnterpriseApprovedDmsMatterTemplateCatalogDto,
+  EnterpriseApprovedDmsSearchRefinerCatalogDto,
+  EnterpriseApprovedDmsTaxonomyCatalogDto,
   EnterpriseComplianceEvidenceDto,
+  EnterpriseDmsMatterTemplateApplicationDto,
+  EnterpriseDmsMatterTemplateDto,
+  EnterpriseDmsSearchRefinerDto,
+  EnterpriseDmsTaxonomyDto,
   EnterpriseKeyReferenceDto,
   EnterpriseReadinessSummaryDto,
   EnterpriseSiemExportDto,
@@ -123,6 +130,209 @@ describe('Enterprise Hardening integration', () => {
     expect(auditText).not.toContain('Tenant HSM');
   });
 
+  it('manages DMS taxonomy and search refiners with reference-only audit', async () => {
+    const taxonomy = await postJson<EnterpriseDmsTaxonomyDto>('/v1/enterprise/dms/taxonomies', {
+      documentTypeCode: `CONTRACT_${marker.toUpperCase()}`,
+      displayName: `Contract ${marker}`,
+      description: 'Commercial agreement filing profile',
+      subtypes: [{ subtypeCode: 'MSA', displayName: 'Master service agreement' }],
+      metadataFields: [
+        {
+          fieldKey: `counterparty_${marker}`,
+          displayName: `Counterparty ${marker}`,
+          fieldType: 'text',
+          required: true,
+          searchable: true,
+          refinable: true,
+        },
+      ],
+    });
+    expect(taxonomy.status).toBe('active');
+    expect(taxonomy.versionNo).toBe(1);
+    expect(taxonomy.lastAuditEventRef).toMatch(/^audit:[0-9a-f]{12}$/);
+    expect(taxonomy.subtypes).toHaveLength(1);
+    expect(taxonomy.metadataFields).toHaveLength(1);
+
+    const updatedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>(
+      '/v1/enterprise/dms/taxonomies',
+      {
+        documentTypeCode: taxonomy.documentTypeCode,
+        displayName: `Contract ${marker} updated`,
+        description: 'Commercial agreement filing profile',
+        subtypes: [
+          { subtypeCode: 'MSA', displayName: 'Master service agreement' },
+          { subtypeCode: 'NDA', displayName: 'Nondisclosure agreement' },
+        ],
+        metadataFields: taxonomy.metadataFields,
+      },
+    );
+    expect(updatedTaxonomy.versionNo).toBe(taxonomy.versionNo + 1);
+    expect(updatedTaxonomy.lastAuditEventRef).toMatch(/^audit:[0-9a-f]{12}$/);
+
+    const approvedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>(
+      '/v1/enterprise/dms/taxonomies',
+      {
+        documentTypeCode: 'CONTRACT',
+        displayName: `Approved Contract ${marker}`,
+        description: 'Commercial agreement filing profile',
+        subtypes: [{ subtypeCode: 'MSA', displayName: `Approved MSA ${marker}` }],
+        metadataFields: [
+          {
+            fieldKey: `approved_counterparty_${marker}`,
+            displayName: `Approved Counterparty ${marker}`,
+            fieldType: 'text',
+            required: true,
+            searchable: true,
+            refinable: true,
+          },
+        ],
+      },
+    );
+    expect(approvedTaxonomy.canonicalDocumentType).toBe('contract');
+
+    const approvedCatalog = await getJsonWithCookie<EnterpriseApprovedDmsTaxonomyCatalogDto>(
+      '/v1/enterprise/dms/taxonomies/approved',
+      memberCookie,
+    );
+    const approvedContract = approvedCatalog.taxonomies.find(
+      (item) => item.canonicalDocumentType === 'contract',
+    );
+    expect(approvedCatalog.source).toBe('tenant_admin_taxonomy');
+    expect(approvedContract?.displayName).toBe(`Approved Contract ${marker}`);
+    expect(approvedContract?.subtypes[0]?.displayName).toBe(`Approved MSA ${marker}`);
+    expect(JSON.stringify(approvedCatalog)).not.toContain(approvedTaxonomy.taxonomyId);
+
+    const refiner = await postJson<EnterpriseDmsSearchRefinerDto>(
+      '/v1/enterprise/dms/search-refiners',
+      {
+        fieldKey: 'confidentiality_level',
+        displayName: `Confidentiality ${marker}`,
+        fieldType: 'text',
+        source: 'document_profile',
+        sortOrder: 20,
+      },
+    );
+    expect(refiner.status).toBe('active');
+    expect(refiner.refinable).toBe(true);
+
+    const approvedRefinerCatalog =
+      await getJsonWithCookie<EnterpriseApprovedDmsSearchRefinerCatalogDto>(
+        '/v1/enterprise/dms/search-refiners/approved',
+        memberCookie,
+      );
+    expect(approvedRefinerCatalog.source).toBe('tenant_admin_search_refiner');
+    expect(approvedRefinerCatalog.refiners.some((item) => item.fieldKey === refiner.fieldKey)).toBe(
+      true,
+    );
+    expect(JSON.stringify(approvedRefinerCatalog)).not.toContain(refiner.refinerId);
+
+    const template = await postJson<EnterpriseDmsMatterTemplateDto>(
+      '/v1/enterprise/dms/matter-templates',
+      {
+        matterType: 'advisory',
+        displayName: `Advisory Template ${marker}`,
+        description: 'Advisory matter document set contract',
+        documentSets: [
+          {
+            setKey: `closing_${marker}`,
+            displayName: `Closing Set ${marker}`,
+            documentTypeCodes: ['contract', 'memo'],
+            required: true,
+            sortOrder: 10,
+          },
+        ],
+      },
+    );
+    expect(template.status).toBe('active');
+    expect(template.documentSets[0]?.documentTypeCodes).toEqual(['contract', 'memo']);
+
+    const approvedTemplateCatalog =
+      await getJsonWithCookie<EnterpriseApprovedDmsMatterTemplateCatalogDto>(
+        '/v1/enterprise/dms/matter-templates/approved?matterType=advisory',
+        memberCookie,
+      );
+    expect(approvedTemplateCatalog.source).toBe('tenant_admin_matter_template');
+    expect(approvedTemplateCatalog.templates[0]?.matterType).toBe('advisory');
+    expect(JSON.stringify(approvedTemplateCatalog)).not.toContain(template.templateId);
+
+    const client = await postJson<{ clientId: string }>('/v1/clients', {
+      name: `Template Client ${marker}`,
+    });
+    const matter = await postJson<{ matterId: string }>('/v1/matters', {
+      clientId: client.clientId,
+      matterCode: `TPL-${marker}`,
+      matterName: `Template Matter ${marker}`,
+      matterType: 'advisory',
+    });
+    const application = await postJson<EnterpriseDmsMatterTemplateApplicationDto>(
+      `/v1/enterprise/dms/matter-templates/${template.templateId}/apply`,
+      { matterId: matter.matterId },
+    );
+    expect(application.matterType).toBe('advisory');
+    expect(application.documentSetCount).toBe(1);
+    expect(application.auditEventRef).toMatch(/^audit:[0-9a-f]{12}$/);
+
+    const disabledTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>(
+      `/v1/enterprise/dms/taxonomies/${taxonomy.taxonomyId}/disable`,
+      {},
+    );
+    expect(disabledTaxonomy.status).toBe('disabled');
+    expect(disabledTaxonomy.versionNo).toBe(updatedTaxonomy.versionNo + 1);
+
+    const disabledRefiner = await postJson<EnterpriseDmsSearchRefinerDto>(
+      `/v1/enterprise/dms/search-refiners/${refiner.refinerId}/disable`,
+      {},
+    );
+    expect(disabledRefiner.status).toBe('disabled');
+
+    const disabledTemplate = await postJson<EnterpriseDmsMatterTemplateDto>(
+      `/v1/enterprise/dms/matter-templates/${template.templateId}/disable`,
+      {},
+    );
+    expect(disabledTemplate.status).toBe('disabled');
+
+    const taxonomies = await getJson<{ taxonomies: EnterpriseDmsTaxonomyDto[] }>(
+      '/v1/enterprise/dms/taxonomies',
+    );
+    expect(taxonomies.taxonomies.some((item) => item.taxonomyId === taxonomy.taxonomyId)).toBe(
+      true,
+    );
+
+    const refiners = await getJson<{ refiners: EnterpriseDmsSearchRefinerDto[] }>(
+      '/v1/enterprise/dms/search-refiners',
+    );
+    expect(refiners.refiners.some((item) => item.refinerId === refiner.refinerId)).toBe(true);
+
+    const templates = await getJson<{ templates: EnterpriseDmsMatterTemplateDto[] }>(
+      '/v1/enterprise/dms/matter-templates',
+    );
+    expect(templates.templates.some((item) => item.templateId === template.templateId)).toBe(true);
+
+    const audits = await enterpriseDmsConfigurationAudits();
+    const auditText = JSON.stringify(audits.map((row) => row.metadata_json));
+    expect(auditText).toContain(taxonomy.taxonomyId);
+    expect(auditText).toContain(refiner.refinerId);
+    expect(auditText).toContain(template.templateId);
+    expect(auditText).toContain(matter.matterId);
+    expect(auditText).toContain(`CONTRACT_${marker.toUpperCase()}`);
+    expect(auditText).toContain('confidentiality_level');
+    expect(auditText).toContain('document_set_count');
+    expect(auditText).toContain('version_no');
+    expect(auditText).not.toContain('Commercial agreement filing profile');
+    expect(auditText).not.toContain(`Contract ${marker}`);
+    expect(auditText).not.toContain(`Confidentiality ${marker}`);
+    expect(auditText).not.toContain(`Advisory Template ${marker}`);
+    expect(auditText).not.toContain(`Closing Set ${marker}`);
+
+    const taxonomyVersions = await dmsTaxonomyVersions(taxonomy.taxonomyId);
+    expect(taxonomyVersions.map((row) => row.version_no)).toEqual([1, 2, 3]);
+    expect(taxonomyVersions.map((row) => row.change_reason)).toEqual([
+      'upsert',
+      'upsert',
+      'disable',
+    ]);
+  });
+
   it('blocks non-admin enterprise configuration', async () => {
     const response = await fetch(`${baseUrl}/v1/enterprise/sso-providers`, {
       method: 'POST',
@@ -141,6 +351,35 @@ describe('Enterprise Hardening integration', () => {
     const text = await response.text();
     expect(response.status, text).toBe(403);
     expect(text).not.toContain(`blocked-${marker}`);
+
+    const taxonomyResponse = await fetch(`${baseUrl}/v1/enterprise/dms/taxonomies`, {
+      method: 'POST',
+      headers: { cookie: memberCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        documentTypeCode: `BLOCKED_${marker.toUpperCase()}`,
+        displayName: 'Blocked Taxonomy',
+        subtypes: [],
+        metadataFields: [],
+      }),
+    });
+    const taxonomyText = await taxonomyResponse.text();
+    expect(taxonomyResponse.status, taxonomyText).toBe(403);
+    expect(taxonomyText).not.toContain(`BLOCKED_${marker.toUpperCase()}`);
+
+    const templateResponse = await fetch(`${baseUrl}/v1/enterprise/dms/matter-templates`, {
+      method: 'POST',
+      headers: { cookie: memberCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        matterType: 'advisory',
+        displayName: 'Blocked Template',
+        documentSets: [
+          { setKey: 'blocked_set', displayName: 'Blocked Set', documentTypeCodes: ['contract'] },
+        ],
+      }),
+    });
+    const templateText = await templateResponse.text();
+    expect(templateResponse.status, templateText).toBe(403);
+    expect(templateText).not.toContain('Blocked Template');
   });
 
   it('keeps R13 tables RLS-protected and free of raw secret columns', async () => {
@@ -154,6 +393,11 @@ describe('Enterprise Hardening integration', () => {
           SELECT relname AS table_name, relrowsecurity AS rls, relforcerowsecurity AS force_rls
           FROM pg_class
           WHERE relname IN (
+            'enterprise_dms_search_refiners',
+            'enterprise_dms_matter_template_applications',
+            'enterprise_dms_matter_templates',
+            'enterprise_dms_taxonomies',
+            'enterprise_dms_taxonomy_versions',
             'enterprise_sso_providers',
             'enterprise_key_references',
             'enterprise_siem_exports',
@@ -169,6 +413,11 @@ describe('Enterprise Hardening integration', () => {
     expect(rows).toEqual([
       { table_name: 'enterprise_backup_snapshots', rls: true, force_rls: true },
       { table_name: 'enterprise_compliance_evidence', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_matter_template_applications', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_matter_templates', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_search_refiners', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_taxonomies', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_taxonomy_versions', rls: true, force_rls: true },
       { table_name: 'enterprise_key_references', rls: true, force_rls: true },
       { table_name: 'enterprise_siem_exports', rls: true, force_rls: true },
       { table_name: 'enterprise_sso_providers', rls: true, force_rls: true },
@@ -192,7 +441,7 @@ describe('Enterprise Hardening integration', () => {
           FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name LIKE 'enterprise_%'
-            AND column_name ~* '(secret|token|password|private_key|key_material|endpoint_url|metadata_xml|assertion_xml)'
+            AND column_name ~* '(secret|token|password|private_key|key_material|endpoint_url|metadata_xml|assertion_xml|body_text|snippet_text|prompt_text|response_text)'
           ORDER BY table_name, column_name
         `,
       );
@@ -215,8 +464,12 @@ describe('Enterprise Hardening integration', () => {
   }
 
   async function getJson<T>(path: string): Promise<T> {
+    return getJsonWithCookie<T>(path, adminCookie);
+  }
+
+  async function getJsonWithCookie<T>(path: string, cookie: string): Promise<T> {
     const response = await fetch(`${baseUrl}${path}`, {
-      headers: { cookie: adminCookie },
+      headers: { cookie },
     });
     const text = await response.text();
     expect(response.ok, text).toBe(true);
@@ -238,8 +491,46 @@ async function enterpriseAudits(): Promise<Array<{ action: string; metadata_json
             'SIEM_EXPORT_RECORDED',
             'BACKUP_SNAPSHOT_RECORDED',
             'COMPLIANCE_EVIDENCE_RECORDED',
+            'ENTERPRISE_DMS_CONFIGURATION_CHANGED',
             'ENTERPRISE_READINESS_VIEWED'
           )
+        ORDER BY created_at DESC
+        LIMIT 20
+      `,
+      [tenantAlphaId],
+    );
+    return result.rows;
+  });
+}
+
+async function dmsTaxonomyVersions(
+  taxonomyId: string,
+): Promise<Array<{ change_reason: string; version_no: number }>> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ change_reason: string; version_no: number }>(
+      `
+        SELECT change_reason, version_no
+        FROM enterprise_dms_taxonomy_versions
+        WHERE tenant_id = $1
+          AND taxonomy_id = $2
+        ORDER BY version_no ASC
+      `,
+      [tenantAlphaId, taxonomyId],
+    );
+    return result.rows;
+  });
+}
+
+async function enterpriseDmsConfigurationAudits(): Promise<
+  Array<{ action: string; metadata_json: unknown }>
+> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ action: string; metadata_json: unknown }>(
+      `
+        SELECT action, metadata_json
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'ENTERPRISE_DMS_CONFIGURATION_CHANGED'
         ORDER BY created_at DESC
         LIMIT 20
       `,

@@ -1,15 +1,14 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { SearchFacetsDto } from '@amic-vault/shared';
+import { enterpriseDmsSearchRefinerFieldKeys, type SearchFacetsDto } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
 import { SearchFacets } from './search-facets';
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
+  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
 }));
 
 const facets: SearchFacetsDto = {
@@ -28,6 +27,10 @@ const facets: SearchFacetsDto = {
     { value: 'memo', count: 1 },
     { value: 'contract', count: 1 },
   ],
+  confidentialityLevels: [
+    { value: 'restricted', count: 1 },
+    { value: 'standard', count: 1 },
+  ],
   extractionStatuses: [
     { value: 'failed', count: 1 },
     { value: 'ready', count: 0 },
@@ -35,6 +38,10 @@ const facets: SearchFacetsDto = {
   legalHolds: [
     { value: 'document_hold', count: 1 },
     { value: 'no_hold', count: 1 },
+  ],
+  privilegeStatuses: [
+    { value: 'privileged', count: 1 },
+    { value: 'none', count: 1 },
   ],
   recordsStatuses: [
     { value: 'archived', count: 1 },
@@ -49,15 +56,27 @@ const facets: SearchFacetsDto = {
 
 describe('SearchFacets', () => {
   it('renders server-provided facet buckets without zero-count rows', () => {
+    const allRefinerKeys = new Set(enterpriseDmsSearchRefinerFieldKeys);
     const html = renderToStaticMarkup(
       <LanguageProvider>
-        <SearchFacets facets={facets} selection={{ documentType: 'memo' }} onChange={() => undefined} />
+        <SearchFacets
+          approvedRefinerKeys={allRefinerKeys}
+          facets={facets}
+          selection={{ documentType: 'memo' }}
+          onChange={() => undefined}
+        />
       </LanguageProvider>,
     );
 
     expect(html).toContain('파일 유형');
     expect(html).toContain('메모');
     expect(html).toContain('계약서');
+    expect(html).toContain('기밀도');
+    expect(html).toContain('제한');
+    expect(html).toContain('표준');
+    expect(html).toContain('특권 상태');
+    expect(html).toContain('변호사-의뢰인 특권');
+    expect(html).toContain('특권 없음');
     expect(html).toContain('추출/OCR');
     expect(html).toContain('추출 실패');
     expect(html).toContain('보존/삭제 금지');

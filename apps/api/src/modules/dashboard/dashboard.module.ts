@@ -2,16 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { PermissionModule } from '../permission/permission.module';
 import { TenantModule } from '../tenant/tenant.module';
-import {
-  DashboardController,
-  NotificationsController,
-  WorkQueueController,
-} from './dashboard.controller';
+import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 
 @Module({
   imports: [AuditModule, PermissionModule, TenantModule],
-  controllers: [DashboardController, WorkQueueController, NotificationsController],
+  controllers: [DashboardController],
   providers: [DashboardService],
   exports: [DashboardService],
 })

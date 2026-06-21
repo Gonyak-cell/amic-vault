@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type {
   DisposalCertificateDto,
   DisposalRequestDto,
+  DmsWorkQueueResponseDto,
   ExternalLinkCreatedResponseDto,
   ExternalUserDto,
   ExternalWorkspaceDto,
@@ -23,6 +24,8 @@ import { StorageService } from '../../apps/api/src/modules/storage/storage.servi
 import { createOwnerClient, setTenant, tenantAlphaId, withClient } from './helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
+const alphaFirmAdminUserId = '11111111-1111-4111-8111-111111111100';
+const alphaSecurityAdminUserId = '11111111-1111-4111-8111-111111111110';
 
 interface UploadResponse {
   documentId: string;
@@ -90,6 +93,21 @@ async function createMatter(
   const body = await response.text();
   expect(response.status, body).toBe(201);
   return (JSON.parse(body) as { matterId: string }).matterId;
+}
+
+async function addMatterMember(
+  baseUrl: string,
+  cookie: string,
+  matterId: string,
+  userId: string,
+) {
+  const response = await fetch(`${baseUrl}/v1/matters/${matterId}/members`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ userId, matterRole: 'member', accessLevel: 'edit' }),
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
 }
 
 function uploadForm(title: string, filename: string, bytes: Uint8Array): FormData {
@@ -229,6 +247,33 @@ async function recordsAudit(action: string, targetId: string) {
   });
 }
 
+async function workQueue(baseUrl: string, cookie: string): Promise<DmsWorkQueueResponseDto> {
+  const response = await fetch(`${baseUrl}/v1/work/items`, {
+    headers: { cookie },
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(200);
+  return JSON.parse(body) as DmsWorkQueueResponseDto;
+}
+
+async function recordsWorkItemStatuses(disposalRequestId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query<{ kind: string; status: string }>(
+      `
+        SELECT kind, status
+        FROM work_items
+        WHERE tenant_id = $1
+          AND target_type = 'disposal_request'
+          AND target_id = $2
+        ORDER BY kind ASC
+      `,
+      [tenantAlphaId, disposalRequestId],
+    );
+    return result.rows;
+  });
+}
+
 async function recordsTableProtectionEvidence() {
   return withClient(createOwnerClient(), async (client) => {
     const tableNames = [
@@ -237,6 +282,7 @@ async function recordsTableProtectionEvidence() {
       'records_archives',
       'disposal_requests',
       'disposal_certificates',
+      'work_items',
     ];
     const rls = await client.query<{ table_name: string; rls: boolean; force_rls: boolean }>(
       `
@@ -308,6 +354,8 @@ describe('records governance integration', () => {
 
     const clientId = await createClient(baseUrl, ownerCookie, marker);
     matterId = await createMatter(baseUrl, ownerCookie, clientId, marker);
+    await addMatterMember(baseUrl, ownerCookie, matterId, alphaFirmAdminUserId);
+    await addMatterMember(baseUrl, ownerCookie, matterId, alphaSecurityAdminUserId);
     holdDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-HOLD`);
     disposalDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-DISPOSE`);
     referencedDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-REF`);
@@ -349,6 +397,9 @@ describe('records governance integration', () => {
       },
     );
     expect(hold.status).toBe('active');
+    expect(hold.createdBy).toBe(alphaSecurityAdminUserId);
+    expect(hold.releasedBy).toBeNull();
+    expect(hold.createdAt).toMatch(/T/u);
     await expect(documentFlags(holdDocument.documentId)).resolves.toMatchObject({
       legal_hold: true,
     });
@@ -371,15 +422,46 @@ describe('records governance integration', () => {
     expect(disposalWhileHeld.status, disposalWhileHeldBody).toBe(400);
     expect(disposalWhileHeldBody).toContain('DOCUMENT_LOCKED');
 
+    const archiveWhileHeld = await fetch(`${baseUrl}/v1/records/archives`, {
+      method: 'POST',
+      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        documentId: holdDocument.documentId,
+        reasonCode: 'CLIENT_RECORDS',
+      }),
+    });
+    const archiveWhileHeldBody = await archiveWhileHeld.text();
+    expect(archiveWhileHeld.status, archiveWhileHeldBody).toBe(400);
+    expect(archiveWhileHeldBody).toContain('DOCUMENT_LOCKED');
+
     const released = await postJson<LegalHoldDto>(
       baseUrl,
       securityAdminCookie,
       `/v1/records/legal-holds/${hold.legalHoldId}/release`,
     );
     expect(released.status).toBe('released');
+    expect(released.createdBy).toBe(alphaSecurityAdminUserId);
+    expect(released.releasedBy).toBe(alphaSecurityAdminUserId);
+    expect(released.releasedAt).toMatch(/T/u);
     await expect(documentFlags(holdDocument.documentId)).resolves.toMatchObject({
       legal_hold: false,
     });
+
+    const holdHistory = await fetch(`${baseUrl}/v1/records/legal-holds?matterId=${matterId}`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const holdHistoryBody = await holdHistory.text();
+    expect(holdHistory.status, holdHistoryBody).toBe(200);
+    expect((JSON.parse(holdHistoryBody) as { holds: LegalHoldDto[] }).holds).toContainEqual(
+      expect.objectContaining({
+        legalHoldId: hold.legalHoldId,
+        status: 'released',
+        createdBy: alphaSecurityAdminUserId,
+        releasedBy: alphaSecurityAdminUserId,
+        documentId: holdDocument.documentId,
+        matterId,
+      }),
+    );
 
     const policyAudit = await recordsAudit('RETENTION_POLICY_CHANGED', policy.retentionPolicyId);
     const holdAudit = await recordsAudit('LEGAL_HOLD_APPLIED', holdDocument.documentId);
@@ -445,9 +527,26 @@ describe('records governance integration', () => {
       },
     );
     expect(request.status).toBe('requested');
+    expect(request.assignedRole).toBe('records_admin');
+    expect(request.dueAt).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
     await expect(documentFlags(disposalDocument.documentId)).resolves.toMatchObject({
       status: 'disposal_locked',
     });
+
+    const approvalQueue = await workQueue(baseUrl, securityAdminCookie);
+    expect(approvalQueue.source).toBe('persisted_work_items');
+    expect(approvalQueue.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'records',
+          title: '삭제 승인 요청',
+          status: 'open',
+          dueAt: request.dueAt,
+          href: '/records?tab=disposal',
+        }),
+      ]),
+    );
+    expect(JSON.stringify(approvalQueue)).not.toContain(disposalDocument.documentId);
 
     const prematureExecute = await fetch(
       `${baseUrl}/v1/records/disposals/${request.disposalRequestId}/execute`,
@@ -464,6 +563,19 @@ describe('records governance integration', () => {
       `/v1/records/disposals/${request.disposalRequestId}/approve`,
     );
     expect(approved.status).toBe('approved');
+    expect(approved.assignedRole).toBe('records_admin');
+
+    const executionQueue = await workQueue(baseUrl, firmAdminCookie);
+    expect(executionQueue.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'records',
+          title: '삭제 실행 대기',
+          status: 'open',
+          dueAt: approved.dueAt,
+        }),
+      ]),
+    );
 
     const certificate = await postJson<DisposalCertificateDto>(
       baseUrl,
@@ -473,6 +585,20 @@ describe('records governance integration', () => {
     expect(certificate.disposalRequestId).toBe(request.disposalRequestId);
     expect(certificate.documentHash).toMatch(/^[a-f0-9]{64}$/u);
     expect(certificate.certificateHash).toMatch(/^[a-f0-9]{64}$/u);
+
+    const completedQueue = await workQueue(baseUrl, securityAdminCookie);
+    expect(completedQueue.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: '삭제 실행 대기',
+          dueAt: approved.dueAt,
+        }),
+      ]),
+    );
+    await expect(recordsWorkItemStatuses(request.disposalRequestId)).resolves.toEqual([
+      { kind: 'records_disposal_approval', status: 'completed' },
+      { kind: 'records_disposal_execution', status: 'completed' },
+    ]);
 
     const getCertificate = await fetch(
       `${baseUrl}/v1/records/disposals/${request.disposalRequestId}/certificate`,
@@ -580,6 +706,7 @@ describe('records governance integration', () => {
       { table_name: 'legal_holds', rls: true, force_rls: true },
       { table_name: 'records_archives', rls: true, force_rls: true },
       { table_name: 'retention_policies', rls: true, force_rls: true },
+      { table_name: 'work_items', rls: true, force_rls: true },
     ]);
     expect(evidence.destructive).toEqual([]);
   });

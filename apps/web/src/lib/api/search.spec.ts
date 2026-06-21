@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   deleteSavedSearch,
   listSavedSearches,
+  recordSavedSearchOpen,
   saveSavedSearch,
   searchDocuments,
 } from './search';
@@ -25,6 +26,7 @@ describe('search API client', () => {
         target: 'body',
       },
     });
+    await recordSavedSearchOpen('11111111-1111-4111-8111-111111111901');
     await deleteSavedSearch('11111111-1111-4111-8111-111111111901');
 
     expect(apiFetch).toHaveBeenNthCalledWith(1, '/search', {
@@ -47,6 +49,11 @@ describe('search API client', () => {
     });
     expect(apiFetch).toHaveBeenNthCalledWith(
       4,
+      '/search/saved-searches/11111111-1111-4111-8111-111111111901/open',
+      { method: 'POST' },
+    );
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      5,
       '/search/saved-searches/11111111-1111-4111-8111-111111111901',
       { method: 'DELETE' },
     );

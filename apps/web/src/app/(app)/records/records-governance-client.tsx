@@ -6,6 +6,7 @@ import {
   Archive,
   CheckCircle2,
   FileClock,
+  Loader2,
   ListChecks,
   ListTree,
   Scale,
@@ -15,11 +16,13 @@ import {
 import type {
   DisposalCertificateDto,
   DisposalRequestDto,
+  DocumentDto,
   LegalHoldListResponseDto,
   LegalHoldScope,
   RecordsArchiveDto,
   RetentionPolicyListResponseDto,
 } from '@amic-vault/shared';
+import { MatterCodePicker } from '@/components/matter/matter-code-picker';
 import { Button } from '@/components/ui/button';
 import {
   DataTable,
@@ -35,6 +38,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { listMatterDocuments } from '@/lib/api-client';
 import {
   approveDisposalRequest,
   archiveDocument,
@@ -49,6 +53,7 @@ import {
 } from '@/lib/api/records';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { useI18n, type Language } from '@/lib/i18n';
+import type { MatterCodeOption } from '@/lib/matter-app';
 import { cn } from '@/lib/utils';
 
 type RecordsTab = 'policies' | 'holds' | 'archive' | 'disposal' | 'certificates';
@@ -76,11 +81,9 @@ const recordsCopy: Record<
     reason: string;
     matterHold: string;
     documentHold: string;
-    holdRef: string;
     releaseHold: string;
     archive: string;
     requestDisposal: string;
-    disposalRef: string;
     approve: string;
     execute: string;
     certificate: string;
@@ -99,16 +102,36 @@ const recordsCopy: Record<
     noRows: string;
     indefinite: string;
     days: string;
-    advancedRefs: string;
     certificateReady: string;
     evidencePreserved: string;
+    activeHold: string;
+    releasedHold: string;
+    holdAppliedAt: string;
+    holdReleasedAt: string;
+    documentOnHold: string;
+    documentAvailable: string;
     targetDocument: string;
     targetMatter: string;
     requestReady: string;
+    assignedRole: string;
+    recordsAdminRole: string;
+    dueAt: string;
     contextPanelTitle: string;
     contextPanelMeta: string;
     contextReady: string;
     contextActionTarget: string;
+    targetPickerTitle: string;
+    targetPickerMeta: string;
+    matterPickerTitle: string;
+    documentPickerTitle: string;
+    selectedMatter: string;
+    selectedDocument: string;
+    noMatterSelected: string;
+    noDocumentSelected: string;
+    noDocumentOptions: string;
+    documentOptionsLoading: string;
+    disposalRequestLinked: string;
+    disposalRequestUnavailable: string;
     openAction: string;
     holdActionTitle: string;
     holdActionDescription: string;
@@ -128,15 +151,15 @@ const recordsCopy: Record<
       disposal: '삭제 요청',
       certificates: '증명서',
     },
-    matterRef: '사건 참조',
-    documentRef: '파일 참조',
+    matterRef: '대상 Matter',
+    documentRef: '대상 파일',
     refreshTitle: '보존 정보 새로고침',
     refresh: '새로고침',
     pageTitle: '기록 보존',
     pageDescription: '보존 정책, 삭제 금지, 보관·삭제 처리를 운영 데이터 기준으로 관리합니다.',
     title: '보존 관리',
     policyMeta: '승인된 정책 값만 저장합니다.',
-    holdMeta: '표시명 선택 API 연결 전에는 고급 영역에서만 처리합니다.',
+    holdMeta: 'Matter Code와 파일 표시명 기준으로 보존 조치를 적용합니다.',
     archiveMeta: '보관 처리는 권한과 감사 기록을 통과한 파일에만 적용됩니다.',
     disposalMeta: '삭제 요청, 승인, 실행은 단계별 감사 기록과 함께 처리됩니다.',
     certificateMeta: '증명서 상태만 표시하고 내부 검증 참조는 기본 화면에 노출하지 않습니다.',
@@ -147,11 +170,9 @@ const recordsCopy: Record<
     reason: '사유',
     matterHold: '사건 삭제 금지',
     documentHold: '파일 삭제 금지',
-    holdRef: '삭제 금지 참조',
     releaseHold: '삭제 금지 해제',
     archive: '보관 처리',
     requestDisposal: '삭제 요청',
-    disposalRef: '삭제 요청 참조',
     approve: '승인',
     execute: '실행',
     certificate: '증명서',
@@ -170,16 +191,36 @@ const recordsCopy: Record<
     noRows: '표시할 항목이 없습니다.',
     indefinite: '무기한',
     days: '일',
-    advancedRefs: '고급 참조 입력',
     certificateReady: '증명서 생성됨',
     evidencePreserved: '감사 저장소에 보존됨',
+    activeHold: '활성 삭제 금지',
+    releasedHold: '해제된 삭제 금지',
+    holdAppliedAt: '적용',
+    holdReleasedAt: '해제',
+    documentOnHold: '삭제 금지 적용됨',
+    documentAvailable: '삭제 금지 없음',
     targetDocument: '대상 파일',
     targetMatter: '대상 사건',
     requestReady: '삭제 요청 연결됨',
+    assignedRole: '담당 범위',
+    recordsAdminRole: '기록 관리자',
+    dueAt: '처리 기한',
     contextPanelTitle: '보존 작업 준비',
     contextPanelMeta: '문서와 사건 표시명을 기준으로 작업을 선택합니다.',
     contextReady: '준비됨',
     contextActionTarget: '작업 대상',
+    targetPickerTitle: '작업 대상 선택',
+    targetPickerMeta: 'Matter Code와 권한이 확인된 파일 표시명을 기준으로 선택합니다.',
+    matterPickerTitle: 'Matter Code 선택',
+    documentPickerTitle: '파일 선택',
+    selectedMatter: '선택된 Matter',
+    selectedDocument: '선택된 파일',
+    noMatterSelected: 'Matter Code를 먼저 선택하세요.',
+    noDocumentSelected: '파일을 먼저 선택하세요.',
+    noDocumentOptions: '선택 가능한 파일이 없습니다.',
+    documentOptionsLoading: '파일 목록을 확인하는 중입니다.',
+    disposalRequestLinked: '삭제 요청이 현재 작업에 연결되었습니다.',
+    disposalRequestUnavailable: '현재 작업에 연결된 삭제 요청이 없습니다.',
     openAction: '열기',
     holdActionTitle: '삭제 금지 검토',
     holdActionDescription: '파일 또는 사건에 보존 조치를 적용합니다.',
@@ -198,8 +239,8 @@ const recordsCopy: Record<
       disposal: 'Disposal',
       certificates: 'Certificates',
     },
-    matterRef: 'Matter ref',
-    documentRef: 'File ref',
+    matterRef: 'Target Matter',
+    documentRef: 'Target file',
     refreshTitle: 'Refresh retention data',
     refresh: 'Refresh',
     pageTitle: 'Records governance',
@@ -207,7 +248,7 @@ const recordsCopy: Record<
       'Manage retention policies, legal holds, archive, and disposal operations from approved data.',
     title: 'Retention settings',
     policyMeta: 'Save approved policy values only.',
-    holdMeta: 'Use the advanced area only until display-name picker APIs are connected.',
+    holdMeta: 'Apply retention protection from Matter Code and file display labels.',
     archiveMeta: 'Archive actions apply only after permission and audit checks.',
     disposalMeta: 'Request, approve, and execute disposal through audited stages.',
     certificateMeta: 'Show certificate status without exposing internal verification references.',
@@ -218,11 +259,9 @@ const recordsCopy: Record<
     reason: 'Reason',
     matterHold: 'Hold matter',
     documentHold: 'Hold file',
-    holdRef: 'Hold ref',
     releaseHold: 'Release hold',
     archive: 'Archive',
     requestDisposal: 'Request disposal',
-    disposalRef: 'Disposal request ref',
     approve: 'Approve',
     execute: 'Execute',
     certificate: 'Certificate',
@@ -241,16 +280,36 @@ const recordsCopy: Record<
     noRows: 'No items to show.',
     indefinite: 'indefinite',
     days: 'days',
-    advancedRefs: 'Advanced reference input',
     certificateReady: 'Certificate generated',
     evidencePreserved: 'Preserved in audit storage',
+    activeHold: 'Active hold',
+    releasedHold: 'Released hold',
+    holdAppliedAt: 'Applied',
+    holdReleasedAt: 'Released',
+    documentOnHold: 'Legal hold active',
+    documentAvailable: 'No legal hold',
     targetDocument: 'Target file',
     targetMatter: 'Target matter',
     requestReady: 'Disposal request linked',
+    assignedRole: 'Assignee scope',
+    recordsAdminRole: 'Records admins',
+    dueAt: 'Due',
     contextPanelTitle: 'Records action readiness',
     contextPanelMeta: 'Choose actions from the displayed file and matter context.',
     contextReady: 'Ready',
     contextActionTarget: 'Action target',
+    targetPickerTitle: 'Select action target',
+    targetPickerMeta: 'Select by Matter Code and permission-checked file display labels.',
+    matterPickerTitle: 'Select Matter Code',
+    documentPickerTitle: 'Select file',
+    selectedMatter: 'Selected Matter',
+    selectedDocument: 'Selected file',
+    noMatterSelected: 'Select a Matter Code first.',
+    noDocumentSelected: 'Select a file first.',
+    noDocumentOptions: 'No selectable files.',
+    documentOptionsLoading: 'Checking file list.',
+    disposalRequestLinked: 'A disposal request is linked to the current action.',
+    disposalRequestUnavailable: 'No disposal request is linked to the current action.',
     openAction: 'Open',
     holdActionTitle: 'Review legal hold',
     holdActionDescription: 'Apply retention protection to the file or matter.',
@@ -272,6 +331,8 @@ export function RecordsGovernanceClient() {
   const [activeTab, setActiveTab] = useState<RecordsTab>(() => parseRecordsTab(params.get('tab')));
   const [matterId, setMatterId] = useState(() => params.get('matterId')?.trim() ?? '');
   const [documentId, setDocumentId] = useState(() => params.get('documentId')?.trim() ?? '');
+  const [selectedMatter, setSelectedMatter] = useState<MatterCodeOption | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentDto | null>(null);
   const [policyCode, setPolicyCode] = useState('');
   const [policyLabel, setPolicyLabel] = useState('');
   const [retentionDays, setRetentionDays] = useState('');
@@ -304,7 +365,27 @@ export function RecordsGovernanceClient() {
   const trimmedReason = reasonCode.trim();
   const activeDisposalRequestId =
     disposalRequestId.trim() || disposal?.disposalRequestId || certificate?.disposalRequestId || '';
-  const activeLegalHoldId = legalHoldId.trim() || holds?.holds[0]?.legalHoldId || '';
+  const activeLegalHoldId =
+    legalHoldId.trim() || holds?.holds.find((hold) => hold.status === 'active')?.legalHoldId || '';
+  const handleMatterSelected = React.useCallback((matter: MatterCodeOption | null) => {
+    setSelectedMatter(matter);
+    setMatterId(matter?.matterReference ?? '');
+    setSelectedDocument(null);
+    setDocumentId('');
+    setLegalHoldId('');
+    setDisposalRequestId('');
+    setDisposal(null);
+    setCertificate(null);
+  }, []);
+
+  const handleDocumentSelected = React.useCallback((document: DocumentDto | null) => {
+    setSelectedDocument(document);
+    setDocumentId(document?.documentId ?? '');
+    if (document?.matterId) setMatterId(document.matterId);
+    setDisposalRequestId('');
+    setDisposal(null);
+    setCertificate(null);
+  }, []);
 
   async function refreshAll() {
     const [nextPolicies, nextHolds] = await Promise.all([
@@ -343,7 +424,10 @@ export function RecordsGovernanceClient() {
 
   async function releaseHold() {
     const result = await run(() => releaseLegalHold(activeLegalHoldId));
-    if (result) await refreshAll();
+    if (result) {
+      setLegalHoldId(result.status === 'active' ? result.legalHoldId : '');
+      await refreshAll();
+    }
   }
 
   async function saveArchive() {
@@ -464,72 +548,58 @@ export function RecordsGovernanceClient() {
 
       {activeTab === 'holds' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <AdvancedRefsPanel meta={copy.holdMeta} title={copy.advancedRefs}>
-            {matterContextLabel ? (
-              <ContextTarget label={copy.matterRef} value={matterContextLabel} />
-            ) : (
-              <Field
-                id="records-hold-matter-ref"
-                label={copy.matterRef}
-                value={matterId}
-                onChange={setMatterId}
-              />
-            )}
-            {documentContextLabel ? (
-              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
-            ) : (
-              <Field
-                id="records-hold-document-ref"
-                label={copy.documentRef}
-                value={documentId}
-                onChange={setDocumentId}
-              />
-            )}
-            <Field
-              id="records-hold-reason"
-              label={copy.reason}
-              value={reasonCode}
-              onChange={setReasonCode}
+          <div className="grid gap-4">
+            <RecordsTargetPickerPanel
+              copy={copy}
+              documentContextLabel={documentContextLabel}
+              matterContextLabel={matterContextLabel}
+              onDocumentSelected={handleDocumentSelected}
+              onMatterSelected={handleMatterSelected}
+              selectedDocument={selectedDocument}
+              selectedMatter={selectedMatter}
             />
-            <Button
-              onClick={() => saveHold('matter')}
-              disabled={busy || !trimmedMatterId || !trimmedReason}
-              type="button"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              {copy.matterHold}
-            </Button>
-            <Button
-              onClick={() => saveHold('document')}
-              disabled={busy || !trimmedMatterId || !trimmedDocumentId || !trimmedReason}
-              type="button"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              {copy.documentHold}
-            </Button>
-            <div className="border-t pt-3 sm:col-span-full" />
-            <Field
-              id="records-hold-ref"
-              label={copy.holdRef}
-              value={legalHoldId}
-              onChange={setLegalHoldId}
-            />
-            <Button
-              onClick={releaseHold}
-              disabled={busy || !activeLegalHoldId}
-              type="button"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              {copy.releaseHold}
-            </Button>
-          </AdvancedRefsPanel>
+            <FilterBar label={copy.holds} title={copy.holds} description={copy.holdMeta}>
+              <Field
+                id="records-hold-reason"
+                label={copy.reason}
+                value={reasonCode}
+                onChange={setReasonCode}
+              />
+              <Button
+                onClick={() => saveHold('matter')}
+                disabled={busy || !trimmedMatterId || !trimmedReason}
+                type="button"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {copy.matterHold}
+              </Button>
+              <Button
+                onClick={() => saveHold('document')}
+                disabled={busy || !trimmedMatterId || !trimmedDocumentId || !trimmedReason}
+                type="button"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {copy.documentHold}
+              </Button>
+              <Button
+                onClick={releaseHold}
+                disabled={busy || !activeLegalHoldId}
+                type="button"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {copy.releaseHold}
+              </Button>
+            </FilterBar>
+          </div>
           <SummaryPanel
             title={copy.holds}
             empty={copy.noHolds}
             rows={holds?.holds.map((item) => [
               item.reasonCode,
               item.holdScope === 'document' ? copy.targetDocument : copy.targetMatter,
-              item.status,
+              item.status === 'active' ? copy.activeHold : copy.releasedHold,
+              `${copy.holdAppliedAt}: ${formatDateTime(item.createdAt)}`,
+              item.releasedAt ? `${copy.holdReleasedAt}: ${formatDateTime(item.releasedAt)}` : '',
             ])}
           />
         </section>
@@ -537,32 +607,34 @@ export function RecordsGovernanceClient() {
 
       {activeTab === 'archive' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <AdvancedRefsPanel meta={copy.archiveMeta} title={copy.advancedRefs}>
-            {documentContextLabel ? (
-              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
-            ) : (
-              <Field
-                id="records-archive-document-ref"
-                label={copy.documentRef}
-                value={documentId}
-                onChange={setDocumentId}
-              />
-            )}
-            <Field
-              id="records-archive-reason"
-              label={copy.reason}
-              value={reasonCode}
-              onChange={setReasonCode}
+          <div className="grid gap-4">
+            <RecordsTargetPickerPanel
+              copy={copy}
+              documentContextLabel={documentContextLabel}
+              matterContextLabel={matterContextLabel}
+              onDocumentSelected={handleDocumentSelected}
+              onMatterSelected={handleMatterSelected}
+              requiresDocument
+              selectedDocument={selectedDocument}
+              selectedMatter={selectedMatter}
             />
-            <Button
-              onClick={saveArchive}
-              disabled={busy || !trimmedDocumentId || !trimmedReason}
-              type="button"
-            >
-              <Archive className="h-4 w-4" />
-              {copy.archive}
-            </Button>
-          </AdvancedRefsPanel>
+            <FilterBar label={copy.archivePanel} title={copy.archivePanel} description={copy.archiveMeta}>
+              <Field
+                id="records-archive-reason"
+                label={copy.reason}
+                value={reasonCode}
+                onChange={setReasonCode}
+              />
+              <Button
+                onClick={saveArchive}
+                disabled={busy || !trimmedDocumentId || !trimmedReason}
+                type="button"
+              >
+                <Archive className="h-4 w-4" />
+                {copy.archive}
+              </Button>
+            </FilterBar>
+          </div>
           <SummaryPanel
             title={copy.archivePanel}
             empty={copy.noArchive}
@@ -577,60 +649,61 @@ export function RecordsGovernanceClient() {
 
       {activeTab === 'disposal' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <AdvancedRefsPanel meta={copy.disposalMeta} title={copy.advancedRefs}>
-            {documentContextLabel ? (
-              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
-            ) : (
+          <div className="grid gap-4">
+            <RecordsTargetPickerPanel
+              copy={copy}
+              documentContextLabel={documentContextLabel}
+              matterContextLabel={matterContextLabel}
+              onDocumentSelected={handleDocumentSelected}
+              onMatterSelected={handleMatterSelected}
+              requiresDocument
+              selectedDocument={selectedDocument}
+              selectedMatter={selectedMatter}
+            />
+            <FilterBar label={copy.disposal} title={copy.disposal} description={copy.disposalMeta}>
               <Field
-                id="records-disposal-document-ref"
-                label={copy.documentRef}
-                value={documentId}
-                onChange={setDocumentId}
+                id="records-disposal-reason"
+                label={copy.reason}
+                value={reasonCode}
+                onChange={setReasonCode}
               />
-            )}
-            <Field
-              id="records-disposal-reason"
-              label={copy.reason}
-              value={reasonCode}
-              onChange={setReasonCode}
-            />
-            <Button
-              onClick={requestDisposal}
-              disabled={busy || !trimmedDocumentId || !trimmedReason}
-              type="button"
-            >
-              <Trash2 className="h-4 w-4" />
-              {copy.requestDisposal}
-            </Button>
-            <div className="border-t pt-3 sm:col-span-full" />
-            <Field
-              id="records-disposal-request-ref"
-              label={copy.disposalRef}
-              value={disposalRequestId}
-              onChange={setDisposalRequestId}
-            />
-            <Button
-              onClick={approveDisposal}
-              disabled={busy || !activeDisposalRequestId}
-              type="button"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              {copy.approve}
-            </Button>
-            <Button
-              onClick={executeDisposal}
-              disabled={busy || !activeDisposalRequestId}
-              type="button"
-            >
-              <Trash2 className="h-4 w-4" />
-              {copy.execute}
-            </Button>
-          </AdvancedRefsPanel>
+              <Button
+                onClick={requestDisposal}
+                disabled={busy || !trimmedDocumentId || !trimmedReason}
+                type="button"
+              >
+                <Trash2 className="h-4 w-4" />
+                {copy.requestDisposal}
+              </Button>
+              <Button
+                onClick={approveDisposal}
+                disabled={busy || !activeDisposalRequestId}
+                type="button"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {copy.approve}
+              </Button>
+              <Button
+                onClick={executeDisposal}
+                disabled={busy || !activeDisposalRequestId}
+                type="button"
+              >
+                <Trash2 className="h-4 w-4" />
+                {copy.execute}
+              </Button>
+            </FilterBar>
+          </div>
           <SummaryPanel
             title={copy.disposal}
             empty={copy.noDisposal}
             rows={
-              disposal ? [[copy.requestReady, disposal.status, copy.targetDocument]] : undefined
+              disposal
+                ? [
+                    [copy.requestReady, disposal.status, copy.targetDocument],
+                    [copy.assignedRole, copy.recordsAdminRole, copy.dueAt],
+                    [copy.dueAt, formatDateTime(disposal.dueAt), copy.requestRef],
+                  ]
+                : undefined
             }
           />
         </section>
@@ -638,13 +711,18 @@ export function RecordsGovernanceClient() {
 
       {activeTab === 'certificates' ? (
         <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <AdvancedRefsPanel meta={copy.certificateMeta} title={copy.advancedRefs}>
-            <Field
-              id="records-certificate-disposal-ref"
-              label={copy.disposalRef}
-              value={disposalRequestId}
-              onChange={setDisposalRequestId}
-            />
+          <FilterBar
+            label={copy.certificate}
+            title={copy.certificate}
+            description={copy.certificateMeta}
+          >
+            <div className="sm:col-span-full">
+              {activeDisposalRequestId ? (
+                <EmptyState variant="pre-search" title={copy.disposalRequestLinked} />
+              ) : (
+                <EmptyState variant="no-data" title={copy.disposalRequestUnavailable} />
+              )}
+            </div>
             <Button
               onClick={loadCertificate}
               disabled={busy || !activeDisposalRequestId}
@@ -653,7 +731,7 @@ export function RecordsGovernanceClient() {
               <FileClock className="h-4 w-4" />
               {copy.certificate}
             </Button>
-          </AdvancedRefsPanel>
+          </FilterBar>
           <SectionCard
             icon={<FileClock className="h-4 w-4" />}
             title={copy.certificate}
@@ -689,6 +767,167 @@ function ContextTarget({ label, value }: { label: string; value: string }) {
     <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function RecordsTargetPickerPanel({
+  copy,
+  documentContextLabel,
+  matterContextLabel,
+  onDocumentSelected,
+  onMatterSelected,
+  requiresDocument = false,
+  selectedDocument,
+  selectedMatter,
+}: {
+  copy: (typeof recordsCopy)[Language];
+  documentContextLabel: string;
+  matterContextLabel: string;
+  onDocumentSelected: (document: DocumentDto | null) => void;
+  onMatterSelected: (matter: MatterCodeOption | null) => void;
+  requiresDocument?: boolean;
+  selectedDocument: DocumentDto | null;
+  selectedMatter: MatterCodeOption | null;
+}) {
+  return (
+    <FilterBar
+      label={copy.targetPickerTitle}
+      title={copy.targetPickerTitle}
+      description={copy.targetPickerMeta}
+    >
+      <div className="grid gap-4 sm:col-span-full">
+        {matterContextLabel ? (
+          <ContextTarget label={copy.selectedMatter} value={matterContextLabel} />
+        ) : (
+          <div className="grid gap-2">
+            <p className="text-sm font-semibold text-foreground">{copy.matterPickerTitle}</p>
+            <MatterCodePicker selectedMatter={selectedMatter} onMatterSelected={onMatterSelected} />
+          </div>
+        )}
+
+        {documentContextLabel ? (
+          <ContextTarget label={copy.selectedDocument} value={documentContextLabel} />
+        ) : requiresDocument || selectedMatter ? (
+          <RecordsDocumentPicker
+            copy={copy}
+            onDocumentSelected={onDocumentSelected}
+            selectedDocument={selectedDocument}
+            selectedMatter={selectedMatter}
+          />
+        ) : null}
+      </div>
+    </FilterBar>
+  );
+}
+
+function RecordsDocumentPicker({
+  copy,
+  onDocumentSelected,
+  selectedDocument,
+  selectedMatter,
+}: {
+  copy: (typeof recordsCopy)[Language];
+  onDocumentSelected: (document: DocumentDto | null) => void;
+  selectedDocument: DocumentDto | null;
+  selectedMatter: MatterCodeOption | null;
+}) {
+  const [documents, setDocuments] = React.useState<DocumentDto[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [hasLoadError, setHasLoadError] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!selectedMatter) {
+      setDocuments([]);
+      setIsLoading(false);
+      setHasLoadError(false);
+      onDocumentSelected(null);
+      return;
+    }
+
+    let active = true;
+    setIsLoading(true);
+    setHasLoadError(false);
+    listMatterDocuments(selectedMatter.matterReference, {
+      pageSize: 12,
+      sortBy: 'updated_desc',
+    })
+      .then((response) => {
+        if (active) setDocuments(response.items);
+      })
+      .catch(() => {
+        if (active) {
+          setDocuments([]);
+          setHasLoadError(true);
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [onDocumentSelected, selectedMatter]);
+
+  if (!selectedMatter) {
+    return <EmptyState variant="pre-search" title={copy.noMatterSelected} />;
+  }
+
+  if (hasLoadError) {
+    return (
+      <EmptyState
+        variant="api-error"
+        title={copy.noDocumentSelected}
+        description={copy.noDocumentOptions}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed bg-muted/30 text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+        {copy.documentOptionsLoading}
+      </div>
+    );
+  }
+
+  if (documents.length === 0) {
+    return <EmptyState variant="no-data" title={copy.noDocumentOptions} />;
+  }
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-semibold text-foreground">{copy.documentPickerTitle}</p>
+      <div className="grid gap-2" role="listbox" aria-label={copy.documentPickerTitle}>
+        {documents.map((document) => {
+          const isSelected = selectedDocument?.documentId === document.documentId;
+          return (
+            <button
+              aria-selected={isSelected}
+              className={cn(
+                'flex min-h-14 flex-col rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                isSelected && 'border-primary bg-primary/5',
+              )}
+              key={document.documentId}
+              onClick={() => onDocumentSelected(document)}
+              role="option"
+              type="button"
+            >
+              <span className="truncate text-sm font-semibold text-foreground">
+                {document.title}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {document.matterDisplayCode ?? selectedMatter.matterCode}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {document.legalHold ? copy.documentOnHold : copy.documentAvailable}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -834,27 +1073,6 @@ function TabBar({
   );
 }
 
-function AdvancedRefsPanel({
-  children,
-  meta,
-  title,
-}: {
-  children: React.ReactNode;
-  meta: string;
-  title: string;
-}) {
-  return (
-    <FilterBar label={title} title={title} description={meta}>
-      <details className="rounded-md border bg-muted/20 p-3 sm:col-span-full">
-        <summary className="cursor-pointer text-sm font-medium text-foreground">{title}</summary>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
-          {children}
-        </div>
-      </details>
-    </FilterBar>
-  );
-}
-
 function Field({
   id,
   label,
@@ -898,7 +1116,7 @@ function SummaryPanel({
                 ))}
               </DataTableRow>
             ))}
-            {!rows?.length ? <DataTableEmptyRow colSpan={3}>{empty}</DataTableEmptyRow> : null}
+            {!rows?.length ? <DataTableEmptyRow colSpan={5}>{empty}</DataTableEmptyRow> : null}
           </DataTableBody>
         </DataTable>
       </div>
@@ -913,4 +1131,8 @@ function Value({ label, value }: { label: string; value: string }) {
       <dd className="truncate text-xs font-medium">{value}</dd>
     </div>
   );
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
 }

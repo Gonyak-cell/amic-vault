@@ -26,17 +26,28 @@ candidate branch:
 - `pnpm check:production-ui-literals`
 - `pnpm ui:production-smoke`
 - `pnpm check:ui-pr-checklist`
+- `pnpm release:dms-smoke -- --json` with approved synthetic or canary DMS
+  credentials
 - `git diff --check`
 
 The production UI smoke gate must cover route visibility, hidden route blocking,
 fake/mock/sample/demo data exclusion, workspace/tenant/internal ref exclusion,
 AI Prep scope exclusion, Matter-scoped upload/browse foundations, document
 detail actions, enterprise search controls, governance/workflow/ops context, and
-admin/integration safety.
+admin/integration safety. DMS-GA-704 additionally requires expanded guard
+coverage for upload, files, matter/team, search, records, audit, walls, work,
+notifications, admin, enterprise, integrations, Outlook, and AI Prep surfaces.
+The DMS main-loop smoke gate must then verify the
+runtime path with approved data: login, Matter Code source resolution,
+matter-scoped upload, document detail, preview or safe preview-unavailable
+state, versions, matter file list visibility, title/body/metadata search,
+records/audit refs, and negative-auth non-discovery.
 
 ## DMS-UX-801 Authenticated Main Loop Smoke
 
-Manual receipt required with an approved tenant and user:
+Automated receipt required through `pnpm release:dms-smoke -- --json` with an
+approved tenant and user. Manual visual receipt may supplement the command
+output, but cannot replace a failing command.
 
 1. Login with email and password only.
 2. Select a canonical Matter app Matter Code or approved Matter projection.
@@ -77,6 +88,8 @@ Release reviewer must confirm:
   success.
 - Null/error/unavailable states are not coerced to zero, success, approved,
   connected, or completed.
+- `GUARD-DMS-002-NO-FAKE-DATA` passes on the DMS-GA-704 expanded guard surface
+  set.
 
 ## DMS-UX-804 Internal Ref Sweep
 
@@ -90,6 +103,10 @@ Default user-facing UI must not display:
 Advanced/security/admin areas may keep bounded references only when the workflow
 requires them and the route role policy allows that user.
 
+`GUARD-DMS-001-SURFACE-COVERAGE` and `GUARD-DMS-003-NO-INTERNAL-REFS` must pass
+for upload, files, matter/team, search, records, audit, walls, work,
+notifications, admin, enterprise, integrations, Outlook, and AI Prep surfaces.
+
 ## DMS-UX-805 AI Scope Sweep
 
 AI Prep production UI is limited to file organization prep/readiness. Release is
@@ -97,9 +114,16 @@ blocked if UI copy, logs, PR evidence, or release evidence imply legal analysis,
 document summary, external model routing, raw prompt storage/display, raw
 source/source text storage/display, or model response storage/display.
 
+`GUARD-DMS-004-AI-SCOPE-EXCLUSION` must pass on the same expanded DMS-GA-704
+guard surface set before DMS-UX-812 signoff can be considered.
+
 ## DMS-UX-806 Responsive QA
 
-Reviewer must check affected DMS routes at:
+Canonical route matrix:
+`docs/release/enterprise-dms-responsive-a11y-matrix.md`.
+
+Reviewer must attach external `RA-DMS-*` refs for every visible DMS route group
+at:
 
 - 1440px desktop: app shell, search, matter, files, document detail, dashboard,
   governance, admin, integrations.
@@ -108,9 +132,23 @@ Reviewer must check affected DMS routes at:
 - 375px mobile: drawer/nav reachability, no horizontal page overflow, readable
   action buttons, usable forms.
 
+Required route groups:
+
+- `DMS-RA-001`: app shell, dashboard, navigation, language selector, logout.
+- `DMS-RA-002`: upload/files route and Matter Code picker.
+- `DMS-RA-003`: Matter list, Matter workspace, file cabinet, and team access.
+- `DMS-RA-004`: document detail, preview, action center, versioning, download
+  reason, related items.
+- `DMS-RA-005`: search and governed search folders.
+- `DMS-RA-006`: admin, security, enterprise, integrations, Outlook, Matter
+  source status, and gated Office/OneDrive states.
+- `DMS-RA-007`: records, audit, walls, work queue, notifications, and
+  governance tables.
+
 ## DMS-UX-807 Accessibility QA
 
-Reviewer must check:
+Reviewer must attach external keyboard and screen-reader basics refs for every
+`DMS-RA-*` route group. Required checks:
 
 - Keyboard access for navigation, search, filters, upload, document actions,
   download reason selector, records/audit links, admin refresh, integration
@@ -119,6 +157,16 @@ Reviewer must check:
 - `aria-current` for active navigation.
 - Accessible names for icon buttons.
 - Empty/error/denied states readable without color alone.
+
+The repository component guards are `RA-DMS-GUARD-001` through
+`RA-DMS-GUARD-004` and are verified by:
+
+```bash
+pnpm --filter @amic-vault/web test -- src/app/(app)/app-shell.test.tsx src/components/ui/layout-primitives.test.tsx src/components/ui/empty-state.test.tsx src/components/ui/data-table.test.tsx
+```
+
+The focused test command does not replace final external visual/keyboard
+receipts. Missing `RA-DMS-*` refs keep DMS-UX-812 at `HOLD`.
 
 ## DMS-UX-808 Evidence Package
 
@@ -160,32 +208,52 @@ Canonical rollback controls:
 
 Rollback owner must be named before release. Rollback controls:
 
-- Route visibility policy: hide `/files`, `/documents/[id]`, `/integrations`,
-  `/integrations/outlook`, `/records`, `/audit`, `/walls`, or admin routes by
-  role/feature policy if a surface is unsafe.
-- Matter app source flags: disable production upload/browse if canonical Matter
-  source is unavailable.
-- Worker flags: disable upload-prep enqueue/worker and AI prep worker if file
-  organization prep health fails.
-- Database migrations: use reviewed rollback path only; no hard delete.
-- Storage: preserve immutable originals and versions.
-- Monitoring: keep audit events and error receipts for rollback decision.
+- Route visibility policy (`DMS-RB-001`, `RB-DMS-001-ROUTE-VISIBILITY`): hide
+  `/files`, `/documents/[id]`, `/search/folders`, `/integrations`,
+  `/integrations/outlook`, `/enterprise`, `/records`, `/audit`, `/walls`, or
+  admin routes by role/feature policy if a surface is unsafe.
+- Matter app source flags (`DMS-RB-002`, `RB-DMS-002-MATTER-SOURCE-FLAGS`):
+  disable production upload/browse if canonical Matter source is unavailable or
+  lookup/sync runtime readiness is not approved.
+- Worker flags (`DMS-RB-003`, `RB-DMS-003-WORKER-FLAGS`): disable upload-prep
+  enqueue/worker and AI prep worker if file organization prep health fails.
+- Database migrations (`DMS-RB-004`, `RB-DMS-004-DB-AUDIT-INVARIANTS`): use
+  reviewed rollback path or forward-fix only; no hard delete and no audit
+  mutation.
+- Storage (`DMS-RB-005`, `RB-DMS-005-STORAGE-INTEGRITY`): preserve immutable
+  originals, versions, hashes, and tenant prefixes.
+- Monitoring (`DMS-RB-006`, `RB-DMS-006-MONITOR-TRIGGERS`): keep audit events,
+  monitor refs, and error receipts for rollback decisions. `MON-DMS-001*`
+  through `MON-DMS-008*` external refs are required before signoff.
+- Office/OneDrive gate (`DMS-RB-007`, `RB-DMS-007-OFFICE-ONEDRIVE-GATE`):
+  keep `/integrations/onedrive` hidden and reject unsafe connected/edit/sync
+  claims until ADR-017 runtime contract approval.
+
+The repository refs above are not production rollback receipts. DMS-UX-812
+remains `HOLD` until the rollback owner attaches external drill or incident
+refs for every `DMS-RB-*` row and confirms the incident communication path.
 
 ## DMS-UX-811 Production Monitor
 
 Canonical monitor matrix: `docs/release/enterprise-dms-ui-release-evidence.md`.
+Detailed query-ref map: `docs/release/enterprise-dms-monitor-map.md`.
 
 Monitor after release:
 
 - Upload failure rate and unsupported file type rate.
 - Extraction/OCR pending and failure rate.
-- Search latency, no-result rate, and denied-search spikes.
+- Search latency, reindex queue age/failure, no-result rate, and denied-search
+  spikes.
 - Permission denied, ethical wall blocked, and tenant isolation errors.
 - AI prep queue pending/failed/rejected/stale counts, limited to file
   organization prep.
 - Audit write failures.
 - Storage write/read failures and duplicate/integrity failures.
 - Integration status gate failures for Outlook and future Office/OneDrive lanes.
+
+Every `MON-DMS-*` row must have an owner-reviewed external monitor ref before
+DMS-UX-812 signoff. Missing monitor refs are owner-visible release blockers, not
+repo test failures.
 
 ## DMS-UX-812 Release Signoff
 
@@ -201,3 +269,21 @@ Required owner signoff before production release:
 
 Signoff must state the exact production scope, excluded scopes, approved tenant
 or tenant class, rollback owner, release timestamp, and evidence package ref.
+
+DMS-GA-705 keeps this repository at `HOLD` until the external evidence
+workspace contains all required `DMS-SIGNOFF-*` refs:
+
+- `DMS-SIGNOFF-OPERATOR-REF`
+- `DMS-SIGNOFF-SECURITY-REF`
+- `DMS-SIGNOFF-LEGAL-DATA-REF`
+- `DMS-SIGNOFF-CUSTOMER-SCOPE-REF`
+- `DMS-SIGNOFF-ROLLBACK-REF`
+- `DMS-SIGNOFF-SCOPE-REF`
+- `DMS-SIGNOFF-TENANT-SCOPE-REF`
+- `DMS-SIGNOFF-ROLLBACK-OWNER-REF`
+- `DMS-SIGNOFF-TIMESTAMP-REF`
+- `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF`
+
+Any blank owner row, missing scope/exclusion/tenant/timestamp/evidence package
+ref, or private evidence committed in this repository invalidates production
+PASS and keeps DMS-UX-812 at `HOLD`.

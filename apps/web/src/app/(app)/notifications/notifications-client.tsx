@@ -23,7 +23,9 @@ import {
 } from '@/lib/api/dashboard';
 import {
   createNotificationsUnavailableState,
+  dismissNotification,
   getNotificationCenter,
+  markNotificationRead,
   notificationCenterToState,
   operationalApiErrorState,
   type DmsNotificationItem,
@@ -42,6 +44,8 @@ const notificationSourceLabels = {
   permission_policy: '권한/정책',
   ai_prep: '파일 정리 준비',
   integration: '통합',
+  operational_data: '문서 처리',
+  records: '기록 보존',
   recent_activity: '최근 활동',
 } as const satisfies Record<NotificationSourceFilter, string>;
 
@@ -99,15 +103,56 @@ export function NotificationsClient() {
     };
   }, []);
 
-  return <NotificationsContent dashboardState={dashboardState} notificationState={notificationState} />;
+  function updateNotificationState(
+    updater: (items: DmsNotificationItem[]) => DmsNotificationItem[],
+  ) {
+    setNotificationState((current) => {
+      if (current.status !== 'ready') return current;
+      const next = updater(current.data);
+      return next.length > 0 ? { status: 'ready', data: next } : { status: 'empty' };
+    });
+  }
+
+  function handleMarkRead(item: DmsNotificationItem) {
+    markNotificationRead(item.itemKey).then(() => {
+      updateNotificationState((items) =>
+        items.map((current) =>
+          current.itemKey === item.itemKey
+            ? { ...current, status: 'read', statusLabel: '읽음' }
+            : current,
+        ),
+      );
+    });
+  }
+
+  function handleDismiss(item: DmsNotificationItem) {
+    dismissNotification(item.itemKey).then(() => {
+      updateNotificationState((items) =>
+        items.filter((current) => current.itemKey !== item.itemKey),
+      );
+    });
+  }
+
+  return (
+    <NotificationsContent
+      dashboardState={dashboardState}
+      notificationState={notificationState}
+      onDismiss={handleDismiss}
+      onMarkRead={handleMarkRead}
+    />
+  );
 }
 
 export function NotificationsContent({
   dashboardState,
   notificationState,
+  onDismiss,
+  onMarkRead,
 }: {
   dashboardState: DashboardOverviewState;
   notificationState?: DataState<DmsNotificationItem[]>;
+  onDismiss?: (item: DmsNotificationItem) => void;
+  onMarkRead?: (item: DmsNotificationItem) => void;
 }) {
   const [sourceFilter, setSourceFilter] = useState<NotificationSourceFilter>('all');
   const [toneFilter, setToneFilter] = useState<NotificationToneFilter>('all');
@@ -124,6 +169,10 @@ export function NotificationsContent({
     () => filteredNotificationState(notificationState, visibleItems),
     [notificationState, visibleItems],
   );
+  const notificationActionProps = {
+    ...(onDismiss ? { onDismiss } : {}),
+    ...(onMarkRead ? { onMarkRead } : {}),
+  };
   return (
     <PageShell>
       <PageHeader
@@ -211,6 +260,7 @@ export function NotificationsContent({
             itemsState={visibleNotificationState}
             state={dashboardState}
             title="알림 센터"
+            {...notificationActionProps}
           />
           <SectionCard icon={<Activity className="h-4 w-4" />} title="알림 출처" meta="운영 API">
             <ul className="grid gap-2 sm:grid-cols-2">

@@ -6,11 +6,17 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import {
+  applyEnterpriseDmsMatterTemplateRequestSchema,
   createEnterpriseBackupSnapshotRequestSchema,
   createEnterpriseComplianceEvidenceRequestSchema,
+  matterTypeSchema,
+  upsertEnterpriseDmsMatterTemplateRequestSchema,
+  upsertEnterpriseDmsSearchRefinerRequestSchema,
+  upsertEnterpriseDmsTaxonomyRequestSchema,
   createEnterpriseKeyReferenceRequestSchema,
   createEnterpriseSiemExportRequestSchema,
   createEnterpriseSsoProviderRequestSchema,
@@ -68,7 +74,10 @@ export class EnterpriseController {
 
   @Post('sso-providers/:providerId/activate')
   activateSsoProvider(@Req() request: RequestWithSession, @Param('providerId') providerId: string) {
-    return this.enterprise.activateSsoProvider(permissionContext(request), parseUuidParam(providerId));
+    return this.enterprise.activateSsoProvider(
+      permissionContext(request),
+      parseUuidParam(providerId),
+    );
   }
 
   @Get('sso/metadata')
@@ -142,5 +151,114 @@ export class EnterpriseController {
   @Get('readiness')
   readiness(@Req() request: RequestWithSession) {
     return this.enterprise.readiness(permissionContext(request));
+  }
+
+  @Post('dms/taxonomies')
+  upsertDmsTaxonomy(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() =>
+      upsertEnterpriseDmsTaxonomyRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.upsertDmsTaxonomy(permissionContext(request), input);
+  }
+
+  @Get('dms/taxonomies')
+  listDmsTaxonomies(@Req() request: RequestWithSession) {
+    return this.enterprise.listDmsTaxonomies(permissionContext(request));
+  }
+
+  @Get('dms/taxonomies/approved')
+  listApprovedDmsTaxonomies(@Req() request: RequestWithSession) {
+    return this.enterprise.listApprovedDmsTaxonomies(permissionContext(request));
+  }
+
+  @Post('dms/taxonomies/:taxonomyId/disable')
+  disableDmsTaxonomy(@Req() request: RequestWithSession, @Param('taxonomyId') taxonomyId: string) {
+    return this.enterprise.disableDmsTaxonomy(
+      permissionContext(request),
+      parseUuidParam(taxonomyId),
+    );
+  }
+
+  @Post('dms/matter-templates')
+  upsertDmsMatterTemplate(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() =>
+      upsertEnterpriseDmsMatterTemplateRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.upsertDmsMatterTemplate(permissionContext(request), input);
+  }
+
+  @Get('dms/matter-templates')
+  listDmsMatterTemplates(@Req() request: RequestWithSession) {
+    return this.enterprise.listDmsMatterTemplates(permissionContext(request));
+  }
+
+  @Get('dms/matter-templates/approved')
+  listApprovedDmsMatterTemplates(
+    @Req() request: RequestWithSession,
+    @Query('matterType') matterType?: string,
+  ) {
+    const parsedMatterType = matterType
+      ? parseOrValidation(() => matterTypeSchema.parse(matterType))
+      : undefined;
+    return this.enterprise.listApprovedDmsMatterTemplates(
+      permissionContext(request),
+      parsedMatterType,
+    );
+  }
+
+  @Post('dms/matter-templates/:templateId/disable')
+  disableDmsMatterTemplate(
+    @Req() request: RequestWithSession,
+    @Param('templateId') templateId: string,
+  ) {
+    return this.enterprise.disableDmsMatterTemplate(
+      permissionContext(request),
+      parseUuidParam(templateId),
+    );
+  }
+
+  @Post('dms/matter-templates/:templateId/apply')
+  applyDmsMatterTemplate(
+    @Req() request: RequestWithSession,
+    @Param('templateId') templateId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() =>
+      applyEnterpriseDmsMatterTemplateRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.applyDmsMatterTemplate(
+      permissionContext(request),
+      parseUuidParam(templateId),
+      input,
+    );
+  }
+
+  @Post('dms/search-refiners')
+  upsertDmsSearchRefiner(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() =>
+      upsertEnterpriseDmsSearchRefinerRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.upsertDmsSearchRefiner(permissionContext(request), input);
+  }
+
+  @Get('dms/search-refiners')
+  listDmsSearchRefiners(@Req() request: RequestWithSession) {
+    return this.enterprise.listDmsSearchRefiners(permissionContext(request));
+  }
+
+  @Get('dms/search-refiners/approved')
+  listApprovedDmsSearchRefiners(@Req() request: RequestWithSession) {
+    return this.enterprise.listApprovedDmsSearchRefiners(permissionContext(request));
+  }
+
+  @Post('dms/search-refiners/:refinerId/disable')
+  disableDmsSearchRefiner(
+    @Req() request: RequestWithSession,
+    @Param('refinerId') refinerId: string,
+  ) {
+    return this.enterprise.disableDmsSearchRefiner(
+      permissionContext(request),
+      parseUuidParam(refinerId),
+    );
   }
 }

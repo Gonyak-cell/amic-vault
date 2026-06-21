@@ -33,7 +33,7 @@ const result: SearchResultDto = {
   clientDisplayName: 'AMIC',
   title: 'Escrow Closing Memo',
   snippet: 'Escrow <script>alert(1)</script> closing memo',
-  highlights: [{ start: 0, end: 6 }],
+  highlights: [{ anchorId: 'vph-1-0-6', start: 0, end: 6 }],
   documentType: 'memo',
   extractionStatus: 'ocr_pending',
   versionStatus: 'current',
@@ -50,13 +50,13 @@ describe('ResultCard', () => {
     );
 
     expect(html).toContain(
-      'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=all&amp;hit=1&amp;hitCount=1"',
+      'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=all&amp;hit=1&amp;hitCount=1&amp;anchor=vph-1-0-6"',
     );
     expect(html).toContain('문서 열기');
     expect(html).toContain('미리보기');
     expect(html).toContain('문서함');
     expect(html).toContain(
-      'href="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=1&amp;vault-preview-target=all"',
+      'href="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=1&amp;vault-preview-target=all&amp;vault-preview-anchor=vph-1-0-6"',
     );
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007&amp;title=Escrow+Closing+Memo"');
     expect(html).toContain('Escrow Closing Memo');
@@ -108,7 +108,7 @@ describe('ResultCard', () => {
 
   it('builds search hit document links without putting snippets or query text in the URL', () => {
     expect(documentSearchHitUrlForSearchResult(result, 'body')).toBe(
-      '/documents/11111111-1111-4111-8111-111111111201?from=search&target=body&hit=1&hitCount=1',
+      '/documents/11111111-1111-4111-8111-111111111201?from=search&target=body&hit=1&hitCount=1&anchor=vph-1-0-6',
     );
     expect(documentSearchHitUrlForSearchResult({ ...result, highlights: [] }, 'title')).toBe(
       '/documents/11111111-1111-4111-8111-111111111201?from=search&target=title',

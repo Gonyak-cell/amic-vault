@@ -21,8 +21,10 @@ interface IndexedFixtureRow {
   documentId: string;
   versionId: string;
   title: string;
+  confidentialityLevel?: 'standard' | 'high' | 'restricted';
   documentType: 'contract' | 'memo' | 'evidence';
   documentStatus: 'draft' | 'deleted';
+  privilegeStatus?: 'none' | 'privileged' | 'work_product' | 'joint_privilege';
   versionStatus: 'current' | 'superseded';
   updatedAt: string;
 }
@@ -43,8 +45,10 @@ interface SearchRow {
   title: string;
   matter_id: string;
   client_id: string;
+  confidentiality_level: string;
   document_type: string;
   document_status: string;
+  privilege_status: string;
   version_status: string;
 }
 
@@ -128,13 +132,14 @@ async function insertIndexedRow(row: IndexedFixtureRow, index: number): Promise<
         `
           INSERT INTO documents (
             document_id, tenant_id, matter_id, document_family_id, title, status,
-            document_type, created_by, created_at, updated_at,
+            document_type, confidentiality_level, privilege_status,
+            created_by, created_at, updated_at,
             deleted_at, deleted_by, deleted_previous_status
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $9,
-            CASE WHEN $6::text = 'deleted' THEN $9::timestamptz ELSE NULL END,
-            CASE WHEN $6::text = 'deleted' THEN $8::uuid ELSE NULL END,
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11,
+            CASE WHEN $6::text = 'deleted' THEN $11::timestamptz ELSE NULL END,
+            CASE WHEN $6::text = 'deleted' THEN $10::uuid ELSE NULL END,
             CASE WHEN $6::text = 'deleted' THEN 'draft'::text ELSE NULL END
           )
         `,
@@ -146,6 +151,8 @@ async function insertIndexedRow(row: IndexedFixtureRow, index: number): Promise<
           row.title,
           row.documentStatus,
           row.documentType,
+          row.confidentialityLevel ?? 'standard',
+          row.privilegeStatus ?? 'none',
           row.ownerUserId,
           row.updatedAt,
         ],
@@ -208,7 +215,21 @@ async function queryRows(
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<SearchRow>(
       `
-        SELECT title, matter_id, client_id, document_type, document_status, version_status
+        SELECT title, matter_id, client_id, document_type, document_status, version_status,
+          (
+            SELECT document_filter.confidentiality_level
+            FROM documents document_filter
+            WHERE document_filter.tenant_id = idx.tenant_id
+              AND document_filter.document_id = idx.document_id
+            LIMIT 1
+          ) AS confidentiality_level,
+          (
+            SELECT document_filter.privilege_status
+            FROM documents document_filter
+            WHERE document_filter.tenant_id = idx.tenant_id
+              AND document_filter.document_id = idx.document_id
+            LIMIT 1
+          ) AS privilege_status
         FROM document_search_index idx
         ${built.whereSql}
         ORDER BY title
@@ -238,8 +259,10 @@ describe('search metadata filter integration', () => {
         documentId: randomUUID(),
         versionId: randomUUID(),
         title: 'SF Alpha A Contract',
+        confidentialityLevel: 'restricted',
         documentType: 'contract',
         documentStatus: 'draft',
+        privilegeStatus: 'privileged',
         versionStatus: 'current',
         updatedAt: '2026-06-10T00:00:00.000Z',
       },
@@ -251,8 +274,10 @@ describe('search metadata filter integration', () => {
         documentId: randomUUID(),
         versionId: randomUUID(),
         title: 'SF Alpha B Memo',
+        confidentialityLevel: 'high',
         documentType: 'memo',
         documentStatus: 'draft',
+        privilegeStatus: 'work_product',
         versionStatus: 'current',
         updatedAt: '2026-06-11T00:00:00.000Z',
       },
@@ -264,8 +289,10 @@ describe('search metadata filter integration', () => {
         documentId: randomUUID(),
         versionId: randomUUID(),
         title: 'SF Alpha C Superseded',
+        confidentialityLevel: 'standard',
         documentType: 'contract',
         documentStatus: 'draft',
+        privilegeStatus: 'none',
         versionStatus: 'superseded',
         updatedAt: '2026-06-12T00:00:00.000Z',
       },
@@ -277,8 +304,10 @@ describe('search metadata filter integration', () => {
         documentId: randomUUID(),
         versionId: randomUUID(),
         title: 'SF Alpha D Deleted',
+        confidentialityLevel: 'restricted',
         documentType: 'evidence',
         documentStatus: 'deleted',
+        privilegeStatus: 'joint_privilege',
         versionStatus: 'current',
         updatedAt: '2026-06-13T00:00:00.000Z',
       },
@@ -292,8 +321,10 @@ describe('search metadata filter integration', () => {
       documentId: randomUUID(),
       versionId: randomUUID(),
       title: 'SF Beta Contract',
+      confidentialityLevel: 'restricted',
       documentType: 'contract',
       documentStatus: 'draft',
+      privilegeStatus: 'privileged',
       versionStatus: 'current',
       updatedAt: '2026-06-10T00:00:00.000Z',
     };
@@ -349,6 +380,43 @@ describe('search metadata filter integration', () => {
         filters: { documentType: 'MA' } as unknown as SearchFiltersDto,
       }),
     ).toThrow();
+  });
+
+  it('filters confidentiality and privilege through current document metadata', async () => {
+    const alphaScope = tenantScope(tenantAlphaId, fixture.alphaVersionIds);
+    await expect(queryRows({ confidentialityLevel: 'restricted' }, alphaScope)).resolves.toMatchObject([
+      {
+        confidentiality_level: 'restricted',
+        privilege_status: 'privileged',
+        title: 'SF Alpha A Contract',
+      },
+    ]);
+    await expect(queryRows({ privilegeStatus: 'work_product' }, alphaScope)).resolves.toMatchObject([
+      {
+        confidentiality_level: 'high',
+        privilege_status: 'work_product',
+        title: 'SF Alpha B Memo',
+      },
+    ]);
+    await expect(
+      queryRows(
+        {
+          confidentialityLevel: 'standard',
+          privilegeStatus: 'none',
+          versionStatus: 'all',
+        },
+        alphaScope,
+      ),
+    ).resolves.toMatchObject([
+      {
+        confidentiality_level: 'standard',
+        privilege_status: 'none',
+        title: 'SF Alpha C Superseded',
+      },
+    ]);
+    await expect(
+      queryRows({ confidentialityLevel: 'restricted' }, tenantScope(tenantBetaId, fixture.betaVersionIds)),
+    ).resolves.toMatchObject([{ title: 'SF Beta Contract' }]);
   });
 
   it('uses inclusive UTC-normalized document updated_at date ranges', async () => {

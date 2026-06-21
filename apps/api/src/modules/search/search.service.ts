@@ -8,6 +8,8 @@ import type {
   MatterSuggestionQueryDto,
   SavedSearchDto,
   SavedSearchListDto,
+  SearchFolderScope,
+  SearchHighlightDto,
   SearchMode,
   SearchFacetBucketDto,
   SearchFacetsDto,
@@ -59,18 +61,69 @@ interface MatterSuggestionDbRow {
 }
 
 interface SavedSearchDbRow {
+  can_revoke?: boolean;
   created_at: Date;
   filter_refs: string;
+  last_opened_at: Date | null;
+  matter_id: string | null;
   name: string;
+  opened_count: number | string;
   query_hash: string;
   saved_search_id: string;
+  scope_type: string;
   search_query_json: unknown;
   updated_at: Date;
+}
+
+interface SavedSearchActorRow {
+  role: string;
+  status: string;
 }
 
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
+
+const internalSavedSearchRoles = [
+  'firm_admin',
+  'security_admin',
+  'matter_owner',
+  'matter_member',
+  'limited_reviewer',
+  'knowledge_manager',
+] as const;
+
+const savedSearchActorCte = `
+  actor AS (
+    SELECT role, status
+    FROM users
+    WHERE tenant_id = $1
+      AND user_id = $2
+    LIMIT 1
+  )
+`;
+
+const visibleSavedSearchWhere = `
+  actor.status = 'active'
+  AND actor.role = ANY($3::text[])
+  AND s.tenant_id = $1
+  AND s.revoked_at IS NULL
+  AND (
+    (s.scope_type = 'personal' AND s.user_id = $2)
+    OR s.scope_type = 'admin-shared'
+    OR (
+      s.scope_type = 'matter-team'
+      AND s.matter_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM matter_members mm
+        WHERE mm.tenant_id = s.tenant_id
+          AND mm.matter_id = s.matter_id
+          AND mm.user_id = $2
+      )
+    )
+  )
+`;
 
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
@@ -94,6 +147,9 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
     if (filters.matterName) refs.push('matter_name_filter:present');
     if (filters.clientName) refs.push('client_name_filter:present');
     if (filters.title) refs.push('title_filter:present');
+    if (filters.confidentialityLevel) {
+      refs.push(`confidentiality_level:${filters.confidentialityLevel}`);
+    }
     if (filters.documentType) {
       const value = Array.isArray(filters.documentType)
         ? filters.documentType.join(',')
@@ -109,6 +165,9 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
     if (filters.recordsStatus) {
       refs.push(`records_status:${filters.recordsStatus}`);
     }
+    if (filters.privilegeStatus) {
+      refs.push(`privilege_status:${filters.privilegeStatus}`);
+    }
     if (filters.dateFrom || filters.dateTo) {
       refs.push(`date_range:${filters.dateFrom ?? ''}..${filters.dateTo ?? ''}`);
     }
@@ -120,8 +179,25 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
   return (refs.join('|') || 'none').slice(0, 256);
 }
 
-function savedSearchFilterRefs(operation: 'delete' | 'save', input: SearchQueryDto): string {
-  return `saved_search:${operation}|${filterRefs(input)}`.slice(0, 256);
+function isAdminRole(role: string | undefined): boolean {
+  return role === 'firm_admin' || role === 'security_admin';
+}
+
+function isInternalSavedSearchRole(role: string | undefined): boolean {
+  return internalSavedSearchRoles.includes(role as (typeof internalSavedSearchRoles)[number]);
+}
+
+function parseSavedSearchScope(value: string): SearchFolderScope {
+  if (value === 'matter-team' || value === 'admin-shared') return value;
+  return 'personal';
+}
+
+function savedSearchFilterRefs(
+  operation: 'open' | 'revoke' | 'save',
+  input: SearchQueryDto,
+  scope: SearchFolderScope,
+): string {
+  return `saved_search:${operation}|folder_scope:${scope}|${filterRefs(input)}`.slice(0, 256);
 }
 
 function searchAuditMetadata(
@@ -185,6 +261,27 @@ function matterSuggestionAuditMetadata(
     mailbox_fingerprint_hash: input.mailboxFingerprint,
     outlook_status: result === 'success' ? 'suggestions_viewed' : 'denied',
   };
+}
+
+function previewAnchorsForHighlights(
+  highlights: readonly SearchHighlightDto[],
+): SearchHighlightDto[] {
+  return highlights.slice(0, 50).map((highlight, index) => ({
+    ...highlight,
+    anchorId: previewAnchorId(index, highlight),
+  }));
+}
+
+function previewAnchorId(index: number, highlight: SearchHighlightDto): string {
+  const safeIndex = Math.max(1, Math.min(index + 1, 50));
+  const safeStart = boundedPreviewOffset(highlight.start, 0);
+  const safeEnd = Math.max(safeStart, boundedPreviewOffset(highlight.end, safeStart));
+  return `vph-${safeIndex}-${safeStart}-${safeEnd}`;
+}
+
+function boundedPreviewOffset(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(Math.trunc(value), 200));
 }
 
 @Injectable()
@@ -284,21 +381,35 @@ export class SearchService {
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       const result = await client.query(
         `
+          WITH ${savedSearchActorCte}
           SELECT
-            saved_search_id,
-            name,
-            search_query_json,
-            query_hash,
-            filter_refs,
-            created_at,
-            updated_at
-          FROM saved_searches
-          WHERE tenant_id = $1
-            AND user_id = $2
-          ORDER BY updated_at DESC, name ASC, saved_search_id ASC
+            s.saved_search_id,
+            s.name,
+            s.scope_type,
+            s.matter_id,
+            s.search_query_json,
+            s.query_hash,
+            s.filter_refs,
+            s.opened_count,
+            s.last_opened_at,
+            s.created_at,
+            s.updated_at,
+            (s.user_id = $2 OR actor.role = ANY($4::text[])) AS can_revoke
+          FROM saved_searches s
+          CROSS JOIN actor
+          WHERE ${visibleSavedSearchWhere}
+          ORDER BY
+            CASE s.scope_type
+              WHEN 'personal' THEN 0
+              WHEN 'matter-team' THEN 1
+              ELSE 2
+            END,
+            s.updated_at DESC,
+            s.name ASC,
+            s.saved_search_id ASC
           LIMIT 50
         `,
-        [ctx.tenantId, ctx.userId],
+        [ctx.tenantId, ctx.userId, [...internalSavedSearchRoles], ['firm_admin', 'security_admin']],
       );
       return { items: (result.rows as SavedSearchDbRow[]).map(mapSavedSearchRow) };
     });
@@ -310,37 +421,53 @@ export class SearchService {
   ): Promise<SavedSearchDto> {
     const queryHash = sha256Hex(input.query.query ?? '');
     const refs = filterRefs(input.query);
+    const scope = input.scope ?? 'personal';
+    const matterId = scope === 'matter-team' ? input.matterId ?? null : null;
     return this.auditService.transaction(ctx.tenantId, async (client) => {
+      await this.assertCanSaveSavedSearch(client, ctx, scope, matterId);
       const result = await client.query(
         `
           INSERT INTO saved_searches (
             tenant_id,
             user_id,
             name,
+            scope_type,
+            matter_id,
             search_query_json,
             query_hash,
             filter_refs
           )
-          VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+          VALUES ($1, $2, $3, $4, $5::uuid, $6::jsonb, $7, $8)
           ON CONFLICT (tenant_id, user_id, name)
           DO UPDATE SET
+            scope_type = EXCLUDED.scope_type,
+            matter_id = EXCLUDED.matter_id,
             search_query_json = EXCLUDED.search_query_json,
             query_hash = EXCLUDED.query_hash,
             filter_refs = EXCLUDED.filter_refs,
+            revoked_at = NULL,
+            revoked_by = NULL,
             updated_at = now()
           RETURNING
             saved_search_id,
             name,
+            scope_type,
+            matter_id,
             search_query_json,
             query_hash,
             filter_refs,
+            opened_count,
+            last_opened_at,
             created_at,
-            updated_at
+            updated_at,
+            true AS can_revoke
         `,
         [
           ctx.tenantId,
           ctx.userId,
           input.name.trim(),
+          scope,
+          matterId,
           JSON.stringify(input.query),
           queryHash,
           refs,
@@ -358,25 +485,157 @@ export class SearchService {
     await this.auditService.transaction(ctx.tenantId, async (client) => {
       const result = await client.query(
         `
-          DELETE FROM saved_searches
-          WHERE tenant_id = $1
-            AND user_id = $2
-            AND saved_search_id = $3
+          WITH ${savedSearchActorCte},
+          authorized AS (
+            SELECT s.saved_search_id
+            FROM saved_searches s
+            CROSS JOIN actor
+            WHERE s.tenant_id = $1
+              AND s.saved_search_id = $3
+              AND s.revoked_at IS NULL
+              AND actor.status = 'active'
+              AND actor.role = ANY($4::text[])
+              AND (
+                s.user_id = $2
+                OR (s.scope_type <> 'personal' AND actor.role = ANY($5::text[]))
+              )
+            LIMIT 1
+          )
+          UPDATE saved_searches s
+          SET revoked_at = now(),
+              revoked_by = $2,
+              updated_at = now()
+          FROM authorized
+          WHERE s.tenant_id = $1
+            AND s.saved_search_id = authorized.saved_search_id
           RETURNING
-            saved_search_id,
-            name,
-            search_query_json,
-            query_hash,
-            filter_refs,
-            created_at,
-            updated_at
+            s.saved_search_id,
+            s.name,
+            s.scope_type,
+            s.matter_id,
+            s.search_query_json,
+            s.query_hash,
+            s.filter_refs,
+            s.opened_count,
+            s.last_opened_at,
+            s.created_at,
+            s.updated_at,
+            true AS can_revoke
         `,
-        [ctx.tenantId, ctx.userId, savedSearchId],
+        [
+          ctx.tenantId,
+          ctx.userId,
+          savedSearchId,
+          [...internalSavedSearchRoles],
+          ['firm_admin', 'security_admin'],
+        ],
       );
       const row = result.rows[0] as SavedSearchDbRow | undefined;
       if (!row) throw permissionDenied();
-      await this.recordSavedSearchAudit(client, ctx, mapSavedSearchRow(row), 'delete');
+      await this.recordSavedSearchAudit(client, ctx, mapSavedSearchRow(row), 'revoke');
     });
+  }
+
+  async recordSavedSearchOpen(
+    ctx: SearchRequestContext,
+    savedSearchId: string,
+  ): Promise<SavedSearchDto> {
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query(
+        `
+          WITH ${savedSearchActorCte},
+          visible AS (
+            SELECT
+              s.saved_search_id,
+              (s.user_id = $2 OR actor.role = ANY($4::text[])) AS can_revoke
+            FROM saved_searches s
+            CROSS JOIN actor
+            WHERE ${visibleSavedSearchWhere}
+              AND s.saved_search_id = $5
+            LIMIT 1
+          )
+          UPDATE saved_searches s
+          SET opened_count = s.opened_count + 1,
+              last_opened_at = now()
+          FROM visible
+          WHERE s.tenant_id = $1
+            AND s.saved_search_id = visible.saved_search_id
+          RETURNING
+            s.saved_search_id,
+            s.name,
+            s.scope_type,
+            s.matter_id,
+            s.search_query_json,
+            s.query_hash,
+            s.filter_refs,
+            s.opened_count,
+            s.last_opened_at,
+            s.created_at,
+            s.updated_at,
+            visible.can_revoke
+        `,
+        [
+          ctx.tenantId,
+          ctx.userId,
+          [...internalSavedSearchRoles],
+          ['firm_admin', 'security_admin'],
+          savedSearchId,
+        ],
+      );
+      const row = result.rows[0] as SavedSearchDbRow | undefined;
+      if (!row) throw permissionDenied();
+      const saved = mapSavedSearchRow(row);
+      await this.recordSavedSearchAudit(client, ctx, saved, 'open');
+      return saved;
+    });
+  }
+
+  private async assertCanSaveSavedSearch(
+    client: QueryClient,
+    ctx: SearchRequestContext,
+    scope: SearchFolderScope,
+    matterId: string | null,
+  ): Promise<void> {
+    const actor = await this.lookupSavedSearchActor(client, ctx);
+    if (!actor || actor.status !== 'active' || !isInternalSavedSearchRole(actor.role)) {
+      throw permissionDenied();
+    }
+    if (scope === 'admin-shared') {
+      if (!isAdminRole(actor.role)) throw permissionDenied();
+      return;
+    }
+    if (scope === 'matter-team') {
+      if (!matterId) throw permissionDenied();
+      const membership = await client.query(
+        `
+          SELECT 1
+          FROM matter_members
+          WHERE tenant_id = $1
+            AND matter_id = $2
+            AND user_id = $3
+          LIMIT 1
+        `,
+        [ctx.tenantId, matterId, ctx.userId],
+      );
+      if (membership.rowCount !== 1) throw permissionDenied();
+    }
+  }
+
+  private async lookupSavedSearchActor(
+    client: QueryClient,
+    ctx: SearchRequestContext,
+  ): Promise<SavedSearchActorRow | null> {
+    const result = await client.query(
+      `
+        SELECT role, status
+        FROM users
+        WHERE tenant_id = $1
+          AND user_id = $2
+        LIMIT 1
+      `,
+      [ctx.tenantId, ctx.userId],
+    );
+    return (result.rows[0] as SavedSearchActorRow | undefined) ?? null;
   }
 
   private async auditDenied(
@@ -460,7 +719,7 @@ export class SearchService {
     client: QueryClient,
     ctx: SearchRequestContext,
     saved: SavedSearchDto,
-    operation: 'delete' | 'save',
+    operation: 'open' | 'revoke' | 'save',
   ): Promise<void> {
     await this.auditService.log(
       {
@@ -472,11 +731,12 @@ export class SearchService {
         targetId: saved.savedSearchId,
         result: 'success',
         metadata: {
-          filter_refs: savedSearchFilterRefs(operation, saved.query),
+          filter_refs: savedSearchFilterRefs(operation, saved.query, saved.scope),
           query_hash: sha256Hex(saved.query.query ?? ''),
           query_length: saved.query.query?.length ?? 0,
           request_id: saved.savedSearchId,
           result_count: 0,
+          scope_type: saved.scope,
         },
       },
       client,
@@ -584,7 +844,7 @@ export class SearchService {
           safeLabel: buildSafeLabel(row.title, row.matter_code, row.matter_name),
           canViewSensitiveRef: false,
           snippet: parsed.snippet,
-          highlights: parsed.highlights,
+          highlights: previewAnchorsForHighlights(parsed.highlights),
           documentType: row.document_type,
           extractionStatus: parseExtractionStatus(row.extraction_status),
           versionStatus: row.version_status,
@@ -631,10 +891,14 @@ function mapMatterSuggestionRow(row: MatterSuggestionDbRow): MatterSuggestionDto
 
 function mapSavedSearchRow(row: SavedSearchDbRow): SavedSearchDto {
   return {
+    canRevoke: row.can_revoke === true,
     createdAt: row.created_at.toISOString(),
+    lastOpenedAt: row.last_opened_at ? row.last_opened_at.toISOString() : null,
     name: row.name,
+    openCount: Number(row.opened_count ?? 0),
     query: searchQuerySchema.parse(row.search_query_json),
     savedSearchId: row.saved_search_id,
+    scope: parseSavedSearchScope(row.scope_type),
     updatedAt: row.updated_at.toISOString(),
   };
 }
@@ -651,10 +915,12 @@ function parseMatterSuggestionReasonCodes(
 
 const emptyFacets: SearchFacetsDto = {
   clients: [],
+  confidentialityLevels: [],
   matters: [],
   documentTypes: [],
   extractionStatuses: [],
   legalHolds: [],
+  privilegeStatuses: [],
   recordsStatuses: [],
   versionStatuses: [],
   dateRanges: [],
@@ -664,10 +930,12 @@ function parseFacets(input: unknown): SearchFacetsDto {
   if (!isRecord(input)) return emptyFacets;
   return {
     clients: parseBuckets(input.clients),
+    confidentialityLevels: parseBuckets(input.confidentialityLevels),
     matters: parseBuckets(input.matters),
     documentTypes: parseBuckets(input.documentTypes),
     extractionStatuses: parseBuckets(input.extractionStatuses),
     legalHolds: parseBuckets(input.legalHolds),
+    privilegeStatuses: parseBuckets(input.privilegeStatuses),
     recordsStatuses: parseBuckets(input.recordsStatuses),
     versionStatuses: parseBuckets(input.versionStatuses),
     dateRanges: parseDateRanges(input.dateRanges),

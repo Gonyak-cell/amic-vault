@@ -33,19 +33,50 @@ const forbiddenPatterns = [
     pattern:
       /\bshortHash\s*\(\s*(status\.)?(matterId|documentId|clientId|userId|tenantId|workspaceId|selectedMatterId|selectedDocumentId)\b/i,
   },
-  { name: 'workspace id visible copy', pattern: /workspace\s*id|워크스페이스 ID/i },
+  { name: 'workspace id visible copy', pattern: /\bworkspace ID\b|워크스페이스 ID/i },
+  { name: 'tenant id visible copy', pattern: /\btenant ID\b|테넌트 ID/i },
+  { name: 'document id visible copy', pattern: /\bdocument ID\b|문서 ID/i },
+  { name: 'raw uuid literal', pattern: /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i },
   { name: 'theme selector copy', pattern: /디자인 테마|design theme/i },
   { name: 'raw prompt copy', pattern: /raw prompt|prompt 원문/i },
   { name: 'raw source copy', pattern: /raw source|source text|source 원문/i },
   { name: 'model response copy', pattern: /model response|model-response|모델 응답/i },
   { name: 'external model copy', pattern: /external model|외부 모델/i },
   { name: 'legal analysis copy', pattern: /legal analysis|법률 분석/i },
+  { name: 'document summary copy', pattern: /document summary|summary generation|문서 요약/i },
   {
     name: 'fake operational copy',
     pattern:
       /가짜\s*(작업|데이터|문서|사건|수)|fake\s+(task|data|document|matter|count)|mock\s+(task|data|document|matter)|sample\s+(default|data|document|matter)|demo\s+(data|tenant|matter|document)/i,
   },
   { name: 'implementation fallback copy', pattern: /작업 API가 없는/i },
+];
+
+const expandedDmsGuardSurfaceFiles = [
+  'apps/web/src/app/(app)/files/page.tsx',
+  'apps/web/src/components/document/document-upload-panel.tsx',
+  'apps/web/src/components/document/document-vault-list.tsx',
+  'apps/web/src/components/document/matter-document-list.tsx',
+  'apps/web/src/components/document/document-action-center.tsx',
+  'apps/web/src/app/(app)/matters/page.tsx',
+  'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
+  'apps/web/src/app/(app)/matters/[matterId]/team/page.tsx',
+  'apps/web/src/components/matter/add-member-dialog.tsx',
+  'apps/web/src/components/matter/team-member-list.tsx',
+  'apps/web/src/app/(app)/search/search-client.tsx',
+  'apps/web/src/app/(app)/search/folders/search-folders-client.tsx',
+  'apps/web/src/app/(app)/records/records-governance-client.tsx',
+  'apps/web/src/app/(app)/audit/audit-console-client.tsx',
+  'apps/web/src/app/(app)/walls/wall-admin-client.tsx',
+  'apps/web/src/app/(app)/work/work-queue-client.tsx',
+  'apps/web/src/app/(app)/notifications/notifications-client.tsx',
+  'apps/web/src/app/(app)/admin/page.tsx',
+  'apps/web/src/app/(app)/admin/security/page.tsx',
+  'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
+  'apps/web/src/app/(app)/integrations/page.tsx',
+  'apps/web/src/app/(app)/integrations/outlook/outlook-integration-status-client.tsx',
+  'apps/web/src/components/ai/ai-prep-status-panel.tsx',
+  'apps/web/src/components/ai/ai-prep-matter-dashboard.tsx',
 ];
 
 const blockedRouteForbiddenLiterals = [
@@ -98,6 +129,11 @@ const productionInventoryPatterns = [
     pattern: /\/files[\s\S]*`visible`[\s\S]*Shown[\s\S]*Matter Code-gated/i,
   },
   {
+    name: 'matter team limited route',
+    pattern:
+      /\/matters\/\[id\]\/team[\s\S]*`visible_limited`[\s\S]*display-safe user name\/email[\s\S]*raw user reference entry is hidden by default/i,
+  },
+  {
     name: 'API-unready routes',
     pattern: /\/integrations\/onedrive[\s\S]*`hidden_until_api_ready`/,
   },
@@ -144,7 +180,11 @@ const uploadBrowseFlowFiles = [
     patterns: [
       { name: 'matter filing context card', pattern: /파일링 기준/ },
       { name: 'metadata filing model', pattern: /Matter 메타데이터 기준/ },
-      { name: 'no pseudo folder model', pattern: /폴더 모델[\s\S]*미적용/ },
+      {
+        name: 'approved Matter template catalog client',
+        pattern: /listApprovedEnterpriseDmsMatterTemplates/,
+      },
+      { name: 'backend-backed document set contract', pattern: /문서 세트 계약/ },
       { name: 'matter-scoped browse copy', pattern: /Matter 범위 목록/ },
       { name: 'Matter Code upload copy', pattern: /Matter Code 확인 후 업로드/ },
     ],
@@ -153,6 +193,7 @@ const uploadBrowseFlowFiles = [
     path: 'apps/web/src/lib/api-client.ts',
     patterns: [
       { name: 'FormData helper', pattern: /apiFetchFormData/ },
+      { name: 'upload preflight client', pattern: /createUploadPreflight/ },
       { name: 'matter document list client', pattern: /listMatterDocuments/ },
       { name: 'matter-scoped upload client', pattern: /uploadDocument/ },
       { name: 'multipart content type guard', pattern: /withoutContentType/ },
@@ -162,13 +203,14 @@ const uploadBrowseFlowFiles = [
     path: 'apps/web/src/lib/matter-app.ts',
     patterns: [
       { name: 'Matter app configured flag', pattern: /NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED/ },
+      { name: 'Matter app runtime ready flag', pattern: /NEXT_PUBLIC_MATTER_APP_RUNTIME_READY/ },
       {
         name: 'projection fallback production guard',
         pattern: /NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE/,
       },
       {
         name: 'source mode fail closed',
-        pattern: /return isMatterAppSourceConfigured\(mode\) \? mode : 'unconfigured'/,
+        pattern: /return isMatterAppSourceContractReady\(mode\) \? mode : 'unconfigured'/,
       },
     ],
   },
@@ -177,8 +219,8 @@ const uploadBrowseFlowFiles = [
     patterns: [
       { name: 'no unconfigured Matter app upload', pattern: /Matter app 연결 필요/ },
       {
-        name: 'permission-scoped matter list lookup',
-        pattern: /listMatters\(\{ pageSize: 50 \}\)/,
+        name: 'permission-scoped Matter app lookup',
+        pattern: /lookupMatterAppMatters\(\{ q: query, pageSize: 50 \}\)/,
       },
     ],
   },
@@ -190,12 +232,57 @@ const uploadBrowseFlowFiles = [
         pattern: /Matter Code를 먼저 선택해 주세요/,
       },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
+      { name: 'server-side upload preflight call', pattern: /createUploadPreflight/ },
+      { name: 'upload preflight SHA hashing', pattern: /sha256BrowserFile/ },
+      { name: 'duplicate decision dialog', pattern: /DuplicateDecisionDialog/ },
+      { name: 'upload metadata profile component', pattern: /UploadMetadataProfile/ },
+      { name: 'approved taxonomy catalog client', pattern: /listApprovedEnterpriseDmsTaxonomies/ },
+      {
+        name: 'approved taxonomy catalog forwarded',
+        pattern: /taxonomyCatalog=\{taxonomyCatalog\}/,
+      },
+      { name: 'upload metadata profile forwarding', pattern: /uploadMetadataProfileFields/ },
       {
         name: 'matter-scoped upload call',
         pattern: /uploadDocument\(selectedMatter\.matterReference/,
       },
+      {
+        name: 'duplicate new document decision forwarding',
+        pattern: /duplicateDecision: 'new_document'/,
+      },
+      {
+        name: 'duplicate new version decision forwarding',
+        pattern: /duplicateDecision: 'new_version'/,
+      },
+      { name: 'version upload branch', pattern: /addDocumentVersion/ },
+      { name: 'upload preflight ref forwarding', pattern: /uploadPreflightRef/ },
       { name: 'bulk file picker', pattern: /multiple/ },
       { name: 'bulk upload queue', pattern: /업로드 큐/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/duplicate-decision-dialog.tsx',
+    patterns: [
+      { name: 'duplicate decision modal', pattern: /중복 문서 처리/ },
+      {
+        name: 'safe candidate labels',
+        pattern: /candidate\.title[\s\S]*candidate\.matterCode[\s\S]*candidate\.versionLabel/,
+      },
+      { name: 'new document action', pattern: /새 문서로 저장/ },
+      { name: 'new version action', pattern: /선택 문서의 새 버전/ },
+      { name: 'cancel action', pattern: /decision: 'cancel'/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/document/upload-metadata-profile.tsx',
+    patterns: [
+      { name: 'approved taxonomy type options', pattern: /approvedDocumentTypeOptions/ },
+      { name: 'approved taxonomy subtype options', pattern: /approvedSubtypeOptions/ },
+      { name: 'approved confidentiality values', pattern: /documentConfidentialityLevels/ },
+      { name: 'approved privilege values', pattern: /documentPrivilegeStatuses/ },
+      { name: 'upload metadata profile title', pattern: /업로드 분류 프로필/ },
+      { name: 'file organization prep only copy', pattern: /파일 정리 준비/ },
+      { name: 'retention hold hint', pattern: /Matter\/Records 정책 적용/ },
     ],
   },
   {
@@ -208,6 +295,19 @@ const uploadBrowseFlowFiles = [
       {
         name: 'matter-scoped list call',
         pattern: /listMatterDocuments\(selectedMatter\.matterReference/,
+      },
+      { name: 'matter cabinet filter bar', pattern: /Matter 문서함 필터/ },
+      { name: 'matter cabinet query helper', pattern: /matterDocumentListQueryFromFilters/ },
+      { name: 'matter cabinet type filter', pattern: /matter-document-type/ },
+      { name: 'matter cabinet status filter', pattern: /matter-document-status/ },
+      { name: 'matter cabinet confidentiality filter', pattern: /matter-document-confidentiality/ },
+      { name: 'matter cabinet privilege filter', pattern: /matter-document-privilege/ },
+      { name: 'matter cabinet extraction filter', pattern: /matter-document-extraction-status/ },
+      { name: 'matter cabinet legal hold filter', pattern: /matter-document-legal-hold/ },
+      { name: 'matter cabinet parity table', pattern: /MatterDocumentTable/ },
+      {
+        name: 'matter cabinet allowed query fields',
+        pattern: /matterDocumentListQueryFromFilters[\s\S]*pageSize[\s\S]*sortBy/,
       },
     ],
   },
@@ -250,9 +350,15 @@ const documentActionCenterFiles = [
     path: 'apps/web/src/components/document/document-action-center.tsx',
     patterns: [
       { name: 'document profile read view', pattern: /문서 프로필/ },
+      { name: 'document action hierarchy panel', pattern: /DocumentActionHierarchyPanel/ },
+      { name: 'read download only launch note', pattern: /읽기\/다운로드 전용/ },
       { name: 'document metadata edit flow', pattern: /updateDocumentMetadata/ },
+      { name: 'approved taxonomy catalog client', pattern: /listApprovedEnterpriseDmsTaxonomies/ },
+      { name: 'approved taxonomy profile label', pattern: /approvedDocumentTypeLabel/ },
+      { name: 'approved taxonomy edit options', pattern: /approvedDocumentTypeOptions/ },
       { name: 'preview panel integration', pattern: /documentPreviewUrl/ },
       { name: 'controlled download flow', pattern: /documentDownloadUrl/ },
+      { name: 'download section anchor', pattern: /#document-download/ },
       { name: 'download reason selector', pattern: /documentDownloadReasonCodes/ },
       { name: 'version list integration', pattern: /listDocumentVersions/ },
       { name: 'new version upload flow', pattern: /addDocumentVersion/ },
@@ -260,8 +366,11 @@ const documentActionCenterFiles = [
       { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
       { name: 'search hit context panel', pattern: /검색 결과 문맥/ },
       { name: 'bounded search hit parser', pattern: /boundedInteger/ },
+      { name: 'safe preview anchor parser', pattern: /parsePreviewAnchorId/ },
       { name: 'preview search hit fragment', pattern: /previewUrlForDocument/ },
       { name: 'records action entry points', pattern: /recordsUrlForDocument/ },
+      { name: 'records action readiness rows', pattern: /recordsActionRows/ },
+      { name: 'disposal review copy', pattern: /폐기 검토/ },
       { name: 'file cabinet return link', pattern: /fileCabinetUrlForDocument/ },
     ],
   },
@@ -270,7 +379,43 @@ const documentActionCenterFiles = [
     patterns: [
       { name: 'document audit scoped endpoint client', pattern: /listDocumentAuditEvents/ },
       { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
+      { name: 'document integrated activity meta', pattern: /문서 통합 활동/ },
+      { name: 'document timeline category labels', pattern: /categoryLabel/ },
+      {
+        name: 'document records lifecycle labels',
+        pattern: /RECORD_ARCHIVED[\s\S]*DISPOSAL_REQUESTED/,
+      },
       { name: 'document audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-audit-timeline.tsx',
+    patterns: [
+      { name: 'matter audit scoped endpoint client', pattern: /listMatterAuditEvents/ },
+      { name: 'matter integrated activity meta', pattern: /Matter 통합 활동/ },
+      { name: 'matter timeline search category', pattern: /SEARCH_EXECUTED/ },
+      { name: 'matter timeline records category', pattern: /DISPOSAL_REQUESTED/ },
+      { name: 'matter audit stale-row refresh key', pattern: /refreshKey = 0/ },
+    ],
+  },
+  {
+    path: 'packages/shared/src/dto/audit/audit-query.dto.ts',
+    patterns: [
+      {
+        name: 'document timeline audit action allow-list',
+        pattern: /documentTimelineAuditActions/,
+      },
+      {
+        name: 'document timeline records actions',
+        pattern: /RECORD_ARCHIVED[\s\S]*DISPOSAL_REQUESTED/,
+      },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/audit/audit-query.service.ts',
+    patterns: [
+      { name: 'document timeline allow-list in API', pattern: /documentTimelineAuditActions/ },
+      { name: 'document audit permission guard retained', pattern: /assertCanReadDocumentAudit/ },
     ],
   },
   {
@@ -286,6 +431,7 @@ const documentActionCenterFiles = [
       { name: 'new document version client', pattern: /addDocumentVersion/ },
       { name: 'document preview URL helper', pattern: /documentPreviewUrl/ },
       { name: 'document preview hit fragment helper', pattern: /vault-preview-hit/ },
+      { name: 'document preview safe anchor fragment helper', pattern: /vault-preview-anchor/ },
       { name: 'document download URL helper', pattern: /documentDownloadUrl/ },
     ],
   },
@@ -329,8 +475,12 @@ const enterpriseSearchFiles = [
     path: 'apps/api/src/modules/search/search.service.ts',
     patterns: [
       { name: 'saved search table access', pattern: /FROM saved_searches/ },
-      { name: 'saved search scoped delete', pattern: /DELETE FROM saved_searches/ },
+      { name: 'saved search scoped revoke', pattern: /UPDATE saved_searches[\s\S]*revoked_at/ },
       { name: 'saved search bounded audit refs', pattern: /savedSearchFilterRefs/ },
+      {
+        name: 'search audit bounded metadata',
+        pattern: /searchAuditMetadata[\s\S]*query_hash[\s\S]*query_length[\s\S]*filter_refs/,
+      },
     ],
   },
   {
@@ -355,10 +505,20 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/app/(app)/search/search-client.tsx',
     patterns: [
       { name: 'advanced search controls wired', pattern: /SearchAdvancedControls/ },
+      { name: 'approved taxonomy catalog client', pattern: /listApprovedEnterpriseDmsTaxonomies/ },
+      {
+        name: 'approved search refiner catalog client',
+        pattern: /listApprovedEnterpriseDmsSearchRefiners/,
+      },
+      { name: 'search refiner request scrubbing', pattern: /constrainSelection/ },
       { name: 'search save panel wired', pattern: /SearchSavePanel/ },
       { name: 'saved search API list wired', pattern: /listSavedSearches/ },
       { name: 'saved search API save wired', pattern: /saveSavedSearch/ },
       { name: 'saved search API delete wired', pattern: /deleteSavedSearch/ },
+      { name: 'search privacy setting read', pattern: /searchPrivacySettingsFromEnv/ },
+      { name: 'private saved search reference URL', pattern: /privateSearchUrl/ },
+      { name: 'private saved search ref param', pattern: /searchRef/ },
+      { name: 'tenant private URL policy', pattern: /urlForPolicy/ },
       { name: 'target URL state', pattern: /target/ },
       { name: 'sort URL state', pattern: /sortBy/ },
       { name: 'group URL state', pattern: /groupBy/ },
@@ -380,10 +540,32 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/components/search/search-save-panel.tsx',
     patterns: [
       { name: 'current search reusable link', pattern: /링크 복사/ },
+      { name: 'private saved search references', pattern: /비공개 저장 참조/ },
+      { name: 'private reference copy action', pattern: /참조 복사/ },
+      { name: 'saved search private URL helper', pattern: /privateSavedSearchUrl/ },
       { name: 'saved search list', pattern: /검색 목록/ },
       { name: 'saved search save action', pattern: /onSaveSearch/ },
       { name: 'saved search delete action', pattern: /onDeleteSavedSearch/ },
       { name: 'search pattern summary', pattern: /searchPatternItems/ },
+    ],
+  },
+  {
+    path: 'packages/shared/src/search/search-query.dto.ts',
+    patterns: [
+      { name: 'search privacy setting schema', pattern: /searchPrivacySettingsSchema/ },
+      { name: 'private saved ref mode', pattern: /private_saved_ref/ },
+      { name: 'plaintext reusable URL mode', pattern: /plaintext_url/ },
+    ],
+  },
+  {
+    path: 'docs/security/search-privacy.md',
+    patterns: [
+      { name: 'search privacy tenant policy doc', pattern: /Tenant URL Policy/ },
+      { name: 'private saved reference doc', pattern: /private_saved_ref/ },
+      {
+        name: 'bounded audit metadata doc',
+        pattern: /query_hash[\s\S]*query_length[\s\S]*filter_refs/,
+      },
     ],
   },
   {
@@ -392,6 +574,9 @@ const enterpriseSearchFiles = [
       { name: 'Matter Code filter UI', pattern: /Matter Code/ },
       { name: 'Matter name filter UI', pattern: /Matter 이름/ },
       { name: 'document type filter UI', pattern: /문서 유형/ },
+      { name: 'approved taxonomy filter options', pattern: /approvedDocumentTypeOptions/ },
+      { name: 'approved search refiner controls', pattern: /approvedRefinerKeys/ },
+      { name: 'approved search refiner field map', pattern: /searchRefinerFieldKeys/ },
       { name: 'searchability filter UI', pattern: /추출\/OCR/ },
       { name: 'legal hold filter UI', pattern: /보존\/삭제 금지/ },
       { name: 'records status filter UI', pattern: /기록 상태/ },
@@ -422,7 +607,11 @@ const enterpriseSearchFiles = [
     patterns: [
       { name: 'searchability result status', pattern: /extractionStatus/ },
       { name: 'body search limitation copy', pattern: /본문 검색 품질이 제한/ },
-      { name: 'search result preview hit fragment', pattern: /documentPreviewUrl\(result\.documentId,\s*\{/ },
+      {
+        name: 'search result preview hit fragment',
+        pattern: /documentPreviewUrl\(result\.documentId,\s*\{/,
+      },
+      { name: 'search result safe preview anchor', pattern: /anchorId/ },
     ],
   },
   {
@@ -467,8 +656,14 @@ const governanceWorkflowOpsFiles = [
       { name: 'matter-scoped audit endpoint client', pattern: /listMatterAuditEvents/ },
       { name: 'matter audit timeline heading', pattern: /사건 감사 타임라인/ },
       { name: 'matter audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
-      { name: 'matter audit stale row clearing', pattern: /setError\(null\);\s*setEvents\(\[\]\);/ },
-      { name: 'matter audit denied reload clearing', pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/ },
+      {
+        name: 'matter audit stale row clearing',
+        pattern: /setError\(null\);\s*setEvents\(\[\]\);/,
+      },
+      {
+        name: 'matter audit denied reload clearing',
+        pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/,
+      },
     ],
   },
   {
@@ -477,8 +672,14 @@ const governanceWorkflowOpsFiles = [
       { name: 'document-scoped audit endpoint client', pattern: /listDocumentAuditEvents/ },
       { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
       { name: 'document audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
-      { name: 'document audit stale row clearing', pattern: /setError\(null\);\s*setEvents\(\[\]\);/ },
-      { name: 'document audit denied reload clearing', pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/ },
+      {
+        name: 'document audit stale row clearing',
+        pattern: /setError\(null\);\s*setEvents\(\[\]\);/,
+      },
+      {
+        name: 'document audit denied reload clearing',
+        pattern: /catch\(\(caught\) => \{\s*if \(active\) \{\s*setEvents\(\[\]\);/,
+      },
     ],
   },
   {
@@ -491,7 +692,10 @@ const governanceWorkflowOpsFiles = [
       { name: 'dashboard search folders shortcut', pattern: /\/search\/folders/ },
       { name: 'dashboard work queue shortcut', pattern: /\/work/ },
       { name: 'dashboard notifications shortcut', pattern: /\/notifications/ },
-      { name: 'dashboard AI prep file filter shortcut', pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/ },
+      {
+        name: 'dashboard AI prep file filter shortcut',
+        pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/,
+      },
       { name: 'dashboard ops health shortcut', pattern: /\/admin/ },
       { name: 'dashboard action queue', pattern: /DashboardWorkQueueSection/ },
       { name: 'no fake dashboard queue counts', pattern: /DashboardWorkQueueSection/ },
@@ -541,21 +745,59 @@ const governanceWorkflowOpsFiles = [
         name: 'file organization notification route',
         pattern: /ai_prep'\) return '\/files\?aiAllowed=true&sortBy=matter_asc'/,
       },
-      { name: 'integration notification route', pattern: /integration'\) return '\/integrations\/outlook'/ },
+      {
+        name: 'integration notification route',
+        pattern: /integration'\) return '\/integrations\/outlook'/,
+      },
+      { name: 'records notification route', pattern: /records'\) return '\/records'/ },
+      {
+        name: 'operational notification route',
+        pattern: /operational_data'\) return '\/files\?sortBy=updated_desc'/,
+      },
     ],
   },
   {
-    path: 'apps/api/src/modules/dashboard/dashboard.controller.ts',
+    path: 'apps/api/src/modules/notifications/notifications.controller.ts',
+    patterns: [
+      { name: 'notifications endpoint', pattern: /@Controller\('notifications'\)[\s\S]*@Get\(\)/ },
+      { name: 'notification read endpoint', pattern: /@Patch\(':itemKey\/read'\)/ },
+      { name: 'notification dismiss endpoint', pattern: /@Patch\(':itemKey\/dismiss'\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/notifications/notifications.service.ts',
+    patterns: [
+      { name: 'persisted notifications source', pattern: /source: 'persisted_notifications'/ },
+      { name: 'notification table query', pattern: /FROM notifications n/ },
+      { name: 'notification materialization', pattern: /INSERT INTO notifications/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/work/work.controller.ts',
     patterns: [
       { name: 'work items endpoint', pattern: /@Controller\('work'\)[\s\S]*@Get\('items'\)/ },
-      { name: 'notifications endpoint', pattern: /@Controller\('notifications'\)[\s\S]*@Get\(\)/ },
+      { name: 'persisted work service source', pattern: /workService\.listWorkItems/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/work/work.service.ts',
+    patterns: [
+      { name: 'persisted work items query', pattern: /FROM work_items wi/ },
+      {
+        name: 'records disposal workflow tasks',
+        pattern: /records_disposal_approval[\s\S]*records_disposal_execution/,
+      },
+      { name: 'permission-scoped matter filter', pattern: /buildMatterFilter/ },
     ],
   },
   {
     path: 'apps/api/src/modules/dashboard/dashboard.service.ts',
     patterns: [
       { name: 'work queue response schema', pattern: /dmsWorkQueueResponseSchema/ },
-      { name: 'notification center response schema', pattern: /dmsNotificationCenterResponseSchema/ },
+      {
+        name: 'notification center response schema',
+        pattern: /dmsNotificationCenterResponseSchema/,
+      },
       { name: 'dashboard-derived work items', pattern: /workItemsFromOverview/ },
       { name: 'dashboard-derived notifications', pattern: /notificationItemsFromOverview/ },
     ],
@@ -564,14 +806,20 @@ const governanceWorkflowOpsFiles = [
     path: 'packages/shared/src/dashboard/dashboard-types.ts',
     patterns: [
       { name: 'DMS work queue response DTO', pattern: /dmsWorkQueueResponseSchema/ },
-      { name: 'DMS notification center response DTO', pattern: /dmsNotificationCenterResponseSchema/ },
+      {
+        name: 'DMS notification center response DTO',
+        pattern: /dmsNotificationCenterResponseSchema/,
+      },
     ],
   },
   {
     path: 'apps/web/src/components/dashboard/dashboard-work-queue.tsx',
     patterns: [
       { name: 'shared dashboard action derivation', pattern: /dashboardActionItems/ },
-      { name: 'work API derived task copy', pattern: /작업 API가 실제 운영 상태에서 파생한 항목만 표시/ },
+      {
+        name: 'work API derived task copy',
+        pattern: /작업 API가 실제 운영 상태에서 파생한 항목만 표시/,
+      },
       { name: 'permission policy task', pattern: /권한\/정책 알림 확인/ },
       { name: 'file organization prep task', pattern: /파일 정리 준비 상태 확인/ },
       { name: 'no persisted task claim', pattern: /DashboardOverviewState/ },
@@ -589,11 +837,49 @@ const governanceWorkflowOpsFiles = [
     ],
   },
   {
+    path: 'apps/web/src/components/matter/add-member-dialog.tsx',
+    patterns: [
+      { name: 'team member org picker wired', pattern: /OrgSubjectPicker/ },
+      { name: 'team member picker matter-team purpose', pattern: /purpose="matter-team"/ },
+      { name: 'team member picker user subject scope', pattern: /subjectType="user"/ },
+      {
+        name: 'team member denied stale selection clearing',
+        pattern: /setSelectedSubject\(null\)/,
+      },
+      {
+        name: 'direct user reference hidden by default',
+        pattern: /allowAdvancedReferenceInput = false/,
+      },
+      { name: 'advanced user refs explicitly gated', pattern: /고급 사용자 참조 입력/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/api/org-directory.ts',
+    patterns: [
+      { name: 'org directory subject lookup client', pattern: /\/org-directory\/subjects/ },
+      { name: 'org directory query string builder', pattern: /URLSearchParams/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/team-member-list.tsx',
+    patterns: [
+      { name: 'team member display-safe name', pattern: /userDisplayName/ },
+      { name: 'team member display-safe email', pattern: /userDisplayEmail/ },
+      { name: 'team member no display fallback', pattern: /표시 가능한 사용자 정보 없음/ },
+    ],
+  },
+  {
     path: 'apps/web/src/app/(app)/walls/wall-admin-client.tsx',
     patterns: [
       { name: 'wall Matter Code picker', pattern: /MatterCodePicker/ },
       { name: 'selected Matter display', pattern: /selectedMatter/ },
-      { name: 'advanced user refs only', pattern: /사용자 선택 API/ },
+      { name: 'wall member org picker wired', pattern: /OrgSubjectPicker/ },
+      { name: 'wall member picker ethical-wall purpose', pattern: /purpose="ethical-wall"/ },
+      { name: 'wall member picker user and group scope', pattern: /subjectType="all"/ },
+      {
+        name: 'wall member denied stale selection clearing',
+        pattern: /setSelectedSubject\(null\)/,
+      },
     ],
   },
 ];
@@ -604,6 +890,9 @@ const recordsActionContextFiles = [
     patterns: [
       { name: 'records context action panel', pattern: /RecordsActionContextPanel/ },
       { name: 'records action readiness title', pattern: /보존 작업 준비/ },
+      { name: 'records Matter Code picker wired', pattern: /MatterCodePicker/ },
+      { name: 'records document picker wired', pattern: /RecordsDocumentPicker/ },
+      { name: 'records target picker copy', pattern: /작업 대상 선택/ },
       { name: 'display-label document context', pattern: /documentContextLabel/ },
       { name: 'display-label matter context', pattern: /matterContextLabel/ },
       { name: 'document-only records actions', pattern: /requiresDocument/ },
@@ -615,6 +904,8 @@ const recordsActionContextFiles = [
     patterns: [
       { name: 'document context records actions test', pattern: /보관 처리 준비/ },
       { name: 'matter-only action scope test', pattern: /matter-only records context/ },
+      { name: 'records target picker test', pattern: /작업 대상 선택/ },
+      { name: 'advanced refs removed test', pattern: /고급 참조 입력/ },
       { name: 'raw record refs hidden test', pattern: /not\.toContain\('11111111-1111-4111/ },
     ],
   },
@@ -632,10 +923,90 @@ const adminIntegrationsFiles = [
       { name: 'taxonomy admin contract state', pattern: /taxonomy/ },
       { name: 'matter template admin contract state', pattern: /templates/ },
       { name: 'search refiner admin contract state', pattern: /refiners/ },
+      { name: 'DMS taxonomy save action', pattern: /taxonomySave/ },
+      { name: 'DMS taxonomy version display', pattern: /item\.versionNo/ },
+      { name: 'DMS taxonomy audit ref display', pattern: /item\.lastAuditEventRef/ },
+      { name: 'DMS refiner save action', pattern: /refinerSave/ },
+      {
+        name: 'DMS refiner supported field select',
+        pattern: /enterpriseDmsSearchRefinerFieldKeys/,
+      },
+      { name: 'DMS taxonomy API client', pattern: /upsertEnterpriseDmsTaxonomy/ },
+      { name: 'DMS refiner API client', pattern: /upsertEnterpriseDmsSearchRefiner/ },
       { name: 'search index operations panel', pattern: /AdminSearchOperationsPanel/ },
+      { name: 'search admin health client', pattern: /getSearchAdminHealth/ },
+      { name: 'search health operations panel', pattern: /검색 헬스/ },
+      { name: 'search health safe aggregate copy', pattern: /인덱스, 추출\/OCR, 검색 감사 집계/ },
       { name: 'tenant reindex API client', pattern: /requestTenantSearchReindex/ },
-      { name: 'reindex audit-only status copy', pattern: /감사 기록과 큐 등록 수/ },
-      { name: 'read-only until API approved copy', pattern: /저장 API 승인 전 읽기 전용/ },
+      { name: 'reindex audit-only status copy', pattern: /감사 기록[\s\S]*큐\s+등록 수/ },
+      {
+        name: 'template contract guard copy',
+        pattern: /승인된 문서 세트 계약만 Matter 화면에 표시/,
+      },
+      { name: 'DMS Matter template save action', pattern: /templateSave/ },
+      { name: 'DMS Matter template API client', pattern: /upsertEnterpriseDmsMatterTemplate/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/enterprise/enterprise.controller.ts',
+    patterns: [
+      { name: 'approved DMS taxonomy endpoint', pattern: /@Get\('dms\/taxonomies\/approved'\)/ },
+      { name: 'DMS taxonomy admin endpoint', pattern: /@Post\('dms\/taxonomies'\)/ },
+      {
+        name: 'approved DMS Matter template endpoint',
+        pattern: /@Get\('dms\/matter-templates\/approved'\)/,
+      },
+      { name: 'DMS Matter template admin endpoint', pattern: /@Post\('dms\/matter-templates'\)/ },
+      {
+        name: 'approved DMS search refiner endpoint',
+        pattern: /@Get\('dms\/search-refiners\/approved'\)/,
+      },
+      { name: 'DMS search refiner admin endpoint', pattern: /@Post\('dms\/search-refiners'\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/enterprise/enterprise.service.ts',
+    patterns: [
+      {
+        name: 'approved DMS taxonomy catalog schema',
+        pattern: /enterpriseApprovedDmsTaxonomyCatalogSchema/,
+      },
+      {
+        name: 'approved DMS Matter template catalog schema',
+        pattern: /enterpriseApprovedDmsMatterTemplateCatalogSchema/,
+      },
+      { name: 'taxonomy version snapshot write', pattern: /enterprise_dms_taxonomy_versions/ },
+      {
+        name: 'Matter template application write',
+        pattern: /enterprise_dms_matter_template_applications/,
+      },
+      { name: 'safe audit event reference', pattern: /auditRef/ },
+    ],
+  },
+  {
+    path: 'db/migrations/0088_create_enterprise_dms_matter_templates.sql',
+    patterns: [
+      {
+        name: 'DMS Matter template table',
+        pattern: /CREATE TABLE enterprise_dms_matter_templates/,
+      },
+      {
+        name: 'DMS Matter template application receipt table',
+        pattern: /CREATE TABLE enterprise_dms_matter_template_applications/,
+      },
+      { name: 'DMS Matter template RLS', pattern: /FORCE ROW LEVEL SECURITY/ },
+      { name: 'no virtual folder contract', pattern: /not a virtual folder tree/i },
+    ],
+  },
+  {
+    path: 'db/migrations/0087_version_enterprise_dms_taxonomies.sql',
+    patterns: [
+      { name: 'DMS taxonomy version column', pattern: /version_no integer NOT NULL DEFAULT 1/ },
+      {
+        name: 'DMS taxonomy version history table',
+        pattern: /CREATE TABLE enterprise_dms_taxonomy_versions/,
+      },
+      { name: 'DMS taxonomy version RLS', pattern: /FORCE ROW LEVEL SECURITY/ },
     ],
   },
   {
@@ -679,7 +1050,21 @@ const releaseHardeningPatterns = [
   { name: 'no fake data sweep', pattern: /DMS-UX-803 No Fake Data Sweep/ },
   { name: 'internal ref sweep', pattern: /DMS-UX-804 Internal Ref Sweep/ },
   { name: 'AI scope sweep', pattern: /DMS-UX-805 AI Scope Sweep/ },
+  {
+    name: 'DMS-GA-704 expanded guard coverage',
+    pattern:
+      /DMS-GA-704[\s\S]*upload[\s\S]*files[\s\S]*matter\/team[\s\S]*search[\s\S]*records[\s\S]*audit[\s\S]*walls[\s\S]*work[\s\S]*notifications[\s\S]*admin[\s\S]*enterprise[\s\S]*integrations[\s\S]*Outlook[\s\S]*AI Prep/i,
+  },
+  {
+    name: 'DMS-GA-704 guard refs',
+    pattern:
+      /GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-003-NO-INTERNAL-REFS[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION|GUARD-DMS-002-NO-FAKE-DATA[\s\S]*GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION/i,
+  },
   { name: 'responsive QA viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
+  {
+    name: 'DMS-GA-703 route matrix',
+    pattern: /enterprise-dms-responsive-a11y-matrix\.md[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007/,
+  },
   {
     name: 'accessibility QA',
     pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i,
@@ -687,11 +1072,273 @@ const releaseHardeningPatterns = [
   { name: 'evidence package refs only', pattern: /Evidence package[\s\S]*refs only/i },
   { name: 'rollout checklist', pattern: /DMS-UX-809 Rollout Checklist/ },
   { name: 'rollback plan', pattern: /DMS-UX-810 Rollback Plan/ },
+  {
+    name: 'DMS-GA-702 rollback refs',
+    pattern: /DMS-RB-001[\s\S]*RB-DMS-001[\s\S]*DMS-RB-007[\s\S]*RB-DMS-007/i,
+  },
   { name: 'production monitor', pattern: /DMS-UX-811 Production Monitor/ },
   {
     name: 'release signoff owners',
     pattern:
       /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i,
+  },
+  {
+    name: 'DMS-GA-705 signoff refs',
+    pattern:
+      /DMS-GA-705[\s\S]*DMS-SIGNOFF-OPERATOR-REF[\s\S]*DMS-SIGNOFF-SECURITY-REF[\s\S]*DMS-SIGNOFF-LEGAL-DATA-REF[\s\S]*DMS-SIGNOFF-CUSTOMER-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-REF[\s\S]*DMS-SIGNOFF-EVIDENCE-PACKAGE-REF/i,
+  },
+];
+
+const outlookFilingEvidenceFiles = [
+  {
+    path: 'apps/web/src/app/outlook-addin/outlook-addin-client.tsx',
+    patterns: [
+      { name: 'Matter suggestion query', pattern: /buildMatterSuggestionQuery/ },
+      { name: 'Matter Code safe label', pattern: /suggestion\.matterCode/ },
+      { name: 'Outlook filing request builder', pattern: /buildCreateFilingRequest/ },
+      { name: 'permission-bound document search', pattern: /searchOutlookInsertableDocuments/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/outlook/outlook.service.ts',
+    patterns: [
+      { name: 'Outlook upload permission gate', pattern: /canUploadToMatter/ },
+      { name: 'Outlook status Matter read gate', pattern: /canReadMatter/ },
+      { name: 'Outlook requested audit event', pattern: /outlookEmailFileRequestedAudit/ },
+      { name: 'Outlook denied audit event', pattern: /outlookEmailFileDeniedAudit/ },
+      { name: 'hash-only attachment set', pattern: /attachmentSetHash/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-email-timeline.tsx',
+    patterns: [
+      { name: 'filed email safe title fallback', pattern: /표시 가능한 제목 없음/ },
+      { name: 'permitted document links', pattern: /href=\{`\/documents\/\$\{documentId\}`\}/ },
+      { name: 'safe document link labels', pattern: /문서 \{index \+ 1\} 열기/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/outlook-addin/outlook-addin-client.test.tsx',
+    patterns: [
+      { name: 'Matter Code safe label assertion', pattern: /M-2026-001/ },
+      { name: 'raw Outlook message data excluded', pattern: /raw-message-id/ },
+    ],
+  },
+  {
+    path: 'apps/web/src/components/matter/matter-email-timeline.test.tsx',
+    patterns: [
+      { name: 'permitted document link test', pattern: /links permitted filed emails/ },
+      { name: 'safe document label test', pattern: /문서 1 열기/ },
+      { name: 'raw filing ref excluded', pattern: /filing-raw-id/ },
+    ],
+  },
+  {
+    path: 'docs/release/enterprise-dms-ui-release-evidence.md',
+    patterns: [
+      { name: 'DMS Outlook bridge', pattern: /DMS-GA-604 Release Evidence Bridge/ },
+      { name: 'DMS Outlook evidence row', pattern: /EV-DMS-UI-004G/ },
+      { name: 'Outlook verification command', pattern: /pnpm outlook:verification:check/ },
+      { name: 'Outlook redaction command', pattern: /pnpm outlook:redaction:check -- --all/ },
+      {
+        name: 'Matter document safe labels',
+        pattern: /permitted Matter documents with safe labels/,
+      },
+    ],
+  },
+];
+
+const officeOneDriveAdrGateFiles = [
+  {
+    path: 'docs/adr/ADR-017-office-onedrive-flow.md',
+    patterns: [
+      { name: 'ADR-017 planning gate status', pattern: /Status: Accepted for planning gate only/ },
+      { name: 'no connected claim before contract', pattern: /must not claim OneDrive is\s+connected/i },
+      { name: 'no Office open save claim before contract', pattern: /Office open\/save is available/i },
+      { name: 'no coauthoring live edit claim before contract', pattern: /coauthoring is available[\s\S]*live edit is\s+available/i },
+      {
+        name: 'required runtime contract axes',
+        pattern: /auth[\s\S]*storage[\s\S]*version[\s\S]*audit[\s\S]*callback[\s\S]*rollback/i,
+      },
+      {
+        name: 'route remains hidden until API ready',
+        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/i,
+      },
+      { name: 'no hard delete rollback invariant', pattern: /no hard\s+delete/i },
+    ],
+  },
+  {
+    path: 'apps/web/src/lib/features.ts',
+    patterns: [
+      {
+        name: 'OneDrive hidden until API ready policy',
+        pattern: /route: '\/integrations\/onedrive'[\s\S]*production: 'hidden_until_api_ready'[\s\S]*showInNavigation: false/,
+      },
+    ],
+  },
+  {
+    path: 'apps/web/src/app/(app)/integrations/page.tsx',
+    patterns: [
+      { name: 'OneDrive gated copy', pattern: /승인 전 숨김/ },
+      { name: 'Office contract gated copy', pattern: /계약 필요/ },
+      { name: 'OneDrive gated card', pattern: /title="OneDrive"[\s\S]*status="승인 전 숨김"[\s\S]*tone="warning"/ },
+      { name: 'Office gated card', pattern: /title="Office 열기\/저장"[\s\S]*status="계약 필요"[\s\S]*tone="warning"/ },
+    ],
+  },
+  {
+    path: 'docs/release/rollback-runbook.md',
+    patterns: [
+      { name: 'Office OneDrive rollback section', pattern: /Office\/OneDrive Gate Rollback/ },
+      {
+        name: 'rollback route hiding',
+        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/,
+      },
+      { name: 'rollback callback job rejection', pattern: /Reject Microsoft callback, sync, or save-back jobs/i },
+      { name: 'rollback token disablement', pattern: /token material/i },
+      { name: 'rollback immutable audit preservation', pattern: /Preserve immutable originals[\s\S]*audit append-only/i },
+    ],
+  },
+  {
+    path: 'docs/ui/production-ui-inventory.md',
+    patterns: [
+      {
+        name: 'production inventory ADR contract',
+        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*auth\/storage\/version\/audit\/callback\/rollback/i,
+      },
+      {
+        name: 'production invariant excludes edit claims',
+        pattern: /Office\/OneDrive production UI[\s\S]*connected[\s\S]*open\/save[\s\S]*coauthoring[\s\S]*live edit[\s\S]*lock[\s\S]*sync success/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/release/enterprise-dms-ui-release-evidence.md',
+    patterns: [
+      { name: 'DMS-GA-605 release bridge', pattern: /DMS-GA-605 Release Evidence Bridge/ },
+      { name: 'Office OneDrive evidence row', pattern: /EV-DMS-UI-004H/ },
+      { name: 'Office OneDrive rollback control', pattern: /DMS-RB-007/ },
+      { name: 'ADR-017 contract approval monitor', pattern: /ADR-017 contract approval/ },
+    ],
+  },
+];
+
+const dmsRollbackRunbookFiles = [
+  {
+    path: 'docs/release/rollback-runbook.md',
+    patterns: [
+      { name: 'DMS-GA-702 drill section', pattern: /Enterprise DMS Rollback Drill[\s\S]*DMS-GA-702/ },
+      {
+        name: 'rollback owner external refs boundary',
+        pattern: /Rollback owner must be assigned[\s\S]*external drill[\s\S]*incident ref/i,
+      },
+      {
+        name: 'no hard delete audit invariant',
+        pattern: /No Enterprise DMS rollback step may hard delete[\s\S]*Audit history remains append-only/i,
+      },
+      {
+        name: 'route visibility rollback control',
+        pattern: /DMS-RB-001[\s\S]*RB-DMS-001-ROUTE-VISIBILITY[\s\S]*\/search\/folders/i,
+      },
+      {
+        name: 'Matter source rollback control',
+        pattern: /DMS-RB-002[\s\S]*RB-DMS-002-MATTER-SOURCE-FLAGS[\s\S]*MATTER_APP_SOURCE_MODE/i,
+      },
+      {
+        name: 'worker flag rollback control',
+        pattern: /DMS-RB-003[\s\S]*RB-DMS-003-WORKER-FLAGS[\s\S]*AI_PREP_ENABLED=false[\s\S]*AI_SUMMARY_GEMMA_ENABLED=false/i,
+      },
+      {
+        name: 'database audit rollback control',
+        pattern: /DMS-RB-004[\s\S]*RB-DMS-004-DB-AUDIT-INVARIANTS[\s\S]*forward-fix/i,
+      },
+      {
+        name: 'storage rollback control',
+        pattern: /DMS-RB-005[\s\S]*RB-DMS-005-STORAGE-INTEGRITY[\s\S]*tenant storage prefixes/i,
+      },
+      {
+        name: 'monitor trigger rollback control',
+        pattern: /DMS-RB-006[\s\S]*RB-DMS-006-MONITOR-TRIGGERS[\s\S]*MON-DMS-001[\s\S]*MON-DMS-008/i,
+      },
+      {
+        name: 'Office OneDrive rollback control',
+        pattern: /DMS-RB-007[\s\S]*RB-DMS-007-OFFICE-ONEDRIVE-GATE[\s\S]*hidden_until_api_ready/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'rollback readiness checklist refs',
+        pattern: /UI-POST-005[\s\S]*DMS-RB-001[\s\S]*DMS-RB-007[\s\S]*RB-DMS-\*/i,
+      },
+    ],
+  },
+];
+
+const dmsResponsiveA11yFiles = [
+  {
+    path: 'docs/release/enterprise-dms-responsive-a11y-matrix.md',
+    patterns: [
+      {
+        name: 'DMS-GA-703 status and scope',
+        pattern:
+          /Enterprise DMS Responsive And Accessibility Matrix[\s\S]*DMS-GA-703[\s\S]*DMS-UX-806[\s\S]*DMS-UX-807/i,
+      },
+      {
+        name: 'external refs only boundary',
+        pattern: /EXTERNAL REFS ONLY[\s\S]*Do not commit screenshots with customer matter data/i,
+      },
+      {
+        name: 'repository guard matrix',
+        pattern:
+          /RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-002[\s\S]*RA-DMS-GUARD-003[\s\S]*RA-DMS-GUARD-004/i,
+      },
+      {
+        name: 'route receipt matrix coverage',
+        pattern:
+          /DMS-RA-001[\s\S]*DMS-RA-002[\s\S]*DMS-RA-003[\s\S]*DMS-RA-004[\s\S]*DMS-RA-005[\s\S]*DMS-RA-006[\s\S]*DMS-RA-007/i,
+      },
+      {
+        name: 'viewport coverage refs',
+        pattern:
+          /RA-DMS-001A-1440[\s\S]*RA-DMS-001B-768[\s\S]*RA-DMS-001C-375[\s\S]*RA-DMS-007A-1440[\s\S]*RA-DMS-007B-768[\s\S]*RA-DMS-007C-375/i,
+      },
+      {
+        name: 'keyboard screen-reader coverage refs',
+        pattern:
+          /RA-DMS-001D-KEYBOARD[\s\S]*RA-DMS-001E-SR-BASICS[\s\S]*RA-DMS-007D-KEYBOARD[\s\S]*RA-DMS-007E-SR-BASICS/i,
+      },
+      {
+        name: 'release blocker criteria',
+        pattern:
+          /Missing route coverage[\s\S]*missing 1440px\/768px\/375px visual refs[\s\S]*missing keyboard[\s\S]*screen-reader basics refs/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'responsive checklist refs',
+        pattern:
+          /UI-RSP-001[\s\S]*RA-DMS-001C-375[\s\S]*UI-RSP-002[\s\S]*RA-DMS-001B-768[\s\S]*UI-RSP-003[\s\S]*RA-DMS-001A-1440/i,
+      },
+      {
+        name: 'accessibility checklist refs',
+        pattern:
+          /UI-A11Y-001[\s\S]*RA-DMS-001D-KEYBOARD[\s\S]*UI-A11Y-003[\s\S]*RA-DMS-001E-SR-BASICS/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/ui/enterprise-dms-pr-f-readiness.md',
+    patterns: [
+      {
+        name: 'PR-F matrix bridge',
+        pattern:
+          /enterprise-dms-responsive-a11y-matrix\.md[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007[\s\S]*RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-004/i,
+      },
+    ],
   },
 ];
 
@@ -717,6 +1364,31 @@ const enterpriseDmsReleaseEvidencePatterns = [
       /Authenticated main loop smoke receipt[\s\S]*Matter Code selection[\s\S]*Negative auth smoke receipt[\s\S]*wall-blocked[\s\S]*stale-content clearing/i,
   },
   {
+    name: 'Outlook filing path evidence guard',
+    pattern:
+      /EV-DMS-UI-004G[\s\S]*Outlook filing path evidence guard[\s\S]*Matter Code suggestions[\s\S]*PermissionService\.canUploadToMatter[\s\S]*raw email body evidence[\s\S]*permitted Matter documents with safe labels/i,
+  },
+  {
+    name: 'DMS reindex monitor evidence guard',
+    pattern:
+      /DMS-GA-305\/DMS-GA-701 Release Evidence Bridge[\s\S]*EV-DMS-UI-005B[\s\S]*SEARCH_REINDEX_REQUESTED[\s\S]*MON-DMS-003B-REINDEX-QUEUE-AGE[\s\S]*MON-DMS-003C-REINDEX-FAILURE-RATE/i,
+  },
+  {
+    name: 'DMS-GA-702 rollback evidence guard',
+    pattern:
+      /DMS-GA-702 Release Evidence Bridge[\s\S]*RB-DMS-001-ROUTE-VISIBILITY[\s\S]*RB-DMS-002-MATTER-SOURCE-FLAGS[\s\S]*RB-DMS-003-WORKER-FLAGS[\s\S]*RB-DMS-004-DB-AUDIT-INVARIANTS[\s\S]*RB-DMS-005-STORAGE-INTEGRITY[\s\S]*RB-DMS-006-MONITOR-TRIGGERS[\s\S]*RB-DMS-007-OFFICE-ONEDRIVE-GATE/i,
+  },
+  {
+    name: 'DMS-GA-703 responsive accessibility evidence guard',
+    pattern:
+      /DMS-GA-703 Release Evidence Bridge[\s\S]*RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-004[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007[\s\S]*1440px[\s\S]*768px[\s\S]*375px[\s\S]*keyboard[\s\S]*screen-reader/i,
+  },
+  {
+    name: 'DMS-GA-704 expanded guard evidence',
+    pattern:
+      /DMS-GA-704 Release Evidence Bridge[\s\S]*GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION[\s\S]*(workspace ID[\s\S]*tenant ID[\s\S]*document ID|document summary[\s\S]*model-response)/i,
+  },
+  {
     name: 'DMS-UX-809 rollout matrix',
     pattern:
       /DMS-UX-809 Rollout Checklist[\s\S]*Matter Code selection before upload[\s\S]*Upload and post-upload processing state[\s\S]*Matter-scoped file list[\s\S]*Title\/body\/metadata search[\s\S]*AI Prep remains file organization prep only/i,
@@ -724,12 +1396,12 @@ const enterpriseDmsReleaseEvidencePatterns = [
   {
     name: 'DMS-UX-810 rollback controls',
     pattern:
-      /DMS-UX-810 Rollback Plan[\s\S]*Route visibility policy[\s\S]*Matter app source flags[\s\S]*Worker flags[\s\S]*Database rollback[\s\S]*Storage rollback/i,
+      /DMS-UX-810 Rollback Plan[\s\S]*Route visibility policy[\s\S]*Matter app source flags[\s\S]*Worker flags[\s\S]*Database rollback[\s\S]*Storage rollback[\s\S]*Office\/OneDrive gate/i,
   },
   {
     name: 'DMS-UX-811 monitor matrix',
     pattern:
-      /DMS-UX-811 Production Monitor[\s\S]*Upload failure rate[\s\S]*Extraction\/OCR[\s\S]*Search latency[\s\S]*Permission denied[\s\S]*AI prep queue[\s\S]*Audit write failures[\s\S]*Storage write\/read failures/i,
+      /DMS-UX-811 Production Monitor[\s\S]*MON-DMS-001A-UPLOAD-FAILURE-RATE[\s\S]*MON-DMS-002A-EXTRACTION-PENDING-AGE[\s\S]*MON-DMS-003B-REINDEX-QUEUE-AGE[\s\S]*MON-DMS-004A-PERMISSION-DENIED-SPIKE[\s\S]*MON-DMS-005A-AI-PREP-PENDING-AGE[\s\S]*MON-DMS-006A-AUDIT-WRITE-FAILURE[\s\S]*MON-DMS-007A-STORAGE-WRITE-FAILURE[\s\S]*MON-DMS-008A-MATTER-SOURCE-HEALTH/i,
   },
   {
     name: 'deferred item owner and follow-up TUW',
@@ -739,6 +1411,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
     name: 'DMS-UX-812 release signoff matrix',
     pattern:
       /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner[\s\S]*Exact production scope[\s\S]*Excluded scopes[\s\S]*Approved tenant class[\s\S]*Release timestamp[\s\S]*Evidence package ref/i,
+  },
+  {
+    name: 'DMS-GA-705 signoff package evidence',
+    pattern:
+      /DMS-GA-705 Signoff Completion Gate[\s\S]*DMS-SIGNOFF-OPERATOR-REF[\s\S]*DMS-SIGNOFF-SECURITY-REF[\s\S]*DMS-SIGNOFF-LEGAL-DATA-REF[\s\S]*DMS-SIGNOFF-CUSTOMER-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-REF[\s\S]*DMS-SIGNOFF-SCOPE-REF[\s\S]*DMS-SIGNOFF-TENANT-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-OWNER-REF[\s\S]*DMS-SIGNOFF-TIMESTAMP-REF[\s\S]*DMS-SIGNOFF-EVIDENCE-PACKAGE-REF/i,
   },
 ];
 
@@ -779,17 +1456,17 @@ const prECloseoutPatterns = [
   {
     name: 'PR-E route evidence matrix',
     pattern:
-      /Route Evidence[\s\S]*AdminDmsConfigurationPanel[\s\S]*contractRequired[\s\S]*governedByBackend[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
+      /Route Evidence[\s\S]*enterprise_dms_taxonomies[\s\S]*enterprise_dms_taxonomy_versions[\s\S]*taxonomy save\/list\/disable[\s\S]*approved taxonomy catalog[\s\S]*enterprise_dms_matter_templates[\s\S]*matter template save\/list\/disable\/apply[\s\S]*enterprise_dms_search_refiners[\s\S]*approved catalog consumption in `\/search`[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
   },
   {
     name: 'PR-E integration safety invariants',
     pattern:
-      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/i,
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*Matter template save\/list\/disable\/apply actions require[\s\S]*enterprise_dms_matter_templates[\s\S]*Taxonomy and search refiner save\/list\/disable actions[\s\S]*AI Prep remains file organization prep/i,
   },
   {
     name: 'PR-E deferred item register',
     pattern:
-      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
+      /Remaining Deferred Items[\s\S]*Folder template inheritance semantics[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
   },
 ];
 
@@ -810,9 +1487,19 @@ const prFReadinessPatterns = [
       /Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/i,
   },
   {
+    name: 'PR-F DMS-GA-704 expanded guards',
+    pattern:
+      /DMS-GA-704 expanded guard coverage[\s\S]*GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION[\s\S]*upload[\s\S]*AI Prep/i,
+  },
+  {
     name: 'PR-F hold criteria',
     pattern:
       /approved staging\/production credentials are missing[\s\S]*approved negative-role credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*free-floating[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/i,
+  },
+  {
+    name: 'PR-F DMS-GA-705 hold criteria',
+    pattern:
+      /DMS-GA-705[\s\S]*DMS-SIGNOFF-\*[\s\S]*owner[\s\S]*exact-scope[\s\S]*evidence-package ref is missing/i,
   },
 ];
 
@@ -820,11 +1507,17 @@ const responsiveAccessibilityFiles = [
   {
     path: 'apps/web/src/app/(app)/app-shell.tsx',
     patterns: [
-      { name: 'app shell is not a main landmark wrapper', pattern: /<div className="grid min-h-screen/ },
+      {
+        name: 'app shell is not a main landmark wrapper',
+        pattern: /<div className="grid min-h-screen/,
+      },
       { name: 'mobile navigation dialog', pattern: /role="dialog"[\s\S]*aria-modal="true"/ },
       { name: 'mobile nav aria controls', pattern: /aria-controls="vault-mobile-navigation"/ },
       { name: 'mobile focus trap', pattern: /onKeyDown={trapMobileNavFocus}/ },
-      { name: 'active navigation current page', pattern: /aria-current={active \? 'page' : undefined}/ },
+      {
+        name: 'active navigation current page',
+        pattern: /aria-current={active \? 'page' : undefined}/,
+      },
       { name: 'decorative app shell icons hidden', pattern: /aria-hidden="true"/ },
       { name: 'mobile overflow lock', pattern: /document\.body\.style\.overflow = 'hidden'/ },
     ],
@@ -842,7 +1535,10 @@ const responsiveAccessibilityFiles = [
     patterns: [
       { name: 'responsive header actions', pattern: /flex-col[\s\S]*md:flex-row/ },
       { name: 'breadcrumb navigation label', pattern: /aria-label="이동 경로"/ },
-      { name: 'active breadcrumb current page', pattern: /aria-current={index === breadcrumbs\.length - 1 \? 'page' : undefined}/ },
+      {
+        name: 'active breadcrumb current page',
+        pattern: /aria-current={index === breadcrumbs\.length - 1 \? 'page' : undefined}/,
+      },
       { name: 'wrapped header actions', pattern: /flex-wrap/ },
     ],
   },
@@ -850,16 +1546,25 @@ const responsiveAccessibilityFiles = [
     path: 'apps/web/src/components/ui/section-card.tsx',
     patterns: [
       { name: 'bounded card overflow', pattern: /overflow-hidden/ },
-      { name: 'wrapped card actions', pattern: /flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2/ },
+      {
+        name: 'wrapped card actions',
+        pattern: /flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2/,
+      },
     ],
   },
   {
     path: 'apps/web/src/components/ui/filter-bar.tsx',
     patterns: [
       { name: 'filter accessible label', pattern: /aria-label={label}/ },
-      { name: 'responsive filter controls', pattern: /sm:grid-cols-\[repeat\(auto-fit,minmax\(180px,1fr\)\)\]/ },
+      {
+        name: 'responsive filter controls',
+        pattern: /sm:grid-cols-\[repeat\(auto-fit,minmax\(180px,1fr\)\)\]/,
+      },
       { name: 'filter result live region', pattern: /aria-live="polite"/ },
-      { name: 'wrapped filter actions', pattern: /flex min-w-0 flex-wrap items-center justify-end gap-2/ },
+      {
+        name: 'wrapped filter actions',
+        pattern: /flex min-w-0 flex-wrap items-center justify-end gap-2/,
+      },
     ],
   },
   {
@@ -876,8 +1581,70 @@ const responsiveAccessibilityFiles = [
     patterns: [
       { name: 'empty state status role', pattern: /role={resolvedRole}/ },
       { name: 'empty state live region', pattern: /aria-live={resolvedLive}/ },
-      { name: 'empty state labelled by title', pattern: /aria-labelledby={ariaLabelledBy \?\? titleId}/ },
-      { name: 'empty state actions wrap', pattern: /flex flex-wrap items-center justify-center gap-2/ },
+      {
+        name: 'empty state labelled by title',
+        pattern: /aria-labelledby={ariaLabelledBy \?\? titleId}/,
+      },
+      {
+        name: 'empty state actions wrap',
+        pattern: /flex flex-wrap items-center justify-center gap-2/,
+      },
+    ],
+  },
+];
+
+const dmsExpandedGuardEvidenceFiles = [
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'DMS-GA-704 rollout checklist refs',
+        pattern:
+          /UI-PRE-009[\s\S]*DMS-GA-704 expanded guard coverage[\s\S]*GUARD-DMS-001[\s\S]*GUARD-DMS-004/i,
+      },
+      {
+        name: 'expanded guard forbidden copy list',
+        pattern:
+          /workspace ID[\s\S]*tenant ID[\s\S]*document ID[\s\S]*raw UUID[\s\S]*legal-analysis[\s\S]*summary[\s\S]*model-response/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/execution/TUW_ENTERPRISE_DMS_GA.md',
+    patterns: [
+      {
+        name: 'PR-7D execution acceptance',
+        pattern:
+          /Current PR-7D Acceptance[\s\S]*expanded upload[\s\S]*matter\/team[\s\S]*records[\s\S]*AI Prep[\s\S]*External authenticated main-loop/i,
+      },
+    ],
+  },
+];
+
+const dmsReleaseSignoffEvidenceFiles = [
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'DMS-GA-705 signoff checklist rows',
+        pattern:
+          /DMS-GA-705 Signoff Gate[\s\S]*UI-SIGNOFF-001[\s\S]*UI-SIGNOFF-002[\s\S]*UI-SIGNOFF-003[\s\S]*UI-SIGNOFF-004[\s\S]*UI-SIGNOFF-005[\s\S]*UI-SIGNOFF-006/i,
+      },
+      {
+        name: 'DMS-GA-705 signoff refs in decision record',
+        pattern:
+          /Release decision[\s\S]*HOLD[\s\S]*DMS-SIGNOFF-TIMESTAMP-REF[\s\S]*DMS-SIGNOFF-SCOPE-REF[\s\S]*DMS-SIGNOFF-TENANT-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-OWNER-REF/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/execution/TUW_ENTERPRISE_DMS_GA.md',
+    patterns: [
+      {
+        name: 'PR-7E execution acceptance',
+        pattern:
+          /Current PR-7E Acceptance[\s\S]*DMS-SIGNOFF-OPERATOR-REF[\s\S]*UI-SIGNOFF-001[\s\S]*UI-SIGNOFF-006[\s\S]*production PASS/i,
+      },
     ],
   },
 ];
@@ -984,6 +1751,20 @@ function scanProductionUiSources() {
           if (pattern.test(line)) {
             fail(`${relativePath}:${index + 1} ${name}: ${line.trim()}`);
           }
+        }
+      }
+    }
+  }
+}
+
+function checkExpandedDmsGuardSurfaceCoverage() {
+  for (const relativePath of expandedDmsGuardSurfaceFiles) {
+    const source = readRequired(relativePath);
+    const lines = source.split(/\r?\n/);
+    for (const [index, line] of lines.entries()) {
+      for (const { name, pattern } of forbiddenPatterns) {
+        if (pattern.test(line)) {
+          fail(`${relativePath}:${index + 1} expanded DMS guard ${name}: ${line.trim()}`);
         }
       }
     }
@@ -1128,6 +1909,76 @@ function checkAdminIntegrationsGuard() {
   }
 }
 
+function checkOutlookFilingEvidenceGuard() {
+  for (const file of outlookFilingEvidenceFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Outlook filing evidence production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function checkOfficeOneDriveAdrGate() {
+  for (const file of officeOneDriveAdrGateFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`Office/OneDrive ADR gate production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+    if (file.path === 'apps/web/src/app/(app)/integrations/page.tsx') {
+      assertIntegrationCardHasNoHref(source, 'OneDrive');
+      assertIntegrationCardHasNoHref(source, 'Office 열기/저장');
+      if (/OneDrive 연결됨|Office 연결됨|공동편집 가능|실시간 편집 가능|동기화 실행 중/.test(source)) {
+        fail(`${file.path} must not claim connected OneDrive/Office edit or sync states`);
+      }
+    }
+  }
+}
+
+function checkDmsRollbackRunbookGuard() {
+  for (const file of dmsRollbackRunbookFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS rollback runbook production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function checkDmsResponsiveA11yGuard() {
+  for (const file of dmsResponsiveA11yFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS responsive/a11y production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function assertIntegrationCardHasNoHref(source, title) {
+  const marker = `title="${title}"`;
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex === -1) {
+    fail(`Integration card missing title ${title}`);
+    return;
+  }
+  const cardStart = source.lastIndexOf('<IntegrationCard', markerIndex);
+  const cardEnd = source.indexOf('/>', markerIndex);
+  if (cardStart === -1 || cardEnd === -1) {
+    fail(`Integration card block not found for ${title}`);
+    return;
+  }
+  const cardSource = source.slice(cardStart, cardEnd);
+  if (/\bhref=/.test(cardSource)) {
+    fail(`Integration card ${title} must not link to a connected route before ADR-017 approval`);
+  }
+}
+
 function checkReleaseHardeningGuard() {
   const source = readRequired('docs/ui/enterprise-dms-release-hardening.md');
   for (const { name, pattern } of releaseHardeningPatterns) {
@@ -1184,9 +2035,32 @@ function checkResponsiveAccessibilityGuard() {
   }
 }
 
+function checkDmsExpandedGuardEvidence() {
+  for (const file of dmsExpandedGuardEvidenceFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS-GA-704 expanded guard evidence missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
+function checkDmsReleaseSignoffEvidence() {
+  for (const file of dmsReleaseSignoffEvidenceFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS-GA-705 release signoff evidence missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
+  checkExpandedDmsGuardSurfaceCoverage();
   checkRouteVisibility();
   checkBlockedRoutes();
   checkDesignSystemChecklist();
@@ -1197,12 +2071,18 @@ try {
   checkGovernanceWorkflowOpsGuard();
   checkRecordsActionContextGuard();
   checkAdminIntegrationsGuard();
+  checkOutlookFilingEvidenceGuard();
+  checkOfficeOneDriveAdrGate();
+  checkDmsRollbackRunbookGuard();
+  checkDmsResponsiveA11yGuard();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
   checkPrDCloseoutGuard();
   checkPrECloseoutGuard();
   checkPrFReadinessGuard();
   checkResponsiveAccessibilityGuard();
+  checkDmsExpandedGuardEvidence();
+  checkDmsReleaseSignoffEvidence();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

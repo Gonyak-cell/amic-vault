@@ -4,7 +4,10 @@ import {
   filterMatterCodeOptions,
   isMatterAppSourceAvailable,
   isMatterAppSourceConfigured,
+  isMatterAppSourceContractReady,
+  isMatterAppRuntimeReady,
   isMatterUploadSourceMode,
+  isVaultInternalReferenceLike,
   matterAppSourceDescriptions,
   matterAppSourceLabels,
   matterAppSourceMode,
@@ -24,7 +27,7 @@ const matter = {
   closedAt: null,
   leadLawyerId: null,
   practiceGroup: 'Finance',
-  metadata: {},
+  metadata: { clientDisplayName: 'AMIC Client' },
   legalHold: false,
   createdBy: '11111111-1111-4111-8111-111111111101',
   createdAt: '2026-06-18T00:00:00.000Z',
@@ -47,9 +50,10 @@ describe('matter app source contract helpers', () => {
     expect(isMatterUploadSourceMode('unconfigured')).toBe(false);
   });
 
-  it('does not enable an upload-authoritative source mode without the configured flag', () => {
+  it('does not enable an upload-authoritative source mode without configured runtime readiness', () => {
     vi.stubEnv('NEXT_PUBLIC_MATTER_APP_SOURCE_MODE', 'matter_app_api');
-    vi.stubEnv('NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED', '');
+    vi.stubEnv('NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED', 'true');
+    vi.stubEnv('NEXT_PUBLIC_MATTER_APP_RUNTIME_READY', '');
 
     expect(matterAppSourceMode()).toBe('unconfigured');
     expect(
@@ -57,6 +61,19 @@ describe('matter app source contract helpers', () => {
     ).toBe(false);
     expect(
       isMatterAppSourceConfigured('matter_app_api', { sourceConfigured: 'true' }),
+    ).toBe(true);
+    expect(isMatterAppRuntimeReady('matter_app_api', { runtimeReady: 'false' })).toBe(false);
+    expect(
+      isMatterAppSourceContractReady('matter_app_api', {
+        sourceConfigured: 'true',
+        runtimeReady: 'false',
+      }),
+    ).toBe(false);
+    expect(
+      isMatterAppSourceContractReady('matter_app_api', {
+        sourceConfigured: 'true',
+        runtimeReady: 'true',
+      }),
     ).toBe(true);
   });
 
@@ -92,12 +109,31 @@ describe('matter app source contract helpers', () => {
       matterAppSourceStatus({
         sourceMode: 'matter_app_api',
         sourceConfigured: 'true',
+        runtimeReady: 'true',
         nodeEnv: 'production',
       }),
     ).toMatchObject({
       mode: 'matter_app_api',
+      requestedMode: 'matter_app_api',
       sourceAvailable: true,
+      sourceContractReady: true,
       uploadAuthoritative: true,
+      productionRuntime: true,
+    });
+
+    expect(
+      matterAppSourceStatus({
+        sourceMode: 'matter_app_api',
+        sourceConfigured: 'true',
+        runtimeReady: 'false',
+        nodeEnv: 'production',
+      }),
+    ).toMatchObject({
+      mode: 'unconfigured',
+      requestedMode: 'matter_app_api',
+      sourceAvailable: false,
+      sourceContractReady: false,
+      uploadAuthoritative: false,
       productionRuntime: true,
     });
 
@@ -130,9 +166,19 @@ describe('matter app source contract helpers', () => {
       matterReference: matter.matterId,
       matterCode: 'AMIC-2026-0001',
       matterName: 'Investment Advisory',
+      clientDisplayName: 'AMIC Client',
       practiceGroup: 'Finance',
     });
     expect(filterMatterCodeOptions([option], 'finance')).toHaveLength(1);
+    expect(filterMatterCodeOptions([option], 'amic client')).toHaveLength(1);
     expect(filterMatterCodeOptions([option], 'litigation')).toHaveLength(0);
+  });
+
+  it('rejects Vault internal references as normal Matter Code picker queries', () => {
+    const option = toMatterCodeOption(matter, 'matter_app_event_projection');
+
+    expect(isVaultInternalReferenceLike(matter.matterId)).toBe(true);
+    expect(isVaultInternalReferenceLike(matter.matterCode)).toBe(false);
+    expect(filterMatterCodeOptions([option], matter.matterId)).toHaveLength(0);
   });
 });

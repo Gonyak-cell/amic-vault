@@ -47,8 +47,18 @@ export class WallMembershipReader {
         WHERE ew.tenant_id = $1
           AND ew.matter_id = $2
           AND ew.status = 'active'
-          AND ewm.subject_type = 'user'
-          AND ewm.subject_id = $3::uuid
+          AND (
+            (ewm.subject_type = 'user' AND ewm.subject_id = $3::uuid)
+            OR (
+              ewm.subject_type = 'group'
+              AND ewm.subject_id IN (
+                SELECT gm.group_id
+                FROM group_members gm
+                WHERE gm.tenant_id = ew.tenant_id
+                  AND gm.user_id = $3::uuid
+              )
+            )
+          )
       `,
       [tenantId, matterId, userId],
     );

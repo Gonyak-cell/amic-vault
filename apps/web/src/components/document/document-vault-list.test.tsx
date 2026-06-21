@@ -1,5 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
   DocumentVaultList,
@@ -105,6 +107,14 @@ describe('DocumentVaultList', () => {
 
   it('formats updated timestamps for the document vault', () => {
     expect(formatVaultDocumentDate('2026-06-18T04:00:00.000Z')).toContain('2026');
+  });
+
+  it('supports upload-triggered refresh without changing the active filters', () => {
+    const source = readFileSync(fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'), 'utf8');
+
+    expect(source).toMatch(/refreshKey = 0/);
+    expect(source).toMatch(/listDocuments\(documentVaultListQueryFromFilters\(filters, page\)\)/);
+    expect(source).toMatch(/\[filters, page, refreshKey\]/);
   });
 });
 
