@@ -144,7 +144,7 @@ prompts, raw source/source text, or model responses into this repository.
 | Decision timestamp | `DMS-SIGNOFF-TIMESTAMP-REF` external ref required |
 | Approver | `DMS-SIGNOFF-OPERATOR-REF`, `DMS-SIGNOFF-SECURITY-REF`, `DMS-SIGNOFF-LEGAL-DATA-REF`, `DMS-SIGNOFF-CUSTOMER-SCOPE-REF`, and `DMS-SIGNOFF-ROLLBACK-REF` external refs required |
 | Exact production scope | `DMS-SIGNOFF-SCOPE-REF` external ref required |
-| Excluded scopes | Legal analysis, document summary, external model routing, raw prompt/source/model-response storage or display, Office/OneDrive runtime, external sharing/VDR, and production PASS without external smoke/owner refs |
+| Excluded scopes | Legal analysis, document summary, external model routing, raw prompt/source/model-response storage or display, Office/OneDrive runtime, pre-launch OneDrive bulk customer document migration, external sharing/VDR, and production PASS without external smoke/owner refs |
 | Approved tenant class or tenant refs | `DMS-SIGNOFF-TENANT-SCOPE-REF` external ref required |
 | Rollback owner | `DMS-SIGNOFF-ROLLBACK-OWNER-REF` external ref required |
 | Required follow-up PRs/issues |  |
