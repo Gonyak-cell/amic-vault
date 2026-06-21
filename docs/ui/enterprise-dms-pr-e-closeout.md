@@ -29,9 +29,10 @@ The current PR-E scope proves:
   semantics exist in this lane.
 - Search Refiner Admin is API-backed for tenant refiner field keys, source,
   type, sort order, save/list/disable behavior, and reference-only audit.
-- Outlook Filing Unification is documented on the Outlook integration route so
-  filed emails and attachments align with Matter permission, audit, document
-  detail, and search UX.
+- Outlook Filing Unification is documented and guarded so filed emails and
+  attachments align with Matter Code source suggestions, Matter upload/read
+  permission, reference-only audit, document detail links, search UX, and
+  redaction rules.
 - Office/OneDrive Integration Plan remains gated; production UI does not claim
   OneDrive connected state, Office open/save, coauthoring, lock, or sync.
 - Mobile/Desktop/PWA Decision remains release-hardening evidence; responsive QA
@@ -51,7 +52,7 @@ The current PR-E scope proves:
 | Matter Template Admin            | `enterprise_dms_matter_templates`, `enterprise_dms_matter_template_applications`, `GET/POST /enterprise/dms/matter-templates`, `GET /enterprise/dms/matter-templates/approved`, `POST /enterprise/dms/matter-templates/:templateId/disable`, `POST /enterprise/dms/matter-templates/:templateId/apply`, and `AdminDmsConfigurationPanel` matter template save/list/disable/apply support | DMS-UX-603 |
 | Folder Template Admin            | no virtual folder tree UI; folder inheritance remains deferred beyond backend document-set contract semantics                                                                                                                                                                                                                                                                            | DMS-UX-604 |
 | Search Refiner Admin             | `enterprise_dms_search_refiners`, `GET/POST /enterprise/dms/search-refiners`, `GET /enterprise/dms/search-refiners/approved`, bounded supported field keys, approved catalog consumption in `/search`, and `AdminDmsConfigurationPanel`                                                                                                                                                  | DMS-UX-605 |
-| Outlook Filing Unification       | `apps/web/src/app/(app)/integrations/outlook/page.tsx` Vault filing path section                                                                                                                                                                                                                                                                                                         | DMS-UX-606 |
+| Outlook Filing Unification       | `apps/web/src/app/(app)/integrations/outlook/page.tsx` Vault filing path section, `OutlookAddinClient` Matter Code suggestion/file request flow, `OutlookService` permission/audit tests, `outlook-addin-verification-matrix.md`, and `MatterEmailTimeline` permitted document links                                                                                                     | DMS-UX-606 |
 | Office/OneDrive Integration Plan | `apps/web/src/app/(app)/integrations/page.tsx` OneDrive and Office gated cards                                                                                                                                                                                                                                                                                                           | DMS-UX-607 |
 | Mobile/Desktop/PWA Decision      | `docs/ui/enterprise-dms-release-hardening.md` responsive QA gate                                                                                                                                                                                                                                                                                                                         | DMS-UX-608 |
 | Admin Settings IA Cleanup        | `AdminDmsConfigurationPanel`, `AdminSearchOperationsPanel`, `AdminOpsHealthPanel`                                                                                                                                                                                                                                                                                                        | DMS-UX-609 |
@@ -71,6 +72,10 @@ The current PR-E scope proves:
   strips disabled or unsupported refiner filters before issuing a search request.
 - Search index operations show only audit-safe queue/request state after an
   operator request.
+- Outlook filing evidence is hash/ref/count only: no raw email body, raw
+  mailbox address, raw Outlook id, attachment filename, token, or concrete
+  external tenant evidence is committed. Matter/document links use the
+  permission-scoped APIs and safe labels only.
 - Operations health uses local file organization prep health/metrics only and
   does not expose raw content.
 - AI Prep remains file organization prep/readiness only.
@@ -86,6 +91,10 @@ The PR-E closeout PR must include current results for:
 - `pnpm check:ui-pr-checklist`
 - focused admin/integration tests for enterprise hardening and Outlook
   integration route safety
+- `pnpm outlook:deployment:check`
+- `pnpm outlook:verification:check`
+- `pnpm outlook:operational:check`
+- `pnpm outlook:redaction:check -- --all`
 - `pnpm lint`
 - `pnpm typecheck`
 - `pnpm test`
