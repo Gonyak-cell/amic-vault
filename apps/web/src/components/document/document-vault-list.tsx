@@ -52,6 +52,10 @@ export interface DocumentVaultFilterState {
   title: string;
 }
 
+export interface DocumentVaultListProps {
+  refreshKey?: number | string;
+}
+
 const emptyDocumentVaultFilters: DocumentVaultFilterState = {
   aiAllowed: '',
   confidentialityLevel: '',
@@ -65,10 +69,10 @@ const emptyDocumentVaultFilters: DocumentVaultFilterState = {
   title: '',
 };
 
-const selectClassName =
+export const selectClassName =
   'flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
 
-const documentTypeLabels = {
+export const documentTypeLabels = {
   contract: '계약',
   memo: '메모',
   opinion: '의견서',
@@ -80,7 +84,7 @@ const documentTypeLabels = {
   other: '기타',
 } as const satisfies Record<DocumentType, string>;
 
-const documentStatusLabels = {
+export const documentStatusLabels = {
   draft: '초안',
   internal_review: '내부 검토',
   client_sent: '고객 발송',
@@ -94,27 +98,27 @@ const documentStatusLabels = {
   deleted: '삭제',
 } as const satisfies Record<DocumentStatus, string>;
 
-const confidentialityLabels = {
+export const confidentialityLabels = {
   standard: '일반',
   high: '높음',
   restricted: '제한',
 } as const satisfies Record<DocumentConfidentialityLevel, string>;
 
-const privilegeLabels = {
+export const privilegeLabels = {
   none: '비특권',
   privileged: '특권',
   work_product: '업무 산출물',
   joint_privilege: '공동 특권',
 } as const satisfies Record<DocumentPrivilegeStatus, string>;
 
-const extractionStatusLabels = {
+export const extractionStatusLabels = {
   pending: '추출 대기',
   ready: '검색 가능',
   ocr_pending: 'OCR 필요',
   failed: '추출 실패',
 } as const satisfies Record<DocumentExtractionStatus, string>;
 
-const sortLabels = {
+export const sortLabels = {
   updated_desc: '최근 업데이트',
   updated_asc: '오래된 업데이트',
   title_asc: '문서명',
@@ -257,7 +261,7 @@ function countActiveFilters(filters: DocumentVaultFilterState): number {
   ].filter(Boolean).length;
 }
 
-export function DocumentVaultList() {
+export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   const router = useRouter();
   const params = useSearchParams();
   const initialFilters = React.useMemo(() => documentVaultFiltersFromParams(params), [params]);
@@ -289,7 +293,7 @@ export function DocumentVaultList() {
     return () => {
       active = false;
     };
-  }, [filters, page]);
+  }, [filters, page, refreshKey]);
 
   function updateDraftFilter<K extends keyof DocumentVaultFilterState>(
     key: K,
@@ -646,6 +650,8 @@ export function DocumentVaultList() {
 
 export {
   emptyDocumentVaultFilters,
+  extractionLabel as documentVaultExtractionLabel,
+  extractionTone as documentVaultExtractionTone,
   formatDate as formatVaultDocumentDate,
   matterLabel as documentVaultMatterLabel,
 };

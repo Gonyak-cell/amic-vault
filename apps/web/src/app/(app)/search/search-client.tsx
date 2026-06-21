@@ -6,14 +6,20 @@ import type {
   SavedSearchDto,
   SearchFiltersDto,
   SearchGroupBy,
+  SearchPrivacySettingsDto,
   SearchQueryDto,
   SearchResponseDto,
   SearchSort,
   SearchTarget,
+  EnterpriseApprovedDmsTaxonomyDto,
+  EnterpriseApprovedDmsSearchRefinerDto,
 } from '@amic-vault/shared';
 import {
+  documentConfidentialityLevels,
   documentExtractionStatuses,
+  documentPrivilegeStatuses,
   documentTypes,
+  searchPrivacySettingsSchema,
   searchLegalHoldValues,
   searchRecordsStatusValues,
   searchVersionStatusValues,
@@ -28,10 +34,21 @@ import { safeApiErrorMessage, uiErrorKindForApiError } from '@/lib/api/error-mes
 import {
   deleteSavedSearch,
   listSavedSearches,
+  recordSavedSearchOpen,
   saveSavedSearch,
   searchDocuments,
 } from '@/lib/api/search';
+import {
+  listApprovedEnterpriseDmsSearchRefiners,
+  listApprovedEnterpriseDmsTaxonomies,
+} from '@/lib/api/enterprise';
 import { useI18n } from '@/lib/i18n';
+import {
+  hasSearchRefiner,
+  searchRefinerFieldKeys,
+  searchRefinerKeySet,
+  type SearchRefinerKeySet,
+} from '@/lib/search-refiners';
 
 const pageSize = 10;
 
@@ -39,8 +56,13 @@ export function SearchClient() {
   const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const initial = useMemo(() => stateFromParams(params), [params]);
+  const searchPrivacySettings = useMemo(() => searchPrivacySettingsFromEnv(), []);
+  const initial = useMemo(
+    () => stateFromParams(params, searchPrivacySettings),
+    [params, searchPrivacySettings],
+  );
   const restoredUrl = useRef<string | null>(null);
+  const restoredSavedSearchRef = useRef<string | null>(null);
   const [query, setQuery] = useState(initial.query);
   const [selection, setSelection] = useState<SearchFacetSelection>(initial.selection);
   const [page, setPage] = useState(initial.page);
@@ -48,9 +70,18 @@ export function SearchClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SearchErrorKind | null>(null);
   const [savedSearches, setSavedSearches] = useState<SavedSearchDto[]>([]);
+  const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
+  const [refinerCatalog, setRefinerCatalog] = useState<EnterpriseApprovedDmsSearchRefinerDto[]>([]);
   const [savedSearchBusy, setSavedSearchBusy] = useState(false);
   const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
-  const reusableSearchUrl = useMemo(() => urlForState(query, selection, 1), [query, selection]);
+  const approvedRefinerKeys = useMemo(() => searchRefinerKeySet(refinerCatalog), [refinerCatalog]);
+  const reusableSearchUrl = useMemo(
+    () =>
+      searchPrivacySettings.allowPlaintextReusableUrls
+        ? urlForState(query, constrainSelection(selection, approvedRefinerKeys), 1)
+        : privateSearchUrl(),
+    [approvedRefinerKeys, query, searchPrivacySettings.allowPlaintextReusableUrls, selection],
+  );
 
   const refreshSavedSearches = useCallback(async () => {
     setSavedSearchBusy(true);
@@ -66,18 +97,50 @@ export function SearchClient() {
     }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([
+      listApprovedEnterpriseDmsTaxonomies(),
+      listApprovedEnterpriseDmsSearchRefiners(),
+    ]).then(([taxonomyResult, refinerResult]) => {
+      if (!active) return;
+      setTaxonomyCatalog(
+        taxonomyResult.status === 'fulfilled' ? taxonomyResult.value.taxonomies : [],
+      );
+      setRefinerCatalog(refinerResult.status === 'fulfilled' ? refinerResult.value.refiners : []);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const runSearch = useCallback(
-    async (nextQuery: string, nextSelection: SearchFacetSelection, nextPage: number) => {
+    async (
+      nextQuery: string,
+      nextSelection: SearchFacetSelection,
+      nextPage: number,
+      options: { replaceUrl?: string | null } = {},
+    ) => {
       const trimmed = nextQuery.trim();
       if (!trimmed) return;
+      const constrainedSelection = constrainSelection(nextSelection, approvedRefinerKeys);
       setBusy(true);
       setError(null);
       setQuery(trimmed);
-      setSelection(nextSelection);
+      setSelection(constrainedSelection);
       setPage(nextPage);
-      router.replace(urlForState(trimmed, nextSelection, nextPage));
+      const replacementUrl =
+        options.replaceUrl === undefined
+          ? urlForPolicy(searchPrivacySettings, trimmed, constrainedSelection, nextPage)
+          : options.replaceUrl;
+      if (replacementUrl) router.replace(replacementUrl);
       try {
-        const request = requestForState(trimmed, nextSelection, nextPage);
+        const request = requestForState(
+          trimmed,
+          constrainedSelection,
+          nextPage,
+          approvedRefinerKeys,
+        );
         const result = await searchDocuments(request);
         setResponse(result);
       } catch (caught) {
@@ -87,7 +150,42 @@ export function SearchClient() {
         setBusy(false);
       }
     },
-    [router],
+    [approvedRefinerKeys, router, searchPrivacySettings],
+  );
+
+  const openSavedSearch = useCallback(
+    async (savedSearch: SavedSearchDto) => {
+      const nextQuery = savedSearch.query.query?.trim();
+      if (!nextQuery) return;
+      const nextSelection = constrainSelection(
+        selectionFromSearchQuery(savedSearch.query),
+        approvedRefinerKeys,
+      );
+      setBusy(true);
+      setError(null);
+      setQuery(nextQuery);
+      setSelection(nextSelection);
+      setPage(1);
+      router.replace(
+        searchPrivacySettings.urlMode === 'private_saved_ref'
+          ? privateSearchUrl(savedSearch.savedSearchId)
+          : urlForState(nextQuery, nextSelection, 1),
+      );
+      try {
+        const opened = await recordSavedSearchOpen(savedSearch.savedSearchId);
+        setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, opened)));
+        const result = await searchDocuments(
+          requestForState(nextQuery, nextSelection, 1, approvedRefinerKeys),
+        );
+        setResponse(result);
+      } catch (caught) {
+        setResponse(null);
+        setError(searchErrorKind(caught));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [approvedRefinerKeys, router, searchPrivacySettings.urlMode],
   );
 
   useEffect(() => {
@@ -95,27 +193,62 @@ export function SearchClient() {
   }, [refreshSavedSearches]);
 
   useEffect(() => {
+    if (!searchPrivacySettings.allowPlaintextReusableUrls && params.get('q')) {
+      const savedSearchId = parseSavedSearchRef(params.get('searchRef'));
+      if (savedSearchId) {
+        router.replace(privateSearchUrl(savedSearchId));
+        return;
+      }
+      router.replace(privateSearchUrl());
+      return;
+    }
+  }, [params, router, searchPrivacySettings.allowPlaintextReusableUrls]);
+
+  useEffect(() => {
+    if (!searchPrivacySettings.allowPlaintextReusableUrls) return;
     if (!initial.query) return;
-    const initialUrl = urlForState(initial.query, initial.selection, initial.page);
+    const constrainedInitialSelection = constrainSelection(initial.selection, approvedRefinerKeys);
+    const initialUrl = urlForState(initial.query, constrainedInitialSelection, initial.page);
     if (restoredUrl.current === initialUrl) return;
     restoredUrl.current = initialUrl;
-    void runSearch(initial.query, initial.selection, initial.page);
-  }, [initial, runSearch]);
+    void runSearch(initial.query, constrainedInitialSelection, initial.page, {
+      replaceUrl: initialUrl,
+    });
+  }, [approvedRefinerKeys, initial, runSearch, searchPrivacySettings.allowPlaintextReusableUrls]);
+
+  useEffect(() => {
+    if (!initial.savedSearchId) return;
+    if (restoredSavedSearchRef.current === initial.savedSearchId) return;
+    const savedSearch = savedSearches.find((item) => item.savedSearchId === initial.savedSearchId);
+    if (!savedSearch) return;
+    restoredSavedSearchRef.current = initial.savedSearchId;
+    void openSavedSearch(savedSearch);
+  }, [initial.savedSearchId, openSavedSearch, savedSearches]);
 
   function applyFacets(next: SearchFacetSelection) {
     void runSearch(query, next, 1);
   }
 
-  async function saveCurrentSearch(name: string) {
+  async function saveCurrentSearch(request: {
+    matterId?: string;
+    name: string;
+    scope: SavedSearchDto['scope'];
+  }) {
     if (!query.trim()) return;
     setSavedSearchBusy(true);
     setSavedSearchError(null);
     try {
       const saved = await saveSavedSearch({
-        name,
-        query: requestForState(query, selection, 1),
+        matterId: request.matterId,
+        name: request.name,
+        query: requestForState(query, selection, 1, approvedRefinerKeys),
+        scope: request.scope,
       });
       setSavedSearches((current) => sortSavedSearches(upsertSavedSearch(current, saved)));
+      if (searchPrivacySettings.urlMode === 'private_saved_ref') {
+        restoredSavedSearchRef.current = saved.savedSearchId;
+        router.replace(privateSearchUrl(saved.savedSearchId));
+      }
     } catch (caught) {
       setSavedSearchError(safeApiErrorMessage(caught));
     } finally {
@@ -138,33 +271,10 @@ export function SearchClient() {
     }
   }
 
-  async function openSavedSearch(savedSearch: SavedSearchDto) {
-    const nextQuery = savedSearch.query.query?.trim();
-    if (!nextQuery) return;
-    const nextSelection = selectionFromSearchQuery(savedSearch.query);
-    setBusy(true);
-    setError(null);
-    setQuery(nextQuery);
-    setSelection(nextSelection);
-    setPage(1);
-    router.replace(urlForState(nextQuery, nextSelection, 1));
-    try {
-      const result = await searchDocuments({ ...savedSearch.query, page: 1, pageSize });
-      setResponse(result);
-    } catch (caught) {
-      setResponse(null);
-      setError(searchErrorKind(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <main className="flex flex-col gap-5">
       <section className="flex flex-col gap-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-normal">
-          {t('search.title')}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-normal">{t('search.title')}</h1>
         <SearchBar
           initialQuery={query}
           busy={busy}
@@ -172,7 +282,9 @@ export function SearchClient() {
         />
       </section>
       <SearchAdvancedControls
+        approvedRefinerKeys={approvedRefinerKeys}
         busy={busy}
+        taxonomyCatalog={taxonomyCatalog}
         selection={selection}
         onApply={(advanced) => runSearch(query, { ...selection, ...advanced }, 1)}
         onReset={() => runSearch(query, resetAdvancedSelection(selection), 1)}
@@ -187,10 +299,12 @@ export function SearchClient() {
         savedSearchBusy={savedSearchBusy}
         savedSearchError={savedSearchError}
         savedSearches={savedSearches}
+        privacyMode={searchPrivacySettings.urlMode}
         reusableUrl={reusableSearchUrl}
       />
       <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <SearchFacets
+          approvedRefinerKeys={approvedRefinerKeys}
           facets={response?.facets ?? emptyFacets}
           selection={selection}
           onChange={applyFacets}
@@ -214,20 +328,27 @@ const emptyFacets: SearchResponseDto['facets'] = {
   clients: [],
   matters: [],
   documentTypes: [],
+  confidentialityLevels: [],
   extractionStatuses: [],
   legalHolds: [],
+  privilegeStatuses: [],
   recordsStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
 
-function stateFromParams(params: { get(name: string): string | null }) {
+function stateFromParams(
+  params: { get(name: string): string | null },
+  privacySettings: SearchPrivacySettingsDto,
+) {
   return {
-    query: params.get('q') ?? '',
+    query: privacySettings.allowPlaintextReusableUrls ? (params.get('q') ?? '') : '',
     page: Math.max(1, Number(params.get('page') ?? '1') || 1),
+    savedSearchId: parseSavedSearchRef(params.get('searchRef')),
     selection: {
       matterId: params.get('matterId') ?? undefined,
       clientId: params.get('clientId') ?? undefined,
+      confidentialityLevel: parseConfidentialityLevel(params.get('confidentialityLevel')),
       documentType: parseDocumentType(params.get('documentType')),
       extractionStatus: parseExtractionStatus(params.get('extractionStatus')),
       legalHold: parseLegalHold(params.get('legalHold')),
@@ -238,11 +359,22 @@ function stateFromParams(params: { get(name: string): string | null }) {
       groupBy: parseGroupBy(params.get('groupBy')),
       matterCode: params.get('matterCode') ?? undefined,
       matterName: params.get('matterName') ?? undefined,
+      privilegeStatus: parsePrivilegeStatus(params.get('privilegeStatus')),
       sortBy: parseSort(params.get('sortBy')),
       target: parseTarget(params.get('target')),
       title: params.get('title') ?? undefined,
     },
   };
+}
+
+function urlForPolicy(
+  privacySettings: SearchPrivacySettingsDto,
+  query: string,
+  selection: SearchFacetSelection,
+  page: number,
+): string {
+  if (!privacySettings.allowPlaintextReusableUrls) return privateSearchUrl();
+  return urlForState(query, selection, page);
 }
 
 function urlForState(query: string, selection: SearchFacetSelection, page: number): string {
@@ -251,6 +383,9 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (page > 1) params.set('page', String(page));
   if (selection.matterId) params.set('matterId', selection.matterId);
   if (selection.clientId) params.set('clientId', selection.clientId);
+  if (selection.confidentialityLevel) {
+    params.set('confidentialityLevel', selection.confidentialityLevel);
+  }
   if (selection.documentType) params.set('documentType', selection.documentType);
   if (selection.extractionStatus) params.set('extractionStatus', selection.extractionStatus);
   if (selection.legalHold) params.set('legalHold', selection.legalHold);
@@ -261,9 +396,17 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.groupBy && selection.groupBy !== 'none') params.set('groupBy', selection.groupBy);
   if (selection.matterCode) params.set('matterCode', selection.matterCode);
   if (selection.matterName) params.set('matterName', selection.matterName);
+  if (selection.privilegeStatus) params.set('privilegeStatus', selection.privilegeStatus);
   if (selection.sortBy && selection.sortBy !== 'relevance') params.set('sortBy', selection.sortBy);
   if (selection.target && selection.target !== 'all') params.set('target', selection.target);
   if (selection.title) params.set('title', selection.title);
+  return `/search?${params.toString()}`;
+}
+
+function privateSearchUrl(savedSearchId?: string): string {
+  if (!savedSearchId) return '/search';
+  const params = new URLSearchParams();
+  params.set('searchRef', savedSearchId);
   return `/search?${params.toString()}`;
 }
 
@@ -271,10 +414,11 @@ function requestForState(
   query: string,
   selection: SearchFacetSelection,
   page: number,
+  approvedRefinerKeys: SearchRefinerKeySet,
 ): SearchQueryDto {
   return {
     query: query.trim(),
-    filters: filtersForSelection(selection),
+    filters: filtersForSelection(selection, approvedRefinerKeys),
     page,
     pageSize,
     ...(selection.groupBy ? { groupBy: selection.groupBy } : {}),
@@ -283,31 +427,147 @@ function requestForState(
   };
 }
 
-function filtersForSelection(selection: SearchFacetSelection): SearchFiltersDto {
+function filtersForSelection(
+  selection: SearchFacetSelection,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): SearchFiltersDto {
   const filters: SearchFiltersDto = {};
-  if (selection.matterId) filters.matterId = selection.matterId;
-  if (selection.clientId) filters.clientId = selection.clientId;
-  if (selection.clientName) filters.clientName = selection.clientName;
-  if (selection.matterCode) filters.matterCode = selection.matterCode;
-  if (selection.matterName) filters.matterName = selection.matterName;
-  if (selection.title) filters.title = selection.title;
-  if (selection.documentType) filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
-  if (selection.extractionStatus) {
+  if (
+    selection.matterId &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterId)
+  ) {
+    filters.matterId = selection.matterId;
+  }
+  if (
+    selection.clientId &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientId)
+  ) {
+    filters.clientId = selection.clientId;
+  }
+  if (
+    selection.clientName &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientName)
+  ) {
+    filters.clientName = selection.clientName;
+  }
+  if (
+    selection.matterCode &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
+  ) {
+    filters.matterCode = selection.matterCode;
+  }
+  if (
+    selection.matterName &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterName)
+  ) {
+    filters.matterName = selection.matterName;
+  }
+  if (selection.title && hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.title)) {
+    filters.title = selection.title;
+  }
+  if (
+    selection.confidentialityLevel &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.confidentialityLevel)
+  ) {
+    filters.confidentialityLevel =
+      selection.confidentialityLevel as SearchFiltersDto['confidentialityLevel'];
+  }
+  if (
+    selection.documentType &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)
+  ) {
+    filters.documentType = selection.documentType as SearchFiltersDto['documentType'];
+  }
+  if (
+    selection.extractionStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
+  ) {
     filters.extractionStatus = selection.extractionStatus as SearchFiltersDto['extractionStatus'];
   }
-  if (selection.legalHold) {
+  if (
+    selection.legalHold &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
+  ) {
     filters.legalHold = selection.legalHold as SearchFiltersDto['legalHold'];
   }
-  if (selection.recordsStatus) {
+  if (
+    selection.privilegeStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)
+  ) {
+    filters.privilegeStatus = selection.privilegeStatus as SearchFiltersDto['privilegeStatus'];
+  }
+  if (
+    selection.recordsStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)
+  ) {
     filters.recordsStatus = selection.recordsStatus as SearchFiltersDto['recordsStatus'];
   }
-  if (selection.versionStatus) {
+  if (
+    selection.versionStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)
+  ) {
     filters.versionStatus = selection.versionStatus as SearchFiltersDto['versionStatus'];
   }
   const dateRange = datesForRange(selection.dateRange);
-  if (dateRange.dateFrom) filters.dateFrom = dateRange.dateFrom;
-  if (dateRange.dateTo) filters.dateTo = dateRange.dateTo;
+  if (hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)) {
+    if (dateRange.dateFrom) filters.dateFrom = dateRange.dateFrom;
+    if (dateRange.dateTo) filters.dateTo = dateRange.dateTo;
+  }
   return filters;
+}
+
+function constrainSelection(
+  selection: SearchFacetSelection,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): SearchFacetSelection {
+  return {
+    ...selection,
+    clientId: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientId)
+      ? selection.clientId
+      : undefined,
+    clientName: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientName)
+      ? selection.clientName
+      : undefined,
+    confidentialityLevel: hasSearchRefiner(
+      approvedRefinerKeys,
+      searchRefinerFieldKeys.confidentialityLevel,
+    )
+      ? selection.confidentialityLevel
+      : undefined,
+    dateRange: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)
+      ? selection.dateRange
+      : undefined,
+    documentType: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)
+      ? selection.documentType
+      : undefined,
+    extractionStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
+      ? selection.extractionStatus
+      : undefined,
+    legalHold: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
+      ? selection.legalHold
+      : undefined,
+    matterCode: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
+      ? selection.matterCode
+      : undefined,
+    matterId: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterId)
+      ? selection.matterId
+      : undefined,
+    matterName: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterName)
+      ? selection.matterName
+      : undefined,
+    privilegeStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)
+      ? selection.privilegeStatus
+      : undefined,
+    recordsStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)
+      ? selection.recordsStatus
+      : undefined,
+    title: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.title)
+      ? selection.title
+      : undefined,
+    versionStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)
+      ? selection.versionStatus
+      : undefined,
+  };
 }
 
 function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
@@ -318,6 +578,7 @@ function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
   return {
     clientId: filters?.clientId,
     clientName: filters?.clientName,
+    confidentialityLevel: filters?.confidentialityLevel,
     documentType,
     extractionStatus: filters?.extractionStatus,
     groupBy: input.groupBy,
@@ -325,6 +586,7 @@ function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
     matterCode: filters?.matterCode,
     matterId: filters?.matterId,
     matterName: filters?.matterName,
+    privilegeStatus: filters?.privilegeStatus,
     recordsStatus: filters?.recordsStatus,
     sortBy: input.sortBy,
     target: input.target,
@@ -343,6 +605,20 @@ function resetAdvancedSelection(selection: SearchFacetSelection): SearchFacetSel
 function parseDocumentType(value: string | null): SearchFacetSelection['documentType'] {
   return (documentTypes as readonly string[]).includes(value ?? '')
     ? (value as SearchFacetSelection['documentType'])
+    : undefined;
+}
+
+function parseConfidentialityLevel(
+  value: string | null,
+): SearchFacetSelection['confidentialityLevel'] {
+  return (documentConfidentialityLevels as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['confidentialityLevel'])
+    : undefined;
+}
+
+function parsePrivilegeStatus(value: string | null): SearchFacetSelection['privilegeStatus'] {
+  return (documentPrivilegeStatuses as readonly string[]).includes(value ?? '')
+    ? (value as SearchFacetSelection['privilegeStatus'])
     : undefined;
 }
 
@@ -400,6 +676,21 @@ function parseGroupBy(value: string | null): SearchGroupBy | undefined {
     : undefined;
 }
 
+function parseSavedSearchRef(value: string | null): string | undefined {
+  if (!value) return undefined;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : undefined;
+}
+
+export function searchPrivacySettingsFromEnv(): SearchPrivacySettingsDto {
+  const urlMode =
+    process.env.NEXT_PUBLIC_SEARCH_URL_PRIVACY_MODE === 'private_saved_ref'
+      ? 'private_saved_ref'
+      : 'plaintext_url';
+  return searchPrivacySettingsSchema.parse({ urlMode });
+}
+
 function datesForRange(value: string | undefined): { dateFrom?: string; dateTo?: string } {
   if (!value) return {};
   const now = new Date();
@@ -422,10 +713,7 @@ function searchErrorKind(error: unknown): SearchErrorKind {
   return uiErrorKindForApiError(error);
 }
 
-function upsertSavedSearch(
-  current: SavedSearchDto[],
-  next: SavedSearchDto,
-): SavedSearchDto[] {
+function upsertSavedSearch(current: SavedSearchDto[], next: SavedSearchDto): SavedSearchDto[] {
   const withoutExisting = current.filter(
     (savedSearch) => savedSearch.savedSearchId !== next.savedSearchId,
   );

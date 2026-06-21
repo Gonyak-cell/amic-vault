@@ -1,9 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import type { UploadDocumentResponseDto } from '@amic-vault/shared';
-import { FileUp, Loader2 } from 'lucide-react';
-import { uploadDocument } from '@/lib/api-client';
+import Link from 'next/link';
+import type {
+  AddDocumentVersionResponseDto,
+  EnterpriseApprovedDmsTaxonomyDto,
+  UploadDocumentResponseDto,
+  UploadDuplicateCandidateDto,
+} from '@amic-vault/shared';
+import { ExternalLink, FileSearch, FileUp, Loader2 } from 'lucide-react';
+import { addDocumentVersion, createUploadPreflight, uploadDocument } from '@/lib/api-client';
+import { listApprovedEnterpriseDmsTaxonomies } from '@/lib/api/enterprise';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   isMatterUploadSourceMode,
@@ -14,20 +21,57 @@ import {
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
+import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import {
+  UploadMetadataProfile,
+  defaultUploadMetadataProfile,
+  uploadMetadataProfileFields,
+} from './upload-metadata-profile';
+import {
+  DuplicateDecisionDialog,
+  type DuplicateDecisionSelection,
+} from './duplicate-decision-dialog';
+
+export type DocumentUploadCompletionResult =
+  | UploadDocumentResponseDto
+  | AddDocumentVersionResponseDto;
 
 export interface DocumentUploadPanelProps {
-  onUploadComplete?: (result: UploadDocumentResponseDto) => void;
+  onUploadComplete?: (result: DocumentUploadCompletionResult) => void;
   selectedMatter: MatterCodeOption | null;
   sourceMode?: MatterAppSourceMode;
 }
 
 type UploadQueueStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
 
-interface UploadQueueRow {
+export interface UploadQueueRow {
+  duplicateCount?: number;
+  documentId?: string;
   fileName: string;
   message: string;
   status: UploadQueueStatus;
+  title?: string;
 }
+
+interface DuplicateDecisionRequest {
+  candidates: UploadDuplicateCandidateDto[];
+  fileName: string;
+  resolve: (selection: DuplicateDecisionSelection) => void;
+}
+
+const uploadQueueStatusLabels = {
+  pending: '대기',
+  uploading: '업로드 중',
+  uploaded: '완료',
+  failed: '실패',
+} as const satisfies Record<UploadQueueStatus, string>;
+
+const uploadQueueStatusTones = {
+  pending: 'neutral',
+  uploading: 'warning',
+  uploaded: 'success',
+  failed: 'blocked',
+} as const satisfies Record<UploadQueueStatus, StatusBadgeTone>;
 
 export function DocumentUploadPanel({
   onUploadComplete,
@@ -36,15 +80,52 @@ export function DocumentUploadPanel({
 }: DocumentUploadPanelProps) {
   const resolvedSourceMode = sourceMode ?? matterAppSourceMode();
   const uploadSourceReady = isMatterUploadSourceMode(resolvedSourceMode);
-  const prepInputId = React.useId();
   const [files, setFiles] = React.useState<File[]>([]);
   const [title, setTitle] = React.useState('');
-  const [prepEnabled, setPrepEnabled] = React.useState(true);
+  const [metadataProfile, setMetadataProfile] = React.useState(defaultUploadMetadataProfile);
+  const [taxonomyCatalog, setTaxonomyCatalog] = React.useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadQueue, setUploadQueue] = React.useState<UploadQueueRow[]>([]);
+  const [duplicateDecisionRequest, setDuplicateDecisionRequest] =
+    React.useState<DuplicateDecisionRequest | null>(null);
   const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const canUpload = Boolean(selectedMatter && files.length > 0 && uploadSourceReady && !isUploading);
+  const canUpload = Boolean(
+    selectedMatter && files.length > 0 && uploadSourceReady && !isUploading,
+  );
+
+  const requestDuplicateDecision = React.useCallback(
+    (fileName: string, candidates: UploadDuplicateCandidateDto[]) =>
+      new Promise<DuplicateDecisionSelection>((resolve) => {
+        setDuplicateDecisionRequest({ candidates, fileName, resolve });
+      }),
+    [],
+  );
+
+  React.useEffect(() => {
+    if (!selectedMatter || !uploadSourceReady) {
+      setTaxonomyCatalog([]);
+      return;
+    }
+    let active = true;
+    listApprovedEnterpriseDmsTaxonomies()
+      .then((catalog) => {
+        if (active) setTaxonomyCatalog(catalog.taxonomies);
+      })
+      .catch(() => {
+        if (active) setTaxonomyCatalog([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedMatter, uploadSourceReady]);
+
+  function handleDuplicateDecision(selection: DuplicateDecisionSelection) {
+    const request = duplicateDecisionRequest;
+    if (!request) return;
+    request.resolve(selection);
+    setDuplicateDecisionRequest(null);
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,18 +147,67 @@ export function DocumentUploadPanel({
     try {
       for (const [index, selectedFile] of files.entries()) {
         setUploadQueue((current) =>
-          updateUploadQueue(current, index, { message: '업로드 중', status: 'uploading' }),
+          updateUploadQueue(current, index, { message: '중복 확인 중', status: 'uploading' }),
         );
         try {
+          const sha256 = await sha256BrowserFile(selectedFile);
+          const preflight = await createUploadPreflight(selectedMatter.matterReference, { sha256 });
+          const duplicateSelection = preflight.duplicateDecisionRequired
+            ? await requestDuplicateDecision(selectedFile.name, preflight.duplicateCandidates)
+            : undefined;
+
+          if (duplicateSelection?.decision === 'cancel') {
+            failureCount += 1;
+            failedFiles.push(selectedFile);
+            setUploadQueue((current) =>
+              updateUploadQueue(current, index, {
+                message: '업로드가 취소되었습니다.',
+                status: 'failed',
+              }),
+            );
+            continue;
+          }
+
+          setUploadQueue((current) =>
+            updateUploadQueue(current, index, { message: '업로드 중', status: 'uploading' }),
+          );
+
+          if (duplicateSelection?.decision === 'new_version') {
+            const result = await addDocumentVersion(
+              duplicateSelection.documentReference,
+              selectedFile,
+              { duplicateDecision: 'new_version' },
+            );
+            successCount += 1;
+            setUploadQueue((current) =>
+              updateUploadQueue(current, index, {
+                documentId: result.documentId,
+                duplicateCount: result.duplicates.length,
+                message: versionUploadStatusMessage(result),
+                status: 'uploaded',
+                title: selectedFile.name,
+              }),
+            );
+            onUploadComplete?.(result);
+            continue;
+          }
+
           const result = await uploadDocument(selectedMatter.matterReference, selectedFile, {
-            aiAllowed: prepEnabled,
+            ...uploadMetadataProfileFields(metadataProfile),
+            uploadPreflightRef: preflight.preflightRef,
+            ...(duplicateSelection?.decision === 'new_document'
+              ? { duplicateDecision: 'new_document' }
+              : {}),
             ...(files.length === 1 && title.trim() ? { title: title.trim() } : {}),
           });
           successCount += 1;
           setUploadQueue((current) =>
             updateUploadQueue(current, index, {
+              documentId: result.documentId,
+              duplicateCount: result.duplicates.length,
               message: uploadStatusMessage(result),
               status: 'uploaded',
+              title: result.title,
             }),
           );
           onUploadComplete?.(result);
@@ -149,6 +279,12 @@ export function DocumentUploadPanel({
         />
       </label>
 
+      <UploadMetadataProfile
+        profile={metadataProfile}
+        onChange={setMetadataProfile}
+        taxonomyCatalog={taxonomyCatalog}
+      />
+
       {files.length > 0 ? (
         <div className="rounded-md border bg-background">
           <div className="border-b px-3 py-2 text-sm font-semibold">
@@ -166,20 +302,6 @@ export function DocumentUploadPanel({
           </ul>
         </div>
       ) : null}
-
-      <label
-        htmlFor={prepInputId}
-        className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium text-foreground"
-      >
-        <input
-          id={prepInputId}
-          type="checkbox"
-          className="h-4 w-4 accent-primary"
-          checked={prepEnabled}
-          onChange={(event) => setPrepEnabled(event.currentTarget.checked)}
-        />
-        파일 정리 준비
-      </label>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={!canUpload}>
@@ -203,39 +325,132 @@ export function DocumentUploadPanel({
       </div>
 
       {uploadQueue.length > 0 ? (
-        <div className="rounded-md border bg-background">
-          <div className="border-b px-3 py-2 text-sm font-semibold">업로드 큐</div>
-          <ul className="divide-y">
-            {uploadQueue.map((item, index) => (
-              <li
-                key={`${item.fileName}-${index}`}
-                className="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
-              >
-                <span className="truncate font-medium">{item.fileName}</span>
-                <span className={item.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}>
-                  {item.message}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <UploadQueueReceipt queue={uploadQueue} selectedMatter={selectedMatter} />
+      ) : null}
+
+      {duplicateDecisionRequest ? (
+        <DuplicateDecisionDialog
+          candidates={duplicateDecisionRequest.candidates}
+          fileName={duplicateDecisionRequest.fileName}
+          onSelect={handleDuplicateDecision}
+        />
       ) : null}
     </form>
+  );
+}
+
+export function UploadQueueReceipt({
+  queue,
+  selectedMatter,
+}: {
+  queue: UploadQueueRow[];
+  selectedMatter: MatterCodeOption;
+}) {
+  return (
+    <div className="rounded-md border bg-background">
+      <div className="border-b px-3 py-2">
+        <p className="text-sm font-semibold">업로드 큐</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          업로드된 문서는 문서 상세에서 프로필, 버전, 처리 상태를 이어서 확인할 수 있습니다.
+        </p>
+      </div>
+      <ul className="divide-y">
+        {queue.map((item, index) => (
+          <li
+            key={`${item.fileName}-${index}`}
+            className="grid gap-2 px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_auto]"
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="min-w-0 truncate font-medium">{item.title ?? item.fileName}</span>
+                <StatusBadge tone={uploadQueueStatusTones[item.status]}>
+                  {uploadQueueStatusLabels[item.status]}
+                </StatusBadge>
+              </div>
+              <p
+                className={
+                  item.status === 'failed'
+                    ? 'mt-1 text-sm text-destructive'
+                    : 'mt-1 text-sm text-muted-foreground'
+                }
+              >
+                {item.message}
+              </p>
+              {item.duplicateCount && item.duplicateCount > 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  중복 후보 {item.duplicateCount}건이 감지되었습니다. 문서 상세에서 안전하게 확인해
+                  주세요.
+                </p>
+              ) : null}
+            </div>
+            {item.documentId ? (
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/documents/${encodeURIComponent(item.documentId)}`}>
+                    <ExternalLink className="h-4 w-4" />
+                    문서 열기
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={allDocumentsVaultHref(item, selectedMatter)}>
+                    <FileSearch className="h-4 w-4" />
+                    전체 문서함
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={matterFileCabinetHref(selectedMatter)}>
+                    <FileSearch className="h-4 w-4" />
+                    Matter 문서함
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
 function updateUploadQueue(
   queue: UploadQueueRow[],
   index: number,
-  patch: Pick<UploadQueueRow, 'message' | 'status'>,
+  patch: Partial<UploadQueueRow> & Pick<UploadQueueRow, 'message' | 'status'>,
 ): UploadQueueRow[] {
   return queue.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
 }
 
+function matterFileCabinetHref(selectedMatter: MatterCodeOption): string {
+  const params = new URLSearchParams();
+  params.set('matterCode', selectedMatter.matterCode);
+  return `/files?${params.toString()}`;
+}
+
+function allDocumentsVaultHref(item: UploadQueueRow, selectedMatter: MatterCodeOption): string {
+  const params = new URLSearchParams();
+  const title = item.title?.trim() || item.fileName.trim();
+  if (title) params.set('title', title);
+  if (selectedMatter.matterCode.trim()) params.set('matterCode', selectedMatter.matterCode.trim());
+  const queryString = params.toString();
+  return queryString ? `/files?${queryString}` : '/files';
+}
+
 export function uploadStatusMessage(result: UploadDocumentResponseDto): string {
+  const duplicateMessage =
+    result.duplicates.length > 0
+      ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.`
+      : '';
   return result.aiAllowed
-    ? `${result.title} 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.`
-    : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.`;
+    ? `${result.title} 업로드 완료. 파일 정리 준비가 자동으로 시작됩니다.${duplicateMessage}`
+    : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.${duplicateMessage}`;
+}
+
+export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto): string {
+  const duplicateMessage =
+    result.duplicates.length > 0
+      ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.`
+      : '';
+  return `v${result.versionNo} 새 버전 추가 완료.${duplicateMessage}`;
 }
 
 export function bulkUploadStatusMessage(successCount: number, failureCount: number): string {
@@ -244,4 +459,12 @@ export function bulkUploadStatusMessage(successCount: number, failureCount: numb
   }
   if (successCount > 0) return `${successCount}개 업로드 완료.`;
   return `${failureCount}개 업로드 실패. 실패 항목을 확인해 주세요.`;
+}
+
+async function sha256BrowserFile(file: File): Promise<string> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error('SHA256_UNAVAILABLE');
+  }
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

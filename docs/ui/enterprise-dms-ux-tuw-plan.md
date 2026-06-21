@@ -290,11 +290,33 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 
 PR-A implementation note:
 
+- `DMS-UX-003` Vault-side source-of-truth guard now treats Matter app API/event
+  projection as upload-authoritative only when both source configuration and
+  lookup/sync runtime readiness are explicitly enabled. Descriptor-only Matter
+  packages and planning contracts do not satisfy runtime readiness.
 - `/files` now exposes an all-documents vault, Matter Code picker, Matter-scoped single/bulk upload panel, upload post-processing status hook, and selected-Matter document list.
 - All-documents browse calls `GET /documents` through the existing query-stage search permission scope.
 - Document vault filters are server-backed for title, Matter Code, document type, document status, confidentiality, privilege, extraction/OCR status, file-organization eligibility, legal hold, and sort order.
 - The upload path remains Matter Code-gated and must fail closed when Matter app source is unconfigured.
 - Bulk upload runs through the same Matter-scoped upload API per file and shows per-file queue results so partial failures are visible.
+- `UploadQueueReceipt` turns each successful upload into an operational receipt with
+  document-detail, all-documents vault, and Matter file-cabinet actions,
+  file-organization prep status text, and duplicate-candidate counts without
+  exposing raw Matter references as visible text.
+- `/files` passes the same upload refresh key into `DocumentVaultList` and
+  `MatterDocumentList` so a successful Matter-scoped upload immediately
+  re-queries both the all-documents vault and the selected Matter file list
+  instead of leaving the pre-upload browse state stale.
+- `/matters` now exposes Matter row actions for Matter workspace, Matter Code
+  filtered file cabinet, and Matter Code filtered search using display-safe
+  Matter Code links instead of fake counts or raw refs as visible labels.
+- Matter workspaces now expose a Matter Code based action panel for file
+  cabinet, enterprise search, work queue, records context, and audit console.
+  `/files?matterCode=...` also pre-fills the Matter Code picker and selects the
+  matching permitted Matter when the Matter source list returns it.
+- The shared Matter Code picker now searches by Matter Code, matter name, and
+  client display label when available, and rejects UUID-shaped Vault internal
+  references from URL prefill or normal picker input under DMS-UX-004.
 - Broader folder/document-set semantics and production Matter app source activation remain deferred until their contracts are approved.
 
 ### PR-B Document Operations
@@ -409,8 +431,20 @@ PR-B implementation note:
 - Document detail action center foundation is implemented in `apps/web/src/components/document/document-action-center.tsx`.
 - `/documents/[id]` routes through that action center.
 - Existing APIs are used for profile read/edit, preview, controlled download, version list, and add-version.
+- New-version upload now refreshes the document profile, version list,
+  document-scoped audit timeline, and file-organization prep status together,
+  then shows a bounded version receipt with duplicate-candidate counts and no
+  raw document/version/file refs.
 - Check-out/check-in and Office live edit remain deferred by `docs/adr/ADR-016-document-editing-and-office-flow.md`.
-- Related items remain a safe empty state until approved related-item APIs exist.
+- Related Matter documents are now shown in the document action center through
+  the existing permission-scoped `listMatterDocuments` API, excluding the
+  current document and displaying only safe document titles, status, type, and
+  updated time. Related emails are also shown through the existing
+  permission-scoped Matter email timeline API when the filing references the
+  current document, displaying only safe subject, filing time, counts, outside
+  participant, and privilege-candidate labels. Attachment and
+  duplicate-specific related-item APIs remain deferred until their contracts are
+  approved.
 
 ### PR-C Enterprise Search
 
@@ -546,7 +580,14 @@ PR-C implementation note:
 - Search result cards link to document detail, the approved preview endpoint, and URL-backed file-cabinet filters without showing raw refs as labels.
 - Search result cards pass bounded hit count/index context into document detail and preview URL fragments without URL-storing snippets, search terms, or raw source text.
 - Search UI exposes user-scoped persisted saved searches plus a current-search reusable link; `/search/folders` exposes those saved searches as user-scoped search folders and preserves legal-hold/records-status filters.
-- Admin-shared search folders, full admin search analytics, and true PDF text anchor highlighting remain deferred until supporting APIs/schema expose safe anchors and analytics.
+- Admin-shared search folders and true PDF text anchor highlighting remain deferred until supporting APIs/schema expose safe anchors and shared-folder semantics.
+- Admin search health now exposes DMS-UX-311 bounded analytics: index coverage, stale index counts, extraction/OCR status, stale chunk/embedding counts, and no-result search audit hashes/categories without raw query, body, snippet, source text, prompt, or model-response content.
+- DMS-UX-312/313 body-search fixture coverage is implemented by
+  `tests/integration/search-permission/search-body-fixture.spec.ts`: a
+  synthetic token that exists only in `content_text` is absent from title-only
+  search, returned by body/full-text search for the permitted Matter, hidden
+  from an unauthorized Matter in the same tenant, and recorded in audit only as
+  bounded query hash/length/count metadata.
 
 ### PR-D Governance, Workflow, Ops
 
@@ -732,6 +773,12 @@ PR-D implementation note:
 - Work queue links extraction failed, OCR-required, and file-organization-ready items to URL-backed `/files` filters instead of creating fake persisted tasks.
 - Document and matter audit timelines clear previous rows before loading and after denied/error reloads so stale governance activity is not displayed across document or Matter context changes.
 - Wall admin now uses `MatterCodePicker` for common wall lookup/create flow; raw wall/user refs remain only in the clearly marked security-operations advanced area until user/group picker APIs exist.
+- Matter team management now uses display-safe user name/email labels through
+  `TeamMemberList`, keeps add-member direct raw user reference entry hidden by
+  default through `AddMemberDialog`, and treats the approved organization
+  user/group picker API as a deferred PR-D item rather than an unguarded normal
+  production input. This closes the current DMS-UX-401/402 web-surface cleanup
+  without claiming the future picker API exists.
 - AI prep copy remains limited to file organization prep; legal analysis, external model route, raw prompt/source/model-response copy remains guarded by tests and smoke checks.
 - Unified task DB/API, notifications, saved work queues, records disposal task APIs, and user/group picker APIs remain deferred to PR-E/F or backend-approved follow-up work.
 
@@ -831,12 +878,12 @@ PR-E implementation note:
 - Closeout evidence is recorded in `docs/ui/enterprise-dms-pr-e-closeout.md`;
   the UI checklist and production smoke guards require that file so PR-E
   admin/integration claims remain tied to route-level implementation.
-- Admin settings now include a DMS configuration IA panel for taxonomy, Matter templates, and search refiners. These surfaces are read-only contract states until save/audit APIs are approved.
+- Admin settings now include a DMS configuration panel for taxonomy, Matter templates, and search refiners. Taxonomy and search refiners are API-backed with admin-only save/list/disable behavior, tenant RLS, validation, and reference-only audit. Matter templates remain read-only until folder/document-set semantics and save/audit APIs are approved.
 - Admin settings now include search index operations wired to the admin reindex endpoint; the UI only shows audit-safe queue counts after an operator request.
 - The integration parent route now shows a safe integration matrix: Outlook links to the real status route; OneDrive and Office open/save remain gated with no connected-state claim.
 - Outlook integration now includes a Vault filing path section that aligns Outlook attachment filing with the same Matter permission, audit, document detail, and search UX model.
 - Admin and integration tests assert no fake connected states, no sample defaults, and no raw reference inputs.
-- Persisted taxonomy/template/refiner administration, Office/OneDrive sync/open-save, coauthoring/lock, and full mobile/offline decisions remain deferred to backend-approved contracts and PR-F hardening evidence.
+- Persisted Matter template administration, Office/OneDrive sync/open-save, coauthoring/lock, and full mobile/offline decisions remain deferred to backend-approved contracts and PR-F hardening evidence.
 
 ### PR-F Release Hardening
 

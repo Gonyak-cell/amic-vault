@@ -12,6 +12,9 @@ import type {
   ListDocumentVersionsQueryDto,
   ListDocumentsQueryDto,
   ListMattersQueryDto,
+  MatterAppLookupQueryDto,
+  MatterAppLookupResponseDto,
+  MatterAppSourceStatusDto,
   MatterDto,
   MatterMemberDto,
   MatterMemberListDto,
@@ -19,6 +22,8 @@ import type {
   SearchTarget,
   UpdateDocumentMetadataDto,
   UpdateMatterMemberDto,
+  CreateUploadPreflightRequestDto,
+  UploadPreflightResponseDto,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
 } from '@amic-vault/shared';
@@ -134,6 +139,18 @@ export function listMatters(query: Partial<ListMattersQueryDto> = {}): Promise<M
   return apiFetch<MatterListDto>(`/matters${queryString(query)}`);
 }
 
+export function getMatterAppStatus(): Promise<MatterAppSourceStatusDto> {
+  return apiFetch<MatterAppSourceStatusDto>('/integrations/matter-app/status');
+}
+
+export function lookupMatterAppMatters(
+  query: Partial<MatterAppLookupQueryDto> = {},
+): Promise<MatterAppLookupResponseDto> {
+  return apiFetch<MatterAppLookupResponseDto>(
+    `/integrations/matter-app/matter-lookup${queryString(query)}`,
+  );
+}
+
 export function getMatter(matterId: string): Promise<MatterDto> {
   return apiFetch<MatterDto>(`/matters/${matterId}`);
 }
@@ -205,6 +222,19 @@ export function uploadDocument(
   );
 }
 
+export function createUploadPreflight(
+  matterReference: string,
+  input: CreateUploadPreflightRequestDto = {},
+): Promise<UploadPreflightResponseDto> {
+  return apiFetch<UploadPreflightResponseDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents/upload-preflight`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export function getDocument(documentId: string): Promise<DocumentDto> {
   return apiFetch<DocumentDto>(`/documents/${encodeURIComponent(documentId)}`);
 }
@@ -247,6 +277,7 @@ export function addDocumentVersion(
 
 interface DocumentPreviewUrlOptions {
   searchHit?: {
+    anchorId?: string;
     hitCount: number;
     hitIndex: number;
     target: SearchTarget;
@@ -262,11 +293,22 @@ function previewHitFragment(searchHit: DocumentPreviewUrlOptions['searchHit']): 
   if (!searchHit || searchHit.hitCount < 1) return '';
   const hitCount = boundedPreviewHit(searchHit.hitCount, 1, 50);
   const hitIndex = boundedPreviewHit(searchHit.hitIndex, 1, hitCount);
+  const anchorId = safePreviewAnchorId(searchHit.anchorId);
   const params = new URLSearchParams();
   params.set('vault-preview-hit', String(hitIndex));
   params.set('vault-preview-hit-count', String(hitCount));
   params.set('vault-preview-target', searchHit.target);
+  if (anchorId) params.set('vault-preview-anchor', anchorId);
   return `#${params.toString()}`;
+}
+
+function safePreviewAnchorId(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return /^vph-([1-9]|[1-4][0-9]|50)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)-([0-9]|[1-9][0-9]|1[0-9]{2}|200)$/.test(
+    value,
+  )
+    ? value
+    : undefined;
 }
 
 export function documentPreviewUrl(

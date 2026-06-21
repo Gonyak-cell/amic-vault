@@ -9,16 +9,22 @@ import {
   Inject,
   Injectable,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { initialDocumentFamilyId } from '@amic-vault/domain';
 import type {
   AddDocumentVersionFieldsDto,
   AddDocumentVersionResponseDto,
+  TenantId,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 import { documentUploadedAudit, documentVersionAddedAudit } from '../audit/events/document-events';
+import {
+  MatterSourcePolicyService,
+  type MatterSourceMutationDecision,
+} from '../integrations/matter-app/matter-source-policy';
 import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -64,8 +70,11 @@ export interface AddDocumentVersionInput {
   file: UploadedDiskFile | undefined;
 }
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({
+    code: 'VALIDATION_FAILED',
+    ...(reason ? { reason } : {}),
+  });
 }
 
 function permissionDenied(): ForbiddenException {
@@ -96,6 +105,11 @@ function normalizeTransportFilename(filename: string): string {
   return repaired.includes('\uFFFD') ? filename : repaired;
 }
 
+type DuplicateDecisionAudit = {
+  decision: 'new_document' | 'new_version';
+  candidateCount: number;
+};
+
 @Injectable()
 export class DocumentUploadService {
   private readonly logger = new Logger(DocumentUploadService.name);
@@ -113,6 +127,9 @@ export class DocumentUploadService {
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Optional()
+    @Inject(MatterSourcePolicyService)
+    private readonly matterSourcePolicy?: MatterSourcePolicyService,
   ) {}
 
   async uploadBuffer(input: UploadBufferedDocumentInput): Promise<UploadDocumentResponseDto> {
@@ -147,7 +164,13 @@ export class DocumentUploadService {
 
     try {
       this.fileSizeValidator.validate(file.size);
-      await this.assertCanUpload(context.tenantId, input.actorUserId, input.matterId);
+      const matterSourceDecision = await this.assertMatterUploadReady(
+        context.tenantId,
+        input.actorUserId,
+        input.matterId,
+        'document_upload',
+        input.fields.uploadPreflightRef,
+      );
       const originalFilename = normalizeTransportFilename(file.originalname);
       const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
       const sniffed = await this.mimeTypeValidator.validate({
@@ -157,6 +180,12 @@ export class DocumentUploadService {
         declaredMimeType: file.mimetype,
       });
       const sha256 = await sha256File(file.path);
+      const duplicateDecision = await this.assertUploadDuplicateDecision({
+        tenantId: context.tenantId,
+        matterId: input.matterId,
+        sha256,
+        decision: input.fields.duplicateDecision,
+      });
       const title = input.fields.title?.trim() || titleFromFilename(normalizedFilename);
       const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const documentId = randomUUID();
@@ -238,6 +267,8 @@ export class DocumentUploadService {
               matterId: input.matterId,
               versionId: version.versionId,
               hash: sha256,
+              ...(matterSourceDecision ? { matterSourceDecision } : {}),
+              ...(duplicateDecision ? { duplicateDecision } : {}),
             }),
             tx,
           );
@@ -269,7 +300,6 @@ export class DocumentUploadService {
   }
 
   async addVersion(input: AddDocumentVersionInput): Promise<AddDocumentVersionResponseDto> {
-    void input.fields;
     const context = this.tenantContext.require();
     const file = input.file;
     if (!isUploadedDiskFile(file)) {
@@ -284,7 +314,13 @@ export class DocumentUploadService {
         input.documentId,
       );
       if (!target) throw permissionDenied();
-      await this.assertCanUpload(context.tenantId, input.actorUserId, target.matter_id);
+      const matterSourceDecision = await this.assertMatterUploadReady(
+        context.tenantId,
+        input.actorUserId,
+        target.matter_id,
+        'document_version',
+        input.fields.uploadPreflightRef,
+      );
 
       const originalFilename = normalizeTransportFilename(file.originalname);
       const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
@@ -295,8 +331,16 @@ export class DocumentUploadService {
         declaredMimeType: file.mimetype,
       });
       const sha256 = await sha256File(file.path);
-      const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const fileObjectId = randomUUID();
+      const duplicateDecision = await this.assertVersionDuplicateDecision({
+        tenantId: context.tenantId,
+        matterId: target.matter_id,
+        documentId: input.documentId,
+        fileObjectId,
+        sha256,
+        decision: input.fields.duplicateDecision,
+      });
+      const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const storage = await this.storageService.putTenantObject({
         tenantId: context.tenantId,
         matterId: target.matter_id,
@@ -362,6 +406,8 @@ export class DocumentUploadService {
               matterId: target.matter_id,
               versionId: version.versionId,
               hash: sha256,
+              ...(matterSourceDecision ? { matterSourceDecision } : {}),
+              ...(duplicateDecision ? { duplicateDecision } : {}),
             }),
             tx,
           );
@@ -405,6 +451,102 @@ export class DocumentUploadService {
     if (decision?.effect === 'ALLOW') return;
     if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
     throw permissionDenied();
+  }
+
+  private async assertMatterUploadReady(
+    tenantId: TenantId,
+    actorUserId: string,
+    matterId: string,
+    purpose: 'document_upload' | 'document_version',
+    uploadPreflightRef: string | undefined,
+  ): Promise<MatterSourceMutationDecision | undefined> {
+    if (this.matterSourcePolicy) {
+      return this.matterSourcePolicy.assertUploadMutationAllowed({
+        actorUserId,
+        matterId,
+        tenantId,
+        purpose,
+        uploadPreflightRef,
+      });
+    }
+    await this.assertCanUpload(tenantId, actorUserId, matterId);
+    return undefined;
+  }
+
+  private async assertUploadDuplicateDecision(input: {
+    tenantId: TenantId;
+    matterId: string;
+    sha256: string;
+    decision: UploadDocumentFieldsDto['duplicateDecision'];
+  }): Promise<DuplicateDecisionAudit | undefined> {
+    if (input.decision === 'cancel') throw validationFailed('DUPLICATE_UPLOAD_CANCELLED');
+    if (input.decision === 'new_version') {
+      throw validationFailed('DUPLICATE_VERSION_ENDPOINT_REQUIRED');
+    }
+
+    const candidates = await this.auditService.transaction(input.tenantId, (tx) =>
+      this.duplicateDetector.findSafeUploadCandidates(
+        {
+          tenantId: input.tenantId,
+          matterId: input.matterId,
+          sha256: input.sha256,
+          limit: 10,
+        },
+        tx,
+      ),
+    );
+    if (candidates.length > 0 && input.decision !== 'new_document') {
+      throw validationFailed('DUPLICATE_DECISION_REQUIRED');
+    }
+    if (input.decision === 'new_document') {
+      return { decision: 'new_document', candidateCount: candidates.length };
+    }
+    return undefined;
+  }
+
+  private async assertVersionDuplicateDecision(input: {
+    tenantId: TenantId;
+    matterId: string;
+    documentId: string;
+    fileObjectId: string;
+    sha256: string;
+    decision: AddDocumentVersionFieldsDto['duplicateDecision'];
+  }): Promise<DuplicateDecisionAudit | undefined> {
+    if (input.decision === 'cancel') throw validationFailed('DUPLICATE_UPLOAD_CANCELLED');
+    if (input.decision === 'new_document') {
+      throw validationFailed('DUPLICATE_DOCUMENT_ENDPOINT_REQUIRED');
+    }
+
+    const candidateCount = await this.auditService.transaction(input.tenantId, async (tx) => {
+      const versionDuplicates = await this.documentVersionService.findDuplicateVersionCandidates(
+        {
+          tenantId: input.tenantId,
+          documentId: input.documentId,
+          fileObjectId: input.fileObjectId,
+          sha256: input.sha256,
+          limit: 10,
+        },
+        tx,
+      );
+      const documentDuplicates = await this.duplicateDetector.findCandidates(
+        {
+          tenantId: input.tenantId,
+          matterId: input.matterId,
+          documentId: input.documentId,
+          sha256: input.sha256,
+          limit: 10,
+        },
+        tx,
+      );
+      return versionDuplicates.length + documentDuplicates.length;
+    });
+    if (candidateCount > 0 && input.decision !== 'new_version') {
+      throw validationFailed('DUPLICATE_DECISION_REQUIRED');
+    }
+    if (input.decision === 'new_version') {
+      return { decision: 'new_version', candidateCount };
+    }
+    return undefined;
   }
 
   private async compensateStorageObject(tenantId: string, storageUri: string): Promise<void> {

@@ -37,4 +37,51 @@ describe('DuplicateDetectorService', () => {
     expect(calls[0]?.[0]).toContain('d.matter_id = $2');
     expect(calls[0]?.[0]).toContain("d.status <> 'deleted'");
   });
+
+  it('returns safe upload duplicate candidates without exposing hashes', async () => {
+    const calls: Array<[string, readonly unknown[] | undefined]> = [];
+    const client = {
+      async query(sql: string, params?: readonly unknown[]) {
+        calls.push([sql, params]);
+        return {
+          rows: [
+            {
+              document_id: '11111111-1111-4111-8111-111111111123',
+              matter_code: 'AMIC-2026-0001',
+              matter_name: 'Investment Advisory',
+              title: 'Investment memo.pdf',
+              version_label: 'v2 current',
+              sha256: 'a'.repeat(64),
+            },
+          ],
+          rowCount: 1,
+        };
+      },
+    };
+    const service = new DuplicateDetectorService();
+
+    await expect(
+      service.findSafeUploadCandidates(
+        {
+          tenantId: 'tenant-1',
+          matterId: 'matter-1',
+          sha256: 'a'.repeat(64),
+          limit: 3,
+        },
+        client,
+      ),
+    ).resolves.toEqual([
+      {
+        documentReference: '11111111-1111-4111-8111-111111111123',
+        matterCode: 'AMIC-2026-0001',
+        matterName: 'Investment Advisory',
+        title: 'Investment memo.pdf',
+        versionLabel: 'v2 current',
+      },
+    ]);
+
+    expect(calls[0]?.[1]).toEqual(['tenant-1', 'matter-1', 'a'.repeat(64), 3]);
+    expect(calls[0]?.[0]).toContain('d.matter_id = $2');
+    expect(calls[0]?.[0]).toContain("d.status <> 'deleted'");
+  });
 });

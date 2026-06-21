@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
+import { Bell, Check, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
@@ -87,14 +87,22 @@ export function dashboardNotificationItems(
 
 export function DashboardNotificationsSection({
   itemsState,
+  onDismiss,
+  onMarkRead,
   state,
   title = '알림',
 }: {
   itemsState?: DataState<DmsNotificationItemDto[]> | undefined;
+  onDismiss?: (item: DmsNotificationItemDto) => void;
+  onMarkRead?: (item: DmsNotificationItemDto) => void;
   state: DashboardOverviewState;
   title?: string;
 }) {
   const items = itemsState?.status === 'ready' ? itemsState.data : dashboardNotificationItems(state);
+  const actionProps = {
+    ...(onDismiss ? { onDismiss } : {}),
+    ...(onMarkRead ? { onMarkRead } : {}),
+  };
   return (
     <SectionCard
       icon={<Bell className="h-4 w-4" />}
@@ -104,7 +112,7 @@ export function DashboardNotificationsSection({
       {itemsState && itemsState.status !== 'ready' ? (
         <NotificationStateEmpty state={itemsState} />
       ) : (
-        <DashboardNotificationList items={items} />
+        <DashboardNotificationList items={items} {...actionProps} />
       )}
     </SectionCard>
   );
@@ -112,8 +120,12 @@ export function DashboardNotificationsSection({
 
 export function DashboardNotificationList({
   items,
+  onDismiss,
+  onMarkRead,
 }: {
   items: DmsNotificationItemDto[];
+  onDismiss?: (item: DmsNotificationItemDto) => void;
+  onMarkRead?: (item: DmsNotificationItemDto) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -136,14 +148,45 @@ export function DashboardNotificationList({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-foreground">{item.title}</span>
                 <StatusBadge tone={item.tone}>{item.category}</StatusBadge>
+                {item.statusLabel ? (
+                  <StatusBadge tone={item.status === 'unread' ? 'warning' : 'neutral'}>
+                    {item.statusLabel}
+                  </StatusBadge>
+                ) : null}
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">
                 {item.description}
               </div>
             </div>
-            <Button asChild size="sm" variant="outline">
-              <Link href={notificationHref(item)}>열기</Link>
-            </Button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {item.status === 'unread' && onMarkRead ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onMarkRead(item)}
+                  title="알림을 읽음으로 표시"
+                >
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                  읽음
+                </Button>
+              ) : null}
+              {onDismiss ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onDismiss(item)}
+                  title="알림 숨기기"
+                >
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  숨김
+                </Button>
+              ) : null}
+              <Button asChild size="sm" variant="outline">
+                <Link href={notificationHref(item)}>열기</Link>
+              </Button>
+            </div>
           </div>
         </li>
       ))}
@@ -211,8 +254,11 @@ function activityNotification(
 }
 
 function notificationHref(item: DmsNotificationItemDto): string {
+  if (item.href) return item.href;
   if (item.source === 'permission_policy') return '/audit';
   if (item.source === 'ai_prep') return '/files?aiAllowed=true&sortBy=matter_asc';
   if (item.source === 'integration') return '/integrations/outlook';
+  if (item.source === 'records') return '/records';
+  if (item.source === 'operational_data') return '/files?sortBy=updated_desc';
   return '/audit';
 }

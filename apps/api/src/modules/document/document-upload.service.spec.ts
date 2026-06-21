@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Readable } from 'node:stream';
+import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { allowPermission, denyPermission } from '@amic-vault/shared';
 import { DocumentUploadService, type UploadedDiskFile } from './document-upload.service';
@@ -35,7 +36,24 @@ async function drainBody(body: Buffer | Readable): Promise<void> {
   expect(bytes).toBeGreaterThanOrEqual(0);
 }
 
-function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {}) {
+function createService(
+  options: {
+    duplicateUploadCandidates?: Array<{
+      documentReference: string;
+      matterCode: string | null;
+      matterName: string | null;
+      title: string;
+      versionLabel: string;
+    }>;
+    matterSourcePolicy?: 'allow' | 'block';
+    permission?: 'allow' | 'deny' | 'wall';
+    versionDuplicateCandidates?: Array<{
+      documentId: string;
+      fileObjectId: string;
+      sha256: string;
+    }>;
+  } = {},
+) {
   const permission =
     options.permission === 'deny'
       ? denyPermission('PERMISSION_DENIED')
@@ -88,6 +106,30 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
     createdAt: new Date().toISOString(),
     supersedesVersionId: null,
   }));
+  const findVersionTarget = vi.fn(async () => ({
+    document_id: 'existing-document-id',
+    tenant_id: tenantId,
+    matter_id: matterId,
+    document_family_id: 'existing-document-family-id',
+    status: 'draft' as const,
+    matter_status: 'active',
+  }));
+  const addNextVersion = vi.fn(async () => ({
+    versionId: 'generated-version-id-v2',
+    documentId: 'existing-document-id',
+    versionNo: 2,
+    versionStatus: 'current' as const,
+    fileObjectId: 'generated-file-object-id-v2',
+    fileHash: 'd'.repeat(64),
+    createdBy: actorUserId,
+    createdAt: new Date().toISOString(),
+    supersedesVersionId: 'generated-version-id',
+  }));
+  const findDuplicateVersionCandidates = vi.fn(
+    async () => options.versionDuplicateCandidates ?? [],
+  );
+  const findCandidates = vi.fn(async () => []);
+  const findSafeUploadCandidates = vi.fn(async () => options.duplicateUploadCandidates ?? []);
   const putTenantObject = vi.fn(
     async (input: { fileObjectId: string; documentId: string; body: Buffer | Readable }) => {
       await drainBody(input.body);
@@ -98,27 +140,57 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall' } = {})
       };
     },
   );
+  const matterSourcePolicy =
+    options.matterSourcePolicy === undefined
+      ? undefined
+      : {
+          assertUploadMutationAllowed:
+            options.matterSourcePolicy === 'block'
+              ? vi.fn(async () => {
+                  throw new BadRequestException({
+                    code: 'VALIDATION_FAILED',
+                    reason: 'MATTER_SOURCE_UNAVAILABLE',
+                  });
+                })
+              : vi.fn(async () => ({
+                  decisionRef: 'matter-source-mutation:decision',
+                  matterId,
+                  permissionDecisionRef: 'matter-upload-permission:decision',
+                  preflightRef: 'upf_ref',
+                  preflightExpiresAt: '2026-06-20T00:05:00.000Z',
+                  sourceMode: 'matter_app_api',
+                  sourceRevision: 'source-rev-1',
+                  sourceUpdatedAt: '2026-06-20T00:00:00.000Z',
+                })),
+        };
   const service = new DocumentUploadService(
     { transaction, log: auditLog } as never,
     { createDraft } as never,
     {
       createInitialVersion,
-      findVersionTarget: vi.fn(),
-      addNextVersion: vi.fn(),
-      findDuplicateVersionCandidates: vi.fn(),
+      findVersionTarget,
+      addNextVersion,
+      findDuplicateVersionCandidates,
     } as never,
-    { findCandidates: vi.fn(async () => []) } as never,
+    { findCandidates, findSafeUploadCandidates } as never,
     { create: createFileObject } as never,
     { canUploadToMatter: vi.fn(async () => permission) } as never,
     { putTenantObject, deleteByStorageUri: vi.fn(async () => undefined) } as never,
     {
       require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
     } as never,
+    matterSourcePolicy as never,
   );
   return {
+    auditLog,
     createDraft,
     createFileObject,
     createInitialVersion,
+    findCandidates,
+    findDuplicateVersionCandidates,
+    findSafeUploadCandidates,
+    findVersionTarget,
+    matterSourcePolicy,
     putTenantObject,
     service,
   };
@@ -229,6 +301,126 @@ describe('DocumentUploadService', () => {
     );
   });
 
+  it('records Matter source decision refs when upload policy is satisfied', async () => {
+    const file = await tempUploadFile('Contract.PDF');
+    const { auditLog, matterSourcePolicy, service } = createService({
+      matterSourcePolicy: 'allow',
+    });
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: { uploadPreflightRef: 'upf_ref' },
+      file,
+    });
+
+    expect(matterSourcePolicy?.assertUploadMutationAllowed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId,
+        matterId,
+        purpose: 'document_upload',
+        uploadPreflightRef: 'upf_ref',
+      }),
+    );
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DOCUMENT_UPLOADED',
+        metadata: expect.objectContaining({
+          decision_ref: 'matter-source-mutation:decision',
+          request_id: 'upf_ref',
+          scope_id: 'matter_app_api',
+          scope_type: 'matter_app_source',
+        }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('fails closed before storage when Matter source policy blocks upload', async () => {
+    const file = await tempUploadFile('Contract.pdf');
+    const { putTenantObject, service } = createService({ matterSourcePolicy: 'block' });
+
+    await expect(service.upload({ actorUserId, matterId, fields: {}, file })).rejects.toMatchObject(
+      {
+        response: { code: 'VALIDATION_FAILED' },
+      },
+    );
+    expect(putTenantObject).not.toHaveBeenCalled();
+  });
+
+  it('requires an explicit new-document decision before storing duplicate uploads', async () => {
+    const file = await tempUploadFile('Contract.pdf');
+    const { findSafeUploadCandidates, putTenantObject, service } = createService({
+      duplicateUploadCandidates: [
+        {
+          documentReference: '11111111-1111-4111-8111-111111111123',
+          matterCode: 'AMIC-2026-0001',
+          matterName: 'Investment Advisory',
+          title: 'Contract.pdf',
+          versionLabel: 'v1 current',
+        },
+      ],
+    });
+
+    await expect(service.upload({ actorUserId, matterId, fields: {}, file })).rejects.toMatchObject(
+      {
+        response: { code: 'VALIDATION_FAILED', reason: 'DUPLICATE_DECISION_REQUIRED' },
+      },
+    );
+    expect(findSafeUploadCandidates).toHaveBeenCalled();
+    expect(putTenantObject).not.toHaveBeenCalled();
+  });
+
+  it('records a duplicate new-document decision when the user keeps a separate document', async () => {
+    const file = await tempUploadFile('Contract.pdf');
+    const { auditLog, service } = createService({
+      duplicateUploadCandidates: [
+        {
+          documentReference: '11111111-1111-4111-8111-111111111123',
+          matterCode: 'AMIC-2026-0001',
+          matterName: 'Investment Advisory',
+          title: 'Contract.pdf',
+          versionLabel: 'v1 current',
+        },
+      ],
+    });
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: { duplicateDecision: 'new_document' },
+      file,
+    });
+
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DOCUMENT_UPLOADED',
+        metadata: expect.objectContaining({
+          reason_code: 'duplicate_new_document',
+          result_count: 1,
+        }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('rejects a new-version decision on the new document upload endpoint before storage', async () => {
+    const file = await tempUploadFile('Contract.pdf');
+    const { putTenantObject, service } = createService();
+
+    await expect(
+      service.upload({
+        actorUserId,
+        matterId,
+        fields: { duplicateDecision: 'new_version' },
+        file,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'VALIDATION_FAILED', reason: 'DUPLICATE_VERSION_ENDPOINT_REQUIRED' },
+    });
+    expect(putTenantObject).not.toHaveBeenCalled();
+  });
+
   it('uploads buffered email attachments through the same pipeline with email source', async () => {
     const { createFileObject, service } = createService();
 
@@ -273,6 +465,62 @@ describe('DocumentUploadService', () => {
       {
         response: { code: 'ETHICAL_WALL_BLOCKED' },
       },
+    );
+  });
+
+  it('requires an explicit new-version decision before storing duplicate version uploads', async () => {
+    const file = await tempUploadFile('Contract-v2.pdf');
+    const { putTenantObject, service } = createService({
+      versionDuplicateCandidates: [
+        {
+          documentId: 'existing-document-id',
+          fileObjectId: 'existing-file-object-id',
+          sha256: 'd274f10f823f4da5c383bedc6bf03b4aed26b05f8306cf082b8402ae78a456a5',
+        },
+      ],
+    });
+
+    await expect(
+      service.addVersion({
+        actorUserId,
+        documentId: 'existing-document-id',
+        fields: {},
+        file,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'VALIDATION_FAILED', reason: 'DUPLICATE_DECISION_REQUIRED' },
+    });
+    expect(putTenantObject).not.toHaveBeenCalled();
+  });
+
+  it('records a duplicate new-version decision when the user adds a version', async () => {
+    const file = await tempUploadFile('Contract-v2.pdf');
+    const { auditLog, service } = createService({
+      versionDuplicateCandidates: [
+        {
+          documentId: 'existing-document-id',
+          fileObjectId: 'existing-file-object-id',
+          sha256: 'd274f10f823f4da5c383bedc6bf03b4aed26b05f8306cf082b8402ae78a456a5',
+        },
+      ],
+    });
+
+    await service.addVersion({
+      actorUserId,
+      documentId: 'existing-document-id',
+      fields: { duplicateDecision: 'new_version' },
+      file,
+    });
+
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DOCUMENT_VERSION_ADDED',
+        metadata: expect.objectContaining({
+          reason_code: 'duplicate_new_version',
+          result_count: 1,
+        }),
+      }),
+      expect.anything(),
     );
   });
 });

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   Inject,
   Post,
   Req,
@@ -45,14 +46,21 @@ function parseReindexRequest(body: unknown): ReindexRequestInput {
   throw validationFailed();
 }
 
-@Controller('admin/search/reindex')
+@Controller('admin/search')
 export class ReindexController {
   constructor(@Inject(ReindexService) private readonly reindexService: ReindexService) {}
 
-  @Post()
+  @Post('reindex')
   @RequireRoles('firm_admin', 'security_admin')
   @UseGuards(RequireRolesGuard)
   requestReindex(@Req() request: RequestWithSession, @Body() body: unknown) {
     return this.reindexService.requestReindex(sessionUserId(request), parseReindexRequest(body));
+  }
+
+  @Get('health')
+  @RequireRoles('firm_admin', 'security_admin')
+  @UseGuards(RequireRolesGuard)
+  getSearchHealth() {
+    return this.reindexService.getSearchHealth();
   }
 }

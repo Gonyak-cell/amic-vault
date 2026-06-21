@@ -7,15 +7,15 @@ import {
   type AuditEventListDto,
   type AuditExportQueryDto,
   type AuditExportResultDto,
-  r2DocumentAuditActions,
+  documentTimelineAuditActions,
   type AuditMetadata,
   type AuditQueryDto,
   type DocumentAuditEventDto,
   type DocumentAuditEventListDto,
   type DocumentAuditQueryDto,
+  type DocumentAuditQueryEventType,
   type MatterAuditQueryDto,
   type PermissionDecision,
-  type R2DocumentAuditAction,
   type TenantId,
 } from '@amic-vault/shared';
 import { PermissionService } from '../permission/permission.service';
@@ -366,7 +366,7 @@ export class AuditQueryService {
         query.cursor?.createdAt.toISOString() ?? null,
         query.cursor?.eventId ?? null,
         query.limit + 1,
-        r2DocumentAuditActions,
+        documentTimelineAuditActions,
       ],
     );
     return result.rows;
@@ -511,7 +511,7 @@ function mapAuditRow(row: AuditEventRow): DocumentAuditEventDto {
   const targetDisplayCode = row.target_display_code ?? null;
   return {
     eventId: row.event_id,
-    action: row.action as R2DocumentAuditAction,
+    action: row.action as DocumentAuditQueryEventType,
     actorType: row.actor_type,
     actorId: row.actor_id,
     actorDisplayName: row.actor_name ?? null,

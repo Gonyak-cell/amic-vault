@@ -4,12 +4,15 @@ import {
   apiFetch,
   apiFetchFormData,
   addDocumentVersion,
+  createUploadPreflight,
   documentDownloadUrl,
   documentPreviewUrl,
   getDocument,
+  getMatterAppStatus,
   listDocumentVersions,
   listDocuments,
   listMatterDocuments,
+  lookupMatterAppMatters,
   updateDocumentMetadata,
   uploadDocument,
 } from './api-client';
@@ -150,6 +153,8 @@ describe('api client', () => {
       documentType: 'contract',
       aiAllowed: true,
       title: 'Contract',
+      uploadPreflightRef: 'upf_ref',
+      duplicateDecision: 'new_document',
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -160,6 +165,56 @@ describe('api client', () => {
     if (!firstCall) throw new Error('missing upload request');
     const body = firstCall[1]?.body as FormData;
     expect(body.get('aiAllowed')).toBe('true');
+    expect(body.get('uploadPreflightRef')).toBe('upf_ref');
+    expect(body.get('duplicateDecision')).toBe('new_document');
+  });
+
+  it('creates upload preflight through the matter-scoped preflight endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            matterReference: 'matter-ref',
+            preflightRef: 'upf_ref',
+            expiresAt: '2026-06-20T00:05:00.000Z',
+            sourceMode: 'matter_app_api',
+            sourceUpdatedAt: null,
+            sourceRevision: 'rev-1',
+            permissionDecisionRef: 'matter-upload:decision',
+            uploadEligible: true,
+            blockedReason: null,
+            duplicateDecisionRequired: true,
+            duplicateCandidates: [
+              {
+                documentReference: '11111111-1111-4111-8111-111111111123',
+                matterCode: 'AMIC-2026-0001',
+                matterName: 'Investment Advisory',
+                title: 'Investment memo.pdf',
+                versionLabel: 'v1 current',
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      createUploadPreflight('matter-ref', { sha256: 'a'.repeat(64) }),
+    ).resolves.toMatchObject({
+      preflightRef: 'upf_ref',
+      duplicateDecisionRequired: true,
+      uploadEligible: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/matters/matter-ref/documents/upload-preflight',
+      expect.objectContaining({
+        body: JSON.stringify({ sha256: 'a'.repeat(64) }),
+        cache: 'no-store',
+        credentials: 'include',
+        method: 'POST',
+      }),
+    );
   });
 
   it('lists matter documents through the matter-scoped endpoint', async () => {
@@ -180,6 +235,82 @@ describe('api client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3001/v1/matters/matter-ref/documents?page=2&pageSize=10',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('loads Matter app source status through the integration endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            mode: 'matter_app_api',
+            requestedMode: 'matter_app_api',
+            label: 'Matter app API',
+            description: 'Matter app ready',
+            sourceConfigured: true,
+            runtimeReady: true,
+            sourceContractReady: true,
+            sourceAvailable: true,
+            uploadAuthoritative: true,
+            productionRuntime: false,
+            projectionFallbackAllowed: false,
+            stalenessMaxSeconds: 900,
+            sourceUpdatedAt: null,
+            sourceStale: false,
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getMatterAppStatus()).resolves.toMatchObject({
+      mode: 'matter_app_api',
+      sourceAvailable: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/integrations/matter-app/status',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+  });
+
+  it('looks up Matter app matters without using the generic matter list endpoint', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            source: {
+              mode: 'matter_app_api',
+              requestedMode: 'matter_app_api',
+              label: 'Matter app API',
+              description: 'Matter app ready',
+              sourceConfigured: true,
+              runtimeReady: true,
+              sourceContractReady: true,
+              sourceAvailable: true,
+              uploadAuthoritative: true,
+              productionRuntime: false,
+              projectionFallbackAllowed: false,
+              stalenessMaxSeconds: 900,
+              sourceUpdatedAt: null,
+              sourceStale: false,
+            },
+            lookupAvailable: true,
+            items: [],
+            totalCount: 0,
+            pageSize: 20,
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(lookupMatterAppMatters({ q: 'AMIC', pageSize: 20 })).resolves.toMatchObject({
+      lookupAvailable: true,
+      items: [],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/integrations/matter-app/matter-lookup?q=AMIC&pageSize=20',
       expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
     );
   });
@@ -316,7 +447,9 @@ describe('api client', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await listDocumentVersions('doc-ref', { status: 'current' });
-    await addDocumentVersion('doc-ref', new File(['v2'], 'contract-v2.pdf'));
+    await addDocumentVersion('doc-ref', new File(['v2'], 'contract-v2.pdf'), {
+      duplicateDecision: 'new_version',
+    });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -328,6 +461,8 @@ describe('api client', () => {
       'http://localhost:3001/v1/documents/doc-ref/versions',
       expect.objectContaining({ body: expect.any(FormData), method: 'POST' }),
     );
+    const body = fetchMock.mock.calls[1]?.[1]?.body as FormData;
+    expect(body.get('duplicateDecision')).toBe('new_version');
   });
 
   it('builds preview and controlled download URLs without exposing raw refs beyond the route id', () => {
@@ -337,13 +472,26 @@ describe('api client', () => {
     expect(
       documentPreviewUrl('doc-ref', {
         searchHit: {
+          anchorId: 'vph-1-0-12',
           hitCount: 80,
           hitIndex: 99,
           target: 'body',
         },
       }),
     ).toBe(
-      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=50&vault-preview-hit-count=50&vault-preview-target=body',
+      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=50&vault-preview-hit-count=50&vault-preview-target=body&vault-preview-anchor=vph-1-0-12',
+    );
+    expect(
+      documentPreviewUrl('doc-ref', {
+        searchHit: {
+          anchorId: 'raw-query-text',
+          hitCount: 1,
+          hitIndex: 1,
+          target: 'body',
+        },
+      }),
+    ).toBe(
+      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=1&vault-preview-hit-count=1&vault-preview-target=body',
     );
     expect(documentDownloadUrl('doc-ref', 'casework')).toBe(
       'http://localhost:3001/v1/documents/doc-ref/download?reasonCode=casework',

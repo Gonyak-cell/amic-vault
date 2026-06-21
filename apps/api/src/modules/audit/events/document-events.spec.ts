@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   documentDeletedAudit,
   documentDownloadedAudit,
+  documentVersionAddedAudit,
   documentUploadedAudit,
   documentViewedAudit,
 } from './document-events';
@@ -62,6 +63,31 @@ describe('document audit event builders', () => {
 
     expect(event.metadata).toMatchObject({ reason_code: 'client_request' });
     expect(JSON.stringify(event.metadata)).not.toContain('requested copy');
+  });
+
+  it('records duplicate upload decisions as bounded audit codes', () => {
+    const uploadEvent = documentUploadedAudit({
+      ...base,
+      versionId: '11111111-1111-4111-8111-1111111111v1',
+      duplicateDecision: { decision: 'new_document', candidateCount: 2 },
+    });
+    const versionEvent = documentVersionAddedAudit({
+      ...base,
+      versionId: '11111111-1111-4111-8111-1111111111v2',
+      duplicateDecision: { decision: 'new_version', candidateCount: 1 },
+    });
+
+    expect(uploadEvent.metadata).toMatchObject({
+      reason_code: 'duplicate_new_document',
+      result_count: 2,
+    });
+    expect(versionEvent.metadata).toMatchObject({
+      reason_code: 'duplicate_new_version',
+      result_count: 1,
+    });
+    expect(JSON.stringify([uploadEvent.metadata, versionEvent.metadata])).not.toContain(
+      'Investment memo',
+    );
   });
 
   it('records delete status references only', () => {

@@ -19,6 +19,7 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-pr-e-closeout.md',
   'docs/ui/enterprise-dms-pr-f-readiness.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
+  'docs/release/enterprise-dms-responsive-a11y-matrix.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
 
@@ -57,6 +58,11 @@ const requiredPatterns = [
   {
     label: 'DMS UI release evidence template',
     pattern: /Enterprise DMS UI Release Evidence[\s\S]*DMS-UX-808[\s\S]*DMS-UX-811/i,
+  },
+  {
+    label: 'DMS responsive accessibility matrix',
+    pattern:
+      /Enterprise DMS Responsive And Accessibility Matrix[\s\S]*DMS-GA-703[\s\S]*RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-004[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007/is,
   },
   {
     label: 'DMS rollout evidence matrix',
@@ -98,12 +104,12 @@ const requiredPatterns = [
   {
     label: 'PR-E gated integration evidence',
     pattern:
-      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*No editable taxonomy\/template\/refiner save action[\s\S]*AI Prep remains file organization prep/is,
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Matter template save\/list\/disable\/apply actions require[\s\S]*enterprise_dms_matter_templates[\s\S]*Taxonomy and search refiner save\/list\/disable actions[\s\S]*AI Prep remains file organization prep/is,
   },
   {
     label: 'PR-E deferred item evidence',
     pattern:
-      /Remaining Deferred Items[\s\S]*Persisted taxonomy save\/audit APIs[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*Search refiner administration APIs[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring/is,
+      /Remaining Deferred Items[\s\S]*Folder template inheritance semantics[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring/is,
   },
   {
     label: 'PR-F readiness split evidence',
@@ -114,6 +120,56 @@ const requiredPatterns = [
     label: 'PR-F automated evidence matrix',
     pattern:
       /Automated Evidence Matrix[\s\S]*Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/is,
+  },
+  {
+    label: 'PR-F DMS main-loop smoke evidence',
+    pattern:
+      /pnpm release:dms-smoke[\s\S]*Matter Code[\s\S]*matter-scoped upload[\s\S]*negative-auth/is,
+  },
+  {
+    label: 'DMS body-search fixture evidence',
+    pattern:
+      /search-body-fixture\.spec\.ts[\s\S]*body\/full-text[\s\S]*unauthorized[\s\S]*bounded audit metadata/is,
+  },
+  {
+    label: 'DMS Matter app source contract evidence',
+    pattern:
+      /DMS Matter app source contract guard[\s\S]*configured-plus-runtime-ready[\s\S]*descriptor-only Matter package exclusion[\s\S]*upload-authoritative mode only after lookup\/sync readiness/is,
+  },
+  {
+    label: 'DMS upload receipt evidence',
+    pattern:
+      /UploadQueueReceipt[\s\S]*document-detail[\s\S]*all-documents vault[\s\S]*Matter file-cabinet[\s\S]*file-organization prep[\s\S]*duplicate-candidate/is,
+  },
+  {
+    label: 'DMS upload refresh evidence',
+    pattern:
+      /upload refresh key[\s\S]*DocumentVaultList[\s\S]*MatterDocumentList[\s\S]*successful Matter-scoped upload[\s\S]*re-queries both the all-documents vault and the selected Matter file list/is,
+  },
+  {
+    label: 'DMS Matter Code picker contract evidence',
+    pattern:
+      /DMS Matter Code picker contract guard[\s\S]*Matter Code\/name\/client[\s\S]*UUID-shaped Vault internal reference rejection[\s\S]*no denied-label\/count leakage/is,
+  },
+  {
+    label: 'DMS Matter row action evidence',
+    pattern:
+      /DMS Matter row action guard[\s\S]*Matter Code filtered file cabinet[\s\S]*Matter Code filtered search[\s\S]*without fake counts or raw Matter refs/is,
+  },
+  {
+    label: 'DMS Matter workspace action evidence',
+    pattern:
+      /DMS Matter workspace action guard[\s\S]*file cabinet\/search\/work\/records\/audit[\s\S]*URL-provided Matter Code picker prefill\/selection[\s\S]*without fake counts or raw Matter labels/is,
+  },
+  {
+    label: 'DMS version receipt evidence',
+    pattern:
+      /new-version upload[\s\S]*version list[\s\S]*document-scoped audit timeline[\s\S]*file-organization prep status[\s\S]*duplicate-candidate[\s\S]*raw document\/version\/file refs/is,
+  },
+  {
+    label: 'DMS related item evidence',
+    pattern:
+      /DMS related item guard[\s\S]*permission-scoped matter document list API[\s\S]*permission-scoped Matter email timeline API[\s\S]*current-document filtering[\s\S]*no visible raw Matter\/email reference/is,
   },
   {
     label: 'PR-F hold criteria',

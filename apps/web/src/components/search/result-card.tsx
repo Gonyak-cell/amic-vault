@@ -25,6 +25,7 @@ export function ResultCard({ result, target = 'all' }: ResultCardProps) {
     result.highlights.length > 0
       ? documentPreviewUrl(result.documentId, {
           searchHit: {
+            ...(result.highlights[0]?.anchorId ? { anchorId: result.highlights[0].anchorId } : {}),
             hitCount: result.highlights.length,
             hitIndex: 1,
             target,
@@ -108,8 +109,10 @@ export function documentSearchHitUrlForSearchResult(
   params.set('target', target);
   const hitCount = result.highlights.length;
   if (hitCount > 0) {
+    const anchorId = result.highlights[0]?.anchorId;
     params.set('hit', '1');
     params.set('hitCount', String(hitCount));
+    if (anchorId) params.set('anchor', anchorId);
   }
   return `/documents/${encodeURIComponent(result.documentId)}?${params.toString()}`;
 }

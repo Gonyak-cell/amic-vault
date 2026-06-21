@@ -27,6 +27,15 @@ export function saveSavedSearch(input: CreateSavedSearchDto): Promise<SavedSearc
   });
 }
 
+export function recordSavedSearchOpen(savedSearchId: string): Promise<SavedSearchDto> {
+  return apiFetch<SavedSearchDto>(
+    `/search/saved-searches/${encodeURIComponent(savedSearchId)}/open`,
+    {
+      method: 'POST',
+    },
+  );
+}
+
 export function deleteSavedSearch(savedSearchId: string): Promise<void> {
   return apiFetch<void>(`/search/saved-searches/${encodeURIComponent(savedSearchId)}`, {
     method: 'DELETE',

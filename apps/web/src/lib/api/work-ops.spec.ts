@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiClientError, apiFetch } from '../api-client';
 import {
+  dismissNotification,
   getNotificationCenter,
   getWorkQueue,
+  markNotificationRead,
   notificationCenterToState,
   operationalApiErrorState,
   workQueueToState,
@@ -20,6 +22,8 @@ describe('work ops API client', () => {
   it('loads work and notification API payloads without auth redirects', async () => {
     await getWorkQueue();
     await getNotificationCenter();
+    await markNotificationRead('notification-aabbccddeeff0011');
+    await dismissNotification('notification-aabbccddeeff0011');
 
     expect(apiFetch).toHaveBeenCalledWith('/work/items', {
       redirectOnAuthRequired: false,
@@ -27,6 +31,17 @@ describe('work ops API client', () => {
     expect(apiFetch).toHaveBeenCalledWith('/notifications', {
       redirectOnAuthRequired: false,
     });
+    expect(apiFetch).toHaveBeenCalledWith('/notifications/notification-aabbccddeeff0011/read', {
+      method: 'PATCH',
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/notifications/notification-aabbccddeeff0011/dismiss',
+      {
+        method: 'PATCH',
+        redirectOnAuthRequired: false,
+      },
+    );
   });
 
   it('maps empty and ready operational responses to data states', () => {
@@ -41,15 +56,18 @@ describe('work ops API client', () => {
     expect(
       notificationCenterToState({
         generatedAt: '2026-06-19T00:00:00.000Z',
-        source: 'dashboard_operational_state',
+        source: 'persisted_notifications',
         items: [
           {
-            itemKey: 'permission-policy-0',
-            source: 'permission_policy',
-            category: '권한/정책',
-            title: '요청이 차단됨',
-            description: '문서 다운로드 · 차단',
+            itemKey: 'notification-aabbccddeeff0011',
+            source: 'records',
+            category: '기록 보존',
+            title: '삭제 승인 요청',
+            description: 'AMIC-2026-0001 · CLIENT_RECORDS · requested',
             tone: 'warning',
+            href: '/records?tab=disposal',
+            status: 'unread',
+            statusLabel: '새 알림',
           },
         ],
       }).status,

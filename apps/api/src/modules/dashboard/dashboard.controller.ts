@@ -21,23 +21,3 @@ export class DashboardController {
     return this.dashboard.getOverview(sessionUserId(request));
   }
 }
-
-@Controller('work')
-export class WorkQueueController {
-  constructor(@Inject(DashboardService) private readonly dashboard: DashboardService) {}
-
-  @Get('items')
-  listWorkItems(@Req() request: RequestWithSession) {
-    return this.dashboard.getWorkQueue(sessionUserId(request));
-  }
-}
-
-@Controller('notifications')
-export class NotificationsController {
-  constructor(@Inject(DashboardService) private readonly dashboard: DashboardService) {}
-
-  @Get()
-  listNotifications(@Req() request: RequestWithSession) {
-    return this.dashboard.getNotificationCenter(sessionUserId(request));
-  }
-}

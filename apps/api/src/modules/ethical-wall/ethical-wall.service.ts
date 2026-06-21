@@ -104,6 +104,10 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
 }
 
+function membershipRef(membership: WallMembershipEntity): string {
+  return `wall_membership:${membership.props.subjectType}:${membership.props.subjectId}:${membership.props.membershipType}`;
+}
+
 @Injectable()
 export class EthicalWallService {
   constructor(
@@ -116,7 +120,7 @@ export class EthicalWallService {
     this.assertSupportedMembers(input.members);
     const context = this.tenantContext.require();
     await this.assertMatterExists(context.tenantId, input.matterId);
-    await this.assertMemberUsersExist(context.tenantId, input.members);
+    await this.assertMemberSubjectsExist(context.tenantId, input.members);
 
     const result = await this.auditService.transaction(context.tenantId, async (tx) => {
       const wall = await this.insertWall(tx, context.tenantId, actorUserId, input);
@@ -153,7 +157,10 @@ export class EthicalWallService {
             matterId: input.matterId,
             metadata: {
               wall_id: wall.props.wallId,
-              member_user_id: membership.props.subjectId,
+              ...(membership.props.subjectType === 'user'
+                ? { member_user_id: membership.props.subjectId }
+                : {}),
+              after_ref: membershipRef(membership),
             },
           },
           tx,
@@ -227,7 +234,7 @@ export class EthicalWallService {
     const context = this.tenantContext.require();
     const wall = await this.findWallById(context.tenantId, wallId);
     if (!wall) throw notFoundDenied();
-    await this.assertMemberUsersExist(context.tenantId, [input]);
+    await this.assertMemberSubjectsExist(context.tenantId, [input]);
     if (await this.findMembershipForSubject(context.tenantId, wallId, input)) {
       throw validationFailed();
     }
@@ -247,9 +254,11 @@ export class EthicalWallService {
           matterId: wall.matter_id,
           metadata: {
             wall_id: wallId,
-            member_user_id: membership.props.subjectId,
+            ...(membership.props.subjectType === 'user'
+              ? { member_user_id: membership.props.subjectId }
+              : {}),
             matter_id: wall.matter_id,
-            after_ref: `wall_membership:${membership.props.subjectId}:${membership.props.membershipType}`,
+            after_ref: membershipRef(membership),
           },
         },
         tx,
@@ -262,9 +271,11 @@ export class EthicalWallService {
           targetId: wallId,
           matterId: wall.matter_id,
           beforeRef: 'none',
-          afterRef: `wall_membership:${membership.props.subjectId}:${membership.props.membershipType}`,
+          afterRef: membershipRef(membership),
           reasonCode: 'ethical_wall_membership_added',
-          memberUserId: membership.props.subjectId,
+          ...(membership.props.subjectType === 'user'
+            ? { memberUserId: membership.props.subjectId }
+            : {}),
           wallId,
         },
         tx,
@@ -301,9 +312,11 @@ export class EthicalWallService {
           matterId: wall.matter_id,
           metadata: {
             wall_id: wallId,
-            member_user_id: before.props.subjectId,
+            ...(before.props.subjectType === 'user'
+              ? { member_user_id: before.props.subjectId }
+              : {}),
             matter_id: wall.matter_id,
-            before_ref: `wall_membership:${before.props.subjectId}:${before.props.membershipType}`,
+            before_ref: membershipRef(before),
           },
         },
         tx,
@@ -315,10 +328,10 @@ export class EthicalWallService {
           targetType: 'ethical_wall',
           targetId: wallId,
           matterId: wall.matter_id,
-          beforeRef: `wall_membership:${before.props.subjectId}:${before.props.membershipType}`,
+          beforeRef: membershipRef(before),
           afterRef: 'none',
           reasonCode: 'ethical_wall_membership_removed',
-          memberUserId: before.props.subjectId,
+          ...(before.props.subjectType === 'user' ? { memberUserId: before.props.subjectId } : {}),
           wallId,
         },
         tx,
@@ -367,8 +380,18 @@ export class EthicalWallService {
         WHERE ew.tenant_id = $1
           AND ew.matter_id = $2
           AND ew.status = 'active'
-          AND ewm.subject_type = 'user'
-          AND ewm.subject_id = $3
+          AND (
+            (ewm.subject_type = 'user' AND ewm.subject_id = $3)
+            OR (
+              ewm.subject_type = 'group'
+              AND ewm.subject_id IN (
+                SELECT gm.group_id
+                FROM group_members gm
+                WHERE gm.tenant_id = ew.tenant_id
+                  AND gm.user_id = $3
+              )
+            )
+          )
           AND ewm.membership_type = 'excluded'
         LIMIT 1
       `,
@@ -380,7 +403,6 @@ export class EthicalWallService {
   private assertSupportedMembers(members: readonly CreateEthicalWallMemberDto[]): void {
     const seen = new Set<string>();
     for (const member of members) {
-      if (member.subjectType !== 'user') throw validationFailed();
       const key = `${member.subjectType}:${member.subjectId}`;
       if (seen.has(key)) throw validationFailed();
       seen.add(key);
@@ -498,13 +520,15 @@ export class EthicalWallService {
     return row ? mapMembership(row) : null;
   }
 
-  private async assertMemberUsersExist(
+  private async assertMemberSubjectsExist(
     tenantId: TenantId,
     members: readonly CreateEthicalWallMemberDto[],
   ): Promise<void> {
     for (const member of members) {
+      const table = member.subjectType === 'user' ? 'users' : 'groups';
+      const idColumn = member.subjectType === 'user' ? 'user_id' : 'group_id';
       const result = await getPool().query(
-        'SELECT 1 FROM users WHERE tenant_id = $1 AND user_id = $2 LIMIT 1',
+        `SELECT 1 FROM ${table} WHERE tenant_id = $1 AND ${idColumn} = $2 LIMIT 1`,
         [tenantId, member.subjectId],
       );
       if ((result.rowCount ?? 0) === 0) throw validationFailed();

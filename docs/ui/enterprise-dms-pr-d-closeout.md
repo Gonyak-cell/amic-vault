@@ -19,6 +19,9 @@ The current PR-D scope proves:
 
 - Effective Access context is present on document and Matter surfaces through
   `DocumentGovernanceContextPanel` and `MatterGovernanceContextPanel`.
+- Matter team membership management uses `TeamMemberList` for display-safe
+  user name/email labels and `AddMemberDialog` for an unavailable-by-default
+  add-member state until an approved organization user picker API exists.
 - Ethical Wall common Matter lookup/create flow uses `MatterCodePicker`; raw
   wall/user refs remain only in the security-operations advanced area until
   user/group picker APIs exist.
@@ -45,8 +48,8 @@ The current PR-D scope proves:
 
 | Area | Route or component evidence | TUW |
 | --- | --- | --- |
-| Effective Access | `DocumentGovernanceContextPanel` and `MatterGovernanceContextPanel` in `apps/web/src/components/governance/governance-context-panel.tsx` | DMS-UX-401 |
-| Ethical Wall | `MatterCodePicker` in `apps/web/src/app/(app)/walls/wall-admin-client.tsx` | DMS-UX-402 |
+| Effective Access | `DocumentGovernanceContextPanel` and `MatterGovernanceContextPanel` in `apps/web/src/components/governance/governance-context-panel.tsx`; `TeamMemberList` and `AddMemberDialog` keep team access labels display-safe and raw user refs hidden by default | DMS-UX-401 |
+| Ethical Wall | `MatterCodePicker` in `apps/web/src/app/(app)/walls/wall-admin-client.tsx`; wall list/policy surfaces hide raw wall, Matter, and user refs by default and keep membership refs advanced-only | DMS-UX-402 |
 | Confidentiality/Privilege | `apps/web/src/components/governance/governance-context-panel.tsx` | DMS-UX-403 |
 | Sensitivity/DLP label stance | Governance rows show safe status only; no unsupported DLP/encryption claim | DMS-UX-404 |
 | Records Context | `apps/web/src/components/document/document-action-center.tsx` and `RecordsActionContextPanel` in `/records` | DMS-UX-405 |

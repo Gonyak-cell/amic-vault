@@ -103,4 +103,15 @@ export class SearchController {
       parseUuidParam(savedSearchId),
     );
   }
+
+  @Post('saved-searches/:savedSearchId/open')
+  recordSavedSearchOpen(
+    @Req() request: RequestWithSession,
+    @Param('savedSearchId') savedSearchId: string,
+  ) {
+    return this.searchService.recordSavedSearchOpen(
+      sessionParts(request),
+      parseUuidParam(savedSearchId),
+    );
+  }
 }

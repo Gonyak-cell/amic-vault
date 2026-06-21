@@ -327,6 +327,13 @@ describe('search-index integration', () => {
     expect(denied.status, deniedBody).toBe(403);
     expect(deniedBody).toContain('PERMISSION_DENIED');
 
+    const deniedHealth = await fetch(`${baseUrl}/v1/admin/search/health`, {
+      headers: { cookie: ownerCookie },
+    });
+    const deniedHealthBody = await deniedHealth.text();
+    expect(deniedHealth.status, deniedHealthBody).toBe(403);
+    expect(deniedHealthBody).toContain('PERMISSION_DENIED');
+
     const accepted = await fetch(`${baseUrl}/v1/admin/search/reindex`, {
       method: 'POST',
       headers: { cookie: adminCookie, 'content-type': 'application/json' },
@@ -360,5 +367,33 @@ describe('search-index integration', () => {
       );
       expect(Number(audit.rows[0]?.count ?? '0')).toBeGreaterThanOrEqual(1);
     });
+
+    const noResultSearch = await fetch(`${baseUrl}/v1/search`, {
+      method: 'POST',
+      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ query: 'synthetic-no-result-health-check', target: 'body' }),
+    });
+    const noResultSearchBody = await noResultSearch.text();
+    expect(noResultSearch.status, noResultSearchBody).toBe(201);
+
+    const health = await fetch(`${baseUrl}/v1/admin/search/health`, {
+      headers: { cookie: adminCookie },
+    });
+    const healthBody = await health.text();
+    expect(health.status, healthBody).toBe(200);
+    const parsed = JSON.parse(healthBody) as {
+      currentVersionCount: number;
+      missingIndexCount: number;
+      noResultQueryCount24h: number;
+      noResultQueries: Array<{ queryHash: string; count: number; category: string }>;
+    };
+    expect(parsed.currentVersionCount).toBeGreaterThanOrEqual(1);
+    expect(parsed.missingIndexCount).toBeGreaterThanOrEqual(1);
+    expect(parsed.noResultQueryCount24h).toBeGreaterThanOrEqual(1);
+    expect(parsed.noResultQueries[0]?.queryHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(parsed.noResultQueries[0]?.count).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(parsed)).not.toMatch(
+      /synthetic-no-result-health-check|body_text|content_text|snippet|raw|prompt|response/i,
+    );
   });
 });

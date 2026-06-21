@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { allowPermission } from '@amic-vault/shared';
 import { DocumentService } from './document.service';
@@ -196,6 +197,42 @@ describe('DocumentService', () => {
       tx,
     );
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Updated Agreement');
+  });
+
+  it('blocks metadata mutation when Matter source policy fails closed', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({ rowCount: 1, rows: [documentRow()] }),
+    };
+    const auditLog = vi.fn(async () => undefined);
+    const transaction = vi.fn(
+      async (_tenantId: string, run: (client: typeof tx) => Promise<unknown>) => run(tx),
+    );
+    const service = new DocumentService(
+      { transaction, log: auditLog } as never,
+      { canEditMatter: vi.fn(async () => allowPermission()) } as never,
+      {
+        require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
+      } as never,
+      undefined,
+      undefined,
+      undefined,
+      {
+        assertMatterSourceMutationAllowed: vi.fn(async () => {
+          throw new BadRequestException({
+            code: 'VALIDATION_FAILED',
+            reason: 'MATTER_SOURCE_UNAVAILABLE',
+          });
+        }),
+      } as never,
+    );
+
+    await expect(
+      service.updateMetadata(actorUserId, documentId, { title: 'Updated Agreement' }),
+    ).rejects.toMatchObject({
+      response: { code: 'VALIDATION_FAILED' },
+    });
+    expect(tx.query).toHaveBeenCalledTimes(1);
+    expect(auditLog).not.toHaveBeenCalled();
   });
 
   it('reads document detail through PermissionService and exposes extraction status only', async () => {

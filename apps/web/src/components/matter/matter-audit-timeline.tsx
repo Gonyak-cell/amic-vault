@@ -22,15 +22,23 @@ interface MatterAuditTimelineProps {
   disableInitialLoad?: boolean;
   initialEvents?: AuditEventDto[];
   matterId: string;
+  refreshKey?: number | string;
 }
 
 const actionLabels: Record<string, string> = {
   ACCESS_DENIED: '접근 제한',
+  DISPOSAL_APPROVED: '폐기 승인',
+  DISPOSAL_CERTIFICATE_CREATED: '폐기 증명서',
+  DISPOSAL_EXECUTED: '폐기 실행',
+  DISPOSAL_REQUESTED: '폐기 요청',
   DOCUMENT_DOWNLOADED: '문서 다운로드',
   DOCUMENT_METADATA_CHANGED: '문서 프로필 변경',
+  DOCUMENT_TEXT_EXTRACTED: '본문 추출',
   DOCUMENT_UPLOADED: '문서 업로드',
   DOCUMENT_VERSION_ADDED: '문서 버전 추가',
   DOCUMENT_VIEWED: '문서 열람',
+  LEGAL_HOLD_APPLIED: 'Legal Hold 적용',
+  LEGAL_HOLD_RELEASED: 'Legal Hold 해제',
   MATTER_CREATED: '사건 생성',
   MATTER_MEMBER_ADDED: '팀원 추가',
   MATTER_MEMBER_REMOVED: '팀원 제거',
@@ -38,7 +46,28 @@ const actionLabels: Record<string, string> = {
   MATTER_STATUS_CHANGED: '상태 변경',
   MATTER_UPDATED: '사건 정보 변경',
   PERMISSION_CHANGED: '권한 변경',
+  RECORD_ARCHIVED: '보관 처리',
+  SEARCH_EXECUTED: '검색 실행',
 };
+
+function categoryLabel(action: string): string {
+  if (action.startsWith('DOCUMENT_')) {
+    if (action === 'DOCUMENT_VIEWED' || action === 'DOCUMENT_DOWNLOADED') return '열람/다운로드';
+    if (action === 'DOCUMENT_METADATA_CHANGED') return '메타데이터';
+    return '문서/버전';
+  }
+  if (action.startsWith('SEARCH_')) return '검색';
+  if (
+    action.startsWith('DISPOSAL_') ||
+    action === 'LEGAL_HOLD_APPLIED' ||
+    action === 'LEGAL_HOLD_RELEASED' ||
+    action === 'RECORD_ARCHIVED'
+  ) {
+    return 'Records';
+  }
+  if (action.startsWith('MATTER_')) return 'Matter';
+  return '거버넌스';
+}
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
@@ -78,6 +107,7 @@ export function MatterAuditTimeline({
   disableInitialLoad = false,
   initialEvents = [],
   matterId,
+  refreshKey = 0,
 }: MatterAuditTimelineProps) {
   const [events, setEvents] = useState<AuditEventDto[]>(initialEvents);
   const [loading, setLoading] = useState(!disableInitialLoad && initialEvents.length === 0);
@@ -105,13 +135,13 @@ export function MatterAuditTimeline({
     return () => {
       active = false;
     };
-  }, [disableInitialLoad, matterId]);
+  }, [disableInitialLoad, matterId, refreshKey]);
 
   return (
     <SectionCard
       icon={<Activity className="h-4 w-4" />}
       title="사건 감사 타임라인"
-      meta="Matter 단위 기록"
+      meta="Matter 통합 활동"
     >
       {error ? (
         <EmptyState
@@ -125,6 +155,7 @@ export function MatterAuditTimeline({
           <DataTableHeader>
             <DataTableRow>
               <DataTableHead>시간</DataTableHead>
+              <DataTableHead>범주</DataTableHead>
               <DataTableHead>대상</DataTableHead>
               <DataTableHead>활동</DataTableHead>
               <DataTableHead>수행자</DataTableHead>
@@ -135,6 +166,9 @@ export function MatterAuditTimeline({
             {events.map((event) => (
               <DataTableRow key={event.eventId}>
                 <DataTableCell className="text-xs">{formatDateTime(event.createdAt)}</DataTableCell>
+                <DataTableCell>
+                  <StatusBadge tone="neutral">{categoryLabel(event.action)}</StatusBadge>
+                </DataTableCell>
                 <DataTableCell className="max-w-[220px] truncate font-medium">
                   {targetLabel(event)}
                 </DataTableCell>
@@ -146,7 +180,7 @@ export function MatterAuditTimeline({
               </DataTableRow>
             ))}
             {events.length === 0 ? (
-              <DataTableEmptyRow colSpan={5}>
+              <DataTableEmptyRow colSpan={6}>
                 {loading ? '감사 기록을 확인하는 중입니다.' : '표시할 감사 기록이 없습니다.'}
               </DataTableEmptyRow>
             ) : null}

@@ -27,10 +27,12 @@ describe('SearchFilterBuilder', () => {
         matterId,
         clientId,
         clientName: 'AMIC',
+        confidentialityLevel: 'restricted',
         documentType: ['contract', 'memo'],
         matterCode: 'AMIC-2026',
         matterName: 'Vault',
         title: 'Closing',
+        privilegeStatus: 'privileged',
         dateFrom: '2026-06-12T09:00:00+09:00',
         dateTo: '2026-06-12T10:00:00+09:00',
       },
@@ -69,11 +71,27 @@ describe('SearchFilterBuilder', () => {
         '          )',
         '        )',
         '  AND (idx.document_type = ANY($10::text[]))',
-        '  AND (idx.updated_at >= $11)',
-        '  AND (idx.updated_at <= $12)',
+        '  AND (\n  (',
+        '    SELECT confidentiality_doc.confidentiality_level',
+        '    FROM documents confidentiality_doc',
+        '    WHERE confidentiality_doc.tenant_id = idx.tenant_id',
+        '      AND confidentiality_doc.document_id = idx.document_id',
+        '    LIMIT 1',
+        '  )',
+        ' = $11)',
+        '  AND (\n  (',
+        '    SELECT privilege_doc.privilege_status',
+        '    FROM documents privilege_doc',
+        '    WHERE privilege_doc.tenant_id = idx.tenant_id',
+        '      AND privilege_doc.document_id = idx.document_id',
+        '    LIMIT 1',
+        '  )',
+        ' = $12)',
+        '  AND (idx.updated_at >= $13)',
+        '  AND (idx.updated_at <= $14)',
       ].join('\n'),
     );
-    expect(built.params.slice(0, 10)).toEqual([
+    expect(built.params.slice(0, 12)).toEqual([
       tenantId,
       'deleted',
       'current',
@@ -84,9 +102,11 @@ describe('SearchFilterBuilder', () => {
       '%Vault%',
       '%AMIC%',
       ['contract', 'memo'],
+      'restricted',
+      'privileged',
     ]);
-    expect(built.params[10]).toEqual(new Date('2026-06-12T00:00:00.000Z'));
-    expect(built.params[11]).toEqual(new Date('2026-06-12T01:00:00.000Z'));
+    expect(built.params[12]).toEqual(new Date('2026-06-12T00:00:00.000Z'));
+    expect(built.params[13]).toEqual(new Date('2026-06-12T01:00:00.000Z'));
   });
 
   it('escapes wildcard characters in text filters', () => {
@@ -109,6 +129,19 @@ describe('SearchFilterBuilder', () => {
     expect(built.whereSql).toContain('cd.version_id = idx.version_id');
     expect(built.whereSql).toContain("), 'pending')");
     expect(built.params).toEqual([tenantId, 'deleted', 'current', 'ocr_pending']);
+  });
+
+  it('filters confidentiality and privilege through current document metadata', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: { confidentialityLevel: 'restricted', privilegeStatus: 'work_product' },
+    });
+
+    expect(built.whereSql).toContain('FROM documents confidentiality_doc');
+    expect(built.whereSql).toContain('confidentiality_doc.document_id = idx.document_id');
+    expect(built.whereSql).toContain('FROM documents privilege_doc');
+    expect(built.whereSql).toContain('privilege_doc.document_id = idx.document_id');
+    expect(built.params).toEqual([tenantId, 'deleted', 'current', 'restricted', 'work_product']);
   });
 
   it('filters legal hold and records status through approved state columns', () => {
@@ -161,6 +194,18 @@ describe('SearchFilterBuilder', () => {
       new SearchFilterBuilder().build({
         scope: tenantScope(),
         filters: { documentType: 'MA' } as unknown as SearchFiltersDto,
+      }),
+    ).toThrow();
+    expect(() =>
+      new SearchFilterBuilder().build({
+        scope: tenantScope(),
+        filters: { confidentialityLevel: 'secret' } as unknown as SearchFiltersDto,
+      }),
+    ).toThrow();
+    expect(() =>
+      new SearchFilterBuilder().build({
+        scope: tenantScope(),
+        filters: { privilegeStatus: 'raw_label' } as unknown as SearchFiltersDto,
       }),
     ).toThrow();
     expect(() =>

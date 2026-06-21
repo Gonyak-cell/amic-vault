@@ -177,7 +177,9 @@ describe('search metadata leakage integration', () => {
       },
     ]);
     expect(sumCounts(response.facets.documentTypes)).toBe(2);
+    expect(sumCounts(response.facets.confidentialityLevels)).toBe(2);
     expect(sumCounts(response.facets.matters)).toBe(2);
+    expect(sumCounts(response.facets.privilegeStatuses)).toBe(2);
     expectNoHiddenReferences(response);
   });
 
@@ -195,6 +197,23 @@ describe('search metadata leakage integration', () => {
     expectNoHiddenReferences(response);
   });
 
+  it('does not leak title, id, snippet, or token evidence through preview denials', async () => {
+    for (const hidden of hiddenRefs) {
+      const response = await fetch(`${baseUrl}/v1/documents/${hidden.documentId}/preview`, {
+        headers: { cookie },
+      });
+      const body = await response.text();
+
+      expect(response.status, body).toBe(404);
+      expect(body).toContain('PERMISSION_DENIED');
+      expect(body).not.toContain(hidden.documentId);
+      expect(body).not.toContain(hidden.title);
+      expect(body).not.toContain(corpus.commonToken);
+      expect(body).not.toContain(corpus.deniedOnlyToken);
+      expect(body).not.toMatch(/snippet|count|preview/i);
+    }
+  });
+
   function expectNoHiddenReferences(response: SearchHttpResponse): void {
     const raw = JSON.stringify(response);
     for (const hidden of hiddenRefs) {
@@ -210,8 +229,10 @@ function emptyFacets(): SearchHttpResponse['facets'] {
     clients: [],
     matters: [],
     documentTypes: [],
+    confidentialityLevels: [],
     extractionStatuses: [],
     legalHolds: [],
+    privilegeStatuses: [],
     recordsStatuses: [],
     versionStatuses: [],
     dateRanges: [],

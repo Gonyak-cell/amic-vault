@@ -29,8 +29,10 @@ export interface SearchIndexedFixtureRow {
   versionId: string;
   title: string;
   contentText: string;
+  confidentialityLevel?: 'standard' | 'high' | 'restricted';
   documentType: 'contract' | 'memo' | 'evidence';
   documentStatus: 'draft' | 'deleted';
+  privilegeStatus?: 'none' | 'privileged' | 'work_product' | 'joint_privilege';
   versionStatus: 'current' | 'superseded';
   updatedAt: string;
 }
@@ -549,13 +551,14 @@ export async function insertSearchIndexedRow(
         `
           INSERT INTO documents (
             document_id, tenant_id, matter_id, document_family_id, title, status,
-            document_type, created_by, created_at, updated_at,
+            document_type, confidentiality_level, privilege_status,
+            created_by, created_at, updated_at,
             deleted_at, deleted_by, deleted_previous_status
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $9,
-            CASE WHEN $6::text = 'deleted' THEN $9::timestamptz ELSE NULL END,
-            CASE WHEN $6::text = 'deleted' THEN $8::uuid ELSE NULL END,
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11,
+            CASE WHEN $6::text = 'deleted' THEN $11::timestamptz ELSE NULL END,
+            CASE WHEN $6::text = 'deleted' THEN $10::uuid ELSE NULL END,
             CASE WHEN $6::text = 'deleted' THEN 'draft'::text ELSE NULL END
           )
         `,
@@ -567,6 +570,8 @@ export async function insertSearchIndexedRow(
           row.title,
           row.documentStatus,
           row.documentType,
+          row.confidentialityLevel ?? 'standard',
+          row.privilegeStatus ?? 'none',
           row.ownerUserId,
           row.updatedAt,
         ],

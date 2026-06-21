@@ -16,81 +16,159 @@ provider-console metadata.
 
 ## 1. Release Header
 
-| Field | Evidence ref or value |
-| --- | --- |
-| Release name / PR stack |  |
-| Commit SHA range |  |
-| Production or staging target ref |  |
-| Operator owner |  |
-| Security owner |  |
-| Legal-data owner |  |
-| Customer-scope owner |  |
-| Rollback owner |  |
-| Started at |  |
-| Completed at |  |
-| Decision | `PASS` / `HOLD` / `ROLLBACK` |
-| Evidence register ref |  |
+| Field                            | Evidence ref or value        |
+| -------------------------------- | ---------------------------- |
+| Release name / PR stack          |                              |
+| Commit SHA range                 |                              |
+| Production or staging target ref |                              |
+| Operator owner                   |                              |
+| Security owner                   |                              |
+| Legal-data owner                 |                              |
+| Customer-scope owner             |                              |
+| Rollback owner                   |                              |
+| Started at                       |                              |
+| Completed at                     |                              |
+| Decision                         | `PASS` / `HOLD` / `ROLLBACK` |
+| Evidence register ref            |                              |
 
 ## 2. DMS-UX-808 Evidence Package
 
-| Evidence ID | Required evidence | Required refs | Owner | Status |
-| --- | --- | --- | --- | --- |
-| EV-DMS-UI-001 | PR stack and commit SHAs | PR URLs, base branches, head SHAs | Operator |  |
-| EV-DMS-UI-002 | Automated gate command receipts | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:production-ui-literals`, `pnpm ui:production-smoke`, `pnpm check:ui-pr-checklist`, `git diff --check`, and CI refs for `verify`, `db-integration`, `docker-build`, `python-worker` | Operator |  |
-| EV-DMS-UI-003 | Route inventory refs | `docs/ui/production-ui-inventory.md`, `docs/ui/enterprise-dms-ux-route-capability-inventory.md`, and matching `apps/web/src/lib/features.ts` route policy ref | Security owner |  |
-| EV-DMS-UI-004 | Authenticated main loop smoke receipt | Login -> Matter Code selection -> upload -> post-upload processing state -> matter-scoped file list -> document detail -> search -> preview/version -> records/audit links | Operator |  |
-| EV-DMS-UI-005 | Negative auth smoke receipt | Non-member, wall-blocked, non-admin, denied upload, denied download, denied preview, denied search, stale-content clearing | Security owner |  |
-| EV-DMS-UI-006 | Responsive and accessibility receipt | 1440px, 768px, 375px, keyboard navigation, focus visibility, accessible names, active `aria-current`, empty/error readable text | Operator |  |
-| EV-DMS-UI-007 | Audit refs | Upload, download, search, records, and AI prep file-organization events where available; refs only, no document body or raw AI data | Security owner |  |
-| EV-DMS-UI-008 | Deferred item ledger | Deferred item, owner, risk, follow-up TUW, release blocker status | Operator |  |
+DMS-GA-604 Release Evidence Bridge: Outlook filing evidence must stay tied to
+Matter Code suggestions, Matter upload/read permission, reference-only audit,
+hash-only redaction, and permitted Matter document links. Live Microsoft 365
+tenant filing smoke remains an external, reference-only receipt.
+
+DMS-GA-605 Release Evidence Bridge: Office/OneDrive remains an ADR/runtime gate
+only. Production evidence must not claim OneDrive connection, Office open/save,
+coauthoring, live edit, lock state, or sync before the approved
+auth/storage/version/audit/callback/rollback contract exists.
+
+DMS-GA-305/DMS-GA-701 Release Evidence Bridge: Admin search reindex evidence
+must stay admin-only, audit/count/hash-only, and monitor-backed. Production
+monitor refs are defined in `docs/release/enterprise-dms-monitor-map.md`; blank
+or missing `MON-DMS-*` evidence keeps DMS-UX-812 at `HOLD`.
+
+| Evidence ID    | Required evidence                     | Required refs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Owner          | Status |
+| -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ------ |
+| EV-DMS-UI-001  | PR stack and commit SHAs              | PR URLs, base branches, head SHAs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Operator       |        |
+| EV-DMS-UI-002  | Automated gate command receipts       | `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:production-ui-literals`, `pnpm ui:production-smoke`, `pnpm check:ui-pr-checklist`, `pnpm outlook:deployment:check`, `pnpm outlook:verification:check`, `pnpm outlook:operational:check`, `pnpm outlook:redaction:check -- --all`, `pnpm release:dms-smoke -- --check-env --json`, `pnpm release:dms-smoke -- --json`, `pnpm --filter @amic-vault/web test -- src/components/document/document-upload-panel.test.tsx`, `pnpm --filter @amic-vault/web test -- src/components/document/document-action-center.test.tsx`, `pnpm --filter @amic-vault/web test -- matter-email-timeline outlook-addin-client`, `pnpm test:integration -- search-permission`, `git diff --check`, and CI refs for `verify`, `db-integration`, `docker-build`, `python-worker` | Operator       |        |
+| EV-DMS-UI-003  | Route inventory refs                  | `docs/ui/production-ui-inventory.md`, `docs/ui/enterprise-dms-ux-route-capability-inventory.md`, and matching `apps/web/src/lib/features.ts` route policy ref                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Security owner |        |
+| EV-DMS-UI-004  | Authenticated main loop smoke receipt | `pnpm release:dms-smoke -- --json` ref for login -> Matter Code selection -> upload -> post-upload processing state -> matter-scoped file list -> document detail -> search -> preview/version -> records/audit links                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Operator       |        |
+| EV-DMS-UI-004A | Upload receipt UI guard               | `apps/web/src/components/document/document-upload-panel.test.tsx`, `apps/web/src/components/document/document-vault-list.test.tsx`, `/files`, and Matter workspace refs proving upload queue receipt links to document detail, the all-documents vault, and Matter file cabinet, refreshes the all-documents vault and selected Matter file list after upload, keeps file-organization prep visible, shows duplicate-candidate counts, and avoids visible raw Matter references                                                                                                                                                                                                                                                                                                                                                | Operator       |        |
+| EV-DMS-UI-004B | Version receipt UI guard              | `apps/web/src/components/document/document-action-center.test.tsx` and `apps/web/src/components/document/document-audit-timeline.test.tsx` refs proving new-version upload receipt refreshes version list, document-scoped audit timeline, and file-organization prep status, shows duplicate-candidate counts, and avoids visible raw document/version/file refs                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Operator       |        |
+| EV-DMS-UI-004C | Related item UI guard                 | `apps/web/src/components/document/document-action-center.test.tsx` refs proving document detail shows same-Matter related documents from the permission-scoped matter document list API, document-linked email filings from the permission-scoped Matter email timeline API, excludes unrelated current-document rows, displays safe title/status/type/updated-time/subject/count/warning fields, and avoids visible raw Matter/email references                                                                                                                                                                                                                                                                                                                                                                               | Operator       |        |
+| EV-DMS-UI-004D | Matter row action UI guard            | `apps/web/src/app/(app)/matters/page.test.tsx` refs proving real Matter rows expose workspace, Matter Code filtered file cabinet, and Matter Code filtered search actions without fake counts or raw Matter refs in action URLs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Operator       |        |
+| EV-DMS-UI-004E | Matter workspace action UI guard      | `apps/web/src/components/matter/matter-workspace-actions.test.tsx` and `apps/web/src/components/matter/matter-code-picker.test.tsx` refs proving Matter detail exposes Matter Code based file cabinet, search, work queue, records, and audit actions, while `/files?matterCode=...` pre-fills/selects the permitted Matter Code without fake counts or raw Matter labels                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Operator       |        |
+| EV-DMS-UI-004F | Matter Code picker contract guard     | `apps/web/src/lib/matter-app.spec.ts` and `apps/web/src/components/matter/matter-code-picker.test.tsx` refs proving Matter Code/name/client safe-label search, unconfigured/loading/error/empty states, URL-provided Matter Code prefill/selection, and UUID-shaped Vault internal reference rejection without denied-label/count leakage                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Operator       |        |
+| EV-DMS-UI-004G | Outlook filing path evidence guard    | `pnpm outlook:deployment:check`, `pnpm outlook:verification:check`, `pnpm outlook:operational:check`, `pnpm outlook:redaction:check -- --all`, `apps/api/src/modules/outlook/outlook.service.spec.ts`, `tests/integration/search-permission/outlook-matter-suggestions.spec.ts`, `apps/web/src/app/outlook-addin/outlook-addin-client.test.tsx`, and `apps/web/src/components/matter/matter-email-timeline.test.tsx` refs proving Outlook filing uses Matter Code suggestions from the permission-scoped Matter source, queues filing through `PermissionService.canUploadToMatter`, rechecks status with current Matter read permission, records only hash/ref/count audit metadata, does not store or render raw email body evidence, and links filed emails to permitted Matter documents with safe labels                  | Operator       |        |
+| EV-DMS-UI-004H | Office/OneDrive ADR gate guard        | `docs/adr/ADR-017-office-onedrive-flow.md`, `apps/web/src/lib/features.ts`, `apps/web/src/app/(app)/integrations/page.tsx`, `docs/release/rollback-runbook.md`, and `pnpm ui:production-smoke` refs proving `/integrations/onedrive` stays `hidden_until_api_ready`, the integrations parent route shows gated states only, and no connected/open-save/coauthoring/live-edit/lock/sync claim appears before auth/storage/version/audit/callback/rollback contract approval | Operator       |        |
+| EV-DMS-UI-005  | Negative auth smoke receipt           | `pnpm release:dms-smoke -- --json` ref for non-member, wall-blocked, non-admin, denied upload/download/preview/search, stale-content clearing and non-discovery                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Security owner |        |
+| EV-DMS-UI-005A | Body/full-text search fixture receipt | `pnpm test:integration -- search-permission` ref proving title-only vs body/full-text behavior, same-tenant unauthorized non-discovery, and bounded search audit metadata                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Security owner |        |
+| EV-DMS-UI-005B | Search reindex operations receipt     | `apps/api/src/modules/search/index/reindex.controller.spec.ts`, `apps/api/src/modules/search/index/reindex.service.spec.ts`, `apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx`, `docs/release/enterprise-dms-monitor-map.md`, `pnpm --filter @amic-vault/api test -- reindex`, `pnpm --filter @amic-vault/web test -- enterprise-hardening-client`, and `pnpm test:integration -- search-index` refs proving admin-only reindex request, non-admin fail-closed role contract, `SEARCH_REINDEX_REQUESTED` audit with reference/count metadata only, UI queue counts/hash-only status, and monitor refs for queue age/failure | Security owner |        |
+| EV-DMS-UI-006  | Responsive and accessibility receipt  | `docs/release/enterprise-dms-responsive-a11y-matrix.md`, `RA-DMS-GUARD-001` through `RA-DMS-GUARD-004`, `DMS-RA-001` through `DMS-RA-007`, 1440px, 768px, 375px, keyboard navigation, focus visibility, accessible names, active `aria-current`, empty/error readable text; external `RA-DMS-*` visual and keyboard/screen-reader refs required before PASS                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Operator       |        |
+| EV-DMS-UI-006A | Expanded production guard receipt     | `tools/quality/check-production-ui-literals.mjs`, `tools/release/check-production-ui-smoke.mjs`, `GUARD-DMS-001-SURFACE-COVERAGE`, `GUARD-DMS-002-NO-FAKE-DATA`, `GUARD-DMS-003-NO-INTERNAL-REFS`, and `GUARD-DMS-004-AI-SCOPE-EXCLUSION` refs proving upload, files, matter/team, search, records, audit, walls, work, notifications, admin, enterprise, integrations, Outlook, and AI Prep surfaces are scanned for fake data, workspace ID, tenant ID, document ID, raw UUIDs, unsafe ID slices, short hashes, legal analysis, document summary, external model, raw prompt/source, source text, and model-response copy | Security owner |        |
+| EV-DMS-UI-007  | Audit refs                            | Upload, download, search, records, and AI prep file-organization events where available; refs only, no document body or raw AI data                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Security owner |        |
+| EV-DMS-UI-008  | Deferred item ledger                  | Deferred item, owner, risk, follow-up TUW, release blocker status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Operator       |        |
+
+### DMS-GA-703 Release Evidence Bridge
+
+DMS-GA-703 is repo-prepared by
+`docs/release/enterprise-dms-responsive-a11y-matrix.md`,
+`docs/ui/enterprise-dms-release-hardening.md`,
+`docs/ui/enterprise-dms-pr-f-readiness.md`, `pnpm ui:production-smoke`, and
+the focused responsive/accessibility component test command.
+
+The `RA-DMS-GUARD-001` through `RA-DMS-GUARD-004` refs prove repository
+component guards for AppShell, layout primitives, empty/error states, and data
+tables. They do not replace external visual or keyboard review. Production PASS
+requires `DMS-RA-001` through `DMS-RA-007` route coverage with 1440px, 768px,
+375px, keyboard traversal, focus visibility, accessible names, active
+`aria-current`, and screen-reader basics refs in the external evidence
+workspace. If any `RA-DMS-*` route, viewport, keyboard, or screen-reader ref is
+blank, DMS-UX-812 remains `HOLD`.
+
+### DMS-GA-704 Release Evidence Bridge
+
+DMS-GA-704 is repo-prepared by
+`tools/quality/check-production-ui-literals.mjs`,
+`tools/release/check-production-ui-smoke.mjs`,
+`docs/ui/enterprise-dms-release-hardening.md`,
+`docs/ui/enterprise-dms-pr-f-readiness.md`, and this evidence matrix.
+
+The `GUARD-DMS-001-SURFACE-COVERAGE` ref proves the expanded upload, files,
+matter/team, search, records, audit, walls, work, notifications, admin,
+enterprise, integrations, Outlook, and AI Prep surfaces are part of production
+UI literal and smoke scanning. `GUARD-DMS-002-NO-FAKE-DATA` blocks
+fake/mock/sample/demo operating data. `GUARD-DMS-003-NO-INTERNAL-REFS` blocks
+workspace ID, tenant ID, document ID, raw UUIDs, unsafe ID slices, and
+ID-derived short hashes in normal UI. `GUARD-DMS-004-AI-SCOPE-EXCLUSION`
+blocks legal analysis, document summary, external model, raw prompt/source,
+source text, and model-response copy. These repository guards do not replace
+the external authenticated main-loop, negative-auth, responsive, accessibility,
+or owner signoff receipts required before DMS-UX-812 can pass.
 
 ## 3. DMS-UX-809 Rollout Checklist
 
 Release cannot pass unless each row has an evidence ref or an approved deferral
 with owner and follow-up TUW.
 
-| Check ID | Required production behavior | Evidence ref | Owner | Result |
-| --- | --- | --- | --- | --- |
-| DMS-ROLL-001 | Matter Code selection before upload; no free-floating upload path |  | Operator |  |
-| DMS-ROLL-002 | Upload and post-upload processing state distinguish uploaded, extraction pending, indexing pending, AI prep file-organization pending, failed, and unavailable |  | Operator |  |
-| DMS-ROLL-003 | Matter-scoped file list shows real permitted documents only, with safe empty and unavailable states |  | Operator |  |
-| DMS-ROLL-004 | Document detail exposes profile, preview, controlled download, version, governance, and workflow state without raw refs as primary labels |  | Operator |  |
-| DMS-ROLL-005 | Title/body/metadata search supports safe no-results state and permission-bound snippets/facets |  | Security owner |  |
-| DMS-ROLL-006 | Records, audit, walls, and admin governance routes are visible only to allowed roles |  | Security owner |  |
-| DMS-ROLL-007 | Workflow and action queue state is based on real data only; no fake tasks, counts, people, matters, or dates |  | Operator |  |
-| DMS-ROLL-008 | Admin settings and integrations render setup, unavailable, connected, and disabled states without sample providers or fake credentials |  | Operator |  |
-| DMS-ROLL-009 | Negative auth and wall-blocked cases fail closed and clear stale content |  | Security owner |  |
-| DMS-ROLL-010 | AI Prep remains file organization prep only; legal analysis, summary, external model routes, raw prompt/source/model-response storage or display remain excluded |  | Legal-data owner |  |
+| Check ID     | Required production behavior                                                                                                                                                                                                            | Evidence ref | Owner            | Result |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ---------------- | ------ |
+| DMS-ROLL-001 | Matter Code selection before upload; no free-floating upload path                                                                                                                                                                       |              | Operator         |        |
+| DMS-ROLL-002 | Upload and post-upload processing state distinguish uploaded, extraction pending, indexing pending, AI prep file-organization pending, failed, and unavailable                                                                          |              | Operator         |        |
+| DMS-ROLL-003 | Matter-scoped file list shows real permitted documents only, with safe empty and unavailable states                                                                                                                                     |              | Operator         |        |
+| DMS-ROLL-004 | Document detail exposes profile, preview, controlled download, version, governance, and workflow state without raw refs as primary labels                                                                                               |              | Operator         |        |
+| DMS-ROLL-005 | Title/body/metadata search supports safe no-results state and permission-bound snippets/facets                                                                                                                                          |              | Security owner   |        |
+| DMS-ROLL-006 | Records, audit, walls, and admin governance routes are visible only to allowed roles                                                                                                                                                    |              | Security owner   |        |
+| DMS-ROLL-007 | Workflow and action queue state is based on real data only; no fake tasks, counts, people, matters, or dates                                                                                                                            |              | Operator         |        |
+| DMS-ROLL-008 | Admin settings and integrations render setup, unavailable, connected, and disabled states without sample providers or fake credentials; Outlook filing claims require Matter Code source, permission/audit, and redaction evidence refs; Office/OneDrive claims remain gated until ADR-017 runtime contract approval |              | Operator         |        |
+| DMS-ROLL-009 | Negative auth and wall-blocked cases fail closed and clear stale content                                                                                                                                                                |              | Security owner   |        |
+| DMS-ROLL-010 | AI Prep remains file organization prep only; legal analysis, summary, external model routes, raw prompt/source/model-response storage or display remain excluded                                                                        |              | Legal-data owner |        |
+
+`DMS_SMOKE_ALLOW_INDEX_PENDING=1` is diagnostic-only. It is not acceptable for
+DMS-ROLL-003, DMS-ROLL-005, EV-DMS-UI-004, or DMS-UX-812 production signoff.
 
 ## 4. DMS-UX-810 Rollback Plan
 
 Rollback owner must be named before widening release traffic. Use these controls
 without hard delete and without altering immutable originals or audit history.
 
-| Control ID | Rollback control | Evidence ref | Owner |
-| --- | --- | --- | --- |
-| DMS-RB-001 | Route visibility policy can hide `/files`, `/documents/[id]`, `/search/folders`, `/records`, `/audit`, `/walls`, `/integrations`, `/integrations/outlook`, `/enterprise`, and admin routes through feature/role policy |  | Operator |
-| DMS-RB-002 | Matter app source flags can block production upload/browse when canonical Matter source is unavailable: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`, `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE` |  | Operator |
-| DMS-RB-003 | Worker flags can stop unsafe processing: `AI_PREP_ENABLED`, `AI_PREP_QUEUE_WORKER_ENABLED`, `LOCAL_GEMMA_ENABLED`, and `AI_SUMMARY_GEMMA_ENABLED=false` |  | Operator |
-| DMS-RB-004 | Database rollback uses reviewed migration rollback or forward-fix only; no hard delete and no audit mutation |  | Security owner |
-| DMS-RB-005 | Storage rollback preserves immutable originals, versions, hashes, and tenant prefixes |  | Security owner |
-| DMS-RB-006 | Monitoring refs remain available for rollback decisions and incident review |  | Operator |
+### DMS-GA-702 Release Evidence Bridge
+
+DMS-GA-702 is repo-prepared by `docs/release/rollback-runbook.md`, this
+evidence matrix, `docs/release/production-ui-rollout-checklist.md`,
+`pnpm release:prod-preflight`, and `pnpm ui:production-smoke`.
+
+The `RB-DMS-*` refs below are repository control refs only. Production PASS
+requires owner-reviewed external drill or incident refs for every `DMS-RB-*`
+row, plus trigger refs from `MON-DMS-*`. If the rollback owner, drill refs, or
+monitor trigger refs are blank, DMS-UX-812 remains `HOLD`.
+
+| Control ID | Rollback control                                                                                                                                                                                                                                                                     | Evidence ref | Owner          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | -------------- |
+| DMS-RB-001 | Route visibility policy can hide `/files`, `/documents/[id]`, `/search/folders`, `/records`, `/audit`, `/walls`, `/integrations`, `/integrations/outlook`, `/enterprise`, and admin routes through feature/role policy                                                               | `RB-DMS-001-ROUTE-VISIBILITY`; external drill ref required | Operator       |
+| DMS-RB-002 | Matter app source flags can block production upload/browse when canonical Matter source is unavailable: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`, `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`, `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE` | `RB-DMS-002-MATTER-SOURCE-FLAGS`; external drill ref required | Operator       |
+| DMS-RB-003 | Worker flags can stop unsafe processing: `AI_PREP_ENABLED`, `AI_PREP_QUEUE_WORKER_ENABLED`, `LOCAL_GEMMA_ENABLED`, and `AI_SUMMARY_GEMMA_ENABLED=false`                                                                                                                              | `RB-DMS-003-WORKER-FLAGS`; external drill ref required | Operator       |
+| DMS-RB-004 | Database rollback uses reviewed migration rollback or forward-fix only; no hard delete and no audit mutation                                                                                                                                                                         | `RB-DMS-004-DB-AUDIT-INVARIANTS`; external drill ref required | Security owner |
+| DMS-RB-005 | Storage rollback preserves immutable originals, versions, hashes, and tenant prefixes                                                                                                                                                                                                | `RB-DMS-005-STORAGE-INTEGRITY`; external drill ref required | Security owner |
+| DMS-RB-006 | Monitoring refs remain available for rollback decisions and incident review                                                                                                                                                                                                          | `RB-DMS-006-MONITOR-TRIGGERS`; `MON-DMS-001*` through `MON-DMS-008*` refs required | Operator       |
+| DMS-RB-007 | Office/OneDrive gate rollback keeps `/integrations/onedrive` hidden, removes Office open/save or coauthoring/live-edit/sync claims, rejects callbacks/jobs, revokes unsafe consent or token material, and preserves immutable originals, versions, hashes, tenant prefixes, and audit append-only records | `RB-DMS-007-OFFICE-ONEDRIVE-GATE`; external drill ref required | Operator       |
 
 ## 5. DMS-UX-811 Production Monitor
 
 Monitor rows require a metric/log query ref, owner, threshold, and rollback
 trigger. Metrics must be scoped to approved tenants or aggregate-safe views.
 
-| Monitor ID | Signal | Evidence ref | Owner | Rollback trigger |
-| --- | --- | --- | --- | --- |
-| DMS-MON-001 | Upload failure rate and unsupported file type rate |  | Operator | Sustained spike or denied uploads not matching permission policy |
-| DMS-MON-002 | Extraction/OCR pending age and failure rate |  | Operator | Queue age exceeds approved SLA or failures cluster by file type |
-| DMS-MON-003 | Search latency, no-result rate, and denied-search spikes |  | Security owner | Permission-bound search fails, leaks metadata, or latency exceeds SLA |
-| DMS-MON-004 | Permission denied, ethical wall blocked, and tenant isolation errors |  | Security owner | Unexpected allow, cross-tenant signal, or denied spike without release explanation |
-| DMS-MON-005 | AI prep queue pending, failed, rejected, and stale counts limited to file organization prep |  | Legal-data owner | Legal analysis/summary/external route/raw-data signal appears or queue health fails |
-| DMS-MON-006 | Audit write failures |  | Security owner | Any audit write failure for document, search, records, permissions, or AI prep action |
-| DMS-MON-007 | Storage write/read failures, duplicate hash, and integrity mismatch signals |  | Security owner | Immutable original, version, tenant prefix, or hash integrity invariant fails |
-| DMS-MON-008 | Outlook and future Office/OneDrive integration status gate failures |  | Operator | Integration UI claims connected or filed state before approved API success |
+| Monitor ID  | Signal                                                                                      | Evidence ref | Owner            | Rollback trigger                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------- | ------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| DMS-MON-001 | Upload failure rate and unsupported file type rate                                          | `MON-DMS-001A-UPLOAD-FAILURE-RATE`, `MON-DMS-001B-UNSUPPORTED-FILE-TYPE-RATE`; see `docs/release/enterprise-dms-monitor-map.md` | Operator         | Sustained spike or denied uploads not matching permission policy                                                                    |
+| DMS-MON-002 | Extraction/OCR pending age and failure rate                                                 | `MON-DMS-002A-EXTRACTION-PENDING-AGE`, `MON-DMS-002B-OCR-PENDING-AGE`, `MON-DMS-002C-EXTRACTION-FAILURE-RATE`; see monitor map | Operator         | Queue age exceeds approved SLA or failures cluster by file type                                                                     |
+| DMS-MON-003 | Search latency, reindex queue age/failure, no-result rate, and denied-search spikes         | `MON-DMS-003A-SEARCH-P95-LATENCY`, `MON-DMS-003B-REINDEX-QUEUE-AGE`, `MON-DMS-003C-REINDEX-FAILURE-RATE`, `MON-DMS-003D-NO-RESULT-RATE`, `MON-DMS-003E-DENIED-SEARCH-SPIKE`; see monitor map | Security owner   | Permission-bound search fails, leaks metadata, reindex queue fails, or latency exceeds SLA                                         |
+| DMS-MON-004 | Permission denied, ethical wall blocked, and tenant isolation errors                        | `MON-DMS-004A-PERMISSION-DENIED-SPIKE`, `MON-DMS-004B-ETHICAL-WALL-BLOCKED-SPIKE`, `MON-DMS-004C-TENANT-ISOLATION-ERROR`; see monitor map | Security owner   | Unexpected allow, cross-tenant signal, or denied spike without release explanation                                                  |
+| DMS-MON-005 | AI prep queue pending, failed, rejected, and stale counts limited to file organization prep | `MON-DMS-005A-AI-PREP-PENDING-AGE`, `MON-DMS-005B-AI-PREP-FAILED-RATE`, `MON-DMS-005C-AI-PREP-REJECTED-RATE`, `MON-DMS-005D-AI-SCOPE-VIOLATION`; see monitor map | Legal-data owner | Legal analysis/summary/external route/raw-data signal appears or queue health fails                                                 |
+| DMS-MON-006 | Audit write failures                                                                        | `MON-DMS-006A-AUDIT-WRITE-FAILURE`, `MON-DMS-006B-AUDIT-LATENCY`; see monitor map | Security owner | Any audit write failure for document, search, records, permissions, or AI prep action                                               |
+| DMS-MON-007 | Storage write/read failures, duplicate hash, and integrity mismatch signals                 | `MON-DMS-007A-STORAGE-WRITE-FAILURE`, `MON-DMS-007B-STORAGE-READ-FAILURE`, `MON-DMS-007C-DUPLICATE-HASH-SPIKE`, `MON-DMS-007D-INTEGRITY-MISMATCH`; see monitor map | Security owner | Immutable original, version, tenant prefix, or hash integrity invariant fails                                                       |
+| DMS-MON-008 | Outlook and future Office/OneDrive integration status gate failures                         | `MON-DMS-008A-MATTER-SOURCE-HEALTH`, `MON-DMS-008B-OUTLOOK-GATE-FAILURE`, `MON-DMS-008C-OFFICE-ONEDRIVE-CLAIM-GATE`; see monitor map | Operator         | Integration UI claims connected or filed state before approved Matter source, permission/audit, redaction, and API success evidence; Office/OneDrive UI claims open/save, coauthoring, live edit, lock, or sync before ADR-017 contract approval |
 
 ## 6. DMS-UX-812 Release Signoff
 
@@ -98,25 +176,34 @@ Release signoff must name the exact production scope, excluded scopes, approved
 tenant class or tenant refs, rollback owner, release timestamp, and evidence
 package ref. Signoff is invalid if any owner row is blank.
 
-| Owner role | Required signoff statement | Evidence ref | Status |
-| --- | --- | --- | --- |
-| Operator owner | Approves release execution, production URL/target ref, traffic scope, and rollback authority |  |  |
-| Security owner | Confirms permission-before-search, fail-closed route gating, no internal ref leakage, no secret exposure, and negative auth smoke evidence |  |  |
-| Legal-data owner | Confirms AI Prep remains file organization prep only and excludes legal analysis, summary, external model routes, raw prompt/source/model-response storage or display |  |  |
-| Customer-scope owner | Confirms approved tenant class or tenant refs and customer-data handling boundary |  |  |
-| Rollback owner | Confirms rollback controls, rollback trigger thresholds, and incident communication path |  |  |
+### DMS-GA-705 Signoff Completion Gate
 
-| Signoff field | Required value |
-| --- | --- |
-| Exact production scope |  |
-| Excluded scopes |  |
-| Approved tenant class or tenant refs |  |
-| Rollback owner |  |
-| Release timestamp |  |
-| Evidence package ref |  |
+DMS-GA-705 is repo-prepared by this section and the rollout checklist. The
+repository copy is intentionally `HOLD` until every owner attaches an external,
+reference-only signoff ref. A `PASS` decision is invalid when any
+`DMS-SIGNOFF-*` owner, scope, timestamp, rollback, tenant, or evidence package
+ref is blank, placeholder-only, or points to private evidence committed in the
+repository.
+
+| Owner role           | Required signoff statement                                                                                                                                            | Evidence ref | Status |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------ |
+| Operator owner       | Approves release execution, production URL/target ref, traffic scope, rollback authority, and DMS main-loop receipt                                                   | `DMS-SIGNOFF-OPERATOR-REF` external ref required | `HOLD - external owner ref required` |
+| Security owner       | Confirms permission-before-search, fail-closed route gating, no internal ref leakage, no secret exposure, and negative auth smoke evidence                            | `DMS-SIGNOFF-SECURITY-REF` external ref required | `HOLD - external owner ref required` |
+| Legal-data owner     | Confirms AI Prep remains file organization prep only and excludes legal analysis, document summary, external model routes, raw prompt/source/model-response storage or display | `DMS-SIGNOFF-LEGAL-DATA-REF` external ref required | `HOLD - external owner ref required` |
+| Customer-scope owner | Confirms approved tenant class or tenant refs, customer-data handling boundary, and no committed customer document content                                            | `DMS-SIGNOFF-CUSTOMER-SCOPE-REF` external ref required | `HOLD - external owner ref required` |
+| Rollback owner       | Confirms rollback controls, rollback trigger thresholds, incident communication path, and rollback rehearsal evidence                                                 | `DMS-SIGNOFF-ROLLBACK-REF` external ref required | `HOLD - external owner ref required` |
+
+| Signoff field                        | Required value or external ref |
+| ------------------------------------ | ------------------------------ |
+| Exact production scope               | `DMS-SIGNOFF-SCOPE-REF` must name target URL/ref, release commit range, tenant/traffic scope, and whether the run is staging/canary/production. |
+| Excluded scopes                      | External signoff must preserve these exclusions: legal analysis, document summary, external model routing, raw prompt/source/model-response storage or display, Office/OneDrive runtime, external sharing/VDR, and production PASS without external smoke/owner refs. |
+| Approved tenant class or tenant refs | `DMS-SIGNOFF-TENANT-SCOPE-REF` must name the approved tenant class or tenant refs without committing private tenant identifiers. |
+| Rollback owner                       | `DMS-SIGNOFF-ROLLBACK-OWNER-REF` must name the rollback owner and link to `DMS-RB-*`, `RB-DMS-*`, and `MON-DMS-*` evidence refs. |
+| Release timestamp                    | `DMS-SIGNOFF-TIMESTAMP-REF` must name the release timestamp and decision timestamp in the external evidence workspace. |
+| Evidence package ref                 | `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF` must link to the completed external evidence package with command receipts, smoke refs, monitor refs, rollback refs, responsive/a11y refs, and owner approvals. |
 
 ## 7. Deferred Items
 
 | Deferred item | Reason | Owner | Follow-up TUW | Release blocker? |
-| --- | --- | --- | --- | --- |
-|  |  |  |  | `YES` / `NO` |
+| ------------- | ------ | ----- | ------------- | ---------------- |
+|               |        |       |               | `YES` / `NO`     |
