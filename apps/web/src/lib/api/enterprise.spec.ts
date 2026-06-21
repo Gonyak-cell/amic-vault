@@ -5,6 +5,7 @@ import {
   disableEnterpriseDmsSearchRefiner,
   disableEnterpriseDmsTaxonomy,
   listApprovedEnterpriseDmsMatterTemplates,
+  listApprovedEnterpriseDmsSearchRefiners,
   listApprovedEnterpriseDmsTaxonomies,
   listEnterpriseDmsMatterTemplates,
   listEnterpriseDmsSearchRefiners,
@@ -64,9 +65,10 @@ describe('enterprise API client', () => {
 
   it('uses DMS search refiner endpoints without raw content payloads', async () => {
     await listEnterpriseDmsSearchRefiners();
+    await listApprovedEnterpriseDmsSearchRefiners();
     await upsertEnterpriseDmsSearchRefiner({
-      fieldKey: 'counterparty',
-      displayName: 'Counterparty',
+      fieldKey: 'confidentiality_level',
+      displayName: 'Confidentiality',
       fieldType: 'text',
       source: 'document_profile',
       searchable: true,
@@ -77,16 +79,19 @@ describe('enterprise API client', () => {
     await disableEnterpriseDmsSearchRefiner('22222222-2222-4222-8222-222222222222');
 
     expect(apiFetch).toHaveBeenNthCalledWith(1, '/enterprise/dms/search-refiners');
-    expect(apiFetch).toHaveBeenNthCalledWith(2, '/enterprise/dms/search-refiners', {
+    expect(apiFetch).toHaveBeenNthCalledWith(2, '/enterprise/dms/search-refiners/approved', {
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenNthCalledWith(3, '/enterprise/dms/search-refiners', {
       method: 'POST',
       body: expect.any(String),
     });
     expect(apiFetch).toHaveBeenNthCalledWith(
-      3,
+      4,
       '/enterprise/dms/search-refiners/22222222-2222-4222-8222-222222222222/disable',
       { method: 'POST' },
     );
-    expect(String(vi.mocked(apiFetch).mock.calls[1]?.[1]?.body)).not.toMatch(
+    expect(String(vi.mocked(apiFetch).mock.calls[2]?.[1]?.body)).not.toMatch(
       /bodyText|snippet|raw|prompt|response/i,
     );
   });

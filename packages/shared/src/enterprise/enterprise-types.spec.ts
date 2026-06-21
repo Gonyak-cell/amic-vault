@@ -3,6 +3,7 @@ import {
   createEnterpriseKeyReferenceRequestSchema,
   createEnterpriseSsoProviderRequestSchema,
   enterpriseApprovedDmsMatterTemplateCatalogSchema,
+  enterpriseApprovedDmsSearchRefinerCatalogSchema,
   enterpriseApprovedDmsTaxonomyCatalogSchema,
   enterpriseDmsMatterTemplateApplicationSchema,
   enterpriseDmsMatterTemplateSchema,
@@ -154,8 +155,8 @@ describe('enterprise types', () => {
 
   it('validates DMS search refiner configuration', () => {
     const parsed = upsertEnterpriseDmsSearchRefinerRequestSchema.parse({
-      fieldKey: 'counterparty',
-      displayName: 'Counterparty',
+      fieldKey: 'confidentiality_level',
+      displayName: 'Confidentiality',
       fieldType: 'text',
       source: 'document_profile',
       sortOrder: 20,
@@ -164,6 +165,34 @@ describe('enterprise types', () => {
     expect(parsed.searchable).toBe(true);
     expect(parsed.refinable).toBe(true);
     expect(parsed.filterable).toBe(true);
+
+    const catalog = enterpriseApprovedDmsSearchRefinerCatalogSchema.parse({
+      source: 'tenant_admin_search_refiner',
+      generatedAt: '2026-06-20T01:00:00.000Z',
+      refiners: [
+        {
+          fieldKey: parsed.fieldKey,
+          displayName: parsed.displayName,
+          fieldType: parsed.fieldType,
+          source: parsed.source,
+          searchable: parsed.searchable,
+          refinable: parsed.refinable,
+          filterable: parsed.filterable,
+          sortOrder: parsed.sortOrder,
+          updatedAt: '2026-06-20T01:00:00.000Z',
+        },
+      ],
+    });
+    expect(catalog.refiners[0]?.fieldKey).toBe('confidentiality_level');
+
+    expect(() =>
+      upsertEnterpriseDmsSearchRefinerRequestSchema.parse({
+        fieldKey: 'counterparty',
+        displayName: 'Counterparty',
+        fieldType: 'text',
+        source: 'document_profile',
+      }),
+    ).toThrow();
   });
 
   it('validates DMS Matter template contracts and approved catalogs', () => {

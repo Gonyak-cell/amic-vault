@@ -4,9 +4,23 @@ import { userRoleSchema } from '../permission/roles';
 import { documentTypeSchema } from '../types/document';
 
 const uuidSchema = z.string().uuid();
-const keySchema = z.string().trim().min(2).max(80).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
-const codeSchema = z.string().trim().min(2).max(80).regex(/^[A-Z0-9][A-Z0-9._-]*$/);
-const hash64Schema = z.string().trim().regex(/^[a-f0-9]{64}$/iu).transform((value) => value.toLowerCase());
+const keySchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(80)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+const codeSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(80)
+  .regex(/^[A-Z0-9][A-Z0-9._-]*$/);
+const hash64Schema = z
+  .string()
+  .trim()
+  .regex(/^[a-f0-9]{64}$/iu)
+  .transform((value) => value.toLowerCase());
 const fingerprintSchema = z
   .string()
   .trim()
@@ -17,9 +31,12 @@ const safeLabelSchema = z
   .trim()
   .min(1)
   .max(200)
-  .refine((value) => !/(password|secret|token|api[_ -]?key|body|snippet|raw|metadata)/iu.test(value), {
-    message: 'unsafe enterprise label',
-  });
+  .refine(
+    (value) => !/(password|secret|token|api[_ -]?key|body|snippet|raw|metadata)/iu.test(value),
+    {
+      message: 'unsafe enterprise label',
+    },
+  );
 
 export const enterpriseSsoProviderStatuses = ['draft', 'active', 'disabled'] as const;
 export const enterpriseSsoEnforcementModes = ['optional', 'password_disabled'] as const;
@@ -46,6 +63,22 @@ export const enterpriseDmsRefinerSources = [
   'records',
   'system',
 ] as const;
+export const enterpriseDmsSearchRefinerFieldKeys = [
+  'client',
+  'client_name',
+  'confidentiality_level',
+  'document_type',
+  'extraction_status',
+  'legal_hold',
+  'matter',
+  'matter_code',
+  'matter_name',
+  'privilege_status',
+  'records_status',
+  'title',
+  'updated_at',
+  'version_status',
+] as const;
 
 export const enterpriseSsoProviderStatusSchema = z.enum(enterpriseSsoProviderStatuses);
 export const enterpriseSsoEnforcementModeSchema = z.enum(enterpriseSsoEnforcementModes);
@@ -59,6 +92,7 @@ export const enterpriseComplianceStatusSchema = z.enum(enterpriseComplianceStatu
 export const enterpriseDmsConfigurationStatusSchema = z.enum(enterpriseDmsConfigurationStatuses);
 export const enterpriseDmsMetadataFieldTypeSchema = z.enum(enterpriseDmsMetadataFieldTypes);
 export const enterpriseDmsRefinerSourceSchema = z.enum(enterpriseDmsRefinerSources);
+export const enterpriseDmsSearchRefinerFieldKeySchema = z.enum(enterpriseDmsSearchRefinerFieldKeys);
 
 const dmsCodeSchema = z
   .string()
@@ -79,9 +113,7 @@ const safeDescriptionSchema = z
   .max(400)
   .refine(
     (value) =>
-      !/(password|secret|token|api[_ -]?key|body|snippet|raw|prompt|response|model)/iu.test(
-        value,
-      ),
+      !/(password|secret|token|api[_ -]?key|body|snippet|raw|prompt|response|model)/iu.test(value),
     {
       message: 'unsafe enterprise description',
     },
@@ -288,7 +320,7 @@ export const enterpriseDmsMatterTemplateApplicationSchema = z
 
 export const upsertEnterpriseDmsSearchRefinerRequestSchema = z
   .object({
-    fieldKey: dmsFieldKeySchema,
+    fieldKey: enterpriseDmsSearchRefinerFieldKeySchema,
     displayName: safeLabelSchema,
     fieldType: enterpriseDmsMetadataFieldTypeSchema,
     source: enterpriseDmsRefinerSourceSchema,
@@ -302,7 +334,7 @@ export const upsertEnterpriseDmsSearchRefinerRequestSchema = z
 export const enterpriseDmsSearchRefinerSchema = z
   .object({
     refinerId: uuidSchema,
-    fieldKey: dmsFieldKeySchema,
+    fieldKey: enterpriseDmsSearchRefinerFieldKeySchema,
     displayName: z.string().min(1).max(200),
     fieldType: enterpriseDmsMetadataFieldTypeSchema,
     source: enterpriseDmsRefinerSourceSchema,
@@ -319,6 +351,28 @@ export const enterpriseDmsSearchRefinerSchema = z
 export const enterpriseDmsSearchRefinerListResponseSchema = z
   .object({
     refiners: z.array(enterpriseDmsSearchRefinerSchema).max(100),
+  })
+  .strict();
+
+export const enterpriseApprovedDmsSearchRefinerSchema = z
+  .object({
+    fieldKey: enterpriseDmsSearchRefinerFieldKeySchema,
+    displayName: z.string().min(1).max(200),
+    fieldType: enterpriseDmsMetadataFieldTypeSchema,
+    source: enterpriseDmsRefinerSourceSchema,
+    searchable: z.boolean(),
+    refinable: z.boolean(),
+    filterable: z.boolean(),
+    sortOrder: z.number().int().min(0).max(999),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const enterpriseApprovedDmsSearchRefinerCatalogSchema = z
+  .object({
+    source: z.literal('tenant_admin_search_refiner'),
+    generatedAt: z.string().datetime(),
+    refiners: z.array(enterpriseApprovedDmsSearchRefinerSchema).max(100),
   })
   .strict();
 
@@ -502,38 +556,89 @@ export const enterpriseReadinessSummarySchema = z
   })
   .strict();
 
-export type CreateEnterpriseSsoProviderRequestDto = z.infer<typeof createEnterpriseSsoProviderRequestSchema>;
+export type CreateEnterpriseSsoProviderRequestDto = z.infer<
+  typeof createEnterpriseSsoProviderRequestSchema
+>;
 export type EnterpriseSsoProviderDto = z.infer<typeof enterpriseSsoProviderSchema>;
-export type EnterpriseSsoProviderListResponseDto = z.infer<typeof enterpriseSsoProviderListResponseSchema>;
+export type EnterpriseSsoProviderListResponseDto = z.infer<
+  typeof enterpriseSsoProviderListResponseSchema
+>;
 export type EnterpriseSsoSpMetadataDto = z.infer<typeof enterpriseSsoSpMetadataSchema>;
-export type CreateEnterpriseKeyReferenceRequestDto = z.infer<typeof createEnterpriseKeyReferenceRequestSchema>;
+export type CreateEnterpriseKeyReferenceRequestDto = z.infer<
+  typeof createEnterpriseKeyReferenceRequestSchema
+>;
 export type EnterpriseKeyReferenceDto = z.infer<typeof enterpriseKeyReferenceSchema>;
-export type EnterpriseKeyReferenceListResponseDto = z.infer<typeof enterpriseKeyReferenceListResponseSchema>;
-export type CreateEnterpriseSiemExportRequestDto = z.infer<typeof createEnterpriseSiemExportRequestSchema>;
+export type EnterpriseKeyReferenceListResponseDto = z.infer<
+  typeof enterpriseKeyReferenceListResponseSchema
+>;
+export type CreateEnterpriseSiemExportRequestDto = z.infer<
+  typeof createEnterpriseSiemExportRequestSchema
+>;
 export type EnterpriseSiemExportDto = z.infer<typeof enterpriseSiemExportSchema>;
-export type EnterpriseSiemExportListResponseDto = z.infer<typeof enterpriseSiemExportListResponseSchema>;
-export type CreateEnterpriseBackupSnapshotRequestDto = z.infer<typeof createEnterpriseBackupSnapshotRequestSchema>;
+export type EnterpriseSiemExportListResponseDto = z.infer<
+  typeof enterpriseSiemExportListResponseSchema
+>;
+export type CreateEnterpriseBackupSnapshotRequestDto = z.infer<
+  typeof createEnterpriseBackupSnapshotRequestSchema
+>;
 export type EnterpriseBackupSnapshotDto = z.infer<typeof enterpriseBackupSnapshotSchema>;
-export type EnterpriseBackupSnapshotListResponseDto = z.infer<typeof enterpriseBackupSnapshotListResponseSchema>;
-export type CreateEnterpriseComplianceEvidenceRequestDto = z.infer<typeof createEnterpriseComplianceEvidenceRequestSchema>;
+export type EnterpriseBackupSnapshotListResponseDto = z.infer<
+  typeof enterpriseBackupSnapshotListResponseSchema
+>;
+export type CreateEnterpriseComplianceEvidenceRequestDto = z.infer<
+  typeof createEnterpriseComplianceEvidenceRequestSchema
+>;
 export type EnterpriseComplianceEvidenceDto = z.infer<typeof enterpriseComplianceEvidenceSchema>;
-export type EnterpriseComplianceEvidenceListResponseDto = z.infer<typeof enterpriseComplianceEvidenceListResponseSchema>;
+export type EnterpriseComplianceEvidenceListResponseDto = z.infer<
+  typeof enterpriseComplianceEvidenceListResponseSchema
+>;
 export type EnterpriseReadinessSummaryDto = z.infer<typeof enterpriseReadinessSummarySchema>;
 export type EnterpriseDmsSubtypeDto = z.infer<typeof enterpriseDmsSubtypeSchema>;
 export type EnterpriseDmsMetadataFieldDto = z.infer<typeof enterpriseDmsMetadataFieldSchema>;
 export type EnterpriseDmsDocumentSetDto = z.infer<typeof enterpriseDmsDocumentSetSchema>;
-export type UpsertEnterpriseDmsTaxonomyRequestDto = z.infer<typeof upsertEnterpriseDmsTaxonomyRequestSchema>;
+export type UpsertEnterpriseDmsTaxonomyRequestDto = z.infer<
+  typeof upsertEnterpriseDmsTaxonomyRequestSchema
+>;
 export type EnterpriseDmsTaxonomyDto = z.infer<typeof enterpriseDmsTaxonomySchema>;
-export type EnterpriseDmsTaxonomyListResponseDto = z.infer<typeof enterpriseDmsTaxonomyListResponseSchema>;
+export type EnterpriseDmsTaxonomyListResponseDto = z.infer<
+  typeof enterpriseDmsTaxonomyListResponseSchema
+>;
 export type EnterpriseApprovedDmsTaxonomyDto = z.infer<typeof enterpriseApprovedDmsTaxonomySchema>;
-export type EnterpriseApprovedDmsTaxonomyCatalogDto = z.infer<typeof enterpriseApprovedDmsTaxonomyCatalogSchema>;
-export type UpsertEnterpriseDmsMatterTemplateRequestDto = z.infer<typeof upsertEnterpriseDmsMatterTemplateRequestSchema>;
+export type EnterpriseApprovedDmsTaxonomyCatalogDto = z.infer<
+  typeof enterpriseApprovedDmsTaxonomyCatalogSchema
+>;
+export type UpsertEnterpriseDmsMatterTemplateRequestDto = z.infer<
+  typeof upsertEnterpriseDmsMatterTemplateRequestSchema
+>;
 export type EnterpriseDmsMatterTemplateDto = z.infer<typeof enterpriseDmsMatterTemplateSchema>;
-export type EnterpriseDmsMatterTemplateListResponseDto = z.infer<typeof enterpriseDmsMatterTemplateListResponseSchema>;
-export type EnterpriseApprovedDmsMatterTemplateDto = z.infer<typeof enterpriseApprovedDmsMatterTemplateSchema>;
-export type EnterpriseApprovedDmsMatterTemplateCatalogDto = z.infer<typeof enterpriseApprovedDmsMatterTemplateCatalogSchema>;
-export type ApplyEnterpriseDmsMatterTemplateRequestDto = z.infer<typeof applyEnterpriseDmsMatterTemplateRequestSchema>;
-export type EnterpriseDmsMatterTemplateApplicationDto = z.infer<typeof enterpriseDmsMatterTemplateApplicationSchema>;
-export type UpsertEnterpriseDmsSearchRefinerRequestDto = z.infer<typeof upsertEnterpriseDmsSearchRefinerRequestSchema>;
+export type EnterpriseDmsMatterTemplateListResponseDto = z.infer<
+  typeof enterpriseDmsMatterTemplateListResponseSchema
+>;
+export type EnterpriseApprovedDmsMatterTemplateDto = z.infer<
+  typeof enterpriseApprovedDmsMatterTemplateSchema
+>;
+export type EnterpriseApprovedDmsMatterTemplateCatalogDto = z.infer<
+  typeof enterpriseApprovedDmsMatterTemplateCatalogSchema
+>;
+export type ApplyEnterpriseDmsMatterTemplateRequestDto = z.infer<
+  typeof applyEnterpriseDmsMatterTemplateRequestSchema
+>;
+export type EnterpriseDmsMatterTemplateApplicationDto = z.infer<
+  typeof enterpriseDmsMatterTemplateApplicationSchema
+>;
+export type UpsertEnterpriseDmsSearchRefinerRequestDto = z.infer<
+  typeof upsertEnterpriseDmsSearchRefinerRequestSchema
+>;
 export type EnterpriseDmsSearchRefinerDto = z.infer<typeof enterpriseDmsSearchRefinerSchema>;
-export type EnterpriseDmsSearchRefinerListResponseDto = z.infer<typeof enterpriseDmsSearchRefinerListResponseSchema>;
+export type EnterpriseDmsSearchRefinerListResponseDto = z.infer<
+  typeof enterpriseDmsSearchRefinerListResponseSchema
+>;
+export type EnterpriseDmsSearchRefinerFieldKey = z.infer<
+  typeof enterpriseDmsSearchRefinerFieldKeySchema
+>;
+export type EnterpriseApprovedDmsSearchRefinerDto = z.infer<
+  typeof enterpriseApprovedDmsSearchRefinerSchema
+>;
+export type EnterpriseApprovedDmsSearchRefinerCatalogDto = z.infer<
+  typeof enterpriseApprovedDmsSearchRefinerCatalogSchema
+>;

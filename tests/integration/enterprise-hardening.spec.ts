@@ -6,6 +6,7 @@ import type { INestApplication } from '@nestjs/common';
 import type {
   EnterpriseBackupSnapshotDto,
   EnterpriseApprovedDmsMatterTemplateCatalogDto,
+  EnterpriseApprovedDmsSearchRefinerCatalogDto,
   EnterpriseApprovedDmsTaxonomyCatalogDto,
   EnterpriseComplianceEvidenceDto,
   EnterpriseDmsMatterTemplateApplicationDto,
@@ -152,35 +153,41 @@ describe('Enterprise Hardening integration', () => {
     expect(taxonomy.subtypes).toHaveLength(1);
     expect(taxonomy.metadataFields).toHaveLength(1);
 
-    const updatedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>('/v1/enterprise/dms/taxonomies', {
-      documentTypeCode: taxonomy.documentTypeCode,
-      displayName: `Contract ${marker} updated`,
-      description: 'Commercial agreement filing profile',
-      subtypes: [
-        { subtypeCode: 'MSA', displayName: 'Master service agreement' },
-        { subtypeCode: 'NDA', displayName: 'Nondisclosure agreement' },
-      ],
-      metadataFields: taxonomy.metadataFields,
-    });
+    const updatedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>(
+      '/v1/enterprise/dms/taxonomies',
+      {
+        documentTypeCode: taxonomy.documentTypeCode,
+        displayName: `Contract ${marker} updated`,
+        description: 'Commercial agreement filing profile',
+        subtypes: [
+          { subtypeCode: 'MSA', displayName: 'Master service agreement' },
+          { subtypeCode: 'NDA', displayName: 'Nondisclosure agreement' },
+        ],
+        metadataFields: taxonomy.metadataFields,
+      },
+    );
     expect(updatedTaxonomy.versionNo).toBe(taxonomy.versionNo + 1);
     expect(updatedTaxonomy.lastAuditEventRef).toMatch(/^audit:[0-9a-f]{12}$/);
 
-    const approvedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>('/v1/enterprise/dms/taxonomies', {
-      documentTypeCode: 'CONTRACT',
-      displayName: `Approved Contract ${marker}`,
-      description: 'Commercial agreement filing profile',
-      subtypes: [{ subtypeCode: 'MSA', displayName: `Approved MSA ${marker}` }],
-      metadataFields: [
-        {
-          fieldKey: `approved_counterparty_${marker}`,
-          displayName: `Approved Counterparty ${marker}`,
-          fieldType: 'text',
-          required: true,
-          searchable: true,
-          refinable: true,
-        },
-      ],
-    });
+    const approvedTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>(
+      '/v1/enterprise/dms/taxonomies',
+      {
+        documentTypeCode: 'CONTRACT',
+        displayName: `Approved Contract ${marker}`,
+        description: 'Commercial agreement filing profile',
+        subtypes: [{ subtypeCode: 'MSA', displayName: `Approved MSA ${marker}` }],
+        metadataFields: [
+          {
+            fieldKey: `approved_counterparty_${marker}`,
+            displayName: `Approved Counterparty ${marker}`,
+            fieldType: 'text',
+            required: true,
+            searchable: true,
+            refinable: true,
+          },
+        ],
+      },
+    );
     expect(approvedTaxonomy.canonicalDocumentType).toBe('contract');
 
     const approvedCatalog = await getJsonWithCookie<EnterpriseApprovedDmsTaxonomyCatalogDto>(
@@ -198,8 +205,8 @@ describe('Enterprise Hardening integration', () => {
     const refiner = await postJson<EnterpriseDmsSearchRefinerDto>(
       '/v1/enterprise/dms/search-refiners',
       {
-        fieldKey: `counterparty_${marker}`,
-        displayName: `Counterparty ${marker}`,
+        fieldKey: 'confidentiality_level',
+        displayName: `Confidentiality ${marker}`,
         fieldType: 'text',
         source: 'document_profile',
         sortOrder: 20,
@@ -207,6 +214,17 @@ describe('Enterprise Hardening integration', () => {
     );
     expect(refiner.status).toBe('active');
     expect(refiner.refinable).toBe(true);
+
+    const approvedRefinerCatalog =
+      await getJsonWithCookie<EnterpriseApprovedDmsSearchRefinerCatalogDto>(
+        '/v1/enterprise/dms/search-refiners/approved',
+        memberCookie,
+      );
+    expect(approvedRefinerCatalog.source).toBe('tenant_admin_search_refiner');
+    expect(approvedRefinerCatalog.refiners.some((item) => item.fieldKey === refiner.fieldKey)).toBe(
+      true,
+    );
+    expect(JSON.stringify(approvedRefinerCatalog)).not.toContain(refiner.refinerId);
 
     const template = await postJson<EnterpriseDmsMatterTemplateDto>(
       '/v1/enterprise/dms/matter-templates',
@@ -297,12 +315,12 @@ describe('Enterprise Hardening integration', () => {
     expect(auditText).toContain(template.templateId);
     expect(auditText).toContain(matter.matterId);
     expect(auditText).toContain(`CONTRACT_${marker.toUpperCase()}`);
-    expect(auditText).toContain(`counterparty_${marker}`);
+    expect(auditText).toContain('confidentiality_level');
     expect(auditText).toContain('document_set_count');
     expect(auditText).toContain('version_no');
     expect(auditText).not.toContain('Commercial agreement filing profile');
     expect(auditText).not.toContain(`Contract ${marker}`);
-    expect(auditText).not.toContain(`Counterparty ${marker}`);
+    expect(auditText).not.toContain(`Confidentiality ${marker}`);
     expect(auditText).not.toContain(`Advisory Template ${marker}`);
     expect(auditText).not.toContain(`Closing Set ${marker}`);
 

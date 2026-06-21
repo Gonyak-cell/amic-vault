@@ -1,15 +1,14 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { SearchFacetsDto } from '@amic-vault/shared';
+import { enterpriseDmsSearchRefinerFieldKeys, type SearchFacetsDto } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
 import { SearchFacets } from './search-facets';
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
+  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
 }));
 
 const facets: SearchFacetsDto = {
@@ -57,9 +56,15 @@ const facets: SearchFacetsDto = {
 
 describe('SearchFacets', () => {
   it('renders server-provided facet buckets without zero-count rows', () => {
+    const allRefinerKeys = new Set(enterpriseDmsSearchRefinerFieldKeys);
     const html = renderToStaticMarkup(
       <LanguageProvider>
-        <SearchFacets facets={facets} selection={{ documentType: 'memo' }} onChange={() => undefined} />
+        <SearchFacets
+          approvedRefinerKeys={allRefinerKeys}
+          facets={facets}
+          selection={{ documentType: 'memo' }}
+          onChange={() => undefined}
+        />
       </LanguageProvider>,
     );
 

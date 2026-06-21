@@ -26,6 +26,11 @@ import { Input } from '@/components/ui/input';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { approvedDocumentTypeOptions } from '@/lib/dms-taxonomy';
+import {
+  hasSearchRefiner,
+  searchRefinerFieldKeys,
+  type SearchRefinerKeySet,
+} from '@/lib/search-refiners';
 
 export type SearchDateRange = 'last_7_days' | 'last_30_days' | 'older';
 
@@ -49,6 +54,7 @@ export interface SearchAdvancedSelection {
 
 interface SearchAdvancedControlsProps {
   busy: boolean;
+  approvedRefinerKeys?: SearchRefinerKeySet;
   taxonomyCatalog?: EnterpriseApprovedDmsTaxonomyDto[];
   selection: SearchAdvancedSelection;
   onApply: (selection: SearchAdvancedSelection) => void;
@@ -155,47 +161,107 @@ function normalizeInput(value: string): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-function normalizedDraft(draft: SearchAdvancedDraft): SearchAdvancedSelection {
+const emptySearchRefinerKeys: SearchRefinerKeySet = new Set();
+
+function normalizedDraft(
+  draft: SearchAdvancedDraft,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): SearchAdvancedSelection {
   return {
-    clientName: normalizeInput(draft.clientName),
-    confidentialityLevel: draft.confidentialityLevel || undefined,
-    dateRange: draft.dateRange || undefined,
-    documentType: draft.documentType || undefined,
-    extractionStatus: draft.extractionStatus || undefined,
+    clientName: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientName)
+      ? normalizeInput(draft.clientName)
+      : undefined,
+    confidentialityLevel: hasSearchRefiner(
+      approvedRefinerKeys,
+      searchRefinerFieldKeys.confidentialityLevel,
+    )
+      ? draft.confidentialityLevel || undefined
+      : undefined,
+    dateRange: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)
+      ? draft.dateRange || undefined
+      : undefined,
+    documentType: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)
+      ? draft.documentType || undefined
+      : undefined,
+    extractionStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
+      ? draft.extractionStatus || undefined
+      : undefined,
     groupBy: draft.groupBy,
-    legalHold: draft.legalHold || undefined,
-    matterCode: normalizeInput(draft.matterCode),
-    matterName: normalizeInput(draft.matterName),
-    privilegeStatus: draft.privilegeStatus || undefined,
-    recordsStatus: draft.recordsStatus || undefined,
+    legalHold: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
+      ? draft.legalHold || undefined
+      : undefined,
+    matterCode: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
+      ? normalizeInput(draft.matterCode)
+      : undefined,
+    matterName: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterName)
+      ? normalizeInput(draft.matterName)
+      : undefined,
+    privilegeStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)
+      ? draft.privilegeStatus || undefined
+      : undefined,
+    recordsStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)
+      ? draft.recordsStatus || undefined
+      : undefined,
     sortBy: draft.sortBy,
     target: draft.target,
-    title: normalizeInput(draft.title),
-    versionStatus: draft.versionStatus || undefined,
+    title: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.title)
+      ? normalizeInput(draft.title)
+      : undefined,
+    versionStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)
+      ? draft.versionStatus || undefined
+      : undefined,
   };
 }
 
-function countAdvanced(selection: SearchAdvancedSelection): number {
+function countAdvanced(
+  selection: SearchAdvancedSelection,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): number {
   return [
-    selection.clientName,
-    selection.confidentialityLevel,
-    selection.dateRange,
-    selection.documentType,
-    selection.extractionStatus,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientName)
+      ? selection.clientName
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.confidentialityLevel)
+      ? selection.confidentialityLevel
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)
+      ? selection.dateRange
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)
+      ? selection.documentType
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
+      ? selection.extractionStatus
+      : undefined,
     selection.groupBy && selection.groupBy !== 'none' ? selection.groupBy : undefined,
-    selection.legalHold,
-    selection.matterCode,
-    selection.matterName,
-    selection.privilegeStatus,
-    selection.recordsStatus,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
+      ? selection.legalHold
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
+      ? selection.matterCode
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterName)
+      ? selection.matterName
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)
+      ? selection.privilegeStatus
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)
+      ? selection.recordsStatus
+      : undefined,
     selection.sortBy && selection.sortBy !== 'relevance' ? selection.sortBy : undefined,
     selection.target && selection.target !== 'all' ? selection.target : undefined,
-    selection.title,
-    selection.versionStatus,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.title)
+      ? selection.title
+      : undefined,
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)
+      ? selection.versionStatus
+      : undefined,
   ].filter(Boolean).length;
 }
 
 export function SearchAdvancedControls({
+  approvedRefinerKeys = emptySearchRefinerKeys,
   busy,
   onApply,
   onReset,
@@ -240,10 +306,15 @@ export function SearchAdvancedControls({
     });
   }, [selection]);
 
-  const activeCount = countAdvanced(selection);
+  const activeCount = countAdvanced(selection, approvedRefinerKeys);
   const documentTypeOptions = React.useMemo(
     () => approvedDocumentTypeOptions(documentTypeLabels, taxonomyCatalog),
     [taxonomyCatalog],
+  );
+  const allowed = React.useCallback(
+    (fieldKey: keyof typeof searchRefinerFieldKeys) =>
+      hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys[fieldKey]),
+    [approvedRefinerKeys],
   );
 
   return (
@@ -314,226 +385,250 @@ export function SearchAdvancedControls({
             ))}
           </select>
         </label>
-        <label className="space-y-1 text-sm font-medium">
-          문서 유형
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.documentType}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                documentType: event.target.value as DocumentType | '',
-              }))
-            }
-          >
-            <option value="">전체</option>
-            {documentTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          기밀도
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.confidentialityLevel}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                confidentialityLevel: event.target.value as DocumentConfidentialityLevel | '',
-              }))
-            }
-          >
-            <option value="">전체</option>
-            {documentConfidentialityLevels.map((level) => (
-              <option key={level} value={level}>
-                {confidentialityLabels[level]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          특권 상태
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.privilegeStatus}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                privilegeStatus: event.target.value as DocumentPrivilegeStatus | '',
-              }))
-            }
-          >
-            <option value="">전체</option>
-            {documentPrivilegeStatuses.map((status) => (
-              <option key={status} value={status}>
-                {privilegeLabels[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          추출/OCR
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.extractionStatus}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                extractionStatus: event.target.value as DocumentExtractionStatus | '',
-              }))
-            }
-          >
-            <option value="">전체 상태</option>
-            {documentExtractionStatuses.map((status) => (
-              <option key={status} value={status}>
-                {extractionStatusLabels[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          보존/삭제 금지
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.legalHold}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                legalHold: event.target.value as SearchLegalHold | '',
-              }))
-            }
-          >
-            <option value="">전체</option>
-            {searchLegalHoldValues.map((status) => (
-              <option key={status} value={status}>
-                {legalHoldLabels[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          기록 상태
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.recordsStatus}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                recordsStatus: event.target.value as SearchRecordsStatus | '',
-              }))
-            }
-          >
-            <option value="">전체 상태</option>
-            {searchRecordsStatusValues.map((status) => (
-              <option key={status} value={status}>
-                {recordsStatusLabels[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          버전 상태
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.versionStatus}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                versionStatus: event.target.value as SearchVersionStatus | '',
-              }))
-            }
-          >
-            <option value="">현재 버전 기본</option>
-            {searchVersionStatusValues.map((status) => (
-              <option key={status} value={status}>
-                {versionStatusLabels[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          수정 기간
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.dateRange}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                dateRange: event.target.value as SearchDateRange | '',
-              }))
-            }
-          >
-            <option value="">전체 기간</option>
-            {Object.entries(dateRangeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          제목
-          <Input
-            value={draft.title}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                title: event.target.value,
-              }))
-            }
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Matter Code
-          <Input
-            value={draft.matterCode}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                matterCode: event.target.value,
-              }))
-            }
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Matter 이름
-          <Input
-            value={draft.matterName}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                matterName: event.target.value,
-              }))
-            }
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          고객명
-          <Input
-            value={draft.clientName}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                clientName: event.target.value,
-              }))
-            }
-          />
-        </label>
+        {allowed('documentType') ? (
+          <label className="space-y-1 text-sm font-medium">
+            문서 유형
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.documentType}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  documentType: event.target.value as DocumentType | '',
+                }))
+              }
+            >
+              <option value="">전체</option>
+              {documentTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('confidentialityLevel') ? (
+          <label className="space-y-1 text-sm font-medium">
+            기밀도
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.confidentialityLevel}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  confidentialityLevel: event.target.value as DocumentConfidentialityLevel | '',
+                }))
+              }
+            >
+              <option value="">전체</option>
+              {documentConfidentialityLevels.map((level) => (
+                <option key={level} value={level}>
+                  {confidentialityLabels[level]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('privilegeStatus') ? (
+          <label className="space-y-1 text-sm font-medium">
+            특권 상태
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.privilegeStatus}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  privilegeStatus: event.target.value as DocumentPrivilegeStatus | '',
+                }))
+              }
+            >
+              <option value="">전체</option>
+              {documentPrivilegeStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {privilegeLabels[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('extractionStatus') ? (
+          <label className="space-y-1 text-sm font-medium">
+            추출/OCR
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.extractionStatus}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  extractionStatus: event.target.value as DocumentExtractionStatus | '',
+                }))
+              }
+            >
+              <option value="">전체 상태</option>
+              {documentExtractionStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {extractionStatusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('legalHold') ? (
+          <label className="space-y-1 text-sm font-medium">
+            보존/삭제 금지
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.legalHold}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  legalHold: event.target.value as SearchLegalHold | '',
+                }))
+              }
+            >
+              <option value="">전체</option>
+              {searchLegalHoldValues.map((status) => (
+                <option key={status} value={status}>
+                  {legalHoldLabels[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('recordsStatus') ? (
+          <label className="space-y-1 text-sm font-medium">
+            기록 상태
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.recordsStatus}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  recordsStatus: event.target.value as SearchRecordsStatus | '',
+                }))
+              }
+            >
+              <option value="">전체 상태</option>
+              {searchRecordsStatusValues.map((status) => (
+                <option key={status} value={status}>
+                  {recordsStatusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('versionStatus') ? (
+          <label className="space-y-1 text-sm font-medium">
+            버전 상태
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.versionStatus}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  versionStatus: event.target.value as SearchVersionStatus | '',
+                }))
+              }
+            >
+              <option value="">현재 버전 기본</option>
+              {searchVersionStatusValues.map((status) => (
+                <option key={status} value={status}>
+                  {versionStatusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('dateRange') ? (
+          <label className="space-y-1 text-sm font-medium">
+            수정 기간
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={draft.dateRange}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  dateRange: event.target.value as SearchDateRange | '',
+                }))
+              }
+            >
+              <option value="">전체 기간</option>
+              {Object.entries(dateRangeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {allowed('title') ? (
+          <label className="space-y-1 text-sm font-medium">
+            제목
+            <Input
+              value={draft.title}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
+              }
+            />
+          </label>
+        ) : null}
+        {allowed('matterCode') ? (
+          <label className="space-y-1 text-sm font-medium">
+            Matter Code
+            <Input
+              value={draft.matterCode}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  matterCode: event.target.value,
+                }))
+              }
+            />
+          </label>
+        ) : null}
+        {allowed('matterName') ? (
+          <label className="space-y-1 text-sm font-medium">
+            Matter 이름
+            <Input
+              value={draft.matterName}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  matterName: event.target.value,
+                }))
+              }
+            />
+          </label>
+        ) : null}
+        {allowed('clientName') ? (
+          <label className="space-y-1 text-sm font-medium">
+            고객명
+            <Input
+              value={draft.clientName}
+              disabled={busy}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  clientName: event.target.value,
+                }))
+              }
+            />
+          </label>
+        ) : null}
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.5fr)]">
         <section className="rounded-md border bg-background p-3">
@@ -544,7 +639,7 @@ export function SearchAdvancedControls({
             </StatusBadge>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
-            {activeSearchChips(selection).map((chip) => (
+            {activeSearchChips(selection, approvedRefinerKeys).map((chip) => (
               <span
                 key={`${chip.label}-${chip.value}`}
                 className="inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border bg-muted/30 px-2.5 text-xs font-semibold text-foreground"
@@ -562,7 +657,9 @@ export function SearchAdvancedControls({
           </div>
           <ul className="mt-2 grid gap-1.5 text-xs leading-5 text-muted-foreground">
             <li>
-              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">"정확한 문구"</code>
+              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">
+                "정확한 문구"
+              </code>
               <span className="ml-2">정확한 문구 우선</span>
             </li>
             <li>
@@ -574,7 +671,12 @@ export function SearchAdvancedControls({
         </section>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button type="button" size="sm" onClick={() => onApply(normalizedDraft(draft))} disabled={busy}>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => onApply(normalizedDraft(draft, approvedRefinerKeys))}
+          disabled={busy}
+        >
           적용
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={onReset} disabled={busy}>
@@ -586,7 +688,10 @@ export function SearchAdvancedControls({
   );
 }
 
-function activeSearchChips(selection: SearchAdvancedSelection): Array<{ label: string; value: string }> {
+function activeSearchChips(
+  selection: SearchAdvancedSelection,
+  approvedRefinerKeys: SearchRefinerKeySet,
+): Array<{ label: string; value: string }> {
   const chips: Array<{ label: string; value: string }> = [];
   if (selection.target && selection.target !== 'all') {
     chips.push({ label: '범위', value: targetLabels[selection.target] });
@@ -597,33 +702,74 @@ function activeSearchChips(selection: SearchAdvancedSelection): Array<{ label: s
   if (selection.groupBy && selection.groupBy !== 'none') {
     chips.push({ label: '그룹', value: groupLabels[selection.groupBy] });
   }
-  if (selection.documentType) {
+  if (
+    selection.documentType &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.documentType)
+  ) {
     chips.push({ label: '유형', value: documentTypeLabels[selection.documentType] });
   }
-  if (selection.confidentialityLevel) {
+  if (
+    selection.confidentialityLevel &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.confidentialityLevel)
+  ) {
     chips.push({ label: '기밀도', value: confidentialityLabels[selection.confidentialityLevel] });
   }
-  if (selection.privilegeStatus) {
+  if (
+    selection.privilegeStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.privilegeStatus)
+  ) {
     chips.push({ label: '특권', value: privilegeLabels[selection.privilegeStatus] });
   }
-  if (selection.extractionStatus) {
+  if (
+    selection.extractionStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
+  ) {
     chips.push({ label: '추출/OCR', value: extractionStatusLabels[selection.extractionStatus] });
   }
-  if (selection.legalHold) {
+  if (
+    selection.legalHold &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
+  ) {
     chips.push({ label: '보존', value: legalHoldLabels[selection.legalHold] });
   }
-  if (selection.recordsStatus) {
+  if (
+    selection.recordsStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.recordsStatus)
+  ) {
     chips.push({ label: '기록', value: recordsStatusLabels[selection.recordsStatus] });
   }
-  if (selection.versionStatus) {
+  if (
+    selection.versionStatus &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.versionStatus)
+  ) {
     chips.push({ label: '버전', value: versionStatusLabels[selection.versionStatus] });
   }
-  if (selection.dateRange) {
+  if (
+    selection.dateRange &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.dateRange)
+  ) {
     chips.push({ label: '기간', value: dateRangeLabels[selection.dateRange] });
   }
-  if (selection.title) chips.push({ label: '제목', value: selection.title });
-  if (selection.matterCode) chips.push({ label: 'Matter Code', value: selection.matterCode });
-  if (selection.matterName) chips.push({ label: 'Matter', value: selection.matterName });
-  if (selection.clientName) chips.push({ label: '고객', value: selection.clientName });
+  if (selection.title && hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.title)) {
+    chips.push({ label: '제목', value: selection.title });
+  }
+  if (
+    selection.matterCode &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
+  ) {
+    chips.push({ label: 'Matter Code', value: selection.matterCode });
+  }
+  if (
+    selection.matterName &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterName)
+  ) {
+    chips.push({ label: 'Matter', value: selection.matterName });
+  }
+  if (
+    selection.clientName &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.clientName)
+  ) {
+    chips.push({ label: '고객', value: selection.clientName });
+  }
   return chips.length > 0 ? chips : [{ label: '조건', value: '기본 검색' }];
 }

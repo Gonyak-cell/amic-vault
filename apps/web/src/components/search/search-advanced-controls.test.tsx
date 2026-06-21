@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { enterpriseDmsSearchRefinerFieldKeys } from '@amic-vault/shared';
 import { SearchAdvancedControls } from './search-advanced-controls';
 
 vi.mock('@/components/ui/button', () => ({
@@ -19,8 +20,10 @@ vi.mock('@/components/ui/input', () => ({
 
 describe('SearchAdvancedControls', () => {
   it('renders enterprise search controls without raw id prompts', () => {
+    const allRefinerKeys = new Set(enterpriseDmsSearchRefinerFieldKeys);
     const html = renderToStaticMarkup(
       <SearchAdvancedControls
+        approvedRefinerKeys={allRefinerKeys}
         busy={false}
         selection={{
           clientName: 'AMIC',

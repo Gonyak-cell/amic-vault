@@ -74,7 +74,10 @@ export class EnterpriseController {
 
   @Post('sso-providers/:providerId/activate')
   activateSsoProvider(@Req() request: RequestWithSession, @Param('providerId') providerId: string) {
-    return this.enterprise.activateSsoProvider(permissionContext(request), parseUuidParam(providerId));
+    return this.enterprise.activateSsoProvider(
+      permissionContext(request),
+      parseUuidParam(providerId),
+    );
   }
 
   @Get('sso/metadata')
@@ -204,7 +207,10 @@ export class EnterpriseController {
   }
 
   @Post('dms/matter-templates/:templateId/disable')
-  disableDmsMatterTemplate(@Req() request: RequestWithSession, @Param('templateId') templateId: string) {
+  disableDmsMatterTemplate(
+    @Req() request: RequestWithSession,
+    @Param('templateId') templateId: string,
+  ) {
     return this.enterprise.disableDmsMatterTemplate(
       permissionContext(request),
       parseUuidParam(templateId),
@@ -240,8 +246,16 @@ export class EnterpriseController {
     return this.enterprise.listDmsSearchRefiners(permissionContext(request));
   }
 
+  @Get('dms/search-refiners/approved')
+  listApprovedDmsSearchRefiners(@Req() request: RequestWithSession) {
+    return this.enterprise.listApprovedDmsSearchRefiners(permissionContext(request));
+  }
+
   @Post('dms/search-refiners/:refinerId/disable')
-  disableDmsSearchRefiner(@Req() request: RequestWithSession, @Param('refinerId') refinerId: string) {
+  disableDmsSearchRefiner(
+    @Req() request: RequestWithSession,
+    @Param('refinerId') refinerId: string,
+  ) {
     return this.enterprise.disableDmsSearchRefiner(
       permissionContext(request),
       parseUuidParam(refinerId),
