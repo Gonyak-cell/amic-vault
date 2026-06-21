@@ -1,3 +1,4 @@
+use crate::origin_guard::reject_disallowed_remote_origin;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::Deserialize;
@@ -31,11 +32,15 @@ impl OriginConfig {
     }
 
     pub fn vault_url(&self) -> Result<Url, String> {
-        let mut url = self.validate_origin()?;
+        let mut url = self.approved_origin()?;
         url.set_path("/dashboard");
         url.set_query(Some("source=tauri"));
         url.set_fragment(None);
         Ok(url)
+    }
+
+    pub fn approved_origin(&self) -> Result<Url, String> {
+        self.validate_origin()
     }
 
     pub fn verify_signature(&self) -> Result<(), String> {
@@ -96,12 +101,14 @@ impl OriginConfig {
                     return Err("staging originRef must start with STAGE-".to_string());
                 }
                 require_https(&url, "staging")?;
+                reject_disallowed_remote_origin(&url, "staging")?;
             }
             "production" => {
                 if !self.origin_ref.starts_with("PROD-") {
                     return Err("production originRef must start with PROD-".to_string());
                 }
                 require_https(&url, "production")?;
+                reject_disallowed_remote_origin(&url, "production")?;
             }
             _ => return Err("releaseChannel must be local, staging, or production".to_string()),
         }
@@ -154,13 +161,29 @@ mod tests {
 
     fn signed_local_config() -> OriginConfig {
         OriginConfig {
-      schema_version: 1,
-      release_channel: "local".to_string(),
-      origin_ref: "LOCAL-DEV".to_string(),
-      origin: "http://localhost:3000".to_string(),
-      signature: "mimOyA6lbi+9Gsh9rvcNLy+I9+s3KtoqH0VnvbzHAYHIiPnB03cDVZI2G1hT6BulcKuxydGhVYkmCL0nIK7mDQ=="
-        .to_string(),
+            schema_version: 1,
+            release_channel: "local".to_string(),
+            origin_ref: "LOCAL-DEV".to_string(),
+            origin: "http://localhost:3000".to_string(),
+            signature: "mimOyA6lbi+9Gsh9rvcNLy+I9+s3KtoqH0VnvbzHAYHIiPnB03cDVZI2G1hT6BulcKuxydGhVYkmCL0nIK7mDQ=="
+                .to_string(),
+        }
     }
+
+    fn local_config_with(origin: &str) -> OriginConfig {
+        OriginConfig {
+            origin: origin.to_string(),
+            ..signed_local_config()
+        }
+    }
+
+    fn staging_config_with(origin: &str) -> OriginConfig {
+        OriginConfig {
+            release_channel: "staging".to_string(),
+            origin_ref: "STAGE-TEMP-TARGET-AWS-001".to_string(),
+            origin: origin.to_string(),
+            ..signed_local_config()
+        }
     }
 
     #[test]
@@ -182,12 +205,31 @@ mod tests {
 
     #[test]
     fn rejects_http_staging_origin() {
-        let config = OriginConfig {
-            release_channel: "staging".to_string(),
-            origin_ref: "STAGE-TEMP-TARGET-AWS-001".to_string(),
-            origin: "http://example.invalid".to_string(),
-            ..signed_local_config()
-        };
+        let config = staging_config_with("http://example.invalid");
+        assert!(config.validate_origin().is_err());
+    }
+
+    #[test]
+    fn rejects_non_local_http_origin_for_local_channel() {
+        let config = local_config_with("http://192.168.1.10:3000");
+        assert!(config.validate_origin().is_err());
+    }
+
+    #[test]
+    fn rejects_unknown_scheme() {
+        let config = local_config_with("file:///tmp/amic-vault");
+        assert!(config.validate_origin().is_err());
+    }
+
+    #[test]
+    fn rejects_private_remote_origin() {
+        let config = staging_config_with("https://10.0.0.8");
+        assert!(config.validate_origin().is_err());
+    }
+
+    #[test]
+    fn rejects_external_idp_as_vault_origin() {
+        let config = staging_config_with("https://login.microsoftonline.com");
         assert!(config.validate_origin().is_err());
     }
 }
