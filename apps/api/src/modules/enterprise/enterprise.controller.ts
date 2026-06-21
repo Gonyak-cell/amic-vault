@@ -6,11 +6,15 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import {
+  applyEnterpriseDmsMatterTemplateRequestSchema,
   createEnterpriseBackupSnapshotRequestSchema,
   createEnterpriseComplianceEvidenceRequestSchema,
+  matterTypeSchema,
+  upsertEnterpriseDmsMatterTemplateRequestSchema,
   upsertEnterpriseDmsSearchRefinerRequestSchema,
   upsertEnterpriseDmsTaxonomyRequestSchema,
   createEnterpriseKeyReferenceRequestSchema,
@@ -169,6 +173,57 @@ export class EnterpriseController {
     return this.enterprise.disableDmsTaxonomy(
       permissionContext(request),
       parseUuidParam(taxonomyId),
+    );
+  }
+
+  @Post('dms/matter-templates')
+  upsertDmsMatterTemplate(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() =>
+      upsertEnterpriseDmsMatterTemplateRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.upsertDmsMatterTemplate(permissionContext(request), input);
+  }
+
+  @Get('dms/matter-templates')
+  listDmsMatterTemplates(@Req() request: RequestWithSession) {
+    return this.enterprise.listDmsMatterTemplates(permissionContext(request));
+  }
+
+  @Get('dms/matter-templates/approved')
+  listApprovedDmsMatterTemplates(
+    @Req() request: RequestWithSession,
+    @Query('matterType') matterType?: string,
+  ) {
+    const parsedMatterType = matterType
+      ? parseOrValidation(() => matterTypeSchema.parse(matterType))
+      : undefined;
+    return this.enterprise.listApprovedDmsMatterTemplates(
+      permissionContext(request),
+      parsedMatterType,
+    );
+  }
+
+  @Post('dms/matter-templates/:templateId/disable')
+  disableDmsMatterTemplate(@Req() request: RequestWithSession, @Param('templateId') templateId: string) {
+    return this.enterprise.disableDmsMatterTemplate(
+      permissionContext(request),
+      parseUuidParam(templateId),
+    );
+  }
+
+  @Post('dms/matter-templates/:templateId/apply')
+  applyDmsMatterTemplate(
+    @Req() request: RequestWithSession,
+    @Param('templateId') templateId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() =>
+      applyEnterpriseDmsMatterTemplateRequestSchema.parse(body ?? {}),
+    );
+    return this.enterprise.applyDmsMatterTemplate(
+      permissionContext(request),
+      parseUuidParam(templateId),
+      input,
     );
   }
 

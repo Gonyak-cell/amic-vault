@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { matterTypeSchema } from '../matter/matter-type';
 import { userRoleSchema } from '../permission/roles';
 import { documentTypeSchema } from '../types/document';
 
@@ -107,6 +108,29 @@ export const enterpriseDmsMetadataFieldSchema = z
   })
   .strict();
 
+export const enterpriseDmsDocumentSetSchema = z
+  .object({
+    setKey: dmsFieldKeySchema,
+    displayName: safeLabelSchema,
+    documentTypeCodes: z.array(documentTypeSchema).min(1).max(9),
+    required: z.boolean().default(false),
+    sortOrder: z.coerce.number().int().min(0).max(999).default(100),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const documentTypes = new Set<string>();
+    for (const [index, documentType] of value.documentTypeCodes.entries()) {
+      if (documentTypes.has(documentType)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'duplicate document type code',
+          path: ['documentTypeCodes', index],
+        });
+      }
+      documentTypes.add(documentType);
+    }
+  });
+
 export const upsertEnterpriseDmsTaxonomyRequestSchema = z
   .object({
     documentTypeCode: dmsCodeSchema,
@@ -182,6 +206,83 @@ export const enterpriseApprovedDmsTaxonomyCatalogSchema = z
     source: z.literal('tenant_admin_taxonomy'),
     generatedAt: z.string().datetime(),
     taxonomies: z.array(enterpriseApprovedDmsTaxonomySchema).max(100),
+  })
+  .strict();
+
+export const upsertEnterpriseDmsMatterTemplateRequestSchema = z
+  .object({
+    matterType: matterTypeSchema,
+    displayName: safeLabelSchema,
+    description: safeDescriptionSchema.optional(),
+    documentSets: z.array(enterpriseDmsDocumentSetSchema).min(1).max(20),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const setKeys = new Set<string>();
+    for (const [index, documentSet] of value.documentSets.entries()) {
+      if (setKeys.has(documentSet.setKey)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'duplicate document set key',
+          path: ['documentSets', index, 'setKey'],
+        });
+      }
+      setKeys.add(documentSet.setKey);
+    }
+  });
+
+export const enterpriseDmsMatterTemplateSchema = z
+  .object({
+    templateId: uuidSchema,
+    matterType: matterTypeSchema,
+    displayName: z.string().min(1).max(200),
+    description: safeDescriptionSchema.nullable(),
+    status: enterpriseDmsConfigurationStatusSchema,
+    documentSets: z.array(enterpriseDmsDocumentSetSchema).max(20),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const enterpriseDmsMatterTemplateListResponseSchema = z
+  .object({
+    templates: z.array(enterpriseDmsMatterTemplateSchema).max(50),
+  })
+  .strict();
+
+export const enterpriseApprovedDmsMatterTemplateSchema = z
+  .object({
+    matterType: matterTypeSchema,
+    displayName: z.string().min(1).max(200),
+    description: safeDescriptionSchema.nullable(),
+    documentSets: z.array(enterpriseDmsDocumentSetSchema).max(20),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const enterpriseApprovedDmsMatterTemplateCatalogSchema = z
+  .object({
+    source: z.literal('tenant_admin_matter_template'),
+    generatedAt: z.string().datetime(),
+    templates: z.array(enterpriseApprovedDmsMatterTemplateSchema).max(50),
+  })
+  .strict();
+
+export const applyEnterpriseDmsMatterTemplateRequestSchema = z
+  .object({
+    matterId: uuidSchema,
+  })
+  .strict();
+
+export const enterpriseDmsMatterTemplateApplicationSchema = z
+  .object({
+    applicationId: uuidSchema,
+    templateId: uuidSchema,
+    matterId: uuidSchema,
+    matterType: matterTypeSchema,
+    documentSetCount: z.number().int().min(1).max(20),
+    auditEventRef: safeAuditRefSchema,
+    appliedAt: z.string().datetime(),
   })
   .strict();
 
@@ -420,11 +521,19 @@ export type EnterpriseComplianceEvidenceListResponseDto = z.infer<typeof enterpr
 export type EnterpriseReadinessSummaryDto = z.infer<typeof enterpriseReadinessSummarySchema>;
 export type EnterpriseDmsSubtypeDto = z.infer<typeof enterpriseDmsSubtypeSchema>;
 export type EnterpriseDmsMetadataFieldDto = z.infer<typeof enterpriseDmsMetadataFieldSchema>;
+export type EnterpriseDmsDocumentSetDto = z.infer<typeof enterpriseDmsDocumentSetSchema>;
 export type UpsertEnterpriseDmsTaxonomyRequestDto = z.infer<typeof upsertEnterpriseDmsTaxonomyRequestSchema>;
 export type EnterpriseDmsTaxonomyDto = z.infer<typeof enterpriseDmsTaxonomySchema>;
 export type EnterpriseDmsTaxonomyListResponseDto = z.infer<typeof enterpriseDmsTaxonomyListResponseSchema>;
 export type EnterpriseApprovedDmsTaxonomyDto = z.infer<typeof enterpriseApprovedDmsTaxonomySchema>;
 export type EnterpriseApprovedDmsTaxonomyCatalogDto = z.infer<typeof enterpriseApprovedDmsTaxonomyCatalogSchema>;
+export type UpsertEnterpriseDmsMatterTemplateRequestDto = z.infer<typeof upsertEnterpriseDmsMatterTemplateRequestSchema>;
+export type EnterpriseDmsMatterTemplateDto = z.infer<typeof enterpriseDmsMatterTemplateSchema>;
+export type EnterpriseDmsMatterTemplateListResponseDto = z.infer<typeof enterpriseDmsMatterTemplateListResponseSchema>;
+export type EnterpriseApprovedDmsMatterTemplateDto = z.infer<typeof enterpriseApprovedDmsMatterTemplateSchema>;
+export type EnterpriseApprovedDmsMatterTemplateCatalogDto = z.infer<typeof enterpriseApprovedDmsMatterTemplateCatalogSchema>;
+export type ApplyEnterpriseDmsMatterTemplateRequestDto = z.infer<typeof applyEnterpriseDmsMatterTemplateRequestSchema>;
+export type EnterpriseDmsMatterTemplateApplicationDto = z.infer<typeof enterpriseDmsMatterTemplateApplicationSchema>;
 export type UpsertEnterpriseDmsSearchRefinerRequestDto = z.infer<typeof upsertEnterpriseDmsSearchRefinerRequestSchema>;
 export type EnterpriseDmsSearchRefinerDto = z.infer<typeof enterpriseDmsSearchRefinerSchema>;
 export type EnterpriseDmsSearchRefinerListResponseDto = z.infer<typeof enterpriseDmsSearchRefinerListResponseSchema>;

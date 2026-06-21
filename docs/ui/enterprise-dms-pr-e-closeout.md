@@ -23,8 +23,8 @@ The current PR-E scope proves:
 - Taxonomy Admin UI exposes save/list/disable behavior through approved
   admin-only APIs and does not display raw content, source text, prompts, or
   model responses.
-- Matter Template Admin is visible as a read-only contract state for default
-  document sets by matter type.
+- Matter Template Admin is API-backed for Matter type document-set contracts,
+  save/list/disable/apply behavior, and reference-only audit receipts.
 - Folder Template Admin remains deferred because no approved folder inheritance
   semantics exist in this lane.
 - Search Refiner Admin is API-backed for tenant refiner field keys, source,
@@ -48,8 +48,8 @@ The current PR-E scope proves:
 | --- | --- | --- |
 | Taxonomy Admin Contract | `enterprise_dms_taxonomies`, `enterprise_dms_taxonomy_versions`, `GET/POST /enterprise/dms/taxonomies`, `GET /enterprise/dms/taxonomies/approved`, and `AdminDmsConfigurationPanel` | DMS-UX-601 |
 | Taxonomy Admin UI | `AdminDmsConfigurationPanel` taxonomy save/list/disable flow with version/audit ref display, plus approved taxonomy catalog consumption in upload/search/document profile surfaces | DMS-UX-602 |
-| Matter Template Admin | `AdminDmsConfigurationPanel` templates card | DMS-UX-603 |
-| Folder Template Admin | no folder template UI beyond read-only contract state before backend semantics | DMS-UX-604 |
+| Matter Template Admin | `enterprise_dms_matter_templates`, `enterprise_dms_matter_template_applications`, `GET/POST /enterprise/dms/matter-templates`, `GET /enterprise/dms/matter-templates/approved`, `POST /enterprise/dms/matter-templates/:templateId/disable`, `POST /enterprise/dms/matter-templates/:templateId/apply`, and `AdminDmsConfigurationPanel` matter template save/list/disable/apply support | DMS-UX-603 |
+| Folder Template Admin | no virtual folder tree UI; folder inheritance remains deferred beyond backend document-set contract semantics | DMS-UX-604 |
 | Search Refiner Admin | `enterprise_dms_search_refiners`, `GET/POST /enterprise/dms/search-refiners`, and `AdminDmsConfigurationPanel` | DMS-UX-605 |
 | Outlook Filing Unification | `apps/web/src/app/(app)/integrations/outlook/page.tsx` Vault filing path section | DMS-UX-606 |
 | Office/OneDrive Integration Plan | `apps/web/src/app/(app)/integrations/page.tsx` OneDrive and Office gated cards | DMS-UX-607 |
@@ -62,8 +62,9 @@ The current PR-E scope proves:
 - No fake/mock/sample/demo connected states are shown for integrations.
 - No OneDrive connected, Office open/save, coauthoring, lock, or sync success is
   claimed before approved backend contracts.
-- No editable Matter template or folder template save action is exposed before
-  folder/document-set semantics and audit APIs are approved.
+- Matter template save/list/disable/apply actions require
+  `enterprise_dms_matter_templates` and application audit receipts; no virtual
+  folder tree or folder path UI is exposed.
 - Taxonomy and search refiner save/list/disable actions are admin-only,
   tenant-scoped, validated, and audited with reference-only metadata.
 - Search index operations show only audit-safe queue/request state after an
@@ -99,7 +100,6 @@ in this lane, but they remain explicit follow-up work:
 
 | Deferred item | Reason | Follow-up |
 | --- | --- | --- |
-| Persisted Matter template save/audit APIs | Template card is read-only contract state | Matter template TUW |
 | Folder template inheritance semantics | Folder model is not approved in this lane | Folder model ADR/TUW |
 | OneDrive open/save/sync runtime | Integration card remains gated | Office/OneDrive TUW |
 | Office coauthoring, check-out/check-in, lock, rollback | Deferred by document editing and Office flow ADR | Office editing TUW |
@@ -108,7 +108,7 @@ in this lane, but they remain explicit follow-up work:
 ## Closeout Decision
 
 PR-E may close when the route evidence above is present, smoke/checklist guards
-are green, and the PR body states that deferred admin/integration items are not
-claimed as complete. PR-F may then continue with authenticated smoke,
+are green, and the PR body states that deferred integration/folder-inheritance
+items are not claimed as complete. PR-F may then continue with authenticated smoke,
 negative-auth smoke, no-fake-data/internal-ref/AI-scope sweeps, responsive QA,
 accessibility QA, rollout, rollback, monitor, and signoff evidence.

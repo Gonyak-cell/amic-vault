@@ -148,7 +148,8 @@ const uploadBrowseFlowFiles = [
     patterns: [
       { name: 'matter filing context card', pattern: /파일링 기준/ },
       { name: 'metadata filing model', pattern: /Matter 메타데이터 기준/ },
-      { name: 'no pseudo folder model', pattern: /폴더 모델[\s\S]*미적용/ },
+      { name: 'approved Matter template catalog client', pattern: /listApprovedEnterpriseDmsMatterTemplates/ },
+      { name: 'backend-backed document set contract', pattern: /문서 세트 계약/ },
       { name: 'matter-scoped browse copy', pattern: /Matter 범위 목록/ },
       { name: 'Matter Code upload copy', pattern: /Matter Code 확인 후 업로드/ },
     ],
@@ -835,7 +836,9 @@ const adminIntegrationsFiles = [
       { name: 'search health safe aggregate copy', pattern: /인덱스, 추출\/OCR, 검색 감사 집계/ },
       { name: 'tenant reindex API client', pattern: /requestTenantSearchReindex/ },
       { name: 'reindex audit-only status copy', pattern: /감사 기록과 큐 등록 수/ },
-      { name: 'template gate copy', pattern: /폴더\/문서 세트 모델 승인 전 읽기 전용/ },
+      { name: 'template contract guard copy', pattern: /승인된 문서 세트 계약만 Matter 화면에 표시/ },
+      { name: 'DMS Matter template save action', pattern: /templateSave/ },
+      { name: 'DMS Matter template API client', pattern: /upsertEnterpriseDmsMatterTemplate/ },
     ],
   },
   {
@@ -843,14 +846,27 @@ const adminIntegrationsFiles = [
     patterns: [
       { name: 'approved DMS taxonomy endpoint', pattern: /@Get\('dms\/taxonomies\/approved'\)/ },
       { name: 'DMS taxonomy admin endpoint', pattern: /@Post\('dms\/taxonomies'\)/ },
+      { name: 'approved DMS Matter template endpoint', pattern: /@Get\('dms\/matter-templates\/approved'\)/ },
+      { name: 'DMS Matter template admin endpoint', pattern: /@Post\('dms\/matter-templates'\)/ },
     ],
   },
   {
     path: 'apps/api/src/modules/enterprise/enterprise.service.ts',
     patterns: [
       { name: 'approved DMS taxonomy catalog schema', pattern: /enterpriseApprovedDmsTaxonomyCatalogSchema/ },
+      { name: 'approved DMS Matter template catalog schema', pattern: /enterpriseApprovedDmsMatterTemplateCatalogSchema/ },
       { name: 'taxonomy version snapshot write', pattern: /enterprise_dms_taxonomy_versions/ },
+      { name: 'Matter template application write', pattern: /enterprise_dms_matter_template_applications/ },
       { name: 'safe audit event reference', pattern: /auditRef/ },
+    ],
+  },
+  {
+    path: 'db/migrations/0088_create_enterprise_dms_matter_templates.sql',
+    patterns: [
+      { name: 'DMS Matter template table', pattern: /CREATE TABLE enterprise_dms_matter_templates/ },
+      { name: 'DMS Matter template application receipt table', pattern: /CREATE TABLE enterprise_dms_matter_template_applications/ },
+      { name: 'DMS Matter template RLS', pattern: /FORCE ROW LEVEL SECURITY/ },
+      { name: 'no virtual folder contract', pattern: /not a virtual folder tree/i },
     ],
   },
   {
@@ -1002,17 +1018,17 @@ const prECloseoutPatterns = [
   {
     name: 'PR-E route evidence matrix',
     pattern:
-      /Route Evidence[\s\S]*enterprise_dms_taxonomies[\s\S]*enterprise_dms_taxonomy_versions[\s\S]*taxonomy save\/list\/disable[\s\S]*approved taxonomy catalog[\s\S]*enterprise_dms_search_refiners[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
+      /Route Evidence[\s\S]*enterprise_dms_taxonomies[\s\S]*enterprise_dms_taxonomy_versions[\s\S]*taxonomy save\/list\/disable[\s\S]*approved taxonomy catalog[\s\S]*enterprise_dms_matter_templates[\s\S]*matter template save\/list\/disable\/apply[\s\S]*enterprise_dms_search_refiners[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
   },
   {
     name: 'PR-E integration safety invariants',
     pattern:
-      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*No editable Matter template or folder template save action[\s\S]*Taxonomy and search refiner save\/list\/disable actions[\s\S]*AI Prep remains file organization prep/i,
+      /No fake\/mock\/sample\/demo connected states[\s\S]*No OneDrive connected[\s\S]*Office open\/save[\s\S]*Matter template save\/list\/disable\/apply actions require[\s\S]*enterprise_dms_matter_templates[\s\S]*Taxonomy and search refiner save\/list\/disable actions[\s\S]*AI Prep remains file organization prep/i,
   },
   {
     name: 'PR-E deferred item register',
     pattern:
-      /Remaining Deferred Items[\s\S]*Persisted Matter template save\/audit APIs[\s\S]*Folder template inheritance semantics[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
+      /Remaining Deferred Items[\s\S]*Folder template inheritance semantics[\s\S]*OneDrive open\/save\/sync runtime[\s\S]*Office coauthoring[\s\S]*Mobile\/offline\/PWA operating mode/i,
   },
 ];
 

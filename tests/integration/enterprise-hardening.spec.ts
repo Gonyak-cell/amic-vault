@@ -5,8 +5,11 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type {
   EnterpriseBackupSnapshotDto,
+  EnterpriseApprovedDmsMatterTemplateCatalogDto,
   EnterpriseApprovedDmsTaxonomyCatalogDto,
   EnterpriseComplianceEvidenceDto,
+  EnterpriseDmsMatterTemplateApplicationDto,
+  EnterpriseDmsMatterTemplateDto,
   EnterpriseDmsSearchRefinerDto,
   EnterpriseDmsTaxonomyDto,
   EnterpriseKeyReferenceDto,
@@ -205,6 +208,52 @@ describe('Enterprise Hardening integration', () => {
     expect(refiner.status).toBe('active');
     expect(refiner.refinable).toBe(true);
 
+    const template = await postJson<EnterpriseDmsMatterTemplateDto>(
+      '/v1/enterprise/dms/matter-templates',
+      {
+        matterType: 'advisory',
+        displayName: `Advisory Template ${marker}`,
+        description: 'Advisory matter document set contract',
+        documentSets: [
+          {
+            setKey: `closing_${marker}`,
+            displayName: `Closing Set ${marker}`,
+            documentTypeCodes: ['contract', 'memo'],
+            required: true,
+            sortOrder: 10,
+          },
+        ],
+      },
+    );
+    expect(template.status).toBe('active');
+    expect(template.documentSets[0]?.documentTypeCodes).toEqual(['contract', 'memo']);
+
+    const approvedTemplateCatalog =
+      await getJsonWithCookie<EnterpriseApprovedDmsMatterTemplateCatalogDto>(
+        '/v1/enterprise/dms/matter-templates/approved?matterType=advisory',
+        memberCookie,
+      );
+    expect(approvedTemplateCatalog.source).toBe('tenant_admin_matter_template');
+    expect(approvedTemplateCatalog.templates[0]?.matterType).toBe('advisory');
+    expect(JSON.stringify(approvedTemplateCatalog)).not.toContain(template.templateId);
+
+    const client = await postJson<{ clientId: string }>('/v1/clients', {
+      name: `Template Client ${marker}`,
+    });
+    const matter = await postJson<{ matterId: string }>('/v1/matters', {
+      clientId: client.clientId,
+      matterCode: `TPL-${marker}`,
+      matterName: `Template Matter ${marker}`,
+      matterType: 'advisory',
+    });
+    const application = await postJson<EnterpriseDmsMatterTemplateApplicationDto>(
+      `/v1/enterprise/dms/matter-templates/${template.templateId}/apply`,
+      { matterId: matter.matterId },
+    );
+    expect(application.matterType).toBe('advisory');
+    expect(application.documentSetCount).toBe(1);
+    expect(application.auditEventRef).toMatch(/^audit:[0-9a-f]{12}$/);
+
     const disabledTaxonomy = await postJson<EnterpriseDmsTaxonomyDto>(
       `/v1/enterprise/dms/taxonomies/${taxonomy.taxonomyId}/disable`,
       {},
@@ -218,6 +267,12 @@ describe('Enterprise Hardening integration', () => {
     );
     expect(disabledRefiner.status).toBe('disabled');
 
+    const disabledTemplate = await postJson<EnterpriseDmsMatterTemplateDto>(
+      `/v1/enterprise/dms/matter-templates/${template.templateId}/disable`,
+      {},
+    );
+    expect(disabledTemplate.status).toBe('disabled');
+
     const taxonomies = await getJson<{ taxonomies: EnterpriseDmsTaxonomyDto[] }>(
       '/v1/enterprise/dms/taxonomies',
     );
@@ -230,16 +285,26 @@ describe('Enterprise Hardening integration', () => {
     );
     expect(refiners.refiners.some((item) => item.refinerId === refiner.refinerId)).toBe(true);
 
+    const templates = await getJson<{ templates: EnterpriseDmsMatterTemplateDto[] }>(
+      '/v1/enterprise/dms/matter-templates',
+    );
+    expect(templates.templates.some((item) => item.templateId === template.templateId)).toBe(true);
+
     const audits = await enterpriseDmsConfigurationAudits();
     const auditText = JSON.stringify(audits.map((row) => row.metadata_json));
     expect(auditText).toContain(taxonomy.taxonomyId);
     expect(auditText).toContain(refiner.refinerId);
+    expect(auditText).toContain(template.templateId);
+    expect(auditText).toContain(matter.matterId);
     expect(auditText).toContain(`CONTRACT_${marker.toUpperCase()}`);
     expect(auditText).toContain(`counterparty_${marker}`);
+    expect(auditText).toContain('document_set_count');
     expect(auditText).toContain('version_no');
     expect(auditText).not.toContain('Commercial agreement filing profile');
     expect(auditText).not.toContain(`Contract ${marker}`);
     expect(auditText).not.toContain(`Counterparty ${marker}`);
+    expect(auditText).not.toContain(`Advisory Template ${marker}`);
+    expect(auditText).not.toContain(`Closing Set ${marker}`);
 
     const taxonomyVersions = await dmsTaxonomyVersions(taxonomy.taxonomyId);
     expect(taxonomyVersions.map((row) => row.version_no)).toEqual([1, 2, 3]);
@@ -282,6 +347,21 @@ describe('Enterprise Hardening integration', () => {
     const taxonomyText = await taxonomyResponse.text();
     expect(taxonomyResponse.status, taxonomyText).toBe(403);
     expect(taxonomyText).not.toContain(`BLOCKED_${marker.toUpperCase()}`);
+
+    const templateResponse = await fetch(`${baseUrl}/v1/enterprise/dms/matter-templates`, {
+      method: 'POST',
+      headers: { cookie: memberCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        matterType: 'advisory',
+        displayName: 'Blocked Template',
+        documentSets: [
+          { setKey: 'blocked_set', displayName: 'Blocked Set', documentTypeCodes: ['contract'] },
+        ],
+      }),
+    });
+    const templateText = await templateResponse.text();
+    expect(templateResponse.status, templateText).toBe(403);
+    expect(templateText).not.toContain('Blocked Template');
   });
 
   it('keeps R13 tables RLS-protected and free of raw secret columns', async () => {
@@ -296,6 +376,8 @@ describe('Enterprise Hardening integration', () => {
           FROM pg_class
           WHERE relname IN (
             'enterprise_dms_search_refiners',
+            'enterprise_dms_matter_template_applications',
+            'enterprise_dms_matter_templates',
             'enterprise_dms_taxonomies',
             'enterprise_dms_taxonomy_versions',
             'enterprise_sso_providers',
@@ -313,6 +395,8 @@ describe('Enterprise Hardening integration', () => {
     expect(rows).toEqual([
       { table_name: 'enterprise_backup_snapshots', rls: true, force_rls: true },
       { table_name: 'enterprise_compliance_evidence', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_matter_template_applications', rls: true, force_rls: true },
+      { table_name: 'enterprise_dms_matter_templates', rls: true, force_rls: true },
       { table_name: 'enterprise_dms_search_refiners', rls: true, force_rls: true },
       { table_name: 'enterprise_dms_taxonomies', rls: true, force_rls: true },
       { table_name: 'enterprise_dms_taxonomy_versions', rls: true, force_rls: true },

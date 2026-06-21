@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   createEnterpriseKeyReferenceRequestSchema,
   createEnterpriseSsoProviderRequestSchema,
+  enterpriseApprovedDmsMatterTemplateCatalogSchema,
   enterpriseApprovedDmsTaxonomyCatalogSchema,
+  enterpriseDmsMatterTemplateApplicationSchema,
+  enterpriseDmsMatterTemplateSchema,
   enterpriseDmsTaxonomySchema,
   enterpriseReadinessSummarySchema,
+  upsertEnterpriseDmsMatterTemplateRequestSchema,
   upsertEnterpriseDmsSearchRefinerRequestSchema,
   upsertEnterpriseDmsTaxonomyRequestSchema,
 } from './enterprise-types';
@@ -160,5 +164,89 @@ describe('enterprise types', () => {
     expect(parsed.searchable).toBe(true);
     expect(parsed.refinable).toBe(true);
     expect(parsed.filterable).toBe(true);
+  });
+
+  it('validates DMS Matter template contracts and approved catalogs', () => {
+    const parsed = upsertEnterpriseDmsMatterTemplateRequestSchema.parse({
+      matterType: 'advisory',
+      displayName: 'Advisory template',
+      description: 'Advisory matter document set contract',
+      documentSets: [
+        {
+          setKey: 'closing',
+          displayName: 'Closing set',
+          documentTypeCodes: ['contract', 'memo'],
+          required: true,
+          sortOrder: 10,
+        },
+      ],
+    });
+    expect(parsed.documentSets[0]?.documentTypeCodes).toEqual(['contract', 'memo']);
+
+    const template = enterpriseDmsMatterTemplateSchema.parse({
+      templateId: '11111111-1111-4111-8111-111111111111',
+      matterType: 'advisory',
+      displayName: 'Advisory template',
+      description: 'Advisory matter document set contract',
+      status: 'active',
+      documentSets: parsed.documentSets,
+      createdAt: '2026-06-20T00:00:00.000Z',
+      updatedAt: '2026-06-20T01:00:00.000Z',
+    });
+
+    const catalog = enterpriseApprovedDmsMatterTemplateCatalogSchema.parse({
+      source: 'tenant_admin_matter_template',
+      generatedAt: '2026-06-20T01:00:00.000Z',
+      templates: [
+        {
+          matterType: template.matterType,
+          displayName: template.displayName,
+          description: template.description,
+          documentSets: template.documentSets,
+          updatedAt: template.updatedAt,
+        },
+      ],
+    });
+    expect(catalog.templates[0]?.matterType).toBe('advisory');
+    expect(JSON.stringify(catalog)).not.toContain(template.templateId);
+
+    const application = enterpriseDmsMatterTemplateApplicationSchema.parse({
+      applicationId: '22222222-2222-4222-8222-222222222222',
+      templateId: template.templateId,
+      matterId: '33333333-3333-4333-8333-333333333333',
+      matterType: 'advisory',
+      documentSetCount: 1,
+      auditEventRef: 'audit:abcdef123456',
+      appliedAt: '2026-06-20T01:10:00.000Z',
+    });
+    expect(application.auditEventRef).toBe('audit:abcdef123456');
+  });
+
+  it('rejects duplicate DMS Matter template set keys and pseudo-folder fields', () => {
+    expect(() =>
+      upsertEnterpriseDmsMatterTemplateRequestSchema.parse({
+        matterType: 'advisory',
+        displayName: 'Advisory template',
+        documentSets: [
+          { setKey: 'closing', displayName: 'Closing set', documentTypeCodes: ['contract'] },
+          { setKey: 'closing', displayName: 'Other set', documentTypeCodes: ['memo'] },
+        ],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      upsertEnterpriseDmsMatterTemplateRequestSchema.parse({
+        matterType: 'advisory',
+        displayName: 'Advisory template',
+        documentSets: [
+          {
+            setKey: 'closing',
+            displayName: 'Closing set',
+            documentTypeCodes: ['contract'],
+            folderPath: '/Closing',
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });

@@ -14,22 +14,29 @@ import {
   ShieldCheck,
   UploadCloud,
 } from 'lucide-react';
-import type {
-  EnterpriseBackupSnapshotListResponseDto,
-  EnterpriseComplianceEvidenceListResponseDto,
-  EnterpriseDmsSearchRefinerDto,
-  EnterpriseDmsSearchRefinerListResponseDto,
-  EnterpriseDmsTaxonomyDto,
-  EnterpriseDmsTaxonomyListResponseDto,
-  EnterpriseKeyReferenceListResponseDto,
-  EnterpriseReadinessSummaryDto,
-  EnterpriseSiemExportListResponseDto,
-  EnterpriseSsoProviderListResponseDto,
-  LocalAiOpsHealthDto,
-  LocalAiOpsMetricsDto,
-  SearchAdminHealthDto,
-  UpsertEnterpriseDmsSearchRefinerRequestDto,
-  UpsertEnterpriseDmsTaxonomyRequestDto,
+import {
+  documentTypes,
+  matterTypes,
+  type DocumentType,
+  type EnterpriseBackupSnapshotListResponseDto,
+  type EnterpriseComplianceEvidenceListResponseDto,
+  type EnterpriseDmsMatterTemplateDto,
+  type EnterpriseDmsMatterTemplateListResponseDto,
+  type EnterpriseDmsSearchRefinerDto,
+  type EnterpriseDmsSearchRefinerListResponseDto,
+  type EnterpriseDmsTaxonomyDto,
+  type EnterpriseDmsTaxonomyListResponseDto,
+  type EnterpriseKeyReferenceListResponseDto,
+  type EnterpriseReadinessSummaryDto,
+  type EnterpriseSiemExportListResponseDto,
+  type EnterpriseSsoProviderListResponseDto,
+  type LocalAiOpsHealthDto,
+  type LocalAiOpsMetricsDto,
+  type MatterType,
+  type SearchAdminHealthDto,
+  type UpsertEnterpriseDmsMatterTemplateRequestDto,
+  type UpsertEnterpriseDmsSearchRefinerRequestDto,
+  type UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,8 +55,10 @@ import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { getLocalAiOpsHealth, getLocalAiOpsMetrics } from '@/lib/api/ai-ops';
 import {
   getEnterpriseReadiness,
+  disableEnterpriseDmsMatterTemplate,
   disableEnterpriseDmsSearchRefiner,
   disableEnterpriseDmsTaxonomy,
+  listEnterpriseDmsMatterTemplates,
   listEnterpriseDmsSearchRefiners,
   listEnterpriseDmsTaxonomies,
   listEnterpriseBackupSnapshots,
@@ -57,6 +66,7 @@ import {
   listEnterpriseKeyReferences,
   listEnterpriseSiemExports,
   listEnterpriseSsoProviders,
+  upsertEnterpriseDmsMatterTemplate,
   upsertEnterpriseDmsSearchRefiner,
   upsertEnterpriseDmsTaxonomy,
 } from '@/lib/api/enterprise';
@@ -99,11 +109,15 @@ const enterpriseCopy: Record<
     refiners: string;
     refinersMeta: string;
     taxonomySave: string;
+    templateSave: string;
     refinerSave: string;
+    matterType: string;
     disable: string;
     documentTypeCode: string;
+    documentTypeCodes: string;
     displayName: string;
     descriptionLabel: string;
+    documentSets: string;
     subtypeCodes: string;
     metadataFields: string;
     fieldKey: string;
@@ -206,15 +220,19 @@ const enterpriseCopy: Record<
     taxonomy: '문서 taxonomy',
     taxonomyMeta: '문서 유형, 세부 유형, 필수 메타데이터',
     templates: 'Matter 템플릿',
-    templatesMeta: '업무 유형별 기본 문서 세트',
+    templatesMeta: 'Matter 유형별 승인된 문서 세트 계약',
     refiners: '검색 refiner',
     refinersMeta: '검색 가능한 메타데이터 필드',
     taxonomySave: 'Taxonomy 저장',
+    templateSave: '템플릿 저장',
     refinerSave: 'Refiner 저장',
+    matterType: 'Matter 유형',
     disable: '비활성화',
     documentTypeCode: '문서 유형 코드',
+    documentTypeCodes: '문서 유형 코드',
     displayName: '표시 이름',
     descriptionLabel: '설명',
+    documentSets: '문서 세트 키',
     subtypeCodes: '세부 유형 코드',
     metadataFields: '필수 메타데이터 필드',
     fieldKey: '필드 키',
@@ -223,7 +241,7 @@ const enterpriseCopy: Record<
     sortOrder: '정렬',
     configurationSaved: '구성 저장됨',
     activeConfiguration: '활성 구성',
-    templateGate: '폴더/문서 세트 모델 승인 전 읽기 전용',
+    templateGate: '승인된 문서 세트 계약만 Matter 화면에 표시',
     searchOps: '검색 인덱스 운영',
     searchOpsMeta: '재색인 요청 및 감사 기록',
     searchHealth: '검색 헬스',
@@ -316,15 +334,19 @@ const enterpriseCopy: Record<
     taxonomy: 'Document taxonomy',
     taxonomyMeta: 'Document types, subtypes, and required metadata',
     templates: 'Matter templates',
-    templatesMeta: 'Default document sets by matter type',
+    templatesMeta: 'Approved document-set contracts by Matter type',
     refiners: 'Search refiners',
     refinersMeta: 'Queryable metadata fields',
     taxonomySave: 'Save taxonomy',
+    templateSave: 'Save template',
     refinerSave: 'Save refiner',
+    matterType: 'Matter type',
     disable: 'Disable',
     documentTypeCode: 'Document type code',
+    documentTypeCodes: 'Document type codes',
     displayName: 'Display name',
     descriptionLabel: 'Description',
+    documentSets: 'Document set keys',
     subtypeCodes: 'Subtype codes',
     metadataFields: 'Required metadata fields',
     fieldKey: 'Field key',
@@ -333,7 +355,7 @@ const enterpriseCopy: Record<
     sortOrder: 'Sort',
     configurationSaved: 'Configuration saved',
     activeConfiguration: 'Active configuration',
-    templateGate: 'Read-only until folder/document-set model approval',
+    templateGate: 'Only approved document-set contracts appear on Matter screens',
     searchOps: 'Search index operations',
     searchOpsMeta: 'Reindex request and audit trail',
     searchHealth: 'Search health',
@@ -416,6 +438,9 @@ export function EnterpriseHardeningClient() {
     null,
   );
   const [taxonomies, setTaxonomies] = useState<EnterpriseDmsTaxonomyListResponseDto | null>(null);
+  const [templates, setTemplates] = useState<EnterpriseDmsMatterTemplateListResponseDto | null>(
+    null,
+  );
   const [refiners, setRefiners] = useState<EnterpriseDmsSearchRefinerListResponseDto | null>(null);
   const [readiness, setReadiness] = useState<EnterpriseReadinessSummaryDto | null>(null);
   const [aiOpsHealth, setAiOpsHealth] = useState<LocalAiOpsHealthDto | null>(null);
@@ -451,6 +476,7 @@ export function EnterpriseHardeningClient() {
       nextSnapshots,
       nextEvidence,
       nextTaxonomies,
+      nextTemplates,
       nextRefiners,
       nextReadiness,
       nextAiOpsHealth,
@@ -463,6 +489,7 @@ export function EnterpriseHardeningClient() {
         run(() => listEnterpriseBackupSnapshots()),
         run(() => listEnterpriseComplianceEvidence()),
         run(() => listEnterpriseDmsTaxonomies()),
+        run(() => listEnterpriseDmsMatterTemplates()),
         run(() => listEnterpriseDmsSearchRefiners()),
         run(() => getEnterpriseReadiness()),
         run(() => getLocalAiOpsHealth()),
@@ -475,6 +502,7 @@ export function EnterpriseHardeningClient() {
     if (nextSnapshots) setSnapshots(nextSnapshots);
     if (nextEvidence) setEvidence(nextEvidence);
     if (nextTaxonomies) setTaxonomies(nextTaxonomies);
+    if (nextTemplates) setTemplates(nextTemplates);
     if (nextRefiners) setRefiners(nextRefiners);
     if (nextReadiness) setReadiness(nextReadiness);
     if (nextAiOpsHealth) setAiOpsHealth(nextAiOpsHealth);
@@ -516,6 +544,36 @@ export function EnterpriseHardeningClient() {
     try {
       const saved = await disableEnterpriseDmsTaxonomy(taxonomyId);
       setTaxonomies((current) => mergeTaxonomy(current, saved));
+      setDmsConfigStatus(copy.configurationSaved);
+    } catch (caught) {
+      setDmsConfigError(safeApiErrorMessage(caught));
+    } finally {
+      setDmsConfigBusy(false);
+    }
+  }
+
+  async function saveTemplate(input: UpsertEnterpriseDmsMatterTemplateRequestDto) {
+    setDmsConfigBusy(true);
+    setDmsConfigError(null);
+    setDmsConfigStatus(null);
+    try {
+      const saved = await upsertEnterpriseDmsMatterTemplate(input);
+      setTemplates((current) => mergeTemplate(current, saved));
+      setDmsConfigStatus(copy.configurationSaved);
+    } catch (caught) {
+      setDmsConfigError(safeApiErrorMessage(caught));
+    } finally {
+      setDmsConfigBusy(false);
+    }
+  }
+
+  async function disableTemplate(templateId: string) {
+    setDmsConfigBusy(true);
+    setDmsConfigError(null);
+    setDmsConfigStatus(null);
+    try {
+      const saved = await disableEnterpriseDmsMatterTemplate(templateId);
+      setTemplates((current) => mergeTemplate(current, saved));
       setDmsConfigStatus(copy.configurationSaved);
     } catch (caught) {
       setDmsConfigError(safeApiErrorMessage(caught));
@@ -573,11 +631,14 @@ export function EnterpriseHardeningClient() {
         copy={copy}
         error={dmsConfigError}
         onDisableRefiner={(refinerId) => void disableRefiner(refinerId)}
+        onDisableTemplate={(templateId) => void disableTemplate(templateId)}
         onDisableTaxonomy={(taxonomyId) => void disableTaxonomy(taxonomyId)}
         onSaveRefiner={(input) => void saveRefiner(input)}
+        onSaveTemplate={(input) => void saveTemplate(input)}
         onSaveTaxonomy={(input) => void saveTaxonomy(input)}
         refiners={refiners}
         status={dmsConfigStatus}
+        templates={templates}
         taxonomies={taxonomies}
       />
       <AdminSearchOperationsPanel
@@ -896,22 +957,28 @@ function AdminDmsConfigurationPanel({
   copy,
   error,
   onDisableRefiner,
+  onDisableTemplate,
   onDisableTaxonomy,
   onSaveRefiner,
+  onSaveTemplate,
   onSaveTaxonomy,
   refiners,
   status,
+  templates,
   taxonomies,
 }: {
   busy: boolean;
   copy: (typeof enterpriseCopy)[Language];
   error: string | null;
   onDisableRefiner: (refinerId: string) => void;
+  onDisableTemplate: (templateId: string) => void;
   onDisableTaxonomy: (taxonomyId: string) => void;
   onSaveRefiner: (input: UpsertEnterpriseDmsSearchRefinerRequestDto) => void;
+  onSaveTemplate: (input: UpsertEnterpriseDmsMatterTemplateRequestDto) => void;
   onSaveTaxonomy: (input: UpsertEnterpriseDmsTaxonomyRequestDto) => void;
   refiners: EnterpriseDmsSearchRefinerListResponseDto | null;
   status: string | null;
+  templates: EnterpriseDmsMatterTemplateListResponseDto | null;
   taxonomies: EnterpriseDmsTaxonomyListResponseDto | null;
 }) {
   const [taxonomyTypeCode, setTaxonomyTypeCode] = useState('');
@@ -919,6 +986,11 @@ function AdminDmsConfigurationPanel({
   const [taxonomyDescription, setTaxonomyDescription] = useState('');
   const [taxonomySubtypeCodes, setTaxonomySubtypeCodes] = useState('');
   const [taxonomyMetadataFields, setTaxonomyMetadataFields] = useState('');
+  const [templateMatterType, setTemplateMatterType] = useState<MatterType>('advisory');
+  const [templateDisplayName, setTemplateDisplayName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [templateDocumentSets, setTemplateDocumentSets] = useState('');
+  const [templateDocumentTypes, setTemplateDocumentTypes] = useState('contract');
   const [refinerFieldKey, setRefinerFieldKey] = useState('');
   const [refinerDisplayName, setRefinerDisplayName] = useState('');
   const [refinerFieldType, setRefinerFieldType] =
@@ -945,6 +1017,23 @@ function AdminDmsConfigurationPanel({
         required: true,
         searchable: true,
         refinable: true,
+      })),
+    });
+  }
+
+  function submitTemplate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const documentTypeCodes = parseDocumentTypeCodes(templateDocumentTypes);
+    onSaveTemplate({
+      matterType: templateMatterType,
+      displayName: templateDisplayName,
+      description: templateDescription.trim() || undefined,
+      documentSets: splitInput(templateDocumentSets).map((setKey, index) => ({
+        setKey: setKey.toLowerCase(),
+        displayName: labelFromKey(setKey),
+        documentTypeCodes,
+        required: index === 0,
+        sortOrder: (index + 1) * 10,
       })),
     });
   }
@@ -1045,10 +1134,66 @@ function AdminDmsConfigurationPanel({
               <FolderKanban className="h-4 w-4" />
               <span className="truncate text-sm font-semibold text-foreground">{copy.templates}</span>
             </div>
-            <StatusBadge tone="warning">{copy.contractRequired}</StatusBadge>
+            <StatusBadge>{copy.activeConfiguration}</StatusBadge>
           </div>
           <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.templatesMeta}</p>
           <p className="mt-3 text-[12px] font-medium text-muted-foreground">{copy.templateGate}</p>
+          <form className="mt-3 grid gap-2" onSubmit={submitTemplate}>
+            <select
+              aria-label={copy.matterType}
+              className="h-10 rounded-md border bg-background px-3 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={templateMatterType}
+              onChange={(event) => setTemplateMatterType(event.target.value as MatterType)}
+              disabled={busy}
+            >
+              {matterTypes.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <Input
+              aria-label={copy.displayName}
+              placeholder={copy.displayName}
+              value={templateDisplayName}
+              onChange={(event) => setTemplateDisplayName(event.target.value)}
+              disabled={busy}
+              required
+            />
+            <Input
+              aria-label={copy.descriptionLabel}
+              placeholder={copy.descriptionLabel}
+              value={templateDescription}
+              onChange={(event) => setTemplateDescription(event.target.value)}
+              disabled={busy}
+            />
+            <Input
+              aria-label={copy.documentSets}
+              placeholder={copy.documentSets}
+              value={templateDocumentSets}
+              onChange={(event) => setTemplateDocumentSets(event.target.value)}
+              disabled={busy}
+              required
+            />
+            <Input
+              aria-label={copy.documentTypeCodes}
+              placeholder={copy.documentTypeCodes}
+              value={templateDocumentTypes}
+              onChange={(event) => setTemplateDocumentTypes(event.target.value)}
+              disabled={busy}
+              required
+            />
+            <Button type="submit" disabled={busy}>
+              <FolderKanban className="h-4 w-4" />
+              {copy.templateSave}
+            </Button>
+          </form>
+          <DmsTemplateRows
+            busy={busy}
+            copy={copy}
+            onDisable={onDisableTemplate}
+            templates={templates}
+          />
         </div>
         <div className="rounded-md border bg-background p-3">
           <div className="flex items-center justify-between gap-3">
@@ -1181,6 +1326,54 @@ function DmsTaxonomyRows({
   );
 }
 
+function DmsTemplateRows({
+  busy,
+  copy,
+  onDisable,
+  templates,
+}: {
+  busy: boolean;
+  copy: (typeof enterpriseCopy)[Language];
+  onDisable: (templateId: string) => void;
+  templates: EnterpriseDmsMatterTemplateListResponseDto | null;
+}) {
+  if (!templates) return <Unavailable copy={copy} />;
+  if (templates.templates.length === 0) {
+    return <EmptyState variant="no-data" title={copy.noRecords} className="mt-3" />;
+  }
+  return (
+    <DataTable caption={copy.templates} minWidthClassName="min-w-[520px]" className="mt-3">
+      <DataTableBody>
+        {templates.templates.map((item) => (
+          <DataTableRow key={item.templateId}>
+            <DataTableCell className="font-medium">{item.matterType}</DataTableCell>
+            <DataTableCell className="text-muted-foreground">{item.displayName}</DataTableCell>
+            <DataTableCell className="text-xs text-muted-foreground">
+              {item.documentSets.length} {copy.count}
+            </DataTableCell>
+            <DataTableCell>
+              <StatusBadge tone={item.status === 'active' ? 'success' : 'neutral'}>
+                {item.status === 'active' ? copy.active : copy.inactive}
+              </StatusBadge>
+            </DataTableCell>
+            <DataTableCell className="text-right">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || item.status === 'disabled'}
+                onClick={() => onDisable(item.templateId)}
+              >
+                {copy.disable}
+              </Button>
+            </DataTableCell>
+          </DataTableRow>
+        ))}
+      </DataTableBody>
+    </DataTable>
+  );
+}
+
 function DmsRefinerRows({
   busy,
   copy,
@@ -1239,6 +1432,19 @@ function mergeTaxonomy(
   };
 }
 
+function mergeTemplate(
+  current: EnterpriseDmsMatterTemplateListResponseDto | null,
+  saved: EnterpriseDmsMatterTemplateDto,
+): EnterpriseDmsMatterTemplateListResponseDto {
+  const existing = current?.templates ?? [];
+  const withoutSaved = existing.filter((item) => item.templateId !== saved.templateId);
+  return {
+    templates: [...withoutSaved, saved].sort((left, right) =>
+      left.matterType.localeCompare(right.matterType),
+    ),
+  };
+}
+
 function mergeRefiner(
   current: EnterpriseDmsSearchRefinerListResponseDto | null,
   saved: EnterpriseDmsSearchRefinerDto,
@@ -1259,6 +1465,13 @@ function splitInput(value: string): string[] {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 20);
+}
+
+function parseDocumentTypeCodes(value: string): DocumentType[] {
+  const requested = splitInput(value);
+  return requested.filter((item): item is DocumentType =>
+    (documentTypes as readonly string[]).includes(item),
+  );
 }
 
 function labelFromKey(value: string): string {
