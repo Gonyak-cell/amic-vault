@@ -74,6 +74,18 @@ describe('WorkQueueClient', () => {
               href: '/files?aiAllowed=true&sortBy=matter_asc',
               tone: 'neutral',
             },
+            {
+              itemKey: 'document-work-0',
+              source: 'operational_data',
+              sourceLabel: '문서 운영',
+              title: '추출 실패 확인',
+              description: 'AMIC-2026-0002 · 계약 증거 파일 · 추출 실패',
+              href: '/files?extractionStatus=failed',
+              tone: 'blocked',
+              status: 'open',
+              statusLabel: '대기',
+              dueAt: '2026-06-22T00:00:00.000Z',
+            },
           ],
         }}
       />,
@@ -81,9 +93,12 @@ describe('WorkQueueClient', () => {
 
     expect(html).toContain('권한/정책 알림 확인');
     expect(html).toContain('파일 정리 준비 상태 확인');
-    expect(html).toContain('2건 표시 · 전체 2건');
+    expect(html).toContain('추출 실패 확인');
+    expect(html).toContain('/files?extractionStatus=failed');
+    expect(html).toContain('3건 표시 · 전체 3건');
     expect(html).toContain('권한/정책');
     expect(html).toContain('파일 정리 준비');
+    expect(html).toContain('문서 운영');
     expect(html).toContain('1건');
     expect(html).not.toContain('표시할 작업이 없습니다.');
     expect(html).not.toContain('김민준');
