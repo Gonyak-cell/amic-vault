@@ -619,3 +619,9 @@ token, signing secret, or customer data is committed.
 | LC-DESKTOP-06 | Complete | `.omo/evidence/LC-DESKTOP-06/executor.md`, `.omo/evidence/LC-DESKTOP-06/manual-qa.md`, `.omo/evidence/LC-DESKTOP-06/review.md`, `.omo/evidence/LC-DESKTOP-06/gate-review.md`; desktop auth/audit/no-local-storage tests and existing desktop integration specs passed |
 | LC-DESKTOP-07 | Complete | `.omo/evidence/LC-DESKTOP-07/executor.md`, `.omo/evidence/LC-DESKTOP-07/manual-qa.md`, `.omo/evidence/LC-DESKTOP-07/review.md`, `.omo/evidence/LC-DESKTOP-07/gate-review.md`; signing, updater-disabled, release-channel, macOS/Windows distribution, and IT handoff docs added |
 | LC-DESKTOP-08 | Complete | `.omo/evidence/LC-DESKTOP-08/executor.md`, `.omo/evidence/LC-DESKTOP-08/manual-qa.md`, `.omo/evidence/LC-DESKTOP-08/review.md`, `.omo/evidence/LC-DESKTOP-08/gate-review.md`; desktop CI, release gate checker, synthetic pass/fail fixtures, evidence register, and native rollback docs added |
+
+## 13. Post-Merge RC Closeout
+
+| Closeout | Status | Evidence |
+|---|---|---|
+| LC-DESKTOP-RC-CLOSEOUT | Verification pass | `.omo/evidence/LC-DESKTOP-RC-CLOSEOUT/executor.md`, `.omo/evidence/LC-DESKTOP-RC-CLOSEOUT/manual-qa.md`, `.omo/evidence/LC-DESKTOP-RC-CLOSEOUT/review.md`, `.omo/evidence/LC-DESKTOP-RC-CLOSEOUT/gate-review.md`; records merge commit `1c7cba2`, PR #291, main desktop/CI workflow success, staging desktop/auth smoke pass=15 fail=0 skip=0, DMS synthetic smoke pass=13 fail=0 skip=0, and production native artifact hold pending digest/signature/signing/customer IT approval |
