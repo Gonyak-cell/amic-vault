@@ -120,17 +120,33 @@ it includes production URLs, provider metadata, screenshots, customer matter
 data, secrets, cookies, tokens, raw prompts, raw source/source text, or model
 responses.
 
-## 11. Decision Record
+## 11. DMS-GA-705 Signoff Gate
+
+Production release remains `HOLD` until every signoff row below has an external
+reference-only receipt. Do not paste private endpoint values, customer tenant
+identifiers, screenshots, provider-console metadata, cookies, tokens, raw
+prompts, raw source/source text, or model responses into this repository.
+
+| ID | Required signoff | Evidence ref | Owner | Result |
+|---|---|---|---|---|
+| UI-SIGNOFF-001 | Operator owner approves exact target URL/ref, release commit range, traffic scope, rollback authority, and authenticated DMS main-loop receipt | `DMS-SIGNOFF-OPERATOR-REF`; `DMS-SIGNOFF-SCOPE-REF`; `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF` | Operator owner | `HOLD` until refs attached |
+| UI-SIGNOFF-002 | Security owner approves permission-before-search, fail-closed route gating, no internal ref leakage, no secret exposure, and negative-auth non-discovery receipt | `DMS-SIGNOFF-SECURITY-REF`; negative-auth smoke ref | Security owner | `HOLD` until refs attached |
+| UI-SIGNOFF-003 | Legal-data owner approves file-organization prep scope and confirms no legal analysis, document summary, external model, raw prompt/source, source text, or model-response display | `DMS-SIGNOFF-LEGAL-DATA-REF`; `GUARD-DMS-004-AI-SCOPE-EXCLUSION` | Legal-data owner | `HOLD` until refs attached |
+| UI-SIGNOFF-004 | Customer-scope owner approves tenant class or tenant refs and confirms no customer document content is committed in repo evidence | `DMS-SIGNOFF-CUSTOMER-SCOPE-REF`; `DMS-SIGNOFF-TENANT-SCOPE-REF` | Customer-scope owner | `HOLD` until refs attached |
+| UI-SIGNOFF-005 | Rollback owner approves rollback owner name, trigger thresholds, incident communication path, and drill/incident refs for `DMS-RB-*`, `RB-DMS-*`, and `MON-DMS-*` controls | `DMS-SIGNOFF-ROLLBACK-REF`; `DMS-SIGNOFF-ROLLBACK-OWNER-REF`; rollback drill refs | Rollback owner | `HOLD` until refs attached |
+| UI-SIGNOFF-006 | Release decision names the release timestamp, decision timestamp, exact production scope, exclusions, evidence package ref, and approved tenant class without private data in repo | `DMS-SIGNOFF-TIMESTAMP-REF`; `DMS-SIGNOFF-SCOPE-REF`; `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF` | Release owner | `HOLD` until refs attached |
+
+## 12. Decision Record
 
 | Decision | Value |
 |---|---|
-| Release decision | `APPROVE` / `HOLD` / `ROLLBACK` |
-| Decision timestamp |  |
-| Approver |  |
-| Exact production scope |  |
-| Excluded scopes |  |
-| Approved tenant class or tenant refs |  |
-| Rollback owner |  |
+| Release decision | `HOLD` until `DMS-SIGNOFF-*` refs are complete; then `APPROVE` / `ROLLBACK` may be recorded in the external evidence workspace |
+| Decision timestamp | `DMS-SIGNOFF-TIMESTAMP-REF` external ref required |
+| Approver | `DMS-SIGNOFF-OPERATOR-REF`, `DMS-SIGNOFF-SECURITY-REF`, `DMS-SIGNOFF-LEGAL-DATA-REF`, `DMS-SIGNOFF-CUSTOMER-SCOPE-REF`, and `DMS-SIGNOFF-ROLLBACK-REF` external refs required |
+| Exact production scope | `DMS-SIGNOFF-SCOPE-REF` external ref required |
+| Excluded scopes | Legal analysis, document summary, external model routing, raw prompt/source/model-response storage or display, Office/OneDrive runtime, external sharing/VDR, and production PASS without external smoke/owner refs |
+| Approved tenant class or tenant refs | `DMS-SIGNOFF-TENANT-SCOPE-REF` external ref required |
+| Rollback owner | `DMS-SIGNOFF-ROLLBACK-OWNER-REF` external ref required |
 | Required follow-up PRs/issues |  |
 | Evidence register refs |  |
 | Customer-data exposure confirmed absent | `YES` / `NO` |

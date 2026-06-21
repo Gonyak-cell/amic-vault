@@ -1082,6 +1082,11 @@ const releaseHardeningPatterns = [
     pattern:
       /Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner/i,
   },
+  {
+    name: 'DMS-GA-705 signoff refs',
+    pattern:
+      /DMS-GA-705[\s\S]*DMS-SIGNOFF-OPERATOR-REF[\s\S]*DMS-SIGNOFF-SECURITY-REF[\s\S]*DMS-SIGNOFF-LEGAL-DATA-REF[\s\S]*DMS-SIGNOFF-CUSTOMER-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-REF[\s\S]*DMS-SIGNOFF-EVIDENCE-PACKAGE-REF/i,
+  },
 ];
 
 const outlookFilingEvidenceFiles = [
@@ -1407,6 +1412,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
     pattern:
       /DMS-UX-812 Release Signoff[\s\S]*Operator owner[\s\S]*Security owner[\s\S]*Legal-data owner[\s\S]*Customer-scope owner[\s\S]*Rollback owner[\s\S]*Exact production scope[\s\S]*Excluded scopes[\s\S]*Approved tenant class[\s\S]*Release timestamp[\s\S]*Evidence package ref/i,
   },
+  {
+    name: 'DMS-GA-705 signoff package evidence',
+    pattern:
+      /DMS-GA-705 Signoff Completion Gate[\s\S]*DMS-SIGNOFF-OPERATOR-REF[\s\S]*DMS-SIGNOFF-SECURITY-REF[\s\S]*DMS-SIGNOFF-LEGAL-DATA-REF[\s\S]*DMS-SIGNOFF-CUSTOMER-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-REF[\s\S]*DMS-SIGNOFF-SCOPE-REF[\s\S]*DMS-SIGNOFF-TENANT-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-OWNER-REF[\s\S]*DMS-SIGNOFF-TIMESTAMP-REF[\s\S]*DMS-SIGNOFF-EVIDENCE-PACKAGE-REF/i,
+  },
 ];
 
 const prDCloseoutPatterns = [
@@ -1485,6 +1495,11 @@ const prFReadinessPatterns = [
     name: 'PR-F hold criteria',
     pattern:
       /approved staging\/production credentials are missing[\s\S]*approved negative-role credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*free-floating[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/i,
+  },
+  {
+    name: 'PR-F DMS-GA-705 hold criteria',
+    pattern:
+      /DMS-GA-705[\s\S]*DMS-SIGNOFF-\*[\s\S]*owner[\s\S]*exact-scope[\s\S]*evidence-package ref is missing/i,
   },
 ];
 
@@ -1601,6 +1616,34 @@ const dmsExpandedGuardEvidenceFiles = [
         name: 'PR-7D execution acceptance',
         pattern:
           /Current PR-7D Acceptance[\s\S]*expanded upload[\s\S]*matter\/team[\s\S]*records[\s\S]*AI Prep[\s\S]*External authenticated main-loop/i,
+      },
+    ],
+  },
+];
+
+const dmsReleaseSignoffEvidenceFiles = [
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'DMS-GA-705 signoff checklist rows',
+        pattern:
+          /DMS-GA-705 Signoff Gate[\s\S]*UI-SIGNOFF-001[\s\S]*UI-SIGNOFF-002[\s\S]*UI-SIGNOFF-003[\s\S]*UI-SIGNOFF-004[\s\S]*UI-SIGNOFF-005[\s\S]*UI-SIGNOFF-006/i,
+      },
+      {
+        name: 'DMS-GA-705 signoff refs in decision record',
+        pattern:
+          /Release decision[\s\S]*HOLD[\s\S]*DMS-SIGNOFF-TIMESTAMP-REF[\s\S]*DMS-SIGNOFF-SCOPE-REF[\s\S]*DMS-SIGNOFF-TENANT-SCOPE-REF[\s\S]*DMS-SIGNOFF-ROLLBACK-OWNER-REF/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/execution/TUW_ENTERPRISE_DMS_GA.md',
+    patterns: [
+      {
+        name: 'PR-7E execution acceptance',
+        pattern:
+          /Current PR-7E Acceptance[\s\S]*DMS-SIGNOFF-OPERATOR-REF[\s\S]*UI-SIGNOFF-001[\s\S]*UI-SIGNOFF-006[\s\S]*production PASS/i,
       },
     ],
   },
@@ -2003,6 +2046,17 @@ function checkDmsExpandedGuardEvidence() {
   }
 }
 
+function checkDmsReleaseSignoffEvidence() {
+  for (const file of dmsReleaseSignoffEvidenceFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS-GA-705 release signoff evidence missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
@@ -2028,6 +2082,7 @@ try {
   checkPrFReadinessGuard();
   checkResponsiveAccessibilityGuard();
   checkDmsExpandedGuardEvidence();
+  checkDmsReleaseSignoffEvidence();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

@@ -137,10 +137,13 @@ Production release must remain `HOLD` when any of the following is true:
   prompt/source storage, source text display, or model-response display;
 - responsive or keyboard QA is missing because any `DMS-RA-*` route group is
   missing 1440px, 768px, 375px, keyboard, or screen-reader basics refs.
+- any DMS-GA-705 `DMS-SIGNOFF-*` owner, exact-scope, exclusion, tenant,
+  rollback-owner, timestamp, or evidence-package ref is missing, placeholder
+  only, or stored in the repository with private evidence.
 
 ## Closeout Boundary
 
 This readiness layer makes PR-F harder to overclaim. It does not by itself
 approve production release. DMS-UX-801, DMS-UX-802, final DMS-UX-806, and final
-DMS-UX-807 require external reference-only receipts before DMS-UX-812 release
-signoff can be valid.
+DMS-UX-807 and DMS-GA-705 require external reference-only receipts before
+DMS-UX-812 release signoff can be valid.
