@@ -13,6 +13,7 @@ const requiredFiles = [
   'docs/release/launch-blocker-ledger.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/release/enterprise-dms-monitor-map.md',
+  'docs/release/rollback-runbook.md',
   'docs/release/production-ui-rollout-checklist.md',
   'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md',
   'docs/release/local-ai-production-enablement-runbook.md',
@@ -187,13 +188,53 @@ assertContains(
 const dmsEvidence = contents.get('docs/release/enterprise-dms-ui-release-evidence.md');
 for (const expected of [
   'DMS-GA-305/DMS-GA-701 Release Evidence Bridge',
+  'DMS-GA-702 Release Evidence Bridge',
   'EV-DMS-UI-005B',
+  'RB-DMS-001-ROUTE-VISIBILITY',
+  'RB-DMS-002-MATTER-SOURCE-FLAGS',
+  'RB-DMS-003-WORKER-FLAGS',
+  'RB-DMS-004-DB-AUDIT-INVARIANTS',
+  'RB-DMS-005-STORAGE-INTEGRITY',
+  'RB-DMS-006-MONITOR-TRIGGERS',
+  'RB-DMS-007-OFFICE-ONEDRIVE-GATE',
   'MON-DMS-001A-UPLOAD-FAILURE-RATE',
   'MON-DMS-003B-REINDEX-QUEUE-AGE',
   'MON-DMS-003C-REINDEX-FAILURE-RATE',
   'MON-DMS-008C-OFFICE-ONEDRIVE-CLAIM-GATE',
 ]) {
   assertContains(dmsEvidence, expected, 'docs/release/enterprise-dms-ui-release-evidence.md');
+}
+const dmsRollbackRunbook = contents.get('docs/release/rollback-runbook.md');
+for (const expected of [
+  'Enterprise DMS Rollback Drill',
+  'DMS-GA-702',
+  'Rollback owner must be assigned',
+  'No Enterprise DMS rollback step may hard delete',
+  'Audit history remains append-only',
+  'DMS-RB-001',
+  'DMS-RB-002',
+  'DMS-RB-003',
+  'DMS-RB-004',
+  'DMS-RB-005',
+  'DMS-RB-006',
+  'DMS-RB-007',
+  'RB-DMS-001-ROUTE-VISIBILITY',
+  'RB-DMS-002-MATTER-SOURCE-FLAGS',
+  'RB-DMS-003-WORKER-FLAGS',
+  'RB-DMS-004-DB-AUDIT-INVARIANTS',
+  'RB-DMS-005-STORAGE-INTEGRITY',
+  'RB-DMS-006-MONITOR-TRIGGERS',
+  'RB-DMS-007-OFFICE-ONEDRIVE-GATE',
+  'MATTER_APP_SOURCE_MODE',
+  'AI_PREP_ENABLED=false',
+  'AI_PREP_QUEUE_WORKER_ENABLED=false',
+  'LOCAL_GEMMA_ENABLED=false',
+  'AI_SUMMARY_GEMMA_ENABLED=false',
+  'MON-DMS-001',
+  'MON-DMS-008',
+  'hidden_until_api_ready',
+]) {
+  assertContains(dmsRollbackRunbook, expected, 'docs/release/rollback-runbook.md');
 }
 const dmsMonitorMap = contents.get('docs/release/enterprise-dms-monitor-map.md');
 for (const expected of [
@@ -219,6 +260,19 @@ assertContains(
   'MON-DMS-001*',
   'docs/release/production-ui-rollout-checklist.md',
 );
+for (const expected of [
+  'DMS-RB-001',
+  'DMS-RB-007',
+  'RB-DMS-001*',
+  'RB-DMS-007*',
+  'HOLD` until rollback owner and drill refs attached',
+]) {
+  assertContains(
+    contents.get('docs/release/production-ui-rollout-checklist.md'),
+    expected,
+    'docs/release/production-ui-rollout-checklist.md',
+  );
+}
 assertContains(
   contents.get('docs/release/evidence-register.md'),
   'EV-LAI-PROD-002',

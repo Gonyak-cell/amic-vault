@@ -107,7 +107,7 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | UI-POST-002 | Real upload smoke | Approved file upload completes through Matter Code-scoped DMS flow and file organization prep stays in scope; use `pnpm release:dms-smoke -- --json` receipt ref | Operator |  |  |
 | UI-POST-003 | Audit trail | UI-facing upload/prep actions have bounded audit events without document body/raw AI data | Security reviewer |  |  |
 | UI-POST-004 | Error monitoring | No spike in auth, route, or UI rendering errors after deploy | Operator |  |  |
-| UI-POST-005 | Rollback readiness | Rollback command/path and owner are confirmed before widening traffic | Operator |  |  |
+| UI-POST-005 | Rollback readiness | Rollback command/path, rollback owner, `DMS-RB-001` through `DMS-RB-007`, and `RB-DMS-*` external drill refs are confirmed before widening traffic; no hard delete or audit mutation allowed | Operator | `RB-DMS-001*` through `RB-DMS-007*` external refs required | `HOLD` until rollback owner and drill refs attached |
 | UI-POST-006 | DMS production monitor | Upload, extraction/OCR, search/reindex, permission/wall, AI prep file organization, audit, storage, Matter source, Outlook, and Office/OneDrive gate signals are watched using refs from `docs/release/enterprise-dms-monitor-map.md` only | Operator | `MON-DMS-001*` through `MON-DMS-008*` external refs required | `HOLD` until external refs attached |
 
 ## 10. DMS Evidence Handoff

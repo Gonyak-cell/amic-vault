@@ -168,16 +168,30 @@ Canonical rollback controls:
 
 Rollback owner must be named before release. Rollback controls:
 
-- Route visibility policy: hide `/files`, `/documents/[id]`, `/integrations`,
-  `/integrations/outlook`, `/records`, `/audit`, `/walls`, or admin routes by
-  role/feature policy if a surface is unsafe.
-- Matter app source flags: disable production upload/browse if canonical Matter
-  source is unavailable or lookup/sync runtime readiness is not approved.
-- Worker flags: disable upload-prep enqueue/worker and AI prep worker if file
-  organization prep health fails.
-- Database migrations: use reviewed rollback path only; no hard delete.
-- Storage: preserve immutable originals and versions.
-- Monitoring: keep audit events and error receipts for rollback decision.
+- Route visibility policy (`DMS-RB-001`, `RB-DMS-001-ROUTE-VISIBILITY`): hide
+  `/files`, `/documents/[id]`, `/search/folders`, `/integrations`,
+  `/integrations/outlook`, `/enterprise`, `/records`, `/audit`, `/walls`, or
+  admin routes by role/feature policy if a surface is unsafe.
+- Matter app source flags (`DMS-RB-002`, `RB-DMS-002-MATTER-SOURCE-FLAGS`):
+  disable production upload/browse if canonical Matter source is unavailable or
+  lookup/sync runtime readiness is not approved.
+- Worker flags (`DMS-RB-003`, `RB-DMS-003-WORKER-FLAGS`): disable upload-prep
+  enqueue/worker and AI prep worker if file organization prep health fails.
+- Database migrations (`DMS-RB-004`, `RB-DMS-004-DB-AUDIT-INVARIANTS`): use
+  reviewed rollback path or forward-fix only; no hard delete and no audit
+  mutation.
+- Storage (`DMS-RB-005`, `RB-DMS-005-STORAGE-INTEGRITY`): preserve immutable
+  originals, versions, hashes, and tenant prefixes.
+- Monitoring (`DMS-RB-006`, `RB-DMS-006-MONITOR-TRIGGERS`): keep audit events,
+  monitor refs, and error receipts for rollback decisions. `MON-DMS-001*`
+  through `MON-DMS-008*` external refs are required before signoff.
+- Office/OneDrive gate (`DMS-RB-007`, `RB-DMS-007-OFFICE-ONEDRIVE-GATE`):
+  keep `/integrations/onedrive` hidden and reject unsafe connected/edit/sync
+  claims until ADR-017 runtime contract approval.
+
+The repository refs above are not production rollback receipts. DMS-UX-812
+remains `HOLD` until the rollback owner attaches external drill or incident
+refs for every `DMS-RB-*` row and confirms the incident communication path.
 
 ## DMS-UX-811 Production Monitor
 
