@@ -30,8 +30,8 @@ Excluded from this GA execution lane:
 | PR-1D Duplicate decision                      | DMS-GA-107                                                             | Implemented on `codex/dms-ga1-duplicate-decision`; pending review/merge.                                                                                                                                                                                         | Persisted staged duplicate/version/cancel decision before final upload action.                                              |
 | PR-2A to PR-2C Document cabinet/detail        | DMS-GA-201, DMS-GA-202, DMS-GA-204, DMS-GA-205                         | PR-2A implemented on `codex/dms-ga2-cabinet-parity`; PR-2B implemented on `codex/dms-ga2-action-center`; PR-2C implemented on `codex/dms-ga2-activity-timeline`.                                                                                                 | Matter cabinet parity, document action center, audit/activity timeline.                                                     |
 | PR-3A to PR-3E Search hardening               | DMS-GA-301, DMS-GA-203, DMS-GA-302, DMS-GA-303, DMS-GA-304, DMS-GA-305 | PR-3A implemented on `codex/dms-ga3-search-privacy`; PR-3B implemented on `codex/dms-ga3-search-preview`; PR-3C to PR-3E implemented through `codex/dms-ga3-search-refiners`, `codex/dms-ga3-search-negative-evidence`, `codex/dms-ga3-search-folders`; DMS-GA-305 evidence implemented on `codex/dms-ga7-ops-evidence`. | Query privacy, preview anchors, refiners, negative leakage proof, governed search folders, reindex evidence.                |
-| PR-4A to PR-4D Access/team/walls              | DMS-GA-401, DMS-GA-402, DMS-GA-403, DMS-GA-405                         | Pending.                                                                                                                                                                                                                                                         | Permission-scoped org picker, team/wall picker UX, explicit access workflow boundary.                                       |
-| PR-5A to PR-5E Records/workflow/notifications | DMS-GA-501, DMS-GA-502, DMS-GA-503, DMS-GA-504, DMS-GA-505, DMS-GA-506 | Pending.                                                                                                                                                                                                                                                         | Records context pickers, lifecycle/workflow/certificates, real task inbox, real notifications.                              |
+| PR-4A to PR-4D Access/team/walls              | DMS-GA-401, DMS-GA-402, DMS-GA-403, DMS-GA-405                         | DMS-GA-401 implemented in PR #263; DMS-GA-402 implemented in PR #264; DMS-GA-403 implemented in PR #265; DMS-GA-405 repo boundary closed by existing break-glass API evidence plus `docs/security/access-request-workflow.md`.                        | Permission-scoped org picker, team/wall picker UX, explicit access workflow boundary. Production access-request expansion remains owner-approved follow-up only. |
+| PR-5A to PR-5E Records/workflow/notifications | DMS-GA-501, DMS-GA-502, DMS-GA-503, DMS-GA-504, DMS-GA-505, DMS-GA-506 | DMS-GA-501 implemented in PR #266; DMS-GA-502 implemented in PR #267; DMS-GA-503 and DMS-GA-504 implemented in PR #268; DMS-GA-505 implemented in PR #269 and visibility-prioritized in PR #282; DMS-GA-506 implemented in PR #270. | Records context pickers, lifecycle/workflow/certificates, real task inbox, real notifications.                              |
 | PR-6A to PR-6E Admin/integrations             | DMS-GA-601, DMS-GA-602, DMS-GA-603, DMS-GA-604, DMS-GA-605             | DMS-GA-601 implemented on `codex/dms-ga6-admin-taxonomy`; DMS-GA-602 implemented on `codex/dms-ga6-matter-templates`; DMS-GA-603 implemented on `codex/dms-ga6-search-refiners`; DMS-GA-604 implemented on `codex/dms-ga6-outlook-evidence`; DMS-GA-605 implemented on `codex/dms-ga6-office-adr-gate`. | Tenant-governed taxonomy/refiners/templates, Outlook evidence, Office/OneDrive ADR gate only.                               |
 | PR-7A to PR-7E Production evidence            | DMS-GA-701, DMS-GA-702, DMS-GA-703, DMS-GA-704, DMS-GA-705             | DMS-GA-701 implemented on `codex/dms-ga7-ops-evidence`; DMS-GA-702 implemented on `codex/dms-ga7-rollback-runbook`; DMS-GA-703 implemented on `codex/dms-ga7-responsive-a11y`; DMS-GA-704 implemented on `codex/dms-ga7-guard-expansion`; DMS-GA-705 implemented on `codex/dms-ga7-release-signoff`.                                                 | Monitor map, rollback controls, responsive/a11y receipts, expanded guards, owner signoff package.                           |
 
@@ -126,6 +126,38 @@ PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm release:dms-smoke -- --check-env -
 - Preview URLs add a `vault-preview-anchor` fragment only when the anchor matches the approved bounded format; invalid anchors degrade to the existing hit-count preview fragment.
 - Document detail parses search hit context from route params only, drops invalid anchors, and does not carry the first-hit anchor into previous/next hit navigation.
 - Full unauthorized preview/search non-discovery proof remains tracked under PR-3D / DMS-GA-303.
+
+## Current PR-4 Acceptance
+
+- DMS-GA-401 provides a tenant-scoped organization subject picker API and UI
+  component for display-safe user/group labels without leaking inaccessible
+  subjects or normalizing raw UUID entry as the common production workflow.
+- DMS-GA-402 uses the organization picker for Matter team add-member flows and
+  keeps team member rows display-safe with user name/email labels.
+- DMS-GA-403 uses Matter Code lookup plus organization subjects for ethical wall
+  operations; raw wall and subject references remain limited to advanced
+  security-operations contexts.
+- DMS-GA-405 keeps denied states fail-closed and records the approved
+  access-request/break-glass boundary in
+  `docs/security/access-request-workflow.md`. Current DMS GA does not render a
+  fake self-service access request workflow.
+
+## Current PR-5 Acceptance
+
+- DMS-GA-501 records context actions use document/Matter picker targets and
+  display-safe labels for hold, archive, disposal, and certificate review.
+- DMS-GA-502 enforces legal-hold lifecycle behavior with reason, actor, target,
+  timestamp, release audit, and hold-aware archive/disposal constraints.
+- DMS-GA-503 persists disposal request, approval, execution, work-item, due-date,
+  and audit-reference workflow state.
+- DMS-GA-504 exposes disposal certificate state as reference-only UI and audit
+  evidence. Certificate hashes/refs are stored and audited, but raw verification
+  payloads or document contents are not rendered as primary labels.
+- DMS-GA-505 persists document and records work items; PR #282 additionally
+  keeps records-admin disposal approval/execution work visible ahead of
+  operational-data remediation tasks in the bounded 20-item queue.
+- DMS-GA-506 persists DMS notifications with permission-scoped real state rather
+  than fake notification counts.
 
 ## Current PR-6B Acceptance
 
