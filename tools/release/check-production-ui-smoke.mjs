@@ -1027,6 +1027,10 @@ const releaseHardeningPatterns = [
   { name: 'evidence package refs only', pattern: /Evidence package[\s\S]*refs only/i },
   { name: 'rollout checklist', pattern: /DMS-UX-809 Rollout Checklist/ },
   { name: 'rollback plan', pattern: /DMS-UX-810 Rollback Plan/ },
+  {
+    name: 'DMS-GA-702 rollback refs',
+    pattern: /DMS-RB-001[\s\S]*RB-DMS-001[\s\S]*DMS-RB-007[\s\S]*RB-DMS-007/i,
+  },
   { name: 'production monitor', pattern: /DMS-UX-811 Production Monitor/ },
   {
     name: 'release signoff owners',
@@ -1167,6 +1171,60 @@ const officeOneDriveAdrGateFiles = [
   },
 ];
 
+const dmsRollbackRunbookFiles = [
+  {
+    path: 'docs/release/rollback-runbook.md',
+    patterns: [
+      { name: 'DMS-GA-702 drill section', pattern: /Enterprise DMS Rollback Drill[\s\S]*DMS-GA-702/ },
+      {
+        name: 'rollback owner external refs boundary',
+        pattern: /Rollback owner must be assigned[\s\S]*external drill[\s\S]*incident ref/i,
+      },
+      {
+        name: 'no hard delete audit invariant',
+        pattern: /No Enterprise DMS rollback step may hard delete[\s\S]*Audit history remains append-only/i,
+      },
+      {
+        name: 'route visibility rollback control',
+        pattern: /DMS-RB-001[\s\S]*RB-DMS-001-ROUTE-VISIBILITY[\s\S]*\/search\/folders/i,
+      },
+      {
+        name: 'Matter source rollback control',
+        pattern: /DMS-RB-002[\s\S]*RB-DMS-002-MATTER-SOURCE-FLAGS[\s\S]*MATTER_APP_SOURCE_MODE/i,
+      },
+      {
+        name: 'worker flag rollback control',
+        pattern: /DMS-RB-003[\s\S]*RB-DMS-003-WORKER-FLAGS[\s\S]*AI_PREP_ENABLED=false[\s\S]*AI_SUMMARY_GEMMA_ENABLED=false/i,
+      },
+      {
+        name: 'database audit rollback control',
+        pattern: /DMS-RB-004[\s\S]*RB-DMS-004-DB-AUDIT-INVARIANTS[\s\S]*forward-fix/i,
+      },
+      {
+        name: 'storage rollback control',
+        pattern: /DMS-RB-005[\s\S]*RB-DMS-005-STORAGE-INTEGRITY[\s\S]*tenant storage prefixes/i,
+      },
+      {
+        name: 'monitor trigger rollback control',
+        pattern: /DMS-RB-006[\s\S]*RB-DMS-006-MONITOR-TRIGGERS[\s\S]*MON-DMS-001[\s\S]*MON-DMS-008/i,
+      },
+      {
+        name: 'Office OneDrive rollback control',
+        pattern: /DMS-RB-007[\s\S]*RB-DMS-007-OFFICE-ONEDRIVE-GATE[\s\S]*hidden_until_api_ready/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'rollback readiness checklist refs',
+        pattern: /UI-POST-005[\s\S]*DMS-RB-001[\s\S]*DMS-RB-007[\s\S]*RB-DMS-\*/i,
+      },
+    ],
+  },
+];
+
 const enterpriseDmsReleaseEvidencePatterns = [
   {
     name: 'refs-only data handling',
@@ -1199,6 +1257,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
       /DMS-GA-305\/DMS-GA-701 Release Evidence Bridge[\s\S]*EV-DMS-UI-005B[\s\S]*SEARCH_REINDEX_REQUESTED[\s\S]*MON-DMS-003B-REINDEX-QUEUE-AGE[\s\S]*MON-DMS-003C-REINDEX-FAILURE-RATE/i,
   },
   {
+    name: 'DMS-GA-702 rollback evidence guard',
+    pattern:
+      /DMS-GA-702 Release Evidence Bridge[\s\S]*RB-DMS-001-ROUTE-VISIBILITY[\s\S]*RB-DMS-002-MATTER-SOURCE-FLAGS[\s\S]*RB-DMS-003-WORKER-FLAGS[\s\S]*RB-DMS-004-DB-AUDIT-INVARIANTS[\s\S]*RB-DMS-005-STORAGE-INTEGRITY[\s\S]*RB-DMS-006-MONITOR-TRIGGERS[\s\S]*RB-DMS-007-OFFICE-ONEDRIVE-GATE/i,
+  },
+  {
     name: 'DMS-UX-809 rollout matrix',
     pattern:
       /DMS-UX-809 Rollout Checklist[\s\S]*Matter Code selection before upload[\s\S]*Upload and post-upload processing state[\s\S]*Matter-scoped file list[\s\S]*Title\/body\/metadata search[\s\S]*AI Prep remains file organization prep only/i,
@@ -1206,7 +1269,7 @@ const enterpriseDmsReleaseEvidencePatterns = [
   {
     name: 'DMS-UX-810 rollback controls',
     pattern:
-      /DMS-UX-810 Rollback Plan[\s\S]*Route visibility policy[\s\S]*Matter app source flags[\s\S]*Worker flags[\s\S]*Database rollback[\s\S]*Storage rollback/i,
+      /DMS-UX-810 Rollback Plan[\s\S]*Route visibility policy[\s\S]*Matter app source flags[\s\S]*Worker flags[\s\S]*Database rollback[\s\S]*Storage rollback[\s\S]*Office\/OneDrive gate/i,
   },
   {
     name: 'DMS-UX-811 monitor matrix',
@@ -1663,6 +1726,17 @@ function checkOfficeOneDriveAdrGate() {
   }
 }
 
+function checkDmsRollbackRunbookGuard() {
+  for (const file of dmsRollbackRunbookFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS rollback runbook production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 function assertIntegrationCardHasNoHref(source, title) {
   const marker = `title="${title}"`;
   const markerIndex = source.indexOf(marker);
@@ -1753,6 +1827,7 @@ try {
   checkAdminIntegrationsGuard();
   checkOutlookFilingEvidenceGuard();
   checkOfficeOneDriveAdrGate();
+  checkDmsRollbackRunbookGuard();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
   checkPrDCloseoutGuard();

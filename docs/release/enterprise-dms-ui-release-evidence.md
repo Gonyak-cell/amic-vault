@@ -95,15 +95,26 @@ DMS-ROLL-003, DMS-ROLL-005, EV-DMS-UI-004, or DMS-UX-812 production signoff.
 Rollback owner must be named before widening release traffic. Use these controls
 without hard delete and without altering immutable originals or audit history.
 
+### DMS-GA-702 Release Evidence Bridge
+
+DMS-GA-702 is repo-prepared by `docs/release/rollback-runbook.md`, this
+evidence matrix, `docs/release/production-ui-rollout-checklist.md`,
+`pnpm release:prod-preflight`, and `pnpm ui:production-smoke`.
+
+The `RB-DMS-*` refs below are repository control refs only. Production PASS
+requires owner-reviewed external drill or incident refs for every `DMS-RB-*`
+row, plus trigger refs from `MON-DMS-*`. If the rollback owner, drill refs, or
+monitor trigger refs are blank, DMS-UX-812 remains `HOLD`.
+
 | Control ID | Rollback control                                                                                                                                                                                                                                                                     | Evidence ref | Owner          |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | -------------- |
-| DMS-RB-001 | Route visibility policy can hide `/files`, `/documents/[id]`, `/search/folders`, `/records`, `/audit`, `/walls`, `/integrations`, `/integrations/outlook`, `/enterprise`, and admin routes through feature/role policy                                                               |              | Operator       |
-| DMS-RB-002 | Matter app source flags can block production upload/browse when canonical Matter source is unavailable: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`, `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`, `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE` |              | Operator       |
-| DMS-RB-003 | Worker flags can stop unsafe processing: `AI_PREP_ENABLED`, `AI_PREP_QUEUE_WORKER_ENABLED`, `LOCAL_GEMMA_ENABLED`, and `AI_SUMMARY_GEMMA_ENABLED=false`                                                                                                                              |              | Operator       |
-| DMS-RB-004 | Database rollback uses reviewed migration rollback or forward-fix only; no hard delete and no audit mutation                                                                                                                                                                         |              | Security owner |
-| DMS-RB-005 | Storage rollback preserves immutable originals, versions, hashes, and tenant prefixes                                                                                                                                                                                                |              | Security owner |
-| DMS-RB-006 | Monitoring refs remain available for rollback decisions and incident review                                                                                                                                                                                                          |              | Operator       |
-| DMS-RB-007 | Office/OneDrive gate rollback keeps `/integrations/onedrive` hidden, removes Office open/save or coauthoring/live-edit/sync claims, rejects callbacks/jobs, revokes unsafe consent or token material, and preserves immutable originals, versions, hashes, tenant prefixes, and audit append-only records |              | Operator       |
+| DMS-RB-001 | Route visibility policy can hide `/files`, `/documents/[id]`, `/search/folders`, `/records`, `/audit`, `/walls`, `/integrations`, `/integrations/outlook`, `/enterprise`, and admin routes through feature/role policy                                                               | `RB-DMS-001-ROUTE-VISIBILITY`; external drill ref required | Operator       |
+| DMS-RB-002 | Matter app source flags can block production upload/browse when canonical Matter source is unavailable: `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`, `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED`, `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY`, `NEXT_PUBLIC_ALLOW_VAULT_PROJECTION_MATTER_SOURCE` | `RB-DMS-002-MATTER-SOURCE-FLAGS`; external drill ref required | Operator       |
+| DMS-RB-003 | Worker flags can stop unsafe processing: `AI_PREP_ENABLED`, `AI_PREP_QUEUE_WORKER_ENABLED`, `LOCAL_GEMMA_ENABLED`, and `AI_SUMMARY_GEMMA_ENABLED=false`                                                                                                                              | `RB-DMS-003-WORKER-FLAGS`; external drill ref required | Operator       |
+| DMS-RB-004 | Database rollback uses reviewed migration rollback or forward-fix only; no hard delete and no audit mutation                                                                                                                                                                         | `RB-DMS-004-DB-AUDIT-INVARIANTS`; external drill ref required | Security owner |
+| DMS-RB-005 | Storage rollback preserves immutable originals, versions, hashes, and tenant prefixes                                                                                                                                                                                                | `RB-DMS-005-STORAGE-INTEGRITY`; external drill ref required | Security owner |
+| DMS-RB-006 | Monitoring refs remain available for rollback decisions and incident review                                                                                                                                                                                                          | `RB-DMS-006-MONITOR-TRIGGERS`; `MON-DMS-001*` through `MON-DMS-008*` refs required | Operator       |
+| DMS-RB-007 | Office/OneDrive gate rollback keeps `/integrations/onedrive` hidden, removes Office open/save or coauthoring/live-edit/sync claims, rejects callbacks/jobs, revokes unsafe consent or token material, and preserves immutable originals, versions, hashes, tenant prefixes, and audit append-only records | `RB-DMS-007-OFFICE-ONEDRIVE-GATE`; external drill ref required | Operator       |
 
 ## 5. DMS-UX-811 Production Monitor
 
