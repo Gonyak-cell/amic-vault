@@ -1,0 +1,29 @@
+{
+  "artifact": {
+    "customerArtifact": true,
+    "channel": "pilot",
+    "version": "0.0.0-lc08",
+    "commit": "LC-DESKTOP-08-SYNTHETIC",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "signed": true,
+    "signatureRef": "DESKTOP-ARTIFACT-SIGNATURE-REF"
+  },
+  "update": {
+    "enabled": false
+  },
+  "rollback": {
+    "ref": "RB-DESKTOP-NATIVE-001",
+    "browserPwaFallback": true
+  },
+  "release": {
+    "serverProductionDeploy": false,
+    "approvalRef": "DESKTOP-SERVER-PROD-SEPARATION-REF"
+  },
+  "evidence": {
+    "refs": [
+      "DESKTOP-ARTIFACT-DIGEST-REF",
+      "DESKTOP-ROLLBACK-BROWSER-FALLBACK-REF"
+    ],
+    "notes": "Reference-only synthetic release fixture. No endpoint, token, cookie, or customer data."
+  }
+}

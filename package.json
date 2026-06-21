@@ -23,6 +23,7 @@
     "release:smoke": "node tools/release/staging-smoke.mjs",
     "release:dms-smoke": "node tools/release/dms-main-loop-smoke.mjs",
     "release:local-preflight": "node tools/release/local-staging-preflight.mjs",
+    "desktop:release-gate": "node tools/release/check-desktop-release-gate.mjs",
     "outlook:deployment:check": "node tools/release/check-outlook-deployment.mjs",
     "outlook:verification:check": "node tools/release/check-outlook-verification.mjs",
     "outlook:operational:check": "node --experimental-strip-types tools/release/check-outlook-operational.ts",

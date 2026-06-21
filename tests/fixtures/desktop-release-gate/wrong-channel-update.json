@@ -1,0 +1,32 @@
+{
+  "artifact": {
+    "customerArtifact": true,
+    "channel": "pilot",
+    "version": "0.0.0-lc08",
+    "commit": "LC-DESKTOP-08-SYNTHETIC",
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "signed": true,
+    "signatureRef": "DESKTOP-ARTIFACT-SIGNATURE-REF"
+  },
+  "update": {
+    "enabled": true,
+    "channel": "production",
+    "artifactChannel": "pilot",
+    "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "manifestSigned": true,
+    "artifactSigned": true
+  },
+  "rollback": {
+    "ref": "RB-DESKTOP-NATIVE-001",
+    "browserPwaFallback": true
+  },
+  "release": {
+    "serverProductionDeploy": false
+  },
+  "evidence": {
+    "refs": [
+      "DESKTOP-ARTIFACT-DIGEST-REF",
+      "DESKTOP-ROLLBACK-BROWSER-FALLBACK-REF"
+    ]
+  }
+}
