@@ -42,6 +42,18 @@ The current production policy for `/integrations/onedrive` remains
 may show only a planned or gated card. It must not link to a connected OneDrive
 route or imply live Office editing.
 
+## Migration Boundary
+
+Existing law-firm OneDrive corpus migration is post-launch. Pre-launch work may
+prepare inventory, mapping, sample dry-run, and rollback planning only. It must
+not perform bulk customer document migration, claim OneDrive connected state, or
+claim Office open/save/sync availability. The first approved migration scope is
+a pilot Matter only, and source-of-truth cutover can occur only after pilot
+validation.
+
+The reference release plan is
+`docs/release/onedrive-migration-post-launch-plan.md`.
+
 ## Current GA Scope
 
 This ADR only authorizes documentation and runtime gates:
@@ -54,7 +66,10 @@ This ADR only authorizes documentation and runtime gates:
   check-out/check-in, and lock controls unless a later ADR and implementation
   approve them;
 - keep rollback and release evidence templates explicit that Office/OneDrive is
-  deferred and not a production-connected integration.
+  deferred and not a production-connected integration;
+- keep existing customer OneDrive corpus migration post-launch, with only
+  inventory, mapping, sample dry-run, and rollback planning allowed before
+  launch.
 
 ## Non-Goals
 
@@ -63,6 +78,7 @@ This ADR only authorizes documentation and runtime gates:
 - No vector, AI, or legal-analysis behavior is introduced.
 - No service worker or offline sync behavior is approved.
 - No document overwrite path is approved.
+- No pre-launch bulk customer OneDrive migration is approved.
 
 ## Follow-Up Entry Criteria
 
