@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { userRoleSchema } from '../permission/roles';
+import { documentTypeSchema } from '../types/document';
 
 const uuidSchema = z.string().uuid();
 const keySchema = z.string().trim().min(2).max(80).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -85,6 +86,8 @@ const safeDescriptionSchema = z
     },
   );
 
+const safeAuditRefSchema = z.string().regex(/^audit:[0-9a-f]{12}$/);
+
 export const enterpriseDmsSubtypeSchema = z
   .object({
     subtypeCode: dmsCodeSchema,
@@ -142,11 +145,14 @@ export const enterpriseDmsTaxonomySchema = z
   .object({
     taxonomyId: uuidSchema,
     documentTypeCode: dmsCodeSchema,
+    canonicalDocumentType: documentTypeSchema.optional(),
     displayName: z.string().min(1).max(200),
     description: safeDescriptionSchema.nullable(),
     status: enterpriseDmsConfigurationStatusSchema,
     subtypes: z.array(enterpriseDmsSubtypeSchema).max(20),
     metadataFields: z.array(enterpriseDmsMetadataFieldSchema).max(20),
+    versionNo: z.number().int().positive(),
+    lastAuditEventRef: safeAuditRefSchema.nullable(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
@@ -155,6 +161,27 @@ export const enterpriseDmsTaxonomySchema = z
 export const enterpriseDmsTaxonomyListResponseSchema = z
   .object({
     taxonomies: z.array(enterpriseDmsTaxonomySchema).max(100),
+  })
+  .strict();
+
+export const enterpriseApprovedDmsTaxonomySchema = z
+  .object({
+    documentTypeCode: dmsCodeSchema,
+    canonicalDocumentType: documentTypeSchema,
+    displayName: z.string().min(1).max(200),
+    description: safeDescriptionSchema.nullable(),
+    subtypes: z.array(enterpriseDmsSubtypeSchema).max(20),
+    metadataFields: z.array(enterpriseDmsMetadataFieldSchema).max(20),
+    versionNo: z.number().int().positive(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const enterpriseApprovedDmsTaxonomyCatalogSchema = z
+  .object({
+    source: z.literal('tenant_admin_taxonomy'),
+    generatedAt: z.string().datetime(),
+    taxonomies: z.array(enterpriseApprovedDmsTaxonomySchema).max(100),
   })
   .strict();
 
@@ -396,6 +423,8 @@ export type EnterpriseDmsMetadataFieldDto = z.infer<typeof enterpriseDmsMetadata
 export type UpsertEnterpriseDmsTaxonomyRequestDto = z.infer<typeof upsertEnterpriseDmsTaxonomyRequestSchema>;
 export type EnterpriseDmsTaxonomyDto = z.infer<typeof enterpriseDmsTaxonomySchema>;
 export type EnterpriseDmsTaxonomyListResponseDto = z.infer<typeof enterpriseDmsTaxonomyListResponseSchema>;
+export type EnterpriseApprovedDmsTaxonomyDto = z.infer<typeof enterpriseApprovedDmsTaxonomySchema>;
+export type EnterpriseApprovedDmsTaxonomyCatalogDto = z.infer<typeof enterpriseApprovedDmsTaxonomyCatalogSchema>;
 export type UpsertEnterpriseDmsSearchRefinerRequestDto = z.infer<typeof upsertEnterpriseDmsSearchRefinerRequestSchema>;
 export type EnterpriseDmsSearchRefinerDto = z.infer<typeof enterpriseDmsSearchRefinerSchema>;
 export type EnterpriseDmsSearchRefinerListResponseDto = z.infer<typeof enterpriseDmsSearchRefinerListResponseSchema>;

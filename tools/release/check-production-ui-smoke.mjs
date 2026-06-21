@@ -200,6 +200,8 @@ const uploadBrowseFlowFiles = [
       { name: 'upload preflight SHA hashing', pattern: /sha256BrowserFile/ },
       { name: 'duplicate decision dialog', pattern: /DuplicateDecisionDialog/ },
       { name: 'upload metadata profile component', pattern: /UploadMetadataProfile/ },
+      { name: 'approved taxonomy catalog client', pattern: /listApprovedEnterpriseDmsTaxonomies/ },
+      { name: 'approved taxonomy catalog forwarded', pattern: /taxonomyCatalog=\{taxonomyCatalog\}/ },
       { name: 'upload metadata profile forwarding', pattern: /uploadMetadataProfileFields/ },
       {
         name: 'matter-scoped upload call',
@@ -235,7 +237,8 @@ const uploadBrowseFlowFiles = [
   {
     path: 'apps/web/src/components/document/upload-metadata-profile.tsx',
     patterns: [
-      { name: 'approved document type values', pattern: /documentTypes/ },
+      { name: 'approved taxonomy type options', pattern: /approvedDocumentTypeOptions/ },
+      { name: 'approved taxonomy subtype options', pattern: /approvedSubtypeOptions/ },
       { name: 'approved confidentiality values', pattern: /documentConfidentialityLevels/ },
       { name: 'approved privilege values', pattern: /documentPrivilegeStatuses/ },
       { name: 'upload metadata profile title', pattern: /업로드 분류 프로필/ },
@@ -311,6 +314,9 @@ const documentActionCenterFiles = [
       { name: 'document action hierarchy panel', pattern: /DocumentActionHierarchyPanel/ },
       { name: 'read download only launch note', pattern: /읽기\/다운로드 전용/ },
       { name: 'document metadata edit flow', pattern: /updateDocumentMetadata/ },
+      { name: 'approved taxonomy catalog client', pattern: /listApprovedEnterpriseDmsTaxonomies/ },
+      { name: 'approved taxonomy profile label', pattern: /approvedDocumentTypeLabel/ },
+      { name: 'approved taxonomy edit options', pattern: /approvedDocumentTypeOptions/ },
       { name: 'preview panel integration', pattern: /documentPreviewUrl/ },
       { name: 'controlled download flow', pattern: /documentDownloadUrl/ },
       { name: 'download section anchor', pattern: /#document-download/ },
@@ -451,6 +457,7 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/app/(app)/search/search-client.tsx',
     patterns: [
       { name: 'advanced search controls wired', pattern: /SearchAdvancedControls/ },
+      { name: 'approved taxonomy catalog client', pattern: /listApprovedEnterpriseDmsTaxonomies/ },
       { name: 'search save panel wired', pattern: /SearchSavePanel/ },
       { name: 'saved search API list wired', pattern: /listSavedSearches/ },
       { name: 'saved search API save wired', pattern: /saveSavedSearch/ },
@@ -511,6 +518,7 @@ const enterpriseSearchFiles = [
       { name: 'Matter Code filter UI', pattern: /Matter Code/ },
       { name: 'Matter name filter UI', pattern: /Matter 이름/ },
       { name: 'document type filter UI', pattern: /문서 유형/ },
+      { name: 'approved taxonomy filter options', pattern: /approvedDocumentTypeOptions/ },
       { name: 'searchability filter UI', pattern: /추출\/OCR/ },
       { name: 'legal hold filter UI', pattern: /보존\/삭제 금지/ },
       { name: 'records status filter UI', pattern: /기록 상태/ },
@@ -816,6 +824,8 @@ const adminIntegrationsFiles = [
       { name: 'matter template admin contract state', pattern: /templates/ },
       { name: 'search refiner admin contract state', pattern: /refiners/ },
       { name: 'DMS taxonomy save action', pattern: /taxonomySave/ },
+      { name: 'DMS taxonomy version display', pattern: /item\.versionNo/ },
+      { name: 'DMS taxonomy audit ref display', pattern: /item\.lastAuditEventRef/ },
       { name: 'DMS refiner save action', pattern: /refinerSave/ },
       { name: 'DMS taxonomy API client', pattern: /upsertEnterpriseDmsTaxonomy/ },
       { name: 'DMS refiner API client', pattern: /upsertEnterpriseDmsSearchRefiner/ },
@@ -826,6 +836,29 @@ const adminIntegrationsFiles = [
       { name: 'tenant reindex API client', pattern: /requestTenantSearchReindex/ },
       { name: 'reindex audit-only status copy', pattern: /감사 기록과 큐 등록 수/ },
       { name: 'template gate copy', pattern: /폴더\/문서 세트 모델 승인 전 읽기 전용/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/enterprise/enterprise.controller.ts',
+    patterns: [
+      { name: 'approved DMS taxonomy endpoint', pattern: /@Get\('dms\/taxonomies\/approved'\)/ },
+      { name: 'DMS taxonomy admin endpoint', pattern: /@Post\('dms\/taxonomies'\)/ },
+    ],
+  },
+  {
+    path: 'apps/api/src/modules/enterprise/enterprise.service.ts',
+    patterns: [
+      { name: 'approved DMS taxonomy catalog schema', pattern: /enterpriseApprovedDmsTaxonomyCatalogSchema/ },
+      { name: 'taxonomy version snapshot write', pattern: /enterprise_dms_taxonomy_versions/ },
+      { name: 'safe audit event reference', pattern: /auditRef/ },
+    ],
+  },
+  {
+    path: 'db/migrations/0087_version_enterprise_dms_taxonomies.sql',
+    patterns: [
+      { name: 'DMS taxonomy version column', pattern: /version_no integer NOT NULL DEFAULT 1/ },
+      { name: 'DMS taxonomy version history table', pattern: /CREATE TABLE enterprise_dms_taxonomy_versions/ },
+      { name: 'DMS taxonomy version RLS', pattern: /FORCE ROW LEVEL SECURITY/ },
     ],
   },
   {
@@ -969,7 +1002,7 @@ const prECloseoutPatterns = [
   {
     name: 'PR-E route evidence matrix',
     pattern:
-      /Route Evidence[\s\S]*enterprise_dms_taxonomies[\s\S]*taxonomy save\/list\/disable[\s\S]*enterprise_dms_search_refiners[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
+      /Route Evidence[\s\S]*enterprise_dms_taxonomies[\s\S]*enterprise_dms_taxonomy_versions[\s\S]*taxonomy save\/list\/disable[\s\S]*approved taxonomy catalog[\s\S]*enterprise_dms_search_refiners[\s\S]*OutlookIntegrationStatusClient[\s\S]*OneDrive[\s\S]*Office/i,
   },
   {
     name: 'PR-E integration safety invariants',

@@ -168,6 +168,18 @@ describe('DocumentActionCenter', () => {
         documentId={document.documentId}
         initialAuditEvents={auditEvents}
         initialDocument={document}
+        initialTaxonomyCatalog={[
+          {
+            documentTypeCode: 'CONTRACT',
+            canonicalDocumentType: 'contract',
+            displayName: 'Tenant Contract',
+            description: null,
+            subtypes: [{ subtypeCode: 'MSA', displayName: 'Tenant MSA', status: 'active' }],
+            metadataFields: [],
+            versionNo: 4,
+            updatedAt: '2026-06-20T00:00:00.000Z',
+          },
+        ]}
         initialRelatedEmails={relatedEmails}
         initialRelatedDocuments={relatedDocuments}
         initialVersions={versions}
@@ -186,6 +198,7 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('버전 및 Records');
     expect(html).toContain('원본 파일을 직접 수정하는 작업은 별도 승인된 편집 계약 전까지 노출하지 않습니다.');
     expect(html).toContain('문서 프로필');
+    expect(html).toContain('Tenant Contract');
     expect(html).toContain('미리보기');
     expect(html).toContain('다운로드 사유');
     expect(html).toContain('업무 처리');

@@ -10,6 +10,7 @@ import {
 } from './document-upload-panel';
 import {
   defaultUploadMetadataProfile,
+  UploadMetadataProfile,
   uploadMetadataProfileFields,
 } from './upload-metadata-profile';
 import type { MatterCodeOption } from '@/lib/matter-app';
@@ -108,6 +109,30 @@ describe('DocumentUploadPanel', () => {
       privilegeStatus: 'work_product',
       subtype: '투자계약',
     });
+  });
+
+  it('renders tenant-approved upload taxonomy labels and subtypes', () => {
+    const html = renderToStaticMarkup(
+      <UploadMetadataProfile
+        profile={{ ...defaultUploadMetadataProfile, documentType: 'contract' }}
+        onChange={() => undefined}
+        taxonomyCatalog={[
+          {
+            documentTypeCode: 'CONTRACT',
+            canonicalDocumentType: 'contract',
+            displayName: 'Tenant Contract',
+            description: null,
+            subtypes: [{ subtypeCode: 'MSA', displayName: 'Tenant MSA', status: 'active' }],
+            metadataFields: [],
+            versionNo: 2,
+            updatedAt: '2026-06-20T00:00:00.000Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('Tenant Contract');
+    expect(html).toContain('Tenant MSA');
   });
 
   it('makes post-upload file organization prep visible when the upload opted in', () => {

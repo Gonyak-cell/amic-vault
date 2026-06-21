@@ -1154,6 +1154,10 @@ function DmsTaxonomyRows({
           <DataTableRow key={item.taxonomyId}>
             <DataTableCell className="font-medium">{item.documentTypeCode}</DataTableCell>
             <DataTableCell className="text-muted-foreground">{item.displayName}</DataTableCell>
+            <DataTableCell className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">v{item.versionNo}</span>
+              {item.lastAuditEventRef ? <span className="block">{item.lastAuditEventRef}</span> : null}
+            </DataTableCell>
             <DataTableCell>
               <StatusBadge tone={item.status === 'active' ? 'success' : 'neutral'}>
                 {item.status === 'active' ? copy.active : copy.inactive}

@@ -4,13 +4,17 @@ import * as React from 'react';
 import {
   documentConfidentialityLevels,
   documentPrivilegeStatuses,
-  documentTypes,
   type DocumentConfidentialityLevel,
   type DocumentPrivilegeStatus,
   type DocumentType,
+  type EnterpriseApprovedDmsTaxonomyDto,
   type UploadDocumentFieldsDto,
 } from '@amic-vault/shared';
 import { Input } from '@/components/ui/input';
+import {
+  approvedDocumentTypeOptions,
+  approvedSubtypeOptions,
+} from '@/lib/dms-taxonomy';
 
 export interface UploadMetadataProfileState {
   aiAllowed: boolean;
@@ -73,15 +77,26 @@ export function uploadMetadataProfileFields(
 export function UploadMetadataProfile({
   onChange,
   profile,
+  taxonomyCatalog = [],
 }: {
   onChange: (profile: UploadMetadataProfileState) => void;
   profile: UploadMetadataProfileState;
+  taxonomyCatalog?: EnterpriseApprovedDmsTaxonomyDto[];
 }) {
   const typeInputId = React.useId();
   const subtypeInputId = React.useId();
+  const subtypeListId = React.useId();
   const confidentialityInputId = React.useId();
   const privilegeInputId = React.useId();
   const prepInputId = React.useId();
+  const documentTypeOptions = React.useMemo(
+    () => approvedDocumentTypeOptions(uploadDocumentTypeLabels, taxonomyCatalog),
+    [taxonomyCatalog],
+  );
+  const subtypeOptions = React.useMemo(
+    () => approvedSubtypeOptions(profile.documentType, taxonomyCatalog),
+    [profile.documentType, taxonomyCatalog],
+  );
 
   function update<K extends keyof UploadMetadataProfileState>(
     key: K,
@@ -102,9 +117,9 @@ export function UploadMetadataProfile({
             value={profile.documentType}
             onChange={(event) => update('documentType', event.target.value as DocumentType)}
           >
-            {documentTypes.map((type) => (
-              <option key={type} value={type}>
-                {uploadDocumentTypeLabels[type]}
+            {documentTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -116,9 +131,17 @@ export function UploadMetadataProfile({
             id={subtypeInputId}
             value={profile.subtype}
             maxLength={128}
-            placeholder="예: 투자계약, 의견서 초안"
+            placeholder={subtypeOptions[0] ?? '예: 투자계약, 의견서 초안'}
+            list={subtypeOptions.length > 0 ? subtypeListId : undefined}
             onChange={(event) => update('subtype', event.target.value)}
           />
+          {subtypeOptions.length > 0 ? (
+            <datalist id={subtypeListId}>
+              {subtypeOptions.map((subtype) => (
+                <option key={subtype} value={subtype} />
+              ))}
+            </datalist>
+          ) : null}
         </label>
 
         <label className="grid gap-1.5" htmlFor={confidentialityInputId}>

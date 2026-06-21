@@ -6,7 +6,6 @@ import {
   documentConfidentialityLevels,
   documentExtractionStatuses,
   documentPrivilegeStatuses,
-  documentTypes,
   searchLegalHoldValues,
   searchRecordsStatusValues,
   searchVersionStatusValues,
@@ -14,6 +13,7 @@ import {
   type DocumentExtractionStatus,
   type DocumentPrivilegeStatus,
   type DocumentType,
+  type EnterpriseApprovedDmsTaxonomyDto,
   type SearchGroupBy,
   type SearchLegalHold,
   type SearchRecordsStatus,
@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { approvedDocumentTypeOptions } from '@/lib/dms-taxonomy';
 
 export type SearchDateRange = 'last_7_days' | 'last_30_days' | 'older';
 
@@ -48,6 +49,7 @@ export interface SearchAdvancedSelection {
 
 interface SearchAdvancedControlsProps {
   busy: boolean;
+  taxonomyCatalog?: EnterpriseApprovedDmsTaxonomyDto[];
   selection: SearchAdvancedSelection;
   onApply: (selection: SearchAdvancedSelection) => void;
   onReset: () => void;
@@ -198,6 +200,7 @@ export function SearchAdvancedControls({
   onApply,
   onReset,
   selection,
+  taxonomyCatalog = [],
 }: SearchAdvancedControlsProps) {
   const [draft, setDraft] = useState<SearchAdvancedDraft>({
     clientName: selection.clientName ?? '',
@@ -238,6 +241,10 @@ export function SearchAdvancedControls({
   }, [selection]);
 
   const activeCount = countAdvanced(selection);
+  const documentTypeOptions = React.useMemo(
+    () => approvedDocumentTypeOptions(documentTypeLabels, taxonomyCatalog),
+    [taxonomyCatalog],
+  );
 
   return (
     <SectionCard
@@ -321,9 +328,9 @@ export function SearchAdvancedControls({
             }
           >
             <option value="">전체</option>
-            {documentTypes.map((type) => (
-              <option key={type} value={type}>
-                {documentTypeLabels[type]}
+            {documentTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>

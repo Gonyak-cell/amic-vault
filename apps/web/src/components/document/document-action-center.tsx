@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
@@ -30,6 +30,7 @@ import type {
   DocumentConfidentialityLevel,
   DocumentDownloadReasonCode,
   DocumentDto,
+  EnterpriseApprovedDmsTaxonomyDto,
   DocumentType,
   DocumentVersionDto,
   EmailMatterFilingDto,
@@ -38,7 +39,6 @@ import type {
 import {
   documentConfidentialityLevels,
   documentDownloadReasonCodes,
-  documentTypes,
 } from '@amic-vault/shared';
 import { AiPrepStatusPanel } from '@/components/ai/ai-prep-status-panel';
 import { DocumentAuditTimeline } from '@/components/document/document-audit-timeline';
@@ -72,7 +72,13 @@ import {
   updateDocumentMetadata,
 } from '@/lib/api-client';
 import { getDocumentAiPrepStatus } from '@/lib/api/ai-prep';
+import { listApprovedEnterpriseDmsTaxonomies } from '@/lib/api/enterprise';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import {
+  approvedDocumentTypeLabel,
+  approvedDocumentTypeOptions,
+  approvedSubtypeOptions,
+} from '@/lib/dms-taxonomy';
 
 interface DocumentActionCenterProps {
   documentId: string;
@@ -81,6 +87,7 @@ interface DocumentActionCenterProps {
   initialDocument?: DocumentDto;
   initialRelatedEmails?: EmailMatterFilingDto[];
   initialRelatedDocuments?: DocumentDto[];
+  initialTaxonomyCatalog?: EnterpriseApprovedDmsTaxonomyDto[];
   initialVersions?: DocumentVersionDto[];
   searchHitContext?: DocumentSearchHitContext | null;
 }
@@ -491,11 +498,13 @@ function RelatedDocumentsPanel({
   documents,
   errorMessage,
   isLoading,
+  taxonomyCatalog,
 }: {
   currentDocument: DocumentDto;
   documents: DocumentDto[];
   errorMessage: string | null;
   isLoading: boolean;
+  taxonomyCatalog: EnterpriseApprovedDmsTaxonomyDto[];
 }) {
   const matterCode = currentDocument.matterDisplayCode?.trim();
   const matterName = currentDocument.matterDisplayName?.trim();
@@ -550,7 +559,13 @@ function RelatedDocumentsPanel({
                 </StatusBadge>
               </div>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                동일 Matter에서 권한이 확인된 문서 · {typeLabels[relatedDocument.documentType]} ·{' '}
+                동일 Matter에서 권한이 확인된 문서 ·{' '}
+                {approvedDocumentTypeLabel(
+                  relatedDocument.documentType,
+                  typeLabels,
+                  taxonomyCatalog,
+                )}{' '}
+                ·{' '}
                 {formatDateTime(relatedDocument.updatedAt)}
               </p>
             </li>
@@ -688,6 +703,7 @@ export function DocumentActionCenter({
   initialDocument,
   initialRelatedEmails = [],
   initialRelatedDocuments = [],
+  initialTaxonomyCatalog = [],
   initialVersions = [],
   searchHitContext = null,
 }: DocumentActionCenterProps) {
@@ -720,6 +736,18 @@ export function DocumentActionCenter({
   const [versionInputKey, setVersionInputKey] = useState(0);
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const [downloadReason, setDownloadReason] = useState<DocumentDownloadReasonCode>('casework');
+  const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>(
+    initialTaxonomyCatalog,
+  );
+  const subtypeListId = useId();
+  const documentTypeOptions = useMemo(
+    () => approvedDocumentTypeOptions(typeLabels, taxonomyCatalog),
+    [taxonomyCatalog],
+  );
+  const profileSubtypeOptions = useMemo(
+    () => (profileDraft ? approvedSubtypeOptions(profileDraft.documentType, taxonomyCatalog) : []),
+    [profileDraft, taxonomyCatalog],
+  );
 
   const refreshPrepStatus = useCallback(async () => {
     try {
@@ -759,6 +787,21 @@ export function DocumentActionCenter({
     if (disableInitialLoad) return;
     void load();
   }, [disableInitialLoad, load]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    let active = true;
+    listApprovedEnterpriseDmsTaxonomies()
+      .then((catalog) => {
+        if (active) setTaxonomyCatalog(catalog.taxonomies);
+      })
+      .catch(() => {
+        if (active) setTaxonomyCatalog([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [disableInitialLoad]);
 
   useEffect(() => {
     if (disableInitialLoad) return;
@@ -936,7 +979,10 @@ export function DocumentActionCenter({
             >
               <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <ProfileField label="Matter" value={matterLabel} />
-                <ProfileField label="문서 유형" value={typeLabels[document.documentType]} />
+                <ProfileField
+                  label="문서 유형"
+                  value={approvedDocumentTypeLabel(document.documentType, typeLabels, taxonomyCatalog)}
+                />
                 <ProfileField label="세부 유형" value={document.subtype || '없음'} />
                 <ProfileField
                   label="보안 등급"
@@ -987,9 +1033,9 @@ export function DocumentActionCenter({
                         )
                       }
                     >
-                      {documentTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {typeLabels[type]}
+                      {documentTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -998,12 +1044,20 @@ export function DocumentActionCenter({
                     세부 유형
                     <Input
                       value={profileDraft.subtype}
+                      list={profileSubtypeOptions.length > 0 ? subtypeListId : undefined}
                       onChange={(event) =>
                         setProfileDraft((current) =>
                           current ? { ...current, subtype: event.target.value } : current,
                         )
                       }
                     />
+                    {profileSubtypeOptions.length > 0 ? (
+                      <datalist id={subtypeListId}>
+                        {profileSubtypeOptions.map((subtype) => (
+                          <option key={subtype} value={subtype} />
+                        ))}
+                      </datalist>
+                    ) : null}
                   </label>
                   <label className="space-y-1 text-sm font-medium">
                     보안 등급
@@ -1095,6 +1149,7 @@ export function DocumentActionCenter({
               documents={relatedDocuments}
               errorMessage={relatedDocumentsError}
               isLoading={relatedDocumentsLoading}
+              taxonomyCatalog={taxonomyCatalog}
             />
 
             <RelatedEmailsPanel

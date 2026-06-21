@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createEnterpriseKeyReferenceRequestSchema,
   createEnterpriseSsoProviderRequestSchema,
+  enterpriseApprovedDmsTaxonomyCatalogSchema,
+  enterpriseDmsTaxonomySchema,
   enterpriseReadinessSummarySchema,
   upsertEnterpriseDmsSearchRefinerRequestSchema,
   upsertEnterpriseDmsTaxonomyRequestSchema,
@@ -71,6 +73,55 @@ describe('enterprise types', () => {
 
     expect(parsed.documentTypeCode).toBe('CONTRACT');
     expect(parsed.subtypes[0]?.subtypeCode).toBe('MSA');
+  });
+
+  it('validates versioned DMS taxonomy responses and approved catalogs', () => {
+    const taxonomy = enterpriseDmsTaxonomySchema.parse({
+      taxonomyId: '11111111-1111-4111-8111-111111111111',
+      documentTypeCode: 'CONTRACT',
+      canonicalDocumentType: 'contract',
+      displayName: 'Commercial Contract',
+      description: 'Commercial agreement filing profile',
+      status: 'active',
+      subtypes: [{ subtypeCode: 'MSA', displayName: 'Master service agreement' }],
+      metadataFields: [
+        {
+          fieldKey: 'counterparty',
+          displayName: 'Counterparty',
+          fieldType: 'text',
+          required: true,
+          searchable: true,
+          refinable: true,
+        },
+      ],
+      versionNo: 2,
+      lastAuditEventRef: 'audit:abcdef123456',
+      createdAt: '2026-06-20T00:00:00.000Z',
+      updatedAt: '2026-06-20T01:00:00.000Z',
+    });
+
+    expect(taxonomy.versionNo).toBe(2);
+    expect(taxonomy.lastAuditEventRef).toBe('audit:abcdef123456');
+
+    const catalog = enterpriseApprovedDmsTaxonomyCatalogSchema.parse({
+      source: 'tenant_admin_taxonomy',
+      generatedAt: '2026-06-20T01:00:00.000Z',
+      taxonomies: [
+        {
+          documentTypeCode: taxonomy.documentTypeCode,
+          canonicalDocumentType: 'contract',
+          displayName: taxonomy.displayName,
+          description: taxonomy.description,
+          subtypes: taxonomy.subtypes,
+          metadataFields: taxonomy.metadataFields,
+          versionNo: taxonomy.versionNo,
+          updatedAt: taxonomy.updatedAt,
+        },
+      ],
+    });
+
+    expect(catalog.taxonomies[0]?.canonicalDocumentType).toBe('contract');
+    expect(JSON.stringify(catalog)).not.toContain(taxonomy.taxonomyId);
   });
 
   it('rejects unsafe DMS taxonomy descriptions and duplicate metadata keys', () => {

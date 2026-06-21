@@ -4,11 +4,13 @@ import * as React from 'react';
 import Link from 'next/link';
 import type {
   AddDocumentVersionResponseDto,
+  EnterpriseApprovedDmsTaxonomyDto,
   UploadDocumentResponseDto,
   UploadDuplicateCandidateDto,
 } from '@amic-vault/shared';
 import { ExternalLink, FileSearch, FileUp, Loader2 } from 'lucide-react';
 import { addDocumentVersion, createUploadPreflight, uploadDocument } from '@/lib/api-client';
+import { listApprovedEnterpriseDmsTaxonomies } from '@/lib/api/enterprise';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   isMatterUploadSourceMode,
@@ -81,6 +83,7 @@ export function DocumentUploadPanel({
   const [files, setFiles] = React.useState<File[]>([]);
   const [title, setTitle] = React.useState('');
   const [metadataProfile, setMetadataProfile] = React.useState(defaultUploadMetadataProfile);
+  const [taxonomyCatalog, setTaxonomyCatalog] = React.useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadQueue, setUploadQueue] = React.useState<UploadQueueRow[]>([]);
   const [duplicateDecisionRequest, setDuplicateDecisionRequest] =
@@ -98,6 +101,24 @@ export function DocumentUploadPanel({
       }),
     [],
   );
+
+  React.useEffect(() => {
+    if (!selectedMatter || !uploadSourceReady) {
+      setTaxonomyCatalog([]);
+      return;
+    }
+    let active = true;
+    listApprovedEnterpriseDmsTaxonomies()
+      .then((catalog) => {
+        if (active) setTaxonomyCatalog(catalog.taxonomies);
+      })
+      .catch(() => {
+        if (active) setTaxonomyCatalog([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedMatter, uploadSourceReady]);
 
   function handleDuplicateDecision(selection: DuplicateDecisionSelection) {
     const request = duplicateDecisionRequest;
@@ -258,7 +279,11 @@ export function DocumentUploadPanel({
         />
       </label>
 
-      <UploadMetadataProfile profile={metadataProfile} onChange={setMetadataProfile} />
+      <UploadMetadataProfile
+        profile={metadataProfile}
+        onChange={setMetadataProfile}
+        taxonomyCatalog={taxonomyCatalog}
+      />
 
       {files.length > 0 ? (
         <div className="rounded-md border bg-background">
