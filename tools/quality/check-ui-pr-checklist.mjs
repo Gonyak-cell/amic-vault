@@ -21,6 +21,7 @@ const requiredFiles = [
   'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/release/enterprise-dms-responsive-a11y-matrix.md',
   'docs/integrations/matter-app-vault-contract.md',
+  'docs/security/access-request-workflow.md',
 ];
 
 const requiredPatterns = [
@@ -95,6 +96,16 @@ const requiredPatterns = [
     label: 'PR-D deferred item evidence',
     pattern:
       /Remaining Deferred Items[\s\S]*Unified persisted task DB\/API[\s\S]*Persisted notifications[\s\S]*Records disposal task API[\s\S]*User\/group picker APIs[\s\S]*Access request creation\/approval workflow/is,
+  },
+  {
+    label: 'DMS access request workflow boundary',
+    pattern:
+      /Access Request And Break-Glass Workflow[\s\S]*DMS-GA-405[\s\S]*fake self-service access request flow[\s\S]*two distinct approvers[\s\S]*fail closed/is,
+  },
+  {
+    label: 'DMS disposal certificate evidence boundary',
+    pattern:
+      /EV-DMS-UI-005C[\s\S]*disposal certificates expose ready\/status\/reference evidence only[\s\S]*DMS-GA-504 Release Evidence Bridge[\s\S]*raw verification\s+payload/is,
   },
   {
     label: 'PR-E closeout evidence',
