@@ -41,7 +41,7 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 | `/integrations` | Integrations | `visible_admin_only` | Parent route hidden | Firm admin, security admin | Safe integration matrix route | Matter app links to source/gate status; Outlook links to real status; OneDrive/Office remain gated without connected-state claims |
 | `/integrations/matter-app` | Integrations | `visible_admin_only` | Linked from integrations matrix | Firm admin, security admin | Matter app source status route | Shows Matter Code source mode, upload gate, projection fallback policy, and setup-required state without endpoints, tokens, internal Matter IDs, or connected-state claims before configuration |
 | `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only plus Vault filing-path alignment; Office task pane stays separate |
-| `/integrations/onedrive` | Integrations | `hidden_until_api_ready` | Hidden | Firm admin, security admin after API readiness | No production route until contract is approved | Must not claim OneDrive connection |
+| `/integrations/onedrive` | Integrations | `hidden_until_api_ready` | Hidden | Firm admin, security admin after API readiness | No production route until contract is approved | Must not claim OneDrive connection, Office open/save, coauthoring, live edit, lock state, or sync before auth/storage/version/audit/callback/rollback contract approval under `docs/adr/ADR-017-office-onedrive-flow.md` |
 | `/ai-prep` | AI Prep/Ops | `visible_limited` | Hidden by default | Firm admin, security admin, matter owner, knowledge manager | Approved linked entry points only | File organization prep/readiness only |
 
 ## Hidden And Out-Of-Scope Routes
@@ -64,6 +64,7 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 - Production UI must not render fake/mock/sample/demo operating data, default people, default documents, default teams, hard-coded dates, placeholder metrics, or connected/completed states before real API success.
 - Default UI must not show workspace ID, tenant ID, user ID, matter ID, document ID, version ID, raw UUID slices, or ID-derived labels.
 - AI Prep production UI is limited to file organization prep/readiness. Legal analysis, summary, external model route, raw prompt, raw source/source text, and model response UI/copy/storage remain out of scope.
+- Office/OneDrive production UI is limited to gated planning states until ADR-017 follow-up entry criteria are met. Do not render connected, open/save, coauthoring, live edit, lock, or sync success states before the approved runtime contract and rollback plan exist.
 - Evidence for rollout or review must use refs only. Do not paste secrets, customer file contents, raw prompts, source text, model responses, cookies, tokens, or confidential screenshots into PRs or release records.
 
 ## Batch Closeout Evidence

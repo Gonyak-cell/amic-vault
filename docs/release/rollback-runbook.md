@@ -91,6 +91,29 @@ browse, search, governance, integration, or AI prep behavior.
    AI prep file organization, audit, storage, and integration health until the
    incident owner closes the rollback.
 
+### Office/OneDrive Gate Rollback
+
+Use this path if any release candidate or production UI claims OneDrive is
+connected, Office open/save is available, coauthoring/live edit is available, or
+sync is running before the approved auth/storage/version/audit/callback/rollback
+contract exists.
+
+1. Keep `/integrations/onedrive` at `hidden_until_api_ready` and
+   `showInNavigation: false` in `apps/web/src/lib/features.ts`.
+2. Remove or roll back any OneDrive route link, Office open/save action,
+   coauthoring control, live edit control, lock-state claim, or sync success
+   copy from production UI.
+3. Reject Microsoft callback, sync, or save-back jobs until the approved
+   callback contract and audit path exist.
+4. Revoke or disable any tenant-level Microsoft consent or token material
+   introduced by the unsafe release path.
+5. Preserve immutable originals, FileObject versions, hashes, tenant storage
+   prefixes, and audit append-only records. Do not hard delete documents,
+   versions, audit events, callback records, queue records, or storage objects.
+6. Verify the integration parent route shows only gated states and that
+   `pnpm ui:production-smoke` proves ADR-017 and the route policy before
+   reopening traffic.
+
 ## Database Rollback
 
 Database rollback is allowed only when:
