@@ -66,6 +66,7 @@ or missing `MON-DMS-*` evidence keeps DMS-UX-812 at `HOLD`.
 | EV-DMS-UI-005A | Body/full-text search fixture receipt | `pnpm test:integration -- search-permission` ref proving title-only vs body/full-text behavior, same-tenant unauthorized non-discovery, and bounded search audit metadata                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Security owner |        |
 | EV-DMS-UI-005B | Search reindex operations receipt     | `apps/api/src/modules/search/index/reindex.controller.spec.ts`, `apps/api/src/modules/search/index/reindex.service.spec.ts`, `apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx`, `docs/release/enterprise-dms-monitor-map.md`, `pnpm --filter @amic-vault/api test -- reindex`, `pnpm --filter @amic-vault/web test -- enterprise-hardening-client`, and `pnpm test:integration -- search-index` refs proving admin-only reindex request, non-admin fail-closed role contract, `SEARCH_REINDEX_REQUESTED` audit with reference/count metadata only, UI queue counts/hash-only status, and monitor refs for queue age/failure | Security owner |        |
 | EV-DMS-UI-006  | Responsive and accessibility receipt  | `docs/release/enterprise-dms-responsive-a11y-matrix.md`, `RA-DMS-GUARD-001` through `RA-DMS-GUARD-004`, `DMS-RA-001` through `DMS-RA-007`, 1440px, 768px, 375px, keyboard navigation, focus visibility, accessible names, active `aria-current`, empty/error readable text; external `RA-DMS-*` visual and keyboard/screen-reader refs required before PASS                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Operator       |        |
+| EV-DMS-UI-006A | Expanded production guard receipt     | `tools/quality/check-production-ui-literals.mjs`, `tools/release/check-production-ui-smoke.mjs`, `GUARD-DMS-001-SURFACE-COVERAGE`, `GUARD-DMS-002-NO-FAKE-DATA`, `GUARD-DMS-003-NO-INTERNAL-REFS`, and `GUARD-DMS-004-AI-SCOPE-EXCLUSION` refs proving upload, files, matter/team, search, records, audit, walls, work, notifications, admin, enterprise, integrations, Outlook, and AI Prep surfaces are scanned for fake data, workspace ID, tenant ID, document ID, raw UUIDs, unsafe ID slices, short hashes, legal analysis, document summary, external model, raw prompt/source, source text, and model-response copy | Security owner |        |
 | EV-DMS-UI-007  | Audit refs                            | Upload, download, search, records, and AI prep file-organization events where available; refs only, no document body or raw AI data                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Security owner |        |
 | EV-DMS-UI-008  | Deferred item ledger                  | Deferred item, owner, risk, follow-up TUW, release blocker status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Operator       |        |
 
@@ -85,6 +86,26 @@ requires `DMS-RA-001` through `DMS-RA-007` route coverage with 1440px, 768px,
 `aria-current`, and screen-reader basics refs in the external evidence
 workspace. If any `RA-DMS-*` route, viewport, keyboard, or screen-reader ref is
 blank, DMS-UX-812 remains `HOLD`.
+
+### DMS-GA-704 Release Evidence Bridge
+
+DMS-GA-704 is repo-prepared by
+`tools/quality/check-production-ui-literals.mjs`,
+`tools/release/check-production-ui-smoke.mjs`,
+`docs/ui/enterprise-dms-release-hardening.md`,
+`docs/ui/enterprise-dms-pr-f-readiness.md`, and this evidence matrix.
+
+The `GUARD-DMS-001-SURFACE-COVERAGE` ref proves the expanded upload, files,
+matter/team, search, records, audit, walls, work, notifications, admin,
+enterprise, integrations, Outlook, and AI Prep surfaces are part of production
+UI literal and smoke scanning. `GUARD-DMS-002-NO-FAKE-DATA` blocks
+fake/mock/sample/demo operating data. `GUARD-DMS-003-NO-INTERNAL-REFS` blocks
+workspace ID, tenant ID, document ID, raw UUIDs, unsafe ID slices, and
+ID-derived short hashes in normal UI. `GUARD-DMS-004-AI-SCOPE-EXCLUSION`
+blocks legal analysis, document summary, external model, raw prompt/source,
+source text, and model-response copy. These repository guards do not replace
+the external authenticated main-loop, negative-auth, responsive, accessibility,
+or owner signoff receipts required before DMS-UX-812 can pass.
 
 ## 3. DMS-UX-809 Rollout Checklist
 

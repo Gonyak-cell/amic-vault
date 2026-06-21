@@ -25,13 +25,14 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 | ID | Check | Expected | Owner | Evidence ref | Result |
 |---|---|---|---|---|---|
 | UI-PRE-001 | CI `verify`, `db-integration`, `docker-build`, `python-worker` are green on the release commit | All required checks green | Operator |  |  |
-| UI-PRE-002 | Production UI literal guard passed | No fake/mock/sample/demo operating data literals | Operator |  |  |
-| UI-PRE-003 | Production UI smoke gate passed | Hidden routes, raw hex, `?? 0`, unsafe ID fallback checks pass | Operator |  |  |
+| UI-PRE-002 | Production UI literal guard passed | No fake/mock/sample/demo operating data literals; no workspace ID, tenant ID, document ID, raw UUID, unsafe ID slice, short-hash, legal-analysis, summary, external-model, raw prompt/source, source text, or model-response copy | Operator | `GUARD-DMS-002-NO-FAKE-DATA`, `GUARD-DMS-003-NO-INTERNAL-REFS`, `GUARD-DMS-004-AI-SCOPE-EXCLUSION` refs required |  |
+| UI-PRE-003 | Production UI smoke gate passed | Hidden routes, raw hex, `?? 0`, unsafe ID fallback checks pass across the DMS-GA-704 expanded upload/files/matter/team/search/records/audit/walls/work/notifications/admin/enterprise/integrations/Outlook/AI Prep surfaces | Operator | `GUARD-DMS-001-SURFACE-COVERAGE` ref required |  |
 | UI-PRE-004 | Production UI inventory reviewed | `docs/ui/production-ui-inventory.md` matches route visibility and navigation policy | Security reviewer |  |  |
 | UI-PRE-005 | `docs/package/` unchanged unless separately approved | Normative package remains frozen | Security reviewer |  |  |
 | UI-PRE-006 | Feature scope confirmed | File organization prep only; no legal analysis, summary, external model route, raw prompt/source/model-response storage | Legal-data owner |  |  |
 | UI-PRE-007 | Enterprise DMS UI evidence package prepared | `docs/release/enterprise-dms-ui-release-evidence.md` is copied into the external evidence workspace and every required row has an evidence ref or approved deferral | Operator |  |  |
 | UI-PRE-008 | DMS main-loop smoke passed | `pnpm release:dms-smoke -- --json` passes with approved synthetic or canary DMS credentials, Matter Code source, upload, file list, search, detail, records/audit, and negative-auth non-discovery | Operator |  |  |
+| UI-PRE-009 | DMS-GA-704 expanded guard coverage confirmed | `GUARD-DMS-001-SURFACE-COVERAGE` through `GUARD-DMS-004-AI-SCOPE-EXCLUSION` are present in the evidence package and reference current `pnpm check:production-ui-literals` plus `pnpm ui:production-smoke` receipts | Security reviewer | `GUARD-DMS-001*` through `GUARD-DMS-004*` refs required | `HOLD` until refs attached |
 
 ## 3. Auth And Shell Smoke
 

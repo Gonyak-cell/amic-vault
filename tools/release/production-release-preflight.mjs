@@ -202,6 +202,12 @@ for (const expected of [
   'RA-DMS-GUARD-001',
   'DMS-RA-001',
   'DMS-RA-007',
+  'DMS-GA-704 Release Evidence Bridge',
+  'EV-DMS-UI-006A',
+  'GUARD-DMS-001-SURFACE-COVERAGE',
+  'GUARD-DMS-002-NO-FAKE-DATA',
+  'GUARD-DMS-003-NO-INTERNAL-REFS',
+  'GUARD-DMS-004-AI-SCOPE-EXCLUSION',
   'MON-DMS-001A-UPLOAD-FAILURE-RATE',
   'MON-DMS-003B-REINDEX-QUEUE-AGE',
   'MON-DMS-003C-REINDEX-FAILURE-RATE',
@@ -299,6 +305,9 @@ for (const expected of [
   'HOLD` until rollback owner and drill refs attached',
   'RA-DMS-001C-375',
   'RA-DMS-007E-SR-BASICS',
+  'UI-PRE-009',
+  'GUARD-DMS-001*',
+  'GUARD-DMS-004*',
 ]) {
   assertContains(
     contents.get('docs/release/production-ui-rollout-checklist.md'),

@@ -34,7 +34,10 @@ The production UI smoke gate must cover route visibility, hidden route blocking,
 fake/mock/sample/demo data exclusion, workspace/tenant/internal ref exclusion,
 AI Prep scope exclusion, Matter-scoped upload/browse foundations, document
 detail actions, enterprise search controls, governance/workflow/ops context, and
-admin/integration safety. The DMS main-loop smoke gate must then verify the
+admin/integration safety. DMS-GA-704 additionally requires expanded guard
+coverage for upload, files, matter/team, search, records, audit, walls, work,
+notifications, admin, enterprise, integrations, Outlook, and AI Prep surfaces.
+The DMS main-loop smoke gate must then verify the
 runtime path with approved data: login, Matter Code source resolution,
 matter-scoped upload, document detail, preview or safe preview-unavailable
 state, versions, matter file list visibility, title/body/metadata search,
@@ -85,6 +88,8 @@ Release reviewer must confirm:
   success.
 - Null/error/unavailable states are not coerced to zero, success, approved,
   connected, or completed.
+- `GUARD-DMS-002-NO-FAKE-DATA` passes on the DMS-GA-704 expanded guard surface
+  set.
 
 ## DMS-UX-804 Internal Ref Sweep
 
@@ -98,12 +103,19 @@ Default user-facing UI must not display:
 Advanced/security/admin areas may keep bounded references only when the workflow
 requires them and the route role policy allows that user.
 
+`GUARD-DMS-001-SURFACE-COVERAGE` and `GUARD-DMS-003-NO-INTERNAL-REFS` must pass
+for upload, files, matter/team, search, records, audit, walls, work,
+notifications, admin, enterprise, integrations, Outlook, and AI Prep surfaces.
+
 ## DMS-UX-805 AI Scope Sweep
 
 AI Prep production UI is limited to file organization prep/readiness. Release is
 blocked if UI copy, logs, PR evidence, or release evidence imply legal analysis,
 document summary, external model routing, raw prompt storage/display, raw
 source/source text storage/display, or model response storage/display.
+
+`GUARD-DMS-004-AI-SCOPE-EXCLUSION` must pass on the same expanded DMS-GA-704
+guard surface set before DMS-UX-812 signoff can be considered.
 
 ## DMS-UX-806 Responsive QA
 
