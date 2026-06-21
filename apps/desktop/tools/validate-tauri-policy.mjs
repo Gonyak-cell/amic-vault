@@ -1,5 +1,5 @@
 import { createPublicKey, verify } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -18,16 +18,28 @@ function assert(condition, message) {
 
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
 const capability = readJson('src-tauri/capabilities/vault-thin-shell.json');
+const capabilityFiles = readdirSync(join(root, 'src-tauri/capabilities'))
+  .filter((fileName) => fileName.endsWith('.json'))
+  .sort();
 const signedLocal = readJson('src-tauri/config/local.signed.json');
 const cargoToml = readText('src-tauri/Cargo.toml');
 const main = readText('src-tauri/src/main.rs');
 const origin = readText('src-tauri/src/origin.rs');
+const originGuard = readText('src-tauri/src/origin_guard.rs');
 
 assert(Array.isArray(tauriConfig.app?.windows), 'Tauri config must declare windows');
 assert(tauriConfig.app.windows.length === 0, 'No default Tauri window may bypass origin config');
 assert(
   JSON.stringify(tauriConfig.app?.security?.capabilities) === JSON.stringify(['vault-thin-shell']),
   'Tauri config must use only vault-thin-shell capability',
+);
+assert(
+  JSON.stringify(capabilityFiles) === JSON.stringify(['vault-thin-shell.json']),
+  'Desktop must not add extra capability files without ADR approval',
+);
+assert(
+  capability.identifier === 'vault-thin-shell',
+  'Capability identifier must remain vault-thin-shell',
 );
 assert(Array.isArray(capability.permissions), 'Capability file must declare permissions');
 assert(capability.permissions.length === 0, 'Thin shell capability permissions must remain empty');
@@ -41,14 +53,37 @@ for (const marker of [
   'tauri-plugin-shell',
   'tauri-plugin-dialog',
   'tauri-plugin-clipboard',
+  'tauri-plugin-notification',
+  'tauri-plugin-global-shortcut',
+  'tauri-plugin-opener',
   'tauri-plugin-updater',
+  'plugin(',
   'Command::new',
   'read_dir',
   'write_file',
+  'shell::open',
+  'open_path',
 ]) {
   assert(
-    !`${cargoToml}\n${main}\n${origin}`.includes(marker),
+    !`${cargoToml}\n${main}\n${origin}\n${originGuard}`.includes(marker),
     `Forbidden desktop native marker present: ${marker}`,
+  );
+}
+
+for (const marker of [
+  'fs:',
+  'clipboard',
+  'dialog',
+  'shell',
+  'notification',
+  'global-shortcut',
+  'opener',
+  'share',
+  'mail',
+]) {
+  assert(
+    !JSON.stringify(capability.permissions).includes(marker),
+    `Forbidden native permission marker present: ${marker}`,
   );
 }
 
