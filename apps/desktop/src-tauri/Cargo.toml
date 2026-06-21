@@ -1,0 +1,31 @@
+[package]
+name = "amic-vault-desktop"
+version = "0.0.0"
+description = "AMIC Vault thin desktop shell"
+authors = ["AMIC Vault"]
+license = "UNLICENSED"
+repository = ""
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "amic_vault_desktop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "amic-vault-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+ed25519-dalek = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", default-features = false, features = ["dynamic-acl", "wry"] }
+url = "2"
+
+[dev-dependencies]
+tempfile = "3"

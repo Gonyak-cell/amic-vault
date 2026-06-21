@@ -11,3 +11,5 @@ coverage/
 __pycache__/
 .pytest_cache/
 *.tsbuildinfo
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
