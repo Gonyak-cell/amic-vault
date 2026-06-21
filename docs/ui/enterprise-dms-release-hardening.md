@@ -182,18 +182,24 @@ Rollback owner must be named before release. Rollback controls:
 ## DMS-UX-811 Production Monitor
 
 Canonical monitor matrix: `docs/release/enterprise-dms-ui-release-evidence.md`.
+Detailed query-ref map: `docs/release/enterprise-dms-monitor-map.md`.
 
 Monitor after release:
 
 - Upload failure rate and unsupported file type rate.
 - Extraction/OCR pending and failure rate.
-- Search latency, no-result rate, and denied-search spikes.
+- Search latency, reindex queue age/failure, no-result rate, and denied-search
+  spikes.
 - Permission denied, ethical wall blocked, and tenant isolation errors.
 - AI prep queue pending/failed/rejected/stale counts, limited to file
   organization prep.
 - Audit write failures.
 - Storage write/read failures and duplicate/integrity failures.
 - Integration status gate failures for Outlook and future Office/OneDrive lanes.
+
+Every `MON-DMS-*` row must have an owner-reviewed external monitor ref before
+DMS-UX-812 signoff. Missing monitor refs are owner-visible release blockers, not
+repo test failures.
 
 ## DMS-UX-812 Release Signoff
 
