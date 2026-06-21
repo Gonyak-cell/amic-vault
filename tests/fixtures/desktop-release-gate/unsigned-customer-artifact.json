@@ -1,0 +1,27 @@
+{
+  "artifact": {
+    "customerArtifact": true,
+    "channel": "pilot",
+    "version": "0.0.0-lc08",
+    "commit": "LC-DESKTOP-08-SYNTHETIC",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "signed": false,
+    "signatureRef": ""
+  },
+  "update": {
+    "enabled": false
+  },
+  "rollback": {
+    "ref": "RB-DESKTOP-NATIVE-001",
+    "browserPwaFallback": true
+  },
+  "release": {
+    "serverProductionDeploy": false
+  },
+  "evidence": {
+    "refs": [
+      "DESKTOP-ARTIFACT-DIGEST-REF",
+      "DESKTOP-ROLLBACK-BROWSER-FALLBACK-REF"
+    ]
+  }
+}

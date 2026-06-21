@@ -54,6 +54,37 @@ permission failures, or confusing users during incident response.
    refs. Do not record screenshots with private URLs, cookies, tokens, local
    storage dumps, document names, snippets, or customer data.
 
+## Desktop Native Artifact Rollback
+
+Use this path when a signed Tauri desktop artifact, installer channel, or
+desktop update manifest is suspected of pointing to an unsafe origin, carrying
+the wrong release channel, lacking a digest/signature receipt, or confusing
+users during incident response.
+
+No desktop native rollback may deploy server production, widen traffic, change
+database migrations, alter storage objects, or modify API/web/worker production
+state. Roll back the native artifact lane only and keep server-side permission,
+audit, document, search, AI, and external-sharing gates authoritative.
+
+1. Stop promotion for the affected native channel and record
+   `RB-DESKTOP-NATIVE-001`.
+2. Revoke or hide the installer/update manifest from the affected channel. If an
+   updater is later enabled, publish a signed hold manifest that points only to a
+   reviewed previous artifact for the same channel and digest.
+3. Direct users to the approved browser/PWA fallback and record
+   `DESKTOP-ROLLBACK-BROWSER-FALLBACK-REF` outside the repository.
+4. Verify the replacement or fallback artifact has a sha256 digest, signing ref,
+   channel ref, release approval ref, and rollback owner ref.
+5. Keep screenshots, private endpoints, provider metadata, account identifiers,
+   cookies, tokens, customer document names, snippets, and local storage dumps
+   out of repository evidence.
+6. Run `pnpm desktop:release-gate` and
+   `pnpm desktop:release-gate -- --self-test` before re-opening the native
+   channel.
+7. Close the rollback only after the browser/PWA fallback is working, affected
+   users are notified through the operator-owned channel, and the desktop
+   release approval explicitly remains separate from server production deploy.
+
 ## Enterprise DMS UI Rollback
 
 Use this path when the Matter-first DMS UI release exposes unsafe upload,

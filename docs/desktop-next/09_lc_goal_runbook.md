@@ -566,7 +566,47 @@ rg -n "(AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH |)PRIVATE KEY|xox[baprs]-|sk-[A
 
 When LC-DESKTOP-07 is approved, the top-level goal may advance to native release-gate work, currently described as LC-DESKTOP-08 in `08_lazycodex_execution_plan.md`.
 
-## 11. Current Progress
+## 11. LC-DESKTOP-08 - Desktop Release Gate
+
+### Goal
+
+Separate native desktop artifact release from server production deploy and make
+the desktop release gate executable with synthetic pass/fail fixtures.
+
+### Scope
+
+- Add a desktop-only CI workflow for the thin shell and release gate.
+- Add `tools/release/check-desktop-release-gate.mjs`.
+- Add synthetic fixtures covering pass, missing digest, unsigned customer
+  artifact, wrong-channel update, missing rollback ref, and private
+  endpoint/token-shaped evidence.
+- Extend release evidence and rollback documentation with native desktop gate
+  refs.
+
+### Manual QA Surface
+
+Run the gate checker against passing and failing synthetic fixtures:
+
+```bash
+pnpm desktop:release-gate
+pnpm desktop:release-gate -- --self-test
+```
+
+### Evidence
+
+- `.omo/evidence/LC-DESKTOP-08/executor.md`
+- `.omo/evidence/LC-DESKTOP-08/manual-qa.md`
+- `.omo/evidence/LC-DESKTOP-08/review.md`
+- `.omo/evidence/LC-DESKTOP-08/gate-review.md`
+
+### Completion
+
+LC-DESKTOP-08 is complete when the release gate checker passes live docs,
+synthetic failure fixtures are rejected with their expected codes, desktop CI is
+defined separately from server production deploy, and no private endpoint,
+token, signing secret, or customer data is committed.
+
+## 12. Current Progress
 
 | LC | Status | Evidence |
 |---|---|---|
@@ -574,7 +614,8 @@ When LC-DESKTOP-07 is approved, the top-level goal may advance to native release
 | LC-DESKTOP-01 | Complete | `.omo/evidence/LC-DESKTOP-01/executor.md`, `.omo/evidence/LC-DESKTOP-01/manual-qa.md` |
 | LC-DESKTOP-02 | Complete | `.omo/evidence/LC-DESKTOP-02/executor.md`, `.omo/evidence/LC-DESKTOP-02/manual-qa.md`, `.omo/evidence/LC-DESKTOP-02/review.md` |
 | LC-DESKTOP-03 | Complete | `.omo/evidence/LC-DESKTOP-03/dependency-gate.md`, `.omo/evidence/LC-DESKTOP-03/candidate-audit.md`, `.omo/evidence/LC-DESKTOP-03/import-map.md`, `.omo/evidence/LC-DESKTOP-03/approval-packet.md`, `.omo/evidence/LC-DESKTOP-03/executor.md`, `.omo/evidence/LC-DESKTOP-03/manual-qa.md`, `.omo/evidence/LC-DESKTOP-03/review.md`, `.omo/evidence/LC-DESKTOP-03/gate-review.md`; operator approved Tauri dependency gate, scaffold imported, missing-config startup blocks with sanitized reason code, `tauri:build` passed |
-| LC-DESKTOP-04 | Ready to start | Requires LC-DESKTOP-03 scaffold |
-| LC-DESKTOP-05 | Pending | Requires LC-DESKTOP-03 scaffold |
-| LC-DESKTOP-06 | Pending | Requires LC-DESKTOP-03 through LC-DESKTOP-05 |
-| LC-DESKTOP-07 | Pending | Can proceed after LC-DESKTOP-02 if operator wants docs before code; otherwise after LC-DESKTOP-06 |
+| LC-DESKTOP-04 | Complete | `.omo/evidence/LC-DESKTOP-04/executor.md`, `.omo/evidence/LC-DESKTOP-04/manual-qa.md`, `.omo/evidence/LC-DESKTOP-04/review.md`, `.omo/evidence/LC-DESKTOP-04/gate-review.md`; approved-origin navigation guard implemented and required negative cases verified |
+| LC-DESKTOP-05 | Complete | `.omo/evidence/LC-DESKTOP-05/executor.md`, `.omo/evidence/LC-DESKTOP-05/manual-qa.md`, `.omo/evidence/LC-DESKTOP-05/review.md`, `.omo/evidence/LC-DESKTOP-05/gate-review.md`; capability directory checker and tests prove native permissions remain denied |
+| LC-DESKTOP-06 | Complete | `.omo/evidence/LC-DESKTOP-06/executor.md`, `.omo/evidence/LC-DESKTOP-06/manual-qa.md`, `.omo/evidence/LC-DESKTOP-06/review.md`, `.omo/evidence/LC-DESKTOP-06/gate-review.md`; desktop auth/audit/no-local-storage tests and existing desktop integration specs passed |
+| LC-DESKTOP-07 | Complete | `.omo/evidence/LC-DESKTOP-07/executor.md`, `.omo/evidence/LC-DESKTOP-07/manual-qa.md`, `.omo/evidence/LC-DESKTOP-07/review.md`, `.omo/evidence/LC-DESKTOP-07/gate-review.md`; signing, updater-disabled, release-channel, macOS/Windows distribution, and IT handoff docs added |
+| LC-DESKTOP-08 | Complete | `.omo/evidence/LC-DESKTOP-08/executor.md`, `.omo/evidence/LC-DESKTOP-08/manual-qa.md`, `.omo/evidence/LC-DESKTOP-08/review.md`, `.omo/evidence/LC-DESKTOP-08/gate-review.md`; desktop CI, release gate checker, synthetic pass/fail fixtures, evidence register, and native rollback docs added |

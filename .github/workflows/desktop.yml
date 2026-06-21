@@ -1,0 +1,44 @@
+name: desktop
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/desktop.yml'
+      - 'apps/desktop/**'
+      - 'docs/desktop-next/**'
+      - 'docs/release/desktop-*.md'
+      - 'docs/release/evidence-register.md'
+      - 'docs/release/rollback-runbook.md'
+      - 'tests/fixtures/desktop-release-gate/**'
+      - 'tools/release/check-desktop-*.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  push:
+    branches:
+      - main
+      - 'release/**'
+      - 'feat/desktop**'
+      - 'test/desktop**'
+      - 'docs/desktop**'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  desktop-release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @amic-vault/desktop validate
+      - run: pnpm --filter @amic-vault/desktop test
+      - run: node tools/release/check-desktop-capabilities.mjs
+      - run: node tools/release/check-desktop-local-storage.mjs
+      - run: pnpm desktop:release-gate
+      - run: pnpm desktop:release-gate -- --self-test
+      - run: pnpm docs:frozen
