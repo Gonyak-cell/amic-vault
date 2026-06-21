@@ -71,6 +71,34 @@ for (const marker of [
 }
 
 for (const marker of [
+  'localStorage',
+  'sessionStorage',
+  'indexedDB',
+  'CacheStorage',
+  'caches.open',
+  'document.cookie',
+  'tauri-plugin-store',
+  'tauri-plugin-sql',
+  'rusqlite',
+  'sqlx',
+  'sqlite',
+  'rocksdb',
+  'sled',
+  'redb',
+  'BaseDirectory::AppData',
+  'app_data_dir',
+  '/v1/documents',
+  '/v1/search',
+  'DOCUMENT_VIEWED',
+  'DOCUMENT_DOWNLOADED',
+]) {
+  assert(
+    !`${cargoToml}\n${main}\n${origin}\n${originGuard}`.includes(marker),
+    `Forbidden desktop local authority marker present: ${marker}`,
+  );
+}
+
+for (const marker of [
   'fs:',
   'clipboard',
   'dialog',
