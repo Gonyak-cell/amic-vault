@@ -107,7 +107,11 @@ source/source text storage/display, or model response storage/display.
 
 ## DMS-UX-806 Responsive QA
 
-Reviewer must check affected DMS routes at:
+Canonical route matrix:
+`docs/release/enterprise-dms-responsive-a11y-matrix.md`.
+
+Reviewer must attach external `RA-DMS-*` refs for every visible DMS route group
+at:
 
 - 1440px desktop: app shell, search, matter, files, document detail, dashboard,
   governance, admin, integrations.
@@ -116,9 +120,23 @@ Reviewer must check affected DMS routes at:
 - 375px mobile: drawer/nav reachability, no horizontal page overflow, readable
   action buttons, usable forms.
 
+Required route groups:
+
+- `DMS-RA-001`: app shell, dashboard, navigation, language selector, logout.
+- `DMS-RA-002`: upload/files route and Matter Code picker.
+- `DMS-RA-003`: Matter list, Matter workspace, file cabinet, and team access.
+- `DMS-RA-004`: document detail, preview, action center, versioning, download
+  reason, related items.
+- `DMS-RA-005`: search and governed search folders.
+- `DMS-RA-006`: admin, security, enterprise, integrations, Outlook, Matter
+  source status, and gated Office/OneDrive states.
+- `DMS-RA-007`: records, audit, walls, work queue, notifications, and
+  governance tables.
+
 ## DMS-UX-807 Accessibility QA
 
-Reviewer must check:
+Reviewer must attach external keyboard and screen-reader basics refs for every
+`DMS-RA-*` route group. Required checks:
 
 - Keyboard access for navigation, search, filters, upload, document actions,
   download reason selector, records/audit links, admin refresh, integration
@@ -127,6 +145,16 @@ Reviewer must check:
 - `aria-current` for active navigation.
 - Accessible names for icon buttons.
 - Empty/error/denied states readable without color alone.
+
+The repository component guards are `RA-DMS-GUARD-001` through
+`RA-DMS-GUARD-004` and are verified by:
+
+```bash
+pnpm --filter @amic-vault/web test -- src/app/(app)/app-shell.test.tsx src/components/ui/layout-primitives.test.tsx src/components/ui/empty-state.test.tsx src/components/ui/data-table.test.tsx
+```
+
+The focused test command does not replace final external visual/keyboard
+receipts. Missing `RA-DMS-*` refs keep DMS-UX-812 at `HOLD`.
 
 ## DMS-UX-808 Evidence Package
 

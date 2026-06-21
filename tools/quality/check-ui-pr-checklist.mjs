@@ -19,6 +19,7 @@ const requiredFiles = [
   'docs/ui/enterprise-dms-pr-e-closeout.md',
   'docs/ui/enterprise-dms-pr-f-readiness.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
+  'docs/release/enterprise-dms-responsive-a11y-matrix.md',
   'docs/integrations/matter-app-vault-contract.md',
 ];
 
@@ -57,6 +58,11 @@ const requiredPatterns = [
   {
     label: 'DMS UI release evidence template',
     pattern: /Enterprise DMS UI Release Evidence[\s\S]*DMS-UX-808[\s\S]*DMS-UX-811/i,
+  },
+  {
+    label: 'DMS responsive accessibility matrix',
+    pattern:
+      /Enterprise DMS Responsive And Accessibility Matrix[\s\S]*DMS-GA-703[\s\S]*RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-004[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007/is,
   },
   {
     label: 'DMS rollout evidence matrix',

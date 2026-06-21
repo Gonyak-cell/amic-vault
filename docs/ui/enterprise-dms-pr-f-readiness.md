@@ -37,11 +37,13 @@ accessibility receipts still require approved visual/keyboard review:
   legal analysis, document summary, external model route, raw prompt/source,
   source text, and model-response copy.
 - DMS-UX-806 Responsive QA is partially machine-guarded by AppShell, layout
-  primitive, table overflow, and mobile navigation smoke patterns; final visual
-  receipt at 1440px, 768px, and 375px remains manual.
+  primitive, table overflow, and mobile navigation smoke patterns; the route
+  matrix in `docs/release/enterprise-dms-responsive-a11y-matrix.md` defines
+  final visual receipt refs at 1440px, 768px, and 375px.
 - DMS-UX-807 Accessibility QA is partially machine-guarded by `aria-current`,
   mobile dialog controls, icon/empty-state accessibility tests, and focusable
-  navigation patterns; final keyboard receipt remains manual.
+  navigation patterns; the route matrix defines final keyboard and
+  screen-reader basics receipt refs for every `DMS-RA-*` route group.
 
 ## Manual Receipt Requirements
 
@@ -53,8 +55,8 @@ endpoints, screenshots, customer data, cookies, tokens, or provider metadata.
 | --- | --- | --- |
 | DMS-UX-801 | Authenticated main loop: login -> Matter Code -> upload -> processing -> matter-scoped file list -> document detail -> search -> preview/version -> records/audit links | `pnpm release:dms-smoke -- --json` receipt copied to external evidence workspace using refs only |
 | DMS-UX-802 | Negative auth: non-member, wall-blocked, non-admin, denied upload/download/preview/search, stale-content clearing | `pnpm release:dms-smoke -- --json` negative-auth checks copied to external evidence workspace using refs only |
-| DMS-UX-806 | Responsive visual QA at 1440px, 768px, and 375px for upload, files, matter, document, search, admin, records, and task inbox | External evidence workspace using refs only |
-| DMS-UX-807 | Keyboard and screen-reader basics for navigation, search, filters, upload, document actions, language selector, logout, and error states | External evidence workspace using refs only |
+| DMS-UX-806 | Responsive visual QA at 1440px, 768px, and 375px for `DMS-RA-001` through `DMS-RA-007`: app shell/dashboard, upload/files, matter/team, document detail, search, admin/integrations, records/audit/walls/work/notifications | External evidence workspace using refs only |
+| DMS-UX-807 | Keyboard and screen-reader basics for `DMS-RA-001` through `DMS-RA-007`: navigation, search, filters, upload, document actions, language selector, logout, admin/integration controls, and empty/error states | External evidence workspace using refs only |
 
 The existing `pnpm release:smoke` / `tools/release/staging-smoke.mjs` credential
 gate covers approved synthetic login, dashboard, search, tenant API, and
@@ -84,6 +86,7 @@ environment supports the DMS upload flow.
 | DMS version receipt guard | `apps/web/src/components/document/document-action-center.test.tsx` and `apps/web/src/components/document/document-audit-timeline.test.tsx` for new-version upload receipt text, version list plus document-scoped audit timeline plus file-organization prep status refresh, duplicate-candidate count, and no visible raw document/version/file refs | DMS-UX-206, 207, 406, 509 |
 | DMS related item guard | `apps/web/src/components/document/document-action-center.test.tsx` for same-Matter related documents loaded through the permission-scoped matter document list API, document-linked email filings loaded through the permission-scoped Matter email timeline API, current-document filtering, safe title/status/type/updated-time/subject/count/warning display, and no visible raw Matter/email reference | DMS-UX-211 |
 | DMS body-search fixture gate | `tests/integration/search-permission/search-body-fixture.spec.ts` and `pnpm test:integration -- search-permission` | DMS-UX-312, 313 |
+| Responsive/accessibility route matrix | `docs/release/enterprise-dms-responsive-a11y-matrix.md` with `DMS-RA-001` through `DMS-RA-007` and `RA-DMS-GUARD-001` through `RA-DMS-GUARD-004` | DMS-UX-806, 807 |
 | Responsive/accessibility component guards | `apps/web/src/app/(app)/app-shell.test.tsx`, `apps/web/src/components/ui/layout-primitives.test.tsx`, `apps/web/src/components/ui/empty-state.test.tsx`, and `apps/web/src/components/ui/data-table.test.tsx` | DMS-UX-806, 807 |
 
 ## Required Commands
@@ -125,8 +128,8 @@ Production release must remain `HOLD` when any of the following is true:
   tokens, raw AI data, or provider metadata;
 - UI copy implies legal analysis, document summary, external model routing, raw
   prompt/source storage, source text display, or model-response display;
-- responsive or keyboard QA is missing for the visible routes touched by the
-  release.
+- responsive or keyboard QA is missing because any `DMS-RA-*` route group is
+  missing 1440px, 768px, 375px, keyboard, or screen-reader basics refs.
 
 ## Closeout Boundary
 
