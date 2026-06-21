@@ -64,7 +64,7 @@ const plannedChecks = [
   ['SMOKE-008', 'Protected tenant API returns tenant-scoped response'],
   ['SMOKE-009', 'Negative role check denies tenant settings'],
   ['SMOKE-010', 'Audit event query returns reference-only event list'],
-  ['SMOKE-011', 'Launch control page renders with session cookie'],
+  ['SMOKE-011', 'Operator tools blocked route renders with session cookie'],
   ['SMOKE-012', 'Desktop PWA manifest renders with safe app identity'],
   ['SMOKE-013', 'Desktop service worker keeps sensitive routes out of cache'],
   ['SMOKE-014', 'Desktop offline shell renders without tenant data'],
@@ -358,7 +358,7 @@ if (publicOnly) {
     return { status: response.status, items: body.items.length };
   });
 
-  await run('SMOKE-011', 'Launch control page renders with session cookie', async () => {
+  await run('SMOKE-011', 'Operator tools blocked route renders with session cookie', async () => {
     assert(sessionCookie, 'missing session cookie from SMOKE-005');
     const response = await fetchWithTimeout(webUrl('/launch'), {
       headers: { cookie: sessionCookie },
@@ -366,18 +366,22 @@ if (publicOnly) {
     assert(response.status === 200, `launch status ${response.status}`);
     const html = await response.text();
     assert(
-      includesAny(html, ['Launch Control', 'Operations', '운영자 도구']),
-      'launch page missing control title',
+      includesAny(html, ['Operator tools', '운영자 도구']),
+      'launch blocked page missing operator tools area',
     );
     assert(
-      includesAny(html, ['approval blocked', 'Approval needed', '승인 필요']),
-      'launch page missing approval blocked state',
+      includesAny(html, ['Production visibility blocked', '운영 노출 차단']),
+      'launch blocked page missing production visibility state',
     );
     assert(
-      html.includes('pnpm launch:execution'),
-      'launch page missing execution validator command',
+      includesAny(html, ['current production scope', '현재 운영 범위']),
+      'launch blocked page missing production scope reason',
     );
-    return { status: response.status };
+    assert(
+      !html.includes('pnpm launch:execution'),
+      'launch blocked page exposed execution validator command',
+    );
+    return { status: response.status, routePolicy: 'production-visibility-blocked' };
   });
 }
 

@@ -1,5 +1,4 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Pool } from 'pg';
 import {
   buildSafeLabel,
   type AuditAction,
@@ -20,18 +19,7 @@ import {
 } from '@amic-vault/shared';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
-import { AuditService } from './audit.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { AuditService, type QueryClient } from './audit.service';
 
 interface AuditDocumentTargetRow {
   documentId: string;
@@ -169,25 +157,27 @@ export class AuditQueryService {
     query: DocumentAuditQueryDto,
   ): Promise<DocumentAuditEventListDto> {
     const context = this.tenantContext.require();
-    const target = await this.findDocumentTarget(context.tenantId, documentId);
-    if (!target) throw permissionDenied();
-    await this.assertCanReadDocumentAudit(context.tenantId, actorUserId, target.matterId);
+    return this.auditService.transaction(context.tenantId, async (client) => {
+      const target = await this.findDocumentTarget(client, context.tenantId, documentId);
+      if (!target) throw permissionDenied();
+      await this.assertCanReadDocumentAudit(context.tenantId, actorUserId, target.matterId);
 
-    const cursor = decodeCursor(query.cursor);
-    if (query.cursor && !cursor) throw permissionDenied();
+      const cursor = decodeCursor(query.cursor);
+      if (query.cursor && !cursor) throw permissionDenied();
 
-    const rows = await this.findDocumentAuditEvents(context.tenantId, target.documentId, {
-      eventType: query.eventType,
-      from: query.from,
-      to: query.to,
-      limit: query.limit,
-      cursor,
+      const rows = await this.findDocumentAuditEvents(client, context.tenantId, target.documentId, {
+        eventType: query.eventType,
+        from: query.from,
+        to: query.to,
+        limit: query.limit,
+        cursor,
+      });
+      const visible = rows.slice(0, query.limit);
+      return {
+        items: visible.map(mapAuditRow),
+        nextCursor: rows.length > query.limit ? encodeCursor(visible[visible.length - 1]!) : null,
+      };
     });
-    const visible = rows.slice(0, query.limit);
-    return {
-      items: visible.map(mapAuditRow),
-      nextCursor: rows.length > query.limit ? encodeCursor(visible[visible.length - 1]!) : null,
-    };
   }
 
   async listMatterEvents(
@@ -201,29 +191,33 @@ export class AuditQueryService {
     const cursor = decodeCursor(query.cursor);
     if (query.cursor && !cursor) throw permissionDenied();
 
-    const rows = await this.findMatterAuditEvents(context.tenantId, matterId, {
-      action: query.action,
-      result: query.result,
-      from: query.from,
-      to: query.to,
-      limit: query.limit,
-      cursor,
+    return this.auditService.transaction(context.tenantId, async (client) => {
+      const rows = await this.findMatterAuditEvents(client, context.tenantId, matterId, {
+        action: query.action,
+        result: query.result,
+        from: query.from,
+        to: query.to,
+        limit: query.limit,
+        cursor,
+      });
+      const visible = rows.slice(0, query.limit).map(mapTenantAuditRow);
+      return {
+        items: visible,
+        nextCursor: rows.length > query.limit ? encodeCursor(rows[query.limit - 1]!) : null,
+      };
     });
-    const visible = rows.slice(0, query.limit).map(mapTenantAuditRow);
-    return {
-      items: visible,
-      nextCursor: rows.length > query.limit ? encodeCursor(rows[query.limit - 1]!) : null,
-    };
   }
 
   async listTenantEvents(actorUserId: string, query: AuditQueryDto): Promise<AuditEventListDto> {
     const context = this.tenantContext.require();
     const cursor = decodeCursor(query.cursor);
     if (query.cursor && !cursor) throw permissionDenied();
-    await this.assertTargetFiltersTenantScoped(context.tenantId, query);
 
     const startedAt = Date.now();
-    const rows = await this.findTenantAuditEvents(context.tenantId, { ...query, cursor });
+    const rows = await this.auditService.transaction(context.tenantId, async (client) => {
+      await this.assertTargetFiltersTenantScoped(client, context.tenantId, query);
+      return this.findTenantAuditEvents(client, context.tenantId, { ...query, cursor });
+    });
     const visible = rows.slice(0, query.limit).map(mapTenantAuditRow);
     await this.auditService.log({
       tenantId: context.tenantId,
@@ -251,10 +245,12 @@ export class AuditQueryService {
     const context = this.tenantContext.require();
     const cursor = decodeCursor(query.cursor);
     if (query.cursor && !cursor) throw permissionDenied();
-    await this.assertTargetFiltersTenantScoped(context.tenantId, query);
 
     const startedAt = Date.now();
-    const rows = await this.findTenantAuditEvents(context.tenantId, { ...query, cursor });
+    const rows = await this.auditService.transaction(context.tenantId, async (client) => {
+      await this.assertTargetFiltersTenantScoped(client, context.tenantId, query);
+      return this.findTenantAuditEvents(client, context.tenantId, { ...query, cursor });
+    });
     const visible = rows.slice(0, query.limit).map(mapTenantAuditRow);
     await this.auditService.log({
       tenantId: context.tenantId,
@@ -274,13 +270,11 @@ export class AuditQueryService {
   }
 
   protected async findDocumentTarget(
+    client: QueryClient,
     tenantId: TenantId,
     documentId: string,
   ): Promise<AuditDocumentTargetRow | null> {
-    const result = await getPool().query<{
-      document_id: string;
-      matter_id: string;
-    }>(
+    const result = await client.query(
       `
         SELECT document_id, matter_id
         FROM documents
@@ -290,7 +284,7 @@ export class AuditQueryService {
       `,
       [tenantId, documentId],
     );
-    const row = result.rows[0];
+    const row = result.rows[0] as { document_id: string; matter_id: string } | undefined;
     return row ? { documentId: row.document_id, matterId: row.matter_id } : null;
   }
 
@@ -320,11 +314,12 @@ export class AuditQueryService {
   }
 
   protected async findDocumentAuditEvents(
+    client: QueryClient,
     tenantId: TenantId,
     documentId: string,
     query: ResolvedDocumentAuditQuery,
   ): Promise<AuditEventRow[]> {
-    const result = await getPool().query<AuditEventRow>(
+    const result = await client.query(
       `
         SELECT ae.event_id, ae.action, ae.actor_type, ae.actor_id,
           actor_user.name AS actor_name, actor_user.email AS actor_email,
@@ -369,15 +364,16 @@ export class AuditQueryService {
         documentTimelineAuditActions,
       ],
     );
-    return result.rows;
+    return result.rows as AuditEventRow[];
   }
 
   protected async findMatterAuditEvents(
+    client: QueryClient,
     tenantId: TenantId,
     matterId: string,
     query: ResolvedMatterAuditQuery,
   ): Promise<AuditEventRow[]> {
-    return this.findTenantAuditEvents(tenantId, {
+    return this.findTenantAuditEvents(client, tenantId, {
       actorId: undefined,
       action: query.action,
       result: query.result,
@@ -392,10 +388,11 @@ export class AuditQueryService {
   }
 
   protected async findTenantAuditEvents(
+    client: QueryClient,
     tenantId: TenantId,
     query: ResolvedAuditQuery | ResolvedAuditExportQuery,
   ): Promise<AuditEventRow[]> {
-    const result = await getPool().query<AuditEventRow>(
+    const result = await client.query(
       `
         SELECT ae.event_id, ae.action, ae.actor_type, ae.actor_id,
           actor_user.name AS actor_name, actor_user.email AS actor_email,
@@ -469,30 +466,32 @@ export class AuditQueryService {
         query.limit + 1,
       ],
     );
-    return result.rows;
+    return result.rows as AuditEventRow[];
   }
 
   protected async assertTargetFiltersTenantScoped(
+    client: QueryClient,
     tenantId: TenantId,
     query: Pick<AuditQueryDto | AuditExportQueryDto, 'matterId' | 'targetType' | 'targetId'>,
   ): Promise<void> {
     if (query.matterId) {
-      await this.assertResourceInTenant(tenantId, 'matters', 'matter_id', query.matterId);
+      await this.assertResourceInTenant(client, tenantId, 'matters', 'matter_id', query.matterId);
     }
     if (!query.targetId || !query.targetType) return;
 
     const target = targetTable(query.targetType);
     if (!target) throw permissionDenied();
-    await this.assertResourceInTenant(tenantId, target.table, target.column, query.targetId);
+    await this.assertResourceInTenant(client, tenantId, target.table, target.column, query.targetId);
   }
 
   private async assertResourceInTenant(
+    client: QueryClient,
     tenantId: TenantId,
     table: string,
     column: string,
     id: string,
   ): Promise<void> {
-    const result = await getPool().query(
+    const result = await client.query(
       `
         SELECT 1
         FROM ${table}
