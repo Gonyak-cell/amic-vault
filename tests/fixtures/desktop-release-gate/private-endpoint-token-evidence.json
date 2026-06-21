@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "customerArtifact": true,
+    "channel": "pilot",
+    "version": "0.0.0-lc08",
+    "commit": "LC-DESKTOP-08-SYNTHETIC",
+    "digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "signed": true,
+    "signatureRef": "DESKTOP-ARTIFACT-SIGNATURE-REF"
+  },
+  "update": {
+    "enabled": false
+  },
+  "rollback": {
+    "ref": "RB-DESKTOP-NATIVE-001",
+    "browserPwaFallback": true
+  },
+  "release": {
+    "serverProductionDeploy": false
+  },
+  "evidence": {
+    "refs": [
+      "DESKTOP-ARTIFACT-DIGEST-REF",
+      "DESKTOP-ROLLBACK-BROWSER-FALLBACK-REF"
+    ],
+    "notes": "Do not commit this shape: artifact=https://private.example.invalid/builds/vault.dmg synthetic-token-marker"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "artifact": {
+    "customerArtifact": true,
+    "channel": "pilot",
+    "version": "0.0.0-lc08",
+    "commit": "LC-DESKTOP-08-SYNTHETIC",
+    "signed": true,
+    "signatureRef": "DESKTOP-ARTIFACT-SIGNATURE-REF"
+  },
+  "update": {
+    "enabled": false
+  },
+  "rollback": {
+    "ref": "RB-DESKTOP-NATIVE-001",
+    "browserPwaFallback": true
+  },
+  "release": {
+    "serverProductionDeploy": false
+  },
+  "evidence": {
+    "refs": [
+      "DESKTOP-ROLLBACK-BROWSER-FALLBACK-REF"
+    ]
+  }
+}
