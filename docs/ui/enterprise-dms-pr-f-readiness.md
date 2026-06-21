@@ -29,10 +29,14 @@ accessibility receipts still require approved visual/keyboard review:
   negative identity that must not read or discover the uploaded document.
 
 - DMS-UX-803 No Fake Data Sweep is enforced by
-  `pnpm check:production-ui-literals` and `pnpm ui:production-smoke`.
+  `pnpm check:production-ui-literals` and `pnpm ui:production-smoke` across the
+  DMS-GA-704 expanded upload, files, matter/team, search, records, audit,
+  walls, work, notifications, admin, enterprise, integrations, Outlook, and AI
+  Prep guard surfaces.
 - DMS-UX-804 Internal Ref Sweep is enforced by production UI literal and smoke
-  guards for workspace ID, tenant ID, raw UUID slices, short hashes, unsafe ID
-  fallback labels, and internal refs in normal user-facing UI.
+  guards for workspace ID, tenant ID, document ID, raw UUID literals, raw UUID
+  slices, short hashes, unsafe ID fallback labels, and internal refs in normal
+  user-facing UI.
 - DMS-UX-805 AI Scope Sweep is enforced by production UI guards that reject
   legal analysis, document summary, external model route, raw prompt/source,
   source text, and model-response copy.
@@ -75,6 +79,7 @@ environment supports the DMS upload flow.
 | Evidence package template | `docs/release/enterprise-dms-ui-release-evidence.md` | DMS-UX-801 to 807 |
 | Production UI literal guard | `tools/quality/check-production-ui-literals.mjs` | DMS-UX-803 to 805 |
 | Production UI smoke guard | `tools/release/check-production-ui-smoke.mjs` | DMS-UX-803 to 807 |
+| DMS-GA-704 expanded guard coverage | `tools/quality/check-production-ui-literals.mjs`, `tools/release/check-production-ui-smoke.mjs`, `GUARD-DMS-001-SURFACE-COVERAGE`, `GUARD-DMS-002-NO-FAKE-DATA`, `GUARD-DMS-003-NO-INTERNAL-REFS`, and `GUARD-DMS-004-AI-SCOPE-EXCLUSION` for upload, files, matter/team, search, records, audit, walls, work, notifications, admin, enterprise, integrations, Outlook, and AI Prep surfaces | DMS-UX-803 to 805 |
 | Staging smoke credential gate | `tools/release/staging-smoke.mjs` and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
 | DMS main-loop smoke gate | `tools/release/dms-main-loop-smoke.mjs`, `pnpm release:dms-smoke -- --check-env --json`, `pnpm release:dms-smoke -- --json`, and `docs/release/env.staging-smoke.example` | DMS-UX-801, 802 |
 | DMS Matter app source contract guard | `apps/web/src/lib/matter-app.spec.ts`, `apps/web/src/app/(app)/integrations/matter-app/page.tsx`, `.env.example`, and `docs/integrations/matter-app-vault-contract.md` for configured-plus-runtime-ready source gating, descriptor-only Matter package exclusion, projection fallback blocking in production, and upload-authoritative mode only after lookup/sync readiness | DMS-UX-003 |
@@ -126,6 +131,8 @@ Production release must remain `HOLD` when any of the following is true:
   document path;
 - a smoke receipt includes customer file contents, private URLs, cookies,
   tokens, raw AI data, or provider metadata;
+- any DMS-GA-704 expanded guard surface is missing from production UI literal
+  or smoke scanning;
 - UI copy implies legal analysis, document summary, external model routing, raw
   prompt/source storage, source text display, or model-response display;
 - responsive or keyboard QA is missing because any `DMS-RA-*` route group is

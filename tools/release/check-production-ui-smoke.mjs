@@ -33,19 +33,50 @@ const forbiddenPatterns = [
     pattern:
       /\bshortHash\s*\(\s*(status\.)?(matterId|documentId|clientId|userId|tenantId|workspaceId|selectedMatterId|selectedDocumentId)\b/i,
   },
-  { name: 'workspace id visible copy', pattern: /workspace\s*id|워크스페이스 ID/i },
+  { name: 'workspace id visible copy', pattern: /\bworkspace ID\b|워크스페이스 ID/i },
+  { name: 'tenant id visible copy', pattern: /\btenant ID\b|테넌트 ID/i },
+  { name: 'document id visible copy', pattern: /\bdocument ID\b|문서 ID/i },
+  { name: 'raw uuid literal', pattern: /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i },
   { name: 'theme selector copy', pattern: /디자인 테마|design theme/i },
   { name: 'raw prompt copy', pattern: /raw prompt|prompt 원문/i },
   { name: 'raw source copy', pattern: /raw source|source text|source 원문/i },
   { name: 'model response copy', pattern: /model response|model-response|모델 응답/i },
   { name: 'external model copy', pattern: /external model|외부 모델/i },
   { name: 'legal analysis copy', pattern: /legal analysis|법률 분석/i },
+  { name: 'document summary copy', pattern: /document summary|summary generation|문서 요약/i },
   {
     name: 'fake operational copy',
     pattern:
       /가짜\s*(작업|데이터|문서|사건|수)|fake\s+(task|data|document|matter|count)|mock\s+(task|data|document|matter)|sample\s+(default|data|document|matter)|demo\s+(data|tenant|matter|document)/i,
   },
   { name: 'implementation fallback copy', pattern: /작업 API가 없는/i },
+];
+
+const expandedDmsGuardSurfaceFiles = [
+  'apps/web/src/app/(app)/files/page.tsx',
+  'apps/web/src/components/document/document-upload-panel.tsx',
+  'apps/web/src/components/document/document-vault-list.tsx',
+  'apps/web/src/components/document/matter-document-list.tsx',
+  'apps/web/src/components/document/document-action-center.tsx',
+  'apps/web/src/app/(app)/matters/page.tsx',
+  'apps/web/src/app/(app)/matters/[matterId]/page.tsx',
+  'apps/web/src/app/(app)/matters/[matterId]/team/page.tsx',
+  'apps/web/src/components/matter/add-member-dialog.tsx',
+  'apps/web/src/components/matter/team-member-list.tsx',
+  'apps/web/src/app/(app)/search/search-client.tsx',
+  'apps/web/src/app/(app)/search/folders/search-folders-client.tsx',
+  'apps/web/src/app/(app)/records/records-governance-client.tsx',
+  'apps/web/src/app/(app)/audit/audit-console-client.tsx',
+  'apps/web/src/app/(app)/walls/wall-admin-client.tsx',
+  'apps/web/src/app/(app)/work/work-queue-client.tsx',
+  'apps/web/src/app/(app)/notifications/notifications-client.tsx',
+  'apps/web/src/app/(app)/admin/page.tsx',
+  'apps/web/src/app/(app)/admin/security/page.tsx',
+  'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
+  'apps/web/src/app/(app)/integrations/page.tsx',
+  'apps/web/src/app/(app)/integrations/outlook/outlook-integration-status-client.tsx',
+  'apps/web/src/components/ai/ai-prep-status-panel.tsx',
+  'apps/web/src/components/ai/ai-prep-matter-dashboard.tsx',
 ];
 
 const blockedRouteForbiddenLiterals = [
@@ -1019,6 +1050,16 @@ const releaseHardeningPatterns = [
   { name: 'no fake data sweep', pattern: /DMS-UX-803 No Fake Data Sweep/ },
   { name: 'internal ref sweep', pattern: /DMS-UX-804 Internal Ref Sweep/ },
   { name: 'AI scope sweep', pattern: /DMS-UX-805 AI Scope Sweep/ },
+  {
+    name: 'DMS-GA-704 expanded guard coverage',
+    pattern:
+      /DMS-GA-704[\s\S]*upload[\s\S]*files[\s\S]*matter\/team[\s\S]*search[\s\S]*records[\s\S]*audit[\s\S]*walls[\s\S]*work[\s\S]*notifications[\s\S]*admin[\s\S]*enterprise[\s\S]*integrations[\s\S]*Outlook[\s\S]*AI Prep/i,
+  },
+  {
+    name: 'DMS-GA-704 guard refs',
+    pattern:
+      /GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-003-NO-INTERNAL-REFS[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION|GUARD-DMS-002-NO-FAKE-DATA[\s\S]*GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION/i,
+  },
   { name: 'responsive QA viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
   {
     name: 'DMS-GA-703 route matrix',
@@ -1338,6 +1379,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
       /DMS-GA-703 Release Evidence Bridge[\s\S]*RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-004[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007[\s\S]*1440px[\s\S]*768px[\s\S]*375px[\s\S]*keyboard[\s\S]*screen-reader/i,
   },
   {
+    name: 'DMS-GA-704 expanded guard evidence',
+    pattern:
+      /DMS-GA-704 Release Evidence Bridge[\s\S]*GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION[\s\S]*(workspace ID[\s\S]*tenant ID[\s\S]*document ID|document summary[\s\S]*model-response)/i,
+  },
+  {
     name: 'DMS-UX-809 rollout matrix',
     pattern:
       /DMS-UX-809 Rollout Checklist[\s\S]*Matter Code selection before upload[\s\S]*Upload and post-upload processing state[\s\S]*Matter-scoped file list[\s\S]*Title\/body\/metadata search[\s\S]*AI Prep remains file organization prep only/i,
@@ -1431,6 +1477,11 @@ const prFReadinessPatterns = [
       /Production UI literal guard[\s\S]*Production UI smoke guard[\s\S]*Staging smoke credential gate[\s\S]*Responsive\/accessibility component guards/i,
   },
   {
+    name: 'PR-F DMS-GA-704 expanded guards',
+    pattern:
+      /DMS-GA-704 expanded guard coverage[\s\S]*GUARD-DMS-001-SURFACE-COVERAGE[\s\S]*GUARD-DMS-004-AI-SCOPE-EXCLUSION[\s\S]*upload[\s\S]*AI Prep/i,
+  },
+  {
     name: 'PR-F hold criteria',
     pattern:
       /approved staging\/production credentials are missing[\s\S]*approved negative-role credentials are missing[\s\S]*Matter Code source is not configured[\s\S]*free-floating[\s\S]*legal analysis[\s\S]*responsive or keyboard QA is missing/i,
@@ -1522,6 +1573,34 @@ const responsiveAccessibilityFiles = [
       {
         name: 'empty state actions wrap',
         pattern: /flex flex-wrap items-center justify-center gap-2/,
+      },
+    ],
+  },
+];
+
+const dmsExpandedGuardEvidenceFiles = [
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'DMS-GA-704 rollout checklist refs',
+        pattern:
+          /UI-PRE-009[\s\S]*DMS-GA-704 expanded guard coverage[\s\S]*GUARD-DMS-001[\s\S]*GUARD-DMS-004/i,
+      },
+      {
+        name: 'expanded guard forbidden copy list',
+        pattern:
+          /workspace ID[\s\S]*tenant ID[\s\S]*document ID[\s\S]*raw UUID[\s\S]*legal-analysis[\s\S]*summary[\s\S]*model-response/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/execution/TUW_ENTERPRISE_DMS_GA.md',
+    patterns: [
+      {
+        name: 'PR-7D execution acceptance',
+        pattern:
+          /Current PR-7D Acceptance[\s\S]*expanded upload[\s\S]*matter\/team[\s\S]*records[\s\S]*AI Prep[\s\S]*External authenticated main-loop/i,
       },
     ],
   },
@@ -1629,6 +1708,20 @@ function scanProductionUiSources() {
           if (pattern.test(line)) {
             fail(`${relativePath}:${index + 1} ${name}: ${line.trim()}`);
           }
+        }
+      }
+    }
+  }
+}
+
+function checkExpandedDmsGuardSurfaceCoverage() {
+  for (const relativePath of expandedDmsGuardSurfaceFiles) {
+    const source = readRequired(relativePath);
+    const lines = source.split(/\r?\n/);
+    for (const [index, line] of lines.entries()) {
+      for (const { name, pattern } of forbiddenPatterns) {
+        if (pattern.test(line)) {
+          fail(`${relativePath}:${index + 1} expanded DMS guard ${name}: ${line.trim()}`);
         }
       }
     }
@@ -1899,9 +1992,21 @@ function checkResponsiveAccessibilityGuard() {
   }
 }
 
+function checkDmsExpandedGuardEvidence() {
+  for (const file of dmsExpandedGuardEvidenceFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS-GA-704 expanded guard evidence missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 try {
   runExistingLiteralCheck();
   scanProductionUiSources();
+  checkExpandedDmsGuardSurfaceCoverage();
   checkRouteVisibility();
   checkBlockedRoutes();
   checkDesignSystemChecklist();
@@ -1922,6 +2027,7 @@ try {
   checkPrECloseoutGuard();
   checkPrFReadinessGuard();
   checkResponsiveAccessibilityGuard();
+  checkDmsExpandedGuardEvidence();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
