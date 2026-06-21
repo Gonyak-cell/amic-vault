@@ -92,12 +92,12 @@ Data handling: Evidence refs only. Do not paste customer file contents, secrets,
 
 | ID | Viewport / Mode | Check | Expected | Owner | Evidence ref | Result |
 |---|---|---|---|---|---|---|
-| UI-RSP-001 | 375px | Mobile navigation | Drawer opens, closes, and exposes allowed navigation without horizontal page overflow | Operator |  |  |
-| UI-RSP-002 | 768px | Tablet layout | Header, search, side navigation, tables, and inspectors remain readable | Operator |  |  |
-| UI-RSP-003 | 1440px | Desktop layout | Sidebar, top search, content, and inspector spacing align with the SaaS design system | Operator |  |  |
-| UI-A11Y-001 | Keyboard | Shell navigation | Keyboard can reach search, language selector, nav items, and logout | Operator |  |  |
-| UI-A11Y-002 | Keyboard | Search/filter actions | Search, pagination, filter reset, export, and feedback actions have visible labels or accessible names | Operator |  |  |
-| UI-A11Y-003 | Screen reader basics | Empty/error states | Empty/error blocks expose status text without relying only on color or icon | Security reviewer |  |  |
+| UI-RSP-001 | 375px | Mobile navigation | Drawer opens, closes, and exposes allowed navigation without horizontal page overflow across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001C-375` through `RA-DMS-007C-375` external refs required | `HOLD` until refs attached |
+| UI-RSP-002 | 768px | Tablet layout | Header, search, side navigation, tables, filters, upload, document detail, records, walls, work queue, and admin panels remain readable across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001B-768` through `RA-DMS-007B-768` external refs required | `HOLD` until refs attached |
+| UI-RSP-003 | 1440px | Desktop layout | Sidebar, top search, content, inspectors, and admin/integration panels align with the SaaS design system across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001A-1440` through `RA-DMS-007A-1440` external refs required | `HOLD` until refs attached |
+| UI-A11Y-001 | Keyboard | Shell navigation | Keyboard can reach search, language selector, nav items, logout, and mobile drawer controls across `DMS-RA-001` through `DMS-RA-007` | Operator | `RA-DMS-001D-KEYBOARD` through `RA-DMS-007D-KEYBOARD` external refs required | `HOLD` until refs attached |
+| UI-A11Y-002 | Keyboard | Search/filter/actions | Search, pagination, filter reset, upload, document actions, download reason, records/audit links, admin refresh, integration links, export, and feedback actions have visible labels or accessible names | Operator | `RA-DMS-002D-KEYBOARD`, `RA-DMS-004D-KEYBOARD`, `RA-DMS-005D-KEYBOARD`, `RA-DMS-006D-KEYBOARD`, `RA-DMS-007D-KEYBOARD` refs required | `HOLD` until refs attached |
+| UI-A11Y-003 | Screen reader basics | Empty/error states | Empty/error/denied blocks expose status text, active `aria-current`, and accessible names without relying only on color or icon across `DMS-RA-001` through `DMS-RA-007` | Security reviewer | `RA-DMS-001E-SR-BASICS` through `RA-DMS-007E-SR-BASICS` external refs required | `HOLD` until refs attached |
 
 ## 9. Post-Deploy Monitoring
 

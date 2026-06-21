@@ -13,6 +13,7 @@ const requiredFiles = [
   'docs/release/launch-blocker-ledger.md',
   'docs/release/enterprise-dms-ui-release-evidence.md',
   'docs/release/enterprise-dms-monitor-map.md',
+  'docs/release/enterprise-dms-responsive-a11y-matrix.md',
   'docs/release/rollback-runbook.md',
   'docs/release/production-ui-rollout-checklist.md',
   'docs/ledger/gates/LOCAL_AI_PROD_READY_gate.md',
@@ -197,12 +198,42 @@ for (const expected of [
   'RB-DMS-005-STORAGE-INTEGRITY',
   'RB-DMS-006-MONITOR-TRIGGERS',
   'RB-DMS-007-OFFICE-ONEDRIVE-GATE',
+  'DMS-GA-703 Release Evidence Bridge',
+  'RA-DMS-GUARD-001',
+  'DMS-RA-001',
+  'DMS-RA-007',
   'MON-DMS-001A-UPLOAD-FAILURE-RATE',
   'MON-DMS-003B-REINDEX-QUEUE-AGE',
   'MON-DMS-003C-REINDEX-FAILURE-RATE',
   'MON-DMS-008C-OFFICE-ONEDRIVE-CLAIM-GATE',
 ]) {
   assertContains(dmsEvidence, expected, 'docs/release/enterprise-dms-ui-release-evidence.md');
+}
+const dmsResponsiveA11y = contents.get('docs/release/enterprise-dms-responsive-a11y-matrix.md');
+for (const expected of [
+  'Status: REQUIRED BEFORE DMS PRODUCTION SIGNOFF - EXTERNAL REFS ONLY',
+  'DMS-GA-703',
+  'DMS-UX-806',
+  'DMS-UX-807',
+  'RA-DMS-GUARD-001',
+  'RA-DMS-GUARD-002',
+  'RA-DMS-GUARD-003',
+  'RA-DMS-GUARD-004',
+  'DMS-RA-001',
+  'DMS-RA-002',
+  'DMS-RA-003',
+  'DMS-RA-004',
+  'DMS-RA-005',
+  'DMS-RA-006',
+  'DMS-RA-007',
+  '1440px',
+  '768px',
+  '375px',
+  'KEYBOARD',
+  'SR-BASICS',
+  'Missing route coverage',
+]) {
+  assertContains(dmsResponsiveA11y, expected, 'docs/release/enterprise-dms-responsive-a11y-matrix.md');
 }
 const dmsRollbackRunbook = contents.get('docs/release/rollback-runbook.md');
 for (const expected of [
@@ -266,6 +297,8 @@ for (const expected of [
   'RB-DMS-001*',
   'RB-DMS-007*',
   'HOLD` until rollback owner and drill refs attached',
+  'RA-DMS-001C-375',
+  'RA-DMS-007E-SR-BASICS',
 ]) {
   assertContains(
     contents.get('docs/release/production-ui-rollout-checklist.md'),

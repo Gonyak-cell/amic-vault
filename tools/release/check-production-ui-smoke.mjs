@@ -1021,6 +1021,10 @@ const releaseHardeningPatterns = [
   { name: 'AI scope sweep', pattern: /DMS-UX-805 AI Scope Sweep/ },
   { name: 'responsive QA viewports', pattern: /1440px[\s\S]*768px[\s\S]*375px/ },
   {
+    name: 'DMS-GA-703 route matrix',
+    pattern: /enterprise-dms-responsive-a11y-matrix\.md[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007/,
+  },
+  {
     name: 'accessibility QA',
     pattern: /Keyboard access[\s\S]*aria-current[\s\S]*Accessible names/i,
   },
@@ -1225,6 +1229,73 @@ const dmsRollbackRunbookFiles = [
   },
 ];
 
+const dmsResponsiveA11yFiles = [
+  {
+    path: 'docs/release/enterprise-dms-responsive-a11y-matrix.md',
+    patterns: [
+      {
+        name: 'DMS-GA-703 status and scope',
+        pattern:
+          /Enterprise DMS Responsive And Accessibility Matrix[\s\S]*DMS-GA-703[\s\S]*DMS-UX-806[\s\S]*DMS-UX-807/i,
+      },
+      {
+        name: 'external refs only boundary',
+        pattern: /EXTERNAL REFS ONLY[\s\S]*Do not commit screenshots with customer matter data/i,
+      },
+      {
+        name: 'repository guard matrix',
+        pattern:
+          /RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-002[\s\S]*RA-DMS-GUARD-003[\s\S]*RA-DMS-GUARD-004/i,
+      },
+      {
+        name: 'route receipt matrix coverage',
+        pattern:
+          /DMS-RA-001[\s\S]*DMS-RA-002[\s\S]*DMS-RA-003[\s\S]*DMS-RA-004[\s\S]*DMS-RA-005[\s\S]*DMS-RA-006[\s\S]*DMS-RA-007/i,
+      },
+      {
+        name: 'viewport coverage refs',
+        pattern:
+          /RA-DMS-001A-1440[\s\S]*RA-DMS-001B-768[\s\S]*RA-DMS-001C-375[\s\S]*RA-DMS-007A-1440[\s\S]*RA-DMS-007B-768[\s\S]*RA-DMS-007C-375/i,
+      },
+      {
+        name: 'keyboard screen-reader coverage refs',
+        pattern:
+          /RA-DMS-001D-KEYBOARD[\s\S]*RA-DMS-001E-SR-BASICS[\s\S]*RA-DMS-007D-KEYBOARD[\s\S]*RA-DMS-007E-SR-BASICS/i,
+      },
+      {
+        name: 'release blocker criteria',
+        pattern:
+          /Missing route coverage[\s\S]*missing 1440px\/768px\/375px visual refs[\s\S]*missing keyboard[\s\S]*screen-reader basics refs/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/release/production-ui-rollout-checklist.md',
+    patterns: [
+      {
+        name: 'responsive checklist refs',
+        pattern:
+          /UI-RSP-001[\s\S]*RA-DMS-001C-375[\s\S]*UI-RSP-002[\s\S]*RA-DMS-001B-768[\s\S]*UI-RSP-003[\s\S]*RA-DMS-001A-1440/i,
+      },
+      {
+        name: 'accessibility checklist refs',
+        pattern:
+          /UI-A11Y-001[\s\S]*RA-DMS-001D-KEYBOARD[\s\S]*UI-A11Y-003[\s\S]*RA-DMS-001E-SR-BASICS/i,
+      },
+    ],
+  },
+  {
+    path: 'docs/ui/enterprise-dms-pr-f-readiness.md',
+    patterns: [
+      {
+        name: 'PR-F matrix bridge',
+        pattern:
+          /enterprise-dms-responsive-a11y-matrix\.md[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007[\s\S]*RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-004/i,
+      },
+    ],
+  },
+];
+
 const enterpriseDmsReleaseEvidencePatterns = [
   {
     name: 'refs-only data handling',
@@ -1260,6 +1331,11 @@ const enterpriseDmsReleaseEvidencePatterns = [
     name: 'DMS-GA-702 rollback evidence guard',
     pattern:
       /DMS-GA-702 Release Evidence Bridge[\s\S]*RB-DMS-001-ROUTE-VISIBILITY[\s\S]*RB-DMS-002-MATTER-SOURCE-FLAGS[\s\S]*RB-DMS-003-WORKER-FLAGS[\s\S]*RB-DMS-004-DB-AUDIT-INVARIANTS[\s\S]*RB-DMS-005-STORAGE-INTEGRITY[\s\S]*RB-DMS-006-MONITOR-TRIGGERS[\s\S]*RB-DMS-007-OFFICE-ONEDRIVE-GATE/i,
+  },
+  {
+    name: 'DMS-GA-703 responsive accessibility evidence guard',
+    pattern:
+      /DMS-GA-703 Release Evidence Bridge[\s\S]*RA-DMS-GUARD-001[\s\S]*RA-DMS-GUARD-004[\s\S]*DMS-RA-001[\s\S]*DMS-RA-007[\s\S]*1440px[\s\S]*768px[\s\S]*375px[\s\S]*keyboard[\s\S]*screen-reader/i,
   },
   {
     name: 'DMS-UX-809 rollout matrix',
@@ -1737,6 +1813,17 @@ function checkDmsRollbackRunbookGuard() {
   }
 }
 
+function checkDmsResponsiveA11yGuard() {
+  for (const file of dmsResponsiveA11yFiles) {
+    const source = readRequired(file.path);
+    for (const { name, pattern } of file.patterns) {
+      if (!pattern.test(source)) {
+        fail(`DMS responsive/a11y production smoke guard missing ${name} in ${file.path}`);
+      }
+    }
+  }
+}
+
 function assertIntegrationCardHasNoHref(source, title) {
   const marker = `title="${title}"`;
   const markerIndex = source.indexOf(marker);
@@ -1828,6 +1915,7 @@ try {
   checkOutlookFilingEvidenceGuard();
   checkOfficeOneDriveAdrGate();
   checkDmsRollbackRunbookGuard();
+  checkDmsResponsiveA11yGuard();
   checkReleaseHardeningGuard();
   checkEnterpriseDmsReleaseEvidenceGuard();
   checkPrDCloseoutGuard();
