@@ -574,7 +574,7 @@ When LC-DESKTOP-07 is approved, the top-level goal may advance to native release
 | LC-DESKTOP-01 | Complete | `.omo/evidence/LC-DESKTOP-01/executor.md`, `.omo/evidence/LC-DESKTOP-01/manual-qa.md` |
 | LC-DESKTOP-02 | Complete | `.omo/evidence/LC-DESKTOP-02/executor.md`, `.omo/evidence/LC-DESKTOP-02/manual-qa.md`, `.omo/evidence/LC-DESKTOP-02/review.md` |
 | LC-DESKTOP-03 | Complete | `.omo/evidence/LC-DESKTOP-03/dependency-gate.md`, `.omo/evidence/LC-DESKTOP-03/candidate-audit.md`, `.omo/evidence/LC-DESKTOP-03/import-map.md`, `.omo/evidence/LC-DESKTOP-03/approval-packet.md`, `.omo/evidence/LC-DESKTOP-03/executor.md`, `.omo/evidence/LC-DESKTOP-03/manual-qa.md`, `.omo/evidence/LC-DESKTOP-03/review.md`, `.omo/evidence/LC-DESKTOP-03/gate-review.md`; operator approved Tauri dependency gate, scaffold imported, missing-config startup blocks with sanitized reason code, `tauri:build` passed |
-| LC-DESKTOP-04 | Ready to start | Requires LC-DESKTOP-03 scaffold |
-| LC-DESKTOP-05 | Pending | Requires LC-DESKTOP-03 scaffold |
+| LC-DESKTOP-04 | Complete | `.omo/evidence/LC-DESKTOP-04/executor.md`, `.omo/evidence/LC-DESKTOP-04/manual-qa.md`, `.omo/evidence/LC-DESKTOP-04/review.md`, `.omo/evidence/LC-DESKTOP-04/gate-review.md`; approved-origin navigation guard implemented and required negative cases verified |
+| LC-DESKTOP-05 | Ready to start | Requires LC-DESKTOP-03 scaffold |
 | LC-DESKTOP-06 | Pending | Requires LC-DESKTOP-03 through LC-DESKTOP-05 |
 | LC-DESKTOP-07 | Pending | Can proceed after LC-DESKTOP-02 if operator wants docs before code; otherwise after LC-DESKTOP-06 |
