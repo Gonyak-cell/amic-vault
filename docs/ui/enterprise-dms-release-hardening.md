@@ -269,3 +269,21 @@ Required owner signoff before production release:
 
 Signoff must state the exact production scope, excluded scopes, approved tenant
 or tenant class, rollback owner, release timestamp, and evidence package ref.
+
+DMS-GA-705 keeps this repository at `HOLD` until the external evidence
+workspace contains all required `DMS-SIGNOFF-*` refs:
+
+- `DMS-SIGNOFF-OPERATOR-REF`
+- `DMS-SIGNOFF-SECURITY-REF`
+- `DMS-SIGNOFF-LEGAL-DATA-REF`
+- `DMS-SIGNOFF-CUSTOMER-SCOPE-REF`
+- `DMS-SIGNOFF-ROLLBACK-REF`
+- `DMS-SIGNOFF-SCOPE-REF`
+- `DMS-SIGNOFF-TENANT-SCOPE-REF`
+- `DMS-SIGNOFF-ROLLBACK-OWNER-REF`
+- `DMS-SIGNOFF-TIMESTAMP-REF`
+- `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF`
+
+Any blank owner row, missing scope/exclusion/tenant/timestamp/evidence package
+ref, or private evidence committed in this repository invalidates production
+PASS and keeps DMS-UX-812 at `HOLD`.

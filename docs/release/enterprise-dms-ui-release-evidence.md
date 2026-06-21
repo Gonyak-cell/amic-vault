@@ -176,22 +176,31 @@ Release signoff must name the exact production scope, excluded scopes, approved
 tenant class or tenant refs, rollback owner, release timestamp, and evidence
 package ref. Signoff is invalid if any owner row is blank.
 
+### DMS-GA-705 Signoff Completion Gate
+
+DMS-GA-705 is repo-prepared by this section and the rollout checklist. The
+repository copy is intentionally `HOLD` until every owner attaches an external,
+reference-only signoff ref. A `PASS` decision is invalid when any
+`DMS-SIGNOFF-*` owner, scope, timestamp, rollback, tenant, or evidence package
+ref is blank, placeholder-only, or points to private evidence committed in the
+repository.
+
 | Owner role           | Required signoff statement                                                                                                                                            | Evidence ref | Status |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------ |
-| Operator owner       | Approves release execution, production URL/target ref, traffic scope, and rollback authority                                                                          |              |        |
-| Security owner       | Confirms permission-before-search, fail-closed route gating, no internal ref leakage, no secret exposure, and negative auth smoke evidence                            |              |        |
-| Legal-data owner     | Confirms AI Prep remains file organization prep only and excludes legal analysis, summary, external model routes, raw prompt/source/model-response storage or display |              |        |
-| Customer-scope owner | Confirms approved tenant class or tenant refs and customer-data handling boundary                                                                                     |              |        |
-| Rollback owner       | Confirms rollback controls, rollback trigger thresholds, and incident communication path                                                                              |              |        |
+| Operator owner       | Approves release execution, production URL/target ref, traffic scope, rollback authority, and DMS main-loop receipt                                                   | `DMS-SIGNOFF-OPERATOR-REF` external ref required | `HOLD - external owner ref required` |
+| Security owner       | Confirms permission-before-search, fail-closed route gating, no internal ref leakage, no secret exposure, and negative auth smoke evidence                            | `DMS-SIGNOFF-SECURITY-REF` external ref required | `HOLD - external owner ref required` |
+| Legal-data owner     | Confirms AI Prep remains file organization prep only and excludes legal analysis, document summary, external model routes, raw prompt/source/model-response storage or display | `DMS-SIGNOFF-LEGAL-DATA-REF` external ref required | `HOLD - external owner ref required` |
+| Customer-scope owner | Confirms approved tenant class or tenant refs, customer-data handling boundary, and no committed customer document content                                            | `DMS-SIGNOFF-CUSTOMER-SCOPE-REF` external ref required | `HOLD - external owner ref required` |
+| Rollback owner       | Confirms rollback controls, rollback trigger thresholds, incident communication path, and rollback rehearsal evidence                                                 | `DMS-SIGNOFF-ROLLBACK-REF` external ref required | `HOLD - external owner ref required` |
 
-| Signoff field                        | Required value |
-| ------------------------------------ | -------------- |
-| Exact production scope               |                |
-| Excluded scopes                      |                |
-| Approved tenant class or tenant refs |                |
-| Rollback owner                       |                |
-| Release timestamp                    |                |
-| Evidence package ref                 |                |
+| Signoff field                        | Required value or external ref |
+| ------------------------------------ | ------------------------------ |
+| Exact production scope               | `DMS-SIGNOFF-SCOPE-REF` must name target URL/ref, release commit range, tenant/traffic scope, and whether the run is staging/canary/production. |
+| Excluded scopes                      | External signoff must preserve these exclusions: legal analysis, document summary, external model routing, raw prompt/source/model-response storage or display, Office/OneDrive runtime, external sharing/VDR, and production PASS without external smoke/owner refs. |
+| Approved tenant class or tenant refs | `DMS-SIGNOFF-TENANT-SCOPE-REF` must name the approved tenant class or tenant refs without committing private tenant identifiers. |
+| Rollback owner                       | `DMS-SIGNOFF-ROLLBACK-OWNER-REF` must name the rollback owner and link to `DMS-RB-*`, `RB-DMS-*`, and `MON-DMS-*` evidence refs. |
+| Release timestamp                    | `DMS-SIGNOFF-TIMESTAMP-REF` must name the release timestamp and decision timestamp in the external evidence workspace. |
+| Evidence package ref                 | `DMS-SIGNOFF-EVIDENCE-PACKAGE-REF` must link to the completed external evidence package with command receipts, smoke refs, monitor refs, rollback refs, responsive/a11y refs, and owner approvals. |
 
 ## 7. Deferred Items
 
