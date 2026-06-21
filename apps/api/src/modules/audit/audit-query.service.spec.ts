@@ -56,7 +56,11 @@ class TestAuditQueryService extends AuditQueryService {
   constructor() {
     super(
       { require: () => ({ tenantId }) } as never,
-      { log: async (...args: Parameters<typeof this.auditLog>) => this.auditLog(...args) } as never,
+      {
+        log: async (...args: Parameters<typeof this.auditLog>) => this.auditLog(...args),
+        transaction: async (_tenantId: string, run: (client: never) => Promise<unknown>) =>
+          run({} as never),
+      } as never,
       {
         canReadDocumentAudit: async (context: PermissionContext, targetMatterId: string) => {
           this.request = { context, matterId: targetMatterId };
@@ -181,6 +185,7 @@ class TestAuditQueryService extends AuditQueryService {
   }
 
   protected override async assertTargetFiltersTenantScoped(
+    _client: never,
     _tenantId: TenantId,
     query: Pick<AuditQueryDto, 'matterId' | 'targetType' | 'targetId'>,
   ) {

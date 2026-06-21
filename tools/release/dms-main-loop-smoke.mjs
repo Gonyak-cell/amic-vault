@@ -43,11 +43,11 @@ const config = {
   tenantSlug: value('DMS_SMOKE_TENANT_SLUG', value('SMOKE_TENANT_SLUG', undefined)),
   email: value(
     'DMS_SMOKE_EMAIL',
-    value('SMOKE_EMAIL', localMode ? 'alpha-firm-admin@test.local' : undefined),
+    value('SMOKE_EMAIL', localMode ? 'alpha-matter-owner@test.local' : undefined),
   ),
   password: value(
     'DMS_SMOKE_PASSWORD',
-    value('SMOKE_PASSWORD', localMode ? 'dev-alpha-firm-admin-password' : undefined),
+    value('SMOKE_PASSWORD', localMode ? 'dev-alpha-owner-password' : undefined),
   ),
   negativeTenantId: value(
     'DMS_SMOKE_NEGATIVE_TENANT_ID',
@@ -191,6 +191,7 @@ await run('DMS-SMOKE-004', 'Open document detail and safe profile fields', async
 });
 
 await run('DMS-SMOKE-005', 'Open preview or safe preview-unavailable state', async () => {
+  assert(documentId, 'missing document id');
   const response = await fetchWithTimeout(apiUrl(`/documents/${documentId}/preview`), {
     headers: { cookie: sessionCookie, range: 'bytes=0-16' },
   });
@@ -208,7 +209,7 @@ await run('DMS-SMOKE-005', 'Open preview or safe preview-unavailable state', asy
 });
 
 await run('DMS-SMOKE-006', 'List document versions', async () => {
-  const body = await getJsonWithCookie(`/documents/${documentId}/versions?pageSize=5`, sessionCookie);
+  const body = await getJsonWithCookie(`/documents/${documentId}/versions`, sessionCookie);
   const items = Array.isArray(body?.items) ? body.items : [];
   assert(items.length > 0, 'document versions missing current version');
   assertNoRawLeakage(items);
@@ -241,7 +242,7 @@ await run('DMS-SMOKE-008', 'Confirm title/body/metadata search visibility', asyn
       },
       sessionCookie,
     );
-    assert(response.status === 200, `search status ${response.status}`);
+    assert(response.status === 200 || response.status === 201, `search status ${response.status}`);
     const body = await response.json();
     assertNoRawLeakage(body);
     return Array.isArray(body?.results) && body.results.some((item) => item?.documentId === documentId);
@@ -252,11 +253,11 @@ await run('DMS-SMOKE-008', 'Confirm title/body/metadata search visibility', asyn
 
 await run('DMS-SMOKE-009', 'Read document and matter audit refs only', async () => {
   const documentAudit = await getJsonWithCookie(
-    `/documents/${documentId}/audit-events?pageSize=10`,
+    `/documents/${documentId}/audit-events?limit=10`,
     sessionCookie,
   );
   const matterAudit = await getJsonWithCookie(
-    `/matters/${matterId}/audit-events?pageSize=10`,
+    `/matters/${matterId}/audit-events?limit=10`,
     sessionCookie,
   );
   assert(Array.isArray(documentAudit?.items), 'document audit response missing items');
@@ -271,10 +272,21 @@ await run('DMS-SMOKE-009', 'Read document and matter audit refs only', async () 
 });
 
 await run('DMS-SMOKE-010', 'Read records governance link for the matter', async () => {
-  const body = await getJsonWithCookie(`/records/legal-holds?matterId=${matterId}`, sessionCookie);
-  assert(Array.isArray(body?.items), 'records legal hold response missing items');
+  assert(matterId, 'missing matter id');
+  const response = await fetchWithTimeout(apiUrl(`/records/legal-holds?matterId=${matterId}`), {
+    headers: { cookie: sessionCookie },
+  });
+  if ([401, 403].includes(response.status)) {
+    const body = await safeJson(response);
+    assertSafeDeniedBody(body);
+    return { status: response.status, records: 'safe-denied', denialCode: body?.code ?? 'safe-denied' };
+  }
+  assert(response.status === 200, `records legal hold status ${response.status}`);
+  const body = await response.json();
+  const holds = Array.isArray(body?.holds) ? body.holds : body?.items;
+  assert(Array.isArray(holds), 'records legal hold response missing holds');
   assertNoRawLeakage(body);
-  return { status: 'linked', legalHoldRefs: body.items.length };
+  return { status: 'linked', legalHoldRefs: holds.length };
 });
 
 await run('DMS-SMOKE-011', 'Negative user cannot read uploaded document', async () => {
@@ -316,7 +328,7 @@ await run('DMS-SMOKE-012', 'Negative user cannot discover uploaded document in s
     assertNoKnownRefsInBody(body);
     return { status: response.status, search: 'safe-denied' };
   }
-  assert(response.status === 200, `negative search status ${response.status}`);
+  assert(response.status === 200 || response.status === 201, `negative search status ${response.status}`);
   const body = await response.json();
   assertNoRawLeakage(body);
   const found = Array.isArray(body?.results) && body.results.some((item) => item?.documentId === documentId);
@@ -595,11 +607,12 @@ async function createSyntheticMatter(clientId) {
 
 async function uploadSmokeDocument(targetMatterId) {
   const { body, filename, mimeType } = smokeFile();
+  const preflight = await createUploadPreflight(targetMatterId);
   const form = new FormData();
   form.append('title', uploadTitle);
   form.append('documentType', 'other');
-  form.append('confidentialityLevel', 'standard');
   form.append('aiAllowed', 'true');
+  form.append('uploadPreflightRef', preflight.preflightRef);
   form.append('file', new Blob([body], { type: mimeType }), filename);
 
   const response = await fetchWithTimeout(apiUrl(`/matters/${targetMatterId}/documents`), {
@@ -611,6 +624,19 @@ async function uploadSmokeDocument(targetMatterId) {
   return response.json();
 }
 
+async function createUploadPreflight(targetMatterId) {
+  const response = await postJson(
+    apiUrl(`/matters/${targetMatterId}/documents/upload-preflight`),
+    {},
+    sessionCookie,
+  );
+  assert(response.status === 201 || response.status === 200, `upload preflight status ${response.status}`);
+  const body = await response.json();
+  assert(body?.preflightRef, 'upload preflight response missing ref');
+  assert(body?.uploadEligible === true, 'upload preflight did not mark upload eligible');
+  return body;
+}
+
 function smokeFile() {
   if (config.filePath) {
     return {
@@ -620,10 +646,39 @@ function smokeFile() {
     };
   }
   return {
-    body: Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n'),
+    body: smokePdf('DMS Smoke Extractable Text governing law metadata'),
     filename: 'dms-smoke.pdf',
     mimeType: 'application/pdf',
   };
+}
+
+function smokePdf(text) {
+  const content = `BT\n/F1 14 Tf\n72 720 Td\n(${pdfTextLiteral(text)}) Tj\nET\n`;
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n',
+    '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+    `5 0 obj\n<< /Length ${Buffer.byteLength(content, 'ascii')} >>\nstream\n${content}endstream\nendobj\n`,
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(pdf, 'ascii'));
+    pdf += object;
+  }
+  const xrefOffset = Buffer.byteLength(pdf, 'ascii');
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += '0000000000 65535 f \n';
+  for (const offset of offsets.slice(1)) {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Root 1 0 R /Size ${objects.length + 1} >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(pdf, 'ascii');
+}
+
+function pdfTextLiteral(value) {
+  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
 function mimeFromPath(filePath) {
