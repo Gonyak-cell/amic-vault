@@ -35,6 +35,13 @@ Do not include private endpoint values, cloud account IDs, ARNs, tokens, cookies
 - Confirm uninstall removes only the desktop shell.
 - Confirm no local document/search/AI/audit cache is created by the desktop package.
 
+## Distribution Evidence Worksheet
+
+Use `docs/release/desktop-native-distribution-evidence.md` to collect the
+reference-only distribution evidence before pilot or production. Completed
+customer/provider evidence stays in the external evidence workspace; repo
+updates may record only refs, digests, owner roles, counters, and decisions.
+
 ## Support Notes
 
 The desktop app is a thin shell over the approved AMIC Vault web origin. Server-side permission, audit, auth, search, document storage, records, and AI policy remain authoritative.

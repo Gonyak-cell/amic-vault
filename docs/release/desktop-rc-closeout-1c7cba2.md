@@ -63,9 +63,11 @@ screenshots with private URLs, or local storage dumps.
 ## Next Actions
 
 1. Review and merge this closeout PR if the reference-only evidence is accepted.
-2. Produce any pilot or production desktop artifact in the external signing
+2. Use `docs/release/desktop-native-distribution-evidence.md` to collect
+   reference-only pilot or production distribution evidence.
+3. Produce any pilot or production desktop artifact in the external signing
    lane, then record digest and signature refs only.
-3. Have customer or internal IT validate install, uninstall, digest, signature,
+4. Have customer or internal IT validate install, uninstall, digest, signature,
    rollback, and browser/PWA fallback.
-4. Open pilot or production desktop distribution only through a separate desktop
+5. Open pilot or production desktop distribution only through a separate desktop
    release approval; do not couple it to server production deploy.
