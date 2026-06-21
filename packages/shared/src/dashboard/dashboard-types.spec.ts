@@ -54,9 +54,21 @@ describe('dashboard DTOs', () => {
             href: '/audit',
             tone: 'warning',
           },
+          {
+            itemKey: 'records-disposal-a1b2c3',
+            source: 'records',
+            sourceLabel: '기록 보존',
+            title: '삭제 승인 요청',
+            description: 'AMIC-2026-0001 · 대기 · CLIENT_RECORDS',
+            href: '/records?tab=disposal',
+            tone: 'neutral',
+            status: 'open',
+            statusLabel: '대기',
+            dueAt: '2026-06-24T00:00:00.000Z',
+          },
         ],
       }).items,
-    ).toHaveLength(1);
+    ).toHaveLength(2);
 
     expect(
       dmsNotificationCenterResponseSchema.parse({

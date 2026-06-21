@@ -9,6 +9,9 @@ const documentId = '11111111-1111-4111-8111-111111111133';
 const actorUserId = '11111111-1111-4111-8111-111111111110';
 const legalHoldId = '11111111-1111-4111-8111-111111111144';
 const sessionId = '11111111-1111-4111-8111-111111111155';
+const disposalRequestId = '11111111-1111-4111-8111-111111111166';
+const workItemId = '11111111-1111-4111-8111-111111111177';
+const auditEventId = '11111111-1111-4111-8111-111111111188';
 
 const ctx = { tenantId, userId: actorUserId, sessionId };
 
@@ -41,7 +44,17 @@ function legalHoldRow(overrides: Record<string, unknown> = {}) {
 }
 
 function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
-  const auditLog = vi.fn(async () => undefined);
+  const auditLog = vi.fn(async () => ({
+    eventId: auditEventId,
+    createdAt: new Date('2026-06-20T00:00:00.000Z'),
+  }));
+  const workService = {
+    openRecordsDisposalWork: vi.fn(async () => ({
+      workItemId,
+      dueAt: new Date('2026-06-27T00:00:00.000Z'),
+    })),
+    completeRecordsDisposalWork: vi.fn(async () => undefined),
+  };
   const auditService = {
     log: auditLog,
     transaction: vi.fn(async (_tenantId: string, run: (client: QueryClient) => Promise<unknown>) =>
@@ -61,8 +74,9 @@ function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
       })),
     } as never,
     { findByTenantAndId: vi.fn(async () => ({ status: 'active', role: 'security_admin' })) } as never,
+    workService as never,
   );
-  return { auditLog, service };
+  return { auditLog, service, workService };
 }
 
 describe('RecordsService legal hold lifecycle', () => {
@@ -118,5 +132,81 @@ describe('RecordsService legal hold lifecycle', () => {
     });
     expect(tx.query).toHaveBeenCalledTimes(1);
     expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('opens an audited records approval work item when disposal is requested', async () => {
+    const tx = {
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({ rowCount: 1, rows: [documentTarget()] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ count: '0' }] })
+        .mockResolvedValueOnce({
+          rowCount: 1,
+          rows: [
+            {
+              disposal_request_id: disposalRequestId,
+              matter_id: matterId,
+              document_id: documentId,
+              status: 'requested',
+              reason_code: 'CLIENT_RECORDS',
+              requested_by: actorUserId,
+              approved_by: null,
+              executed_by: null,
+              assigned_to_user_id: null,
+              assigned_role: 'records_admin',
+              due_at: new Date('2026-06-27T00:00:00.000Z'),
+              workflow_item_id: null,
+              workflow_audit_event_id: null,
+              created_at: new Date('2026-06-20T00:00:00.000Z'),
+              approved_at: null,
+              executed_at: null,
+              certificate_id: null,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [] }),
+    };
+    const { auditLog, service, workService } = serviceWith(tx);
+
+    const request = await service.createDisposalRequest(ctx, {
+      documentId,
+      reasonCode: 'CLIENT_RECORDS',
+    });
+
+    expect(request).toMatchObject({
+      assignedRole: 'records_admin',
+      disposalRequestId,
+      dueAt: '2026-06-27T00:00:00.000Z',
+      status: 'requested',
+    });
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'DISPOSAL_REQUESTED', targetId: documentId }),
+      tx,
+    );
+    expect(workService.openRecordsDisposalWork).toHaveBeenCalledWith(tx, {
+      tenantId,
+      disposalRequestId,
+      matterId,
+      documentId,
+      actorUserId,
+      auditEventId,
+      kind: 'records_disposal_approval',
+    });
   });
 });

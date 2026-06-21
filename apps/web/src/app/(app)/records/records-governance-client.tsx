@@ -113,6 +113,9 @@ const recordsCopy: Record<
     targetDocument: string;
     targetMatter: string;
     requestReady: string;
+    assignedRole: string;
+    recordsAdminRole: string;
+    dueAt: string;
     contextPanelTitle: string;
     contextPanelMeta: string;
     contextReady: string;
@@ -199,6 +202,9 @@ const recordsCopy: Record<
     targetDocument: '대상 파일',
     targetMatter: '대상 사건',
     requestReady: '삭제 요청 연결됨',
+    assignedRole: '담당 범위',
+    recordsAdminRole: '기록 관리자',
+    dueAt: '처리 기한',
     contextPanelTitle: '보존 작업 준비',
     contextPanelMeta: '문서와 사건 표시명을 기준으로 작업을 선택합니다.',
     contextReady: '준비됨',
@@ -285,6 +291,9 @@ const recordsCopy: Record<
     targetDocument: 'Target file',
     targetMatter: 'Target matter',
     requestReady: 'Disposal request linked',
+    assignedRole: 'Assignee scope',
+    recordsAdminRole: 'Records admins',
+    dueAt: 'Due',
     contextPanelTitle: 'Records action readiness',
     contextPanelMeta: 'Choose actions from the displayed file and matter context.',
     contextReady: 'Ready',
@@ -688,7 +697,13 @@ export function RecordsGovernanceClient() {
             title={copy.disposal}
             empty={copy.noDisposal}
             rows={
-              disposal ? [[copy.requestReady, disposal.status, copy.targetDocument]] : undefined
+              disposal
+                ? [
+                    [copy.requestReady, disposal.status, copy.targetDocument],
+                    [copy.assignedRole, copy.recordsAdminRole, copy.dueAt],
+                    [copy.dueAt, formatDateTime(disposal.dueAt), copy.requestRef],
+                  ]
+                : undefined
             }
           />
         </section>

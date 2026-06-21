@@ -113,6 +113,8 @@ export const disposalRequestSchema = z
     documentId: uuidSchema,
     status: disposalRequestStatusSchema,
     reasonCode: codeSchema,
+    assignedRole: z.literal('records_admin'),
+    dueAt: z.string().datetime(),
     approvalCount: z.number().int().min(0).max(1),
     certificateId: uuidSchema.nullable(),
     createdAt: z.string().datetime(),
