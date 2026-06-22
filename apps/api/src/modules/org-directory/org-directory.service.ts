@@ -44,11 +44,7 @@ function isAdminRole(role: UserRole): boolean {
 }
 
 function likePattern(input: string): string {
-  const escaped = input
-    .trim()
-    .replace(/\\/g, '\\\\')
-    .replace(/%/g, '\\%')
-    .replace(/_/g, '\\_');
+  const escaped = input.trim().replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   return `%${escaped}%`;
 }
 
@@ -102,7 +98,7 @@ export class OrgDirectoryService {
       if (role !== 'security_admin') throw permissionDenied();
       return;
     }
-    if (input.purpose === 'records') {
+    if (input.purpose === 'records' || input.purpose === 'user-admin') {
       if (!isAdminRole(role)) throw permissionDenied();
       return;
     }

@@ -57,7 +57,10 @@ function createService(actorRole = 'security_admin', permissionEffect: 'ALLOW' |
       run(client),
     ),
   } as unknown as AuditService;
-  const canManageMatterMembers = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
+  const canManageMatterMembers = vi.fn(async () => ({
+    effect: permissionEffect,
+    appliedRules: [],
+  }));
   const permissionService = { canManageMatterMembers } as unknown as PermissionService;
   return {
     canManageMatterMembers,
@@ -95,7 +98,9 @@ describe('OrgDirectoryService', () => {
     expect(response).not.toHaveProperty('total');
     expect(JSON.stringify(response)).not.toContain('memberCount');
     expect(JSON.stringify(response)).not.toContain('External Hidden');
-    expect(query.mock.calls.map(([sql]) => String(sql)).join('\n')).toContain("role <> 'external_user'");
+    expect(query.mock.calls.map(([sql]) => String(sql)).join('\n')).toContain(
+      "role <> 'external_user'",
+    );
   });
 
   it('delegates matter-team lookups to PermissionService before returning subjects', async () => {
@@ -108,7 +113,23 @@ describe('OrgDirectoryService', () => {
       ),
     ).resolves.toMatchObject({ items: [expect.objectContaining({ subjectType: 'user' })] });
 
-    expect(canManageMatterMembers).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, matterId);
+    expect(canManageMatterMembers).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId },
+      matterId,
+    );
+  });
+
+  it('allows admin user lookups for account ledger assignment without matter scope', async () => {
+    const { canManageMatterMembers, service } = createService('firm_admin');
+
+    await expect(
+      service.searchSubjects(
+        { tenantId, userId: actorUserId },
+        { limit: 5, purpose: 'user-admin', q: 'alpha', subjectType: 'user' },
+      ),
+    ).resolves.toMatchObject({ items: [expect.objectContaining({ subjectType: 'user' })] });
+
+    expect(canManageMatterMembers).not.toHaveBeenCalled();
   });
 
   it('fails closed for unauthorized purposes without leaking result counts', async () => {
@@ -117,7 +138,7 @@ describe('OrgDirectoryService', () => {
     await expect(
       service.searchSubjects(
         { tenantId, userId: actorUserId },
-        { limit: 10, purpose: 'records', q: 'alpha', subjectType: 'all' },
+        { limit: 10, purpose: 'user-admin', q: 'alpha', subjectType: 'all' },
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(query).toHaveBeenCalledTimes(1);

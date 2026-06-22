@@ -15,6 +15,18 @@ describe('org directory DTO', () => {
       subjectType: 'all',
     });
 
+    expect(
+      orgDirectorySubjectQuerySchema.parse({
+        purpose: 'user-admin',
+        q: 'alpha',
+        subjectType: 'user',
+      }),
+    ).toMatchObject({
+      purpose: 'user-admin',
+      q: 'alpha',
+      subjectType: 'user',
+    });
+
     expect(() => orgDirectorySubjectQuerySchema.parse({ purpose: 'records', q: 'a' })).toThrow();
     expect(() => orgDirectorySubjectQuerySchema.parse({ q: 'amic' })).toThrow();
   });
