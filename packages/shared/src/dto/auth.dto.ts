@@ -4,7 +4,8 @@ import type { UserSummary } from '../types/user';
 export interface LoginRequestDto {
   tenantId?: TenantId;
   tenantSlug?: string;
-  email: string;
+  email?: string;
+  accountLedgerId?: string;
   password: string;
 }
 
