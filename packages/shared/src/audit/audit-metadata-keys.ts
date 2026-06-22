@@ -10,6 +10,7 @@ export const auditMetadataKeys = [
   'requester_user_id',
   'approver_user_id',
   'revoked_by_user_id',
+  'target_user_id',
   'approval_count',
   'expires_at',
   'member_user_id',
@@ -28,6 +29,7 @@ export const auditMetadataKeys = [
   'channel',
   'scope_type',
   'scope_id',
+  'identity_type',
   'enqueued_job_count',
   'query_hash',
   'query_length',
@@ -215,7 +217,7 @@ export const auditMetadataKeys = [
   'job_id',
   'dedupe_hash',
   'retry_count',
-  ] as const;
+] as const;
 
 export type AuditMetadataKey = (typeof auditMetadataKeys)[number];
 export type AuditMetadataValue = string | number | boolean | null | readonly string[];
