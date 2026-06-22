@@ -17,7 +17,7 @@ describe('desktop Tauri thin-shell policy', () => {
   it('keeps the Tauri shell on an empty native-capability allow-list', () => {
     const config = readJson<{
       app: { windows: unknown[]; security: { capabilities: string[] } };
-      bundle: { targets: string[] };
+      bundle: { targets: string[]; icon: string[] };
     }>('src-tauri/tauri.conf.json');
     const capability = readJson<{ windows: string[]; permissions: string[] }>(
       'src-tauri/capabilities/vault-thin-shell.json',
@@ -28,6 +28,13 @@ describe('desktop Tauri thin-shell policy', () => {
     expect(capability.windows).toEqual(['main']);
     expect(capability.permissions).toEqual([]);
     expect(config.bundle.targets).toEqual(['app']);
+    expect(config.bundle.icon).toEqual([
+      'icons/32x32.png',
+      'icons/128x128.png',
+      'icons/128x128@2x.png',
+      'icons/icon.icns',
+      'icons/icon.ico',
+    ]);
   });
 
   it('does not add native file, shell, dialog, clipboard, or updater plugins', () => {
