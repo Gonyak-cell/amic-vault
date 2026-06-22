@@ -71,9 +71,10 @@ const translations = {
   'nav.liveActivity': { ko: '최근 활동', en: 'Recent activity' },
   'nav.aiEvidence': { ko: 'AI 검토 근거', en: 'AI evidence' },
   'auth.description': {
-    ko: '이메일과 비밀번호로 로그인하세요. 권한 확인 후 AMIC Vault에 접근합니다.',
-    en: 'Sign in with your email and password. Access is checked before AMIC Vault opens.',
+    ko: '계정 ID 또는 이메일과 비밀번호로 로그인하세요. 권한 확인 후 AMIC Vault에 접근합니다.',
+    en: 'Sign in with your account ID or email and password. Access is checked before AMIC Vault opens.',
   },
+  'auth.identifier': { ko: '계정 ID 또는 이메일', en: 'Account ID or email' },
   'auth.email': { ko: '이메일', en: 'Email' },
   'auth.password': { ko: '비밀번호', en: 'Password' },
   'auth.newPassword': { ko: '새 비밀번호', en: 'New password' },

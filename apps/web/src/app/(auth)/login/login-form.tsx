@@ -9,7 +9,7 @@ import { LanguageToggle, useI18n } from '@/lib/i18n';
 
 export function LoginForm() {
   const { t } = useI18n();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -19,7 +19,12 @@ export function LoginForm() {
     setPending(true);
     setError('');
     try {
-      await login({ email, password });
+      const trimmedIdentifier = identifier.trim();
+      await login(
+        trimmedIdentifier.includes('@')
+          ? { email: trimmedIdentifier, password }
+          : { accountLedgerId: trimmedIdentifier, password },
+      );
       window.location.assign('/dashboard');
     } catch {
       setError(t('auth.invalid'));
@@ -51,14 +56,14 @@ export function LoginForm() {
       <CardContent className="p-6 pt-2">
         <form className="flex flex-col gap-4" onSubmit={submit}>
           <label className="flex flex-col gap-2 text-sm font-semibold text-foreground">
-            {t('auth.email')}
+            {t('auth.identifier')}
             <Input
-              autoComplete="email"
+              autoComplete="username"
               className="border-input bg-background focus-visible:ring-ring"
               required
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              type="text"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.target.value)}
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-semibold text-foreground">
@@ -73,11 +78,7 @@ export function LoginForm() {
             />
           </label>
           {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
-          <Button
-            className="mt-1"
-            disabled={pending}
-            type="submit"
-          >
+          <Button className="mt-1" disabled={pending} type="submit">
             {pending ? t('auth.pending') : t('auth.login')}
           </Button>
         </form>
