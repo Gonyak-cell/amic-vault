@@ -2,11 +2,11 @@ use crate::origin_guard::reject_disallowed_remote_origin;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::Deserialize;
-use std::{env, fs};
+use std::{env, fs, path::Path};
 use url::Url;
 
-const CONFIG_PATH_ENV: &str = "AMIC_VAULT_DESKTOP_ORIGIN_CONFIG";
-const SIGNING_PUBLIC_KEY_B64: &str = "y3uFqTX+HBSpd+fJ7p2RdFjIkkVyvhnKWEGGabCCWmE=";
+pub const CONFIG_PATH_ENV: &str = "AMIC_VAULT_DESKTOP_ORIGIN_CONFIG";
+const SIGNING_PUBLIC_KEY_B64: &str = "Zq8zUIIX+J++3wVfw4VgyCvgMe4spb2fHdd3qoMTPAE=";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,7 +22,22 @@ impl OriginConfig {
     pub fn load_from_env() -> Result<Self, String> {
         let path = env::var(CONFIG_PATH_ENV)
             .map_err(|_| format!("{CONFIG_PATH_ENV} is required for the desktop shell"))?;
-        let content = fs::read_to_string(&path)
+        Self::load_from_path(path)
+    }
+
+    pub fn load_from_env_or_path(fallback_path: &Path) -> Result<Self, String> {
+        if env::var_os(CONFIG_PATH_ENV).is_some() {
+            return Self::load_from_env();
+        }
+        Self::load_from_path(fallback_path).map_err(|error| {
+            format!(
+                "{CONFIG_PATH_ENV} is required or bundled origin config is unavailable: {error}"
+            )
+        })
+    }
+
+    pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, String> {
+        let content = fs::read_to_string(path.as_ref())
             .map_err(|error| format!("failed to read origin config: {error}"))?;
         let config: OriginConfig = serde_json::from_str(&content)
             .map_err(|error| format!("invalid origin config: {error}"))?;
@@ -176,7 +191,7 @@ mod tests {
             release_channel: "local".to_string(),
             origin_ref: "LOCAL-DEV".to_string(),
             origin: "http://localhost:3000".to_string(),
-            signature: "mimOyA6lbi+9Gsh9rvcNLy+I9+s3KtoqH0VnvbzHAYHIiPnB03cDVZI2G1hT6BulcKuxydGhVYkmCL0nIK7mDQ=="
+            signature: "BnP37iB+8EiO4h0Gey1gLgbWpUizTlGwEcGXmnd+rWgLLZ+a+Ae6J3CdLTblupKbp4l7OrtdLnLEOqcy7pO4AQ=="
                 .to_string(),
         }
     }
@@ -210,6 +225,18 @@ mod tests {
     fn accepts_signed_local_origin() {
         let config = signed_local_config();
         config.verify_signature().expect("signature should verify");
+        assert_eq!(
+            config.vault_url().expect("origin should validate").as_str(),
+            "http://localhost:3000/dashboard?source=tauri"
+        );
+    }
+
+    #[test]
+    fn loads_signed_origin_from_path() {
+        let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("config")
+            .join("local.signed.json");
+        let config = OriginConfig::load_from_path(config_path).expect("fixture should load");
         assert_eq!(
             config.vault_url().expect("origin should validate").as_str(),
             "http://localhost:3000/dashboard?source=tauri"

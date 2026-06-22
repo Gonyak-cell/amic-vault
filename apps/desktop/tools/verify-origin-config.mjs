@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { isAbsolute, join } from 'node:path';
 
-const signingPublicKeyB64 = 'y3uFqTX+HBSpd+fJ7p2RdFjIkkVyvhnKWEGGabCCWmE=';
+const signingPublicKeyB64 = 'Zq8zUIIX+J++3wVfw4VgyCvgMe4spb2fHdd3qoMTPAE=';
 const spkiPrefix = Buffer.from('302a300506032b6570032100', 'hex');
 const desktopRoot = new URL('..', import.meta.url).pathname;
 const repoRoot = join(desktopRoot, '..', '..');

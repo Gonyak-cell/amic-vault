@@ -1,6 +1,6 @@
 [package]
 name = "amic-vault-desktop"
-version = "0.0.0"
+version = "0.1.0"
 description = "AMIC Vault thin desktop shell"
 authors = ["AMIC Vault"]
 license = "UNLICENSED"

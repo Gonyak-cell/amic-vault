@@ -56,7 +56,8 @@ describe('desktop Tauri thin-shell policy', () => {
       expect(`${cargoToml}\n${main}`).not.toContain(marker);
     }
     expect(main).toContain('WebviewUrl::External');
-    expect(main).toContain('OriginConfig::load_from_env');
+    expect(main).toContain('OriginConfig::load_from_env_or_path');
+    expect(main).toContain('origin.signed.json');
   });
 
   it('requires a signed origin config for the local fixture', () => {
@@ -68,7 +69,7 @@ describe('desktop Tauri thin-shell policy', () => {
       signature: string;
     }>('src-tauri/config/local.signed.json');
     const spkiDer = Buffer.from(
-      'MCowBQYDK2VwAyEAy3uFqTX+HBSpd+fJ7p2RdFjIkkVyvhnKWEGGabCCWmE=',
+      'MCowBQYDK2VwAyEAZq8zUIIX+J++3wVfw4VgyCvgMe4spb2fHdd3qoMTPAE=',
       'base64',
     );
     const key = createPublicKey({ key: spkiDer, format: 'der', type: 'spki' });
