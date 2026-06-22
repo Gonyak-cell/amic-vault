@@ -748,6 +748,10 @@ export type {
   PermissionContext,
 } from './permission/document-permission.interface';
 export { assignUserRoleSchema, type AssignUserRoleDto } from './user/user-role.dto';
+export {
+  assignAccountLedgerIdSchema,
+  type AssignAccountLedgerIdDto,
+} from './user/account-ledger.dto';
 export type {
   CurrentUserResponseDto,
   LoginRequestDto,

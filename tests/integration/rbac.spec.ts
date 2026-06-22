@@ -12,7 +12,7 @@ const alphaRbacTargetUserId = '11111111-1111-4111-8111-111111111104';
 
 async function login(
   baseUrl: string,
-  input: { tenantId: string; email: string; password: string },
+  input: { tenantId?: string; email?: string; accountLedgerId?: string; password: string },
 ): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/auth/login`, {
     method: 'POST',
@@ -38,6 +38,28 @@ async function latestRoleAudit(targetUserId: string) {
         FROM audit_events
         WHERE tenant_id = $1
           AND action = 'ROLE_CHANGED'
+          AND target_id = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [tenantAlphaId, targetUserId],
+    );
+    return result.rows[0];
+  });
+}
+
+async function latestAccountLedgerAudit(targetUserId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{
+      action: string;
+      metadata_json: Record<string, unknown>;
+      actor_id: string | null;
+    }>(
+      `
+        SELECT action, metadata_json, actor_id
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'ACCOUNT_LEDGER_ID_ASSIGNED'
           AND target_id = $2
         ORDER BY created_at DESC
         LIMIT 1
@@ -152,5 +174,48 @@ describe('rbac integration', () => {
       headers: { cookie: securityAdminCookie },
     });
     expect(tenantSettingsAllowed.status, await tenantSettingsAllowed.text()).toBe(200);
+  });
+
+  it('assigns account ledger ids with reference-only audit metadata and login access', async () => {
+    const accountLedgerId = 'acct-rbac-target-login';
+    const response = await fetch(`${baseUrl}/v1/users/${alphaRbacTargetUserId}/account-ledger-id`, {
+      method: 'PATCH',
+      headers: { cookie: firmAdminCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ accountLedgerId }),
+    });
+    const body = await response.text();
+    expect(response.status, body).toBe(200);
+    expect(JSON.parse(body)).toMatchObject({
+      userId: alphaRbacTargetUserId,
+      email: 'alpha-rbac-target@test.local',
+    });
+
+    const audit = await latestAccountLedgerAudit(alphaRbacTargetUserId);
+    expect(audit?.actor_id).toBe(alphaFirmAdminUserId);
+    expect(audit?.metadata_json).toEqual({
+      identity_type: 'account_ledger_id',
+      target_user_id: alphaRbacTargetUserId,
+    });
+    expect(JSON.stringify(audit?.metadata_json)).not.toContain(accountLedgerId);
+    expect(JSON.stringify(audit?.metadata_json)).not.toContain('alpha-rbac-target@test.local');
+
+    const ledgerCookie = await login(baseUrl, {
+      accountLedgerId: accountLedgerId.toUpperCase(),
+      password: 'dev-alpha-rbac-target-password',
+    });
+    const currentUser = await fetch(`${baseUrl}/v1/auth/me`, {
+      headers: { cookie: ledgerCookie },
+    });
+    expect(currentUser.status, await currentUser.text()).toBe(200);
+
+    const ownerDenied = await fetch(
+      `${baseUrl}/v1/users/${alphaRbacTargetUserId}/account-ledger-id`,
+      {
+        method: 'PATCH',
+        headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ accountLedgerId: 'acct-owner-denied-login' }),
+      },
+    );
+    expect(ownerDenied.status, await ownerDenied.text()).toBe(403);
   });
 });
