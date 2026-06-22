@@ -117,7 +117,7 @@ for (const marker of [
 }
 
 const spkiDer = Buffer.from(
-  'MCowBQYDK2VwAyEAy3uFqTX+HBSpd+fJ7p2RdFjIkkVyvhnKWEGGabCCWmE=',
+  'MCowBQYDK2VwAyEAZq8zUIIX+J++3wVfw4VgyCvgMe4spb2fHdd3qoMTPAE=',
   'base64',
 );
 const key = createPublicKey({ key: spkiDer, format: 'der', type: 'spki' });

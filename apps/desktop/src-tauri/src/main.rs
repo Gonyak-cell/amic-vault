@@ -4,23 +4,24 @@ use amic_vault_desktop::{origin::OriginConfig, origin_guard::is_allowed_navigati
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 fn main() {
-    let (approved_origin, vault_url) = match OriginConfig::load_from_env().and_then(|config| {
-        let approved_origin = config.approved_origin()?;
-        let vault_url = config.vault_url()?;
-        Ok((approved_origin, vault_url))
-    }) {
-        Ok(url) => url,
-        Err(message) => {
-            eprintln!(
-                "AMIC_VAULT_DESKTOP_START_BLOCKED: {}",
-                startup_block_reason(&message)
-            );
-            std::process::exit(78);
-        }
-    };
-
     tauri::Builder::default()
         .setup(move |app| {
+            let bundled_origin_config = app
+                .path()
+                .resource_dir()
+                .map(|resource_dir| resource_dir.join("origin.signed.json"))
+                .unwrap_or_else(|error| {
+                    block_startup(&format!("failed to locate bundled origin config: {error}"))
+                });
+            let (approved_origin, vault_url) =
+                OriginConfig::load_from_env_or_path(&bundled_origin_config)
+                    .and_then(|config| {
+                        let approved_origin = config.approved_origin()?;
+                        let vault_url = config.vault_url()?;
+                        Ok((approved_origin, vault_url))
+                    })
+                    .unwrap_or_else(|message| block_startup(&message));
+
             let navigation_origin = approved_origin.clone();
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(vault_url))
                 .title("AMIC Vault")
@@ -47,8 +48,19 @@ fn main() {
         .expect("error while running AMIC Vault Desktop");
 }
 
+fn block_startup(message: &str) -> ! {
+    eprintln!(
+        "AMIC_VAULT_DESKTOP_START_BLOCKED: {}",
+        startup_block_reason(message)
+    );
+    std::process::exit(78);
+}
+
 fn startup_block_reason(message: &str) -> &'static str {
-    if message.contains("AMIC_VAULT_DESKTOP_ORIGIN_CONFIG is required") {
+    if message.contains("AMIC_VAULT_DESKTOP_ORIGIN_CONFIG is required")
+        || message.contains("bundled origin config is unavailable")
+        || message.contains("failed to locate bundled origin config")
+    {
         return "MISSING_ORIGIN_CONFIG";
     }
     if message.contains("signature") {
