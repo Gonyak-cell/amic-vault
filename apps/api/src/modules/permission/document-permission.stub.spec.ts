@@ -17,6 +17,25 @@ describe('DocumentPermissionStub', () => {
       effect: 'DENY',
       reasonCode: 'NOT_IMPLEMENTED',
     });
+    await expect(stub.canCheckoutDocument(ctx, 'doc-1')).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'NOT_IMPLEMENTED',
+    });
+    await expect(stub.canSaveDocumentSubversion(ctx, 'doc-1')).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'NOT_IMPLEMENTED',
+    });
+    await expect(stub.canReadDocumentSubversion(ctx, 'doc-1')).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'NOT_IMPLEMENTED',
+    });
+    await expect(stub.canCheckInDocument(ctx, 'doc-1')).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'NOT_IMPLEMENTED',
+    });
+    await expect(stub.canPromoteDocumentVersion(ctx, 'doc-1')).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'NOT_IMPLEMENTED',
+    });
   });
 });
-

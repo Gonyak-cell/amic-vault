@@ -53,8 +53,16 @@ import {
   type OfficeMailboxLike,
   type OutlookItemSnapshot,
 } from '@/lib/outlook-addin/outlook-item';
+import {
+  absoluteVaultEditUrl,
+  editPathForDocumentInsertion,
+  insertVaultEditShortcut,
+} from '@/lib/outlook-addin/outlook-shortcut';
 
 interface OfficeHostLike {
+  CoercionType?: {
+    Html?: string;
+  };
   context?: {
     mailbox?: OfficeMailboxLike;
   };
@@ -70,12 +78,14 @@ declare global {
 type ClientState = 'loading' | 'ready' | 'unavailable';
 
 interface OutlookAddinClientProps {
+  initialDocumentInsertion?: OutlookDocumentInsertionDto;
   initialSnapshot?: OutlookItemSnapshot;
   initialSuggestions?: MatterSuggestionDto[];
   initialStatus?: OutlookFilingRequestStatusDto;
 }
 
 export function OutlookAddinClient({
+  initialDocumentInsertion,
   initialSnapshot,
   initialSuggestions = [],
   initialStatus,
@@ -105,7 +115,8 @@ export function OutlookAddinClient({
   const [selectedDocumentId, setSelectedDocumentId] = useState('');
   const [documentInsertion, setDocumentInsertion] = useState<
     OutlookDocumentInsertionDto | undefined
-  >();
+  >(initialDocumentInsertion);
+  const [documentShortcutInserted, setDocumentShortcutInserted] = useState(false);
   const [acknowledgedWarningCodes, setAcknowledgedWarningCodes] = useState<
     Set<OutlookSendWarningReasonCode>
   >(() => new Set());
@@ -120,6 +131,7 @@ export function OutlookAddinClient({
     | 'folder-approve'
     | 'doc-search'
     | 'insert-doc'
+    | 'insert-doc-shortcut'
     | null
   >(null);
   const [safeError, setSafeError] = useState<string | null>(null);
@@ -143,6 +155,10 @@ export function OutlookAddinClient({
   const selectedDocument = documentResults.find((item) => item.documentId === selectedDocumentId);
   const canSearchDocuments = Boolean(documentQuery.trim() && busyAction !== 'doc-search');
   const canInsertDocument = Boolean(snapshot && selectedDocument && busyAction !== 'insert-doc');
+  const documentInsertionEditPath = editPathForDocumentInsertion(documentInsertion);
+  const canInsertDocumentShortcut = Boolean(
+    documentInsertionEditPath && busyAction !== 'insert-doc-shortcut',
+  );
 
   const loadOfficeItem = useCallback(async () => {
     if (initialSnapshot) return;
@@ -333,12 +349,28 @@ export function OutlookAddinClient({
         }),
       );
       setDocumentInsertion(nextInsertion);
+      setDocumentShortcutInserted(false);
     } catch (error) {
       setSafeError(safeApiErrorMessage(error));
     } finally {
       setBusyAction(null);
     }
   }, [selectedDocument, snapshot]);
+
+  const insertDocumentShortcut = useCallback(async () => {
+    if (!documentInsertionEditPath) return;
+    setBusyAction('insert-doc-shortcut');
+    setSafeError(null);
+    try {
+      const editUrl = absoluteVaultEditUrl(documentInsertionEditPath, window.location.origin);
+      await insertVaultEditShortcut(window.Office, editUrl);
+      setDocumentShortcutInserted(true);
+    } catch {
+      setSafeError('Outlook 본문에 편집 바로가기를 삽입할 수 없습니다.');
+    } finally {
+      setBusyAction(null);
+    }
+  }, [documentInsertionEditPath]);
 
   const refreshStatus = useCallback(async () => {
     if (!status) return;
@@ -456,6 +488,7 @@ export function OutlookAddinClient({
                       onChange={() => {
                         setSelectedDocumentId(result.documentId);
                         setDocumentInsertion(undefined);
+                        setDocumentShortcutInserted(false);
                       }}
                     />
                     <span className="min-w-0 flex-1">
@@ -476,8 +509,24 @@ export function OutlookAddinClient({
               </p>
             )}
             {documentInsertion ? (
-              <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
-                문서 연결 {documentInsertion.status} · 요청 기록됨
+              <div className="grid gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+                <span>
+                  문서 연결 {documentInsertion.status} ·{' '}
+                  {documentInsertionEditPath ? '편집 바로가기 준비됨' : '요청 기록됨'}
+                </span>
+                {documentInsertionEditPath ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 justify-self-start bg-background px-2 text-xs"
+                    onClick={() => void insertDocumentShortcut()}
+                    disabled={!canInsertDocumentShortcut || documentShortcutInserted}
+                  >
+                    <FileText className="h-4 w-4" aria-hidden />
+                    {documentShortcutInserted ? '메일에 삽입됨' : '메일에 바로가기 삽입'}
+                  </Button>
+                ) : null}
               </div>
             ) : null}
             <Button

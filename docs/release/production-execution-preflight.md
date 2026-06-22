@@ -5,6 +5,12 @@ Date: 2026-06-18
 Evidence Ref: PROD-REL-PREFLIGHT-AWS-2026-06-14-001 / PROD-SMOKE-AWS-001 / PROD-CUSTOMER-LAUNCH-FINAL-SMOKE-2026-06-15 / PROD-PATCH-42E7B29-DEPLOY-2026-06-15 / PROD-PATCH-42E7B29-FULL-SMOKE-2026-06-15 / PROD-PATCH-46C6B14-DEPLOY-2026-06-16 / PROD-PATCH-46C6B14-FULL-SMOKE-2026-06-16 / PROD-PATCH-70F0944-UIUX-DEPLOY-2026-06-18 / PROD-PATCH-70F0944-UIUX-PUBLIC-SMOKE-2026-06-18
 Machine Status: customer-launch-smoke-passed / prod-patch-46c6b14-smoke-passed / prod-patch-70f0944-uiux-public-smoke-passed
 
+Current-state note, 2026-06-22: this file is historical production execution
+evidence through the `70f0944` UI/UX patch lane. It is not a deployment receipt
+for `origin/main@a2d3bb9`; the latest repo-local closeout is
+`docs/release/launch-closeout-execution-a2d3bb9.md` and remains external-
+evidence-required before promotion.
+
 This preflight records the post-approval production release execution path after
 PR #82 merged. The earlier preflight ref
 `PROD-REL-PREFLIGHT-AWS-2026-06-14-001` found no production-specific

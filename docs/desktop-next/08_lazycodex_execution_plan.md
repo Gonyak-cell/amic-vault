@@ -5,15 +5,23 @@ Scope: AMIC Vault desktop-app development using LazyCodex as the execution loop.
 Base checkout: `/Users/jws/Projects/amic-vault-desktop-lazycodex`
 Source material: `/Users/jws/Documents/Codex/vault-desktop/docs/desktop-next`
 
+> Current-state note, 2026-06-22: this was the execution plan for the desktop
+> lane before the Tauri scaffold landed. The live checkout now has
+> `apps/desktop`, Tauri origin/capability controls, tests, and desktop release
+> gates. Keep this document as the lane plan/history; use
+> `docs/current-code-state.md` for live repository state.
+
 ## 1. Current Truth
 
-AMIC Vault is not yet a native desktop app. The current repository baseline is:
+At the time this plan was written, AMIC Vault was not yet a native desktop app.
+The current repository baseline has since moved forward:
 
 - `apps/web` is the UI source of truth.
 - `apps/api` is the server authority for authentication, PermissionService, AuditService, tenant context, document lifecycle, search, AI policy, and records controls.
 - PWA desktop installability exists through `apps/web/public/manifest.webmanifest`, `apps/web/public/sw.js`, `apps/web/public/offline.html`, `apps/web/src/app/pwa-registration.tsx`, and related cache/offline tests.
-- `apps/desktop`, `src-tauri`, and an Electron implementation are absent from the current mainline checkout.
-- Existing desktop strategy is PWA-first, with optional Tauri v2 thin shell only when signed installer or managed desktop distribution is required.
+- `apps/desktop` and `apps/desktop/src-tauri` now exist as a Tauri v2 thin shell.
+- Electron remains absent and should remain a fallback only.
+- Desktop native production distribution still requires external artifact, signing/notarization, update-origin, customer IT, rollback, and release approval evidence.
 
 The desktop client must remain an access surface over an approved Vault web origin. It must not become a local Vault runtime.
 
@@ -131,7 +139,7 @@ Manual QA surface:
 
 - Read the rendered Markdown or source file.
 - Confirm `docs/package/**` is unchanged.
-- Confirm the document states that current desktop truth is PWA-first and future native work is Tauri thin shell.
+- Confirm the document states branch-local desktop truth: PWA-first plus future native work for the original pre-import branch, or PWA plus implemented Tauri thin shell for the current checkout.
 
 Evidence:
 
@@ -157,7 +165,7 @@ Files:
 Required reconciliation:
 
 - Replace stale GitHub-only observations with current local checkout evidence.
-- Keep `apps/desktop` described as future work unless it exists in the branch.
+- Keep `apps/desktop` described according to the target branch truth: future work for the original pre-import branch, implemented Tauri thin shell for the current checkout.
 - Preserve `PWA/installable web app` versus `Tauri thin shell` terminology.
 
 Manual QA surface:
@@ -385,7 +393,7 @@ Scope:
 - Do not change runtime code.
 
 Success criteria:
-- The document states current truth: apps/web/apps/api exist, apps/desktop is future work, PWA assets exist.
+- The document states branch-local truth: apps/web/apps/api exist, PWA assets exist, and apps/desktop is either future work for the original branch or implemented Tauri thin shell for the current checkout.
 - The document defines LC-DESKTOP-00 through LC-DESKTOP-08.
 - The document describes executor, code-reviewer, QA executor, and gate reviewer evidence flow.
 - Secret/private endpoint/customer-data handling is fail-closed and reference-only.

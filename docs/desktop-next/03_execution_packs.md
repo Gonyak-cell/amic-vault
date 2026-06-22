@@ -3,6 +3,12 @@
 검토일: 2026-06-21  
 범위: native desktop 구현을 위한 plan-level PACK/TUW. 본 문서는 실행계획이며 코드를 포함하지 않는다. LazyCodex 실행 시에는 각 PACK을 더 작은 `LC-DESKTOP-*` goal로 나누고, 각 goal은 한 브랜치·한 PR·한 evidence directory 단위로 수행한다. `docs/package/`는 수정하지 않는다.
 
+> Current-state note, 2026-06-22: this is the desktop lane plan, not the current
+> implementation inventory. The live checkout now includes the Tauri shell,
+> origin guard, capability-deny policy, desktop tests, and release-gate tooling.
+> Treat the PACK descriptions below as historical/traceability material unless
+> a newer gate explicitly reopens them.
+
 ## 0. 공통 실행 원칙
 
 - 데스크톱화는 release/production lane과 분리된 branch/worktree에서 진행한다.
@@ -39,7 +45,7 @@
 
 | TUW ID | Objective |
 |---|---|
-| DESKTOP-AUDIT-TUW-001 | repository tree와 desktop/native 구현 부재를 재확인한다. |
+| DESKTOP-AUDIT-TUW-001 | 당시 repository tree와 desktop/native 구현 부재를 재확인했다. 현재 checkout에서는 `apps/desktop`이 존재한다. |
 | DESKTOP-AUDIT-TUW-002 | PWA manifest, service worker, offline shell, cache policy, middleware를 baseline으로 문서화한다. |
 | DESKTOP-AUDIT-TUW-003 | desktop-related unit/integration/smoke/UAT/evidence/rollback 문서를 재확인한다. |
 | DESKTOP-AUDIT-TUW-004 | native desktop 착수 전 불확실 항목과 stop condition을 ledger 또는 planning doc에 남긴다. |
@@ -86,7 +92,7 @@
 
 ### 목적
 
-`apps/desktop`을 새로 생성하되, 서버 runtime이나 데이터 저장소를 포함하지 않는 Tauri v2 thin shell foundation만 구성한다.
+원 계획은 `apps/desktop`을 새로 생성하되, 서버 runtime이나 데이터 저장소를 포함하지 않는 Tauri v2 thin shell foundation만 구성하는 것이었다. 현재 checkout에서는 foundation이 구현되어 있으므로 이 섹션은 traceability와 회귀 조건으로 읽는다.
 
 ### 포함 TUW
 
@@ -580,4 +586,4 @@ Do not publish or withdraw desktop artifact. Disable updater channel. Direct use
 | Scope | 문서-only. 현재 PWA/native 상태 audit, product decision, target architecture, execution packs, file-level plan, validation matrix, release/packaging plan, open questions를 추가한다. 코드, server behavior, web PWA runtime, CI, release production lane은 변경하지 않는다. |
 | 파일 목록 | `docs/desktop-next/00_current_state_audit.md`; `docs/desktop-next/01_desktop_product_decision.md`; `docs/desktop-next/02_target_architecture.md`; `docs/desktop-next/03_execution_packs.md`; `docs/desktop-next/04_file_level_plan.md`; `docs/desktop-next/05_security_validation_matrix.md`; `docs/desktop-next/06_release_and_packaging_plan.md`; `docs/desktop-next/07_open_questions.md` |
 | 검증 명령 | `pnpm docs:frozen`; `pnpm launch:readiness`; `pnpm launch:execution`; `pnpm release:smoke -- --dry-run`; `pnpm lint`; `pnpm typecheck` |
-| Merge 전 review 조건 | Product architecture review, security review, release/Ops review. Reviewer는 “현재는 PWA/installable web app이며 native desktop은 아직 구현되지 않았다”, “Tauri thin shell은 local Vault runtime이 아니다”, “server PermissionService/AuditService/search/AI/document storage authority를 우회하지 않는다”, “docs/package는 변경되지 않았다”, “문서에 secret/private endpoint/token/cookie/customer data가 없다”를 확인해야 한다. |
+| Merge 전 review 조건 | Product architecture review, security review, release/Ops review. Reviewer는 target branch의 desktop 상태가 정확히 기록되었는지, “Tauri thin shell은 local Vault runtime이 아니다”, “server PermissionService/AuditService/search/AI/document storage authority를 우회하지 않는다”, “docs/package는 변경되지 않았다”, “문서에 secret/private endpoint/token/cookie/customer data가 없다”를 확인해야 한다. |

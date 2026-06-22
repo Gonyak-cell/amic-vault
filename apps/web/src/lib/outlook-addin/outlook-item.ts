@@ -22,6 +22,23 @@ export interface OfficeAttachmentLike {
   isInline?: boolean | null;
 }
 
+export interface OfficeAsyncResultLike<T = unknown> {
+  status?: 'succeeded' | 'failed' | string;
+  value?: T;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+export interface OfficeBodyLike {
+  setSelectedDataAsync?: (
+    data: string,
+    options: { coercionType?: string },
+    callback?: (asyncResult: OfficeAsyncResultLike<void>) => void,
+  ) => void;
+}
+
 export interface OfficeMessageLike {
   itemId?: string | null;
   folderId?: string | null;
@@ -36,6 +53,7 @@ export interface OfficeMessageLike {
   to?: readonly OfficeRecipientLike[] | null;
   cc?: readonly OfficeRecipientLike[] | null;
   attachments?: readonly OfficeAttachmentLike[] | null;
+  body?: OfficeBodyLike | null;
 }
 
 export interface OfficeMailboxLike {

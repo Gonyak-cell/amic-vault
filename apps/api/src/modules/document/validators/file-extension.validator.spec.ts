@@ -11,6 +11,14 @@ describe('FileExtensionValidator', () => {
     });
   });
 
+  it('includes Vault-native text editing extensions in the default allow-list', () => {
+    const allowed = allowedDocumentExtensions();
+
+    for (const extension of ['txt', 'md', 'markdown', 'csv', 'json']) {
+      expect(allowed.has(extension)).toBe(true);
+    }
+  });
+
   it('rejects executable, missing, path-like, and double-extension uploads by final suffix', () => {
     const validator = new FileExtensionValidator(allowedDocumentExtensions('pdf,docx,hwpx'));
 

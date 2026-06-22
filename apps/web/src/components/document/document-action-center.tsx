@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Archive,
@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   Trash2,
   Upload,
+  UserMinus,
+  UserPlus,
   X,
 } from 'lucide-react';
 import type {
@@ -30,10 +32,20 @@ import type {
   DocumentConfidentialityLevel,
   DocumentDownloadReasonCode,
   DocumentDto,
+  DocumentEditPackageDto,
+  DocumentEditSessionDto,
+  DocumentNativeEditDraftDto,
   EnterpriseApprovedDmsTaxonomyDto,
   DocumentType,
+  DocumentSubversionDto,
+  DocumentSubversionReviewDecision,
+  DocumentSubversionReviewDto,
+  DocumentSubversionReviewerDto,
+  DocumentSubversionStatus,
+  DocumentSubversionVisibilityScope,
   DocumentVersionDto,
   EmailMatterFilingDto,
+  OrgDirectorySubjectDto,
   SearchTarget,
 } from '@amic-vault/shared';
 import {
@@ -41,6 +53,7 @@ import {
   documentDownloadReasonCodes,
 } from '@amic-vault/shared';
 import { AiPrepStatusPanel } from '@/components/ai/ai-prep-status-panel';
+import { OrgSubjectPicker } from '@/components/access/org-subject-picker';
 import { DocumentAuditTimeline } from '@/components/document/document-audit-timeline';
 import {
   DocumentGovernanceContextPanel,
@@ -63,12 +76,30 @@ import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
 import {
   addDocumentVersion,
+  ApiClientError,
+  assignDocumentSubversionReviewer,
+  cancelDocumentEditSession,
+  checkInDocumentEditSession,
+  createDocumentEditSession,
+  documentEditBaseFileUrl,
   documentDownloadUrl,
   documentPreviewUrl,
+  documentSubversionFileUrl,
+  getActiveDocumentEditSession,
   getDocument,
+  getDocumentEditPackage,
+  getNativeDocumentEditDraft,
   listDocumentVersions,
+  listDocumentSubversionReviews,
+  listDocumentSubversionReviewers,
+  listDocumentSubversions,
   listMatterEmailTimeline,
   listMatterDocuments,
+  promoteDocumentSubversion,
+  revokeDocumentSubversionReviewer,
+  saveDocumentSubversion,
+  saveNativeDocumentEditDraft,
+  submitDocumentSubversionReview,
   updateDocumentMetadata,
 } from '@/lib/api-client';
 import { getDocumentAiPrepStatus } from '@/lib/api/ai-prep';
@@ -84,12 +115,45 @@ interface DocumentActionCenterProps {
   documentId: string;
   disableInitialLoad?: boolean;
   initialAuditEvents?: DocumentAuditEventDto[];
+  initialActiveEditSession?: DocumentEditSessionDto | null;
   initialDocument?: DocumentDto;
   initialRelatedEmails?: EmailMatterFilingDto[];
   initialRelatedDocuments?: DocumentDto[];
+  initialSubversions?: DocumentSubversionDto[];
   initialTaxonomyCatalog?: EnterpriseApprovedDmsTaxonomyDto[];
   initialVersions?: DocumentVersionDto[];
+  editIntent?: DocumentEditIntent | null;
   searchHitContext?: DocumentSearchHitContext | null;
+}
+
+export interface DocumentEditIntent {
+  source: 'link';
+  versionId?: string;
+}
+
+export type DocumentEditIntentAutomationStep =
+  | 'idle'
+  | 'start_session'
+  | 'prepare_package'
+  | 'open_native_draft';
+
+interface DocumentEditIntentAutomationInput {
+  activeSession: DocumentEditSessionDto | null;
+  document: DocumentDto | null;
+  editIntent: DocumentEditIntent | null;
+  editPackage: DocumentEditPackageDto | null;
+  isBusy: boolean;
+  nativeDraft: DocumentNativeEditDraftDto | null;
+  openedNativeDraft: boolean;
+  preparedPackage: boolean;
+  startedSession: boolean;
+}
+
+interface DocumentEditIntentAutomationState {
+  key: string;
+  openedNativeDraft: boolean;
+  preparedPackage: boolean;
+  startedSession: boolean;
 }
 
 export interface DocumentSearchHitContext {
@@ -157,6 +221,32 @@ const downloadReasonLabels = {
   other: '기타',
 } as const satisfies Record<DocumentDownloadReasonCode, string>;
 
+const subversionStatusLabels = {
+  saved: '내부 저장',
+  submitted: '체크인됨',
+  abandoned: '취소됨',
+  promoted: '공식 발행됨',
+} as const satisfies Record<DocumentSubversionStatus, string>;
+
+const subversionVisibilityLabels = {
+  session_owner: '작성자',
+  reviewers: '검토자',
+  matter_owners: 'Matter owner',
+  matter_editors: 'Matter 편집자',
+} as const satisfies Record<DocumentSubversionVisibilityScope, string>;
+
+const subversionReviewDecisionLabels = {
+  approved: '승인',
+  changes_requested: '변경 요청',
+} as const satisfies Record<DocumentSubversionReviewDecision, string>;
+
+const subversionReviewGateLabels = {
+  not_required: '검토 불필요',
+  pending: '검토 대기',
+  changes_requested: '변경 요청',
+  approved: '검토 승인',
+} as const satisfies Record<DocumentSubversionDto['reviewGate']['status'], string>;
+
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return '확인 불가';
   const date = new Date(value);
@@ -172,6 +262,62 @@ function statusTone(status: string): StatusBadgeTone {
   if (status === 'failed' || status === 'deleted' || status === 'archived') return 'blocked';
   if (status.includes('pending') || status === 'draft') return 'warning';
   return 'neutral';
+}
+
+function subversionStatusTone(status: DocumentSubversionStatus): StatusBadgeTone {
+  if (status === 'promoted') return 'success';
+  if (status === 'submitted') return 'warning';
+  if (status === 'abandoned') return 'blocked';
+  return 'neutral';
+}
+
+function subversionReviewDecisionTone(
+  decision: DocumentSubversionReviewDecision,
+): StatusBadgeTone {
+  return decision === 'approved' ? 'success' : 'warning';
+}
+
+function subversionReviewGateTone(
+  status: DocumentSubversionDto['reviewGate']['status'],
+): StatusBadgeTone {
+  if (status === 'approved' || status === 'not_required') return 'success';
+  if (status === 'changes_requested') return 'blocked';
+  return 'warning';
+}
+
+function canPromoteSubversion(subversion: DocumentSubversionDto): boolean {
+  return (
+    subversion.status === 'submitted' &&
+    (subversion.reviewGate.status === 'approved' ||
+      subversion.reviewGate.status === 'not_required')
+  );
+}
+
+function reviewGateCountLabel(gate: DocumentSubversionDto['reviewGate']): string {
+  if (gate.activeReviewerCount === 0) return '검토자 없음';
+  return `검토 ${gate.approvedReviewCount}/${gate.activeReviewerCount}`;
+}
+
+const editLifecycleReasonMessages: Record<string, string> = {
+  base_version_stale:
+    '기준 공식 버전이 이미 바뀌었습니다. 최신 버전에서 새 편집 세션을 시작하세요.',
+  document_already_checked_out:
+    '이미 다른 편집 세션이 lock을 보유하고 있습니다. 새로고침 후 현재 세션을 확인하세요.',
+  edit_session_conflict:
+    '편집 세션의 최신 내부 저장본이 바뀌었습니다. 새로고침 후 다시 체크인하세요.',
+  edit_session_expired: '편집 lock이 만료되었습니다. 편집 세션을 다시 시작하세요.',
+  promotion_conflict:
+    '공식 발행 중 버전 충돌이 발생했습니다. 최신 버전을 확인한 뒤 다시 발행하세요.',
+  review_changes_requested: '변경 요청이 남아 있어 공식 발행할 수 없습니다.',
+  review_required: '검토 승인이 완료되어야 공식 발행할 수 있습니다.',
+  subversion_not_promotable: '체크인된 내부 subversion만 공식 발행할 수 있습니다.',
+};
+
+export function editLifecycleErrorMessage(caught: unknown): string {
+  if (caught instanceof ApiClientError && caught.reason) {
+    return editLifecycleReasonMessages[caught.reason] ?? safeApiErrorMessage(caught);
+  }
+  return safeApiErrorMessage(caught);
 }
 
 function draftFromDocument(document: DocumentDto): ProfileDraft {
@@ -203,28 +349,28 @@ function fileCabinetUrlForDocument(document: DocumentDto): string {
 function actionHierarchyItems(document: DocumentDto): ActionHierarchyItem[] {
   return [
     {
-      title: '검토',
-      description: '권한 확인 후 미리보기와 문서 감사 타임라인을 먼저 확인합니다.',
-      status: document.extractionStatus === 'ready' ? '미리보기 준비' : '서버 상태 확인',
-      tone: statusTone(document.extractionStatus ?? 'pending'),
-    },
-    {
-      title: '감사 다운로드',
-      description: '다운로드는 사유를 선택한 뒤 감사 대상 작업으로 실행합니다.',
-      status: '사유 필수',
-      tone: 'success',
-    },
-    {
-      title: '프로필 메타데이터',
-      description: '제목, 유형, 세부 유형, 보안 등급만 문서 메타데이터로 수정합니다.',
-      status: document.status === 'archived' ? '보관 상태' : '수정 가능',
+      title: '편집 시작',
+      description: '현재 공식 버전을 기준으로 편집 세션을 만들고 문서 lock을 잡습니다.',
+      status: document.status === 'archived' ? '보관 상태' : 'lock 가능',
       tone: document.status === 'archived' ? 'warning' : 'neutral',
     },
     {
-      title: '버전 및 Records',
-      description: '새 파일은 원본을 덮어쓰지 않고 새 버전으로 추가하며 Records 흐름은 별도 검토합니다.',
-      status: document.legalHold ? '보존 적용' : '보존 확인',
-      tone: document.legalHold ? 'warning' : 'neutral',
+      title: '내부 저장',
+      description: '저장은 원본을 덮어쓰지 않고 vN.1, vN.2 같은 내부 subversion으로 남깁니다.',
+      status: 'subversion',
+      tone: 'neutral',
+    },
+    {
+      title: '체크인',
+      description: '마지막 내부 저장본을 검토 제출 상태로 전환하고 편집 세션을 닫습니다.',
+      status: '검토 제출',
+      tone: 'warning',
+    },
+    {
+      title: '공식 발행',
+      description: '체크인된 subversion만 다음 공식 버전으로 승격합니다.',
+      status: document.legalHold ? '보존 확인' : 'vN+1',
+      tone: document.legalHold ? 'warning' : 'success',
     },
   ];
 }
@@ -302,8 +448,46 @@ export function searchHitContextFromParams(params: {
   };
 }
 
+export function editIntentFromParams(params: {
+  get(name: string): string | null;
+}): DocumentEditIntent | null {
+  const edit = params.get('edit');
+  if (edit !== '1' && edit !== 'true') return null;
+  const versionId = parseUuidParam(params.get('versionId'));
+  return {
+    source: 'link',
+    ...(versionId ? { versionId } : {}),
+  };
+}
+
+export function nextEditIntentAutomationStep(
+  input: DocumentEditIntentAutomationInput,
+): DocumentEditIntentAutomationStep {
+  if (!input.editIntent || !input.document || input.isBusy) return 'idle';
+  if (!input.activeSession && !input.startedSession) return 'start_session';
+  if (input.activeSession && !input.editPackage && !input.preparedPackage) return 'prepare_package';
+  if (
+    input.activeSession &&
+    input.editPackage?.mode === 'vault_text' &&
+    !input.nativeDraft &&
+    !input.openedNativeDraft
+  ) {
+    return 'open_native_draft';
+  }
+  return 'idle';
+}
+
 function parseSearchTarget(value: string | null): SearchTarget {
   return value === 'title' || value === 'body' || value === 'all' ? value : 'all';
+}
+
+function parseUuidParam(value: string | null): string | undefined {
+  if (!value) return undefined;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  )
+    ? value
+    : undefined;
 }
 
 function boundedInteger(value: string | null, min: number, max: number): number {
@@ -454,7 +638,7 @@ function DocumentActionHierarchyPanel({ document }: { document: DocumentDto }) {
     <SectionCard
       icon={<ShieldCheck className="h-4 w-4" />}
       title="작업 우선순위"
-      meta="읽기/다운로드 전용"
+      meta="편집 라이프사이클"
     >
       <div className="grid gap-2 md:grid-cols-2">
         {actionHierarchyItems(document).map((item) => (
@@ -468,9 +652,9 @@ function DocumentActionHierarchyPanel({ document }: { document: DocumentDto }) {
         ))}
       </div>
       <div className="mt-3 rounded-md border bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
-        현재 문서 화면은 미리보기, 사유 기반 다운로드, 프로필 메타데이터 수정, 새 버전 추가를
-        지원합니다. 원본 파일을 직접 수정하는 작업은 별도 승인된 편집 계약 전까지 노출하지
-        않습니다.
+        읽기/다운로드 전용 동작은 사유 기반 감사 다운로드로 유지됩니다. 저장은 같은 공식
+        버전을 덮어쓰지 않고 내부 subversion으로 기록되며, 공식 발행 시에만 다음 vN+1 문서
+        버전이 생성됩니다.
       </div>
     </SectionCard>
   );
@@ -491,6 +675,605 @@ function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
       <DataTableCell>{version.supersedesVersionId ? '이전 버전 보존' : '최초 버전'}</DataTableCell>
     </DataTableRow>
   ));
+}
+
+interface DocumentEditingLifecyclePanelProps {
+  activeSession: DocumentEditSessionDto | null;
+  cancelSaving: boolean;
+  checkInSaving: boolean;
+  checkoutSaving: boolean;
+  errorMessage: string | null;
+  editIntent: DocumentEditIntent | null;
+  editPackage: DocumentEditPackageDto | null;
+  editPackageLoading: boolean;
+  isLoading: boolean;
+  nativeDraft: DocumentNativeEditDraftDto | null;
+  nativeDraftContent: string;
+  nativeDraftLoading: boolean;
+  nativeDraftSaving: boolean;
+  reviewDecisionSaving: boolean;
+  reviewDecisions: DocumentSubversionReviewDto[];
+  reviewsLoading: boolean;
+  reviewerSaving: boolean;
+  reviewers: DocumentSubversionReviewerDto[];
+  reviewersLoading: boolean;
+  selectedReviewerSubject: OrgDirectorySubjectDto | null;
+  selectedReviewSubversionId: string | null;
+  onCancelSession: () => Promise<void>;
+  onCheckInSession: () => Promise<void>;
+  onChangeNativeDraftContent: (content: string) => void;
+  onAssignReviewer: () => Promise<void>;
+  onOpenEditBaseFile: () => void;
+  onOpenNativeDraft: () => Promise<void>;
+  onOpenSubversionFile: (subversion: DocumentSubversionDto) => void;
+  onPrepareEditPackage: () => Promise<void>;
+  onPromoteSubversion: (subversion: DocumentSubversionDto) => Promise<void>;
+  onRevokeReviewer: (reviewer: DocumentSubversionReviewerDto) => Promise<void>;
+  onSaveNativeDraft: () => Promise<void>;
+  onSaveSubversion: () => Promise<void>;
+  onSubmitReviewDecision: (decision: DocumentSubversionReviewDecision) => Promise<void>;
+  onSelectReviewerSubject: (subject: OrgDirectorySubjectDto) => void;
+  onSelectReviewSubversion: (subversionId: string) => void;
+  onSelectSubversionVisibilityScope: (scope: DocumentSubversionVisibilityScope) => void;
+  onSelectSubversionFile: (file: File | null) => void;
+  onStartSession: () => Promise<void>;
+  promoteSaving: boolean;
+  subversionFile: File | null;
+  subversionInputKey: number;
+  subversionSaving: boolean;
+  subversionVisibilityScope: DocumentSubversionVisibilityScope;
+  subversions: DocumentSubversionDto[];
+  matterId: string;
+  successMessage: string | null;
+}
+
+function newestSubversion(items: DocumentSubversionDto[]): DocumentSubversionDto | undefined {
+  return [...items].sort(
+    (left, right) =>
+      right.baseVersionNo - left.baseVersionNo ||
+      right.subversionNo - left.subversionNo ||
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  )[0];
+}
+
+function reviewerLabel(reviewer: DocumentSubversionReviewerDto): string {
+  return (
+    reviewer.safeLabel ||
+    reviewer.displayName ||
+    reviewer.displayEmail ||
+    (reviewer.status === 'active' ? '지정된 검토자' : '해제된 검토자')
+  );
+}
+
+function reviewActorLabel(review: DocumentSubversionReviewDto): string {
+  return review.safeLabel || review.displayName || review.displayEmail || '검토자';
+}
+
+function DocumentEditingLifecyclePanel({
+  activeSession,
+  cancelSaving,
+  checkInSaving,
+  checkoutSaving,
+  errorMessage,
+  editIntent,
+  editPackage,
+  editPackageLoading,
+  isLoading,
+  nativeDraft,
+  nativeDraftContent,
+  nativeDraftLoading,
+  nativeDraftSaving,
+  reviewDecisionSaving,
+  reviewDecisions,
+  reviewsLoading,
+  reviewerSaving,
+  reviewers,
+  reviewersLoading,
+  selectedReviewerSubject,
+  selectedReviewSubversionId,
+  matterId,
+  onAssignReviewer,
+  onCancelSession,
+  onCheckInSession,
+  onChangeNativeDraftContent,
+  onOpenEditBaseFile,
+  onOpenNativeDraft,
+  onOpenSubversionFile,
+  onPrepareEditPackage,
+  onPromoteSubversion,
+  onRevokeReviewer,
+  onSaveNativeDraft,
+  onSaveSubversion,
+  onSubmitReviewDecision,
+  onSelectReviewerSubject,
+  onSelectReviewSubversion,
+  onSelectSubversionVisibilityScope,
+  onSelectSubversionFile,
+  onStartSession,
+  promoteSaving,
+  subversionFile,
+  subversionInputKey,
+  subversionSaving,
+  subversionVisibilityScope,
+  subversions,
+  successMessage,
+}: DocumentEditingLifecyclePanelProps) {
+  const sessionSubversions = activeSession
+    ? subversions.filter((subversion) => subversion.editSessionId === activeSession.editSessionId)
+    : [];
+  const latestSavedSessionSubversion = newestSubversion(
+    sessionSubversions.filter((subversion) => subversion.status === 'saved'),
+  );
+  const latestSubmittedSubversion = newestSubversion(
+    subversions.filter((subversion) => subversion.status === 'submitted'),
+  );
+  const latestSubmittedGate = latestSubmittedSubversion?.reviewGate;
+  const latestSubmittedCanPromote = latestSubmittedSubversion
+    ? canPromoteSubversion(latestSubmittedSubversion)
+    : false;
+  const nativeDraftChanged = nativeDraft ? nativeDraft.content !== nativeDraftContent : false;
+  const busy =
+    checkoutSaving ||
+    subversionSaving ||
+    checkInSaving ||
+    cancelSaving ||
+    promoteSaving ||
+    editPackageLoading ||
+    nativeDraftLoading ||
+    nativeDraftSaving ||
+    reviewDecisionSaving ||
+    reviewsLoading ||
+    reviewerSaving ||
+    reviewersLoading ||
+    isLoading;
+  const selectedReviewSubversionIndex = subversions.findIndex(
+    (subversion) => subversion.subversionId === selectedReviewSubversionId,
+  );
+  const activeReviewers = reviewers.filter((reviewer) => reviewer.status === 'active');
+
+  return (
+    <SectionCard
+      id="document-editing"
+      icon={<Pencil className="h-4 w-4" />}
+      title="문서 편집"
+      meta={activeSession ? `v${activeSession.baseVersionNo} 편집 중` : '세션 없음'}
+      actions={
+        <StatusBadge tone={isLoading ? 'warning' : activeSession ? 'success' : 'neutral'}>
+          {isLoading ? '확인 중' : activeSession ? activeSession.status : '대기'}
+        </StatusBadge>
+      }
+    >
+      <div className="space-y-3">
+        {editIntent ? (
+          <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs leading-5 text-primary">
+            편집 바로가기에서 열린 문서입니다. Vault가 권한을 다시 확인한 뒤
+            {editIntent.versionId ? ' 연결된 공식 버전을 기준으로 ' : ' 현재 공식 버전을 기준으로 '}
+            lock과 편집 패키지를 준비합니다.
+          </div>
+        ) : null}
+
+        <div className="rounded-md border bg-background px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">편집 세션</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                공식 버전을 직접 덮어쓰지 않고 내부 저장 이력을 생성합니다.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void onStartSession()}
+              disabled={Boolean(activeSession) || busy}
+            >
+              <Pencil className="h-4 w-4" />
+              {checkoutSaving ? '시작 중' : '편집 시작'}
+            </Button>
+          </div>
+          {activeSession ? (
+            <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge tone="success">v{activeSession.baseVersionNo}</StatusBadge>
+                <span>만료 {formatDateTime(activeSession.expiresAt)}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void onCheckInSession()}
+                  disabled={!latestSavedSessionSubversion || busy}
+                >
+                  <Save className="h-4 w-4" />
+                  {checkInSaving ? '체크인 중' : '체크인'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void onCancelSession()}
+                  disabled={busy}
+                >
+                  <X className="h-4 w-4" />
+                  {cancelSaving ? '취소 중' : '세션 취소'}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-md border bg-background px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">편집 패키지</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                현재 lock과 기준 파일을 묶어 저장 endpoint까지 확인합니다.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void onPrepareEditPackage()}
+              disabled={!activeSession || busy}
+            >
+              <FileSearch className="h-4 w-4" />
+              {editPackageLoading ? '준비 중' : '패키지 준비'}
+            </Button>
+          </div>
+          {editPackage ? (
+            <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge tone={editPackage.mode === 'vault_text' ? 'success' : 'neutral'}>
+                  {editPackage.mode === 'vault_text' ? 'Vault 편집' : '파일 왕복'}
+                </StatusBadge>
+                <span className="truncate">{editPackage.filename}</span>
+              </div>
+              <p>
+                기준 v{editPackage.baseVersionNo} · {editPackage.mimeType} ·{' '}
+                {editPackage.sizeBytes.toLocaleString('ko-KR')} bytes
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onOpenEditBaseFile}
+                  disabled={busy}
+                >
+                  <FileText className="h-4 w-4" />
+                  편집 원본 열기
+                </Button>
+              </div>
+              {editPackage.mode === 'binary_roundtrip' ? (
+                <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                  저장본 업로드 시 기준 파일 hash와 패키지 mode를 다시 검증한 뒤 내부 subversion으로만
+                  저장합니다.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-md border bg-background px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">Vault 편집기</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                활성 lock에서 열린 draft를 내부 subversion으로 저장합니다.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void onOpenNativeDraft()}
+              disabled={!activeSession || busy}
+            >
+              <FileText className="h-4 w-4" />
+              {nativeDraftLoading ? '여는 중' : 'Vault 편집기 열기'}
+            </Button>
+          </div>
+          {nativeDraft ? (
+            <div className="mt-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <StatusBadge tone="neutral">v{nativeDraft.baseVersionNo}</StatusBadge>
+                <span className="truncate">{nativeDraft.filename}</span>
+              </div>
+              <textarea
+                className="min-h-64 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={nativeDraftContent}
+                onChange={(event) => onChangeNativeDraftContent(event.target.value)}
+              />
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => void onSaveNativeDraft()}
+                disabled={!nativeDraftChanged || busy}
+              >
+                <Save className="h-4 w-4" />
+                {nativeDraftSaving ? '저장 중' : 'Vault draft 저장'}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-md border bg-muted/20 p-3">
+          <label className="space-y-1 text-sm font-medium">
+            {editPackage?.mode === 'binary_roundtrip' ? '편집 저장본' : '내부 저장 파일'}
+            <Input
+              key={subversionInputKey}
+              type="file"
+              disabled={!activeSession || busy}
+              onChange={(event) => onSelectSubversionFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+          <label className="mt-3 block space-y-1 text-sm font-medium">
+            가시성
+            <select
+              className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!activeSession || busy}
+              value={subversionVisibilityScope}
+              onChange={(event) =>
+                onSelectSubversionVisibilityScope(
+                  event.target.value as DocumentSubversionVisibilityScope,
+                )
+              }
+            >
+              {(
+                Object.entries(subversionVisibilityLabels) as Array<
+                  [DocumentSubversionVisibilityScope, string]
+                >
+              ).map(([scope, label]) => (
+                <option key={scope} value={scope}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            type="button"
+            className="mt-3 w-full"
+            onClick={() => void onSaveSubversion()}
+            disabled={!activeSession || !subversionFile || busy}
+          >
+            <Upload className="h-4 w-4" />
+            {subversionSaving
+              ? '저장 중'
+              : editPackage?.mode === 'binary_roundtrip'
+                ? '저장본을 subversion으로 저장'
+                : '내부 subversion 저장'}
+          </Button>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            내부 저장은 vN.1, vN.2 이력으로만 남고 검색, AI, Records 공식 대상에는 바로 올라가지
+            않습니다.
+          </p>
+        </div>
+
+        <div className="rounded-md border bg-background">
+          <div className="flex items-center gap-2 border-b px-3 py-2 text-sm font-semibold">
+            <History className="h-4 w-4 text-primary" />
+            내부 subversion
+          </div>
+          {subversions.length > 0 ? (
+            <ul className="divide-y">
+              {subversions.map((subversion) => (
+                <li key={subversion.subversionId} className="px-3 py-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">{subversion.displayVersion}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <StatusBadge tone={subversionStatusTone(subversion.status)}>
+                        {subversionStatusLabels[subversion.status]}
+                      </StatusBadge>
+                      <StatusBadge tone={subversionReviewGateTone(subversion.reviewGate.status)}>
+                        {subversionReviewGateLabels[subversion.reviewGate.status]}
+                      </StatusBadge>
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {subversionVisibilityLabels[subversion.visibilityScope]} ·{' '}
+                    {formatDateTime(subversion.createdAt)} · {reviewGateCountLabel(subversion.reviewGate)}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    onClick={() => onOpenSubversionFile(subversion)}
+                    disabled={busy}
+                  >
+                    <FileText className="h-4 w-4" />
+                    검토 파일 열기
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              variant="no-data"
+              title="내부 subversion 없음"
+              description="편집 세션에서 저장한 내부 이력이 아직 없습니다."
+            />
+          )}
+        </div>
+
+        <div className="rounded-md border bg-background px-3 py-2.5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <UserPlus className="h-4 w-4 text-primary" />
+            검토자 제한
+          </div>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            reviewer 가시성 subversion은 지정된 사용자에게만 내부 이력을 엽니다.
+          </p>
+          <label className="mt-3 block space-y-1 text-sm font-medium">
+            검토 대상
+            <select
+              className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={subversions.length === 0 || busy}
+              value={selectedReviewSubversionIndex >= 0 ? String(selectedReviewSubversionIndex) : ''}
+              onChange={(event) => {
+                const subversion = subversions[Number(event.target.value)];
+                if (subversion) onSelectReviewSubversion(subversion.subversionId);
+              }}
+            >
+              {subversions.length === 0 ? <option value="">내부 subversion 없음</option> : null}
+              {subversions.map((subversion, index) => (
+                <option key={subversion.subversionId} value={String(index)}>
+                  {subversion.displayVersion} · {subversionStatusLabels[subversion.status]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 rounded-md border border-dashed bg-muted/20 p-3">
+            <OrgSubjectPicker
+              matterId={matterId}
+              onSubjectSelected={onSelectReviewerSubject}
+              purpose="matter-team"
+              selectedSubject={selectedReviewerSubject}
+              subjectType="user"
+            />
+            <Button
+              type="button"
+              className="mt-3 w-full"
+              onClick={() => void onAssignReviewer()}
+              disabled={!selectedReviewSubversionId || !selectedReviewerSubject || busy}
+            >
+              <UserPlus className="h-4 w-4" />
+              {reviewerSaving ? '지정 중' : '검토자 지정'}
+            </Button>
+          </div>
+          <div className="mt-3 rounded-md border bg-muted/10">
+            <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+              <span className="text-xs font-semibold text-muted-foreground">현재 검토자</span>
+              <StatusBadge tone={activeReviewers.length > 0 ? 'success' : 'neutral'}>
+                {reviewersLoading ? '확인 중' : `${activeReviewers.length}명`}
+              </StatusBadge>
+            </div>
+            {activeReviewers.length > 0 ? (
+              <ul className="divide-y">
+                {activeReviewers.map((reviewer) => (
+                  <li
+                    key={reviewer.subversionReviewerId}
+                    className="flex items-center justify-between gap-2 px-3 py-2"
+                  >
+                    <span className="min-w-0 truncate text-sm">{reviewerLabel(reviewer)}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void onRevokeReviewer(reviewer)}
+                      disabled={busy}
+                    >
+                      <UserMinus className="h-4 w-4" />
+                      해제
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                variant="no-data"
+                title="검토자 없음"
+                description="reviewers 가시성을 쓰려면 먼저 검토자를 지정해 주세요."
+              />
+            )}
+          </div>
+          <div className="mt-3 rounded-md border bg-background">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+              <span className="text-xs font-semibold text-muted-foreground">검토 결정</span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void onSubmitReviewDecision('approved')}
+                  disabled={!selectedReviewSubversionId || busy}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {reviewDecisionSaving ? '저장 중' : '승인'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void onSubmitReviewDecision('changes_requested')}
+                  disabled={!selectedReviewSubversionId || busy}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  변경 요청
+                </Button>
+              </div>
+            </div>
+            {reviewDecisions.length > 0 ? (
+              <ul className="divide-y">
+                {reviewDecisions.map((review) => (
+                  <li
+                    key={review.subversionReviewId}
+                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+                  >
+                    <span className="min-w-0 truncate text-sm">{reviewActorLabel(review)}</span>
+                    <span className="flex items-center gap-2">
+                      <StatusBadge tone={subversionReviewDecisionTone(review.decision)}>
+                        {subversionReviewDecisionLabels[review.decision]}
+                      </StatusBadge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateTime(review.decidedAt)}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                variant="no-data"
+                title={reviewsLoading ? '검토 결정 확인 중' : '검토 결정 없음'}
+                description="승인 또는 변경 요청은 구조화된 결정 코드로만 저장됩니다."
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-md border bg-background px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">공식 버전 발행</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                체크인된 subversion만 다음 공식 버전으로 승격할 수 있습니다.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => latestSubmittedSubversion && void onPromoteSubversion(latestSubmittedSubversion)}
+              disabled={!latestSubmittedSubversion || !latestSubmittedCanPromote || busy}
+            >
+              <Upload className="h-4 w-4" />
+              {promoteSaving ? '발행 중' : '공식 발행'}
+            </Button>
+          </div>
+          {latestSubmittedSubversion ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>발행 대기: {latestSubmittedSubversion.displayVersion}</span>
+              {latestSubmittedGate ? (
+                <StatusBadge tone={subversionReviewGateTone(latestSubmittedGate.status)}>
+                  {subversionReviewGateLabels[latestSubmittedGate.status]} ·{' '}
+                  {reviewGateCountLabel(latestSubmittedGate)}
+                </StatusBadge>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+        {successMessage ? (
+          <p className="text-sm font-medium text-primary" role="status">
+            {successMessage}
+          </p>
+        ) : null}
+      </div>
+    </SectionCard>
+  );
 }
 
 function RelatedDocumentsPanel({
@@ -699,16 +1482,23 @@ function uploadQueueItems(
 export function DocumentActionCenter({
   disableInitialLoad = false,
   documentId,
+  editIntent = null,
   initialAuditEvents = [],
+  initialActiveEditSession = null,
   initialDocument,
   initialRelatedEmails = [],
   initialRelatedDocuments = [],
+  initialSubversions = [],
   initialTaxonomyCatalog = [],
   initialVersions = [],
   searchHitContext = null,
 }: DocumentActionCenterProps) {
   const [document, setDocument] = useState<DocumentDto | null>(initialDocument ?? null);
   const [versions, setVersions] = useState<DocumentVersionDto[]>(initialVersions);
+  const [activeEditSession, setActiveEditSession] = useState<DocumentEditSessionDto | null>(
+    initialActiveEditSession,
+  );
+  const [subversions, setSubversions] = useState<DocumentSubversionDto[]>(initialSubversions);
   const [relatedDocuments, setRelatedDocuments] = useState<DocumentDto[]>(() =>
     relatedMatterDocuments(initialRelatedDocuments, documentId),
   );
@@ -734,6 +1524,36 @@ export function DocumentActionCenter({
   const [versionError, setVersionError] = useState<string | null>(null);
   const [versionSuccessMessage, setVersionSuccessMessage] = useState<string | null>(null);
   const [versionInputKey, setVersionInputKey] = useState(0);
+  const [subversionFile, setSubversionFile] = useState<File | null>(null);
+  const [subversionInputKey, setSubversionInputKey] = useState(0);
+  const [subversionVisibilityScope, setSubversionVisibilityScope] =
+    useState<DocumentSubversionVisibilityScope>('matter_editors');
+  const [editLifecycleLoading, setEditLifecycleLoading] = useState(false);
+  const [editLifecycleError, setEditLifecycleError] = useState<string | null>(null);
+  const [editLifecycleSuccessMessage, setEditLifecycleSuccessMessage] = useState<string | null>(null);
+  const [checkoutSaving, setCheckoutSaving] = useState(false);
+  const [subversionSaving, setSubversionSaving] = useState(false);
+  const [editPackage, setEditPackage] = useState<DocumentEditPackageDto | null>(null);
+  const [editPackageLoading, setEditPackageLoading] = useState(false);
+  const [nativeDraft, setNativeDraft] = useState<DocumentNativeEditDraftDto | null>(null);
+  const [nativeDraftContent, setNativeDraftContent] = useState('');
+  const [nativeDraftLoading, setNativeDraftLoading] = useState(false);
+  const [nativeDraftSaving, setNativeDraftSaving] = useState(false);
+  const [subversionReviews, setSubversionReviews] = useState<DocumentSubversionReviewDto[]>([]);
+  const [subversionReviewsLoading, setSubversionReviewsLoading] = useState(false);
+  const [reviewDecisionSaving, setReviewDecisionSaving] = useState(false);
+  const [subversionReviewers, setSubversionReviewers] = useState<DocumentSubversionReviewerDto[]>([]);
+  const [subversionReviewersLoading, setSubversionReviewersLoading] = useState(false);
+  const [reviewerSaving, setReviewerSaving] = useState(false);
+  const [selectedReviewerSubject, setSelectedReviewerSubject] =
+    useState<OrgDirectorySubjectDto | null>(null);
+  const [selectedReviewSubversionId, setSelectedReviewSubversionId] = useState<string | null>(
+    initialSubversions[0]?.subversionId ?? null,
+  );
+  const [checkInSaving, setCheckInSaving] = useState(false);
+  const [cancelEditSaving, setCancelEditSaving] = useState(false);
+  const [promoteSaving, setPromoteSaving] = useState(false);
+  const editIntentAutomationRef = useRef<DocumentEditIntentAutomationState | null>(null);
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const [downloadReason, setDownloadReason] = useState<DocumentDownloadReasonCode>('casework');
   const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>(
@@ -760,6 +1580,67 @@ export function DocumentActionCenter({
     }
   }, [documentId]);
 
+  const refreshEditingState = useCallback(async () => {
+    setEditLifecycleLoading(true);
+    setEditLifecycleError(null);
+    try {
+      const [activeSessionResult, subversionResult] = await Promise.all([
+        getActiveDocumentEditSession(documentId),
+        listDocumentSubversions(documentId),
+      ]);
+      setActiveEditSession(activeSessionResult);
+      setSubversions(subversionResult.items);
+    } catch (caught) {
+      setActiveEditSession(null);
+      setSubversions([]);
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setEditLifecycleLoading(false);
+    }
+  }, [documentId]);
+
+  const refreshSubversionReviewers = useCallback(
+    async (subversionId: string | null = selectedReviewSubversionId) => {
+      if (!subversionId) {
+        setSubversionReviewers([]);
+        setSubversionReviewersLoading(false);
+        return;
+      }
+      setSubversionReviewersLoading(true);
+      try {
+        const result = await listDocumentSubversionReviewers(documentId, subversionId);
+        setSubversionReviewers(result.items);
+      } catch (caught) {
+        setSubversionReviewers([]);
+        setEditLifecycleError(editLifecycleErrorMessage(caught));
+      } finally {
+        setSubversionReviewersLoading(false);
+      }
+    },
+    [documentId, selectedReviewSubversionId],
+  );
+
+  const refreshSubversionReviews = useCallback(
+    async (subversionId: string | null = selectedReviewSubversionId) => {
+      if (!subversionId) {
+        setSubversionReviews([]);
+        setSubversionReviewsLoading(false);
+        return;
+      }
+      setSubversionReviewsLoading(true);
+      try {
+        const result = await listDocumentSubversionReviews(documentId, subversionId);
+        setSubversionReviews(result.items);
+      } catch (caught) {
+        setSubversionReviews([]);
+        setEditLifecycleError(editLifecycleErrorMessage(caught));
+      } finally {
+        setSubversionReviewsLoading(false);
+      }
+    },
+    [documentId, selectedReviewSubversionId],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -771,22 +1652,46 @@ export function DocumentActionCenter({
       setDocument(documentResult);
       setProfileDraft(draftFromDocument(documentResult));
       setVersions(versionResult.items);
+      void refreshEditingState();
     } catch (caught) {
       setDocument(null);
       setProfileDraft(null);
       setVersions([]);
+      setActiveEditSession(null);
+      setSubversions([]);
+      setSubversionReviewers([]);
+      setSubversionReviews([]);
       setError(safeApiErrorMessage(caught));
     } finally {
       setLoading(false);
     }
 
     void refreshPrepStatus();
-  }, [documentId, refreshPrepStatus]);
+  }, [documentId, refreshEditingState, refreshPrepStatus]);
 
   useEffect(() => {
     if (disableInitialLoad) return;
     void load();
   }, [disableInitialLoad, load]);
+
+  useEffect(() => {
+    setSelectedReviewSubversionId((current) => {
+      if (current && subversions.some((subversion) => subversion.subversionId === current)) {
+        return current;
+      }
+      return subversions[0]?.subversionId ?? null;
+    });
+  }, [subversions]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    void refreshSubversionReviewers(selectedReviewSubversionId);
+  }, [disableInitialLoad, refreshSubversionReviewers, selectedReviewSubversionId]);
+
+  useEffect(() => {
+    if (disableInitialLoad) return;
+    void refreshSubversionReviews(selectedReviewSubversionId);
+  }, [disableInitialLoad, refreshSubversionReviews, selectedReviewSubversionId]);
 
   useEffect(() => {
     if (disableInitialLoad) return;
@@ -868,6 +1773,62 @@ export function DocumentActionCenter({
     };
   }, [disableInitialLoad, document]);
 
+  useEffect(() => {
+    if (disableInitialLoad || !editIntent || !document) {
+      editIntentAutomationRef.current = null;
+      return;
+    }
+
+    const key = `${document.documentId}:${editIntent.versionId ?? 'current'}`;
+    if (editIntentAutomationRef.current?.key !== key) {
+      editIntentAutomationRef.current = {
+        key,
+        openedNativeDraft: false,
+        preparedPackage: false,
+        startedSession: false,
+      };
+    }
+
+    const automation = editIntentAutomationRef.current;
+    if (!automation) return;
+    const step = nextEditIntentAutomationStep({
+      activeSession: activeEditSession,
+      document,
+      editIntent,
+      editPackage,
+      isBusy:
+        loading ||
+        editLifecycleLoading ||
+        checkoutSaving ||
+        editPackageLoading ||
+        nativeDraftLoading ||
+        nativeDraftSaving ||
+        subversionSaving ||
+        checkInSaving ||
+        cancelEditSaving ||
+        promoteSaving,
+      nativeDraft,
+      openedNativeDraft: automation.openedNativeDraft,
+      preparedPackage: automation.preparedPackage,
+      startedSession: automation.startedSession,
+    });
+
+    if (step === 'start_session') {
+      automation.startedSession = true;
+      void startEditSession();
+      return;
+    }
+    if (step === 'prepare_package') {
+      automation.preparedPackage = true;
+      void prepareEditPackage();
+      return;
+    }
+    if (step === 'open_native_draft') {
+      automation.openedNativeDraft = true;
+      void openNativeDraft();
+    }
+  });
+
   const matterLabel = useMemo(() => {
     if (!document) return 'Matter 확인 중';
     const code = document.matterDisplayCode?.trim();
@@ -927,6 +1888,329 @@ export function DocumentActionCenter({
       setVersionError(safeApiErrorMessage(caught));
     } finally {
       setVersionSaving(false);
+    }
+  }
+
+  async function startEditSession() {
+    if (!document || checkoutSaving) return;
+    setCheckoutSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const session = await createDocumentEditSession(document.documentId, {
+        ...(editIntent?.versionId ? { baseVersionId: editIntent.versionId } : {}),
+        clientKind: 'web_upload',
+        checkoutReasonCode: 'WEB_EDIT',
+        idempotencyKey: `web-edit:${document.documentId}:${editIntent?.versionId ?? 'current'}`,
+      });
+      setActiveEditSession(session);
+      setEditPackage(null);
+      setNativeDraft(null);
+      setNativeDraftContent('');
+      setSubversionVisibilityScope('matter_editors');
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(`v${session.baseVersionNo} 편집 세션을 시작했습니다.`);
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setCheckoutSaving(false);
+    }
+  }
+
+  async function prepareEditPackage() {
+    if (!document || !activeEditSession || editPackageLoading) return;
+    setEditPackageLoading(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const prepared = await getDocumentEditPackage(
+        document.documentId,
+        activeEditSession.editSessionId,
+      );
+      setEditPackage(prepared);
+      setEditLifecycleSuccessMessage(`v${prepared.baseVersionNo} 편집 패키지를 준비했습니다.`);
+    } catch (caught) {
+      setEditPackage(null);
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setEditPackageLoading(false);
+    }
+  }
+
+  function openEditBaseFile() {
+    if (!document || !activeEditSession) return;
+    window.location.assign(documentEditBaseFileUrl(document.documentId, activeEditSession.editSessionId));
+  }
+
+  function openSubversionFile(subversion: DocumentSubversionDto) {
+    if (!document) return;
+    window.location.assign(documentSubversionFileUrl(document.documentId, subversion.subversionId));
+  }
+
+  function nativeEditorErrorMessage(caught: unknown): string {
+    if (caught instanceof ApiClientError && caught.code === 'VALIDATION_FAILED') {
+      return 'Vault 편집기는 텍스트 계열 문서만 열 수 있습니다.';
+    }
+    return editLifecycleErrorMessage(caught);
+  }
+
+  async function openNativeDraft() {
+    if (!document || !activeEditSession || nativeDraftLoading) return;
+    setNativeDraftLoading(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const draft = await getNativeDocumentEditDraft(
+        document.documentId,
+        activeEditSession.editSessionId,
+      );
+      setNativeDraft(draft);
+      setNativeDraftContent(draft.content);
+      setEditLifecycleSuccessMessage(`v${draft.baseVersionNo} draft를 열었습니다.`);
+    } catch (caught) {
+      setNativeDraft(null);
+      setNativeDraftContent('');
+      setEditLifecycleError(nativeEditorErrorMessage(caught));
+    } finally {
+      setNativeDraftLoading(false);
+    }
+  }
+
+  async function saveNativeDraftContent() {
+    if (!document || !activeEditSession || !nativeDraft || nativeDraftSaving) return;
+    setNativeDraftSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const result = await saveNativeDocumentEditDraft(
+        document.documentId,
+        activeEditSession.editSessionId,
+        {
+          clientSaveId: `native-save:${Date.now().toString(36)}`,
+          content: nativeDraftContent,
+          saveReasonCode: 'NATIVE_SAVE',
+          visibilityScope: 'matter_editors',
+        },
+      );
+      setNativeDraft({
+        ...nativeDraft,
+        content: nativeDraftContent,
+        sha256: result.fileHash,
+        sizeBytes: new TextEncoder().encode(nativeDraftContent).byteLength,
+      });
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(`${result.displayVersion} Vault draft를 저장했습니다.`);
+    } catch (caught) {
+      setEditLifecycleError(nativeEditorErrorMessage(caught));
+    } finally {
+      setNativeDraftSaving(false);
+    }
+  }
+
+  async function saveInternalSubversion() {
+    if (!document || !activeEditSession || !subversionFile || subversionSaving) return;
+    setSubversionSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const result = await saveDocumentSubversion(
+        document.documentId,
+        activeEditSession.editSessionId,
+        subversionFile,
+        {
+          clientSaveId: `web-save:${Date.now().toString(36)}`,
+          ...(editPackage
+            ? {
+                editPackageMode: editPackage.mode,
+                expectedBaseSha256: editPackage.sha256,
+              }
+            : {}),
+          saveReasonCode: 'MANUAL_SAVE',
+          visibilityScope: subversionVisibilityScope,
+        },
+      );
+      setSubversionFile(null);
+      setSubversionInputKey((current) => current + 1);
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(`${result.displayVersion} 내부 subversion을 저장했습니다.`);
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setSubversionSaving(false);
+    }
+  }
+
+  async function checkInEditSession() {
+    if (!document || !activeEditSession || checkInSaving) return;
+    const latestSavedSubversion = newestSubversion(
+      subversions.filter(
+        (subversion) =>
+          subversion.editSessionId === activeEditSession.editSessionId &&
+          subversion.status === 'saved',
+      ),
+    );
+    if (!latestSavedSubversion) return;
+    setCheckInSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const session = await checkInDocumentEditSession(
+        document.documentId,
+        activeEditSession.editSessionId,
+        {
+          expectedLastSubversionId: latestSavedSubversion.subversionId,
+        },
+      );
+      setActiveEditSession(session);
+      setEditPackage(null);
+      setNativeDraft(null);
+      setNativeDraftContent('');
+      setSubversionVisibilityScope('matter_editors');
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(`${latestSavedSubversion.displayVersion} 체크인을 완료했습니다.`);
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setCheckInSaving(false);
+    }
+  }
+
+  async function cancelEditSession() {
+    if (!document || !activeEditSession || cancelEditSaving) return;
+    setCancelEditSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      await cancelDocumentEditSession(document.documentId, activeEditSession.editSessionId, {
+        cancelledReasonCode: 'USER_CANCELLED',
+      });
+      setSubversionFile(null);
+      setEditPackage(null);
+      setNativeDraft(null);
+      setNativeDraftContent('');
+      setSubversionVisibilityScope('matter_editors');
+      setSubversionInputKey((current) => current + 1);
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage('편집 세션을 취소했습니다.');
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setCancelEditSaving(false);
+    }
+  }
+
+  async function promoteSubversion(subversion: DocumentSubversionDto) {
+    if (!document || promoteSaving) return;
+    setPromoteSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const result = await promoteDocumentSubversion(document.documentId, subversion.subversionId, {
+        expectedBaseVersionId: subversion.baseVersionId,
+        publishReasonCode: 'CLIENT_READY',
+        idempotencyKey: `web-promote:${subversion.subversionId}:${Date.now().toString(36)}`,
+      });
+      const [updated, versionResult] = await Promise.all([
+        getDocument(document.documentId),
+        listDocumentVersions(document.documentId),
+      ]);
+      setDocument(updated);
+      setProfileDraft(draftFromDocument(updated));
+      setVersions(versionResult.items);
+      await refreshEditingState();
+      await refreshPrepStatus();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(
+        `${subversion.displayVersion}을 공식 v${result.versionNo} 버전으로 발행했습니다.`,
+      );
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setPromoteSaving(false);
+    }
+  }
+
+  async function assignReviewerToSelectedSubversion() {
+    if (
+      !document ||
+      !selectedReviewSubversionId ||
+      !selectedReviewerSubject ||
+      selectedReviewerSubject.subjectType !== 'user' ||
+      reviewerSaving
+    ) {
+      return;
+    }
+    setReviewerSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const reviewer = await assignDocumentSubversionReviewer(
+        document.documentId,
+        selectedReviewSubversionId,
+        {
+          reviewerUserId: selectedReviewerSubject.subjectId,
+        },
+      );
+      setSelectedReviewerSubject(null);
+      await refreshSubversionReviewers(selectedReviewSubversionId);
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(`${reviewerLabel(reviewer)} 검토자를 지정했습니다.`);
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setReviewerSaving(false);
+    }
+  }
+
+  async function revokeReviewerFromSelectedSubversion(reviewer: DocumentSubversionReviewerDto) {
+    if (!document || reviewerSaving) return;
+    setReviewerSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      await revokeDocumentSubversionReviewer(
+        document.documentId,
+        reviewer.subversionId,
+        reviewer.reviewerUserId,
+      );
+      await refreshSubversionReviewers(reviewer.subversionId);
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(`${reviewerLabel(reviewer)} 검토자 지정을 해제했습니다.`);
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setReviewerSaving(false);
+    }
+  }
+
+  async function submitReviewDecisionForSelectedSubversion(
+    decision: DocumentSubversionReviewDecision,
+  ) {
+    if (!document || !selectedReviewSubversionId || reviewDecisionSaving) return;
+    setReviewDecisionSaving(true);
+    setEditLifecycleError(null);
+    setEditLifecycleSuccessMessage(null);
+    try {
+      const review = await submitDocumentSubversionReview(
+        document.documentId,
+        selectedReviewSubversionId,
+        { decision },
+      );
+      await refreshSubversionReviews(selectedReviewSubversionId);
+      await refreshEditingState();
+      setAuditRefreshKey((current) => current + 1);
+      setEditLifecycleSuccessMessage(`${reviewActorLabel(review)} 검토 결정을 저장했습니다.`);
+    } catch (caught) {
+      setEditLifecycleError(editLifecycleErrorMessage(caught));
+    } finally {
+      setReviewDecisionSaving(false);
     }
   }
 
@@ -1156,6 +2440,59 @@ export function DocumentActionCenter({
               emails={relatedEmails}
               errorMessage={relatedEmailsError}
               isLoading={relatedEmailsLoading}
+            />
+
+            <DocumentEditingLifecyclePanel
+              activeSession={activeEditSession}
+              cancelSaving={cancelEditSaving}
+              checkInSaving={checkInSaving}
+              checkoutSaving={checkoutSaving}
+              editIntent={editIntent}
+              editPackage={editPackage}
+              editPackageLoading={editPackageLoading}
+              errorMessage={editLifecycleError}
+              isLoading={editLifecycleLoading}
+              nativeDraft={nativeDraft}
+              nativeDraftContent={nativeDraftContent}
+              nativeDraftLoading={nativeDraftLoading}
+              nativeDraftSaving={nativeDraftSaving}
+              matterId={document.matterId}
+              onCancelSession={cancelEditSession}
+              onCheckInSession={checkInEditSession}
+              onChangeNativeDraftContent={setNativeDraftContent}
+              onAssignReviewer={assignReviewerToSelectedSubversion}
+              onOpenEditBaseFile={openEditBaseFile}
+              onOpenNativeDraft={openNativeDraft}
+              onOpenSubversionFile={openSubversionFile}
+              onPrepareEditPackage={prepareEditPackage}
+              onPromoteSubversion={promoteSubversion}
+              onRevokeReviewer={revokeReviewerFromSelectedSubversion}
+              onSaveNativeDraft={saveNativeDraftContent}
+              onSaveSubversion={saveInternalSubversion}
+              onSelectReviewerSubject={setSelectedReviewerSubject}
+              onSelectReviewSubversion={setSelectedReviewSubversionId}
+              onSelectSubversionVisibilityScope={setSubversionVisibilityScope}
+              onSubmitReviewDecision={submitReviewDecisionForSelectedSubversion}
+              onSelectSubversionFile={(file) => {
+                setSubversionFile(file);
+                setEditLifecycleSuccessMessage(null);
+              }}
+              onStartSession={startEditSession}
+              promoteSaving={promoteSaving}
+              reviewDecisionSaving={reviewDecisionSaving}
+              reviewDecisions={subversionReviews}
+              reviewsLoading={subversionReviewsLoading}
+              reviewerSaving={reviewerSaving}
+              reviewers={subversionReviewers}
+              reviewersLoading={subversionReviewersLoading}
+              selectedReviewerSubject={selectedReviewerSubject}
+              selectedReviewSubversionId={selectedReviewSubversionId}
+              subversionFile={subversionFile}
+              subversionInputKey={subversionInputKey}
+              subversionSaving={subversionSaving}
+              subversionVisibilityScope={subversionVisibilityScope}
+              subversions={subversions}
+              successMessage={editLifecycleSuccessMessage}
             />
 
             <SectionCard

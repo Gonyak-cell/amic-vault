@@ -9,6 +9,8 @@ import { TenantModule } from '../tenant/tenant.module';
 import { UserModule } from '../user/user.module';
 import { BulkUploadJob } from './bulk-upload.job';
 import { DocumentController, DocumentMetadataController } from './document.controller';
+import { DocumentEditingController } from './document-editing.controller';
+import { DocumentEditingService } from './document-editing.service';
 import { DocumentLifecycleService } from './document-lifecycle.service';
 import { DocumentVersionService } from './document-version.service';
 import { DocumentService } from './document.service';
@@ -31,9 +33,15 @@ import { VersionNumberResolver } from './version-number.resolver';
     TenantModule,
     UserModule,
   ],
-  controllers: [DocumentController, DocumentMetadataController, UploadPreflightController],
+  controllers: [
+    DocumentController,
+    DocumentEditingController,
+    DocumentMetadataController,
+    UploadPreflightController,
+  ],
   providers: [
     BulkUploadJob,
+    DocumentEditingService,
     DocumentLifecycleService,
     DocumentService,
     DocumentVersionService,
@@ -46,6 +54,7 @@ import { VersionNumberResolver } from './version-number.resolver';
   ],
   exports: [
     BulkUploadJob,
+    DocumentEditingService,
     DocumentLifecycleService,
     DocumentService,
     DocumentVersionService,

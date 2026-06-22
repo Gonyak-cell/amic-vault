@@ -1,18 +1,33 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiClientError,
+  assignDocumentSubversionReviewer,
   apiFetch,
   apiFetchFormData,
   addDocumentVersion,
+  checkInDocumentEditSession,
+  createDocumentEditSession,
   createUploadPreflight,
   documentDownloadUrl,
   documentPreviewUrl,
   getDocument,
+  getActiveDocumentEditSession,
   getMatterAppStatus,
+  getDocumentEditPackage,
+  getNativeDocumentEditDraft,
   listDocumentVersions,
+  listDocumentSubversionReviews,
+  listDocumentSubversionReviewers,
+  listDocumentSubversions,
   listDocuments,
   listMatterDocuments,
   lookupMatterAppMatters,
+  promoteDocumentSubversion,
+  revokeDocumentSubversionReviewer,
+  saveDocumentSubversion,
+  saveNativeDocumentEditDraft,
+  submitDocumentSubversionReview,
+  documentEditBaseFileUrl,
   updateDocumentMetadata,
   uploadDocument,
 } from './api-client';
@@ -27,9 +42,16 @@ describe('api client', () => {
       'fetch',
       vi.fn(
         async () =>
-          new Response(JSON.stringify({ code: 'AUTH_REQUIRED', requestId: 'req-1' }), {
-            status: 401,
-          }),
+          new Response(
+            JSON.stringify({
+              code: 'AUTH_REQUIRED',
+              reason: 'edit_session_expired',
+              requestId: 'req-1',
+            }),
+            {
+              status: 401,
+            },
+          ),
       ),
     );
 
@@ -37,8 +59,27 @@ describe('api client', () => {
       apiFetch('/tenant/settings', { redirectOnAuthRequired: false }),
     ).rejects.toMatchObject({
       code: 'AUTH_REQUIRED',
+      reason: 'edit_session_expired',
       requestId: 'req-1',
       status: 401,
+    });
+  });
+
+  it('drops unsafe API error reasons before exposing ApiClientError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ code: 'VALIDATION_FAILED', reason: 'bad reason!' }), {
+            status: 400,
+          }),
+      ),
+    );
+
+    await expect(apiFetch('/documents/doc/edit', { redirectOnAuthRequired: false })).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      reason: undefined,
+      status: 400,
     });
   });
 
@@ -463,6 +504,427 @@ describe('api client', () => {
     );
     const body = fetchMock.mock.calls[1]?.[1]?.body as FormData;
     expect(body.get('duplicateDecision')).toBe('new_version');
+  });
+
+  it('drives document edit sessions through subversion and promotion endpoints', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            editSessionId: 'session-ref',
+            documentId: 'doc-ref',
+            baseVersionId: 'version-ref',
+            baseVersionNo: 2,
+            status: 'active',
+            clientKind: 'web_upload',
+            lockOwnerUserId: 'user-ref',
+            checkedOutAt: '2026-06-18T00:00:00.000Z',
+            heartbeatAt: '2026-06-18T00:00:00.000Z',
+            expiresAt: '2026-06-18T01:00:00.000Z',
+            checkedInAt: null,
+            cancelledAt: null,
+            expiredAt: null,
+            conflictedAt: null,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('null', { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            subversionId: 'subversion-ref',
+            documentId: 'doc-ref',
+            baseVersionId: 'version-ref',
+            baseVersionNo: 2,
+            subversionNo: 1,
+            displayVersion: 'v2.1',
+            editSessionId: 'session-ref',
+            status: 'saved',
+            visibilityScope: 'matter_editors',
+            fileObjectId: 'file-ref',
+            fileHash: 'hash-ref',
+            createdBy: 'user-ref',
+            createdAt: '2026-06-18T00:05:00.000Z',
+            submittedAt: null,
+            promotedVersionId: null,
+            reviewGate: {
+              status: 'not_required',
+              activeReviewerCount: 0,
+              approvedReviewCount: 0,
+              changesRequestedCount: 0,
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            editSessionId: 'session-ref',
+            documentId: 'doc-ref',
+            baseVersionId: 'version-ref',
+            baseVersionNo: 2,
+            status: 'checked_in',
+            clientKind: 'web_upload',
+            lockOwnerUserId: 'user-ref',
+            checkedOutAt: '2026-06-18T00:00:00.000Z',
+            heartbeatAt: '2026-06-18T00:05:00.000Z',
+            expiresAt: '2026-06-18T01:05:00.000Z',
+            checkedInAt: '2026-06-18T00:06:00.000Z',
+            cancelledAt: null,
+            expiredAt: null,
+            conflictedAt: null,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            documentId: 'doc-ref',
+            subversionId: 'subversion-ref',
+            promotedVersionId: 'version-3',
+            versionNo: 3,
+            versionStatus: 'current',
+            supersedesVersionId: 'version-ref',
+            promotedFromSubversionId: 'subversion-ref',
+            publishedAt: '2026-06-18T00:07:00.000Z',
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createDocumentEditSession('doc-ref', {
+      clientKind: 'web_upload',
+      checkoutReasonCode: 'WEB_EDIT',
+      idempotencyKey: 'web-edit-doc-ref',
+    });
+    await getActiveDocumentEditSession('doc-ref');
+    await saveDocumentSubversion('doc-ref', 'session-ref', new File(['v2.1'], 'contract.docx'), {
+      editPackageMode: 'binary_roundtrip',
+      expectedBaseSha256: 'a'.repeat(64),
+      saveReasonCode: 'MANUAL_SAVE',
+      visibilityScope: 'matter_editors',
+    });
+    await listDocumentSubversions('doc-ref');
+    await checkInDocumentEditSession('doc-ref', 'session-ref', {
+      expectedLastSubversionId: 'subversion-ref',
+    });
+    await promoteDocumentSubversion('doc-ref', 'subversion-ref', {
+      expectedBaseVersionId: 'version-ref',
+      publishReasonCode: 'CLIENT_READY',
+      idempotencyKey: 'web-promote-subversion-ref',
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions',
+      expect.objectContaining({
+        body: JSON.stringify({
+          clientKind: 'web_upload',
+          checkoutReasonCode: 'WEB_EDIT',
+          idempotencyKey: 'web-edit-doc-ref',
+        }),
+        method: 'POST',
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions/active',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions/session-ref/subversions',
+      expect.objectContaining({ body: expect.any(FormData), method: 'POST' }),
+    );
+    const subversionBody = fetchMock.mock.calls[2]?.[1]?.body as FormData;
+    expect(subversionBody.get('editPackageMode')).toBe('binary_roundtrip');
+    expect(subversionBody.get('expectedBaseSha256')).toBe('a'.repeat(64));
+    expect(subversionBody.get('visibilityScope')).toBe('matter_editors');
+    expect(subversionBody.get('saveReasonCode')).toBe('MANUAL_SAVE');
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'http://localhost:3001/v1/documents/doc-ref/subversions',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions/session-ref/check-in',
+      expect.objectContaining({
+        body: JSON.stringify({ expectedLastSubversionId: 'subversion-ref' }),
+        method: 'POST',
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
+      'http://localhost:3001/v1/documents/doc-ref/subversions/subversion-ref/promote',
+      expect.objectContaining({
+        body: JSON.stringify({
+          expectedBaseVersionId: 'version-ref',
+          publishReasonCode: 'CLIENT_READY',
+          idempotencyKey: 'web-promote-subversion-ref',
+        }),
+        method: 'POST',
+      }),
+    );
+  });
+
+  it('lists, assigns, and revokes document subversion reviewers through ACL endpoints', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                subversionReviewerId: 'reviewer-ref',
+                subversionId: 'subversion-ref',
+                documentId: 'doc-ref',
+                reviewerUserId: 'reviewer-user-ref',
+                assignedBy: 'user-ref',
+                status: 'active',
+                createdAt: '2026-06-18T00:08:00.000Z',
+                revokedAt: null,
+                safeLabel: 'Alpha Reviewer',
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            subversionReviewerId: 'reviewer-ref',
+            subversionId: 'subversion-ref',
+            documentId: 'doc-ref',
+            reviewerUserId: 'reviewer-user-ref',
+            assignedBy: 'user-ref',
+            status: 'active',
+            createdAt: '2026-06-18T00:08:00.000Z',
+            revokedAt: null,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            subversionReviewerId: 'reviewer-ref',
+            subversionId: 'subversion-ref',
+            documentId: 'doc-ref',
+            reviewerUserId: 'reviewer-user-ref',
+            assignedBy: 'user-ref',
+            status: 'revoked',
+            createdAt: '2026-06-18T00:08:00.000Z',
+            revokedAt: '2026-06-18T00:09:00.000Z',
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listDocumentSubversionReviewers('doc-ref', 'subversion-ref');
+    await assignDocumentSubversionReviewer('doc-ref', 'subversion-ref', {
+      reviewerUserId: 'reviewer-user-ref',
+    });
+    await revokeDocumentSubversionReviewer('doc-ref', 'subversion-ref', 'reviewer-user-ref');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3001/v1/documents/doc-ref/subversions/subversion-ref/reviewers',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3001/v1/documents/doc-ref/subversions/subversion-ref/reviewers',
+      expect.objectContaining({
+        body: JSON.stringify({ reviewerUserId: 'reviewer-user-ref' }),
+        method: 'POST',
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:3001/v1/documents/doc-ref/subversions/subversion-ref/reviewers/reviewer-user-ref',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('lists and submits document subversion review decisions through review endpoints', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                subversionReviewId: 'review-ref',
+                subversionReviewerId: 'reviewer-ref',
+                subversionId: 'subversion-ref',
+                documentId: 'doc-ref',
+                reviewerUserId: 'reviewer-user-ref',
+                decision: 'approved',
+                decidedAt: '2026-06-18T00:10:00.000Z',
+                safeLabel: 'Alpha Reviewer',
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            subversionReviewId: 'review-ref',
+            subversionReviewerId: 'reviewer-ref',
+            subversionId: 'subversion-ref',
+            documentId: 'doc-ref',
+            reviewerUserId: 'reviewer-user-ref',
+            decision: 'changes_requested',
+            decidedAt: '2026-06-18T00:11:00.000Z',
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listDocumentSubversionReviews('doc-ref', 'subversion-ref');
+    await submitDocumentSubversionReview('doc-ref', 'subversion-ref', {
+      decision: 'changes_requested',
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3001/v1/documents/doc-ref/subversions/subversion-ref/reviews',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3001/v1/documents/doc-ref/subversions/subversion-ref/reviews/me',
+      expect.objectContaining({
+        body: JSON.stringify({ decision: 'changes_requested' }),
+        method: 'POST',
+      }),
+    );
+  });
+
+  it('opens and saves native document edit drafts through the session endpoint', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            documentId: 'doc-ref',
+            editSessionId: 'session-ref',
+            baseVersionId: 'version-ref',
+            baseVersionNo: 2,
+            filename: 'draft.txt',
+            mimeType: 'text/plain',
+            content: 'native draft',
+            sizeBytes: 12,
+            sha256: 'a'.repeat(64),
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            subversionId: 'subversion-ref',
+            documentId: 'doc-ref',
+            baseVersionId: 'version-ref',
+            baseVersionNo: 2,
+            subversionNo: 2,
+            displayVersion: 'v2.2',
+            editSessionId: 'session-ref',
+            status: 'saved',
+            visibilityScope: 'matter_editors',
+            fileObjectId: 'file-ref',
+            fileHash: 'b'.repeat(64),
+            createdBy: 'user-ref',
+            createdAt: '2026-06-18T00:05:00.000Z',
+            submittedAt: null,
+            promotedVersionId: null,
+            reviewGate: {
+              status: 'not_required',
+              activeReviewerCount: 0,
+              approvedReviewCount: 0,
+              changesRequestedCount: 0,
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getNativeDocumentEditDraft('doc-ref', 'session-ref');
+    await saveNativeDocumentEditDraft('doc-ref', 'session-ref', {
+      clientSaveId: 'native-save-2026:0001',
+      content: 'updated native draft',
+      saveReasonCode: 'NATIVE_SAVE',
+      visibilityScope: 'matter_editors',
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions/session-ref/native-draft',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions/session-ref/native-draft',
+      expect.objectContaining({
+        body: JSON.stringify({
+          clientSaveId: 'native-save-2026:0001',
+          content: 'updated native draft',
+          saveReasonCode: 'NATIVE_SAVE',
+          visibilityScope: 'matter_editors',
+        }),
+        method: 'POST',
+      }),
+    );
+  });
+
+  it('loads edit packages and builds session-scoped base file URLs', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            documentId: 'doc-ref',
+            editSessionId: 'session-ref',
+            baseVersionId: 'version-ref',
+            baseVersionNo: 2,
+            filename: 'draft.docx',
+            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            sizeBytes: 2048,
+            sha256: 'a'.repeat(64),
+            mode: 'binary_roundtrip',
+            canOpenInVaultEditor: false,
+            baseFileUrl: '/v1/documents/doc-ref/edit-sessions/session-ref/base-file',
+            saveSubversionUrl: '/v1/documents/doc-ref/edit-sessions/session-ref/subversions',
+            checkInUrl: '/v1/documents/doc-ref/edit-sessions/session-ref/check-in',
+            nativeDraftUrl: null,
+            expiresAt: '2026-06-18T01:00:00.000Z',
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getDocumentEditPackage('doc-ref', 'session-ref');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions/session-ref/edit-package',
+      expect.objectContaining({ cache: 'no-store', credentials: 'include' }),
+    );
+    expect(documentEditBaseFileUrl('doc-ref', 'session-ref')).toBe(
+      'http://localhost:3001/v1/documents/doc-ref/edit-sessions/session-ref/base-file',
+    );
   });
 
   it('builds preview and controlled download URLs without exposing raw refs beyond the route id', () => {

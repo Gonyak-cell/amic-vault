@@ -2,9 +2,21 @@
 
 Date: 2026-06-18
 
+Status: Historical baseline snapshot. Current route capability status is
+tracked in `docs/ui/enterprise-dms-ux-route-capability-inventory.md` and
+`docs/ui/production-ui-inventory.md`.
+
 Scope: This freezes the operational UX baseline for AMIC Vault as an enterprise SaaS legal DMS. It covers file organization, document/matter operations, permissions, audit, records, and integration flows. It does not approve legal analysis, AI summary generation, external model routing, raw prompt/source/model-response storage, or ungated external sharing.
 
 Implementation plan: `docs/ui/enterprise-dms-ux-tuw-plan.md`
+
+Current-state note, 2026-06-22: several gaps recorded below have since been
+closed in the web code, including visible `/files`, Matter Code gated upload,
+document browse/list, document action center, version flows, contextual audit,
+saved searches/search folders, work queue, notifications, and admin taxonomy
+surfaces. Remaining DMS GA risk is primarily external authenticated DMS smoke
+and owner evidence, plus explicitly deferred Office/check-out/folder-inheritance
+contracts.
 
 ## Research Sources
 
@@ -32,13 +44,13 @@ An enterprise-grade legal DMS operational UX must include these flows unless an 
 
 | Area | Fixed enterprise DMS expectation | AMIC Vault launch posture |
 | --- | --- | --- |
-| Matter/workspace containers | Matter/workspace root, folder or document-set navigation, consistent templates, inheritance-aware security, recent/favorite access. | Required. Matter exists; folder/document-set UX is missing. |
-| Upload/intake | User must choose a valid canonical Matter app matter by human-facing matter code/name before upload, then upload an existing file into that matter/folder, select required metadata, see validation, decide duplicate/version behavior, and see post-upload status. | Required now. Backend upload exists and is matter-scoped; Matter app-backed browser UX is missing. |
-| Document browse/list | Users can browse files by matter/folder with sort, filter, safe display names, owner/uploader/status/version/updated columns, and action affordances. | Required now. `/files` is still empty/hidden. |
+| Matter/workspace containers | Matter/workspace root, folder or document-set navigation, consistent templates, inheritance-aware security, recent/favorite access. | Current checkout has matter workspace actions, file sections, records/audit links, and document-set template contracts; full folder inheritance remains deferred. |
+| Upload/intake | User must choose a valid canonical Matter app matter by human-facing matter code/name before upload, then upload an existing file into that matter/folder, select required metadata, see validation, decide duplicate/version behavior, and see post-upload status. | Current checkout has Matter Code gated upload and post-upload status for approved APIs; external authenticated DMS smoke remains required before GA. |
+| Document browse/list | Users can browse files by matter/folder with sort, filter, safe display names, owner/uploader/status/version/updated columns, and action affordances. | Implemented in current code for approved APIs; external DMS smoke still required before GA. |
 | Document profile/metadata | Document profile shows and edits matter, type, subtype, confidentiality, privilege/status, tags, dates, parties, responsible user, and safe reference IDs only when operationally necessary. | Required. Backend fields exist; profile UX is incomplete. |
-| Versioning and locks | Version history, add-new-version, compare/open latest, check-out/check-in or explicit lock flow, lock owner, comments, and audit. | Required. APIs exist for versions; UX is missing. Lock UX needs product decision. |
+| Versioning and locks | Version history, add-new-version, compare/open latest, check-out/check-in or explicit lock flow, lock owner, comments, and audit. | Current checkout has version list/add-version flow for approved APIs. Check-out/check-in or Office coauthoring remains deferred by product/ADR. |
 | Preview/download/open/edit | Document detail supports preview, controlled download, open/edit handoff, and all actions show permission-aware disabled states. | Required. Preview/download APIs exist; detail UX is incomplete. |
-| Search/discovery | Permission-before-search results across document title, document body, metadata, emails/attachments where in scope, matters, folders, and clients; selectable search scope; advanced metadata filters/refiners; safe facets; highlighted snippets; preview keyword navigation; saved searches/search folders; no raw UUID fallback; recent/favorite shortcuts; no pre-query fake results. | Partly implemented. Backend has title/body FTS, snippets, facets, and audit; UI and filter model are not yet enterprise-grade. |
+| Search/discovery | Permission-before-search results across document title, document body, metadata, emails/attachments where in scope, matters, folders, and clients; selectable search scope; advanced metadata filters/refiners; safe facets; highlighted snippets; preview keyword navigation; saved searches/search folders; no raw UUID fallback; recent/favorite shortcuts; no pre-query fake results. | Current checkout has approved search targets, refiners, saved searches/search folders, sorting/grouping, and bounded hit context. True PDF text anchor navigation and broader federation remain deferred. |
 | Email filing | Outlook/email filing into matter/folder, suggested location, attachments saved through document pipeline, and filing audit. | Partly implemented server/add-in side. Needs unified DMS UX surface. |
 | Permissions/security | Effective access panel, ethical wall state, confidentiality/sensitivity labels, DLP status, safe denied states, and reference-only audit. | Partly implemented. Needs DMS-friendly controls and pickers. |
 | Workflow/tasks | Routing, approval, review tasks, notification center, deadline/status tracking, and action queue. | Missing as a DMS flow. Records/break-glass are separate governance flows. |
@@ -57,21 +69,25 @@ An enterprise-grade legal DMS operational UX must include these flows unless an 
 - Backend has material DMS primitives: matter upload, document metadata update, delete/restore lifecycle, download, new version upload, version list, legal hold, search, audit export, records retention, and email-to-document ingestion.
 - Gemma/local AI prep is correctly scoped to file organization only, and current UI status surfaces do not approve legal analysis.
 
-### Material Gaps
+### Material Gaps At Baseline Snapshot
+
+The table below records the 2026-06-18 baseline gaps. It is intentionally
+preserved for traceability and no longer represents the current checkout for
+rows marked closed in `docs/ui/enterprise-dms-ux-route-capability-inventory.md`.
 
 | Gap | Evidence | Why it matters |
 | --- | --- | --- |
-| No browser file upload flow | `apps/api/src/modules/document/document.controller.ts` exposes `POST /matters/:matterId/documents`, but `apps/web/src/app/(app)/files/page.tsx` is an API-unavailable empty state and `/files` is hidden in `apps/web/src/lib/features.ts`. | A DMS without user-visible, matter-scoped upload is not operationally complete even if the API works. |
-| No file cabinet/folder/document-set UX | No visible folder tree, file plan, document set, or matter template browse flow. | Mature DMS products organize documents within matter containers, not only as search results. |
-| No document list/browse surface | Dashboard has recent activity, and search has results, but no stable files table by matter/folder. | Users need a primary place to inspect and operate on documents without knowing search terms. |
-| Document detail lacks primary DMS actions | Existing document route does not expose a complete action bar for preview, download, metadata edit, add version, version history, or AI prep status in one coherent workflow. | Document detail should be the operational center for a file. |
-| Version history/add-version UX is missing | Backend has `GET /documents/:id/versions` and add-version endpoints; frontend route does not present the flow. | Version control is a core DMS expectation. |
+| Browser file upload flow absent at baseline | Closed in current checkout: `/files` is visible and includes Matter Code gated upload, upload receipts, single/bulk upload affordances, and matter-scoped refresh. | A DMS without user-visible, matter-scoped upload is not operationally complete even if the API works. |
+| File cabinet/folder/document-set UX incomplete at baseline | Partly closed in current checkout through matter file sections, all-documents vault, Matter template document-set contracts, and metadata-driven filing. Full folder inheritance remains deferred. | Mature DMS products organize documents within matter containers, not only as search results. |
+| Document list/browse surface absent at baseline | Closed in current checkout for approved APIs: `/files` and matter file sections provide stable document browse/list surfaces. | Users need a primary place to inspect and operate on documents without knowing search terms. |
+| Document detail lacked primary DMS actions at baseline | Closed in current checkout for approved APIs: document action center exposes profile edit, preview, controlled download, versions, audit, records, related documents/emails, and AI prep status. | Document detail should be the operational center for a file. |
+| Version history/add-version UX missing at baseline | Closed in current checkout for approved APIs through document action center version list and add-version flow. | Version control is a core DMS expectation. |
 | Check-out/check-in or lock UX is missing | Research baseline treats locking/check-in as standard. Current product has lifecycle and permission controls but no user-facing lock workflow. | Without a visible lock/editing state, users cannot understand who can edit or whether a document is controlled. |
-| Metadata/profile UX is incomplete | Backend metadata exists; UI does not yet provide a full profile editor with taxonomy, confidentiality, privilege, responsible user, and tags. | DMS findability and governance depend on profile metadata. |
+| Metadata/profile UX incomplete at baseline | Partly closed in current checkout through profile edit and approved taxonomy catalog usage; future custom/profile expansion remains bounded by approved APIs. | DMS findability and governance depend on profile metadata. |
 | Pickers are incomplete | Some team/wall/admin flows still rely on advanced reference inputs or unavailable picker states. | Enterprise UX should use matter/user/folder pickers and hide raw references by default. |
-| Workflow/task inbox is absent | Dashboard shows activity, but no routed document task queue, approval queue, or action-center pattern. | Enterprise DMS operations need work routing, not only passive history. |
+| Workflow/task inbox absent at baseline | Partly closed in current checkout through `/work` and `/notifications` for approved DMS operating events; broader SLA/workflow customization remains deferred. | Enterprise DMS operations need work routing, not only passive history. |
 | Office/OneDrive DMS flow incomplete | Integration/admin surfaces exist, but there is no unified open/save/sync or Office editing flow for documents. | Legal DMS usage is tightly tied to Office document lifecycle. |
-| Release checks do not catch upload UX absence | Production UI smoke accepts `/files` hidden/empty as a passing condition. | The current gate can pass while the most basic DMS operation is absent. |
+| Release checks did not catch upload UX absence at baseline | Partly closed by production UI and DMS smoke gates. External authenticated DMS smoke remains the release boundary before GA. | The current gate must fail if a production-ready DMS flow is missing. |
 | External collaboration remains intentionally gated | External portal/client portal patterns are enterprise DMS standards, but current AMIC approval excludes broader external sharing. | This is a future product lane, not a defect in the current approved internal-only scope. |
 
 ### Search-Specific Findings
@@ -84,21 +100,21 @@ Current Vault search is not a mock shell. It has meaningful foundations:
 - `apps/web/src/app/(app)/search/search-client.tsx` and `apps/web/src/components/search/search-facets.tsx` expose those basic facets and avoid raw UUID labels.
 - `apps/api/src/modules/search/search.service.ts` records reference-only `SEARCH_EXECUTED` audit events and applies permission scope before search.
 
-The missing enterprise search layer is:
+At the baseline snapshot, the missing enterprise search layer was:
 
 | Search gap | Expected enterprise behavior | Current Vault state |
 | --- | --- | --- |
-| Search target/scope selector | User can choose title-only, full-text/body, metadata/profile, docs, emails, attachments, folders, matters, clients, current matter/folder, recent matters, or whole allowed tenant. | API searches document title/body; UI has no target/scope selector. |
-| Full advanced filter panel | Matter code/name, client, folder/path, document type/subtype, file extension/MIME, author/operator/uploader/filed-by, created/modified/uploaded dates, responsible lawyer, confidentiality, privilege, sensitivity label, legal hold, retention status, OCR status, version status, and custom metadata. | Only matter/client/documentType/date/versionStatus are supported. |
-| Query syntax controls | Exact phrase, boolean operators, all words/any words, exclude terms, document number/reference lookup, and safe parser errors. | `websearch_to_tsquery` gives basic web-style query behavior, but no explicit UX or help surface. |
-| OCR/searchability status | Images and scanned PDFs are OCR-indexed or clearly marked as OCR pending/failed/unsearchable. | Extraction status fields exist, but search UI has no OCR/searchability facet or remediation flow. |
-| Result refinement UX | Dynamic refiners update after search, with counts, safe labels, multi-select where appropriate, and clear active-filter chips. | Basic facets exist, mostly single-select, with no advanced chips panel. |
-| Result preview and hit navigation | Result snippet highlights hit terms; preview lets users jump between occurrences within the document. | Snippets/highlights exist; preview route/action and in-preview keyword navigation are missing. |
-| Saved search/search folder | Users can save frequent searches and expose them as matter/folder-level virtual result sets. | Missing. |
-| Result grouping and sorting | Sort by relevance, modified date, created date, title, author, matter, type; group by object type/matter/client. | Backend ranks/updates; UI has no sort/group controls. |
-| Metadata/taxonomy search | Custom managed metadata fields are searchable/queryable/refinable and can be conditional by document type/context. | Metadata model exists, but custom profile/taxonomy search is not surfaced. |
-| Federated/integration search | Where approved, searches can include Outlook/email filings, OneDrive/Office content, or external repositories with security trimming. | Email ingestion exists; integrated/federated search UX is incomplete and OneDrive remains gated. |
-| Search analytics/admin | Admin can see stale index, failed extraction/OCR, no-results queries, slow searches, and reindex status without body leakage. | Reindex/audit foundations exist; operator analytics are incomplete. |
+| Search target/scope selector | User can choose title-only, full-text/body, metadata/profile, docs, emails, attachments, folders, matters, clients, current matter/folder, recent matters, or whole allowed tenant. | Current checkout exposes title/body/all target scope and display-safe DMS result actions; broader federated scopes remain gated. |
+| Full advanced filter panel | Matter code/name, client, folder/path, document type/subtype, file extension/MIME, author/operator/uploader/filed-by, created/modified/uploaded dates, responsible lawyer, confidentiality, privilege, sensitivity label, legal hold, retention status, OCR status, version status, and custom metadata. | Current checkout has expanded approved filters/refiners and active filter state; unsupported/custom fields remain bounded by approved APIs. |
+| Query syntax controls | Exact phrase, boolean operators, all words/any words, exclude terms, document number/reference lookup, and safe parser errors. | Current checkout includes compact query syntax help over the approved `websearch_to_tsquery` behavior. |
+| OCR/searchability status | Images and scanned PDFs are OCR-indexed or clearly marked as OCR pending/failed/unsearchable. | Current checkout exposes extraction/OCR searchability facets and admin search health; true remediation automation remains follow-up. |
+| Result refinement UX | Dynamic refiners update after search, with counts, safe labels, multi-select where appropriate, and clear active-filter chips. | Current checkout includes display-safe refiners, active filter chips, URL state, sort, and grouping for approved fields. |
+| Result preview and hit navigation | Result snippet highlights hit terms; preview lets users jump between occurrences within the document. | Current checkout passes bounded hit context into document detail/preview. True PDF text anchor navigation remains deferred until preview/index APIs expose safe anchors. |
+| Saved search/search folder | Users can save frequent searches and expose them as matter/folder-level virtual result sets. | Current checkout implements user-scoped saved searches and `/search/folders`; shared folders and analytics remain deferred. |
+| Result grouping and sorting | Sort by relevance, modified date, created date, title, author, matter, type; group by object type/matter/client. | Current checkout supports approved sort/group controls. |
+| Metadata/taxonomy search | Custom managed metadata fields are searchable/queryable/refinable and can be conditional by document type/context. | Current checkout consumes approved taxonomy/search refiner catalog; unsupported/disabled filters are stripped. |
+| Federated/integration search | Where approved, searches can include Outlook/email filings, OneDrive/Office content, or external repositories with security trimming. | Outlook/email filing foundations are present; OneDrive/Office and broader federation remain gated. |
+| Search analytics/admin | Admin can see stale index, failed extraction/OCR, no-results queries, slow searches, and reindex status without body leakage. | Current checkout has admin reindex and bounded search health aggregates without body leakage. |
 
 These gaps should not be confused with AI summary or legal analysis. Enterprise search can and should search body text and metadata while still preserving the approved product limit: no legal conclusion generation, no document summary, no external model route, and no raw prompt/source/model-response storage.
 
@@ -108,16 +124,16 @@ This section freezes the "of course this should exist" flows. Matter-code-first 
 
 | Flow | Baseline expectation | Current Vault posture |
 | --- | --- | --- |
-| Matter creation and matter-code lookup | Users create or select a matter using the canonical Matter app matter code/name before any matter-scoped document action. Matter code is the operational handle; UUIDs are not normal-user inputs. Vault may cache or mirror matter references, but the Matter app is the source of truth unless an ADR explicitly says otherwise. | Vault matter model/list exists. Matter app source-of-truth integration contract and Matter-code-first upload UX are missing. |
-| Matter workspace home | A Vault matter page shows profile, members, permission state, files, recent activity, tasks, records/holds, and safe next actions while staying consistent with the canonical Matter app matter profile. | Matter shell/team exists. File cabinet, task queue, records summary, Matter app consistency, and document actions are incomplete. |
-| Matter file cabinet | Matter contains folders/document sets or an explicit metadata-driven equivalent, with templates and inheritance-aware security. | Missing. |
-| Single-file upload | Upload starts by selecting a permitted canonical Matter app Matter Code/name, then file, profile metadata, validation, duplicate/version decision, extraction/OCR status, and post-upload AI prep status. | Backend upload exists; Matter app-backed browser flow is missing. |
-| Bulk upload/import | Users can upload many files, assign them to one matter/folder or map by canonical Matter app matter code, review failures, retry, and see indexing/prep progress. | Bulk job skeleton exists server-side; operator UX is missing. |
-| Email filing | Users can file emails and attachments into a matter/folder from Outlook, with suggested filing locations, saved filing preferences, and audit. | Backend/add-in foundations exist; unified Vault UX is incomplete. |
-| Document browse/list | Users can browse documents by matter/folder with columns, filters, safe labels, and row actions. | `/files` is empty/hidden; no production browse flow. |
-| Document detail/action center | A document page provides preview, metadata/profile, versions, download/open/edit, access, audit, AI prep status, and related documents. | Detail route exists but action center is incomplete. |
-| Metadata/profile editor | Users can view/edit required profile fields: type/subtype, confidentiality, privilege, responsible person, tags/terms, dates, parties, filing location, custom metadata. | Partial backend metadata. UI editor/taxonomy are incomplete. |
-| Version control | Users can see latest/prior versions, add a new version, compare/open versions, and understand superseded/current state. | APIs exist; UX missing. |
+| Matter creation and matter-code lookup | Users create or select a matter using the canonical Matter app matter code/name before any matter-scoped document action. Matter code is the operational handle; UUIDs are not normal-user inputs. Vault may cache or mirror matter references, but the Matter app is the source of truth unless an ADR explicitly says otherwise. | Current checkout has Matter Code picker and safe Matter app source/gate status. Runtime Matter app endpoint evidence remains a release blocker before production authority claims. |
+| Matter workspace home | A Vault matter page shows profile, members, permission state, files, recent activity, tasks, records/holds, and safe next actions while staying consistent with the canonical Matter app matter profile. | Current checkout has matter workspace actions, matter-scoped files, audit, records links, governance context, and real-status work queue. Broader workflow customization remains deferred. |
+| Matter file cabinet | Matter contains folders/document sets or an explicit metadata-driven equivalent, with templates and inheritance-aware security. | Current checkout has matter file sections and approved Matter template document-set contracts. Full folder inheritance/virtual folder tree semantics remain deferred. |
+| Single-file upload | Upload starts by selecting a permitted canonical Matter app Matter Code/name, then file, profile metadata, validation, duplicate/version decision, extraction/OCR status, and post-upload AI prep status. | Implemented in current checkout for approved APIs; external DMS smoke remains required before GA. |
+| Bulk upload/import | Users can upload many files, assign them to one matter/folder or map by canonical Matter app matter code, review failures, retry, and see indexing/prep progress. | Implemented in current checkout within approved `/files` upload surface; broader import automation remains deferred. |
+| Email filing | Users can file emails and attachments into a matter/folder from Outlook, with suggested filing locations, saved filing preferences, and audit. | Current checkout has Outlook/add-in foundations and aligned status surfaces; live tenant evidence remains external. |
+| Document browse/list | Users can browse documents by matter/folder with columns, filters, safe labels, and row actions. | Implemented in current checkout for approved APIs through `/files` and matter file sections. |
+| Document detail/action center | A document page provides preview, metadata/profile, versions, download/open/edit, access, audit, AI prep status, and related documents. | Implemented in current checkout for approved APIs; Office live edit remains gated. |
+| Metadata/profile editor | Users can view/edit required profile fields: type/subtype, confidentiality, privilege, responsible person, tags/terms, dates, parties, filing location, custom metadata. | Partly implemented through profile edit and approved taxonomy catalog; deeper custom metadata remains API-bounded. |
+| Version control | Users can see latest/prior versions, add a new version, compare/open versions, and understand superseded/current state. | Implemented in current checkout for approved APIs; compare/open edit remains deferred. |
 | Check-out/check-in or coauthoring lock | Users can see who is editing, lock/check out where required, check in, cancel checkout, or use approved coauthoring with clear state. | Missing or undecided. Needs ADR or implementation. |
 | Preview with hit navigation | Users can preview documents and jump to search hits; OCR/searchability problems are visible. | Snippet foundation exists; preview/hit navigation UX missing. |
 | Download/open/edit in Office | Users can download or open in Office with permission-aware actions and audit; edited files save back as current/new version. | Download/open/edit UX incomplete; Office/OneDrive lane gated. |
@@ -127,16 +143,17 @@ This section freezes the "of course this should exist" flows. Matter-code-first 
 | Ethical wall and confidentiality UX | Wall/confidentiality states are visible in context, with safe denied states and admin workflows using pickers. | Walls/admin exist; picker/raw-ref gaps remain. |
 | Sensitivity/DLP/security labels | Users can see/apply sensitivity/confidentiality labels where approved; DLP/search/eDiscovery behaviors are clear. | DLP/security foundations exist; label UX and file-level status are incomplete. |
 | External sharing/client portal | Where approved, secure external sharing/client portal has explicit recipients, expiry, watermark/download policy, audit, and revocation. | Intentionally gated by current production approval; future lane only. |
-| Workflow/action inbox | Users see assigned document tasks: review, approve, sign, complete metadata, resolve OCR/indexing, retention/disposal actions. | Missing as a unified DMS flow. |
-| Notifications | Users receive actionable notifications for upload completion, failed extraction/OCR, access requests, approvals, holds, expiring shares, and workflow tasks. | Partial status surfaces; unified notifications missing. |
+| Workflow/action inbox | Users see assigned document tasks: review, approve, sign, complete metadata, resolve OCR/indexing, retention/disposal actions. | Current checkout has `/work` backed by approved DMS operating events and persisted records/document work items; broader SLA/workflow customization remains deferred. |
+| Notifications | Users receive actionable notifications for upload completion, failed extraction/OCR, access requests, approvals, holds, expiring shares, and workflow tasks. | Current checkout has `/notifications` for approved processing, duplicate, legal hold, and disposal states; broader delivery preferences remain deferred. |
 | Records lifecycle | Users/admins can apply legal hold, retention policy, archive/dispose, review certificates, and see lifecycle status from matter/document context. | Strong backend/records surface; contextual UX polish remains. |
-| Audit/activity timeline | Matter/document pages show safe activity timelines and admin audit supports export without raw content. | Audit console exists; contextual document/matter timeline needs work. |
-| Admin taxonomy/templates | Admins manage document types/subtypes, custom metadata, matter templates, folder templates, required fields, and search refiners. | Admin exists for enterprise readiness/security; taxonomy/template admin incomplete. |
-| Admin operations health | Admins see indexing, extraction/OCR, queue, AI prep, integration, storage, audit, and records health with retry controls. | Some dashboard/AI prep/reindex foundations exist; unified ops health missing. |
+| Audit/activity timeline | Matter/document pages show safe activity timelines and admin audit supports export without raw content. | Current checkout has contextual matter/document timelines and stale-row clearing on denied/error reloads. |
+| Admin taxonomy/templates | Admins manage document types/subtypes, custom metadata, matter templates, folder templates, required fields, and search refiners. | Current checkout has API-backed taxonomy, Matter template, and search refiner administration; folder inheritance remains deferred. |
+| Admin operations health | Admins see indexing, extraction/OCR, queue, AI prep, integration, storage, audit, and records health with retry controls. | Current checkout has bounded search health, reindex, local file organization prep health/metrics, and approved ops/status surfaces; broader retry automation remains follow-up. |
 | Integrations | Outlook, Office, OneDrive/SharePoint, Teams/mobile/desktop flows keep documents in familiar tools while preserving Vault governance. | Outlook foundations exist; Office/OneDrive/mobile/desktop DMS flows incomplete or gated. |
 | Responsive/accessibility/no fake data | All flows work on desktop/tablet/mobile, keyboard, screen reader basics, and never show fake counts/people/documents. | Current UI package improved this, but new DMS flows need the same QA gates. |
 
-The immediate product gap is therefore not one isolated screen. Vault needs a coherent operational loop:
+At the baseline snapshot, the immediate product gap was not one isolated screen.
+The desired operational loop was:
 
 1. Create/select matter by canonical Matter app matter code.
 2. Upload/file/import into that matter.
@@ -169,7 +186,7 @@ These TUWs should be treated as the DMS UX backlog for closing the enterprise ga
 
 ### DMS-UX-102 Files Browse Surface
 
-- Replace the `/files` empty state with a permission-scoped file table once list API support is available.
+- Current checkout note: `/files` now has a permission-scoped file table/list surface for approved APIs.
 - Include safe title, matter, document type, version, updated time, owner/uploader, confidentiality, status, and action menu.
 - Acceptance: empty tenant shows a polished empty state; seeded tenant shows real data only; no fake counts or sample rows.
 
@@ -216,7 +233,7 @@ These TUWs should be treated as the DMS UX backlog for closing the enterprise ga
 
 ### DMS-UX-110 Smoke And QA Gate Upgrade
 
-- Update `pnpm ui:production-smoke` so `/files` hidden/empty passes only when upload/list APIs are intentionally disabled by policy.
+- Current checkout note: production UI and DMS smoke gates now cover the upload/browse boundary; external authenticated DMS smoke remains required before GA.
 - Add authenticated smoke for: upload allowed, upload denied, post-upload row visible, document detail actions visible, version history visible, no fake data.
 - Acceptance: CI fails if API-ready production still lacks the upload/browse UX.
 
@@ -240,6 +257,16 @@ To reduce PR overhead, implement in three larger PRs:
 
 ## Immediate Conclusion
 
-Current Vault is strong on permission, audit, records, search discipline, and local AI guardrails. It is not yet enterprise DMS-complete operationally because the visible file lifecycle is incomplete: upload, browse, file cabinet, document profile, version history, preview/download/action center, and picker-based operation flows are still missing or partial.
+Baseline conclusion, superseded by current checkout: Vault was strong on
+permission, audit, records, search discipline, and local AI guardrails, but the
+visible file lifecycle was incomplete. Current checkout has closed the approved
+upload, browse, document profile, version, preview/download/action center,
+picker, search-folder, work, notification, audit, and admin taxonomy surfaces
+for approved APIs. Enterprise DMS GA still requires external authenticated DMS
+smoke, owner signoff, responsive/accessibility receipts, monitoring, rollback,
+and production approval evidence.
 
-The highest-priority correction is not another AI feature. It is to make `/files` and matter-level file operations real, backed by the already-existing upload/version/download APIs, and to update production smoke so this gap cannot pass unnoticed again.
+The highest-priority remaining correction is not another AI feature. It is to
+complete the external DMS GA evidence boundary and keep deferred Office,
+check-out/coauthoring, folder inheritance, broader workflow, and external
+sharing lanes separate from already implemented internal DMS surfaces.

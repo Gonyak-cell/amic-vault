@@ -4,7 +4,14 @@ import type {
   UserRole,
 } from '@amic-vault/shared';
 
-export type DocumentPermissionAction = 'read' | 'download';
+export type DocumentPermissionAction =
+  | 'read'
+  | 'download'
+  | 'checkout'
+  | 'save_subversion'
+  | 'read_subversion'
+  | 'checkin'
+  | 'promote_version';
 
 export function effectiveConfidentialityLevel(input: {
   confidentialityLevel: DocumentConfidentialityLevel;
@@ -34,5 +41,11 @@ export function roleAllowsDocumentAction(role: UserRole, action: DocumentPermiss
       role === 'knowledge_manager'
     );
   }
-  return role === 'matter_owner' || role === 'matter_member' || role === 'limited_reviewer';
+  if (action === 'download' || action === 'read_subversion') {
+    return role === 'matter_owner' || role === 'matter_member' || role === 'limited_reviewer';
+  }
+  if (action === 'promote_version') {
+    return role === 'matter_owner';
+  }
+  return role === 'matter_owner' || role === 'matter_member';
 }

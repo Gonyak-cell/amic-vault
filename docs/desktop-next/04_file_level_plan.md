@@ -3,13 +3,19 @@
 검토일: 2026-06-21  
 범위: 예상 파일 생성·수정 계획. 실제 구현 전 repository tree를 다시 확인하고, 기존 파일과 충돌하지 않도록 PR별 scope를 제한한다.
 
+> Current-state note, 2026-06-22: this file is the original planned change map.
+> The live checkout now contains many paths listed below as `create`, including
+> `apps/desktop/**` and desktop release-gate docs/tools. Use
+> `docs/current-code-state.md` and the live tree before treating any row below
+> as remaining work.
+
 ## 1. Current structure basis
 
-현재 확인된 구조상 `apps/api`와 `apps/web`는 존재한다. `apps/desktop`과 `docs/desktop-next`는 기존 파일로 확인되지 않았다. `pnpm-workspace.yaml`은 이미 `apps/*`를 포함하므로 `apps/desktop` 추가만으로 workspace 편입은 가능하나, desktop build output·CI·turbo task가 필요하면 별도 수정이 필요하다.
+원 계획 작성 시점에는 `apps/api`와 `apps/web`만 확인되었고 `apps/desktop`은 미구현이었다. 현재 checkout에는 `apps/desktop`과 `docs/desktop-next`가 존재한다. `pnpm-workspace.yaml`은 `apps/*`를 포함하므로 desktop package는 workspace 범위에 들어간다.
 
 ## 2. File change table
 
-| Path | Action | PACK | Purpose | Collision / security note |
+| Path | Original planned action | PACK | Purpose | Collision / security note |
 |---|---|---|---|---|
 | `docs/desktop-next/00_current_state_audit.md` | create | DESKTOP-AUDIT | 현재 repo 사실관계, PWA/native 상태, 증거 및 불확실 항목 기록 | planning only. `docs/package/` 변경 금지 |
 | `docs/desktop-next/01_desktop_product_decision.md` | create | DESKTOP-AUDIT | PWA/Tauri/Electron/fully native product decision | planning only |

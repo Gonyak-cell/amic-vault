@@ -3,6 +3,13 @@
 Date: 2026-06-14
 Status: PRODUCTION DEPLOYED - MONITORING ACTIVE
 
+Current-state note, 2026-06-22: this pack records the launch package and older
+production/staging evidence. It is not a latest-main production approval for
+`origin/main@a2d3bb9`. Use
+`docs/release/launch-closeout-execution-a2d3bb9.md` for the latest repo-local
+closeout boundary, which is `TECHNICAL-READY /
+EXTERNAL-EVIDENCE-REQUIRED-BEFORE-PROMOTION`.
+
 ## Scope
 
 This pack converts the post-R14 technical completion state into a launch-ready

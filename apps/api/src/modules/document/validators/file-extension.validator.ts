@@ -5,7 +5,7 @@ export interface FileExtensionValidationResult {
   normalizedFilename: string;
 }
 
-const defaultAllowedExtensions = ['pdf', 'docx', 'hwpx'] as const;
+const defaultAllowedExtensions = ['pdf', 'docx', 'hwpx', 'txt', 'md', 'markdown', 'csv', 'json'] as const;
 
 function unsupportedFileType(): UnsupportedMediaTypeException {
   return new UnsupportedMediaTypeException({ code: 'UNSUPPORTED_FILE_TYPE' });

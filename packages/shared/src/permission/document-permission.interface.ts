@@ -22,5 +22,23 @@ export interface DocumentPermissionService {
     documentId: string,
     reason?: string,
   ): Promise<PermissionDecision>;
-}
 
+  canCheckoutDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision>;
+
+  canSaveDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision>;
+
+  canReadDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision>;
+
+  canCheckInDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision>;
+
+  canPromoteDocumentVersion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision>;
+}

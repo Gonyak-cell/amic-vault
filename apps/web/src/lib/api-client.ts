@@ -4,11 +4,25 @@ import type {
   ApiErrorResponse,
   ErrorCode,
   AddMatterMemberDto,
+  AssignDocumentSubversionReviewerDto,
+  CancelDocumentEditSessionDto,
+  CheckInDocumentEditSessionDto,
+  CreateDocumentEditSessionDto,
   DocumentDto,
+  DocumentEditSessionDto,
   DocumentListDto,
   DocumentDownloadReasonCode,
+  DocumentNativeEditDraftDto,
+  DocumentEditPackageDto,
+  DocumentSubversionDto,
+  DocumentSubversionListDto,
+  DocumentSubversionReviewDto,
+  DocumentSubversionReviewListDto,
+  DocumentSubversionReviewerListDto,
+  DocumentSubversionReviewerDto,
   DocumentVersionListDto,
   EmailTimelineDto,
+  HeartbeatDocumentEditSessionDto,
   ListDocumentVersionsQueryDto,
   ListDocumentsQueryDto,
   ListMattersQueryDto,
@@ -19,6 +33,11 @@ import type {
   MatterMemberDto,
   MatterMemberListDto,
   MatterListDto,
+  PromoteDocumentSubversionDto,
+  PromoteDocumentSubversionResponseDto,
+  SaveDocumentSubversionFieldsDto,
+  SaveNativeDocumentEditDraftDto,
+  SubmitDocumentSubversionReviewDto,
   SearchTarget,
   UpdateDocumentMetadataDto,
   UpdateMatterMemberDto,
@@ -32,6 +51,7 @@ import { apiBaseUrl } from './config';
 
 export class ApiClientError extends Error {
   readonly code: ErrorCode;
+  readonly reason: string | undefined;
   readonly requestId: string | undefined;
   readonly status: number;
 
@@ -39,6 +59,7 @@ export class ApiClientError extends Error {
     super(response.code);
     this.name = 'ApiClientError';
     this.code = response.code;
+    this.reason = response.reason;
     this.requestId = response.requestId;
     this.status = status;
   }
@@ -48,16 +69,19 @@ function isErrorCode(value: unknown): value is ErrorCode {
   return typeof value === 'string' && ERROR_CODES.includes(value as ErrorCode);
 }
 
+function isSafeErrorReason(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_:-]{1,80}$/.test(value);
+}
+
 async function parseError(response: Response): Promise<ApiErrorResponse> {
   const body = (await response.json().catch(() => undefined)) as
     | Partial<ApiErrorResponse>
     | undefined;
   const code = isErrorCode(body?.code) ? body.code : 'VALIDATION_FAILED';
-  if (body?.requestId) {
-    return { code, requestId: body.requestId };
-  }
   return {
     code,
+    ...(isSafeErrorReason(body?.reason) ? { reason: body.reason } : {}),
+    ...(body?.requestId ? { requestId: body.requestId } : {}),
   };
 }
 
@@ -272,6 +296,236 @@ export function addDocumentVersion(
     `/documents/${encodeURIComponent(documentId)}/versions`,
     formData,
     { method: 'POST' },
+  );
+}
+
+export function createDocumentEditSession(
+  documentId: string,
+  input: CreateDocumentEditSessionDto,
+): Promise<DocumentEditSessionDto> {
+  return apiFetch<DocumentEditSessionDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getActiveDocumentEditSession(
+  documentId: string,
+): Promise<DocumentEditSessionDto | null> {
+  return apiFetch<DocumentEditSessionDto | null>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/active`,
+  );
+}
+
+export function heartbeatDocumentEditSession(
+  documentId: string,
+  editSessionId: string,
+  input: HeartbeatDocumentEditSessionDto = {},
+): Promise<DocumentEditSessionDto> {
+  return apiFetch<DocumentEditSessionDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/heartbeat`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function saveDocumentSubversion(
+  documentId: string,
+  editSessionId: string,
+  file: File,
+  fields: SaveDocumentSubversionFieldsDto = { visibilityScope: 'session_owner' },
+): Promise<DocumentSubversionDto> {
+  const formData = new FormData();
+  formData.set('file', file);
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) formData.set(key, String(value));
+  }
+  return apiFetchFormData<DocumentSubversionDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/subversions`,
+    formData,
+    { method: 'POST' },
+  );
+}
+
+export function getDocumentEditPackage(
+  documentId: string,
+  editSessionId: string,
+): Promise<DocumentEditPackageDto> {
+  return apiFetch<DocumentEditPackageDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/edit-package`,
+  );
+}
+
+export function getNativeDocumentEditDraft(
+  documentId: string,
+  editSessionId: string,
+): Promise<DocumentNativeEditDraftDto> {
+  return apiFetch<DocumentNativeEditDraftDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/native-draft`,
+  );
+}
+
+export function documentEditBaseFileUrl(documentId: string, editSessionId: string): string {
+  return `${apiBaseUrl()}/documents/${encodeURIComponent(
+    documentId,
+  )}/edit-sessions/${encodeURIComponent(editSessionId)}/base-file`;
+}
+
+export function documentSubversionFileUrl(documentId: string, subversionId: string): string {
+  return `${apiBaseUrl()}/documents/${encodeURIComponent(
+    documentId,
+  )}/subversions/${encodeURIComponent(subversionId)}/file`;
+}
+
+export function saveNativeDocumentEditDraft(
+  documentId: string,
+  editSessionId: string,
+  input: SaveNativeDocumentEditDraftDto,
+): Promise<DocumentSubversionDto> {
+  return apiFetch<DocumentSubversionDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/native-draft`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function listDocumentSubversions(documentId: string): Promise<DocumentSubversionListDto> {
+  return apiFetch<DocumentSubversionListDto>(
+    `/documents/${encodeURIComponent(documentId)}/subversions`,
+  );
+}
+
+export function checkInDocumentEditSession(
+  documentId: string,
+  editSessionId: string,
+  input: CheckInDocumentEditSessionDto = {},
+): Promise<DocumentEditSessionDto> {
+  return apiFetch<DocumentEditSessionDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/check-in`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function cancelDocumentEditSession(
+  documentId: string,
+  editSessionId: string,
+  input: CancelDocumentEditSessionDto = {},
+): Promise<DocumentEditSessionDto> {
+  return apiFetch<DocumentEditSessionDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/cancel`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function promoteDocumentSubversion(
+  documentId: string,
+  subversionId: string,
+  input: PromoteDocumentSubversionDto,
+): Promise<PromoteDocumentSubversionResponseDto> {
+  return apiFetch<PromoteDocumentSubversionResponseDto>(
+    `/documents/${encodeURIComponent(documentId)}/subversions/${encodeURIComponent(
+      subversionId,
+    )}/promote`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function assignDocumentSubversionReviewer(
+  documentId: string,
+  subversionId: string,
+  input: AssignDocumentSubversionReviewerDto,
+): Promise<DocumentSubversionReviewerDto> {
+  return apiFetch<DocumentSubversionReviewerDto>(
+    `/documents/${encodeURIComponent(documentId)}/subversions/${encodeURIComponent(
+      subversionId,
+    )}/reviewers`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function listDocumentSubversionReviewers(
+  documentId: string,
+  subversionId: string,
+): Promise<DocumentSubversionReviewerListDto> {
+  return apiFetch<DocumentSubversionReviewerListDto>(
+    `/documents/${encodeURIComponent(documentId)}/subversions/${encodeURIComponent(
+      subversionId,
+    )}/reviewers`,
+  );
+}
+
+export function revokeDocumentSubversionReviewer(
+  documentId: string,
+  subversionId: string,
+  reviewerUserId: string,
+): Promise<DocumentSubversionReviewerDto> {
+  return apiFetch<DocumentSubversionReviewerDto>(
+    `/documents/${encodeURIComponent(documentId)}/subversions/${encodeURIComponent(
+      subversionId,
+    )}/reviewers/${encodeURIComponent(reviewerUserId)}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
+export function listDocumentSubversionReviews(
+  documentId: string,
+  subversionId: string,
+): Promise<DocumentSubversionReviewListDto> {
+  return apiFetch<DocumentSubversionReviewListDto>(
+    `/documents/${encodeURIComponent(documentId)}/subversions/${encodeURIComponent(
+      subversionId,
+    )}/reviews`,
+  );
+}
+
+export function submitDocumentSubversionReview(
+  documentId: string,
+  subversionId: string,
+  input: SubmitDocumentSubversionReviewDto,
+): Promise<DocumentSubversionReviewDto> {
+  return apiFetch<DocumentSubversionReviewDto>(
+    `/documents/${encodeURIComponent(documentId)}/subversions/${encodeURIComponent(
+      subversionId,
+    )}/reviews/me`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
   );
 }
 

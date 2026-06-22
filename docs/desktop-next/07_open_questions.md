@@ -3,6 +3,12 @@
 검토일: 2026-06-21  
 목표: desktop native 착수 전 사람이 결정해야 하는 항목을 명확히 한다. 결정 전 default는 fail-closed, PWA/browser fallback, no local storage이다.
 
+> Current-state note, 2026-06-22: `apps/desktop` Tauri foundation has landed.
+> Treat questions about first native merge as historical gate inputs. Questions
+> about signing, updater, production custom domain/origin refs, customer IT,
+> SSO/IdP redirects, and native capability expansion remain relevant before
+> customer-facing native distribution.
+
 ## 1. Product and customer requirements
 
 | ID | Question | Owner | Default until answered | Blocks |
@@ -66,7 +72,7 @@
 
 ## 7. Decisions required before first native merge
 
-다음 질문은 `apps/desktop` Tauri foundation PR merge 전 최소한 답변 또는 명시적 defer가 필요하다.
+다음 질문은 원래 `apps/desktop` Tauri foundation PR merge 전 최소한 답변 또는 명시적 defer가 필요했던 항목이다. 현재 checkout에서는 foundation이 구현되었으므로, 남은 production distribution 판단에는 OQ-003/OQ-004, OQ-101, OQ-201~206, OQ-301, OQ-303/OQ-304, OQ-401 계열을 다시 확인한다.
 
 1. OQ-001: signed installer 필요성.
 2. OQ-003/OQ-004: approved origin ref model.
