@@ -3,9 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = new URL('..', import.meta.url).pathname;
+const workspaceRoot = join(root, '..');
 
 function readText(relativePath: string): string {
   return readFileSync(join(root, relativePath), 'utf8');
+}
+
+function readWorkspaceText(relativePath: string): string {
+  return readFileSync(join(workspaceRoot, relativePath), 'utf8');
 }
 
 describe('desktop auth session delegation', () => {
@@ -43,5 +48,20 @@ describe('desktop auth session delegation', () => {
     ]) {
       expect(source).not.toContain(marker);
     }
+  });
+
+  it('delegates account ledger login payload construction to the web login surface', () => {
+    const desktopSource = [
+      readText('src-tauri/src/main.rs'),
+      readText('src-tauri/src/origin.rs'),
+      readText('src-tauri/src/origin_guard.rs'),
+      readText('src-tauri/desktop-shell/index.html'),
+    ].join('\n');
+    const webLoginForm = readWorkspaceText('web/src/app/(auth)/login/login-form.tsx');
+
+    expect(desktopSource).not.toContain('accountLedgerId');
+    expect(webLoginForm).toContain('accountLedgerId');
+    expect(webLoginForm).toContain("trimmedIdentifier.includes('@')");
+    expect(webLoginForm).toContain('password');
   });
 });
