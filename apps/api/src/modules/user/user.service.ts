@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
 import { Pool, type PoolClient } from 'pg';
 import type { TenantId, TenantStatus, UserRole, UserStatus } from '@amic-vault/shared';
 import type { QueryClient } from '../audit/audit.service';
@@ -127,6 +127,12 @@ export interface CreateUserInput {
   password: string;
 }
 
+export interface AssignAccountLedgerIdInput {
+  tenantId: TenantId;
+  userId: string;
+  accountLedgerId: string;
+}
+
 export interface LoginCandidate {
   tenant: TenantEntity;
   user: UserEntity;
@@ -135,6 +141,10 @@ export interface LoginCandidate {
 export interface UserStore {
   createUser(input: CreateUserInput & { passwordHash: string }): Promise<UserEntity>;
   findUniqueLoginCandidateByEmail(email: string): Promise<LoginCandidate | null>;
+  findLoginCandidateByAccountLedgerId(accountLedgerId: string): Promise<LoginCandidate | null>;
+  assignAccountLedgerId(
+    input: AssignAccountLedgerIdInput & { normalizedAccountLedgerId: string },
+  ): Promise<void>;
   findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null>;
   findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null>;
   updatePasswordHash(tenantId: TenantId, userId: string, passwordHash: string): Promise<void>;
@@ -147,6 +157,14 @@ export interface UserStore {
     client?: QueryClient,
   ): Promise<UserEntity | null>;
   countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number>;
+}
+
+export function normalizeAccountLedgerId(accountLedgerId: string): string | null {
+  const normalized = accountLedgerId.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{1,78}[a-z0-9]$/.test(normalized)) {
+    return null;
+  }
+  return normalized;
 }
 
 export class PgUserStore implements UserStore {
@@ -191,6 +209,44 @@ export class PgUserStore implements UserStore {
     );
     const row = result.rows[0];
     return row ? mapLoginCandidate(row) : null;
+  }
+
+  async findLoginCandidateByAccountLedgerId(
+    accountLedgerId: string,
+  ): Promise<LoginCandidate | null> {
+    const result = await getPool().query<LoginCandidateRow>(
+      `
+        SELECT tenant_id, tenant_name, tenant_slug, tenant_region, tenant_data_residency,
+          tenant_status, tenant_created_at, tenant_updated_at, user_id, user_email,
+          user_name, user_role, user_practice_group, user_status, user_password_hash,
+          user_mfa_enabled, user_last_login_at, user_created_at, user_updated_at
+        FROM app_find_login_candidate_by_account_ledger_id($1)
+      `,
+      [accountLedgerId],
+    );
+    const row = result.rows[0];
+    return row ? mapLoginCandidate(row) : null;
+  }
+
+  async assignAccountLedgerId(
+    input: AssignAccountLedgerIdInput & { normalizedAccountLedgerId: string },
+  ): Promise<void> {
+    await withTenantClient(input.tenantId, async (client) => {
+      await client.query(
+        `
+        INSERT INTO user_login_identities (
+          tenant_id, user_id, identity_type, identity_value_normalized
+        )
+        VALUES ($1, $2, 'account_ledger_id', $3)
+        ON CONFLICT (tenant_id, user_id, identity_type)
+        DO UPDATE SET
+          identity_value_normalized = EXCLUDED.identity_value_normalized,
+          status = 'active',
+          updated_at = now()
+      `,
+        [input.tenantId, input.userId, input.normalizedAccountLedgerId],
+      );
+    });
   }
 
   async findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
@@ -346,6 +402,29 @@ export class UserService {
     return this.store.findUniqueLoginCandidateByEmail(normalizeEmail(email));
   }
 
+  findLoginCandidateByAccountLedgerId(accountLedgerId: string): Promise<LoginCandidate | null> {
+    const normalizedAccountLedgerId = normalizeAccountLedgerId(accountLedgerId);
+    if (!normalizedAccountLedgerId) {
+      return Promise.resolve(null);
+    }
+    return this.store.findLoginCandidateByAccountLedgerId(normalizedAccountLedgerId);
+  }
+
+  async assignAccountLedgerId(input: AssignAccountLedgerIdInput): Promise<void> {
+    const normalizedAccountLedgerId = normalizeAccountLedgerId(input.accountLedgerId);
+    if (!normalizedAccountLedgerId) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+    }
+    try {
+      await this.store.assignAccountLedgerId({ ...input, normalizedAccountLedgerId });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException({ code: 'VALIDATION_FAILED' });
+      }
+      throw error;
+    }
+  }
+
   findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
     return this.store.findByTenantAndEmail(tenantId, normalizeEmail(email));
   }
@@ -379,4 +458,13 @@ export class UserService {
   countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number> {
     return this.store.countActiveUsersByRole(tenantId, role);
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
 }

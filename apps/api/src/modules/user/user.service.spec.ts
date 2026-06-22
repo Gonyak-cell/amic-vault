@@ -3,13 +3,21 @@ import { describe, expect, it } from 'vitest';
 import type { TenantId, UserRole } from '@amic-vault/shared';
 import { verifyPasswordHash } from './password';
 import { UserEntity } from './user.entity';
-import { type CreateUserInput, type LoginCandidate, type UserStore, UserService } from './user.service';
+import {
+  type AssignAccountLedgerIdInput,
+  type CreateUserInput,
+  type LoginCandidate,
+  type UserStore,
+  UserService,
+  normalizeAccountLedgerId,
+} from './user.service';
 
 const tenantAlpha = '11111111-1111-4111-8111-111111111111' as TenantId;
 const tenantBeta = '22222222-2222-4222-8222-222222222222' as TenantId;
 
 class MemoryUserStore implements UserStore {
   readonly users: UserEntity[] = [];
+  readonly accountLedgerIds = new Map<string, { tenantId: TenantId; userId: string }>();
 
   async createUser(input: CreateUserInput & { passwordHash: string }): Promise<UserEntity> {
     const now = new Date('2026-06-11T00:00:00Z');
@@ -51,16 +59,52 @@ class MemoryUserStore implements UserStore {
     };
   }
 
+  async findLoginCandidateByAccountLedgerId(
+    accountLedgerId: string,
+  ): Promise<LoginCandidate | null> {
+    const identity = this.accountLedgerIds.get(accountLedgerId);
+    if (!identity) return null;
+    const user = await this.findByTenantAndId(identity.tenantId, identity.userId);
+    if (!user) return null;
+    return {
+      tenant: {
+        tenantId: user.tenantId,
+        name: 'Tenant',
+        slug: 'tenant',
+        region: 'kr',
+        dataResidency: 'kr',
+        status: 'active',
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      user,
+    };
+  }
+
+  async assignAccountLedgerId(
+    input: AssignAccountLedgerIdInput & { normalizedAccountLedgerId: string },
+  ): Promise<void> {
+    const existing = this.accountLedgerIds.get(input.normalizedAccountLedgerId);
+    if (existing && (existing.tenantId !== input.tenantId || existing.userId !== input.userId)) {
+      throw Object.assign(new Error('duplicate account ledger id'), { code: '23505' });
+    }
+    for (const [accountLedgerId, identity] of this.accountLedgerIds.entries()) {
+      if (identity.tenantId === input.tenantId && identity.userId === input.userId) {
+        this.accountLedgerIds.delete(accountLedgerId);
+      }
+    }
+    this.accountLedgerIds.set(input.normalizedAccountLedgerId, {
+      tenantId: input.tenantId,
+      userId: input.userId,
+    });
+  }
+
   async findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
-    return (
-      this.users.find((user) => user.tenantId === tenantId && user.email === email) ?? null
-    );
+    return this.users.find((user) => user.tenantId === tenantId && user.email === email) ?? null;
   }
 
   async findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null> {
-    return (
-      this.users.find((user) => user.tenantId === tenantId && user.userId === userId) ?? null
-    );
+    return this.users.find((user) => user.tenantId === tenantId && user.userId === userId) ?? null;
   }
 
   async updatePasswordHash(
@@ -87,11 +131,7 @@ class MemoryUserStore implements UserStore {
 
   async recordLoginSuccess(): Promise<void> {}
 
-  async updateRole(
-    tenantId: TenantId,
-    userId: string,
-    role: UserRole,
-  ): Promise<UserEntity | null> {
+  async updateRole(tenantId: TenantId, userId: string, role: UserRole): Promise<UserEntity | null> {
     const user = await this.findByTenantAndId(tenantId, userId);
     if (!user) return null;
     const updated = new UserEntity({ ...user, role });
@@ -127,9 +167,9 @@ describe('UserService', () => {
     expect(user.email).toBe('lawyer@test.local');
     expect(user.passwordHash).toMatch(/^\$argon2id\$/);
     expect(user.passwordHash).not.toContain('correct horse battery staple');
-    await expect(verifyPasswordHash(user.passwordHash, 'correct horse battery staple')).resolves.toBe(
-      true,
-    );
+    await expect(
+      verifyPasswordHash(user.passwordHash, 'correct horse battery staple'),
+    ).resolves.toBe(true);
   });
 
   it('does not expose password_hash through JSON serialization', async () => {
@@ -151,10 +191,12 @@ describe('UserService', () => {
     const service = new UserService(store);
 
     await service.createUser(createInput(tenantAlpha, 'Shared@Test.Local'));
-    await expect(service.createUser(createInput(tenantBeta, 'shared@test.local'))).resolves.toBeDefined();
-    await expect(service.createUser(createInput(tenantAlpha, 'shared@test.local'))).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.createUser(createInput(tenantBeta, 'shared@test.local')),
+    ).resolves.toBeDefined();
+    await expect(
+      service.createUser(createInput(tenantAlpha, 'shared@test.local')),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('resolves an email-only login candidate only when the normalized email is unique', async () => {
@@ -169,5 +211,51 @@ describe('UserService', () => {
 
     await service.createUser(createInput(tenantBeta, 'solo@test.local'));
     await expect(service.findUniqueLoginCandidateByEmail('solo@test.local')).resolves.toBeNull();
+  });
+
+  it('normalizes account ledger ids for global login lookup', () => {
+    expect(normalizeAccountLedgerId('  ACCT-2026_001  ')).toBe('acct-2026_001');
+    expect(normalizeAccountLedgerId('ab')).toBeNull();
+    expect(normalizeAccountLedgerId('acct 2026')).toBeNull();
+  });
+
+  it('assigns a globally unique account ledger id and resolves the login candidate', async () => {
+    const store = new MemoryUserStore();
+    const service = new UserService(store);
+    const user = await service.createUser(createInput(tenantAlpha, 'ledger@test.local'));
+
+    await service.assignAccountLedgerId({
+      tenantId: tenantAlpha,
+      userId: user.userId,
+      accountLedgerId: 'ACCT-2026-001',
+    });
+
+    await expect(
+      service.findLoginCandidateByAccountLedgerId('acct-2026-001'),
+    ).resolves.toMatchObject({
+      tenant: { tenantId: tenantAlpha },
+      user: { email: 'ledger@test.local' },
+    });
+  });
+
+  it('rejects duplicate account ledger ids across tenants', async () => {
+    const store = new MemoryUserStore();
+    const service = new UserService(store);
+    const alpha = await service.createUser(createInput(tenantAlpha, 'alpha-ledger@test.local'));
+    const beta = await service.createUser(createInput(tenantBeta, 'beta-ledger@test.local'));
+
+    await service.assignAccountLedgerId({
+      tenantId: tenantAlpha,
+      userId: alpha.userId,
+      accountLedgerId: 'ACCT-GLOBAL-001',
+    });
+
+    await expect(
+      service.assignAccountLedgerId({
+        tenantId: tenantBeta,
+        userId: beta.userId,
+        accountLedgerId: 'acct-global-001',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });
