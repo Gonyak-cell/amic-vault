@@ -12,16 +12,19 @@ import { MfaPolicy } from './mfa.policy';
 import type { SessionRecord, SessionRepository } from './session.repository';
 
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
+const tenantBetaId = '22222222-2222-4222-8222-222222222222' as TenantId;
 
-function tenant(): TenantEntity {
+function tenant(
+  input: { tenantId?: TenantId; slug?: string; status?: TenantEntity['status'] } = {},
+): TenantEntity {
   const now = new Date('2026-06-11T00:00:00Z');
   return {
-    tenantId,
-    name: 'Tenant Alpha',
-    slug: 'tenant-alpha',
+    tenantId: input.tenantId ?? tenantId,
+    name: input.slug === 'tenant-beta' ? 'Tenant Beta' : 'Tenant Alpha',
+    slug: input.slug ?? 'tenant-alpha',
     region: 'kr',
     dataResidency: 'kr',
-    status: 'active',
+    status: input.status ?? 'active',
     createdAt: now,
     updatedAt: now,
   };
@@ -61,10 +64,14 @@ function fakeUserService(
   loginCandidate: { tenant: TenantEntity; user: UserEntity } | null = entity
     ? { tenant: tenant(), user: entity }
     : null,
+  accountLedgerCandidate: { tenant: TenantEntity; user: UserEntity } | null = loginCandidate,
 ): UserService {
   return {
     async findUniqueLoginCandidateByEmail() {
       return loginCandidate;
+    },
+    async findLoginCandidateByAccountLedgerId() {
+      return accountLedgerCandidate;
     },
     async findByTenantAndEmail() {
       return entity;
@@ -162,6 +169,45 @@ describe('AuthService', () => {
     expect(result.session.tenantId).toBe(tenantId);
   });
 
+  it('creates a session with a global account ledger id and password', async () => {
+    const existingUser = await user('secret-password');
+    const service = new AuthService(
+      fakeTenantService(null),
+      fakeUserService(existingUser, null, { tenant: tenant(), user: existingUser }),
+      new MemorySessionRepository() as unknown as SessionRepository,
+      new MfaPolicy(),
+      new MemoryAuditService() as unknown as AuditService,
+    );
+
+    const result = await service.login(
+      { accountLedgerId: 'ACCT-ALPHA-001', password: 'secret-password' },
+      { ipAddress: '127.0.0.1', userAgent: 'vitest' },
+    );
+
+    expect(result.user.email).toBe('alpha@test.local');
+    expect(result.session.tenantId).toBe(tenantId);
+  });
+
+  it('fails closed when an account ledger id candidate does not match the tenant hint', async () => {
+    const existingUser = await user('secret-password');
+    const service = new AuthService(
+      fakeTenantService(tenant({ tenantId: tenantBetaId, slug: 'tenant-beta' })),
+      fakeUserService(existingUser, null, { tenant: tenant(), user: existingUser }),
+      new MemorySessionRepository() as unknown as SessionRepository,
+      new MfaPolicy(),
+      new MemoryAuditService() as unknown as AuditService,
+    );
+
+    await expect(
+      service.login(
+        { tenantId: tenantBetaId, accountLedgerId: 'acct-alpha-001', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'AUTH_REQUIRED' },
+    });
+  });
+
   it('returns the current user profile from an active session', async () => {
     const existingUser = await user('secret-password');
     const service = createService(existingUser);
@@ -212,11 +258,7 @@ describe('AuthService', () => {
 
   it('returns the same AUTH_REQUIRED shape for invalid password, missing user, and missing tenant', async () => {
     const existingUser = await user('secret-password');
-    const cases = [
-      createService(existingUser),
-      createService(null),
-      createService(null, null),
-    ];
+    const cases = [createService(existingUser), createService(null), createService(null, null)];
 
     for (const service of cases) {
       await expect(

@@ -423,7 +423,7 @@ const enterpriseCopy: Record<
   },
 };
 
-export function EnterpriseHardeningClient() {
+export function EnterpriseHardeningClient({ children }: { children?: React.ReactNode }) {
   const { language } = useI18n();
   const copy = enterpriseCopy[language];
   const [providers, setProviders] = useState<EnterpriseSsoProviderListResponseDto | null>(null);
@@ -623,6 +623,8 @@ export function EnterpriseHardeningClient() {
       {error ? (
         <EmptyState variant="api-error" title={error} className="items-start text-left" />
       ) : null}
+
+      {children}
 
       <AdminDmsConfigurationPanel
         busy={dmsConfigBusy}

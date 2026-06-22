@@ -2,7 +2,12 @@ import { z } from 'zod';
 import type { DisplayFieldsDto } from '../../display/display-fields.dto';
 import type { UserRole } from '../../permission/roles';
 
-export const orgDirectoryPurposes = ['matter-team', 'ethical-wall', 'records'] as const;
+export const orgDirectoryPurposes = [
+  'matter-team',
+  'ethical-wall',
+  'records',
+  'user-admin',
+] as const;
 export const orgDirectoryPurposeSchema = z.enum(orgDirectoryPurposes);
 
 export const orgDirectorySubjectTypes = ['user', 'group'] as const;

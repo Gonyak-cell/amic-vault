@@ -144,6 +144,7 @@ export interface UserStore {
   findLoginCandidateByAccountLedgerId(accountLedgerId: string): Promise<LoginCandidate | null>;
   assignAccountLedgerId(
     input: AssignAccountLedgerIdInput & { normalizedAccountLedgerId: string },
+    client?: QueryClient,
   ): Promise<void>;
   findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null>;
   findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null>;
@@ -230,9 +231,10 @@ export class PgUserStore implements UserStore {
 
   async assignAccountLedgerId(
     input: AssignAccountLedgerIdInput & { normalizedAccountLedgerId: string },
+    client?: QueryClient,
   ): Promise<void> {
-    await withTenantClient(input.tenantId, async (client) => {
-      await client.query(
+    const run = (queryClient: QueryClient) =>
+      queryClient.query(
         `
         INSERT INTO user_login_identities (
           tenant_id, user_id, identity_type, identity_value_normalized
@@ -246,7 +248,11 @@ export class PgUserStore implements UserStore {
       `,
         [input.tenantId, input.userId, input.normalizedAccountLedgerId],
       );
-    });
+    if (client) {
+      await run(client);
+      return;
+    }
+    await withTenantClient(input.tenantId, run);
   }
 
   async findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
@@ -410,13 +416,16 @@ export class UserService {
     return this.store.findLoginCandidateByAccountLedgerId(normalizedAccountLedgerId);
   }
 
-  async assignAccountLedgerId(input: AssignAccountLedgerIdInput): Promise<void> {
+  async assignAccountLedgerId(
+    input: AssignAccountLedgerIdInput,
+    client?: QueryClient,
+  ): Promise<void> {
     const normalizedAccountLedgerId = normalizeAccountLedgerId(input.accountLedgerId);
     if (!normalizedAccountLedgerId) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED' });
     }
     try {
-      await this.store.assignAccountLedgerId({ ...input, normalizedAccountLedgerId });
+      await this.store.assignAccountLedgerId({ ...input, normalizedAccountLedgerId }, client);
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictException({ code: 'VALIDATION_FAILED' });

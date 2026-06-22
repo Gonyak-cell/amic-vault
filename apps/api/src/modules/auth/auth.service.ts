@@ -58,7 +58,7 @@ export class AuthService {
     input: LoginRequestDto,
     metadata: { ipAddress: string | null; userAgent: string | null },
   ): Promise<LoginResult> {
-    const normalizedEmail = normalizeEmail(input.email);
+    const normalizedEmail = input.email ? normalizeEmail(input.email) : null;
     const candidate = await this.resolveLoginCandidate(input, normalizedEmail);
     const tenant = candidate?.tenant ?? null;
     const user = candidate?.user ?? null;
@@ -129,28 +129,34 @@ export class AuthService {
     const tokenHash = hashOpaqueToken(sessionToken);
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
     const session = await this.auditService.transaction(tenant.tenantId, async (client) => {
-      const createdSession = await this.sessions.createSession({
-        tenantId: tenant.tenantId,
-        userId: user.userId,
-        tokenHash,
-        ipAddress: metadata.ipAddress,
-        userAgent: metadata.userAgent,
-        expiresAt,
-      }, client);
-      await this.userService.recordLoginSuccess(tenant.tenantId, user.userId, client);
-      await this.auditService.log({
-        tenantId: tenant.tenantId,
-        actorId: user.userId,
-        sessionId: createdSession.sessionId,
-        action: 'LOGIN_SUCCESS',
-        targetType: 'user',
-        targetId: user.userId,
-        metadata: {
-          reason_code: 'ok',
-          ip_address: metadata.ipAddress,
-          session_id: createdSession.sessionId,
+      const createdSession = await this.sessions.createSession(
+        {
+          tenantId: tenant.tenantId,
+          userId: user.userId,
+          tokenHash,
+          ipAddress: metadata.ipAddress,
+          userAgent: metadata.userAgent,
+          expiresAt,
         },
-      }, client);
+        client,
+      );
+      await this.userService.recordLoginSuccess(tenant.tenantId, user.userId, client);
+      await this.auditService.log(
+        {
+          tenantId: tenant.tenantId,
+          actorId: user.userId,
+          sessionId: createdSession.sessionId,
+          action: 'LOGIN_SUCCESS',
+          targetType: 'user',
+          targetId: user.userId,
+          metadata: {
+            reason_code: 'ok',
+            ip_address: metadata.ipAddress,
+            session_id: createdSession.sessionId,
+          },
+        },
+        client,
+      );
       return createdSession;
     });
     this.recordEvent('LOGIN_SUCCESS', tenant.tenantId, user.userId, 'ok');
@@ -189,9 +195,24 @@ export class AuthService {
 
   private async resolveLoginCandidate(
     input: LoginRequestDto,
-    normalizedEmail: string,
+    normalizedEmail: string | null,
   ): Promise<{ tenant: TenantEntity; user: UserEntity | null } | null> {
     const tenant = await this.resolveTenant(input);
+    if (input.accountLedgerId) {
+      const candidate = await this.userService.findLoginCandidateByAccountLedgerId(
+        input.accountLedgerId,
+      );
+      if (!candidate) {
+        return tenant ? { tenant, user: null } : null;
+      }
+      if (tenant && candidate.tenant.tenantId !== tenant.tenantId) {
+        return { tenant, user: null };
+      }
+      return candidate;
+    }
+    if (!normalizedEmail) {
+      return tenant ? { tenant, user: null } : null;
+    }
     if (tenant) {
       return {
         tenant,
