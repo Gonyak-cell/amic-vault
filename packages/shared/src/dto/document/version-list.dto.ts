@@ -19,6 +19,7 @@ export interface DocumentVersionDto {
   createdBy: string;
   createdAt: string;
   supersedesVersionId: string | null;
+  promotedFromSubversionId: string | null;
 }
 
 export interface DocumentVersionListDto {

@@ -333,6 +333,8 @@ export interface OutlookDocumentInsertionDto {
   createdAt: string;
   updatedAt: string;
   internalReference?: string;
+  editReference?: string;
+  editPath?: string;
   deniedReasonCode?: OutlookDocumentInsertionDeniedReasonCode;
 }
 

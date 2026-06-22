@@ -175,6 +175,60 @@ describe('DocumentPermissionService', () => {
     ).resolves.toMatchObject({ effect: 'ALLOW' });
   });
 
+  it('allows core edit lifecycle actions for matter owners and members only', async () => {
+    const { service } = createService();
+    service.actor = { userId, role: 'matter_member', status: 'active' };
+
+    await expect(service.canCheckoutDocument({ tenantId, userId }, documentId)).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining(['document.checkout:role_allow']),
+    });
+    await expect(
+      service.canSaveDocumentSubversion({ tenantId, userId }, documentId),
+    ).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining(['document.save_subversion:role_allow']),
+    });
+    await expect(service.canCheckInDocument({ tenantId, userId }, documentId)).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining(['document.checkin:role_allow']),
+    });
+    await expect(
+      service.canPromoteDocumentVersion({ tenantId, userId }, documentId),
+    ).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['document.promote_version:role_deny'],
+    });
+
+    service.actor = { userId, role: 'matter_owner', status: 'active' };
+    await expect(
+      service.canPromoteDocumentVersion({ tenantId, userId }, documentId),
+    ).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining(['document.promote_version:role_allow']),
+    });
+  });
+
+  it('requires explicit allow for limited reviewers to read internal subversions', async () => {
+    const { service } = createService();
+    service.actor = { userId, role: 'limited_reviewer', status: 'active' };
+
+    await expect(
+      service.canReadDocumentSubversion({ tenantId, userId }, documentId),
+    ).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['document.limited_reviewer:explicit_allow_required'],
+    });
+
+    service.explicitRows = [{ effect: 'ALLOW', condition_json: null }];
+    await expect(
+      service.canReadDocumentSubversion({ tenantId, userId }, documentId),
+    ).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining(['document.read_subversion:role_allow']),
+    });
+  });
+
   it('denies wall exclusion before explicit allow can apply', async () => {
     const { service } = createService();
     service.wall = { blocked: true, appliedRules: ['ethical_wall:excluded'] };

@@ -7,7 +7,7 @@
 
 AMIC Vault Desktop은 local Vault runtime이 아니다. 데스크톱 앱은 승인된 Vault web origin을 안전하게 감싸는 thin shell이다. 서버는 계속해서 authentication, tenant context, PermissionService, AuditService, PostgreSQL RLS, document preview/download lifecycle, search, AI, records, external portal policy의 권위자이다.
 
-현재 baseline은 `apps/web` PWA이며, native 단계는 `apps/desktop` Tauri v2 thin shell로 별도 구현한다.
+현재 baseline은 `apps/web` PWA와 `apps/desktop` Tauri v2 thin shell foundation을 모두 포함한다. Native production distribution은 여전히 signing/update/customer IT/release evidence lane에서 별도로 승인되어야 한다.
 
 ## 2. Component boundary
 

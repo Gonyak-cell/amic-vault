@@ -119,6 +119,45 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     );
   }
 
+  canCheckoutDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
+    return this.wrapper.evaluate(documentAuditTarget(ctx, documentId), () =>
+      this.evaluateDocumentAction(ctx, documentId, 'checkout'),
+    );
+  }
+
+  canSaveDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    return this.wrapper.evaluate(documentAuditTarget(ctx, documentId), () =>
+      this.evaluateDocumentAction(ctx, documentId, 'save_subversion'),
+    );
+  }
+
+  canReadDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    return this.wrapper.evaluate(documentAuditTarget(ctx, documentId), () =>
+      this.evaluateDocumentAction(ctx, documentId, 'read_subversion'),
+    );
+  }
+
+  canCheckInDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
+    return this.wrapper.evaluate(documentAuditTarget(ctx, documentId), () =>
+      this.evaluateDocumentAction(ctx, documentId, 'checkin'),
+    );
+  }
+
+  canPromoteDocumentVersion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    return this.wrapper.evaluate(documentAuditTarget(ctx, documentId), () =>
+      this.evaluateDocumentAction(ctx, documentId, 'promote_version'),
+    );
+  }
+
   protected async evaluateDocumentAction(
     ctx: PermissionContext,
     documentId: string,

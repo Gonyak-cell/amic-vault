@@ -1,4 +1,5 @@
 import { open } from 'node:fs/promises';
+import { TextDecoder } from 'node:util';
 import { UnsupportedMediaTypeException } from '@nestjs/common';
 
 const MAX_SNIFF_BYTES = 64 * 1024;
@@ -15,7 +16,7 @@ export interface MimeTypeValidationResult {
 }
 
 interface SupportedMime {
-  extension: 'pdf' | 'docx' | 'hwpx';
+  extension: 'pdf' | 'docx' | 'hwpx' | 'txt' | 'md' | 'markdown' | 'csv' | 'json';
   mimeType: string;
   declaredAliases: readonly string[];
 }
@@ -39,7 +40,34 @@ const supportedMimes: Record<SupportedMime['extension'], SupportedMime> = {
     mimeType: 'application/hwp+zip',
     declaredAliases: ['application/hwp+zip', 'application/x-hwp+zip', 'application/zip'],
   },
+  txt: {
+    extension: 'txt',
+    mimeType: 'text/plain',
+    declaredAliases: ['text/plain'],
+  },
+  md: {
+    extension: 'md',
+    mimeType: 'text/markdown',
+    declaredAliases: ['text/markdown', 'text/plain'],
+  },
+  markdown: {
+    extension: 'markdown',
+    mimeType: 'text/markdown',
+    declaredAliases: ['text/markdown', 'text/plain'],
+  },
+  csv: {
+    extension: 'csv',
+    mimeType: 'text/csv',
+    declaredAliases: ['text/csv', 'text/plain', 'application/csv'],
+  },
+  json: {
+    extension: 'json',
+    mimeType: 'application/json',
+    declaredAliases: ['application/json', 'text/json', 'text/plain'],
+  },
 };
+
+const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
 function unsupportedFileType(): UnsupportedMediaTypeException {
   return new UnsupportedMediaTypeException({ code: 'UNSUPPORTED_FILE_TYPE' });
@@ -85,6 +113,28 @@ function sniffSupportedMime(buffer: Buffer): SupportedMime {
   throw unsupportedFileType();
 }
 
+function assertUtf8Text(buffer: Buffer): string {
+  if (buffer.includes(0)) throw unsupportedFileType();
+  try {
+    return utf8Decoder.decode(buffer);
+  } catch {
+    throw unsupportedFileType();
+  }
+}
+
+function sniffSupportedTextMime(buffer: Buffer, extension: string): SupportedMime | null {
+  if (!['txt', 'md', 'markdown', 'csv', 'json'].includes(extension)) return null;
+  const text = assertUtf8Text(buffer);
+  if (extension === 'json') {
+    try {
+      JSON.parse(text);
+    } catch {
+      throw unsupportedFileType();
+    }
+  }
+  return supportedMimes[extension as 'txt' | 'md' | 'markdown' | 'csv' | 'json'];
+}
+
 function isDeclaredMimeAllowed(actual: SupportedMime, declaredMimeType?: string | null): boolean {
   const declared = declaredMimeType?.trim().toLowerCase();
   if (!declared || declared === 'application/octet-stream') return true;
@@ -94,7 +144,7 @@ function isDeclaredMimeAllowed(actual: SupportedMime, declaredMimeType?: string 
 export class MimeTypeValidator {
   async validate(input: MimeTypeValidationInput): Promise<MimeTypeValidationResult> {
     const buffer = await readSniffBuffer(input.path, input.sizeBytes);
-    const actual = sniffSupportedMime(buffer);
+    const actual = sniffSupportedTextMime(buffer, input.extension) ?? sniffSupportedMime(buffer);
     if (actual.extension !== input.extension) throw unsupportedFileType();
     if (!isDeclaredMimeAllowed(actual, input.declaredMimeType)) throw unsupportedFileType();
     return { mimeType: actual.mimeType };

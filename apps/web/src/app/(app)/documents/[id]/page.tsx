@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   DocumentActionCenter,
+  editIntentFromParams,
   searchHitContextFromParams,
 } from '@/components/document/document-action-center';
 import { PageShell } from '@/components/ui/page-shell';
@@ -23,6 +24,7 @@ function DocumentDetailContent({ documentId }: { documentId: string }) {
   return (
     <DocumentActionCenter
       documentId={documentId}
+      editIntent={editIntentFromParams(searchParams)}
       searchHitContext={searchHitContextFromParams(searchParams)}
     />
   );

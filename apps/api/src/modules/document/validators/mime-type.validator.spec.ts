@@ -53,6 +53,43 @@ describe('MimeTypeValidator', () => {
     ).resolves.toEqual({ mimeType: 'application/hwp+zip' });
   });
 
+  it('sniffs bounded Vault-native text editing files', async () => {
+    const validator = new MimeTypeValidator();
+
+    await expect(
+      validator.validate({
+        path: await fixtureFile('a.txt', 'plain draft'),
+        sizeBytes: 11,
+        extension: 'txt',
+        declaredMimeType: 'text/plain',
+      }),
+    ).resolves.toEqual({ mimeType: 'text/plain' });
+    await expect(
+      validator.validate({
+        path: await fixtureFile('a.md', '# Draft'),
+        sizeBytes: 7,
+        extension: 'md',
+        declaredMimeType: 'text/markdown',
+      }),
+    ).resolves.toEqual({ mimeType: 'text/markdown' });
+    await expect(
+      validator.validate({
+        path: await fixtureFile('a.csv', 'clause,status\n1,open\n'),
+        sizeBytes: 21,
+        extension: 'csv',
+        declaredMimeType: 'text/csv',
+      }),
+    ).resolves.toEqual({ mimeType: 'text/csv' });
+    await expect(
+      validator.validate({
+        path: await fixtureFile('a.json', '{"status":"draft"}'),
+        sizeBytes: 18,
+        extension: 'json',
+        declaredMimeType: 'application/json',
+      }),
+    ).resolves.toEqual({ mimeType: 'application/json' });
+  });
+
   it('rejects extension, declared MIME, and magic-byte mismatches', async () => {
     const validator = new MimeTypeValidator();
     const zipAsPdf = await fixtureFile('zip.pdf', docxBytes);
@@ -80,6 +117,22 @@ describe('MimeTypeValidator', () => {
         sizeBytes: 13,
         extension: 'pdf',
         declaredMimeType: 'application/zip',
+      }),
+    ).rejects.toThrow(UnsupportedMediaTypeException);
+    await expect(
+      validator.validate({
+        path: await fixtureFile('bad.txt', Buffer.from([0x00, 0x01, 0x02])),
+        sizeBytes: 3,
+        extension: 'txt',
+        declaredMimeType: 'text/plain',
+      }),
+    ).rejects.toThrow(UnsupportedMediaTypeException);
+    await expect(
+      validator.validate({
+        path: await fixtureFile('bad.json', '{not-json}'),
+        sizeBytes: 10,
+        extension: 'json',
+        declaredMimeType: 'application/json',
       }),
     ).rejects.toThrow(UnsupportedMediaTypeException);
   });

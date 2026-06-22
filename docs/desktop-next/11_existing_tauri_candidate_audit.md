@@ -5,6 +5,10 @@ Candidate worktree: `/Users/jws/Projects/amic-vault-desktop-pwa`
 Candidate branch: `codex/desktop-tauri-phase3`
 Candidate HEAD: `3e9d6cc3d0a405e31a37556f1813b1587bdc91ee`
 
+> Current-state note, 2026-06-22: this is a read-only audit of the candidate
+> before import. The current checkout has imported and extended the desktop
+> shell. Do not use this file as the current gate state.
+
 ## 1. Purpose
 
 This document records the read-only audit of an existing Tauri thin-shell candidate branch. It does not approve merging the candidate into the active LazyCodex desktop lane. LC-DESKTOP-03 still requires explicit dependency-gate approval before dependency or scaffold changes are imported into the active branch.
@@ -95,4 +99,4 @@ Then verify the candidate against the stricter LC-DESKTOP-03 brief:
 
 ## 8. Current Gate State
 
-This audit proves a candidate exists and passes its own policy checks. It does not complete LC-DESKTOP-03 because the active LazyCodex branch has not imported the scaffold and dependency approval is still pending.
+This audit proved a candidate existed and passed its own policy checks before import. In the current checkout, the active branch has an `apps/desktop` scaffold and follow-on hardening/tests; this section is preserved as historical candidate evidence only.

@@ -1,14 +1,24 @@
 # Staging Input Checklist
 
-Status: AWS STAGING DECISIONS APPROVED - RESOURCE PROVISIONING PENDING
-Date: 2026-06-14
+Status: AWS STAGING DEPLOYED - MAIN-MERGE SMOKE PASS
+Date: 2026-06-22
 
 This checklist is the operator handoff for opening staging. It records only
 non-secret reference names and external evidence refs. Do not commit private
 URLs, passwords, tokens, cookies, key material, provider screenshots, or real
 customer data to this repository.
 
+Current-state note: the original decision inputs below have been satisfied for
+the current staging lane. Current staging evidence is recorded in
+`docs/release/staging-deployment-plan.md` under `STAGE-MAIN-MERGE-AWS-001`.
+Keep actual endpoint values, account identifiers, secret values, screenshots,
+and customer data outside the repository.
+
 ## Required Inputs Before Staging Deploy
+
+These rows remain as the required input contract. For the current staging lane,
+the approved values are evidence refs only and the deployment/smoke status is
+tracked in `docs/release/staging-deployment-plan.md`.
 
 | Input ID | LRB | Required Input | Allowed Repository Value | Blocked Until |
 |---|---|---|---|---|

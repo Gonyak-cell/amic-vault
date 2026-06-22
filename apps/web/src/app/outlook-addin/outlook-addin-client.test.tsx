@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { MatterSuggestionDto } from '@amic-vault/shared';
+import type { MatterSuggestionDto, OutlookDocumentInsertionDto } from '@amic-vault/shared';
 import type { OutlookItemSnapshot } from '@/lib/outlook-addin/outlook-item';
 import { OutlookAddinClient } from './outlook-addin-client';
 
@@ -19,8 +19,28 @@ describe('OutlookAddinClient', () => {
       reasonCodes: ['subject_hash'],
       score: 92,
     };
+    const documentInsertion: OutlookDocumentInsertionDto = {
+      insertionId: '11111111-1111-4111-8111-111111111901',
+      status: 'ready',
+      documentId: '11111111-1111-4111-8111-111111111902',
+      versionId: '11111111-1111-4111-8111-111111111903',
+      insertionMode: 'internal-reference',
+      sourceClient: 'outlook-web-addin',
+      createdAt: '2026-06-18T00:00:00.000Z',
+      updatedAt: '2026-06-18T00:00:00.000Z',
+      internalReference:
+        'amic-vault://documents/11111111-1111-4111-8111-111111111902/versions/11111111-1111-4111-8111-111111111903',
+      editReference:
+        'amic-vault://documents/11111111-1111-4111-8111-111111111902/edit?versionId=11111111-1111-4111-8111-111111111903',
+      editPath:
+        '/documents/11111111-1111-4111-8111-111111111902?edit=1&versionId=11111111-1111-4111-8111-111111111903#document-editing',
+    };
     const html = renderToStaticMarkup(
-      <OutlookAddinClient initialSnapshot={snapshot()} initialSuggestions={[suggestion]} />,
+      <OutlookAddinClient
+        initialDocumentInsertion={documentInsertion}
+        initialSnapshot={snapshot()}
+        initialSuggestions={[suggestion]}
+      />,
     );
 
     expect(html).toContain('AMIC Vault');
@@ -29,6 +49,8 @@ describe('OutlookAddinClient', () => {
     expect(html).toContain('사건');
     expect(html).toContain('Vault 문서');
     expect(html).toContain('문서 연결');
+    expect(html).toContain('편집 바로가기 준비됨');
+    expect(html).toContain('메일에 바로가기 삽입');
     expect(html).toContain('Project Maple');
     expect(html).toContain('M-2026-001');
     expect(html).toContain('첨부 1');
@@ -39,6 +61,9 @@ describe('OutlookAddinClient', () => {
     expect(html).not.toContain('board-minutes.pdf');
     expect(html).not.toContain('raw-message-id');
     expect(html).not.toContain('내부 참조');
+    expect(html).not.toContain(documentInsertion.internalReference);
+    expect(html).not.toContain(documentInsertion.editReference);
+    expect(html).not.toContain(documentInsertion.editPath);
     expect(html).not.toContain(suggestion.matterId);
     expect(html).not.toContain('11111111');
   });

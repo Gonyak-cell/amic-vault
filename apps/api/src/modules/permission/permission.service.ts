@@ -159,6 +159,50 @@ export class PermissionService {
     return this.documentPermissionService.canDownloadDocument(ctx, documentId, reason);
   }
 
+  canCheckoutDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
+    if (!this.documentPermissionService) {
+      return Promise.resolve(denyPermission('NOT_IMPLEMENTED', ['document_permission:missing']));
+    }
+    return this.documentPermissionService.canCheckoutDocument(ctx, documentId);
+  }
+
+  canSaveDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    if (!this.documentPermissionService) {
+      return Promise.resolve(denyPermission('NOT_IMPLEMENTED', ['document_permission:missing']));
+    }
+    return this.documentPermissionService.canSaveDocumentSubversion(ctx, documentId);
+  }
+
+  canReadDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    if (!this.documentPermissionService) {
+      return Promise.resolve(denyPermission('NOT_IMPLEMENTED', ['document_permission:missing']));
+    }
+    return this.documentPermissionService.canReadDocumentSubversion(ctx, documentId);
+  }
+
+  canCheckInDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
+    if (!this.documentPermissionService) {
+      return Promise.resolve(denyPermission('NOT_IMPLEMENTED', ['document_permission:missing']));
+    }
+    return this.documentPermissionService.canCheckInDocument(ctx, documentId);
+  }
+
+  canPromoteDocumentVersion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    if (!this.documentPermissionService) {
+      return Promise.resolve(denyPermission('NOT_IMPLEMENTED', ['document_permission:missing']));
+    }
+    return this.documentPermissionService.canPromoteDocumentVersion(ctx, documentId);
+  }
+
   canReadDocumentAudit(ctx: PermissionContext, matterId: string): Promise<PermissionDecision> {
     return this.wrapper.evaluate(auditTarget(ctx, matterId), () =>
       this.evaluateCanReadDocumentAudit(ctx, matterId),

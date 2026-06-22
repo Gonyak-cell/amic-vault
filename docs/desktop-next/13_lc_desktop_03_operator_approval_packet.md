@@ -3,6 +3,11 @@
 Date: 2026-06-21
 Decision requested: approve or reject the dependency gate for LC-DESKTOP-03.
 
+> Current-state note, 2026-06-22: this approval packet is historical. The
+> current checkout already contains the desktop scaffold and later desktop
+> security tests. Keep this file as the dependency-gate record, not as a pending
+> operator decision.
+
 ## 1. Decision Text
 
 To approve LC-DESKTOP-03 implementation, reply with exactly:
@@ -151,7 +156,7 @@ Manual QA must verify:
 
 ## 8. Gate Review Position
 
-Recommendation: APPROVE, limited to the import subset and dependency family above.
+Historical recommendation: APPROVE, limited to the import subset and dependency family above.
 
 Rationale:
 

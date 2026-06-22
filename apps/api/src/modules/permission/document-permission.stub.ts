@@ -27,4 +27,49 @@ export class DocumentPermissionStub implements DocumentPermissionService {
     void reason;
     return denyPermission('NOT_IMPLEMENTED', ['document_permission:r1_stub']);
   }
+
+  async canCheckoutDocument(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    void ctx;
+    void documentId;
+    return denyPermission('NOT_IMPLEMENTED', ['document_permission:r1_stub']);
+  }
+
+  async canSaveDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    void ctx;
+    void documentId;
+    return denyPermission('NOT_IMPLEMENTED', ['document_permission:r1_stub']);
+  }
+
+  async canReadDocumentSubversion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    void ctx;
+    void documentId;
+    return denyPermission('NOT_IMPLEMENTED', ['document_permission:r1_stub']);
+  }
+
+  async canCheckInDocument(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    void ctx;
+    void documentId;
+    return denyPermission('NOT_IMPLEMENTED', ['document_permission:r1_stub']);
+  }
+
+  async canPromoteDocumentVersion(
+    ctx: PermissionContext,
+    documentId: string,
+  ): Promise<PermissionDecision> {
+    void ctx;
+    void documentId;
+    return denyPermission('NOT_IMPLEMENTED', ['document_permission:r1_stub']);
+  }
 }

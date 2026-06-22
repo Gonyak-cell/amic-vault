@@ -91,6 +91,14 @@ function internalReferenceValue(documentId: string, versionId: string): string {
   return `amic-vault://documents/${documentId}/versions/${versionId}`;
 }
 
+function editReferenceValue(documentId: string, versionId: string): string {
+  return `amic-vault://documents/${documentId}/edit?versionId=${versionId}`;
+}
+
+function editPathValue(documentId: string, versionId: string): string {
+  return `/documents/${documentId}?edit=1&versionId=${versionId}#document-editing`;
+}
+
 function toDto(row: OutlookDocumentInsertionRow): OutlookDocumentInsertionDto {
   return {
     insertionId: row.insertion_id,
@@ -102,7 +110,11 @@ function toDto(row: OutlookDocumentInsertionRow): OutlookDocumentInsertionDto {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     ...(row.status === 'ready'
-      ? { internalReference: internalReferenceValue(row.document_id, row.version_id) }
+      ? {
+          internalReference: internalReferenceValue(row.document_id, row.version_id),
+          editReference: editReferenceValue(row.document_id, row.version_id),
+          editPath: editPathValue(row.document_id, row.version_id),
+        }
       : {}),
     ...(row.denied_reason_code ? { deniedReasonCode: row.denied_reason_code } : {}),
   };

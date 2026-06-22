@@ -3,14 +3,20 @@
 검토일: 2026-06-21  
 의사결정 수준: 실행계획 권고. 기존 `ADR-014: Desktop Client Strategy`를 전제로 하되, native desktop 착수 전 human/security review로 확정해야 한다.
 
+> Current-state note, 2026-06-22: this decision document was written before
+> the Tauri lane landed. The current checkout now contains `apps/desktop` as a
+> Tauri v2 thin shell with origin/capability controls and tests. Production
+> native distribution remains pending external artifact, signing/notarization,
+> update-origin, customer IT, rollback, and release approval evidence.
+
 ## 1. Executive decision
 
-AMIC Vault의 현재 권장 방향은 PWA-first를 유지하고, 고객 IT 또는 파일럿 배포에서 signed installer·managed distribution이 실제로 필요할 때 `apps/desktop`에 Tauri v2 thin shell을 별도 구현하는 것이다. Electron 또는 fully native client는 기본 선택지가 아니다.
+AMIC Vault의 권장 방향은 PWA-first를 유지하면서, signed installer·managed distribution이 필요한 경우 `apps/desktop` Tauri v2 thin shell을 사용하는 것이다. 현재 checkout에는 이 thin shell foundation이 구현되어 있다. Electron 또는 fully native client는 기본 선택지가 아니다.
 
 최종 권고는 다음과 같다.
 
-1. 현재 상태는 PWA/installable web app으로 부르고 운영한다.
-2. “네이티브 데스크톱 앱”이라는 표현은 `apps/desktop` Tauri v2 thin shell scaffold, origin guard, capability deny-by-default, signing/update policy, no-local-storage tests가 완료된 뒤에만 사용한다.
+1. 현재 repo-local 상태는 PWA/installable web app과 `apps/desktop` Tauri thin shell foundation을 모두 포함한다.
+2. customer-facing “네이티브 데스크톱 배포 완료” 표현은 artifact digest, signing/notarization, approved update/origin refs, customer IT acceptance, rollback, release approval evidence가 완료된 뒤에만 사용한다.
 3. desktop layer는 서버를 대체하지 않는다. 승인된 Vault web origin을 안전하게 감싸고, app identity·window shell·installer·signed update·release channel만 담당한다.
 4. 데스크톱화는 release/production lane과 분리된 branch/worktree에서 진행한다. native shell PR은 production deploy PR과 합치지 않는다.
 
@@ -83,9 +89,9 @@ AMIC Vault Desktop의 product definition은 다음과 같이 제한한다.
 ## 8. Recommended product path
 
 1. PWA security audit를 먼저 재실행한다. 현재 PWA 구현이 desktop release baseline이다.
-2. Tauri thin shell은 `apps/desktop`을 새로 생성하는 독립 branch/worktree에서 진행한다.
-3. 최초 Tauri PR은 foundation만 수행한다. 서버 기능, API endpoint, document/search/AI/audit behavior는 변경하지 않는다.
-4. Tauri shell은 approved origin allow-list와 navigation guard 없이는 merge하지 않는다.
-5. native capability는 deny-by-default가 증명되기 전까지 모두 닫는다.
+2. Tauri thin shell foundation은 `apps/desktop`에 구현되어 있다. 이후 작업은 distribution/signing/update/customer IT evidence lane과 분리한다.
+3. 서버 기능, API endpoint, document/search/AI/audit behavior는 desktop distribution 작업과 합치지 않는다.
+4. Tauri shell은 approved origin allow-list와 navigation guard를 유지해야 한다.
+5. native capability는 deny-by-default를 유지하고, 새 capability는 별도 ADR/review 전까지 닫는다.
 6. signing, notarization, updater, release channel은 문서와 test evidence가 먼저 준비되어야 한다.
 7. production rollout은 browser/PWA fallback이 준비된 pilot channel 이후에만 진행한다.

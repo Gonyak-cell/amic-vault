@@ -15,7 +15,11 @@ export function middleware(request: NextRequest) {
     return withNoStore(NextResponse.next());
   }
 
-  return withNoStore(NextResponse.redirect(loginRedirectUrl(request.nextUrl.origin, pathname)));
+  return withNoStore(
+    NextResponse.redirect(
+      loginRedirectUrl(request.nextUrl.origin, `${pathname}${request.nextUrl.search}`),
+    ),
+  );
 }
 
 export const config = {

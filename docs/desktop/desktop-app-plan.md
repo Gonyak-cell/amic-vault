@@ -1,9 +1,16 @@
 # AMIC Vault Desktop App Plan
 
-Status: Phase 2 implemented
+Status: Phase 2 implemented; Phase 3 foundation implemented locally; production native distribution external evidence pending
 Date: 2026-06-14
 Owner: Codex implementation branches `codex/desktop-pwa-phase1`, `codex/desktop-pwa-phase2`
 Related ADR: `docs/adr/ADR-014-desktop-client-strategy.md`
+
+Current-state note, 2026-06-22: this plan started as PWA-first and Tauri
+feasibility planning. The current checkout now contains `apps/desktop` Tauri v2
+thin-shell code, origin/capability controls, desktop tests, and release-gate
+tooling. Native production distribution is still not approved until external
+artifact, signing/notarization, update-origin, customer IT, rollback, and
+release approval evidence exists.
 
 ## Position
 
@@ -20,6 +27,7 @@ Electron and fully native rewrites are fallback paths, not the recommended imple
 
 - `apps/web` is the UI source of truth.
 - `apps/api` is the server authority for permissions, audit, tenant context, document/search/AI/records behavior.
+- `apps/desktop` exists as a Tauri thin shell over an approved Vault web origin.
 - AWS staging evidence, smoke, and synthetic UAT evidence exist in the release lane.
 - Production deployment is still governed by the production runbook and disabled gate.
 - Current launch scope does not approve real customer documents in this repository.
@@ -175,9 +183,9 @@ Exit criteria:
 - Synthetic UAT maps desktop-specific checks to evidence refs.
 - Rollback plan can invalidate service workers and return users to browser-only mode.
 
-## Phase 3 - Tauri Thin Shell Feasibility
+## Phase 3 - Tauri Thin Shell Foundation
 
-Goal: prove a native installer can wrap the approved Vault origin without expanding data authority.
+Goal: prove a native installer can wrap the approved Vault origin without expanding data authority. The repository now contains the thin-shell foundation and policy tests; production distribution remains gated by external release evidence.
 
 Tasks:
 

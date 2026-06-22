@@ -5,6 +5,10 @@ Candidate source: `/Users/jws/Projects/amic-vault-desktop-pwa`
 Candidate branch: `codex/desktop-tauri-phase3`
 Candidate HEAD: `3e9d6cc3d0a405e31a37556f1813b1587bdc91ee`
 
+> Current-state note, 2026-06-22: this map is pre-import planning evidence.
+> The live checkout now contains `apps/desktop`; use this file only to
+> understand the original import boundary, not as current work remaining.
+
 ## 1. Purpose
 
 The existing candidate branch is broader than LC-DESKTOP-03. This import map defines how to reuse it without mixing later LC work into the Tauri foundation PR.
@@ -155,4 +159,4 @@ Do not import the candidate if:
 
 ## 6. Current Decision
 
-The candidate is approved for reuse as an implementation source only after the LC-DESKTOP-03 dependency gate is approved. Until then, this import map is documentation and planning evidence only.
+The candidate was approved for reuse only after the LC-DESKTOP-03 dependency gate. In the current checkout this map is documentation of the approved import boundary; it is not an open instruction to import more files.

@@ -4,6 +4,11 @@ Date: 2026-06-21
 Scope: Detailed LazyCodex goal plan for LC-DESKTOP-00 through LC-DESKTOP-07.
 Active top-level goal: complete the AMIC Vault LazyCodex desktop execution lane from LC-DESKTOP-00 through LC-DESKTOP-07 in order.
 
+> Current-state note, 2026-06-22: this runbook is historical lane control
+> evidence. The live checkout now includes `apps/desktop`, Tauri origin and
+> capability controls, desktop tests, and release-gate tooling. Instructions
+> below that say `apps/desktop` is absent describe the pre-import state only.
+
 ## 1. Continuation Contract
 
 This runbook is the control surface for continuing desktop work. The active goal is not complete until LC-DESKTOP-00 through LC-DESKTOP-07 all have:
@@ -107,7 +112,7 @@ Add the LazyCodex-first execution plan that defines the operating model and orde
 ### Steps
 
 1. Read existing desktop strategy docs.
-2. Confirm current repository truth: PWA-first, `apps/desktop` absent.
+2. Confirm repository truth for the target branch. For the original LC-DESKTOP-01 branch this was PWA-first with `apps/desktop` absent; for the current checkout `apps/desktop` exists.
 3. Add the execution plan.
 4. Verify document-only checks.
 5. Record executor and manual QA evidence.
@@ -127,7 +132,7 @@ git diff --check
 ### Manual QA
 
 - Inspect the Markdown source.
-- Confirm it says current native desktop is absent.
+- Confirm it accurately states the branch-local native desktop state.
 - Confirm it defines LC-DESKTOP-00 through LC-DESKTOP-08.
 - Confirm `docs/package/**` is unchanged.
 - Run a credential-shaped token scan on the new document.
@@ -208,7 +213,7 @@ git diff --name-only -- docs/package
 - Inspect `00_current_state_audit.md` for accurate current-truth wording.
 - Inspect `03_execution_packs.md` for LazyCodex evidence mapping.
 - Confirm no new top-level integration suite paths are invented beyond the canonical suite model.
-- Confirm `apps/desktop` remains future work in the imported docs.
+- Confirm `apps/desktop` state matches the target branch: future work only for the original pre-import branch, implemented Tauri thin shell for the current checkout.
 - Confirm no private endpoint, token, cookie, signing secret, AWS account id, or customer data is present.
 
 ### Success Criteria

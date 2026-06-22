@@ -252,6 +252,8 @@ describe('OutlookDocumentInsertionService', () => {
       versionId,
       insertionMode: 'internal-reference',
       internalReference: `amic-vault://documents/${documentId}/versions/${versionId}`,
+      editReference: `amic-vault://documents/${documentId}/edit?versionId=${versionId}`,
+      editPath: `/documents/${documentId}?edit=1&versionId=${versionId}#document-editing`,
     });
 
     expect(auditService.log).toHaveBeenCalledWith(

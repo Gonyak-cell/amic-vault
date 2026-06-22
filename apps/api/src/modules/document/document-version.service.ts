@@ -34,6 +34,7 @@ interface DocumentVersionRow {
   created_by: string;
   created_at: Date;
   supersedes_version_id: string | null;
+  promoted_from_subversion_id: string | null;
 }
 
 interface CurrentVersionRow {
@@ -88,6 +89,7 @@ function mapVersion(row: DocumentVersionRow): DocumentVersionDto {
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
     supersedesVersionId: row.supersedes_version_id,
+    promotedFromSubversionId: row.promoted_from_subversion_id,
   };
 }
 
@@ -127,7 +129,7 @@ export class DocumentVersionService {
         )
         VALUES ($1, $2, $3, 'current', $4, $5, $6, NULL)
         RETURNING version_id, document_id, version_no, version_status, file_object_id,
-          file_hash, created_by, created_at, supersedes_version_id
+          file_hash, created_by, created_at, supersedes_version_id, promoted_from_subversion_id
       `,
       [
         input.tenantId,
@@ -190,7 +192,7 @@ export class DocumentVersionService {
         )
         VALUES ($1, $2, $3, 'current', $4, $5, $6, $7)
         RETURNING version_id, document_id, version_no, version_status, file_object_id,
-          file_hash, created_by, created_at, supersedes_version_id
+          file_hash, created_by, created_at, supersedes_version_id, promoted_from_subversion_id
       `,
       [
         input.tenantId,
@@ -246,7 +248,7 @@ export class DocumentVersionService {
       const result = await tx.query(
         `
           SELECT version_id, document_id, version_no, version_status, file_object_id,
-            file_hash, created_by, created_at, supersedes_version_id
+            file_hash, created_by, created_at, supersedes_version_id, promoted_from_subversion_id
           FROM document_versions
           WHERE ${filters.join(' AND ')}
           ORDER BY version_no DESC, created_at DESC, version_id DESC

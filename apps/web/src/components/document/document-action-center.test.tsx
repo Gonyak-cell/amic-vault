@@ -4,16 +4,22 @@ import { describe, expect, it } from 'vitest';
 import type {
   DocumentAuditEventDto,
   DocumentDto,
+  DocumentEditSessionDto,
+  DocumentSubversionDto,
   DocumentVersionDto,
   EmailMatterFilingDto,
 } from '@amic-vault/shared';
 import {
   DocumentActionCenter,
+  editLifecycleErrorMessage,
+  editIntentFromParams,
+  nextEditIntentAutomationStep,
   relatedMatterEmails,
   relatedMatterDocuments,
   searchHitContextFromParams,
   versionUploadStatusMessage,
 } from './document-action-center';
+import { ApiClientError } from '@/lib/api-client';
 
 const document = {
   documentId: '11111111-1111-4111-8111-111111111201',
@@ -49,6 +55,7 @@ const versions = [
     createdBy: '11111111-1111-4111-8111-111111111401',
     createdAt: '2026-06-18T01:00:00.000Z',
     supersedesVersionId: '11111111-1111-4111-8111-111111111502',
+    promotedFromSubversionId: '11111111-1111-4111-8111-111111111812',
   },
   {
     versionId: '11111111-1111-4111-8111-111111111502',
@@ -60,8 +67,75 @@ const versions = [
     createdBy: '11111111-1111-4111-8111-111111111401',
     createdAt: '2026-06-17T01:00:00.000Z',
     supersedesVersionId: null,
+    promotedFromSubversionId: null,
   },
 ] satisfies DocumentVersionDto[];
+
+const activeEditSession = {
+  editSessionId: '11111111-1111-4111-8111-111111111801',
+  documentId: document.documentId,
+  baseVersionId: '11111111-1111-4111-8111-111111111501',
+  baseVersionNo: 2,
+  status: 'active',
+  clientKind: 'web_upload',
+  lockOwnerUserId: '11111111-1111-4111-8111-111111111401',
+  checkedOutAt: '2026-06-18T01:10:00.000Z',
+  heartbeatAt: '2026-06-18T01:12:00.000Z',
+  expiresAt: '2026-06-18T02:10:00.000Z',
+  checkedInAt: null,
+  cancelledAt: null,
+  expiredAt: null,
+  conflictedAt: null,
+} satisfies DocumentEditSessionDto;
+
+const subversions = [
+  {
+    subversionId: '11111111-1111-4111-8111-111111111811',
+    documentId: document.documentId,
+    baseVersionId: '11111111-1111-4111-8111-111111111501',
+    baseVersionNo: 2,
+    subversionNo: 1,
+    displayVersion: 'v2.1',
+    editSessionId: activeEditSession.editSessionId,
+    status: 'saved',
+    visibilityScope: 'matter_editors',
+    fileObjectId: '11111111-1111-4111-8111-111111111821',
+    fileHash: 'subversion-hash-1',
+    createdBy: '11111111-1111-4111-8111-111111111401',
+    createdAt: '2026-06-18T01:15:00.000Z',
+    submittedAt: null,
+    promotedVersionId: null,
+    reviewGate: {
+      status: 'not_required',
+      activeReviewerCount: 0,
+      approvedReviewCount: 0,
+      changesRequestedCount: 0,
+    },
+  },
+  {
+    subversionId: '11111111-1111-4111-8111-111111111812',
+    documentId: document.documentId,
+    baseVersionId: '11111111-1111-4111-8111-111111111501',
+    baseVersionNo: 2,
+    subversionNo: 2,
+    displayVersion: 'v2.2',
+    editSessionId: '11111111-1111-4111-8111-111111111802',
+    status: 'submitted',
+    visibilityScope: 'reviewers',
+    fileObjectId: '11111111-1111-4111-8111-111111111822',
+    fileHash: 'subversion-hash-2',
+    createdBy: '11111111-1111-4111-8111-111111111401',
+    createdAt: '2026-06-18T01:30:00.000Z',
+    submittedAt: '2026-06-18T01:40:00.000Z',
+    promotedVersionId: null,
+    reviewGate: {
+      status: 'pending',
+      activeReviewerCount: 2,
+      approvedReviewCount: 1,
+      changesRequestedCount: 0,
+    },
+  },
+] satisfies DocumentSubversionDto[];
 
 const relatedDocuments = [
   document,
@@ -162,12 +236,22 @@ describe('DocumentActionCenter', () => {
     if (!currentAuditEvent) throw new Error('missing audit event fixture');
     const currentRelatedEmail = relatedEmails[0];
     if (!currentRelatedEmail) throw new Error('missing related email fixture');
+    const savedSubversion = subversions[0];
+    if (!savedSubversion) throw new Error('missing saved subversion fixture');
+    const submittedSubversion = subversions[1];
+    if (!submittedSubversion) throw new Error('missing submitted subversion fixture');
     const html = renderToStaticMarkup(
       <DocumentActionCenter
         disableInitialLoad
         documentId={document.documentId}
+        editIntent={{
+          source: 'link',
+          versionId: '11111111-1111-4111-8111-111111111501',
+        }}
         initialAuditEvents={auditEvents}
+        initialActiveEditSession={activeEditSession}
         initialDocument={document}
+        initialSubversions={subversions}
         initialTaxonomyCatalog={[
           {
             documentTypeCode: 'CONTRACT',
@@ -190,13 +274,13 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('PETRA Bridge Closing');
     expect(html).toContain('작업 우선순위');
-    expect(html).toContain('읽기/다운로드 전용');
-    expect(html).toContain('검토');
-    expect(html).toContain('감사 다운로드');
-    expect(html).toContain('사유 필수');
-    expect(html).toContain('프로필 메타데이터');
-    expect(html).toContain('버전 및 Records');
-    expect(html).toContain('원본 파일을 직접 수정하는 작업은 별도 승인된 편집 계약 전까지 노출하지 않습니다.');
+    expect(html).toContain('편집 라이프사이클');
+    expect(html).toContain('편집 시작');
+    expect(html).toContain('내부 저장');
+    expect(html).toContain('체크인');
+    expect(html).toContain('공식 발행');
+    expect(html).toContain('읽기/다운로드 전용 동작은 사유 기반 감사 다운로드로 유지됩니다.');
+    expect(html).toContain('내부 subversion으로 기록되며');
     expect(html).toContain('문서 프로필');
     expect(html).toContain('Tenant Contract');
     expect(html).toContain('미리보기');
@@ -210,6 +294,32 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('v2');
     expect(html).toContain('v1');
     expect(html).toContain('새 버전 추가');
+    expect(html).toContain('문서 편집');
+    expect(html).toContain('편집 패키지');
+    expect(html).toContain('패키지 준비');
+    expect(html).toContain('Vault 편집기');
+    expect(html).toContain('Vault 편집기 열기');
+    expect(html).toContain('v2 편집 중');
+    expect(html).toContain('편집 바로가기에서 열린 문서입니다.');
+    expect(html).toContain('id="document-editing"');
+    expect(html).toContain('내부 subversion 저장');
+    expect(html).toContain('검토 대기');
+    expect(html).toContain('검토 1/2');
+    expect(html).toContain('가시성');
+    expect(html).toContain('검토자');
+    expect(html).toContain('검토자 제한');
+    expect(html).toContain('검토 대상');
+    expect(html).toContain('현재 검토자');
+    expect(html).toContain('검토 결정');
+    expect(html).toContain('검토 파일 열기');
+    expect(html).toContain('승인');
+    expect(html).toContain('변경 요청');
+    expect(html).toContain('구조화된 결정 코드');
+    expect(html).toContain('v2.1');
+    expect(html).toContain('v2.2');
+    expect(html).toContain('Matter 편집자');
+    expect(html).toContain('체크인됨');
+    expect(html).toContain('공식 버전 발행');
     expect(html).toContain('기록/보존');
     expect(html).toContain('관련 문서');
     expect(html).toContain('2건');
@@ -243,6 +353,14 @@ describe('DocumentActionCenter', () => {
     expect(html).not.toContain(currentVersion.versionId);
     expect(html).not.toContain(currentVersion.fileObjectId);
     expect(html).not.toContain(currentVersion.fileHash);
+    expect(html).not.toContain(activeEditSession.editSessionId);
+    expect(html).not.toContain(activeEditSession.lockOwnerUserId);
+    expect(html).not.toContain(savedSubversion.subversionId);
+    expect(html).not.toContain(savedSubversion.fileObjectId);
+    expect(html).not.toContain(savedSubversion.fileHash);
+    expect(html).not.toContain(submittedSubversion.subversionId);
+    expect(html).not.toContain(submittedSubversion.fileObjectId);
+    expect(html).not.toContain(submittedSubversion.fileHash);
     expect(html).not.toContain(currentAuditEvent.eventId);
     expect(html).not.toContain(currentAuditEvent.actorId);
     expect(html).not.toContain(currentRelatedEmail.filingId);
@@ -262,6 +380,83 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('표시 가능한 제목 없음');
     expect(html).not.toContain(document.documentId);
     expect(html).not.toContain(document.matterId);
+  });
+
+  it('derives the edit-link automation sequence without exposing identifiers', () => {
+    const currentVersion = versions[0];
+    if (!currentVersion) throw new Error('missing current version fixture');
+
+    expect(
+      nextEditIntentAutomationStep({
+        activeSession: null,
+        document,
+        editIntent: { source: 'link', versionId: currentVersion.versionId },
+        editPackage: null,
+        isBusy: false,
+        nativeDraft: null,
+        openedNativeDraft: false,
+        preparedPackage: false,
+        startedSession: false,
+      }),
+    ).toBe('start_session');
+
+    expect(
+      nextEditIntentAutomationStep({
+        activeSession: activeEditSession,
+        document,
+        editIntent: { source: 'link' },
+        editPackage: null,
+        isBusy: false,
+        nativeDraft: null,
+        openedNativeDraft: false,
+        preparedPackage: false,
+        startedSession: true,
+      }),
+    ).toBe('prepare_package');
+
+    expect(
+      nextEditIntentAutomationStep({
+        activeSession: activeEditSession,
+        document,
+        editIntent: { source: 'link' },
+        editPackage: {
+          baseFileUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/base-file',
+          baseVersionId: currentVersion.versionId,
+          baseVersionNo: 2,
+          canOpenInVaultEditor: true,
+          checkInUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/check-in',
+          documentId: document.documentId,
+          editSessionId: activeEditSession.editSessionId,
+          expiresAt: activeEditSession.expiresAt,
+          filename: 'draft.md',
+          mimeType: 'text/markdown',
+          mode: 'vault_text',
+          nativeDraftUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/native-draft',
+          saveSubversionUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/subversions',
+          sha256: 'text-hash',
+          sizeBytes: 32,
+        },
+        isBusy: false,
+        nativeDraft: null,
+        openedNativeDraft: false,
+        preparedPackage: true,
+        startedSession: true,
+      }),
+    ).toBe('open_native_draft');
+
+    expect(
+      nextEditIntentAutomationStep({
+        activeSession: activeEditSession,
+        document,
+        editIntent: { source: 'link' },
+        editPackage: null,
+        isBusy: true,
+        nativeDraft: null,
+        openedNativeDraft: false,
+        preparedPackage: false,
+        startedSession: true,
+      }),
+    ).toBe('idle');
   });
 
   it('derives related Matter documents without echoing the current document row', () => {
@@ -341,6 +536,51 @@ describe('DocumentActionCenter', () => {
       target: 'body',
     });
     expect(searchHitContextFromParams(new URLSearchParams())).toBeNull();
+  });
+
+  it('parses edit intent from route params without carrying arbitrary values', () => {
+    const params = new URLSearchParams({
+      edit: '1',
+      versionId: '11111111-1111-4111-8111-111111111501',
+      q: 'do not carry raw query text',
+    });
+
+    expect(editIntentFromParams(params)).toEqual({
+      source: 'link',
+      versionId: '11111111-1111-4111-8111-111111111501',
+    });
+    params.set('versionId', 'raw-version-text');
+    expect(editIntentFromParams(params)).toEqual({ source: 'link' });
+    expect(editIntentFromParams(new URLSearchParams())).toBeNull();
+  });
+
+  it('maps edit lifecycle reason codes to operator-actionable messages', () => {
+    expect(
+      editLifecycleErrorMessage(
+        new ApiClientError(423, {
+          code: 'DOCUMENT_LOCKED',
+          reason: 'edit_session_expired',
+        }),
+      ),
+    ).toContain('편집 lock이 만료되었습니다.');
+
+    expect(
+      editLifecycleErrorMessage(
+        new ApiClientError(400, {
+          code: 'VALIDATION_FAILED',
+          reason: 'base_version_stale',
+        }),
+      ),
+    ).toContain('기준 공식 버전이 이미 바뀌었습니다.');
+
+    expect(
+      editLifecycleErrorMessage(
+        new ApiClientError(400, {
+          code: 'VALIDATION_FAILED',
+          reason: 'review_required',
+        }),
+      ),
+    ).toContain('검토 승인이 완료되어야');
   });
 
   it('summarizes new-version upload receipts without raw refs', () => {

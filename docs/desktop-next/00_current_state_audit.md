@@ -4,9 +4,15 @@
 검토 기준: GitHub `Gonyak-cell/amic-vault`, default branch `main`; LazyCodex worktree `/Users/jws/Projects/amic-vault-desktop-lazycodex` 기준 SHA는 `ecec8384b91b205fc95be5ba9b2a640bc16d3271`이다.  
 검토 방식: 첨부 desktop-next 패키지의 GitHub 기반 초안을 가져온 뒤, 로컬 LazyCodex worktree에서 `git ls-files`, repository tree, 기존 desktop/PWA 문서, PWA asset 존재 여부를 재검증했다. 후속 PR에서는 CI에서 동일 파일 존재·부재 및 테스트 명령을 다시 검증해야 한다.
 
+> Current-state note, 2026-06-22: this document was the pre-import audit for
+> the desktop-next lane. The live checkout now contains `apps/desktop` with a
+> Tauri v2 thin shell, origin/capability policy, desktop tests, and desktop
+> release-gate tooling. Use `docs/current-code-state.md` for live repo state;
+> preserve the audit below as historical evidence for why the lane started.
+
 ## 1. 결론
 
-현재 상태를 “이미 네이티브 데스크톱 앱”이라고 부르면 안 된다. 현재 저장소에는 PWA/installable web app 기반의 데스크톱 설치 가능성 구현과 그에 관한 보안·릴리즈 증거가 존재한다. 반면 `apps/desktop`, `src-tauri`, Tauri v2 앱 scaffold, Electron 앱 구현은 확인되지 않았다. 따라서 native desktop은 별도의 `apps/desktop` Tauri thin shell 단계로 구현해야 한다.
+이 감사의 원래 결론은 당시 checkout을 “PWA/installable web app 기반이며 native desktop 미구현”으로 고정하는 것이었다. 현재 checkout에서는 그 다음 단계가 진행되어 `apps/desktop` Tauri v2 thin shell이 존재한다. 다만 desktop은 여전히 서버 권한 경계를 대체하지 않는 access surface이며, production native distribution은 별도 외부 증거와 승인 전까지 완료로 간주하지 않는다.
 
 데스크톱 앱의 목적은 서버를 대체하는 것이 아니라 승인된 Vault web origin을 안전하게 감싸는 것이다. NestJS API, PostgreSQL, MinIO/S3, ingestion worker, search index, vector store, model gateway, PermissionService, AuditService는 서버 권한 경계에 남아야 한다.
 
@@ -26,24 +32,24 @@
 
 ## 3. `apps/api`, `apps/web` 중심 구조 확인
 
-현재 저장소는 `apps/api` 및 `apps/web` 중심으로 구성되어 있다.
+현재 저장소는 `apps/api`, `apps/web`, `apps/desktop` 중심으로 구성되어 있다. 아래 목록은 원 감사 시점의 PWA 중심 확인 내용이며, desktop scaffold 부재 주장은 현재 checkout에는 적용되지 않는다.
 
 - `apps/api/package.json`: `@amic-vault/api`, NestJS 앱, CommonJS, `lint`, `typecheck`, `test`, `build`, `start` 스크립트 보유.
 - `apps/web/package.json`: `@amic-vault/web`, Next.js 앱, `lint`, `typecheck`, `test`, `build`, `start` 스크립트 보유.
-- `pnpm-workspace.yaml`: `apps/*`, `packages/*`, `workers/*`를 workspace 범위로 포함. 따라서 향후 `apps/desktop`을 추가하면 workspace glob에는 자연 편입되지만, desktop 전용 scripts, build output, CI matrix는 별도 정의가 필요하다.
+- `pnpm-workspace.yaml`: `apps/*`, `packages/*`, `workers/*`를 workspace 범위로 포함. 현재 `apps/desktop`도 이 범위에 포함된다.
 - `docs/package/codex/00_Master_Brief.md`의 저장소 구조 표도 `apps/api`, `apps/web`, `packages/shared`, `packages/domain`, `packages/ai`, `workers/ingestion`, `db`, `infra`, `docs`, `tools`, `tests`를 기준으로 한다.
 
 ## 4. native desktop 구현 유무
 
 | 확인 대상 | 결과 | 비고 |
 |---|---|---|
-| `apps/desktop/package.json` | 없음. GitHub contents 조회 결과 404. | Tauri/Electron 앱 package가 아직 없음. |
-| `apps/desktop/*` | 별도 구현 확인 안 됨. | `docs/desktop-next`도 기존에는 없음. |
-| `src-tauri` | 코드 검색에서 구현 파일이 아니라 `docs/desktop/desktop-app-plan.md`만 관련 결과로 확인됨. | 실제 Tauri scaffold 없음. |
-| Tauri dependency | `@tauri-apps`, `tauri.conf`, `capabilities/default.json` 등 검색 결과 없음. | 후속 PR에서 recursive tree check로 재검증 필요. |
+| `apps/desktop/package.json` | 현재 checkout에 존재. | Tauri v2 thin shell package. |
+| `apps/desktop/*` | 현재 checkout에 별도 구현 존재. | README, tests, tools, `src-tauri` 포함. |
+| `src-tauri` | 현재 checkout에 존재. | `Cargo.toml`, `tauri.conf.json`, origin modules, capability policy 포함. |
+| Tauri dependency | 현재 checkout에 존재. | `@tauri-apps/*` 및 Rust `tauri` dependency는 desktop package 범위에 한정. |
 | Electron 구현 | `BrowserWindow`, Electron package/dependency 검색 결과 없음. | Electron은 계획상 fallback이어야 함. |
 
-이상에 따라 현재 앱은 네이티브 데스크톱 앱이 아니라 PWA/installable web app 기반이다. native desktop은 별도 `apps/desktop` Tauri v2 thin shell 구현으로 착수해야 한다.
+현재 앱은 PWA/installable web app 기반과 Tauri thin shell 기반을 모두 갖는다. Tauri shell은 local Vault runtime이 아니며 native distribution approval도 아직 별도 external evidence 경계에 남아 있다.
 
 ## 5. PWA 구현 상태
 
@@ -70,7 +76,7 @@
 | `docs/package/codex/50_Verification_Security_Gates.md` | 표준 검증 명령, canonical integration suite 10개 디렉터리, AND verification semantics, negative test 4요소, R2 document audit 및 R3 search metadata leakage gate 확인. |
 | `docs/package/codex/60_Execution_Packs.md` | PACK은 한 브랜치·한 PR 단위이며, 선행 PACK 및 Gate 통과 전 다음 release 착수 금지. Risk=C는 human review 필수. |
 | `docs/adr/ADR-014-desktop-client-strategy.md` | Status는 Proposed. 결정은 PWA-first + 필요 시 Tauri v2 thin shell. Tauri는 approved Vault web origin을 로드하며 서버 런타임을 bundle하지 않음. Electron은 fallback. |
-| `docs/desktop/desktop-app-plan.md` | Phase 1 PWA와 Phase 2 release evidence는 implemented로 기술되어 있음. Phase 3는 Tauri thin shell feasibility이며 `apps/desktop` scaffold는 아직 future task로 정의됨. |
+| `docs/desktop/desktop-app-plan.md` | 원 감사 시점에는 Phase 1 PWA와 Phase 2 release evidence만 implemented였고 Phase 3 Tauri thin shell은 future task였다. 현재 checkout에서는 Phase 3 foundation이 로컬 구현되었고 production native distribution은 external evidence pending이다. |
 | `docs/release/desktop-origin-policy.md` | repo에는 private endpoint, account id, ARN, secret, cookie, customer data를 넣지 않고 approved origin evidence ref만 기록해야 함. Tauri는 signed installer/update policy, origin allow-list, capability deny-by-default, local log allow-list 등이 있어야 착수 가능. |
 | `docs/security/desktop-threat-model.md` | desktop surface는 access layer일 뿐 local runtime, local document store, local search index, audit authority가 아님. Server-owned controls가 인증, tenant context, PermissionService, AuditService, RLS, preview/download, search, AI, records, external portal policy를 보유. |
 | `docs/security/desktop-cache-policy.md` | service worker allowed keys와 denied keys, response header, desktop log allow-list/deny-list가 명시됨. |
@@ -90,13 +96,13 @@
 
 ## 8. 불확실하거나 추가 확인이 필요한 항목
 
-1. 로컬 LazyCodex worktree에서는 `apps/desktop`, `src-tauri`, Electron/Tauri dependency가 확인되지 않았다. 후속 PR에서는 CI에서 `git ls-files`, `find apps -maxdepth ...`, dependency graph, lockfile scan으로 이 부재를 다시 확인해야 한다.
+1. 원 감사 시점의 로컬 LazyCodex worktree에서는 `apps/desktop`, `src-tauri`, Electron/Tauri dependency가 확인되지 않았다. 현재 checkout에는 `apps/desktop`이 존재하므로 후속 감사는 부재 확인이 아니라 현재 scaffold, dependency graph, policy tests, release-gate 증거 확인으로 수행해야 한다.
 2. `docs/desktop/desktop-app-plan.md`의 Phase 1 task는 일부 integration spec 예시를 `*.int.spec.ts`로 표기하지만 실제 확인 파일은 `*.spec.ts`이다. runner가 keyword 방식으로 안정적으로 매핑되는지 확인해야 한다.
 3. `apps/web/src/components/pwa/*`에는 현재 `offline-status.tsx`만 확인되었다. install prompt UI가 필요한지 여부는 product decision에서 별도 결정해야 한다.
-4. `docs/release/desktop-signing-plan.md`, `docs/release/desktop-update-policy.md`, `docs/release/desktop-macos-distribution.md`, `docs/release/desktop-windows-distribution.md`, `docs/release/desktop-release-channels.md`, `docs/release/desktop-it-handoff.md`는 현 시점에 확인되지 않았다. Tauri 단계에서 새로 작성해야 한다.
+4. 현재 checkout에는 `docs/release/desktop-signing-plan.md`, `docs/release/desktop-update-policy.md`, `docs/release/desktop-macos-distribution.md`, `docs/release/desktop-windows-distribution.md`, `docs/release/desktop-release-channels.md`, `docs/release/desktop-it-handoff.md`, `docs/release/desktop-native-distribution-evidence.md`가 존재한다. Production native distribution은 이 문서들의 외부 artifact/signing/customer IT evidence가 채워지기 전까지 승인되지 않는다.
 5. production custom domain은 `desktop-origin-policy`상 broad customer rollout 전 필요하나 확정 여부가 문서상 확인되지 않는다.
 6. 고객 IT가 signed installer, MSIX, notarized DMG/PKG, auto-update, offline mode, SSO/SAML webview behavior를 실제 요구하는지 확인되지 않는다.
-7. Tauri v2의 remote origin loading, CSP, navigation event guard, updater signature validation은 아직 구현 증거가 없다. Phase 3에서 새로 검증해야 한다.
+7. 현재 checkout은 Tauri v2 thin shell, signed-origin validation, navigation/origin guard, capability-deny checks를 포함한다. Updater/signature distribution evidence와 production release approval은 여전히 별도 외부 증거가 필요하다.
 
 ## 9. 현재 상태 기준 작업 원칙
 

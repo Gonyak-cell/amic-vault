@@ -21,6 +21,7 @@ function versionRow(overrides: Record<string, unknown> = {}) {
     created_by: actorUserId,
     created_at: new Date('2026-06-12T00:00:00.000Z'),
     supersedes_version_id: null,
+    promoted_from_subversion_id: null,
     ...overrides,
   };
 }
@@ -69,6 +70,7 @@ describe('DocumentVersionService', () => {
       fileObjectId,
       fileHash: hash,
       supersedesVersionId: null,
+      promotedFromSubversionId: null,
     });
     expect(tx.query.mock.calls[0]?.[1]).toEqual([
       tenantId,
@@ -155,6 +157,7 @@ describe('DocumentVersionService', () => {
       versionStatus: 'current',
       fileObjectId: nextFileObjectId,
       supersedesVersionId: previousVersionId,
+      promotedFromSubversionId: null,
     });
     expect(tx.query.mock.calls[2]?.[0]).toContain("SET version_status = 'superseded'");
     expect(tx.query.mock.calls[3]?.[1]).toEqual([

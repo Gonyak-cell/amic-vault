@@ -4,6 +4,10 @@ Date: 2026-06-18
 
 Source baseline: `docs/ui/enterprise-dms-ux-baseline-gap-audit.md`
 
+Status: Historical TUW plan with later implementation progress. Current route
+capability status is tracked in
+`docs/ui/enterprise-dms-ux-route-capability-inventory.md`.
+
 Purpose: Convert the enterprise SaaS DMS UX gap audit into a pyramid-shaped implementation plan. This plan treats Matter app-backed Matter Code-first upload, enterprise search, file browse, document action center, records, audit, workflow, and admin operations as one coherent DMS operating loop.
 
 Non-goals and hard limits:
@@ -29,13 +33,13 @@ Matter app Matter Code selection -> upload/file/import -> metadata/security prof
 | Outcome | User-visible promise | Primary gap closed |
 | --- | --- | --- |
 | O1 Matter app-centered intake | Users always start document work from a valid Matter app Matter Code/name. | Free-floating upload, duplicate Matter Code namespaces, and UUID-driven flows. |
-| O2 File browse and cabinet | Users can browse matter files without guessing search terms. | `/files` empty/hidden and no matter file cabinet. |
+| O2 File browse and cabinet | Users can browse matter files without guessing search terms. | Closed in current code for approved APIs; external DMS smoke remains required before GA. |
 | O3 Document action center | Users can act on a document from one coherent detail screen. | Preview/download/version/profile/action fragmentation. |
 | O4 Enterprise search | Users can search body, metadata, emails, matters, folders, and refine safely. | Basic search UI and shallow filters. |
 | O5 Governance in context | Users see access, walls, labels, holds, records, and audit where they act. | Governance only in separate admin surfaces. |
 | O6 Workflow and operations | Users/admins see tasks, failures, queues, extraction/OCR/indexing health. | Passive activity without action queues. |
 | O7 Admin configuration | Admins configure taxonomy, templates, required metadata, and refiners. | Hard-coded or incomplete filing/search structure. |
-| O8 Release-grade QA | CI/smoke fails when a core DMS flow is missing. | Current gates can pass hidden/empty `/files`. |
+| O8 Release-grade QA | CI/smoke fails when a core DMS flow is missing. | Partly closed by production UI and DMS smoke gates; external authenticated DMS smoke remains the release boundary. |
 
 ### L2 Implementation Bundles
 
@@ -49,6 +53,11 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 | PR-D Governance, workflow, and ops | DMS-UX-401 to 527 | 4 |
 | PR-E Admin configuration and integrations | DMS-UX-601 to 714 | 5 |
 | PR-F Release hardening | DMS-UX-801 to 812 | 6 |
+
+Current implementation note, 2026-06-22: PR-A through PR-E surfaces are present
+in the current checkout for approved APIs. PR-F remains the release-hardening
+boundary for external authenticated DMS smoke, owner signoff, responsive and
+accessibility receipts, monitoring, rollback, and production approval evidence.
 
 ## L3 TUW Backlog
 
@@ -157,7 +166,7 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 
 #### DMS-UX-104 `/files` Browse Surface
 
-- Objective: Replace hidden/empty `/files` with a real browse experience when API-ready.
+- Objective: Historical baseline objective was to replace hidden/empty `/files`; current checkout has the browse experience for approved APIs, so future work is smoke/evidence hardening and deferred folder/Office contracts.
 - Work:
   - Add table/list with filters, sorting, pagination, and action affordances.
   - Include upload entry point.
@@ -201,7 +210,7 @@ Use larger bundles to reduce PR overhead, but keep TUW acceptance separate.
 
 - Objective: CI must catch missing upload/browse once APIs are production-ready.
 - Work:
-  - Update production smoke to fail if `/files` remains hidden/empty after upload/list readiness is declared.
+  - Current checkout note: production UI and DMS smoke gates now cover the upload/browse boundary; keep external authenticated DMS smoke as the GA boundary.
   - Add allowed upload, denied upload, post-upload visible row, no fake data checks.
 - Acceptance:
   - A production-ready upload API without UI no longer passes unnoticed.

@@ -20,9 +20,16 @@ export function isProtectedAppPath(pathname: string): boolean {
   return protectedPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-export function loginRedirectUrl(origin: string, pathname: string): string {
+function safeNextPath(nextPathAndSearch: string): string {
+  if (!nextPathAndSearch.startsWith('/') || nextPathAndSearch.startsWith('//')) {
+    return '/dashboard';
+  }
+  return nextPathAndSearch;
+}
+
+export function loginRedirectUrl(origin: string, nextPathAndSearch: string): string {
   const loginUrl = new URL('/login', origin);
-  loginUrl.searchParams.set('next', pathname);
+  loginUrl.searchParams.set('next', safeNextPath(nextPathAndSearch));
   return loginUrl.toString();
 }
 

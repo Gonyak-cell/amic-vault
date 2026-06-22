@@ -35,4 +35,15 @@ describe('confidentiality policy', () => {
     expect(roleAllowsDocumentAction('firm_admin', 'download')).toBe(false);
     expect(roleAllowsDocumentAction('matter_member', 'download')).toBe(true);
   });
+
+  it('keeps editing and promotion narrower than read and download', () => {
+    expect(roleAllowsDocumentAction('firm_admin', 'checkout')).toBe(false);
+    expect(roleAllowsDocumentAction('knowledge_manager', 'read_subversion')).toBe(false);
+    expect(roleAllowsDocumentAction('limited_reviewer', 'read_subversion')).toBe(true);
+    expect(roleAllowsDocumentAction('limited_reviewer', 'checkout')).toBe(false);
+    expect(roleAllowsDocumentAction('matter_member', 'save_subversion')).toBe(true);
+    expect(roleAllowsDocumentAction('matter_member', 'checkin')).toBe(true);
+    expect(roleAllowsDocumentAction('matter_member', 'promote_version')).toBe(false);
+    expect(roleAllowsDocumentAction('matter_owner', 'promote_version')).toBe(true);
+  });
 });

@@ -8,7 +8,7 @@ export interface FileObjectDto {
   sizeBytes: number;
   sha256: string;
   encryptionKeyId: string | null;
-  sourceSystem: 'upload' | 'email_ingest' | 'migration' | 'preview_derived';
+  sourceSystem: 'upload' | 'email_ingest' | 'migration' | 'preview_derived' | 'document_edit';
   createdBy: string | null;
   createdAt: string;
 }

@@ -3,6 +3,10 @@
 Date: 2026-06-21
 Status: Implemented and verified after operator dependency approval.
 
+> Current-state note, 2026-06-22: this brief is the historical implementation
+> contract for LC-DESKTOP-03. The scaffold described below now exists in the
+> current checkout; keep the steps as traceability, not as remaining work.
+
 ## 1. Goal
 
 Create the smallest `apps/desktop` Tauri v2 thin-shell scaffold for AMIC Vault while preserving server authority and avoiding local data storage.
