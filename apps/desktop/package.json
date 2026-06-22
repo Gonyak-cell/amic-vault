@@ -9,6 +9,7 @@
     "test": "vitest run",
     "build": "pnpm run validate",
     "validate": "node tools/validate-tauri-policy.mjs",
+    "origin:verify": "node tools/verify-origin-config.mjs",
     "tauri:build": "tauri build --bundles app",
     "tauri:dev": "tauri dev"
   },

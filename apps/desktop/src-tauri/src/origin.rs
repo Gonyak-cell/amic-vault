@@ -103,6 +103,13 @@ impl OriginConfig {
                 require_https(&url, "staging")?;
                 reject_disallowed_remote_origin(&url, "staging")?;
             }
+            "pilot" => {
+                if !self.origin_ref.starts_with("PILOT-") {
+                    return Err("pilot originRef must start with PILOT-".to_string());
+                }
+                require_https(&url, "pilot")?;
+                reject_disallowed_remote_origin(&url, "pilot")?;
+            }
             "production" => {
                 if !self.origin_ref.starts_with("PROD-") {
                     return Err("production originRef must start with PROD-".to_string());
@@ -110,7 +117,11 @@ impl OriginConfig {
                 require_https(&url, "production")?;
                 reject_disallowed_remote_origin(&url, "production")?;
             }
-            _ => return Err("releaseChannel must be local, staging, or production".to_string()),
+            _ => {
+                return Err(
+                    "releaseChannel must be local, staging, pilot, or production".to_string(),
+                )
+            }
         }
 
         Ok(url)
@@ -186,6 +197,15 @@ mod tests {
         }
     }
 
+    fn pilot_config_with(origin: &str) -> OriginConfig {
+        OriginConfig {
+            release_channel: "pilot".to_string(),
+            origin_ref: "PILOT-APPROVED-ORIGIN-001".to_string(),
+            origin: origin.to_string(),
+            ..signed_local_config()
+        }
+    }
+
     #[test]
     fn accepts_signed_local_origin() {
         let config = signed_local_config();
@@ -207,6 +227,12 @@ mod tests {
     fn rejects_http_staging_origin() {
         let config = staging_config_with("http://example.invalid");
         assert!(config.validate_origin().is_err());
+    }
+
+    #[test]
+    fn accepts_public_https_pilot_origin_policy() {
+        let config = pilot_config_with("https://vault.example.com");
+        assert!(config.validate_origin().is_ok());
     }
 
     #[test]

@@ -26,6 +26,7 @@ const cargoToml = readText('src-tauri/Cargo.toml');
 const main = readText('src-tauri/src/main.rs');
 const origin = readText('src-tauri/src/origin.rs');
 const originGuard = readText('src-tauri/src/origin_guard.rs');
+const originVerifier = readText('tools/verify-origin-config.mjs');
 
 assert(Array.isArray(tauriConfig.app?.windows), 'Tauri config must declare windows');
 assert(tauriConfig.app.windows.length === 0, 'No default Tauri window may bypass origin config');
@@ -136,8 +137,14 @@ assert(
   'Origin config path must come from env',
 );
 assert(
-  origin.includes('origin config signature verification failed'),
+  `${origin}\n${originVerifier}`.includes('signature verification failed'),
   'Origin config must fail closed on bad signatures',
+);
+assert(
+  `${origin}\n${originVerifier}`.includes(
+    'releaseChannel must be local, staging, pilot, or production',
+  ),
+  'Origin config policy must match documented desktop release channels',
 );
 
 console.log('Desktop Tauri policy verified.');
