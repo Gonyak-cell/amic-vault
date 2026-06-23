@@ -103,6 +103,7 @@ function assertVersionableDocument(row: DocumentVersionTarget): void {
 @Injectable()
 export class DocumentVersionService {
   private readonly logger = new Logger(DocumentVersionService.name);
+  private promotedFromSubversionColumnAvailable: boolean | undefined;
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -129,7 +130,8 @@ export class DocumentVersionService {
         )
         VALUES ($1, $2, $3, 'current', $4, $5, $6, NULL)
         RETURNING version_id, document_id, version_no, version_status, file_object_id,
-          file_hash, created_by, created_at, supersedes_version_id, promoted_from_subversion_id
+          file_hash, created_by, created_at, supersedes_version_id,
+          NULL::uuid AS promoted_from_subversion_id
       `,
       [
         input.tenantId,
@@ -192,7 +194,8 @@ export class DocumentVersionService {
         )
         VALUES ($1, $2, $3, 'current', $4, $5, $6, $7)
         RETURNING version_id, document_id, version_no, version_status, file_object_id,
-          file_hash, created_by, created_at, supersedes_version_id, promoted_from_subversion_id
+          file_hash, created_by, created_at, supersedes_version_id,
+          NULL::uuid AS promoted_from_subversion_id
       `,
       [
         input.tenantId,
@@ -245,10 +248,13 @@ export class DocumentVersionService {
         params.push(query.status);
         filters.push(`version_status = $${params.length}`);
       }
+      const promotedFromSubversionIdProjection =
+        await this.promotedFromSubversionIdProjection(tx);
       const result = await tx.query(
         `
           SELECT version_id, document_id, version_no, version_status, file_object_id,
-            file_hash, created_by, created_at, supersedes_version_id, promoted_from_subversion_id
+            file_hash, created_by, created_at, supersedes_version_id,
+            ${promotedFromSubversionIdProjection}
           FROM document_versions
           WHERE ${filters.join(' AND ')}
           ORDER BY version_no DESC, created_at DESC, version_id DESC
@@ -356,5 +362,27 @@ export class DocumentVersionService {
       [tenantId, documentId],
     );
     return (result.rows[0] as CurrentVersionRow | undefined) ?? null;
+  }
+
+  private async promotedFromSubversionIdProjection(client: QueryClient): Promise<string> {
+    if (this.promotedFromSubversionColumnAvailable === undefined) {
+      const result = await client.query(
+        `
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'document_versions'
+              AND column_name = 'promoted_from_subversion_id'
+          ) AS exists
+        `,
+      );
+      const row = result.rows[0] as { exists?: boolean | 't' | 'f' } | undefined;
+      this.promotedFromSubversionColumnAvailable = row?.exists === true || row?.exists === 't';
+    }
+
+    return this.promotedFromSubversionColumnAvailable
+      ? 'promoted_from_subversion_id'
+      : 'NULL::uuid AS promoted_from_subversion_id';
   }
 }
