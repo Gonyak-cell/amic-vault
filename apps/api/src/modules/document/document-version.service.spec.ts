@@ -29,8 +29,27 @@ function versionRow(overrides: Record<string, unknown> = {}) {
 function createService(options: { enqueueVersionCreated?: ReturnType<typeof vi.fn> } = {}) {
   return new DocumentVersionService(
     { transaction: vi.fn() } as never,
-    { canReadMatter: vi.fn() } as never,
-    { require: vi.fn() } as never,
+    { canReadDocument: vi.fn(), canReadMatter: vi.fn() } as never,
+    { require: vi.fn(() => ({ tenantId })) } as never,
+    new VersionNumberResolver(),
+    options.enqueueVersionCreated
+      ? ({ enqueueVersionCreated: options.enqueueVersionCreated } as never)
+      : undefined,
+  );
+}
+
+function createServiceWithOptions(options: {
+  transaction?: ReturnType<typeof vi.fn>;
+  canReadDocument?: ReturnType<typeof vi.fn>;
+  enqueueVersionCreated?: ReturnType<typeof vi.fn>;
+} = {}) {
+  return new DocumentVersionService(
+    { transaction: options.transaction ?? vi.fn() } as never,
+    {
+      canReadDocument: options.canReadDocument ?? vi.fn(),
+      canReadMatter: vi.fn(),
+    } as never,
+    { require: vi.fn(() => ({ tenantId })) } as never,
     new VersionNumberResolver(),
     options.enqueueVersionCreated
       ? ({ enqueueVersionCreated: options.enqueueVersionCreated } as never)
@@ -80,6 +99,9 @@ describe('DocumentVersionService', () => {
       hash,
       actorUserId,
     ]);
+    expect(tx.query.mock.calls[0]?.[0]).toContain(
+      'NULL::uuid AS promoted_from_subversion_id',
+    );
     expect(enqueueVersionCreated).toHaveBeenCalledWith(
       {
         tenantId,
@@ -169,5 +191,42 @@ describe('DocumentVersionService', () => {
       actorUserId,
       previousVersionId,
     ]);
+    expect(tx.query.mock.calls[3]?.[0]).toContain(
+      'NULL::uuid AS promoted_from_subversion_id',
+    );
+  });
+
+  it('lists versions safely when document editing migration columns are not present', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          {
+            document_id: documentId,
+            tenant_id: tenantId,
+            matter_id: matterId,
+            document_family_id: documentId,
+            status: 'draft',
+            matter_status: 'active',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ exists: false }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [versionRow()] });
+    const tx = { query };
+    const transaction = vi.fn(async (_tenantId, callback) => callback(tx));
+    const canReadDocument = vi.fn(async () => ({ effect: 'ALLOW' }));
+
+    const result = await createServiceWithOptions({
+      transaction,
+      canReadDocument,
+    }).listVersions(actorUserId, documentId, {});
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.promotedFromSubversionId).toBeNull();
+    expect(tx.query.mock.calls[2]?.[0]).toContain(
+      'NULL::uuid AS promoted_from_subversion_id',
+    );
   });
 });
