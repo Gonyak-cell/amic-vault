@@ -10,7 +10,6 @@ import {
   matterSearchUrl,
 } from '@/components/matter/matter-dms-links';
 import { Button } from '@/components/ui/button';
-import { SectionCard } from '@/components/ui/section-card';
 
 interface WorkspaceAction {
   description: string;
@@ -54,31 +53,22 @@ export function MatterWorkspaceActions({ matter }: { matter: MatterDto }) {
   ];
 
   return (
-    <SectionCard
-      icon={<BriefcaseBusiness className="h-4 w-4" />}
-      title="사건 작업"
-      meta="Matter Code 기준 운영 루프"
-    >
-      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-        {actions.map((action) => (
-          <Button
-            asChild
-            className="h-auto min-h-[4.75rem] justify-start whitespace-normal px-3 py-3 text-left"
-            key={action.label}
-            variant="outline"
-          >
-            <Link href={action.href}>
-              <span className="shrink-0 text-primary">{action.icon}</span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold">{action.label}</span>
-                <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">
-                  {action.description}
-                </span>
-              </span>
-            </Link>
-          </Button>
-        ))}
-      </div>
-    </SectionCard>
+    <nav aria-label="Matter Code 기준 작업" className="flex min-w-0 flex-wrap justify-end gap-2">
+      {actions.map((action) => (
+        <Button
+          asChild
+          className="shrink-0"
+          key={action.label}
+          size="sm"
+          title={action.description}
+          variant="outline"
+        >
+          <Link href={action.href}>
+            {action.icon}
+            {action.label}
+          </Link>
+        </Button>
+      ))}
+    </nav>
   );
 }

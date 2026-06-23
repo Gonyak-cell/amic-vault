@@ -10,8 +10,7 @@ describe('MatterWorkspaceActions', () => {
     const matter = matterFixture();
     const html = renderToStaticMarkup(<MatterWorkspaceActions matter={matter} />);
 
-    expect(html).toContain('사건 작업');
-    expect(html).toContain('Matter Code 기준 운영 루프');
+    expect(html).toContain('Matter Code 기준 작업');
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
     expect(html).toContain('작업함');

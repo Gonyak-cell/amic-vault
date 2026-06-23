@@ -58,6 +58,9 @@ import { cn } from '@/lib/utils';
 
 type RecordsTab = 'policies' | 'holds' | 'archive' | 'disposal' | 'certificates';
 
+const recordsGridClassName =
+  'grid min-w-0 gap-4 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]';
+
 const recordsCopy: Record<
   Language,
   {
@@ -156,8 +159,8 @@ const recordsCopy: Record<
     refreshTitle: '보존 정보 새로고침',
     refresh: '새로고침',
     pageTitle: '기록 보존',
-    pageDescription: '보존 정책, 삭제 금지, 보관·삭제 처리를 운영 데이터 기준으로 관리합니다.',
-    title: '보존 관리',
+    pageDescription: '보존 정책, 삭제 금지, 보관, 삭제 요청을 정책 관리 기준으로 운영합니다.',
+    title: '보존 정책 관리',
     policyMeta: '승인된 정책 값만 저장합니다.',
     holdMeta: 'Matter Code와 파일 표시명 기준으로 보존 조치를 적용합니다.',
     archiveMeta: '보관 처리는 권한과 감사 기록을 통과한 파일에만 적용됩니다.',
@@ -168,7 +171,7 @@ const recordsCopy: Record<
     retentionDays: '보존 기간',
     savePolicy: '정책 저장',
     reason: '사유',
-    matterHold: '사건 삭제 금지',
+    matterHold: 'Matter 삭제 금지',
     documentHold: '파일 삭제 금지',
     releaseHold: '삭제 금지 해제',
     archive: '보관 처리',
@@ -200,7 +203,7 @@ const recordsCopy: Record<
     documentOnHold: '삭제 금지 적용됨',
     documentAvailable: '삭제 금지 없음',
     targetDocument: '대상 파일',
-    targetMatter: '대상 사건',
+    targetMatter: '대상 Matter',
     requestReady: '삭제 요청 연결됨',
     assignedRole: '담당 범위',
     recordsAdminRole: '기록 관리자',
@@ -489,8 +492,9 @@ export function RecordsGovernanceClient() {
       <TabBar activeTab={activeTab} labels={copy.tabs} onChange={setActiveTab} />
 
       {activeTab === 'policies' ? (
-        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <section className={recordsGridClassName}>
           <form
+            className="min-w-0"
             onSubmit={(event) => {
               event.preventDefault();
               if (busy || !policyCode.trim() || !policyLabel.trim()) return;
@@ -510,6 +514,7 @@ export function RecordsGovernanceClient() {
                 </Button>
               }
               label={copy.title}
+              layout="stacked"
               title={copy.title}
               description={copy.policyMeta}
             >
@@ -547,8 +552,8 @@ export function RecordsGovernanceClient() {
       ) : null}
 
       {activeTab === 'holds' ? (
-        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <div className="grid gap-4">
+        <section className={recordsGridClassName}>
+          <div className="grid min-w-0 gap-4">
             <RecordsTargetPickerPanel
               copy={copy}
               documentContextLabel={documentContextLabel}
@@ -558,7 +563,12 @@ export function RecordsGovernanceClient() {
               selectedDocument={selectedDocument}
               selectedMatter={selectedMatter}
             />
-            <FilterBar label={copy.holds} title={copy.holds} description={copy.holdMeta}>
+            <FilterBar
+              label={copy.holds}
+              layout="stacked"
+              title={copy.holds}
+              description={copy.holdMeta}
+            >
               <Field
                 id="records-hold-reason"
                 label={copy.reason}
@@ -566,6 +576,7 @@ export function RecordsGovernanceClient() {
                 onChange={setReasonCode}
               />
               <Button
+                className="w-full justify-center"
                 onClick={() => saveHold('matter')}
                 disabled={busy || !trimmedMatterId || !trimmedReason}
                 type="button"
@@ -574,6 +585,7 @@ export function RecordsGovernanceClient() {
                 {copy.matterHold}
               </Button>
               <Button
+                className="w-full justify-center"
                 onClick={() => saveHold('document')}
                 disabled={busy || !trimmedMatterId || !trimmedDocumentId || !trimmedReason}
                 type="button"
@@ -582,6 +594,7 @@ export function RecordsGovernanceClient() {
                 {copy.documentHold}
               </Button>
               <Button
+                className="w-full justify-center"
                 onClick={releaseHold}
                 disabled={busy || !activeLegalHoldId}
                 type="button"
@@ -606,8 +619,8 @@ export function RecordsGovernanceClient() {
       ) : null}
 
       {activeTab === 'archive' ? (
-        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <div className="grid gap-4">
+        <section className={recordsGridClassName}>
+          <div className="grid min-w-0 gap-4">
             <RecordsTargetPickerPanel
               copy={copy}
               documentContextLabel={documentContextLabel}
@@ -618,7 +631,12 @@ export function RecordsGovernanceClient() {
               selectedDocument={selectedDocument}
               selectedMatter={selectedMatter}
             />
-            <FilterBar label={copy.archivePanel} title={copy.archivePanel} description={copy.archiveMeta}>
+            <FilterBar
+              label={copy.archivePanel}
+              layout="stacked"
+              title={copy.archivePanel}
+              description={copy.archiveMeta}
+            >
               <Field
                 id="records-archive-reason"
                 label={copy.reason}
@@ -626,6 +644,7 @@ export function RecordsGovernanceClient() {
                 onChange={setReasonCode}
               />
               <Button
+                className="w-full justify-center"
                 onClick={saveArchive}
                 disabled={busy || !trimmedDocumentId || !trimmedReason}
                 type="button"
@@ -648,8 +667,8 @@ export function RecordsGovernanceClient() {
       ) : null}
 
       {activeTab === 'disposal' ? (
-        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-          <div className="grid gap-4">
+        <section className={recordsGridClassName}>
+          <div className="grid min-w-0 gap-4">
             <RecordsTargetPickerPanel
               copy={copy}
               documentContextLabel={documentContextLabel}
@@ -660,7 +679,12 @@ export function RecordsGovernanceClient() {
               selectedDocument={selectedDocument}
               selectedMatter={selectedMatter}
             />
-            <FilterBar label={copy.disposal} title={copy.disposal} description={copy.disposalMeta}>
+            <FilterBar
+              label={copy.disposal}
+              layout="stacked"
+              title={copy.disposal}
+              description={copy.disposalMeta}
+            >
               <Field
                 id="records-disposal-reason"
                 label={copy.reason}
@@ -668,6 +692,7 @@ export function RecordsGovernanceClient() {
                 onChange={setReasonCode}
               />
               <Button
+                className="w-full justify-center"
                 onClick={requestDisposal}
                 disabled={busy || !trimmedDocumentId || !trimmedReason}
                 type="button"
@@ -676,6 +701,7 @@ export function RecordsGovernanceClient() {
                 {copy.requestDisposal}
               </Button>
               <Button
+                className="w-full justify-center"
                 onClick={approveDisposal}
                 disabled={busy || !activeDisposalRequestId}
                 type="button"
@@ -684,6 +710,7 @@ export function RecordsGovernanceClient() {
                 {copy.approve}
               </Button>
               <Button
+                className="w-full justify-center"
                 onClick={executeDisposal}
                 disabled={busy || !activeDisposalRequestId}
                 type="button"
@@ -710,9 +737,10 @@ export function RecordsGovernanceClient() {
       ) : null}
 
       {activeTab === 'certificates' ? (
-        <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <section className={recordsGridClassName}>
           <FilterBar
             label={copy.certificate}
+            layout="stacked"
             title={copy.certificate}
             description={copy.certificateMeta}
           >
@@ -724,6 +752,7 @@ export function RecordsGovernanceClient() {
               )}
             </div>
             <Button
+              className="w-full justify-center"
               onClick={loadCertificate}
               disabled={busy || !activeDisposalRequestId}
               type="button"
@@ -762,11 +791,21 @@ function parseRecordsTab(value: string | null): RecordsTab {
     : 'policies';
 }
 
-function ContextTarget({ label, value }: { label: string; value: string }) {
+function ContextTarget({
+  compact = false,
+  label,
+  value,
+}: {
+  compact?: boolean;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="min-w-0 rounded-md border bg-muted/20 px-3 py-2">
+    <div className={cn('min-w-0 rounded-md border bg-muted/20 px-3 py-2', compact && 'py-1.5')}>
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-foreground">{value}</p>
+      <p className={cn('truncate font-semibold text-foreground', compact ? 'text-xs' : 'mt-1 text-sm')}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -793,14 +832,15 @@ function RecordsTargetPickerPanel({
   return (
     <FilterBar
       label={copy.targetPickerTitle}
+      layout="stacked"
       title={copy.targetPickerTitle}
       description={copy.targetPickerMeta}
     >
-      <div className="grid gap-4 sm:col-span-full">
+      <div className="grid min-w-0 gap-4">
         {matterContextLabel ? (
           <ContextTarget label={copy.selectedMatter} value={matterContextLabel} />
         ) : (
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             <p className="text-sm font-semibold text-foreground">{copy.matterPickerTitle}</p>
             <MatterCodePicker selectedMatter={selectedMatter} onMatterSelected={onMatterSelected} />
           </div>
@@ -900,7 +940,7 @@ function RecordsDocumentPicker({
   return (
     <div className="grid gap-2">
       <p className="text-sm font-semibold text-foreground">{copy.documentPickerTitle}</p>
-      <div className="grid gap-2" role="listbox" aria-label={copy.documentPickerTitle}>
+      <div className="grid min-w-0 gap-2" role="listbox" aria-label={copy.documentPickerTitle}>
         {documents.map((document) => {
           const isSelected = selectedDocument?.documentId === document.documentId;
           return (
@@ -983,60 +1023,51 @@ function RecordsActionContextPanel({
   const visibleActions = actions.filter((action) => !action.requiresDocument || documentContextLabel);
 
   return (
-    <SectionCard
-      actions={<StatusBadge tone="success">{copy.contextReady}</StatusBadge>}
-      icon={<ListChecks className="h-4 w-4" />}
-      title={copy.contextPanelTitle}
-      meta={copy.contextPanelMeta}
-    >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)]">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
-            {copy.contextActionTarget}
-          </p>
-          <dl className="mt-3 grid gap-3">
+    <div className="rounded-md border bg-card p-3">
+      <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <ListChecks className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <p className="truncate text-sm font-semibold text-foreground">
+              {copy.contextPanelTitle}
+            </p>
+            <StatusBadge tone="success">{copy.contextReady}</StatusBadge>
+          </div>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{copy.contextPanelMeta}</p>
+          <dl className="mt-2 flex min-w-0 flex-wrap gap-2">
             {documentContextLabel ? (
-              <ContextTarget label={copy.documentRef} value={documentContextLabel} />
+              <ContextTarget label={copy.documentRef} value={documentContextLabel} compact />
             ) : null}
             {matterContextLabel ? (
-              <ContextTarget label={copy.matterRef} value={matterContextLabel} />
+              <ContextTarget label={copy.matterRef} value={matterContextLabel} compact />
             ) : null}
           </dl>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex min-w-0 flex-wrap gap-2" aria-label={copy.contextActionTarget}>
           {visibleActions.map((action) => (
             <button
               aria-current={activeTab === action.tab ? 'step' : undefined}
               className={cn(
-                'group flex min-h-[112px] flex-col rounded-md border bg-background p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'inline-flex h-9 min-w-0 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 activeTab === action.tab
-                  ? 'border-primary bg-primary/5'
-                  : 'hover:border-primary/40 hover:bg-muted/30',
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'bg-background text-foreground hover:bg-muted',
               )}
               key={action.tab}
               onClick={() => onSelectTab(action.tab)}
+              title={action.description}
               type="button"
             >
-              <span className="flex items-start justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-                  <span className="text-primary">{action.icon}</span>
-                  <span className="truncate">{action.title}</span>
-                </span>
-                {activeTab === action.tab ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                ) : null}
+              <span className={cn('shrink-0', activeTab === action.tab ? '' : 'text-primary')}>
+                {action.icon}
               </span>
-              <span className="mt-2 text-xs leading-5 text-muted-foreground">
-                {action.description}
-              </span>
-              <span className="mt-auto pt-3 text-xs font-semibold text-primary">
-                {copy.openAction}
-              </span>
+              <span className="truncate">{action.title}</span>
+              {activeTab === action.tab ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : null}
             </button>
           ))}
         </div>
       </div>
-    </SectionCard>
+    </div>
   );
 }
 
@@ -1103,8 +1134,8 @@ function SummaryPanel({
   empty: string;
 }) {
   return (
-    <SectionCard icon={<ListTree className="h-4 w-4" />} title={title}>
-      <div className="mt-3">
+    <SectionCard className="min-w-0" icon={<ListTree className="h-4 w-4" />} title={title}>
+      <div className="mt-3 min-w-0">
         <DataTable caption={title} minWidthClassName="min-w-[520px]">
           <DataTableBody>
             {(rows ?? []).slice(0, 8).map((row, index) => (

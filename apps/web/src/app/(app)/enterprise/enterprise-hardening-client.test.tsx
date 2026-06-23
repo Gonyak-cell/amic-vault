@@ -26,6 +26,10 @@ describe('EnterpriseHardeningClient', () => {
     expect(html).toContain('Taxonomy 저장');
     expect(html).toContain('템플릿 저장');
     expect(html).toContain('Refiner 저장');
+    expect(html).toContain('grid items-stretch gap-4 xl:grid-cols-3');
+    expect(html).toContain('min-h-[6.75rem]');
+    expect(html).toContain('min-h-[14rem]');
+    expect(html).toContain('w-full justify-center');
     expect(html).toContain('승인된 문서 세트 계약만 Matter 화면에 표시');
     expect(html).toContain('검색 인덱스 운영');
     expect(html).toContain('검색 헬스');

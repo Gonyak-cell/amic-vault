@@ -14,7 +14,7 @@ describe('navigation visibility', () => {
     const labels = labelsForRole('matter_member');
 
     expect(labels).toContain('홈');
-    expect(labels).toContain('사건');
+    expect(labels).toContain('Matter');
     expect(labels).toContain('문서함');
     expect(labels).toContain('작업함');
     expect(labels).toContain('알림');
@@ -25,8 +25,11 @@ describe('navigation visibility', () => {
   });
 
   it('shows governed admin routes to firm admins without hidden routes', () => {
-    const labels = labelsForRole('firm_admin');
+    const groups = getNavigationGroups('firm_admin', 'ko');
+    const labels = groups.flatMap((group) => group.items.map((item) => item.label));
 
+    expect(groups.map((group) => group.label)).toContain('정책 관리');
+    expect(groups.map((group) => group.label)).not.toContain('거버넌스');
     expect(labels).toContain('기록 보존');
     expect(labels).toContain('작업함');
     expect(labels).toContain('알림');

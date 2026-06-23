@@ -26,7 +26,8 @@ describe('RecordsGovernanceClient', () => {
 
     expect(html).toContain('기록 보존');
     expect(html).toContain('정책 코드');
-    expect(html).toContain('aria-label="보존 관리"');
+    expect(html).toContain('aria-label="보존 정책 관리"');
+    expect(html).toContain('xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]');
     expect(html).toContain('for="records-policy-code"');
     expect(html).toContain('id="records-policy-code"');
     expect(html).toContain('id="records-retention-days"');
@@ -73,6 +74,7 @@ describe('RecordsGovernanceClient', () => {
     expect(html).toContain('대상 Matter');
     expect(html).toContain('대상 파일');
     expect(html).toContain('보관 처리');
+    expect(html).not.toContain('사건 삭제 금지');
     expect(html).not.toContain('id="records-archive-document-ref"');
     expect(html).not.toContain('고급 참조 입력');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111201');

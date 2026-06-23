@@ -320,7 +320,7 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('Matter 편집자');
     expect(html).toContain('체크인됨');
     expect(html).toContain('공식 버전 발행');
-    expect(html).toContain('기록/보존');
+    expect(html).toContain('문서 기록 및 위치 작업');
     expect(html).toContain('관련 문서');
     expect(html).toContain('2건');
     expect(html).toContain('Side Letter');

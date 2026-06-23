@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { MatterDto } from '@amic-vault/shared';
-import { FileSearch, FolderKanban, FolderUp, ShieldCheck } from 'lucide-react';
+import { FileSearch, FolderKanban, FolderPlus, ShieldCheck } from 'lucide-react';
 import { listMatters } from '@/lib/api-client';
 import { MatterListTable } from '@/components/matter/matter-list-table';
 import { Button } from '@/components/ui/button';
@@ -31,12 +31,12 @@ const mattersCopy: Record<
     protected: string;
     empty: string;
     emptyDescription: string;
-    upload: string;
     openMatter: string;
     fileCabinet: string;
     searchMatter: string;
     prepTitle: string;
     prepDescription: string;
+    newMatter: string;
     loading: string;
     apiError: string;
     noAccess: string;
@@ -44,25 +44,26 @@ const mattersCopy: Record<
   }
 > = {
   ko: {
-    title: '사건 목록',
-    description: '접근 권한이 확인된 사건만 표시됩니다.',
+    title: 'Matter 목록',
+    description: 'Matter app에서 동기화되고 접근 권한이 확인된 Matter만 표시됩니다.',
     scoped: '권한으로 보호됨',
-    matter: '사건',
+    matter: 'Matter',
     type: '유형',
     status: '상태',
     security: '보안',
     actions: '작업',
     protected: '보호됨',
-    empty: '표시할 사건이 없습니다.',
-    emptyDescription: 'Matter app에서 접근 가능한 Matter Code가 확인되면 파일 업로드와 정리 준비를 시작할 수 있습니다.',
-    upload: '파일 업로드',
+    empty: '표시할 Matter가 없습니다.',
+    emptyDescription:
+      'Matter app에서 신규 Matter를 만들거나 Matter Code 동기화가 완료되면 Vault에 표시됩니다.',
     openMatter: '열기',
     fileCabinet: '파일함',
     searchMatter: '검색',
-    prepTitle: '업로드 후 파일 정리 준비',
+    prepTitle: 'Matter app 연동 기준',
     prepDescription:
-      '파일은 Matter Code 선택 후 업로드됩니다. 업로드가 완료되면 파일 개요, 주요 정보, 키워드, 보관 위치 제안이 비동기로 준비됩니다.',
-    loading: '사건 목록을 불러오는 중입니다.',
+      'Vault는 Matter app에서 확정된 Matter Code를 받아 문서함, 검색, 권한 흐름에 연결합니다.',
+    newMatter: 'New Matter',
+    loading: 'Matter 목록을 불러오는 중입니다.',
     apiError: '데이터를 표시할 수 없습니다.',
     noAccess: '이 항목을 볼 권한이 없습니다.',
     policyBlocked: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
@@ -79,14 +80,14 @@ const mattersCopy: Record<
     protected: 'Protected',
     empty: 'No matters to show.',
     emptyDescription:
-      'When authorized Matter Codes are available from Matter app, you can upload files and start file organization prep.',
-    upload: 'Upload file',
+      'Create a matter in the Matter app or sync Matter Codes, then Vault will show the authorized Matter here.',
     openMatter: 'Open',
     fileCabinet: 'Files',
     searchMatter: 'Search',
-    prepTitle: 'File organization prep after upload',
+    prepTitle: 'Matter app source of truth',
     prepDescription:
-      'Files are uploaded after a Matter Code is selected. After upload, profile, key fields, tags, and filing suggestions are prepared asynchronously.',
+      'Vault receives confirmed Matter Codes from the Matter app and connects them to the document vault, search, and permission flows.',
+    newMatter: 'New Matter',
     loading: 'Loading matters.',
     apiError: 'Unable to display data.',
     noAccess: 'You do not have permission to view this item.',
@@ -128,9 +129,9 @@ export default function MattersPage() {
         actions={
           <>
             <Button asChild>
-              <Link href="/files">
-                <FolderUp className="h-4 w-4" />
-                {copy.upload}
+              <Link href="/integrations/matter-app">
+                <FolderPlus className="h-4 w-4" />
+                {copy.newMatter}
               </Link>
             </Button>
             <div className="inline-flex h-10 items-center gap-2 rounded-md border bg-card px-4 text-sm font-semibold">
@@ -163,14 +164,6 @@ export default function MattersPage() {
             title={copy.empty}
             description={copy.emptyDescription}
             className="m-5"
-            actions={
-              <Button asChild>
-                <Link href="/files">
-                  <FolderUp className="h-4 w-4" />
-                  {copy.upload}
-                </Link>
-              </Button>
-            }
           />
         ) : null}
         {loadState === 'error' ? (

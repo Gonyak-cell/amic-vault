@@ -6,6 +6,7 @@ export interface FilterBarProps extends React.HTMLAttributes<HTMLElement> {
   controls?: React.ReactNode;
   description?: string;
   label: string;
+  layout?: 'responsive' | 'stacked';
   resultsSummary?: React.ReactNode;
   title?: string;
 }
@@ -17,47 +18,60 @@ export function FilterBar({
   controls,
   description,
   label,
+  layout = 'responsive',
   resultsSummary,
   title,
   ...props
 }: FilterBarProps) {
   const hasIntro = Boolean(title || description || resultsSummary);
+  const hasHeader = hasIntro || Boolean(actions);
   const filterControls = controls ?? children;
 
   return (
     <section
       aria-label={label}
-      className={cn('rounded-lg border bg-card p-3 shadow-none sm:p-4', className)}
+      className={cn('min-w-0 rounded-lg border bg-card p-3 shadow-none sm:p-4', className)}
       {...props}
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        {hasIntro ? (
-          <div className="min-w-0 space-y-1">
-            {title ? (
-              <h2 className="text-[15px] font-semibold tracking-normal text-foreground">
-                {title}
-              </h2>
+      <div className="flex flex-col gap-3">
+        {hasHeader ? (
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+            {hasIntro ? (
+              <div className="min-w-0 space-y-1">
+                {title ? (
+                  <h2 className="text-[15px] font-semibold tracking-normal text-foreground">
+                    {title}
+                  </h2>
+                ) : null}
+                {description ? (
+                  <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+                ) : null}
+                {resultsSummary ? (
+                  <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
+                    {resultsSummary}
+                  </div>
+                ) : null}
+              </div>
             ) : null}
-            {description ? (
-              <p className="text-xs leading-5 text-muted-foreground">{description}</p>
-            ) : null}
-            {resultsSummary ? (
-              <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
-                {resultsSummary}
+
+            {actions ? (
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 lg:ml-auto">
+                {actions}
               </div>
             ) : null}
           </div>
         ) : null}
 
         {filterControls ? (
-          <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] lg:max-w-3xl">
+          <div
+            className={cn(
+              'grid min-w-0 gap-2',
+              layout === 'responsive'
+                ? 'sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] lg:max-w-4xl'
+                : 'grid-cols-1',
+            )}
+          >
             {filterControls}
-          </div>
-        ) : null}
-
-        {actions ? (
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            {actions}
           </div>
         ) : null}
       </div>

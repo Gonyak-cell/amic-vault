@@ -5,8 +5,9 @@ import { getTranslation, LanguageProvider, LanguageToggle } from './i18n';
 
 describe('i18n shell helpers', () => {
   it('resolves translations only through explicit keys', () => {
-    expect(getTranslation('nav.globalSearch', 'ko')).toBe('사건, 파일, 활동 검색');
+    expect(getTranslation('nav.globalSearch', 'ko')).toBe('Matter, 파일, 활동 검색');
     expect(getTranslation('nav.globalSearch', 'en')).toBe('Search matters, files, and activity');
+    expect(getTranslation('nav.group.governance', 'ko')).toBe('정책 관리');
   });
 
   it('renders the language toggle with Korean as the server-safe default', () => {

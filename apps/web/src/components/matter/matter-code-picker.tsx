@@ -124,7 +124,7 @@ export function MatterCodePicker({
       <EmptyState
         variant="api-unavailable"
         title="Matter app 연결 필요"
-        description="파일 업로드는 Matter app에서 확인된 Matter Code 선택 후 시작됩니다."
+        description="Matter app에서 확인된 Matter Code를 선택한 뒤 작업을 진행합니다."
       />
     );
   }

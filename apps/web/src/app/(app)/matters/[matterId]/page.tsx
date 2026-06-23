@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Users } from 'lucide-react';
+import { TriangleAlert, Users } from 'lucide-react';
 import type { AiPrepMatterReadinessDto, EmailMatterFilingDto, MatterDto } from '@amic-vault/shared';
 import { AiPrepMatterDashboard } from '@/components/ai/ai-prep-matter-dashboard';
 import { MatterFileSection } from '@/components/document/matter-file-section';
@@ -78,17 +78,23 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', '사건']}
-        title={matter?.matterName ?? '사건'}
-        description={matter ? matter.matterCode : '권한이 확인된 사건 정보만 표시됩니다.'}
+        breadcrumbs={['Vault', 'Matter']}
+        title={matter?.matterName ?? 'Matter'}
+        description={matter ? matter.matterCode : '권한이 확인된 Matter 정보만 표시됩니다.'}
         actions={
           matter ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
               <Button asChild variant="outline" size="sm">
                 <Link href={`/matters/${params.matterId}/team`}>
-                  <Users className="h-4 w-4" />팀 관리
+                  <Users className="h-4 w-4" />팀 권한
                 </Link>
               </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/walls">
+                  <TriangleAlert className="h-4 w-4" />정보 차단
+                </Link>
+              </Button>
+              <MatterWorkspaceActions matter={matter} />
               <MatterStatusBadge status={matter.status} />
             </div>
           ) : undefined
@@ -96,7 +102,7 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
       />
 
       {loadStatus === 'error' ? (
-        <EmptyState variant="api-error" title="사건을 표시할 수 없습니다." />
+        <EmptyState variant="api-error" title="Matter를 표시할 수 없습니다." />
       ) : null}
 
       {matter ? (
@@ -119,8 +125,6 @@ export default function MatterDetailPage({ params }: { params: { matterId: strin
       ) : null}
 
       {matter ? <MatterGovernanceContextPanel matter={matter} readiness={readiness} /> : null}
-
-      {matter ? <MatterWorkspaceActions matter={matter} /> : null}
 
       {matter ? <MatterAuditTimeline matterId={matter.matterId} /> : null}
 

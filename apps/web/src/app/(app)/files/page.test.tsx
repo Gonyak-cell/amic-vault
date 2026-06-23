@@ -21,16 +21,13 @@ describe('FilesPage', () => {
 
     expect(html).toContain('문서함');
     expect(html).toContain('전체 문서');
+    expect(html).toContain('문서함 보기');
     expect(html).toContain('전체 문서를 확인하는 중입니다.');
-    expect(html).toContain('파일 업로드');
     expect(html).toContain('Matter 업로드');
-    expect(html).toContain('Matter Code 선택');
-    expect(html).toContain('Matter 원장 기준');
-    expect(html).toContain('선택한 Matter에 업로드');
-    expect(html).toContain('권한 확인 문서');
-    expect(html).toContain('Matter app 연결 필요');
-    expect(html).toContain('Matter Code를 먼저 선택해 주세요.');
-    expect(html).toContain('Matter Code를 선택하면 파일 목록이 표시됩니다.');
+    expect(html).not.toContain('파일 업로드');
+    expect(html).not.toContain('Matter 업로드 단계');
+    expect(html).not.toContain('Matter Code 미선택');
+    expect(html).not.toContain('Matter Code를 먼저 선택해 주세요.');
     expect(html).not.toContain('source-of-truth');
     expect(html).not.toContain('Matter-scoped');
     expect(html).not.toContain('DOC-');
@@ -45,5 +42,6 @@ describe('FilesPage', () => {
     expect(source).toMatch(/setUploadRevision\(\(current\) => current \+ 1\)/);
     expect(source).toMatch(/<DocumentVaultList refreshKey=\{uploadRevision\} \/>/);
     expect(source).toMatch(/<MatterDocumentList refreshKey=\{uploadRevision\}/);
+    expect(source).toMatch(/setActiveWorkspaceTab\('upload'\)/);
   });
 });
