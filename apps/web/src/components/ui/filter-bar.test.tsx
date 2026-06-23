@@ -29,6 +29,7 @@ describe('FilterBar', () => {
     expect(html).toContain('sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]');
     expect(html).toContain('flex-wrap');
     expect(html).toContain('justify-end');
+    expect(html).toContain('lg:ml-auto');
     expect(html).toContain('for="actor"');
     expect(html).toContain('적용');
   });
@@ -45,5 +46,18 @@ describe('FilterBar', () => {
     expect(html).toContain('선택 안 됨');
     expect(html).not.toContain('DOC-');
     expect(html).not.toContain('workspace');
+  });
+
+  it('supports stacked controls for narrow action panels', () => {
+    const html = renderToStaticMarkup(
+      <FilterBar label="보관 처리" layout="stacked">
+        <FilterField label="사유">선택 안 됨</FilterField>
+        <Button type="button">보관 처리</Button>
+      </FilterBar>,
+    );
+
+    expect(html).toContain('aria-label="보관 처리"');
+    expect(html).toContain('grid-cols-1');
+    expect(html).not.toContain('sm:grid-cols-[repeat(auto-fit,minmax(180px,240px))]');
   });
 });

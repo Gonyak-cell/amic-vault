@@ -66,7 +66,7 @@ function categoryLabel(action: string): string {
     return 'Records';
   }
   if (action.startsWith('MATTER_')) return 'Matter';
-  return '거버넌스';
+  return '정책 관리';
 }
 
 function formatDateTime(value: string): string {

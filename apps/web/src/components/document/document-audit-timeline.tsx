@@ -63,7 +63,7 @@ function categoryLabel(action: DocumentAuditEventDto['action']): string {
   ) {
     return 'Records';
   }
-  return '거버넌스';
+  return '정책 관리';
 }
 
 function formatDateTime(value: string): string {

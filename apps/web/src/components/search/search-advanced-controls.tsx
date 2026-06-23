@@ -146,7 +146,7 @@ const privilegeLabels = {
 
 const legalHoldLabels = {
   document_hold: '파일 삭제 금지',
-  matter_hold: '사건 삭제 금지',
+  matter_hold: 'Matter 삭제 금지',
   no_hold: '보존 조치 없음',
 } as const satisfies Record<SearchLegalHold, string>;
 

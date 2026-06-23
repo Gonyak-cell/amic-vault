@@ -75,6 +75,10 @@ import { useI18n, type Language } from '@/lib/i18n';
 
 type Row = [string, string, string?];
 
+const dmsConfigurationCardClassName = 'flex min-w-0 flex-col rounded-md border bg-background p-3';
+const dmsConfigurationIntroClassName = 'min-h-[6.75rem]';
+const dmsConfigurationRowsClassName = 'mt-3 flex min-h-[14rem] flex-1 flex-col';
+
 const enterpriseCopy: Record<
   Language,
   {
@@ -1127,18 +1131,20 @@ function AdminDmsConfigurationPanel({
           {status}
         </p>
       ) : null}
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,1fr)]">
-        <div className="rounded-md border bg-background p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <FileCog className="h-4 w-4" />
-              <span className="truncate text-sm font-semibold text-foreground">
-                {copy.taxonomy}
-              </span>
+      <div className="grid items-stretch gap-4 xl:grid-cols-3">
+        <div className={dmsConfigurationCardClassName}>
+          <div className={dmsConfigurationIntroClassName}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileCog className="h-4 w-4 shrink-0" />
+                <span className="truncate text-sm font-semibold text-foreground">
+                  {copy.taxonomy}
+                </span>
+              </div>
+              <StatusBadge>{copy.activeConfiguration}</StatusBadge>
             </div>
-            <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.taxonomyMeta}</p>
           </div>
-          <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.taxonomyMeta}</p>
           <form className="mt-3 grid gap-2" onSubmit={submitTaxonomy}>
             <Input
               aria-label={copy.documentTypeCode}
@@ -1177,30 +1183,36 @@ function AdminDmsConfigurationPanel({
               onChange={(event) => setTaxonomyMetadataFields(event.target.value)}
               disabled={busy}
             />
-            <Button type="submit" disabled={busy}>
+            <Button className="w-full justify-center" type="submit" disabled={busy}>
               <FileCog className="h-4 w-4" />
               {copy.taxonomySave}
             </Button>
           </form>
-          <DmsTaxonomyRows
-            copy={copy}
-            onDisable={onDisableTaxonomy}
-            taxonomies={taxonomies}
-            busy={busy}
-          />
-        </div>
-        <div className="rounded-md border bg-background p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <FolderKanban className="h-4 w-4" />
-              <span className="truncate text-sm font-semibold text-foreground">
-                {copy.templates}
-              </span>
-            </div>
-            <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+          <div className={dmsConfigurationRowsClassName}>
+            <DmsTaxonomyRows
+              copy={copy}
+              onDisable={onDisableTaxonomy}
+              taxonomies={taxonomies}
+              busy={busy}
+            />
           </div>
-          <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.templatesMeta}</p>
-          <p className="mt-3 text-[12px] font-medium text-muted-foreground">{copy.templateGate}</p>
+        </div>
+        <div className={dmsConfigurationCardClassName}>
+          <div className={dmsConfigurationIntroClassName}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <FolderKanban className="h-4 w-4 shrink-0" />
+                <span className="truncate text-sm font-semibold text-foreground">
+                  {copy.templates}
+                </span>
+              </div>
+              <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+            </div>
+            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.templatesMeta}</p>
+            <p className="mt-2 text-[12px] font-medium leading-5 text-muted-foreground">
+              {copy.templateGate}
+            </p>
+          </div>
           <form className="mt-3 grid gap-2" onSubmit={submitTemplate}>
             <select
               aria-label={copy.matterType}
@@ -1246,29 +1258,33 @@ function AdminDmsConfigurationPanel({
               disabled={busy}
               required
             />
-            <Button type="submit" disabled={busy}>
+            <Button className="w-full justify-center" type="submit" disabled={busy}>
               <FolderKanban className="h-4 w-4" />
               {copy.templateSave}
             </Button>
           </form>
-          <DmsTemplateRows
-            busy={busy}
-            copy={copy}
-            onDisable={onDisableTemplate}
-            templates={templates}
-          />
-        </div>
-        <div className="rounded-md border bg-background p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <SearchCheck className="h-4 w-4" />
-              <span className="truncate text-sm font-semibold text-foreground">
-                {copy.refiners}
-              </span>
-            </div>
-            <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+          <div className={dmsConfigurationRowsClassName}>
+            <DmsTemplateRows
+              busy={busy}
+              copy={copy}
+              onDisable={onDisableTemplate}
+              templates={templates}
+            />
           </div>
-          <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.refinersMeta}</p>
+        </div>
+        <div className={dmsConfigurationCardClassName}>
+          <div className={dmsConfigurationIntroClassName}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <SearchCheck className="h-4 w-4 shrink-0" />
+                <span className="truncate text-sm font-semibold text-foreground">
+                  {copy.refiners}
+                </span>
+              </div>
+              <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+            </div>
+            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.refinersMeta}</p>
+          </div>
           <form className="mt-3 grid gap-2" onSubmit={submitRefiner}>
             <select
               aria-label={copy.fieldKey}
@@ -1340,17 +1356,19 @@ function AdminDmsConfigurationPanel({
               onChange={(event) => setRefinerSortOrder(event.target.value)}
               disabled={busy}
             />
-            <Button type="submit" disabled={busy}>
+            <Button className="w-full justify-center" type="submit" disabled={busy}>
               <SearchCheck className="h-4 w-4" />
               {copy.refinerSave}
             </Button>
           </form>
-          <DmsRefinerRows
-            copy={copy}
-            onDisable={onDisableRefiner}
-            refiners={refiners}
-            busy={busy}
-          />
+          <div className={dmsConfigurationRowsClassName}>
+            <DmsRefinerRows
+              copy={copy}
+              onDisable={onDisableRefiner}
+              refiners={refiners}
+              busy={busy}
+            />
+          </div>
         </div>
       </div>
     </SectionCard>
@@ -1368,12 +1386,12 @@ function DmsTaxonomyRows({
   onDisable: (taxonomyId: string) => void;
   taxonomies: EnterpriseDmsTaxonomyListResponseDto | null;
 }) {
-  if (!taxonomies) return <Unavailable copy={copy} />;
+  if (!taxonomies) return <Unavailable className="flex-1" copy={copy} />;
   if (taxonomies.taxonomies.length === 0) {
-    return <EmptyState variant="no-data" title={copy.noRecords} className="mt-3" />;
+    return <EmptyState variant="no-data" title={copy.noRecords} className="flex-1" />;
   }
   return (
-    <DataTable caption={copy.taxonomy} minWidthClassName="min-w-[520px]" className="mt-3">
+    <DataTable caption={copy.taxonomy} minWidthClassName="min-w-[520px]">
       <DataTableBody>
         {taxonomies.taxonomies.map((item) => (
           <DataTableRow key={item.taxonomyId}>
@@ -1419,12 +1437,12 @@ function DmsTemplateRows({
   onDisable: (templateId: string) => void;
   templates: EnterpriseDmsMatterTemplateListResponseDto | null;
 }) {
-  if (!templates) return <Unavailable copy={copy} />;
+  if (!templates) return <Unavailable className="flex-1" copy={copy} />;
   if (templates.templates.length === 0) {
-    return <EmptyState variant="no-data" title={copy.noRecords} className="mt-3" />;
+    return <EmptyState variant="no-data" title={copy.noRecords} className="flex-1" />;
   }
   return (
-    <DataTable caption={copy.templates} minWidthClassName="min-w-[520px]" className="mt-3">
+    <DataTable caption={copy.templates} minWidthClassName="min-w-[520px]">
       <DataTableBody>
         {templates.templates.map((item) => (
           <DataTableRow key={item.templateId}>
@@ -1467,12 +1485,12 @@ function DmsRefinerRows({
   onDisable: (refinerId: string) => void;
   refiners: EnterpriseDmsSearchRefinerListResponseDto | null;
 }) {
-  if (!refiners) return <Unavailable copy={copy} />;
+  if (!refiners) return <Unavailable className="flex-1" copy={copy} />;
   if (refiners.refiners.length === 0) {
-    return <EmptyState variant="no-data" title={copy.noRecords} className="mt-3" />;
+    return <EmptyState variant="no-data" title={copy.noRecords} className="flex-1" />;
   }
   return (
-    <DataTable caption={copy.refiners} minWidthClassName="min-w-[520px]" className="mt-3">
+    <DataTable caption={copy.refiners} minWidthClassName="min-w-[520px]">
       <DataTableBody>
         {refiners.refiners.map((item) => (
           <DataTableRow key={item.refinerId}>
@@ -1609,9 +1627,16 @@ function Rows({ caption, empty, rows }: { caption: string; empty: string; rows: 
   );
 }
 
-function Unavailable({ copy }: { copy: (typeof enterpriseCopy)[Language] }) {
+function Unavailable({
+  className,
+  copy,
+}: {
+  className?: string;
+  copy: (typeof enterpriseCopy)[Language];
+}) {
   return (
     <EmptyState
+      className={className}
       variant="api-unavailable"
       title={copy.apiUnavailableTitle}
       description={copy.apiUnavailableDescription}

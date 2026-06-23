@@ -411,6 +411,36 @@ function recordsActionRows(document: DocumentDto): RecordsActionRow[] {
   ];
 }
 
+function DocumentHeaderRecordsActions({ document }: { document: DocumentDto }) {
+  return (
+    <nav aria-label="문서 기록 및 위치 작업" className="flex min-w-0 flex-wrap justify-end gap-2">
+      {recordsActionRows(document).map((action) => (
+        <Button
+          asChild
+          className="shrink-0"
+          key={action.tab}
+          size="sm"
+          title={`${action.title}: ${action.description} ${action.readiness}`}
+          variant="outline"
+        >
+          <Link href={recordsUrlForDocument(document, action.tab)}>
+            {action.tab === 'holds' ? <ShieldCheck className="h-4 w-4" /> : null}
+            {action.tab === 'archive' ? <Archive className="h-4 w-4" /> : null}
+            {action.tab === 'disposal' ? <Trash2 className="h-4 w-4" /> : null}
+            {action.buttonLabel}
+          </Link>
+        </Button>
+      ))}
+      <Button asChild className="shrink-0" size="sm" title="권한이 확인된 문서함 위치" variant="outline">
+        <Link href={fileCabinetUrlForDocument(document)}>
+          <FileSearch className="h-4 w-4" />
+          문서함 위치
+        </Link>
+      </Button>
+    </nav>
+  );
+}
+
 export function relatedMatterDocuments(
   documents: DocumentDto[],
   currentDocumentId: string,
@@ -2226,24 +2256,31 @@ export function DocumentActionCenter({
         title={document?.title || '표시 가능한 제목 없음'}
         description="권한이 확인된 파일 정보만 표시됩니다."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => void load()} disabled={loading}>
+          <div className="flex max-w-full flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void load()}
+              disabled={loading}
+            >
               <RefreshCw className="h-4 w-4" />
               새로고침
             </Button>
             {document ? (
-              <Button asChild>
+              <Button asChild size="sm">
                 <a href="#document-download">
                   <Download className="h-4 w-4" />
                   다운로드 사유
                 </a>
               </Button>
             ) : (
-              <Button type="button" disabled>
+              <Button type="button" size="sm" disabled>
                 <Download className="h-4 w-4" />
                 다운로드 사유
               </Button>
             )}
+            {document ? <DocumentHeaderRecordsActions document={document} /> : null}
           </div>
         }
       />
@@ -2600,48 +2637,6 @@ export function DocumentActionCenter({
               </div>
             </SectionCard>
 
-            <SectionCard
-              icon={<Link2 className="h-4 w-4" />}
-              title="기록/보존"
-              meta="권한 범위 내 조치"
-            >
-              <div className="space-y-2">
-                {recordsActionRows(document).map((action) => (
-                  <div
-                    key={action.tab}
-                    className="rounded-md border bg-background px-3 py-2.5"
-                  >
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">
-                            {action.title}
-                          </span>
-                          <StatusBadge tone={action.tone}>{action.readiness}</StatusBadge>
-                        </div>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {action.description}
-                        </p>
-                      </div>
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={recordsUrlForDocument(document, action.tab)}>
-                          {action.tab === 'holds' ? <ShieldCheck className="h-4 w-4" /> : null}
-                          {action.tab === 'archive' ? <Archive className="h-4 w-4" /> : null}
-                          {action.tab === 'disposal' ? <Trash2 className="h-4 w-4" /> : null}
-                          {action.buttonLabel}
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <Button asChild size="sm" variant="outline">
-                  <Link href={fileCabinetUrlForDocument(document)}>
-                    <FileSearch className="h-4 w-4" />
-                    문서함 위치
-                  </Link>
-                </Button>
-              </div>
-            </SectionCard>
           </aside>
         </div>
       ) : null}

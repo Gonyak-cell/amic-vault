@@ -3,15 +3,12 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  Activity,
-  Archive,
   Bot,
   CheckCircle2,
   Clock3,
   FileSearch,
   Scale,
   ShieldCheck,
-  TriangleAlert,
 } from 'lucide-react';
 import type {
   AiPrepDocumentStatusDto,
@@ -156,7 +153,7 @@ export function DocumentGovernanceContextPanel({
   return (
     <SectionCard
       icon={<ShieldCheck className="h-4 w-4" />}
-      title="거버넌스 상태"
+      title="정책 관리 상태"
       meta="권한·기록·운영 문맥"
     >
       <div className="grid gap-3 lg:grid-cols-2">
@@ -168,20 +165,6 @@ export function DocumentGovernanceContextPanel({
           <h3 className="text-sm font-semibold text-foreground">기록 및 처리</h3>
           <GovernanceRows items={activityItems} />
         </div>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline">
-          <Link href="/records">
-            <Archive className="h-4 w-4" />
-            기록 보존
-          </Link>
-        </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/audit">
-            <Activity className="h-4 w-4" />
-            접근 기록
-          </Link>
-        </Button>
       </div>
     </SectionCard>
   );
@@ -219,30 +202,10 @@ export function MatterGovernanceContextPanel({
   return (
     <SectionCard
       icon={<Scale className="h-4 w-4" />}
-      title="사건 거버넌스"
+      title="Matter 관리 상태"
       meta="권한·보존·운영 문맥"
     >
       <GovernanceRows items={items} />
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline">
-          <Link href={`/matters/${matter.matterId}/team`}>
-            <ShieldCheck className="h-4 w-4" />
-            팀 권한
-          </Link>
-        </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/records">
-            <Archive className="h-4 w-4" />
-            기록 보존
-          </Link>
-        </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/walls">
-            <TriangleAlert className="h-4 w-4" />
-            정보 차단
-          </Link>
-        </Button>
-      </div>
     </SectionCard>
   );
 }

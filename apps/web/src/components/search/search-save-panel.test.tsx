@@ -143,7 +143,7 @@ describe('SearchSavePanel', () => {
         { label: '기밀도', value: '높음' },
         { label: '특권', value: '작업 산출물' },
         { label: '추출/OCR', value: '추출 실패' },
-        { label: '보존', value: '사건 삭제 금지' },
+        { label: '보존', value: 'Matter 삭제 금지' },
         { label: '기록', value: '처분 잠금' },
         { label: '수정 기간', value: '최근 30일' },
       ]),

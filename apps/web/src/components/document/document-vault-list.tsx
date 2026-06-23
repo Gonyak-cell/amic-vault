@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { ChevronDown, Loader2, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
 import {
   documentConfidentialityLevels,
   documentExtractionStatuses,
@@ -32,7 +32,7 @@ import {
   DataTableRow,
 } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
-import { FilterBar, FilterField } from '@/components/ui/filter-bar';
+import { FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 
@@ -261,6 +261,18 @@ function countActiveFilters(filters: DocumentVaultFilterState): number {
   ].filter(Boolean).length;
 }
 
+function countAdvancedFilters(filters: DocumentVaultFilterState): number {
+  return [
+    filters.aiAllowed,
+    filters.confidentialityLevel,
+    filters.documentType,
+    filters.extractionStatus,
+    filters.legalHold,
+    filters.privilegeStatus,
+    filters.status,
+  ].filter(Boolean).length;
+}
+
 export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   const router = useRouter();
   const params = useSearchParams();
@@ -271,6 +283,9 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   const [page, setPage] = React.useState(initialPage);
   const [draftFilters, setDraftFilters] = React.useState<DocumentVaultFilterState>(initialFilters);
   const [filters, setFilters] = React.useState<DocumentVaultFilterState>(initialFilters);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = React.useState(
+    () => countAdvancedFilters(initialFilters) > 0,
+  );
   const [isLoading, setIsLoading] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
@@ -323,9 +338,11 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   }
 
   const activeFilterCount = countActiveFilters(filters);
+  const draftAdvancedFilterCount = countAdvancedFilters(draftFilters);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const advancedPanelId = 'document-vault-advanced-filters';
 
-  const filterControls = (
+  const quickSearchControls = (
     <>
       <FilterField htmlFor="document-vault-title" label="문서명">
         <Input
@@ -343,6 +360,11 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           placeholder="AMIC-2026"
         />
       </FilterField>
+    </>
+  );
+
+  const advancedFilterControls = (
+    <>
       <FilterField htmlFor="document-vault-type" label="유형">
         <select
           id="document-vault-type"
@@ -488,28 +510,81 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   );
 
   const filterPanel = (
-    <form onSubmit={applyFilters}>
-      <FilterBar
-        label="문서함 필터"
-        title="문서함 필터"
-        description="권한이 확인된 문서를 Matter Code, 문서명, 보안 상태, 파일 정리 상태, 추출/OCR 상태 기준으로 좁힙니다."
-        resultsSummary={
-          isLoading
-            ? '문서함을 확인하는 중입니다.'
-            : `${totalCount}건 · 활성 필터 ${activeFilterCount}개`
-        }
-        controls={filterControls}
-        actions={
-          <>
-            <Button type="submit" size="sm" disabled={isLoading}>
+    <form
+      aria-label="문서함 필터"
+      className="rounded-lg border bg-card p-3 shadow-none sm:p-4"
+      onSubmit={applyFilters}
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-[15px] font-semibold tracking-normal text-foreground">
+              문서함 검색
+            </h2>
+            <p className="text-xs leading-5 text-muted-foreground">
+              권한이 확인된 문서를 문서명과 Matter Code 기준으로 찾습니다.
+            </p>
+            <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
+              {isLoading
+                ? '문서함을 확인하는 중입니다.'
+                : `${totalCount}건 · 활성 필터 ${activeFilterCount}개`}
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
+            <Button type="submit" size="sm" disabled={isLoading} title="검색 적용">
+              <Search className="mr-1.5 h-4 w-4" aria-hidden="true" />
               적용
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              title="검색 조건 초기화"
+            >
+              <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
               초기화
             </Button>
-          </>
-        }
-      />
+          </div>
+        </div>
+
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">{quickSearchControls}</div>
+
+        <div className="border-t pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-controls={advancedPanelId}
+            aria-expanded={advancedFiltersOpen}
+            className="w-full min-w-[220px] justify-between sm:w-auto"
+            title={advancedFiltersOpen ? '상세 검색 접기' : '상세 검색 펼치기'}
+            onClick={() => setAdvancedFiltersOpen((current) => !current)}
+          >
+            <span className="flex min-w-0 items-center whitespace-nowrap">
+              <SlidersHorizontal className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              상세 검색
+              <span className="ml-2 shrink-0 text-xs font-normal text-muted-foreground">
+                {draftAdvancedFilterCount}개 선택
+              </span>
+            </span>
+            <ChevronDown
+              className={`ml-3 h-4 w-4 shrink-0 transition-transform ${
+                advancedFiltersOpen ? 'rotate-180' : ''
+              }`}
+              aria-hidden="true"
+            />
+          </Button>
+          {advancedFiltersOpen ? (
+            <div
+              id={advancedPanelId}
+              className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            >
+              {advancedFilterControls}
+            </div>
+          ) : null}
+        </div>
+      </div>
     </form>
   );
 

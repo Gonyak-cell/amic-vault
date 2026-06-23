@@ -9,7 +9,7 @@ import {
 } from '@/components/dashboard/dashboard-work-queue';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { FilterBar, FilterField } from '@/components/ui/filter-bar';
+import { FilterField } from '@/components/ui/filter-bar';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
@@ -138,13 +138,39 @@ export function WorkQueueContent({
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
-          <FilterBar
-            label="작업함 조치 콘솔"
-            title="작업함 조치 콘솔"
-            description="실제 문서·사건 상태에서 발생한 작업만 출처와 상태 기준으로 좁힙니다."
-            resultsSummary={workFilterSummary(workItemsState, visibleActionItems, actionItems)}
-            controls={
-              <>
+          <section
+            aria-label="작업함 조치 콘솔"
+            className="rounded-lg border bg-card p-3 shadow-none sm:p-4"
+          >
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <h2 className="text-[15px] font-semibold tracking-normal text-foreground">
+                    작업함 조치 콘솔
+                  </h2>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    실제 문서·사건 상태에서 발생한 작업만 출처와 상태 기준으로 좁힙니다.
+                  </p>
+                  <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
+                    {workFilterSummary(workItemsState, visibleActionItems, actionItems)}
+                  </div>
+                </div>
+                {sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSourceFilter('all');
+                      setToneFilter('all');
+                      setSortMode('attention');
+                    }}
+                  >
+                    초기화
+                  </Button>
+                ) : null}
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-3 lg:max-w-3xl">
                 <FilterField htmlFor="work-source-filter" label="출처">
                   <select
                     id="work-source-filter"
@@ -187,25 +213,9 @@ export function WorkQueueContent({
                     ))}
                   </select>
                 </FilterField>
-              </>
-            }
-            actions={
-              sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention' ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSourceFilter('all');
-                    setToneFilter('all');
-                    setSortMode('attention');
-                  }}
-                >
-                  초기화
-                </Button>
-              ) : null
-            }
-          />
+              </div>
+            </div>
+          </section>
           <DashboardWorkQueueSection
             itemsState={visibleItemsState}
             state={dashboardState}

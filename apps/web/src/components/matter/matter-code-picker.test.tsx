@@ -41,7 +41,7 @@ describe('MatterCodePicker', () => {
     );
 
     expect(html).toContain('Matter app 연결 필요');
-    expect(html).toContain('Matter Code 선택 후 시작됩니다.');
+    expect(html).toContain('Matter Code를 선택한 뒤 작업을 진행합니다.');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(matter.matterId);
   });

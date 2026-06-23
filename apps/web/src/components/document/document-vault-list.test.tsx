@@ -28,12 +28,15 @@ describe('DocumentVaultList', () => {
   it('renders a permission-scoped loading state before client data loads', () => {
     const html = renderToStaticMarkup(<DocumentVaultList />);
 
-    expect(html).toContain('문서함 필터');
+    expect(html).toContain('문서함 검색');
     expect(html).toContain('Matter Code');
-    expect(html).toContain('파일 정리');
-    expect(html).toContain('보안 등급');
-    expect(html).toContain('추출/OCR');
+    expect(html).toContain('상세 검색');
+    expect(html).toContain('0개 선택');
+    expect(html).toContain('min-w-[220px]');
     expect(html).toContain('전체 문서를 확인하는 중입니다.');
+    expect(html).not.toContain('파일 정리');
+    expect(html).not.toContain('보안 등급');
+    expect(html).not.toContain('추출/OCR');
     expect(html).not.toContain('문서 ID');
     expect(html).not.toContain('Matter ID');
   });

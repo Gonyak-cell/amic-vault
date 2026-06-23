@@ -16,17 +16,22 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 describe('MattersPage', () => {
-  it('surfaces the file upload and organization prep path without mock counts', () => {
+  it('surfaces Matter app registration without turning the Matter list into upload flow', () => {
     const html = renderToStaticMarkup(
       <LanguageProvider>
         <MattersPage />
       </LanguageProvider>,
     );
 
-    expect(html).toContain('파일 업로드');
-    expect(html).toContain('업로드 후 파일 정리 준비');
-    expect(html).toContain('파일 개요, 주요 정보, 키워드, 보관 위치 제안');
-    expect(html).toContain('href="/files"');
+    expect(html).toContain('Matter 목록');
+    expect(html).toContain('Matter app 연동 기준');
+    expect(html).toContain('New Matter');
+    expect(html.match(/New Matter/g)).toHaveLength(1);
+    expect(html).toContain('href="/integrations/matter-app"');
+    expect(html.match(/href="\/integrations\/matter-app"/g)).toHaveLength(1);
+    expect(html).toContain('Matter app에서 확정된 Matter Code');
+    expect(html).not.toContain('파일 업로드');
+    expect(html).not.toContain('href="/files"');
     expect(html).not.toMatch(/>18</);
     expect(html).not.toMatch(/>642</);
     expect(html).not.toMatch(/>9</);
@@ -42,9 +47,15 @@ describe('MattersPage', () => {
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
+    expect(html).toContain('min-w-[1040px]');
+    expect(html).toContain('whitespace-nowrap');
     expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111122"');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007"');
     expect(html).toContain('href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"');
+    expect(html).toContain('href="/files?matterCode=AMIC-2026-0007">파일함</a>');
+    expect(html).toContain(
+      'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter">검색</a>',
+    );
     expect(html).not.toMatch(/>18</);
     expect(html).not.toMatch(/>642</);
     expect(html).not.toMatch(/>9</);
@@ -63,7 +74,7 @@ describe('MattersPage', () => {
 const matterListCopy = {
   actions: '작업',
   fileCabinet: '파일함',
-  matter: '사건',
+  matter: 'Matter',
   openMatter: '열기',
   protected: '보호됨',
   searchMatter: '검색',

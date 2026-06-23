@@ -98,7 +98,7 @@ describe('governance context panels', () => {
       </>,
     );
 
-    expect(html).toContain('거버넌스 상태');
+    expect(html).toContain('정책 관리 상태');
     expect(html).toContain('Legal Hold');
     expect(html).toContain('본문 추출 대기');
     expect(html).toContain('파일 정리 준비');
@@ -116,7 +116,7 @@ describe('governance context panels', () => {
       </>,
     );
 
-    expect(html).toContain('사건 거버넌스');
+    expect(html).toContain('Matter 관리 상태');
     expect(html).toContain('AMIC-2026-001');
     expect(html).toContain('파일 정리 준비 실패 확인');
     expect(html).toContain('추가로 확인할 작업이 없습니다.');

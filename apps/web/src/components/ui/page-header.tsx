@@ -7,6 +7,7 @@ export interface PageHeaderProps extends React.HTMLAttributes<HTMLElement> {
   title: string;
   description?: string;
   actions?: React.ReactNode;
+  navigation?: React.ReactNode;
 }
 
 export function PageHeader({
@@ -14,6 +15,7 @@ export function PageHeader({
   breadcrumbs = ['Vault'],
   className,
   description,
+  navigation,
   title,
   ...props
 }: PageHeaderProps) {
@@ -45,6 +47,7 @@ export function PageHeader({
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
+      {navigation ? <div className="mt-5 min-w-0">{navigation}</div> : null}
     </section>
   );
 }
