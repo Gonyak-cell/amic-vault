@@ -44,15 +44,15 @@ describe('onedrive-profile-manifest', () => {
   it('profiles rows without exposing raw keys or names', async () => {
     const rows = [
       {
-        key: 'migration-runs/run/source-tree/Client Alpha/Matter One/a.docx',
+        key: 'provider-root/run/sanitized-tree/Client Alpha/Matter One/a.docx',
         size: 1024,
       },
       {
-        key: 'migration-runs/run/source-tree/Client Alpha/Matter One/b.pdf',
+        key: 'provider-root/run/sanitized-tree/Client Alpha/Matter One/b.pdf',
         size: 2 * 1024 * 1024,
       },
       {
-        key: 'migration-runs/run/source-tree/Client Beta/Matter Two/c.xlsx',
+        key: 'provider-root/run/sanitized-tree/Client Beta/Matter Two/c.xlsx',
         size: 0,
       },
     ];
@@ -61,7 +61,7 @@ describe('onedrive-profile-manifest', () => {
     const profile = await profileManifest({
       inputPath: input,
       runId: 'run',
-      sourcePrefix: 'migration-runs/run/source-tree/',
+      sourcePrefix: 'provider-root/run/sanitized-tree/',
       topLimit: 10,
     });
 
@@ -80,14 +80,14 @@ describe('onedrive-profile-manifest', () => {
   it('renders markdown without raw source labels', async () => {
     const input = await writeGzipNdjson([
       {
-        key: 'migration-runs/run/source-tree/Client Alpha/Matter One/a.docx',
+        key: 'provider-root/run/sanitized-tree/Client Alpha/Matter One/a.docx',
         size: 1024,
       },
     ]);
     const profile = await profileManifest({
       inputPath: input,
       runId: 'run',
-      sourcePrefix: 'migration-runs/run/source-tree/',
+      sourcePrefix: 'provider-root/run/sanitized-tree/',
     });
     const markdown = renderMarkdown(profile);
     assert.equal(markdown.includes('Client Alpha'), false);

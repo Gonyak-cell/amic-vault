@@ -31,7 +31,7 @@ The current package does not prove:
 | LC | Purpose | Prepared Artifact | Execution State |
 |---|---|---|---|
 | LC-ONEDRIVE-00 | Worktree and staging control baseline | `.omo/evidence/LC-ONEDRIVE-00/*` | prepared |
-| LC-ONEDRIVE-01 | Sanitized manifest profiler and candidate summary | profiler branch/evidence | prepared |
+| LC-ONEDRIVE-01 | Sanitized manifest profiler and candidate summary | `tools/migration/onedrive-profile-manifest.mjs` | prepared |
 | LC-ONEDRIVE-02 | Pilot mapping and approval packet | `docs/release/onedrive-pilot-mapping-template.md` and approval checklist | prepared |
 | LC-ONEDRIVE-03 | Worker contract and runbook | worker design/runbook | prepared |
 | LC-ONEDRIVE-04 | No-write dry-run validator | `tools/migration/onedrive-pilot-dryrun.mjs` | prepared |

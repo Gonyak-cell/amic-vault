@@ -80,6 +80,8 @@ const packageRepoFiles = [
   'docs/release/onedrive-pilot-import-runbook.md',
   'docs/release/onedrive-bulk-wave-plan.md',
   'docs/release/onedrive-lazycodex-execution-package.md',
+  'tools/migration/onedrive-profile-manifest.mjs',
+  'tools/migration/onedrive-profile-manifest.spec.mjs',
   'tools/migration/onedrive-pilot-dryrun.mjs',
   'tools/migration/onedrive-pilot-dryrun.spec.mjs',
   'tools/migration/onedrive-pilot-import.mjs',
