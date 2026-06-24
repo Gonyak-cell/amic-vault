@@ -445,6 +445,26 @@ describe('DocumentUploadService', () => {
     );
   });
 
+  it('preserves migration source system through the normal upload pipeline', async () => {
+    const file = await tempUploadFile('Migrated.PDF');
+    const { createFileObject, service } = createService();
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: {},
+      file,
+      sourceSystem: 'migration',
+    });
+
+    expect(createFileObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceSystem: 'migration',
+      }),
+      expect.anything(),
+    );
+  });
+
   it('fails closed before storage when upload permission denies', async () => {
     const file = await tempUploadFile('Contract.pdf');
     const { putTenantObject, service } = createService({ permission: 'deny' });

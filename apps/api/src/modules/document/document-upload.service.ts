@@ -50,7 +50,7 @@ export interface UploadDocumentInput {
   matterId: string;
   fields: UploadDocumentFieldsDto;
   file: UploadedDiskFile | undefined;
-  sourceSystem?: 'upload' | 'email_ingest';
+  sourceSystem?: 'upload' | 'email_ingest' | 'migration';
 }
 
 export interface UploadBufferedDocumentInput {
@@ -60,7 +60,7 @@ export interface UploadBufferedDocumentInput {
   originalFilename: string;
   mimeType: string;
   body: Buffer;
-  sourceSystem?: 'upload' | 'email_ingest';
+  sourceSystem?: 'upload' | 'email_ingest' | 'migration';
 }
 
 export interface AddDocumentVersionInput {
