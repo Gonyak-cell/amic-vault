@@ -65,6 +65,10 @@ source_of_truth_cutover=not_approved
 
 ## Real Pilot Write Entry Criteria
 
+The remaining real-run sequence is tracked in
+`docs/release/onedrive-pilot-real-run-plan.md`. Start with `refs-intake` before
+running LC04 dry-run or LC06 write preflight.
+
 Before a real LC-ONEDRIVE-06 pilot write can run, replace synthetic refs with
 external approved refs for:
 

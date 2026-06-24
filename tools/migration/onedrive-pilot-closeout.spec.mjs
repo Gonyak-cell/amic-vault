@@ -8,6 +8,7 @@ import {
   runGemmaReadiness,
   runPackageAudit,
   runReconciliation,
+  runRefsIntake,
   runWavePlan,
   runWritePreflight,
 } from './onedrive-pilot-closeout.mjs';
@@ -81,6 +82,7 @@ const packageRepoFiles = [
   'docs/release/onedrive-bulk-wave-plan.md',
   'docs/release/onedrive-lazycodex-execution-package.md',
   'docs/release/onedrive-pilot-ops-register.md',
+  'docs/release/onedrive-pilot-real-run-plan.md',
   'docs/release/onedrive-pilot-real-refs.example.json',
   'tools/migration/onedrive-profile-manifest.mjs',
   'tools/migration/onedrive-profile-manifest.spec.mjs',
@@ -123,6 +125,33 @@ async function packageFixture(options = {}) {
 }
 
 describe('onedrive-pilot-closeout', () => {
+  it('passes refs intake when all real external refs are present', () => {
+    const report = runRefsIntake({ mapping, candidateId: 'candidate-a', runId: 'run-a' });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-02/06');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.execution_boundary, 'refs_validation_only_no_vault_write');
+    assert.equal(report.required_ref_statuses.some((row) => row.status !== 'present'), false);
+    assert.equal(JSON.stringify(report).includes('APPROVAL-REF'), false);
+  });
+
+  it('blocks refs intake when required refs are placeholders', () => {
+    const report = runRefsIntake({
+      mapping: {
+        ...mapping,
+        matter_ref: 'ONEDRIVE-PILOT-MATTER-REF',
+        approval_ref: 'PENDING_EXTERNAL_REF',
+        operator_ref: '',
+      },
+      candidateId: 'candidate-a',
+      runId: 'run-a',
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_mapping_placeholder_matter_ref'));
+    assert.ok(report.blockers.includes('missing_write_ref_placeholder_approval_ref'));
+    assert.ok(report.blockers.includes('missing_write_ref_operator_ref'));
+    assert.ok(report.owner_summary.find((row) => row.owner === 'Operator')?.blocked);
+  });
+
   it('passes LC06 write preflight when all refs and synthetic checks are present', () => {
     const report = runWritePreflight({ mapping, dryrunReport, syntheticReceipt: importReceipt, candidateId: 'candidate-a', runId: 'run-a' });
     assert.equal(report.lc_id, 'LC-ONEDRIVE-06');
