@@ -165,8 +165,9 @@ describe('onedrive-pilot-write-runner', () => {
   });
 
   it('skips configured source folder segments without leaking excluded labels', async () => {
-    const excludedSegment = 'excluded-archive-folder';
-    const files = await fixtureFiles({ sourceKey: `provider-root/${excludedSegment}/secret.docx` });
+    const excludedSegment = '999_이전 자료들';
+    const decomposedSegment = excludedSegment.normalize('NFD');
+    const files = await fixtureFiles({ sourceKey: `provider-root/${decomposedSegment}/secret.docx` });
     const report = await runPilotWrite({
       ...args(files),
       excludeSourceSegments: [excludedSegment],
@@ -177,6 +178,7 @@ describe('onedrive-pilot-write-runner', () => {
     expect(report.summary.status_counts.skipped).toBe(1);
     expect(report.summary.reason_counts.excluded_source_segment_policy).toBe(1);
     expect(serialized.includes(excludedSegment)).toBe(false);
+    expect(serialized.includes(decomposedSegment)).toBe(false);
     expect(serialized.includes('secret.docx')).toBe(false);
     expect(serialized.includes('raw-bucket')).toBe(false);
   });

@@ -213,7 +213,7 @@ export function parsePilotWriteArgs(argv: readonly string[]): PilotWriteCliArgs 
     localReceiptOut,
     statePath,
     awsProfile: argValue(argv, '--aws-profile'),
-    excludeSourceSegments: argValues(argv, '--exclude-source-segment').map((value) => value.trim()).filter(Boolean),
+    excludeSourceSegments: normalizeSourceSegments(argValues(argv, '--exclude-source-segment')),
     dryRun,
     execute,
     limit,
@@ -238,9 +238,10 @@ export async function runPilotWrite(
   const localReceipts: unknown[] = [];
   const blockers = [...mappingBlockers, ...targetBlockers];
   const sourceByHash = new Map<string, ReadyItem['raw']>();
+  const excludeSourceSegments = normalizeSourceSegments(args.excludeSourceSegments);
 
   for (const row of sourceRows) {
-    const raw = normalizeSourceRow(row, args.excludeSourceSegments);
+    const raw = normalizeSourceRow(row, excludeSourceSegments);
     if (raw) sourceByHash.set(sha256Hex(raw.key), raw);
   }
 
@@ -620,11 +621,14 @@ function normalizeSourceRow(
   if (typeof row.bucket !== 'string' || typeof row.key !== 'string') return null;
   const sizeBytes = Number(row.size ?? row.size_bytes ?? -1);
   if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0) return null;
+  const excludedSegments = new Set(normalizeSourceSegments(excludeSourceSegments));
   return {
     bucket: row.bucket,
     key: row.key,
     sizeBytes,
-    excluded: row.key.split('/').some((segment) => excludeSourceSegments.includes(segment)),
+    excluded: row.key
+      .split('/')
+      .some((segment) => excludedSegments.has(segment.normalize('NFC'))),
   };
 }
 
@@ -799,6 +803,10 @@ function argValues(argv: readonly string[], name: string): string[] {
     if (argv[index] === name && value) values.push(value);
   }
   return values;
+}
+
+function normalizeSourceSegments(values: readonly string[]): string[] {
+  return values.map((value) => value.trim().normalize('NFC')).filter((value) => value.length > 0);
 }
 
 function parseOptionalPositiveInt(
