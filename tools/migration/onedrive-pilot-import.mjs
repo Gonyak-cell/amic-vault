@@ -82,7 +82,7 @@ export function usage() {
   return [
     'usage: node tools/migration/onedrive-pilot-import.mjs --mode synthetic-write --scope <scope.ndjson[.gz]> --mapping <mapping.json> --fixture-store <dir> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> [--run-id <id>] [--candidate-id <id>]',
     '',
-    'Synthetic write-mode only. Real pilot write execution belongs to LC-ONEDRIVE-06.',
+    'Synthetic write-mode only. Real pilot write execution uses: pnpm onedrive:pilot-write -- --dry-run|--execute ...',
   ].join('\n');
 }
 
@@ -329,7 +329,7 @@ function summarize(items) {
 
 export async function runImport(input) {
   if (input.mode === 'pilot-write') {
-    throw new Error('pilot-write execution is reserved for LC-ONEDRIVE-06 and is refused by this synthetic worker');
+    throw new Error('pilot-write execution is served by pnpm onedrive:pilot-write and is refused by this synthetic worker');
   }
   if (input.mode !== 'synthetic-write') throw new Error('only synthetic-write is supported');
   if (!input.fixtureStore) throw new Error('synthetic-write requires fixtureStore');
