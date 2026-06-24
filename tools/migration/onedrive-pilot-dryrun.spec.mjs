@@ -49,6 +49,29 @@ describe('onedrive-pilot-dryrun', () => {
     assert.ok(validateMapping({ ...validMapping, status: 'draft' }, 'candidate-a').includes('mapping_status_not_ready_for_dryrun'));
   });
 
+  it('blocks placeholder refs in LC04 mapping', async () => {
+    const placeholderMapping = {
+      ...validMapping,
+      tenant_ref: 'PENDING_EXTERNAL_REF',
+      matter_ref: 'ONEDRIVE-PILOT-MATTER-REF',
+      permission_source_ref: 'ONEDRIVE-PERMISSION-REF',
+      rollback_owner_ref: '<rollback-owner-ref>',
+    };
+    const blockers = validateMapping(placeholderMapping, 'candidate-a');
+    assert.ok(blockers.includes('placeholder_mapping_tenant_ref'));
+    assert.ok(blockers.includes('placeholder_mapping_matter_ref'));
+    assert.ok(blockers.includes('placeholder_mapping_permission_source_ref'));
+    assert.ok(blockers.includes('placeholder_mapping_rollback_owner_ref'));
+
+    const { scope, mappingPath } = await fixtureFiles(
+      [{ candidate_id: 'candidate-a', source_object_hash: 'a'.repeat(64), extension: '.docx', size_bytes: 1024 }],
+      placeholderMapping,
+    );
+    const report = await runDryRun({ scopePath: scope, mappingPath, runId: 'run', candidateId: 'candidate-a' });
+    assert.equal(report.gate_status, 'blocked');
+    assert.equal(report.summary.expected_write_counts.documents, 0);
+  });
+
   it('produces sanitized ready/skipped/retryable counts without writes', async () => {
     const { scope, mappingPath } = await fixtureFiles([
       {

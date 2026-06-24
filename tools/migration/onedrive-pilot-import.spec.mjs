@@ -52,6 +52,31 @@ describe('onedrive-pilot-import', () => {
     assert.ok(validateWriteMapping({ ...writeMapping, scope_kind: 'full_corpus' }, 'candidate-a').includes('scope_kind_not_pilot_matter'));
   });
 
+  it('blocks placeholder refs in LC05 write mapping', async () => {
+    const placeholderMapping = {
+      ...writeMapping,
+      tenant_ref: 'PENDING_EXTERNAL_REF',
+      matter_ref: 'ONEDRIVE-PILOT-MATTER-REF',
+      approval_ref: 'PENDING_EXTERNAL_REF',
+      dryrun_pass_ref: 'ONEDRIVE-DRYRUN-PASS-REF',
+      rollback_owner_ref: '<rollback-owner-ref>',
+    };
+    const blockers = validateWriteMapping(placeholderMapping, 'candidate-a');
+    assert.ok(blockers.includes('placeholder_mapping_tenant_ref'));
+    assert.ok(blockers.includes('placeholder_mapping_matter_ref'));
+    assert.ok(blockers.includes('placeholder_write_ref_approval_ref'));
+    assert.ok(blockers.includes('placeholder_write_ref_dryrun_pass_ref'));
+    assert.ok(blockers.includes('placeholder_write_ref_rollback_owner_ref'));
+
+    const { scope, mappingPath, store } = await fixtureFiles(
+      [{ candidate_id: 'candidate-a', source_object_hash: 'a'.repeat(64), extension: '.docx', size_bytes: 1024 }],
+      placeholderMapping,
+    );
+    const report = await runImport({ mode: 'synthetic-write', scopePath: scope, mappingPath, fixtureStore: store, runId: 'run', candidateId: 'candidate-a' });
+    assert.equal(report.gate_status, 'blocked');
+    assert.equal(report.summary.expected_created_counts.documents, 0);
+  });
+
   it('creates synthetic Vault-shaped records with migration source system', async () => {
     const { scope, mappingPath, store } = await fixtureFiles([
       {
