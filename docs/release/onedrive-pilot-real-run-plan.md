@@ -168,6 +168,7 @@ PASS requires:
 
 Confirm the existing LC05 synthetic import receipt still passes. Synthetic
 write PASS proves only fixture behavior; it does not prove real pilot import.
+The LC05 write mapping must not contain placeholder mapping or write refs.
 
 Required output:
 

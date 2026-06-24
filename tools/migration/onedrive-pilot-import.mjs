@@ -115,6 +115,15 @@ function isTruthyBoolean(value) {
   return value === true || value === 'true';
 }
 
+function isPlaceholderRef(value) {
+  if (typeof value !== 'string') return false;
+  return (
+    value === 'PENDING_EXTERNAL_REF' ||
+    /^<[^>]+>$/.test(value) ||
+    /^ONEDRIVE-[A-Z0-9-]+-REF$/.test(value)
+  );
+}
+
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, 'utf8'));
 }
@@ -141,11 +150,15 @@ export function validateWriteMapping(mapping, expectedCandidateId) {
   for (const field of requiredMappingFields) {
     if (mapping[field] === undefined || mapping[field] === null || mapping[field] === '') {
       blockers.push(`missing_mapping_${field}`);
+    } else if (isPlaceholderRef(mapping[field])) {
+      blockers.push(`placeholder_mapping_${field}`);
     }
   }
   for (const field of requiredWriteRefs) {
     if (mapping[field] === undefined || mapping[field] === null || mapping[field] === '') {
       blockers.push(`missing_write_ref_${field}`);
+    } else if (isPlaceholderRef(mapping[field])) {
+      blockers.push(`placeholder_write_ref_${field}`);
     }
   }
   if (expectedCandidateId && mapping.candidate_id !== expectedCandidateId) blockers.push('candidate_id_mismatch');
