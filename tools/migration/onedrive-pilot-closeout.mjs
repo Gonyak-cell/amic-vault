@@ -34,6 +34,27 @@ const requiredWriteRefs = [
   'customer_scope_ref',
 ];
 
+const externalRefFields = ['tenant_ref', 'client_ref', 'matter_ref', ...requiredWriteRefs];
+
+const refOwners = {
+  tenant_ref: 'Operator / Infrastructure',
+  client_ref: 'Customer-scope owner',
+  matter_ref: 'Customer-scope owner',
+  approval_ref: 'Customer-scope owner',
+  dryrun_pass_ref: 'Operator',
+  write_window_ref: 'Operator',
+  db_snapshot_ref: 'Operator / Infrastructure',
+  storage_containment_ref: 'Operator / Infrastructure',
+  rollback_owner_ref: 'Rollback owner',
+  import_lock_ref: 'Operator',
+  sanitized_receipt_destination_ref: 'Operator',
+  local_receipt_handling_ref: 'Operator / Security owner',
+  operator_ref: 'Operator',
+  security_ref: 'Security owner',
+  legal_data_ref: 'Legal-data owner',
+  customer_scope_ref: 'Customer-scope owner',
+};
+
 const notClaimed = [
   'customer-wide import',
   'OneDrive connected state',
@@ -64,6 +85,7 @@ const requiredPackageRepoFiles = [
   'docs/release/onedrive-bulk-wave-plan.md',
   'docs/release/onedrive-lazycodex-execution-package.md',
   'docs/release/onedrive-pilot-ops-register.md',
+  'docs/release/onedrive-pilot-real-run-plan.md',
   'docs/release/onedrive-pilot-real-refs.example.json',
   'tools/migration/onedrive-profile-manifest.mjs',
   'tools/migration/onedrive-profile-manifest.spec.mjs',
@@ -119,9 +141,10 @@ export function parseArgs(argv) {
 
 export function usage() {
   return [
-    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <write-preflight|reconcile|gemma-readiness|wave-plan> --sanitized-out <out.json> [inputs]',
+    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan> --sanitized-out <out.json> [inputs]',
     '',
     'Modes:',
+    '  refs-intake      --mapping <json>',
     '  write-preflight  --mapping <json> --dryrun-report <json> --synthetic-receipt <json>',
     '  reconcile        --mapping <json> --dryrun-report <json> --import-receipt <json>',
     '  gemma-readiness  --mapping <json> --reconciliation-report <json>',
@@ -196,6 +219,61 @@ function validateWriteMapping(mapping, candidateId) {
   if (mapping.cutover_policy !== 'not_requested') blockers.push('cutover_policy_must_not_be_requested');
   if (mapping.ai_allowed_default === 'unknown') blockers.push('unknown_ai_allowed_default');
   return blockers;
+}
+
+function fieldGateStatus(mapping, field) {
+  const value = mapping?.[field];
+  if (value === undefined || value === null || value === '') return 'missing';
+  if (isPlaceholderRef(value)) return 'placeholder';
+  return 'present';
+}
+
+function summarizeOwnerStatuses(rows) {
+  const byOwner = new Map();
+  for (const row of rows) {
+    const current = byOwner.get(row.owner) ?? { owner: row.owner, required: 0, present: 0, blocked: 0 };
+    current.required += 1;
+    if (row.status === 'present') current.present += 1;
+    else current.blocked += 1;
+    byOwner.set(row.owner, current);
+  }
+  return Array.from(byOwner.values()).sort((left, right) => left.owner.localeCompare(right.owner));
+}
+
+export function runRefsIntake({ mapping, candidateId, runId }) {
+  const blockers = validateWriteMapping(mapping, candidateId);
+  const refRows = externalRefFields
+    .filter((field, index, fields) => fields.indexOf(field) === index)
+    .map((field) => ({
+      field,
+      owner: refOwners[field] ?? 'Operator',
+      status: fieldGateStatus(mapping, field),
+      required_for: requiredWriteRefs.includes(field) ? 'LC-ONEDRIVE-06' : 'mapping',
+    }));
+  const mappingRows = requiredWriteMappingFields
+    .filter((field) => !externalRefFields.includes(field))
+    .map((field) => ({
+      field,
+      status: fieldGateStatus(mapping, field),
+      required_for: 'mapping',
+    }));
+
+  return {
+    lc_id: 'LC-ONEDRIVE-02/06',
+    mode: 'refs-intake',
+    run_id: runId ?? 'unknown',
+    candidate_id: mapping.candidate_id ?? candidateId ?? 'unknown',
+    gate_status: blockers.length === 0 ? 'pass' : 'blocked',
+    blockers,
+    owner_summary: summarizeOwnerStatuses(refRows),
+    required_ref_statuses: refRows,
+    mapping_field_statuses: mappingRows,
+    allowed_next_action: blockers.length === 0 ? 'run_real_lc04_dryrun_before_write_preflight' : 'collect_real_external_refs',
+    execution_boundary: 'refs_validation_only_no_vault_write',
+    not_claimed: ['dry-run executed', 'pilot import executed', ...notClaimed],
+    sanitization:
+      'Refs-intake output includes field-level status categories only; ref values, customer labels, raw paths, document names, source keys, secrets, cookies, and tokens are not emitted.',
+  };
 }
 
 export function runWritePreflight({ mapping, dryrunReport, syntheticReceipt, candidateId, runId }) {
@@ -467,6 +545,14 @@ function scanForbidden(content, label, blockers) {
 
 async function runFromArgs(args) {
   if (!args.mode || !args.sanitizedOut) throw new Error('required options: --mode and --sanitized-out');
+  if (args.mode === 'refs-intake') {
+    if (!args.mapping) throw new Error('refs-intake requires --mapping');
+    return runRefsIntake({
+      mapping: await readJson(args.mapping),
+      candidateId: args.candidateId,
+      runId: args.runId,
+    });
+  }
   if (args.mode === 'write-preflight') {
     if (!args.mapping || !args.dryrunReport || !args.syntheticReceipt) {
       throw new Error('write-preflight requires --mapping, --dryrun-report, and --synthetic-receipt');

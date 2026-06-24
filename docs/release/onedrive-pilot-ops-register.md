@@ -52,8 +52,23 @@ tests are not approval refs and must not be used for production pilot write-mode
 
 ## Next Command Shape
 
-Once every ref is supplied, create a local-only mapping JSON from
-`docs/release/onedrive-pilot-real-refs.example.json`, then run:
+Detailed execution order is defined in
+`docs/release/onedrive-pilot-real-run-plan.md`.
+
+First, create a local-only mapping JSON from
+`docs/release/onedrive-pilot-real-refs.example.json`, then run the refs intake
+gate:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode refs-intake \
+  --run-id onedrive-staging-20260623-155501 \
+  --candidate-id ad0e04b500f42b28 \
+  --mapping <local-only-real-refs-mapping.json> \
+  --sanitized-out <refs-intake.sanitized.json>
+```
+
+After refs intake, LC04 dry-run, and LC05 synthetic write PASS, run:
 
 ```bash
 node tools/migration/onedrive-pilot-closeout.mjs \
