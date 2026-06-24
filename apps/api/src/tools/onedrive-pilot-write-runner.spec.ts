@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -47,11 +48,11 @@ function sha256Key(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-import crypto from 'node:crypto';
-
-async function fixtureFiles(options: { targetOverride?: Record<string, unknown> } = {}) {
+async function fixtureFiles(
+  options: { sourceKey?: string | undefined; targetOverride?: Record<string, unknown> } = {},
+) {
   const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-pilot-write-runner-test-'));
-  const key = 'provider-root/Client Alpha/Matter One/secret.docx';
+  const key = options.sourceKey ?? 'provider-root/Client Alpha/Matter One/secret.docx';
   const scope = path.join(dir, 'scope.ndjson');
   const sourceManifest = path.join(dir, 'source.ndjson');
   const mappingPath = path.join(dir, 'mapping.json');
@@ -95,6 +96,7 @@ function args(files: Awaited<ReturnType<typeof fixtureFiles>>, execute = false):
     sanitizedOut: files.sanitizedOut,
     localReceiptOut: files.localReceiptOut,
     statePath: files.statePath,
+    excludeSourceSegments: [],
     dryRun: !execute,
     execute,
     maxFailures: 3,
@@ -158,6 +160,23 @@ describe('onedrive-pilot-write-runner', () => {
     );
     expect(serialized.includes('Client Alpha')).toBe(false);
     expect(serialized.includes('Matter One')).toBe(false);
+    expect(serialized.includes('secret.docx')).toBe(false);
+    expect(serialized.includes('raw-bucket')).toBe(false);
+  });
+
+  it('skips configured source folder segments without leaking excluded labels', async () => {
+    const excludedSegment = 'excluded-archive-folder';
+    const files = await fixtureFiles({ sourceKey: `provider-root/${excludedSegment}/secret.docx` });
+    const report = await runPilotWrite({
+      ...args(files),
+      excludeSourceSegments: [excludedSegment],
+    });
+    const serialized = await readFile(files.sanitizedOut, 'utf8');
+
+    expect(report.gate_status).toBe('pass');
+    expect(report.summary.status_counts.skipped).toBe(1);
+    expect(report.summary.reason_counts.excluded_source_segment_policy).toBe(1);
+    expect(serialized.includes(excludedSegment)).toBe(false);
     expect(serialized.includes('secret.docx')).toBe(false);
     expect(serialized.includes('raw-bucket')).toBe(false);
   });
