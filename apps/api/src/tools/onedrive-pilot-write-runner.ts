@@ -54,6 +54,7 @@ export interface PilotWriteCliArgs {
   localReceiptOut: string;
   statePath: string;
   awsProfile?: string | undefined;
+  excludeSourceSegments: string[];
   dryRun: boolean;
   execute: boolean;
   limit?: number | undefined;
@@ -116,6 +117,7 @@ interface ReadyItem {
     bucket: string;
     key: string;
     sizeBytes: number;
+    excluded: boolean;
   };
 }
 
@@ -174,7 +176,7 @@ interface SanitizedItem {
 
 export function usage(): string {
   return [
-    'usage: pnpm onedrive:pilot-write -- --dry-run|--execute --run-id <id> --candidate-id <id> --scope <scope.ndjson[.gz]> --mapping <mapping.json> --target <local-target.json> --source-manifest <raw.ndjson[.gz]> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> [--state <state.json>] [--aws-profile <profile>] [--limit <n>]',
+    'usage: pnpm onedrive:pilot-write -- --dry-run|--execute --run-id <id> --candidate-id <id> --scope <scope.ndjson[.gz]> --mapping <mapping.json> --target <local-target.json> --source-manifest <raw.ndjson[.gz]> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> [--state <state.json>] [--aws-profile <profile>] [--exclude-source-segment <folder-name>] [--limit <n>]',
     '',
     'OneDrive pilot-write runner for exactly one approved pilot Matter.',
     'It refuses customer-wide import, source-of-truth cutover, and Gemma indexing execution.',
@@ -211,6 +213,7 @@ export function parsePilotWriteArgs(argv: readonly string[]): PilotWriteCliArgs 
     localReceiptOut,
     statePath,
     awsProfile: argValue(argv, '--aws-profile'),
+    excludeSourceSegments: normalizeSourceSegments(argValues(argv, '--exclude-source-segment')),
     dryRun,
     execute,
     limit,
@@ -235,9 +238,10 @@ export async function runPilotWrite(
   const localReceipts: unknown[] = [];
   const blockers = [...mappingBlockers, ...targetBlockers];
   const sourceByHash = new Map<string, ReadyItem['raw']>();
+  const excludeSourceSegments = normalizeSourceSegments(args.excludeSourceSegments);
 
   for (const row of sourceRows) {
-    const raw = normalizeSourceRow(row);
+    const raw = normalizeSourceRow(row, excludeSourceSegments);
     if (raw) sourceByHash.set(sha256Hex(raw.key), raw);
   }
 
@@ -362,6 +366,7 @@ export async function runPilotWrite(
     target_blockers: targetBlockers,
     source_manifest_rows: sourceRows.length,
     scope_rows: scopeRows.length,
+    exclude_source_segment_count: args.excludeSourceSegments.length,
     local_receipt_rows_written: localReceipts.length,
     summary,
     items: sanitizedItems,
@@ -546,6 +551,18 @@ function classifyScopeRow(
   const raw = sourceHash ? sourceByHash.get(sourceHash) : undefined;
   if (!raw) reasons.push('source_manifest_match_missing');
   if (raw && raw.sizeBytes !== sizeBytes) reasons.push('source_manifest_size_mismatch');
+  if (raw?.excluded) {
+    return {
+      item: {
+        item_id: itemId,
+        status: 'skipped',
+        reasons: ['excluded_source_segment_policy'],
+        warnings,
+        extension,
+        size_bytes: sizeBytes,
+      },
+    };
+  }
   if (reasons.length > 0 || !sourceHash || !raw) {
     return {
       item: {
@@ -597,11 +614,22 @@ async function* readNdjson(filePath: string): AsyncGenerator<unknown> {
   }
 }
 
-function normalizeSourceRow(row: SourceManifestRow): ReadyItem['raw'] | null {
+function normalizeSourceRow(
+  row: SourceManifestRow,
+  excludeSourceSegments: readonly string[],
+): ReadyItem['raw'] | null {
   if (typeof row.bucket !== 'string' || typeof row.key !== 'string') return null;
   const sizeBytes = Number(row.size ?? row.size_bytes ?? -1);
   if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0) return null;
-  return { bucket: row.bucket, key: row.key, sizeBytes };
+  const excludedSegments = new Set(normalizeSourceSegments(excludeSourceSegments));
+  return {
+    bucket: row.bucket,
+    key: row.key,
+    sizeBytes,
+    excluded: row.key
+      .split('/')
+      .some((segment) => excludedSegments.has(segment.normalize('NFC'))),
+  };
 }
 
 async function readJson(filePath: string): Promise<unknown> {
@@ -766,6 +794,19 @@ function requiredArg(argv: readonly string[], name: string): string {
 function argValue(argv: readonly string[], name: string): string | undefined {
   const index = argv.indexOf(name);
   return index >= 0 ? argv[index + 1] : undefined;
+}
+
+function argValues(argv: readonly string[], name: string): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index + 1];
+    if (argv[index] === name && value) values.push(value);
+  }
+  return values;
+}
+
+function normalizeSourceSegments(values: readonly string[]): string[] {
+  return values.map((value) => value.trim().normalize('NFC')).filter((value) => value.length > 0);
 }
 
 function parseOptionalPositiveInt(
