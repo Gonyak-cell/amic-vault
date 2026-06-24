@@ -34,6 +34,19 @@ const requiredWriteRefs = [
   'customer_scope_ref',
 ];
 
+const requiredDryrunMappingFields = ['candidate_id', 'scope_kind', 'single_matter_scope', 'cutover_policy'];
+
+const requiredDryrunRefs = [
+  'tenant_ref',
+  'client_ref',
+  'matter_ref',
+  'rollback_owner_ref',
+  'operator_ref',
+  'security_ref',
+  'legal_data_ref',
+  'customer_scope_ref',
+];
+
 const externalRefFields = ['tenant_ref', 'client_ref', 'matter_ref', ...requiredWriteRefs];
 
 const refOwners = {
@@ -134,6 +147,7 @@ export function parseArgs(argv) {
     else if (key === 'sanitized-out') args.sanitizedOut = next;
     else if (key === 'run-id') args.runId = next;
     else if (key === 'candidate-id') args.candidateId = next;
+    else if (key === 'phase') args.phase = next;
     else throw new Error(`unknown option: --${key}`);
   }
   return args;
@@ -144,7 +158,7 @@ export function usage() {
     'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan> --sanitized-out <out.json> [inputs]',
     '',
     'Modes:',
-    '  refs-intake      --mapping <json>',
+    '  refs-intake      --mapping <json> [--phase <dryrun|write>]',
     '  write-preflight  --mapping <json> --dryrun-report <json> --synthetic-receipt <json>',
     '  reconcile        --mapping <json> --dryrun-report <json> --import-receipt <json>',
     '  gemma-readiness  --mapping <json> --reconciliation-report <json>',
@@ -221,6 +235,18 @@ function validateWriteMapping(mapping, candidateId) {
   return blockers;
 }
 
+function validateDryrunRefMapping(mapping, candidateId) {
+  const blockers = [];
+  addMissingFieldBlockers(blockers, mapping, requiredDryrunMappingFields, 'missing_mapping');
+  addMissingFieldBlockers(blockers, mapping, requiredDryrunRefs, 'missing_dryrun_ref');
+  if (candidateId && mapping.candidate_id !== candidateId) blockers.push('candidate_id_mismatch');
+  if (mapping.scope_kind !== 'pilot_matter') blockers.push('scope_kind_not_pilot_matter');
+  if (!isTruthyBoolean(mapping.single_matter_scope)) blockers.push('scope_not_single_matter');
+  if (mapping.cutover_policy !== 'not_requested') blockers.push('cutover_policy_must_not_be_requested');
+  if (mapping.ai_allowed_default === 'unknown') blockers.push('unknown_ai_allowed_default');
+  return blockers;
+}
+
 function fieldGateStatus(mapping, field) {
   const value = mapping?.[field];
   if (value === undefined || value === null || value === '') return 'missing';
@@ -240,18 +266,22 @@ function summarizeOwnerStatuses(rows) {
   return Array.from(byOwner.values()).sort((left, right) => left.owner.localeCompare(right.owner));
 }
 
-export function runRefsIntake({ mapping, candidateId, runId }) {
-  const blockers = validateWriteMapping(mapping, candidateId);
-  const refRows = externalRefFields
+export function runRefsIntake({ mapping, candidateId, runId, phase = 'write' }) {
+  if (!['dryrun', 'write'].includes(phase)) throw new Error(`unsupported refs-intake phase: ${phase}`);
+  const dryrunPhase = phase === 'dryrun';
+  const requiredRefs = dryrunPhase ? requiredDryrunRefs : externalRefFields;
+  const requiredMappingFields = dryrunPhase ? requiredDryrunMappingFields : requiredWriteMappingFields;
+  const blockers = dryrunPhase ? validateDryrunRefMapping(mapping, candidateId) : validateWriteMapping(mapping, candidateId);
+  const refRows = requiredRefs
     .filter((field, index, fields) => fields.indexOf(field) === index)
     .map((field) => ({
       field,
       owner: refOwners[field] ?? 'Operator',
       status: fieldGateStatus(mapping, field),
-      required_for: requiredWriteRefs.includes(field) ? 'LC-ONEDRIVE-06' : 'mapping',
+      required_for: dryrunPhase ? 'LC-ONEDRIVE-04' : requiredWriteRefs.includes(field) ? 'LC-ONEDRIVE-06' : 'mapping',
     }));
-  const mappingRows = requiredWriteMappingFields
-    .filter((field) => !externalRefFields.includes(field))
+  const mappingRows = requiredMappingFields
+    .filter((field) => !requiredRefs.includes(field))
     .map((field) => ({
       field,
       status: fieldGateStatus(mapping, field),
@@ -259,8 +289,9 @@ export function runRefsIntake({ mapping, candidateId, runId }) {
     }));
 
   return {
-    lc_id: 'LC-ONEDRIVE-02/06',
+    lc_id: dryrunPhase ? 'LC-ONEDRIVE-02/04' : 'LC-ONEDRIVE-02/06',
     mode: 'refs-intake',
+    phase,
     run_id: runId ?? 'unknown',
     candidate_id: mapping.candidate_id ?? candidateId ?? 'unknown',
     gate_status: blockers.length === 0 ? 'pass' : 'blocked',
@@ -268,7 +299,14 @@ export function runRefsIntake({ mapping, candidateId, runId }) {
     owner_summary: summarizeOwnerStatuses(refRows),
     required_ref_statuses: refRows,
     mapping_field_statuses: mappingRows,
-    allowed_next_action: blockers.length === 0 ? 'run_real_lc04_dryrun_before_write_preflight' : 'collect_real_external_refs',
+    allowed_next_action:
+      blockers.length === 0
+        ? dryrunPhase
+          ? 'prepare_lc04_dryrun_mapping'
+          : 'run_real_lc04_dryrun_before_write_preflight'
+        : dryrunPhase
+          ? 'collect_real_dryrun_refs'
+          : 'collect_real_external_refs',
     execution_boundary: 'refs_validation_only_no_vault_write',
     not_claimed: ['dry-run executed', 'pilot import executed', ...notClaimed],
     sanitization:
@@ -551,6 +589,7 @@ async function runFromArgs(args) {
       mapping: await readJson(args.mapping),
       candidateId: args.candidateId,
       runId: args.runId,
+      phase: args.phase ?? 'write',
     });
   }
   if (args.mode === 'write-preflight') {

@@ -27,11 +27,11 @@ indexing execution, or source-of-truth cutover.
 |---|---|---|---|
 | OP-00 | Confirm branch and package baseline | clean worktree, package audit PASS | package audit blocked |
 | OP-01 | Create local-only refs intake file | protected local mapping file | raw path, secret, or document label appears |
-| OP-02 | Validate refs intake | `refs-intake` PASS | any missing or placeholder ref |
+| OP-02 | Validate dry-run refs intake | `refs-intake --phase dryrun` PASS | any missing or placeholder dry-run prerequisite ref |
 | OP-03 | Prepare real LC04 dry-run inputs | local-only scope manifest and owner refs | scope broader than one Matter |
 | OP-04 | Run real LC04 dry-run | sanitized dry-run PASS | blocked or retryable item without approved handling |
 | OP-05 | Confirm synthetic LC05 baseline | synthetic receipt PASS | fixture write gate blocked |
-| OP-06 | Run LC06 write preflight | `write-preflight` PASS | any prewrite blocker |
+| OP-06 | Run LC06 write preflight | write-phase refs intake PASS and `write-preflight` PASS | any prewrite blocker |
 | OP-07 | Schedule pilot write window | approval, lock, snapshot, containment refs | missing rollback owner or write window |
 | OP-08 | Execute one pilot Matter write | sanitized import receipt and local detailed receipt | customer-wide scope or missing audit evidence |
 | OP-09 | Reconcile LC07 | reconciliation PASS | count, status, storage, or audit mismatch |
@@ -77,22 +77,26 @@ Required refs:
 
 | Ref field | Owner | Required for |
 |---|---|---|
-| `tenant_ref` | Operator / Infrastructure | mapping |
-| `client_ref` | Customer-scope owner | mapping |
-| `matter_ref` | Customer-scope owner | mapping |
+| `tenant_ref` | Operator / Infrastructure | mapping / LC04 |
+| `client_ref` | Customer-scope owner | mapping / LC04 |
+| `matter_ref` | Customer-scope owner | mapping / LC04 |
 | `approval_ref` | Customer-scope owner | LC06 |
 | `dryrun_pass_ref` | Operator | LC06 |
 | `write_window_ref` | Operator | LC06 |
 | `db_snapshot_ref` | Operator / Infrastructure | LC06 |
 | `storage_containment_ref` | Operator / Infrastructure | LC06 |
-| `rollback_owner_ref` | Rollback owner | LC06 |
+| `rollback_owner_ref` | Rollback owner | LC04 / LC06 |
 | `import_lock_ref` | Operator | LC06 |
 | `sanitized_receipt_destination_ref` | Operator | LC06 |
 | `local_receipt_handling_ref` | Operator / Security owner | LC06 |
-| `operator_ref` | Operator | LC06 |
-| `security_ref` | Security owner | LC06 |
-| `legal_data_ref` | Legal-data owner | LC06 |
-| `customer_scope_ref` | Customer-scope owner | LC06 |
+| `operator_ref` | Operator | LC04 / LC06 |
+| `security_ref` | Security owner | LC04 / LC06 |
+| `legal_data_ref` | Legal-data owner | LC04 / LC06 |
+| `customer_scope_ref` | Customer-scope owner | LC04 / LC06 |
+
+The dry-run phase validates only the refs needed before LC04. The write phase
+validates the full LC06 ref set, including `dryrun_pass_ref`, write window,
+snapshot, storage containment, import lock, and approval refs.
 
 The refs file must not contain raw OneDrive paths, customer file names, document
 body text, source object keys, private tenant identifiers, provider console
@@ -105,10 +109,11 @@ Run:
 ```bash
 node tools/migration/onedrive-pilot-closeout.mjs \
   --mode refs-intake \
+  --phase dryrun \
   --run-id onedrive-staging-20260623-155501 \
   --candidate-id ad0e04b500f42b28 \
   --mapping .omo/evidence/OP-ONEDRIVE-PILOT-REAL-RUN/real-refs.mapping.local.json \
-  --sanitized-out .omo/evidence/OP-ONEDRIVE-PILOT-REAL-RUN/refs-intake.sanitized.json
+  --sanitized-out .omo/evidence/OP-ONEDRIVE-PILOT-REAL-RUN/refs-intake.dryrun.sanitized.json
 ```
 
 Expected PASS:
@@ -118,7 +123,9 @@ Expected PASS:
 - owner summary has no blocked fields;
 - output contains field statuses only, not ref values.
 
-If this gate blocks, do not run LC04 dry-run or LC06 write preflight.
+This PASS allows LC04 dry-run preparation only. It does not approve LC06 write
+preflight, pilot import, customer-wide import, Gemma indexing execution, or
+source-of-truth cutover. If this gate blocks, do not run LC04 dry-run.
 
 ## OP-03 Real Dry-Run Inputs
 
@@ -178,7 +185,20 @@ Required output:
 
 ## OP-06 LC06 Write Preflight
 
-Run only after OP-02, OP-04, and OP-05 PASS:
+Run only after OP-02, OP-04, and OP-05 PASS. First confirm the full write-phase
+refs intake gate:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode refs-intake \
+  --phase write \
+  --run-id onedrive-staging-20260623-155501 \
+  --candidate-id ad0e04b500f42b28 \
+  --mapping .omo/evidence/OP-ONEDRIVE-PILOT-REAL-RUN/real-refs.mapping.local.json \
+  --sanitized-out .omo/evidence/OP-ONEDRIVE-PILOT-REAL-RUN/refs-intake.write.sanitized.json
+```
+
+Then run:
 
 ```bash
 node tools/migration/onedrive-pilot-closeout.mjs \
