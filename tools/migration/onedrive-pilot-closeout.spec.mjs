@@ -152,6 +152,48 @@ describe('onedrive-pilot-closeout', () => {
     assert.ok(report.owner_summary.find((row) => row.owner === 'Operator')?.blocked);
   });
 
+  it('passes dryrun-phase refs intake without post-dryrun write refs', () => {
+    const report = runRefsIntake({
+      mapping: {
+        ...mapping,
+        approval_ref: 'PENDING_EXTERNAL_REF',
+        dryrun_pass_ref: 'ONEDRIVE-DRYRUN-PASS-REF',
+        write_window_ref: 'ONEDRIVE-WRITE-WINDOW-REF',
+        db_snapshot_ref: 'ONEDRIVE-DB-SNAPSHOT-REF',
+        storage_containment_ref: 'ONEDRIVE-STORAGE-CONTAINMENT-REF',
+        import_lock_ref: 'ONEDRIVE-IMPORT-LOCK-REF',
+      },
+      candidateId: 'candidate-a',
+      runId: 'run-a',
+      phase: 'dryrun',
+    });
+    const postDryrunRefs = [
+      'approval_ref',
+      'dryrun_pass_ref',
+      'write_window_ref',
+      'db_snapshot_ref',
+      'storage_containment_ref',
+      'import_lock_ref',
+    ];
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-02/04');
+    assert.equal(report.phase, 'dryrun');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.allowed_next_action, 'prepare_lc04_dryrun_mapping');
+    assert.equal(report.required_ref_statuses.some((row) => postDryrunRefs.includes(row.field)), false);
+  });
+
+  it('blocks dryrun-phase refs intake when a dry-run owner ref is placeholder', () => {
+    const report = runRefsIntake({
+      mapping: { ...mapping, security_ref: 'ONEDRIVE-PERMISSION-REF' },
+      candidateId: 'candidate-a',
+      runId: 'run-a',
+      phase: 'dryrun',
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_dryrun_ref_placeholder_security_ref'));
+    assert.equal(report.allowed_next_action, 'collect_real_dryrun_refs');
+  });
+
   it('passes LC06 write preflight when all refs and synthetic checks are present', () => {
     const report = runWritePreflight({ mapping, dryrunReport, syntheticReceipt: importReceipt, candidateId: 'candidate-a', runId: 'run-a' });
     assert.equal(report.lc_id, 'LC-ONEDRIVE-06');
