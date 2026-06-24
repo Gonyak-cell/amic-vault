@@ -80,6 +80,8 @@ const packageRepoFiles = [
   'docs/release/onedrive-pilot-import-runbook.md',
   'docs/release/onedrive-bulk-wave-plan.md',
   'docs/release/onedrive-lazycodex-execution-package.md',
+  'docs/release/onedrive-pilot-ops-register.md',
+  'docs/release/onedrive-pilot-real-refs.example.json',
   'tools/migration/onedrive-profile-manifest.mjs',
   'tools/migration/onedrive-profile-manifest.spec.mjs',
   'tools/migration/onedrive-pilot-dryrun.mjs',
@@ -139,6 +141,19 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(report.gate_status, 'blocked');
     assert.ok(report.blockers.includes('missing_write_ref_write_window_ref'));
     assert.ok(report.blockers.includes('dryrun_has_retryable_items'));
+  });
+
+  it('blocks LC06 preflight when refs are placeholders', () => {
+    const report = runWritePreflight({
+      mapping: { ...mapping, matter_ref: 'ONEDRIVE-PILOT-MATTER-REF', approval_ref: 'PENDING_EXTERNAL_REF' },
+      dryrunReport,
+      syntheticReceipt: importReceipt,
+      candidateId: 'candidate-a',
+      runId: 'run-a',
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_mapping_placeholder_matter_ref'));
+    assert.ok(report.blockers.includes('missing_write_ref_placeholder_approval_ref'));
   });
 
   it('passes LC07 reconciliation for aligned dry-run and import receipts', () => {

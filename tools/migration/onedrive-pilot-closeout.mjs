@@ -63,6 +63,8 @@ const requiredPackageRepoFiles = [
   'docs/release/onedrive-pilot-import-runbook.md',
   'docs/release/onedrive-bulk-wave-plan.md',
   'docs/release/onedrive-lazycodex-execution-package.md',
+  'docs/release/onedrive-pilot-ops-register.md',
+  'docs/release/onedrive-pilot-real-refs.example.json',
   'tools/migration/onedrive-profile-manifest.mjs',
   'tools/migration/onedrive-profile-manifest.spec.mjs',
   'tools/migration/onedrive-pilot-dryrun.mjs',
@@ -168,8 +170,19 @@ function addMissingFieldBlockers(blockers, object, fields, prefix) {
   for (const field of fields) {
     if (object?.[field] === undefined || object?.[field] === null || object?.[field] === '') {
       blockers.push(`${prefix}_${field}`);
+    } else if (isPlaceholderRef(object[field])) {
+      blockers.push(`${prefix}_placeholder_${field}`);
     }
   }
+}
+
+function isPlaceholderRef(value) {
+  if (typeof value !== 'string') return false;
+  return (
+    value === 'PENDING_EXTERNAL_REF' ||
+    /^<[^>]+>$/.test(value) ||
+    /^ONEDRIVE-[A-Z0-9-]+-REF$/.test(value)
+  );
 }
 
 function validateWriteMapping(mapping, candidateId) {
