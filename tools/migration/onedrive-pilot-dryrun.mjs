@@ -125,11 +125,22 @@ function isTruthyBoolean(value) {
   return value === true || value === 'true';
 }
 
+function isPlaceholderRef(value) {
+  if (typeof value !== 'string') return false;
+  return (
+    value === 'PENDING_EXTERNAL_REF' ||
+    /^<[^>]+>$/.test(value) ||
+    /^ONEDRIVE-[A-Z0-9-]+-REF$/.test(value)
+  );
+}
+
 export function validateMapping(mapping, expectedCandidateId) {
   const blockers = [];
   for (const field of requiredMappingFields) {
     if (mapping[field] === undefined || mapping[field] === null || mapping[field] === '') {
       blockers.push(`missing_mapping_${field}`);
+    } else if (isPlaceholderRef(mapping[field])) {
+      blockers.push(`placeholder_mapping_${field}`);
     }
   }
   if (expectedCandidateId && mapping.candidate_id !== expectedCandidateId) {

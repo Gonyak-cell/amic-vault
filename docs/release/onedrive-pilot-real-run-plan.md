@@ -157,6 +157,7 @@ node tools/migration/onedrive-pilot-dryrun.mjs \
 
 PASS requires:
 
+- no placeholder mapping refs;
 - no Vault DB write;
 - no Vault storage write;
 - no blocked items;
