@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
   runGemmaReadiness,
+  runPackageAudit,
   runReconciliation,
   runWavePlan,
   runWritePreflight,
@@ -70,6 +71,52 @@ const importReceipt = {
     { item_id: 'item-skip', status: 'skipped', reasons: ['zero_byte_skip_with_receipt'], warnings: [], extension: '.pdf', size_bytes: 0 },
   ],
 };
+
+const packageRepoFiles = [
+  'docs/release/onedrive-migration-post-launch-plan.md',
+  'docs/release/onedrive-pilot-mapping-template.md',
+  'docs/release/onedrive-pilot-approval-checklist.md',
+  'docs/release/onedrive-pilot-import-worker-design.md',
+  'docs/release/onedrive-pilot-import-runbook.md',
+  'docs/release/onedrive-bulk-wave-plan.md',
+  'docs/release/onedrive-lazycodex-execution-package.md',
+  'tools/migration/onedrive-pilot-dryrun.mjs',
+  'tools/migration/onedrive-pilot-dryrun.spec.mjs',
+  'tools/migration/onedrive-pilot-import.mjs',
+  'tools/migration/onedrive-pilot-import.spec.mjs',
+  'tools/migration/onedrive-pilot-closeout.mjs',
+  'tools/migration/onedrive-pilot-closeout.spec.mjs',
+];
+
+const lcIds = Array.from({ length: 10 }, (_, index) => `LC-ONEDRIVE-${String(index).padStart(2, '0')}`);
+
+async function packageFixture(options = {}) {
+  const repoRoot = await mkdtemp(path.join(tmpdir(), 'onedrive-package-test-'));
+  const evidenceRoot = path.join(repoRoot, '.omo/evidence');
+  for (const file of packageRepoFiles) {
+    const filePath = path.join(repoRoot, file);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, `safe package fixture for ${file}\n`, 'utf8');
+  }
+  for (const lcId of lcIds) {
+    const lcDir = path.join(evidenceRoot, lcId);
+    await mkdir(lcDir, { recursive: true });
+    for (const file of ['executor.md', 'manual-qa.md', 'review.md']) {
+      if (options.omit === `${lcId}/${file}`) continue;
+      await writeFile(path.join(lcDir, file), `# ${lcId} ${file}\nResult: PASS\n`, 'utf8');
+    }
+    if (options.omit !== `${lcId}/gate-review.md`) {
+      const boundary =
+        lcId === 'LC-ONEDRIVE-06'
+          ? '\nactual pilot write is not complete\n'
+          : lcId === 'LC-ONEDRIVE-08'
+            ? '\nNo Gemma execution\n'
+            : '';
+      await writeFile(path.join(lcDir, 'gate-review.md'), `# ${lcId} Gate Review\nDecision: APPROVED\n${boundary}`, 'utf8');
+    }
+  }
+  return { repoRoot, evidenceRoot };
+}
 
 describe('onedrive-pilot-closeout', () => {
   it('passes LC06 write preflight when all refs and synthetic checks are present', () => {
@@ -227,5 +274,24 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(serialized.includes('source-tree'), false);
     assert.equal(serialized.includes('Client Alpha'), false);
     assert.equal(serialized.includes('secret.docx'), false);
+  });
+
+  it('passes package audit when LC00-LC09 evidence and repo files are present', async () => {
+    const fixture = await packageFixture();
+    const report = await runPackageAudit({ repoRoot: fixture.repoRoot, evidenceRoot: fixture.evidenceRoot, runId: 'run-a' });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-00-09');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.lc_status.length, 10);
+    assert.equal(report.actual_execution_state.customer_wide_import, 'not_executed');
+    assert.equal(report.actual_execution_state.gemma_indexing, 'not_started');
+    assert.ok(report.lc_status.find((row) => row.lc_id === 'LC-ONEDRIVE-06').status.includes('actual_write_not_executed'));
+  });
+
+  it('blocks package audit when required evidence is missing', async () => {
+    const fixture = await packageFixture({ omit: 'LC-ONEDRIVE-07/gate-review.md' });
+    const report = await runPackageAudit({ repoRoot: fixture.repoRoot, evidenceRoot: fixture.evidenceRoot, runId: 'run-a' });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('LC-ONEDRIVE-07:missing_evidence:gate-review.md'));
+    assert.ok(report.blockers.includes('LC-ONEDRIVE-07:gate_not_approved'));
   });
 });

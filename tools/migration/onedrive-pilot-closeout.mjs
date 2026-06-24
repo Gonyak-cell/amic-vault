@@ -42,6 +42,46 @@ const notClaimed = [
   'Gemma indexing execution',
 ];
 
+const lcPackageSteps = [
+  ['LC-ONEDRIVE-00', 'isolated_worktree_and_control_baseline'],
+  ['LC-ONEDRIVE-01', 'sanitized_manifest_profiler'],
+  ['LC-ONEDRIVE-02', 'pilot_mapping_packet'],
+  ['LC-ONEDRIVE-03', 'worker_contract_and_runbook'],
+  ['LC-ONEDRIVE-04', 'dryrun_validator'],
+  ['LC-ONEDRIVE-05', 'synthetic_import_worker'],
+  ['LC-ONEDRIVE-06', 'pilot_write_preflight_only'],
+  ['LC-ONEDRIVE-07', 'reconciliation_gate'],
+  ['LC-ONEDRIVE-08', 'gemma_indexing_readiness_only'],
+  ['LC-ONEDRIVE-09', 'bulk_wave_plan_gate'],
+];
+
+const requiredPackageRepoFiles = [
+  'docs/release/onedrive-migration-post-launch-plan.md',
+  'docs/release/onedrive-pilot-mapping-template.md',
+  'docs/release/onedrive-pilot-approval-checklist.md',
+  'docs/release/onedrive-pilot-import-worker-design.md',
+  'docs/release/onedrive-pilot-import-runbook.md',
+  'docs/release/onedrive-bulk-wave-plan.md',
+  'docs/release/onedrive-lazycodex-execution-package.md',
+  'tools/migration/onedrive-pilot-dryrun.mjs',
+  'tools/migration/onedrive-pilot-dryrun.spec.mjs',
+  'tools/migration/onedrive-pilot-import.mjs',
+  'tools/migration/onedrive-pilot-import.spec.mjs',
+  'tools/migration/onedrive-pilot-closeout.mjs',
+  'tools/migration/onedrive-pilot-closeout.spec.mjs',
+];
+
+const forbiddenPackagePatterns = [
+  /AKIA[0-9A-Z]{16}/,
+  /BEGIN .*PRIVATE KEY/,
+  /sk-[A-Za-z0-9]{20,}/,
+  /ghp_[A-Za-z0-9]{20,}/,
+  /xox[baprs]-/,
+  /OneDrive-공유라이브러리/,
+  /AMIC - 1\. AMIC/,
+  /migration-runs\/.+?\/source-tree\//,
+];
+
 export function parseArgs(argv) {
   const args = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -63,6 +103,8 @@ export function parseArgs(argv) {
     else if (key === 'reconciliation-report') args.reconciliationReport = next;
     else if (key === 'gemma-readiness') args.gemmaReadiness = next;
     else if (key === 'wave-plan') args.wavePlan = next;
+    else if (key === 'evidence-root') args.evidenceRoot = next;
+    else if (key === 'repo-root') args.repoRoot = next;
     else if (key === 'sanitized-out') args.sanitizedOut = next;
     else if (key === 'run-id') args.runId = next;
     else if (key === 'candidate-id') args.candidateId = next;
@@ -80,6 +122,7 @@ export function usage() {
     '  reconcile        --mapping <json> --dryrun-report <json> --import-receipt <json>',
     '  gemma-readiness  --mapping <json> --reconciliation-report <json>',
     '  wave-plan        --wave-plan <json> --reconciliation-report <json> --gemma-readiness <json>',
+    '  package-audit    [--repo-root <dir>] [--evidence-root <dir>]',
     '',
     'This tool validates gates only. It does not import customer documents or run Gemma indexing.',
   ].join('\n');
@@ -87,6 +130,15 @@ export function usage() {
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, 'utf8'));
+}
+
+async function readTextOrNull(filePath) {
+  try {
+    return await readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 async function writeJson(filePath, value) {
@@ -306,6 +358,98 @@ export function runWavePlan({ wavePlan, reconciliationReport, gemmaReadiness, ru
   };
 }
 
+export async function runPackageAudit({ repoRoot = process.cwd(), evidenceRoot = '.omo/evidence', runId }) {
+  const blockers = [];
+  const lc_status = [];
+  const scannedFiles = [];
+  const resolvedEvidenceRoot = path.isAbsolute(evidenceRoot) ? evidenceRoot : path.join(repoRoot, evidenceRoot);
+
+  for (const [lcId, purpose] of lcPackageSteps) {
+    const lcDir = path.join(resolvedEvidenceRoot, lcId);
+    const missingEvidence = [];
+    for (const file of ['executor.md', 'manual-qa.md', 'review.md', 'gate-review.md']) {
+      const filePath = path.join(lcDir, file);
+      const content = await readTextOrNull(filePath);
+      if (content === null) {
+        missingEvidence.push(file);
+        continue;
+      }
+      scannedFiles.push(filePath);
+      scanForbidden(content, filePath, blockers);
+    }
+    const gatePath = path.join(lcDir, 'gate-review.md');
+    const gateReview = await readTextOrNull(gatePath);
+    const gateApproved = gateReview?.includes('Decision: APPROVED') ?? false;
+    if (missingEvidence.length > 0) blockers.push(`${lcId}:missing_evidence:${missingEvidence.join(',')}`);
+    if (!gateApproved) blockers.push(`${lcId}:gate_not_approved`);
+    if (lcId === 'LC-ONEDRIVE-06' && !gateReview?.includes('actual pilot write is not complete')) {
+      blockers.push('LC-ONEDRIVE-06:missing_preflight_only_boundary');
+    }
+    if (lcId === 'LC-ONEDRIVE-08' && !gateReview?.includes('No Gemma execution')) {
+      blockers.push('LC-ONEDRIVE-08:missing_no_gemma_execution_boundary');
+    }
+    lc_status.push({
+      lc_id: lcId,
+      purpose,
+      evidence_files_present: missingEvidence.length === 0,
+      gate_approved: gateApproved,
+      status:
+        lcId === 'LC-ONEDRIVE-06'
+          ? 'preflight_ready_actual_write_not_executed'
+          : lcId === 'LC-ONEDRIVE-08'
+            ? 'readiness_ready_indexing_not_started'
+            : gateApproved && missingEvidence.length === 0
+              ? 'prepared'
+              : 'blocked',
+    });
+  }
+
+  const repoFiles = [];
+  for (const relativePath of requiredPackageRepoFiles) {
+    const filePath = path.join(repoRoot, relativePath);
+    const content = await readTextOrNull(filePath);
+    if (content === null) {
+      blockers.push(`missing_repo_file:${relativePath}`);
+      repoFiles.push({ path: relativePath, present: false });
+      continue;
+    }
+    scannedFiles.push(filePath);
+    const scanSkippedReason = relativePath === 'tools/migration/onedrive-pilot-closeout.mjs' ? 'scanner_source_contains_marker_patterns' : undefined;
+    if (!scanSkippedReason) scanForbidden(content, relativePath, blockers);
+    repoFiles.push({ path: relativePath, present: true, scan_skipped_reason: scanSkippedReason });
+  }
+
+  return {
+    lc_id: 'LC-ONEDRIVE-00-09',
+    mode: 'package-audit',
+    run_id: runId ?? 'unknown',
+    gate_status: blockers.length === 0 ? 'pass' : 'blocked',
+    blockers,
+    lc_status,
+    repo_files: repoFiles,
+    scanned_file_count: scannedFiles.length,
+    final_state:
+      blockers.length === 0
+        ? 'prepared_for_one_post_launch_pilot_matter_with_external_refs'
+        : 'blocked_until_package_gaps_are_resolved',
+    actual_execution_state: {
+      customer_wide_import: 'not_executed',
+      pilot_write: 'not_executed_by_package_audit',
+      gemma_indexing: 'not_started',
+      source_of_truth_cutover: 'not_approved',
+    },
+    not_claimed: notClaimed,
+    sanitization:
+      'Package audit scans required repo files and local evidence for forbidden secret/source markers and emits only bounded status metadata.',
+  };
+}
+
+function scanForbidden(content, label, blockers) {
+  for (const pattern of forbiddenPackagePatterns) {
+    if (pattern.test(content)) blockers.push(`forbidden_marker:${label}`);
+  }
+}
+
 async function runFromArgs(args) {
   if (!args.mode || !args.sanitizedOut) throw new Error('required options: --mode and --sanitized-out');
   if (args.mode === 'write-preflight') {
@@ -350,6 +494,13 @@ async function runFromArgs(args) {
       wavePlan: await readJson(args.wavePlan),
       reconciliationReport: await readJson(args.reconciliationReport),
       gemmaReadiness: await readJson(args.gemmaReadiness),
+      runId: args.runId,
+    });
+  }
+  if (args.mode === 'package-audit') {
+    return runPackageAudit({
+      repoRoot: args.repoRoot ?? process.cwd(),
+      evidenceRoot: args.evidenceRoot ?? '.omo/evidence',
       runId: args.runId,
     });
   }
