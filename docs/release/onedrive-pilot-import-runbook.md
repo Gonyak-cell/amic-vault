@@ -96,6 +96,7 @@ pnpm onedrive:pilot-write -- \
   --mapping <local-only-mapping-json> \
   --target <local-only-vault-target-json> \
   --source-manifest <local-only-raw-source-manifest> \
+  --exclude-source-segment <EXCLUDED-SOURCE-FOLDER-SEGMENT> \
   --sanitized-out <pilot-import-receipt.sanitized.json> \
   --local-receipt-out <pilot-import-receipt.local.ndjson>
 ```
@@ -109,6 +110,8 @@ Execution rules:
 - stop if any approval ref is missing;
 - stop if the local-only target file does not contain approved Vault tenant,
   Matter, actor, and upload-preflight targets;
+- skip any source item under an approved excluded source folder segment with a
+  sanitized skip receipt rather than a Vault write;
 - stop after three repeated failures with the same root category;
 - never mutate or delete staging source objects;
 - never hard-delete Vault documents, file objects, versions, or audit events;
