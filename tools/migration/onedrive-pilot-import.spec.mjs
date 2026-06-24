@@ -149,7 +149,7 @@ describe('onedrive-pilot-import', () => {
           runId: 'run',
           candidateId: 'candidate-a',
         }),
-      /reserved for LC-ONEDRIVE-06/,
+      /pnpm onedrive:pilot-write/,
     );
   });
 

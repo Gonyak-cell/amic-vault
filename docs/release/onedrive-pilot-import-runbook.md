@@ -88,25 +88,27 @@ Synthetic write PASS is required before real pilot write-mode.
 Command shape:
 
 ```bash
-node tools/migration/onedrive-pilot-import.mjs \
-  --mode pilot-write \
+pnpm onedrive:pilot-write -- \
+  --execute \
   --run-id <ONEDRIVE-STAGING-RUN-REF> \
   --candidate-id <ONEDRIVE-PILOT-CANDIDATE-REF> \
-  --scope-manifest <local-only-scope-manifest> \
-  --mapping-ref <ONEDRIVE-MAPPING-REF> \
-  --permission-ref <ONEDRIVE-PERMISSION-REF> \
-  --retention-ref <ONEDRIVE-RETENTION-REF> \
-  --rollback-ref <ONEDRIVE-ROLLBACK-REF> \
-  --write-window-ref <ONEDRIVE-WRITE-WINDOW-REF> \
+  --scope <local-only-scope-manifest> \
+  --mapping <local-only-mapping-json> \
+  --target <local-only-vault-target-json> \
+  --source-manifest <local-only-raw-source-manifest> \
   --sanitized-out <pilot-import-receipt.sanitized.json> \
-  --local-receipt-out <pilot-import-receipt.local.ndjson.gz>
+  --local-receipt-out <pilot-import-receipt.local.ndjson>
 ```
 
 Execution rules:
 
 - acquire import lock first;
+- run `pnpm onedrive:pilot-write -- --dry-run ...` with the same inputs before
+  `--execute`;
 - stop if the scope is broader than one pilot Matter;
 - stop if any approval ref is missing;
+- stop if the local-only target file does not contain approved Vault tenant,
+  Matter, actor, and upload-preflight targets;
 - stop after three repeated failures with the same root category;
 - never mutate or delete staging source objects;
 - never hard-delete Vault documents, file objects, versions, or audit events;
@@ -177,4 +179,3 @@ Operator-facing summaries must not include:
 - provider console metadata;
 - screenshots exposing matter data;
 - cookies, tokens, or secrets.
-
