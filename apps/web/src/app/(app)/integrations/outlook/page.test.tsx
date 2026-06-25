@@ -29,11 +29,11 @@ describe('integration status routes', () => {
 
     expect(html).toContain('통합');
     expect(html).toContain('Matter app');
-    expect(html).toContain('업로드 gate');
+    expect(html).toContain('업로드 조건');
     expect(html).toContain('Matter app 연결 상태');
-    expect(html).toContain('Matter Code source');
+    expect(html).toContain('Matter Code 기준 정보');
     expect(html).toContain('업로드 차단');
-    expect(html).toContain('free-floating 업로드');
+    expect(html).toContain('Matter 미선택 업로드');
     expect(html).toContain('Outlook');
     expect(html).toContain('상태 API');
     expect(html).toContain('OneDrive');
@@ -81,11 +81,11 @@ describe('integration status routes', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('운영 게이트');
+    expect(html).toContain('운영 조건');
     expect(html).toContain('R1_PILOT_PRACTICE');
     expect(html).toContain('전송 및 보관');
-    expect(html).toContain('기능 플래그 비활성');
-    expect(html).toContain('참조값 원문 비노출');
+    expect(html).toContain('기능 사용 중지');
+    expect(html).toContain('민감값 비노출');
     expect(html).not.toContain('EVREF-OUTLOOK-002');
     expect(html).not.toContain('APPROVAL-OUTLOOK-OPERATOR');
     expect(html).not.toContain('FEATURE_DISABLED');

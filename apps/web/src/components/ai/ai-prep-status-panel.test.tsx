@@ -8,7 +8,7 @@ describe('AiPrepStatusPanel', () => {
   it('renders authorized file prep output without raw hidden fields', () => {
     const html = renderToStaticMarkup(<AiPrepStatusPanel status={status()} />);
 
-    expect(html).toContain('파일 정리 준비');
+    expect(html).toContain('파일 정리');
     expect(html).toContain('파일 개요');
     expect(html).toContain('파일 유형 PDF, 기준일 2026-06-15.');
     expect(html).toContain('권한 확인된 파일 정보로 정리됨');

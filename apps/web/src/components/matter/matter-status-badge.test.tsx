@@ -9,11 +9,11 @@ describe('MatterStatusBadge', () => {
     for (const status of matterStatuses) {
       const html = renderToStaticMarkup(<MatterStatusBadge status={status} />);
       expect(html).toContain('rounded-md');
-      expect(html).not.toContain('Unknown');
+      expect(html).not.toContain('상태 미확인');
     }
   });
 
   it('falls back for unknown statuses', () => {
-    expect(renderToStaticMarkup(<MatterStatusBadge status="unexpected" />)).toContain('Unknown');
+    expect(renderToStaticMarkup(<MatterStatusBadge status="unexpected" />)).toContain('상태 미확인');
   });
 });
