@@ -93,6 +93,9 @@ manifest, mapping, target-resolution, permission, rollback, and sanitized
 receipt refs before running any next-wave dry-run.
 Use `next-wave-dryrun-receipt` only after a dry-run-only run exists, to verify
 the sanitized dry-run report before preparing a write decision packet.
+Use `next-wave-write-decision` to verify that the next packet is only a
+separate write approval request and still does not authorize or execute write,
+cutover, customer-wide import, or Gemma indexing.
 
 ## Handoff Rule
 

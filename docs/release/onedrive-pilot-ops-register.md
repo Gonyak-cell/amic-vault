@@ -94,6 +94,20 @@ node tools/migration/onedrive-pilot-closeout.mjs \
 This receipt gate does not run dry-run, import, write, cutover, or indexing. It
 checks only the already-produced dry-run report against the local input gate.
 
+If the receipt gate passes, validate the write decision packet before asking
+for separate write approval:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-write-decision \
+  --write-decision <next-wave-write-decision.local.json> \
+  --dryrun-receipt-gate <next-wave-dryrun-receipt.sanitized.json> \
+  --sanitized-out <next-wave-write-decision.sanitized.json>
+```
+
+This gate prepares an operator approval request only. It does not authorize or
+execute Vault write/import, customer-wide import, cutover, or indexing.
+
 ## Hard Stops
 
 Stop if:
