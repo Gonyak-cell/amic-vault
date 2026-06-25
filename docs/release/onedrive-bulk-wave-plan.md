@@ -3,6 +3,7 @@
 Status: POST-LAUNCH PLANNING ONLY
 Owner: Operator / Customer-scope owner / Security owner / Legal-data owner / Rollback owner
 Depends on: `docs/release/onedrive-pilot-import-runbook.md`
+Current packet: `docs/release/onedrive-next-wave-readiness-packet.md`
 
 ## Boundary
 
@@ -10,6 +11,11 @@ This plan starts only after one approved pilot Matter has passed import,
 reconciliation, rollback-readiness, and Gemma readiness checks. It does not
 approve customer-wide import, OneDrive connected-state, Office open/save/sync,
 source-of-truth cutover, external sharing, or Gemma indexing execution.
+
+After the 13-document local pilot closeout, the next allowed unit is the
+readiness packet in `docs/release/onedrive-next-wave-readiness-packet.md`.
+That packet may prepare and validate a bounded wave-plan gate, but it still
+does not approve the exact batch dry-run or any write/import.
 
 ## Required Pilot Evidence
 

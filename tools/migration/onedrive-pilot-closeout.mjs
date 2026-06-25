@@ -96,6 +96,7 @@ const requiredPackageRepoFiles = [
   'docs/release/onedrive-pilot-import-worker-design.md',
   'docs/release/onedrive-pilot-import-runbook.md',
   'docs/release/onedrive-bulk-wave-plan.md',
+  'docs/release/onedrive-next-wave-readiness-packet.md',
   'docs/release/onedrive-lazycodex-execution-package.md',
   'docs/release/onedrive-pilot-ops-register.md',
   'docs/release/onedrive-pilot-real-run-plan.md',

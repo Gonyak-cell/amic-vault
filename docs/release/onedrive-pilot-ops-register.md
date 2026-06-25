@@ -1,94 +1,69 @@
 # OneDrive Pilot Operations Register
 
-Status: REAL PILOT EXECUTION PENDING EXTERNAL REFS
-Run ID: `onedrive-staging-20260623-155501`
-Scope: one post-launch pilot Matter only
+Status: PILOT EXECUTION CLOSED OUT
+Pilot write run ID: `onedrive-pilot-post-permission-setup-20260625`
+Scope: one local pilot Matter, 13 documents
 
-## Selected Pilot Candidate
+## Executed Pilot Candidate
 
-Recommended first pilot candidate:
+Executed pilot candidate:
 
 | Field | Value |
 |---|---:|
-| Candidate ID | `ad0e04b500f42b28` |
-| Risk class | `low_risk` |
-| Object count | `518` |
-| Size | `1.376 GiB` |
-| Selection reason | Low-risk candidate with small object count and bounded size. |
+| Candidate ID | `pilot-216c0425e3795c0f` |
+| Scope | one local pilot Matter |
+| Imported rows | `13` |
+| Failed rows | `0` |
+| Blocked rows | `0` |
+| Skipped rows | `0` |
 
-This candidate is selected from sanitized staging evidence only. The register
+This candidate is recorded from sanitized pilot evidence only. The register
 does not contain raw customer paths, file names, source object keys, document
 contents, private tenant identifiers, provider console metadata, cookies,
 tokens, or secrets.
 
-## Required External Refs
+## Pilot Closeout Evidence
 
-The following refs must be supplied outside the repository before LC-ONEDRIVE-06
-real pilot write-mode can run:
+- LC07 reconciliation: PASS, mismatch count 0.
+- LC08 Gemma readiness: PASS, indexing not started.
+- LC09 post-pilot wave plan: PASS, planning only.
+- Idempotency replay: `already_imported=13`, duplicate create `0`.
 
-| Ref | Status | Owner |
-|---|---|---|
-| `ONEDRIVE-PILOT-MATTER-REF` | `PENDING_EXTERNAL_REF` | Customer-scope owner |
-| `ONEDRIVE-MAPPING-REF` | `PENDING_EXTERNAL_REF` | Operator |
-| `ONEDRIVE-PERMISSION-REF` | `PENDING_EXTERNAL_REF` | Security owner |
-| `ONEDRIVE-RETENTION-REF` | `PENDING_EXTERNAL_REF` | Legal-data owner |
-| `ONEDRIVE-LEGAL-DATA-REF` | `PENDING_EXTERNAL_REF` | Legal-data owner |
-| `ONEDRIVE-CUSTOMER-SCOPE-REF` | `PENDING_EXTERNAL_REF` | Customer-scope owner |
-| `ONEDRIVE-ROLLBACK-REF` | `PENDING_EXTERNAL_REF` | Rollback owner |
-| `ONEDRIVE-DRYRUN-PASS-REF` | `PENDING_EXTERNAL_REF` | Operator |
-| `ONEDRIVE-WRITE-WINDOW-REF` | `PENDING_EXTERNAL_REF` | Operator |
-| `ONEDRIVE-DB-SNAPSHOT-REF` | `PENDING_EXTERNAL_REF` | Operator / Infrastructure |
-| `ONEDRIVE-STORAGE-CONTAINMENT-REF` | `PENDING_EXTERNAL_REF` | Operator / Infrastructure |
-| `ONEDRIVE-IMPORT-LOCK-REF` | `PENDING_EXTERNAL_REF` | Operator |
-| `ONEDRIVE-SANITIZED-RECEIPT-DESTINATION-REF` | `PENDING_EXTERNAL_REF` | Operator |
-| `ONEDRIVE-LOCAL-RECEIPT-HANDLING-REF` | `PENDING_EXTERNAL_REF` | Operator / Security owner |
+Local detailed receipts remain under `.omo/evidence/` and are not committed.
 
 ## Execution Decision
 
-Current decision: `DO_NOT_RUN_REAL_PILOT_WRITE`.
+Current decision: `DO_NOT_EXPAND_IMPORT_WITHOUT_NEXT_WAVE_APPROVAL`.
 
-Reason: all real external refs are still pending. Synthetic refs from LC package
-tests are not approval refs and must not be used for production pilot write-mode.
+Reason: the pilot import is complete, but no customer-wide import,
+source-of-truth cutover, Gemma indexing execution, OneDrive connected-state, or
+Office open/save/sync has been approved. The next permissible work is bounded
+wave approval/readiness and dry-run preparation.
 
 ## Next Command Shape
 
-Detailed execution order is defined in
-`docs/release/onedrive-pilot-real-run-plan.md`.
+Use `docs/release/onedrive-next-wave-readiness-packet.md` as the current
+operator packet. It is readiness-only and does not approve another import.
 
-First, create a local-only mapping JSON from
-`docs/release/onedrive-pilot-real-refs.example.json`, then run the refs intake
-gate:
+Validate only the next bounded wave plan:
 
 ```bash
 node tools/migration/onedrive-pilot-closeout.mjs \
-  --mode refs-intake \
-  --run-id onedrive-staging-20260623-155501 \
-  --candidate-id ad0e04b500f42b28 \
-  --mapping <local-only-real-refs-mapping.json> \
-  --sanitized-out <refs-intake.sanitized.json>
+  --mode wave-plan \
+  --wave-plan <next-wave-plan.local.json> \
+  --reconciliation-report <pilot-reconciliation.sanitized.json> \
+  --gemma-readiness <pilot-gemma-readiness.sanitized.json> \
+  --sanitized-out <next-wave-plan.sanitized.json>
 ```
 
-After refs intake, LC04 dry-run, and LC05 synthetic write PASS, run:
-
-```bash
-node tools/migration/onedrive-pilot-closeout.mjs \
-  --mode write-preflight \
-  --run-id onedrive-staging-20260623-155501 \
-  --candidate-id ad0e04b500f42b28 \
-  --mapping <local-only-real-refs-mapping.json> \
-  --dryrun-report <pilot-dryrun-report.sanitized.json> \
-  --synthetic-receipt <synthetic-import-receipt.sanitized.json> \
-  --sanitized-out <pilot-write-preflight.sanitized.json>
-```
-
-Proceed to real write-mode only if this gate returns `gate_status=pass` with
-zero blockers.
+Proceed to next-wave dry-run only if this gate returns `gate_status=pass` with
+zero blockers and the operator separately approves the exact bounded batch.
 
 ## Hard Stops
 
 Stop if:
 
-- the scope expands beyond the selected pilot candidate;
+- the scope expands beyond the approved bounded Matter batch;
 - any required ref is missing or ambiguous;
 - permission, ethical wall, retention, or legal-hold mapping is unclear;
 - rollback requires hard delete or audit mutation;
