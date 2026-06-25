@@ -1,0 +1,392 @@
+{
+  "schemaVersion": "2026-06-24",
+  "basis": "docs/release/onedrive-migration-validation-tuw-plan.md",
+  "status": "pre_import_mapping_only",
+  "privacyRules": [
+    "Do not store raw source paths in repo artifacts.",
+    "Do not store customer document contents, OCR text, excerpts, screenshots, tokens, cookies, private tenant identifiers, or provider-console metadata.",
+    "Use source_hash, evidence_ref, manifest_ref, and bounded category/count fields instead of raw paths or snippets.",
+    "Rows with unresolved evidence conflicts must remain needs_review or blocked.",
+    "legacy_archive_only rows must not receive matter_code, matter_id, or import eligibility."
+  ],
+  "enums": {
+    "lane": [
+      "civil_active_candidate",
+      "criminal_active_candidate",
+      "administrative_active_candidate",
+      "corporate_advisory_active_candidate",
+      "ma_transaction_active_candidate",
+      "template_reference",
+      "newsletter_publication",
+      "attorney_reference",
+      "meeting_reference",
+      "press_reference",
+      "legacy_archive_only",
+      "provider_or_system_artifact",
+      "needs_review"
+    ],
+    "rowState": [
+      "generated",
+      "verified",
+      "challenged",
+      "approved",
+      "needs_review",
+      "blocked",
+      "archive_only",
+      "deferred"
+    ],
+    "matterTypeEnglish": [
+      "Criminal",
+      "Civil",
+      "Advisory",
+      "M&A"
+    ],
+    "documentEvidenceCategory": [
+      "governing_document",
+      "proceeding_document",
+      "transaction_document",
+      "corporate_minutes",
+      "correspondence_timeline",
+      "financial_record",
+      "court_or_agency_disposition",
+      "duplicate_or_version_signal",
+      "negative_conflict_signal",
+      "reference_or_template",
+      "unknown"
+    ],
+    "approvalState": [
+      "approved",
+      "needs_review",
+      "blocked",
+      "archive_only",
+      "deferred"
+    ],
+    "confidence": [
+      "high",
+      "medium",
+      "low",
+      "conflict",
+      "not_applicable"
+    ]
+  },
+  "tables": {
+    "source_inventory_summary": {
+      "description": "Repo-safe rollup of a local/raw inventory manifest.",
+      "primaryKey": [
+        "inventory_run_id"
+      ],
+      "required": [
+        "inventory_run_id",
+        "generated_at",
+        "source_root_ref",
+        "raw_manifest_ref",
+        "raw_manifest_sha256",
+        "total_files",
+        "total_dirs",
+        "total_bytes",
+        "stat_error_count",
+        "raw_paths_committed",
+        "document_text_committed"
+      ],
+      "columns": {
+        "inventory_run_id": "Stable run identifier, no raw path.",
+        "generated_at": "ISO timestamp.",
+        "source_root_ref": "Redacted source-root label or external evidence ref.",
+        "raw_manifest_ref": "External/local ref to raw manifest.",
+        "raw_manifest_sha256": "Hash of raw manifest.",
+        "total_files": "Integer file count.",
+        "total_dirs": "Integer directory count.",
+        "total_bytes": "Integer byte count.",
+        "stat_error_count": "Integer error count.",
+        "lane_counts_json_ref": "External or inline repo-safe lane totals.",
+        "extension_counts_json_ref": "External or inline repo-safe extension totals.",
+        "raw_paths_committed": "Must be false.",
+        "document_text_committed": "Must be false.",
+        "notes": "Repo-safe notes only."
+      }
+    },
+    "source_lane_workbook": {
+      "description": "One row per source subtree/lane candidate, with no raw path.",
+      "primaryKey": [
+        "source_node_hash"
+      ],
+      "required": [
+        "source_node_hash",
+        "parent_node_hash",
+        "inventory_run_id",
+        "lane",
+        "recursive_file_count",
+        "recursive_dir_count",
+        "recursive_byte_count",
+        "import_eligibility",
+        "row_state"
+      ],
+      "columns": {
+        "source_node_hash": "Hash of canonical source node identity; not reversible in repo.",
+        "parent_node_hash": "Parent source hash or null root marker.",
+        "inventory_run_id": "Foreign key to source_inventory_summary.",
+        "lane": "Enum lane.",
+        "lane_reason_code": "Bounded reason code, no raw path.",
+        "path_depth": "Integer source depth.",
+        "direct_child_count": "Integer direct child count.",
+        "recursive_file_count": "Integer recursive file count.",
+        "recursive_dir_count": "Integer recursive directory count.",
+        "recursive_byte_count": "Integer byte count.",
+        "top_extension_profile": "Bounded extension/count profile.",
+        "import_eligibility": "active_candidate, archive_only, reference_only, blocked, or needs_review.",
+        "row_state": "Enum rowState.",
+        "confidence": "Enum confidence.",
+        "evidence_ref": "External evidence ref only."
+      }
+    },
+    "folder_internal_document_census": {
+      "description": "Per-candidate internal document category census.",
+      "primaryKey": [
+        "candidate_hash",
+        "census_run_id"
+      ],
+      "required": [
+        "candidate_hash",
+        "census_run_id",
+        "inventory_run_id",
+        "readable_file_count",
+        "unreadable_file_count",
+        "evidence_sufficiency_state",
+        "row_state"
+      ],
+      "columns": {
+        "candidate_hash": "Source candidate hash from source_lane_workbook.",
+        "census_run_id": "Stable census run id.",
+        "inventory_run_id": "Inventory run id.",
+        "readable_file_count": "Integer count.",
+        "unreadable_file_count": "Integer count.",
+        "governing_document_count": "Integer count.",
+        "proceeding_document_count": "Integer count.",
+        "transaction_document_count": "Integer count.",
+        "corporate_minutes_count": "Integer count.",
+        "correspondence_timeline_count": "Integer count.",
+        "financial_record_count": "Integer count.",
+        "negative_conflict_signal_count": "Integer count.",
+        "dominant_extension_profile": "Bounded extension/count profile.",
+        "date_band_profile": "Bounded date-band/count profile.",
+        "evidence_sufficiency_state": "sufficient, weak, conflicting, unreadable, or blocked.",
+        "row_state": "Enum rowState.",
+        "census_evidence_ref": "External evidence ref only."
+      }
+    },
+    "evidence_matrix": {
+      "description": "Evidence references and category signals; no snippets.",
+      "primaryKey": [
+        "evidence_ref"
+      ],
+      "required": [
+        "evidence_ref",
+        "candidate_hash",
+        "evidence_category",
+        "source_hash",
+        "signal_strength",
+        "row_state"
+      ],
+      "columns": {
+        "evidence_ref": "External evidence ref, not document text.",
+        "candidate_hash": "Candidate folder hash.",
+        "source_hash": "File or source-node hash, not raw path.",
+        "evidence_category": "Enum documentEvidenceCategory.",
+        "signal_strength": "strong, medium, weak, conflict, or blocker.",
+        "party_role_hypothesis": "client, counterparty, plaintiff, defendant, agency, target, advisor, unknown, or not_applicable.",
+        "matter_detail_hint_korean": "Bounded detail label only; no excerpt.",
+        "matter_type_hint_english": "Enum matterTypeEnglish or null.",
+        "date_signal_present": "Boolean.",
+        "case_number_signal_present": "Boolean.",
+        "client_name_signal_present": "Boolean.",
+        "conflict_signal_present": "Boolean.",
+        "rule_version": "Rule version id.",
+        "row_state": "Enum rowState.",
+        "notes_ref": "External notes ref only."
+      }
+    },
+    "client_candidate_workbook": {
+      "description": "Client candidate and short-name normalization.",
+      "primaryKey": [
+        "client_candidate_key"
+      ],
+      "required": [
+        "client_candidate_key",
+        "candidate_hash",
+        "client_name_candidate",
+        "client_short_name_candidate",
+        "suffix_normalization_state",
+        "approval_state"
+      ],
+      "columns": {
+        "client_candidate_key": "Stable candidate key.",
+        "candidate_hash": "Candidate folder hash.",
+        "client_name_candidate": "Human-readable candidate name.",
+        "client_short_name_candidate": "Name segment for Matter code.",
+        "removed_suffixes": "Array of removed generic suffix labels.",
+        "suffix_normalization_state": "unchanged, normalized, ambiguous, blocked.",
+        "client_type_candidate": "corporation, individual, government, fund, npo, other, unknown.",
+        "role_hypothesis": "client, counterparty, opponent, project_name_only, unknown.",
+        "supporting_evidence_refs": "Array of external evidence refs.",
+        "conflicting_evidence_refs": "Array of external evidence refs.",
+        "confidence": "Enum confidence.",
+        "approval_state": "Enum approvalState.",
+        "reviewer_ref": "Reviewer id/ref external-safe."
+      }
+    },
+    "matter_type_detail_workbook": {
+      "description": "Broad Matter type and Korean detail type approval.",
+      "primaryKey": [
+        "matter_candidate_key"
+      ],
+      "required": [
+        "matter_candidate_key",
+        "candidate_hash",
+        "matter_type_english",
+        "matter_detail_type_korean",
+        "primary_detail_resolution_state",
+        "approval_state"
+      ],
+      "columns": {
+        "matter_candidate_key": "Stable candidate key.",
+        "candidate_hash": "Candidate folder hash.",
+        "matter_type_english": "Enum matterTypeEnglish.",
+        "matter_detail_type_korean": "Reviewed Korean detail label.",
+        "primary_evidence_category": "Enum documentEvidenceCategory.",
+        "primary_evidence_refs": "Array of external evidence refs.",
+        "secondary_detail_types_korean": "Array of secondary Korean labels.",
+        "secondary_evidence_refs": "Array of external evidence refs.",
+        "primary_detail_resolution_state": "single_primary, multi_detail_resolved, split_recommended, merge_recommended, needs_review, blocked.",
+        "folder_name_only": "Must be false for approved rows.",
+        "confidence": "Enum confidence.",
+        "approval_state": "Enum approvalState.",
+        "reviewer_ref": "Reviewer id/ref external-safe."
+      }
+    },
+    "matter_code_uniqueness_plan": {
+      "description": "Matter code proposal and tenant-unique validation.",
+      "primaryKey": [
+        "matter_code_candidate_key"
+      ],
+      "required": [
+        "matter_code_candidate_key",
+        "matter_candidate_key",
+        "client_short_name_candidate",
+        "matter_type_english",
+        "matter_detail_type_korean",
+        "matter_code_candidate",
+        "length_ok",
+        "tenant_unique_state",
+        "approval_state"
+      ],
+      "columns": {
+        "matter_code_candidate_key": "Stable code candidate key.",
+        "matter_candidate_key": "Foreign key to matter_type_detail_workbook.",
+        "client_short_name_candidate": "Approved client short name candidate.",
+        "matter_type_english": "Enum matterTypeEnglish.",
+        "matter_detail_type_korean": "Korean detail label.",
+        "matter_code_candidate": "[client_short_name]/[matter_type_english]/[matter_detail_type_korean].",
+        "length": "Character count.",
+        "length_ok": "Boolean; current max is 120 chars.",
+        "tenant_unique_state": "unique, collides_existing, collides_proposed, not_checked, blocked.",
+        "collision_ref": "External-safe collision ref.",
+        "format_state": "valid, invalid, needs_review, blocked.",
+        "approval_state": "Enum approvalState."
+      }
+    },
+    "evidence_conflict_matrix": {
+      "description": "Negative checks and contradiction handling.",
+      "primaryKey": [
+        "conflict_key"
+      ],
+      "required": [
+        "conflict_key",
+        "candidate_hash",
+        "conflict_type",
+        "severity",
+        "resolution_state"
+      ],
+      "columns": {
+        "conflict_key": "Stable conflict id.",
+        "candidate_hash": "Candidate folder hash.",
+        "conflict_type": "client_counterparty, plaintiff_defendant, project_name_only, multi_detail, stale_evidence, duplicate_evidence, archive_leakage, missing_evidence, code_collision, permission_hold_wall, other.",
+        "positive_evidence_refs": "Array of external evidence refs.",
+        "negative_evidence_refs": "Array of external evidence refs.",
+        "severity": "blocker, high, medium, low.",
+        "resolution_state": "unresolved, reviewer_resolved, split_required, merge_required, blocked, not_applicable.",
+        "resolution_ref": "External-safe resolution ref.",
+        "approval_state": "Enum approvalState."
+      }
+    },
+    "human_approval_workbook": {
+      "description": "Only approval surface for import-ready mapping values.",
+      "primaryKey": [
+        "approval_key"
+      ],
+      "required": [
+        "approval_key",
+        "candidate_hash",
+        "client_approval_state",
+        "matter_type_approval_state",
+        "matter_detail_approval_state",
+        "matter_code_approval_state",
+        "permission_approval_state",
+        "duplicate_approval_state",
+        "overall_approval_state"
+      ],
+      "columns": {
+        "approval_key": "Stable approval row id.",
+        "candidate_hash": "Candidate folder hash.",
+        "client_approval_state": "Enum approvalState.",
+        "matter_type_approval_state": "Enum approvalState.",
+        "matter_detail_approval_state": "Enum approvalState.",
+        "matter_code_approval_state": "Enum approvalState.",
+        "document_tag_approval_state": "Enum approvalState.",
+        "permission_approval_state": "Enum approvalState.",
+        "duplicate_approval_state": "Enum approvalState.",
+        "overall_approval_state": "Enum approvalState.",
+        "reviewer_ref": "Reviewer id/ref external-safe.",
+        "reviewed_at": "ISO timestamp or null.",
+        "approval_evidence_ref": "External approval ref."
+      }
+    },
+    "pilot_dry_run_readiness_checklist": {
+      "description": "Pilot-only dry-run gate; no bulk import.",
+      "primaryKey": [
+        "pilot_check_key"
+      ],
+      "required": [
+        "pilot_check_key",
+        "pilot_scope_ref",
+        "scope_is_pilot_only",
+        "archive_rows_excluded",
+        "matter_codes_unique",
+        "ai_allowed_all_false",
+        "audit_receipt_design_ready",
+        "rollback_design_ready",
+        "connected_state_claim_absent",
+        "readiness_state"
+      ],
+      "columns": {
+        "pilot_check_key": "Stable checklist id.",
+        "pilot_scope_ref": "External pilot scope ref.",
+        "scope_is_pilot_only": "Boolean.",
+        "archive_rows_excluded": "Boolean.",
+        "all_rows_approved": "Boolean.",
+        "internal_document_evidence_complete": "Boolean.",
+        "matter_codes_unique": "Boolean.",
+        "ai_allowed_all_false": "Boolean.",
+        "duplicates_resolved": "Boolean.",
+        "permissions_reviewed": "Boolean.",
+        "audit_receipt_design_ready": "Boolean.",
+        "replay_design_ready": "Boolean.",
+        "rollback_design_ready": "Boolean.",
+        "connected_state_claim_absent": "Boolean.",
+        "office_sync_claim_absent": "Boolean.",
+        "source_of_truth_cutover_absent": "Boolean.",
+        "readiness_state": "ready, needs_review, blocked, deferred.",
+        "blocker_refs": "Array of external-safe refs."
+      }
+    }
+  }
+}

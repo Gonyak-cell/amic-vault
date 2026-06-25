@@ -1,0 +1,1495 @@
+{
+  "schema_version": "2026-06-24.approved-write.v1",
+  "status": "pre_write_planning_only",
+  "privacy_policy": {
+    "repository_allowed": [
+      "schema definitions",
+      "aggregate counts",
+      "approval references",
+      "bounded enum values",
+      "stable hashes",
+      "non-secret operator references",
+      "non-secret source lane labels"
+    ],
+    "repository_forbidden": [
+      "document body",
+      "OCR text",
+      "text excerpts",
+      "screenshots exposing source data",
+      "unredacted source locations",
+      "tokens",
+      "cookies",
+      "credentials",
+      "private tenant values",
+      "unbounded Matter app payloads"
+    ]
+  },
+  "enums": {
+    "row_state": [
+      "approved",
+      "archive_only",
+      "needs_review",
+      "blocked",
+      "deferred"
+    ],
+    "write_action": [
+      "planned_create",
+      "planned_reuse",
+      "created",
+      "reused",
+      "updated_projection",
+      "skipped_idempotent",
+      "skipped_archive",
+      "blocked",
+      "needs_review"
+    ],
+    "gate_state": [
+      "pass",
+      "fail",
+      "not_applicable",
+      "blocked"
+    ],
+    "quarantine_state": [
+      "not_quarantined",
+      "projection_upload_blocked",
+      "matter_app_remediation_requested",
+      "corrected",
+      "superseded"
+    ],
+    "source_mode": [
+      "matter_app_api",
+      "matter_app_event_projection",
+      "vault_projection_only",
+      "unconfigured"
+    ],
+    "blocked_reason_code": [
+      "not_approved",
+      "archive_only",
+      "missing_required_field",
+      "missing_evidence_approval",
+      "client_ambiguous",
+      "matter_code_invalid",
+      "matter_code_duplicate",
+      "matter_type_unsupported",
+      "matter_app_unavailable",
+      "matter_app_stale",
+      "existing_record_conflict",
+      "vault_projection_conflict",
+      "idempotency_conflict",
+      "receipt_policy_violation",
+      "write_contract_missing",
+      "vault_projection_only_not_canonical",
+      "matter_app_vault_identity_mismatch",
+      "source_revision_missing",
+      "customer_document_import_attempted"
+    ],
+    "matter_type_english": [
+      "Criminal",
+      "Civil",
+      "Advisory",
+      "M&A"
+    ]
+  },
+  "contracts": {
+    "matter_app_client_upsert": {
+      "status": "blocked_until_matter_app_write_api_or_approved_event_projection_exists",
+      "allowed_source_modes": [
+        "matter_app_api",
+        "matter_app_event_projection"
+      ],
+      "forbidden_source_modes": [
+        "vault_projection_only",
+        "unconfigured"
+      ],
+      "request_fields": [
+        {
+          "name": "tenantRef",
+          "required": true,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "idempotencyKeyHash",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "clientDisplayName",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "clientShortName",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "approvalRef",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "sourceRevision",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migrationApprovalRef",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "supportingEvidenceRefs",
+          "required": true,
+          "privacy": "array:stable_ref"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "clientId",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "clientDisplayName",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "sourceRevision",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "action",
+          "required": true,
+          "type": "enum:write_action",
+          "privacy": "non_secret_label"
+        }
+      ],
+      "rules": [
+        "sourceRevision or migrationApprovalRef is required on request",
+        "multiple possible client matches return blocked or needs_review",
+        "vault_projection_only is never a production write source"
+      ]
+    },
+    "matter_app_matter_upsert": {
+      "status": "blocked_until_matter_app_write_api_or_approved_event_projection_exists",
+      "allowed_source_modes": [
+        "matter_app_api",
+        "matter_app_event_projection"
+      ],
+      "request_fields": [
+        {
+          "name": "tenantRef",
+          "required": true,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "idempotencyKeyHash",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "clientId",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "clientDisplayName",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "matterCode",
+          "required": true,
+          "max_length": 120,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "matterName",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "matterTypeEnglish",
+          "required": true,
+          "type": "enum:matter_type_english",
+          "privacy": "enum_value"
+        },
+        {
+          "name": "matterDetailTypeKorean",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "practiceGroup",
+          "required": false,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "responsibleLawyer",
+          "required": false,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "openedAt",
+          "required": false,
+          "format": "date-time",
+          "privacy": "timestamp"
+        },
+        {
+          "name": "closedAt",
+          "required": false,
+          "format": "date-time",
+          "privacy": "timestamp"
+        },
+        {
+          "name": "sourceRevision",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migrationApprovalRef",
+          "required": false,
+          "privacy": "stable_ref"
+        }
+      ],
+      "response_fields": [
+        {
+          "name": "matterAppMatterId",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matterCode",
+          "required": true,
+          "max_length": 120,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "clientId",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "sourceRevision",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "action",
+          "required": true,
+          "type": "enum:write_action",
+          "privacy": "non_secret_label"
+        }
+      ],
+      "rules": [
+        "matterCode must equal clientShortName + '/' + matterTypeEnglish + '/' + matterDetailTypeKorean",
+        "matterCode must be unique in tenant scope",
+        "response identity mismatch blocks Vault projection sync"
+      ]
+    },
+    "vault_projection_sync": {
+      "status": "projection_only_after_matter_app_canonical_result",
+      "input_fields": [
+        "matterAppMatterId",
+        "matterCode",
+        "matterName",
+        "clientId",
+        "clientDisplayName",
+        "matterTypeEnglish",
+        "matterDetailTypeKorean",
+        "status",
+        "practiceGroup",
+        "responsibleLawyer",
+        "openedAt",
+        "closedAt",
+        "sourceRevision",
+        "sourceUpdatedAt"
+      ],
+      "rules": [
+        "projection_is_canonical must be false",
+        "vault_projection_only must not be accepted as production canonical source",
+        "Matter app and Vault projection identity mismatch fails",
+        "document rows, file objects, OCR text, raw paths, and customer document import are forbidden"
+      ]
+    }
+  },
+  "tables": {
+    "approved_mapping_write_input": {
+      "description": "Approved rows eligible for write dry-run. Contains no customer document contents or unredacted source locations.",
+      "primary_key": [
+        "approval_row_id"
+      ],
+      "columns": [
+        {
+          "name": "approval_row_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "tenant_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "migration_operator_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "source_lane",
+          "type": "enum",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "overall_approval_state",
+          "type": "enum:row_state",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "client_name_candidate",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "client_short_name_candidate",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "matter_type_english",
+          "type": "enum:matter_type_english",
+          "required": true,
+          "privacy": "enum_value"
+        },
+        {
+          "name": "matter_detail_type_korean",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "matter_code_candidate",
+          "type": "string",
+          "required": true,
+          "max_length": 120,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "matter_name_candidate",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_label"
+        },
+        {
+          "name": "approval_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "mapping_candidate_hash",
+          "type": "string",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "evidence_approval_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        }
+      ],
+      "row_rules": [
+        "overall_approval_state must equal approved",
+        "source_lane must not equal legacy_archive_only",
+        "matter_code_candidate must equal client_short_name_candidate + '/' + matter_type_english + '/' + matter_detail_type_korean",
+        "matter_code_candidate length must be between 1 and 120"
+      ]
+    },
+    "write_preflight_validation": {
+      "description": "Row-level and batch-level gates before dry-run or actual write.",
+      "primary_key": [
+        "validation_id"
+      ],
+      "columns": [
+        {
+          "name": "validation_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approval_row_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approved_rows_only",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "archive_rows_excluded",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_code_format_valid",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_code_length_valid",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_code_unique_in_tenant",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "client_ambiguity_count",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "matter_type_vocabulary_current",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_source_mode",
+          "type": "enum:source_mode",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "matter_app_runtime_ready",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_write_contract_current",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_api_or_event_projection_available",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_auth_scope_verified",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "vault_projection_not_canonical",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "sensitive_values_committed",
+          "type": "boolean",
+          "required": true,
+          "expected": false,
+          "privacy": "gate"
+        },
+        {
+          "name": "preflight_state",
+          "type": "enum:gate_state",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "blocked_reason_codes",
+          "type": "array:enum:blocked_reason_code",
+          "required": true,
+          "privacy": "reason_codes"
+        }
+      ],
+      "row_rules": [
+        "client_id_ref and source_revision_ref are required for created or reused execution outcomes",
+        "client_display_name_ref must match the approved mapping row or Matter app canonical response",
+        "ambiguity_state must not be ambiguous for created or reused execution outcomes"
+      ]
+    },
+    "matter_app_client_upsert_plan": {
+      "description": "Dry-run or execution plan for canonical Matter app client reuse/create.",
+      "primary_key": [
+        "client_upsert_plan_id"
+      ],
+      "columns": [
+        {
+          "name": "client_upsert_plan_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approval_row_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "tenant_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "client_match_hash",
+          "type": "string",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "client_display_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "client_short_name_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "normalized_suffix_removed",
+          "type": "boolean",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "ambiguity_state",
+          "type": "string",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "matter_app_client_ref",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "client_id_ref",
+          "api_field": "clientId",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "client_display_name_ref",
+          "api_field": "clientDisplayName",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "source_revision_ref",
+          "api_field": "sourceRevision",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "planned_action",
+          "type": "enum:write_action",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "idempotency_key_hash",
+          "type": "string",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "blocked_reason_codes",
+          "type": "array:enum:blocked_reason_code",
+          "required": true,
+          "privacy": "reason_codes"
+        }
+      ]
+    },
+    "matter_app_matter_upsert_plan": {
+      "description": "Dry-run or execution plan for canonical Matter app matter reuse/create.",
+      "primary_key": [
+        "matter_upsert_plan_id"
+      ],
+      "columns": [
+        {
+          "name": "matter_upsert_plan_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approval_row_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "tenant_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "matter_app_client_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_code_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "matter_code_hash",
+          "type": "string",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "matter_name_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "matter_type_english",
+          "type": "enum:matter_type_english",
+          "required": true,
+          "privacy": "enum_value"
+        },
+        {
+          "name": "matter_detail_type_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "matter_initial_status",
+          "type": "string",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "matter_app_matter_ref",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_app_matter_id_ref",
+          "api_field": "matterAppMatterId",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "client_id_ref",
+          "api_field": "clientId",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "source_revision_ref",
+          "api_field": "sourceRevision",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "response_identity_match",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "planned_action",
+          "type": "enum:write_action",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "idempotency_key_hash",
+          "type": "string",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "blocked_reason_codes",
+          "type": "array:enum:blocked_reason_code",
+          "required": true,
+          "privacy": "reason_codes"
+        }
+      ],
+      "row_rules": [
+        "matter_app_matter_id_ref and source_revision_ref are required for created or reused execution outcomes",
+        "response_identity_match must be true before Vault projection sync",
+        "matter_code_ref must be the approved bounded code reference or approved bounded code label allowed by policy",
+        "matter_app_matter_ref is required for created or reused execution outcomes"
+      ]
+    },
+    "vault_projection_sync_plan": {
+      "description": "Plan for syncing canonical Matter app identity into the Vault local projection.",
+      "primary_key": [
+        "projection_plan_id"
+      ],
+      "columns": [
+        {
+          "name": "projection_plan_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approval_row_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "tenant_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "matter_app_matter_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_app_matter_id_ref",
+          "api_field": "matterAppMatterId",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_code_ref",
+          "api_field": "matterCode",
+          "type": "string",
+          "required": true,
+          "max_length": 120,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "client_id_ref",
+          "api_field": "clientId",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "client_display_name_ref",
+          "api_field": "clientDisplayName",
+          "type": "string",
+          "required": true,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "vault_projection_matter_ref",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "source_revision_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "source_updated_at",
+          "type": "string",
+          "format": "date-time",
+          "required": true,
+          "privacy": "timestamp"
+        },
+        {
+          "name": "staleness_seconds",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "projection_action",
+          "type": "enum:write_action",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "projection_is_canonical",
+          "type": "boolean",
+          "required": true,
+          "expected": false,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_identity_match",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "client_identity_match",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_code_match",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "source_revision_match",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "blocked_reason_codes",
+          "type": "array:enum:blocked_reason_code",
+          "required": true,
+          "privacy": "reason_codes"
+        }
+      ],
+      "row_rules": [
+        "projection_is_canonical must be false",
+        "matter_identity_match, client_identity_match, matter_code_match, and source_revision_match must all be true",
+        "no document, file object, OCR/text, or raw source path fields are allowed in projection sync"
+      ]
+    },
+    "dry_run_write_receipt": {
+      "description": "Aggregate and row-level receipt generated before mutation.",
+      "primary_key": [
+        "dry_run_receipt_id"
+      ],
+      "columns": [
+        {
+          "name": "dry_run_receipt_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migration_run_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approved_input_rows",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "planned_client_creates",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "planned_client_reuses",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "planned_matter_creates",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "planned_matter_reuses",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "planned_projection_creates",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "planned_projection_updates",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "blocked_rows",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "archive_rows_excluded",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "dry_run_pass",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "gate_summary_state",
+          "type": "enum:gate_state",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "sensitive_values_committed",
+          "type": "boolean",
+          "required": true,
+          "expected": false,
+          "privacy": "gate"
+        }
+      ],
+      "aggregate_rules": [
+        "approved_input_rows equals planned_client_creates + planned_client_reuses plus blocked approved rows after client validation",
+        "dry_run_pass requires blocked_rows = 0 and all execution gates pass",
+        "actual write is forbidden when dry_run_pass is false"
+      ]
+    },
+    "write_execution_receipt": {
+      "description": "Reference-only actual write receipt for client, matter, and projection actions.",
+      "primary_key": [
+        "write_receipt_id"
+      ],
+      "columns": [
+        {
+          "name": "write_receipt_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migration_run_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approval_row_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_app_client_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "client_id_ref",
+          "api_field": "clientId",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_app_matter_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_app_matter_id_ref",
+          "api_field": "matterAppMatterId",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_code_ref",
+          "api_field": "matterCode",
+          "type": "string",
+          "required": true,
+          "max_length": 120,
+          "privacy": "approved_bounded_ref"
+        },
+        {
+          "name": "vault_projection_matter_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "client_action",
+          "type": "enum:write_action",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "matter_action",
+          "type": "enum:write_action",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "projection_action",
+          "type": "enum:write_action",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "source_revision_ref",
+          "api_field": "sourceRevision",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "matter_app_vault_identity_match",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "approval_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "idempotency_key_hash",
+          "type": "string",
+          "required": true,
+          "privacy": "hash"
+        },
+        {
+          "name": "receipt_written_at",
+          "type": "string",
+          "format": "date-time",
+          "required": true,
+          "privacy": "timestamp"
+        }
+      ],
+      "row_rules": [
+        "write receipt can be created only after matching dry-run receipt has dry_run_pass = true",
+        "matter_app_vault_identity_match must be true",
+        "receipt metadata must be reference-only"
+      ]
+    },
+    "idempotency_replay_report": {
+      "description": "Replay result proving the same approved mapping does not create duplicates.",
+      "primary_key": [
+        "replay_report_id"
+      ],
+      "columns": [
+        {
+          "name": "replay_report_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migration_run_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "replay_run_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "rows_replayed",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "client_duplicate_creates",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "matter_duplicate_creates",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "projection_duplicate_creates",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "skipped_idempotent_rows",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "idempotency_conflict_rows",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "replay_pass",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "blocked_reason_codes",
+          "type": "array:enum:blocked_reason_code",
+          "required": true,
+          "privacy": "reason_codes"
+        }
+      ],
+      "aggregate_rules": [
+        "replay_pass requires all duplicate create counts to equal 0",
+        "idempotency_conflict_rows greater than 0 blocks actual write or follow-up writes"
+      ]
+    },
+    "write_conflict_blocked_report": {
+      "description": "Row-level conflict and blocked reason report for review.",
+      "primary_key": [
+        "blocked_report_id"
+      ],
+      "columns": [
+        {
+          "name": "blocked_report_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migration_run_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "approval_row_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "blocked_reason_codes",
+          "type": "array:enum:blocked_reason_code",
+          "required": true,
+          "privacy": "reason_codes"
+        },
+        {
+          "name": "responsible_reviewer_ref",
+          "type": "string",
+          "required": false,
+          "privacy": "ref_or_hash"
+        },
+        {
+          "name": "recommended_resolution",
+          "type": "string",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "resolution_state",
+          "type": "enum:row_state",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "sensitive_values_committed",
+          "type": "boolean",
+          "required": true,
+          "expected": false,
+          "privacy": "gate"
+        }
+      ]
+    },
+    "write_rollback_quarantine_receipt": {
+      "description": "Reference-only receipt for disputed write rollback or projection quarantine.",
+      "primary_key": [
+        "quarantine_receipt_id"
+      ],
+      "columns": [
+        {
+          "name": "quarantine_receipt_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migration_run_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "write_receipt_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "affected_matter_app_matter_ref",
+          "api_field": "matterAppMatterId",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "affected_vault_projection_matter_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "quarantine_state",
+          "type": "enum:quarantine_state",
+          "required": true,
+          "privacy": "non_secret_label"
+        },
+        {
+          "name": "upload_import_blocked",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_owner_remediation_ref",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "correction_receipt_ref",
+          "type": "string",
+          "required": false,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "hard_delete_required",
+          "type": "boolean",
+          "required": true,
+          "expected": false,
+          "privacy": "gate"
+        },
+        {
+          "name": "sensitive_values_committed",
+          "type": "boolean",
+          "required": true,
+          "expected": false,
+          "privacy": "gate"
+        }
+      ],
+      "row_rules": [
+        "rollback/quarantine must not hard-delete canonical Matter app or Vault audit records",
+        "upload_import_blocked must be true while the projection is disputed",
+        "original write receipt must be preserved and linked"
+      ]
+    },
+    "write_acceptance_checklist": {
+      "description": "Final pilot write acceptance gate.",
+      "primary_key": [
+        "checklist_id"
+      ],
+      "columns": [
+        {
+          "name": "checklist_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "migration_run_id",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "clients_and_matters_only",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "no_customer_document_import",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_is_canonical",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "vault_projection_is_reference_only",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "approved_rows_only",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "archive_rows_excluded",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_runtime_ready",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_write_contract_current",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_api_or_event_projection_available",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_code_unique",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_vault_identity_match",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "client_ambiguity_count",
+          "type": "integer",
+          "required": true,
+          "minimum": 0,
+          "privacy": "aggregate_count"
+        },
+        {
+          "name": "dry_run_pass",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "idempotency_replay_pass",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "audit_receipt_ready",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        },
+        {
+          "name": "sensitive_values_committed",
+          "type": "boolean",
+          "required": true,
+          "expected": false,
+          "privacy": "gate"
+        },
+        {
+          "name": "matter_app_owner_approval_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "vault_projection_owner_approval_ref",
+          "type": "string",
+          "required": true,
+          "privacy": "stable_ref"
+        },
+        {
+          "name": "pilot_write_accepted",
+          "type": "boolean",
+          "required": true,
+          "privacy": "gate"
+        }
+      ],
+      "aggregate_rules": [
+        "pilot_write_accepted requires all gate booleans except sensitive_values_committed to be true",
+        "sensitive_values_committed must be false",
+        "client_ambiguity_count must equal 0"
+      ]
+    }
+  }
+}
