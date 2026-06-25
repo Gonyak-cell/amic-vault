@@ -9,6 +9,8 @@ import {
   type PilotWriteCliArgs,
 } from './onedrive-pilot-write-runner';
 
+type UploadedFieldsProbe = { fields: Record<string, unknown> };
+
 const candidateId = 'candidate-a';
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const matterId = '11111111-1111-4111-8111-111111111122';
@@ -145,7 +147,7 @@ describe('onedrive-pilot-write-runner', () => {
     const downloadSourceObject = vi.fn(async (input: { destinationPath: string }) => {
       await writeFile(input.destinationPath, Buffer.from('hello world!'));
     });
-    const uploadOne = vi.fn(async () => ({
+    const uploadOne = vi.fn(async (_input: UploadedFieldsProbe) => ({
       documentId: '22222222-2222-4222-8222-222222222222',
       matterId,
       fileObjectId: '33333333-3333-4333-8333-333333333333',
@@ -165,7 +167,8 @@ describe('onedrive-pilot-write-runner', () => {
         }),
       }),
     );
-    expect(uploadOne.mock.calls[0]?.[0].fields).not.toHaveProperty('uploadPreflightRef');
+    const [uploadInput] = uploadOne.mock.calls[0] ?? [];
+    expect(uploadInput?.fields).not.toHaveProperty('uploadPreflightRef');
     expect(serialized.includes('Client Alpha')).toBe(false);
     expect(serialized.includes('Matter One')).toBe(false);
     expect(serialized.includes('secret.docx')).toBe(false);
