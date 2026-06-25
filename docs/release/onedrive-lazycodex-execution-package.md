@@ -96,6 +96,8 @@ the sanitized dry-run report before preparing a write decision packet.
 Use `next-wave-write-decision` to verify that the next packet is only a
 separate write approval request and still does not authorize or execute write,
 cutover, customer-wide import, or Gemma indexing.
+Use `next-wave-write-approval` only after that separate approval exists, to
+verify bounded write authorization without executing Vault DB/storage writes.
 
 ## Handoff Rule
 

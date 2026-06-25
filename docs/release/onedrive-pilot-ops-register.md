@@ -108,6 +108,21 @@ node tools/migration/onedrive-pilot-closeout.mjs \
 This gate prepares an operator approval request only. It does not authorize or
 execute Vault write/import, customer-wide import, cutover, or indexing.
 
+After separate bounded write approval exists, validate it before any execution
+preflight:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-write-approval \
+  --write-approval <next-wave-write-approval.local.json> \
+  --write-decision-gate <next-wave-write-decision.sanitized.json> \
+  --sanitized-out <next-wave-write-approval.sanitized.json>
+```
+
+This gate validates approval scope only. It does not execute Vault write/import,
+customer-wide import, cutover, indexing, OneDrive connected-state, or Office
+open/save/sync.
+
 ## Hard Stops
 
 Stop if:
