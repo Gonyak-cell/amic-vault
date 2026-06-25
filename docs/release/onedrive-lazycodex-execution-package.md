@@ -39,7 +39,7 @@ The current package does not prove:
 | LC-ONEDRIVE-06 | Pilot write execution | `docs/release/onedrive-pilot-execute-attempt.md` | local pilot write executed; 13 imported |
 | LC-ONEDRIVE-07 | Reconciliation | closeout `reconcile` mode | pass; mismatch count 0 |
 | LC-ONEDRIVE-08 | Gemma indexing readiness | closeout `gemma-readiness` mode | pass; indexing not started |
-| LC-ONEDRIVE-09 | Post-pilot bulk wave plan | `docs/release/onedrive-bulk-wave-plan.md` and closeout `wave-plan` mode | pass, Matter-batch only |
+| LC-ONEDRIVE-09 | Post-pilot bulk wave plan | `docs/release/onedrive-bulk-wave-plan.md`, `docs/release/onedrive-next-wave-readiness-packet.md`, and closeout `wave-plan` mode | pass, Matter-batch only |
 
 ## Package Audit
 
@@ -72,7 +72,8 @@ failed, 0 blocked, and 0 skipped.
 
 The post-pilot sequence is tracked in
 `docs/release/onedrive-pilot-real-run-plan.md`. Start with bounded wave
-approval/readiness before preparing any next-wave dry-run.
+approval/readiness before preparing any next-wave dry-run. The current
+operator packet is `docs/release/onedrive-next-wave-readiness-packet.md`.
 
 Before any next wave can run, hold opaque external refs for:
 

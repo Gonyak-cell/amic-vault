@@ -12,6 +12,7 @@ Depends on:
 - `docs/release/onedrive-pilot-execute-attempt.md`
 - `docs/release/onedrive-pilot-closeout-reconciliation.md`
 - `docs/release/onedrive-bulk-wave-plan.md`
+- `docs/release/onedrive-next-wave-readiness-packet.md`
 
 ## Current Decision
 
@@ -67,6 +68,11 @@ of the repo payload.
 
 No next-wave write is authorized by this plan. The next allowed executable
 action is a bounded wave approval/readiness packet and dry-run gate.
+
+Current readiness packet: `docs/release/onedrive-next-wave-readiness-packet.md`.
+It records PW-00, PW-01, and PW-03 as prepared/verified, and leaves PW-02,
+PW-04, PW-05, and PW-06 pending exact bounded-batch approval and local-only
+mapping refs.
 
 ## Required Next-Wave Refs
 

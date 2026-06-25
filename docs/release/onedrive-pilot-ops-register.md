@@ -42,6 +42,9 @@ wave approval/readiness and dry-run preparation.
 
 ## Next Command Shape
 
+Use `docs/release/onedrive-next-wave-readiness-packet.md` as the current
+operator packet. It is readiness-only and does not approve another import.
+
 Validate only the next bounded wave plan:
 
 ```bash
