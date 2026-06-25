@@ -56,7 +56,17 @@ node tools/migration/onedrive-pilot-closeout.mjs \
   --sanitized-out <next-wave-plan.sanitized.json>
 ```
 
-Proceed to next-wave dry-run only if this gate returns `gate_status=pass` with
+Then validate the exact dry-run-only approval refs:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-approval \
+  --approval <next-wave-approval.local.json> \
+  --wave-gate <next-wave-plan.sanitized.json> \
+  --sanitized-out <next-wave-approval.sanitized.json>
+```
+
+Proceed to next-wave dry-run only if both gates return `gate_status=pass` with
 zero blockers and the operator separately approves the exact bounded batch.
 
 ## Hard Stops

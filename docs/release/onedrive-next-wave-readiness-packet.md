@@ -26,7 +26,7 @@ operator approval must be held as opaque local refs before any dry-run runs.
 |---|---|---|---|---|
 | NWR-00 | Baseline | complete | PR #321 merged; pilot closeout recorded | pilot closeout cannot be verified |
 | NWR-01 | Wave limit | complete | `matter_batch` only, max 3 Matters per wave | `customer_wide`, `full_corpus`, or `all_matters` |
-| NWR-02 | Approval refs | pending operator input | opaque refs only, no raw source data | placeholder or ambiguous approval ref |
+| NWR-02 | Approval refs | gate available, pending operator input | `next-wave-approval` gate PASS | placeholder or ambiguous approval ref |
 | NWR-03 | LC09 gate | complete | `wave-plan` gate PASS with zero blockers | wave count or Matter count exceeds limit |
 | NWR-04 | Dry-run input | pending exact batch | local-only manifest and mapping refs | raw path, filename, object key, document text, or tenant-private value would enter repo |
 | NWR-05 | Dry-run execution | not run | no Vault DB write and no Vault storage write | blocked/retryable rows lack approved handling |
@@ -89,9 +89,45 @@ node tools/migration/onedrive-pilot-closeout.mjs \
   --sanitized-out <next-wave-readiness-gate.sanitized.json>
 ```
 
-Proceed to next-wave dry-run only if this command returns `gate_status=pass`
+Then validate the exact dry-run-only approval refs:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-approval \
+  --run-id onedrive-next-wave-readiness-20260625 \
+  --approval <next-wave-approval.local.json> \
+  --wave-gate <next-wave-readiness-gate.sanitized.json> \
+  --sanitized-out <next-wave-approval.sanitized.json>
+```
+
+Proceed to next-wave dry-run only if both commands return `gate_status=pass`
 with zero blockers and the operator separately approves the exact bounded
 batch. Do not proceed to write/import from this packet.
+
+The approval JSON must explicitly keep all execution boundaries closed:
+
+```json
+{
+  "plan_id": "onedrive-next-wave-readiness-20260625",
+  "scope_kind": "matter_batch",
+  "matter_count": 2,
+  "max_matters_per_wave": 3,
+  "customer_scope_ref": "<external-ref>",
+  "freeze_window_ref": "<external-ref>",
+  "batch_mapping_ref": "<local-evidence-ref>",
+  "rollback_ref": "<external-ref>",
+  "security_permission_ref": "<external-ref>",
+  "legal_data_ref": "<external-ref>",
+  "operator_dryrun_ref": "<external-ref>",
+  "dryrun_only": true,
+  "vault_write_authorized": false,
+  "customer_wide_import": false,
+  "source_of_truth_cutover": false,
+  "gemma_indexing": false,
+  "onedrive_connected_state": false,
+  "office_open_save_sync": false
+}
+```
 
 ## Hard Stops
 

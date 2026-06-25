@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 
 import {
   runGemmaReadiness,
+  runNextWaveApproval,
   runPackageAudit,
   runReconciliation,
   runRefsIntake,
@@ -71,6 +72,39 @@ const importReceipt = {
     { item_id: 'item-ready', status: 'imported', reasons: ['synthetic_write_imported'], warnings: [], extension: '.docx', size_bytes: 1024 },
     { item_id: 'item-skip', status: 'skipped', reasons: ['zero_byte_skip_with_receipt'], warnings: [], extension: '.pdf', size_bytes: 0 },
   ],
+};
+
+const nextWaveGate = {
+  lc_id: 'LC-ONEDRIVE-09',
+  mode: 'wave-plan',
+  run_id: 'run-a',
+  plan_id: 'wave-plan-a',
+  gate_status: 'pass',
+  blockers: [],
+  max_matters_per_wave: 3,
+  wave_count: 1,
+  wave_summaries: [{ wave_id: 'wave-01', matter_count: 2, scope_kind: 'matter_batch', blockers: [] }],
+};
+
+const nextWaveApproval = {
+  plan_id: 'wave-plan-a',
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  customer_scope_ref: 'CUSTOMER-SCOPE-APPROVED-20260625',
+  freeze_window_ref: 'FREEZE-WINDOW-APPROVED-20260625',
+  batch_mapping_ref: 'BATCH-MAPPING-APPROVED-20260625',
+  rollback_ref: 'ROLLBACK-CONTAINMENT-APPROVED-20260625',
+  security_permission_ref: 'SECURITY-PERMISSION-APPROVED-20260625',
+  legal_data_ref: 'LEGAL-DATA-APPROVED-20260625',
+  operator_dryrun_ref: 'OPERATOR-DRYRUN-APPROVED-20260625',
+  dryrun_only: true,
+  vault_write_authorized: false,
+  customer_wide_import: false,
+  source_of_truth_cutover: false,
+  gemma_indexing: false,
+  onedrive_connected_state: false,
+  office_open_save_sync: false,
 };
 
 const packageRepoFiles = [
@@ -328,6 +362,46 @@ describe('onedrive-pilot-closeout', () => {
     assert.match(report.blockers.join(','), /matter_count_exceeds_wave_limit/);
   });
 
+  it('passes next-wave approval gate without serializing approval refs', () => {
+    const report = runNextWaveApproval({ approval: nextWaveApproval, waveGate: nextWaveGate, runId: 'run-a' });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-09/PW-02');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.allowed_next_action, 'prepare_local_next_wave_dryrun_inputs');
+    assert.equal(report.actual_execution_state.vault_write, 'not_authorized');
+    assert.equal(report.ref_statuses.some((row) => row.status !== 'present'), false);
+    assert.equal(JSON.stringify(report).includes('OPERATOR-DRYRUN-APPROVED-20260625'), false);
+  });
+
+  it('blocks next-wave approval gate on placeholders, write flags, and scope drift', () => {
+    const report = runNextWaveApproval({
+      waveGate: nextWaveGate,
+      runId: 'run-a',
+      approval: {
+        ...nextWaveApproval,
+        plan_id: 'different-plan',
+        scope_kind: 'customer_wide',
+        matter_count: 4,
+        operator_dryrun_ref: 'ONEDRIVE-OPERATOR-REF',
+        dryrun_only: false,
+        vault_write_authorized: true,
+      },
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_next_wave_ref_placeholder_operator_dryrun_ref'));
+    assert.ok(report.blockers.includes('plan_id_mismatch'));
+    assert.ok(report.blockers.includes('scope_kind_must_be_matter_batch'));
+    assert.ok(report.blockers.includes('matter_count_exceeds_wave_limit'));
+    assert.ok(report.blockers.includes('dryrun_only_must_be_true'));
+    assert.ok(report.blockers.includes('vault_write_must_not_be_authorized'));
+  });
+
+  it('blocks next-wave approval gate when approval input is empty', () => {
+    const report = runNextWaveApproval({ approval: {}, waveGate: nextWaveGate, runId: 'run-a' });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_next_wave_approval_plan_id'));
+    assert.ok(report.blockers.includes('missing_next_wave_ref_customer_scope_ref'));
+  });
+
   it('CLI writes sanitized reports without source labels', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-closeout-test-'));
     const mappingPath = path.join(dir, 'mapping.json');
@@ -363,6 +437,39 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(serialized.includes('source-tree'), false);
     assert.equal(serialized.includes('Client Alpha'), false);
     assert.equal(serialized.includes('secret.docx'), false);
+  });
+
+  it('CLI writes next-wave approval reports without approval ref values', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-next-wave-approval-test-'));
+    const approvalPath = path.join(dir, 'approval.json');
+    const gatePath = path.join(dir, 'wave-gate.json');
+    const outPath = path.join(dir, 'approval-out.json');
+    await writeFile(approvalPath, `${JSON.stringify(nextWaveApproval)}\n`, 'utf8');
+    await writeFile(gatePath, `${JSON.stringify(nextWaveGate)}\n`, 'utf8');
+
+    const { spawnSync } = await import('node:child_process');
+    const result = spawnSync(
+      process.execPath,
+      [
+        'tools/migration/onedrive-pilot-closeout.mjs',
+        '--mode',
+        'next-wave-approval',
+        '--approval',
+        approvalPath,
+        '--wave-gate',
+        gatePath,
+        '--sanitized-out',
+        outPath,
+        '--run-id',
+        'run-a',
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const serialized = await readFile(outPath, 'utf8');
+    assert.equal(serialized.includes('CUSTOMER-SCOPE-APPROVED-20260625'), false);
+    assert.equal(serialized.includes('OPERATOR-DRYRUN-APPROVED-20260625'), false);
+    assert.match(serialized, /next-wave-approval/);
   });
 
   it('passes package audit when LC00-LC09 evidence and repo files are present', async () => {
