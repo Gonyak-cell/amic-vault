@@ -49,6 +49,30 @@ Result:
 
 The staging AWS SSO token was expired at retry time. All configured local AWS profiles returned the same SSO token expiration condition during STS preflight. No broader import, cutover, indexing, connected-state, or Office sync action was performed.
 
+## Successful Post-SSO Pilot Execute
+
+The staging AWS SSO session was refreshed and the same 13-row candidate was retried.
+
+Additional blockers found and resolved before the successful execute:
+
+- Source object preflight passed for the first 3 pilot rows: manifest match, `head-object`, `get-object`, and size checks all passed.
+- The runner no longer passes stale external upload preflight refs into `DocumentUploadService`; upload policy now issues process-local preflight receipts during the runner process.
+- Local `vault_projection_only` mode remained lookup-only and not upload-authoritative. The pilot execute used local-only `matter_app_event_projection` source flags for the runner process only.
+- The pilot target initially used a `firm_admin` actor, which is not permitted to edit/upload matter documents by the role matrix. A local audited pilot permission setup added one active `matter_owner` user as `member/edit` for the pilot matter and updated the local target artifact.
+
+Successful execute result:
+
+- run id: `onedrive-pilot-post-permission-setup-20260625`
+- scope size: 13
+- imported: 13
+- failed: 0
+- blocked: 0
+- skipped: 0
+- local receipt rows: 13
+- idempotency replay: `already_imported=13`, duplicate created `0`
+
+No customer-wide import, source-of-truth cutover, Gemma indexing, OneDrive connected-state claim, or Office open/save/sync action was performed.
+
 ## Local DB Check
 
 Post-attempt local DB counts:
@@ -74,6 +98,21 @@ The post-approval retry produced the same local DB counts:
 Rollback/containment receipt: `.omo/evidence/BULK-SCOPE-APPROVAL/provisional-approve-complete/pilot-import-dry-run/post-target-resolution/pilot-write-rollback-containment-approved.sanitized.json`.
 
 Rollback status: `noop`, because no document, version, file object, or audit rows were created. Containment status: `pass`, because the runner failed closed before any local Vault write occurred.
+
+After the successful execute and idempotency replay, local DB counts are:
+
+| Table               | Count |
+| ------------------- | ----: |
+| `documents`         |    13 |
+| `document_versions` |    13 |
+| `file_objects`      |    13 |
+| `audit_events`      | 34069 |
+| `matter_members`    |   124 |
+
+Successful containment receipt:
+`.omo/evidence/BULK-SCOPE-APPROVAL/provisional-approve-complete/pilot-import-dry-run/post-target-resolution/pilot-write-success-containment.sanitized.json`.
+
+Rollback status after success: `prepared_not_executed`. No hard delete, audit mutation, customer-wide import, cutover, indexing, connected-state claim, or Office sync action was performed.
 
 ## Access Diagnosis
 

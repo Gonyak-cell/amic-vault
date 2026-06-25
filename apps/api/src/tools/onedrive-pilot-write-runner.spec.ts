@@ -82,7 +82,15 @@ async function fixtureFiles(
     `${JSON.stringify({ ...target, ...options.targetOverride })}\n`,
     'utf8',
   );
-  return { scope, sourceManifest, mappingPath, targetPath, sanitizedOut, localReceiptOut, statePath };
+  return {
+    scope,
+    sourceManifest,
+    mappingPath,
+    targetPath,
+    sanitizedOut,
+    localReceiptOut,
+    statePath,
+  };
 }
 
 function args(files: Awaited<ReturnType<typeof fixtureFiles>>, execute = false): PilotWriteCliArgs {
@@ -153,11 +161,11 @@ describe('onedrive-pilot-write-runner', () => {
       expect.objectContaining({
         target: expect.objectContaining({ tenantId, matterId, actorUserId }),
         fields: expect.objectContaining({
-          uploadPreflightRef: 'upf_ref',
           duplicateDecision: 'new_document',
         }),
       }),
     );
+    expect(uploadOne.mock.calls[0]?.[0].fields).not.toHaveProperty('uploadPreflightRef');
     expect(serialized.includes('Client Alpha')).toBe(false);
     expect(serialized.includes('Matter One')).toBe(false);
     expect(serialized.includes('secret.docx')).toBe(false);
@@ -167,7 +175,9 @@ describe('onedrive-pilot-write-runner', () => {
   it('skips configured source folder segments without leaking excluded labels', async () => {
     const excludedSegment = '999_이전 자료들';
     const decomposedSegment = excludedSegment.normalize('NFD');
-    const files = await fixtureFiles({ sourceKey: `provider-root/${decomposedSegment}/secret.docx` });
+    const files = await fixtureFiles({
+      sourceKey: `provider-root/${decomposedSegment}/secret.docx`,
+    });
     const report = await runPilotWrite({
       ...args(files),
       excludeSourceSegments: [excludedSegment],
