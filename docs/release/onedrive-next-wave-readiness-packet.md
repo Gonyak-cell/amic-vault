@@ -33,6 +33,7 @@ operator approval must be held as opaque local refs before any dry-run runs.
 | NWR-06 | Write decision | gate available, write not authorized | `next-wave-write-decision` gate PASS | approval bundles write with cutover or AI indexing |
 | NWR-07 | Write approval | gate available, write not executed | `next-wave-write-approval` gate PASS | approval requests immediate execution or bundles cutover/indexing |
 | NWR-08 | Write execution preflight | gate available, write not executed | `next-wave-write-execution-preflight` gate PASS | preflight requests immediate execution or reports DB/storage writes |
+| NWR-09 | Write receipt | gate available, write not run by packet | `next-wave-write-receipt` gate PASS | created counts drift, failed rows, cutover, or indexing bundled |
 
 ## Current Gate Result
 
@@ -184,6 +185,23 @@ for a bounded operator write command. It does not execute Vault write/import,
 DB write, storage write, customer-wide import, source-of-truth cutover, Gemma
 indexing, OneDrive connected-state, or Office open/save/sync.
 
+After a separately approved bounded operator write command has actually run,
+validate only its sanitized write receipt before preparing post-write
+reconciliation and Gemma readiness:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-write-receipt \
+  --run-id onedrive-next-wave-readiness-20260625 \
+  --write-receipt <next-wave-write-receipt.sanitized.json> \
+  --execution-preflight-gate <next-wave-write-execution-preflight.sanitized.json> \
+  --sanitized-out <next-wave-write-receipt-gate.sanitized.json>
+```
+
+The write receipt gate validates counts and containment evidence only. It does
+not execute Vault write/import, does not approve customer-wide import, does not
+approve source-of-truth cutover, and does not enqueue or run Gemma indexing.
+
 The approval JSON must explicitly keep all execution boundaries closed:
 
 ```json
@@ -329,6 +347,50 @@ write authorization and containment refs exist:
   "gemma_indexing": false,
   "onedrive_connected_state": false,
   "office_open_save_sync": false
+}
+```
+
+The write receipt JSON is used only after a separately approved bounded write
+command has run. It must include actual count receipts without raw document
+metadata:
+
+```json
+{
+  "plan_id": "onedrive-next-wave-readiness-20260625",
+  "scope_kind": "matter_batch",
+  "matter_count": 2,
+  "max_matters_per_wave": 3,
+  "receipt_kind": "bounded_write_execution_receipt",
+  "execution_preflight_ref": "<local-evidence-ref>",
+  "post_write_db_count_ref": "<local-evidence-ref>",
+  "post_write_storage_count_ref": "<local-evidence-ref>",
+  "audit_receipt_ref": "<local-evidence-ref>",
+  "rollback_containment_ref": "<external-ref>",
+  "idempotency_replay_ref": "<local-evidence-ref>",
+  "sanitized_receipt_destination_ref": "<local-evidence-ref>",
+  "local_receipt_handling_ref": "<local-evidence-ref>",
+  "operator_ref": "<external-ref>",
+  "security_permission_ref": "<external-ref>",
+  "legal_data_ref": "<external-ref>",
+  "write_executed": true,
+  "vault_db_write_executed": true,
+  "vault_storage_write_executed": true,
+  "customer_wide_import": false,
+  "source_of_truth_cutover": false,
+  "gemma_indexing": false,
+  "onedrive_connected_state": false,
+  "office_open_save_sync": false,
+  "summary": {
+    "status_counts": {
+      "imported": 1
+    },
+    "actual_created_counts": {
+      "documents": 1,
+      "document_versions": 1,
+      "file_objects": 1,
+      "audit_events": 1
+    }
+  }
 }
 ```
 
