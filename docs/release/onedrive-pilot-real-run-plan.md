@@ -66,6 +66,7 @@ of the repo payload.
 | PW-05 | Run next-wave dry-run | no Vault DB write and no Vault storage write | blocked/retryable rows without approved handling |
 | PW-06 | Produce next-wave write decision packet | explicit operator approval request | approval bundled with cutover or AI indexing |
 | PW-07 | Validate bounded write approval | `next-wave-write-approval` gate PASS | immediate execution, customer-wide import, cutover, or indexing is bundled |
+| PW-08 | Validate bounded write execution preflight | `next-wave-write-execution-preflight` gate PASS | preflight requests immediate execution or reports DB/storage writes |
 
 No next-wave write is authorized by this plan. The next allowed executable
 action is a bounded wave approval/readiness packet, local dry-run input gate,
@@ -78,7 +79,10 @@ local-only mapping refs. PW-05 now has receipt gate tooling available, but the
 actual next-wave dry-run remains not run and not authorized. PW-06 now has
 write decision packet gate tooling available, but the actual write remains not
 authorized. PW-07 now has bounded write approval gate tooling available, but
-the actual write remains not executed.
+the actual write remains not executed. PW-08 now has bounded write execution
+preflight tooling available, but the actual write remains not executed and
+Gemma indexing remains pending post-write reconciliation and separate
+permission-before-AI readiness.
 
 ## Required Next-Wave Refs
 

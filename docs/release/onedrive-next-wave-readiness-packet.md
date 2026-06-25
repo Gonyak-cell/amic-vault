@@ -32,6 +32,7 @@ operator approval must be held as opaque local refs before any dry-run runs.
 | NWR-05 | Dry-run execution | receipt gate available, dry-run not run | `next-wave-dryrun-receipt` gate PASS | blocked/retryable rows lack approved handling |
 | NWR-06 | Write decision | gate available, write not authorized | `next-wave-write-decision` gate PASS | approval bundles write with cutover or AI indexing |
 | NWR-07 | Write approval | gate available, write not executed | `next-wave-write-approval` gate PASS | approval requests immediate execution or bundles cutover/indexing |
+| NWR-08 | Write execution preflight | gate available, write not executed | `next-wave-write-execution-preflight` gate PASS | preflight requests immediate execution or reports DB/storage writes |
 
 ## Current Gate Result
 
@@ -166,6 +167,23 @@ bounded write approval. It does not execute Vault write/import, DB write,
 storage write, customer-wide import, source-of-truth cutover, Gemma indexing,
 OneDrive connected-state, or Office open/save/sync.
 
+After the approval gate passes, validate the bounded execution preflight before
+running any operator write command:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-write-execution-preflight \
+  --run-id onedrive-next-wave-readiness-20260625 \
+  --execution-preflight <next-wave-write-execution-preflight.local.json> \
+  --write-approval-gate <next-wave-write-approval.sanitized.json> \
+  --sanitized-out <next-wave-write-execution-preflight.sanitized.json>
+```
+
+The execution preflight gate validates only the final local refs and boundaries
+for a bounded operator write command. It does not execute Vault write/import,
+DB write, storage write, customer-wide import, source-of-truth cutover, Gemma
+indexing, OneDrive connected-state, or Office open/save/sync.
+
 The approval JSON must explicitly keep all execution boundaries closed:
 
 ```json
@@ -271,6 +289,41 @@ must not request immediate execution:
   "legal_data_ref": "<external-ref>",
   "write_execution_authorized": true,
   "execute_immediately": false,
+  "customer_wide_import": false,
+  "source_of_truth_cutover": false,
+  "gemma_indexing": false,
+  "onedrive_connected_state": false,
+  "office_open_save_sync": false
+}
+```
+
+The execution preflight JSON must keep execution itself false while proving
+write authorization and containment refs exist:
+
+```json
+{
+  "plan_id": "onedrive-next-wave-readiness-20260625",
+  "scope_kind": "matter_batch",
+  "matter_count": 2,
+  "max_matters_per_wave": 3,
+  "preflight_kind": "bounded_write_execution_preflight",
+  "write_approval_gate_ref": "<local-evidence-ref>",
+  "write_window_ref": "<external-ref>",
+  "db_snapshot_ref": "<external-ref>",
+  "storage_containment_ref": "<external-ref>",
+  "rollback_ref": "<external-ref>",
+  "import_lock_ref": "<external-ref>",
+  "target_resolution_ref": "<local-evidence-ref>",
+  "upload_preflight_ref": "<local-evidence-ref>",
+  "sanitized_receipt_destination_ref": "<local-evidence-ref>",
+  "local_receipt_handling_ref": "<local-evidence-ref>",
+  "operator_ref": "<external-ref>",
+  "security_permission_ref": "<external-ref>",
+  "legal_data_ref": "<external-ref>",
+  "write_execution_authorized": true,
+  "execute_now": false,
+  "vault_write_executed": false,
+  "vault_storage_write_executed": false,
   "customer_wide_import": false,
   "source_of_truth_cutover": false,
   "gemma_indexing": false,

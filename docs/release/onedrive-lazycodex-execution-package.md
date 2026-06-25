@@ -98,6 +98,10 @@ separate write approval request and still does not authorize or execute write,
 cutover, customer-wide import, or Gemma indexing.
 Use `next-wave-write-approval` only after that separate approval exists, to
 verify bounded write authorization without executing Vault DB/storage writes.
+Use `next-wave-write-execution-preflight` after the approval gate to verify
+final local write-window, upload-preflight, snapshot, containment, rollback,
+permission, and legal-data refs while still keeping actual Vault DB/storage
+writes, customer-wide import, cutover, and Gemma indexing unexecuted.
 
 ## Handoff Rule
 

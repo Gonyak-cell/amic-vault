@@ -155,6 +155,39 @@ const requiredNextWaveWriteApprovalRefs = [
   'legal_data_ref',
 ];
 
+const requiredNextWaveExecutionPreflightFields = [
+  'plan_id',
+  'scope_kind',
+  'matter_count',
+  'max_matters_per_wave',
+  'preflight_kind',
+  'write_execution_authorized',
+  'execute_now',
+  'vault_write_executed',
+  'vault_storage_write_executed',
+  'customer_wide_import',
+  'source_of_truth_cutover',
+  'gemma_indexing',
+  'onedrive_connected_state',
+  'office_open_save_sync',
+];
+
+const requiredNextWaveExecutionPreflightRefs = [
+  'write_approval_gate_ref',
+  'write_window_ref',
+  'db_snapshot_ref',
+  'storage_containment_ref',
+  'rollback_ref',
+  'import_lock_ref',
+  'target_resolution_ref',
+  'upload_preflight_ref',
+  'sanitized_receipt_destination_ref',
+  'local_receipt_handling_ref',
+  'operator_ref',
+  'security_permission_ref',
+  'legal_data_ref',
+];
+
 const externalRefFields = ['tenant_ref', 'client_ref', 'matter_ref', ...requiredWriteRefs];
 
 const refOwners = {
@@ -185,6 +218,8 @@ const refOwners = {
   write_approval_request_ref: 'Operator',
   write_decision_ref: 'Operator',
   write_execution_approval_ref: 'Operator',
+  write_approval_gate_ref: 'Operator',
+  upload_preflight_ref: 'Operator / Infrastructure',
   operator_dryrun_ref: 'Operator',
 };
 
@@ -263,6 +298,8 @@ export function parseArgs(argv) {
     else if (key === 'write-decision') args.writeDecision = next;
     else if (key === 'write-decision-gate') args.writeDecisionGate = next;
     else if (key === 'write-approval') args.writeApproval = next;
+    else if (key === 'write-approval-gate') args.writeApprovalGate = next;
+    else if (key === 'execution-preflight') args.executionPreflight = next;
     else if (key === 'synthetic-receipt') args.syntheticReceipt = next;
     else if (key === 'import-receipt') args.importReceipt = next;
     else if (key === 'reconciliation-report') args.reconciliationReport = next;
@@ -285,7 +322,7 @@ export function parseArgs(argv) {
 
 export function usage() {
   return [
-    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs|next-wave-dryrun-receipt|next-wave-write-decision|next-wave-write-approval> --sanitized-out <out.json> [inputs]',
+    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs|next-wave-dryrun-receipt|next-wave-write-decision|next-wave-write-approval|next-wave-write-execution-preflight> --sanitized-out <out.json> [inputs]',
     '',
     'Modes:',
     '  refs-intake      --mapping <json> [--phase <dryrun|write>]',
@@ -298,6 +335,7 @@ export function usage() {
     '  next-wave-dryrun-receipt --dryrun-report <json> --dryrun-input-gate <json>',
     '  next-wave-write-decision --write-decision <json> --dryrun-receipt-gate <json>',
     '  next-wave-write-approval --write-approval <json> --write-decision-gate <json>',
+    '  next-wave-write-execution-preflight --execution-preflight <json> --write-approval-gate <json>',
     '  package-audit    [--repo-root <dir>] [--evidence-root <dir>]',
     '',
     'This tool validates gates only. It does not import customer documents or run Gemma indexing.',
@@ -963,6 +1001,87 @@ export function runNextWaveWriteApproval({ writeApproval, writeDecisionGate, run
   };
 }
 
+export function runNextWaveWriteExecutionPreflight({ executionPreflight, writeApprovalGate, runId }) {
+  executionPreflight = executionPreflight ?? {};
+  writeApprovalGate = writeApprovalGate ?? {};
+  const blockers = [];
+  addMissingFieldBlockers(blockers, executionPreflight, requiredNextWaveExecutionPreflightFields, 'missing_execution_preflight');
+  addMissingFieldBlockers(blockers, executionPreflight, requiredNextWaveExecutionPreflightRefs, 'missing_execution_preflight_ref');
+
+  if (writeApprovalGate.mode !== 'next-wave-write-approval') blockers.push('write_approval_gate_mode_invalid');
+  if (writeApprovalGate.gate_status !== 'pass') blockers.push('write_approval_gate_not_pass');
+  if (executionPreflight.plan_id !== writeApprovalGate.plan_id) blockers.push('plan_id_mismatch');
+  if (executionPreflight.scope_kind !== 'matter_batch') blockers.push('scope_kind_must_be_matter_batch');
+  if (executionPreflight.preflight_kind !== 'bounded_write_execution_preflight') {
+    blockers.push('preflight_kind_must_be_bounded_write_execution_preflight');
+  }
+
+  const matterCount = Number(executionPreflight.matter_count ?? 0);
+  const maxMatters = Number(executionPreflight.max_matters_per_wave ?? writeApprovalGate.max_matters_per_wave ?? 5);
+  if (!Number.isSafeInteger(matterCount) || matterCount < 1) blockers.push('invalid_matter_count');
+  if (!Number.isSafeInteger(maxMatters) || maxMatters < 1) blockers.push('invalid_max_matters_per_wave');
+  if (Number.isSafeInteger(matterCount) && Number.isSafeInteger(maxMatters) && matterCount > maxMatters) {
+    blockers.push('matter_count_exceeds_wave_limit');
+  }
+  if (Number.isSafeInteger(matterCount) && Number(writeApprovalGate.matter_count ?? matterCount) !== matterCount) {
+    blockers.push('matter_count_mismatch');
+  }
+  if (Number.isSafeInteger(maxMatters) && Number(writeApprovalGate.max_matters_per_wave ?? maxMatters) !== maxMatters) {
+    blockers.push('max_matters_per_wave_mismatch');
+  }
+
+  const expectedWriteCounts = writeApprovalGate.expected_write_counts ?? {};
+  for (const field of ['documents', 'file_objects', 'initial_versions', 'audit_events']) {
+    if (Number(expectedWriteCounts[field] ?? 0) < 1) blockers.push(`expected_write_count_missing_${field}`);
+  }
+
+  if (executionPreflight.write_execution_authorized !== true) blockers.push('write_execution_must_be_authorized_before_preflight');
+  if (executionPreflight.execute_now !== false) blockers.push('execute_now_must_be_false');
+  if (executionPreflight.vault_write_executed !== false) blockers.push('vault_write_executed_must_be_false');
+  if (executionPreflight.vault_storage_write_executed !== false) blockers.push('vault_storage_write_executed_must_be_false');
+  if (executionPreflight.customer_wide_import !== false) blockers.push('customer_wide_import_must_be_false');
+  if (executionPreflight.source_of_truth_cutover !== false) blockers.push('source_of_truth_cutover_must_be_false');
+  if (executionPreflight.gemma_indexing !== false) blockers.push('gemma_indexing_must_be_false');
+  if (executionPreflight.onedrive_connected_state !== false) blockers.push('onedrive_connected_state_must_be_false');
+  if (executionPreflight.office_open_save_sync !== false) blockers.push('office_open_save_sync_must_be_false');
+
+  const refStatuses = requiredNextWaveExecutionPreflightRefs.map((field) => ({
+    field,
+    owner: refOwners[field] ?? 'Operator',
+    status: fieldGateStatus(executionPreflight, field),
+  }));
+
+  return {
+    lc_id: 'LC-ONEDRIVE-09/PW-08',
+    mode: 'next-wave-write-execution-preflight',
+    run_id: runId ?? writeApprovalGate.run_id ?? 'unknown',
+    plan_id: executionPreflight.plan_id ?? 'unknown',
+    gate_status: blockers.length === 0 ? 'pass' : 'blocked',
+    blockers,
+    scope_kind: executionPreflight.scope_kind,
+    matter_count: matterCount,
+    max_matters_per_wave: maxMatters,
+    dryrun_counts: writeApprovalGate.dryrun_counts ?? {},
+    expected_write_counts: expectedWriteCounts,
+    ref_statuses: refStatuses,
+    owner_summary: summarizeOwnerStatuses(refStatuses),
+    preflight_state: blockers.length === 0 ? 'ready_for_operator_execute_command' : 'execution_preflight_blocked',
+    actual_execution_state: {
+      vault_write: blockers.length === 0 ? 'authorized_not_executed' : 'not_authorized',
+      vault_import: blockers.length === 0 ? 'authorized_not_executed' : 'not_authorized',
+      vault_db_write: 'not_executed',
+      vault_storage_write: 'not_executed',
+      customer_wide_import: 'not_authorized',
+      source_of_truth_cutover: 'not_authorized',
+      gemma_indexing: 'not_authorized',
+    },
+    allowed_next_action: blockers.length === 0 ? 'operator_may_run_bounded_write_execute_command' : 'fix_execution_preflight_packet',
+    not_claimed: ['Vault write/import executed', 'next-wave write receipt produced', 'source-of-truth cutover approved', ...notClaimed],
+    sanitization:
+      'Next-wave write execution preflight output contains bounded counts, field statuses, and blocker codes only; it does not include raw source paths, document names, source object keys, tenant-private values, document text, OCR excerpts, screenshots, item ids, or ref values.',
+  };
+}
+
 export async function runPackageAudit({ repoRoot = process.cwd(), evidenceRoot = '.omo/evidence', runId }) {
   const blockers = [];
   const lc_status = [];
@@ -1158,6 +1277,16 @@ async function runFromArgs(args) {
     return runNextWaveWriteApproval({
       writeApproval: await readJson(args.writeApproval),
       writeDecisionGate: await readJson(args.writeDecisionGate),
+      runId: args.runId,
+    });
+  }
+  if (args.mode === 'next-wave-write-execution-preflight') {
+    if (!args.executionPreflight || !args.writeApprovalGate) {
+      throw new Error('next-wave-write-execution-preflight requires --execution-preflight and --write-approval-gate');
+    }
+    return runNextWaveWriteExecutionPreflight({
+      executionPreflight: await readJson(args.executionPreflight),
+      writeApprovalGate: await readJson(args.writeApprovalGate),
       runId: args.runId,
     });
   }
