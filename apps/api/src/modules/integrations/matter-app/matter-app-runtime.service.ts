@@ -76,6 +76,10 @@ function envFlag(value: string | undefined): boolean {
   return value === 'true' || value === '1';
 }
 
+function matterAppApiConfigured(): boolean {
+  return Boolean(envValue('MATTER_APP_API_BASE_URL')?.trim()) && Boolean(envValue('MATTER_APP_API_TOKEN')?.trim());
+}
+
 function normalizeSourceMode(value: string | undefined): MatterAppSourceMode {
   return matterAppSourceModes.includes(value as MatterAppSourceMode)
     ? (value as MatterAppSourceMode)
@@ -107,6 +111,9 @@ function sourceUnavailableReason(input: {
     if (input.productionRuntime) return 'production_projection_blocked';
     if (!input.projectionFallbackAllowed) return 'not_configured';
     return undefined;
+  }
+  if (input.mode === 'matter_app_api' && !matterAppApiConfigured()) {
+    return 'matter_app_api_config_missing';
   }
   if (!input.configured) return 'not_configured';
   if (!input.runtimeReady) return 'runtime_not_ready';

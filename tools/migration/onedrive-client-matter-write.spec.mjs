@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildMatterAppClientRequest,
+  buildMatterAppMatterRequest,
   buildWriteTargets,
+  matterAppApiConfigured,
   matterTypeToDb,
   parseArgs,
+  validateMatterAppResults,
 } from './onedrive-client-matter-write.mjs';
 import { sha256Hex } from './onedrive-target-resolution-dry-run.mjs';
 
@@ -98,6 +102,10 @@ test('parses execute-mode write cli arguments', () => {
     'run-id',
     '--output-dir',
     'out',
+    '--matter-app-api-base-url',
+    'http://127.0.0.1:4180',
+    '--matter-app-api-token',
+    'bridge-token',
     '--execute',
   ]);
 
@@ -105,5 +113,58 @@ test('parses execute-mode write cli arguments', () => {
   assert.equal(args.operatorUserId, 'operator-id');
   assert.equal(args.migrationRunId, 'run-id');
   assert.equal(args.outputDir, 'out');
+  assert.equal(args.matterAppApiBaseUrl, 'http://127.0.0.1:4180');
+  assert.equal(args.matterAppApiToken, 'bridge-token');
   assert.equal(args.execute, true);
+  assert.equal(matterAppApiConfigured(args), true);
+});
+
+test('builds Matter app bridge upsert requests with reference-only evidence refs', () => {
+  const target = {
+    matterCodeHash: sha256Hex('알파/Civil/계약분쟁'),
+    matterCode: '알파/Civil/계약분쟁',
+    clientShortName: '알파',
+    matterTypeEnglish: 'Civil',
+    matterDetailTypeKorean: '계약분쟁',
+    approvedGroupIds: ['raw-folder-group-id'],
+  };
+  const args = {
+    tenantId: 'tenant-id',
+    operatorUserId: 'operator-id',
+  };
+  const clientRequest = buildMatterAppClientRequest({ args, target });
+  const clientResult = {
+    clientId: 'client-id',
+    clientDisplayName: '알파',
+    clientShortName: '알파',
+    sourceRevision: clientRequest.approvalRef,
+  };
+  const matterRequest = buildMatterAppMatterRequest({ args, target, clientResult });
+
+  assert.equal(clientRequest.tenantRef, 'tenant-id');
+  assert.equal(clientRequest.clientShortName, '알파');
+  assert.match(clientRequest.supportingEvidenceRefs[0], /^approved-folder-group:[0-9a-f]{64}$/);
+  assert.equal(clientRequest.supportingEvidenceRefs[0].includes('raw-folder-group-id'), false);
+  assert.equal(matterRequest.clientId, 'client-id');
+  assert.equal(matterRequest.matterCode, '알파/Civil/계약분쟁');
+});
+
+test('blocks Matter app identity mismatches before Vault projection sync', () => {
+  const target = { matterCode: '알파/Civil/계약분쟁' };
+  const blockers = validateMatterAppResults({
+    target,
+    clientResult: { clientId: 'client-1', sourceRevision: 'rev-1' },
+    matterResult: {
+      matterAppMatterId: 'matter-1',
+      matterCode: '알파/Advisory/자문',
+      clientId: 'client-2',
+      sourceRevision: '',
+    },
+  });
+
+  assert.deepEqual(blockers, [
+    'matter_app_matter_source_revision_missing',
+    'matter_app_matter_code_mismatch',
+    'matter_app_client_id_mismatch',
+  ]);
 });

@@ -12,6 +12,7 @@ export const matterAppSourceModeSchema = z.enum(matterAppSourceModes);
 export const matterAppUnavailableReasons = [
   'unconfigured',
   'not_configured',
+  'matter_app_api_config_missing',
   'runtime_not_ready',
   'stale_projection',
   'production_projection_blocked',
