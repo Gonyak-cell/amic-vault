@@ -97,6 +97,34 @@ const requiredNextWaveDryrunInputRefs = [
   'operator_ref',
 ];
 
+const requiredNextWaveWriteDecisionFields = [
+  'plan_id',
+  'scope_kind',
+  'matter_count',
+  'max_matters_per_wave',
+  'decision_kind',
+  'write_execution_authorized',
+  'customer_wide_import',
+  'source_of_truth_cutover',
+  'gemma_indexing',
+  'onedrive_connected_state',
+  'office_open_save_sync',
+];
+
+const requiredNextWaveWriteDecisionRefs = [
+  'dryrun_receipt_ref',
+  'write_approval_request_ref',
+  'db_snapshot_ref',
+  'storage_containment_ref',
+  'rollback_ref',
+  'import_lock_ref',
+  'sanitized_receipt_destination_ref',
+  'local_receipt_handling_ref',
+  'operator_ref',
+  'security_permission_ref',
+  'legal_data_ref',
+];
+
 const externalRefFields = ['tenant_ref', 'client_ref', 'matter_ref', ...requiredWriteRefs];
 
 const refOwners = {
@@ -123,6 +151,8 @@ const refOwners = {
   manifest_ref: 'Operator',
   target_resolution_ref: 'Operator / Infrastructure',
   rollback_ref: 'Rollback owner',
+  dryrun_receipt_ref: 'Operator',
+  write_approval_request_ref: 'Operator',
   operator_dryrun_ref: 'Operator',
 };
 
@@ -197,6 +227,8 @@ export function parseArgs(argv) {
     else if (key === 'mapping') args.mapping = next;
     else if (key === 'dryrun-report') args.dryrunReport = next;
     else if (key === 'dryrun-input-gate') args.dryrunInputGate = next;
+    else if (key === 'dryrun-receipt-gate') args.dryrunReceiptGate = next;
+    else if (key === 'write-decision') args.writeDecision = next;
     else if (key === 'synthetic-receipt') args.syntheticReceipt = next;
     else if (key === 'import-receipt') args.importReceipt = next;
     else if (key === 'reconciliation-report') args.reconciliationReport = next;
@@ -219,7 +251,7 @@ export function parseArgs(argv) {
 
 export function usage() {
   return [
-    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs|next-wave-dryrun-receipt> --sanitized-out <out.json> [inputs]',
+    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs|next-wave-dryrun-receipt|next-wave-write-decision> --sanitized-out <out.json> [inputs]',
     '',
     'Modes:',
     '  refs-intake      --mapping <json> [--phase <dryrun|write>]',
@@ -230,6 +262,7 @@ export function usage() {
     '  next-wave-approval --approval <json> --wave-gate <json>',
     '  next-wave-dryrun-inputs --dryrun-inputs <json> --approval-gate <json>',
     '  next-wave-dryrun-receipt --dryrun-report <json> --dryrun-input-gate <json>',
+    '  next-wave-write-decision --write-decision <json> --dryrun-receipt-gate <json>',
     '  package-audit    [--repo-root <dir>] [--evidence-root <dir>]',
     '',
     'This tool validates gates only. It does not import customer documents or run Gemma indexing.',
@@ -750,6 +783,77 @@ export function runNextWaveDryrunReceipt({ dryrunReport, dryrunInputGate, runId 
   };
 }
 
+export function runNextWaveWriteDecision({ writeDecision, dryrunReceiptGate, runId }) {
+  writeDecision = writeDecision ?? {};
+  dryrunReceiptGate = dryrunReceiptGate ?? {};
+  const blockers = [];
+  addMissingFieldBlockers(blockers, writeDecision, requiredNextWaveWriteDecisionFields, 'missing_write_decision');
+  addMissingFieldBlockers(blockers, writeDecision, requiredNextWaveWriteDecisionRefs, 'missing_write_decision_ref');
+
+  if (dryrunReceiptGate.mode !== 'next-wave-dryrun-receipt') blockers.push('dryrun_receipt_gate_mode_invalid');
+  if (dryrunReceiptGate.gate_status !== 'pass') blockers.push('dryrun_receipt_gate_not_pass');
+  if (writeDecision.plan_id !== dryrunReceiptGate.plan_id) blockers.push('plan_id_mismatch');
+  if (writeDecision.scope_kind !== 'matter_batch') blockers.push('scope_kind_must_be_matter_batch');
+  if (writeDecision.decision_kind !== 'request_write_approval') blockers.push('decision_kind_must_request_write_approval');
+
+  const matterCount = Number(writeDecision.matter_count ?? 0);
+  const maxMatters = Number(writeDecision.max_matters_per_wave ?? dryrunReceiptGate.max_matters_per_wave ?? 5);
+  if (!Number.isSafeInteger(matterCount) || matterCount < 1) blockers.push('invalid_matter_count');
+  if (!Number.isSafeInteger(maxMatters) || maxMatters < 1) blockers.push('invalid_max_matters_per_wave');
+  if (Number.isSafeInteger(matterCount) && Number.isSafeInteger(maxMatters) && matterCount > maxMatters) {
+    blockers.push('matter_count_exceeds_wave_limit');
+  }
+  if (Number.isSafeInteger(matterCount) && Number(dryrunReceiptGate.matter_count ?? matterCount) !== matterCount) {
+    blockers.push('matter_count_mismatch');
+  }
+  if (Number.isSafeInteger(maxMatters) && Number(dryrunReceiptGate.max_matters_per_wave ?? maxMatters) !== maxMatters) {
+    blockers.push('max_matters_per_wave_mismatch');
+  }
+
+  if (writeDecision.write_execution_authorized !== false) blockers.push('write_execution_must_not_be_authorized_by_decision_packet');
+  if (writeDecision.customer_wide_import !== false) blockers.push('customer_wide_import_must_be_false');
+  if (writeDecision.source_of_truth_cutover !== false) blockers.push('source_of_truth_cutover_must_be_false');
+  if (writeDecision.gemma_indexing !== false) blockers.push('gemma_indexing_must_be_false');
+  if (writeDecision.onedrive_connected_state !== false) blockers.push('onedrive_connected_state_must_be_false');
+  if (writeDecision.office_open_save_sync !== false) blockers.push('office_open_save_sync_must_be_false');
+
+  const refStatuses = requiredNextWaveWriteDecisionRefs.map((field) => ({
+    field,
+    owner: refOwners[field] ?? 'Operator',
+    status: fieldGateStatus(writeDecision, field),
+  }));
+
+  return {
+    lc_id: 'LC-ONEDRIVE-09/PW-06',
+    mode: 'next-wave-write-decision',
+    run_id: runId ?? dryrunReceiptGate.run_id ?? 'unknown',
+    plan_id: writeDecision.plan_id ?? 'unknown',
+    gate_status: blockers.length === 0 ? 'pass' : 'blocked',
+    blockers,
+    scope_kind: writeDecision.scope_kind,
+    matter_count: matterCount,
+    max_matters_per_wave: maxMatters,
+    dryrun_counts: dryrunReceiptGate.dryrun_counts ?? {},
+    expected_write_counts: dryrunReceiptGate.expected_write_counts ?? {},
+    ref_statuses: refStatuses,
+    owner_summary: summarizeOwnerStatuses(refStatuses),
+    decision_state: blockers.length === 0 ? 'ready_for_separate_write_approval_request' : 'decision_packet_blocked',
+    actual_execution_state: {
+      vault_write: 'not_authorized',
+      vault_import: 'not_authorized',
+      vault_db_write: 'not_executed',
+      vault_storage_write: 'not_executed',
+      customer_wide_import: 'not_authorized',
+      source_of_truth_cutover: 'not_authorized',
+      gemma_indexing: 'not_authorized',
+    },
+    allowed_next_action: blockers.length === 0 ? 'request_separate_operator_write_approval' : 'fix_write_decision_packet',
+    not_claimed: ['Vault write/import approved', 'Vault write/import executed', ...notClaimed],
+    sanitization:
+      'Next-wave write decision output contains bounded counts, field statuses, and blocker codes only; it does not include approval text, raw source paths, document names, source object keys, tenant-private values, document text, OCR excerpts, screenshots, item ids, or ref values.',
+  };
+}
+
 export async function runPackageAudit({ repoRoot = process.cwd(), evidenceRoot = '.omo/evidence', runId }) {
   const blockers = [];
   const lc_status = [];
@@ -925,6 +1029,16 @@ async function runFromArgs(args) {
     return runNextWaveDryrunReceipt({
       dryrunReport: await readJson(args.dryrunReport),
       dryrunInputGate: await readJson(args.dryrunInputGate),
+      runId: args.runId,
+    });
+  }
+  if (args.mode === 'next-wave-write-decision') {
+    if (!args.writeDecision || !args.dryrunReceiptGate) {
+      throw new Error('next-wave-write-decision requires --write-decision and --dryrun-receipt-gate');
+    }
+    return runNextWaveWriteDecision({
+      writeDecision: await readJson(args.writeDecision),
+      dryrunReceiptGate: await readJson(args.dryrunReceiptGate),
       runId: args.runId,
     });
   }

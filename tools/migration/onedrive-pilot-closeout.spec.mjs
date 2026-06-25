@@ -9,6 +9,7 @@ import {
   runNextWaveApproval,
   runNextWaveDryrunInputs,
   runNextWaveDryrunReceipt,
+  runNextWaveWriteDecision,
   runPackageAudit,
   runReconciliation,
   runRefsIntake,
@@ -156,6 +157,45 @@ const nextWaveDryrunInputGate = {
   scope_kind: 'matter_batch',
   matter_count: 2,
   max_matters_per_wave: 3,
+};
+
+const nextWaveDryrunReceiptGate = {
+  lc_id: 'LC-ONEDRIVE-09/PW-05',
+  mode: 'next-wave-dryrun-receipt',
+  run_id: 'run-a',
+  plan_id: 'wave-plan-a',
+  gate_status: 'pass',
+  blockers: [],
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  dryrun_counts: { ready: 1, skipped: 1 },
+  expected_write_counts: { documents: 1, file_objects: 1, initial_versions: 1, audit_events: 1 },
+};
+
+const nextWaveWriteDecision = {
+  plan_id: 'wave-plan-a',
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  decision_kind: 'request_write_approval',
+  dryrun_receipt_ref: 'DRYRUN-RECEIPT-READY-20260625',
+  write_approval_request_ref: 'WRITE-APPROVAL-REQUEST-READY-20260625',
+  db_snapshot_ref: 'DB-SNAPSHOT-READY-20260625',
+  storage_containment_ref: 'STORAGE-CONTAINMENT-READY-20260625',
+  rollback_ref: 'ROLLBACK-CONTAINMENT-READY-20260625',
+  import_lock_ref: 'IMPORT-LOCK-READY-20260625',
+  sanitized_receipt_destination_ref: 'SANITIZED-RECEIPT-READY-20260625',
+  local_receipt_handling_ref: 'LOCAL-RECEIPT-HANDLING-READY-20260625',
+  operator_ref: 'OPERATOR-READY-20260625',
+  security_permission_ref: 'SECURITY-PERMISSION-READY-20260625',
+  legal_data_ref: 'LEGAL-DATA-READY-20260625',
+  write_execution_authorized: false,
+  customer_wide_import: false,
+  source_of_truth_cutover: false,
+  gemma_indexing: false,
+  onedrive_connected_state: false,
+  office_open_save_sync: false,
 };
 
 const packageRepoFiles = [
@@ -552,6 +592,56 @@ describe('onedrive-pilot-closeout', () => {
     assert.ok(report.blockers.includes('missing_not_claimed_vault_import'));
   });
 
+  it('passes next-wave write decision gate without authorizing a write', () => {
+    const report = runNextWaveWriteDecision({
+      writeDecision: nextWaveWriteDecision,
+      dryrunReceiptGate: nextWaveDryrunReceiptGate,
+      runId: 'run-a',
+    });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-09/PW-06');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.allowed_next_action, 'request_separate_operator_write_approval');
+    assert.equal(report.actual_execution_state.vault_write, 'not_authorized');
+    assert.equal(report.ref_statuses.some((row) => row.status !== 'present'), false);
+    assert.equal(JSON.stringify(report).includes('WRITE-APPROVAL-REQUEST-READY-20260625'), false);
+    assert.equal(JSON.stringify(report).includes('DRYRUN-RECEIPT-READY-20260625'), false);
+  });
+
+  it('blocks next-wave write decision gate on missing receipt, write authorization, and bundled cutover', () => {
+    const report = runNextWaveWriteDecision({
+      dryrunReceiptGate: { ...nextWaveDryrunReceiptGate, gate_status: 'blocked' },
+      runId: 'run-a',
+      writeDecision: {
+        ...nextWaveWriteDecision,
+        plan_id: 'different-plan',
+        scope_kind: 'customer_wide',
+        matter_count: 4,
+        decision_kind: 'execute_write',
+        write_approval_request_ref: 'ONEDRIVE-WRITE-APPROVAL-REF',
+        write_execution_authorized: true,
+        source_of_truth_cutover: true,
+        gemma_indexing: true,
+      },
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('dryrun_receipt_gate_not_pass'));
+    assert.ok(report.blockers.includes('plan_id_mismatch'));
+    assert.ok(report.blockers.includes('scope_kind_must_be_matter_batch'));
+    assert.ok(report.blockers.includes('matter_count_exceeds_wave_limit'));
+    assert.ok(report.blockers.includes('decision_kind_must_request_write_approval'));
+    assert.ok(report.blockers.includes('missing_write_decision_ref_placeholder_write_approval_request_ref'));
+    assert.ok(report.blockers.includes('write_execution_must_not_be_authorized_by_decision_packet'));
+    assert.ok(report.blockers.includes('source_of_truth_cutover_must_be_false'));
+    assert.ok(report.blockers.includes('gemma_indexing_must_be_false'));
+  });
+
+  it('blocks next-wave write decision gate when input is empty', () => {
+    const report = runNextWaveWriteDecision({ writeDecision: {}, dryrunReceiptGate: nextWaveDryrunReceiptGate, runId: 'run-a' });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_write_decision_plan_id'));
+    assert.ok(report.blockers.includes('missing_write_decision_ref_dryrun_receipt_ref'));
+  });
+
   it('CLI writes sanitized reports without source labels', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-closeout-test-'));
     const mappingPath = path.join(dir, 'mapping.json');
@@ -686,6 +776,39 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(serialized.includes('item-ready'), false);
     assert.equal(serialized.includes('item-skip'), false);
     assert.match(serialized, /next-wave-dryrun-receipt/);
+  });
+
+  it('CLI writes next-wave write decision reports without approval ref values', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-next-wave-write-decision-test-'));
+    const decisionPath = path.join(dir, 'write-decision.json');
+    const gatePath = path.join(dir, 'dryrun-receipt-gate.json');
+    const outPath = path.join(dir, 'write-decision-out.json');
+    await writeFile(decisionPath, `${JSON.stringify(nextWaveWriteDecision)}\n`, 'utf8');
+    await writeFile(gatePath, `${JSON.stringify(nextWaveDryrunReceiptGate)}\n`, 'utf8');
+
+    const { spawnSync } = await import('node:child_process');
+    const result = spawnSync(
+      process.execPath,
+      [
+        'tools/migration/onedrive-pilot-closeout.mjs',
+        '--mode',
+        'next-wave-write-decision',
+        '--write-decision',
+        decisionPath,
+        '--dryrun-receipt-gate',
+        gatePath,
+        '--sanitized-out',
+        outPath,
+        '--run-id',
+        'run-a',
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const serialized = await readFile(outPath, 'utf8');
+    assert.equal(serialized.includes('WRITE-APPROVAL-REQUEST-READY-20260625'), false);
+    assert.equal(serialized.includes('DRYRUN-RECEIPT-READY-20260625'), false);
+    assert.match(serialized, /next-wave-write-decision/);
   });
 
   it('passes package audit when LC00-LC09 evidence and repo files are present', async () => {
