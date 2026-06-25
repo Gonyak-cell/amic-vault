@@ -137,9 +137,10 @@ describe('MatterAppRuntimeService', () => {
           matter_id: '22222222-2222-4222-8222-222222222222',
           matter_code: 'AMIC-2026-0001',
           matter_name: 'Investment Advisory',
+          client_name: 'Canonical Client',
           status: 'active',
           practice_group: 'Finance',
-          metadata_json: { clientDisplayName: 'AMIC Client' },
+          metadata_json: {},
           updated_at: new Date('2026-06-20T00:00:00.000Z'),
           total_count: '1',
         },
@@ -155,10 +156,12 @@ describe('MatterAppRuntimeService', () => {
     const sql = vi.mocked(tenantQuery).mock.calls[0]?.[2] ?? '';
     expect(sql).toContain('FROM matter_members mm');
     expect(sql).toContain('FROM ethical_walls ew');
+    expect(sql).toContain('LEFT JOIN clients c');
+    expect(sql).toContain('lower(coalesce(c.name, \'\')) LIKE');
     expect(response.items).toEqual([
       expect.objectContaining({
         matterCode: 'AMIC-2026-0001',
-        clientDisplayName: 'AMIC Client',
+        clientDisplayName: 'Canonical Client',
         sourceMode: 'matter_app_api',
         uploadEligible: true,
       }),
