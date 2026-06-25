@@ -14,14 +14,14 @@ const statusTone: Record<MatterStatus, string> = {
 };
 
 const statusLabel: Record<MatterStatus, string> = {
-  proposed: 'Proposed',
-  open: 'Open',
-  active: 'Active',
-  closing: 'Closing',
-  closed: 'Closed',
-  archived: 'Archived',
-  disposal_review: 'Disposal Review',
-  disposed: 'Disposed',
+  proposed: '제안됨',
+  open: '접수',
+  active: '진행 중',
+  closing: '종결 준비',
+  closed: '종결',
+  archived: '보관됨',
+  disposal_review: '폐기 검토',
+  disposed: '폐기됨',
 };
 
 export function MatterStatusBadge({ status }: { status: string }) {
@@ -33,7 +33,7 @@ export function MatterStatusBadge({ status }: { status: string }) {
         knownStatus ? statusTone[knownStatus] : 'border-slate-300 bg-white text-slate-600',
       )}
     >
-      {knownStatus ? statusLabel[knownStatus] : 'Unknown'}
+      {knownStatus ? statusLabel[knownStatus] : '상태 미확인'}
     </span>
   );
 }

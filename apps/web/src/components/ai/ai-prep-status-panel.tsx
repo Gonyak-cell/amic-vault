@@ -27,12 +27,12 @@ const statusLabel: Record<AiPrepDocumentReadinessStatus, string> = {
 };
 
 const statusHelp: Record<AiPrepDocumentReadinessStatus, string> = {
-  not_ready: '이 버전은 아직 파일 정리 준비가 시작되지 않았습니다.',
-  pending: '권한 확인 후 파일 정리 준비가 진행 중입니다.',
-  ready: '파일 정리 카드가 준비되었습니다.',
-  partial: '일부 파일 정리 카드만 준비되었습니다.',
-  blocked: '권한 또는 정보 차단 정책으로 파일 정리 준비가 차단되었습니다.',
-  failed: '파일 정리 준비를 다시 시도해야 합니다.',
+  not_ready: '이 버전은 아직 파일 정리가 시작되지 않았습니다.',
+  pending: '권한 확인 후 파일 정리가 진행 중입니다.',
+  ready: '파일 정리 결과가 준비되었습니다.',
+  partial: '일부 파일 정리 결과만 준비되었습니다.',
+  blocked: '권한 또는 정보 차단 정책으로 파일 정리가 제한되었습니다.',
+  failed: '파일 정리를 다시 시도해야 합니다.',
   rejected: '검수에서 폐기된 정리 결과는 표시하지 않습니다.',
   stale: '파일 또는 권한 변경으로 다시 정리해야 합니다.',
 };
@@ -106,8 +106,8 @@ function unavailableText(artifact: AiPrepArtifactSummaryDto): string {
   if (artifact.isStale || artifact.status === 'stale') return '다시 정리해야 합니다.';
   if (artifact.status === 'rejected') return '폐기된 정리 결과는 표시하지 않습니다.';
   if (artifact.status === 'blocked') return '권한 또는 정보 차단 정책으로 표시할 수 없습니다.';
-  if (artifact.status === 'failed') return '파일 정리 준비를 다시 시도해야 합니다.';
-  return '파일 정리 카드 준비 중입니다.';
+  if (artifact.status === 'failed') return '파일 정리를 다시 시도해야 합니다.';
+  return '파일 정리 결과를 확인 중입니다.';
 }
 
 export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto }) {
@@ -135,9 +135,9 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
 
   return (
     <SectionCard
-      aria-label="파일 정리 준비 상태"
+      aria-label="파일 정리 상태"
       icon={<FileText className="h-4 w-4" />}
-      title="파일 정리 준비"
+      title="파일 정리"
       meta="권한 확인된 파일 정보만 표시"
       actions={
         <StatusBadge tone={documentStatusTone(status.readinessStatus)}>
@@ -148,7 +148,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
       <p className="text-sm text-muted-foreground">{statusHelp[status.readinessStatus]}</p>
 
       {status.artifacts.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">파일 정리 준비가 대기 중입니다.</p>
+        <p className="mt-4 text-sm text-muted-foreground">파일 정리가 대기 중입니다.</p>
       ) : (
         <div className="mt-4 space-y-3">
           {status.artifacts.map((artifact) => {
@@ -170,7 +170,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                       <StatusBadge tone="blocked">폐기됨</StatusBadge>
                     ) : null}
                     {hasFallbackWarning(artifact) ? (
-                      <StatusBadge tone="neutral">대체 정리</StatusBadge>
+                      <StatusBadge tone="neutral">추가 확인</StatusBadge>
                     ) : null}
                   </div>
                   <span className="text-xs text-muted-foreground">

@@ -38,7 +38,7 @@ export default function OutlookIntegrationPage() {
             icon={<MailCheck className="h-4 w-4" />}
             title="Outlook 첨부 보관"
             description="첨부 보관은 Matter 권한, 감사 기록, 문서 메타데이터 모델을 통과한 후 Vault 문서로 이어져야 합니다."
-            status="게이트 적용"
+            status="조건 적용"
           />
           <FilingPathCard
             icon={<SearchCheck className="h-4 w-4" />}
