@@ -91,6 +91,23 @@ describe('MatterAppRuntimeService', () => {
     });
   });
 
+  it('blocks Matter app API mode until endpoint and auth are configured', () => {
+    process.env.MATTER_APP_SOURCE_MODE = 'matter_app_api';
+    process.env.MATTER_APP_SOURCE_CONFIGURED = 'true';
+    process.env.MATTER_APP_RUNTIME_READY = 'true';
+    const { service } = createService();
+
+    const status = service.status(new Date('2026-06-20T00:00:00.000Z'));
+
+    expect(status).toMatchObject({
+      mode: 'unconfigured',
+      requestedMode: 'matter_app_api',
+      sourceAvailable: false,
+      uploadAuthoritative: false,
+      unavailableReason: 'matter_app_api_config_missing',
+    });
+  });
+
   it('returns safe empty lookup without touching the projection when source is unavailable', async () => {
     const { service } = createService();
 
@@ -130,6 +147,8 @@ describe('MatterAppRuntimeService', () => {
     process.env.MATTER_APP_SOURCE_MODE = 'matter_app_api';
     process.env.MATTER_APP_SOURCE_CONFIGURED = 'true';
     process.env.MATTER_APP_RUNTIME_READY = 'true';
+    process.env.MATTER_APP_API_BASE_URL = 'http://127.0.0.1:4180';
+    process.env.MATTER_APP_API_TOKEN = 'test-token';
     vi.mocked(tenantQuery).mockResolvedValue({
       rowCount: 1,
       rows: [

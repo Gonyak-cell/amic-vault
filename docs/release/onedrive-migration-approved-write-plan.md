@@ -99,17 +99,17 @@ app write completion.
 
 ## Matter App Client/Matter Upsert Contract
 
-Current availability: `docs/integrations/matter-app-vault-contract.md` exposes
-status and lookup surfaces, not a confirmed production write surface. Until the
-Matter app owner supplies either a write API or an approved event projection with
-authentication, tenant scope, freshness, and replay semantics, `MIG-WRITE-010`
-and `MIG-WRITE-011` must end as `write_blocked`.
+Current availability: `docs/integrations/matter-app-vault-contract.md` defines
+a Law Firm OS Vault bridge API for Matter app-owned client and matter upserts.
+Execution is still blocked unless the live Matter app API base URL, bearer auth,
+tenant scope, health response, idempotency semantics, and source revision
+response are verified at run time.
 
 Allowed production write transports:
 
 | Transport | Requirement | If unavailable |
 |---|---|---|
-| `matter_app_api` | Matter app-owned client and matter upsert endpoints with owner-approved auth, tenant scope, idempotency, conflict response, and source revision. | Block actual write. |
+| `matter_app_api` | Matter app-owned client and matter upsert endpoints with owner-approved auth, tenant scope, idempotency, conflict response, and source revision. Vault expects `MATTER_APP_API_BASE_URL` and `MATTER_APP_API_TOKEN` and checks `/api/matters/vault-bridge/status` before execution. | Block actual write. |
 | `matter_app_event_projection` | Matter app-owned approved event intake or projection feed that accepts client/matter upsert events and returns canonical ids/revision. | Block actual write. |
 
 Forbidden production transports:

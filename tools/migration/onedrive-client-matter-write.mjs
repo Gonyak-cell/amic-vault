@@ -34,6 +34,11 @@ const NOT_EXECUTED = Object.freeze([
   'source-of-truth cutover',
   'Gemma indexing',
 ]);
+const MATTER_APP_API_PATHS = Object.freeze({
+  status: '/api/matters/vault-bridge/status',
+  clientUpsert: '/api/matters/vault-bridge/clients/upsert',
+  matterUpsert: '/api/matters/vault-bridge/matters/upsert',
+});
 
 function clean(value) {
   return value == null ? '' : String(value).trim();
@@ -59,6 +64,9 @@ export function parseArgs(argv = process.argv.slice(2)) {
     operatorUserId: null,
     migrationRunId: `onedrive-client-matter-write-${isoStamp()}`,
     databaseUrl: process.env.DATABASE_URL || defaultDatabaseUrl(),
+    matterAppApiBaseUrl: process.env.MATTER_APP_API_BASE_URL || '',
+    matterAppApiToken: process.env.MATTER_APP_API_TOKEN || '',
+    matterAppApiTimeoutMs: Number.parseInt(process.env.MATTER_APP_API_TIMEOUT_MS || '10000', 10),
     execute: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -74,6 +82,9 @@ export function parseArgs(argv = process.argv.slice(2)) {
     else if (key === '--operator-user-id') args.operatorUserId = value;
     else if (key === '--migration-run-id') args.migrationRunId = value;
     else if (key === '--database-url') args.databaseUrl = value;
+    else if (key === '--matter-app-api-base-url') args.matterAppApiBaseUrl = value;
+    else if (key === '--matter-app-api-token') args.matterAppApiToken = value;
+    else if (key === '--matter-app-api-timeout-ms') args.matterAppApiTimeoutMs = Number.parseInt(value, 10);
     else if (key === '--execute') {
       args.execute = true;
       continue;
@@ -83,6 +94,9 @@ export function parseArgs(argv = process.argv.slice(2)) {
   }
   args.receipt ??= path.join(args.outputDir, 'client-matter-write.sanitized.json');
   args.details ??= path.join(args.outputDir, 'client-matter-write.local.ndjson.gz');
+  if (!Number.isFinite(args.matterAppApiTimeoutMs) || args.matterAppApiTimeoutMs < 1000) {
+    args.matterAppApiTimeoutMs = 10000;
+  }
   return args;
 }
 
@@ -137,6 +151,139 @@ async function writeNdjsonGz(filePath, rows) {
 async function writeJson(filePath, value) {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
   fs.chmodSync(filePath, 0o600);
+}
+
+export function matterAppApiConfigured(args) {
+  return Boolean(clean(args.matterAppApiBaseUrl)) && Boolean(clean(args.matterAppApiToken));
+}
+
+function matterAppUrl(args, apiPath) {
+  const baseUrl = clean(args.matterAppApiBaseUrl);
+  if (!baseUrl) throw new Error('matter_app_api_base_url_missing');
+  return new URL(apiPath, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).toString();
+}
+
+async function matterAppRequest(args, apiPath, { method = 'GET', body } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), args.matterAppApiTimeoutMs);
+  try {
+    const response = await fetch(matterAppUrl(args, apiPath), {
+      method,
+      headers: {
+        authorization: `Bearer ${args.matterAppApiToken}`,
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const codes = Array.isArray(payload?.safe_error_codes) ? payload.safe_error_codes : [];
+      throw new Error(`matter_app_api_http_${response.status}${codes.length ? `_${codes.join('_')}` : ''}`);
+    }
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function checkMatterAppApi(args) {
+  if (!matterAppApiConfigured(args)) return ['matter_app_api_config_missing'];
+  try {
+    const status = await matterAppRequest(args, MATTER_APP_API_PATHS.status);
+    if (status?.outcome !== 'passed' || status?.item?.source_mode !== 'matter_app_api') {
+      return ['matter_app_api_health_not_ready'];
+    }
+    return [];
+  } catch {
+    return ['matter_app_api_health_unreachable'];
+  }
+}
+
+function targetApprovalRef(target) {
+  return `${SAFE_SOURCE_REF}:${target.matterCodeHash}`;
+}
+
+export function buildMatterAppClientRequest({ args, target }) {
+  const approvalRef = targetApprovalRef(target);
+  return {
+    tenantRef: args.tenantId,
+    idempotencyKeyHash: sha256Hex(`${args.tenantId}:client:${target.clientShortName}:${approvalRef}`),
+    clientDisplayName: target.clientShortName,
+    clientShortName: target.clientShortName,
+    approvalRef,
+    migrationApprovalRef: approvalRef,
+    supportingEvidenceRefs: target.approvedGroupIds.map((groupId) =>
+      `approved-folder-group:${sha256Hex(groupId)}`,
+    ),
+    migrationOperatorRef: sha256Hex(args.operatorUserId),
+  };
+}
+
+export function buildMatterAppMatterRequest({ args, target, clientResult }) {
+  const approvalRef = targetApprovalRef(target);
+  return {
+    tenantRef: args.tenantId,
+    idempotencyKeyHash: sha256Hex(`${args.tenantId}:matter:${target.matterCode}:${approvalRef}`),
+    clientId: clientResult.clientId,
+    clientDisplayName: clientResult.clientDisplayName,
+    clientShortName: clientResult.clientShortName ?? target.clientShortName,
+    matterCode: target.matterCode,
+    matterName: target.matterCode,
+    matterTypeEnglish: target.matterTypeEnglish,
+    matterDetailTypeKorean: target.matterDetailTypeKorean,
+    approvalRef,
+    migrationApprovalRef: approvalRef,
+    supportingEvidenceRefs: target.approvedGroupIds.map((groupId) =>
+      `approved-folder-group:${sha256Hex(groupId)}`,
+    ),
+    migrationOperatorRef: sha256Hex(args.operatorUserId),
+    status: 'opening',
+  };
+}
+
+export function validateMatterAppResults({ target, clientResult, matterResult }) {
+  const blockers = [];
+  if (!clientResult?.clientId) blockers.push('matter_app_client_id_missing');
+  if (!clientResult?.sourceRevision) blockers.push('matter_app_client_source_revision_missing');
+  if (!matterResult?.matterAppMatterId) blockers.push('matter_app_matter_id_missing');
+  if (!matterResult?.sourceRevision) blockers.push('matter_app_matter_source_revision_missing');
+  if (matterResult?.matterCode !== target.matterCode) blockers.push('matter_app_matter_code_mismatch');
+  if (clientResult?.clientId && matterResult?.clientId !== clientResult.clientId) {
+    blockers.push('matter_app_client_id_mismatch');
+  }
+  return blockers;
+}
+
+async function upsertMatterAppTarget({ args, target }) {
+  const clientRequest = buildMatterAppClientRequest({ args, target });
+  const clientResult = await matterAppRequest(args, MATTER_APP_API_PATHS.clientUpsert, {
+    method: 'POST',
+    body: clientRequest,
+  });
+  const matterRequest = buildMatterAppMatterRequest({ args, target, clientResult });
+  const matterResult = await matterAppRequest(args, MATTER_APP_API_PATHS.matterUpsert, {
+    method: 'POST',
+    body: matterRequest,
+  });
+  return {
+    clientResult,
+    matterResult,
+    blockers: validateMatterAppResults({ target, clientResult, matterResult }),
+  };
+}
+
+function matterAppProjectionMetadata({ target, matterAppResult, migrationRunId }) {
+  if (!matterAppResult) return {};
+  return {
+    matterAppClientId: matterAppResult.clientResult.clientId,
+    matterAppMatterId: matterAppResult.matterResult.matterAppMatterId,
+    matterAppSourceRevision: matterAppResult.matterResult.sourceRevision,
+    sourceRevision: matterAppResult.matterResult.sourceRevision,
+    migration_run_id: migrationRunId,
+    source_ref: SAFE_SOURCE_REF,
+    mapping_candidate_hash: target.matterCodeHash,
+  };
 }
 
 async function loadDbSnapshot(client, { tenantId, operatorUserId }) {
@@ -246,12 +393,13 @@ async function insertAudit(client, input) {
   if (!result.rows[0]) throw new Error('audit insert returned no row');
 }
 
-async function insertClient(client, { tenantId, operatorUserId, target, migrationRunId }) {
+async function insertClient(client, { tenantId, operatorUserId, target, migrationRunId, matterAppResult }) {
   const metadata = {
     migration_run_id: migrationRunId,
     source_ref: SAFE_SOURCE_REF,
     mapping_candidate_hash: target.matterCodeHash,
     approved_group_count: String(target.approvedGroupCount),
+    ...matterAppProjectionMetadata({ target, matterAppResult, migrationRunId }),
   };
   const result = await client.query(
     `
@@ -281,7 +429,10 @@ async function insertClient(client, { tenantId, operatorUserId, target, migratio
   return row;
 }
 
-async function insertMatter(client, { tenantId, operatorUserId, target, clientId, aiPolicyId, migrationRunId }) {
+async function insertMatter(
+  client,
+  { tenantId, operatorUserId, target, clientId, aiPolicyId, migrationRunId, matterAppResult },
+) {
   const matterName = target.matterCode;
   const metadata = {
     matter_detail_type_korean: target.matterDetailTypeKorean,
@@ -290,6 +441,7 @@ async function insertMatter(client, { tenantId, operatorUserId, target, clientId
     source_ref: SAFE_SOURCE_REF,
     mapping_candidate_hash: target.matterCodeHash,
     approved_group_count: String(target.approvedGroupCount),
+    ...matterAppProjectionMetadata({ target, matterAppResult, migrationRunId }),
   };
   const result = await client.query(
     `
@@ -367,6 +519,40 @@ async function ensureLeadOwner(client, { tenantId, operatorUserId, matterId, mig
   return { created: true };
 }
 
+async function syncClientProjection(client, { tenantId, clientId, target, migrationRunId, matterAppResult }) {
+  if (!matterAppResult) return { updated: false };
+  const metadata = matterAppProjectionMetadata({ target, matterAppResult, migrationRunId });
+  await client.query(
+    `
+      UPDATE clients
+      SET metadata_json = coalesce(metadata_json, '{}'::jsonb) || $3::jsonb,
+          updated_at = now()
+      WHERE tenant_id = $1
+        AND client_id = $2
+    `,
+    [tenantId, clientId, JSON.stringify(metadata)],
+  );
+  return { updated: true };
+}
+
+async function syncMatterProjection(client, { tenantId, matterId, target, migrationRunId, matterAppResult }) {
+  if (!matterAppResult) return { updated: false };
+  const metadata = matterAppProjectionMetadata({ target, matterAppResult, migrationRunId });
+  await client.query(
+    `
+      UPDATE matters
+      SET matter_code = $3,
+          matter_name = $4,
+          metadata_json = coalesce(metadata_json, '{}'::jsonb) || $5::jsonb,
+          updated_at = now()
+      WHERE tenant_id = $1
+        AND matter_id = $2
+    `,
+    [tenantId, matterId, target.matterCode, target.matterCode, JSON.stringify(metadata)],
+  );
+  return { updated: true };
+}
+
 async function processTarget({ db, indexed, target, args, aiPolicyId, execute }) {
   const base = sanitizedTarget(target);
   const blockers = [...target.validationBlockers];
@@ -383,11 +569,39 @@ async function processTarget({ db, indexed, target, args, aiPolicyId, execute })
     else if (normalizedClientKey(existingMatterClient.name) !== clientKey) {
       blockers.push('existing_matter_client_mismatch');
     }
+    if (blockers.length > 0) {
+      return { ...base, state: 'blocked', action: 'none', blockers };
+    }
+    if (!execute) {
+      return { ...base, state: 'matter_reused', action: 'reuse_existing_matter', blockers };
+    }
+    const matterAppResult = await upsertMatterAppTarget({ args, target });
+    blockers.push(...matterAppResult.blockers);
+    if (blockers.length > 0) {
+      return { ...base, state: 'blocked', action: 'none', blockers };
+    }
+    await syncClientProjection(db, {
+      tenantId: args.tenantId,
+      clientId: existingMatter.client_id,
+      target,
+      migrationRunId: args.migrationRunId,
+      matterAppResult,
+    });
+    await syncMatterProjection(db, {
+      tenantId: args.tenantId,
+      matterId: existingMatter.matter_id,
+      target,
+      migrationRunId: args.migrationRunId,
+      matterAppResult,
+    });
     return {
       ...base,
-      state: blockers.length > 0 ? 'blocked' : 'matter_reused',
-      action: blockers.length > 0 ? 'none' : 'reuse_existing_matter',
+      state: 'vault_projection_synced',
+      action: 'matter_app_upsert_and_sync_existing_vault_projection',
       blockers,
+      matter_app_matter_ref_hash: sha256Hex(matterAppResult.matterResult.matterAppMatterId),
+      matter_app_client_ref_hash: sha256Hex(matterAppResult.clientResult.clientId),
+      matter_app_source_revision_hash: sha256Hex(matterAppResult.matterResult.sourceRevision),
     };
   }
 
@@ -400,18 +614,10 @@ async function processTarget({ db, indexed, target, args, aiPolicyId, execute })
   let clientAction = 'reuse_existing_client';
   if (!clientRow) {
     clientAction = execute ? 'create_client' : 'would_create_client';
-    if (execute) {
-      clientRow = await insertClient(db, {
-        tenantId: args.tenantId,
-        operatorUserId: args.operatorUserId,
-        target,
-        migrationRunId: args.migrationRunId,
-      });
-      indexed.clientById.set(clientRow.client_id, clientRow);
-    } else {
+    if (!execute) {
       clientRow = { client_id: `planned:${sha256Hex(clientKey)}`, name: target.clientShortName, status: 'active' };
+      indexed.clientsByKey.set(clientKey, [clientRow]);
     }
-    indexed.clientsByKey.set(clientKey, [clientRow]);
   }
 
   if (!execute) {
@@ -423,6 +629,32 @@ async function processTarget({ db, indexed, target, args, aiPolicyId, execute })
     };
   }
 
+  const matterAppResult = await upsertMatterAppTarget({ args, target });
+  blockers.push(...matterAppResult.blockers);
+  if (blockers.length > 0) {
+    return { ...base, state: 'blocked', action: 'none', blockers };
+  }
+
+  if (!clientRow) {
+    clientRow = await insertClient(db, {
+      tenantId: args.tenantId,
+      operatorUserId: args.operatorUserId,
+      target,
+      migrationRunId: args.migrationRunId,
+      matterAppResult,
+    });
+    indexed.clientById.set(clientRow.client_id, clientRow);
+    indexed.clientsByKey.set(clientKey, [clientRow]);
+  } else {
+    await syncClientProjection(db, {
+      tenantId: args.tenantId,
+      clientId: clientRow.client_id,
+      target,
+      migrationRunId: args.migrationRunId,
+      matterAppResult,
+    });
+  }
+
   const matter = await insertMatter(db, {
     tenantId: args.tenantId,
     operatorUserId: args.operatorUserId,
@@ -430,6 +662,7 @@ async function processTarget({ db, indexed, target, args, aiPolicyId, execute })
     clientId: clientRow.client_id,
     aiPolicyId,
     migrationRunId: args.migrationRunId,
+    matterAppResult,
   });
   indexed.mattersByCode.set(target.matterCode, matter);
   indexed.mattersById.set(matter.matter_id, matter);
@@ -457,8 +690,13 @@ async function processTarget({ db, indexed, target, args, aiPolicyId, execute })
   return {
     ...base,
     state: clientAction === 'create_client' ? 'created_client_and_matter' : 'created_matter',
-    action: member.created ? `${clientAction}_create_matter_and_owner` : `${clientAction}_create_matter`,
+    action: member.created
+      ? `matter_app_upsert_${clientAction}_create_matter_and_owner`
+      : `matter_app_upsert_${clientAction}_create_matter`,
     blockers,
+    matter_app_matter_ref_hash: sha256Hex(matterAppResult.matterResult.matterAppMatterId),
+    matter_app_client_ref_hash: sha256Hex(matterAppResult.clientResult.clientId),
+    matter_app_source_revision_hash: sha256Hex(matterAppResult.matterResult.sourceRevision),
   };
 }
 
@@ -488,7 +726,7 @@ async function main() {
   const args = parseArgs();
   if (args.help || !args.tenantId || !args.operatorUserId) {
     console.error(
-      'usage: node tools/migration/onedrive-client-matter-write.mjs --tenant-id <uuid> --operator-user-id <uuid> [--execute]',
+      'usage: node tools/migration/onedrive-client-matter-write.mjs --tenant-id <uuid> --operator-user-id <uuid> [--execute] [--matter-app-api-base-url <url> --matter-app-api-token <token>]',
     );
     process.exit(args.help ? 0 : 2);
   }
@@ -513,6 +751,8 @@ async function main() {
     });
     const environmentBlockers = [...receiptBlockers];
     if (!dbSnapshot.operator) environmentBlockers.push('active_firm_admin_operator_missing');
+    const matterAppApiBlockers = args.execute ? await checkMatterAppApi(args) : [];
+    environmentBlockers.push(...matterAppApiBlockers);
     const indexed = indexSnapshot(dbSnapshot);
 
     if (environmentBlockers.length === 0) {
@@ -554,6 +794,8 @@ async function main() {
       target_rows: targets.length,
       approved_group_rows: approvedGroupRows.length,
       db_connected: true,
+      matter_app_api_checked: args.execute,
+      matter_app_api_configured: matterAppApiConfigured(args),
       db_snapshot_counts_before: {
         clients: dbSnapshot.clients.length,
         matters: dbSnapshot.matters.length,

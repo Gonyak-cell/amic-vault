@@ -23,7 +23,11 @@ Local workspace search found the Matter app material under:
 - `/Users/jws/Documents/Codex/Law Firm OS/contracts/matter-core-contract.json`
 - `/Users/jws/Documents/Codex/Law Firm OS/workbook/matter_dev_docs`
 
-The current `packages/matter` package appears descriptor/contract-oriented rather than a production runtime API. Therefore PR-A must not assume a live Matter app endpoint exists until that API is explicitly supplied.
+The `packages/matter` package contains the canonical identity upsert functions
+used by the Matter app. A Vault bridge route is available in Law Firm OS when
+the API service is started with `LAWOS_VAULT_BRIDGE_TOKEN`. Vault must still
+verify the live endpoint and bearer auth before treating `matter_app_api` as
+write-capable.
 
 ## Integration Modes
 
@@ -42,6 +46,9 @@ Runtime guard:
   `NEXT_PUBLIC_MATTER_APP_SOURCE_MODE`,
   `NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED=true` and
   `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY=true`.
+- `matter_app_api` additionally requires server-side
+  `MATTER_APP_API_BASE_URL` and `MATTER_APP_API_TOKEN`; the token value must
+  never be committed, logged, or written to receipts.
 - `MATTER_APP_RUNTIME_READY` / `NEXT_PUBLIC_MATTER_APP_RUNTIME_READY` means the approved Matter app lookup
   API or event projection is actually reachable, fresh enough for upload, and
   guarded by its owner. A descriptor-only Matter package or planning contract
@@ -67,6 +74,17 @@ lookup endpoint returns safe empty results when the source is unavailable or
 normal UI input is UUID-shaped. When available, lookup reads the local Matter
 projection only after SQL-stage Matter membership and ethical-wall filters are
 applied.
+
+Matter app bridge endpoints exposed by Law Firm OS:
+
+- `GET /api/matters/vault-bridge/status`
+- `POST /api/matters/vault-bridge/clients/upsert`
+- `POST /api/matters/vault-bridge/matters/upsert`
+
+These endpoints require `Authorization: Bearer <LAWOS_VAULT_BRIDGE_TOKEN>` and
+return reference-only canonical ids, action state, and source revision. Vault
+uses them only in `matter_app_api` execution mode; if the status call or bearer
+auth fails, approved mapping write execution remains blocked.
 
 ## Canonical Matter Fields
 
