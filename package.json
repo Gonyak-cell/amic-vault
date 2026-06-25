@@ -25,6 +25,7 @@
     "release:local-preflight": "node tools/release/local-staging-preflight.mjs",
     "desktop:release-gate": "node tools/release/check-desktop-release-gate.mjs",
     "outlook:deployment:check": "node tools/release/check-outlook-deployment.mjs",
+    "outlook:manifest:render": "node tools/release/render-outlook-manifest.mjs",
     "outlook:verification:check": "node tools/release/check-outlook-verification.mjs",
     "outlook:operational:check": "node --experimental-strip-types tools/release/check-outlook-operational.ts",
     "outlook:redaction:check": "node --experimental-strip-types tools/release/check-outlook-redaction.ts --changed",

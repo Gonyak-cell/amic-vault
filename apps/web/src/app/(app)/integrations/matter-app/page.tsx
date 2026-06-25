@@ -60,7 +60,7 @@ export default function MatterAppIntegrationPage() {
       <PageHeader
         breadcrumbs={['Vault', t('integrations.page.title'), 'Matter app']}
         title="Matter app 연결 상태"
-        description="Matter Code source와 업로드 gate를 확인합니다. 연결 전에는 파일 업로드가 Matter app 확인 상태로 표시되지 않습니다."
+        description="Matter Code 기준 정보와 업로드 조건을 확인합니다. 연결 전에는 파일 업로드가 Matter app 확인 상태로 표시되지 않습니다."
         actions={
           <Button asChild variant="outline">
             <Link href="/files">업로드 화면 보기</Link>
@@ -70,41 +70,41 @@ export default function MatterAppIntegrationPage() {
 
       <SectionCard
         icon={<FolderSearch className="h-4 w-4" />}
-        title="Matter Code source"
-        meta="source-of-truth gate"
+        title="Matter Code 기준 정보"
+        meta="연결 기준"
       >
         <div className="grid gap-3 lg:grid-cols-4">
           <StatusTile
             icon={<FolderSearch className="h-4 w-4" />}
-            title="현재 source"
+            title="현재 기준"
             value={status.label}
             tone={status.sourceAvailable ? 'success' : 'blocked'}
             description={status.description}
           />
           <StatusTile
             icon={<FileInput className="h-4 w-4" />}
-            title="업로드 gate"
+            title="업로드 조건"
             value={status.uploadAuthoritative ? '업로드 가능' : '업로드 차단'}
             tone={uploadTone}
-            description="파일 업로드는 Matter app API 또는 Matter app 이벤트 동기화가 runtime ready일 때만 열립니다."
+            description="파일 업로드는 Matter 연결 상태가 확인될 때만 사용할 수 있습니다."
           />
           <StatusTile
             icon={<ShieldCheck className="h-4 w-4" />}
-            title="lookup/sync runtime"
+            title="Matter 연결 상태"
             value={status.sourceContractReady ? '준비됨' : '준비 필요'}
             tone={status.sourceContractReady ? 'success' : 'blocked'}
             description={
               statusSource === 'api'
-                ? '백엔드 runtime status endpoint에서 configured/runtime ready 상태를 확인했습니다.'
-                : '백엔드 확인 전에는 public runtime flag 기준으로 보수적으로 표시합니다.'
+                ? '서버에서 Matter 연결 가능 상태를 확인했습니다.'
+                : '서버 확인 전에는 안전 기준으로 제한 표시합니다.'
             }
           />
           <StatusTile
             icon={<ShieldCheck className="h-4 w-4" />}
-            title="프로덕션 projection fallback"
-            value={status.productionRuntime ? '차단' : status.projectionFallbackAllowed ? '개발 허용' : '차단'}
+            title="Vault 기준 표시"
+            value={status.productionRuntime ? '차단' : status.projectionFallbackAllowed ? '제한적 사용' : '차단'}
             tone={status.productionRuntime || !status.projectionFallbackAllowed ? 'warning' : 'neutral'}
-            description="로컬 Matter 목록은 운영 source로 표시하지 않습니다."
+            description="연결 확인 전에는 Vault에 저장된 기준 정보만 표시합니다."
           />
         </div>
       </SectionCard>
@@ -112,17 +112,17 @@ export default function MatterAppIntegrationPage() {
       <SectionCard
         icon={<ShieldCheck className="h-4 w-4" />}
         title="운영 조건"
-        meta="Matter-first upload contract"
+        meta="업로드 기준"
       >
         <div className="grid gap-3 lg:grid-cols-2">
           <ContractRow
             title="Matter app 확인"
             status={status.sourceContractReady ? '확인됨' : '설정 필요'}
             tone={status.sourceContractReady ? 'success' : 'blocked'}
-            description="Matter Code, 표시명, 고객, 상태, 업무그룹은 Matter app runtime API 또는 승인된 이벤트 projection에서 확인되어야 합니다."
+            description="Matter Code, 표시명, 고객, 상태, 업무그룹은 Matter 연결 또는 승인된 동기화 정보에서 확인합니다."
           />
           <ContractRow
-            title="free-floating 업로드"
+            title="Matter 미선택 업로드"
             status="불가"
             tone="blocked"
             description="일반 사용자는 Matter Code를 먼저 선택해야 하며, Vault 내부 식별자를 직접 입력하지 않습니다."

@@ -35,8 +35,8 @@ describe('EnterpriseHardeningClient', () => {
     expect(html).toContain('검색 헬스');
     expect(html).toContain('인덱스, 추출/OCR, 검색 감사 집계');
     expect(html).toContain('운영 헬스');
-    expect(html).toContain('파일 정리 준비 상태');
-    expect(html).toContain('파일 정리 준비 전용');
+    expect(html).toContain('파일 정리 상태');
+    expect(html).toContain('업로드 후 파일 정리 상태');
     expect(html).toContain('전체 재색인 요청');
     expect(html).toContain('감사 기록 대상');
     expect(html).toContain('운영 데이터가 아직 연결되지 않았습니다.');

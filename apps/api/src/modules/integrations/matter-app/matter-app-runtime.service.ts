@@ -52,6 +52,7 @@ interface MatterLookupRow {
   matter_id: string;
   matter_code: string;
   matter_name: string;
+  client_name: string | null;
   status: string;
   practice_group: string | null;
   metadata_json: Record<string, unknown> | null;
@@ -135,11 +136,15 @@ function safeDisplayLabel(value: string | undefined): string | null {
   return trimmed;
 }
 
-function clientDisplayName(metadata: Record<string, unknown> | null): string | null {
+function clientDisplayName(
+  metadata: Record<string, unknown> | null,
+  clientName: string | null,
+): string | null {
   return (
     safeDisplayLabel(metadataString(metadata, 'clientDisplayName')) ??
     safeDisplayLabel(metadataString(metadata, 'clientName')) ??
-    safeDisplayLabel(metadataString(metadata, 'client_name'))
+    safeDisplayLabel(metadataString(metadata, 'client_name')) ??
+    safeDisplayLabel(clientName ?? undefined)
   );
 }
 
@@ -297,6 +302,7 @@ export class MatterAppRuntimeService {
           OR lower(coalesce(m.metadata_json->>'clientDisplayName', '')) LIKE $${params.length} ESCAPE '\\'
           OR lower(coalesce(m.metadata_json->>'clientName', '')) LIKE $${params.length} ESCAPE '\\'
           OR lower(coalesce(m.metadata_json->>'client_name', '')) LIKE $${params.length} ESCAPE '\\'
+          OR lower(coalesce(c.name, '')) LIKE $${params.length} ESCAPE '\\'
           OR lower(coalesce(m.practice_group, '')) LIKE $${params.length} ESCAPE '\\'
         )
       `);
@@ -314,12 +320,16 @@ export class MatterAppRuntimeService {
           m.matter_id,
           m.matter_code,
           m.matter_name,
+          c.name AS client_name,
           m.status,
           m.practice_group,
           m.metadata_json,
           m.updated_at,
           count(*) OVER()::text AS total_count
         FROM matters m
+        LEFT JOIN clients c
+          ON c.tenant_id = m.tenant_id
+          AND c.client_id = m.client_id
         WHERE ${filters.join(' AND ')}
         ORDER BY
           ${exactCodeOrder}
@@ -345,7 +355,7 @@ export class MatterAppRuntimeService {
       matterReference: row.matter_id,
       matterCode: row.matter_code,
       matterName: row.matter_name,
-      clientDisplayName: clientDisplayName(row.metadata_json),
+      clientDisplayName: clientDisplayName(row.metadata_json, row.client_name),
       status: row.status,
       practiceGroup: row.practice_group,
       sourceMode: source.mode,

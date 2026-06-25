@@ -55,9 +55,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
     setRetryError(false);
     try {
       const result = await retryMatterAiPrep(readiness.matterId);
-      setRetryResult(
-        `문서 ${result.documentCount}건 / 작업 ${result.enqueuedJobCount}건 대기열 등록`,
-      );
+      setRetryResult(`파일 ${result.documentCount}건의 정리를 다시 요청했습니다.`);
       onRetryComplete?.();
     } catch {
       setRetryError(true);
@@ -67,12 +65,12 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
   }
 
   return (
-    <section aria-label="사건 파일 정리 준비 상태" className="space-y-3 rounded-md border p-4">
+    <section aria-label="사건 파일 정리 상태" className="space-y-3 rounded-md border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold tracking-normal">파일 정리 준비 상태</h2>
+          <h2 className="text-base font-semibold tracking-normal">파일 정리 상태</h2>
           <p className="text-sm text-muted-foreground">
-            권한이 확인된 파일 정리 준비 상태만 표시됩니다.
+            권한이 확인된 파일의 정리 상태만 표시됩니다.
           </p>
         </div>
         <Button
@@ -81,36 +79,19 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
           size="sm"
           onClick={retry}
           disabled={retrying}
-          aria-label="파일 정리 준비 다시 실행"
-          title="파일 정리 준비 다시 실행"
+          aria-label="파일 정리 다시 실행"
+          title="파일 정리 다시 실행"
         >
           <RotateCw className="h-4 w-4" />
         </Button>
       </div>
 
-      <dl className="grid gap-2 text-sm sm:grid-cols-4">
-        <Metric label="파일" value={readiness.documentCount} />
-        <Metric label="정리됨" value={readiness.readyDocumentCount} />
-        <Metric
-          label="진행 중"
-          value={readiness.pendingDocumentCount + readiness.partialDocumentCount}
-        />
-        <Metric label="재정리" value={readiness.staleDocumentCount} />
-        <Metric label="정책 차단" value={readiness.blockedDocumentCount} />
-        <Metric label="실패" value={readiness.failedDocumentCount} />
-        <Metric label="폐기" value={readiness.rejectedDocumentCount} />
-        <Metric label="작업 대기" value={readiness.pendingJobCount} />
-        <Metric label="재정리 항목" value={readiness.staleArtifactCount} />
-        <Metric label="폐기 항목" value={readiness.rejectedArtifactCount} />
-        <Metric label="대체 정리 항목" value={readiness.fallbackArtifactCount} />
-      </dl>
-
-      <DataTable caption="사건 파일 정리 준비 목록" minWidthClassName="min-w-[640px]">
+      <DataTable caption="사건 파일 정리 목록" minWidthClassName="min-w-[640px]">
         <DataTableHeader>
           <DataTableRow>
             <DataTableHead>파일</DataTableHead>
             <DataTableHead>상태</DataTableHead>
-            <DataTableHead className="text-right">정리 카드</DataTableHead>
+            <DataTableHead className="text-right">정리 항목</DataTableHead>
           </DataTableRow>
         </DataTableHeader>
         <DataTableBody>
@@ -128,7 +109,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
                 <DataTableCell className="text-right text-xs text-muted-foreground">
                   {document.completedArtifactCount}/{document.totalArtifactCount}
                   {document.fallbackArtifactCount > 0
-                    ? ` / 대체 ${document.fallbackArtifactCount}`
+                    ? ` / 추가 확인 ${document.fallbackArtifactCount}`
                     : ''}
                 </DataTableCell>
               </DataTableRow>
@@ -144,14 +125,5 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
         <p className="text-sm text-muted-foreground">다시 실행할 수 없습니다.</p>
       ) : null}
     </section>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md border p-3">
-      <dt className="text-xs uppercase text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-lg font-semibold">{value}</dd>
-    </div>
   );
 }
