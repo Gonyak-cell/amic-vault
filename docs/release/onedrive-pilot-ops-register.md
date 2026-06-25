@@ -139,6 +139,21 @@ snapshot, containment, rollback, permission, and legal-data refs only. It does
 not execute Vault write/import, DB write, storage write, customer-wide import,
 cutover, indexing, OneDrive connected-state, or Office open/save/sync.
 
+After a separately approved bounded operator write command actually runs,
+validate only the sanitized write receipt:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-write-receipt \
+  --write-receipt <next-wave-write-receipt.sanitized.json> \
+  --execution-preflight-gate <next-wave-write-execution-preflight.sanitized.json> \
+  --sanitized-out <next-wave-write-receipt-gate.sanitized.json>
+```
+
+This gate checks post-write DB/storage/audit counts, rollback containment, and
+idempotency evidence only. It does not run write/import, does not approve
+customer-wide import or cutover, and does not enqueue or run Gemma indexing.
+
 ## Hard Stops
 
 Stop if:

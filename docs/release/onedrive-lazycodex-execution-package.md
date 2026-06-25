@@ -102,6 +102,10 @@ Use `next-wave-write-execution-preflight` after the approval gate to verify
 final local write-window, upload-preflight, snapshot, containment, rollback,
 permission, and legal-data refs while still keeping actual Vault DB/storage
 writes, customer-wide import, cutover, and Gemma indexing unexecuted.
+Use `next-wave-write-receipt` only after a separately approved bounded operator
+write command actually runs, to validate sanitized DB/storage/audit counts,
+rollback containment, and idempotency evidence before post-write
+reconciliation or Gemma readiness work.
 
 ## Handoff Rule
 

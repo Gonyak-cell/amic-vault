@@ -188,6 +188,36 @@ const requiredNextWaveExecutionPreflightRefs = [
   'legal_data_ref',
 ];
 
+const requiredNextWaveWriteReceiptFields = [
+  'plan_id',
+  'scope_kind',
+  'matter_count',
+  'max_matters_per_wave',
+  'receipt_kind',
+  'write_executed',
+  'vault_db_write_executed',
+  'vault_storage_write_executed',
+  'customer_wide_import',
+  'source_of_truth_cutover',
+  'gemma_indexing',
+  'onedrive_connected_state',
+  'office_open_save_sync',
+];
+
+const requiredNextWaveWriteReceiptRefs = [
+  'execution_preflight_ref',
+  'post_write_db_count_ref',
+  'post_write_storage_count_ref',
+  'audit_receipt_ref',
+  'rollback_containment_ref',
+  'idempotency_replay_ref',
+  'sanitized_receipt_destination_ref',
+  'local_receipt_handling_ref',
+  'operator_ref',
+  'security_permission_ref',
+  'legal_data_ref',
+];
+
 const externalRefFields = ['tenant_ref', 'client_ref', 'matter_ref', ...requiredWriteRefs];
 
 const refOwners = {
@@ -220,6 +250,12 @@ const refOwners = {
   write_execution_approval_ref: 'Operator',
   write_approval_gate_ref: 'Operator',
   upload_preflight_ref: 'Operator / Infrastructure',
+  execution_preflight_ref: 'Operator',
+  post_write_db_count_ref: 'Operator / Infrastructure',
+  post_write_storage_count_ref: 'Operator / Infrastructure',
+  audit_receipt_ref: 'Operator / Security owner',
+  rollback_containment_ref: 'Rollback owner',
+  idempotency_replay_ref: 'Operator',
   operator_dryrun_ref: 'Operator',
 };
 
@@ -300,6 +336,8 @@ export function parseArgs(argv) {
     else if (key === 'write-approval') args.writeApproval = next;
     else if (key === 'write-approval-gate') args.writeApprovalGate = next;
     else if (key === 'execution-preflight') args.executionPreflight = next;
+    else if (key === 'execution-preflight-gate') args.executionPreflightGate = next;
+    else if (key === 'write-receipt') args.writeReceipt = next;
     else if (key === 'synthetic-receipt') args.syntheticReceipt = next;
     else if (key === 'import-receipt') args.importReceipt = next;
     else if (key === 'reconciliation-report') args.reconciliationReport = next;
@@ -322,7 +360,7 @@ export function parseArgs(argv) {
 
 export function usage() {
   return [
-    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs|next-wave-dryrun-receipt|next-wave-write-decision|next-wave-write-approval|next-wave-write-execution-preflight> --sanitized-out <out.json> [inputs]',
+    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs|next-wave-dryrun-receipt|next-wave-write-decision|next-wave-write-approval|next-wave-write-execution-preflight|next-wave-write-receipt> --sanitized-out <out.json> [inputs]',
     '',
     'Modes:',
     '  refs-intake      --mapping <json> [--phase <dryrun|write>]',
@@ -336,6 +374,7 @@ export function usage() {
     '  next-wave-write-decision --write-decision <json> --dryrun-receipt-gate <json>',
     '  next-wave-write-approval --write-approval <json> --write-decision-gate <json>',
     '  next-wave-write-execution-preflight --execution-preflight <json> --write-approval-gate <json>',
+    '  next-wave-write-receipt --write-receipt <json> --execution-preflight-gate <json>',
     '  package-audit    [--repo-root <dir>] [--evidence-root <dir>]',
     '',
     'This tool validates gates only. It does not import customer documents or run Gemma indexing.',
@@ -1082,6 +1121,109 @@ export function runNextWaveWriteExecutionPreflight({ executionPreflight, writeAp
   };
 }
 
+export function runNextWaveWriteReceipt({ writeReceipt, executionPreflightGate, runId }) {
+  writeReceipt = writeReceipt ?? {};
+  executionPreflightGate = executionPreflightGate ?? {};
+  const blockers = [];
+  addMissingFieldBlockers(blockers, writeReceipt, requiredNextWaveWriteReceiptFields, 'missing_write_receipt');
+  addMissingFieldBlockers(blockers, writeReceipt, requiredNextWaveWriteReceiptRefs, 'missing_write_receipt_ref');
+
+  if (executionPreflightGate.mode !== 'next-wave-write-execution-preflight') blockers.push('execution_preflight_gate_mode_invalid');
+  if (executionPreflightGate.gate_status !== 'pass') blockers.push('execution_preflight_gate_not_pass');
+  if (writeReceipt.plan_id !== executionPreflightGate.plan_id) blockers.push('plan_id_mismatch');
+  if (writeReceipt.scope_kind !== 'matter_batch') blockers.push('scope_kind_must_be_matter_batch');
+  if (writeReceipt.receipt_kind !== 'bounded_write_execution_receipt') {
+    blockers.push('receipt_kind_must_be_bounded_write_execution_receipt');
+  }
+
+  const matterCount = Number(writeReceipt.matter_count ?? 0);
+  const maxMatters = Number(writeReceipt.max_matters_per_wave ?? executionPreflightGate.max_matters_per_wave ?? 5);
+  if (!Number.isSafeInteger(matterCount) || matterCount < 1) blockers.push('invalid_matter_count');
+  if (!Number.isSafeInteger(maxMatters) || maxMatters < 1) blockers.push('invalid_max_matters_per_wave');
+  if (Number.isSafeInteger(matterCount) && Number.isSafeInteger(maxMatters) && matterCount > maxMatters) {
+    blockers.push('matter_count_exceeds_wave_limit');
+  }
+  if (Number.isSafeInteger(matterCount) && Number(executionPreflightGate.matter_count ?? matterCount) !== matterCount) {
+    blockers.push('matter_count_mismatch');
+  }
+  if (Number.isSafeInteger(maxMatters) && Number(executionPreflightGate.max_matters_per_wave ?? maxMatters) !== maxMatters) {
+    blockers.push('max_matters_per_wave_mismatch');
+  }
+
+  if (writeReceipt.write_executed !== true) blockers.push('write_executed_must_be_true');
+  if (writeReceipt.vault_db_write_executed !== true) blockers.push('vault_db_write_executed_must_be_true');
+  if (writeReceipt.vault_storage_write_executed !== true) blockers.push('vault_storage_write_executed_must_be_true');
+  if (writeReceipt.customer_wide_import !== false) blockers.push('customer_wide_import_must_be_false');
+  if (writeReceipt.source_of_truth_cutover !== false) blockers.push('source_of_truth_cutover_must_be_false');
+  if (writeReceipt.gemma_indexing !== false) blockers.push('gemma_indexing_must_be_false');
+  if (writeReceipt.onedrive_connected_state !== false) blockers.push('onedrive_connected_state_must_be_false');
+  if (writeReceipt.office_open_save_sync !== false) blockers.push('office_open_save_sync_must_be_false');
+
+  if (statusCount(writeReceipt, 'blocked') > 0) blockers.push('write_receipt_has_blocked_items');
+  if (statusCount(writeReceipt, 'retryable') > 0) blockers.push('write_receipt_has_retryable_items');
+  if (statusCount(writeReceipt, 'failed') > 0) blockers.push('write_receipt_has_failed_items');
+
+  const expectedWriteCounts = executionPreflightGate.expected_write_counts ?? {};
+  const expectedCounts = {
+    documents: Number(expectedWriteCounts.documents ?? 0),
+    document_versions: Number(expectedWriteCounts.document_versions ?? expectedWriteCounts.initial_versions ?? 0),
+    file_objects: Number(expectedWriteCounts.file_objects ?? 0),
+    audit_events: Number(expectedWriteCounts.audit_events ?? 0),
+  };
+  const actualCreatedCountsInput = writeReceipt.summary?.actual_created_counts ?? {};
+  const actualCreatedCounts = Object.fromEntries(
+    Object.keys(expectedCounts).map((field) => [field, Number(actualCreatedCountsInput[field] ?? 0)]),
+  );
+  for (const [field, expected] of Object.entries(expectedCounts)) {
+    if (expected < 1) blockers.push(`expected_write_count_missing_${field}`);
+    if (actualCreatedCounts[field] !== expected) blockers.push(`created_count_mismatch_${field}`);
+  }
+
+  const imported = statusCount(writeReceipt, 'imported') + statusCount(writeReceipt, 'already_imported');
+  if (expectedCounts.documents > 0 && imported !== expectedCounts.documents) blockers.push('imported_count_does_not_match_expected_documents');
+  const writeCounts = Object.fromEntries(
+    ['imported', 'already_imported', 'skipped', 'blocked', 'retryable', 'failed'].map((status) => [status, statusCount(writeReceipt, status)]),
+  );
+
+  const refStatuses = requiredNextWaveWriteReceiptRefs.map((field) => ({
+    field,
+    owner: refOwners[field] ?? 'Operator',
+    status: fieldGateStatus(writeReceipt, field),
+  }));
+
+  return {
+    lc_id: 'LC-ONEDRIVE-09/PW-09',
+    mode: 'next-wave-write-receipt',
+    run_id: runId ?? writeReceipt.run_id ?? executionPreflightGate.run_id ?? 'unknown',
+    plan_id: writeReceipt.plan_id ?? 'unknown',
+    gate_status: blockers.length === 0 ? 'pass' : 'blocked',
+    blockers,
+    scope_kind: writeReceipt.scope_kind,
+    matter_count: matterCount,
+    max_matters_per_wave: maxMatters,
+    write_counts: writeCounts,
+    expected_created_counts: expectedCounts,
+    actual_created_counts: actualCreatedCounts,
+    ref_statuses: refStatuses,
+    owner_summary: summarizeOwnerStatuses(refStatuses),
+    write_receipt_state: blockers.length === 0 ? 'receipt_passed_bounded_write_only' : 'write_receipt_blocked',
+    rollback_boundary: 'containment_only_no_hard_delete',
+    actual_execution_state: {
+      vault_write: blockers.length === 0 ? 'executed_for_bounded_batch' : 'receipt_blocked',
+      vault_import: blockers.length === 0 ? 'executed_for_bounded_batch' : 'receipt_blocked',
+      vault_db_write: blockers.length === 0 ? 'executed_for_bounded_batch' : 'receipt_blocked',
+      vault_storage_write: blockers.length === 0 ? 'executed_for_bounded_batch' : 'receipt_blocked',
+      customer_wide_import: 'not_authorized',
+      source_of_truth_cutover: 'not_authorized',
+      gemma_indexing: 'not_authorized',
+    },
+    allowed_next_action: blockers.length === 0 ? 'prepare_post_write_reconciliation_and_gemma_readiness' : 'resolve_write_receipt_blockers',
+    not_claimed: ['source-of-truth cutover approved', 'Gemma indexing approved', ...notClaimed],
+    sanitization:
+      'Next-wave write receipt output contains bounded counts, field statuses, and blocker codes only; it does not include raw source paths, document names, source object keys, tenant-private values, document text, OCR excerpts, screenshots, item ids, or ref values.',
+  };
+}
+
 export async function runPackageAudit({ repoRoot = process.cwd(), evidenceRoot = '.omo/evidence', runId }) {
   const blockers = [];
   const lc_status = [];
@@ -1287,6 +1429,16 @@ async function runFromArgs(args) {
     return runNextWaveWriteExecutionPreflight({
       executionPreflight: await readJson(args.executionPreflight),
       writeApprovalGate: await readJson(args.writeApprovalGate),
+      runId: args.runId,
+    });
+  }
+  if (args.mode === 'next-wave-write-receipt') {
+    if (!args.writeReceipt || !args.executionPreflightGate) {
+      throw new Error('next-wave-write-receipt requires --write-receipt and --execution-preflight-gate');
+    }
+    return runNextWaveWriteReceipt({
+      writeReceipt: await readJson(args.writeReceipt),
+      executionPreflightGate: await readJson(args.executionPreflightGate),
       runId: args.runId,
     });
   }

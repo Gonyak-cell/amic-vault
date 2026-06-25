@@ -67,6 +67,7 @@ of the repo payload.
 | PW-06 | Produce next-wave write decision packet | explicit operator approval request | approval bundled with cutover or AI indexing |
 | PW-07 | Validate bounded write approval | `next-wave-write-approval` gate PASS | immediate execution, customer-wide import, cutover, or indexing is bundled |
 | PW-08 | Validate bounded write execution preflight | `next-wave-write-execution-preflight` gate PASS | preflight requests immediate execution or reports DB/storage writes |
+| PW-09 | Validate bounded write receipt | `next-wave-write-receipt` gate PASS | created counts drift, failed rows, cutover, or indexing is bundled |
 
 No next-wave write is authorized by this plan. The next allowed executable
 action is a bounded wave approval/readiness packet, local dry-run input gate,
@@ -82,7 +83,9 @@ authorized. PW-07 now has bounded write approval gate tooling available, but
 the actual write remains not executed. PW-08 now has bounded write execution
 preflight tooling available, but the actual write remains not executed and
 Gemma indexing remains pending post-write reconciliation and separate
-permission-before-AI readiness.
+permission-before-AI readiness. PW-09 now has bounded write receipt gate
+tooling available for after a separately approved operator write command; it
+does not run the write and does not authorize Gemma indexing.
 
 ## Required Next-Wave Refs
 

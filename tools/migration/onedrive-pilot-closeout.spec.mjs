@@ -12,6 +12,7 @@ import {
   runNextWaveWriteApproval,
   runNextWaveWriteDecision,
   runNextWaveWriteExecutionPreflight,
+  runNextWaveWriteReceipt,
   runPackageAudit,
   runReconciliation,
   runRefsIntake,
@@ -283,6 +284,52 @@ const nextWaveWriteExecutionPreflight = {
   gemma_indexing: false,
   onedrive_connected_state: false,
   office_open_save_sync: false,
+};
+
+const nextWaveWriteExecutionPreflightGate = {
+  lc_id: 'LC-ONEDRIVE-09/PW-08',
+  mode: 'next-wave-write-execution-preflight',
+  run_id: 'run-a',
+  plan_id: 'wave-plan-a',
+  gate_status: 'pass',
+  blockers: [],
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  dryrun_counts: { ready: 1, skipped: 1 },
+  expected_write_counts: { documents: 1, file_objects: 1, initial_versions: 1, audit_events: 1 },
+};
+
+const nextWaveWriteReceipt = {
+  run_id: 'run-a',
+  plan_id: 'wave-plan-a',
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  receipt_kind: 'bounded_write_execution_receipt',
+  execution_preflight_ref: 'EXECUTION-PREFLIGHT-READY-20260625',
+  post_write_db_count_ref: 'POST-WRITE-DB-COUNT-READY-20260625',
+  post_write_storage_count_ref: 'POST-WRITE-STORAGE-COUNT-READY-20260625',
+  audit_receipt_ref: 'AUDIT-RECEIPT-READY-20260625',
+  rollback_containment_ref: 'ROLLBACK-CONTAINMENT-READY-20260625',
+  idempotency_replay_ref: 'IDEMPOTENCY-REPLAY-READY-20260625',
+  sanitized_receipt_destination_ref: 'SANITIZED-RECEIPT-READY-20260625',
+  local_receipt_handling_ref: 'LOCAL-RECEIPT-HANDLING-READY-20260625',
+  operator_ref: 'OPERATOR-READY-20260625',
+  security_permission_ref: 'SECURITY-PERMISSION-READY-20260625',
+  legal_data_ref: 'LEGAL-DATA-READY-20260625',
+  write_executed: true,
+  vault_db_write_executed: true,
+  vault_storage_write_executed: true,
+  customer_wide_import: false,
+  source_of_truth_cutover: false,
+  gemma_indexing: false,
+  onedrive_connected_state: false,
+  office_open_save_sync: false,
+  summary: {
+    status_counts: { imported: 1, raw_status_label: 'secret.docx' },
+    actual_created_counts: { documents: 1, document_versions: 1, file_objects: 1, audit_events: 1, raw_path: 'source-tree' },
+  },
 };
 
 const packageRepoFiles = [
@@ -843,6 +890,78 @@ describe('onedrive-pilot-closeout', () => {
     assert.ok(report.blockers.includes('missing_execution_preflight_ref_write_approval_gate_ref'));
   });
 
+  it('passes next-wave write receipt gate without authorizing cutover or Gemma', () => {
+    const report = runNextWaveWriteReceipt({
+      writeReceipt: nextWaveWriteReceipt,
+      executionPreflightGate: nextWaveWriteExecutionPreflightGate,
+      runId: 'run-a',
+    });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-09/PW-09');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.allowed_next_action, 'prepare_post_write_reconciliation_and_gemma_readiness');
+    assert.equal(report.actual_execution_state.vault_write, 'executed_for_bounded_batch');
+    assert.equal(report.actual_execution_state.source_of_truth_cutover, 'not_authorized');
+    assert.equal(report.actual_execution_state.gemma_indexing, 'not_authorized');
+    assert.equal(report.actual_created_counts.document_versions, 1);
+    assert.equal(report.ref_statuses.some((row) => row.status !== 'present'), false);
+    assert.equal(JSON.stringify(report).includes('EXECUTION-PREFLIGHT-READY-20260625'), false);
+    assert.equal(JSON.stringify(report).includes('POST-WRITE-DB-COUNT-READY-20260625'), false);
+    assert.equal(JSON.stringify(report).includes('secret.docx'), false);
+    assert.equal(JSON.stringify(report).includes('source-tree'), false);
+  });
+
+  it('blocks next-wave write receipt gate on missing preflight, count drift, and bundled indexing', () => {
+    const report = runNextWaveWriteReceipt({
+      executionPreflightGate: { ...nextWaveWriteExecutionPreflightGate, gate_status: 'blocked' },
+      runId: 'run-a',
+      writeReceipt: {
+        ...nextWaveWriteReceipt,
+        plan_id: 'different-plan',
+        scope_kind: 'customer_wide',
+        matter_count: 4,
+        receipt_kind: 'write_everything',
+        execution_preflight_ref: 'ONEDRIVE-EXECUTION-PREFLIGHT-REF',
+        write_executed: false,
+        vault_db_write_executed: false,
+        vault_storage_write_executed: false,
+        source_of_truth_cutover: true,
+        gemma_indexing: true,
+        summary: {
+          status_counts: { imported: 2, blocked: 1, failed: 1 },
+          actual_created_counts: { documents: 2, document_versions: 1, file_objects: 1, audit_events: 1 },
+        },
+      },
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.equal(report.actual_execution_state.vault_write, 'receipt_blocked');
+    assert.ok(report.blockers.includes('execution_preflight_gate_not_pass'));
+    assert.ok(report.blockers.includes('plan_id_mismatch'));
+    assert.ok(report.blockers.includes('scope_kind_must_be_matter_batch'));
+    assert.ok(report.blockers.includes('matter_count_exceeds_wave_limit'));
+    assert.ok(report.blockers.includes('receipt_kind_must_be_bounded_write_execution_receipt'));
+    assert.ok(report.blockers.includes('missing_write_receipt_ref_placeholder_execution_preflight_ref'));
+    assert.ok(report.blockers.includes('write_executed_must_be_true'));
+    assert.ok(report.blockers.includes('vault_db_write_executed_must_be_true'));
+    assert.ok(report.blockers.includes('vault_storage_write_executed_must_be_true'));
+    assert.ok(report.blockers.includes('source_of_truth_cutover_must_be_false'));
+    assert.ok(report.blockers.includes('gemma_indexing_must_be_false'));
+    assert.ok(report.blockers.includes('write_receipt_has_blocked_items'));
+    assert.ok(report.blockers.includes('write_receipt_has_failed_items'));
+    assert.ok(report.blockers.includes('created_count_mismatch_documents'));
+    assert.ok(report.blockers.includes('imported_count_does_not_match_expected_documents'));
+  });
+
+  it('blocks next-wave write receipt gate when input is empty', () => {
+    const report = runNextWaveWriteReceipt({
+      writeReceipt: {},
+      executionPreflightGate: nextWaveWriteExecutionPreflightGate,
+      runId: 'run-a',
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_write_receipt_plan_id'));
+    assert.ok(report.blockers.includes('missing_write_receipt_ref_execution_preflight_ref'));
+  });
+
   it('CLI writes sanitized reports without source labels', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-closeout-test-'));
     const mappingPath = path.join(dir, 'mapping.json');
@@ -1076,6 +1195,41 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(serialized.includes('WRITE-APPROVAL-GATE-READY-20260625'), false);
     assert.equal(serialized.includes('UPLOAD-PREFLIGHT-READY-20260625'), false);
     assert.match(serialized, /next-wave-write-execution-preflight/);
+  });
+
+  it('CLI writes next-wave write receipt reports without receipt ref values', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-next-wave-write-receipt-test-'));
+    const receiptPath = path.join(dir, 'write-receipt.json');
+    const gatePath = path.join(dir, 'write-execution-preflight-gate.json');
+    const outPath = path.join(dir, 'write-receipt-out.json');
+    await writeFile(receiptPath, `${JSON.stringify(nextWaveWriteReceipt)}\n`, 'utf8');
+    await writeFile(gatePath, `${JSON.stringify(nextWaveWriteExecutionPreflightGate)}\n`, 'utf8');
+
+    const { spawnSync } = await import('node:child_process');
+    const result = spawnSync(
+      process.execPath,
+      [
+        'tools/migration/onedrive-pilot-closeout.mjs',
+        '--mode',
+        'next-wave-write-receipt',
+        '--write-receipt',
+        receiptPath,
+        '--execution-preflight-gate',
+        gatePath,
+        '--sanitized-out',
+        outPath,
+        '--run-id',
+        'run-a',
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const serialized = await readFile(outPath, 'utf8');
+    assert.equal(serialized.includes('EXECUTION-PREFLIGHT-READY-20260625'), false);
+    assert.equal(serialized.includes('POST-WRITE-DB-COUNT-READY-20260625'), false);
+    assert.equal(serialized.includes('secret.docx'), false);
+    assert.equal(serialized.includes('source-tree'), false);
+    assert.match(serialized, /next-wave-write-receipt/);
   });
 
   it('passes package audit when LC00-LC09 evidence and repo files are present', async () => {
