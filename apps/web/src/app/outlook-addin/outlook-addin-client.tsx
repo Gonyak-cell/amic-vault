@@ -662,8 +662,8 @@ export function OutlookAddinClient({
           <CardContent className="grid gap-2 p-3 pt-0 text-sm">
             {snapshot?.folderRefHash ? (
               <div className="grid grid-cols-2 gap-2">
-                <Metric label="폴더" value="연결됨" />
-                <Metric label="사건" value={selectedMatterId ? '선택됨' : '없음'} />
+                <SummaryItem label="폴더" value="연결됨" />
+                <SummaryItem label="사건" value={selectedMatterId ? '선택됨' : '없음'} />
               </div>
             ) : (
               <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
@@ -780,16 +780,13 @@ export function OutlookAddinClient({
 function MessageSummary({ snapshot }: { snapshot: OutlookItemSnapshot }) {
   return (
     <dl className="grid grid-cols-2 gap-2">
-      <Metric label="메시지" value={snapshot.itemHashPreview} />
-      <Metric label="메일함" value={snapshot.mailboxHashPreview} />
-      <Metric label="도메인" value={String(snapshot.participantDomainHashCount)} />
-      <Metric label="외부 참여자" value={snapshot.message.hasExternalParticipants ? '있음' : '없음'} />
-      <Metric label="첨부" value={String(snapshot.attachmentSummary.count)} />
-      <Metric label="선택됨" value={String(snapshot.attachmentSummary.selectedCount)} />
+      <SummaryItem label="외부 참여자" value={snapshot.message.hasExternalParticipants ? '있음' : '없음'} />
+      <SummaryItem label="첨부" value={`${snapshot.attachmentSummary.count}개`} />
+      <SummaryItem label="선택된 첨부" value={`${snapshot.attachmentSummary.selectedCount}개`} />
       {snapshot.message.receivedAt ? (
         <div className="col-span-2 rounded-md bg-muted/60 px-3 py-2">
           <dt className="text-xs text-muted-foreground">수신 시각</dt>
-          <dd className="font-mono text-xs">
+          <dd className="text-xs">
             {new Date(snapshot.message.receivedAt).toLocaleString('ko-KR')}
           </dd>
         </div>
@@ -798,11 +795,11 @@ function MessageSummary({ snapshot }: { snapshot: OutlookItemSnapshot }) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-muted/60 px-3 py-2">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="truncate font-mono text-xs">{value}</dd>
+      <dd className="truncate text-xs">{value}</dd>
     </div>
   );
 }

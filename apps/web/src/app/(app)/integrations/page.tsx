@@ -29,15 +29,15 @@ export default function IntegrationsPage() {
           <IntegrationCard
             icon={<FolderSearch className="h-4 w-4" />}
             title="Matter app"
-            description="Matter Code source와 업로드 gate를 확인합니다. 연결 전에는 파일 업로드를 열지 않습니다."
-            status="업로드 gate"
+            description="Matter Code 기준 정보와 업로드 조건을 확인합니다. 연결 전에는 파일 업로드를 열지 않습니다."
+            status="업로드 조건"
             tone="warning"
             href="/integrations/matter-app"
           />
           <IntegrationCard
             icon={<MailCheck className="h-4 w-4" />}
             title="Outlook"
-            description="운영 게이트, 증빙, 기능 플래그 상태를 실제 API 응답으로 확인합니다."
+            description="운영 조건, 확인 정보, 기능 설정 상태를 실제 API 응답으로 확인합니다."
             status="상태 API"
             tone="success"
             href="/integrations/outlook"
