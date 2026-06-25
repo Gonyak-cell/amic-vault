@@ -17,7 +17,10 @@ import {
 } from '@amic-vault/shared';
 import { AppModule } from '../app.module';
 import { StructuredLogger } from '../common/logging/logger';
-import { DocumentUploadService, type UploadedDiskFile } from '../modules/document/document-upload.service';
+import {
+  DocumentUploadService,
+  type UploadedDiskFile,
+} from '../modules/document/document-upload.service';
 import { TenantContextService } from '../modules/tenant/tenant-context';
 
 const supportedExtensions = new Set([
@@ -39,8 +42,7 @@ const supportedExtensions = new Set([
   '.xlsx',
 ]);
 
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const hashPattern = /^[0-9a-f]{64}$/i;
 
 export interface PilotWriteCliArgs {
@@ -142,7 +144,10 @@ interface PilotWriteDependencies {
     awsProfile?: string | undefined;
   }) => Promise<void>;
   uploadOne?: (input: UploadInput) => Promise<UploadResult>;
-  createUploader?: () => Promise<{ uploadOne: (input: UploadInput) => Promise<UploadResult>; close: () => Promise<void> }>;
+  createUploader?: () => Promise<{
+    uploadOne: (input: UploadInput) => Promise<UploadResult>;
+    close: () => Promise<void>;
+  }>;
 }
 
 interface ValidatedTarget {
@@ -198,9 +203,11 @@ export function parsePilotWriteArgs(argv: readonly string[]): PilotWriteCliArgs 
   const sanitizedOut = requiredArg(argv, '--sanitized-out');
   const localReceiptOut = requiredArg(argv, '--local-receipt-out');
   const statePath =
-    argValue(argv, '--state') ?? path.join(path.dirname(localReceiptOut), 'pilot-write-state.local.json');
+    argValue(argv, '--state') ??
+    path.join(path.dirname(localReceiptOut), 'pilot-write-state.local.json');
   const limit = parseOptionalPositiveInt(argValue(argv, '--limit'), '--limit', 10_000);
-  const maxFailures = parseOptionalPositiveInt(argValue(argv, '--max-failures'), '--max-failures', 25) ?? 3;
+  const maxFailures =
+    parseOptionalPositiveInt(argValue(argv, '--max-failures'), '--max-failures', 25) ?? 3;
 
   return {
     runId,
@@ -245,7 +252,9 @@ export async function runPilotWrite(
     if (raw) sourceByHash.set(sha256Hex(raw.key), raw);
   }
 
-  let uploader: Awaited<ReturnType<NonNullable<PilotWriteDependencies['createUploader']>>> | undefined;
+  let uploader:
+    | Awaited<ReturnType<NonNullable<PilotWriteDependencies['createUploader']>>>
+    | undefined;
   let repeatedFailures = 0;
   const tempRoot = await mkdtemp(path.join(tmpdir(), 'amic-vault-onedrive-pilot-write-'));
 
@@ -313,7 +322,10 @@ export async function runPilotWrite(
           target: targetValidation.target,
           file: {
             path: downloadedPath,
-            originalname: safeOriginalFilename(classified.ready.raw.key, classified.ready.extension),
+            originalname: safeOriginalFilename(
+              classified.ready.raw.key,
+              classified.ready.extension,
+            ),
             mimetype: mimeTypeForExtension(classified.ready.extension),
             size: classified.ready.sizeBytes,
           },
@@ -417,13 +429,13 @@ async function createNestUploader(): Promise<{
 }
 
 function uploadFieldsFor(target: ValidatedTarget, mapping: PilotMapping): UploadDocumentFieldsDto {
-  const duplicateDecision = mapping.duplicate_policy === 'new_document' ? 'new_document' : undefined;
+  const duplicateDecision =
+    mapping.duplicate_policy === 'new_document' ? 'new_document' : undefined;
   return uploadDocumentFieldsSchema.parse({
     documentType: target.documentDefaults.documentType,
     confidentialityLevel: target.documentDefaults.confidentialityLevel,
     privilegeStatus: target.documentDefaults.privilegeStatus,
     aiAllowed: target.documentDefaults.aiAllowed,
-    uploadPreflightRef: target.uploadPreflightRef,
     ...(duplicateDecision ? { duplicateDecision } : {}),
   });
 }
@@ -431,16 +443,21 @@ function uploadFieldsFor(target: ValidatedTarget, mapping: PilotMapping): Upload
 function validateMapping(mapping: PilotMapping, candidateId: string): string[] {
   const blockers: string[] = [];
   if (mapping.candidate_id !== candidateId) blockers.push('candidate_id_mismatch');
-  if (mapping.status !== 'ready_for_write_mode') blockers.push('mapping_status_not_ready_for_write_mode');
+  if (mapping.status !== 'ready_for_write_mode')
+    blockers.push('mapping_status_not_ready_for_write_mode');
   if (mapping.scope_kind !== 'pilot_matter') blockers.push('scope_kind_not_pilot_matter');
   if (mapping.single_matter_scope !== true) blockers.push('scope_not_single_matter');
-  if (mapping.cutover_policy !== 'not_requested') blockers.push('cutover_policy_must_not_be_requested');
+  if (mapping.cutover_policy !== 'not_requested')
+    blockers.push('cutover_policy_must_not_be_requested');
   if (mapping.unsupported_type_policy !== 'skip_with_receipt') {
     blockers.push('unsupported_type_policy_must_skip_with_receipt');
   }
-  if (mapping.zero_byte_policy !== 'skip_with_receipt') blockers.push('zero_byte_policy_must_skip_with_receipt');
-  if (mapping.large_object_policy !== 'worker_stream_only') blockers.push('large_object_policy_must_worker_stream_only');
-  if (mapping.duplicate_policy !== 'new_document') blockers.push('duplicate_policy_must_new_document');
+  if (mapping.zero_byte_policy !== 'skip_with_receipt')
+    blockers.push('zero_byte_policy_must_skip_with_receipt');
+  if (mapping.large_object_policy !== 'worker_stream_only')
+    blockers.push('large_object_policy_must_worker_stream_only');
+  if (mapping.duplicate_policy !== 'new_document')
+    blockers.push('duplicate_policy_must_new_document');
   return blockers;
 }
 
@@ -468,7 +485,10 @@ function validateTarget(
   );
   const documentDefaults = {
     documentType: stringDefault(target.document_defaults?.document_type, 'other'),
-    confidentialityLevel: stringDefault(target.document_defaults?.confidentiality_level, 'standard'),
+    confidentialityLevel: stringDefault(
+      target.document_defaults?.confidentiality_level,
+      'standard',
+    ),
     privilegeStatus: stringDefault(target.document_defaults?.privilege_status, 'none'),
     aiAllowed: target.document_defaults?.ai_allowed === true,
   };
@@ -516,7 +536,8 @@ function classifyScopeRow(
   }
   if (!sourceHash) reasons.push('missing_source_object_hash');
   if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0) reasons.push('invalid_size');
-  if (row.readable === false || row.readable === 'false') reasons.push('staging_read_not_confirmed');
+  if (row.readable === false || row.readable === 'false')
+    reasons.push('staging_read_not_confirmed');
   if (sizeBytes === 0) {
     if (mapping.zero_byte_policy === 'skip_with_receipt') {
       return {
@@ -626,9 +647,7 @@ function normalizeSourceRow(
     bucket: row.bucket,
     key: row.key,
     sizeBytes,
-    excluded: row.key
-      .split('/')
-      .some((segment) => excludedSegments.has(segment.normalize('NFC'))),
+    excluded: row.key.split('/').some((segment) => excludedSegments.has(segment.normalize('NFC'))),
   };
 }
 
@@ -713,7 +732,9 @@ function sourceHashOfRow(row: ScopeRow): string | null {
 }
 
 function extensionOfRow(row: ScopeRow): string {
-  const value = String(row.extension ?? '').trim().toLowerCase();
+  const value = String(row.extension ?? '')
+    .trim()
+    .toLowerCase();
   if (value.startsWith('.') && value.length <= 13 && !/[\\/\s:]/.test(value)) return value;
   return '[no_ext]';
 }
@@ -894,7 +915,9 @@ async function main(): Promise<void> {
     );
     if (report.gate_status !== 'pass') process.exitCode = 1;
   } catch (error) {
-    console.error(JSON.stringify({ code: 'ONEDRIVE_PILOT_WRITE_FAILED', message: safeFailureCode(error) }));
+    console.error(
+      JSON.stringify({ code: 'ONEDRIVE_PILOT_WRITE_FAILED', message: safeFailureCode(error) }),
+    );
     process.exitCode = 1;
   }
 }

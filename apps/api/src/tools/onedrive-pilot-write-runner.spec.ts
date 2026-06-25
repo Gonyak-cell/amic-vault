@@ -9,6 +9,8 @@ import {
   type PilotWriteCliArgs,
 } from './onedrive-pilot-write-runner';
 
+type UploadedFieldsProbe = { fields: Record<string, unknown> };
+
 const candidateId = 'candidate-a';
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const matterId = '11111111-1111-4111-8111-111111111122';
@@ -82,7 +84,15 @@ async function fixtureFiles(
     `${JSON.stringify({ ...target, ...options.targetOverride })}\n`,
     'utf8',
   );
-  return { scope, sourceManifest, mappingPath, targetPath, sanitizedOut, localReceiptOut, statePath };
+  return {
+    scope,
+    sourceManifest,
+    mappingPath,
+    targetPath,
+    sanitizedOut,
+    localReceiptOut,
+    statePath,
+  };
 }
 
 function args(files: Awaited<ReturnType<typeof fixtureFiles>>, execute = false): PilotWriteCliArgs {
@@ -137,11 +147,14 @@ describe('onedrive-pilot-write-runner', () => {
     const downloadSourceObject = vi.fn(async (input: { destinationPath: string }) => {
       await writeFile(input.destinationPath, Buffer.from('hello world!'));
     });
-    const uploadOne = vi.fn(async () => ({
-      documentId: '22222222-2222-4222-8222-222222222222',
-      matterId,
-      fileObjectId: '33333333-3333-4333-8333-333333333333',
-    }));
+    const uploadOne = vi.fn(async (input: UploadedFieldsProbe) => {
+      expect(input.fields).toBeDefined();
+      return {
+        documentId: '22222222-2222-4222-8222-222222222222',
+        matterId,
+        fileObjectId: '33333333-3333-4333-8333-333333333333',
+      };
+    });
 
     const report = await runPilotWrite(args(files, true), { downloadSourceObject, uploadOne });
     const serialized = await readFile(files.sanitizedOut, 'utf8');
@@ -153,11 +166,12 @@ describe('onedrive-pilot-write-runner', () => {
       expect.objectContaining({
         target: expect.objectContaining({ tenantId, matterId, actorUserId }),
         fields: expect.objectContaining({
-          uploadPreflightRef: 'upf_ref',
           duplicateDecision: 'new_document',
         }),
       }),
     );
+    const [uploadInput] = uploadOne.mock.calls[0] ?? [];
+    expect(uploadInput?.fields).not.toHaveProperty('uploadPreflightRef');
     expect(serialized.includes('Client Alpha')).toBe(false);
     expect(serialized.includes('Matter One')).toBe(false);
     expect(serialized.includes('secret.docx')).toBe(false);
@@ -167,7 +181,9 @@ describe('onedrive-pilot-write-runner', () => {
   it('skips configured source folder segments without leaking excluded labels', async () => {
     const excludedSegment = '999_이전 자료들';
     const decomposedSegment = excludedSegment.normalize('NFD');
-    const files = await fixtureFiles({ sourceKey: `provider-root/${decomposedSegment}/secret.docx` });
+    const files = await fixtureFiles({
+      sourceKey: `provider-root/${decomposedSegment}/secret.docx`,
+    });
     const report = await runPilotWrite({
       ...args(files),
       excludeSourceSegments: [excludedSegment],
