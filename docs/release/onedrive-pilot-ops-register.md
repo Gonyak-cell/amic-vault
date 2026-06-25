@@ -80,6 +80,20 @@ Proceed to next-wave dry-run only if all three gates return `gate_status=pass`
 with zero blockers and the operator separately approves the exact bounded
 batch. This still does not authorize write/import/cutover/indexing.
 
+After the dry-run-only run, validate its sanitized receipt before any write
+decision packet:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-dryrun-receipt \
+  --dryrun-report <next-wave-dryrun.sanitized.json> \
+  --dryrun-input-gate <next-wave-dryrun-inputs.sanitized.json> \
+  --sanitized-out <next-wave-dryrun-receipt.sanitized.json>
+```
+
+This receipt gate does not run dry-run, import, write, cutover, or indexing. It
+checks only the already-produced dry-run report against the local input gate.
+
 ## Hard Stops
 
 Stop if:

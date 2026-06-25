@@ -8,6 +8,7 @@ import {
   runGemmaReadiness,
   runNextWaveApproval,
   runNextWaveDryrunInputs,
+  runNextWaveDryrunReceipt,
   runPackageAudit,
   runReconciliation,
   runRefsIntake,
@@ -50,6 +51,7 @@ const dryrunReport = {
   gate_status: 'pass',
   candidate_id: 'candidate-a',
   summary: {
+    total_items: 2,
     status_counts: { ready: 1, skipped: 1 },
     expected_write_counts: { documents: 1, file_objects: 1, initial_versions: 1, audit_events: 1 },
   },
@@ -57,6 +59,7 @@ const dryrunReport = {
     { item_id: 'item-ready', status: 'ready', reasons: ['ready_for_import'], warnings: [], extension: '.docx', size_bytes: 1024 },
     { item_id: 'item-skip', status: 'skipped', reasons: ['zero_byte_skip_with_receipt'], warnings: [], extension: '.pdf', size_bytes: 0 },
   ],
+  not_claimed: ['Vault import', 'Vault DB write', 'Vault storage write'],
 };
 
 const importReceipt = {
@@ -141,6 +144,18 @@ const nextWaveDryrunInputs = {
   gemma_indexing: false,
   source_content_in_repo: false,
   raw_paths_in_repo: false,
+};
+
+const nextWaveDryrunInputGate = {
+  lc_id: 'LC-ONEDRIVE-09/PW-04',
+  mode: 'next-wave-dryrun-inputs',
+  run_id: 'run-a',
+  plan_id: 'wave-plan-a',
+  gate_status: 'pass',
+  blockers: [],
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
 };
 
 const packageRepoFiles = [
@@ -487,6 +502,56 @@ describe('onedrive-pilot-closeout', () => {
     assert.ok(report.blockers.includes('missing_dryrun_input_ref_manifest_ref'));
   });
 
+  it('passes next-wave dry-run receipt gate without serializing item ids', () => {
+    const report = runNextWaveDryrunReceipt({
+      dryrunReport,
+      dryrunInputGate: nextWaveDryrunInputGate,
+      runId: 'run-a',
+    });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-09/PW-05');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.allowed_next_action, 'prepare_next_wave_write_decision_packet');
+    assert.equal(report.actual_execution_state.vault_db_write, 'not_executed_by_dryrun_report');
+    assert.deepEqual(report.dryrun_counts, { ready: 1, skipped: 1 });
+    assert.equal(JSON.stringify(report).includes('item-ready'), false);
+    assert.equal(JSON.stringify(report).includes('item-skip'), false);
+  });
+
+  it('blocks next-wave dry-run receipt gate on missing input gate, blocked rows, and count drift', () => {
+    const report = runNextWaveDryrunReceipt({
+      dryrunInputGate: { ...nextWaveDryrunInputGate, gate_status: 'blocked' },
+      runId: 'run-a',
+      dryrunReport: {
+        ...dryrunReport,
+        gate_status: 'blocked',
+        summary: {
+          ...dryrunReport.summary,
+          total_items: 2,
+          status_counts: { ready: 1, blocked: 1, retryable: 1 },
+          expected_write_counts: { documents: 2, file_objects: 1, initial_versions: 1, audit_events: 1 },
+        },
+      },
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('dryrun_input_gate_not_pass'));
+    assert.ok(report.blockers.includes('dryrun_report_not_pass'));
+    assert.ok(report.blockers.includes('dryrun_has_blocked_items'));
+    assert.ok(report.blockers.includes('dryrun_has_retryable_items'));
+    assert.ok(report.blockers.includes('expected_write_count_mismatch_documents'));
+  });
+
+  it('blocks next-wave dry-run receipt gate when no-write not_claimed markers are absent', () => {
+    const report = runNextWaveDryrunReceipt({
+      dryrunInputGate: nextWaveDryrunInputGate,
+      runId: 'run-a',
+      dryrunReport: { ...dryrunReport, not_claimed: [] },
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_not_claimed_vault_db_write'));
+    assert.ok(report.blockers.includes('missing_not_claimed_vault_storage_write'));
+    assert.ok(report.blockers.includes('missing_not_claimed_vault_import'));
+  });
+
   it('CLI writes sanitized reports without source labels', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-closeout-test-'));
     const mappingPath = path.join(dir, 'mapping.json');
@@ -588,6 +653,39 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(serialized.includes('MANIFEST-READY-20260625'), false);
     assert.equal(serialized.includes('OPERATOR-READY-20260625'), false);
     assert.match(serialized, /next-wave-dryrun-inputs/);
+  });
+
+  it('CLI writes next-wave dry-run receipt reports without item ids', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-next-wave-dryrun-receipt-test-'));
+    const dryrunPath = path.join(dir, 'dryrun.json');
+    const gatePath = path.join(dir, 'dryrun-input-gate.json');
+    const outPath = path.join(dir, 'dryrun-receipt-out.json');
+    await writeFile(dryrunPath, `${JSON.stringify(dryrunReport)}\n`, 'utf8');
+    await writeFile(gatePath, `${JSON.stringify(nextWaveDryrunInputGate)}\n`, 'utf8');
+
+    const { spawnSync } = await import('node:child_process');
+    const result = spawnSync(
+      process.execPath,
+      [
+        'tools/migration/onedrive-pilot-closeout.mjs',
+        '--mode',
+        'next-wave-dryrun-receipt',
+        '--dryrun-report',
+        dryrunPath,
+        '--dryrun-input-gate',
+        gatePath,
+        '--sanitized-out',
+        outPath,
+        '--run-id',
+        'run-a',
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const serialized = await readFile(outPath, 'utf8');
+    assert.equal(serialized.includes('item-ready'), false);
+    assert.equal(serialized.includes('item-skip'), false);
+    assert.match(serialized, /next-wave-dryrun-receipt/);
   });
 
   it('passes package audit when LC00-LC09 evidence and repo files are present', async () => {

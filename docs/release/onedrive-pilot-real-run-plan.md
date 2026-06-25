@@ -73,7 +73,9 @@ and then a dry-run-only run if all gates pass.
 Current readiness packet: `docs/release/onedrive-next-wave-readiness-packet.md`.
 It records PW-00, PW-01, and PW-03 as prepared/verified; PW-02 and PW-04 now
 have gate tooling available but remain pending exact bounded-batch approval and
-local-only mapping refs. PW-05 and PW-06 remain not run and not authorized.
+local-only mapping refs. PW-05 now has receipt gate tooling available, but the
+actual next-wave dry-run remains not run and not authorized. PW-06 remains not
+prepared and not authorized.
 
 ## Required Next-Wave Refs
 

@@ -29,7 +29,7 @@ operator approval must be held as opaque local refs before any dry-run runs.
 | NWR-02 | Approval refs | gate available, pending operator input | `next-wave-approval` gate PASS | placeholder or ambiguous approval ref |
 | NWR-03 | LC09 gate | complete | `wave-plan` gate PASS with zero blockers | wave count or Matter count exceeds limit |
 | NWR-04 | Dry-run input | gate available, pending exact local refs | `next-wave-dryrun-inputs` gate PASS | raw path, filename, object key, document text, or tenant-private value would enter repo |
-| NWR-05 | Dry-run execution | not run | no Vault DB write and no Vault storage write | blocked/retryable rows lack approved handling |
+| NWR-05 | Dry-run execution | receipt gate available, dry-run not run | `next-wave-dryrun-receipt` gate PASS | blocked/retryable rows lack approved handling |
 | NWR-06 | Write decision | pending separate approval | explicit operator approval request only | approval bundles write with cutover or AI indexing |
 
 ## Current Gate Result
@@ -114,6 +114,22 @@ node tools/migration/onedrive-pilot-closeout.mjs \
 Proceed to next-wave dry-run only if all three commands return
 `gate_status=pass` with zero blockers and the operator separately approves the
 exact bounded batch. Do not proceed to write/import from this packet.
+
+After a dry-run-only execution is performed locally, validate its sanitized
+receipt before preparing any write decision packet:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-dryrun-receipt \
+  --run-id onedrive-next-wave-readiness-20260625 \
+  --dryrun-report <next-wave-dryrun.sanitized.json> \
+  --dryrun-input-gate <next-wave-dryrun-inputs.sanitized.json> \
+  --sanitized-out <next-wave-dryrun-receipt.sanitized.json>
+```
+
+The receipt gate validates an existing dry-run report only. It does not execute
+the dry-run, does not import documents, and does not authorize write/cutover or
+Gemma indexing.
 
 The approval JSON must explicitly keep all execution boundaries closed:
 

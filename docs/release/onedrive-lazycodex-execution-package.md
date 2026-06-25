@@ -91,6 +91,8 @@ dry-run-only approval refs before preparing any next-wave dry-run inputs.
 Use `next-wave-dryrun-inputs` after that approval gate to verify local-only
 manifest, mapping, target-resolution, permission, rollback, and sanitized
 receipt refs before running any next-wave dry-run.
+Use `next-wave-dryrun-receipt` only after a dry-run-only run exists, to verify
+the sanitized dry-run report before preparing a write decision packet.
 
 ## Handoff Rule
 

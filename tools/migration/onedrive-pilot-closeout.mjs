@@ -196,6 +196,7 @@ export function parseArgs(argv) {
     if (key === 'mode') args.mode = next;
     else if (key === 'mapping') args.mapping = next;
     else if (key === 'dryrun-report') args.dryrunReport = next;
+    else if (key === 'dryrun-input-gate') args.dryrunInputGate = next;
     else if (key === 'synthetic-receipt') args.syntheticReceipt = next;
     else if (key === 'import-receipt') args.importReceipt = next;
     else if (key === 'reconciliation-report') args.reconciliationReport = next;
@@ -218,7 +219,7 @@ export function parseArgs(argv) {
 
 export function usage() {
   return [
-    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs> --sanitized-out <out.json> [inputs]',
+    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs|next-wave-dryrun-receipt> --sanitized-out <out.json> [inputs]',
     '',
     'Modes:',
     '  refs-intake      --mapping <json> [--phase <dryrun|write>]',
@@ -228,6 +229,7 @@ export function usage() {
     '  wave-plan        --wave-plan <json> --reconciliation-report <json> --gemma-readiness <json>',
     '  next-wave-approval --approval <json> --wave-gate <json>',
     '  next-wave-dryrun-inputs --dryrun-inputs <json> --approval-gate <json>',
+    '  next-wave-dryrun-receipt --dryrun-report <json> --dryrun-input-gate <json>',
     '  package-audit    [--repo-root <dir>] [--evidence-root <dir>]',
     '',
     'This tool validates gates only. It does not import customer documents or run Gemma indexing.',
@@ -693,6 +695,61 @@ export function runNextWaveDryrunInputs({ dryrunInputs, approvalGate, runId }) {
   };
 }
 
+export function runNextWaveDryrunReceipt({ dryrunReport, dryrunInputGate, runId }) {
+  dryrunReport = dryrunReport ?? {};
+  dryrunInputGate = dryrunInputGate ?? {};
+  const blockers = [];
+
+  if (dryrunInputGate.mode !== 'next-wave-dryrun-inputs') blockers.push('dryrun_input_gate_mode_invalid');
+  if (dryrunInputGate.gate_status !== 'pass') blockers.push('dryrun_input_gate_not_pass');
+  if (dryrunReport.mode !== 'dry-run') blockers.push('dryrun_report_mode_invalid');
+  if (dryrunReport.gate_status !== 'pass') blockers.push('dryrun_report_not_pass');
+
+  const statusCounts = dryrunReport.summary?.status_counts ?? {};
+  const expectedWriteCounts = dryrunReport.summary?.expected_write_counts ?? {};
+  const totalItems = Number(dryrunReport.summary?.total_items ?? 0);
+  const readyCount = Number(statusCounts.ready ?? 0);
+  if (!Number.isSafeInteger(totalItems) || totalItems < 1) blockers.push('dryrun_has_no_items');
+  if (statusCount(dryrunReport, 'blocked') > 0) blockers.push('dryrun_has_blocked_items');
+  if (statusCount(dryrunReport, 'retryable') > 0) blockers.push('dryrun_has_retryable_items');
+
+  for (const field of ['documents', 'file_objects', 'initial_versions', 'audit_events']) {
+    if (Number(expectedWriteCounts[field] ?? 0) !== readyCount) blockers.push(`expected_write_count_mismatch_${field}`);
+  }
+
+  const notClaimedList = Array.isArray(dryrunReport.not_claimed) ? dryrunReport.not_claimed : [];
+  for (const claim of ['Vault DB write', 'Vault storage write', 'Vault import']) {
+    if (!notClaimedList.includes(claim)) blockers.push(`missing_not_claimed_${claim.toLowerCase().replaceAll(' ', '_')}`);
+  }
+
+  return {
+    lc_id: 'LC-ONEDRIVE-09/PW-05',
+    mode: 'next-wave-dryrun-receipt',
+    run_id: runId ?? dryrunReport.run_id ?? dryrunInputGate.run_id ?? 'unknown',
+    plan_id: dryrunInputGate.plan_id ?? 'unknown',
+    gate_status: blockers.length === 0 ? 'pass' : 'blocked',
+    blockers,
+    scope_kind: dryrunInputGate.scope_kind,
+    matter_count: Number(dryrunInputGate.matter_count ?? 0),
+    max_matters_per_wave: Number(dryrunInputGate.max_matters_per_wave ?? 0),
+    dryrun_counts: statusCounts,
+    expected_write_counts: expectedWriteCounts,
+    dryrun_execution_state: blockers.length === 0 ? 'receipt_passed_dryrun_only' : 'receipt_blocked',
+    actual_execution_state: {
+      vault_db_write: 'not_executed_by_dryrun_report',
+      vault_storage_write: 'not_executed_by_dryrun_report',
+      vault_import: 'not_executed_by_dryrun_report',
+      customer_wide_import: 'not_authorized',
+      source_of_truth_cutover: 'not_authorized',
+      gemma_indexing: 'not_authorized',
+    },
+    allowed_next_action: blockers.length === 0 ? 'prepare_next_wave_write_decision_packet' : 'resolve_next_wave_dryrun_blockers',
+    not_claimed: ['Vault write/import approved', ...notClaimed],
+    sanitization:
+      'Next-wave dry-run receipt output contains bounded counts and blocker codes only; it does not include raw source paths, document names, source object keys, tenant-private values, document text, OCR excerpts, screenshots, or item ids.',
+  };
+}
+
 export async function runPackageAudit({ repoRoot = process.cwd(), evidenceRoot = '.omo/evidence', runId }) {
   const blockers = [];
   const lc_status = [];
@@ -858,6 +915,16 @@ async function runFromArgs(args) {
     return runNextWaveDryrunInputs({
       dryrunInputs: await readJson(args.dryrunInputs),
       approvalGate: await readJson(args.approvalGate),
+      runId: args.runId,
+    });
+  }
+  if (args.mode === 'next-wave-dryrun-receipt') {
+    if (!args.dryrunReport || !args.dryrunInputGate) {
+      throw new Error('next-wave-dryrun-receipt requires --dryrun-report and --dryrun-input-gate');
+    }
+    return runNextWaveDryrunReceipt({
+      dryrunReport: await readJson(args.dryrunReport),
+      dryrunInputGate: await readJson(args.dryrunInputGate),
       runId: args.runId,
     });
   }
