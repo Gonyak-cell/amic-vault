@@ -33,6 +33,22 @@ Sanitized failure summary:
 
 No customer-wide import, source-of-truth cutover, OneDrive connected-state claim, production write, or Gemma indexing was performed.
 
+## Post-Approval Execute Attempt
+
+After operator approval for the exact `pilot-216c0425e3795c0f` 13-row pilot scope, the execute command was retried with the staging AWS profile explicitly selected.
+
+Result:
+
+- run id: `onedrive-pilot-post-approval-20260625`
+- scope size: 13
+- total attempted before stop: 3
+- failed: 3
+- imported: 0
+- failure reason: `AWS_SOURCE_GET_OBJECT_FAILED`
+- gate status: `blocked`
+
+The staging AWS SSO token was expired at retry time. All configured local AWS profiles returned the same SSO token expiration condition during STS preflight. No broader import, cutover, indexing, connected-state, or Office sync action was performed.
+
 ## Local DB Check
 
 Post-attempt local DB counts:
@@ -45,6 +61,19 @@ Post-attempt local DB counts:
 | `audit_events`      | 34050 |
 
 These counts confirm that the failed execute attempt left no partial document/file writes in the local dev database.
+
+The post-approval retry produced the same local DB counts:
+
+| Table               | Count |
+| ------------------- | ----: |
+| `documents`         |     0 |
+| `document_versions` |     0 |
+| `file_objects`      |     0 |
+| `audit_events`      | 34050 |
+
+Rollback/containment receipt: `.omo/evidence/BULK-SCOPE-APPROVAL/provisional-approve-complete/pilot-import-dry-run/post-target-resolution/pilot-write-rollback-containment-approved.sanitized.json`.
+
+Rollback status: `noop`, because no document, version, file object, or audit rows were created. Containment status: `pass`, because the runner failed closed before any local Vault write occurred.
 
 ## Access Diagnosis
 
