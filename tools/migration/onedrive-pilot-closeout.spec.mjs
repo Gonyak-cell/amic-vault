@@ -11,6 +11,7 @@ import {
   runNextWaveDryrunReceipt,
   runNextWaveWriteApproval,
   runNextWaveWriteDecision,
+  runNextWaveWriteExecutionPreflight,
   runPackageAudit,
   runReconciliation,
   runRefsIntake,
@@ -233,6 +234,50 @@ const nextWaveWriteApproval = {
   legal_data_ref: 'LEGAL-DATA-READY-20260625',
   write_execution_authorized: true,
   execute_immediately: false,
+  customer_wide_import: false,
+  source_of_truth_cutover: false,
+  gemma_indexing: false,
+  onedrive_connected_state: false,
+  office_open_save_sync: false,
+};
+
+const nextWaveWriteApprovalGate = {
+  lc_id: 'LC-ONEDRIVE-09/PW-07',
+  mode: 'next-wave-write-approval',
+  run_id: 'run-a',
+  plan_id: 'wave-plan-a',
+  gate_status: 'pass',
+  blockers: [],
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  dryrun_counts: { ready: 1, skipped: 1 },
+  expected_write_counts: { documents: 1, file_objects: 1, initial_versions: 1, audit_events: 1 },
+};
+
+const nextWaveWriteExecutionPreflight = {
+  plan_id: 'wave-plan-a',
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  preflight_kind: 'bounded_write_execution_preflight',
+  write_approval_gate_ref: 'WRITE-APPROVAL-GATE-READY-20260625',
+  write_window_ref: 'WRITE-WINDOW-READY-20260625',
+  db_snapshot_ref: 'DB-SNAPSHOT-READY-20260625',
+  storage_containment_ref: 'STORAGE-CONTAINMENT-READY-20260625',
+  rollback_ref: 'ROLLBACK-CONTAINMENT-READY-20260625',
+  import_lock_ref: 'IMPORT-LOCK-READY-20260625',
+  target_resolution_ref: 'TARGET-RESOLUTION-READY-20260625',
+  upload_preflight_ref: 'UPLOAD-PREFLIGHT-READY-20260625',
+  sanitized_receipt_destination_ref: 'SANITIZED-RECEIPT-READY-20260625',
+  local_receipt_handling_ref: 'LOCAL-RECEIPT-HANDLING-READY-20260625',
+  operator_ref: 'OPERATOR-READY-20260625',
+  security_permission_ref: 'SECURITY-PERMISSION-READY-20260625',
+  legal_data_ref: 'LEGAL-DATA-READY-20260625',
+  write_execution_authorized: true,
+  execute_now: false,
+  vault_write_executed: false,
+  vault_storage_write_executed: false,
   customer_wide_import: false,
   source_of_truth_cutover: false,
   gemma_indexing: false,
@@ -737,6 +782,67 @@ describe('onedrive-pilot-closeout', () => {
     assert.ok(report.blockers.includes('missing_write_approval_ref_write_decision_ref'));
   });
 
+  it('passes next-wave write execution preflight without executing a write', () => {
+    const report = runNextWaveWriteExecutionPreflight({
+      executionPreflight: nextWaveWriteExecutionPreflight,
+      writeApprovalGate: nextWaveWriteApprovalGate,
+      runId: 'run-a',
+    });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-09/PW-08');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.allowed_next_action, 'operator_may_run_bounded_write_execute_command');
+    assert.equal(report.actual_execution_state.vault_write, 'authorized_not_executed');
+    assert.equal(report.actual_execution_state.vault_db_write, 'not_executed');
+    assert.equal(report.actual_execution_state.gemma_indexing, 'not_authorized');
+    assert.equal(report.ref_statuses.some((row) => row.status !== 'present'), false);
+    assert.equal(JSON.stringify(report).includes('WRITE-APPROVAL-GATE-READY-20260625'), false);
+    assert.equal(JSON.stringify(report).includes('UPLOAD-PREFLIGHT-READY-20260625'), false);
+  });
+
+  it('blocks next-wave write execution preflight on missing approval, immediate execution, and bundled cutover', () => {
+    const report = runNextWaveWriteExecutionPreflight({
+      writeApprovalGate: { ...nextWaveWriteApprovalGate, gate_status: 'blocked' },
+      runId: 'run-a',
+      executionPreflight: {
+        ...nextWaveWriteExecutionPreflight,
+        plan_id: 'different-plan',
+        scope_kind: 'customer_wide',
+        matter_count: 4,
+        preflight_kind: 'execute_now',
+        write_approval_gate_ref: 'ONEDRIVE-WRITE-APPROVAL-GATE-REF',
+        execute_now: true,
+        vault_write_executed: true,
+        vault_storage_write_executed: true,
+        source_of_truth_cutover: true,
+        gemma_indexing: true,
+      },
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.equal(report.actual_execution_state.vault_write, 'not_authorized');
+    assert.ok(report.blockers.includes('write_approval_gate_not_pass'));
+    assert.ok(report.blockers.includes('plan_id_mismatch'));
+    assert.ok(report.blockers.includes('scope_kind_must_be_matter_batch'));
+    assert.ok(report.blockers.includes('matter_count_exceeds_wave_limit'));
+    assert.ok(report.blockers.includes('preflight_kind_must_be_bounded_write_execution_preflight'));
+    assert.ok(report.blockers.includes('missing_execution_preflight_ref_placeholder_write_approval_gate_ref'));
+    assert.ok(report.blockers.includes('execute_now_must_be_false'));
+    assert.ok(report.blockers.includes('vault_write_executed_must_be_false'));
+    assert.ok(report.blockers.includes('vault_storage_write_executed_must_be_false'));
+    assert.ok(report.blockers.includes('source_of_truth_cutover_must_be_false'));
+    assert.ok(report.blockers.includes('gemma_indexing_must_be_false'));
+  });
+
+  it('blocks next-wave write execution preflight when input is empty', () => {
+    const report = runNextWaveWriteExecutionPreflight({
+      executionPreflight: {},
+      writeApprovalGate: nextWaveWriteApprovalGate,
+      runId: 'run-a',
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_execution_preflight_plan_id'));
+    assert.ok(report.blockers.includes('missing_execution_preflight_ref_write_approval_gate_ref'));
+  });
+
   it('CLI writes sanitized reports without source labels', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-closeout-test-'));
     const mappingPath = path.join(dir, 'mapping.json');
@@ -937,6 +1043,39 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(serialized.includes('WRITE-EXECUTION-APPROVED-20260625'), false);
     assert.equal(serialized.includes('WRITE-DECISION-READY-20260625'), false);
     assert.match(serialized, /next-wave-write-approval/);
+  });
+
+  it('CLI writes next-wave write execution preflight reports without preflight ref values', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-next-wave-write-execution-preflight-test-'));
+    const preflightPath = path.join(dir, 'write-execution-preflight.json');
+    const gatePath = path.join(dir, 'write-approval-gate.json');
+    const outPath = path.join(dir, 'write-execution-preflight-out.json');
+    await writeFile(preflightPath, `${JSON.stringify(nextWaveWriteExecutionPreflight)}\n`, 'utf8');
+    await writeFile(gatePath, `${JSON.stringify(nextWaveWriteApprovalGate)}\n`, 'utf8');
+
+    const { spawnSync } = await import('node:child_process');
+    const result = spawnSync(
+      process.execPath,
+      [
+        'tools/migration/onedrive-pilot-closeout.mjs',
+        '--mode',
+        'next-wave-write-execution-preflight',
+        '--execution-preflight',
+        preflightPath,
+        '--write-approval-gate',
+        gatePath,
+        '--sanitized-out',
+        outPath,
+        '--run-id',
+        'run-a',
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const serialized = await readFile(outPath, 'utf8');
+    assert.equal(serialized.includes('WRITE-APPROVAL-GATE-READY-20260625'), false);
+    assert.equal(serialized.includes('UPLOAD-PREFLIGHT-READY-20260625'), false);
+    assert.match(serialized, /next-wave-write-execution-preflight/);
   });
 
   it('passes package audit when LC00-LC09 evidence and repo files are present', async () => {
