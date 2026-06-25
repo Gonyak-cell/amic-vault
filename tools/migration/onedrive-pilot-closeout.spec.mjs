@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 import {
   runGemmaReadiness,
   runNextWaveApproval,
+  runNextWaveDryrunInputs,
   runPackageAudit,
   runReconciliation,
   runRefsIntake,
@@ -105,6 +106,41 @@ const nextWaveApproval = {
   gemma_indexing: false,
   onedrive_connected_state: false,
   office_open_save_sync: false,
+};
+
+const nextWaveApprovalGate = {
+  lc_id: 'LC-ONEDRIVE-09/PW-02',
+  mode: 'next-wave-approval',
+  run_id: 'run-a',
+  plan_id: 'wave-plan-a',
+  gate_status: 'pass',
+  blockers: [],
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+};
+
+const nextWaveDryrunInputs = {
+  plan_id: 'wave-plan-a',
+  scope_kind: 'matter_batch',
+  matter_count: 2,
+  max_matters_per_wave: 3,
+  manifest_ref: 'MANIFEST-READY-20260625',
+  batch_mapping_ref: 'BATCH-MAPPING-READY-20260625',
+  target_resolution_ref: 'TARGET-RESOLUTION-READY-20260625',
+  permission_review_ref: 'PERMISSION-REVIEW-READY-20260625',
+  legal_data_ref: 'LEGAL-DATA-READY-20260625',
+  rollback_ref: 'ROLLBACK-CONTAINMENT-READY-20260625',
+  sanitized_receipt_destination_ref: 'SANITIZED-RECEIPT-READY-20260625',
+  local_receipt_handling_ref: 'LOCAL-RECEIPT-HANDLING-READY-20260625',
+  operator_ref: 'OPERATOR-READY-20260625',
+  dryrun_only: true,
+  vault_write_authorized: false,
+  customer_wide_import: false,
+  source_of_truth_cutover: false,
+  gemma_indexing: false,
+  source_content_in_repo: false,
+  raw_paths_in_repo: false,
 };
 
 const packageRepoFiles = [
@@ -402,6 +438,55 @@ describe('onedrive-pilot-closeout', () => {
     assert.ok(report.blockers.includes('missing_next_wave_ref_customer_scope_ref'));
   });
 
+  it('passes next-wave dry-run input gate without serializing input refs', () => {
+    const report = runNextWaveDryrunInputs({
+      dryrunInputs: nextWaveDryrunInputs,
+      approvalGate: nextWaveApprovalGate,
+      runId: 'run-a',
+    });
+    assert.equal(report.lc_id, 'LC-ONEDRIVE-09/PW-04');
+    assert.equal(report.gate_status, 'pass');
+    assert.equal(report.allowed_next_action, 'run_next_wave_dryrun_only_with_local_inputs');
+    assert.equal(report.dryrun_execution_state, 'not_started');
+    assert.equal(report.actual_execution_state.vault_db_write, 'not_executed');
+    assert.equal(report.ref_statuses.some((row) => row.status !== 'present'), false);
+    assert.equal(JSON.stringify(report).includes('MANIFEST-READY-20260625'), false);
+    assert.equal(JSON.stringify(report).includes('OPERATOR-READY-20260625'), false);
+  });
+
+  it('blocks next-wave dry-run input gate on approval, scope, write, and repo-content drift', () => {
+    const report = runNextWaveDryrunInputs({
+      approvalGate: { ...nextWaveApprovalGate, gate_status: 'blocked' },
+      runId: 'run-a',
+      dryrunInputs: {
+        ...nextWaveDryrunInputs,
+        plan_id: 'different-plan',
+        scope_kind: 'customer_wide',
+        matter_count: 4,
+        manifest_ref: 'ONEDRIVE-MANIFEST-REF',
+        vault_write_authorized: true,
+        source_content_in_repo: true,
+        raw_paths_in_repo: true,
+      },
+    });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('approval_gate_not_pass'));
+    assert.ok(report.blockers.includes('plan_id_mismatch'));
+    assert.ok(report.blockers.includes('scope_kind_must_be_matter_batch'));
+    assert.ok(report.blockers.includes('matter_count_exceeds_wave_limit'));
+    assert.ok(report.blockers.includes('missing_dryrun_input_ref_placeholder_manifest_ref'));
+    assert.ok(report.blockers.includes('vault_write_must_not_be_authorized'));
+    assert.ok(report.blockers.includes('source_content_must_not_enter_repo'));
+    assert.ok(report.blockers.includes('raw_paths_must_not_enter_repo'));
+  });
+
+  it('blocks next-wave dry-run input gate when input is empty', () => {
+    const report = runNextWaveDryrunInputs({ dryrunInputs: {}, approvalGate: nextWaveApprovalGate, runId: 'run-a' });
+    assert.equal(report.gate_status, 'blocked');
+    assert.ok(report.blockers.includes('missing_dryrun_input_plan_id'));
+    assert.ok(report.blockers.includes('missing_dryrun_input_ref_manifest_ref'));
+  });
+
   it('CLI writes sanitized reports without source labels', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-closeout-test-'));
     const mappingPath = path.join(dir, 'mapping.json');
@@ -470,6 +555,39 @@ describe('onedrive-pilot-closeout', () => {
     assert.equal(serialized.includes('CUSTOMER-SCOPE-APPROVED-20260625'), false);
     assert.equal(serialized.includes('OPERATOR-DRYRUN-APPROVED-20260625'), false);
     assert.match(serialized, /next-wave-approval/);
+  });
+
+  it('CLI writes next-wave dry-run input reports without input ref values', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-next-wave-dryrun-inputs-test-'));
+    const inputsPath = path.join(dir, 'inputs.json');
+    const gatePath = path.join(dir, 'approval-gate.json');
+    const outPath = path.join(dir, 'dryrun-inputs-out.json');
+    await writeFile(inputsPath, `${JSON.stringify(nextWaveDryrunInputs)}\n`, 'utf8');
+    await writeFile(gatePath, `${JSON.stringify(nextWaveApprovalGate)}\n`, 'utf8');
+
+    const { spawnSync } = await import('node:child_process');
+    const result = spawnSync(
+      process.execPath,
+      [
+        'tools/migration/onedrive-pilot-closeout.mjs',
+        '--mode',
+        'next-wave-dryrun-inputs',
+        '--dryrun-inputs',
+        inputsPath,
+        '--approval-gate',
+        gatePath,
+        '--sanitized-out',
+        outPath,
+        '--run-id',
+        'run-a',
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const serialized = await readFile(outPath, 'utf8');
+    assert.equal(serialized.includes('MANIFEST-READY-20260625'), false);
+    assert.equal(serialized.includes('OPERATOR-READY-20260625'), false);
+    assert.match(serialized, /next-wave-dryrun-inputs/);
   });
 
   it('passes package audit when LC00-LC09 evidence and repo files are present', async () => {

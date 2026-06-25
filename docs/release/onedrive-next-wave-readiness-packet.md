@@ -28,7 +28,7 @@ operator approval must be held as opaque local refs before any dry-run runs.
 | NWR-01 | Wave limit | complete | `matter_batch` only, max 3 Matters per wave | `customer_wide`, `full_corpus`, or `all_matters` |
 | NWR-02 | Approval refs | gate available, pending operator input | `next-wave-approval` gate PASS | placeholder or ambiguous approval ref |
 | NWR-03 | LC09 gate | complete | `wave-plan` gate PASS with zero blockers | wave count or Matter count exceeds limit |
-| NWR-04 | Dry-run input | pending exact batch | local-only manifest and mapping refs | raw path, filename, object key, document text, or tenant-private value would enter repo |
+| NWR-04 | Dry-run input | gate available, pending exact local refs | `next-wave-dryrun-inputs` gate PASS | raw path, filename, object key, document text, or tenant-private value would enter repo |
 | NWR-05 | Dry-run execution | not run | no Vault DB write and no Vault storage write | blocked/retryable rows lack approved handling |
 | NWR-06 | Write decision | pending separate approval | explicit operator approval request only | approval bundles write with cutover or AI indexing |
 
@@ -100,9 +100,20 @@ node tools/migration/onedrive-pilot-closeout.mjs \
   --sanitized-out <next-wave-approval.sanitized.json>
 ```
 
-Proceed to next-wave dry-run only if both commands return `gate_status=pass`
-with zero blockers and the operator separately approves the exact bounded
-batch. Do not proceed to write/import from this packet.
+Then validate the local-only dry-run input refs:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-dryrun-inputs \
+  --run-id onedrive-next-wave-readiness-20260625 \
+  --dryrun-inputs <next-wave-dryrun-inputs.local.json> \
+  --approval-gate <next-wave-approval.sanitized.json> \
+  --sanitized-out <next-wave-dryrun-inputs.sanitized.json>
+```
+
+Proceed to next-wave dry-run only if all three commands return
+`gate_status=pass` with zero blockers and the operator separately approves the
+exact bounded batch. Do not proceed to write/import from this packet.
 
 The approval JSON must explicitly keep all execution boundaries closed:
 
@@ -126,6 +137,33 @@ The approval JSON must explicitly keep all execution boundaries closed:
   "gemma_indexing": false,
   "onedrive_connected_state": false,
   "office_open_save_sync": false
+}
+```
+
+The dry-run input JSON must also keep repo output metadata-only:
+
+```json
+{
+  "plan_id": "onedrive-next-wave-readiness-20260625",
+  "scope_kind": "matter_batch",
+  "matter_count": 2,
+  "max_matters_per_wave": 3,
+  "manifest_ref": "<local-evidence-ref>",
+  "batch_mapping_ref": "<local-evidence-ref>",
+  "target_resolution_ref": "<local-evidence-ref>",
+  "permission_review_ref": "<external-ref>",
+  "legal_data_ref": "<external-ref>",
+  "rollback_ref": "<external-ref>",
+  "sanitized_receipt_destination_ref": "<local-evidence-ref>",
+  "local_receipt_handling_ref": "<local-evidence-ref>",
+  "operator_ref": "<external-ref>",
+  "dryrun_only": true,
+  "vault_write_authorized": false,
+  "customer_wide_import": false,
+  "source_of_truth_cutover": false,
+  "gemma_indexing": false,
+  "source_content_in_repo": false,
+  "raw_paths_in_repo": false
 }
 ```
 

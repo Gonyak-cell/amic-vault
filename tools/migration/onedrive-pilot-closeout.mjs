@@ -71,6 +71,32 @@ const requiredNextWaveApprovalRefs = [
   'operator_dryrun_ref',
 ];
 
+const requiredNextWaveDryrunInputFields = [
+  'plan_id',
+  'scope_kind',
+  'matter_count',
+  'max_matters_per_wave',
+  'dryrun_only',
+  'vault_write_authorized',
+  'customer_wide_import',
+  'source_of_truth_cutover',
+  'gemma_indexing',
+  'source_content_in_repo',
+  'raw_paths_in_repo',
+];
+
+const requiredNextWaveDryrunInputRefs = [
+  'manifest_ref',
+  'batch_mapping_ref',
+  'target_resolution_ref',
+  'permission_review_ref',
+  'legal_data_ref',
+  'rollback_ref',
+  'sanitized_receipt_destination_ref',
+  'local_receipt_handling_ref',
+  'operator_ref',
+];
+
 const externalRefFields = ['tenant_ref', 'client_ref', 'matter_ref', ...requiredWriteRefs];
 
 const refOwners = {
@@ -89,10 +115,13 @@ const refOwners = {
   operator_ref: 'Operator',
   security_ref: 'Security owner',
   security_permission_ref: 'Security owner',
+  permission_review_ref: 'Security owner',
   legal_data_ref: 'Legal-data owner',
   customer_scope_ref: 'Customer-scope owner',
   freeze_window_ref: 'Operator',
   batch_mapping_ref: 'Operator',
+  manifest_ref: 'Operator',
+  target_resolution_ref: 'Operator / Infrastructure',
   rollback_ref: 'Rollback owner',
   operator_dryrun_ref: 'Operator',
 };
@@ -173,6 +202,8 @@ export function parseArgs(argv) {
     else if (key === 'gemma-readiness') args.gemmaReadiness = next;
     else if (key === 'wave-plan') args.wavePlan = next;
     else if (key === 'approval') args.approval = next;
+    else if (key === 'approval-gate') args.approvalGate = next;
+    else if (key === 'dryrun-inputs') args.dryrunInputs = next;
     else if (key === 'wave-gate') args.waveGate = next;
     else if (key === 'evidence-root') args.evidenceRoot = next;
     else if (key === 'repo-root') args.repoRoot = next;
@@ -187,7 +218,7 @@ export function parseArgs(argv) {
 
 export function usage() {
   return [
-    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval> --sanitized-out <out.json> [inputs]',
+    'usage: node tools/migration/onedrive-pilot-closeout.mjs --mode <refs-intake|write-preflight|reconcile|gemma-readiness|wave-plan|next-wave-approval|next-wave-dryrun-inputs> --sanitized-out <out.json> [inputs]',
     '',
     'Modes:',
     '  refs-intake      --mapping <json> [--phase <dryrun|write>]',
@@ -196,6 +227,7 @@ export function usage() {
     '  gemma-readiness  --mapping <json> --reconciliation-report <json>',
     '  wave-plan        --wave-plan <json> --reconciliation-report <json> --gemma-readiness <json>',
     '  next-wave-approval --approval <json> --wave-gate <json>',
+    '  next-wave-dryrun-inputs --dryrun-inputs <json> --approval-gate <json>',
     '  package-audit    [--repo-root <dir>] [--evidence-root <dir>]',
     '',
     'This tool validates gates only. It does not import customer documents or run Gemma indexing.',
@@ -593,6 +625,74 @@ export function runNextWaveApproval({ approval, waveGate, runId }) {
   };
 }
 
+export function runNextWaveDryrunInputs({ dryrunInputs, approvalGate, runId }) {
+  dryrunInputs = dryrunInputs ?? {};
+  approvalGate = approvalGate ?? {};
+  const blockers = [];
+  addMissingFieldBlockers(blockers, dryrunInputs, requiredNextWaveDryrunInputFields, 'missing_dryrun_input');
+  addMissingFieldBlockers(blockers, dryrunInputs, requiredNextWaveDryrunInputRefs, 'missing_dryrun_input_ref');
+
+  if (approvalGate.mode !== 'next-wave-approval') blockers.push('approval_gate_mode_invalid');
+  if (approvalGate.gate_status !== 'pass') blockers.push('approval_gate_not_pass');
+  if (dryrunInputs.plan_id !== approvalGate.plan_id) blockers.push('plan_id_mismatch');
+  if (dryrunInputs.scope_kind !== 'matter_batch') blockers.push('scope_kind_must_be_matter_batch');
+
+  const matterCount = Number(dryrunInputs.matter_count ?? 0);
+  const maxMatters = Number(dryrunInputs.max_matters_per_wave ?? approvalGate.max_matters_per_wave ?? 5);
+  if (!Number.isSafeInteger(matterCount) || matterCount < 1) blockers.push('invalid_matter_count');
+  if (!Number.isSafeInteger(maxMatters) || maxMatters < 1) blockers.push('invalid_max_matters_per_wave');
+  if (Number.isSafeInteger(matterCount) && Number.isSafeInteger(maxMatters) && matterCount > maxMatters) {
+    blockers.push('matter_count_exceeds_wave_limit');
+  }
+  if (Number.isSafeInteger(matterCount) && Number(approvalGate.matter_count ?? matterCount) !== matterCount) {
+    blockers.push('matter_count_mismatch');
+  }
+  if (Number.isSafeInteger(maxMatters) && Number(approvalGate.max_matters_per_wave ?? maxMatters) !== maxMatters) {
+    blockers.push('max_matters_per_wave_mismatch');
+  }
+
+  if (dryrunInputs.dryrun_only !== true) blockers.push('dryrun_only_must_be_true');
+  if (dryrunInputs.vault_write_authorized !== false) blockers.push('vault_write_must_not_be_authorized');
+  if (dryrunInputs.customer_wide_import !== false) blockers.push('customer_wide_import_must_be_false');
+  if (dryrunInputs.source_of_truth_cutover !== false) blockers.push('source_of_truth_cutover_must_be_false');
+  if (dryrunInputs.gemma_indexing !== false) blockers.push('gemma_indexing_must_be_false');
+  if (dryrunInputs.source_content_in_repo !== false) blockers.push('source_content_must_not_enter_repo');
+  if (dryrunInputs.raw_paths_in_repo !== false) blockers.push('raw_paths_must_not_enter_repo');
+
+  const refStatuses = requiredNextWaveDryrunInputRefs.map((field) => ({
+    field,
+    owner: refOwners[field] ?? 'Operator',
+    status: fieldGateStatus(dryrunInputs, field),
+  }));
+
+  return {
+    lc_id: 'LC-ONEDRIVE-09/PW-04',
+    mode: 'next-wave-dryrun-inputs',
+    run_id: runId ?? approvalGate.run_id ?? 'unknown',
+    plan_id: dryrunInputs.plan_id ?? 'unknown',
+    gate_status: blockers.length === 0 ? 'pass' : 'blocked',
+    blockers,
+    scope_kind: dryrunInputs.scope_kind,
+    matter_count: matterCount,
+    max_matters_per_wave: maxMatters,
+    ref_statuses: refStatuses,
+    owner_summary: summarizeOwnerStatuses(refStatuses),
+    dryrun_execution_state: 'not_started',
+    actual_execution_state: {
+      vault_db_write: 'not_executed',
+      vault_storage_write: 'not_executed',
+      vault_write: 'not_authorized',
+      customer_wide_import: 'not_authorized',
+      source_of_truth_cutover: 'not_authorized',
+      gemma_indexing: 'not_authorized',
+    },
+    allowed_next_action: blockers.length === 0 ? 'run_next_wave_dryrun_only_with_local_inputs' : 'fix_next_wave_dryrun_input_refs',
+    not_claimed: ['next-wave dry-run executed', 'Vault write/import approved', ...notClaimed],
+    sanitization:
+      'Next-wave dry-run input output contains ref statuses, counts, and blocker codes only; it does not include raw source paths, document names, source object keys, tenant-private values, document text, OCR excerpts, screenshots, or ref values.',
+  };
+}
+
 export async function runPackageAudit({ repoRoot = process.cwd(), evidenceRoot = '.omo/evidence', runId }) {
   const blockers = [];
   const lc_status = [];
@@ -748,6 +848,16 @@ async function runFromArgs(args) {
     return runNextWaveApproval({
       approval: await readJson(args.approval),
       waveGate: await readJson(args.waveGate),
+      runId: args.runId,
+    });
+  }
+  if (args.mode === 'next-wave-dryrun-inputs') {
+    if (!args.dryrunInputs || !args.approvalGate) {
+      throw new Error('next-wave-dryrun-inputs requires --dryrun-inputs and --approval-gate');
+    }
+    return runNextWaveDryrunInputs({
+      dryrunInputs: await readJson(args.dryrunInputs),
+      approvalGate: await readJson(args.approvalGate),
       runId: args.runId,
     });
   }
