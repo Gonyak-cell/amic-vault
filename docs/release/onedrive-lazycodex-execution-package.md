@@ -86,6 +86,13 @@ Before any next wave can run, hold opaque external refs for:
 - sanitized receipt destination and local-only detailed receipt handling.
 
 If any ref is missing or ambiguous, the next-wave gate must remain blocked.
+Use closeout mode `next-wave-approval` after `wave-plan` to verify the exact
+dry-run-only approval refs before preparing any next-wave dry-run inputs.
+Use `next-wave-dryrun-inputs` after that approval gate to verify local-only
+manifest, mapping, target-resolution, permission, rollback, and sanitized
+receipt refs before running any next-wave dry-run.
+Use `next-wave-dryrun-receipt` only after a dry-run-only run exists, to verify
+the sanitized dry-run report before preparing a write decision packet.
 
 ## Handoff Rule
 

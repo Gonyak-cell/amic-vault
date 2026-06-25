@@ -56,8 +56,43 @@ node tools/migration/onedrive-pilot-closeout.mjs \
   --sanitized-out <next-wave-plan.sanitized.json>
 ```
 
-Proceed to next-wave dry-run only if this gate returns `gate_status=pass` with
-zero blockers and the operator separately approves the exact bounded batch.
+Then validate the exact dry-run-only approval refs:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-approval \
+  --approval <next-wave-approval.local.json> \
+  --wave-gate <next-wave-plan.sanitized.json> \
+  --sanitized-out <next-wave-approval.sanitized.json>
+```
+
+Then validate local-only dry-run inputs:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-dryrun-inputs \
+  --dryrun-inputs <next-wave-dryrun-inputs.local.json> \
+  --approval-gate <next-wave-approval.sanitized.json> \
+  --sanitized-out <next-wave-dryrun-inputs.sanitized.json>
+```
+
+Proceed to next-wave dry-run only if all three gates return `gate_status=pass`
+with zero blockers and the operator separately approves the exact bounded
+batch. This still does not authorize write/import/cutover/indexing.
+
+After the dry-run-only run, validate its sanitized receipt before any write
+decision packet:
+
+```bash
+node tools/migration/onedrive-pilot-closeout.mjs \
+  --mode next-wave-dryrun-receipt \
+  --dryrun-report <next-wave-dryrun.sanitized.json> \
+  --dryrun-input-gate <next-wave-dryrun-inputs.sanitized.json> \
+  --sanitized-out <next-wave-dryrun-receipt.sanitized.json>
+```
+
+This receipt gate does not run dry-run, import, write, cutover, or indexing. It
+checks only the already-produced dry-run report against the local input gate.
 
 ## Hard Stops
 
