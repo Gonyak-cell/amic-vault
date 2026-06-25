@@ -147,11 +147,14 @@ describe('onedrive-pilot-write-runner', () => {
     const downloadSourceObject = vi.fn(async (input: { destinationPath: string }) => {
       await writeFile(input.destinationPath, Buffer.from('hello world!'));
     });
-    const uploadOne = vi.fn(async (_input: UploadedFieldsProbe) => ({
-      documentId: '22222222-2222-4222-8222-222222222222',
-      matterId,
-      fileObjectId: '33333333-3333-4333-8333-333333333333',
-    }));
+    const uploadOne = vi.fn(async (input: UploadedFieldsProbe) => {
+      expect(input.fields).toBeDefined();
+      return {
+        documentId: '22222222-2222-4222-8222-222222222222',
+        matterId,
+        fileObjectId: '33333333-3333-4333-8333-333333333333',
+      };
+    });
 
     const report = await runPilotWrite(args(files, true), { downloadSourceObject, uploadOne });
     const serialized = await readFile(files.sanitizedOut, 'utf8');
