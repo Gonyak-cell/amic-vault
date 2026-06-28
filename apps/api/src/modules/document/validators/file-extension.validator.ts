@@ -5,7 +5,27 @@ export interface FileExtensionValidationResult {
   normalizedFilename: string;
 }
 
-const defaultAllowedExtensions = ['pdf', 'docx', 'hwpx', 'txt', 'md', 'markdown', 'csv', 'json'] as const;
+const defaultAllowedExtensions = [
+  'csv',
+  'doc',
+  'docx',
+  'eml',
+  'hwp',
+  'hwpx',
+  'jpeg',
+  'jpg',
+  'json',
+  'markdown',
+  'md',
+  'msg',
+  'pdf',
+  'png',
+  'ppt',
+  'pptx',
+  'txt',
+  'xls',
+  'xlsx',
+] as const;
 
 function unsupportedFileType(): UnsupportedMediaTypeException {
   return new UnsupportedMediaTypeException({ code: 'UNSUPPORTED_FILE_TYPE' });

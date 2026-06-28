@@ -101,6 +101,7 @@ function titleFromFilename(filename: string): string {
 }
 
 function normalizeTransportFilename(filename: string): string {
+  if ([...filename].some((char) => (char.codePointAt(0) ?? 0) > 0xff)) return filename;
   const repaired = Buffer.from(filename, 'latin1').toString('utf8');
   return repaired.includes('\uFFFD') ? filename : repaired;
 }
@@ -163,7 +164,8 @@ export class DocumentUploadService {
     }
 
     try {
-      this.fileSizeValidator.validate(file.size);
+      const sourceSystem = input.sourceSystem ?? 'upload';
+      this.fileSizeValidator.validate(file.size, { sourceSystem });
       const matterSourceDecision = await this.assertMatterUploadReady(
         context.tenantId,
         input.actorUserId,
@@ -178,6 +180,7 @@ export class DocumentUploadService {
         sizeBytes: file.size,
         extension,
         declaredMimeType: file.mimetype,
+        allowImageExtensionMismatch: sourceSystem === 'migration',
       });
       const sha256 = await sha256File(file.path);
       const duplicateDecision = await this.assertUploadDuplicateDecision({
@@ -235,7 +238,7 @@ export class DocumentUploadService {
               sizeBytes: file.size,
               sha256,
               encryptionKeyId: storage.encryptionKeyId,
-              sourceSystem: input.sourceSystem ?? 'upload',
+              sourceSystem,
               createdBy: input.actorUserId,
             },
             tx,
