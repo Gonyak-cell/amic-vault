@@ -616,7 +616,9 @@ function sha256Hex(input: string): string {
 }
 
 function shouldCompleteWithDeterministicFallback(reasonCode: string): boolean {
-  return reasonCode === 'GENERATION_FAILED';
+  return ['GENERATION_FAILED', 'INVALID_JSON', 'SCHEMA_INVALID', 'RESPONSE_TOO_LARGE'].includes(
+    reasonCode,
+  );
 }
 
 function normalizeBlockedReason(reasonCode: string | undefined): string {

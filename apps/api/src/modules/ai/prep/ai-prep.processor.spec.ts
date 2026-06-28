@@ -454,6 +454,45 @@ describe('AiPrepProcessor', () => {
     expect(JSON.stringify(auditLogs)).not.toMatch(/"response"|"prompt"|"raw"/u);
   });
 
+  it('stores deterministic completed fallback for invalid Gemma JSON without raw response storage', async () => {
+    const { auditLogs, repository, processor } = createProcessor({
+      generationStatus: 'blocked',
+      generationReasonCode: 'invalid_json',
+    });
+
+    await processor.handle(payload);
+
+    expect(repository.upsertBlocked).not.toHaveBeenCalled();
+    expect(repository.upsertRejected).not.toHaveBeenCalled();
+    expect(repository.upsertCompleted).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        promptHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+        responseHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      }),
+    );
+    const completedPayload = firstCompletedPayload(repository);
+    expect(completedPayload).toBeDefined();
+    if (!completedPayload) throw new Error('expected completed invalid-json fallback payload');
+    expect(completedPayload.warnings).toContain('LOCAL_GEMMA_INVALID_JSON_FALLBACK');
+    expect(JSON.stringify(completedPayload)).not.toContain('source text');
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'AI_PREP_COMPLETED',
+          metadata: expect.objectContaining({
+            ai_prep_status: 'completed',
+            generation_result: 'fallback',
+            fallback_reason_code: 'INVALID_JSON',
+            prompt_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+            response_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
+        }),
+      ]),
+    );
+    expect(JSON.stringify(auditLogs)).not.toMatch(/"response"|"prompt"|"raw"/u);
+  });
+
   it('records unsupported model output as rejected without storing a raw response', async () => {
     const { auditLogs, repository, processor } = createProcessor({ generationStatus: 'blocked' });
     await processor.handle(payload);
