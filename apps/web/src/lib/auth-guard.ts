@@ -1,4 +1,4 @@
-const protectedPaths = [
+export const protectedPaths = [
   '/dashboard',
   '/matters',
   '/documents',

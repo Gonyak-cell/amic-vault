@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isProtectedAppPath, loginRedirectUrl } from './auth-guard';
+import { readFileSync } from 'node:fs';
+import { isProtectedAppPath, loginRedirectUrl, protectedPaths } from './auth-guard';
 
 describe('auth guard paths', () => {
   it('protects internal work surfaces while leaving token portal routes isolated', () => {
@@ -37,5 +38,12 @@ describe('auth guard paths', () => {
 
     expect(url.pathname).toBe('/login');
     expect(url.searchParams.get('next')).toBe('/dashboard');
+  });
+
+  it('keeps the Next middleware matcher aligned with protected app paths', () => {
+    const middlewareSource = readFileSync(new URL('../middleware.ts', import.meta.url), 'utf8');
+    for (const path of protectedPaths) {
+      expect(middlewareSource).toContain(`'${path}/:path*'`);
+    }
   });
 });
