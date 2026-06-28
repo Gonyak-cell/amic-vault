@@ -123,3 +123,40 @@ Use Option 1 first:
 5. Run Gemma indexing preflight after the allowlist write receipt passes.
 
 No Gemma indexing execute was performed as part of this packet.
+
+## Option 1 Dry-Run Surface
+
+The pilot matter allowlist surface is:
+
+```bash
+pnpm gemma:ai-allowed-pilot -- \
+  --dry-run \
+  --run-id <run-id> \
+  --tenant-slug <tenant-slug> \
+  --actor-email <operator-email> \
+  --approval-ref <human-approval-ref> \
+  --control-ref <control-ref> \
+  --allowlist <local-allowlist.json> \
+  --sanitized-out <receipt.sanitized.json>
+```
+
+For pilot sizing only, dry-run may use:
+
+```bash
+pnpm gemma:ai-allowed-pilot -- \
+  --dry-run \
+  --run-id <run-id> \
+  --tenant-slug <tenant-slug> \
+  --actor-email <operator-email> \
+  --approval-ref <human-approval-ref> \
+  --control-ref <control-ref> \
+  --select-smallest <n> \
+  --sanitized-out <receipt.sanitized.json>
+```
+
+`--select-smallest` is intentionally dry-run only. Execute mode requires an
+explicit local allowlist or explicit `--matter-id` arguments.
+
+The surface writes only the `documents.ai_allowed` flag and a compliance audit
+event when `--execute` is later approved. It does not enqueue AI prep jobs and
+does not execute Gemma indexing.

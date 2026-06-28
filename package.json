@@ -43,6 +43,7 @@
     "onedrive:customer-wide-import": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-customer-wide-import-runner.js",
     "onedrive:source-cutover-preflight": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-source-cutover-preflight.js",
     "onedrive:source-cutover-execute": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-source-cutover-execute.js",
+    "gemma:ai-allowed-pilot": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-ai-allowed-pilot-runner.js",
     "onedrive:import-target-resolution": "node tools/migration/onedrive-import-target-resolution.mjs",
     "bench:local-models": "node tools/bench/run-local-model-bench.ts",
     "eval:contract-gate": "pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/api build && node tools/evalset/run-contract-intel-gate.ts",
