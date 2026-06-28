@@ -42,8 +42,32 @@ describe('gemma-customer-wide-prep-runner', () => {
     ).toMatchObject({
       dryRun: true,
       execute: false,
+      replaceFallback: false,
       limit: 100,
       tenantSlug: 'amic',
+    });
+  });
+
+  it('parses fallback replacement mode', () => {
+    expect(
+      parseGemmaCustomerWidePrepArgs([
+        '--execute',
+        '--replace-fallback',
+        '--run-id',
+        'gemma-cw-prep',
+        '--tenant-slug',
+        'amic',
+        '--approval-ref',
+        'approval-ref',
+        '--control-ref',
+        'control-ref',
+        '--sanitized-out',
+        'out.json',
+      ]),
+    ).toMatchObject({
+      dryRun: false,
+      execute: true,
+      replaceFallback: true,
     });
   });
 

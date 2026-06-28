@@ -24,6 +24,7 @@ const requiredArtifactKinds = [
 export interface GemmaCustomerWidePrepCliArgs {
   dryRun: boolean;
   execute: boolean;
+  replaceFallback: boolean;
   runId: string;
   tenantSlug: string;
   approvalRef: string;
@@ -48,6 +49,7 @@ interface PrepPlan {
   activeEthicalWalls: number;
   readyAiAllowedDocumentCount: number;
   missingArtifactCount: number;
+  fallbackArtifactCount: number;
   candidates: PrepCandidate[];
   blockers: string[];
 }
@@ -68,6 +70,7 @@ export function usage(): string {
     'usage: pnpm gemma:customer-wide-prep -- --dry-run|--execute --run-id <id> --tenant-slug <slug> --approval-ref <ref> --control-ref <ref> --sanitized-out <out.json> [--limit <n>]',
     '',
     'Processes missing Gemma prep artifacts for ready/search-indexed/ai_allowed documents in bounded batches.',
+    'Use --replace-fallback to replace completed fallback artifacts with actual Gemma output.',
   ].join('\n');
 }
 
@@ -82,6 +85,7 @@ export function parseGemmaCustomerWidePrepArgs(
   return {
     dryRun,
     execute,
+    replaceFallback: argv.includes('--replace-fallback'),
     runId: requiredArg(argv, '--run-id'),
     tenantSlug: requiredArg(argv, '--tenant-slug'),
     approvalRef: requiredArg(argv, '--approval-ref'),
@@ -110,6 +114,7 @@ export async function runGemmaCustomerWidePrep(args: GemmaCustomerWidePrepCliArg
     counts: {
       ready_ai_allowed_document_count: plan.readyAiAllowedDocumentCount,
       missing_artifact_count_before: plan.missingArtifactCount,
+      fallback_artifact_count_before: plan.fallbackArtifactCount,
       selected_candidate_count: plan.candidates.length,
       processed_candidate_count: executeResult?.processedCount ?? 0,
       failed_candidate_count: executeResult?.failedCount ?? 0,
@@ -133,6 +138,7 @@ export async function runGemmaCustomerWidePrep(args: GemmaCustomerWidePrepCliArg
     },
     next_gate: {
       rerun_until_missing_artifact_count_zero: true,
+      rerun_replace_fallback_until_fallback_artifact_count_zero: args.replaceFallback,
       ocr_pending_requires_ocr_lane: true,
       failed_requires_remediation_or_exclusion_lane: true,
     },
@@ -173,12 +179,13 @@ async function collectPrepPlan(args: GemmaCustomerWidePrepCliArgs): Promise<Prep
     await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
     const environment = await collectEnvironment(client, tenantId);
     const counts = await collectPrepCounts(client, tenantId);
-    const candidates = await collectCandidates(client, tenantId, args.limit);
+    const candidates = await collectCandidates(client, tenantId, args.limit, args.replaceFallback);
     return {
       tenantId,
       ...environment,
       readyAiAllowedDocumentCount: counts.readyAiAllowedDocumentCount,
       missingArtifactCount: counts.missingArtifactCount,
+      fallbackArtifactCount: counts.fallbackArtifactCount,
       candidates,
       blockers: [],
     };
@@ -225,6 +232,7 @@ async function collectPrepCounts(client: Client, tenantId: string) {
   const result = await client.query<{
     ready_ai_allowed_document_count: string;
     missing_artifact_count: string;
+    fallback_artifact_count: string;
   }>(
     `
       WITH eligible AS (
@@ -259,10 +267,27 @@ async function collectPrepCounts(client: Client, tenantId: string) {
          AND artifact.status = 'completed'
          AND artifact.is_stale = false
         WHERE artifact.ai_prep_artifact_id IS NULL
+      ), fallback AS (
+        SELECT artifact.ai_prep_artifact_id
+        FROM eligible
+        CROSS JOIN required_artifacts
+        JOIN ai_prep_artifacts artifact
+          ON artifact.tenant_id = eligible.tenant_id
+         AND artifact.document_version_id = eligible.version_id
+         AND artifact.artifact_kind = required_artifacts.artifact_kind
+         AND artifact.status = 'completed'
+         AND artifact.is_stale = false
+        WHERE artifact.model_name IS DISTINCT FROM 'gemma4:12b'
+           OR EXISTS (
+             SELECT 1
+             FROM jsonb_array_elements_text(coalesce(artifact.payload_json->'warnings', '[]'::jsonb)) warning
+             WHERE warning ILIKE '%FALLBACK%'
+           )
       )
       SELECT
         (SELECT count(*) FROM eligible) AS ready_ai_allowed_document_count,
-        (SELECT count(*) FROM missing) AS missing_artifact_count
+        (SELECT count(*) FROM missing) AS missing_artifact_count,
+        (SELECT count(*) FROM fallback) AS fallback_artifact_count
     `,
     [tenantId, requiredArtifactKinds],
   );
@@ -270,6 +295,7 @@ async function collectPrepCounts(client: Client, tenantId: string) {
   return {
     readyAiAllowedDocumentCount: Number(row?.ready_ai_allowed_document_count ?? 0),
     missingArtifactCount: Number(row?.missing_artifact_count ?? 0),
+    fallbackArtifactCount: Number(row?.fallback_artifact_count ?? 0),
   };
 }
 
@@ -277,9 +303,17 @@ async function collectCandidates(
   client: Client,
   tenantId: string,
   limit: number,
+  replaceFallback: boolean,
 ): Promise<PrepCandidate[]> {
   const result = await client.query<PrepCandidate>(
-    `
+    replaceFallback ? fallbackCandidateSql() : missingCandidateSql(),
+    [tenantId, requiredArtifactKinds, limit],
+  );
+  return result.rows;
+}
+
+function eligibleSql(): string {
+  return `
       WITH eligible AS (
         SELECT d.tenant_id, d.document_id, d.matter_id, dv.version_id
         FROM documents d
@@ -301,7 +335,36 @@ async function collectCandidates(
           AND d.ai_allowed = true
       ), required_artifacts AS (
         SELECT unnest($2::text[]) AS artifact_kind
-      )
+      )`;
+}
+
+function fallbackCandidateSql(): string {
+  return `
+      ${eligibleSql()}
+      SELECT eligible.tenant_id, eligible.document_id, eligible.version_id,
+        eligible.matter_id, artifact.artifact_kind
+      FROM eligible
+      CROSS JOIN required_artifacts
+      JOIN ai_prep_artifacts artifact
+        ON artifact.tenant_id = eligible.tenant_id
+       AND artifact.document_version_id = eligible.version_id
+       AND artifact.artifact_kind = required_artifacts.artifact_kind
+       AND artifact.status = 'completed'
+       AND artifact.is_stale = false
+      WHERE artifact.model_name IS DISTINCT FROM 'gemma4:12b'
+         OR EXISTS (
+           SELECT 1
+           FROM jsonb_array_elements_text(coalesce(artifact.payload_json->'warnings', '[]'::jsonb)) warning
+           WHERE warning ILIKE '%FALLBACK%'
+         )
+      ORDER BY eligible.document_id ASC, artifact.artifact_kind ASC
+      LIMIT $3
+    `;
+}
+
+function missingCandidateSql(): string {
+  return `
+      ${eligibleSql()}
       SELECT eligible.tenant_id, eligible.document_id, eligible.version_id,
         eligible.matter_id, required_artifacts.artifact_kind
       FROM eligible
@@ -315,10 +378,7 @@ async function collectCandidates(
       WHERE artifact.ai_prep_artifact_id IS NULL
       ORDER BY eligible.document_id ASC, required_artifacts.artifact_kind ASC
       LIMIT $3
-    `,
-    [tenantId, requiredArtifactKinds, limit],
-  );
-  return result.rows;
+    `;
 }
 
 async function executePrepCandidates(candidates: readonly PrepCandidate[]): Promise<PrepExecuteResult> {
@@ -326,6 +386,8 @@ async function executePrepCandidates(candidates: readonly PrepCandidate[]): Prom
   process.env.AI_PREP_QUEUE_WORKER_ENABLED = 'false';
   process.env.AI_PREP_ENABLED ??= 'true';
   process.env.LOCAL_GEMMA_ENABLED ??= 'true';
+  process.env.LOCAL_GEMMA_PREP_FORMAT ??= 'text';
+  process.env.AI_PREP_DETERMINISTIC_FALLBACK_ENABLED = 'false';
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: new StructuredLogger(),
   });
@@ -414,7 +476,12 @@ function validateReadiness(args: GemmaCustomerWidePrepCliArgs, plan: PrepPlan): 
   if (plan.gemmaIndexingAlreadyExecuted) blockers.push('gemma_indexing_already_recorded_in_cutover');
   if (plan.activeEthicalWalls > 0) blockers.push('active_ethical_wall_review_required');
   if (plan.readyAiAllowedDocumentCount <= 0) blockers.push('ready_ai_allowed_document_count_zero');
-  if (plan.missingArtifactCount <= 0) blockers.push('missing_artifact_count_zero');
+  if (!args.replaceFallback && plan.missingArtifactCount <= 0) {
+    blockers.push('missing_artifact_count_zero');
+  }
+  if (args.replaceFallback && plan.fallbackArtifactCount <= 0) {
+    blockers.push('fallback_artifact_count_zero');
+  }
   if (plan.candidates.length === 0) blockers.push('selected_candidate_count_zero');
   return [...new Set(blockers)];
 }
@@ -427,6 +494,7 @@ function emptyPlan(blocker: string): PrepPlan {
     activeEthicalWalls: 0,
     readyAiAllowedDocumentCount: 0,
     missingArtifactCount: 0,
+    fallbackArtifactCount: 0,
     candidates: [],
     blockers: [blocker],
   };

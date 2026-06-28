@@ -47,6 +47,7 @@
     "gemma:customer-wide": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-runner.js",
     "gemma:customer-wide-fallback-closeout": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-fallback-closeout-runner.js",
     "gemma:customer-wide-prep": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-prep-runner.js",
+    "gemma:customer-wide-real-output": "pnpm --filter @amic-vault/ai build && pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-real-output-runner.js",
     "onedrive:import-target-resolution": "node tools/migration/onedrive-import-target-resolution.mjs",
     "bench:local-models": "node tools/bench/run-local-model-bench.ts",
     "eval:contract-gate": "pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/api build && node tools/evalset/run-contract-intel-gate.ts",

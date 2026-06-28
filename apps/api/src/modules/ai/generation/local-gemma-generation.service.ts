@@ -46,8 +46,52 @@ export class LocalGemmaGenerationService {
     });
     const compiled = this.compiler.compile(pack, options.compileOptions);
     const isPrep = options.compileOptions?.purpose === 'file_organization_prep';
+    const prepFormatMode = isPrep ? localGemmaPrepFormatMode() : null;
+    if (isPrep && prepFormatMode === 'text') {
+      const startedAt = performance.now();
+      const generated = await gateway.generateText({
+        system: compiled.system,
+        prompt: `${compiled.prompt}\n\nReturn concise file-organization prep prose only. Do not return JSON. Do not quote source text verbatim.`,
+        model: localGemmaModel(),
+        temperature: 0,
+        maxTokens: options.maxTokens ?? localGemmaMaxTokens(options.compileOptions?.purpose),
+        contextLength: localGemmaContextLength(options.compileOptions?.purpose),
+        keepAlive: localGemmaKeepAlive(options.compileOptions?.purpose),
+        think: false,
+      });
+      if (generated.status !== 'completed' || !generated.response) {
+        return {
+          status: 'blocked',
+          reasonCode: generated.reasonCode ?? 'generation_failed',
+          model: generated.model,
+          latencyMs: Math.round(performance.now() - startedAt),
+        };
+      }
+      try {
+        return {
+          status: 'completed',
+          output: this.guard.parseAndAssert({
+            output: prepTextOutput({
+              text: generated.response,
+              sourceRefs: pack.citationRequirements.sourceRefs,
+              allowedClaimKinds: options.compileOptions?.allowedClaimKinds,
+            }),
+            pack,
+          }),
+          model: generated.model,
+          latencyMs: Math.round(performance.now() - startedAt),
+        };
+      } catch {
+        return {
+          status: 'blocked',
+          reasonCode: 'unsupported_claim',
+          model: generated.model,
+          latencyMs: Math.round(performance.now() - startedAt),
+        };
+      }
+    }
     const format =
-      isPrep && localGemmaPrepFormatMode() === 'json'
+      isPrep && prepFormatMode === 'json'
         ? 'json'
         : groundedJsonSchema({
             sourceRefs: compiled.sourceRefs,
@@ -55,7 +99,7 @@ export class LocalGemmaGenerationService {
             purpose: options.compileOptions?.purpose,
           });
     const startedAt = performance.now();
-    const generated = await gateway.generateJson(
+    const generated = await gateway.generateJson<AiGroundedGenerationOutputDto>(
       {
         system: compiled.system,
         prompt: compiled.prompt,
@@ -65,6 +109,7 @@ export class LocalGemmaGenerationService {
         maxTokens: options.maxTokens ?? localGemmaMaxTokens(options.compileOptions?.purpose),
         contextLength: localGemmaContextLength(options.compileOptions?.purpose),
         keepAlive: localGemmaKeepAlive(options.compileOptions?.purpose),
+        think: false,
       },
       options.parseOutput ?? ((value) => aiGroundedGenerationOutputSchema.parse(value)),
     );
@@ -139,9 +184,72 @@ function localGemmaKeepAlive(purpose: EvidencePromptCompileOptions['purpose']): 
   return purpose === 'file_organization_prep' ? '30s' : undefined;
 }
 
-function localGemmaPrepFormatMode(): 'json' | 'schema' {
+function localGemmaPrepFormatMode(): 'json' | 'schema' | 'text' {
   const raw = process.env.LOCAL_GEMMA_PREP_FORMAT?.trim().toLowerCase();
+  if (raw === 'text') return 'text';
   return raw === 'schema' ? 'schema' : 'json';
+}
+
+function prepTextOutput(input: {
+  text: string;
+  sourceRefs: readonly string[];
+  allowedClaimKinds: readonly string[] | undefined;
+}): AiGroundedGenerationOutputDto {
+  const sourceRefs = input.sourceRefs.length > 0 ? input.sourceRefs.slice(0, 20) : ['chunk:source-ref'];
+  const primarySourceRef = sourceRefs[0] ?? 'chunk:source-ref';
+  const text = normalizePrepText(input.text);
+  const claimKind = prepClaimKind(input.allowedClaimKinds);
+  return {
+    answer: text,
+    sections: [
+      {
+        section_id: 'gemma_prep_text',
+        heading: 'File organization prep',
+        text,
+        source_refs: sourceRefs,
+      },
+    ],
+    claims: [
+      {
+        claim_id: 'gemma_prep_text_1',
+        kind: claimKind,
+        text,
+        source_refs: [primarySourceRef],
+        is_legal_conclusion: false,
+      },
+    ],
+    warnings: [],
+  };
+}
+
+function prepClaimKind(
+  allowedClaimKinds: readonly string[] | undefined,
+): AiGroundedGenerationOutputDto['claims'][number]['kind'] {
+  const preferred = allowedClaimKinds?.includes('key_fact')
+    ? 'key_fact'
+    : (allowedClaimKinds?.[0] ?? 'summary');
+  switch (preferred) {
+    case 'summary':
+    case 'key_fact':
+    case 'risk':
+    case 'issue':
+    case 'timeline':
+    case 'question':
+    case 'clause':
+    case 'answer':
+      return preferred;
+    default:
+      return 'summary';
+  }
+}
+
+function normalizePrepText(input: string): string {
+  const normalized = input
+    .replace(/[ \t]+/gu, ' ')
+    .replace(/\s*\n\s*/gu, ' ')
+    .trim()
+    .slice(0, 1400);
+  return normalized.length > 0 ? normalized : 'Gemma produced file organization prep metadata.';
 }
 
 function normalizePrepSourceRefs(
