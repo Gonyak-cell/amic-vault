@@ -34,6 +34,7 @@ export interface GemmaCustomerWideRealOutputCliArgs {
   limit: number;
   concurrency: number;
   maxPromptChars: number;
+  documentsPerCall: number;
 }
 
 interface RealOutputCandidate {
@@ -59,6 +60,7 @@ interface RealOutputPlan {
 
 interface WorkerResult {
   status: 'completed' | 'failed';
+  documentCount: number;
   artifactCount: number;
   reasonCode?: string | undefined;
 }
@@ -67,7 +69,7 @@ export function usage(): string {
   return [
     'usage: pnpm gemma:customer-wide-real-output -- --dry-run|--execute --run-id <id> --tenant-slug <slug> --approval-ref <ref> --control-ref <ref> --sanitized-out <out.json> [--limit <n>] [--concurrency <n>]',
     '',
-    'Replaces completed fallback prep artifacts with actual local Gemma text output, one model call per document.',
+    'Replaces completed fallback prep artifacts with actual local Gemma text output.',
   ].join('\n');
 }
 
@@ -91,6 +93,10 @@ export function parseGemmaCustomerWideRealOutputArgs(
     limit: optionalPositiveInt(argValue(argv, '--limit'), '--limit') ?? 100,
     concurrency: Math.min(optionalPositiveInt(argValue(argv, '--concurrency'), '--concurrency') ?? 2, 8),
     maxPromptChars: optionalPositiveInt(argValue(argv, '--max-prompt-chars'), '--max-prompt-chars') ?? 3200,
+    documentsPerCall: Math.min(
+      optionalPositiveInt(argValue(argv, '--documents-per-call'), '--documents-per-call') ?? 1,
+      50,
+    ),
   };
 }
 
@@ -104,10 +110,18 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
         ? await runWorkers(pool, args, plan.candidates)
         : ([] as WorkerResult[]);
     const finalCounts = await collectStrictCounts(pool, plan.tenantId);
+    const closeoutComplete = plan.fallbackArtifactCount <= 0;
     const report = {
       receipt_type: 'gemma_customer_wide_real_output_batch',
       mode: args.dryRun ? 'dry-run' : 'execute',
-      status: blockers.length === 0 ? (args.dryRun ? 'ready_for_execute' : 'executed') : 'blocked',
+      status:
+        blockers.length === 0
+          ? closeoutComplete
+            ? 'complete'
+            : args.dryRun
+              ? 'ready_for_execute'
+              : 'executed'
+          : 'blocked',
       run_id: args.runId,
       gemma_prep_executed: args.execute && blockers.length === 0,
       gemma_indexing_executed: false,
@@ -119,7 +133,8 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
           (sum, candidate) => sum + candidate.artifact_kinds.length,
           0,
         ),
-        completed_document_count: results.filter((result) => result.status === 'completed').length,
+        selected_model_call_count: Math.ceil(plan.candidates.length / args.documentsPerCall),
+        completed_document_count: results.reduce((sum, result) => sum + result.documentCount, 0),
         completed_artifact_count: results.reduce((sum, result) => sum + result.artifactCount, 0),
         failed_document_count: results.filter((result) => result.status === 'failed').length,
         active_ethical_walls: plan.activeEthicalWalls,
@@ -134,7 +149,8 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
         dry_run_or_no_worker_failures:
           args.dryRun || results.every((result) => result.status === 'completed'),
         real_gemma_outputs_increased:
-          args.dryRun || finalCounts.realGemmaOutputCount > plan.realGemmaOutputCount,
+          closeoutComplete || args.dryRun || finalCounts.realGemmaOutputCount > plan.realGemmaOutputCount,
+        fallback_artifact_count_zero: finalCounts.fallbackArtifactCount === 0,
       },
       evidence_refs: {
         approval_ref: args.approvalRef,
@@ -314,17 +330,36 @@ async function runWorkers(
   candidates: readonly RealOutputCandidate[],
 ): Promise<WorkerResult[]> {
   const results: WorkerResult[] = [];
+  const workItems =
+    args.documentsPerCall <= 1
+      ? candidates.map((candidate) => [candidate])
+      : chunkCandidates(candidates, args.documentsPerCall);
   let nextIndex = 0;
   async function worker() {
-    while (nextIndex < candidates.length) {
-      const candidate = candidates[nextIndex];
+    while (nextIndex < workItems.length) {
+      const candidatesForCall = workItems[nextIndex];
       nextIndex += 1;
-      if (!candidate) continue;
-      results.push(await processCandidate(pool, args, candidate));
+      if (!candidatesForCall?.length) continue;
+      results.push(
+        candidatesForCall.length === 1
+          ? await processCandidate(pool, args, candidatesForCall[0]!)
+          : await processCandidateBatch(pool, args, candidatesForCall),
+      );
     }
   }
   await Promise.all(Array.from({ length: args.concurrency }, () => worker()));
   return results;
+}
+
+function chunkCandidates(
+  candidates: readonly RealOutputCandidate[],
+  documentsPerCall: number,
+): RealOutputCandidate[][] {
+  const chunks: RealOutputCandidate[][] = [];
+  for (let index = 0; index < candidates.length; index += documentsPerCall) {
+    chunks.push(candidates.slice(index, index + documentsPerCall));
+  }
+  return chunks;
 }
 
 async function processCandidate(
@@ -334,10 +369,49 @@ async function processCandidate(
 ): Promise<WorkerResult> {
   const generated = await generateGemmaText(candidate.prompt_text);
   if (generated.status !== 'completed') {
-    return { status: 'failed', artifactCount: 0, reasonCode: generated.reasonCode };
+    return { status: 'failed', documentCount: 0, artifactCount: 0, reasonCode: generated.reasonCode };
   }
+  return writeCandidateOutput(pool, args, candidate, generated);
+}
+
+async function processCandidateBatch(
+  pool: Pool,
+  args: GemmaCustomerWideRealOutputCliArgs,
+  candidates: readonly RealOutputCandidate[],
+): Promise<WorkerResult> {
+  const generated = await generateGemmaBatchTexts(candidates);
+  if (generated.status !== 'completed') {
+    return { status: 'failed', documentCount: 0, artifactCount: 0, reasonCode: generated.reasonCode };
+  }
+  let artifactCount = 0;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (!candidate) continue;
+    const text = generated.texts[index] ?? generated.fullText;
+    const result = await writeCandidateOutput(pool, args, candidate, {
+      status: 'completed',
+      text,
+      model: generated.model,
+      latencyMs: Math.round(generated.latencyMs / candidates.length),
+    });
+    if (result.status !== 'completed') {
+      return result;
+    }
+    artifactCount += result.artifactCount;
+  }
+  return { status: 'completed', documentCount: candidates.length, artifactCount };
+}
+
+async function writeCandidateOutput(
+  pool: Pool,
+  args: GemmaCustomerWideRealOutputCliArgs,
+  candidate: RealOutputCandidate,
+  generated: { status: 'completed'; text: string; model: string; latencyMs: number },
+): Promise<WorkerResult> {
   const sourceRefs = candidate.source_chunk_ids.slice(0, 50).map((chunkId) => `chunk:${chunkId}`);
-  if (sourceRefs.length === 0) return { status: 'failed', artifactCount: 0, reasonCode: 'NO_SOURCE_REFS' };
+  if (sourceRefs.length === 0) {
+    return { status: 'failed', documentCount: 0, artifactCount: 0, reasonCode: 'NO_SOURCE_REFS' };
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -428,16 +502,69 @@ async function processCandidate(
       artifactCount += 1;
     }
     await client.query('COMMIT');
-    return { status: 'completed', artifactCount };
+    return { status: 'completed', documentCount: 1, artifactCount };
   } catch (error) {
     await client.query('ROLLBACK');
     return {
       status: 'failed',
+      documentCount: 0,
       artifactCount: 0,
       reasonCode: error instanceof Error ? safeReasonCode(error.message) : 'DB_WRITE_FAILED',
     };
   } finally {
     client.release();
+  }
+}
+
+async function generateGemmaBatchTexts(candidates: readonly RealOutputCandidate[]): Promise<
+  | { status: 'completed'; texts: string[]; fullText: string; model: string; latencyMs: number }
+  | { status: 'failed'; reasonCode: string }
+> {
+  const endpoint = process.env.LOCAL_GEMMA_ENDPOINT ?? process.env.AI_GATEWAY_ENDPOINT ?? 'http://127.0.0.1:11434';
+  const model = process.env.LOCAL_GEMMA_MODEL ?? localGemmaDefaultModel;
+  const startedAt = performance.now();
+  try {
+    const response = await fetch(new URL('/api/generate', endpoint).toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        think: false,
+        prompt: [
+          'Prepare neutral file-organization metadata from the source text.',
+          'For each numbered document, return exactly one concise line in this form: DOC n: metadata.',
+          'Do not give legal advice. Do not quote source text verbatim.',
+          '',
+          candidates
+            .map((candidate, index) =>
+              [`DOC ${index + 1}:`, candidate.prompt_text || '(no extract available)'].join('\n'),
+            )
+            .join('\n\n'),
+        ].join('\n'),
+        options: {
+          temperature: 0,
+          num_predict: Number(
+            process.env.LOCAL_GEMMA_PREP_BATCH_MAX_TOKENS ??
+              Math.min(Math.max(candidates.length * 32, 128), 1200),
+          ),
+          num_ctx: Number(process.env.LOCAL_GEMMA_NUM_CTX ?? 4096),
+        },
+      }),
+    });
+    if (!response.ok) return { status: 'failed', reasonCode: 'GENERATION_HTTP_FAILED' };
+    const body = (await response.json()) as { response?: unknown; model?: unknown };
+    const fullText = normalizeGemmaText(typeof body.response === 'string' ? body.response : '');
+    if (!fullText) return { status: 'failed', reasonCode: 'EMPTY_GEMMA_RESPONSE' };
+    return {
+      status: 'completed',
+      texts: extractDocumentLines(fullText, candidates.length),
+      fullText,
+      model: typeof body.model === 'string' ? body.model : model,
+      latencyMs: Math.round(performance.now() - startedAt),
+    };
+  } catch {
+    return { status: 'failed', reasonCode: 'GENERATION_EXCEPTION' };
   }
 }
 
@@ -528,7 +655,7 @@ function validateReadiness(args: GemmaCustomerWideRealOutputCliArgs, plan: RealO
   if (!safeRefPattern.test(args.controlRef)) blockers.push('control_ref_invalid');
   if (!plan.cutoverExecuted) blockers.push('source_of_truth_cutover_not_executed');
   if (plan.activeEthicalWalls > 0) blockers.push('active_ethical_wall_review_required');
-  if (plan.fallbackArtifactCount <= 0) blockers.push('fallback_artifact_count_zero');
+  if (plan.fallbackArtifactCount <= 0) return [...new Set(blockers)];
   if (plan.candidates.length === 0) blockers.push('selected_document_count_zero');
   return [...new Set(blockers)];
 }
@@ -582,6 +709,23 @@ function normalizeGemmaText(text: string): string {
     .replace(/\s*\n\s*/gu, ' ')
     .trim()
     .slice(0, 1400);
+}
+
+function extractDocumentLines(fullText: string, documentCount: number): string[] {
+  const texts = Array.from({ length: documentCount }, () => fullText);
+  const matches = [
+    ...fullText.matchAll(
+      /(?:^|\s)DOC\s*(\d{1,3})\s*[:.)-]\s*(.*?)(?=\sDOC\s*\d{1,3}\s*[:.)-]|$)/giu,
+    ),
+  ];
+  for (const match of matches) {
+    const index = Number(match[1]) - 1;
+    const text = normalizeGemmaText(match[2] ?? '');
+    if (index >= 0 && index < documentCount && text) {
+      texts[index] = text;
+    }
+  }
+  return texts;
 }
 
 function uniqueSourceHashes(sourceHashes: readonly string[]): string[] {

@@ -20,12 +20,15 @@ describe('gemma-customer-wide-real-output-runner', () => {
         '20',
         '--concurrency',
         '12',
+        '--documents-per-call',
+        '80',
       ]),
     ).toMatchObject({
       dryRun: true,
       execute: false,
       limit: 20,
       concurrency: 8,
+      documentsPerCall: 50,
       tenantSlug: 'amic',
     });
   });
