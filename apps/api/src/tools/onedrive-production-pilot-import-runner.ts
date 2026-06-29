@@ -256,7 +256,10 @@ function collectBlockers(
   return [...new Set(blockers)];
 }
 
-function runtimePresence(env: NodeJS.ProcessEnv, args: ProductionPilotImportCliArgs) {
+export function runtimePresence(
+  env: NodeJS.ProcessEnv,
+  args: { awsProfile?: string | undefined },
+) {
   const pgTuplePresent =
     Boolean(env.PGHOST) && Boolean(env.PGDATABASE) && Boolean(env.PGUSER);
   const databaseTargetPresent = Boolean(env.DATABASE_URL) || pgTuplePresent;

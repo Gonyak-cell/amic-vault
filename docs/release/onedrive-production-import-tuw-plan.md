@@ -16,6 +16,30 @@ open/save/sync, Gemma indexing, or customer-wide go-live.
 
 ## Control Surface
 
+Run the no-write runtime target check before any production execute attempt:
+
+```bash
+pnpm onedrive:production-runtime-target-check -- \
+  --dry-run \
+  --run-id lc-onedrive-production-runtime-target-check \
+  --approval-ref APPROVAL-ONEDRIVE-PROD-PILOT-IMPORT-2026-06-29 \
+  --manifest-approval-ref approval-ingest.sanitized.json \
+  --production-preflight .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-preflight-ready-check.sanitized.json \
+  --import-decision .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-import-decision-ready.sanitized.json \
+  --pilot-gate .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-approved-dry-run.sanitized.json \
+  --tenant-slug amic \
+  --actor-user-id 1ffdb4f1-a3d1-5e7a-bae8-4e3ae2dae4c6 \
+  --sanitized-out .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-runtime-target-check.sanitized.json \
+  --limit 1 \
+  --offset 0
+```
+
+The runtime target check writes only booleans, hashed refs, and sanitized
+evidence filenames. It does not store `DATABASE_URL`, `PGHOST`, `AWS_PROFILE`,
+object keys, raw paths, account IDs, or customer content. Status
+`ready_for_pilot_execute` means the same runtime target conditions required by
+the LC-05 wrapper are present.
+
 Use the LC-05 wrapper:
 
 ```bash
