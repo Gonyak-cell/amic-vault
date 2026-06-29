@@ -50,7 +50,7 @@ test('builds hashed identity detail rows without raw client or Matter Code label
     clients: [
       {
         client_id: clientId,
-        name: '성진종합전기',
+        name: 'SampleClient',
         status: 'active',
         metadata_json: {},
       },
@@ -59,9 +59,9 @@ test('builds hashed identity detail rows without raw client or Matter Code label
       {
         matter_id: matterId,
         client_id: clientId,
-        client_name: '성진종합전기',
-        matter_code: '성진종합전기/Advisory/주주간계약',
-        matter_name: '성진종합전기/Advisory/주주간계약',
+        client_name: 'SampleClient',
+        matter_code: 'SampleClient/Advisory/샘플계약',
+        matter_name: 'SampleClient/Advisory/샘플계약',
         matter_type: 'advisory',
         status: 'open',
         metadata_json: {
@@ -75,11 +75,11 @@ test('builds hashed identity detail rows without raw client or Matter Code label
   });
 
   assert.equal(details.length, 1);
-  assert.equal(details[0].matter_code_hash, sha256Hex('성진종합전기/Advisory/주주간계약'));
+  assert.equal(details[0].matter_code_hash, sha256Hex('SampleClient/Advisory/샘플계약'));
   assert.deepEqual(details[0].blockers, []);
   const payload = JSON.stringify(details);
-  assert.equal(payload.includes('성진종합전기'), false);
-  assert.equal(payload.includes('주주간계약'), false);
+  assert.equal(payload.includes('SampleClient'), false);
+  assert.equal(payload.includes('샘플계약'), false);
   assert.equal(payload.includes(matterId), false);
 });
 
@@ -160,6 +160,27 @@ test('normalizes bridge status payloads to capability booleans', () => {
         source_mode: 'matter_app_api',
         source_revision: 'rev-1',
         supported_operations: ['clients/upsert', 'matters/upsert'],
+      },
+    },
+  });
+
+  assert.equal(bridge.bridge_ready, true);
+  assert.equal(bridge.client_upsert_supported, true);
+  assert.equal(bridge.matter_upsert_supported, true);
+  assert.deepEqual(bridge.blockers, []);
+});
+
+test('normalizes bridge status path payloads to capability booleans', () => {
+  const bridge = bridgeStatusFromPayload({
+    ok: true,
+    httpStatus: 200,
+    payload: {
+      outcome: 'passed',
+      item: {
+        source_mode: 'matter_app_api',
+        client_upsert_path: '/api/matters/vault-bridge/clients/upsert',
+        matter_upsert_path: '/api/matters/vault-bridge/matters/upsert',
+        runtime_write_ready: true,
       },
     },
   });

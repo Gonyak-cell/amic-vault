@@ -128,12 +128,16 @@ export function bridgeStatusFromPayload(result) {
     capabilities.clientUpsert === true ||
     item.client_upsert_supported === true ||
     item.clientUpsertSupported === true ||
+    clean(item.client_upsert_path) === '/api/matters/vault-bridge/clients/upsert' ||
+    clean(item.clientUpsertPath) === '/api/matters/vault-bridge/clients/upsert' ||
     Array.isArray(item.supported_operations) && item.supported_operations.includes('clients/upsert');
   const matterUpsert =
     capabilities.matter_upsert === true ||
     capabilities.matterUpsert === true ||
     item.matter_upsert_supported === true ||
     item.matterUpsertSupported === true ||
+    clean(item.matter_upsert_path) === '/api/matters/vault-bridge/matters/upsert' ||
+    clean(item.matterUpsertPath) === '/api/matters/vault-bridge/matters/upsert' ||
     Array.isArray(item.supported_operations) && item.supported_operations.includes('matters/upsert');
   const sourceMode = clean(item.source_mode ?? item.sourceMode ?? payload.source_mode ?? payload.sourceMode);
   const outcome = clean(payload.outcome ?? item.outcome);

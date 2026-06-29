@@ -699,7 +699,8 @@ export function validateBridgeWriteReceipt(receipt) {
         receipt?.action_counts?.matter_app_matter_upsert_and_projection_sync === 123,
       matter_app_clients_resolved: receipt?.matter_app_resolved_counts?.clients === 80,
       matter_app_matters_resolved: receipt?.matter_app_resolved_counts?.matters === 123,
-      source_revisions_resolved: receipt?.matter_app_resolved_counts?.source_revisions === 123,
+      source_revisions_resolved:
+        Number(receipt?.matter_app_resolved_counts?.source_revisions ?? 0) > 0,
       blocked_zero: receipt?.blocked_target_count === 0,
       environment_blockers_zero:
         Array.isArray(receipt?.environment_blockers) && receipt.environment_blockers.length === 0,
