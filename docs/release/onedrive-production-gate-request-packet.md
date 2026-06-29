@@ -148,6 +148,31 @@ The `LC-ONEDRIVE-CLOSEOUT-05` production pilot/batch import approval ref is now
 present. The remaining blocker is runtime target configuration for the actual
 production execute.
 
+Use the no-write runtime target check before execute:
+
+```bash
+pnpm onedrive:production-runtime-target-check -- \
+  --dry-run \
+  --run-id lc-onedrive-production-runtime-target-check \
+  --approval-ref APPROVAL-ONEDRIVE-PROD-PILOT-IMPORT-2026-06-29 \
+  --manifest-approval-ref approval-ingest.sanitized.json \
+  --production-preflight .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-preflight-ready-check.sanitized.json \
+  --import-decision .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-import-decision-ready.sanitized.json \
+  --pilot-gate .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-approved-dry-run.sanitized.json \
+  --tenant-slug amic \
+  --actor-user-id 1ffdb4f1-a3d1-5e7a-bae8-4e3ae2dae4c6 \
+  --sanitized-out .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-runtime-target-check.sanitized.json \
+  --limit 1 \
+  --offset 0
+```
+
+The check records only presence booleans and hashed refs. It must return
+`ready_for_pilot_execute` before `pnpm onedrive:production-pilot-import --
+--execute` is run.
+The execute command must pass the resulting receipt as
+`--runtime-target-check <production-runtime-target-check.sanitized.json>`; the
+wrapper blocks execute if that receipt is absent, not ready, or scope-mismatched.
+
 Required runtime target shape:
 
 ```text

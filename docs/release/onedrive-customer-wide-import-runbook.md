@@ -99,6 +99,26 @@ Matter source policy issues per-upload preflight receipts inside the service.
 For production pilot or bounded batch execution, prefer the LC-05 wrapper:
 
 ```bash
+pnpm onedrive:production-runtime-target-check -- \
+  --dry-run \
+  --run-id <run-id> \
+  --approval-ref <production-import-approval-ref> \
+  --manifest-approval-ref <manifest-approval-ref> \
+  --production-preflight <production-preflight-ready-check.sanitized.json> \
+  --import-decision <production-import-decision-ready.sanitized.json> \
+  --pilot-gate <production-pilot-import-approved-dry-run.sanitized.json> \
+  --tenant-slug <tenant-slug> \
+  --actor-user-id <operator-user-id> \
+  --sanitized-out <production-runtime-target-check.sanitized.json> \
+  --limit <bounded-count> \
+  --offset <offset>
+```
+
+This check is no-write and stores only runtime target presence booleans, hashed
+refs, and sanitized evidence filenames. It must report
+`ready_for_pilot_execute` before running the execute form below.
+
+```bash
 pnpm onedrive:production-pilot-import -- \
   --dry-run|--execute \
   --run-id <run-id> \
@@ -107,6 +127,7 @@ pnpm onedrive:production-pilot-import -- \
   --production-preflight <production-preflight-ready-check.sanitized.json> \
   --import-decision <production-import-decision-ready.sanitized.json> \
   --pilot-gate <production-pilot-import-approved-dry-run.sanitized.json> \
+  --runtime-target-check <production-runtime-target-check.sanitized.json> \
   --manifest <resolved-import-manifest.local.ndjson.gz> \
   --scope <approved-import-scope.local.ndjson.gz> \
   --tenant-slug <tenant-slug> \
@@ -119,7 +140,8 @@ pnpm onedrive:production-pilot-import -- \
 ```
 
 The wrapper blocks `--execute` unless production DB and source object runtime
-target env are present. It also runs replay dry-run automatically after a
+target env are present and the matching runtime target check receipt reports
+`ready_for_pilot_execute`. It also runs replay dry-run automatically after a
 successful execute.
 
 Use `--limit` and `--offset` for wave execution. Replays use the local state file
