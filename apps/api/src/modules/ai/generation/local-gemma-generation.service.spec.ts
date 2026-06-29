@@ -126,6 +126,7 @@ describe('LocalGemmaGenerationService', () => {
     expect(body.options).toMatchObject({ num_predict: 320, num_ctx: 2048 });
     expect(body.keep_alive).toBe('30s');
     expect(body.format).toBe('json');
+    expect(body.think).toBe(false);
   });
 
   it('honors production Gemma prep runtime overrides', async () => {
@@ -319,5 +320,55 @@ describe('LocalGemmaGenerationService', () => {
         claims: { maxItems: 1 },
       },
     });
+  });
+
+  it('can wrap prep text output from Gemma without requiring model JSON', async () => {
+    vi.stubEnv('LOCAL_GEMMA_ENABLED', 'true');
+    vi.stubEnv('LOCAL_GEMMA_ENDPOINT', 'http://127.0.0.1:11434');
+    vi.stubEnv('LOCAL_GEMMA_PREP_FORMAT', 'text');
+    const generateBodies: Array<Record<string, unknown>> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/api/tags')) {
+          return new Response(
+            JSON.stringify({ models: [{ name: 'gemma4:12b', model: 'gemma4:12b' }] }),
+            { status: 200 },
+          );
+        }
+        generateBodies.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>);
+        return new Response(
+          JSON.stringify({
+            model: 'gemma4:12b',
+            response: '계약 검토 관련 회의 메모로 분류할 수 있습니다.',
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    await expect(
+      new LocalGemmaGenerationService(
+        new AiEvidencePromptCompiler(),
+        new AiGroundedOutputGuard(),
+      ).generateGrounded(evidencePack(), {
+        compileOptions: {
+          purpose: 'file_organization_prep',
+          artifactKind: 'document_profile',
+          allowedClaimKinds: ['summary', 'key_fact'],
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      model: 'gemma4:12b',
+      output: {
+        answer: '계약 검토 관련 회의 메모로 분류할 수 있습니다.',
+        warnings: [],
+      },
+    });
+
+    expect(generateBodies[0]?.format).toBeUndefined();
+    expect(generateBodies[0]?.think).toBe(false);
+    expect(generateBodies[0]?.prompt).toContain('Do not return JSON');
   });
 });

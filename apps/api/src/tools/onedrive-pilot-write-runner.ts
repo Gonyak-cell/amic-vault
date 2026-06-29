@@ -32,6 +32,9 @@ const supportedExtensions = new Set([
   '.hwpx',
   '.jpeg',
   '.jpg',
+  '.json',
+  '.md',
+  '.markdown',
   '.msg',
   '.pdf',
   '.png',
@@ -785,6 +788,11 @@ function mimeTypeForExtension(extension: string): string {
     case '.jpeg':
     case '.jpg':
       return 'image/jpeg';
+    case '.json':
+      return 'application/json';
+    case '.md':
+    case '.markdown':
+      return 'text/markdown';
     case '.msg':
       return 'application/vnd.ms-outlook';
     case '.pdf':

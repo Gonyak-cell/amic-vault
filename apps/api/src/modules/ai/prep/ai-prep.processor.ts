@@ -233,7 +233,7 @@ export class AiPrepProcessor {
     }
 
     const reasonCode = normalizeBlockedReason(generationResult.reasonCode);
-    if (shouldCompleteWithDeterministicFallback(reasonCode)) {
+    if (deterministicFallbackEnabled() && shouldCompleteWithDeterministicFallback(reasonCode)) {
       await this.recordFallbackCompleted(plannedSource, payload, pack, {
         reasonCode,
         promptHash,
@@ -616,7 +616,14 @@ function sha256Hex(input: string): string {
 }
 
 function shouldCompleteWithDeterministicFallback(reasonCode: string): boolean {
-  return reasonCode === 'GENERATION_FAILED';
+  return ['GENERATION_FAILED', 'INVALID_JSON', 'SCHEMA_INVALID', 'RESPONSE_TOO_LARGE'].includes(
+    reasonCode,
+  );
+}
+
+function deterministicFallbackEnabled(): boolean {
+  const raw = process.env.AI_PREP_DETERMINISTIC_FALLBACK_ENABLED ?? 'true';
+  return ['1', 'true', 'yes'].includes(raw.trim().toLowerCase());
 }
 
 function normalizeBlockedReason(reasonCode: string | undefined): string {

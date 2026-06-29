@@ -5,6 +5,7 @@ const parentMaxChars = 3200;
 const childMaxChars = 900;
 const childOverlapChars = 120;
 const maxChunksPerVersion = 256;
+const maxStoredTokenCount = 1200;
 
 export interface BuiltDocumentChunk {
   chunkKind: AiChunkKind;
@@ -24,7 +25,7 @@ function sha256Hex(input: string): string {
 
 function tokenCount(text: string): number {
   const tokens = text.trim().split(/\s+/).filter(Boolean);
-  return Math.max(1, tokens.length);
+  return Math.min(maxStoredTokenCount, Math.max(1, tokens.length));
 }
 
 function boundedEnd(text: string, start: number, targetEnd: number): number {

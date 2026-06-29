@@ -6,6 +6,7 @@ import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { allowPermission, denyPermission } from '@amic-vault/shared';
 import { DocumentUploadService, type UploadedDiskFile } from './document-upload.service';
+import { DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES } from './validators/file-size.validator';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
@@ -13,7 +14,8 @@ const matterId = '11111111-1111-4111-8111-111111111122';
 
 async function tempUploadFile(
   name: string,
-  content = '%PDF-1.7 content',
+  content: Buffer | string = '%PDF-1.7 content',
+  mimetype = 'application/pdf',
 ): Promise<UploadedDiskFile> {
   const dir = await mkdtemp(join(tmpdir(), 'amic-vault-upload-test-'));
   const path = join(dir, name);
@@ -21,7 +23,7 @@ async function tempUploadFile(
   return {
     path,
     originalname: name,
-    mimetype: 'application/pdf',
+    mimetype,
     size: Buffer.byteLength(content),
   };
 }
@@ -282,6 +284,35 @@ describe('DocumentUploadService', () => {
     });
   });
 
+  it('preserves valid unicode filenames before extension validation', async () => {
+    const xlsx = Buffer.from(
+      'PK\x03\x04[Content_Types].xml xl/workbook.xml application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'latin1',
+    );
+    const file = await tempUploadFile(
+      'Ā.xlsx',
+      xlsx.toString('latin1'),
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    const { createFileObject, service } = createService();
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: {},
+      file,
+    });
+
+    expect(createFileObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalFilename: 'Ā.xlsx',
+        normalizedFilename: 'Ā.xlsx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+      expect.anything(),
+    );
+  });
+
   it('passes explicit file organization prep consent into document creation', async () => {
     const file = await tempUploadFile('Contract.PDF');
     const { createDraft, service } = createService();
@@ -459,6 +490,53 @@ describe('DocumentUploadService', () => {
 
     expect(createFileObject).toHaveBeenCalledWith(
       expect.objectContaining({
+        sourceSystem: 'migration',
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('allows migration uploads over the browser upload size default', async () => {
+    const file = await tempUploadFile('Large.PDF');
+    file.size = DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES + 1;
+    const { createFileObject, service } = createService();
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: {},
+      file,
+      sourceSystem: 'migration',
+    });
+
+    expect(createFileObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sizeBytes: DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES + 1,
+        sourceSystem: 'migration',
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('allows migration image MIME mismatches while preserving the source filename', async () => {
+    const jpegBytes = Buffer.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46,
+    ]);
+    const file = await tempUploadFile('Legacy.png', jpegBytes, 'image/png');
+    const { createFileObject, service } = createService();
+
+    await service.upload({
+      actorUserId,
+      matterId,
+      fields: {},
+      file,
+      sourceSystem: 'migration',
+    });
+
+    expect(createFileObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        normalizedFilename: 'Legacy.png',
+        mimeType: 'image/jpeg',
         sourceSystem: 'migration',
       }),
       expect.anything(),

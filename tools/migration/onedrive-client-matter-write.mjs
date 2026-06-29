@@ -703,13 +703,30 @@ async function processTarget({ db, indexed, target, args, aiPolicyId, execute })
 function summarize(details) {
   const states = {};
   const actions = {};
+  const matterAppClientRefs = new Set();
+  const matterAppMatterRefs = new Set();
+  const matterAppSourceRevisions = new Set();
   let blocked = 0;
   for (const row of details) {
     states[row.state] = (states[row.state] ?? 0) + 1;
     actions[row.action] = (actions[row.action] ?? 0) + 1;
     if (row.blockers.length > 0) blocked += 1;
+    if (row.matter_app_client_ref_hash) matterAppClientRefs.add(row.matter_app_client_ref_hash);
+    if (row.matter_app_matter_ref_hash) matterAppMatterRefs.add(row.matter_app_matter_ref_hash);
+    if (row.matter_app_source_revision_hash) {
+      matterAppSourceRevisions.add(row.matter_app_source_revision_hash);
+    }
   }
-  return { states, actions, blocked };
+  return {
+    states,
+    actions,
+    blocked,
+    matterAppResolvedCounts: {
+      clients: matterAppClientRefs.size,
+      matters: matterAppMatterRefs.size,
+      source_revisions: matterAppSourceRevisions.size,
+    },
+  };
 }
 
 function assertTargetReceiptPass(receipt) {
@@ -805,6 +822,7 @@ async function main() {
       operator_resolved: Boolean(dbSnapshot.operator),
       result_counts: summary.states,
       action_counts: summary.actions,
+      matter_app_resolved_counts: summary.matterAppResolvedCounts,
       blocked_target_count: summary.blocked,
       environment_blockers: environmentBlockers,
       details_ref: path.basename(args.details),

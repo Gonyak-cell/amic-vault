@@ -24,4 +24,15 @@ describe('document chunker', () => {
       expect(chunk.textHash).toMatch(/^[0-9a-f]{64}$/);
     }
   });
+
+  it('caps stored token counts to the document_chunks constraint', () => {
+    const text = Array.from({ length: 1600 }, (_, index) => `t${index}`).join(' ');
+    const chunks = buildParentChildChunks({
+      text,
+      sourceTextHash: 'b'.repeat(64),
+    });
+
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks.every((chunk) => chunk.tokenCount >= 1 && chunk.tokenCount <= 1200)).toBe(true);
+  });
 });

@@ -26,12 +26,21 @@ function workerBaseUrl(): string {
   return (process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '');
 }
 
+function extractionWorkerTimeoutMs(): number {
+  const parsed = Number(process.env.EXTRACTION_WORKER_TIMEOUT_MS ?? '60000');
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 60_000;
+}
+
 async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
   }
   return Buffer.concat(chunks);
+}
+
+function sanitizeBodyText(value: string): string {
+  return value.replaceAll(String.fromCharCode(0), '');
 }
 
 function parseWorkerResponse(payload: WorkerResponse, fallback: ExtractionJobPayload) {
@@ -59,7 +68,9 @@ function parseWorkerResponse(payload: WorkerResponse, fallback: ExtractionJobPay
   }
 
   const bodyText =
-    status === 'ready' && typeof payload.body_text === 'string' ? payload.body_text : '';
+    status === 'ready' && typeof payload.body_text === 'string'
+      ? sanitizeBodyText(payload.body_text)
+      : '';
   return {
     tenantId: fallback.tenantId,
     documentId: fallback.documentId,
@@ -121,11 +132,25 @@ export class ExtractionDispatcher {
       target.normalizedFilename,
     );
 
-    const response = await fetch(`${workerBaseUrl()}/extract`, {
-      method: 'POST',
-      headers: { 'x-amic-tenant-id': target.tenantId },
-      body: form,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), extractionWorkerTimeoutMs());
+    let response: Response;
+    try {
+      response = await fetch(`${workerBaseUrl()}/extract`, {
+        method: 'POST',
+        headers: { 'x-amic-tenant-id': target.tenantId },
+        signal: controller.signal,
+        body: form,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        this.metrics.recordExtractionResult('failed');
+        throw new Error('transient extraction worker failure: timeout');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (response.status >= 500 || response.status === 408 || response.status === 429) {
       this.metrics.recordExtractionResult('failed');

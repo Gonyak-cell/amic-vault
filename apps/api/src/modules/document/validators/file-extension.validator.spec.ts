@@ -19,6 +19,31 @@ describe('FileExtensionValidator', () => {
     }
   });
 
+  it('includes OneDrive migration source extensions in the default allow-list', () => {
+    const allowed = allowedDocumentExtensions();
+
+    for (const extension of [
+      'pdf',
+      'docx',
+      'jpg',
+      'xlsx',
+      'png',
+      'txt',
+      'eml',
+      'doc',
+      'xls',
+      'hwp',
+      'pptx',
+      'jpeg',
+      'csv',
+      'msg',
+      'hwpx',
+      'ppt',
+    ]) {
+      expect(allowed.has(extension)).toBe(true);
+    }
+  });
+
   it('rejects executable, missing, path-like, and double-extension uploads by final suffix', () => {
     const validator = new FileExtensionValidator(allowedDocumentExtensions('pdf,docx,hwpx'));
 
