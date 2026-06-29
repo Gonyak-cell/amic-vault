@@ -1,16 +1,19 @@
 # OneDrive Production Gate Request Packet
 
 Date: 2026-06-29
-Branch: `codex/onedrive-production-gate-check`
-Base: `origin/main` after PR #328 merge (`782a4126e97c65c5dc612dba7d219f721c197b0d`)
+Initial Branch: `codex/onedrive-production-gate-check`
+Follow-up Branch: `codex/onedrive-production-preflight-ready`
+Base: `origin/main` after PR #329 merge (`04d8b231dee0426f9bdcdea0d72d8a0f7192c21d`)
 
 ## Status
 
-Local OneDrive-to-Vault closeout evidence is on `main`, but production promotion
-is still blocked because the production external refs have not been supplied to
-the no-write production preflight surface.
+Local OneDrive-to-Vault closeout evidence is on `main`. PR #329 added the
+production gate request packet, and the follow-up no-write production preflight
+has now reached the production import decision gate. Production import itself is
+still not executed and remains blocked until a separate production import
+approval ref is supplied.
 
-Current no-write preflight:
+Initial no-write preflight:
 
 - Command: `pnpm onedrive:production-preflight -- --dry-run ...`
 - Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-preflight-ref-check.sanitized.json`
@@ -22,6 +25,32 @@ Current no-write preflight:
 - `onedrive_connected_state_claimed=false`
 - `office_open_save_sync_claimed=false`
 - `gemma_indexing_executed=false`
+
+Follow-up no-write preflight:
+
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-preflight-ready-check.sanitized.json`
+- Result: `ready_for_production_import_decision`
+- Blockers: none
+- `production_write_executed=false`
+- `production_import_executed=false`
+- `production_source_of_truth_cutover_executed=false`
+- `onedrive_connected_state_claimed=false`
+- `office_open_save_sync_claimed=false`
+- `gemma_indexing_executed=false`
+
+Production import decision gate:
+
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-import-decision-ready.sanitized.json`
+- Result: `ready_for_next_gate`
+- Blockers: none
+- `production_write_executed=false`
+
+Production pilot import gate:
+
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-blocked-no-approval.sanitized.json`
+- Result: `blocked`
+- Blocker: `production_import_approval_ref_missing`
+- `production_write_executed=false`
 
 ## Required Runtime Refs
 
@@ -37,6 +66,10 @@ document names, object keys, screenshots, cookies, or tokens into the repo.
 | `operator_role_ref` | Proves the migration operator role/window is approved and bounded. | Opaque approval/evidence ID. |
 | `manifest_ref` | Pins the approved manifest/evidence bundle used for production replay. | Opaque manifest hash/ref or sanitized evidence ID. |
 | `approval_ref` | Explicit approval to proceed to production dry-run/execute gates for this migration lane. | Opaque approval ID. |
+
+The no-write preflight ready check used only opaque refs and hashes them in the
+sanitized receipt. It does not prove production customer document import was
+executed.
 
 ## Next No-Write Command
 
@@ -63,6 +96,29 @@ pnpm onedrive:production-preflight -- \
 Passing this preflight does not execute production import, production cutover,
 OneDrive connected-state, Office sync, or Gemma indexing. Those remain separate
 gates with their own receipts.
+
+## Next Approval Required
+
+The next executable gate is `LC-ONEDRIVE-CLOSEOUT-05` production pilot/batch
+import. It needs a separate explicit approval ref before any production import
+runner can be invoked.
+
+Required approval shape:
+
+```text
+approval_ref = <opaque production import approval id>
+scope = production pilot or bounded batch import only
+source refs = production-preflight-ready-check.sanitized.json and production-import-decision-ready.sanitized.json
+forbidden claims = OneDrive connected-state, Office open/save/sync, Gemma indexing
+```
+
+Without that approval ref, the gate remains:
+
+```text
+production_pilot_import_status = blocked
+blocker = production_import_approval_ref_missing
+production_write_executed = false
+```
 
 ## Acceptance Gate
 
