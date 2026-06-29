@@ -6,6 +6,7 @@ import process from 'node:process';
 const gateValues = [
   'production-import-decision',
   'production-pilot-import',
+  'production-batch-expansion',
   'production-cutover',
   'production-ai-backlog',
   'gemma-indexing-claim',
@@ -226,6 +227,29 @@ function collectBlockers(
 
   if (args.gate === 'production-pilot-import' && !safeOptionalRef(args.approvalRef)) {
     blockers.push('production_import_approval_ref_missing');
+  }
+  if (args.gate === 'production-batch-expansion') {
+    if (!safeOptionalRef(args.approvalRef)) {
+      blockers.push('production_batch_expansion_approval_ref_missing');
+    }
+    if (!receiptPass(receipts.productionImportCloseout)) {
+      blockers.push('production_pilot_closeout_receipt_missing_or_not_passed');
+    }
+    if (receipts.productionImportCloseout?.production_import_executed !== true) {
+      blockers.push('production_pilot_closeout_import_not_executed');
+    }
+    if (receipts.productionImportCloseout?.production_source_of_truth_cutover_executed !== false) {
+      blockers.push('production_pilot_closeout_cutover_claim_must_be_false');
+    }
+    if (receipts.productionImportCloseout?.onedrive_connected_state_claimed !== false) {
+      blockers.push('production_pilot_closeout_onedrive_claim_must_be_false');
+    }
+    if (receipts.productionImportCloseout?.office_open_save_sync_claimed !== false) {
+      blockers.push('production_pilot_closeout_office_claim_must_be_false');
+    }
+    if (receipts.productionImportCloseout?.gemma_indexing_executed !== false) {
+      blockers.push('production_pilot_closeout_gemma_claim_must_be_false');
+    }
   }
   if (args.gate === 'production-cutover') {
     if (!safeOptionalRef(args.approvalRef)) blockers.push('production_cutover_approval_ref_missing');

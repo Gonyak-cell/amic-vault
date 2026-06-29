@@ -94,6 +94,25 @@ This closeout reads only sanitized receipts. It verifies `PROD-IMPORT-005`
 post-execute counts and `PROD-IMPORT-006` replay idempotency before production
 cutover preflight can consume the closeout receipt.
 
+Before expanding beyond the bounded pilot, run the no-write batch expansion
+gate with a separate approval ref:
+
+```bash
+pnpm onedrive:closeout-gate -- \
+  --dry-run \
+  --gate production-batch-expansion \
+  --run-id lc-onedrive-production-batch-expansion-gate \
+  --production-preflight .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-preflight-ready-check.sanitized.json \
+  --tuw-plan docs/release/onedrive-production-import-tuw-plan.md \
+  --approval-ref <production-batch-expansion-approval-ref> \
+  --production-import-closeout .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-closeout.sanitized.json \
+  --sanitized-out .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-batch-expansion-gate.sanitized.json
+```
+
+This gate does not execute production import or cutover. It only proves the
+pilot closeout receipt is `PASS`, production import actually executed for the
+bounded pilot, and connected-state/Office/Gemma/cutover claims remain false.
+
 ## TUW Breakdown
 
 ### PROD-IMPORT-001: Approval Ref Fixed
@@ -291,6 +310,8 @@ Implementation:
 
 - Wrapper receipt reports `WAITING_FOR_PRODUCTION_RUNTIME_TARGET` until execute.
 - If execute passes, next gate is batch expansion or cutover preflight.
+- Batch expansion requires `production-batch-expansion` closeout gate PASS with
+  a separate approval ref and pilot closeout receipt.
 - Cutover still needs separate approval.
 
 Verification:

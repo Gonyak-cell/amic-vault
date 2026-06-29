@@ -164,6 +164,25 @@ pnpm onedrive:production-pilot-closeout -- \
 The closeout must return `status=PASS`; otherwise production cutover preflight
 must remain blocked.
 
+Before expanding beyond the bounded pilot, run a separate no-write batch
+expansion gate:
+
+```bash
+pnpm onedrive:closeout-gate -- \
+  --dry-run \
+  --gate production-batch-expansion \
+  --run-id <run-id> \
+  --production-preflight <production-preflight-ready-check.sanitized.json> \
+  --tuw-plan docs/release/onedrive-production-import-tuw-plan.md \
+  --approval-ref <production-batch-expansion-approval-ref> \
+  --production-import-closeout <production-pilot-closeout.sanitized.json> \
+  --sanitized-out <production-batch-expansion-gate.sanitized.json>
+```
+
+This gate does not execute import. It only confirms pilot closeout PASS and
+keeps source-of-truth cutover, OneDrive connected-state, Office open/save/sync,
+Gemma indexing, and go-live claims false.
+
 Use `--limit` and `--offset` for wave execution. Replays use the local state file
 and the manifest `idempotency_key`; already imported rows are reported as
 `already_imported` and are not uploaded again.
