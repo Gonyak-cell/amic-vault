@@ -38,7 +38,10 @@ The runtime target check writes only booleans, hashed refs, and sanitized
 evidence filenames. It does not store `DATABASE_URL`, `PGHOST`, `AWS_PROFILE`,
 object keys, raw paths, account IDs, or customer content. Status
 `ready_for_pilot_execute` means the same runtime target conditions required by
-the LC-05 wrapper are present.
+the LC-05 wrapper are present. When blocked, `missing_runtime_requirements`
+names the missing requirement class without recording secret values. When
+ready, `execute_handoff.status=ready` confirms the bounded scope and the
+required `--runtime-target-check` receipt argument for the execute wrapper.
 
 Use the LC-05 wrapper:
 
@@ -70,6 +73,9 @@ source-object runtime target env are present and the matching
 `ready_for_pilot_execute`. The wrapper blocks execute when `DATABASE_URL` or
 `PGHOST`/`PGDATABASE`/`PGUSER` is absent, source object access env is absent, or
 the runtime target check receipt is missing/not ready/scope mismatched.
+It also validates the receipt's `execute_handoff` block, including
+`required_receipt_ref`, `required_wrapper_arg`, and bounded scope, before
+calling the import runner.
 
 ## TUW Breakdown
 
