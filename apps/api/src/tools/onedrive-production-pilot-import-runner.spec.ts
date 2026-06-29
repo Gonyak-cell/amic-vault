@@ -13,11 +13,19 @@ const approvalRef = 'APPROVAL-ONEDRIVE-PROD-PILOT-IMPORT-2026-06-29';
 const manifestApprovalRef = 'approval-ingest.sanitized.json';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
 
-async function fixtureFiles(options: { ready?: boolean; handoffRefMismatch?: boolean } = {}) {
+async function fixtureFiles(
+  options: {
+    ready?: boolean;
+    handoffRefMismatch?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {},
+) {
   const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-production-pilot-import-test-'));
   const productionPreflight = path.join(dir, 'production-preflight.sanitized.json');
   const importDecision = path.join(dir, 'production-import-decision.sanitized.json');
   const pilotGate = path.join(dir, 'production-pilot-gate.sanitized.json');
+  const batchExpansionGate = path.join(dir, 'production-batch-expansion-gate.sanitized.json');
   const runtimeTargetCheck = path.join(dir, 'production-runtime-target-check.sanitized.json');
   const sanitizedOut = path.join(dir, 'production-pilot.sanitized.json');
   const localReceiptOut = path.join(dir, 'production-pilot.local.ndjson');
@@ -25,6 +33,8 @@ async function fixtureFiles(options: { ready?: boolean; handoffRefMismatch?: boo
   const manifest = path.join(dir, 'manifest.ndjson');
   const scope = path.join(dir, 'scope.ndjson');
   const ready = options.ready !== false;
+  const limit = options.limit ?? 1;
+  const offset = options.offset ?? 0;
   await writeFile(
     productionPreflight,
     `${JSON.stringify({
@@ -60,6 +70,32 @@ async function fixtureFiles(options: { ready?: boolean; handoffRefMismatch?: boo
     'utf8',
   );
   await writeFile(
+    batchExpansionGate,
+    `${JSON.stringify({
+      receipt_type: 'onedrive_closeout_gate',
+      mode: 'dry-run',
+      gate: 'production-batch-expansion',
+      status: ready ? 'ready_for_next_gate' : 'blocked',
+      production_write_executed: false,
+      production_import_executed: false,
+      production_source_of_truth_cutover_executed: false,
+      onedrive_connected_state_claimed: false,
+      office_open_save_sync_claimed: false,
+      gemma_indexing_executed: false,
+      gate_inputs: {
+        production_import_closeout_ref: {
+          present: ready,
+          ref: 'production-pilot-closeout.sanitized.json',
+        },
+        approval_ref: {
+          present: ready,
+          hash_ref: 'sha256:approved',
+        },
+      },
+    })}\n`,
+    'utf8',
+  );
+  await writeFile(
     runtimeTargetCheck,
     `${JSON.stringify({
       receipt_type: 'onedrive_production_runtime_target_check',
@@ -71,8 +107,8 @@ async function fixtureFiles(options: { ready?: boolean; handoffRefMismatch?: boo
       office_open_save_sync_claimed: false,
       gemma_indexing_executed: false,
       scope: {
-        limit: 1,
-        offset: 0,
+        limit,
+        offset,
         tenant_slug_hash: sha256('amic'),
         actor_user_id_hash: sha256(actorUserId),
       },
@@ -87,8 +123,8 @@ async function fixtureFiles(options: { ready?: boolean; handoffRefMismatch?: boo
           : path.basename(runtimeTargetCheck),
         required_wrapper_arg: '--runtime-target-check',
         bounded_scope: {
-          limit: 1,
-          offset: 0,
+          limit,
+          offset,
         },
       },
     })}\n`,
@@ -100,6 +136,7 @@ async function fixtureFiles(options: { ready?: boolean; handoffRefMismatch?: boo
     productionPreflight,
     importDecision,
     pilotGate,
+    batchExpansionGate,
     runtimeTargetCheck,
     sanitizedOut,
     localReceiptOut,
@@ -113,6 +150,11 @@ function args(
   files: Awaited<ReturnType<typeof fixtureFiles>>,
   execute = false,
   includeRuntimeTargetCheck = false,
+  options: {
+    includeBatchExpansionGate?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {},
 ): ProductionPilotImportCliArgs {
   return {
     dryRun: !execute,
@@ -123,6 +165,9 @@ function args(
     productionPreflightPath: files.productionPreflight,
     importDecisionReceiptPath: files.importDecision,
     pilotGateReceiptPath: files.pilotGate,
+    batchExpansionGateReceiptPath: options.includeBatchExpansionGate
+      ? files.batchExpansionGate
+      : undefined,
     runtimeTargetCheckPath: includeRuntimeTargetCheck ? files.runtimeTargetCheck : undefined,
     manifestPath: files.manifest,
     scopePath: files.scope,
@@ -131,8 +176,8 @@ function args(
     sanitizedOut: files.sanitizedOut,
     localReceiptOut: files.localReceiptOut,
     statePath: files.statePath,
-    limit: 1,
-    offset: 0,
+    limit: options.limit ?? 1,
+    offset: options.offset ?? 0,
     maxFailures: 1,
     cutoverPolicy: 'not_requested',
   };
@@ -249,6 +294,60 @@ describe('onedrive-production-pilot-import-runner', () => {
     expect(report.blockers).toContain('production_runtime_target_check_handoff_ref_mismatch');
     expect(report.production_import_executed).toBe(false);
     expect(runImport).not.toHaveBeenCalled();
+  });
+
+  it('blocks expanded batch execute when the production batch expansion gate receipt is missing', async () => {
+    const files = await fixtureFiles({ limit: 100, offset: 100 });
+    const runImport = vi.fn(async () => importReport('imported'));
+
+    const report = await runProductionPilotImport(
+      args(files, true, true, { limit: 100, offset: 100 }),
+      {
+        env: {
+          DATABASE_URL: 'present',
+          AWS_PROFILE: 'prod',
+          AWS_REGION: 'ap-northeast-2',
+        },
+        runImport,
+      },
+    );
+
+    expect(report.status).toBe('blocked');
+    expect(report.blockers).toContain('production_batch_expansion_gate_receipt_missing');
+    expect(report.production_import_executed).toBe(false);
+    expect(runImport).not.toHaveBeenCalled();
+  });
+
+  it('executes expanded batch only when runtime target and batch expansion gate receipts are ready', async () => {
+    const files = await fixtureFiles({ limit: 100, offset: 100 });
+    const runImport = vi
+      .fn()
+      .mockResolvedValueOnce(importReport('imported'))
+      .mockResolvedValueOnce(importReport('already_imported'));
+
+    const report = await runProductionPilotImport(
+      args(files, true, true, {
+        includeBatchExpansionGate: true,
+        limit: 100,
+        offset: 100,
+      }),
+      {
+        env: {
+          DATABASE_URL: 'present',
+          AWS_PROFILE: 'prod',
+          AWS_REGION: 'ap-northeast-2',
+        },
+        runImport,
+      },
+    );
+
+    expect(report.blockers).toEqual([]);
+    expect(report.status).toBe('pass');
+    expect(report.production_import_executed).toBe(true);
+    expect(report.evidence_refs.batch_expansion_gate_ref).toBe(
+      path.basename(files.batchExpansionGate),
+    );
+    expect(runImport).toHaveBeenCalledTimes(2);
   });
 });
 
