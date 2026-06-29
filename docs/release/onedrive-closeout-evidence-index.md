@@ -179,6 +179,24 @@ Frozen state:
 | `LC-ONEDRIVE-CLOSEOUT-09` | DEFERRED_PRODUCT_GATE | OneDrive connected-state receipt missing |
 | `LC-ONEDRIVE-CLOSEOUT-10` | DEFERRED_PRODUCT_GATE | Office sync receipt missing |
 
+## Final Statement Evidence
+
+Evidence refs:
+
+- `docs/release/onedrive-closeout-final-statement.md`
+- `.omo/evidence/LC-ONEDRIVE-CLOSEOUT/final-statement.sanitized.json`
+
+Frozen state:
+
+| Gate | Result |
+| --- | --- |
+| Local Vault migration complete statement | PRESENT |
+| Production import complete statement | NOT CLAIMED |
+| Production source-of-truth cutover complete statement | NOT CLAIMED |
+| OneDrive connected-state complete statement | NOT CLAIMED |
+| Office sync complete statement | NOT CLAIMED |
+| PR open | #328 |
+
 All generated gate receipts keep these flags false:
 
 - `production_write_executed`
@@ -215,7 +233,7 @@ This closeout index does not claim:
 | `LC-ONEDRIVE-CLOSEOUT-08` | BLOCKED_EXECUTE_RECEIPT | Gemma indexing claim gate receipt created |
 | `LC-ONEDRIVE-CLOSEOUT-09` | DEFERRED_PRODUCT_GATE | OneDrive connected-state |
 | `LC-ONEDRIVE-CLOSEOUT-10` | DEFERRED_PRODUCT_GATE | Office open/save/sync |
-| `LC-ONEDRIVE-CLOSEOUT-11` | PENDING_FINAL_STATEMENT | After PR/main/production gates |
+| `LC-ONEDRIVE-CLOSEOUT-11` | COMPLETED_LOCAL_STATEMENT | Final statement splits local complete from production/product non-claims |
 
 ## Leak Boundary
 

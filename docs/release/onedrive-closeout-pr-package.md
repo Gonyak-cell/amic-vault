@@ -39,6 +39,7 @@ and product integration claims.
 - `docs/release/onedrive-closeout-main-production-tuw-plan.md`
 - `docs/release/onedrive-closeout-evidence-index.md`
 - `docs/release/matter-app-migration-db-linkage-tuw-plan.md`
+- `docs/release/onedrive-closeout-final-statement.md`
 - `.omo/evidence/BULK-SCOPE-APPROVAL/provisional-approve-complete/customer-wide-import/customer-wide-import-closeout.sanitized.json`
 - `.omo/evidence/OP-ONEDRIVE-CUTOVER-EXECUTE/post-cutover-read-surface-smoke.sanitized.json`
 - `.omo/evidence/OP-FULL-CLOSEOUT/full-closeout-final-reconciliation.sanitized.json`
