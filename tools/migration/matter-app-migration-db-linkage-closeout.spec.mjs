@@ -131,7 +131,7 @@ const passingBridgeReceipt = {
     matter_app_client_upsert_and_projection_sync: 80,
     matter_app_matter_upsert_and_projection_sync: 123,
   },
-  matter_app_resolved_counts: { clients: 80, matters: 123, source_revisions: 123 },
+  matter_app_resolved_counts: { clients: 80, matters: 123, source_revisions: 1 },
   blocked_target_count: 0,
   environment_blockers: [],
   preflight_blockers: [],
