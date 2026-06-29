@@ -57,6 +57,7 @@ export interface CustomerWideImportCliArgs {
   actorUserId: string;
   uploadPreflightRef?: string | undefined;
   importApprovalRef: string;
+  manifestApprovalRef: string;
   sanitizedOut: string;
   localReceiptOut: string;
   statePath: string;
@@ -170,7 +171,7 @@ interface SanitizedItem {
 
 export function usage(): string {
   return [
-    'usage: pnpm onedrive:customer-wide-import -- --dry-run|--execute --run-id <id> --manifest <resolved.ndjson[.gz]> --scope <approved-scope.ndjson[.gz]> --tenant-slug <slug> --actor-user-id <uuid> --import-approval-ref <ref> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> [--state <state.json>] [--aws-profile <profile>] [--limit <n>] [--offset <n>] [--max-failures <n>] [--cutover-policy not_requested]',
+    'usage: pnpm onedrive:customer-wide-import -- --dry-run|--execute --run-id <id> --manifest <resolved.ndjson[.gz]> --scope <approved-scope.ndjson[.gz]> --tenant-slug <slug> --actor-user-id <uuid> --import-approval-ref <ref> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> [--manifest-approval-ref <ref>] [--state <state.json>] [--aws-profile <profile>] [--limit <n>] [--offset <n>] [--max-failures <n>] [--cutover-policy not_requested]',
     '',
     'Customer-wide OneDrive import runner for already resolved Vault targets.',
     'It writes only through DocumentUploadService and refuses source-of-truth cutover.',
@@ -190,6 +191,7 @@ export function parseCustomerWideImportArgs(argv: readonly string[]): CustomerWi
   const maxFailures =
     parseOptionalPositiveInt(argValue(argv, '--max-failures'), '--max-failures', 10_000) ?? 3;
 
+  const importApprovalRef = requiredArg(argv, '--import-approval-ref');
   return {
     runId: requiredArg(argv, '--run-id'),
     manifestPath: requiredArg(argv, '--manifest'),
@@ -197,7 +199,8 @@ export function parseCustomerWideImportArgs(argv: readonly string[]): CustomerWi
     tenantSlug: requiredArg(argv, '--tenant-slug'),
     actorUserId: requiredArg(argv, '--actor-user-id'),
     uploadPreflightRef: argValue(argv, '--upload-preflight-ref'),
-    importApprovalRef: requiredArg(argv, '--import-approval-ref'),
+    importApprovalRef,
+    manifestApprovalRef: argValue(argv, '--manifest-approval-ref') ?? importApprovalRef,
     sanitizedOut,
     localReceiptOut,
     statePath:
@@ -386,6 +389,11 @@ export async function runCustomerWideImport(
     processed_rows: sanitizedItems.length,
     local_receipt_rows_written: localReceipts.length,
     global_blockers: globalBlockers,
+    approval_refs: {
+      import_approval_ref_hash: sha256Hex(args.importApprovalRef).slice(0, 16),
+      manifest_approval_ref_hash: sha256Hex(args.manifestApprovalRef).slice(0, 16),
+      import_and_manifest_approval_refs_match: args.importApprovalRef === args.manifestApprovalRef,
+    },
     summary,
     items: sanitizedItems,
     not_executed: [
@@ -481,7 +489,7 @@ function classifyManifestRow(
 
   if (!sourceHash) reasons.push('missing_source_row_hash');
   if (!idempotencyKey) reasons.push('missing_idempotency_key');
-  if (row.approval_ref !== args.importApprovalRef) reasons.push('approval_ref_mismatch');
+  if (row.approval_ref !== args.manifestApprovalRef) reasons.push('approval_ref_mismatch');
   if (row.planned_action !== 'create_document_version_file_object_audit') {
     reasons.push('planned_action_not_importable');
   }
