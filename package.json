@@ -45,6 +45,7 @@
     "onedrive:source-cutover-execute": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-source-cutover-execute.js",
     "onedrive:production-preflight": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-production-preflight.js",
     "onedrive:closeout-gate": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-closeout-gate-runner.js",
+    "onedrive:production-pilot-import": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-production-pilot-import-runner.js",
     "onedrive:full-closeout-remediate": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-full-closeout-remediation-runner.js",
     "matter:bridge-closeout": "node tools/migration/matter-app-migration-db-linkage-closeout.mjs",
     "gemma:ai-allowed-pilot": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-ai-allowed-pilot-runner.js",

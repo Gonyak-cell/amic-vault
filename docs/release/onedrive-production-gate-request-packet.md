@@ -70,9 +70,19 @@ Approved production pilot runner dry-run:
 - Failed rows: 0
 - `production_write_executed=false`
 
+LC-05 wrapper dry-run:
+
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-approved-wrapper-dry-run.sanitized.json`
+- Result: `ready_for_execute`
+- Scope: limit 1, offset 0
+- Ready rows: 1
+- Blocked rows: 0
+- Failed rows: 0
+- `production_import_executed=false`
+
 Production pilot execute:
 
-- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-execute-blocked-runtime-target.sanitized.json`
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-wrapper-execute-blocked-runtime-target.sanitized.json`
 - Result: `blocked`
 - Blocker: `production_runtime_target_env_missing`
 - `production_import_executed=false`
