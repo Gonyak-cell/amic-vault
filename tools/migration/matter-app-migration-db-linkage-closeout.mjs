@@ -82,6 +82,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     const value = argv[index + 1];
+    if (key === '--') continue;
     if (key === '--api-base-url') args.apiBaseUrl = value;
     else if (key === '--database-url') args.databaseUrl = value;
     else if (key === '--operator-email') args.operatorEmail = value;
@@ -115,12 +116,12 @@ export function parseArgs(argv = process.argv.slice(2)) {
   args.bridgeExecuteReceipt ??= path.join(
     args.outputDir,
     'bridge-execute',
-    'client-matter-write.sanitized.json',
+    'canonical-upsert-sync.sanitized.json',
   );
   args.bridgeReplayReceipt ??= path.join(
     args.outputDir,
     'bridge-replay',
-    'client-matter-write.sanitized.json',
+    'canonical-upsert-sync.sanitized.json',
   );
   args.sessionTtlMinutes = Math.max(1, Math.min(args.sessionTtlMinutes, 60));
   return args;
@@ -675,6 +676,39 @@ export function validateApiSmoke(apiSmoke, { requireMatterAppApi = true } = {}) 
 }
 
 export function validateBridgeWriteReceipt(receipt) {
+  const canonicalSync = receipt?.artifact === 'matter_app_canonical_upsert_sync_sanitized';
+  if (canonicalSync) {
+    return {
+      present: true,
+      status_pass: receipt?.status === 'pass',
+      execute_mode: receipt?.execute === true,
+      target_rows: receipt?.target_rows === 203,
+      matter_app_api_checked:
+        Array.isArray(receipt?.environment_blockers) &&
+        !receipt.environment_blockers.includes('matter_app_api_config_missing') &&
+        !receipt.environment_blockers.includes('matter_app_api_health_unreachable') &&
+        !receipt.environment_blockers.includes('matter_app_api_health_not_ready'),
+      matter_app_api_configured:
+        Array.isArray(receipt?.environment_blockers) &&
+        !receipt.environment_blockers.includes('matter_app_api_config_missing'),
+      client_projection_synced: receipt?.result_counts?.matter_app_client_resolved === 80,
+      vault_projection_synced: receipt?.result_counts?.vault_projection_synced === 123,
+      client_sync_action_count:
+        receipt?.action_counts?.matter_app_client_upsert_and_projection_sync === 80,
+      matter_sync_action_count:
+        receipt?.action_counts?.matter_app_matter_upsert_and_projection_sync === 123,
+      matter_app_clients_resolved: receipt?.matter_app_resolved_counts?.clients === 80,
+      matter_app_matters_resolved: receipt?.matter_app_resolved_counts?.matters === 123,
+      source_revisions_resolved: receipt?.matter_app_resolved_counts?.source_revisions === 123,
+      blocked_zero: receipt?.blocked_target_count === 0,
+      environment_blockers_zero:
+        Array.isArray(receipt?.environment_blockers) && receipt.environment_blockers.length === 0,
+      preflight_blockers_zero:
+        Array.isArray(receipt?.preflight_blockers) && receipt.preflight_blockers.length === 0,
+      identity_blockers_zero:
+        Array.isArray(receipt?.identity_blockers) && receipt.identity_blockers.length === 0,
+    };
+  }
   return {
     present: Boolean(receipt),
     status_pass: receipt?.status === 'pass',
