@@ -7,6 +7,7 @@ import { parseCloseoutGateArgs, runCloseoutGate } from './onedrive-closeout-gate
 async function fixtureFiles(options: { preflightReady?: boolean; planText?: string } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-closeout-gate-test-'));
   const productionPreflight = path.join(dir, 'production-preflight.sanitized.json');
+  const productionImportCloseout = path.join(dir, 'production-pilot-closeout.sanitized.json');
   const tuwPlan = path.join(dir, 'onedrive-closeout-main-production-tuw-plan.md');
   const sanitizedOut = path.join(dir, 'gate.sanitized.json');
   await writeFile(
@@ -39,8 +40,22 @@ async function fixtureFiles(options: { preflightReady?: boolean; planText?: stri
     })}\n`,
     'utf8',
   );
+  await writeFile(
+    productionImportCloseout,
+    `${JSON.stringify({
+      receipt_type: 'onedrive_production_pilot_closeout',
+      status: 'PASS',
+      production_write_executed: false,
+      production_import_executed: true,
+      production_source_of_truth_cutover_executed: false,
+      onedrive_connected_state_claimed: false,
+      office_open_save_sync_claimed: false,
+      gemma_indexing_executed: false,
+    })}\n`,
+    'utf8',
+  );
   await writeFile(tuwPlan, options.planText ?? 'safe plan text\n', 'utf8');
-  return { productionPreflight, tuwPlan, sanitizedOut };
+  return { productionPreflight, productionImportCloseout, tuwPlan, sanitizedOut };
 }
 
 function baseArgs(files: Awaited<ReturnType<typeof fixtureFiles>>) {
@@ -101,6 +116,28 @@ describe('onedrive-closeout-gate-runner', () => {
     expect(report.blockers).toContain('gemma_indexing_audit_receipt_missing');
   });
 
+  it('requires pilot closeout and approval before production batch expansion', async () => {
+    const files = await fixtureFiles({ preflightReady: true });
+
+    const missing = await runCloseoutGate({
+      ...baseArgs(files),
+      gate: 'production-batch-expansion',
+    });
+    const ready = await runCloseoutGate({
+      ...baseArgs(files),
+      gate: 'production-batch-expansion',
+      approvalRef: 'APPROVAL-ONEDRIVE-PROD-BATCH-EXPANSION-2026-06-29',
+      productionImportCloseoutPath: files.productionImportCloseout,
+    });
+
+    expect(missing.status).toBe('blocked');
+    expect(missing.blockers).toContain('production_batch_expansion_approval_ref_missing');
+    expect(missing.blockers).toContain('production_pilot_closeout_receipt_missing_or_not_passed');
+    expect(ready.status).toBe('ready_for_next_gate');
+    expect(ready.production_import_executed).toBe(false);
+    expect(ready.production_source_of_truth_cutover_executed).toBe(false);
+  });
+
   it('defers OneDrive and Office product gates without making claims', async () => {
     const files = await fixtureFiles({ preflightReady: true });
 
@@ -113,4 +150,3 @@ describe('onedrive-closeout-gate-runner', () => {
     expect(office.office_open_save_sync_claimed).toBe(false);
   });
 });
-
