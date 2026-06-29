@@ -116,7 +116,10 @@ pnpm onedrive:production-runtime-target-check -- \
 
 This check is no-write and stores only runtime target presence booleans, hashed
 refs, and sanitized evidence filenames. It must report
-`ready_for_pilot_execute` before running the execute form below.
+`ready_for_pilot_execute` before running the execute form below. If it is
+blocked, inspect `missing_runtime_requirements`; if it is ready, use the
+receipt referenced by `execute_handoff.required_receipt_ref` as the
+`--runtime-target-check` input.
 
 ```bash
 pnpm onedrive:production-pilot-import -- \

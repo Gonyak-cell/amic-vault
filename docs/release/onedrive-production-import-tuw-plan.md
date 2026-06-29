@@ -38,7 +38,10 @@ The runtime target check writes only booleans, hashed refs, and sanitized
 evidence filenames. It does not store `DATABASE_URL`, `PGHOST`, `AWS_PROFILE`,
 object keys, raw paths, account IDs, or customer content. Status
 `ready_for_pilot_execute` means the same runtime target conditions required by
-the LC-05 wrapper are present.
+the LC-05 wrapper are present. When blocked, `missing_runtime_requirements`
+names the missing requirement class without recording secret values. When
+ready, `execute_handoff.status=ready` confirms the bounded scope and the
+required `--runtime-target-check` receipt argument for the execute wrapper.
 
 Use the LC-05 wrapper:
 
