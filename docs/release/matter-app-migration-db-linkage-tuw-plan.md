@@ -124,7 +124,7 @@ sync, and Gemma execution.
 | `MATTER-BRIDGE-001` | `pnpm matter:identity-preflight` bridge status/auth section | No write | `identity-preflight.sanitized.json` |
 | `MATTER-BRIDGE-002` | `pnpm matter:identity-preflight` client export/preflight section | No write | `identity-preflight.sanitized.json` and `.local.ndjson.gz` details |
 | `MATTER-BRIDGE-003` | `pnpm matter:identity-preflight` matter export/preflight section | No write | `identity-preflight.sanitized.json` and `.local.ndjson.gz` details |
-| `MATTER-BRIDGE-004` | `node tools/migration/onedrive-client-matter-write.mjs --execute` | Matter app upsert and Vault projection sync only | `client-matter-write.sanitized.json` |
+| `MATTER-BRIDGE-004` | `pnpm matter:canonical-sync -- --execute` | Matter app upsert and Vault projection sync only | `canonical-upsert-sync.sanitized.json` |
 | `MATTER-BRIDGE-005` | Runtime env plus `/v1/integrations/matter-app/status` | No DB write | API status smoke in final closeout |
 | `MATTER-BRIDGE-006` | Authenticated Matter app lookup smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
 | `MATTER-BRIDGE-007` | Permission/ethical-wall negative smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
@@ -139,10 +139,10 @@ sync, and Gemma execution.
    identity-only Vault counts, client/matter hashes, duplicate checks, and Matter
    app bridge status. This command never writes to Vault or Matter app.
 2. If preflight status is `pass`, run
-   `node tools/migration/onedrive-client-matter-write.mjs` without `--execute`
-   to produce a no-write upsert plan from the approved target-resolution plan.
+   `pnpm matter:canonical-sync` without `--execute` to produce a no-write
+   upsert/projection sync plan from the current Vault canonical identity rows.
 3. After explicit approval and live Matter app API readiness, run
-   `node tools/migration/onedrive-client-matter-write.mjs --execute` to upsert
+   `pnpm matter:canonical-sync -- --execute` to upsert
    clients/matters and sync Vault projection refs. This command must remain
    identity-only and must not import or rewrite customer documents.
 4. Re-run the same write runner in replay/dry-run mode to prove duplicate
@@ -168,6 +168,25 @@ Required runtime values for bridge status:
 If these are missing, the preflight still writes a sanitized blocked receipt
 with DB identity counts and `matter_app_api_config_missing`, but it does not
 perform any write.
+
+### Matter App Canonical Sync Command
+
+```bash
+pnpm matter:canonical-sync -- \
+  --tenant-id <tenant_uuid> \
+  --operator-user-id <operator_user_uuid> \
+  --approval-ref <approval_ref> \
+  --identity-preflight .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/identity-preflight.sanitized.json \
+  --receipt .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/bridge-execute/canonical-upsert-sync.sanitized.json \
+  --details .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/bridge-execute/canonical-upsert-sync.local.ndjson.gz
+```
+
+Execution requires the same command plus `--execute`. The command reads existing
+Vault `clients` and `matters`, upserts or reuses the matching canonical Matter
+app records through the bridge API, and stores reference-only Matter app ids and
+source revisions in Vault projection metadata. It must not create local Vault
+clients/matters, import documents, rewrite file objects, claim OneDrive
+connected-state, claim Office sync, or run Gemma indexing.
 
 ### MATTER-BRIDGE-001: Bridge Runtime Preflight
 
