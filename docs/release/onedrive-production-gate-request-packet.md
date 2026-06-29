@@ -169,6 +169,9 @@ pnpm onedrive:production-runtime-target-check -- \
 The check records only presence booleans and hashed refs. It must return
 `ready_for_pilot_execute` before `pnpm onedrive:production-pilot-import --
 --execute` is run.
+The execute command must pass the resulting receipt as
+`--runtime-target-check <production-runtime-target-check.sanitized.json>`; the
+wrapper blocks execute if that receipt is absent, not ready, or scope-mismatched.
 
 Required runtime target shape:
 

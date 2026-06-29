@@ -127,6 +127,7 @@ pnpm onedrive:production-pilot-import -- \
   --production-preflight <production-preflight-ready-check.sanitized.json> \
   --import-decision <production-import-decision-ready.sanitized.json> \
   --pilot-gate <production-pilot-import-approved-dry-run.sanitized.json> \
+  --runtime-target-check <production-runtime-target-check.sanitized.json> \
   --manifest <resolved-import-manifest.local.ndjson.gz> \
   --scope <approved-import-scope.local.ndjson.gz> \
   --tenant-slug <tenant-slug> \
@@ -139,7 +140,8 @@ pnpm onedrive:production-pilot-import -- \
 ```
 
 The wrapper blocks `--execute` unless production DB and source object runtime
-target env are present. It also runs replay dry-run automatically after a
+target env are present and the matching runtime target check receipt reports
+`ready_for_pilot_execute`. It also runs replay dry-run automatically after a
 successful execute.
 
 Use `--limit` and `--offset` for wave execution. Replays use the local state file

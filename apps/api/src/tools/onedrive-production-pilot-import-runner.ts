@@ -16,6 +16,7 @@ export interface ProductionPilotImportCliArgs {
   productionPreflightPath: string;
   importDecisionReceiptPath: string;
   pilotGateReceiptPath: string;
+  runtimeTargetCheckPath?: string | undefined;
   manifestPath: string;
   scopePath: string;
   tenantSlug: string;
@@ -61,6 +62,21 @@ interface GateReceipt {
   acceptance_checks?: Record<string, unknown>;
 }
 
+interface RuntimeTargetCheckReceipt extends GateReceipt {
+  receipt_type?: unknown;
+  run_id?: unknown;
+  scope?: {
+    limit?: unknown;
+    offset?: unknown;
+    tenant_slug_hash?: unknown;
+    actor_user_id_hash?: unknown;
+  };
+  runtime_env_presence?: {
+    databaseTargetPresent?: unknown;
+    sourceObjectAccessPresent?: unknown;
+  };
+}
+
 const safeRefPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]{1,159}$/u;
 const safeRunIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{1,119}$/u;
 const uuidPattern =
@@ -69,7 +85,7 @@ const maxPilotLimit = 100;
 
 export function usage(): string {
   return [
-    'usage: pnpm onedrive:production-pilot-import -- --dry-run|--execute --run-id <id> --approval-ref <ref> --manifest-approval-ref <ref> --production-preflight <receipt.json> --import-decision <receipt.json> --pilot-gate <receipt.json> --manifest <resolved.ndjson[.gz]> --scope <approved-scope.ndjson[.gz]> --tenant-slug <slug> --actor-user-id <uuid> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> --state <state.json> [--aws-profile <profile>] [--limit <n>] [--offset <n>] [--max-failures <n>]',
+    'usage: pnpm onedrive:production-pilot-import -- --dry-run|--execute --run-id <id> --approval-ref <ref> --manifest-approval-ref <ref> --production-preflight <receipt.json> --import-decision <receipt.json> --pilot-gate <receipt.json> --manifest <resolved.ndjson[.gz]> --scope <approved-scope.ndjson[.gz]> --tenant-slug <slug> --actor-user-id <uuid> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> --state <state.json> [--runtime-target-check <receipt.json>] [--aws-profile <profile>] [--limit <n>] [--offset <n>] [--max-failures <n>]',
     '',
     'LC-ONEDRIVE-CLOSEOUT-05 production pilot/batch import wrapper.',
     'It gates production execute on production runtime target presence and never performs source-of-truth cutover, OneDrive connected-state, Office sync, or Gemma indexing.',
@@ -92,6 +108,7 @@ export function parseProductionPilotImportArgs(
     productionPreflightPath: requiredArg(argv, '--production-preflight'),
     importDecisionReceiptPath: requiredArg(argv, '--import-decision'),
     pilotGateReceiptPath: requiredArg(argv, '--pilot-gate'),
+    runtimeTargetCheckPath: argValue(argv, '--runtime-target-check'),
     manifestPath: requiredArg(argv, '--manifest'),
     scopePath: requiredArg(argv, '--scope'),
     tenantSlug: requiredArg(argv, '--tenant-slug'),
@@ -116,8 +133,18 @@ export async function runProductionPilotImport(
   const productionPreflight = (await readJson(args.productionPreflightPath)) as GateReceipt;
   const importDecision = (await readJson(args.importDecisionReceiptPath)) as GateReceipt;
   const pilotGate = (await readJson(args.pilotGateReceiptPath)) as GateReceipt;
+  const runtimeTargetCheck = args.runtimeTargetCheckPath
+    ? ((await readJson(args.runtimeTargetCheckPath)) as RuntimeTargetCheckReceipt)
+    : null;
   const runtime = runtimePresence(env, args);
-  const blockers = collectBlockers(args, productionPreflight, importDecision, pilotGate, runtime);
+  const blockers = collectBlockers(
+    args,
+    productionPreflight,
+    importDecision,
+    pilotGate,
+    runtimeTargetCheck,
+    runtime,
+  );
   const runImport = dependencies.runImport ?? runCustomerWideImport;
   const importRunnerSanitizedOut = siblingReceiptPath(args.sanitizedOut, 'import-runner');
   const replaySanitizedOut = siblingReceiptPath(args.sanitizedOut, 'replay-dry-run');
@@ -158,6 +185,9 @@ export async function runProductionPilotImport(
       production_preflight_ref: safeReceiptRef(args.productionPreflightPath),
       import_decision_ref: safeReceiptRef(args.importDecisionReceiptPath),
       pilot_gate_ref: safeReceiptRef(args.pilotGateReceiptPath),
+      runtime_target_check_ref: args.runtimeTargetCheckPath
+        ? safeReceiptRef(args.runtimeTargetCheckPath)
+        : null,
       import_runner_sanitized_ref: importReport ? safeReceiptRef(importRunnerSanitizedOut) : null,
       replay_sanitized_ref: replayReport ? safeReceiptRef(replaySanitizedOut) : null,
     },
@@ -224,6 +254,7 @@ function collectBlockers(
   productionPreflight: GateReceipt,
   importDecision: GateReceipt,
   pilotGate: GateReceipt,
+  runtimeTargetCheck: RuntimeTargetCheckReceipt | null,
   runtime: ReturnType<typeof runtimePresence>,
 ): string[] {
   const blockers: string[] = [];
@@ -253,7 +284,51 @@ function collectBlockers(
   if (args.execute && (!runtime.databaseTargetPresent || !runtime.sourceObjectAccessPresent)) {
     blockers.push('production_runtime_target_env_missing');
   }
+  if (args.execute) {
+    blockers.push(...runtimeTargetCheckBlockers(args, runtimeTargetCheck));
+  }
   return [...new Set(blockers)];
+}
+
+function runtimeTargetCheckBlockers(
+  args: ProductionPilotImportCliArgs,
+  receipt: RuntimeTargetCheckReceipt | null,
+): string[] {
+  if (!receipt) return ['production_runtime_target_check_receipt_missing'];
+  const blockers: string[] = [];
+  if (receipt.receipt_type !== 'onedrive_production_runtime_target_check') {
+    blockers.push('production_runtime_target_check_receipt_invalid');
+  }
+  if (receipt.status !== 'ready_for_pilot_execute') {
+    blockers.push('production_runtime_target_check_not_ready');
+  }
+  if (receipt.production_write_executed !== false || receipt.production_import_executed !== false) {
+    blockers.push('production_runtime_target_check_must_be_no_write');
+  }
+  if (
+    receipt.production_source_of_truth_cutover_executed !== false ||
+    receipt.onedrive_connected_state_claimed !== false ||
+    receipt.office_open_save_sync_claimed !== false ||
+    receipt.gemma_indexing_executed !== false
+  ) {
+    blockers.push('production_runtime_target_check_forbidden_claim_state');
+  }
+  if (
+    receipt.runtime_env_presence?.databaseTargetPresent !== true ||
+    receipt.runtime_env_presence?.sourceObjectAccessPresent !== true
+  ) {
+    blockers.push('production_runtime_target_check_env_not_present');
+  }
+  if (receipt.scope?.limit !== args.limit || receipt.scope?.offset !== args.offset) {
+    blockers.push('production_runtime_target_check_scope_mismatch');
+  }
+  if (receipt.scope?.tenant_slug_hash !== sha256Hex(args.tenantSlug).slice(0, 16)) {
+    blockers.push('production_runtime_target_check_tenant_mismatch');
+  }
+  if (receipt.scope?.actor_user_id_hash !== sha256Hex(args.actorUserId).slice(0, 16)) {
+    blockers.push('production_runtime_target_check_actor_mismatch');
+  }
+  return blockers;
 }
 
 export function runtimePresence(

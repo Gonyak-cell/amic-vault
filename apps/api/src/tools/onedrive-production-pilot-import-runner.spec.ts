@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import {
   parseProductionPilotImportArgs,
   runProductionPilotImport,
@@ -17,6 +18,7 @@ async function fixtureFiles(options: { ready?: boolean } = {}) {
   const productionPreflight = path.join(dir, 'production-preflight.sanitized.json');
   const importDecision = path.join(dir, 'production-import-decision.sanitized.json');
   const pilotGate = path.join(dir, 'production-pilot-gate.sanitized.json');
+  const runtimeTargetCheck = path.join(dir, 'production-runtime-target-check.sanitized.json');
   const sanitizedOut = path.join(dir, 'production-pilot.sanitized.json');
   const localReceiptOut = path.join(dir, 'production-pilot.local.ndjson');
   const statePath = path.join(dir, 'production-pilot-state.local.json');
@@ -57,12 +59,37 @@ async function fixtureFiles(options: { ready?: boolean } = {}) {
     })}\n`,
     'utf8',
   );
+  await writeFile(
+    runtimeTargetCheck,
+    `${JSON.stringify({
+      receipt_type: 'onedrive_production_runtime_target_check',
+      status: ready ? 'ready_for_pilot_execute' : 'blocked',
+      production_write_executed: false,
+      production_import_executed: false,
+      production_source_of_truth_cutover_executed: false,
+      onedrive_connected_state_claimed: false,
+      office_open_save_sync_claimed: false,
+      gemma_indexing_executed: false,
+      scope: {
+        limit: 1,
+        offset: 0,
+        tenant_slug_hash: sha256('amic'),
+        actor_user_id_hash: sha256(actorUserId),
+      },
+      runtime_env_presence: {
+        databaseTargetPresent: ready,
+        sourceObjectAccessPresent: ready,
+      },
+    })}\n`,
+    'utf8',
+  );
   await writeFile(manifest, '{}\n', 'utf8');
   await writeFile(scope, '{}\n', 'utf8');
   return {
     productionPreflight,
     importDecision,
     pilotGate,
+    runtimeTargetCheck,
     sanitizedOut,
     localReceiptOut,
     statePath,
@@ -74,6 +101,7 @@ async function fixtureFiles(options: { ready?: boolean } = {}) {
 function args(
   files: Awaited<ReturnType<typeof fixtureFiles>>,
   execute = false,
+  includeRuntimeTargetCheck = false,
 ): ProductionPilotImportCliArgs {
   return {
     dryRun: !execute,
@@ -84,6 +112,7 @@ function args(
     productionPreflightPath: files.productionPreflight,
     importDecisionReceiptPath: files.importDecision,
     pilotGateReceiptPath: files.pilotGate,
+    runtimeTargetCheckPath: includeRuntimeTargetCheck ? files.runtimeTargetCheck : undefined,
     manifestPath: files.manifest,
     scopePath: files.scope,
     tenantSlug: 'amic',
@@ -156,7 +185,7 @@ describe('onedrive-production-pilot-import-runner', () => {
       .mockResolvedValueOnce(importReport('imported'))
       .mockResolvedValueOnce(importReport('already_imported'));
 
-    const report = await runProductionPilotImport(args(files, true), {
+    const report = await runProductionPilotImport(args(files, true, true), {
       env: {
         DATABASE_URL: 'postgres://example',
         AWS_PROFILE: 'prod',
@@ -172,4 +201,27 @@ describe('onedrive-production-pilot-import-runner', () => {
     expect(report.tuw_status['PROD-IMPORT-006']).toBe('PASS');
     expect(runImport).toHaveBeenCalledTimes(2);
   });
+
+  it('blocks execute when runtime target check receipt is missing even if env is present', async () => {
+    const files = await fixtureFiles();
+    const runImport = vi.fn(async () => importReport('imported'));
+
+    const report = await runProductionPilotImport(args(files, true), {
+      env: {
+        DATABASE_URL: 'postgres://example',
+        AWS_PROFILE: 'prod',
+        AWS_REGION: 'ap-northeast-2',
+      },
+      runImport,
+    });
+
+    expect(report.status).toBe('blocked');
+    expect(report.blockers).toContain('production_runtime_target_check_receipt_missing');
+    expect(report.production_import_executed).toBe(false);
+    expect(runImport).not.toHaveBeenCalled();
+  });
 });
+
+function sha256(input: string): string {
+  return createHash('sha256').update(input).digest('hex').slice(0, 16);
+}
