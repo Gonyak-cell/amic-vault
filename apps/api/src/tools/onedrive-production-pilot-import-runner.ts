@@ -16,6 +16,7 @@ export interface ProductionPilotImportCliArgs {
   productionPreflightPath: string;
   importDecisionReceiptPath: string;
   pilotGateReceiptPath: string;
+  batchExpansionGateReceiptPath?: string | undefined;
   runtimeTargetCheckPath?: string | undefined;
   manifestPath: string;
   scopePath: string;
@@ -86,6 +87,21 @@ interface RuntimeTargetCheckReceipt extends GateReceipt {
   };
 }
 
+interface BatchExpansionGateReceipt extends GateReceipt {
+  receipt_type?: unknown;
+  mode?: unknown;
+  gate_inputs?: {
+    production_import_closeout_ref?: {
+      present?: unknown;
+      ref?: unknown;
+    };
+    approval_ref?: {
+      present?: unknown;
+      hash_ref?: unknown;
+    };
+  };
+}
+
 const safeRefPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]{1,159}$/u;
 const safeRunIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{1,119}$/u;
 const uuidPattern =
@@ -94,7 +110,7 @@ const maxPilotLimit = 100;
 
 export function usage(): string {
   return [
-    'usage: pnpm onedrive:production-pilot-import -- --dry-run|--execute --run-id <id> --approval-ref <ref> --manifest-approval-ref <ref> --production-preflight <receipt.json> --import-decision <receipt.json> --pilot-gate <receipt.json> --manifest <resolved.ndjson[.gz]> --scope <approved-scope.ndjson[.gz]> --tenant-slug <slug> --actor-user-id <uuid> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> --state <state.json> [--runtime-target-check <receipt.json>] [--aws-profile <profile>] [--limit <n>] [--offset <n>] [--max-failures <n>]',
+    'usage: pnpm onedrive:production-pilot-import -- --dry-run|--execute --run-id <id> --approval-ref <ref> --manifest-approval-ref <ref> --production-preflight <receipt.json> --import-decision <receipt.json> --pilot-gate <receipt.json> --manifest <resolved.ndjson[.gz]> --scope <approved-scope.ndjson[.gz]> --tenant-slug <slug> --actor-user-id <uuid> --sanitized-out <out.json> --local-receipt-out <receipt.ndjson> --state <state.json> [--runtime-target-check <receipt.json>] [--batch-expansion-gate <receipt.json>] [--aws-profile <profile>] [--limit <n>] [--offset <n>] [--max-failures <n>]',
     '',
     'LC-ONEDRIVE-CLOSEOUT-05 production pilot/batch import wrapper.',
     'It gates production execute on production runtime target presence and never performs source-of-truth cutover, OneDrive connected-state, Office sync, or Gemma indexing.',
@@ -117,6 +133,7 @@ export function parseProductionPilotImportArgs(
     productionPreflightPath: requiredArg(argv, '--production-preflight'),
     importDecisionReceiptPath: requiredArg(argv, '--import-decision'),
     pilotGateReceiptPath: requiredArg(argv, '--pilot-gate'),
+    batchExpansionGateReceiptPath: argValue(argv, '--batch-expansion-gate'),
     runtimeTargetCheckPath: argValue(argv, '--runtime-target-check'),
     manifestPath: requiredArg(argv, '--manifest'),
     scopePath: requiredArg(argv, '--scope'),
@@ -142,6 +159,9 @@ export async function runProductionPilotImport(
   const productionPreflight = (await readJson(args.productionPreflightPath)) as GateReceipt;
   const importDecision = (await readJson(args.importDecisionReceiptPath)) as GateReceipt;
   const pilotGate = (await readJson(args.pilotGateReceiptPath)) as GateReceipt;
+  const batchExpansionGate = args.batchExpansionGateReceiptPath
+    ? ((await readJson(args.batchExpansionGateReceiptPath)) as BatchExpansionGateReceipt)
+    : null;
   const runtimeTargetCheck = args.runtimeTargetCheckPath
     ? ((await readJson(args.runtimeTargetCheckPath)) as RuntimeTargetCheckReceipt)
     : null;
@@ -151,6 +171,7 @@ export async function runProductionPilotImport(
     productionPreflight,
     importDecision,
     pilotGate,
+    batchExpansionGate,
     runtimeTargetCheck,
     runtime,
   );
@@ -194,6 +215,9 @@ export async function runProductionPilotImport(
       production_preflight_ref: safeReceiptRef(args.productionPreflightPath),
       import_decision_ref: safeReceiptRef(args.importDecisionReceiptPath),
       pilot_gate_ref: safeReceiptRef(args.pilotGateReceiptPath),
+      batch_expansion_gate_ref: args.batchExpansionGateReceiptPath
+        ? safeReceiptRef(args.batchExpansionGateReceiptPath)
+        : null,
       runtime_target_check_ref: args.runtimeTargetCheckPath
         ? safeReceiptRef(args.runtimeTargetCheckPath)
         : null,
@@ -263,6 +287,7 @@ function collectBlockers(
   productionPreflight: GateReceipt,
   importDecision: GateReceipt,
   pilotGate: GateReceipt,
+  batchExpansionGate: BatchExpansionGateReceipt | null,
   runtimeTargetCheck: RuntimeTargetCheckReceipt | null,
   runtime: ReturnType<typeof runtimePresence>,
 ): string[] {
@@ -295,8 +320,50 @@ function collectBlockers(
   }
   if (args.execute) {
     blockers.push(...runtimeTargetCheckBlockers(args, runtimeTargetCheck));
+    if (isExpandedBatch(args)) {
+      blockers.push(...batchExpansionGateBlockers(batchExpansionGate));
+    }
   }
   return [...new Set(blockers)];
+}
+
+function isExpandedBatch(args: Pick<ProductionPilotImportCliArgs, 'limit' | 'offset'>): boolean {
+  return args.limit > 1 || args.offset > 0;
+}
+
+function batchExpansionGateBlockers(receipt: BatchExpansionGateReceipt | null): string[] {
+  if (!receipt) return ['production_batch_expansion_gate_receipt_missing'];
+  const blockers: string[] = [];
+  if (receipt.receipt_type !== 'onedrive_closeout_gate') {
+    blockers.push('production_batch_expansion_gate_receipt_invalid');
+  }
+  if (receipt.mode !== 'dry-run') {
+    blockers.push('production_batch_expansion_gate_mode_invalid');
+  }
+  if (receipt.gate !== 'production-batch-expansion') {
+    blockers.push('production_batch_expansion_gate_wrong_gate');
+  }
+  if (receipt.status !== 'ready_for_next_gate') {
+    blockers.push('production_batch_expansion_gate_not_ready');
+  }
+  if (receipt.production_write_executed !== false || receipt.production_import_executed !== false) {
+    blockers.push('production_batch_expansion_gate_must_be_no_write');
+  }
+  if (
+    receipt.production_source_of_truth_cutover_executed !== false ||
+    receipt.onedrive_connected_state_claimed !== false ||
+    receipt.office_open_save_sync_claimed !== false ||
+    receipt.gemma_indexing_executed !== false
+  ) {
+    blockers.push('production_batch_expansion_gate_forbidden_claim_state');
+  }
+  if (receipt.gate_inputs?.production_import_closeout_ref?.present !== true) {
+    blockers.push('production_batch_expansion_gate_closeout_ref_missing');
+  }
+  if (receipt.gate_inputs?.approval_ref?.present !== true) {
+    blockers.push('production_batch_expansion_gate_approval_ref_missing');
+  }
+  return blockers;
 }
 
 function runtimeTargetCheckBlockers(

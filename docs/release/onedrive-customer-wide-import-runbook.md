@@ -183,6 +183,13 @@ This gate does not execute import. It only confirms pilot closeout PASS and
 keeps source-of-truth cutover, OneDrive connected-state, Office open/save/sync,
 Gemma indexing, and go-live claims false.
 
+For any expanded production execute scope (`--limit > 1` or `--offset > 0`),
+pass this receipt to `pnpm onedrive:production-pilot-import` with
+`--batch-expansion-gate <production-batch-expansion-gate.sanitized.json>`.
+The wrapper must block expanded execute when the batch expansion gate receipt is
+missing, not `ready_for_next_gate`, or carries any forbidden cutover/connected
+state/Office/Gemma claim.
+
 Use `--limit` and `--offset` for wave execution. Replays use the local state file
 and the manifest `idempotency_key`; already imported rows are reported as
 `already_imported` and are not uploaded again.
