@@ -124,7 +124,7 @@ sync, and Gemma execution.
 | `MATTER-BRIDGE-001` | `pnpm matter:identity-preflight` bridge status/auth section | No write | `identity-preflight.sanitized.json` |
 | `MATTER-BRIDGE-002` | `pnpm matter:identity-preflight` client export/preflight section | No write | `identity-preflight.sanitized.json` and `.local.ndjson.gz` details |
 | `MATTER-BRIDGE-003` | `pnpm matter:identity-preflight` matter export/preflight section | No write | `identity-preflight.sanitized.json` and `.local.ndjson.gz` details |
-| `MATTER-BRIDGE-004` | `node tools/migration/onedrive-client-matter-write.mjs --execute` | Matter app upsert and Vault projection sync only | `client-matter-write.sanitized.json` |
+| `MATTER-BRIDGE-004` | `pnpm matter:canonical-sync -- --execute` | Matter app upsert and Vault projection sync only | `canonical-upsert-sync.sanitized.json` |
 | `MATTER-BRIDGE-005` | Runtime env plus `/v1/integrations/matter-app/status` | No DB write | API status smoke in final closeout |
 | `MATTER-BRIDGE-006` | Authenticated Matter app lookup smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
 | `MATTER-BRIDGE-007` | Permission/ethical-wall negative smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
@@ -132,6 +132,7 @@ sync, and Gemma execution.
 | `MATTER-BRIDGE-009` | Migrated document read/search smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
 | `MATTER-BRIDGE-010` | Re-run bridge write in dry-run/replay mode | No duplicate create | bridge replay receipt |
 | `MATTER-BRIDGE-011` | `pnpm matter:bridge-closeout` | No write except temporary test session/role control | final sanitized closeout |
+| `MATTER-BRIDGE-012` | `pnpm matter:canonical-rollback` | Optional Vault projection metadata rollback only | `canonical-projection-rollback.sanitized.json` |
 
 ### Current Implementation Chain
 
@@ -139,10 +140,10 @@ sync, and Gemma execution.
    identity-only Vault counts, client/matter hashes, duplicate checks, and Matter
    app bridge status. This command never writes to Vault or Matter app.
 2. If preflight status is `pass`, run
-   `node tools/migration/onedrive-client-matter-write.mjs` without `--execute`
-   to produce a no-write upsert plan from the approved target-resolution plan.
+   `pnpm matter:canonical-sync` without `--execute` to produce a no-write
+   upsert/projection sync plan from the current Vault canonical identity rows.
 3. After explicit approval and live Matter app API readiness, run
-   `node tools/migration/onedrive-client-matter-write.mjs --execute` to upsert
+   `pnpm matter:canonical-sync -- --execute` to upsert
    clients/matters and sync Vault projection refs. This command must remain
    identity-only and must not import or rewrite customer documents.
 4. Re-run the same write runner in replay/dry-run mode to prove duplicate
@@ -150,6 +151,9 @@ sync, and Gemma execution.
 5. Run `pnpm matter:bridge-closeout` to verify runtime status, lookup,
    permission negative, upload preflight, migrated document read/search, replay,
    and leak scan gates.
+6. Keep `pnpm matter:canonical-rollback` ready as the rollback/containment
+   surface. It removes only Vault projection metadata and does not delete Matter
+   app canonical registry records.
 
 ### No-Write Identity Preflight Command
 
@@ -168,6 +172,43 @@ Required runtime values for bridge status:
 If these are missing, the preflight still writes a sanitized blocked receipt
 with DB identity counts and `matter_app_api_config_missing`, but it does not
 perform any write.
+
+### Matter App Canonical Sync Command
+
+```bash
+pnpm matter:canonical-sync -- \
+  --tenant-id <tenant_uuid> \
+  --operator-user-id <operator_user_uuid> \
+  --approval-ref <approval_ref> \
+  --identity-preflight .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/identity-preflight.sanitized.json \
+  --receipt .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/bridge-execute/canonical-upsert-sync.sanitized.json \
+  --details .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/bridge-execute/canonical-upsert-sync.local.ndjson.gz
+```
+
+Execution requires the same command plus `--execute`. The command reads existing
+Vault `clients` and `matters`, upserts or reuses the matching canonical Matter
+app records through the bridge API, and stores reference-only Matter app ids and
+source revisions in Vault projection metadata. It must not create local Vault
+clients/matters, import documents, rewrite file objects, claim OneDrive
+connected-state, claim Office sync, or run Gemma indexing.
+
+### Matter App Projection Rollback Command
+
+```bash
+pnpm matter:canonical-rollback -- \
+  --tenant-id <tenant_uuid> \
+  --operator-user-id <operator_user_uuid> \
+  --bridge-execute-receipt .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/bridge-execute/canonical-upsert-sync.sanitized.json \
+  --rollback-approval-ref <rollback_approval_ref> \
+  --receipt .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/bridge-rollback/canonical-projection-rollback.sanitized.json
+```
+
+Execution requires the same command plus `--execute`. This is a containment
+surface for Vault projection metadata only. It removes Matter app reference keys
+from Vault `clients.metadata_json` and `matters.metadata_json`, records
+reference-only audit rows, and leaves Matter app canonical registry records
+untouched. Use it only after an executed canonical sync receipt exists and a
+rollback approval ref is supplied.
 
 ### MATTER-BRIDGE-001: Bridge Runtime Preflight
 
@@ -533,6 +574,45 @@ lookup_smoke = PASS
 upload_preflight_smoke = PASS
 replay_idempotency = PASS
 leak_scan = PASS
+```
+
+### MATTER-BRIDGE-012: Projection Rollback / Containment
+
+Objective:
+
+Keep a bounded rollback surface for the bridge write that can remove Vault's
+Matter app projection metadata without touching customer documents or deleting
+Matter app canonical records.
+
+Implementation:
+
+- Require a passing `canonical-upsert-sync.sanitized.json` execute receipt.
+- Require a rollback approval ref.
+- Dry-run by default and report current projection ref counts.
+- Execute only with `--execute`.
+- Remove Matter app projection keys from Vault `clients.metadata_json` and
+  `matters.metadata_json`.
+- Record reference-only audit rows.
+- Do not delete Matter app canonical registry rows.
+- Do not mutate documents, document versions, file objects, search, or Gemma
+  artifacts.
+
+Verification:
+
+- Dry-run receipt status `ready_for_execute`.
+- Execute receipt status `PASS` when explicitly approved.
+- `clients_with_projection_refs` and `matters_with_projection_refs` match the
+  expected rollback scope before execute.
+- Leak scan `PASS`.
+
+Acceptance:
+
+```text
+rollback_surface_available = PASS
+rollback_scope = Vault projection metadata only
+matter_app_registry_delete = NOT_EXECUTED
+document_mutation_count = 0
+receipt_leak_scan = PASS
 ```
 
 ## Global Acceptance Gate
