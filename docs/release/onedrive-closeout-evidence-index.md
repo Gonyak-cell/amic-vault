@@ -159,6 +159,7 @@ Frozen state:
 
 Evidence refs:
 
+- `.omo/evidence/LC-ONEDRIVE-CLOSEOUT/pr-review-gate.sanitized.json`
 - `.omo/evidence/LC-ONEDRIVE-CLOSEOUT/production-import-decision.sanitized.json`
 - `.omo/evidence/LC-ONEDRIVE-CLOSEOUT/production-pilot-import.sanitized.json`
 - `.omo/evidence/LC-ONEDRIVE-CLOSEOUT/production-cutover.sanitized.json`
@@ -171,6 +172,7 @@ Frozen state:
 
 | TUW | Status | Primary blocker |
 | --- | --- | --- |
+| `LC-ONEDRIVE-CLOSEOUT-02` | PENDING_EXTERNAL_REVIEW | PR #328 open; CI started; Codex self-merge false |
 | `LC-ONEDRIVE-CLOSEOUT-04` | BLOCKED_EXTERNAL_ENV | `production_preflight_not_ready`, `production_external_refs_missing` |
 | `LC-ONEDRIVE-CLOSEOUT-05` | BLOCKED_EXTERNAL_APPROVAL | `production_import_approval_ref_missing` |
 | `LC-ONEDRIVE-CLOSEOUT-06` | BLOCKED_EXTERNAL_APPROVAL | `production_cutover_approval_ref_missing`, production import closeout missing |
@@ -224,7 +226,7 @@ This closeout index does not claim:
 | --- | --- | --- |
 | `LC-ONEDRIVE-CLOSEOUT-00` | IN_PROGRESS | This evidence index |
 | `LC-ONEDRIVE-CLOSEOUT-01` | IN_PROGRESS | PR package document |
-| `LC-ONEDRIVE-CLOSEOUT-02` | PENDING_EXTERNAL_REVIEW | Requires PR and non-Codex merge |
+| `LC-ONEDRIVE-CLOSEOUT-02` | PENDING_EXTERNAL_REVIEW | PR #328 open; CI started; Codex self-merge false |
 | `LC-ONEDRIVE-CLOSEOUT-03` | BLOCKED_EXTERNAL_ENV | Production preflight dry-run surface implemented; production refs missing |
 | `LC-ONEDRIVE-CLOSEOUT-04` | BLOCKED_EXTERNAL_ENV | Production import decision gate receipt created |
 | `LC-ONEDRIVE-CLOSEOUT-05` | BLOCKED_EXTERNAL_APPROVAL | Production pilot/batch gate receipt created |
