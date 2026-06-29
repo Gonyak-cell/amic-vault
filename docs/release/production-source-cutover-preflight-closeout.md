@@ -1,6 +1,6 @@
 # Production Source-of-Truth Cutover Preflight Closeout
 
-Status: BLOCKED.
+Status: BLOCKED after fresh production DB read.
 
 Approval ref:
 
@@ -12,6 +12,8 @@ Scope actually evaluated:
 - Existing production identity closeout evidence.
 - Existing Matter app Lambda path-normalization closeout evidence.
 - Production cutover gate dry-run.
+- Fresh production DB count baseline through a temporary read-only preflight
+  access path.
 
 Not executed:
 
@@ -50,22 +52,68 @@ Basis identity evidence remains PASS:
 - unlinked matters: 0
 - duplicate Matter code groups: 0
 
+Fresh production DB baseline:
+
+- clients: 80
+- matters: 123
+- jwsuh memberships: 123
+- unlinked matters: 0
+- production documents: 0
+- production document versions: 0
+- production file objects: 0
+- production audit events: 241
+- existing source-of-truth cutover rows: 0
+- temporary DB ingress: authorized and revoked in the same run
+
 Blocking conditions:
 
-- Production DB direct secret read was not available to the current operator profiles.
-- Production ECS execute-command is disabled, and the bounded read-only one-off task path was not available to the current operator profiles.
+- Production customer documents are not imported in the production DB.
 - Production customer-wide import closeout PASS receipt is not present.
+- Production cutover control table `onedrive_source_cutovers` is not present in the production DB.
 - Production cutover gate dry-run is blocked by missing/not-passed production import closeout.
-- Therefore the production DB document/cutover baseline could not be freshly verified in this preflight.
 
 ## Handoff
 
 Before requesting source-of-truth cutover execute approval:
 
-1. Provide a bounded production DB read path for sanitized count verification, or grant the cutover-preflight operator a read-only preflight path.
-2. Complete and close out production customer document import, or explicitly redefine the next cutover scope as identity-only.
+1. Apply the production schema migration that creates `onedrive_source_cutovers`, under a separate production migration approval.
+2. Complete approved production customer document import and produce a production customer-wide import closeout PASS receipt, or explicitly redefine the next cutover scope as identity-only.
 3. Rerun production source-of-truth cutover preflight until `ready_for_execute=true`.
 4. Request separate source-of-truth cutover execute approval only after preflight PASS.
+
+## Required Next Approval Text
+
+Use this text to authorize only the missing production schema/control migration and bounded production import preflight remediation:
+
+```text
+AMIC production cutover readiness remediation을 승인한다.
+approval_ref=APPROVAL-ONEDRIVE-PRODUCTION-CUTOVER-READINESS-REMEDIATION-2026-06-30
+
+범위는 production DB에 source-of-truth cutover control surface migration을 적용하고,
+production customer document import 실행 전 dry-run/preflight를 재생성하는 작업에 한정한다.
+기준 evidence는 production-source-cutover-preflight.sanitized.json 및
+production-source-cutover-preflight-closeout.md이다.
+
+승인하지 않는 항목:
+- source-of-truth cutover execute
+- customer document import execute
+- OneDrive connected-state claim
+- Office open/save/sync claim
+- Gemma indexing execution
+- customer-wide go-live claim
+```
+
+Use this only after the remediation preflight is PASS and the operator wants to execute production customer document import:
+
+```text
+AMIC OneDrive-to-Vault production customer document import execute를 승인한다.
+approval_ref=APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXECUTE-2026-06-30
+
+범위는 approved OneDrive migration manifest 기준 production Vault customer document import execute와
+post-import reconciliation/closeout receipt 생성에 한정한다.
+source-of-truth cutover execute, OneDrive connected-state claim, Office open/save/sync claim,
+Gemma indexing execution, customer-wide go-live claim은 승인하지 않는다.
+```
 
 ## Sanitization
 
