@@ -112,6 +112,63 @@ The end state is:
 
 ## TUW Plan
 
+## Implementation Surface Map
+
+The implementation is split into no-write gates, bounded bridge write, runtime
+smoke, and final closeout. This keeps Matter app canonical identity linkage
+separate from document import, storage writes, OneDrive connected-state, Office
+sync, and Gemma execution.
+
+| TUW | Implementation surface | Write behavior | Primary receipt |
+| --- | --- | --- | --- |
+| `MATTER-BRIDGE-001` | `pnpm matter:identity-preflight` bridge status/auth section | No write | `identity-preflight.sanitized.json` |
+| `MATTER-BRIDGE-002` | `pnpm matter:identity-preflight` client export/preflight section | No write | `identity-preflight.sanitized.json` and `.local.ndjson.gz` details |
+| `MATTER-BRIDGE-003` | `pnpm matter:identity-preflight` matter export/preflight section | No write | `identity-preflight.sanitized.json` and `.local.ndjson.gz` details |
+| `MATTER-BRIDGE-004` | `node tools/migration/onedrive-client-matter-write.mjs --execute` | Matter app upsert and Vault projection sync only | `client-matter-write.sanitized.json` |
+| `MATTER-BRIDGE-005` | Runtime env plus `/v1/integrations/matter-app/status` | No DB write | API status smoke in final closeout |
+| `MATTER-BRIDGE-006` | Authenticated Matter app lookup smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
+| `MATTER-BRIDGE-007` | Permission/ethical-wall negative smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
+| `MATTER-BRIDGE-008` | Upload preflight smoke | No storage write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
+| `MATTER-BRIDGE-009` | Migrated document read/search smoke | No write | `matter-app-migration-db-linkage-closeout.sanitized.json` |
+| `MATTER-BRIDGE-010` | Re-run bridge write in dry-run/replay mode | No duplicate create | bridge replay receipt |
+| `MATTER-BRIDGE-011` | `pnpm matter:bridge-closeout` | No write except temporary test session/role control | final sanitized closeout |
+
+### Current Implementation Chain
+
+1. Run `pnpm matter:identity-preflight -- --tenant-id <tenant_uuid>` to freeze
+   identity-only Vault counts, client/matter hashes, duplicate checks, and Matter
+   app bridge status. This command never writes to Vault or Matter app.
+2. If preflight status is `pass`, run
+   `node tools/migration/onedrive-client-matter-write.mjs` without `--execute`
+   to produce a no-write upsert plan from the approved target-resolution plan.
+3. After explicit approval and live Matter app API readiness, run
+   `node tools/migration/onedrive-client-matter-write.mjs --execute` to upsert
+   clients/matters and sync Vault projection refs. This command must remain
+   identity-only and must not import or rewrite customer documents.
+4. Re-run the same write runner in replay/dry-run mode to prove duplicate
+   creates are zero.
+5. Run `pnpm matter:bridge-closeout` to verify runtime status, lookup,
+   permission negative, upload preflight, migrated document read/search, replay,
+   and leak scan gates.
+
+### No-Write Identity Preflight Command
+
+```bash
+pnpm matter:identity-preflight -- \
+  --tenant-id <tenant_uuid> \
+  --sanitized-out .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/identity-preflight.sanitized.json \
+  --details .omo/evidence/MATTER-APP-MIGRATION-DB-LINKAGE/identity-preflight.local.ndjson.gz
+```
+
+Required runtime values for bridge status:
+
+- `MATTER_APP_API_BASE_URL`
+- `MATTER_APP_API_TOKEN`
+
+If these are missing, the preflight still writes a sanitized blocked receipt
+with DB identity counts and `matter_app_api_config_missing`, but it does not
+perform any write.
+
 ### MATTER-BRIDGE-001: Bridge Runtime Preflight
 
 Objective:
