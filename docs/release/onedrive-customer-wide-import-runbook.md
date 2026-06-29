@@ -147,6 +147,23 @@ target env are present and the matching runtime target check receipt reports
 `ready_for_pilot_execute`. It also runs replay dry-run automatically after a
 successful execute.
 
+After a successful bounded production pilot execute, generate the no-write
+closeout receipt before any cutover preflight:
+
+```bash
+pnpm onedrive:production-pilot-closeout -- \
+  --dry-run \
+  --run-id <run-id> \
+  --production-pilot-import <production-pilot-import-execute.sanitized.json> \
+  --runtime-target-check <production-runtime-target-check.sanitized.json> \
+  --sanitized-out <production-pilot-closeout.sanitized.json> \
+  --expected-limit <bounded-count> \
+  --expected-offset <offset>
+```
+
+The closeout must return `status=PASS`; otherwise production cutover preflight
+must remain blocked.
+
 Use `--limit` and `--offset` for wave execution. Replays use the local state file
 and the manifest `idempotency_key`; already imported rows are reported as
 `already_imported` and are not uploaded again.

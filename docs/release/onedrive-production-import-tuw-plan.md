@@ -77,6 +77,23 @@ It also validates the receipt's `execute_handoff` block, including
 `required_receipt_ref`, `required_wrapper_arg`, and bounded scope, before
 calling the import runner.
 
+After a successful bounded execute, run the no-write post-execute closeout:
+
+```bash
+pnpm onedrive:production-pilot-closeout -- \
+  --dry-run \
+  --run-id lc-onedrive-production-pilot-closeout \
+  --production-pilot-import .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-execute.sanitized.json \
+  --runtime-target-check .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-runtime-target-check.sanitized.json \
+  --sanitized-out .omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-closeout.sanitized.json \
+  --expected-limit 1 \
+  --expected-offset 0
+```
+
+This closeout reads only sanitized receipts. It verifies `PROD-IMPORT-005`
+post-execute counts and `PROD-IMPORT-006` replay idempotency before production
+cutover preflight can consume the closeout receipt.
+
 ## TUW Breakdown
 
 ### PROD-IMPORT-001: Approval Ref Fixed
@@ -194,6 +211,8 @@ Implementation:
 
 - Wrapper records imported/reused/skipped/blocked/failed counts from the import
   runner.
+- `pnpm onedrive:production-pilot-closeout` verifies the sanitized execute
+  receipt and runtime-target receipt without production writes.
 - For full DB relation counts, run only after production target env is present.
 
 Verification:
@@ -220,6 +239,8 @@ Implementation:
 
 - On successful `--execute`, wrapper automatically performs a replay dry-run
   using the same state file.
+- `pnpm onedrive:production-pilot-closeout` blocks unless replay status is
+  `PASS` and replay `ready/blocked/failed` counts are all zero.
 
 Verification:
 
