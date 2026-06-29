@@ -16,6 +16,7 @@ const clientId = '11111111-1111-4111-8111-1111111111c1';
 const matterId = '11111111-1111-4111-8111-111111111122';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
 const importApprovalRef = 'approval-ingest.sanitized.json';
+const productionImportApprovalRef = 'APPROVAL-ONEDRIVE-PROD-PILOT-IMPORT-2026-06-29';
 const uploadPreflightRef = 'upload-preflight-ref';
 
 function sha256(value: string): string {
@@ -84,6 +85,7 @@ function args(files: Awaited<ReturnType<typeof fixtureFiles>>, execute = false):
     actorUserId,
     uploadPreflightRef,
     importApprovalRef,
+    manifestApprovalRef: importApprovalRef,
     sanitizedOut: files.sanitizedOut,
     localReceiptOut: files.localReceiptOut,
     statePath: files.statePath,
@@ -151,6 +153,22 @@ describe('onedrive-customer-wide-import-runner', () => {
       expect(report.summary.reason_counts.ready_for_customer_wide_import).toBe(1);
       expect(report.summary.reason_counts[`unsupported_extension_${extension}`]).toBeUndefined();
     }
+  });
+
+  it('separates production import approval from manifest approval provenance', async () => {
+    const files = await fixtureFiles();
+    const report = await runCustomerWideImport({
+      ...args(files),
+      importApprovalRef: productionImportApprovalRef,
+      manifestApprovalRef: importApprovalRef,
+    });
+
+    expect(report.gate_status).toBe('pass');
+    expect(report.summary.status_counts.ready).toBe(1);
+    expect(report.summary.reason_counts.approval_ref_mismatch).toBeUndefined();
+    expect(report.approval_refs).toMatchObject({
+      import_and_manifest_approval_refs_match: false,
+    });
   });
 
   it('executes through the injected upload surface without leaking source labels', async () => {

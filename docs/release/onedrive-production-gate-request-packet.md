@@ -52,6 +52,31 @@ Production pilot import gate:
 - Blocker: `production_import_approval_ref_missing`
 - `production_write_executed=false`
 
+Approved production pilot import gate:
+
+- Approval ref: `APPROVAL-ONEDRIVE-PROD-PILOT-IMPORT-2026-06-29`
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-approved-dry-run.sanitized.json`
+- Result: `ready_for_next_gate`
+- Blockers: none
+- `production_write_executed=false`
+
+Approved production pilot runner dry-run:
+
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-approved-runner-dry-run.sanitized.json`
+- Result: `pass`
+- Scope: limit 1
+- Ready rows: 1
+- Blocked rows: 0
+- Failed rows: 0
+- `production_write_executed=false`
+
+Production pilot execute:
+
+- Receipt: `.omo/evidence/LC-ONEDRIVE-PRODUCTION-GATE/production-pilot-import-execute-blocked-runtime-target.sanitized.json`
+- Result: `blocked`
+- Blocker: `production_runtime_target_env_missing`
+- `production_import_executed=false`
+
 ## Required Runtime Refs
 
 The operator must provide these refs as opaque, repo-safe identifiers. Do not
@@ -70,6 +95,16 @@ document names, object keys, screenshots, cookies, or tokens into the repo.
 The no-write preflight ready check used only opaque refs and hashes them in the
 sanitized receipt. It does not prove production customer document import was
 executed.
+
+The customer-wide import runner now separates the production execution approval
+from the manifest provenance approval:
+
+- `--import-approval-ref` records the current production import approval.
+- `--manifest-approval-ref` validates the approval ref already embedded in the
+  resolved manifest.
+
+This avoids rewriting approved manifest rows just to carry a later production
+execution approval.
 
 ## Next No-Write Command
 
@@ -97,26 +132,28 @@ Passing this preflight does not execute production import, production cutover,
 OneDrive connected-state, Office sync, or Gemma indexing. Those remain separate
 gates with their own receipts.
 
-## Next Approval Required
+## Next Runtime Target Required
 
-The next executable gate is `LC-ONEDRIVE-CLOSEOUT-05` production pilot/batch
-import. It needs a separate explicit approval ref before any production import
-runner can be invoked.
+The `LC-ONEDRIVE-CLOSEOUT-05` production pilot/batch import approval ref is now
+present. The remaining blocker is runtime target configuration for the actual
+production execute.
 
-Required approval shape:
+Required runtime target shape:
 
 ```text
-approval_ref = <opaque production import approval id>
+DATABASE_URL or PGHOST/PGDATABASE/PGUSER = present and production-scoped
+AWS_PROFILE/AWS_REGION or equivalent production source object access = present
+source refs = production-preflight-ready-check.sanitized.json, production-import-decision-ready.sanitized.json, production-pilot-import-approved-dry-run.sanitized.json
+approval ref = APPROVAL-ONEDRIVE-PROD-PILOT-IMPORT-2026-06-29
 scope = production pilot or bounded batch import only
-source refs = production-preflight-ready-check.sanitized.json and production-import-decision-ready.sanitized.json
-forbidden claims = OneDrive connected-state, Office open/save/sync, Gemma indexing
+forbidden claims = source-of-truth cutover, OneDrive connected-state, Office open/save/sync, Gemma indexing, customer-wide go-live
 ```
 
-Without that approval ref, the gate remains:
+Without production runtime target env, the gate remains:
 
 ```text
-production_pilot_import_status = blocked
-blocker = production_import_approval_ref_missing
+production_pilot_execute_status = blocked
+blocker = production_runtime_target_env_missing
 production_write_executed = false
 ```
 

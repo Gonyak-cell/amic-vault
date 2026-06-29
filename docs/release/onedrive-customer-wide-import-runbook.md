@@ -14,6 +14,8 @@ delete, or customer document content logging.
 - Resolved import manifest: `resolved-import-manifest.local.ndjson.gz`
 - Target resolution receipt: `document-import-target-resolution.sanitized.json`
 - Operator approval ref: repo-safe approval receipt reference
+- Manifest approval ref: repo-safe approval ref embedded in the resolved
+  manifest, if different from the current operator approval ref
 - Actor user ID: migration operator user ID
 - Tenant slug: AMIC tenant slug
 
@@ -32,9 +34,14 @@ pnpm onedrive:customer-wide-import -- \
   --tenant-slug <tenant-slug> \
   --actor-user-id <operator-user-id> \
   --import-approval-ref <approval-ref> \
+  --manifest-approval-ref <manifest-approval-ref> \
   --sanitized-out <customer-wide-import-dry-run.sanitized.json> \
   --local-receipt-out <customer-wide-import.local.ndjson>
 ```
+
+Omit `--manifest-approval-ref` when it is the same as `--import-approval-ref`.
+Use it when a later execution approval authorizes import while the resolved
+manifest still carries an earlier mapping or ingest approval ref.
 
 Expected dry-run behavior:
 
@@ -74,10 +81,13 @@ pnpm onedrive:customer-wide-import -- \
   --tenant-slug <tenant-slug> \
   --actor-user-id <operator-user-id> \
   --import-approval-ref <approval-ref> \
+  --manifest-approval-ref <manifest-approval-ref> \
   --sanitized-out <customer-wide-import-execute.sanitized.json> \
   --local-receipt-out <customer-wide-import.local.ndjson> \
   --state <customer-wide-import-state.local.json>
 ```
+
+Omit `--manifest-approval-ref` when it is the same as `--import-approval-ref`.
 
 Execute writes through `DocumentUploadService` only. That path creates the
 document, file object, initial version, storage object, and upload audit through
