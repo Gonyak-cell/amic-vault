@@ -112,6 +112,11 @@ pnpm onedrive:closeout-gate -- \
 This gate does not execute production import or cutover. It only proves the
 pilot closeout receipt is `PASS`, production import actually executed for the
 bounded pilot, and connected-state/Office/Gemma/cutover claims remain false.
+Any expanded production execute scope (`--limit > 1` or `--offset > 0`) must
+pass the resulting receipt to `pnpm onedrive:production-pilot-import` with
+`--batch-expansion-gate <production-batch-expansion-gate.sanitized.json>`.
+The wrapper blocks expanded execute if that receipt is missing or not
+`ready_for_next_gate`.
 
 ## TUW Breakdown
 
@@ -312,6 +317,8 @@ Implementation:
 - If execute passes, next gate is batch expansion or cutover preflight.
 - Batch expansion requires `production-batch-expansion` closeout gate PASS with
   a separate approval ref and pilot closeout receipt.
+- Expanded production batch execute requires the batch expansion gate receipt
+  via `--batch-expansion-gate`; pilot-only execute does not.
 - Cutover still needs separate approval.
 
 Verification:
