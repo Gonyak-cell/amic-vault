@@ -93,6 +93,15 @@ describe('onedrive-production-runtime-target-check', () => {
 
     expect(report.status).toBe('blocked');
     expect(report.blockers).toContain('production_runtime_target_env_missing');
+    expect(report.missing_runtime_requirements).toEqual([
+      'database_target:DATABASE_URL_or_PGHOST_PGDATABASE_PGUSER',
+      'source_object_access:AWS_PROFILE_or_aws_profile_arg_plus_AWS_REGION',
+    ]);
+    expect(report.execute_handoff).toMatchObject({
+      status: 'blocked',
+      required_wrapper_arg: '--runtime-target-check',
+      blocked_by: ['production_runtime_target_env_missing'],
+    });
     expect(report.production_import_executed).toBe(false);
     expect(report.acceptance_checks.production_runtime_target_present).toBe(false);
   });
@@ -117,6 +126,14 @@ describe('onedrive-production-runtime-target-check', () => {
       databaseTargetPresent: true,
       sourceObjectAccessPresent: true,
     });
+    expect(report.missing_runtime_requirements).toEqual([]);
+    expect(report.execute_handoff).toMatchObject({
+      status: 'ready',
+      required_wrapper_arg: '--runtime-target-check',
+      bounded_scope: { limit: 1, offset: 0 },
+      blocked_by: [],
+    });
+    expect(report.execute_handoff.next_command).toContain('pnpm onedrive:production-pilot-import');
 
     const receipt = await readFile(files.sanitizedOut, 'utf8');
     expect(receipt).not.toContain('postgres://secret.example/db');

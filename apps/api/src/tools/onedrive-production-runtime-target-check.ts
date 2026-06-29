@@ -85,6 +85,7 @@ export async function runProductionRuntimeTargetCheck(
   const runtime = runtimePresence(env, args);
   const blockers = collectBlockers(args, productionPreflight, importDecision, pilotGate, runtime);
   const status = blockers.length === 0 ? 'ready_for_pilot_execute' : 'blocked';
+  const missingRuntimeRequirements = missingRuntimeRequirementsFor(runtime);
   const report = {
     receipt_type: 'onedrive_production_runtime_target_check',
     mode: 'dry-run',
@@ -101,6 +102,7 @@ export async function runProductionRuntimeTargetCheck(
       actor_user_id_hash: sha256Hex(args.actorUserId).slice(0, 16),
     },
     runtime_env_presence: runtime,
+    missing_runtime_requirements: missingRuntimeRequirements,
     evidence_refs: {
       production_preflight_ref: safeReceiptRef(args.productionPreflightPath),
       import_decision_ref: safeReceiptRef(args.importDecisionReceiptPath),
@@ -127,6 +129,20 @@ export async function runProductionRuntimeTargetCheck(
     onedrive_connected_state_claimed: false,
     office_open_save_sync_claimed: false,
     gemma_indexing_executed: false,
+    execute_handoff: {
+      status: status === 'ready_for_pilot_execute' ? 'ready' : 'blocked',
+      required_receipt_ref: safeReceiptRef(args.sanitizedOut),
+      required_wrapper_arg: '--runtime-target-check',
+      bounded_scope: {
+        limit: args.limit,
+        offset: args.offset,
+      },
+      next_command:
+        status === 'ready_for_pilot_execute'
+          ? 'pnpm onedrive:production-pilot-import -- --execute ... --runtime-target-check <production-runtime-target-check.sanitized.json>'
+          : null,
+      blocked_by: status === 'ready_for_pilot_execute' ? [] : [...new Set(blockers)],
+    },
     next_gate:
       status === 'ready_for_pilot_execute'
         ? 'run pnpm onedrive:production-pilot-import with --execute for the same bounded scope'
@@ -175,6 +191,17 @@ function collectBlockers(
     blockers.push('forbidden_claim_state_not_false');
   }
   return [...new Set(blockers)];
+}
+
+function missingRuntimeRequirementsFor(runtime: ReturnType<typeof runtimePresence>): string[] {
+  const missing: string[] = [];
+  if (!runtime.databaseTargetPresent) {
+    missing.push('database_target:DATABASE_URL_or_PGHOST_PGDATABASE_PGUSER');
+  }
+  if (!runtime.sourceObjectAccessPresent) {
+    missing.push('source_object_access:AWS_PROFILE_or_aws_profile_arg_plus_AWS_REGION');
+  }
+  return missing;
 }
 
 function forbiddenClaimsFalse(...receipts: readonly GateReceipt[]): boolean {
@@ -250,6 +277,7 @@ async function main(): Promise<void> {
         mode: report.mode,
         status: report.status,
         blockers: report.blockers,
+        missing_runtime_requirements: report.missing_runtime_requirements,
         production_runtime_target_present:
           report.acceptance_checks.production_runtime_target_present,
       }),
