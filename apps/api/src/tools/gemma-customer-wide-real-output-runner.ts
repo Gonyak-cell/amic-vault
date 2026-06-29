@@ -52,6 +52,7 @@ interface RealOutputPlan {
   tenantId: string;
   cutoverExecuted: boolean;
   activeEthicalWalls: number;
+  missingArtifactCount: number;
   fallbackArtifactCount: number;
   realGemmaOutputCount: number;
   candidates: RealOutputCandidate[];
@@ -69,7 +70,7 @@ export function usage(): string {
   return [
     'usage: pnpm gemma:customer-wide-real-output -- --dry-run|--execute --run-id <id> --tenant-slug <slug> --approval-ref <ref> --control-ref <ref> --sanitized-out <out.json> [--limit <n>] [--concurrency <n>]',
     '',
-    'Replaces completed fallback prep artifacts with actual local Gemma text output.',
+    'Creates missing or replaces fallback prep artifacts with actual local Gemma text output.',
   ].join('\n');
 }
 
@@ -95,7 +96,7 @@ export function parseGemmaCustomerWideRealOutputArgs(
     maxPromptChars: optionalPositiveInt(argValue(argv, '--max-prompt-chars'), '--max-prompt-chars') ?? 3200,
     documentsPerCall: Math.min(
       optionalPositiveInt(argValue(argv, '--documents-per-call'), '--documents-per-call') ?? 1,
-      50,
+      100,
     ),
   };
 }
@@ -110,7 +111,7 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
         ? await runWorkers(pool, args, plan.candidates)
         : ([] as WorkerResult[]);
     const finalCounts = await collectStrictCounts(pool, plan.tenantId);
-    const closeoutComplete = plan.fallbackArtifactCount <= 0;
+    const closeoutComplete = plan.missingArtifactCount + plan.fallbackArtifactCount <= 0;
     const report = {
       receipt_type: 'gemma_customer_wide_real_output_batch',
       mode: args.dryRun ? 'dry-run' : 'execute',
@@ -127,6 +128,7 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
       gemma_indexing_executed: false,
       counts: {
         fallback_artifact_count_before: plan.fallbackArtifactCount,
+        missing_artifact_count_before: plan.missingArtifactCount,
         real_gemma_output_count_before: plan.realGemmaOutputCount,
         selected_document_count: plan.candidates.length,
         selected_artifact_count: plan.candidates.reduce(
@@ -140,6 +142,7 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
         active_ethical_walls: plan.activeEthicalWalls,
         real_gemma_output_count_after: finalCounts.realGemmaOutputCount,
         fallback_artifact_count_after: finalCounts.fallbackArtifactCount,
+        missing_artifact_count_after: finalCounts.missingArtifactCount,
       },
       failure_reason_counts: countFailures(results),
       blockers,
@@ -151,6 +154,7 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
         real_gemma_outputs_increased:
           closeoutComplete || args.dryRun || finalCounts.realGemmaOutputCount > plan.realGemmaOutputCount,
         fallback_artifact_count_zero: finalCounts.fallbackArtifactCount === 0,
+        missing_artifact_count_zero: finalCounts.missingArtifactCount === 0,
       },
       evidence_refs: {
         approval_ref: args.approvalRef,
@@ -212,6 +216,7 @@ async function collectPlan(pool: Pool, args: GemmaCustomerWideRealOutputCliArgs)
     cutoverExecuted: env?.cutover_executed === true,
     activeEthicalWalls: Number(env?.active_ethical_walls ?? 0),
     fallbackArtifactCount: counts.fallbackArtifactCount,
+    missingArtifactCount: counts.missingArtifactCount,
     realGemmaOutputCount: counts.realGemmaOutputCount,
     candidates,
     blockers: [],
@@ -245,17 +250,19 @@ async function collectCandidates(
           AND d.status <> 'deleted'
           AND d.legal_hold = false
           AND d.ai_allowed = true
-      ), fallback_artifacts AS (
+      ), needed_artifacts AS (
         SELECT eligible.tenant_id, eligible.document_id, eligible.version_id,
-          eligible.matter_id, artifact.artifact_kind
+          eligible.matter_id, required_artifacts.artifact_kind
         FROM eligible
-        JOIN ai_prep_artifacts artifact
+        CROSS JOIN (SELECT unnest($2::text[]) AS artifact_kind) required_artifacts
+        LEFT JOIN ai_prep_artifacts artifact
           ON artifact.tenant_id = eligible.tenant_id
          AND artifact.document_version_id = eligible.version_id
-         AND artifact.artifact_kind = ANY($2::text[])
+         AND artifact.artifact_kind = required_artifacts.artifact_kind
          AND artifact.status = 'completed'
          AND artifact.is_stale = false
-        WHERE artifact.model_name IS DISTINCT FROM $4
+        WHERE artifact.ai_prep_artifact_id IS NULL
+           OR artifact.model_name IS DISTINCT FROM $4
            OR EXISTS (
              SELECT 1
              FROM jsonb_array_elements_text(coalesce(artifact.payload_json->'warnings', '[]'::jsonb)) warning
@@ -264,7 +271,7 @@ async function collectCandidates(
       ), candidate_docs AS (
         SELECT tenant_id, document_id, version_id, matter_id,
           array_agg(artifact_kind ORDER BY artifact_kind) AS artifact_kinds
-        FROM fallback_artifacts
+        FROM needed_artifacts
         GROUP BY tenant_id, document_id, version_id, matter_id
         ORDER BY document_id ASC
         LIMIT $3
@@ -295,23 +302,49 @@ async function collectStrictCounts(pool: Pool, tenantId: string) {
     total_completed: string;
     real_gemma_outputs: string;
     fallback_payloads: string;
+    missing_artifacts: string;
   }>(
     `
-      WITH required AS (
-        SELECT *, EXISTS (
+      WITH eligible AS (
+        SELECT d.tenant_id, d.document_id, dv.version_id
+        FROM documents d
+        JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+         AND dv.document_id = d.document_id
+         AND dv.version_status = 'current'
+        JOIN canonical_documents cd
+          ON cd.tenant_id = dv.tenant_id
+         AND cd.version_id = dv.version_id
+         AND cd.extraction_status = 'ready'
+        JOIN document_search_index idx
+          ON idx.tenant_id = dv.tenant_id
+         AND idx.document_id = dv.document_id
+         AND idx.version_id = dv.version_id
+        WHERE d.tenant_id = $1
+          AND d.status <> 'deleted'
+          AND d.legal_hold = false
+          AND d.ai_allowed = true
+      ), required_kinds AS (
+        SELECT unnest($2::text[]) AS artifact_kind
+      ), required AS (
+        SELECT artifact.*, EXISTS (
           SELECT 1
-          FROM jsonb_array_elements_text(coalesce(payload_json->'warnings', '[]'::jsonb)) warning
+          FROM jsonb_array_elements_text(coalesce(artifact.payload_json->'warnings', '[]'::jsonb)) warning
           WHERE warning ILIKE '%FALLBACK%'
         ) AS has_fallback_warning
-        FROM ai_prep_artifacts
-        WHERE tenant_id = $1
-          AND status = 'completed'
-          AND is_stale = false
-          AND artifact_kind = ANY($2::text[])
+        FROM eligible
+        CROSS JOIN required_kinds
+        LEFT JOIN ai_prep_artifacts artifact
+          ON artifact.tenant_id = eligible.tenant_id
+         AND artifact.document_version_id = eligible.version_id
+         AND artifact.artifact_kind = required_kinds.artifact_kind
+         AND artifact.status = 'completed'
+         AND artifact.is_stale = false
       )
-      SELECT count(*) AS total_completed,
+      SELECT count(ai_prep_artifact_id) AS total_completed,
         count(*) FILTER (WHERE model_name = $3 AND NOT has_fallback_warning) AS real_gemma_outputs,
-        count(*) FILTER (WHERE has_fallback_warning) AS fallback_payloads
+        count(*) FILTER (WHERE has_fallback_warning) AS fallback_payloads,
+        count(*) FILTER (WHERE ai_prep_artifact_id IS NULL) AS missing_artifacts
       FROM required
     `,
     [tenantId, requiredArtifactKinds, localGemmaDefaultModel],
@@ -321,6 +354,7 @@ async function collectStrictCounts(pool: Pool, tenantId: string) {
     totalCompleted: Number(row?.total_completed ?? 0),
     realGemmaOutputCount: Number(row?.real_gemma_outputs ?? 0),
     fallbackArtifactCount: Number(row?.fallback_payloads ?? 0),
+    missingArtifactCount: Number(row?.missing_artifacts ?? 0),
   };
 }
 
@@ -655,7 +689,7 @@ function validateReadiness(args: GemmaCustomerWideRealOutputCliArgs, plan: RealO
   if (!safeRefPattern.test(args.controlRef)) blockers.push('control_ref_invalid');
   if (!plan.cutoverExecuted) blockers.push('source_of_truth_cutover_not_executed');
   if (plan.activeEthicalWalls > 0) blockers.push('active_ethical_wall_review_required');
-  if (plan.fallbackArtifactCount <= 0) return [...new Set(blockers)];
+  if (plan.missingArtifactCount + plan.fallbackArtifactCount <= 0) return [...new Set(blockers)];
   if (plan.candidates.length === 0) blockers.push('selected_document_count_zero');
   return [...new Set(blockers)];
 }
@@ -696,6 +730,7 @@ function emptyPlan(blocker: string): RealOutputPlan {
     tenantId: '',
     cutoverExecuted: false,
     activeEthicalWalls: 0,
+    missingArtifactCount: 0,
     fallbackArtifactCount: 0,
     realGemmaOutputCount: 0,
     candidates: [],

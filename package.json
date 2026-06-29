@@ -43,6 +43,7 @@
     "onedrive:customer-wide-import": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-customer-wide-import-runner.js",
     "onedrive:source-cutover-preflight": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-source-cutover-preflight.js",
     "onedrive:source-cutover-execute": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-source-cutover-execute.js",
+    "onedrive:full-closeout-remediate": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/onedrive-full-closeout-remediation-runner.js",
     "gemma:ai-allowed-pilot": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-ai-allowed-pilot-runner.js",
     "gemma:customer-wide": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-runner.js",
     "gemma:customer-wide-fallback-closeout": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-fallback-closeout-runner.js",

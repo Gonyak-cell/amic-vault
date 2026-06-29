@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { parseGemmaCustomerWideRealOutputArgs } from './gemma-customer-wide-real-output-runner';
+import { parseFullCloseoutRemediationArgs } from './onedrive-full-closeout-remediation-runner';
 
-describe('gemma-customer-wide-real-output-runner', () => {
+describe('onedrive-full-closeout-remediation-runner', () => {
   it('parses dry-run options with bounded concurrency', () => {
     expect(
-      parseGemmaCustomerWideRealOutputArgs([
+      parseFullCloseoutRemediationArgs([
         '--dry-run',
         '--run-id',
-        'gemma-real-output',
+        'full-closeout',
         '--tenant-slug',
         'amic',
         '--approval-ref',
@@ -17,29 +17,27 @@ describe('gemma-customer-wide-real-output-runner', () => {
         '--sanitized-out',
         'out.json',
         '--limit',
-        '20',
+        '1000',
         '--concurrency',
-        '12',
-        '--documents-per-call',
-        '120',
+        '32',
       ]),
     ).toMatchObject({
       dryRun: true,
       execute: false,
-      limit: 20,
-      concurrency: 8,
-      documentsPerCall: 100,
+      runId: 'full-closeout',
       tenantSlug: 'amic',
+      limit: 1000,
+      concurrency: 16,
     });
   });
 
-  it('requires one execution mode', () => {
+  it('requires exactly one execution mode', () => {
     expect(() =>
-      parseGemmaCustomerWideRealOutputArgs([
+      parseFullCloseoutRemediationArgs([
         '--dry-run',
         '--execute',
         '--run-id',
-        'gemma-real-output',
+        'full-closeout',
         '--tenant-slug',
         'amic',
         '--approval-ref',
@@ -54,10 +52,10 @@ describe('gemma-customer-wide-real-output-runner', () => {
 
   it('rejects invalid numeric options', () => {
     expect(() =>
-      parseGemmaCustomerWideRealOutputArgs([
+      parseFullCloseoutRemediationArgs([
         '--execute',
         '--run-id',
-        'gemma-real-output',
+        'full-closeout',
         '--tenant-slug',
         'amic',
         '--approval-ref',
@@ -66,7 +64,7 @@ describe('gemma-customer-wide-real-output-runner', () => {
         'control-ref',
         '--sanitized-out',
         'out.json',
-        '--concurrency',
+        '--limit',
         '0',
       ]),
     ).toThrow(/positive integer/);
