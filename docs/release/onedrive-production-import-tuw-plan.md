@@ -73,6 +73,9 @@ source-object runtime target env are present and the matching
 `ready_for_pilot_execute`. The wrapper blocks execute when `DATABASE_URL` or
 `PGHOST`/`PGDATABASE`/`PGUSER` is absent, source object access env is absent, or
 the runtime target check receipt is missing/not ready/scope mismatched.
+It also validates the receipt's `execute_handoff` block, including
+`required_receipt_ref`, `required_wrapper_arg`, and bounded scope, before
+calling the import runner.
 
 ## TUW Breakdown
 

@@ -75,6 +75,15 @@ interface RuntimeTargetCheckReceipt extends GateReceipt {
     databaseTargetPresent?: unknown;
     sourceObjectAccessPresent?: unknown;
   };
+  execute_handoff?: {
+    status?: unknown;
+    required_receipt_ref?: unknown;
+    required_wrapper_arg?: unknown;
+    bounded_scope?: {
+      limit?: unknown;
+      offset?: unknown;
+    };
+  };
 }
 
 const safeRefPattern = /^[A-Za-z0-9][A-Za-z0-9._/-]{1,159}$/u;
@@ -321,6 +330,24 @@ function runtimeTargetCheckBlockers(
   }
   if (receipt.scope?.limit !== args.limit || receipt.scope?.offset !== args.offset) {
     blockers.push('production_runtime_target_check_scope_mismatch');
+  }
+  if (receipt.execute_handoff?.status !== 'ready') {
+    blockers.push('production_runtime_target_check_handoff_not_ready');
+  }
+  if (receipt.execute_handoff?.required_wrapper_arg !== '--runtime-target-check') {
+    blockers.push('production_runtime_target_check_handoff_arg_invalid');
+  }
+  if (
+    receipt.execute_handoff?.required_receipt_ref !==
+    (args.runtimeTargetCheckPath ? safeReceiptRef(args.runtimeTargetCheckPath) : null)
+  ) {
+    blockers.push('production_runtime_target_check_handoff_ref_mismatch');
+  }
+  if (
+    receipt.execute_handoff?.bounded_scope?.limit !== args.limit ||
+    receipt.execute_handoff?.bounded_scope?.offset !== args.offset
+  ) {
+    blockers.push('production_runtime_target_check_handoff_scope_mismatch');
   }
   if (receipt.scope?.tenant_slug_hash !== sha256Hex(args.tenantSlug).slice(0, 16)) {
     blockers.push('production_runtime_target_check_tenant_mismatch');

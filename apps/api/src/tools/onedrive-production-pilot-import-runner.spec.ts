@@ -13,7 +13,7 @@ const approvalRef = 'APPROVAL-ONEDRIVE-PROD-PILOT-IMPORT-2026-06-29';
 const manifestApprovalRef = 'approval-ingest.sanitized.json';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
 
-async function fixtureFiles(options: { ready?: boolean } = {}) {
+async function fixtureFiles(options: { ready?: boolean; handoffRefMismatch?: boolean } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'onedrive-production-pilot-import-test-'));
   const productionPreflight = path.join(dir, 'production-preflight.sanitized.json');
   const importDecision = path.join(dir, 'production-import-decision.sanitized.json');
@@ -79,6 +79,17 @@ async function fixtureFiles(options: { ready?: boolean } = {}) {
       runtime_env_presence: {
         databaseTargetPresent: ready,
         sourceObjectAccessPresent: ready,
+      },
+      execute_handoff: {
+        status: ready ? 'ready' : 'blocked',
+        required_receipt_ref: options.handoffRefMismatch
+          ? 'different-runtime-target-check.sanitized.json'
+          : path.basename(runtimeTargetCheck),
+        required_wrapper_arg: '--runtime-target-check',
+        bounded_scope: {
+          limit: 1,
+          offset: 0,
+        },
       },
     })}\n`,
     'utf8',
@@ -187,7 +198,7 @@ describe('onedrive-production-pilot-import-runner', () => {
 
     const report = await runProductionPilotImport(args(files, true, true), {
       env: {
-        DATABASE_URL: 'postgres://example',
+        DATABASE_URL: 'present',
         AWS_PROFILE: 'prod',
         AWS_REGION: 'ap-northeast-2',
       },
@@ -208,7 +219,7 @@ describe('onedrive-production-pilot-import-runner', () => {
 
     const report = await runProductionPilotImport(args(files, true), {
       env: {
-        DATABASE_URL: 'postgres://example',
+        DATABASE_URL: 'present',
         AWS_PROFILE: 'prod',
         AWS_REGION: 'ap-northeast-2',
       },
@@ -217,6 +228,25 @@ describe('onedrive-production-pilot-import-runner', () => {
 
     expect(report.status).toBe('blocked');
     expect(report.blockers).toContain('production_runtime_target_check_receipt_missing');
+    expect(report.production_import_executed).toBe(false);
+    expect(runImport).not.toHaveBeenCalled();
+  });
+
+  it('blocks execute when runtime target check handoff does not match the receipt path', async () => {
+    const files = await fixtureFiles({ handoffRefMismatch: true });
+    const runImport = vi.fn(async () => importReport('imported'));
+
+    const report = await runProductionPilotImport(args(files, true, true), {
+      env: {
+        DATABASE_URL: 'present',
+        AWS_PROFILE: 'prod',
+        AWS_REGION: 'ap-northeast-2',
+      },
+      runImport,
+    });
+
+    expect(report.status).toBe('blocked');
+    expect(report.blockers).toContain('production_runtime_target_check_handoff_ref_mismatch');
     expect(report.production_import_executed).toBe(false);
     expect(runImport).not.toHaveBeenCalled();
   });
