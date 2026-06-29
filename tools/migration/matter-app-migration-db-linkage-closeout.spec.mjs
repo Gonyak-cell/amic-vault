@@ -122,20 +122,25 @@ const passingApiSmoke = {
 };
 
 const passingBridgeReceipt = {
+  artifact: 'matter_app_canonical_upsert_sync_sanitized',
   status: 'pass',
   execute: true,
-  target_rows: 123,
-  matter_app_api_checked: true,
-  matter_app_api_configured: true,
-  result_counts: { vault_projection_synced: 123 },
-  action_counts: { matter_app_upsert_and_sync_existing_vault_projection: 123 },
+  target_rows: 203,
+  result_counts: { matter_app_client_resolved: 80, vault_projection_synced: 123 },
+  action_counts: {
+    matter_app_client_upsert_and_projection_sync: 80,
+    matter_app_matter_upsert_and_projection_sync: 123,
+  },
   matter_app_resolved_counts: { clients: 80, matters: 123, source_revisions: 123 },
   blocked_target_count: 0,
   environment_blockers: [],
+  preflight_blockers: [],
+  identity_blockers: [],
 };
 
 test('parses closeout runner arguments without secret defaults', () => {
   const args = parseArgs([
+    '--',
     '--api-base-url',
     'http://localhost:3001/v1',
     '--operator-email',
@@ -181,7 +186,7 @@ test('validates bridge execute and replay receipts', () => {
   const gate = validateBridgeWriteReceipt(passingBridgeReceipt);
 
   assert.equal(Object.values(gate).every(Boolean), true);
-  assert.equal(validateBridgeWriteReceipt({ ...passingBridgeReceipt, target_rows: 122 }).target_rows, false);
+  assert.equal(validateBridgeWriteReceipt({ ...passingBridgeReceipt, target_rows: 202 }).target_rows, false);
 });
 
 test('blocks receipts that contain forbidden raw values', () => {
@@ -199,8 +204,8 @@ test('builds a passing sanitized receipt from passing gates', () => {
     args: {
       runId: 'run-id',
       requireMatterAppApi: true,
-      bridgeExecuteReceipt: 'bridge-execute/client-matter-write.sanitized.json',
-      bridgeReplayReceipt: 'bridge-replay/client-matter-write.sanitized.json',
+      bridgeExecuteReceipt: 'bridge-execute/canonical-upsert-sync.sanitized.json',
+      bridgeReplayReceipt: 'bridge-replay/canonical-upsert-sync.sanitized.json',
     },
     counts: passingCounts,
     apiSmoke: passingApiSmoke,
