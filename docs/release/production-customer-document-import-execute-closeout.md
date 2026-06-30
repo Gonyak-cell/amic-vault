@@ -1,6 +1,6 @@
 # Production Customer Document Import Execute Closeout
 
-Status: BOUNDED PILOT IMPORT PASS, batch expansion gate PASS, expanded wave-001 PASS, expanded wave-002 PASS, expanded wave-003 PASS, expanded wave-004 PASS, expanded wave-005 PASS, expanded wave-006 PASS, expanded wave-007 PASS, and expanded wave-008 PASS; next expanded wave requires separate approval.
+Status: BOUNDED PILOT IMPORT PASS, batch expansion gate PASS, expanded wave-001 PASS, expanded wave-002 PASS, expanded wave-003 PASS, expanded wave-004 PASS, expanded wave-005 PASS, expanded wave-006 PASS, expanded wave-007 PASS, expanded wave-008 PASS, and expanded wave-009 PASS; next expanded wave requires separate approval.
 
 Approval refs:
 
@@ -15,6 +15,7 @@ Approval refs:
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-006-2026-06-30`
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-007-2026-06-30`
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-008-2026-06-30`
+- `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-009-2026-06-30`
 
 Scope actually evaluated:
 
@@ -42,6 +43,8 @@ Scope actually evaluated:
 - No-write wave-007 bounded closeout and post-import reconciliation.
 - Expanded production customer document import wave-008, offset 701, limit 100.
 - No-write wave-008 bounded closeout and post-import reconciliation.
+- Expanded production customer document import wave-009, offset 801, limit 100.
+- No-write wave-009 bounded closeout and post-import reconciliation.
 
 Not executed or not claimed:
 
@@ -132,6 +135,14 @@ Sanitized local receipts:
 - `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-role-remediation-wave-008-post.sanitized.json`
 - `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-008-bounded-closeout.sanitized.json`
 - `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-008-closeout.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-runtime-target-check-wave-009.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-role-remediation-wave-009-pre-active.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-009.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-009.sanitized.import-runner.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-009.sanitized.replay-dry-run.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-role-remediation-wave-009-post.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-009-bounded-closeout.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-009-closeout.sanitized.json`
 
 Basis docs:
 
@@ -549,6 +560,46 @@ Temporary DB ingress was revoked after the run. Wave-008 does not authorize
 source-of-truth cutover, connected-state, Office sync, Gemma indexing, or
 go-live.
 
+## Expanded Wave-009 Result
+
+The approved expanded production import wave-009 was executed:
+
+- scope offset: 801
+- scope limit: 100
+- role pre-state: `firm_admin`
+- active execution role: `matter_owner`
+- restored post role: `firm_admin`
+- role restore: PASS
+- production import executed: true
+- production write executed: true
+- processed rows: 100
+- imported rows: 100
+- policy skipped rows: 0
+- already imported rows: 0
+- blocked rows: 0
+- failed rows: 0
+- replay idempotency: PASS
+- replay already imported rows: 100
+- replay ready rows: 0
+- replay blocked rows: 0
+- replay failed rows: 0
+- bounded closeout: PASS
+
+Post-wave-009 production DB count snapshot:
+
+- documents: 918
+- document versions: 918
+- file objects: 918
+- audit events: 2,871
+- documents without version: 0
+- document versions missing document relation: 0
+- document versions missing file object relation: 0
+- file objects without version: 0
+
+Temporary DB ingress was revoked after the run. Wave-009 does not authorize
+source-of-truth cutover, connected-state, Office sync, Gemma indexing, or
+go-live.
+
 ## Resolved Blocker
 
 The production import operator currently resolves as `firm_admin`. The current
@@ -576,6 +627,8 @@ separate execute approvals.
 Expanded wave-007 is now PASS. Further expanded import waves still require
 separate execute approvals.
 Expanded wave-008 is now PASS. Further expanded import waves still require
+separate execute approvals.
+Expanded wave-009 is now PASS. Further expanded import waves still require
 separate execute approvals.
 
 ## Required Next Approval Text
@@ -824,8 +877,8 @@ production-customer-document-import-execute-closeout.md이다.
 - customer-wide go-live claim
 ```
 
-Use this text only if the operator wants to execute the next expanded production
-import wave. This still does not authorize source-of-truth cutover:
+The expanded wave-009 approval below has now been consumed and should not be
+reused as the next gate:
 
 ```text
 AMIC OneDrive-to-Vault production expanded customer document import wave-009 execute를 승인한다.
@@ -839,6 +892,31 @@ replay idempotency, post-import reconciliation/closeout receipt 생성에 한정
 execute/reconciliation 완료 또는 실패 직후 firm_admin으로 복구한다.
 
 기준 evidence는 production-customer-import-expanded-wave-008-closeout.sanitized.json 및
+production-customer-document-import-execute-closeout.md이다.
+
+승인하지 않는 항목:
+- source-of-truth cutover execute
+- OneDrive connected-state claim
+- Office open/save/sync claim
+- Gemma indexing execution
+- customer-wide go-live claim
+```
+
+Use this text only if the operator wants to execute the next expanded production
+import wave. This still does not authorize source-of-truth cutover:
+
+```text
+AMIC OneDrive-to-Vault production expanded customer document import wave-010 execute를 승인한다.
+approval_ref=APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-010-2026-06-30
+
+범위는 approved OneDrive migration manifest의 production projection 기준
+offset=901, limit=100 bounded wave에 대한 production customer document import execute,
+replay idempotency, post-import reconciliation/closeout receipt 생성에 한정한다.
+
+실행 직전 jwsuh@amic.kr operator를 matter_owner로 임시 전환하고,
+execute/reconciliation 완료 또는 실패 직후 firm_admin으로 복구한다.
+
+기준 evidence는 production-customer-import-expanded-wave-009-closeout.sanitized.json 및
 production-customer-document-import-execute-closeout.md이다.
 
 승인하지 않는 항목:
