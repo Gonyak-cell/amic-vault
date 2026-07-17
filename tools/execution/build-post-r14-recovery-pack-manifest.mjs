@@ -2815,10 +2815,22 @@ export function validateAuthorityArtifacts(manifest, {
       + 'scope=CONTROL_PLANE_RECOVERY_MANIFEST_ONLY; '
       + 'status=AUTHORIZED_TECHNICAL_GATES_ONLY\\.$',
   );
+  const rawDecisionLines = (decisionLedger ?? '').split('\n');
+  const unsafeDecisionContextLines = rawDecisionLines.filter((line) =>
+    /^ {0,3}</.test(line) || /^ {0,3}`/.test(line) || openingFence(line));
+  if (unsafeDecisionContextLines.length) {
+    fail('AUTHORITY_DECISION_MARKDOWN_CONTEXT', unsafeDecisionContextLines.join('\n'));
+  }
   const decisionLines = maskNonOperationalMarkdown(decisionLedger ?? '').split('\n');
+  const rawAuthorityLineCount = rawDecisionLines.filter((line) => /^- /.test(line)
+    && line.includes(AMENDMENT_PACK_ID)
+    && /authority\s+decision(?:\s+record)?\b/i.test(line)).length;
   const decisionCandidates = decisionLines.filter((line) => /^- /.test(line)
     && line.includes(AMENDMENT_PACK_ID)
     && /authority\s+decision(?:\s+record)?\b/i.test(line));
+  if (rawAuthorityLineCount !== decisionCandidates.length) {
+    fail('AUTHORITY_DECISION_RECORD_NON_OPERATIONAL', rawAuthorityLineCount);
+  }
   const affirmativeDecisionRecords = decisionCandidates
     .map((line) => ({ line, match: line.match(decisionRecordPattern) }))
     .filter(({ match }) => match);
@@ -2840,6 +2852,7 @@ export function validateAuthorityArtifacts(manifest, {
 
 function maskNonOperationalMarkdown(text) {
   let fence = null;
+  let htmlBlock = null;
   let comment = false;
   let codeDelimiter = '';
   return text.split(/(?<=\n)/).map((line) => {
@@ -2847,10 +2860,20 @@ function maskNonOperationalMarkdown(text) {
       if (isClosingFence(line, fence)) fence = null;
       return line.replace(/[^\n]/g, ' ');
     }
+    if (htmlBlock) {
+      if ((htmlBlock.blankEnds && /^\s*$/.test(line))
+        || (!htmlBlock.blankEnds && htmlBlock.close.test(line))) htmlBlock = null;
+      return line.replace(/[^\n]/g, ' ');
+    }
     if (!comment && !codeDelimiter) {
       const opener = openingFence(line);
       if (opener) {
         fence = opener;
+        return line.replace(/[^\n]/g, ' ');
+      }
+      const htmlOpener = openingHtmlBlock(line);
+      if (htmlOpener) {
+        if (htmlOpener.blankEnds || !htmlOpener.close.test(line)) htmlBlock = htmlOpener;
         return line.replace(/[^\n]/g, ' ');
       }
     }
@@ -2876,7 +2899,7 @@ function maskHtmlCommentsOutsideCodeSpans(line, { comment, codeDelimiter }) {
     if (codeDelimiter) {
       const end = exactBacktickRunIndex(line, codeDelimiter, cursor);
       const stop = end < 0 ? line.length : end + codeDelimiter.length;
-      output += line.slice(cursor, stop);
+      output += line.slice(cursor, stop).replace(/[^\n]/g, ' ');
       cursor = stop;
       if (end >= 0) codeDelimiter = '';
       continue;
@@ -2887,8 +2910,15 @@ function maskHtmlCommentsOutsideCodeSpans(line, { comment, codeDelimiter }) {
     }
     if (line[cursor] === '`') {
       const match = line.slice(cursor).match(/^`+/);
-      codeDelimiter = match[0];
-      output += codeDelimiter;
+      const delimiter = match[0];
+      const end = exactBacktickRunIndex(line, delimiter, cursor + delimiter.length);
+      if (end >= 0) {
+        output += line.slice(cursor, end + delimiter.length);
+        cursor = end + delimiter.length;
+        continue;
+      }
+      codeDelimiter = delimiter;
+      output += codeDelimiter.replace(/[^\n]/g, ' ');
       cursor += codeDelimiter.length;
       continue;
     }
@@ -2906,18 +2936,59 @@ function exactBacktickRunIndex(line, delimiter, cursor) {
 }
 
 function openingFence(line) {
-  const match = line.match(/^( {0,3})(`{3,}|~{3,})([^\n]*)/);
+  const match = line.match(/^((?: {0,3}(?:[-+*]|\d+[.)])[ \t]+)?)( {0,3})(`{3,}|~{3,})([^\n]*)/);
   if (!match) return null;
-  const marker = match[2][0];
-  if (marker === '`' && match[3].includes('`')) return null;
-  return { marker, width: match[2].length };
+  const marker = match[3][0];
+  if (marker === '`' && match[4].includes('`')) return null;
+  return {
+    marker,
+    width: match[3].length,
+    listIndent: match[1] ? match[1].length + match[2].length : 0,
+  };
 }
 
+function openingHtmlBlock(line) {
+  if (/^ {0,3}<!--/.test(line)) return null;
+  if (/^ {0,3}<\?/.test(line)) return { close: /\?>/, blankEnds: false };
+  if (/^ {0,3}<!\[CDATA\[/.test(line)) return { close: /\]\]>/, blankEnds: false };
+  if (/^ {0,3}<!/.test(line)) return { close: />/, blankEnds: false };
+  const closing = line.match(/^ {0,3}<\/([A-Za-z][A-Za-z0-9-]*)\s*>/);
+  if (closing && HTML_BLOCK_TAGS.has(closing[1].toLowerCase())) {
+    return { close: /$^/, blankEnds: true };
+  }
+  const match = line.match(/^ {0,3}<([A-Za-z][A-Za-z0-9-]*)(?:[ \t]|>|\/?>)/);
+  if (!match) return null;
+  const tag = match[1].toLowerCase();
+  const specialTag = ['pre', 'script', 'style', 'textarea'].includes(tag);
+  const completeTagLine = new RegExp(
+    '^ {0,3}<' + tag + '(?:[ \\t]+[^>\\n]*)?/?>[ \\t]*\\r?\\n?$',
+    'i',
+  ).test(line);
+  if (!HTML_BLOCK_TAGS.has(tag) && !completeTagLine) return null;
+  return {
+    close: new RegExp('</' + tag + '\\s*>', 'i'),
+    blankEnds: !specialTag,
+  };
+}
+
+const HTML_BLOCK_TAGS = new Set([
+  'address', 'article', 'aside', 'base', 'basefont', 'blockquote', 'body', 'caption', 'center',
+  'col', 'colgroup', 'dd', 'details', 'dialog', 'dir', 'div', 'dl', 'dt', 'fieldset',
+  'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head',
+  'frame', 'frameset', 'header', 'hr', 'html', 'iframe', 'legend', 'li', 'link', 'main', 'menu',
+  'menuitem', 'nav', 'noframes', 'ol', 'optgroup', 'option', 'p', 'param', 'pre', 'script',
+  'search', 'section', 'style', 'summary', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'title',
+  'tr', 'track', 'ul',
+]);
+
 function isClosingFence(line, fence) {
-  const match = line.match(/^( {0,3})(`+|~+)[ \t]*\r?\n?$/);
+  const indent = fence.listIndent > 0
+    ? '{' + fence.listIndent + ',' + (fence.listIndent + 3) + '}'
+    : '{0,3}';
+  const match = line.match(new RegExp('^ ' + indent + '(`+|~+)[ \\t]*\\r?\\n?$'));
   return Boolean(match
-    && match[2][0] === fence.marker
-    && match[2].length >= fence.width);
+    && match[1][0] === fence.marker
+    && match[1].length >= fence.width);
 }
 
 export function renderMarkdown(manifest) {

@@ -349,6 +349,58 @@ test('authority validation preserves multiline code spans and tilde fence info s
   }
 });
 
+test('authority validation excludes authority records inside code spans and raw HTML blocks', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const record = decisionLedger.split('\n').find((line) => line.includes('authority decision record:')
+    && line.includes(manifest.payloadSha256));
+  assert.ok(record);
+  const withoutRecord = decisionLedger.split('\n').filter((line) => line !== record).join('\n');
+  for (const wrap of [
+    (line) => '`literal\n' + line + '\n`',
+    (line) => '<pre>\n' + line + '\n</pre>',
+    (line) => '<script>\n' + line + '\n</script>',
+    (line) => '<div>\n' + line + '\n</div>',
+    (line) => '<table>\n' + line + '\n</table>',
+    (line) => '<?authority\n' + line + '\n?>',
+    (line) => '<![CDATA[\n' + line + '\n]]>',
+    (line) => '<!AUTHORITY\n' + line + '\n>',
+    (line) => '<div>\n</div>\n' + line + '\n\n',
+    (line) => '<div></div>\n' + line + '\n\n',
+    (line) => '</div>\n' + line + '\n\n',
+    (line) => '<!-- >\n' + line + '\n-->',
+    (line) => '<span>\n' + line + '\n\n',
+    (line) => '<authority-example>\n' + line + '\n\n',
+    (line) => '<frame>\n' + line + '\n\n',
+  ]) {
+    const result = validateAuthorityArtifacts(manifest, {
+      packRegistry,
+      decisionLedger: withoutRecord + '\n' + wrap(record) + '\n',
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.code.startsWith('AUTHORITY_DECISION_')));
+  }
+});
+
+test('authority validation rejects unsupported Markdown block syntax in the decision ledger', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const result = validateAuthorityArtifacts(manifest, {
+    packRegistry,
+    decisionLedger: decisionLedger + '\n<widget>\n',
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some(
+    (error) => error.code === 'AUTHORITY_DECISION_MARKDOWN_CONTEXT',
+  ), true);
+});
+
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
   const manifest = await fixture();
   const packs = manifest.payload.packs;
@@ -1515,7 +1567,20 @@ test('committed-only check rejects inline-comment conflicts and mixed-length fen
     assert.match(inline.stderr, /AUTHORITY_DECISION_RECORD_FORMAT/);
     assert.match(inline.stderr, /"writes": 0/);
 
-    for (const prefix of ['<!--\n```\n-->\n', '`<!--`\n']) {
+    for (const prefix of [
+      '<!--\n```\n-->\n',
+      '`<!--`\n',
+      '`literal\n<!--\n`\n',
+      '``literal```x` <!--\n``\n',
+      '~~~ <!--\n-->\n~~~\n',
+      '- ~~~ <!--\n  -->\n  ~~~\n',
+      '<hr>\n\n',
+      '10. ~~~\n    literal\n    ~~~\n',
+      '10. ~~~\n     literal\n     ~~~\n',
+      '- ~~~\n    literal\n    ~~~\n',
+      '<span>literal\n\n',
+      '   ~~~\nliteral\n~~~\n',
+    ]) {
       await writeFile(cloneDecision, decision
         + '\n' + prefix
         + '- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n');
@@ -1523,6 +1588,28 @@ test('committed-only check rejects inline-comment conflicts and mixed-length fen
       assert.equal(context.status, 1, context.stdout + context.stderr);
       assert.match(context.stderr, /AUTHORITY_DECISION_RECORD_FORMAT/);
       assert.match(context.stderr, /"writes": 0/);
+    }
+
+    const currentPayload = JSON.parse(await readFile(manifestPath, 'utf8')).payloadSha256;
+    const record = decision.split('\n').find((line) => line.includes('authority decision record:')
+      && line.includes('canonicalPayloadSha256=`' + currentPayload + '`'));
+    assert.ok(record);
+    for (const wrap of [
+      (line) => '`literal\n' + line + '\n`',
+      (line) => '<pre>\n' + line + '\n</pre>',
+      (line) => '<div>\n' + line + '\n</div>',
+      (line) => '<![CDATA[\n' + line + '\n]]>',
+      (line) => '<!AUTHORITY\n' + line + '\n>',
+      (line) => '<div>\n</div>\n' + line + '\n\n',
+      (line) => '<div></div>\n' + line + '\n\n',
+      (line) => '</div>\n' + line + '\n\n',
+      (line) => '<!-- >\n' + line + '\n-->',
+    ]) {
+      await writeFile(cloneDecision, decision.replace(record, wrap(record)));
+      const hiddenAuthority = run();
+      assert.equal(hiddenAuthority.status, 1, hiddenAuthority.stdout + hiddenAuthority.stderr);
+      assert.match(hiddenAuthority.stderr, /AUTHORITY_DECISION_/);
+      assert.match(hiddenAuthority.stderr, /"writes": 0/);
     }
 
     await writeFile(cloneDecision, decision);
