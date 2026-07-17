@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
   "phase": "TRANSITION",
-  "generatedAt": "2026-07-17T20:32:00.000Z",
+  "generatedAt": "2026-07-17T20:33:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,13 +11,13 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "b46a76900d4def908a5764882b30d2b6efe1db1de104cbd0733e114654068e36"
+      "value": "71ef7dfb237dd10cfd557688671965b0ba7a96267b7c825353b3e37456e40d3d"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "44f9f93de2f7862ad7f967af327408fec4262edc87e89005e036a25aba18000b"
+      "value": "992804c8ebcb4e00b04515243447341dc645b9993b071e639b0ceeb5725dece3"
     },
-    "asOf": "2026-07-17T20:32:00.000Z",
+    "asOf": "2026-07-17T20:33:00.000Z",
     "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
@@ -46,12 +46,12 @@
     "COMPLETE_CANDIDATE": 19,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 80,
     "EXTERNAL_BLOCKED": 11,
-    "PARTIAL": 2,
-    "UNADJUDICATED": 5
+    "PARTIAL": 3,
+    "UNADJUDICATED": 4
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 115,
-    "CURRENT_VALIDATED": 2
+    "BOOTSTRAP_PREIMAGE": 114,
+    "CURRENT_VALIDATED": 3
   },
   "units": [
     {
@@ -35172,7 +35172,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 3118
       },
-      "status": "UNADJUDICATED",
+      "status": "PARTIAL",
       "dependencies": [
         {
           "id": "B12",
@@ -35215,9 +35215,92 @@
         "**Scope:** (1) check-in API에 `promoteImmediately` 옵션 추가 — 리뷰어가 지정되지 않은 문서는 체크인+promote를 단일 트랜잭션으로 수행(9인 내부용 완화: self-promote 허용을 테넌트 정책 플래그로), 리뷰어 지정 문서는 기존 리뷰 게이트 유지. (2) 웹 체크인 다이얼로그: [검토본으로 저장 vN.M] / [공식 버전으로 발행 vN+1 — B4 버전 라벨(고객송부/최종본/체결본 등) 선택 포함]. (3) B12 데스크톱 브리지의 편집 종료 흐름에도 동일 다이얼로그 노출. 만들지 않을 것: 리뷰 게이트 폐지(정책 플래그 기본값은 게이트 유지), 저장(save)마다 선택(저장은 서브버전 자동 유지 — 선택은 체크인 시점에만).",
         "**Acceptance tests:** 자동 — (a) 리뷰어 미지정 문서에서 promoteImmediately 체크인 시 새 공식 버전 생성+검토본 promoted 전이+감사 2건, (b) 리뷰어 지정 문서에서 동일 요청이 review_required로 거부, (c) 정책 플래그 off 테넌트에서 promoteImmediately 거부 검증(통합테스트). 수동 — 편집→체크인 다이얼로그에서 '공식 버전으로 발행+체결본 라벨' 선택 시 버전 목록에 vN+1·체결본 배지가 표시되면 통과."
       ],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/comparison/comparison.module.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/document/document-editing.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+            }
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-action-center.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-vault-list.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+            }
+          },
+          {
+            "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+            }
+          },
+          {
+            "path": "packages/redline/src/diff-engine.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/redline.spec.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+        }
+      },
       "historicalEvidenceRefs": [],
       "evidenceRefs": [],
       "blockerClass": "NONE",
@@ -35225,11 +35308,12 @@
       "acceptedBlockers": [],
       "dependencyConditions": [],
       "remainingGaps": [
-        "Acceptance, code, test, and operational evidence for B17 have not been reviewed."
+        "Implement the B17 check-in immediate-promotion contract, policy gate, and UI dialog without weakening the review gate.",
+        "Add B17 reviewer/policy negative integration coverage and manual version-label QA evidence."
       ],
-      "nextAction": "Adjudicate B17 against its acceptance block and record current evidence before any status change.",
-      "statusRationale": "Appendix-2 B17 is newly registered in the active 117-unit plan and has no adjudication evidence in the imported substrate.",
-      "lastReviewedAt": null
+      "nextAction": "Implement only the B17 allowlisted check-in choice slice after its registered PACK is reached, then collect current integration and manual evidence.",
+      "statusRationale": "B17 has existing check-in and later official-promotion behavior at the exact candidate, but no promoteImmediately request contract, tenant policy gate, check-in dialog choice, or B17 acceptance evidence.",
+      "lastReviewedAt": "2026-07-17T20:33:00.000Z"
     },
     {
       "id": "C16",

@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-17T20:32:00.000Z`
+- asOf / generatedAt: `2026-07-17T20:33:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `b46a76900d4def908a5764882b30d2b6efe1db1de104cbd0733e114654068e36`
-- Transition journal SHA-256: `44f9f93de2f7862ad7f967af327408fec4262edc87e89005e036a25aba18000b`
+- Overrides SHA-256: `71ef7dfb237dd10cfd557688671965b0ba7a96267b7c825353b3e37456e40d3d`
+- Transition journal SHA-256: `992804c8ebcb4e00b04515243447341dc645b9993b071e639b0ceeb5725dece3`
 
 ## Objective
 
@@ -21,10 +21,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 - COMPLETE_CANDIDATE: 19
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 80
 - EXTERNAL_BLOCKED: 11
-- PARTIAL: 2
-- UNADJUDICATED: 5
-- BOOTSTRAP_PREIMAGE: 115
-- CURRENT_VALIDATED: 2
+- PARTIAL: 3
+- UNADJUDICATED: 4
+- BOOTSTRAP_PREIMAGE: 114
+- CURRENT_VALIDATED: 3
 
 ## Rules
 
@@ -154,7 +154,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | H14 | 3 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 18 | NONE | 4 | 3056 | Do not promote H14 yet. Under the fast evidence policy, advance to the next dependency-valid repo-local TUW while preserving the Entra manual/staging QA and LSP gaps for later closure. |
 | B15 | 1 | M | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3094 | Implement only the B15 allowlisted client-axis and editor-provenance slice after its registered PACK is reached, then collect current integration and manual evidence. |
 | B16 | 1 | S | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3106 | Implement only the B16 allowlisted copy-conflict slice after its registered PACK is reached, then collect current integration and manual evidence. |
-| B17 | 2 | S | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3118 | Adjudicate B17 against its acceptance block and record current evidence before any status change. |
+| B17 | 2 | S | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3118 | Implement only the B17 allowlisted check-in choice slice after its registered PACK is reached, then collect current integration and manual evidence. |
 | C16 | 2 | M | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3130 | Adjudicate C16 against its acceptance block and record current evidence before any status change. |
 | B18 | 2 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3142 | Adjudicate B18 against its acceptance block and record current evidence before any status change. |
 | B19 | 2 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3154 | Adjudicate B19 against its acceptance block and record current evidence before any status change. |
