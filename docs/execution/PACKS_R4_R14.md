@@ -2086,9 +2086,16 @@ sealed 19-row historical-base source contract, derives every PACK TUW role and
 transition row from the static blueprint plus the sealed 117-ID universe, and
 compares both generated JSON and Markdown in explicit `--committed-only` mode.
 A source-bound check additionally rebuilds from the sealed G002 inputs. Bare
-`--check`, a missing/empty/nonexistent `--source-dir`, duplicate options, and a
-`--source-dir`/`--committed-only` conflict all fail closed; neither valid mode may
-accept a re-signed, internally self-consistent drift.
+`--check`, a missing/empty/nonexistent `--source-dir`, duplicate or unknown
+options, multiple action modes, and a `--source-dir`/`--committed-only` conflict
+all fail closed; neither valid mode may accept a re-signed, internally
+self-consistent drift. Primary hunk ownership remains unique, but transition
+authorization is separately sealed in plan order because a TUW can require
+fresh adjudication after later evidence, implementation, or authority work.
+Task 9 therefore moves all seven Appendix-2 rows out of `UNADJUDICATED`, and
+Tasks 15 and 31-38 retain their exact repeated row transitions. An inactive
+conditional trigger blocks its hunks, migrations, implementation, and completion
+claim; it does not block a journal entry to a non-complete conditional state.
 Every raw G002 test anchor is retained with one deterministic disposition:
 available at the exact base, supplied by the current PACK, assigned as an exact
 planned create of the current owning PACK, supplied by a transitive predecessor,
@@ -2097,12 +2104,15 @@ not-yet-created acceptance-test gap, blocked behind an inactive conditional
 trigger, or a non-executable helper/config anchor. Only the first four
 dispositions may enter focused commands. A recognized
 executable anchor with no base, provider PACK, alias, or sealed planned-gap entry
-fails manifest generation. Focused paths are routed
+fails manifest generation. A mixed active/inactive test file or integration
+directory remains executable when the exact base or an active current/predecessor
+provider supplies a runnable spec; only an unavailable anchor supplied solely by
+an inactive trigger is blocked. Focused paths are routed
 one-to-one through their actual workspace/root Vitest, Node test, pytest, or
 integration runner. Each path first passes a fail-closed regular-file or
 integration-directory assertion, including no-symlink, at-least-one-spec, and
-static skip/todo checks, and then receives its own dedicated runner invocation;
-OR-style batching is forbidden. Vitest explicitly disables
+static skip/todo/only/conditional/expected-failure checks, and then receives its
+own dedicated runner invocation; OR-style batching is forbidden. Vitest explicitly disables
 `passWithNoTests`; Node test, Vitest, pytest, and integration output must report
 at least one executed test, every executed test passing, and zero failed,
 cancelled, skipped, pending, todo, xfail, xpass, or deselected tests. Focused

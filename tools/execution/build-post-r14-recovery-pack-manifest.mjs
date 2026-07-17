@@ -13,7 +13,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = 'bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724';
+const CANONICAL_PAYLOAD_SHA256 = '5d6a7a8cee3852b3581f9b99b9648463f2b1c10b5355842e2b57d02b8a173496';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -265,6 +265,52 @@ const PRIMARY_GROUPS = {
   T36: ['E8', 'E13'],
   T37: ['H3', 'H4'],
   T38: ['B12'],
+};
+
+// Primary ownership remains unique, but a row can require fresh adjudication
+// after later evidence, implementation, or authority work. Keep that journal
+// contract explicit and ordered instead of deriving it from ownership.
+const TRANSITION_GROUPS = {
+  T9: ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20'],
+  T10: ['A5', 'A3', 'C3', 'B5', 'G2'],
+  T11: ['A1', 'A2', 'A4', 'A6', 'A7', 'A10'],
+  T12: ['D1', 'F5', 'H8', 'A14', 'D2', 'D3', 'E2', 'D5'],
+  T14: ['F6', 'B2', 'B4', 'B6'],
+  T15: ['C1', 'C2', 'C8', 'C9', 'C16'],
+  T16: ['B1', 'D6', 'D8'],
+  T17: ['A8', 'A9', 'A10', 'G1', 'G7'],
+  T18: ['G5', 'G10', 'G13', 'H7', 'H13'],
+  T19: ['D4', 'D11', 'F1', 'F4'],
+  T20: ['E1', 'E6', 'E7', 'E5'],
+  T21: ['H1', 'H2', 'H6', 'C4', 'H14'],
+  T23: ['B7', 'H5', 'H9', 'H12'],
+  T24: ['A11', 'A12', 'G6', 'G8', 'G12'],
+  T25: ['C5', 'C6', 'B9', 'B10'],
+  T26: ['B11', 'C10', 'C11', 'C12', 'C13'],
+  T27: ['E3', 'E4', 'E9', 'E10', 'E11', 'E12', 'E14'],
+  T28: ['B8', 'D7', 'D10', 'D9', 'D12', 'F12'],
+  T29: ['F2', 'F3', 'F7', 'F8', 'F9', 'F10'],
+  T30A: ['F11', 'B14', 'F13', 'F14', 'H11'],
+  T31: ['B15', 'B16'],
+  T32: ['B18', 'B19', 'B20'],
+  T33: ['A6', 'A7'],
+  T34: ['B3', 'B19', 'B20', 'G9', 'G11'],
+  T35: ['C7', 'C16', 'C14', 'C15', 'B13'],
+  T36: ['E8', 'B13', 'E13'],
+  T37: ['H3', 'H4'],
+  T38: ['B12', 'B17'],
+  TLATE: ['A13', 'G3', 'G4', 'G14'],
+};
+
+const NON_COMPLETE_TRANSITION_GROUPS = {
+  T9: ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20'],
+  T11: ['A6', 'A7', 'A10'],
+  T15: ['C16'],
+  T21: ['H14'],
+  T28: ['D9'],
+  T32: ['B19', 'B20'],
+  T34: ['B20'],
+  T35: ['B13'],
 };
 
 const UNIT_ROUTE_OVERRIDES = {
@@ -537,7 +583,7 @@ const TEST_ANCHOR_DISPOSITIONS = [
 
 let cachedBasePaths;
 
-const STATIC_TEST_SKIP_PATTERN = /(?:\b(?:describe|it|test)\.(?:skip|todo|only|skipIf|todoIf|runIf)\b|\b(?:xdescribe|xit|xtest)\s*\(|\b(?:describe|it|test)\s*\([^\n]*\{[^\n}]*(?:skip|todo)\s*:\s*(?:true|['"])[^\n}]*\}|@pytest\.mark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\s*\(|\bpytestmark\s*=|\bskip\s*:\s*true\b)/;
+const STATIC_TEST_SKIP_PATTERN = /(?:\b(?:describe|it|test)\.(?:skip|todo|only|skipIf|todoIf|runIf|fails)\b|\.\s*fails\b|\b(?:xdescribe|xit|xtest)\s*\(|\b(?:describe|it|test)\s*\([^\n]*\{[^\n}]*(?:skip|todo|fails)\s*:\s*(?:true|['"])[^\n}]*\}|@pytest\.mark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\s*\(|\bpytestmark\s*=|\bskip\s*:\s*true\b|\bfails\s*:)/;
 
 function isVitestPath(value) {
   return /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(value);
@@ -635,7 +681,7 @@ export async function assertFocusedTestPath(testPath, { root = ROOT } = {}) {
   for (const file of files) {
     const source = await readFile(file, 'utf8');
     if (STATIC_TEST_SKIP_PATTERN.test(source)) {
-      throw new Error('focused test contains a static skip/todo marker: '
+      throw new Error('focused test contains a static exclusion or expected-failure marker: '
         + path.relative(root, file));
     }
   }
@@ -719,7 +765,6 @@ function classifyTestAnchors(pack, {
       : syntacticRunner;
     let disposition;
     if (!runner) disposition = 'NON_EXECUTABLE_ANCHOR';
-    else if (blockedTriggerUnitIds.length) disposition = 'BLOCKED_INACTIVE_TRIGGER';
     else if (gapByPath[canonicalPath] && providerPackIds.includes(pack.packId)) {
       disposition = 'PLANNED_CURRENT_PACK_CREATE';
     }
@@ -728,6 +773,7 @@ function classifyTestAnchors(pack, {
     else if (predecessorProviderPackIds.length) disposition = 'PROVIDED_BY_PREDECESSOR_PACK';
     else if (gapByPath[canonicalPath]) disposition = 'PLANNED_ACCEPTANCE_TEST_GAP';
     else if (providerPackIds.length) disposition = 'DEFERRED_PROVIDER_PACK';
+    else if (blockedTriggerUnitIds.length) disposition = 'BLOCKED_INACTIVE_TRIGGER';
     else disposition = 'UNRESOLVED_EXECUTABLE_ANCHOR';
     const gap = gapByPath[canonicalPath];
     return {
@@ -1093,7 +1139,7 @@ function verificationCommands(pack, focusedTestPaths) {
         .filter((command) => command.startsWith(FOCUSED_RUN_COMMAND))
         .map((command) => database.run(command)),
     );
-    if (pack.migrationSourceOrdinals.length) {
+    if (pack.migrationSourceOrdinals.length && !integrationPaths.includes('tests/integration')) {
       isolatedCommands.push(database.run(
         FOCUSED_RUN_COMMAND + shellQuote('tests/integration'),
       ));
@@ -1505,9 +1551,8 @@ export async function buildManifest(sourceDir) {
     const conditionalBlockedTuwIds = pack.tuwIds.filter(
       (id) => INACTIVE_TRIGGER_UNIT_IDS.has(id),
     );
-    const transitionTuwIds = primaryTuwIds.filter(
-      (id) => !INACTIVE_TRIGGER_UNIT_IDS.has(id),
-    );
+    const transitionTuwIds = TRANSITION_GROUPS[pack.key] ?? [];
+    const nonCompleteOnlyTransitionTuwIds = NON_COMPLETE_TRANSITION_GROUPS[pack.key] ?? [];
     const packMigrationRows = packMigrations.get(pack.packId) ?? [];
     const repoSafeReceipt = 'docs/execution/recovery-receipts/' + pack.packId + '.json';
     return {
@@ -1570,7 +1615,7 @@ export async function buildManifest(sourceDir) {
           payloadMixingAllowed: true,
         },
         transitionTuwIds,
-        blockedTransitionTuwIds: conditionalBlockedTuwIds,
+        nonCompleteOnlyTransitionTuwIds,
         transitionCommit: {
           exactPaths: TRANSITION_CONTROL_PLANE_PATHS,
           oneRowPerCommit: true,
@@ -1968,7 +2013,8 @@ export function validateManifest(manifest) {
         fail('FOCUSED_TEST_COMMAND_COVERAGE', pack.packId + ':' + testPath);
       }
     }
-    const expectedFullIntegrationRuns = pack.migrationSourceOrdinals.length ? 1 : 0;
+    const expectedFullIntegrationRuns = pack.migrationSourceOrdinals.length
+      && !expectedFocusedTestPaths.includes('tests/integration') ? 1 : 0;
     const actualFocusedRunCount = executableCommands.reduce(
       (count, command) => count + command.split(FOCUSED_RUN_COMMAND).length - 1,
       0,
@@ -2028,16 +2074,25 @@ export function validateManifest(manifest) {
       || pack.stopConditions.length < 6) {
       fail('PACK_EVIDENCE_CONTRACT', pack.packId);
     }
-    const expectedTransitionTuwIds = blueprint?.tuwIds.filter(
-      (id) => staticPrimary[id] === blueprint.key && !INACTIVE_TRIGGER_UNIT_IDS.has(id),
-    ) ?? [];
-    const expectedBlockedTransitionTuwIds = blueprint?.tuwIds.filter(
+    const expectedTransitionTuwIds = TRANSITION_GROUPS[blueprint?.key] ?? [];
+    const expectedNonCompleteTransitionTuwIds =
+      NON_COMPLETE_TRANSITION_GROUPS[blueprint?.key] ?? [];
+    const expectedConditionalBlockedTuwIds = blueprint?.tuwIds.filter(
       (id) => INACTIVE_TRIGGER_UNIT_IDS.has(id),
     ) ?? [];
     const controlPlane = pack.controlPlane ?? {};
+    if (expectedTransitionTuwIds.some((id) => !blueprint?.tuwIds.includes(id))
+      || expectedNonCompleteTransitionTuwIds.some(
+        (id) => !expectedTransitionTuwIds.includes(id),
+      )) {
+      fail('PACK_TRANSITION_SCOPE', pack.packId);
+    }
     if (!sameSequence(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
-      || !sameSequence(controlPlane.blockedTransitionTuwIds ?? [], expectedBlockedTransitionTuwIds)
-      || !sameSequence(pack.conditionalBlockedTuwIds ?? [], expectedBlockedTransitionTuwIds)
+      || !sameSequence(
+        controlPlane.nonCompleteOnlyTransitionTuwIds ?? [],
+        expectedNonCompleteTransitionTuwIds,
+      )
+      || !sameSequence(pack.conditionalBlockedTuwIds ?? [], expectedConditionalBlockedTuwIds)
       || !sameSet(controlPlane.transitionCommit?.exactPaths ?? [], TRANSITION_CONTROL_PLANE_PATHS)
       || controlPlane.transitionCommit?.oneRowPerCommit !== true
       || controlPlane.transitionCommit?.payloadMixingForbidden !== true
@@ -2558,8 +2613,9 @@ export function validateManifest(manifest) {
       )) {
         fail('TRIGGER_MIGRATION_EXECUTABLE', id);
       }
-      if (packs.some((pack) => pack.controlPlane?.transitionTuwIds?.includes(id))) {
-        fail('TRIGGER_TRANSITION_EXECUTABLE', id);
+      if (packs.some((pack) => pack.controlPlane?.transitionTuwIds?.includes(id)
+        && !pack.controlPlane?.nonCompleteOnlyTransitionTuwIds?.includes(id))) {
+        fail('TRIGGER_COMPLETION_EXECUTABLE', id);
       }
     }
   }
@@ -2842,45 +2898,86 @@ async function writeOutputs(manifest) {
   return { json, md };
 }
 
-function argOption(name) {
-  const indexes = process.argv.flatMap((value, index) => value === name ? [index] : []);
-  if (indexes.length > 1) throw new Error(name + ' may be specified only once');
-  if (indexes.length === 0) return { present: false, value: null };
-  const value = process.argv[indexes[0] + 1];
-  if (value === undefined || value.trim() === '' || value.startsWith('--')) {
-    throw new Error(name + ' requires a nonempty value');
+const CLI_ACTION_OPTIONS = [
+  '--assert-focused-test',
+  '--run-focused-test',
+  '--build',
+  '--check',
+];
+const CLI_VALUE_OPTIONS = new Set([
+  '--assert-focused-test',
+  '--run-focused-test',
+  '--source-dir',
+]);
+const CLI_BOOLEAN_OPTIONS = new Set(['--build', '--check', '--committed-only']);
+
+export function parseCliArgs(argv) {
+  const allowed = new Set([...CLI_VALUE_OPTIONS, ...CLI_BOOLEAN_OPTIONS]);
+  const options = new Map();
+  for (let index = 0; index < argv.length; index += 1) {
+    const name = argv[index];
+    if (!allowed.has(name)) throw new Error('unknown option: ' + name);
+    if (options.has(name)) throw new Error(name + ' may be specified only once');
+    if (CLI_VALUE_OPTIONS.has(name)) {
+      const value = argv[index + 1];
+      if (value === undefined || value.trim() === '' || value.startsWith('--')) {
+        throw new Error(name + ' requires a nonempty value');
+      }
+      options.set(name, value);
+      index += 1;
+    } else {
+      options.set(name, true);
+    }
   }
-  return { present: true, value };
+
+  const actions = CLI_ACTION_OPTIONS.filter((name) => options.has(name));
+  if (actions.length !== 1) {
+    throw new Error('exactly one action option is required: ' + CLI_ACTION_OPTIONS.join(', '));
+  }
+  const action = actions[0];
+  const allowedByAction = {
+    '--assert-focused-test': new Set(['--assert-focused-test']),
+    '--run-focused-test': new Set(['--run-focused-test']),
+    '--build': new Set(['--build', '--source-dir']),
+    '--check': new Set(['--check', '--source-dir', '--committed-only']),
+  }[action];
+  const conflicting = [...options.keys()].filter((name) => !allowedByAction.has(name));
+  if (conflicting.length) {
+    throw new Error(action + ' does not accept: ' + conflicting.join(', '));
+  }
+
+  const sourceDir = options.get('--source-dir') ?? null;
+  const committedOnly = options.has('--committed-only');
+  if (action === '--check' && sourceDir && committedOnly) {
+    throw new Error('--source-dir and --committed-only are mutually exclusive');
+  }
+  if (action === '--check' && !sourceDir && !committedOnly) {
+    throw new Error('--check requires --source-dir <sealed-dir> or explicit --committed-only');
+  }
+  if (action === '--build' && !sourceDir) {
+    throw new Error('--build requires --source-dir <sealed-dir>');
+  }
+  return {
+    action,
+    sourceDir,
+    committedOnly,
+    focusedTestPath: CLI_VALUE_OPTIONS.has(action) ? options.get(action) : null,
+  };
 }
 
 async function main() {
-  if (process.argv.includes('--assert-focused-test')) {
-    const focusedTestPath = argOption('--assert-focused-test').value;
-    const result = await assertFocusedTestPath(focusedTestPath);
+  const cli = parseCliArgs(process.argv.slice(2));
+  if (cli.action === '--assert-focused-test') {
+    const result = await assertFocusedTestPath(cli.focusedTestPath);
     console.log(JSON.stringify({ ok: true, code: 'FOCUSED_TEST_ASSERT_OK', ...result }));
     return;
   }
-  if (process.argv.includes('--run-focused-test')) {
-    const focusedTestPath = argOption('--run-focused-test').value;
-    await runFocusedTest(focusedTestPath);
+  if (cli.action === '--run-focused-test') {
+    await runFocusedTest(cli.focusedTestPath);
     return;
   }
-  const sourceOption = argOption('--source-dir');
-  const sourceDir = sourceOption.value;
-  const buildRequested = process.argv.includes('--build');
-  const checkRequested = process.argv.includes('--check');
-  const committedOnly = process.argv.includes('--committed-only');
-  if (sourceOption.present && committedOnly) {
-    throw new Error('--source-dir and --committed-only are mutually exclusive');
-  }
-  if (committedOnly && !checkRequested) {
-    throw new Error('--committed-only is valid only with --check');
-  }
-  if (checkRequested && !sourceOption.present && !committedOnly) {
-    throw new Error('--check requires --source-dir <sealed-dir> or explicit --committed-only');
-  }
-  if (buildRequested) {
-    if (!sourceOption.present) throw new Error('--build requires --source-dir <sealed-dir>');
+  const { sourceDir } = cli;
+  if (cli.action === '--build') {
     const manifest = await buildManifest(sourceDir);
     const result = validateManifest(manifest);
     const gitSources = validateNonOverlayGitSources(manifest);
@@ -2911,13 +3008,11 @@ async function main() {
     console.error(JSON.stringify({ manifest: result, gitSources }, null, 2));
     process.exit(1);
   }
-  if (checkRequested) {
-    const expectedManifest = sourceOption.present ? await buildManifest(sourceDir) : manifest;
-    const [actualJson, actualMd] = await Promise.all([readFile(JSON_PATH, 'utf8'), readFile(MD_PATH, 'utf8')]);
-    if (!outputsMatchManifest(expectedManifest, { json: actualJson, markdown: actualMd })) {
-      console.error(JSON.stringify({ ok: false, code: 'CHECK_DRIFT', writes: 0 }));
-      process.exit(1);
-    }
+  const expectedManifest = sourceDir ? await buildManifest(sourceDir) : manifest;
+  const [actualJson, actualMd] = await Promise.all([readFile(JSON_PATH, 'utf8'), readFile(MD_PATH, 'utf8')]);
+  if (!outputsMatchManifest(expectedManifest, { json: actualJson, markdown: actualMd })) {
+    console.error(JSON.stringify({ ok: false, code: 'CHECK_DRIFT', writes: 0 }));
+    process.exit(1);
   }
   console.log(JSON.stringify({
     ok: true,

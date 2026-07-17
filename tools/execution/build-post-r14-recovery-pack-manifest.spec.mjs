@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   assertFocusedTestPath,
   cleanupGuaranteedShellCommand,
+  parseCliArgs,
   validateFocusedTestResult,
   validateNonOverlayGitSources,
   validateManifest,
@@ -178,20 +179,47 @@ test('every raw test anchor has an exact availability or gap disposition', async
     return null;
   };
 
+  const dispositionNames = [
+    'AVAILABLE_AT_BASE',
+    'PROVIDED_BY_CURRENT_PACK',
+    'PLANNED_CURRENT_PACK_CREATE',
+    'PROVIDED_BY_PREDECESSOR_PACK',
+    'DEFERRED_PROVIDER_PACK',
+    'PLANNED_ACCEPTANCE_TEST_GAP',
+    'BLOCKED_INACTIVE_TRIGGER',
+    'NON_EXECUTABLE_ANCHOR',
+  ];
+  const focusedDispositions = new Set(dispositionNames.slice(0, 4));
   for (const pack of packs) {
-    const records = [];
     const closure = predecessorClosure(pack);
-    for (const sourcePath of pack.verification.rawTestAnchorPaths) {
-      const canonicalPath = expectedAliases[sourcePath] ?? sourcePath;
+    const expectedPaths = new Set(pack.verification.rawTestAnchorPaths.map(
+      (sourcePath) => expectedAliases[sourcePath] ?? sourcePath,
+    ));
+    for (const [gapPath, , ownerPackId] of expectedPlannedGaps) {
+      if (ownerPackId === pack.packId) expectedPaths.add(gapPath);
+    }
+    const records = dispositionNames.flatMap((disposition) => {
+      const paths = pack.verification.testAnchorDispositions[disposition];
+      assert.ok(Array.isArray(paths), pack.packId + ':' + disposition);
+      return paths.map((canonicalPath) => ({ canonicalPath, disposition }));
+    });
+    assert.deepEqual(
+      [...new Set(records.map((record) => record.canonicalPath))].sort(),
+      [...expectedPaths].sort(),
+      pack.packId,
+    );
+    assert.equal(records.length, expectedPaths.size, pack.packId + ': duplicate disposition');
+
+    for (const { canonicalPath, disposition } of records) {
       const initialRunner = syntacticRunner(canonicalPath);
-      const directorySelector = initialRunner === 'INTEGRATION' && !canonicalPath.endsWith('.spec.ts');
-      const providers = [...providersByPath]
+      const directorySelector = initialRunner === 'INTEGRATION'
+        && !canonicalPath.endsWith('.spec.ts');
+      const providerPackIds = [...new Set([...providersByPath]
         .filter(([providedPath]) => providedPath === canonicalPath
           || (directorySelector
             && providedPath.startsWith(canonicalPath + '/')
             && providedPath.endsWith('.spec.ts')))
-        .flatMap(([, ids]) => ids);
-      const providerPackIds = [...new Set(providers)].sort();
+        .flatMap(([, ids]) => ids))].sort();
       const blockedTriggerUnitIds = [...blockedUnitsByPath]
         .filter(([blockedPath]) => blockedPath === canonicalPath
           || (directorySelector
@@ -204,63 +232,47 @@ test('every raw test anchor has an exact availability or gap disposition', async
           (basePath) => basePath.startsWith(canonicalPath + '/')
             && basePath.endsWith('.spec.ts'),
         ));
-      const runner = directorySelector && !availableAtBase && providerPackIds.length === 0
-        && blockedTriggerUnitIds.length === 0
-        ? null
-        : initialRunner;
-      let disposition;
-      if (!runner) disposition = 'NON_EXECUTABLE_ANCHOR';
-      else if (blockedTriggerUnitIds.length) disposition = 'BLOCKED_INACTIVE_TRIGGER';
-      else if (gapByPath[canonicalPath] && providerPackIds.includes(pack.packId)) {
-        disposition = 'PLANNED_CURRENT_PACK_CREATE';
-      } else if (availableAtBase) disposition = 'AVAILABLE_AT_BASE';
-      else if (providerPackIds.includes(pack.packId)) {
-        disposition = 'PROVIDED_BY_CURRENT_PACK';
-      } else if (predecessorProviderPackIds.length) {
-        disposition = 'PROVIDED_BY_PREDECESSOR_PACK';
-      } else if (gapByPath[canonicalPath]) {
-        disposition = 'PLANNED_ACCEPTANCE_TEST_GAP';
-      } else {
+      if (disposition === 'AVAILABLE_AT_BASE') assert.equal(availableAtBase, true);
+      if (disposition === 'PROVIDED_BY_CURRENT_PACK') {
+        assert.ok(providerPackIds.includes(pack.packId));
+        assert.equal(availableAtBase, false);
+      }
+      if (disposition === 'PLANNED_CURRENT_PACK_CREATE') {
+        assert.equal(gapByPath[canonicalPath]?.[2], pack.packId);
+      }
+      if (disposition === 'PROVIDED_BY_PREDECESSOR_PACK') {
+        assert.ok(predecessorProviderPackIds.length > 0);
+      }
+      if (disposition === 'DEFERRED_PROVIDER_PACK') {
         assert.ok(providerPackIds.length > 0);
-        disposition = 'DEFERRED_PROVIDER_PACK';
+        assert.equal(providerPackIds.includes(pack.packId), false);
+        assert.equal(predecessorProviderPackIds.length, 0);
       }
-      records.push({ canonicalPath, disposition });
-    }
-    for (const [gapPath, , ownerPackId] of expectedPlannedGaps) {
-      if (ownerPackId === pack.packId
-        && !records.some((record) => record.canonicalPath === gapPath)) {
-        records.push({ canonicalPath: gapPath, disposition: 'PLANNED_CURRENT_PACK_CREATE' });
+      if (disposition === 'PLANNED_ACCEPTANCE_TEST_GAP') {
+        assert.ok(gapByPath[canonicalPath]);
+      }
+      if (disposition === 'BLOCKED_INACTIVE_TRIGGER') {
+        assert.ok(blockedTriggerUnitIds.length > 0);
+        assert.equal(availableAtBase, false);
+        assert.equal(providerPackIds.length, 0);
+      }
+      if (disposition === 'NON_EXECUTABLE_ANCHOR') {
+        assert.ok(initialRunner === null || (directorySelector
+          && !availableAtBase
+          && providerPackIds.length === 0
+          && blockedTriggerUnitIds.length === 0));
       }
     }
-    const expectedDispositions = Object.fromEntries([
-      'AVAILABLE_AT_BASE',
-      'PROVIDED_BY_CURRENT_PACK',
-      'PLANNED_CURRENT_PACK_CREATE',
-      'PROVIDED_BY_PREDECESSOR_PACK',
-      'DEFERRED_PROVIDER_PACK',
-      'PLANNED_ACCEPTANCE_TEST_GAP',
-      'BLOCKED_INACTIVE_TRIGGER',
-      'NON_EXECUTABLE_ANCHOR',
-    ].map((disposition) => [
-      disposition,
-      [...new Set(records
-        .filter((record) => record.disposition === disposition)
-        .map((record) => record.canonicalPath))].sort(),
-    ]));
-    assert.deepEqual(pack.verification.testAnchorDispositions, expectedDispositions);
-    const expectedFocused = [...new Set(records
-      .filter((record) => [
-        'AVAILABLE_AT_BASE',
-        'PROVIDED_BY_CURRENT_PACK',
-        'PLANNED_CURRENT_PACK_CREATE',
-        'PROVIDED_BY_PREDECESSOR_PACK',
-      ].includes(record.disposition))
-      .map((record) => record.canonicalPath))].sort();
-    const expectedDeferred = [...new Set(records
-      .filter((record) => record.disposition === 'DEFERRED_PROVIDER_PACK')
-      .map((record) => record.canonicalPath))].sort();
-    assert.deepEqual(pack.verification.focusedTestPaths, expectedFocused);
-    assert.deepEqual(pack.verification.deferredTestPaths, expectedDeferred);
+    assert.deepEqual(
+      pack.verification.focusedTestPaths,
+      records.filter((record) => focusedDispositions.has(record.disposition))
+        .map((record) => record.canonicalPath).sort(),
+    );
+    assert.deepEqual(
+      pack.verification.deferredTestPaths,
+      records.filter((record) => record.disposition === 'DEFERRED_PROVIDER_PACK')
+        .map((record) => record.canonicalPath).sort(),
+    );
   }
 });
 
@@ -314,7 +326,8 @@ test('every generated focused command is one-to-one, reachable, bootstrapped, an
     assert.equal(
       runnerLines.length,
       pack.verification.focusedTestPaths.length
-        + (pack.migrationSourceOrdinals.length > 0 ? 1 : 0),
+        + (pack.migrationSourceOrdinals.length > 0
+          && !pack.verification.focusedTestPaths.includes('tests/integration') ? 1 : 0),
       pack.packId,
     );
   }
@@ -362,13 +375,18 @@ test('focused assertions reject missing, helper-only, and static exclusion marke
       "test.skipIf(true)('conditional', () => {});\n",
       "test.runIf(false)('conditional', () => {});\n",
       "test('option', { skip: 'reason' }, () => {});\n",
+      "test.fails('expected failure', () => {});\n",
+      "it.fails('expected failure', () => {});\n",
+      "test.each([1]).fails('expected failure', () => {});\n",
+      "test('option', { fails: true }, () => {});\n",
+      "test('option', { fails: shouldFail }, () => {});\n",
       "pytest.importorskip('missing_module')\n",
       "pytestmark = pytest.mark.skip('reason')\n",
     ]) {
       await writeFile(specPath, source);
       await assert.rejects(
         assertFocusedTestPath('tests/integration/helpers/focused.spec.ts', { root: scratch }),
-        /static skip\/todo marker/,
+        /static exclusion or expected-failure marker/,
       );
     }
   } finally {
@@ -390,6 +408,21 @@ test('helper-only integration anchors never become focused commands', async () =
       (command) => command.includes("'tests/integration/helpers'"),
     ), false);
   }
+});
+
+test('mixed inactive hunks do not suppress base or active regression tests', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-17');
+  for (const testPath of ['tests/integration', 'tests/integration/auth-session.spec.ts']) {
+    assert.ok(pack.verification.testAnchorDispositions.AVAILABLE_AT_BASE.includes(testPath));
+    assert.ok(pack.verification.focusedTestPaths.includes(testPath));
+    assert.equal(
+      pack.verification.testAnchorDispositions.BLOCKED_INACTIVE_TRIGGER.includes(testPath),
+      false,
+    );
+  }
+  assert.ok(pack.verification.testAnchorDispositions.BLOCKED_INACTIVE_TRIGGER
+    .includes('tests/integration/auth-oidc.spec.ts'));
 });
 
 test('earlier test providers are explicit predecessors and planned gaps become executable after ownership', async () => {
@@ -658,18 +691,52 @@ test('re-signed exact-base collision recreation is rejected', async () => {
   assert.ok(codes.includes('PACK_FILE_SET'));
 });
 
-test('PACK-R14-05 blocks inactive B20 while registering six active transitions', async () => {
+test('PACK-R14-05 adjudicates all seven rows without permitting completion', async () => {
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-05');
   assert.deepEqual(pack.files.create, []);
   assert.deepEqual(pack.files.modify, []);
   assert.deepEqual(pack.controlPlane.transitionTuwIds, [
-    'B15', 'B16', 'B17', 'C16', 'B18', 'B19',
+    'B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20',
   ]);
-  assert.deepEqual(pack.controlPlane.blockedTransitionTuwIds, ['B20']);
+  assert.deepEqual(
+    pack.controlPlane.nonCompleteOnlyTransitionTuwIds,
+    ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20'],
+  );
+  assert.deepEqual(pack.conditionalBlockedTuwIds, ['B20']);
   assert.equal(pack.controlPlane.transitionCommit.exactPaths.length, 4);
   assert.deepEqual(pack.controlPlane.candidateBookkeeping.create, [pack.repoSafeReceipt]);
   assert.deepEqual(pack.controlPlane.candidateBookkeeping.modify, ['docs/ledger/execution.md']);
+});
+
+test('later plan work authorizes ordered row re-adjudication independently of ownership', async () => {
+  const manifest = await fixture();
+  const expected = {
+    'PACK-R14-12': ['C1', 'C2', 'C8', 'C9', 'C16'],
+    'PACK-R14-17': ['H1', 'H2', 'H6', 'C4', 'H14'],
+    'PACK-R14-22': ['B15', 'B16'],
+    'PACK-R14-23': ['B18', 'B19', 'B20'],
+    'PACK-R14-24': ['A6', 'A7'],
+    'PACK-R14-25': ['A8', 'A9', 'A10', 'G1', 'G7'],
+    'PACK-R14-30': ['B3', 'B19', 'B20', 'G9', 'G11'],
+    'PACK-R14-31': ['C7', 'C16', 'C14', 'C15', 'B13'],
+    'PACK-R14-32': ['E8', 'B13', 'E13'],
+    'PACK-R14-34': ['B12', 'B17'],
+  };
+  for (const [packId, transitionTuwIds] of Object.entries(expected)) {
+    const pack = manifest.payload.packs.find((item) => item.packId === packId);
+    assert.deepEqual(pack.controlPlane.transitionTuwIds, transitionTuwIds, packId);
+  }
+  assert.deepEqual(
+    manifest.payload.packs.find((item) => item.packId === 'PACK-R14-23')
+      .controlPlane.nonCompleteOnlyTransitionTuwIds,
+    ['B19', 'B20'],
+  );
+  assert.deepEqual(
+    manifest.payload.packs.find((item) => item.packId === 'PACK-R14-31')
+      .controlPlane.nonCompleteOnlyTransitionTuwIds,
+    ['B13'],
+  );
 });
 
 test('PACK-R14-08 composes the exact LawOS source with only its owned later hunks', async () => {
@@ -754,7 +821,7 @@ test('current manifest rejects D9 activation even with an unregistered approval 
   assert.equal(validateManifest(manifest).errors.some((error) => error.code === 'TRIGGER_STATE'), true);
 });
 
-test('inactive conditional hunks, migrations, and transitions cannot become executable', async () => {
+test('inactive conditional hunks and migrations cannot execute or complete', async () => {
   const hunkManifest = await fixture();
   const hunk = hunkManifest.payload.hunkAssignments.find(
     (item) => item.quarantineReason === 'INACTIVE_CONDITIONAL_TRIGGER',
@@ -784,10 +851,11 @@ test('inactive conditional hunks, migrations, and transitions cannot become exec
   const transitionPack = transitionManifest.payload.packs.find(
     (pack) => pack.conditionalBlockedTuwIds.includes('H14'),
   );
-  transitionPack.controlPlane.transitionTuwIds.push('H14');
+  transitionPack.controlPlane.nonCompleteOnlyTransitionTuwIds =
+    transitionPack.controlPlane.nonCompleteOnlyTransitionTuwIds.filter((id) => id !== 'H14');
   resign(transitionManifest);
   assert.ok(validateManifest(transitionManifest).errors
-    .some((error) => error.code === 'TRIGGER_TRANSITION_EXECUTABLE'));
+    .some((error) => error.code === 'TRIGGER_COMPLETION_EXECUTABLE'));
 });
 
 test('same-PACK migration hard dependencies must remain topologically ordered', async () => {
@@ -1072,12 +1140,34 @@ test('source-less output validation rejects committed Markdown drift', async () 
   }
 });
 
-test('source check mode rejects absent, missing, empty, nonexistent, and conflicting source-dir values', () => {
+test('CLI accepts one explicit mode and rejects malformed or conflicting options', () => {
   const script = fileURLToPath(scriptPath);
+  assert.deepEqual(parseCliArgs(['--check', '--committed-only']), {
+    action: '--check',
+    sourceDir: null,
+    committedOnly: true,
+    focusedTestPath: null,
+  });
   const cases = [
     { args: ['--check'], pattern: /requires --source-dir/ },
     { args: ['--check', '--source-dir'], pattern: /requires a nonempty value/ },
     { args: ['--check', '--source-dir', ''], pattern: /requires a nonempty value/ },
+    { args: ['--check', '--check', '--committed-only'], pattern: /only once/ },
+    {
+      args: ['--check', '--committed-only', '--committed-only'],
+      pattern: /only once/,
+    },
+    { args: ['--check', '--committed-only', '--unknown'], pattern: /unknown option/ },
+    { args: ['--build', '--check', '--source-dir', '/tmp/source'], pattern: /exactly one action/ },
+    {
+      args: [
+        '--assert-focused-test',
+        'tools/migration/onedrive-profile-manifest.spec.mjs',
+        '--run-focused-test',
+        'tools/migration/onedrive-profile-manifest.spec.mjs',
+      ],
+      pattern: /exactly one action/,
+    },
     {
       args: ['--check', '--source-dir', '/definitely/missing/amic-vault-source'],
       pattern: /ENOENT/,
