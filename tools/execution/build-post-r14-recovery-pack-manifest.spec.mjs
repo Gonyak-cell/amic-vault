@@ -319,6 +319,25 @@ test('authority validation keeps inline-comment text active and honors fence len
   ), true);
 });
 
+test('authority validation keeps comment-contained fences and code-span literals non-operative', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const rejection = '- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.';
+  for (const prefix of ['<!--\n```\n-->\n', '`<!--`\n']) {
+    const result = validateAuthorityArtifacts(manifest, {
+      packRegistry,
+      decisionLedger: decisionLedger + '\n' + prefix + rejection + '\n',
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some(
+      (error) => error.code === 'AUTHORITY_DECISION_RECORD_FORMAT',
+    ), true);
+  }
+});
+
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
   const manifest = await fixture();
   const packs = manifest.payload.packs;
@@ -1484,6 +1503,16 @@ test('committed-only check rejects inline-comment conflicts and mixed-length fen
     assert.equal(inline.status, 1, inline.stdout + inline.stderr);
     assert.match(inline.stderr, /AUTHORITY_DECISION_RECORD_FORMAT/);
     assert.match(inline.stderr, /"writes": 0/);
+
+    for (const prefix of ['<!--\n```\n-->\n', '`<!--`\n']) {
+      await writeFile(cloneDecision, decision
+        + '\n' + prefix
+        + '- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n');
+      const context = run();
+      assert.equal(context.status, 1, context.stdout + context.stderr);
+      assert.match(context.stderr, /AUTHORITY_DECISION_RECORD_FORMAT/);
+      assert.match(context.stderr, /"writes": 0/);
+    }
 
     await writeFile(cloneDecision, decision);
     const cloneRegistry = path.join(clone, 'docs/execution/PACKS_R4_R14.md');

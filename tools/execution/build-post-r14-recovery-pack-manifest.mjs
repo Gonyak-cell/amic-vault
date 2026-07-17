@@ -2846,30 +2846,56 @@ function maskNonOperationalMarkdown(text) {
       if (isClosingFence(line, fence)) fence = null;
       return line.replace(/[^\n]/g, ' ');
     }
-    const opener = openingFence(line);
+    const masked = maskHtmlCommentsOutsideCodeSpans(line, comment);
+    comment = masked.comment;
+    const opener = masked.hadComment ? null : openingFence(masked.text);
     if (opener) {
       fence = opener;
       return line.replace(/[^\n]/g, ' ');
     }
-    let output = '';
-    let cursor = 0;
-    while (cursor < line.length) {
-      if (comment) {
-        const end = line.indexOf('-->', cursor);
-        const stop = end < 0 ? line.length : end + 3;
-        output += line.slice(cursor, stop).replace(/[^\n]/g, ' ');
-        cursor = stop;
-        comment = end < 0;
-      } else {
-        const start = line.indexOf('<!--', cursor);
-        const stop = start < 0 ? line.length : start;
-        output += line.slice(cursor, stop);
-        cursor = stop;
-        if (start >= 0) comment = true;
-      }
-    }
-    return output;
+    return masked.text;
   }).join('');
+}
+
+function maskHtmlCommentsOutsideCodeSpans(line, comment) {
+  let output = '';
+  let cursor = 0;
+  let codeDelimiter = '';
+  let hadComment = false;
+  while (cursor < line.length) {
+    if (comment) {
+      const end = line.indexOf('-->', cursor);
+      const stop = end < 0 ? line.length : end + 3;
+      output += line.slice(cursor, stop).replace(/[^\n]/g, ' ');
+      cursor = stop;
+      comment = end < 0;
+      hadComment = true;
+      continue;
+    }
+    if (codeDelimiter) {
+      const end = line.indexOf(codeDelimiter, cursor);
+      const stop = end < 0 ? line.length : end + codeDelimiter.length;
+      output += line.slice(cursor, stop);
+      cursor = stop;
+      if (end >= 0) codeDelimiter = '';
+      continue;
+    }
+    if (line.startsWith('<!--', cursor)) {
+      comment = true;
+      hadComment = true;
+      continue;
+    }
+    if (line[cursor] === '`') {
+      const match = line.slice(cursor).match(/^`+/);
+      codeDelimiter = match[0];
+      output += codeDelimiter;
+      cursor += codeDelimiter.length;
+      continue;
+    }
+    output += line[cursor];
+    cursor += 1;
+  }
+  return { text: output, comment, hadComment };
 }
 
 function openingFence(line) {
