@@ -2868,6 +2868,9 @@ export function validateAuthorityArtifacts(manifest, {
     return item.join(' ');
   };
   const normalizeAuthorityText = (text) => text
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/&#(?:x([0-9a-f]+)|(\d+));/gi, (_, hex, decimal) =>
+      String.fromCodePoint(Number.parseInt(hex ?? decimal, hex ? 16 : 10)))
     .replace(/[~*_]/g, '')
     .replace(/<\/?[A-Za-z][^>]*>/g, '');
   const isCanonicalLabel = (line, index, lines) => {
