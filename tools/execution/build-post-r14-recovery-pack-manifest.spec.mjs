@@ -257,7 +257,7 @@ test('authority validation rejects registry authority anchors hidden by raw HTML
     readFile(decisionLedgerPath, 'utf8'),
   ]);
   const canonical = '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.';
-  const hiddenAnchor = packRegistry.replace(canonical, '<span data-quoted=\">\">\n' + canonical);
+  const hiddenAnchor = packRegistry.replace(canonical, '<span data-quoted=">">\n' + canonical);
   const result = validateAuthorityArtifacts(manifest, {
     packRegistry: hiddenAnchor,
     decisionLedger,
@@ -286,19 +286,25 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
     readFile(decisionLedgerPath, 'utf8'),
   ]);
   const staleHash = 'bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724';
-  const alternateRegistry = packRegistry.replace(
-    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
-    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.\n'
-      + '- canonical PAYLOAD sha-256: `' + staleHash + '`.',
-  );
-  const registryResult = validateAuthorityArtifacts(manifest, {
-    packRegistry: alternateRegistry,
-    decisionLedger,
-  });
-  assert.equal(registryResult.ok, false);
-  assert.equal(registryResult.errors.some(
-    (error) => error.code === 'AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT',
-  ), true);
+  for (const alternateLabel of [
+    'canonical PAYLOAD sha-256',
+    'Canonical manifest payload SHA-256',
+    'Canonical payload hash (SHA-256)',
+  ]) {
+    const alternateRegistry = packRegistry.replace(
+      '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
+      '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.\n'
+        + '- ' + alternateLabel + ': `' + staleHash + '`.',
+    );
+    const registryResult = validateAuthorityArtifacts(manifest, {
+      packRegistry: alternateRegistry,
+      decisionLedger,
+    });
+    assert.equal(registryResult.ok, false);
+    assert.equal(registryResult.errors.some(
+      (error) => error.code === 'AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT',
+    ), true);
+  }
   const decisionResult = validateAuthorityArtifacts(manifest, {
     packRegistry,
     decisionLedger: decisionLedger + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n',
@@ -414,7 +420,7 @@ test('authority validation excludes authority records inside code spans and raw 
   }
 });
 
-test('authority validation rejects unsupported Markdown block syntax in the decision ledger', async () => {
+test('authority validation ignores unrelated Markdown block syntax in the decision ledger', async () => {
   const manifest = await fixture();
   const [packRegistry, decisionLedger] = await Promise.all([
     readFile(packRegistryPath, 'utf8'),
@@ -424,10 +430,7 @@ test('authority validation rejects unsupported Markdown block syntax in the deci
     packRegistry,
     decisionLedger: decisionLedger + '\n<widget>\n',
   });
-  assert.equal(result.ok, false);
-  assert.equal(result.errors.some(
-    (error) => error.code === 'AUTHORITY_DECISION_MARKDOWN_CONTEXT',
-  ), true);
+  assert.equal(result.ok, true);
 });
 
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {

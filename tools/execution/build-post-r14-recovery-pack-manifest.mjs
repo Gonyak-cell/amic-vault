@@ -2823,24 +2823,35 @@ export function validateAuthorityArtifacts(manifest, {
   if (unsafeRegistryContextLines.length) {
     fail('AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT', unsafeRegistryContextLines.join('\n'));
   }
+  const canonicalLabelPattern = /^- Canonical\b.*\b(?:payload|hash)\b.*\bSHA-?256\b/i;
   const canonicalLabelLines = registrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
+  const authorityCanonicalLabelLines = registrySection.split('\n').filter((line) =>
+    canonicalLabelPattern.test(line));
   if (canonicalLabelLines.length !== 1) {
     fail('AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT', canonicalLabelLines.length);
+  }
+  if (authorityCanonicalLabelLines.length !== canonicalLabelLines.length) {
+    fail('AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT', authorityCanonicalLabelLines.length);
   }
   const registryPayloadAnchors = [...registrySection.matchAll(
     /^- Canonical payload SHA-256:\n {2}`([0-9a-f]{64})`\.$/gm,
   )];
   const rawCanonicalLabelLines = rawRegistrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
+  const rawAuthorityCanonicalLabelLines = rawRegistrySection.split('\n').filter((line) =>
+    canonicalLabelPattern.test(line));
   const rawRegistryPayloadAnchors = [...rawRegistrySection.matchAll(
     /^- Canonical payload SHA-256:\n {2}`([0-9a-f]{64})`\.$/gm,
   )];
   if (rawCanonicalLabelLines.length !== canonicalLabelLines.length
+    || rawAuthorityCanonicalLabelLines.length !== authorityCanonicalLabelLines.length
     || rawRegistryPayloadAnchors.length !== registryPayloadAnchors.length) {
     fail('AUTHORITY_PACK_REGISTRY_NON_OPERATIONAL', {
       rawLabels: rawCanonicalLabelLines.length,
       labels: canonicalLabelLines.length,
+      rawAuthorityLabels: rawAuthorityCanonicalLabelLines.length,
+      authorityLabels: authorityCanonicalLabelLines.length,
       rawFields: rawRegistryPayloadAnchors.length,
       fields: registryPayloadAnchors.length,
     });
@@ -2860,15 +2871,25 @@ export function validateAuthorityArtifacts(manifest, {
       + 'status=AUTHORIZED_TECHNICAL_GATES_ONLY\\.$',
   );
   const rawDecisionLines = (decisionLedger ?? '').split('\n');
-  const unsafeDecisionContextLines = rawDecisionLines.filter((line) =>
-    /^ {0,3}</.test(line) || /^ {0,3}`/.test(line) || openingFence(line));
+  const rawAuthorityLineIndexes = rawDecisionLines.flatMap((line, index) =>
+    /^- /.test(line) && line.includes(AMENDMENT_PACK_ID)
+      && /authority\s+decision(?:\s+record)?\b/i.test(line) ? [index] : []);
+  const unsafeDecisionContextLines = rawAuthorityLineIndexes.flatMap((index) => {
+    const preambleLines = rawDecisionLines.slice(0, index);
+    const preambleContent = preambleLines.at(-1) === '' ? preambleLines.slice(0, -1) : preambleLines;
+    return preambleContent
+      .slice(preambleContent.findLastIndex((line) => !line.trim()) + 1)
+      .concat(rawDecisionLines[index])
+      .filter((line) => /^ {0,3}</.test(line)
+        || /^ {0,3}<[^/]/.test(line)
+        || /^ {0,3}`/.test(line)
+        || openingFence(line));
+  });
   if (unsafeDecisionContextLines.length) {
     fail('AUTHORITY_DECISION_MARKDOWN_CONTEXT', unsafeDecisionContextLines.join('\n'));
   }
   const decisionLines = maskNonOperationalMarkdown(decisionLedger ?? '').split('\n');
-  const rawAuthorityLineCount = rawDecisionLines.filter((line) => /^- /.test(line)
-    && line.includes(AMENDMENT_PACK_ID)
-    && /authority\s+decision(?:\s+record)?\b/i.test(line)).length;
+  const rawAuthorityLineCount = rawAuthorityLineIndexes.length;
   const decisionCandidates = decisionLines.filter((line) => /^- /.test(line)
     && line.includes(AMENDMENT_PACK_ID)
     && /authority\s+decision(?:\s+record)?\b/i.test(line));
