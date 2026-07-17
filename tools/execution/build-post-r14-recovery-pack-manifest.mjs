@@ -2823,18 +2823,29 @@ export function validateAuthorityArtifacts(manifest, {
   if (unsafeRegistryContextLines.length) {
     fail('AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT', unsafeRegistryContextLines.join('\n'));
   }
-  const listMarkerPattern = /^( *)(?:[-+*]|\d+[.)])\s+/;
+  const listMarkerPattern = /^([ \t]*)([-+*]|\d+[.)])([ \t]+)/;
+  const markdownColumnWidth = (prefix) => [...prefix].reduce(
+    (width, character) => character === '\t' ? width + 4 - (width % 4) : width + 1,
+    0,
+  );
   const isAuthorityListMarker = (line, index, lines) => {
     const marker = line.match(listMarkerPattern);
     if (!marker) return false;
-    const indent = marker[1].length;
+    const indent = markdownColumnWidth(marker[1]);
     if (indent <= 3) return true;
     for (let parentIndex = index - 1; parentIndex >= 0; parentIndex -= 1) {
       const parentLine = lines[parentIndex];
       if (!parentLine.trim()) continue;
       const parentMarker = parentLine.match(listMarkerPattern);
-      if (parentMarker && parentMarker[1].length < indent) return true;
-      if (!parentMarker && parentLine.match(/^ */)[0].length === 0) return false;
+      if (parentMarker) {
+        const parentIndent = markdownColumnWidth(parentMarker[1]);
+        const parentContentIndent = parentIndent
+          + markdownColumnWidth(parentMarker[2] + parentMarker[3]);
+        if (parentIndent < indent) {
+          return indent >= parentContentIndent + 2 && indent <= parentContentIndent + 3;
+        }
+      }
+      if (!parentMarker && markdownColumnWidth(parentLine.match(/^[ \t]*/)[0]) === 0) return false;
     }
     return false;
   };
