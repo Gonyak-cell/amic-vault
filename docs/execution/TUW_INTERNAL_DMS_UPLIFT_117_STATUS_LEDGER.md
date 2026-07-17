@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-17T20:36:00.000Z`
+- asOf / generatedAt: `2026-07-17T20:37:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `424d80363e858d001dcd90b7c89262aaf0fbc6104355b717ec227bd63a3fb98c`
-- Transition journal SHA-256: `35d9016f2a9d55a9ec77f2344eb3be6b1ec392991853efb735e2e8e866895a54`
+- Overrides SHA-256: `3838254c1654f7c82d37b0e58df362271bb56de8f6fe2ede1b5aa5dfd404fdc9`
+- Transition journal SHA-256: `86a6acfca97e09d383ef8366689ef0fb3257a7949abfdaf2ad877e6ad40731de`
 
 ## Objective
 
@@ -22,9 +22,9 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 81
 - EXTERNAL_BLOCKED: 12
 - PARTIAL: 4
-- UNADJUDICATED: 1
-- BOOTSTRAP_PREIMAGE: 111
-- CURRENT_VALIDATED: 6
+- NOT_STARTED: 1
+- BOOTSTRAP_PREIMAGE: 110
+- CURRENT_VALIDATED: 7
 
 ## Rules
 
@@ -158,4 +158,4 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | C16 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3130 | Keep C16 non-complete until the authorized fulfillment source is available, C7 is current complete, and the C16 acceptance evidence is collected. |
 | B18 | 2 | L | EXTERNAL_BLOCKED | CURRENT_VALIDATED | 0 | 0 | SOURCE_ACCESS | 2 | 3142 | Keep B18 externally blocked until authorized Contract Desk source access is recorded; then execute only its registered redline package PACK. |
 | B19 | 2 | L | PARTIAL | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3154 | Keep B19 partial and non-complete until B18 and B3 are current complete and the registered B19 implementation/evidence PACK is executed. |
-| B20 | 3 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3166 | Adjudicate B20 against its acceptance block and record current evidence before any status change. |
+| B20 | 3 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3166 | Do not start B20 until the trigger is recorded or formally excluded and B18/B19 are current complete. |
