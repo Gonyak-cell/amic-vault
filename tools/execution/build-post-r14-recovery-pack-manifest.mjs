@@ -2762,29 +2762,66 @@ export function validateAuthorityArtifacts(manifest, {
   const errors = [];
   const fail = (code, detail) => errors.push({ code, detail });
   const payloadSha256 = manifest?.payloadSha256;
-  const registrySectionStart = packRegistry?.indexOf(AMENDMENT_REGISTRY_HEADING) ?? -1;
+  const registryText = packRegistry ?? '';
+  const escapedAmendmentPackId = AMENDMENT_PACK_ID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const amendmentHeadingPattern = new RegExp(
+    '^## ' + escapedAmendmentPackId + '(?:\\s|$).*$',
+    'gm',
+  );
+  const amendmentHeadings = [...registryText.matchAll(amendmentHeadingPattern)];
+  if (amendmentHeadings.length !== 1) {
+    fail('AUTHORITY_PACK_REGISTRY_HEADING_COUNT', amendmentHeadings.length);
+  }
+  const exactHeadingPattern = new RegExp(
+    '^' + AMENDMENT_REGISTRY_HEADING.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$',
+    'gm',
+  );
+  const exactHeadings = [...registryText.matchAll(exactHeadingPattern)];
+  if (exactHeadings.length !== 1) {
+    fail('AUTHORITY_PACK_REGISTRY_HEADING_FORMAT', exactHeadings.length);
+  }
+  const registrySectionStart = exactHeadings.length === 1 ? exactHeadings[0].index : -1;
   const registrySectionEnd = registrySectionStart < 0
     ? -1
-    : packRegistry.indexOf('\n## ', registrySectionStart + AMENDMENT_REGISTRY_HEADING.length);
+    : registryText.indexOf('\n## ', registrySectionStart + AMENDMENT_REGISTRY_HEADING.length);
   const registrySection = registrySectionStart < 0
     ? ''
-    : packRegistry.slice(
+    : registryText.slice(
       registrySectionStart,
-      registrySectionEnd < 0 ? packRegistry.length : registrySectionEnd,
+      registrySectionEnd < 0 ? registryText.length : registrySectionEnd,
     );
-  const expectedRegistryAnchor = '- Canonical payload SHA-256:\n  `' + payloadSha256 + '`.';
-  if (!registrySection.includes(expectedRegistryAnchor)) {
-    fail('AUTHORITY_PACK_REGISTRY_PAYLOAD_HASH', payloadSha256);
+  const registryPayloadAnchors = [...registrySection.matchAll(
+    /^- Canonical payload SHA-256:\n {2}`([0-9a-f]{64})`\.$/gm,
+  )];
+  if (registryPayloadAnchors.length !== 1) {
+    fail('AUTHORITY_PACK_REGISTRY_CANONICAL_FIELD_COUNT', registryPayloadAnchors.length);
+  } else if (registryPayloadAnchors[0][1] !== payloadSha256) {
+    fail('AUTHORITY_PACK_REGISTRY_PAYLOAD_HASH', registryPayloadAnchors[0][1]);
   }
 
-  const decisionLines = (decisionLedger ?? '')
-    .split('\n')
-    .filter((line) => line.includes(AMENDMENT_PACK_ID)
-      && line.includes('canonical payload SHA-256'));
-  const latestDecision = decisionLines.at(-1) ?? '';
-  const expectedDecisionAnchor = 'canonical payload SHA-256 `' + payloadSha256 + '`';
-  if (!latestDecision.includes(expectedDecisionAnchor)) {
-    fail('AUTHORITY_DECISION_LEDGER_PAYLOAD_HASH', latestDecision || 'missing amendment decision');
+  const decisionRecordPattern = new RegExp(
+    '^- \\d{4}-\\d{2}-\\d{2} ' + escapedAmendmentPackId
+      + ' authority decision record: decision=AFFIRM; authorityRef=`'
+      + AMENDMENT_AUTHORITY_REF
+      + '`; canonicalPayloadSha256=`([0-9a-f]{64})`; '
+      + 'scope=CONTROL_PLANE_RECOVERY_MANIFEST_ONLY; '
+      + 'status=AUTHORIZED_TECHNICAL_GATES_ONLY\\.$',
+  );
+  const decisionLines = (decisionLedger ?? '').split('\n');
+  const decisionCandidates = decisionLines.filter((line) => line.includes(AMENDMENT_PACK_ID)
+    && (line.includes('authority decision record:')
+      || line.includes('decision=')
+      || line.includes('canonicalPayloadSha256=')));
+  const affirmativeDecisionRecords = decisionCandidates
+    .map((line) => ({ line, match: line.match(decisionRecordPattern) }))
+    .filter(({ match }) => match);
+  if (decisionCandidates.length !== 1) {
+    fail('AUTHORITY_DECISION_RECORD_COUNT', decisionCandidates.length);
+  }
+  if (affirmativeDecisionRecords.length !== 1) {
+    fail('AUTHORITY_DECISION_RECORD_FORMAT', decisionCandidates.join('\n') || 'missing amendment decision');
+  } else if (affirmativeDecisionRecords[0].match[1] !== payloadSha256) {
+    fail('AUTHORITY_DECISION_LEDGER_PAYLOAD_HASH', affirmativeDecisionRecords[0].match[1]);
   }
 
   return { ok: errors.length === 0, errors };

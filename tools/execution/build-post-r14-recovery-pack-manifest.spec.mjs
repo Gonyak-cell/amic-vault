@@ -128,8 +128,93 @@ test('authority validation rejects stale registry or decision-ledger payload anc
   const staleDecision = decisionLedger.replace(manifest.payloadSha256, staleHash);
   assert.equal(validateAuthorityArtifacts(manifest, {
     packRegistry,
-    decisionLedger: staleDecision,
+    decisionLedger: staleDecision.replace(
+      'canonicalPayloadSha256=`' + manifest.payloadSha256 + '`',
+      'canonicalPayloadSha256=`' + staleHash + '`',
+    ),
   }).errors.some((error) => error.code === 'AUTHORITY_DECISION_LEDGER_PAYLOAD_HASH'), true);
+});
+
+test('authority validation rejects duplicate or conflicting registry anchors', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const amendmentHeading = packRegistry.match(
+    /^## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction$/m,
+  )?.[0];
+  assert.ok(amendmentHeading);
+  const duplicateHeading = validateAuthorityArtifacts(manifest, {
+    packRegistry: packRegistry + '\n' + amendmentHeading + '\n',
+    decisionLedger,
+  });
+  assert.equal(duplicateHeading.ok, false);
+  assert.equal(duplicateHeading.errors.some(
+    (error) => error.code === 'AUTHORITY_PACK_REGISTRY_HEADING_COUNT',
+  ), true);
+
+  const canonicalField = '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.';
+  const duplicateAnchor = packRegistry.replace(
+    canonicalField,
+    canonicalField + '\n' + canonicalField,
+  );
+  const duplicateCanonicalField = validateAuthorityArtifacts(manifest, {
+    packRegistry: duplicateAnchor,
+    decisionLedger,
+  });
+  assert.equal(duplicateCanonicalField.ok, false);
+  assert.equal(duplicateCanonicalField.errors.some(
+    (error) => error.code === 'AUTHORITY_PACK_REGISTRY_CANONICAL_FIELD_COUNT',
+  ), true);
+
+  const staleHash = 'bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724';
+  const conflictingAnchor = validateAuthorityArtifacts(manifest, {
+    packRegistry: packRegistry.replace(canonicalField,
+      '- Canonical payload SHA-256:\n  `' + staleHash + '`.'),
+    decisionLedger,
+  });
+  assert.equal(conflictingAnchor.ok, false);
+  assert.equal(conflictingAnchor.errors.some(
+    (error) => error.code === 'AUTHORITY_PACK_REGISTRY_PAYLOAD_HASH',
+  ), true);
+});
+
+test('authority validation rejects duplicate, missing-ref, rejection, and quoted decision records', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const affirmativeLine = decisionLedger.split('\n').find(
+    (line) => line.includes('authority decision record:'),
+  );
+  assert.ok(affirmativeLine);
+  const assertDecisionRejected = (mutatedLedger, code) => {
+    const result = validateAuthorityArtifacts(manifest, {
+      packRegistry,
+      decisionLedger: mutatedLedger,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.code === code), true);
+  };
+
+  assertDecisionRejected(decisionLedger + '\n' + affirmativeLine, 'AUTHORITY_DECISION_RECORD_COUNT');
+  assertDecisionRejected(
+    decisionLedger.replace(affirmativeLine, affirmativeLine.replace('decision=AFFIRM', 'decision=REJECT')),
+    'AUTHORITY_DECISION_RECORD_FORMAT',
+  );
+  assertDecisionRejected(
+    decisionLedger.replace(affirmativeLine, affirmativeLine.replace(
+      'authorityRef=`DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717`; ',
+      '',
+    )),
+    'AUTHORITY_DECISION_RECORD_FORMAT',
+  );
+  assertDecisionRejected(
+    decisionLedger.replace(affirmativeLine, '> ' + affirmativeLine),
+    'AUTHORITY_DECISION_RECORD_FORMAT',
+  );
 });
 
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
@@ -1215,6 +1300,47 @@ test('committed-only check rejects stale authority registry anchors', async () =
     ], { cwd: clone, encoding: 'utf8' });
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stderr, /AUTHORITY_PACK_REGISTRY_PAYLOAD_HASH/);
+    assert.match(result.stderr, /"writes": 0/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('committed-only check rejects a quoted decision record in a copied clone', async () => {
+  const scratch = await mkdtemp(path.join(tmpdir(), 'amic-vault-authority-decision-drift-'));
+  const clone = path.join(scratch, 'repo');
+  try {
+    const cloned = spawnSync('git', ['clone', '--shared', '--no-checkout', root, clone], {
+      encoding: 'utf8',
+    });
+    assert.equal(cloned.status, 0, cloned.stderr);
+    const checkedOut = spawnSync('git', ['-C', clone, 'checkout', '--detach', 'HEAD'], {
+      encoding: 'utf8',
+    });
+    assert.equal(checkedOut.status, 0, checkedOut.stderr);
+
+    await Promise.all([
+      cp(fileURLToPath(scriptPath), path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
+      cp(fileURLToPath(manifestPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json')),
+      cp(fileURLToPath(markdownPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md')),
+      cp(fileURLToPath(packRegistryPath), path.join(clone, 'docs/execution/PACKS_R4_R14.md')),
+      cp(fileURLToPath(decisionLedgerPath), path.join(clone, 'docs/ledger/decision.md')),
+    ]);
+    const cloneDecision = path.join(clone, 'docs/ledger/decision.md');
+    const decision = await readFile(cloneDecision, 'utf8');
+    const affirmativeLine = decision.split('\n').find(
+      (line) => line.includes('authority decision record:'),
+    );
+    assert.ok(affirmativeLine);
+    await writeFile(cloneDecision, decision.replace(affirmativeLine, '> ' + affirmativeLine));
+
+    const result = spawnSync(process.execPath, [
+      await realpath(path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
+      '--check',
+      '--committed-only',
+    ], { cwd: clone, encoding: 'utf8' });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /AUTHORITY_DECISION_RECORD_FORMAT/);
     assert.match(result.stderr, /"writes": 0/);
   } finally {
     await rm(scratch, { recursive: true, force: true });
