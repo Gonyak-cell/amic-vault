@@ -2873,9 +2873,13 @@ export function validateAuthorityArtifacts(manifest, {
       String.fromCodePoint(Number.parseInt(hex ?? decimal, hex ? 16 : 10)))
     .replace(/[~*_]/g, '')
     .replace(/<\/?[A-Za-z][^>]*>/g, '');
+  const authorityTokenText = (text) => normalizeAuthorityText(text)
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .toLowerCase();
   const isCanonicalLabel = (line, index, lines) => {
-    const item = normalizeAuthorityText(authorityListItemText(line, index, lines));
-    return /Canonical\b/i.test(item) && /\bSHA-?256\b/i.test(item);
+    const item = authorityTokenText(authorityListItemText(line, index, lines));
+    return item.includes('canonical') && item.includes('sha256');
   };
   const canonicalLabelLines = registrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
@@ -2927,8 +2931,8 @@ export function validateAuthorityArtifacts(manifest, {
   );
   const rawDecisionLines = (decisionLedger ?? '').split('\n');
   const isAuthorityDecisionItem = (line, index, lines) => {
-    const item = normalizeAuthorityText(authorityListItemText(line, index, lines));
-    return item.includes(AMENDMENT_PACK_ID) && /authority\s+decision(?:\s+record)?\b/i.test(item);
+    const item = authorityTokenText(authorityListItemText(line, index, lines));
+    return item.includes('packr1403amendment01authoritydecision');
   };
   const rawAuthorityLineIndexes = rawDecisionLines.flatMap((line, index, lines) =>
     isAuthorityDecisionItem(line, index, lines) ? [index] : []);
