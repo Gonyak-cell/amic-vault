@@ -9,10 +9,16 @@
     "value": "32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9"
   },
   "authorityCommit": "2daa27d6ecb959342ecb13396286532e64f54cab",
-  "candidateSha": null,
-  "validationScopeDigest": null,
-  "asOf": "2026-07-17T00:00:00.000Z",
-  "previousAcceptedJournalHead": null,
+  "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+  "validationScopeDigest": {
+    "algorithm": "SHA-256",
+    "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+  },
+  "asOf": "2026-07-17T20:37:00.000Z",
+  "previousAcceptedJournalHead": {
+    "algorithm": "SHA-256",
+    "value": "48a1c402ffc0f1aa68049a9c04edc6ab1963c4b5a5b775bfb4125feff716fffd"
+  },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
     "sourcePlanSha256": {
@@ -25803,8 +25809,950 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "a9bb331d27460f8ffea2d677d82e74b9017e84a6fba1f5beef3a9b880d5bf2bf"
+    "value": "ddc1d3762a769388c2c4efb6f47461f45c38878a100d9c3e142615cde22ef63d"
   },
-  "entries": [],
+  "entries": [
+    {
+      "sequence": 1,
+      "transitionId": "TR-000001",
+      "packId": "PACK-R14-05",
+      "tuwId": "B15",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:31:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "Current candidate review found adjacent document surfaces but not the B15 client-axis, editor provenance, or acceptance evidence.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "5e788184b76f4d3e8bc676d0279299c5f7d7e096acd34cc0f3787c921c632a92"
+      },
+      "afterOverride": {
+        "status": "PARTIAL",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B15 has adjacent document list and editing surfaces at the exact candidate, but the required documents.updated_by provenance, client-scoped list query and client detail tab are absent; no B15 acceptance evidence supports completion.",
+        "remainingGaps": [
+          "Add the documents.updated_by persistence and client-scoped document-list surface required by B15.",
+          "Add the B15 cross-tenant/client-filter/editor provenance integration coverage and manual /files and client-detail QA evidence."
+        ],
+        "nextAction": "Implement only the B15 allowlisted client-axis and editor-provenance slice after its registered PACK is reached, then collect current integration and manual evidence.",
+        "lastReviewedAt": "2026-07-17T20:31:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "7164428367d56c7255e014bfa95789174c8d15bcaf034f17a67147d66439a25b"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "ddc1d3762a769388c2c4efb6f47461f45c38878a100d9c3e142615cde22ef63d"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "2dd0c5cf7bce3326a27e897675711c4729f0ba152037aa2a6143b041f561dda8"
+      }
+    },
+    {
+      "sequence": 2,
+      "transitionId": "TR-000002",
+      "packId": "PACK-R14-05",
+      "tuwId": "B16",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:32:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "Current candidate provides edit-session and later official-promotion paths but not B16 copy branching, release requests, audit actions, or interleaving coverage.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "c623f3163f16daf796c21075100f1d8f463d30b1010ae4c0db50db6648efd6f3"
+      },
+      "afterOverride": {
+        "status": "PARTIAL",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B16 has an existing edit-session and official-promotion base at the exact candidate, but the required copy download branch, release request, notification/audit behavior, version-upload lock rule, and acceptance coverage are absent.",
+        "remainingGaps": [
+          "Implement the B16 copy download, release request, notification, audit, and lock-interleaving behavior.",
+          "Add the required B16 integration coverage and two-user manual QA evidence."
+        ],
+        "nextAction": "Implement only the B16 allowlisted copy-conflict slice after its registered PACK is reached, then collect current integration and manual evidence.",
+        "lastReviewedAt": "2026-07-17T20:32:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "a7294e4263c38412d4b7819091cc05dd65a176df190ce05f8e61b1a74b71d4ad"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "2dd0c5cf7bce3326a27e897675711c4729f0ba152037aa2a6143b041f561dda8"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "661871182af970de7146776dcd3384cd640c2546ad9b8f3ced5c55c6abce7204"
+      }
+    },
+    {
+      "sequence": 3,
+      "transitionId": "TR-000003",
+      "packId": "PACK-R14-05",
+      "tuwId": "B17",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:33:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "Current candidate supports a separate check-in and later promotion flow but not the B17 immediate-promotion contract, policy gate, dialog, or acceptance coverage.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "ab1a034e07c40cb3b355d9d68fc046fb2c5a2ea21ad7708edf0dafab28ee4e73"
+      },
+      "afterOverride": {
+        "status": "PARTIAL",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B17 has existing check-in and later official-promotion behavior at the exact candidate, but no promoteImmediately request contract, tenant policy gate, check-in dialog choice, or B17 acceptance evidence.",
+        "remainingGaps": [
+          "Implement the B17 check-in immediate-promotion contract, policy gate, and UI dialog without weakening the review gate.",
+          "Add B17 reviewer/policy negative integration coverage and manual version-label QA evidence."
+        ],
+        "nextAction": "Implement only the B17 allowlisted check-in choice slice after its registered PACK is reached, then collect current integration and manual evidence.",
+        "lastReviewedAt": "2026-07-17T20:33:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "97c91cb2712170990fbc331f864bb769c3600065825187b98dd01454aee90a94"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "661871182af970de7146776dcd3384cd640c2546ad9b8f3ced5c55c6abce7204"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "ee2fa0113cf7767fdf5def48f37e456cfe084c0299e3c472384fc5cb72ab9e5a"
+      }
+    },
+    {
+      "sequence": 4,
+      "transitionId": "TR-000004",
+      "packId": "PACK-R14-05",
+      "tuwId": "C16",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:34:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "Current candidate has a send-and-file request foundation, but the required outlook-fulfillment anchor and OBO fulfillment path are absent and hard dependency C7 is not current complete.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "37af1bb8ccbd68e1b5aacf44a87c046f6501b8866890ec37b1722d2d761689b8"
+      },
+      "afterOverride": {
+        "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "C16 has adjacent send-and-file request and matter lookup surfaces at the exact candidate, but the handoff baseline declares the required outlook-fulfillment file absent from current main; C7 remains a hard external dependency.",
+        "remainingGaps": [
+          "Restore or implement the C16 OBO send_and_file fulfillment, retry, matching, and filing path from an authorized baseline.",
+          "Complete hard dependency C7 with external M365 evidence and add C16 integration, permission-negative, and R0 manual pilot evidence."
+        ],
+        "nextAction": "Keep C16 non-complete until the authorized fulfillment source is available, C7 is current complete, and the C16 acceptance evidence is collected.",
+        "lastReviewedAt": "2026-07-17T20:34:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "DEPENDENCY",
+        "blockingRefs": [
+          "C7"
+        ],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "1ca9269ac9ae977e3942ceb0a939f7d9af892409285c8102d631cc1bca7814d3"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "ee2fa0113cf7767fdf5def48f37e456cfe084c0299e3c472384fc5cb72ab9e5a"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "a7ad99c7af2df6201d75592d94cbda675ffd13165be757155b49e3f8ac3ac78e"
+      }
+    },
+    {
+      "sequence": 5,
+      "transitionId": "TR-000005",
+      "packId": "PACK-R14-05",
+      "tuwId": "B18",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:35:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "The required Contract Desk source access is absent and packages/redline is not present in the exact candidate.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "98023a993a35fe0e0ec977fef2b4847bc7dde404ee740e1878cb39e63a1668f6"
+      },
+      "afterOverride": {
+        "status": "EXTERNAL_BLOCKED",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B18 cannot be implemented or completed from the exact candidate because the authoritative Contract Desk source access is explicitly required by the handoff and packages/redline is absent.",
+        "remainingGaps": [
+          "Obtain authorized Contract Desk source access and establish the allowed source provenance.",
+          "Implement the B18 redline package and its synthetic fixture, performance, normalization, and extraction acceptance coverage."
+        ],
+        "nextAction": "Keep B18 externally blocked until authorized Contract Desk source access is recorded; then execute only its registered redline package PACK.",
+        "lastReviewedAt": "2026-07-17T20:35:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "SOURCE_ACCESS",
+        "blockingRefs": [
+          "docs/handoff/dms-uplift-2026-07/00_README.md:49"
+        ],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "8bf1a068478289bcfaaf4f6056d6aaac00890c5a48a83e1c5a21a420b7b3c86d"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "a7ad99c7af2df6201d75592d94cbda675ffd13165be757155b49e3f8ac3ac78e"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "ada14cd4d9f89ff9e47a9a51b712a893c002eb218b4f5e654bc46cf912c42602"
+      }
+    },
+    {
+      "sequence": 6,
+      "transitionId": "TR-000006",
+      "packId": "PACK-R14-05",
+      "tuwId": "B19",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:36:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "Current candidate lacks the B18 redline package, ComparisonModule, redline migration, and planned integration test; B18 and B3 remain hard dependencies.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "1546604109dbe8785fb95fc898b578e4627f4fb52407b6ee8788bb6446b596ee"
+      },
+      "afterOverride": {
+        "status": "PARTIAL",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B19 has no complete redline service surface at the exact candidate: packages/redline, ComparisonModule, redline migration, and tests/integration/redline.spec.ts are absent, while B18 and B3 remain hard dependencies.",
+        "remainingGaps": [
+          "Complete B18 and B3 dependency requirements before attempting B19.",
+          "Implement the B19 ComparisonModule, rendition/audit path, UI, and registered redline integration and manual performance evidence."
+        ],
+        "nextAction": "Keep B19 partial and non-complete until B18 and B3 are current complete and the registered B19 implementation/evidence PACK is executed.",
+        "lastReviewedAt": "2026-07-17T20:36:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "DEPENDENCY",
+        "blockingRefs": [
+          "B18",
+          "B3"
+        ],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "a9e7f2cab2f2a613fa0e4263f4852729960bdb1d564e10dd40ef7b73073964a6"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "ada14cd4d9f89ff9e47a9a51b712a893c002eb218b4f5e654bc46cf912c42602"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "a7ee353aa678b0e0e84cc29d043d38d296fd6f942e54784097ff912a5263711a"
+      }
+    },
+    {
+      "sequence": 7,
+      "transitionId": "TR-000007",
+      "packId": "PACK-R14-05",
+      "tuwId": "B20",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:37:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "The optional B20 trigger has not occurred or been formally excluded, and hard dependencies B18 and B19 are not current complete.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "4409f85f6d59007937c4c7add39e8b523d04729407b0db544719fbd09b330873"
+      },
+      "afterOverride": {
+        "status": "NOT_STARTED",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B20 is an optional formatting-preserving redline unit with no reliable TUW-specific implementation evidence at the exact candidate; its trigger is neither activated nor formally excluded and B18/B19 are incomplete.",
+        "remainingGaps": [
+          "Record the B20 operating trigger or formal exclusion before starting the optional unit.",
+          "After B18 and B19 are current complete, implement and validate OOXML tracked-change and LibreOffice conversion behavior if the trigger is active."
+        ],
+        "nextAction": "Do not start B20 until the trigger is recorded or formally excluded and B18/B19 are current complete.",
+        "lastReviewedAt": "2026-07-17T20:37:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "DEPENDENCY",
+        "blockingRefs": [
+          "B18",
+          "B19"
+        ],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "3b30e19ab4a0d385533342479bca0bf4415a1c9b343d44f6d4aead4dbf7b4016"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "a7ee353aa678b0e0e84cc29d043d38d296fd6f942e54784097ff912a5263711a"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "50fe566bb12c459216a78858430d0bb2cea99d67df12ade5020ed6508701c9c5"
+      }
+    }
+  ],
   "closeoutSeal": null
 }

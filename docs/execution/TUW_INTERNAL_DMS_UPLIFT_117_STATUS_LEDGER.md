@@ -1,16 +1,16 @@
 # TUW Internal DMS Uplift 117 Status Ledger
 
 Generated from `docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md`. This ledger is an execution-control artifact, not completion evidence by itself.
-Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. All 117 rows remain an inert `BOOTSTRAP_PREIMAGE`; legacy records are historical only and current evidence is empty.
+Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. Phase `TRANSITION` is derived from the sealed journal; only replayed one-row entries may change row state.
 
 ## Deterministic Metadata
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
-- Phase: `BOOTSTRAP_IMPORT`
-- asOf / generatedAt: `2026-07-17T00:00:00.000Z`
+- Phase: `TRANSITION`
+- asOf / generatedAt: `2026-07-17T20:37:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `d0404c84bfe3e7b4d14d071a0c9f267a87eb62a512a78f3e4d98499abaae6a4a`
-- Transition journal SHA-256: `c1ac2b89d7e553968aef8918bab5945431c9257855dddd2da9428d4a355767c7`
+- Overrides SHA-256: `3838254c1654f7c82d37b0e58df362271bb56de8f6fe2ede1b5aa5dfd404fdc9`
+- Transition journal SHA-256: `86a6acfca97e09d383ef8366689ef0fb3257a7949abfdaf2ad877e6ad40731de`
 
 ## Objective
 
@@ -19,11 +19,12 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. A
 ## Status Counts
 
 - COMPLETE_CANDIDATE: 19
-- LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 80
-- EXTERNAL_BLOCKED: 11
-- UNADJUDICATED: 7
-- BOOTSTRAP_PREIMAGE: 117
-- CURRENT_VALIDATED: 0
+- LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 81
+- EXTERNAL_BLOCKED: 12
+- PARTIAL: 4
+- NOT_STARTED: 1
+- BOOTSTRAP_PREIMAGE: 110
+- CURRENT_VALIDATED: 7
 
 ## Rules
 
@@ -151,10 +152,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. A
 | H12 | 3 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 44 | NONE | 8 | 2994 | Keep H12 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Under the fast evidence policy, advance to the next dependency-valid repo-local TUW while H12 waits for real law.go.kr/OpenDART credentials, external API smoke receipts, manual/staging QA, D12 downstream authority/citation surfaces, and restored LSP diagnostics. |
 | H13 | 3 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 40 | NONE | 2 | 3028 | Do not mark H13 COMPLETE_CANDIDATE yet. Under fast policy, advance to the next dependency-valid repo-local TUW; later collect the H13 /dashboard manual QA receipt and rerun changed-file LSP diagnostics before reconsidering COMPLETE_CANDIDATE. |
 | H14 | 3 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 18 | NONE | 4 | 3056 | Do not promote H14 yet. Under the fast evidence policy, advance to the next dependency-valid repo-local TUW while preserving the Entra manual/staging QA and LSP gaps for later closure. |
-| B15 | 1 | M | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3094 | Adjudicate B15 against its acceptance block and record current evidence before any status change. |
-| B16 | 1 | S | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3106 | Adjudicate B16 against its acceptance block and record current evidence before any status change. |
-| B17 | 2 | S | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3118 | Adjudicate B17 against its acceptance block and record current evidence before any status change. |
-| C16 | 2 | M | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3130 | Adjudicate C16 against its acceptance block and record current evidence before any status change. |
-| B18 | 2 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3142 | Adjudicate B18 against its acceptance block and record current evidence before any status change. |
-| B19 | 2 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3154 | Adjudicate B19 against its acceptance block and record current evidence before any status change. |
-| B20 | 3 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3166 | Adjudicate B20 against its acceptance block and record current evidence before any status change. |
+| B15 | 1 | M | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3094 | Implement only the B15 allowlisted client-axis and editor-provenance slice after its registered PACK is reached, then collect current integration and manual evidence. |
+| B16 | 1 | S | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3106 | Implement only the B16 allowlisted copy-conflict slice after its registered PACK is reached, then collect current integration and manual evidence. |
+| B17 | 2 | S | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3118 | Implement only the B17 allowlisted check-in choice slice after its registered PACK is reached, then collect current integration and manual evidence. |
+| C16 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3130 | Keep C16 non-complete until the authorized fulfillment source is available, C7 is current complete, and the C16 acceptance evidence is collected. |
+| B18 | 2 | L | EXTERNAL_BLOCKED | CURRENT_VALIDATED | 0 | 0 | SOURCE_ACCESS | 2 | 3142 | Keep B18 externally blocked until authorized Contract Desk source access is recorded; then execute only its registered redline package PACK. |
+| B19 | 2 | L | PARTIAL | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3154 | Keep B19 partial and non-complete until B18 and B3 are current complete and the registered B19 implementation/evidence PACK is executed. |
+| B20 | 3 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3166 | Do not start B20 until the trigger is recorded or formally excluded and B18/B19 are current complete. |

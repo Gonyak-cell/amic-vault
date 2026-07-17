@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "packId": "PACK-R14-05",
+  "status": "PREPARED_FOR_STATUS_ADJUDICATION",
+  "recordedAt": "2026-07-18",
+  "authorityRef": "TASK6B-TECHNICAL-GATES-AUTHORITY-20260717",
+  "executionBase": "7109887b7a19e5c6951fcf1b964b7c83b041bee4",
+  "scope": {
+    "mode": "STATUS_ADJUDICATION",
+    "transitionTuwIds": ["B15", "B16", "B17", "C16", "B18", "B19", "B20"],
+    "nonCompleteOnly": true,
+    "notChanged": ["product code", "migrations", "deployment", "external state", "docs/package/**"]
+  },
+  "adjudicationBasis": {
+    "B15": "Related document list and edit surfaces exist, but the required documents.updated_by/client filter/client detail scope and its acceptance evidence are absent.",
+    "B16": "Existing edit-session and official-promotion flows provide a partial base, but the required copy branch, release request, audit, and interleaving behavior are absent.",
+    "B17": "Existing check-in and later promotion flow provides a partial base, but the check-in promoteImmediately contract, policy gate, dialog, and acceptance coverage are absent.",
+    "C16": "The authoritative handoff declares the required outlook-fulfillment anchor in uncommitted baseline material; current main lacks that file and the OBO fulfillment path.",
+    "B18": "The authoritative Contract Desk source is unavailable and packages/redline is absent from the current candidate.",
+    "B19": "The required packages/redline dependency is not available, ComparisonModule/redline migration are absent, and the registered redline integration test remains planned only.",
+    "B20": "The optional formatting-preserving redline trigger has neither occurred nor been formally excluded; B18 and B19 are also not complete."
+  },
+  "claimBoundary": {
+    "currentCompletionClaimed": false,
+    "productBehaviorClaimed": false,
+    "externalOperationClaimed": false,
+    "releaseClaimed": false,
+    "goLiveClaimed": false
+  }
+}
