@@ -2013,7 +2013,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `4acb4e11b3d399b9ae09579d6b3d27453263db6af0deeff03941cfc7708dff50`.
+  `06ece261c8e7e51c1aaa64577978c6e29b7b9fb6c5764c0c5e083c5f33be12b2`.
 - Sealed raw test-anchor source contract SHA-256:
   `783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2092,9 +2092,9 @@ Every generated path is POSIX single-quoted and its exact command must parse
 under both Bash and zsh before registration.
 
 Any PACK with integration selectors uses a deterministic PACK-specific compose
-project, non-default PostgreSQL/MinIO/ingestion ports, database URLs, and fresh
-volumes with the canonical isolated bucket `amic-vault-dev`; it applies migrations
-and seed data, runs its focused
+project, non-default PostgreSQL/MinIO/ingestion ports, database and ingestion
+worker URLs, and fresh volumes with the canonical isolated bucket
+`amic-vault-dev`; it applies migrations and seed data, runs its focused
 integration commands, and cleans that environment. A migration-bearing PACK
 additionally preserves the
 exact `migrate -> rollback -> migrate -> seed -> focused integration -> full

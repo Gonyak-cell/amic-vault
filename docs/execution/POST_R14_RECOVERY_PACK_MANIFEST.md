@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: 4acb4e11b3d399b9ae09579d6b3d27453263db6af0deeff03941cfc7708dff50
+- Payload SHA-256: 06ece261c8e7e51c1aaa64577978c6e29b7b9fb6c5764c0c5e083c5f33be12b2
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
@@ -48,7 +48,7 @@ runner invocation, so another matching selector cannot hide a missing test. Stat
 skip/todo markers are rejected. Integration selectors require a real `.spec.ts`
 descendant; helper-only directories are non-executable anchors. Earlier test providers
 are explicit DAG predecessors. Database PACKs use PACK-specific compose projects, ports,
-volumes, and database URLs with the canonical isolated bucket, then run compose up, migrate,
+volumes, database URLs, and ingestion worker URL with the canonical isolated bucket, then run compose up, migrate,
 rollback, migrate, seed, focused
 integration, full integration, and compose cleanup in that order.
 The receipt and exact EOF execution-ledger append precede transitions; transition

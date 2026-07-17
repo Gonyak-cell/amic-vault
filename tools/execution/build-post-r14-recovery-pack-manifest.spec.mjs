@@ -479,12 +479,22 @@ test('migration PACKs preserve isolated up-down-up ordering and both migrate com
     assert.equal(pack.verification.isolatedDatabase.projectName,
       'amic-vault-' + pack.packId.toLowerCase());
     assert.equal(pack.verification.isolatedDatabase.bucket, 'amic-vault-dev');
+    assert.equal(pack.verification.isolatedDatabase.ingestionWorkerUrl,
+      'http://127.0.0.1:' + pack.verification.isolatedDatabase.ingestionPort);
     assert.equal(pack.verification.isolatedDatabase.cleanupRequiredOnSuccessOrFailure, true);
-    const isolatedCommands = commands.filter((command) => command.includes(' docker compose -p ')
-      || / pnpm (?:db:(?:migrate|rollback|seed)|test:integration)(?: |$)/.test(command));
-    assert.ok(isolatedCommands.length >= 7, pack.packId);
-    assert.ok(isolatedCommands.every(
+    const composeCommands = commands.filter((command) => command.includes(' docker compose -p '));
+    const isolatedRunners = commands.filter(
+      (command) => / pnpm (?:db:(?:migrate|rollback|seed)|test:integration)(?: |$)/.test(command),
+    );
+    assert.equal(composeCommands.length, 2, pack.packId);
+    assert.ok(composeCommands.every(
       (command) => command.includes("S3_BUCKET='amic-vault-dev'"),
+    ), pack.packId);
+    assert.ok(isolatedRunners.length >= 5, pack.packId);
+    assert.ok(isolatedRunners.every(
+      (command) => command.includes("S3_BUCKET='amic-vault-dev'")
+        && command.includes("INGESTION_WORKER_URL='http://127.0.0.1:"
+          + pack.verification.isolatedDatabase.ingestionPort + "'"),
     ), pack.packId);
     assert.ok(up < migrateIndices[0]
       && migrateIndices[0] < rollback
