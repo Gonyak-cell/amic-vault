@@ -1497,6 +1497,15 @@ test('allowing candidate bookkeeping after transitions is rejected', async () =>
     .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
 });
 
+test('R14-06 candidate rollover contract cannot be removed or widened', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-06');
+  pack.controlPlane.candidateRollover.mustFollowCandidateBookkeeping = false;
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
+});
+
 test('omitting a repo-safe receipt from candidate bookkeeping is rejected', async () => {
   const manifest = await fixture();
   manifest.payload.packs[0].controlPlane.candidateBookkeeping.create = [];
