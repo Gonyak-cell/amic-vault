@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
+  validateNonOverlayGitSources,
   validateManifest,
 } from './build-post-r14-recovery-pack-manifest.mjs';
 
@@ -26,13 +27,21 @@ function resign(manifest) {
   return manifest;
 }
 
-test('committed Task 6B manifest validates complete coverage', async () => {
+test('committed v2 manifest validates complete overlay and Git-source coverage', async () => {
   const manifest = await fixture();
   assert.deepEqual(validateManifest(manifest), { ok: true, errors: [] });
+  assert.deepEqual(validateNonOverlayGitSources(manifest), {
+    ok: true,
+    errors: [],
+    commits: 20,
+    paths: 9,
+  });
   assert.equal(manifest.payload.unitUniverse.unitIds.length, 117);
   assert.equal(manifest.payload.pathDispositions.length, 893);
   assert.equal(manifest.payload.hunkAssignments.length, 4801);
   assert.equal(manifest.payload.migrations.length, 86);
+  assert.equal(manifest.payload.quarantines.hunkOrdinals.length, 28);
+  assert.equal(manifest.payload.quarantines.pathB64s.length, 22);
 });
 
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
@@ -43,10 +52,70 @@ test('every PACK has three to eight TUWs, a unique branch, review, and earlier p
     assert.ok(pack.tuwIds.length >= 3 && pack.tuwIds.length <= 8);
     assert.ok(pack.review.requiredReviewer);
     for (const predecessor of pack.predecessorPackIds) {
-      if (predecessor === 'PACK-R14-03') continue;
+      if (['PACK-R14-03', 'PACK-R14-03-AMENDMENT-01'].includes(predecessor)) continue;
       assert.ok(packs.find((candidate) => candidate.packId === predecessor).sequence < pack.sequence);
     }
   }
+});
+
+test('PACK-R14-04 reconstructs only the exact 19-commit five-path history source', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-04');
+  const source = manifest.payload.nonOverlaySources.find(
+    (item) => item.sourceId === 'TASK7-RELEASE-HISTORY-19',
+  );
+  assert.equal(source.commits.length, 19);
+  assert.equal(source.pathActions.length, 5);
+  assert.deepEqual(pack.hunkOrdinals, []);
+  assert.deepEqual(pack.files.modify, []);
+  assert.deepEqual(pack.files.create, source.pathActions.map((item) => item.path).sort());
+  assert.deepEqual(pack.nonOverlaySourceIds, [source.sourceId]);
+});
+
+test('stale historical-base overlay records are quarantined instead of routed', async () => {
+  const manifest = await fixture();
+  const historical = manifest.payload.hunkAssignments.filter(
+    (item) => item.sourceOwnerType === 'historical_base',
+  );
+  assert.equal(historical.length, 19);
+  assert.ok(historical.every((item) => item.disposition === 'QUARANTINE'));
+  assert.ok(historical.every((item) => item.packId === null));
+  assert.ok(historical.every(
+    (item) => item.quarantineReason
+      === 'STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE',
+  ));
+});
+
+test('PACK-R14-05 registers seven one-row transitions plus candidate bookkeeping', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-05');
+  assert.deepEqual(pack.files.create, []);
+  assert.deepEqual(pack.files.modify, []);
+  assert.deepEqual(pack.controlPlane.transitionTuwIds, [
+    'B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20',
+  ]);
+  assert.equal(pack.controlPlane.transitionCommit.exactPaths.length, 4);
+  assert.deepEqual(pack.controlPlane.candidateBookkeeping.create, [pack.repoSafeReceipt]);
+  assert.deepEqual(pack.controlPlane.candidateBookkeeping.modify, ['docs/ledger/execution.md']);
+});
+
+test('PACK-R14-09 composes the exact LawOS source with only its owned later hunks', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-09');
+  const source = manifest.payload.nonOverlaySources.find(
+    (item) => item.sourceId === 'TASK8-LAWOS-REFLECTION-0B39414',
+  );
+  assert.equal(source.commits.length, 1);
+  assert.deepEqual(pack.files.create, [
+    'docs/release/lawos-canonical-matter-reflection-tuw-plan.md',
+    'tools/migration/lawos-canonical-matter-reflection.mjs',
+    'tools/migration/lawos-canonical-matter-reflection.spec.mjs',
+  ]);
+  assert.deepEqual(pack.files.modify, ['package.json']);
+  assert.deepEqual(pack.files.overlayModify, [
+    'tools/migration/lawos-canonical-matter-reflection.mjs',
+    'tools/migration/lawos-canonical-matter-reflection.spec.mjs',
+  ]);
 });
 
 test('removing one primary TUW is rejected', async () => {
@@ -212,4 +281,79 @@ test('registration allowlist drift is rejected', async () => {
   manifest.payload.registrationPack.allowedModify.push('apps/api/src/forbidden.ts');
   resign(manifest);
   assert.equal(validateManifest(manifest).errors.some((error) => error.code === 'REGISTRATION_PACK'), true);
+});
+
+test('removing a release-history commit is rejected', async () => {
+  const manifest = await fixture();
+  manifest.payload.nonOverlaySources
+    .find((item) => item.sourceId === 'TASK7-RELEASE-HISTORY-19')
+    .commits.pop();
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'NON_OVERLAY_SOURCE_CONTRACT'), true);
+});
+
+test('substituting a release-history path is rejected', async () => {
+  const manifest = await fixture();
+  manifest.payload.nonOverlaySources
+    .find((item) => item.sourceId === 'TASK7-RELEASE-HISTORY-19')
+    .pathActions[0].path = 'docs/release/unregistered.md';
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'NON_OVERLAY_SOURCE_CONTRACT'), true);
+});
+
+test('reassigning a stale historical-base hunk to a PACK is rejected', async () => {
+  const manifest = await fixture();
+  const hunk = manifest.payload.hunkAssignments.find(
+    (item) => item.sourceOwnerType === 'historical_base',
+  );
+  hunk.disposition = 'PACK';
+  hunk.packId = 'PACK-R14-04';
+  hunk.quarantineReason = null;
+  manifest.payload.packs.find((item) => item.packId === 'PACK-R14-04')
+    .hunkOrdinals.push(hunk.ordinal);
+  resign(manifest);
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('QUARANTINE_MAPPING') || codes.includes('PACK_FILE_SOURCE_SET'));
+});
+
+test('omitting one transition control-plane path is rejected', async () => {
+  const manifest = await fixture();
+  manifest.payload.packs[1].controlPlane.transitionCommit.exactPaths.pop();
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
+});
+
+test('allowing candidate bookkeeping after transitions is rejected', async () => {
+  const manifest = await fixture();
+  manifest.payload.packs[1].controlPlane.candidateBookkeeping.mustPrecedeTransitions = false;
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
+});
+
+test('omitting a repo-safe receipt from candidate bookkeeping is rejected', async () => {
+  const manifest = await fixture();
+  manifest.payload.packs[0].controlPlane.candidateBookkeeping.create = [];
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
+});
+
+test('amendment registration drift is rejected', async () => {
+  const manifest = await fixture();
+  manifest.payload.amendmentRegistration.allowedModify.pop();
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'AMENDMENT_REGISTRATION'), true);
+});
+
+test('stale G003 evidence-target routing is rejected', async () => {
+  const manifest = await fixture();
+  manifest.payload.packs[0].evidenceTarget = '.omo/evidence/ulw/stale/PACK-R14-04.txt';
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'PACK_EVIDENCE_CONTRACT'), true);
 });

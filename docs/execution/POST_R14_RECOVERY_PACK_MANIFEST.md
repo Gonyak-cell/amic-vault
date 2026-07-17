@@ -1,20 +1,45 @@
-# Post-R14 Recovery PACK Manifest
+# Post-R14 Recovery PACK Manifest v2
 
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
-- Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V1
-- Payload SHA-256: 7ef34a0e7d0198df621b49d7bd6e2d39e76f8521c0a7799101e443dd47e7eda6
+- Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
+- Payload SHA-256: 586106820251c299c9dfa867c85ab9d6abec76678feb49de389e92319141d5f6
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
-- Exact base: 566fd7399d2a22946a621f37e8f452bd444a9cc8
+- Amendment: PACK-R14-03-AMENDMENT-01
+- Amendment branch: feat/pack-r14-03-recovery-manifest-v2
+- Amendment preimage: 5c722f8a4b1f0a4c99b41089664c98ad151db2b8
 - Authority: TASK6B-TECHNICAL-GATES-AUTHORITY-20260717
+- Amendment authority: DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717
 - Primary TUW coverage: 117/117
 - Dirty-path coverage: 893/893
 - Ownership-record coverage: 4801/4801
+- Non-overlay Git sources: 20 commits / 9 paths
+- Quarantine after amendment: 28 hunks / 22 paths
 - Migration coverage: 86/86; renumbered in dependency/PACK order: 84
 
 This manifest is an execution authorization map only. It is not product implementation,
 migration execution, deployment, external release, or go-live evidence.
+
+## Amendment correction
+
+The v1 overlay-only model could not execute Task 7: PACK-R14-04 had zero overlap
+with the required five release-history paths and would have reapplied stale 110-row
+historical-base material. Version 2 quarantines those 19 stale hunks and registers
+the exact 19-commit release-history range plus the separate one-commit LawOS source.
+
+Every PACK now distinguishes effective payload files, preserved-overlay files,
+non-overlay source files, candidate bookkeeping, and one-row transition commits.
+The receipt and exact EOF execution-ledger append precede transitions; transition
+commits then change exactly the four sealed 117-row control-plane paths. Any later
+non-control-plane push invalidates the candidate binding and all exact-head gates.
+
+## Registered non-overlay Git sources
+
+| Source | PACK | Commits | Paths | Mode |
+|---|---|---:|---:|---|
+| TASK7-RELEASE-HISTORY-19 | PACK-R14-04 | 19 | 5 | PRESERVE_COMMIT_SEQUENCE |
+| TASK8-LAWOS-REFLECTION-0B39414 | PACK-R14-09 | 1 | 4 | PRESERVE_SINGLE_COMMIT_THEN_APPLY_OWNED_OVERLAY_HUNKS |
 
 ## PACK sequence
 

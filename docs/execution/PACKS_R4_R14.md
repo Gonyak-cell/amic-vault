@@ -61,6 +61,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R14-01 | `feat/pack-r14-01-scale-learning` | 8 | `SCALE-PERF-BENCH-TUW-001` through `SCALE-GATE-REPORT-TUW-001` (`docs/execution/TUW_R14_SCALE_LEARNING.md`) |
 | PACK-R14-02 | `feat/pack-r14-02-control-plane-recovery` | 4 | `DEVOPS-EXECCTRL-PARSE117-TUW-001` through `DEVOPS-EXECCTRL-TRANSITION-TUW-004` (recovery-plan Task 4 then Task 5 only) |
 | PACK-R14-03 | `feat/pack-r14-03-recovery-manifest` | 3 | `RECOVERY-MANIFEST-SCHEMA-TUW-001` through `RECOVERY-MANIFEST-REGISTRATION-TUW-003` (recovery-plan Task 6B only) |
+| PACK-R14-03-AMENDMENT-01 | `feat/pack-r14-03-recovery-manifest-v2` | 3 | `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` through `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` (Task 7+ preflight correction only) |
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
@@ -1993,6 +1994,81 @@ publication; or when the same failure repeats three times. Rollback before
 merge closes the isolated PR. Rollback after merge reverts this seven-path
 registration as one unit and invalidates every unstarted descendant; no
 database rollback applies because PACK-R14-03 has zero database scope.
+
+## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction
+
+Status: authorized technical-gates-only correction required by the Task 7
+preflight. This amendment changes the execution map only; it does not execute a
+downstream payload, row transition, migration, deployment, external operation,
+release, or go-live action.
+
+Registration authority and immutable anchors:
+
+- Authority ref: `DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717`, derived from
+  the operator's recorded sequential-execution, no-Claude, merge, and
+  no-human-approval directives for this aggregate goal.
+- Preflight evidence:
+  `.omo/evidence/ulw/amic-vault-117-recovery-20260716/G004-g04-complete-tasks-7-12-after-g03-re/a1/PACK-R14-04-MANIFEST-V1-PREFLIGHT-STOP-20260717.md`.
+- Exact preimage: `5c722f8a4b1f0a4c99b41089664c98ad151db2b8`.
+- Branch: `feat/pack-r14-03-recovery-manifest-v2`.
+- Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
+- Canonical payload SHA-256:
+  `586106820251c299c9dfa867c85ab9d6abec76678feb49de389e92319141d5f6`.
+
+The v1 validator proved complete coverage of the preserved 893-path overlay,
+but Task 7 preflight exposed a separate source class that v1 did not model.
+PACK-R14-04 had 19 stale `historical_base` overlay paths and zero overlap with
+the five paths changed by the required 19 commits `55f61f0` through `aa50fbc`.
+Two of those stale paths were already superseded on main by the 117-row control
+plane. PACK-R14-05 also had no registered transition-bookkeeping paths, and
+PACK-R14-09 omitted two paths from exact source commit `0b39414`.
+
+This amendment contains exactly three TUWs, executed in order:
+
+1. `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` — register the exact 19-commit,
+   five-path release-history source and the exact one-commit, four-path LawOS
+   source without reclassifying the preserved overlay.
+2. `RECOVERY-MANIFEST-CONTROL-PLANE-TUW-005` — separate effective payload,
+   overlay, source, candidate-bookkeeping, and four-file one-row transition
+   paths; require receipt plus exact EOF execution-ledger append before any
+   transition commit and forbid non-control-plane changes afterward.
+3. `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` — reject commit/path
+   substitution, stale historical-base reactivation, missing receipt/ledger or
+   transition paths, wrong ordering, stale evidence routing, and amendment
+   authority drift.
+
+The 19 stale historical-base hunks are now quarantined under
+`STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE`; they remain
+losslessly preserved by G001/G002 and may not enter a PACK. Total quarantine is
+28 hunks across 22 dirty paths. The remaining overlay still has exact
+893-path/4,801-hunk coverage, and all 86 migration mappings are unchanged.
+
+PACK-R14-03-AMENDMENT-01 creates no file. It may modify only:
+
+- `docs/execution/PACKS_R4_R14.md`
+- `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json`
+- `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md`
+- `docs/ledger/decision.md`
+- the EOF of `docs/ledger/execution.md`
+- `tools/execution/build-post-r14-recovery-pack-manifest.mjs`
+- `tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs`
+
+Focused verification is exact:
+
+```bash
+node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check \
+  --source-dir "$G002_SOURCE_DIR"
+node --test tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs
+```
+
+Exact-head regression also requires frozen install, direct lint for the two
+validator files, workspace lint/typecheck/tests/build, backlog and frozen-docs
+validation, secret/private-data scan, `git diff --check`, zero
+`docs/package/**` or migration diff, original-overlay invariance, independent
+Codex review, and CI success. Claude and human waits are waived; no technical,
+security, scope, evidence, or stop gate is waived. Version 1 remains historical
+registration evidence but is superseded by version 2 for every unstarted
+PACK-R14-04 through PACK-R14-46 execution.
 
 ## PACK-LAI Local AI Operating Layer Family
 

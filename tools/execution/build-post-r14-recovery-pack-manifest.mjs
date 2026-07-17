@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,11 +11,15 @@ const JSON_PATH = path.join(ROOT, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFES
 const MD_PATH = path.join(ROOT, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md');
 const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json');
 
-const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V1';
+const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
+const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
 const AUTHORITY_REF = 'TASK6B-TECHNICAL-GATES-AUTHORITY-20260717';
+const AMENDMENT_AUTHORITY_REF = 'DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717';
 const REGISTRATION_PACK_ID = 'PACK-R14-03';
 const REGISTRATION_BRANCH = 'feat/pack-r14-03-recovery-manifest';
-const BASE_COMMIT = '566fd7399d2a22946a621f37e8f452bd444a9cc8';
+const AMENDMENT_PACK_ID = 'PACK-R14-03-AMENDMENT-01';
+const AMENDMENT_BRANCH = 'feat/pack-r14-03-recovery-manifest-v2';
+const BASE_COMMIT = '5c722f8a4b1f0a4c99b41089664c98ad151db2b8';
 const ORIGINAL_TREE = '1ef1af32028e998a18a6c9ee8a882068fdf7a7f3';
 const ORIGINAL_OVERLAY_SHA256 = '598f98b3c929e34e74270ac5d6b5b062594a278783c30fa3d351160e30150f30';
 const GENERATED_AT = '2026-07-17T09:00:00.000Z';
@@ -43,6 +48,32 @@ const REGISTRATION_ALLOWED_MODIFY = [
   'docs/execution/PACKS_R4_R14.md',
   'docs/ledger/decision.md',
   'docs/ledger/execution.md',
+];
+
+const AMENDMENT_TUW_IDS = [
+  'RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004',
+  'RECOVERY-MANIFEST-CONTROL-PLANE-TUW-005',
+  'RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006',
+];
+
+const AMENDMENT_ALLOWED_CREATE = [];
+
+const AMENDMENT_ALLOWED_MODIFY = [
+  'docs/execution/PACKS_R4_R14.md',
+  'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json',
+  'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md',
+  'docs/ledger/decision.md',
+  'docs/ledger/execution.md',
+  'tools/execution/build-post-r14-recovery-pack-manifest.mjs',
+  'tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs',
+];
+
+const EXECUTION_LEDGER_PATH = 'docs/ledger/execution.md';
+const TRANSITION_CONTROL_PLANE_PATHS = [
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json',
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
 ];
 
 const COMMON_COMMANDS = [
@@ -269,6 +300,62 @@ const LAWOS_PATHS = new Set([
   'tools/migration/lawos-canonical-matter-reflection.spec.mjs',
 ]);
 
+const NON_OVERLAY_SOURCES = [
+  {
+    sourceId: 'TASK7-RELEASE-HISTORY-19',
+    packKey: 'T7',
+    kind: 'GIT_COMMIT_RANGE',
+    sourceBaseCommit: '804b47cd208ce6c889c8731cfa64765c983b2997',
+    sourceEndCommit: 'aa50fbca8b86fab218a5055726352420bfddfe57',
+    commits: [
+      '55f61f0f168737692db288080a2a09b90f200c77',
+      '1640d8e93a6a1bfa861b0c34bbaa0471c7489c95',
+      'bcaab0bb66dae6af267f79c2431c4cab452e0b7d',
+      'a2d61babf540410a15733eb2a138d5cc30bfc699',
+      '2695342fd46739eecb247094e1648668a7edad12',
+      'a96cd3c329ea7d04c496291b7b86477e361a7b71',
+      '06dd1ea8b21adf29b2760b60d28d4cc90f4daca6',
+      '56246dc6c4cde7587efa2ef30c523d887e126925',
+      '1fb4ce4b060b6fbfe2511e9b1e16a0ecba242fbe',
+      '02725551258e30b471d317d5fca6e638d5fbdf68',
+      '6d7e2fb02b23e6a3debd13349132beb6b07abafa',
+      '0fd646e08d67b5fcfbfd0490dc46c9237f95e7a4',
+      '4cb7cccd309965427665eaf581f5c2d791210f38',
+      'bc61fe63ed32d18490c5d6895b102e51315a724a',
+      '91c84f4103157fea3f55def09e5acd419414dabc',
+      'd2006aa3362c0eea17ab20da58ae19f8c18c18f5',
+      '4dde267f8f56834f477d52a31ca4156aea85f358',
+      'b86a2c3a40b517f7361db918980f25d9a29eb0cb',
+      'aa50fbca8b86fab218a5055726352420bfddfe57',
+    ],
+    reconstructionMode: 'PRESERVE_COMMIT_SEQUENCE',
+    pathActions: [
+      { path: 'docs/release/matter-identity-production-closeout.md', action: 'CREATE' },
+      { path: 'docs/release/matter-lambda-path-normalization-closeout.md', action: 'CREATE' },
+      { path: 'docs/release/production-customer-document-import-execute-closeout.md', action: 'CREATE' },
+      { path: 'docs/release/production-source-cutover-next-gate-plan.md', action: 'CREATE' },
+      { path: 'docs/release/production-source-cutover-preflight-closeout.md', action: 'CREATE' },
+    ],
+    claimBoundary: 'Historical release evidence only; every statement must be classified historical, current, or non-claim before merge.',
+  },
+  {
+    sourceId: 'TASK8-LAWOS-REFLECTION-0B39414',
+    packKey: 'T8',
+    kind: 'GIT_COMMIT',
+    sourceBaseCommit: 'aa50fbca8b86fab218a5055726352420bfddfe57',
+    sourceEndCommit: '0b39414d4de746597e8f3c6ff64f7c1989789135',
+    commits: ['0b39414d4de746597e8f3c6ff64f7c1989789135'],
+    reconstructionMode: 'PRESERVE_SINGLE_COMMIT_THEN_APPLY_OWNED_OVERLAY_HUNKS',
+    pathActions: [
+      { path: 'docs/release/lawos-canonical-matter-reflection-tuw-plan.md', action: 'CREATE' },
+      { path: 'package.json', action: 'MODIFY' },
+      { path: 'tools/migration/lawos-canonical-matter-reflection.mjs', action: 'CREATE' },
+      { path: 'tools/migration/lawos-canonical-matter-reflection.spec.mjs', action: 'CREATE' },
+    ],
+    claimBoundary: 'Repo-local dry-run and fail-closed reflection only; no live target execution, deployment, release, or go-live claim.',
+  },
+];
+
 const CONDITIONAL_TRIGGERS = [
   trigger('D9', 'TRIGGER-D9-ADVANCED-SEARCH-ACTIVE'),
   trigger('H14', 'TRIGGER-H14-MICROSOFT-OIDC-ACTIVE'),
@@ -398,6 +485,11 @@ export async function buildManifest(sourceDir) {
     packByKey[blueprint.key] = item;
     return item;
   });
+  const nonOverlaySources = NON_OVERLAY_SOURCES.map(({ packKey, ...source }) => ({
+    ...source,
+    packId: packByKey[packKey].packId,
+  }));
+  const sourcesByPack = Map.groupBy(nonOverlaySources, (source) => source.packId);
 
   const unitIds = ledger.units.map((unit) => unit.id);
   const sourceUnitIds = sourceUnits.units.map((unit) => unit.id);
@@ -419,10 +511,13 @@ export async function buildManifest(sourceDir) {
     const decoded = decodePath(hunk.pathB64);
     let disposition = 'PACK';
     let key;
+    let quarantineReason = null;
     if (hunk.ownerType === 'quarantine') {
       disposition = 'QUARANTINE';
+      quarantineReason = 'SOURCE_CLASSIFICATION_QUARANTINE';
     } else if (hunk.ownerType === 'historical_base') {
-      key = 'T7';
+      disposition = 'QUARANTINE';
+      quarantineReason = 'STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE';
     } else if (hunk.ownerType === 'pack_candidate') {
       key = PACK_CANDIDATE_ROUTES[hunk.chosenOwner];
     } else if (hunk.ownerType === 'tuw') {
@@ -443,6 +538,7 @@ export async function buildManifest(sourceDir) {
       risk: hunk.risk,
       disposition,
       packId: disposition === 'PACK' ? packByKey[key].packId : null,
+      quarantineReason,
     };
   });
 
@@ -493,7 +589,10 @@ export async function buildManifest(sourceDir) {
   });
 
   const routePackByUnit = Object.fromEntries(unitIds.map((id) => [id, packByKey[routed[id]].packId]));
-  const predecessors = Object.fromEntries(basePacks.map((pack) => [pack.packId, new Set([REGISTRATION_PACK_ID])]));
+  const predecessors = Object.fromEntries(basePacks.map((pack) => [
+    pack.packId,
+    new Set([REGISTRATION_PACK_ID, AMENDMENT_PACK_ID]),
+  ]));
 
   for (const unit of ledger.units) {
     const targetPack = routePackByUnit[unit.id];
@@ -541,13 +640,33 @@ export async function buildManifest(sourceDir) {
   const packs = basePacks.map((pack) => {
     const hunks = packHunks.get(pack.packId) ?? [];
     const pathB64s = sorted(unique(hunks.map((hunk) => hunk.pathB64)));
-    const create = [];
-    const modify = [];
+    const overlayCreate = [];
+    const overlayModify = [];
     for (const pathB64 of pathB64s) {
       const state = pathByB64[pathB64].gitState;
       const decoded = decodePath(pathB64);
-      (state === 'untracked' ? create : modify).push(decoded);
+      (state === 'untracked' ? overlayCreate : overlayModify).push(decoded);
     }
+    const packSources = sourcesByPack.get(pack.packId) ?? [];
+    const sourceCreate = sorted(packSources.flatMap((source) => source.pathActions
+      .filter((item) => item.action === 'CREATE')
+      .map((item) => item.path)));
+    const sourceModify = sorted(packSources.flatMap((source) => source.pathActions
+      .filter((item) => item.action === 'MODIFY')
+      .map((item) => item.path)));
+    const effectiveActions = new Map();
+    for (const file of sourceModify) effectiveActions.set(file, 'MODIFY');
+    for (const file of sourceCreate) effectiveActions.set(file, 'CREATE');
+    for (const file of overlayModify) {
+      if (!effectiveActions.has(file)) effectiveActions.set(file, 'MODIFY');
+    }
+    for (const file of overlayCreate) effectiveActions.set(file, 'CREATE');
+    const create = sorted([...effectiveActions]
+      .filter(([, action]) => action === 'CREATE')
+      .map(([file]) => file));
+    const modify = sorted([...effectiveActions]
+      .filter(([, action]) => action === 'MODIFY')
+      .map(([file]) => file));
     const testPaths = sorted(unique(hunks.flatMap((hunk) => {
       const source = ownership.hunks[hunk.ordinal - 1];
       return (source.testAnchorsB64 ?? []).map(decodePath);
@@ -556,7 +675,9 @@ export async function buildManifest(sourceDir) {
     const primaryTuwIds = pack.tuwIds.filter((id) => primary[id] === pack.key);
     const supportTuwIds = pack.tuwIds.filter((id) => id.startsWith('RECOVERY-'));
     const secondaryTuwIds = pack.tuwIds.filter((id) => unitById[id] && !primaryTuwIds.includes(id));
+    const transitionTuwIds = pack.tuwIds.filter((id) => unitById[id]);
     const packMigrationRows = packMigrations.get(pack.packId) ?? [];
+    const repoSafeReceipt = 'docs/execution/recovery-receipts/' + pack.packId + '.json';
     const commands = [
       'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check',
       ...focusedCommands(testPaths),
@@ -595,6 +716,10 @@ export async function buildManifest(sourceDir) {
       files: {
         create: sorted(create),
         modify: sorted(modify),
+        overlayCreate: sorted(overlayCreate),
+        overlayModify: sorted(overlayModify),
+        sourceCreate,
+        sourceModify,
         sharedPathHunkSelectors: Object.fromEntries(pathB64s
           .filter((pathB64) => pathByB64[pathB64].sharedFile)
           .map((pathB64) => [
@@ -604,6 +729,7 @@ export async function buildManifest(sourceDir) {
         notModify: GLOBAL_NOT_MODIFY,
       },
       hunkOrdinals: hunks.map((hunk) => hunk.ordinal),
+      nonOverlaySourceIds: packSources.map((source) => source.sourceId),
       migrationSourceOrdinals: packMigrationRows.map((migration) => migration.sourceOrdinal),
       migrationTargetOrdinals: packMigrationRows.map((migration) => migration.targetOrdinal),
       verification: {
@@ -614,8 +740,24 @@ export async function buildManifest(sourceDir) {
         exactHeadRequired: true,
       },
       evidenceTarget: '.omo/evidence/ulw/amic-vault-117-recovery-20260716/'
-        + 'G003-g03-complete-tasks-6a-4-5-and-6b-aft/a1/' + pack.packId + '.txt',
-      repoSafeReceipt: 'docs/execution/recovery-receipts/' + pack.packId + '.json',
+        + '<active-goal-id>/a<attempt>/' + pack.packId + '.txt',
+      repoSafeReceipt,
+      controlPlane: {
+        candidateBookkeeping: {
+          create: [repoSafeReceipt],
+          modify: [EXECUTION_LEDGER_PATH],
+          executionLedgerExactEofAppend: true,
+          mustPrecedeTransitions: true,
+          payloadMixingAllowed: true,
+        },
+        transitionTuwIds,
+        transitionCommit: {
+          exactPaths: TRANSITION_CONTROL_PLANE_PATHS,
+          oneRowPerCommit: true,
+          payloadMixingForbidden: true,
+          postTransitionNonControlPlaneChangeForbidden: true,
+        },
+      },
       stopConditions: [
         'exact predecessor or hunk fingerprint mismatch',
         'unlisted path, hunk, migration, dependency, or package change',
@@ -668,6 +810,11 @@ export async function buildManifest(sourceDir) {
       currentRulePrecedence: 'Direct operator authority for this aggregate goal supersedes legacy Claude, human-approval, and no-self-merge clauses only; all technical, security, scope, evidence, and stop gates remain mandatory.',
       reviewPolicy: 'Exact-head automated and deterministic gates plus independent Codex review for Risk C/H.',
       mergePolicy: 'Codex may mechanically merge only after all exact-head gates pass; a push invalidates review and gates.',
+      amendmentAuthorityRef: AMENDMENT_AUTHORITY_REF,
+      amendmentAuthorityEvidence: '.omo/evidence/ulw/amic-vault-117-recovery-20260716/'
+        + 'G004-g04-complete-tasks-7-12-after-g03-re/a1/'
+        + 'PACK-R14-03-AMENDMENT-01-AUTHORITY-20260717.json',
+      executionBaseRule: 'Each PACK starts from current origin/main containing every registered predecessor merge; payload.baseCommit is the amendment preimage, not a reusable execution head.',
       docsPackageReadOnly: true,
       privateEvidenceNoDereference: true,
       claimBoundary: 'Manifest registration is not product implementation, migration execution, deployment, external release, or go-live.',
@@ -678,6 +825,16 @@ export async function buildManifest(sourceDir) {
       tuwIds: REGISTRATION_TUW_IDS,
       allowedCreate: REGISTRATION_ALLOWED_CREATE,
       allowedModify: REGISTRATION_ALLOWED_MODIFY,
+    },
+    amendmentRegistration: {
+      amendmentId: AMENDMENT_PACK_ID,
+      branch: AMENDMENT_BRANCH,
+      baseCommit: BASE_COMMIT,
+      authorityRef: AMENDMENT_AUTHORITY_REF,
+      tuwIds: AMENDMENT_TUW_IDS,
+      allowedCreate: AMENDMENT_ALLOWED_CREATE,
+      allowedModify: AMENDMENT_ALLOWED_MODIFY,
+      claimBoundary: 'Manifest correction only; no downstream PACK payload is executed by this amendment.',
     },
     unitUniverse: {
       unitIds: sorted(unitIds),
@@ -694,6 +851,7 @@ export async function buildManifest(sourceDir) {
       ])),
     },
     packs,
+    nonOverlaySources,
     hunkAssignments,
     pathDispositions,
     migrations,
@@ -717,7 +875,7 @@ export async function buildManifest(sourceDir) {
   };
 
   return {
-    schemaVersion: 'post-r14-recovery-pack-manifest/v1',
+    schemaVersion: SCHEMA_VERSION,
     status: 'AUTHORIZED_TECHNICAL_GATES_ONLY',
     payloadSha256: digest(payload),
     payload,
@@ -727,7 +885,7 @@ export async function buildManifest(sourceDir) {
 export function validateManifest(manifest) {
   const errors = [];
   const fail = (code, detail) => errors.push({ code, detail });
-  if (manifest.schemaVersion !== 'post-r14-recovery-pack-manifest/v1') fail('SCHEMA_VERSION', manifest.schemaVersion);
+  if (manifest.schemaVersion !== SCHEMA_VERSION) fail('SCHEMA_VERSION', manifest.schemaVersion);
   if (manifest.status !== 'AUTHORIZED_TECHNICAL_GATES_ONLY') fail('STATUS', manifest.status);
   if (manifest.payloadSha256 !== digest(manifest.payload)) fail('PAYLOAD_HASH', 'payload hash mismatch');
 
@@ -777,11 +935,12 @@ export function validateManifest(manifest) {
       fail('REVIEW_POLICY', pack.packId);
     }
     if (new Set(pack.predecessorPackIds).size !== pack.predecessorPackIds.length
-      || !pack.predecessorPackIds.includes(REGISTRATION_PACK_ID)) {
+      || !pack.predecessorPackIds.includes(REGISTRATION_PACK_ID)
+      || !pack.predecessorPackIds.includes(AMENDMENT_PACK_ID)) {
       fail('PREDECESSOR_SET', pack.packId);
     }
     for (const predecessor of pack.predecessorPackIds) {
-      if (predecessor === REGISTRATION_PACK_ID) continue;
+      if ([REGISTRATION_PACK_ID, AMENDMENT_PACK_ID].includes(predecessor)) continue;
       if (!packById[predecessor]) fail('UNKNOWN_PREDECESSOR', pack.packId + ':' + predecessor);
       else if (packById[predecessor].sequence >= pack.sequence) fail('PACK_ORDER', predecessor + '->' + pack.packId);
     }
@@ -795,11 +954,27 @@ export function validateManifest(manifest) {
       || pack.verification?.exactHeadRequired !== true) {
       fail('PACK_VERIFICATION', pack.packId);
     }
-    if (pack.evidenceTarget?.endsWith('/' + pack.packId + '.txt') !== true
+    const expectedEvidenceTarget = '.omo/evidence/ulw/amic-vault-117-recovery-20260716/'
+      + '<active-goal-id>/a<attempt>/' + pack.packId + '.txt';
+    if (pack.evidenceTarget !== expectedEvidenceTarget
       || pack.repoSafeReceipt !== 'docs/execution/recovery-receipts/' + pack.packId + '.json'
       || !Array.isArray(pack.stopConditions)
       || pack.stopConditions.length < 6) {
       fail('PACK_EVIDENCE_CONTRACT', pack.packId);
+    }
+    const expectedTransitionTuwIds = [...pack.primaryTuwIds, ...pack.secondaryTuwIds];
+    const controlPlane = pack.controlPlane ?? {};
+    if (!sameSet(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
+      || !sameSet(controlPlane.transitionCommit?.exactPaths ?? [], TRANSITION_CONTROL_PLANE_PATHS)
+      || controlPlane.transitionCommit?.oneRowPerCommit !== true
+      || controlPlane.transitionCommit?.payloadMixingForbidden !== true
+      || controlPlane.transitionCommit?.postTransitionNonControlPlaneChangeForbidden !== true
+      || !sameSet(controlPlane.candidateBookkeeping?.create ?? [], [pack.repoSafeReceipt])
+      || !sameSet(controlPlane.candidateBookkeeping?.modify ?? [], [EXECUTION_LEDGER_PATH])
+      || controlPlane.candidateBookkeeping?.executionLedgerExactEofAppend !== true
+      || controlPlane.candidateBookkeeping?.mustPrecedeTransitions !== true
+      || controlPlane.candidateBookkeeping?.payloadMixingAllowed !== true) {
+      fail('PACK_CONTROL_PLANE_CONTRACT', pack.packId);
     }
   }
 
@@ -853,6 +1028,43 @@ export function validateManifest(manifest) {
     }
   }
 
+  const expectedNonOverlaySources = NON_OVERLAY_SOURCES.map(({ packKey, ...source }) => ({
+    ...source,
+    packId: packId(BLUEPRINTS.findIndex((blueprint) => blueprint.key === packKey) + 4),
+  }));
+  const nonOverlaySources = payload.nonOverlaySources ?? [];
+  if (digest(nonOverlaySources) !== digest(expectedNonOverlaySources)) {
+    fail('NON_OVERLAY_SOURCE_CONTRACT', 'registered Git history sources drifted');
+  }
+  if (new Set(nonOverlaySources.map((source) => source.sourceId)).size !== nonOverlaySources.length) {
+    fail('NON_OVERLAY_SOURCE_DUPLICATE', 'duplicate source ID');
+  }
+  for (const source of nonOverlaySources) {
+    if (!packById[source.packId]) fail('NON_OVERLAY_SOURCE_PACK', source.sourceId);
+    if (!['GIT_COMMIT', 'GIT_COMMIT_RANGE'].includes(source.kind)) {
+      fail('NON_OVERLAY_SOURCE_KIND', source.sourceId);
+    }
+    if (!Array.isArray(source.commits) || source.commits.length === 0
+      || source.commits.some((commit) => !/^[0-9a-f]{40}$/.test(commit))) {
+      fail('NON_OVERLAY_SOURCE_COMMITS', source.sourceId);
+    }
+    for (const pathAction of source.pathActions ?? []) {
+      if (!['CREATE', 'MODIFY'].includes(pathAction.action)
+        || pathAction.path.startsWith('docs/package/')
+        || pathAction.path.startsWith('.omo/')) {
+        fail('NON_OVERLAY_SOURCE_PATH', source.sourceId + ':' + pathAction.path);
+      }
+    }
+  }
+  for (const pack of packs) {
+    const expectedSourceIds = nonOverlaySources
+      .filter((source) => source.packId === pack.packId)
+      .map((source) => source.sourceId);
+    if (!sameSet(pack.nonOverlaySourceIds ?? [], expectedSourceIds)) {
+      fail('PACK_NON_OVERLAY_SOURCE_SET', pack.packId);
+    }
+  }
+
   const hunks = payload.hunkAssignments ?? [];
   if (hunks.length !== 4801) fail('HUNK_COUNT', hunks.length);
   if (!sameSet(hunks.map((item) => item.ordinal), Array.from({ length: 4801 }, (_, index) => index + 1))) {
@@ -873,8 +1085,16 @@ export function validateManifest(manifest) {
     if (hunk.disposition === 'PACK') {
       if (!packById[hunk.packId]) fail('HUNK_UNKNOWN_PACK', String(hunk.ordinal));
       if (listedHunks.get(hunk.ordinal) !== hunk.packId) fail('HUNK_PACK_MISMATCH', String(hunk.ordinal));
+      if (hunk.quarantineReason !== null) fail('HUNK_QUARANTINE_REASON', String(hunk.ordinal));
     } else if (hunk.disposition !== 'QUARANTINE' || hunk.packId !== null) {
       fail('HUNK_DISPOSITION', String(hunk.ordinal));
+    } else {
+      const expectedReason = hunk.sourceOwnerType === 'historical_base'
+        ? 'STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE'
+        : 'SOURCE_CLASSIFICATION_QUARANTINE';
+      if (hunk.quarantineReason !== expectedReason) {
+        fail('HUNK_QUARANTINE_REASON', String(hunk.ordinal));
+      }
     }
   }
 
@@ -904,20 +1124,54 @@ export function validateManifest(manifest) {
   }
   for (const pack of packs) {
     const packHunks = hunks.filter((hunk) => hunk.packId === pack.packId);
-    const expectedPaths = sorted(unique(packHunks.map((hunk) => hunk.pathB64)));
-    const listedPaths = [...pack.files.create, ...pack.files.modify]
-      .map((value) => Buffer.from(value, 'utf8').toString('base64'));
-    if (!sameSet(listedPaths, expectedPaths)) fail('PACK_FILE_SET', pack.packId);
+    const expectedOverlayPaths = sorted(unique(packHunks.map((hunk) => hunk.pathB64)));
+    const expectedOverlayCreate = expectedOverlayPaths
+      .filter((pathB64) => pathByB64[pathB64]?.gitState === 'untracked')
+      .map(decodePath);
+    const expectedOverlayModify = expectedOverlayPaths
+      .filter((pathB64) => pathByB64[pathB64]?.gitState !== 'untracked')
+      .map(decodePath);
+    const packSources = nonOverlaySources.filter((source) => source.packId === pack.packId);
+    const expectedSourceCreate = sorted(packSources.flatMap((source) => source.pathActions
+      .filter((item) => item.action === 'CREATE')
+      .map((item) => item.path)));
+    const expectedSourceModify = sorted(packSources.flatMap((source) => source.pathActions
+      .filter((item) => item.action === 'MODIFY')
+      .map((item) => item.path)));
+    if (!sameSet(pack.files.overlayCreate ?? [], expectedOverlayCreate)
+      || !sameSet(pack.files.overlayModify ?? [], expectedOverlayModify)
+      || !sameSet(pack.files.sourceCreate ?? [], expectedSourceCreate)
+      || !sameSet(pack.files.sourceModify ?? [], expectedSourceModify)) {
+      fail('PACK_FILE_SOURCE_SET', pack.packId);
+    }
+    const effectiveActions = new Map();
+    for (const file of expectedSourceModify) effectiveActions.set(file, 'MODIFY');
+    for (const file of expectedSourceCreate) effectiveActions.set(file, 'CREATE');
+    for (const file of expectedOverlayModify) {
+      if (!effectiveActions.has(file)) effectiveActions.set(file, 'MODIFY');
+    }
+    for (const file of expectedOverlayCreate) effectiveActions.set(file, 'CREATE');
+    const expectedCreate = [...effectiveActions]
+      .filter(([, action]) => action === 'CREATE')
+      .map(([file]) => file);
+    const expectedModify = [...effectiveActions]
+      .filter(([, action]) => action === 'MODIFY')
+      .map(([file]) => file);
+    if (!sameSet(pack.files.create ?? [], expectedCreate)
+      || !sameSet(pack.files.modify ?? [], expectedModify)) {
+      fail('PACK_FILE_SET', pack.packId);
+    }
+    const listedPaths = [...pack.files.create, ...pack.files.modify];
     if (new Set(listedPaths).size !== listedPaths.length) fail('PACK_FILE_DUPLICATE', pack.packId);
-    for (const file of pack.files.create) {
+    for (const file of pack.files.overlayCreate) {
       const row = pathByB64[Buffer.from(file, 'utf8').toString('base64')];
       if (row?.gitState !== 'untracked') fail('PACK_CREATE_STATE', pack.packId + ':' + file);
     }
-    for (const file of pack.files.modify) {
+    for (const file of pack.files.overlayModify) {
       const row = pathByB64[Buffer.from(file, 'utf8').toString('base64')];
       if (!row || row.gitState === 'untracked') fail('PACK_MODIFY_STATE', pack.packId + ':' + file);
     }
-    const expectedShared = Object.fromEntries(expectedPaths
+    const expectedShared = Object.fromEntries(expectedOverlayPaths
       .filter((pathB64) => pathByB64[pathB64]?.sharedFile)
       .map((pathB64) => [
         decodePath(pathB64),
@@ -925,6 +1179,17 @@ export function validateManifest(manifest) {
       ]));
     if (digest(pack.files.sharedPathHunkSelectors) !== digest(expectedShared)) {
       fail('SHARED_HUNK_SELECTOR', pack.packId);
+    }
+  }
+  for (const source of nonOverlaySources) {
+    const sourcePack = packById[source.packId];
+    for (const { path: sourcePath } of source.pathActions) {
+      const row = pathByB64[Buffer.from(sourcePath, 'utf8').toString('base64')];
+      for (const overlayPackId of row?.packIds ?? []) {
+        if (packById[overlayPackId].sequence < sourcePack.sequence) {
+          fail('NON_OVERLAY_SOURCE_ORDER', source.sourceId + ':' + sourcePath);
+        }
+      }
     }
   }
 
@@ -996,6 +1261,9 @@ export function validateManifest(manifest) {
     }
   }
   if (payload.governance?.authorityRef !== AUTHORITY_REF) fail('AUTHORITY_REF', payload.governance?.authorityRef);
+  if (payload.governance?.amendmentAuthorityRef !== AMENDMENT_AUTHORITY_REF) {
+    fail('AMENDMENT_AUTHORITY_REF', payload.governance?.amendmentAuthorityRef);
+  }
   if (payload.governance?.docsPackageReadOnly !== true
     || payload.governance?.privateEvidenceNoDereference !== true) {
     fail('GOVERNANCE_BOUNDARY', 'read-only or private-evidence boundary drift');
@@ -1007,6 +1275,16 @@ export function validateManifest(manifest) {
     || !sameSet(registrationPack.allowedCreate ?? [], REGISTRATION_ALLOWED_CREATE)
     || !sameSet(registrationPack.allowedModify ?? [], REGISTRATION_ALLOWED_MODIFY)) {
     fail('REGISTRATION_PACK', 'registration contract drift');
+  }
+  const amendmentRegistration = payload.amendmentRegistration ?? {};
+  if (amendmentRegistration.amendmentId !== AMENDMENT_PACK_ID
+    || amendmentRegistration.branch !== AMENDMENT_BRANCH
+    || amendmentRegistration.baseCommit !== BASE_COMMIT
+    || amendmentRegistration.authorityRef !== AMENDMENT_AUTHORITY_REF
+    || !sameSet(amendmentRegistration.tuwIds ?? [], AMENDMENT_TUW_IDS)
+    || !sameSet(amendmentRegistration.allowedCreate ?? [], AMENDMENT_ALLOWED_CREATE)
+    || !sameSet(amendmentRegistration.allowedModify ?? [], AMENDMENT_ALLOWED_MODIFY)) {
+    fail('AMENDMENT_REGISTRATION', 'amendment contract drift');
   }
   const sourceInputs = payload.sourceInputs ?? {};
   for (const [key, expectedHash] of Object.entries(EXPECTED_SOURCE_HASHES)) {
@@ -1036,11 +1314,69 @@ export function validateManifest(manifest) {
   return { ok: errors.length === 0, errors };
 }
 
+function gitResult(args, cwd) {
+  return spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+}
+
+export function validateNonOverlayGitSources(manifest, { cwd = ROOT } = {}) {
+  const errors = [];
+  const fail = (code, detail) => errors.push({ code, detail });
+  let commitCount = 0;
+  const allPaths = new Set();
+  for (const source of manifest.payload?.nonOverlaySources ?? []) {
+    const history = gitResult([
+      'rev-list',
+      '--reverse',
+      '--first-parent',
+      `${source.sourceBaseCommit}..${source.sourceEndCommit}`,
+    ], cwd);
+    const commits = history.status === 0 ? history.stdout.split('\n').filter(Boolean) : [];
+    if (history.status !== 0 || !sameSet(commits, source.commits)
+      || commits.some((commit, index) => commit !== source.commits[index])) {
+      fail('NON_OVERLAY_GIT_COMMIT_RANGE', source.sourceId);
+      continue;
+    }
+    const firstParent = gitResult(['rev-parse', `${source.commits[0]}^`], cwd);
+    if (firstParent.status !== 0 || firstParent.stdout.trim() !== source.sourceBaseCommit) {
+      fail('NON_OVERLAY_GIT_PARENT', source.sourceId);
+    }
+    const touched = new Set();
+    for (const commit of source.commits) {
+      const shown = gitResult(['show', '--format=', '--name-only', '--no-renames', commit], cwd);
+      if (shown.status !== 0) {
+        fail('NON_OVERLAY_GIT_COMMIT_READ', source.sourceId + ':' + commit);
+        continue;
+      }
+      for (const pathName of shown.stdout.split('\n').filter(Boolean)) touched.add(pathName);
+    }
+    const registeredPaths = source.pathActions.map((item) => item.path);
+    if (!sameSet([...touched], registeredPaths)) {
+      fail('NON_OVERLAY_GIT_PATH_SET', source.sourceId);
+    }
+    for (const pathAction of source.pathActions) {
+      const exists = gitResult(['cat-file', '-e', `${manifest.payload.baseCommit}:${pathAction.path}`], cwd)
+        .status === 0;
+      if ((pathAction.action === 'CREATE' && exists)
+        || (pathAction.action === 'MODIFY' && !exists)) {
+        fail('NON_OVERLAY_BASE_PATH_STATE', source.sourceId + ':' + pathAction.path);
+      }
+      allPaths.add(pathAction.path);
+    }
+    commitCount += source.commits.length;
+  }
+  return {
+    ok: errors.length === 0,
+    errors,
+    commits: commitCount,
+    paths: allPaths.size,
+  };
+}
+
 export function renderMarkdown(manifest) {
   const payload = manifest.payload;
   const renumbered = payload.migrations.filter((item) => item.renumberRequired).length;
   const lines = [
-    '# Post-R14 Recovery PACK Manifest',
+    '# Post-R14 Recovery PACK Manifest v2',
     '',
     'Status: AUTHORIZED_TECHNICAL_GATES_ONLY',
     '',
@@ -1048,21 +1384,53 @@ export function renderMarkdown(manifest) {
     '- Payload SHA-256: ' + manifest.payloadSha256,
     '- Registration PACK: ' + payload.registrationPack.packId,
     '- Registration branch: ' + payload.registrationPack.branch,
-    '- Exact base: ' + payload.baseCommit,
+    '- Amendment: ' + payload.amendmentRegistration.amendmentId,
+    '- Amendment branch: ' + payload.amendmentRegistration.branch,
+    '- Amendment preimage: ' + payload.baseCommit,
     '- Authority: ' + payload.governance.authorityRef,
+    '- Amendment authority: ' + payload.governance.amendmentAuthorityRef,
     '- Primary TUW coverage: 117/117',
     '- Dirty-path coverage: 893/893',
     '- Ownership-record coverage: 4801/4801',
+    '- Non-overlay Git sources: 20 commits / 9 paths',
+    '- Quarantine after amendment: '
+      + payload.quarantines.hunkOrdinals.length + ' hunks / '
+      + payload.quarantines.pathB64s.length + ' paths',
     '- Migration coverage: 86/86; renumbered in dependency/PACK order: ' + renumbered,
     '',
     'This manifest is an execution authorization map only. It is not product implementation,',
     'migration execution, deployment, external release, or go-live evidence.',
     '',
+    '## Amendment correction',
+    '',
+    'The v1 overlay-only model could not execute Task 7: PACK-R14-04 had zero overlap',
+    'with the required five release-history paths and would have reapplied stale 110-row',
+    'historical-base material. Version 2 quarantines those 19 stale hunks and registers',
+    'the exact 19-commit release-history range plus the separate one-commit LawOS source.',
+    '',
+    'Every PACK now distinguishes effective payload files, preserved-overlay files,',
+    'non-overlay source files, candidate bookkeeping, and one-row transition commits.',
+    'The receipt and exact EOF execution-ledger append precede transitions; transition',
+    'commits then change exactly the four sealed 117-row control-plane paths. Any later',
+    'non-control-plane push invalidates the candidate binding and all exact-head gates.',
+    '',
+    '## Registered non-overlay Git sources',
+    '',
+    '| Source | PACK | Commits | Paths | Mode |',
+    '|---|---|---:|---:|---|',
+  ];
+  for (const source of payload.nonOverlaySources) {
+    lines.push('| ' + source.sourceId + ' | ' + source.packId + ' | '
+      + source.commits.length + ' | ' + source.pathActions.length + ' | '
+      + source.reconstructionMode + ' |');
+  }
+  lines.push(
+    '',
     '## PACK sequence',
     '',
     '| Seq | PACK | Branch | Mode | TUWs | Primary | Risk |',
     '|---:|---|---|---|---:|---:|---|',
-  ];
+  );
   for (const pack of payload.packs) {
     lines.push('| ' + pack.sequence + ' | ' + pack.packId + ' | ' + pack.branch + ' | '
       + pack.mode + ' | ' + pack.tuwIds.length + ' | ' + pack.primaryTuwIds.length
@@ -1109,8 +1477,9 @@ async function main() {
   if (process.argv.includes('--build')) {
     const manifest = await buildManifest(sourceDir);
     const result = validateManifest(manifest);
-    if (!result.ok) {
-      console.error(JSON.stringify(result, null, 2));
+    const gitSources = validateNonOverlayGitSources(manifest);
+    if (!result.ok || !gitSources.ok) {
+      console.error(JSON.stringify({ manifest: result, gitSources }, null, 2));
       process.exit(1);
     }
     await writeOutputs(manifest);
@@ -1123,14 +1492,17 @@ async function main() {
       paths: manifest.payload.pathDispositions.length,
       hunks: manifest.payload.hunkAssignments.length,
       migrations: manifest.payload.migrations.length,
+      sourceCommits: gitSources.commits,
+      sourcePaths: gitSources.paths,
     }));
     return;
   }
 
   const manifest = JSON.parse(await readFile(JSON_PATH, 'utf8'));
   const result = validateManifest(manifest);
-  if (!result.ok) {
-    console.error(JSON.stringify(result, null, 2));
+  const gitSources = validateNonOverlayGitSources(manifest);
+  if (!result.ok || !gitSources.ok) {
+    console.error(JSON.stringify({ manifest: result, gitSources }, null, 2));
     process.exit(1);
   }
   if (process.argv.includes('--check') && sourceDir) {
@@ -1152,6 +1524,8 @@ async function main() {
     paths: manifest.payload.pathDispositions.length,
     hunks: manifest.payload.hunkAssignments.length,
     migrations: manifest.payload.migrations.length,
+    sourceCommits: gitSources.commits,
+    sourcePaths: gitSources.paths,
     writes: 0,
   }));
 }
