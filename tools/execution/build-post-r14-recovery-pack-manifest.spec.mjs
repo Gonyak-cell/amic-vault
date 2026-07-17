@@ -478,7 +478,14 @@ test('migration PACKs preserve isolated up-down-up ordering and both migrate com
     assert.equal(migrateIndices.length, 2, pack.packId);
     assert.equal(pack.verification.isolatedDatabase.projectName,
       'amic-vault-' + pack.packId.toLowerCase());
+    assert.equal(pack.verification.isolatedDatabase.bucket, 'amic-vault-dev');
     assert.equal(pack.verification.isolatedDatabase.cleanupRequiredOnSuccessOrFailure, true);
+    const isolatedCommands = commands.filter((command) => command.includes(' docker compose -p ')
+      || / pnpm (?:db:(?:migrate|rollback|seed)|test:integration)(?: |$)/.test(command));
+    assert.ok(isolatedCommands.length >= 7, pack.packId);
+    assert.ok(isolatedCommands.every(
+      (command) => command.includes("S3_BUCKET='amic-vault-dev'"),
+    ), pack.packId);
     assert.ok(up < migrateIndices[0]
       && migrateIndices[0] < rollback
       && rollback < migrateIndices[1]

@@ -13,7 +13,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = 'ada82ca8f1fb26d3333c90a6392ff37bb5e5f5a757b8679e87d47d68135b240c';
+const CANONICAL_PAYLOAD_SHA256 = '4acb4e11b3d399b9ae09579d6b3d27453263db6af0deeff03941cfc7708dff50';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = '783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -756,7 +756,7 @@ function isolatedDatabaseVerification(pack) {
   const minioConsolePort = minioApiPort + 1;
   const ingestionPort = ISOLATED_INGESTION_PORT_BASE + pack.sequence;
   const projectName = 'amic-vault-' + pack.packId.toLowerCase();
-  const bucket = projectName;
+  const bucket = 'amic-vault-dev';
   const environment = [
     ['DATABASE_URL', 'postgres://amic_vault:amic_vault_dev_password@127.0.0.1:'
       + postgresPort + '/amic_vault'],
@@ -1267,6 +1267,7 @@ export async function buildManifest(sourceDir) {
         minioApiPort: database.minioApiPort,
         minioConsolePort: database.minioConsolePort,
         ingestionPort: database.ingestionPort,
+        bucket: 'amic-vault-dev',
         freshVolumesRequired: true,
         cleanupRequiredOnSuccessOrFailure: true,
       };
@@ -1582,6 +1583,7 @@ export function validateManifest(manifest) {
         minioApiPort: database.minioApiPort,
         minioConsolePort: database.minioConsolePort,
         ingestionPort: database.ingestionPort,
+        bucket: 'amic-vault-dev',
         freshVolumesRequired: true,
         cleanupRequiredOnSuccessOrFailure: true,
       };
@@ -2258,7 +2260,8 @@ export function renderMarkdown(manifest) {
     'skip/todo markers are rejected. Integration selectors require a real `.spec.ts`',
     'descendant; helper-only directories are non-executable anchors. Earlier test providers',
     'are explicit DAG predecessors. Database PACKs use PACK-specific compose projects, ports,',
-    'buckets, and database URLs, then run compose up, migrate, rollback, migrate, seed, focused',
+    'volumes, and database URLs with the canonical isolated bucket, then run compose up, migrate,',
+    'rollback, migrate, seed, focused',
     'integration, full integration, and compose cleanup in that order.',
     'The receipt and exact EOF execution-ledger append precede transitions; transition',
     'commits then change exactly the four sealed 117-row control-plane paths. Any later',
