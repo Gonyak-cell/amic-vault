@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '5d6a7a8cee3852b3581f9b99b9648463f2b1c10b5355842e2b57d02b8a173496';
+const CANONICAL_PAYLOAD_SHA256 = '29234d987b46d10774f49bda9a74f8bac7c72e81a4ea0cf2001cbc60fb1a281e';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -1020,6 +1020,7 @@ export function cleanupGuaranteedShellCommand({
   ]);
   const body = [
     'set -euo pipefail',
+    'umask 077',
     'lock_path=' + shellQuote(lockPath),
     'if ! mkdir "$lock_path"; then',
     '  echo "isolated verification lock is already held: $lock_path" >&2',
@@ -1059,7 +1060,8 @@ function isolatedDatabaseVerification(pack) {
   const ingestionPort = ISOLATED_INGESTION_PORT_BASE + pack.sequence;
   const projectName = 'amic-vault-' + pack.packId.toLowerCase();
   const bucket = 'amic-vault-dev';
-  const overridePath = '/tmp/' + projectName + '-compose.override.yml';
+  const lockPath = '/tmp/' + projectName + '-isolated.lock';
+  const overridePath = lockPath + '/compose.override.yml';
   const environment = [
     ['DATABASE_URL', 'postgres://amic_vault:amic_vault_dev_password@127.0.0.1:'
       + postgresPort + '/amic_vault'],
@@ -1102,12 +1104,13 @@ function isolatedDatabaseVerification(pack) {
     minioApiPort,
     minioConsolePort,
     ingestionPort,
-    lockPath: '/tmp/' + projectName + '-isolated.lock',
+    lockPath,
     overridePath,
     hostBinding: '127.0.0.1',
     run: (command) => environment + ' ' + command,
     composePreclean: composeDown,
-    writeOverride: 'printf %s ' + shellQuote(overrideYaml) + ' > ' + shellQuote(overridePath),
+    writeOverride: 'set -C; : > ' + shellQuote(overridePath)
+      + '; set +C; printf %s ' + shellQuote(overrideYaml) + ' >> ' + shellQuote(overridePath),
     composeUp: compose + ' up -d --wait --build --force-recreate --renew-anon-volumes',
     composeDown,
   };
@@ -2762,7 +2765,7 @@ export function validateAuthorityArtifacts(manifest, {
   const errors = [];
   const fail = (code, detail) => errors.push({ code, detail });
   const payloadSha256 = manifest?.payloadSha256;
-  const registryText = packRegistry ?? '';
+  const registryText = maskNonOperationalMarkdown(packRegistry ?? '');
   const escapedAmendmentPackId = AMENDMENT_PACK_ID.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const amendmentHeadingPattern = new RegExp(
     '^## ' + escapedAmendmentPackId + '(?:\\s|$).*$',
@@ -2790,6 +2793,11 @@ export function validateAuthorityArtifacts(manifest, {
       registrySectionStart,
       registrySectionEnd < 0 ? registryText.length : registrySectionEnd,
     );
+  const canonicalLabelLines = registrySection.split('\n').filter((line) =>
+    /^- Canonical payload SHA-256\s*:/i.test(line));
+  if (canonicalLabelLines.length !== 1) {
+    fail('AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT', canonicalLabelLines.length);
+  }
   const registryPayloadAnchors = [...registrySection.matchAll(
     /^- Canonical payload SHA-256:\n {2}`([0-9a-f]{64})`\.$/gm,
   )];
@@ -2807,24 +2815,45 @@ export function validateAuthorityArtifacts(manifest, {
       + 'scope=CONTROL_PLANE_RECOVERY_MANIFEST_ONLY; '
       + 'status=AUTHORIZED_TECHNICAL_GATES_ONLY\\.$',
   );
-  const decisionLines = (decisionLedger ?? '').split('\n');
-  const decisionCandidates = decisionLines.filter((line) => line.includes(AMENDMENT_PACK_ID)
-    && (line.includes('authority decision record:')
-      || line.includes('decision=')
-      || line.includes('canonicalPayloadSha256=')));
+  const decisionLines = maskNonOperationalMarkdown(decisionLedger ?? '').split('\n');
+  const decisionCandidates = decisionLines.filter((line) => /^- /.test(line)
+    && line.includes(AMENDMENT_PACK_ID)
+    && /authority\s+decision(?:\s+record)?\b/i.test(line));
   const affirmativeDecisionRecords = decisionCandidates
     .map((line) => ({ line, match: line.match(decisionRecordPattern) }))
     .filter(({ match }) => match);
-  if (decisionCandidates.length !== 1) {
-    fail('AUTHORITY_DECISION_RECORD_COUNT', decisionCandidates.length);
+  if (!decisionCandidates.length) {
+    fail('AUTHORITY_DECISION_RECORD_COUNT', 0);
   }
-  if (affirmativeDecisionRecords.length !== 1) {
+  if (new Set(affirmativeDecisionRecords.map(({ match }) => match[1])).size
+    !== affirmativeDecisionRecords.length) {
+    fail('AUTHORITY_DECISION_RECORD_COUNT', affirmativeDecisionRecords.length);
+  }
+  if (affirmativeDecisionRecords.length !== decisionCandidates.length) {
     fail('AUTHORITY_DECISION_RECORD_FORMAT', decisionCandidates.join('\n') || 'missing amendment decision');
-  } else if (affirmativeDecisionRecords[0].match[1] !== payloadSha256) {
-    fail('AUTHORITY_DECISION_LEDGER_PAYLOAD_HASH', affirmativeDecisionRecords[0].match[1]);
+  } else if (affirmativeDecisionRecords.at(-1)?.match[1] !== payloadSha256) {
+    fail('AUTHORITY_DECISION_LEDGER_PAYLOAD_HASH', affirmativeDecisionRecords.at(-1)?.match[1]);
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+function maskNonOperationalMarkdown(text) {
+  let fence = null;
+  let comment = false;
+  return text.split(/(?<=\n)/).map((line) => {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
+    const startsComment = line.includes('<!--');
+    const endsComment = line.includes('-->');
+    const inactive = comment || fence !== null || fenceMatch || startsComment;
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      fence = fence === marker ? null : marker;
+    }
+    if (startsComment) comment = !endsComment;
+    else if (comment && endsComment) comment = false;
+    return inactive ? line.replace(/[^\n]/g, ' ') : line;
+  }).join('');
 }
 
 export function renderMarkdown(manifest) {

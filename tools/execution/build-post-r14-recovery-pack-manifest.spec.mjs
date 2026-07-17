@@ -212,9 +212,72 @@ test('authority validation rejects duplicate, missing-ref, rejection, and quoted
     'AUTHORITY_DECISION_RECORD_FORMAT',
   );
   assertDecisionRejected(
-    decisionLedger.replace(affirmativeLine, '> ' + affirmativeLine),
-    'AUTHORITY_DECISION_RECORD_FORMAT',
+    decisionLedger.split('\n').map((line) => line.includes('authority decision record:')
+      ? '> ' + line : line).join('\n'),
+    'AUTHORITY_DECISION_RECORD_COUNT',
   );
+});
+
+test('authority validation ignores fenced and commented Markdown authority examples', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const heading = '## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction';
+  const affirmativeLines = decisionLedger.split('\n').filter(
+    (line) => line.includes('authority decision record:'),
+  );
+  assert.ok(affirmativeLines.length);
+  for (const wrap of [(value) => '```md\n' + value + '\n```', (value) => '<!--\n' + value + '\n-->']) {
+    const registryResult = validateAuthorityArtifacts(manifest, {
+      packRegistry: packRegistry.replace(heading, wrap(heading)),
+      decisionLedger,
+    });
+    assert.equal(registryResult.ok, false);
+    assert.equal(registryResult.errors.some(
+      (error) => error.code === 'AUTHORITY_PACK_REGISTRY_HEADING_COUNT',
+    ), true);
+    const decisionResult = validateAuthorityArtifacts(manifest, {
+      packRegistry,
+      decisionLedger: decisionLedger.split('\n').map((line) => affirmativeLines.includes(line)
+        ? wrap(line) : line).join('\n'),
+    });
+    assert.equal(decisionResult.ok, false);
+    assert.equal(decisionResult.errors.some(
+      (error) => error.code === 'AUTHORITY_DECISION_RECORD_COUNT',
+    ), true);
+  }
+});
+
+test('authority validation rejects alternate canonical and nonaffirmative statements', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const staleHash = 'bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724';
+  const alternateRegistry = packRegistry.replace(
+    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
+    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.\n'
+      + '- canonical PAYLOAD sha-256: `' + staleHash + '`.',
+  );
+  const registryResult = validateAuthorityArtifacts(manifest, {
+    packRegistry: alternateRegistry,
+    decisionLedger,
+  });
+  assert.equal(registryResult.ok, false);
+  assert.equal(registryResult.errors.some(
+    (error) => error.code === 'AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT',
+  ), true);
+  const decisionResult = validateAuthorityArtifacts(manifest, {
+    packRegistry,
+    decisionLedger: decisionLedger + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n',
+  });
+  assert.equal(decisionResult.ok, false);
+  assert.equal(decisionResult.errors.some(
+    (error) => error.code === 'AUTHORITY_DECISION_RECORD_FORMAT',
+  ), true);
 });
 
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
@@ -1328,11 +1391,12 @@ test('committed-only check rejects a quoted decision record in a copied clone', 
     ]);
     const cloneDecision = path.join(clone, 'docs/ledger/decision.md');
     const decision = await readFile(cloneDecision, 'utf8');
-    const affirmativeLine = decision.split('\n').find(
+    const affirmativeLines = decision.split('\n').filter(
       (line) => line.includes('authority decision record:'),
     );
-    assert.ok(affirmativeLine);
-    await writeFile(cloneDecision, decision.replace(affirmativeLine, '> ' + affirmativeLine));
+    assert.ok(affirmativeLines.length);
+    await writeFile(cloneDecision, decision.split('\n').map((line) =>
+      affirmativeLines.includes(line) ? '> ' + line : line).join('\n'));
 
     const result = spawnSync(process.execPath, [
       await realpath(path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
@@ -1340,7 +1404,7 @@ test('committed-only check rejects a quoted decision record in a copied clone', 
       '--committed-only',
     ], { cwd: clone, encoding: 'utf8' });
     assert.equal(result.status, 1, result.stdout + result.stderr);
-    assert.match(result.stderr, /AUTHORITY_DECISION_RECORD_FORMAT/);
+    assert.match(result.stderr, /AUTHORITY_DECISION_RECORD_COUNT/);
     assert.match(result.stderr, /"writes": 0/);
   } finally {
     await rm(scratch, { recursive: true, force: true });
@@ -1489,4 +1553,16 @@ test('cleanup-guaranteed shell wrapper preserves failure status and always relea
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
+});
+
+test('isolated database wrappers create overrides inside a private lock directory', async () => {
+  const manifest = await fixture();
+  const databaseCommand = manifest.payload.packs
+    .flatMap((pack) => pack.verification.commands)
+    .find((command) => command.includes('compose.override.yml'));
+  assert.ok(databaseCommand);
+  assert.match(databaseCommand, /umask 077/);
+  assert.match(databaseCommand, /isolated\.lock\/compose\.override\.yml/);
+  assert.match(databaseCommand, /set -C; : >/);
+  assert.doesNotMatch(databaseCommand, /rm -f '\/tmp\/amic-vault-pack-r14-.*compose\.override\.yml'/);
 });

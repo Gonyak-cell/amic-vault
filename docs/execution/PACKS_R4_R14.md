@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `5d6a7a8cee3852b3581f9b99b9648463f2b1c10b5355842e2b57d02b8a173496`.
+  `29234d987b46d10774f49bda9a74f8bac7c72e81a4ea0cf2001cbc60fb1a281e`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
