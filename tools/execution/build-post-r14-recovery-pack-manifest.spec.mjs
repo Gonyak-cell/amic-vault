@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
+  outputsMatchManifest,
+  renderMarkdown,
   validateNonOverlayGitSources,
   validateManifest,
 } from './build-post-r14-recovery-pack-manifest.mjs';
@@ -54,6 +57,20 @@ test('every PACK has three to eight TUWs, a unique branch, review, and earlier p
     for (const predecessor of pack.predecessorPackIds) {
       if (['PACK-R14-03', 'PACK-R14-03-AMENDMENT-01'].includes(predecessor)) continue;
       assert.ok(packs.find((candidate) => candidate.packId === predecessor).sequence < pack.sequence);
+    }
+  }
+});
+
+test('every generated focused command is syntax-safe in bash and zsh', async () => {
+  const manifest = await fixture();
+  const commands = manifest.payload.packs.flatMap((pack) => pack.verification.commands)
+    .filter((command) => command.startsWith('pnpm test -- ')
+      || command.startsWith('pnpm test:integration -- '));
+  assert.ok(commands.some((command) => command.includes('(app)')));
+  for (const command of commands) {
+    for (const shell of ['/bin/bash', '/bin/zsh']) {
+      const result = spawnSync(shell, ['-n', '-c', command], { encoding: 'utf8' });
+      assert.equal(result.status, 0, shell + ' rejected: ' + command + '\n' + result.stderr);
     }
   }
 });
@@ -318,12 +335,53 @@ test('reassigning a stale historical-base hunk to a PACK is rejected', async () 
   assert.ok(codes.includes('QUARANTINE_MAPPING') || codes.includes('PACK_FILE_SOURCE_SET'));
 });
 
+test('fully synchronized stale historical-base reactivation is rejected by the sealed source contract', async () => {
+  const manifest = await fixture();
+  const hunk = manifest.payload.hunkAssignments.find((item) => item.ordinal === 4695);
+  const path = manifest.payload.pathDispositions.find((item) => item.pathB64 === hunk.pathB64);
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-04');
+  const decodedPath = Buffer.from(hunk.pathB64, 'base64').toString('utf8');
+
+  hunk.disposition = 'PACK';
+  hunk.packId = pack.packId;
+  hunk.quarantineReason = null;
+  path.disposition = 'PACK';
+  path.packIds = [pack.packId];
+  pack.hunkOrdinals.push(hunk.ordinal);
+  pack.files.overlayCreate.push(decodedPath);
+  pack.files.create.push(decodedPath);
+  manifest.payload.quarantines.hunkOrdinals = manifest.payload.quarantines.hunkOrdinals
+    .filter((ordinal) => ordinal !== hunk.ordinal);
+  manifest.payload.quarantines.pathB64s = manifest.payload.quarantines.pathB64s
+    .filter((pathB64) => pathB64 !== hunk.pathB64);
+  resign(manifest);
+
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('HISTORICAL_BASE_QUARANTINE_CONTRACT'));
+  assert.ok(codes.includes('CANONICAL_PAYLOAD_HASH'));
+});
+
 test('omitting one transition control-plane path is rejected', async () => {
   const manifest = await fixture();
   manifest.payload.packs[1].controlPlane.transitionCommit.exactPaths.pop();
   resign(manifest);
   assert.equal(validateManifest(manifest).errors
     .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
+});
+
+test('moving A14 from a row role to support cannot remove its transition', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-09');
+  pack.secondaryTuwIds = pack.secondaryTuwIds.filter((id) => id !== 'A14');
+  pack.supportTuwIds.unshift('A14');
+  pack.controlPlane.transitionTuwIds = pack.controlPlane.transitionTuwIds
+    .filter((id) => id !== 'A14');
+  resign(manifest);
+
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('PACK_TUW_ROLE_CONTRACT'));
+  assert.ok(codes.includes('PACK_CONTROL_PLANE_CONTRACT'));
+  assert.ok(codes.includes('CANONICAL_PAYLOAD_HASH'));
 });
 
 test('allowing candidate bookkeeping after transitions is rejected', async () => {
@@ -356,4 +414,12 @@ test('stale G003 evidence-target routing is rejected', async () => {
   resign(manifest);
   assert.equal(validateManifest(manifest).errors
     .some((error) => error.code === 'PACK_EVIDENCE_CONTRACT'), true);
+});
+
+test('source-less output validation rejects committed Markdown drift', async () => {
+  const manifest = await fixture();
+  const json = JSON.stringify(manifest, null, 2) + '\n';
+  const markdown = renderMarkdown(manifest);
+  assert.equal(outputsMatchManifest(manifest, { json, markdown }), true);
+  assert.equal(outputsMatchManifest(manifest, { json, markdown: markdown + '\nDRIFT\n' }), false);
 });

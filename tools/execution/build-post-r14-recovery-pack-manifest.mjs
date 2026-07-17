@@ -13,6 +13,8 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
+const CANONICAL_PAYLOAD_SHA256 = '702e3d7f9ea57294c8fa6847857774d8edf35a7e78542f27698d8a2b81bc929d';
+const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const AUTHORITY_REF = 'TASK6B-TECHNICAL-GATES-AUTHORITY-20260717';
 const AMENDMENT_AUTHORITY_REF = 'DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717';
 const REGISTRATION_PACK_ID = 'PACK-R14-03';
@@ -408,6 +410,10 @@ function sameSet(left, right) {
   return left.length === right.length && sorted(left).join('\0') === sorted(right).join('\0');
 }
 
+function sameSequence(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function riskFor(hunks, mode) {
   if (hunks.some((hunk) => hunk.risk === 'critical')) return 'C';
   if (hunks.some((hunk) => hunk.risk === 'high')) return 'H';
@@ -438,12 +444,18 @@ function targetMigrationName(sourceName, targetOrdinal) {
   return String(targetOrdinal).padStart(4, '0') + sourceName.slice(4);
 }
 
+function shellQuote(value) {
+  return "'" + value.replaceAll("'", "'\"'\"'") + "'";
+}
+
 function focusedCommands(testPaths) {
   const unit = testPaths.filter((value) => !value.startsWith('tests/integration'));
   const integration = testPaths.filter((value) => value.startsWith('tests/integration'));
   const commands = [];
-  if (unit.length) commands.push('pnpm test -- ' + unit.join(' '));
-  if (integration.length) commands.push('pnpm test:integration -- ' + integration.join(' '));
+  if (unit.length) commands.push('pnpm test -- ' + unit.map(shellQuote).join(' '));
+  if (integration.length) {
+    commands.push('pnpm test:integration -- ' + integration.map(shellQuote).join(' '));
+  }
   return commands;
 }
 
@@ -888,6 +900,9 @@ export function validateManifest(manifest) {
   if (manifest.schemaVersion !== SCHEMA_VERSION) fail('SCHEMA_VERSION', manifest.schemaVersion);
   if (manifest.status !== 'AUTHORIZED_TECHNICAL_GATES_ONLY') fail('STATUS', manifest.status);
   if (manifest.payloadSha256 !== digest(manifest.payload)) fail('PAYLOAD_HASH', 'payload hash mismatch');
+  if (manifest.payloadSha256 !== CANONICAL_PAYLOAD_SHA256) {
+    fail('CANONICAL_PAYLOAD_HASH', manifest.payloadSha256);
+  }
 
   const payload = manifest.payload ?? {};
   if (payload.manifestId !== MANIFEST_ID) fail('MANIFEST_ID', payload.manifestId);
@@ -909,6 +924,7 @@ export function validateManifest(manifest) {
   if (new Set(packIds).size !== packIds.length) fail('PACK_ID_DUPLICATE', 'duplicate PACK ID');
   if (new Set(branches).size !== branches.length) fail('BRANCH_DUPLICATE', 'duplicate branch');
   const packById = Object.fromEntries(packs.map((pack) => [pack.packId, pack]));
+  const staticPrimary = primaryMap();
   for (const pack of packs) {
     if (!/^PACK-R14-\d{2}$/.test(pack.packId)) fail('PACK_ID_FORMAT', pack.packId);
     if (!/^feat\/pack-r14-\d{2}-[a-z0-9-]+$/.test(pack.branch)) fail('BRANCH_FORMAT', pack.branch);
@@ -923,6 +939,30 @@ export function validateManifest(manifest) {
     const partition = [...pack.primaryTuwIds, ...pack.secondaryTuwIds, ...pack.supportTuwIds];
     if (new Set(partition).size !== partition.length || !sameSet(partition, pack.tuwIds)) {
       fail('PACK_TUW_PARTITION', pack.packId);
+    }
+    const blueprint = BLUEPRINTS[pack.sequence - 1];
+    const expectedPrimaryTuwIds = blueprint?.tuwIds.filter(
+      (id) => staticPrimary[id] === blueprint.key,
+    ) ?? [];
+    const expectedSecondaryTuwIds = blueprint?.tuwIds.filter(
+      (id) => Object.hasOwn(staticPrimary, id) && staticPrimary[id] !== blueprint.key,
+    ) ?? [];
+    const expectedSupportTuwIds = blueprint?.tuwIds.filter(
+      (id) => !Object.hasOwn(staticPrimary, id),
+    ) ?? [];
+    if (!blueprint
+      || pack.branch !== 'feat/pack-r14-' + String(pack.sequence + 3).padStart(2, '0') + '-' + blueprint.slug
+      || pack.title !== blueprint.title
+      || pack.objective !== blueprint.title + ' under exact hunk, dependency, evidence, and claim boundaries.'
+      || pack.mode !== blueprint.mode
+      || !sameSequence(pack.planTasks ?? [], blueprint.planTasks)
+      || !sameSequence(pack.tuwIds ?? [], blueprint.tuwIds)) {
+      fail('PACK_BLUEPRINT_CONTRACT', pack.packId);
+    }
+    if (!sameSequence(pack.primaryTuwIds ?? [], expectedPrimaryTuwIds)
+      || !sameSequence(pack.secondaryTuwIds ?? [], expectedSecondaryTuwIds)
+      || !sameSequence(pack.supportTuwIds ?? [], expectedSupportTuwIds)) {
+      fail('PACK_TUW_ROLE_CONTRACT', pack.packId);
     }
     const expectedReviewer = ['C', 'H'].includes(pack.review?.risk)
       ? 'INDEPENDENT_CODEX'
@@ -962,9 +1002,11 @@ export function validateManifest(manifest) {
       || pack.stopConditions.length < 6) {
       fail('PACK_EVIDENCE_CONTRACT', pack.packId);
     }
-    const expectedTransitionTuwIds = [...pack.primaryTuwIds, ...pack.secondaryTuwIds];
+    const expectedTransitionTuwIds = blueprint?.tuwIds.filter(
+      (id) => Object.hasOwn(staticPrimary, id),
+    ) ?? [];
     const controlPlane = pack.controlPlane ?? {};
-    if (!sameSet(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
+    if (!sameSequence(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
       || !sameSet(controlPlane.transitionCommit?.exactPaths ?? [], TRANSITION_CONTROL_PLANE_PATHS)
       || controlPlane.transitionCommit?.oneRowPerCommit !== true
       || controlPlane.transitionCommit?.payloadMixingForbidden !== true
@@ -1073,6 +1115,35 @@ export function validateManifest(manifest) {
   if (new Set(hunks.map((item) => item.ordinal)).size !== hunks.length) fail('HUNK_ORDINAL_DUPLICATE', 'duplicate');
   if (new Set(hunks.map((item) => item.hunkFingerprint)).size !== hunks.length) fail('HUNK_FINGERPRINT_DUPLICATE', 'duplicate');
   const hunkByOrdinal = Object.fromEntries(hunks.map((hunk) => [hunk.ordinal, hunk]));
+  const historicalBaseHunks = hunks.filter((hunk) => hunk.sourceOwnerType === 'historical_base');
+  const historicalBaseSourceContract = historicalBaseHunks.map(({
+    ordinal,
+    pathB64,
+    hunkFingerprint,
+    sourceOwnerType,
+    sourceOwner,
+    candidateUnits,
+    risk,
+  }) => ({
+    ordinal,
+    pathB64,
+    hunkFingerprint,
+    sourceOwnerType,
+    sourceOwner,
+    candidateUnits,
+    risk,
+  }));
+  if (digest(historicalBaseSourceContract) !== HISTORICAL_BASE_SOURCE_CONTRACT_SHA256) {
+    fail('HISTORICAL_BASE_SOURCE_CONTRACT', 'sealed historical-base source set drifted');
+  }
+  for (const hunk of historicalBaseHunks) {
+    if (hunk.disposition !== 'QUARANTINE'
+      || hunk.packId !== null
+      || hunk.quarantineReason
+        !== 'STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE') {
+      fail('HISTORICAL_BASE_QUARANTINE_CONTRACT', String(hunk.ordinal));
+    }
+  }
   const listedHunks = new Map();
   for (const pack of packs) {
     for (const ordinal of pack.hunkOrdinals) {
@@ -1315,7 +1386,13 @@ export function validateManifest(manifest) {
 }
 
 function gitResult(args, cwd) {
-  return spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  return spawnSync('git', ['--no-replace-objects', ...args], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+    timeout: 10_000,
+    killSignal: 'SIGKILL',
+  });
 }
 
 export function validateNonOverlayGitSources(manifest, { cwd = ROOT } = {}) {
@@ -1460,6 +1537,11 @@ export function renderMarkdown(manifest) {
   return lines.join('\n');
 }
 
+export function outputsMatchManifest(manifest, { json, markdown }) {
+  return json === JSON.stringify(manifest, null, 2) + '\n'
+    && markdown === renderMarkdown(manifest);
+}
+
 async function writeOutputs(manifest) {
   const json = JSON.stringify(manifest, null, 2) + '\n';
   const md = renderMarkdown(manifest);
@@ -1505,12 +1587,10 @@ async function main() {
     console.error(JSON.stringify({ manifest: result, gitSources }, null, 2));
     process.exit(1);
   }
-  if (process.argv.includes('--check') && sourceDir) {
-    const rebuilt = await buildManifest(sourceDir);
-    const expectedJson = JSON.stringify(rebuilt, null, 2) + '\n';
-    const expectedMd = renderMarkdown(rebuilt);
+  if (process.argv.includes('--check')) {
+    const expectedManifest = sourceDir ? await buildManifest(sourceDir) : manifest;
     const [actualJson, actualMd] = await Promise.all([readFile(JSON_PATH, 'utf8'), readFile(MD_PATH, 'utf8')]);
-    if (actualJson !== expectedJson || actualMd !== expectedMd) {
+    if (!outputsMatchManifest(expectedManifest, { json: actualJson, markdown: actualMd })) {
       console.error(JSON.stringify({ ok: false, code: 'CHECK_DRIFT', writes: 0 }));
       process.exit(1);
     }

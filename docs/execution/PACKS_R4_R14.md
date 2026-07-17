@@ -2013,7 +2013,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `586106820251c299c9dfa867c85ab9d6abec76678feb49de389e92319141d5f6`.
+  `702e3d7f9ea57294c8fa6847857774d8edf35a7e78542f27698d8a2b81bc929d`.
 
 The v1 validator proved complete coverage of the preserved 893-path overlay,
 but Task 7 preflight exposed a separate source class that v1 did not model.
@@ -2052,6 +2052,15 @@ PACK-R14-03-AMENDMENT-01 creates no file. It may modify only:
 - the EOF of `docs/ledger/execution.md`
 - `tools/execution/build-post-r14-recovery-pack-manifest.mjs`
 - `tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs`
+
+Standalone validation pins the registered canonical payload SHA-256 and the
+sealed 19-row historical-base source contract, derives every PACK TUW role and
+transition row from the static blueprint plus the sealed 117-ID universe, and
+compares both generated JSON and Markdown even when no private `--source-dir`
+is available. A source-bound check additionally rebuilds from the sealed G002
+inputs; neither mode may accept a re-signed, internally self-consistent drift.
+Every generated focused-test path is POSIX single-quoted and its exact command
+must parse under both Bash and zsh before registration.
 
 Focused verification is exact:
 
