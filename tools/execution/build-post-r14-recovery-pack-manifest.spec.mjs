@@ -266,6 +266,17 @@ test('authority validation rejects registry authority anchors hidden by raw HTML
   assert.equal(result.errors.some(
     (error) => error.code === 'AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT',
   ), true);
+  const heading = '## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction';
+  for (const prefix of ['</span>\n', '</textarea>\n', '<span title="a>b">\n']) {
+    const hiddenHeading = validateAuthorityArtifacts(manifest, {
+      packRegistry: packRegistry.replace(heading, prefix + heading),
+      decisionLedger,
+    });
+    assert.equal(hiddenHeading.ok, false);
+    assert.equal(hiddenHeading.errors.some(
+      (error) => error.code === 'AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT',
+    ), true);
+  }
 });
 
 test('authority validation rejects alternate canonical and nonaffirmative statements', async () => {

@@ -2808,7 +2808,17 @@ export function validateAuthorityArtifacts(manifest, {
       rawRegistrySectionStart,
       rawRegistrySectionEnd < 0 ? rawRegistryText.length : rawRegistrySectionEnd,
     );
-  const unsafeRegistryContextLines = rawRegistrySection.split('\n').filter((line) =>
+  const rawRegistryPreambleLines = rawRegistrySectionStart < 0
+    ? []
+    : rawRegistryText.slice(0, rawRegistrySectionStart).split('\n');
+  const rawRegistryPreambleContent = rawRegistryPreambleLines.at(-1) === ''
+    ? rawRegistryPreambleLines.slice(0, -1)
+    : rawRegistryPreambleLines;
+  const rawRegistryPreamble = rawRegistryPreambleContent
+    .slice(rawRegistryPreambleContent.findLastIndex((line) => !line.trim()) + 1)
+    .join('\n');
+  const unsafeRegistryContextLines = (rawRegistryPreamble + '\n' + rawRegistrySection)
+    .split('\n').filter((line) =>
     /^ {0,3}</.test(line) || /^ {0,3}<[^/]/.test(line));
   if (unsafeRegistryContextLines.length) {
     fail('AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT', unsafeRegistryContextLines.join('\n'));
