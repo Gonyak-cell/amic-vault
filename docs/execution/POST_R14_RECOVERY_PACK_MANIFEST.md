@@ -56,8 +56,9 @@ build/recreate, database URLs, and ingestion worker URL with the canonical isola
 A status-preserving Bash EXIT trap then runs compose up, migrate,
 rollback, migrate, seed, focused
 integration, full integration, and unconditional compose/image/volume cleanup in that order.
-Inactive D9, H14, and B20 hunks, migrations, tests, and transitions remain quarantined
-until a separately registered activation amendment supplies the matching trigger receipt.
+Inactive D9, H14, and B20 hunks, migrations, implementation, and completion-state transitions remain quarantined;
+their sealed non-complete status adjudications remain permitted until a separately registered
+activation amendment supplies the matching trigger receipt.
 The receipt and exact EOF execution-ledger append precede transitions; transition
 commits then change exactly the four sealed 117-row control-plane paths. Any later
 non-control-plane push invalidates the candidate binding and all exact-head gates.

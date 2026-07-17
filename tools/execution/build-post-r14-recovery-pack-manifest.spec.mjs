@@ -12,12 +12,15 @@ import {
   parseCliArgs,
   validateFocusedTestResult,
   validateNonOverlayGitSources,
+  validateAuthorityArtifacts,
   validateManifest,
 } from './build-post-r14-recovery-pack-manifest.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const manifestPath = new URL('../../docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json', import.meta.url);
 const markdownPath = new URL('../../docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md', import.meta.url);
+const packRegistryPath = new URL('../../docs/execution/PACKS_R4_R14.md', import.meta.url);
+const decisionLedgerPath = new URL('../../docs/ledger/decision.md', import.meta.url);
 const scriptPath = new URL('./build-post-r14-recovery-pack-manifest.mjs', import.meta.url);
 
 const expectedAliases = {
@@ -90,6 +93,43 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
   assert.equal(manifest.payload.quarantines.pathB64s.length, 79);
   assert.deepEqual(manifest.payload.quarantines.conditionalUnitIds, ['B20', 'D9', 'H14']);
   assert.deepEqual(manifest.payload.quarantines.migrationSourceOrdinals, [102, 159]);
+});
+
+test('committed authority docs pin the canonical payload and allow non-complete adjudication', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger, markdown] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+    readFile(markdownPath, 'utf8'),
+  ]);
+  assert.deepEqual(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger }), {
+    ok: true,
+    errors: [],
+  });
+  assert.match(markdown,
+    /Inactive D9, H14, and B20 hunks, migrations, implementation, and completion-state transitions remain quarantined;/);
+  assert.match(markdown,
+    /their sealed non-complete status adjudications remain permitted until a separately registered/);
+  assert.doesNotMatch(markdown, /Inactive D9, H14, and B20 hunks, migrations, tests, and transitions remain quarantined/);
+});
+
+test('authority validation rejects stale registry or decision-ledger payload anchors', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const staleHash = 'bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724';
+  const staleRegistry = packRegistry.replace(manifest.payloadSha256, staleHash);
+  assert.equal(validateAuthorityArtifacts(manifest, {
+    packRegistry: staleRegistry,
+    decisionLedger,
+  }).errors.some((error) => error.code === 'AUTHORITY_PACK_REGISTRY_PAYLOAD_HASH'), true);
+  const staleDecision = decisionLedger.replace(manifest.payloadSha256, staleHash);
+  assert.equal(validateAuthorityArtifacts(manifest, {
+    packRegistry,
+    decisionLedger: staleDecision,
+  }).errors.some((error) => error.code === 'AUTHORITY_DECISION_LEDGER_PAYLOAD_HASH'), true);
 });
 
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
@@ -1135,6 +1175,47 @@ test('source-less output validation rejects committed Markdown drift', async () 
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stderr, /"code":"CHECK_DRIFT"/);
     assert.match(result.stderr, /"writes":0/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('committed-only check rejects stale authority registry anchors', async () => {
+  const manifest = await fixture();
+  const scratch = await mkdtemp(path.join(tmpdir(), 'amic-vault-authority-drift-'));
+  const clone = path.join(scratch, 'repo');
+  try {
+    const cloned = spawnSync('git', ['clone', '--shared', '--no-checkout', root, clone], {
+      encoding: 'utf8',
+    });
+    assert.equal(cloned.status, 0, cloned.stderr);
+    const checkedOut = spawnSync('git', ['-C', clone, 'checkout', '--detach', 'HEAD'], {
+      encoding: 'utf8',
+    });
+    assert.equal(checkedOut.status, 0, checkedOut.stderr);
+
+    await Promise.all([
+      cp(fileURLToPath(scriptPath), path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
+      cp(fileURLToPath(manifestPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json')),
+      cp(fileURLToPath(markdownPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md')),
+      cp(fileURLToPath(packRegistryPath), path.join(clone, 'docs/execution/PACKS_R4_R14.md')),
+      cp(fileURLToPath(decisionLedgerPath), path.join(clone, 'docs/ledger/decision.md')),
+    ]);
+    const cloneRegistry = path.join(clone, 'docs/execution/PACKS_R4_R14.md');
+    const registry = await readFile(cloneRegistry, 'utf8');
+    await writeFile(cloneRegistry, registry.replace(
+      manifest.payloadSha256,
+      'bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724',
+    ));
+
+    const result = spawnSync(process.execPath, [
+      await realpath(path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
+      '--check',
+      '--committed-only',
+    ], { cwd: clone, encoding: 'utf8' });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /AUTHORITY_PACK_REGISTRY_PAYLOAD_HASH/);
+    assert.match(result.stderr, /"writes": 0/);
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }

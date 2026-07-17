@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const JSON_PATH = path.join(ROOT, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json');
 const MD_PATH = path.join(ROOT, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md');
+const PACK_REGISTRY_PATH = path.join(ROOT, 'docs/execution/PACKS_R4_R14.md');
+const DECISION_LEDGER_PATH = path.join(ROOT, 'docs/ledger/decision.md');
 const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json');
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
@@ -22,6 +24,7 @@ const AMENDMENT_AUTHORITY_REF = 'DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717';
 const REGISTRATION_PACK_ID = 'PACK-R14-03';
 const REGISTRATION_BRANCH = 'feat/pack-r14-03-recovery-manifest';
 const AMENDMENT_PACK_ID = 'PACK-R14-03-AMENDMENT-01';
+const AMENDMENT_REGISTRY_HEADING = '## ' + AMENDMENT_PACK_ID + ' — Recovery manifest v2 correction';
 const AMENDMENT_BRANCH = 'feat/pack-r14-03-recovery-manifest-v2';
 const BASE_COMMIT = '5c722f8a4b1f0a4c99b41089664c98ad151db2b8';
 const ORIGINAL_TREE = '1ef1af32028e998a18a6c9ee8a882068fdf7a7f3';
@@ -2752,6 +2755,41 @@ export function validateNonOverlayGitSources(manifest, { cwd = ROOT } = {}) {
   };
 }
 
+export function validateAuthorityArtifacts(manifest, {
+  packRegistry,
+  decisionLedger,
+} = {}) {
+  const errors = [];
+  const fail = (code, detail) => errors.push({ code, detail });
+  const payloadSha256 = manifest?.payloadSha256;
+  const registrySectionStart = packRegistry?.indexOf(AMENDMENT_REGISTRY_HEADING) ?? -1;
+  const registrySectionEnd = registrySectionStart < 0
+    ? -1
+    : packRegistry.indexOf('\n## ', registrySectionStart + AMENDMENT_REGISTRY_HEADING.length);
+  const registrySection = registrySectionStart < 0
+    ? ''
+    : packRegistry.slice(
+      registrySectionStart,
+      registrySectionEnd < 0 ? packRegistry.length : registrySectionEnd,
+    );
+  const expectedRegistryAnchor = '- Canonical payload SHA-256:\n  `' + payloadSha256 + '`.';
+  if (!registrySection.includes(expectedRegistryAnchor)) {
+    fail('AUTHORITY_PACK_REGISTRY_PAYLOAD_HASH', payloadSha256);
+  }
+
+  const decisionLines = (decisionLedger ?? '')
+    .split('\n')
+    .filter((line) => line.includes(AMENDMENT_PACK_ID)
+      && line.includes('canonical payload SHA-256'));
+  const latestDecision = decisionLines.at(-1) ?? '';
+  const expectedDecisionAnchor = 'canonical payload SHA-256 `' + payloadSha256 + '`';
+  if (!latestDecision.includes(expectedDecisionAnchor)) {
+    fail('AUTHORITY_DECISION_LEDGER_PAYLOAD_HASH', latestDecision || 'missing amendment decision');
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
 export function renderMarkdown(manifest) {
   const payload = manifest.payload;
   const activeMigrations = payload.migrations.filter(
@@ -2831,8 +2869,9 @@ export function renderMarkdown(manifest) {
     'A status-preserving Bash EXIT trap then runs compose up, migrate,',
     'rollback, migrate, seed, focused',
     'integration, full integration, and unconditional compose/image/volume cleanup in that order.',
-    'Inactive D9, H14, and B20 hunks, migrations, tests, and transitions remain quarantined',
-    'until a separately registered activation amendment supplies the matching trigger receipt.',
+    'Inactive D9, H14, and B20 hunks, migrations, implementation, and completion-state transitions remain quarantined;',
+    'their sealed non-complete status adjudications remain permitted until a separately registered',
+    'activation amendment supplies the matching trigger receipt.',
     'The receipt and exact EOF execution-ledger append precede transitions; transition',
     'commits then change exactly the four sealed 117-row control-plane paths. Any later',
     'non-control-plane push invalidates the candidate binding and all exact-head gates.',
@@ -2981,8 +3020,13 @@ async function main() {
     const manifest = await buildManifest(sourceDir);
     const result = validateManifest(manifest);
     const gitSources = validateNonOverlayGitSources(manifest);
-    if (!result.ok || !gitSources.ok) {
-      console.error(JSON.stringify({ manifest: result, gitSources }, null, 2));
+    const [packRegistry, decisionLedger] = await Promise.all([
+      readFile(PACK_REGISTRY_PATH, 'utf8'),
+      readFile(DECISION_LEDGER_PATH, 'utf8'),
+    ]);
+    const authority = validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger });
+    if (!result.ok || !gitSources.ok || !authority.ok) {
+      console.error(JSON.stringify({ manifest: result, gitSources, authority }, null, 2));
       process.exit(1);
     }
     await writeOutputs(manifest);
@@ -3004,14 +3048,24 @@ async function main() {
   const manifest = JSON.parse(await readFile(JSON_PATH, 'utf8'));
   const result = validateManifest(manifest);
   const gitSources = validateNonOverlayGitSources(manifest);
+  const expectedManifest = sourceDir ? await buildManifest(sourceDir) : manifest;
+  const [actualJson, actualMd, packRegistry, decisionLedger] = await Promise.all([
+    readFile(JSON_PATH, 'utf8'),
+    readFile(MD_PATH, 'utf8'),
+    readFile(PACK_REGISTRY_PATH, 'utf8'),
+    readFile(DECISION_LEDGER_PATH, 'utf8'),
+  ]);
   if (!result.ok || !gitSources.ok) {
     console.error(JSON.stringify({ manifest: result, gitSources }, null, 2));
     process.exit(1);
   }
-  const expectedManifest = sourceDir ? await buildManifest(sourceDir) : manifest;
-  const [actualJson, actualMd] = await Promise.all([readFile(JSON_PATH, 'utf8'), readFile(MD_PATH, 'utf8')]);
   if (!outputsMatchManifest(expectedManifest, { json: actualJson, markdown: actualMd })) {
     console.error(JSON.stringify({ ok: false, code: 'CHECK_DRIFT', writes: 0 }));
+    process.exit(1);
+  }
+  const authority = validateAuthorityArtifacts(expectedManifest, { packRegistry, decisionLedger });
+  if (!authority.ok) {
+    console.error(JSON.stringify({ ok: false, authority, writes: 0 }, null, 2));
     process.exit(1);
   }
   console.log(JSON.stringify({
