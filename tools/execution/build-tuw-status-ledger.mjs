@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual, TextDecoder } from 'node:util';
@@ -8,13 +9,77 @@ const planPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md';
 const jsonPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json';
 const mdPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md';
 const overridesPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json';
+const journalPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json';
 const defaultGeneratedAt = '2026-07-17T00:00:00.000Z';
 const technicalSchemaId = 'PACK-R14-02-TASK5-SCHEMA-V1';
 const bootstrapPhase = 'BOOTSTRAP_IMPORT';
+const transitionPhase = 'TRANSITION';
+const finalCloseoutPhase = 'FINAL_CLOSEOUT';
+const journalSchemaVersion = 'tuw-transition-journal/v1';
+const journalHashAlgorithm = 'SHA-256';
+const journalCanonicalization = 'AMIC-CJSON-1';
+const journalAuthorityMode = 'GIT_COMMIT_V1';
+const journalAuthorityCommit = '2daa27d6ecb959342ecb13396286532e64f54cab';
+const finalPackPayloadSha256 =
+  '32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9';
+const bootstrapId = 'PACK-R14-02-BOOTSTRAP-117';
 const bootstrapSourcePlanSha256 =
   '23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7';
 const bootstrapOverridesSha256 = 'd0404c84bfe3e7b4d14d071a0c9f267a87eb62a512a78f3e4d98499abaae6a4a';
+const bootstrapCanonicalOverridesSha256 =
+  'fa0f692b4a71531a9326a221412890849b0266d8e0fceba80382ccc4713e7bf3';
+const bootstrapOrderedRowSetSha256 =
+  '64228240f540c1687d08fe3ac10de23ad7093d04f446d48e0580ce19c8649d8c';
+const bootstrapExactIdSetSha256 =
+  'eb3fe63aaad2c86ed2b58f7bcf752f7ea5ac9b6d266fb7ba79564a8d3d0e1a82';
+const bootstrapSelectedTupleSha256 =
+  'cb58efa92256d7d0ba0d417ca3498ea7cb69fe24bea1aa35fed5fb069546b787';
 const maxEvidenceAgeSeconds = 2_592_000;
+
+export const SEALED_ERROR_CODES = new Set([
+  'E_SCHEMA_SHAPE',
+  'E_SCHEMA_TIMESTAMP',
+  'E_SCHEMA_HASH',
+  'E_SCHEMA_GIT_SHA',
+  'E_BOOTSTRAP_IDENTITY',
+  'E_BOOTSTRAP_NOT_CURRENT',
+  'E_METADATA_CLOCK',
+  'E_EVIDENCE_LEGACY_CURRENT',
+  'E_EVIDENCE_SCHEMA',
+  'E_EVIDENCE_STALE',
+  'E_EVIDENCE_WRONG_SHA',
+  'E_EVIDENCE_SCOPE_DRIFT',
+  'E_EVIDENCE_NON_DURABLE',
+  'E_EVIDENCE_TEST_COUNTS',
+  'E_DEPENDENCY_ALIAS',
+  'E_DEPENDENCY_DUPLICATE',
+  'E_DEPENDENCY_SELF',
+  'E_DEPENDENCY_UNKNOWN',
+  'E_DEPENDENCY_CYCLE',
+  'E_DEPENDENCY_CAPABILITY_UNRESOLVED',
+  'E_DEPENDENCY_CONDITION_UNKNOWN',
+  'E_DEPENDENCY_GATE',
+  'E_BLOCKER_ACCEPTANCE',
+  'E_BLOCKER_HARD_NOT_ACCEPTABLE',
+  'E_BLOCKER_POLICY_CONFLICT',
+  'E_BLOCKER_SCOPE_DRIFT',
+  'E_BLOCKER_NOT_COMPLETE',
+  'E_JOURNAL_HEADER',
+  'E_JOURNAL_GENESIS',
+  'E_JOURNAL_SEQUENCE',
+  'E_JOURNAL_CHAIN',
+  'E_JOURNAL_HASH',
+  'E_TRANSITION_MULTI_ROW',
+  'E_TRANSITION_INVALID',
+  'E_REPLAY_MISMATCH',
+  'E_PHASE_UNADJUDICATED',
+  'E_PHASE_CLOSEOUT',
+  'E_DRIFT_JSON',
+  'E_DRIFT_MARKDOWN',
+  'E_CHECK_WRITE',
+  'E_SCOPE_COMMIT',
+  'E_SCOPE_PACK_SIZE',
+]);
 
 const validationStates = new Set(['BOOTSTRAP_PREIMAGE', 'CURRENT_VALIDATED']);
 const evidenceTypes = new Set([
@@ -103,6 +168,17 @@ const acceptableExternalBlockerClasses = new Set([
 const acceptedBlockerAuthorityKinds = new Set(['DECISION_LEDGER', 'REGISTERED_PACK']);
 const acceptedBlockerNonClaims = ['NO_EXTERNAL_EXECUTION', 'NO_GO_LIVE', 'NOT_COMPLETE'];
 const allowedValidationModes = new Set(['100644', '100755', '120000', 'ABSENT']);
+const dependencyKinds = new Set(['hard', 'soft', 'conditional', 'external']);
+const transitionKinds = new Set([
+  'ADJUDICATE',
+  'PROMOTE',
+  'DEMOTE',
+  'BLOCK',
+  'UNBLOCK',
+  'REVALIDATE',
+]);
+const transitionControlPlanePaths = new Set([journalPath, overridesPath, jsonPath, mdPath]);
+const closeoutControlPlanePaths = new Set([journalPath, jsonPath, mdPath]);
 
 // Frozen from docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md
 // (SHA-256 ee05e4e3e453fab573a8e99153eaeb3bca610e80ecc4d42b15a4491dff5474b1).
@@ -228,8 +304,300 @@ const FROZEN_TUW_IDS = Object.freeze([
   'B20',
 ]);
 
+export const DEPENDENCY_ALIAS_REGISTRY = Object.freeze([
+  {
+    ordinal: 1,
+    rowId: 'D7',
+    sourceLine: 1650,
+    aliasKey: 'D7/B-OCR',
+    sourceText: 'B(OCR 엔진 — ingestion 워커의 스캔 PDF OCR 스테이지)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:D7/B-OCR',
+    emits: [{ id: 'B1', kind: 'hard' }],
+  },
+  {
+    ordinal: 2,
+    rowId: 'D8',
+    sourceLine: 1678,
+    aliasKey: 'D8/C-OUTLOOK-AUTO-INGEST',
+    sourceText:
+      'C(Outlook Graph 실연동 — 이메일 소스 자동 유입, 소프트 의존: 현행 업로드/파일링 경로만으로 완결 가능)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:D8/C-OUTLOOK-AUTO-INGEST',
+    emits: [{ id: 'CAP-OUTLOOK-GRAPH-AUTO-INGEST', kind: 'soft' }],
+  },
+  {
+    ordinal: 3,
+    rowId: 'D10',
+    sourceLine: 1706,
+    aliasKey: 'D10/E2-GEMMA',
+    sourceText:
+      'E(E2 Gemma 생성·E8 Strong LLM 라우팅 — 답변 생성 품질, 소프트 의존: 기존 로컬 생성 경로로 선출시 가능)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:D10/E2-GEMMA',
+    emits: [{ id: 'E2', kind: 'soft' }],
+  },
+  {
+    ordinal: 4,
+    rowId: 'D10',
+    sourceLine: 1706,
+    aliasKey: 'D10/E8-STRONG-ROUTING',
+    sourceText:
+      'E(E2 Gemma 생성·E8 Strong LLM 라우팅 — 답변 생성 품질, 소프트 의존: 기존 로컬 생성 경로로 선출시 가능)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:D10/E8-STRONG-ROUTING',
+    emits: [{ id: 'E8', kind: 'soft' }],
+  },
+  {
+    ordinal: 5,
+    rowId: 'E7',
+    sourceLine: 1791,
+    aliasKey: 'E7/F-GRAPH-CONFIRMATION',
+    sourceText: 'F(그래프 후보 candidate/confirmed 상태 스키마·승인 확정 플로우)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:E7/F-GRAPH-CONFIRMATION',
+    emits: [{ id: 'CAP-GRAPH-CANDIDATE-CONFIRMATION', kind: 'conditional' }],
+    registeredCondition: {
+      state: 'INACTIVE',
+      reason:
+        'E7 scope excludes canonical graph write and confirmation; a scope amendment makes the condition ACTIVE',
+    },
+  },
+  {
+    ordinal: 6,
+    rowId: 'E11',
+    sourceLine: 1897,
+    aliasKey: 'E11/C-OUTLOOK-THREAD-INGEST',
+    sourceText: 'C(Email Vault Outlook Graph 실연동 — 쓰레드 단위 인입 확대)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:E11/C-OUTLOOK-THREAD-INGEST',
+    emits: [{ id: 'CAP-OUTLOOK-GRAPH-THREAD-INGEST', kind: 'soft' }],
+  },
+  {
+    ordinal: 7,
+    rowId: 'E12',
+    sourceLine: 1919,
+    aliasKey: 'E12/G-HIDDEN-ROUTES',
+    sourceText: 'G(contracts/dd/litigation hidden-route 봉인 해제·화면 노출)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:E12/G-HIDDEN-ROUTES',
+    emits: [{ id: 'G2', kind: 'hard' }],
+  },
+  {
+    ordinal: 8,
+    rowId: 'G3',
+    sourceLine: 2204,
+    aliasKey: 'G3/B-DIFF',
+    sourceText: 'B(문서 버전 비교 diff API/뷰)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:G3/B-DIFF',
+    emits: [{ id: 'B11', kind: 'hard' }],
+  },
+  {
+    ordinal: 9,
+    rowId: 'G9',
+    sourceLine: 2328,
+    aliasKey: 'G9/B-WATERMARK',
+    sourceText: 'B(서버사이드 PDF 워터마크 렌더링)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:G9/B-WATERMARK',
+    emits: [{ id: 'B3', kind: 'hard' }],
+  },
+  {
+    ordinal: 10,
+    rowId: 'B13',
+    sourceLine: 2638,
+    aliasKey: 'B13/E-AI-ROUTING',
+    sourceText: 'E(Gemma 구조화+Strong LLM 라우팅)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:B13/E-AI-ROUTING',
+    emits: [{ id: 'CAP-AI-STRUCTURED-STRONG-ROUTING', kind: 'external' }],
+  },
+  {
+    ordinal: 11,
+    rowId: 'B13',
+    sourceLine: 2638,
+    aliasKey: 'B13/C-OUTLOOK-SEND',
+    sourceText: 'C(Outlook Graph 송부 연동)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:B13/C-OUTLOOK-SEND',
+    emits: [{ id: 'C16', kind: 'hard' }],
+  },
+  {
+    ordinal: 12,
+    rowId: 'B14',
+    sourceLine: 2662,
+    aliasKey: 'B14/F-CLAUSE-SEARCH',
+    sourceText: 'F(조항은행 검색 API)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:B14/F-CLAUSE-SEARCH',
+    emits: [{ id: 'F11', kind: 'hard' }],
+  },
+  {
+    ordinal: 13,
+    rowId: 'D11',
+    sourceLine: 2758,
+    aliasKey: 'D11/F-CLAUSE-CORPUS',
+    sourceText: 'F(조항은행 — contract-intel 조항 파싱 데이터 적재 확대)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:D11/F-CLAUSE-CORPUS',
+    emits: [{ id: 'CAP-CLAUSE-BANK-PARSED-CORPUS', kind: 'hard' }],
+  },
+  {
+    ordinal: 14,
+    rowId: 'D12',
+    sourceLine: 2780,
+    aliasKey: 'D12/H-LAW-DATA',
+    sourceText: 'H(국내 법률데이터 연동 — 국가법령정보센터/판례 API 커넥터)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:D12/H-LAW-DATA',
+    emits: [{ id: 'H12', kind: 'hard' }],
+  },
+  {
+    ordinal: 15,
+    rowId: 'E13',
+    sourceLine: 2804,
+    aliasKey: 'E13/B-EDITING-BASE',
+    sourceText: 'B(문서 편집·버전 관리 기반)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:E13/B-EDITING-BASE',
+    emits: [{ id: 'CAP-DOCUMENT-DRAFT-VERSION-PERSISTENCE', kind: 'hard' }],
+  },
+  {
+    ordinal: 16,
+    rowId: 'E14',
+    sourceLine: 2827,
+    aliasKey: 'E14/F-CONFIRMED-FACTS',
+    sourceText: 'F(확정 graph facts — candidate→confirmed 승인 플로우)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:E14/F-CONFIRMED-FACTS',
+    emits: [{ id: 'F9', kind: 'hard' }],
+  },
+  {
+    ordinal: 17,
+    rowId: 'H12',
+    sourceLine: 3004,
+    aliasKey: 'H12/F-AUTHORITY-CITATION',
+    sourceText: 'F(F1 Authority 노드 타입·F4 Citation Ledger 연결 규약 협의 — 차단 아님)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:H12/F-AUTHORITY-CITATION',
+    emits: [
+      { id: 'F1', kind: 'soft' },
+      { id: 'F4', kind: 'soft' },
+    ],
+  },
+]);
+
+const bootstrapStatusCounts = Object.freeze({
+  COMPLETE_CANDIDATE: 19,
+  LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 80,
+  EXTERNAL_BLOCKED: 11,
+  UNADJUDICATED: 7,
+});
+const imported110Hashes = Object.freeze({
+  policy: {
+    algorithm: 'SHA-256',
+    value: '5c8f40f9f093535f5a7a438a98335552c7e937aa6e5a8301ecf20a55a16a6040',
+  },
+  ledgerJson: {
+    algorithm: 'SHA-256',
+    value: '36004dc408cbf6c3164bdde6ab80d90312b539e0c6e1a7b5c340eca6243febb7',
+  },
+  ledgerMarkdown: {
+    algorithm: 'SHA-256',
+    value: 'bf5fe7cb3d956a64b0cfff818bf9f4d7386ff21254d42c519a879980b31586e2',
+  },
+  overrides: {
+    algorithm: 'SHA-256',
+    value: 'b94e141ab1fd796884c2d452e2da14d4f9a43b69fdbb5d07f7cf178f2bd7711a',
+  },
+});
+const journalTopLevelKeys = Object.freeze([
+  'schemaVersion',
+  'hashAlgorithm',
+  'canonicalization',
+  'authorityMode',
+  'schemaId',
+  'finalPackPayloadSha256',
+  'authorityCommit',
+  'candidateSha',
+  'validationScopeDigest',
+  'asOf',
+  'previousAcceptedJournalHead',
+  'bootstrap',
+  'genesisHash',
+  'entries',
+  'closeoutSeal',
+]);
+const bootstrapKeys = Object.freeze([
+  'bootstrapId',
+  'sourcePlanSha256',
+  'selectedTupleSha256',
+  'imported110Hashes',
+  'rowCount',
+  'exactIdSetSha256',
+  'orderedRowIds',
+  'orderedRowSetSha256',
+  'statusCounts',
+  'baseOverrides',
+  'baseOverridesSha256',
+]);
+const genesisPreimageKeys = Object.freeze([
+  'schemaVersion',
+  'hashAlgorithm',
+  'canonicalization',
+  'authorityMode',
+  'schemaId',
+  'finalPackPayloadSha256',
+  'authorityCommit',
+  'candidateSha',
+  'validationScopeDigest',
+  'asOf',
+  'previousAcceptedJournalHead',
+  'bootstrap',
+]);
+
+export function computeJournalGenesisHash(journal) {
+  return amicCanonicalHash(
+    Object.fromEntries(genesisPreimageKeys.map((key) => [key, journal[key]])),
+  );
+}
+
+export function computeJournalEntryHash(entry) {
+  const { entryHash: ignored, ...preimage } = entry;
+  void ignored;
+  return amicCanonicalHash(preimage);
+}
+
+export function computeCloseoutSealHash(seal) {
+  const { sealHash: ignored, ...preimage } = seal;
+  void ignored;
+  return amicCanonicalHash(preimage);
+}
+
+export function createBootstrapJournal(baseOverrides) {
+  const bootstrap = {
+    bootstrapId,
+    sourcePlanSha256: { algorithm: 'SHA-256', value: bootstrapSourcePlanSha256 },
+    selectedTupleSha256: { algorithm: 'SHA-256', value: bootstrapSelectedTupleSha256 },
+    imported110Hashes: cloneJson(imported110Hashes),
+    rowCount: 117,
+    exactIdSetSha256: { algorithm: 'SHA-256', value: bootstrapExactIdSetSha256 },
+    orderedRowIds: [...FROZEN_TUW_IDS],
+    orderedRowSetSha256: { algorithm: 'SHA-256', value: bootstrapOrderedRowSetSha256 },
+    statusCounts: { ...bootstrapStatusCounts },
+    baseOverrides: cloneJson(baseOverrides),
+    baseOverridesSha256: amicCanonicalHash(baseOverrides),
+  };
+  const journal = {
+    schemaVersion: journalSchemaVersion,
+    hashAlgorithm: journalHashAlgorithm,
+    canonicalization: journalCanonicalization,
+    authorityMode: journalAuthorityMode,
+    schemaId: technicalSchemaId,
+    finalPackPayloadSha256: { algorithm: 'SHA-256', value: finalPackPayloadSha256 },
+    authorityCommit: journalAuthorityCommit,
+    candidateSha: null,
+    validationScopeDigest: null,
+    asOf: defaultGeneratedAt,
+    previousAcceptedJournalHead: null,
+    bootstrap,
+    genesisHash: null,
+    entries: [],
+    closeoutSeal: null,
+  };
+  journal.genesisHash = computeJournalGenesisHash(journal);
+  return journal;
+}
+
 export class LedgerValidationError extends Error {
   constructor(code, message, context = {}) {
+    if (!SEALED_ERROR_CODES.has(code)) {
+      throw new Error(`Unregistered ledger validation error code: ${code}`);
+    }
     super(message);
     this.name = 'LedgerValidationError';
     this.code = code;
@@ -306,6 +674,65 @@ export function sha256Hash(bytes) {
     algorithm: 'SHA-256',
     value: createHash('sha256').update(bytes).digest('hex'),
   };
+}
+
+function exactBytes(value, path) {
+  if (typeof value === 'string') return Buffer.from(value, 'utf8');
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+  }
+  reject('E_SCOPE_COMMIT', `${path} must be exact bytes or a UTF-8 string`, { path });
+}
+
+export function validateExecutionLedgerEofAppend(before, after, expectedAppend) {
+  const beforeBytes = exactBytes(before, 'executionLedger.before');
+  const afterBytes = exactBytes(after, 'executionLedger.after');
+  const appendBytes = exactBytes(expectedAppend, 'executionLedger.expectedAppend');
+  if (
+    appendBytes.length === 0 ||
+    afterBytes.length !== beforeBytes.length + appendBytes.length ||
+    !afterBytes.subarray(0, beforeBytes.length).equals(beforeBytes) ||
+    !afterBytes.subarray(beforeBytes.length).equals(appendBytes)
+  ) {
+    reject('E_SCOPE_COMMIT', 'Execution ledger change must be the exact approved EOF append');
+  }
+  return true;
+}
+
+export function amicCanonicalJson(value) {
+  if (value === null || typeof value === 'boolean') return JSON.stringify(value);
+  if (typeof value === 'string') return JSON.stringify(value.normalize('NFC'));
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) {
+      reject('E_SCHEMA_SHAPE', 'AMIC-CJSON-1 permits safe integers only');
+    }
+    return JSON.stringify(Object.is(value, -0) ? 0 : value);
+  }
+  if (Array.isArray(value)) return `[${value.map(amicCanonicalJson).join(',')}]`;
+  if (isRecord(value)) {
+    const entries = Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key.normalize('NFC'))}:${amicCanonicalJson(value[key])}`);
+    return `{${entries.join(',')}}`;
+  }
+  reject('E_SCHEMA_SHAPE', 'AMIC-CJSON-1 received an unsupported value');
+}
+
+export function amicCanonicalHash(value) {
+  return sha256Hash(amicCanonicalJson(value));
+}
+
+function hashesEqual(left, right) {
+  return (
+    isRecord(left) &&
+    isRecord(right) &&
+    left.algorithm === right.algorithm &&
+    left.value === right.value
+  );
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 export function validateHash(value, path = 'hash') {
@@ -690,9 +1117,94 @@ function validateHistoricalEvidence(evidence, rowId, index) {
   }
 }
 
-function validateDependencyConditions(conditions, rowId) {
+function registeredAliasForDependency(rowId, dependency) {
+  return DEPENDENCY_ALIAS_REGISTRY.find(
+    (alias) =>
+      alias.rowId === rowId &&
+      alias.resolutionRef === dependency.resolutionRef &&
+      alias.sourceText === dependency.sourceText &&
+      alias.emits.some(
+        (emitted) => emitted.id === dependency.id && emitted.kind === dependency.kind,
+      ),
+  );
+}
+
+function validateDependencyRecords(row) {
+  if (!Array.isArray(row.dependencies)) {
+    reject('E_SCHEMA_SHAPE', `dependencies must be an array for ${row.id}`, { rowId: row.id });
+  }
+  const seen = new Set();
+  for (const [index, dependency] of row.dependencies.entries()) {
+    const path = `${row.id}.dependencies[${index}]`;
+    assertExactKeys(
+      dependency,
+      ['id', 'kind', 'sourceText', 'resolutionRef'],
+      'E_SCHEMA_SHAPE',
+      path,
+    );
+    if (typeof dependency.id !== 'string' || !/^(?:[A-H][0-9]+|CAP-[A-Z0-9-]+)$/.test(dependency.id)) {
+      reject('E_DEPENDENCY_UNKNOWN', `${path}.id is invalid`, { rowId: row.id, path });
+    }
+    if (!dependencyKinds.has(dependency.kind)) {
+      reject('E_DEPENDENCY_UNKNOWN', `${path}.kind is invalid`, { rowId: row.id, path });
+    }
+    assertNonEmptyString(dependency.sourceText, 'E_DEPENDENCY_ALIAS', `${path}.sourceText`);
+    if (dependency.resolutionRef !== null) {
+      assertNonEmptyString(
+        dependency.resolutionRef,
+        'E_DEPENDENCY_ALIAS',
+        `${path}.resolutionRef`,
+      );
+      if (!registeredAliasForDependency(row.id, dependency)) {
+        reject('E_DEPENDENCY_ALIAS', `${path} does not match the sealed alias registry`, {
+          rowId: row.id,
+          path,
+        });
+      }
+    } else {
+      if (dependency.id.startsWith('CAP-')) {
+        reject('E_DEPENDENCY_ALIAS', `${path} uses an unresolved non-registry capability`, {
+          rowId: row.id,
+          path,
+        });
+      }
+      if (!FROZEN_TUW_IDS.includes(dependency.id)) {
+        reject('E_DEPENDENCY_UNKNOWN', `${path} references an unknown TUW`, {
+          rowId: row.id,
+          path,
+        });
+      }
+      if (!new RegExp(`^${dependency.id}(?:\\(|$)`).test(dependency.sourceText)) {
+        reject('E_DEPENDENCY_ALIAS', `${path}.sourceText does not preserve its exact TUW ID`, {
+          rowId: row.id,
+          path,
+        });
+      }
+      if (dependency.kind === 'external') {
+        reject('E_DEPENDENCY_ALIAS', 'external dependency kind is registry-only', {
+          rowId: row.id,
+          path,
+        });
+      }
+    }
+    if (dependency.id === row.id) {
+      reject('E_DEPENDENCY_SELF', `Row ${row.id} depends on itself`, { rowId: row.id, path });
+    }
+    if (seen.has(dependency.id)) {
+      reject('E_DEPENDENCY_DUPLICATE', `Row ${row.id} repeats ${dependency.id}`, {
+        rowId: row.id,
+        path,
+      });
+    }
+    seen.add(dependency.id);
+  }
+}
+
+function validateDependencyConditions(conditions, row) {
+  const rowId = row.id;
   if (!Array.isArray(conditions))
     reject('E_SCHEMA_SHAPE', 'dependencyConditions must be an array', { rowId });
+  const seen = new Set();
   for (const [index, condition] of conditions.entries()) {
     const path = `dependencyConditions[${index}]`;
     assertExactKeys(
@@ -702,11 +1214,44 @@ function validateDependencyConditions(conditions, rowId) {
       path,
     );
     assertNonEmptyString(condition.dependencyId, 'E_SCHEMA_SHAPE', `${path}.dependencyId`);
+    if (seen.has(condition.dependencyId)) {
+      reject('E_DEPENDENCY_CONDITION_UNKNOWN', `${path}.dependencyId is duplicated`, {
+        rowId,
+        path,
+      });
+    }
+    seen.add(condition.dependencyId);
+    const dependency = row.dependencies.find((entry) => entry.id === condition.dependencyId);
+    if (!dependency || dependency.kind !== 'conditional') {
+      reject('E_DEPENDENCY_CONDITION_UNKNOWN', `${path} has no conditional dependency`, {
+        rowId,
+        path,
+      });
+    }
     if (!['ACTIVE', 'INACTIVE'].includes(condition.state))
       reject('E_DEPENDENCY_CONDITION_UNKNOWN', `${path}.state is invalid`, { rowId, path });
     assertNonEmptyString(condition.decisionRef, 'E_SCHEMA_SHAPE', `${path}.decisionRef`);
     validateHash(condition.decisionHash, `${path}.decisionHash`);
   }
+}
+
+function dependencyConditionState(row, dependency) {
+  const explicit = row.dependencyConditions.find(
+    (condition) => condition.dependencyId === dependency.id,
+  );
+  if (explicit) return explicit.state;
+  const registered = registeredAliasForDependency(row.id, dependency)?.registeredCondition;
+  return registered?.state ?? 'ACTIVE';
+}
+
+function gatingDependencies(row) {
+  return row.dependencies.filter((dependency) => {
+    if (dependency.kind === 'soft') return false;
+    if (dependency.kind === 'conditional') {
+      return dependencyConditionState(row, dependency) === 'ACTIVE';
+    }
+    return true;
+  });
 }
 
 export function validateAcceptedBlocker(blocker, { row, asOf } = {}) {
@@ -889,7 +1434,8 @@ export function validateLedgerRow(row, { asOf = defaultGeneratedAt } = {}) {
   );
   if (!Array.isArray(row.evidenceRefs))
     reject('E_EVIDENCE_SCHEMA', `evidenceRefs must be an array for ${row.id}`, { rowId: row.id });
-  validateDependencyConditions(row.dependencyConditions, row.id);
+  validateDependencyRecords(row);
+  validateDependencyConditions(row.dependencyConditions, row);
   validateBlockingState(row, asOf);
   if (row.validationState === 'BOOTSTRAP_PREIMAGE') {
     if (
@@ -962,6 +1508,57 @@ export function validateLedgerRow(row, { asOf = defaultGeneratedAt } = {}) {
 export function validateLedgerRows(rows, { asOf = defaultGeneratedAt } = {}) {
   if (!Array.isArray(rows)) reject('E_SCHEMA_SHAPE', 'Ledger rows must be an array');
   rows.forEach((row) => validateLedgerRow(row, { asOf }));
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  if (rowsById.size !== rows.length) {
+    reject('E_DEPENDENCY_DUPLICATE', 'Ledger rows contain a duplicate ID');
+  }
+  for (const row of rows) {
+    for (const dependency of row.dependencies) {
+      if (!dependency.id.startsWith('CAP-') && !rowsById.has(dependency.id)) {
+        reject('E_DEPENDENCY_UNKNOWN', `Row ${row.id} references unknown ${dependency.id}`, {
+          rowId: row.id,
+        });
+      }
+    }
+  }
+
+  const visiting = new Set();
+  const visited = new Set();
+  const visit = (row) => {
+    if (visiting.has(row.id)) {
+      reject('E_DEPENDENCY_CYCLE', `Dependency cycle reaches ${row.id}`, { rowId: row.id });
+    }
+    if (visited.has(row.id)) return;
+    visiting.add(row.id);
+    for (const dependency of gatingDependencies(row)) {
+      const dependencyRow = rowsById.get(dependency.id);
+      if (dependencyRow) visit(dependencyRow);
+    }
+    visiting.delete(row.id);
+    visited.add(row.id);
+  };
+  rows.forEach(visit);
+
+  for (const row of rows) {
+    if (!isCurrentComplete(row)) continue;
+    for (const dependency of gatingDependencies(row)) {
+      if (dependency.id.startsWith('CAP-')) {
+        reject(
+          'E_DEPENDENCY_CAPABILITY_UNRESOLVED',
+          `Current completion for ${row.id} is gated by unresolved ${dependency.id}`,
+          { rowId: row.id },
+        );
+      }
+      const dependencyRow = rowsById.get(dependency.id);
+      if (!dependencyRow || !isCurrentComplete(dependencyRow)) {
+        reject(
+          'E_DEPENDENCY_GATE',
+          `Current completion for ${row.id} precedes dependency ${dependency.id}`,
+          { rowId: row.id },
+        );
+      }
+    }
+  }
   return true;
 }
 
@@ -1293,12 +1890,155 @@ function inlineCodeValues(section) {
   return unique([...section.matchAll(/`([^`]+)`/g)].map((match) => match[1]));
 }
 
-function parseDependencies(block) {
-  const match = block.match(/\*\*Dependencies:\*\*\s*([^\n]+)/);
+function splitDependenciesAtDepthZero(value) {
+  const tokens = [];
+  let token = '';
+  let depth = 0;
+  for (const character of value) {
+    if (character === '(') {
+      depth += 1;
+      token += character;
+      continue;
+    }
+    if (character === ')') {
+      depth -= 1;
+      if (depth < 0) {
+        reject('E_DEPENDENCY_ALIAS', 'Dependency text has an unmatched closing parenthesis');
+      }
+      token += character;
+      continue;
+    }
+    if (depth === 0 && (character === ',' || character === '→')) {
+      if (token.trim().length === 0) {
+        reject('E_DEPENDENCY_ALIAS', 'Dependency text contains an empty depth-zero segment');
+      }
+      tokens.push(token.trim());
+      token = '';
+      continue;
+    }
+    token += character;
+  }
+  if (depth !== 0) {
+    reject('E_DEPENDENCY_ALIAS', 'Dependency text has unbalanced parentheses');
+  }
+  if (token.trim().length === 0) {
+    reject('E_DEPENDENCY_ALIAS', 'Dependency text contains an empty trailing segment');
+  }
+  tokens.push(token.trim());
+  return tokens;
+}
+
+function dependencyKindFromSourceText(sourceText) {
+  if (['조건부', 'ACTIVE', '선택'].some((marker) => sourceText.includes(marker))) {
+    return 'conditional';
+  }
+  if (['소프트', '차단 아님'].some((marker) => sourceText.includes(marker))) return 'soft';
+  return 'hard';
+}
+
+export function parseDependencyText(
+  rowId,
+  value,
+  { knownIds = FROZEN_TUW_IDS, sourceLine = null } = {},
+) {
+  assertNonEmptyString(rowId, 'E_DEPENDENCY_ALIAS', 'dependency.rowId');
+  if (typeof value !== 'string') {
+    reject('E_DEPENDENCY_ALIAS', 'Dependency source must be a string', { rowId });
+  }
+  const trimmed = value.trim();
+  if (/^(?:없음(?:\s*\([^\n]*\))?|—|-)$/.test(trimmed)) {
+    splitDependenciesAtDepthZero(trimmed);
+    return [];
+  }
+  const known = new Set(knownIds);
+  const records = [];
+  for (const sourceText of splitDependenciesAtDepthZero(trimmed)) {
+    const aliases = DEPENDENCY_ALIAS_REGISTRY.filter(
+      (alias) => alias.rowId === rowId && alias.sourceText === sourceText,
+    );
+    if (aliases.length > 0) {
+      for (const alias of aliases) {
+        if (sourceLine !== null && alias.sourceLine !== sourceLine) {
+          reject('E_DEPENDENCY_ALIAS', `Alias source line drifted for ${alias.aliasKey}`, {
+            rowId,
+            path: 'dependencies',
+          });
+        }
+        for (const emitted of alias.emits) {
+          records.push({
+            id: emitted.id,
+            kind: emitted.kind,
+            sourceText,
+            resolutionRef: alias.resolutionRef,
+          });
+        }
+      }
+      continue;
+    }
+    const exact = /^([A-H][0-9]+)(?:\([^\n]*\))?$/.exec(sourceText);
+    if (!exact) {
+      reject('E_DEPENDENCY_ALIAS', `Unregistered or bare dependency alias: ${sourceText}`, {
+        rowId,
+        path: 'dependencies',
+      });
+    }
+    const id = exact[1];
+    if (!known.has(id)) {
+      reject('E_DEPENDENCY_UNKNOWN', `Unknown dependency ${id} for ${rowId}`, {
+        rowId,
+        path: 'dependencies',
+      });
+    }
+    records.push({
+      id,
+      kind: dependencyKindFromSourceText(sourceText),
+      sourceText,
+      resolutionRef: null,
+    });
+  }
+  const seen = new Set();
+  for (const dependency of records) {
+    if (dependency.id === rowId) {
+      reject('E_DEPENDENCY_SELF', `Row ${rowId} depends on itself`, { rowId });
+    }
+    if (seen.has(dependency.id)) {
+      reject('E_DEPENDENCY_DUPLICATE', `Row ${rowId} repeats dependency ${dependency.id}`, {
+        rowId,
+      });
+    }
+    seen.add(dependency.id);
+  }
+  return records;
+}
+
+function parseDependencies(block, rowId, blockLine) {
+  const match = /\*\*Dependencies:\*\*\s*([^\n]+)/.exec(block);
   if (!match) return [];
-  const value = match[1].trim();
-  if (value === '없음' || value === '—' || value === '-') return [];
-  return unique(value.split(/,\s*|\s*→\s*/));
+  const sourceLine = blockLine + lineNumberAt(block, match.index ?? 0) - 1;
+  return parseDependencyText(rowId, match[1].trim(), { sourceLine });
+}
+
+function assertAliasRegistryCoverage(units) {
+  const actual = units.flatMap((unit) =>
+    unit.dependencies
+      .filter((dependency) => dependency.resolutionRef !== null)
+      .map((dependency) => ({ rowId: unit.id, ...dependency })),
+  );
+  const expected = DEPENDENCY_ALIAS_REGISTRY.flatMap((alias) =>
+    alias.emits.map((emitted) => ({
+      rowId: alias.rowId,
+      id: emitted.id,
+      kind: emitted.kind,
+      sourceText: alias.sourceText,
+      resolutionRef: alias.resolutionRef,
+    })),
+  );
+  if (DEPENDENCY_ALIAS_REGISTRY.length !== 17 || expected.length !== 18) {
+    reject('E_DEPENDENCY_ALIAS', 'The sealed dependency alias registry count changed');
+  }
+  if (!isDeepStrictEqual(actual, expected)) {
+    reject('E_DEPENDENCY_ALIAS', 'Dependency aliases do not match sealed source order');
+  }
 }
 
 function invariantLines(block) {
@@ -1364,8 +2104,15 @@ function markdownTable(rows) {
 }
 
 function readOverrides() {
-  const bytes = readFileSync(overridesPath, 'utf8');
-  return { bytes, value: JSON.parse(bytes) };
+  const bytes = readFileSync(overridesPath);
+  const text = decodeBootstrapUtf8(bytes, overridesPath);
+  try {
+    return { bytes, value: JSON.parse(text) };
+  } catch {
+    reject('E_BOOTSTRAP_IDENTITY', 'Materialized overrides must contain valid JSON', {
+      path: overridesPath,
+    });
+  }
 }
 
 function applyOverride(unit, override) {
@@ -1403,7 +2150,7 @@ function parsePlanUnits(plan, overrides) {
     index: match.index ?? 0,
   }));
 
-  return parseTuwBlocks(plan).map((parsedUnit) => {
+  const units = parseTuwBlocks(plan).map((parsedUnit) => {
     const block = parsedUnit.block;
     const id = parsedUnit.id;
     const status = statusById.get(id);
@@ -1438,7 +2185,7 @@ function parsePlanUnits(plan, overrides) {
           planLine: parsedUnit.line,
         },
         status,
-        dependencies: parseDependencies(block),
+        dependencies: parseDependencies(block, id, parsedUnit.line),
         codeAnchors: anchors.map((anchor) => {
           const pathCandidate = normalizeAnchorPath(anchor);
           return {
@@ -1470,6 +2217,8 @@ function parsePlanUnits(plan, overrides) {
       overrides.unitOverrides?.[id],
     );
   });
+  assertAliasRegistryCoverage(units);
+  return units;
 }
 
 function assertBootstrapIdentity(units) {
@@ -1525,7 +2274,7 @@ function decodeBootstrapUtf8(bytes, path) {
   }
 }
 
-function assertSealedBootstrapInputs({ plan, sourcePlanBytes, overrides, overridesBytes }) {
+function assertSealedInputs({ plan, sourcePlanBytes, overrides, overridesBytes }) {
   const sourcePlanText = decodeBootstrapUtf8(sourcePlanBytes, 'sourcePlanBytes');
   const overridesText = decodeBootstrapUtf8(overridesBytes, 'overridesBytes');
   let parsedOverrides;
@@ -1541,13 +2290,1125 @@ function assertSealedBootstrapInputs({ plan, sourcePlanBytes, overrides, overrid
   }
   const sourcePlanHash = sha256Hash(sourcePlanBytes);
   const overridesHash = sha256Hash(overridesBytes);
-  if (
-    sourcePlanHash.value !== bootstrapSourcePlanSha256 ||
-    overridesHash.value !== bootstrapOverridesSha256
-  ) {
-    reject('E_BOOTSTRAP_IDENTITY', 'Bootstrap exact input hashes changed');
+  if (sourcePlanHash.value !== bootstrapSourcePlanSha256) {
+    reject('E_BOOTSTRAP_IDENTITY', 'The sealed source-plan bytes changed');
   }
   return { sourcePlanHash, overridesHash };
+}
+
+function assertHashWithCode(value, code, path, expectedValue = null) {
+  if (
+    !isRecord(value) ||
+    Object.keys(value).sort().join(',') !== 'algorithm,value' ||
+    value.algorithm !== 'SHA-256' ||
+    !/^[0-9a-f]{64}$/.test(value.value) ||
+    (expectedValue !== null && value.value !== expectedValue)
+  ) {
+    reject(code, `${path} is not the registered SHA-256 Hash`, { path });
+  }
+}
+
+function validateOverridesObject(overrides, path = 'overrides') {
+  assertExactKeys(
+    overrides,
+    ['schemaVersion', 'updatedAt', 'unitOverrides'],
+    'E_BOOTSTRAP_IDENTITY',
+    path,
+  );
+  if (overrides.schemaVersion !== 1 || !isRecord(overrides.unitOverrides)) {
+    reject('E_BOOTSTRAP_IDENTITY', `${path} has an invalid schema`, { path });
+  }
+  validateTimestamp(overrides.updatedAt, `${path}.updatedAt`);
+  const ids = Object.keys(overrides.unitOverrides);
+  const idSet = new Set(ids);
+  if (ids.length !== 117 || FROZEN_TUW_IDS.some((id) => !idSet.has(id))) {
+    reject('E_BOOTSTRAP_IDENTITY', `${path} must contain the exact 117 IDs`, { path });
+  }
+}
+
+function validateJournalBootstrap(bootstrap, plan) {
+  assertExactKeys(bootstrap, bootstrapKeys, 'E_BOOTSTRAP_IDENTITY', 'journal.bootstrap');
+  if (bootstrap.bootstrapId !== bootstrapId || bootstrap.rowCount !== 117) {
+    reject('E_BOOTSTRAP_IDENTITY', 'Journal bootstrap identity changed');
+  }
+  assertHashWithCode(
+    bootstrap.sourcePlanSha256,
+    'E_BOOTSTRAP_IDENTITY',
+    'journal.bootstrap.sourcePlanSha256',
+    bootstrapSourcePlanSha256,
+  );
+  assertHashWithCode(
+    bootstrap.selectedTupleSha256,
+    'E_BOOTSTRAP_IDENTITY',
+    'journal.bootstrap.selectedTupleSha256',
+    bootstrapSelectedTupleSha256,
+  );
+  if (!isDeepStrictEqual(bootstrap.imported110Hashes, imported110Hashes)) {
+    reject('E_BOOTSTRAP_IDENTITY', 'Imported 110 hashes changed');
+  }
+  assertHashWithCode(
+    bootstrap.exactIdSetSha256,
+    'E_BOOTSTRAP_IDENTITY',
+    'journal.bootstrap.exactIdSetSha256',
+    bootstrapExactIdSetSha256,
+  );
+  assertStringArray(
+    bootstrap.orderedRowIds,
+    'E_BOOTSTRAP_IDENTITY',
+    'journal.bootstrap.orderedRowIds',
+    { exact: FROZEN_TUW_IDS },
+  );
+  assertHashWithCode(
+    bootstrap.orderedRowSetSha256,
+    'E_BOOTSTRAP_IDENTITY',
+    'journal.bootstrap.orderedRowSetSha256',
+    bootstrapOrderedRowSetSha256,
+  );
+  if (
+    !isDeepStrictEqual(bootstrap.statusCounts, bootstrapStatusCounts) ||
+    amicCanonicalHash(bootstrap.orderedRowIds).value !== bootstrapOrderedRowSetSha256 ||
+    amicCanonicalHash([...bootstrap.orderedRowIds].sort()).value !== bootstrapExactIdSetSha256
+  ) {
+    reject('E_BOOTSTRAP_IDENTITY', 'Journal bootstrap counts or ordered ID digests changed');
+  }
+  validateOverridesObject(bootstrap.baseOverrides, 'journal.bootstrap.baseOverrides');
+  assertHashWithCode(
+    bootstrap.baseOverridesSha256,
+    'E_BOOTSTRAP_IDENTITY',
+    'journal.bootstrap.baseOverridesSha256',
+    bootstrapCanonicalOverridesSha256,
+  );
+  if (
+    bootstrap.baseOverrides.updatedAt !== defaultGeneratedAt ||
+    amicCanonicalHash(bootstrap.baseOverrides).value !== bootstrapCanonicalOverridesSha256
+  ) {
+    reject('E_BOOTSTRAP_IDENTITY', 'Journal base overrides are not the sealed bootstrap');
+  }
+  const bootstrapUnits = parsePlanUnits(plan, bootstrap.baseOverrides);
+  assertBootstrapIdentity(bootstrapUnits);
+  validateLedgerRows(bootstrapUnits, { asOf: defaultGeneratedAt });
+  return bootstrapUnits;
+}
+
+export function deriveJournalPhase(journal) {
+  if (!Array.isArray(journal?.entries)) {
+    reject('E_JOURNAL_HEADER', 'journal.entries must be an array', { path: 'entries' });
+  }
+  if (journal.closeoutSeal !== null) return finalCloseoutPhase;
+  return journal.entries.length === 0 ? bootstrapPhase : transitionPhase;
+}
+
+function validateJournalHeader(journal) {
+  assertExactKeys(journal, journalTopLevelKeys, 'E_JOURNAL_HEADER', 'journal');
+  const literals = {
+    schemaVersion: journalSchemaVersion,
+    hashAlgorithm: journalHashAlgorithm,
+    canonicalization: journalCanonicalization,
+    authorityMode: journalAuthorityMode,
+    schemaId: technicalSchemaId,
+    authorityCommit: journalAuthorityCommit,
+  };
+  for (const [field, expected] of Object.entries(literals)) {
+    if (journal[field] !== expected) {
+      reject('E_JOURNAL_HEADER', `journal.${field} changed`, { path: field });
+    }
+  }
+  assertHashWithCode(
+    journal.finalPackPayloadSha256,
+    'E_JOURNAL_HEADER',
+    'journal.finalPackPayloadSha256',
+    finalPackPayloadSha256,
+  );
+  validateTimestamp(journal.asOf, 'journal.asOf');
+  const phase = deriveJournalPhase(journal);
+  if (phase === bootstrapPhase) {
+    if (
+      journal.candidateSha !== null ||
+      journal.validationScopeDigest !== null ||
+      journal.previousAcceptedJournalHead !== null ||
+      journal.asOf !== defaultGeneratedAt ||
+      journal.closeoutSeal !== null
+    ) {
+      reject('E_JOURNAL_HEADER', 'BOOTSTRAP_IMPORT header bindings changed');
+    }
+  } else {
+    validateGitSha(journal.candidateSha, 'journal.candidateSha');
+    assertHashWithCode(
+      journal.validationScopeDigest,
+      'E_JOURNAL_HEADER',
+      'journal.validationScopeDigest',
+    );
+    if (journal.previousAcceptedJournalHead !== null) {
+      assertHashWithCode(
+        journal.previousAcceptedJournalHead,
+        'E_JOURNAL_HEADER',
+        'journal.previousAcceptedJournalHead',
+      );
+    }
+    if (phase === finalCloseoutPhase && journal.previousAcceptedJournalHead === null) {
+      reject('E_JOURNAL_HEADER', 'FINAL_CLOSEOUT requires a prior accepted journal head');
+    }
+  }
+  return phase;
+}
+
+function defaultCandidateDiffResolver(candidateSha, { cwd = process.cwd() } = {}) {
+  const result = spawnSync('git', ['diff', '--name-only', `${candidateSha}..HEAD`], {
+    cwd,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) return null;
+  return result.stdout.split('\n').filter(Boolean);
+}
+
+function immutableEntryIdentity(entry) {
+  if (!isRecord(entry)) return null;
+  const { previousEntryHash: _previousEntryHash, entryHash: _entryHash, ...identity } = entry;
+  return identity;
+}
+
+function snapshotIntroducesEntry(snapshot, parentSnapshot, entry) {
+  if (!Array.isArray(snapshot?.entries)) return false;
+  const parentEntries = Array.isArray(parentSnapshot?.entries) ? parentSnapshot.entries : [];
+  if (snapshot.entries.length !== parentEntries.length + 1) return false;
+  if (
+    parentEntries.some(
+      (candidate, index) =>
+        !isDeepStrictEqual(
+          immutableEntryIdentity(candidate),
+          immutableEntryIdentity(snapshot.entries[index]),
+        ),
+    )
+  ) {
+    return false;
+  }
+  return isDeepStrictEqual(
+    immutableEntryIdentity(snapshot.entries.at(-1)),
+    immutableEntryIdentity(entry),
+  );
+}
+
+function readGitPathAtCommit(commitSha, path, { cwd = process.cwd() } = {}) {
+  const shown = spawnSync('git', ['show', `${commitSha}:${path}`], {
+    cwd,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return shown.status === 0 ? Buffer.from(shown.stdout) : null;
+}
+
+function parseCommittedJson(bytes, path) {
+  if (bytes === null) {
+    reject('E_SCOPE_COMMIT', `Committed control-plane snapshot is missing ${path}`, { path });
+  }
+  try {
+    return JSON.parse(decodeBootstrapUtf8(bytes, path));
+  } catch (error) {
+    if (error instanceof LedgerValidationError) throw error;
+    reject('E_SCOPE_COMMIT', `Committed control-plane snapshot has invalid JSON at ${path}`, {
+      path,
+    });
+  }
+}
+
+function entryIdentityKey(entry) {
+  return amicCanonicalJson(immutableEntryIdentity(entry));
+}
+
+function gitCommitAuthority(commitSha, { cwd = process.cwd() } = {}) {
+  const timestamp = spawnSync('git', ['show', '-s', '--format=%ct', commitSha], {
+    cwd,
+    encoding: 'utf8',
+  });
+  const changed = spawnSync(
+    'git',
+    ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', commitSha],
+    { cwd, encoding: 'utf8' },
+  );
+  if (timestamp.status !== 0 || changed.status !== 0) {
+    reject('E_SCOPE_COMMIT', `Unable to inspect committed snapshot ${commitSha}`);
+  }
+  const epochSeconds = Number(timestamp.stdout.trim());
+  if (!Number.isSafeInteger(epochSeconds) || epochSeconds < 0) {
+    reject('E_SCOPE_COMMIT', `Committed snapshot ${commitSha} has an invalid timestamp`);
+  }
+  return {
+    commitSha,
+    recordedAt: new Date(epochSeconds * 1000).toISOString(),
+    changedPaths: changed.stdout.split('\n').filter(Boolean),
+  };
+}
+
+function readCommittedControlPlaneSnapshot(commitSha, { cwd = process.cwd() } = {}) {
+  const authority = gitCommitAuthority(commitSha, { cwd });
+  const planBytes = readGitPathAtCommit(commitSha, planPath, { cwd });
+  const journalBytes = readGitPathAtCommit(commitSha, journalPath, { cwd });
+  const overridesBytes = readGitPathAtCommit(commitSha, overridesPath, { cwd });
+  const jsonBytes = readGitPathAtCommit(commitSha, jsonPath, { cwd });
+  const markdownBytes = readGitPathAtCommit(commitSha, mdPath, { cwd });
+  if (
+    [planBytes, journalBytes, overridesBytes, jsonBytes, markdownBytes].some(
+      (bytes) => bytes === null,
+    )
+  ) {
+    reject('E_SCOPE_COMMIT', `Committed snapshot ${commitSha} lacks a required control-plane file`);
+  }
+  return {
+    ...authority,
+    planBytes,
+    journalBytes,
+    overridesBytes,
+    jsonBytes,
+    markdownBytes,
+    plan: decodeBootstrapUtf8(planBytes, `${commitSha}:${planPath}`),
+    journal: parseCommittedJson(journalBytes, `${commitSha}:${journalPath}`),
+    overrides: parseCommittedJson(overridesBytes, `${commitSha}:${overridesPath}`),
+  };
+}
+
+function assertExactChangedPaths(authority, expectedPaths, message) {
+  const changed = new Set(authority.changedPaths);
+  if (
+    changed.size !== expectedPaths.size ||
+    [...expectedPaths].some((path) => !changed.has(path))
+  ) {
+    reject('E_SCOPE_COMMIT', message);
+  }
+}
+
+function assertOneRowOverrideDelta(prior, current, entry) {
+  if (
+    !isRecord(prior) ||
+    !isRecord(current) ||
+    !isRecord(prior.unitOverrides) ||
+    !isRecord(current.unitOverrides) ||
+    prior.schemaVersion !== current.schemaVersion ||
+    !isDeepStrictEqual(Object.keys(prior).sort(), Object.keys(current).sort()) ||
+    !isDeepStrictEqual(
+      Object.keys(prior.unitOverrides).sort(),
+      Object.keys(current.unitOverrides).sort(),
+    )
+  ) {
+    reject('E_TRANSITION_MULTI_ROW', 'Committed transition changed the override container shape', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  const changedRows = Object.keys(current.unitOverrides).filter(
+    (id) => !isDeepStrictEqual(prior.unitOverrides[id], current.unitOverrides[id]),
+  );
+  if (
+    changedRows.length !== 1 ||
+    changedRows[0] !== entry.tuwId ||
+    current.updatedAt !== entry.recordedAt ||
+    !isDeepStrictEqual(current.unitOverrides[entry.tuwId], entry.afterOverride)
+  ) {
+    reject('E_TRANSITION_MULTI_ROW', 'Committed transition must replace exactly its one declared row', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+}
+
+/**
+ * Validate one already-read Git snapshot without consulting Git authority
+ * resolvers. Callers inject the previously accepted snapshot and exact
+ * introducing authorities, preventing recursive default-resolver loops.
+ */
+export function validateCommittedControlPlaneSnapshot(
+  snapshot,
+  {
+    priorSnapshot = null,
+    entryAuthorities = new Map(),
+    closeoutAuthority = null,
+    candidateDiffResolver = () => [],
+  } = {},
+) {
+  const rendered = buildLedgerFromPlan(snapshot.plan, {
+    overrides: snapshot.overrides,
+    sourcePlanBytes: snapshot.planBytes,
+    overridesBytes: snapshot.overridesBytes,
+    journal: snapshot.journal,
+    journalBytes: snapshot.journalBytes,
+    entryCommitResolver: (entry) => entryAuthorities.get(entryIdentityKey(entry)) ?? null,
+    closeoutCommitResolver: () => closeoutAuthority,
+    candidateDiffResolver,
+    previousJournalSnapshotResolver: () =>
+      priorSnapshot === null
+        ? null
+        : { commitSha: priorSnapshot.commitSha, journal: priorSnapshot.journal },
+  });
+  const expectedJson = Buffer.from(`${JSON.stringify(rendered.ledger, null, 2)}\n`, 'utf8');
+  const expectedMarkdown = Buffer.from(rendered.markdown, 'utf8');
+  if (!snapshot.jsonBytes.equals(expectedJson)) {
+    reject('E_DRIFT_JSON', `Committed JSON ledger does not render from ${snapshot.commitSha}`, {
+      path: jsonPath,
+    });
+  }
+  if (!snapshot.markdownBytes.equals(expectedMarkdown)) {
+    reject(
+      'E_DRIFT_MARKDOWN',
+      `Committed Markdown ledger does not render from ${snapshot.commitSha}`,
+      { path: mdPath },
+    );
+  }
+  return rendered;
+}
+function scanAcceptedJournalSnapshots({ cwd = process.cwd() } = {}) {
+  const log = spawnSync('git', ['log', '--reverse', '--format=%H%x00%ct', '--', journalPath], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (log.status !== 0) {
+    const hasHead = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd }).status === 0;
+    if (!hasHead) return [];
+    reject('E_JOURNAL_CHAIN', 'Unable to resolve journal history from Git');
+  }
+  const snapshots = [];
+  let priorSnapshot = null;
+  let entryAuthorities = new Map();
+  for (const line of log.stdout.split('\n').filter(Boolean)) {
+    const [commitSha] = line.split('\0');
+    const snapshot = readCommittedControlPlaneSnapshot(commitSha, { cwd });
+    const phase = deriveJournalPhase(snapshot.journal);
+    const nextAuthorities = new Map(entryAuthorities);
+    let closeoutAuthority = null;
+    let introducedEntryKey = null;
+
+    if (priorSnapshot === null) {
+      if (phase !== bootstrapPhase) {
+        reject('E_JOURNAL_CHAIN', 'The first accepted journal snapshot must be BOOTSTRAP_IMPORT');
+      }
+    } else if (phase === transitionPhase) {
+      const introducedEntry = snapshot.journal.entries.at(-1);
+      if (
+        priorSnapshot.phase === finalCloseoutPhase ||
+        !snapshotIntroducesEntry(snapshot.journal, priorSnapshot.journal, introducedEntry)
+      ) {
+        reject('E_JOURNAL_CHAIN', 'A transition snapshot must introduce exactly one entry prefix');
+      }
+      assertExactChangedPaths(
+        snapshot,
+        transitionControlPlanePaths,
+        'An accepted transition snapshot must change exactly four control-plane paths',
+      );
+      if (snapshot.recordedAt !== introducedEntry.recordedAt) {
+        reject('E_SCOPE_COMMIT', 'Introducing commit timestamp does not equal entry.recordedAt', {
+          rowId: introducedEntry.tuwId,
+          sequence: introducedEntry.sequence,
+        });
+      }
+      assertOneRowOverrideDelta(priorSnapshot.overrides, snapshot.overrides, introducedEntry);
+      introducedEntryKey = entryIdentityKey(introducedEntry);
+      nextAuthorities.set(introducedEntryKey, {
+        commitSha: snapshot.commitSha,
+        recordedAt: snapshot.recordedAt,
+        changedPaths: snapshot.changedPaths,
+      });
+    } else if (phase === finalCloseoutPhase) {
+      const priorEntries = priorSnapshot.journal.entries;
+      if (
+        priorSnapshot.phase === finalCloseoutPhase ||
+        snapshot.journal.entries.length !== priorEntries.length ||
+        snapshot.journal.entries.some(
+          (entry, index) =>
+            !isDeepStrictEqual(
+              immutableEntryIdentity(entry),
+              immutableEntryIdentity(priorEntries[index]),
+            ),
+        )
+      ) {
+        reject('E_JOURNAL_CHAIN', 'Closeout must seal the exact prior accepted entry prefix');
+      }
+      assertExactChangedPaths(
+        snapshot,
+        closeoutControlPlanePaths,
+        'An accepted closeout snapshot must change exactly three control-plane paths',
+      );
+      if (
+        snapshot.recordedAt !== snapshot.journal.closeoutSeal.recordedAt ||
+        !snapshot.overridesBytes.equals(priorSnapshot.overridesBytes)
+      ) {
+        reject('E_SCOPE_COMMIT', 'Closeout must preserve exact overrides and bind its commit timestamp');
+      }
+      closeoutAuthority = {
+        commitSha: snapshot.commitSha,
+        recordedAt: snapshot.recordedAt,
+        changedPaths: snapshot.changedPaths,
+      };
+    } else {
+      reject('E_JOURNAL_CHAIN', 'BOOTSTRAP_IMPORT cannot follow an accepted journal snapshot');
+    }
+
+    const diffResolver = (candidateSha) => {
+      const diff = spawnSync('git', ['diff', '--name-only', `${candidateSha}..${commitSha}`], {
+        cwd,
+        encoding: 'utf8',
+      });
+      return diff.status === 0 ? diff.stdout.split('\n').filter(Boolean) : null;
+    };
+    validateCommittedControlPlaneSnapshot(snapshot, {
+      priorSnapshot,
+      entryAuthorities: nextAuthorities,
+      closeoutAuthority,
+      candidateDiffResolver: diffResolver,
+    });
+    snapshot.phase = phase;
+    snapshot.introducedEntryKey = introducedEntryKey;
+    snapshot.closeoutSealHash = snapshot.journal.closeoutSeal?.sealHash?.value ?? null;
+    snapshots.push(snapshot);
+    priorSnapshot = snapshot;
+    entryAuthorities = nextAuthorities;
+  }
+  return snapshots;
+}
+
+export function resolveEntryIntroductionCommit(
+  entry,
+  { cwd = process.cwd(), acceptedSnapshots = null } = {},
+) {
+  const snapshots = acceptedSnapshots ?? scanAcceptedJournalSnapshots({ cwd });
+  const key = entryIdentityKey(entry);
+  const snapshot = snapshots.find((candidate) => candidate.introducedEntryKey === key);
+  if (!snapshot) return null;
+  return {
+    commitSha: snapshot.commitSha,
+    recordedAt: snapshot.recordedAt,
+    changedPaths: snapshot.changedPaths,
+  };
+}
+
+function defaultEntryCommitResolver(entry, options) {
+  return resolveEntryIntroductionCommit(entry, options);
+}
+
+export function resolvePriorAcceptedJournalSnapshot(
+  currentJournalBytes,
+  { cwd = process.cwd(), acceptedSnapshots = null } = {},
+) {
+  const snapshots = acceptedSnapshots ?? scanAcceptedJournalSnapshots({ cwd });
+  if (snapshots.length === 0) return null;
+  const latest = snapshots.at(-1);
+  const currentBytes = exactBytes(currentJournalBytes, 'journalBytes');
+  const priorIndex = latest.journalBytes.equals(currentBytes)
+    ? snapshots.length - 2
+    : snapshots.length - 1;
+  if (priorIndex < 0) return null;
+  const prior = snapshots[priorIndex];
+  return { commitSha: prior.commitSha, journal: prior.journal };
+}
+
+function defaultCloseoutCommitResolver(
+  seal,
+  { cwd = process.cwd(), acceptedSnapshots = null } = {},
+) {
+  const snapshots = acceptedSnapshots ?? scanAcceptedJournalSnapshots({ cwd });
+  const snapshot = snapshots.find(
+    (candidate) => candidate.closeoutSealHash === seal.sealHash.value,
+  );
+  if (!snapshot) return null;
+  return {
+    commitSha: snapshot.commitSha,
+    recordedAt: snapshot.recordedAt,
+    changedPaths: snapshot.changedPaths,
+  };
+}
+
+export function validateCloseoutAuthority(seal, resolver, usedCommits, latestEntryRecordedAt) {
+  const authority = resolver(seal);
+  if (!isRecord(authority)) {
+    reject('E_SCOPE_COMMIT', 'No separate Git commit authorizes the closeout seal');
+  }
+  validateGitSha(authority.commitSha, 'closeoutAuthority.commitSha');
+  validateTimestamp(authority.recordedAt, 'closeoutAuthority.recordedAt');
+  assertStringArray(authority.changedPaths, 'E_SCOPE_COMMIT', 'closeoutAuthority.changedPaths');
+  const changed = new Set(authority.changedPaths);
+  if (
+    authority.recordedAt !== seal.recordedAt ||
+    usedCommits.has(authority.commitSha) ||
+    Date.parse(authority.recordedAt) <= Date.parse(latestEntryRecordedAt) ||
+    changed.size !== closeoutControlPlanePaths.size ||
+    [...closeoutControlPlanePaths].some((path) => !changed.has(path))
+  ) {
+    reject('E_SCOPE_COMMIT', 'Closeout must be a later journal-and-ledgers-only Git commit');
+  }
+}
+
+function validateTransitionSemantics(entry, beforeOverride) {
+  const afterOverride = entry.afterOverride;
+  if (
+    isRecord(afterOverride) &&
+    !isDeepStrictEqual(Object.keys(beforeOverride).sort(), Object.keys(afterOverride).sort())
+  ) {
+    reject('E_TRANSITION_MULTI_ROW', 'A journal entry must replace exactly one whole row override', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  if (!isRecord(afterOverride) || isDeepStrictEqual(beforeOverride, afterOverride)) {
+    reject('E_TRANSITION_INVALID', `Transition ${entry.transitionId} has no one-row delta`, {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  if (
+    !isDeepStrictEqual(
+      beforeOverride.historicalEvidenceRefs,
+      afterOverride.historicalEvidenceRefs,
+    )
+  ) {
+    reject(
+      'E_TRANSITION_INVALID',
+      'Transitions must preserve historicalEvidenceRefs value-for-value and order-for-order',
+      {
+        rowId: entry.tuwId,
+        sequence: entry.sequence,
+      },
+    );
+  }
+  if (
+    afterOverride.validationState !== 'CURRENT_VALIDATED' ||
+    afterOverride.status === 'UNADJUDICATED'
+  ) {
+    reject('E_TRANSITION_INVALID', 'Transitions must leave one adjudicated CURRENT_VALIDATED row', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  if (
+    afterOverride.validatedCandidateSha !== entry.candidateSha ||
+    !hashesEqual(afterOverride.validationScope?.aggregateSha256, entry.validationScopeDigest)
+  ) {
+    reject('E_TRANSITION_INVALID', 'Transition candidate or validation-scope binding drifted', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  const beforeComplete = beforeOverride.status === 'COMPLETE_CANDIDATE';
+  const afterComplete = afterOverride.status === 'COMPLETE_CANDIDATE';
+  const beforeBlocked =
+    beforeOverride.status === 'EXTERNAL_BLOCKED' || beforeOverride.blockerClass !== 'NONE';
+  const afterBlocked =
+    afterOverride.status === 'EXTERNAL_BLOCKED' || afterOverride.blockerClass !== 'NONE';
+  const completionChanged = beforeComplete !== afterComplete;
+  const blockednessChanged = beforeBlocked !== afterBlocked;
+  let expectedKind;
+  if (beforeOverride.status === 'UNADJUDICATED') {
+    expectedKind = 'ADJUDICATE';
+  } else if (completionChanged && blockednessChanged) {
+    reject(
+      'E_TRANSITION_INVALID',
+      'A transition cannot combine a completion-boundary and blockedness change',
+      {
+        rowId: entry.tuwId,
+        sequence: entry.sequence,
+      },
+    );
+  } else if (blockednessChanged) {
+    expectedKind = afterBlocked ? 'BLOCK' : 'UNBLOCK';
+  } else if (completionChanged) {
+    expectedKind = afterComplete ? 'PROMOTE' : 'DEMOTE';
+  } else if (beforeOverride.status === afterOverride.status) {
+    expectedKind = 'REVALIDATE';
+  } else {
+    reject('E_TRANSITION_INVALID', 'The row delta has no registered exclusive transition kind', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  if (entry.transitionKind !== expectedKind) {
+    reject('E_TRANSITION_INVALID', `Transition kind ${entry.transitionKind} does not match its delta`, {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+}
+
+function validateEntryAuthority(entry, resolver, usedCommits) {
+  const authority = resolver(entry);
+  if (!isRecord(authority)) {
+    reject('E_SCOPE_COMMIT', `No containing Git commit authorizes ${entry.transitionId}`, {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  validateGitSha(authority.commitSha, 'entryAuthority.commitSha');
+  validateTimestamp(authority.recordedAt, 'entryAuthority.recordedAt');
+  if (authority.recordedAt !== entry.recordedAt || usedCommits.has(authority.commitSha)) {
+    reject('E_SCOPE_COMMIT', 'Entry timestamp or one-entry-per-commit authority is invalid', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  assertStringArray(authority.changedPaths, 'E_SCOPE_COMMIT', 'entryAuthority.changedPaths');
+  const changed = new Set(authority.changedPaths);
+  if (
+    changed.size !== transitionControlPlanePaths.size ||
+    [...transitionControlPlanePaths].some((path) => !changed.has(path))
+  ) {
+    reject('E_SCOPE_COMMIT', 'A transition commit must change exactly four control-plane paths', {
+      rowId: entry.tuwId,
+      sequence: entry.sequence,
+    });
+  }
+  usedCommits.add(authority.commitSha);
+}
+
+function validateJournalEntry(entry, index, journal, previousHash, previousRecordedAt) {
+  const requiredKeys = [
+    'sequence',
+    'transitionId',
+    'packId',
+    'tuwId',
+    'transitionKind',
+    'candidateSha',
+    'validationScopeDigest',
+    'recordedAt',
+    'reasonCode',
+    'reason',
+    'beforeOverrideSha256',
+    'afterOverride',
+    'afterOverrideSha256',
+    'previousEntryHash',
+    'entryHash',
+  ];
+  const path = `journal.entries[${index}]`;
+  assertExactKeys(entry, requiredKeys, 'E_JOURNAL_SEQUENCE', path);
+  const sequence = index + 1;
+  if (
+    entry.sequence !== sequence ||
+    entry.transitionId !== `TR-${String(sequence).padStart(6, '0')}` ||
+    !transitionKinds.has(entry.transitionKind) ||
+    !FROZEN_TUW_IDS.includes(entry.tuwId)
+  ) {
+    reject('E_JOURNAL_SEQUENCE', `${path} sequence, ID, kind, or TUW is invalid`, {
+      rowId: entry.tuwId ?? null,
+      sequence: entry.sequence ?? null,
+      path,
+    });
+  }
+  assertNonEmptyString(entry.packId, 'E_JOURNAL_SEQUENCE', `${path}.packId`);
+  if (entry.candidateSha !== journal.candidateSha) {
+    reject('E_JOURNAL_HEADER', `${path}.candidateSha does not bind the header`, {
+      rowId: entry.tuwId,
+      sequence,
+    });
+  }
+  validateGitSha(entry.candidateSha, `${path}.candidateSha`);
+  assertHashWithCode(
+    entry.validationScopeDigest,
+    'E_JOURNAL_HEADER',
+    `${path}.validationScopeDigest`,
+    journal.validationScopeDigest.value,
+  );
+  validateTimestamp(entry.recordedAt, `${path}.recordedAt`);
+  if (previousRecordedAt !== null && Date.parse(entry.recordedAt) <= Date.parse(previousRecordedAt)) {
+    reject('E_JOURNAL_SEQUENCE', 'Entry timestamps must be strictly increasing', {
+      rowId: entry.tuwId,
+      sequence,
+    });
+  }
+  if (typeof entry.reasonCode !== 'string' || !/^[A-Z][A-Z0-9_]{2,63}$/.test(entry.reasonCode)) {
+    reject('E_TRANSITION_INVALID', `${path}.reasonCode is invalid`, {
+      rowId: entry.tuwId,
+      sequence,
+    });
+  }
+  assertNonEmptyString(entry.reason, 'E_TRANSITION_INVALID', `${path}.reason`);
+  assertHashWithCode(entry.beforeOverrideSha256, 'E_JOURNAL_HASH', `${path}.beforeOverrideSha256`);
+  assertHashWithCode(entry.afterOverrideSha256, 'E_JOURNAL_HASH', `${path}.afterOverrideSha256`);
+  assertHashWithCode(entry.previousEntryHash, 'E_JOURNAL_CHAIN', `${path}.previousEntryHash`);
+  assertHashWithCode(entry.entryHash, 'E_JOURNAL_HASH', `${path}.entryHash`);
+  if (!hashesEqual(entry.previousEntryHash, previousHash)) {
+    reject('E_JOURNAL_CHAIN', `${path} does not extend the previous chain head`, {
+      rowId: entry.tuwId,
+      sequence,
+    });
+  }
+  if (!hashesEqual(entry.entryHash, computeJournalEntryHash(entry))) {
+    reject('E_JOURNAL_HASH', `${path}.entryHash is invalid`, {
+      rowId: entry.tuwId,
+      sequence,
+    });
+  }
+}
+
+export function computeCloseoutFacts(overrides, rows) {
+  const unresolved = [];
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  for (const row of rows) {
+    for (const dependency of gatingDependencies(row)) {
+      const dependencyRow = rowsById.get(dependency.id);
+      if (dependency.id.startsWith('CAP-') || !dependencyRow || !isCurrentComplete(dependencyRow)) {
+        unresolved.push({ rowId: row.id, dependencyId: dependency.id, kind: dependency.kind });
+      }
+    }
+  }
+  const blockers = rows
+    .filter((row) => row.blockerClass !== 'NONE' || row.acceptedBlockers.length > 0)
+    .map((row) => ({
+      rowId: row.id,
+      blockerClass: row.blockerClass,
+      blockingRefs: row.blockingRefs,
+      acceptedBlockers: row.acceptedBlockers,
+    }));
+  const findings = rows
+    .filter((row) => !isCurrentComplete(row))
+    .map((row) => ({
+      rowId: row.id,
+      status: row.status,
+      remainingGaps: row.remainingGaps,
+      statusRationale: row.statusRationale,
+      nextAction: row.nextAction,
+    }));
+  return {
+    finalOverridesSha256: amicCanonicalHash(overrides),
+    finalRowsSha256: amicCanonicalHash(rows),
+    statusCounts: statusCounts(rows),
+    unresolvedDependenciesSha256: amicCanonicalHash(unresolved),
+    blockersSha256: amicCanonicalHash(blockers),
+    validationFindingsSha256: amicCanonicalHash(findings),
+  };
+}
+
+export function validateCloseoutSeal(seal, { journal, overrides, rows, chainHead }) {
+  const requiredKeys = [
+    'recordedAt',
+    'candidateSha',
+    'validationScopeDigest',
+    'disposition',
+    'entryCount',
+    'finalEntryHash',
+    'finalOverridesSha256',
+    'finalRowsSha256',
+    'statusCounts',
+    'unresolvedDependenciesSha256',
+    'blockersSha256',
+    'validationFindingsSha256',
+    'previousEntryHash',
+    'sealHash',
+  ];
+  assertExactKeys(seal, requiredKeys, 'E_PHASE_CLOSEOUT', 'journal.closeoutSeal');
+  validateTimestamp(seal.recordedAt, 'journal.closeoutSeal.recordedAt');
+  if (
+    seal.recordedAt !== journal.asOf ||
+    seal.candidateSha !== journal.candidateSha ||
+    !hashesEqual(seal.validationScopeDigest, journal.validationScopeDigest) ||
+    !['COMPLETE', 'BLOCKED'].includes(seal.disposition) ||
+    seal.entryCount !== journal.entries.length ||
+    !hashesEqual(seal.finalEntryHash, chainHead) ||
+    !hashesEqual(seal.previousEntryHash, chainHead)
+  ) {
+    reject('E_PHASE_CLOSEOUT', 'Closeout seal header or chain bindings are invalid');
+  }
+  const facts = computeCloseoutFacts(overrides, rows);
+  for (const field of [
+    'finalOverridesSha256',
+    'finalRowsSha256',
+    'unresolvedDependenciesSha256',
+    'blockersSha256',
+    'validationFindingsSha256',
+  ]) {
+    if (!hashesEqual(seal[field], facts[field])) {
+      reject('E_PHASE_CLOSEOUT', `Closeout seal ${field} does not match replay`);
+    }
+  }
+  if (!isDeepStrictEqual(seal.statusCounts, facts.statusCounts)) {
+    reject('E_PHASE_CLOSEOUT', 'Closeout status counts do not match replay');
+  }
+  if (rows.length !== 117 || rows.some((row) => row.validationState !== 'CURRENT_VALIDATED')) {
+    reject('E_PHASE_CLOSEOUT', 'Closeout requires 117 CURRENT_VALIDATED rows');
+  }
+  if (rows.some((row) => row.status === 'UNADJUDICATED')) {
+    reject('E_PHASE_UNADJUDICATED', 'FINAL_CLOSEOUT requires UNADJUDICATED=0');
+  }
+  if (seal.disposition === 'COMPLETE' && rows.some((row) => !isCurrentComplete(row))) {
+    reject('E_PHASE_CLOSEOUT', 'COMPLETE closeout requires every row to be current complete');
+  }
+  if (
+    seal.disposition === 'BLOCKED' &&
+    rows.some(
+      (row) =>
+        !isCurrentComplete(row) &&
+        (row.remainingGaps.length === 0 ||
+          row.statusRationale.trim().length === 0 ||
+          row.nextAction.trim().length === 0),
+    )
+  ) {
+    reject('E_PHASE_CLOSEOUT', 'BLOCKED closeout has an unexplained non-complete row');
+  }
+  assertHashWithCode(seal.sealHash, 'E_JOURNAL_HASH', 'journal.closeoutSeal.sealHash');
+  if (!hashesEqual(seal.sealHash, computeCloseoutSealHash(seal))) {
+    reject('E_JOURNAL_HASH', 'Closeout seal hash is invalid');
+  }
+  return true;
+}
+
+export function computeJournalSnapshotHead(journal) {
+  validateJournalHeader(journal);
+  assertHashWithCode(journal.genesisHash, 'E_JOURNAL_GENESIS', 'journal.genesisHash');
+  if (!hashesEqual(journal.genesisHash, computeJournalGenesisHash(journal))) {
+    reject('E_JOURNAL_GENESIS', 'Prior journal snapshot has an invalid genesis hash');
+  }
+  let head = journal.genesisHash;
+  let previousRecordedAt = null;
+  for (const [index, entry] of journal.entries.entries()) {
+    validateJournalEntry(entry, index, journal, head, previousRecordedAt);
+    head = entry.entryHash;
+    previousRecordedAt = entry.recordedAt;
+  }
+  if (journal.closeoutSeal !== null) {
+    const seal = journal.closeoutSeal;
+    assertHashWithCode(seal.sealHash, 'E_JOURNAL_HASH', 'journal.closeoutSeal.sealHash');
+    if (
+      seal.recordedAt !== journal.asOf ||
+      seal.candidateSha !== journal.candidateSha ||
+      !hashesEqual(seal.validationScopeDigest, journal.validationScopeDigest) ||
+      seal.entryCount !== journal.entries.length ||
+      !hashesEqual(seal.previousEntryHash, head) ||
+      !hashesEqual(seal.finalEntryHash, head) ||
+      !hashesEqual(seal.sealHash, computeCloseoutSealHash(seal))
+    ) {
+      reject('E_JOURNAL_CHAIN', 'Prior closeout snapshot has an invalid chain head');
+    }
+    head = seal.sealHash;
+  }
+  return head;
+}
+
+function validatePreviousAcceptedJournalHead(journal, journalBytes, resolver, plan) {
+  const prior = resolver(journalBytes);
+  if (prior === null) {
+    if (journal.previousAcceptedJournalHead !== null) {
+      reject('E_JOURNAL_CHAIN', 'No prior accepted journal snapshot exists for the recorded head');
+    }
+    return true;
+  }
+  if (!isRecord(prior) || !isRecord(prior.journal)) {
+    reject('E_JOURNAL_CHAIN', 'Prior accepted journal snapshot resolution failed');
+  }
+  validateJournalBootstrap(prior.journal.bootstrap, plan);
+  const expectedHead = computeJournalSnapshotHead(prior.journal);
+  if (!hashesEqual(journal.previousAcceptedJournalHead, expectedHead)) {
+    reject('E_JOURNAL_CHAIN', 'previousAcceptedJournalHead is not the immediate prior snapshot head');
+  }
+  return true;
+}
+
+export function validateTransitionJournal(
+  {
+    plan,
+    sourcePlanBytes = plan,
+    overrides,
+    overridesBytes = `${JSON.stringify(overrides, null, 2)}\n`,
+    journal,
+    journalBytes = `${JSON.stringify(journal, null, 2)}\n`,
+  },
+  {
+    entryCommitResolver,
+    closeoutCommitResolver,
+    candidateDiffResolver,
+    previousJournalSnapshotResolver,
+    gitCwd = process.cwd(),
+  } = {},
+) {
+  let acceptedSnapshotsCache = null;
+  const acceptedSnapshots = () => {
+    if (acceptedSnapshotsCache === null) {
+      acceptedSnapshotsCache = scanAcceptedJournalSnapshots({ cwd: gitCwd });
+    }
+    return acceptedSnapshotsCache;
+  };
+  const resolveEntryCommit =
+    entryCommitResolver ??
+    ((entry) =>
+      defaultEntryCommitResolver(entry, {
+        cwd: gitCwd,
+        acceptedSnapshots: acceptedSnapshots(),
+      }));
+  const resolveCloseoutCommit =
+    closeoutCommitResolver ??
+    ((seal) =>
+      defaultCloseoutCommitResolver(seal, {
+        cwd: gitCwd,
+        acceptedSnapshots: acceptedSnapshots(),
+      }));
+  const resolveCandidateDiff =
+    candidateDiffResolver ?? ((candidateSha) => defaultCandidateDiffResolver(candidateSha, { cwd: gitCwd }));
+  const resolvePreviousSnapshot =
+    previousJournalSnapshotResolver ??
+    ((bytes) =>
+      resolvePriorAcceptedJournalSnapshot(bytes, {
+        cwd: gitCwd,
+        acceptedSnapshots: acceptedSnapshots(),
+      }));
+  validateOverridesObject(overrides);
+  const { sourcePlanHash, overridesHash } = assertSealedInputs({
+    plan,
+    sourcePlanBytes,
+    overrides,
+    overridesBytes,
+  });
+  const journalText = decodeBootstrapUtf8(journalBytes, 'journalBytes');
+  let parsedJournal;
+  try {
+    parsedJournal = JSON.parse(journalText);
+  } catch {
+    reject('E_JOURNAL_HEADER', 'Transition journal must contain valid JSON', {
+      path: journalPath,
+    });
+  }
+  if (!isDeepStrictEqual(journal, parsedJournal)) {
+    reject('E_JOURNAL_HEADER', 'Journal value does not match its exact input bytes', {
+      path: journalPath,
+    });
+  }
+  const journalHash = sha256Hash(journalBytes);
+  const phase = validateJournalHeader(journal);
+  validateJournalBootstrap(journal.bootstrap, plan);
+  assertHashWithCode(journal.genesisHash, 'E_JOURNAL_GENESIS', 'journal.genesisHash');
+  const expectedGenesis = computeJournalGenesisHash(journal);
+  if (!hashesEqual(journal.genesisHash, expectedGenesis)) {
+    reject('E_JOURNAL_GENESIS', 'Journal genesis does not match AMIC-CJSON-1 preimage');
+  }
+  validatePreviousAcceptedJournalHead(journal, journalBytes, resolvePreviousSnapshot, plan);
+  if (
+    phase === bootstrapPhase &&
+    (overridesHash.value !== bootstrapOverridesSha256 ||
+      !isDeepStrictEqual(overrides, journal.bootstrap.baseOverrides))
+  ) {
+    reject('E_BOOTSTRAP_IDENTITY', 'BOOTSTRAP_IMPORT materialized overrides changed');
+  }
+  if (phase !== bootstrapPhase) {
+    const diffPaths = resolveCandidateDiff(journal.candidateSha);
+    if (
+      !Array.isArray(diffPaths) ||
+      diffPaths.some((path) => !transitionControlPlanePaths.has(path))
+    ) {
+      reject('E_SCOPE_COMMIT', 'Candidate-to-HEAD diff contains a non-control-plane path');
+    }
+  }
+
+  const replayedOverrides = cloneJson(journal.bootstrap.baseOverrides);
+  let chainHead = journal.genesisHash;
+  let previousRecordedAt = null;
+  const usedCommits = new Set();
+  const packRows = new Map();
+  const packOrder = [];
+  let rows = parsePlanUnits(plan, replayedOverrides);
+  for (const [index, entry] of journal.entries.entries()) {
+    validateJournalEntry(entry, index, journal, chainHead, previousRecordedAt);
+    validateEntryAuthority(entry, resolveEntryCommit, usedCommits);
+    const beforeOverride = replayedOverrides.unitOverrides[entry.tuwId];
+    if (!isRecord(beforeOverride)) {
+      reject('E_REPLAY_MISMATCH', `Replay has no row ${entry.tuwId}`, {
+        rowId: entry.tuwId,
+        sequence: entry.sequence,
+      });
+    }
+    if (!hashesEqual(entry.beforeOverrideSha256, amicCanonicalHash(beforeOverride))) {
+      reject('E_REPLAY_MISMATCH', `Replay prefix mismatch for ${entry.tuwId}`, {
+        rowId: entry.tuwId,
+        sequence: entry.sequence,
+      });
+    }
+    if (!hashesEqual(entry.afterOverrideSha256, amicCanonicalHash(entry.afterOverride))) {
+      reject('E_JOURNAL_HASH', `After-override hash mismatch for ${entry.tuwId}`, {
+        rowId: entry.tuwId,
+        sequence: entry.sequence,
+      });
+    }
+    validateTransitionSemantics(entry, beforeOverride);
+    if (!packRows.has(entry.packId)) {
+      packRows.set(entry.packId, new Set());
+      packOrder.push(entry.packId);
+    } else if (packOrder.at(-1) !== entry.packId) {
+      reject('E_SCOPE_PACK_SIZE', `Pack ${entry.packId} cannot be reopened after another pack`, {
+        rowId: entry.tuwId,
+        sequence: entry.sequence,
+      });
+    }
+    const packSet = packRows.get(entry.packId);
+    if (packSet.has(entry.tuwId)) {
+      reject('E_TRANSITION_MULTI_ROW', `Pack ${entry.packId} repeats ${entry.tuwId}`, {
+        rowId: entry.tuwId,
+        sequence: entry.sequence,
+      });
+    }
+    packSet.add(entry.tuwId);
+    replayedOverrides.unitOverrides[entry.tuwId] = cloneJson(entry.afterOverride);
+    replayedOverrides.updatedAt = entry.recordedAt;
+    rows = parsePlanUnits(plan, replayedOverrides);
+    validateLedgerRows(rows, { asOf: entry.recordedAt });
+    chainHead = entry.entryHash;
+    previousRecordedAt = entry.recordedAt;
+  }
+
+  if (phase !== bootstrapPhase) {
+    for (const [index, packId] of packOrder.entries()) {
+      const ids = packRows.get(packId);
+      const activeTrailingPack = phase === transitionPhase && index === packOrder.length - 1;
+      if (ids.size > 8 || (!activeTrailingPack && ids.size < 3)) {
+        reject(
+          'E_SCOPE_PACK_SIZE',
+          activeTrailingPack
+            ? `Active trailing pack ${packId} must contain 1-8 unique TUWs`
+            : `Completed pack ${packId} must contain 3-8 unique TUWs`,
+        );
+      }
+    }
+  }
+  if (phase === transitionPhase && journal.asOf !== journal.entries.at(-1).recordedAt) {
+    reject('E_METADATA_CLOCK', 'TRANSITION asOf must equal the latest entry timestamp');
+  }
+  if (phase !== finalCloseoutPhase && replayedOverrides.updatedAt !== journal.asOf) {
+    reject('E_METADATA_CLOCK', 'Materialized overrides updatedAt must equal journal asOf');
+  }
+  if (!isDeepStrictEqual(replayedOverrides, overrides)) {
+    reject('E_REPLAY_MISMATCH', 'Final replay does not equal materialized overrides');
+  }
+  validateLedgerRows(rows, { asOf: journal.asOf });
+  if (
+    journal.previousAcceptedJournalHead !== null &&
+    (hashesEqual(journal.previousAcceptedJournalHead, journal.genesisHash) ||
+      journal.entries.some((entry) =>
+        hashesEqual(journal.previousAcceptedJournalHead, entry.entryHash),
+      ) ||
+      (journal.closeoutSeal &&
+        hashesEqual(journal.previousAcceptedJournalHead, journal.closeoutSeal.sealHash)))
+  ) {
+    reject('E_JOURNAL_CHAIN', 'Previous accepted head self-references the current snapshot');
+  }
+  if (phase === finalCloseoutPhase) {
+    if (journal.asOf !== journal.closeoutSeal.recordedAt) {
+      reject('E_METADATA_CLOCK', 'FINAL_CLOSEOUT asOf must equal the seal timestamp');
+    }
+    validateCloseoutSeal(journal.closeoutSeal, {
+      journal,
+      overrides: replayedOverrides,
+      rows,
+      chainHead,
+    });
+    validateCloseoutAuthority(
+      journal.closeoutSeal,
+      resolveCloseoutCommit,
+      usedCommits,
+      journal.entries.at(-1).recordedAt,
+    );
+    chainHead = journal.closeoutSeal.sealHash;
+  } else if (journal.closeoutSeal !== null) {
+    reject('E_PHASE_CLOSEOUT', 'Only FINAL_CLOSEOUT may contain a closeout seal');
+  }
+  return {
+    phase,
+    rows,
+    replayedOverrides,
+    sourcePlanHash,
+    overridesHash,
+    journalHash,
+    journalEntries: journal.entries.length,
+    journalHead: chainHead,
+  };
 }
 
 export function buildLedgerFromPlan(
@@ -1556,35 +3417,64 @@ export function buildLedgerFromPlan(
     overrides = { updatedAt: defaultGeneratedAt, unitOverrides: {} },
     sourcePlanBytes = plan,
     overridesBytes = `${JSON.stringify(overrides, null, 2)}\n`,
+    journal = null,
+    journalBytes = null,
+    entryCommitResolver,
+    closeoutCommitResolver,
+    candidateDiffResolver,
+    previousJournalSnapshotResolver,
+    gitCwd,
   } = {},
 ) {
-  validateTimestamp(overrides.updatedAt, 'overrides.updatedAt');
-  const { sourcePlanHash, overridesHash } = assertSealedBootstrapInputs({
-    plan,
-    sourcePlanBytes,
-    overrides,
-    overridesBytes,
-  });
-  if (overrides.updatedAt !== defaultGeneratedAt) {
-    reject('E_METADATA_CLOCK', 'BOOTSTRAP_IMPORT must use the canonical bootstrap timestamp', {
-      path: 'overrides.updatedAt',
-    });
+  let journalValue = journal;
+  let journalInputBytes = journalBytes;
+  if (journalValue === null) {
+    if (!existsSync(journalPath)) {
+      reject('E_JOURNAL_HEADER', 'Transition journal is missing', { path: journalPath });
+    }
+    journalInputBytes = readFileSync(journalPath);
+    try {
+      journalValue = JSON.parse(decodeBootstrapUtf8(journalInputBytes, journalPath));
+    } catch (error) {
+      if (error instanceof LedgerValidationError) throw error;
+      reject('E_JOURNAL_HEADER', 'Transition journal must contain valid JSON', {
+        path: journalPath,
+      });
+    }
   }
-  const units = parsePlanUnits(plan, overrides);
-  assertBootstrapIdentity(units);
-  validateLedgerRows(units, { asOf: overrides.updatedAt });
+  if (journalInputBytes === null) {
+    journalInputBytes = `${JSON.stringify(journalValue, null, 2)}\n`;
+  }
+  const replay = validateTransitionJournal(
+    {
+      plan,
+      sourcePlanBytes,
+      overrides,
+      overridesBytes,
+      journal: journalValue,
+      journalBytes: journalInputBytes,
+    },
+    {
+      entryCommitResolver,
+      closeoutCommitResolver,
+      candidateDiffResolver,
+      previousJournalSnapshotResolver,
+      gitCwd,
+    },
+  );
+  const units = replay.rows;
   const generationMetadata = {
     hashAlgorithm: 'SHA-256',
-    sourcePlanSha256: sourcePlanHash,
-    overridesSha256: overridesHash,
-    transitionJournalSha256: null,
-    asOf: overrides.updatedAt,
-    phase: bootstrapPhase,
+    sourcePlanSha256: replay.sourcePlanHash,
+    overridesSha256: replay.overridesHash,
+    transitionJournalSha256: replay.journalHash,
+    asOf: journalValue.asOf,
+    phase: replay.phase,
   };
   const ledger = {
     schemaVersion: 1,
     schemaId: technicalSchemaId,
-    phase: bootstrapPhase,
+    phase: replay.phase,
     generatedAt: generationMetadata.asOf,
     generationMetadata,
     sourcePlan: planPath,
@@ -1600,7 +3490,7 @@ export function buildLedgerFromPlan(
       'collect current changed-file LSP diagnostics where the tool is available',
       'collect staging/manual QA receipts for TUWs whose acceptance block requires them',
       'record current evidence refs in this ledger',
-      'do not promote or demote from this inert bootstrap; TUW-004 must register and replay the transition journal first',
+      'apply state changes only through the sealed one-row transition journal and require every replay prefix to validate',
     ],
     counts: statusCounts(units),
     validationCounts: {
@@ -1615,7 +3505,9 @@ export function buildLedgerFromPlan(
     '# TUW Internal DMS Uplift 117 Status Ledger',
     '',
     `Generated from \`${planPath}\`. This ledger is an execution-control artifact, not completion evidence by itself.`,
-    `Overrides: \`${overridesPath}\`. All 117 rows are an inert \`BOOTSTRAP_PREIMAGE\`; legacy records are historical only and current evidence is empty.`,
+    replay.phase === bootstrapPhase
+      ? `Overrides: \`${overridesPath}\`. All 117 rows remain an inert \`BOOTSTRAP_PREIMAGE\`; legacy records are historical only and current evidence is empty.`
+      : `Overrides: \`${overridesPath}\`. Phase \`${replay.phase}\` is derived from the sealed journal; only replayed one-row entries may change row state.`,
     '',
     '## Deterministic Metadata',
     '',
@@ -1624,7 +3516,7 @@ export function buildLedgerFromPlan(
     `- asOf / generatedAt: \`${ledger.generatedAt}\``,
     `- Source plan SHA-256: \`${generationMetadata.sourcePlanSha256.value}\``,
     `- Overrides SHA-256: \`${generationMetadata.overridesSha256.value}\``,
-    '- Transition journal SHA-256: `null` (TUW-004 has not created the journal)',
+    `- Transition journal SHA-256: \`${generationMetadata.transitionJournalSha256.value}\``,
     '',
     '## Objective',
     '',
@@ -1659,15 +3551,16 @@ export function buildLedgerFromPlan(
     ),
     '',
   ].join('\n');
-  return { ledger, markdown };
+  return { ledger, markdown, journalEntries: replay.journalEntries };
 }
 
 export function generateLedger({ check = false } = {}) {
-  const plan = readFileSync(planPath, 'utf8');
+  const planBytes = readFileSync(planPath);
+  const plan = decodeBootstrapUtf8(planBytes, planPath);
   const overridesInput = readOverrides();
-  const { ledger, markdown } = buildLedgerFromPlan(plan, {
+  const { ledger, markdown, journalEntries } = buildLedgerFromPlan(plan, {
     overrides: overridesInput.value,
-    sourcePlanBytes: plan,
+    sourcePlanBytes: planBytes,
     overridesBytes: overridesInput.bytes,
   });
   const json = `${JSON.stringify(ledger, null, 2)}\n`;
@@ -1686,7 +3579,7 @@ export function generateLedger({ check = false } = {}) {
         code: 'CHECK_OK',
         phase: ledger.phase,
         rowCount: ledger.units.length,
-        journalEntries: 0,
+        journalEntries,
         writes: 0,
       }),
     );
@@ -1708,7 +3601,7 @@ export function generateLedger({ check = false } = {}) {
       code: 'GENERATED',
       phase: ledger.phase,
       rowCount: ledger.units.length,
-      journalEntries: 0,
+      journalEntries,
       writes,
     }),
   );
@@ -1725,7 +3618,7 @@ export function exitCodeFor(error) {
   if (code.startsWith('E_JOURNAL_')) return 36;
   if (code.startsWith('E_REPLAY_')) return 37;
   if (code.startsWith('E_TRANSITION_') || code.startsWith('E_PHASE_')) return 38;
-  if (code.startsWith('E_DRIFT_')) return 39;
+  if (code.startsWith('E_DRIFT_') || code.startsWith('E_CHECK_')) return 39;
   if (code.startsWith('E_SCOPE_')) return 40;
   return 30;
 }

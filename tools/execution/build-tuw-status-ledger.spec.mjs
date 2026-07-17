@@ -17,22 +17,40 @@ import { join, relative, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
+  DEPENDENCY_ALIAS_REGISTRY,
   FROZEN_TUW_IDS,
   LedgerValidationError,
-  assertExactTuwIdSet,
+  SEALED_ERROR_CODES,
+  amicCanonicalHash,
   buildLedgerFromPlan,
+  computeCloseoutFacts,
+  computeCloseoutSealHash,
+  computeJournalEntryHash,
+  computeJournalGenesisHash,
+  computeJournalSnapshotHead,
+  assertExactTuwIdSet,
   computeValidationScopeDigest,
+  createBootstrapJournal,
+  deriveJournalPhase,
   exitCodeFor,
   isCurrentComplete,
   isNonDurableRef,
   parseTuwBlocks,
+  parseDependencyText,
   parseTuwHeading,
+  resolveEntryIntroductionCommit,
+  resolvePriorAcceptedJournalSnapshot,
   sha256Hash,
   validateAcceptedBlocker,
+  validateCloseoutAuthority,
+  validateCloseoutSeal,
   validateEvidence,
   validateGitSha,
   validateHash,
   validateLedgerRow,
+  validateLedgerRows,
+  validateExecutionLedgerEofAppend,
+  validateTransitionJournal,
   validateTimestamp,
   validateValidationScope,
 } from './build-tuw-status-ledger.mjs';
@@ -43,6 +61,18 @@ const activePlanPath = resolve(repositoryRoot, 'docs/execution/TUW_INTERNAL_DMS_
 const activeOverridesPath = resolve(
   repositoryRoot,
   'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json',
+);
+const activeJournalPath = resolve(
+  repositoryRoot,
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
+);
+const activeLedgerJsonPath = resolve(
+  repositoryRoot,
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
+);
+const activeLedgerMarkdownPath = resolve(
+  repositoryRoot,
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
 );
 const candidateSha = 'a'.repeat(40);
 const asOf = '2026-07-17T00:00:00.000Z';
@@ -142,7 +172,7 @@ function currentRow(overrides = {}) {
 
 function acceptedBlocker(overrides = {}) {
   return {
-    dependencyId: 'CAP-EXTERNAL-PROVIDER',
+    dependencyId: 'CAP-AI-STRUCTURED-STRONG-ROUTING',
     blockerClass: 'EXTERNAL_EVIDENCE',
     disposition: 'ACCEPT_DEFER',
     scope: 'DEPENDENCY_ORDER_ONLY',
@@ -181,6 +211,7 @@ function surfaceSnapshot(root) {
   const paths = [
     'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md',
     'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json',
+    'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
     'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
     'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
   ];
@@ -201,6 +232,7 @@ function surfaceSnapshot(root) {
           {
             hash: sha256(join(root, path)),
             mtimeNs: statSync(join(root, path), { bigint: true }).mtimeNs.toString(),
+            ctimeNs: statSync(join(root, path), { bigint: true }).ctimeNs.toString(),
           },
         ]),
     ),
@@ -216,6 +248,10 @@ function withCheckFixture(callback) {
     copyFileSync(
       activeOverridesPath,
       join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json'),
+    );
+    copyFileSync(
+      activeJournalPath,
+      join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json'),
     );
     const generated = spawnSync(process.execPath, [toolPath], { cwd: root, encoding: 'utf8' });
     assert.equal(generated.status, 0, generated.stderr);
@@ -275,6 +311,149 @@ function fullSyntheticPlan({ missing, duplicate, extra } = {}) {
   if (extra) lines.push(headingFor(extra), `Body for ${extra}`);
   lines.push('## End of synthetic plan');
   return lines.join('\n');
+}
+
+const transitionChangedPaths = [
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json',
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
+];
+
+function validatedOverride(
+  baseOverride,
+  { status = 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE', candidate = candidateSha } = {},
+) {
+  const complete = status === 'COMPLETE_CANDIDATE';
+  return {
+    ...structuredClone(baseOverride),
+    status,
+    validationState: 'CURRENT_VALIDATED',
+    validatedCandidateSha: candidate,
+    validationScope: validationScope(),
+    evidenceRefs: complete ? [currentEvidence({ candidateSha: candidate })] : [],
+    blockerClass: 'NONE',
+    blockingRefs: [],
+    acceptedBlockers: [],
+    dependencyConditions: [],
+    remainingGaps: complete ? [] : ['Current validation remains non-complete.'],
+    statusRationale: complete
+      ? 'Fresh candidate-bound durable evidence satisfies the registered completion surface.'
+      : 'Fresh candidate-bound validation records an honest non-complete state.',
+    nextAction: complete
+      ? 'Retain only while candidate, scope, evidence, and dependencies remain current.'
+      : 'Resolve the recorded gap before promotion.',
+  };
+}
+
+function transitionFixture(
+  steps,
+  {
+    candidate = candidateSha,
+    previousAcceptedJournalHead = null,
+    timestamps = steps.map((_, index) =>
+      new Date(Date.parse(asOf) + (index + 1) * 1000).toISOString(),
+    ),
+  } = {},
+) {
+  const planBytes = readFileSync(activePlanPath);
+  const plan = planBytes.toString('utf8');
+  const bootstrapJournal = JSON.parse(readFileSync(activeJournalPath, 'utf8'));
+  const journal = structuredClone(bootstrapJournal);
+  const overrides = structuredClone(journal.bootstrap.baseOverrides);
+  const recordedAt = timestamps;
+  journal.candidateSha = candidate;
+  journal.validationScopeDigest = validationScope().aggregateSha256;
+  journal.asOf = recordedAt.at(-1);
+  journal.previousAcceptedJournalHead = previousAcceptedJournalHead;
+  journal.entries = [];
+  journal.closeoutSeal = null;
+  journal.genesisHash = computeJournalGenesisHash(journal);
+  let previousEntryHash = journal.genesisHash;
+  steps.forEach((step, index) => {
+    const beforeOverride = structuredClone(overrides.unitOverrides[step.id]);
+    const afterOverride = step.afterOverride
+      ? step.afterOverride(beforeOverride, recordedAt[index], candidate)
+      : validatedOverride(beforeOverride, {
+          status: step.status ?? beforeOverride.status,
+          candidate,
+        });
+    const entry = {
+      sequence: index + 1,
+      transitionId: `TR-${String(index + 1).padStart(6, '0')}`,
+      packId: step.packId ?? 'PACK-TEST-1',
+      tuwId: step.id,
+      transitionKind: step.kind ?? 'ADJUDICATE',
+      candidateSha: candidate,
+      validationScopeDigest: validationScope().aggregateSha256,
+      recordedAt: recordedAt[index],
+      reasonCode: step.reasonCode ?? 'TEST_TRANSITION',
+      reason: step.reason ?? 'In-memory registered transition fixture.',
+      beforeOverrideSha256: amicCanonicalHash(beforeOverride),
+      afterOverride,
+      afterOverrideSha256: amicCanonicalHash(afterOverride),
+      previousEntryHash,
+      entryHash: null,
+    };
+    entry.entryHash = computeJournalEntryHash(entry);
+    journal.entries.push(entry);
+    previousEntryHash = entry.entryHash;
+    overrides.unitOverrides[step.id] = structuredClone(afterOverride);
+    overrides.updatedAt = entry.recordedAt;
+  });
+  return {
+    plan,
+    planBytes,
+    journal,
+    overrides,
+    entryCommitResolver: (entry) => ({
+      commitSha: entry.sequence.toString(16).padStart(40, '0'),
+      recordedAt: entry.recordedAt,
+      changedPaths: transitionChangedPaths,
+    }),
+    candidateDiffResolver: () => [],
+    previousJournalSnapshotResolver: () =>
+      previousAcceptedJournalHead === null ? null : { journal: bootstrapJournal },
+  };
+}
+
+function validateFixture(fixture) {
+  return validateTransitionJournal(
+    {
+      plan: fixture.plan,
+      sourcePlanBytes: fixture.planBytes,
+      overrides: fixture.overrides,
+      overridesBytes: `${JSON.stringify(fixture.overrides, null, 2)}\n`,
+      journal: fixture.journal,
+      journalBytes: `${JSON.stringify(fixture.journal, null, 2)}\n`,
+    },
+    {
+      entryCommitResolver: fixture.entryCommitResolver,
+      closeoutCommitResolver: fixture.closeoutCommitResolver,
+      candidateDiffResolver: fixture.candidateDiffResolver,
+      previousJournalSnapshotResolver: fixture.previousJournalSnapshotResolver,
+      gitCwd: fixture.gitCwd,
+    },
+  );
+}
+
+function renderFixtureSnapshot(fixture, priorJournal = null) {
+  const rendered = buildLedgerFromPlan(fixture.plan, {
+    overrides: fixture.overrides,
+    sourcePlanBytes: fixture.planBytes,
+    overridesBytes: `${JSON.stringify(fixture.overrides, null, 2)}\n`,
+    journal: fixture.journal,
+    journalBytes: `${JSON.stringify(fixture.journal, null, 2)}\n`,
+    entryCommitResolver: fixture.entryCommitResolver,
+    closeoutCommitResolver: fixture.closeoutCommitResolver,
+    candidateDiffResolver: fixture.candidateDiffResolver,
+    previousJournalSnapshotResolver: () =>
+      priorJournal === null ? null : { journal: priorJournal },
+  });
+  return {
+    json: `${JSON.stringify(rendered.ledger, null, 2)}\n`,
+    markdown: rendered.markdown,
+  };
 }
 
 test('heading grammars parse original and Appendix-2 metadata', () => {
@@ -403,6 +582,110 @@ test('heading source line refs prove H14 and Appendix boundaries through B20', (
   assert.doesNotMatch(b20.block, /post-B20 directive|기존 유닛 보강 지시/);
 });
 
+test('dependency parser uses depth-zero delimiters and exact typed TUW markers', () => {
+  assert.deepEqual(parseDependencyText('A1', 'A2(note, nested), A3 → A4(조건부)'), [
+    { id: 'A2', kind: 'hard', sourceText: 'A2(note, nested)', resolutionRef: null },
+    { id: 'A3', kind: 'hard', sourceText: 'A3', resolutionRef: null },
+    { id: 'A4', kind: 'conditional', sourceText: 'A4(조건부)', resolutionRef: null },
+  ]);
+  assert.deepEqual(parseDependencyText('B17', 'B12(데스크톱 브리지 — 소프트)'), [
+    {
+      id: 'B12',
+      kind: 'soft',
+      sourceText: 'B12(데스크톱 브리지 — 소프트)',
+      resolutionRef: null,
+    },
+  ]);
+  assert.deepEqual(parseDependencyText('B15', '없음 (A4 구현분 재사용)'), []);
+});
+
+test('dependency parser rejects bare, duplicate, self, unknown, CAP, and malformed depth', () => {
+  throwsCode(() => parseDependencyText('A1', 'B(unregistered)'), 'E_DEPENDENCY_ALIAS');
+  throwsCode(() => parseDependencyText('A1', 'A2, A2'), 'E_DEPENDENCY_DUPLICATE');
+  throwsCode(() => parseDependencyText('A1', 'A1'), 'E_DEPENDENCY_SELF');
+  throwsCode(() => parseDependencyText('A1', 'A99'), 'E_DEPENDENCY_UNKNOWN');
+  throwsCode(() => parseDependencyText('A1', 'CAP-NOT-REGISTERED'), 'E_DEPENDENCY_ALIAS');
+  throwsCode(() => parseDependencyText('A1', 'A2(unclosed, A3'), 'E_DEPENDENCY_ALIAS');
+  throwsCode(() => parseDependencyText('A1', 'A2), A3'), 'E_DEPENDENCY_ALIAS');
+});
+
+test('dependency alias registry emits exact 17 decisions and 18 records in source order', () => {
+  const plan = readFileSync(activePlanPath, 'utf8');
+  const { ledger } = buildLedgerFromPlan(plan, {
+    overrides: JSON.parse(readFileSync(activeOverridesPath, 'utf8')),
+  });
+  const actual = ledger.units.flatMap((unit) =>
+    unit.dependencies
+      .filter((dependency) => dependency.resolutionRef !== null)
+      .map((dependency) => [unit.id, dependency.id, dependency.kind, dependency.resolutionRef]),
+  );
+  const expected = DEPENDENCY_ALIAS_REGISTRY.flatMap((alias) =>
+    alias.emits.map((emitted) => [
+      alias.rowId,
+      emitted.id,
+      emitted.kind,
+      alias.resolutionRef,
+    ]),
+  );
+  assert.equal(DEPENDENCY_ALIAS_REGISTRY.length, 17);
+  assert.equal(actual.length, 18);
+  assert.deepEqual(actual, expected);
+});
+
+test('dependency graph rejects cycles, unknown conditions, and active hard capabilities', () => {
+  const a1 = currentRow({
+    id: 'A1',
+    dependencies: [{ id: 'A2', kind: 'hard', sourceText: 'A2', resolutionRef: null }],
+  });
+  const a2 = currentRow({
+    id: 'A2',
+    dependencies: [{ id: 'A1', kind: 'hard', sourceText: 'A1', resolutionRef: null }],
+  });
+  throwsCode(() => validateLedgerRows([a1, a2], { asOf }), 'E_DEPENDENCY_CYCLE');
+
+  const conditional = currentRow({
+    id: 'E7',
+    dependencies: [
+      {
+        id: 'CAP-GRAPH-CANDIDATE-CONFIRMATION',
+        kind: 'conditional',
+        sourceText: 'F(그래프 후보 candidate/confirmed 상태 스키마·승인 확정 플로우)',
+        resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:E7/F-GRAPH-CONFIRMATION',
+      },
+    ],
+  });
+  assert.equal(validateLedgerRows([conditional], { asOf }), true);
+  const unknownCondition = structuredClone(conditional);
+  unknownCondition.dependencyConditions = [
+    {
+      dependencyId: 'CAP-GRAPH-CANDIDATE-CONFIRMATION',
+      state: 'UNKNOWN',
+      decisionRef: 'docs/ledger/decision.md:30',
+      decisionHash: sha256Hash('decision'),
+    },
+  ];
+  throwsCode(
+    () => validateLedgerRows([unknownCondition], { asOf }),
+    'E_DEPENDENCY_CONDITION_UNKNOWN',
+  );
+
+  const hardCapability = currentRow({
+    id: 'D11',
+    dependencies: [
+      {
+        id: 'CAP-CLAUSE-BANK-PARSED-CORPUS',
+        kind: 'hard',
+        sourceText: 'F(조항은행 — contract-intel 조항 파싱 데이터 적재 확대)',
+        resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:D11/F-CLAUSE-CORPUS',
+      },
+    ],
+  });
+  throwsCode(
+    () => validateLedgerRows([hardCapability], { asOf }),
+    'E_DEPENDENCY_CAPABILITY_UNRESOLVED',
+  );
+});
+
 test('artifact count surfaces expose the canonical 117 rows and seven unadjudicated records', () => {
   const plan = readFileSync(activePlanPath, 'utf8');
   const overrides = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
@@ -436,7 +719,10 @@ test('artifact count surfaces expose the canonical 117 rows and seven unadjudica
   });
   assert.equal(ledger.generationMetadata.asOf, overrides.updatedAt);
   assert.equal(ledger.generatedAt, ledger.generationMetadata.asOf);
-  assert.equal(ledger.generationMetadata.transitionJournalSha256, null);
+  assert.deepEqual(ledger.generationMetadata.transitionJournalSha256, {
+    algorithm: 'SHA-256',
+    value: sha256(activeJournalPath),
+  });
   assert.equal(ledger.generationMetadata.sourcePlanSha256.value, sha256(activePlanPath));
   assert.equal(ledger.generationMetadata.overridesSha256.value, sha256(activeOverridesPath));
   assert.ok(ledger.units.every((unit) => unit.validationState === 'BOOTSTRAP_PREIMAGE'));
@@ -566,7 +852,10 @@ test('deterministic generation is byte-identical and matching check mode does no
         algorithm: 'SHA-256',
         value: 'd0404c84bfe3e7b4d14d071a0c9f267a87eb62a512a78f3e4d98499abaae6a4a',
       },
-      transitionJournalSha256: null,
+      transitionJournalSha256: {
+        algorithm: 'SHA-256',
+        value: 'c1ac2b89d7e553968aef8918bab5945431c9257855dddd2da9428d4a355767c7',
+      },
       asOf,
       phase: 'BOOTSTRAP_IMPORT',
     });
@@ -738,6 +1027,696 @@ test('bootstrap exact input identity rejects status, history, and bytes split-br
   );
 });
 
+test('journal empty BOOTSTRAP_IMPORT binds exact header, genesis, bytes, and replay', () => {
+  const overrides = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
+  const journal = JSON.parse(readFileSync(activeJournalPath, 'utf8'));
+  assert.deepEqual(journal, createBootstrapJournal(overrides));
+  assert.equal(deriveJournalPhase(journal), 'BOOTSTRAP_IMPORT');
+  assert.equal(journal.entries.length, 0);
+  assert.equal(journal.closeoutSeal, null);
+  assert.equal(
+    journal.bootstrap.baseOverridesSha256.value,
+    'fa0f692b4a71531a9326a221412890849b0266d8e0fceba80382ccc4713e7bf3',
+  );
+  assert.equal(
+    journal.genesisHash.value,
+    'a9bb331d27460f8ffea2d677d82e74b9017e84a6fba1f5beef3a9b880d5bf2bf',
+  );
+  assert.equal(
+    sha256(activeJournalPath),
+    'c1ac2b89d7e553968aef8918bab5945431c9257855dddd2da9428d4a355767c7',
+  );
+  const replay = validateTransitionJournal({
+    plan: readFileSync(activePlanPath, 'utf8'),
+    sourcePlanBytes: readFileSync(activePlanPath),
+    overrides,
+    overridesBytes: readFileSync(activeOverridesPath),
+    journal,
+    journalBytes: readFileSync(activeJournalPath),
+  });
+  assert.equal(replay.phase, 'BOOTSTRAP_IMPORT');
+  assert.equal(replay.rows.length, 117);
+  assert.equal(replay.journalEntries, 0);
+});
+
+test('journal scope validator accepts only the exact execution-ledger EOF append', () => {
+  const before = Buffer.from('- existing execution receipt\n', 'utf8');
+  const append = Buffer.from(
+    '- PACK-R14-02: PASS\n- TECHNICAL-VERIFICATION: PACK-R14-02 PASS\n',
+    'utf8',
+  );
+  assert.equal(
+    validateExecutionLedgerEofAppend(before, Buffer.concat([before, append]), append),
+    true,
+  );
+  throwsCode(
+    () =>
+      validateExecutionLedgerEofAppend(
+        before,
+        Buffer.concat([Buffer.from('- changed execution receipt\n'), append]),
+        append,
+      ),
+    'E_SCOPE_COMMIT',
+  );
+  throwsCode(
+    () =>
+      validateExecutionLedgerEofAppend(
+        before,
+        Buffer.concat([before.subarray(0, 2), Buffer.from('inserted'), before.subarray(2), append]),
+        append,
+      ),
+    'E_SCOPE_COMMIT',
+  );
+  throwsCode(
+    () =>
+      validateExecutionLedgerEofAppend(
+        before,
+        Buffer.concat([before.subarray(0, -1), append]),
+        append,
+      ),
+    'E_SCOPE_COMMIT',
+  );
+});
+
+test('journal default Git resolvers survive two accepted snapshots with recomputed chains', () => {
+  const root = mkdtempSync(join(tmpdir(), 'amic-vault-journal-history-'));
+  const executionDir = join(root, 'docs/execution');
+  const commit = (message, timestamp, paths = ['.']) => {
+    assert.equal(spawnSync('git', ['add', ...paths], { cwd: root }).status, 0);
+    const result = spawnSync(
+      'git',
+      [
+        '-c',
+        'user.name=Journal Test',
+        '-c',
+        'user.email=journal@example.invalid',
+        'commit',
+        '-qm',
+        message,
+      ],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          GIT_AUTHOR_DATE: timestamp,
+          GIT_COMMITTER_DATE: timestamp,
+        },
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    return spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+  };
+  const writeSnapshot = (fixture, priorJournal) => {
+    const rendered = renderFixtureSnapshot(fixture, priorJournal);
+    writeFileSync(
+      join(root, transitionChangedPaths[0]),
+      `${JSON.stringify(fixture.journal, null, 2)}\n`,
+    );
+    writeFileSync(
+      join(root, transitionChangedPaths[1]),
+      `${JSON.stringify(fixture.overrides, null, 2)}\n`,
+    );
+    writeFileSync(join(root, transitionChangedPaths[2]), rendered.json);
+    writeFileSync(join(root, transitionChangedPaths[3]), rendered.markdown);
+  };
+  try {
+    mkdirSync(executionDir, { recursive: true });
+    copyFileSync(activePlanPath, join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_H1_H3.md'));
+    copyFileSync(
+      activeOverridesPath,
+      join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json'),
+    );
+    copyFileSync(
+      activeJournalPath,
+      join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json'),
+    );
+    copyFileSync(
+      activeLedgerJsonPath,
+      join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json'),
+    );
+    copyFileSync(
+      activeLedgerMarkdownPath,
+      join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md'),
+    );
+    assert.equal(spawnSync('git', ['init', '-q'], { cwd: root }).status, 0);
+
+    const bootstrapBytes = readFileSync(join(root, transitionChangedPaths[0]));
+    assert.equal(resolvePriorAcceptedJournalSnapshot(bootstrapBytes, { cwd: root }), null);
+    const candidate = commit('bootstrap', '2026-07-17T00:00:00Z');
+    assert.equal(resolvePriorAcceptedJournalSnapshot(bootstrapBytes, { cwd: root }), null);
+    const bootstrapJournal = JSON.parse(bootstrapBytes.toString('utf8'));
+    const bootstrapHead = computeJournalSnapshotHead(bootstrapJournal);
+
+    const steps = [
+      { id: 'B15', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+      { id: 'B16', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+    ];
+    const first = transitionFixture(steps.slice(0, 1), {
+      candidate,
+      previousAcceptedJournalHead: bootstrapHead,
+      timestamps: ['2026-07-17T00:00:01.000Z'],
+    });
+    writeSnapshot(first, bootstrapJournal);
+    let prior = resolvePriorAcceptedJournalSnapshot(readFileSync(join(root, transitionChangedPaths[0])), {
+      cwd: root,
+    });
+    assert.deepEqual(computeJournalSnapshotHead(prior.journal), bootstrapHead);
+    const firstCommit = commit(
+      'transition 1',
+      '2026-07-17T00:00:01Z',
+      transitionChangedPaths,
+    );
+    prior = resolvePriorAcceptedJournalSnapshot(readFileSync(join(root, transitionChangedPaths[0])), {
+      cwd: root,
+    });
+    assert.deepEqual(computeJournalSnapshotHead(prior.journal), bootstrapHead);
+
+    const firstHead = computeJournalSnapshotHead(first.journal);
+    const second = transitionFixture(steps, {
+      candidate,
+      previousAcceptedJournalHead: firstHead,
+      timestamps: ['2026-07-17T00:00:01.000Z', '2026-07-17T00:00:02.000Z'],
+    });
+    assert.notDeepEqual(second.journal.entries[0].entryHash, first.journal.entries[0].entryHash);
+    writeSnapshot(second, first.journal);
+    prior = resolvePriorAcceptedJournalSnapshot(readFileSync(join(root, transitionChangedPaths[0])), {
+      cwd: root,
+    });
+    assert.deepEqual(computeJournalSnapshotHead(prior.journal), firstHead);
+    const secondCommit = commit(
+      'transition 2',
+      '2026-07-17T00:00:02Z',
+      transitionChangedPaths,
+    );
+    prior = resolvePriorAcceptedJournalSnapshot(readFileSync(join(root, transitionChangedPaths[0])), {
+      cwd: root,
+    });
+    assert.deepEqual(computeJournalSnapshotHead(prior.journal), firstHead);
+    assert.equal(
+      resolveEntryIntroductionCommit(second.journal.entries[0], { cwd: root }).commitSha,
+      firstCommit,
+    );
+    assert.equal(
+      resolveEntryIntroductionCommit(second.journal.entries[1], { cwd: root }).commitSha,
+      secondCommit,
+    );
+
+    const replay = validateTransitionJournal(
+      {
+        plan: readFileSync(activePlanPath, 'utf8'),
+        sourcePlanBytes: readFileSync(activePlanPath),
+        overrides: second.overrides,
+        overridesBytes: readFileSync(join(root, transitionChangedPaths[1])),
+        journal: second.journal,
+        journalBytes: readFileSync(join(root, transitionChangedPaths[0])),
+      },
+      { gitCwd: root },
+    );
+    assert.equal(replay.journalEntries, 2);
+    assert.equal(replay.phase, 'TRANSITION');
+
+    const third = transitionFixture(
+      [
+        ...steps,
+        { id: 'B17', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+      ],
+      {
+        candidate,
+        previousAcceptedJournalHead: computeJournalSnapshotHead(second.journal),
+        timestamps: [
+          '2026-07-17T00:00:01.000Z',
+          '2026-07-17T00:00:02.000Z',
+          '2026-07-17T00:00:03.000Z',
+        ],
+      },
+    );
+    const fourth = transitionFixture(
+      [
+        ...steps,
+        { id: 'B17', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+        { id: 'C16', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+      ],
+      {
+        candidate,
+        previousAcceptedJournalHead: computeJournalSnapshotHead(third.journal),
+        timestamps: [
+          '2026-07-17T00:00:01.000Z',
+          '2026-07-17T00:00:02.000Z',
+          '2026-07-17T00:00:03.000Z',
+          '2026-07-17T00:00:04.000Z',
+        ],
+      },
+    );
+    const renderedSecond = renderFixtureSnapshot(second, first.journal);
+    const renderedThird = renderFixtureSnapshot(third, second.journal);
+    const writeInvalidSnapshot = ({
+      journal = third.journal,
+      overrides = third.overrides,
+      json = renderedThird.json,
+      markdown = renderedThird.markdown,
+    } = {}) => {
+      writeFileSync(
+        join(root, transitionChangedPaths[0]),
+        `${JSON.stringify(journal, null, 2)}\n`,
+      );
+      writeFileSync(
+        join(root, transitionChangedPaths[1]),
+        `${JSON.stringify(overrides, null, 2)}\n`,
+      );
+      writeFileSync(join(root, transitionChangedPaths[2]), json);
+      writeFileSync(join(root, transitionChangedPaths[3]), markdown);
+    };
+    const rejectCommittedSnapshot = (message, expectedCode, contents, assertion) => {
+      assert.equal(spawnSync('git', ['reset', '--hard', '-q', secondCommit], { cwd: root }).status, 0);
+      writeInvalidSnapshot(contents);
+      commit(message, '2026-07-17T00:00:03Z', transitionChangedPaths);
+      throwsCode(assertion, expectedCode);
+    };
+
+    rejectCommittedSnapshot(
+      'reject dummy generated ledger',
+      'E_DRIFT_JSON',
+      { json: '{"marker":"dummy"}\n' },
+      () => resolveEntryIntroductionCommit(third.journal.entries[2], { cwd: root }),
+    );
+    rejectCommittedSnapshot(
+      'reject stale generated ledger',
+      'E_DRIFT_JSON',
+      { json: `${renderedSecond.json}\n` },
+      () => resolvePriorAcceptedJournalSnapshot(Buffer.from(JSON.stringify(third.journal)), { cwd: root }),
+    );
+    rejectCommittedSnapshot(
+      'reject drifted markdown ledger',
+      'E_DRIFT_MARKDOWN',
+      { markdown: `${renderedThird.markdown}DRIFT\n` },
+      () => resolvePriorAcceptedJournalSnapshot(Buffer.from(JSON.stringify(third.journal)), { cwd: root }),
+    );
+
+    const multiRowOverrides = structuredClone(third.overrides);
+    multiRowOverrides.unitOverrides.A1.nextAction += ' unauthorized second-row delta';
+    rejectCommittedSnapshot(
+      'reject multi-row override delta',
+      'E_TRANSITION_MULTI_ROW',
+      { overrides: multiRowOverrides },
+      () => resolvePriorAcceptedJournalSnapshot(Buffer.from(JSON.stringify(third.journal)), { cwd: root }),
+    );
+
+    const invalidJournal = structuredClone(third.journal);
+    invalidJournal.entries[2].entryHash = sha256Hash('invalid latest entry hash');
+    rejectCommittedSnapshot(
+      'reject invalid latest journal',
+      'E_JOURNAL_HASH',
+      { journal: invalidJournal },
+      () => resolvePriorAcceptedJournalSnapshot(Buffer.from(JSON.stringify(invalidJournal)), { cwd: root }),
+    );
+    throwsCode(
+      () =>
+        resolvePriorAcceptedJournalSnapshot(
+          Buffer.from(`${JSON.stringify(fourth.journal, null, 2)}\n`),
+          { cwd: root },
+        ),
+      'E_JOURNAL_HASH',
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('journal TRANSITION validates one-row replay and 3-8 aggregate boundaries', () => {
+  const appendixIds = ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20'];
+  const adjudicate = (id, packId = 'PACK-TEST-1') => ({
+    id,
+    packId,
+    kind: 'ADJUDICATE',
+    status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
+  });
+  for (const steps of [
+    [adjudicate('B15')],
+    appendixIds.slice(0, 3).map((id) => adjudicate(id)),
+    [
+      ...appendixIds.map((id) => adjudicate(id)),
+      { id: 'A13', kind: 'REVALIDATE' },
+    ],
+  ]) {
+    const result = validateFixture(transitionFixture(steps));
+    assert.equal(result.phase, 'TRANSITION');
+    assert.equal(result.journalEntries, steps.length);
+  }
+
+  const multiplePacks = transitionFixture([
+    ...appendixIds.slice(0, 3).map((id) => adjudicate(id, 'PACK-TEST-1')),
+    adjudicate('C16', 'PACK-TEST-2'),
+  ]);
+  assert.equal(validateFixture(multiplePacks).journalEntries, 4);
+
+  const shortCompletedPack = transitionFixture([
+    adjudicate('B15', 'PACK-SHORT'),
+    adjudicate('B16', 'PACK-SHORT'),
+    adjudicate('B17', 'PACK-TRAILING'),
+  ]);
+  throwsCode(() => validateFixture(shortCompletedPack), 'E_SCOPE_PACK_SIZE');
+
+  const reopenedPack = transitionFixture([
+    ...appendixIds.slice(0, 3).map((id) => adjudicate(id, 'PACK-ONE')),
+    adjudicate('C16', 'PACK-TWO'),
+    adjudicate('B18', 'PACK-ONE'),
+  ]);
+  throwsCode(() => validateFixture(reopenedPack), 'E_SCOPE_PACK_SIZE');
+
+  const nine = transitionFixture([
+    ...appendixIds.map((id) => adjudicate(id)),
+    { id: 'A13', kind: 'REVALIDATE' },
+    { id: 'D12', kind: 'REVALIDATE' },
+  ]);
+  throwsCode(() => validateFixture(nine), 'E_SCOPE_PACK_SIZE');
+});
+
+test('journal transition kinds are mutually exclusive and truth-preserving', () => {
+  for (const kind of ['PROMOTE', 'DEMOTE', 'BLOCK', 'UNBLOCK', 'REVALIDATE']) {
+    throwsCode(
+      () =>
+        validateFixture(
+          transitionFixture([
+            {
+              id: 'B15',
+              kind,
+              status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
+            },
+          ]),
+        ),
+      'E_TRANSITION_INVALID',
+    );
+  }
+
+  throwsCode(
+    () =>
+      validateFixture(
+        transitionFixture([
+          {
+            id: 'A1',
+            kind: 'REVALIDATE',
+            status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
+          },
+        ]),
+      ),
+    'E_TRANSITION_INVALID',
+  );
+
+  const blockednessDelta = (kind) =>
+    transitionFixture([
+      {
+        id: 'B1',
+        kind,
+        afterOverride: (before) => ({
+          ...validatedOverride(before, { status: before.status }),
+          blockerClass: 'EXTERNAL_EVIDENCE',
+          blockingRefs: ['docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1'],
+          remainingGaps: ['An external evidence boundary remains blocked.'],
+        }),
+      },
+    ]);
+  throwsCode(() => validateFixture(blockednessDelta('REVALIDATE')), 'E_TRANSITION_INVALID');
+
+  for (const kind of ['BLOCK', 'UNBLOCK']) {
+    throwsCode(
+      () =>
+        validateFixture(
+          transitionFixture([
+            {
+              id: 'B1',
+              kind,
+              afterOverride: (before) => ({
+                ...validatedOverride(before, { status: before.status }),
+                nextAction: 'A fresh validation changed no status or blockedness.',
+              }),
+            },
+          ]),
+        ),
+      'E_TRANSITION_INVALID',
+    );
+  }
+
+  for (const kind of ['DEMOTE', 'BLOCK']) {
+    throwsCode(
+      () =>
+        validateFixture(
+          transitionFixture([
+            {
+              id: 'A1',
+              kind,
+              afterOverride: (before) => ({
+                ...validatedOverride(before, {
+                  status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
+                }),
+                blockerClass: 'EXTERNAL_EVIDENCE',
+                blockingRefs: ['docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1'],
+                remainingGaps: ['Completion and blockedness changed together.'],
+              }),
+            },
+          ]),
+        ),
+      'E_TRANSITION_INVALID',
+    );
+  }
+});
+
+test('journal transitions preserve historical evidence exactly', () => {
+  const mutations = [
+    (history) => history.shift(),
+    (history) => [history.splice(0, 2, history[1], history[0])],
+    (history) => {
+      history[0].note += ' mutated';
+    },
+  ];
+  for (const mutate of mutations) {
+    const fixture = transitionFixture([
+      {
+        id: 'A1',
+        kind: 'REVALIDATE',
+        afterOverride: (before) => {
+          const after = validatedOverride(before, { status: before.status });
+          mutate(after.historicalEvidenceRefs);
+          return after;
+        },
+      },
+    ]);
+    throwsCode(() => validateFixture(fixture), 'E_TRANSITION_INVALID');
+  }
+});
+
+test('journal rejects bad header, genesis, hash, sequence, ordering, multi-row, and prefix', () => {
+  const steps = ['B15', 'B16', 'B17'].map((id) => ({
+    id,
+    kind: 'ADJUDICATE',
+    status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
+  }));
+  const mutate = (callback) => {
+    const fixture = transitionFixture(steps);
+    callback(fixture);
+    return fixture;
+  };
+  throwsCode(
+    () => validateFixture(mutate(({ journal }) => (journal.schemaId = 'WRONG'))),
+    'E_JOURNAL_HEADER',
+  );
+  throwsCode(
+    () =>
+      validateFixture(
+        mutate(({ journal }) => (journal.genesisHash = sha256Hash('wrong genesis'))),
+      ),
+    'E_JOURNAL_GENESIS',
+  );
+  throwsCode(
+    () =>
+      validateFixture(mutate(({ journal }) => (journal.entries[0].entryHash = sha256Hash('bad')))),
+    'E_JOURNAL_HASH',
+  );
+  throwsCode(
+    () => validateFixture(mutate(({ journal }) => (journal.entries[1].sequence = 9))),
+    'E_JOURNAL_SEQUENCE',
+  );
+  throwsCode(
+    () =>
+      validateFixture(
+        mutate(({ journal }) => (journal.entries[1].recordedAt = journal.entries[0].recordedAt)),
+      ),
+    'E_JOURNAL_SEQUENCE',
+  );
+
+  const multiRow = transitionFixture([steps[0]]);
+  multiRow.journal.entries[0].afterOverride.secondRow = {};
+  multiRow.journal.entries[0].afterOverrideSha256 = amicCanonicalHash(
+    multiRow.journal.entries[0].afterOverride,
+  );
+  multiRow.journal.entries[0].entryHash = computeJournalEntryHash(multiRow.journal.entries[0]);
+  throwsCode(() => validateFixture(multiRow), 'E_TRANSITION_MULTI_ROW');
+
+  const prefix = transitionFixture([steps[0]]);
+  prefix.journal.entries[0].beforeOverrideSha256 = sha256Hash('wrong prefix');
+  prefix.journal.entries[0].entryHash = computeJournalEntryHash(prefix.journal.entries[0]);
+  throwsCode(() => validateFixture(prefix), 'E_REPLAY_MISMATCH');
+});
+
+test('journal replay validates time-sensitive evidence and blockers at every prefix asOf', () => {
+  const futureEvidence = transitionFixture([
+    {
+      id: 'B15',
+      kind: 'ADJUDICATE',
+      status: 'COMPLETE_CANDIDATE',
+      afterOverride: (before) => ({
+        ...validatedOverride(before, { status: 'COMPLETE_CANDIDATE' }),
+        evidenceRefs: [currentEvidence({ timestamp: '2026-07-17T00:00:03.000Z' })],
+      }),
+    },
+    { id: 'B16', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+    { id: 'B17', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+  ]);
+  throwsCode(() => validateFixture(futureEvidence), 'E_EVIDENCE_STALE');
+
+  const expiringBlocker = transitionFixture([
+    {
+      id: 'B13',
+      kind: 'REVALIDATE',
+      afterOverride: (before) => ({
+        ...validatedOverride(before, { status: before.status }),
+        blockerClass: 'EXTERNAL_EVIDENCE',
+        blockingRefs: ['docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2638'],
+        acceptedBlockers: [
+          acceptedBlocker({
+            acceptedAt: '2026-07-16T00:00:00.000Z',
+            expiresAt: '2026-07-17T00:00:02.500Z',
+          }),
+        ],
+        remainingGaps: ['The external routing dependency remains deferred and non-complete.'],
+      }),
+    },
+    { id: 'B15', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+    { id: 'B16', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+  ]);
+  throwsCode(() => validateFixture(expiringBlocker), 'E_BLOCKER_ACCEPTANCE');
+});
+
+test('journal permits complete REVALIDATE but rejects A10-before-A9 and A7 with blocked A6', () => {
+  const revalidated = validateFixture(
+    transitionFixture([{ id: 'A1', kind: 'REVALIDATE', status: 'COMPLETE_CANDIDATE' }]),
+  );
+  assert.equal(revalidated.rows.find((row) => row.id === 'A1').validationState, 'CURRENT_VALIDATED');
+
+  throwsCode(
+    () =>
+      validateFixture(
+        transitionFixture([
+          { id: 'A10', kind: 'REVALIDATE', status: 'COMPLETE_CANDIDATE' },
+        ]),
+      ),
+    'E_DEPENDENCY_GATE',
+  );
+
+  const a7Blocked = transitionFixture([
+    { id: 'A3', kind: 'REVALIDATE', status: 'COMPLETE_CANDIDATE' },
+    { id: 'A7', kind: 'REVALIDATE', status: 'COMPLETE_CANDIDATE' },
+  ]);
+  throwsCode(() => validateFixture(a7Blocked), 'E_DEPENDENCY_GATE');
+});
+
+test('journal FINAL_CLOSEOUT validates BLOCKED seal, UNADJUDICATED=0, and separate commit', () => {
+  const closeoutAt = '2026-07-17T00:10:00.000Z';
+  const latestEntryAt = '2026-07-17T00:09:59.000Z';
+  const rows = FROZEN_TUW_IDS.map((id) =>
+    currentRow({
+      id,
+      status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
+      evidenceRefs: [],
+      dependencies: [],
+      remainingGaps: [`${id} remains honestly non-complete.`],
+      statusRationale: `${id} has a current non-complete validation result.`,
+      nextAction: `Resolve ${id} before completion.`,
+    }),
+  );
+  const overrides = {
+    schemaVersion: 1,
+    updatedAt: latestEntryAt,
+    unitOverrides: Object.fromEntries(rows.map((row) => [row.id, row])),
+  };
+  const chainHead = sha256Hash('final entry');
+  const journal = {
+    candidateSha,
+    validationScopeDigest: validationScope().aggregateSha256,
+    asOf: closeoutAt,
+    entries: [{}, {}, {}],
+    closeoutSeal: {},
+  };
+  const facts = computeCloseoutFacts(overrides, rows);
+  const seal = {
+    recordedAt: closeoutAt,
+    candidateSha,
+    validationScopeDigest: validationScope().aggregateSha256,
+    disposition: 'BLOCKED',
+    entryCount: 3,
+    finalEntryHash: chainHead,
+    ...facts,
+    previousEntryHash: chainHead,
+    sealHash: null,
+  };
+  seal.sealHash = computeCloseoutSealHash(seal);
+  journal.closeoutSeal = seal;
+  assert.equal(deriveJournalPhase(journal), 'FINAL_CLOSEOUT');
+  assert.equal(validateCloseoutSeal(seal, { journal, overrides, rows, chainHead }), true);
+  assert.equal(
+    validateCloseoutAuthority(
+      seal,
+      () => ({
+        commitSha: 'f'.repeat(40),
+        recordedAt: closeoutAt,
+        changedPaths: [
+          'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
+          'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
+          'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
+        ],
+      }),
+      new Set(),
+      latestEntryAt,
+    ),
+    undefined,
+  );
+  throwsCode(
+    () =>
+      validateCloseoutAuthority(
+        seal,
+        () => ({
+          commitSha: 'e'.repeat(40),
+          recordedAt: closeoutAt,
+          changedPaths: transitionChangedPaths,
+        }),
+        new Set(),
+        latestEntryAt,
+      ),
+    'E_SCOPE_COMMIT',
+  );
+
+  const unadjudicatedRows = structuredClone(rows);
+  unadjudicatedRows[0].status = 'UNADJUDICATED';
+  const unadjudicatedFacts = computeCloseoutFacts(overrides, unadjudicatedRows);
+  const invalidSeal = {
+    ...seal,
+    ...unadjudicatedFacts,
+    statusCounts: unadjudicatedFacts.statusCounts,
+    sealHash: null,
+  };
+  invalidSeal.sealHash = computeCloseoutSealHash(invalidSeal);
+  throwsCode(
+    () =>
+      validateCloseoutSeal(invalidSeal, {
+        journal: { ...journal, closeoutSeal: invalidSeal },
+        overrides,
+        rows: unadjudicatedRows,
+        chainHead,
+      }),
+    'E_PHASE_UNADJUDICATED',
+  );
+});
+
 test('journal, replay, transition, and phase error families use registered exit codes', () => {
   for (const [code, expected] of [
     ['E_JOURNAL_SEQUENCE', 36],
@@ -746,6 +1725,35 @@ test('journal, replay, transition, and phase error families use registered exit 
     ['E_PHASE_UNADJUDICATED', 38],
   ]) {
     assert.equal(exitCodeFor(new LedgerValidationError(code, 'test error')), expected, code);
+  }
+});
+
+test('all concrete validator error codes are sealed and use exact exit families', () => {
+  const source = readFileSync(toolPath, 'utf8');
+  const concreteCodes = [
+    ...source.matchAll(/reject\(\s*['`](E_[A-Z_]+)['`]/g),
+  ].map((match) => match[1]);
+  assert.ok(concreteCodes.length > 0);
+  assert.ok(concreteCodes.every((code) => SEALED_ERROR_CODES.has(code)));
+  assert.throws(
+    () => new LedgerValidationError('E_NOT_REGISTERED', 'invalid'),
+    /Unregistered ledger validation error code/,
+  );
+  const expectedExit = (code) => {
+    if (code.startsWith('E_BOOTSTRAP_')) return 31;
+    if (code.startsWith('E_METADATA_')) return 32;
+    if (code.startsWith('E_EVIDENCE_')) return 33;
+    if (code.startsWith('E_DEPENDENCY_')) return 34;
+    if (code.startsWith('E_BLOCKER_')) return 35;
+    if (code.startsWith('E_JOURNAL_')) return 36;
+    if (code.startsWith('E_REPLAY_')) return 37;
+    if (code.startsWith('E_TRANSITION_') || code.startsWith('E_PHASE_')) return 38;
+    if (code.startsWith('E_DRIFT_') || code.startsWith('E_CHECK_')) return 39;
+    if (code.startsWith('E_SCOPE_')) return 40;
+    return 30;
+  };
+  for (const code of SEALED_ERROR_CODES) {
+    assert.equal(exitCodeFor(new LedgerValidationError(code, 'fixture')), expectedExit(code), code);
   }
 });
 
@@ -940,12 +1948,13 @@ test('evidence test counts and generated or non-durable completion support fail 
 
 test('blocker acceptance is external-only, bounded, scope-bound, and never completion', () => {
   const dependency = {
-    id: 'CAP-EXTERNAL-PROVIDER',
+    id: 'CAP-AI-STRUCTURED-STRONG-ROUTING',
     kind: 'external',
-    sourceText: 'Registered external provider receipt',
-    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:TEST',
+    sourceText: 'E(Gemma 구조화+Strong LLM 라우팅)',
+    resolutionRef: 'PACK-R14-02:T5-DEPREG-V1:B13/E-AI-ROUTING',
   };
   const row = currentRow({
+    id: 'B13',
     status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
     blockerClass: 'EXTERNAL_EVIDENCE',
     blockingRefs: ['docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:47'],
@@ -1032,6 +2041,7 @@ test('check failures for missing surfaces and invalid input preserve zero writes
   for (const missingPath of [
     'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
     'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
+    'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
   ]) {
     withCheckFixture((root) => {
       unlinkSync(join(root, missingPath));
@@ -1040,7 +2050,7 @@ test('check failures for missing surfaces and invalid input preserve zero writes
         cwd: root,
         encoding: 'utf8',
       });
-      assert.equal(checked.status, 39, checked.stderr);
+      assert.equal(checked.status, missingPath.endsWith('JOURNAL.json') ? 36 : 39, checked.stderr);
       assert.equal(JSON.parse(checked.stderr).writes, 0);
       assert.deepEqual(surfaceSnapshot(root), before);
     });
@@ -1060,6 +2070,24 @@ test('check failures for missing surfaces and invalid input preserve zero writes
     assert.equal(checked.status, 31, checked.stderr);
     assert.equal(output.code, 'E_BOOTSTRAP_IDENTITY');
     assert.equal(output.writes, 0);
+    assert.deepEqual(surfaceSnapshot(root), before);
+  });
+
+  withCheckFixture((root) => {
+    const path = join(
+      root,
+      'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
+    );
+    const journal = JSON.parse(readFileSync(path, 'utf8'));
+    journal.authorityCommit = '0'.repeat(40);
+    writeFileSync(path, `${JSON.stringify(journal, null, 2)}\n`);
+    const before = surfaceSnapshot(root);
+    const checked = spawnSync(process.execPath, [toolPath, '--check'], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    assert.equal(checked.status, 36, checked.stderr);
+    assert.equal(JSON.parse(checked.stderr).code, 'E_JOURNAL_HEADER');
     assert.deepEqual(surfaceSnapshot(root), before);
   });
 });

@@ -1,7 +1,7 @@
 # TUW Internal DMS Uplift 117 Status Ledger
 
 Generated from `docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md`. This ledger is an execution-control artifact, not completion evidence by itself.
-Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. All 117 rows are an inert `BOOTSTRAP_PREIMAGE`; legacy records are historical only and current evidence is empty.
+Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. All 117 rows remain an inert `BOOTSTRAP_PREIMAGE`; legacy records are historical only and current evidence is empty.
 
 ## Deterministic Metadata
 
@@ -10,7 +10,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. A
 - asOf / generatedAt: `2026-07-17T00:00:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
 - Overrides SHA-256: `d0404c84bfe3e7b4d14d071a0c9f267a87eb62a512a78f3e4d98499abaae6a4a`
-- Transition journal SHA-256: `null` (TUW-004 has not created the journal)
+- Transition journal SHA-256: `c1ac2b89d7e553968aef8918bab5945431c9257855dddd2da9428d4a355767c7`
 
 ## Objective
 
@@ -35,7 +35,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. A
 - collect current changed-file LSP diagnostics where the tool is available
 - collect staging/manual QA receipts for TUWs whose acceptance block requires them
 - record current evidence refs in this ledger
-- do not promote or demote from this inert bootstrap; TUW-004 must register and replay the transition journal first
+- apply state changes only through the sealed one-row transition journal and require every replay prefix to validate
 
 ## Rows
 

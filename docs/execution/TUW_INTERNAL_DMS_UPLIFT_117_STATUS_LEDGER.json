@@ -13,7 +13,10 @@
       "algorithm": "SHA-256",
       "value": "d0404c84bfe3e7b4d14d071a0c9f267a87eb62a512a78f3e4d98499abaae6a4a"
     },
-    "transitionJournalSha256": null,
+    "transitionJournalSha256": {
+      "algorithm": "SHA-256",
+      "value": "c1ac2b89d7e553968aef8918bab5945431c9257855dddd2da9428d4a355767c7"
+    },
     "asOf": "2026-07-17T00:00:00.000Z",
     "phase": "BOOTSTRAP_IMPORT"
   },
@@ -37,7 +40,7 @@
     "collect current changed-file LSP diagnostics where the tool is available",
     "collect staging/manual QA receipts for TUWs whose acceptance block requires them",
     "record current evidence refs in this ledger",
-    "do not promote or demote from this inert bootstrap; TUW-004 must register and replay the transition journal first"
+    "apply state changes only through the sealed one-row transition journal and require every replay prefix to validate"
   ],
   "counts": {
     "COMPLETE_CANDIDATE": 19,
@@ -306,7 +309,12 @@
       },
       "status": "COMPLETE_CANDIDATE",
       "dependencies": [
-        "A1"
+        {
+          "id": "A1",
+          "kind": "hard",
+          "sourceText": "A1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -1652,8 +1660,18 @@
       },
       "status": "COMPLETE_CANDIDATE",
       "dependencies": [
-        "A3",
-        "A6"
+        {
+          "id": "A3",
+          "kind": "hard",
+          "sourceText": "A3",
+          "resolutionRef": null
+        },
+        {
+          "id": "A6",
+          "kind": "hard",
+          "sourceText": "A6",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -5884,7 +5902,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C4"
+        {
+          "id": "C4",
+          "kind": "hard",
+          "sourceText": "C4",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -6427,9 +6450,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C5",
-        "C1",
-        "C2"
+        {
+          "id": "C5",
+          "kind": "hard",
+          "sourceText": "C5",
+          "resolutionRef": null
+        },
+        {
+          "id": "C1",
+          "kind": "hard",
+          "sourceText": "C1",
+          "resolutionRef": null
+        },
+        {
+          "id": "C2",
+          "kind": "hard",
+          "sourceText": "C2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -6985,9 +7023,24 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "C4",
-        "C6",
-        "C3"
+        {
+          "id": "C4",
+          "kind": "hard",
+          "sourceText": "C4",
+          "resolutionRef": null
+        },
+        {
+          "id": "C6",
+          "kind": "hard",
+          "sourceText": "C6",
+          "resolutionRef": null
+        },
+        {
+          "id": "C3",
+          "kind": "hard",
+          "sourceText": "C3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -7958,7 +8011,12 @@
       },
       "status": "COMPLETE_CANDIDATE",
       "dependencies": [
-        "D2"
+        {
+          "id": "D2",
+          "kind": "hard",
+          "sourceText": "D2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -8240,8 +8298,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "D2",
-        "D3"
+        {
+          "id": "D2",
+          "kind": "hard",
+          "sourceText": "D2",
+          "resolutionRef": null
+        },
+        {
+          "id": "D3",
+          "kind": "hard",
+          "sourceText": "D3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -9273,7 +9341,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E1"
+        {
+          "id": "E1",
+          "kind": "hard",
+          "sourceText": "E1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -9526,7 +9599,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E3"
+        {
+          "id": "E3",
+          "kind": "hard",
+          "sourceText": "E3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -12617,7 +12695,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "A6"
+        {
+          "id": "A6",
+          "kind": "hard",
+          "sourceText": "A6",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -13358,7 +13441,12 @@
       },
       "status": "COMPLETE_CANDIDATE",
       "dependencies": [
-        "A9"
+        {
+          "id": "A9",
+          "kind": "hard",
+          "sourceText": "A9",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -13623,9 +13711,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "A9",
-        "B4(버전 표준 라벨 — 체결본 판정 앵커)",
-        "G1(소프트: 계약 라이프사이클 executed 상태)"
+        {
+          "id": "A9",
+          "kind": "hard",
+          "sourceText": "A9",
+          "resolutionRef": null
+        },
+        {
+          "id": "B4",
+          "kind": "hard",
+          "sourceText": "B4(버전 표준 라벨 — 체결본 판정 앵커)",
+          "resolutionRef": null
+        },
+        {
+          "id": "G1",
+          "kind": "soft",
+          "sourceText": "G1(소프트: 계약 라이프사이클 executed 상태)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -13877,7 +13980,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "A11"
+        {
+          "id": "A11",
+          "kind": "hard",
+          "sourceText": "A11",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -14227,7 +14335,12 @@
       },
       "status": "COMPLETE_CANDIDATE",
       "dependencies": [
-        "A3"
+        {
+          "id": "A3",
+          "kind": "hard",
+          "sourceText": "A3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -14761,7 +14874,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "B5"
+        {
+          "id": "B5",
+          "kind": "hard",
+          "sourceText": "B5",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -15151,7 +15269,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "B7"
+        {
+          "id": "B7",
+          "kind": "hard",
+          "sourceText": "B7",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -15559,7 +15682,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "B2"
+        {
+          "id": "B2",
+          "kind": "hard",
+          "sourceText": "B2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -15802,7 +15930,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "B2"
+        {
+          "id": "B2",
+          "kind": "hard",
+          "sourceText": "B2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -16449,8 +16582,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "B4",
-        "B10"
+        {
+          "id": "B4",
+          "kind": "hard",
+          "sourceText": "B4",
+          "resolutionRef": null
+        },
+        {
+          "id": "B10",
+          "kind": "hard",
+          "sourceText": "B10",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -16745,7 +16888,12 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "B6"
+        {
+          "id": "B6",
+          "kind": "hard",
+          "sourceText": "B6",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -17029,7 +17177,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C3"
+        {
+          "id": "C3",
+          "kind": "hard",
+          "sourceText": "C3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -17390,7 +17543,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C3"
+        {
+          "id": "C3",
+          "kind": "hard",
+          "sourceText": "C3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -17723,7 +17881,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C1"
+        {
+          "id": "C1",
+          "kind": "hard",
+          "sourceText": "C1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -18002,8 +18165,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C10",
-        "C3"
+        {
+          "id": "C10",
+          "kind": "hard",
+          "sourceText": "C10",
+          "resolutionRef": null
+        },
+        {
+          "id": "C3",
+          "kind": "hard",
+          "sourceText": "C3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -18253,8 +18426,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C3",
-        "C1"
+        {
+          "id": "C3",
+          "kind": "hard",
+          "sourceText": "C3",
+          "resolutionRef": null
+        },
+        {
+          "id": "C1",
+          "kind": "hard",
+          "sourceText": "C1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -18719,9 +18902,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C9",
-        "C12",
-        "C3"
+        {
+          "id": "C9",
+          "kind": "hard",
+          "sourceText": "C9",
+          "resolutionRef": null
+        },
+        {
+          "id": "C12",
+          "kind": "hard",
+          "sourceText": "C12",
+          "resolutionRef": null
+        },
+        {
+          "id": "C3",
+          "kind": "hard",
+          "sourceText": "C3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -19128,7 +19326,12 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "C7"
+        {
+          "id": "C7",
+          "kind": "hard",
+          "sourceText": "C7",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -19754,7 +19957,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "D1"
+        {
+          "id": "D1",
+          "kind": "hard",
+          "sourceText": "D1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -20053,7 +20261,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "B(OCR 엔진 — ingestion 워커의 스캔 PDF OCR 스테이지)"
+        {
+          "id": "B1",
+          "kind": "hard",
+          "sourceText": "B(OCR 엔진 — ingestion 워커의 스캔 PDF OCR 스테이지)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D7/B-OCR"
+        }
       ],
       "codeAnchors": [
         {
@@ -20380,8 +20593,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C(Outlook Graph 실연동 — 이메일 소스 자동 유입",
-        "소프트 의존: 현행 업로드/파일링 경로만으로 완결 가능)"
+        {
+          "id": "CAP-OUTLOOK-GRAPH-AUTO-INGEST",
+          "kind": "soft",
+          "sourceText": "C(Outlook Graph 실연동 — 이메일 소스 자동 유입, 소프트 의존: 현행 업로드/파일링 경로만으로 완결 가능)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D8/C-OUTLOOK-AUTO-INGEST"
+        }
       ],
       "codeAnchors": [
         {
@@ -20611,10 +20828,30 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "D2",
-        "D4",
-        "E(E2 Gemma 생성·E8 Strong LLM 라우팅 — 답변 생성 품질",
-        "소프트 의존: 기존 로컬 생성 경로로 선출시 가능)"
+        {
+          "id": "D2",
+          "kind": "hard",
+          "sourceText": "D2",
+          "resolutionRef": null
+        },
+        {
+          "id": "D4",
+          "kind": "hard",
+          "sourceText": "D4",
+          "resolutionRef": null
+        },
+        {
+          "id": "E2",
+          "kind": "soft",
+          "sourceText": "E(E2 Gemma 생성·E8 Strong LLM 라우팅 — 답변 생성 품질, 소프트 의존: 기존 로컬 생성 경로로 선출시 가능)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D10/E2-GEMMA"
+        },
+        {
+          "id": "E8",
+          "kind": "soft",
+          "sourceText": "E(E2 Gemma 생성·E8 Strong LLM 라우팅 — 답변 생성 품질, 소프트 의존: 기존 로컬 생성 경로로 선출시 가능)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D10/E8-STRONG-ROUTING"
+        }
       ],
       "codeAnchors": [
         {
@@ -21122,7 +21359,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E2"
+        {
+          "id": "E2",
+          "kind": "hard",
+          "sourceText": "E2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -21355,8 +21597,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E2",
-        "F(그래프 후보 candidate/confirmed 상태 스키마·승인 확정 플로우)"
+        {
+          "id": "E2",
+          "kind": "hard",
+          "sourceText": "E2",
+          "resolutionRef": null
+        },
+        {
+          "id": "CAP-GRAPH-CANDIDATE-CONFIRMATION",
+          "kind": "conditional",
+          "sourceText": "F(그래프 후보 candidate/confirmed 상태 스키마·승인 확정 플로우)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E7/F-GRAPH-CONFIRMATION"
+        }
       ],
       "codeAnchors": [
         {
@@ -21558,8 +21810,18 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "E4",
-        "E5"
+        {
+          "id": "E4",
+          "kind": "hard",
+          "sourceText": "E4",
+          "resolutionRef": null
+        },
+        {
+          "id": "E5",
+          "kind": "hard",
+          "sourceText": "E5",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -21731,8 +21993,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E3",
-        "E7"
+        {
+          "id": "E3",
+          "kind": "hard",
+          "sourceText": "E3",
+          "resolutionRef": null
+        },
+        {
+          "id": "E7",
+          "kind": "hard",
+          "sourceText": "E7",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -21944,8 +22216,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E2",
-        "E3"
+        {
+          "id": "E2",
+          "kind": "hard",
+          "sourceText": "E2",
+          "resolutionRef": null
+        },
+        {
+          "id": "E3",
+          "kind": "hard",
+          "sourceText": "E3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -22210,9 +22492,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E2",
-        "E3",
-        "C(Email Vault Outlook Graph 실연동 — 쓰레드 단위 인입 확대)"
+        {
+          "id": "E2",
+          "kind": "hard",
+          "sourceText": "E2",
+          "resolutionRef": null
+        },
+        {
+          "id": "E3",
+          "kind": "hard",
+          "sourceText": "E3",
+          "resolutionRef": null
+        },
+        {
+          "id": "CAP-OUTLOOK-GRAPH-THREAD-INGEST",
+          "kind": "soft",
+          "sourceText": "C(Email Vault Outlook Graph 실연동 — 쓰레드 단위 인입 확대)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E11/C-OUTLOOK-THREAD-INGEST"
+        }
       ],
       "codeAnchors": [
         {
@@ -22487,8 +22784,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E7",
-        "G(contracts/dd/litigation hidden-route 봉인 해제·화면 노출)"
+        {
+          "id": "E7",
+          "kind": "hard",
+          "sourceText": "E7",
+          "resolutionRef": null
+        },
+        {
+          "id": "G2",
+          "kind": "hard",
+          "sourceText": "G(contracts/dd/litigation hidden-route 봉인 해제·화면 노출)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E12/G-HIDDEN-ROUTES"
+        }
       ],
       "codeAnchors": [
         {
@@ -23116,7 +23423,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F1"
+        {
+          "id": "F1",
+          "kind": "hard",
+          "sourceText": "F1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -23354,7 +23666,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F1"
+        {
+          "id": "F1",
+          "kind": "hard",
+          "sourceText": "F1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -23886,8 +24203,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F1",
-        "A6(기본개방 권한 의미론 변경 반영)"
+        {
+          "id": "F1",
+          "kind": "hard",
+          "sourceText": "F1",
+          "resolutionRef": null
+        },
+        {
+          "id": "A6",
+          "kind": "hard",
+          "sourceText": "A6(기본개방 권한 의미론 변경 반영)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -24159,9 +24486,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F1",
-        "F4",
-        "F7"
+        {
+          "id": "F1",
+          "kind": "hard",
+          "sourceText": "F1",
+          "resolutionRef": null
+        },
+        {
+          "id": "F4",
+          "kind": "hard",
+          "sourceText": "F4",
+          "resolutionRef": null
+        },
+        {
+          "id": "F7",
+          "kind": "hard",
+          "sourceText": "F7",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -24334,9 +24676,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F3",
-        "F4",
-        "G13(work queue kind 확장)"
+        {
+          "id": "F3",
+          "kind": "hard",
+          "sourceText": "F3",
+          "resolutionRef": null
+        },
+        {
+          "id": "F4",
+          "kind": "hard",
+          "sourceText": "F4",
+          "resolutionRef": null
+        },
+        {
+          "id": "G13",
+          "kind": "hard",
+          "sourceText": "G13(work queue kind 확장)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -24609,9 +24966,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F1",
-        "F2",
-        "F5"
+        {
+          "id": "F1",
+          "kind": "hard",
+          "sourceText": "F1",
+          "resolutionRef": null
+        },
+        {
+          "id": "F2",
+          "kind": "hard",
+          "sourceText": "F2",
+          "resolutionRef": null
+        },
+        {
+          "id": "F5",
+          "kind": "hard",
+          "sourceText": "F5",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -24880,7 +25252,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F2"
+        {
+          "id": "F2",
+          "kind": "hard",
+          "sourceText": "F2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -25148,9 +25525,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G1",
-        "G2",
-        "B(문서 버전 비교 diff API/뷰)"
+        {
+          "id": "G1",
+          "kind": "hard",
+          "sourceText": "G1",
+          "resolutionRef": null
+        },
+        {
+          "id": "G2",
+          "kind": "hard",
+          "sourceText": "G2",
+          "resolutionRef": null
+        },
+        {
+          "id": "B11",
+          "kind": "hard",
+          "sourceText": "B(문서 버전 비교 diff API/뷰)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:G3/B-DIFF"
+        }
       ],
       "codeAnchors": [
         {
@@ -25655,7 +26047,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G2"
+        {
+          "id": "G2",
+          "kind": "hard",
+          "sourceText": "G2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -25959,8 +26356,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G5",
-        "G13"
+        {
+          "id": "G5",
+          "kind": "hard",
+          "sourceText": "G5",
+          "resolutionRef": null
+        },
+        {
+          "id": "G13",
+          "kind": "hard",
+          "sourceText": "G13",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -26254,7 +26661,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G2"
+        {
+          "id": "G2",
+          "kind": "hard",
+          "sourceText": "G2",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -26551,8 +26963,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G2",
-        "G13"
+        {
+          "id": "G2",
+          "kind": "hard",
+          "sourceText": "G2",
+          "resolutionRef": null
+        },
+        {
+          "id": "G13",
+          "kind": "hard",
+          "sourceText": "G13",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -26826,7 +27248,12 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "B(서버사이드 PDF 워터마크 렌더링)"
+        {
+          "id": "B3",
+          "kind": "hard",
+          "sourceText": "B(서버사이드 PDF 워터마크 렌더링)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:G9/B-WATERMARK"
+        }
       ],
       "codeAnchors": [
         {
@@ -27216,8 +27643,18 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "G9",
-        "G10"
+        {
+          "id": "G9",
+          "kind": "hard",
+          "sourceText": "G9",
+          "resolutionRef": null
+        },
+        {
+          "id": "G10",
+          "kind": "hard",
+          "sourceText": "G10",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -27317,8 +27754,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G10",
-        "G13"
+        {
+          "id": "G10",
+          "kind": "hard",
+          "sourceText": "G10",
+          "resolutionRef": null
+        },
+        {
+          "id": "G13",
+          "kind": "hard",
+          "sourceText": "G13",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -27776,7 +28223,12 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "H3(백업·암호화 설정 확정값을 tf 파라미터로 승계)"
+        {
+          "id": "H3",
+          "kind": "hard",
+          "sourceText": "H3(백업·암호화 설정 확정값을 tf 파라미터로 승계)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -28928,7 +29380,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C11(MSG 파싱 — PST 항목 유입 경로)"
+        {
+          "id": "C11",
+          "kind": "hard",
+          "sourceText": "C11(MSG 파싱 — PST 항목 유입 경로)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -29118,10 +29575,30 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "A11",
-        "A12",
-        "F11(조항은행 2.0)",
-        "G13(work queue kind 확장)"
+        {
+          "id": "A11",
+          "kind": "hard",
+          "sourceText": "A11",
+          "resolutionRef": null
+        },
+        {
+          "id": "A12",
+          "kind": "hard",
+          "sourceText": "A12",
+          "resolutionRef": null
+        },
+        {
+          "id": "F11",
+          "kind": "hard",
+          "sourceText": "F11(조항은행 2.0)",
+          "resolutionRef": null
+        },
+        {
+          "id": "G13",
+          "kind": "hard",
+          "sourceText": "G13(work queue kind 확장)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -29465,9 +29942,24 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "B11",
-        "E(Gemma 구조화+Strong LLM 라우팅)",
-        "C(Outlook Graph 송부 연동)"
+        {
+          "id": "B11",
+          "kind": "hard",
+          "sourceText": "B11",
+          "resolutionRef": null
+        },
+        {
+          "id": "CAP-AI-STRUCTURED-STRONG-ROUTING",
+          "kind": "external",
+          "sourceText": "E(Gemma 구조화+Strong LLM 라우팅)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:B13/E-AI-ROUTING"
+        },
+        {
+          "id": "C16",
+          "kind": "hard",
+          "sourceText": "C(Outlook Graph 송부 연동)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:B13/C-OUTLOOK-SEND"
+        }
       ],
       "codeAnchors": [
         {
@@ -29588,7 +30080,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F(조항은행 검색 API)"
+        {
+          "id": "F11",
+          "kind": "hard",
+          "sourceText": "F(조항은행 검색 API)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:B14/F-CLAUSE-SEARCH"
+        }
       ],
       "codeAnchors": [
         {
@@ -29853,8 +30350,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "C6",
-        "C7(add-in 파일럿 배포 전제)"
+        {
+          "id": "C6",
+          "kind": "hard",
+          "sourceText": "C6",
+          "resolutionRef": null
+        },
+        {
+          "id": "C7",
+          "kind": "hard",
+          "sourceText": "C7(add-in 파일럿 배포 전제)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -30206,10 +30713,30 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "D1",
-        "D2",
-        "D4",
-        "A6(기본개방 권한 의미론 변경 반영)"
+        {
+          "id": "D1",
+          "kind": "hard",
+          "sourceText": "D1",
+          "resolutionRef": null
+        },
+        {
+          "id": "D2",
+          "kind": "hard",
+          "sourceText": "D2",
+          "resolutionRef": null
+        },
+        {
+          "id": "D4",
+          "kind": "hard",
+          "sourceText": "D4",
+          "resolutionRef": null
+        },
+        {
+          "id": "A6",
+          "kind": "hard",
+          "sourceText": "A6(기본개방 권한 의미론 변경 반영)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -30560,8 +31087,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "D1",
-        "F(조항은행 — contract-intel 조항 파싱 데이터 적재 확대)"
+        {
+          "id": "D1",
+          "kind": "hard",
+          "sourceText": "D1",
+          "resolutionRef": null
+        },
+        {
+          "id": "CAP-CLAUSE-BANK-PARSED-CORPUS",
+          "kind": "hard",
+          "sourceText": "F(조항은행 — contract-intel 조항 파싱 데이터 적재 확대)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D11/F-CLAUSE-CORPUS"
+        }
       ],
       "codeAnchors": [
         {
@@ -30881,8 +31418,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "H(국내 법률데이터 연동 — 국가법령정보센터/판례 API 커넥터)",
-        "D1"
+        {
+          "id": "H12",
+          "kind": "hard",
+          "sourceText": "H(국내 법률데이터 연동 — 국가법령정보센터/판례 API 커넥터)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D12/H-LAW-DATA"
+        },
+        {
+          "id": "D1",
+          "kind": "hard",
+          "sourceText": "D1",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -31177,9 +31724,24 @@
       },
       "status": "EXTERNAL_BLOCKED",
       "dependencies": [
-        "E8",
-        "E10",
-        "B(문서 편집·버전 관리 기반)"
+        {
+          "id": "E8",
+          "kind": "hard",
+          "sourceText": "E8",
+          "resolutionRef": null
+        },
+        {
+          "id": "E10",
+          "kind": "hard",
+          "sourceText": "E10",
+          "resolutionRef": null
+        },
+        {
+          "id": "CAP-DOCUMENT-DRAFT-VERSION-PERSISTENCE",
+          "kind": "hard",
+          "sourceText": "B(문서 편집·버전 관리 기반)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E13/B-EDITING-BASE"
+        }
       ],
       "codeAnchors": [
         {
@@ -31299,10 +31861,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "E7",
-        "E9",
-        "F(확정 graph facts — candidate",
-        "confirmed 승인 플로우)"
+        {
+          "id": "E7",
+          "kind": "hard",
+          "sourceText": "E7",
+          "resolutionRef": null
+        },
+        {
+          "id": "E9",
+          "kind": "hard",
+          "sourceText": "E9",
+          "resolutionRef": null
+        },
+        {
+          "id": "F9",
+          "kind": "hard",
+          "sourceText": "F(확정 graph facts — candidate→confirmed 승인 플로우)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E14/F-CONFIRMED-FACTS"
+        }
       ],
       "codeAnchors": [
         {
@@ -31505,8 +32081,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F11",
-        "D2(실임베딩 서비스 bge-m3)"
+        {
+          "id": "F11",
+          "kind": "hard",
+          "sourceText": "F11",
+          "resolutionRef": null
+        },
+        {
+          "id": "D2",
+          "kind": "hard",
+          "sourceText": "D2(실임베딩 서비스 bge-m3)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -31789,9 +32375,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F1",
-        "F2",
-        "F11"
+        {
+          "id": "F1",
+          "kind": "hard",
+          "sourceText": "F1",
+          "resolutionRef": null
+        },
+        {
+          "id": "F2",
+          "kind": "hard",
+          "sourceText": "F2",
+          "resolutionRef": null
+        },
+        {
+          "id": "F11",
+          "kind": "hard",
+          "sourceText": "F11",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -32063,11 +32664,36 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F1",
-        "F3",
-        "F4",
-        "F8",
-        "F9"
+        {
+          "id": "F1",
+          "kind": "hard",
+          "sourceText": "F1",
+          "resolutionRef": null
+        },
+        {
+          "id": "F3",
+          "kind": "hard",
+          "sourceText": "F3",
+          "resolutionRef": null
+        },
+        {
+          "id": "F4",
+          "kind": "hard",
+          "sourceText": "F4",
+          "resolutionRef": null
+        },
+        {
+          "id": "F8",
+          "kind": "hard",
+          "sourceText": "F8",
+          "resolutionRef": null
+        },
+        {
+          "id": "F9",
+          "kind": "hard",
+          "sourceText": "F9",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -32393,7 +33019,12 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G3"
+        {
+          "id": "G3",
+          "kind": "hard",
+          "sourceText": "G3",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -32828,9 +33459,24 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "G3",
-        "G5",
-        "A12(Closing Binder 빌더 — 산출물 소비)"
+        {
+          "id": "G3",
+          "kind": "hard",
+          "sourceText": "G3",
+          "resolutionRef": null
+        },
+        {
+          "id": "G5",
+          "kind": "hard",
+          "sourceText": "G5",
+          "resolutionRef": null
+        },
+        {
+          "id": "A12",
+          "kind": "hard",
+          "sourceText": "A12(Closing Binder 빌더 — 산출물 소비)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -33299,7 +33945,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "F(F1 Authority 노드 타입·F4 Citation Ledger 연결 규약 협의 — 차단 아님)"
+        {
+          "id": "F1",
+          "kind": "soft",
+          "sourceText": "F(F1 Authority 노드 타입·F4 Citation Ledger 연결 규약 협의 — 차단 아님)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:H12/F-AUTHORITY-CITATION"
+        },
+        {
+          "id": "F4",
+          "kind": "soft",
+          "sourceText": "F(F1 Authority 노드 타입·F4 Citation Ledger 연결 규약 협의 — 차단 아님)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:H12/F-AUTHORITY-CITATION"
+        }
       ],
       "codeAnchors": [
         {
@@ -33985,8 +34642,18 @@
       },
       "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
-        "H1(로그인 플로 리팩터링 선행 — mfa_pending 상태머신과의 충돌 방지)",
-        "H2(비활성 사용자 거부 경로 재사용)"
+        {
+          "id": "H1",
+          "kind": "hard",
+          "sourceText": "H1(로그인 플로 리팩터링 선행 — mfa_pending 상태머신과의 충돌 방지)",
+          "resolutionRef": null
+        },
+        {
+          "id": "H2",
+          "kind": "hard",
+          "sourceText": "H2(비활성 사용자 거부 경로 재사용)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -34185,9 +34852,7 @@
         "planLine": 3094
       },
       "status": "UNADJUDICATED",
-      "dependencies": [
-        "없음 (A4 구현분 재사용)"
-      ],
+      "dependencies": [],
       "codeAnchors": [
         {
           "anchor": "db/migrations/(신규)_add_documents_updated_by.sql",
@@ -34257,7 +34922,12 @@
       },
       "status": "UNADJUDICATED",
       "dependencies": [
-        "B6(잠금 운영성 — 해제 요청 연계)"
+        {
+          "id": "B6",
+          "kind": "hard",
+          "sourceText": "B6(잠금 운영성 — 해제 요청 연계)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -34335,8 +35005,18 @@
       },
       "status": "UNADJUDICATED",
       "dependencies": [
-        "B12(데스크톱 브리지 다이얼로그 연계 — 소프트)",
-        "B4(버전 라벨 — 구현 완료)"
+        {
+          "id": "B12",
+          "kind": "soft",
+          "sourceText": "B12(데스크톱 브리지 다이얼로그 연계 — 소프트)",
+          "resolutionRef": null
+        },
+        {
+          "id": "B4",
+          "kind": "hard",
+          "sourceText": "B4(버전 라벨 — 구현 완료)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -34393,10 +35073,30 @@
       },
       "status": "UNADJUDICATED",
       "dependencies": [
-        "C5",
-        "C6",
-        "C7(파일럿 배포)",
-        "C13(추천 밴드 — 소프트)"
+        {
+          "id": "C5",
+          "kind": "hard",
+          "sourceText": "C5",
+          "resolutionRef": null
+        },
+        {
+          "id": "C6",
+          "kind": "hard",
+          "sourceText": "C6",
+          "resolutionRef": null
+        },
+        {
+          "id": "C7",
+          "kind": "hard",
+          "sourceText": "C7(파일럿 배포)",
+          "resolutionRef": null
+        },
+        {
+          "id": "C13",
+          "kind": "soft",
+          "sourceText": "C13(추천 밴드 — 소프트)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -34461,9 +35161,7 @@
         "planLine": 3142
       },
       "status": "UNADJUDICATED",
-      "dependencies": [
-        "없음 (독립 패키지)"
-      ],
+      "dependencies": [],
       "codeAnchors": [
         {
           "anchor": "신규: packages/redline/**",
@@ -34518,9 +35216,24 @@
       },
       "status": "UNADJUDICATED",
       "dependencies": [
-        "B18",
-        "B3(워터마크 — 외부공유 경로)",
-        "H6(워커 — 소프트)"
+        {
+          "id": "B18",
+          "kind": "hard",
+          "sourceText": "B18",
+          "resolutionRef": null
+        },
+        {
+          "id": "B3",
+          "kind": "hard",
+          "sourceText": "B3(워터마크 — 외부공유 경로)",
+          "resolutionRef": null
+        },
+        {
+          "id": "H6",
+          "kind": "soft",
+          "sourceText": "H6(워커 — 소프트)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [
         {
@@ -34592,8 +35305,18 @@
       },
       "status": "UNADJUDICATED",
       "dependencies": [
-        "B18",
-        "B19(운영 피드백)"
+        {
+          "id": "B18",
+          "kind": "hard",
+          "sourceText": "B18",
+          "resolutionRef": null
+        },
+        {
+          "id": "B19",
+          "kind": "hard",
+          "sourceText": "B19(운영 피드백)",
+          "resolutionRef": null
+        }
       ],
       "codeAnchors": [],
       "acceptanceTests": [],
