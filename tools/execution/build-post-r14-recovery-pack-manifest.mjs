@@ -2839,8 +2839,9 @@ export function validateAuthorityArtifacts(manifest, {
       const parentMarker = parentLine.match(listMarkerPattern);
       if (parentMarker) {
         const parentIndent = markdownColumnWidth(parentMarker[1]);
-        const parentContentIndent = parentIndent
-          + markdownColumnWidth(parentMarker[2] + parentMarker[3]);
+        const parentContentIndent = markdownColumnWidth(
+          parentMarker[1] + parentMarker[2] + parentMarker[3],
+        );
         if (parentIndent < indent) {
           return indent >= parentContentIndent && indent <= parentContentIndent + 3;
         }
