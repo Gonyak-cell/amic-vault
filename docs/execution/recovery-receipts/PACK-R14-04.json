@@ -89,7 +89,8 @@
   },
   "verification": {
     "exactHeadRequired": true,
-    "status": "PENDING",
+    "status": "PASS_PENDING_FINAL_LEDGER_HEAD_RECHECK",
+    "verifiedHeadBeforeLedgerCloseout": "9314c61b92f2fb23ac2d8e0a164c33476d088476",
     "commands": [
       "node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check --committed-only",
       "pnpm install --frozen-lockfile",
