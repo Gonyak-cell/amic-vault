@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `13e0bda8b753f0bb637bee1178bed7838f96666e891930e7b3db3bd2117c3526`.
+  `bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2107,8 +2107,8 @@ OR-style batching is forbidden. Vitest explicitly disables
 at least one executed test, every executed test passing, and zero failed,
 cancelled, skipped, pending, todo, xfail, xpass, or deselected tests. Focused
 runner startup failure also fails closed. Helper-only integration directories
-are non-executable. Package commands use the repository-pinned `corepack pnpm`
-rather than an ambient global pnpm.
+are non-executable. Package commands use the repository-selected pnpm 9.15.9;
+an unavailable binary or Node/pnpm engine mismatch fails closed.
 Every earlier provider is an explicit predecessor and an owned planned gap is
 classified as predecessor-provided in successor PACKs. Frozen dependency
 installation and any required Python bootstrap must precede focused execution.

@@ -13,7 +13,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '13e0bda8b753f0bb637bee1178bed7838f96666e891930e7b3db3bd2117c3526';
+const CANONICAL_PAYLOAD_SHA256 = 'bb9ebac9a5d25cf53be5fe0ca99bce90f6dd7675dd8186ab0826f9f62940d724';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -86,13 +86,13 @@ const TRANSITION_CONTROL_PLANE_PATHS = [
 ];
 
 const COMMON_COMMANDS = [
-  'corepack pnpm install --frozen-lockfile',
-  'corepack pnpm lint',
-  'corepack pnpm typecheck',
-  'corepack pnpm test',
-  'corepack pnpm build',
-  'corepack pnpm backlog:validate',
-  'corepack pnpm docs:frozen',
+  'pnpm install --frozen-lockfile',
+  'pnpm lint',
+  'pnpm typecheck',
+  'pnpm test',
+  'pnpm build',
+  'pnpm backlog:validate',
+  'pnpm docs:frozen',
   'git diff --check',
 ];
 
@@ -790,16 +790,16 @@ function focusedRunnerInvocation(testPath) {
   if (runner === 'WORKSPACE_VITEST') {
     return {
       runner,
-      command: 'corepack',
-      args: ['pnpm', '--filter', route[1], 'test', '--', testCommandSelector(testPath),
+      command: 'pnpm',
+      args: ['--filter', route[1], 'test', '--', testCommandSelector(testPath),
         '--passWithNoTests=false'],
     };
   }
   if (runner === 'ROOT_VITEST') {
     return {
       runner,
-      command: 'corepack',
-      args: ['pnpm', 'exec', 'vitest', 'run', testPath, '--passWithNoTests=false'],
+      command: 'pnpm',
+      args: ['exec', 'vitest', 'run', testPath, '--passWithNoTests=false'],
     };
   }
   if (runner === 'NODE_TEST') {
@@ -819,8 +819,8 @@ function focusedRunnerInvocation(testPath) {
   if (runner === 'INTEGRATION') {
     return {
       runner,
-      command: 'corepack',
-      args: ['pnpm', 'test:integration', '--', testPath],
+      command: 'pnpm',
+      args: ['test:integration', '--', testPath],
     };
   }
   throw new Error('focused test path has no executable runner: ' + testPath);
@@ -1083,15 +1083,12 @@ function verificationCommands(pack, focusedTestPaths) {
     commands.push(...integrationCommands.filter(
       (command) => command.startsWith(FOCUSED_ASSERT_COMMAND),
     ));
-    const isolatedCommands = [database.composeUp, database.run('corepack pnpm db:migrate')];
+    const isolatedCommands = [database.composeUp, database.run('pnpm db:migrate')];
     if (pack.migrationSourceOrdinals.length) {
-      isolatedCommands.push(
-        database.run('corepack pnpm db:rollback'),
-        database.run('corepack pnpm db:migrate'),
-      );
+      isolatedCommands.push(database.run('pnpm db:rollback'), database.run('pnpm db:migrate'));
     }
     isolatedCommands.push(
-      database.run('corepack pnpm db:seed'),
+      database.run('pnpm db:seed'),
       ...integrationCommands
         .filter((command) => command.startsWith(FOCUSED_RUN_COMMAND))
         .map((command) => database.run(command)),
@@ -2519,11 +2516,11 @@ export function validateManifest(manifest) {
       const wrapperCommand = commands.find((command) =>
         command.startsWith('bash -c ') && command.includes(database.lockPath));
       const wrapper = wrapperCommand ? executableCommandText(wrapperCommand) : null;
-      const migrateCount = wrapper?.split(' corepack pnpm db:migrate').length - 1;
+      const migrateCount = wrapper?.split(' pnpm db:migrate').length - 1;
       if (!wrapper
         || migrateCount !== 2
-        || !wrapper.includes(' corepack pnpm db:rollback')
-        || !wrapper.includes(' corepack pnpm db:seed')
+        || !wrapper.includes(' pnpm db:rollback')
+        || !wrapper.includes(' pnpm db:seed')
         || !wrapper.includes(FOCUSED_RUN_COMMAND)
         || !wrapper.includes('trap cleanup EXIT')
         || !wrapper.includes(' --build --force-recreate --renew-anon-volumes')

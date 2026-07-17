@@ -289,7 +289,7 @@ test('every generated focused command is one-to-one, reachable, bootstrapped, an
     const assertionCommands = packCommands.filter(
       (command) => command.startsWith(focusedAssertionPrefix),
     );
-    const installIndex = packCommands.indexOf('corepack pnpm install --frozen-lockfile');
+    const installIndex = packCommands.indexOf('pnpm install --frozen-lockfile');
     assert.equal(installIndex, 1);
     for (const testPath of pack.verification.focusedTestPaths) {
       assert.equal(
@@ -493,13 +493,10 @@ test('migration PACKs preserve isolated up-down-up ordering and both migrate com
     assert.ok(wrapperCommand, pack.packId);
     const wrapper = executableCommandText(wrapperCommand);
     const up = wrapper.indexOf(' up -d --wait --build --force-recreate --renew-anon-volumes');
-    const firstMigrate = wrapper.indexOf(' corepack pnpm db:migrate', up);
-    const rollback = wrapper.indexOf(' corepack pnpm db:rollback', firstMigrate);
-    const secondMigrate = wrapper.indexOf(
-      ' corepack pnpm db:migrate',
-      firstMigrate + 1,
-    );
-    const seed = wrapper.indexOf(' corepack pnpm db:seed', secondMigrate);
+    const firstMigrate = wrapper.indexOf(' pnpm db:migrate', up);
+    const rollback = wrapper.indexOf(' pnpm db:rollback', firstMigrate);
+    const secondMigrate = wrapper.indexOf(' pnpm db:migrate', firstMigrate + 1);
+    const seed = wrapper.indexOf(' pnpm db:seed', secondMigrate);
     const integration = wrapper.indexOf(
       focusedRunPrefix + shellQuote('tests/integration'),
       seed,
@@ -516,7 +513,7 @@ test('migration PACKs preserve isolated up-down-up ordering and both migrate com
     assert.equal(pack.verification.isolatedDatabase.cleanupExecutor,
       'BASH_EXIT_TRAP_STATUS_PRESERVING');
     assert.equal(pack.verification.isolatedDatabase.cleanupRequiredOnSuccessOrFailure, true);
-    assert.equal(wrapper.split(' corepack pnpm db:migrate').length - 1, 2, pack.packId);
+    assert.equal(wrapper.split(' pnpm db:migrate').length - 1, 2, pack.packId);
     assert.equal(wrapper.split(' down -v --remove-orphans --rmi local').length - 1,
       2, pack.packId);
     assert.ok(wrapper.includes('trap cleanup EXIT'), pack.packId);
@@ -553,9 +550,7 @@ test('focused commands cannot run before the frozen dependency install', async (
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((item) => item.verification.commands
     .some(isFocusedRunnerCommand));
-  const installIndex = pack.verification.commands.indexOf(
-    'corepack pnpm install --frozen-lockfile',
-  );
+  const installIndex = pack.verification.commands.indexOf('pnpm install --frozen-lockfile');
   const focusedIndex = pack.verification.commands.findIndex(
     isFocusedRunnerCommand,
   );
