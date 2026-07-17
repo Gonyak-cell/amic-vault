@@ -2824,6 +2824,7 @@ export function validateAuthorityArtifacts(manifest, {
     fail('AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT', unsafeRegistryContextLines.join('\n'));
   }
   const listMarkerPattern = /^([ \t]*)([-+*]|\d+[.)])([ \t]+)/;
+  const parentListMarkerPattern = /^([ \t]*)([-+*]|\d+[.)])(?:([ \t]+)|$)/;
   const markdownColumnWidth = (prefix) => [...prefix].reduce(
     (width, character) => character === '\t' ? width + 4 - (width % 4) : width + 1,
     0,
@@ -2836,14 +2837,13 @@ export function validateAuthorityArtifacts(manifest, {
     for (let parentIndex = index - 1; parentIndex >= 0; parentIndex -= 1) {
       const parentLine = lines[parentIndex];
       if (!parentLine.trim()) continue;
-      const parentMarker = parentLine.match(listMarkerPattern);
+      const parentMarker = parentLine.match(parentListMarkerPattern);
       if (parentMarker) {
         const parentIndent = markdownColumnWidth(parentMarker[1]);
         const markerEnd = markdownColumnWidth(parentMarker[1] + parentMarker[2]);
-        const markerPaddingEnd = markdownColumnWidth(
-          parentMarker[1] + parentMarker[2] + parentMarker[3],
-        );
-        const parentContentIndent = markerPaddingEnd - markerEnd > 4
+        const padding = parentMarker[3] ?? '';
+        const markerPaddingEnd = markdownColumnWidth(parentMarker[1] + parentMarker[2] + padding);
+        const parentContentIndent = !padding || markerPaddingEnd - markerEnd > 4
           ? markerEnd + 1
           : markerPaddingEnd;
         if (parentIndent < indent) {
