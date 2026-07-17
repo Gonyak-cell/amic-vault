@@ -366,6 +366,12 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
       decisionLedger: decisionLedger + '\n- PACK-R14-03-AMENDMENT-01 ' + decision + '\n',
     }).ok, false);
   }
+  for (const decision of ['authority [decision](#rejected): REJECTED', 'authority decisi&#111;n: REJECTED']) {
+    assert.equal(validateAuthorityArtifacts(manifest, {
+      packRegistry,
+      decisionLedger: decisionLedger + '\n- PACK-R14-03-AMENDMENT-01 ' + decision + '\n',
+    }).ok, false);
+  }
   const decisionResult = validateAuthorityArtifacts(manifest, {
     packRegistry,
     decisionLedger: decisionLedger + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n',
