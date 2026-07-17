@@ -1,12 +1,43 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import test from 'node:test';
 
 import {
   FROZEN_TUW_IDS,
   assertExactTuwIdSet,
+  buildLedgerFromPlan,
   parseTuwBlocks,
   parseTuwHeading,
 } from './build-tuw-status-ledger.mjs';
+
+const repositoryRoot = resolve(process.cwd());
+const toolPath = resolve(repositoryRoot, 'tools/execution/build-tuw-status-ledger.mjs');
+const activePlanPath = resolve(repositoryRoot, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md');
+const activeOverridesPath = resolve(
+  repositoryRoot,
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json',
+);
+const activeJsonPath = resolve(
+  repositoryRoot,
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
+);
+const activeMarkdownPath = resolve(
+  repositoryRoot,
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
+);
+
+function sha256(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function maskedSha256(path, allowedLines) {
+  const lines = readFileSync(path, 'utf8').split('\n');
+  for (const lineNumber of allowedLines) lines[lineNumber - 1] = `__ACTIVE_POINTER_SELECTOR_${lineNumber}__`;
+  return { hash: createHash('sha256').update(lines.join('\n')).digest('hex'), lineCount: lines.length };
+}
 
 const appendixShapes = new Map([
   ['B15', ['H1', 'M', false]],
@@ -171,4 +202,149 @@ test('heading source line refs prove H14 and Appendix boundaries through B20', (
   assert.equal(b20.endLine, 3176);
   assert.doesNotMatch(h14.block, /B15|부록/);
   assert.doesNotMatch(b20.block, /post-B20 directive|기존 유닛 보강 지시/);
+});
+
+test('artifact count surfaces expose the canonical 117 rows and seven unadjudicated records', () => {
+  const plan = readFileSync(activePlanPath, 'utf8');
+  const overrides = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
+  const { ledger, markdown } = buildLedgerFromPlan(plan, { overrides });
+  assert.equal(ledger.generatedAt, overrides.updatedAt);
+  assert.equal(ledger.sourcePlan, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md');
+  assert.equal(ledger.overridesPath, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json');
+  assert.equal(ledger.units.length, 117);
+  assert.equal(new Set(ledger.units.map((unit) => unit.id)).size, 117);
+  assert.deepEqual(
+    ledger.units.reduce((counts, unit) => {
+      counts[unit.horizon] = (counts[unit.horizon] ?? 0) + 1;
+      return counts;
+    }, {}),
+    { '1': 38, '2': 61, '3': 18 },
+  );
+  assert.deepEqual(ledger.counts, {
+    COMPLETE_CANDIDATE: 19,
+    LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 80,
+    EXTERNAL_BLOCKED: 11,
+    UNADJUDICATED: 7,
+  });
+  for (const id of ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20']) {
+    const row = ledger.units.find((unit) => unit.id === id);
+    assert.equal(row?.status, 'UNADJUDICATED', id);
+    assert.ok(row?.statusRationale);
+    assert.ok(row?.remainingGaps.length);
+    assert.ok(row?.nextAction);
+    assert.doesNotMatch(`${row?.statusRationale} ${row?.nextAction}`, /(?:claims?|promot|complete|done|ready)/i);
+  }
+  assert.match(markdown, /^# TUW Internal DMS Uplift 117 Status Ledger/m);
+  assert.equal(markdown.split('\n').filter((line) => line.startsWith('| ') && !line.startsWith('|---')).length, 118);
+});
+
+test('artifact import preserves all four 110 hashes and only registered pointer selectors move', () => {
+  const legacyHashes = {
+    'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_EXECUTION_POLICY.md':
+      '5c8f40f9f093535f5a7a438a98335552c7e937aa6e5a8301ecf20a55a16a6040',
+    'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.json':
+      '36004dc408cbf6c3164bdde6ab80d90312b539e0c6e1a7b5c340eca6243febb7',
+    'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.md':
+      'bf5fe7cb3d956a64b0cfff818bf9f4d7386ff21254d42c519a879980b31586e2',
+    'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_OVERRIDES.json':
+      'b94e141ab1fd796884c2d452e2da14d4f9a43b69fdbb5d07f7cf178f2bd7711a',
+  };
+  for (const [path, expected] of Object.entries(legacyHashes)) {
+    assert.equal(sha256(resolve(repositoryRoot, path)), expected, path);
+  }
+
+  const pointerSelectors = [
+    [
+      'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md',
+      new Set([9, 10, 11, 12, 13, 40, 41, 42, 43, 44, 45]),
+      3182,
+      'aea1efe75f658cc6abd4176b9af476525a73c943a1696e9180243207b0ba3e63',
+    ],
+    ['docs/handoff/dms-uplift-2026-07/00_README.md', new Set([8, 16]), 67, '3b6ff8f3aacba937753b7698a67fc4a93e2e862aa965e72f9ff6d128fc62d1f2'],
+    ['docs/handoff/dms-uplift-2026-07/06_execution-guide.md', new Set([3]), 155, '094d562c20788ec518aae6cb9dfd0eb25f1fac16b0103780deddd02f101ac5cc'],
+  ];
+  for (const [relativePath, allowedLines, expectedLineCount, expectedMaskedHash] of pointerSelectors) {
+    const currentPath = resolve(repositoryRoot, relativePath);
+    const masked = maskedSha256(currentPath, allowedLines);
+    assert.equal(masked.lineCount, expectedLineCount, `${relativePath} line count`);
+    assert.equal(masked.hash, expectedMaskedHash, `${relativePath} outside-selector hash`);
+  }
+
+  const plan = readFileSync(activePlanPath, 'utf8');
+  const { ledger } = buildLedgerFromPlan(plan, {
+    overrides: JSON.parse(readFileSync(activeOverridesPath, 'utf8')),
+  });
+  assert.deepEqual(
+    ledger.units.filter((unit) => unit.id.startsWith('B1') || unit.id === 'C16' || unit.id === 'B20')
+      .filter((unit) => ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20'].includes(unit.id))
+      .map((unit) => [unit.id, unit.source.planLine]),
+    [
+      ['B15', 3094],
+      ['B16', 3106],
+      ['B17', 3118],
+      ['C16', 3130],
+      ['B18', 3142],
+      ['B19', 3154],
+      ['B20', 3166],
+    ],
+  );
+});
+
+test('deterministic generation is byte-identical and matching check mode does not write', () => {
+  const first = spawnSync(process.execPath, [toolPath], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(first.status, 0, first.stderr);
+  const firstJson = readFileSync(activeJsonPath, 'utf8');
+  const firstMarkdown = readFileSync(activeMarkdownPath, 'utf8');
+
+  const second = spawnSync(process.execPath, [toolPath], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(second.status, 0, second.stderr);
+  assert.equal(readFileSync(activeJsonPath, 'utf8'), firstJson);
+  assert.equal(readFileSync(activeMarkdownPath, 'utf8'), firstMarkdown);
+
+  const beforeJson = readFileSync(activeJsonPath, 'utf8');
+  const beforeMarkdown = readFileSync(activeMarkdownPath, 'utf8');
+  const beforeJsonMtime = statSync(activeJsonPath).mtimeMs;
+  const beforeMarkdownMtime = statSync(activeMarkdownPath).mtimeMs;
+  const check = spawnSync(process.execPath, [toolPath, '--check'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(check.status, 0, check.stderr);
+  assert.equal(readFileSync(activeJsonPath, 'utf8'), beforeJson);
+  assert.equal(readFileSync(activeMarkdownPath, 'utf8'), beforeMarkdown);
+  assert.equal(statSync(activeJsonPath).mtimeMs, beforeJsonMtime);
+  assert.equal(statSync(activeMarkdownPath).mtimeMs, beforeMarkdownMtime);
+  assert.doesNotMatch(readFileSync(toolPath, 'utf8'), /new Date\(/);
+});
+
+test('117 overrides retain every imported 110 adjudication and add only the seven appendix rows', () => {
+  const legacy = JSON.parse(
+    readFileSync(resolve(repositoryRoot, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_OVERRIDES.json'), 'utf8'),
+  );
+  const active = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
+  assert.equal(Object.keys(active.unitOverrides).length, 117);
+  for (const [id, adjudication] of Object.entries(legacy.unitOverrides)) {
+    assert.deepEqual(active.unitOverrides[id], adjudication, id);
+  }
+  assert.deepEqual(Object.keys(active.unitOverrides).slice(-7), ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20']);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20'].map((id) => [id, active.unitOverrides[id].status]),
+    ),
+    {
+      B15: 'UNADJUDICATED',
+      B16: 'UNADJUDICATED',
+      B17: 'UNADJUDICATED',
+      C16: 'UNADJUDICATED',
+      B18: 'UNADJUDICATED',
+      B19: 'UNADJUDICATED',
+      B20: 'UNADJUDICATED',
+    },
+  );
 });

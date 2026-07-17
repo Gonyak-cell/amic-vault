@@ -3,9 +3,10 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const planPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md';
-const jsonPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.json';
-const mdPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.md';
-const overridesPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_OVERRIDES.json';
+const jsonPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json';
+const mdPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md';
+const overridesPath = 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json';
+const defaultGeneratedAt = '2026-07-17T00:00:00.000Z';
 
 // Frozen from docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md
 // (SHA-256 ee05e4e3e453fab573a8e99153eaeb3bca610e80ecc4d42b15a4491dff5474b1).
@@ -132,15 +133,15 @@ const FROZEN_TUW_IDS = Object.freeze([
 ]);
 
 const objective = [
-  '110 TUW strict completion audit and execution gate.',
-  `Use ${planPath} as the authoritative 110-unit checklist and keep ${jsonPath} plus ${mdPath} as the execution-control ledger.`,
-  'For every TUW A1-H14 across H1/H2/H3, classify the current state as COMPLETE_CANDIDATE, LOCAL_IMPLEMENTED_NEEDS_EVIDENCE, PARTIAL, NOT_STARTED, or EXTERNAL_BLOCKED.',
+  '117 TUW strict completion audit and execution gate.',
+  `Use ${planPath} as the authoritative 117-unit checklist and keep ${jsonPath} plus ${mdPath} as the active execution-control ledger.`,
+  'For every TUW A1-H14 and Appendix-2 row across H1/H2/H3, classify the current state as COMPLETE_CANDIDATE, LOCAL_IMPLEMENTED_NEEDS_EVIDENCE, PARTIAL, NOT_STARTED, EXTERNAL_BLOCKED, or UNADJUDICATED.',
   'Do not treat file existence, passing unit tests, generated ledger rows, or plan text as completion.',
   'For each TUW, preserve its acceptance tests, manual QA requirement, dependencies, code anchors, migration requirements, audit/security invariants, external evidence needs, evidenceRefs, and nextAction.',
   'Work one TUW at a time, starting from the smallest dependency-valid row.',
   'Promote a TUW to COMPLETE_CANDIDATE only when required code, migrations, integration/unit tests, permission/audit/security negative tests, staging/manual QA receipt or documented external blocker, focused package checks, changed-file LSP diagnostics where available, db migrate/rollback/migrate where applicable, and git diff check have current evidence refs.',
   'Do not broaden implementation beyond the active TUW, and do not collapse multiple TUWs into a vague uplift task.',
-  'Stop claiming product readiness until all 110 rows are COMPLETE_CANDIDATE with evidenceRefs or EXTERNAL_BLOCKED by non-repo operational evidence.',
+  'Stop claiming product readiness until all 117 rows are COMPLETE_CANDIDATE with evidenceRefs or EXTERNAL_BLOCKED by non-repo operational evidence; UNADJUDICATED rows are not completion evidence.',
 ].join(' ');
 
 const statusById = new Map([
@@ -258,6 +259,7 @@ const statusById = new Map([
     'H12',
   ].map((id) => [id, 'NOT_STARTED']),
   ...['C7', 'H3', 'C15'].map((id) => [id, 'EXTERNAL_BLOCKED']),
+  ...['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20'].map((id) => [id, 'UNADJUDICATED']),
 ]);
 
 const nextActionByStatus = {
@@ -271,6 +273,8 @@ const nextActionByStatus = {
     'Do not infer implementation from nearby files. Start this TUW from its plan block after dependencies are satisfied.',
   EXTERNAL_BLOCKED:
     'Keep repo code prepared and default-safe. Completion requires opaque external operational evidence, not more local implementation.',
+  UNADJUDICATED:
+    'Do not infer completion. Adjudicate this newly registered TUW against its acceptance block and record current evidence before any status change.',
 };
 
 const statusTaxonomy = {
@@ -284,6 +288,8 @@ const statusTaxonomy = {
     'No reliable TUW-specific implementation evidence found. Nearby infrastructure does not count.',
   EXTERNAL_BLOCKED:
     'Repo-local work may be prepared, but completion depends on external operational evidence such as M365/admin/production/DR receipts.',
+  UNADJUDICATED:
+    'The TUW is present in the active 117-unit plan but has no adjudication or completion evidence recorded yet.',
 };
 
 function lineNumberAt(text, index) {
@@ -616,11 +622,14 @@ function parsePlanUnits(plan, overrides) {
   });
 }
 
-export function buildLedgerFromPlan(plan, { overrides = { unitOverrides: {} } } = {}) {
+export function buildLedgerFromPlan(
+  plan,
+  { overrides = { updatedAt: defaultGeneratedAt, unitOverrides: {} } } = {},
+) {
   const units = parsePlanUnits(plan, overrides);
   const ledger = {
     schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
+    generatedAt: overrides.updatedAt ?? defaultGeneratedAt,
     sourcePlan: planPath,
     overridesPath,
     objective,
@@ -640,7 +649,7 @@ export function buildLedgerFromPlan(plan, { overrides = { unitOverrides: {} } } 
     units,
   };
   const markdown = [
-    '# TUW Internal DMS Uplift 110 Status Ledger',
+    '# TUW Internal DMS Uplift 117 Status Ledger',
     '',
     `Generated from \`${planPath}\`. This ledger is an execution-control artifact, not completion evidence by itself.`,
     `Overrides: \`${overridesPath}\`. Evidence refs are carried only when explicitly recorded there.`,
@@ -676,12 +685,35 @@ export function buildLedgerFromPlan(plan, { overrides = { unitOverrides: {} } } 
   return { ledger, markdown };
 }
 
-export function generateLedger() {
+export function generateLedger({ check = false } = {}) {
   const plan = readFileSync(planPath, 'utf8');
   const overrides = readOverrides();
   const { ledger, markdown } = buildLedgerFromPlan(plan, { overrides });
+  const json = `${JSON.stringify(ledger, null, 2)}\n`;
+  if (check) {
+    const actualJson = existsSync(jsonPath) ? readFileSync(jsonPath, 'utf8') : null;
+    const actualMarkdown = existsSync(mdPath) ? readFileSync(mdPath, 'utf8') : null;
+    if (actualJson !== json || actualMarkdown !== markdown) {
+      throw new Error(`Generated 117 ledger drift detected in ${jsonPath} or ${mdPath}`);
+    }
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          check: true,
+          count: ledger.units.length,
+          counts: ledger.counts,
+          jsonPath,
+          mdPath,
+        },
+        null,
+        2,
+      ),
+    );
+    return ledger;
+  }
   mkdirSync(dirname(jsonPath), { recursive: true });
-  writeFileSync(jsonPath, `${JSON.stringify(ledger, null, 2)}\n`);
+  writeFileSync(jsonPath, json);
   writeFileSync(mdPath, markdown);
   console.log(
     JSON.stringify(
@@ -701,4 +733,11 @@ export function generateLedger() {
 
 const isMainModule =
   process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
-if (isMainModule) generateLedger();
+if (isMainModule) {
+  try {
+    generateLedger({ check: process.argv.includes('--check') });
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  }
+}
