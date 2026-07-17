@@ -347,6 +347,14 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
   const shadowedNestedDecision = decisionLedger
     + '\n- Authority history:\n  10. Existing nested item.\n    * 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n';
   assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: shadowedNestedDecision }).ok, false);
+  const softBreakRegistry = packRegistry.replace(
+    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
+    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.\n- Canonical\n  SHA-256: `' + staleHash + '`.',
+  );
+  assert.equal(validateAuthorityArtifacts(manifest, { packRegistry: softBreakRegistry, decisionLedger }).ok, false);
+  const softBreakDecision = decisionLedger
+    + '\n- PACK-R14-03-AMENDMENT-01\n  authority decision: REJECTED\n';
+  assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: softBreakDecision }).ok, false);
   const decisionResult = validateAuthorityArtifacts(manifest, {
     packRegistry,
     decisionLedger: decisionLedger + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n',

@@ -2854,8 +2854,23 @@ export function validateAuthorityArtifacts(manifest, {
     }
     return false;
   };
-  const isCanonicalLabel = (line, index, lines) => isAuthorityListMarker(line, index, lines)
-    && /Canonical\b/i.test(line) && /\bSHA-?256\b/i.test(line);
+  const authorityListItemText = (line, index, lines) => {
+    if (!isAuthorityListMarker(line, index, lines)) return '';
+    const marker = line.match(listMarkerPattern);
+    const indent = markdownColumnWidth(marker[1]);
+    const item = [line];
+    for (let continuationIndex = index + 1; continuationIndex < lines.length; continuationIndex += 1) {
+      const continuation = lines[continuationIndex];
+      if (!continuation.trim() || listMarkerPattern.test(continuation)) break;
+      if (markdownColumnWidth(continuation.match(/^[ \t]*/)[0]) <= indent) break;
+      item.push(continuation.trim());
+    }
+    return item.join(' ');
+  };
+  const isCanonicalLabel = (line, index, lines) => {
+    const item = authorityListItemText(line, index, lines);
+    return /Canonical\b/i.test(item) && /\bSHA-?256\b/i.test(item);
+  };
   const canonicalLabelLines = registrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
   const registryLines = registrySection.split('\n');
@@ -2905,9 +2920,12 @@ export function validateAuthorityArtifacts(manifest, {
       + 'status=AUTHORIZED_TECHNICAL_GATES_ONLY\\.$',
   );
   const rawDecisionLines = (decisionLedger ?? '').split('\n');
+  const isAuthorityDecisionItem = (line, index, lines) => {
+    const item = authorityListItemText(line, index, lines);
+    return item.includes(AMENDMENT_PACK_ID) && /authority\s+decision(?:\s+record)?\b/i.test(item);
+  };
   const rawAuthorityLineIndexes = rawDecisionLines.flatMap((line, index, lines) =>
-    isAuthorityListMarker(line, index, lines) && line.includes(AMENDMENT_PACK_ID)
-      && /authority\s+decision(?:\s+record)?\b/i.test(line) ? [index] : []);
+    isAuthorityDecisionItem(line, index, lines) ? [index] : []);
   const unsafeDecisionContextLines = rawAuthorityLineIndexes.flatMap((index) => {
     let preambleStart = index;
     while (preambleStart > 0 && rawDecisionLines[preambleStart - 1].trim()) preambleStart -= 1;
@@ -2924,9 +2942,8 @@ export function validateAuthorityArtifacts(manifest, {
   }
   const decisionLines = maskNonOperationalMarkdown(decisionLedger ?? '').split('\n');
   const rawAuthorityLineCount = rawAuthorityLineIndexes.length;
-  const decisionCandidates = decisionLines.filter((line, index, lines) => isAuthorityListMarker(line, index, lines)
-    && line.includes(AMENDMENT_PACK_ID)
-    && /authority\s+decision(?:\s+record)?\b/i.test(line));
+  const decisionCandidates = decisionLines.filter((line, index, lines) =>
+    isAuthorityDecisionItem(line, index, lines));
   if (rawAuthorityLineCount !== decisionCandidates.length) {
     fail('AUTHORITY_DECISION_RECORD_NON_OPERATIONAL', rawAuthorityLineCount);
   }
