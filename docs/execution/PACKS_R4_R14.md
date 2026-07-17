@@ -63,20 +63,26 @@ targeted integration suites, and full `pnpm test:integration`.
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
-Status: owner-approved post-R14 registration. Implementation remains prohibited
-until this registration PR is independently reviewed and merged and the owner
-separately authorizes `PACK-R14-02 진행`.
+Status: owner-approved post-R14 registration and PACK execution. Implementation
+remains prohibited only until this registration PR passes its exact-head
+technical gates and merges.
 
 Registration authority:
 
-- Approval token: `OWNER-APPROVAL-PACK-R14-02-REGISTRATION-20260717`.
+- Registration approval token:
+  `OWNER-APPROVAL-PACK-R14-02-REGISTRATION-20260717`.
+- Final control authority: owner directives `claude는 전부 생략`,
+  `머지도 승인`, and `인간의 승인 필요 없게 진행`.
 - Sealed canonical PACK payload SHA-256:
-  `d2879ece2b05b7f1c2c1c26f71466130ef6ea2c4e478eec7f01b15c21ed65d93`.
+  `32f73a43db1fe0aaa221f25629e2b17ff61337aab666b2a7f9e23b6cdbfc6956`.
+  This supersedes the original and intermediate review-control clauses only.
 - Registration branch: `codex/register-pack-r14-02-control-plane-recovery`.
 - Implementation branch: `feat/pack-r14-02-control-plane-recovery`.
 - Registration changes only this file and `docs/ledger/decision.md`.
-- Risk is `C`; `needs-human-review` and an independent Claude review are
-  required. Codex must not merge the registration or implementation PR.
+- Risk is `C`; no Claude review, human review, human approval, or
+  `needs-human-review` label is required. Codex may mechanically merge the
+  registration and implementation PRs only after every required automated and
+  deterministic technical gate passes against the exact head SHA.
 
 Exact objective: Restore a deterministic 117-row execution control plane and
 enforce mutation-free checking, evidence provenance, structured dependency
@@ -234,10 +240,11 @@ serially in this exact order:
   execution-ledger change.
 - **Stop condition:** stop on guessed dependency normalization, ambiguous
   journal/replay/delta semantics, an existing-line or dirty-E8 ledger import,
-  missing/invalidated Claude review, or the same failure three times.
+  a missing, failing, stale, or invalidated technical gate, or the same failure
+  three times.
 - **Escalation:** preserve the last accepted aggregate, append only an approved
-  BLOCKED reason, wait for owner/Claude resolution, never self-merge, and do not
-  start Task 6B.
+  BLOCKED reason, resolve the technical blocker, never bypass a failing gate,
+  and do not start Task 6B.
 - **Evidence target:** the Task 5 receipt above.
 
 ### Frozen G002 substrate
@@ -293,9 +300,9 @@ tools/execution/build-tuw-status-ledger.spec.mjs
 ```
 
 The sole modified path is `docs/ledger/execution.md`, with only the final PACK
-result and `AI-REVIEW(Claude): PACK-R14-02` lines appended at EOF after all
-verification and independent review. Any other path, rename, deletion, mode
-change, symlink, submodule, binary, or non-EOF ledger hunk rejects.
+result and `TECHNICAL-VERIFICATION: PACK-R14-02` lines appended at EOF after all
+verification gates pass. Any other path, rename, deletion, mode change, symlink,
+submodule, binary, or non-EOF ledger hunk rejects.
 
 Semantic selectors are limited to: parser active constants/status maps,
 dependency parsing, override/provenance validation, dual-rank scan, exact-set
