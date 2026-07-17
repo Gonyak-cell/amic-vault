@@ -2869,6 +2869,7 @@ export function validateAuthorityArtifacts(manifest, {
   };
   const normalizeAuthorityText = (text) => text
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/&[A-Za-z][A-Za-z0-9]+;/g, '')
     .replace(/&#(?:x([0-9a-f]+)|(\d+));/gi, (_, hex, decimal) =>
       String.fromCodePoint(Number.parseInt(hex ?? decimal, hex ? 16 : 10)))
     .replace(/[~*_]/g, '')
