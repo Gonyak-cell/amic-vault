@@ -355,6 +355,17 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
   const softBreakDecision = decisionLedger
     + '\n- PACK-R14-03-AMENDMENT-01\n  authority decision: REJECTED\n';
   assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: softBreakDecision }).ok, false);
+  const inlineRegistry = packRegistry.replace(
+    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
+    '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.\n- Cano**nical** SHA-**256**: `' + staleHash + '`.',
+  );
+  assert.equal(validateAuthorityArtifacts(manifest, { packRegistry: inlineRegistry, decisionLedger }).ok, false);
+  for (const decision of ['authority **decision**: REJECTED', 'authority <em>decision</em>: REJECTED']) {
+    assert.equal(validateAuthorityArtifacts(manifest, {
+      packRegistry,
+      decisionLedger: decisionLedger + '\n- PACK-R14-03-AMENDMENT-01 ' + decision + '\n',
+    }).ok, false);
+  }
   const decisionResult = validateAuthorityArtifacts(manifest, {
     packRegistry,
     decisionLedger: decisionLedger + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n',

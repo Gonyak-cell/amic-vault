@@ -2867,8 +2867,11 @@ export function validateAuthorityArtifacts(manifest, {
     }
     return item.join(' ');
   };
+  const normalizeAuthorityText = (text) => text
+    .replace(/[~*_]/g, '')
+    .replace(/<\/?[A-Za-z][^>]*>/g, '');
   const isCanonicalLabel = (line, index, lines) => {
-    const item = authorityListItemText(line, index, lines);
+    const item = normalizeAuthorityText(authorityListItemText(line, index, lines));
     return /Canonical\b/i.test(item) && /\bSHA-?256\b/i.test(item);
   };
   const canonicalLabelLines = registrySection.split('\n').filter((line) =>
@@ -2921,7 +2924,7 @@ export function validateAuthorityArtifacts(manifest, {
   );
   const rawDecisionLines = (decisionLedger ?? '').split('\n');
   const isAuthorityDecisionItem = (line, index, lines) => {
-    const item = authorityListItemText(line, index, lines);
+    const item = normalizeAuthorityText(authorityListItemText(line, index, lines));
     return item.includes(AMENDMENT_PACK_ID) && /authority\s+decision(?:\s+record)?\b/i.test(item);
   };
   const rawAuthorityLineIndexes = rawDecisionLines.flatMap((line, index, lines) =>
