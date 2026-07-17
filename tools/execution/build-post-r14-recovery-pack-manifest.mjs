@@ -2823,13 +2823,28 @@ export function validateAuthorityArtifacts(manifest, {
   if (unsafeRegistryContextLines.length) {
     fail('AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT', unsafeRegistryContextLines.join('\n'));
   }
-  const authorityListMarker = /^ {0,3}(?:[-+*]|\d+[.)])\s+/;
-  const isCanonicalLabel = (line) => authorityListMarker.test(line)
+  const listMarkerPattern = /^( *)(?:[-+*]|\d+[.)])\s+/;
+  const isAuthorityListMarker = (line, index, lines) => {
+    const marker = line.match(listMarkerPattern);
+    if (!marker) return false;
+    const indent = marker[1].length;
+    if (indent <= 3) return true;
+    for (let parentIndex = index - 1; parentIndex >= 0; parentIndex -= 1) {
+      const parentLine = lines[parentIndex];
+      if (!parentLine.trim()) continue;
+      const parentMarker = parentLine.match(listMarkerPattern);
+      if (parentMarker && parentMarker[1].length < indent) return true;
+      if (!parentMarker && parentLine.match(/^ */)[0].length === 0) return false;
+    }
+    return false;
+  };
+  const isCanonicalLabel = (line, index, lines) => isAuthorityListMarker(line, index, lines)
     && /Canonical\b/i.test(line) && /\bSHA-?256\b/i.test(line);
   const canonicalLabelLines = registrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
-  const authorityCanonicalLabelLines = registrySection.split('\n').filter((line) =>
-    isCanonicalLabel(line));
+  const registryLines = registrySection.split('\n');
+  const authorityCanonicalLabelLines = registryLines.filter((line, index, lines) =>
+    isCanonicalLabel(line, index, lines));
   if (canonicalLabelLines.length !== 1) {
     fail('AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT', canonicalLabelLines.length);
   }
@@ -2841,8 +2856,9 @@ export function validateAuthorityArtifacts(manifest, {
   )];
   const rawCanonicalLabelLines = rawRegistrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
-  const rawAuthorityCanonicalLabelLines = rawRegistrySection.split('\n').filter((line) =>
-    isCanonicalLabel(line));
+  const rawRegistryLines = rawRegistrySection.split('\n');
+  const rawAuthorityCanonicalLabelLines = rawRegistryLines.filter((line, index, lines) =>
+    isCanonicalLabel(line, index, lines));
   const rawRegistryPayloadAnchors = [...rawRegistrySection.matchAll(
     /^- Canonical payload SHA-256:\n {2}`([0-9a-f]{64})`\.$/gm,
   )];
@@ -2873,8 +2889,8 @@ export function validateAuthorityArtifacts(manifest, {
       + 'status=AUTHORIZED_TECHNICAL_GATES_ONLY\\.$',
   );
   const rawDecisionLines = (decisionLedger ?? '').split('\n');
-  const rawAuthorityLineIndexes = rawDecisionLines.flatMap((line, index) =>
-    authorityListMarker.test(line) && line.includes(AMENDMENT_PACK_ID)
+  const rawAuthorityLineIndexes = rawDecisionLines.flatMap((line, index, lines) =>
+    isAuthorityListMarker(line, index, lines) && line.includes(AMENDMENT_PACK_ID)
       && /authority\s+decision(?:\s+record)?\b/i.test(line) ? [index] : []);
   const unsafeDecisionContextLines = rawAuthorityLineIndexes.flatMap((index) => {
     let preambleStart = index;
@@ -2892,7 +2908,7 @@ export function validateAuthorityArtifacts(manifest, {
   }
   const decisionLines = maskNonOperationalMarkdown(decisionLedger ?? '').split('\n');
   const rawAuthorityLineCount = rawAuthorityLineIndexes.length;
-  const decisionCandidates = decisionLines.filter((line) => authorityListMarker.test(line)
+  const decisionCandidates = decisionLines.filter((line, index, lines) => isAuthorityListMarker(line, index, lines)
     && line.includes(AMENDMENT_PACK_ID)
     && /authority\s+decision(?:\s+record)?\b/i.test(line));
   if (rawAuthorityLineCount !== decisionCandidates.length) {

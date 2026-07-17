@@ -319,6 +319,18 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
       + '\n' + marker + ' 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n';
     assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: alternateDecision }).ok, false);
   }
+  for (const indent of ['    ', '     ']) {
+    const nestedRegistry = packRegistry.replace(
+      '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
+      '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.\n'
+        + indent + '* Canonical SHA-256: `' + staleHash + '`.',
+    );
+    assert.equal(validateAuthorityArtifacts(manifest, { packRegistry: nestedRegistry, decisionLedger }).ok, false);
+    const nestedDecision = decisionLedger
+      + '\n- Authority history:\n' + indent
+      + '* 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n';
+    assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: nestedDecision }).ok, false);
+  }
   const decisionResult = validateAuthorityArtifacts(manifest, {
     packRegistry,
     decisionLedger: decisionLedger + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n',
