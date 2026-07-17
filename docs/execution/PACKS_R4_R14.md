@@ -1949,7 +1949,9 @@ ordinals `0094` through `0179` in dependency/PACK order; 84 filenames require
 renumbering. This is a planning decision only. Each later migration PACK must
 land its assigned migrations with reference updates and fresh isolated
 up/down/up, seed, and full integration proof. PACK-R14-03 neither changes nor
-executes a migration.
+lands a migration and performs no downstream or production migration execution;
+disposable isolated verification of the already committed migrations is an
+allowed technical gate.
 
 Conditional units D9, H14, and B20 remain `INACTIVE` with null approval refs.
 They may not execute or promote until a separate manifest amendment records
@@ -1999,8 +2001,10 @@ database rollback applies because PACK-R14-03 has zero database scope.
 
 Status: authorized technical-gates-only correction required by the Task 7
 preflight. This amendment changes the execution map only; it does not execute a
-downstream payload, row transition, migration, deployment, external operation,
-release, or go-live action.
+downstream payload or row transition, land a migration, execute a migration
+against downstream or production state, deploy, perform an external operation,
+release, or go live. Disposable isolated migration verification remains an
+allowed technical gate.
 
 Registration authority and immutable anchors:
 
@@ -2013,9 +2017,9 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `06ece261c8e7e51c1aaa64577978c6e29b7b9fb6c5764c0c5e083c5f33be12b2`.
+  `13e0bda8b753f0bb637bee1178bed7838f96666e891930e7b3db3bd2117c3526`.
 - Sealed raw test-anchor source contract SHA-256:
-  `783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6`.
+  `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
   `0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467`.
 
@@ -2051,9 +2055,21 @@ the active 117-row pointer with the legacy 110-row pointer, and the 448-line
 legacy ledger builder would replace the merged 3,648-line 117-row control-plane
 builder. All six are therefore sealed as preservation-only quarantine rather
 than recreated or overwritten. Their raw test anchors remain represented by the
-collision contract but are not execution commands. Total quarantine is 34 hunks
-across 28 dirty paths. The remaining overlay still has exact
-893-path/4,801-hunk coverage, and all 86 migration mappings are unchanged.
+collision contract but are not execution commands. Hunk ownership that is
+exclusively conditional on inactive D9, H14, or B20 is also quarantined as
+`INACTIVE_CONDITIONAL_TRIGGER`. Total quarantine is 196 hunks across 79 dirty
+paths while the manifest retains exact 893-path/4,801-hunk coverage. H14 source
+migrations 0102 and 0159 remain registered but blocked with no target ordinal;
+the 84 active migrations receive contiguous target ordinals 0094 through 0177
+in dependency-valid PACK and same-PACK unit-topological order.
+
+Non-overlay Git sources are dependency providers, not informational references.
+Every PACK that consumes a Task 7 or Task 8 source path has an explicit
+predecessor edge to its source-owning PACK; for example, PACK-R14-29 depends on
+PACK-R14-04 for its three Task 7-created documents. Task 8 is PACK-R14-08 and
+must finish before Task 12 at PACK-R14-09. Both name A14, but PACK-R14-08 performs
+no A14 control-plane transition and PACK-R14-09 performs the single A14
+transition only after the LawOS source is present.
 
 PACK-R14-03-AMENDMENT-01 creates no file. It may modify only:
 
@@ -2068,15 +2084,18 @@ PACK-R14-03-AMENDMENT-01 creates no file. It may modify only:
 Standalone validation pins the registered canonical payload SHA-256 and the
 sealed 19-row historical-base source contract, derives every PACK TUW role and
 transition row from the static blueprint plus the sealed 117-ID universe, and
-compares both generated JSON and Markdown even when no private `--source-dir`
-is available. A source-bound check additionally rebuilds from the sealed G002
-inputs; neither mode may accept a re-signed, internally self-consistent drift.
+compares both generated JSON and Markdown in explicit `--committed-only` mode.
+A source-bound check additionally rebuilds from the sealed G002 inputs. Bare
+`--check`, a missing/empty/nonexistent `--source-dir`, duplicate options, and a
+`--source-dir`/`--committed-only` conflict all fail closed; neither valid mode may
+accept a re-signed, internally self-consistent drift.
 Every raw G002 test anchor is retained with one deterministic disposition:
 available at the exact base, supplied by the current PACK, assigned as an exact
 planned create of the current owning PACK, supplied by a transitive predecessor,
 deferred to another registered provider PACK, an explicitly planned but
-not-yet-created acceptance-test gap, or a non-executable helper/config anchor.
-Only the first four dispositions may enter focused commands. A recognized
+not-yet-created acceptance-test gap, blocked behind an inactive conditional
+trigger, or a non-executable helper/config anchor. Only the first four
+dispositions may enter focused commands. A recognized
 executable anchor with no base, provider PACK, alias, or sealed planned-gap entry
 fails manifest generation. Focused paths are routed
 one-to-one through their actual workspace/root Vitest, Node test, pytest, or
@@ -2084,7 +2103,12 @@ integration runner. Each path first passes a fail-closed regular-file or
 integration-directory assertion, including no-symlink, at-least-one-spec, and
 static skip/todo checks, and then receives its own dedicated runner invocation;
 OR-style batching is forbidden. Vitest explicitly disables
-`passWithNoTests`. Helper-only integration directories are non-executable.
+`passWithNoTests`; Node test, Vitest, pytest, and integration output must report
+at least one executed test, every executed test passing, and zero failed,
+cancelled, skipped, pending, todo, xfail, xpass, or deselected tests. Focused
+runner startup failure also fails closed. Helper-only integration directories
+are non-executable. Package commands use the repository-pinned `corepack pnpm`
+rather than an ambient global pnpm.
 Every earlier provider is an explicit predecessor and an owned planned gap is
 classified as predecessor-provided in successor PACKs. Frozen dependency
 installation and any required Python bootstrap must precede focused execution.
@@ -2092,11 +2116,16 @@ Every generated path is POSIX single-quoted and its exact command must parse
 under both Bash and zsh before registration.
 
 Any PACK with integration selectors uses a deterministic PACK-specific compose
-project, non-default PostgreSQL/MinIO/ingestion ports, database and ingestion
-worker URLs, and fresh volumes with the canonical isolated bucket
-`amic-vault-dev`; it applies migrations and seed data, runs its focused
-integration commands, and cleans that environment. A migration-bearing PACK
-additionally preserves the
+project, a single-writer lock, a temporary Compose override that binds every
+published PostgreSQL/MinIO/ingestion port to `127.0.0.1`, non-default ports,
+database and ingestion worker URLs, and fresh volumes with the canonical
+isolated bucket `amic-vault-dev`. It pre-cleans only its exact project, builds
+and force-recreates the services with renewed anonymous volumes, applies
+migrations and seed data, and runs its focused integration commands. A
+status-preserving Bash EXIT trap always runs exact-project
+`down -v --remove-orphans --rmi local`, removes the override and lock, preserves
+the main failure status, and makes cleanup failure fatal after an otherwise
+successful run. A migration-bearing PACK additionally preserves the
 exact `migrate -> rollback -> migrate -> seed -> focused integration -> full
 integration` order before cleanup. The second migrate is a required duplicate,
 not a command subject to deduplication; missing cleanup on either success or
@@ -2126,6 +2155,8 @@ Focused verification is exact:
 ```bash
 node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check \
   --source-dir "$G002_SOURCE_DIR"
+node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check \
+  --committed-only
 node --test tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs
 ```
 

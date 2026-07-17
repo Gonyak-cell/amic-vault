@@ -8,6 +8,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   assertFocusedTestPath,
+  cleanupGuaranteedShellCommand,
+  validateFocusedTestResult,
   validateNonOverlayGitSources,
   validateManifest,
 } from './build-post-r14-recovery-pack-manifest.mjs';
@@ -34,28 +36,22 @@ const expectedPlannedGaps = [
   ['tests/integration/redline.spec.ts', 'B19', 'PACK-R14-30'],
 ];
 
-const focusedCommandPrefixes = [
-  'pnpm --filter ',
-  'pnpm exec vitest run ',
-  'node --test ',
-  'python3 -m pytest ',
-  'pnpm test:integration -- ',
-];
 const focusedAssertionPrefix =
   'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --assert-focused-test ';
+const focusedRunPrefix =
+  'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --run-focused-test ';
+
+function executableCommandText(command) {
+  if (!command.startsWith("bash -c '") || !command.endsWith("'")) return command;
+  return command.slice("bash -c '".length, -1).replaceAll("'\"'\"'", "'");
+}
 
 function isFocusedRunnerCommand(command) {
-  return focusedCommandPrefixes.some((prefix) => command.startsWith(prefix))
-    || command.includes(' pnpm test:integration -- ');
+  return executableCommandText(command).includes(focusedRunPrefix);
 }
 
 function shellQuote(value) {
   return "'" + value.replaceAll("'", "'\"'\"'") + "'";
-}
-
-function commandSelector(testPath) {
-  const match = /^(?:apps\/(?:api|web|desktop)|packages\/(?:ai|domain|shared))\/(.+)$/.exec(testPath);
-  return match && /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(testPath) ? match[1] : testPath;
 }
 
 async function fixture() {
@@ -89,8 +85,10 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
   assert.equal(manifest.payload.pathDispositions.length, 893);
   assert.equal(manifest.payload.hunkAssignments.length, 4801);
   assert.equal(manifest.payload.migrations.length, 86);
-  assert.equal(manifest.payload.quarantines.hunkOrdinals.length, 34);
-  assert.equal(manifest.payload.quarantines.pathB64s.length, 28);
+  assert.equal(manifest.payload.quarantines.hunkOrdinals.length, 196);
+  assert.equal(manifest.payload.quarantines.pathB64s.length, 79);
+  assert.deepEqual(manifest.payload.quarantines.conditionalUnitIds, ['B20', 'D9', 'H14']);
+  assert.deepEqual(manifest.payload.quarantines.migrationSourceOrdinals, [102, 159]);
 });
 
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
@@ -127,6 +125,15 @@ test('every raw test anchor has an exact availability or gap disposition', async
       providers.push(pack.packId);
       providersByPath.set(file, [...new Set(providers)].sort());
     }
+  }
+  const blockedUnitsByPath = new Map();
+  for (const hunk of manifest.payload.hunkAssignments) {
+    if (hunk.quarantineReason !== 'INACTIVE_CONDITIONAL_TRIGGER') continue;
+    const blockedPath = Buffer.from(hunk.pathB64, 'base64').toString('utf8');
+    blockedUnitsByPath.set(blockedPath, [...new Set([
+      ...(blockedUnitsByPath.get(blockedPath) ?? []),
+      hunk.sourceOwner,
+    ])].sort());
   }
   const gapByPath = Object.fromEntries(expectedPlannedGaps.map((row) => [row[0], row]));
   assert.deepEqual(manifest.payload.testAnchorContract.aliases, expectedAliases);
@@ -185,6 +192,12 @@ test('every raw test anchor has an exact availability or gap disposition', async
             && providedPath.endsWith('.spec.ts')))
         .flatMap(([, ids]) => ids);
       const providerPackIds = [...new Set(providers)].sort();
+      const blockedTriggerUnitIds = [...blockedUnitsByPath]
+        .filter(([blockedPath]) => blockedPath === canonicalPath
+          || (directorySelector
+            && blockedPath.startsWith(canonicalPath + '/')
+            && blockedPath.endsWith('.spec.ts')))
+        .flatMap(([, unitIds]) => unitIds);
       const predecessorProviderPackIds = providerPackIds.filter((id) => closure.has(id));
       const availableAtBase = basePaths.has(canonicalPath)
         || (directorySelector && [...basePaths].some(
@@ -192,10 +205,12 @@ test('every raw test anchor has an exact availability or gap disposition', async
             && basePath.endsWith('.spec.ts'),
         ));
       const runner = directorySelector && !availableAtBase && providerPackIds.length === 0
+        && blockedTriggerUnitIds.length === 0
         ? null
         : initialRunner;
       let disposition;
       if (!runner) disposition = 'NON_EXECUTABLE_ANCHOR';
+      else if (blockedTriggerUnitIds.length) disposition = 'BLOCKED_INACTIVE_TRIGGER';
       else if (gapByPath[canonicalPath] && providerPackIds.includes(pack.packId)) {
         disposition = 'PLANNED_CURRENT_PACK_CREATE';
       } else if (availableAtBase) disposition = 'AVAILABLE_AT_BASE';
@@ -224,6 +239,7 @@ test('every raw test anchor has an exact availability or gap disposition', async
       'PROVIDED_BY_PREDECESSOR_PACK',
       'DEFERRED_PROVIDER_PACK',
       'PLANNED_ACCEPTANCE_TEST_GAP',
+      'BLOCKED_INACTIVE_TRIGGER',
       'NON_EXECUTABLE_ANCHOR',
     ].map((disposition) => [
       disposition,
@@ -253,16 +269,11 @@ test('every generated focused command is one-to-one, reachable, bootstrapped, an
   const allFocusedCommands = manifest.payload.packs.flatMap((pack) => pack.verification.commands)
     .filter((command) => command.startsWith(focusedAssertionPrefix)
       || isFocusedRunnerCommand(command));
-  const commands = allFocusedCommands
-    .filter(isFocusedRunnerCommand);
   assert.equal(manifest.payload.packs.some((pack) => pack.verification.commands
     .some((command) => command.startsWith('pnpm test -- '))), false);
-  assert.ok(commands.some((command) => command.startsWith('pnpm --filter @amic-vault/api test -- ')));
-  assert.ok(commands.some((command) => command.startsWith('pnpm exec vitest run ')));
-  assert.ok(commands.some((command) => command.startsWith('node --test ')));
-  assert.ok(commands.some((command) => command.startsWith("python3 -m pytest '")));
-  assert.ok(commands.some((command) => command.includes('pnpm test:integration -- ')));
-  assert.ok(commands.some((command) => command.includes('(app)')));
+  assert.ok(allFocusedCommands.some((command) => command.startsWith(focusedRunPrefix)));
+  assert.ok(allFocusedCommands.some((command) => command.startsWith('bash -c ')));
+  assert.ok(allFocusedCommands.some((command) => command.includes('(app)')));
   for (const command of allFocusedCommands) {
     for (const shell of ['bash', 'zsh']) {
       const result = spawnSync(shell, ['-n', '-c', command], { encoding: 'utf8' });
@@ -272,17 +283,14 @@ test('every generated focused command is one-to-one, reachable, bootstrapped, an
 
   for (const pack of manifest.payload.packs) {
     const packCommands = pack.verification.commands;
-    const focusedCommands = packCommands.filter(
-      (command) => isFocusedRunnerCommand(command)
-        && pack.verification.focusedTestPaths.some((testPath) =>
-          command.includes(shellQuote(commandSelector(testPath)))),
-    );
+    const executableCommands = packCommands.map(executableCommandText);
+    const runnerLines = executableCommands.flatMap((command) =>
+      command.split('\n').filter((line) => line.includes(focusedRunPrefix)));
     const assertionCommands = packCommands.filter(
       (command) => command.startsWith(focusedAssertionPrefix),
     );
-    const installIndex = packCommands.indexOf('pnpm install --frozen-lockfile');
+    const installIndex = packCommands.indexOf('corepack pnpm install --frozen-lockfile');
     assert.equal(installIndex, 1);
-    assert.ok(focusedCommands.every((command) => packCommands.indexOf(command) > installIndex));
     for (const testPath of pack.verification.focusedTestPaths) {
       assert.equal(
         assertionCommands.filter(
@@ -291,30 +299,33 @@ test('every generated focused command is one-to-one, reachable, bootstrapped, an
         1,
         pack.packId + ' did not assert exactly once: ' + testPath,
       );
+      const exactRunner = focusedRunPrefix + shellQuote(testPath);
       assert.equal(
-        focusedCommands.filter(
-          (command) => command.includes(shellQuote(commandSelector(testPath))),
-        ).length,
+        runnerLines.reduce(
+          (count, line) => count + line.split(exactRunner).length - 1,
+          0,
+        ),
         1,
         pack.packId + ' did not route exactly once: ' + testPath,
       );
+      assert.ok(executableCommands.findIndex((command) => command.includes(exactRunner)) > installIndex);
     }
     assert.equal(assertionCommands.length, pack.verification.focusedTestPaths.length);
-    assert.equal(focusedCommands.length, pack.verification.focusedTestPaths.length);
-    for (const command of focusedCommands) {
-      assert.equal(pack.verification.focusedTestPaths.filter(
-        (testPath) => command.includes(shellQuote(commandSelector(testPath))),
-      ).length, 1, pack.packId + ' batched or ambiguously selected: ' + command);
-    }
+    assert.equal(
+      runnerLines.length,
+      pack.verification.focusedTestPaths.length
+        + (pack.migrationSourceOrdinals.length > 0 ? 1 : 0),
+      pack.packId,
+    );
   }
 
-  const taskEight = manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-09');
-  assert.ok(taskEight.verification.commands.includes(
-    "node --test 'tools/migration/lawos-canonical-matter-reflection.spec.mjs'",
-  ));
+  const taskEight = manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-08');
+  assert.ok(taskEight.verification.commands.some((command) =>
+    command === focusedRunPrefix
+      + shellQuote('tools/migration/lawos-canonical-matter-reflection.spec.mjs')));
 });
 
-test('focused assertions reject missing, helper-only, and statically skipped tests', async () => {
+test('focused assertions reject missing, helper-only, and static exclusion markers', async () => {
   const scratch = await mkdtemp(path.join(tmpdir(), 'amic-vault-focused-assert-'));
   try {
     const helperDirectory = path.join(scratch, 'tests/integration/helpers');
@@ -345,11 +356,21 @@ test('focused assertions reject missing, helper-only, and statically skipped tes
         files: ['tests/integration/helpers/focused.spec.ts'],
       },
     );
-    await writeFile(specPath, "test.skip('disabled', () => {});\n");
-    await assert.rejects(
-      assertFocusedTestPath('tests/integration/helpers/focused.spec.ts', { root: scratch }),
-      /static skip\/todo marker/,
-    );
+    for (const source of [
+      "test.skip('disabled', () => {});\n",
+      "test.only('isolated', () => {});\n",
+      "test.skipIf(true)('conditional', () => {});\n",
+      "test.runIf(false)('conditional', () => {});\n",
+      "test('option', { skip: 'reason' }, () => {});\n",
+      "pytest.importorskip('missing_module')\n",
+      "pytestmark = pytest.mark.skip('reason')\n",
+    ]) {
+      await writeFile(specPath, source);
+      await assert.rejects(
+        assertFocusedTestPath('tests/integration/helpers/focused.spec.ts', { root: scratch }),
+        /static skip\/todo marker/,
+      );
+    }
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
@@ -436,18 +457,18 @@ test('removing an earlier test-provider predecessor is rejected after re-signing
 test('batched OR-style focused selectors are rejected after re-signing', async () => {
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((candidate) => {
-    const apiRunners = candidate.verification.commands.filter(
-      (command) => command.startsWith('pnpm --filter @amic-vault/api test -- '),
+    const directRunners = candidate.verification.commands.filter(
+      (command) => command.startsWith(focusedRunPrefix),
     );
-    return apiRunners.length >= 2;
+    return directRunners.length >= 2;
   });
   assert.ok(pack);
   const runnerIndices = pack.verification.commands
-    .map((command, index) => command.startsWith('pnpm --filter @amic-vault/api test -- ')
+    .map((command, index) => command.startsWith(focusedRunPrefix)
       ? index : -1)
     .filter((index) => index !== -1);
   const secondCommand = pack.verification.commands[runnerIndices[1]];
-  const secondSelector = /test -- ('(?:[^']|'"'"')+')/.exec(secondCommand)?.[1];
+  const secondSelector = secondCommand.slice(focusedRunPrefix.length);
   assert.ok(secondSelector);
   pack.verification.commands[runnerIndices[0]] += ' ' + secondSelector;
   pack.verification.commands.splice(runnerIndices[1], 1);
@@ -465,43 +486,52 @@ test('migration PACKs preserve isolated up-down-up ordering and both migrate com
   assert.ok(migrationPacks.length > 0);
   for (const pack of migrationPacks) {
     const commands = pack.verification.commands;
-    const migrateIndices = commands
-      .map((command, index) => command.endsWith(' pnpm db:migrate') ? index : -1)
-      .filter((index) => index !== -1);
-    const up = commands.findIndex((command) => command.includes(' docker compose -p ')
-      && command.endsWith(' up -d --wait'));
-    const rollback = commands.findIndex((command) => command.endsWith(' pnpm db:rollback'));
-    const seed = commands.findIndex((command) => command.endsWith(' pnpm db:seed'));
-    const integration = commands.findIndex((command) => command.endsWith(' pnpm test:integration'));
-    const down = commands.findIndex((command) => command.includes(' docker compose -p ')
-      && command.endsWith(' down -v --remove-orphans'));
-    assert.equal(migrateIndices.length, 2, pack.packId);
+    const wrapperCommand = commands.find((command) =>
+      command.startsWith('bash -c ') && command.includes(
+        pack.verification.isolatedDatabase.lockPath,
+      ));
+    assert.ok(wrapperCommand, pack.packId);
+    const wrapper = executableCommandText(wrapperCommand);
+    const up = wrapper.indexOf(' up -d --wait --build --force-recreate --renew-anon-volumes');
+    const firstMigrate = wrapper.indexOf(' corepack pnpm db:migrate', up);
+    const rollback = wrapper.indexOf(' corepack pnpm db:rollback', firstMigrate);
+    const secondMigrate = wrapper.indexOf(
+      ' corepack pnpm db:migrate',
+      firstMigrate + 1,
+    );
+    const seed = wrapper.indexOf(' corepack pnpm db:seed', secondMigrate);
+    const integration = wrapper.indexOf(
+      focusedRunPrefix + shellQuote('tests/integration'),
+      seed,
+    );
     assert.equal(pack.verification.isolatedDatabase.projectName,
       'amic-vault-' + pack.packId.toLowerCase());
     assert.equal(pack.verification.isolatedDatabase.bucket, 'amic-vault-dev');
     assert.equal(pack.verification.isolatedDatabase.ingestionWorkerUrl,
       'http://127.0.0.1:' + pack.verification.isolatedDatabase.ingestionPort);
+    assert.equal(pack.verification.isolatedDatabase.hostBinding, '127.0.0.1');
+    assert.equal(pack.verification.isolatedDatabase.precleanRequired, true);
+    assert.equal(pack.verification.isolatedDatabase.forceBuildRequired, true);
+    assert.equal(pack.verification.isolatedDatabase.forceRecreateRequired, true);
+    assert.equal(pack.verification.isolatedDatabase.cleanupExecutor,
+      'BASH_EXIT_TRAP_STATUS_PRESERVING');
     assert.equal(pack.verification.isolatedDatabase.cleanupRequiredOnSuccessOrFailure, true);
-    const composeCommands = commands.filter((command) => command.includes(' docker compose -p '));
-    const isolatedRunners = commands.filter(
-      (command) => / pnpm (?:db:(?:migrate|rollback|seed)|test:integration)(?: |$)/.test(command),
-    );
-    assert.equal(composeCommands.length, 2, pack.packId);
-    assert.ok(composeCommands.every(
-      (command) => command.includes("S3_BUCKET='amic-vault-dev'"),
-    ), pack.packId);
-    assert.ok(isolatedRunners.length >= 5, pack.packId);
-    assert.ok(isolatedRunners.every(
-      (command) => command.includes("S3_BUCKET='amic-vault-dev'")
-        && command.includes("INGESTION_WORKER_URL='http://127.0.0.1:"
-          + pack.verification.isolatedDatabase.ingestionPort + "'"),
-    ), pack.packId);
-    assert.ok(up < migrateIndices[0]
-      && migrateIndices[0] < rollback
-      && rollback < migrateIndices[1]
-      && migrateIndices[1] < seed
-      && seed < integration
-      && integration < down, pack.packId);
+    assert.equal(wrapper.split(' corepack pnpm db:migrate').length - 1, 2, pack.packId);
+    assert.equal(wrapper.split(' down -v --remove-orphans --rmi local').length - 1,
+      2, pack.packId);
+    assert.ok(wrapper.includes('trap cleanup EXIT'), pack.packId);
+    assert.ok(wrapper.includes('mkdir "$lock_path"'), pack.packId);
+    assert.ok(wrapper.includes('ports: !override'), pack.packId);
+    assert.ok(wrapper.includes('127.0.0.1:' + pack.verification.isolatedDatabase.postgresPort
+      + ':5432'), pack.packId);
+    assert.ok(wrapper.includes("S3_BUCKET='amic-vault-dev'"), pack.packId);
+    assert.ok(wrapper.includes("INGESTION_WORKER_URL='http://127.0.0.1:"
+      + pack.verification.isolatedDatabase.ingestionPort + "'"), pack.packId);
+    assert.ok(up < firstMigrate
+      && firstMigrate < rollback
+      && rollback < secondMigrate
+      && secondMigrate < seed
+      && seed < integration, pack.packId);
   }
 });
 
@@ -523,7 +553,9 @@ test('focused commands cannot run before the frozen dependency install', async (
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((item) => item.verification.commands
     .some(isFocusedRunnerCommand));
-  const installIndex = pack.verification.commands.indexOf('pnpm install --frozen-lockfile');
+  const installIndex = pack.verification.commands.indexOf(
+    'corepack pnpm install --frozen-lockfile',
+  );
   const focusedIndex = pack.verification.commands.findIndex(
     isFocusedRunnerCommand,
   );
@@ -562,6 +594,17 @@ test('PACK-R14-04 reconstructs only the exact 19-commit five-path history source
   assert.deepEqual(pack.files.modify, []);
   assert.deepEqual(pack.files.create, source.pathActions.map((item) => item.path).sort());
   assert.deepEqual(pack.nonOverlaySourceIds, [source.sourceId]);
+});
+
+test('every later overlay consumer explicitly depends on its non-overlay source PACK', async () => {
+  const manifest = await fixture();
+  const consumer = manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-29');
+  assert.ok(consumer.predecessorPackIds.includes('PACK-R14-04'));
+  consumer.predecessorPackIds = consumer.predecessorPackIds
+    .filter((packId) => packId !== 'PACK-R14-04');
+  resign(manifest);
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('NON_OVERLAY_SOURCE_PREDECESSOR'));
 });
 
 test('stale historical-base overlay records are quarantined instead of routed', async () => {
@@ -620,22 +663,23 @@ test('re-signed exact-base collision recreation is rejected', async () => {
   assert.ok(codes.includes('PACK_FILE_SET'));
 });
 
-test('PACK-R14-05 registers seven one-row transitions plus candidate bookkeeping', async () => {
+test('PACK-R14-05 blocks inactive B20 while registering six active transitions', async () => {
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-05');
   assert.deepEqual(pack.files.create, []);
   assert.deepEqual(pack.files.modify, []);
   assert.deepEqual(pack.controlPlane.transitionTuwIds, [
-    'B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20',
+    'B15', 'B16', 'B17', 'C16', 'B18', 'B19',
   ]);
+  assert.deepEqual(pack.controlPlane.blockedTransitionTuwIds, ['B20']);
   assert.equal(pack.controlPlane.transitionCommit.exactPaths.length, 4);
   assert.deepEqual(pack.controlPlane.candidateBookkeeping.create, [pack.repoSafeReceipt]);
   assert.deepEqual(pack.controlPlane.candidateBookkeeping.modify, ['docs/ledger/execution.md']);
 });
 
-test('PACK-R14-09 composes the exact LawOS source with only its owned later hunks', async () => {
+test('PACK-R14-08 composes the exact LawOS source with only its owned later hunks', async () => {
   const manifest = await fixture();
-  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-09');
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-08');
   const source = manifest.payload.nonOverlaySources.find(
     (item) => item.sourceId === 'TASK8-LAWOS-REFLECTION-0B39414',
   );
@@ -650,6 +694,11 @@ test('PACK-R14-09 composes the exact LawOS source with only its owned later hunk
     'tools/migration/lawos-canonical-matter-reflection.mjs',
     'tools/migration/lawos-canonical-matter-reflection.spec.mjs',
   ]);
+  assert.deepEqual(pack.controlPlane.transitionTuwIds, []);
+  const taskTwelve = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-09');
+  assert.ok(taskTwelve.predecessorPackIds.includes(pack.packId));
+  assert.equal(pack.predecessorPackIds.includes(taskTwelve.packId), false);
+  assert.deepEqual(taskTwelve.controlPlane.transitionTuwIds.filter((id) => id === 'A14'), ['A14']);
 });
 
 test('removing one primary TUW is rejected', async () => {
@@ -708,6 +757,60 @@ test('current manifest rejects D9 activation even with an unregistered approval 
   trigger.approvalRef = 'UNREGISTERED-REF';
   resign(manifest);
   assert.equal(validateManifest(manifest).errors.some((error) => error.code === 'TRIGGER_STATE'), true);
+});
+
+test('inactive conditional hunks, migrations, and transitions cannot become executable', async () => {
+  const hunkManifest = await fixture();
+  const hunk = hunkManifest.payload.hunkAssignments.find(
+    (item) => item.quarantineReason === 'INACTIVE_CONDITIONAL_TRIGGER',
+  );
+  hunk.disposition = 'PACK';
+  hunk.packId = hunk.blockedPackId;
+  hunk.quarantineReason = null;
+  hunk.blockedPackId = null;
+  hunk.activationTriggerId = null;
+  hunkManifest.payload.packs.find((pack) => pack.packId === hunk.packId)
+    .hunkOrdinals.push(hunk.ordinal);
+  resign(hunkManifest);
+  assert.ok(validateManifest(hunkManifest).errors
+    .some((error) => error.code === 'TRIGGER_HUNK_EXECUTABLE'));
+
+  const migrationManifest = await fixture();
+  const migration = migrationManifest.payload.migrations.find(
+    (item) => item.executionDisposition === 'BLOCKED_INACTIVE_TRIGGER',
+  );
+  migration.executionDisposition = 'PACK';
+  migration.packId = migration.blockedPackId;
+  resign(migrationManifest);
+  assert.ok(validateManifest(migrationManifest).errors
+    .some((error) => error.code === 'TRIGGER_MIGRATION_EXECUTABLE'));
+
+  const transitionManifest = await fixture();
+  const transitionPack = transitionManifest.payload.packs.find(
+    (pack) => pack.conditionalBlockedTuwIds.includes('H14'),
+  );
+  transitionPack.controlPlane.transitionTuwIds.push('H14');
+  resign(transitionManifest);
+  assert.ok(validateManifest(transitionManifest).errors
+    .some((error) => error.code === 'TRIGGER_TRANSITION_EXECUTABLE'));
+});
+
+test('same-PACK migration hard dependencies must remain topologically ordered', async () => {
+  const manifest = await fixture();
+  const blocked = manifest.payload.migrations.find(
+    (migration) => migration.ownerUnitId === 'H14' && migration.sourceOrdinal === 102,
+  );
+  blocked.executionDisposition = 'PACK';
+  blocked.packId = blocked.blockedPackId;
+  blocked.blockedPackId = null;
+  blocked.activationTriggerId = null;
+  blocked.targetOrdinal = 124;
+  blocked.targetName = '0124' + blocked.sourceName.slice(4);
+  blocked.targetPredecessor = 123;
+  blocked.renumberRequired = true;
+  resign(manifest);
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('MIGRATION_HARD_DEPENDENCY_ORDER'));
 });
 
 test('Risk C without a reviewer is rejected', async () => {
@@ -886,19 +989,25 @@ test('omitting one transition control-plane path is rejected', async () => {
     .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
 });
 
-test('moving A14 from a row role to support cannot remove its transition', async () => {
+test('Task 12 cannot remove its single plan-aligned A14 transition', async () => {
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-09');
-  pack.secondaryTuwIds = pack.secondaryTuwIds.filter((id) => id !== 'A14');
-  pack.supportTuwIds.unshift('A14');
   pack.controlPlane.transitionTuwIds = pack.controlPlane.transitionTuwIds
     .filter((id) => id !== 'A14');
   resign(manifest);
 
   const codes = validateManifest(manifest).errors.map((error) => error.code);
-  assert.ok(codes.includes('PACK_TUW_ROLE_CONTRACT'));
   assert.ok(codes.includes('PACK_CONTROL_PLANE_CONTRACT'));
   assert.ok(codes.includes('CANONICAL_PAYLOAD_HASH'));
+});
+
+test('Task 8 cannot transition A14 before Task 12', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-08');
+  pack.controlPlane.transitionTuwIds.push('A14');
+  resign(manifest);
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('PACK_CONTROL_PLANE_CONTRACT'));
 });
 
 test('allowing candidate bookkeeping after transitions is rejected', async () => {
@@ -958,10 +1067,133 @@ test('source-less output validation rejects committed Markdown drift', async () 
     const result = spawnSync(process.execPath, [
       await realpath(path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
       '--check',
+      '--committed-only',
     ], { cwd: clone, encoding: 'utf8' });
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stderr, /"code":"CHECK_DRIFT"/);
     assert.match(result.stderr, /"writes":0/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('source check mode rejects absent, missing, empty, nonexistent, and conflicting source-dir values', () => {
+  const script = fileURLToPath(scriptPath);
+  const cases = [
+    { args: ['--check'], pattern: /requires --source-dir/ },
+    { args: ['--check', '--source-dir'], pattern: /requires a nonempty value/ },
+    { args: ['--check', '--source-dir', ''], pattern: /requires a nonempty value/ },
+    {
+      args: ['--check', '--source-dir', '/definitely/missing/amic-vault-source'],
+      pattern: /ENOENT/,
+    },
+    {
+      args: ['--check', '--source-dir', '/tmp/source', '--committed-only'],
+      pattern: /mutually exclusive/,
+    },
+  ];
+  for (const { args, pattern } of cases) {
+    const result = spawnSync(process.execPath, [script, ...args], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 1, args.join(' '));
+    assert.match(result.stderr, pattern, args.join(' '));
+  }
+  const committed = spawnSync(process.execPath, [script, '--check', '--committed-only'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  assert.equal(committed.status, 0, committed.stderr);
+  assert.match(committed.stdout, /"code":"CHECK_OK"/);
+  assert.match(committed.stdout, /"writes":0/);
+});
+
+test('focused result accounting rejects semantic exclusions and zero-test greens', () => {
+  assert.deepEqual(validateFocusedTestResult('WORKSPACE_VITEST', {
+    status: 0,
+    stdout: ' Tests  2 passed (2)\n',
+  }), {
+    executed: 2,
+    passed: 2,
+    failed: 0,
+    skipped: 0,
+    todo: 0,
+    xfail: 0,
+    xpass: 0,
+    deselected: 0,
+  });
+  for (const stdout of [
+    ' Tests  1 passed | 1 skipped (2)\n',
+    ' Tests  1 todo (1)\n',
+    ' Tests  0 passed (0)\n',
+  ]) {
+    assert.throws(
+      () => validateFocusedTestResult('WORKSPACE_VITEST', { status: 0, stdout }),
+      /zero-exclusion contract/,
+    );
+  }
+  assert.deepEqual(validateFocusedTestResult('NODE_TEST', {
+    status: 0,
+    stdout: '# tests 1\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n',
+  }).passed, 1);
+  for (const stdout of [
+    '# tests 1\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 1\n# todo 0\n',
+    '# tests 1\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 1\n',
+    '# tests 0\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n',
+  ]) {
+    assert.throws(
+      () => validateFocusedTestResult('NODE_TEST', { status: 0, stdout }),
+      /zero-exclusion contract/,
+    );
+  }
+  assert.equal(validateFocusedTestResult('PYTEST', {
+    status: 0,
+    stdout: '================ 2 passed in 0.10s ================\n',
+  }).passed, 2);
+  for (const stdout of [
+    '================ 1 passed, 1 skipped in 0.10s ================\n',
+    '================ 1 xfailed in 0.10s ================\n',
+    '================ 1 xpassed in 0.10s ================\n',
+    '================ no tests ran in 0.10s ================\n',
+  ]) {
+    assert.throws(
+      () => validateFocusedTestResult('PYTEST', { status: 0, stdout }),
+      /zero-exclusion contract/,
+    );
+  }
+});
+
+test('cleanup-guaranteed shell wrapper preserves failure status and always releases its lock', async () => {
+  const scratch = await mkdtemp(path.join(tmpdir(), 'amic-vault-cleanup-wrapper-'));
+  const log = path.join(scratch, 'events.log');
+  const lock = path.join(scratch, 'lock');
+  try {
+    const command = cleanupGuaranteedShellCommand({
+      lockPath: lock,
+      preflightCommands: ["printf '%s\\n' preflight >> " + shellQuote(log)],
+      commands: [
+        "printf '%s\\n' body >> " + shellQuote(log),
+        "sh -c 'exit 23'",
+      ],
+      cleanupCommands: ["printf '%s\\n' cleanup >> " + shellQuote(log)],
+    });
+    const result = spawnSync('bash', ['-c', command], { encoding: 'utf8' });
+    assert.equal(result.status, 23, result.stderr);
+    assert.equal(await readFile(log, 'utf8'), 'preflight\nbody\ncleanup\n');
+    await assert.rejects(readFile(lock), /EISDIR|ENOENT/);
+    const lockProbe = spawnSync('test', ['!', '-e', lock]);
+    assert.equal(lockProbe.status, 0);
+
+    const cleanupFailure = cleanupGuaranteedShellCommand({
+      lockPath: lock,
+      preflightCommands: [':'],
+      commands: [':'],
+      cleanupCommands: ["sh -c 'exit 29'"],
+    });
+    const cleanupResult = spawnSync('bash', ['-c', cleanupFailure], { encoding: 'utf8' });
+    assert.equal(cleanupResult.status, 29);
+    assert.match(cleanupResult.stderr, /cleanup failed/);
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }

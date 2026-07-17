@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: 06ece261c8e7e51c1aaa64577978c6e29b7b9fb6c5764c0c5e083c5f33be12b2
+- Payload SHA-256: 13e0bda8b753f0bb637bee1178bed7838f96666e891930e7b3db3bd2117c3526
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
@@ -15,14 +15,15 @@ Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 - Dirty-path coverage: 893/893
 - Ownership-record coverage: 4801/4801
 - Non-overlay Git sources: 20 commits / 9 paths
-- Test-anchor source contract: 783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6
+- Test-anchor source contract: b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20
 - Planned acceptance-test gaps: 7
 - Exact-base collision quarantine: 6 paths (4 identical / 2 superseded)
-- Quarantine after amendment: 34 hunks / 28 paths
-- Migration coverage: 86/86; renumbered in dependency/PACK order: 84
+- Quarantine after amendment: 196 hunks / 79 paths
+- Migration coverage: 86/86; active chain: 84; trigger-blocked: 2; renumbered in dependency/PACK order: 78
 
-This manifest is an execution authorization map only. It is not product implementation,
-migration execution, deployment, external release, or go-live evidence.
+This manifest is an execution authorization map only. It changes or lands no migration
+and performs no downstream or production migration. Disposable isolated verification
+may execute existing migrations; that is not deployment, external release, or go-live evidence.
 
 ## Amendment correction
 
@@ -45,12 +46,18 @@ that are explicitly planned but not yet created remain completion-blocking gaps 
 exact planned-create plus focused-test obligations of their owning implementation PACK.
 Each focused selector has a fail-closed regular-file/directory assertion and its own
 runner invocation, so another matching selector cannot hide a missing test. Static
-skip/todo markers are rejected. Integration selectors require a real `.spec.ts`
+only/skip/todo/conditional markers are rejected, and the result wrapper requires at
+least one executed passing test with zero fail/skip/todo/xfail/xpass/deselection.
+Integration selectors require a real `.spec.ts`
 descendant; helper-only directories are non-executable anchors. Earlier test providers
-are explicit DAG predecessors. Database PACKs use PACK-specific compose projects, ports,
-volumes, database URLs, and ingestion worker URL with the canonical isolated bucket, then run compose up, migrate,
+are explicit DAG predecessors. Database PACKs use PACK-specific compose projects,
+loopback-only ports, a serialized lock, pre-cleaned volumes, a forced exact-head ingestion
+build/recreate, database URLs, and ingestion worker URL with the canonical isolated bucket.
+A status-preserving Bash EXIT trap then runs compose up, migrate,
 rollback, migrate, seed, focused
-integration, full integration, and compose cleanup in that order.
+integration, full integration, and unconditional compose/image/volume cleanup in that order.
+Inactive D9, H14, and B20 hunks, migrations, tests, and transitions remain quarantined
+until a separately registered activation amendment supplies the matching trigger receipt.
 The receipt and exact EOF execution-ledger append precede transitions; transition
 commits then change exactly the four sealed 117-row control-plane paths. Any later
 non-control-plane push invalidates the candidate binding and all exact-head gates.
@@ -60,7 +67,7 @@ non-control-plane push invalidates the candidate binding and all exact-head gate
 | Source | PACK | Commits | Paths | Mode |
 |---|---|---:|---:|---|
 | TASK7-RELEASE-HISTORY-19 | PACK-R14-04 | 19 | 5 | PRESERVE_COMMIT_SEQUENCE |
-| TASK8-LAWOS-REFLECTION-0B39414 | PACK-R14-09 | 1 | 4 | PRESERVE_SINGLE_COMMIT_THEN_APPLY_OWNED_OVERLAY_HUNKS |
+| TASK8-LAWOS-REFLECTION-0B39414 | PACK-R14-08 | 1 | 4 | PRESERVE_SINGLE_COMMIT_THEN_APPLY_OWNED_OVERLAY_HUNKS |
 
 ## PACK sequence
 
@@ -70,8 +77,8 @@ non-control-plane push invalidates the candidate binding and all exact-head gate
 | 2 | PACK-R14-05 | feat/pack-r14-05-appendix-audit | STATUS_ADJUDICATION | 7 | 7 | M |
 | 3 | PACK-R14-06 | feat/pack-r14-06-small-candidate-adjudication | READJUDICATION | 5 | 5 | C |
 | 4 | PACK-R14-07 | feat/pack-r14-07-matter-candidate-adjudication | READJUDICATION | 6 | 6 | C |
-| 5 | PACK-R14-08 | feat/pack-r14-08-dependency-candidate-adjudication | READJUDICATION | 8 | 8 | C |
-| 6 | PACK-R14-09 | feat/pack-r14-09-lawos-reflection | CODE_RECOVERY | 4 | 0 | H |
+| 5 | PACK-R14-08 | feat/pack-r14-08-lawos-reflection | CODE_RECOVERY | 4 | 0 | H |
+| 6 | PACK-R14-09 | feat/pack-r14-09-dependency-candidate-adjudication | READJUDICATION | 8 | 8 | C |
 | 7 | PACK-R14-10 | feat/pack-r14-10-evidence-factory | CONTROL_SUPPORT | 4 | 0 | M |
 | 8 | PACK-R14-11 | feat/pack-r14-11-document-diagnostics | EVIDENCE_OR_IMPLEMENTATION | 4 | 4 | C |
 | 9 | PACK-R14-12 | feat/pack-r14-12-email-outlook-fixtures | EVIDENCE_OR_IMPLEMENTATION | 5 | 4 | C |
@@ -114,8 +121,9 @@ non-control-plane push invalidates the candidate binding and all exact-head gate
 
 The dirty overlay migration filenames are not mergeable in their existing feature order:
 source ordinal 0094 begins with H11 while its hard C11 dependency is later. The manifest
-therefore preserves all 86 source files by hash/owner but assigns target ordinals 0094-0179
-in dependency-valid PACK order. Each migration lands with its execution PACK, its down path,
+therefore preserves all 86 source files by hash/owner. The 84 active rows receive target ordinals 0094-0177
+in dependency-valid PACK and same-PACK unit-topological order; 2 H14 rows retain no target ordinal while their trigger is inactive.
+Each active migration lands with its execution PACK, its down path,
 reference updates, fresh database up/down/up proof, and full integration proof.
 
 ## Review and merge
@@ -129,7 +137,7 @@ aggregate-goal authority. Any post-review push invalidates review and gates.
 - no docs/package change
 - no private evidence publication or dereference
 - no unassigned path or hunk staging
-- no migration execution by manifest registration
+- no migration change or landing and no downstream or production migration execution by manifest registration; disposable isolated verification of existing migrations is permitted
 - no product completion inherited from bootstrap or historical evidence
 - no conditional unit execution without active written trigger
 - no external operation without separately scoped authority

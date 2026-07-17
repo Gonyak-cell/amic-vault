@@ -13,8 +13,8 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '06ece261c8e7e51c1aaa64577978c6e29b7b9fb6c5764c0c5e083c5f33be12b2';
-const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = '783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6';
+const CANONICAL_PAYLOAD_SHA256 = '13e0bda8b753f0bb637bee1178bed7838f96666e891930e7b3db3bd2117c3526';
+const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
 const AUTHORITY_REF = 'TASK6B-TECHNICAL-GATES-AUTHORITY-20260717';
@@ -74,6 +74,7 @@ const AMENDMENT_ALLOWED_MODIFY = [
 
 const EXECUTION_LEDGER_PATH = 'docs/ledger/execution.md';
 const FOCUSED_ASSERT_COMMAND = 'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --assert-focused-test ';
+const FOCUSED_RUN_COMMAND = 'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --run-focused-test ';
 const ISOLATED_POSTGRES_PORT_BASE = 55_432;
 const ISOLATED_MINIO_PORT_BASE = 59_000;
 const ISOLATED_INGESTION_PORT_BASE = 58_000;
@@ -85,13 +86,13 @@ const TRANSITION_CONTROL_PLANE_PATHS = [
 ];
 
 const COMMON_COMMANDS = [
-  'pnpm install --frozen-lockfile',
-  'pnpm lint',
-  'pnpm typecheck',
-  'pnpm test',
-  'pnpm build',
-  'pnpm backlog:validate',
-  'pnpm docs:frozen',
+  'corepack pnpm install --frozen-lockfile',
+  'corepack pnpm lint',
+  'corepack pnpm typecheck',
+  'corepack pnpm test',
+  'corepack pnpm build',
+  'corepack pnpm backlog:validate',
+  'corepack pnpm docs:frozen',
   'git diff --check',
 ];
 
@@ -196,8 +197,8 @@ const BLUEPRINTS = [
   bp('T9', 'appendix-audit', 'Adjudicate seven Appendix-2 rows', 'STATUS_ADJUDICATION', ['9'], ['B15', 'B16', 'B17', 'C16', 'B18', 'B19', 'B20']),
   bp('T10', 'small-candidate-adjudication', 'Re-adjudicate small former candidates', 'READJUDICATION', ['10'], ['A5', 'A3', 'C3', 'B5', 'G2']),
   bp('T11', 'matter-candidate-adjudication', 'Re-adjudicate Matter candidate chain', 'READJUDICATION', ['11'], ['A1', 'A2', 'A4', 'A6', 'A7', 'A10']),
-  bp('T12', 'dependency-candidate-adjudication', 'Re-adjudicate dependency-bound candidates', 'READJUDICATION', ['12'], ['D1', 'F5', 'H8', 'A14', 'D2', 'D3', 'E2', 'D5']),
   bp('T8', 'lawos-reflection', 'Recover LawOS canonical reflection runner', 'CODE_RECOVERY', ['8'], ['A14', ...SUPPORT.lawos]),
+  bp('T12', 'dependency-candidate-adjudication', 'Re-adjudicate dependency-bound candidates', 'READJUDICATION', ['12'], ['D1', 'F5', 'H8', 'A14', 'D2', 'D3', 'E2', 'D5']),
   bp('T13', 'evidence-factory', 'Establish evidence factory and normalized queue', 'CONTROL_SUPPORT', ['13'], SUPPORT.evidence),
   bp('T14', 'document-diagnostics', 'Close document diagnostics evidence', 'EVIDENCE_OR_IMPLEMENTATION', ['14'], ['F6', 'B2', 'B4', 'B6']),
   bp('T15', 'email-outlook-fixtures', 'Close email and Outlook fixture evidence', 'EVIDENCE_OR_IMPLEMENTATION', ['15'], ['C1', 'C2', 'C8', 'C9', 'C16']),
@@ -376,6 +377,9 @@ const CONDITIONAL_TRIGGERS = [
   trigger('H14', 'TRIGGER-H14-MICROSOFT-OIDC-ACTIVE'),
   trigger('B20', 'TRIGGER-B20-TRACK-CHANGES-ACTIVE'),
 ];
+const INACTIVE_TRIGGER_UNIT_IDS = new Set(
+  CONDITIONAL_TRIGGERS.filter((row) => row.state === 'INACTIVE').map((row) => row.unitId),
+);
 
 function bp(key, slug, title, mode, planTasks, tuwIds) {
   return { key, slug, title, mode, planTasks, tuwIds };
@@ -461,6 +465,11 @@ function shellQuote(value) {
   return "'" + value.replaceAll("'", "'\"'\"'") + "'";
 }
 
+function executableCommandText(command) {
+  if (!command.startsWith("bash -c '") || !command.endsWith("'")) return command;
+  return command.slice("bash -c '".length, -1).replaceAll("'\"'\"'", "'");
+}
+
 const FOCUSED_VITEST_ROUTES = [
   ['apps/api/', '@amic-vault/api'],
   ['apps/web/', '@amic-vault/web'],
@@ -522,12 +531,13 @@ const TEST_ANCHOR_DISPOSITIONS = [
   'PROVIDED_BY_PREDECESSOR_PACK',
   'DEFERRED_PROVIDER_PACK',
   'PLANNED_ACCEPTANCE_TEST_GAP',
+  'BLOCKED_INACTIVE_TRIGGER',
   'NON_EXECUTABLE_ANCHOR',
 ];
 
 let cachedBasePaths;
 
-const STATIC_TEST_SKIP_PATTERN = /(?:\b(?:describe|it|test)\.(?:skip|todo)\b|\b(?:xdescribe|xit|xtest)\s*\(|@pytest\.mark\.(?:skip|skipif)\b|\bpytest\.skip\s*\(|\bskip\s*:\s*true\b)/;
+const STATIC_TEST_SKIP_PATTERN = /(?:\b(?:describe|it|test)\.(?:skip|todo|only|skipIf|todoIf|runIf)\b|\b(?:xdescribe|xit|xtest)\s*\(|\b(?:describe|it|test)\s*\([^\n]*\{[^\n}]*(?:skip|todo)\s*:\s*(?:true|['"])[^\n}]*\}|@pytest\.mark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\s*\(|\bpytestmark\s*=|\bskip\s*:\s*true\b)/;
 
 function isVitestPath(value) {
   return /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(value);
@@ -658,7 +668,35 @@ function providerPackIdsForTestAnchor(canonicalPath, providersByPath) {
     .flatMap(([, providerIds]) => providerIds)));
 }
 
-function classifyTestAnchors(pack, { basePaths, providersByPath, packById }) {
+function conditionalTriggerUnitsForTestAnchor(canonicalPath, blockedTriggerUnitsByPath) {
+  const directorySelector = isIntegrationDirectorySelector(canonicalPath);
+  return sorted(unique([...blockedTriggerUnitsByPath]
+    .filter(([blockedPath]) => blockedPath === canonicalPath
+      || (directorySelector
+        && blockedPath.startsWith(canonicalPath + '/')
+        && blockedPath.endsWith('.spec.ts')))
+    .flatMap(([, unitIds]) => unitIds)));
+}
+
+function blockedTriggerUnitMap(hunks) {
+  const result = new Map();
+  for (const hunk of hunks) {
+    if (hunk.quarantineReason !== 'INACTIVE_CONDITIONAL_TRIGGER') continue;
+    const blockedPath = decodePath(hunk.pathB64);
+    result.set(blockedPath, sorted(unique([
+      ...(result.get(blockedPath) ?? []),
+      hunk.sourceOwner,
+    ])));
+  }
+  return result;
+}
+
+function classifyTestAnchors(pack, {
+  basePaths,
+  providersByPath,
+  packById,
+  blockedTriggerUnitsByPath,
+}) {
   const predecessorIds = packPredecessorClosure(pack, packById);
   const gapByPath = Object.fromEntries(PLANNED_ACCEPTANCE_TEST_GAPS.map((gap) => [gap.path, gap]));
   const records = pack.verification.rawTestAnchorPaths.map((sourcePath) => {
@@ -667,15 +705,21 @@ function classifyTestAnchors(pack, { basePaths, providersByPath, packById }) {
     const directorySelector = syntacticRunner === 'INTEGRATION'
       && isIntegrationDirectorySelector(canonicalPath);
     const providerPackIds = providerPackIdsForTestAnchor(canonicalPath, providersByPath);
+    const blockedTriggerUnitIds = conditionalTriggerUnitsForTestAnchor(
+      canonicalPath,
+      blockedTriggerUnitsByPath,
+    );
     const predecessorProviderPackIds = providerPackIds.filter((id) => predecessorIds.has(id));
     const availableAtBase = basePaths.has(canonicalPath)
       || (directorySelector && [...basePaths].some((basePath) =>
         basePath.startsWith(canonicalPath + '/') && basePath.endsWith('.spec.ts')));
     const runner = directorySelector && !availableAtBase && providerPackIds.length === 0
+      && blockedTriggerUnitIds.length === 0
       ? null
       : syntacticRunner;
     let disposition;
     if (!runner) disposition = 'NON_EXECUTABLE_ANCHOR';
+    else if (blockedTriggerUnitIds.length) disposition = 'BLOCKED_INACTIVE_TRIGGER';
     else if (gapByPath[canonicalPath] && providerPackIds.includes(pack.packId)) {
       disposition = 'PLANNED_CURRENT_PACK_CREATE';
     }
@@ -694,6 +738,7 @@ function classifyTestAnchors(pack, { basePaths, providersByPath, packById }) {
       disposition,
       providerPackIds,
       predecessorProviderPackIds,
+      blockedTriggerUnitIds,
       plannedOwnerUnitId: gap?.ownerUnitId ?? null,
     };
   });
@@ -709,6 +754,7 @@ function classifyTestAnchors(pack, { basePaths, providersByPath, packById }) {
       disposition: 'PLANNED_CURRENT_PACK_CREATE',
       providerPackIds,
       predecessorProviderPackIds: [],
+      blockedTriggerUnitIds: [],
       plannedOwnerUnitId: gap.ownerUnitId,
     });
   }
@@ -725,29 +771,236 @@ function testAnchorDispositionPaths(records) {
 }
 
 function focusedCommands(testPaths) {
-  const commands = [];
-
-  for (const testPath of testPaths) {
-    commands.push(FOCUSED_ASSERT_COMMAND + shellQuote(testPath));
-    const route = FOCUSED_VITEST_ROUTES.find(
-      ([prefix]) => testPath.startsWith(prefix) && isVitestPath(testPath),
-    );
-    if (route) {
-      commands.push('pnpm --filter ' + route[1] + ' test -- '
-        + shellQuote(testCommandSelector(testPath)) + ' --passWithNoTests=false');
-    } else if (isVitestPath(testPath) && !testPath.startsWith('tests/integration')) {
-      commands.push('pnpm exec vitest run ' + shellQuote(testPath) + ' --passWithNoTests=false');
-    } else if (testPath.endsWith('.spec.mjs')) {
-      commands.push('node --test ' + shellQuote(testPath));
-    } else if (/(^|\/)test_[^/]+\.py$/.test(testPath)) {
-      commands.push('python3 -m pytest ' + shellQuote(testPath));
-    } else if (isIntegrationSelector(testPath)) {
-      commands.push('pnpm test:integration -- ' + shellQuote(testPath));
-    } else {
+  return testPaths.flatMap((testPath) => {
+    if (!testRunner(testPath)) {
       throw new Error('focused test path has no executable runner: ' + testPath);
     }
+    return [
+      FOCUSED_ASSERT_COMMAND + shellQuote(testPath),
+      FOCUSED_RUN_COMMAND + shellQuote(testPath),
+    ];
+  });
+}
+
+function focusedRunnerInvocation(testPath) {
+  const runner = testRunner(testPath);
+  const route = FOCUSED_VITEST_ROUTES.find(
+    ([prefix]) => testPath.startsWith(prefix) && isVitestPath(testPath),
+  );
+  if (runner === 'WORKSPACE_VITEST') {
+    return {
+      runner,
+      command: 'corepack',
+      args: ['pnpm', '--filter', route[1], 'test', '--', testCommandSelector(testPath),
+        '--passWithNoTests=false'],
+    };
   }
-  return commands;
+  if (runner === 'ROOT_VITEST') {
+    return {
+      runner,
+      command: 'corepack',
+      args: ['pnpm', 'exec', 'vitest', 'run', testPath, '--passWithNoTests=false'],
+    };
+  }
+  if (runner === 'NODE_TEST') {
+    return {
+      runner,
+      command: 'node',
+      args: ['--test', '--test-reporter=tap', testPath],
+    };
+  }
+  if (runner === 'PYTEST') {
+    return {
+      runner,
+      command: 'python3',
+      args: ['-m', 'pytest', testPath, '-rA'],
+    };
+  }
+  if (runner === 'INTEGRATION') {
+    return {
+      runner,
+      command: 'corepack',
+      args: ['pnpm', 'test:integration', '--', testPath],
+    };
+  }
+  throw new Error('focused test path has no executable runner: ' + testPath);
+}
+
+function stripAnsi(value) {
+  return value.replaceAll(
+    new RegExp(String.fromCodePoint(27) + '\\[[0-?]*[ -/]*[@-~]', 'g'),
+    '',
+  );
+}
+
+function namedCounts(value, names) {
+  return Object.fromEntries(names.map((name) => {
+    const match = new RegExp('(?:^|\\s)(\\d+)\\s+' + name + '\\b', 'i').exec(value);
+    return [name, match ? Number(match[1]) : 0];
+  }));
+}
+
+export function validateFocusedTestResult(runner, {
+  status,
+  stdout = '',
+  stderr = '',
+} = {}) {
+  const output = stripAnsi(stdout + '\n' + stderr);
+  if (status !== 0) {
+    throw new Error('focused ' + runner + ' runner exited with status ' + String(status));
+  }
+
+  let counts;
+  if (runner === 'NODE_TEST') {
+    const values = Object.fromEntries(
+      ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo'].map((name) => {
+        const matches = [...output.matchAll(new RegExp('^# ' + name + ' (\\d+)$', 'gm'))];
+        return [name, matches.length ? Number(matches.at(-1)[1]) : 0];
+      }),
+    );
+    counts = {
+      executed: values.tests,
+      passed: values.pass,
+      failed: values.fail + values.cancelled,
+      skipped: values.skipped,
+      todo: values.todo,
+      xfail: 0,
+      xpass: 0,
+      deselected: 0,
+    };
+  } else if (runner === 'PYTEST') {
+    const summaryLines = output.split('\n').filter((line) =>
+      /\b(?:passed|failed|error|errors|skipped|xfailed|xpassed|deselected)\b/.test(line));
+    const summary = summaryLines.at(-1) ?? '';
+    const values = namedCounts(summary, [
+      'passed', 'failed', 'error', 'errors', 'skipped', 'xfailed', 'xpassed', 'deselected',
+    ]);
+    counts = {
+      executed: values.passed + values.failed + values.error + values.errors
+        + values.skipped + values.xfailed + values.xpassed,
+      passed: values.passed,
+      failed: values.failed + values.error + values.errors,
+      skipped: values.skipped,
+      todo: 0,
+      xfail: values.xfailed,
+      xpass: values.xpassed,
+      deselected: values.deselected,
+    };
+  } else {
+    const summaryLines = output.split('\n').filter((line) =>
+      /^\s*Tests\s+/.test(line));
+    const summary = summaryLines.at(-1) ?? '';
+    const values = namedCounts(summary, [
+      'passed', 'failed', 'skipped', 'todo', 'pending', 'cancelled',
+    ]);
+    const totalMatch = /\((\d+)\)\s*$/.exec(summary);
+    counts = {
+      executed: totalMatch ? Number(totalMatch[1])
+        : values.passed + values.failed + values.skipped + values.todo + values.pending,
+      passed: values.passed,
+      failed: values.failed + values.cancelled,
+      skipped: values.skipped + values.pending,
+      todo: values.todo,
+      xfail: 0,
+      xpass: 0,
+      deselected: 0,
+    };
+  }
+
+  if (counts.executed < 1
+    || counts.passed < 1
+    || counts.failed !== 0
+    || counts.skipped !== 0
+    || counts.todo !== 0
+    || counts.xfail !== 0
+    || counts.xpass !== 0
+    || counts.deselected !== 0
+    || counts.passed !== counts.executed) {
+    throw new Error('focused ' + runner + ' result violates zero-exclusion contract: '
+      + JSON.stringify(counts));
+  }
+  return counts;
+}
+
+export async function runFocusedTest(testPath, { cwd = ROOT, env = process.env } = {}) {
+  const assertion = await assertFocusedTestPath(testPath, { root: cwd });
+  const invocation = focusedRunnerInvocation(assertion.path);
+  const result = spawnSync(invocation.command, invocation.args, {
+    cwd,
+    env,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.error) {
+    throw new Error('focused ' + invocation.runner + ' runner could not start: '
+      + result.error.message);
+  }
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  const counts = validateFocusedTestResult(invocation.runner, {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  });
+  console.log(JSON.stringify({
+    ok: true,
+    code: 'FOCUSED_TEST_RUN_OK',
+    path: assertion.path,
+    runner: invocation.runner,
+    counts,
+  }));
+  return { ...assertion, runner: invocation.runner, counts };
+}
+
+export function cleanupGuaranteedShellCommand({
+  lockPath,
+  preflightCommands,
+  commands,
+  cleanupCommands,
+}) {
+  if (!lockPath || !preflightCommands?.length || !cleanupCommands?.length || !commands?.length) {
+    throw new Error('cleanup-guaranteed shell command requires lock, preflight, body, and cleanup');
+  }
+  const cleanupLines = cleanupCommands.flatMap((command, index) => [
+    '  cleanup_step_status=0',
+    '  ' + command + ' || cleanup_step_status=$?',
+    '  if [ "$cleanup_step_status" -ne 0 ] && [ "$cleanup_status" -eq 0 ]; then',
+    '    cleanup_status=$cleanup_step_status',
+    '    cleanup_step=' + shellQuote(String(index + 1)),
+    '  fi',
+  ]);
+  const body = [
+    'set -euo pipefail',
+    'lock_path=' + shellQuote(lockPath),
+    'if ! mkdir "$lock_path"; then',
+    '  echo "isolated verification lock is already held: $lock_path" >&2',
+    '  exit 73',
+    'fi',
+    'cleanup() {',
+    '  status=$?',
+    '  trap - EXIT HUP INT TERM',
+    '  set +e',
+    '  cleanup_status=0',
+    '  cleanup_step=0',
+    ...cleanupLines,
+    '  lock_status=0',
+    '  rmdir "$lock_path" || lock_status=$?',
+    '  if [ "$cleanup_status" -ne 0 ] || [ "$lock_status" -ne 0 ]; then',
+    '    echo "isolated verification cleanup failed: step=$cleanup_step cleanup=$cleanup_status lock=$lock_status" >&2',
+    '    if [ "$status" -eq 0 ]; then',
+    '      if [ "$cleanup_status" -ne 0 ]; then status=$cleanup_status; else status=$lock_status; fi',
+    '    fi',
+    '  fi',
+    '  exit "$status"',
+    '}',
+    'trap cleanup EXIT',
+    "trap 'exit 129' HUP",
+    "trap 'exit 130' INT",
+    "trap 'exit 143' TERM",
+    ...preflightCommands,
+    ...commands,
+  ].join('\n');
+  return 'bash -c ' + shellQuote(body);
 }
 
 function isolatedDatabaseVerification(pack) {
@@ -757,6 +1010,7 @@ function isolatedDatabaseVerification(pack) {
   const ingestionPort = ISOLATED_INGESTION_PORT_BASE + pack.sequence;
   const projectName = 'amic-vault-' + pack.packId.toLowerCase();
   const bucket = 'amic-vault-dev';
+  const overridePath = '/tmp/' + projectName + '-compose.override.yml';
   const environment = [
     ['DATABASE_URL', 'postgres://amic_vault:amic_vault_dev_password@127.0.0.1:'
       + postgresPort + '/amic_vault'],
@@ -775,17 +1029,38 @@ function isolatedDatabaseVerification(pack) {
     ['INGESTION_WORKER_PORT', String(ingestionPort)],
     ['S3_BUCKET', bucket],
   ].map(([name, value]) => name + '=' + shellQuote(value)).join(' ');
-  const compose = composeEnvironment + ' docker compose -p ' + shellQuote(projectName)
+  const composeBase = composeEnvironment + ' docker compose -p ' + shellQuote(projectName)
     + ' -f infra/docker-compose.dev.yml';
+  const compose = composeBase + ' -f ' + shellQuote(overridePath);
+  const composeDown = composeBase + ' down -v --remove-orphans --rmi local';
+  const overrideYaml = [
+    'services:',
+    '  postgres:',
+    '    ports: !override',
+    '      - "127.0.0.1:' + postgresPort + ':5432"',
+    '  minio:',
+    '    ports: !override',
+    '      - "127.0.0.1:' + minioApiPort + ':9000"',
+    '      - "127.0.0.1:' + minioConsolePort + ':9001"',
+    '  ingestion:',
+    '    ports: !override',
+    '      - "127.0.0.1:' + ingestionPort + ':8000"',
+    '',
+  ].join('\n');
   return {
     projectName,
     postgresPort,
     minioApiPort,
     minioConsolePort,
     ingestionPort,
+    lockPath: '/tmp/' + projectName + '-isolated.lock',
+    overridePath,
+    hostBinding: '127.0.0.1',
     run: (command) => environment + ' ' + command,
-    composeUp: compose + ' up -d --wait',
-    composeDown: compose + ' down -v --remove-orphans',
+    composePreclean: composeDown,
+    writeOverride: 'printf %s ' + shellQuote(overrideYaml) + ' > ' + shellQuote(overridePath),
+    composeUp: compose + ' up -d --wait --build --force-recreate --renew-anon-volumes',
+    composeDown,
   };
 }
 
@@ -796,7 +1071,7 @@ function verificationCommands(pack, focusedTestPaths) {
   const integrationPaths = focusedTestPaths.filter(isIntegrationSelector);
   const nonIntegrationPaths = focusedTestPaths.filter((testPath) => !isIntegrationSelector(testPath));
   const commands = [
-    'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check',
+    'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check --committed-only',
     COMMON_COMMANDS[0],
     ...(pythonBootstrapRequired ? ["python3 -m pip install -e 'workers/ingestion[test]'"] : []),
     ...focusedCommands(nonIntegrationPaths),
@@ -804,19 +1079,41 @@ function verificationCommands(pack, focusedTestPaths) {
   ];
   if (pack.migrationSourceOrdinals.length || integrationPaths.length) {
     const database = isolatedDatabaseVerification(pack);
-    commands.push(database.composeUp, database.run('pnpm db:migrate'));
+    const integrationCommands = focusedCommands(integrationPaths);
+    commands.push(...integrationCommands.filter(
+      (command) => command.startsWith(FOCUSED_ASSERT_COMMAND),
+    ));
+    const isolatedCommands = [database.composeUp, database.run('corepack pnpm db:migrate')];
     if (pack.migrationSourceOrdinals.length) {
-      commands.push(database.run('pnpm db:rollback'), database.run('pnpm db:migrate'));
+      isolatedCommands.push(
+        database.run('corepack pnpm db:rollback'),
+        database.run('corepack pnpm db:migrate'),
+      );
     }
-    commands.push(
-      database.run('pnpm db:seed'),
-      ...focusedCommands(integrationPaths).map((command) =>
-        command.startsWith(FOCUSED_ASSERT_COMMAND) ? command : database.run(command)),
+    isolatedCommands.push(
+      database.run('corepack pnpm db:seed'),
+      ...integrationCommands
+        .filter((command) => command.startsWith(FOCUSED_RUN_COMMAND))
+        .map((command) => database.run(command)),
     );
     if (pack.migrationSourceOrdinals.length) {
-      commands.push(database.run('pnpm test:integration'));
+      isolatedCommands.push(database.run(
+        FOCUSED_RUN_COMMAND + shellQuote('tests/integration'),
+      ));
     }
-    commands.push(database.composeDown);
+    commands.push(cleanupGuaranteedShellCommand({
+      lockPath: database.lockPath,
+      preflightCommands: [
+        database.composePreclean,
+        'rm -f ' + shellQuote(database.overridePath),
+        database.writeOverride,
+      ],
+      commands: isolatedCommands,
+      cleanupCommands: [
+        database.composeDown,
+        'rm -f ' + shellQuote(database.overridePath),
+      ],
+    }));
   }
   if ([...pack.files.create, ...pack.files.modify]
     .some((file) => file.startsWith('workers/ingestion/'))) {
@@ -837,6 +1134,61 @@ function packReview(risk) {
     authorityRef: AUTHORITY_REF,
     invalidatedByPostReviewPush: true,
   };
+}
+
+function topologicallyOrderMigrationDrafts(rows, unitById, packSequenceById) {
+  const rowsByPack = Map.groupBy(rows, (row) => row.packId);
+  const ordered = [];
+  const packIds = [...rowsByPack.keys()].sort(
+    (left, right) => packSequenceById[left] - packSequenceById[right],
+  );
+  for (const packId of packIds) {
+    const packRows = rowsByPack.get(packId);
+    const byOrdinal = Object.fromEntries(packRows.map((row) => [row.ordinal, row]));
+    const outgoing = new Map(packRows.map((row) => [row.ordinal, new Set()]));
+    const indegree = new Map(packRows.map((row) => [row.ordinal, 0]));
+    const addEdge = (from, to) => {
+      if (from === to || outgoing.get(from).has(to)) return;
+      outgoing.get(from).add(to);
+      indegree.set(to, indegree.get(to) + 1);
+    };
+    const rowsByOwner = Map.groupBy(packRows, (row) => row.owner);
+    for (const ownerRows of rowsByOwner.values()) {
+      const sourceOrdered = [...ownerRows].sort((left, right) => left.ordinal - right.ordinal);
+      for (let index = 1; index < sourceOrdered.length; index += 1) {
+        addEdge(sourceOrdered[index - 1].ordinal, sourceOrdered[index].ordinal);
+      }
+    }
+    for (const row of packRows) {
+      for (const dependency of unitById[row.owner]?.dependencies ?? []) {
+        if (dependency.kind !== 'hard') continue;
+        for (const dependencyRow of rowsByOwner.get(dependency.id) ?? []) {
+          addEdge(dependencyRow.ordinal, row.ordinal);
+        }
+      }
+    }
+    const ready = packRows
+      .filter((row) => indegree.get(row.ordinal) === 0)
+      .map((row) => row.ordinal)
+      .sort((left, right) => left - right);
+    const packOrdered = [];
+    while (ready.length) {
+      const ordinal = ready.shift();
+      packOrdered.push(byOrdinal[ordinal]);
+      for (const target of outgoing.get(ordinal)) {
+        indegree.set(target, indegree.get(target) - 1);
+        if (indegree.get(target) === 0) {
+          ready.push(target);
+          ready.sort((left, right) => left - right);
+        }
+      }
+    }
+    if (packOrdered.length !== packRows.length) {
+      throw new Error('migration hard-dependency cycle inside ' + packId);
+    }
+    ordered.push(...packOrdered);
+  }
+  return ordered;
 }
 
 export async function buildManifest(sourceDir) {
@@ -950,6 +1302,12 @@ export async function buildManifest(sourceDir) {
         ? 'OVERLAY_IDENTICAL_TO_AMENDMENT_BASE'
         : 'STALE_OVERLAY_SUPERSEDED_BY_AMENDMENT_BASE';
     }
+    const inactiveTrigger = hunk.ownerType === 'tuw'
+      && INACTIVE_TRIGGER_UNIT_IDS.has(hunk.chosenOwner);
+    if (disposition === 'PACK' && inactiveTrigger) {
+      disposition = 'QUARANTINE';
+      quarantineReason = 'INACTIVE_CONDITIONAL_TRIGGER';
+    }
     if (disposition === 'PACK' && !packByKey[key]) {
       throw new Error('unroutable hunk ' + hunk.ordinal + ' owner=' + hunk.chosenOwner);
     }
@@ -965,8 +1323,15 @@ export async function buildManifest(sourceDir) {
       packId: disposition === 'PACK' ? packByKey[key].packId : null,
       quarantineReason,
       supersededPackId: baseCollisionByPathB64[hunk.pathB64] ? supersededPackId : null,
+      blockedPackId: quarantineReason === 'INACTIVE_CONDITIONAL_TRIGGER'
+        ? supersededPackId
+        : null,
+      activationTriggerId: quarantineReason === 'INACTIVE_CONDITIONAL_TRIGGER'
+        ? CONDITIONAL_TRIGGERS.find((row) => row.unitId === hunk.chosenOwner).triggerId
+        : null,
     };
   });
+  const blockedTriggerUnitsByPath = blockedTriggerUnitMap(hunkAssignments);
 
   const basePathCollisions = basePathCollisionDrafts.map((collision) => {
     const collisionHunks = hunkAssignments.filter((hunk) => hunk.pathB64 === collision.pathB64);
@@ -1003,31 +1368,50 @@ export async function buildManifest(sourceDir) {
   const migrationDrafts = ownership.migrations.map((migration) => {
     const key = routed[migration.owner];
     if (!packByKey[key]) throw new Error('unroutable migration owner ' + migration.owner);
-    return { ...migration, packId: packByKey[key].packId };
-  }).sort((a, b) => {
-    const packDelta = basePacks.find((pack) => pack.packId === a.packId).sequence
-      - basePacks.find((pack) => pack.packId === b.packId).sequence;
-    return packDelta || a.ordinal - b.ordinal;
+    return {
+      ...migration,
+      packId: packByKey[key].packId,
+      blockedByInactiveTrigger: INACTIVE_TRIGGER_UNIT_IDS.has(migration.owner),
+    };
   });
-
-  const migrations = migrationDrafts.map((migration, index) => {
-    const targetOrdinal = index + 94;
+  const packSequenceById = Object.fromEntries(
+    basePacks.map((pack) => [pack.packId, pack.sequence]),
+  );
+  const activeMigrationDrafts = topologicallyOrderMigrationDrafts(
+    migrationDrafts.filter((migration) => !migration.blockedByInactiveTrigger),
+    unitById,
+    packSequenceById,
+  );
+  const blockedMigrationDrafts = migrationDrafts
+    .filter((migration) => migration.blockedByInactiveTrigger)
+    .sort((left, right) => left.ordinal - right.ordinal);
+  const migrationRow = (migration, targetOrdinal) => {
+    const blocked = migration.blockedByInactiveTrigger;
     return {
       sourceOrdinal: migration.ordinal,
       sourcePathB64: migration.pathB64,
       sourceName: migration.name,
-      targetOrdinal,
-      targetName: targetMigrationName(migration.name, targetOrdinal),
-      targetPredecessor: targetOrdinal - 1,
+      executionDisposition: blocked ? 'BLOCKED_INACTIVE_TRIGGER' : 'PACK',
+      targetOrdinal: blocked ? null : targetOrdinal,
+      targetName: blocked ? null : targetMigrationName(migration.name, targetOrdinal),
+      targetPredecessor: blocked ? null : targetOrdinal - 1,
       ownerUnitId: migration.owner,
-      packId: migration.packId,
-      renumberRequired: migration.ordinal !== targetOrdinal,
+      packId: blocked ? null : migration.packId,
+      blockedPackId: blocked ? migration.packId : null,
+      activationTriggerId: blocked
+        ? CONDITIONAL_TRIGGERS.find((row) => row.unitId === migration.owner).triggerId
+        : null,
+      renumberRequired: blocked ? null : migration.ordinal !== targetOrdinal,
       hasDownMarker: migration.hasDownMarker,
       forwardVerification: migration.forwardVerification,
       downVerification: migration.downVerification,
       referenceUpdateListB64: migration.referenceUpdateListB64,
     };
-  });
+  };
+  const migrations = [
+    ...activeMigrationDrafts.map((migration, index) => migrationRow(migration, index + 94)),
+    ...blockedMigrationDrafts.map((migration) => migrationRow(migration, null)),
+  ];
 
   const routePackByUnit = Object.fromEntries(unitIds.map((id) => [id, packByKey[routed[id]].packId]));
   const predecessors = Object.fromEntries(basePacks.map((pack) => [
@@ -1045,7 +1429,8 @@ export async function buildManifest(sourceDir) {
   }
 
   const idFor = (key) => packByKey[key].packId;
-  predecessors[idFor('T8')].add(idFor('T10')).add(idFor('T12'));
+  predecessors[idFor('T8')].add(idFor('T10'));
+  predecessors[idFor('T12')].add(idFor('T8'));
   for (const key of ['T7', 'T8', 'T9', 'T10', 'T11', 'T12']) {
     predecessors[idFor('T13')].add(idFor(key));
   }
@@ -1056,7 +1441,7 @@ export async function buildManifest(sourceDir) {
     }
   }
 
-  const migrationPackIds = unique(migrations.map((migration) => migration.packId));
+  const migrationPackIds = unique(migrations.map((migration) => migration.packId).filter(Boolean));
   for (let index = 1; index < migrationPackIds.length; index += 1) {
     predecessors[migrationPackIds[index]].add(migrationPackIds[index - 1]);
   }
@@ -1120,7 +1505,12 @@ export async function buildManifest(sourceDir) {
     const primaryTuwIds = pack.tuwIds.filter((id) => primary[id] === pack.key);
     const supportTuwIds = pack.tuwIds.filter((id) => id.startsWith('RECOVERY-'));
     const secondaryTuwIds = pack.tuwIds.filter((id) => unitById[id] && !primaryTuwIds.includes(id));
-    const transitionTuwIds = pack.tuwIds.filter((id) => unitById[id]);
+    const conditionalBlockedTuwIds = pack.tuwIds.filter(
+      (id) => INACTIVE_TRIGGER_UNIT_IDS.has(id),
+    );
+    const transitionTuwIds = primaryTuwIds.filter(
+      (id) => !INACTIVE_TRIGGER_UNIT_IDS.has(id),
+    );
     const packMigrationRows = packMigrations.get(pack.packId) ?? [];
     const repoSafeReceipt = 'docs/execution/recovery-receipts/' + pack.packId + '.json';
     return {
@@ -1135,6 +1525,7 @@ export async function buildManifest(sourceDir) {
       primaryTuwIds,
       secondaryTuwIds,
       supportTuwIds,
+      conditionalBlockedTuwIds,
       scopeCountException: null,
       predecessorPackIds: sorted(predecessors[pack.packId]),
       review: packReview(risk),
@@ -1182,6 +1573,7 @@ export async function buildManifest(sourceDir) {
           payloadMixingAllowed: true,
         },
         transitionTuwIds,
+        blockedTransitionTuwIds: conditionalBlockedTuwIds,
         transitionCommit: {
           exactPaths: TRANSITION_CONTROL_PLANE_PATHS,
           oneRowPerCommit: true,
@@ -1205,6 +1597,21 @@ export async function buildManifest(sourceDir) {
   });
 
   const packById = Object.fromEntries(packs.map((pack) => [pack.packId, pack]));
+  const pathDispositionByB64 = Object.fromEntries(
+    pathDispositions.map((entry) => [entry.pathB64, entry]),
+  );
+  for (const source of nonOverlaySources) {
+    for (const pathAction of source.pathActions) {
+      const pathB64 = Buffer.from(pathAction.path, 'utf8').toString('base64');
+      for (const consumerPackId of pathDispositionByB64[pathB64]?.packIds ?? []) {
+        if (consumerPackId === source.packId) continue;
+        packById[consumerPackId].predecessorPackIds = sorted(unique([
+          ...packById[consumerPackId].predecessorPackIds,
+          source.packId,
+        ]));
+      }
+    }
+  }
   const providersByPath = new Map();
   for (const pack of packs) {
     for (const file of [...pack.files.create, ...pack.files.modify]) {
@@ -1237,6 +1644,7 @@ export async function buildManifest(sourceDir) {
       basePaths: exactBasePaths,
       providersByPath,
       packById,
+      blockedTriggerUnitsByPath,
     });
     const unresolved = records.filter((record) => record.disposition === 'UNRESOLVED_EXECUTABLE_ANCHOR');
     if (unresolved.length) {
@@ -1269,8 +1677,15 @@ export async function buildManifest(sourceDir) {
         minioConsolePort: database.minioConsolePort,
         ingestionPort: database.ingestionPort,
         ingestionWorkerUrl: 'http://127.0.0.1:' + database.ingestionPort,
+        hostBinding: database.hostBinding,
+        lockPath: database.lockPath,
+        overridePath: database.overridePath,
         bucket: 'amic-vault-dev',
         freshVolumesRequired: true,
+        precleanRequired: true,
+        forceBuildRequired: true,
+        forceRecreateRequired: true,
+        cleanupExecutor: 'BASH_EXIT_TRAP_STATUS_PRESERVING',
         cleanupRequiredOnSuccessOrFailure: true,
       };
     }
@@ -1325,7 +1740,7 @@ export async function buildManifest(sourceDir) {
       executionBaseRule: 'Each PACK starts from current origin/main containing every registered predecessor merge; payload.baseCommit is the amendment preimage, not a reusable execution head.',
       docsPackageReadOnly: true,
       privateEvidenceNoDereference: true,
-      claimBoundary: 'Manifest registration is not product implementation, migration execution, deployment, external release, or go-live.',
+      claimBoundary: 'Manifest registration changes or lands no migration and performs no downstream or production migration; disposable isolated verification may execute existing migrations.',
     },
     registrationPack: {
       packId: REGISTRATION_PACK_ID,
@@ -1386,13 +1801,15 @@ export async function buildManifest(sourceDir) {
     quarantines: {
       hunkOrdinals: hunkAssignments.filter((item) => item.disposition === 'QUARANTINE').map((item) => item.ordinal),
       pathB64s: pathDispositions.filter((item) => item.disposition === 'QUARANTINE').map((item) => item.pathB64),
+      migrationSourceOrdinals: blockedMigrationDrafts.map((item) => item.ordinal),
+      conditionalUnitIds: sorted(INACTIVE_TRIGGER_UNIT_IDS),
       rule: 'Quarantined entries never enter any PACK without a separately registered manifest amendment.',
     },
     prohibitions: [
       'no docs/package change',
       'no private evidence publication or dereference',
       'no unassigned path or hunk staging',
-      'no migration execution by manifest registration',
+      'no migration change or landing and no downstream or production migration execution by manifest registration; disposable isolated verification of existing migrations is permitted',
       'no product completion inherited from bootstrap or historical evidence',
       'no conditional unit execution without active written trigger',
       'no external operation without separately scoped authority',
@@ -1447,6 +1864,7 @@ export function validateManifest(manifest) {
       providersByPath.set(file, sorted(unique(providers)));
     }
   }
+  const blockedTriggerUnitsByPath = blockedTriggerUnitMap(payload.hunkAssignments ?? []);
   const exactBasePaths = basePathSet();
   const staticPrimary = primaryMap();
   for (const pack of packs) {
@@ -1512,6 +1930,7 @@ export function validateManifest(manifest) {
       basePaths: exactBasePaths,
       providersByPath,
       packById,
+      blockedTriggerUnitsByPath,
     });
     if (expectedTestAnchorRecords.some(
       (record) => record.disposition === 'UNRESOLVED_EXECUTABLE_ANCHOR',
@@ -1538,27 +1957,26 @@ export function validateManifest(manifest) {
       fail('TEST_ANCHOR_AVAILABILITY_SET', pack.packId);
     }
     const actualCommands = pack.verification?.commands ?? [];
+    const executableCommands = actualCommands.map(executableCommandText);
     for (const testPath of expectedFocusedTestPaths) {
-      const selector = testCommandSelector(testPath);
       const assertionOccurrences = actualCommands.filter(
         (command) => command === FOCUSED_ASSERT_COMMAND + shellQuote(testPath),
       ).length;
-      const runnerOccurrences = actualCommands.filter(
-        (command) => !command.startsWith(FOCUSED_ASSERT_COMMAND)
-          && command.includes(shellQuote(selector)),
-      ).length;
+      const exactRunner = FOCUSED_RUN_COMMAND + shellQuote(testPath);
+      const runnerOccurrences = executableCommands.reduce(
+        (count, command) => count + command.split(exactRunner).length - 1,
+        0,
+      );
       if (assertionOccurrences !== 1 || runnerOccurrences !== 1) {
         fail('FOCUSED_TEST_COMMAND_COVERAGE', pack.packId + ':' + testPath);
       }
     }
-    const actualFocusedRunnerCommands = actualCommands.filter((command) =>
-      !command.startsWith(FOCUSED_ASSERT_COMMAND)
-      && expectedFocusedTestPaths.some((testPath) =>
-        command.includes(shellQuote(testCommandSelector(testPath)))));
-    if (actualFocusedRunnerCommands.length !== expectedFocusedTestPaths.length
-      || actualFocusedRunnerCommands.some((command) => expectedFocusedTestPaths.filter(
-        (testPath) => command.includes(shellQuote(testCommandSelector(testPath))),
-      ).length !== 1)) {
+    const expectedFullIntegrationRuns = pack.migrationSourceOrdinals.length ? 1 : 0;
+    const actualFocusedRunCount = executableCommands.reduce(
+      (count, command) => count + command.split(FOCUSED_RUN_COMMAND).length - 1,
+      0,
+    );
+    if (actualFocusedRunCount !== expectedFocusedTestPaths.length + expectedFullIntegrationRuns) {
       fail('FOCUSED_TEST_COMMAND_CARDINALITY', pack.packId);
     }
     for (const record of expectedTestAnchorRecords) {
@@ -1586,8 +2004,15 @@ export function validateManifest(manifest) {
         minioConsolePort: database.minioConsolePort,
         ingestionPort: database.ingestionPort,
         ingestionWorkerUrl: 'http://127.0.0.1:' + database.ingestionPort,
+        hostBinding: database.hostBinding,
+        lockPath: database.lockPath,
+        overridePath: database.overridePath,
         bucket: 'amic-vault-dev',
         freshVolumesRequired: true,
+        precleanRequired: true,
+        forceBuildRequired: true,
+        forceRecreateRequired: true,
+        cleanupExecutor: 'BASH_EXIT_TRAP_STATUS_PRESERVING',
         cleanupRequiredOnSuccessOrFailure: true,
       };
     }
@@ -1607,10 +2032,15 @@ export function validateManifest(manifest) {
       fail('PACK_EVIDENCE_CONTRACT', pack.packId);
     }
     const expectedTransitionTuwIds = blueprint?.tuwIds.filter(
-      (id) => Object.hasOwn(staticPrimary, id),
+      (id) => staticPrimary[id] === blueprint.key && !INACTIVE_TRIGGER_UNIT_IDS.has(id),
+    ) ?? [];
+    const expectedBlockedTransitionTuwIds = blueprint?.tuwIds.filter(
+      (id) => INACTIVE_TRIGGER_UNIT_IDS.has(id),
     ) ?? [];
     const controlPlane = pack.controlPlane ?? {};
     if (!sameSequence(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
+      || !sameSequence(controlPlane.blockedTransitionTuwIds ?? [], expectedBlockedTransitionTuwIds)
+      || !sameSequence(pack.conditionalBlockedTuwIds ?? [], expectedBlockedTransitionTuwIds)
       || !sameSet(controlPlane.transitionCommit?.exactPaths ?? [], TRANSITION_CONTROL_PLANE_PATHS)
       || controlPlane.transitionCommit?.oneRowPerCommit !== true
       || controlPlane.transitionCommit?.payloadMixingForbidden !== true
@@ -1859,7 +2289,9 @@ export function validateManifest(manifest) {
           : 'STALE_OVERLAY_SUPERSEDED_BY_AMENDMENT_BASE')
         : (hunk.sourceOwnerType === 'historical_base'
           ? 'STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE'
-          : 'SOURCE_CLASSIFICATION_QUARANTINE');
+          : (hunk.sourceOwnerType === 'tuw' && INACTIVE_TRIGGER_UNIT_IDS.has(hunk.sourceOwner)
+            ? 'INACTIVE_CONDITIONAL_TRIGGER'
+            : 'SOURCE_CLASSIFICATION_QUARANTINE'));
       if (hunk.quarantineReason !== expectedReason) {
         fail('HUNK_QUARANTINE_REASON', String(hunk.ordinal));
       }
@@ -1867,6 +2299,15 @@ export function validateManifest(manifest) {
     if ((baseCollision && !hunk.supersededPackId)
       || (!baseCollision && hunk.supersededPackId !== null)) {
       fail('BASE_PATH_COLLISION_HUNK_ROUTE', String(hunk.ordinal));
+    }
+    const triggerBlocked = hunk.quarantineReason === 'INACTIVE_CONDITIONAL_TRIGGER';
+    const expectedBlockedPackId = triggerBlocked ? executionPackByUnit[hunk.sourceOwner] : null;
+    const expectedTriggerId = triggerBlocked
+      ? CONDITIONAL_TRIGGERS.find((row) => row.unitId === hunk.sourceOwner)?.triggerId
+      : null;
+    if (hunk.blockedPackId !== expectedBlockedPackId
+      || hunk.activationTriggerId !== expectedTriggerId) {
+      fail('INACTIVE_TRIGGER_HUNK_ROUTE', String(hunk.ordinal));
     }
   }
 
@@ -1988,6 +2429,11 @@ export function validateManifest(manifest) {
     for (const { path: sourcePath } of source.pathActions) {
       const row = pathByB64[Buffer.from(sourcePath, 'utf8').toString('base64')];
       for (const overlayPackId of row?.packIds ?? []) {
+        if (overlayPackId !== source.packId
+          && !packById[overlayPackId].predecessorPackIds.includes(source.packId)) {
+          fail('NON_OVERLAY_SOURCE_PREDECESSOR', source.sourceId + ':' + sourcePath
+            + ':' + overlayPackId);
+        }
         if (packById[overlayPackId].sequence < sourcePack.sequence) {
           fail('NON_OVERLAY_SOURCE_ORDER', source.sourceId + ':' + sourcePath);
         }
@@ -1997,16 +2443,25 @@ export function validateManifest(manifest) {
 
   const migrations = payload.migrations ?? [];
   const sourceOrdinals = migrations.map((item) => item.sourceOrdinal);
-  const targetOrdinals = migrations.map((item) => item.targetOrdinal);
+  const activeMigrations = migrations.filter((item) => item.executionDisposition === 'PACK');
+  const blockedMigrations = migrations.filter(
+    (item) => item.executionDisposition === 'BLOCKED_INACTIVE_TRIGGER',
+  );
+  const targetOrdinals = activeMigrations.map((item) => item.targetOrdinal);
   if (migrations.length !== 86) fail('MIGRATION_COUNT', migrations.length);
   if ([...sourceOrdinals].sort((a, b) => a - b).join(',') !== Array.from({ length: 86 }, (_, index) => index + 94).join(',')) {
     fail('MIGRATION_SOURCE_SET', 'not 94-179');
   }
-  if ([...targetOrdinals].sort((a, b) => a - b).join(',') !== Array.from({ length: 86 }, (_, index) => index + 94).join(',')) {
-    fail('MIGRATION_TARGET_SET', 'not 94-179');
+  if ([...targetOrdinals].sort((a, b) => a - b).join(',')
+    !== Array.from({ length: activeMigrations.length }, (_, index) => index + 94).join(',')) {
+    fail('MIGRATION_TARGET_SET', 'active target chain is not contiguous');
+  }
+  if (blockedMigrations.length === 0
+    || blockedMigrations.some((migration) => !INACTIVE_TRIGGER_UNIT_IDS.has(migration.ownerUnitId))) {
+    fail('MIGRATION_INACTIVE_TRIGGER_SET', String(blockedMigrations.length));
   }
   let priorSequence = -1;
-  for (const [index, migration] of migrations.entries()) {
+  for (const [index, migration] of activeMigrations.entries()) {
     const pack = packById[migration.packId];
     if (!pack) fail('MIGRATION_UNKNOWN_PACK', migration.sourceName);
     else {
@@ -2027,8 +2482,33 @@ export function validateManifest(manifest) {
       fail('MIGRATION_PATH_PACK', migration.sourceName);
     }
   }
+  for (const migration of blockedMigrations) {
+    const trigger = CONDITIONAL_TRIGGERS.find((row) => row.unitId === migration.ownerUnitId);
+    if (migration.packId !== null
+      || migration.blockedPackId !== executionPackByUnit[migration.ownerUnitId]
+      || migration.activationTriggerId !== trigger?.triggerId
+      || migration.targetOrdinal !== null
+      || migration.targetName !== null
+      || migration.targetPredecessor !== null
+      || migration.renumberRequired !== null) {
+      fail('MIGRATION_INACTIVE_TRIGGER_ROUTE', migration.sourceName);
+    }
+  }
+  const activeMigrationsByUnit = Map.groupBy(activeMigrations, (migration) => migration.ownerUnitId);
+  for (const migration of activeMigrations) {
+    for (const dependency of dependencies[migration.ownerUnitId] ?? []) {
+      if (dependency.kind !== 'hard') continue;
+      for (const dependencyMigration of activeMigrationsByUnit.get(dependency.id) ?? []) {
+        if (dependencyMigration.packId === migration.packId
+          && dependencyMigration.targetOrdinal >= migration.targetOrdinal) {
+          fail('MIGRATION_HARD_DEPENDENCY_ORDER',
+            dependency.id + '->' + migration.ownerUnitId + ':' + migration.packId);
+        }
+      }
+    }
+  }
   for (const pack of packs) {
-    const packMigrations = migrations.filter((migration) => migration.packId === pack.packId);
+    const packMigrations = activeMigrations.filter((migration) => migration.packId === pack.packId);
     if (!sameSet(pack.migrationSourceOrdinals, packMigrations.map((migration) => migration.sourceOrdinal))
       || !sameSet(pack.migrationTargetOrdinals, packMigrations.map((migration) => migration.targetOrdinal))) {
       fail('PACK_MIGRATION_MAPPING', pack.packId);
@@ -2036,22 +2516,18 @@ export function validateManifest(manifest) {
     if (packMigrations.length) {
       const commands = pack.verification.commands;
       const database = isolatedDatabaseVerification(pack);
-      const migrateCommand = database.run('pnpm db:migrate');
-      const migrateIndices = commands
-        .map((command, index) => command === migrateCommand ? index : -1)
-        .filter((index) => index !== -1);
-      const composeUpIndex = commands.indexOf(database.composeUp);
-      const rollbackIndex = commands.indexOf(database.run('pnpm db:rollback'));
-      const seedIndex = commands.indexOf(database.run('pnpm db:seed'));
-      const integrationIndex = commands.indexOf(database.run('pnpm test:integration'));
-      const composeDownIndex = commands.indexOf(database.composeDown);
-      if (migrateIndices.length !== 2
-        || !(composeUpIndex < migrateIndices[0]
-          && migrateIndices[0] < rollbackIndex
-          && rollbackIndex < migrateIndices[1]
-          && migrateIndices[1] < seedIndex
-          && seedIndex < integrationIndex
-          && integrationIndex < composeDownIndex)) {
+      const wrapperCommand = commands.find((command) =>
+        command.startsWith('bash -c ') && command.includes(database.lockPath));
+      const wrapper = wrapperCommand ? executableCommandText(wrapperCommand) : null;
+      const migrateCount = wrapper?.split(' corepack pnpm db:migrate').length - 1;
+      if (!wrapper
+        || migrateCount !== 2
+        || !wrapper.includes(' corepack pnpm db:rollback')
+        || !wrapper.includes(' corepack pnpm db:seed')
+        || !wrapper.includes(FOCUSED_RUN_COMMAND)
+        || !wrapper.includes('trap cleanup EXIT')
+        || !wrapper.includes(' --build --force-recreate --renew-anon-volumes')
+        || wrapper.split(' down -v --remove-orphans --rmi local').length - 1 !== 2) {
         fail('PACK_MIGRATION_VERIFICATION', pack.packId);
       }
     }
@@ -2071,7 +2547,29 @@ export function validateManifest(manifest) {
       if (triggerRow.triggerId !== CONDITIONAL_TRIGGERS.find((row) => row.unitId === id).triggerId) {
         fail('TRIGGER_ID', id);
       }
+      const inactiveHunks = hunks.filter(
+        (hunk) => hunk.sourceOwnerType === 'tuw' && hunk.sourceOwner === id,
+      );
+      if (inactiveHunks.some((hunk) =>
+        hunk.disposition !== 'QUARANTINE'
+        || hunk.quarantineReason !== 'INACTIVE_CONDITIONAL_TRIGGER')) {
+        fail('TRIGGER_HUNK_EXECUTABLE', id);
+      }
+      const inactiveMigrations = migrations.filter((migration) => migration.ownerUnitId === id);
+      if (inactiveMigrations.some(
+        (migration) => migration.executionDisposition !== 'BLOCKED_INACTIVE_TRIGGER',
+      )) {
+        fail('TRIGGER_MIGRATION_EXECUTABLE', id);
+      }
+      if (packs.some((pack) => pack.controlPlane?.transitionTuwIds?.includes(id))) {
+        fail('TRIGGER_TRANSITION_EXECUTABLE', id);
+      }
     }
+  }
+  if (!sameSet(payload.quarantines?.conditionalUnitIds ?? [], [...INACTIVE_TRIGGER_UNIT_IDS])
+    || !sameSet(payload.quarantines?.migrationSourceOrdinals ?? [],
+      blockedMigrations.map((migration) => migration.sourceOrdinal))) {
+    fail('TRIGGER_QUARANTINE_CONTRACT', 'conditional unit or migration set drifted');
   }
   if (payload.governance?.authorityRef !== AUTHORITY_REF) fail('AUTHORITY_REF', payload.governance?.authorityRef);
   if (payload.governance?.amendmentAuthorityRef !== AMENDMENT_AUTHORITY_REF) {
@@ -2203,7 +2701,14 @@ export function validateNonOverlayGitSources(manifest, { cwd = ROOT } = {}) {
 
 export function renderMarkdown(manifest) {
   const payload = manifest.payload;
-  const renumbered = payload.migrations.filter((item) => item.renumberRequired).length;
+  const activeMigrations = payload.migrations.filter(
+    (item) => item.executionDisposition === 'PACK',
+  );
+  const blockedMigrations = payload.migrations.filter(
+    (item) => item.executionDisposition === 'BLOCKED_INACTIVE_TRIGGER',
+  );
+  const renumbered = activeMigrations.filter((item) => item.renumberRequired).length;
+  const activeMigrationEnd = String(93 + activeMigrations.length).padStart(4, '0');
   const lines = [
     '# Post-R14 Recovery PACK Manifest v2',
     '',
@@ -2234,10 +2739,13 @@ export function renderMarkdown(manifest) {
     '- Quarantine after amendment: '
       + payload.quarantines.hunkOrdinals.length + ' hunks / '
       + payload.quarantines.pathB64s.length + ' paths',
-    '- Migration coverage: 86/86; renumbered in dependency/PACK order: ' + renumbered,
+    '- Migration coverage: 86/86; active chain: ' + activeMigrations.length
+      + '; trigger-blocked: ' + blockedMigrations.length
+      + '; renumbered in dependency/PACK order: ' + renumbered,
     '',
-    'This manifest is an execution authorization map only. It is not product implementation,',
-    'migration execution, deployment, external release, or go-live evidence.',
+    'This manifest is an execution authorization map only. It changes or lands no migration',
+    'and performs no downstream or production migration. Disposable isolated verification',
+    'may execute existing migrations; that is not deployment, external release, or go-live evidence.',
     '',
     '## Amendment correction',
     '',
@@ -2260,12 +2768,18 @@ export function renderMarkdown(manifest) {
     'exact planned-create plus focused-test obligations of their owning implementation PACK.',
     'Each focused selector has a fail-closed regular-file/directory assertion and its own',
     'runner invocation, so another matching selector cannot hide a missing test. Static',
-    'skip/todo markers are rejected. Integration selectors require a real `.spec.ts`',
+    'only/skip/todo/conditional markers are rejected, and the result wrapper requires at',
+    'least one executed passing test with zero fail/skip/todo/xfail/xpass/deselection.',
+    'Integration selectors require a real `.spec.ts`',
     'descendant; helper-only directories are non-executable anchors. Earlier test providers',
-    'are explicit DAG predecessors. Database PACKs use PACK-specific compose projects, ports,',
-    'volumes, database URLs, and ingestion worker URL with the canonical isolated bucket, then run compose up, migrate,',
+    'are explicit DAG predecessors. Database PACKs use PACK-specific compose projects,',
+    'loopback-only ports, a serialized lock, pre-cleaned volumes, a forced exact-head ingestion',
+    'build/recreate, database URLs, and ingestion worker URL with the canonical isolated bucket.',
+    'A status-preserving Bash EXIT trap then runs compose up, migrate,',
     'rollback, migrate, seed, focused',
-    'integration, full integration, and compose cleanup in that order.',
+    'integration, full integration, and unconditional compose/image/volume cleanup in that order.',
+    'Inactive D9, H14, and B20 hunks, migrations, tests, and transitions remain quarantined',
+    'until a separately registered activation amendment supplies the matching trigger receipt.',
     'The receipt and exact EOF execution-ledger append precede transitions; transition',
     'commits then change exactly the four sealed 117-row control-plane paths. Any later',
     'non-control-plane push invalidates the candidate binding and all exact-head gates.',
@@ -2298,8 +2812,11 @@ export function renderMarkdown(manifest) {
     '',
     'The dirty overlay migration filenames are not mergeable in their existing feature order:',
     'source ordinal 0094 begins with H11 while its hard C11 dependency is later. The manifest',
-    'therefore preserves all 86 source files by hash/owner but assigns target ordinals 0094-0179',
-    'in dependency-valid PACK order. Each migration lands with its execution PACK, its down path,',
+    'therefore preserves all 86 source files by hash/owner. The ' + activeMigrations.length
+      + ' active rows receive target ordinals 0094-' + activeMigrationEnd,
+    'in dependency-valid PACK and same-PACK unit-topological order; ' + blockedMigrations.length
+      + ' H14 rows retain no target ordinal while their trigger is inactive.',
+    'Each active migration lands with its execution PACK, its down path,',
     'reference updates, fresh database up/down/up proof, and full integration proof.',
     '',
     '## Review and merge',
@@ -2328,21 +2845,45 @@ async function writeOutputs(manifest) {
   return { json, md };
 }
 
-function argValue(name) {
-  const index = process.argv.indexOf(name);
-  return index === -1 ? null : process.argv[index + 1];
+function argOption(name) {
+  const indexes = process.argv.flatMap((value, index) => value === name ? [index] : []);
+  if (indexes.length > 1) throw new Error(name + ' may be specified only once');
+  if (indexes.length === 0) return { present: false, value: null };
+  const value = process.argv[indexes[0] + 1];
+  if (value === undefined || value.trim() === '' || value.startsWith('--')) {
+    throw new Error(name + ' requires a nonempty value');
+  }
+  return { present: true, value };
 }
 
 async function main() {
   if (process.argv.includes('--assert-focused-test')) {
-    const focusedTestPath = argValue('--assert-focused-test');
-    if (!focusedTestPath) throw new Error('--assert-focused-test requires a path');
+    const focusedTestPath = argOption('--assert-focused-test').value;
     const result = await assertFocusedTestPath(focusedTestPath);
     console.log(JSON.stringify({ ok: true, code: 'FOCUSED_TEST_ASSERT_OK', ...result }));
     return;
   }
-  const sourceDir = argValue('--source-dir');
-  if (process.argv.includes('--build')) {
+  if (process.argv.includes('--run-focused-test')) {
+    const focusedTestPath = argOption('--run-focused-test').value;
+    await runFocusedTest(focusedTestPath);
+    return;
+  }
+  const sourceOption = argOption('--source-dir');
+  const sourceDir = sourceOption.value;
+  const buildRequested = process.argv.includes('--build');
+  const checkRequested = process.argv.includes('--check');
+  const committedOnly = process.argv.includes('--committed-only');
+  if (sourceOption.present && committedOnly) {
+    throw new Error('--source-dir and --committed-only are mutually exclusive');
+  }
+  if (committedOnly && !checkRequested) {
+    throw new Error('--committed-only is valid only with --check');
+  }
+  if (checkRequested && !sourceOption.present && !committedOnly) {
+    throw new Error('--check requires --source-dir <sealed-dir> or explicit --committed-only');
+  }
+  if (buildRequested) {
+    if (!sourceOption.present) throw new Error('--build requires --source-dir <sealed-dir>');
     const manifest = await buildManifest(sourceDir);
     const result = validateManifest(manifest);
     const gitSources = validateNonOverlayGitSources(manifest);
@@ -2373,8 +2914,8 @@ async function main() {
     console.error(JSON.stringify({ manifest: result, gitSources }, null, 2));
     process.exit(1);
   }
-  if (process.argv.includes('--check')) {
-    const expectedManifest = sourceDir ? await buildManifest(sourceDir) : manifest;
+  if (checkRequested) {
+    const expectedManifest = sourceOption.present ? await buildManifest(sourceDir) : manifest;
     const [actualJson, actualMd] = await Promise.all([readFile(JSON_PATH, 'utf8'), readFile(MD_PATH, 'utf8')]);
     if (!outputsMatchManifest(expectedManifest, { json: actualJson, markdown: actualMd })) {
       console.error(JSON.stringify({ ok: false, code: 'CHECK_DRIFT', writes: 0 }));
