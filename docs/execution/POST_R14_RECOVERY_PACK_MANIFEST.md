@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: a764904a11c6a98696797e4653711c67f4b3a7b6b270de45c415099d64ed70db
+- Payload SHA-256: 1319ec64e8e9ede4b7795f4a78af50f12a274045cd5a97fa59350f01fb279be8
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
@@ -15,6 +15,8 @@ Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 - Dirty-path coverage: 893/893
 - Ownership-record coverage: 4801/4801
 - Non-overlay Git sources: 20 commits / 9 paths
+- Test-anchor source contract: bd6c1a74d4467b14bae8e9fe16e1963dc6ea763baad3ec4c624afa834f90b886
+- Planned acceptance-test gaps: 7
 - Quarantine after amendment: 28 hunks / 22 paths
 - Migration coverage: 86/86; renumbered in dependency/PACK order: 84
 
@@ -30,6 +32,11 @@ the exact 19-commit release-history range plus the separate one-commit LawOS sou
 
 Every PACK now distinguishes effective payload files, preserved-overlay files,
 non-overlay source files, candidate bookkeeping, and one-row transition commits.
+Every raw test anchor is retained with an explicit disposition. Only tests available
+at the exact base, created by the current PACK, or supplied by a transitive predecessor
+become focused commands; later-owned anchors are deferred and seven normative tests
+that are explicitly planned but not yet created remain completion-blocking gaps and
+exact planned-create plus focused-test obligations of their owning implementation PACK.
 The receipt and exact EOF execution-ledger append precede transitions; transition
 commits then change exactly the four sealed 117-row control-plane paths. Any later
 non-control-plane push invalidates the candidate binding and all exact-head gates.

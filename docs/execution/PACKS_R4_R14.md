@@ -2013,7 +2013,9 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `a764904a11c6a98696797e4653711c67f4b3a7b6b270de45c415099d64ed70db`.
+  `1319ec64e8e9ede4b7795f4a78af50f12a274045cd5a97fa59350f01fb279be8`.
+- Sealed raw test-anchor source contract SHA-256:
+  `bd6c1a74d4467b14bae8e9fe16e1963dc6ea763baad3ec4c624afa834f90b886`.
 
 The v1 validator proved complete coverage of the preserved 893-path overlay,
 but Task 7 preflight exposed a separate source class that v1 did not model.
@@ -2059,8 +2061,37 @@ transition row from the static blueprint plus the sealed 117-ID universe, and
 compares both generated JSON and Markdown even when no private `--source-dir`
 is available. A source-bound check additionally rebuilds from the sealed G002
 inputs; neither mode may accept a re-signed, internally self-consistent drift.
-Every generated focused-test path is POSIX single-quoted and its exact command
-must parse under both Bash and zsh before registration.
+Every raw G002 test anchor is retained with one deterministic disposition:
+available at the exact base, supplied by the current PACK, assigned as an exact
+planned create of the current owning PACK, supplied by a transitive predecessor,
+deferred to another registered provider PACK, an explicitly planned but
+not-yet-created acceptance-test gap, or a non-executable helper/config anchor.
+Only the first four dispositions may enter focused commands. A recognized
+executable anchor with no base, provider PACK, alias, or sealed planned-gap entry
+fails manifest generation. Focused paths are routed
+one-to-one through their actual workspace/root Vitest, Node test, pytest, or
+integration runner; frozen dependency installation and any required Python
+bootstrap must precede them. Every generated path is POSIX single-quoted and
+its exact command must parse under both Bash and zsh before registration.
+
+The seven normative acceptance tests explicitly named as new and absent from
+the base and preserved overlay are assigned as exact `plannedTestCreate` paths
+of their owning implementation PACK. Before that PACK they remain registered
+gaps, not false-green commands; in the owning PACK they become mandatory focused
+commands:
+
+- D8 / PACK-R14-13: `tests/integration/search-permission/search-email.spec.ts`
+- E12 / PACK-R14-21: `apps/api/src/modules/dd/dd-ai-mapping.service.spec.ts`
+- B13 / PACK-R14-32: `tests/integration/document-access/comparison-ai.spec.ts`
+- C14 / PACK-R14-31: `tests/integration/document-access/email-egress-dlp.spec.ts`
+- E13 / PACK-R14-32: `apps/api/src/modules/ai/features/ai-drafting.service.spec.ts`
+- E13 / PACK-R14-32: `tests/integration/ai-drafting.spec.ts`
+- B19 / PACK-R14-30: `tests/integration/redline.spec.ts`
+
+Each gap blocks a `COMPLETE` claim for its TUW until its owning implementation
+PACK creates and passes the exact test. An earlier status-adjudication PACK may
+record the gap and retain a non-complete status; it may not report the missing
+test as executed, skipped, or passing evidence.
 
 Focused verification is exact:
 

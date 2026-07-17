@@ -16,6 +16,40 @@ const manifestPath = new URL('../../docs/execution/POST_R14_RECOVERY_PACK_MANIFE
 const markdownPath = new URL('../../docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md', import.meta.url);
 const scriptPath = new URL('./build-post-r14-recovery-pack-manifest.mjs', import.meta.url);
 
+const expectedAliases = {
+  'tests/document-edit-bridge.spec.ts': 'apps/desktop/tests/document-edit-bridge.spec.ts',
+  'tests/test_clause_tree.py': 'workers/ingestion/tests/test_clause_tree.py',
+  'tests/test_contract_parser.py': 'workers/ingestion/tests/test_contract_parser.py',
+  'tests/test_report_synthesis.py': 'workers/ingestion/tests/test_report_synthesis.py',
+};
+
+const expectedPlannedGaps = [
+  ['tests/integration/search-permission/search-email.spec.ts', 'D8', 'PACK-R14-13'],
+  ['apps/api/src/modules/dd/dd-ai-mapping.service.spec.ts', 'E12', 'PACK-R14-21'],
+  ['tests/integration/document-access/comparison-ai.spec.ts', 'B13', 'PACK-R14-32'],
+  ['tests/integration/document-access/email-egress-dlp.spec.ts', 'C14', 'PACK-R14-31'],
+  ['apps/api/src/modules/ai/features/ai-drafting.service.spec.ts', 'E13', 'PACK-R14-32'],
+  ['tests/integration/ai-drafting.spec.ts', 'E13', 'PACK-R14-32'],
+  ['tests/integration/redline.spec.ts', 'B19', 'PACK-R14-30'],
+];
+
+const focusedCommandPrefixes = [
+  'pnpm --filter ',
+  'pnpm exec vitest run ',
+  'node --test ',
+  'python3 -m pytest ',
+  'pnpm test:integration -- ',
+];
+
+function shellQuote(value) {
+  return "'" + value.replaceAll("'", "'\"'\"'") + "'";
+}
+
+function commandSelector(testPath) {
+  const match = /^(?:apps\/(?:api|web|desktop)|packages\/(?:ai|domain|shared))\/(.+)$/.exec(testPath);
+  return match && /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(testPath) ? match[1] : testPath;
+}
+
 async function fixture() {
   return JSON.parse(await readFile(manifestPath, 'utf8'));
 }
@@ -65,14 +99,145 @@ test('every PACK has three to eight TUWs, a unique branch, review, and earlier p
   }
 });
 
-test('every generated focused command uses an executable runner and is shell-safe', async () => {
+test('every raw test anchor has an exact availability or gap disposition', async () => {
+  const manifest = await fixture();
+  const packs = manifest.payload.packs;
+  const packById = Object.fromEntries(packs.map((pack) => [pack.packId, pack]));
+  const baseTree = spawnSync('git', [
+    '--no-replace-objects',
+    'ls-tree',
+    '-r',
+    '--name-only',
+    manifest.payload.baseCommit,
+  ], { cwd: root, encoding: 'utf8' });
+  assert.equal(baseTree.status, 0, baseTree.stderr);
+  const basePaths = new Set(baseTree.stdout.split('\n').filter(Boolean));
+  const providersByPath = new Map();
+  for (const pack of packs) {
+    for (const file of [...pack.files.create, ...pack.files.modify]) {
+      const providers = providersByPath.get(file) ?? [];
+      providers.push(pack.packId);
+      providersByPath.set(file, [...new Set(providers)].sort());
+    }
+  }
+  const gapByPath = Object.fromEntries(expectedPlannedGaps.map((row) => [row[0], row]));
+  assert.deepEqual(manifest.payload.testAnchorContract.aliases, expectedAliases);
+  assert.deepEqual(
+    manifest.payload.testAnchorContract.plannedAcceptanceTestGaps
+      .map((gap) => [gap.path, gap.ownerUnitId, gap.ownerPackId]),
+    expectedPlannedGaps,
+  );
+  for (const [gapPath, , ownerPackId] of expectedPlannedGaps) {
+    const ownerPack = packById[ownerPackId];
+    assert.ok(ownerPack.files.plannedTestCreate.includes(gapPath));
+    assert.ok(ownerPack.files.create.includes(gapPath));
+    assert.ok(ownerPack.verification.focusedTestPaths.includes(gapPath));
+    assert.deepEqual(
+      packs.filter((pack) => pack.files.plannedTestCreate.includes(gapPath))
+        .map((pack) => pack.packId),
+      [ownerPackId],
+    );
+  }
+
+  const predecessorClosure = (pack) => {
+    const result = new Set();
+    const pending = [...pack.predecessorPackIds];
+    while (pending.length) {
+      const id = pending.pop();
+      if (result.has(id)) continue;
+      result.add(id);
+      if (packById[id]) pending.push(...packById[id].predecessorPackIds);
+    }
+    return result;
+  };
+  const expectedRunner = (testPath) => {
+    if (testPath.startsWith('tests/integration')
+      && (testPath === 'tests/integration'
+        || testPath.endsWith('.spec.ts')
+        || !path.posix.basename(testPath).includes('.'))) return 'INTEGRATION';
+    if (/^(?:apps\/(?:api|web|desktop)|packages\/(?:ai|domain|shared))\//.test(testPath)
+      && /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(testPath)) return 'WORKSPACE_VITEST';
+    if (/\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(testPath)) return 'ROOT_VITEST';
+    if (testPath.endsWith('.spec.mjs')) return 'NODE_TEST';
+    if (/(^|\/)test_[^/]+\.py$/.test(testPath)) return 'PYTEST';
+    return null;
+  };
+
+  for (const pack of packs) {
+    const records = [];
+    const closure = predecessorClosure(pack);
+    for (const sourcePath of pack.verification.rawTestAnchorPaths) {
+      const canonicalPath = expectedAliases[sourcePath] ?? sourcePath;
+      const runner = expectedRunner(canonicalPath);
+      const directorySelector = runner === 'INTEGRATION' && !canonicalPath.endsWith('.spec.ts');
+      const providers = [...providersByPath]
+        .filter(([providedPath]) => providedPath === canonicalPath
+          || (directorySelector && providedPath.startsWith(canonicalPath + '/')))
+        .flatMap(([, ids]) => ids);
+      const providerPackIds = [...new Set(providers)].sort();
+      const predecessorProviderPackIds = providerPackIds.filter((id) => closure.has(id));
+      const availableAtBase = basePaths.has(canonicalPath)
+        || (directorySelector && [...basePaths].some(
+          (basePath) => basePath.startsWith(canonicalPath + '/'),
+        ));
+      let disposition;
+      if (!runner) disposition = 'NON_EXECUTABLE_ANCHOR';
+      else if (gapByPath[canonicalPath]) {
+        disposition = providerPackIds.includes(pack.packId)
+          ? 'PLANNED_CURRENT_PACK_CREATE'
+          : 'PLANNED_ACCEPTANCE_TEST_GAP';
+      } else if (availableAtBase) disposition = 'AVAILABLE_AT_BASE';
+      else if (providerPackIds.includes(pack.packId)) {
+        disposition = 'PROVIDED_BY_CURRENT_PACK';
+      } else if (predecessorProviderPackIds.length) {
+        disposition = 'PROVIDED_BY_PREDECESSOR_PACK';
+      } else {
+        assert.ok(providerPackIds.length > 0);
+        disposition = 'DEFERRED_PROVIDER_PACK';
+      }
+      records.push({ canonicalPath, disposition });
+    }
+    for (const [gapPath, , ownerPackId] of expectedPlannedGaps) {
+      if (ownerPackId === pack.packId
+        && !records.some((record) => record.canonicalPath === gapPath)) {
+        records.push({ canonicalPath: gapPath, disposition: 'PLANNED_CURRENT_PACK_CREATE' });
+      }
+    }
+    const expectedDispositions = Object.fromEntries([
+      'AVAILABLE_AT_BASE',
+      'PROVIDED_BY_CURRENT_PACK',
+      'PLANNED_CURRENT_PACK_CREATE',
+      'PROVIDED_BY_PREDECESSOR_PACK',
+      'DEFERRED_PROVIDER_PACK',
+      'PLANNED_ACCEPTANCE_TEST_GAP',
+      'NON_EXECUTABLE_ANCHOR',
+    ].map((disposition) => [
+      disposition,
+      [...new Set(records
+        .filter((record) => record.disposition === disposition)
+        .map((record) => record.canonicalPath))].sort(),
+    ]));
+    assert.deepEqual(pack.verification.testAnchorDispositions, expectedDispositions);
+    const expectedFocused = [...new Set(records
+      .filter((record) => [
+        'AVAILABLE_AT_BASE',
+        'PROVIDED_BY_CURRENT_PACK',
+        'PLANNED_CURRENT_PACK_CREATE',
+        'PROVIDED_BY_PREDECESSOR_PACK',
+      ].includes(record.disposition))
+      .map((record) => record.canonicalPath))].sort();
+    const expectedDeferred = [...new Set(records
+      .filter((record) => record.disposition === 'DEFERRED_PROVIDER_PACK')
+      .map((record) => record.canonicalPath))].sort();
+    assert.deepEqual(pack.verification.focusedTestPaths, expectedFocused);
+    assert.deepEqual(pack.verification.deferredTestPaths, expectedDeferred);
+  }
+});
+
+test('every generated focused command is one-to-one, reachable, bootstrapped, and shell-safe', async () => {
   const manifest = await fixture();
   const commands = manifest.payload.packs.flatMap((pack) => pack.verification.commands)
-    .filter((command) => command.startsWith('pnpm --filter ')
-      || command.startsWith('pnpm exec vitest run ')
-      || command.startsWith('node --test ')
-      || command.startsWith("python3 -m pytest '")
-      || command.startsWith('pnpm test:integration -- '));
+    .filter((command) => focusedCommandPrefixes.some((prefix) => command.startsWith(prefix)));
   assert.equal(manifest.payload.packs.some((pack) => pack.verification.commands
     .some((command) => command.startsWith('pnpm test -- '))), false);
   assert.ok(commands.some((command) => command.startsWith('pnpm --filter @amic-vault/api test -- ')));
@@ -82,9 +247,28 @@ test('every generated focused command uses an executable runner and is shell-saf
   assert.ok(commands.some((command) => command.startsWith('pnpm test:integration -- ')));
   assert.ok(commands.some((command) => command.includes('(app)')));
   for (const command of commands) {
-    for (const shell of ['/bin/bash', '/bin/zsh']) {
+    for (const shell of ['bash', 'zsh']) {
       const result = spawnSync(shell, ['-n', '-c', command], { encoding: 'utf8' });
       assert.equal(result.status, 0, shell + ' rejected: ' + command + '\n' + result.stderr);
+    }
+  }
+
+  for (const pack of manifest.payload.packs) {
+    const packCommands = pack.verification.commands;
+    const focusedCommands = packCommands.filter(
+      (command) => focusedCommandPrefixes.some((prefix) => command.startsWith(prefix)),
+    );
+    const installIndex = packCommands.indexOf('pnpm install --frozen-lockfile');
+    assert.equal(installIndex, 1);
+    assert.ok(focusedCommands.every((command) => packCommands.indexOf(command) > installIndex));
+    for (const testPath of pack.verification.focusedTestPaths) {
+      assert.equal(
+        focusedCommands.filter(
+          (command) => command.includes(shellQuote(commandSelector(testPath))),
+        ).length,
+        1,
+        pack.packId + ' did not route exactly once: ' + testPath,
+      );
     }
   }
 
@@ -92,16 +276,51 @@ test('every generated focused command uses an executable runner and is shell-saf
   assert.ok(taskEight.verification.commands.includes(
     "node --test 'tools/migration/lawos-canonical-matter-reflection.spec.mjs'",
   ));
-  for (const anchor of [
-    'tests/build',
-    'tests/fixtures/search/korean-legal-terms.json',
-    'tests/package',
-    'tests/tsconfig.json',
-    'tests/integration/document-access/document-api-helpers.ts',
-    'tests/integration/search-permission/search-fixtures.ts',
-  ]) {
-    assert.equal(commands.some((command) => command.includes("'" + anchor + "'")), false);
-  }
+});
+
+for (const missingPath of [
+  'tests/integration/never-owned.spec.ts',
+  'workers/ingestion/tests/test_never_owned.py',
+]) {
+  test('unowned executable anchor is rejected: ' + missingPath, async () => {
+    const manifest = await fixture();
+    manifest.payload.packs[0].verification.rawTestAnchorPaths.push(missingPath);
+    resign(manifest);
+    const codes = validateManifest(manifest).errors.map((error) => error.code);
+    assert.ok(codes.includes('UNRESOLVED_EXECUTABLE_TEST_ANCHOR'));
+    assert.ok(codes.includes('TEST_ANCHOR_SOURCE_CONTRACT'));
+  });
+}
+
+test('focused commands cannot run before the frozen dependency install', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.verification.commands
+    .some((command) => focusedCommandPrefixes.some((prefix) => command.startsWith(prefix))));
+  const installIndex = pack.verification.commands.indexOf('pnpm install --frozen-lockfile');
+  const focusedIndex = pack.verification.commands.findIndex(
+    (command) => focusedCommandPrefixes.some((prefix) => command.startsWith(prefix)),
+  );
+  [pack.verification.commands[installIndex], pack.verification.commands[focusedIndex]] = [
+    pack.verification.commands[focusedIndex],
+    pack.verification.commands[installIndex],
+  ];
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors.some(
+    (error) => error.code === 'PACK_VERIFICATION',
+  ), true);
+});
+
+test('a planned acceptance test cannot lose its sole owning PACK create route', async () => {
+  const manifest = await fixture();
+  const gap = manifest.payload.testAnchorContract.plannedAcceptanceTestGaps[0];
+  const ownerPack = manifest.payload.packs.find((pack) => pack.packId === gap.ownerPackId);
+  ownerPack.files.plannedTestCreate = ownerPack.files.plannedTestCreate
+    .filter((file) => file !== gap.path);
+  ownerPack.files.create = ownerPack.files.create.filter((file) => file !== gap.path);
+  resign(manifest);
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('PLANNED_ACCEPTANCE_TEST_PROVIDER'));
+  assert.ok(codes.includes('PACK_FILE_SOURCE_SET'));
 });
 
 test('PACK-R14-04 reconstructs only the exact 19-commit five-path history source', async () => {

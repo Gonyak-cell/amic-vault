@@ -13,7 +13,8 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = 'a764904a11c6a98696797e4653711c67f4b3a7b6b270de45c415099d64ed70db';
+const CANONICAL_PAYLOAD_SHA256 = '1319ec64e8e9ede4b7795f4a78af50f12a274045cd5a97fa59350f01fb279be8';
+const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'bd6c1a74d4467b14bae8e9fe16e1963dc6ea763baad3ec4c624afa834f90b886';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const AUTHORITY_REF = 'TASK6B-TECHNICAL-GATES-AUTHORITY-20260717';
 const AMENDMENT_AUTHORITY_REF = 'DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717';
@@ -457,6 +458,63 @@ const FOCUSED_VITEST_ROUTES = [
   ['packages/shared/', '@amic-vault/shared'],
 ];
 
+const TEST_ANCHOR_ALIASES = {
+  'tests/document-edit-bridge.spec.ts': 'apps/desktop/tests/document-edit-bridge.spec.ts',
+  'tests/test_clause_tree.py': 'workers/ingestion/tests/test_clause_tree.py',
+  'tests/test_contract_parser.py': 'workers/ingestion/tests/test_contract_parser.py',
+  'tests/test_report_synthesis.py': 'workers/ingestion/tests/test_report_synthesis.py',
+};
+
+const PLANNED_ACCEPTANCE_TEST_GAPS = [
+  {
+    path: 'tests/integration/search-permission/search-email.spec.ts',
+    ownerUnitId: 'D8',
+    sourceRef: 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md#D8',
+  },
+  {
+    path: 'apps/api/src/modules/dd/dd-ai-mapping.service.spec.ts',
+    ownerUnitId: 'E12',
+    sourceRef: 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md#E12',
+  },
+  {
+    path: 'tests/integration/document-access/comparison-ai.spec.ts',
+    ownerUnitId: 'B13',
+    sourceRef: 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md#B13',
+  },
+  {
+    path: 'tests/integration/document-access/email-egress-dlp.spec.ts',
+    ownerUnitId: 'C14',
+    sourceRef: 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md#C14',
+  },
+  {
+    path: 'apps/api/src/modules/ai/features/ai-drafting.service.spec.ts',
+    ownerUnitId: 'E13',
+    sourceRef: 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md#E13',
+  },
+  {
+    path: 'tests/integration/ai-drafting.spec.ts',
+    ownerUnitId: 'E13',
+    sourceRef: 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md#E13',
+  },
+  {
+    path: 'tests/integration/redline.spec.ts',
+    ownerUnitId: 'B19',
+    sourceRef: 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md#B19',
+  },
+];
+
+const TEST_ANCHOR_DISPOSITIONS = [
+  'AVAILABLE_AT_BASE',
+  'PROVIDED_BY_CURRENT_PACK',
+  'PLANNED_CURRENT_PACK_CREATE',
+  'PROVIDED_BY_PREDECESSOR_PACK',
+  'DEFERRED_PROVIDER_PACK',
+  'PLANNED_ACCEPTANCE_TEST_GAP',
+  'NON_EXECUTABLE_ANCHOR',
+];
+
+let cachedBasePaths;
+
 function isVitestPath(value) {
   return /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(value);
 }
@@ -466,6 +524,108 @@ function isIntegrationSelector(value) {
   return value === 'tests/integration'
     || value.endsWith('.spec.ts')
     || !path.posix.basename(value).includes('.');
+}
+
+function testRunner(value) {
+  if (isIntegrationSelector(value)) return 'INTEGRATION';
+  if (FOCUSED_VITEST_ROUTES.some(([prefix]) => value.startsWith(prefix)) && isVitestPath(value)) {
+    return 'WORKSPACE_VITEST';
+  }
+  if (isVitestPath(value)) return 'ROOT_VITEST';
+  if (value.endsWith('.spec.mjs')) return 'NODE_TEST';
+  if (/(^|\/)test_[^/]+\.py$/.test(value)) return 'PYTEST';
+  return null;
+}
+
+function testCommandSelector(value) {
+  const route = FOCUSED_VITEST_ROUTES.find(([prefix]) => value.startsWith(prefix));
+  return route && isVitestPath(value) ? value.slice(route[0].length) : value;
+}
+
+function basePathSet() {
+  if (cachedBasePaths) return cachedBasePaths;
+  const result = gitResult(['ls-tree', '-r', '--name-only', BASE_COMMIT], ROOT);
+  if (result.status !== 0) {
+    throw new Error('cannot read exact base tree ' + BASE_COMMIT + ': ' + result.stderr.trim());
+  }
+  cachedBasePaths = new Set(result.stdout.split('\n').filter(Boolean));
+  return cachedBasePaths;
+}
+
+function packPredecessorClosure(pack, packById) {
+  const closure = new Set();
+  const pending = [...pack.predecessorPackIds];
+  while (pending.length) {
+    const predecessorId = pending.pop();
+    if (closure.has(predecessorId)) continue;
+    closure.add(predecessorId);
+    const predecessor = packById[predecessorId];
+    if (predecessor) pending.push(...predecessor.predecessorPackIds);
+  }
+  return closure;
+}
+
+function classifyTestAnchors(pack, { basePaths, providersByPath, packById }) {
+  const predecessorIds = packPredecessorClosure(pack, packById);
+  const gapByPath = Object.fromEntries(PLANNED_ACCEPTANCE_TEST_GAPS.map((gap) => [gap.path, gap]));
+  const records = pack.verification.rawTestAnchorPaths.map((sourcePath) => {
+    const canonicalPath = TEST_ANCHOR_ALIASES[sourcePath] ?? sourcePath;
+    const runner = testRunner(canonicalPath);
+    const directorySelector = runner === 'INTEGRATION' && !canonicalPath.endsWith('.spec.ts');
+    const providerPackIds = sorted(unique([...providersByPath]
+      .filter(([providedPath]) => providedPath === canonicalPath
+        || (directorySelector && providedPath.startsWith(canonicalPath + '/')))
+      .flatMap(([, providerIds]) => providerIds)));
+    const predecessorProviderPackIds = providerPackIds.filter((id) => predecessorIds.has(id));
+    const availableAtBase = basePaths.has(canonicalPath)
+      || (directorySelector && [...basePaths].some((basePath) => basePath.startsWith(canonicalPath + '/')));
+    let disposition;
+    if (!runner) disposition = 'NON_EXECUTABLE_ANCHOR';
+    else if (gapByPath[canonicalPath] && providerPackIds.includes(pack.packId)) {
+      disposition = 'PLANNED_CURRENT_PACK_CREATE';
+    } else if (gapByPath[canonicalPath]) disposition = 'PLANNED_ACCEPTANCE_TEST_GAP';
+    else if (availableAtBase) disposition = 'AVAILABLE_AT_BASE';
+    else if (providerPackIds.includes(pack.packId)) disposition = 'PROVIDED_BY_CURRENT_PACK';
+    else if (predecessorProviderPackIds.length) disposition = 'PROVIDED_BY_PREDECESSOR_PACK';
+    else if (providerPackIds.length) disposition = 'DEFERRED_PROVIDER_PACK';
+    else disposition = 'UNRESOLVED_EXECUTABLE_ANCHOR';
+    const gap = gapByPath[canonicalPath];
+    return {
+      sourcePath,
+      canonicalPath,
+      aliasApplied: sourcePath !== canonicalPath,
+      runner,
+      disposition,
+      providerPackIds,
+      predecessorProviderPackIds,
+      plannedOwnerUnitId: gap?.ownerUnitId ?? null,
+    };
+  });
+  for (const gap of PLANNED_ACCEPTANCE_TEST_GAPS) {
+    const providerPackIds = providersByPath.get(gap.path) ?? [];
+    if (!providerPackIds.includes(pack.packId)
+      || records.some((record) => record.canonicalPath === gap.path)) continue;
+    records.push({
+      sourcePath: null,
+      canonicalPath: gap.path,
+      aliasApplied: false,
+      runner: testRunner(gap.path),
+      disposition: 'PLANNED_CURRENT_PACK_CREATE',
+      providerPackIds,
+      predecessorProviderPackIds: [],
+      plannedOwnerUnitId: gap.ownerUnitId,
+    });
+  }
+  return records;
+}
+
+function testAnchorDispositionPaths(records) {
+  return Object.fromEntries(TEST_ANCHOR_DISPOSITIONS.map((disposition) => [
+    disposition,
+    sorted(unique(records
+      .filter((record) => record.disposition === disposition)
+      .map((record) => record.canonicalPath))),
+  ]));
 }
 
 function focusedCommands(testPaths) {
@@ -498,6 +658,36 @@ function focusedCommands(testPaths) {
     commands.push('pnpm test:integration -- ' + integration.map(shellQuote).join(' '));
   }
   return commands;
+}
+
+function verificationCommands(pack, focusedTestPaths) {
+  const pythonBootstrapRequired = focusedTestPaths.some(
+    (testPath) => testRunner(testPath) === 'PYTEST',
+  );
+  const commands = [
+    'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check',
+    COMMON_COMMANDS[0],
+    ...(pythonBootstrapRequired ? ["python3 -m pip install -e 'workers/ingestion[test]'"] : []),
+    ...focusedCommands(focusedTestPaths),
+    ...COMMON_COMMANDS.slice(1),
+  ];
+  if (pack.migrationSourceOrdinals.length) {
+    commands.push(
+      'pnpm db:migrate',
+      'pnpm db:rollback',
+      'pnpm db:migrate',
+      'pnpm db:seed',
+      'pnpm test:integration',
+    );
+  }
+  if ([...pack.files.create, ...pack.files.modify]
+    .some((file) => file.startsWith('workers/ingestion/'))) {
+    if (!commands.includes("python3 -m pip install -e 'workers/ingestion[test]'")) {
+      commands.splice(2, 0, "python3 -m pip install -e 'workers/ingestion[test]'");
+    }
+    commands.push('python3 -m pytest workers/ingestion/tests');
+  }
+  return unique(commands);
 }
 
 function packReview(risk) {
@@ -707,6 +897,9 @@ export async function buildManifest(sourceDir) {
     const sourceModify = sorted(packSources.flatMap((source) => source.pathActions
       .filter((item) => item.action === 'MODIFY')
       .map((item) => item.path)));
+    const plannedTestCreate = sorted(PLANNED_ACCEPTANCE_TEST_GAPS
+      .filter((gap) => routePackByUnit[gap.ownerUnitId] === pack.packId)
+      .map((gap) => gap.path));
     const effectiveActions = new Map();
     for (const file of sourceModify) effectiveActions.set(file, 'MODIFY');
     for (const file of sourceCreate) effectiveActions.set(file, 'CREATE');
@@ -714,13 +907,14 @@ export async function buildManifest(sourceDir) {
       if (!effectiveActions.has(file)) effectiveActions.set(file, 'MODIFY');
     }
     for (const file of overlayCreate) effectiveActions.set(file, 'CREATE');
+    for (const file of plannedTestCreate) effectiveActions.set(file, 'CREATE');
     const create = sorted([...effectiveActions]
       .filter(([, action]) => action === 'CREATE')
       .map(([file]) => file));
     const modify = sorted([...effectiveActions]
       .filter(([, action]) => action === 'MODIFY')
       .map(([file]) => file));
-    const testPaths = sorted(unique(hunks.flatMap((hunk) => {
+    const rawTestAnchorPaths = sorted(unique(hunks.flatMap((hunk) => {
       const source = ownership.hunks[hunk.ordinal - 1];
       return (source.testAnchorsB64 ?? []).map(decodePath);
     })));
@@ -731,26 +925,6 @@ export async function buildManifest(sourceDir) {
     const transitionTuwIds = pack.tuwIds.filter((id) => unitById[id]);
     const packMigrationRows = packMigrations.get(pack.packId) ?? [];
     const repoSafeReceipt = 'docs/execution/recovery-receipts/' + pack.packId + '.json';
-    const commands = [
-      'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check',
-      ...focusedCommands(testPaths),
-      ...COMMON_COMMANDS,
-    ];
-    if (packMigrationRows.length) {
-      commands.push(
-        'pnpm db:migrate',
-        'pnpm db:rollback',
-        'pnpm db:migrate',
-        'pnpm db:seed',
-        'pnpm test:integration',
-      );
-    }
-    if (pathB64s.some((value) => decodePath(value).startsWith('workers/ingestion/'))) {
-      commands.push(
-        "python3 -m pip install -e 'workers/ingestion[test]'",
-        'python3 -m pytest workers/ingestion/tests',
-      );
-    }
     return {
       packId: pack.packId,
       sequence: pack.sequence,
@@ -773,6 +947,7 @@ export async function buildManifest(sourceDir) {
         overlayModify: sorted(overlayModify),
         sourceCreate,
         sourceModify,
+        plannedTestCreate,
         sharedPathHunkSelectors: Object.fromEntries(pathB64s
           .filter((pathB64) => pathByB64[pathB64].sharedFile)
           .map((pathB64) => [
@@ -786,8 +961,12 @@ export async function buildManifest(sourceDir) {
       migrationSourceOrdinals: packMigrationRows.map((migration) => migration.sourceOrdinal),
       migrationTargetOrdinals: packMigrationRows.map((migration) => migration.targetOrdinal),
       verification: {
-        focusedTestPaths: testPaths,
-        commands: unique(commands),
+        rawTestAnchorPaths,
+        testAnchorDispositions: {},
+        focusedTestPaths: [],
+        deferredTestPaths: [],
+        requiredPlannedTestGaps: [],
+        commands: [],
         failCountRequired: 0,
         skipCountRequired: 0,
         exactHeadRequired: true,
@@ -817,10 +996,57 @@ export async function buildManifest(sourceDir) {
         'missing, failing, stale, skipped, or post-push-invalidated technical gate',
         'permission, audit, privacy, policy, source, trigger, or external authority uncertainty',
         'private evidence or sensitive content would enter Git',
+        'a planned acceptance-test gap is treated as executable or passing evidence',
+        'a TUW with a required planned acceptance-test gap receives a completion claim',
         'the same failure repeats three times',
       ],
     };
   });
+
+  const packById = Object.fromEntries(packs.map((pack) => [pack.packId, pack]));
+  const providersByPath = new Map();
+  for (const pack of packs) {
+    for (const file of [...pack.files.create, ...pack.files.modify]) {
+      const providers = providersByPath.get(file) ?? [];
+      providers.push(pack.packId);
+      providersByPath.set(file, sorted(unique(providers)));
+    }
+  }
+  const exactBasePaths = basePathSet();
+  const plannedAcceptanceTestGaps = PLANNED_ACCEPTANCE_TEST_GAPS.map((gap) => ({
+    ...gap,
+    ownerPackId: routePackByUnit[gap.ownerUnitId],
+    state: 'PLANNED_NOT_YET_CREATED',
+    blocksCompletionClaim: true,
+  }));
+  for (const pack of packs) {
+    const records = classifyTestAnchors(pack, {
+      basePaths: exactBasePaths,
+      providersByPath,
+      packById,
+    });
+    const unresolved = records.filter((record) => record.disposition === 'UNRESOLVED_EXECUTABLE_ANCHOR');
+    if (unresolved.length) {
+      throw new Error(pack.packId + ' has unresolved executable test anchors: '
+        + unresolved.map((record) => record.sourcePath).join(', '));
+    }
+    const focusedTestPaths = sorted(unique(records
+      .filter((record) => [
+        'AVAILABLE_AT_BASE',
+        'PROVIDED_BY_CURRENT_PACK',
+        'PLANNED_CURRENT_PACK_CREATE',
+        'PROVIDED_BY_PREDECESSOR_PACK',
+      ].includes(record.disposition))
+      .map((record) => record.canonicalPath)));
+    pack.verification.testAnchorDispositions = testAnchorDispositionPaths(records);
+    pack.verification.focusedTestPaths = focusedTestPaths;
+    pack.verification.deferredTestPaths = sorted(unique(records
+      .filter((record) => record.disposition === 'DEFERRED_PROVIDER_PACK')
+      .map((record) => record.canonicalPath)));
+    pack.verification.requiredPlannedTestGaps = plannedAcceptanceTestGaps
+      .filter((gap) => pack.tuwIds.includes(gap.ownerUnitId));
+    pack.verification.commands = verificationCommands(pack, focusedTestPaths);
+  }
 
   const payload = {
     manifestId: MANIFEST_ID,
@@ -903,6 +1129,16 @@ export async function buildManifest(sourceDir) {
         })),
       ])),
     },
+    testAnchorContract: {
+      sourceContractSha256: digest(packs.map((pack) => ({
+        packId: pack.packId,
+        rawTestAnchorPaths: pack.verification.rawTestAnchorPaths,
+      }))),
+      aliases: TEST_ANCHOR_ALIASES,
+      plannedAcceptanceTestGaps,
+      executableAvailabilityRule: 'BASE_COMMIT_OR_CURRENT_PACK_OR_TRANSITIVE_PREDECESSOR_PACK',
+      unresolvedExecutableAnchorsAllowed: false,
+    },
     packs,
     nonOverlaySources,
     hunkAssignments,
@@ -965,6 +1201,15 @@ export function validateManifest(manifest) {
   if (new Set(packIds).size !== packIds.length) fail('PACK_ID_DUPLICATE', 'duplicate PACK ID');
   if (new Set(branches).size !== branches.length) fail('BRANCH_DUPLICATE', 'duplicate branch');
   const packById = Object.fromEntries(packs.map((pack) => [pack.packId, pack]));
+  const providersByPath = new Map();
+  for (const pack of packs) {
+    for (const file of [...(pack.files?.create ?? []), ...(pack.files?.modify ?? [])]) {
+      const providers = providersByPath.get(file) ?? [];
+      providers.push(pack.packId);
+      providersByPath.set(file, sorted(unique(providers)));
+    }
+  }
+  const exactBasePaths = basePathSet();
   const staticPrimary = primaryMap();
   for (const pack of packs) {
     if (!/^PACK-R14-\d{2}$/.test(pack.packId)) fail('PACK_ID_FORMAT', pack.packId);
@@ -1025,11 +1270,45 @@ export function validateManifest(manifest) {
       if (!packById[predecessor]) fail('UNKNOWN_PREDECESSOR', pack.packId + ':' + predecessor);
       else if (packById[predecessor].sequence >= pack.sequence) fail('PACK_ORDER', predecessor + '->' + pack.packId);
     }
-    const requiredCommands = [
-      'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check',
-      ...COMMON_COMMANDS,
-    ];
-    if (!requiredCommands.every((command) => pack.verification?.commands.includes(command))
+    const expectedTestAnchorRecords = classifyTestAnchors(pack, {
+      basePaths: exactBasePaths,
+      providersByPath,
+      packById,
+    });
+    if (expectedTestAnchorRecords.some(
+      (record) => record.disposition === 'UNRESOLVED_EXECUTABLE_ANCHOR',
+    )) {
+      fail('UNRESOLVED_EXECUTABLE_TEST_ANCHOR', pack.packId);
+    }
+    if (digest(pack.verification?.testAnchorDispositions ?? {})
+      !== digest(testAnchorDispositionPaths(expectedTestAnchorRecords))) {
+      fail('TEST_ANCHOR_DISPOSITION', pack.packId);
+    }
+    const expectedFocusedTestPaths = sorted(unique(expectedTestAnchorRecords
+      .filter((record) => [
+        'AVAILABLE_AT_BASE',
+        'PROVIDED_BY_CURRENT_PACK',
+        'PLANNED_CURRENT_PACK_CREATE',
+        'PROVIDED_BY_PREDECESSOR_PACK',
+      ].includes(record.disposition))
+      .map((record) => record.canonicalPath)));
+    const expectedDeferredTestPaths = sorted(unique(expectedTestAnchorRecords
+      .filter((record) => record.disposition === 'DEFERRED_PROVIDER_PACK')
+      .map((record) => record.canonicalPath)));
+    if (!sameSequence(pack.verification?.focusedTestPaths ?? [], expectedFocusedTestPaths)
+      || !sameSequence(pack.verification?.deferredTestPaths ?? [], expectedDeferredTestPaths)) {
+      fail('TEST_ANCHOR_AVAILABILITY_SET', pack.packId);
+    }
+    const expectedFocusedCommands = focusedCommands(expectedFocusedTestPaths);
+    for (const testPath of expectedFocusedTestPaths) {
+      const selector = testCommandSelector(testPath);
+      const occurrences = expectedFocusedCommands.filter(
+        (command) => command.includes(shellQuote(selector)),
+      ).length;
+      if (occurrences !== 1) fail('FOCUSED_TEST_COMMAND_COVERAGE', pack.packId + ':' + testPath);
+    }
+    const expectedCommands = verificationCommands(pack, expectedFocusedTestPaths);
+    if (!sameSequence(pack.verification?.commands ?? [], expectedCommands)
       || pack.verification?.failCountRequired !== 0
       || pack.verification?.skipCountRequired !== 0
       || pack.verification?.exactHeadRequired !== true) {
@@ -1087,6 +1366,49 @@ export function validateManifest(manifest) {
   for (const id of unitIds) {
     const pack = packById[executionPackByUnit[id]];
     if (!pack || !pack.tuwIds.includes(id)) fail('EXECUTION_ROUTE_PACK', id);
+  }
+
+  const testAnchorContract = payload.testAnchorContract ?? {};
+  const sourceTestAnchorContract = packs.map((pack) => ({
+    packId: pack.packId,
+    rawTestAnchorPaths: pack.verification?.rawTestAnchorPaths ?? [],
+  }));
+  const sourceTestAnchorDigest = digest(sourceTestAnchorContract);
+  if (sourceTestAnchorDigest !== testAnchorContract.sourceContractSha256
+    || sourceTestAnchorDigest !== TEST_ANCHOR_SOURCE_CONTRACT_SHA256) {
+    fail('TEST_ANCHOR_SOURCE_CONTRACT', sourceTestAnchorDigest);
+  }
+  if (digest(testAnchorContract.aliases ?? {}) !== digest(TEST_ANCHOR_ALIASES)) {
+    fail('TEST_ANCHOR_ALIAS_CONTRACT', 'alias mapping drifted');
+  }
+  const expectedPlannedAcceptanceTestGaps = PLANNED_ACCEPTANCE_TEST_GAPS.map((gap) => ({
+    ...gap,
+    ownerPackId: executionPackByUnit[gap.ownerUnitId],
+    state: 'PLANNED_NOT_YET_CREATED',
+    blocksCompletionClaim: true,
+  }));
+  if (digest(testAnchorContract.plannedAcceptanceTestGaps ?? [])
+    !== digest(expectedPlannedAcceptanceTestGaps)) {
+    fail('PLANNED_ACCEPTANCE_TEST_GAP_CONTRACT', 'planned gap set drifted');
+  }
+  for (const gap of expectedPlannedAcceptanceTestGaps) {
+    if (exactBasePaths.has(gap.path)
+      || !testRunner(gap.path)
+      || !sameSet(providersByPath.get(gap.path) ?? [], [gap.ownerPackId])) {
+      fail('PLANNED_ACCEPTANCE_TEST_PROVIDER', gap.ownerUnitId + ':' + gap.path);
+    }
+  }
+  if (testAnchorContract.executableAvailabilityRule
+      !== 'BASE_COMMIT_OR_CURRENT_PACK_OR_TRANSITIVE_PREDECESSOR_PACK'
+    || testAnchorContract.unresolvedExecutableAnchorsAllowed !== false) {
+    fail('TEST_ANCHOR_AVAILABILITY_POLICY', 'availability policy drifted');
+  }
+  for (const pack of packs) {
+    const expectedRequiredGaps = expectedPlannedAcceptanceTestGaps
+      .filter((gap) => pack.tuwIds.includes(gap.ownerUnitId));
+    if (digest(pack.verification?.requiredPlannedTestGaps ?? []) !== digest(expectedRequiredGaps)) {
+      fail('PACK_PLANNED_TEST_GAPS', pack.packId);
+    }
   }
 
   const dependencies = payload.unitUniverse?.dependencies ?? {};
@@ -1250,10 +1572,14 @@ export function validateManifest(manifest) {
     const expectedSourceModify = sorted(packSources.flatMap((source) => source.pathActions
       .filter((item) => item.action === 'MODIFY')
       .map((item) => item.path)));
+    const expectedPlannedTestCreate = sorted(PLANNED_ACCEPTANCE_TEST_GAPS
+      .filter((gap) => executionPackByUnit[gap.ownerUnitId] === pack.packId)
+      .map((gap) => gap.path));
     if (!sameSet(pack.files.overlayCreate ?? [], expectedOverlayCreate)
       || !sameSet(pack.files.overlayModify ?? [], expectedOverlayModify)
       || !sameSet(pack.files.sourceCreate ?? [], expectedSourceCreate)
-      || !sameSet(pack.files.sourceModify ?? [], expectedSourceModify)) {
+      || !sameSet(pack.files.sourceModify ?? [], expectedSourceModify)
+      || !sameSet(pack.files.plannedTestCreate ?? [], expectedPlannedTestCreate)) {
       fail('PACK_FILE_SOURCE_SET', pack.packId);
     }
     const effectiveActions = new Map();
@@ -1263,6 +1589,7 @@ export function validateManifest(manifest) {
       if (!effectiveActions.has(file)) effectiveActions.set(file, 'MODIFY');
     }
     for (const file of expectedOverlayCreate) effectiveActions.set(file, 'CREATE');
+    for (const file of expectedPlannedTestCreate) effectiveActions.set(file, 'CREATE');
     const expectedCreate = [...effectiveActions]
       .filter(([, action]) => action === 'CREATE')
       .map(([file]) => file);
@@ -1511,6 +1838,9 @@ export function renderMarkdown(manifest) {
     '- Dirty-path coverage: 893/893',
     '- Ownership-record coverage: 4801/4801',
     '- Non-overlay Git sources: 20 commits / 9 paths',
+    '- Test-anchor source contract: ' + payload.testAnchorContract.sourceContractSha256,
+    '- Planned acceptance-test gaps: '
+      + payload.testAnchorContract.plannedAcceptanceTestGaps.length,
     '- Quarantine after amendment: '
       + payload.quarantines.hunkOrdinals.length + ' hunks / '
       + payload.quarantines.pathB64s.length + ' paths',
@@ -1528,6 +1858,11 @@ export function renderMarkdown(manifest) {
     '',
     'Every PACK now distinguishes effective payload files, preserved-overlay files,',
     'non-overlay source files, candidate bookkeeping, and one-row transition commits.',
+    'Every raw test anchor is retained with an explicit disposition. Only tests available',
+    'at the exact base, created by the current PACK, or supplied by a transitive predecessor',
+    'become focused commands; later-owned anchors are deferred and seven normative tests',
+    'that are explicitly planned but not yet created remain completion-blocking gaps and',
+    'exact planned-create plus focused-test obligations of their owning implementation PACK.',
     'The receipt and exact EOF execution-ledger append precede transitions; transition',
     'commits then change exactly the four sealed 117-row control-plane paths. Any later',
     'non-control-plane push invalidates the candidate binding and all exact-head gates.',
