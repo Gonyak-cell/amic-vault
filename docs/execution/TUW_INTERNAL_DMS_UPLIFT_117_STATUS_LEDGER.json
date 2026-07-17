@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
-  "phase": "BOOTSTRAP_IMPORT",
-  "generatedAt": "2026-07-17T00:00:00.000Z",
+  "phase": "TRANSITION",
+  "generatedAt": "2026-07-17T20:31:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,14 +11,14 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "d0404c84bfe3e7b4d14d071a0c9f267a87eb62a512a78f3e4d98499abaae6a4a"
+      "value": "10777fad90b8d398f7f116e1330ee282c96543f7f20959920397032d77cc48e5"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "c1ac2b89d7e553968aef8918bab5945431c9257855dddd2da9428d4a355767c7"
+      "value": "c1d102519a07afabf33a2389a27d521606f56eedb9e6417e1f05e070449f0952"
     },
-    "asOf": "2026-07-17T00:00:00.000Z",
-    "phase": "BOOTSTRAP_IMPORT"
+    "asOf": "2026-07-17T20:31:00.000Z",
+    "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
   "overridesPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json",
@@ -46,11 +46,12 @@
     "COMPLETE_CANDIDATE": 19,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 80,
     "EXTERNAL_BLOCKED": 11,
-    "UNADJUDICATED": 7
+    "PARTIAL": 1,
+    "UNADJUDICATED": 6
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 117,
-    "CURRENT_VALIDATED": 0
+    "BOOTSTRAP_PREIMAGE": 116,
+    "CURRENT_VALIDATED": 1
   },
   "units": [
     {
@@ -34851,7 +34852,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 3094
       },
-      "status": "UNADJUDICATED",
+      "status": "PARTIAL",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -34895,9 +34896,92 @@
         "**Acceptance tests:** 자동 — tests/integration/document-access 계열에 (a) clientId 필터 목록이 해당 고객 매터의 문서만 반환, (b) cross-tenant clientId는 빈 결과, (c) 체크인 수행 후 updated_by가 편집자로 갱신됨을 검증. 수동 — /files에서 고객 선택 시 목록이 즉시 필터되고 각 행에 고객명·최종 편집자가 표시되면 통과."
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/comparison/comparison.module.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/document/document-editing.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+            }
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-action-center.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-vault-list.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+            }
+          },
+          {
+            "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+            }
+          },
+          {
+            "path": "packages/redline/src/diff-engine.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/redline.spec.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+        }
+      },
       "historicalEvidenceRefs": [],
       "evidenceRefs": [],
       "blockerClass": "NONE",
@@ -34905,11 +34989,12 @@
       "acceptedBlockers": [],
       "dependencyConditions": [],
       "remainingGaps": [
-        "Acceptance, code, test, and operational evidence for B15 have not been reviewed."
+        "Add the documents.updated_by persistence and client-scoped document-list surface required by B15.",
+        "Add the B15 cross-tenant/client-filter/editor provenance integration coverage and manual /files and client-detail QA evidence."
       ],
-      "nextAction": "Adjudicate B15 against its acceptance block and record current evidence before any status change.",
-      "statusRationale": "Appendix-2 B15 is newly registered in the active 117-unit plan and has no adjudication evidence in the imported substrate.",
-      "lastReviewedAt": null
+      "nextAction": "Implement only the B15 allowlisted client-axis and editor-provenance slice after its registered PACK is reached, then collect current integration and manual evidence.",
+      "statusRationale": "B15 has adjacent document list and editing surfaces at the exact candidate, but the required documents.updated_by provenance, client-scoped list query and client detail tab are absent; no B15 acceptance evidence supports completion.",
+      "lastReviewedAt": "2026-07-17T20:31:00.000Z"
     },
     {
       "id": "B16",

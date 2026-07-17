@@ -9,10 +9,16 @@
     "value": "32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9"
   },
   "authorityCommit": "2daa27d6ecb959342ecb13396286532e64f54cab",
-  "candidateSha": null,
-  "validationScopeDigest": null,
-  "asOf": "2026-07-17T00:00:00.000Z",
-  "previousAcceptedJournalHead": null,
+  "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+  "validationScopeDigest": {
+    "algorithm": "SHA-256",
+    "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+  },
+  "asOf": "2026-07-17T20:31:00.000Z",
+  "previousAcceptedJournalHead": {
+    "algorithm": "SHA-256",
+    "value": "a9bb331d27460f8ffea2d677d82e74b9017e84a6fba1f5beef3a9b880d5bf2bf"
+  },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
     "sourcePlanSha256": {
@@ -25803,8 +25809,142 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "a9bb331d27460f8ffea2d677d82e74b9017e84a6fba1f5beef3a9b880d5bf2bf"
+    "value": "7ae63eb55d9007d05c57ccd56dbb931e5fbca51a85770b1e668fe2a2d81bcd43"
   },
-  "entries": [],
+  "entries": [
+    {
+      "sequence": 1,
+      "transitionId": "TR-000001",
+      "packId": "PACK-R14-05",
+      "tuwId": "B15",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:31:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "Current candidate review found adjacent document surfaces but not the B15 client-axis, editor provenance, or acceptance evidence.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "5e788184b76f4d3e8bc676d0279299c5f7d7e096acd34cc0f3787c921c632a92"
+      },
+      "afterOverride": {
+        "status": "PARTIAL",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B15 has adjacent document list and editing surfaces at the exact candidate, but the required documents.updated_by provenance, client-scoped list query and client detail tab are absent; no B15 acceptance evidence supports completion.",
+        "remainingGaps": [
+          "Add the documents.updated_by persistence and client-scoped document-list surface required by B15.",
+          "Add the B15 cross-tenant/client-filter/editor provenance integration coverage and manual /files and client-detail QA evidence."
+        ],
+        "nextAction": "Implement only the B15 allowlisted client-axis and editor-provenance slice after its registered PACK is reached, then collect current integration and manual evidence.",
+        "lastReviewedAt": "2026-07-17T20:31:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "7164428367d56c7255e014bfa95789174c8d15bcaf034f17a67147d66439a25b"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "7ae63eb55d9007d05c57ccd56dbb931e5fbca51a85770b1e668fe2a2d81bcd43"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "fe1a5a8f35c4f708ecf94a3035673c1c95e60f7fedbf91ea3b4e093d1e7b25f9"
+      }
+    }
+  ],
   "closeoutSeal": null
 }
