@@ -1,16 +1,20 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
-  outputsMatchManifest,
-  renderMarkdown,
   validateNonOverlayGitSources,
   validateManifest,
 } from './build-post-r14-recovery-pack-manifest.mjs';
 
+const root = fileURLToPath(new URL('../..', import.meta.url));
 const manifestPath = new URL('../../docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json', import.meta.url);
+const markdownPath = new URL('../../docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md', import.meta.url);
+const scriptPath = new URL('./build-post-r14-recovery-pack-manifest.mjs', import.meta.url);
 
 async function fixture() {
   return JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -61,17 +65,42 @@ test('every PACK has three to eight TUWs, a unique branch, review, and earlier p
   }
 });
 
-test('every generated focused command is syntax-safe in bash and zsh', async () => {
+test('every generated focused command uses an executable runner and is shell-safe', async () => {
   const manifest = await fixture();
   const commands = manifest.payload.packs.flatMap((pack) => pack.verification.commands)
-    .filter((command) => command.startsWith('pnpm test -- ')
+    .filter((command) => command.startsWith('pnpm --filter ')
+      || command.startsWith('pnpm exec vitest run ')
+      || command.startsWith('node --test ')
+      || command.startsWith("python3 -m pytest '")
       || command.startsWith('pnpm test:integration -- '));
+  assert.equal(manifest.payload.packs.some((pack) => pack.verification.commands
+    .some((command) => command.startsWith('pnpm test -- '))), false);
+  assert.ok(commands.some((command) => command.startsWith('pnpm --filter @amic-vault/api test -- ')));
+  assert.ok(commands.some((command) => command.startsWith('pnpm exec vitest run ')));
+  assert.ok(commands.some((command) => command.startsWith('node --test ')));
+  assert.ok(commands.some((command) => command.startsWith("python3 -m pytest '")));
+  assert.ok(commands.some((command) => command.startsWith('pnpm test:integration -- ')));
   assert.ok(commands.some((command) => command.includes('(app)')));
   for (const command of commands) {
     for (const shell of ['/bin/bash', '/bin/zsh']) {
       const result = spawnSync(shell, ['-n', '-c', command], { encoding: 'utf8' });
       assert.equal(result.status, 0, shell + ' rejected: ' + command + '\n' + result.stderr);
     }
+  }
+
+  const taskEight = manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-09');
+  assert.ok(taskEight.verification.commands.includes(
+    "node --test 'tools/migration/lawos-canonical-matter-reflection.spec.mjs'",
+  ));
+  for (const anchor of [
+    'tests/build',
+    'tests/fixtures/search/korean-legal-terms.json',
+    'tests/package',
+    'tests/tsconfig.json',
+    'tests/integration/document-access/document-api-helpers.ts',
+    'tests/integration/search-permission/search-fixtures.ts',
+  ]) {
+    assert.equal(commands.some((command) => command.includes("'" + anchor + "'")), false);
   }
 });
 
@@ -417,9 +446,35 @@ test('stale G003 evidence-target routing is rejected', async () => {
 });
 
 test('source-less output validation rejects committed Markdown drift', async () => {
-  const manifest = await fixture();
-  const json = JSON.stringify(manifest, null, 2) + '\n';
-  const markdown = renderMarkdown(manifest);
-  assert.equal(outputsMatchManifest(manifest, { json, markdown }), true);
-  assert.equal(outputsMatchManifest(manifest, { json, markdown: markdown + '\nDRIFT\n' }), false);
+  const scratch = await mkdtemp(path.join(tmpdir(), 'amic-vault-manifest-drift-'));
+  const clone = path.join(scratch, 'repo');
+  try {
+    const cloned = spawnSync('git', ['clone', '--shared', '--no-checkout', root, clone], {
+      encoding: 'utf8',
+    });
+    assert.equal(cloned.status, 0, cloned.stderr);
+    const checkedOut = spawnSync('git', ['-C', clone, 'checkout', '--detach', 'HEAD'], {
+      encoding: 'utf8',
+    });
+    assert.equal(checkedOut.status, 0, checkedOut.stderr);
+
+    await Promise.all([
+      cp(fileURLToPath(scriptPath), path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
+      cp(fileURLToPath(manifestPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json')),
+      cp(fileURLToPath(markdownPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md')),
+    ]);
+    const cloneMarkdown = path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md');
+    const markdown = await readFile(cloneMarkdown, 'utf8');
+    await writeFile(cloneMarkdown, markdown + '\nDRIFT\n');
+
+    const result = spawnSync(process.execPath, [
+      await realpath(path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
+      '--check',
+    ], { cwd: clone, encoding: 'utf8' });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /"code":"CHECK_DRIFT"/);
+    assert.match(result.stderr, /"writes":0/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
 });

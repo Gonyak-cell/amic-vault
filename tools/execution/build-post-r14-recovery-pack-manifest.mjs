@@ -13,7 +13,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '702e3d7f9ea57294c8fa6847857774d8edf35a7e78542f27698d8a2b81bc929d';
+const CANONICAL_PAYLOAD_SHA256 = 'a764904a11c6a98696797e4653711c67f4b3a7b6b270de45c415099d64ed70db';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const AUTHORITY_REF = 'TASK6B-TECHNICAL-GATES-AUTHORITY-20260717';
 const AMENDMENT_AUTHORITY_REF = 'DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717';
@@ -448,11 +448,52 @@ function shellQuote(value) {
   return "'" + value.replaceAll("'", "'\"'\"'") + "'";
 }
 
+const FOCUSED_VITEST_ROUTES = [
+  ['apps/api/', '@amic-vault/api'],
+  ['apps/web/', '@amic-vault/web'],
+  ['apps/desktop/', '@amic-vault/desktop'],
+  ['packages/ai/', '@amic-vault/ai'],
+  ['packages/domain/', '@amic-vault/domain'],
+  ['packages/shared/', '@amic-vault/shared'],
+];
+
+function isVitestPath(value) {
+  return /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(value);
+}
+
+function isIntegrationSelector(value) {
+  if (!value.startsWith('tests/integration')) return false;
+  return value === 'tests/integration'
+    || value.endsWith('.spec.ts')
+    || !path.posix.basename(value).includes('.');
+}
+
 function focusedCommands(testPaths) {
-  const unit = testPaths.filter((value) => !value.startsWith('tests/integration'));
-  const integration = testPaths.filter((value) => value.startsWith('tests/integration'));
   const commands = [];
-  if (unit.length) commands.push('pnpm test -- ' + unit.map(shellQuote).join(' '));
+
+  for (const [prefix, packageName] of FOCUSED_VITEST_ROUTES) {
+    const paths = testPaths
+      .filter((value) => value.startsWith(prefix) && isVitestPath(value))
+      .map((value) => value.slice(prefix.length));
+    if (paths.length) {
+      commands.push('pnpm --filter ' + packageName + ' test -- ' + paths.map(shellQuote).join(' '));
+    }
+  }
+
+  const rootVitest = testPaths.filter((value) => isVitestPath(value)
+    && !value.startsWith('tests/integration')
+    && !FOCUSED_VITEST_ROUTES.some(([prefix]) => value.startsWith(prefix)));
+  if (rootVitest.length) {
+    commands.push('pnpm exec vitest run ' + rootVitest.map(shellQuote).join(' '));
+  }
+
+  const nodeTest = testPaths.filter((value) => value.endsWith('.spec.mjs'));
+  if (nodeTest.length) commands.push('node --test ' + nodeTest.map(shellQuote).join(' '));
+
+  const python = testPaths.filter((value) => /(^|\/)test_[^/]+\.py$/.test(value));
+  if (python.length) commands.push('python3 -m pytest ' + python.map(shellQuote).join(' '));
+
+  const integration = testPaths.filter(isIntegrationSelector);
   if (integration.length) {
     commands.push('pnpm test:integration -- ' + integration.map(shellQuote).join(' '));
   }
@@ -1537,7 +1578,7 @@ export function renderMarkdown(manifest) {
   return lines.join('\n');
 }
 
-export function outputsMatchManifest(manifest, { json, markdown }) {
+function outputsMatchManifest(manifest, { json, markdown }) {
   return json === JSON.stringify(manifest, null, 2) + '\n'
     && markdown === renderMarkdown(manifest);
 }

@@ -2013,7 +2013,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `702e3d7f9ea57294c8fa6847857774d8edf35a7e78542f27698d8a2b81bc929d`.
+  `a764904a11c6a98696797e4653711c67f4b3a7b6b270de45c415099d64ed70db`.
 
 The v1 validator proved complete coverage of the preserved 893-path overlay,
 but Task 7 preflight exposed a separate source class that v1 did not model.
