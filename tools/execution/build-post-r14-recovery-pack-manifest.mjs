@@ -2839,11 +2839,15 @@ export function validateAuthorityArtifacts(manifest, {
       const parentMarker = parentLine.match(listMarkerPattern);
       if (parentMarker) {
         const parentIndent = markdownColumnWidth(parentMarker[1]);
-        const parentContentIndent = markdownColumnWidth(
+        const markerEnd = markdownColumnWidth(parentMarker[1] + parentMarker[2]);
+        const markerPaddingEnd = markdownColumnWidth(
           parentMarker[1] + parentMarker[2] + parentMarker[3],
         );
+        const parentContentIndent = markerPaddingEnd - markerEnd > 4
+          ? markerEnd + 1
+          : markerPaddingEnd;
         if (parentIndent < indent) {
-          return indent >= parentContentIndent && indent <= parentContentIndent + 3;
+          if (indent >= parentContentIndent && indent <= parentContentIndent + 3) return true;
         }
       }
       if (!parentMarker && markdownColumnWidth(parentLine.match(/^[ \t]*/)[0]) === 0) return false;

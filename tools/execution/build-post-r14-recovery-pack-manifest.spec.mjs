@@ -339,11 +339,14 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
     );
     assert.equal(validateAuthorityArtifacts(manifest, { packRegistry: codeRegistry, decisionLedger }).ok, true);
   }
-  for (const parent of ['10. Authority history:', '  - Authority history:', '  -\tAuthority history:']) {
+  for (const parent of ['10. Authority history:', '  - Authority history:', '  -\tAuthority history:', '  - \tAuthority history:']) {
     const nestedDecision = decisionLedger + '\n' + parent + '\n    '
       + '* 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n';
     assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: nestedDecision }).ok, false);
   }
+  const shadowedNestedDecision = decisionLedger
+    + '\n- Authority history:\n  10. Existing nested item.\n    * 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n';
+  assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: shadowedNestedDecision }).ok, false);
   const decisionResult = validateAuthorityArtifacts(manifest, {
     packRegistry,
     decisionLedger: decisionLedger + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n',
