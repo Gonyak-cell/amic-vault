@@ -2013,9 +2013,11 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `1319ec64e8e9ede4b7795f4a78af50f12a274045cd5a97fa59350f01fb279be8`.
+  `ada82ca8f1fb26d3333c90a6392ff37bb5e5f5a757b8679e87d47d68135b240c`.
 - Sealed raw test-anchor source contract SHA-256:
-  `bd6c1a74d4467b14bae8e9fe16e1963dc6ea763baad3ec4c624afa834f90b886`.
+  `783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6`.
+- Sealed exact-base collision source contract SHA-256:
+  `0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467`.
 
 The v1 validator proved complete coverage of the preserved 893-path overlay,
 but Task 7 preflight exposed a separate source class that v1 did not model.
@@ -2041,8 +2043,16 @@ This amendment contains exactly three TUWs, executed in order:
 
 The 19 stale historical-base hunks are now quarantined under
 `STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE`; they remain
-losslessly preserved by G001/G002 and may not enter a PACK. Total quarantine is
-28 hunks across 22 dirty paths. The remaining overlay still has exact
+losslessly preserved by G001/G002 and may not enter a PACK. Exact-base
+reconciliation also proves that six overlay paths originally classified as
+untracked creates already exist at the amendment preimage. Four are
+byte-identical and two are stale 110-row variants: the H1-H3 plan would replace
+the active 117-row pointer with the legacy 110-row pointer, and the 448-line
+legacy ledger builder would replace the merged 3,648-line 117-row control-plane
+builder. All six are therefore sealed as preservation-only quarantine rather
+than recreated or overwritten. Their raw test anchors remain represented by the
+collision contract but are not execution commands. Total quarantine is 34 hunks
+across 28 dirty paths. The remaining overlay still has exact
 893-path/4,801-hunk coverage, and all 86 migration mappings are unchanged.
 
 PACK-R14-03-AMENDMENT-01 creates no file. It may modify only:
@@ -2070,9 +2080,26 @@ Only the first four dispositions may enter focused commands. A recognized
 executable anchor with no base, provider PACK, alias, or sealed planned-gap entry
 fails manifest generation. Focused paths are routed
 one-to-one through their actual workspace/root Vitest, Node test, pytest, or
-integration runner; frozen dependency installation and any required Python
-bootstrap must precede them. Every generated path is POSIX single-quoted and
-its exact command must parse under both Bash and zsh before registration.
+integration runner. Each path first passes a fail-closed regular-file or
+integration-directory assertion, including no-symlink, at-least-one-spec, and
+static skip/todo checks, and then receives its own dedicated runner invocation;
+OR-style batching is forbidden. Vitest explicitly disables
+`passWithNoTests`. Helper-only integration directories are non-executable.
+Every earlier provider is an explicit predecessor and an owned planned gap is
+classified as predecessor-provided in successor PACKs. Frozen dependency
+installation and any required Python bootstrap must precede focused execution.
+Every generated path is POSIX single-quoted and its exact command must parse
+under both Bash and zsh before registration.
+
+Any PACK with integration selectors uses a deterministic PACK-specific compose
+project, non-default PostgreSQL/MinIO/ingestion ports, bucket, database URLs,
+and fresh volumes; it applies migrations and seed data, runs its focused
+integration commands, and cleans that environment. A migration-bearing PACK
+additionally preserves the
+exact `migrate -> rollback -> migrate -> seed -> focused integration -> full
+integration` order before cleanup. The second migrate is a required duplicate,
+not a command subject to deduplication; missing cleanup on either success or
+failure is a stop condition.
 
 The seven normative acceptance tests explicitly named as new and absent from
 the base and preserved overlay are assigned as exact `plannedTestCreate` paths

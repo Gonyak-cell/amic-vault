@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: 1319ec64e8e9ede4b7795f4a78af50f12a274045cd5a97fa59350f01fb279be8
+- Payload SHA-256: ada82ca8f1fb26d3333c90a6392ff37bb5e5f5a757b8679e87d47d68135b240c
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
@@ -15,9 +15,10 @@ Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 - Dirty-path coverage: 893/893
 - Ownership-record coverage: 4801/4801
 - Non-overlay Git sources: 20 commits / 9 paths
-- Test-anchor source contract: bd6c1a74d4467b14bae8e9fe16e1963dc6ea763baad3ec4c624afa834f90b886
+- Test-anchor source contract: 783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6
 - Planned acceptance-test gaps: 7
-- Quarantine after amendment: 28 hunks / 22 paths
+- Exact-base collision quarantine: 6 paths (4 identical / 2 superseded)
+- Quarantine after amendment: 34 hunks / 28 paths
 - Migration coverage: 86/86; renumbered in dependency/PACK order: 84
 
 This manifest is an execution authorization map only. It is not product implementation,
@@ -29,6 +30,11 @@ The v1 overlay-only model could not execute Task 7: PACK-R14-04 had zero overlap
 with the required five release-history paths and would have reapplied stale 110-row
 historical-base material. Version 2 quarantines those 19 stale hunks and registers
 the exact 19-commit release-history range plus the separate one-commit LawOS source.
+The exact amendment base also already contains six overlay paths that the original
+dirty checkout classified as untracked creates. Four are byte-identical no-ops; the
+remaining H1-H3 pointer and ledger builder are legacy 110-row variants superseded by
+the merged 117-row control plane. All six stay preserved in the original checkout and
+are sealed as quarantine rather than recreated over the exact base.
 
 Every PACK now distinguishes effective payload files, preserved-overlay files,
 non-overlay source files, candidate bookkeeping, and one-row transition commits.
@@ -37,6 +43,13 @@ at the exact base, created by the current PACK, or supplied by a transitive pred
 become focused commands; later-owned anchors are deferred and seven normative tests
 that are explicitly planned but not yet created remain completion-blocking gaps and
 exact planned-create plus focused-test obligations of their owning implementation PACK.
+Each focused selector has a fail-closed regular-file/directory assertion and its own
+runner invocation, so another matching selector cannot hide a missing test. Static
+skip/todo markers are rejected. Integration selectors require a real `.spec.ts`
+descendant; helper-only directories are non-executable anchors. Earlier test providers
+are explicit DAG predecessors. Database PACKs use PACK-specific compose projects, ports,
+buckets, and database URLs, then run compose up, migrate, rollback, migrate, seed, focused
+integration, full integration, and compose cleanup in that order.
 The receipt and exact EOF execution-ledger append precede transitions; transition
 commits then change exactly the four sealed 117-row control-plane paths. Any later
 non-control-plane push invalidates the candidate binding and all exact-head gates.

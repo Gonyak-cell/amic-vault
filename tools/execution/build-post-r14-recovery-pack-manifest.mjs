@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { lstat, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,9 +13,10 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '1319ec64e8e9ede4b7795f4a78af50f12a274045cd5a97fa59350f01fb279be8';
-const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'bd6c1a74d4467b14bae8e9fe16e1963dc6ea763baad3ec4c624afa834f90b886';
+const CANONICAL_PAYLOAD_SHA256 = 'ada82ca8f1fb26d3333c90a6392ff37bb5e5f5a757b8679e87d47d68135b240c';
+const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = '783186b96d9f6488fa3a1089bc6dd1620730fced8ed3e9394ca82a5ebda3f1e6';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
+const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
 const AUTHORITY_REF = 'TASK6B-TECHNICAL-GATES-AUTHORITY-20260717';
 const AMENDMENT_AUTHORITY_REF = 'DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717';
 const REGISTRATION_PACK_ID = 'PACK-R14-03';
@@ -72,6 +73,10 @@ const AMENDMENT_ALLOWED_MODIFY = [
 ];
 
 const EXECUTION_LEDGER_PATH = 'docs/ledger/execution.md';
+const FOCUSED_ASSERT_COMMAND = 'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --assert-focused-test ';
+const ISOLATED_POSTGRES_PORT_BASE = 55_432;
+const ISOLATED_MINIO_PORT_BASE = 59_000;
+const ISOLATED_INGESTION_PORT_BASE = 58_000;
 const TRANSITION_CONTROL_PLANE_PATHS = [
   'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json',
   'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
@@ -98,6 +103,13 @@ const GLOBAL_NOT_MODIFY = [
   'all paths and hunks not assigned to the current PACK',
   'production or external state without separately recorded authority',
 ];
+
+const BASE_COLLISION_SUPERSESSION_REFS = {
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md':
+    'PACK-R14-02-117-ACTIVE-PLAN-POINTER-SUPERSEDES-LEGACY-110-POINTER',
+  'tools/execution/build-tuw-status-ledger.mjs':
+    'PACK-R14-02-117-CONTROL-PLANE-BUILDER-SUPERSEDES-LEGACY-110-BUILDER',
+};
 
 const SUPPORT = {
   history: [
@@ -515,6 +527,8 @@ const TEST_ANCHOR_DISPOSITIONS = [
 
 let cachedBasePaths;
 
+const STATIC_TEST_SKIP_PATTERN = /(?:\b(?:describe|it|test)\.(?:skip|todo)\b|\b(?:xdescribe|xit|xtest)\s*\(|@pytest\.mark\.(?:skip|skipif)\b|\bpytest\.skip\s*\(|\bskip\s*:\s*true\b)/;
+
 function isVitestPath(value) {
   return /\.(?:spec|test)\.(?:js|jsx|ts|tsx)$/.test(value);
 }
@@ -524,6 +538,10 @@ function isIntegrationSelector(value) {
   return value === 'tests/integration'
     || value.endsWith('.spec.ts')
     || !path.posix.basename(value).includes('.');
+}
+
+function isIntegrationDirectorySelector(value) {
+  return isIntegrationSelector(value) && !value.endsWith('.spec.ts');
 }
 
 function testRunner(value) {
@@ -552,6 +570,71 @@ function basePathSet() {
   return cachedBasePaths;
 }
 
+function basePathSha256(relativePath) {
+  const result = gitBufferResult(['show', BASE_COMMIT + ':' + relativePath], ROOT);
+  if (result.status !== 0) {
+    throw new Error('cannot read exact base path ' + relativePath + ': '
+      + result.stderr.toString('utf8').trim());
+  }
+  return createHash('sha256').update(result.stdout).digest('hex');
+}
+
+async function integrationSpecFiles(directory) {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await integrationSpecFiles(entryPath));
+    else if (entry.isFile() && entry.name.endsWith('.spec.ts')) files.push(entryPath);
+  }
+  return files.sort();
+}
+
+async function lstatWithoutSymlinkComponents(root, normalizedPath) {
+  let current = root;
+  let currentStat;
+  for (const component of normalizedPath.split('/')) {
+    current = path.join(current, component);
+    currentStat = await lstat(current);
+    if (currentStat.isSymbolicLink()) {
+      throw new Error('focused test path must not contain a symlink: ' + normalizedPath);
+    }
+  }
+  return currentStat;
+}
+
+export async function assertFocusedTestPath(testPath, { root = ROOT } = {}) {
+  if (!testPath || path.isAbsolute(testPath)) throw new Error('focused test path must be relative');
+  const normalized = path.posix.normalize(testPath);
+  if (normalized === '..' || normalized.startsWith('../')) {
+    throw new Error('focused test path escapes repository root: ' + testPath);
+  }
+  const absolutePath = path.join(root, normalized);
+  const stat = await lstatWithoutSymlinkComponents(root, normalized);
+
+  let files;
+  if (isIntegrationDirectorySelector(normalized)) {
+    if (!stat.isDirectory()) throw new Error('integration selector is not a directory: ' + testPath);
+    files = await integrationSpecFiles(absolutePath);
+    if (files.length === 0) throw new Error('integration selector has no .spec.ts descendants: ' + testPath);
+  } else {
+    if (!stat.isFile()) throw new Error('focused test path is not a regular file: ' + testPath);
+    files = [absolutePath];
+  }
+
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    if (STATIC_TEST_SKIP_PATTERN.test(source)) {
+      throw new Error('focused test contains a static skip/todo marker: '
+        + path.relative(root, file));
+    }
+  }
+  return {
+    path: normalized,
+    files: files.map((file) => path.relative(root, file).split(path.sep).join('/')),
+  };
+}
+
 function packPredecessorClosure(pack, packById) {
   const closure = new Set();
   const pending = [...pack.predecessorPackIds];
@@ -565,28 +648,41 @@ function packPredecessorClosure(pack, packById) {
   return closure;
 }
 
+function providerPackIdsForTestAnchor(canonicalPath, providersByPath) {
+  const directorySelector = isIntegrationDirectorySelector(canonicalPath);
+  return sorted(unique([...providersByPath]
+    .filter(([providedPath]) => providedPath === canonicalPath
+      || (directorySelector
+        && providedPath.startsWith(canonicalPath + '/')
+        && providedPath.endsWith('.spec.ts')))
+    .flatMap(([, providerIds]) => providerIds)));
+}
+
 function classifyTestAnchors(pack, { basePaths, providersByPath, packById }) {
   const predecessorIds = packPredecessorClosure(pack, packById);
   const gapByPath = Object.fromEntries(PLANNED_ACCEPTANCE_TEST_GAPS.map((gap) => [gap.path, gap]));
   const records = pack.verification.rawTestAnchorPaths.map((sourcePath) => {
     const canonicalPath = TEST_ANCHOR_ALIASES[sourcePath] ?? sourcePath;
-    const runner = testRunner(canonicalPath);
-    const directorySelector = runner === 'INTEGRATION' && !canonicalPath.endsWith('.spec.ts');
-    const providerPackIds = sorted(unique([...providersByPath]
-      .filter(([providedPath]) => providedPath === canonicalPath
-        || (directorySelector && providedPath.startsWith(canonicalPath + '/')))
-      .flatMap(([, providerIds]) => providerIds)));
+    const syntacticRunner = testRunner(canonicalPath);
+    const directorySelector = syntacticRunner === 'INTEGRATION'
+      && isIntegrationDirectorySelector(canonicalPath);
+    const providerPackIds = providerPackIdsForTestAnchor(canonicalPath, providersByPath);
     const predecessorProviderPackIds = providerPackIds.filter((id) => predecessorIds.has(id));
     const availableAtBase = basePaths.has(canonicalPath)
-      || (directorySelector && [...basePaths].some((basePath) => basePath.startsWith(canonicalPath + '/')));
+      || (directorySelector && [...basePaths].some((basePath) =>
+        basePath.startsWith(canonicalPath + '/') && basePath.endsWith('.spec.ts')));
+    const runner = directorySelector && !availableAtBase && providerPackIds.length === 0
+      ? null
+      : syntacticRunner;
     let disposition;
     if (!runner) disposition = 'NON_EXECUTABLE_ANCHOR';
     else if (gapByPath[canonicalPath] && providerPackIds.includes(pack.packId)) {
       disposition = 'PLANNED_CURRENT_PACK_CREATE';
-    } else if (gapByPath[canonicalPath]) disposition = 'PLANNED_ACCEPTANCE_TEST_GAP';
+    }
     else if (availableAtBase) disposition = 'AVAILABLE_AT_BASE';
     else if (providerPackIds.includes(pack.packId)) disposition = 'PROVIDED_BY_CURRENT_PACK';
     else if (predecessorProviderPackIds.length) disposition = 'PROVIDED_BY_PREDECESSOR_PACK';
+    else if (gapByPath[canonicalPath]) disposition = 'PLANNED_ACCEPTANCE_TEST_GAP';
     else if (providerPackIds.length) disposition = 'DEFERRED_PROVIDER_PACK';
     else disposition = 'UNRESOLVED_EXECUTABLE_ANCHOR';
     const gap = gapByPath[canonicalPath];
@@ -631,54 +727,95 @@ function testAnchorDispositionPaths(records) {
 function focusedCommands(testPaths) {
   const commands = [];
 
-  for (const [prefix, packageName] of FOCUSED_VITEST_ROUTES) {
-    const paths = testPaths
-      .filter((value) => value.startsWith(prefix) && isVitestPath(value))
-      .map((value) => value.slice(prefix.length));
-    if (paths.length) {
-      commands.push('pnpm --filter ' + packageName + ' test -- ' + paths.map(shellQuote).join(' '));
+  for (const testPath of testPaths) {
+    commands.push(FOCUSED_ASSERT_COMMAND + shellQuote(testPath));
+    const route = FOCUSED_VITEST_ROUTES.find(
+      ([prefix]) => testPath.startsWith(prefix) && isVitestPath(testPath),
+    );
+    if (route) {
+      commands.push('pnpm --filter ' + route[1] + ' test -- '
+        + shellQuote(testCommandSelector(testPath)) + ' --passWithNoTests=false');
+    } else if (isVitestPath(testPath) && !testPath.startsWith('tests/integration')) {
+      commands.push('pnpm exec vitest run ' + shellQuote(testPath) + ' --passWithNoTests=false');
+    } else if (testPath.endsWith('.spec.mjs')) {
+      commands.push('node --test ' + shellQuote(testPath));
+    } else if (/(^|\/)test_[^/]+\.py$/.test(testPath)) {
+      commands.push('python3 -m pytest ' + shellQuote(testPath));
+    } else if (isIntegrationSelector(testPath)) {
+      commands.push('pnpm test:integration -- ' + shellQuote(testPath));
+    } else {
+      throw new Error('focused test path has no executable runner: ' + testPath);
     }
   }
-
-  const rootVitest = testPaths.filter((value) => isVitestPath(value)
-    && !value.startsWith('tests/integration')
-    && !FOCUSED_VITEST_ROUTES.some(([prefix]) => value.startsWith(prefix)));
-  if (rootVitest.length) {
-    commands.push('pnpm exec vitest run ' + rootVitest.map(shellQuote).join(' '));
-  }
-
-  const nodeTest = testPaths.filter((value) => value.endsWith('.spec.mjs'));
-  if (nodeTest.length) commands.push('node --test ' + nodeTest.map(shellQuote).join(' '));
-
-  const python = testPaths.filter((value) => /(^|\/)test_[^/]+\.py$/.test(value));
-  if (python.length) commands.push('python3 -m pytest ' + python.map(shellQuote).join(' '));
-
-  const integration = testPaths.filter(isIntegrationSelector);
-  if (integration.length) {
-    commands.push('pnpm test:integration -- ' + integration.map(shellQuote).join(' '));
-  }
   return commands;
+}
+
+function isolatedDatabaseVerification(pack) {
+  const postgresPort = ISOLATED_POSTGRES_PORT_BASE + pack.sequence;
+  const minioApiPort = ISOLATED_MINIO_PORT_BASE + (pack.sequence * 2);
+  const minioConsolePort = minioApiPort + 1;
+  const ingestionPort = ISOLATED_INGESTION_PORT_BASE + pack.sequence;
+  const projectName = 'amic-vault-' + pack.packId.toLowerCase();
+  const bucket = projectName;
+  const environment = [
+    ['DATABASE_URL', 'postgres://amic_vault:amic_vault_dev_password@127.0.0.1:'
+      + postgresPort + '/amic_vault'],
+    ['APP_DATABASE_URL', 'postgres://vault_app:vault_app_dev_password@127.0.0.1:'
+      + postgresPort + '/amic_vault'],
+    ['S3_ENDPOINT', 'http://127.0.0.1:' + minioApiPort],
+    ['S3_BUCKET', bucket],
+    ['S3_ACCESS_KEY_ID', 'amic-vault-minio'],
+    ['S3_SECRET_ACCESS_KEY', 'amic-vault-minio-dev-password'],
+  ].map(([name, value]) => name + '=' + shellQuote(value)).join(' ');
+  const composeEnvironment = [
+    ['POSTGRES_PORT', String(postgresPort)],
+    ['MINIO_API_PORT', String(minioApiPort)],
+    ['MINIO_CONSOLE_PORT', String(minioConsolePort)],
+    ['INGESTION_WORKER_PORT', String(ingestionPort)],
+    ['S3_BUCKET', bucket],
+  ].map(([name, value]) => name + '=' + shellQuote(value)).join(' ');
+  const compose = composeEnvironment + ' docker compose -p ' + shellQuote(projectName)
+    + ' -f infra/docker-compose.dev.yml';
+  return {
+    projectName,
+    postgresPort,
+    minioApiPort,
+    minioConsolePort,
+    ingestionPort,
+    run: (command) => environment + ' ' + command,
+    composeUp: compose + ' up -d --wait',
+    composeDown: compose + ' down -v --remove-orphans',
+  };
 }
 
 function verificationCommands(pack, focusedTestPaths) {
   const pythonBootstrapRequired = focusedTestPaths.some(
     (testPath) => testRunner(testPath) === 'PYTEST',
   );
+  const integrationPaths = focusedTestPaths.filter(isIntegrationSelector);
+  const nonIntegrationPaths = focusedTestPaths.filter((testPath) => !isIntegrationSelector(testPath));
   const commands = [
     'node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check',
     COMMON_COMMANDS[0],
     ...(pythonBootstrapRequired ? ["python3 -m pip install -e 'workers/ingestion[test]'"] : []),
-    ...focusedCommands(focusedTestPaths),
+    ...focusedCommands(nonIntegrationPaths),
     ...COMMON_COMMANDS.slice(1),
   ];
-  if (pack.migrationSourceOrdinals.length) {
+  if (pack.migrationSourceOrdinals.length || integrationPaths.length) {
+    const database = isolatedDatabaseVerification(pack);
+    commands.push(database.composeUp, database.run('pnpm db:migrate'));
+    if (pack.migrationSourceOrdinals.length) {
+      commands.push(database.run('pnpm db:rollback'), database.run('pnpm db:migrate'));
+    }
     commands.push(
-      'pnpm db:migrate',
-      'pnpm db:rollback',
-      'pnpm db:migrate',
-      'pnpm db:seed',
-      'pnpm test:integration',
+      database.run('pnpm db:seed'),
+      ...focusedCommands(integrationPaths).map((command) =>
+        command.startsWith(FOCUSED_ASSERT_COMMAND) ? command : database.run(command)),
     );
+    if (pack.migrationSourceOrdinals.length) {
+      commands.push(database.run('pnpm test:integration'));
+    }
+    commands.push(database.composeDown);
   }
   if ([...pack.files.create, ...pack.files.modify]
     .some((file) => file.startsWith('workers/ingestion/'))) {
@@ -687,7 +824,7 @@ function verificationCommands(pack, focusedTestPaths) {
     }
     commands.push('python3 -m pytest workers/ingestion/tests');
   }
-  return unique(commands);
+  return commands;
 }
 
 function packReview(risk) {
@@ -750,6 +887,42 @@ export async function buildManifest(sourceDir) {
     primaryPackId: packByKey[primary[id]]?.packId ?? null,
   }));
 
+  const exactBasePaths = basePathSet();
+  const classificationByPathB64 = Object.fromEntries(
+    classification.entries.map((entry) => [entry.pathB64, entry]),
+  );
+  const basePathCollisionDrafts = ownership.paths
+    .filter((entry) => entry.gitState === 'untracked'
+      && exactBasePaths.has(decodePath(entry.pathB64))
+      && ownership.hunks.some((hunk) => hunk.pathB64 === entry.pathB64
+        && !['historical_base', 'quarantine'].includes(hunk.ownerType)))
+    .map((entry) => {
+      const collisionPath = decodePath(entry.pathB64);
+      const source = classificationByPathB64[entry.pathB64];
+      if (!source?.sha256) throw new Error('missing sealed overlay hash for ' + collisionPath);
+      const baseSha256 = basePathSha256(collisionPath);
+      const identical = baseSha256 === source.sha256;
+      const supersessionRef = BASE_COLLISION_SUPERSESSION_REFS[collisionPath] ?? null;
+      if (!identical && !supersessionRef) {
+        throw new Error('unapproved differing exact-base collision: ' + collisionPath);
+      }
+      return {
+        path: collisionPath,
+        pathB64: entry.pathB64,
+        originalGitState: entry.gitState,
+        overlaySha256: source.sha256,
+        baseSha256,
+        resolution: identical
+          ? 'QUARANTINE_IDENTICAL_AT_AMENDMENT_BASE'
+          : 'QUARANTINE_STALE_OVERLAY_SUPERSEDED_BY_AMENDMENT_BASE',
+        resolutionRef: identical ? 'EXACT_SHA256_EQUALITY' : supersessionRef,
+      };
+    })
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const baseCollisionByPathB64 = Object.fromEntries(
+    basePathCollisionDrafts.map((collision) => [collision.pathB64, collision]),
+  );
+
   const hunkAssignments = ownership.hunks.map((hunk) => {
     const decoded = decodePath(hunk.pathB64);
     let disposition = 'PACK';
@@ -768,6 +941,14 @@ export async function buildManifest(sourceDir) {
         ? 'T8'
         : routed[hunk.chosenOwner];
     }
+    const supersededPackId = packByKey[key]?.packId ?? null;
+    if (disposition === 'PACK' && baseCollisionByPathB64[hunk.pathB64]) {
+      disposition = 'QUARANTINE';
+      quarantineReason = baseCollisionByPathB64[hunk.pathB64].resolution
+        === 'QUARANTINE_IDENTICAL_AT_AMENDMENT_BASE'
+        ? 'OVERLAY_IDENTICAL_TO_AMENDMENT_BASE'
+        : 'STALE_OVERLAY_SUPERSEDED_BY_AMENDMENT_BASE';
+    }
     if (disposition === 'PACK' && !packByKey[key]) {
       throw new Error('unroutable hunk ' + hunk.ordinal + ' owner=' + hunk.chosenOwner);
     }
@@ -782,6 +963,21 @@ export async function buildManifest(sourceDir) {
       disposition,
       packId: disposition === 'PACK' ? packByKey[key].packId : null,
       quarantineReason,
+      supersededPackId: baseCollisionByPathB64[hunk.pathB64] ? supersededPackId : null,
+    };
+  });
+
+  const basePathCollisions = basePathCollisionDrafts.map((collision) => {
+    const collisionHunks = hunkAssignments.filter((hunk) => hunk.pathB64 === collision.pathB64);
+    return {
+      ...collision,
+      hunkOrdinals: collisionHunks.map((hunk) => hunk.ordinal),
+      supersededPackIds: sorted(unique(collisionHunks
+        .map((hunk) => hunk.supersededPackId)
+        .filter(Boolean))),
+      rawTestAnchorPaths: sorted(unique(collisionHunks.flatMap((hunk) =>
+        (ownership.hunks[hunk.ordinal - 1].testAnchorsB64 ?? []).map(decodePath)))),
+      testAnchorDisposition: 'QUARANTINED_WITH_SUPERSEDED_OVERLAY',
     };
   });
 
@@ -797,6 +993,7 @@ export async function buildManifest(sourceDir) {
       sharedFile: entry.sharedFile,
       sourcePathRouting: entry.pathRouting,
       disposition: dispositions.includes('QUARANTINE') ? 'QUARANTINE' : 'PACK',
+      baseCollisionResolution: baseCollisionByPathB64[entry.pathB64]?.resolution ?? null,
       packIds,
       hunkOrdinals: hunks.map((hunk) => hunk.ordinal),
     };
@@ -966,6 +1163,7 @@ export async function buildManifest(sourceDir) {
         focusedTestPaths: [],
         deferredTestPaths: [],
         requiredPlannedTestGaps: [],
+        isolatedDatabase: null,
         commands: [],
         failCountRequired: 0,
         skipCountRequired: 0,
@@ -998,6 +1196,8 @@ export async function buildManifest(sourceDir) {
         'private evidence or sensitive content would enter Git',
         'a planned acceptance-test gap is treated as executable or passing evidence',
         'a TUW with a required planned acceptance-test gap receives a completion claim',
+        'an exact-base collision is recreated, overwritten, or removed from its sealed quarantine',
+        'isolated database infrastructure is not cleaned up after success or failure',
         'the same failure repeats three times',
       ],
     };
@@ -1012,7 +1212,19 @@ export async function buildManifest(sourceDir) {
       providersByPath.set(file, sorted(unique(providers)));
     }
   }
-  const exactBasePaths = basePathSet();
+  for (const pack of packs) {
+    const earlierProviderPackIds = sorted(unique(pack.verification.rawTestAnchorPaths
+      .flatMap((sourcePath) => providerPackIdsForTestAnchor(
+        TEST_ANCHOR_ALIASES[sourcePath] ?? sourcePath,
+        providersByPath,
+      ))
+      .filter((providerPackId) => providerPackId !== pack.packId
+        && packById[providerPackId]?.sequence < pack.sequence)));
+    pack.predecessorPackIds = sorted(unique([
+      ...pack.predecessorPackIds,
+      ...earlierProviderPackIds,
+    ]));
+  }
   const plannedAcceptanceTestGaps = PLANNED_ACCEPTANCE_TEST_GAPS.map((gap) => ({
     ...gap,
     ownerPackId: routePackByUnit[gap.ownerUnitId],
@@ -1045,6 +1257,20 @@ export async function buildManifest(sourceDir) {
       .map((record) => record.canonicalPath)));
     pack.verification.requiredPlannedTestGaps = plannedAcceptanceTestGaps
       .filter((gap) => pack.tuwIds.includes(gap.ownerUnitId));
+    const databaseRequired = pack.migrationSourceOrdinals.length > 0
+      || focusedTestPaths.some(isIntegrationSelector);
+    if (databaseRequired) {
+      const database = isolatedDatabaseVerification(pack);
+      pack.verification.isolatedDatabase = {
+        projectName: database.projectName,
+        postgresPort: database.postgresPort,
+        minioApiPort: database.minioApiPort,
+        minioConsolePort: database.minioConsolePort,
+        ingestionPort: database.ingestionPort,
+        freshVolumesRequired: true,
+        cleanupRequiredOnSuccessOrFailure: true,
+      };
+    }
     pack.verification.commands = verificationCommands(pack, focusedTestPaths);
   }
 
@@ -1130,15 +1356,24 @@ export async function buildManifest(sourceDir) {
       ])),
     },
     testAnchorContract: {
-      sourceContractSha256: digest(packs.map((pack) => ({
-        packId: pack.packId,
-        rawTestAnchorPaths: pack.verification.rawTestAnchorPaths,
-      }))),
+      sourceContractSha256: digest({
+        packs: packs.map((pack) => ({
+          packId: pack.packId,
+          rawTestAnchorPaths: pack.verification.rawTestAnchorPaths,
+        })),
+        basePathCollisions: basePathCollisions.map((collision) => ({
+          path: collision.path,
+          rawTestAnchorPaths: collision.rawTestAnchorPaths,
+          disposition: collision.testAnchorDisposition,
+        })),
+      }),
       aliases: TEST_ANCHOR_ALIASES,
       plannedAcceptanceTestGaps,
       executableAvailabilityRule: 'BASE_COMMIT_OR_CURRENT_PACK_OR_TRANSITIVE_PREDECESSOR_PACK',
       unresolvedExecutableAnchorsAllowed: false,
     },
+    basePathCollisionSourceContractSha256: digest(basePathCollisions),
+    basePathCollisions,
     packs,
     nonOverlaySources,
     hunkAssignments,
@@ -1299,16 +1534,60 @@ export function validateManifest(manifest) {
       || !sameSequence(pack.verification?.deferredTestPaths ?? [], expectedDeferredTestPaths)) {
       fail('TEST_ANCHOR_AVAILABILITY_SET', pack.packId);
     }
-    const expectedFocusedCommands = focusedCommands(expectedFocusedTestPaths);
+    const actualCommands = pack.verification?.commands ?? [];
     for (const testPath of expectedFocusedTestPaths) {
       const selector = testCommandSelector(testPath);
-      const occurrences = expectedFocusedCommands.filter(
-        (command) => command.includes(shellQuote(selector)),
+      const assertionOccurrences = actualCommands.filter(
+        (command) => command === FOCUSED_ASSERT_COMMAND + shellQuote(testPath),
       ).length;
-      if (occurrences !== 1) fail('FOCUSED_TEST_COMMAND_COVERAGE', pack.packId + ':' + testPath);
+      const runnerOccurrences = actualCommands.filter(
+        (command) => !command.startsWith(FOCUSED_ASSERT_COMMAND)
+          && command.includes(shellQuote(selector)),
+      ).length;
+      if (assertionOccurrences !== 1 || runnerOccurrences !== 1) {
+        fail('FOCUSED_TEST_COMMAND_COVERAGE', pack.packId + ':' + testPath);
+      }
+    }
+    const actualFocusedRunnerCommands = actualCommands.filter((command) =>
+      !command.startsWith(FOCUSED_ASSERT_COMMAND)
+      && expectedFocusedTestPaths.some((testPath) =>
+        command.includes(shellQuote(testCommandSelector(testPath)))));
+    if (actualFocusedRunnerCommands.length !== expectedFocusedTestPaths.length
+      || actualFocusedRunnerCommands.some((command) => expectedFocusedTestPaths.filter(
+        (testPath) => command.includes(shellQuote(testCommandSelector(testPath))),
+      ).length !== 1)) {
+      fail('FOCUSED_TEST_COMMAND_CARDINALITY', pack.packId);
+    }
+    for (const record of expectedTestAnchorRecords) {
+      const earlierProviderPackIds = record.providerPackIds.filter(
+        (providerPackId) => providerPackId !== pack.packId
+          && packById[providerPackId]?.sequence < pack.sequence,
+      );
+      if (earlierProviderPackIds.some(
+        (providerPackId) => !pack.predecessorPackIds.includes(providerPackId),
+      ) || (record.disposition === 'DEFERRED_PROVIDER_PACK'
+        && earlierProviderPackIds.length > 0)) {
+        fail('TEST_PROVIDER_PREDECESSOR', pack.packId + ':' + record.canonicalPath);
+      }
     }
     const expectedCommands = verificationCommands(pack, expectedFocusedTestPaths);
+    const databaseRequired = pack.migrationSourceOrdinals.length > 0
+      || expectedFocusedTestPaths.some(isIntegrationSelector);
+    let expectedIsolatedDatabase = null;
+    if (databaseRequired) {
+      const database = isolatedDatabaseVerification(pack);
+      expectedIsolatedDatabase = {
+        projectName: database.projectName,
+        postgresPort: database.postgresPort,
+        minioApiPort: database.minioApiPort,
+        minioConsolePort: database.minioConsolePort,
+        ingestionPort: database.ingestionPort,
+        freshVolumesRequired: true,
+        cleanupRequiredOnSuccessOrFailure: true,
+      };
+    }
     if (!sameSequence(pack.verification?.commands ?? [], expectedCommands)
+      || digest(pack.verification?.isolatedDatabase ?? null) !== digest(expectedIsolatedDatabase)
       || pack.verification?.failCountRequired !== 0
       || pack.verification?.skipCountRequired !== 0
       || pack.verification?.exactHeadRequired !== true) {
@@ -1369,10 +1648,17 @@ export function validateManifest(manifest) {
   }
 
   const testAnchorContract = payload.testAnchorContract ?? {};
-  const sourceTestAnchorContract = packs.map((pack) => ({
-    packId: pack.packId,
-    rawTestAnchorPaths: pack.verification?.rawTestAnchorPaths ?? [],
-  }));
+  const sourceTestAnchorContract = {
+    packs: packs.map((pack) => ({
+      packId: pack.packId,
+      rawTestAnchorPaths: pack.verification?.rawTestAnchorPaths ?? [],
+    })),
+    basePathCollisions: (payload.basePathCollisions ?? []).map((collision) => ({
+      path: collision.path,
+      rawTestAnchorPaths: collision.rawTestAnchorPaths,
+      disposition: collision.testAnchorDisposition,
+    })),
+  };
   const sourceTestAnchorDigest = digest(sourceTestAnchorContract);
   if (sourceTestAnchorDigest !== testAnchorContract.sourceContractSha256
     || sourceTestAnchorDigest !== TEST_ANCHOR_SOURCE_CONTRACT_SHA256) {
@@ -1470,6 +1756,44 @@ export function validateManifest(manifest) {
     }
   }
 
+  const basePathCollisions = payload.basePathCollisions ?? [];
+  const basePathCollisionDigest = digest(basePathCollisions);
+  if (payload.basePathCollisionSourceContractSha256 !== basePathCollisionDigest
+    || basePathCollisionDigest !== BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256) {
+    fail('BASE_PATH_COLLISION_SOURCE_CONTRACT', basePathCollisionDigest);
+  }
+  const baseCollisionByPathB64 = Object.fromEntries(
+    basePathCollisions.map((collision) => [collision.pathB64, collision]),
+  );
+  if (new Set(basePathCollisions.map((collision) => collision.pathB64)).size
+    !== basePathCollisions.length) {
+    fail('BASE_PATH_COLLISION_DUPLICATE', String(basePathCollisions.length));
+  }
+  for (const collision of basePathCollisions) {
+    const expectedPathB64 = Buffer.from(collision.path, 'utf8').toString('base64');
+    if (collision.pathB64 !== expectedPathB64
+      || collision.originalGitState !== 'untracked'
+      || !exactBasePaths.has(collision.path)) {
+      fail('BASE_PATH_COLLISION_PATH', collision.path);
+      continue;
+    }
+    const expectedBaseSha256 = basePathSha256(collision.path);
+    const identical = expectedBaseSha256 === collision.overlaySha256;
+    const expectedResolution = identical
+      ? 'QUARANTINE_IDENTICAL_AT_AMENDMENT_BASE'
+      : 'QUARANTINE_STALE_OVERLAY_SUPERSEDED_BY_AMENDMENT_BASE';
+    const expectedResolutionRef = identical
+      ? 'EXACT_SHA256_EQUALITY'
+      : BASE_COLLISION_SUPERSESSION_REFS[collision.path];
+    if (collision.baseSha256 !== expectedBaseSha256
+      || collision.resolution !== expectedResolution
+      || !expectedResolutionRef
+      || collision.resolutionRef !== expectedResolutionRef
+      || collision.testAnchorDisposition !== 'QUARANTINED_WITH_SUPERSEDED_OVERLAY') {
+      fail('BASE_PATH_COLLISION_RESOLUTION', collision.path);
+    }
+  }
+
   const hunks = payload.hunkAssignments ?? [];
   if (hunks.length !== 4801) fail('HUNK_COUNT', hunks.length);
   if (!sameSet(hunks.map((item) => item.ordinal), Array.from({ length: 4801 }, (_, index) => index + 1))) {
@@ -1516,6 +1840,7 @@ export function validateManifest(manifest) {
     }
   }
   for (const hunk of hunks) {
+    const baseCollision = baseCollisionByPathB64[hunk.pathB64];
     if (hunk.disposition === 'PACK') {
       if (!packById[hunk.packId]) fail('HUNK_UNKNOWN_PACK', String(hunk.ordinal));
       if (listedHunks.get(hunk.ordinal) !== hunk.packId) fail('HUNK_PACK_MISMATCH', String(hunk.ordinal));
@@ -1523,12 +1848,20 @@ export function validateManifest(manifest) {
     } else if (hunk.disposition !== 'QUARANTINE' || hunk.packId !== null) {
       fail('HUNK_DISPOSITION', String(hunk.ordinal));
     } else {
-      const expectedReason = hunk.sourceOwnerType === 'historical_base'
-        ? 'STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE'
-        : 'SOURCE_CLASSIFICATION_QUARANTINE';
+      const expectedReason = baseCollision
+        ? (baseCollision.resolution === 'QUARANTINE_IDENTICAL_AT_AMENDMENT_BASE'
+          ? 'OVERLAY_IDENTICAL_TO_AMENDMENT_BASE'
+          : 'STALE_OVERLAY_SUPERSEDED_BY_AMENDMENT_BASE')
+        : (hunk.sourceOwnerType === 'historical_base'
+          ? 'STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE'
+          : 'SOURCE_CLASSIFICATION_QUARANTINE');
       if (hunk.quarantineReason !== expectedReason) {
         fail('HUNK_QUARANTINE_REASON', String(hunk.ordinal));
       }
+    }
+    if ((baseCollision && !hunk.supersededPackId)
+      || (!baseCollision && hunk.supersededPackId !== null)) {
+      fail('BASE_PATH_COLLISION_HUNK_ROUTE', String(hunk.ordinal));
     }
   }
 
@@ -1538,6 +1871,15 @@ export function validateManifest(manifest) {
   }
   const hunksByPath = Map.groupBy(hunks, (item) => item.pathB64);
   const pathByB64 = Object.fromEntries(paths.map((entry) => [entry.pathB64, entry]));
+  const expectedBaseCollisionPathB64s = paths
+    .filter((entry) => entry.gitState === 'untracked'
+      && exactBasePaths.has(decodePath(entry.pathB64))
+      && (hunksByPath.get(entry.pathB64) ?? []).some((hunk) =>
+        !['historical_base', 'quarantine'].includes(hunk.sourceOwnerType)))
+    .map((entry) => entry.pathB64);
+  if (!sameSet(basePathCollisions.map((collision) => collision.pathB64), expectedBaseCollisionPathB64s)) {
+    fail('BASE_PATH_COLLISION_SET', String(expectedBaseCollisionPathB64s.length));
+  }
   if (!sameSet(unique(hunks.map((item) => item.pathB64)), paths.map((entry) => entry.pathB64))) {
     fail('HUNK_PATH_SET', 'hunk and path universes differ');
   }
@@ -1550,10 +1892,21 @@ export function validateManifest(manifest) {
     const expectedDisposition = pathHunks.some((hunk) => hunk.disposition === 'QUARANTINE')
       ? 'QUARANTINE'
       : 'PACK';
+    const expectedBaseCollisionResolution = baseCollisionByPathB64[entry.pathB64]?.resolution ?? null;
     if (!sameSet(entry.hunkOrdinals, pathHunks.map((hunk) => hunk.ordinal))
       || !sameSet(entry.packIds, expectedPackIdsForPath)
-      || entry.disposition !== expectedDisposition) {
+      || entry.disposition !== expectedDisposition
+      || entry.baseCollisionResolution !== expectedBaseCollisionResolution) {
       fail('PATH_REVERSE_MAPPING', decoded);
+    }
+  }
+  for (const collision of basePathCollisions) {
+    const collisionHunks = hunksByPath.get(collision.pathB64) ?? [];
+    if (!sameSequence(collision.hunkOrdinals ?? [], collisionHunks.map((hunk) => hunk.ordinal))
+      || !sameSet(collision.supersededPackIds ?? [], collisionHunks
+        .map((hunk) => hunk.supersededPackId).filter(Boolean))
+      || collisionHunks.some((hunk) => hunk.disposition !== 'QUARANTINE')) {
+      fail('BASE_PATH_COLLISION_HUNK_CONTRACT', collision.path);
     }
   }
   for (const pack of packs) {
@@ -1602,9 +1955,14 @@ export function validateManifest(manifest) {
     }
     const listedPaths = [...pack.files.create, ...pack.files.modify];
     if (new Set(listedPaths).size !== listedPaths.length) fail('PACK_FILE_DUPLICATE', pack.packId);
+    for (const file of pack.files.create) {
+      if (exactBasePaths.has(file)) fail('PACK_CREATE_BASE_COLLISION', pack.packId + ':' + file);
+    }
     for (const file of pack.files.overlayCreate) {
       const row = pathByB64[Buffer.from(file, 'utf8').toString('base64')];
-      if (row?.gitState !== 'untracked') fail('PACK_CREATE_STATE', pack.packId + ':' + file);
+      if (row?.gitState !== 'untracked' || exactBasePaths.has(file)) {
+        fail('PACK_CREATE_STATE', pack.packId + ':' + file);
+      }
     }
     for (const file of pack.files.overlayModify) {
       const row = pathByB64[Buffer.from(file, 'utf8').toString('base64')];
@@ -1671,13 +2029,24 @@ export function validateManifest(manifest) {
       fail('PACK_MIGRATION_MAPPING', pack.packId);
     }
     if (packMigrations.length) {
-      const requiredDbCommands = [
-        'pnpm db:migrate',
-        'pnpm db:rollback',
-        'pnpm db:seed',
-        'pnpm test:integration',
-      ];
-      if (!requiredDbCommands.every((command) => pack.verification.commands.includes(command))) {
+      const commands = pack.verification.commands;
+      const database = isolatedDatabaseVerification(pack);
+      const migrateCommand = database.run('pnpm db:migrate');
+      const migrateIndices = commands
+        .map((command, index) => command === migrateCommand ? index : -1)
+        .filter((index) => index !== -1);
+      const composeUpIndex = commands.indexOf(database.composeUp);
+      const rollbackIndex = commands.indexOf(database.run('pnpm db:rollback'));
+      const seedIndex = commands.indexOf(database.run('pnpm db:seed'));
+      const integrationIndex = commands.indexOf(database.run('pnpm test:integration'));
+      const composeDownIndex = commands.indexOf(database.composeDown);
+      if (migrateIndices.length !== 2
+        || !(composeUpIndex < migrateIndices[0]
+          && migrateIndices[0] < rollbackIndex
+          && rollbackIndex < migrateIndices[1]
+          && migrateIndices[1] < seedIndex
+          && seedIndex < integrationIndex
+          && integrationIndex < composeDownIndex)) {
         fail('PACK_MIGRATION_VERIFICATION', pack.packId);
       }
     }
@@ -1763,6 +2132,16 @@ function gitResult(args, cwd) {
   });
 }
 
+function gitBufferResult(args, cwd) {
+  return spawnSync('git', ['--no-replace-objects', ...args], {
+    cwd,
+    encoding: null,
+    maxBuffer: 16 * 1024 * 1024,
+    timeout: 10_000,
+    killSignal: 'SIGKILL',
+  });
+}
+
 export function validateNonOverlayGitSources(manifest, { cwd = ROOT } = {}) {
   const errors = [];
   const fail = (code, detail) => errors.push({ code, detail });
@@ -1841,6 +2220,12 @@ export function renderMarkdown(manifest) {
     '- Test-anchor source contract: ' + payload.testAnchorContract.sourceContractSha256,
     '- Planned acceptance-test gaps: '
       + payload.testAnchorContract.plannedAcceptanceTestGaps.length,
+    '- Exact-base collision quarantine: ' + payload.basePathCollisions.length
+      + ' paths (' + payload.basePathCollisions.filter((item) =>
+        item.resolution === 'QUARANTINE_IDENTICAL_AT_AMENDMENT_BASE').length
+      + ' identical / ' + payload.basePathCollisions.filter((item) =>
+        item.resolution === 'QUARANTINE_STALE_OVERLAY_SUPERSEDED_BY_AMENDMENT_BASE').length
+      + ' superseded)',
     '- Quarantine after amendment: '
       + payload.quarantines.hunkOrdinals.length + ' hunks / '
       + payload.quarantines.pathB64s.length + ' paths',
@@ -1855,6 +2240,11 @@ export function renderMarkdown(manifest) {
     'with the required five release-history paths and would have reapplied stale 110-row',
     'historical-base material. Version 2 quarantines those 19 stale hunks and registers',
     'the exact 19-commit release-history range plus the separate one-commit LawOS source.',
+    'The exact amendment base also already contains six overlay paths that the original',
+    'dirty checkout classified as untracked creates. Four are byte-identical no-ops; the',
+    'remaining H1-H3 pointer and ledger builder are legacy 110-row variants superseded by',
+    'the merged 117-row control plane. All six stay preserved in the original checkout and',
+    'are sealed as quarantine rather than recreated over the exact base.',
     '',
     'Every PACK now distinguishes effective payload files, preserved-overlay files,',
     'non-overlay source files, candidate bookkeeping, and one-row transition commits.',
@@ -1863,6 +2253,13 @@ export function renderMarkdown(manifest) {
     'become focused commands; later-owned anchors are deferred and seven normative tests',
     'that are explicitly planned but not yet created remain completion-blocking gaps and',
     'exact planned-create plus focused-test obligations of their owning implementation PACK.',
+    'Each focused selector has a fail-closed regular-file/directory assertion and its own',
+    'runner invocation, so another matching selector cannot hide a missing test. Static',
+    'skip/todo markers are rejected. Integration selectors require a real `.spec.ts`',
+    'descendant; helper-only directories are non-executable anchors. Earlier test providers',
+    'are explicit DAG predecessors. Database PACKs use PACK-specific compose projects, ports,',
+    'buckets, and database URLs, then run compose up, migrate, rollback, migrate, seed, focused',
+    'integration, full integration, and compose cleanup in that order.',
     'The receipt and exact EOF execution-ledger append precede transitions; transition',
     'commits then change exactly the four sealed 117-row control-plane paths. Any later',
     'non-control-plane push invalidates the candidate binding and all exact-head gates.',
@@ -1931,6 +2328,13 @@ function argValue(name) {
 }
 
 async function main() {
+  if (process.argv.includes('--assert-focused-test')) {
+    const focusedTestPath = argValue('--assert-focused-test');
+    if (!focusedTestPath) throw new Error('--assert-focused-test requires a path');
+    const result = await assertFocusedTestPath(focusedTestPath);
+    console.log(JSON.stringify({ ok: true, code: 'FOCUSED_TEST_ASSERT_OK', ...result }));
+    return;
+  }
   const sourceDir = argValue('--source-dir');
   if (process.argv.includes('--build')) {
     const manifest = await buildManifest(sourceDir);
