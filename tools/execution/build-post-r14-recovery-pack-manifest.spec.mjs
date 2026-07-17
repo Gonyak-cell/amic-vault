@@ -250,6 +250,24 @@ test('authority validation ignores fenced and commented Markdown authority examp
   }
 });
 
+test('authority validation rejects registry authority anchors hidden by raw HTML context', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const canonical = '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.';
+  const hiddenAnchor = packRegistry.replace(canonical, '<span data-quoted=\">\">\n' + canonical);
+  const result = validateAuthorityArtifacts(manifest, {
+    packRegistry: hiddenAnchor,
+    decisionLedger,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.errors.some(
+    (error) => error.code === 'AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT',
+  ), true);
+});
+
 test('authority validation rejects alternate canonical and nonaffirmative statements', async () => {
   const manifest = await fixture();
   const [packRegistry, decisionLedger] = await Promise.all([
