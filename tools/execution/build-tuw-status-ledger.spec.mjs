@@ -23,6 +23,7 @@ import {
   SEALED_ERROR_CODES,
   amicCanonicalHash,
   buildLedgerFromPlan,
+  computeCandidateRolloverHash,
   computeCloseoutFacts,
   computeCloseoutSealHash,
   computeJournalEntryHash,
@@ -1618,6 +1619,46 @@ test('journal permits complete REVALIDATE but rejects A10-before-A9 and A7 with 
     { id: 'A7', kind: 'REVALIDATE', status: 'COMPLETE_CANDIDATE' },
   ]);
   throwsCode(() => validateFixture(a7Blocked), 'E_DEPENDENCY_GATE');
+});
+
+test('candidate rollover preserves accepted entries and binds later work to a bookkeeping candidate', () => {
+  const fixture = transitionFixture([
+    { id: 'B15', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+    { id: 'B16', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+    { id: 'B17', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+  ]);
+  const replacementCandidate = 'b'.repeat(40);
+  const rollover = {
+    recordedAt: '2026-07-17T00:00:04.000Z',
+    entryCount: fixture.journal.entries.length,
+    fromCandidateSha: candidateSha,
+    fromValidationScopeDigest: validationScope().aggregateSha256,
+    toCandidateSha: replacementCandidate,
+    toValidationScopeDigest: validationScope().aggregateSha256,
+    reasonCode: 'CANDIDATE_BOOKKEEPING_BASELINE',
+    reason: 'The required receipt commit becomes the next transition candidate baseline.',
+    rolloverHash: null,
+  };
+  rollover.rolloverHash = computeCandidateRolloverHash(rollover);
+  fixture.journal.candidateSha = replacementCandidate;
+  fixture.journal.candidateRollover = rollover;
+  fixture.journal.genesisHash = computeJournalGenesisHash(fixture.journal);
+  let previousEntryHash = fixture.journal.genesisHash;
+  for (const entry of fixture.journal.entries) {
+    entry.previousEntryHash = previousEntryHash;
+    entry.entryHash = computeJournalEntryHash(entry);
+    previousEntryHash = entry.entryHash;
+  }
+
+  assert.equal(deriveJournalPhase(fixture.journal), 'CANDIDATE_ROLLOVER');
+  assert.equal(validateFixture(fixture).phase, 'CANDIDATE_ROLLOVER');
+
+  fixture.journal.candidateRollover.entryCount -= 1;
+  fixture.journal.candidateRollover.rolloverHash = computeCandidateRolloverHash(
+    fixture.journal.candidateRollover,
+  );
+  fixture.journal.genesisHash = computeJournalGenesisHash(fixture.journal);
+  throwsCode(() => validateFixture(fixture), 'E_JOURNAL_HEADER');
 });
 
 test('journal FINAL_CLOSEOUT validates BLOCKED seal, UNADJUDICATED=0, and separate commit', () => {

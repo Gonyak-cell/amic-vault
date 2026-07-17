@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '29234d987b46d10774f49bda9a74f8bac7c72e81a4ea0cf2001cbc60fb1a281e';
+const CANONICAL_PAYLOAD_SHA256 = '6b18614a1da9a2d6f7a115e0f5918e2a76bd2ebfa33ec27589d57b1a1a957281';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -73,6 +73,8 @@ const AMENDMENT_ALLOWED_MODIFY = [
   'docs/ledger/execution.md',
   'tools/execution/build-post-r14-recovery-pack-manifest.mjs',
   'tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs',
+  'tools/execution/build-tuw-status-ledger.mjs',
+  'tools/execution/build-tuw-status-ledger.spec.mjs',
 ];
 
 const EXECUTION_LEDGER_PATH = 'docs/ledger/execution.md';
@@ -1620,6 +1622,12 @@ export async function buildManifest(sourceDir) {
           mustPrecedeTransitions: true,
           payloadMixingAllowed: true,
         },
+        candidateRollover: pack.packId === 'PACK-R14-06' ? {
+          exactPaths: TRANSITION_CONTROL_PLANE_PATHS,
+          mustFollowCandidateBookkeeping: true,
+          mustPrecedeTransitions: true,
+          preservesAcceptedEntryPrefix: true,
+        } : null,
         transitionTuwIds,
         nonCompleteOnlyTransitionTuwIds,
         transitionCommit: {
@@ -2093,6 +2101,12 @@ export function validateManifest(manifest) {
       )) {
       fail('PACK_TRANSITION_SCOPE', pack.packId);
     }
+    const expectedCandidateRollover = pack.packId === 'PACK-R14-06' ? {
+      exactPaths: TRANSITION_CONTROL_PLANE_PATHS,
+      mustFollowCandidateBookkeeping: true,
+      mustPrecedeTransitions: true,
+      preservesAcceptedEntryPrefix: true,
+    } : null;
     if (!sameSequence(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
       || !sameSequence(
         controlPlane.nonCompleteOnlyTransitionTuwIds ?? [],
@@ -2107,7 +2121,8 @@ export function validateManifest(manifest) {
       || !sameSet(controlPlane.candidateBookkeeping?.modify ?? [], [EXECUTION_LEDGER_PATH])
       || controlPlane.candidateBookkeeping?.executionLedgerExactEofAppend !== true
       || controlPlane.candidateBookkeeping?.mustPrecedeTransitions !== true
-      || controlPlane.candidateBookkeeping?.payloadMixingAllowed !== true) {
+      || controlPlane.candidateBookkeeping?.payloadMixingAllowed !== true
+      || digest(controlPlane.candidateRollover ?? null) !== digest(expectedCandidateRollover)) {
       fail('PACK_CONTROL_PLANE_CONTRACT', pack.packId);
     }
   }

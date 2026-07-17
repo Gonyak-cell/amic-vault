@@ -14,6 +14,7 @@ const defaultGeneratedAt = '2026-07-17T00:00:00.000Z';
 const technicalSchemaId = 'PACK-R14-02-TASK5-SCHEMA-V1';
 const bootstrapPhase = 'BOOTSTRAP_IMPORT';
 const transitionPhase = 'TRANSITION';
+const candidateRolloverPhase = 'CANDIDATE_ROLLOVER';
 const finalCloseoutPhase = 'FINAL_CLOSEOUT';
 const journalSchemaVersion = 'tuw-transition-journal/v1';
 const journalHashAlgorithm = 'SHA-256';
@@ -512,6 +513,21 @@ const journalTopLevelKeys = Object.freeze([
   'entries',
   'closeoutSeal',
 ]);
+const candidateRolloverJournalTopLevelKeys = Object.freeze([
+  ...journalTopLevelKeys,
+  'candidateRollover',
+]);
+const candidateRolloverKeys = Object.freeze([
+  'recordedAt',
+  'entryCount',
+  'fromCandidateSha',
+  'fromValidationScopeDigest',
+  'toCandidateSha',
+  'toValidationScopeDigest',
+  'reasonCode',
+  'reason',
+  'rolloverHash',
+]);
 const bootstrapKeys = Object.freeze([
   'bootstrapId',
   'sourcePlanSha256',
@@ -548,6 +564,12 @@ export function computeJournalGenesisHash(journal) {
 
 export function computeJournalEntryHash(entry) {
   const { entryHash: ignored, ...preimage } = entry;
+  void ignored;
+  return amicCanonicalHash(preimage);
+}
+
+export function computeCandidateRolloverHash(rollover) {
+  const { rolloverHash: ignored, ...preimage } = rollover;
   void ignored;
   return amicCanonicalHash(preimage);
 }
@@ -2395,11 +2417,24 @@ export function deriveJournalPhase(journal) {
     reject('E_JOURNAL_HEADER', 'journal.entries must be an array', { path: 'entries' });
   }
   if (journal.closeoutSeal !== null) return finalCloseoutPhase;
+  if (
+    journal.candidateRollover !== undefined &&
+    journal.candidateRollover !== null &&
+    journal.entries.length === journal.candidateRollover.entryCount
+  ) {
+    return candidateRolloverPhase;
+  }
   return journal.entries.length === 0 ? bootstrapPhase : transitionPhase;
 }
 
 function validateJournalHeader(journal) {
-  assertExactKeys(journal, journalTopLevelKeys, 'E_JOURNAL_HEADER', 'journal');
+  const hasCandidateRollover = Object.hasOwn(journal, 'candidateRollover');
+  assertExactKeys(
+    journal,
+    hasCandidateRollover ? candidateRolloverJournalTopLevelKeys : journalTopLevelKeys,
+    'E_JOURNAL_HEADER',
+    'journal',
+  );
   const literals = {
     schemaVersion: journalSchemaVersion,
     hashAlgorithm: journalHashAlgorithm,
@@ -2423,6 +2458,7 @@ function validateJournalHeader(journal) {
   const phase = deriveJournalPhase(journal);
   if (phase === bootstrapPhase) {
     if (
+      hasCandidateRollover ||
       journal.candidateSha !== null ||
       journal.validationScopeDigest !== null ||
       journal.previousAcceptedJournalHead !== null ||
@@ -2448,8 +2484,44 @@ function validateJournalHeader(journal) {
     if (phase === finalCloseoutPhase && journal.previousAcceptedJournalHead === null) {
       reject('E_JOURNAL_HEADER', 'FINAL_CLOSEOUT requires a prior accepted journal head');
     }
+    if (hasCandidateRollover) validateCandidateRollover(journal.candidateRollover, journal);
   }
   return phase;
+}
+
+function validateCandidateRollover(rollover, journal) {
+  assertExactKeys(rollover, candidateRolloverKeys, 'E_JOURNAL_HEADER', 'journal.candidateRollover');
+  validateTimestamp(rollover.recordedAt, 'journal.candidateRollover.recordedAt');
+  if (!Number.isSafeInteger(rollover.entryCount) || rollover.entryCount < 1
+    || rollover.entryCount > journal.entries.length) {
+    reject('E_JOURNAL_HEADER', 'journal.candidateRollover.entryCount is invalid');
+  }
+  validateGitSha(rollover.fromCandidateSha, 'journal.candidateRollover.fromCandidateSha');
+  validateGitSha(rollover.toCandidateSha, 'journal.candidateRollover.toCandidateSha');
+  assertHashWithCode(
+    rollover.fromValidationScopeDigest,
+    'E_JOURNAL_HEADER',
+    'journal.candidateRollover.fromValidationScopeDigest',
+  );
+  assertHashWithCode(
+    rollover.toValidationScopeDigest,
+    'E_JOURNAL_HEADER',
+    'journal.candidateRollover.toValidationScopeDigest',
+  );
+  if (
+    rollover.fromCandidateSha === rollover.toCandidateSha ||
+    rollover.toCandidateSha !== journal.candidateSha ||
+    !hashesEqual(rollover.toValidationScopeDigest, journal.validationScopeDigest) ||
+    !hashesEqual(rollover.fromValidationScopeDigest, journal.validationScopeDigest) ||
+    typeof rollover.reasonCode !== 'string' || !/^[A-Z][A-Z0-9_]{2,63}$/.test(rollover.reasonCode)
+  ) {
+    reject('E_JOURNAL_HEADER', 'journal.candidateRollover bindings are invalid');
+  }
+  assertNonEmptyString(rollover.reason, 'E_JOURNAL_HEADER', 'journal.candidateRollover.reason');
+  assertHashWithCode(rollover.rolloverHash, 'E_JOURNAL_HASH', 'journal.candidateRollover.rolloverHash');
+  if (!hashesEqual(rollover.rolloverHash, computeCandidateRolloverHash(rollover))) {
+    reject('E_JOURNAL_HASH', 'journal.candidateRollover.rolloverHash is invalid');
+  }
 }
 
 function defaultCandidateDiffResolver(candidateSha, { cwd = process.cwd() } = {}) {
@@ -2679,6 +2751,27 @@ function scanAcceptedJournalSnapshots({ cwd = process.cwd() } = {}) {
       if (phase !== bootstrapPhase) {
         reject('E_JOURNAL_CHAIN', 'The first accepted journal snapshot must be BOOTSTRAP_IMPORT');
       }
+    } else if (phase === candidateRolloverPhase) {
+      const rollover = snapshot.journal.candidateRollover;
+      if (
+        priorSnapshot.phase === finalCloseoutPhase ||
+        !isDeepStrictEqual(snapshot.overrides, priorSnapshot.overrides) ||
+        snapshot.journal.entries.length !== priorSnapshot.journal.entries.length ||
+        snapshot.journal.entries.some((entry, index) => !isDeepStrictEqual(
+          immutableEntryIdentity(entry),
+          immutableEntryIdentity(priorSnapshot.journal.entries[index]),
+        )) ||
+        rollover.entryCount !== priorSnapshot.journal.entries.length ||
+        rollover.fromCandidateSha !== priorSnapshot.journal.candidateSha ||
+        snapshot.recordedAt !== rollover.recordedAt
+      ) {
+        reject('E_JOURNAL_CHAIN', 'Candidate rollover must preserve the accepted entry prefix and overrides');
+      }
+      assertExactChangedPaths(
+        snapshot,
+        transitionControlPlanePaths,
+        'A candidate rollover snapshot must change exactly four control-plane paths',
+      );
     } else if (phase === transitionPhase) {
       const introducedEntry = snapshot.journal.entries.at(-1);
       if (
@@ -2988,7 +3081,17 @@ function validateJournalEntry(entry, index, journal, previousHash, previousRecor
     });
   }
   assertNonEmptyString(entry.packId, 'E_JOURNAL_SEQUENCE', `${path}.packId`);
-  if (entry.candidateSha !== journal.candidateSha) {
+  const expectedCandidateSha = journal.candidateRollover !== undefined
+    && journal.candidateRollover !== null
+    && index < journal.candidateRollover.entryCount
+    ? journal.candidateRollover.fromCandidateSha
+    : journal.candidateSha;
+  const expectedScopeDigest = journal.candidateRollover !== undefined
+    && journal.candidateRollover !== null
+    && index < journal.candidateRollover.entryCount
+    ? journal.candidateRollover.fromValidationScopeDigest
+    : journal.validationScopeDigest;
+  if (entry.candidateSha !== expectedCandidateSha) {
     reject('E_JOURNAL_HEADER', `${path}.candidateSha does not bind the header`, {
       rowId: entry.tuwId,
       sequence,
@@ -2999,7 +3102,7 @@ function validateJournalEntry(entry, index, journal, previousHash, previousRecor
     entry.validationScopeDigest,
     'E_JOURNAL_HEADER',
     `${path}.validationScopeDigest`,
-    journal.validationScopeDigest.value,
+    expectedScopeDigest.value,
   );
   validateTimestamp(entry.recordedAt, `${path}.recordedAt`);
   if (previousRecordedAt !== null && Date.parse(entry.recordedAt) <= Date.parse(previousRecordedAt)) {
@@ -3358,8 +3461,11 @@ export function validateTransitionJournal(
       }
     }
   }
-  if (phase === transitionPhase && journal.asOf !== journal.entries.at(-1).recordedAt) {
-    reject('E_METADATA_CLOCK', 'TRANSITION asOf must equal the latest entry timestamp');
+  if (
+    (phase === transitionPhase || phase === candidateRolloverPhase) &&
+    journal.asOf !== journal.entries.at(-1).recordedAt
+  ) {
+    reject('E_METADATA_CLOCK', 'Transition or candidate rollover asOf must equal the latest entry timestamp');
   }
   if (phase !== finalCloseoutPhase && replayedOverrides.updatedAt !== journal.asOf) {
     reject('E_METADATA_CLOCK', 'Materialized overrides updatedAt must equal journal asOf');
