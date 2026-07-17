@@ -60,6 +60,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R13-01 | `feat/pack-r13-01-enterprise-hardening` | 8 | `ENT-SSO-SAML-TUW-001` through `ENT-GATE-REPORT-TUW-001` (`docs/execution/TUW_R13_ENTERPRISE_HARDENING.md`) |
 | PACK-R14-01 | `feat/pack-r14-01-scale-learning` | 8 | `SCALE-PERF-BENCH-TUW-001` through `SCALE-GATE-REPORT-TUW-001` (`docs/execution/TUW_R14_SCALE_LEARNING.md`) |
 | PACK-R14-02 | `feat/pack-r14-02-control-plane-recovery` | 4 | `DEVOPS-EXECCTRL-PARSE117-TUW-001` through `DEVOPS-EXECCTRL-TRANSITION-TUW-004` (recovery-plan Task 4 then Task 5 only) |
+| PACK-R14-03 | `feat/pack-r14-03-recovery-manifest` | 3 | `RECOVERY-MANIFEST-SCHEMA-TUW-001` through `RECOVERY-MANIFEST-REGISTRATION-TUW-003` (recovery-plan Task 6B only) |
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
@@ -1899,6 +1900,99 @@ Stop the PACK on any of these exact conditions:
 - Risk=C required automated or deterministic technical gate absent, failing,
   stale, or invalidated by a later push
 - same failure repeated three times
+
+## PACK-R14-03 — Post-R14 recovery execution manifest
+
+Status: authorized technical-gates-only Task 6B registration. This PACK records
+the complete downstream execution map; it does not execute any mapped product
+change or migration.
+
+Registration authority and immutable anchors:
+
+- Authority ref: `TASK6B-TECHNICAL-GATES-AUTHORITY-20260717`, derived from the
+  operator's recorded sequential-execution, no-Claude, merge, and
+  no-human-approval directives for this aggregate goal.
+- Exact base: `566fd7399d2a22946a621f37e8f452bd444a9cc8`.
+- Branch: `feat/pack-r14-03-recovery-manifest`.
+- Canonical machine-readable manifest:
+  `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json`.
+- Human-readable index:
+  `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md`.
+- Canonical payload SHA-256:
+  `7ef34a0e7d0198df621b49d7bd6e2d39e76f8521c0a7799101e443dd47e7eda6`.
+- Sealed source hashes and original-overlay preservation anchors are embedded in
+  the canonical manifest and checked by its validator without publishing the
+  private source artifacts.
+
+This registration PACK contains exactly three TUWs, executed in order:
+
+1. `RECOVERY-MANIFEST-SCHEMA-TUW-001` — generate the repo-safe schema and exact
+   mapping from the sealed G002 sources.
+2. `RECOVERY-MANIFEST-VALIDATION-TUW-002` — enforce complete coverage,
+   dependency, overlap, migration, trigger, review, and authority invariants.
+3. `RECOVERY-MANIFEST-REGISTRATION-TUW-003` — register the validated payload and
+   append its Decision/Execution Ledger receipts.
+
+The payload maps exactly 117 primary TUW IDs once, all 893 dirty paths, all
+4,801 ownership records, and all 86 source migrations. It defines 43 unique
+downstream PACKs, `PACK-R14-04` through `PACK-R14-46`; every PACK has 3-8 TUWs,
+a unique `feat/pack-r14-NN-*` branch, exact predecessor edges, files and shared
+hunk selectors, migration source/target ordinals, risk/reviewer policy, focused
+and regression commands, evidence targets, and stop conditions. The JSON
+manifest is canonical when this prose and the JSON differ.
+
+Migration filenames in the dirty overlay are not topologically mergeable as
+written because source `0094` belongs to H11 while H11 hard-depends on C11. The
+manifest therefore preserves all 86 source mappings but plans contiguous target
+ordinals `0094` through `0179` in dependency/PACK order; 84 filenames require
+renumbering. This is a planning decision only. Each later migration PACK must
+land its assigned migrations with reference updates and fresh isolated
+up/down/up, seed, and full integration proof. PACK-R14-03 neither changes nor
+executes a migration.
+
+Conditional units D9, H14, and B20 remain `INACTIVE` with null approval refs.
+They may not execute or promote until a separate manifest amendment records
+`ACTIVE` and a nonempty approval ref. Risk C/H PACKs require independent Codex
+review and exact-head automated/deterministic gates; other PACKs require their
+recorded deterministic gates. Claude and human waits are waived only under the
+recorded aggregate-goal authority. Any later push invalidates the review and
+gate receipts.
+
+PACK-R14-03 may create only:
+
+- `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json`
+- `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md`
+- `tools/execution/build-post-r14-recovery-pack-manifest.mjs`
+- `tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs`
+
+It may modify only this registry plus `docs/ledger/decision.md` and the EOF of
+`docs/ledger/execution.md`. It may not change `docs/package/**`, `AGENTS.md`,
+product code, migrations, dependencies, tests outside the direct validator,
+infrastructure, runtime, deployment, external state, the original dirty
+checkout, private G001/G002 evidence, or any unlisted path.
+
+Focused verification is exact:
+
+```bash
+node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check \
+  --source-dir "$G002_SOURCE_DIR"
+node --test tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs
+```
+
+`G002_SOURCE_DIR` is supplied outside Git and points to the machine-local sealed,
+read-only G002 directory; its absolute path is never recorded in committed
+artifacts. Exact-head regression also requires frozen
+install, lint, typecheck, workspace tests, build, backlog validation, frozen
+docs, secret/private-data scan, `git diff --check`, zero `docs/package/**` or
+migration diff, original-overlay invariance, and CI success.
+
+Stop on any source hash, base, authority, coverage, PACK-size, branch,
+dependency, hunk, path, migration, trigger, reviewer, evidence, allowlist, or
+claim-boundary mismatch; on any missing/failing/stale gate; on private evidence
+publication; or when the same failure repeats three times. Rollback before
+merge closes the isolated PR. Rollback after merge reverts this seven-path
+registration as one unit and invalidates every unstarted descendant; no
+database rollback applies because PACK-R14-03 has zero database scope.
 
 ## PACK-LAI Local AI Operating Layer Family
 
