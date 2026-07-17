@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "packId": "PACK-R14-04",
+  "status": "VERIFIED_TECHNICAL_GATES",
+  "recordedAt": "2026-07-18",
+  "authorityRef": "TASK6B-TECHNICAL-GATES-AUTHORITY-20260717",
+  "executionBase": "51da92a01b2def4bce5e3723c0f51f1d5035346c",
+  "source": {
+    "sourceId": "TASK7-RELEASE-HISTORY-19",
+    "kind": "GIT_COMMIT_RANGE",
+    "sourceBaseCommit": "804b47cd208ce6c889c8731cfa64765c983b2997",
+    "sourceEndCommit": "aa50fbca8b86fab218a5055726352420bfddfe57",
+    "reconstructionMode": "PRESERVE_COMMIT_SEQUENCE",
+    "commits": [
+      "55f61f0f168737692db288080a2a09b90f200c77",
+      "1640d8e93a6a1bfa861b0c34bbaa0471c7489c95",
+      "bcaab0bb66dae6af267f79c2431c4cab452e0b7d",
+      "a2d61babf540410a15733eb2a138d5cc30bfc699",
+      "2695342fd46739eecb247094e1648668a7edad12",
+      "a96cd3c329ea7d04c496291b7b86477e361a7b71",
+      "06dd1ea8b21adf29b2760b60d28d4cc90f4daca6",
+      "56246dc6c4cde7587efa2ef30c523d887e126925",
+      "1fb4ce4b060b6fbfe2511e9b1e16a0ecba242fbe",
+      "02725551258e30b471d317d5fca6e638d5fbdf68",
+      "6d7e2fb02b23e6a3debd13349132beb6b07abafa",
+      "0fd646e08d67b5fcfbfd0490dc46c9237f95e7a4",
+      "4cb7cccd309965427665eaf581f5c2d791210f38",
+      "bc61fe63ed32d18490c5d6895b102e51315a724a",
+      "91c84f4103157fea3f55def09e5acd419414dabc",
+      "d2006aa3362c0eea17ab20da58ae19f8c18c18f5",
+      "4dde267f8f56834f477d52a31ca4156aea85f358",
+      "b86a2c3a40b517f7361db918980f25d9a29eb0cb",
+      "aa50fbca8b86fab218a5055726352420bfddfe57"
+    ]
+  },
+  "historicalClaimClassification": {
+    "policy": "Every statement in the recovered documents is a historical record at the source-commit time. No source-time status, count, approval reference, deployment note, plan, or non-claim is represented as current operational truth at this recovery head.",
+    "currentOperationalStateAsserted": false,
+    "externalStateChanged": false,
+    "goLiveClaimed": false,
+    "documents": [
+      {
+        "path": "docs/release/matter-identity-production-closeout.md",
+        "sha256": "f5fe80d6a676640d163a9136d71bb2ec32bcbeb9ff6dddf9c75f8a592fe91b00",
+        "classification": "HISTORICAL_RECORD"
+      },
+      {
+        "path": "docs/release/matter-lambda-path-normalization-closeout.md",
+        "sha256": "5edaff4057873bce8a62a5ee918c77d50f25f4eee7fba67ba1fd2e2669bef0e4",
+        "classification": "HISTORICAL_RECORD"
+      },
+      {
+        "path": "docs/release/production-customer-document-import-execute-closeout.md",
+        "sha256": "412ed99ba9c04f49744fd867793f83bc12cd0531e6c594b0509b75e882dce534",
+        "classification": "HISTORICAL_RECORD"
+      },
+      {
+        "path": "docs/release/production-source-cutover-next-gate-plan.md",
+        "sha256": "5de1c8ba0f08b315c1075cdfa1e684fcfd932b0dbaac4b4cb1c20bbc4b62db6c",
+        "classification": "HISTORICAL_RECORD"
+      },
+      {
+        "path": "docs/release/production-source-cutover-preflight-closeout.md",
+        "sha256": "b32f8b68cac886edd423ec54e39b9e677b727c74282bf01656a57fc2bb65fbb1",
+        "classification": "HISTORICAL_RECORD"
+      }
+    ]
+  },
+  "scope": {
+    "createdPaths": [
+      "docs/release/matter-identity-production-closeout.md",
+      "docs/release/matter-lambda-path-normalization-closeout.md",
+      "docs/release/production-customer-document-import-execute-closeout.md",
+      "docs/release/production-source-cutover-next-gate-plan.md",
+      "docs/release/production-source-cutover-preflight-closeout.md"
+    ],
+    "controlPlanePaths": [
+      "docs/execution/recovery-receipts/PACK-R14-04.json",
+      "docs/ledger/execution.md"
+    ],
+    "notChanged": [
+      "docs/package/**",
+      "AGENTS.md",
+      ".omo/**",
+      "product code",
+      "migrations",
+      "deployment or external state"
+    ]
+  },
+  "verification": {
+    "exactHeadRequired": true,
+    "status": "PASS",
+    "verifiedHeadBeforeLedgerCloseout": "9314c61b92f2fb23ac2d8e0a164c33476d088476",
+    "commands": [
+      "node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check --committed-only",
+      "pnpm install --frozen-lockfile",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm backlog:validate",
+      "pnpm docs:frozen",
+      "git diff --check"
+    ]
+  }
+}
