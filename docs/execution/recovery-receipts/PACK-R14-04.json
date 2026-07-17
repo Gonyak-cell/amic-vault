@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "packId": "PACK-R14-04",
-  "status": "PREPARED_FOR_EXACT_HEAD_VERIFICATION",
+  "status": "VERIFIED_TECHNICAL_GATES",
   "recordedAt": "2026-07-18",
   "authorityRef": "TASK6B-TECHNICAL-GATES-AUTHORITY-20260717",
   "executionBase": "51da92a01b2def4bce5e3723c0f51f1d5035346c",
@@ -89,7 +89,7 @@
   },
   "verification": {
     "exactHeadRequired": true,
-    "status": "PASS_PENDING_FINAL_LEDGER_HEAD_RECHECK",
+    "status": "PASS",
     "verifiedHeadBeforeLedgerCloseout": "9314c61b92f2fb23ac2d8e0a164c33476d088476",
     "commands": [
       "node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check --committed-only",
