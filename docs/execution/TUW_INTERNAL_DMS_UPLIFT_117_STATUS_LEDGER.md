@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-17T20:35:00.000Z`
+- asOf / generatedAt: `2026-07-17T20:36:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `3a8c97589d890d35b03fea52f82089fec7c52ccc87b74150019433a7870d77a2`
-- Transition journal SHA-256: `88e3d1ec833489d5b237be5f92f83a569f540939dbb0d1c4d9baa65d6daed21f`
+- Overrides SHA-256: `424d80363e858d001dcd90b7c89262aaf0fbc6104355b717ec227bd63a3fb98c`
+- Transition journal SHA-256: `35d9016f2a9d55a9ec77f2344eb3be6b1ec392991853efb735e2e8e866895a54`
 
 ## Objective
 
@@ -21,10 +21,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 - COMPLETE_CANDIDATE: 19
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 81
 - EXTERNAL_BLOCKED: 12
-- PARTIAL: 3
-- UNADJUDICATED: 2
-- BOOTSTRAP_PREIMAGE: 112
-- CURRENT_VALIDATED: 5
+- PARTIAL: 4
+- UNADJUDICATED: 1
+- BOOTSTRAP_PREIMAGE: 111
+- CURRENT_VALIDATED: 6
 
 ## Rules
 
@@ -157,5 +157,5 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | B17 | 2 | S | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3118 | Implement only the B17 allowlisted check-in choice slice after its registered PACK is reached, then collect current integration and manual evidence. |
 | C16 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3130 | Keep C16 non-complete until the authorized fulfillment source is available, C7 is current complete, and the C16 acceptance evidence is collected. |
 | B18 | 2 | L | EXTERNAL_BLOCKED | CURRENT_VALIDATED | 0 | 0 | SOURCE_ACCESS | 2 | 3142 | Keep B18 externally blocked until authorized Contract Desk source access is recorded; then execute only its registered redline package PACK. |
-| B19 | 2 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3154 | Adjudicate B19 against its acceptance block and record current evidence before any status change. |
+| B19 | 2 | L | PARTIAL | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3154 | Keep B19 partial and non-complete until B18 and B3 are current complete and the registered B19 implementation/evidence PACK is executed. |
 | B20 | 3 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3166 | Adjudicate B20 against its acceptance block and record current evidence before any status change. |

@@ -14,10 +14,10 @@
     "algorithm": "SHA-256",
     "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
   },
-  "asOf": "2026-07-17T20:35:00.000Z",
+  "asOf": "2026-07-17T20:36:00.000Z",
   "previousAcceptedJournalHead": {
     "algorithm": "SHA-256",
-    "value": "1b0e0ddfea18e099f07d1f52fec4feaa590528aef131b2e5674bc7626e4a46d4"
+    "value": "e681e2dc52d5307e7787d8ba76517c59ccec5b7d9bed63ef776bf514506324c4"
   },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
@@ -25809,7 +25809,7 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "891f99eb82721065bd84874b24c94fb930339e2b54e5d1b49a8974df545f573a"
+    "value": "e78dabe18dbc2b3240be5fb74b735ed16264f1f2401db41cfc857a702922e0a4"
   },
   "entries": [
     {
@@ -25938,11 +25938,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "891f99eb82721065bd84874b24c94fb930339e2b54e5d1b49a8974df545f573a"
+        "value": "e78dabe18dbc2b3240be5fb74b735ed16264f1f2401db41cfc857a702922e0a4"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "e9c2c89cfdf4e0204c85768d8d877bc22fd467a540a009cb0cf32027f5bb4df1"
+        "value": "58afd7609408b0d534b0b6ec5aa0982b8451c91867995918dccedf7c729645ba"
       }
     },
     {
@@ -26071,11 +26071,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "e9c2c89cfdf4e0204c85768d8d877bc22fd467a540a009cb0cf32027f5bb4df1"
+        "value": "58afd7609408b0d534b0b6ec5aa0982b8451c91867995918dccedf7c729645ba"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "cfd495c8e6448f4bfc16517eb457ac53baa71475a44b0f8d5e8bc8c3525694f7"
+        "value": "73ad307993cd02ce9cd64d201361d4302123b4ae425060140a7ab573bd5f3cab"
       }
     },
     {
@@ -26204,11 +26204,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "cfd495c8e6448f4bfc16517eb457ac53baa71475a44b0f8d5e8bc8c3525694f7"
+        "value": "73ad307993cd02ce9cd64d201361d4302123b4ae425060140a7ab573bd5f3cab"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "fdf32deba257f4c327836c3e2bb47b34094c8a8f2fa89ddd9cf46e721b315d81"
+        "value": "cfc9aaddef12df9f05061a8df16b89d74b651c618e49e552421c8745ef5096c5"
       }
     },
     {
@@ -26339,11 +26339,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "fdf32deba257f4c327836c3e2bb47b34094c8a8f2fa89ddd9cf46e721b315d81"
+        "value": "cfc9aaddef12df9f05061a8df16b89d74b651c618e49e552421c8745ef5096c5"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "bcff72c50dfd624f771bd42d3e7d66d3a4e75c810d7957f1494692aa795883fd"
+        "value": "013c70fa5f72979e5401fd5c967dc38f4449f3f79fb8e1ddae895b80109456a6"
       }
     },
     {
@@ -26474,11 +26474,147 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "bcff72c50dfd624f771bd42d3e7d66d3a4e75c810d7957f1494692aa795883fd"
+        "value": "013c70fa5f72979e5401fd5c967dc38f4449f3f79fb8e1ddae895b80109456a6"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "e681e2dc52d5307e7787d8ba76517c59ccec5b7d9bed63ef776bf514506324c4"
+        "value": "ae3dfd168bba61661701e157771ca5d4d28a7cbe7e99d0226084e4e4dfd9e488"
+      }
+    },
+    {
+      "sequence": 6,
+      "transitionId": "TR-000006",
+      "packId": "PACK-R14-05",
+      "tuwId": "B19",
+      "transitionKind": "ADJUDICATE",
+      "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+      },
+      "recordedAt": "2026-07-17T20:36:00.000Z",
+      "reasonCode": "APPENDIX_CURRENT_AUDIT",
+      "reason": "Current candidate lacks the B18 redline package, ComparisonModule, redline migration, and planned integration test; B18 and B3 remain hard dependencies.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "1546604109dbe8785fb95fc898b578e4627f4fb52407b6ee8788bb6446b596ee"
+      },
+      "afterOverride": {
+        "status": "PARTIAL",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/comparison/comparison.module.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/document/document-editing.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+              }
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-action-center.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+              }
+            },
+            {
+              "path": "apps/web/src/components/document/document-vault-list.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+              }
+            },
+            {
+              "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+              }
+            },
+            {
+              "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+              }
+            },
+            {
+              "path": "packages/redline/src/diff-engine.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/redline.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+          }
+        },
+        "statusRationale": "B19 has no complete redline service surface at the exact candidate: packages/redline, ComparisonModule, redline migration, and tests/integration/redline.spec.ts are absent, while B18 and B3 remain hard dependencies.",
+        "remainingGaps": [
+          "Complete B18 and B3 dependency requirements before attempting B19.",
+          "Implement the B19 ComparisonModule, rendition/audit path, UI, and registered redline integration and manual performance evidence."
+        ],
+        "nextAction": "Keep B19 partial and non-complete until B18 and B3 are current complete and the registered B19 implementation/evidence PACK is executed.",
+        "lastReviewedAt": "2026-07-17T20:36:00.000Z",
+        "historicalEvidenceRefs": [],
+        "evidenceRefs": [],
+        "blockerClass": "DEPENDENCY",
+        "blockingRefs": [
+          "B18",
+          "B3"
+        ],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "a9e7f2cab2f2a613fa0e4263f4852729960bdb1d564e10dd40ef7b73073964a6"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "ae3dfd168bba61661701e157771ca5d4d28a7cbe7e99d0226084e4e4dfd9e488"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "48a1c402ffc0f1aa68049a9c04edc6ab1963c4b5a5b775bfb4125feff716fffd"
       }
     }
   ],
