@@ -319,12 +319,1513 @@ B15/B16/B17/C16/B18/B19/B20 at source lines
 hard/soft/conditional/external and blocker classes are
 NONE/POLICY_CONFLICT/OWNER_DECISION/EXTERNAL_EVIDENCE/SOURCE_ACCESS/DEPENDENCY/TOOLING.
 
+### Task 5 technical schema v1
+
+Schema ID: `PACK-R14-02-TASK5-SCHEMA-V1`.
+
+Sealed canonical schema payload SHA-256: `259aab3796b85e88f927318460f3c04a41333008689dc5d1bcd7beb09caf4011`.
+
+Final PACK payload SHA-256: `32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9`.
+
+This schema registration is an additional exact-head technical predecessor. The implementation branch must be based or rebased on the merge SHA of this schema-registration change. No Claude review, human review, human approval, or `needs-human-review` disposition is present. No product behavior, migration, dependency, deployment, runtime, or external operation is authorized by this registration.
+
+The complete technical schema wrapper follows and must remain value-identical to the sealed source JSON:
+
+```json
+{
+  "schemaVersion": "task5-technical-schema-decision-wrapper/v1",
+  "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
+  "sealedPayloadSha256": "259aab3796b85e88f927318460f3c04a41333008689dc5d1bcd7beb09caf4011",
+  "schema": {
+    "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
+    "status": "TECHNICAL_SCHEMA_DECIDED",
+    "authority": {
+      "approvalToken": "OWNER-APPROVAL-PACK-R14-02-REGISTRATION-20260717",
+      "ownerDirectives": [
+        "PACK-R14-02 진행 승인",
+        "순서대로 진행해",
+        "claude는 전부 생략",
+        "머지도 승인",
+        "인간의 승인 필요 없게 진행"
+      ],
+      "authorityRefs": [
+        "docs/execution/PACKS_R4_R14.md:64-399",
+        "docs/ledger/decision.md:30",
+        "docs/ledger/decision.md:31"
+      ],
+      "authorityCommit": "2daa27d6ecb959342ecb13396286532e64f54cab",
+      "finalPackPayloadSha256": "32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9",
+      "gateMode": "EXACT_HEAD_TECHNICAL_GATES_ONLY",
+      "claudeReviewRequired": false,
+      "humanReviewRequired": false,
+      "humanApprovalRequired": false,
+      "needsHumanReviewLabelRequired": false,
+      "mechanicalMergeAllowedOnlyAfterAllExactHeadTechnicalGatesPass": true,
+      "allowedGovernanceChangedPaths": [
+        "docs/execution/PACKS_R4_R14.md",
+        "docs/ledger/decision.md"
+      ]
+    },
+    "canonicalPrimitives": {
+      "hash": {
+        "type": "object",
+        "requiredKeys": [
+          "algorithm",
+          "value"
+        ],
+        "additionalProperties": false,
+        "algorithmLiteral": "SHA-256",
+        "valuePattern": "^[0-9a-f]{64}$"
+      },
+      "gitSha": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+        "timezone": "UTC",
+        "calendarValidationRequired": true
+      },
+      "stringNormalization": "UNICODE_NFC",
+      "canonicalJson": {
+        "id": "AMIC-CJSON-1",
+        "allowedValues": [
+          "null",
+          "boolean",
+          "string",
+          "safe-integer",
+          "array",
+          "object"
+        ],
+        "objectKeyOrder": "JAVASCRIPT_UTF16_LEXICAL_ASCENDING",
+        "arrayOrder": "PRESERVE",
+        "whitespace": "NONE",
+        "stringEncoding": "JSON_STRINGIFY_AFTER_NFC",
+        "hashTarget": "schema subobject only; wrapper and sealedPayloadSha256 are excluded"
+      },
+      "generatedJson": {
+        "indentSpaces": 2,
+        "lineEnding": "LF",
+        "terminalLfCount": 1
+      },
+      "generatedMarkdown": {
+        "lineEnding": "LF",
+        "terminalLfCount": 1
+      }
+    },
+    "generationMetadata": {
+      "generatedAtRule": "generatedAt MUST equal generationMetadata.asOf, and generationMetadata.asOf MUST equal journal.asOf; wall clock access is forbidden",
+      "requiredObject": {
+        "hashAlgorithm": "SHA-256",
+        "sourcePlanSha256": "Hash",
+        "overridesSha256": "Hash",
+        "transitionJournalSha256": "Hash",
+        "asOf": "Timestamp",
+        "phase": "BOOTSTRAP_IMPORT|TRANSITION|FINAL_CLOSEOUT"
+      },
+      "inputHashSemantics": "SHA-256 over exact UTF-8 file bytes",
+      "asOfSource": "journal.asOf",
+      "asOfMustEqualJournalAsOf": true,
+      "asOfRules": {
+        "BOOTSTRAP_IMPORT": "journal.asOf MUST equal 2026-07-17T00:00:00.000Z",
+        "TRANSITION": "journal.asOf MUST equal latest journal entry.recordedAt",
+        "FINAL_CLOSEOUT": "journal.asOf MUST equal closeoutSeal.recordedAt"
+      },
+      "bootstrapJournalAsOf": "2026-07-17T00:00:00.000Z",
+      "currentTimeAccessForbidden": true
+    },
+    "bootstrap": {
+      "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
+      "selectedTupleSha256": {
+        "algorithm": "SHA-256",
+        "value": "cb58efa92256d7d0ba0d417ca3498ea7cb69fe24bea1aa35fed5fb069546b787"
+      },
+      "frozenSourceInputSha256": {
+        "algorithm": "SHA-256",
+        "value": "ee05e4e3e453fab573a8e99153eaeb3bca610e80ecc4d42b15a4491dff5474b1"
+      },
+      "imported110Hashes": {
+        "policy": {
+          "algorithm": "SHA-256",
+          "value": "5c8f40f9f093535f5a7a438a98335552c7e937aa6e5a8301ecf20a55a16a6040"
+        },
+        "ledgerJson": {
+          "algorithm": "SHA-256",
+          "value": "36004dc408cbf6c3164bdde6ab80d90312b539e0c6e1a7b5c340eca6243febb7"
+        },
+        "ledgerMarkdown": {
+          "algorithm": "SHA-256",
+          "value": "bf5fe7cb3d956a64b0cfff818bf9f4d7386ff21254d42c519a879980b31586e2"
+        },
+        "overrides": {
+          "algorithm": "SHA-256",
+          "value": "b94e141ab1fd796884c2d452e2da14d4f9a43b69fdbb5d07f7cf178f2bd7711a"
+        }
+      },
+      "rowCount": 117,
+      "orderedRowIds": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "B1",
+        "B2",
+        "B3",
+        "B4",
+        "B6",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "F4",
+        "F5",
+        "G1",
+        "G2",
+        "H1",
+        "H2",
+        "H3",
+        "H5",
+        "H6",
+        "A8",
+        "A9",
+        "A10",
+        "A11",
+        "A12",
+        "A14",
+        "B5",
+        "B7",
+        "B8",
+        "B9",
+        "B10",
+        "B11",
+        "B12",
+        "C8",
+        "C9",
+        "C10",
+        "C11",
+        "C12",
+        "C13",
+        "C15",
+        "D5",
+        "D6",
+        "D7",
+        "D8",
+        "D10",
+        "E5",
+        "E6",
+        "E7",
+        "E8",
+        "E9",
+        "E10",
+        "E11",
+        "E12",
+        "F1",
+        "F2",
+        "F3",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11",
+        "G3",
+        "G5",
+        "G6",
+        "G7",
+        "G8",
+        "G9",
+        "G10",
+        "G11",
+        "G12",
+        "G13",
+        "H4",
+        "H7",
+        "H8",
+        "H9",
+        "H11",
+        "A13",
+        "B13",
+        "B14",
+        "C14",
+        "D9",
+        "D11",
+        "D12",
+        "E13",
+        "E14",
+        "F12",
+        "F13",
+        "F14",
+        "G4",
+        "G14",
+        "H12",
+        "H13",
+        "H14",
+        "B15",
+        "B16",
+        "B17",
+        "C16",
+        "B18",
+        "B19",
+        "B20"
+      ],
+      "orderedRowSetSha256": {
+        "algorithm": "SHA-256",
+        "value": "64228240f540c1687d08fe3ac10de23ad7093d04f446d48e0580ce19c8649d8c"
+      },
+      "exactIdSetSha256": {
+        "algorithm": "SHA-256",
+        "value": "eb3fe63aaad2c86ed2b58f7bcf752f7ea5ac9b6d266fb7ba79564a8d3d0e1a82"
+      },
+      "statusCounts": {
+        "COMPLETE_CANDIDATE": 19,
+        "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 80,
+        "EXTERNAL_BLOCKED": 11,
+        "UNADJUDICATED": 7
+      },
+      "validationCounts": {
+        "BOOTSTRAP_PREIMAGE": 117,
+        "CURRENT_VALIDATED": 0
+      },
+      "unadjudicatedIds": [
+        "B15",
+        "B16",
+        "B17",
+        "C16",
+        "B18",
+        "B19",
+        "B20"
+      ],
+      "initialRowRules": {
+        "validationState": "BOOTSTRAP_PREIMAGE",
+        "validatedCandidateSha": null,
+        "validationScope": null,
+        "evidenceRefs": [],
+        "historicalEvidenceRefs": "preserve existing {type,ref,note} records byte-for-byte and order-for-order"
+      },
+      "preimageOnly": true,
+      "bootstrapRowsSatisfyDependencies": false,
+      "bootstrapCompleteCandidateIsCurrentCompletion": false,
+      "legacyEvidenceMayAppearAsCurrentEvidence": false,
+      "autoPromotionAllowed": false,
+      "autoDemotionAllowed": false
+    },
+    "rowState": {
+      "requiredAddedFields": {
+        "validationState": "BOOTSTRAP_PREIMAGE|CURRENT_VALIDATED",
+        "validatedCandidateSha": "GitSha|null",
+        "validationScope": "ValidationScope|null",
+        "historicalEvidenceRefs": "HistoricalEvidence[]",
+        "evidenceRefs": "Evidence[]",
+        "blockerClass": "BlockerClass",
+        "blockingRefs": "string[]",
+        "acceptedBlockers": "AcceptedBlocker[]",
+        "dependencyConditions": "DependencyCondition[]"
+      },
+      "historicalEvidence": {
+        "requiredKeys": [
+          "type",
+          "ref",
+          "note"
+        ],
+        "additionalProperties": false,
+        "currentGateWeight": 0
+      },
+      "validationScope": {
+        "requiredKeys": [
+          "entries",
+          "aggregateSha256"
+        ],
+        "entryRequiredKeys": [
+          "path",
+          "mode",
+          "contentSha256"
+        ],
+        "fieldTypes": {
+          "entries": "ValidationScopeEntry[]",
+          "aggregateSha256": "Hash"
+        },
+        "modeEnum": [
+          "100644",
+          "100755",
+          "120000",
+          "ABSENT"
+        ],
+        "pathRules": [
+          "repo-relative",
+          "Unicode NFC",
+          "not absolute",
+          "no .. segment",
+          "sorted ascending",
+          "unique",
+          "non-empty for CURRENT_VALIDATED"
+        ],
+        "aggregatePreimage": "for each sorted entry: path + NUL + mode + NUL + content SHA-256 lowercase value or ABSENT + LF",
+        "aggregateAlgorithm": "SHA-256"
+      },
+      "transitionToBootstrapPreimageForbidden": true,
+      "currentValidatedRequiresCandidateAndScope": true
+    },
+    "evidence": {
+      "requiredKeys": [
+        "type",
+        "ref",
+        "hash",
+        "timestamp",
+        "candidateSha",
+        "validationScopeDigest",
+        "environment",
+        "provenance"
+      ],
+      "additionalProperties": false,
+      "typeEnum": [
+        "SOURCE",
+        "CODE",
+        "UNIT_TEST",
+        "INTEGRATION_TEST",
+        "SECURITY_TEST",
+        "AUDIT_TEST",
+        "MIGRATION",
+        "BUILD",
+        "LINT",
+        "TYPECHECK",
+        "DIAGNOSTIC",
+        "MANUAL_QA",
+        "RENDERED_QA",
+        "PERFORMANCE",
+        "EXTERNAL_OPERATION",
+        "APPROVAL",
+        "ARTIFACT",
+        "RELEASE_GATE"
+      ],
+      "refRules": {
+        "minLength": 1,
+        "maxLength": 512,
+        "semantics": "opaque; Task 5 validator never dereferences it"
+      },
+      "validationScopeDigest": {
+        "type": "Hash",
+        "mustEqualRowValidationScopeAggregateSha256": true,
+        "mustEqualJournalValidationScopeDigest": true,
+        "bootstrapValueAllowed": false,
+        "comparison": "exact algorithm and lowercase digest value"
+      },
+      "environment": {
+        "requiredKeys": [
+          "class",
+          "targetRef",
+          "targetHash"
+        ],
+        "additionalProperties": false,
+        "classEnum": [
+          "REPO_LOCAL",
+          "CI",
+          "ISOLATED_DB",
+          "LOCAL_WEB",
+          "PACKAGED_DESKTOP",
+          "STAGING",
+          "PRODUCTION",
+          "EXTERNAL_PROVIDER",
+          "MANUAL_OFFLINE"
+        ],
+        "targetRef": "non-empty opaque string",
+        "targetHash": "Hash|null"
+      },
+      "provenance": {
+        "requiredKeys": [
+          "producerKind",
+          "producerRef",
+          "receiptRef",
+          "ownerRole",
+          "commandRef",
+          "approvalRef",
+          "approvalScopeHash",
+          "expiresAt",
+          "exitCode",
+          "expectedCount",
+          "passCount",
+          "failCount",
+          "skipCount",
+          "visibility",
+          "durability",
+          "nonClaims",
+          "invalidationTriggers"
+        ],
+        "additionalProperties": false,
+        "producerKindEnum": [
+          "COMMAND",
+          "TEST_RUNNER",
+          "CI_JOB",
+          "AGENT",
+          "OPERATOR",
+          "EXTERNAL_SYSTEM",
+          "STATIC_SOURCE",
+          "GENERATED_ARTIFACT"
+        ],
+        "ownerRolePattern": "^[A-Z][A-Z0-9_-]{1,63}$",
+        "visibilityEnum": [
+          "REPO_SAFE",
+          "OPAQUE_PRIVATE"
+        ],
+        "durabilityEnum": [
+          "DURABLE",
+          "NON_DURABLE",
+          "GENERATED"
+        ],
+        "invalidationTriggerEnum": [
+          "CANDIDATE_SHA_DRIFT",
+          "SOURCE_DRIFT",
+          "CONFIG_DRIFT",
+          "FIXTURE_DRIFT",
+          "ARTIFACT_DRIFT",
+          "TARGET_DRIFT",
+          "APPROVAL_EXPIRY",
+          "POST_REVIEW_PUSH",
+          "TEST_COUNT_REGRESSION",
+          "SKIP_NONZERO"
+        ]
+      },
+      "freshness": {
+        "asOfSource": "journal.asOf; generationMetadata.asOf MUST equal it",
+        "maxAgeSeconds": 2592000,
+        "timestampMustNotExceedAsOf": true,
+        "expiresAtMustBeNullOrAfterAsOf": true,
+        "candidateShaMustEqualRowValidatedCandidateSha": true,
+        "candidateShaMustEqualJournalCandidateSha": true,
+        "validationScopeDigestMustEqualRowValidationScopeAggregateSha256": true,
+        "validationScopeDigestMustEqualJournalValidationScopeDigest": true,
+        "validationScopeMustRecomputeAtCheckedCandidate": true,
+        "wallClockForbidden": true
+      },
+      "testLikeTypes": [
+        "UNIT_TEST",
+        "INTEGRATION_TEST",
+        "SECURITY_TEST",
+        "AUDIT_TEST",
+        "MIGRATION",
+        "BUILD",
+        "LINT",
+        "TYPECHECK",
+        "DIAGNOSTIC",
+        "PERFORMANCE",
+        "RELEASE_GATE"
+      ],
+      "testLikeRules": {
+        "exitCode": 0,
+        "failCount": 0,
+        "skipCount": 0,
+        "expectedCountEqualsPassPlusFailPlusSkip": true,
+        "expectedCountMustBePositive": true
+      },
+      "approvalOrExternalTypes": [
+        "APPROVAL",
+        "EXTERNAL_OPERATION"
+      ],
+      "approvalOrExternalRequiredNonNullFields": [
+        "provenance.approvalRef",
+        "provenance.approvalScopeHash",
+        "provenance.expiresAt"
+      ],
+      "nonDurableRefClassifier": {
+        "mode": "LEXICAL_STRING_ONLY_NO_DEREFERENCE",
+        "unicodeNormalization": "NFC",
+        "uriSchemeComparison": "ASCII_CASE_INSENSITIVE",
+        "segmentBoundaryRequired": true,
+        "leadingCurrentDirectorySegmentsIgnored": true,
+        "fileUriDisposition": "NON_DURABLE",
+        "malformedFileUriDisposition": "NON_DURABLE",
+        "fileUriLexicalRules": [
+          "any ref whose NFC-normalized scheme is file is NON_DURABLE",
+          "scheme recognition is lexical and does not access filesystem, network, DNS, or URI target",
+          "query and fragment do not change NON_DURABLE disposition",
+          "percent escapes are inspected only as text; malformed escapes fail closed as NON_DURABLE"
+        ],
+        "posixAbsoluteTemporaryPaths": [
+          "/tmp",
+          "/private/tmp"
+        ],
+        "repoRelativeFirstSegments": [
+          ".omo",
+          "tmp"
+        ],
+        "pathRules": [
+          "exact /tmp or first path segments /tmp/ are NON_DURABLE",
+          "exact /private/tmp or first path segments /private/tmp/ are NON_DURABLE",
+          "after removing any leading ./ segments, repo-relative first segment .omo is NON_DURABLE",
+          "after removing any leading ./ segments, repo-relative first segment tmp is NON_DURABLE",
+          "lookalikes such as /tmpx and .omotive are not prefix matches because segment boundaries are mandatory",
+          "classification never dereferences the opaque ref"
+        ],
+        "requiredNonDurableExamples": [
+          "/tmp",
+          "/tmp/evidence.json",
+          "/private/tmp",
+          "/private/tmp/evidence.json",
+          "tmp/evidence.json",
+          ".omo/evidence/receipt.json",
+          "./.omo/evidence/receipt.json",
+          "file:/tmp/evidence.json",
+          "file:///tmp/evidence.json",
+          "FILE:///private/tmp/evidence.json",
+          "file://localhost/tmp/evidence.json",
+          "file://host.example/private/tmp/evidence.json"
+        ],
+        "requiredBoundaryNonMatches": [
+          "/tmpx/evidence.json",
+          "/private/tmpx/evidence.json",
+          ".omotive/evidence.json",
+          "tmpfiles/evidence.json"
+        ]
+      },
+      "generatedProducerRequiresGeneratedDurability": true,
+      "completeCandidateRequiresAtLeastOneDurableNonGeneratedEvidence": true,
+      "privateEvidenceDereferenceForbidden": true
+    },
+    "blockers": {
+      "classEnum": [
+        "NONE",
+        "POLICY_CONFLICT",
+        "OWNER_DECISION",
+        "EXTERNAL_EVIDENCE",
+        "SOURCE_ACCESS",
+        "DEPENDENCY",
+        "TOOLING"
+      ],
+      "acceptedBlocker": {
+        "requiredKeys": [
+          "dependencyId",
+          "blockerClass",
+          "disposition",
+          "scope",
+          "authorityKind",
+          "authorityRef",
+          "authorityHash",
+          "acceptedAt",
+          "expiresAt",
+          "candidateSha",
+          "validationScopeDigest",
+          "nonClaims"
+        ],
+        "additionalProperties": false,
+        "allowedBlockerClasses": [
+          "OWNER_DECISION",
+          "EXTERNAL_EVIDENCE",
+          "SOURCE_ACCESS"
+        ],
+        "externalBoundaryClassRegistryId": "PACK-R14-02:T5-EXTERNAL-BOUNDARY-BLOCKERS-V1",
+        "allowedDependencyKindLiteral": "external",
+        "neverAcceptedBlockerClasses": [
+          "POLICY_CONFLICT",
+          "DEPENDENCY",
+          "TOOLING"
+        ],
+        "neverAcceptedDependencyKinds": [
+          "hard",
+          "conditional"
+        ],
+        "fieldTypes": {
+          "candidateSha": "GitSha",
+          "validationScopeDigest": "Hash",
+          "scope": "DEPENDENCY_ORDER_ONLY"
+        },
+        "dispositionLiteral": "ACCEPT_DEFER",
+        "scopeLiteral": "DEPENDENCY_ORDER_ONLY",
+        "validationScopeBinding": {
+          "type": "Hash",
+          "mustEqualAffectedRowValidationScopeAggregateSha256": true,
+          "mustEqualJournalValidationScopeDigest": true,
+          "candidateShaMustEqualAffectedRowValidatedCandidateSha": true,
+          "candidateShaMustEqualJournalCandidateSha": true
+        },
+        "authorityKindEnum": [
+          "DECISION_LEDGER",
+          "REGISTERED_PACK"
+        ],
+        "nonClaimsExact": [
+          "NO_EXTERNAL_EXECUTION",
+          "NO_GO_LIVE",
+          "NOT_COMPLETE"
+        ],
+        "maxDurationSeconds": 7776000
+      },
+      "rules": [
+        "NONE requires empty blockingRefs and acceptedBlockers",
+        "every non-NONE class requires non-empty sorted unique blockingRefs",
+        "accepted blockers require blockerClass in registered external-boundary classes OWNER_DECISION, EXTERNAL_EVIDENCE, or SOURCE_ACCESS",
+        "accepted blockers apply only to dependencies with kind=external",
+        "POLICY_CONFLICT (policy), DEPENDENCY, and TOOLING blocker classes can never be accepted",
+        "hard and conditional dependency kinds can never be accepted, whether active or inactive",
+        "DEPENDENCY_ORDER_ONLY is the accepted blocker scope literal and is separate from validationScopeDigest",
+        "candidateSha and validationScopeDigest must equal the affected row and journal candidate/scope bindings",
+        "acceptedAt must precede expiresAt and expiresAt must be after asOf",
+        "accepted blocker never makes either row complete",
+        "row containing acceptedBlocker cannot be COMPLETE_CANDIDATE",
+        "EXTERNAL_BLOCKED is never dependency-complete or product-complete"
+      ]
+    },
+    "dependencies": {
+      "recordRequiredKeys": [
+        "id",
+        "kind",
+        "sourceText",
+        "resolutionRef"
+      ],
+      "additionalProperties": false,
+      "idPattern": "^(?:[A-H][0-9]+|CAP-[A-Z0-9-]+)$",
+      "kindEnum": [
+        "hard",
+        "soft",
+        "conditional",
+        "external"
+      ],
+      "resolutionRefType": "string|null",
+      "parser": {
+        "splitCommasOnlyAtParenthesisDepth": 0,
+        "splitArrowsOnlyAtParenthesisDepth": 0,
+        "exactTuwIdDefaultKind": "hard",
+        "softMarkers": [
+          "소프트",
+          "차단 아님"
+        ],
+        "conditionalMarkers": [
+          "조건부",
+          "ACTIVE",
+          "선택"
+        ],
+        "externalKindMayBeAssignedOnlyByRegistry": true,
+        "heuristicLetterAliasResolutionForbidden": true,
+        "duplicateDependencyBehavior": "REJECT",
+        "selfDependencyBehavior": "REJECT",
+        "unknownIdBehavior": "REJECT",
+        "malformedParenthesesBehavior": "REJECT",
+        "unregisteredAliasBehavior": "REJECT"
+      },
+      "semantics": {
+        "soft": "does not gate",
+        "hard": "requires CURRENT_VALIDATED and COMPLETE_CANDIDATE TUW",
+        "conditional": "ACTIVE behaves as hard; missing or unknown condition is ACTIVE",
+        "external": "requires current complete TUW or valid accepted blocker",
+        "capability": "syntactically resolved but semantically unresolved",
+        "hardOrActiveConditionalCapability": "never satisfies completion until a later registered amendment replaces it with a TUW ID"
+      },
+      "dependencyCondition": {
+        "requiredKeys": [
+          "dependencyId",
+          "state",
+          "decisionRef",
+          "decisionHash"
+        ],
+        "additionalProperties": false,
+        "stateEnum": [
+          "ACTIVE",
+          "INACTIVE"
+        ],
+        "missingStateBehavior": "ACTIVE"
+      },
+      "aliasRegistryId": "PACK-R14-02:T5-DEPREG-V1",
+      "aliasDecisionCount": 17,
+      "emittedDependencyRecordCount": 18,
+      "aliases": [
+        {
+          "ordinal": 1,
+          "rowId": "D7",
+          "sourceLine": 1650,
+          "aliasKey": "D7/B-OCR",
+          "sourceText": "B(OCR 엔진 — ingestion 워커의 스캔 PDF OCR 스테이지)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D7/B-OCR",
+          "emits": [
+            {
+              "id": "B1",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 2,
+          "rowId": "D8",
+          "sourceLine": 1678,
+          "aliasKey": "D8/C-OUTLOOK-AUTO-INGEST",
+          "sourceText": "C(Outlook Graph 실연동 — 이메일 소스 자동 유입, 소프트 의존: 현행 업로드/파일링 경로만으로 완결 가능)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D8/C-OUTLOOK-AUTO-INGEST",
+          "emits": [
+            {
+              "id": "CAP-OUTLOOK-GRAPH-AUTO-INGEST",
+              "kind": "soft"
+            }
+          ]
+        },
+        {
+          "ordinal": 3,
+          "rowId": "D10",
+          "sourceLine": 1706,
+          "aliasKey": "D10/E2-GEMMA",
+          "sourceText": "E(E2 Gemma 생성·E8 Strong LLM 라우팅 — 답변 생성 품질, 소프트 의존: 기존 로컬 생성 경로로 선출시 가능)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D10/E2-GEMMA",
+          "emits": [
+            {
+              "id": "E2",
+              "kind": "soft"
+            }
+          ]
+        },
+        {
+          "ordinal": 4,
+          "rowId": "D10",
+          "sourceLine": 1706,
+          "aliasKey": "D10/E8-STRONG-ROUTING",
+          "sourceText": "E(E2 Gemma 생성·E8 Strong LLM 라우팅 — 답변 생성 품질, 소프트 의존: 기존 로컬 생성 경로로 선출시 가능)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D10/E8-STRONG-ROUTING",
+          "emits": [
+            {
+              "id": "E8",
+              "kind": "soft"
+            }
+          ]
+        },
+        {
+          "ordinal": 5,
+          "rowId": "E7",
+          "sourceLine": 1791,
+          "aliasKey": "E7/F-GRAPH-CONFIRMATION",
+          "sourceText": "F(그래프 후보 candidate/confirmed 상태 스키마·승인 확정 플로우)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E7/F-GRAPH-CONFIRMATION",
+          "emits": [
+            {
+              "id": "CAP-GRAPH-CANDIDATE-CONFIRMATION",
+              "kind": "conditional"
+            }
+          ],
+          "registeredCondition": {
+            "state": "INACTIVE",
+            "reason": "E7 scope excludes canonical graph write and confirmation; a scope amendment makes the condition ACTIVE"
+          }
+        },
+        {
+          "ordinal": 6,
+          "rowId": "E11",
+          "sourceLine": 1897,
+          "aliasKey": "E11/C-OUTLOOK-THREAD-INGEST",
+          "sourceText": "C(Email Vault Outlook Graph 실연동 — 쓰레드 단위 인입 확대)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E11/C-OUTLOOK-THREAD-INGEST",
+          "emits": [
+            {
+              "id": "CAP-OUTLOOK-GRAPH-THREAD-INGEST",
+              "kind": "soft"
+            }
+          ]
+        },
+        {
+          "ordinal": 7,
+          "rowId": "E12",
+          "sourceLine": 1919,
+          "aliasKey": "E12/G-HIDDEN-ROUTES",
+          "sourceText": "G(contracts/dd/litigation hidden-route 봉인 해제·화면 노출)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E12/G-HIDDEN-ROUTES",
+          "emits": [
+            {
+              "id": "G2",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 8,
+          "rowId": "G3",
+          "sourceLine": 2204,
+          "aliasKey": "G3/B-DIFF",
+          "sourceText": "B(문서 버전 비교 diff API/뷰)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:G3/B-DIFF",
+          "emits": [
+            {
+              "id": "B11",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 9,
+          "rowId": "G9",
+          "sourceLine": 2328,
+          "aliasKey": "G9/B-WATERMARK",
+          "sourceText": "B(서버사이드 PDF 워터마크 렌더링)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:G9/B-WATERMARK",
+          "emits": [
+            {
+              "id": "B3",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 10,
+          "rowId": "B13",
+          "sourceLine": 2638,
+          "aliasKey": "B13/E-AI-ROUTING",
+          "sourceText": "E(Gemma 구조화+Strong LLM 라우팅)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:B13/E-AI-ROUTING",
+          "emits": [
+            {
+              "id": "CAP-AI-STRUCTURED-STRONG-ROUTING",
+              "kind": "external"
+            }
+          ]
+        },
+        {
+          "ordinal": 11,
+          "rowId": "B13",
+          "sourceLine": 2638,
+          "aliasKey": "B13/C-OUTLOOK-SEND",
+          "sourceText": "C(Outlook Graph 송부 연동)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:B13/C-OUTLOOK-SEND",
+          "emits": [
+            {
+              "id": "C16",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 12,
+          "rowId": "B14",
+          "sourceLine": 2662,
+          "aliasKey": "B14/F-CLAUSE-SEARCH",
+          "sourceText": "F(조항은행 검색 API)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:B14/F-CLAUSE-SEARCH",
+          "emits": [
+            {
+              "id": "F11",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 13,
+          "rowId": "D11",
+          "sourceLine": 2758,
+          "aliasKey": "D11/F-CLAUSE-CORPUS",
+          "sourceText": "F(조항은행 — contract-intel 조항 파싱 데이터 적재 확대)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D11/F-CLAUSE-CORPUS",
+          "emits": [
+            {
+              "id": "CAP-CLAUSE-BANK-PARSED-CORPUS",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 14,
+          "rowId": "D12",
+          "sourceLine": 2780,
+          "aliasKey": "D12/H-LAW-DATA",
+          "sourceText": "H(국내 법률데이터 연동 — 국가법령정보센터/판례 API 커넥터)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:D12/H-LAW-DATA",
+          "emits": [
+            {
+              "id": "H12",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 15,
+          "rowId": "E13",
+          "sourceLine": 2804,
+          "aliasKey": "E13/B-EDITING-BASE",
+          "sourceText": "B(문서 편집·버전 관리 기반)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E13/B-EDITING-BASE",
+          "emits": [
+            {
+              "id": "CAP-DOCUMENT-DRAFT-VERSION-PERSISTENCE",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 16,
+          "rowId": "E14",
+          "sourceLine": 2827,
+          "aliasKey": "E14/F-CONFIRMED-FACTS",
+          "sourceText": "F(확정 graph facts — candidate→confirmed 승인 플로우)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:E14/F-CONFIRMED-FACTS",
+          "emits": [
+            {
+              "id": "F9",
+              "kind": "hard"
+            }
+          ]
+        },
+        {
+          "ordinal": 17,
+          "rowId": "H12",
+          "sourceLine": 3004,
+          "aliasKey": "H12/F-AUTHORITY-CITATION",
+          "sourceText": "F(F1 Authority 노드 타입·F4 Citation Ledger 연결 규약 협의 — 차단 아님)",
+          "resolutionRef": "PACK-R14-02:T5-DEPREG-V1:H12/F-AUTHORITY-CITATION",
+          "emits": [
+            {
+              "id": "F1",
+              "kind": "soft"
+            },
+            {
+              "id": "F4",
+              "kind": "soft"
+            }
+          ]
+        }
+      ]
+    },
+    "journal": {
+      "schemaVersion": "tuw-transition-journal/v1",
+      "hashAlgorithm": "SHA-256",
+      "canonicalization": "AMIC-CJSON-1",
+      "authorityMode": "GIT_COMMIT_V1",
+      "additionalProperties": false,
+      "topLevelRequiredKeys": [
+        "schemaVersion",
+        "hashAlgorithm",
+        "canonicalization",
+        "authorityMode",
+        "schemaId",
+        "finalPackPayloadSha256",
+        "authorityCommit",
+        "candidateSha",
+        "validationScopeDigest",
+        "asOf",
+        "previousAcceptedJournalHead",
+        "bootstrap",
+        "genesisHash",
+        "entries",
+        "closeoutSeal"
+      ],
+      "headerFieldContract": {
+        "schemaVersion": {
+          "type": "string",
+          "exactValue": "tuw-transition-journal/v1"
+        },
+        "hashAlgorithm": {
+          "type": "string",
+          "exactValue": "SHA-256"
+        },
+        "canonicalization": {
+          "type": "string",
+          "exactValue": "AMIC-CJSON-1"
+        },
+        "authorityMode": {
+          "type": "string",
+          "exactValue": "GIT_COMMIT_V1"
+        },
+        "schemaId": {
+          "type": "string",
+          "exactValue": "PACK-R14-02-TASK5-SCHEMA-V1"
+        },
+        "finalPackPayloadSha256": {
+          "type": "Hash",
+          "algorithm": "SHA-256",
+          "exactValue": "32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9"
+        },
+        "authorityCommit": {
+          "type": "GitSha",
+          "exactValue": "2daa27d6ecb959342ecb13396286532e64f54cab"
+        },
+        "candidateSha": {
+          "type": "GitSha|null",
+          "BOOTSTRAP_IMPORT": null,
+          "TRANSITION": "non-null and equal to every entry.candidateSha, affected row.validatedCandidateSha, and evidence.candidateSha",
+          "FINAL_CLOSEOUT": "non-null and equal to every entry.candidateSha, closeoutSeal.candidateSha, affected row.validatedCandidateSha, and evidence.candidateSha"
+        },
+        "validationScopeDigest": {
+          "type": "Hash|null",
+          "BOOTSTRAP_IMPORT": null,
+          "TRANSITION": "non-null and equal to every entry.validationScopeDigest, affected row.validationScope.aggregateSha256, evidence.validationScopeDigest, and acceptedBlocker.validationScopeDigest",
+          "FINAL_CLOSEOUT": "non-null and equal to every entry.validationScopeDigest, closeoutSeal.validationScopeDigest, affected row.validationScope.aggregateSha256, evidence.validationScopeDigest, and acceptedBlocker.validationScopeDigest"
+        },
+        "asOf": {
+          "type": "Timestamp",
+          "BOOTSTRAP_IMPORT": "2026-07-17T00:00:00.000Z",
+          "TRANSITION": "equal to latest entry.recordedAt",
+          "FINAL_CLOSEOUT": "equal to closeoutSeal.recordedAt",
+          "mustEqualGenerationMetadataAsOf": true
+        },
+        "previousAcceptedJournalHead": {
+          "type": "Hash|null",
+          "BOOTSTRAP_IMPORT": null,
+          "TRANSITION": "null only when no prior accepted journal exists; otherwise exact prior accepted journal head Hash",
+          "FINAL_CLOSEOUT": "exact prior accepted journal head Hash"
+        },
+        "bootstrap": {
+          "type": "object",
+          "requiredKeysRef": "journal.bootstrapRequiredKeys"
+        },
+        "genesisHash": {
+          "type": "Hash",
+          "ruleRef": "journal.genesisHashRule"
+        },
+        "entries": {
+          "type": "object[]"
+        },
+        "closeoutSeal": {
+          "type": "object|null",
+          "BOOTSTRAP_IMPORT": null,
+          "TRANSITION": null,
+          "FINAL_CLOSEOUT": "non-null"
+        }
+      },
+      "headerBindingRules": [
+        "journal.schemaId MUST equal schema.schemaId",
+        "journal.finalPackPayloadSha256 MUST be Hash(SHA-256, schema.authority.finalPackPayloadSha256)",
+        "journal.authorityCommit MUST equal schema.authority.authorityCommit",
+        "BOOTSTRAP_IMPORT requires candidateSha=null, validationScopeDigest=null, previousAcceptedJournalHead=null, entries=[], closeoutSeal=null, and asOf=2026-07-17T00:00:00.000Z",
+        "TRANSITION and FINAL_CLOSEOUT require non-null candidateSha and validationScopeDigest",
+        "journal candidateSha and validationScopeDigest MUST bind entries, affected rows, evidence, accepted blockers, and closeout seal where present",
+        "generationMetadata.asOf and generatedAt MUST equal journal.asOf",
+        "previousAcceptedJournalHead refers only to an already accepted prior journal and is never derived from the current journal"
+      ],
+      "bootstrapRequiredKeys": [
+        "bootstrapId",
+        "sourcePlanSha256",
+        "selectedTupleSha256",
+        "imported110Hashes",
+        "rowCount",
+        "exactIdSetSha256",
+        "orderedRowIds",
+        "orderedRowSetSha256",
+        "statusCounts",
+        "baseOverrides",
+        "baseOverridesSha256"
+      ],
+      "bootstrapFieldContract": {
+        "bootstrapId": {
+          "type": "string",
+          "exactValue": "PACK-R14-02-BOOTSTRAP-117"
+        },
+        "rowCount": {
+          "type": "safe-integer",
+          "exactValue": 117
+        },
+        "orderedRowIds": {
+          "type": "string[117]",
+          "exactValueRef": "schema.bootstrap.orderedRowIds",
+          "unique": true,
+          "reorderingForbidden": true
+        },
+        "orderedRowSetSha256": {
+          "type": "Hash",
+          "algorithm": "SHA-256",
+          "exactValue": "64228240f540c1687d08fe3ac10de23ad7093d04f446d48e0580ce19c8649d8c",
+          "preimage": "AMIC-CJSON-1 of bootstrap.orderedRowIds with array order preserved"
+        },
+        "exactIdSetSha256": {
+          "type": "Hash",
+          "algorithm": "SHA-256",
+          "exactValue": "eb3fe63aaad2c86ed2b58f7bcf752f7ea5ac9b6d266fb7ba79564a8d3d0e1a82",
+          "preimage": "AMIC-CJSON-1 of a JavaScript UTF-16 lexical ascending copy of bootstrap.orderedRowIds"
+        },
+        "baseOverrides": {
+          "type": "object",
+          "binding": "baseOverrides.unitOverrides MUST contain exactly the 117 unique IDs in bootstrap.orderedRowIds; no missing or extra ID"
+        },
+        "baseOverridesSha256": {
+          "type": "Hash",
+          "preimage": "AMIC-CJSON-1 of bootstrap.baseOverrides only"
+        }
+      },
+      "genesisHashPreimage": [
+        "schemaVersion",
+        "hashAlgorithm",
+        "canonicalization",
+        "authorityMode",
+        "schemaId",
+        "finalPackPayloadSha256",
+        "authorityCommit",
+        "candidateSha",
+        "validationScopeDigest",
+        "asOf",
+        "previousAcceptedJournalHead",
+        "bootstrap"
+      ],
+      "genesisHashRule": "SHA-256 of the AMIC-CJSON-1 object containing exactly genesisHashPreimage keys and their journal values; genesisHash, entries, and closeoutSeal are excluded",
+      "genesisCircularityForbidden": true,
+      "journalHeadRule": "closeoutSeal.sealHash when closeoutSeal is non-null; otherwise final entry.entryHash when entries is non-empty; otherwise genesisHash",
+      "snapshotSemantics": {
+        "acceptedSnapshotImmutable": true,
+        "phaseAdvanceCreatesNewSnapshot": true,
+        "newSnapshotRecomputesGenesisAndEntryChain": true,
+        "previousAcceptedJournalHeadSource": "journalHeadRule evaluated on the immutable prior accepted snapshot",
+        "currentSnapshotHashReferenceForbidden": true
+      },
+      "entryRequiredKeys": [
+        "sequence",
+        "transitionId",
+        "packId",
+        "tuwId",
+        "transitionKind",
+        "candidateSha",
+        "validationScopeDigest",
+        "recordedAt",
+        "reasonCode",
+        "reason",
+        "beforeOverrideSha256",
+        "afterOverride",
+        "afterOverrideSha256",
+        "previousEntryHash",
+        "entryHash"
+      ],
+      "transitionKindEnum": [
+        "ADJUDICATE",
+        "PROMOTE",
+        "DEMOTE",
+        "BLOCK",
+        "UNBLOCK",
+        "REVALIDATE"
+      ],
+      "transitionIdPattern": "^TR-[0-9]{6}$",
+      "reasonCodePattern": "^[A-Z][A-Z0-9_]{2,63}$",
+      "entryHashRule": "SHA-256 of AMIC-CJSON-1 entry excluding entryHash",
+      "entryBindingRules": [
+        "entry.candidateSha MUST equal journal.candidateSha",
+        "entry.validationScopeDigest MUST equal journal.validationScopeDigest",
+        "entry.afterOverride.validatedCandidateSha MUST equal journal.candidateSha",
+        "entry.afterOverride.validationScope.aggregateSha256 MUST equal journal.validationScopeDigest",
+        "every entry.afterOverride evidence.validationScopeDigest and acceptedBlocker.validationScopeDigest MUST equal journal.validationScopeDigest"
+      ],
+      "firstPreviousEntryHash": "genesisHash",
+      "laterPreviousEntryHash": "previous entry.entryHash",
+      "sequenceStartsAt": 1,
+      "sequenceContiguous": true,
+      "recordedAtStrictlyIncreasing": true,
+      "recordedAtMustEqualContainingGitCommitCommitterTimestamp": true,
+      "replay": {
+        "base": "embedded bootstrap.baseOverrides",
+        "beforeHashMustMatch": true,
+        "rowReplacementCountPerEntry": 1,
+        "topLevelUpdatedAtBecomesRecordedAt": true,
+        "validateEntireStateAfterEveryEntry": true,
+        "regenerateJsonAndMarkdownAfterEveryEntry": true,
+        "finalReplayMustEqualMaterializedOverridesAndBothLedgers": true
+      },
+      "aggregate": {
+        "minTuws": 3,
+        "maxTuws": 8,
+        "productChangesCommittedBeforeFreeze": true,
+        "oneCandidateShaPerPack": true,
+        "evidenceCollectedAgainstFrozenCandidate": true,
+        "oneJournalEntryAndOneRowOverridePerTransitionCommit": true,
+        "controlPlaneOnlyAfterCandidateFreeze": true,
+        "noRepeatedRowWithinPack": true,
+        "everyPrefixMustValidate": true,
+        "promotionsDependencyTopological": true,
+        "demotionsReverseDependencySafe": true,
+        "candidateToHeadNonControlPlaneDiffForbidden": true
+      },
+      "closeoutSeal": {
+        "requiredKeys": [
+          "recordedAt",
+          "candidateSha",
+          "validationScopeDigest",
+          "disposition",
+          "entryCount",
+          "finalEntryHash",
+          "finalOverridesSha256",
+          "finalRowsSha256",
+          "statusCounts",
+          "unresolvedDependenciesSha256",
+          "blockersSha256",
+          "validationFindingsSha256",
+          "previousEntryHash",
+          "sealHash"
+        ],
+        "dispositionEnum": [
+          "COMPLETE",
+          "BLOCKED"
+        ],
+        "sealHashRule": "SHA-256 of AMIC-CJSON-1 closeout seal excluding sealHash",
+        "bindingRules": [
+          "candidateSha MUST equal journal.candidateSha",
+          "validationScopeDigest MUST equal journal.validationScopeDigest",
+          "recordedAt MUST equal journal.asOf",
+          "entryCount MUST equal journal.entries.length",
+          "finalEntryHash and previousEntryHash MUST equal the final replay chain head",
+          "statusCounts MUST equal the replayed 117-row status counts"
+        ],
+        "separateControlPlaneOnlyCommit": true
+      },
+      "selfReferenceAvoidance": [
+        "journal entries and closeout seal contain no generated ledger hash",
+        "generated ledger may contain exact journal file hash",
+        "schema wrapper hash covers schema subobject only",
+        "genesisHash preimage contains exactly declared immutable header fields and bootstrap, excluding genesisHash, entries, and closeoutSeal",
+        "bootstrap.baseOverridesSha256 hashes bootstrap.baseOverrides only",
+        "bootstrap.orderedRowSetSha256 hashes bootstrap.orderedRowIds only",
+        "previousAcceptedJournalHead is an external prior accepted head and never the current genesisHash, entryHash, closeout sealHash, or generated ledger hash"
+      ]
+    },
+    "phases": {
+      "derivedRules": {
+        "BOOTSTRAP_IMPORT": "entries.length=0 and closeoutSeal=null",
+        "TRANSITION": "entries.length>0 and closeoutSeal=null",
+        "FINAL_CLOSEOUT": "closeoutSeal is valid"
+      },
+      "unadjudicatedRules": [
+        "allowed only for B15,B16,B17,C16,B18,B19,B20",
+        "allowed only while validationState=BOOTSTRAP_PREIMAGE",
+        "forbidden in every afterOverride",
+        "count must be zero at FINAL_CLOSEOUT"
+      ],
+      "currentCompleteRules": [
+        "remainingGaps is empty",
+        "blockerClass is NONE",
+        "acceptedBlockers is empty",
+        "current durable evidence exists",
+        "all gating dependencies are satisfied",
+        "statusRationale is non-empty",
+        "candidate and validation-scope digests match"
+      ],
+      "currentNonCompleteRules": [
+        "remainingGaps is non-empty",
+        "statusRationale is non-empty",
+        "nextAction is non-empty"
+      ],
+      "closeoutRules": {
+        "allRowsCurrentValidated": true,
+        "rowCount": 117,
+        "unadjudicatedCount": 0,
+        "COMPLETE": "every row is COMPLETE_CANDIDATE",
+        "BLOCKED": "honest non-complete rows allowed only with gaps, rationale, and next action"
+      },
+      "bootstrapDefectRules": [
+        "bootstrap A6/A7 and A10/A9 labels are inert",
+        "CURRENT_VALIDATED COMPLETE_CANDIDATE A7 with blocked A6 is rejected",
+        "CURRENT_VALIDATED COMPLETE_CANDIDATE A10 with non-complete A9 is rejected"
+      ]
+    },
+    "checkMode": {
+      "cli": "node tools/execution/build-tuw-status-ledger.mjs --check",
+      "pipeline": [
+        "parse",
+        "normalize",
+        "verify bootstrap",
+        "replay journal",
+        "validate entire state",
+        "render JSON and Markdown in memory",
+        "compare exact bytes independently"
+      ],
+      "forbiddenOperations": [
+        "mkdir",
+        "write",
+        "rename",
+        "temporary-file creation",
+        "chmod",
+        "touch",
+        "utimes"
+      ],
+      "forbiddenOnMissingFileOrFailure": true,
+      "contentInvariant": true,
+      "mtimeInvariant": true,
+      "directoryEntryInvariant": true,
+      "gitStateInvariant": true
+    },
+    "validatorContract": {
+      "output": "exactly one safe JSON line",
+      "failureShape": {
+        "ok": false,
+        "code": "E_*",
+        "rowId": null,
+        "sequence": null,
+        "path": null,
+        "writes": 0
+      },
+      "successShape": {
+        "ok": true,
+        "code": "CHECK_OK",
+        "phase": "BOOTSTRAP_IMPORT|TRANSITION|FINAL_CLOSEOUT",
+        "rowCount": 117,
+        "journalEntries": 0,
+        "writes": 0
+      },
+      "schemaDecisionArtifactValidator": {
+        "implementation": "validate-task5-technical-schema-decision-v1.mjs",
+        "successCode": "TASK5_SCHEMA_VALID",
+        "adversarialSelfTestCount": 7,
+        "adversarialSelfTestIds": [
+          "EVIDENCE_SCOPE_REQUIRED_KEY_REMOVED",
+          "EVIDENCE_SCOPE_BINDING_CHANGED",
+          "ACCEPTED_BLOCKER_SCOPE_REQUIRED_KEY_REMOVED",
+          "JOURNAL_HEADER_REQUIRED_KEY_REMOVED",
+          "JOURNAL_HEADER_AUTHORITY_CHANGED",
+          "JOURNAL_GENESIS_SCOPE_BINDING_REMOVED",
+          "JOURNAL_ASOF_METADATA_BINDING_CHANGED"
+        ],
+        "readOnly": true,
+        "writes": 0
+      },
+      "exitCodeClasses": {
+        "30": "E_SCHEMA_*",
+        "31": "E_BOOTSTRAP_*",
+        "32": "E_METADATA_*",
+        "33": "E_EVIDENCE_*",
+        "34": "E_DEPENDENCY_*",
+        "35": "E_BLOCKER_*",
+        "36": "E_JOURNAL_*",
+        "37": "E_REPLAY_*",
+        "38": "E_TRANSITION_*|E_PHASE_*",
+        "39": "E_DRIFT_*",
+        "40": "E_SCOPE_*"
+      },
+      "validationOrder": [
+        "schema",
+        "bootstrap",
+        "metadata",
+        "alias registry",
+        "dependencies",
+        "blockers",
+        "evidence",
+        "journal chain",
+        "prefix replay",
+        "phase",
+        "rendered-byte drift"
+      ],
+      "errorCodes": [
+        "E_SCHEMA_SHAPE",
+        "E_SCHEMA_TIMESTAMP",
+        "E_SCHEMA_HASH",
+        "E_SCHEMA_GIT_SHA",
+        "E_BOOTSTRAP_IDENTITY",
+        "E_BOOTSTRAP_NOT_CURRENT",
+        "E_METADATA_CLOCK",
+        "E_EVIDENCE_LEGACY_CURRENT",
+        "E_EVIDENCE_SCHEMA",
+        "E_EVIDENCE_STALE",
+        "E_EVIDENCE_WRONG_SHA",
+        "E_EVIDENCE_SCOPE_DRIFT",
+        "E_EVIDENCE_NON_DURABLE",
+        "E_EVIDENCE_TEST_COUNTS",
+        "E_DEPENDENCY_ALIAS",
+        "E_DEPENDENCY_DUPLICATE",
+        "E_DEPENDENCY_SELF",
+        "E_DEPENDENCY_UNKNOWN",
+        "E_DEPENDENCY_CYCLE",
+        "E_DEPENDENCY_CAPABILITY_UNRESOLVED",
+        "E_DEPENDENCY_CONDITION_UNKNOWN",
+        "E_DEPENDENCY_GATE",
+        "E_BLOCKER_ACCEPTANCE",
+        "E_BLOCKER_HARD_NOT_ACCEPTABLE",
+        "E_BLOCKER_POLICY_CONFLICT",
+        "E_BLOCKER_SCOPE_DRIFT",
+        "E_BLOCKER_NOT_COMPLETE",
+        "E_JOURNAL_HEADER",
+        "E_JOURNAL_GENESIS",
+        "E_JOURNAL_SEQUENCE",
+        "E_JOURNAL_CHAIN",
+        "E_JOURNAL_HASH",
+        "E_TRANSITION_MULTI_ROW",
+        "E_TRANSITION_INVALID",
+        "E_REPLAY_MISMATCH",
+        "E_PHASE_UNADJUDICATED",
+        "E_PHASE_CLOSEOUT",
+        "E_DRIFT_JSON",
+        "E_DRIFT_MARKDOWN",
+        "E_CHECK_WRITE",
+        "E_SCOPE_COMMIT",
+        "E_SCOPE_PACK_SIZE"
+      ],
+      "adversarialSelfTests": {
+        "executionMode": "IN_MEMORY_ONLY_NO_FILESYSTEM_WRITE",
+        "allMutationsMustReject": true,
+        "mutations": [
+          {
+            "id": "EVIDENCE_SCOPE_REQUIRED_KEY_REMOVED",
+            "target": "evidence.requiredKeys.validationScopeDigest",
+            "expectedCheck": "evidence_required_keys"
+          },
+          {
+            "id": "EVIDENCE_SCOPE_BINDING_CHANGED",
+            "target": "evidence.validationScopeDigest.mustEqualRowValidationScopeAggregateSha256",
+            "expectedCheck": "evidence_scope_row_binding"
+          },
+          {
+            "id": "ACCEPTED_BLOCKER_SCOPE_REQUIRED_KEY_REMOVED",
+            "target": "blockers.acceptedBlocker.requiredKeys.validationScopeDigest",
+            "expectedCheck": "accepted_blocker_required_keys"
+          },
+          {
+            "id": "JOURNAL_HEADER_REQUIRED_KEY_REMOVED",
+            "target": "journal.topLevelRequiredKeys.schemaId",
+            "expectedCheck": "journal_top_level_required_keys"
+          },
+          {
+            "id": "JOURNAL_HEADER_AUTHORITY_CHANGED",
+            "target": "journal.headerFieldContract.authorityCommit.exactValue",
+            "expectedCheck": "journal_authority_commit_binding"
+          },
+          {
+            "id": "JOURNAL_GENESIS_SCOPE_BINDING_REMOVED",
+            "target": "journal.genesisHashPreimage.validationScopeDigest",
+            "expectedCheck": "journal_genesis_preimage"
+          },
+          {
+            "id": "JOURNAL_ASOF_METADATA_BINDING_CHANGED",
+            "target": "generationMetadata.asOfMustEqualJournalAsOf",
+            "expectedCheck": "metadata_journal_asof_binding"
+          }
+        ]
+      },
+      "deterministicFirstFailure": "canonical 117 row order, source dependency order, fixed validationOrder"
+    },
+    "prohibitions": [
+      "no product behavior authorization",
+      "no external operation authorization",
+      "no product, migration, dependency, deployment, or runtime change",
+      "no evidence fabrication or synthetic provenance",
+      "no private evidence dereference",
+      "no legacy evidence as current proof",
+      "no hard or conditional dependency blocker acceptance",
+      "no auto-promotion",
+      "no unexplained auto-demotion",
+      "no arbitrary override as proof",
+      "no hard or active-conditional CAP completion",
+      "no EXTERNAL_BLOCKED completion claim",
+      "no generated or temporary-only completion support",
+      "no check-mode mutation",
+      "no docs/package change",
+      "no change outside the two governance paths when this decision is registered"
+    ],
+    "remainingNonDelegableChoices": [
+      "CAP-CLAUSE-BANK-PARSED-CORPUS remains hard-unsatisfied until a later registered product decision",
+      "CAP-DOCUMENT-DRAFT-VERSION-PERSISTENCE remains hard-unsatisfied until a later registered product decision",
+      "CAP-AI-STRUCTURED-STRONG-ROUTING remains external and default-blocked",
+      "real evidence values, hashes, approvals, and environment receipts cannot be synthesized",
+      "Task 6B must provide exact validation-scope entries",
+      "future E7 canonical graph mutation requires activation and resolution of CAP-GRAPH-CANDIDATE-CONFIRMATION"
+    ],
+    "decisionLedgerAppend": "- 2026-07-17 PACK-R14-02 Task 5 technical-schema decision: under the owner's recorded technical-gates-only authority, `PACK-R14-02-TASK5-SCHEMA-V1` adopts deterministic SHA-256/RFC3339 evidence and metadata, opaque no-dereference provenance, 30-day deterministic journal-asOf freshness, scope-digest candidate binding, dependency-order-only accepted blockers that never satisfy hard completion, the exact 17-entry dependency-alias registry with fail-closed unresolved `CAP-*` identifiers, a Git-commit-authorized SHA-256 transition-journal v1 with one-row prefix replay and 3-8-row aggregate validation, and derived BOOTSTRAP_IMPORT/TRANSITION/FINAL_CLOSEOUT phases; legacy 110 evidence is preserved only as historical evidence and the fixed 19/80/11/7 snapshot is a sealed inert bootstrap preimage, never current completion; no Claude review, human review, human approval, product behavior, external operation, evidence fabrication, private-evidence dereference, dependency implementation, promotion, or completion is authorized by this schema decision."
+  }
+}
+```
+
+
 ### PACK governance, verification, and rollback
 
 Predecessors are G001 completion; G002 C001/C002/C003 PASS and checkpoint
-completion; the exact registration token; a registration-only PR changing
-exactly two files whose exact-head technical gates passed; merge of that PR; and
-an implementation branch based on the exact registration merge SHA in a clean
+completion; the exact registration token and its earlier registration-only PR
+changing exactly two files whose exact-head technical gates passed; merge of
+that earlier registration PR; this additional Task 5 technical-schema
+registration and its schema-registration PR whose exact-head technical gates
+passed; merge of that schema-registration PR; and an implementation branch
+based or rebased on the exact schema-registration merge SHA in a clean
 worktree. The recorded PACK-R14-02 execution and technical-gates-only directives
 authorize implementation without a separate review or approval gate.
 
