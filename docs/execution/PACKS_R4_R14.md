@@ -61,6 +61,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R14-01 | `feat/pack-r14-01-scale-learning` | 8 | `SCALE-PERF-BENCH-TUW-001` through `SCALE-GATE-REPORT-TUW-001` (`docs/execution/TUW_R14_SCALE_LEARNING.md`) |
 | PACK-R14-02 | `feat/pack-r14-02-control-plane-recovery` | 4 | `DEVOPS-EXECCTRL-PARSE117-TUW-001` through `DEVOPS-EXECCTRL-TRANSITION-TUW-004` (recovery-plan Task 4 then Task 5 only) |
 | PACK-R14-03 | `feat/pack-r14-03-recovery-manifest` | 3 | `RECOVERY-MANIFEST-SCHEMA-TUW-001` through `RECOVERY-MANIFEST-REGISTRATION-TUW-003` (recovery-plan Task 6B only) |
+| PACK-R14-03-AMENDMENT-01 | `feat/pack-r14-03-recovery-manifest-v2` | 3 | `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` through `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` (Task 7+ preflight correction only) |
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
@@ -1948,7 +1949,9 @@ ordinals `0094` through `0179` in dependency/PACK order; 84 filenames require
 renumbering. This is a planning decision only. Each later migration PACK must
 land its assigned migrations with reference updates and fresh isolated
 up/down/up, seed, and full integration proof. PACK-R14-03 neither changes nor
-executes a migration.
+lands a migration and performs no downstream or production migration execution;
+disposable isolated verification of the already committed migrations is an
+allowed technical gate.
 
 Conditional units D9, H14, and B20 remain `INACTIVE` with null approval refs.
 They may not execute or promote until a separate manifest amendment records
@@ -1993,6 +1996,188 @@ publication; or when the same failure repeats three times. Rollback before
 merge closes the isolated PR. Rollback after merge reverts this seven-path
 registration as one unit and invalidates every unstarted descendant; no
 database rollback applies because PACK-R14-03 has zero database scope.
+
+## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction
+
+Status: authorized technical-gates-only correction required by the Task 7
+preflight. This amendment changes the execution map only; it does not execute a
+downstream payload or row transition, land a migration, execute a migration
+against downstream or production state, deploy, perform an external operation,
+release, or go live. Disposable isolated migration verification remains an
+allowed technical gate.
+
+Registration authority and immutable anchors:
+
+- Authority ref: `DIRECT-OPERATOR-AGGREGATE-EXECUTION-20260717`, derived from
+  the operator's recorded sequential-execution, no-Claude, merge, and
+  no-human-approval directives for this aggregate goal.
+- Preflight evidence:
+  `.omo/evidence/ulw/amic-vault-117-recovery-20260716/G004-g04-complete-tasks-7-12-after-g03-re/a1/PACK-R14-04-MANIFEST-V1-PREFLIGHT-STOP-20260717.md`.
+- Exact preimage: `5c722f8a4b1f0a4c99b41089664c98ad151db2b8`.
+- Branch: `feat/pack-r14-03-recovery-manifest-v2`.
+- Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
+- Canonical payload SHA-256:
+  `29234d987b46d10774f49bda9a74f8bac7c72e81a4ea0cf2001cbc60fb1a281e`.
+- Sealed raw test-anchor source contract SHA-256:
+  `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
+- Sealed exact-base collision source contract SHA-256:
+  `0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467`.
+
+The v1 validator proved complete coverage of the preserved 893-path overlay,
+but Task 7 preflight exposed a separate source class that v1 did not model.
+PACK-R14-04 had 19 stale `historical_base` overlay paths and zero overlap with
+the five paths changed by the required 19 commits `55f61f0` through `aa50fbc`.
+Two of those stale paths were already superseded on main by the 117-row control
+plane. PACK-R14-05 also had no registered transition-bookkeeping paths, and
+PACK-R14-09 omitted two paths from exact source commit `0b39414`.
+
+This amendment contains exactly three TUWs, executed in order:
+
+1. `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` — register the exact 19-commit,
+   five-path release-history source and the exact one-commit, four-path LawOS
+   source without reclassifying the preserved overlay.
+2. `RECOVERY-MANIFEST-CONTROL-PLANE-TUW-005` — separate effective payload,
+   overlay, source, candidate-bookkeeping, and four-file one-row transition
+   paths; require receipt plus exact EOF execution-ledger append before any
+   transition commit and forbid non-control-plane changes afterward.
+3. `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` — reject commit/path
+   substitution, stale historical-base reactivation, missing receipt/ledger or
+   transition paths, wrong ordering, stale evidence routing, and amendment
+   authority drift.
+
+The 19 stale historical-base hunks are now quarantined under
+`STALE_HISTORICAL_BASE_REPLACED_BY_REGISTERED_GIT_HISTORY_SOURCE`; they remain
+losslessly preserved by G001/G002 and may not enter a PACK. Exact-base
+reconciliation also proves that six overlay paths originally classified as
+untracked creates already exist at the amendment preimage. Four are
+byte-identical and two are stale 110-row variants: the H1-H3 plan would replace
+the active 117-row pointer with the legacy 110-row pointer, and the 448-line
+legacy ledger builder would replace the merged 3,648-line 117-row control-plane
+builder. All six are therefore sealed as preservation-only quarantine rather
+than recreated or overwritten. Their raw test anchors remain represented by the
+collision contract but are not execution commands. Hunk ownership that is
+exclusively conditional on inactive D9, H14, or B20 is also quarantined as
+`INACTIVE_CONDITIONAL_TRIGGER`. Total quarantine is 196 hunks across 79 dirty
+paths while the manifest retains exact 893-path/4,801-hunk coverage. H14 source
+migrations 0102 and 0159 remain registered but blocked with no target ordinal;
+the 84 active migrations receive contiguous target ordinals 0094 through 0177
+in dependency-valid PACK and same-PACK unit-topological order.
+
+Non-overlay Git sources are dependency providers, not informational references.
+Every PACK that consumes a Task 7 or Task 8 source path has an explicit
+predecessor edge to its source-owning PACK; for example, PACK-R14-29 depends on
+PACK-R14-04 for its three Task 7-created documents. Task 8 is PACK-R14-08 and
+must finish before Task 12 at PACK-R14-09. Both name A14, but PACK-R14-08 performs
+no A14 control-plane transition and PACK-R14-09 performs the single A14
+transition only after the LawOS source is present.
+
+PACK-R14-03-AMENDMENT-01 creates no file. It may modify only:
+
+- `docs/execution/PACKS_R4_R14.md`
+- `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json`
+- `docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md`
+- `docs/ledger/decision.md`
+- the EOF of `docs/ledger/execution.md`
+- `tools/execution/build-post-r14-recovery-pack-manifest.mjs`
+- `tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs`
+
+Standalone validation pins the registered canonical payload SHA-256 and the
+sealed 19-row historical-base source contract, derives every PACK TUW role and
+transition row from the static blueprint plus the sealed 117-ID universe, and
+compares both generated JSON and Markdown in explicit `--committed-only` mode.
+A source-bound check additionally rebuilds from the sealed G002 inputs. Bare
+`--check`, a missing/empty/nonexistent `--source-dir`, duplicate or unknown
+options, multiple action modes, and a `--source-dir`/`--committed-only` conflict
+all fail closed; neither valid mode may accept a re-signed, internally
+self-consistent drift. Primary hunk ownership remains unique, but transition
+authorization is separately sealed in plan order because a TUW can require
+fresh adjudication after later evidence, implementation, or authority work.
+Task 9 therefore moves all seven Appendix-2 rows out of `UNADJUDICATED`, and
+Tasks 15 and 31-38 retain their exact repeated row transitions. An inactive
+conditional trigger blocks its hunks, migrations, implementation, and completion
+claim; it does not block a journal entry to a non-complete conditional state.
+Every raw G002 test anchor is retained with one deterministic disposition:
+available at the exact base, supplied by the current PACK, assigned as an exact
+planned create of the current owning PACK, supplied by a transitive predecessor,
+deferred to another registered provider PACK, an explicitly planned but
+not-yet-created acceptance-test gap, blocked behind an inactive conditional
+trigger, or a non-executable helper/config anchor. Only the first four
+dispositions may enter focused commands. A recognized
+executable anchor with no base, provider PACK, alias, or sealed planned-gap entry
+fails manifest generation. A mixed active/inactive test file or integration
+directory remains executable when the exact base or an active current/predecessor
+provider supplies a runnable spec; only an unavailable anchor supplied solely by
+an inactive trigger is blocked. Focused paths are routed
+one-to-one through their actual workspace/root Vitest, Node test, pytest, or
+integration runner. Each path first passes a fail-closed regular-file or
+integration-directory assertion, including no-symlink, at-least-one-spec, and
+static skip/todo/only/conditional/expected-failure checks, and then receives its
+own dedicated runner invocation; OR-style batching is forbidden. Vitest explicitly disables
+`passWithNoTests`; Node test, Vitest, pytest, and integration output must report
+at least one executed test, every executed test passing, and zero failed,
+cancelled, skipped, pending, todo, xfail, xpass, or deselected tests. Focused
+runner startup failure also fails closed. Helper-only integration directories
+are non-executable. Package commands use the repository-selected pnpm 9.15.9;
+an unavailable binary or Node/pnpm engine mismatch fails closed.
+Every earlier provider is an explicit predecessor and an owned planned gap is
+classified as predecessor-provided in successor PACKs. Frozen dependency
+installation and any required Python bootstrap must precede focused execution.
+Every generated path is POSIX single-quoted and its exact command must parse
+under both Bash and zsh before registration.
+
+Any PACK with integration selectors uses a deterministic PACK-specific compose
+project, a single-writer lock, a temporary Compose override that binds every
+published PostgreSQL/MinIO/ingestion port to `127.0.0.1`, non-default ports,
+database and ingestion worker URLs, and fresh volumes with the canonical
+isolated bucket `amic-vault-dev`. It pre-cleans only its exact project, builds
+and force-recreates the services with renewed anonymous volumes, applies
+migrations and seed data, and runs its focused integration commands. A
+status-preserving Bash EXIT trap always runs exact-project
+`down -v --remove-orphans --rmi local`, removes the override and lock, preserves
+the main failure status, and makes cleanup failure fatal after an otherwise
+successful run. A migration-bearing PACK additionally preserves the
+exact `migrate -> rollback -> migrate -> seed -> focused integration -> full
+integration` order before cleanup. The second migrate is a required duplicate,
+not a command subject to deduplication; missing cleanup on either success or
+failure is a stop condition.
+
+The seven normative acceptance tests explicitly named as new and absent from
+the base and preserved overlay are assigned as exact `plannedTestCreate` paths
+of their owning implementation PACK. Before that PACK they remain registered
+gaps, not false-green commands; in the owning PACK they become mandatory focused
+commands:
+
+- D8 / PACK-R14-13: `tests/integration/search-permission/search-email.spec.ts`
+- E12 / PACK-R14-21: `apps/api/src/modules/dd/dd-ai-mapping.service.spec.ts`
+- B13 / PACK-R14-32: `tests/integration/document-access/comparison-ai.spec.ts`
+- C14 / PACK-R14-31: `tests/integration/document-access/email-egress-dlp.spec.ts`
+- E13 / PACK-R14-32: `apps/api/src/modules/ai/features/ai-drafting.service.spec.ts`
+- E13 / PACK-R14-32: `tests/integration/ai-drafting.spec.ts`
+- B19 / PACK-R14-30: `tests/integration/redline.spec.ts`
+
+Each gap blocks a `COMPLETE` claim for its TUW until its owning implementation
+PACK creates and passes the exact test. An earlier status-adjudication PACK may
+record the gap and retain a non-complete status; it may not report the missing
+test as executed, skipped, or passing evidence.
+
+Focused verification is exact:
+
+```bash
+node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check \
+  --source-dir "$G002_SOURCE_DIR"
+node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check \
+  --committed-only
+node --test tools/execution/build-post-r14-recovery-pack-manifest.spec.mjs
+```
+
+Exact-head regression also requires frozen install, direct lint for the two
+validator files, workspace lint/typecheck/tests/build, backlog and frozen-docs
+validation, secret/private-data scan, `git diff --check`, zero
+`docs/package/**` or migration diff, original-overlay invariance, independent
+Codex review, and CI success. Claude and human waits are waived; no technical,
+security, scope, evidence, or stop gate is waived. Version 1 remains historical
+registration evidence but is superseded by version 2 for every unstarted
+PACK-R14-04 through PACK-R14-46 execution.
 
 ## PACK-LAI Local AI Operating Layer Family
 
