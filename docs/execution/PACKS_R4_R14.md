@@ -74,7 +74,7 @@ Registration authority:
 - Final control authority: owner directives `claude는 전부 생략`,
   `머지도 승인`, and `인간의 승인 필요 없게 진행`.
 - Sealed canonical PACK payload SHA-256:
-  `32f73a43db1fe0aaa221f25629e2b17ff61337aab666b2a7f9e23b6cdbfc6956`.
+  `32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9`.
   This supersedes the original and intermediate review-control clauses only.
 - Registration branch: `codex/register-pack-r14-02-control-plane-recovery`.
 - Implementation branch: `feat/pack-r14-02-control-plane-recovery`.
@@ -322,10 +322,11 @@ NONE/POLICY_CONFLICT/OWNER_DECISION/EXTERNAL_EVIDENCE/SOURCE_ACCESS/DEPENDENCY/T
 ### PACK governance, verification, and rollback
 
 Predecessors are G001 completion; G002 C001/C002/C003 PASS and checkpoint
-completion; this exact owner token; a registration-only PR changing exactly two
-files; independent review and merge of that PR; and an implementation branch
-based on the exact registration merge SHA in a clean worktree. A separate owner
-authorization is still required to start implementation.
+completion; the exact registration token; a registration-only PR changing
+exactly two files whose exact-head technical gates passed; merge of that PR; and
+an implementation branch based on the exact registration merge SHA in a clean
+worktree. The recorded PACK-R14-02 execution and technical-gates-only directives
+authorize implementation without a separate review or approval gate.
 
 PACK-level NOT-modify paths are `docs/package/**`, `db/migrations/**`,
 `apps/**`, `packages/**`, `workers/**`, `infra/**`, `.github/**`, `tests/**`,
@@ -394,7 +395,8 @@ Stop the PACK on any of these exact conditions:
   deployment, or external state
 - missing fixture, unclear schema, unresolved dependency, invalid evidence, or
   policy conflict
-- Risk=C independent review absent or invalidated by a later push
+- Risk=C required automated or deterministic technical gate absent, failing,
+  stale, or invalidated by a later push
 - same failure repeated three times
 
 ## PACK-LAI Local AI Operating Layer Family
