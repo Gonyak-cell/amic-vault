@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
   "phase": "TRANSITION",
-  "generatedAt": "2026-07-17T20:34:00.000Z",
+  "generatedAt": "2026-07-17T20:35:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,13 +11,13 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "2a43ef776d6a581f26aed0a4b134e9a4ce82d63543eb0f0a02dc7fa29c3ad473"
+      "value": "3a8c97589d890d35b03fea52f82089fec7c52ccc87b74150019433a7870d77a2"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "7e31560feb5b34bb21128a04dc29031cef3ef17eb13f6960b9b4edca8d120283"
+      "value": "88e3d1ec833489d5b237be5f92f83a569f540939dbb0d1c4d9baa65d6daed21f"
     },
-    "asOf": "2026-07-17T20:34:00.000Z",
+    "asOf": "2026-07-17T20:35:00.000Z",
     "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
@@ -45,13 +45,13 @@
   "counts": {
     "COMPLETE_CANDIDATE": 19,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 81,
-    "EXTERNAL_BLOCKED": 11,
+    "EXTERNAL_BLOCKED": 12,
     "PARTIAL": 3,
-    "UNADJUDICATED": 3
+    "UNADJUDICATED": 2
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 113,
-    "CURRENT_VALIDATED": 4
+    "BOOTSTRAP_PREIMAGE": 112,
+    "CURRENT_VALIDATED": 5
   },
   "units": [
     {
@@ -35499,7 +35499,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 3142
       },
-      "status": "UNADJUDICATED",
+      "status": "EXTERNAL_BLOCKED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -35528,21 +35528,107 @@
         "**Acceptance tests:** 자동 — (a) 이식된 diff-engine 테스트 전체가 pnpm test로 통과, (b) 한글 계약서 DOCX 버전쌍 픽스처에서 삽입/삭제/이동/표 셀 변경이 문자 단위 스팬으로 검출되는 회귀 테스트 — **픽스처는 익명화 합성 문서로 제작**(실계약서 리포 반입 금지; 조항 번호 문단·표·정의어 목록을 포함한 20p/100p 2종, 발주자 제공 샘플 참조 후 합성), (c) 5,000자 초과 문단의 단어 폴백 경계 테스트, (d) NFC 미정규화 입력 처리 테스트. 성능 — 100페이지급 합성 픽스처 쌍 diff가 워커 스레드에서 **p95 210초(3.5분) 내** 완료 assert(B19 e2e 5분 예산과 정합). 캐시: 초기 구현은 **캐시 생략을 기본**으로 하고, 도입 시 redline_cache(tenant_id 포함, RLS FORCE, 롤백 스크립트 — 리포 마이그레이션 규약 준수)로 추가한다."
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/comparison/comparison.module.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/document/document-editing.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+            }
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-action-center.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-vault-list.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+            }
+          },
+          {
+            "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+            }
+          },
+          {
+            "path": "packages/redline/src/diff-engine.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/redline.spec.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+        }
+      },
       "historicalEvidenceRefs": [],
       "evidenceRefs": [],
-      "blockerClass": "NONE",
-      "blockingRefs": [],
+      "blockerClass": "SOURCE_ACCESS",
+      "blockingRefs": [
+        "docs/handoff/dms-uplift-2026-07/00_README.md:49"
+      ],
       "acceptedBlockers": [],
       "dependencyConditions": [],
       "remainingGaps": [
-        "Acceptance, code, test, and operational evidence for B18 have not been reviewed."
+        "Obtain authorized Contract Desk source access and establish the allowed source provenance.",
+        "Implement the B18 redline package and its synthetic fixture, performance, normalization, and extraction acceptance coverage."
       ],
-      "nextAction": "Adjudicate B18 against its acceptance block and record current evidence before any status change.",
-      "statusRationale": "Appendix-2 B18 is newly registered in the active 117-unit plan and has no adjudication evidence in the imported substrate.",
-      "lastReviewedAt": null
+      "nextAction": "Keep B18 externally blocked until authorized Contract Desk source access is recorded; then execute only its registered redline package PACK.",
+      "statusRationale": "B18 cannot be implemented or completed from the exact candidate because the authoritative Contract Desk source access is explicitly required by the handoff and packages/redline is absent.",
+      "lastReviewedAt": "2026-07-17T20:35:00.000Z"
     },
     {
       "id": "B19",
