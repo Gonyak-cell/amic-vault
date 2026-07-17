@@ -292,6 +292,7 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
     'Canonical payload hash (SHA-256)',
     'Canonical SHA-256 payload hash',
     'Canonical digest SHA-256',
+    'Canonical SHA-256 checksum',
   ]) {
     const alternateRegistry = packRegistry.replace(
       '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
@@ -306,6 +307,17 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
     assert.equal(registryResult.errors.some(
       (error) => error.code === 'AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT',
     ), true);
+  }
+  for (const marker of ['*', '+', '1.']) {
+    const alternateRegistry = packRegistry.replace(
+      '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
+      '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.\n'
+        + marker + ' Canonical SHA-256: `' + staleHash + '`.',
+    );
+    assert.equal(validateAuthorityArtifacts(manifest, { packRegistry: alternateRegistry, decisionLedger }).ok, false);
+    const alternateDecision = decisionLedger
+      + '\n' + marker + ' 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.\n';
+    assert.equal(validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: alternateDecision }).ok, false);
   }
   const decisionResult = validateAuthorityArtifacts(manifest, {
     packRegistry,

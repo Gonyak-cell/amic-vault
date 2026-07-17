@@ -2823,9 +2823,9 @@ export function validateAuthorityArtifacts(manifest, {
   if (unsafeRegistryContextLines.length) {
     fail('AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT', unsafeRegistryContextLines.join('\n'));
   }
-  const isCanonicalLabel = (line) => /^- Canonical\b/i.test(line)
-    && /\bSHA-?256\b/i.test(line)
-    && /\b(?:payload|hash|digest)\b/i.test(line);
+  const authorityListMarker = /^ {0,3}(?:[-+*]|\d+[.)])\s+/;
+  const isCanonicalLabel = (line) => authorityListMarker.test(line)
+    && /Canonical\b/i.test(line) && /\bSHA-?256\b/i.test(line);
   const canonicalLabelLines = registrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
   const authorityCanonicalLabelLines = registrySection.split('\n').filter((line) =>
@@ -2874,7 +2874,7 @@ export function validateAuthorityArtifacts(manifest, {
   );
   const rawDecisionLines = (decisionLedger ?? '').split('\n');
   const rawAuthorityLineIndexes = rawDecisionLines.flatMap((line, index) =>
-    /^- /.test(line) && line.includes(AMENDMENT_PACK_ID)
+    authorityListMarker.test(line) && line.includes(AMENDMENT_PACK_ID)
       && /authority\s+decision(?:\s+record)?\b/i.test(line) ? [index] : []);
   const unsafeDecisionContextLines = rawAuthorityLineIndexes.flatMap((index) => {
     let preambleStart = index;
@@ -2892,7 +2892,7 @@ export function validateAuthorityArtifacts(manifest, {
   }
   const decisionLines = maskNonOperationalMarkdown(decisionLedger ?? '').split('\n');
   const rawAuthorityLineCount = rawAuthorityLineIndexes.length;
-  const decisionCandidates = decisionLines.filter((line) => /^- /.test(line)
+  const decisionCandidates = decisionLines.filter((line) => authorityListMarker.test(line)
     && line.includes(AMENDMENT_PACK_ID)
     && /authority\s+decision(?:\s+record)?\b/i.test(line));
   if (rawAuthorityLineCount !== decisionCandidates.length) {
