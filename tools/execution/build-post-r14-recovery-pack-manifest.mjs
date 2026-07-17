@@ -2842,7 +2842,7 @@ export function validateAuthorityArtifacts(manifest, {
         const parentContentIndent = parentIndent
           + markdownColumnWidth(parentMarker[2] + parentMarker[3]);
         if (parentIndent < indent) {
-          return indent >= parentContentIndent + 2 && indent <= parentContentIndent + 3;
+          return indent >= parentContentIndent && indent <= parentContentIndent + 3;
         }
       }
       if (!parentMarker && markdownColumnWidth(parentLine.match(/^[ \t]*/)[0]) === 0) return false;
