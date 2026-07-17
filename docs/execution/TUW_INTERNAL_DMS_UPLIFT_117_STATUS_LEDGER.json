@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
   "phase": "TRANSITION",
-  "generatedAt": "2026-07-17T20:33:00.000Z",
+  "generatedAt": "2026-07-17T20:34:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,13 +11,13 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "71ef7dfb237dd10cfd557688671965b0ba7a96267b7c825353b3e37456e40d3d"
+      "value": "2a43ef776d6a581f26aed0a4b134e9a4ce82d63543eb0f0a02dc7fa29c3ad473"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "992804c8ebcb4e00b04515243447341dc645b9993b071e639b0ceeb5725dece3"
+      "value": "7e31560feb5b34bb21128a04dc29031cef3ef17eb13f6960b9b4edca8d120283"
     },
-    "asOf": "2026-07-17T20:33:00.000Z",
+    "asOf": "2026-07-17T20:34:00.000Z",
     "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
@@ -44,14 +44,14 @@
   ],
   "counts": {
     "COMPLETE_CANDIDATE": 19,
-    "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 80,
+    "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 81,
     "EXTERNAL_BLOCKED": 11,
     "PARTIAL": 3,
-    "UNADJUDICATED": 4
+    "UNADJUDICATED": 3
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 114,
-    "CURRENT_VALIDATED": 3
+    "BOOTSTRAP_PREIMAGE": 113,
+    "CURRENT_VALIDATED": 4
   },
   "units": [
     {
@@ -35324,7 +35324,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 3130
       },
-      "status": "UNADJUDICATED",
+      "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [
         {
           "id": "C5",
@@ -35388,21 +35388,107 @@
       "externalEvidenceNeeds": [
         "**Acceptance tests:** 자동 — tests/integration에 (a) send_and_file 요청 생성→이행 잡 실행→email_messages 행+매터 파일링+completed 전이, (b) Sent Items 미반영 시뮬레이션에서 백오프 재시도 후 성공, 10분 초과 시 sent_item_not_found로 failed 전이, (c) 매칭 키 우선순위(internetMessageId→conversationId+canonical) 및 다중 매치 처리 검증, (d) 권한 없는 매터 지정 시 거부. 수동 — 파일럿(R0) 계정에서 외부 수신자 메일 발송 시 SoftBlock 프롬프트→태스크페인→매터 자유검색 선택→발송 후 표시(정상 경로 1분 내, Sent Items 지연 시 최대 10분 + 상태 노출)되면 통과."
       ],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/comparison/comparison.module.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/document/document-editing.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "921384dd1a6deb3258909b29a431b5ec2bdde020eb1035e584448bd66d44d526"
+            }
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-fulfillment.service.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/outlook/outlook-send-file.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c128cc026b61e25c16acaf8714bbd70b4841d358232e9d9899e64d0b0eeb22d0"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-action-center.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "bd0f4d5dea6201685ae86a6ad239578efe0cb895a8f83e3254f857130301880a"
+            }
+          },
+          {
+            "path": "apps/web/src/components/document/document-vault-list.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "0aa9ba9ce16971b95a6372503ab37a2e75ccefa0bc82f9287caaf5c27de34131"
+            }
+          },
+          {
+            "path": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/00_README.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "1b4869bc33c2b46f074cf62edb2da50a60829d6c1cb67677bfbe5a4f4e95dc06"
+            }
+          },
+          {
+            "path": "docs/handoff/dms-uplift-2026-07/06_execution-guide.md",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "8eb4bdebea4382530a83856a01186e4f2710fe49b3b3df4f5c5f3496ededbbfb"
+            }
+          },
+          {
+            "path": "packages/redline/src/diff-engine.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/redline.spec.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+        }
+      },
       "historicalEvidenceRefs": [],
       "evidenceRefs": [],
-      "blockerClass": "NONE",
-      "blockingRefs": [],
+      "blockerClass": "DEPENDENCY",
+      "blockingRefs": [
+        "C7"
+      ],
       "acceptedBlockers": [],
       "dependencyConditions": [],
       "remainingGaps": [
-        "Acceptance, code, test, and operational evidence for C16 have not been reviewed."
+        "Restore or implement the C16 OBO send_and_file fulfillment, retry, matching, and filing path from an authorized baseline.",
+        "Complete hard dependency C7 with external M365 evidence and add C16 integration, permission-negative, and R0 manual pilot evidence."
       ],
-      "nextAction": "Adjudicate C16 against its acceptance block and record current evidence before any status change.",
-      "statusRationale": "Appendix-2 C16 is newly registered in the active 117-unit plan and has no adjudication evidence in the imported substrate.",
-      "lastReviewedAt": null
+      "nextAction": "Keep C16 non-complete until the authorized fulfillment source is available, C7 is current complete, and the C16 acceptance evidence is collected.",
+      "statusRationale": "C16 has adjacent send-and-file request and matter lookup surfaces at the exact candidate, but the handoff baseline declares the required outlook-fulfillment file absent from current main; C7 remains a hard external dependency.",
+      "lastReviewedAt": "2026-07-17T20:34:00.000Z"
     },
     {
       "id": "B18",

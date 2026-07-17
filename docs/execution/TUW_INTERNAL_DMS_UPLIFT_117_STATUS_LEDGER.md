@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-17T20:33:00.000Z`
+- asOf / generatedAt: `2026-07-17T20:34:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `71ef7dfb237dd10cfd557688671965b0ba7a96267b7c825353b3e37456e40d3d`
-- Transition journal SHA-256: `992804c8ebcb4e00b04515243447341dc645b9993b071e639b0ceeb5725dece3`
+- Overrides SHA-256: `2a43ef776d6a581f26aed0a4b134e9a4ce82d63543eb0f0a02dc7fa29c3ad473`
+- Transition journal SHA-256: `7e31560feb5b34bb21128a04dc29031cef3ef17eb13f6960b9b4edca8d120283`
 
 ## Objective
 
@@ -19,12 +19,12 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 ## Status Counts
 
 - COMPLETE_CANDIDATE: 19
-- LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 80
+- LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 81
 - EXTERNAL_BLOCKED: 11
 - PARTIAL: 3
-- UNADJUDICATED: 4
-- BOOTSTRAP_PREIMAGE: 114
-- CURRENT_VALIDATED: 3
+- UNADJUDICATED: 3
+- BOOTSTRAP_PREIMAGE: 113
+- CURRENT_VALIDATED: 4
 
 ## Rules
 
@@ -155,7 +155,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | B15 | 1 | M | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3094 | Implement only the B15 allowlisted client-axis and editor-provenance slice after its registered PACK is reached, then collect current integration and manual evidence. |
 | B16 | 1 | S | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3106 | Implement only the B16 allowlisted copy-conflict slice after its registered PACK is reached, then collect current integration and manual evidence. |
 | B17 | 2 | S | PARTIAL | CURRENT_VALIDATED | 0 | 0 | NONE | 2 | 3118 | Implement only the B17 allowlisted check-in choice slice after its registered PACK is reached, then collect current integration and manual evidence. |
-| C16 | 2 | M | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3130 | Adjudicate C16 against its acceptance block and record current evidence before any status change. |
+| C16 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | CURRENT_VALIDATED | 0 | 0 | DEPENDENCY | 2 | 3130 | Keep C16 non-complete until the authorized fulfillment source is available, C7 is current complete, and the C16 acceptance evidence is collected. |
 | B18 | 2 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3142 | Adjudicate B18 against its acceptance block and record current evidence before any status change. |
 | B19 | 2 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3154 | Adjudicate B19 against its acceptance block and record current evidence before any status change. |
 | B20 | 3 | L | UNADJUDICATED | BOOTSTRAP_PREIMAGE | 0 | 0 | NONE | 1 | 3166 | Adjudicate B20 against its acceptance block and record current evidence before any status change. |
