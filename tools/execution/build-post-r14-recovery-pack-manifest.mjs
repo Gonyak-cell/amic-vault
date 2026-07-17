@@ -2842,18 +2842,49 @@ function maskNonOperationalMarkdown(text) {
   let fence = null;
   let comment = false;
   return text.split(/(?<=\n)/).map((line) => {
-    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/);
-    const startsComment = line.includes('<!--');
-    const endsComment = line.includes('-->');
-    const inactive = comment || fence !== null || fenceMatch || startsComment;
-    if (fenceMatch) {
-      const marker = fenceMatch[1][0];
-      fence = fence === marker ? null : marker;
+    if (fence) {
+      if (isClosingFence(line, fence)) fence = null;
+      return line.replace(/[^\n]/g, ' ');
     }
-    if (startsComment) comment = !endsComment;
-    else if (comment && endsComment) comment = false;
-    return inactive ? line.replace(/[^\n]/g, ' ') : line;
+    const opener = openingFence(line);
+    if (opener) {
+      fence = opener;
+      return line.replace(/[^\n]/g, ' ');
+    }
+    let output = '';
+    let cursor = 0;
+    while (cursor < line.length) {
+      if (comment) {
+        const end = line.indexOf('-->', cursor);
+        const stop = end < 0 ? line.length : end + 3;
+        output += line.slice(cursor, stop).replace(/[^\n]/g, ' ');
+        cursor = stop;
+        comment = end < 0;
+      } else {
+        const start = line.indexOf('<!--', cursor);
+        const stop = start < 0 ? line.length : start;
+        output += line.slice(cursor, stop);
+        cursor = stop;
+        if (start >= 0) comment = true;
+      }
+    }
+    return output;
   }).join('');
+}
+
+function openingFence(line) {
+  const match = line.match(/^( {0,3})(`{3,}|~{3,})([^\n]*)/);
+  if (!match) return null;
+  const marker = match[2][0];
+  if (marker === '`' && match[3].includes('`')) return null;
+  return { marker, width: match[2].length };
+}
+
+function isClosingFence(line, fence) {
+  const match = line.match(/^( {0,3})(`+|~+)[ \t]*\r?\n?$/);
+  return Boolean(match
+    && match[2][0] === fence.marker
+    && match[2].length >= fence.width);
 }
 
 export function renderMarkdown(manifest) {

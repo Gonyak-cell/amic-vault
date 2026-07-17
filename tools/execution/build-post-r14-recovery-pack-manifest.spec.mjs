@@ -280,6 +280,45 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
   ), true);
 });
 
+test('authority validation keeps inline-comment text active and honors fence length', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([
+    readFile(packRegistryPath, 'utf8'),
+    readFile(decisionLedgerPath, 'utf8'),
+  ]);
+  const rejection = '- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED. <!-- note -->';
+  const inlineResult = validateAuthorityArtifacts(manifest, {
+    packRegistry,
+    decisionLedger: decisionLedger + '\n' + rejection + '\n',
+  });
+  assert.equal(inlineResult.ok, false);
+  assert.equal(inlineResult.errors.some(
+    (error) => error.code === 'AUTHORITY_DECISION_RECORD_FORMAT',
+  ), true);
+
+  const heading = '## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction';
+  const canonical = '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.';
+  const affirmative = decisionLedger.split('\n').filter(
+    (line) => line.includes('authority decision record:'),
+  ).join('\n');
+  const fencedRegistry = packRegistry.replace(
+    heading + '\n\nStatus:',
+    '````md\n```\n' + heading + '\n\nStatus:',
+  ).replace(canonical, canonical + '\n````');
+  const fencedLedger = decisionLedger.replace(affirmative, '````text\n```\n' + affirmative + '\n````');
+  const fencedResult = validateAuthorityArtifacts(manifest, {
+    packRegistry: fencedRegistry,
+    decisionLedger: fencedLedger,
+  });
+  assert.equal(fencedResult.ok, false);
+  assert.equal(fencedResult.errors.some(
+    (error) => error.code === 'AUTHORITY_PACK_REGISTRY_HEADING_COUNT',
+  ), true);
+  assert.equal(fencedResult.errors.some(
+    (error) => error.code === 'AUTHORITY_DECISION_RECORD_COUNT',
+  ), true);
+});
+
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
   const manifest = await fixture();
   const packs = manifest.payload.packs;
@@ -1406,6 +1445,55 @@ test('committed-only check rejects a quoted decision record in a copied clone', 
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stderr, /AUTHORITY_DECISION_RECORD_COUNT/);
     assert.match(result.stderr, /"writes": 0/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('committed-only check rejects inline-comment conflicts and mixed-length fences', async () => {
+  const scratch = await mkdtemp(path.join(tmpdir(), 'amic-vault-authority-context-drift-'));
+  const clone = path.join(scratch, 'repo');
+  try {
+    const cloned = spawnSync('git', ['clone', '--shared', '--no-checkout', root, clone], {
+      encoding: 'utf8',
+    });
+    assert.equal(cloned.status, 0, cloned.stderr);
+    const checkedOut = spawnSync('git', ['-C', clone, 'checkout', '--detach', 'HEAD'], {
+      encoding: 'utf8',
+    });
+    assert.equal(checkedOut.status, 0, checkedOut.stderr);
+    await Promise.all([
+      cp(fileURLToPath(scriptPath), path.join(clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs')),
+      cp(fileURLToPath(manifestPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.json')),
+      cp(fileURLToPath(markdownPath), path.join(clone, 'docs/execution/POST_R14_RECOVERY_PACK_MANIFEST.md')),
+      cp(fileURLToPath(packRegistryPath), path.join(clone, 'docs/execution/PACKS_R4_R14.md')),
+      cp(fileURLToPath(decisionLedgerPath), path.join(clone, 'docs/ledger/decision.md')),
+    ]);
+    const cloneScript = await realpath(path.join(
+      clone, 'tools/execution/build-post-r14-recovery-pack-manifest.mjs',
+    ));
+    const run = () => spawnSync(process.execPath, [
+      cloneScript,
+      '--check', '--committed-only',
+    ], { cwd: clone, encoding: 'utf8' });
+    const cloneDecision = path.join(clone, 'docs/ledger/decision.md');
+    const decision = await readFile(cloneDecision, 'utf8');
+    await writeFile(cloneDecision, decision
+      + '\n- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED. <!-- note -->\n');
+    const inline = run();
+    assert.equal(inline.status, 1, inline.stdout + inline.stderr);
+    assert.match(inline.stderr, /AUTHORITY_DECISION_RECORD_FORMAT/);
+    assert.match(inline.stderr, /"writes": 0/);
+
+    await writeFile(cloneDecision, decision);
+    const cloneRegistry = path.join(clone, 'docs/execution/PACKS_R4_R14.md');
+    const registry = await readFile(cloneRegistry, 'utf8');
+    const heading = '## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction';
+    await writeFile(cloneRegistry, registry.replace(heading, '````md\n```\n' + heading) + '\n````\n');
+    const fence = run();
+    assert.equal(fence.status, 1, fence.stdout + fence.stderr);
+    assert.match(fence.stderr, /AUTHORITY_PACK_REGISTRY_HEADING_COUNT/);
+    assert.match(fence.stderr, /"writes": 0/);
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
