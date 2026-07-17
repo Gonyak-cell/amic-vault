@@ -2823,11 +2823,13 @@ export function validateAuthorityArtifacts(manifest, {
   if (unsafeRegistryContextLines.length) {
     fail('AUTHORITY_PACK_REGISTRY_MARKDOWN_CONTEXT', unsafeRegistryContextLines.join('\n'));
   }
-  const canonicalLabelPattern = /^- Canonical\b.*\b(?:payload|hash)\b.*\bSHA-?256\b/i;
+  const isCanonicalLabel = (line) => /^- Canonical\b/i.test(line)
+    && /\bSHA-?256\b/i.test(line)
+    && /\b(?:payload|hash|digest)\b/i.test(line);
   const canonicalLabelLines = registrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
   const authorityCanonicalLabelLines = registrySection.split('\n').filter((line) =>
-    canonicalLabelPattern.test(line));
+    isCanonicalLabel(line));
   if (canonicalLabelLines.length !== 1) {
     fail('AUTHORITY_PACK_REGISTRY_CANONICAL_LABEL_COUNT', canonicalLabelLines.length);
   }
@@ -2840,7 +2842,7 @@ export function validateAuthorityArtifacts(manifest, {
   const rawCanonicalLabelLines = rawRegistrySection.split('\n').filter((line) =>
     /^- Canonical payload SHA-256\s*:/i.test(line));
   const rawAuthorityCanonicalLabelLines = rawRegistrySection.split('\n').filter((line) =>
-    canonicalLabelPattern.test(line));
+    isCanonicalLabel(line));
   const rawRegistryPayloadAnchors = [...rawRegistrySection.matchAll(
     /^- Canonical payload SHA-256:\n {2}`([0-9a-f]{64})`\.$/gm,
   )];
@@ -2875,10 +2877,10 @@ export function validateAuthorityArtifacts(manifest, {
     /^- /.test(line) && line.includes(AMENDMENT_PACK_ID)
       && /authority\s+decision(?:\s+record)?\b/i.test(line) ? [index] : []);
   const unsafeDecisionContextLines = rawAuthorityLineIndexes.flatMap((index) => {
-    const preambleLines = rawDecisionLines.slice(0, index);
-    const preambleContent = preambleLines.at(-1) === '' ? preambleLines.slice(0, -1) : preambleLines;
-    return preambleContent
-      .slice(preambleContent.findLastIndex((line) => !line.trim()) + 1)
+    let preambleStart = index;
+    while (preambleStart > 0 && rawDecisionLines[preambleStart - 1].trim()) preambleStart -= 1;
+    return rawDecisionLines
+      .slice(preambleStart, index)
       .concat(rawDecisionLines[index])
       .filter((line) => /^ {0,3}</.test(line)
         || /^ {0,3}<[^/]/.test(line)

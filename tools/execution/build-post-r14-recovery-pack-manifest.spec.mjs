@@ -290,6 +290,8 @@ test('authority validation rejects alternate canonical and nonaffirmative statem
     'canonical PAYLOAD sha-256',
     'Canonical manifest payload SHA-256',
     'Canonical payload hash (SHA-256)',
+    'Canonical SHA-256 payload hash',
+    'Canonical digest SHA-256',
   ]) {
     const alternateRegistry = packRegistry.replace(
       '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.',
@@ -431,6 +433,14 @@ test('authority validation ignores unrelated Markdown block syntax in the decisi
     decisionLedger: decisionLedger + '\n<widget>\n',
   });
   assert.equal(result.ok, true);
+  const affirmative = decisionLedger.split('\n').find((line) =>
+    line.includes('authority decision record:') && line.includes(manifest.payloadSha256));
+  assert.ok(affirmative);
+  const interleaved = validateAuthorityArtifacts(manifest, {
+    packRegistry,
+    decisionLedger: decisionLedger.replace(affirmative, '<widget>\n\n' + affirmative),
+  });
+  assert.equal(interleaved.ok, true);
 });
 
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
