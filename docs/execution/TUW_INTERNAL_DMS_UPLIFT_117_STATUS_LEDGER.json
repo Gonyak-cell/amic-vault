@@ -1,11 +1,27 @@
 {
   "schemaVersion": 1,
+  "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
+  "phase": "BOOTSTRAP_IMPORT",
   "generatedAt": "2026-07-17T00:00:00.000Z",
+  "generationMetadata": {
+    "hashAlgorithm": "SHA-256",
+    "sourcePlanSha256": {
+      "algorithm": "SHA-256",
+      "value": "23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7"
+    },
+    "overridesSha256": {
+      "algorithm": "SHA-256",
+      "value": "d0404c84bfe3e7b4d14d071a0c9f267a87eb62a512a78f3e4d98499abaae6a4a"
+    },
+    "transitionJournalSha256": null,
+    "asOf": "2026-07-17T00:00:00.000Z",
+    "phase": "BOOTSTRAP_IMPORT"
+  },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
   "overridesPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json",
-  "objective": "117 TUW strict completion audit and execution gate. Use docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md as the authoritative 117-unit checklist and keep docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json plus docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md as the active execution-control ledger. For every TUW A1-H14 and Appendix-2 row across H1/H2/H3, classify the current state as COMPLETE_CANDIDATE, LOCAL_IMPLEMENTED_NEEDS_EVIDENCE, PARTIAL, NOT_STARTED, EXTERNAL_BLOCKED, or UNADJUDICATED. Do not treat file existence, passing unit tests, generated ledger rows, or plan text as completion. For each TUW, preserve its acceptance tests, manual QA requirement, dependencies, code anchors, migration requirements, audit/security invariants, external evidence needs, evidenceRefs, and nextAction. Work one TUW at a time, starting from the smallest dependency-valid row. Promote a TUW to COMPLETE_CANDIDATE only when required code, migrations, integration/unit tests, permission/audit/security negative tests, staging/manual QA receipt or documented external blocker, focused package checks, changed-file LSP diagnostics where available, db migrate/rollback/migrate where applicable, and git diff check have current evidence refs. Do not broaden implementation beyond the active TUW, and do not collapse multiple TUWs into a vague uplift task. Stop claiming product readiness until all 117 rows are COMPLETE_CANDIDATE with evidenceRefs or EXTERNAL_BLOCKED by non-repo operational evidence; UNADJUDICATED rows are not completion evidence.",
+  "objective": "117 TUW strict completion audit and execution gate. Use docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md as the authoritative 117-unit checklist and keep docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json plus docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md as the active execution-control ledger. For every TUW A1-H14 and Appendix-2 row across H1/H2/H3, classify the current state as COMPLETE_CANDIDATE, LOCAL_IMPLEMENTED_NEEDS_EVIDENCE, PARTIAL, NOT_STARTED, EXTERNAL_BLOCKED, or UNADJUDICATED. Do not treat file existence, passing unit tests, generated ledger rows, or plan text as completion. For each TUW, preserve its acceptance tests, manual QA requirement, dependencies, code anchors, migration requirements, audit/security invariants, external evidence needs, historicalEvidenceRefs, current evidenceRefs, and nextAction. Work one TUW at a time, starting from the smallest dependency-valid row. This BOOTSTRAP_IMPORT does not authorize promotion or demotion; TUW-004 must create and replay the transition journal before a state transition. Do not broaden implementation beyond the active TUW, and do not collapse multiple TUWs into a vague uplift task. Stop claiming product readiness until all 117 rows are CURRENT_VALIDATED COMPLETE_CANDIDATE with durable current evidence; EXTERNAL_BLOCKED and UNADJUDICATED are never completion evidence.",
   "statusTaxonomy": {
-    "COMPLETE_CANDIDATE": "All required code, DB migrations, unit/integration/negative tests, staging/manual QA receipt or documented external blocker, focused package checks, changed-file LSP diagnostics where available, migrate/rollback/migrate where applicable, and git diff check have current evidence refs.",
+    "COMPLETE_CANDIDATE": "All required code, DB migrations, unit/integration/negative tests, staging/manual QA receipts, focused package checks, changed-file LSP diagnostics where available, migrate/rollback/migrate where applicable, and git diff check have durable current evidence refs bound to the exact candidate and validation scope; accepted blockers never satisfy completion.",
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": "Implementation exists or is close, but the required completion evidence is missing, weak, stale, or narrower than the TUW acceptance block.",
     "PARTIAL": "Some anchors or adjacent behavior exist, but material code, acceptance coverage, or gates are missing.",
     "NOT_STARTED": "No reliable TUW-specific implementation evidence found. Nearby infrastructure does not count.",
@@ -14,20 +30,24 @@
   },
   "completionGate": [
     "derive acceptance tests and manual QA from the source TUW block",
-    "verify dependencies are satisfied or explicitly blocked",
+    "verify gating dependencies are satisfied; record explicit blockers only as noncompletion",
     "inspect code anchors and migration requirements in current worktree",
     "run required unit, integration, permission/security negative, and audit tests",
     "run focused package checks plus db migrate/rollback/migrate where applicable",
     "collect current changed-file LSP diagnostics where the tool is available",
     "collect staging/manual QA receipts for TUWs whose acceptance block requires them",
     "record current evidence refs in this ledger",
-    "promote exactly one TUW at a time"
+    "do not promote or demote from this inert bootstrap; TUW-004 must register and replay the transition journal first"
   ],
   "counts": {
     "COMPLETE_CANDIDATE": 19,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 80,
     "EXTERNAL_BLOCKED": 11,
     "UNADJUDICATED": 7
+  },
+  "validationCounts": {
+    "BOOTSTRAP_PREIMAGE": 117,
+    "CURRENT_VALIDATED": 0
   },
   "units": [
     {
@@ -120,7 +140,10 @@
       "externalEvidenceNeeds": [
         "**Scope:** 만들 것: (1) 신규 마이그레이션 — CREATE EXTENSION pg_trgm, matters.conflicts_status 컬럼(not_started/in_review/cleared/blocked, default not_started), conflict_checks 테이블(matter_id FK, 검사 대상 이름 목록, 매치 결과 JSON, 해소 상태·근거·해소자, tenant RLS FORCE + 컬럼 GRANT — 기존 마이그레이션 CONVENTIONS 준수). (2) ConflictCheckService: clients.name, parties.name(전 매터), matters의 과거 관계인을 pg_trgm similarity + 정규화(공백·법인격 접미사 제거)로 매칭하고 후보를 유사도 순으로 반환. (3) API — POST /matters/:matterId/conflict-checks(실행), GET /matters/:matterId/conflict-checks(이력), PATCH .../:checkId(cleared/blocked + 근거 필수). 모든 변이는 AuditService 트랜잭션 패턴으로 감사 기록. (4) MatterDto에 conflictsStatus 노출. 만들지 않을 것: OpenSearch 기반 매칭, 외부 기업DB 조회, 상대방 로펌 축 — 9인 로펌 규모에서 pg_trgm으로 충분."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:47",
@@ -262,6 +285,11 @@
           "note": "2026-07-03: tracked-file diff whitespace check passed for the modified email-filing spec; separate trailing-whitespace scan covers untracked ledger/tool/test artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A1 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A1.",
       "statusRationale": "A1 has current evidence for the pg_trgm/conflict_checks migration, matter conflict status exposure, API routes, permission-gated service implementation, run/resolve audit logging, normalization unit tests, conflict-check integration tests, permission-negative coverage, performance assertion, focused api package checks, default DB migrate/seed, clean throwaway DB migrate/rollback/migrate/seed, and live admin API manual QA against the default DB. The earlier default DB drift was local schema_migrations metadata ordering for already-applied 0098; it was repaired without changing application schema or migration files, and normal pnpm db:migrate now reports no migrations to run. The implementation is anchored under the existing matter module rather than the plan's proposed modules/conflicts path; the audited behavior matches the A1 acceptance surface.",
@@ -331,7 +359,10 @@
         "- 자동: tests/integration/matter-lifecycle.spec.ts 확장 — (a) cleared 전 PATCH /matters/:id/status(open) 요청이 409/422 + CONFLICTS_NOT_CLEARED 코드로 거부, (b) cleared 후 동일 요청 성공, (c) blocked 매터는 open 전이 거부 지속, (d) 거부 이벤트가 audit_events에 기록"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:75",
@@ -478,6 +509,11 @@
           "note": "2026-07-03: trailing-whitespace scan found no matches."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A2 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A2.",
       "statusRationale": "A2 has current evidence for the domain conflicts-status gate, API fail-closed proposed-to-open enforcement with denial audit logging, Matter DTO conflictsStatus exposure, web API client functions, Matter detail Conflicts panel rendering/actions, web component tests, lifecycle integration tests, focused domain/web checks, fresh browser manual QA through the real web surface, ledger regeneration, structural validation, and diff/whitespace checks. No A2-specific migration is required beyond the A1 conflicts_status schema already present; the manual gate was rerun after restarting a stale local API process so the evidence is from the current compiled runtime.",
@@ -542,7 +578,10 @@
       "externalEvidenceNeeds": [
         "**Scope:** 만들 것: (1) 신규 /matters/new 페이지 — 고객 셀렉터(GET /clients), matter_type 셀렉트(0013 CHECK의 10종), matter_code/matter_name 입력, lead lawyer 셀렉터, packages/shared createMatterSchema로 클라이언트측 검증 후 POST /matters 호출. (2) api-client.ts에 createMatter/listClients 함수 추가. (3) matters/page.tsx 131-136행의 '새 Matter'→/integrations/matter-app 링크를 /matters/new로 교체. (4) 성공 시 /matters/[matterId]로 리다이렉트하고 conflicts 검사 실행을 유도하는 배너 표시. 만들지 않을 것: LawOS 외부 API 실시간 연동(A14에서 별도), 템플릿 미리보기(A7에서 폼에 추가)."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:99",
@@ -674,6 +713,11 @@
           "note": "2026-07-03: sloplint exited 0. Reported weak findings are pre-existing/generated or outside the A3 touched visible copy; this A3 slice added no new decorative UI or generic product copy."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A3 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A3.",
       "statusRationale": "A3 has current evidence for the /matters/new web creation form, client selector through GET /clients, shared createMatterSchema payload construction, POST /matters submission, success redirect to /matters/[matterId]?created=1 with Conflicts guidance, /matters new-button routing, immediate proposed Matter list visibility, MATTER_CREATED audit console visibility, no-create-permission denial messaging, focused web/api checks, matter-core integration coverage including the proposed-list ordering regression, browser manual QA, and diff/tooling hygiene inputs. No A3-specific DB migration is required; A3 uses existing matter/client schemas and the existing POST /matters path.",
@@ -755,7 +799,10 @@
         "- 자동: tests/integration/client.spec.ts 확장 — alias 필드 CRUD와 sensitive 키 차단, cross-tenant 조회 차단 검증; tests/integration/matter-core.spec.ts 확장 — GET /matters/:id 응답에 clientDisplayName 포함 검증"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:120",
@@ -927,6 +974,11 @@
           "note": "2026-07-03: diff whitespace check passed for the A4-touched files and ledger override candidates."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A4 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A4.",
       "statusRationale": "A4 has current evidence for the clients API, aliases migration and rollback, client alias create/list/update behavior, reference-only client audit metadata, non-manager and cross-tenant negative tests, MatterDto clientDisplayName exposure on create/detail/list, /clients list and detail pages, web API client client functions, client page unit tests, conflict-check alias matching on both target and candidate client names, focused api/web checks, isolated DB migrate/rollback/migrate/seed, browser manual QA through /clients, /matters/new, /clients/[clientId], and /matters, sloplint, and diff hygiene. No customer portal or CRM surface was added.",
@@ -996,7 +1048,10 @@
       ],
       "auditSecurityInvariants": [],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:149",
@@ -1198,6 +1253,11 @@
           "note": "2026-07-03: diff whitespace check passed for the A5-touched implementation, tests, migrations, shared DTO, and ledger override candidates."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A5 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A5.",
       "statusRationale": "A5 has current evidence for the Matter detail party panel, party API client functions, shared create/update schema validation, restricted-party safe label masking, closed-Matter mutation disablement, backend permission/audit/security invariants, taxonomy/restricted-marker migrations with rollback, focused web/API package checks, party integration permission/audit/RLS negative tests, production web build, and live browser manual QA through the real Matter detail surface. No backend expansion beyond the existing Party API was added for this TUW.",
@@ -1291,7 +1351,10 @@
         "- 자동: tests/integration/ethical-wall.spec.ts·fail-closed.spec.ts 기존 케이스 전부 통과(wall fail-closed 회귀 없음)"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:171",
@@ -1568,6 +1631,11 @@
           "note": "2026-07-03: diff whitespace check passed for the A6-touched implementation, tests, migrations, shared DTO, and ledger override candidates."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A6 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A6.",
       "statusRationale": "A6 has current evidence for the matters.access_scope migration and backfill, PermissionService read/write split, permission-query list filter, shared Matter DTO/create/update schemas, Matter create/update/list persistence, owner-gated access-scope changes with MATTER_UPDATED audit metadata, web create/detail management controls, A6-specific integration tests including non-member read/list/document-list/write-denial, restricted hiding, ethical-wall fail-closed, active-wall backfill, focused API/web package checks, default DB migrate/seed, disposable DB migrate/rollback/migrate/seed, and live browser manual QA as a non-member user. The implementation keeps document confidentiality defaults and role/group matrices out of scope.",
@@ -1656,7 +1724,10 @@
         "- (앵커 부정확) anchors의 apps/web/src/app/(app)/matters/new/page.tsx는 현재 실존하지 않음(A3의 신규 산출물) — '신규(A3 산출물):' 표기로 수정할 것. 또한 신규 0101_create_matter_intake_templates.sql은 기존 db/migrations/0088_create_enterprise_dms_matter_templates.sql의 enterprise_dms_matter_templates(matter_type별 템플릿, document_sets_json 보유)와 역할이 중복됨 — 새 테이블 대신 0088 테이블에 access_scope/retention_policy_id/ai_policy_id 컬럼을 추가하는 방향을 우선 검토하고, 별도 테이블이 필요하면 근거를 명시할 것. 부가로 acceptance_tests의 '(다이제스트 low/QUALITY finding 흡수)'는 판정 기준이 아닌 메타 주석이므로 삭제 권장."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:197",
@@ -1883,6 +1954,11 @@
           "note": "2026-07-03: diff whitespace check passed for the A7 implementation, tests, migration, shared DTO, web create surface, and ledger artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A7 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A7.",
       "statusRationale": "A7 has current evidence for fixed default_open and restricted Matter intake templates, template-driven access_scope, template-driven local AI policy selection, lead-owner member insertion, MATTER_CREATED audit metadata with template_ref, rollback on invalid active template configuration, /matters/new template selector and preview, focused API/web checks, DB migrate and seed, clean disposable DB migrate/rollback/migrate/seed, live browser manual QA, sloplint, and diff whitespace checks. A7 completion follows the correction in the A7 plan critique: retention-policy auto-binding is excluded from H1/A7 and remains deferred to H8/H2, so no retention-policy binding is claimed here.",
@@ -1987,7 +2063,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:230",
@@ -2199,6 +2278,11 @@
           "note": "2026-07-04T11:44+09:00: current shell environment exposes no staging API/web target variables; this explains why B1 still lacks the authoritative staging /files-to-/search manual receipt but does not by itself promote B1 or mark it EXTERNAL_BLOCKED."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "External staging manual evidence is still missing: the authoritative B1 manual QA says staging /files upload of a scanned Korean contract PDF must become discoverable by body keyword in /search within 5 minutes. Local API/worker/integration evidence now passes, but it is not a staging receipt.",
         "Current environment has no staging API/web target variables recorded in tmp/b1-evidence/staging-target-check-current.json. Provide a staging target/cookie or a non-repo operational receipt before promotion."
@@ -2305,7 +2389,10 @@
       "externalEvidenceNeeds": [
         "Staging manual QA receipt: authenticated staging /files pptx upload, document-detail preview visible within 3 seconds, and precreated preview state confirmed with timestamp, staging target ref, safe document/matter refs, and screenshot or operator receipt."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:264",
@@ -3092,6 +3179,11 @@
           "note": "2026-07-04: B2 scoped JSON parse, git diff whitespace check, and trailing-whitespace scan passed after current evidence refresh."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual staging evidence is missing: staging pptx upload must show document-detail preview within 3 seconds with precreated preview state."
       ],
@@ -3194,7 +3286,10 @@
         "**완화 노트:** VDR 고급 기능(bidder 그룹, 외부 2FA, IP 제한)은 계획 제외 — 워터마크 렌더링만 실장. 내부 열람 화면 워터마크 오버레이는 인쇄/복사 차단 제외 정책에 따라 범위 외.",
         "- 수동: 스테이징 외부 포털에서 PDF 다운로드 → Acrobat으로 열어 전 페이지 대각선 워터마크(이메일·시각) 육안 확인이면 통과"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:302",
@@ -3411,6 +3506,13 @@
           "note": "2026-07-04: B3 scoped JSON parse, git diff whitespace check, and trailing-whitespace scan passed after current evidence refresh."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:309"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "R11 external-sharing release authority or operator/ledger resolution is missing; AGENTS.md and the Master Brief prohibit External Portal / secure-link / external-user implementation before R11.",
         "Worker /watermark/pdf endpoint, runtime reportlab promotion, external derived artifact cache, rendered watermark sha256 audit, stamped-byte integration evidence, and staging Acrobat manual QA remain unimplemented because proceeding would expand the external-sharing path under the active stop rule."
@@ -3531,7 +3633,10 @@
       "externalEvidenceNeeds": [
         "Staging manual QA receipt: authenticated staging /files upload with Source selected, document profile showing Source, promote to customer-sent v1.0 label, and version list displaying 고객송부본(v1.0), with timestamp, staging target ref, safe document/matter refs, and screenshot or operator receipt."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:329",
@@ -3843,6 +3948,11 @@
           "note": "2026-07-04: B4 scoped JSON parse, git diff whitespace check, and trailing-whitespace scan passed after current evidence refresh."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual staging evidence is missing: upload a document with Source selected, confirm Source appears in the document profile, promote with a customer-sent v1.0 label, and confirm the version list displays that label."
       ],
@@ -3969,7 +4079,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:362",
@@ -4451,6 +4564,11 @@
           "note": "2026-07-04 current rerun: JSON parse, LSP helper syntax check, tracked diff check, no-index diff check for untracked artifacts, and trailing-whitespace scan all passed for B6 ledger/evidence artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Approved staging DMS main-loop smoke receipt is missing. Current local artifacts cover script syntax, dry-run planning, check-env, unit/integration behavior, LSP, and migration evidence only; the 2026-07-04 full local smoke attempt is excluded because the local api service was not running.",
         "Required staging manual QA is missing: user A checkout left idle until TTL expiry, user B sees the expired-lock state, and an administrator successfully uses the force-release button with a bounded reason code."
@@ -4539,7 +4657,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:393",
@@ -4776,6 +4897,11 @@
           "note": "2026-07-04 current rerun: JSON parse, LSP helper syntax check, tracked diff check, no-index diff check for untracked artifacts, and trailing-whitespace scan all passed for C1 ledger/evidence artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Actual Outlook-exported Korean subject .eml evidence is still missing. C1 cannot be promoted to COMPLETE_CANDIDATE until a real Outlook-saved message is uploaded through the API/curl path and the Matter timeline visual check is recorded, or an operator provides non-repo evidence documenting that this manual artifact is externally blocked."
       ],
@@ -4841,7 +4967,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:415",
@@ -5003,6 +5132,11 @@
           "note": "2026-07-04 current rerun: JSON parse, LSP helper syntax check, tracked diff check, no-index diff check for untracked artifacts, and trailing-whitespace scan all passed for C2 ledger/evidence artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA is missing: sanitized staging evidence for a real forwarded .eml with inline image plus PDF attachment, proving document library PDF-only attachment creation, inline cid image exclusion, and original email relationship display/API evidence."
       ],
@@ -5084,7 +5218,10 @@
         "- email-upload-card.test.tsx에 중복 업로드(VALIDATION_FAILED 응답) 시 기존 이메일 안내 문구 렌더 검증 케이스"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:433",
@@ -5361,6 +5498,11 @@
           "note": "2026-07-04: trailing whitespace search returned no matches for C3 web files and ledger artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "Keep C3 as COMPLETE_CANDIDATE pending independent review. Continue the 110-row gate with the next dependency-valid unresolved TUW; do not infer product readiness from this single-row promotion.",
       "statusRationale": "C3 is promoted to COMPLETE_CANDIDATE because the current repo evidence now covers the Matter detail and /files email upload web surfaces, matter-scoped API client helpers, receipt suggestion selection, filing confirmation, immediate email timeline refresh, duplicate-safe copy, and MSG pending badge. Current verification includes focused web component/API-client tests, focused EmailService unit tests, email-filing integration tests with permission/audit negative coverage, focused ESLint, apps/web typecheck, Next production build, direct local TypeScript LSP diagnostics, and real Chrome CDP manual QA on the latest production web build for .eml upload -> receipt/current Matter option -> filing confirmation -> immediate timeline display plus .msg upload -> MSG 파싱 대기 receipt. C3 has no TUW-specific DB migration requirement because it reuses the existing email schema/routes.",
@@ -5462,7 +5604,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:462",
@@ -5714,6 +5859,11 @@
           "note": "2026-07-04T12:27:46+09:00: scoped JSON validation, LSP helper syntax check, tracked diff whitespace check, no-index whitespace checks for untracked C4 evidence artifacts, and explicit trailing-whitespace scan all passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual M365 evidence is missing: sideload the add-in manifest in a development M365 tenant with OUTLOOK_IDENTITY_VERIFIER=entra and required Entra env configured, then capture HTTP 200 add-in session exchange and issued add-in session receipt without secrets, tenant account ids, tokens, or mailbox addresses.",
         "Manual negative evidence is missing: capture a failed add-in session exchange that records OUTLOOK_ADDIN_SESSION_DENIED with policy_denied in the audit log, again without exposing identity assertions, tokens, or mailbox addresses.",
@@ -5842,7 +5992,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:486",
@@ -6249,6 +6402,11 @@
           "note": "2026-07-04T12:33:06+09:00: scoped JSON validation, LSP helper syntax check, tracked diff whitespace check, no-index whitespace checks for untracked C5 evidence artifacts, and explicit trailing-whitespace scan all passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Required C5 manual M365 evidence is missing: with OUTLOOK_GRAPH_TRANSPORT=graph and approved Graph/Entra env configured, create a filing request from a development M365 add-in and capture a sanitized API/runtime receipt showing Graph /me/messages/{id}/$value returned 200 and MIME content_sha256 was recorded.",
         "C4 external prerequisite remains missing: development M365 add-in sideload identity success receipt and policy_denied negative audit receipt are not yet collected, so the real C5 Graph flow cannot be COMPLETE_CANDIDATE.",
@@ -6392,7 +6550,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:511",
@@ -6799,6 +6960,11 @@
           "note": "2026-07-04T12:38:04+09:00: scoped JSON validation, LSP helper syntax check, tracked diff whitespace check, no-index whitespace checks for untracked C6 evidence artifacts, and explicit trailing-whitespace scan all passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Required C6 development M365 manual receipt is missing: file one real email from the add-in and capture that the task pane status changes to completed within 30 seconds and the web Matter timeline shows the filed email subject and attachment.",
         "Required real worker-path receipt is missing: createFilingRequest -> pg-boss queued job -> OutlookFulfillmentQueueService worker consumption -> completed status has not been observed against a running local/staging worker process with sanitized logs/audit IDs.",
@@ -6936,7 +7102,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:537",
@@ -7103,6 +7272,13 @@
           "note": "2026-07-04T03:46:16.544Z: C7-scoped JSON validity, LSP helper syntax, git diff whitespace, whole-file whitespace scan, and generated ledger hygiene passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:543"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "External M365 tenant evidence is missing: EV-OUTLOOK-002 must move from blocked/PENDING-M365-INTEGRATION-GATE to an approved opaque ref proving add-in manifest sideload or Integrated Apps validation in the approved tenant.",
         "External Graph/admin consent evidence is missing: EV-OUTLOOK-003 must move from blocked/PENDING-TENANT-ADMIN-CONSENT to an approved opaque ref for the C5 approved Graph scope set.",
@@ -7191,7 +7367,10 @@
         "- (앵커 부정확) acceptance_tests의 '기존 tests/integration/search-permission/ 17개 스펙'은 부정확. 디렉토리 파일 수는 17개지만 그중 2개(search-fixtures.ts, search-http-helpers.ts)는 헬퍼이고 *.spec.ts는 15개다. '15개 스펙(디렉토리 내 *.spec.ts 전체) 그린'으로 수정할 것."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:573",
@@ -7398,6 +7577,11 @@
           "note": "2026-07-03: scoped git diff whitespace check and trailing-whitespace scan passed for D1 search/eval/integration files, D4 search component files, and generated 110-row ledger artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "D1 is a COMPLETE_CANDIDATE. Do not add more D1 feature work unless review finds a regression; continue with the next dependency-valid TUW.",
       "statusRationale": "D1 is COMPLETE_CANDIDATE because it now has current local evidence for the PostgreSQL-only Korean search decision, pg_trgm-backed migration with reversible down path, query-stage Korean normalization fallback on keyword/facet/hybrid paths after permission scope SQL, Korean eval recall/precision thresholds, focused unit/integration/security regression checks, clean throwaway DB migrate/rollback/migrate/seed, DB extension/index/constraint anchors, local live web manual QA for /search query '계약 해지' showing the '계약을 해지한다' sentence with snippet highlights, and changed-file LSP diagnostics collected through direct local typescript-language-server stdio. MCP LSP still returns Transport closed, so direct local LSP is the current diagnostics evidence path. The D1 plan's 17-spec note is reconciled with the source verification note: the directory currently has 16 *.spec.ts files including the D1 morphology spec, and all 16 passed.",
@@ -7478,7 +7662,10 @@
         "**Scope:** (1) packages/ai/src/index.ts에 embedText()/embedBatch() 추가 — Ollama /api/embed 엔드포인트로 bge-m3 호출(기존 /api/generate 트랜스포트 패턴 재사용, 로컬 서빙이므로 DEC-11 외부모델 차단 정책과 양립, ADR로 기록). (2) packages/shared/src/ai/chunk.ts의 aiEmbeddingDimension을 모델별 차원 맵으로 확장. (3) 신규 마이그레이션: document_chunk_embeddings에 vector(1024) 컬럼(또는 모델별 행 분리) + HNSW 인덱스(m=16, ef_construction=64), model_route CHECK를 'bge_m3' 허용으로 완화. (4) search-index.repository.ts:317의 deterministicEmbeddingVector 호출을 embedText로 교체, 임베딩 서비스 미가용 시 stale 플래그 기록 후 인덱싱은 성공 처리(fail-soft). 기존 문서 백필(D3)과 쿼리 경로 전환(D4)은 제외.",
         "**완화 노트:** 외부 임베딩 API(OpenAI 등)는 사용하지 않음 — 로컬 서빙 유지. tenant별 벡터 인덱스 분리/파티셔닝은 단일 테넌트이므로 제외"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:602",
@@ -7750,6 +7937,11 @@
           "note": "2026-07-03: no trailing whitespace found across D2/D3 touched code/test files, ledger generator, and generated ledger artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "D2 is a COMPLETE_CANDIDATE. Do not do more D2 feature work; only rerun the full evidence audit if D2-adjacent files, migrations, local Ollama model availability, or completion criteria change.",
       "statusRationale": "D2 now has current evidence for the local-only Ollama bge-m3 embedding gateway, 1024-dimension shared model map, vector(1024) pgvector migration with bge_m3 route allowance and HNSW index, SearchIndexRepository fail-soft embedding write path, focused unit and integration tests, package lint/typecheck/build checks, clean changed-file LSP diagnostics, real local Ollama bge-m3 model availability with embedding_length=1024, manual performance receipt below the required thresholds, clean throwaway DB migrate/rollback/migrate/seed, and diff/ledger hygiene. D2 is a COMPLETE_CANDIDATE because the previous LSP and bge-m3 performance evidence blockers have current receipts.",
@@ -7812,7 +8004,10 @@
         "- tests/integration/search-permission/search-index.spec.ts에 케이스 추가: 구모델 임베딩 청크 시드 → 백필 실행 → model_route='bge_m3' 아닌 임베딩 0건 단언"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:627",
@@ -8024,6 +8219,11 @@
           "note": "2026-07-03 with Node 22/pnpm 9: direct local LSP stdio run initialized at repo root and opened 11 D3 touched files; publishDiagnostics received for all 11 files with zero diagnostics. MCP mcp__lsp.diagnostics still returned Transport closed, so this is the current LSP evidence path used for D3 completion."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "D3 is a COMPLETE_CANDIDATE. Do not add more D3 feature work unless review finds a regression; continue with the next dependency-valid TUW.",
       "statusRationale": "D3 is COMPLETE_CANDIDATE because it has repo-local implementation and current evidence for an admin embedding-backfill trigger, bounded batch-size validation, existing search.index pg-boss queue reuse with retry/dead-letter settings, backfill progress counts, reference-only audit metadata, legacy model-route cleanup after successful reindexing, a cleanup migration for pre-existing legacy embedding routes, focused unit tests, integration coverage that seeds a legacy local_gemma row, calls the admin backfill API, processes the existing IndexingProcessor, and verifies non-bge_m3 embedding rows are removed. A throwaway-DB manual/admin API receipt shows POST /v1/admin/search/embeddings/backfill accepted one matter-scoped candidate, worker processing completed, progress and health converged to zero missing/stale/legacy/dead-letter counts, and audit metadata stayed reference-only. Current changed-file LSP diagnostics were collected through local typescript-language-server stdio after the MCP LSP transport returned Transport closed; all 11 D3 touched files returned publishDiagnostics with zero diagnostics.",
@@ -8133,7 +8333,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:647",
@@ -8450,6 +8653,11 @@
           "note": "2026-07-04T03:16+09:00: direct tsserver protocol diagnostics received syntax, semantic, and suggestion diagnostics for 15 D4 TypeScript/TSX/test files with totalDiagnostics=0."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Collect the staging/manual /search semantic synonym-result receipt: mode selected in the UI, synonym/paraphrase result with similarity badge and matched context, and copied/new-tab URL preserving query plus mode. Local browser evidence still does not substitute for staging/manual evidence.",
         "After the staging/manual receipt is collected, rerun focused D4 tests, search-semantic/search-filter-endpoint integration, affected package checks, changed-file LSP diagnostics, ledger regeneration, and diff hygiene before considering COMPLETE_CANDIDATE promotion."
@@ -8544,7 +8752,10 @@
         "- (앵커 부정확) E1은 기존 retrieval orchestrator 노출이라 deps 없음이 성립하지만, D2/D3 이전에는 16차원 해시 벡터라 첫 사용자 경험의 의미 검색 품질이 낮다. 하드 dep은 아니되 'D2/D3 이후 배치 권장' 소프트 의존을 명시해 H1 내 착수 순서를 고정하라(첫인상 리스크 관리)."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:674",
@@ -8686,6 +8897,11 @@
           "note": "2026-07-03: inspected scoped diff for E1 code/test files before ledger update. Matter detail and document action center test already had broader pre-existing worktree changes; E1-specific changes are the AI panel import/render and chunk parser/test additions."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Collect the authoritative staging/manual QA receipt: lawyer account Matter detail -> ask '이 사건의 계약 상대방은?' -> cited answer displayed -> citation click navigates to document detail -> '검색·인용·제외 내역' lists session chunks including hiddenSourceCount/exclusions.",
         "After the staging/manual receipt is collected, rerun focused E1 web tests, ai-summaries/ai-session integration suites, web lint/typecheck/build, LSP diagnostics, sloplint/diff hygiene, ledger regeneration, and git diff check before considering COMPLETE_CANDIDATE promotion."
@@ -8781,7 +8997,10 @@
         "- (테스트 불가능한 완료판정) 성능 판정 'tools/evalset/run-ai-gate-metrics.ts의 latency 집계로 matter_qa p95 20초 이내 확인'은 현재 실행 불가. run-ai-gate-metrics.ts(35줄)는 citationAccuracy/hallucinationRate/permissionAccuracy/retrievalRecall/auditCoverage만 출력하며 latency 집계가 없음. p95 latency 집계는 tools/evalset/local-ai-eval.ts 411행에 존재하나 ai_prep_artifacts.latency_ms(프렙 파이프라인) 대상이라 matter_qa 요약 세션(ai_sessions.latency_ms)을 측정하지 않음. 판정 기준을 'ai_sessions.latency_ms 대상 p95 집계를 ai-gate-metrics에 추가(유닛 산출물로 명시)하고 그 수치로 20초 이내 확인' 또는 'ai_sessions 테이블에 대한 percentile_disc(0.95) 쿼리로 확인'으로 교체할 것."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:704",
@@ -9033,6 +9252,11 @@
           "note": "2026-07-04T03:32+09:00: first E2 LSP run produced one harness-only diagnostic for run-ai-gate-metrics.ts importing ai-gate-metrics.ts without allowImportingTsExtensions; the corrected rerun is clean and the failed receipt was removed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "E2 is a COMPLETE_CANDIDATE. Do not do more E2 feature work; only rerun the full E2 evidence audit if E2-adjacent code, migrations, local Ollama availability, ai-gate metric semantics, or completion criteria change.",
       "statusRationale": "E2 is a COMPLETE_CANDIDATE because current evidence now covers the authoritative matter_qa Gemma generation gate end to end: DB policy row gating is implemented through migration 0124 and AiSummaryGenerationGateService, matter_qa uses generated Gemma output when the gate and real local Ollama are available, the evidence-only template is reserved for degraded fallback, unavailable Ollama returns EVIDENCE_ONLY_DEGRADED, AI_RESPONSE audit metadata remains bounded and raw-prompt/response/source text-free, ops/ai-gate metrics expose matter_qa fallback rate and p95 generation latency, focused shared/API unit tests and ai-summaries/ai-feedback/ai-ops integration tests are green, package lint/typecheck/build checks are green, default migrate and clean throwaway migrate/rollback/migrate/seed are green, migration conventions pass, changed-file LSP diagnostics are clean, and the local manual API receipt proves both Ollama-on generated and Ollama-unavailable degraded paths. The broader eval:ai-gate technicalPass remains false because of unrelated dev evaluation citation/permission baselines, while the E2-specific p95 generation latency, externalModelCallAttempts, and matter_qa metric requirements pass.",
@@ -9108,7 +9332,10 @@
         "- tests/integration/ai-summaries.spec.ts 확장: 응답 JSON에 4개 필드가 항상 존재(빈 배열 허용)함을 단언"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:733",
@@ -9275,6 +9502,11 @@
           "note": "2026-07-03: sloplint ran and exited 0 with 200 findings from the broad dirty worktree and docs; the output did not list the E3 ai-assistant-panel.tsx or ai-assistant-panel.test.tsx files. The findings are not treated as E3 completion blockers but remain a repo-wide dirty-worktree review caveat."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Collect the authoritative manual QA receipt through the real E1 panel with a lawyer account: ask a Matter AI question and capture that 결론 / 불확실한 부분 / 추가 확인 자료 / 권장 조치 render in the live UI with the review badge when recommendedActions are present.",
         "After the real E1 panel manual receipt is collected, rerun the focused E3 shared/API/web/integration checks, LSP diagnostics or documented LSP limitation, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion."
@@ -9363,7 +9595,10 @@
         "- 수동: ai_allowed=false로 지정한 문서가 포함된 매터에서 E1 패널 질의 → 답변과 함께 '정책상 제외된 자료 N건' 안내가 표시되면 통과"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:755",
@@ -9520,6 +9755,11 @@
           "note": "Required E4 manual gate remains open: ask a question in the E1 panel on a matter containing an ai_allowed=false document and observe the answer plus policy-excluded 자료 N건 notice."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: E1 panel question on a matter containing ai_allowed=false material must show the answer and a policy-excluded 자료 N건 notice.",
         "After the manual receipt is collected, rerun focused E4 unit/integration/typecheck/lint/build/LSP/diff hygiene before any COMPLETE_CANDIDATE promotion."
@@ -9626,7 +9866,10 @@
       "externalEvidenceNeeds": [
         "**완화 노트:** 외부 규제 대응용 해시 전용 설계 대신 claim 원문 저장으로 강화(내부용 전제). 재검증 자동화 파이프라인은 제외 — 조회 API까지만."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:782",
@@ -9778,6 +10021,11 @@
           "note": "Required F4 manual gate remains open: an auditor/security-admin should execute an AI summary and manually call/review GET /ai/sessions/:id/claims to confirm each claim can be traced back to document/chunk evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: auditor/security-admin must run an AI summary and manually verify GET /ai/sessions/:id/claims claim-to-document/chunk backtrace on the running surface.",
         "After the manual receipt is collected, rerun focused F4 integration/unit/typecheck/lint/build/LSP/diff and migration checks before any COMPLETE_CANDIDATE promotion."
@@ -9866,7 +10114,10 @@
         "- tests/integration/litigation-vault.spec.ts 확장: citation_refs 빈 배열로 status='verified' fact 생성/전이 요청 시 400 + 명시 에러코드, citation 1건 포함 시 200 assert; raw UPDATE로 우회 시도 시 DB CHECK 위반 assert"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:809",
@@ -10053,6 +10304,11 @@
           "note": "Focused integration-test TypeScript project lets LSP resolve @amic-vault/shared for the edited F5 integration specs without pulling unrelated document-access helper diagnostics into the F5 gate."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "F5 is COMPLETE_CANDIDATE; do not add more F5 feature work unless review finds a regression. Move to the next dependency-valid TUW and keep applying the rule that local gates must be closed before leaving only true external/manual blockers.",
       "statusRationale": "F5 is COMPLETE_CANDIDATE. Current evidence covers the 0110 CHECK/preflight/down migration, shared litigation/DD conditional citation refinements for create and update schemas, explicit API error reason propagation, create-time service guards, PATCH update routes, row-locked service transition guards, audit events with reference-only metadata, focused schema tests, integration tests with REST create/update 400s, cited-success transitions, citation-removal denials, raw DB UPDATE bypass rejection, REST substitute JSON evidence, ESLint, shared/API typecheck and build, default DB migrate/seed, isolated 0110 roundtrip, clean throwaway full migrate/rollback/migrate/seed, local LSP hook diagnostics, JSON ledger regeneration, and diff/trailing-whitespace hygiene. MCP lsp.status still reports Transport closed, but the local LSP hook for the edited F5 files is clean, so there is no remaining local evidence gap.",
@@ -10136,7 +10392,10 @@
       "externalEvidenceNeeds": [
         "- 자동: tests/integration/document-status-transitions.spec.ts 신설 — (1) draft→client_sent→markup_received→negotiation→final→executed 순차 전이 성공 및 각 전이마다 audit_events에 DOCUMENT_STATUS_CHANGED 행 생성 (2) 비허용 전이(draft→executed) 422 (3) legal hold 걸린 문서 전이 409/422 차단 (4) 타 테넌트 문서 전이 404/403"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:840",
@@ -10343,6 +10602,11 @@
           "note": "Required G1 manual gate remains open: lawyer account changes status to 고객 발송 from /files, then /audit shows DOCUMENT_STATUS_CHANGED with before/after metadata."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: lawyer account must change a document status to 고객 발송 from /files and verify /audit shows DOCUMENT_STATUS_CHANGED with before/after status metadata.",
         "After that manual receipt is collected, rerun focused G1 integration/unit/typecheck/lint/build/LSP/diff and migration checks before any COMPLETE_CANDIDATE promotion."
@@ -10443,7 +10707,10 @@
         "- 자동: hidden-routes.test.tsx를 대체하는 role-gated-routes.test.tsx — matter 비멤버/무권한 역할이 탭 콘텐츠에 접근 불가함을 검증"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:861",
@@ -10685,6 +10952,11 @@
           "note": "2026-07-04: scoped diff whitespace check passed for the G2 changed files and ledger artifacts before ledger override regeneration."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "Treat G2 as COMPLETE_CANDIDATE and do not broaden it into CRUD work. Continue the 110-row gate with the next dependency-valid TUW; if any G2 files change, rerun focused web tests, integration regressions, package checks, LSP, manual tab QA, ledger regeneration, and diff hygiene before preserving COMPLETE_CANDIDATE.",
       "statusRationale": "G2 has current evidence for unsealing the contract, DD, and litigation workstreams as read-only Matter tabs. The route policies expose /contracts, /dd, and /litigation as role-limited non-navigation entry routes; the old top-level pages redirect to /matters; Matter detail renders the workstream tabs; the three new Matter child pages consume only the existing read-only API clients for rule findings/clause bank, RFI/traceability, and Fact Ledger/case map data. Automatic web tests cover the three rendering surfaces plus role-gated/no-access behavior, and existing contract-intel, dd-vault, and litigation-vault integration suites passed unchanged with permission-scoped and denied-document negative coverage. Web lint, typecheck, focused tests, production build, API build, direct changed-file LSP diagnostics, scoped diff hygiene, AI slop review, and local browser manual QA against an integration-seeded Matter all have current evidence. No G2 DB migration is required.",
@@ -10805,7 +11077,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:892",
@@ -11122,6 +11397,11 @@
           "note": "2026-07-04T03:05+09:00: H1 Google Authenticator enrollment, logout/relogin TOTP, dashboard, and /audit MFA_* staging/manual QA is recorded as status=missing and blocksPromotion=true structured evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Required H1 staging/manual QA receipt is missing: firm_admin enrolls MFA with Google Authenticator QR, logs out, logs back in with a six-digit TOTP code, reaches the dashboard, and verifies /audit records MFA_ENROLLED, MFA_CHALLENGE_SUCCEEDED, and MFA_CHALLENGE_FAILED.",
         "After the staging/manual receipt is collected, rerun focused H1 integration/unit/web tests, package checks, migration roundtrip where applicable, LSP diagnostics, AI-slop changed-surface review, ledger regeneration, and diff hygiene before considering COMPLETE_CANDIDATE promotion."
@@ -11233,7 +11513,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:922",
@@ -11405,6 +11688,11 @@
           "note": "2026-07-04T03:09+09:00: H2 /admin/security test-account browser logout, break-glass other-admin approval, and /audit BREAK_GLASS_USED staging/manual QA is recorded as status=missing and blocksPromotion=true structured evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Required H2 staging/manual QA receipt is missing: from /admin/security, deactivate a test account and verify that account browser is immediately logged out; create a break-glass request, approve it from another administrator account, and verify /audit shows BREAK_GLASS_USED.",
         "After the staging/manual receipt is collected, rerun focused H2 integration/unit/web tests, API/web typecheck/lint/build, migration roundtrip where applicable, LSP diagnostics, AI-slop changed-surface review, ledger regeneration, and diff hygiene before considering COMPLETE_CANDIDATE promotion."
@@ -11529,7 +11817,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:951",
@@ -11801,6 +12092,13 @@
           "note": "2026-07-04T03:53:53.565Z: H3-scoped JSON validity, script syntax, git diff whitespace, whole-file whitespace scan, and generated ledger hygiene passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:957"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "External AWS RDS configuration evidence is missing: operator must capture bounded/opaque proof that BackupRetentionPeriod >= 7, latest restorable time is within the RPO window, and StorageEncrypted is true for the production database.",
         "External S3/object-storage evidence is missing: operator must capture bounded/opaque proof that the document bucket has versioning Enabled and default SSE-S3 or SSE-KMS encryption configured.",
@@ -11907,7 +12205,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:979",
@@ -12049,6 +12350,11 @@
           "note": "2026-07-04T02:34+09:00: H5 now records the staging queue-depth SNS delivery receipt and owner-reviewed MON-H5 SNS binding receipt as status=missing and blocksPromotion=true structured external evidence needs, while remaining below COMPLETE_CANDIDATE."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "External staging manual evidence is missing: stop the worker in staging, enqueue 5 jobs, and capture the queue-depth SNS email arriving within 15 minutes.",
         "Owner-reviewed SNS/email binding receipt for MON-H5-001/002/003 is missing and must remain outside git without provider account IDs, ARNs, recipient addresses, tokens, or production URLs."
@@ -12136,7 +12442,10 @@
         "- 자동: extraction-queue.service.spec.ts(+indexing, ai-prep-queue 동일) 갱신 — PROCESS_ROLE=worker면 워커 등록, =api면 enqueue만 수행, 미설정+worker 엔트리포인트면 기본 활성 검증."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1009",
@@ -12283,6 +12592,11 @@
           "note": "Required H6 manual gate remains open: docker-compose.dev.yml api+worker with no legacy worker flags must prove upload-to-search, and api-only backlog must wait until worker startup drains it."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: run docker-compose.dev.yml with api plus api-worker and no legacy *_WORKER_ENABLED flags, upload a document through the API/UI, and verify a search hit after worker processing.",
         "Manual QA receipt missing: run API without api-worker, confirm the extraction/search job waits instead of being consumed in the API role, then start api-worker and confirm the backlog drains.",
@@ -12387,7 +12701,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1040",
@@ -12649,6 +12966,11 @@
           "note": "2026-07-04T02:55+09:00: A8 browser/staging related-Matter reciprocal-detail and /matters wall/confidentiality manual QA is recorded as status=missing and blocksPromotion=true structured evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Required A8 browser/staging manual QA receipt is missing: add a related Matter in detail, verify the reciprocal inverse relation on the other Matter detail, and verify the /matters list wall badge plus confidentiality column in browser/staging.",
         "After the browser/staging manual receipt is collected, rerun focused A8 tests/package checks, migration roundtrip where applicable, LSP diagnostics, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion."
@@ -12752,7 +13074,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1066",
@@ -13009,6 +13334,11 @@
           "note": "2026-07-04T03:00+09:00: A9 advisory-Matter issues/key-date/status-change plus audit-console manual QA is recorded as status=missing and blocksPromotion=true structured evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Required A9 browser/staging manual QA receipt is missing: in an advisory Matter, add two issues and one key date, change statuses in the Matter detail tab, and verify matching audit-console records.",
         "After the browser/staging manual receipt is collected, rerun focused A9 tests/package checks, migration roundtrip where applicable, LSP diagnostics, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion."
@@ -13112,7 +13442,10 @@
         "- (테스트 불가능한 완료판정) 통합 테스트 (a)의 'dashboard 응답에 7개 섹션이 모두 채워짐'은 7개 섹션이 유닛 어디에도 열거되지 않았고 시드 데이터는 4종(쟁점·기한·외부링크·AI세션)뿐이라 객관 판정 불가. 섹션 목록을 명시적으로 열거(예: 쟁점/기한/멤버/최근 문서/최근 감사활동/외부링크/AI세션)하고 각 섹션에 대응하는 시드를 1:1로 정의할 것. p95 < 1.5초 assert도 측정 방식(반복 횟수 N, 워밍업 제외 여부)을 명시해야 재현 가능한 판정이 됨."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1093",
@@ -13269,6 +13602,11 @@
           "note": "PASS 2026-07-04T11:38+09:00: no whitespace errors for A10 tracked changes, new files, or current LSP evidence file."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A10 is ready for independent review as COMPLETE_CANDIDATE. Continue with the next dependency-valid TUW and do not claim overall product readiness until all 110 rows are COMPLETE_CANDIDATE or EXTERNAL_BLOCKED with evidence.",
       "statusRationale": "A10 is COMPLETE_CANDIDATE with current evidence for the per-Matter dashboard aggregate endpoint, AI session matterId listing, shared DTO/API client wiring, Matter detail dashboard panel, permission-negative and ethical-wall negative tests, other-matter AI/external isolation, p95 performance assertion, focused package checks, production build, diff hygiene, direct changed-file LSP diagnostics for all 13 A10 files, and live local browser manual QA at 1440px through the Matter page. The previous TSX LSP gap was a collector URI-normalization issue for the Next app route group path; the normalized direct typescript-language-server receipt now has allFilesReceived=true with zero errors/warnings. No new DB migration was introduced; A10 reuses existing 0050 ai_sessions and 0058 external core tables.",
@@ -13361,7 +13699,10 @@
       "externalEvidenceNeeds": [
         "Staging/manual QA receipt: open a Matter Closing tab, confirm failing checklist reasons are visible, resolve or waive each pending item, click the status action to close from the UI, and capture closed_at populated."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1122",
@@ -13513,6 +13854,11 @@
           "note": "A11 intentionally remains LOCAL_IMPLEMENTED_NEEDS_EVIDENCE because staging/manual UI proof is still absent."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: in staging, open the Matter Closing tab, verify failing checklist reasons are visible, resolve or waive all pending items, close from the UI, and capture closed_at populated."
       ],
@@ -13601,7 +13947,10 @@
         "Manual/staging QA receipt: download JSON and CSV manifests from the Closing tab and verify the manifest/hash locally with sha256sum or equivalent.",
         "Dependency receipt: A11 staging/manual Closing tab receipt remains missing, so A12 cannot be COMPLETE_CANDIDATE until A11 is also promotable or explicitly blocked."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1151",
@@ -13853,6 +14202,11 @@
           "note": "A12 intentionally remains LOCAL_IMPLEMENTED_NEEDS_EVIDENCE because the staging/manual binder TOC and manifest hash-check receipt is still absent."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Missing staging/manual QA receipt for a closed Matter Closing tab showing Closing Binder TOC rows with document name, version, and sha256 hash.",
         "Missing staging/manual QA receipt for JSON/CSV manifest downloads and local sha256sum/hash verification.",
@@ -13923,7 +14277,10 @@
       "externalEvidenceNeeds": [
         "**Scope:** 만들 것: (1) tools/migration/lawos-canonical-matter-reflection.mjs의 하드코딩 절대경로(10-16행)·고정 revision 핀을 CLI 인자/env 계약(아티팩트 경로, 기대 revision, dry-run)으로 대체하고 검증 실패 시 명확한 종료 코드. (2) 반영 실행 결과(마지막 실행 시각, 반영 건수, drift 카운트)를 DB 상태 테이블에 기록. (3) matter-app-runtime.service의 status()를 env 라벨 계산에서 해당 상태 테이블 조회 기반 실제 헬스로 승격, /integrations/matter-app 페이지의 NEXT_PUBLIC env 표시를 API 헬스 표시로 교체. 만들지 않을 것: LawOS 외부 HTTP 실시간 API 클라이언트·웹훅 소비자(오프라인 배치 반영 유지 — Matter 생성 웹 UI가 주 생성 경로이므로 실시간 연동 불요), 재시도·서킷브레이커 인프라."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1175",
@@ -14125,6 +14482,11 @@
           "note": "2026-07-03: diff whitespace check passed for A14 runner, migration, shared DTO, API runtime/source-policy, web Matter app surface, tests, and integration spec before ledger regeneration."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "A14 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A14.",
       "statusRationale": "A14 has current evidence for CLI/env driven LawOS canonical reflection inputs, missing-input usage failure, revision mismatch rejection, dry-run no sync-state mutation, execute sync-state persistence, table-backed Matter app status health, API status exposure, /integrations/matter-app rendering of last sync and drift count, focused runner/shared/api/web tests, integration coverage, lint/typecheck/build checks, default DB migrate/seed, clean disposable DB migrate/rollback/migrate/seed, idempotent runner manual QA, browser manual QA, sloplint review, and diff whitespace checks. The implementation preserves the A14 scope by not adding real-time LawOS API, webhook, retry, or circuit-breaker infrastructure.",
@@ -14208,7 +14570,10 @@
         "- 성능: 신규 tools/ 스모크 스크립트(tools/release/dms-main-loop-smoke.mjs 패턴)로 400MB 합성 PDF 업로드→미리보기 첫 바이트→추출 완료를 실행하며 API 프로세스 RSS 증가가 150MB 미만임을 process.memoryUsage 로깅으로 측정"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1202",
@@ -14375,6 +14740,11 @@
           "note": "2026-07-04T04:04+09:00: docker API worker was temporarily stopped to avoid queue contention, then restored after smoke; smoke used rebuilt local API/queue worker and current repo ingestion worker."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "Keep B5 COMPLETE_CANDIDATE unless later evidence invalidates the smoke or a new staging/manual gate is added; proceed to the next dependency-valid TUW.",
       "statusRationale": "B5 is promoted to COMPLETE_CANDIDATE with current evidence. The implementation covers tenant-scoped storage Range reads and presigned read URLs, worker-visible read URL endpoint configuration, S3 Range SigV4 signing, optional SSE-S3 PUT headers, streaming Readable S3 PUTs for large uploads, preview Range passthrough without full-object buffering, extraction dispatcher storage_url handoff with multipart fallback preserved, worker storage_url extraction support, 500MB default upload limit, focused API/worker/integration tests, API lint/typecheck/build, worker py_compile, changed-file tsserver diagnostics, and a fresh-process 400MiB upload -> preview Range -> extraction ready smoke with API RSS delta 89.4MiB under the 150MiB threshold. The B5 source block has no DB migration or manual/staging QA requirement; no external evidence is required for this TUW.",
@@ -14506,7 +14876,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1237",
@@ -14753,6 +15126,11 @@
           "note": "2026-07-04T18:57+09:00: full worktree whitespace diff check passed after B7 ledger regeneration."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: staging 200-file ZIP upload must show item-level progress/status in the upload panel and individual extracted documents in /files.",
         "Performance receipt missing: 1,000 synthetic-file batch, 100KB each, must show at least 95% done within 60 minutes with a throughput log.",
@@ -14872,7 +15250,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1270",
@@ -15154,6 +15535,11 @@
           "note": "2026-07-04T19:07+09:00: full worktree whitespace diff check passed before B8 ledger regeneration."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: drag/drop a 3-level local folder in staging, confirm /files shows the same folder tree, assign two tags, and confirm tag filter search.",
         "Direct MCP LSP diagnostics evidence missing: mcp__lsp.diagnostics still fails with Transport closed even though focused TypeScript checks pass."
@@ -15232,7 +15618,10 @@
         "- 수동: 스테이징에서 법원 제출 서면 .hwp 업로드 → /search 본문 키워드 히트 확인이면 통과"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1301",
@@ -15389,6 +15778,11 @@
           "note": "2026-07-04T10:40+09:00: no real .hwp fixture was present locally, so the worker success test still mocks hwp5txt output and does not prove actual Korean .hwp extraction."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Auto evidence gap: add or obtain a deidentified real binary .hwp fixture with Korean text and prove actual hwp5txt extraction_method hwp5 without monkeypatching subprocess.run.",
         "Manual/staging QA receipt missing: upload a real court-filing .hwp, wait for ingestion/indexing, search a body keyword in /search, and capture the keyword-hit result evidence."
@@ -15490,7 +15884,10 @@
       "externalEvidenceNeeds": [
         "- 자동: 신규 tests/integration/document-access/document-revisions.spec.ts — 변경추적 docx를 subversion으로 저장 → document_revisions 행 생성, 리뷰 조회 API에 변경 목록 포함, 타 테넌트 RLS 차단"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1326",
@@ -16027,6 +16424,11 @@
           "note": "2026-07-04T19:59+09:00: no existing real Word-saved tracked-changes DOCX fixture was found in the repo, so the fixture gate remains evidence-blocked rather than pursued in this turn."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "B10 external/manual fixture evidence gap: no actual Word-saved Track Changes DOCX fixture is present in the repo; obtain or add a Word-saved fixture containing insert, delete, and formatting changes, then rerun the worker fixture test against that binary artifact.",
         "B10 verification gap: MCP LSP diagnostics are unavailable with Transport closed; retry diagnostics after the LSP transport is restored.",
@@ -16127,7 +16529,10 @@
         "- 자동: 신규 tests/integration/document-access/document-comparison.spec.ts — v1/v2 docx 업로드 후 비교 생성 → 수정 1·추가 1·삭제 1 조항이 정확히 분류되고 삭제 조항 원문이 복원 조회됨, 권한 없는 사용자는 403"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1353",
@@ -16314,6 +16719,11 @@
           "note": "2026-07-04T22:16+09:00: scoped whitespace diff check passed for B11 changed files and ledger files before and after ledger regeneration."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "B11 manual/staging QA gap: capture the required staging receipt for comparing a review copy against the current official version and confirming the clause-level change list screen.",
         "B11 LSP evidence gap: MCP LSP status/diagnostics returned Transport closed for changed TS/TSX files; retry changed-file diagnostics when the transport is available.",
@@ -16427,7 +16837,10 @@
         "**완화 노트:** co-authoring/실시간 공동편집은 9인 규모에서 체크아웃 잠금 모델로 충분하므로 구현하지 않고 WOPI 평가 ADR의 장기 옵션으로만 기록. check-production-ui-smoke.mjs의 'co-authoring 클레임 금지' 게이트는 유지.",
         "- `tools/release/check-production-ui-smoke.mjs`"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1381",
@@ -16584,6 +16997,13 @@
           "note": "The packaged desktop capability remains an empty permission allow-list; B12 OS file/default-app handoff cannot be completed without an explicit policy change and new approval evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1387"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "B12 local implementation/policy gap: the actual Tauri/native protocol handler and OS default-app adapter are not wired yet; current Tauri v2 docs indicate deep-link handling needs tauri-plugin-deep-link/single-instance configuration, but the repo's desktop thin-shell tests currently forbid native plugin/capability expansion. Do not add that dependency or capability without explicit B12 policy/dependency approval.",
         "B12 manual QA gap: no Word DOCX receipt exists for desktop edit click -> Word opens -> save -> new web review subversion -> check-in completed.",
@@ -16677,7 +17097,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1414",
@@ -16944,6 +17367,11 @@
           "note": "C8 cannot become COMPLETE_CANDIDATE until sanitized staging/manual evidence proves document-detail related email navigation, controlled raw .eml download opening in Outlook, and EMAIL_RAW_DOWNLOADED audit-console visibility with reason code."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual staging QA receipt is missing: from an email attachment-created document detail, click the related email, download the raw .eml, confirm it opens in Outlook, and confirm the audit console shows the EMAIL_RAW_DOWNLOADED event with reason code."
       ],
@@ -17057,7 +17485,10 @@
         "**Scope:** (1) tenantDomains를 업로드 요청 필드 의존에서 서버측 테넌트 이메일 도메인 설정(신규 마이그레이션: tenant_email_domains 테이블, RLS 적용)으로 이전 — 미설정 시 전원 내부자로 오판되는 현행 버그 제거. (2) email_participants에 participant_class 컬럼 추가(CHECK: internal|client|opposing|other_external). (3) 분류기 구현: 테넌트 도메인→internal, 파일링 대상 Matter의 client 도메인/연락처 일치→client, parties 택소노미(0020-0022) 상대방 당사자 주소·도메인 일치→opposing, 그 외→other_external. 임포트 시 1차 분류, 파일링 시(Matter 확정 시점) 재분류. (4) 타임라인 UI에 분류 배지 표시. 신호 소비(추천 가중치·특권 경고)는 C13/C14에서.",
         "- participant-classifier.spec.ts: 테넌트 도메인 일치→internal, client 연락처 일치→client, opposing party 도메인 일치→opposing, 무일치→other_external, 도메인 미설정 시에도 internal 오판 없이 other_external 처리 — 5케이스 assert"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1435",
@@ -17269,6 +17700,11 @@
           "note": "Required manual gate remains open: register the firm domain through admin/seed, file a real email into a Matter with opposing-party recipient evidence, and capture the timeline showing the 상대방 badge."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: register firm domain through admin/seed, file a real email into a Matter with opposing-party recipient evidence, and capture the Matter timeline showing the 상대방 badge."
       ],
@@ -17371,7 +17807,10 @@
         "- email-reparse.service.spec.ts: 재파싱이 message_id_hash·email_document_links를 변경하지 않음(불변 필드 보호) 단위 검증"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1458",
@@ -17538,6 +17977,11 @@
           "note": "2026-07-04: validated 110 units, no duplicate ids, count map matches ledger.counts, and C10 is LOCAL_IMPLEMENTED_NEEDS_EVIDENCE with 31 evidence refs and 3 remaining gaps before adding final ledger refs."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA missing: no receipt yet for an actual C1-predeployment broken-title email record being selectively reparsed and showing recovered Korean title in the Matter timeline.",
         "LSP diagnostics missing: mcp__lsp.status and changed-file diagnostics returned Transport closed on 2026-07-04 during the C10 refresh.",
@@ -17633,7 +18077,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1494",
@@ -17780,6 +18227,11 @@
           "note": "C11 changes parser/API/test behavior only; no DB migration is required for this TUW."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Real Outlook .msg fixture coverage missing: current worker tests use fake MSG objects and do not prove extract-msg parsing against actual Outlook binary fixtures.",
         "Manual/staging QA missing: no receipt yet for Outlook Save As Korean .msg upload -> Matter timeline title and attachment display.",
@@ -17881,7 +18333,10 @@
         "- matter-email-timeline.test.tsx: 쓰레드 아코디언 렌더(접힘/펼침, 건수 표기)와 쓰레드 일괄 파일링 버튼 호출 mock 검증"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1517",
@@ -18238,6 +18693,11 @@
           "note": "2026-07-05: scoped diff whitespace check passed for the new C12 acceptance spec."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "C12 manual QA gap: no real shuffled three-reply upload receipt exists showing one thread and thread-level filing reflected in the rendered Matter timeline.",
         "C12 LSP evidence gap: direct MCP LSP diagnostics returned Transport closed; retry changed-file diagnostics when transport is available.",
@@ -18337,7 +18797,10 @@
         "- (과대·과소 scope) M 배정이나 실제 범위는 L 의심: 신규 스코어러+8케이스 단위검증, 자동파일링+감사이벤트+알림+되돌리기 API+피드백 적재(신규 마이그레이션), 웹 email-upload-card와 Outlook add-in 두 클라이언트의 밴드별 UX 분기, 그리고 라벨 50건 이상 평가셋 구축과 정확도 게이트(오파일링률 0%, top-1 80%)까지 포함한다. L로 상향하거나 2분할(스코어링+밴드 UX = M / 자동파일링·되돌리기·알림·평가셋 = M)하라. 또한 평가셋 라벨 출처 '과거 파일링 이력 기반'은 신규 시스템 특성상 존재하지 않을 수 있으므로 tests/integration/helpers의 합성 라벨 픽스처임을 명시해 판정 기준의 데이터 전제를 제거하라."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1542",
@@ -18639,6 +19102,11 @@
           "note": "2026-07-05: scoped diff whitespace check passed for the C13 service/test slice."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "C13 manual/staging QA gap: no staging/manual receipt exists for real email upload or Outlook suggestion showing auto_file, undo, confirm/candidate/manual band UX, generated notification, and audit-console confirmation.",
         "C13 LSP evidence gap: direct MCP LSP status/diagnostics returned Transport closed for changed files; retry when LSP transport is available.",
@@ -18737,7 +19205,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1572",
@@ -18984,6 +19455,13 @@
           "note": "2026-07-04T03:59:02.308Z: C15-scoped JSON validity, LSP helper syntax, git diff whitespace, whole-file whitespace scan, and generated ledger hygiene passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1578"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "C7 dependency external evidence remains unresolved: EV-OUTLOOK-002, EV-OUTLOOK-003, operator approval, rollback rehearsal, audit availability, and admin add-in filing E2E/audit receipts are required before all-person promotion can be claimed.",
         "External M365 organization-wide central deployment evidence is missing: approved tenant admin must deploy the add-in to all nine members or the approved all-person group and record only an opaque deployment reference.",
@@ -19055,7 +19533,10 @@
         "- tests/integration/search-permission/search-core.spec.ts에 케이스 추가: 검색 응답에 author/aiAllowed/prevVersionId가 실제 문서 메타데이터와 일치함을 단언"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1595",
@@ -19252,6 +19733,11 @@
           "note": "PASS: regenerated the 110-row status ledger after D5 promotion; counts became COMPLETE_CANDIDATE=14, LOCAL_IMPLEMENTED_NEEDS_EVIDENCE=29, EXTERNAL_BLOCKED=4, PARTIAL=47, NOT_STARTED=16."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "D5 may remain COMPLETE_CANDIDATE unless code, schema, seed data, or the search/detail manual route changes; proceed to the next dependency-valid TUW.",
       "statusRationale": "D5 has current evidence for search-index display-field migration, SearchResultDto expansion, permission-scoped API query projection, result-card author/permission/AI/version rendering, focused schema/UI/query-builder tests, search-core integration metadata matching, package typechecks/builds, default DB migrate, clean throwaway DB migrate/rollback/migrate, formatting, ESLint, changed-file direct LSP diagnostics, diff hygiene, AI slop changed-surface review, and local manual /search previous-version navigation QA. The manual receipt proved an authorized alpha owner search result exposes author/AI/version metadata and clicking '이전 버전' navigates to /documents/{documentId}?versionId={prevVersionId} with the expected document detail displayed.",
@@ -19324,7 +19810,10 @@
         "- 기존 search-permission 스위트 전체 그린 (청크 경로 전환 후 권한 필터 회귀 없음)"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1616",
@@ -19541,6 +20030,11 @@
           "note": "Break-glass permission regression now uses title-only fixtures with seedChunks=false and an explicit 15s integration timeout; the test still verifies excluded wall users see no rows, approved unexpired break-glass reveals authorized rows, and revoked access hides them again."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: upload a 300-page-class PDF, index it, search a unique last-page keyword in /search, and capture the result/snippet plus 부분 인덱스 badge evidence."
       ],
@@ -19623,7 +20117,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1638",
@@ -19860,6 +20357,11 @@
           "note": "D7 cannot become COMPLETE_CANDIDATE until sanitized staging/manual evidence proves a no-text-layer scanned PDF flows through the real B OCR path, becomes searchable by OCR body keyword, and shows the ocr_pending/extraction_status facet count decrease."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Staging/manual QA receipt is still missing: upload a scanned PDF with no text layer in staging, let the real B OCR path complete, verify /search keyword hit from OCR body text, and verify the extraction_status/ocr_pending facet count decreases."
       ],
@@ -19975,7 +20477,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "authoritative_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1662",
@@ -20082,6 +20587,11 @@
           "note": "2026-07-04T03:23+09:00: direct tsserver protocol diagnostics received syntax, semantic, and suggestion diagnostics for 12 D8 TypeScript/test files with totalDiagnostics=0."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Collect the staging/manual D8 receipt with a real Outlook-exported .eml filed to an authorized Matter, /search target=email body hit, sender-domain facet display, and unauthorized/non-member negative search evidence. Synthetic local EML integration does not substitute for this manual gate.",
         "After the manual/staging receipt is collected, rerun focused D8 API/shared unit tests, ingestion email parser tests, email-filing integration, package checks, db migrate plus clean migrate/rollback/migrate/seed, changed-file LSP diagnostics, ledger regeneration, and diff hygiene before considering COMPLETE_CANDIDATE promotion."
@@ -20199,7 +20709,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1692",
@@ -20326,6 +20839,11 @@
           "note": "2026-07-04: LSP status and diagnostics attempts for ai-answer-panel.tsx, search-client.tsx, and ai-session.spec.ts returned Transport closed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: on /search, enter '작년 X사 계약의 해지 조항 요약해줘', switch to AI에게 질문, confirm answer plus citation cards render, and click an 인용 card to reach the document detail chunk location.",
         "Manual blocked-state receipt missing: stop or disable the local Ollama/Gemma path on the approved surface and confirm /search AI에게 질문 shows the fail-closed blocked/unavailable guidance rather than leaking internals or falling through silently.",
@@ -20425,7 +20943,10 @@
         "- tests/integration/rls.spec.ts 패턴으로 ai_session_payloads 교차 테넌트 차단·RLS FORCE 존재를 단언(cross-tenant 헬퍼 재사용)",
         "- (horizon 부적절) 원문 감사 열람의 주 소비 시점은 E8(Strong LLM 외부 전송 감사, H2)이다. 정책상 '해시→원문 강화'는 기한 요건이 없으므로 H2로 이연해 E8 직전 배치를 권고한다(H1 총량 완화). 단, 원문 저장 스키마 자체는 소급 불가하므로 이연 시 세션 원문 보존 플래그만 H1에서 미리 켜둘 것."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1722",
@@ -20577,6 +21098,11 @@
           "note": "2026-07-04: validated 110 units, valid statuses, no duplicate ids, count map matches ledger.counts, E5 is LOCAL_IMPLEMENTED_NEEDS_EVIDENCE with 30 evidence refs and 2 remaining gaps."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: audit console or staging security-admin AI session detail raw payload view, followed by confirming AI_PAYLOAD_VIEWED appears in the audit log without raw prompt/response text.",
         "Changed-file LSP diagnostics missing: mcp__lsp.status and diagnostics returned Transport closed on 2026-07-04."
@@ -20664,7 +21190,10 @@
         "- 수동: 라벨링 케이스 최소 30건으로 run-local-ai-eval 실행 → 리포트에 claim recall/precision·citation set match 수치가 출력되고 초기 임계(claim recall≥0.7, citation match≥0.6) 미달 시 exit 1이면 통과"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1752",
@@ -20801,6 +21330,11 @@
           "note": "2026-07-04T13:17+09:00: scoped diff whitespace check passed for E6 modified files."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: at least 30 labeled cases must be executed through run-local-ai-eval with claim recall/precision and citation set match printed, and threshold failure must exit 1.",
         "CI history evidence missing: a workflow run on a prompt/model/embedding path change must show the E6 gate job/step executing and producing a pass/fail decision.",
@@ -20899,7 +21433,10 @@
         "- 수동: 계약서 1건 업로드 후 work 큐에 'AI 후보 검토' 항목이 뜨고 각 후보에 청크 인용이 달려 있으면 통과"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1779",
@@ -20996,6 +21533,11 @@
           "note": "2026-07-05: git whitespace diff check passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: upload one contract, run candidate prep, verify /work shows an AI 후보 검토 item with candidate chunk citations.",
         "LSP diagnostics unavailable: mcp__lsp.diagnostics and mcp__lsp.status returned Transport closed on 2026-07-05.",
@@ -21117,7 +21659,10 @@
         "Decision Ledger or equivalent policy update explicitly superseding DEC-11/Gemma-local-only for E8.",
         "Operational secret-handling, rollback, audit-payload, and manual QA receipt requirements for strong_external routing."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1803",
@@ -21159,6 +21704,13 @@
           "note": "Current routing implementation should remain local/fail-closed instead of introducing strong_external while DEC-11 is active."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1809"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "External/model policy approval missing: no owner/security/legal-data approval or Decision Ledger entry authorizes strong_external model routing, provider selection, transmission payload, server-side key custody, rollback, or external audit evidence scope.",
         "Manual strong_external UI/audit receipt is impossible until the policy gate and provider/runtime are approved outside the repo.",
@@ -21246,7 +21798,10 @@
         "- (앵커 부정확) matter_timeline kind 추가 역시 0064의 artifact_kind CHECK 확장 마이그레이션이 필요하나 anchors에는 'E7 마이그레이션 패턴 공유'라는 주석만 있고 신규 마이그레이션 파일이 없음. E7의 0101은 E7의 4종 kind만 추가하므로 matter_timeline은 별도 마이그레이션(예: 신규 db/migrations/010X_add_matter_timeline_artifact_kind.sql)을 anchors에 명시하거나 E7 0101에 포함됨을 명시적으로 기재할 것. tools/evalset/local-ai-eval.ts kind 목록 동기화도 누락."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1835",
@@ -21363,6 +21918,11 @@
           "note": "2026-07-05T02:13+09:00: git whitespace diff check passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: with three different-date documents in one matter, verify the matter dashboard displays the timeline in chronological order and citation links open the referenced documents.",
         "Manual QA receipt missing: after matter_summary runs, verify the dashboard shows 미해결 쟁점 and 다음 액션 cards from openQuestions/recommendedActions.",
@@ -21449,7 +22009,10 @@
         "- tests/integration/ai-summaries.spec.ts 확장: task=clause_analysis 200 + 응답 claims에 kind='risk' 존재 + 인용검증(citation-verifier) 통과를 단언"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1861",
@@ -21621,6 +22184,11 @@
           "note": "LSP diagnostics/status calls all returned Transport closed; not counted as clean diagnostics evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "E3 dependency remains LOCAL_IMPLEMENTED_NEEDS_EVIDENCE; E10 cannot be COMPLETE_CANDIDATE until E3 final evidence gates are closed or explicitly blocked.",
         "Manual/staging QA receipt missing: upload/use a prohibited-clause test contract, click 조항 리스크 분석 on document detail, and capture cited clause, risk explanation, and recommended action display.",
@@ -21739,7 +22307,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1885",
@@ -21891,6 +22462,11 @@
           "note": "2026-07-04: LSP status and diagnostics attempts for ai-summary.service.ts, evidence-prompt.compiler.ts, ai-assistant.ts, document-action-center.tsx, and ai-summaries.spec.ts returned Transport closed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: upload or use an email document containing '금요일까지 계약서 회신 요청', open its document detail, run 이메일 요청·기한 요약, confirm request/deadline recommendedActions and cited source panel render, and click the citation to the original chunk.",
         "Manual blocked-state receipt missing: stop or disable the local Ollama/Gemma path on the approved surface, run 이메일 요청·기한 요약 for an email document, and confirm fail-closed blocked/unavailable guidance without leaking internals.",
@@ -22010,7 +22586,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1907",
@@ -22247,6 +22826,11 @@
           "note": "2026-07-05: LSP status and diagnostics for DD service, AI-prep processor/spec, and dd-vault integration returned Transport closed; typecheck/build passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual DD QA receipt missing: upload 5 documents in a test DD matter, view RFI suggestions and missing RFI display, and approve one suggestion.",
         "Full dd-vault.spec.ts and full litigation-vault.spec.ts are blocked by the same unrelated current DB scope-guard failure: external_authorities exists, while those guards expect no unexpected external_* tables in DD/Litigation scope.",
@@ -22341,7 +22925,10 @@
       "externalEvidenceNeeds": [
         "- tests/integration/cross-tenant.spec.ts 패턴 재사용: 타 테넌트 컨텍스트에서 신규 노드타입 조회 0건(RLS) assert"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1937",
@@ -22503,6 +23090,11 @@
           "note": "2026-07-04T23:56+09:00: PASS; ledger JSON validation confirmed 110 rows, no duplicate ids, allowed statuses only, and F1 status/evidence/gaps present."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: firm_admin must run POST /graph/sync and GET /graph/facts against a real seeded matter, verify HAS_FACT and EVIDENCED_BY are present, and preserve a sanitized receipt.",
         "Audit-console manual receipt missing: the same manual QA pass must verify the corresponding GRAPH_SYNCED event is visible with ID-only metadata.",
@@ -22586,7 +23178,10 @@
         "Manual/staging F2 receipt for Korean 제N조 upload/process/sync/GET /graph/facts.",
         "Owner/product acceptance decision replacing semantic indemnity-kind manual criterion with structural kind, or a separate TUW for semantic clause classification."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1969",
@@ -22733,6 +23328,11 @@
           "note": "PASS on 2026-07-05T00:24+09:00: repository diff whitespace check produced no findings."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: upload a Korean 제N조 contract through the app/API, run contract-intel process, graph sync, and GET /graph/facts, then attach the receipt showing structural clause/defined_term/text_chunk relationships.",
         "Acceptance clarification needed: the manual example asks for semantic clause kind such as indemnity, but current schema only supports structural contract_clauses.clause_kind values article/section/paragraph/definition.",
@@ -22821,7 +23421,10 @@
         "Manual/staging F3 receipt for POST /ai/summaries with graph facts containing confirmed and unreviewed/proposed nodes, showing the user-visible evidence section distinguishes them.",
         "LSP transport restoration or an approved unavailable-tool receipt if direct diagnostics remain unavailable."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1994",
@@ -22968,6 +23571,11 @@
           "note": "PASS on 2026-07-05T00:37+09:00: repository diff whitespace check produced no findings."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: no current staging/manual POST /ai/summaries evidence shows response/evidence output distinguishing [확정] graph facts from [미검토] graph facts.",
         "Direct changed-file LSP diagnostics unavailable because MCP LSP status/diagnostics returns Transport closed.",
@@ -23054,7 +23662,10 @@
       "externalEvidenceNeeds": [
         "**완화 노트:** 이벤트 버스/브로커(SQS 등) 미도입 — Postgres outbox + 인프로세스 폴링으로 축소(단일 테넌트·소규모 전제)."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2018",
@@ -23251,6 +23862,11 @@
           "note": "2026-07-04: direct LSP status and diagnostics calls returned Transport closed; post-edit diagnostics hook also emitted a stale TS2307 Cannot find module @amic-vault/shared diagnostic for tests/integration/graph.spec.ts after the file no longer imports that alias. This is not counted as clean LSP evidence."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Changed-file LSP diagnostics receipt is missing: mcp__lsp.status and diagnostics returned Transport closed, and the post-edit hook emitted a stale TS2307 alias diagnostic for tests/integration/graph.spec.ts even though the file now uses a relative shared type import and the tests TypeScript project check passes.",
         "F6 should not be promoted to COMPLETE_CANDIDATE until direct or accepted local LSP diagnostics are clean for the changed F6 files."
@@ -23341,7 +23957,10 @@
         "Large graph benchmark receipt for 10k nodes/30k edges depth=3 p95<500ms, or an approved scoped performance waiver.",
         "LSP transport restoration or approved unavailable-tool receipt if direct diagnostics remain unavailable."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2048",
@@ -23513,6 +24132,11 @@
           "note": "PASS on 2026-07-05T00:57+09:00: repository diff whitespace check produced no findings."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "F7 manual/staging receipt gap: no current non-integration receipt shows a lawyer calling GET /graph/neighborhood on a staged matter, navigating a Fact/Issue/RFI/Evidence path, and confirming the GRAPH_QUERY_EXECUTED audit with ID-only metadata.",
         "F7 GraphRAG manual receipt gap: no current staging/manual POST /ai/summaries receipt demonstrates a graph-pattern question receiving neighborhood-derived graph facts in the evidence pack/prompt path.",
@@ -23599,7 +24223,10 @@
       "externalEvidenceNeeds": [
         "**Scope:** 신규 웹 API 클라이언트 apps/web/src/lib/api/graph.ts(GET /graph/facts, /graph/neighborhood 소비)와 ai-claims 조회 클라이언트 추가(기존 lib/api/*.ts + *.spec.ts 패턴 준수). /matters/[matterId] 페이지에 지식 탭 3구획: (1) Matter Graph — 이웃 서브그래프 목록/간단 시각화(노드 클릭 시 문서 상세 링크, provenance 뱃지 표기), (2) Issue Map — litigation_issue_nodes/dd_issues 계층 트리, (3) Citation Panel — 이 matter의 AI 세션 claim↔citation 원장 조회. 권한은 서버에서 이미 강제되므로 UI는 응답 렌더만. /contracts·/dd·/litigation 독립 라우트 봉인은 이 유닛에서 해제하지 않는다(hidden-routes.test.tsx 불변 — matter 탭 방식으로 우회 노출). 그래프 시각화는 경량 SVG/리스트 하이브리드로 시작(외부 대형 그래프 라이브러리 도입 판단은 구현 시점에)."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2073",
@@ -23681,6 +24308,11 @@
           "note": "2026-07-05T02:20+09:00: an earlier broad Vitest pattern also matched unrelated matters/new/page.test.tsx and exposed pre-existing confidentialityLevel expectation drift; the exact F8 path command passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: sign in as a lawyer account, open a matter with seeded fact/evidence/issue data, and verify the 지식 section shows Matter Graph, Issue Map, and Citation Panel.",
         "Manual QA receipt missing: click a Fact→Evidence→Document chain from the 지식 section and capture that the document detail opens for the referenced document.",
@@ -23798,7 +24430,10 @@
         "- 수동 검증: 변호사가 /work에서 AI 제안 Fact를 확인 처리한 뒤 matter 지식 탭(F8)에서 해당 노드가 [확정] 뱃지로 바뀌는지 확인"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2100",
@@ -23950,6 +24585,11 @@
           "note": "2026-07-05: whitespace diff check passed with exit 0 across the dirty worktree."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt is still missing: lawyer account must open /work, confirm an AI proposed Fact, then verify the matter knowledge tab shows the same node with the [확정] badge and usable citation chain.",
         "Changed-file LSP diagnostics could not be collected because the LSP MCP transport closed on every F9 file; package typecheck/build evidence is present but does not replace the LSP receipt under strict completion rules."
@@ -24040,7 +24680,10 @@
         "Manual/staging firm_admin GET /graph/consistency receipt for a matter containing F10 conflict fixtures, including response categories/counts/IDs and corresponding audit event.",
         "LSP transport restoration or approved unavailable-tool receipt if direct diagnostics remain unavailable."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2132",
@@ -24212,6 +24855,11 @@
           "note": "PASS on 2026-07-05T00:48+09:00: repository diff whitespace check produced no findings."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "F10 manual/staging receipt gap: no current non-integration receipt shows a firm_admin calling GET /graph/consistency against a real staged matter and seeing version_lineage_conflict, defined_term_mismatch, evidence_gap counts/IDs plus GRAPH_CONSISTENCY_CHECKED audit.",
         "F10 LSP evidence gap: direct changed-file MCP LSP diagnostics returned Transport closed; compiler typecheck/lint/build evidence is present but LSP diagnostics are not.",
@@ -24306,7 +24954,10 @@
       "externalEvidenceNeeds": [
         "**완화 노트:** 조항 버전 계보·다단계 승인·외부 공유는 제외. 승인 워크플로는 제안→승인/폐기 단일 단계(9인 규모)."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2161",
@@ -24473,6 +25124,11 @@
           "note": "2026-07-05: tracked diff check produced no output; untracked new F11 file whitespace check passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt is still missing: authorized approver must open /contracts, approve a draft clause-bank entry, switch status filter to approved, and verify the approved entry is visible without exposing inaccessible source body or document identifiers.",
         "Changed-file LSP diagnostics could not be collected because the LSP MCP transport closed; package lint/typecheck/build evidence is present but does not replace the LSP receipt under strict completion rules."
@@ -24595,7 +25251,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2190",
@@ -24972,6 +25631,11 @@
           "note": "2026-07-05: broad sloplint still reports pre-existing dirty-worktree findings, but the scoped filter returned no findings for the AI prep status panel or the LCX/TUW ledger files touched in this slice."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt is missing: upload markup DOCX as a new version, view contract tab negotiation issue rows, change one issue to agreed, confirm /audit event, then transition document state negotiation -> executed.",
         "Changed-file LSP diagnostics unavailable: mcp__lsp.status and diagnostics returned Transport closed on 2026-07-05."
@@ -25061,7 +25725,10 @@
       ],
       "auditSecurityInvariants": [],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2218",
@@ -25268,6 +25935,11 @@
           "note": "2026-07-04: direct LSP status and diagnostics for dd.controller.ts, dd.service.ts, and notifications.service.ts all failed with Transport closed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt missing: /notifications에서 '기한 초과 RFI' 알림 클릭 -> 해당 Matter DD tab RFI row 이동을 staging or browser receipt로 캡처해야 함.",
         "Direct LSP diagnostics missing: mcp__lsp.status and changed-file diagnostics are blocked by Transport closed; rerun direct diagnostics once LSP transport is available."
@@ -25343,7 +26015,10 @@
       "externalEvidenceNeeds": [
         "**Scope:** 문서 추출 완료 이벤트(extraction-queue 완료 훅)에서 contract-intel 분류기를 호출해 dd_data_room_mappings 후보를 status=suggested(신규 컬럼)로 생성하고 rfi_id 추천을 붙인다. work_items에 dd_mapping_review kind로 확인 태스크 발행(G13의 kind 확장 사용, openRecordsDisposalWork 패턴의 헬퍼 재사용). 승인 API로 confirmed 전환+감사 이벤트. 만들지 않는 것: LLM 기반 분류 고도화(기존 regex 분류기 r8-local-v1 사용, 분류 품질 개선은 지식그래프/AI 워크스트림), 외부 업로드(G14 아님 — G9/G10과 별개로 고객포털 업로드는 자체 유닛 없이 이 큐를 재사용하는 G10 후속)."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2242",
@@ -25555,6 +26230,11 @@
           "note": "PASS: whitespace/diff hygiene check completed for G6 changed files."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: DD Matter에 계약서 업로드 -> /work에 DD 매핑 검토 태스크 표시 -> 승인 -> Matter DD tab traceability에 confirmed mapping 반영을 staging or browser receipt로 캡처해야 함.",
         "Changed-file LSP diagnostics receipt missing: mcp__lsp.status and diagnostics returned Transport closed for G6 TS files; rerun direct diagnostics when LSP transport is available."
@@ -25632,7 +26312,10 @@
         "- (앵커 부정확 / 테스트 불가능한 완료판정) db/migrations/0057_create_litigation_vault.sql:93의 evidence_code CHECK 제약(^[A-Z0-9][A-Z0-9._-]{1,63}$)은 ASCII 전용이라 '갑 제3호증' 형식을 evidence_code로 저장할 수 없음. 한글은 exhibit_label에만 가능하나 exhibit_label에는 UNIQUE 제약이 없어 '동시 등록 시 UNIQUE 제약 위반' 테스트가 성립하지 않고, '방향(갑/을)별 독립 순번'을 위한 direction 컬럼도 스키마에 없음. 그런데 G7 anchors의 신규 항목은 UI 컴포넌트 2개뿐. 신규 마이그레이션(예: 00XX_add_evidence_direction_and_sequence.sql — direction 컬럼 + (tenant_id, matter_id, direction, seq) UNIQUE, 표시용 라벨은 '갑 제N호증'으로 생성)을 anchors에 추가하고, acceptance test가 어느 컬럼(코드 vs 라벨)의 형식·유일성을 검증하는지 명시하라."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2265",
@@ -25844,6 +26527,11 @@
           "note": "PASS: targeted and full worktree whitespace/diff hygiene checks completed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: 송무 탭에서 증거 2건을 연속 등록해 두 번째 증거번호가 자동 +1 제안되는지 확인하고, Fact를 verified로 전이한 뒤 /audit에 LIT_FACT_CHANGED 감사 이벤트가 남는지 staging or browser receipt로 캡처해야 함.",
         "Changed-file LSP diagnostics receipt missing: mcp__lsp.status and diagnostics returned Transport closed; rerun direct diagnostics when LSP transport is available."
@@ -25944,7 +26632,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2292",
@@ -26111,6 +26802,11 @@
           "note": "2026-07-04: LSP status and diagnostics for changed G8 files returned Transport closed; focused lint/typecheck/build/tests passed instead."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: create a hearing 6 days out, trigger the litigation deadline sweep/job, confirm /notifications shows the 송무 기일 notification, click it and land on /matters/:matterId/litigation?hearingId=... with the hearing visible, confirm /work exposes the litigation_deadline task, then cancel the hearing and confirm incomplete work/notification cleanup.",
         "Changed-file LSP diagnostics receipt missing: mcp__lsp.status and diagnostics returned Transport closed on 2026-07-04; rerun diagnostics when LSP transport is available."
@@ -26235,7 +26931,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2314",
@@ -26252,6 +26951,13 @@
           "note": "The server-side PDF watermark rendering dependency is not recorded as complete in the current 110-row ledger."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2320"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Explicit R11 release authority or operator/ledger resolution for external portal document-byte delivery is missing.",
         "Server-side PDF watermark renderer completion evidence is missing.",
@@ -26338,7 +27044,10 @@
         "- 자동: tests/integration/external-core.spec.ts 확장 — 신규 목록 GET 엔드포인트의 권한 검증(매터 비멤버 403, 타 테넌트 404)",
         "- 수동: UI만으로 워크스페이스+링크를 만들고 시크릿 창에서 외부 포털 접속 성공 → sharing 화면에서 회수 → 재접속 시 403이면 통과; Q&A 인박스에서 외부 질문에 답변 작성 확인"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2343",
@@ -26480,6 +27189,11 @@
           "note": "2026-07-05T00:10+09:00: whitespace diff check exited 0."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "G10 manual/staging UI receipt gap: no current evidence shows a real operator creating a workspace and link from /matters/:matterId/sharing, opening the external portal in incognito, accepting NDA/accessing the document profile, revoking the link, and confirming subsequent external access returns 403.",
         "G10 manual/staging Q&A receipt gap: no current evidence shows an external question being answered from the internal Q&A inbox and reflected in the external portal.",
@@ -26562,7 +27276,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2365",
@@ -26574,6 +27291,13 @@
           "note": "G9 is EXTERNAL_BLOCKED by the R11 external portal content-delivery boundary."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2371"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "G9 content-access implementation and audit events are blocked.",
         "Manual external-user access statistics QA cannot be collected without the G9 external portal content path."
@@ -26660,7 +27384,10 @@
         "- 자동: tests/integration/external-portal-gate.spec.ts 확장 — (1) 초안 답변이 외부 listQa에 미노출 (2) 작성자 본인 승인 시도 403 (3) 타 변호사 승인 후 외부 노출+감사 이벤트 (4) asker_only 답변이 같은 워크스페이스의 다른 외부사용자 토큰에 미노출",
         "- 수동: sharing Q&A 인박스에서 답변 초안 작성 → 다른 변호사 계정으로 /work의 승인 태스크 처리 → 외부 포털에서 답변 표시되면 통과"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "code_anchor",
           "ref": "packages/shared/src/external/external-types.ts",
@@ -26747,6 +27474,11 @@
           "note": "2026-07-05: LSP status and diagnostics calls failed with Transport closed; focused lint/typecheck/build/tests passed instead."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "G12 manual/staging QA receipt gap: no current evidence shows a real staging operator creating an external question, drafting an internal answer from the Q&A inbox, routing/processing the external_qa_approval task by a different lawyer, and seeing the approved answer in the external portal.",
         "G12 visibility manual QA gap: no current staging/browser receipt confirms asker_only answers are visible only to the original external asker and workspace answers are visible to another external recipient in the same workspace.",
@@ -26834,7 +27566,10 @@
       "externalEvidenceNeeds": [
         "**Goal:** /work 큐가 records/문서 운영 7종을 넘어 계약검토·DD·송무·외부 Q&A 워크플로 태스크를 담당자 지정·재배정과 함께 다룰 수 있다. G6/G8/G12가 소비할 공통 기반이다."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2410",
@@ -27016,6 +27751,11 @@
           "note": "2026-07-04: command exited 0; reported existing/off-scope dirty-tree findings in unrelated files and docs, with no blocking G13 UI implementation failure."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Staging/manual QA receipt missing: seed 25 tasks, use /work page navigation, kind filter, and reassignment, then verify the reassigned assignee account sees the task.",
         "Changed-file LSP diagnostics receipt missing: mcp__lsp.diagnostics returned Transport closed for G13 changed files during this run; tsc/typecheck/build passed but this is not an LSP receipt.",
@@ -27110,7 +27850,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2435",
@@ -27122,6 +27865,13 @@
           "note": "H3 remains EXTERNAL_BLOCKED in the current ledger, so H4 lacks the backup/encryption/PITR measured values it must inherit."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2441"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "H3 external AWS backup/encryption/PITR evidence is missing.",
         "Production AWS resource import identifiers and no-drift terraform plan evidence are missing.",
@@ -27244,7 +27994,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2466",
@@ -27436,6 +28189,11 @@
           "note": "2026-07-04: changed-file LSP diagnostics attempts for bulk-download-monitor.service.ts, dlp.controller.ts, notifications.service.ts, and admin-security-client.tsx returned Transport closed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: in staging, use a test account to download 55 documents within the configured window, then capture exactly one DLP bulk-download alert in /notifications and the /admin/security DLP 대량 다운로드 panel.",
         "Changed-file LSP diagnostics receipt missing: mcp__lsp.diagnostics returned Transport closed on 2026-07-04; rerun direct diagnostics when LSP transport is available."
@@ -27538,7 +28296,10 @@
         "- 자동: tests/integration/legal-hold.spec.ts 회귀 통과."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2493",
@@ -27780,6 +28541,11 @@
           "note": "2026-07-04: command exited 0 with worktree-wide findings. H8 direct UI finding was one weak motion-without-meaning flag for Loader2 animate-spin loading state at records-governance-client.tsx:1018, treated as intentional loading feedback; unrelated dirty-worktree findings were not remediated in H8."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [],
       "nextAction": "No H8 feature work. Keep H8 as COMPLETE_CANDIDATE unless a future strict audit invalidates one of the recorded evidence refs; continue the 110-row execution gate with the next dependency-valid non-complete TUW.",
       "statusRationale": "H8 meets the strict COMPLETE_CANDIDATE gate as of 2026-07-04T04:36:54+09:00: retention policy binding migration, scheduler code, pending disposal review API/UI, shared DTOs, records policy docs, unit boundary tests, integration scheduler test, legal-hold regression, tests-project typecheck, API/shared/web focused tests, API/shared/web typecheck/lint/build, clean throwaway DB migrate/rollback/migrate, manual /records QA receipt through policy creation, scheduler row, exact pending review selection, approval/execution, certificate, direct changed-file LSP evidence where publishDiagnostics was available, package typechecks where LSP publish was unavailable, scoped formatting/diff hygiene, and AI slop review evidence are recorded. The source plan's pending_review wording maps to current schema semantics status=requested plus reason_code=RETENTION_EXPIRED plus reviewSource=retention_scheduler.",
@@ -27898,7 +28664,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2523",
@@ -28135,6 +28904,11 @@
           "note": "2026-07-04T02:31+09:00: final scoped whitespace diff check passed for H9 changed specs, ledger artifacts, and the final tsserver receipt after the H9 override update."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Required staging manual acceptance is missing: run tools/db/verify-audit-anchors.mjs against the staging DB for the approved tenant/date range and capture the all anchors verified output.",
         "Required staging S3 evidence is missing: confirm the corresponding audit anchor object exists in object storage and capture the receipt/object-lock or immutability operations evidence without exposing bucket credentials, ARNs, account ids, object contents, or secrets."
@@ -28257,7 +29031,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2552",
@@ -28314,6 +29091,11 @@
           "note": "2026-07-05: LSP status and diagnostics attempts returned Transport closed; focused eslint, node --check, and node --test passed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "C11 dependency remains LOCAL_IMPLEMENTED_NEEDS_EVIDENCE; H11 cannot be COMPLETE_CANDIDATE until MSG/PST email-ingress evidence is closed or explicitly blocked.",
         "Real file-server sample wave manual/staging receipt is missing: run dry-run -> approval workbook -> write -> closeout and confirm /files and /matters documents plus import audit events.",
@@ -28408,7 +29190,10 @@
         "- 수동: 테스트 매터를 종료한 뒤 /work 큐에 후보 항목이 나타나고 승인 처리하면 목록에서 제거되며 audit 콘솔에 승인 기록이 보이면 통과"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2590",
@@ -28655,6 +29440,11 @@
           "note": "PASS: scoped trailing-whitespace scan found no matches before A13 ledger regeneration."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt is still missing: close a test Matter, confirm /work candidate appears, approve removes it from the list, and audit console shows the approval.",
         "Changed-file LSP diagnostics are unavailable because mcp__lsp.status returned Transport closed; rerun diagnostics when the LSP transport is available.",
@@ -28756,7 +29546,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2624",
@@ -28768,6 +29561,13 @@
           "note": "Strong LLM routing is EXTERNAL_BLOCKED pending explicit external-model policy approval."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2630"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "E8 external-model policy approval is missing.",
         "Strong LLM routing evidence is missing.",
@@ -28866,7 +29666,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2650",
@@ -29023,6 +29826,11 @@
           "note": "2026-07-05: broad sloplint still reports pre-existing dirty-worktree findings, but the scoped filter returned no findings for the AI prep status panel or the LCX/TUW ledger files touched in this slice."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Desktop Word sideload manual QA is missing: search for 해지 조항, insert at cursor, and observe the clause body in the document.",
         "Audit-console manual receipt for the Word insertion event is missing, even though the focused DB integration proves sanitized audit metadata.",
@@ -29142,7 +29950,10 @@
         "- outlook-send-file.service.spec.ts 확장: dlp_finding 경고코드 보고 시 (1) 일반 검출+외부수신자→경고+승인 요구, (2) restricted급 검출→승인 불가 차단, (3) 스캔 실패 보고→경고 후 허용 — 3케이스 판정 assert",
         "- 수동: 개발 테넌트에서 주민번호를 본문에 넣고 외부 주소로 발송 시도→Smart Alert 차단 프롬프트 표시, 제거 후 발송 성공하면 통과"
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2677",
@@ -29369,6 +30180,11 @@
           "note": "2026-07-05: LSP status and changed-file diagnostics all returned Transport closed; package typechecks passed but this is not a clean LSP receipt."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: in a development/staging tenant, send an Outlook message containing a Korean resident-registration-number-like value to an external recipient, verify Smart Alert warning/blocking, remove the value, and verify send succeeds.",
         "C7 add-in pilot deployment dependency remains EXTERNAL_BLOCKED; C14 Smart Alerts evidence cannot be complete until add-in deployment/operator receipts exist.",
@@ -29497,7 +30313,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2713",
@@ -29714,6 +30533,11 @@
           "note": "2026-07-05: broad sloplint still reports pre-existing dirty-worktree findings, but the scoped filter returned no findings for the AI prep status panel or the LCX/TUW ledger files touched in this slice."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Full D9 benchmark receipt missing: the new runner has only smoke evidence; no run yet proves synthetic 200k documents with 9 concurrent users, keyword p95 < 3s, and hybrid p95 < 5s with scale_performance_runs row ids.",
         "Hybrid smoke was path-only: tools/bench/output/search-load-hybrid-smoke/search-load-bench-2026-07-05T03-26-04-178Z.json completed and inserted a scale row, but totalObserved=0, so it is not retrieval/SLA evidence.",
@@ -29818,7 +30642,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2746",
@@ -30030,6 +30857,11 @@
           "note": "2026-07-05: validated 110 units, no duplicate ids, valid statuses, array evidence fields, count-map consistency, and D11 LOCAL_IMPLEMENTED_NEEDS_EVIDENCE with 40 evidence refs and 2 gaps before adding ledger receipt refs."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt is still missing: authorized user must open /search, select target=조항, query '손해배상', verify the clause card shows 조항 유형/소속 문서/Matter context, click 원문 열기, and capture navigation to the source document detail without inaccessible clause/source leakage.",
         "Changed-file LSP diagnostics receipt is missing because mcp__lsp.diagnostics returned Transport closed for all D11 changed-file attempts on 2026-07-05; package typecheck/build evidence is present but does not replace LSP evidence under strict completion rules."
@@ -30133,7 +30965,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2768",
@@ -30315,6 +31150,11 @@
           "note": "2026-07-05: broad sloplint still reports pre-existing dirty-worktree findings, but the scoped filter returned no findings for the AI prep status panel or the LCX/TUW ledger files touched in this slice."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual /search QA receipt missing: run the app in a browser, search 상법 제398조 or a staged authority fixture, select 판례·법령, confirm the authority card appears, then switch back to 전체/문서 results and confirm internal document results remain permission-filtered.",
         "Changed-file LSP diagnostics unavailable: mcp__lsp.status and diagnostics returned Transport closed on 2026-07-05.",
@@ -30418,7 +31258,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2792",
@@ -30430,6 +31273,13 @@
           "note": "E8 Strong LLM routing is EXTERNAL_BLOCKED pending external-model policy approval."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "EXTERNAL_EVIDENCE",
+      "blockingRefs": [
+        "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2798"
+      ],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "E8 external-model routing authority is missing.",
         "E13 code, tests, manual QA, and LSP evidence are intentionally not pursued while the E8 dependency is blocked."
@@ -30509,7 +31359,10 @@
         "- (앵커 부정확) packages/shared/src/ai/prep.ts에 minutes_qc kind를 추가하면 db/migrations/0064_create_ai_prep_artifacts.sql의 artifact_kind CHECK 제약(37-48행)이 insert를 거부하므로 CHECK 확장 마이그레이션이 필수인데 anchors에 신규 마이그레이션이 전무함 — 통합 테스트 'QC 아티팩트 생성'이 CHECK 위반으로 통과 불가. 신규 db/migrations/010X_add_minutes_qc_artifact_kind.sql을 anchors에 추가하고, tools/evalset/local-ai-eval.ts의 하드코딩 kind 목록(17-26행) 동기화도 함께 명시할 것 (E7이 자체 4종만 0101에 담는 패턴과 동일)."
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2815",
@@ -30626,6 +31479,11 @@
           "note": "2026-07-05T11:08+09:00: broad changed sloplint reported existing unrelated findings, but filtering to E14 touched files returned no findings."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: upload intentionally wrong meeting minutes, verify /work shows 회의록 정합성 QC, and click citations to both the meeting original and evidence document.",
         "Changed-file LSP diagnostics unavailable: mcp__lsp.status and mcp__lsp.diagnostics returned Transport closed on 2026-07-05T11:08+09:00.",
@@ -30717,7 +31575,10 @@
       "externalEvidenceNeeds": [
         "**완화 노트:** 외부 임베딩 API는 DEC-11에 따라 계속 차단 — 로컬 모델 전제. 조항 클러스터링·추천은 제외, 질의 기반 검색만."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2841",
@@ -30904,6 +31765,11 @@
           "note": "2026-07-05: trailing-whitespace scan found no matches across F12 touched files, including untracked migration/UI files and generated ledger artifacts."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt is still missing: authorized user must open /contracts, run the 유사 조항 panel with Korean query '손해배상 책임 상한', and verify the related approved clause appears above unrelated clauses without exposing source body text.",
         "Changed-file LSP diagnostics are not clean in the hook: tests/integration/contract-intel.spec.ts reports unresolved @amic-vault/shared despite passing TypeScript/package/integration checks. Under fast evidence policy, do not spend a long turn chasing this tool-resolution gap before moving to the next dependency-valid TUW."
@@ -30998,7 +31864,10 @@
         "- tests/integration/contract-intel.spec.ts 확장: negotiation position 생성(round 1→2) 후 counterparty-patterns 응답에 조항 kind별 빈도 집계 반환 assert; 권한 없는 matter의 position 생성 403 assert"
       ],
       "externalEvidenceNeeds": [],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2872",
@@ -31170,6 +32039,11 @@
           "note": "2026-07-05: pre-ledger F13 scoped diff hygiene passed; rerun after ledger regeneration is still required."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt is still missing: in staging, create or identify the same counterparty across two authorized matters, record indemnity negotiation positions, call GET /v1/contract-intel/counterparty-patterns?partyId=..., and verify the frequency/matter count without exposing inaccessible matter text.",
         "Changed-file LSP diagnostics are not clean in the hook for tests/integration/contract-intel.spec.ts because @amic-vault/shared is unresolved in that hook context; package typecheck, tests tsconfig, and integration evidence are present but do not replace a clean LSP receipt under the strict completion rules."
@@ -31280,7 +32154,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2902",
@@ -31492,6 +32369,11 @@
           "note": "2026-07-05: LSP status and changed-file diagnostics attempts again failed with Transport closed; API typecheck/lint/build and focused integration passed as fallback local evidence, but official LSP diagnostics remain unavailable."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Obsidian/manual/staging receipt is missing: export ZIP, open it in an actual Obsidian vault, and confirm backlink graph rendering plus citation readability.",
         "Changed-file LSP diagnostics remain unavailable because mcp__lsp.status and diagnostics attempts failed with Transport closed on 2026-07-05."
@@ -31605,7 +32487,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2931",
@@ -31917,6 +32802,11 @@
           "note": "2026-07-05: broad sloplint still reports pre-existing dirty-worktree findings, but the scoped filter returned no findings for the AI prep status panel or the LCX/TUW ledger files touched in this slice."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA receipt is missing: run contract process on a staging/local UI document, observe rule findings plus AI opinions with citations in the contract tab, click review complete/accept, and confirm CONTRACT_AI_REVIEW_ACCEPTED in /audit.",
         "Performance receipt is missing: local queue/worker retry policy is implemented and unit-tested, but no runtime pg-boss/local Gemma timestamp evidence proves automatic first-review completion within 5 minutes.",
@@ -32025,7 +32915,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2953",
@@ -32382,6 +33275,11 @@
           "note": "2026-07-05: LSP status failed with Transport closed; changed-file diagnostics could not be collected."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual QA is missing: DD tab report generation, file appearance, Word open receipt, binder ZIP download, manifest/file-count parity.",
         "Changed-file LSP diagnostics are not collected; current LSP status and diagnostics attempts returned Transport closed."
@@ -32525,7 +33423,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:2988",
@@ -32747,6 +33648,11 @@
           "note": "2026-07-05: tracked diff whitespace check produced no output; no-index diff-check wrapper and trailing-whitespace content scan covered the H12 code/test/ledger files including untracked law-data files and found no whitespace errors."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Real law.go.kr API credential/operator receipt missing; current evidence uses local fixture HTTP server only.",
         "Real OpenDART API credential/operator receipt missing; current evidence uses local fixture HTTP server only.",
@@ -32850,7 +33756,10 @@
           "blocksPromotion": true
         }
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "source_plan",
           "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:3022",
@@ -33052,6 +33961,11 @@
           "note": "2026-07-04: diagnostics attempts for dashboard shared types, dashboard API files, dashboard web API/client files, and usage-stats integration returned Transport closed."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Manual/staging QA receipt missing: on the running /dashboard surface, confirm the last-30-days usage-stat cards render, compare uploads/downloads/searches against the /audit console with the same period filter, and open the downloaded CSV.",
         "Changed-file LSP diagnostics receipt missing: mcp__lsp.diagnostics returned Transport closed on 2026-07-04; rerun diagnostics when LSP transport is available."
@@ -33151,7 +34065,10 @@
         "**Goal:** 사용자가 로그인 화면의 'Microsoft로 로그인' 버튼으로 로펌 M365 계정 인증만으로 로그인할 수 있다(기존 비밀번호+TOTP 로그인은 그대로 유지).",
         "- 수동: Entra 테스트 테넌트로 로그인 버튼→M365 계정 인증→대시보드 진입, /audit에서 method=oidc LOGIN_SUCCESS 확인, 비활성화 계정은 OIDC로도 차단되면 통과."
       ],
-      "evidenceRefs": [
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [
         {
           "type": "code_anchor",
           "ref": "apps/api/src/modules/auth/oidc-microsoft.service.ts",
@@ -33243,6 +34160,11 @@
           "note": "2026-07-05: LSP diagnostics calls failed with Transport closed; focused lint/typecheck/build/tests passed instead."
         }
       ],
+      "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "H14 manual/staging QA receipt gap: no current evidence shows a real Entra test tenant login through the Microsoft button, M365 account authentication, dashboard redirect, and /audit LOGIN_SUCCESS metadata method=oidc.",
         "H14 inactive-user manual QA gap: no current staging/browser receipt confirms a real inactive Entra-mapped account is blocked through OIDC.",
@@ -33308,7 +34230,15 @@
         "**Acceptance tests:** 자동 — tests/integration/document-access 계열에 (a) clientId 필터 목록이 해당 고객 매터의 문서만 반환, (b) cross-tenant clientId는 빈 결과, (c) 체크인 수행 후 updated_by가 편집자로 갱신됨을 검증. 수동 — /files에서 고객 선택 시 목록이 즉시 필터되고 각 행에 고객명·최종 편집자가 표시되면 통과."
       ],
       "externalEvidenceNeeds": [],
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [],
       "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Acceptance, code, test, and operational evidence for B15 have not been reviewed."
       ],
@@ -33378,7 +34308,15 @@
         "**Acceptance tests:** 자동(통합테스트) — (a) 타인 잠금 상태에서 GET edit-sessions/active 응답에 lockOwnerDisplayName·expiresAt 포함, (b) purpose=working_copy 다운로드 시 Content-Disposition 사본 파일명 + DOCUMENT_COPY_DOWNLOADED 감사 행 + 문서 감사 타임라인 노출, (c) 잠금 활성 중 타인의 새 버전 업로드가 409 DOCUMENT_LOCKED_FOR_VERSIONING으로 거부되고 체크인 후 성공하는 인터리빙 테스트, (d) 해제 요청 시 소유자 알림 생성 + 동일 세션 중복 요청 억제. 수동 — 계정 2개로 동시 편집 시도: 두 번째 계정에 프롬프트가 뜨고 [작업사본 다운로드]→로컬 수정→(소유자 체크인 후) 새 버전 업로드 흐름이 완결되면 통과."
       ],
       "externalEvidenceNeeds": [],
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [],
       "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Acceptance, code, test, and operational evidence for B16 have not been reviewed."
       ],
@@ -33428,7 +34366,15 @@
         "**Scope:** (1) check-in API에 `promoteImmediately` 옵션 추가 — 리뷰어가 지정되지 않은 문서는 체크인+promote를 단일 트랜잭션으로 수행(9인 내부용 완화: self-promote 허용을 테넌트 정책 플래그로), 리뷰어 지정 문서는 기존 리뷰 게이트 유지. (2) 웹 체크인 다이얼로그: [검토본으로 저장 vN.M] / [공식 버전으로 발행 vN+1 — B4 버전 라벨(고객송부/최종본/체결본 등) 선택 포함]. (3) B12 데스크톱 브리지의 편집 종료 흐름에도 동일 다이얼로그 노출. 만들지 않을 것: 리뷰 게이트 폐지(정책 플래그 기본값은 게이트 유지), 저장(save)마다 선택(저장은 서브버전 자동 유지 — 선택은 체크인 시점에만).",
         "**Acceptance tests:** 자동 — (a) 리뷰어 미지정 문서에서 promoteImmediately 체크인 시 새 공식 버전 생성+검토본 promoted 전이+감사 2건, (b) 리뷰어 지정 문서에서 동일 요청이 review_required로 거부, (c) 정책 플래그 off 테넌트에서 promoteImmediately 거부 검증(통합테스트). 수동 — 편집→체크인 다이얼로그에서 '공식 버전으로 발행+체결본 라벨' 선택 시 버전 목록에 vN+1·체결본 배지가 표시되면 통과."
       ],
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [],
       "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Acceptance, code, test, and operational evidence for B17 have not been reviewed."
       ],
@@ -33489,7 +34435,15 @@
       "externalEvidenceNeeds": [
         "**Acceptance tests:** 자동 — tests/integration에 (a) send_and_file 요청 생성→이행 잡 실행→email_messages 행+매터 파일링+completed 전이, (b) Sent Items 미반영 시뮬레이션에서 백오프 재시도 후 성공, 10분 초과 시 sent_item_not_found로 failed 전이, (c) 매칭 키 우선순위(internetMessageId→conversationId+canonical) 및 다중 매치 처리 검증, (d) 권한 없는 매터 지정 시 거부. 수동 — 파일럿(R0) 계정에서 외부 수신자 메일 발송 시 SoftBlock 프롬프트→태스크페인→매터 자유검색 선택→발송 후 표시(정상 경로 1분 내, Sent Items 지연 시 최대 10분 + 상태 노출)되면 통과."
       ],
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [],
       "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Acceptance, code, test, and operational evidence for C16 have not been reviewed."
       ],
@@ -33537,7 +34491,15 @@
         "**Acceptance tests:** 자동 — (a) 이식된 diff-engine 테스트 전체가 pnpm test로 통과, (b) 한글 계약서 DOCX 버전쌍 픽스처에서 삽입/삭제/이동/표 셀 변경이 문자 단위 스팬으로 검출되는 회귀 테스트 — **픽스처는 익명화 합성 문서로 제작**(실계약서 리포 반입 금지; 조항 번호 문단·표·정의어 목록을 포함한 20p/100p 2종, 발주자 제공 샘플 참조 후 합성), (c) 5,000자 초과 문단의 단어 폴백 경계 테스트, (d) NFC 미정규화 입력 처리 테스트. 성능 — 100페이지급 합성 픽스처 쌍 diff가 워커 스레드에서 **p95 210초(3.5분) 내** 완료 assert(B19 e2e 5분 예산과 정합). 캐시: 초기 구현은 **캐시 생략을 기본**으로 하고, 도입 시 redline_cache(tenant_id 포함, RLS FORCE, 롤백 스크립트 — 리포 마이그레이션 규약 준수)로 추가한다."
       ],
       "externalEvidenceNeeds": [],
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [],
       "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Acceptance, code, test, and operational evidence for B18 have not been reviewed."
       ],
@@ -33603,7 +34565,15 @@
         "**Scope:** (1) apps/api ComparisonModule — 입력 (documentId, versionA, versionB) 쌍: 양 버전 canRead 권한·윤리장벽 검사(fail-closed)→S3 임시 다운로드→packages/redline 호출. 소형 문서는 동기, 그 외 pg-boss `redline.generate` 잡(Contract Desk comparison_export_jobs 패턴: PENDING→COMPLETED/FAILED, 재시도·타임아웃 정책). (2) PDF 렌더: redline HTML 조립 후 Playwright chromium printToPDF(한글 폰트 컨테이너 포함) — Electron printToPDF 대체. (3) 산출물을 rendition으로 S3 저장+documents 파생물 행 기록(원본과 동일 confidentiality 상속, REDLINE_GENERATED 감사 이벤트, 외부공유 시 B3 워터마크 경로 통과). (4) UI: 문서 상세 버전 목록에 비교 대상 선택 체크박스+'Redline PDF' 버튼, 생성 상태 표시(진행/완료/실패), 완료 시 미리보기·다운로드. B11(조항 단위 비교 탭)은 본 패키지의 diff 결과를 재사용하도록 scope 조정 — B11 deps에 B18 추가. 만들지 않을 것: PDF↔DOCX 교차 비교, 서식보존 DOCX redline(B20).",
         "**Dependencies:** B18, B3(워터마크 — 외부공유 경로), H6(워커 — 소프트)"
       ],
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [],
       "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Acceptance, code, test, and operational evidence for B19 have not been reviewed."
       ],
@@ -33631,7 +34601,15 @@
       "migrationRequirements": [],
       "auditSecurityInvariants": [],
       "externalEvidenceNeeds": [],
+      "validationState": "BOOTSTRAP_PREIMAGE",
+      "validatedCandidateSha": null,
+      "validationScope": null,
+      "historicalEvidenceRefs": [],
       "evidenceRefs": [],
+      "blockerClass": "NONE",
+      "blockingRefs": [],
+      "acceptedBlockers": [],
+      "dependencyConditions": [],
       "remainingGaps": [
         "Acceptance, code, test, and operational evidence for B20 have not been reviewed."
       ],
