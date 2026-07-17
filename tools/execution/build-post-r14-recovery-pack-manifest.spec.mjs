@@ -338,6 +338,17 @@ test('authority validation keeps comment-contained fences and code-span literals
   }
 });
 
+test('authority validation preserves multiline code spans and tilde fence info strings', async () => {
+  const manifest = await fixture();
+  const [packRegistry, decisionLedger] = await Promise.all([readFile(packRegistryPath, 'utf8'), readFile(decisionLedgerPath, 'utf8')]);
+  const rejection = '- 2026-07-18 PACK-R14-03-AMENDMENT-01 authority decision: REJECTED; status=NOT_AUTHORIZED.';
+  for (const prefix of ['`literal\n<!--\n`\n', '``literal```x` <!--\n``\n', '~~~ <!--\n-->\n~~~\n']) {
+    const result = validateAuthorityArtifacts(manifest, { packRegistry, decisionLedger: decisionLedger + '\n' + prefix + rejection + '\n' });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.code === 'AUTHORITY_DECISION_RECORD_FORMAT'), true);
+  }
+});
+
 test('every PACK has three to eight TUWs, a unique branch, review, and earlier predecessors', async () => {
   const manifest = await fixture();
   const packs = manifest.payload.packs;

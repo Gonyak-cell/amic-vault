@@ -2841,27 +2841,29 @@ export function validateAuthorityArtifacts(manifest, {
 function maskNonOperationalMarkdown(text) {
   let fence = null;
   let comment = false;
+  let codeDelimiter = '';
   return text.split(/(?<=\n)/).map((line) => {
     if (fence) {
       if (isClosingFence(line, fence)) fence = null;
       return line.replace(/[^\n]/g, ' ');
     }
-    const masked = maskHtmlCommentsOutsideCodeSpans(line, comment);
-    comment = masked.comment;
-    const opener = masked.hadComment ? null : openingFence(masked.text);
-    if (opener) {
-      fence = opener;
-      return line.replace(/[^\n]/g, ' ');
+    if (!comment && !codeDelimiter) {
+      const opener = openingFence(line);
+      if (opener) {
+        fence = opener;
+        return line.replace(/[^\n]/g, ' ');
+      }
     }
+    const masked = maskHtmlCommentsOutsideCodeSpans(line, { comment, codeDelimiter });
+    comment = masked.comment;
+    codeDelimiter = masked.codeDelimiter;
     return masked.text;
   }).join('');
 }
 
-function maskHtmlCommentsOutsideCodeSpans(line, comment) {
+function maskHtmlCommentsOutsideCodeSpans(line, { comment, codeDelimiter }) {
   let output = '';
   let cursor = 0;
-  let codeDelimiter = '';
-  let hadComment = false;
   while (cursor < line.length) {
     if (comment) {
       const end = line.indexOf('-->', cursor);
@@ -2869,11 +2871,10 @@ function maskHtmlCommentsOutsideCodeSpans(line, comment) {
       output += line.slice(cursor, stop).replace(/[^\n]/g, ' ');
       cursor = stop;
       comment = end < 0;
-      hadComment = true;
       continue;
     }
     if (codeDelimiter) {
-      const end = line.indexOf(codeDelimiter, cursor);
+      const end = exactBacktickRunIndex(line, codeDelimiter, cursor);
       const stop = end < 0 ? line.length : end + codeDelimiter.length;
       output += line.slice(cursor, stop);
       cursor = stop;
@@ -2882,7 +2883,6 @@ function maskHtmlCommentsOutsideCodeSpans(line, comment) {
     }
     if (line.startsWith('<!--', cursor)) {
       comment = true;
-      hadComment = true;
       continue;
     }
     if (line[cursor] === '`') {
@@ -2895,7 +2895,14 @@ function maskHtmlCommentsOutsideCodeSpans(line, comment) {
     output += line[cursor];
     cursor += 1;
   }
-  return { text: output, comment, hadComment };
+  return { text: output, comment, codeDelimiter };
+}
+
+function exactBacktickRunIndex(line, delimiter, cursor) {
+  for (let index = line.indexOf(delimiter, cursor); index >= 0; index = line.indexOf(delimiter, index + 1)) {
+    if (line[index - 1] !== '`' && line[index + delimiter.length] !== '`') return index;
+  }
+  return -1;
 }
 
 function openingFence(line) {
