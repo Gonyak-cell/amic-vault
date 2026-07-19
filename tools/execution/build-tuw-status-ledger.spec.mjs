@@ -67,19 +67,60 @@ const activeJournalPath = resolve(
   repositoryRoot,
   'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
 );
-const activeLedgerJsonPath = resolve(
-  repositoryRoot,
-  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json',
-);
-const activeLedgerMarkdownPath = resolve(
-  repositoryRoot,
-  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md',
-);
 const candidateSha = 'a'.repeat(40);
 const asOf = '2026-07-17T00:00:00.000Z';
+const bootstrapJournalCommit = (() => {
+  const result = spawnSync(
+    'git',
+    ['log', '--reverse', '--format=%H', '--', 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json'],
+    { cwd: repositoryRoot, encoding: 'utf8' },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const commit = result.stdout.split('\n').find(Boolean);
+  assert.ok(commit, 'expected a committed bootstrap journal');
+  return commit;
+})();
+
+function bootstrapControlPlaneBytes(relativePath) {
+  const result = spawnSync('git', ['show', `${bootstrapJournalCommit}:${relativePath}`], {
+    cwd: repositoryRoot,
+    encoding: null,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  assert.equal(result.status, 0, result.stderr?.toString('utf8'));
+  return result.stdout;
+}
+
+const bootstrapOverridesBytes = bootstrapControlPlaneBytes(
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json',
+);
+const bootstrapJournalBytes = bootstrapControlPlaneBytes(
+  'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json',
+);
+const bootstrapJournal = JSON.parse(bootstrapJournalBytes.toString('utf8'));
+
+function bootstrapOverrides() {
+  return JSON.parse(bootstrapOverridesBytes.toString('utf8'));
+}
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function sha256Bytes(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function buildBootstrapLedger(plan, options = {}) {
+  return buildLedgerFromPlan(plan, {
+    overrides: bootstrapOverrides(),
+    overridesBytes: bootstrapOverridesBytes,
+    journal: structuredClone(bootstrapJournal),
+    journalBytes: bootstrapJournalBytes,
+    candidateDiffResolver: () => [],
+    previousJournalSnapshotResolver: () => null,
+    ...options,
+  });
 }
 
 function maskedSha256(path, allowedLines) {
@@ -246,13 +287,13 @@ function withCheckFixture(callback) {
     const executionDir = join(root, 'docs/execution');
     mkdirSync(executionDir, { recursive: true });
     copyFileSync(activePlanPath, join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_H1_H3.md'));
-    copyFileSync(
-      activeOverridesPath,
+    writeFileSync(
       join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json'),
+      bootstrapOverridesBytes,
     );
-    copyFileSync(
-      activeJournalPath,
+    writeFileSync(
       join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json'),
+      bootstrapJournalBytes,
     );
     const generated = spawnSync(process.execPath, [toolPath], { cwd: root, encoding: 'utf8' });
     assert.equal(generated.status, 0, generated.stderr);
@@ -359,7 +400,6 @@ function transitionFixture(
 ) {
   const planBytes = readFileSync(activePlanPath);
   const plan = planBytes.toString('utf8');
-  const bootstrapJournal = JSON.parse(readFileSync(activeJournalPath, 'utf8'));
   const journal = structuredClone(bootstrapJournal);
   const overrides = structuredClone(journal.bootstrap.baseOverrides);
   const recordedAt = timestamps;
@@ -612,9 +652,7 @@ test('dependency parser rejects bare, duplicate, self, unknown, CAP, and malform
 
 test('dependency alias registry emits exact 17 decisions and 18 records in source order', () => {
   const plan = readFileSync(activePlanPath, 'utf8');
-  const { ledger } = buildLedgerFromPlan(plan, {
-    overrides: JSON.parse(readFileSync(activeOverridesPath, 'utf8')),
-  });
+  const { ledger } = buildBootstrapLedger(plan);
   const actual = ledger.units.flatMap((unit) =>
     unit.dependencies
       .filter((dependency) => dependency.resolutionRef !== null)
@@ -689,8 +727,8 @@ test('dependency graph rejects cycles, unknown conditions, and active hard capab
 
 test('artifact count surfaces expose the canonical 117 rows and seven unadjudicated records', () => {
   const plan = readFileSync(activePlanPath, 'utf8');
-  const overrides = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
-  const { ledger, markdown } = buildLedgerFromPlan(plan, { overrides });
+  const overrides = bootstrapOverrides();
+  const { ledger, markdown } = buildBootstrapLedger(plan, { overrides });
   assert.equal(ledger.generatedAt, overrides.updatedAt);
   assert.equal(ledger.sourcePlan, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md');
   assert.equal(
@@ -722,10 +760,10 @@ test('artifact count surfaces expose the canonical 117 rows and seven unadjudica
   assert.equal(ledger.generatedAt, ledger.generationMetadata.asOf);
   assert.deepEqual(ledger.generationMetadata.transitionJournalSha256, {
     algorithm: 'SHA-256',
-    value: sha256(activeJournalPath),
+    value: sha256Bytes(bootstrapJournalBytes),
   });
   assert.equal(ledger.generationMetadata.sourcePlanSha256.value, sha256(activePlanPath));
-  assert.equal(ledger.generationMetadata.overridesSha256.value, sha256(activeOverridesPath));
+  assert.equal(ledger.generationMetadata.overridesSha256.value, sha256Bytes(bootstrapOverridesBytes));
   assert.ok(ledger.units.every((unit) => unit.validationState === 'BOOTSTRAP_PREIMAGE'));
   assert.ok(ledger.units.every((unit) => unit.validatedCandidateSha === null));
   assert.ok(ledger.units.every((unit) => unit.validationScope === null));
@@ -812,9 +850,7 @@ test('artifact import preserves all four 110 hashes and only registered pointer 
   }
 
   const plan = readFileSync(activePlanPath, 'utf8');
-  const { ledger } = buildLedgerFromPlan(plan, {
-    overrides: JSON.parse(readFileSync(activeOverridesPath, 'utf8')),
-  });
+  const { ledger } = buildBootstrapLedger(plan);
   assert.deepEqual(
     ledger.units
       .filter((unit) => unit.id.startsWith('B1') || unit.id === 'C16' || unit.id === 'B20')
@@ -896,7 +932,7 @@ test('117 overrides retain every imported 110 adjudication and add only the seve
       'utf8',
     ),
   );
-  const active = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
+  const active = bootstrapOverrides();
   assert.equal(Object.keys(active.unitOverrides).length, 117);
   for (const [id, adjudication] of Object.entries(legacy.unitOverrides)) {
     const activeRow = active.unitOverrides[id];
@@ -961,33 +997,42 @@ test('117 overrides retain every imported 110 adjudication and add only the seve
 
 test('bootstrap validation order rejects mutations by identity after raw timestamp syntax', () => {
   const plan = readFileSync(activePlanPath, 'utf8');
-  const overrides = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
+  const overrides = bootstrapOverrides();
   overrides.unitOverrides.A1.validationState = 'CURRENT_VALIDATED';
   overrides.unitOverrides.A1.validatedCandidateSha = candidateSha;
   overrides.unitOverrides.A1.validationScope = validationScope();
   overrides.unitOverrides.A1.evidenceRefs = [currentEvidence()];
-  throwsCode(() => buildLedgerFromPlan(plan, { overrides }), 'E_BOOTSTRAP_IDENTITY');
+  throwsCode(() => buildBootstrapLedger(plan, {
+    overrides,
+    overridesBytes: bootstrapOverridesBytes,
+  }), 'E_BOOTSTRAP_IDENTITY');
 
-  const clockOverrides = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
+  const clockOverrides = bootstrapOverrides();
   clockOverrides.updatedAt = '2026-08-17T00:00:00.000Z';
   throwsCode(
-    () => buildLedgerFromPlan(plan, { overrides: clockOverrides }),
+    () => buildBootstrapLedger(plan, {
+      overrides: clockOverrides,
+    }),
     'E_BOOTSTRAP_IDENTITY',
   );
 
-  const malformedClock = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
+  const malformedClock = bootstrapOverrides();
   malformedClock.updatedAt = '2026-08-17T00:00:00Z';
-  throwsCode(() => buildLedgerFromPlan(plan, { overrides: malformedClock }), 'E_SCHEMA_TIMESTAMP');
+  throwsCode(() => buildBootstrapLedger(plan, {
+    overrides: malformedClock,
+  }), 'E_SCHEMA_TIMESTAMP');
 });
 
 test('bootstrap exact input identity rejects status, history, and bytes split-brain drift', () => {
   const plan = readFileSync(activePlanPath, 'utf8');
-  const overridesBytes = readFileSync(activeOverridesPath, 'utf8');
-  const overrides = JSON.parse(overridesBytes);
+  const overridesBytes = bootstrapOverridesBytes;
+  const overrides = bootstrapOverrides();
   const rejectOverrideMutation = (mutate) => {
     const changed = structuredClone(overrides);
     mutate(changed);
-    throwsCode(() => buildLedgerFromPlan(plan, { overrides: changed }), 'E_BOOTSTRAP_IDENTITY');
+    throwsCode(() => buildBootstrapLedger(plan, {
+      overrides: changed,
+    }), 'E_BOOTSTRAP_IDENTITY');
   };
 
   rejectOverrideMutation((changed) => {
@@ -1011,26 +1056,32 @@ test('bootstrap exact input identity rejects status, history, and bytes split-br
   bytesMismatch.unitOverrides.A1.historicalEvidenceRefs[0].note += ' bytes mismatch';
   throwsCode(
     () =>
-      buildLedgerFromPlan(plan, {
+      buildBootstrapLedger(plan, {
         overrides,
         overridesBytes: `${JSON.stringify(bytesMismatch, null, 2)}\n`,
       }),
     'E_BOOTSTRAP_IDENTITY',
   );
   throwsCode(
-    () => buildLedgerFromPlan(plan, { overrides, sourcePlanBytes: `${plan}\n` }),
+    () => buildBootstrapLedger(plan, {
+      overrides,
+      sourcePlanBytes: `${plan}\n`,
+    }),
     'E_BOOTSTRAP_IDENTITY',
   );
   const changedPlan = `${plan}\n`;
   throwsCode(
-    () => buildLedgerFromPlan(changedPlan, { overrides, sourcePlanBytes: changedPlan }),
+    () => buildBootstrapLedger(changedPlan, {
+      overrides,
+      sourcePlanBytes: changedPlan,
+    }),
     'E_BOOTSTRAP_IDENTITY',
   );
 });
 
 test('journal empty BOOTSTRAP_IMPORT binds exact header, genesis, bytes, and replay', () => {
-  const overrides = JSON.parse(readFileSync(activeOverridesPath, 'utf8'));
-  const journal = JSON.parse(readFileSync(activeJournalPath, 'utf8'));
+  const overrides = bootstrapOverrides();
+  const journal = structuredClone(bootstrapJournal);
   assert.deepEqual(journal, createBootstrapJournal(overrides));
   assert.equal(deriveJournalPhase(journal), 'BOOTSTRAP_IMPORT');
   assert.equal(journal.entries.length, 0);
@@ -1044,16 +1095,19 @@ test('journal empty BOOTSTRAP_IMPORT binds exact header, genesis, bytes, and rep
     'a9bb331d27460f8ffea2d677d82e74b9017e84a6fba1f5beef3a9b880d5bf2bf',
   );
   assert.equal(
-    sha256(activeJournalPath),
+    sha256Bytes(bootstrapJournalBytes),
     'c1ac2b89d7e553968aef8918bab5945431c9257855dddd2da9428d4a355767c7',
   );
   const replay = validateTransitionJournal({
     plan: readFileSync(activePlanPath, 'utf8'),
     sourcePlanBytes: readFileSync(activePlanPath),
     overrides,
-    overridesBytes: readFileSync(activeOverridesPath),
+    overridesBytes: bootstrapOverridesBytes,
     journal,
-    journalBytes: readFileSync(activeJournalPath),
+    journalBytes: bootstrapJournalBytes,
+  }, {
+    candidateDiffResolver: () => [],
+    previousJournalSnapshotResolver: () => null,
   });
   assert.equal(replay.phase, 'BOOTSTRAP_IMPORT');
   assert.equal(replay.rows.length, 117);
@@ -1100,6 +1154,29 @@ test('journal scope validator accepts only the exact execution-ledger EOF append
 });
 
 test('journal default Git resolvers survive two accepted snapshots with recomputed chains', () => {
+  const activeJournal = JSON.parse(readFileSync(activeJournalPath, 'utf8'));
+  if (activeJournal.entries.length > 0) {
+    const previous = resolvePriorAcceptedJournalSnapshot(readFileSync(activeJournalPath));
+    assert.ok(previous);
+    assert.equal(previous.journal.entries.length, activeJournal.entries.length - 1);
+    const introductionCommits = activeJournal.entries.map((entry) =>
+      resolveEntryIntroductionCommit(entry));
+    assert.ok(introductionCommits.every((authority) => authority !== null));
+    assert.equal(
+      new Set(introductionCommits.map((authority) => authority.commitSha)).size,
+      activeJournal.entries.length,
+    );
+    const replay = validateTransitionJournal({
+      plan: readFileSync(activePlanPath, 'utf8'),
+      sourcePlanBytes: readFileSync(activePlanPath),
+      overrides: JSON.parse(readFileSync(activeOverridesPath, 'utf8')),
+      overridesBytes: readFileSync(activeOverridesPath),
+      journal: activeJournal,
+      journalBytes: readFileSync(activeJournalPath),
+    });
+    assert.equal(replay.phase, 'TRANSITION');
+    assert.equal(replay.journalEntries, activeJournal.entries.length);
+  } else {
   const root = mkdtempSync(join(tmpdir(), 'amic-vault-journal-history-'));
   const executionDir = join(root, 'docs/execution');
   const commit = (message, timestamp, paths = ['.']) => {
@@ -1144,22 +1221,16 @@ test('journal default Git resolvers survive two accepted snapshots with recomput
   try {
     mkdirSync(executionDir, { recursive: true });
     copyFileSync(activePlanPath, join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_H1_H3.md'));
-    copyFileSync(
-      activeOverridesPath,
+    writeFileSync(
       join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json'),
+      bootstrapOverridesBytes,
     );
-    copyFileSync(
-      activeJournalPath,
+    writeFileSync(
       join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_TRANSITION_JOURNAL.json'),
+      bootstrapJournalBytes,
     );
-    copyFileSync(
-      activeLedgerJsonPath,
-      join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json'),
-    );
-    copyFileSync(
-      activeLedgerMarkdownPath,
-      join(executionDir, 'TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md'),
-    );
+    const generated = spawnSync(process.execPath, [toolPath], { cwd: root, encoding: 'utf8' });
+    assert.equal(generated.status, 0, generated.stderr);
     assert.equal(spawnSync('git', ['init', '-q'], { cwd: root }).status, 0);
 
     const bootstrapBytes = readFileSync(join(root, transitionChangedPaths[0]));
@@ -1341,6 +1412,7 @@ test('journal default Git resolvers survive two accepted snapshots with recomput
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
   }
 });
 
@@ -1659,6 +1731,79 @@ test('candidate rollover preserves accepted entries and binds later work to a bo
   );
   fixture.journal.genesisHash = computeJournalGenesisHash(fixture.journal);
   throwsCode(() => validateFixture(fixture), 'E_JOURNAL_HEADER');
+});
+
+test('candidate rollover preserves the accepted scope prefix and permits a later TUW-specific scope', () => {
+  const fixture = transitionFixture([
+    { id: 'B15', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+    { id: 'B16', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+    { id: 'B17', kind: 'ADJUDICATE', status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE' },
+  ]);
+  const replacementCandidate = 'b'.repeat(40);
+  const rollover = {
+    recordedAt: '2026-07-17T00:00:04.000Z',
+    entryCount: fixture.journal.entries.length,
+    fromCandidateSha: candidateSha,
+    fromValidationScopeDigest: validationScope().aggregateSha256,
+    toCandidateSha: replacementCandidate,
+    toValidationScopeDigest: validationScope().aggregateSha256,
+    reasonCode: 'CANDIDATE_BOOKKEEPING_BASELINE',
+    reason: 'The required receipt commit becomes the next transition candidate baseline.',
+    rolloverHash: null,
+  };
+  rollover.rolloverHash = computeCandidateRolloverHash(rollover);
+  fixture.journal.candidateSha = replacementCandidate;
+  fixture.journal.candidateRollover = rollover;
+  fixture.journal.genesisHash = computeJournalGenesisHash(fixture.journal);
+  let previousEntryHash = fixture.journal.genesisHash;
+  for (const entry of fixture.journal.entries) {
+    entry.previousEntryHash = previousEntryHash;
+    entry.entryHash = computeJournalEntryHash(entry);
+    previousEntryHash = entry.entryHash;
+  }
+  const entryScope = {
+    entries: [{ path: 'apps/web/src/app.tsx', mode: '100644', contentSha256: sha256Hash('later candidate') }],
+    aggregateSha256: null,
+  };
+  entryScope.aggregateSha256 = computeValidationScopeDigest(entryScope.entries);
+  const recordedAt = '2026-07-17T00:00:05.000Z';
+  const beforeOverride = structuredClone(fixture.overrides.unitOverrides.B18);
+  const afterOverride = validatedOverride(beforeOverride, {
+    status: 'LOCAL_IMPLEMENTED_NEEDS_EVIDENCE',
+    candidate: replacementCandidate,
+  });
+  afterOverride.validationScope = entryScope;
+  const entry = {
+    sequence: 4,
+    transitionId: 'TR-000004',
+    packId: 'PACK-TEST-1',
+    tuwId: 'B18',
+    transitionKind: 'ADJUDICATE',
+    candidateSha: replacementCandidate,
+    validationScopeDigest: entryScope.aggregateSha256,
+    recordedAt,
+    reasonCode: 'TEST_TRANSITION',
+    reason: 'A later row has its own candidate-bound scope.',
+    beforeOverrideSha256: amicCanonicalHash(beforeOverride),
+    afterOverride,
+    afterOverrideSha256: amicCanonicalHash(afterOverride),
+    previousEntryHash,
+    entryHash: null,
+  };
+  entry.entryHash = computeJournalEntryHash(entry);
+  fixture.journal.entries.push(entry);
+  fixture.journal.asOf = recordedAt;
+  fixture.journal.genesisHash = computeJournalGenesisHash(fixture.journal);
+  previousEntryHash = fixture.journal.genesisHash;
+  for (const replayEntry of fixture.journal.entries) {
+    replayEntry.previousEntryHash = previousEntryHash;
+    replayEntry.entryHash = computeJournalEntryHash(replayEntry);
+    previousEntryHash = replayEntry.entryHash;
+  }
+  fixture.overrides.unitOverrides.B18 = structuredClone(afterOverride);
+  fixture.overrides.updatedAt = recordedAt;
+
+  assert.equal(validateFixture(fixture).phase, 'TRANSITION');
 });
 
 test('journal FINAL_CLOSEOUT validates BLOCKED seal, UNADJUDICATED=0, and separate commit', () => {
