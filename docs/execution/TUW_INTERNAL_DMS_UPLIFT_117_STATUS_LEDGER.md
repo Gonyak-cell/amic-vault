@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-17T20:37:00.000Z`
+- asOf / generatedAt: `2026-07-19T10:37:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `3838254c1654f7c82d37b0e58df362271bb56de8f6fe2ede1b5aa5dfd404fdc9`
-- Transition journal SHA-256: `86a6acfca97e09d383ef8366689ef0fb3257a7949abfdaf2ad877e6ad40731de`
+- Overrides SHA-256: `c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3`
+- Transition journal SHA-256: `ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21`
 
 ## Objective
 
@@ -18,13 +18,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 ## Status Counts
 
-- COMPLETE_CANDIDATE: 19
-- LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 81
+- COMPLETE_CANDIDATE: 14
+- NOT_STARTED: 5
+- LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 82
 - EXTERNAL_BLOCKED: 12
 - PARTIAL: 4
-- NOT_STARTED: 1
-- BOOTSTRAP_PREIMAGE: 110
-- CURRENT_VALIDATED: 7
+- BOOTSTRAP_PREIMAGE: 105
+- CURRENT_VALIDATED: 12
 
 ## Rules
 
@@ -44,9 +44,9 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 |---|---:|:---:|---|---|---:|---:|---|---:|---:|---|
 | A1 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 28 | NONE | 0 | 54 | A1 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A1. |
 | A2 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 29 | NONE | 0 | 82 | A2 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A2. |
-| A3 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 26 | NONE | 0 | 106 | A3 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A3. |
+| A3 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 26 | NONE | 2 | 106 | Keep A3 not started until the registered implementation and evidence PACK executes. |
 | A4 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 34 | NONE | 0 | 127 | A4 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A4. |
-| A5 | 1 | S | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 40 | NONE | 0 | 156 | A5 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A5. |
+| A5 | 1 | S | NOT_STARTED | CURRENT_VALIDATED | 0 | 40 | NONE | 2 | 156 | Keep A5 not started until the registered implementation and evidence PACK executes. |
 | A6 | 1 | L | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 55 | NONE | 0 | 178 | A6 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A6. |
 | A7 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 45 | NONE | 0 | 204 | A7 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A7. |
 | B1 | 1 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 42 | NONE | 2 | 237 | Keep B1 below COMPLETE_CANDIDATE. Collect an actual staging /files to /search manual QA receipt for the scanned Korean PDF flow, then rerun the focused B1 checks, LSP, ledger rebuild, and diff hygiene before considering promotion. |
@@ -56,7 +56,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | B6 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 96 | NONE | 2 | 369 | Keep B6 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect an approved staging DMS main-loop smoke PASS receipt including DMS-SMOKE-014 and the idle TTL/user-B/admin-release manual QA receipt, then rerun focused B6 checks, LSP, migration roundtrip, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion. |
 | C1 | 1 | S | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 47 | NONE | 1 | 399 | Keep C1 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Obtain or receive an actual Outlook-exported Korean subject .eml, upload it through POST /v1/matters/:matterId/emails or curl on the approved manual/staging surface, capture the Matter timeline title rendering, then rerun focused C1 checks, LSP, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion. |
 | C2 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 32 | NONE | 1 | 421 | Keep C2 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Perform and record the real forwarded .eml manual QA for inline-image plus PDF attachment handling on the approved staging/manual surface, then rerun focused C2 checks, LSP, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion. |
-| C3 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 55 | NONE | 0 | 439 | Keep C3 as COMPLETE_CANDIDATE pending independent review. Continue the 110-row gate with the next dependency-valid unresolved TUW; do not infer product readiness from this single-row promotion. |
+| C3 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 55 | NONE | 2 | 439 | Keep C3 not started until the registered implementation and evidence PACK executes. |
 | C4 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 50 | NONE | 3 | 468 | Keep C4 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the development M365 sideload success receipt, policy_denied failure-audit receipt, and sanitized Entra app-registration/admin setup receipt, then rerun focused C4 tests, API lint/typecheck/build, tests tsconfig noEmit, db:migrate/no migration audit, LSP diagnostics, diff hygiene, ledger rebuild, and only then consider COMPLETE_CANDIDATE. |
 | C5 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 81 | NONE | 3 | 492 | Keep C5 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the sanitized development M365 Graph $value 200 plus MIME sha256 receipt, missing C4 identity receipts, and Graph app/admin consent evidence, then rerun focused C5 tests, package checks, migration roundtrip, LSP/diff hygiene, ledger rebuild, and only then consider COMPLETE_CANDIDATE. |
 | C6 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 81 | NONE | 3 | 517 | Keep C6 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the sanitized C6 add-in completion/timeline receipt, real worker-consumption receipt, and upstream C1/C2/C4/C5 Outlook evidence references, then rerun focused C6 tests, package checks, migration roundtrip, LSP/diff hygiene, ledger rebuild, and only then consider COMPLETE_CANDIDATE. |
@@ -72,7 +72,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | F4 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 30 | NONE | 2 | 788 | Keep F4 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the real auditor claim-lookup manual QA receipt, then rerun focused F4 gates before considering COMPLETE_CANDIDATE promotion. |
 | F5 | 1 | S | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 37 | NONE | 0 | 815 | F5 is COMPLETE_CANDIDATE; do not add more F5 feature work unless review finds a regression. Move to the next dependency-valid TUW and keep applying the rule that local gates must be closed before leaving only true external/manual blockers. |
 | G1 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 41 | NONE | 2 | 842 | Keep G1 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the real /files to /audit manual receipt, then rerun focused G1 gates before considering COMPLETE_CANDIDATE promotion. |
-| G2 | 1 | L | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 48 | NONE | 0 | 867 | Treat G2 as COMPLETE_CANDIDATE and do not broaden it into CRUD work. Continue the 110-row gate with the next dependency-valid TUW; if any G2 files change, rerun focused web tests, integration regressions, package checks, LSP, manual tab QA, ledger regeneration, and diff hygiene before preserving COMPLETE_CANDIDATE. |
+| G2 | 1 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 48 | NONE | 2 | 867 | Keep G2 not started until the registered implementation and evidence PACK executes. |
 | H1 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 63 | NONE | 2 | 898 | Keep H1 below COMPLETE_CANDIDATE. Collect the firm_admin Google Authenticator enroll -> logout/relogin TOTP -> dashboard -> /audit MFA_* staging/manual receipt, then rerun the focused H1 gate and promote only if all local and manual evidence remains current. |
 | H2 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 34 | NONE | 2 | 928 | Keep H2 below COMPLETE_CANDIDATE. Collect the /admin/security test-account browser logout plus break-glass request/other-admin approval plus /audit BREAK_GLASS_USED staging/manual receipt, then rerun the focused H2 gate and promote only if all local and manual evidence remains current. |
 | H3 | 1 | M | EXTERNAL_BLOCKED | BOOTSTRAP_PREIMAGE | 0 | 54 | EXTERNAL_EVIDENCE | 4 | 957 | Keep H3 as EXTERNAL_BLOCKED. Collect opaque external AWS RDS/S3 configuration refs and the monthly restore rehearsal /enterprise console receipt, then rerun the H3 focused tool/storage/shared/integration checks, API lint/typecheck/build, tests tsconfig noEmit, LSP diagnostics, throwaway DB migrate/rollback/migrate, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE. |
@@ -84,7 +84,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | A11 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 30 | NONE | 1 | 1128 | Collect the staging/manual Closing tab receipt, rerun focused A11 checks/LSP/db roundtrip if anything changes, run diff hygiene, rebuild the 110-row ledger, and only then consider promotion to COMPLETE_CANDIDATE. |
 | A12 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 50 | NONE | 3 | 1157 | Collect the A11 and A12 staging/manual Closing tab receipts, verify JSON/CSV manifest hash locally with sha256sum, rerun focused A12 package/integration/LSP/db/diff gates if anything changes, rebuild the 110-row ledger, and only then consider promotion to COMPLETE_CANDIDATE. |
 | A14 | 2 | S | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 40 | NONE | 0 | 1181 | A14 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A14. |
-| B5 | 2 | L | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 33 | NONE | 0 | 1208 | Keep B5 COMPLETE_CANDIDATE unless later evidence invalidates the smoke or a new staging/manual gate is added; proceed to the next dependency-valid TUW. |
+| B5 | 2 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | CURRENT_VALIDATED | 0 | 33 | NONE | 2 | 1208 | Keep B5 locally implemented but needing evidence until the registered validation and evidence PACK executes. |
 | B7 | 2 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 49 | NONE | 3 | 1243 | Keep B7 below COMPLETE_CANDIDATE. Advance to the next dependency-valid repo-local TUW while B7 waits for staging manual QA, 1,000-file throughput evidence, and a later successful LSP diagnostics run; once those receipts exist, rerun focused B7 checks, ledger generation, JSON validation, and git diff hygiene before promotion. |
 | B8 | 2 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 56 | NONE | 2 | 1276 | Keep B8 below COMPLETE_CANDIDATE. Advance to the next dependency-valid repo-local TUW while B8 waits for the staging 3-level folder drag/drop plus tag-filter receipt and a later successful MCP LSP diagnostics run; once those receipts exist, rerun focused B8 checks, ledger generation, JSON validation, and git diff hygiene before promotion. |
 | B9 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 31 | NONE | 2 | 1307 | Keep B9 below COMPLETE_CANDIDATE. Collect the real Korean .hwp fixture extraction proof and the staging/manual .hwp upload -> /search keyword-hit receipt, then rerun focused B9 worker/API/integration checks, package lint/typecheck, LSP diagnostics, focused 0133 migration roundtrip, diff hygiene, and ledger rebuild before considering promotion. |

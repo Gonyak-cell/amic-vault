@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
   "phase": "TRANSITION",
-  "generatedAt": "2026-07-17T20:37:00.000Z",
+  "generatedAt": "2026-07-19T10:37:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,13 +11,13 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "3838254c1654f7c82d37b0e58df362271bb56de8f6fe2ede1b5aa5dfd404fdc9"
+      "value": "c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "86a6acfca97e09d383ef8366689ef0fb3257a7949abfdaf2ad877e6ad40731de"
+      "value": "ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21"
     },
-    "asOf": "2026-07-17T20:37:00.000Z",
+    "asOf": "2026-07-19T10:37:00.000Z",
     "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
@@ -43,15 +43,15 @@
     "apply state changes only through the sealed one-row transition journal and require every replay prefix to validate"
   ],
   "counts": {
-    "COMPLETE_CANDIDATE": 19,
-    "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 81,
+    "COMPLETE_CANDIDATE": 14,
+    "NOT_STARTED": 5,
+    "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 82,
     "EXTERNAL_BLOCKED": 12,
-    "PARTIAL": 4,
-    "NOT_STARTED": 1
+    "PARTIAL": 4
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 110,
-    "CURRENT_VALIDATED": 7
+    "BOOTSTRAP_PREIMAGE": 105,
+    "CURRENT_VALIDATED": 12
   },
   "units": [
     {
@@ -537,7 +537,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 106
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -587,9 +587,29 @@
       "externalEvidenceNeeds": [
         "**Scope:** 만들 것: (1) 신규 /matters/new 페이지 — 고객 셀렉터(GET /clients), matter_type 셀렉트(0013 CHECK의 10종), matter_code/matter_name 입력, lead lawyer 셀렉터, packages/shared createMatterSchema로 클라이언트측 검증 후 POST /matters 호출. (2) api-client.ts에 createMatter/listClients 함수 추가. (3) matters/page.tsx 131-136행의 '새 Matter'→/integrations/matter-app 링크를 /matters/new로 교체. (4) 성공 시 /matters/[matterId]로 리다이렉트하고 conflicts 검사 실행을 유도하는 배너 표시. 만들지 않을 것: LawOS 외부 API 실시간 연동(A14에서 별도), 템플릿 미리보기(A7에서 폼에 추가)."
       ],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/matters/new/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/web/src/app/(app)/matters/page.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "944b8a14947dda663ceac85700b3e66f7026322525976b81643a18a82acca07c"
+            }
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "402a34f33c176affa63270fb2f41aaabfae952c707db1c073e955786affdd85f"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -727,10 +747,13 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A3 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A3.",
-      "statusRationale": "A3 has current evidence for the /matters/new web creation form, client selector through GET /clients, shared createMatterSchema payload construction, POST /matters submission, success redirect to /matters/[matterId]?created=1 with Conflicts guidance, /matters new-button routing, immediate proposed Matter list visibility, MATTER_CREATED audit console visibility, no-create-permission denial messaging, focused web/api checks, matter-core integration coverage including the proposed-list ordering regression, browser manual QA, and diff/tooling hygiene inputs. No A3-specific DB migration is required; A3 uses existing matter/client schemas and the existing POST /matters path.",
-      "lastReviewedAt": "2026-07-03T02:10:37.000Z"
+      "remainingGaps": [
+        "Create the registered matter creation route and its validation flow.",
+        "Collect the registered A3 tests and current manual creation-flow evidence."
+      ],
+      "nextAction": "Keep A3 not started until the registered implementation and evidence PACK executes.",
+      "statusRationale": "The registered matter creation page is absent at the sealed candidate; the existing matters list does not satisfy A3 acceptance.",
+      "lastReviewedAt": "2026-07-19T10:34:00.000Z"
     },
     {
       "id": "A4",
@@ -1002,7 +1025,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 156
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -1057,9 +1080,29 @@
       ],
       "auditSecurityInvariants": [],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+            }
+          },
+          {
+            "path": "apps/web/src/components/matter/matter-party-panel.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "ab6d9d4afa423af04420121c2bd67b844fec4c3c98a23d2a822749319c3e6b13"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -1267,10 +1310,13 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A5 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A5.",
-      "statusRationale": "A5 has current evidence for the Matter detail party panel, party API client functions, shared create/update schema validation, restricted-party safe label masking, closed-Matter mutation disablement, backend permission/audit/security invariants, taxonomy/restricted-marker migrations with rollback, focused web/API package checks, party integration permission/audit/RLS negative tests, production web build, and live browser manual QA through the real Matter detail surface. No backend expansion beyond the existing Party API was added for this TUW.",
-      "lastReviewedAt": "2026-07-03T02:34:31.000Z"
+      "remainingGaps": [
+        "Create the registered matter-party-panel surface and its party endpoint integration.",
+        "Collect the registered A5 tests and current manual matter-workspace evidence."
+      ],
+      "nextAction": "Keep A5 not started until the registered implementation and evidence PACK executes.",
+      "statusRationale": "The current candidate retains the matter workspace page but lacks the registered matter-party-panel component; no A5 acceptance evidence supports a completion claim.",
+      "lastReviewedAt": "2026-07-19T10:33:00.000Z"
     },
     {
       "id": "A6",
@@ -5172,7 +5218,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 439
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -5237,9 +5283,29 @@
         "- email-upload-card.test.tsx에 중복 업로드(VALIDATION_FAILED 응답) 시 기존 이메일 안내 문구 렌더 검증 케이스"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/files/page.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "15e63b91b1647ef840f2481cae1b64926ae235958d9a368f4ef03a0856c41fc5"
+            }
+          },
+          {
+            "path": "apps/web/src/components/matter/email-upload-card.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "12b2ff8c63a27f9b9980d91d79e49554165f1f8b92b2e830f0f1ed0ad54fc30c"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -5522,10 +5588,13 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "Keep C3 as COMPLETE_CANDIDATE pending independent review. Continue the 110-row gate with the next dependency-valid unresolved TUW; do not infer product readiness from this single-row promotion.",
-      "statusRationale": "C3 is promoted to COMPLETE_CANDIDATE because the current repo evidence now covers the Matter detail and /files email upload web surfaces, matter-scoped API client helpers, receipt suggestion selection, filing confirmation, immediate email timeline refresh, duplicate-safe copy, and MSG pending badge. Current verification includes focused web component/API-client tests, focused EmailService unit tests, email-filing integration tests with permission/audit negative coverage, focused ESLint, apps/web typecheck, Next production build, direct local TypeScript LSP diagnostics, and real Chrome CDP manual QA on the latest production web build for .eml upload -> receipt/current Matter option -> filing confirmation -> immediate timeline display plus .msg upload -> MSG 파싱 대기 receipt. C3 has no TUW-specific DB migration requirement because it reuses the existing email schema/routes.",
-      "lastReviewedAt": "2026-07-04T01:08:47+09:00"
+      "remainingGaps": [
+        "Create the registered email-upload-card and filing flow.",
+        "Collect the registered C3 integration, permission, audit, and manual evidence."
+      ],
+      "nextAction": "Keep C3 not started until the registered implementation and evidence PACK executes.",
+      "statusRationale": "The files page exists at the sealed candidate, but the registered email-upload-card component is absent; no C3 acceptance evidence supports completion.",
+      "lastReviewedAt": "2026-07-19T10:35:00.000Z"
     },
     {
       "id": "C4",
@@ -10703,7 +10772,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 867
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -10786,9 +10855,31 @@
         "- 자동: hidden-routes.test.tsx를 대체하는 role-gated-routes.test.tsx — matter 비멤버/무권한 역할이 탭 콘텐츠에 접근 불가함을 검증"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/contracts/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/dd/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/litigation/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "0d7ac7188506e51f02b4649f01168be78719bd12a05fdbe0cc03d34e27618c50"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -11036,10 +11127,13 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "Treat G2 as COMPLETE_CANDIDATE and do not broaden it into CRUD work. Continue the 110-row gate with the next dependency-valid TUW; if any G2 files change, rerun focused web tests, integration regressions, package checks, LSP, manual tab QA, ledger regeneration, and diff hygiene before preserving COMPLETE_CANDIDATE.",
-      "statusRationale": "G2 has current evidence for unsealing the contract, DD, and litigation workstreams as read-only Matter tabs. The route policies expose /contracts, /dd, and /litigation as role-limited non-navigation entry routes; the old top-level pages redirect to /matters; Matter detail renders the workstream tabs; the three new Matter child pages consume only the existing read-only API clients for rule findings/clause bank, RFI/traceability, and Fact Ledger/case map data. Automatic web tests cover the three rendering surfaces plus role-gated/no-access behavior, and existing contract-intel, dd-vault, and litigation-vault integration suites passed unchanged with permission-scoped and denied-document negative coverage. Web lint, typecheck, focused tests, production build, API build, direct changed-file LSP diagnostics, scoped diff hygiene, AI slop review, and local browser manual QA against an integration-seeded Matter all have current evidence. No G2 DB migration is required.",
-      "lastReviewedAt": "2026-07-04T01:50:00+09:00"
+      "remainingGaps": [
+        "Create the registered contracts, diligence, and litigation matter sub-route pages.",
+        "Collect the registered G2 route-visibility, permission, and manual workspace evidence."
+      ],
+      "nextAction": "Keep G2 not started until the registered implementation and evidence PACK executes.",
+      "statusRationale": "All three registered matter sub-route pages are absent at the sealed candidate; no G2 acceptance evidence supports completion.",
+      "lastReviewedAt": "2026-07-19T10:37:00.000Z"
     },
     {
       "id": "H1",
@@ -14615,7 +14709,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 1208
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -14684,9 +14778,53 @@
         "- 성능: 신규 tools/ 스모크 스크립트(tools/release/dms-main-loop-smoke.mjs 패턴)로 400MB 합성 PDF 업로드→미리보기 첫 바이트→추출 완료를 실행하며 API 프로세스 RSS 증가가 150MB 미만임을 process.memoryUsage 로깅으로 측정"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/document/validators/file-size.validator.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "f1b9a28a20f819beaab726aeb4265494c0b16164e7178b410d91639b60e26827"
+            }
+          },
+          {
+            "path": "apps/api/src/modules/preview/preview.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "4d8f368de0f9b2367e6b8d37a07b4c07b2d8303875dbdec82d2ce989eabab459"
+            }
+          },
+          {
+            "path": "apps/api/src/modules/storage/s3-storage.adapter.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "04fa9834ed3992ae175be1478d5931a644f132099eff044451c82915a4680508"
+            }
+          },
+          {
+            "path": "tools/release/b5-large-streaming-smoke.mjs",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "workers/ingestion/app/extract_router.py",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "39ef4ca50ec9a0ed2e06a10685a2c0c232362bcc9e62460aaa18c90baf7dd9e5"
+            }
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "c25bf9fbe29e6ecf9803b007c7f64d39c07c864d515d254808cb61d1fc8d5b9c"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -14859,10 +14997,13 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "Keep B5 COMPLETE_CANDIDATE unless later evidence invalidates the smoke or a new staging/manual gate is added; proceed to the next dependency-valid TUW.",
-      "statusRationale": "B5 is promoted to COMPLETE_CANDIDATE with current evidence. The implementation covers tenant-scoped storage Range reads and presigned read URLs, worker-visible read URL endpoint configuration, S3 Range SigV4 signing, optional SSE-S3 PUT headers, streaming Readable S3 PUTs for large uploads, preview Range passthrough without full-object buffering, extraction dispatcher storage_url handoff with multipart fallback preserved, worker storage_url extraction support, 500MB default upload limit, focused API/worker/integration tests, API lint/typecheck/build, worker py_compile, changed-file tsserver diagnostics, and a fresh-process 400MiB upload -> preview Range -> extraction ready smoke with API RSS delta 89.4MiB under the 150MiB threshold. The B5 source block has no DB migration or manual/staging QA requirement; no external evidence is required for this TUW.",
-      "lastReviewedAt": "2026-07-04T04:08:34+09:00"
+      "remainingGaps": [
+        "Add and pass the registered B5 large-streaming smoke coverage.",
+        "Collect current B5 integration, security, audit, and operational evidence."
+      ],
+      "nextAction": "Keep B5 locally implemented but needing evidence until the registered validation and evidence PACK executes.",
+      "statusRationale": "The candidate contains parts of the file-size, preview, storage, and extraction surfaces, but the registered 400MB streaming smoke is absent and no B5 acceptance evidence supports completion.",
+      "lastReviewedAt": "2026-07-19T10:36:00.000Z"
     },
     {
       "id": "B7",
