@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: 33b17f509f5bf7e893dbf27ecfe2bf484e5abb5ba1ebe673fe0858224fb5a344
+- Payload SHA-256: 53aba1870c253278e8284070b2680a42e5275d892b2fa30c6409292618e6f506
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
