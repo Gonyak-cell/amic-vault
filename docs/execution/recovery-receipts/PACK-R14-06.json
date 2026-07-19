@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "packId": "PACK-R14-06",
+  "status": "CANDIDATE_BOOKKEEPING_PREPARED",
+  "recordedAt": "2026-07-19",
+  "authorityRef": "TASK6B-TECHNICAL-GATES-AUTHORITY-20260717",
+  "executionBase": "59ba06404d876afd3aba37766d11bb84e704ea68",
+  "purpose": "Establish the required repo-safe candidate-bookkeeping baseline before the five registered control-plane-only re-adjudications.",
+  "claimBoundary": {
+    "productCodeChanged": false,
+    "migrationChanged": false,
+    "externalStateChanged": false,
+    "completionClaimed": false,
+    "releaseClaimed": false,
+    "goLiveClaimed": false
+  }
+}
