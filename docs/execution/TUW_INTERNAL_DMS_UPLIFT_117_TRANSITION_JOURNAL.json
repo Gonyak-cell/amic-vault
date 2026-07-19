@@ -14,10 +14,10 @@
     "algorithm": "SHA-256",
     "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
   },
-  "asOf": "2026-07-19T10:36:00.000Z",
+  "asOf": "2026-07-19T10:37:00.000Z",
   "previousAcceptedJournalHead": {
     "algorithm": "SHA-256",
-    "value": "e90458606eff48cd827de1d8614a6ac18d9f28b5160c343270cd1ab490d75ace"
+    "value": "a3f6f5b0809b227c9b450adb60f75767cab27e7956da01b2fde8c13c62acaf6f"
   },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
@@ -25809,7 +25809,7 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "d4909f5a7e00847233e79d29ac8320d5322bbadfb6b6c94a0e4ce2cbac9d0ee6"
+    "value": "4d0c484b7c867ede0ec305e9d147d3596942f3b609ee0ad0e421422655b37471"
   },
   "entries": [
     {
@@ -25938,11 +25938,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "d4909f5a7e00847233e79d29ac8320d5322bbadfb6b6c94a0e4ce2cbac9d0ee6"
+        "value": "4d0c484b7c867ede0ec305e9d147d3596942f3b609ee0ad0e421422655b37471"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "07af5660a0f49bfbf78ffcf2f283dc82d25fbfbf8411c2195c6393fbfcf20494"
+        "value": "fbb8b15349f12eff7d64406ca9cba32e1a9e2c9276c3522596496927a18a4475"
       }
     },
     {
@@ -26071,11 +26071,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "07af5660a0f49bfbf78ffcf2f283dc82d25fbfbf8411c2195c6393fbfcf20494"
+        "value": "fbb8b15349f12eff7d64406ca9cba32e1a9e2c9276c3522596496927a18a4475"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "d60386a4cab66f70945507c28255365466a93a811215653acd2acec6f000ae0d"
+        "value": "32fa565d22ce2f4ce0b874802512293aa8f4f7c9b78273b5c86a396e947be849"
       }
     },
     {
@@ -26204,11 +26204,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "d60386a4cab66f70945507c28255365466a93a811215653acd2acec6f000ae0d"
+        "value": "32fa565d22ce2f4ce0b874802512293aa8f4f7c9b78273b5c86a396e947be849"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "c675fc1a88e9f16c593460416d0f6ed33fb400fcceec2e510563635d00c840e2"
+        "value": "fa026b66a140c07aa74b5a6a441e8346699cace237d85aa08f685926e947d41f"
       }
     },
     {
@@ -26339,11 +26339,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "c675fc1a88e9f16c593460416d0f6ed33fb400fcceec2e510563635d00c840e2"
+        "value": "fa026b66a140c07aa74b5a6a441e8346699cace237d85aa08f685926e947d41f"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "412e36319c2f484b51d90890529a88d620c80557a0daf05f1f779a62bb904bf2"
+        "value": "92a05ad769b03e26c39bbcf6df03cb5d13807f1b4f6fe79b3bb8f21318169650"
       }
     },
     {
@@ -26474,11 +26474,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "412e36319c2f484b51d90890529a88d620c80557a0daf05f1f779a62bb904bf2"
+        "value": "92a05ad769b03e26c39bbcf6df03cb5d13807f1b4f6fe79b3bb8f21318169650"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "0630975fa2f99c4ef9683df626d1cc742083e77e2b57df0bf02fa2552ff4fb79"
+        "value": "0660b86d947282f65bf63a403bc33acda4df064a8cdb57b63722406e36c63c6d"
       }
     },
     {
@@ -26610,11 +26610,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "0630975fa2f99c4ef9683df626d1cc742083e77e2b57df0bf02fa2552ff4fb79"
+        "value": "0660b86d947282f65bf63a403bc33acda4df064a8cdb57b63722406e36c63c6d"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "34daf5d84b9be53dbe63b70e34858df679ef07ee32b10a631f046abea558383e"
+        "value": "22bb3f9edeac047a82ae5d33ac1ed0a6a842bc1fbdd3a789bc5a82d7947fe862"
       }
     },
     {
@@ -26746,11 +26746,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "34daf5d84b9be53dbe63b70e34858df679ef07ee32b10a631f046abea558383e"
+        "value": "22bb3f9edeac047a82ae5d33ac1ed0a6a842bc1fbdd3a789bc5a82d7947fe862"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "18002f144075c293d4eebf75f5b60ccfc1d572caa38ee546c045796deef27656"
+        "value": "46a97d6cd3a54974acc56c648718928890619c98fd20a32ba1e6778812b8f7a7"
       }
     },
     {
@@ -27017,11 +27017,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "18002f144075c293d4eebf75f5b60ccfc1d572caa38ee546c045796deef27656"
+        "value": "46a97d6cd3a54974acc56c648718928890619c98fd20a32ba1e6778812b8f7a7"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "107b15e14eb69e2f93da07e9b2098a59e9469d13380c8075a5cfb4b6b1264835"
+        "value": "a5406815ef419bc5860635c8f36346259b8710138f7098607b430f50dabe23a4"
       }
     },
     {
@@ -27218,11 +27218,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "107b15e14eb69e2f93da07e9b2098a59e9469d13380c8075a5cfb4b6b1264835"
+        "value": "a5406815ef419bc5860635c8f36346259b8710138f7098607b430f50dabe23a4"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "254a9de0b692f48454d2aa85abd9fa475f5d084c992d47e6c2622d85927cdf7d"
+        "value": "1e5b112862c7b522c83b46c341dc63b1918030e5052255304e44a310bee9239d"
       }
     },
     {
@@ -27564,11 +27564,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "254a9de0b692f48454d2aa85abd9fa475f5d084c992d47e6c2622d85927cdf7d"
+        "value": "1e5b112862c7b522c83b46c341dc63b1918030e5052255304e44a310bee9239d"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "dfde14024d1c580fab7bbdd1d2b1bfad5dbb5acec7abe92f635d4009641baa56"
+        "value": "f45e4b137ba636c57541802b23f455c77722b7f8766fa7adceb23f56ffa833ae"
       }
     },
     {
@@ -27825,11 +27825,325 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "dfde14024d1c580fab7bbdd1d2b1bfad5dbb5acec7abe92f635d4009641baa56"
+        "value": "f45e4b137ba636c57541802b23f455c77722b7f8766fa7adceb23f56ffa833ae"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "a3f6f5b0809b227c9b450adb60f75767cab27e7956da01b2fde8c13c62acaf6f"
+        "value": "ab1ec132e31180148d8b6428074dd3d6abfe5165cd7349d390f2a71aea6226f2"
+      }
+    },
+    {
+      "sequence": 12,
+      "transitionId": "TR-000012",
+      "packId": "PACK-R14-06",
+      "tuwId": "G2",
+      "transitionKind": "DEMOTE",
+      "candidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "0d7ac7188506e51f02b4649f01168be78719bd12a05fdbe0cc03d34e27618c50"
+      },
+      "recordedAt": "2026-07-19T10:37:00.000Z",
+      "reasonCode": "CURRENT_SOURCE_AUDIT",
+      "reason": "The registered G2 matter sub-route pages are absent at the sealed candidate, so the inherited complete-candidate state is not supportable.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "36bf56e1ba85ea8095b24fb0cd2b27e9b78607e548b1a051e2939522af1104ce"
+      },
+      "afterOverride": {
+        "status": "NOT_STARTED",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/web/src/app/(app)/matters/[matterId]/contracts/page.tsx",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/web/src/app/(app)/matters/[matterId]/dd/page.tsx",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/web/src/app/(app)/matters/[matterId]/litigation/page.tsx",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "0d7ac7188506e51f02b4649f01168be78719bd12a05fdbe0cc03d34e27618c50"
+          }
+        },
+        "lastReviewedAt": "2026-07-19T10:37:00.000Z",
+        "statusRationale": "All three registered matter sub-route pages are absent at the sealed candidate; no G2 acceptance evidence supports completion.",
+        "migrationRequirements": [],
+        "historicalEvidenceRefs": [
+          {
+            "type": "source_plan",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:861",
+            "note": "Authoritative G2 block: expose contract/DD/litigation workstreams from Matter detail as read-only views using the existing API clients."
+          },
+          {
+            "type": "acceptance_plan",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:879",
+            "note": "Automatic gates require three new web rendering tests, role-gated access coverage, and unchanged contract-intel/dd-vault/litigation-vault integration regressions."
+          },
+          {
+            "type": "manual_qa_plan",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:883",
+            "note": "Manual gate requires entering the three tabs on an integration-test seeded matter and observing RFI list, Fact Ledger, case map, and rule findings."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/lib/features.ts:164",
+            "note": "/contracts is now visible_limited for internal roles and omitted from primary navigation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/lib/features.ts:171",
+            "note": "/dd is now visible_limited for internal roles and omitted from primary navigation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/lib/features.ts:178",
+            "note": "/litigation is now visible_limited for internal roles and omitted from primary navigation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-workstream-tabs.tsx:34",
+            "note": "MatterWorkstreamTabs links the Matter-scoped contract, DD, and litigation child routes with stable active states."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/page.tsx:280",
+            "note": "Matter detail renders the workstream tab strip after the Matter summary."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-workstream-readonly.tsx:42",
+            "note": "Contract read-only view renders rule findings, unsupported count, and clause bank rows without CRUD controls."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-workstream-readonly.tsx:130",
+            "note": "DD read-only view renders RFI, mappings, traceability, issues, and risks without CRUD controls."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-workstream-readonly.tsx:279",
+            "note": "Litigation read-only view renders Fact Ledger, case map, evidence, pleadings, and issues without CRUD controls."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/contracts/page.tsx:20",
+            "note": "Matter contract page loads rule findings and clause bank through the existing contract-intel API client."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/dd/page.tsx:26",
+            "note": "Matter DD page loads RFI, mappings, issues, risks, and traceability through the existing DD API client."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/litigation/page.tsx:26",
+            "note": "Matter litigation page loads evidence, facts, issues, pleadings, and case map through the existing litigation API client."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/contracts/page.tsx:3",
+            "note": "Old top-level /contracts placeholder now redirects to /matters instead of rendering RouteBlockedState."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/dd/page.tsx:3",
+            "note": "Old top-level /dd placeholder now redirects to /matters instead of rendering RouteBlockedState."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/litigation/page.tsx:3",
+            "note": "Old top-level /litigation placeholder now redirects to /matters instead of rendering RouteBlockedState."
+          },
+          {
+            "type": "test_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/contracts/page.test.tsx:48",
+            "note": "Web test renders a contract rule finding and clause bank row from mocked read-only DTOs."
+          },
+          {
+            "type": "test_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/dd/page.test.tsx:98",
+            "note": "Web test renders RFI-001, Corporate charter documents, traceability, and risk rows."
+          },
+          {
+            "type": "test_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/litigation/page.test.tsx:98",
+            "note": "Web test renders Fact Ledger, FACT-001, case map, and EV-001 rows."
+          },
+          {
+            "type": "permission_negative_test_anchor",
+            "ref": "apps/web/src/app/(app)/role-gated-routes.test.ts:6",
+            "note": "Role-gated route test proves the three workstream entry routes are internal-only and deny external or missing roles."
+          },
+          {
+            "type": "permission_negative_test_anchor",
+            "ref": "apps/web/src/app/(app)/role-gated-routes.test.ts:24",
+            "note": "Permission-denied API errors map to forbidden/no-access UI state without exposing PERMISSION_DENIED to the screen."
+          },
+          {
+            "type": "test_anchor_present",
+            "ref": "apps/web/src/app/(app)/hidden-routes.test.tsx:15",
+            "note": "Hidden-routes regression now keeps only launch/scale/showcase hidden instead of asserting G2 workstreams are blocked."
+          },
+          {
+            "type": "test_anchor_present",
+            "ref": "apps/web/src/lib/features.test.ts:104",
+            "note": "Feature policy test asserts contract, DD, and litigation entry routes are visible_limited and internal-role only."
+          },
+          {
+            "type": "integration_permission_negative_anchor",
+            "ref": "tests/integration/contract-intel.spec.ts:122",
+            "note": "Existing contract-intel integration test denies blocked documents before parsing and does not leak the denied document id."
+          },
+          {
+            "type": "integration_permission_negative_anchor",
+            "ref": "tests/integration/contract-intel.spec.ts:210",
+            "note": "Existing contract-intel integration test denies clause-bank access to blocked documents."
+          },
+          {
+            "type": "integration_regression_anchor",
+            "ref": "tests/integration/contract-intel.spec.ts:161",
+            "note": "Existing contract-intel integration test lists clause bank and deterministic rule findings with permission-scoped audit."
+          },
+          {
+            "type": "integration_permission_negative_anchor",
+            "ref": "tests/integration/dd-vault.spec.ts:86",
+            "note": "Existing DD integration test creates RFI/mapping/issue/risk and verifies traceability excludes denied documents and raw text."
+          },
+          {
+            "type": "integration_permission_negative_anchor",
+            "ref": "tests/integration/dd-vault.spec.ts:156",
+            "note": "Existing DD integration test blocks denied documents before data-room mapping and does not record the change audit."
+          },
+          {
+            "type": "integration_permission_negative_anchor",
+            "ref": "tests/integration/litigation-vault.spec.ts:86",
+            "note": "Existing litigation integration test creates evidence/fact/issue/pleading and verifies case map excludes denied documents and raw text."
+          },
+          {
+            "type": "integration_permission_negative_anchor",
+            "ref": "tests/integration/litigation-vault.spec.ts:153",
+            "note": "Existing litigation integration test blocks denied documents before evidence registration and does not record the change audit."
+          },
+          {
+            "type": "command_pass",
+            "ref": "PATH=\"/Users/jws/.local/bin:/opt/homebrew/bin:$PATH\" ../../node_modules/.bin/vitest run 'src/app/(app)/matters/[matterId]/contracts/page.test.tsx' 'src/app/(app)/matters/[matterId]/dd/page.test.tsx' 'src/app/(app)/matters/[matterId]/litigation/page.test.tsx' 'src/app/(app)/role-gated-routes.test.ts' 'src/app/(app)/hidden-routes.test.tsx' 'src/lib/features.test.ts'",
+            "note": "2026-07-04 with Node 22/pnpm 9 from apps/web: focused G2 web suite passed, 6 files, 17 tests."
+          },
+          {
+            "type": "command_pass",
+            "ref": "PATH=\"/Users/jws/.local/bin:/opt/homebrew/bin:$PATH\" ../../node_modules/.bin/eslint \"src/**/*.{ts,tsx}\"",
+            "note": "2026-07-04 from apps/web: web ESLint completed with exit 0."
+          },
+          {
+            "type": "command_pass",
+            "ref": "PATH=\"/Users/jws/.local/bin:/opt/homebrew/bin:$PATH\" ../../node_modules/.bin/tsc --noEmit -p tsconfig.json",
+            "note": "2026-07-04 from apps/web: web TypeScript typecheck completed with exit 0."
+          },
+          {
+            "type": "command_pass",
+            "ref": "PATH=\"/Users/jws/.local/bin:/opt/homebrew/bin:$PATH\" pnpm --filter @amic-vault/web build",
+            "note": "2026-07-04 with Node 22/pnpm 9: Next production build passed, generated 31 routes, and included /matters/[matterId]/contracts, /dd, and /litigation."
+          },
+          {
+            "type": "command_pass",
+            "ref": "PATH=\"/Users/jws/.local/bin:/opt/homebrew/bin:$PATH\" pnpm --filter @amic-vault/api build",
+            "note": "2026-07-03 with Node 22/pnpm 9: API package build passed; no G2 backend code changes were made."
+          },
+          {
+            "type": "integration_regression_pass",
+            "ref": "PATH=\"/Users/jws/.local/bin:/opt/homebrew/bin:$PATH\" node tools/integration/run.mjs contract-intel dd-vault litigation-vault",
+            "note": "2026-07-03 with Node 22/pnpm 9: integration runner built domain/shared/ai, seeded DB, and passed contract-intel, dd-vault, and litigation-vault, 3 files, 13 tests."
+          },
+          {
+            "type": "lsp_evidence",
+            "ref": "tmp/g2-lsp-diagnostics-20260703T164344Z.json",
+            "note": "2026-07-04: direct typescript-language-server diagnostics over 16 G2 changed TS/TSX files received all target files with totalDiagnostics=0; MCP LSP diagnostics remained unavailable with Transport closed."
+          },
+          {
+            "type": "manual_qa_fixture",
+            "ref": "tmp/g2-manual-fixture-8A6AA6FB.json",
+            "note": "2026-07-04: created integration-seeded Matter fixture 7e44f326-c506-4acf-8e26-8d0788373c35 with contract, DD, and litigation records for local browser QA."
+          },
+          {
+            "type": "manual_qa_fixture",
+            "ref": "tmp/g2-manual-contract-refresh-8A6AA6FB.json",
+            "note": "2026-07-04: refreshed contract processing after canonical document text was present; parserStatus=success, clauseCount=2, findingCount=1."
+          },
+          {
+            "type": "manual_qa_pass",
+            "ref": "tmp/g2-local-manual-8A6AA6FB.json",
+            "note": "2026-07-04 local browser QA: contracts, DD, and litigation tabs loaded for the seeded Matter; DD showed RFI-8A6AA6FB/Traceability and litigation showed FACT-8A6AA6FB/Case map/EV-8A6AA6FB."
+          },
+          {
+            "type": "manual_qa_pass",
+            "ref": "tmp/g2-local-manual-contract-refresh-8A6AA6FB.json",
+            "note": "2026-07-04 local browser QA refresh: contract tab showed Rule findings, Clause bank, g2.qa.required_section.8a6aa6fb, and section clause text."
+          },
+          {
+            "type": "manual_qa_screenshot",
+            "ref": "tmp/g2-manual-contracts-refreshed-8A6AA6FB.png",
+            "note": "Screenshot evidence for refreshed contract tab with rule finding and clause bank rows."
+          },
+          {
+            "type": "manual_qa_screenshot",
+            "ref": "tmp/g2-manual-dd-8A6AA6FB.png",
+            "note": "Screenshot evidence for DD tab with RFI list and traceability."
+          },
+          {
+            "type": "manual_qa_screenshot",
+            "ref": "tmp/g2-manual-litigation-8A6AA6FB.png",
+            "note": "Screenshot evidence for litigation tab with Fact Ledger and case map."
+          },
+          {
+            "type": "migration_not_required",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:861",
+            "note": "G2 is a read-only web unsealing slice over existing APIs and declares no DB migration requirement."
+          },
+          {
+            "type": "command_pass",
+            "ref": "python3 /Users/jws/Applications/ai-slop-taxonomy/scripts/sloplint.py --repo \"$PWD\" --changed",
+            "note": "2026-07-04: sloplint exited 0 with broad dirty-worktree findings; no G2-touched new files were flagged in the output."
+          },
+          {
+            "type": "command_pass",
+            "ref": "git diff --check -- G2 web files and ledger artifacts",
+            "note": "2026-07-04: scoped diff whitespace check passed for the G2 changed files and ledger artifacts before ledger override regeneration."
+          }
+        ],
+        "evidenceRefs": [],
+        "remainingGaps": [
+          "Create the registered contracts, diligence, and litigation matter sub-route pages.",
+          "Collect the registered G2 route-visibility, permission, and manual workspace evidence."
+        ],
+        "nextAction": "Keep G2 not started until the registered implementation and evidence PACK executes.",
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "66a704b29c0c481991179e2e30f64288574fd7944d4eb434ad6e383951fa7fff"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "ab1ec132e31180148d8b6428074dd3d6abfe5165cd7349d390f2a71aea6226f2"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "3889d9a7eed4a5170efab7c41fb83720d42e6976b5d4dcb5b3636f55ebe550cf"
       }
     }
   ],

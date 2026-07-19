@@ -1,6 +1,6 @@
 {
     "schemaVersion": 1,
-    "updatedAt": "2026-07-19T10:36:00.000Z",
+    "updatedAt": "2026-07-19T10:37:00.000Z",
     "unitOverrides": {
         "A1": {
             "status": "COMPLETE_CANDIDATE",
@@ -9925,12 +9925,34 @@
             "dependencyConditions": []
         },
         "G2": {
-            "status": "COMPLETE_CANDIDATE",
-            "validationState": "BOOTSTRAP_PREIMAGE",
-            "validatedCandidateSha": null,
-            "validationScope": null,
-            "lastReviewedAt": "2026-07-04T01:50:00+09:00",
-            "statusRationale": "G2 has current evidence for unsealing the contract, DD, and litigation workstreams as read-only Matter tabs. The route policies expose /contracts, /dd, and /litigation as role-limited non-navigation entry routes; the old top-level pages redirect to /matters; Matter detail renders the workstream tabs; the three new Matter child pages consume only the existing read-only API clients for rule findings/clause bank, RFI/traceability, and Fact Ledger/case map data. Automatic web tests cover the three rendering surfaces plus role-gated/no-access behavior, and existing contract-intel, dd-vault, and litigation-vault integration suites passed unchanged with permission-scoped and denied-document negative coverage. Web lint, typecheck, focused tests, production build, API build, direct changed-file LSP diagnostics, scoped diff hygiene, AI slop review, and local browser manual QA against an integration-seeded Matter all have current evidence. No G2 DB migration is required.",
+            "status": "NOT_STARTED",
+            "validationState": "CURRENT_VALIDATED",
+            "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+            "validationScope": {
+                "entries": [
+                    {
+                        "path": "apps/web/src/app/(app)/matters/[matterId]/contracts/page.tsx",
+                        "mode": "ABSENT",
+                        "contentSha256": null
+                    },
+                    {
+                        "path": "apps/web/src/app/(app)/matters/[matterId]/dd/page.tsx",
+                        "mode": "ABSENT",
+                        "contentSha256": null
+                    },
+                    {
+                        "path": "apps/web/src/app/(app)/matters/[matterId]/litigation/page.tsx",
+                        "mode": "ABSENT",
+                        "contentSha256": null
+                    }
+                ],
+                "aggregateSha256": {
+                    "algorithm": "SHA-256",
+                    "value": "0d7ac7188506e51f02b4649f01168be78719bd12a05fdbe0cc03d34e27618c50"
+                }
+            },
+            "lastReviewedAt": "2026-07-19T10:37:00.000Z",
+            "statusRationale": "All three registered matter sub-route pages are absent at the sealed candidate; no G2 acceptance evidence supports completion.",
             "migrationRequirements": [],
             "historicalEvidenceRefs": [
                 {
@@ -10175,8 +10197,11 @@
                 }
             ],
             "evidenceRefs": [],
-            "remainingGaps": [],
-            "nextAction": "Treat G2 as COMPLETE_CANDIDATE and do not broaden it into CRUD work. Continue the 110-row gate with the next dependency-valid TUW; if any G2 files change, rerun focused web tests, integration regressions, package checks, LSP, manual tab QA, ledger regeneration, and diff hygiene before preserving COMPLETE_CANDIDATE.",
+            "remainingGaps": [
+                "Create the registered contracts, diligence, and litigation matter sub-route pages.",
+                "Collect the registered G2 route-visibility, permission, and manual workspace evidence."
+            ],
+            "nextAction": "Keep G2 not started until the registered implementation and evidence PACK executes.",
             "blockerClass": "NONE",
             "blockingRefs": [],
             "acceptedBlockers": [],

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
   "phase": "TRANSITION",
-  "generatedAt": "2026-07-19T10:36:00.000Z",
+  "generatedAt": "2026-07-19T10:37:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,13 +11,13 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "1cc86219a5c19728bc07622a9a715b46584074c353b5b0396974c4e595a8e2c8"
+      "value": "c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "144a0b226ca4d2d0a0f31396f3d391a28bf96950d251c238e2740c2c3956979f"
+      "value": "ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21"
     },
-    "asOf": "2026-07-19T10:36:00.000Z",
+    "asOf": "2026-07-19T10:37:00.000Z",
     "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
@@ -43,15 +43,15 @@
     "apply state changes only through the sealed one-row transition journal and require every replay prefix to validate"
   ],
   "counts": {
-    "COMPLETE_CANDIDATE": 15,
-    "NOT_STARTED": 4,
+    "COMPLETE_CANDIDATE": 14,
+    "NOT_STARTED": 5,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 82,
     "EXTERNAL_BLOCKED": 12,
     "PARTIAL": 4
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 106,
-    "CURRENT_VALIDATED": 11
+    "BOOTSTRAP_PREIMAGE": 105,
+    "CURRENT_VALIDATED": 12
   },
   "units": [
     {
@@ -10772,7 +10772,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 867
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -10855,9 +10855,31 @@
         "- 자동: hidden-routes.test.tsx를 대체하는 role-gated-routes.test.tsx — matter 비멤버/무권한 역할이 탭 콘텐츠에 접근 불가함을 검증"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/contracts/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/dd/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/litigation/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "0d7ac7188506e51f02b4649f01168be78719bd12a05fdbe0cc03d34e27618c50"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -11105,10 +11127,13 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "Treat G2 as COMPLETE_CANDIDATE and do not broaden it into CRUD work. Continue the 110-row gate with the next dependency-valid TUW; if any G2 files change, rerun focused web tests, integration regressions, package checks, LSP, manual tab QA, ledger regeneration, and diff hygiene before preserving COMPLETE_CANDIDATE.",
-      "statusRationale": "G2 has current evidence for unsealing the contract, DD, and litigation workstreams as read-only Matter tabs. The route policies expose /contracts, /dd, and /litigation as role-limited non-navigation entry routes; the old top-level pages redirect to /matters; Matter detail renders the workstream tabs; the three new Matter child pages consume only the existing read-only API clients for rule findings/clause bank, RFI/traceability, and Fact Ledger/case map data. Automatic web tests cover the three rendering surfaces plus role-gated/no-access behavior, and existing contract-intel, dd-vault, and litigation-vault integration suites passed unchanged with permission-scoped and denied-document negative coverage. Web lint, typecheck, focused tests, production build, API build, direct changed-file LSP diagnostics, scoped diff hygiene, AI slop review, and local browser manual QA against an integration-seeded Matter all have current evidence. No G2 DB migration is required.",
-      "lastReviewedAt": "2026-07-04T01:50:00+09:00"
+      "remainingGaps": [
+        "Create the registered contracts, diligence, and litigation matter sub-route pages.",
+        "Collect the registered G2 route-visibility, permission, and manual workspace evidence."
+      ],
+      "nextAction": "Keep G2 not started until the registered implementation and evidence PACK executes.",
+      "statusRationale": "All three registered matter sub-route pages are absent at the sealed candidate; no G2 acceptance evidence supports completion.",
+      "lastReviewedAt": "2026-07-19T10:37:00.000Z"
     },
     {
       "id": "H1",

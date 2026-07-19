@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-19T10:36:00.000Z`
+- asOf / generatedAt: `2026-07-19T10:37:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `1cc86219a5c19728bc07622a9a715b46584074c353b5b0396974c4e595a8e2c8`
-- Transition journal SHA-256: `144a0b226ca4d2d0a0f31396f3d391a28bf96950d251c238e2740c2c3956979f`
+- Overrides SHA-256: `c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3`
+- Transition journal SHA-256: `ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21`
 
 ## Objective
 
@@ -18,13 +18,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 ## Status Counts
 
-- COMPLETE_CANDIDATE: 15
-- NOT_STARTED: 4
+- COMPLETE_CANDIDATE: 14
+- NOT_STARTED: 5
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 82
 - EXTERNAL_BLOCKED: 12
 - PARTIAL: 4
-- BOOTSTRAP_PREIMAGE: 106
-- CURRENT_VALIDATED: 11
+- BOOTSTRAP_PREIMAGE: 105
+- CURRENT_VALIDATED: 12
 
 ## Rules
 
@@ -72,7 +72,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | F4 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 30 | NONE | 2 | 788 | Keep F4 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the real auditor claim-lookup manual QA receipt, then rerun focused F4 gates before considering COMPLETE_CANDIDATE promotion. |
 | F5 | 1 | S | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 37 | NONE | 0 | 815 | F5 is COMPLETE_CANDIDATE; do not add more F5 feature work unless review finds a regression. Move to the next dependency-valid TUW and keep applying the rule that local gates must be closed before leaving only true external/manual blockers. |
 | G1 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 41 | NONE | 2 | 842 | Keep G1 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the real /files to /audit manual receipt, then rerun focused G1 gates before considering COMPLETE_CANDIDATE promotion. |
-| G2 | 1 | L | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 48 | NONE | 0 | 867 | Treat G2 as COMPLETE_CANDIDATE and do not broaden it into CRUD work. Continue the 110-row gate with the next dependency-valid TUW; if any G2 files change, rerun focused web tests, integration regressions, package checks, LSP, manual tab QA, ledger regeneration, and diff hygiene before preserving COMPLETE_CANDIDATE. |
+| G2 | 1 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 48 | NONE | 2 | 867 | Keep G2 not started until the registered implementation and evidence PACK executes. |
 | H1 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 63 | NONE | 2 | 898 | Keep H1 below COMPLETE_CANDIDATE. Collect the firm_admin Google Authenticator enroll -> logout/relogin TOTP -> dashboard -> /audit MFA_* staging/manual receipt, then rerun the focused H1 gate and promote only if all local and manual evidence remains current. |
 | H2 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 34 | NONE | 2 | 928 | Keep H2 below COMPLETE_CANDIDATE. Collect the /admin/security test-account browser logout plus break-glass request/other-admin approval plus /audit BREAK_GLASS_USED staging/manual receipt, then rerun the focused H2 gate and promote only if all local and manual evidence remains current. |
 | H3 | 1 | M | EXTERNAL_BLOCKED | BOOTSTRAP_PREIMAGE | 0 | 54 | EXTERNAL_EVIDENCE | 4 | 957 | Keep H3 as EXTERNAL_BLOCKED. Collect opaque external AWS RDS/S3 configuration refs and the monthly restore rehearsal /enterprise console receipt, then rerun the H3 focused tool/storage/shared/integration checks, API lint/typecheck/build, tests tsconfig noEmit, LSP diagnostics, throwaway DB migrate/rollback/migrate, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE. |
