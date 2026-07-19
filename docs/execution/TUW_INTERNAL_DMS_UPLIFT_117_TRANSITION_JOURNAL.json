@@ -9,7 +9,7 @@
     "value": "32dc34bc28ea6642978098e17a80f33f4c590c49190edcbdf9e2cb03fcfa99d9"
   },
   "authorityCommit": "2daa27d6ecb959342ecb13396286532e64f54cab",
-  "candidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+  "candidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
   "validationScopeDigest": {
     "algorithm": "SHA-256",
     "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
@@ -17,7 +17,7 @@
   "asOf": "2026-07-17T20:37:00.000Z",
   "previousAcceptedJournalHead": {
     "algorithm": "SHA-256",
-    "value": "48a1c402ffc0f1aa68049a9c04edc6ab1963c4b5a5b775bfb4125feff716fffd"
+    "value": "50fe566bb12c459216a78858430d0bb2cea99d67df12ade5020ed6508701c9c5"
   },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
@@ -25809,7 +25809,7 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "ddc1d3762a769388c2c4efb6f47461f45c38878a100d9c3e142615cde22ef63d"
+    "value": "c7ff127557e3e7ff9dc51e91d0879564ee98e2bd7c987bc434a75d1cc2effff5"
   },
   "entries": [
     {
@@ -25938,11 +25938,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "ddc1d3762a769388c2c4efb6f47461f45c38878a100d9c3e142615cde22ef63d"
+        "value": "c7ff127557e3e7ff9dc51e91d0879564ee98e2bd7c987bc434a75d1cc2effff5"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "2dd0c5cf7bce3326a27e897675711c4729f0ba152037aa2a6143b041f561dda8"
+        "value": "f046a36e0c8f57f493bed63061c5bfb26f73f3a5f7e87c43a13a8ffa1de15aa2"
       }
     },
     {
@@ -26071,11 +26071,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "2dd0c5cf7bce3326a27e897675711c4729f0ba152037aa2a6143b041f561dda8"
+        "value": "f046a36e0c8f57f493bed63061c5bfb26f73f3a5f7e87c43a13a8ffa1de15aa2"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "661871182af970de7146776dcd3384cd640c2546ad9b8f3ced5c55c6abce7204"
+        "value": "05f0473ccdff202908d4bbc8c3a0e403b7874e03f089658f40651c4a1afbb4b2"
       }
     },
     {
@@ -26204,11 +26204,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "661871182af970de7146776dcd3384cd640c2546ad9b8f3ced5c55c6abce7204"
+        "value": "05f0473ccdff202908d4bbc8c3a0e403b7874e03f089658f40651c4a1afbb4b2"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "ee2fa0113cf7767fdf5def48f37e456cfe084c0299e3c472384fc5cb72ab9e5a"
+        "value": "718047cc30662392bd322cd5cf4ff9424521c76429f3a40058b59ca0ecab7654"
       }
     },
     {
@@ -26339,11 +26339,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "ee2fa0113cf7767fdf5def48f37e456cfe084c0299e3c472384fc5cb72ab9e5a"
+        "value": "718047cc30662392bd322cd5cf4ff9424521c76429f3a40058b59ca0ecab7654"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "a7ad99c7af2df6201d75592d94cbda675ffd13165be757155b49e3f8ac3ac78e"
+        "value": "6aaa46e4fb0a8edea9c5a9a9bb07c65c9c80e2a841af01a14b2cf61b968427a3"
       }
     },
     {
@@ -26474,11 +26474,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "a7ad99c7af2df6201d75592d94cbda675ffd13165be757155b49e3f8ac3ac78e"
+        "value": "6aaa46e4fb0a8edea9c5a9a9bb07c65c9c80e2a841af01a14b2cf61b968427a3"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "ada14cd4d9f89ff9e47a9a51b712a893c002eb218b4f5e654bc46cf912c42602"
+        "value": "eb12107e570316ae84629eab498243b05216e24d736bd402c95c2044c3f43676"
       }
     },
     {
@@ -26610,11 +26610,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "ada14cd4d9f89ff9e47a9a51b712a893c002eb218b4f5e654bc46cf912c42602"
+        "value": "eb12107e570316ae84629eab498243b05216e24d736bd402c95c2044c3f43676"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "a7ee353aa678b0e0e84cc29d043d38d296fd6f942e54784097ff912a5263711a"
+        "value": "9562fd54fa145ffe4730f6338f111bfaf2acb186411752f54fc4d2494d6b1cd5"
       }
     },
     {
@@ -26746,13 +26746,33 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "a7ee353aa678b0e0e84cc29d043d38d296fd6f942e54784097ff912a5263711a"
+        "value": "9562fd54fa145ffe4730f6338f111bfaf2acb186411752f54fc4d2494d6b1cd5"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "50fe566bb12c459216a78858430d0bb2cea99d67df12ade5020ed6508701c9c5"
+        "value": "b7137209fc1c5a9f6052f3c869e4aa33e6121335a8759d703c24ff77e2843d5c"
       }
     }
   ],
-  "closeoutSeal": null
+  "closeoutSeal": null,
+  "candidateRollover": {
+    "recordedAt": "2026-07-19T10:32:00.000Z",
+    "entryCount": 7,
+    "fromCandidateSha": "783b6cd342ac97aad108b293d53fb7442d618974",
+    "fromValidationScopeDigest": {
+      "algorithm": "SHA-256",
+      "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+    },
+    "toCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+    "toValidationScopeDigest": {
+      "algorithm": "SHA-256",
+      "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
+    },
+    "reasonCode": "CANDIDATE_BOOKKEEPING_BASELINE",
+    "reason": "The required PACK-R14-06 receipt and execution-ledger bookkeeping commit becomes the next transition candidate baseline.",
+    "rolloverHash": {
+      "algorithm": "SHA-256",
+      "value": "2364b81d8091f751e84c2f76d19e78d2413d60bf5aac7e1921f4dad8d0399485"
+    }
+  }
 }
