@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
-  "phase": "CANDIDATE_ROLLOVER",
-  "generatedAt": "2026-07-17T20:37:00.000Z",
+  "phase": "TRANSITION",
+  "generatedAt": "2026-07-19T10:33:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,14 +11,14 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "be2b28179b64be291fc05a8f4c38231d659a8532307e84bc36571d83674f5abd"
+      "value": "f03ac19a2b82cd998aeed28118a480dfa349695ae31f8db41f6d217aeae8e244"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "119f861d2c5b87a5a698ba2d0671bc96e674fc6b2064a9f68d7adca500eda961"
+      "value": "454fd5bf35c9f9f2bdc81600cc3a002194c5f255dc396de09698433266d06900"
     },
-    "asOf": "2026-07-17T20:37:00.000Z",
-    "phase": "CANDIDATE_ROLLOVER"
+    "asOf": "2026-07-19T10:33:00.000Z",
+    "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
   "overridesPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json",
@@ -43,15 +43,15 @@
     "apply state changes only through the sealed one-row transition journal and require every replay prefix to validate"
   ],
   "counts": {
-    "COMPLETE_CANDIDATE": 19,
+    "COMPLETE_CANDIDATE": 18,
+    "NOT_STARTED": 2,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 81,
     "EXTERNAL_BLOCKED": 12,
-    "PARTIAL": 4,
-    "NOT_STARTED": 1
+    "PARTIAL": 4
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 110,
-    "CURRENT_VALIDATED": 7
+    "BOOTSTRAP_PREIMAGE": 109,
+    "CURRENT_VALIDATED": 8
   },
   "units": [
     {
@@ -1002,7 +1002,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 156
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -1057,9 +1057,29 @@
       ],
       "auditSecurityInvariants": [],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+            }
+          },
+          {
+            "path": "apps/web/src/components/matter/matter-party-panel.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "ab6d9d4afa423af04420121c2bd67b844fec4c3c98a23d2a822749319c3e6b13"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -1267,10 +1287,13 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A5 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A5.",
-      "statusRationale": "A5 has current evidence for the Matter detail party panel, party API client functions, shared create/update schema validation, restricted-party safe label masking, closed-Matter mutation disablement, backend permission/audit/security invariants, taxonomy/restricted-marker migrations with rollback, focused web/API package checks, party integration permission/audit/RLS negative tests, production web build, and live browser manual QA through the real Matter detail surface. No backend expansion beyond the existing Party API was added for this TUW.",
-      "lastReviewedAt": "2026-07-03T02:34:31.000Z"
+      "remainingGaps": [
+        "Create the registered matter-party-panel surface and its party endpoint integration.",
+        "Collect the registered A5 tests and current manual matter-workspace evidence."
+      ],
+      "nextAction": "Keep A5 not started until the registered implementation and evidence PACK executes.",
+      "statusRationale": "The current candidate retains the matter workspace page but lacks the registered matter-party-panel component; no A5 acceptance evidence supports a completion claim.",
+      "lastReviewedAt": "2026-07-19T10:33:00.000Z"
     },
     {
       "id": "A6",

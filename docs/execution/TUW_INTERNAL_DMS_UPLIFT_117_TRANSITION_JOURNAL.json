@@ -14,10 +14,10 @@
     "algorithm": "SHA-256",
     "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
   },
-  "asOf": "2026-07-17T20:37:00.000Z",
+  "asOf": "2026-07-19T10:33:00.000Z",
   "previousAcceptedJournalHead": {
     "algorithm": "SHA-256",
-    "value": "50fe566bb12c459216a78858430d0bb2cea99d67df12ade5020ed6508701c9c5"
+    "value": "b7137209fc1c5a9f6052f3c869e4aa33e6121335a8759d703c24ff77e2843d5c"
   },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
@@ -25809,7 +25809,7 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "c7ff127557e3e7ff9dc51e91d0879564ee98e2bd7c987bc434a75d1cc2effff5"
+    "value": "b4cdf96d7b33fe0a50b57736400b6457942e851022d53eca43461611f7e4f90c"
   },
   "entries": [
     {
@@ -25938,11 +25938,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "c7ff127557e3e7ff9dc51e91d0879564ee98e2bd7c987bc434a75d1cc2effff5"
+        "value": "b4cdf96d7b33fe0a50b57736400b6457942e851022d53eca43461611f7e4f90c"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "f046a36e0c8f57f493bed63061c5bfb26f73f3a5f7e87c43a13a8ffa1de15aa2"
+        "value": "f1a73910badfa7c1e0b94ed43e4d9ddb05556c76145576a24621b23a89578926"
       }
     },
     {
@@ -26071,11 +26071,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "f046a36e0c8f57f493bed63061c5bfb26f73f3a5f7e87c43a13a8ffa1de15aa2"
+        "value": "f1a73910badfa7c1e0b94ed43e4d9ddb05556c76145576a24621b23a89578926"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "05f0473ccdff202908d4bbc8c3a0e403b7874e03f089658f40651c4a1afbb4b2"
+        "value": "8655eb3e56ebad9633e396cac1b1646ac1263b13db51b491260ec8662a146884"
       }
     },
     {
@@ -26204,11 +26204,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "05f0473ccdff202908d4bbc8c3a0e403b7874e03f089658f40651c4a1afbb4b2"
+        "value": "8655eb3e56ebad9633e396cac1b1646ac1263b13db51b491260ec8662a146884"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "718047cc30662392bd322cd5cf4ff9424521c76429f3a40058b59ca0ecab7654"
+        "value": "de0062f1cd977b14aa4681a89b0bd5f19a3dbf73439db3f15efef757e687d5af"
       }
     },
     {
@@ -26339,11 +26339,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "718047cc30662392bd322cd5cf4ff9424521c76429f3a40058b59ca0ecab7654"
+        "value": "de0062f1cd977b14aa4681a89b0bd5f19a3dbf73439db3f15efef757e687d5af"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "6aaa46e4fb0a8edea9c5a9a9bb07c65c9c80e2a841af01a14b2cf61b968427a3"
+        "value": "0ed992eaf8cb4eebe5811fd35ec22e741b2dbccb5786941f3846ce1290973309"
       }
     },
     {
@@ -26474,11 +26474,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "6aaa46e4fb0a8edea9c5a9a9bb07c65c9c80e2a841af01a14b2cf61b968427a3"
+        "value": "0ed992eaf8cb4eebe5811fd35ec22e741b2dbccb5786941f3846ce1290973309"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "eb12107e570316ae84629eab498243b05216e24d736bd402c95c2044c3f43676"
+        "value": "dfefa572e5c68a223ce385d137cbc8102c419f869dde3e297e40c6a1fd505a13"
       }
     },
     {
@@ -26610,11 +26610,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "eb12107e570316ae84629eab498243b05216e24d736bd402c95c2044c3f43676"
+        "value": "dfefa572e5c68a223ce385d137cbc8102c419f869dde3e297e40c6a1fd505a13"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "9562fd54fa145ffe4730f6338f111bfaf2acb186411752f54fc4d2494d6b1cd5"
+        "value": "3f2d76661079d9e324605b3fe2308b298fc3bc020e35719820e3ad3353e09a45"
       }
     },
     {
@@ -26746,11 +26746,282 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "9562fd54fa145ffe4730f6338f111bfaf2acb186411752f54fc4d2494d6b1cd5"
+        "value": "3f2d76661079d9e324605b3fe2308b298fc3bc020e35719820e3ad3353e09a45"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "b7137209fc1c5a9f6052f3c869e4aa33e6121335a8759d703c24ff77e2843d5c"
+        "value": "5082e603d6e92dd673298ab1c7387bb110b0ae90dc6802011e0819815610d7b0"
+      }
+    },
+    {
+      "sequence": 8,
+      "transitionId": "TR-000008",
+      "packId": "PACK-R14-06",
+      "tuwId": "A5",
+      "transitionKind": "DEMOTE",
+      "candidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "ab6d9d4afa423af04420121c2bd67b844fec4c3c98a23d2a822749319c3e6b13"
+      },
+      "recordedAt": "2026-07-19T10:33:00.000Z",
+      "reasonCode": "CURRENT_SOURCE_AUDIT",
+      "reason": "The registered A5 party panel is absent at the sealed candidate, so the inherited complete-candidate state is not supportable.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "05da02006508e5ec692664c4c6eab7862518876e28d9b8a1ff50e05eb011fbe7"
+      },
+      "afterOverride": {
+        "status": "NOT_STARTED",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "cf6d23e0058a6f090e2c461010dc2318180f2a63",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+              }
+            },
+            {
+              "path": "apps/web/src/components/matter/matter-party-panel.tsx",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "ab6d9d4afa423af04420121c2bd67b844fec4c3c98a23d2a822749319c3e6b13"
+          }
+        },
+        "lastReviewedAt": "2026-07-19T10:33:00.000Z",
+        "statusRationale": "The current candidate retains the matter workspace page but lacks the registered matter-party-panel component; no A5 acceptance evidence supports a completion claim.",
+        "historicalEvidenceRefs": [
+          {
+            "type": "source_plan",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:149",
+            "note": "Authoritative A5 acceptance block: Matter detail party panel, role/type/restricted badge, add/update disabled on closed matters, API client functions, safeLabel/minimal restricted exposure, component/integration tests, and manual web QA."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.controller.ts:49",
+            "note": "Party controller exposes POST/GET /matters/:matterId/parties and PATCH /parties/:partyId with shared schema validation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.service.ts:131",
+            "note": "Party create asserts canEditMatter, Matter mutability, related-client tenant usability, and logs PARTY_ADDED in the audit transaction."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.service.ts:161",
+            "note": "Party list asserts canReadMatter before returning Matter-scoped parties."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.service.ts:172",
+            "note": "Party update separates edit diffs from restricted-marker changes and gates each path before mutation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.service.ts:270",
+            "note": "Restricted-party marking is limited to active security admins or actors allowed to manage Matter members."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.service.ts:285",
+            "note": "Closed/archived/disposal Matter statuses fail closed with MATTER_CLOSED for party mutations."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.service.ts:320",
+            "note": "Party insert uses tenant_id, matter_id, taxonomy fields, optional related_client_id, and created_by."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/party/party.service.ts:443",
+            "note": "Restricted marker update persists is_restricted and returns the updated party DTO."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "packages/shared/src/party/party.dto.ts:4",
+            "note": "Shared create-party schema trims and validates name, type, role, and optional relatedClientId."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "packages/shared/src/party/party.dto.ts:21",
+            "note": "Shared update-party schema validates edit fields and isRestricted with a non-empty payload requirement."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "db/migrations/0021_party_taxonomy_check.sql:3",
+            "note": "Migration adds party type/role taxonomy checks with down migration."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "db/migrations/0022_party_restricted_marker.sql:3",
+            "note": "Migration adds is_restricted and restricted index with down migration."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/page.tsx:182",
+            "note": "Matter detail renders MatterPartyPanel in the real Matter workspace surface."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/lib/api-client.ts:276",
+            "note": "Web API client exposes listMatterParties, createMatterParty, and updateParty."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.tsx:89",
+            "note": "Create/update form payloads are parsed through the shared party schemas before API submission."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.tsx:118",
+            "note": "Restricted party rows render a safe visible label instead of the party name."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.tsx:153",
+            "note": "Panel view renders the party list, role/type labels, restricted badge, edit/restrict controls, and disabled closed-Matter state."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.tsx:418",
+            "note": "MatterPartyPanel loads parties, creates parties, saves edits, changes restricted state, and refreshes the list."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.tsx:488",
+            "note": "Restriction UI action sends updateParty with isRestricted and updates the visible row state."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.test.tsx:33",
+            "note": "Component test covers party list rendering, restricted badge/masking, and no restricted name leak."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.test.tsx:88",
+            "note": "Component test covers closed Matter disabling party entry and restriction updates."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-party-panel.test.tsx:125",
+            "note": "Component tests cover shared schema validation for create/update party payloads."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/lib/api-client.spec.ts:978",
+            "note": "API client test covers encoded party list/create/restrict/update endpoints."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/party.spec.ts:230",
+            "note": "Integration test covers create/update/list through matter permissions and reference-only audit metadata."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/party.spec.ts:282",
+            "note": "Integration negative test denies nonmembers, read-only members, cross-tenant related clients, and closed Matter mutation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/party.spec.ts:328",
+            "note": "Integration security test restricts party marking to security admin or Matter owner and verifies PARTY_RESTRICTED_MARKED audit metadata."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/party.spec.ts:362",
+            "note": "Integration RLS test proves party rows remain tenant-isolated for app-role queries."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/web test -- src/components/matter/matter-party-panel.test.tsx src/lib/api-client.spec.ts",
+            "note": "2026-07-03: 2 web test files passed, 34 tests passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm test:integration -- party",
+            "note": "2026-07-03: tests/integration/party.spec.ts passed, 1 file/4 tests, including permission-negative, audit, and RLS coverage."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/api lint",
+            "note": "2026-07-03: api lint passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/api typecheck",
+            "note": "2026-07-03: api typecheck passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/api build",
+            "note": "2026-07-03: api build passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/web lint",
+            "note": "2026-07-03: web lint passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/web typecheck",
+            "note": "2026-07-03: web typecheck passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/web build",
+            "note": "2026-07-03: web Next production build passed and included /matters/[matterId]."
+          },
+          {
+            "type": "command_pass",
+            "ref": "DATABASE_URL=postgres://.../amic_vault_a5_roundtrip_1783046028 pnpm db:migrate && pnpm db:rollback && pnpm db:migrate && pnpm db:seed",
+            "note": "2026-07-03: fresh disposable A5 database was created in the dev Postgres container; migration, rollback, re-migration, and seed completed with tenants=2 users=11."
+          },
+          {
+            "type": "manual_web_qa",
+            "ref": "Chrome headless against http://localhost:3000 with API http://localhost:3001/v1, marker A5웹QA45931501",
+            "note": "2026-07-03: alpha-matter-owner@test.local created client a53f98eb-0c29-4c68-9c5b-47b6b77e10b1 and Matter a396216e-2aeb-40a9-ac52-fe096e5cd709 code A5-A5웹QA45931501; from /matters/a396216e-2aeb-40a9-ac52-fe096e5cd709 added party 0c090540-2c3a-4e3b-bee5-5dffd973956b as 상대방/corporation, clicked 제한 표시, verified 제한 당사자/이름 비공개/restricted badge, verified original party name absent before and after refresh, and confirmed API state isRestricted=true."
+          },
+          {
+            "type": "command_pass",
+            "ref": "python3 /Users/jws/Applications/ai-slop-taxonomy/scripts/sloplint.py --repo \"$PWD\" --changed",
+            "note": "2026-07-03: sloplint exited 0. Reported weak findings are pre-existing/generated ledger/doc findings or outside the A5 touched visible UI surface; A5 added no decorative UI or generic product copy."
+          },
+          {
+            "type": "command_pass",
+            "ref": "git diff --check -- A5 slice",
+            "note": "2026-07-03: diff whitespace check passed for the A5-touched implementation, tests, migrations, shared DTO, and ledger override candidates."
+          }
+        ],
+        "evidenceRefs": [],
+        "remainingGaps": [
+          "Create the registered matter-party-panel surface and its party endpoint integration.",
+          "Collect the registered A5 tests and current manual matter-workspace evidence."
+        ],
+        "nextAction": "Keep A5 not started until the registered implementation and evidence PACK executes.",
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "73e6ad31b1e280a8f8e25089ee296e8449f6565895e387971b24d415f7fc2a81"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "5082e603d6e92dd673298ab1c7387bb110b0ae90dc6802011e0819815610d7b0"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "d50ae34ec72ef75e98ca01f1fdd673a4f447d9ef9579c243be4afbfec1bef978"
       }
     }
   ],
