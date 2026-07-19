@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-19T10:34:00.000Z`
+- asOf / generatedAt: `2026-07-19T10:35:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `171fbb29fa2a3df375ecf47e494bf6cd8bc30838f80da9699180eb76a16ca3ad`
-- Transition journal SHA-256: `39ff210c7a6577d1d45975d68f9ff475f5370532a543d4d8290ca8c6b304792f`
+- Overrides SHA-256: `eac27c3e3f9f436feb39f613322f0441185528a97422084ab855f9c30221c09e`
+- Transition journal SHA-256: `ae26dd14c40fc55c661b44aed1c0c2ca3fcc2fb183dff6af745dbb0071681bd8`
 
 ## Objective
 
@@ -18,13 +18,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 ## Status Counts
 
-- COMPLETE_CANDIDATE: 17
-- NOT_STARTED: 3
+- COMPLETE_CANDIDATE: 16
+- NOT_STARTED: 4
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 81
 - EXTERNAL_BLOCKED: 12
 - PARTIAL: 4
-- BOOTSTRAP_PREIMAGE: 108
-- CURRENT_VALIDATED: 9
+- BOOTSTRAP_PREIMAGE: 107
+- CURRENT_VALIDATED: 10
 
 ## Rules
 
@@ -56,7 +56,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | B6 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 96 | NONE | 2 | 369 | Keep B6 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect an approved staging DMS main-loop smoke PASS receipt including DMS-SMOKE-014 and the idle TTL/user-B/admin-release manual QA receipt, then rerun focused B6 checks, LSP, migration roundtrip, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion. |
 | C1 | 1 | S | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 47 | NONE | 1 | 399 | Keep C1 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Obtain or receive an actual Outlook-exported Korean subject .eml, upload it through POST /v1/matters/:matterId/emails or curl on the approved manual/staging surface, capture the Matter timeline title rendering, then rerun focused C1 checks, LSP, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion. |
 | C2 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 32 | NONE | 1 | 421 | Keep C2 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Perform and record the real forwarded .eml manual QA for inline-image plus PDF attachment handling on the approved staging/manual surface, then rerun focused C2 checks, LSP, ledger rebuild, and diff hygiene before considering COMPLETE_CANDIDATE promotion. |
-| C3 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 55 | NONE | 0 | 439 | Keep C3 as COMPLETE_CANDIDATE pending independent review. Continue the 110-row gate with the next dependency-valid unresolved TUW; do not infer product readiness from this single-row promotion. |
+| C3 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 55 | NONE | 2 | 439 | Keep C3 not started until the registered implementation and evidence PACK executes. |
 | C4 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 50 | NONE | 3 | 468 | Keep C4 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the development M365 sideload success receipt, policy_denied failure-audit receipt, and sanitized Entra app-registration/admin setup receipt, then rerun focused C4 tests, API lint/typecheck/build, tests tsconfig noEmit, db:migrate/no migration audit, LSP diagnostics, diff hygiene, ledger rebuild, and only then consider COMPLETE_CANDIDATE. |
 | C5 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 81 | NONE | 3 | 492 | Keep C5 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the sanitized development M365 Graph $value 200 plus MIME sha256 receipt, missing C4 identity receipts, and Graph app/admin consent evidence, then rerun focused C5 tests, package checks, migration roundtrip, LSP/diff hygiene, ledger rebuild, and only then consider COMPLETE_CANDIDATE. |
 | C6 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 81 | NONE | 3 | 517 | Keep C6 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the sanitized C6 add-in completion/timeline receipt, real worker-consumption receipt, and upstream C1/C2/C4/C5 Outlook evidence references, then rerun focused C6 tests, package checks, migration roundtrip, LSP/diff hygiene, ledger rebuild, and only then consider COMPLETE_CANDIDATE. |
