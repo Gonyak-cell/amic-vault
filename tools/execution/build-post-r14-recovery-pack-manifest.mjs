@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '6b18614a1da9a2d6f7a115e0f5918e2a76bd2ebfa33ec27589d57b1a1a957281';
+const CANONICAL_PAYLOAD_SHA256 = '33b17f509f5bf7e893dbf27ecfe2bf484e5abb5ba1ebe673fe0858224fb5a344';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -631,13 +631,17 @@ function basePathSet() {
   return cachedBasePaths;
 }
 
-function basePathSha256(relativePath) {
+function basePathBuffer(relativePath) {
   const result = gitBufferResult(['show', BASE_COMMIT + ':' + relativePath], ROOT);
   if (result.status !== 0) {
     throw new Error('cannot read exact base path ' + relativePath + ': '
       + result.stderr.toString('utf8').trim());
   }
-  return createHash('sha256').update(result.stdout).digest('hex');
+  return result.stdout;
+}
+
+function basePathSha256(relativePath) {
+  return createHash('sha256').update(basePathBuffer(relativePath)).digest('hex');
 }
 
 async function integrationSpecFiles(directory) {
@@ -1248,12 +1252,13 @@ export async function buildManifest(sourceDir) {
   const classificationPath = path.join(sourceDir, 'classification.json');
   const ownershipPath = path.join(sourceDir, 'ownership.json');
   const unitsPath = path.join(sourceDir, 'units-117.json');
-  const [classification, ownership, sourceUnits, ledger] = await Promise.all([
+  const [classification, ownership, sourceUnits] = await Promise.all([
     readFile(classificationPath, 'utf8').then(JSON.parse),
     readFile(ownershipPath, 'utf8').then(JSON.parse),
     readFile(unitsPath, 'utf8').then(JSON.parse),
-    readFile(LEDGER_PATH, 'utf8').then(JSON.parse),
   ]);
+  const ledgerBuffer = basePathBuffer('docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.json');
+  const ledger = JSON.parse(ledgerBuffer.toString('utf8'));
 
   const primary = primaryMap();
   const routed = routeMap(primary);
@@ -1627,6 +1632,7 @@ export async function buildManifest(sourceDir) {
           mustFollowCandidateBookkeeping: true,
           mustPrecedeTransitions: true,
           preservesAcceptedEntryPrefix: true,
+          permitsPostRolloverPerEntryValidationScopes: true,
         } : null,
         transitionTuwIds,
         nonCompleteOnlyTransitionTuwIds,
@@ -1776,7 +1782,7 @@ export async function buildManifest(sourceDir) {
         idSetSha256: unitIdSetSha256,
       },
       activeLedger: {
-        sha256: await fileDigest(LEDGER_PATH),
+        sha256: createHash('sha256').update(ledgerBuffer).digest('hex'),
         units: ledger.units.length,
         idSetSha256: unitIdSetSha256,
         phase: ledger.phase,
@@ -2106,6 +2112,7 @@ export function validateManifest(manifest) {
       mustFollowCandidateBookkeeping: true,
       mustPrecedeTransitions: true,
       preservesAcceptedEntryPrefix: true,
+      permitsPostRolloverPerEntryValidationScopes: true,
     } : null;
     if (!sameSequence(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
       || !sameSequence(

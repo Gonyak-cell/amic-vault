@@ -1500,7 +1500,7 @@ test('allowing candidate bookkeeping after transitions is rejected', async () =>
 test('R14-06 candidate rollover contract cannot be removed or widened', async () => {
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-06');
-  pack.controlPlane.candidateRollover.mustFollowCandidateBookkeeping = false;
+  pack.controlPlane.candidateRollover.permitsPostRolloverPerEntryValidationScopes = false;
   resign(manifest);
   assert.equal(validateManifest(manifest).errors
     .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);

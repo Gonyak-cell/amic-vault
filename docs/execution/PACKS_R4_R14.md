@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `6b18614a1da9a2d6f7a115e0f5918e2a76bd2ebfa33ec27589d57b1a1a957281`.
+  `33b17f509f5bf7e893dbf27ecfe2bf484e5abb5ba1ebe673fe0858224fb5a344`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2030,6 +2030,11 @@ the five paths changed by the required 19 commits `55f61f0` through `aa50fbc`.
 Two of those stale paths were already superseded on main by the 117-row control
 plane. PACK-R14-05 also had no registered transition-bookkeeping paths, and
 PACK-R14-09 omitted two paths from exact source commit `0b39414`.
+
+Candidate rollover preserves the immutable accepted prefix and its original
+validation scopes. Entries introduced after the seal retain the same candidate
+binding but carry their own recomputed TUW-specific validation scope digest;
+reusing the inherited prefix digest for a different TUW is forbidden.
 
 This amendment contains exactly three TUWs, executed in order:
 

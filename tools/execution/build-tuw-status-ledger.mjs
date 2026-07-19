@@ -2525,7 +2525,15 @@ function validateCandidateRollover(rollover, journal) {
 }
 
 function defaultCandidateDiffResolver(candidateSha, { cwd = process.cwd() } = {}) {
-  const result = spawnSync('git', ['diff', '--name-only', `${candidateSha}..HEAD`], {
+  const latestJournalCommit = spawnSync(
+    'git',
+    ['log', '-1', '--format=%H', '--', journalPath],
+    { cwd, encoding: 'utf8' },
+  );
+  const target = latestJournalCommit.status === 0 && latestJournalCommit.stdout.trim()
+    ? latestJournalCommit.stdout.trim()
+    : 'HEAD';
+  const result = spawnSync('git', ['diff', '--name-only', `${candidateSha}..${target}`], {
     cwd,
     encoding: 'utf8',
   });
@@ -3086,11 +3094,14 @@ function validateJournalEntry(entry, index, journal, previousHash, previousRecor
     && index < journal.candidateRollover.entryCount
     ? journal.candidateRollover.fromCandidateSha
     : journal.candidateSha;
-  const expectedScopeDigest = journal.candidateRollover !== undefined
+  const preservesPreRolloverScope = journal.candidateRollover !== undefined
     && journal.candidateRollover !== null
-    && index < journal.candidateRollover.entryCount
+    && index < journal.candidateRollover.entryCount;
+  const expectedScopeDigest = preservesPreRolloverScope
     ? journal.candidateRollover.fromValidationScopeDigest
-    : journal.validationScopeDigest;
+    : journal.candidateRollover !== undefined && journal.candidateRollover !== null
+      ? null
+      : journal.validationScopeDigest;
   if (entry.candidateSha !== expectedCandidateSha) {
     reject('E_JOURNAL_HEADER', `${path}.candidateSha does not bind the header`, {
       rowId: entry.tuwId,
@@ -3098,12 +3109,13 @@ function validateJournalEntry(entry, index, journal, previousHash, previousRecor
     });
   }
   validateGitSha(entry.candidateSha, `${path}.candidateSha`);
-  assertHashWithCode(
-    entry.validationScopeDigest,
-    'E_JOURNAL_HEADER',
-    `${path}.validationScopeDigest`,
-    expectedScopeDigest.value,
-  );
+  assertHashWithCode(entry.validationScopeDigest, 'E_JOURNAL_HEADER', `${path}.validationScopeDigest`);
+  if (expectedScopeDigest !== null && !hashesEqual(entry.validationScopeDigest, expectedScopeDigest)) {
+    reject('E_JOURNAL_HEADER', `${path}.validationScopeDigest does not bind the header`, {
+      rowId: entry.tuwId,
+      sequence,
+    });
+  }
   validateTimestamp(entry.recordedAt, `${path}.recordedAt`);
   if (previousRecordedAt !== null && Date.parse(entry.recordedAt) <= Date.parse(previousRecordedAt)) {
     reject('E_JOURNAL_SEQUENCE', 'Entry timestamps must be strictly increasing', {
