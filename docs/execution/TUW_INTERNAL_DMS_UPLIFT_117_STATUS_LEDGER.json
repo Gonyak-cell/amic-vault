@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
-  "phase": "TRANSITION",
+  "phase": "CANDIDATE_ROLLOVER",
   "generatedAt": "2026-07-19T10:37:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
@@ -11,14 +11,14 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3"
+      "value": "da3b71381d6f573cdb62670256cc513d8c62fc2ba5006017c3828667e18a0b5c"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21"
+      "value": "873931debe010493607e3e7f5a7e380486cb1610e4694b6a410f38c3e343e5f3"
     },
     "asOf": "2026-07-19T10:37:00.000Z",
-    "phase": "TRANSITION"
+    "phase": "CANDIDATE_ROLLOVER"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
   "overridesPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json",

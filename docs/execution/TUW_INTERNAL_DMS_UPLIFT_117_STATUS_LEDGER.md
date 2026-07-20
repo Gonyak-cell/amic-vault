@@ -1,16 +1,16 @@
 # TUW Internal DMS Uplift 117 Status Ledger
 
 Generated from `docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md`. This ledger is an execution-control artifact, not completion evidence by itself.
-Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. Phase `TRANSITION` is derived from the sealed journal; only replayed one-row entries may change row state.
+Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. Phase `CANDIDATE_ROLLOVER` is derived from the sealed journal; only replayed one-row entries may change row state.
 
 ## Deterministic Metadata
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
-- Phase: `TRANSITION`
+- Phase: `CANDIDATE_ROLLOVER`
 - asOf / generatedAt: `2026-07-19T10:37:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3`
-- Transition journal SHA-256: `ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21`
+- Overrides SHA-256: `da3b71381d6f573cdb62670256cc513d8c62fc2ba5006017c3828667e18a0b5c`
+- Transition journal SHA-256: `873931debe010493607e3e7f5a7e380486cb1610e4694b6a410f38c3e343e5f3`
 
 ## Objective
 
