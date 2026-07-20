@@ -63,6 +63,8 @@ export const r5BreakGlassAuditActions = [
 
 export const r5AuditConsoleActions = ['AUDIT_QUERY_EXECUTED', 'AUDIT_EXPORT_CREATED'] as const;
 
+export const auditAnchorActions = ['AUDIT_ANCHOR_RECORDED'] as const;
+
 export const r6AiPolicyAuditActions = ['AI_POLICY_EVALUATED'] as const;
 
 export const r6AiAuditActions = [
@@ -140,6 +142,16 @@ export const r12RecordsAuditActions = [
   'DISPOSAL_CERTIFICATE_CREATED',
 ] as const;
 
+export const knowledgeBankAuditActions = [
+  'KNOWLEDGE_CANDIDATE_PROPOSED',
+  'KNOWLEDGE_CANDIDATE_REVIEWED',
+  'WIKI_PAGE_PROPOSED',
+  'WIKI_PAGE_REVIEWED',
+  'WIKI_EXPORTED',
+] as const;
+
+export const dmsWorkAuditActions = ['WORK_ITEM_REASSIGNED'] as const;
+
 export const r13EnterpriseAuditActions = [
   'SSO_PROVIDER_CHANGED',
   'SSO_METADATA_VIEWED',
@@ -199,6 +211,7 @@ export const auditActions = [
   ...r5DlpAuditActions,
   ...r5BreakGlassAuditActions,
   ...r5AuditConsoleActions,
+  ...auditAnchorActions,
   ...r6AiPolicyAuditActions,
   ...r6AiAuditActions,
   ...r6AiPrepAuditActions,
@@ -209,6 +222,8 @@ export const auditActions = [
   ...r10LitigationAuditActions,
   ...r11ExternalAuditActions,
   ...r12RecordsAuditActions,
+  ...knowledgeBankAuditActions,
+  ...dmsWorkAuditActions,
   ...r13EnterpriseAuditActions,
   ...r14ScaleLearningAuditActions,
   ...r4EmailAuditActions,
@@ -222,6 +237,7 @@ export type R4DlpAuditAction = (typeof r4DlpAuditActions)[number];
 export type R5DlpAuditAction = (typeof r5DlpAuditActions)[number];
 export type R5BreakGlassAuditAction = (typeof r5BreakGlassAuditActions)[number];
 export type R5AuditConsoleAction = (typeof r5AuditConsoleActions)[number];
+export type AuditAnchorAction = (typeof auditAnchorActions)[number];
 export type R6AiPolicyAuditAction = (typeof r6AiPolicyAuditActions)[number];
 export type R6AiAuditAction = (typeof r6AiAuditActions)[number];
 export type R6AiPrepAuditAction = (typeof r6AiPrepAuditActions)[number];
@@ -232,6 +248,8 @@ export type R9DdAuditAction = (typeof r9DdAuditActions)[number];
 export type R10LitigationAuditAction = (typeof r10LitigationAuditActions)[number];
 export type R11ExternalAuditAction = (typeof r11ExternalAuditActions)[number];
 export type R12RecordsAuditAction = (typeof r12RecordsAuditActions)[number];
+export type KnowledgeBankAuditAction = (typeof knowledgeBankAuditActions)[number];
+export type DmsWorkAuditAction = (typeof dmsWorkAuditActions)[number];
 export type R13EnterpriseAuditAction = (typeof r13EnterpriseAuditActions)[number];
 export type R14ScaleLearningAuditAction = (typeof r14ScaleLearningAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];
