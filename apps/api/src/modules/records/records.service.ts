@@ -401,6 +401,17 @@ function mapDisposalRequest(row: DisposalRequestRow): DisposalRequestDto {
   });
 }
 
+function mapDisposalReviewItem(row: DisposalReviewRow): DisposalReviewItemDto {
+  return disposalReviewItemSchema.parse({
+    ...mapDisposalRequest(row),
+    matterCode: row.matter_code,
+    matterName: row.matter_name,
+    documentTitle: row.document_title,
+    reviewSource:
+      row.reason_code === 'RETENTION_EXPIRED' ? 'retention_scheduler' : 'manual_request',
+  });
+}
+
 function mapCertificate(row: DisposalCertificateRow): DisposalCertificateDto {
   return disposalCertificateSchema.parse({
     certificateId: row.certificate_id,
@@ -436,10 +447,7 @@ export class RecordsService {
     @Inject(WorkService) private readonly workService: WorkService,
   ) {}
 
-  async createRetentionPolicy(
-    ctx: PermissionContext,
-    body: unknown,
-  ): Promise<RetentionPolicyDto> {
+  async createRetentionPolicy(ctx: PermissionContext, body: unknown): Promise<RetentionPolicyDto> {
     const input = parseCreateRetentionPolicy(body);
     this.assertContext(ctx);
     await this.assertRecordsAdmin(ctx.tenantId as TenantId, ctx.userId);
@@ -651,7 +659,13 @@ export class RecordsService {
       const updated = updatedResult.rows[0] as LegalHoldRow | undefined;
       if (!updated) throw validationFailed('LEGAL_HOLD_RELEASE_CONFLICT');
       if (updated.hold_scope === 'matter') {
-        const active = await this.countActiveHolds(tx, ctx.tenantId, updated.matter_id, 'matter', null);
+        const active = await this.countActiveHolds(
+          tx,
+          ctx.tenantId,
+          updated.matter_id,
+          'matter',
+          null,
+        );
         if (active === 0) {
           await tx.query(
             `
@@ -797,7 +811,12 @@ export class RecordsService {
         throw documentLocked('DOCUMENT_IMMUTABLE_STATE');
       }
       this.assertNoHoldFlags(target);
-      await this.assertNoActiveHoldsForDocument(tx, ctx.tenantId, target.matter_id, input.documentId);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        target.matter_id,
+        input.documentId,
+      );
       await this.assertNoBusinessReferences(tx, ctx.tenantId, input.documentId);
       await this.assertNoOpenDisposalRequest(tx, ctx.tenantId, input.documentId);
 
@@ -891,7 +910,12 @@ export class RecordsService {
       const target = await this.findDocumentTarget(tx, ctx.tenantId, before.document_id, true);
       if (!target) throw notFoundDenied();
       this.assertNoHoldFlags(target);
-      await this.assertNoActiveHoldsForDocument(tx, ctx.tenantId, before.matter_id, before.document_id);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        before.matter_id,
+        before.document_id,
+      );
       await this.assertNoBusinessReferences(tx, ctx.tenantId, before.document_id);
 
       const result = await tx.query(
@@ -984,7 +1008,12 @@ export class RecordsService {
       const target = await this.findDocumentTarget(tx, ctx.tenantId, request.document_id, true);
       if (!target) throw notFoundDenied();
       this.assertNoHoldFlags(target);
-      await this.assertNoActiveHoldsForDocument(tx, ctx.tenantId, request.matter_id, request.document_id);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        request.matter_id,
+        request.document_id,
+      );
       await this.assertNoBusinessReferences(tx, ctx.tenantId, request.document_id);
 
       const versionFiles = await this.listVersionFiles(tx, ctx.tenantId, request.document_id);

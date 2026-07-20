@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type { AiSummaryResponseDto } from '@amic-vault/shared';
 import { AppModule } from '../../apps/api/src/app.module';
+import { LocalGemmaGenerationService } from '../../apps/api/src/modules/ai/generation/local-gemma-generation.service';
 import { configureApp } from '../../apps/api/src/main';
 import {
   createOwnerClient,
@@ -112,6 +113,22 @@ describe('AI summaries integration', () => {
     expect(summary.citations.map((citation) => citation.documentId)).toEqual([visible.documentId]);
     expectNoDeniedReference(summary);
 
+    const chunks = await aiSessionChunks(summary.sessionId);
+    expect(chunks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          document_id: visible.documentId,
+          included: true,
+          reason_code: 'included',
+        }),
+        expect.objectContaining({
+          document_id: aiDenied.documentId,
+          included: false,
+          reason_code: 'ai_policy_blocked',
+        }),
+      ]),
+    );
+
     const audits = await aiAuditEvents(summary.sessionId, matterId);
     expect(audits.map((audit) => audit.action)).toEqual([
       'AI_QUERY_SUBMITTED',
@@ -168,10 +185,127 @@ describe('AI summaries integration', () => {
       maxChunks: 3,
     });
 
-    expect(summary.status).toBe('escalated');
-    expect(summary.warnings).not.toContain('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
-    expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
-    expectNoDeniedReference(summary);
+    try {
+      await setSummaryGenerationEnabled(true);
+      const summary = await postSummary({
+        matterId,
+        task: 'email_thread_summary',
+        query: `${marker} 금요일 계약서 회신 요청`,
+        targetDocumentId: emailThread.documentId,
+        filters: { clientId },
+        maxChunks: 3,
+      });
+
+      expect(summary).toMatchObject({
+        matterId,
+        task: 'email_thread_summary',
+        status: 'escalated',
+        legalConclusionAutoApproval: false,
+      });
+      expect(summary.recommendedActions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: expect.stringContaining('금요일까지 계약서 회신 요청'),
+            reviewRequired: true,
+          }),
+          expect.objectContaining({
+            action: expect.stringContaining('금요일 회신 기한'),
+            reviewRequired: true,
+          }),
+        ]),
+      );
+      expect(summary.citations.map((citation) => citation.documentId)).toEqual([
+        emailThread.documentId,
+      ]);
+      expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
+      expect(await aiClaimKinds(summary.sessionId)).toEqual(
+        expect.arrayContaining(['key_fact', 'timeline']),
+      );
+      expect(await aiClaimCitationCounts(summary.sessionId)).toEqual(
+        expect.arrayContaining([
+          { kind: 'key_fact', citation_count: 1 },
+          { kind: 'timeline', citation_count: 1 },
+        ]),
+      );
+      expect(gemmaSpy).toHaveBeenCalledWith(expect.objectContaining({ taskType: 'summary' }), {
+        compileOptions: {
+          purpose: 'email_thread_summary',
+          allowedClaimKinds: ['summary', 'key_fact', 'timeline', 'question'],
+        },
+      });
+      expectNoDeniedReference(summary);
+    } finally {
+      gemmaSpy.mockRestore();
+      await setSummaryGenerationEnabled(false);
+    }
+  });
+
+  it('returns generated R8 clause risk analysis with required citations', async () => {
+    const sourceChunkId = await firstSemanticChunkId(visible.versionId);
+    const gemmaSpy = vi
+      .spyOn(LocalGemmaGenerationService.prototype, 'generateGrounded')
+      .mockResolvedValue({
+        status: 'completed',
+        output: {
+          answer: 'Generated clause risk answer',
+          sections: [
+            {
+              section_id: 'generated-clause-risk',
+              heading: 'Generated clause risk',
+              text: 'Generated cited clause risk',
+              source_refs: [`chunk:${sourceChunkId}`],
+            },
+          ],
+          claims: [
+            {
+              claim_id: 'generated-clause-risk-claim',
+              kind: 'risk',
+              text: 'Generated cited clause risk',
+              source_refs: [`chunk:${sourceChunkId}`],
+              is_legal_conclusion: false,
+            },
+          ],
+          warnings: [],
+        },
+      });
+
+    try {
+      await setSummaryGenerationEnabled(true);
+      const summary = await postSummary({
+        matterId,
+        task: 'clause_analysis',
+        query: `${marker} closing covenant clause`,
+        targetDocumentId: visible.documentId,
+        filters: { clientId },
+        maxChunks: 3,
+      });
+
+      expect(summary.status).toBe('escalated');
+      expect(summary.sections[0]).toMatchObject({
+        sectionId: 'generated-clause-risk',
+        text: 'Generated cited clause risk',
+      });
+      expect(summary.citationWarnings).toEqual([]);
+      expect(summary.warnings).not.toContain('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
+      expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
+      expect(await aiClaimKinds(summary.sessionId)).toContain('risk');
+      expect(gemmaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ruleFindings: expect.any(Array),
+          taskType: 'review',
+        }),
+        {
+          compileOptions: {
+            purpose: 'clause_risk_analysis',
+            allowedClaimKinds: ['risk', 'clause', 'issue'],
+          },
+        },
+      );
+      expectNoDeniedReference(summary);
+    } finally {
+      gemmaSpy.mockRestore();
+      await setSummaryGenerationEnabled(false);
+    }
   });
 
   it('escalates risk extraction templates without unsupported conclusions', async () => {
@@ -239,9 +373,10 @@ describe('AI summaries integration', () => {
       await client.query(
         `
           INSERT INTO ai_policies (
-            policy_id, tenant_id, name, allowed_model_tiers
+            policy_id, tenant_id, name, allowed_model_tiers,
+            summary_generation_enabled, session_payload_preservation_enabled
           )
-          VALUES ($1, $2, 'R6 summary local policy', ARRAY['local']::text[])
+          VALUES ($1, $2, 'R6 summary local policy', ARRAY['local']::text[], false, true)
         `,
         [policyId, tenantAlphaId],
       );
@@ -266,6 +401,52 @@ describe('AI summaries integration', () => {
         `,
         [tenantAlphaId, matterId, policyId],
       );
+    });
+  }
+
+  async function setSummaryGenerationEnabled(enabled: boolean): Promise<void> {
+    await withClient(createOwnerClient(), async (client) => {
+      await setTenant(client, tenantAlphaId);
+      await client.query(
+        `
+          UPDATE ai_policies
+          SET summary_generation_enabled = $3,
+            updated_at = now()
+          WHERE tenant_id = $1
+            AND policy_id = (
+              SELECT ai_policy_id
+              FROM matters
+              WHERE tenant_id = $1
+                AND matter_id = $2
+            )
+        `,
+        [tenantAlphaId, matterId, enabled],
+      );
+    });
+  }
+
+  async function firstSemanticChunkId(versionId: string): Promise<string> {
+    return withClient(createOwnerClient(), async (client) => {
+      await setTenant(client, tenantAlphaId);
+      const result = await client.query<{ chunk_id: string }>(
+        `
+          SELECT c.chunk_id
+          FROM document_chunks c
+          JOIN document_chunk_embeddings e
+            ON e.tenant_id = c.tenant_id
+           AND e.chunk_id = c.chunk_id
+           AND e.stale = false
+          WHERE c.tenant_id = $1
+            AND c.version_id = $2
+            AND c.stale = false
+          ORDER BY c.chunk_ordinal ASC
+          LIMIT 1
+        `,
+        [tenantAlphaId, versionId],
+      );
+      const row = result.rows[0];
+      if (!row) throw new Error('summary fixture semantic chunk missing');
+      return row.chunk_id;
     });
   }
 

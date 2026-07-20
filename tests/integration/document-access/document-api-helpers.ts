@@ -234,15 +234,86 @@ export async function uploadDocx(
   cookie: string,
   matterId: string,
   marker: string,
+  bodyText?: string,
 ): Promise<{ documentId: string; fileObjectId: string }> {
   const response = await fetch(`${baseUrl}/v1/matters/${matterId}/documents`, {
     method: 'POST',
     headers: { cookie },
-    body: docxForm(marker),
+    body: docxForm(marker, bodyText),
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
   return JSON.parse(body) as { documentId: string; fileObjectId: string };
+}
+
+export async function uploadDocxVersion(
+  baseUrl: string,
+  cookie: string,
+  documentId: string,
+  marker: string,
+  bodyText?: string,
+): Promise<{ versionId: string; versionNo: number; fileObjectId: string; sha256: string }> {
+  const response = await fetch(`${baseUrl}/v1/documents/${documentId}/versions`, {
+    method: 'POST',
+    headers: { cookie },
+    body: docxForm(marker, bodyText, false),
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
+  return JSON.parse(body) as {
+    versionId: string;
+    versionNo: number;
+    fileObjectId: string;
+    sha256: string;
+  };
+}
+
+export async function ensureFreshMatterAppSyncState(
+  tenantId: string,
+  fixtureName: string,
+): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          jsonb_build_object('fixture', $2::text)
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantId, fixtureName],
+    );
+  });
 }
 
 export function createStorageService(): StorageService {

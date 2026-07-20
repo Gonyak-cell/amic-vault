@@ -50,9 +50,21 @@ export const litigationAdmittedStatuses = [
   'reserved',
 ] as const;
 export const litigationFactStatuses = ['draft', 'verified', 'disputed', 'withdrawn'] as const;
+export const litigationFactCitationRequiredReason = 'FACT_CITATION_REQUIRED';
 export const litigationMaterialities = ['low', 'medium', 'high', 'critical'] as const;
 export const litigationIssueTypes = ['claim', 'defense', 'element', 'argument', 'risk'] as const;
-export const litigationIssueStatuses = ['open', 'developing', 'supported', 'weak', 'closed'] as const;
+export const litigationIssueStatuses = [
+  'open',
+  'developing',
+  'supported',
+  'weak',
+  'closed',
+] as const;
+export const litigationAiSuggestionKinds = [
+  'evidence_classification',
+  'issue_evidence_mapping',
+] as const;
+export const litigationAiSuggestionStatuses = ['pending', 'approved', 'rejected'] as const;
 export const litigationPleadingTypes = [
   'complaint',
   'answer',
@@ -80,6 +92,15 @@ export const litigationIssueTypeSchema = z.enum(litigationIssueTypes);
 export const litigationIssueStatusSchema = z.enum(litigationIssueStatuses);
 export const litigationPleadingTypeSchema = z.enum(litigationPleadingTypes);
 export const litigationPleadingStatusSchema = z.enum(litigationPleadingStatuses);
+export const litigationHearingTypeSchema = z.enum(litigationHearingTypes);
+export const litigationHearingStatusSchema = z.enum(litigationHearingStatuses);
+
+function hasRequiredFactCitations(value: {
+  status: (typeof litigationFactStatuses)[number];
+  citationRefs: readonly string[];
+}): boolean {
+  return value.status !== 'verified' || value.citationRefs.length > 0;
+}
 
 export const createLitigationEvidenceRequestSchema = z
   .object({
@@ -91,7 +112,11 @@ export const createLitigationEvidenceRequestSchema = z
     exhibitLabel: safeLabelSchema.nullish(),
     custodyStatus: litigationCustodyStatusSchema.default('collected'),
     admittedStatus: litigationAdmittedStatusSchema.default('unknown'),
-    sourceHash: z.string().trim().regex(/^[a-f0-9]{64}$/iu).nullish(),
+    sourceHash: z
+      .string()
+      .trim()
+      .regex(/^[a-f0-9]{64}$/iu)
+      .nullish(),
   })
   .strict()
   .refine((value) => value.versionId === undefined || value.documentId !== undefined, {
@@ -142,7 +167,31 @@ export const createLitigationFactRequestSchema = z
     materiality: litigationMaterialitySchema.default('medium'),
     citationRefs: z.array(citationRefSchema).max(20).default([]),
   })
-  .strict();
+  .strict()
+  .refine(hasRequiredFactCitations, {
+    message: litigationFactCitationRequiredReason,
+    path: ['citationRefs'],
+  });
+
+export const updateLitigationFactRequestSchema = z
+  .object({
+    status: litigationFactStatusSchema.optional(),
+    citationRefs: z.array(citationRefSchema).max(20).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'at least one field is required',
+  })
+  .refine(
+    (value) =>
+      value.status !== 'verified' ||
+      value.citationRefs === undefined ||
+      value.citationRefs.length > 0,
+    {
+      message: litigationFactCitationRequiredReason,
+      path: ['citationRefs'],
+    },
+  );
 
 export const litigationFactQuerySchema = z
   .object({
@@ -166,7 +215,11 @@ export const litigationFactSchema = z
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
-  .strict();
+  .strict()
+  .refine(hasRequiredFactCitations, {
+    message: litigationFactCitationRequiredReason,
+    path: ['citationRefs'],
+  });
 
 export const litigationFactListResponseSchema = z
   .object({

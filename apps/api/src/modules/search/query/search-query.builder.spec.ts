@@ -13,14 +13,23 @@ function builder(): SearchQueryBuilder {
 describe('SearchQueryBuilder', () => {
   it('uses websearch_to_tsquery with a bound query parameter', () => {
     const malicious = "termination'; DROP TABLE document_search_index; --";
-    const built = builder().build(
-      { query: malicious, page: 1, pageSize: 10 },
-      scope,
-    );
+    const built = builder().build({ query: malicious, page: 1, pageSize: 10 }, scope);
 
     expect(built.sql).toContain('websearch_to_tsquery');
+    expect(built.sql).toContain('amic_korean_search_normalize');
     expect(built.sql).toContain('LEFT JOIN matters m');
     expect(built.sql).toContain('LEFT JOIN clients c');
+    expect(built.sql).toContain('LEFT JOIN users author');
+    expect(built.sql).toContain('idx.author_user_id');
+    expect(built.sql).toContain('idx.ai_allowed');
+    expect(built.sql).toContain('idx.content_truncated');
+    expect(built.sql).toContain('idx.prev_version_id');
+    expect(built.sql).toContain('idx.next_version_id');
+    expect(built.sql).toContain('AS confidentiality_level');
+    expect(built.sql).toContain('AS legal_hold');
+    expect(built.sql).toContain('AS privilege_status');
+    expect(built.sql).not.toContain('count(*) OVER()');
+    expect(built.sql).toContain('LIMIT $5');
     expect(built.sql).not.toContain(malicious);
     expect(built.sql).toContain('idx.document_status <> $2');
     expect(built.sql).toContain('idx.version_status = $3');

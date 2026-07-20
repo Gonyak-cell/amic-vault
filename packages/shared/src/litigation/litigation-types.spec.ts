@@ -29,6 +29,38 @@ describe('litigation shared schemas', () => {
     ).toBe(versionId);
   });
 
+  it('accepts direction-scoped Korean exhibit code suggestions separately from evidence_code', () => {
+    const input = createLitigationEvidenceRequestSchema.parse({
+      matterId,
+      evidenceCode: 'GAP-003',
+      evidenceDirection: 'gap',
+      evidenceSequence: 3,
+      exhibitLabel: '갑 제3호증',
+    });
+    expect(input).toMatchObject({
+      evidenceCode: 'GAP-003',
+      evidenceDirection: 'gap',
+      evidenceSequence: 3,
+      exhibitLabel: '갑 제3호증',
+    });
+    expect(() =>
+      createLitigationEvidenceRequestSchema.parse({
+        matterId,
+        evidenceCode: '갑 제3호증',
+      }),
+    ).toThrow();
+
+    expect(
+      litigationEvidenceNextCodeResponseSchema.parse({
+        matterId,
+        direction: 'eul',
+        evidenceCode: 'EUL-001',
+        exhibitLabel: '을 제1호증',
+        nextSequence: 1,
+      }).exhibitLabel,
+    ).toBe('을 제1호증');
+  });
+
   it('rejects unsafe fact and citation reference strings', () => {
     expect(() =>
       createLitigationFactRequestSchema.parse({

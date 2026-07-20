@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "packId": "PACK-R14-09",
+  "status": "BLOCKED_DEPENDENCY_CLOSURE",
+  "recordedAt": "2026-07-20",
+  "authorityRef": "TASK6B-TECHNICAL-GATES-AUTHORITY-20260717",
+  "executionBase": "76d22daf14d0a40986a6c90870e15d34d5b44715",
+  "source": {
+    "kind": "PRESERVED_DIRTY_OVERLAY",
+    "sourceHead": "0b39414d4de746597e8f3c6ff64f7c1989789135",
+    "registeredHunkCount": 322,
+    "registeredMigrationTargets": [
+      "0096_korean_ngram_search.sql",
+      "0097_enforce_fact_issue_citations.sql",
+      "0098_bind_retention_policies.sql",
+      "0099_create_matter_app_sync_state.sql",
+      "0100_real_embedding_columns_hnsw.sql",
+      "0101_delete_legacy_embedding_routes.sql",
+      "0102_enable_matter_qa_generation_policy.sql",
+      "0103_search_index_display_fields.sql"
+    ],
+    "reconstructionMethod": "manifest ordinal to preserved U0 diff hunk; current main three-way merge"
+  },
+  "blocker": {
+    "code": "R14_09_DEPENDENCY_CLOSURE_MISMATCH",
+    "summary": "The registered R14-09 hunk subset cannot produce a compilable interim head because required declaration and consumer hunks remain assigned to later PACKs.",
+    "evidence": [
+      "Node 22.22.3 lint reproduces 26 errors after exact registered-hunk reconstruction.",
+      "packages/shared/src/ai/ops.ts requires E6 declarations assigned to PACK-R14-16.",
+      "DD, litigation, search, AI-summary, records, and result-card consumers reference declarations or fields assigned to later PACKs including PACK-R14-25, PACK-R14-26, PACK-R14-35, PACK-R14-36, and PACK-R14-37.",
+      "No unowned hunk was added to repair these errors."
+    ],
+    "requiredRecovery": "Register a manifest amendment that preserves unique hunk ownership while adding the missing predecessor edges or moving each indivisible declaration-consumer closure into a single executable PACK; then regenerate and validate the manifest before resuming this PACK."
+  },
+  "claimBoundary": {
+    "technicalVerificationPassed": false,
+    "completionClaimed": false,
+    "migrationExecuted": false,
+    "externalStateChanged": false,
+    "productionStateChanged": false,
+    "releaseClaimed": false,
+    "goLiveClaimed": false
+  },
+  "scope": {
+    "registeredSourcePaths": 68,
+    "controlPlanePaths": [
+      "docs/execution/recovery-receipts/PACK-R14-09.json",
+      "docs/ledger/execution.md"
+    ],
+    "notChanged": [
+      "docs/package/**",
+      "AGENTS.md",
+      ".omo/**",
+      "production or external state"
+    ]
+  }
+}

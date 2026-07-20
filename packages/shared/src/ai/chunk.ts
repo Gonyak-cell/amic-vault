@@ -2,7 +2,13 @@ import { z } from 'zod';
 
 export const aiChunkKinds = ['parent', 'child'] as const;
 export const aiChunkKindSchema = z.enum(aiChunkKinds);
-export const aiEmbeddingDimension = 16 as const;
+export const aiEmbeddingModelRoutes = ['local_gemma', 'bge_m3'] as const;
+export const aiEmbeddingModelRouteSchema = z.enum(aiEmbeddingModelRoutes);
+export const aiEmbeddingDimensions = {
+  local_gemma: 1024,
+  bge_m3: 1024,
+} as const;
+export const aiEmbeddingDimension = aiEmbeddingDimensions.bge_m3;
 
 export const documentChunkProvenanceSchema = z
   .object({
@@ -25,4 +31,5 @@ export const documentChunkProvenanceSchema = z
   });
 
 export type AiChunkKind = (typeof aiChunkKinds)[number];
+export type AiEmbeddingModelRoute = (typeof aiEmbeddingModelRoutes)[number];
 export type DocumentChunkProvenanceDto = z.infer<typeof documentChunkProvenanceSchema>;

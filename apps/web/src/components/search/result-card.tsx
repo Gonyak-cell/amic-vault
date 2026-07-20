@@ -23,7 +23,7 @@ export function ResultCard({ result, target = 'all' }: ResultCardProps) {
   const documentHref = documentSearchHitUrlForSearchResult(result, target);
   const previewHref =
     result.highlights.length > 0
-      ? documentPreviewUrl(result.documentId, {
+      ? documentPreviewUrl(result.documentId ?? '', {
           searchHit: {
             ...(result.highlights[0]?.anchorId ? { anchorId: result.highlights[0].anchorId } : {}),
             hitCount: result.highlights.length,
@@ -31,8 +31,10 @@ export function ResultCard({ result, target = 'all' }: ResultCardProps) {
             target,
           },
         })
-      : documentPreviewUrl(result.documentId);
+      : documentPreviewUrl(result.documentId ?? '');
   const fileCabinetHref = fileCabinetUrlForSearchResult(result);
+  const authorLabel = result.author?.displayName?.trim();
+  const permissionBadges = result.permissionBadges;
   return (
     <article className="rounded-md border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -67,6 +69,39 @@ export function ResultCard({ result, target = 'all' }: ResultCardProps) {
             </Link>
           </Button>
         </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <StatusBadge tone={confidentialityTone(permissionBadges.confidentiality)}>
+          {confidentialityLabel(permissionBadges.confidentiality)}
+        </StatusBadge>
+        {clauseDisplay ? <StatusBadge tone="neutral">{clauseDisplay}</StatusBadge> : null}
+        {permissionBadges.privilege !== 'none' ? (
+          <StatusBadge tone="warning">{privilegeLabel(permissionBadges.privilege)}</StatusBadge>
+        ) : null}
+        {permissionBadges.legalHold !== 'no_hold' ? (
+          <StatusBadge tone="blocked">{legalHoldLabel(permissionBadges.legalHold)}</StatusBadge>
+        ) : null}
+        <StatusBadge tone={result.aiAllowed ? 'success' : 'neutral'}>
+          <Bot className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+          {result.aiAllowed ? 'AI 가능' : 'AI 불가'}
+        </StatusBadge>
+        {result.contentTruncated ? <StatusBadge tone="warning">부분 인덱스</StatusBadge> : null}
+        {result.prevVersionId ? (
+          <Button asChild size="sm" variant="outline">
+            <Link href={documentVersionUrlForSearchResult(result, result.prevVersionId)}>
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              이전 버전
+            </Link>
+          </Button>
+        ) : null}
+        {result.nextVersionId ? (
+          <Button asChild size="sm" variant="outline">
+            <Link href={documentVersionUrlForSearchResult(result, result.nextVersionId)}>
+              다음 버전
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </Button>
+        ) : null}
       </div>
       <p className="mt-3 break-words text-sm leading-6 text-muted-foreground">
         {highlightSnippet(result.snippet, result.highlights)}

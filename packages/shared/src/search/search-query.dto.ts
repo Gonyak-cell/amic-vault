@@ -161,9 +161,17 @@ export interface SearchHighlightDto {
 }
 
 export interface SearchResultDto extends DisplayFieldsDto {
-  documentId: string;
-  versionId: string;
-  matterId: string;
+  aiAllowed: boolean;
+  author: SearchAuthorDto | null;
+  authorityId?: string;
+  clauseId?: string;
+  clauseKind?: string | null;
+  clauseNumber?: string | null;
+  citation?: string;
+  contentTruncated: boolean;
+  documentId?: string;
+  versionId?: string;
+  matterId?: string;
   matterDisplayName?: string | null;
   matterDisplayCode?: string | null;
   clientId: string;

@@ -23,6 +23,8 @@ import { AiSessionLogService, type AiSessionRequestContext } from '../session/ai
 import { GraphQueryService } from '../../graph/graph-query.service';
 import { ContractIntelService } from '../../contract-intel/contract-intel.service';
 import { LocalGemmaGenerationService } from '../generation/local-gemma-generation.service';
+import type { EvidencePromptCompileOptions } from '../generation/evidence-prompt.compiler';
+import { AiSummaryGenerationGateService } from './ai-summary-generation-gate.service';
 
 interface RenderedSummary {
   status: 'completed' | 'escalated';
@@ -179,12 +181,19 @@ export class AiSummaryService {
 
     const responseJson = JSON.stringify(response);
     await this.sessions.recordResponse(ctx, created.sessionId, {
-      responseHash: sha256Hex(responseJson),
+      responseHash,
       responseLength: responseJson.length,
       responseTokenCount: Math.ceil(responseJson.length / 4),
       latencyMs: Math.round(performance.now() - startedAt),
       status: 'responded',
       escalationRequired: response.escalationRequired,
+      requestKind: input.task,
+      ...(gemmaAttempt.generationResult
+        ? { generationResult: gemmaAttempt.generationResult }
+        : {}),
+      ...(gemmaAttempt.fallbackReasonCode
+        ? { fallbackReasonCode: gemmaAttempt.fallbackReasonCode }
+        : {}),
       ...(response.escalationRequired ? { blockedReason: 'unsupported_scope' as const } : {}),
     });
     return response;
@@ -303,6 +312,24 @@ function renderGeneratedSummary(
     input.task === 'risk_extraction' ||
     input.task === 'clause_analysis' ||
     output.claims.some((claim) => claim.is_legal_conclusion === true);
+  const slicedClaims = output.claims.slice(0, 100);
+  const openQuestions = openQuestionsForPack(
+    pack,
+    slicedClaims
+      .filter((claim) => claim.kind === 'question')
+      .map((claim) => ({
+        question: claim.text,
+        neededEvidence: 'Confirm this open point against additional authorized matter evidence.',
+        citationRefs: claim.source_refs,
+      })),
+  );
+  const recommendedActions = recommendedActionsForPack(
+    input.task,
+    baseEscalationRequired,
+    openQuestions.length > 0,
+    emailRecommendedActionsFromClaims(input.task, slicedClaims),
+  );
+  const escalationRequired = baseEscalationRequired || recommendedActions.length > 0;
   const sections = output.sections.slice(0, 12).map((section) => ({
     sectionId: section.section_id,
     heading: section.heading,
@@ -310,9 +337,17 @@ function renderGeneratedSummary(
     citationRefs: section.source_refs,
     ...(escalationRequired ? { escalationRequired: true } : {}),
   }));
-  const claims = output.claims.slice(0, 100).map((claim) => ({
+  const claims = slicedClaims.map((claim) => ({
     claimId: claim.claim_id,
     claimHash: sha256Hex(`${claim.kind}:${claim.text}:${claim.source_refs.join('|')}`),
+    citationRefs: claim.source_refs,
+    ...(claim.is_legal_conclusion ? { isLegalConclusion: true } : {}),
+  }));
+  const ledgerClaims = slicedClaims.map((claim, index) => ({
+    sessionClaimId: claim.claim_id,
+    claimHash: claims[index]?.claimHash ?? sha256Hex(claim.text),
+    claimText: claim.text,
+    kind: claim.kind,
     citationRefs: claim.source_refs,
     ...(claim.is_legal_conclusion ? { isLegalConclusion: true } : {}),
   }));
@@ -322,6 +357,11 @@ function renderGeneratedSummary(
     sections,
     citations,
     claims,
+    ledgerClaims,
+    conclusion: output.answer,
+    openQuestions,
+    recommendedActions,
+    excludedSourcesNotice: excludedSourcesNoticeForPack(pack),
     warnings: warningCodesForTask(input.task, false),
     escalationRequired,
   };

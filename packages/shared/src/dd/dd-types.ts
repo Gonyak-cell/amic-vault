@@ -84,6 +84,14 @@ export const ddIssueStatusSchema = z.enum(ddIssueStatuses);
 export const ddRiskCategorySchema = z.enum(ddRiskCategories);
 export const ddRiskLikelihoodSchema = z.enum(ddRiskLikelihoods);
 export const ddRiskStatusSchema = z.enum(ddRiskStatuses);
+export const ddExportTypeSchema = z.enum(ddExportTypes);
+
+function hasRequiredIssueCitations(value: {
+  status: (typeof ddIssueStatuses)[number];
+  citationRefs: readonly string[];
+}): boolean {
+  return value.status === 'open' || value.citationRefs.length > 0;
+}
 
 export const createDdRfiRequestSchema = z
   .object({
@@ -212,7 +220,32 @@ export const createDdIssueRequestSchema = z
     citationRefs: z.array(citationRefSchema).max(20).default([]),
     reportInclusion: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .refine(hasRequiredIssueCitations, {
+    message: ddIssueCitationRequiredReason,
+    path: ['citationRefs'],
+  });
+
+export const updateDdIssueRequestSchema = z
+  .object({
+    status: ddIssueStatusSchema.optional(),
+    citationRefs: z.array(citationRefSchema).max(20).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'at least one field is required',
+  })
+  .refine(
+    (value) =>
+      value.status === undefined ||
+      value.status === 'open' ||
+      value.citationRefs === undefined ||
+      value.citationRefs.length > 0,
+    {
+      message: ddIssueCitationRequiredReason,
+      path: ['citationRefs'],
+    },
+  );
 
 export const ddIssueQuerySchema = z
   .object({
@@ -237,7 +270,11 @@ export const ddIssueSchema = z
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
-  .strict();
+  .strict()
+  .refine(hasRequiredIssueCitations, {
+    message: ddIssueCitationRequiredReason,
+    path: ['citationRefs'],
+  });
 
 export const ddIssueListResponseSchema = z
   .object({

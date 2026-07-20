@@ -9,10 +9,10 @@ export function deterministicEmbeddingVector(text: string): number[] {
   const source = tokens.length > 0 ? tokens : [text.slice(0, 256)];
 
   for (const token of source) {
-    const digest = createHash('sha256').update(token).digest();
     for (let index = 0; index < aiEmbeddingDimension; index += 1) {
-      const byte = digest[index] ?? 0;
-      const sign = (digest[index + aiEmbeddingDimension] ?? 0) % 2 === 0 ? 1 : -1;
+      const digest = createHash('sha256').update(`${token}:${index}`).digest();
+      const byte = digest[0] ?? 0;
+      const sign = (digest[1] ?? 0) % 2 === 0 ? 1 : -1;
       vector[index] = (vector[index] ?? 0) + sign * (byte / 255);
     }
   }
@@ -22,9 +22,16 @@ export function deterministicEmbeddingVector(text: string): number[] {
   return vector.map((value) => Number((value / magnitude).toFixed(6)));
 }
 
-export function vectorToSqlLiteral(vector: readonly number[]): string {
-  if (vector.length !== aiEmbeddingDimension) {
-    throw new Error(`embedding vector must have ${aiEmbeddingDimension} dimensions`);
+export function zeroEmbeddingVector(): number[] {
+  return Array.from({ length: aiEmbeddingDimension }, () => 0);
+}
+
+export function vectorToSqlLiteral(
+  vector: readonly number[],
+  expectedDimension = aiEmbeddingDimension,
+): string {
+  if (vector.length !== expectedDimension) {
+    throw new Error(`embedding vector must have ${expectedDimension} dimensions`);
   }
   return `[${vector.map((value) => value.toFixed(6)).join(',')}]`;
 }

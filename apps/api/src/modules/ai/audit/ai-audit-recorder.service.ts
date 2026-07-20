@@ -29,6 +29,18 @@ export interface AiResponseAuditInput extends AiSessionAuditInput {
   status: 'responded' | 'blocked' | 'failed';
   blockedReason?: string | null;
   escalationRequired: boolean;
+  requestKind?: string | null;
+  generationResult?: 'generated' | 'fallback' | 'template' | null;
+  fallbackReasonCode?: string | null;
+}
+
+export interface AiPayloadViewedAuditInput extends AiSessionAuditInput {
+  promptHash: string;
+  responseHash: string;
+  promptLength: number;
+  responseLength: number;
+  riskFlag: boolean;
+  dlpFindingCount: number;
 }
 
 export interface AiCitedDocumentAuditInput {

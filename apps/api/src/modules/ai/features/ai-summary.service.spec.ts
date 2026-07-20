@@ -10,6 +10,7 @@ import { AiSessionLogService } from '../session/ai-session-log.service';
 import { GraphQueryService } from '../../graph/graph-query.service';
 import { ContractIntelService } from '../../contract-intel/contract-intel.service';
 import { LocalGemmaGenerationService } from '../generation/local-gemma-generation.service';
+import { AiSummaryGenerationGateService } from './ai-summary-generation-gate.service';
 import { AiSummaryService } from './ai-summary.service';
 
 const ctx = {
@@ -22,20 +23,10 @@ const matterId = '11111111-1111-4111-8111-111111111103';
 describe('AiSummaryService', () => {
   it('blocks policy-denied summaries after recording a blocked session response', async () => {
     const sessions = {
-      createSession: vi.fn(async () => ({ sessionId: '11111111-1111-4111-8111-111111111104' })),
+      createSession: vi.fn(async () => ({ sessionId })),
       recordResponse: vi.fn(async () => undefined),
     };
-    const service = new AiSummaryService(
-      { decide: vi.fn(async () => ({ effect: 'DENY', escalationRequired: true })) } as unknown as AiModelRoutingService,
-      { retrieve: vi.fn() } as unknown as AiRetrievalOrchestratorService,
-      { build: vi.fn() } as unknown as AiEvidencePackBuilder,
-      { resolveSources: vi.fn() } as unknown as AiCitationMapperService,
-      { verify: vi.fn() } as unknown as AiCitationVerifier,
-      sessions as unknown as AiSessionLogService,
-      { listFacts: vi.fn() } as unknown as GraphQueryService,
-      { evaluateRuleFindings: vi.fn() } as unknown as ContractIntelService,
-      { generateGrounded: vi.fn() } as unknown as LocalGemmaGenerationService,
-    );
+    const service = serviceWith({ sessions });
 
     await expect(service.createSummary(ctx, request())).rejects.toBeInstanceOf(ForbiddenException);
     expect(sessions.createSession).toHaveBeenCalledWith(
@@ -44,48 +35,123 @@ describe('AiSummaryService', () => {
     );
     expect(sessions.recordResponse).toHaveBeenCalledWith(
       ctx,
-      '11111111-1111-4111-8111-111111111104',
+      sessionId,
       expect.objectContaining({ status: 'blocked', blockedReason: 'ai_policy_blocked' }),
     );
   });
 
-  it('uses Gemma grounded output when enabled and citation refs are allowed', async () => {
-    const previous = process.env.AI_SUMMARY_GEMMA_ENABLED;
-    process.env.AI_SUMMARY_GEMMA_ENABLED = 'true';
-    const sessionId = '11111111-1111-4111-8111-111111111104';
-    const chunkId = '11111111-1111-4111-8111-111111111105';
-    const sessions = {
-      createSession: vi.fn(async () => ({ sessionId })),
-      recordRetrievedChunks: vi.fn(async () => undefined),
-      recordResponse: vi.fn(async () => undefined),
+  it('uses Gemma grounded matter_qa output when the DB policy gate is enabled', async () => {
+    const sessions = sessionRecorder();
+    const generation = {
+      generateGrounded: vi.fn(async () => generatedMatterQaOutput()),
+    };
+    const service = serviceWith({ sessions, generation, summaryGenerationEnabled: true });
+
+    const summary = await service.createSummary(ctx, request({ task: 'matter_qa' }));
+
+    expect(summary.sections[0]).toMatchObject({
+      sectionId: 'generated-section',
+      text: 'Generated cited matter answer',
+    });
+    expect(summary.conclusion).toBe('generated answer');
+    expect(summary.warnings).not.toContain('EVIDENCE_ONLY_DEGRADED');
+    expect(sessions.recordResponse).toHaveBeenCalledWith(
+      ctx,
+      sessionId,
+      expect.objectContaining({
+        status: 'responded',
+        requestKind: 'matter_qa',
+        generationResult: 'generated',
+      }),
+    );
+    expect(sessions.recordClaims).toHaveBeenCalledWith(
+      ctx,
+      sessionId,
+      [
+        expect.objectContaining({
+          sessionClaimId: 'generated-claim',
+          claimText: 'Generated cited matter answer',
+          kind: 'answer',
+          citationRefs: [`chunk:${chunkId}`],
+        }),
+      ],
+      expect.any(Array),
+    );
+    expect(sessions.recordPayload).toHaveBeenCalledWith(
+      ctx,
+      sessionId,
+      expect.objectContaining({
+        promptText: 'summarize authorized evidence only',
+        responseText: expect.stringContaining(sessionId),
+        dlpFindingCount: 0,
+      }),
+    );
+  });
+
+  it('uses Gemma clause_analysis output with rule findings context and risk ledger claims', async () => {
+    const sessions = sessionRecorder();
+    const ruleFindings = [ruleFinding()];
+    const generation = {
+      generateGrounded: vi.fn(async () => generatedClauseRiskOutput()),
     };
     const generation = {
-      generateGrounded: vi.fn(async () => ({
-        status: 'completed',
-        output: {
-          answer: 'generated answer',
-          sections: [
-            {
-              section_id: 'generated-section',
-              heading: 'Generated',
-              text: 'Generated cited summary',
-              source_refs: [`chunk:${chunkId}`],
-            },
-          ],
-          claims: [
-            {
-              claim_id: 'generated-claim',
-              kind: 'summary',
-              text: 'Generated cited summary',
-              source_refs: [`chunk:${chunkId}`],
-              is_legal_conclusion: false,
-            },
-          ],
+      generateGrounded: vi.fn(async () => generatedEmailThreadOutput()),
+    };
+    const service = serviceWith({ sessions, generation, summaryGenerationEnabled: true });
+
+    const summary = await service.createSummary(ctx, request({ task: 'email_thread_summary' }));
+
+    expect(generation.generateGrounded).toHaveBeenCalledWith(expect.any(Object), {
+      compileOptions: {
+        purpose: 'email_thread_summary',
+        allowedClaimKinds: ['summary', 'key_fact', 'timeline', 'question'],
+      },
+    });
+    expect(summary.status).toBe('escalated');
+    expect(summary.recommendedActions).toEqual(
+      expect.arrayContaining([
+        {
+          action: '요청사항 확인: 금요일까지 계약서 회신 요청',
+          reviewRequired: true,
         },
       })),
     };
-    const service = new AiSummaryService(
-      { decide: vi.fn(async () => ({ effect: 'ALLOW', escalationRequired: false })) } as unknown as AiModelRoutingService,
+    const service = serviceWith({ sessions, generation, summaryGenerationEnabled: true });
+
+    const summary = await service.createSummary(ctx, request({ task: 'matter_qa' }));
+
+    expect(summary.warnings).toContain('EVIDENCE_ONLY_DEGRADED');
+    expect(generation.generateGrounded).toHaveBeenCalledTimes(1);
+    expect(sessions.recordResponse).toHaveBeenCalledWith(
+      ctx,
+      sessionId,
+      expect.objectContaining({
+        generationResult: 'fallback',
+        fallbackReasonCode: 'generation_failed',
+      }),
+    );
+  });
+});
+
+function serviceWith(input: {
+  sessions?: Partial<AiSessionLogService>;
+  generation?: Partial<LocalGemmaGenerationService>;
+  omittedChunkIds?: string[];
+  ruleFindings?: EvidencePackDto['ruleFindings'];
+  summaryGenerationEnabled?: boolean;
+  graphQuery?: Pick<GraphQueryService, 'listFacts' | 'listNeighborhoodFactsForDocuments'>;
+  contracts?: Partial<ContractIntelService>;
+}): AiSummaryService {
+  const sessions = input.sessions ?? sessionRecorder();
+  const routingDecision =
+    sessions.recordRetrievedChunks === undefined
+      ? { effect: 'DENY' as const, escalationRequired: true }
+      : { effect: 'ALLOW' as const, escalationRequired: false };
+  return new AiSummaryService(
+    { decide: vi.fn(async () => routingDecision) } as unknown as AiModelRoutingService,
+    retrieval() as unknown as AiRetrievalOrchestratorService,
+    new AiEvidencePackBuilder(
+      { rankAuthorizedChunks: vi.fn((chunks) => chunks) } as never,
       {
         retrieve: vi.fn(async () => ({
           status: 'ready',
@@ -108,9 +174,48 @@ describe('AiSummaryService', () => {
           omittedChunkIds: [],
           appliedRules: ['retrieval.hybrid:query_stage_scope'],
         })),
-      } as unknown as AiRetrievalOrchestratorService,
-      new AiEvidencePackBuilder(
-        { rankAuthorizedChunks: vi.fn((chunks) => chunks) } as never,
+      } as never,
+    ),
+    { resolveSources: vi.fn(async () => ({ sources: [] })) } as unknown as AiCitationMapperService,
+    {
+      verify: vi.fn(() => ({ warnings: [], legalConclusionAutoApproval: false })),
+    } as unknown as AiCitationVerifier,
+    sessions as unknown as AiSessionLogService,
+    (input.graphQuery ?? {
+      listFacts: vi.fn(async () => ({ matterId, facts: [] })),
+      listNeighborhoodFactsForDocuments: vi.fn(async () => ({ matterId, facts: [] })),
+    }) as unknown as GraphQueryService,
+    {
+      evaluateRuleFindings: vi.fn(async () => ({ findings: input.ruleFindings ?? [] })),
+      materializeContractAiReviewFindings: vi.fn(async () => undefined),
+      ...input.contracts,
+    } as unknown as ContractIntelService,
+    (input.generation ?? { generateGrounded: vi.fn() }) as unknown as LocalGemmaGenerationService,
+    {
+      getPolicy: vi.fn(async () => ({
+        summaryGenerationEnabled: input.summaryGenerationEnabled ?? false,
+        sessionPayloadPreservationEnabled: input.summaryGenerationEnabled ?? false,
+      })),
+    } as unknown as AiSummaryGenerationGateService,
+  );
+}
+
+function sessionRecorder() {
+  return {
+    createSession: vi.fn(async () => ({ sessionId })),
+    recordRetrievedChunks: vi.fn(async () => undefined),
+    recordClaims: vi.fn(async () => undefined),
+    recordResponse: vi.fn(async () => undefined),
+    recordPayload: vi.fn(async () => undefined),
+  };
+}
+
+function retrieval() {
+  return {
+    retrieve: vi.fn(async () => ({
+      status: 'ready',
+      questionKind: 'retrieval',
+      chunks: [
         {
           fit: vi.fn((chunks) => ({ chunks, omittedChunkIds: [], tokenBudget: 2400, tokenCount: 10 })),
         } as never,

@@ -12,29 +12,47 @@ import {
 } from '@nestjs/common';
 import {
   createDdDataRoomMappingRequestSchema,
+  createDdExportJobRequestSchema,
   createDdIssueRequestSchema,
+  createDdNegotiationIssueExportRequestSchema,
+  createDdReportExportRequestSchema,
   createDdRfiRequestSchema,
   createDdRiskRequestSchema,
+  ddRfiGapQuerySchema,
+  ddIssueCitationRequiredReason,
   ddDataRoomMappingQuerySchema,
+  ddRfiTemplateInstantiateRequestSchema,
   ddIssueQuerySchema,
   ddRfiQuerySchema,
   ddRiskQuerySchema,
   ddTraceabilityQuerySchema,
+  reviewDdMappingSuggestionRequestSchema,
+  updateDdIssueRequestSchema,
   updateDdRfiRequestSchema,
 } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
+import { DdExportQueueService } from './dd-export-queue.service';
 import { DdService } from './dd.service';
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED', ...(reason ? { reason } : {}) });
 }
 
 function parseOrValidation<T>(parse: () => T): T {
   try {
     return parse();
-  } catch {
-    throw validationFailed();
+  } catch (error) {
+    throw validationFailed(parseValidationReason(error, [ddIssueCitationRequiredReason]));
   }
+}
+
+function parseValidationReason(error: unknown, allowedReasons: readonly string[]): string | undefined {
+  if (typeof error !== 'object' || error === null || !('issues' in error)) return undefined;
+  const issues = (error as { issues?: Array<{ message?: unknown }> }).issues;
+  if (!Array.isArray(issues)) return undefined;
+  return allowedReasons.find((reason) =>
+    issues.some((issue) => issue.message === reason),
+  );
 }
 
 function permissionContext(request: RequestWithSession): {
