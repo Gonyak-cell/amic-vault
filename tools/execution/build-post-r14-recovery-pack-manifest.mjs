@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '44e69a02ddcbc115bc492de561c904f24e0610608dc4287e291df4bca23237c1';
+const CANONICAL_PAYLOAD_SHA256 = '6eec56b829590d1032333c57e0b47603f0afe0bbd1a5d2258c3e7f04ece2d7a5';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -105,9 +105,9 @@ const R14_09_EXECUTION_BLOCK = {
       downstreamReexportsOwnedBy: 'PACK-R14-09',
     },
     staticValidation: {
-      observedTypecheckErrorCount: 13,
+      observedTypecheckErrorCount: 14,
       bridgeResolvableErrorCount: 6,
-      residualNonBridgeErrorCount: 7,
+      residualNonBridgeErrorCount: 8,
       bridgeConsumerPath: 'packages/shared/src/types/audit.ts',
       noOtherSourceConsumerObserved: true,
       noMicrosoftOidcImportOrConfigurationPath: true,
@@ -118,7 +118,7 @@ const R14_09_EXECUTION_BLOCK = {
       'product-code or migration reconstruction',
       'PACK-R14-09 completion transition or merge',
     ],
-    implementationGate: 'A separate approval must confirm this exact two-path scope, declaration test results, no-OIDC static scan, and the remaining seven-error predecessor plan before implementation or merge.',
+    implementationGate: 'A separate approval must confirm this exact two-path scope, declaration test results, no-OIDC static scan, and the remaining eight-error predecessor plan before implementation or merge.',
     conclusion: 'The bridge is an independent new declaration design, not a reassignment of H14; it can only remove six audit re-export type errors and does not make PACK-R14-09 executable on its own.',
   },
   prohibitedUntilAmended: [
@@ -3364,7 +3364,7 @@ export function renderMarkdown(manifest) {
     'overlay linted cleanly. No later-owned declaration or consumer hunk may be borrowed.',
     'The proposed PACK-R14-09A shared audit declaration bridge is a design-only predecessor:',
     'it does not reassign H14, keeps Microsoft OIDC inactive, touches no migration or deployment,',
-    'and can remove only six audit re-export errors. Seven non-bridge type errors still require',
+    'and can remove only six audit re-export errors. Eight non-bridge type errors still require',
     'their own predecessor plan. A separate implementation approval is required before source',
     'reconstruction or merge; R14-09 remains blocked until a unique executable closure and DAG exist.',
     '',

@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `44e69a02ddcbc115bc492de561c904f24e0610608dc4287e291df4bca23237c1`.
+  `6eec56b829590d1032333c57e0b47603f0afe0bbd1a5d2258c3e7f04ece2d7a5`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2054,7 +2054,7 @@ reassignment or reuse of H14 hunks 3166/3167. H14 Microsoft OIDC remains
 inactive behind `TRIGGER-H14-MICROSOFT-OIDC-ACTIVE`; no OIDC/Microsoft/Entra
 code or configuration, migration, product reconstruction, deployment, R14-09
 completion transition, or merge is authorized. The design removes at most six
-of the 13 observed type errors; the remaining seven require their own
+of the 14 observed type errors; the remaining eight require their own
 predecessor plan. A separate approval must confirm the two-path implementation
 scope, direct declaration tests, no-OIDC scan, and residual-error plan before
 implementation or merge.

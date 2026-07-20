@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: 44e69a02ddcbc115bc492de561c904f24e0610608dc4287e291df4bca23237c1
+- Payload SHA-256: 6eec56b829590d1032333c57e0b47603f0afe0bbd1a5d2258c3e7f04ece2d7a5
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
@@ -67,7 +67,7 @@ partial reconstruction produced 26 Node 22 lint errors while the complete preser
 overlay linted cleanly. No later-owned declaration or consumer hunk may be borrowed.
 The proposed PACK-R14-09A shared audit declaration bridge is a design-only predecessor:
 it does not reassign H14, keeps Microsoft OIDC inactive, touches no migration or deployment,
-and can remove only six audit re-export errors. Seven non-bridge type errors still require
+and can remove only six audit re-export errors. Eight non-bridge type errors still require
 their own predecessor plan. A separate implementation approval is required before source
 reconstruction or merge; R14-09 remains blocked until a unique executable closure and DAG exist.
 
