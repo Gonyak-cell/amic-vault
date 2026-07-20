@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '1827533616623788a0384ba878999c6447f4118af1501cae5561dd0804ec3123';
+const CANONICAL_PAYLOAD_SHA256 = '926ef2486e056bc0fefeef4cdea00d4c6071189c20b01bcab5b590a21f3adb07';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -54,6 +54,30 @@ const R14_09_EXECUTION_BLOCK = {
     },
     conclusion: 'No unique executable R14-09 closure exists: its smallest lint-clean source-file closure still requires quarantined H14 audit declarations at typecheck.',
   },
+  independentPrerequisiteProbe: {
+    authorityRef: 'OWNER-APPROVAL-R14-09-H14-DECLARATION-ADJUDICATION-20260720',
+    observedAt: '2026-07-20',
+    requestedHunkOrdinals: [3166, 3167],
+    requiredPath: 'packages/shared/src/audit/audit-event-types.ts',
+    sealedAssignments: [
+      {
+        ordinal: 3166,
+        hunkFingerprint: '9d6328d43fe33964b31e5bf99967e2d67e3e7786f8fbfdea2d59cee8704b6e60',
+      },
+      {
+        ordinal: 3167,
+        hunkFingerprint: '54532c8f5f77d37b18023ee73cade2dc52180024d4c07273f7b4466ec409c164',
+      },
+    ],
+    requiredOwnership: {
+      sourceOwner: 'H14',
+      risk: 'critical',
+      disposition: 'QUARANTINE',
+      quarantineReason: 'INACTIVE_CONDITIONAL_TRIGGER',
+      activationTriggerId: 'TRIGGER-H14-MICROSOFT-OIDC-ACTIVE',
+    },
+    conclusion: 'REJECTED_BY_SEALED_QUARANTINE_CONTRACT: the requested declarations cannot be reassigned while H14 remains inactive; no product or migration reconstruction was attempted.',
+  },
   prohibitedUntilAmended: [
     'owned partial-hunk reconstruction',
     'unowned declaration or consumer hunk addition',
@@ -64,7 +88,7 @@ const R14_09_EXECUTION_BLOCK = {
 };
 const R14_24_EXECUTION_BLOCK = {
   code: 'R14_24_PERMISSION_CONSTITUTION_CONFLICT',
-  status: 'BLOCKED_NORMATIVE_DECISION_REQUIRED',
+  status: 'BLOCKED_PREDECESSOR_CLOSURE_REQUIRED',
   observedAt: '2026-07-20',
   executionBase: '8c92e86d2b2f6e4d725c6a5cfbc0b09b8aece120',
   sourceHead: '0b39414d4de746597e8f3c6ff64f7c1989789135',
@@ -74,12 +98,17 @@ const R14_24_EXECUTION_BLOCK = {
     observed: 'firm_open permits active non-member matter reads',
     affectedMigration: 'db/migrations/0100_add_matter_access_scope.sql',
   },
-  prohibitedUntilResolved: [
+  ownerResolution: {
+    authorityRef: 'OWNER-APPROVAL-R14-24-FIRM-OPEN-MEMBER-REQUIREMENT-20260720',
+    observedAt: '2026-07-20',
+    decision: 'firm_open does not grant a non-member read; matter_members remains necessary for every ALLOW.',
+  },
+  prohibitedUntilPrerequisitesComplete: [
     'A6 or A7 source, test, or migration reconstruction',
     'aggregate snapshot containing an A6 or A7 artifact',
     'completion transition or claim for PACK-R14-24 or dependent PACK-R14-25',
   ],
-  resumeCondition: 'A specific owner-approved normative resolution must reconcile the matter_members ALLOW requirement with the requested firm_open behavior before any A6/A7 artifact may be reconstructed.',
+  resumeCondition: 'After R14-09 obtains a registered executable closure and all listed predecessors complete, any A6/A7 reconstruction must deny reads without matter_members even when a matter is firm_open.',
 };
 const BASE_COMMIT = '5c722f8a4b1f0a4c99b41089664c98ad151db2b8';
 const ORIGINAL_TREE = '1ef1af32028e998a18a6c9ee8a882068fdf7a7f3';

@@ -111,10 +111,37 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
     },
   );
   assert.deepEqual(
+    manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-09')?.executionBlock?.independentPrerequisiteProbe,
+    {
+      authorityRef: 'OWNER-APPROVAL-R14-09-H14-DECLARATION-ADJUDICATION-20260720',
+      observedAt: '2026-07-20',
+      requestedHunkOrdinals: [3166, 3167],
+      requiredPath: 'packages/shared/src/audit/audit-event-types.ts',
+      sealedAssignments: [
+        {
+          ordinal: 3166,
+          hunkFingerprint: '9d6328d43fe33964b31e5bf99967e2d67e3e7786f8fbfdea2d59cee8704b6e60',
+        },
+        {
+          ordinal: 3167,
+          hunkFingerprint: '54532c8f5f77d37b18023ee73cade2dc52180024d4c07273f7b4466ec409c164',
+        },
+      ],
+      requiredOwnership: {
+        sourceOwner: 'H14',
+        risk: 'critical',
+        disposition: 'QUARANTINE',
+        quarantineReason: 'INACTIVE_CONDITIONAL_TRIGGER',
+        activationTriggerId: 'TRIGGER-H14-MICROSOFT-OIDC-ACTIVE',
+      },
+      conclusion: 'REJECTED_BY_SEALED_QUARANTINE_CONTRACT: the requested declarations cannot be reassigned while H14 remains inactive; no product or migration reconstruction was attempted.',
+    },
+  );
+  assert.deepEqual(
     manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-24')?.executionBlock,
     {
       code: 'R14_24_PERMISSION_CONSTITUTION_CONFLICT',
-      status: 'BLOCKED_NORMATIVE_DECISION_REQUIRED',
+      status: 'BLOCKED_PREDECESSOR_CLOSURE_REQUIRED',
       observedAt: '2026-07-20',
       executionBase: '8c92e86d2b2f6e4d725c6a5cfbc0b09b8aece120',
       sourceHead: '0b39414d4de746597e8f3c6ff64f7c1989789135',
@@ -124,12 +151,17 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
         observed: 'firm_open permits active non-member matter reads',
         affectedMigration: 'db/migrations/0100_add_matter_access_scope.sql',
       },
-      prohibitedUntilResolved: [
+      ownerResolution: {
+        authorityRef: 'OWNER-APPROVAL-R14-24-FIRM-OPEN-MEMBER-REQUIREMENT-20260720',
+        observedAt: '2026-07-20',
+        decision: 'firm_open does not grant a non-member read; matter_members remains necessary for every ALLOW.',
+      },
+      prohibitedUntilPrerequisitesComplete: [
         'A6 or A7 source, test, or migration reconstruction',
         'aggregate snapshot containing an A6 or A7 artifact',
         'completion transition or claim for PACK-R14-24 or dependent PACK-R14-25',
       ],
-      resumeCondition: 'A specific owner-approved normative resolution must reconcile the matter_members ALLOW requirement with the requested firm_open behavior before any A6/A7 artifact may be reconstructed.',
+      resumeCondition: 'After R14-09 obtains a registered executable closure and all listed predecessors complete, any A6/A7 reconstruction must deny reads without matter_members even when a matter is firm_open.',
     },
   );
 });
@@ -1465,6 +1497,20 @@ test('reassigning a stale historical-base hunk to a PACK is rejected', async () 
   hunk.quarantineReason = null;
   manifest.payload.packs.find((item) => item.packId === 'PACK-R14-04')
     .hunkOrdinals.push(hunk.ordinal);
+  resign(manifest);
+  const codes = validateManifest(manifest).errors.map((error) => error.code);
+  assert.ok(codes.includes('QUARANTINE_MAPPING') || codes.includes('PACK_FILE_SOURCE_SET'));
+});
+
+test('reassigning the inactive H14 declaration hunk to R14-09 is rejected', async () => {
+  const manifest = await fixture();
+  const hunk = manifest.payload.hunkAssignments.find((item) => item.ordinal === 3166);
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-09');
+  hunk.disposition = 'PACK';
+  hunk.packId = pack.packId;
+  hunk.quarantineReason = null;
+  hunk.activationTriggerId = null;
+  pack.hunkOrdinals.push(hunk.ordinal);
   resign(manifest);
   const codes = validateManifest(manifest).errors.map((error) => error.code);
   assert.ok(codes.includes('QUARANTINE_MAPPING') || codes.includes('PACK_FILE_SOURCE_SET'));
