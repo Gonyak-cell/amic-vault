@@ -93,6 +93,28 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
   assert.equal(manifest.payload.quarantines.pathB64s.length, 79);
   assert.deepEqual(manifest.payload.quarantines.conditionalUnitIds, ['B20', 'D9', 'H14']);
   assert.deepEqual(manifest.payload.quarantines.migrationSourceOrdinals, [102, 159]);
+  assert.deepEqual(
+    manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-24')?.executionBlock,
+    {
+      code: 'R14_24_PERMISSION_CONSTITUTION_CONFLICT',
+      status: 'BLOCKED_NORMATIVE_DECISION_REQUIRED',
+      observedAt: '2026-07-20',
+      executionBase: '8c92e86d2b2f6e4d725c6a5cfbc0b09b8aece120',
+      sourceHead: '0b39414d4de746597e8f3c6ff64f7c1989789135',
+      affectedTuwIds: ['A6', 'A7'],
+      observedContract: {
+        required: 'matter_members is a necessary condition for every ALLOW',
+        observed: 'firm_open permits active non-member matter reads',
+        affectedMigration: 'db/migrations/0100_add_matter_access_scope.sql',
+      },
+      prohibitedUntilResolved: [
+        'A6 or A7 source, test, or migration reconstruction',
+        'aggregate snapshot containing an A6 or A7 artifact',
+        'completion transition or claim for PACK-R14-24 or dependent PACK-R14-25',
+      ],
+      resumeCondition: 'A specific owner-approved normative resolution must reconcile the matter_members ALLOW requirement with the requested firm_open behavior before any A6/A7 artifact may be reconstructed.',
+    },
+  );
 });
 
 test('committed authority docs pin the canonical payload and allow non-complete adjudication', async () => {
