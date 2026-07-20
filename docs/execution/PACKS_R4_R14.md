@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `eb4cdbd07c557f48f6ecbeef92ee407310ea71a9b001a61e7a80bab54e80875c`.
+  `d68fd55f07d390586c2bef8f1cee0675c2b2a56e237a6a83bf1be0ddca15b398`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2037,6 +2037,14 @@ four-control-plane rollover without rewriting an earlier accepted candidate
 binding. Entries introduced after the first seal retain their own recomputed
 TUW-specific validation scope digest; reusing the inherited prefix digest for a
 different TUW is forbidden.
+
+Amendment-06 records an observed execution-block, not a substitute source
+implementation: the exact 322-hunk R14-09 partition produces 26 Node 22 lint
+errors while the complete preserved overlay passes the same API/Web lint gates.
+R14-09 may therefore not borrow later-owned declaration or consumer hunks,
+land or execute a migration, or claim completion. It can resume only after a
+new registered amendment proves a unique executable declaration-consumer
+closure and predecessor DAG for every moved or retained hunk.
 
 This amendment contains exactly three TUWs, executed in order:
 

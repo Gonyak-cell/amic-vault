@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = 'eb4cdbd07c557f48f6ecbeef92ee407310ea71a9b001a61e7a80bab54e80875c';
+const CANONICAL_PAYLOAD_SHA256 = 'd68fd55f07d390586c2bef8f1cee0675c2b2a56e237a6a83bf1be0ddca15b398';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -26,6 +26,28 @@ const REGISTRATION_BRANCH = 'feat/pack-r14-03-recovery-manifest';
 const AMENDMENT_PACK_ID = 'PACK-R14-03-AMENDMENT-01';
 const AMENDMENT_REGISTRY_HEADING = '## ' + AMENDMENT_PACK_ID + ' — Recovery manifest v2 correction';
 const AMENDMENT_BRANCH = 'feat/pack-r14-03-recovery-manifest-v2';
+const R14_09_EXECUTION_BLOCK = {
+  code: 'R14_09_DEPENDENCY_CLOSURE_MISMATCH',
+  status: 'BLOCKED_NON_EXECUTABLE_PARTITION',
+  observedAt: '2026-07-20',
+  executionBase: '76d22daf14d0a40986a6c90870e15d34d5b44715',
+  sourceHead: '0b39414d4de746597e8f3c6ff64f7c1989789135',
+  registeredHunkCount: 322,
+  registeredMigrationSourceOrdinals: [109, 110, 113, 115, 122, 123, 124, 130],
+  observedGate: {
+    runtime: 'Node 22.22.3',
+    command: 'pnpm --filter @amic-vault/api lint && pnpm --filter @amic-vault/web lint',
+    errorCount: 26,
+    fullOverlayBaseline: 'PASS',
+  },
+  prohibitedUntilAmended: [
+    'owned partial-hunk reconstruction',
+    'unowned declaration or consumer hunk addition',
+    'migration landing or execution',
+    'completion transition or claim',
+  ],
+  resumeCondition: 'A separately registered amendment must prove a unique, executable declaration-consumer closure partition and its predecessor DAG before this PACK may reconstruct any owned hunk.',
+};
 const BASE_COMMIT = '5c722f8a4b1f0a4c99b41089664c98ad151db2b8';
 const ORIGINAL_TREE = '1ef1af32028e998a18a6c9ee8a882068fdf7a7f3';
 const ORIGINAL_OVERLAY_SHA256 = '598f98b3c929e34e74270ac5d6b5b062594a278783c30fa3d351160e30150f30';
@@ -1644,6 +1666,7 @@ export async function buildManifest(sourceDir) {
           postTransitionNonControlPlaneChangeForbidden: true,
         },
       },
+      executionBlock: pack.key === 'T12' ? R14_09_EXECUTION_BLOCK : null,
       stopConditions: [
         'exact predecessor or hunk fingerprint mismatch',
         'unlisted path, hunk, migration, dependency, or package change',
@@ -2133,6 +2156,10 @@ export function validateManifest(manifest) {
       || controlPlane.candidateBookkeeping?.payloadMixingAllowed !== true
       || digest(controlPlane.candidateRollover ?? null) !== digest(expectedCandidateRollover)) {
       fail('PACK_CONTROL_PLANE_CONTRACT', pack.packId);
+    }
+    const expectedExecutionBlock = blueprint?.key === 'T12' ? R14_09_EXECUTION_BLOCK : null;
+    if (digest(pack.executionBlock ?? null) !== digest(expectedExecutionBlock)) {
+      fail('PACK_EXECUTION_BLOCK_CONTRACT', pack.packId);
     }
   }
 
@@ -3227,6 +3254,11 @@ export function renderMarkdown(manifest) {
     'The receipt and exact EOF execution-ledger append precede transitions; transition',
     'commits then change exactly the four sealed 117-row control-plane paths. Any later',
     'non-control-plane push invalidates the candidate binding and all exact-head gates.',
+    'PACK-R14-09 is separately blocked as a non-executable 322-hunk partition: the exact',
+    'partial reconstruction produced 26 Node 22 lint errors while the complete preserved',
+    'overlay linted cleanly. No later-owned declaration or consumer hunk may be borrowed.',
+    'A new amendment must prove a unique executable closure partition and predecessor DAG',
+    'before R14-09 can land a hunk, migration, or completion transition.',
     '',
     '## Registered non-overlay Git sources',
     '',
