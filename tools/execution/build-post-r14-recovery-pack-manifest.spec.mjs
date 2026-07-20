@@ -94,6 +94,23 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
   assert.deepEqual(manifest.payload.quarantines.conditionalUnitIds, ['B20', 'D9', 'H14']);
   assert.deepEqual(manifest.payload.quarantines.migrationSourceOrdinals, [102, 159]);
   assert.deepEqual(
+    manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-09')?.executionBlock?.closureProbe,
+    {
+      observedAt: '2026-07-20',
+      reconstructionBase: '76d22daf14d0a40986a6c90870e15d34d5b44715',
+      preservedPartialHead: '1c00df7ade8b6074a065fc0eb2a0771e0f79f253',
+      sourceFileClosureCount: 9,
+      lint: 'PASS',
+      typecheck: {
+        errorCount: 13,
+        requiredQuarantinePath: 'packages/shared/src/audit/audit-event-types.ts',
+        requiredQuarantineHunkOrdinals: [3166, 3167],
+        requiredQuarantineOwner: 'H14',
+      },
+      conclusion: 'No unique executable R14-09 closure exists: its smallest lint-clean source-file closure still requires quarantined H14 audit declarations at typecheck.',
+    },
+  );
+  assert.deepEqual(
     manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-24')?.executionBlock,
     {
       code: 'R14_24_PERMISSION_CONSTITUTION_CONFLICT',
