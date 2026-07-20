@@ -517,6 +517,10 @@ const candidateRolloverJournalTopLevelKeys = Object.freeze([
   ...journalTopLevelKeys,
   'candidateRollover',
 ]);
+const candidateRolloversJournalTopLevelKeys = Object.freeze([
+  ...journalTopLevelKeys,
+  'candidateRollovers',
+]);
 const candidateRolloverKeys = Object.freeze([
   'recordedAt',
   'entryCount',
@@ -572,6 +576,13 @@ export function computeCandidateRolloverHash(rollover) {
   const { rolloverHash: ignored, ...preimage } = rollover;
   void ignored;
   return amicCanonicalHash(preimage);
+}
+
+function candidateRolloversFor(journal) {
+  if (Array.isArray(journal.candidateRollovers)) return journal.candidateRollovers;
+  return journal.candidateRollover === undefined || journal.candidateRollover === null
+    ? []
+    : [journal.candidateRollover];
 }
 
 export function computeCloseoutSealHash(seal) {
@@ -2417,11 +2428,8 @@ export function deriveJournalPhase(journal) {
     reject('E_JOURNAL_HEADER', 'journal.entries must be an array', { path: 'entries' });
   }
   if (journal.closeoutSeal !== null) return finalCloseoutPhase;
-  if (
-    journal.candidateRollover !== undefined &&
-    journal.candidateRollover !== null &&
-    journal.entries.length === journal.candidateRollover.entryCount
-  ) {
+  const rollovers = candidateRolloversFor(journal);
+  if (rollovers.length > 0 && journal.entries.length === rollovers.at(-1).entryCount) {
     return candidateRolloverPhase;
   }
   return journal.entries.length === 0 ? bootstrapPhase : transitionPhase;
@@ -2429,9 +2437,14 @@ export function deriveJournalPhase(journal) {
 
 function validateJournalHeader(journal) {
   const hasCandidateRollover = Object.hasOwn(journal, 'candidateRollover');
+  const hasCandidateRollovers = Object.hasOwn(journal, 'candidateRollovers');
   assertExactKeys(
     journal,
-    hasCandidateRollover ? candidateRolloverJournalTopLevelKeys : journalTopLevelKeys,
+    hasCandidateRollover && !hasCandidateRollovers
+      ? candidateRolloverJournalTopLevelKeys
+      : hasCandidateRollovers && !hasCandidateRollover
+        ? candidateRolloversJournalTopLevelKeys
+        : journalTopLevelKeys,
     'E_JOURNAL_HEADER',
     'journal',
   );
@@ -2458,7 +2471,7 @@ function validateJournalHeader(journal) {
   const phase = deriveJournalPhase(journal);
   if (phase === bootstrapPhase) {
     if (
-      hasCandidateRollover ||
+      hasCandidateRollover || hasCandidateRollovers ||
       journal.candidateSha !== null ||
       journal.validationScopeDigest !== null ||
       journal.previousAcceptedJournalHead !== null ||
@@ -2484,43 +2497,65 @@ function validateJournalHeader(journal) {
     if (phase === finalCloseoutPhase && journal.previousAcceptedJournalHead === null) {
       reject('E_JOURNAL_HEADER', 'FINAL_CLOSEOUT requires a prior accepted journal head');
     }
-    if (hasCandidateRollover) validateCandidateRollover(journal.candidateRollover, journal);
+    if (hasCandidateRollover && hasCandidateRollovers) {
+      reject('E_JOURNAL_HEADER', 'journal cannot contain both candidate rollover encodings');
+    }
+    if (hasCandidateRollovers && (!Array.isArray(journal.candidateRollovers) || journal.candidateRollovers.length === 0)) {
+      reject('E_JOURNAL_HEADER', 'journal.candidateRollovers must be a non-empty array');
+    }
+    const rollovers = candidateRolloversFor(journal);
+    let priorRollover = null;
+    for (const [index, rollover] of rollovers.entries()) {
+      validateCandidateRollover(rollover, journal, `journal.candidateRollovers[${index}]`);
+      if (
+        (priorRollover !== null && (
+          rollover.entryCount <= priorRollover.entryCount ||
+          rollover.fromCandidateSha !== priorRollover.toCandidateSha
+        )) ||
+        (priorRollover === null && rollover.fromCandidateSha === journal.candidateSha)
+      ) {
+        reject('E_JOURNAL_HEADER', 'candidate rollovers must be an ordered candidate chain');
+      }
+      priorRollover = rollover;
+    }
+    if (rollovers.length > 0 && rollovers.at(-1).toCandidateSha !== journal.candidateSha) {
+      reject('E_JOURNAL_HEADER', 'final candidate rollover must bind journal.candidateSha');
+    }
   }
   return phase;
 }
 
-function validateCandidateRollover(rollover, journal) {
-  assertExactKeys(rollover, candidateRolloverKeys, 'E_JOURNAL_HEADER', 'journal.candidateRollover');
-  validateTimestamp(rollover.recordedAt, 'journal.candidateRollover.recordedAt');
+function validateCandidateRollover(rollover, journal, path = 'journal.candidateRollover') {
+  assertExactKeys(rollover, candidateRolloverKeys, 'E_JOURNAL_HEADER', path);
+  validateTimestamp(rollover.recordedAt, `${path}.recordedAt`);
   if (!Number.isSafeInteger(rollover.entryCount) || rollover.entryCount < 1
     || rollover.entryCount > journal.entries.length) {
-    reject('E_JOURNAL_HEADER', 'journal.candidateRollover.entryCount is invalid');
+    reject('E_JOURNAL_HEADER', `${path}.entryCount is invalid`);
   }
-  validateGitSha(rollover.fromCandidateSha, 'journal.candidateRollover.fromCandidateSha');
-  validateGitSha(rollover.toCandidateSha, 'journal.candidateRollover.toCandidateSha');
+  validateGitSha(rollover.fromCandidateSha, `${path}.fromCandidateSha`);
+  validateGitSha(rollover.toCandidateSha, `${path}.toCandidateSha`);
   assertHashWithCode(
     rollover.fromValidationScopeDigest,
     'E_JOURNAL_HEADER',
-    'journal.candidateRollover.fromValidationScopeDigest',
+    `${path}.fromValidationScopeDigest`,
   );
   assertHashWithCode(
     rollover.toValidationScopeDigest,
     'E_JOURNAL_HEADER',
-    'journal.candidateRollover.toValidationScopeDigest',
+    `${path}.toValidationScopeDigest`,
   );
   if (
     rollover.fromCandidateSha === rollover.toCandidateSha ||
-    rollover.toCandidateSha !== journal.candidateSha ||
     !hashesEqual(rollover.toValidationScopeDigest, journal.validationScopeDigest) ||
     !hashesEqual(rollover.fromValidationScopeDigest, journal.validationScopeDigest) ||
     typeof rollover.reasonCode !== 'string' || !/^[A-Z][A-Z0-9_]{2,63}$/.test(rollover.reasonCode)
   ) {
-    reject('E_JOURNAL_HEADER', 'journal.candidateRollover bindings are invalid');
+    reject('E_JOURNAL_HEADER', `${path} bindings are invalid`);
   }
-  assertNonEmptyString(rollover.reason, 'E_JOURNAL_HEADER', 'journal.candidateRollover.reason');
-  assertHashWithCode(rollover.rolloverHash, 'E_JOURNAL_HASH', 'journal.candidateRollover.rolloverHash');
+  assertNonEmptyString(rollover.reason, 'E_JOURNAL_HEADER', `${path}.reason`);
+  assertHashWithCode(rollover.rolloverHash, 'E_JOURNAL_HASH', `${path}.rolloverHash`);
   if (!hashesEqual(rollover.rolloverHash, computeCandidateRolloverHash(rollover))) {
-    reject('E_JOURNAL_HASH', 'journal.candidateRollover.rolloverHash is invalid');
+    reject('E_JOURNAL_HASH', `${path}.rolloverHash is invalid`);
   }
 }
 
@@ -2760,7 +2795,9 @@ function scanAcceptedJournalSnapshots({ cwd = process.cwd() } = {}) {
         reject('E_JOURNAL_CHAIN', 'The first accepted journal snapshot must be BOOTSTRAP_IMPORT');
       }
     } else if (phase === candidateRolloverPhase) {
-      const rollover = snapshot.journal.candidateRollover;
+      const rollovers = candidateRolloversFor(snapshot.journal);
+      const priorRollovers = candidateRolloversFor(priorSnapshot.journal);
+      const rollover = rollovers.at(-1);
       if (
         priorSnapshot.phase === finalCloseoutPhase ||
         !isDeepStrictEqual(snapshot.overrides, priorSnapshot.overrides) ||
@@ -2769,6 +2806,8 @@ function scanAcceptedJournalSnapshots({ cwd = process.cwd() } = {}) {
           immutableEntryIdentity(entry),
           immutableEntryIdentity(priorSnapshot.journal.entries[index]),
         )) ||
+        rollovers.length !== priorRollovers.length + 1 ||
+        !rollovers.slice(0, -1).every((item, index) => isDeepStrictEqual(item, priorRollovers[index])) ||
         rollover.entryCount !== priorSnapshot.journal.entries.length ||
         rollover.fromCandidateSha !== priorSnapshot.journal.candidateSha ||
         snapshot.recordedAt !== rollover.recordedAt
@@ -3089,19 +3128,12 @@ function validateJournalEntry(entry, index, journal, previousHash, previousRecor
     });
   }
   assertNonEmptyString(entry.packId, 'E_JOURNAL_SEQUENCE', `${path}.packId`);
-  const expectedCandidateSha = journal.candidateRollover !== undefined
-    && journal.candidateRollover !== null
-    && index < journal.candidateRollover.entryCount
-    ? journal.candidateRollover.fromCandidateSha
-    : journal.candidateSha;
-  const preservesPreRolloverScope = journal.candidateRollover !== undefined
-    && journal.candidateRollover !== null
-    && index < journal.candidateRollover.entryCount;
-  const expectedScopeDigest = preservesPreRolloverScope
-    ? journal.candidateRollover.fromValidationScopeDigest
-    : journal.candidateRollover !== undefined && journal.candidateRollover !== null
-      ? null
-      : journal.validationScopeDigest;
+  const rollovers = candidateRolloversFor(journal);
+  const rollover = rollovers.find((item) => index < item.entryCount);
+  const expectedCandidateSha = rollover?.fromCandidateSha ?? journal.candidateSha;
+  const expectedScopeDigest = rollovers[0] !== undefined && index < rollovers[0].entryCount
+    ? rollovers[0].fromValidationScopeDigest
+    : rollovers.length > 0 ? null : journal.validationScopeDigest;
   if (entry.candidateSha !== expectedCandidateSha) {
     reject('E_JOURNAL_HEADER', `${path}.candidateSha does not bind the header`, {
       rowId: entry.tuwId,
