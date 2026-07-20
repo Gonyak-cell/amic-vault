@@ -1804,6 +1804,33 @@ test('candidate rollover preserves the accepted scope prefix and permits a later
   fixture.overrides.updatedAt = recordedAt;
 
   assert.equal(validateFixture(fixture).phase, 'TRANSITION');
+
+  const finalCandidate = 'c'.repeat(40);
+  const secondRollover = {
+    recordedAt,
+    entryCount: fixture.journal.entries.length,
+    fromCandidateSha: replacementCandidate,
+    fromValidationScopeDigest: validationScope().aggregateSha256,
+    toCandidateSha: finalCandidate,
+    toValidationScopeDigest: validationScope().aggregateSha256,
+    reasonCode: 'CANDIDATE_BOOKKEEPING_BASELINE',
+    reason: 'A second receipt commit becomes the next transition candidate baseline.',
+    rolloverHash: null,
+  };
+  secondRollover.rolloverHash = computeCandidateRolloverHash(secondRollover);
+  fixture.journal.candidateRollovers = [fixture.journal.candidateRollover, secondRollover];
+  delete fixture.journal.candidateRollover;
+  fixture.journal.candidateSha = finalCandidate;
+  fixture.journal.genesisHash = computeJournalGenesisHash(fixture.journal);
+  previousEntryHash = fixture.journal.genesisHash;
+  for (const replayEntry of fixture.journal.entries) {
+    replayEntry.previousEntryHash = previousEntryHash;
+    replayEntry.entryHash = computeJournalEntryHash(replayEntry);
+    previousEntryHash = replayEntry.entryHash;
+  }
+
+  assert.equal(deriveJournalPhase(fixture.journal), 'CANDIDATE_ROLLOVER');
+  assert.equal(validateFixture(fixture).phase, 'CANDIDATE_ROLLOVER');
 });
 
 test('journal FINAL_CLOSEOUT validates BLOCKED seal, UNADJUDICATED=0, and separate commit', () => {

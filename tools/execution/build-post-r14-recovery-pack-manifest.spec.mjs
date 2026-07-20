@@ -1497,7 +1497,7 @@ test('allowing candidate bookkeeping after transitions is rejected', async () =>
 test('every transition-bearing pack candidate rollover contract cannot be removed or widened', async () => {
   const manifest = await fixture();
   const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-07');
-  pack.controlPlane.candidateRollover.permitsPostRolloverPerEntryValidationScopes = false;
+  pack.controlPlane.candidateRollover.supportsOrderedJournalRollovers = false;
   resign(manifest);
   assert.equal(validateManifest(manifest).errors
     .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);

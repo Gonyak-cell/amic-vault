@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '53aba1870c253278e8284070b2680a42e5275d892b2fa30c6409292618e6f506';
+const CANONICAL_PAYLOAD_SHA256 = 'eb4cdbd07c557f48f6ecbeef92ee407310ea71a9b001a61e7a80bab54e80875c';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -1633,6 +1633,7 @@ export async function buildManifest(sourceDir) {
           mustPrecedeTransitions: true,
           preservesAcceptedEntryPrefix: true,
           permitsPostRolloverPerEntryValidationScopes: true,
+          supportsOrderedJournalRollovers: true,
         } : null,
         transitionTuwIds,
         nonCompleteOnlyTransitionTuwIds,
@@ -2113,6 +2114,7 @@ export function validateManifest(manifest) {
       mustPrecedeTransitions: true,
       preservesAcceptedEntryPrefix: true,
       permitsPostRolloverPerEntryValidationScopes: true,
+      supportsOrderedJournalRollovers: true,
     } : null;
     if (!sameSequence(controlPlane.transitionTuwIds ?? [], expectedTransitionTuwIds)
       || !sameSequence(
