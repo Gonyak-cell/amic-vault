@@ -184,6 +184,61 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
     },
   );
   assert.deepEqual(
+    manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-09')?.executionBlock?.residualDeclarationPredecessorPlan,
+    {
+      authorityRef: 'OWNER-APPROVAL-R14-09-RESIDUAL-DECLARATION-DESIGN-20260720',
+      observedAt: '2026-07-20',
+      status: 'DESIGNED_AND_STATICALLY_VALIDATED_AWAITING_SEPARATE_IMPLEMENTATION_APPROVAL',
+      prerequisites: ['PACK-R14-09A'],
+      predecessorOf: ['PACK-R14-09'],
+      closureEvidence: {
+        totalDiagnosticCountAfterR14_09A: 8,
+        resolvedByR14_09A: 6,
+        diagnosticsByPack: { 'PACK-R14-09B': 4, 'PACK-R14-09C': 3, 'PACK-R14-09D': 1 },
+      },
+      proposedPacks: [
+        {
+          packId: 'PACK-R14-09B',
+          branch: 'feat/pack-r14-09b-dd-declarations',
+          title: 'DD shared declaration prerequisite',
+          requiredDeclarations: ['ddExportTypes', 'ddIssueCitationRequiredReason'],
+          modifyOnly: ['packages/shared/src/dd/dd-types.ts', 'packages/shared/src/dd/dd-types.spec.ts'],
+        },
+        {
+          packId: 'PACK-R14-09C',
+          branch: 'feat/pack-r14-09c-litigation-declarations',
+          title: 'Litigation shared declaration prerequisite',
+          requiredDeclarations: [
+            'litigationEvidenceNextCodeResponseSchema',
+            'litigationHearingTypes',
+            'litigationHearingStatuses',
+          ],
+          modifyOnly: [
+            'packages/shared/src/litigation/litigation-types.ts',
+            'packages/shared/src/litigation/litigation-types.spec.ts',
+          ],
+        },
+        {
+          packId: 'PACK-R14-09D',
+          branch: 'feat/pack-r14-09d-search-author-declaration',
+          title: 'Search DTO declaration prerequisite',
+          requiredDeclarations: ['SearchAuthorDto'],
+          modifyOnly: [
+            'packages/shared/src/search/search-query.dto.ts',
+            'packages/shared/src/search/search-query.dto.spec.ts',
+          ],
+        },
+      ],
+      prohibitedUntilSeparatelyApproved: [
+        'product-code implementation for PACK-R14-09B, PACK-R14-09C, or PACK-R14-09D',
+        'OIDC code, Microsoft or Entra configuration, migration, deployment, or external operation',
+        'PACK-R14-09 reconstruction, completion transition, or merge',
+      ],
+      implementationGate: 'Each proposed PACK needs its own approval, exact two-path diff, focused declaration regression, shared lint/typecheck/build, and a fresh closure probe before any R14-09 scope decision.',
+      conclusion: 'The three proposed PACKs are independent of each other after R14-09A but all are mandatory predecessors; their design alone does not authorize implementation or make R14-09 executable.',
+    },
+  );
+  assert.deepEqual(
     manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-24')?.executionBlock,
     {
       code: 'R14_24_PERMISSION_CONSTITUTION_CONFLICT',
