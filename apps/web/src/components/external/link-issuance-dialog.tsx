@@ -184,9 +184,9 @@ export function LinkIssuanceDialog({
           ))}
         </select>
         <Input
-          aria-label="문서 ID"
+          aria-label="연결할 문서"
           disabled={disabled || busy || !workspace}
-          placeholder="문서 ID"
+          placeholder="문서 식별값"
           value={documentId}
           onChange={(event) => setDocumentId(event.target.value)}
         />
@@ -202,10 +202,10 @@ export function LinkIssuanceDialog({
           링크 발급
         </Button>
         <Input
-          aria-label="버전 ID"
+          aria-label="연결할 버전"
           className="lg:col-span-2"
           disabled={disabled || busy || !workspace}
-          placeholder="버전 ID 선택 입력"
+          placeholder="버전 식별값"
           value={versionId}
           onChange={(event) => setVersionId(event.target.value)}
         />

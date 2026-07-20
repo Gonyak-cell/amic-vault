@@ -202,8 +202,8 @@ export function EvidenceForm({
         className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={state.documentId}
         disabled={busy}
-        placeholder="연결 문서 ID"
-        aria-label="연결 문서 ID"
+        placeholder="연결할 문서 식별값"
+        aria-label="연결할 문서"
         onChange={(event) =>
           setState((current) => ({ ...current, documentId: event.target.value }))
         }

@@ -148,7 +148,7 @@ export function FactLedgerForm({
           className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={state.factCode}
           disabled={busy}
-          placeholder="FACT-001"
+          placeholder="사실 코드"
           aria-label="Fact 코드"
           onChange={(event) =>
             setState((current) => ({ ...current, factCode: event.target.value }))
@@ -211,7 +211,7 @@ export function FactLedgerForm({
         className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={state.citationRefs}
         disabled={busy}
-        placeholder="evidence:EV-001"
+        placeholder="증거 인용 참조"
         aria-label="인용 참조"
         onChange={(event) =>
           setState((current) => ({ ...current, citationRefs: event.target.value }))

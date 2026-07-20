@@ -258,7 +258,6 @@ function ContractWorkflowDocumentRow({
           <StatusBadge tone={statusTone(document.status)}>
             {documentStatusLabels[document.status]}
           </StatusBadge>
-          <span className="font-mono">{document.documentId.slice(0, 8)}</span>
           {document.legalHold ? <StatusBadge tone="warning">보존</StatusBadge> : null}
         </div>
       </div>
