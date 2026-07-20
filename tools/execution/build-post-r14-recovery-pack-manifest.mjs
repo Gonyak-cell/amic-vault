@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '926ef2486e056bc0fefeef4cdea00d4c6071189c20b01bcab5b590a21f3adb07';
+const CANONICAL_PAYLOAD_SHA256 = '6eec56b829590d1032333c57e0b47603f0afe0bbd1a5d2258c3e7f04ece2d7a5';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -77,6 +77,49 @@ const R14_09_EXECUTION_BLOCK = {
       activationTriggerId: 'TRIGGER-H14-MICROSOFT-OIDC-ACTIVE',
     },
     conclusion: 'REJECTED_BY_SEALED_QUARANTINE_CONTRACT: the requested declarations cannot be reassigned while H14 remains inactive; no product or migration reconstruction was attempted.',
+  },
+  sharedAuditDeclarationBridge: {
+    authorityRef: 'OWNER-APPROVAL-R14-09-SHARED-AUDIT-BRIDGE-DESIGN-20260720',
+    observedAt: '2026-07-20',
+    status: 'DESIGNED_AND_STATICALLY_VALIDATED_AWAITING_SEPARATE_IMPLEMENTATION_APPROVAL',
+    proposedPackId: 'PACK-R14-09A',
+    proposedBranch: 'feat/pack-r14-09a-shared-audit-declarations',
+    predecessorOf: ['PACK-R14-09'],
+    sourceHunkTreatment: {
+      prohibited: 'H14 hunk reassignment, fingerprint reuse, or partial-hunk reconstruction',
+      preservedQuarantineHunkOrdinals: [3166, 3167],
+      preservedActivationTriggerId: 'TRIGGER-H14-MICROSOFT-OIDC-ACTIVE',
+    },
+    declarationContract: {
+      modifyOnly: ['packages/shared/src/audit/audit-event-types.ts'],
+      createOnly: ['packages/shared/src/audit/audit-event-types.spec.ts'],
+      requiredExports: [
+        { value: 'AUDIT_ANCHOR_RECORDED', valueExport: 'auditAnchorActions', typeExport: 'AuditAnchorAction' },
+        { value: 'WORK_ITEM_REASSIGNED', valueExport: 'dmsWorkAuditActions', typeExport: 'DmsWorkAuditAction' },
+        { value: 'KNOWLEDGE_CANDIDATE_PROPOSED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+        { value: 'KNOWLEDGE_CANDIDATE_REVIEWED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+        { value: 'WIKI_PAGE_PROPOSED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+        { value: 'WIKI_PAGE_REVIEWED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+        { value: 'WIKI_EXPORTED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+      ],
+      downstreamReexportsOwnedBy: 'PACK-R14-09',
+    },
+    staticValidation: {
+      observedTypecheckErrorCount: 14,
+      bridgeResolvableErrorCount: 6,
+      residualNonBridgeErrorCount: 8,
+      bridgeConsumerPath: 'packages/shared/src/types/audit.ts',
+      noOtherSourceConsumerObserved: true,
+      noMicrosoftOidcImportOrConfigurationPath: true,
+      noMigrationOrDeploymentPath: true,
+    },
+    prohibitedUntilSeparatelyApproved: [
+      'OIDC code, Microsoft or Entra configuration, external identity operation, or deployment',
+      'product-code or migration reconstruction',
+      'PACK-R14-09 completion transition or merge',
+    ],
+    implementationGate: 'A separate approval must confirm this exact two-path scope, declaration test results, no-OIDC static scan, and the remaining eight-error predecessor plan before implementation or merge.',
+    conclusion: 'The bridge is an independent new declaration design, not a reassignment of H14; it can only remove six audit re-export type errors and does not make PACK-R14-09 executable on its own.',
   },
   prohibitedUntilAmended: [
     'owned partial-hunk reconstruction',
@@ -3319,8 +3362,11 @@ export function renderMarkdown(manifest) {
     'PACK-R14-09 is separately blocked as a non-executable 322-hunk partition: the exact',
     'partial reconstruction produced 26 Node 22 lint errors while the complete preserved',
     'overlay linted cleanly. No later-owned declaration or consumer hunk may be borrowed.',
-    'A new amendment must prove a unique executable closure partition and predecessor DAG',
-    'before R14-09 can land a hunk, migration, or completion transition.',
+    'The proposed PACK-R14-09A shared audit declaration bridge is a design-only predecessor:',
+    'it does not reassign H14, keeps Microsoft OIDC inactive, touches no migration or deployment,',
+    'and can remove only six audit re-export errors. Eight non-bridge type errors still require',
+    'their own predecessor plan. A separate implementation approval is required before source',
+    'reconstruction or merge; R14-09 remains blocked until a unique executable closure and DAG exist.',
     '',
     '## Registered non-overlay Git sources',
     '',

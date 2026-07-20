@@ -138,6 +138,52 @@ test('committed v2 manifest validates complete overlay and Git-source coverage',
     },
   );
   assert.deepEqual(
+    manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-09')?.executionBlock?.sharedAuditDeclarationBridge,
+    {
+      authorityRef: 'OWNER-APPROVAL-R14-09-SHARED-AUDIT-BRIDGE-DESIGN-20260720',
+      observedAt: '2026-07-20',
+      status: 'DESIGNED_AND_STATICALLY_VALIDATED_AWAITING_SEPARATE_IMPLEMENTATION_APPROVAL',
+      proposedPackId: 'PACK-R14-09A',
+      proposedBranch: 'feat/pack-r14-09a-shared-audit-declarations',
+      predecessorOf: ['PACK-R14-09'],
+      sourceHunkTreatment: {
+        prohibited: 'H14 hunk reassignment, fingerprint reuse, or partial-hunk reconstruction',
+        preservedQuarantineHunkOrdinals: [3166, 3167],
+        preservedActivationTriggerId: 'TRIGGER-H14-MICROSOFT-OIDC-ACTIVE',
+      },
+      declarationContract: {
+        modifyOnly: ['packages/shared/src/audit/audit-event-types.ts'],
+        createOnly: ['packages/shared/src/audit/audit-event-types.spec.ts'],
+        requiredExports: [
+          { value: 'AUDIT_ANCHOR_RECORDED', valueExport: 'auditAnchorActions', typeExport: 'AuditAnchorAction' },
+          { value: 'WORK_ITEM_REASSIGNED', valueExport: 'dmsWorkAuditActions', typeExport: 'DmsWorkAuditAction' },
+          { value: 'KNOWLEDGE_CANDIDATE_PROPOSED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+          { value: 'KNOWLEDGE_CANDIDATE_REVIEWED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+          { value: 'WIKI_PAGE_PROPOSED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+          { value: 'WIKI_PAGE_REVIEWED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+          { value: 'WIKI_EXPORTED', valueExport: 'knowledgeBankAuditActions', typeExport: 'KnowledgeBankAuditAction' },
+        ],
+        downstreamReexportsOwnedBy: 'PACK-R14-09',
+      },
+      staticValidation: {
+        observedTypecheckErrorCount: 14,
+        bridgeResolvableErrorCount: 6,
+        residualNonBridgeErrorCount: 8,
+        bridgeConsumerPath: 'packages/shared/src/types/audit.ts',
+        noOtherSourceConsumerObserved: true,
+        noMicrosoftOidcImportOrConfigurationPath: true,
+        noMigrationOrDeploymentPath: true,
+      },
+      prohibitedUntilSeparatelyApproved: [
+        'OIDC code, Microsoft or Entra configuration, external identity operation, or deployment',
+        'product-code or migration reconstruction',
+        'PACK-R14-09 completion transition or merge',
+      ],
+      implementationGate: 'A separate approval must confirm this exact two-path scope, declaration test results, no-OIDC static scan, and the remaining eight-error predecessor plan before implementation or merge.',
+      conclusion: 'The bridge is an independent new declaration design, not a reassignment of H14; it can only remove six audit re-export type errors and does not make PACK-R14-09 executable on its own.',
+    },
+  );
+  assert.deepEqual(
     manifest.payload.packs.find((pack) => pack.packId === 'PACK-R14-24')?.executionBlock,
     {
       code: 'R14_24_PERMISSION_CONSTITUTION_CONFLICT',

@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: 926ef2486e056bc0fefeef4cdea00d4c6071189c20b01bcab5b590a21f3adb07
+- Payload SHA-256: 6eec56b829590d1032333c57e0b47603f0afe0bbd1a5d2258c3e7f04ece2d7a5
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
@@ -65,8 +65,11 @@ non-control-plane push invalidates the candidate binding and all exact-head gate
 PACK-R14-09 is separately blocked as a non-executable 322-hunk partition: the exact
 partial reconstruction produced 26 Node 22 lint errors while the complete preserved
 overlay linted cleanly. No later-owned declaration or consumer hunk may be borrowed.
-A new amendment must prove a unique executable closure partition and predecessor DAG
-before R14-09 can land a hunk, migration, or completion transition.
+The proposed PACK-R14-09A shared audit declaration bridge is a design-only predecessor:
+it does not reassign H14, keeps Microsoft OIDC inactive, touches no migration or deployment,
+and can remove only six audit re-export errors. Eight non-bridge type errors still require
+their own predecessor plan. A separate implementation approval is required before source
+reconstruction or merge; R14-09 remains blocked until a unique executable closure and DAG exist.
 
 ## Registered non-overlay Git sources
 
