@@ -9,29 +9,48 @@ import {
   Req,
 } from '@nestjs/common';
 import {
+  createLitigationAiSuggestionRequestSchema,
   createLitigationEvidenceRequestSchema,
   createLitigationFactRequestSchema,
+  createLitigationHearingRequestSchema,
   createLitigationIssueRequestSchema,
   createLitigationPleadingRequestSchema,
+  litigationAiSuggestionQuerySchema,
+  litigationFactCitationRequiredReason,
   litigationCaseMapQuerySchema,
+  litigationEvidenceNextCodeQuerySchema,
   litigationEvidenceQuerySchema,
   litigationFactQuerySchema,
+  litigationHearingQuerySchema,
   litigationIssueQuerySchema,
   litigationPleadingQuerySchema,
+  updateLitigationFactRequestSchema,
+  updateLitigationHearingRequestSchema,
 } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
+import { LitigationAiClassifierService } from './litigation-ai-classifier.service';
 import { LitigationService } from './litigation.service';
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED', ...(reason ? { reason } : {}) });
 }
 
 function parseOrValidation<T>(parse: () => T): T {
   try {
     return parse();
-  } catch {
-    throw validationFailed();
+  } catch (error) {
+    throw validationFailed(parseValidationReason(error, [litigationFactCitationRequiredReason]));
   }
+}
+
+function parseValidationReason(
+  error: unknown,
+  allowedReasons: readonly string[],
+): string | undefined {
+  if (typeof error !== 'object' || error === null || !('issues' in error)) return undefined;
+  const issues = (error as { issues?: Array<{ message?: unknown }> }).issues;
+  if (!Array.isArray(issues)) return undefined;
+  return allowedReasons.find((reason) => issues.some((issue) => issue.message === reason));
 }
 
 function permissionContext(request: RequestWithSession): {
@@ -58,6 +77,12 @@ export class LitigationController {
     return this.litigation.createEvidence(permissionContext(request), input);
   }
 
+  @Get('evidence/next-code')
+  nextEvidenceCode(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
+    const input = parseOrValidation(() => litigationEvidenceNextCodeQuerySchema.parse(query));
+    return this.litigation.nextEvidenceCode(permissionContext(request), input);
+  }
+
   @Get('evidence')
   listEvidence(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
     const input = parseOrValidation(() => litigationEvidenceQuerySchema.parse(query));
@@ -68,6 +93,16 @@ export class LitigationController {
   createFact(@Req() request: RequestWithSession, @Body() body: unknown) {
     const input = parseOrValidation(() => createLitigationFactRequestSchema.parse(body ?? {}));
     return this.litigation.createFact(permissionContext(request), input);
+  }
+
+  @Patch('facts/:factId')
+  updateFact(
+    @Req() request: RequestWithSession,
+    @Param('factId') factId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => updateLitigationFactRequestSchema.parse(body ?? {}));
+    return this.litigation.updateFact(permissionContext(request), parseUuidParam(factId), input);
   }
 
   @Get('facts')

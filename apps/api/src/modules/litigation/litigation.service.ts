@@ -5,6 +5,7 @@ import {
   litigationCaseMapResponseSchema,
   litigationEvidenceListResponseSchema,
   litigationEvidenceSchema,
+  litigationFactCitationRequiredReason,
   litigationFactListResponseSchema,
   litigationFactSchema,
   litigationIssueListResponseSchema,
@@ -206,6 +207,9 @@ export class LitigationService {
     ctx: PermissionContext,
     input: CreateLitigationFactRequestDto,
   ): Promise<LitigationFactDto> {
+    if (input.status === 'verified' && input.citationRefs.length === 0) {
+      throw validationFailed(litigationFactCitationRequiredReason);
+    }
     await this.assertCanEditMatter(ctx, input.matterId);
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       if (input.evidenceId) {

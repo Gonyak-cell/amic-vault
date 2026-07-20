@@ -3,10 +3,18 @@ import { REQUIRED_ROLES_KEY } from '../../../common/decorators/require-roles.dec
 import { ReindexController } from './reindex.controller';
 
 describe('ReindexController', () => {
-  it('keeps reindex and search health routes admin-only', () => {
+  it('keeps reindex, embedding backfill, and search health routes admin-only', () => {
     const requestRoles = Reflect.getMetadata(
       REQUIRED_ROLES_KEY,
       ReindexController.prototype.requestReindex,
+    );
+    const backfillRoles = Reflect.getMetadata(
+      REQUIRED_ROLES_KEY,
+      ReindexController.prototype.requestEmbeddingBackfill,
+    );
+    const backfillProgressRoles = Reflect.getMetadata(
+      REQUIRED_ROLES_KEY,
+      ReindexController.prototype.getEmbeddingBackfillProgress,
     );
     const healthRoles = Reflect.getMetadata(
       REQUIRED_ROLES_KEY,
@@ -14,6 +22,8 @@ describe('ReindexController', () => {
     );
 
     expect(requestRoles).toEqual(['firm_admin', 'security_admin']);
+    expect(backfillRoles).toEqual(['firm_admin', 'security_admin']);
+    expect(backfillProgressRoles).toEqual(['firm_admin', 'security_admin']);
     expect(healthRoles).toEqual(['firm_admin', 'security_admin']);
   });
 });

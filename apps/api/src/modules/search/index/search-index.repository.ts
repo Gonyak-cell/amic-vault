@@ -1,14 +1,22 @@
 import { createHash } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import {
+  LocalEmbeddingGateway,
+  localEmbeddingDefaultModel,
+  type LocalEmbeddingInput,
+  type LocalEmbeddingResult,
+} from '@amic-vault/ai';
 import type { QueryClient } from '../../audit/audit.service';
 import { buildParentChildChunks, type BuiltDocumentChunk } from '../semantic/document-chunker';
 import {
-  deterministicEmbeddingVector,
   embeddingHash,
   vectorToSqlLiteral,
+  zeroEmbeddingVector,
 } from '../semantic/local-embedding';
 
 const maxIndexedContentBytes = 1024 * 1024;
+export const searchEmbeddingModelRoute = 'bge_m3';
+export const SEARCH_EMBEDDING_GATEWAY = Symbol('SEARCH_EMBEDDING_GATEWAY');
 
 export interface SearchIndexRow {
   indexId: string;
@@ -17,9 +25,13 @@ export interface SearchIndexRow {
   versionId: string;
   matterId: string;
   clientId: string;
+  authorUserId: string;
+  aiAllowed: boolean;
   documentType: string;
   documentStatus: string;
   versionStatus: string;
+  prevVersionId: string | null;
+  nextVersionId: string | null;
   title: string;
   contentText: string;
   sourceTextHash: string;
@@ -87,11 +99,19 @@ function mapRow(row: SearchIndexDbRow): SearchIndexRow {
     versionId: row.version_id,
     matterId: row.matter_id,
     clientId: row.client_id,
+    authorUserId: row.author_user_id,
+    aiAllowed: row.ai_allowed,
     documentType: row.document_type,
     documentStatus: row.document_status,
     versionStatus: row.version_status,
+    prevVersionId: row.prev_version_id,
+    nextVersionId: row.next_version_id,
     title: row.title,
     contentText: row.content_text,
+    contentTruncated: row.content_truncated,
+    extractionConfidence:
+      row.extraction_confidence === null ? null : Number(row.extraction_confidence),
+    ocrLowConfidence: row.ocr_low_confidence,
     sourceTextHash: row.source_text_hash,
     indexedAt: row.indexed_at,
     updatedAt: row.updated_at,
@@ -168,8 +188,10 @@ export class SearchIndexRepository {
     const result = await client.query(
       `
         SELECT index_id, tenant_id, document_id, version_id, matter_id, client_id,
-          document_type, document_status, version_status, title, content_text,
-          source_text_hash, indexed_at, updated_at
+          author_user_id, ai_allowed, document_type, document_status, version_status,
+          prev_version_id, next_version_id, title, content_text,
+          content_truncated, extraction_confidence, ocr_low_confidence, source_text_hash,
+          indexed_at, updated_at
         FROM document_search_index
         WHERE tenant_id = $1
           AND version_id = $2
@@ -188,8 +210,19 @@ export class SearchIndexRepository {
     const result = await client.query(
       `
         SELECT dv.tenant_id, dv.document_id, dv.version_id, d.matter_id, m.client_id,
+          dv.created_by AS author_user_id, d.ai_allowed, dv.supersedes_version_id AS prev_version_id,
+          (
+            SELECT next_dv.version_id
+            FROM document_versions next_dv
+            WHERE next_dv.tenant_id = dv.tenant_id
+              AND next_dv.document_id = dv.document_id
+              AND next_dv.supersedes_version_id = dv.version_id
+            ORDER BY next_dv.version_no ASC, next_dv.created_at ASC, next_dv.version_id ASC
+            LIMIT 1
+          ) AS next_version_id,
           d.document_type, d.status AS document_status, dv.version_status, d.title,
-          cd.body_text, d.updated_at AS document_updated_at
+          cd.body_text, cd.extraction_method, cd.confidence AS extraction_confidence,
+          d.updated_at AS document_updated_at
         FROM document_versions dv
         JOIN documents d
           ON d.tenant_id = dv.tenant_id
@@ -257,6 +290,7 @@ export class SearchIndexRepository {
       const chunkId = await this.upsertChunk(client, input, chunk, parentChunkId);
       await this.upsertEmbedding(client, input, chunk, chunkId);
     }
+    await this.deleteObsoleteEmbeddingRows(client, input);
   }
 
   private async upsertChunk(
@@ -314,14 +348,19 @@ export class SearchIndexRepository {
     chunk: BuiltDocumentChunk,
     chunkId: string,
   ): Promise<void> {
-    const vector = deterministicEmbeddingVector(chunk.chunkText);
+    const embeddingResult = await this.embeddingGateway.embedText({ text: chunk.chunkText });
+    const vector =
+      embeddingResult.status === 'completed' && embeddingResult.embedding
+        ? embeddingResult.embedding
+        : zeroEmbeddingVector();
+    const stale = embeddingResult.status !== 'completed';
     await client.query(
       `
         INSERT INTO document_chunk_embeddings (
           tenant_id, chunk_id, document_id, version_id, model_route, model_tier,
           embedding, embedding_hash, source_text_hash, stale, updated_at
         )
-        VALUES ($1, $2, $3, $4, 'local_gemma', 'local', $5::vector, $6, $7, false, now())
+        VALUES ($1, $2, $3, $4, $5, 'local', $6::vector, $7, $8, $9, now())
         ON CONFLICT (tenant_id, chunk_id, model_route)
         DO UPDATE SET
           document_id = EXCLUDED.document_id,
@@ -344,4 +383,38 @@ export class SearchIndexRepository {
       ],
     );
   }
+
+  private async deleteObsoleteEmbeddingRows(
+    client: QueryClient,
+    input: { tenantId: string; versionId: string },
+  ): Promise<void> {
+    await client.query(
+      `
+        DELETE FROM document_chunk_embeddings
+        WHERE tenant_id = $1
+          AND version_id = $2
+          AND model_route <> $3
+      `,
+      [input.tenantId, input.versionId, searchEmbeddingModelRoute],
+    );
+  }
+}
+
+export function createDefaultSearchEmbeddingGateway(): SearchEmbeddingGateway {
+  return new LocalEmbeddingGateway({
+    enabled: process.env.LOCAL_EMBEDDING_ENABLED !== '0',
+    endpoint:
+      process.env.LOCAL_EMBEDDING_ENDPOINT ??
+      process.env.OLLAMA_BASE_URL ??
+      'http://127.0.0.1:11434',
+    model: process.env.LOCAL_EMBEDDING_MODEL ?? localEmbeddingDefaultModel,
+    timeoutMs: positiveIntEnv('LOCAL_EMBEDDING_TIMEOUT_MS', 30_000),
+  });
+}
+
+function positiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : fallback;
 }

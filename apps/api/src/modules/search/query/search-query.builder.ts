@@ -50,15 +50,21 @@ function keywordScoreSql(target: SearchTarget): string {
   `;
 }
 
-function orderBySql(sortBy: SearchSort, hasQuery: boolean): string {
-  if (sortBy === 'updated_asc') return 'idx.updated_at ASC, idx.version_id';
-  if (sortBy === 'updated_desc') return 'idx.updated_at DESC, idx.version_id';
-  if (sortBy === 'title_asc') return 'lower(idx.title) ASC, idx.updated_at DESC, idx.version_id';
+function chunkScopedKeywordScoreSql(target: LexicalSearchTarget): string {
+  if (target === 'title') return titleKeywordScoreSql();
+  if (target === 'body') return chunkKeywordScoreSql('chunk.chunk_text');
+  return `GREATEST(${titleKeywordScoreSql()}, ${chunkKeywordScoreSql('chunk.chunk_text')})`;
+}
+
+function matchedOrderBySql(sortBy: SearchSort, hasQuery: boolean): string {
+  if (sortBy === 'updated_asc') return 'updated_at ASC, version_id';
+  if (sortBy === 'updated_desc') return 'updated_at DESC, version_id';
+  if (sortBy === 'title_asc') return 'lower(title) ASC, updated_at DESC, version_id';
   if (sortBy === 'matter_asc') {
-    return "lower(coalesce(m.matter_code, m.matter_name, '')) ASC, idx.updated_at DESC, idx.version_id";
+    return "lower(coalesce(matter_code, matter_name, '')) ASC, updated_at DESC, version_id";
   }
-  if (sortBy === 'type_asc') return 'idx.document_type ASC, idx.updated_at DESC, idx.version_id';
-  return hasQuery ? 'score DESC, idx.updated_at DESC, idx.version_id' : 'idx.updated_at DESC, idx.version_id';
+  if (sortBy === 'type_asc') return 'document_type ASC, updated_at DESC, version_id';
+  return hasQuery ? 'score DESC, updated_at DESC, version_id' : 'updated_at DESC, version_id';
 }
 
 @Injectable()
@@ -99,6 +105,11 @@ export class SearchQueryBuilder {
           )
           SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
             idx.title, m.matter_name, m.matter_code, c.name AS client_name,
+            idx.author_user_id, author.name AS author_name,
+            ${searchConfidentialityLevelSql} AS confidentiality_level,
+            ${searchLegalHoldSql} AS legal_hold,
+            ${searchPrivilegeStatusSql} AS privilege_status,
+            idx.ai_allowed, idx.prev_version_id, idx.next_version_id,
             idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
             idx.version_status, idx.updated_at,
             ${scoreSql} AS score,
@@ -215,6 +226,38 @@ export class SearchQueryBuilder {
               GROUP BY document_type
             ) document_type_counts
           ), '[]'::jsonb),
+          'emailSenderDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role = 'from'
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_sender_domain_counts
+          ), '[]'::jsonb),
+          'emailRecipientDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role IN ('to', 'cc')
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_recipient_domain_counts
+          ), '[]'::jsonb),
           'confidentialityLevels', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', confidentiality_level, 'count', row_count) ORDER BY row_count DESC, confidentiality_level)
             FROM (
@@ -308,7 +351,11 @@ export class SearchQueryBuilder {
         ${cteSql}
         SELECT best.document_id, best.version_id, best.matter_id, best.client_id,
           best.title, m.matter_name, m.matter_code, c.name AS client_name,
-          best.document_type, best.extraction_status, best.version_status, best.updated_at,
+          best.author_user_id, author.name AS author_name,
+          best.confidentiality_level, best.legal_hold, best.privilege_status,
+          best.ai_allowed, best.prev_version_id, best.next_version_id,
+          best.document_type, best.extraction_status, best.content_truncated,
+          best.version_status, best.updated_at,
           score::float8 AS score,
           left(chunk_text, 200) AS raw_snippet,
           count(*) OVER()::int AS total
@@ -398,6 +445,38 @@ export class SearchQueryBuilder {
               GROUP BY document_type
             ) document_type_counts
           ), '[]'::jsonb),
+          'emailSenderDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role = 'from'
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_sender_domain_counts
+          ), '[]'::jsonb),
+          'emailRecipientDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role IN ('to', 'cc')
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_recipient_domain_counts
+          ), '[]'::jsonb),
           'confidentialityLevels', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', confidentiality_level, 'count', row_count) ORDER BY row_count DESC, confidentiality_level)
             FROM (
@@ -414,6 +493,15 @@ export class SearchQueryBuilder {
               FROM filtered
               GROUP BY extraction_status
             ) extraction_status_counts
+          ), '[]'::jsonb),
+          'ocrConfidence', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', 'ocr_low_confidence', 'count', row_count))
+            FROM (
+              SELECT count(*)::int AS row_count
+              FROM filtered
+              WHERE ocr_low_confidence = true
+            ) ocr_confidence_counts
+            WHERE row_count > 0
           ), '[]'::jsonb),
           'legalHolds', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', legal_hold, 'count', row_count) ORDER BY row_count DESC, legal_hold)
@@ -522,7 +610,9 @@ export class SearchQueryBuilder {
     const queryParam = `$${params.length}`;
     return `
       WITH tsq AS (
-        SELECT websearch_to_tsquery('simple', ${queryParam}) AS query
+        SELECT
+          websearch_to_tsquery('simple', ${queryParam}) AS query,
+          amic_korean_search_normalize(${queryParam}) AS normalized_query
       ),
       filtered AS (
         SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
@@ -559,7 +649,9 @@ export class SearchQueryBuilder {
         ? (() => {
             outputParams.push(input.query ?? '');
             return `tsq AS (
-              SELECT websearch_to_tsquery('simple', $${outputParams.length}) AS query
+              SELECT
+                websearch_to_tsquery('simple', $${outputParams.length}) AS query,
+                amic_korean_search_normalize($${outputParams.length}) AS normalized_query
             ),`;
           })()
         : '';

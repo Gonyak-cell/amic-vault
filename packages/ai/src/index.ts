@@ -21,6 +21,7 @@ export interface RetrievalOrchestrator {
 }
 
 export const localGemmaDefaultModel = 'gemma4:12b';
+export const localEmbeddingDefaultModel = 'bge-m3';
 
 export interface LocalGemmaRouteConfig {
   route: AiModelRoute;
@@ -93,6 +94,49 @@ export interface LocalGemmaGenerateJsonResult<T> {
   promptEvalCount?: number | undefined;
   evalCount?: number | undefined;
   totalDurationMs?: number | undefined;
+}
+
+export interface LocalEmbeddingRouteConfig {
+  enabled: boolean;
+  endpoint?: string | undefined;
+  model?: string | undefined;
+  timeoutMs?: number | undefined;
+  dimensions?: number | undefined;
+  keepAlive?: string | undefined;
+}
+
+export interface LocalEmbeddingInput {
+  text: string;
+  model?: string | undefined;
+  timeoutMs?: number | undefined;
+  dimensions?: number | undefined;
+  keepAlive?: string | undefined;
+}
+
+export interface LocalEmbeddingBatchInput {
+  texts: readonly string[];
+  model?: string | undefined;
+  timeoutMs?: number | undefined;
+  dimensions?: number | undefined;
+  keepAlive?: string | undefined;
+}
+
+export interface LocalEmbeddingResult {
+  status: 'completed' | 'blocked';
+  route: AiEmbeddingModelRoute;
+  embedding?: number[] | undefined;
+  embeddings?: number[][] | undefined;
+  reasonCode?:
+    | 'route_disabled'
+    | 'endpoint_missing'
+    | 'non_local_endpoint'
+    | 'embedding_failed'
+    | 'embedding_timeout'
+    | 'embedding_dimension_mismatch';
+  model?: string | undefined;
+  totalDurationMs?: number | undefined;
+  loadDurationMs?: number | undefined;
+  promptEvalCount?: number | undefined;
 }
 
 export interface GatewayTransport {
@@ -221,12 +265,103 @@ export class LocalGemmaGateway {
   }
 }
 
+export class LocalEmbeddingGateway {
+  constructor(
+    private readonly config: LocalEmbeddingRouteConfig,
+    private readonly transport: GatewayTransport = defaultTransport(),
+  ) {}
+
+  async embedText(input: LocalEmbeddingInput): Promise<LocalEmbeddingResult> {
+    const result = await this.embedBatch({
+      texts: [input.text],
+      model: input.model,
+      timeoutMs: input.timeoutMs,
+      dimensions: input.dimensions,
+      keepAlive: input.keepAlive,
+    });
+    if (result.status !== 'completed') return result;
+    const embedding = result.embeddings?.[0];
+    if (!embedding) return { status: 'blocked', route: 'bge_m3', reasonCode: 'embedding_failed' };
+    return { ...result, embedding };
+  }
+
+  async embedBatch(input: LocalEmbeddingBatchInput): Promise<LocalEmbeddingResult> {
+    if (!this.config.enabled) return embeddingBlocked('route_disabled');
+    if (!this.config.endpoint) return embeddingBlocked('endpoint_missing');
+    const endpoint = localEndpoint(this.config.endpoint);
+    if (!endpoint) return embeddingBlocked('non_local_endpoint');
+    const dimensions = input.dimensions ?? this.config.dimensions ?? aiEmbeddingDimensions.bge_m3;
+    const timeoutMs = input.timeoutMs ?? this.config.timeoutMs ?? 30_000;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await this.transport.fetch(new URL('/api/embed', endpoint).toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: input.model ?? this.config.model ?? localEmbeddingDefaultModel,
+          input: [...input.texts],
+          truncate: true,
+          dimensions,
+          ...(input.keepAlive ?? this.config.keepAlive
+            ? { keep_alive: input.keepAlive ?? this.config.keepAlive }
+            : {}),
+        }),
+      });
+      if (!response.ok) return embeddingBlocked('embedding_failed');
+      const body = ollamaEmbedResponseSchema(await safeJson(response), dimensions);
+      return {
+        status: 'completed',
+        route: 'bge_m3',
+        embeddings: body.embeddings,
+        model: body.model,
+        totalDurationMs: body.total_duration
+          ? Math.round(body.total_duration / 1_000_000)
+          : undefined,
+        loadDurationMs: body.load_duration ? Math.round(body.load_duration / 1_000_000) : undefined,
+        promptEvalCount: body.prompt_eval_count,
+      };
+    } catch (error) {
+      if (controller.signal.aborted) return embeddingBlocked('embedding_timeout');
+      if (error instanceof Error && error.message === 'embedding dimension mismatch') {
+        return embeddingBlocked('embedding_dimension_mismatch');
+      }
+      return embeddingBlocked('embedding_failed');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+export async function embedText(
+  config: LocalEmbeddingRouteConfig,
+  input: LocalEmbeddingInput,
+  transport?: GatewayTransport,
+): Promise<LocalEmbeddingResult> {
+  return new LocalEmbeddingGateway(config, transport).embedText(input);
+}
+
+export async function embedBatch(
+  config: LocalEmbeddingRouteConfig,
+  input: LocalEmbeddingBatchInput,
+  transport?: GatewayTransport,
+): Promise<LocalEmbeddingResult> {
+  return new LocalEmbeddingGateway(config, transport).embedBatch(input);
+}
+
 export function isR6EnabledModelRoute(route: string): route is AiModelRoute {
   return route === 'local_gemma';
 }
 
 function blocked(reasonCode: NonNullable<LocalGemmaHealthResult['reasonCode']>): LocalGemmaHealthResult {
   return { status: 'blocked', route: 'local_gemma', reasonCode };
+}
+
+function embeddingBlocked(
+  reasonCode: NonNullable<LocalEmbeddingResult['reasonCode']>,
+): LocalEmbeddingResult {
+  return { status: 'blocked', route: 'bge_m3', reasonCode };
 }
 
 function localGemmaHealthTimeoutMs(configuredTimeoutMs: number | undefined): number {
@@ -362,6 +497,50 @@ function ollamaGenerateResponseSchema(body: unknown): {
         ? body.prompt_eval_count
         : undefined,
     eval_count: 'eval_count' in body && typeof body.eval_count === 'number' ? body.eval_count : undefined,
+  };
+}
+
+function ollamaEmbedResponseSchema(
+  body: unknown,
+  expectedDimensions: number,
+): {
+  model: string;
+  embeddings: number[][];
+  total_duration?: number | undefined;
+  load_duration?: number | undefined;
+  prompt_eval_count?: number | undefined;
+} {
+  if (!body || typeof body !== 'object') throw new Error('invalid embed response');
+  const model =
+    'model' in body && typeof body.model === 'string' ? body.model : localEmbeddingDefaultModel;
+  const embeddings = 'embeddings' in body && Array.isArray(body.embeddings) ? body.embeddings : null;
+  if (!embeddings) throw new Error('invalid embed response');
+  const parsed = embeddings.map((embedding) => {
+    if (!Array.isArray(embedding) || embedding.length !== expectedDimensions) {
+      throw new Error('embedding dimension mismatch');
+    }
+    return embedding.map((value) => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new Error('invalid embed response');
+      }
+      return value;
+    });
+  });
+  return {
+    model,
+    embeddings: parsed,
+    total_duration:
+      'total_duration' in body && typeof body.total_duration === 'number'
+        ? body.total_duration
+        : undefined,
+    load_duration:
+      'load_duration' in body && typeof body.load_duration === 'number'
+        ? body.load_duration
+        : undefined,
+    prompt_eval_count:
+      'prompt_eval_count' in body && typeof body.prompt_eval_count === 'number'
+        ? body.prompt_eval_count
+        : undefined,
   };
 }
 

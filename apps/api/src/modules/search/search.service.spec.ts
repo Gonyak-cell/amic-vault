@@ -52,6 +52,7 @@ function createService(
     (overrides.queryBuilder ?? {}) as never,
     (overrides.snippetBuilder ?? {}) as never,
     (overrides.scopeProvider ?? {}) as never,
+    overrides.embeddingGateway as never,
   );
   return { auditService, service };
 }

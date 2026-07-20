@@ -17,6 +17,9 @@ export interface AiGateMetricInput {
   totalSessions: number;
   sessionsWithQueryAudit: number;
   sessionsWithResponseAudit: number;
+  matterQaSessionCount: number;
+  matterQaFallbackCount: number;
+  p95GenerationLatencyMs: number | null;
   externalModelCallAttempts: number;
 }
 
@@ -27,6 +30,7 @@ export interface AiGateMetricReport extends AiGateMetricInput {
   permissionAccuracy: number;
   retrievalRecall: number;
   auditCoverage: number;
+  matterQaFallbackRate: number;
   technicalPass: boolean;
   warnings: string[];
 }
@@ -62,6 +66,9 @@ interface AuditCoverageRow {
   total_sessions: string;
   sessions_with_query_audit: string;
   sessions_with_response_audit: string;
+  matter_qa_session_count: string;
+  matter_qa_fallback_count: string;
+  p95_generation_latency_ms: string | null;
 }
 
 interface ExternalModelAttemptRow {
@@ -87,6 +94,10 @@ export function computeAiGateMetrics(input: AiGateMetricInput): AiGateMetricRepo
       ? 1
       : Math.min(input.sessionsWithQueryAudit, input.sessionsWithResponseAudit) /
         input.totalSessions;
+  const matterQaFallbackRate =
+    input.matterQaSessionCount === 0
+      ? 0
+      : input.matterQaFallbackCount / input.matterQaSessionCount;
   const approvedSubsetOnly =
     input.evaluationCaseCount === input.deidentifiedEvaluationCaseCount;
   const warnings: string[] = [];
@@ -95,6 +106,9 @@ export function computeAiGateMetrics(input: AiGateMetricInput): AiGateMetricRepo
   }
   if (input.totalCitations === 0) warnings.push('No citations observed in the selected scope.');
   if (input.feedbackCount === 0) warnings.push('No user feedback observed in the selected scope.');
+  if (input.p95GenerationLatencyMs !== null && input.p95GenerationLatencyMs > 20_000) {
+    warnings.push('Matter Q&A generation p95 latency exceeds the 20s technical gate.');
+  }
 
   return {
     ...input,
@@ -104,12 +118,14 @@ export function computeAiGateMetrics(input: AiGateMetricInput): AiGateMetricRepo
     permissionAccuracy,
     retrievalRecall,
     auditCoverage,
+    matterQaFallbackRate,
     technicalPass:
       approvedSubsetOnly &&
       permissionAccuracy === 1 &&
       citationAccuracy >= 0.98 &&
       hallucinationRate <= 0.01 &&
       auditCoverage === 1 &&
+      (input.p95GenerationLatencyMs === null || input.p95GenerationLatencyMs <= 20_000) &&
       input.externalModelCallAttempts === 0,
     warnings,
   };
@@ -142,6 +158,12 @@ export async function collectAiGateMetrics(
       totalSessions: Number(auditCoverage.total_sessions),
       sessionsWithQueryAudit: Number(auditCoverage.sessions_with_query_audit),
       sessionsWithResponseAudit: Number(auditCoverage.sessions_with_response_audit),
+      matterQaSessionCount: Number(auditCoverage.matter_qa_session_count),
+      matterQaFallbackCount: Number(auditCoverage.matter_qa_fallback_count),
+      p95GenerationLatencyMs:
+        auditCoverage.p95_generation_latency_ms === null
+          ? null
+          : Number(auditCoverage.p95_generation_latency_ms),
       externalModelCallAttempts: Number(externalAttempts.external_model_call_attempts),
     });
   } finally {
@@ -276,8 +298,23 @@ async function countAuditCoverage(
               AND e.action = 'AI_RESPONSE'
               AND e.metadata_json->>'ai_session_id' = s.ai_session_id::text
           )
-        )::text AS sessions_with_response_audit
+        )::text AS sessions_with_response_audit,
+        count(*) FILTER (
+          WHERE response_event.metadata_json->>'request_kind' = 'matter_qa'
+        )::text AS matter_qa_session_count,
+        count(*) FILTER (
+          WHERE response_event.metadata_json->>'request_kind' = 'matter_qa'
+            AND response_event.metadata_json->>'generation_result' = 'fallback'
+        )::text AS matter_qa_fallback_count,
+        percentile_disc(0.95) WITHIN GROUP (ORDER BY s.latency_ms) FILTER (
+          WHERE response_event.metadata_json->>'request_kind' = 'matter_qa'
+            AND s.latency_ms IS NOT NULL
+        )::text AS p95_generation_latency_ms
       FROM ai_sessions s
+      LEFT JOIN audit_events response_event
+        ON response_event.tenant_id = s.tenant_id
+       AND response_event.action = 'AI_RESPONSE'
+       AND response_event.metadata_json->>'ai_session_id' = s.ai_session_id::text
       WHERE s.tenant_id = $1
         AND ($2::uuid IS NULL OR s.matter_id = $2::uuid)
     `,
@@ -285,10 +322,13 @@ async function countAuditCoverage(
   );
   return (
     result.rows[0] ?? {
-      total_sessions: '0',
-      sessions_with_query_audit: '0',
-      sessions_with_response_audit: '0',
-    }
+        total_sessions: '0',
+        sessions_with_query_audit: '0',
+        sessions_with_response_audit: '0',
+        matter_qa_session_count: '0',
+        matter_qa_fallback_count: '0',
+        p95_generation_latency_ms: null,
+      }
   );
 }
 

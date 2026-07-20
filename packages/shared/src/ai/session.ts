@@ -34,6 +34,7 @@ export const aiSessionBlockedReasonSchema = z.enum([
 ]);
 
 export const aiSessionResponseStatusSchema = z.enum(['responded', 'blocked', 'failed']);
+export const aiSessionGenerationResultSchema = z.enum(['generated', 'fallback', 'template']);
 
 export const aiSessionCreateSchema = z
   .object({
@@ -55,6 +56,9 @@ export const aiSessionResponseLogSchema = z
     status: aiSessionResponseStatusSchema.optional(),
     escalationRequired: z.boolean().optional(),
     blockedReason: aiSessionBlockedReasonSchema.optional(),
+    requestKind: z.string().min(1).max(80).optional(),
+    generationResult: aiSessionGenerationResultSchema.optional(),
+    fallbackReasonCode: z.string().min(1).max(80).optional(),
   })
   .strict();
 

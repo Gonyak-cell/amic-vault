@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isR6EnabledModelRoute, LocalGemmaGateway, type GatewayTransport } from './index';
+import {
+  isR6EnabledModelRoute,
+  LocalEmbeddingGateway,
+  LocalGemmaGateway,
+  type GatewayTransport,
+} from './index';
 
 describe('LocalGemmaGateway', () => {
   it('blocks disabled and non-local routes before transport is called', async () => {
@@ -340,5 +345,126 @@ describe('LocalGemmaGateway', () => {
   it('keeps local_gemma as the only R6 enabled model route', () => {
     expect(isR6EnabledModelRoute('local_gemma')).toBe(true);
     expect(isR6EnabledModelRoute('openai_gpt4')).toBe(false);
+  });
+});
+
+describe('LocalEmbeddingGateway', () => {
+  const embedding1024 = Array.from({ length: 1024 }, (_value, index) => index / 1024);
+
+  it('embeds text through Ollama /api/embed with an explicit bge-m3 1024-dimension request', async () => {
+    const transport = {
+      fetch: vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          model: 'bge-m3',
+          embeddings: [embedding1024],
+          total_duration: 7_000_000,
+          load_duration: 1_000_000,
+          prompt_eval_count: 12,
+        }),
+      })),
+    } satisfies GatewayTransport;
+
+    await expect(
+      new LocalEmbeddingGateway(
+        { enabled: true, endpoint: 'http://127.0.0.1:11434', model: 'bge-m3' },
+        transport,
+      ).embedText({ text: '계약 해지와 손해배상 검토' }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      route: 'bge_m3',
+      embedding: embedding1024,
+      model: 'bge-m3',
+      totalDurationMs: 7,
+      loadDurationMs: 1,
+      promptEvalCount: 12,
+    });
+
+    expect(transport.fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:11434/api/embed',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    const calls = vi.mocked(transport.fetch).mock.calls as unknown as Array<
+      Parameters<GatewayTransport['fetch']>
+    >;
+    const requestBody = JSON.parse(String(calls[0]?.[1].body)) as Record<string, unknown>;
+    expect(requestBody).toMatchObject({
+      dimensions: 1024,
+      input: ['계약 해지와 손해배상 검토'],
+      model: 'bge-m3',
+      truncate: true,
+    });
+  });
+
+  it('embeds batches and rejects wrong dimensions explicitly', async () => {
+    const transport = {
+      fetch: vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          model: 'bge-m3',
+          embeddings: [embedding1024, [0.1, 0.2]],
+        }),
+      })),
+    } satisfies GatewayTransport;
+
+    await expect(
+      new LocalEmbeddingGateway(
+        { enabled: true, endpoint: 'http://localhost:11434', model: 'bge-m3' },
+        transport,
+      ).embedBatch({ texts: ['first', 'second'] }),
+    ).resolves.toMatchObject({
+      status: 'blocked',
+      reasonCode: 'embedding_dimension_mismatch',
+    });
+  });
+
+  it('returns explicit timeout and endpoint failures without calling external hosts', async () => {
+    vi.useFakeTimers();
+    const timeoutTransport = {
+      fetch: vi.fn(
+        (_url: string, init: Parameters<GatewayTransport['fetch']>[1]) =>
+          new Promise<never>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+              once: true,
+            });
+          }),
+      ),
+    } satisfies GatewayTransport;
+
+    try {
+      const timeoutResult = new LocalEmbeddingGateway(
+        {
+          enabled: true,
+          endpoint: 'http://127.0.0.1:11434',
+          model: 'bge-m3',
+          timeoutMs: 25,
+        },
+        timeoutTransport,
+      ).embedText({ text: 'slow' });
+
+      await vi.advanceTimersByTimeAsync(25);
+
+      await expect(timeoutResult).resolves.toMatchObject({
+        status: 'blocked',
+        reasonCode: 'embedding_timeout',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const externalTransport = { fetch: vi.fn() } as unknown as GatewayTransport;
+    await expect(
+      new LocalEmbeddingGateway(
+        { enabled: true, endpoint: 'https://api.openai.com', model: 'bge-m3' },
+        externalTransport,
+      ).embedText({ text: 'blocked' }),
+    ).resolves.toMatchObject({ status: 'blocked', reasonCode: 'non_local_endpoint' });
+    expect(externalTransport.fetch).not.toHaveBeenCalled();
   });
 });

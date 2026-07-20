@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SearchIndexRepository, truncateUtf8 } from './search-index.repository';
+import {
+  SearchIndexRepository,
+  type SearchEmbeddingGateway,
+  truncateUtf8,
+} from './search-index.repository';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const documentId = '11111111-1111-4111-8111-111111111122';
@@ -8,11 +12,12 @@ const matterId = '11111111-1111-4111-8111-111111111144';
 const clientId = '11111111-1111-4111-8111-111111111155';
 const parentChunkId = '11111111-1111-4111-8111-111111111177';
 const childChunkId = '11111111-1111-4111-8111-111111111188';
+const embedding1024 = Array.from({ length: 1024 }, (_value, index) => index / 1024);
+const sourceBodyText = 'Confidential source body';
 
-describe('SearchIndexRepository', () => {
-  it('truncates content by UTF-8 bytes without splitting characters', () => {
-    expect(truncateUtf8('가나다', 4)).toBe('가');
-  });
+function sha256Hex(input: string): string {
+  return createHash('sha256').update(input).digest('hex');
+}
 
   it('upserts reference metadata and hashes full source text', async () => {
     const client = {
@@ -57,24 +62,38 @@ describe('SearchIndexRepository', () => {
             },
           ],
           rowCount: 1,
-        })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
-        .mockResolvedValueOnce({
-          rows: [{ chunk_id: parentChunkId }],
-          rowCount: 1,
-        })
-        .mockResolvedValueOnce({
-          rows: [{ chunk_id: childChunkId }],
-          rowCount: 1,
-        })
-        .mockResolvedValueOnce({
-          rows: [],
-          rowCount: 1,
-        }),
-    };
+        };
+      }
+      if (String(sql).includes('RETURNING chunk_id')) {
+        const chunkId =
+          chunkIndex === 0 ? parentChunkId : chunkIndex === 1 ? childChunkId : generatedChunkId(chunkIndex);
+        chunkIndex += 1;
+        return { rows: [{ chunk_id: chunkId }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    }),
+  };
+}
 
-    const result = await new SearchIndexRepository().upsertVersion(client, {
+describe('SearchIndexRepository', () => {
+  it('truncates content by UTF-8 bytes without splitting characters', () => {
+    expect(truncateUtf8('가나다', 4)).toBe('가');
+  });
+
+  it('upserts reference metadata and hashes full source text', async () => {
+    const client = createClientMock();
+    const embeddingGateway = {
+      embedText: vi.fn(async (input: { text: string }) => {
+        void input;
+        return {
+          status: 'completed' as const,
+          route: 'bge_m3' as const,
+          embedding: embedding1024,
+        };
+      }),
+    } satisfies SearchEmbeddingGateway;
+
+    const result = await new SearchIndexRepository(embeddingGateway).upsertVersion(client, {
       tenantId,
       documentId,
       versionId,
@@ -86,7 +105,10 @@ describe('SearchIndexRepository', () => {
       versionId,
       matterId,
       clientId,
-      sourceTextHash: '8aa3af6ab56a83bf453038fa57b2ae8fc426e2ef4eec3e3d2d687ddd0d3d20d9',
+      sourceTextHash: sha256Hex(sourceBodyText),
+      contentTruncated: false,
+      extractionConfidence: 0.7,
+      ocrLowConfidence: true,
       updatedAt: new Date('2026-06-11T00:00:00.000Z'),
     });
     expect(client.query.mock.calls[1]?.[1]).not.toContain('body');

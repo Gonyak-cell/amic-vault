@@ -9,6 +9,11 @@ const localAiEvalArtifactKinds = [
   'filing_suggestions',
   'source_outline',
   'retrieval_hints',
+  'fact_candidates',
+  'issue_candidates',
+  'risk_candidates',
+  'graph_candidate_edges',
+  'minutes_qc',
 ] as const;
 
 const localAiEvalArtifactKindSchema = z.enum(localAiEvalArtifactKinds);
@@ -45,6 +50,8 @@ export const localAiOpsMetricsSchema = z
     staleRebuildCount: z.number().int().min(0),
     generationCompletedCount: z.number().int().min(0),
     generationBlockedCount: z.number().int().min(0),
+    generationFallbackCount: z.number().int().min(0),
+    generationFallbackRate: z.number().min(0).max(1),
     invalidOutputCount: z.number().int().min(0),
     citationRejectedCount: z.number().int().min(0),
     p95PrepLatencyMs: z.number().int().min(0).nullable(),

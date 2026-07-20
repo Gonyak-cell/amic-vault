@@ -15,7 +15,10 @@ import {
 } from 'lucide-react';
 import type {
   DisposalCertificateDto,
+  DisposalReviewItemDto,
+  DisposalReviewListResponseDto,
   DisposalRequestDto,
+  DisposalRequestStatus,
   DocumentDto,
   LegalHoldListResponseDto,
   LegalHoldScope,
@@ -47,6 +50,7 @@ import {
   createRetentionPolicy,
   executeDisposalRequest,
   getDisposalCertificate,
+  listDisposalRequests,
   listLegalHolds,
   listRetentionPolicies,
   releaseLegalHold,
@@ -58,8 +62,7 @@ import { cn } from '@/lib/utils';
 
 type RecordsTab = 'policies' | 'holds' | 'archive' | 'disposal' | 'certificates';
 
-const recordsGridClassName =
-  'grid min-w-0 gap-4 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]';
+const recordsGridClassName = 'grid min-w-0 gap-4 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]';
 
 const recordsCopy: Record<
   Language,
@@ -76,6 +79,7 @@ const recordsCopy: Record<
     holdMeta: string;
     archiveMeta: string;
     disposalMeta: string;
+    pendingReviewMeta: string;
     certificateMeta: string;
     policyCode: string;
     policyLabel: string;
@@ -94,6 +98,7 @@ const recordsCopy: Record<
     holds: string;
     archivePanel: string;
     disposal: string;
+    pendingReview: string;
     certificateRef: string;
     requestRef: string;
     certificateEvidence: string;
@@ -102,6 +107,7 @@ const recordsCopy: Record<
     noHolds: string;
     noArchive: string;
     noDisposal: string;
+    noPendingReview: string;
     noRows: string;
     indefinite: string;
     days: string;
@@ -119,6 +125,16 @@ const recordsCopy: Record<
     assignedRole: string;
     recordsAdminRole: string;
     dueAt: string;
+    noAutomaticDeletion: string;
+    legalHoldsExcluded: string;
+    scheduledReview: string;
+    manualReview: string;
+    continueReview: string;
+    selectedReview: string;
+    requestedStatus: string;
+    approvedStatus: string;
+    executedStatus: string;
+    rejectedStatus: string;
     contextPanelTitle: string;
     contextPanelMeta: string;
     contextReady: string;
@@ -162,10 +178,11 @@ const recordsCopy: Record<
     pageDescription: '보존 정책, 삭제 금지, 보관, 삭제 요청을 정책 관리 기준으로 운영합니다.',
     title: '보존 정책 관리',
     policyMeta: '승인된 정책 값만 저장합니다.',
-    holdMeta: 'Matter Code와 파일 표시명 기준으로 보존 조치를 적용합니다.',
+    holdMeta: 'Matter code와 파일 표시명 기준으로 보존 조치를 적용합니다.',
     archiveMeta: '보관 처리는 권한과 감사 기록을 통과한 파일에만 적용됩니다.',
     disposalMeta: '삭제 요청, 승인, 실행은 단계별 감사 기록과 함께 처리됩니다.',
-    certificateMeta: '증명서 상태만 표시하고 내부 검증 참조는 기본 화면에 노출하지 않습니다.',
+    pendingReviewMeta: '보존 기간이 지난 파일은 검토 요청으로만 표시되며 자동 삭제되지 않습니다.',
+    certificateMeta: '증명서 상태만 표시하고 검증용 상세 정보는 기본 화면에 노출하지 않습니다.',
     policyCode: '정책 코드',
     policyLabel: '정책 이름',
     retentionDays: '보존 기간',
@@ -183,6 +200,7 @@ const recordsCopy: Record<
     holds: '삭제 금지',
     archivePanel: '보관 상태',
     disposal: '삭제 요청',
+    pendingReview: '보존 검토 대기',
     certificateRef: '증명서',
     requestRef: '삭제 요청',
     certificateEvidence: '감사 증명 보존',
@@ -191,6 +209,7 @@ const recordsCopy: Record<
     noHolds: '적용된 삭제 금지가 없습니다.',
     noArchive: '보관 처리 결과가 없습니다.',
     noDisposal: '연결된 삭제 요청이 없습니다.',
+    noPendingReview: '검토 대기 중인 삭제 요청이 없습니다.',
     noRows: '표시할 항목이 없습니다.',
     indefinite: '무기한',
     days: '일',
@@ -208,17 +227,27 @@ const recordsCopy: Record<
     assignedRole: '담당 범위',
     recordsAdminRole: '기록 관리자',
     dueAt: '처리 기한',
+    noAutomaticDeletion: '자동 삭제 없음',
+    legalHoldsExcluded: '삭제 금지 대상 제외',
+    scheduledReview: '보존 스케줄러',
+    manualReview: '수동 요청',
+    continueReview: '검토 열기',
+    selectedReview: '선택된 검토 요청',
+    requestedStatus: '승인 대기',
+    approvedStatus: '실행 대기',
+    executedStatus: '실행 완료',
+    rejectedStatus: '반려',
     contextPanelTitle: '보존 작업 준비',
-    contextPanelMeta: '문서와 사건 표시명을 기준으로 작업을 선택합니다.',
+    contextPanelMeta: '문서와 Matter 표시명을 기준으로 작업을 선택합니다.',
     contextReady: '준비됨',
     contextActionTarget: '작업 대상',
     targetPickerTitle: '작업 대상 선택',
-    targetPickerMeta: 'Matter Code와 권한이 확인된 파일 표시명을 기준으로 선택합니다.',
-    matterPickerTitle: 'Matter Code 선택',
+    targetPickerMeta: 'Matter code와 권한이 확인된 파일 표시명을 기준으로 선택합니다.',
+    matterPickerTitle: 'Matter code 선택',
     documentPickerTitle: '파일 선택',
     selectedMatter: '선택된 Matter',
     selectedDocument: '선택된 파일',
-    noMatterSelected: 'Matter Code를 먼저 선택하세요.',
+    noMatterSelected: 'Matter code를 먼저 선택하세요.',
     noDocumentSelected: '파일을 먼저 선택하세요.',
     noDocumentOptions: '선택 가능한 파일이 없습니다.',
     documentOptionsLoading: '파일 목록을 확인하는 중입니다.',
@@ -226,7 +255,7 @@ const recordsCopy: Record<
     disposalRequestUnavailable: '현재 작업에 연결된 삭제 요청이 없습니다.',
     openAction: '열기',
     holdActionTitle: '삭제 금지 검토',
-    holdActionDescription: '파일 또는 사건에 보존 조치를 적용합니다.',
+    holdActionDescription: '파일 또는 Matter에 보존 조치를 적용합니다.',
     archiveActionTitle: '보관 처리 준비',
     archiveActionDescription: '권한과 감사 기록을 통과한 파일에 보관 처리를 요청합니다.',
     disposalActionTitle: '삭제 요청 준비',
@@ -251,9 +280,11 @@ const recordsCopy: Record<
       'Manage retention policies, legal holds, archive, and disposal operations from approved data.',
     title: 'Retention settings',
     policyMeta: 'Save approved policy values only.',
-    holdMeta: 'Apply retention protection from Matter Code and file display labels.',
+    holdMeta: 'Apply retention protection from Matter code and file display labels.',
     archiveMeta: 'Archive actions apply only after permission and audit checks.',
     disposalMeta: 'Request, approve, and execute disposal through audited stages.',
+    pendingReviewMeta:
+      'Expired retention items are review requests only and are not deleted automatically.',
     certificateMeta: 'Show certificate status without exposing internal verification references.',
     policyCode: 'Policy code',
     policyLabel: 'Policy name',
@@ -272,6 +303,7 @@ const recordsCopy: Record<
     holds: 'Legal holds',
     archivePanel: 'Archive status',
     disposal: 'Disposal requests',
+    pendingReview: 'Pending retention review',
     certificateRef: 'Certificate ref',
     requestRef: 'Request ref',
     certificateEvidence: 'Audit evidence preserved',
@@ -280,6 +312,7 @@ const recordsCopy: Record<
     noHolds: 'No legal holds are applied.',
     noArchive: 'No archive result is available.',
     noDisposal: 'No disposal request is linked.',
+    noPendingReview: 'No disposal requests are pending review.',
     noRows: 'No items to show.',
     indefinite: 'indefinite',
     days: 'days',
@@ -297,17 +330,27 @@ const recordsCopy: Record<
     assignedRole: 'Assignee scope',
     recordsAdminRole: 'Records admins',
     dueAt: 'Due',
+    noAutomaticDeletion: 'No automatic deletion',
+    legalHoldsExcluded: 'Legal holds excluded',
+    scheduledReview: 'Retention scheduler',
+    manualReview: 'Manual request',
+    continueReview: 'Open review',
+    selectedReview: 'Selected review request',
+    requestedStatus: 'Awaiting approval',
+    approvedStatus: 'Awaiting execution',
+    executedStatus: 'Executed',
+    rejectedStatus: 'Rejected',
     contextPanelTitle: 'Records action readiness',
     contextPanelMeta: 'Choose actions from the displayed file and matter context.',
     contextReady: 'Ready',
     contextActionTarget: 'Action target',
     targetPickerTitle: 'Select action target',
-    targetPickerMeta: 'Select by Matter Code and permission-checked file display labels.',
-    matterPickerTitle: 'Select Matter Code',
+    targetPickerMeta: 'Select by Matter code and permission-checked file display labels.',
+    matterPickerTitle: 'Select Matter code',
     documentPickerTitle: 'Select file',
     selectedMatter: 'Selected Matter',
     selectedDocument: 'Selected file',
-    noMatterSelected: 'Select a Matter Code first.',
+    noMatterSelected: 'Select a Matter code first.',
     noDocumentSelected: 'Select a file first.',
     noDocumentOptions: 'No selectable files.',
     documentOptionsLoading: 'Checking file list.',
@@ -346,6 +389,9 @@ export function RecordsGovernanceClient() {
   const [holds, setHolds] = useState<LegalHoldListResponseDto | null>(null);
   const [archive, setArchive] = useState<RecordsArchiveDto | null>(null);
   const [disposal, setDisposal] = useState<DisposalRequestDto | null>(null);
+  const [pendingDisposals, setPendingDisposals] = useState<DisposalReviewListResponseDto>({
+    disposals: [],
+  });
   const [certificate, setCertificate] = useState<DisposalCertificateDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -368,6 +414,9 @@ export function RecordsGovernanceClient() {
   const trimmedReason = reasonCode.trim();
   const activeDisposalRequestId =
     disposalRequestId.trim() || disposal?.disposalRequestId || certificate?.disposalRequestId || '';
+  const canApproveDisposal =
+    Boolean(activeDisposalRequestId) && (!disposal || disposal.status === 'requested');
+  const canExecuteDisposal = Boolean(activeDisposalRequestId) && disposal?.status === 'approved';
   const activeLegalHoldId =
     legalHoldId.trim() || holds?.holds.find((hold) => hold.status === 'active')?.legalHoldId || '';
   const handleMatterSelected = React.useCallback((matter: MatterCodeOption | null) => {
@@ -391,13 +440,19 @@ export function RecordsGovernanceClient() {
   }, []);
 
   async function refreshAll() {
-    const [nextPolicies, nextHolds] = await Promise.all([
+    const [nextPolicies, nextHolds, nextDisposals] = await Promise.all([
       run(() => listRetentionPolicies()),
       run(() => listLegalHolds(trimmedMatterId ? { matterId: trimmedMatterId } : {})),
+      run(() => listDisposalRequests()),
     ]);
     if (nextPolicies) setPolicies(nextPolicies);
     if (nextHolds) setHolds(nextHolds);
+    if (nextDisposals) setPendingDisposals(nextDisposals);
   }
+
+  React.useEffect(() => {
+    void refreshAll();
+  }, []);
 
   async function savePolicy() {
     const result = await run(() =>
@@ -447,22 +502,37 @@ export function RecordsGovernanceClient() {
     if (result) {
       setDisposal(result);
       setDisposalRequestId(result.disposalRequestId);
+      await refreshAll();
     }
   }
 
   async function approveDisposal() {
     const result = await run(() => approveDisposalRequest(activeDisposalRequestId));
-    if (result) setDisposal(result);
+    if (result) {
+      setDisposal(result);
+      await refreshAll();
+    }
   }
 
   async function executeDisposal() {
     const result = await run(() => executeDisposalRequest(activeDisposalRequestId));
-    if (result) setCertificate(result);
+    if (result) {
+      setCertificate(result);
+      await refreshAll();
+    }
   }
 
   async function loadCertificate() {
     const result = await run(() => getDisposalCertificate(activeDisposalRequestId));
     if (result) setCertificate(result);
+  }
+
+  function openDisposalReview(item: DisposalReviewItemDto) {
+    setDisposal(item);
+    setDisposalRequestId(item.disposalRequestId);
+    setMatterId(item.matterId);
+    setDocumentId(item.documentId);
+    setCertificate(null);
   }
 
   return (
@@ -477,7 +547,9 @@ export function RecordsGovernanceClient() {
           </Button>
         }
       />
-      {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
+      {error ? (
+        <EmptyState variant="api-error" title={error} className="items-start text-left" />
+      ) : null}
 
       {documentContextLabel || matterContextLabel ? (
         <RecordsActionContextPanel
@@ -703,7 +775,7 @@ export function RecordsGovernanceClient() {
               <Button
                 className="w-full justify-center"
                 onClick={approveDisposal}
-                disabled={busy || !activeDisposalRequestId}
+                disabled={busy || !canApproveDisposal}
                 type="button"
               >
                 <ShieldCheck className="h-4 w-4" />
@@ -712,7 +784,7 @@ export function RecordsGovernanceClient() {
               <Button
                 className="w-full justify-center"
                 onClick={executeDisposal}
-                disabled={busy || !activeDisposalRequestId}
+                disabled={busy || !canExecuteDisposal}
                 type="button"
               >
                 <Trash2 className="h-4 w-4" />
@@ -720,19 +792,30 @@ export function RecordsGovernanceClient() {
               </Button>
             </FilterBar>
           </div>
-          <SummaryPanel
-            title={copy.disposal}
-            empty={copy.noDisposal}
-            rows={
-              disposal
-                ? [
-                    [copy.requestReady, disposal.status, copy.targetDocument],
-                    [copy.assignedRole, copy.recordsAdminRole, copy.dueAt],
-                    [copy.dueAt, formatDateTime(disposal.dueAt), copy.requestRef],
-                  ]
-                : undefined
-            }
-          />
+          <div className="grid min-w-0 gap-4">
+            <PendingDisposalPanel
+              copy={copy}
+              items={pendingDisposals.disposals}
+              onOpen={openDisposalReview}
+            />
+            <SummaryPanel
+              title={copy.selectedReview}
+              empty={copy.noDisposal}
+              rows={
+                disposal
+                  ? [
+                      [
+                        copy.requestReady,
+                        disposalStatusLabel(copy, disposal.status),
+                        copy.targetDocument,
+                      ],
+                      [copy.assignedRole, copy.recordsAdminRole, copy.dueAt],
+                      [copy.dueAt, formatDateTime(disposal.dueAt), copy.requestRef],
+                    ]
+                  : undefined
+              }
+            />
+          </div>
         </section>
       ) : null}
 
@@ -803,7 +886,12 @@ function ContextTarget({
   return (
     <div className={cn('min-w-0 rounded-md border bg-muted/20 px-3 py-2', compact && 'py-1.5')}>
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className={cn('truncate font-semibold text-foreground', compact ? 'text-xs' : 'mt-1 text-sm')}>
+      <p
+        className={cn(
+          'truncate font-semibold text-foreground',
+          compact ? 'text-xs' : 'mt-1 text-sm',
+        )}
+      >
         {value}
       </p>
     </div>
@@ -1020,7 +1108,9 @@ function RecordsActionContextPanel({
       requiresDocument: true,
     },
   ];
-  const visibleActions = actions.filter((action) => !action.requiresDocument || documentContextLabel);
+  const visibleActions = actions.filter(
+    (action) => !action.requiresDocument || documentContextLabel,
+  );
 
   return (
     <div className="rounded-md border bg-card p-3">
@@ -1071,6 +1161,71 @@ function RecordsActionContextPanel({
   );
 }
 
+function PendingDisposalPanel({
+  copy,
+  items,
+  onOpen,
+}: {
+  copy: (typeof recordsCopy)[Language];
+  items: DisposalReviewItemDto[];
+  onOpen: (item: DisposalReviewItemDto) => void;
+}) {
+  return (
+    <SectionCard
+      className="min-w-0"
+      icon={<FileClock className="h-4 w-4" />}
+      title={copy.pendingReview}
+    >
+      <p className="text-xs text-muted-foreground">{copy.pendingReviewMeta}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <StatusBadge tone="neutral">{copy.noAutomaticDeletion}</StatusBadge>
+        <StatusBadge tone="success">{copy.legalHoldsExcluded}</StatusBadge>
+      </div>
+      <div className="mt-3 min-w-0">
+        {items.length === 0 ? (
+          <EmptyState variant="no-data" title={copy.noPendingReview} description={copy.noRows} />
+        ) : (
+          <div className="grid min-w-0 gap-2">
+            {items.slice(0, 8).map((item) => (
+              <div
+                className="flex min-w-0 flex-col gap-3 rounded-md border bg-background p-3 lg:flex-row lg:items-center lg:justify-between"
+                key={item.disposalRequestId}
+              >
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold text-foreground">
+                    {item.documentTitle}
+                  </p>
+                  <div className="mt-2 flex min-w-0 flex-wrap gap-2 text-xs text-muted-foreground">
+                    <StatusBadge tone="neutral">{item.matterCode}</StatusBadge>
+                    <StatusBadge tone="warning">
+                      {disposalStatusLabel(copy, item.status)}
+                    </StatusBadge>
+                    <span>{formatDateTime(item.dueAt)}</span>
+                    <span>
+                      {item.reviewSource === 'retention_scheduler'
+                        ? copy.scheduledReview
+                        : copy.manualReview}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  className="h-8 w-full justify-center px-2 text-xs sm:w-auto lg:shrink-0"
+                  onClick={() => onOpen(item)}
+                  title={copy.continueReview}
+                  type="button"
+                >
+                  <FileClock className="h-3.5 w-3.5" />
+                  {copy.continueReview}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
 function TabBar({
   activeTab,
   labels,
@@ -1102,6 +1257,16 @@ function TabBar({
       ))}
     </div>
   );
+}
+
+function disposalStatusLabel(
+  copy: (typeof recordsCopy)[Language],
+  status: DisposalRequestStatus,
+): string {
+  if (status === 'requested') return copy.requestedStatus;
+  if (status === 'approved') return copy.approvedStatus;
+  if (status === 'executed') return copy.executedStatus;
+  return copy.rejectedStatus;
 }
 
 function Field({

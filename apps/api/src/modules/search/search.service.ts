@@ -753,6 +753,7 @@ export class SearchService {
     const currentParam = pushParam(params, 'current');
     const subjectParam = pushParam(params, input.subjectHash ?? null);
     const participantDomainHashesParam = pushParam(params, input.participantDomainHashes);
+    const conversationHashParam = pushParam(params, input.conversationIdHash ?? null);
     const limitParam = pushParam(params, input.limit);
     const subjectHashSql = (expression: string) => `
       nullif(lower(trim(${expression})), '') IS NOT NULL
@@ -795,7 +796,20 @@ export class SearchService {
                 (${domainHashSql("m.metadata_json->>'domain'")})
                 OR (${domainHashSql("c.metadata_json->>'domain'")})
               )
-            ) AS participant_domain_hash_match
+            ) AS participant_domain_hash_match,
+            (
+              ${conversationHashParam}::text IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                FROM email_matter_filings emf
+                JOIN email_messages em
+                  ON em.tenant_id = emf.tenant_id
+                 AND em.email_id = emf.email_id
+                WHERE emf.tenant_id = m.tenant_id
+                  AND emf.matter_id = m.matter_id
+                  AND em.conversation_id_hash = ${conversationHashParam}::text
+              )
+            ) AS conversation_hash_match
           FROM authorized_idx
           JOIN matters m
             ON m.tenant_id = authorized_idx.tenant_id

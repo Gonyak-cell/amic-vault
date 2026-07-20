@@ -60,6 +60,12 @@ interface MatterLookupRow {
   total_count: string;
 }
 
+interface MatterAppSyncStateRow {
+  last_sync_at: Date;
+  reflected_count: number;
+  drift_count: number;
+}
+
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
@@ -178,16 +184,18 @@ export class MatterAppRuntimeService {
     @Inject(UserService) private readonly userService: UserService,
   ) {}
 
-  status(now = new Date()): MatterAppSourceStatusDto {
-    const requestedMode = normalizeSourceMode(
+  async status(now = new Date()): Promise<MatterAppSourceStatusDto> {
+    const envMode = normalizeSourceMode(
       envValue('MATTER_APP_SOURCE_MODE', 'NEXT_PUBLIC_MATTER_APP_SOURCE_MODE'),
     );
+    const syncState = envMode === 'matter_app_api' ? null : await this.loadSyncState();
+    const requestedMode = envMode === 'unconfigured' && syncState ? 'matter_app_event_projection' : envMode;
     const sourceConfigured = envFlag(
       envValue('MATTER_APP_SOURCE_CONFIGURED', 'NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED'),
-    );
+    ) || syncState !== null;
     const runtimeReady = envFlag(
       envValue('MATTER_APP_RUNTIME_READY', 'NEXT_PUBLIC_MATTER_APP_RUNTIME_READY'),
-    );
+    ) || syncState !== null;
     const projectionFallbackAllowed = envFlag(
       envValue(
         'ALLOW_VAULT_PROJECTION_MATTER_SOURCE',
@@ -196,9 +204,11 @@ export class MatterAppRuntimeService {
     );
     const productionRuntime = process.env.NODE_ENV === 'production';
     const maxSeconds = stalenessMaxSeconds();
-    const sourceUpdatedAt = parseSourceUpdatedAt(
-      envValue('MATTER_APP_SOURCE_UPDATED_AT', 'NEXT_PUBLIC_MATTER_APP_SOURCE_UPDATED_AT'),
-    );
+    const sourceUpdatedAt =
+      syncState?.last_sync_at ??
+      parseSourceUpdatedAt(
+        envValue('MATTER_APP_SOURCE_UPDATED_AT', 'NEXT_PUBLIC_MATTER_APP_SOURCE_UPDATED_AT'),
+      );
     const sourceStale =
       sourceUpdatedAt !== null && now.getTime() - sourceUpdatedAt.getTime() > maxSeconds * 1000;
     const unavailableReason = sourceUnavailableReason({
@@ -227,15 +237,42 @@ export class MatterAppRuntimeService {
       stalenessMaxSeconds: maxSeconds,
       sourceUpdatedAt: sourceUpdatedAt?.toISOString() ?? null,
       sourceStale,
+      lastSyncAt: syncState?.last_sync_at.toISOString() ?? null,
+      reflectedCount: syncState?.reflected_count ?? 0,
+      driftCount: syncState?.drift_count ?? 0,
+      syncStateAvailable: syncState !== null,
       ...(unavailableReason ? { unavailableReason } : {}),
     });
+  }
+
+  private async loadSyncState(): Promise<MatterAppSyncStateRow | null> {
+    const context = this.tenantContext.current();
+    if (!context) return null;
+    try {
+      const result = await tenantQuery<MatterAppSyncStateRow>(
+        getPool(),
+        context.tenantId,
+        `
+          SELECT last_sync_at, reflected_count, drift_count
+          FROM matter_app_sync_state
+          WHERE tenant_id = $1
+            AND source_ref = 'lawos_lazycodex_canonical_identity'
+          ORDER BY last_sync_at DESC
+          LIMIT 1
+        `,
+        [context.tenantId],
+      );
+      return result.rows[0] ?? null;
+    } catch {
+      return null;
+    }
   }
 
   async lookup(
     actorUserId: string,
     query: MatterAppLookupQueryDto,
   ): Promise<MatterAppLookupResponseDto> {
-    const source = this.status();
+    const source = await this.status();
     if (!source.sourceAvailable) {
       return matterAppLookupResponseSchema.parse({
         source,

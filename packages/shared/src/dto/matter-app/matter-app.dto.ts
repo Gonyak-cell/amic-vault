@@ -36,6 +36,10 @@ export const matterAppSourceStatusSchema = z
     stalenessMaxSeconds: z.number().int().min(1),
     sourceUpdatedAt: z.string().datetime().nullable(),
     sourceStale: z.boolean(),
+    lastSyncAt: z.string().datetime().nullable(),
+    reflectedCount: z.number().int().min(0),
+    driftCount: z.number().int().min(0),
+    syncStateAvailable: z.boolean(),
     unavailableReason: matterAppUnavailableReasonSchema.optional(),
   })
   .strict();

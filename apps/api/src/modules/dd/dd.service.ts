@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import {
   ddDataRoomMappingListResponseSchema,
   ddDataRoomMappingSchema,
+  ddIssueCitationRequiredReason,
   ddIssueListResponseSchema,
   ddIssueSchema,
   ddRfiListResponseSchema,
@@ -200,6 +201,105 @@ export class DdService {
     });
   }
 
+  async listRfiGaps(
+    ctx: PermissionContext,
+    input: DdRfiGapQueryDto,
+  ): Promise<DdRfiGapListResponseDto> {
+    await this.assertCanReadMatter(ctx, input.matterId);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const rfis = await this.queryRfiGaps(client, ctx.tenantId, input);
+      return ddRfiGapListResponseSchema.parse({ matterId: input.matterId, rfis });
+    });
+  }
+
+  async instantiateRfiTemplate(
+    ctx: PermissionContext,
+    templateId: string,
+    input: DdRfiTemplateInstantiateRequestDto,
+  ): Promise<DdRfiTemplateInstantiationResponseDto> {
+    await this.assertCanEditMatter(ctx, input.matterId);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const template = await this.findRfiTemplate(client, ctx.tenantId, templateId);
+      if (!template) throw validationFailed();
+      const items = parseTemplateItems(template.items_json);
+      const result = await client.query<DdRfiRow>(
+        `
+          WITH template_items AS (
+            SELECT *
+            FROM jsonb_to_recordset($4::jsonb) AS item(
+              rfi_code text,
+              category text,
+              title text,
+              description text,
+              priority text
+            )
+          )
+          INSERT INTO dd_rfis (
+            tenant_id, matter_id, rfi_code, category, title, description,
+            status, priority, owner_user_id, due_date, created_by, updated_by
+          )
+          SELECT
+            $1,
+            $2,
+            rfi_code,
+            category,
+            title,
+            description,
+            'requested',
+            priority,
+            $5::uuid,
+            $6::date,
+            $3,
+            $3
+          FROM template_items
+          ORDER BY rfi_code
+          RETURNING
+            rfi_id, matter_id, rfi_code, category, title, status, priority,
+            owner_user_id, due_date, (due_date IS NOT NULL AND due_date < current_date
+              AND status NOT IN ('complete', 'reported')) AS overdue,
+            created_at, updated_at
+        `,
+        [
+          ctx.tenantId,
+          input.matterId,
+          ctx.userId,
+          JSON.stringify(items),
+          input.ownerUserId ?? ctx.userId,
+          input.dueDate ?? null,
+        ],
+      );
+      const rfis = result.rows.map(parseRfiRow);
+      for (const rfi of rfis) {
+        await this.auditService.log(
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            sessionId: ctx.sessionId ?? null,
+            action: 'DD_RFI_CHANGED',
+            targetType: 'dd_rfi',
+            targetId: rfi.rfiId,
+            matterId: rfi.matterId,
+            metadata: {
+              matter_id: rfi.matterId,
+              rfi_id: rfi.rfiId,
+              template_id: template.template_id,
+              rfi_code: rfi.rfiCode,
+              status_after: rfi.status,
+              priority: rfi.priority,
+            },
+          },
+          client,
+        );
+      }
+      return ddRfiTemplateInstantiationResponseSchema.parse({
+        templateId: template.template_id,
+        matterId: input.matterId,
+        createdCount: rfis.length,
+        rfis,
+      });
+    });
+  }
+
   async updateRfi(
     ctx: PermissionContext,
     rfiId: string,
@@ -340,6 +440,9 @@ export class DdService {
     ctx: PermissionContext,
     input: CreateDdIssueRequestDto,
   ): Promise<DdIssueDto> {
+    if (input.status !== 'open' && input.citationRefs.length === 0) {
+      throw validationFailed(ddIssueCitationRequiredReason);
+    }
     await this.assertCanEditMatter(ctx, input.matterId);
     if (input.documentId) {
       await this.assertCanReadDocument(ctx, input.documentId);
@@ -395,6 +498,86 @@ export class DdService {
             status_after: issue.status,
             severity: issue.severity,
           },
+        },
+        client,
+      );
+      await this.graphSyncOutbox.enqueue(
+        {
+          tenantId: ctx.tenantId,
+          matterId: issue.matterId,
+          reasonCode: 'dd_issue_changed',
+          requestedBy: ctx.userId,
+        },
+        client,
+      );
+      return issue;
+    });
+  }
+
+  async updateIssue(
+    ctx: PermissionContext,
+    issueId: string,
+    input: UpdateDdIssueRequestDto,
+  ): Promise<DdIssueDto> {
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const current = await this.findIssueForUpdate(client, ctx.tenantId, issueId);
+      if (!current) throw validationFailed();
+      await this.assertCanEditMatter(ctx, current.matter_id);
+
+      const nextStatus = input.status ?? current.status;
+      const nextCitationRefs = input.citationRefs ?? current.citation_refs;
+      if (nextStatus !== 'open' && nextCitationRefs.length === 0) {
+        throw validationFailed(ddIssueCitationRequiredReason);
+      }
+
+      const diffKeys = issueDiffKeys(current, input);
+      if (diffKeys.length === 0) return parseIssueRow(current);
+
+      const result = await client.query<DdIssueRow>(
+        `
+          UPDATE dd_issues
+          SET status = $3,
+              citation_refs = $4::text[],
+              updated_by = $5,
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND issue_id = $2
+          RETURNING
+            issue_id, matter_id, rfi_id, document_id, issue_code, title, severity,
+            status, citation_refs, report_inclusion, created_at, updated_at
+        `,
+        [ctx.tenantId, issueId, nextStatus, nextCitationRefs, ctx.userId],
+      );
+      const issue = parseIssueRow(result.rows[0]);
+      await this.auditService.log(
+        {
+          tenantId: ctx.tenantId,
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+          action: 'DD_ISSUE_CHANGED',
+          targetType: 'dd_issue',
+          targetId: issue.issueId,
+          matterId: issue.matterId,
+          metadata: {
+            matter_id: issue.matterId,
+            rfi_id: issue.rfiId,
+            document_id: issue.documentId,
+            issue_id: issue.issueId,
+            diff_keys: diffKeys,
+            status_before: current.status,
+            status_after: issue.status,
+            citation_ref_count: issue.citationRefs.length,
+            severity: issue.severity,
+          },
+        },
+        client,
+      );
+      await this.graphSyncOutbox.enqueue(
+        {
+          tenantId: ctx.tenantId,
+          matterId: issue.matterId,
+          reasonCode: 'dd_issue_changed',
+          requestedBy: ctx.userId,
         },
         client,
       );
