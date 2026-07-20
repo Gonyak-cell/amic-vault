@@ -1503,6 +1503,15 @@ test('every transition-bearing pack candidate rollover contract cannot be remove
     .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
 });
 
+test('R14-09 dependency-closure execution block cannot be removed', async () => {
+  const manifest = await fixture();
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-09');
+  pack.executionBlock = null;
+  resign(manifest);
+  assert.equal(validateManifest(manifest).errors
+    .some((error) => error.code === 'PACK_EXECUTION_BLOCK_CONTRACT'), true);
+});
+
 test('omitting a repo-safe receipt from candidate bookkeeping is rejected', async () => {
   const manifest = await fixture();
   manifest.payload.packs[0].controlPlane.candidateBookkeeping.create = [];

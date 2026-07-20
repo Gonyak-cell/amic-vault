@@ -3,7 +3,7 @@
 Status: AUTHORIZED_TECHNICAL_GATES_ONLY
 
 - Manifest: POST-R14-RECOVERY-PACK-MANIFEST-V2
-- Payload SHA-256: eb4cdbd07c557f48f6ecbeef92ee407310ea71a9b001a61e7a80bab54e80875c
+- Payload SHA-256: d68fd55f07d390586c2bef8f1cee0675c2b2a56e237a6a83bf1be0ddca15b398
 - Registration PACK: PACK-R14-03
 - Registration branch: feat/pack-r14-03-recovery-manifest
 - Amendment: PACK-R14-03-AMENDMENT-01
@@ -62,6 +62,11 @@ activation amendment supplies the matching trigger receipt.
 The receipt and exact EOF execution-ledger append precede transitions; transition
 commits then change exactly the four sealed 117-row control-plane paths. Any later
 non-control-plane push invalidates the candidate binding and all exact-head gates.
+PACK-R14-09 is separately blocked as a non-executable 322-hunk partition: the exact
+partial reconstruction produced 26 Node 22 lint errors while the complete preserved
+overlay linted cleanly. No later-owned declaration or consumer hunk may be borrowed.
+A new amendment must prove a unique executable closure partition and predecessor DAG
+before R14-09 can land a hunk, migration, or completion transition.
 
 ## Registered non-overlay Git sources
 
