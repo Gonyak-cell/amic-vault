@@ -160,6 +160,11 @@ export interface SearchHighlightDto {
   end: number;
 }
 
+export interface SearchAuthorDto {
+  displayName: string | null;
+  userId: string;
+}
+
 export interface SearchResultDto extends DisplayFieldsDto {
   documentId: string;
   versionId: string;

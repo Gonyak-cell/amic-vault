@@ -5,11 +5,21 @@ import {
   searchPrivacySettingsSchema,
   searchQuerySchema,
 } from './search-query.dto';
+import type { SearchAuthorDto } from './search-query.dto';
 import { searchAdminHealthSchema } from './search-admin.dto';
 
 const matterId = '11111111-1111-4111-8111-111111111111';
 
 describe('search query DTO', () => {
+  it('keeps search authors limited to display and reference identifiers', () => {
+    const author: SearchAuthorDto = {
+      displayName: 'AMIC Counsel',
+      userId: matterId,
+    };
+
+    expect(author).toEqual({ displayName: 'AMIC Counsel', userId: matterId });
+  });
+
   it('accepts metadata filters and defaults pagination', () => {
     expect(
       searchQuerySchema.parse({
