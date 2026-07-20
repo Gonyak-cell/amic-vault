@@ -19,6 +19,7 @@ export interface EmailMessageDto {
   tenantId: string;
   rawFileObjectId: string;
   parser: EmailParserKind;
+  parserVersion: string;
   parseStatus: EmailParseStatus;
   failureReasonCode: EmailFailureReasonCode | null;
   subject: string | null;
@@ -37,12 +38,43 @@ export interface EmailMessageDto {
 export const emailMatterWarningCodes = ['outside_participant', 'matter_metadata_mismatch'] as const;
 export type EmailMatterWarningCode = (typeof emailMatterWarningCodes)[number];
 
+export const emailParticipantClasses = ['internal', 'client', 'opposing', 'other_external'] as const;
+export type EmailParticipantClass = (typeof emailParticipantClasses)[number];
+
+export interface EmailParticipantClassSummaryDto {
+  class: EmailParticipantClass;
+  count: number;
+}
+
 export const emailPrivilegeTagSuggestions = ['attorney_client_privilege', 'confidential'] as const;
 export type EmailPrivilegeTagSuggestion = (typeof emailPrivilegeTagSuggestions)[number];
 
 export const emailPrivilegeSuggestionReasonCodes = ['subject_keyword'] as const;
 export type EmailPrivilegeSuggestionReasonCode =
   (typeof emailPrivilegeSuggestionReasonCodes)[number];
+
+export const emailMatterSuggestionReasonCodes = [
+  'thread',
+  'sender_history',
+  'participant_domain',
+  'participant_class',
+  'subject',
+  'opposing_signal',
+] as const;
+export type EmailMatterSuggestionReasonCode =
+  (typeof emailMatterSuggestionReasonCodes)[number];
+
+export const emailMatterSuggestionConfidenceBands = [
+  'auto_file',
+  'confirm',
+  'candidate',
+  'manual',
+] as const;
+export type EmailMatterSuggestionConfidenceBand =
+  (typeof emailMatterSuggestionConfidenceBands)[number];
+
+export const emailSuggestionFeedbackActions = ['accepted', 'changed', 'rejected', 'undone'] as const;
+export type EmailSuggestionFeedbackAction = (typeof emailSuggestionFeedbackActions)[number];
 
 export interface EmailPrivilegeTagSuggestionDto {
   tag: EmailPrivilegeTagSuggestion;
@@ -51,7 +83,9 @@ export interface EmailPrivilegeTagSuggestionDto {
 }
 
 export interface EmailThreadSummaryDto {
+  threadId: string | null;
   rootMessageHash: string;
+  conversationIdHash: string | null;
   directReferenceCount: number;
   relatedEmailCount: number;
   referenceHashes: readonly string[];
@@ -86,6 +120,12 @@ export const emailMatterSuggestionQuerySchema = z
   })
   .strict();
 
+export const undoEmailAutofileSchema = z
+  .object({
+    matterId: z.string().uuid(),
+  })
+  .strict();
+
 export interface EmailMatterFilingDto {
   filingId: string;
   tenantId: string;
@@ -95,6 +135,7 @@ export interface EmailMatterFilingDto {
   sentAt: string | null;
   hasOutsideParticipants: boolean;
   warningCodes: readonly EmailMatterWarningCode[];
+  participantClasses: readonly EmailParticipantClassSummaryDto[];
   privilegeTagSuggestion: EmailPrivilegeTagSuggestionDto | null;
   thread: EmailThreadSummaryDto;
   documentIds: readonly string[];
@@ -102,13 +143,26 @@ export interface EmailMatterFilingDto {
   filedAt: string;
 }
 
+export interface EmailThreadGroupDto {
+  threadId: string | null;
+  rootMessageHash: string;
+  conversationIdHash: string | null;
+  relatedEmailCount: number;
+  filedEmailCount: number;
+  documentIds: readonly string[];
+  latestFiledAt: string;
+  items: readonly EmailMatterFilingDto[];
+}
+
 export interface EmailMatterSuggestionDto {
   matterId: string;
   matterCode: string;
   matterName: string;
   clientId: string;
-  reasonCodes: readonly ('subject' | 'participant_domain')[];
+  reasonCodes: readonly EmailMatterSuggestionReasonCode[];
   score: number;
+  confidence: number;
+  confidenceBand: EmailMatterSuggestionConfidenceBand;
 }
 
 export interface EmailMatterSuggestionListDto {
@@ -117,6 +171,7 @@ export interface EmailMatterSuggestionListDto {
 
 export interface EmailTimelineDto {
   items: readonly EmailMatterFilingDto[];
+  threads: readonly EmailThreadGroupDto[];
 }
 
 export interface UploadEmailToMatterResponseDto {
@@ -125,5 +180,6 @@ export interface UploadEmailToMatterResponseDto {
 }
 
 export type FileEmailToMatterDto = z.infer<typeof fileEmailToMatterSchema>;
+export type UndoEmailAutofileDto = z.infer<typeof undoEmailAutofileSchema>;
 export type UploadEmailToMatterFieldsDto = z.infer<typeof uploadEmailToMatterFieldsSchema>;
 export type EmailMatterSuggestionQueryDto = z.infer<typeof emailMatterSuggestionQuerySchema>;

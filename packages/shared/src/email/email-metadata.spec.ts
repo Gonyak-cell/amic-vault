@@ -65,4 +65,48 @@ describe('normalizeEmailMetadata', () => {
     expect(metadata.receivedAt).toBeNull();
     expect(metadata.warningCode).toBe('MALFORMED_DATE');
   });
+
+  it('normalizes RFC2047 Korean subject and participant display names', () => {
+    const metadata = normalizeEmailMetadata(
+      [
+        'From: =?EUC-KR?B?x9G6+8D8wNo=?= <sender@amic.test>',
+        'To: Internal <internal@amic.test>',
+        'Message-ID: <case-encoded@example.test>',
+        'Subject: =?UTF-8?Q?=EA=B8=B0=EB=B0=80_=EA=B2=80=ED=86=A0_=EC=9A=94=EC=B2=AD?=',
+        '',
+        'body',
+      ].join('\r\n'),
+      { tenantDomains: ['amic.test'] },
+    );
+
+    expect(metadata.subject).toBe('기밀 검토 요청');
+    expect(metadata.participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayName: '한빛전자',
+          normalizedAddress: 'sender@amic.test',
+        }),
+      ]),
+    );
+  });
+
+  it('does not classify participants as internal when tenant domains are unset', () => {
+    const metadata = normalizeEmailMetadata(
+      [
+        'From: Sender <sender@amic.test>',
+        'To: Recipient <recipient@example.test>',
+        'Message-ID: <case-no-domain-config@example.test>',
+        '',
+        'body',
+      ].join('\r\n'),
+    );
+
+    expect(metadata.participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ domainRef: 'amic.test', isOutside: true }),
+        expect.objectContaining({ domainRef: 'example.test', isOutside: true }),
+      ]),
+    );
+    expect(metadata.hasOutsideParticipants).toBe(true);
+  });
 });

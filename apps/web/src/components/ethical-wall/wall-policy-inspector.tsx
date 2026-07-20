@@ -39,13 +39,13 @@ const copyByLanguage: Record<
     emptyDescription: '정보 장벽 행을 선택하면 정책 범위와 감사 맥락이 표시됩니다.',
     barrier: '정보 장벽',
     status: '상태',
-    matter: '사건',
-    matterHidden: '사건 정보는 권한 확인 후 표시됩니다.',
+    matter: 'Matter',
+    matterHidden: 'Matter 정보는 권한 확인 후 표시됩니다.',
     members: '구성원 상태',
     createdAt: '생성 시각',
     policyContext: '정책 및 감사 맥락',
     policyDescription:
-      '정보 장벽 변경은 권한 정책과 감사 기록을 통과한 작업만 반영됩니다. 구성원 세부 참조는 보안 운영 영역에서만 확인합니다.',
+      '정보 장벽 변경은 권한 정책과 감사 기록을 통과한 작업만 반영됩니다. 구성원 확인 정보는 보안 운영 영역에서만 확인합니다.',
     active: '활성',
     released: '해제됨',
     membershipLabels: {

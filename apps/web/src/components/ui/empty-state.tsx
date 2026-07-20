@@ -20,7 +20,7 @@ const emptyStateCopy = {
   'api-unavailable': '이 영역은 아직 운영 데이터와 연결되지 않았습니다.',
   'api-error': '데이터를 표시할 수 없습니다. 권한 또는 연결 상태를 확인해 주세요.',
   'ai-prep-none': '파일 정리 준비 상태가 없습니다.',
-  'integrations-none': '연결된 통합이 없습니다.',
+  'integrations-none': '연결된 외부 서비스가 없습니다.',
 } as const satisfies Record<EmptyStateVariant, string>;
 
 const emptyStateIcons = {

@@ -35,4 +35,18 @@ describe('document chunker', () => {
     expect(chunks.length).toBeGreaterThan(0);
     expect(chunks.every((chunk) => chunk.tokenCount >= 1 && chunk.tokenCount <= 1200)).toBe(true);
   });
+
+  it('keeps generating chunks through large document tail text', () => {
+    const tailPhrase = 'tail-phrase-after-one-megabyte';
+    const text = `${'alpha '.repeat(Math.ceil((1536 * 1024) / 6))}${tailPhrase}`;
+    const chunks = buildParentChildChunks({
+      text,
+      sourceTextHash: 'c'.repeat(64),
+    });
+
+    expect(chunks.length).toBeGreaterThan(256);
+    expect(chunks.some((chunk) => chunk.chunkKind === 'child' && chunk.chunkText.includes(tailPhrase))).toBe(
+      true,
+    );
+  });
 });

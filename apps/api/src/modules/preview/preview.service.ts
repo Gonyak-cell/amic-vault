@@ -1,12 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { PermissionDecision, TenantId } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { documentViewedAudit } from '../audit/events/document-events';
@@ -39,6 +33,16 @@ interface PreviewArtifactRow {
   sha256: string;
 }
 
+export interface PreviewPrecreateInput {
+  tenantId: TenantId;
+  documentId: string;
+  versionId: string;
+  fileObjectId: string;
+  actorUserId: string;
+}
+
+export type PreviewPrecreateResult = 'ready' | 'skipped';
+
 export interface PreviewResult {
   body: Readable;
   contentType: string;
@@ -48,8 +52,18 @@ export interface PreviewResult {
   sha256: string;
 }
 
-const docxMime =
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const officePreviewMimeTypes = new Set([
+  'application/msword',
+  'application/vnd.ms-excel',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
+export function isOfficePreviewMimeType(mimeType: string): boolean {
+  return officePreviewMimeTypes.has(mimeType);
+}
 
 function notFoundDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
@@ -79,7 +93,7 @@ function sha256(buffer: Buffer): string {
 }
 
 function parseRange(rangeHeader: string | undefined, size: number) {
-  if (!rangeHeader) return null;
+  if (!rangeHeader || !Number.isSafeInteger(size) || size <= 0) return null;
   const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
   if (!match) return null;
   const startRaw = match[1] ?? '';
@@ -123,30 +137,87 @@ export class PreviewService {
     const previewFile =
       original.mime_type === 'application/pdf'
         ? original
-        : await this.resolveDerivedPreview(context.tenantId, actorUserId, original);
+        : await this.ensureDerivedPreview(context.tenantId, actorUserId, original);
 
-    const object = await this.storageService.getByStorageUri(context.tenantId, previewFile.storage_uri);
-    const full = await streamToBuffer(object.body);
-    const range = parseRange(rangeHeader, full.length);
+    const fullSize = Number(previewFile.size_bytes);
+    const range = parseRange(rangeHeader, fullSize);
     if (!range) {
+      const object = await this.storageService.getByStorageUri(
+        context.tenantId,
+        previewFile.storage_uri,
+      );
       await this.recordPreviewViewed(context.tenantId, actorUserId, original);
       return {
-        body: Readable.from(full),
+        body: object.body,
         contentType: 'application/pdf',
-        contentLength: full.length,
+        contentLength:
+          Number.isSafeInteger(fullSize) && fullSize > 0 ? fullSize : object.contentLength,
         statusCode: 200,
         sha256: previewFile.sha256,
       };
     }
-    const body = full.subarray(range.start, range.end + 1);
+    const object = await this.storageService.getRangeByStorageUri(
+      context.tenantId,
+      previewFile.storage_uri,
+      range.start,
+      range.end,
+    );
     return {
-      body: Readable.from(body),
+      body: object.body,
       contentType: 'application/pdf',
-      contentLength: body.length,
+      contentLength: range.end - range.start + 1,
       statusCode: 206,
-      contentRange: `bytes ${range.start}-${range.end}/${full.length}`,
+      contentRange: `bytes ${range.start}-${range.end}/${fullSize}`,
       sha256: previewFile.sha256,
     };
+  }
+
+  async precreatePreview(input: PreviewPrecreateInput): Promise<PreviewPrecreateResult> {
+    const original = await this.auditService.transaction(input.tenantId, (tx) =>
+      this.findVersionPreviewTarget(
+        tx,
+        input.tenantId,
+        input.documentId,
+        input.versionId,
+        input.fileObjectId,
+      ),
+    );
+    if (!original || original.status === 'deleted') return 'skipped';
+    if (!isOfficePreviewMimeType(original.mime_type)) return 'skipped';
+    await this.ensureDerivedPreview(input.tenantId, input.actorUserId, original);
+    return 'ready';
+  }
+
+  async markPrecreateFailed(
+    input: PreviewPrecreateInput,
+    failureReasonCode = 'PREVIEW_CONVERSION_UNAVAILABLE',
+  ): Promise<void> {
+    await this.auditService.transaction(input.tenantId, async (tx) => {
+      await tx.query(
+        `
+          INSERT INTO document_preview_artifacts (
+            tenant_id, document_id, version_id, file_object_id, status, failure_reason_code
+          )
+          SELECT dv.tenant_id, dv.document_id, dv.version_id, dv.file_object_id,
+            'failed', $5
+          FROM document_versions dv
+          JOIN documents d
+            ON d.tenant_id = dv.tenant_id
+            AND d.document_id = dv.document_id
+          WHERE dv.tenant_id = $1
+            AND dv.document_id = $2
+            AND dv.version_id = $3
+            AND dv.file_object_id = $4
+          ON CONFLICT (tenant_id, version_id)
+          DO UPDATE SET
+            status = 'failed',
+            failure_reason_code = EXCLUDED.failure_reason_code,
+            updated_at = now()
+          WHERE document_preview_artifacts.status <> 'ready'
+        `,
+        [input.tenantId, input.documentId, input.versionId, input.fileObjectId, failureReasonCode],
+      );
+    });
   }
 
   private async recordPreviewViewed(
@@ -169,12 +240,12 @@ export class PreviewService {
     });
   }
 
-  private async resolveDerivedPreview(
+  private async ensureDerivedPreview(
     tenantId: TenantId,
     actorUserId: string,
     original: PreviewFileRow,
   ): Promise<PreviewArtifactRow> {
-    if (original.mime_type !== docxMime) throw conversionUnavailable();
+    if (!isOfficePreviewMimeType(original.mime_type)) throw conversionUnavailable();
     const cached = await this.auditService.transaction(tenantId, (tx) =>
       this.findReadyArtifact(tx, tenantId, original.version_id),
     );
@@ -184,9 +255,10 @@ export class PreviewService {
     const source = await streamToBuffer(sourceObject.body);
     let pdf: Buffer;
     try {
-      pdf = await this.previewConvertJob.convertDocxToPdf({
+      pdf = await this.previewConvertJob.convertOfficeToPdf({
         tenantId,
         filename: original.normalized_filename,
+        contentType: original.mime_type,
         body: source,
       });
     } catch (error) {
@@ -196,7 +268,11 @@ export class PreviewService {
     }
 
     const fileObjectId = randomUUID();
-    const filename = `${original.normalized_filename.replace(/\.docx$/i, '')}.preview.pdf`;
+    const previewBaseName = original.normalized_filename.replace(
+      /\.(doc|docx|xls|xlsx|ppt|pptx)$/i,
+      '',
+    );
+    const filename = `${previewBaseName}.preview.pdf`;
     const stored = await this.storageService.putTenantObject({
       tenantId,
       matterId: original.matter_id,
@@ -230,7 +306,13 @@ export class PreviewService {
               tenant_id, document_id, version_id, file_object_id, status, failure_reason_code
             )
             VALUES ($1, $2, $3, $4, 'ready', NULL)
-            ON CONFLICT (tenant_id, version_id) DO NOTHING
+            ON CONFLICT (tenant_id, version_id)
+            DO UPDATE SET
+              file_object_id = EXCLUDED.file_object_id,
+              status = 'ready',
+              failure_reason_code = NULL,
+              updated_at = now()
+            WHERE document_preview_artifacts.status <> 'ready'
           `,
           [tenantId, original.document_id, original.version_id, fileObjectId],
         );
@@ -239,7 +321,9 @@ export class PreviewService {
         return artifact;
       });
     } catch (error) {
-      await this.storageService.deleteByStorageUri(tenantId, stored.storageUri).catch(() => undefined);
+      await this.storageService
+        .deleteByStorageUri(tenantId, stored.storageUri)
+        .catch(() => undefined);
       throw error;
     }
   }
@@ -286,6 +370,36 @@ export class PreviewService {
         LIMIT 1
       `,
       [tenantId, documentId],
+    );
+    return (result.rows[0] as PreviewFileRow | undefined) ?? null;
+  }
+
+  private async findVersionPreviewTarget(
+    client: QueryClient,
+    tenantId: TenantId,
+    documentId: string,
+    versionId: string,
+    fileObjectId: string,
+  ): Promise<PreviewFileRow | null> {
+    const result = await client.query(
+      `
+        SELECT d.document_id, d.tenant_id, d.matter_id, d.status,
+          dv.version_id, dv.file_object_id, f.storage_uri, f.normalized_filename,
+          f.mime_type, f.size_bytes::text, f.sha256
+        FROM documents d
+        JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+          AND dv.document_id = d.document_id
+        JOIN file_objects f
+          ON f.tenant_id = dv.tenant_id
+          AND f.file_object_id = dv.file_object_id
+        WHERE d.tenant_id = $1
+          AND d.document_id = $2
+          AND dv.version_id = $3
+          AND dv.file_object_id = $4
+        LIMIT 1
+      `,
+      [tenantId, documentId, versionId, fileObjectId],
     );
     return (result.rows[0] as PreviewFileRow | undefined) ?? null;
   }

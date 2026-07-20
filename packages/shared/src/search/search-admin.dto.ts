@@ -5,7 +5,10 @@ export const searchAdminNoResultQuerySchema = z
     category: z.string().trim().min(1).max(40),
     count: z.number().int().min(0),
     lastSeenAt: z.string().datetime(),
-    queryHash: z.string().trim().regex(/^[a-f0-9]{64}$/iu),
+    queryHash: z
+      .string()
+      .trim()
+      .regex(/^[a-f0-9]{64}$/iu),
   })
   .strict();
 
@@ -18,6 +21,7 @@ export const searchAdminHealthSchema = z
     extractionReadyCount: z.number().int().min(0),
     extractionPendingCount: z.number().int().min(0),
     ocrPendingCount: z.number().int().min(0),
+    ocrLowConfidenceCount: z.number().int().min(0),
     extractionFailedCount: z.number().int().min(0),
     staleChunkCount: z.number().int().min(0),
     staleEmbeddingCount: z.number().int().min(0),

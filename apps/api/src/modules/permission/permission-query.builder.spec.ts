@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PermissionQueryBuilder } from './permission-query.builder';
 
 describe('PermissionQueryBuilder', () => {
-  it('injects matter membership and wall filters into SQL before rows are returned', () => {
+  it('requires matter membership and applies wall filters before rows are returned', () => {
     const filter = new PermissionQueryBuilder().buildMatterFilter(
       {
         tenantId: '11111111-1111-4111-8111-111111111111',
@@ -13,7 +13,7 @@ describe('PermissionQueryBuilder', () => {
       'matters',
     );
 
-    expect(filter.sql).toContain('EXISTS');
+    expect(filter.sql).not.toContain("access_scope = 'firm_open'");
     expect(filter.sql).toContain('FROM matter_members');
     expect(filter.sql).toContain('NOT EXISTS');
     expect(filter.sql).toContain('ethical_wall_memberships');
@@ -21,6 +21,7 @@ describe('PermissionQueryBuilder', () => {
     expect(filter.sql).toContain('$2::uuid');
     expect(filter.sql).toContain('$3::uuid');
     expect(filter.params).toHaveLength(2);
+    expect(filter.appliedRules).toContain('matter_members:required_for_read');
   });
 
   it('returns an always-false filter for roles with no matter read action', () => {

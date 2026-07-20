@@ -15,6 +15,24 @@ type AuditQueryInput = Partial<AuditQueryDto | AuditExportQueryDto>;
 type DocumentAuditQueryInput = Partial<DocumentAuditQueryDto>;
 type MatterAuditQueryInput = Partial<MatterAuditQueryDto>;
 
+export interface AuditAnchorSummaryDto {
+  anchorId: string;
+  anchorDate: string;
+  seqStart: string | null;
+  seqEnd: string | null;
+  eventCount: number;
+  anchorHash: string;
+  storageRecorded: boolean;
+  createdAt: string;
+}
+
+export interface AuditAnchorStatusDto {
+  status: 'missing' | 'verified' | 'mismatch';
+  latest: AuditAnchorSummaryDto | null;
+  items: AuditAnchorSummaryDto[];
+  mismatchCount?: number;
+}
+
 function queryString(query: object): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
@@ -26,6 +44,10 @@ function queryString(query: object): string {
 
 export function listAuditEvents(query: AuditQueryInput): Promise<AuditEventListDto> {
   return apiFetch<AuditEventListDto>(`/audit-events${queryString(query)}`);
+}
+
+export function getAuditAnchorStatus(): Promise<AuditAnchorStatusDto> {
+  return apiFetch<AuditAnchorStatusDto>('/audit-events/anchors');
 }
 
 export function listDocumentAuditEvents(

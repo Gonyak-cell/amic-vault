@@ -84,6 +84,8 @@ function allowedPolicy(): AiPolicyEvaluationResult {
     modelRoute: 'local_gemma',
     matterId,
     documentDecisions: [],
+    allowedDocumentIds: [],
+    excludedDocumentDecisions: [],
     appliedRules: ['model_access_policy:enabled'],
     decisionRef: 'ai_policy_decision:allow',
   };
@@ -99,6 +101,8 @@ function deniedPolicy(reasonCode: AiPolicyEvaluationResult['reasonCode']): AiPol
     modelRoute: null,
     matterId,
     documentDecisions: [],
+    allowedDocumentIds: [],
+    excludedDocumentDecisions: [],
     appliedRules: ['model_route:unknown'],
     decisionRef: 'ai_policy_decision:deny',
   };

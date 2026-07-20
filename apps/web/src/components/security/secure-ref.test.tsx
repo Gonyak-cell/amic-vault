@@ -9,12 +9,12 @@ describe('SecureRef', () => {
   it('hides internal refs by default', () => {
     const html = renderToStaticMarkup(
       <dl>
-        <SecureRef hiddenText="내부 참조 숨김" label="세션 참조" value={internalRef} />
+        <SecureRef hiddenText="확인 정보 숨김" label="세션 확인 정보" value={internalRef} />
       </dl>,
     );
 
-    expect(html).toContain('세션 참조');
-    expect(html).toContain('내부 참조 숨김');
+    expect(html).toContain('세션 확인 정보');
+    expect(html).toContain('확인 정보 숨김');
     expect(html).not.toContain(internalRef);
     expect(html).not.toContain('11111111-1111');
   });
@@ -22,7 +22,7 @@ describe('SecureRef', () => {
   it('reveals the full ref only when explicitly allowed', () => {
     const html = renderToStaticMarkup(
       <dl>
-        <SecureRef label="세션 참조" reveal value={internalRef} />
+        <SecureRef label="세션 확인 정보" reveal value={internalRef} />
       </dl>,
     );
 
@@ -34,11 +34,11 @@ describe('SecureRef', () => {
   it('uses the empty copy when no ref exists', () => {
     const html = renderToStaticMarkup(
       <dl>
-        <SecureRef emptyText="참조 없음" label="세션 참조" value={null} />
+        <SecureRef emptyText="확인 정보 없음" label="세션 확인 정보" value={null} />
       </dl>,
     );
 
-    expect(html).toContain('참조 없음');
+    expect(html).toContain('확인 정보 없음');
     expect(html).not.toContain('Internal reference hidden');
   });
 });

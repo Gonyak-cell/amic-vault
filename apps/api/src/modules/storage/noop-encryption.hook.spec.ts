@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
-import { NoopEncryptionHook } from './noop-encryption.hook';
+import { MANAGED_AT_REST_ENCRYPTION_MARKER, NoopEncryptionHook } from './noop-encryption.hook';
 
 describe('NoopEncryptionHook', () => {
   it('passes object bytes and metadata through without assigning a key id', async () => {
@@ -23,6 +23,10 @@ describe('NoopEncryptionHook', () => {
       contentType: 'application/pdf',
       encryptionKeyId: null,
     });
+  });
+
+  it('marks managed S3/RDS at-rest encryption without assigning an envelope key id', () => {
+    expect(MANAGED_AT_REST_ENCRYPTION_MARKER).toBe('managed-at-rest:S3-SSE/RDS');
   });
 
   it('returns downloaded streams unchanged', async () => {

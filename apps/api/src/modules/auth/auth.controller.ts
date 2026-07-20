@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Inject, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import type {
   LoginRequestDto,
+  MfaActivateRequestDto,
+  MfaVerifyRequestDto,
   PasswordResetConfirmDto,
   PasswordResetRequestDto,
 } from '@amic-vault/shared';
@@ -47,17 +49,42 @@ export class AuthController {
       ipAddress: request.ip ?? request.socket?.remoteAddress ?? null,
       userAgent: firstHeader(request.headers['user-agent']) ?? null,
     });
-    response.cookie(SESSION_COOKIE_NAME, result.sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: result.cookieMaxAgeMs,
-    });
+    if (result.mfaRequired) return result;
+    setSessionCookie(response, result.sessionToken, result.cookieMaxAgeMs);
     return {
       user: result.user,
       mfaEnabled: result.mfaEnabled,
     };
+  }
+
+  @Public()
+  @Post('mfa/verify')
+  async verifyMfa(
+    @Body() body: MfaVerifyRequestDto,
+    @Req() request: RequestMetadata,
+    @Res({ passthrough: true }) response: CookieResponse,
+  ) {
+    const result = await this.authService.verifyMfa(body, {
+      ipAddress: request.ip ?? request.socket?.remoteAddress ?? null,
+      userAgent: firstHeader(request.headers['user-agent']) ?? null,
+    });
+    if (result.mfaRequired) return result;
+    setSessionCookie(response, result.sessionToken, result.cookieMaxAgeMs);
+    return { user: result.user, mfaEnabled: result.mfaEnabled };
+  }
+
+  @Post('mfa/enroll')
+  enrollMfa(@Req() request: RequestWithSession) {
+    const session = request.session;
+    if (!session) throw new UnauthorizedException({ code: 'AUTH_REQUIRED' });
+    return this.authService.enrollMfa(session, session.userId);
+  }
+
+  @Post('mfa/activate')
+  activateMfa(@Req() request: RequestWithSession, @Body() body: MfaActivateRequestDto) {
+    const session = request.session;
+    if (!session) throw new UnauthorizedException({ code: 'AUTH_REQUIRED' });
+    return this.authService.activateMfa(session, body);
   }
 
   @Post('logout')
@@ -91,4 +118,14 @@ export class AuthController {
 function firstHeader(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
+}
+
+function setSessionCookie(response: CookieResponse, sessionToken: string, maxAge: number): void {
+  response.cookie(SESSION_COOKIE_NAME, sessionToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge,
+  });
 }

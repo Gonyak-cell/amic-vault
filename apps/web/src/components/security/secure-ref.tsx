@@ -11,8 +11,8 @@ export interface SecureRefProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function SecureRef({
   className,
-  emptyText = 'No reference',
-  hiddenText = 'Internal reference hidden',
+  emptyText = '확인 정보 없음',
+  hiddenText = '확인 정보 숨김',
   label,
   reveal = false,
   value,

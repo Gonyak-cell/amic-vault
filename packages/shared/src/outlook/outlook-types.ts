@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { dlpFindingTypes, dlpRuleIds, type DlpFindingType } from '../dlp/dlp-types';
+import type { EmailMatterSuggestionConfidenceBand } from '../email/email-types';
 
 export const outlookSourceClients = ['outlook-web-addin'] as const;
 export type OutlookSourceClient = (typeof outlookSourceClients)[number];
@@ -30,6 +32,8 @@ export const outlookSendWarningReasonCodes = [
   'no_matter',
   'wrong_matter',
   'external_recipient',
+  'dlp_finding',
+  'dlp_scan_failed',
 ] as const;
 export type OutlookSendWarningReasonCode = (typeof outlookSendWarningReasonCodes)[number];
 
@@ -101,7 +105,107 @@ export type OutlookAutofileDeniedReasonCode = (typeof outlookAutofileDeniedReaso
 
 export const outlookHashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
-export const matterSuggestionReasonCodes = ['subject_hash', 'participant_domain_hash'] as const;
+export const outlookDlpScanStatuses = ['clean', 'finding', 'scan_failed'] as const;
+export type OutlookDlpScanStatus = (typeof outlookDlpScanStatuses)[number];
+
+export const outlookDlpScanFailureCodes = [
+  'body_unavailable',
+  'attachment_unavailable',
+  'hash_unavailable',
+  'unexpected_error',
+] as const;
+export type OutlookDlpScanFailureCode = (typeof outlookDlpScanFailureCodes)[number];
+
+export const outlookDlpFindingRefSchema = z
+  .object({
+    ruleId: z.enum(dlpRuleIds),
+    findingType: z.enum(dlpFindingTypes),
+    valueHash: outlookHashSchema,
+    evidenceHash: outlookHashSchema,
+    confidence: z.number().min(0).max(1).optional(),
+  })
+  .strict();
+
+export const outlookDlpScanReportSchema = z
+  .object({
+    status: z.enum(outlookDlpScanStatuses),
+    findingCount: z.number().int().min(0).max(200).default(0),
+    restrictedFindingCount: z.number().int().min(0).max(200).default(0),
+    findingRefs: z.array(outlookDlpFindingRefSchema).max(20).default([]),
+    failureCode: z.enum(outlookDlpScanFailureCodes).optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.restrictedFindingCount > value.findingCount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'restrictedFindingCount cannot exceed findingCount',
+        path: ['restrictedFindingCount'],
+      });
+    }
+
+    if (value.status === 'clean') {
+      if (value.findingCount !== 0 || value.restrictedFindingCount !== 0 || value.findingRefs.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'clean DLP reports must not include findings',
+        });
+      }
+      if (value.failureCode) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'clean DLP reports must not include a failure code',
+          path: ['failureCode'],
+        });
+      }
+    }
+
+    if (value.status === 'finding') {
+      if (value.findingCount < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'finding DLP reports must include at least one finding',
+          path: ['findingCount'],
+        });
+      }
+      if (value.findingRefs.length < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'finding DLP reports must include hash-only finding refs',
+          path: ['findingRefs'],
+        });
+      }
+      if (value.failureCode) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'finding DLP reports must not include a failure code',
+          path: ['failureCode'],
+        });
+      }
+    }
+
+    if (value.status === 'scan_failed') {
+      if (value.findingCount !== 0 || value.restrictedFindingCount !== 0 || value.findingRefs.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'failed DLP scans must not include findings',
+        });
+      }
+      if (!value.failureCode) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'failed DLP scans require a bounded failure code',
+          path: ['failureCode'],
+        });
+      }
+    }
+  });
+
+export const matterSuggestionReasonCodes = [
+  'subject_hash',
+  'participant_domain_hash',
+  'conversation_hash',
+] as const;
 export type MatterSuggestionReasonCode = (typeof matterSuggestionReasonCodes)[number];
 
 export const outlookAddinSessionStatuses = ['active', 'denied', 'expired', 'revoked'] as const;
@@ -174,6 +278,7 @@ const outlookSendPolicyBaseSchema = z
     message: outlookItemRefSchema,
     attachments: z.array(outlookAttachmentRefSchema).max(200).default([]),
     subjectHash: outlookHashSchema.optional(),
+    dlpReport: outlookDlpScanReportSchema.optional(),
     clientRequestId: boundedClientTokenSchema,
   })
   .strict();
@@ -291,6 +396,16 @@ export interface OutlookSendFileRequestStatusDto extends OutlookFilingRequestSta
   warningReasonCodes: OutlookSendWarningReasonCode[];
 }
 
+export type OutlookDlpFindingRefDto = z.infer<typeof outlookDlpFindingRefSchema>;
+export type OutlookDlpScanReportDto = z.infer<typeof outlookDlpScanReportSchema>;
+export type OutlookRestrictedDlpFindingType = Extract<
+  DlpFindingType,
+  | 'korean_resident_id'
+  | 'korean_alien_registration_number'
+  | 'payment_card_number'
+  | 'passport_number'
+>;
+
 export interface MatterSuggestionDto {
   matterId: string;
   matterCode: string;
@@ -298,6 +413,8 @@ export interface MatterSuggestionDto {
   clientId: string;
   reasonCodes: MatterSuggestionReasonCode[];
   score: number;
+  confidence: number;
+  confidenceBand: EmailMatterSuggestionConfidenceBand;
 }
 
 export interface MatterSuggestionListDto {

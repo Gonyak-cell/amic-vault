@@ -10,6 +10,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const fixture = JSON.parse(fs.readFileSync('tests/fixtures/seed/users.json', 'utf8'));
+const DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME = 'AMIC local file organization prep';
 
 function devHash(password) {
   return argon2.hash(password, {
@@ -18,6 +19,132 @@ function devHash(password) {
     timeCost: 3,
     parallelism: 4,
   });
+}
+
+async function seedMatterIntakeTemplates(client, tenantId) {
+  await client.query(
+    `
+      WITH inserted_policy AS (
+        INSERT INTO ai_policies (
+          tenant_id,
+          name,
+          allowed_model_tiers,
+          external_model_allowed,
+          default_effect
+        )
+        SELECT
+          $1,
+          $2,
+          ARRAY['local']::text[],
+          false,
+          'DENY'
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM ai_policies
+          WHERE tenant_id = $1
+            AND name = $2
+            AND allowed_model_tiers = ARRAY['local']::text[]
+            AND external_model_allowed = false
+            AND default_effect = 'DENY'
+        )
+        RETURNING tenant_id, policy_id, updated_at, created_at
+      ),
+      default_policy AS (
+        SELECT policy_id
+        FROM (
+          SELECT policy_id, updated_at, created_at
+          FROM inserted_policy
+          UNION ALL
+          SELECT policy_id, updated_at, created_at
+          FROM ai_policies
+          WHERE tenant_id = $1
+            AND name = $2
+            AND allowed_model_tiers = ARRAY['local']::text[]
+            AND external_model_allowed = false
+            AND default_effect = 'DENY'
+        ) policies
+        ORDER BY updated_at DESC, created_at DESC, policy_id
+        LIMIT 1
+      ),
+      template_seed AS (
+        SELECT
+          'default_open'::text AS template_code,
+          '기본개방 Matter'::text AS display_name,
+          '펌 전체 열람과 로컬 파일 정리 준비 정책을 적용합니다.'::text AS description,
+          'firm_open'::text AS default_access_scope
+        UNION ALL
+        SELECT
+          'restricted'::text AS template_code,
+          '제한 Matter'::text AS display_name,
+          '명시된 Matter 구성원 중심으로 열람을 제한합니다.'::text AS description,
+          'restricted'::text AS default_access_scope
+      )
+      INSERT INTO matter_intake_templates (
+        tenant_id,
+        template_code,
+        display_name,
+        description,
+        default_access_scope,
+        default_ai_policy_id,
+        initial_member_policy_json
+      )
+      SELECT
+        $1,
+        template_seed.template_code,
+        template_seed.display_name,
+        template_seed.description,
+        template_seed.default_access_scope,
+        default_policy.policy_id,
+        '{"leadLawyer":"owner"}'::jsonb
+      FROM template_seed
+      CROSS JOIN default_policy
+      ON CONFLICT (tenant_id, template_code)
+      DO UPDATE SET
+        display_name = EXCLUDED.display_name,
+        description = EXCLUDED.description,
+        default_access_scope = EXCLUDED.default_access_scope,
+        default_ai_policy_id = EXCLUDED.default_ai_policy_id,
+        initial_member_policy_json = EXCLUDED.initial_member_policy_json,
+        status = 'active',
+        updated_at = now()
+    `,
+    [tenantId, DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME],
+  );
+}
+
+async function seedDdRfiTemplates(client, tenantId) {
+  await client.query(
+    `
+      INSERT INTO dd_rfi_templates (
+        tenant_id, template_code, transaction_type, name, items_json
+      )
+      VALUES
+        (
+          $1,
+          'ma_basic',
+          'ma_basic',
+          'M&A basic due diligence',
+          '[
+            {"rfi_code":"MA.CORP.01","category":"corporate","title":"Corporate registry extract","description":"Current corporate registry and charter package.","priority":"high"},
+            {"rfi_code":"MA.FIN.01","category":"finance","title":"Recent financial statements","description":"Audited or management financial statements for the review period.","priority":"high"},
+            {"rfi_code":"MA.LIT.01","category":"litigation","title":"Material disputes schedule","description":"Pending or threatened claims, disputes, and regulatory proceedings.","priority":"medium"},
+            {"rfi_code":"MA.EMP.01","category":"employment","title":"Key employee agreements","description":"Executive, founder, and key employee agreements.","priority":"medium"}
+          ]'::jsonb
+        ),
+        (
+          $1,
+          'ma_lite',
+          'ma_lite',
+          'M&A lite due diligence',
+          '[
+            {"rfi_code":"LITE.CORP.01","category":"corporate","title":"Corporate profile","description":"Current corporate profile and ownership summary.","priority":"medium"},
+            {"rfi_code":"LITE.FIN.01","category":"finance","title":"Management accounts","description":"Latest management accounts and debt summary.","priority":"medium"}
+          ]'::jsonb
+        )
+      ON CONFLICT (tenant_id, template_code) DO NOTHING
+    `,
+    [tenantId],
+  );
 }
 
 const client = new Client({ connectionString: databaseUrl() });
@@ -57,6 +184,9 @@ try {
       'app.current_tenant_id',
       tenant.tenantId,
     ]);
+
+    await seedMatterIntakeTemplates(client, tenant.tenantId);
+    await seedDdRfiTemplates(client, tenant.tenantId);
 
     if (canSeedR11SharingPolicies) {
       await client.query(

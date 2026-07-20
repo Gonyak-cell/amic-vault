@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import type {
+  DocumentVersionRenditionType,
+  DocumentVersionSignificance,
+} from '../../types/document';
 
 export const documentVersionStatuses = ['current', 'superseded'] as const;
 export const documentVersionStatusSchema = z.enum(documentVersionStatuses);
@@ -20,6 +24,10 @@ export interface DocumentVersionDto {
   createdAt: string;
   supersedesVersionId: string | null;
   promotedFromSubversionId: string | null;
+  versionLabel: string | null;
+  versionSignificance: DocumentVersionSignificance;
+  renditionType: DocumentVersionRenditionType;
+  baseCleanVersionId: string | null;
 }
 
 export interface DocumentVersionListDto {

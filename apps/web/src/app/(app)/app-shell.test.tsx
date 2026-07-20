@@ -43,10 +43,10 @@ describe('AppShell', () => {
 
     expect(html).toContain('AMIC Vault');
     expect(html).not.toContain('<main class="grid min-h-screen');
-    expect(html).toContain('aria-label="Vault 검색"');
+    expect(html).toContain('aria-label="문서 보관함 검색"');
     expect(html).toContain('aria-controls="vault-mobile-navigation"');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('Matter, 파일, 담당자 검색');
+    expect(html).toContain('Matter, 문서, 담당자 검색');
     expect(html).toContain('조우상');
     expect(html).toContain('jwsuh@amic.kr');
     expect(html).toContain('정책 관리');
@@ -54,6 +54,8 @@ describe('AppShell', () => {
     expect(html).toContain('접근 기록');
     expect(html).toContain('정보 차단');
     expect(html).toContain('관리자 설정');
+    expect(html).toContain('href="/clients"');
+    expect(html).toContain('고객');
     expect(html).toContain('href="/admin"');
     expect(html).not.toContain('href="/enterprise"');
     expect(html).toContain('href="/integrations/outlook"');

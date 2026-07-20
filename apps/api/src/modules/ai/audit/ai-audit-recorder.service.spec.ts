@@ -16,7 +16,7 @@ const versionId = '11111111-1111-4111-8111-111111111009';
 const hash = 'a'.repeat(64);
 
 describe('AiAuditRecorder', () => {
-  it('records the five AI audit events as reference-only metadata', async () => {
+  it('records AI audit events as reference-only metadata', async () => {
     const inputs: AuditLogInput[] = [];
     const recorder = new AiAuditRecorder({
       async log(input: AuditLogInput): Promise<AuditLogResult> {
@@ -65,6 +65,19 @@ describe('AiAuditRecorder', () => {
       latencyMs: 25,
       status: 'responded',
       escalationRequired: false,
+      requestKind: 'matter_qa',
+      generationResult: 'fallback',
+      fallbackReasonCode: 'SUMMARY_GENERATION_DISABLED',
+    });
+    await recorder.recordPayloadViewed(ctx, {
+      aiSessionId,
+      matterId,
+      promptHash: hash,
+      responseHash: hash,
+      promptLength: 31,
+      responseLength: 64,
+      riskFlag: true,
+      dlpFindingCount: 2,
     });
     await recorder.recordCitedDocument(ctx, {
       matterId,
@@ -90,6 +103,7 @@ describe('AiAuditRecorder', () => {
       'AI_RETRIEVAL',
       'AI_RETRIEVAL_EXCLUDED',
       'AI_RESPONSE',
+      'AI_PAYLOAD_VIEWED',
       'AI_CITED_DOCUMENT',
     ]);
     expect(inputs[1]?.metadata).toMatchObject({
@@ -103,9 +117,20 @@ describe('AiAuditRecorder', () => {
       response_length: 64,
       response_token_count: 12,
       ai_response_status: 'responded',
+      request_kind: 'matter_qa',
+      generation_result: 'fallback',
+      fallback_reason_code: 'SUMMARY_GENERATION_DISABLED',
+    });
+    expect(inputs[4]?.metadata).toMatchObject({
+      prompt_hash: hash,
+      response_hash: hash,
+      query_length: 31,
+      response_length: 64,
+      risk_flag: true,
+      dlp_finding_count: 2,
     });
     const serialized = JSON.stringify(inputs.map((input) => input.metadata));
     expect(serialized).not.toContain('not audited');
-    expect(serialized).not.toMatch(/body|content|snippet|prompt|responseText|raw/i);
+    expect(serialized).not.toMatch(/body|content|snippet|prompt_text|response_text|raw/i);
   });
 });

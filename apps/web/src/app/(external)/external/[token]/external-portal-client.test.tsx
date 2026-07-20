@@ -42,7 +42,7 @@ describe('ExternalPortalClient', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('AMIC Vault 외부 공유');
+    expect(html).toContain('AMIC 문서 공유');
     expect(html).toContain('공유 문서');
     expect(html).not.toContain('External Portal');
     expect(html).not.toContain('Matter document control');

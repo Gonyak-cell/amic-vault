@@ -10,6 +10,14 @@ describe('parseFilenameMetadata', () => {
     });
   });
 
+  it('suggests decimal version labels and final significance from Korean filenames', () => {
+    expect(parseFilenameMetadata('계약서_v2.1_최종.docx')).toEqual({
+      documentType: 'contract',
+      versionLabel: 'v2.1',
+      versionSignificance: 'final',
+    });
+  });
+
   it('returns an empty suggestion when no bounded pattern matches', () => {
     expect(parseFilenameMetadata('random-upload.pdf')).toEqual({});
   });

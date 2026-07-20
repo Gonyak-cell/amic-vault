@@ -25,7 +25,18 @@ export function multipartUploadOptions(): MultipartUploadOptions {
     dest: multipartUploadTempDir(),
     limits: {
       files: 1,
-      fields: 4,
+      fields: 6,
+      fileSize: documentUploadMaxBytes(),
+    },
+  };
+}
+
+export function multipartBatchUploadOptions(): MultipartUploadOptions {
+  return {
+    dest: multipartUploadTempDir(),
+    limits: {
+      files: 5000,
+      fields: 6,
       fileSize: documentUploadMaxBytes(),
     },
   };

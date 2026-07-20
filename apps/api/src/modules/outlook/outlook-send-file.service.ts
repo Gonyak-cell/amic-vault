@@ -1,11 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
+import { outlookSendWarningReasonCodes } from '@amic-vault/shared';
 import type {
   CreateOutlookSendFileRequestDto,
   EvaluateOutlookSendPolicyDto,
   MatterSuggestionQueryDto,
   OutlookAttachmentRefDto,
   OutlookDeniedReasonCode,
+  OutlookDlpScanReportDto,
   OutlookFilingRequestStatus,
   OutlookSendFileRequestStatusDto,
   OutlookSendPolicyDecision,
@@ -70,8 +72,17 @@ interface SendPolicyEvaluation {
   normalized: NormalizedSendPolicyInput;
   decision: OutlookSendPolicyDecision;
   warningCodes: OutlookSendWarningReasonCode[];
+  dlpFindingCount: number;
   deniedReasonCode?: OutlookDeniedReasonCode;
 }
+
+const sendWarningCodeSet = new Set<string>(outlookSendWarningReasonCodes);
+const restrictedDlpFindingTypes = new Set<string>([
+  'korean_resident_id',
+  'korean_alien_registration_number',
+  'payment_card_number',
+  'passport_number',
+]);
 
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
@@ -131,9 +142,7 @@ function warningCodesFromRow(
 ): OutlookSendWarningReasonCode[] {
   if (Array.isArray(value)) {
     return value.flatMap((entry) =>
-      entry === 'no_matter' || entry === 'wrong_matter' || entry === 'external_recipient'
-        ? [entry]
-        : [],
+      sendWarningCodeSet.has(entry) ? [entry as OutlookSendWarningReasonCode] : [],
     );
   }
   if (typeof value !== 'string') return [];
@@ -142,12 +151,14 @@ function warningCodesFromRow(
     .split(',')
     .flatMap((entry) => {
       const trimmed = entry.trim();
-      return trimmed === 'no_matter' ||
-        trimmed === 'wrong_matter' ||
-        trimmed === 'external_recipient'
-        ? [trimmed]
-        : [];
+      return sendWarningCodeSet.has(trimmed) ? [trimmed as OutlookSendWarningReasonCode] : [];
     });
+}
+
+function hasRestrictedDlpFinding(report: OutlookDlpScanReportDto | undefined): boolean {
+  if (!report || report.status !== 'finding') return false;
+  if (report.restrictedFindingCount > 0) return true;
+  return report.findingRefs.some((finding) => restrictedDlpFindingTypes.has(finding.findingType));
 }
 
 function toSendStatusDto(row: OutlookSendFilingRequestRow): OutlookSendFileRequestStatusDto {
@@ -192,6 +203,7 @@ export class OutlookSendFileService {
         normalized,
         decision: 'block',
         warningCodes: [],
+        dlpFindingCount: 0,
         deniedReasonCode: 'integration_gate_closed',
       });
       throw permissionDenied();
@@ -344,6 +356,21 @@ export class OutlookSendFileService {
       warningCodes.add('external_recipient');
     }
 
+    const dlpFindingCount =
+      input.dlpReport?.status === 'finding' ? input.dlpReport.findingCount : 0;
+    if (input.dlpReport?.status === 'scan_failed') {
+      warningCodes.add('dlp_scan_failed');
+    } else if (input.dlpReport?.status === 'finding') {
+      warningCodes.add('dlp_finding');
+      if (
+        input.message.hasExternalParticipants &&
+        hasRestrictedDlpFinding(input.dlpReport) &&
+        !deniedReasonCode
+      ) {
+        deniedReasonCode = 'policy_denied';
+      }
+    }
+
     if (input.matterId && !deniedReasonCode) {
       const wrongMatter = await this.isProbablyWrongMatter(
         tenantId,
@@ -358,6 +385,7 @@ export class OutlookSendFileService {
       normalized,
       decision: deniedReasonCode ? 'block' : warningCodes.size > 0 ? 'warn' : 'allow',
       warningCodes: [...warningCodes],
+      dlpFindingCount,
       ...(deniedReasonCode ? { deniedReasonCode } : {}),
     };
   }
@@ -418,6 +446,7 @@ export class OutlookSendFileService {
         clientRequestHash: evaluation.normalized.clientRequestIdHash,
         decision: evaluation.decision,
         warningCodes: evaluation.warningCodes,
+        dlpFindingCount: evaluation.dlpFindingCount,
         ...(evaluation.deniedReasonCode
           ? { deniedReasonCode: evaluation.deniedReasonCode }
           : {}),

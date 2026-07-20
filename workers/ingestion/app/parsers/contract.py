@@ -14,6 +14,7 @@ class ParsedClause:
     clause_number: str
     start_offset: int
     end_offset: int
+    heading_text: str
     heading_hash: str
     text_hash: str
 
@@ -45,7 +46,7 @@ class ContractParseResult:
 
 
 _CLAUSE_RE = re.compile(
-    r"^(?P<heading>\s*(Article|Section|Clause)\s+(?P<number>[A-Za-z0-9_.-]+)\b[^\n]{0,160}|\s*제\s*(?P<kr_number>\d+)\s*조\b[^\n]{0,160})",
+    r"^(?P<heading>\s*(Article|Section|Clause)\s+(?P<number>[A-Za-z0-9_.-]+)\b[^\n]{0,160}|\s*제\s*(?P<kr_number>\d+)\s*조[^\n]{0,160}|\s*(?P<decimal_number>\d+(?:\.\d+)*)\.\s+[^\n]{0,160}|\s*(?P<kr_letter>[가-힣])\.\s+[^\n]{0,160})",
     re.IGNORECASE | re.MULTILINE,
 )
 _TERM_RE = re.compile(
@@ -88,6 +89,7 @@ def _parse_clauses(text: str) -> list[ParsedClause]:
                 clause_number="whole-document",
                 start_offset=0,
                 end_offset=len(text),
+                heading_text="whole-document",
                 heading_hash=_sha256("whole-document"),
                 text_hash=_sha256(text),
             )
@@ -98,15 +100,22 @@ def _parse_clauses(text: str) -> list[ParsedClause]:
         start = match.start()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         heading = match.group("heading").strip()
-        number = match.group("number") or match.group("kr_number") or str(index + 1)
+        number = (
+            match.group("number")
+            or match.group("kr_number")
+            or match.group("decimal_number")
+            or match.group("kr_letter")
+            or str(index + 1)
+        )
+        is_article = heading.lower().startswith("article") or heading.startswith("제")
+        is_paragraph = match.group("kr_letter") is not None
         clauses.append(
             ParsedClause(
-                clause_kind="article"
-                if heading.lower().startswith("article") or heading.startswith("제")
-                else "section",
+                clause_kind="article" if is_article else "paragraph" if is_paragraph else "section",
                 clause_number=number[:80],
                 start_offset=start,
                 end_offset=max(start + 1, end),
+                heading_text=heading[:240],
                 heading_hash=_sha256(heading),
                 text_hash=_sha256(text[start:end]),
             )

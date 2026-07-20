@@ -23,6 +23,30 @@ function lifecycleRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function statusTransitionRow(overrides: Record<string, unknown> = {}) {
+  return {
+    ...lifecycleRow({ status: 'internal_review' }),
+    ai_allowed: false,
+    confidentiality_level: 'standard',
+    created_at: new Date('2026-06-18T00:00:00.000Z'),
+    created_by: actorUserId,
+    document_family_id: '11111111-1111-4111-8111-111111111166',
+    document_type: 'contract',
+    extraction_confidence: null,
+    extraction_method: null,
+    extraction_status: null,
+    legal_hold: false,
+    matter_code: 'AMIC-2026-0001',
+    matter_name: 'Status Transition Matter',
+    privilege_status: 'none',
+    source: 'internal_work_product',
+    subtype: null,
+    title: 'Status Transition Document',
+    updated_at: new Date('2026-06-18T00:01:00.000Z'),
+    ...overrides,
+  };
+}
+
 function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
   const auditLog = vi.fn(async () => undefined);
   const service = new DocumentLifecycleService(
@@ -56,6 +80,92 @@ function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
 }
 
 describe('DocumentLifecycleService', () => {
+  it('transitions status through domain rules and writes reference-only audit', async () => {
+    const tx = {
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({
+          rowCount: 1,
+          rows: [lifecycleRow({ status: 'draft' })],
+        })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ document_id: documentId }] })
+        .mockResolvedValueOnce({
+          rowCount: 1,
+          rows: [statusTransitionRow({ status: 'internal_review' })],
+        }),
+    };
+    const { service, auditLog } = serviceWith(tx);
+
+    const result = await service.transitionStatus(
+      actorUserId,
+      documentId,
+      'internal_review',
+      'client free-form note',
+    );
+
+    expect(result).toMatchObject({
+      documentId,
+      status: 'internal_review',
+      title: 'Status Transition Document',
+    });
+    expect(tx.query.mock.calls[1]?.[0]).toContain('UPDATE documents');
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DOCUMENT_STATUS_CHANGED',
+        metadata: {
+          document_id: documentId,
+          matter_id: matterId,
+          before_ref: 'document_status:draft',
+          after_ref: 'document_status:internal_review',
+          status_before: 'draft',
+          status_after: 'internal_review',
+          reason_code: 'status_transition_note',
+        },
+      }),
+      tx,
+    );
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('client free-form note');
+  });
+
+  it('rejects invalid direct status transitions before mutation', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [lifecycleRow({ status: 'draft' })],
+      }),
+    };
+    const { service, auditLog } = serviceWith(tx);
+
+    await expect(service.transitionStatus(actorUserId, documentId, 'executed')).rejects.toMatchObject(
+      {
+        response: {
+          code: 'VALIDATION_FAILED',
+          reason: 'DOCUMENT_STATUS_TRANSITION_NOT_ALLOWED',
+        },
+      },
+    );
+    expect(tx.query).toHaveBeenCalledTimes(1);
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('blocks status transitions while legal hold is active', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [lifecycleRow({ document_legal_hold: true, status: 'draft' })],
+      }),
+    };
+    const { service, auditLog } = serviceWith(tx);
+
+    await expect(
+      service.transitionStatus(actorUserId, documentId, 'internal_review'),
+    ).rejects.toMatchObject({
+      response: { code: 'DOCUMENT_LOCKED', reason: 'DOCUMENT_LEGAL_HOLD' },
+    });
+    expect(tx.query).toHaveBeenCalledTimes(1);
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
   it('soft deletes by status marker only and writes reference audit', async () => {
     const tx = {
       query: vi

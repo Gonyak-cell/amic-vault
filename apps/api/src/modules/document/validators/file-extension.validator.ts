@@ -12,6 +12,8 @@ const defaultAllowedExtensions = [
   'eml',
   'hwp',
   'hwpx',
+  'html',
+  'htm',
   'jpeg',
   'jpg',
   'json',
@@ -25,6 +27,7 @@ const defaultAllowedExtensions = [
   'txt',
   'xls',
   'xlsx',
+  'zip',
 ] as const;
 
 function unsupportedFileType(): UnsupportedMediaTypeException {

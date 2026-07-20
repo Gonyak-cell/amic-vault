@@ -8,6 +8,7 @@ import type {
   ExternalAccessStatusResponseDto,
   ExternalLinkCreatedResponseDto,
   ExternalLinkDto,
+  ExternalManagementWorkspaceListResponseDto,
   ExternalNdaAcceptanceDto,
   ExternalUserDto,
   ExternalWorkspaceDto,
@@ -18,12 +19,14 @@ import {
   createOwnerClient,
   setTenant,
   tenantAlphaId,
+  tenantBetaId,
   withClient,
 } from './helpers/db';
 import {
   addExplicitPermission,
   addMatterMember,
   alphaOwnerUserId,
+  betaOwnerUserId,
   insertSearchIndexedRow,
 } from './search-permission/search-fixtures';
 import { loginSearchUser } from './search-permission/search-http-helpers';
@@ -36,6 +39,8 @@ describe('External core integration', () => {
   const versionId = randomUUID();
   const deniedDocumentId = randomUUID();
   const deniedVersionId = randomUUID();
+  const nonMemberMatterId = randomUUID();
+  const crossTenantMatterId = randomUUID();
   let app: INestApplication;
   let baseUrl: string;
   let ownerCookie: string;
@@ -58,6 +63,25 @@ describe('External core integration', () => {
       title: `External ${marker} denied file`,
       text: 'Denied external material.',
       index: 1502,
+    });
+    await insertDocument({
+      matterId: nonMemberMatterId,
+      documentId: randomUUID(),
+      versionId: randomUUID(),
+      title: `External ${marker} nonmember file`,
+      text: 'Nonmember external material.',
+      index: 1503,
+    });
+    await insertDocument({
+      tenantId: tenantBetaId,
+      ownerUserId: betaOwnerUserId,
+      clientId: randomUUID(),
+      matterId: crossTenantMatterId,
+      documentId: randomUUID(),
+      versionId: randomUUID(),
+      title: `External ${marker} beta file`,
+      text: 'Cross tenant external material.',
+      index: 1504,
     });
     await addMatterMember({
       tenantId: tenantAlphaId,
@@ -148,9 +172,9 @@ describe('External core integration', () => {
       externalUserId: externalUser.externalUserId,
       documentId,
       versionId,
-      watermarkApplied: true,
+      watermarkApplied: false,
+      watermarkRef: null,
     });
-    expect(manifest.watermarkRef).toContain(link.linkId);
     expect(JSON.stringify(manifest)).not.toContain('External sharing body');
     expect(JSON.stringify(manifest)).not.toContain(`External ${marker} primary file`);
     expect(JSON.stringify(manifest)).not.toContain(linkToken);
@@ -166,6 +190,52 @@ describe('External core integration', () => {
     });
     expect(JSON.stringify(accessAudit?.metadata_json)).not.toContain(linkToken);
     expect(JSON.stringify(accessAudit?.metadata_json)).not.toContain('External sharing body');
+  });
+
+  it('lists management workspaces by matter with permission-before-query guards', async () => {
+    const listed = await getJson<ExternalManagementWorkspaceListResponseDto>(
+      `/v1/external/workspaces?matterId=${matterId}`,
+    );
+    expect(listed.workspaces).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workspaceId: workspace.workspaceId,
+          matterId,
+          users: expect.arrayContaining([
+            expect.objectContaining({
+              externalUserId: externalUser.externalUserId,
+              workspaceId: workspace.workspaceId,
+            }),
+          ]),
+          links: expect.arrayContaining([
+            expect.objectContaining({
+              linkId: link.linkId,
+              workspaceId: workspace.workspaceId,
+              documentId,
+            }),
+          ]),
+        }),
+      ]),
+    );
+    const raw = JSON.stringify(listed);
+    expect(raw).not.toContain(linkToken);
+    expect(raw).not.toContain('External sharing body');
+
+    const nonMember = await fetch(`${baseUrl}/v1/external/workspaces?matterId=${nonMemberMatterId}`, {
+      headers: { cookie: ownerCookie },
+    });
+    const nonMemberText = await nonMember.text();
+    expect(nonMember.status, nonMemberText).toBe(403);
+    expect(nonMemberText).toContain('PERMISSION_DENIED');
+    expect(nonMemberText).not.toContain(nonMemberMatterId);
+
+    const crossTenant = await fetch(`${baseUrl}/v1/external/workspaces?matterId=${crossTenantMatterId}`, {
+      headers: { cookie: ownerCookie },
+    });
+    const crossTenantText = await crossTenant.text();
+    expect(crossTenant.status, crossTenantText).toBe(404);
+    expect(crossTenantText).toContain('PERMISSION_DENIED');
+    expect(crossTenantText).not.toContain(crossTenantMatterId);
   });
 
   it('blocks denied documents before secure link creation', async () => {
@@ -235,6 +305,53 @@ describe('External core integration', () => {
     expect(expiredText).toContain('EXTERNAL_LINK_EXPIRED');
   });
 
+  it('blocks new link issuance after workspace archive freeze', async () => {
+    const linkCountBefore = await externalLinkCount(workspace.workspaceId);
+    const auditCountBefore = await externalLinkCreatedAuditCount(workspace.workspaceId);
+    await withClient(createOwnerClient(), async (client) => {
+      await setTenant(client, tenantAlphaId);
+      await client.query(
+        `
+          UPDATE external_workspaces
+          SET status = 'frozen',
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND workspace_id = $2
+        `,
+        [tenantAlphaId, workspace.workspaceId],
+      );
+    });
+
+    const response = await fetch(`${baseUrl}/v1/external/links`, {
+      method: 'POST',
+      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        workspaceId: workspace.workspaceId,
+        externalUserId: externalUser.externalUserId,
+        documentId,
+        expiresAt: futureIso(3),
+      }),
+    });
+    const text = await response.text();
+    expect(response.status, text).toBe(403);
+    expect(text).toContain('PERMISSION_DENIED');
+    expect(text).not.toContain(documentId);
+    expect(await externalLinkCount(workspace.workspaceId)).toBe(linkCountBefore);
+    expect(await externalLinkCreatedAuditCount(workspace.workspaceId)).toBe(auditCountBefore);
+
+    const listed = await getJson<ExternalManagementWorkspaceListResponseDto>(
+      `/v1/external/workspaces?matterId=${matterId}`,
+    );
+    expect(listed.workspaces).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workspaceId: workspace.workspaceId,
+          status: 'frozen',
+        }),
+      ]),
+    );
+  });
+
   it('keeps external tables tenant-RLS protected and runtime-destructive grants absent', async () => {
     const evidence = await withClient(createOwnerClient(), async (client) => {
       await setTenant(client, tenantAlphaId);
@@ -301,6 +418,15 @@ describe('External core integration', () => {
     return JSON.parse(text) as T;
   }
 
+  async function getJson<T>(path: string): Promise<T> {
+    const response = await fetch(`${baseUrl}${path}`, {
+      headers: { cookie: ownerCookie },
+    });
+    const text = await response.text();
+    expect(response.status, text).toBe(200);
+    return JSON.parse(text) as T;
+  }
+
   async function getPublicJson<T>(path: string): Promise<T> {
     const response = await fetch(`${baseUrl}${path}`, {
       headers: { 'x-amic-external-actor-ref': marker },
@@ -311,7 +437,11 @@ describe('External core integration', () => {
   }
 
   async function insertDocument(input: {
+    clientId?: string;
     documentId: string;
+    matterId?: string;
+    ownerUserId?: string;
+    tenantId?: string;
     versionId: string;
     title: string;
     text: string;
@@ -319,10 +449,10 @@ describe('External core integration', () => {
   }): Promise<void> {
     await insertSearchIndexedRow(
       {
-        tenantId: tenantAlphaId,
-        ownerUserId: alphaOwnerUserId,
-        clientId,
-        matterId,
+        tenantId: input.tenantId ?? tenantAlphaId,
+        ownerUserId: input.ownerUserId ?? alphaOwnerUserId,
+        clientId: input.clientId ?? clientId,
+        matterId: input.matterId ?? matterId,
         documentId: input.documentId,
         versionId: input.versionId,
         title: input.title,
@@ -366,5 +496,36 @@ async function latestExternalAudit(action: string, targetId: string) {
       ],
     );
     return result.rows[0] as { result: string; metadata_json: Record<string, unknown> } | undefined;
+  });
+}
+
+async function externalLinkCount(workspaceId: string): Promise<number> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ count: string }>(
+      `
+        SELECT count(*)::text AS count
+        FROM external_secure_links
+        WHERE tenant_id = $1
+          AND workspace_id = $2
+      `,
+      [tenantAlphaId, workspaceId],
+    );
+    return Number(result.rows[0]?.count ?? '0');
+  });
+}
+
+async function externalLinkCreatedAuditCount(workspaceId: string): Promise<number> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ count: string }>(
+      `
+        SELECT count(*)::text AS count
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'EXTERNAL_LINK_CREATED'
+          AND metadata_json->>'external_workspace_id' = $2
+      `,
+      [tenantAlphaId, workspaceId],
+    );
+    return Number(result.rows[0]?.count ?? '0');
   });
 }

@@ -10,6 +10,10 @@ production/staging evidence. It is not a latest-main production approval for
 closeout boundary, which is `TECHNICAL-READY /
 EXTERNAL-EVIDENCE-REQUIRED-BEFORE-PROMOTION`.
 
+Current-state note, 2026-07-06: this remains historical launch evidence, not
+the current customer-wide go-live source. Current post-cutover truth is tracked
+in `docs/release/production-post-cutover-next-gates.md`.
+
 ## Scope
 
 This pack converts the post-R14 technical completion state into a launch-ready

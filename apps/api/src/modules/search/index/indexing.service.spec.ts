@@ -1,10 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  isSearchIndexQueueWorkerEnabled,
   searchIndexDeadLetterQueueName,
   searchIndexQueueSendOptions,
 } from './indexing.service';
 
 describe('SearchIndexingService options', () => {
+  const previousEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...previousEnv };
+  });
+
   it('uses five retries, exponential backoff, and a dead letter queue', async () => {
     const client = {
       query: vi.fn(async () => ({ rowCount: 1, rows: [{ id: 'queued' }] })),
@@ -28,5 +35,28 @@ describe('SearchIndexingService options', () => {
     await expect(options.db?.executeSql('SELECT 1', [])).resolves.toEqual({
       rows: [{ id: 'queued' }],
     });
+  });
+
+  it('uses PROCESS_ROLE as the default worker activation contract', () => {
+    delete process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED;
+
+    process.env.PROCESS_ROLE = 'worker';
+    expect(isSearchIndexQueueWorkerEnabled()).toBe(true);
+
+    process.env.PROCESS_ROLE = 'api';
+    expect(isSearchIndexQueueWorkerEnabled()).toBe(false);
+
+    delete process.env.PROCESS_ROLE;
+    expect(isSearchIndexQueueWorkerEnabled()).toBe(false);
+  });
+
+  it('keeps the legacy search worker flag as an explicit override', () => {
+    process.env.PROCESS_ROLE = 'api';
+    process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED = 'yes';
+    expect(isSearchIndexQueueWorkerEnabled()).toBe(true);
+
+    process.env.PROCESS_ROLE = 'worker';
+    process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED = '0';
+    expect(isSearchIndexQueueWorkerEnabled()).toBe(false);
   });
 });

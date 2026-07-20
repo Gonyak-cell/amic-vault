@@ -12,13 +12,20 @@ import {
   type DocumentConfidentialityLevel,
   type DocumentDto,
   type DocumentExtractionStatus,
+  type DocumentFolderDto,
   type DocumentPrivilegeStatus,
   type DocumentStatus,
   type DocumentType,
   type ListDocumentSort,
   type ListDocumentsQueryDto,
 } from '@amic-vault/shared';
-import { listMatterDocuments } from '@/lib/api-client';
+import {
+  listDocumentFolders,
+  listDocumentTags,
+  listMatterDocuments,
+  setDocumentTags,
+  updateDocumentMetadata,
+} from '@/lib/api-client';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import type { MatterCodeOption } from '@/lib/matter-app';
 import { Button } from '@/components/ui/button';
@@ -58,10 +65,12 @@ export interface MatterDocumentFilterState {
   confidentialityLevel: '' | DocumentConfidentialityLevel;
   documentType: '' | DocumentType;
   extractionStatus: '' | DocumentExtractionStatus;
+  folderId: string;
   legalHold: BooleanFilterValue;
   privilegeStatus: '' | DocumentPrivilegeStatus;
   sortBy: ListDocumentSort;
   status: '' | DocumentStatus;
+  tag: string;
   title: string;
 }
 
@@ -70,10 +79,12 @@ export const emptyMatterDocumentFilters: MatterDocumentFilterState = {
   confidentialityLevel: '',
   documentType: '',
   extractionStatus: '',
+  folderId: '',
   legalHold: '',
   privilegeStatus: '',
   sortBy: 'updated_desc',
   status: '',
+  tag: '',
   title: '',
 };
 
@@ -89,6 +100,8 @@ function booleanFilterValue(value: BooleanFilterValue): boolean | undefined {
 function cleanMatterDocumentFilters(filters: MatterDocumentFilterState): MatterDocumentFilterState {
   return {
     ...filters,
+    folderId: filters.folderId.trim(),
+    tag: filters.tag.trim(),
     title: filters.title.trim(),
   };
 }
@@ -101,6 +114,8 @@ export function matterDocumentListQueryFromFilters(
     pageSize,
     sortBy: cleaned.sortBy,
     ...(cleaned.title ? { title: cleaned.title } : {}),
+    ...(cleaned.folderId ? { folderId: cleaned.folderId } : {}),
+    ...(cleaned.tag ? { tag: cleaned.tag } : {}),
     ...(cleaned.documentType ? { documentType: cleaned.documentType } : {}),
     ...(cleaned.status ? { status: cleaned.status } : {}),
     ...(cleaned.confidentialityLevel ? { confidentialityLevel: cleaned.confidentialityLevel } : {}),
@@ -117,26 +132,216 @@ function countActiveFilters(filters: MatterDocumentFilterState): number {
     filters.confidentialityLevel,
     filters.documentType,
     filters.extractionStatus,
+    filters.folderId.trim(),
     filters.legalHold,
     filters.privilegeStatus,
     filters.status,
+    filters.tag.trim(),
     filters.title.trim(),
   ].filter(Boolean).length;
 }
 
-export function MatterDocumentTable({ documents }: { documents: DocumentDto[] }) {
+function parseDocumentTagsInput(value: string): string[] {
+  const tags = value
+    .split(/[,\n]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return [...new Set(tags)].slice(0, 50);
+}
+
+function DocumentTagEditor({
+  document,
+  onTagsUpdate,
+}: {
+  document: DocumentDto;
+  onTagsUpdate: ((document: DocumentDto, tags: string[]) => Promise<void>) | undefined;
+}) {
+  const [value, setValue] = React.useState((document.tags ?? []).join(', '));
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setValue((document.tags ?? []).join(', '));
+  }, [document.documentId, document.tags]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!onTagsUpdate) return;
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await onTagsUpdate(document, parseDocumentTagsInput(value));
+    } catch (error) {
+      setErrorMessage(safeApiErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
-    <DataTable caption="Matter 범위 문서함" minWidthClassName="min-w-[1120px]">
+    <form className="grid min-w-[14rem] gap-1.5" onSubmit={handleSubmit}>
+      <Input
+        aria-label={`${document.title} 태그`}
+        value={value}
+        placeholder="태그"
+        disabled={!onTagsUpdate || isSaving}
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <div className="flex items-center gap-2">
+        <Button type="submit" variant="outline" size="sm" disabled={!onTagsUpdate || isSaving}>
+          저장
+        </Button>
+        {errorMessage ? <span className="text-xs text-destructive">{errorMessage}</span> : null}
+      </div>
+    </form>
+  );
+}
+
+function MatterFolderTree({
+  folders,
+  selectedFolderId,
+  onSelect,
+}: {
+  folders: readonly DocumentFolderDto[];
+  selectedFolderId: string;
+  onSelect: (folderId: string) => void;
+}) {
+  if (folders.length === 0) return null;
+  const sortedFolders = [...folders].sort((left, right) => left.path.localeCompare(right.path));
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-foreground">폴더</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => onSelect('')}>
+          전체
+        </Button>
+      </div>
+      <div className="grid gap-1">
+        {sortedFolders.map((folder) => {
+          const depth = Math.max(0, folder.path.split('/').length - 1);
+          const selected = selectedFolderId === folder.folderId;
+          return (
+            <button
+              key={folder.folderId}
+              type="button"
+              className={`h-8 rounded-md px-2 text-left text-sm ${
+                selected ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              }`}
+              style={{ paddingLeft: `${8 + depth * 16}px` }}
+              onClick={() => onSelect(folder.folderId)}
+            >
+              {folder.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DocumentFolderSelector({
+  document,
+  folders,
+  onFolderUpdate,
+}: {
+  document: DocumentDto;
+  folders: DocumentFolderDto[];
+  onFolderUpdate: ((document: DocumentDto, folderId: string | null) => Promise<void>) | undefined;
+}) {
+  const [value, setValue] = React.useState(document.folderId ?? '');
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setValue(document.folderId ?? '');
+  }, [document.documentId, document.folderId]);
+
+  if (!onFolderUpdate) {
+    return <span className="text-muted-foreground">{document.folderPath?.trim() || '루트'}</span>;
+  }
+  const submitFolderUpdate = onFolderUpdate!;
+
+  const hasCurrentFolder =
+    document.folderId !== null &&
+    document.folderId !== undefined &&
+    folders.some((folder) => folder.folderId === document.folderId);
+  const folderOptions = hasCurrentFolder || !document.folderId
+    ? folders
+    : [
+        ...folders,
+        {
+          folderId: document.folderId,
+          matterId: document.matterId,
+          parentFolderId: null,
+          name: document.folderPath?.trim() || '현재 폴더',
+          path: document.folderPath?.trim() || '현재 폴더',
+          createdAt: document.createdAt,
+          updatedAt: document.updatedAt,
+        },
+      ];
+
+  async function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const nextValue = event.target.value;
+    const previousValue = value;
+    setValue(nextValue);
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await submitFolderUpdate(document, nextValue || null);
+    } catch (error) {
+      setValue(previousValue);
+      setErrorMessage(safeApiErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="grid min-w-[14rem] gap-1.5">
+      <select
+        aria-label={`${document.title} 폴더`}
+        className={selectClassName}
+        disabled={isSaving}
+        value={value}
+        onChange={handleChange}
+      >
+        <option value="">루트</option>
+        {folderOptions.map((folder) => (
+          <option key={folder.folderId} value={folder.folderId}>
+            {folder.path}
+          </option>
+        ))}
+      </select>
+      {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
+    </div>
+  );
+}
+
+export function MatterDocumentTable({
+  documents,
+  folders = [],
+  onFolderUpdate,
+  onTagsUpdate,
+}: {
+  documents: DocumentDto[];
+  folders?: DocumentFolderDto[];
+  onFolderUpdate?: (document: DocumentDto, folderId: string | null) => Promise<void>;
+  onTagsUpdate?: (document: DocumentDto, tags: string[]) => Promise<void>;
+}) {
+  return (
+    <DataTable caption="Matter별 문서함" minWidthClassName="min-w-[1320px]">
       <DataTableHeader>
         <tr>
           <DataTableHead>문서</DataTableHead>
+          <DataTableHead>폴더</DataTableHead>
           <DataTableHead>유형</DataTableHead>
           <DataTableHead>상태</DataTableHead>
           <DataTableHead>보안</DataTableHead>
           <DataTableHead>특권</DataTableHead>
+          <DataTableHead>태그</DataTableHead>
           <DataTableHead>파일 정리</DataTableHead>
           <DataTableHead>추출/OCR</DataTableHead>
-          <DataTableHead>Legal Hold</DataTableHead>
+          <DataTableHead>보존 조치</DataTableHead>
           <DataTableHead>업데이트</DataTableHead>
         </tr>
       </DataTableHeader>
@@ -150,6 +355,13 @@ export function MatterDocumentTable({ documents }: { documents: DocumentDto[] })
               >
                 {document.title}
               </Link>
+            </DataTableCell>
+            <DataTableCell className="min-w-[16rem]">
+              <DocumentFolderSelector
+                document={document}
+                folders={folders}
+                onFolderUpdate={onFolderUpdate}
+              />
             </DataTableCell>
             <DataTableCell className="text-muted-foreground">
               {documentTypeLabels[document.documentType]}
@@ -168,6 +380,9 @@ export function MatterDocumentTable({ documents }: { documents: DocumentDto[] })
               <StatusBadge tone={document.privilegeStatus === 'none' ? 'neutral' : 'warning'}>
                 {privilegeLabels[document.privilegeStatus]}
               </StatusBadge>
+            </DataTableCell>
+            <DataTableCell className="min-w-[16rem]">
+              <DocumentTagEditor document={document} onTagsUpdate={onTagsUpdate} />
             </DataTableCell>
             <DataTableCell>
               <StatusBadge tone={document.aiAllowed ? 'success' : 'neutral'}>
@@ -196,18 +411,24 @@ export function MatterDocumentTable({ documents }: { documents: DocumentDto[] })
 
 export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDocumentListProps) {
   const [documents, setDocuments] = React.useState<DocumentDto[]>([]);
+  const [folders, setFolders] = React.useState<DocumentFolderDto[]>([]);
+  const [knownTags, setKnownTags] = React.useState<string[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
   const [draftFilters, setDraftFilters] =
     React.useState<MatterDocumentFilterState>(emptyMatterDocumentFilters);
   const [filters, setFilters] = React.useState<MatterDocumentFilterState>(emptyMatterDocumentFilters);
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [organizationError, setOrganizationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!selectedMatter) {
       setDocuments([]);
+      setFolders([]);
+      setKnownTags([]);
       setTotalCount(0);
       setErrorMessage(null);
+      setOrganizationError(null);
       return;
     }
     let active = true;
@@ -233,6 +454,32 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
     };
   }, [filters, refreshKey, selectedMatter]);
 
+  React.useEffect(() => {
+    if (!selectedMatter) return;
+    let active = true;
+    setDraftFilters(emptyMatterDocumentFilters);
+    setFilters(emptyMatterDocumentFilters);
+    setOrganizationError(null);
+    Promise.all([
+      listDocumentFolders(selectedMatter.matterReference),
+      listDocumentTags(selectedMatter.matterReference),
+    ])
+      .then(([folderList, tagList]) => {
+        if (!active) return;
+        setFolders(folderList);
+        setKnownTags(tagList.tags);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setFolders([]);
+        setKnownTags([]);
+        setOrganizationError(safeApiErrorMessage(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedMatter]);
+
   function updateDraftFilter<K extends keyof MatterDocumentFilterState>(
     key: K,
     value: MatterDocumentFilterState[K],
@@ -252,11 +499,37 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
     setFilters(emptyMatterDocumentFilters);
   }
 
+  function selectFolderFilter(folderId: string) {
+    const nextFilters = cleanMatterDocumentFilters({ ...draftFilters, folderId });
+    setDraftFilters(nextFilters);
+    setFilters(nextFilters);
+  }
+
+  async function handleDocumentTagsUpdate(document: DocumentDto, tags: string[]): Promise<void> {
+    const result = await setDocumentTags(document.documentId, { tags });
+    setDocuments((current) =>
+      current.map((item) =>
+        item.documentId === document.documentId ? { ...item, tags: result.tags } : item,
+      ),
+    );
+    setKnownTags((current) => [...new Set([...current, ...result.tags])].sort());
+  }
+
+  async function handleDocumentFolderUpdate(
+    document: DocumentDto,
+    folderId: string | null,
+  ): Promise<void> {
+    const result = await updateDocumentMetadata(document.documentId, { folderId });
+    setDocuments((current) =>
+      current.map((item) => (item.documentId === document.documentId ? result : item)),
+    );
+  }
+
   if (!selectedMatter) {
     return (
       <EmptyState
         variant="pre-search"
-        title="Matter Code를 선택하면 파일 목록이 표시됩니다."
+        title="Matter code를 선택하면 파일 목록이 표시됩니다."
         description="목록은 접근 권한이 확인된 파일만 표시합니다."
       />
     );
@@ -386,7 +659,7 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
           ))}
         </select>
       </FilterField>
-      <FilterField htmlFor="matter-document-legal-hold" label="Legal Hold">
+      <FilterField htmlFor="matter-document-legal-hold" label="보존 조치">
         <select
           id="matter-document-legal-hold"
           className={selectClassName}
@@ -399,6 +672,35 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
           <option value="true">보존 적용</option>
           <option value="false">보존 없음</option>
         </select>
+      </FilterField>
+      <FilterField htmlFor="matter-document-folder" label="폴더">
+        <select
+          id="matter-document-folder"
+          className={selectClassName}
+          value={draftFilters.folderId}
+          onChange={(event) => updateDraftFilter('folderId', event.target.value)}
+        >
+          <option value="">전체</option>
+          {folders.map((folder) => (
+            <option key={folder.folderId} value={folder.folderId}>
+              {folder.path}
+            </option>
+          ))}
+        </select>
+      </FilterField>
+      <FilterField htmlFor="matter-document-tag" label="태그">
+        <Input
+          id="matter-document-tag"
+          value={draftFilters.tag}
+          list="matter-document-tags"
+          onChange={(event) => updateDraftFilter('tag', event.target.value)}
+          placeholder="태그"
+        />
+        <datalist id="matter-document-tags">
+          {knownTags.map((tag) => (
+            <option key={tag} value={tag} />
+          ))}
+        </datalist>
       </FilterField>
       <FilterField htmlFor="matter-document-sort" label="정렬">
         <select
@@ -422,7 +724,7 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
       <FilterBar
         label="Matter 문서함 필터"
         title="Matter 문서함 필터"
-        description="선택한 Matter Code 안에서 권한이 확인된 문서를 문서명, 보안 상태, 파일 정리 상태, 추출/OCR 상태 기준으로 좁힙니다."
+        description="선택한 Matter code 안에서 권한이 확인된 문서를 문서명, 보안 상태, 파일 정리 상태, 추출/OCR 상태 기준으로 좁힙니다."
         resultsSummary={
           isLoading
             ? 'Matter 문서함을 확인하는 중입니다.'
@@ -440,6 +742,16 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
           </>
         }
       />
+      {organizationError ? (
+        <p className="mt-2 text-sm text-destructive">{organizationError}</p>
+      ) : null}
+      <div className="mt-3">
+        <MatterFolderTree
+          folders={folders}
+          selectedFolderId={draftFilters.folderId}
+          onSelect={selectFolderFilter}
+        />
+      </div>
     </form>
   );
 
@@ -475,7 +787,7 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
         <EmptyState
           variant="no-data"
           title="표시할 파일이 없습니다."
-          description="선택한 Matter Code에서 접근 권한과 필터 조건을 통과한 파일이 여기에 표시됩니다."
+          description="선택한 Matter code에서 접근 권한과 필터 조건을 통과한 파일이 여기에 표시됩니다."
         />
       </div>
     );
@@ -485,10 +797,15 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
     <div className="space-y-3">
       {filterPanel}
       <div className="flex min-h-11 items-center justify-between gap-3 border-b bg-muted/30 px-3 text-sm">
-        <span className="font-medium text-foreground">Matter 범위 문서</span>
+        <span className="font-medium text-foreground">Matter별 문서</span>
         <span className="text-muted-foreground">{totalCount}건</span>
       </div>
-      <MatterDocumentTable documents={documents} />
+      <MatterDocumentTable
+        documents={documents}
+        folders={folders}
+        onFolderUpdate={handleDocumentFolderUpdate}
+        onTagsUpdate={handleDocumentTagsUpdate}
+      />
     </div>
   );
 }

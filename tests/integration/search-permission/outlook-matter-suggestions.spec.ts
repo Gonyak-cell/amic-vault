@@ -143,6 +143,8 @@ describe('Outlook matter suggestion endpoint permission integration', () => {
       clientId,
       reasonCodes: ['participant_domain_hash'],
       score: 30,
+      confidence: 58,
+      confidenceBand: 'candidate',
     });
 
     const audit = await latestSuggestionAudit({

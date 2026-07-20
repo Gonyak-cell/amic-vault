@@ -10,6 +10,7 @@ export interface ClientEntityProps {
   clientId: string;
   tenantId: string;
   name: string;
+  aliases: string[];
   clientType: ClientType;
   confidentialityLevel: ClientConfidentialityLevel;
   status: ClientStatus;
@@ -27,6 +28,7 @@ export class ClientEntity {
       clientId: this.props.clientId,
       tenantId: this.props.tenantId,
       name: this.props.name,
+      aliases: this.props.aliases,
       displayName: this.props.name,
       safeLabel: buildSafeLabel(this.props.name),
       canViewSensitiveRef: false,

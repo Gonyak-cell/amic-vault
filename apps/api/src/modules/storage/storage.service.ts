@@ -4,6 +4,7 @@ import type {
   StorageAdapter,
   StorageBody,
   StorageGetObjectResult,
+  StorageReadUrlResult,
 } from './storage-adapter.interface';
 import { ENCRYPTION_HOOK, type EncryptionHook } from './encryption-hook.interface';
 import { StoragePathResolver, StorageTenantIsolationViolationError } from './storage-path.resolver';
@@ -24,6 +25,14 @@ export interface PutEmailRawObjectInput {
   tenantId: string;
   emailId: string;
   fileObjectId: string;
+  body: StorageBody;
+  contentLength: number;
+  contentType: string;
+}
+
+export interface PutAuditAnchorObjectInput {
+  tenantId: string;
+  anchorDate: string;
   body: StorageBody;
   contentLength: number;
   contentType: string;
@@ -94,6 +103,28 @@ export class StorageService {
     };
   }
 
+  async putAuditAnchorObject(input: PutAuditAnchorObjectInput): Promise<PutTenantObjectResult> {
+    const key = this.pathResolver.buildAuditAnchorObjectKey(input);
+    const encrypted = await this.encryptionHook.beforePut({
+      tenantId: input.tenantId,
+      fileObjectId: `audit-anchor:${input.anchorDate}`,
+      body: input.body,
+      contentLength: input.contentLength,
+      contentType: input.contentType,
+    });
+    await this.adapter.putIfAbsent({
+      key,
+      body: encrypted.body,
+      contentLength: encrypted.contentLength,
+      contentType: encrypted.contentType,
+    });
+    return {
+      key,
+      storageUri: this.pathResolver.storageUriForKey(key),
+      encryptionKeyId: encrypted.encryptionKeyId,
+    };
+  }
+
   async headByStorageUri(tenantId: string, storageUri: string) {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
     return this.adapter.head(parsed.key);
@@ -110,6 +141,39 @@ export class StorageService {
       contentType: object.contentType,
     });
     return { ...object, body: decrypted.body };
+  }
+
+  async getRangeByStorageUri(
+    tenantId: string,
+    storageUri: string,
+    start: number,
+    end: number,
+  ): Promise<StorageGetObjectResult> {
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start) {
+      throw tenantIsolationDenied();
+    }
+    const parsed = this.assertTenantStorageUri(tenantId, storageUri);
+    const object = await this.adapter.getRange({ key: parsed.key, start, end });
+    const decrypted = await this.encryptionHook.afterGet({
+      tenantId,
+      key: parsed.key,
+      body: object.body,
+      contentLength: object.contentLength,
+      contentType: object.contentType,
+    });
+    return { ...object, body: decrypted.body };
+  }
+
+  async createReadUrlByStorageUri(
+    tenantId: string,
+    storageUri: string,
+    expiresInSeconds?: number,
+  ): Promise<StorageReadUrlResult> {
+    const parsed = this.assertTenantStorageUri(tenantId, storageUri);
+    return this.adapter.createReadUrl({
+      key: parsed.key,
+      ...(expiresInSeconds === undefined ? {} : { expiresInSeconds }),
+    });
   }
 
   async sha256ByStorageUri(tenantId: string, storageUri: string): Promise<string> {

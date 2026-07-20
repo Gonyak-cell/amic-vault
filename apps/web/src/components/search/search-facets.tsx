@@ -108,6 +108,20 @@ export function SearchFacets({
           language={language}
         />
       ) : null}
+      {allowed('ocrConfidence') ? (
+        <FacetGroup
+          title={t('search.facet.ocrConfidence')}
+          buckets={facets.ocrConfidence}
+          selected={selection.ocrConfidence}
+          onSelect={(value) =>
+            onChange({
+              ...selection,
+              ocrConfidence: value as SearchFacetSelection['ocrConfidence'],
+            })
+          }
+          language={language}
+        />
+      ) : null}
       {allowed('legalHold') ? (
         <FacetGroup
           title={t('search.facet.legalHold')}
@@ -247,6 +261,7 @@ function labelForBucket(
     pending: 'search.facet.extractionPending',
     ocr_pending: 'search.facet.extractionOcrPending',
     failed: 'search.facet.extractionFailed',
+    ocr_low_confidence: 'search.facet.ocrLowConfidence',
     document_hold: 'search.facet.documentHold',
     matter_hold: 'search.facet.matterHold',
     no_hold: 'search.facet.noHold',

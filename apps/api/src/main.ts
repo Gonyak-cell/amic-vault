@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { StructuredLogger } from './common/logging/logger';
+import { setDefaultProcessRole } from './common/process-role';
 import { noStoreApiMiddleware } from './common/security/no-store.middleware';
 
 export function configureApp(app: INestApplication): void {
@@ -21,7 +22,12 @@ export function configureApp(app: INestApplication): void {
   });
 }
 
+export function configureApiProcessEnv(env: NodeJS.ProcessEnv = process.env): void {
+  setDefaultProcessRole('api', env);
+}
+
 export async function bootstrap(): Promise<void> {
+  configureApiProcessEnv();
   const logger = new StructuredLogger();
   const app = await NestFactory.create(AppModule, { logger });
   configureApp(app);

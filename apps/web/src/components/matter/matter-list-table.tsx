@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { FolderKanban } from 'lucide-react';
+import { FolderKanban, ShieldCheck, TriangleAlert } from 'lucide-react';
 import type { MatterDto } from '@amic-vault/shared';
 import { matterFileCabinetUrl, matterSearchUrl } from '@/components/matter/matter-dms-links';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 
 export interface MatterListTableCopy {
   actions: string;
+  client: string;
   fileCabinet: string;
   matter: string;
   openMatter: string;
@@ -22,6 +23,12 @@ export interface MatterListTableCopy {
 
 export { matterFileCabinetUrl, matterSearchUrl } from '@/components/matter/matter-dms-links';
 
+const confidentialityLabels = {
+  standard: '표준',
+  high: '높음',
+  restricted: '제한',
+} as const satisfies Record<MatterDto['confidentialityLevel'], string>;
+
 export function MatterListTable({
   copy,
   matters,
@@ -31,9 +38,10 @@ export function MatterListTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[1040px]">
-        <div className="grid min-h-16 grid-cols-[minmax(220px,1fr)_110px_110px_90px_330px] items-center gap-4 border-b px-5 py-4 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+      <div className="min-w-[1140px]">
+        <div className="grid min-h-16 grid-cols-[minmax(220px,1fr)_180px_110px_110px_90px_330px] items-center gap-4 border-b px-5 py-4 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
           <span>{copy.matter}</span>
+          <span>{copy.client}</span>
           <span>{copy.type}</span>
           <span>{copy.status}</span>
           <span className="text-right">{copy.security}</span>
@@ -42,7 +50,7 @@ export function MatterListTable({
         {matters.map((matter) => (
           <div
             key={matter.matterId}
-            className="grid grid-cols-[minmax(220px,1fr)_110px_110px_90px_330px] items-center gap-4 border-b px-5 py-4 text-sm last:border-b-0"
+            className="grid grid-cols-[minmax(220px,1fr)_180px_110px_110px_90px_330px] items-center gap-4 border-b px-5 py-4 text-sm last:border-b-0"
           >
             <Link
               href={`/matters/${matter.matterId}`}
@@ -56,11 +64,25 @@ export function MatterListTable({
                 <span className="block truncate text-xs text-muted-foreground">{matter.matterCode}</span>
               </span>
             </Link>
+            <span className="truncate text-muted-foreground">
+              {matter.clientDisplayName ?? '고객 표시명 없음'}
+            </span>
             <span className="truncate text-muted-foreground">{matter.matterType}</span>
             <span>
               <MatterStatusBadge status={matter.status} />
             </span>
-            <span className="text-right text-muted-foreground">{copy.protected}</span>
+            <span className="flex min-w-0 flex-col items-end gap-1 text-right text-xs">
+              <span className="inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 font-medium text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                {confidentialityLabels[matter.confidentialityLevel]}
+              </span>
+              {matter.ethicalWallActive ? (
+                <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-amber-300 px-2 py-1 font-medium text-amber-700">
+                  <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                  Wall
+                </span>
+              ) : null}
+            </span>
             <span className="flex min-w-0 justify-end gap-2 whitespace-nowrap">
               <Button asChild className="min-w-[72px] px-3" size="sm" variant="outline">
                 <Link href={`/matters/${matter.matterId}`}>

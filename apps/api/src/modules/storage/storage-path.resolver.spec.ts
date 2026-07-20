@@ -10,6 +10,7 @@ const matterId = '11111111-1111-4111-8111-111111111122';
 const documentId = '11111111-1111-4111-8111-111111111133';
 const fileObjectId = '11111111-1111-4111-8111-111111111144';
 const emailId = '11111111-1111-4111-8111-111111111155';
+const anchorDate = '2026-07-02';
 
 describe('StoragePathResolver', () => {
   it('builds and parses tenant-prefixed object paths', () => {
@@ -45,6 +46,19 @@ describe('StoragePathResolver', () => {
     });
   });
 
+  it('builds and parses tenant-prefixed audit anchor paths', () => {
+    const resolver = new StoragePathResolver('vault-dev');
+    const key = resolver.buildAuditAnchorObjectKey({ tenantId, anchorDate });
+
+    expect(key).toBe(`tenants/${tenantId}/audit-anchors/${anchorDate}.json`);
+    expect(resolver.storageUriForKey(key)).toBe(`s3://vault-dev/${key}`);
+    expect(resolver.parseStorageUri(`s3://vault-dev/${key}`)).toMatchObject({
+      objectType: 'audit_anchor',
+      tenantId,
+      anchorDate,
+    });
+  });
+
   it('rejects missing tenant prefixes and traversal attempts', () => {
     const resolver = new StoragePathResolver('vault-dev');
 
@@ -63,6 +77,12 @@ describe('StoragePathResolver', () => {
     ).toThrow(StoragePathViolationError);
     expect(() =>
       resolver.parseObjectKey(`tenants/${tenantId}/emails/${emailId}/raw/../${fileObjectId}`),
+    ).toThrow(StoragePathViolationError);
+    expect(() =>
+      resolver.parseObjectKey(`tenants/${tenantId}/audit-anchors/../${anchorDate}.json`),
+    ).toThrow(StoragePathViolationError);
+    expect(() =>
+      resolver.parseObjectKey(`tenants/${tenantId}/audit-anchors/not-a-date.json`),
     ).toThrow(StoragePathViolationError);
   });
 

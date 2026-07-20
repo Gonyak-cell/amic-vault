@@ -73,12 +73,11 @@ describe('MatterAuditTimeline', () => {
       />,
     );
 
-    expect(html).toContain('사건 감사 타임라인');
-    expect(html).toContain('Matter 통합 활동');
+    expect(html).toContain('Matter 감사 로그');
     expect(html).toContain('범주');
     expect(html).toContain('문서/버전');
     expect(html).toContain('검색');
-    expect(html).toContain('Records');
+    expect(html).toContain('기록 보존');
     expect(html).toContain('계약 검토 자료');
     expect(html).toContain('문서 업로드');
     expect(html).toContain('검색 실행');

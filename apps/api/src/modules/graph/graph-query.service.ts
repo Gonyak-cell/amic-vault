@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   EvidencePackGraphFactDto,
+  GraphEdgeType,
   GraphFactDto,
   GraphFactsResponseDto,
+  GraphNeighborhoodResponseDto,
   PermissionContext,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
@@ -30,18 +32,66 @@ interface GraphFactRow {
   source_matter_id: string | null;
   source_document_id: string | null;
   source_version_id: string | null;
+  source_provenance: GraphFactDto['source']['provenance'];
+  source_review_status: GraphFactDto['source']['reviewStatus'];
+  source_created_by_kind: GraphFactDto['source']['createdByKind'];
   target_node_id: string;
   target_node_type: GraphFactDto['target']['nodeType'];
   target_source_id: string;
   target_matter_id: string | null;
   target_document_id: string | null;
   target_version_id: string | null;
+  target_provenance: GraphFactDto['target']['provenance'];
+  target_review_status: GraphFactDto['target']['reviewStatus'];
+  target_created_by_kind: GraphFactDto['target']['createdByKind'];
+}
+
+interface GraphNodeRow {
+  node_id: string;
+  node_type: GraphFactDto['source']['nodeType'];
+  source_id: string;
+  matter_id: string | null;
+  document_id: string | null;
+  version_id: string | null;
+  provenance: GraphFactDto['source']['provenance'];
+  review_status: GraphFactDto['source']['reviewStatus'];
+  created_by_kind: GraphFactDto['source']['createdByKind'];
+}
+
+interface GraphNeighborhoodPathRow extends GraphFactRow {
+  depth: number;
+  node_ids: string[];
+  edge_ids: string[];
+}
+
+interface GraphRootNodeRow {
+  node_id: string;
+  node_type: GraphFactDto['source']['nodeType'];
+  source_id: string;
+  matter_id: string | null;
 }
 
 export interface GraphFactsInput {
   matterId: string;
   documentId?: string | undefined;
   documentIds?: readonly string[] | undefined;
+  limit?: number | undefined;
+  scopeLabel?: 'graph_query' | 'ai_evidence_pack' | undefined;
+}
+
+export interface GraphNeighborhoodInput {
+  nodeId: string;
+  depth?: number | undefined;
+  edgeTypes?: readonly GraphEdgeType[] | undefined;
+  cursor?: number | undefined;
+  limit?: number | undefined;
+  scopeLabel?: 'graph_query' | 'ai_evidence_pack' | undefined;
+}
+
+export interface GraphDocumentNeighborhoodInput {
+  matterId: string;
+  documentIds: readonly string[];
+  depth?: number | undefined;
   limit?: number | undefined;
   scopeLabel?: 'graph_query' | 'ai_evidence_pack' | undefined;
 }
@@ -148,6 +198,117 @@ export class GraphQueryService {
     }
   }
 
+  async listNeighborhood(
+    ctx: PermissionContext,
+    input: GraphNeighborhoodInput,
+  ): Promise<GraphNeighborhoodResponseDto> {
+    const startedAt = performance.now();
+    const depth = Math.min(3, Math.max(1, input.depth ?? 1));
+    const limit = Math.min(200, Math.max(1, input.limit ?? 200));
+    const cursor = Math.max(0, input.cursor ?? 0);
+    const root = await this.findRootNode(ctx, input.nodeId);
+    const matterId = root?.matter_id ?? (root?.node_type === 'matter' ? root.source_id : null);
+    if (!root || !matterId) {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    const matterDecision = await this.permissionService.canReadMatter(ctx, matterId);
+    if (matterDecision.effect !== 'ALLOW') {
+      await this.recordNeighborhoodQuery(ctx, matterId, input, 0, 'denied', startedAt, [
+        'matter.read:denied',
+      ]);
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+
+    const scopeDecision = await this.safeScopeDecision(ctx, matterId, input, startedAt);
+    if (scopeDecision.effect !== 'ALLOW') {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+
+    try {
+      return await this.auditService.transaction(ctx.tenantId, async (client) => {
+        const rows = await this.queryNeighborhoodRows(client, scopeDecision.scope, {
+          tenantId: ctx.tenantId,
+          matterId,
+          nodeId: root.node_id,
+          depth,
+          edgeTypes: input.edgeTypes,
+          cursor,
+          limit: limit + 1,
+        });
+        const hasNext = rows.length > limit;
+        const pageRows = rows.slice(0, limit);
+        const nodeIds = [
+          ...new Set([root.node_id, ...pageRows.flatMap((row) => row.node_ids)]),
+        ].slice(0, 400);
+        const nodeRows = await this.queryNodesById(client, ctx.tenantId, nodeIds);
+        const output = {
+          matterId,
+          rootNodeId: root.node_id,
+          depth,
+          nodes: nodeRows.map(toGraphNodeRef),
+          edges: uniqueFacts(pageRows.map(toGraphFact)),
+          paths: pageRows.map((row) => ({
+            depth: row.depth,
+            nodeIds: row.node_ids,
+            edgeIds: row.edge_ids,
+          })),
+          nextCursor: hasNext ? String(cursor + limit) : null,
+        };
+        await this.auditService.log(
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            sessionId: ctx.sessionId ?? null,
+            action: 'GRAPH_QUERY_EXECUTED',
+            targetType: 'graph_query',
+            targetId: matterId,
+            matterId,
+            metadata: {
+              matter_id: matterId,
+              graph_scope: input.scopeLabel ?? 'graph_query',
+              query_hash: sha256Hex(
+                `${root.node_id}:${depth}:${input.edgeTypes?.join(',') ?? ''}:${cursor}`,
+              ),
+              result_count: output.edges.length,
+              filter_refs: compactRules(scopeDecision.appliedRules ?? []),
+              duration_ms: Math.round(performance.now() - startedAt),
+            },
+          },
+          client,
+        );
+        return output;
+      });
+    } catch (error) {
+      this.logger.warn({ code: 'GRAPH_NEIGHBORHOOD_QUERY_FAILED', nodeId: input.nodeId });
+      throw error;
+    }
+  }
+
+  async listNeighborhoodFactsForDocuments(
+    ctx: PermissionContext,
+    input: GraphDocumentNeighborhoodInput,
+  ): Promise<GraphFactsResponseDto> {
+    const rootNodeId = await this.findFirstDocumentNode(ctx, input.matterId, input.documentIds);
+    if (!rootNodeId) {
+      return this.listFacts(ctx, {
+        matterId: input.matterId,
+        documentIds: input.documentIds,
+        limit: input.limit,
+        scopeLabel: input.scopeLabel,
+      });
+    }
+    const neighborhood = await this.listNeighborhood(ctx, {
+      nodeId: rootNodeId,
+      depth: input.depth ?? 2,
+      limit: input.limit,
+      scopeLabel: input.scopeLabel,
+    });
+    return {
+      matterId: neighborhood.matterId,
+      facts: neighborhood.edges.slice(0, input.limit ?? 20),
+    };
+  }
+
   toEvidencePackFacts(facts: readonly GraphFactDto[]): EvidencePackGraphFactDto[] {
     return facts.slice(0, 20).map((fact) => ({
       edgeId: fact.edgeId,
@@ -156,8 +317,14 @@ export class GraphQueryService {
       documentId: fact.documentId,
       sourceNodeId: fact.source.nodeId,
       sourceNodeType: fact.source.nodeType,
+      sourceProvenance: fact.source.provenance,
+      sourceReviewStatus: fact.source.reviewStatus,
+      sourceCreatedByKind: fact.source.createdByKind,
       targetNodeId: fact.target.nodeId,
       targetNodeType: fact.target.nodeType,
+      targetProvenance: fact.target.provenance,
+      targetReviewStatus: fact.target.reviewStatus,
+      targetCreatedByKind: fact.target.createdByKind,
       sourceHash: fact.sourceHash,
     }));
   }
@@ -178,7 +345,9 @@ export class GraphQueryService {
     ];
     const params: SearchSqlValue[] = [...filters.params];
     const documentFilter =
-      documentIds.length > 0 ? `AND ge.document_id = ANY($${params.push(documentIds)}::uuid[])` : '';
+      documentIds.length > 0
+        ? `AND ge.document_id = ANY($${params.push(documentIds)}::uuid[])`
+        : '';
     const sql = `
       WITH idx AS (
         SELECT d.tenant_id, d.document_id, dv.version_id, d.matter_id, m.client_id,
@@ -217,6 +386,220 @@ export class GraphQueryService {
     return result.rows;
   }
 
+  private async findRootNode(
+    ctx: PermissionContext,
+    nodeId: string,
+  ): Promise<GraphRootNodeRow | null> {
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<GraphRootNodeRow>(
+        `
+          SELECT node_id, node_type, source_id, matter_id
+          FROM graph_nodes
+          WHERE tenant_id = $1
+            AND node_id = $2
+            AND stale = false
+          LIMIT 1
+        `,
+        [ctx.tenantId, nodeId],
+      );
+      return result.rows[0] ?? null;
+    });
+  }
+
+  private async findFirstDocumentNode(
+    ctx: PermissionContext,
+    matterId: string,
+    documentIds: readonly string[],
+  ): Promise<string | null> {
+    if (documentIds.length === 0) return null;
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const result = await client.query<{ node_id: string }>(
+        `
+          SELECT node_id
+          FROM graph_nodes
+          WHERE tenant_id = $1
+            AND matter_id = $2
+            AND node_type = 'document'
+            AND source_id = ANY($3::uuid[])
+            AND stale = false
+          ORDER BY source_id
+          LIMIT 1
+        `,
+        [ctx.tenantId, matterId, [...new Set(documentIds)]],
+      );
+      return result.rows[0]?.node_id ?? null;
+    });
+  }
+
+  private async safeScopeDecision(
+    ctx: PermissionContext,
+    matterId: string,
+    input: Pick<GraphNeighborhoodInput, 'nodeId' | 'depth' | 'edgeTypes' | 'scopeLabel'>,
+    startedAt: number,
+  ): Promise<Awaited<ReturnType<SearchPermissionScopeProvider['scopeForSearch']>>> {
+    try {
+      const scopeDecision = await this.scopeProvider.scopeForSearch(ctx);
+      if (scopeDecision.effect !== 'ALLOW') {
+        await this.recordNeighborhoodQuery(ctx, matterId, input, 0, 'denied', startedAt, [
+          'graph.permission_scope:deny',
+        ]);
+      }
+      return scopeDecision;
+    } catch {
+      await this.recordNeighborhoodQuery(ctx, matterId, input, 0, 'denied', startedAt, [
+        'graph.permission_scope:error',
+      ]);
+      return { effect: 'DENY', reasonCode: 'SCOPE_ERROR' };
+    }
+  }
+
+  private async queryNeighborhoodRows(
+    client: { query<T>(sql: string, params?: readonly unknown[]): Promise<{ rows: T[] }> },
+    scope: SearchSqlFragment,
+    input: {
+      tenantId: string;
+      matterId: string;
+      nodeId: string;
+      depth: number;
+      edgeTypes?: readonly GraphEdgeType[] | undefined;
+      cursor: number;
+      limit: number;
+    },
+  ): Promise<GraphNeighborhoodPathRow[]> {
+    const filters = this.filterBuilder.build({
+      filters: { matterId: input.matterId, versionStatus: 'all' },
+      scope,
+    });
+    const params: SearchSqlValue[] = [...filters.params];
+    const tenantParam = params.push(input.tenantId);
+    const matterParam = params.push(input.matterId);
+    const rootParam = params.push(input.nodeId);
+    const depthParam = params.push(input.depth);
+    const edgeTypes = input.edgeTypes ? [...new Set(input.edgeTypes)] : [];
+    const edgeTypeFilter =
+      edgeTypes.length > 0 ? `AND ge.edge_type = ANY($${params.push(edgeTypes)}::text[])` : '';
+    const cursorParam = params.push(input.cursor);
+    const limitParam = params.push(input.limit);
+    const sql = `
+      WITH RECURSIVE idx AS (
+        SELECT d.tenant_id, d.document_id, dv.version_id, d.matter_id, m.client_id,
+          d.document_type, d.status AS document_status, dv.version_status, d.updated_at
+        FROM documents d
+        JOIN matters m
+          ON m.tenant_id = d.tenant_id
+          AND m.matter_id = d.matter_id
+        JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+          AND dv.document_id = d.document_id
+      ),
+      allowed_documents AS (
+        SELECT idx.document_id
+        FROM idx
+        ${filters.whereSql}
+      ),
+      walk AS (
+        SELECT
+          0::integer AS depth,
+          root.node_id,
+          ARRAY[root.node_id]::uuid[] AS node_ids,
+          ARRAY[]::uuid[] AS edge_ids
+        FROM graph_nodes root
+        WHERE root.tenant_id = $${tenantParam}
+          AND root.node_id = $${rootParam}
+          AND root.stale = false
+        UNION ALL
+        SELECT
+          walk.depth + 1 AS depth,
+          next_node.node_id,
+          walk.node_ids || next_node.node_id,
+          walk.edge_ids || ge.edge_id
+        FROM walk
+        JOIN graph_edges ge
+          ON ge.tenant_id = $${tenantParam}
+          AND ge.matter_id = $${matterParam}
+          AND ge.stale = false
+          AND (ge.source_node_id = walk.node_id OR ge.target_node_id = walk.node_id)
+        JOIN graph_nodes source_node
+          ON source_node.tenant_id = ge.tenant_id
+          AND source_node.node_id = ge.source_node_id
+          AND source_node.stale = false
+        JOIN graph_nodes target_node
+          ON target_node.tenant_id = ge.tenant_id
+          AND target_node.node_id = ge.target_node_id
+          AND target_node.stale = false
+        JOIN graph_nodes next_node
+          ON next_node.tenant_id = ge.tenant_id
+          AND next_node.node_id = CASE
+            WHEN ge.source_node_id = walk.node_id THEN ge.target_node_id
+            ELSE ge.source_node_id
+          END
+          AND next_node.stale = false
+        WHERE walk.depth < $${depthParam}
+          ${edgeTypeFilter}
+          AND NOT next_node.node_id = ANY(walk.node_ids)
+          AND (ge.document_id IS NULL OR ge.document_id IN (SELECT document_id FROM allowed_documents))
+          AND (
+            source_node.document_id IS NULL
+            OR source_node.document_id IN (SELECT document_id FROM allowed_documents)
+          )
+          AND (
+            target_node.document_id IS NULL
+            OR target_node.document_id IN (SELECT document_id FROM allowed_documents)
+          )
+      ),
+      path_edges AS (
+        SELECT DISTINCT ON (ge.edge_id)
+          walk.depth,
+          walk.node_ids,
+          walk.edge_ids,
+          ${factSelectSql()}
+        FROM walk
+        JOIN graph_edges ge
+          ON ge.tenant_id = $${tenantParam}
+          AND ge.edge_id = walk.edge_ids[array_length(walk.edge_ids, 1)]
+          AND ge.stale = false
+        JOIN graph_nodes source_node
+          ON source_node.tenant_id = ge.tenant_id
+          AND source_node.node_id = ge.source_node_id
+          AND source_node.stale = false
+        JOIN graph_nodes target_node
+          ON target_node.tenant_id = ge.tenant_id
+          AND target_node.node_id = ge.target_node_id
+          AND target_node.stale = false
+        WHERE walk.depth > 0
+        ORDER BY ge.edge_id, walk.depth
+      )
+      SELECT *
+      FROM path_edges
+      ORDER BY depth, edge_type, edge_id
+      OFFSET $${cursorParam}
+      LIMIT $${limitParam}
+    `;
+    const result = await client.query<GraphNeighborhoodPathRow>(sql, params);
+    return result.rows;
+  }
+
+  private async queryNodesById(
+    client: { query<T>(sql: string, params?: readonly unknown[]): Promise<{ rows: T[] }> },
+    tenantId: string,
+    nodeIds: readonly string[],
+  ): Promise<GraphNodeRow[]> {
+    if (nodeIds.length === 0) return [];
+    const result = await client.query<GraphNodeRow>(
+      `
+        SELECT node_id, node_type, source_id, matter_id, document_id, version_id,
+          provenance, review_status, created_by_kind
+        FROM graph_nodes
+        WHERE tenant_id = $1
+          AND node_id = ANY($2::uuid[])
+          AND stale = false
+        ORDER BY array_position($2::uuid[], node_id)
+      `,
+      [tenantId, nodeIds],
+    );
+    return result.rows;
+  }
+
   private async recordQuery(
     ctx: PermissionContext,
     input: GraphFactsInput,
@@ -244,6 +627,37 @@ export class GraphQueryService {
       },
     });
   }
+
+  private async recordNeighborhoodQuery(
+    ctx: PermissionContext,
+    matterId: string,
+    input: Pick<GraphNeighborhoodInput, 'nodeId' | 'depth' | 'edgeTypes' | 'scopeLabel'>,
+    resultCount: number,
+    result: 'success' | 'denied' | 'failure',
+    startedAt: number,
+    rules: readonly string[],
+  ): Promise<void> {
+    await this.auditService.log({
+      tenantId: ctx.tenantId,
+      actorId: ctx.userId,
+      sessionId: ctx.sessionId ?? null,
+      action: 'GRAPH_QUERY_EXECUTED',
+      targetType: 'graph_query',
+      targetId: matterId,
+      matterId,
+      result,
+      metadata: {
+        matter_id: matterId,
+        graph_scope: input.scopeLabel ?? 'graph_query',
+        query_hash: sha256Hex(
+          `${input.nodeId}:${input.depth ?? ''}:${input.edgeTypes?.join(',') ?? ''}`,
+        ),
+        result_count: resultCount,
+        filter_refs: compactRules(rules),
+        duration_ms: Math.round(performance.now() - startedAt),
+      },
+    });
+  }
 }
 
 function factSelectSql(): string {
@@ -259,12 +673,18 @@ function factSelectSql(): string {
     source_node.matter_id AS source_matter_id,
     source_node.document_id AS source_document_id,
     source_node.version_id AS source_version_id,
+    source_node.provenance AS source_provenance,
+    source_node.review_status AS source_review_status,
+    source_node.created_by_kind AS source_created_by_kind,
     target_node.node_id AS target_node_id,
     target_node.node_type AS target_node_type,
     target_node.source_id AS target_source_id,
     target_node.matter_id AS target_matter_id,
     target_node.document_id AS target_document_id,
-    target_node.version_id AS target_version_id
+    target_node.version_id AS target_version_id,
+    target_node.provenance AS target_provenance,
+    target_node.review_status AS target_review_status,
+    target_node.created_by_kind AS target_created_by_kind
   `;
 }
 
@@ -282,6 +702,9 @@ function toGraphFact(row: GraphFactRow): GraphFactDto {
       matterId: row.source_matter_id,
       documentId: row.source_document_id,
       versionId: row.source_version_id,
+      provenance: row.source_provenance,
+      reviewStatus: row.source_review_status,
+      createdByKind: row.source_created_by_kind,
     },
     target: {
       nodeId: row.target_node_id,
@@ -290,8 +713,36 @@ function toGraphFact(row: GraphFactRow): GraphFactDto {
       matterId: row.target_matter_id,
       documentId: row.target_document_id,
       versionId: row.target_version_id,
+      provenance: row.target_provenance,
+      reviewStatus: row.target_review_status,
+      createdByKind: row.target_created_by_kind,
     },
   };
+}
+
+function toGraphNodeRef(row: GraphNodeRow): GraphFactDto['source'] {
+  return {
+    nodeId: row.node_id,
+    nodeType: row.node_type,
+    sourceId: row.source_id,
+    matterId: row.matter_id,
+    documentId: row.document_id,
+    versionId: row.version_id,
+    provenance: row.provenance,
+    reviewStatus: row.review_status,
+    createdByKind: row.created_by_kind,
+  };
+}
+
+function uniqueFacts(facts: readonly GraphFactDto[]): GraphFactDto[] {
+  const seen = new Set<string>();
+  const output: GraphFactDto[] = [];
+  for (const fact of facts) {
+    if (seen.has(fact.edgeId)) continue;
+    seen.add(fact.edgeId);
+    output.push(fact);
+  }
+  return output;
 }
 
 function compactRules(rules: readonly string[]): string {

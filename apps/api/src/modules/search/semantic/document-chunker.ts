@@ -4,7 +4,6 @@ import type { AiChunkKind } from '@amic-vault/shared';
 const parentMaxChars = 3200;
 const childMaxChars = 900;
 const childOverlapChars = 120;
-const maxChunksPerVersion = 256;
 const maxStoredTokenCount = 1200;
 
 export interface BuiltDocumentChunk {
@@ -75,7 +74,7 @@ export function buildParentChildChunks(input: {
 
   const chunks: BuiltDocumentChunk[] = [];
   let parentStart = 0;
-  while (parentStart < text.length && chunks.length < maxChunksPerVersion) {
+  while (parentStart < text.length) {
     const parentEnd = boundedEnd(text, parentStart, parentStart + parentMaxChars);
     const parentOrdinal = pushChunk(chunks, {
       kind: 'parent',
@@ -87,7 +86,7 @@ export function buildParentChildChunks(input: {
     });
     if (parentOrdinal >= 0) {
       let childStart = parentStart;
-      while (childStart < parentEnd && chunks.length < maxChunksPerVersion) {
+      while (childStart < parentEnd) {
         const childEnd = boundedEnd(text, childStart, childStart + childMaxChars);
         pushChunk(chunks, {
           kind: 'child',

@@ -22,6 +22,45 @@ describe('MetricsRegistry', () => {
     expect(rendered).not.toContain('@test.local');
   });
 
+  it('keeps HTTP histogram storage bounded after high-volume observations', () => {
+    const registry = new MetricsRegistry();
+
+    for (let index = 0; index < 100_000; index += 1) {
+      registry.observe({
+        method: 'GET',
+        path: `/v1/documents/custom-route-${index}`,
+        status: '200',
+        durationMs: index % 6000,
+      });
+    }
+
+    const stats = registry.stats();
+    expect(stats.httpObservationCount).toBe(100_000);
+    expect(stats.httpSeriesCount).toBeLessThanOrEqual(stats.maxHttpSeriesCount);
+    expect(stats.httpBucketSlotCount).toBeLessThanOrEqual(
+      stats.maxHttpSeriesCount * stats.bucketCount,
+    );
+    expect(registry.render()).toContain('path="__overflow__"');
+  });
+
+  it('renders bounded pg-boss queue depth and dead-letter gauges', () => {
+    const registry = new MetricsRegistry();
+
+    const rendered = registry.render([
+      { queue: 'extraction', depth: 7, deadLetterCount: 1 },
+      { queue: 'indexing', depth: 3, deadLetterCount: 0 },
+      { queue: 'ai-prep', depth: 5, deadLetterCount: 2 },
+    ]);
+
+    expect(rendered).toContain('# TYPE pgboss_queue_depth gauge');
+    expect(rendered).toContain('pgboss_queue_depth{queue="ai-prep"} 5');
+    expect(rendered).toContain('pgboss_queue_depth{queue="extraction"} 7');
+    expect(rendered).toContain('pgboss_queue_depth{queue="indexing"} 3');
+    expect(rendered).toContain('pgboss_dead_letter_jobs{queue="ai-prep"} 2');
+    expect(rendered).not.toContain('tenant_id');
+    expect(rendered).not.toContain('document_id');
+  });
+
   it('records integrity alerts without tenant or document labels', () => {
     const registry = new MetricsRegistry();
     registry.recordDocumentIntegrityAlert();

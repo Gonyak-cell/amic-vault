@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Bot,
   CheckCircle2,
   Clock3,
   FileSearch,
+  Save,
   Scale,
   ShieldCheck,
 } from 'lucide-react';
@@ -14,12 +15,14 @@ import type {
   AiPrepDocumentStatusDto,
   AiPrepMatterReadinessDto,
   DocumentDto,
+  MatterAccessScope,
   MatterDto,
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { updateMatter } from '@/lib/api-client';
 
 type GovernanceTone = StatusBadgeTone;
 
@@ -59,6 +62,11 @@ const readinessLabels = {
   rejected: '거절',
   stale: '재처리 필요',
 } as const satisfies Record<AiPrepDocumentStatusDto['readinessStatus'], string>;
+
+const matterAccessScopeLabels = {
+  firm_open: '펌 전체 열람',
+  restricted: '제한 Matter',
+} as const satisfies Record<MatterAccessScope, string>;
 
 function toneForBoolean(value: boolean): GovernanceTone {
   return value ? 'warning' : 'success';
@@ -117,7 +125,7 @@ export function DocumentGovernanceContextPanel({
   prepStatus: AiPrepDocumentStatusDto | null;
 }) {
   const accessItems: GovernanceItem[] = [
-    { label: 'Matter membership', value: '필수', tone: 'success' },
+    { label: 'Matter 참여 여부', value: '필수', tone: 'success' },
     { label: '정보 차단 정책', value: '요청 시점 평가', tone: 'success' },
     {
       label: '보안 등급',
@@ -130,7 +138,7 @@ export function DocumentGovernanceContextPanel({
       tone: document.privilegeStatus === 'none' ? 'success' : 'warning',
     },
     {
-      label: 'Legal Hold',
+      label: '보존 조치',
       value: document.legalHold ? '적용' : '미적용',
       tone: toneForBoolean(document.legalHold),
     },
@@ -172,21 +180,35 @@ export function DocumentGovernanceContextPanel({
 
 export function MatterGovernanceContextPanel({
   matter,
+  onMatterUpdated,
   readiness,
 }: {
   matter: MatterDto;
+  onMatterUpdated?: (matter: MatterDto) => void;
   readiness: AiPrepMatterReadinessDto | null;
 }) {
+  const currentAccessScope = matter.accessScope ?? 'firm_open';
+  const [selectedAccessScope, setSelectedAccessScope] =
+    useState<MatterAccessScope>(currentAccessScope);
+  const [scopeSubmitState, setScopeSubmitState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+    'idle',
+  );
+  const scopeChanged = selectedAccessScope !== currentAccessScope;
   const items: GovernanceItem[] = [
-    { label: 'Matter Code', value: matter.matterCode },
+    { label: 'Matter code', value: matter.matterCode },
     { label: '상태', value: matter.status },
+    {
+      label: '접근 범위',
+      value: matterAccessScopeLabels[currentAccessScope],
+      tone: currentAccessScope === 'firm_open' ? 'success' : 'warning',
+    },
     { label: '업무 그룹', value: matter.practiceGroup ?? '표시할 항목 없음' },
     {
       label: '대표 담당자',
       value: matter.leadLawyerDisplayName ?? matter.leadLawyerDisplayEmail ?? '표시할 항목 없음',
     },
     {
-      label: 'Legal Hold',
+      label: '보존 조치',
       value: matter.legalHold ? '적용' : '미적용',
       tone: toneForBoolean(matter.legalHold),
     },
@@ -199,6 +221,19 @@ export function MatterGovernanceContextPanel({
     },
   ];
 
+  async function submitAccessScope(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!scopeChanged || scopeSubmitState === 'saving') return;
+    setScopeSubmitState('saving');
+    try {
+      const updated = await updateMatter(matter.matterId, { accessScope: selectedAccessScope });
+      onMatterUpdated?.(updated);
+      setScopeSubmitState('saved');
+    } catch {
+      setScopeSubmitState('error');
+    }
+  }
+
   return (
     <SectionCard
       icon={<Scale className="h-4 w-4" />}
@@ -206,6 +241,42 @@ export function MatterGovernanceContextPanel({
       meta="권한·보존·운영 문맥"
     >
       <GovernanceRows items={items} />
+      <form
+        className="mt-3 flex flex-col gap-2 rounded-md border bg-background p-3 sm:flex-row sm:items-end"
+        onSubmit={submitAccessScope}
+      >
+        <label className="grid min-w-[180px] flex-1 gap-1.5 text-sm font-medium">
+          접근 범위
+          <select
+            aria-label="접근 범위"
+            className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            disabled={scopeSubmitState === 'saving'}
+            value={selectedAccessScope}
+            onChange={(event) => {
+              setSelectedAccessScope(event.target.value as MatterAccessScope);
+              setScopeSubmitState('idle');
+            }}
+          >
+            {Object.entries(matterAccessScopeLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" type="submit" disabled={!scopeChanged || scopeSubmitState === 'saving'}>
+            <Save className="h-4 w-4" />
+            변경 저장
+          </Button>
+          {scopeSubmitState === 'saved' ? (
+            <span className="text-sm font-medium text-primary">저장됨</span>
+          ) : null}
+          {scopeSubmitState === 'error' ? (
+            <span className="text-sm font-medium text-destructive">변경 실패</span>
+          ) : null}
+        </div>
+      </form>
     </SectionCard>
   );
 }
@@ -238,7 +309,7 @@ function documentWorkflowTasks(
   }
   if (document.legalHold) {
     tasks.push({
-      title: 'Legal Hold 적용 중',
+      title: '보존 조치 적용 중',
       description: '보존 정책이 적용된 문서는 폐기·삭제 흐름에서 차단됩니다.',
       href: '/records',
       tone: 'warning',
@@ -261,7 +332,7 @@ function matterWorkflowTasks(
   const tasks: WorkflowTask[] = [];
   if (matter.legalHold) {
     tasks.push({
-      title: 'Matter Legal Hold 적용 중',
+      title: 'Matter 보존 조치 적용 중',
       description: 'Matter 단위 보존 제한이 적용되어 기록 보존 흐름에서 확인이 필요합니다.',
       href: '/records',
       tone: 'warning',
@@ -270,7 +341,7 @@ function matterWorkflowTasks(
   if (!matter.leadLawyerDisplayName && !matter.leadLawyerDisplayEmail) {
     tasks.push({
       title: '대표 담당자 표시 정보 없음',
-      description: 'Matter app 동기화 또는 팀 관리 화면에서 담당자 표시 정보를 확인하세요.',
+      description: 'Matter 관리 시스템 연동 또는 팀 관리 화면에서 담당자 표시 정보를 확인하세요.',
       href: `/matters/${matter.matterId}/team`,
       tone: 'neutral',
     });
@@ -306,7 +377,7 @@ function WorkflowTaskList({ tasks }: { tasks: WorkflowTask[] }) {
     return (
       <EmptyState
         title="표시할 작업이 없습니다."
-        description="실제 문서·사건 상태에서 발생한 작업만 표시됩니다."
+        description="실제 문서·Matter 상태에서 발생한 작업만 표시됩니다."
       />
     );
   }
@@ -348,7 +419,7 @@ export function DocumentWorkflowOpsPanel({
       <WorkflowTaskList tasks={documentWorkflowTasks(document, prepStatus)} />
       <div className="mt-3 rounded-md border bg-muted/20 p-3 text-[13px] leading-6 text-muted-foreground">
         <Bot className="mr-2 inline h-4 w-4 text-primary" />
-        AI Prep는 업로드 후 파일 정리 준비 범위에서만 표시됩니다.
+        문서 정리 준비 상태는 업로드 후 파일 정리 준비 범위에서만 표시됩니다.
       </div>
     </SectionCard>
   );
@@ -362,7 +433,7 @@ export function MatterWorkflowOpsPanel({
   readiness: AiPrepMatterReadinessDto | null;
 }) {
   return (
-    <SectionCard icon={<Clock3 className="h-4 w-4" />} title="작업 큐" meta="실제 상태 기반">
+    <SectionCard icon={<Clock3 className="h-4 w-4" />} title="처리할 업무" meta="실제 상태 기반">
       <WorkflowTaskList tasks={matterWorkflowTasks(matter, readiness)} />
       <div className="mt-3 flex items-center gap-2 rounded-md border bg-muted/20 p-3 text-[13px] text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 text-primary" />

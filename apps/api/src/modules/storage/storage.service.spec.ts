@@ -2,9 +2,12 @@ import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import type {
   StorageAdapter,
+  StorageCreateReadUrlInput,
+  StorageGetRangeInput,
   StorageGetObjectResult,
   StorageObjectMetadata,
   StoragePutObjectInput,
+  StorageReadUrlResult,
 } from './storage-adapter.interface';
 import { StorageObjectAlreadyExistsError } from './storage-adapter.interface';
 import { NoopEncryptionHook } from './noop-encryption.hook';
@@ -16,6 +19,7 @@ const matterId = '11111111-1111-4111-8111-111111111122';
 const documentId = '11111111-1111-4111-8111-111111111133';
 const fileObjectId = '11111111-1111-4111-8111-111111111144';
 const emailId = '11111111-1111-4111-8111-111111111155';
+const anchorDate = '2026-07-02';
 
 class MemoryStorageAdapter implements StorageAdapter {
   private readonly objects = new Map<string, { body: Buffer; contentType: string }>();
@@ -37,6 +41,26 @@ class MemoryStorageAdapter implements StorageAdapter {
       contentType: found.contentType,
       etag: '"local"',
       body: Readable.from(found.body),
+    };
+  }
+
+  async getRange(input: StorageGetRangeInput): Promise<StorageGetObjectResult> {
+    const found = this.objects.get(input.key);
+    if (!found) throw new Error('missing object');
+    const body = found.body.subarray(input.start, input.end + 1);
+    return {
+      key: input.key,
+      contentLength: body.length,
+      contentType: found.contentType,
+      etag: '"local"',
+      body: Readable.from(body),
+    };
+  }
+
+  async createReadUrl(input: StorageCreateReadUrlInput): Promise<StorageReadUrlResult> {
+    return {
+      url: `https://storage.local/${input.key}?expires=${input.expiresInSeconds ?? 300}`,
+      expiresAt: new Date(Date.now() + (input.expiresInSeconds ?? 300) * 1000),
     };
   }
 
@@ -106,6 +130,31 @@ describe('StorageService', () => {
     });
   });
 
+  it('stores audit anchor receipts under the tenant audit anchor prefix', async () => {
+    const service = new StorageService(
+      new MemoryStorageAdapter(),
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
+
+    const result = await service.putAuditAnchorObject({
+      tenantId,
+      anchorDate,
+      body: Buffer.from('{"anchorHash":"abc"}'),
+      contentLength: 20,
+      contentType: 'application/json',
+    });
+
+    expect(result).toEqual({
+      key: `tenants/${tenantId}/audit-anchors/${anchorDate}.json`,
+      storageUri: `s3://vault-dev/tenants/${tenantId}/audit-anchors/${anchorDate}.json`,
+      encryptionKeyId: null,
+    });
+    await expect(service.headByStorageUri(tenantId, result.storageUri)).resolves.toMatchObject({
+      contentLength: 20,
+    });
+  });
+
   it('rejects cross-tenant storage URI access before adapter calls', async () => {
     const service = new StorageService(
       new MemoryStorageAdapter(),
@@ -140,5 +189,62 @@ describe('StorageService', () => {
     await expect(service.sha256ByStorageUri(tenantId, result.storageUri)).resolves.toBe(
       'cc8321d6375c494d043fdd0260f21bc0ec51dacc9f6abb7f909cdcd3041b78bf',
     );
+  });
+
+  it('range-reads tenant objects only after storage URI isolation validation', async () => {
+    const service = new StorageService(
+      new MemoryStorageAdapter(),
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
+    const result = await service.putTenantObject({
+      tenantId,
+      matterId,
+      documentId,
+      fileObjectId,
+      body: Buffer.from('0123456789'),
+      contentLength: 10,
+      contentType: 'application/pdf',
+    });
+
+    const object = await service.getRangeByStorageUri(tenantId, result.storageUri, 2, 5);
+    await expect(new Response(Readable.toWeb(object.body) as BodyInit).text()).resolves.toBe(
+      '2345',
+    );
+    await expect(
+      service.getRangeByStorageUri('22222222-2222-4222-8222-222222222222', result.storageUri, 0, 1),
+    ).rejects.toMatchObject({
+      response: { code: 'TENANT_ISOLATION_VIOLATION' },
+    });
+  });
+
+  it('creates presigned read URLs only for tenant-owned storage URIs', async () => {
+    const service = new StorageService(
+      new MemoryStorageAdapter(),
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
+    const result = await service.putTenantObject({
+      tenantId,
+      matterId,
+      documentId,
+      fileObjectId,
+      body: Buffer.from('contract'),
+      contentLength: 8,
+      contentType: 'application/pdf',
+    });
+
+    await expect(
+      service.createReadUrlByStorageUri(tenantId, result.storageUri, 60),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        url: expect.stringContaining(`tenants/${tenantId}/matters/${matterId}`),
+      }),
+    );
+    await expect(
+      service.createReadUrlByStorageUri('22222222-2222-4222-8222-222222222222', result.storageUri),
+    ).rejects.toMatchObject({
+      response: { code: 'TENANT_ISOLATION_VIOLATION' },
+    });
   });
 });

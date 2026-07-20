@@ -20,9 +20,16 @@ export const listPartiesQuerySchema = z
 
 export const updatePartySchema = z
   .object({
-    isRestricted: z.boolean(),
+    name: z.string().trim().min(1).max(1000).optional(),
+    partyType: partyTypeSchema.optional(),
+    partyRole: partyRoleSchema.optional(),
+    relatedClientId: z.string().uuid().nullable().optional(),
+    isRestricted: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, {
+    message: 'at least one party field is required',
+  });
 
 export interface PartyDto {
   partyId: string;

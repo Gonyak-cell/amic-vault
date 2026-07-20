@@ -17,3 +17,7 @@ export interface UserSummary extends DisplayFieldsDto {
   mfaEnabled: boolean;
   lastLoginAt: string | null;
 }
+
+export interface UserListDto {
+  items: UserSummary[];
+}

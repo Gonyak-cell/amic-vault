@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { TenantContextService } from '../tenant/tenant-context';
 import { TenantService } from '../tenant/tenant.service';
+import { UserService } from '../user/user.service';
 import { IS_PUBLIC_ROUTE } from './public.decorator';
 import {
   hashOpaqueToken,
@@ -33,6 +34,7 @@ export class SessionGuard implements CanActivate {
     @Inject(SessionRepository) private readonly sessions: SessionRepository,
     @Inject(TenantService) private readonly tenantService: TenantService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(UserService) private readonly userService: UserService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -67,6 +69,13 @@ export class SessionGuard implements CanActivate {
       throw authRequired();
     }
     if (!tenant || tenant.status !== 'active') {
+      throw authRequired();
+    }
+    const user = await this.userService.findByTenantAndId(session.tenantId, session.userId);
+    if (!user || user.status !== 'active') {
+      throw authRequired();
+    }
+    if (user.mfaEnabled && !session.mfaVerified) {
       throw authRequired();
     }
 

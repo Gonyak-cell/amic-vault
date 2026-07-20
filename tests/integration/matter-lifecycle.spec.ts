@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -64,6 +64,48 @@ async function updateStatus(baseUrl: string, cookie: string, matterId: string, s
   });
 }
 
+async function runConflictCheck(
+  baseUrl: string,
+  cookie: string,
+  matterId: string,
+): Promise<{ conflictCheckId: string; status: string }> {
+  const response = await fetch(`${baseUrl}/v1/matters/${matterId}/conflict-checks`, {
+    method: 'POST',
+    headers: { cookie },
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
+  return JSON.parse(body) as { conflictCheckId: string; status: string };
+}
+
+async function resolveConflictCheck(
+  baseUrl: string,
+  cookie: string,
+  matterId: string,
+  conflictCheckId: string,
+  status: 'cleared' | 'blocked',
+) {
+  const response = await fetch(
+    `${baseUrl}/v1/matters/${matterId}/conflict-checks/${conflictCheckId}`,
+    {
+      method: 'PATCH',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        status,
+        rationale: status === 'cleared' ? '내부 이해상충 검토 완료' : '정보 차단 검토 필요',
+      }),
+    },
+  );
+  const body = await response.text();
+  expect(response.status, body).toBe(200);
+  return JSON.parse(body) as { status: string };
+}
+
+async function clearMatterConflicts(baseUrl: string, cookie: string, matterId: string): Promise<void> {
+  const check = await runConflictCheck(baseUrl, cookie, matterId);
+  await resolveConflictCheck(baseUrl, cookie, matterId, check.conflictCheckId, 'cleared');
+}
+
 async function addMember(
   baseUrl: string,
   cookie: string,
@@ -79,6 +121,61 @@ async function addMember(
       accessLevel: 'read',
     }),
   });
+}
+
+async function insertClosingReadyDocument(matterId: string): Promise<void> {
+  const documentId = randomUUID();
+  const fileObjectId = randomUUID();
+  const hash = sha256Hex(`closing-ready:${documentId}`);
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO file_objects (
+          file_object_id, tenant_id, storage_uri, original_filename, normalized_filename,
+          mime_type, size_bytes, sha256, created_by
+        )
+        VALUES ($1, $2, $3, 'closing-ready.pdf', 'closing-ready.pdf', 'application/pdf', 32, $4, $5)
+      `,
+      [
+        fileObjectId,
+        tenantAlphaId,
+        storageUri(matterId, documentId, fileObjectId),
+        hash,
+        alphaOwnerUserId,
+      ],
+    );
+    await client.query(
+      `
+        INSERT INTO documents (
+          document_id, tenant_id, matter_id, document_family_id, title, status,
+          document_type, confidentiality_level, privilege_status, ai_allowed, created_by, updated_at
+        )
+        VALUES (
+          $1, $2, $3, $4, 'Closing Ready Document', 'final',
+          'memo', 'standard', 'none', true, $5, now()
+        )
+      `,
+      [documentId, tenantAlphaId, matterId, randomUUID(), alphaOwnerUserId],
+    );
+    await client.query(
+      `
+        INSERT INTO document_versions (
+          version_id, tenant_id, document_id, version_no, version_status, file_object_id,
+          file_hash, created_by, version_label, version_significance
+        )
+        VALUES ($1, $2, $3, 1, 'current', $4, $5, $6, 'Execution', 'execution_copy')
+      `,
+      [randomUUID(), tenantAlphaId, documentId, fileObjectId, hash, alphaOwnerUserId],
+    );
+  });
+}
+
+function sha256Hex(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function storageUri(matterId: string, documentId: string, fileObjectId: string): string {
+  return `s3://amic-vault-dev/tenants/${tenantAlphaId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
 }
 
 async function transitionAudits(matterId: string) {
@@ -97,6 +194,28 @@ async function transitionAudits(matterId: string) {
       [tenantAlphaId, matterId],
     );
     return result.rows.map((row) => row.metadata_json);
+  });
+}
+
+async function conflictTransitionDenials(matterId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{
+      metadata_json: Record<string, unknown>;
+      result: string;
+    }>(
+      `
+        SELECT result, metadata_json
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND matter_id = $2
+          AND action = 'ACCESS_DENIED'
+          AND result = 'denied'
+          AND metadata_json->>'reason_code' = 'CONFLICTS_NOT_CLEARED'
+        ORDER BY seq ASC
+      `,
+      [tenantAlphaId, matterId],
+    );
+    return result.rows;
   });
 }
 
@@ -153,6 +272,8 @@ describe('matter lifecycle integration', () => {
 
   it('applies the R1 lifecycle transitions with timestamps and audit', async () => {
     const matterId = await createMatter(baseUrl, ownerCookie, clientId);
+    await clearMatterConflicts(baseUrl, ownerCookie, matterId);
+    await insertClosingReadyDocument(matterId);
 
     const opened = await updateStatus(baseUrl, ownerCookie, matterId, 'open');
     const openedBody = await opened.text();
@@ -201,10 +322,78 @@ describe('matter lifecycle integration', () => {
     const adminDenied = await updateStatus(baseUrl, firmAdminCookie, matterId, 'open');
     expect(adminDenied.status, await adminDenied.text()).toBe(403);
 
+    await clearMatterConflicts(baseUrl, ownerCookie, matterId);
     const ownerAllowed = await updateStatus(baseUrl, ownerCookie, matterId, 'open');
     expect(ownerAllowed.status, await ownerAllowed.text()).toBe(200);
 
     await insertInvalidStatus(clientId);
+  });
+
+  it('gates proposed to open on cleared conflict checks and audits denied transitions', async () => {
+    const matterId = await createMatter(baseUrl, ownerCookie, clientId);
+
+    const notStartedOpen = await updateStatus(baseUrl, ownerCookie, matterId, 'open');
+    const notStartedBody = await notStartedOpen.text();
+    expect(notStartedOpen.status, notStartedBody).toBe(422);
+    expect(notStartedBody).toContain('CONFLICTS_NOT_CLEARED');
+
+    const check = await runConflictCheck(baseUrl, ownerCookie, matterId);
+    expect(check.status).toBe('in_review');
+
+    const inReviewOpen = await updateStatus(baseUrl, ownerCookie, matterId, 'open');
+    const inReviewBody = await inReviewOpen.text();
+    expect(inReviewOpen.status, inReviewBody).toBe(422);
+    expect(inReviewBody).toContain('CONFLICTS_NOT_CLEARED');
+
+    const denials = await conflictTransitionDenials(matterId);
+    expect(denials).toHaveLength(2);
+    expect(denials[0]?.metadata_json).toEqual(
+      expect.objectContaining({
+        before_ref: 'status:proposed',
+        after_ref: 'status:open',
+        blocked_reason: 'conflicts_status:not_started',
+        reason_code: 'CONFLICTS_NOT_CLEARED',
+      }),
+    );
+    expect(denials[1]?.metadata_json).toEqual(
+      expect.objectContaining({
+        blocked_reason: 'conflicts_status:in_review',
+        reason_code: 'CONFLICTS_NOT_CLEARED',
+      }),
+    );
+
+    await resolveConflictCheck(baseUrl, ownerCookie, matterId, check.conflictCheckId, 'cleared');
+    const clearedOpen = await updateStatus(baseUrl, ownerCookie, matterId, 'open');
+    const clearedBody = await clearedOpen.text();
+    expect(clearedOpen.status, clearedBody).toBe(200);
+    expect(JSON.parse(clearedBody)).toMatchObject({
+      status: 'open',
+      conflictsStatus: 'cleared',
+    });
+
+    const blockedMatterId = await createMatter(baseUrl, ownerCookie, clientId);
+    const blockedCheck = await runConflictCheck(baseUrl, ownerCookie, blockedMatterId);
+    await resolveConflictCheck(
+      baseUrl,
+      ownerCookie,
+      blockedMatterId,
+      blockedCheck.conflictCheckId,
+      'blocked',
+    );
+
+    const blockedOpen = await updateStatus(baseUrl, ownerCookie, blockedMatterId, 'open');
+    const blockedBody = await blockedOpen.text();
+    expect(blockedOpen.status, blockedBody).toBe(422);
+    expect(blockedBody).toContain('CONFLICTS_NOT_CLEARED');
+
+    const blockedDenials = await conflictTransitionDenials(blockedMatterId);
+    expect(blockedDenials).toHaveLength(1);
+    expect(blockedDenials[0]?.metadata_json).toEqual(
+      expect.objectContaining({
+        blocked_reason: 'conflicts_status:blocked',
+        reason_code: 'CONFLICTS_NOT_CLEARED',
+      }),
+    );
   });
 
   it('blocks closed and archived matter member mutations after authorization', async () => {
@@ -212,6 +401,8 @@ describe('matter lifecycle integration', () => {
     const addBeforeClose = await addMember(baseUrl, ownerCookie, matterId);
     expect(addBeforeClose.status, await addBeforeClose.text()).toBe(201);
 
+    await clearMatterConflicts(baseUrl, ownerCookie, matterId);
+    await insertClosingReadyDocument(matterId);
     for (const status of ['open', 'active', 'closing', 'closed']) {
       const response = await updateStatus(baseUrl, ownerCookie, matterId, status);
       expect(response.status, await response.text()).toBe(200);

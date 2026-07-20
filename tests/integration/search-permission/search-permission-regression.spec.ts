@@ -67,7 +67,7 @@ describe('search permission regression integration', () => {
     const token = `membershipregressiongate${randomUUID().replace(/-/g, '').slice(0, 8)}`;
     await insertRegressionRow({
       matterId,
-      title: 'SP Regression Membership',
+      title: `SP Regression Membership ${token}`,
       token,
       index: 501,
     });
@@ -79,9 +79,9 @@ describe('search permission regression integration', () => {
       accessLevel: 'edit',
     });
 
-    const before = await postSearch(baseUrl, cookie, { query: token });
+    const before = await postSearch(baseUrl, cookie, { query: token, target: 'title' });
     await removeMatterMember({ tenantId: tenantAlphaId, matterId, userId: alphaOwnerUserId });
-    const after = await postSearch(baseUrl, cookie, { query: token });
+    const after = await postSearch(baseUrl, cookie, { query: token, target: 'title' });
 
     expect(before.total).toBe(1);
     expect(after.total).toBe(0);
@@ -92,7 +92,7 @@ describe('search permission regression integration', () => {
     const token = `wallregressiongate${randomUUID().replace(/-/g, '').slice(0, 8)}`;
     await insertRegressionRow({
       matterId,
-      title: 'SP Regression Wall',
+      title: `SP Regression Wall ${token}`,
       token,
       index: 502,
     });
@@ -104,7 +104,7 @@ describe('search permission regression integration', () => {
       accessLevel: 'edit',
     });
 
-    const before = await postSearch(baseUrl, cookie, { query: token });
+    const before = await postSearch(baseUrl, cookie, { query: token, target: 'title' });
     const wallId = await createEthicalWall({ tenantId: tenantAlphaId, matterId });
     await addWallMembership({
       tenantId: tenantAlphaId,
@@ -112,7 +112,7 @@ describe('search permission regression integration', () => {
       subjectId: alphaOwnerUserId,
       membershipType: 'excluded',
     });
-    const after = await postSearch(baseUrl, cookie, { query: token });
+    const after = await postSearch(baseUrl, cookie, { query: token, target: 'title' });
 
     expect(before.total).toBe(1);
     expect(after.total).toBe(0);

@@ -7,7 +7,7 @@ import { PwaRegistration } from './pwa-registration';
 
 export const metadata: Metadata = {
   title: 'AMIC Vault',
-  description: 'Matter-centric legal data OS',
+  description: 'Matter 중심 문서 보관 및 권한 관리 서비스',
   applicationName: 'AMIC Vault',
   manifest: '/manifest.webmanifest',
   icons: {

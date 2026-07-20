@@ -2,20 +2,34 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class ExtractionPage:
+    page: int
+    text: str
+    confidence: float
+
+
+@dataclass(frozen=True)
 class ExtractionResult:
     status: str
     extraction_method: str
     body_text: str
     confidence: float
     failure_reason_code: str | None = None
+    pages: tuple[ExtractionPage, ...] = ()
 
     @staticmethod
-    def ready(extraction_method: str, body_text: str, confidence: float = 1.0) -> "ExtractionResult":
+    def ready(
+        extraction_method: str,
+        body_text: str,
+        confidence: float = 1.0,
+        pages: tuple[ExtractionPage, ...] = (),
+    ) -> "ExtractionResult":
         return ExtractionResult(
             status="ready",
             extraction_method=extraction_method,
             body_text=body_text,
             confidence=confidence,
+            pages=pages,
         )
 
     @staticmethod

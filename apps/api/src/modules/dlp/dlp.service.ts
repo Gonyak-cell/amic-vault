@@ -4,7 +4,7 @@ import type { DlpDetection } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { SensitiveDataDetector } from './sensitive-data.detector';
 
-export type DlpSourceType = 'document' | 'email' | 'attachment' | 'text';
+export type DlpSourceType = 'document' | 'email' | 'attachment' | 'text' | 'email_egress';
 
 export interface DlpScanSource {
   tenantId: string;

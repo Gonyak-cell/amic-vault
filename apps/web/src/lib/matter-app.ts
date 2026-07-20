@@ -31,20 +31,27 @@ export interface MatterAppSourceStatus {
   uploadAuthoritative: boolean;
   productionRuntime: boolean;
   projectionFallbackAllowed: boolean;
+  stalenessMaxSeconds: number;
+  sourceUpdatedAt: string | null;
+  sourceStale: boolean;
+  lastSyncAt: string | null;
+  reflectedCount: number;
+  driftCount: number;
+  syncStateAvailable: boolean;
 }
 
 export const matterAppSourceLabels = {
   unconfigured: '연결 필요',
-  matter_app_api: 'Matter app 확인됨',
-  matter_app_event_projection: 'Matter app 동기화됨',
+  matter_app_api: 'Matter 관리 시스템 확인됨',
+  matter_app_event_projection: 'Matter 정보 동기화됨',
   vault_projection_only: '로컬 Matter 목록',
 } as const satisfies Record<MatterAppSourceMode, string>;
 
 export const matterAppSourceDescriptions = {
-  unconfigured: 'Matter app에서 확인된 Matter Code를 사용할 수 있을 때 업로드할 수 있습니다.',
-  matter_app_api: 'Matter app에서 확인된 Matter Code 기준으로 파일 작업을 진행합니다.',
-  matter_app_event_projection: 'Matter app 동기화 데이터 기준으로 파일 작업을 진행합니다.',
-  vault_projection_only: '개발/검증용 로컬 목록입니다. 운영 업로드 source로 사용하지 않습니다.',
+  unconfigured: 'Matter 관리 시스템에서 확인된 Matter code를 사용할 수 있을 때 업로드할 수 있습니다.',
+  matter_app_api: 'Matter 관리 시스템에서 확인된 Matter code 기준으로 문서 작업을 진행합니다.',
+  matter_app_event_projection: '동기화된 Matter 정보 기준으로 문서 작업을 진행합니다.',
+  vault_projection_only: '운영 연결 전 확인용 목록입니다. 실제 업로드에는 사용하지 않습니다.',
 } as const satisfies Record<MatterAppSourceMode, string>;
 
 const vaultInternalReferencePattern =
@@ -161,6 +168,13 @@ export function matterAppSourceStatus(
     uploadAuthoritative: isMatterUploadSourceMode(mode),
     productionRuntime,
     projectionFallbackAllowed,
+    stalenessMaxSeconds: 900,
+    sourceUpdatedAt: null,
+    sourceStale: false,
+    lastSyncAt: null,
+    reflectedCount: 0,
+    driftCount: 0,
+    syncStateAvailable: false,
   };
 }
 

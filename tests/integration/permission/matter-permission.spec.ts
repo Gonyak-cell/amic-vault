@@ -9,7 +9,6 @@ import { PermissionService } from '../../../apps/api/src/modules/permission/perm
 import { SESSION_COOKIE_NAME } from '../../../apps/api/src/modules/auth/session.repository';
 import { createOwnerClient, tenantAlphaId, withClient } from '../helpers/db';
 
-const alphaFirmAdminUserId = '11111111-1111-4111-8111-111111111100';
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 const alphaPermissionMemberUserId = '11111111-1111-4111-8111-111111111105';
 
@@ -40,7 +39,12 @@ async function createClient(baseUrl: string, cookie: string): Promise<string> {
   return (JSON.parse(body) as { clientId: string }).clientId;
 }
 
-async function createMatter(baseUrl: string, cookie: string, clientId: string): Promise<string> {
+async function createMatter(
+  baseUrl: string,
+  cookie: string,
+  clientId: string,
+  accessScope: 'firm_open' | 'restricted' = 'restricted',
+): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/matters`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
@@ -50,6 +54,7 @@ async function createMatter(baseUrl: string, cookie: string, clientId: string): 
       matterName: `Matter Permission ${randomUUID()}`,
       matterType: 'contract',
       leadLawyerId: alphaOwnerUserId,
+      accessScope,
     }),
   });
   const body = await response.text();
@@ -87,6 +92,40 @@ async function insertExplicitDeny(matterId: string, userId: string) {
       `,
       [tenantAlphaId, userId, matterId, alphaOwnerUserId],
     );
+  });
+}
+
+async function setMatterConflictsCleared(matterId: string) {
+  await withClient(createOwnerClient(), async (client) => {
+    const result = await client.query(
+      `
+        UPDATE matters
+        SET conflicts_status = 'cleared',
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND matter_id = $2
+      `,
+      [tenantAlphaId, matterId],
+    );
+    expect(result.rowCount).toBe(1);
+  });
+}
+
+async function latestMatterUpdateAudit(matterId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ metadata_json: Record<string, unknown> }>(
+      `
+        SELECT metadata_json
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'MATTER_UPDATED'
+          AND target_id = $2
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [tenantAlphaId, matterId],
+    );
+    return result.rows[0];
   });
 }
 
@@ -133,8 +172,8 @@ describe('matter permission integration', () => {
     await app.close();
   });
 
-  it('allows matter reads only for members and hides non-member existence', async () => {
-    const matterId = await createMatter(baseUrl, ownerCookie, clientId);
+  it('allows restricted matter reads only for members and hides non-member existence', async () => {
+    const matterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted');
     await addMember(baseUrl, ownerCookie, matterId);
 
     const ownerRead = await fetch(`${baseUrl}/v1/matters/${matterId}`, {
@@ -155,8 +194,46 @@ describe('matter permission integration', () => {
     expect(adminDeniedBody).not.toContain(matterId);
   });
 
+  it('requires membership to read and write firm_open matters', async () => {
+    const matterId = await createMatter(baseUrl, ownerCookie, clientId, 'firm_open');
+
+    const adminRead = await fetch(`${baseUrl}/v1/matters/${matterId}`, {
+      headers: { cookie: firmAdminCookie },
+    });
+    const adminReadBody = await adminRead.text();
+    expect(adminRead.status, adminReadBody).toBe(404);
+
+    await addMember(baseUrl, ownerCookie, matterId, 'read');
+    const memberRead = await fetch(`${baseUrl}/v1/matters/${matterId}`, {
+      headers: { cookie: memberCookie },
+    });
+    const memberReadBody = await memberRead.text();
+    expect(memberRead.status, memberReadBody).toBe(200);
+    expect(JSON.parse(memberReadBody)).toMatchObject({
+      accessScope: 'firm_open',
+      matterId,
+    });
+
+    await expect(
+      permissionService.canEditMatter(
+        { tenantId: tenantAlphaId, userId: alphaPermissionMemberUserId },
+        matterId,
+      ),
+    ).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['matter.edit:membership_not_edit'],
+    });
+
+    const writeDenied = await fetch(`${baseUrl}/v1/matters/${matterId}`, {
+      method: 'PATCH',
+      headers: { cookie: memberCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ matterName: 'Non-member edit attempt' }),
+    });
+    expect(writeDenied.status, await writeDenied.text()).toBe(403);
+  });
+
   it('requires edit-level membership for matter edits and uploads', async () => {
-    const matterId = await createMatter(baseUrl, ownerCookie, clientId);
+    const matterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted');
     await addMember(baseUrl, ownerCookie, matterId, 'read');
 
     await expect(
@@ -190,6 +267,7 @@ describe('matter permission integration', () => {
       ),
     ).resolves.toMatchObject({ effect: 'ALLOW' });
 
+    await setMatterConflictsCleared(matterId);
     const editStatus = await fetch(`${baseUrl}/v1/matters/${matterId}/status`, {
       method: 'PATCH',
       headers: { cookie: memberCookie, 'content-type': 'application/json' },
@@ -205,8 +283,38 @@ describe('matter permission integration', () => {
     ).resolves.toMatchObject({ effect: 'ALLOW' });
   });
 
+  it('requires matter owner authority and records audit for access scope changes', async () => {
+    const matterId = await createMatter(baseUrl, ownerCookie, clientId, 'firm_open');
+    await addMember(baseUrl, ownerCookie, matterId, 'edit');
+
+    const memberDenied = await fetch(`${baseUrl}/v1/matters/${matterId}`, {
+      method: 'PATCH',
+      headers: { cookie: memberCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ accessScope: 'restricted' }),
+    });
+    expect(memberDenied.status, await memberDenied.text()).toBe(403);
+
+    const ownerUpdate = await fetch(`${baseUrl}/v1/matters/${matterId}`, {
+      method: 'PATCH',
+      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ accessScope: 'restricted' }),
+    });
+    const ownerUpdateBody = await ownerUpdate.text();
+    expect(ownerUpdate.status, ownerUpdateBody).toBe(200);
+    expect(JSON.parse(ownerUpdateBody)).toMatchObject({
+      accessScope: 'restricted',
+      matterId,
+    });
+
+    const audit = await latestMatterUpdateAudit(matterId);
+    expect(audit?.metadata_json).toEqual({
+      matter_id: matterId,
+      diff_keys: ['access_scope'],
+    });
+  });
+
   it('applies deny overrides from ethical walls and explicit permission rows', async () => {
-    const wallMatterId = await createMatter(baseUrl, ownerCookie, clientId);
+    const wallMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'firm_open');
     const wall = await fetch(`${baseUrl}/v1/ethical-walls`, {
       method: 'POST',
       headers: { cookie: securityAdminCookie, 'content-type': 'application/json' },
@@ -232,7 +340,7 @@ describe('matter permission integration', () => {
     expect(wallDenied.status, wallDeniedBody).toBe(403);
     expect(wallDeniedBody).toContain('ETHICAL_WALL_BLOCKED');
 
-    const deniedMatterId = await createMatter(baseUrl, ownerCookie, clientId);
+    const deniedMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'firm_open');
     await insertExplicitDeny(deniedMatterId, alphaOwnerUserId);
     const explicitDenied = await fetch(`${baseUrl}/v1/matters/${deniedMatterId}`, {
       headers: { cookie: ownerCookie },
@@ -241,8 +349,9 @@ describe('matter permission integration', () => {
   });
 
   it('filters matter lists at query time for rows and total count', async () => {
-    const ownerMatterId = await createMatter(baseUrl, ownerCookie, clientId);
-    const memberMatterId = await createMatter(baseUrl, ownerCookie, clientId);
+    const ownerMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted');
+    const memberMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted');
+    const firmOpenMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'firm_open');
     await addMember(baseUrl, ownerCookie, memberMatterId);
 
     const memberList = await fetch(`${baseUrl}/v1/matters?clientId=${clientId}&pageSize=100`, {
@@ -252,6 +361,7 @@ describe('matter permission integration', () => {
     expect(memberList.status, body).toBe(200);
     const parsed = JSON.parse(body) as { items: Array<{ matterId: string }>; totalCount: number };
     expect(parsed.items.some((item) => item.matterId === memberMatterId)).toBe(true);
+    expect(parsed.items.some((item) => item.matterId === firmOpenMatterId)).toBe(false);
     expect(parsed.items.some((item) => item.matterId === ownerMatterId)).toBe(false);
     expect(parsed.totalCount).toBe(parsed.items.length);
   });

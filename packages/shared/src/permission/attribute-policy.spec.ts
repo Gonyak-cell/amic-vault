@@ -4,6 +4,7 @@ import { evaluatePermissionCondition, type PermissionAttributeContext } from './
 const context: PermissionAttributeContext = {
   actor: { role: 'matter_member', practiceGroup: 'litigation' },
   matter: {
+    confidentialityLevel: 'high',
     status: 'active',
     practiceGroup: 'litigation',
     clientId: '11111111-1111-4111-8111-111111111122',
@@ -33,6 +34,13 @@ describe('attribute policy condition evaluator', () => {
             { attribute: 'document.confidentiality_level', operator: 'not_eq', value: 'restricted' },
           ],
         },
+        context,
+      ),
+    ).toEqual({ outcome: 'match' });
+
+    expect(
+      evaluatePermissionCondition(
+        { attribute: 'matter.confidentiality_level', operator: 'eq', value: 'high' },
         context,
       ),
     ).toEqual({ outcome: 'match' });

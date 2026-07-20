@@ -38,6 +38,8 @@ describe('AI retrieval orchestrator integration', () => {
   let matterId: string;
   let visible: AiRetrievalRef;
   let aiDenied: AiRetrievalRef;
+  let allAiDenied: AiRetrievalRef;
+  let allAiDeniedMatterId: string;
   let explicitDenied: AiRetrievalRef;
   let wallMatterId: string;
   let wallDenied: AiRetrievalRef;
@@ -45,6 +47,7 @@ describe('AI retrieval orchestrator integration', () => {
   beforeAll(async () => {
     clientId = randomUUID();
     matterId = randomUUID();
+    allAiDeniedMatterId = randomUUID();
     wallMatterId = randomUUID();
 
     visible = await insertAiRetrievalRow({
@@ -71,6 +74,14 @@ describe('AI retrieval orchestrator integration', () => {
       aiAllowed: true,
       index: 903,
     });
+    allAiDenied = await insertAiRetrievalRow({
+      clientId,
+      matterId: allAiDeniedMatterId,
+      title: 'AI Retrieval All Disabled Memo',
+      contentText: 'aiallblockedretrievalalpha hidden all disabled context',
+      aiAllowed: false,
+      index: 905,
+    });
     wallDenied = await insertAiRetrievalRow({
       clientId,
       matterId: wallMatterId,
@@ -83,6 +94,13 @@ describe('AI retrieval orchestrator integration', () => {
     await addMatterMember({
       tenantId: tenantAlphaId,
       matterId,
+      userId: alphaOwnerUserId,
+      matterRole: 'owner',
+      accessLevel: 'edit',
+    });
+    await addMatterMember({
+      tenantId: tenantAlphaId,
+      matterId: allAiDeniedMatterId,
       userId: alphaOwnerUserId,
       matterRole: 'owner',
       accessLevel: 'edit',
@@ -111,7 +129,7 @@ describe('AI retrieval orchestrator integration', () => {
       subjectId: alphaOwnerUserId,
       membershipType: 'excluded',
     });
-    await enableAiPolicyForMatters([matterId, wallMatterId]);
+    await enableAiPolicyForMatters([matterId, allAiDeniedMatterId, wallMatterId]);
 
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
@@ -141,6 +159,14 @@ describe('AI retrieval orchestrator integration', () => {
       matterId,
     });
     expect(result.chunks[0]?.redactedText).toContain('[REDACTED:email_address]');
+    expect(result.excludedChunks).toEqual([
+      expect.objectContaining({
+        documentId: aiDenied.documentId,
+        versionId: aiDenied.versionId,
+        reasonCode: 'ai_policy_blocked',
+      }),
+    ]);
+    expect(result.appliedRules).toContain('ai_policy:excluded_after_retrieval');
     expectNoDeniedReference(result);
 
     const audit = await latestAiRetrievalAudit(matterId);
@@ -153,10 +179,29 @@ describe('AI retrieval orchestrator integration', () => {
         document_count: 1,
       },
     });
-    expect(String(audit?.metadata_json?.filter_refs)).toContain('matter_member');
+    expect(String(audit?.metadata_json?.filter_refs)).toContain('scope:meta_matter');
     expect(JSON.stringify(audit?.metadata_json)).not.toContain(
       'airetrievalalpha hidden termination contact',
     );
+  });
+
+  it('fails closed when every retrieved candidate is AI policy blocked', async () => {
+    const result = await retrieval.retrieve({
+      tenantId: tenantAlphaId,
+      userId: alphaOwnerUserId,
+      matterId: allAiDeniedMatterId,
+      query: 'aiallblockedretrievalalpha hidden all disabled context',
+      filters: { clientId },
+      maxChunks: 6,
+    });
+
+    expect(result).toMatchObject({
+      status: 'denied',
+      reasonCode: 'ai_policy_blocked',
+      chunks: [],
+    });
+    expect(JSON.stringify(result)).not.toContain(allAiDenied.title);
+    expect(JSON.stringify(result)).not.toContain(allAiDenied.contentText);
   });
 
   it('supports graph-oriented retrieval in R7 while keeping rule-dependent questions blocked', async () => {
@@ -234,7 +279,9 @@ describe('AI retrieval orchestrator integration', () => {
 
   function expectNoDeniedReference(result: unknown): void {
     const raw = JSON.stringify(result);
-    for (const denied of [aiDenied, explicitDenied, wallDenied]) {
+    expect(raw).not.toContain(aiDenied.title);
+    expect(raw).not.toContain(aiDenied.contentText);
+    for (const denied of [explicitDenied, wallDenied]) {
       expect(raw).not.toContain(denied.title);
       expect(raw).not.toContain(denied.documentId);
       expect(raw).not.toContain(denied.versionId);

@@ -87,6 +87,11 @@ export class RecordsController {
     return this.records.createDisposalRequest(permissionContext(request), body);
   }
 
+  @Get('disposals')
+  listDisposalRequests(@Req() request: RequestWithSession) {
+    return this.records.listDisposalRequests(permissionContext(request));
+  }
+
   @Post('disposals/:disposalRequestId/approve')
   approveDisposalRequest(
     @Req() request: RequestWithSession,

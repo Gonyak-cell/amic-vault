@@ -20,7 +20,12 @@ export const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
 export const alphaPermissionMemberUserId = '11111111-1111-4111-8111-111111111105';
 export const betaOwnerUserId = '22222222-2222-4222-8222-222222222201';
 
+export function semanticTestEmbeddingVector(text: string): number[] {
+  return deterministicEmbeddingVector(text.replace(/해지|종료/gu, 'termination'));
+}
+
 export interface SearchIndexedFixtureRow {
+  matterAccessScope?: 'firm_open' | 'restricted';
   tenantId: string;
   ownerUserId: string;
   clientId: string;
@@ -29,10 +34,17 @@ export interface SearchIndexedFixtureRow {
   versionId: string;
   title: string;
   contentText: string;
+  contentTruncated?: boolean;
+  seedChunks?: boolean;
   confidentialityLevel?: 'standard' | 'high' | 'restricted';
   documentType: 'contract' | 'memo' | 'evidence';
   documentStatus: 'draft' | 'deleted';
+  aiAllowed?: boolean;
+  nextVersionId?: string | null;
+  prevVersionId?: string | null;
   privilegeStatus?: 'none' | 'privileged' | 'work_product' | 'joint_privilege';
+  supersedesVersionId?: string | null;
+  versionNo?: number;
   versionStatus: 'current' | 'superseded';
   updatedAt: string;
 }
@@ -212,6 +224,7 @@ export async function seedSemanticChunksForVersion(input: {
   documentId: string;
   versionId: string;
   contentText: string;
+  embeddings?: boolean;
 }): Promise<void> {
   await withClient(createOwnerClient(), async (client) => {
     const sourceTextHash = sha256Hex(input.contentText);
@@ -324,34 +337,36 @@ export async function seedSemanticChunksForVersion(input: {
         );
         const chunkId = chunkResult.rows[0]?.chunk_id;
         if (!chunkId) throw new Error('child chunk seed returned no row');
-        const vector = deterministicEmbeddingVector(chunk.chunkText);
-        await client.query(
-          `
-            INSERT INTO document_chunk_embeddings (
-              tenant_id, chunk_id, document_id, version_id, model_route, model_tier,
-              embedding, embedding_hash, source_text_hash, stale, updated_at
-            )
-            VALUES ($1, $2, $3, $4, 'local_gemma', 'local', $5::vector, $6, $7, false, now())
-            ON CONFLICT (tenant_id, chunk_id, model_route)
-            DO UPDATE SET
-              document_id = EXCLUDED.document_id,
-              version_id = EXCLUDED.version_id,
-              embedding = EXCLUDED.embedding,
-              embedding_hash = EXCLUDED.embedding_hash,
-              source_text_hash = EXCLUDED.source_text_hash,
-              stale = false,
-              updated_at = EXCLUDED.updated_at
-          `,
-          [
-            input.tenantId,
-            chunkId,
-            input.documentId,
-            input.versionId,
-            vectorToSqlLiteral(vector),
-            embeddingHash(vector),
-            sourceTextHash,
-          ],
-        );
+        if (input.embeddings !== false) {
+          const vector = semanticTestEmbeddingVector(chunk.chunkText);
+          await client.query(
+            `
+              INSERT INTO document_chunk_embeddings (
+                tenant_id, chunk_id, document_id, version_id, model_route, model_tier,
+                embedding, embedding_hash, source_text_hash, stale, updated_at
+              )
+              VALUES ($1, $2, $3, $4, 'bge_m3', 'local', $5::vector, $6, $7, false, now())
+              ON CONFLICT (tenant_id, chunk_id, model_route)
+              DO UPDATE SET
+                document_id = EXCLUDED.document_id,
+                version_id = EXCLUDED.version_id,
+                embedding = EXCLUDED.embedding,
+                embedding_hash = EXCLUDED.embedding_hash,
+                source_text_hash = EXCLUDED.source_text_hash,
+                stale = false,
+                updated_at = EXCLUDED.updated_at
+            `,
+            [
+              input.tenantId,
+              chunkId,
+              input.documentId,
+              input.versionId,
+              vectorToSqlLiteral(vector),
+              embeddingHash(vector),
+              sourceTextHash,
+            ],
+          );
+        }
       }
       await client.query('COMMIT');
     } catch (error) {
@@ -496,6 +511,7 @@ export async function insertSearchIndexedRow(
 ): Promise<void> {
   await withClient(createOwnerClient(), async (client) => {
     const fileObjectId = randomUUID();
+    const indexSourceTextHash = hexHash(index + 100);
     await client.query('BEGIN');
     try {
       await setTenant(client, row.tenantId);
@@ -511,9 +527,9 @@ export async function insertSearchIndexedRow(
         `
           INSERT INTO matters (
             matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
-            status, lead_lawyer_id, created_by
+            status, lead_lawyer_id, created_by, access_scope
           )
-          VALUES ($1, $2, $3, $4, $5, 'contract', 'active', $6, $6)
+          VALUES ($1, $2, $3, $4, $5, 'contract', 'active', $6, $6, $7)
           ON CONFLICT (tenant_id, matter_id) DO NOTHING
         `,
         [
@@ -523,6 +539,7 @@ export async function insertSearchIndexedRow(
           `SC-${index}-${randomUUID()}`,
           `${row.title} Matter`,
           row.ownerUserId,
+          row.matterAccessScope ?? 'restricted',
         ],
       );
       await client.query(
@@ -552,13 +569,13 @@ export async function insertSearchIndexedRow(
           INSERT INTO documents (
             document_id, tenant_id, matter_id, document_family_id, title, status,
             document_type, confidentiality_level, privilege_status,
-            created_by, created_at, updated_at,
+            ai_allowed, created_by, created_at, updated_at,
             deleted_at, deleted_by, deleted_previous_status
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11,
-            CASE WHEN $6::text = 'deleted' THEN $11::timestamptz ELSE NULL END,
-            CASE WHEN $6::text = 'deleted' THEN $10::uuid ELSE NULL END,
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12,
+            CASE WHEN $6::text = 'deleted' THEN $12::timestamptz ELSE NULL END,
+            CASE WHEN $6::text = 'deleted' THEN $11::uuid ELSE NULL END,
             CASE WHEN $6::text = 'deleted' THEN 'draft'::text ELSE NULL END
           )
         `,
@@ -572,6 +589,7 @@ export async function insertSearchIndexedRow(
           row.documentType,
           row.confidentialityLevel ?? 'standard',
           row.privilegeStatus ?? 'none',
+          row.aiAllowed ?? false,
           row.ownerUserId,
           row.updatedAt,
         ],
@@ -580,28 +598,34 @@ export async function insertSearchIndexedRow(
         `
           INSERT INTO document_versions (
             version_id, tenant_id, document_id, version_no, version_status,
-            file_object_id, file_hash, created_by
+            file_object_id, file_hash, created_by, supersedes_version_id
           )
-          VALUES ($1, $2, $3, 1, $4, $5, $6, $7)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           row.versionId,
           row.tenantId,
           row.documentId,
+          row.versionNo ?? 1,
           row.versionStatus,
           fileObjectId,
           hexHash(index),
           row.ownerUserId,
+          row.supersedesVersionId ?? null,
         ],
       );
       await client.query(
         `
           INSERT INTO document_search_index (
             tenant_id, document_id, version_id, matter_id, client_id, document_type,
-            document_status, version_status, title, content_text, source_text_hash,
+            document_status, version_status, author_user_id, ai_allowed, prev_version_id,
+            next_version_id, title, content_text, content_truncated, source_text_hash,
             indexed_at, updated_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12)
+          VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+            $16, now(), $17
+          )
         `,
         [
           row.tenantId,
@@ -612,12 +636,106 @@ export async function insertSearchIndexedRow(
           row.documentType,
           row.documentStatus,
           row.versionStatus,
+          row.ownerUserId,
+          row.aiAllowed ?? false,
+          row.prevVersionId ?? row.supersedesVersionId ?? null,
+          row.nextVersionId ?? null,
           row.title,
           row.contentText,
-          hexHash(index + 100),
+          row.contentTruncated ?? false,
+          indexSourceTextHash,
           row.updatedAt,
         ],
       );
+      if (row.seedChunks !== false) {
+        const chunks = buildParentChildChunks({
+          text: row.contentText,
+          sourceTextHash: indexSourceTextHash,
+        });
+        const parentChunkIds = new Map<number, string>();
+        for (const chunk of chunks.filter((candidate) => candidate.chunkKind === 'parent')) {
+          const result = await client.query<{ chunk_id: string }>(
+            `
+              INSERT INTO document_chunks (
+                tenant_id, document_id, version_id, parent_chunk_id, chunk_kind, chunk_ordinal,
+                char_start, char_end, token_count, chunk_text, text_hash, source_text_hash,
+                stale, updated_at
+              )
+              VALUES ($1, $2, $3, NULL, 'parent', $4, $5, $6, $7, $8, $9, $10, false, now())
+              ON CONFLICT (tenant_id, version_id, chunk_ordinal)
+              DO UPDATE SET
+                document_id = EXCLUDED.document_id,
+                parent_chunk_id = NULL,
+                chunk_kind = 'parent',
+                char_start = EXCLUDED.char_start,
+                char_end = EXCLUDED.char_end,
+                token_count = EXCLUDED.token_count,
+                chunk_text = EXCLUDED.chunk_text,
+                text_hash = EXCLUDED.text_hash,
+                source_text_hash = EXCLUDED.source_text_hash,
+                stale = false,
+                updated_at = EXCLUDED.updated_at
+              RETURNING chunk_id
+            `,
+            [
+              row.tenantId,
+              row.documentId,
+              row.versionId,
+              chunk.chunkOrdinal,
+              chunk.charStart,
+              chunk.charEnd,
+              chunk.tokenCount,
+              chunk.chunkText,
+              chunk.textHash,
+              chunk.sourceTextHash,
+            ],
+          );
+          const chunkId = result.rows[0]?.chunk_id;
+          if (!chunkId) throw new Error('parent chunk seed returned no row');
+          parentChunkIds.set(chunk.chunkOrdinal, chunkId);
+        }
+        for (const chunk of chunks.filter((candidate) => candidate.chunkKind === 'child')) {
+          const parentChunkId =
+            chunk.parentOrdinal === null ? undefined : parentChunkIds.get(chunk.parentOrdinal);
+          if (!parentChunkId) throw new Error('child chunk seed missing parent');
+          await client.query(
+            `
+              INSERT INTO document_chunks (
+                tenant_id, document_id, version_id, parent_chunk_id, chunk_kind, chunk_ordinal,
+                char_start, char_end, token_count, chunk_text, text_hash, source_text_hash,
+                stale, updated_at
+              )
+              VALUES ($1, $2, $3, $4, 'child', $5, $6, $7, $8, $9, $10, $11, false, now())
+              ON CONFLICT (tenant_id, version_id, chunk_ordinal)
+              DO UPDATE SET
+                document_id = EXCLUDED.document_id,
+                parent_chunk_id = EXCLUDED.parent_chunk_id,
+                chunk_kind = 'child',
+                char_start = EXCLUDED.char_start,
+                char_end = EXCLUDED.char_end,
+                token_count = EXCLUDED.token_count,
+                chunk_text = EXCLUDED.chunk_text,
+                text_hash = EXCLUDED.text_hash,
+                source_text_hash = EXCLUDED.source_text_hash,
+                stale = false,
+                updated_at = EXCLUDED.updated_at
+            `,
+            [
+              row.tenantId,
+              row.documentId,
+              row.versionId,
+              parentChunkId,
+              chunk.chunkOrdinal,
+              chunk.charStart,
+              chunk.charEnd,
+              chunk.tokenCount,
+              chunk.chunkText,
+              chunk.textHash,
+              chunk.sourceTextHash,
+            ],
+          );
+        }
+      }
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -626,7 +744,11 @@ export async function insertSearchIndexedRow(
   });
 }
 
-export async function createSearchFixture(marker: string): Promise<SearchFixture> {
+export async function createSearchFixture(
+  marker: string,
+  options: { seedChunks?: boolean } = {},
+): Promise<SearchFixture> {
+  const seedChunkOption = options.seedChunks === undefined ? {} : { seedChunks: options.seedChunks };
   const alphaClientId = randomUUID();
   const alphaMatterId = randomUUID();
   const betaClientId = randomUUID();
@@ -645,6 +767,7 @@ export async function createSearchFixture(marker: string): Promise<SearchFixture
       documentStatus: 'draft',
       versionStatus: 'current',
       updatedAt: '2026-06-10T00:00:00.000Z',
+      ...seedChunkOption,
     },
     {
       tenantId: tenantAlphaId,
@@ -659,6 +782,7 @@ export async function createSearchFixture(marker: string): Promise<SearchFixture
       documentStatus: 'draft',
       versionStatus: 'current',
       updatedAt: '2026-06-11T00:00:00.000Z',
+      ...seedChunkOption,
     },
     {
       tenantId: tenantAlphaId,
@@ -673,6 +797,7 @@ export async function createSearchFixture(marker: string): Promise<SearchFixture
       documentStatus: 'draft',
       versionStatus: 'superseded',
       updatedAt: '2026-06-12T00:00:00.000Z',
+      ...seedChunkOption,
     },
     {
       tenantId: tenantAlphaId,
@@ -687,6 +812,7 @@ export async function createSearchFixture(marker: string): Promise<SearchFixture
       documentStatus: 'deleted',
       versionStatus: 'current',
       updatedAt: '2026-06-13T00:00:00.000Z',
+      ...seedChunkOption,
     },
     {
       tenantId: tenantBetaId,
@@ -701,6 +827,7 @@ export async function createSearchFixture(marker: string): Promise<SearchFixture
       documentStatus: 'draft',
       versionStatus: 'current',
       updatedAt: '2026-06-10T00:00:00.000Z',
+      ...seedChunkOption,
     },
   ];
 

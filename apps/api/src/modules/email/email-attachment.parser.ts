@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
-import { parseEmlHeaders } from '@amic-vault/shared';
+import { decodeQuotedPrintableBytes, parseEmlHeaders } from '@amic-vault/shared';
 
 export interface ParsedEmailAttachment {
   attachmentIndex: number;
   originalFilename: string;
   normalizedFilename: string;
   contentType: string;
+  charset: string | null;
   mediaHint: string;
   sizeBytes: number;
   sha256: string;
@@ -57,6 +58,10 @@ function mediaType(contentType: string): string {
   return value || 'application/octet-stream';
 }
 
+function dispositionType(disposition: string): string {
+  return disposition.split(';')[0]?.trim().toLowerCase() ?? '';
+}
+
 function normalizedFilename(value: string | null, index: number): string {
   const base = (value ?? `attachment-${index}`)
     .split('\\')
@@ -77,7 +82,10 @@ function decodePartBody(value: string, encoding: string): Buffer {
   if (encoding === 'base64') {
     return Buffer.from(body.replace(/\s+/g, ''), 'base64');
   }
-  return Buffer.from(body, 'utf8');
+  if (encoding === 'quoted-printable') {
+    return Buffer.from(decodeQuotedPrintableBytes(body));
+  }
+  return Buffer.from(body, 'latin1');
 }
 
 function partSections(raw: string, boundary: string): string[] {
@@ -90,45 +98,101 @@ function partSections(raw: string, boundary: string): string[] {
     .filter((part) => !part.startsWith('--'));
 }
 
+function isInlineCidPart(headers: readonly { name: string; value: string }[]): boolean {
+  const disposition = dispositionType(headerValue(headers, 'content-disposition'));
+  return disposition === 'inline' && Boolean(headerValue(headers, 'content-id'));
+}
+
 function sha256Hex(value: Buffer): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function pushAttachment(
+  attachments: ParsedEmailAttachment[],
+  input: {
+    body: string;
+    charset: string | null;
+    contentType: string;
+    encoding: string;
+    filename: string | null;
+  },
+) {
+  const attachmentIndex = attachments.length;
+  const decoded = decodePartBody(input.body, input.encoding);
+  const safeFilename = normalizedFilename(input.filename, attachmentIndex);
+  attachments.push({
+    attachmentIndex,
+    originalFilename: safeFilename,
+    normalizedFilename: safeFilename,
+    contentType: input.contentType,
+    charset: input.charset,
+    mediaHint: input.contentType,
+    sizeBytes: decoded.length,
+    sha256: sha256Hex(decoded),
+    body: decoded,
+  });
+}
+
+function walkPart(raw: string, attachments: ParsedEmailAttachment[], depth: number): void {
+  if (depth > 12) return;
+  const { headers: headerText, body } = splitHeaderBody(raw);
+  const headers = parseEmlHeaders(headerText);
+  const disposition = headerValue(headers, 'content-disposition');
+  const contentTypeHeader = headerValue(headers, 'content-type');
+  const contentType = mediaType(contentTypeHeader);
+  const charset = parameterValue(contentTypeHeader, 'charset');
+  const filename =
+    parameterValue(disposition, 'filename') ?? parameterValue(contentTypeHeader, 'name');
+  const encoding = headerValue(headers, 'content-transfer-encoding').trim().toLowerCase();
+
+  if (contentType.startsWith('multipart/')) {
+    const boundary = boundaryFromContentType(contentTypeHeader);
+    if (!boundary) return;
+    for (const child of partSections(body, boundary)) {
+      walkPart(child, attachments, depth + 1);
+    }
+    return;
+  }
+
+  if (contentType === 'message/rfc822') {
+    pushAttachment(attachments, {
+      body,
+      charset,
+      contentType,
+      encoding,
+      filename: filename ?? `embedded-message-${attachments.length}.eml`,
+    });
+    return;
+  }
+
+  if (isInlineCidPart(headers)) return;
+
+  const isAttachment =
+    dispositionType(disposition) === 'attachment' || Boolean(filename && contentTypeHeader);
+  if (!isAttachment) return;
+
+  pushAttachment(attachments, {
+    body,
+    charset,
+    contentType,
+    encoding,
+    filename,
+  });
 }
 
 export function extractEmlAttachments(raw: string): ParsedEmailAttachment[] {
   const top = splitHeaderBody(raw);
   const topHeaders = parseEmlHeaders(top.headers);
   const boundary = boundaryFromContentType(headerValue(topHeaders, 'content-type'));
-  if (!boundary) return [];
 
   const attachments: ParsedEmailAttachment[] = [];
-  for (const part of partSections(top.body, boundary)) {
-    const { headers: headerText, body } = splitHeaderBody(part);
-    const headers = parseEmlHeaders(headerText);
-    const disposition = headerValue(headers, 'content-disposition');
-    const contentTypeHeader = headerValue(headers, 'content-type');
-    const filename =
-      parameterValue(disposition, 'filename') ?? parameterValue(contentTypeHeader, 'name');
-    const isAttachment =
-      /(^|;)\s*attachment\b/i.test(disposition) || Boolean(filename && contentTypeHeader);
-    if (!isAttachment) continue;
+  if (!boundary) {
+    walkPart(raw, attachments, 0);
+    return attachments;
+  }
 
-    const attachmentIndex = attachments.length;
-    const contentType = mediaType(contentTypeHeader);
-    const decoded = decodePartBody(
-      body,
-      headerValue(headers, 'content-transfer-encoding').trim().toLowerCase(),
-    );
-    const safeFilename = normalizedFilename(filename, attachmentIndex);
-    attachments.push({
-      attachmentIndex,
-      originalFilename: safeFilename,
-      normalizedFilename: safeFilename,
-      contentType,
-      mediaHint: contentType,
-      sizeBytes: decoded.length,
-      sha256: sha256Hex(decoded),
-      body: decoded,
-    });
+  for (const part of partSections(top.body, boundary)) {
+    walkPart(part, attachments, 1);
   }
   return attachments;
 }

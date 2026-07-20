@@ -8,31 +8,34 @@ import { DashboardService } from './dashboard.service';
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
 const userId = '11111111-1111-4111-8111-111111111102';
 
-function createService(rowsFor: (sql: string) => unknown[]): {
+function createService(rowsFor: (sql: string, params?: readonly unknown[]) => unknown[]): {
+  auditLogs: unknown[];
   queries: string[];
   service: DashboardService;
   context: TenantContextService;
 } {
+  const auditLogs: unknown[] = [];
   const queries: string[] = [];
   const auditService = {
     async transaction<T>(_tenantId: string, run: (client: { query: typeof query }) => Promise<T>) {
       return run({ query });
     },
+    async log(input: unknown) {
+      auditLogs.push(input);
+      return { eventId: '11111111-1111-4111-8111-111111111199', createdAt: new Date() };
+    },
   };
 
-  async function query(sql: string) {
+  async function query(sql: string, params?: readonly unknown[]) {
     queries.push(sql);
-    return { rows: rowsFor(sql), rowCount: null };
+    return { rows: rowsFor(sql, params), rowCount: null };
   }
 
   const context = new TenantContextService();
   return {
+    auditLogs,
     queries,
-    service: new DashboardService(
-      auditService as never,
-      context,
-      new PermissionQueryBuilder(),
-    ),
+    service: new DashboardService(auditService as never, context, new PermissionQueryBuilder()),
     context,
   };
 }
@@ -110,7 +113,9 @@ describe('DashboardService', () => {
       integrationStatus: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
     });
     expect(queries.some((sql) => sql.includes('FROM matter_members mm'))).toBe(true);
-    expect(JSON.stringify(overview)).not.toMatch(/documentId|matterId|tenantId|workspaceId|hash|raw/i);
+    expect(JSON.stringify(overview)).not.toMatch(
+      /documentId|matterId|tenantId|workspaceId|hash|raw/i,
+    );
   });
 
   it('derives work queue and notification API payloads from permission-scoped dashboard data', async () => {
@@ -198,16 +203,105 @@ describe('DashboardService', () => {
     );
   });
 
+  it('aggregates usage stats on explicit month boundaries with storage totals', async () => {
+    const seenParams: Array<readonly unknown[]> = [];
+    const { context, service } = createService((sql, params) => {
+      seenParams.push(params ?? []);
+      if (sql.includes('FROM users')) return [{ role: 'firm_admin', status: 'active' }];
+      if (sql.includes('count(DISTINCT ae.actor_id)')) {
+        return [{ active_users: 3, uploads: 3, downloads: 2, searches: 5 }];
+      }
+      if (sql.includes('FROM file_objects')) return [{ storage_bytes: '3072' }];
+      if (sql.includes('GROUP BY m.matter_id')) {
+        return [{ matter_label: 'AMIC-2026-001 · Governance', activity_count: 10 }];
+      }
+      return [];
+    });
+
+    const stats = await context.run(
+      { tenantId, slug: 'amic', status: 'active', source: 'session' },
+      () =>
+        service.getUsageStats(
+          userId,
+          {
+            from: '2026-06-01T00:00:00.000Z',
+            to: '2026-06-30T23:59:59.999Z',
+          },
+          new Date('2026-07-01T00:00:00.000Z'),
+        ),
+    );
+
+    expect(stats).toMatchObject({
+      generatedAt: '2026-07-01T00:00:00.000Z',
+      period: {
+        from: '2026-06-01T00:00:00.000Z',
+        to: '2026-06-30T23:59:59.999Z',
+      },
+      totals: {
+        activeUsers: 3,
+        uploads: 3,
+        downloads: 2,
+        searches: 5,
+        storageBytes: 3072,
+      },
+      topMatters: [{ matterLabel: 'AMIC-2026-001 · Governance', activityCount: 10 }],
+    });
+    expect(
+      seenParams.some(
+        (params) =>
+          params[1] instanceof Date &&
+          params[1].toISOString() === '2026-06-01T00:00:00.000Z' &&
+          params[2] instanceof Date &&
+          params[2].toISOString() === '2026-06-30T23:59:59.999Z',
+      ),
+    ).toBe(true);
+  });
+
+  it('returns zero usage stats for empty periods and audits CSV exports', async () => {
+    const { auditLogs, context, service } = createService((sql) => {
+      if (sql.includes('FROM users')) return [{ role: 'security_admin', status: 'active' }];
+      if (sql.includes('count(DISTINCT ae.actor_id)')) {
+        return [{ active_users: 0, uploads: 0, downloads: 0, searches: 0 }];
+      }
+      if (sql.includes('FROM file_objects')) return [{ storage_bytes: null }];
+      return [];
+    });
+
+    const csv = await context.run(
+      { tenantId, slug: 'amic', status: 'active', source: 'session' },
+      () =>
+        service.exportUsageStatsCsv(
+          userId,
+          {
+            from: '2026-05-01T00:00:00.000Z',
+            to: '2026-05-31T23:59:59.999Z',
+          },
+          new Date('2026-06-01T00:00:00.000Z'),
+        ),
+    );
+
+    expect(csv).toContain('summary,active_users,0');
+    expect(csv).toContain('summary,storage_bytes,0');
+    expect(auditLogs).toEqual([
+      expect.objectContaining({
+        action: 'AUDIT_EXPORT_CREATED',
+        targetType: 'usage_stats',
+        metadata: expect.objectContaining({
+          scope_type: 'usage_stats',
+          export_format: 'csv',
+          result_count: 5,
+        }),
+      }),
+    ]);
+  });
+
   it('fails closed when the actor is not active', async () => {
     const { context, service } = createService((sql) =>
       sql.includes('FROM users') ? [{ role: 'matter_member', status: 'locked' }] : [],
     );
 
-    await context.run(
-      { tenantId, slug: 'amic', status: 'active', source: 'session' },
-      async () => {
-        await expect(service.getOverview(userId)).rejects.toBeInstanceOf(ForbiddenException);
-      },
-    );
+    await context.run({ tenantId, slug: 'amic', status: 'active', source: 'session' }, async () => {
+      await expect(service.getOverview(userId)).rejects.toBeInstanceOf(ForbiddenException);
+    });
   });
 });

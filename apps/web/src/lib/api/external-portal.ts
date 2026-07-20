@@ -1,11 +1,22 @@
 import type {
+  CreateExternalAnswerRequestDto,
+  CreateExternalLinkRequestDto,
+  CreateExternalUserRequestDto,
+  CreateExternalWorkspaceRequestDto,
   ExternalAccessManifestDto,
   ExternalAccessStatusResponseDto,
   ExternalDownloadTicketDto,
+  ExternalLinkCreatedResponseDto,
+  ExternalLinkDto,
+  ExternalManagementWorkspaceListResponseDto,
   ExternalNdaAcceptanceDto,
   ExternalQaListResponseDto,
   ExternalQaMessageDto,
+  ExternalUserDto,
+  ExternalWorkspaceDto,
+  ReviewExternalAnswerRequestDto,
 } from '@amic-vault/shared';
+import { apiFetch } from '../api-client';
 import { apiBaseUrl } from '../config';
 
 async function externalPortalFetch<T>(token: string, suffix: string, init: RequestInit = {}): Promise<T> {
@@ -54,4 +65,75 @@ export function createExternalQuestion(
     method: 'POST',
     body: JSON.stringify({ messageText }),
   });
+}
+
+export function listExternalWorkspaces(
+  matterId: string,
+): Promise<ExternalManagementWorkspaceListResponseDto> {
+  const query = new URLSearchParams({ matterId });
+  return apiFetch<ExternalManagementWorkspaceListResponseDto>(`/external/workspaces?${query}`);
+}
+
+export function createExternalWorkspace(
+  input: CreateExternalWorkspaceRequestDto,
+): Promise<ExternalWorkspaceDto> {
+  return apiFetch<ExternalWorkspaceDto>('/external/workspaces', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function createExternalUser(input: CreateExternalUserRequestDto): Promise<ExternalUserDto> {
+  return apiFetch<ExternalUserDto>('/external/users', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function createExternalLink(
+  input: CreateExternalLinkRequestDto,
+): Promise<ExternalLinkCreatedResponseDto> {
+  return apiFetch<ExternalLinkCreatedResponseDto>('/external/links', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function revokeExternalLink(linkId: string): Promise<ExternalLinkDto> {
+  return apiFetch<ExternalLinkDto>(`/external/links/${encodeURIComponent(linkId)}/revoke`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export function listWorkspaceQa(workspaceId: string): Promise<ExternalQaListResponseDto> {
+  return apiFetch<ExternalQaListResponseDto>(
+    `/external/workspaces/${encodeURIComponent(workspaceId)}/qa`,
+  );
+}
+
+export function createExternalAnswer(
+  messageId: string,
+  input: CreateExternalAnswerRequestDto,
+): Promise<ExternalQaMessageDto> {
+  return apiFetch<ExternalQaMessageDto>(
+    `/external/qa/${encodeURIComponent(messageId)}/answers`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function reviewExternalAnswer(
+  messageId: string,
+  input: ReviewExternalAnswerRequestDto,
+): Promise<ExternalQaMessageDto> {
+  return apiFetch<ExternalQaMessageDto>(
+    `/external/qa/${encodeURIComponent(messageId)}/review`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
 }

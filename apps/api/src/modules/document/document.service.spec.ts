@@ -21,6 +21,7 @@ function documentRow(overrides: Record<string, unknown> = {}) {
     subtype: null,
     confidentiality_level: 'standard',
     privilege_status: 'none',
+    source: 'internal_work_product',
     ai_allowed: false,
     legal_hold: false,
     version_id: versionId,
@@ -47,7 +48,9 @@ describe('DocumentService', () => {
           'signed',
           'high',
           'privileged',
+          'internal_work_product',
           false,
+          null,
           actorUserId,
         ]);
         return {
@@ -94,7 +97,7 @@ describe('DocumentService', () => {
   it('stores explicit upload prep consent on draft creation', async () => {
     const client = {
       async query(_sql: string, params?: readonly unknown[]) {
-        expect(params?.[9]).toBe(true);
+        expect(params?.[10]).toBe(true);
         return {
           rowCount: 1,
           rows: [
@@ -147,7 +150,8 @@ describe('DocumentService', () => {
               document_version_id: '11111111-1111-4111-8111-111111111198',
             },
           ],
-        }),
+        })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [updatedRow] }),
     };
     const auditLog = vi.fn(async () => undefined);
     const transaction = vi.fn(

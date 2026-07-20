@@ -66,6 +66,14 @@ describe('MimeTypeValidator', () => {
         declaredMimeType: 'application/octet-stream',
       }),
     ).resolves.toEqual({ mimeType: 'application/vnd.hancom.hwpx' });
+    await expect(
+      validator.validate({
+        path: await fixtureFile('a.zip', Buffer.from('PK\x03\x04plain zip payload', 'latin1')),
+        sizeBytes: 21,
+        extension: 'zip',
+        declaredMimeType: 'application/zip',
+      }),
+    ).resolves.toEqual({ mimeType: 'application/zip' });
   });
 
   it('sniffs OneDrive migration image, spreadsheet, presentation, legacy Office, HWP, and email files', async () => {
@@ -243,6 +251,22 @@ describe('MimeTypeValidator', () => {
         declaredMimeType: 'application/json',
       }),
     ).resolves.toEqual({ mimeType: 'application/json' });
+    await expect(
+      validator.validate({
+        path: await fixtureFile('a.html', '<!doctype html><html><body>Preview</body></html>'),
+        sizeBytes: 48,
+        extension: 'html',
+        declaredMimeType: 'text/html',
+      }),
+    ).resolves.toEqual({ mimeType: 'text/html' });
+    await expect(
+      validator.validate({
+        path: await fixtureFile('a.htm', '<html><body>Preview</body></html>'),
+        sizeBytes: 33,
+        extension: 'htm',
+        declaredMimeType: 'text/html',
+      }),
+    ).resolves.toEqual({ mimeType: 'text/html' });
   });
 
   it('rejects extension, declared MIME, and magic-byte mismatches', async () => {
@@ -304,6 +328,14 @@ describe('MimeTypeValidator', () => {
         sizeBytes: 10,
         extension: 'json',
         declaredMimeType: 'application/json',
+      }),
+    ).rejects.toThrow(UnsupportedMediaTypeException);
+    await expect(
+      validator.validate({
+        path: await fixtureFile('bad.html', 'not actually html'),
+        sizeBytes: 17,
+        extension: 'html',
+        declaredMimeType: 'text/html',
       }),
     ).rejects.toThrow(UnsupportedMediaTypeException);
   });

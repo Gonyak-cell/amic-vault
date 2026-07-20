@@ -1,11 +1,12 @@
 # Evaluation Set v0 Collection Procedure
 
 Status: R3 technical procedure
-Scope: deidentified closed-matter contract examples for search evaluation only
+Scope: deidentified closed-matter contract examples for search and local AI golden-set evaluation
 
 ## Selection Criteria
 
-- Select 20 to 50 closed Matter contract documents.
+- Select at least 30 closed Matter contract documents before claiming the local AI golden-set gate.
+- Expand the set toward 100 labeled cases as the technical target.
 - Use Korean-language contracts only for v0.
 - Exclude scanned image PDFs when text redaction cannot be verified.
 - Do not import raw originals into this repository.
@@ -30,6 +31,13 @@ Use stable placeholders such as `[PARTY_A]`, `[COMPANY_B]`, `[ADDRESS_1]`, `[SIG
 - The reviewer checks the raw source against the deidentified case outside the repo.
 - The reviewer records only the approved deidentified case number and approval date in the secure review log. Do not commit that log here.
 
+## Golden Labels
+
+- A lawyer reviewer labels each approved case with `expectedAnswerFacts` and `expectedCitationDocumentIds`.
+- `expectedAnswerFacts` contains only deidentified fact statements that a correct answer must recover.
+- `expectedCitationDocumentIds` contains only authorized document UUIDs from the tenant database; do not use file names, customer names, or raw matter names.
+- The initial manual gate requires at least 30 labeled cases. The target corpus for regression stability is 100 labeled cases.
+
 ## Import Format
 
 Place only deidentified JSON fixtures under `tests/fixtures/evalset-v0/`.
@@ -43,6 +51,12 @@ Each `*.json` file must be either one case object or an array of case objects:
   "caseType": "contract_search",
   "queryText": "termination notice period clause",
   "expectedRefs": ["doc:closed-contract-0001"],
+  "expectedAnswerFacts": [
+    "termination notice must be sent 30 days before termination"
+  ],
+  "expectedCitationDocumentIds": [
+    "11111111-1111-4111-8111-111111111101"
+  ],
   "deidentified": true,
   "notes": "synthetic or reviewed deidentified text only"
 }
@@ -52,6 +66,8 @@ Rules:
 
 - `caseNo` is unique per tenant.
 - `sourceDocRef` and every `expectedRefs` entry are references, not raw file names containing client names.
+- Every `expectedAnswerFacts` entry must be deidentified and supportable from the expected citation documents.
+- Every `expectedCitationDocumentIds` entry must be a UUID for a document the test tenant may cite.
 - `queryText` must not contain names, addresses, account/card numbers, phone numbers, email addresses, signatures, or raw matter identifiers.
 - Raw source files, failed deidentification drafts, and reviewer notes are never committed.
 

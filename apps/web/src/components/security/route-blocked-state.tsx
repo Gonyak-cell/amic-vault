@@ -26,7 +26,7 @@ export function RouteBlockedState({
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', displayArea]}
+        breadcrumbs={['문서 보관', displayArea]}
         title={displayArea}
         description={t('route.blocked.description')}
       />

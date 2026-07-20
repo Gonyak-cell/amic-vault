@@ -43,27 +43,30 @@ describe('MatterAppRuntimeService', () => {
     process.env = originalEnv;
   });
 
-  it('fails closed when the Matter app source is unconfigured', () => {
+  it('fails closed when the Matter app source is unconfigured', async () => {
     const { service } = createService();
 
-    const status = service.status(new Date('2026-06-20T00:00:00.000Z'));
+    const status = await service.status(new Date('2026-06-20T00:00:00.000Z'));
 
     expect(status).toMatchObject({
       mode: 'unconfigured',
       requestedMode: 'unconfigured',
       sourceAvailable: false,
       uploadAuthoritative: false,
+      lastSyncAt: null,
+      driftCount: 0,
+      syncStateAvailable: false,
       unavailableReason: 'unconfigured',
     });
   });
 
-  it('blocks Vault projection fallback in production runtime', () => {
+  it('blocks Vault projection fallback in production runtime', async () => {
     process.env.NODE_ENV = 'production';
     process.env.MATTER_APP_SOURCE_MODE = 'vault_projection_only';
     process.env.ALLOW_VAULT_PROJECTION_MATTER_SOURCE = 'true';
     const { service } = createService();
 
-    const status = service.status(new Date('2026-06-20T00:00:00.000Z'));
+    const status = await service.status(new Date('2026-06-20T00:00:00.000Z'));
 
     expect(status).toMatchObject({
       mode: 'unconfigured',
@@ -73,7 +76,7 @@ describe('MatterAppRuntimeService', () => {
     });
   });
 
-  it('blocks stale source projections before lookup', () => {
+  it('blocks stale source projections before lookup', async () => {
     process.env.MATTER_APP_SOURCE_MODE = 'matter_app_event_projection';
     process.env.MATTER_APP_SOURCE_CONFIGURED = 'true';
     process.env.MATTER_APP_RUNTIME_READY = 'true';
@@ -81,7 +84,7 @@ describe('MatterAppRuntimeService', () => {
     process.env.MATTER_APP_SOURCE_UPDATED_AT = '2026-06-20T00:00:00.000Z';
     const { service } = createService();
 
-    const status = service.status(new Date('2026-06-20T00:02:00.000Z'));
+    const status = await service.status(new Date('2026-06-20T00:02:00.000Z'));
 
     expect(status).toMatchObject({
       mode: 'unconfigured',
@@ -91,13 +94,13 @@ describe('MatterAppRuntimeService', () => {
     });
   });
 
-  it('blocks Matter app API mode until endpoint and auth are configured', () => {
+  it('blocks Matter app API mode until endpoint and auth are configured', async () => {
     process.env.MATTER_APP_SOURCE_MODE = 'matter_app_api';
     process.env.MATTER_APP_SOURCE_CONFIGURED = 'true';
     process.env.MATTER_APP_RUNTIME_READY = 'true';
     const { service } = createService();
 
-    const status = service.status(new Date('2026-06-20T00:00:00.000Z'));
+    const status = await service.status(new Date('2026-06-20T00:00:00.000Z'));
 
     expect(status).toMatchObject({
       mode: 'unconfigured',
@@ -105,6 +108,38 @@ describe('MatterAppRuntimeService', () => {
       sourceAvailable: false,
       uploadAuthoritative: false,
       unavailableReason: 'matter_app_api_config_missing',
+    });
+  });
+
+  it('uses tenant sync state as Matter app projection health', async () => {
+    vi.mocked(tenantQuery).mockResolvedValue({
+      rowCount: 1,
+      rows: [
+        {
+          last_sync_at: new Date('2026-06-20T00:00:30.000Z'),
+          reflected_count: 5,
+          drift_count: 0,
+        },
+      ],
+    } as never);
+    const { context, service } = createService();
+
+    const status = await context.run(
+      { tenantId, slug: 'amic', status: 'active', source: 'session' },
+      () => service.status(new Date('2026-06-20T00:01:00.000Z')),
+    );
+
+    expect(status).toMatchObject({
+      mode: 'matter_app_event_projection',
+      requestedMode: 'matter_app_event_projection',
+      sourceAvailable: true,
+      sourceContractReady: true,
+      lastSyncAt: '2026-06-20T00:00:30.000Z',
+      reflectedCount: 5,
+      driftCount: 0,
+      syncStateAvailable: true,
+      sourceUpdatedAt: '2026-06-20T00:00:30.000Z',
+      sourceStale: false,
     });
   });
 
@@ -140,7 +175,11 @@ describe('MatterAppRuntimeService', () => {
       items: [],
       totalCount: 0,
     });
-    expect(tenantQuery).not.toHaveBeenCalled();
+    const lookupSqls = vi
+      .mocked(tenantQuery)
+      .mock.calls.map((call) => String(call[2]))
+      .filter((sql) => sql.includes('FROM matters m'));
+    expect(lookupSqls).toHaveLength(0);
   });
 
   it('queries Matter options with SQL-stage permission and wall filters', async () => {

@@ -6,6 +6,7 @@ import type {
   SavedSearchDto,
   SearchFiltersDto,
   SearchGroupBy,
+  SearchMode,
   SearchPrivacySettingsDto,
   SearchQueryDto,
   SearchResponseDto,
@@ -25,6 +26,7 @@ import {
   searchVersionStatusValues,
 } from '@amic-vault/shared';
 import type { SearchDateRange } from '@/components/search/search-advanced-controls';
+import { AiAnswerPanel } from '@/components/search/ai-answer-panel';
 import { SearchAdvancedControls } from '@/components/search/search-advanced-controls';
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
@@ -49,8 +51,10 @@ import {
   searchRefinerKeySet,
   type SearchRefinerKeySet,
 } from '@/lib/search-refiners';
+import { Button } from '@/components/ui/button';
 
 const pageSize = 10;
+type SearchSurface = 'results' | 'ai';
 
 export function SearchClient() {
   const { t } = useI18n();
@@ -72,6 +76,7 @@ export function SearchClient() {
   const [savedSearches, setSavedSearches] = useState<SavedSearchDto[]>([]);
   const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
   const [refinerCatalog, setRefinerCatalog] = useState<EnterpriseApprovedDmsSearchRefinerDto[]>([]);
+  const [surface, setSurface] = useState<SearchSurface>('results');
   const [savedSearchBusy, setSavedSearchBusy] = useState(false);
   const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
   const approvedRefinerKeys = useMemo(() => searchRefinerKeySet(refinerCatalog), [refinerCatalog]);
@@ -81,6 +86,10 @@ export function SearchClient() {
         ? urlForState(query, constrainSelection(selection, approvedRefinerKeys), 1)
         : privateSearchUrl(),
     [approvedRefinerKeys, query, searchPrivacySettings.allowPlaintextReusableUrls, selection],
+  );
+  const aiMatterContext = useMemo(
+    () => matterContextForAi(selection, response),
+    [response, selection],
   );
 
   const refreshSavedSearches = useCallback(async () => {
@@ -229,6 +238,14 @@ export function SearchClient() {
     void runSearch(query, next, 1);
   }
 
+  function submitSearchBar(nextQuery: string) {
+    if (surface === 'ai') {
+      setQuery(nextQuery.trim());
+      return;
+    }
+    void runSearch(nextQuery, selection, 1);
+  }
+
   async function saveCurrentSearch(request: {
     matterId?: string;
     name: string;
@@ -278,9 +295,19 @@ export function SearchClient() {
         <SearchBar
           initialQuery={query}
           busy={busy}
-          onSearch={(nextQuery) => runSearch(nextQuery, selection, 1)}
+          mode={selection.mode ?? 'keyword'}
+          onModeChange={(nextMode) => {
+            const nextSelection = { ...selection, mode: nextMode };
+            if (query.trim()) {
+              void runSearch(query, nextSelection, 1);
+              return;
+            }
+            setSelection(nextSelection);
+          }}
+          onSearch={submitSearchBar}
         />
       </section>
+      <SearchSurfaceTabs surface={surface} onChange={setSurface} />
       <SearchAdvancedControls
         approvedRefinerKeys={approvedRefinerKeys}
         busy={busy}
@@ -302,25 +329,83 @@ export function SearchClient() {
         privacyMode={searchPrivacySettings.urlMode}
         reusableUrl={reusableSearchUrl}
       />
-      <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
-        <SearchFacets
-          approvedRefinerKeys={approvedRefinerKeys}
-          facets={response?.facets ?? emptyFacets}
-          selection={selection}
-          onChange={applyFacets}
+      {surface === 'results' ? (
+        <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <SearchFacets
+            approvedRefinerKeys={approvedRefinerKeys}
+            facets={response?.facets ?? emptyFacets}
+            selection={selection}
+            onChange={applyFacets}
+          />
+          <div className="flex flex-col gap-3">
+            {query.trim() ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card p-3">
+                <p className="text-sm text-muted-foreground">
+                  이 검색어를 Matter AI 질문으로 전환할 수 있습니다.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!aiMatterContext.matterId}
+                  onClick={() => setSurface('ai')}
+                >
+                  AI에게 질문
+                </Button>
+              </div>
+            ) : null}
+            <SearchResults
+              response={response}
+              page={page}
+              pageSize={pageSize}
+              busy={busy}
+              groupBy={selection.groupBy ?? 'none'}
+              mode={selection.mode ?? 'keyword'}
+              target={selection.target ?? 'all'}
+              error={error}
+              onPage={(nextPage) => runSearch(query, selection, nextPage)}
+            />
+          </div>
+        </div>
+      ) : (
+        <AiAnswerPanel
+          seedQuery={query}
+          matterId={aiMatterContext.matterId}
+          matterLabel={aiMatterContext.label}
         />
-        <SearchResults
-          response={response}
-          page={page}
-          pageSize={pageSize}
-          busy={busy}
-          groupBy={selection.groupBy ?? 'none'}
-          target={selection.target ?? 'all'}
-          error={error}
-          onPage={(nextPage) => runSearch(query, selection, nextPage)}
-        />
-      </div>
+      )}
     </main>
+  );
+}
+
+function SearchSurfaceTabs({
+  onChange,
+  surface,
+}: {
+  onChange: (surface: SearchSurface) => void;
+  surface: SearchSurface;
+}) {
+  return (
+    <div aria-label="검색 표면" className="flex w-fit rounded-md border bg-background p-0.5">
+      <Button
+        type="button"
+        size="sm"
+        variant={surface === 'results' ? 'default' : 'ghost'}
+        aria-pressed={surface === 'results'}
+        onClick={() => onChange('results')}
+      >
+        검색 결과
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={surface === 'ai' ? 'default' : 'ghost'}
+        aria-pressed={surface === 'ai'}
+        onClick={() => onChange('ai')}
+      >
+        AI에게 질문
+      </Button>
+    </div>
   );
 }
 
@@ -330,6 +415,9 @@ const emptyFacets: SearchResponseDto['facets'] = {
   documentTypes: [],
   confidentialityLevels: [],
   extractionStatuses: [],
+  emailRecipientDomains: [],
+  emailSenderDomains: [],
+  ocrConfidence: [],
   legalHolds: [],
   privilegeStatuses: [],
   recordsStatuses: [],
@@ -351,6 +439,7 @@ function stateFromParams(
       confidentialityLevel: parseConfidentialityLevel(params.get('confidentialityLevel')),
       documentType: parseDocumentType(params.get('documentType')),
       extractionStatus: parseExtractionStatus(params.get('extractionStatus')),
+      ocrConfidence: parseOcrConfidence(params.get('ocrConfidence')),
       legalHold: parseLegalHold(params.get('legalHold')),
       recordsStatus: parseRecordsStatus(params.get('recordsStatus')),
       versionStatus: parseVersionStatus(params.get('versionStatus')),
@@ -359,6 +448,7 @@ function stateFromParams(
       groupBy: parseGroupBy(params.get('groupBy')),
       matterCode: params.get('matterCode') ?? undefined,
       matterName: params.get('matterName') ?? undefined,
+      mode: parseMode(params.get('mode')),
       privilegeStatus: parsePrivilegeStatus(params.get('privilegeStatus')),
       sortBy: parseSort(params.get('sortBy')),
       target: parseTarget(params.get('target')),
@@ -388,6 +478,7 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   }
   if (selection.documentType) params.set('documentType', selection.documentType);
   if (selection.extractionStatus) params.set('extractionStatus', selection.extractionStatus);
+  if (selection.ocrConfidence) params.set('ocrConfidence', selection.ocrConfidence);
   if (selection.legalHold) params.set('legalHold', selection.legalHold);
   if (selection.recordsStatus) params.set('recordsStatus', selection.recordsStatus);
   if (selection.versionStatus) params.set('versionStatus', selection.versionStatus);
@@ -396,6 +487,7 @@ function urlForState(query: string, selection: SearchFacetSelection, page: numbe
   if (selection.groupBy && selection.groupBy !== 'none') params.set('groupBy', selection.groupBy);
   if (selection.matterCode) params.set('matterCode', selection.matterCode);
   if (selection.matterName) params.set('matterName', selection.matterName);
+  if (selection.mode && selection.mode !== 'keyword') params.set('mode', selection.mode);
   if (selection.privilegeStatus) params.set('privilegeStatus', selection.privilegeStatus);
   if (selection.sortBy && selection.sortBy !== 'relevance') params.set('sortBy', selection.sortBy);
   if (selection.target && selection.target !== 'all') params.set('target', selection.target);
@@ -422,9 +514,40 @@ function requestForState(
     page,
     pageSize,
     ...(selection.groupBy ? { groupBy: selection.groupBy } : {}),
+    ...(selection.mode ? { mode: selection.mode } : {}),
     ...(selection.sortBy ? { sortBy: selection.sortBy } : {}),
     ...(selection.target ? { target: selection.target } : {}),
   };
+}
+
+function matterContextForAi(
+  selection: SearchFacetSelection,
+  response: SearchResponseDto | null,
+): { matterId?: string; label?: string } {
+  if (selection.matterId) return matterContext(selection.matterId, matterLabelFromSelection(selection));
+  const results = response?.results ?? [];
+  const matterIds = [...new Set(results.map((result) => result.matterId).filter(Boolean))];
+  if (matterIds.length !== 1 || !matterIds[0]) return {};
+  const result = results.find((item) => item.matterId === matterIds[0]);
+  return matterContext(matterIds[0], result ? matterLabelFromResult(result) : undefined);
+}
+
+function matterContext(matterId: string, label?: string): { matterId: string; label?: string } {
+  return label ? { matterId, label } : { matterId };
+}
+
+function matterLabelFromSelection(selection: SearchFacetSelection): string | undefined {
+  const code = selection.matterCode?.trim();
+  const name = selection.matterName?.trim();
+  if (code && name) return `${code} · ${name}`;
+  return code || name || undefined;
+}
+
+function matterLabelFromResult(result: SearchResponseDto['results'][number]): string | undefined {
+  const code = result.matterDisplayCode?.trim();
+  const name = result.matterDisplayName?.trim();
+  if (code && name) return `${code} · ${name}`;
+  return code || name || undefined;
 }
 
 function filtersForSelection(
@@ -485,6 +608,12 @@ function filtersForSelection(
     filters.extractionStatus = selection.extractionStatus as SearchFiltersDto['extractionStatus'];
   }
   if (
+    selection.ocrConfidence &&
+    hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.ocrConfidence)
+  ) {
+    filters.ocrConfidence = selection.ocrConfidence as SearchFiltersDto['ocrConfidence'];
+  }
+  if (
     selection.legalHold &&
     hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
   ) {
@@ -543,6 +672,9 @@ function constrainSelection(
     extractionStatus: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.extractionStatus)
       ? selection.extractionStatus
       : undefined,
+    ocrConfidence: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.ocrConfidence)
+      ? selection.ocrConfidence
+      : undefined,
     legalHold: hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.legalHold)
       ? selection.legalHold
       : undefined,
@@ -581,11 +713,13 @@ function selectionFromSearchQuery(input: SearchQueryDto): SearchFacetSelection {
     confidentialityLevel: filters?.confidentialityLevel,
     documentType,
     extractionStatus: filters?.extractionStatus,
+    ocrConfidence: filters?.ocrConfidence,
     groupBy: input.groupBy,
     legalHold: filters?.legalHold,
     matterCode: filters?.matterCode,
     matterId: filters?.matterId,
     matterName: filters?.matterName,
+    mode: input.mode,
     privilegeStatus: filters?.privilegeStatus,
     recordsStatus: filters?.recordsStatus,
     sortBy: input.sortBy,
@@ -599,6 +733,7 @@ function resetAdvancedSelection(selection: SearchFacetSelection): SearchFacetSel
   return {
     clientId: selection.clientId,
     matterId: selection.matterId,
+    mode: selection.mode,
   };
 }
 
@@ -634,6 +769,10 @@ function parseExtractionStatus(value: string | null): SearchFacetSelection['extr
     : undefined;
 }
 
+function parseOcrConfidence(value: string | null): SearchFacetSelection['ocrConfidence'] {
+  return value === 'ocr_low_confidence' ? value : undefined;
+}
+
 function parseLegalHold(value: string | null): SearchFacetSelection['legalHold'] {
   return (searchLegalHoldValues as readonly string[]).includes(value ?? '')
     ? (value as SearchFacetSelection['legalHold'])
@@ -653,7 +792,20 @@ function parseDateRange(value: string | null): SearchDateRange | undefined {
 }
 
 function parseTarget(value: string | null): SearchTarget | undefined {
-  return value === 'title' || value === 'body' || value === 'all' ? value : undefined;
+  return value === 'title' ||
+    value === 'body' ||
+    value === 'all' ||
+    value === 'email' ||
+    value === 'clause' ||
+    value === 'authority'
+    ? value
+    : undefined;
+}
+
+function parseMode(value: string | null): SearchMode | undefined {
+  return value === 'keyword' || value === 'semantic' || value === 'hybrid'
+    ? value
+    : undefined;
 }
 
 function parseSort(value: string | null): SearchSort | undefined {

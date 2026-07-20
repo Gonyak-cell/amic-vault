@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { DlpModule } from '../dlp/dlp.module';
 import { PermissionModule } from '../permission/permission.module';
+import { WorkModule } from '../work/work.module';
 import { ExternalController } from './external.controller';
 import { ExternalService } from './external.service';
 
 @Module({
-  imports: [AuditModule, DlpModule, PermissionModule],
+  imports: [AuditModule, DlpModule, PermissionModule, WorkModule],
   controllers: [ExternalController],
   providers: [ExternalService],
   exports: [ExternalService],

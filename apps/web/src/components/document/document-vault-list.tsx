@@ -20,7 +20,8 @@ import {
   type ListDocumentSort,
   type ListDocumentsQueryDto,
 } from '@amic-vault/shared';
-import { listDocuments } from '@/lib/api-client';
+import { listDocuments, updateDocumentStatus } from '@/lib/api-client';
+import { documentStatusTransitionTargets } from '@/lib/document-status-transitions';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,11 +45,13 @@ export interface DocumentVaultFilterState {
   confidentialityLevel: '' | DocumentConfidentialityLevel;
   documentType: '' | DocumentType;
   extractionStatus: '' | DocumentExtractionStatus;
+  folderId: string;
   legalHold: BooleanFilterValue;
   matterCode: string;
   privilegeStatus: '' | DocumentPrivilegeStatus;
   sortBy: ListDocumentSort;
   status: '' | DocumentStatus;
+  tag: string;
   title: string;
 }
 
@@ -61,11 +64,13 @@ const emptyDocumentVaultFilters: DocumentVaultFilterState = {
   confidentialityLevel: '',
   documentType: '',
   extractionStatus: '',
+  folderId: '',
   legalHold: '',
   matterCode: '',
   privilegeStatus: '',
   sortBy: 'updated_desc',
   status: '',
+  tag: '',
   title: '',
 };
 
@@ -78,6 +83,7 @@ export const documentTypeLabels = {
   opinion: '의견서',
   court_filing: '소송 제출',
   evidence: '증거',
+  email: '이메일',
   correspondence: '서신',
   corporate_record: '회사 기록',
   financial: '재무',
@@ -122,7 +128,7 @@ export const sortLabels = {
   updated_desc: '최근 업데이트',
   updated_asc: '오래된 업데이트',
   title_asc: '문서명',
-  matter_asc: 'Matter Code',
+  matter_asc: 'Matter code',
   type_asc: '문서 유형',
   status_asc: '상태',
 } as const satisfies Record<ListDocumentSort, string>;
@@ -156,6 +162,24 @@ function extractionTone(
   return 'neutral';
 }
 
+function DocumentFolderAndTags({ document }: { document: DocumentDto }) {
+  const tags = document.tags ?? [];
+  return (
+    <div className="min-w-0 space-y-1">
+      <p className="truncate text-sm">{document.folderPath?.trim() || '루트'}</p>
+      {tags.length > 0 ? (
+        <div className="flex max-w-[18rem] flex-wrap gap-1">
+          {tags.map((tag) => (
+            <StatusBadge key={tag} tone="neutral">
+              {tag}
+            </StatusBadge>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function booleanFilterValue(value: BooleanFilterValue): boolean | undefined {
   if (value === 'true') return true;
   if (value === 'false') return false;
@@ -166,6 +190,8 @@ function cleanFilters(filters: DocumentVaultFilterState): DocumentVaultFilterSta
   return {
     ...filters,
     matterCode: filters.matterCode.trim(),
+    folderId: filters.folderId.trim(),
+    tag: filters.tag.trim(),
     title: filters.title.trim(),
   };
 }
@@ -190,11 +216,13 @@ export function documentVaultFiltersFromParams(params: {
     ),
     documentType: enumParam(documentTypes, params.get('documentType')),
     extractionStatus: enumParam(documentExtractionStatuses, params.get('extractionStatus')),
+    folderId: params.get('folderId')?.trim() ?? '',
     legalHold: booleanParam(params.get('legalHold')),
     matterCode: params.get('matterCode')?.trim() ?? '',
     privilegeStatus: enumParam(documentPrivilegeStatuses, params.get('privilegeStatus')),
     sortBy: enumParam(listDocumentSortValues, params.get('sortBy')) || 'updated_desc',
     status: enumParam(documentStatuses, params.get('status')),
+    tag: params.get('tag')?.trim() ?? '',
     title: params.get('title')?.trim() ?? '',
   };
 }
@@ -212,6 +240,8 @@ export function documentVaultUrlForFilters(
   if (page > 1) params.set('page', String(page));
   if (cleaned.title) params.set('title', cleaned.title);
   if (cleaned.matterCode) params.set('matterCode', cleaned.matterCode);
+  if (cleaned.folderId) params.set('folderId', cleaned.folderId);
+  if (cleaned.tag) params.set('tag', cleaned.tag);
   if (cleaned.documentType) params.set('documentType', cleaned.documentType);
   if (cleaned.status) params.set('status', cleaned.status);
   if (cleaned.confidentialityLevel) {
@@ -237,6 +267,8 @@ export function documentVaultListQueryFromFilters(
     sortBy: cleaned.sortBy,
     ...(cleaned.title ? { title: cleaned.title } : {}),
     ...(cleaned.matterCode ? { matterCode: cleaned.matterCode } : {}),
+    ...(cleaned.folderId ? { folderId: cleaned.folderId } : {}),
+    ...(cleaned.tag ? { tag: cleaned.tag } : {}),
     ...(cleaned.documentType ? { documentType: cleaned.documentType } : {}),
     ...(cleaned.status ? { status: cleaned.status } : {}),
     ...(cleaned.confidentialityLevel ? { confidentialityLevel: cleaned.confidentialityLevel } : {}),
@@ -255,8 +287,10 @@ function countActiveFilters(filters: DocumentVaultFilterState): number {
     filters.extractionStatus,
     filters.legalHold,
     filters.matterCode.trim(),
+    filters.folderId.trim(),
     filters.privilegeStatus,
     filters.status,
+    filters.tag.trim(),
     filters.title.trim(),
   ].filter(Boolean).length;
 }
@@ -288,6 +322,10 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   );
   const [isLoading, setIsLoading] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [statusTransitionError, setStatusTransitionError] = React.useState<string | null>(null);
+  const [statusTransitionDocumentId, setStatusTransitionDocumentId] = React.useState<string | null>(
+    null,
+  );
 
   React.useEffect(() => {
     let active = true;
@@ -337,6 +375,22 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
     router.replace(documentVaultUrlForFilters(filters, nextPage));
   }
 
+  async function transitionDocumentStatus(document: DocumentDto, status: DocumentStatus) {
+    if (document.status === status || statusTransitionDocumentId) return;
+    setStatusTransitionDocumentId(document.documentId);
+    setStatusTransitionError(null);
+    try {
+      const updated = await updateDocumentStatus(document.documentId, { status });
+      setDocuments((current) =>
+        current.map((item) => (item.documentId === updated.documentId ? updated : item)),
+      );
+    } catch (caught) {
+      setStatusTransitionError(safeApiErrorMessage(caught));
+    } finally {
+      setStatusTransitionDocumentId(null);
+    }
+  }
+
   const activeFilterCount = countActiveFilters(filters);
   const draftAdvancedFilterCount = countAdvancedFilters(draftFilters);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -352,12 +406,28 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           placeholder="문서명 검색"
         />
       </FilterField>
-      <FilterField htmlFor="document-vault-matter-code" label="Matter Code">
+      <FilterField htmlFor="document-vault-matter-code" label="Matter code">
         <Input
           id="document-vault-matter-code"
           value={draftFilters.matterCode}
           onChange={(event) => updateDraftFilter('matterCode', event.target.value)}
           placeholder="AMIC-2026"
+        />
+      </FilterField>
+      <FilterField htmlFor="document-vault-tag" label="태그">
+        <Input
+          id="document-vault-tag"
+          value={draftFilters.tag}
+          onChange={(event) => updateDraftFilter('tag', event.target.value)}
+          placeholder="executed"
+        />
+      </FilterField>
+      <FilterField htmlFor="document-vault-folder-id" label="폴더 ID">
+        <Input
+          id="document-vault-folder-id"
+          value={draftFilters.folderId}
+          onChange={(event) => updateDraftFilter('folderId', event.target.value)}
+          placeholder="폴더 선택 후 자동 입력"
         />
       </FilterField>
     </>
@@ -522,7 +592,7 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
               문서함 검색
             </h2>
             <p className="text-xs leading-5 text-muted-foreground">
-              권한이 확인된 문서를 문서명과 Matter Code 기준으로 찾습니다.
+              권한이 확인된 문서를 문서명과 Matter code 기준으로 찾습니다.
             </p>
             <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
               {isLoading
@@ -548,7 +618,9 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-3 md:grid-cols-2">{quickSearchControls}</div>
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {quickSearchControls}
+        </div>
 
         <div className="border-t pt-3">
           <Button
@@ -627,9 +699,12 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   }
 
   return (
-    <div className="space-y-3">
-      {filterPanel}
-      <div className="flex min-h-11 items-center justify-between gap-3 border-b bg-muted/30 px-3 text-sm">
+      <div className="space-y-3">
+        {filterPanel}
+        {statusTransitionError ? (
+          <p className="text-sm text-destructive">{statusTransitionError}</p>
+        ) : null}
+        <div className="flex min-h-11 items-center justify-between gap-3 border-b bg-muted/30 px-3 text-sm">
         <span className="font-medium text-foreground">권한 내 문서</span>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">{totalCount}건</span>
@@ -656,11 +731,12 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           </Button>
         </div>
       </div>
-      <DataTable caption="권한 내 문서함" minWidthClassName="min-w-[1040px]">
+      <DataTable caption="권한 내 문서함" minWidthClassName="min-w-[1180px]">
         <DataTableHeader>
           <tr>
             <DataTableHead>문서</DataTableHead>
             <DataTableHead>Matter</DataTableHead>
+            <DataTableHead>폴더/태그</DataTableHead>
             <DataTableHead>유형</DataTableHead>
             <DataTableHead>상태</DataTableHead>
             <DataTableHead>보안</DataTableHead>
@@ -683,11 +759,37 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
               <DataTableCell className="max-w-[18rem] truncate text-muted-foreground">
                 {matterLabel(document)}
               </DataTableCell>
+              <DataTableCell className="max-w-[18rem] text-muted-foreground">
+                <DocumentFolderAndTags document={document} />
+              </DataTableCell>
               <DataTableCell className="text-muted-foreground">
                 {documentTypeLabels[document.documentType]}
               </DataTableCell>
-              <DataTableCell className="text-muted-foreground">
-                {documentStatusLabels[document.status]}
+              <DataTableCell className="min-w-[11rem] text-muted-foreground">
+                <div className="flex min-w-[10rem] items-center gap-2">
+                  <select
+                    aria-label={`${document.title} 상태 변경`}
+                    className="h-9 w-[9.5rem] rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+                    value={document.status}
+                    disabled={
+                      statusTransitionDocumentId !== null ||
+                      documentStatusTransitionTargets(document).length === 0
+                    }
+                    onChange={(event) =>
+                      void transitionDocumentStatus(document, event.target.value as DocumentStatus)
+                    }
+                  >
+                    <option value={document.status}>{documentStatusLabels[document.status]}</option>
+                    {documentStatusTransitionTargets(document).map((status) => (
+                      <option key={status} value={status}>
+                        {documentStatusLabels[status]}
+                      </option>
+                    ))}
+                  </select>
+                  {statusTransitionDocumentId === document.documentId ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : null}
+                </div>
               </DataTableCell>
               <DataTableCell>
                 <div className="flex flex-wrap gap-1.5">
@@ -724,6 +826,7 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
 }
 
 export {
+  DocumentFolderAndTags,
   emptyDocumentVaultFilters,
   extractionLabel as documentVaultExtractionLabel,
   extractionTone as documentVaultExtractionTone,

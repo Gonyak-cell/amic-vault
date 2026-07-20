@@ -9,8 +9,9 @@ import {
 } from './file-size.validator';
 
 describe('FileSizeValidator', () => {
-  it('uses a 200MB default and accepts exact-limit uploads', () => {
+  it('uses a 500MB default and accepts exact-limit uploads', () => {
     expect(documentUploadMaxBytes(undefined)).toBe(DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES);
+    expect(DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES).toBe(500 * 1024 * 1024);
     expect(() => new FileSizeValidator(3).validate(3)).not.toThrow();
   });
 
@@ -30,9 +31,7 @@ describe('FileSizeValidator', () => {
 
     expect(() => validator.validate(4)).toThrow(BadRequestException);
     expect(() => validator.validate(4, { sourceSystem: 'migration' })).not.toThrow();
-    expect(() => validator.validate(6, { sourceSystem: 'migration' })).toThrow(
-      BadRequestException,
-    );
+    expect(() => validator.validate(6, { sourceSystem: 'migration' })).toThrow(BadRequestException);
   });
 
   it('fails closed for invalid env configuration', () => {

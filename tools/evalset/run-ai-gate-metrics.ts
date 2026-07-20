@@ -28,6 +28,7 @@ console.log(
       permissionAccuracyPercent: formatPercent(report.permissionAccuracy),
       retrievalRecallPercent: formatPercent(report.retrievalRecall),
       auditCoveragePercent: formatPercent(report.auditCoverage),
+      matterQaFallbackRatePercent: formatPercent(report.matterQaFallbackRate),
     },
     null,
     2,

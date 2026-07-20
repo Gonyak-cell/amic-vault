@@ -2,6 +2,8 @@ import { MatterState, type MatterStateValue } from './matter-state';
 
 export const matterTransitionReasonCodes = [
   'ALLOWED',
+  'CLOSING_CHECKLIST_INCOMPLETE',
+  'CONFLICTS_NOT_CLEARED',
   'INVALID_TRANSITION',
   'R12_TRANSITION_BLOCKED',
 ] as const;
@@ -11,6 +13,20 @@ export type MatterTransitionReasonCode = (typeof matterTransitionReasonCodes)[nu
 export interface MatterTransitionDecision {
   allowed: boolean;
   reasonCode: MatterTransitionReasonCode;
+}
+
+export const matterConflictGateStatuses = [
+  'not_started',
+  'in_review',
+  'cleared',
+  'blocked',
+] as const;
+
+export type MatterConflictGateStatus = (typeof matterConflictGateStatuses)[number];
+
+export interface MatterTransitionContext {
+  closingChecklistComplete?: boolean;
+  conflictsStatus?: MatterConflictGateStatus;
 }
 
 export const allowedMatterTransitions = [
@@ -32,8 +48,23 @@ function transitionKey(from: MatterStateValue, to: MatterStateValue): string {
 export function validateMatterTransition(
   from: MatterStateValue,
   to: MatterStateValue,
+  context: MatterTransitionContext = {},
 ): MatterTransitionDecision {
   if (allowedTransitionKeys.has(transitionKey(from, to))) {
+    if (
+      from === MatterState.Proposed &&
+      to === MatterState.Open &&
+      context.conflictsStatus !== 'cleared'
+    ) {
+      return { allowed: false, reasonCode: 'CONFLICTS_NOT_CLEARED' };
+    }
+    if (
+      from === MatterState.Closing &&
+      to === MatterState.Closed &&
+      context.closingChecklistComplete !== true
+    ) {
+      return { allowed: false, reasonCode: 'CLOSING_CHECKLIST_INCOMPLETE' };
+    }
     return { allowed: true, reasonCode: 'ALLOWED' };
   }
   if (

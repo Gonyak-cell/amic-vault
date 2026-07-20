@@ -3,6 +3,22 @@ import type { EvidencePackDto } from '@amic-vault/shared';
 import { AiEvidencePromptCompiler } from './evidence-prompt.compiler';
 
 const sourceHash = 'a'.repeat(64);
+const confirmedGraphNodeStatus = {
+  sourceProvenance: 'derived',
+  sourceReviewStatus: 'confirmed',
+  sourceCreatedByKind: 'system',
+  targetProvenance: 'human_confirmed',
+  targetReviewStatus: 'confirmed',
+  targetCreatedByKind: 'human',
+} as const;
+const proposedGraphNodeStatus = {
+  sourceProvenance: 'derived',
+  sourceReviewStatus: 'confirmed',
+  sourceCreatedByKind: 'system',
+  targetProvenance: 'ai_proposed',
+  targetReviewStatus: 'proposed',
+  targetCreatedByKind: 'ai',
+} as const;
 
 function evidencePack(): EvidencePackDto {
   return {
@@ -65,6 +81,59 @@ describe('AiEvidencePromptCompiler', () => {
     expect(compiled.prompt).not.toMatch(/title|snippet|raw body|lawyer@example/u);
   });
 
+  it('compiles clause risk analysis prompts with rule findings context', () => {
+    const pack = {
+      ...evidencePack(),
+      taskType: 'review' as const,
+      ruleFindings: [
+        {
+          findingId: 'b'.repeat(64),
+          matterId: '11111111-1111-4111-8111-111111111002',
+          documentId: '11111111-1111-4111-8111-111111111005',
+          versionId: '11111111-1111-4111-8111-111111111006',
+          clauseId: '11111111-1111-4111-8111-111111111031',
+          ruleId: '11111111-1111-4111-8111-111111111032',
+          ruleKey: 'nda.section.required',
+          ruleVersion: 1,
+          severity: 'critical' as const,
+          status: 'fail' as const,
+          findingCode: 'required_clause.section.fail',
+          findingHash: 'c'.repeat(64),
+          evidenceRefs: ['clause:11111111-1111-4111-8111-111111111031'],
+        },
+      ],
+    };
+
+    const compiled = new AiEvidencePromptCompiler().compile(pack, {
+      purpose: 'clause_risk_analysis',
+      allowedClaimKinds: ['risk', 'clause', 'issue'],
+    });
+
+    expect(compiled.system).toContain('cited clause risk analysis');
+    expect(compiled.system).toContain('Use RULE_FINDINGS as contract rule-engine context');
+    expect(compiled.prompt).toContain('PURPOSE: clause_risk_analysis');
+    expect(compiled.prompt).toContain('CLAIM_KIND_ALLOWLIST: risk, clause, issue');
+    expect(compiled.prompt).toContain('RULE_FINDINGS_CONTEXT: contract-rule-engine findings');
+    expect(compiled.prompt).toContain('RULE_FINDINGS:');
+    expect(compiled.prompt).toContain('nda.section.required@1 fail required_clause.section.fail');
+    expect(compiled.prompt).not.toContain('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
+  });
+
+  it('compiles email thread prompts for requests and deadline timeline claims', () => {
+    const compiled = new AiEvidencePromptCompiler().compile(evidencePack(), {
+      purpose: 'email_thread_summary',
+      allowedClaimKinds: ['summary', 'key_fact', 'timeline', 'question'],
+    });
+
+    expect(compiled.system).toContain('filed email thread summarization');
+    expect(compiled.system).toContain('Extract requests as key_fact claims');
+    expect(compiled.system).toContain('Do not draft replies');
+    expect(compiled.prompt).toContain('PURPOSE: email_thread_summary');
+    expect(compiled.prompt).toContain('CLAIM_KIND_ALLOWLIST: summary, key_fact, timeline, question');
+    expect(compiled.prompt).toContain('EMAIL_THREAD_INSTRUCTIONS: summarize the filed email thread');
+    expect(compiled.prompt).toContain('extract due dates or dated commitments as timeline claims');
+  });
+
   it('limits prep prompts to file-organization claim kinds', () => {
     const compiled = new AiEvidencePromptCompiler().compile(evidencePack(), {
       purpose: 'file_organization_prep',
@@ -102,6 +171,7 @@ describe('AiEvidencePromptCompiler', () => {
           sourceNodeType: 'matter' as const,
           targetNodeId: '11111111-1111-4111-8111-111111111005',
           targetNodeType: 'document' as const,
+          ...confirmedGraphNodeStatus,
           sourceHash,
         },
         {
@@ -113,6 +183,7 @@ describe('AiEvidencePromptCompiler', () => {
           sourceNodeType: 'document' as const,
           targetNodeId: '11111111-1111-4111-8111-111111111022',
           targetNodeType: 'risk' as const,
+          ...proposedGraphNodeStatus,
           sourceHash,
         },
       ],
@@ -128,6 +199,45 @@ describe('AiEvidencePromptCompiler', () => {
     expect(compiled.prompt).not.toContain('HAS_DOCUMENT');
     expect(compiled.prompt).not.toContain('HAS_RISK');
     expect(compiled.prompt).not.toContain('11111111-1111-4111-8111-111111111022');
+  });
+
+  it('labels confirmed and unreviewed graph facts in grounded prompts', () => {
+    const pack = {
+      ...evidencePack(),
+      graphFacts: [
+        {
+          edgeId: '11111111-1111-4111-8111-111111111020',
+          edgeType: 'HAS_DOCUMENT' as const,
+          matterId: '11111111-1111-4111-8111-111111111002',
+          documentId: '11111111-1111-4111-8111-111111111005',
+          sourceNodeId: '11111111-1111-4111-8111-111111111002',
+          sourceNodeType: 'matter' as const,
+          targetNodeId: '11111111-1111-4111-8111-111111111005',
+          targetNodeType: 'document' as const,
+          ...confirmedGraphNodeStatus,
+          sourceHash,
+        },
+        {
+          edgeId: '11111111-1111-4111-8111-111111111021',
+          edgeType: 'HAS_RISK' as const,
+          matterId: '11111111-1111-4111-8111-111111111002',
+          documentId: '11111111-1111-4111-8111-111111111005',
+          sourceNodeId: '11111111-1111-4111-8111-111111111005',
+          sourceNodeType: 'document' as const,
+          targetNodeId: '11111111-1111-4111-8111-111111111022',
+          targetNodeType: 'risk' as const,
+          ...proposedGraphNodeStatus,
+          sourceHash,
+        },
+      ],
+    };
+
+    const compiled = new AiEvidencePromptCompiler().compile(pack);
+
+    expect(compiled.prompt).toContain('[확정] graph:11111111-1111-4111-8111-111111111020');
+    expect(compiled.prompt).toContain('[미검토] graph:11111111-1111-4111-8111-111111111021');
+    expect(compiled.prompt).toContain('human_confirmed/confirmed/human');
+    expect(compiled.prompt).toContain('ai_proposed/proposed/ai');
   });
 
   it('omits rule findings from prep prompts', () => {

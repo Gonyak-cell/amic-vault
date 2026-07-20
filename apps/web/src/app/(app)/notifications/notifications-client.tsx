@@ -40,10 +40,10 @@ const selectClassName =
   'flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
 
 const notificationSourceLabels = {
-  all: '전체 출처',
+  all: '전체 구분',
   permission_policy: '권한/정책',
   ai_prep: '파일 정리 준비',
-  integration: '통합',
+  integration: '연동',
   operational_data: '문서 처리',
   records: '기록 보존',
   recent_activity: '최근 활동',
@@ -60,7 +60,7 @@ const notificationToneLabels = {
 const notificationSortLabels = {
   attention: '주의 알림 우선',
   occurred_desc: '최근 발생',
-  source: '출처별',
+  source: '업무 구분별',
 } as const satisfies Record<NotificationSortMode, string>;
 
 const notificationSourceOptions = Object.keys(notificationSourceLabels) as NotificationSourceFilter[];
@@ -176,7 +176,7 @@ export function NotificationsContent({
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', '알림']}
+        breadcrumbs={['문서 보관', '알림']}
         title="알림"
         description="권한이 확인된 실제 운영 이벤트와 상태 알림만 표시됩니다."
         actions={
@@ -191,11 +191,11 @@ export function NotificationsContent({
           <FilterBar
             label="알림 조치 콘솔"
             title="알림 조치 콘솔"
-            description="실제 운영 이벤트에서 발생한 알림만 출처와 상태 기준으로 좁히고 원본 업무 화면으로 이동합니다."
+            description="실제 운영 이벤트에서 발생한 알림만 업무 구분과 상태 기준으로 좁히고 원본 업무 화면으로 이동합니다."
             resultsSummary={notificationFilterSummary(notificationState, visibleItems, items)}
             controls={
               <>
-                <FilterField htmlFor="notification-source-filter" label="출처">
+                <FilterField htmlFor="notification-source-filter" label="업무 구분">
                   <select
                     id="notification-source-filter"
                     className={selectClassName}
@@ -262,11 +262,11 @@ export function NotificationsContent({
             title="알림 센터"
             {...notificationActionProps}
           />
-          <SectionCard icon={<Activity className="h-4 w-4" />} title="알림 출처" meta="운영 API">
+          <SectionCard icon={<Activity className="h-4 w-4" />} title="알림 구분" meta="확인된 데이터 기준">
             <ul className="grid gap-2 sm:grid-cols-2">
               <NotificationSourceItem label="권한/정책" state={dashboardState.permissionPolicyAlerts} />
               <NotificationSourceItem label="파일 정리 준비" state={dashboardState.aiPrepStatus} />
-              <NotificationSourceItem label="통합 상태" state={dashboardState.integrationStatus} />
+              <NotificationSourceItem label="연동 상태" state={dashboardState.integrationStatus} />
               <NotificationSourceItem label="최근 활동" state={dashboardState.recentActivity} />
             </ul>
           </SectionCard>
@@ -287,8 +287,8 @@ export function NotificationsContent({
           />
           <NotificationSourcePanel
             icon={<PlugZap className="h-4 w-4" />}
-            title="통합"
-            emptyTitle="연결된 통합 상태 알림이 없습니다."
+            title="연동"
+            emptyTitle="연결된 연동 상태 알림이 없습니다."
             state={dashboardState.integrationStatus}
           />
         </aside>

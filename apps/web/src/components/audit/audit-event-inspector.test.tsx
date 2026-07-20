@@ -37,7 +37,7 @@ describe('AuditEventInspector', () => {
     expect(html).toContain('조우상');
     expect(html).not.toContain('audit_console');
     expect(html).toContain('접근 제한');
-    expect(html).toContain('내부 참조 표시');
+    expect(html).toContain('확인 정보 표시');
     expect(html).not.toContain(event.eventId);
     expect(html).not.toContain(event.actorId);
     expect(html).not.toContain(event.sessionId as string);

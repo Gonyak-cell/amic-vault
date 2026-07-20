@@ -1,6 +1,6 @@
 # 06. 실행 가이드 — 순서, 마일스톤, 검증 계약, Definition of Done
 
-> 현재 실행 기준(2026-07-17): 이 문서는 2026-07-03 발주 패키지의 117유닛 실행 가이드다. strict-completion 진행 상태는 활성 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md` / `.json`(생성 시각 `2026-07-17T00:00:00.000Z`)을 기준으로 읽는다. 현재 활성 장부는 117행 중 `COMPLETE_CANDIDATE` 19, `LOCAL_IMPLEMENTED_NEEDS_EVIDENCE` 80, `EXTERNAL_BLOCKED` 11, `UNADJUDICATED` 7이며, 기존 110행 장부는 byte-identical historical snapshot으로 보존한다. `UNADJUDICATED` 또는 남은 manual/staging/external 증거가 닫히기 전에는 제품 완료나 고객 전체 go-live로 해석하지 않는다.
+> 현재 실행 기준(2026-07-06): 이 문서는 2026-07-03 발주 패키지의 117유닛 실행 가이드다. strict-completion 진행 상태는 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.md` / `.json`(생성 시각 `2026-07-05T09:03:31.603Z`)을 기준으로 읽는다. 현재 장부는 110행 중 `COMPLETE_CANDIDATE` 19, `LOCAL_IMPLEMENTED_NEEDS_EVIDENCE` 80, `EXTERNAL_BLOCKED` 11이며, 남은 manual/staging/external 증거가 닫히기 전에는 제품 완료나 고객 전체 go-live로 해석하지 않는다.
 
 ## 1. 전체 규모
 

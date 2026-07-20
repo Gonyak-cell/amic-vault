@@ -178,15 +178,15 @@ const uploadBrowseFlowFiles = [
   {
     path: 'apps/web/src/components/document/matter-file-section.tsx',
     patterns: [
-      { name: 'matter filing context card', pattern: /파일링 기준/ },
-      { name: 'metadata filing model', pattern: /Matter 메타데이터 기준/ },
+      { name: 'matter filing context card', pattern: /문서 보관 기준/ },
+      { name: 'metadata filing model', pattern: /Matter 정보/ },
       {
         name: 'approved Matter template catalog client',
         pattern: /listApprovedEnterpriseDmsMatterTemplates/,
       },
-      { name: 'backend-backed document set contract', pattern: /문서 세트 계약/ },
-      { name: 'matter-scoped browse copy', pattern: /Matter 범위 목록/ },
-      { name: 'Matter Code upload copy', pattern: /Matter Code 확인 후 업로드/ },
+      { name: 'backend-backed document set contract', pattern: /승인된 문서 세트/ },
+      { name: 'matter-scoped browse copy', pattern: /Matter별 문서 목록/ },
+      { name: 'Matter code upload copy', pattern: /Matter code 확인 후 업로드/ },
     ],
   },
   {
@@ -217,7 +217,7 @@ const uploadBrowseFlowFiles = [
   {
     path: 'apps/web/src/components/matter/matter-code-picker.tsx',
     patterns: [
-      { name: 'no unconfigured Matter app upload', pattern: /Matter app 연결 필요/ },
+      { name: 'no unconfigured Matter app upload', pattern: /Matter 관리 시스템 연결 필요/ },
       {
         name: 'permission-scoped Matter app lookup',
         pattern: /lookupMatterAppMatters\(\{ q: query, pageSize: 50 \}\)/,
@@ -229,7 +229,7 @@ const uploadBrowseFlowFiles = [
     patterns: [
       {
         name: 'selected matter required before upload',
-        pattern: /Matter Code를 먼저 선택해 주세요/,
+        pattern: /Matter code를 먼저 선택해 주세요/,
       },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
       { name: 'server-side upload preflight call', pattern: /createUploadPreflight/ },
@@ -257,7 +257,7 @@ const uploadBrowseFlowFiles = [
       { name: 'version upload branch', pattern: /addDocumentVersion/ },
       { name: 'upload preflight ref forwarding', pattern: /uploadPreflightRef/ },
       { name: 'bulk file picker', pattern: /multiple/ },
-      { name: 'bulk upload queue', pattern: /업로드 큐/ },
+      { name: 'bulk upload queue', pattern: /업로드 진행 상태/ },
     ],
   },
   {
@@ -282,7 +282,7 @@ const uploadBrowseFlowFiles = [
       { name: 'approved privilege values', pattern: /documentPrivilegeStatuses/ },
       { name: 'upload metadata profile title', pattern: /업로드 분류 프로필/ },
       { name: 'file organization prep only copy', pattern: /파일 정리 준비/ },
-      { name: 'retention hold hint', pattern: /Matter\/Records 정책 적용/ },
+      { name: 'retention hold hint', pattern: /Matter 및 기록 보존 정책 적용/ },
     ],
   },
   {
@@ -290,7 +290,7 @@ const uploadBrowseFlowFiles = [
     patterns: [
       {
         name: 'selected matter required before list',
-        pattern: /Matter Code를 선택하면 파일 목록이 표시됩니다/,
+        pattern: /Matter code를 선택하면 파일 목록이 표시됩니다/,
       },
       {
         name: 'matter-scoped list call',
@@ -351,7 +351,7 @@ const documentActionCenterFiles = [
     patterns: [
       { name: 'document profile read view', pattern: /문서 프로필/ },
       { name: 'document action hierarchy panel', pattern: /DocumentActionHierarchyPanel/ },
-      { name: 'read download only launch note', pattern: /읽기\/다운로드 전용/ },
+      { name: 'local edit handoff launch note', pattern: /로컬 편집 핸드오프/ },
       { name: 'document metadata edit flow', pattern: /updateDocumentMetadata/ },
       { name: 'approved taxonomy catalog client', pattern: /listApprovedEnterpriseDmsTaxonomies/ },
       { name: 'approved taxonomy profile label', pattern: /approvedDocumentTypeLabel/ },
@@ -363,7 +363,7 @@ const documentActionCenterFiles = [
       { name: 'version list integration', pattern: /listDocumentVersions/ },
       { name: 'new version upload flow', pattern: /addDocumentVersion/ },
       { name: 'document audit timeline integration', pattern: /DocumentAuditTimeline/ },
-      { name: 'document upload processing queue', pattern: /업로드 및 처리 큐/ },
+      { name: 'document upload processing status', pattern: /업로드 및 처리 상태/ },
       { name: 'search hit context panel', pattern: /검색 결과 문맥/ },
       { name: 'bounded search hit parser', pattern: /boundedInteger/ },
       { name: 'safe preview anchor parser', pattern: /parsePreviewAnchorId/ },
@@ -378,8 +378,8 @@ const documentActionCenterFiles = [
     path: 'apps/web/src/components/document/document-audit-timeline.tsx',
     patterns: [
       { name: 'document audit scoped endpoint client', pattern: /listDocumentAuditEvents/ },
-      { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
-      { name: 'document integrated activity meta', pattern: /문서 통합 활동/ },
+      { name: 'document audit timeline heading', pattern: /문서 감사 로그/ },
+      { name: 'document integrated activity meta', pattern: /문서 활동 내역/ },
       { name: 'document timeline category labels', pattern: /categoryLabel/ },
       {
         name: 'document records lifecycle labels',
@@ -392,7 +392,7 @@ const documentActionCenterFiles = [
     path: 'apps/web/src/components/matter/matter-audit-timeline.tsx',
     patterns: [
       { name: 'matter audit scoped endpoint client', pattern: /listMatterAuditEvents/ },
-      { name: 'matter integrated activity meta', pattern: /Matter 통합 활동/ },
+      { name: 'matter integrated activity meta', pattern: /Matter 활동 내역/ },
       { name: 'matter timeline search category', pattern: /SEARCH_EXECUTED/ },
       { name: 'matter timeline records category', pattern: /DISPOSAL_REQUESTED/ },
       { name: 'matter audit stale-row refresh key', pattern: /refreshKey = 0/ },
@@ -438,9 +438,9 @@ const documentActionCenterFiles = [
   {
     path: 'docs/adr/ADR-016-document-editing-and-office-flow.md',
     patterns: [
-      { name: 'document editing model decision', pattern: /read\/download-only launch/i },
-      { name: 'check-out deferred', pattern: /check-out\/check-in/i },
-      { name: 'Office integration deferred', pattern: /Office integration/i },
+      { name: 'document editing model decision', pattern: /controlled local desktop handoff/i },
+      { name: 'check-out server contract', pattern: /server-authoritative check-out\/check-in/i },
+      { name: 'no WOPI runtime claim', pattern: /B12 does not implement WOPI/i },
     ],
   },
 ];
@@ -540,8 +540,8 @@ const enterpriseSearchFiles = [
     path: 'apps/web/src/components/search/search-save-panel.tsx',
     patterns: [
       { name: 'current search reusable link', pattern: /링크 복사/ },
-      { name: 'private saved search references', pattern: /비공개 저장 참조/ },
-      { name: 'private reference copy action', pattern: /참조 복사/ },
+      { name: 'private saved search references', pattern: /비공개 검색 폴더 링크/ },
+      { name: 'private reference copy action', pattern: /비공개 링크 복사/ },
       { name: 'saved search private URL helper', pattern: /privateSavedSearchUrl/ },
       { name: 'saved search list', pattern: /검색 목록/ },
       { name: 'saved search save action', pattern: /onSaveSearch/ },
@@ -571,7 +571,7 @@ const enterpriseSearchFiles = [
   {
     path: 'apps/web/src/components/search/search-advanced-controls.tsx',
     patterns: [
-      { name: 'Matter Code filter UI', pattern: /Matter Code/ },
+      { name: 'Matter code filter UI', pattern: /Matter code/ },
       { name: 'Matter name filter UI', pattern: /Matter 이름/ },
       { name: 'document type filter UI', pattern: /문서 유형/ },
       { name: 'approved taxonomy filter options', pattern: /approvedDocumentTypeOptions/ },
@@ -632,7 +632,7 @@ const governanceWorkflowOpsFiles = [
       { name: 'document workflow ops panel', pattern: /DocumentWorkflowOpsPanel/ },
       { name: 'matter workflow ops panel', pattern: /MatterWorkflowOpsPanel/ },
       { name: 'file organization prep scope copy', pattern: /파일 정리 준비 범위/ },
-      { name: 'real-state-only task copy', pattern: /실제 문서·사건 상태에서 발생한 작업만 표시/ },
+      { name: 'real-state-only task copy', pattern: /실제 문서·Matter 상태에서 발생한 작업만 표시/ },
     ],
   },
   {
@@ -654,7 +654,7 @@ const governanceWorkflowOpsFiles = [
     path: 'apps/web/src/components/matter/matter-audit-timeline.tsx',
     patterns: [
       { name: 'matter-scoped audit endpoint client', pattern: /listMatterAuditEvents/ },
-      { name: 'matter audit timeline heading', pattern: /사건 감사 타임라인/ },
+      { name: 'matter audit timeline heading', pattern: /Matter 감사 로그/ },
       { name: 'matter audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
       {
         name: 'matter audit stale row clearing',
@@ -670,7 +670,7 @@ const governanceWorkflowOpsFiles = [
     path: 'apps/web/src/components/document/document-audit-timeline.tsx',
     patterns: [
       { name: 'document-scoped audit endpoint client', pattern: /listDocumentAuditEvents/ },
-      { name: 'document audit timeline heading', pattern: /문서 감사 타임라인/ },
+      { name: 'document audit timeline heading', pattern: /문서 감사 로그/ },
       { name: 'document audit empty state', pattern: /표시할 감사 기록이 없습니다/ },
       {
         name: 'document audit stale row clearing',
@@ -685,7 +685,7 @@ const governanceWorkflowOpsFiles = [
   {
     path: 'apps/web/src/app/(app)/dashboard/vault-activity-client.tsx',
     patterns: [
-      { name: 'dashboard DMS action launcher', pattern: /DMS 작업 바로가기/ },
+      { name: 'dashboard DMS action launcher', pattern: /문서 업무 바로가기/ },
       { name: 'dashboard upload shortcut', pattern: /\/files#matter-upload/ },
       { name: 'dashboard file cabinet shortcut', pattern: /전체 문서함/ },
       { name: 'dashboard search shortcut', pattern: /\/search/ },
@@ -818,7 +818,7 @@ const governanceWorkflowOpsFiles = [
       { name: 'shared dashboard action derivation', pattern: /dashboardActionItems/ },
       {
         name: 'work API derived task copy',
-        pattern: /작업 API가 실제 운영 상태에서 파생한 항목만 표시/,
+        pattern: /확인된 운영 상태에서 파생한 항목만 표시/,
       },
       { name: 'permission policy task', pattern: /권한\/정책 알림 확인/ },
       { name: 'file organization prep task', pattern: /파일 정리 준비 상태 확인/ },
@@ -850,7 +850,7 @@ const governanceWorkflowOpsFiles = [
         name: 'direct user reference hidden by default',
         pattern: /allowAdvancedReferenceInput = false/,
       },
-      { name: 'advanced user refs explicitly gated', pattern: /고급 사용자 참조 입력/ },
+      { name: 'advanced user refs explicitly gated', pattern: /관리자용 사용자 직접 입력/ },
     ],
   },
   {
@@ -935,13 +935,13 @@ const adminIntegrationsFiles = [
       { name: 'DMS refiner API client', pattern: /upsertEnterpriseDmsSearchRefiner/ },
       { name: 'search index operations panel', pattern: /AdminSearchOperationsPanel/ },
       { name: 'search admin health client', pattern: /getSearchAdminHealth/ },
-      { name: 'search health operations panel', pattern: /검색 헬스/ },
-      { name: 'search health safe aggregate copy', pattern: /인덱스, 추출\/OCR, 검색 감사 집계/ },
+      { name: 'search health operations panel', pattern: /검색 상태/ },
+      { name: 'search health safe aggregate copy', pattern: /검색 색인, 추출\/OCR, 검색 기록 집계/ },
       { name: 'tenant reindex API client', pattern: /requestTenantSearchReindex/ },
-      { name: 'reindex audit-only status copy', pattern: /감사 기록[\s\S]*큐\s+등록 수/ },
+      { name: 'reindex audit-only status copy', pattern: /감사 기록[\s\S]*대기열\s+등록 수/ },
       {
         name: 'template contract guard copy',
-        pattern: /승인된 문서 세트 계약만 Matter 화면에 표시/,
+        pattern: /승인된 문서 세트만 Matter 화면에 표시/,
       },
       { name: 'DMS Matter template save action', pattern: /templateSave/ },
       { name: 'DMS Matter template API client', pattern: /upsertEnterpriseDmsMatterTemplate/ },
@@ -1013,28 +1013,28 @@ const adminIntegrationsFiles = [
     path: 'apps/web/src/app/(app)/integrations/page.tsx',
     patterns: [
       { name: 'Matter app status route link', pattern: /\/integrations\/matter-app/ },
-      { name: 'Matter app upload condition copy', pattern: /업로드 조건/ },
+      { name: 'Matter app upload condition copy', pattern: /업로드 조건 확인/ },
       { name: 'Outlook status route link', pattern: /\/integrations\/outlook/ },
       { name: 'OneDrive gate copy', pattern: /승인 전 숨김/ },
-      { name: 'Office contract gate copy', pattern: /계약 필요/ },
+      { name: 'Office contract gate copy', pattern: /승인 필요/ },
     ],
   },
   {
     path: 'apps/web/src/app/(app)/integrations/matter-app/page.tsx',
     patterns: [
-      { name: 'Matter app status page title', pattern: /Matter app 연결 상태/ },
-      { name: 'Matter Code source section', pattern: /Matter Code 기준 정보/ },
+      { name: 'Matter app status page title', pattern: /Matter 관리 시스템 연결 상태/ },
+      { name: 'Matter code source section', pattern: /Matter code 기준 정보/ },
       { name: 'upload condition status', pattern: /업로드 조건/ },
       { name: 'free-floating upload blocked', pattern: /Matter 미선택 업로드/ },
-      { name: 'projection fallback policy', pattern: /Vault 기준 표시/ },
-      { name: 'no raw refs copy', pattern: /내부 식별자/ },
+      { name: 'projection fallback policy', pattern: /문서 보관함 기준 표시/ },
+      { name: 'no raw refs copy', pattern: /민감한 연결 정보/ },
       { name: 'Matter source status helper', pattern: /matterAppSourceStatus/ },
     ],
   },
   {
     path: 'apps/web/src/app/(app)/integrations/outlook/page.tsx',
     patterns: [
-      { name: 'Vault filing path section', pattern: /Vault 파일링 경로/ },
+      { name: 'Vault filing path section', pattern: /문서 보관 경로/ },
       { name: 'same document model copy', pattern: /동일 문서 모델/ },
       { name: 'search/detail flow link', pattern: /\/search/ },
     ],
@@ -1179,9 +1179,9 @@ const officeOneDriveAdrGateFiles = [
     path: 'apps/web/src/app/(app)/integrations/page.tsx',
     patterns: [
       { name: 'OneDrive gated copy', pattern: /승인 전 숨김/ },
-      { name: 'Office contract gated copy', pattern: /계약 필요/ },
+      { name: 'Office contract gated copy', pattern: /승인 필요/ },
       { name: 'OneDrive gated card', pattern: /title="OneDrive"[\s\S]*status="승인 전 숨김"[\s\S]*tone="warning"/ },
-      { name: 'Office gated card', pattern: /title="Office 열기\/저장"[\s\S]*status="계약 필요"[\s\S]*tone="warning"/ },
+      { name: 'Office gated card', pattern: /title="Office 열기\/저장"[\s\S]*status="승인 필요"[\s\S]*tone="warning"/ },
     ],
   },
   {

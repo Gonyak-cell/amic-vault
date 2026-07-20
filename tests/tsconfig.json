@@ -1,0 +1,31 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node", "vitest"],
+    "baseUrl": "..",
+    "paths": {
+      "@amic-vault/ai": ["packages/ai/src/index.ts"],
+      "@amic-vault/domain": ["packages/domain/src/index.ts"],
+      "@amic-vault/shared": ["packages/shared/src/index.ts"]
+    }
+  },
+  "include": [
+    "integration/dd-vault.spec.ts",
+    "integration/document-metadata.spec.ts",
+    "integration/document-access/document-api-helpers.ts",
+    "integration/document-access/bulk-upload-batch.spec.ts",
+    "integration/document-access/document-editing-lifecycle.spec.ts",
+    "integration/document-access/document-versioning.spec.ts",
+    "integration/enterprise-hardening.spec.ts",
+    "integration/external-core.spec.ts",
+    "integration/external-portal-gate.spec.ts",
+    "integration/legal-hold/**/*.ts",
+    "integration/litigation-vault.spec.ts",
+    "integration/records-governance.spec.ts",
+    "integration/helpers/**/*.ts",
+    "integration/search-permission/**/*.ts"
+  ]
+}

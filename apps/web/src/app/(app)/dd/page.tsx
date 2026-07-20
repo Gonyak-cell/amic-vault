@@ -1,6 +1,5 @@
-import React from 'react';
-import { RouteBlockedState } from '@/components/security/route-blocked-state';
+import { redirect } from 'next/navigation';
 
 export default function DdPage() {
-  return <RouteBlockedState areaKey="route.area.dd" />;
+  redirect('/matters');
 }

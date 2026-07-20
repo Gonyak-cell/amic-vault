@@ -4,6 +4,9 @@ import type {
   CurrentUserResponseDto,
   LoginRequestDto,
   LoginResponseDto,
+  MfaActivateRequestDto,
+  MfaEnrollResponseDto,
+  MfaVerifyRequestDto,
   PasswordResetAcceptedDto,
   PasswordResetConfirmDto,
 } from '@amic-vault/shared';
@@ -14,6 +17,25 @@ export function login(input: LoginRequestDto): Promise<LoginResponseDto> {
     method: 'POST',
     body: JSON.stringify(input),
     redirectOnAuthRequired: false,
+  });
+}
+
+export function verifyMfaChallenge(input: MfaVerifyRequestDto): Promise<LoginResponseDto> {
+  return apiFetch<LoginResponseDto>('/auth/mfa/verify', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    redirectOnAuthRequired: false,
+  });
+}
+
+export function enrollMfa(): Promise<MfaEnrollResponseDto> {
+  return apiFetch<MfaEnrollResponseDto>('/auth/mfa/enroll', { method: 'POST' });
+}
+
+export function activateMfa(input: MfaActivateRequestDto): Promise<{ accepted: true }> {
+  return apiFetch<{ accepted: true }>('/auth/mfa/activate', {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 }
 

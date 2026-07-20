@@ -535,6 +535,8 @@ function artifactLabel(artifactKind: AiPrepArtifactKind): string {
       return 'Key fields';
     case 'date_facts':
       return 'Date facts';
+    case 'matter_timeline':
+      return 'Matter timeline';
     case 'people_organizations':
       return 'People and organizations';
     case 'keyword_tags':
@@ -545,6 +547,16 @@ function artifactLabel(artifactKind: AiPrepArtifactKind): string {
       return 'Source outline';
     case 'retrieval_hints':
       return 'Retrieval hints';
+    case 'fact_candidates':
+      return 'Fact candidates';
+    case 'issue_candidates':
+      return 'Issue candidates';
+    case 'risk_candidates':
+      return 'Risk candidates';
+    case 'graph_candidate_edges':
+      return 'Graph candidate edges';
+    case 'minutes_qc':
+      return 'Minutes QC';
   }
 }
 

@@ -134,6 +134,12 @@ interface BackupSnapshotRow {
   row_counts_hash: string;
   table_count: number;
   reason_code: string;
+  drill_id: string | null;
+  drill_evidence_ref: string | null;
+  drill_manifest_hash: string | null;
+  schema_hash: string | null;
+  restored_schema_hash: string | null;
+  row_counts_drift_hash: string | null;
   created_at: Date;
 }
 
@@ -578,16 +584,27 @@ export class EnterpriseService {
         reasonCode: input.reasonCode,
         rowCountsHash,
         tableCount,
+        status: input.status ?? 'recorded',
+        drillId: input.drillId ?? null,
+        drillEvidenceRef: input.drillEvidenceRef ?? null,
+        drillManifestHash: input.drillManifestHash ?? null,
+        schemaHash: input.schemaHash ?? null,
+        restoredSchemaHash: input.restoredSchemaHash ?? null,
+        rowCountsDriftHash: input.rowCountsDriftHash ?? null,
       });
       const result = await client.query<BackupSnapshotRow>(
         `
           INSERT INTO enterprise_backup_snapshots (
             tenant_id, scope, manifest_hash, row_counts_hash, row_counts_json,
-            table_count, reason_code, created_by
+            table_count, reason_code, status, drill_id, drill_evidence_ref,
+            drill_manifest_hash, schema_hash, restored_schema_hash, row_counts_drift_hash,
+            created_by
           )
-          VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
           RETURNING backup_snapshot_id, scope, status, manifest_hash,
-            row_counts_hash, table_count, reason_code, created_at
+            row_counts_hash, table_count, reason_code, drill_id, drill_evidence_ref,
+            drill_manifest_hash, schema_hash, restored_schema_hash, row_counts_drift_hash,
+            created_at
         `,
         [
           ctx.tenantId,
@@ -597,6 +614,13 @@ export class EnterpriseService {
           JSON.stringify(rowCounts),
           tableCount,
           input.reasonCode,
+          input.status ?? 'recorded',
+          input.drillId ?? null,
+          input.drillEvidenceRef ?? null,
+          input.drillManifestHash ?? null,
+          input.schemaHash ?? null,
+          input.restoredSchemaHash ?? null,
+          input.rowCountsDriftHash ?? null,
           ctx.userId,
         ],
       );
@@ -616,6 +640,12 @@ export class EnterpriseService {
             row_counts_hash: snapshot.rowCountsHash,
             table_count: snapshot.tableCount,
             reason_code: snapshot.reasonCode,
+            drill_id: snapshot.drillId,
+            drill_evidence_ref: snapshot.drillEvidenceRef,
+            drill_manifest_hash: snapshot.drillManifestHash,
+            schema_hash: snapshot.schemaHash,
+            restored_schema_hash: snapshot.restoredSchemaHash,
+            row_counts_drift_hash: snapshot.rowCountsDriftHash,
           },
         },
         client,
@@ -631,7 +661,9 @@ export class EnterpriseService {
     const result = await getPool().query<BackupSnapshotRow>(
       `
         SELECT backup_snapshot_id, scope, status, manifest_hash,
-          row_counts_hash, table_count, reason_code, created_at
+          row_counts_hash, table_count, reason_code, drill_id, drill_evidence_ref,
+          drill_manifest_hash, schema_hash, restored_schema_hash, row_counts_drift_hash,
+          created_at
         FROM enterprise_backup_snapshots
         WHERE tenant_id = $1
         ORDER BY created_at DESC
@@ -1432,6 +1464,12 @@ function mapBackupSnapshot(row: BackupSnapshotRow | undefined): EnterpriseBackup
     rowCountsHash: value.row_counts_hash,
     tableCount: value.table_count,
     reasonCode: value.reason_code,
+    drillId: value.drill_id,
+    drillEvidenceRef: value.drill_evidence_ref,
+    drillManifestHash: value.drill_manifest_hash,
+    schemaHash: value.schema_hash,
+    restoredSchemaHash: value.restored_schema_hash,
+    rowCountsDriftHash: value.row_counts_drift_hash,
     createdAt: value.created_at.toISOString(),
   });
 }

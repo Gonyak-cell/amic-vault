@@ -2,6 +2,11 @@
 
 Status: DEPLOYED - POST-LAUNCH MONITORING
 
+Current-state note, 2026-07-06: this runbook records the earlier production
+release procedure. It is not the current customer-wide go-live approval. Use
+`docs/release/production-post-cutover-next-gates.md` for the current
+post-cutover gate package and non-claims.
+
 ## Entry Criteria
 
 - `infra/ci/prod-gate.yml` required-before-continue items are satisfied.

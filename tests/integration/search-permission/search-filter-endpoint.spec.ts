@@ -6,11 +6,7 @@ import type { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../../apps/api/src/app.module';
 import { configureApp } from '../../../apps/api/src/main';
 import { tenantAlphaId } from '../helpers/db';
-import {
-  addMatterMember,
-  alphaOwnerUserId,
-  insertSearchIndexedRow,
-} from './search-fixtures';
+import { addMatterMember, alphaOwnerUserId, insertSearchIndexedRow } from './search-fixtures';
 import { loginSearchUser, postSearch, type SearchHttpResponse } from './search-http-helpers';
 
 describe('search filter endpoint permission integration', () => {
@@ -129,6 +125,46 @@ describe('search filter endpoint permission integration', () => {
     expectZeroLeakage(response);
   });
 
+  it('saves and replays hybrid search mode through saved-search endpoints', async () => {
+    const saveResponse = await fetch(`${baseUrl}/v1/search/saved-searches`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Hybrid endpoint filter',
+        query: {
+          mode: 'hybrid',
+          query: marker,
+          filters: { clientId: hiddenClientId },
+          page: 1,
+          pageSize: 10,
+        },
+        scope: 'personal',
+      }),
+    });
+    const savedText = await saveResponse.text();
+    expect(saveResponse.status, savedText).toBe(201);
+    const saved = JSON.parse(savedText) as { savedSearchId: string; query: { mode?: string } };
+    expect(saved.query.mode).toBe('hybrid');
+
+    const openResponse = await fetch(
+      `${baseUrl}/v1/search/saved-searches/${saved.savedSearchId}/open`,
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json' },
+      },
+    );
+    const openedText = await openResponse.text();
+    expect(openResponse.status, openedText).toBe(201);
+    const opened = JSON.parse(openedText) as {
+      query: { filters?: { clientId?: string }; mode?: string; query?: string };
+    };
+    expect(opened.query).toMatchObject({
+      filters: { clientId: hiddenClientId },
+      mode: 'hybrid',
+      query: marker,
+    });
+  });
+
   function expectZeroLeakage(response: SearchHttpResponse): void {
     expect(response.total).toBe(0);
     expect(response.results).toEqual([]);
@@ -138,6 +174,9 @@ describe('search filter endpoint permission integration', () => {
       documentTypes: [],
       confidentialityLevels: [],
       extractionStatuses: [],
+      emailRecipientDomains: [],
+      emailSenderDomains: [],
+      ocrConfidence: [],
       legalHolds: [],
       privilegeStatuses: [],
       recordsStatuses: [],

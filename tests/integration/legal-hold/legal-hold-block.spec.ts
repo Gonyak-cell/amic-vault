@@ -9,6 +9,7 @@ import {
   createClient,
   createMatter,
   createStorageService,
+  ensureFreshMatterAppSyncState,
   loginBetaOwner,
   setDocumentLegalHold,
   setMatterLegalHold,
@@ -28,6 +29,7 @@ describe('legal-hold-block integration', () => {
     await app.listen(0);
     baseUrl = await app.getUrl();
     betaOwnerCookie = await loginBetaOwner(baseUrl);
+    await ensureFreshMatterAppSyncState(tenantBetaId, 'legal_hold_block_integration');
   });
 
   afterAll(async () => {

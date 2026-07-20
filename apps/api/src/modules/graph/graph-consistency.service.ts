@@ -13,6 +13,10 @@ interface DriftRow {
   version_id: string | null;
   node_id: string | null;
   edge_id: string | null;
+  term_key: string | null;
+  source_version_id: string | null;
+  target_version_id: string | null;
+  fact_id: string | null;
 }
 
 @Injectable()
@@ -39,9 +43,23 @@ export class GraphConsistencyService {
               AND d.status <> 'deleted'
               AND d.deleted_at IS NULL
           ),
+          all_versions AS (
+            SELECT d.tenant_id, d.matter_id, d.document_id, dv.version_id,
+              dv.version_no, dv.version_status, dv.supersedes_version_id
+            FROM documents d
+            JOIN document_versions dv
+              ON dv.tenant_id = d.tenant_id
+              AND dv.document_id = d.document_id
+            WHERE d.tenant_id = $1
+              AND d.matter_id = $2
+              AND d.status <> 'deleted'
+              AND d.deleted_at IS NULL
+          ),
           missing_document_nodes AS (
             SELECT 'missing_document_node'::text AS kind, ad.matter_id, ad.document_id,
-              NULL::uuid AS version_id, NULL::uuid AS node_id, NULL::uuid AS edge_id
+              NULL::uuid AS version_id, NULL::uuid AS node_id, NULL::uuid AS edge_id,
+              NULL::text AS term_key, NULL::uuid AS source_version_id,
+              NULL::uuid AS target_version_id, NULL::uuid AS fact_id
             FROM active_documents ad
             WHERE NOT EXISTS (
               SELECT 1
@@ -54,7 +72,9 @@ export class GraphConsistencyService {
           ),
           missing_version_nodes AS (
             SELECT 'missing_version_node'::text AS kind, ad.matter_id, ad.document_id,
-              ad.version_id, NULL::uuid AS node_id, NULL::uuid AS edge_id
+              ad.version_id, NULL::uuid AS node_id, NULL::uuid AS edge_id,
+              NULL::text AS term_key, NULL::uuid AS source_version_id,
+              NULL::uuid AS target_version_id, NULL::uuid AS fact_id
             FROM active_documents ad
             WHERE NOT EXISTS (
               SELECT 1
@@ -67,7 +87,9 @@ export class GraphConsistencyService {
           ),
           stale_document_nodes AS (
             SELECT 'stale_document_node'::text AS kind, gn.matter_id, gn.document_id,
-              NULL::uuid AS version_id, gn.node_id, NULL::uuid AS edge_id
+              NULL::uuid AS version_id, gn.node_id, NULL::uuid AS edge_id,
+              NULL::text AS term_key, NULL::uuid AS source_version_id,
+              NULL::uuid AS target_version_id, NULL::uuid AS fact_id
             FROM graph_nodes gn
             LEFT JOIN documents d
               ON d.tenant_id = gn.tenant_id
@@ -84,7 +106,9 @@ export class GraphConsistencyService {
           ),
           stale_edges AS (
             SELECT 'edge_points_to_stale_node'::text AS kind, ge.matter_id, ge.document_id,
-              NULL::uuid AS version_id, NULL::uuid AS node_id, ge.edge_id
+              NULL::uuid AS version_id, NULL::uuid AS node_id, ge.edge_id,
+              NULL::text AS term_key, NULL::uuid AS source_version_id,
+              NULL::uuid AS target_version_id, NULL::uuid AS fact_id
             FROM graph_edges ge
             JOIN graph_nodes source_node
               ON source_node.tenant_id = ge.tenant_id
@@ -96,11 +120,73 @@ export class GraphConsistencyService {
               AND ge.matter_id = $2
               AND ge.stale = false
               AND (source_node.stale = true OR target_node.stale = true)
+          ),
+          version_lineage_conflicts AS (
+            SELECT 'version_lineage_conflict'::text AS kind, av.matter_id, av.document_id,
+              av.version_id, NULL::uuid AS node_id, NULL::uuid AS edge_id,
+              NULL::text AS term_key, av.version_id AS source_version_id,
+              av.supersedes_version_id AS target_version_id, NULL::uuid AS fact_id
+            FROM all_versions av
+            WHERE av.version_no > 1
+              AND av.supersedes_version_id IS NULL
+          ),
+          defined_term_mismatch_groups AS (
+            SELECT cdt.matter_id, cdt.normalized_term_key,
+              array_agg(DISTINCT cdt.version_id ORDER BY cdt.version_id) AS version_ids
+            FROM contract_defined_terms cdt
+            WHERE cdt.tenant_id = $1
+              AND cdt.matter_id = $2
+              AND cdt.stale = false
+            GROUP BY cdt.matter_id, cdt.normalized_term_key
+            HAVING count(DISTINCT cdt.definition_hash) > 1
+              AND count(DISTINCT cdt.document_id) > 1
+          ),
+          defined_term_mismatches AS (
+            SELECT 'defined_term_mismatch'::text AS kind, dtm.matter_id,
+              NULL::uuid AS document_id, NULL::uuid AS version_id,
+              NULL::uuid AS node_id, NULL::uuid AS edge_id,
+              dtm.normalized_term_key AS term_key,
+              dtm.version_ids[1] AS source_version_id,
+              dtm.version_ids[2] AS target_version_id,
+              NULL::uuid AS fact_id
+            FROM defined_term_mismatch_groups dtm
+          ),
+          verified_fact_evidence_gaps AS (
+            SELECT 'evidence_gap'::text AS kind, lf.matter_id, le.document_id,
+              le.version_id, gn.node_id, NULL::uuid AS edge_id,
+              NULL::text AS term_key, NULL::uuid AS source_version_id,
+              NULL::uuid AS target_version_id, lf.fact_id
+            FROM litigation_facts lf
+            LEFT JOIN litigation_evidence_items le
+              ON le.tenant_id = lf.tenant_id
+              AND le.evidence_id = lf.evidence_id
+            LEFT JOIN graph_nodes gn
+              ON gn.tenant_id = lf.tenant_id
+              AND gn.node_type = 'fact'
+              AND gn.source_id = lf.fact_id
+              AND gn.stale = false
+            WHERE lf.tenant_id = $1
+              AND lf.matter_id = $2
+              AND lf.status = 'verified'
+              AND (
+                cardinality(lf.citation_refs) = 0
+                OR NOT EXISTS (
+                  SELECT 1
+                  FROM graph_edges ge
+                  WHERE ge.tenant_id = lf.tenant_id
+                    AND ge.edge_type = 'EVIDENCED_BY'
+                    AND ge.source_node_id = gn.node_id
+                    AND ge.stale = false
+                )
+              )
           )
           SELECT * FROM missing_document_nodes
           UNION ALL SELECT * FROM missing_version_nodes
           UNION ALL SELECT * FROM stale_document_nodes
           UNION ALL SELECT * FROM stale_edges
+          UNION ALL SELECT * FROM version_lineage_conflicts
+          UNION ALL SELECT * FROM defined_term_mismatches
+          UNION ALL SELECT * FROM verified_fact_evidence_gaps
           LIMIT 200
         `,
         [ctx.tenantId, matterId],
@@ -144,5 +230,9 @@ function toDrift(row: DriftRow): GraphConsistencyDriftDto {
     versionId: row.version_id,
     nodeId: row.node_id,
     edgeId: row.edge_id,
+    termKey: row.term_key,
+    sourceVersionId: row.source_version_id,
+    targetVersionId: row.target_version_id,
+    factId: row.fact_id,
   };
 }

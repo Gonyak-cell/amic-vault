@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { aiEmbeddingDimension } from '@amic-vault/shared';
 import type { AuditService, QueryClient } from '../audit/audit.service';
 import { SearchService } from './search.service';
 
@@ -33,6 +34,7 @@ function createService(
   query: QueryClient['query'],
   overrides: {
     queryBuilder?: unknown;
+    embeddingGateway?: unknown;
     scopeProvider?: unknown;
     snippetBuilder?: unknown;
   } = {},
@@ -52,6 +54,7 @@ function createService(
     (overrides.queryBuilder ?? {}) as never,
     (overrides.snippetBuilder ?? {}) as never,
     (overrides.scopeProvider ?? {}) as never,
+    overrides.embeddingGateway as never,
   );
   return { auditService, service };
 }
@@ -228,6 +231,184 @@ describe('SearchService saved searches', () => {
 });
 
 describe('SearchService search privacy', () => {
+  it('adds fallback Korean snippet highlights when normalized search matched without ts_headline markers', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql === 'facets-sql') return { rowCount: 1, rows: [{ facets: {} }] };
+      return {
+        rowCount: 1,
+        rows: [
+          {
+            client_id: '11111111-1111-4111-8111-111111111922',
+            client_name: 'Confidential Client',
+            document_id: '11111111-1111-4111-8111-111111111923',
+            document_type: 'contract',
+            extraction_status: 'ready',
+            matter_code: 'AMIC-2026-0001',
+            matter_id: '11111111-1111-4111-8111-111111111921',
+            matter_name: 'Secret Matter',
+            raw_snippet: '계약을 해지한다',
+            score: 0.05,
+            title: 'Korean termination memo',
+            total: 1,
+            updated_at: new Date('2026-06-19T00:00:00.000Z'),
+            version_id: '11111111-1111-4111-8111-111111111924',
+            version_status: 'current',
+          },
+        ],
+      };
+    });
+    const { service } = createService(query, {
+      queryBuilder: {
+        build: vi.fn(() => ({ params: [], sql: 'search-sql' })),
+        buildFacets: vi.fn(() => ({ params: [], sql: 'facets-sql' })),
+      },
+      scopeProvider: {
+        scopeForSearch: vi.fn(async () => ({
+          appliedRules: ['matter_member'],
+          effect: 'ALLOW',
+          scope: { params: [], sql: 'true' },
+        })),
+      },
+      snippetBuilder: {
+        parseHeadline: vi.fn(() => ({
+          highlights: [],
+          snippet: '계약을 해지한다',
+        })),
+      },
+    });
+
+    await expect(
+      service.search(ctx, {
+        page: 1,
+        pageSize: 10,
+        query: '계약 해지',
+        target: 'body',
+      }),
+    ).resolves.toMatchObject({
+      results: [
+        expect.objectContaining({
+          highlights: [
+            { anchorId: 'vph-1-0-2', end: 2, start: 0 },
+            { anchorId: 'vph-2-4-6', end: 6, start: 4 },
+          ],
+          snippet: '계약을 해지한다',
+        }),
+      ],
+    });
+  });
+
+  it('uses the real embedding gateway result for semantic vector queries', async () => {
+    const queryVector = Array.from({ length: aiEmbeddingDimension }, (_, index) =>
+      index === 0 ? 0.25 : 0,
+    );
+    const embeddingGateway = {
+      embedText: vi.fn(async () => ({
+        embedding: queryVector,
+        route: 'bge_m3' as const,
+        status: 'completed' as const,
+      })),
+    };
+    const query = vi.fn(async (sql: string) => {
+      if (sql === 'facets-sql') return { rowCount: 1, rows: [{ facets: {} }] };
+      return { rowCount: 0, rows: [] };
+    });
+    const queryBuilder = {
+      build: vi.fn(),
+      buildFacets: vi.fn(),
+      buildVector: vi.fn(() => ({ params: [], sql: 'search-sql' })),
+      buildVectorFacets: vi.fn(() => ({ params: [], sql: 'facets-sql' })),
+    };
+    const { service } = createService(query, {
+      embeddingGateway,
+      queryBuilder,
+      scopeProvider: {
+        scopeForSearch: vi.fn(async () => ({
+          appliedRules: ['matter_member'],
+          effect: 'ALLOW',
+          scope: { params: [], sql: 'true' },
+        })),
+      },
+      snippetBuilder: {
+        parseHeadline: vi.fn(),
+      },
+    });
+
+    await expect(
+      service.search(ctx, {
+        mode: 'semantic',
+        page: 1,
+        pageSize: 10,
+        query: '계약 해지',
+      }),
+    ).resolves.toMatchObject({ results: [], total: 0 });
+
+    expect(embeddingGateway.embedText).toHaveBeenCalledWith({ text: '계약 해지' });
+    expect(queryBuilder.build).not.toHaveBeenCalled();
+    expect(queryBuilder.buildVector).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'semantic', query: '계약 해지' }),
+      expect.objectContaining({ sql: 'true' }),
+      expect.stringContaining('[0.250000,0.000000'),
+      'semantic',
+    );
+  });
+
+  it('does not fall back to deterministic vectors when semantic embedding is blocked', async () => {
+    const embeddingGateway = {
+      embedText: vi.fn(async () => ({
+        reasonCode: 'route_disabled' as const,
+        route: 'bge_m3' as const,
+        status: 'blocked' as const,
+      })),
+    };
+    const query = vi.fn(async () => ({ rowCount: 0, rows: [] }));
+    const queryBuilder = {
+      build: vi.fn(),
+      buildFacets: vi.fn(),
+      buildVector: vi.fn(),
+      buildVectorFacets: vi.fn(),
+    };
+    const { auditService, service } = createService(query, {
+      embeddingGateway,
+      queryBuilder,
+      scopeProvider: {
+        scopeForSearch: vi.fn(async () => ({
+          appliedRules: ['matter_member'],
+          effect: 'ALLOW',
+          scope: { params: [], sql: 'true' },
+        })),
+      },
+      snippetBuilder: {
+        parseHeadline: vi.fn(),
+      },
+    });
+
+    await expect(
+      service.search(ctx, {
+        mode: 'semantic',
+        page: 1,
+        pageSize: 10,
+        query: '계약 해지',
+      }),
+    ).resolves.toEqual({
+      facets: expect.objectContaining({ clients: [], matters: [] }),
+      results: [],
+      total: 0,
+    });
+
+    expect(query).not.toHaveBeenCalled();
+    expect(queryBuilder.buildVector).not.toHaveBeenCalled();
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'SEARCH_EXECUTED',
+        metadata: expect.objectContaining({
+          search_mode: 'semantic',
+          zero_result: true,
+        }),
+      }),
+      expect.any(Object),
+    );
+  });
+
   it('audits search execution with bounded refs instead of raw query or snippets', async () => {
     const privateQuery = 'privileged merger codeword';
     const privateSnippet = 'privileged clause body text';
@@ -310,7 +491,9 @@ describe('SearchService search privacy', () => {
           query_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
           query_length: privateQuery.length,
           result_count: 1,
+          search_mode: 'keyword',
           scope_type: 'keyword',
+          zero_result: false,
         }),
         targetType: 'search',
       }),
@@ -322,6 +505,8 @@ describe('SearchService search privacy', () => {
       'query_length',
       'result_count',
       'scope_type',
+      'search_mode',
+      'zero_result',
     ]);
     const auditPayload = JSON.stringify(auditEvent);
     expect(auditPayload).not.toContain(privateQuery);

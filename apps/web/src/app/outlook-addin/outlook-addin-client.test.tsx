@@ -18,6 +18,8 @@ describe('OutlookAddinClient', () => {
       clientId: '22222222-2222-4222-8222-222222222222',
       reasonCodes: ['subject_hash'],
       score: 92,
+      confidence: 83,
+      confidenceBand: 'confirm',
     };
     const documentInsertion: OutlookDocumentInsertionDto = {
       insertionId: '11111111-1111-4111-8111-111111111901',
@@ -46,21 +48,22 @@ describe('OutlookAddinClient', () => {
     expect(html).toContain('AMIC Vault');
     expect(html).toContain('Outlook 파일링');
     expect(html).toContain('메일');
-    expect(html).toContain('사건');
-    expect(html).toContain('Vault 문서');
+    expect(html).toContain('Matter');
+    expect(html).toContain('문서 보관함 문서');
     expect(html).toContain('문서 연결');
     expect(html).toContain('편집 바로가기 준비됨');
     expect(html).toContain('메일에 바로가기 삽입');
     expect(html).toContain('Project Maple');
     expect(html).toContain('M-2026-001');
+    expect(html).toContain('확인 83');
     expect(html).toContain('첨부 1');
-    expect(html).toContain('선택 사건 있음');
+    expect(html).toContain('선택 Matter 있음');
     expect(html).not.toContain('Privileged acquisition draft');
     expect(html).not.toContain('lawyer@amic.test');
     expect(html).not.toContain('counterparty@example.com');
     expect(html).not.toContain('board-minutes.pdf');
     expect(html).not.toContain('raw-message-id');
-    expect(html).not.toContain('내부 참조');
+    expect(html).not.toContain('내부 식별값');
     expect(html).not.toContain(documentInsertion.internalReference);
     expect(html).not.toContain(documentInsertion.editReference);
     expect(html).not.toContain(documentInsertion.editPath);

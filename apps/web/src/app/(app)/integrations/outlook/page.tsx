@@ -17,7 +17,7 @@ export default function OutlookIntegrationPage() {
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', t('integrations.page.title'), t('outlook.page.title')]}
+        breadcrumbs={['문서 보관', t('integrations.page.title'), t('outlook.page.title')]}
         title={t('outlook.page.title')}
         description={t('outlook.page.description')}
       />
@@ -30,21 +30,21 @@ export default function OutlookIntegrationPage() {
       </SectionCard>
       <SectionCard
         icon={<FileInput className="h-4 w-4" />}
-        title="Vault 파일링 경로"
+        title="문서 보관 경로"
         meta="동일 문서 모델"
       >
         <div className="grid gap-3 lg:grid-cols-2">
           <FilingPathCard
             icon={<MailCheck className="h-4 w-4" />}
             title="Outlook 첨부 보관"
-            description="첨부 보관은 Matter 권한, 감사 기록, 문서 메타데이터 모델을 통과한 후 Vault 문서로 이어져야 합니다."
+            description="첨부 보관은 Matter 권한, 활동 기록, 문서 정보 기준을 통과한 후 문서 보관함 문서로 이어져야 합니다."
             status="조건 적용"
           />
           <FilingPathCard
             icon={<SearchCheck className="h-4 w-4" />}
             title="검색/상세 연결"
             description="보관된 이메일과 첨부는 Matter 파일 목록, 문서 상세, 권한 검색에서 같은 표시명 정책을 사용합니다."
-            status="동일 UX"
+            status="동일 화면"
             href="/search"
           />
         </div>

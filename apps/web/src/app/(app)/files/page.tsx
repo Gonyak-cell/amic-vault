@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { UploadDocumentResponseDto } from '@amic-vault/shared';
-import { FileText, FolderUp, Search } from 'lucide-react';
+import { FileText, FolderUp, MailPlus, Search } from 'lucide-react';
 import { AiPrepStatusLoader } from '@/components/ai/ai-prep-status-loader';
 import { MatterDocumentList } from '@/components/document/matter-document-list';
 import { DocumentVaultList } from '@/components/document/document-vault-list';
@@ -11,18 +11,23 @@ import {
   type DocumentUploadCompletionResult,
 } from '@/components/document/document-upload-panel';
 import { MatterCodePicker } from '@/components/matter/matter-code-picker';
+import { EmailUploadCard } from '@/components/matter/email-upload-card';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { useI18n } from '@/lib/i18n';
-import { matterAppSourceMode, type MatterCodeOption } from '@/lib/matter-app';
+import {
+  isMatterUploadSourceMode,
+  matterAppSourceMode,
+  type MatterCodeOption,
+} from '@/lib/matter-app';
 import { cn } from '@/lib/utils';
 
 type FilesWorkspaceTab = 'documents' | 'upload';
 
 const filesWorkspaceTabs: Array<{ label: string; value: FilesWorkspaceTab }> = [
   { label: '전체 문서', value: 'documents' },
-  { label: 'Matter 업로드', value: 'upload' },
+  { label: 'Matter 문서 업로드', value: 'upload' },
 ];
 
 export default function FilesPage() {
@@ -53,7 +58,7 @@ export default function FilesPage() {
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', t('files.page.title')]}
+        breadcrumbs={['문서 보관', t('files.page.title')]}
         title={t('files.page.title')}
         description={t('files.page.description')}
         navigation={
@@ -76,8 +81,8 @@ export default function FilesPage() {
           <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <SectionCard
               icon={<Search className="h-4 w-4" />}
-              title="Matter Code 선택"
-              meta="Matter 원장 기준"
+              title="Matter code 선택"
+              meta="Matter 기준 정보"
             >
               <MatterCodePicker
                 initialMatterCode={initialMatterCode}
@@ -95,6 +100,18 @@ export default function FilesPage() {
                 selectedMatter={selectedMatter}
                 sourceMode={sourceMode}
                 onUploadComplete={handleUploadComplete}
+              />
+            </SectionCard>
+            <SectionCard
+              icon={<MailPlus className="h-4 w-4" />}
+              title="이메일 업로드"
+              meta="EML·MSG 원문 보관"
+            >
+              <EmailUploadCard
+                matter={selectedMatter ? matterOptionToEmailUploadMatter(selectedMatter) : null}
+                uploadEnabled={
+                  selectedMatter ? isMatterUploadSourceMode(selectedMatter.sourceMode) : true
+                }
               />
             </SectionCard>
           </div>
@@ -156,4 +173,13 @@ function isUploadDocumentResponse(
   result: DocumentUploadCompletionResult,
 ): result is UploadDocumentResponseDto {
   return 'aiAllowed' in result;
+}
+
+function matterOptionToEmailUploadMatter(matter: MatterCodeOption) {
+  return {
+    matterId: matter.matterReference,
+    matterCode: matter.matterCode,
+    matterName: matter.matterName,
+    clientDisplayName: matter.clientDisplayName,
+  };
 }

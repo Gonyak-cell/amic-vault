@@ -12,6 +12,7 @@ export interface PlaybookRuleForEvaluation {
   severity: PlaybookRuleSeverity;
   versionNumber: number;
   matterId: string | null;
+  clientId?: string | null;
   expressionHash: string;
   expression: Record<string, unknown>;
 }
@@ -164,12 +165,18 @@ function evaluateThreshold(
   const passed =
     operator === 'eq' ? actual === value : operator === 'gte' ? actual >= value : actual <= value;
   const status: RuleEvaluationStatus = passed ? 'pass' : 'fail';
-  return finding(rule, facts, {
+  const evidenceRefs =
+    metric === 'redline_change_count'
+      ? facts.redlineChanges.map((redline) => `redline:${redline.redlineChangeId}`).slice(0, 20)
+      : facts.clauses.map((clause) => `clause:${clause.clauseId}`).slice(0, 20);
+  const input = {
     status,
     findingCode: `threshold.${metric}.${operator}.${status}`,
-    clause: facts.clauses[0],
-    evidenceRefs: facts.clauses.map((clause) => `clause:${clause.clauseId}`).slice(0, 20),
-  });
+    evidenceRefs,
+  };
+  return metric === 'redline_change_count'
+    ? finding(rule, facts, input)
+    : finding(rule, facts, { ...input, clause: facts.clauses[0] });
 }
 
 function finding(

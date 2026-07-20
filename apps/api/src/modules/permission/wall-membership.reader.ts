@@ -16,6 +16,7 @@ function getPool(): Pool {
 
 export interface MatterWallMembershipState {
   hasActiveWall: boolean;
+  insiderRequiredWallIds: string[];
   isExcluded: boolean;
   isInsider: boolean;
   wallIds: string[];
@@ -69,8 +70,11 @@ export class WallMembershipReader {
     const insiderWallIds = result.rows
       .filter((row) => row.membership_type === 'insider')
       .map((row) => row.wall_id);
+    const insiderRequiredWallIds = await this.insiderRequiredMatterWallIds(tenantId, matterId);
     return {
-      hasActiveWall: await this.hasActiveMatterWall(tenantId, matterId),
+      hasActiveWall:
+        insiderRequiredWallIds.length > 0 || (await this.hasActiveMatterWall(tenantId, matterId)),
+      insiderRequiredWallIds,
       isExcluded: excludedWallIds.length > 0,
       isInsider: insiderWallIds.length > 0,
       wallIds,
@@ -94,5 +98,28 @@ export class WallMembershipReader {
       [tenantId, matterId],
     );
     return (result.rowCount ?? 0) > 0;
+  }
+
+  private async insiderRequiredMatterWallIds(
+    tenantId: TenantId,
+    matterId: string,
+  ): Promise<string[]> {
+    const result = await tenantQuery<{ wall_id: string }>(
+      getPool(),
+      tenantId,
+      `
+        SELECT DISTINCT ew.wall_id
+        FROM ethical_walls ew
+        JOIN ethical_wall_memberships ewm
+          ON ewm.tenant_id = ew.tenant_id
+         AND ewm.wall_id = ew.wall_id
+        WHERE ew.tenant_id = $1
+          AND ew.matter_id = $2
+          AND ew.status = 'active'
+          AND ewm.membership_type = 'insider'
+      `,
+      [tenantId, matterId],
+    );
+    return result.rows.map((row) => row.wall_id);
   }
 }

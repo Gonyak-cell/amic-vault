@@ -25,6 +25,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm exec vitest run tools/evalset/local-ai-eval.spec.ts
       - run: pnpm check:production-ui-literals
       - run: pnpm ui:production-smoke
       - run: pnpm check:ui-pr-checklist

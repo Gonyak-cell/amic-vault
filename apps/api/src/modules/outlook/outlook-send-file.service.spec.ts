@@ -183,6 +183,119 @@ describe('OutlookSendFileService', () => {
     );
   });
 
+  it('warns when client DLP reports non-restricted findings for external recipients', async () => {
+    process.env.OUTLOOK_SMART_ALERTS_ENABLED = 'true';
+    permissionService.canUploadToMatter.mockResolvedValue({ effect: 'ALLOW' });
+
+    await expect(
+      service.evaluateSendPolicy(
+        userId,
+        policyInput({
+          message: {
+            ...policyInput().message,
+            hasExternalParticipants: true,
+          },
+          dlpReport: {
+            status: 'finding',
+            findingCount: 1,
+            restrictedFindingCount: 0,
+            findingRefs: [
+              {
+                ruleId: 'bank-account-format-v1',
+                findingType: 'bank_account',
+                valueHash: hash,
+                evidenceHash: secondHash,
+                confidence: 0.8,
+              },
+            ],
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      decision: 'warn',
+      warningReasonCodes: ['external_recipient', 'dlp_finding'],
+    });
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'OUTLOOK_SEND_POLICY_EVALUATED',
+        metadata: expect.objectContaining({
+          policy_decision: 'warn',
+          warning_codes: ['external_recipient', 'dlp_finding'],
+          dlp_finding_count: 1,
+        }),
+      }),
+    );
+  });
+
+  it('blocks restricted client DLP findings when external recipients are present', async () => {
+    process.env.OUTLOOK_SMART_ALERTS_ENABLED = 'true';
+    permissionService.canUploadToMatter.mockResolvedValue({ effect: 'ALLOW' });
+
+    await expect(
+      service.evaluateSendPolicy(
+        userId,
+        policyInput({
+          message: {
+            ...policyInput().message,
+            hasExternalParticipants: true,
+          },
+          dlpReport: {
+            status: 'finding',
+            findingCount: 1,
+            restrictedFindingCount: 1,
+            findingRefs: [
+              {
+                ruleId: 'kr-rrn-format-v1',
+                findingType: 'korean_resident_id',
+                valueHash: hash,
+                evidenceHash: secondHash,
+                confidence: 0.95,
+              },
+            ],
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      decision: 'block',
+      deniedReasonCode: 'policy_denied',
+      warningReasonCodes: ['external_recipient', 'dlp_finding'],
+    });
+  });
+
+  it('warns and allows review when the client DLP scan fails without content leakage', async () => {
+    process.env.OUTLOOK_SMART_ALERTS_ENABLED = 'true';
+    permissionService.canUploadToMatter.mockResolvedValue({ effect: 'ALLOW' });
+
+    await expect(
+      service.evaluateSendPolicy(
+        userId,
+        policyInput({
+          dlpReport: {
+            status: 'scan_failed',
+            findingCount: 0,
+            restrictedFindingCount: 0,
+            findingRefs: [],
+            failureCode: 'body_unavailable',
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      decision: 'warn',
+      warningReasonCodes: ['dlp_scan_failed'],
+    });
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'OUTLOOK_SEND_POLICY_EVALUATED',
+        metadata: expect.objectContaining({
+          policy_decision: 'warn',
+          warning_codes: ['dlp_scan_failed'],
+        }),
+      }),
+    );
+  });
+
   it('blocks when PermissionService denies upload to the selected matter', async () => {
     process.env.OUTLOOK_SMART_ALERTS_ENABLED = 'true';
     permissionService.canUploadToMatter.mockResolvedValue({ effect: 'DENY' });

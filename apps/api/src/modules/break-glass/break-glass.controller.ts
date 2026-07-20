@@ -3,9 +3,11 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   Inject,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +16,7 @@ import { RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import type { RequestWithSession } from '../auth/session.guard';
 import {
   createBreakGlassRequestSchema,
+  listBreakGlassRequestsQuerySchema,
   revokeBreakGlassRequestSchema,
 } from './dto/break-glass.dto';
 import { BreakGlassService } from './break-glass.service';
@@ -43,6 +46,14 @@ function sessionUserId(request: RequestWithSession): string {
 @Controller('break-glass')
 export class BreakGlassController {
   constructor(@Inject(BreakGlassService) private readonly breakGlassService: BreakGlassService) {}
+
+  @Get('requests')
+  @RequireRoles('firm_admin', 'security_admin')
+  @UseGuards(RequireRolesGuard)
+  listRequests(@Req() request: RequestWithSession, @Query() query: unknown) {
+    const input = parseOrValidation(() => listBreakGlassRequestsQuerySchema.parse(query));
+    return this.breakGlassService.listRequests(sessionUserId(request), input);
+  }
 
   @Post('requests')
   @RequireRoles('security_admin', 'matter_owner')

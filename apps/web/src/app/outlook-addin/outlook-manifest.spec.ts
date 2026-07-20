@@ -31,6 +31,8 @@ describe('Outlook Smart Alerts manifest', () => {
     );
 
     expect(runtime).toContain('/v1/m365/outlook/send-policy-decisions');
+    expect(runtime).toContain('buildDlpReport');
+    expect(runtime).toContain('dlpReport');
     expect(runtime).toContain('sendModeOverride');
     expect(runtime).toContain('onAmicVaultMessageSend');
     expect(runtime).not.toContain('localStorage');

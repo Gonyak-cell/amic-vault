@@ -4,6 +4,7 @@ import {
   type SearchConfidentialityLevel,
   type SearchFiltersDto,
   type SearchLegalHold,
+  type SearchOcrConfidence,
   type SearchPrivilegeStatus,
   type SearchRecordsStatus,
   type SearchVersionStatus,
@@ -126,7 +127,10 @@ export class SearchFilterBuilder {
       fragments.push({ sql: 'idx.client_id = ?', params: [filters.clientId] });
     }
     if (filters.title) {
-      fragments.push({ sql: "idx.title ILIKE ? ESCAPE '\\'", params: [likeContains(filters.title)] });
+      fragments.push({
+        sql: "idx.title ILIKE ? ESCAPE '\\'",
+        params: [likeContains(filters.title)],
+      });
     }
     if (filters.matterCode) {
       fragments.push({
@@ -180,7 +184,13 @@ export class SearchFilterBuilder {
       fragments.push(this.confidentialityFilter(filters.confidentialityLevel));
     }
     if (filters.extractionStatus) {
-      fragments.push({ sql: `${searchExtractionStatusSql} = ?`, params: [filters.extractionStatus] });
+      fragments.push({
+        sql: `${searchExtractionStatusSql} = ?`,
+        params: [filters.extractionStatus],
+      });
+    }
+    if (filters.ocrConfidence) {
+      fragments.push(this.ocrConfidenceFilter(filters.ocrConfidence));
     }
     if (filters.legalHold) {
       fragments.push(this.legalHoldFilter(filters.legalHold));
@@ -222,6 +232,11 @@ export class SearchFilterBuilder {
 
   private privilegeFilter(value: SearchPrivilegeStatus): SearchSqlFragment {
     return { sql: `${searchPrivilegeStatusSql} = ?`, params: [value] };
+  }
+
+  private ocrConfidenceFilter(value: SearchOcrConfidence): SearchSqlFragment {
+    if (value === 'ocr_low_confidence') return { sql: 'idx.ocr_low_confidence = true', params: [] };
+    return denyAllSearchScope;
   }
 
   private recordsStatusFilter(value: SearchRecordsStatus): SearchSqlFragment {

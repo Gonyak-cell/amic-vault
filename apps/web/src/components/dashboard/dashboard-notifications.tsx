@@ -52,7 +52,7 @@ export function dashboardNotificationItems(
       items.push({
         itemKey: `integration-${index}`,
         source: 'integration',
-        category: '통합',
+        category: '연동',
         title: integration.integrationLabel,
         description: integration.statusLabel,
         tone: 'neutral',
@@ -77,7 +77,7 @@ export function dashboardNotificationItems(
       source: 'recent_activity',
       category: '운영 데이터',
       title: '운영 데이터 연결 확인',
-      description: '일부 알림 출처를 표시할 수 없습니다.',
+      description: '일부 알림 구분을 표시할 수 없습니다.',
       tone: 'blocked',
     });
   }
@@ -217,15 +217,15 @@ function NotificationStateEmpty({ state }: { state: DataState<DmsNotificationIte
     return (
       <EmptyState
         title="표시할 알림이 없습니다."
-        description="알림 API가 실제 운영 이벤트와 상태에서 파생한 항목만 표시합니다."
+        description="알림은 실제 운영 이벤트와 상태에서 파생한 항목만 표시합니다."
       />
     );
   }
   if (state.status === 'error') {
-    return <EmptyState variant="api-error" title="알림 API 데이터를 표시할 수 없습니다." />;
+    return <EmptyState variant="api-error" title="알림 데이터를 표시할 수 없습니다." />;
   }
   if (state.status === 'forbidden') {
-    return <EmptyState variant="no-access" title="알림 API에 접근할 권한이 없습니다." />;
+    return <EmptyState variant="no-access" title="알림 데이터에 접근할 권한이 없습니다." />;
   }
   if (state.status === 'blocked') {
     return (
@@ -235,7 +235,7 @@ function NotificationStateEmpty({ state }: { state: DataState<DmsNotificationIte
       />
     );
   }
-  return <EmptyState variant="api-unavailable" title="알림 API 연결 대기 중입니다." />;
+  return <EmptyState variant="api-unavailable" title="알림 연결 대기 중입니다." />;
 }
 
 function activityNotification(

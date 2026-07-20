@@ -14,7 +14,11 @@ import type { MatterCodeOption } from '@/lib/matter-app';
 import type { DocumentDto } from '@amic-vault/shared';
 
 vi.mock('@/lib/api-client', () => ({
+  listDocumentFolders: vi.fn(),
+  listDocumentTags: vi.fn(),
   listMatterDocuments: vi.fn(),
+  setDocumentTags: vi.fn(),
+  updateDocumentMetadata: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -36,7 +40,7 @@ describe('MatterDocumentList', () => {
   it('waits for a Matter Code before rendering file rows', () => {
     const html = renderToStaticMarkup(<MatterDocumentList selectedMatter={null} />);
 
-    expect(html).toContain('Matter Code를 선택하면 파일 목록이 표시됩니다.');
+    expect(html).toContain('Matter code를 선택하면 파일 목록이 표시됩니다.');
     expect(html).not.toContain('DOC-');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(selectedMatter.matterReference);
@@ -53,11 +57,12 @@ describe('MatterDocumentList', () => {
     expect(html).toContain('특권 상태');
     expect(html).toContain('파일 정리');
     expect(html).toContain('추출/OCR');
-    expect(html).toContain('Legal Hold');
+    expect(html).toContain('보존 조치');
+    expect(html).toContain('폴더');
+    expect(html).toContain('태그');
     expect(html).toContain('정렬');
     expect(html).toContain('표시할 파일이 없습니다.');
     expect(html).not.toContain(selectedMatter.matterReference);
-    expect(html).not.toContain('폴더');
   });
 
   it('accepts upload refresh keys without exposing Matter references', () => {
@@ -76,10 +81,12 @@ describe('MatterDocumentList', () => {
       confidentialityLevel: 'restricted',
       documentType: 'contract',
       extractionStatus: 'failed',
+      folderId: '11111111-1111-4111-8111-111111111141',
       legalHold: 'false',
       privilegeStatus: 'privileged',
       sortBy: 'type_asc',
       status: 'final',
+      tag: ' executed ',
       title: ' 계약서 ',
     });
 
@@ -88,11 +95,13 @@ describe('MatterDocumentList', () => {
       confidentialityLevel: 'restricted',
       documentType: 'contract',
       extractionStatus: 'failed',
+      folderId: '11111111-1111-4111-8111-111111111141',
       legalHold: false,
       pageSize: 25,
       privilegeStatus: 'privileged',
       sortBy: 'type_asc',
       status: 'final',
+      tag: 'executed',
       title: '계약서',
     });
     expect(query).not.toHaveProperty('matterCode');
@@ -103,15 +112,19 @@ describe('MatterDocumentList', () => {
     const html = renderToStaticMarkup(<MatterDocumentTable documents={[documentFixture()]} />);
 
     expect(html).toContain('문서');
+    expect(html).toContain('폴더');
     expect(html).toContain('유형');
     expect(html).toContain('상태');
     expect(html).toContain('보안');
     expect(html).toContain('특권');
+    expect(html).toContain('태그');
     expect(html).toContain('파일 정리');
     expect(html).toContain('추출/OCR');
-    expect(html).toContain('Legal Hold');
+    expect(html).toContain('보존 조치');
     expect(html).toContain('업데이트');
     expect(html).toContain('투자계약서.pdf');
+    expect(html).toContain('Deal Room/Signing');
+    expect(html).toContain('executed, reviewed');
     expect(html).toContain('계약');
     expect(html).toContain('최종');
     expect(html).toContain('제한');
@@ -136,6 +149,10 @@ describe('MatterDocumentList', () => {
     expect(source).toMatch(
       /listMatterDocuments\(selectedMatter\.matterReference, matterDocumentListQueryFromFilters\(filters\)\)/,
     );
+    expect(source).toMatch(/listDocumentFolders\(selectedMatter\.matterReference\)/);
+    expect(source).toMatch(/listDocumentTags\(selectedMatter\.matterReference\)/);
+    expect(source).toMatch(/updateDocumentMetadata\(document\.documentId, \{ folderId \}\)/);
+    expect(source).toMatch(/setDocumentTags\(document\.documentId/);
     expect(source).toMatch(/\[filters, refreshKey, selectedMatter\]/);
     expect(source).not.toMatch(/matterCode:\s*selectedMatter/);
   });
@@ -153,16 +170,20 @@ function documentFixture(overrides: Partial<DocumentDto> = {}): DocumentDto {
     documentId: '11111111-1111-4111-8111-111111111114',
     documentType: 'contract',
     extractionStatus: 'failed',
+    folderId: '11111111-1111-4111-8111-111111111141',
+    folderPath: 'Deal Room/Signing',
     legalHold: true,
     matterDisplayCode: 'AMIC-2026-0001',
     matterDisplayName: 'Investment Advisory',
     matterId: '22222222-2222-4222-8222-222222222222',
     privilegeStatus: 'privileged',
     safeLabel: '투자계약서.pdf',
+    source: 'internal_work_product',
     status: 'final',
     subtype: null,
     tenantId: '11111111-1111-4111-8111-111111111111',
     title: '투자계약서.pdf',
+    tags: ['executed', 'reviewed'],
     updatedAt: '2026-06-18T04:00:00.000Z',
     ...overrides,
   };

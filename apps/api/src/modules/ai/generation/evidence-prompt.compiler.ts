@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import type { EvidencePackDto } from '@amic-vault/shared';
 
 export interface EvidencePromptCompileOptions {
-  purpose?: 'grounded_answer' | 'file_organization_prep' | undefined;
+  purpose?:
+    | 'grounded_answer'
+    | 'file_organization_prep'
+    | 'clause_risk_analysis'
+    | 'email_thread_summary'
+    | undefined;
   artifactKind?: string | undefined;
   allowedClaimKinds?: readonly string[] | undefined;
 }
@@ -22,6 +27,13 @@ export class AiEvidencePromptCompiler {
       ? [...new Set(options.allowedClaimKinds)]
       : ['summary', 'key_fact', 'risk', 'issue', 'timeline', 'question', 'clause', 'answer'];
     const isPrep = options.purpose === 'file_organization_prep';
+    const isClauseRiskAnalysis = options.purpose === 'clause_risk_analysis';
+    const isEmailThreadSummary = options.purpose === 'email_thread_summary';
+    const isPrepCandidateArtifact =
+      isPrep &&
+      ['fact_candidates', 'issue_candidates', 'risk_candidates', 'graph_candidate_edges'].includes(
+        options.artifactKind ?? '',
+      );
     const prepClaimKind = allowedClaimKinds[0] ?? 'summary';
     const prepCompactExample = JSON.stringify({
       answer: '짧은 파일 정리 정보',
@@ -62,12 +74,7 @@ export class AiEvidencePromptCompiler {
     const ruleFindingsForPrompt = isPrep
       ? pack.ruleFindings.filter(isPrepSafeRuleFinding)
       : pack.ruleFindings;
-    const graphFacts = graphFactsForPrompt
-      .map(
-        (fact) =>
-          `GRAPH_REF: graph:${fact.edgeId} ${fact.sourceNodeType}:${fact.sourceNodeId} -> ${fact.edgeType} -> ${fact.targetNodeType}:${fact.targetNodeId} HASH:${fact.sourceHash}`,
-      )
-      .join('\n');
+    const graphFacts = graphFactsForPrompt.map(formatGraphFactForPrompt).join('\n');
     const ruleFindings = ruleFindingsForPrompt
       .map(
         (finding) =>
@@ -87,8 +94,24 @@ export class AiEvidencePromptCompiler {
         ...(isPrep
           ? [
               'This is post-upload file-organization prep only.',
-              'Do not create legal issue, legal risk, clause-analysis, or legal-advice claims.',
+              isPrepCandidateArtifact
+                ? 'Create proposed candidate claims only; do not mark them as confirmed or give legal advice.'
+                : 'Do not create legal issue, legal risk, clause-analysis, or legal-advice claims.',
               'Return one-line minified JSON only with exactly one short section and one short claim.',
+            ]
+          : []),
+        ...(isClauseRiskAnalysis
+          ? [
+              'This is cited clause risk analysis only.',
+              'Use RULE_FINDINGS as contract rule-engine context and cite only allowed source_refs.',
+              'Do not draft replacement clauses or fallback clause language.',
+            ]
+          : []),
+        ...(isEmailThreadSummary
+          ? [
+              'This is filed email thread summarization only.',
+              'Extract requests as key_fact claims and deadlines or dated commitments as timeline claims.',
+              'Do not draft replies, proposed response text, or external email content.',
             ]
           : []),
       ].join(' '),
@@ -99,6 +122,7 @@ export class AiEvidencePromptCompiler {
               `ARTIFACT_KIND: ${options.artifactKind ?? pack.outputFormat.kind}`,
             ]
           : []),
+        ...(!isPrep && options.purpose ? [`PURPOSE: ${options.purpose}`] : []),
         ...(isPrep ? [] : [`TASK: ${pack.taskType}`]),
         `LOCALE: ${pack.outputFormat.locale}`,
         ...(isPrep ? [] : [`QUESTION: ${pack.userQuestion}`]),
@@ -113,6 +137,16 @@ export class AiEvidencePromptCompiler {
           : []),
         'RETRIEVED_CHUNKS:',
         chunks || 'none',
+        ...(isClauseRiskAnalysis
+          ? [
+              'RULE_FINDINGS_CONTEXT: contract-rule-engine findings are context only; explain risk against cited chunks and require human review.',
+            ]
+          : []),
+        ...(isEmailThreadSummary
+          ? [
+              'EMAIL_THREAD_INSTRUCTIONS: summarize the filed email thread, extract requested actions as key_fact claims, extract due dates or dated commitments as timeline claims, and do not generate reply drafts.',
+            ]
+          : []),
         ...(isPrep ? [] : ['GRAPH_FACTS:', graphFacts || 'none', 'RULE_FINDINGS:', ruleFindings || 'none']),
         'OUTPUT_SCHEMA:',
         JSON.stringify({
@@ -144,6 +178,41 @@ export class AiEvidencePromptCompiler {
 function boundedPrepText(text: string): string {
   const normalized = text.replace(/\s+/gu, ' ').trim();
   return normalized.length > 1600 ? `${normalized.slice(0, 1600)}...` : normalized;
+}
+
+function graphFactReviewLabel(fact: EvidencePackDto['graphFacts'][number]): '[확정]' | '[미검토]' {
+  if (fact.sourceReviewStatus === 'confirmed' && fact.targetReviewStatus === 'confirmed') {
+    return '[확정]';
+  }
+  return '[미검토]';
+}
+
+function formatGraphFactForPrompt(fact: EvidencePackDto['graphFacts'][number]): string {
+  const sourceStatus = graphFactNodeStatus(
+    fact.sourceProvenance,
+    fact.sourceReviewStatus,
+    fact.sourceCreatedByKind,
+  );
+  const targetStatus = graphFactNodeStatus(
+    fact.targetProvenance,
+    fact.targetReviewStatus,
+    fact.targetCreatedByKind,
+  );
+  return [
+    `GRAPH_REF: ${graphFactReviewLabel(fact)} graph:${fact.edgeId}`,
+    `${fact.sourceNodeType}:${fact.sourceNodeId}(${sourceStatus})`,
+    `-> ${fact.edgeType} ->`,
+    `${fact.targetNodeType}:${fact.targetNodeId}(${targetStatus})`,
+    `HASH:${fact.sourceHash}`,
+  ].join(' ');
+}
+
+function graphFactNodeStatus(
+  provenance: EvidencePackDto['graphFacts'][number]['sourceProvenance'],
+  reviewStatus: EvidencePackDto['graphFacts'][number]['sourceReviewStatus'],
+  createdByKind: EvidencePackDto['graphFacts'][number]['sourceCreatedByKind'],
+): string {
+  return `${provenance}/${reviewStatus ?? 'unreviewed'}/${createdByKind}`;
 }
 
 const prepSafeGraphEdgeTypes = new Set(['HAS_MATTER', 'HAS_DOCUMENT', 'HAS_VERSION', 'RELATED_TO']);

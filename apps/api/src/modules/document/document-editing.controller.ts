@@ -20,6 +20,7 @@ import {
   cancelDocumentEditSessionSchema,
   checkInDocumentEditSessionSchema,
   createDocumentEditSessionSchema,
+  forceReleaseDocumentEditSessionSchema,
   heartbeatDocumentEditSessionSchema,
   promoteDocumentSubversionSchema,
   saveDocumentSubversionFieldsSchema,
@@ -98,6 +99,14 @@ function parseCheckInBody(body: unknown) {
 function parseCancelBody(body: unknown) {
   try {
     return cancelDocumentEditSessionSchema.parse(body ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function parseForceReleaseBody(body: unknown) {
+  try {
+    return forceReleaseDocumentEditSessionSchema.parse(body ?? {});
   } catch {
     throw validationFailed();
   }
@@ -355,7 +364,27 @@ export class DocumentEditingController {
         sessionUserId(request),
         parseUuid(documentId),
         parseUuid(editSessionId),
-        parsed.cancelledReasonCode,
+        parsed,
+      );
+    } catch (error) {
+      throw mapDocumentUploadError(error);
+    }
+  }
+
+  @Post(':documentId/edit-sessions/:editSessionId/force-release')
+  @UseGuards(ImmutableStateGuard)
+  async forceRelease(
+    @Req() request: RequestWithSession,
+    @Param('documentId') documentId: string,
+    @Param('editSessionId') editSessionId: string,
+    @Body() body: unknown,
+  ) {
+    try {
+      return await this.editingService.forceRelease(
+        sessionUserId(request),
+        parseUuid(documentId),
+        parseUuid(editSessionId),
+        parseForceReleaseBody(body),
       );
     } catch (error) {
       throw mapDocumentUploadError(error);

@@ -7,6 +7,14 @@ import {
 
 const uuid = '11111111-1111-4111-8111-111111111111';
 const hash = 'a'.repeat(64);
+const flattenedGraphNodeStatus = {
+  sourceProvenance: 'derived',
+  sourceReviewStatus: 'confirmed',
+  sourceCreatedByKind: 'system',
+  targetProvenance: 'derived',
+  targetReviewStatus: 'confirmed',
+  targetCreatedByKind: 'system',
+} as const;
 
 function validPack(): EvidencePackDto {
   return evidencePackSchema.parse({
@@ -86,6 +94,7 @@ describe('evidencePackSchema', () => {
             sourceNodeType: 'matter',
             targetNodeId: uuid,
             targetNodeType: 'document',
+            ...flattenedGraphNodeStatus,
             sourceHash: hash,
           },
         ],

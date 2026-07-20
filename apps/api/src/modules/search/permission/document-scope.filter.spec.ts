@@ -6,6 +6,13 @@ const actor: SearchPermissionActor = {
   tenantId: '11111111-1111-4111-8111-111111111111',
   userId: '11111111-1111-4111-8111-111111111101',
   role: 'matter_owner',
+  materializedScope: {
+    allowedMatterIds: ['11111111-1111-4111-8111-111111111201'],
+    deniedMatterIds: [],
+    wallBlockedMatterIds: [],
+    allowedDocumentIds: ['11111111-1111-4111-8111-111111111301'],
+    deniedDocumentIds: ['11111111-1111-4111-8111-111111111302'],
+  },
 };
 
 describe('DocumentScopeFilter', () => {
@@ -16,13 +23,15 @@ describe('DocumentScopeFilter', () => {
     expect(filter.sql).toContain('d.document_id = idx.document_id');
     expect(filter.sql).toContain("d.status <> 'deleted'");
     expect(filter.sql).toContain('d.deleted_at IS NULL');
-    expect(filter.sql).toContain("p.resource_type = 'document'");
-    expect(filter.sql).toContain("p.effect = 'DENY'");
-    expect(filter.sql).toContain("p.condition_json <> '{}'::jsonb");
-    expect(filter.sql).toContain("AND NOT (allow_p.condition_json IS NOT NULL");
     expect(filter.sql).toContain("? <> 'limited_reviewer'");
     expect(filter.sql).toContain("d.confidentiality_level = 'standard'");
-    expect(filter.sql).toContain("allow_p.effect = 'ALLOW'");
+    expect(filter.sql).toContain('idx.document_id = ANY(?::uuid[])');
+    expect(filter.sql).toContain('NOT (idx.document_id = ANY(?::uuid[]))');
+    expect(filter.params).toEqual([
+      actor.role,
+      actor.materializedScope?.allowedDocumentIds,
+      actor.materializedScope?.deniedDocumentIds,
+    ]);
     expect(filter.appliedRules).toEqual(
       expect.arrayContaining([
         'document.status:not_deleted',

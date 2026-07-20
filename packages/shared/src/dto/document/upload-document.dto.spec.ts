@@ -35,4 +35,25 @@ describe('uploadDocumentFieldsSchema', () => {
     });
     expect(() => uploadDocumentFieldsSchema.parse({ duplicateDecision: 'overwrite' })).toThrow();
   });
+
+  it('parses folder upload organization fields from multipart-safe values', () => {
+    expect(
+      uploadDocumentFieldsSchema.parse({
+        sourceRelativePath: 'Closing/Final/contract.pdf',
+        tags: 'closing, executed',
+      }),
+    ).toMatchObject({
+      sourceRelativePath: 'Closing/Final/contract.pdf',
+      tags: ['closing', 'executed'],
+    });
+    expect(
+      uploadDocumentFieldsSchema.parse({
+        folderId: '11111111-1111-4111-8111-111111111112',
+        tags: '["closing","executed"]',
+      }),
+    ).toMatchObject({
+      folderId: '11111111-1111-4111-8111-111111111112',
+      tags: ['closing', 'executed'],
+    });
+  });
 });

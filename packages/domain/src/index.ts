@@ -16,9 +16,12 @@ export {
 } from './matter/matter-state';
 export {
   allowedMatterTransitions,
+  matterConflictGateStatuses,
   matterTransitionReasonCodes,
   validateMatterTransition,
+  type MatterConflictGateStatus,
   type MatterTransitionDecision,
+  type MatterTransitionContext,
   type MatterTransitionReasonCode,
 } from './matter/matter-transitions';
 export {

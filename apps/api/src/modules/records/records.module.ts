@@ -7,11 +7,12 @@ import { UserModule } from '../user/user.module';
 import { WorkModule } from '../work/work.module';
 import { RecordsController } from './records.controller';
 import { RecordsService } from './records.service';
+import { RetentionSchedulerService, RetentionTenantReader } from './retention-scheduler.service';
 
 @Module({
   imports: [AuditModule, PermissionModule, StorageModule, TenantModule, UserModule, WorkModule],
   controllers: [RecordsController],
-  providers: [RecordsService],
-  exports: [RecordsService],
+  providers: [RecordsService, RetentionSchedulerService, RetentionTenantReader],
+  exports: [RecordsService, RetentionSchedulerService],
 })
 export class RecordsModule {}

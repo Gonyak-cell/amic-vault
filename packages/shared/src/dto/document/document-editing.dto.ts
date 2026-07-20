@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { DisplayFieldsDto } from '../../display/display-fields.dto';
+import { documentVersionSignificanceSchema } from '../../types/document';
 
 const boundedClientTokenSchema = z
   .string()
@@ -105,6 +106,13 @@ export const heartbeatDocumentEditSessionSchema = z
 export const cancelDocumentEditSessionSchema = z
   .object({
     cancelledReasonCode: boundedReasonCodeSchema.optional(),
+    lockToken: boundedClientTokenSchema,
+  })
+  .strict();
+
+export const forceReleaseDocumentEditSessionSchema = z
+  .object({
+    forceReleaseReasonCode: boundedReasonCodeSchema,
   })
   .strict();
 
@@ -115,6 +123,7 @@ export const saveDocumentSubversionFieldsSchema = z
     clientSaveId: boundedClientTokenSchema.optional(),
     expectedBaseSha256: sha256Schema.optional(),
     editPackageMode: documentEditPackageModeSchema.optional(),
+    lockToken: boundedClientTokenSchema,
   })
   .strict();
 
@@ -127,6 +136,7 @@ export const saveNativeDocumentEditDraftSchema = saveDocumentSubversionFieldsSch
 export const checkInDocumentEditSessionSchema = z
   .object({
     expectedLastSubversionId: z.string().uuid().optional(),
+    lockToken: boundedClientTokenSchema,
   })
   .strict();
 
@@ -134,6 +144,8 @@ export const promoteDocumentSubversionSchema = z
   .object({
     expectedBaseVersionId: z.string().uuid(),
     publishReasonCode: boundedReasonCodeSchema.optional(),
+    versionLabel: z.string().trim().min(1).max(80).optional(),
+    versionSignificance: documentVersionSignificanceSchema.optional(),
     idempotencyKey: boundedClientTokenSchema,
   })
   .strict();
@@ -165,6 +177,7 @@ export interface DocumentEditSessionDto {
   cancelledAt: string | null;
   expiredAt: string | null;
   conflictedAt: string | null;
+  lockToken?: string;
 }
 
 export interface DocumentSubversionDto {
@@ -184,6 +197,8 @@ export interface DocumentSubversionDto {
   submittedAt: string | null;
   promotedVersionId: string | null;
   reviewGate: DocumentSubversionReviewGateDto;
+  revisionSummary: DocumentSubversionRevisionSummaryDto;
+  revisions: DocumentSubversionRevisionDto[];
 }
 
 export interface DocumentSubversionReviewGateDto {
@@ -191,6 +206,22 @@ export interface DocumentSubversionReviewGateDto {
   activeReviewerCount: number;
   approvedReviewCount: number;
   changesRequestedCount: number;
+}
+
+export interface DocumentSubversionRevisionSummaryDto {
+  totalCount: number;
+  insertCount: number;
+  deleteCount: number;
+  moveCount: number;
+  formatCount: number;
+}
+
+export interface DocumentSubversionRevisionDto {
+  changeType: 'insert' | 'delete' | 'move_from' | 'move_to' | 'format';
+  author: string | null;
+  changedAt: string | null;
+  beforeText: string;
+  afterText: string;
 }
 
 export interface DocumentNativeEditDraftDto {
@@ -285,6 +316,7 @@ export type DocumentEditingFailureReason = (typeof documentEditingFailureReasons
 export type CreateDocumentEditSessionDto = z.infer<typeof createDocumentEditSessionSchema>;
 export type HeartbeatDocumentEditSessionDto = z.infer<typeof heartbeatDocumentEditSessionSchema>;
 export type CancelDocumentEditSessionDto = z.infer<typeof cancelDocumentEditSessionSchema>;
+export type ForceReleaseDocumentEditSessionDto = z.infer<typeof forceReleaseDocumentEditSessionSchema>;
 export type SaveDocumentSubversionFieldsDto = z.infer<typeof saveDocumentSubversionFieldsSchema>;
 export type SaveNativeDocumentEditDraftDto = z.infer<typeof saveNativeDocumentEditDraftSchema>;
 export type CheckInDocumentEditSessionDto = z.infer<typeof checkInDocumentEditSessionSchema>;

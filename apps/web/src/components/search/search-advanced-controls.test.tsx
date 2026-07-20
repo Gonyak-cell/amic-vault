@@ -62,6 +62,7 @@ describe('SearchAdvancedControls', () => {
     expect(html).toContain('검색 필터');
     expect(html).toContain('검색 범위');
     expect(html).toContain('본문');
+    expect(html).toContain('조항');
     expect(html).toContain('정렬');
     expect(html).toContain('최근 수정');
     expect(html).toContain('그룹');
@@ -81,7 +82,7 @@ describe('SearchAdvancedControls', () => {
     expect(html).toContain('보관됨');
     expect(html).toContain('수정 기간');
     expect(html).toContain('최근 30일');
-    expect(html).toContain('Matter Code');
+    expect(html).toContain('Matter code');
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('Matter 이름');
     expect(html).toContain('Vault Upgrade');

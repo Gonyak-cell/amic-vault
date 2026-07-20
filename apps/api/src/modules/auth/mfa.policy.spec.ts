@@ -23,13 +23,22 @@ function userWithMfa(enabled: boolean): UserEntity {
 
 describe('MfaPolicy', () => {
   it('allows mfa_enabled=false users in R0', () => {
-    expect(new MfaPolicy().evaluate(userWithMfa(false))).toEqual({ allowed: true });
+    expect(new MfaPolicy().evaluate(userWithMfa(false), { hasActiveSecret: false })).toEqual({
+      outcome: 'allow',
+    });
   });
 
-  it('fails closed while TOTP is not implemented', () => {
-    expect(new MfaPolicy().evaluate(userWithMfa(true))).toEqual({
-      allowed: false,
-      reason: 'mfa_not_available',
+  it('requires enrollment when MFA is enabled without an active TOTP secret', () => {
+    expect(new MfaPolicy().evaluate(userWithMfa(true), { hasActiveSecret: false })).toEqual({
+      outcome: 'deny',
+      reason: 'mfa_enrollment_required',
+    });
+  });
+
+  it('requires a challenge when MFA is enabled with an active TOTP secret', () => {
+    expect(new MfaPolicy().evaluate(userWithMfa(true), { hasActiveSecret: true })).toEqual({
+      outcome: 'challenge',
+      reason: 'mfa_required',
     });
   });
 });

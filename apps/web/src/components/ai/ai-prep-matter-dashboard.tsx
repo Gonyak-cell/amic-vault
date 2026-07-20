@@ -65,7 +65,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
   }
 
   return (
-    <section aria-label="사건 파일 정리 상태" className="space-y-3 rounded-md border p-4">
+    <section aria-label="Matter 파일 정리 상태" className="space-y-3 rounded-md border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold tracking-normal">파일 정리 상태</h2>
@@ -86,7 +86,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
         </Button>
       </div>
 
-      <DataTable caption="사건 파일 정리 목록" minWidthClassName="min-w-[640px]">
+      <DataTable caption="Matter 파일 정리 목록" minWidthClassName="min-w-[640px]">
         <DataTableHeader>
           <DataTableRow>
             <DataTableHead>파일</DataTableHead>
@@ -119,6 +119,68 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
           )}
         </DataTableBody>
       </DataTable>
+
+      <DataTable caption="Matter 타임라인" minWidthClassName="min-w-[720px]">
+        <DataTableHeader>
+          <DataTableRow>
+            <DataTableHead>일자</DataTableHead>
+            <DataTableHead>내용</DataTableHead>
+            <DataTableHead>인용</DataTableHead>
+          </DataTableRow>
+        </DataTableHeader>
+        <DataTableBody>
+          {readiness.timeline.length > 0 ? (
+            readiness.timeline.map((item) => (
+              <DataTableRow key={item.timelineId}>
+                <DataTableCell className="whitespace-nowrap font-medium">{item.date}</DataTableCell>
+                <DataTableCell className="max-w-[420px]">
+                  <p className="truncate text-sm font-medium">{item.label}</p>
+                  <p className="truncate text-xs text-muted-foreground">{item.detail}</p>
+                </DataTableCell>
+                <DataTableCell>
+                  <a
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                    href={`/documents/${item.documentId}#${encodeURIComponent(item.citationRefs[0] ?? '')}`}
+                  >
+                    인용
+                  </a>
+                </DataTableCell>
+              </DataTableRow>
+            ))
+          ) : (
+            <DataTableEmptyRow colSpan={3}>표시할 타임라인이 없습니다.</DataTableEmptyRow>
+          )}
+        </DataTableBody>
+      </DataTable>
+
+      {readiness.openQuestions.length > 0 || readiness.recommendedActions.length > 0 ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold tracking-normal">미해결 쟁점</h3>
+            <ul className="space-y-2">
+              {readiness.openQuestions.map((item) => (
+                <li key={`${item.question}:${item.neededEvidence}`} className="text-sm">
+                  <p className="font-medium">{item.question}</p>
+                  <p className="text-xs text-muted-foreground">{item.neededEvidence}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold tracking-normal">다음 액션</h3>
+            <ul className="space-y-2">
+              {readiness.recommendedActions.map((item) => (
+                <li key={item.action} className="text-sm">
+                  <span className="font-medium">{item.action}</span>
+                  {item.reviewRequired ? (
+                    <span className="ml-2 text-xs text-muted-foreground">검토 필요</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
 
       {retryResult ? <p className="text-sm text-muted-foreground">{retryResult}</p> : null}
       {retryError ? (

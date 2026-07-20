@@ -8,9 +8,12 @@ dist/
 out/
 .turbo/
 .artifacts/
+artifacts/
 coverage/
 __pycache__/
 .pytest_cache/
+tmp/
+*.egg-info/
 *.tsbuildinfo
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/

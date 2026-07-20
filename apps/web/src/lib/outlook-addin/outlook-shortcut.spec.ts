@@ -38,7 +38,7 @@ describe('Outlook edit shortcut helpers', () => {
       'https://vault.example.test/documents/11111111-1111-4111-8111-111111111902?edit=1&versionId=11111111-1111-4111-8111-111111111903#document-editing',
     );
     expect(html).toContain('href="https://vault.example.test/documents/');
-    expect(html).toContain('Vault에서 문서 편집 열기');
+    expect(html).toContain('문서 보관함에서 문서 편집 열기');
     expect(html).not.toContain('>11111111');
     expect(() =>
       absoluteVaultEditUrl('https://evil.example.test/documents/ref', 'https://vault.example.test'),
@@ -65,7 +65,7 @@ describe('Outlook edit shortcut helpers', () => {
     ).resolves.toBeUndefined();
 
     expect(setSelectedDataAsync).toHaveBeenCalledWith(
-      expect.stringContaining('Vault에서 문서 편집 열기'),
+      expect.stringContaining('문서 보관함에서 문서 편집 열기'),
       { coercionType: 'html' },
       expect.any(Function),
     );

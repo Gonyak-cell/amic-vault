@@ -4,9 +4,12 @@ import { AiPolicyModule } from '../ai-policy/ai-policy.module';
 import { AuditModule } from '../audit/audit.module';
 import { ContractIntelModule } from '../contract-intel/contract-intel.module';
 import { DlpModule } from '../dlp/dlp.module';
+import { DdModule } from '../dd/dd.module';
 import { GraphModule } from '../graph/graph.module';
+import { LitigationModule } from '../litigation/litigation.module';
 import { PermissionModule } from '../permission/permission.module';
 import { SearchModule } from '../search/search.module';
+import { WorkModule } from '../work/work.module';
 import { AiCitationController } from './citation/ai-citation.controller';
 import { AiAuditRecorder } from './audit/ai-audit-recorder.service';
 import { AiCitationMapperService } from './citation/citation-mapper.service';
@@ -17,7 +20,9 @@ import { AiEvidencePackBuilder } from './context/evidence-pack.builder';
 import { AiFeedbackController } from './feedback/ai-feedback.controller';
 import { AiFeedbackService } from './feedback/ai-feedback.service';
 import { AiSummaryController } from './features/ai-summary.controller';
+import { AiSummaryGenerationGateService } from './features/ai-summary-generation-gate.service';
 import { AiSummaryService } from './features/ai-summary.service';
+import { ContractAiReviewWorkerService } from './features/contract-ai-review-worker.service';
 import { AiEvidencePromptCompiler } from './generation/evidence-prompt.compiler';
 import { AiGroundedOutputGuard } from './generation/grounded-output.guard';
 import { LocalGemmaGenerationService } from './generation/local-gemma-generation.service';
@@ -28,6 +33,8 @@ import { AiPrepQueueService } from './prep/ai-prep-queue.service';
 import { AiPrepRepository } from './prep/ai-prep.repository';
 import { AiPrepStatusController } from './prep/ai-prep-status.controller';
 import { AiPrepStatusService } from './prep/ai-prep-status.service';
+import { MatterTimelineBuilder } from './prep/matter-timeline.builder';
+import { MinutesQcBuilder } from './prep/minutes-qc.builder';
 import { AiSessionController } from './session/ai-session.controller';
 import { AiSessionLogService } from './session/ai-session-log.service';
 import { AiMetadataFilterBuilder } from './retrieval/metadata-filter.builder';
@@ -43,10 +50,13 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiPolicyModule,
     AuditModule,
     ContractIntelModule,
+    DdModule,
     DlpModule,
     GraphModule,
+    LitigationModule,
     PermissionModule,
     SearchModule,
+    WorkModule,
   ],
   controllers: [
     AiCitationController,
@@ -80,8 +90,12 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiPrepProcessor,
     AiPrepQueueService,
     AiPrepRepository,
+    MatterTimelineBuilder,
+    MinutesQcBuilder,
     AiPrepStatusService,
+    AiSummaryGenerationGateService,
     AiSummaryService,
+    ContractAiReviewWorkerService,
     AiFeedbackService,
   ],
   exports: [
@@ -99,8 +113,12 @@ import { AiTaskRiskClassifier } from './routing/task-risk.classifier';
     AiOpsService,
     AiPrepQueueService,
     AiPrepRepository,
+    MatterTimelineBuilder,
+    MinutesQcBuilder,
     AiPrepStatusService,
+    AiSummaryGenerationGateService,
     AiSummaryService,
+    ContractAiReviewWorkerService,
     AiFeedbackService,
   ],
 })

@@ -60,8 +60,10 @@ async function createMatter(baseUrl: string, cookie: string, clientId: string): 
 
 function uploadForm(filename: string, bytes: Uint8Array, type = 'application/pdf'): FormData {
   const form = new FormData();
+  const payload = new Uint8Array(bytes.byteLength);
+  payload.set(bytes);
   form.append('title', 'Uploaded Draft');
-  form.append('file', new Blob([bytes], { type }), filename);
+  form.append('file', new Blob([payload.buffer], { type }), filename);
   return form;
 }
 
@@ -89,7 +91,7 @@ async function uploadedRows(documentId: string) {
           f.mime_type, f.size_bytes::text, f.sha256
         FROM documents d
         JOIN file_objects f
-          ON f.storage_uri LIKE ('s3://amic-vault-dev/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
+          ON f.storage_uri LIKE ('s3://%/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
         WHERE d.document_id = $1
         LIMIT 1
       `,
@@ -106,13 +108,58 @@ async function uploadedRowCountForMatter(matterId: string): Promise<number> {
         SELECT count(*)::text
         FROM documents d
         JOIN file_objects f
-          ON f.storage_uri LIKE ('s3://amic-vault-dev/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
+          ON f.storage_uri LIKE ('s3://%/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
         WHERE d.tenant_id = $1
           AND d.matter_id = $2
       `,
       [tenantBetaId, matterId],
     );
     return Number(result.rows[0]?.count ?? '0');
+  });
+}
+
+async function ensureFreshMatterAppSyncState(): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          '{"fixture":"upload_integration"}'::jsonb
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantBetaId],
+    );
   });
 }
 
@@ -145,6 +192,7 @@ describe('document upload integration', () => {
       email: 'beta-member@test.local',
       password: 'dev-beta-member-password',
     });
+    await ensureFreshMatterAppSyncState();
     const clientId = await createClient(baseUrl, betaOwnerCookie, `Upload Client ${randomUUID()}`);
     betaMatterId = await createMatter(baseUrl, betaOwnerCookie, clientId);
   });

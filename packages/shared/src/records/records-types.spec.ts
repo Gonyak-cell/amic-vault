@@ -3,6 +3,7 @@ import {
   createLegalHoldRequestSchema,
   createRetentionPolicyRequestSchema,
   disposalCertificateSchema,
+  disposalReviewListResponseSchema,
 } from './records-types';
 
 describe('records governance shared schemas', () => {
@@ -56,5 +57,32 @@ describe('records governance shared schemas', () => {
         filename: 'forbidden.pdf',
       }),
     ).toThrow();
+  });
+
+  it('accepts pending disposal review rows with display labels only', () => {
+    expect(
+      disposalReviewListResponseSchema.parse({
+        disposals: [
+          {
+            disposalRequestId: '11111111-1111-4111-8111-111111111111',
+            matterId: '22222222-2222-4222-8222-222222222222',
+            documentId: '33333333-3333-4333-8333-333333333333',
+            status: 'requested',
+            reasonCode: 'RETENTION_EXPIRED',
+            assignedRole: 'records_admin',
+            dueAt: '2026-06-27T00:00:00.000Z',
+            approvalCount: 0,
+            certificateId: null,
+            createdAt: '2026-06-20T00:00:00.000Z',
+            approvedAt: null,
+            executedAt: null,
+            matterCode: 'REC-2026-0001',
+            matterName: 'Records Governance Review',
+            documentTitle: 'Retention Review Candidate',
+            reviewSource: 'retention_scheduler',
+          },
+        ],
+      }).disposals[0]?.documentTitle,
+    ).toBe('Retention Review Candidate');
   });
 });

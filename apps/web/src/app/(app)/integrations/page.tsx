@@ -16,7 +16,7 @@ export default function IntegrationsPage() {
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', t('integrations.page.title')]}
+        breadcrumbs={['문서 보관', t('integrations.page.title')]}
         title={t('integrations.page.title')}
         description={t('integrations.page.description')}
       />
@@ -28,32 +28,32 @@ export default function IntegrationsPage() {
         <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
           <IntegrationCard
             icon={<FolderSearch className="h-4 w-4" />}
-            title="Matter app"
-            description="Matter Code 기준 정보와 업로드 조건을 확인합니다. 연결 전에는 파일 업로드를 열지 않습니다."
-            status="업로드 조건"
+            title="Matter 관리 시스템"
+            description="Matter code 기준 정보와 업로드 가능 여부를 확인합니다. 연결 전에는 파일 업로드를 열지 않습니다."
+            status="업로드 조건 확인"
             tone="warning"
             href="/integrations/matter-app"
           />
           <IntegrationCard
             icon={<MailCheck className="h-4 w-4" />}
             title="Outlook"
-            description="운영 조건, 확인 정보, 기능 설정 상태를 실제 API 응답으로 확인합니다."
-            status="상태 API"
+            description="운영 조건, 확인 정보, 기능 설정 상태를 실제 연결 상태로 확인합니다."
+            status="상태 확인"
             tone="success"
             href="/integrations/outlook"
           />
           <IntegrationCard
             icon={<ShieldAlert className="h-4 w-4" />}
             title="OneDrive"
-            description="저장소, 버전, 감사, 권한 계약 승인 전에는 연결 상태를 주장하지 않습니다."
+            description="저장소, 버전, 감사, 권한 기준이 승인되기 전에는 연결 완료로 표시하지 않습니다."
             status="승인 전 숨김"
             tone="warning"
           />
           <IntegrationCard
             icon={<ShieldAlert className="h-4 w-4" />}
             title="Office 열기/저장"
-            description="공동편집, 잠금, 롤백 계약이 승인될 때까지 생산 경로를 열지 않습니다."
-            status="계약 필요"
+            description="공동편집, 잠금, 되돌리기 기준이 승인될 때까지 실제 사용 경로를 열지 않습니다."
+            status="승인 필요"
             tone="warning"
           />
         </div>

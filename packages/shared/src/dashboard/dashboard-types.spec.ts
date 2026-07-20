@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   dashboardOverviewSchema,
+  dashboardUsageStatsQuerySchema,
+  dashboardUsageStatsResponseSchema,
   dmsNotificationCenterResponseSchema,
   dmsWorkQueueResponseSchema,
 } from './dashboard-types';
@@ -39,6 +41,53 @@ describe('dashboard DTOs', () => {
     ).toThrow();
   });
 
+  it('accepts usage statistics without internal ids or raw audit rows', () => {
+    const parsed = dashboardUsageStatsResponseSchema.parse({
+      generatedAt: '2026-06-17T00:00:00.000Z',
+      period: {
+        from: '2026-06-01T00:00:00.000Z',
+        to: '2026-06-30T23:59:59.999Z',
+      },
+      totals: {
+        activeUsers: 3,
+        uploads: 3,
+        downloads: 2,
+        searches: 5,
+        storageBytes: 3072,
+      },
+      topMatters: [{ matterLabel: 'M-001 · Governance', activityCount: 10 }],
+    });
+
+    expect(parsed.totals.searches).toBe(5);
+  });
+
+  it('rejects reversed usage statistics periods and undeclared ids', () => {
+    expect(() =>
+      dashboardUsageStatsQuerySchema.parse({
+        from: '2026-06-30T23:59:59.999Z',
+        to: '2026-06-01T00:00:00.000Z',
+      }),
+    ).toThrow();
+
+    expect(() =>
+      dashboardUsageStatsResponseSchema.parse({
+        generatedAt: '2026-06-17T00:00:00.000Z',
+        period: {
+          from: '2026-06-01T00:00:00.000Z',
+          to: '2026-06-30T23:59:59.999Z',
+        },
+        totals: {
+          activeUsers: 1,
+          uploads: 1,
+          downloads: 0,
+          searches: 0,
+          storageBytes: 1,
+        },
+        topMatters: [{ matterId: '11111111-1111-4111-8111-111111111111', activityCount: 1 }],
+      }),
+    ).toThrow();
+  });
+
   it('accepts display-only DMS work queue and notification items', () => {
     expect(
       dmsWorkQueueResponseSchema.parse({
@@ -57,6 +106,7 @@ describe('dashboard DTOs', () => {
           {
             itemKey: 'records-disposal-a1b2c3',
             source: 'records',
+            kind: 'records_disposal_approval',
             sourceLabel: '기록 보존',
             title: '삭제 승인 요청',
             description: 'AMIC-2026-0001 · 대기 · CLIENT_RECORDS',
@@ -66,9 +116,50 @@ describe('dashboard DTOs', () => {
             statusLabel: '대기',
             dueAt: '2026-06-24T00:00:00.000Z',
           },
+          {
+            itemKey: 'workflow-work-aabbccddeeff',
+            source: 'operational_data',
+            kind: 'contract_review_stage',
+            sourceLabel: '워크플로',
+            title: '계약 검토 단계 확인',
+            description: 'AMIC-2026-0002 · 계약 검토',
+            href: '/work?kind=contract_review_stage',
+            tone: 'warning',
+            status: 'open',
+            statusLabel: '대기',
+            assignedToLabel: 'Alpha Reviewer',
+          },
+          {
+            itemKey: 'ai-prep-work-aabbccddeeff',
+            source: 'ai_prep',
+            kind: 'ai_candidate_review',
+            sourceLabel: 'AI 준비',
+            title: 'AI 후보 검토',
+            description: 'AMIC-2026-0003 · 계약서 · 청크 인용 후보',
+            href: '/work?kind=ai_candidate_review',
+            tone: 'warning',
+            status: 'open',
+            statusLabel: '대기',
+            assignedToLabel: 'Alpha Reviewer',
+          },
+          {
+            itemKey: 'graph-fact-review-aabbccddeeff',
+            targetId: '11111111-1111-4111-8111-111111111333',
+            source: 'ai_prep',
+            kind: 'graph_fact_review',
+            sourceLabel: 'AI 준비',
+            title: 'AI Fact 후보 확인',
+            description: 'AMIC-2026-0004 · 계약서 · 매수인은 잔금을 지급했다.',
+            href: '/work?kind=graph_fact_review',
+            tone: 'warning',
+            status: 'open',
+            statusLabel: '대기',
+            assignedToLabel: 'Alpha Reviewer',
+          },
         ],
+        page: { limit: 20, offset: 0, total: 5, hasNext: false },
       }).items,
-    ).toHaveLength(2);
+    ).toHaveLength(5);
 
     expect(
       dmsNotificationCenterResponseSchema.parse({

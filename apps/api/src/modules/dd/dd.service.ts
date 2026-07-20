@@ -2,28 +2,45 @@ import { BadRequestException, ForbiddenException, Inject, Injectable } from '@ne
 import type { PoolClient } from 'pg';
 import { createHash } from 'node:crypto';
 import {
+  ddMappingSuggestionReviewResponseSchema,
   ddDataRoomMappingListResponseSchema,
   ddDataRoomMappingSchema,
+  ddIssueCitationRequiredReason,
   ddIssueListResponseSchema,
   ddIssueSchema,
+  ddNegotiationIssueExportResponseSchema,
+  ddReportExportResponseSchema,
   ddRfiListResponseSchema,
+  ddRfiGapListResponseSchema,
   ddRfiSchema,
+  ddRfiTemplateInstantiationResponseSchema,
   ddRiskListResponseSchema,
   ddRiskSchema,
   ddTraceabilityResponseSchema,
   type CreateDdDataRoomMappingRequestDto,
   type CreateDdIssueRequestDto,
+  type CreateDdNegotiationIssueExportRequestDto,
+  type CreateDdReportExportRequestDto,
   type CreateDdRfiRequestDto,
   type CreateDdRiskRequestDto,
+  type ContractType,
   type DdDataRoomMappingDto,
   type DdDataRoomMappingQueryDto,
   type DdDataRoomMappingListResponseDto,
+  type DdMappingSuggestionReviewResponseDto,
+  type DdNegotiationIssueExportResponseDto,
+  type DdReportExportResponseDto,
   type DdIssueDto,
   type DdIssueQueryDto,
   type DdIssueListResponseDto,
+  type DdRfiCategory,
   type DdRfiDto,
   type DdRfiQueryDto,
   type DdRfiListResponseDto,
+  type DdRfiGapQueryDto,
+  type DdRfiGapListResponseDto,
+  type DdRfiTemplateInstantiateRequestDto,
+  type DdRfiTemplateInstantiationResponseDto,
   type DdRiskDto,
   type DdRiskQueryDto,
   type DdRiskListResponseDto,
@@ -31,20 +48,28 @@ import {
   type DdTraceabilityQueryDto,
   type DdTraceabilityResponseDto,
   type PermissionContext,
+  type ReviewDdMappingSuggestionRequestDto,
+  type UpdateDdIssueRequestDto,
   type UpdateDdRfiRequestDto,
 } from '@amic-vault/shared';
-import { AuditService } from '../audit/audit.service';
+import { AuditService, type QueryClient } from '../audit/audit.service';
+import { classifyContractText } from '../contract-intel/contract-classifier';
+import { ContractIntelService } from '../contract-intel/contract-intel.service';
+import { DocumentUploadService } from '../document/document-upload.service';
 import { DocumentPermissionService } from '../permission/document-permission.service';
 import { PermissionService } from '../permission/permission.service';
 import {
   SEARCH_PERMISSION_SCOPE_PROVIDER,
   type SearchPermissionScopeProvider,
 } from '../search/permission/search-permission-scope.provider';
+import { GraphSyncOutboxWorker } from '../graph/graph-sync-outbox.worker';
 import {
   SearchFilterBuilder,
   type SearchSqlFragment,
   type SearchSqlValue,
 } from '../search/query/search-filter.builder';
+import { WorkService } from '../work/work.service';
+import { buildDdReportDocx, buildNegotiationIssuesDocx } from './dd-report-docx';
 
 interface DdRfiRow {
   rfi_id: string;
@@ -104,6 +129,11 @@ interface DdRiskRow {
   updated_at: Date;
 }
 
+interface MatterLabelRow {
+  matter_code: string;
+  matter_name: string;
+}
+
 interface DocumentVersionRow {
   matter_id: string;
   document_id: string;
@@ -114,12 +144,60 @@ interface MatterRefRow {
   matter_id: string;
 }
 
+interface DdRfiTemplateRow {
+  template_id: string;
+  items_json: unknown;
+}
+
+interface DdRfiTemplateItem {
+  rfi_code: string;
+  category: string;
+  title: string;
+  description: string | null;
+  priority: string;
+}
+
+interface DdMappingSuggestionInput {
+  tenantId: string;
+  matterId: string;
+  documentId: string;
+  versionId: string;
+  bodyText: string;
+  sourceArtifactId?: string | undefined;
+  sourceHash?: string | undefined;
+}
+
+interface DdAiPrepMappingSuggestionInput extends DdMappingSuggestionInput {
+  sourceArtifactId: string;
+  sourceHash: string;
+}
+
+interface DdMappingSuggestionRfiRow {
+  rfi_id: string;
+  rfi_code: string;
+  category: DdRfiCategory;
+  title: string;
+  owner_user_id: string | null;
+  assignee_user_id: string | null;
+}
+
 type StatusAudit = {
   status_before?: string | undefined;
   status_after?: string | undefined;
 };
 
 type PgParam = SearchSqlValue | null;
+
+const contractCategoryMap: Partial<Record<ContractType, DdRfiCategory>> = {
+  nda: 'corporate',
+  msa: 'corporate',
+  share_purchase: 'corporate',
+  employment: 'employment',
+  lease: 'general',
+  loan: 'finance',
+};
+
+const mappingReviewDueMs = 48 * 60 * 60 * 1000;
 
 @Injectable()
 export class DdService {
@@ -131,6 +209,10 @@ export class DdService {
     @Inject(SEARCH_PERMISSION_SCOPE_PROVIDER)
     private readonly scopeProvider: SearchPermissionScopeProvider,
     @Inject(SearchFilterBuilder) private readonly filterBuilder: SearchFilterBuilder,
+    @Inject(GraphSyncOutboxWorker) private readonly graphSyncOutbox: GraphSyncOutboxWorker,
+    @Inject(WorkService) private readonly workService: WorkService,
+    @Inject(DocumentUploadService) private readonly documentUpload: DocumentUploadService,
+    @Inject(ContractIntelService) private readonly contractIntel: ContractIntelService,
   ) {}
 
   async createRfi(
@@ -197,6 +279,105 @@ export class DdService {
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       const rfis = await this.queryRfis(client, ctx.tenantId, input);
       return ddRfiListResponseSchema.parse({ matterId: input.matterId, rfis });
+    });
+  }
+
+  async listRfiGaps(
+    ctx: PermissionContext,
+    input: DdRfiGapQueryDto,
+  ): Promise<DdRfiGapListResponseDto> {
+    await this.assertCanReadMatter(ctx, input.matterId);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const rfis = await this.queryRfiGaps(client, ctx.tenantId, input);
+      return ddRfiGapListResponseSchema.parse({ matterId: input.matterId, rfis });
+    });
+  }
+
+  async instantiateRfiTemplate(
+    ctx: PermissionContext,
+    templateId: string,
+    input: DdRfiTemplateInstantiateRequestDto,
+  ): Promise<DdRfiTemplateInstantiationResponseDto> {
+    await this.assertCanEditMatter(ctx, input.matterId);
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const template = await this.findRfiTemplate(client, ctx.tenantId, templateId);
+      if (!template) throw validationFailed();
+      const items = parseTemplateItems(template.items_json);
+      const result = await client.query<DdRfiRow>(
+        `
+          WITH template_items AS (
+            SELECT *
+            FROM jsonb_to_recordset($4::jsonb) AS item(
+              rfi_code text,
+              category text,
+              title text,
+              description text,
+              priority text
+            )
+          )
+          INSERT INTO dd_rfis (
+            tenant_id, matter_id, rfi_code, category, title, description,
+            status, priority, owner_user_id, due_date, created_by, updated_by
+          )
+          SELECT
+            $1,
+            $2,
+            rfi_code,
+            category,
+            title,
+            description,
+            'requested',
+            priority,
+            $5::uuid,
+            $6::date,
+            $3,
+            $3
+          FROM template_items
+          ORDER BY rfi_code
+          RETURNING
+            rfi_id, matter_id, rfi_code, category, title, status, priority,
+            owner_user_id, due_date, (due_date IS NOT NULL AND due_date < current_date
+              AND status NOT IN ('complete', 'reported')) AS overdue,
+            created_at, updated_at
+        `,
+        [
+          ctx.tenantId,
+          input.matterId,
+          ctx.userId,
+          JSON.stringify(items),
+          input.ownerUserId ?? ctx.userId,
+          input.dueDate ?? null,
+        ],
+      );
+      const rfis = result.rows.map(parseRfiRow);
+      for (const rfi of rfis) {
+        await this.auditService.log(
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            sessionId: ctx.sessionId ?? null,
+            action: 'DD_RFI_CHANGED',
+            targetType: 'dd_rfi',
+            targetId: rfi.rfiId,
+            matterId: rfi.matterId,
+            metadata: {
+              matter_id: rfi.matterId,
+              rfi_id: rfi.rfiId,
+              template_id: template.template_id,
+              rfi_code: rfi.rfiCode,
+              status_after: rfi.status,
+              priority: rfi.priority,
+            },
+          },
+          client,
+        );
+      }
+      return ddRfiTemplateInstantiationResponseSchema.parse({
+        templateId: template.template_id,
+        matterId: input.matterId,
+        createdCount: rfis.length,
+        rfis,
+      });
     });
   }
 
@@ -336,10 +517,291 @@ export class DdService {
     });
   }
 
+  async suggestMappingsFromExtraction(
+    client: QueryClient,
+    input: DdMappingSuggestionInput,
+  ): Promise<{ suggestedCount: number; mappingIds: string[] }> {
+    const text = input.bodyText.trim();
+    if (!text) return { suggestedCount: 0, mappingIds: [] };
+    const classification = classifyContractText({
+      documentId: input.documentId,
+      versionId: input.versionId,
+      matterId: input.matterId,
+      text,
+    });
+    const category = contractCategoryMap[classification.contractType];
+    if (!category || classification.unsupported) return { suggestedCount: 0, mappingIds: [] };
+
+    const rfiResult = await client.query(
+      `
+        SELECT
+          r.rfi_id,
+          r.rfi_code,
+          r.category,
+          r.title,
+          r.owner_user_id,
+          COALESCE(
+            r.owner_user_id,
+            (
+              SELECT mm.user_id
+              FROM matter_members mm
+              WHERE mm.tenant_id = r.tenant_id
+                AND mm.matter_id = r.matter_id
+                AND mm.access_level = 'edit'
+              ORDER BY (mm.matter_role = 'owner') DESC, mm.added_at ASC, mm.user_id
+              LIMIT 1
+            )
+          ) AS assignee_user_id
+        FROM dd_rfis r
+        WHERE r.tenant_id = $1
+          AND r.matter_id = $2
+          AND r.category = $3
+          AND r.status NOT IN ('complete', 'reported')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM dd_data_room_mappings existing
+            WHERE existing.tenant_id = r.tenant_id
+              AND existing.rfi_id = r.rfi_id
+              AND existing.mapping_status IN ('mapped', 'suggested')
+          )
+        ORDER BY
+          (r.owner_user_id IS NULL) ASC,
+          CASE r.priority
+            WHEN 'critical' THEN 0
+            WHEN 'high' THEN 1
+            WHEN 'medium' THEN 2
+            ELSE 3
+          END,
+          r.due_date NULLS LAST,
+          r.created_at ASC
+        LIMIT 1
+      `,
+      [input.tenantId, input.matterId, category],
+    );
+    const rfi = rfiResult.rows[0] as DdMappingSuggestionRfiRow | undefined;
+    if (!rfi?.assignee_user_id) return { suggestedCount: 0, mappingIds: [] };
+
+    const mappingResult = await client.query(
+      `
+        INSERT INTO dd_data_room_mappings (
+          tenant_id, matter_id, rfi_id, document_id, version_id, internal_label,
+          section_path, mapping_status, supplement_requested_at, mapped_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'suggested', NULL, $8)
+        ON CONFLICT (tenant_id, matter_id, rfi_id, document_id, version_id)
+          WHERE mapping_status = 'suggested'
+        DO UPDATE SET
+          internal_label = EXCLUDED.internal_label,
+          section_path = EXCLUDED.section_path,
+          mapped_by = EXCLUDED.mapped_by,
+          updated_at = now()
+        RETURNING
+          mapping_id, matter_id, rfi_id, document_id, version_id, internal_label,
+          section_path, mapping_status, supplement_requested_at, created_at, updated_at
+      `,
+      [
+        input.tenantId,
+        input.matterId,
+        rfi.rfi_id,
+        input.documentId,
+        input.versionId,
+        `${rfi.rfi_code} suggested ${classification.contractType}`,
+        `${rfi.category}.${rfi.rfi_code}`,
+        rfi.assignee_user_id,
+      ],
+    );
+    const mapping = parseMappingRow(mappingResult.rows[0] as DdMappingRow | undefined);
+    const audit = await this.auditService.log(
+      {
+        tenantId: input.tenantId,
+        actorType: 'system',
+        actorId: null,
+        action: 'DD_DATA_ROOM_MAPPED',
+        targetType: 'dd_data_room_mapping',
+        targetId: mapping.mappingId,
+        matterId: input.matterId,
+        metadata: {
+          matter_id: input.matterId,
+          rfi_id: rfi.rfi_id,
+          mapping_id: mapping.mappingId,
+          document_id: input.documentId,
+          version_id: input.versionId,
+          ...(input.sourceArtifactId
+            ? { ai_prep_artifact_id: input.sourceArtifactId }
+            : {}),
+          ...(input.sourceHash ? { hash: input.sourceHash } : {}),
+          mapping_status: 'suggested',
+          contract_type: classification.contractType,
+          classifier_version: classification.classifierVersion,
+          confidence: classification.confidence,
+        },
+      },
+      client,
+    );
+    await this.workService.openWorkflowWork(client, {
+      tenantId: input.tenantId,
+      kind: 'dd_mapping_review',
+      targetId: mapping.mappingId,
+      matterId: input.matterId,
+      documentId: input.documentId,
+      assignedToUserId: rfi.assignee_user_id,
+      dueAt: new Date(Date.now() + mappingReviewDueMs),
+      actorUserId: rfi.assignee_user_id,
+      auditEventId: audit.eventId,
+    });
+    return { suggestedCount: 1, mappingIds: [mapping.mappingId] };
+  }
+
+  async suggestMappingsFromAiPrepArtifact(
+    client: QueryClient,
+    input: DdAiPrepMappingSuggestionInput,
+  ): Promise<{ suggestedCount: number; mappingIds: string[] }> {
+    await this.assertAiPrepDocumentProfileArtifact(
+      client,
+      input.tenantId,
+      input.sourceArtifactId,
+      input.matterId,
+      input.documentId,
+      input.versionId,
+      input.sourceHash,
+    );
+    return this.suggestMappingsFromExtraction(client, input);
+  }
+
+  async reviewMappingSuggestion(
+    ctx: PermissionContext,
+    mappingId: string,
+    input: ReviewDdMappingSuggestionRequestDto,
+  ): Promise<DdMappingSuggestionReviewResponseDto> {
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const currentResult = await client.query<DdMappingRow>(
+        `
+          SELECT
+            mapping_id, matter_id, rfi_id, document_id, version_id, internal_label,
+            section_path, mapping_status, supplement_requested_at, created_at, updated_at
+          FROM dd_data_room_mappings
+          WHERE tenant_id = $1
+            AND mapping_id = $2
+            AND mapping_status = 'suggested'
+          FOR UPDATE
+          LIMIT 1
+        `,
+        [ctx.tenantId, mappingId],
+      );
+      const current = currentResult.rows[0];
+      if (!current) throw validationFailed();
+      await this.assertCanEditMatter(ctx, current.matter_id);
+      if (current.document_id) await this.assertCanReadDocument(ctx, current.document_id);
+
+      if (input.decision === 'approve') {
+        const approvedResult = await client.query<DdMappingRow>(
+          `
+            UPDATE dd_data_room_mappings
+            SET mapping_status = 'mapped',
+              supplement_requested_at = NULL,
+              mapped_by = $3,
+              updated_at = now()
+            WHERE tenant_id = $1
+              AND mapping_id = $2
+            RETURNING
+              mapping_id, matter_id, rfi_id, document_id, version_id, internal_label,
+              section_path, mapping_status, supplement_requested_at, created_at, updated_at
+          `,
+          [ctx.tenantId, mappingId, ctx.userId],
+        );
+        const mapping = parseMappingRow(approvedResult.rows[0]);
+        const audit = await this.auditService.log(
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            sessionId: ctx.sessionId ?? null,
+            action: 'DD_DATA_ROOM_MAPPED',
+            targetType: 'dd_data_room_mapping',
+            targetId: mapping.mappingId,
+            matterId: mapping.matterId,
+            metadata: {
+              matter_id: mapping.matterId,
+              rfi_id: mapping.rfiId,
+              mapping_id: mapping.mappingId,
+              document_id: mapping.documentId,
+              version_id: mapping.versionId,
+              mapping_status: mapping.mappingStatus,
+              status_before: 'suggested',
+              status_after: 'mapped',
+              review_decision: 'approved',
+            },
+          },
+          client,
+        );
+        await this.workService.completeWorkflowWork(client, {
+          tenantId: ctx.tenantId,
+          kind: 'dd_mapping_review',
+          targetId: mapping.mappingId,
+          actorUserId: ctx.userId,
+          auditEventId: audit.eventId,
+        });
+        return ddMappingSuggestionReviewResponseSchema.parse({
+          mappingId: mapping.mappingId,
+          decision: input.decision,
+          mapping,
+        });
+      }
+
+      const currentMapping = parseMappingRow(current);
+      const audit = await this.auditService.log(
+        {
+          tenantId: ctx.tenantId,
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+          action: 'DD_DATA_ROOM_MAPPED',
+          targetType: 'dd_data_room_mapping',
+          targetId: currentMapping.mappingId,
+          matterId: currentMapping.matterId,
+          metadata: {
+            matter_id: currentMapping.matterId,
+            rfi_id: currentMapping.rfiId,
+            mapping_id: currentMapping.mappingId,
+            document_id: currentMapping.documentId,
+            version_id: currentMapping.versionId,
+            mapping_status: 'suggested',
+            status_before: 'suggested',
+            status_after: 'deleted',
+            review_decision: 'rejected',
+          },
+        },
+        client,
+      );
+      await this.workService.completeWorkflowWork(client, {
+        tenantId: ctx.tenantId,
+        kind: 'dd_mapping_review',
+        targetId: currentMapping.mappingId,
+        actorUserId: ctx.userId,
+        auditEventId: audit.eventId,
+      });
+      await client.query(
+        `
+          DELETE FROM dd_data_room_mappings
+          WHERE tenant_id = $1
+            AND mapping_id = $2
+            AND mapping_status = 'suggested'
+        `,
+        [ctx.tenantId, currentMapping.mappingId],
+      );
+      return ddMappingSuggestionReviewResponseSchema.parse({
+        mappingId: currentMapping.mappingId,
+        decision: input.decision,
+        mapping: null,
+      });
+    });
+  }
+
   async createIssue(
     ctx: PermissionContext,
     input: CreateDdIssueRequestDto,
   ): Promise<DdIssueDto> {
+    if (input.status !== 'open' && input.citationRefs.length === 0) {
+      throw validationFailed(ddIssueCitationRequiredReason);
+    }
     await this.assertCanEditMatter(ctx, input.matterId);
     if (input.documentId) {
       await this.assertCanReadDocument(ctx, input.documentId);
@@ -395,6 +857,86 @@ export class DdService {
             status_after: issue.status,
             severity: issue.severity,
           },
+        },
+        client,
+      );
+      await this.graphSyncOutbox.enqueue(
+        {
+          tenantId: ctx.tenantId,
+          matterId: issue.matterId,
+          reasonCode: 'dd_issue_changed',
+          requestedBy: ctx.userId,
+        },
+        client,
+      );
+      return issue;
+    });
+  }
+
+  async updateIssue(
+    ctx: PermissionContext,
+    issueId: string,
+    input: UpdateDdIssueRequestDto,
+  ): Promise<DdIssueDto> {
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const current = await this.findIssueForUpdate(client, ctx.tenantId, issueId);
+      if (!current) throw validationFailed();
+      await this.assertCanEditMatter(ctx, current.matter_id);
+
+      const nextStatus = input.status ?? current.status;
+      const nextCitationRefs = input.citationRefs ?? current.citation_refs;
+      if (nextStatus !== 'open' && nextCitationRefs.length === 0) {
+        throw validationFailed(ddIssueCitationRequiredReason);
+      }
+
+      const diffKeys = issueDiffKeys(current, input);
+      if (diffKeys.length === 0) return parseIssueRow(current);
+
+      const result = await client.query<DdIssueRow>(
+        `
+          UPDATE dd_issues
+          SET status = $3,
+              citation_refs = $4::text[],
+              updated_by = $5,
+              updated_at = now()
+          WHERE tenant_id = $1
+            AND issue_id = $2
+          RETURNING
+            issue_id, matter_id, rfi_id, document_id, issue_code, title, severity,
+            status, citation_refs, report_inclusion, created_at, updated_at
+        `,
+        [ctx.tenantId, issueId, nextStatus, nextCitationRefs, ctx.userId],
+      );
+      const issue = parseIssueRow(result.rows[0]);
+      await this.auditService.log(
+        {
+          tenantId: ctx.tenantId,
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+          action: 'DD_ISSUE_CHANGED',
+          targetType: 'dd_issue',
+          targetId: issue.issueId,
+          matterId: issue.matterId,
+          metadata: {
+            matter_id: issue.matterId,
+            rfi_id: issue.rfiId,
+            document_id: issue.documentId,
+            issue_id: issue.issueId,
+            diff_keys: diffKeys,
+            status_before: current.status,
+            status_after: issue.status,
+            citation_ref_count: issue.citationRefs.length,
+            severity: issue.severity,
+          },
+        },
+        client,
+      );
+      await this.graphSyncOutbox.enqueue(
+        {
+          tenantId: ctx.tenantId,
+          matterId: issue.matterId,
+          reasonCode: 'dd_issue_changed',
+          requestedBy: ctx.userId,
         },
         client,
       );
@@ -468,6 +1010,15 @@ export class DdService {
         },
         client,
       );
+      await this.graphSyncOutbox.enqueue(
+        {
+          tenantId: ctx.tenantId,
+          matterId: risk.matterId,
+          reasonCode: 'dd_risk_changed',
+          requestedBy: ctx.userId,
+        },
+        client,
+      );
       return risk;
     });
   }
@@ -497,6 +1048,7 @@ export class DdService {
       });
       const mappings = await this.queryMappings(client, scope.scope, {
         matterId: input.matterId,
+        status: 'mapped',
         limit: input.limit,
       });
       const issues = await this.queryIssues(client, scope.scope, {
@@ -541,6 +1093,184 @@ export class DdService {
     });
   }
 
+  async assertCanExportMatter(ctx: PermissionContext, matterId: string): Promise<void> {
+    await this.assertCanEditMatter(ctx, matterId);
+  }
+
+  async exportReport(
+    ctx: PermissionContext,
+    input: CreateDdReportExportRequestDto,
+  ): Promise<DdReportExportResponseDto> {
+    await this.assertCanEditMatter(ctx, input.matterId);
+    const scope = await this.authorizedScope(ctx);
+    const snapshot = await this.auditService.transaction(ctx.tenantId, async (client) => {
+      const matterLabel = await this.findMatterLabel(client, ctx.tenantId, input.matterId);
+      const issues = await this.queryIssues(client, scope.scope, {
+        matterId: input.matterId,
+        limit: 100,
+      });
+      const risks = await this.queryRisks(client, scope.scope, {
+        matterId: input.matterId,
+        limit: 100,
+      });
+      const includedIssues = issues.filter((issue) => issue.reportInclusion);
+      const issueIds = new Set(includedIssues.map((issue) => issue.issueId));
+      const includedRisks = risks.filter(
+        (risk) => risk.issueId === null || issueIds.has(risk.issueId),
+      );
+      const itemCount = includedIssues.length + includedRisks.length;
+      if (itemCount === 0) throw validationFailed('DD_REPORT_EXPORT_EMPTY');
+      return { matterLabel, issues: includedIssues, risks: includedRisks, itemCount };
+    });
+
+    const generatedAt = new Date();
+    const title = `${snapshot.matterLabel} DD 보고서 초안`;
+    const body = buildDdReportDocx({
+      matterLabel: snapshot.matterLabel,
+      generatedAt,
+      issues: snapshot.issues,
+      risks: snapshot.risks,
+    });
+    const hash = createHash('sha256').update(body).digest('hex');
+    const uploaded = await this.documentUpload.uploadBuffer({
+      actorUserId: ctx.userId,
+      matterId: input.matterId,
+      originalFilename: `dd-report-${input.matterId}-${generatedAt.getTime()}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      body,
+      afterUploadAudit: async (client, document) => {
+        await this.auditService.log(
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            sessionId: ctx.sessionId ?? null,
+            action: 'DD_REPORT_EXPORTED',
+            targetType: 'document',
+            targetId: document.documentId,
+            matterId: input.matterId,
+            metadata: {
+              matter_id: input.matterId,
+              document_id: document.documentId,
+              file_object_id: document.fileObjectId,
+              hash,
+              export_format: input.exportFormat,
+              issue_count: snapshot.issues.length,
+              risk_count: snapshot.risks.length,
+              item_count: snapshot.itemCount,
+            },
+          },
+          client,
+        );
+      },
+      fields: {
+        title,
+        documentType: 'memo',
+        subtype: 'dd_report_export',
+        confidentialityLevel: 'high',
+        privilegeStatus: 'work_product',
+        source: 'internal_work_product',
+        aiAllowed: false,
+        versionLabel: 'DD report draft',
+        versionSignificance: 'internal_draft',
+        renditionType: 'clean',
+      },
+    });
+
+    return ddReportExportResponseSchema.parse({
+      matterId: input.matterId,
+      documentId: uploaded.documentId,
+      fileObjectId: uploaded.fileObjectId,
+      title: uploaded.title,
+      exportFormat: input.exportFormat,
+      issueCount: snapshot.issues.length,
+      riskCount: snapshot.risks.length,
+      itemCount: snapshot.itemCount,
+    });
+  }
+
+  async exportNegotiationIssues(
+    ctx: PermissionContext,
+    input: CreateDdNegotiationIssueExportRequestDto,
+  ): Promise<DdNegotiationIssueExportResponseDto> {
+    await this.assertCanEditMatter(ctx, input.matterId);
+    const [matterLabel, issueList] = await Promise.all([
+      this.auditService.transaction(ctx.tenantId, (client) =>
+        this.findMatterLabel(client, ctx.tenantId, input.matterId),
+      ),
+      this.contractIntel.listNegotiationIssues(ctx, {
+        matterId: input.matterId,
+        limit: 100,
+        ...(input.documentId ? { documentId: input.documentId } : {}),
+        ...(input.status ? { status: input.status } : {}),
+      }),
+    ]);
+    if (issueList.issues.length === 0) throw validationFailed('NEGOTIATION_ISSUE_EXPORT_EMPTY');
+
+    const generatedAt = new Date();
+    const title = `${matterLabel} 협상쟁점표`;
+    const body = buildNegotiationIssuesDocx({
+      matterLabel,
+      generatedAt,
+      issues: issueList.issues,
+    });
+    const hash = createHash('sha256').update(body).digest('hex');
+    const uploaded = await this.documentUpload.uploadBuffer({
+      actorUserId: ctx.userId,
+      matterId: input.matterId,
+      originalFilename: `negotiation-issues-${input.matterId}-${generatedAt.getTime()}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      body,
+      afterUploadAudit: async (client, document) => {
+        await this.auditService.log(
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.userId,
+            sessionId: ctx.sessionId ?? null,
+            action: 'CONTRACT_NEGOTIATION_ISSUES_EXPORTED',
+            targetType: 'document',
+            targetId: document.documentId,
+            matterId: input.matterId,
+            metadata: {
+              matter_id: input.matterId,
+              document_id: document.documentId,
+              file_object_id: document.fileObjectId,
+              hash,
+              export_format: input.exportFormat,
+              issue_count: issueList.issues.length,
+              item_count: issueList.issues.length,
+              scope_type: 'negotiation_issue_export',
+              scope_id: input.documentId ?? input.matterId,
+            },
+          },
+          client,
+        );
+      },
+      fields: {
+        title,
+        documentType: 'memo',
+        subtype: 'negotiation_issue_export',
+        confidentialityLevel: 'high',
+        privilegeStatus: 'work_product',
+        source: 'internal_work_product',
+        aiAllowed: false,
+        versionLabel: 'Negotiation issues export',
+        versionSignificance: 'internal_draft',
+        renditionType: 'clean',
+      },
+    });
+
+    return ddNegotiationIssueExportResponseSchema.parse({
+      matterId: input.matterId,
+      sourceDocumentId: issueList.documentId,
+      documentId: uploaded.documentId,
+      fileObjectId: uploaded.fileObjectId,
+      title: uploaded.title,
+      exportFormat: input.exportFormat,
+      negotiationIssueCount: issueList.issues.length,
+      itemCount: issueList.issues.length,
+    });
+  }
+
   private async queryRfis(
     client: PoolClient,
     tenantId: string,
@@ -567,6 +1297,65 @@ export class DdService {
       params,
     );
     return result.rows.map(parseRfiRow);
+  }
+
+  private async queryRfiGaps(
+    client: PoolClient,
+    tenantId: string,
+    input: DdRfiGapQueryDto,
+  ): Promise<DdRfiDto[]> {
+    const result = await client.query<DdRfiRow>(
+      `
+        SELECT
+          r.rfi_id, r.matter_id, r.rfi_code, r.category, r.title, r.status, r.priority,
+          r.owner_user_id, r.due_date,
+          (r.due_date IS NOT NULL AND r.due_date < current_date
+            AND r.status NOT IN ('complete', 'reported')) AS overdue,
+          r.created_at, r.updated_at
+        FROM dd_rfis r
+        WHERE r.tenant_id = $1
+          AND r.matter_id = $2
+          AND r.status NOT IN ('complete', 'reported')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM dd_data_room_mappings drm
+            WHERE drm.tenant_id = r.tenant_id
+              AND drm.rfi_id = r.rfi_id
+              AND drm.mapping_status IN ('mapped', 'suggested')
+          )
+        ORDER BY
+          CASE r.priority
+            WHEN 'critical' THEN 0
+            WHEN 'high' THEN 1
+            WHEN 'medium' THEN 2
+            ELSE 3
+          END,
+          r.due_date NULLS LAST,
+          r.rfi_code,
+          r.created_at DESC
+        LIMIT $3
+      `,
+      [tenantId, input.matterId, input.limit],
+    );
+    return result.rows.map(parseRfiRow);
+  }
+
+  private async findRfiTemplate(
+    client: PoolClient,
+    tenantId: string,
+    templateId: string,
+  ): Promise<DdRfiTemplateRow | null> {
+    const result = await client.query<DdRfiTemplateRow>(
+      `
+        SELECT template_id, items_json
+        FROM dd_rfi_templates
+        WHERE tenant_id = $1
+          AND template_id = $2
+        LIMIT 1
+      `,
+      [tenantId, templateId],
+    );
+    return result.rows[0] ?? null;
   }
 
   private async queryMappings(
@@ -717,6 +1506,26 @@ export class DdService {
     return result.rows.map(parseRiskRow);
   }
 
+  private async findMatterLabel(
+    client: PoolClient,
+    tenantId: string,
+    matterId: string,
+  ): Promise<string> {
+    const result = await client.query<MatterLabelRow>(
+      `
+        SELECT matter_code, matter_name
+        FROM matters
+        WHERE tenant_id = $1
+          AND matter_id = $2
+        LIMIT 1
+      `,
+      [tenantId, matterId],
+    );
+    const row = result.rows[0];
+    if (!row) throw validationFailed();
+    return `${row.matter_code} ${row.matter_name}`.trim().slice(0, 180);
+  }
+
   private async findRfi(
     client: PoolClient,
     tenantId: string,
@@ -799,6 +1608,26 @@ export class DdService {
     if (result.rows[0]?.matter_id !== matterId) throw validationFailed();
   }
 
+  private async findIssueForUpdate(
+    client: PoolClient,
+    tenantId: string,
+    issueId: string,
+  ): Promise<DdIssueRow | null> {
+    const result = await client.query<DdIssueRow>(
+      `
+        SELECT
+          issue_id, matter_id, rfi_id, document_id, issue_code, title, severity,
+          status, citation_refs, report_inclusion, created_at, updated_at
+        FROM dd_issues
+        WHERE tenant_id = $1
+          AND issue_id = $2
+        FOR UPDATE
+      `,
+      [tenantId, issueId],
+    );
+    return result.rows[0] ?? null;
+  }
+
   private async assertCanReadMatter(ctx: PermissionContext, matterId: string): Promise<void> {
     const decision = await this.permissionService.canReadMatter(ctx, matterId);
     if (decision.effect !== 'ALLOW') {
@@ -818,6 +1647,35 @@ export class DdService {
     if (decision.effect !== 'ALLOW') {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
+  }
+
+  private async assertAiPrepDocumentProfileArtifact(
+    client: QueryClient,
+    tenantId: string,
+    artifactId: string,
+    matterId: string,
+    documentId: string,
+    versionId: string,
+    sourceHash: string,
+  ): Promise<void> {
+    const result = await client.query(
+      `
+        SELECT ai_prep_artifact_id
+        FROM ai_prep_artifacts
+        WHERE tenant_id = $1
+          AND ai_prep_artifact_id = $2
+          AND matter_id = $3
+          AND document_id = $4
+          AND document_version_id = $5
+          AND artifact_kind = 'document_profile'
+          AND status = 'completed'
+          AND is_stale = false
+          AND response_hash = $6
+        LIMIT 1
+      `,
+      [tenantId, artifactId, matterId, documentId, versionId, sourceHash],
+    );
+    if (!result.rows[0]) throw validationFailed();
   }
 
   private async authorizedScope(ctx: PermissionContext): Promise<{
@@ -913,12 +1771,58 @@ function dateOnly(value: Date | string | null): string | null {
   return value.toISOString().slice(0, 10);
 }
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED', ...(reason ? { reason } : {}) });
 }
 
 function statusAudit(before: string, after: string): StatusAudit {
   return before === after ? {} : { status_before: before, status_after: after };
+}
+
+function issueDiffKeys(current: DdIssueRow, input: UpdateDdIssueRequestDto): string[] {
+  const keys: string[] = [];
+  if (input.status !== undefined && input.status !== current.status) keys.push('status');
+  if (
+    input.citationRefs !== undefined &&
+    !sameStringArray(input.citationRefs, current.citation_refs)
+  ) {
+    keys.push('citation_refs');
+  }
+  return keys;
+}
+
+function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function parseTemplateItems(value: unknown): DdRfiTemplateItem[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100) throw validationFailed();
+  return value.map((item) => {
+    if (typeof item !== 'object' || item === null) throw validationFailed();
+    const row = item as Record<string, unknown>;
+    const rfiCode = stringField(row.rfi_code);
+    const category = stringField(row.category);
+    const title = stringField(row.title);
+    const description = nullableStringField(row.description);
+    const priority = stringField(row.priority);
+    return {
+      rfi_code: rfiCode,
+      category,
+      title,
+      description,
+      priority,
+    };
+  });
+}
+
+function stringField(value: unknown): string {
+  if (typeof value !== 'string' || value.trim() === '') throw validationFailed();
+  return value.trim();
+}
+
+function nullableStringField(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  return stringField(value);
 }
 
 function buildRfiUpdate(input: UpdateDdRfiRequestDto, userId: string): {

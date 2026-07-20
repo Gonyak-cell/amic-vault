@@ -17,11 +17,13 @@ import type { PoolClient } from 'pg';
 import { buildSafeLabel } from '@amic-vault/shared';
 import type {
   AssignDocumentSubversionReviewerDto,
+  CancelDocumentEditSessionDto,
   CheckInDocumentEditSessionDto,
   CreateDocumentEditSessionDto,
   DocumentEditPackageDto,
   DocumentEditSessionDto,
   DocumentEditSessionStatus,
+  ForceReleaseDocumentEditSessionDto,
   DocumentNativeEditDraftDto,
   DocumentSubversionDto,
   DocumentSubversionListDto,
@@ -29,6 +31,8 @@ import type {
   DocumentSubversionReviewDto,
   DocumentSubversionReviewGateDto,
   DocumentSubversionReviewListDto,
+  DocumentSubversionRevisionDto,
+  DocumentSubversionRevisionSummaryDto,
   DocumentSubversionReviewerDto,
   DocumentSubversionReviewerListDto,
   DocumentSubversionStatus,
@@ -41,7 +45,7 @@ import type {
   SubmitDocumentSubversionReviewDto,
   TenantId,
 } from '@amic-vault/shared';
-import { AuditService, type QueryClient } from '../audit/audit.service';
+import { AuditService, type AuditLogResult, type QueryClient } from '../audit/audit.service';
 import {
   documentCheckedInAudit,
   documentCheckedOutAudit,
@@ -49,6 +53,7 @@ import {
   documentDownloadedAudit,
   documentEditConflictAudit,
   documentLockExpiredAudit,
+  documentLockForceReleasedAudit,
   documentSubversionReviewSubmittedAudit,
   documentSubversionReviewerAssignedAudit,
   documentSubversionReviewerRevokedAudit,
@@ -60,7 +65,9 @@ import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { ExtractionDispatcher } from './extraction/extraction-dispatcher';
 import { ExtractionQueueService } from './extraction/extraction-queue.service';
+import type { DocumentRevisionExtractionInput, ExtractionTarget } from './extraction/extraction.types';
 import { assertDocumentMutationAllowed } from './guards/immutable-state.guard';
 import { sha256File } from './integrity/sha256.util';
 import type { UploadedDiskFile } from './document-upload.service';
@@ -107,6 +114,19 @@ interface EditSessionRow {
   cancelled_at: Date | null;
   expired_at: Date | null;
   conflicted_at: Date | null;
+  lock_token_hash: string;
+}
+
+interface ForceReleasePermissionRow {
+  role: string;
+  matter_role: string | null;
+  user_is_excluded: boolean;
+  insider_required: boolean;
+}
+
+export interface ExpiredEditSessionSweepResult {
+  tenantId: TenantId;
+  expiredCount: number;
 }
 
 interface SubversionRow {
@@ -128,6 +148,15 @@ interface SubversionRow {
   active_reviewers?: number | string | null;
   approved_reviews?: number | string | null;
   changes_requested_reviews?: number | string | null;
+  revisions?: readonly SubversionRevisionRow[];
+}
+
+interface SubversionRevisionRow {
+  change_type: DocumentSubversionRevisionDto['changeType'];
+  author_label: string | null;
+  changed_at: Date | null;
+  before_text: string;
+  after_text: string;
 }
 
 interface SubversionReviewerRow {
@@ -306,8 +335,16 @@ function hashLockToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-function randomLockTokenHash(): string {
-  return hashLockToken(randomBytes(32).toString('hex'));
+function sha256Text(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function randomLockToken(): string {
+  return randomBytes(32).toString('hex');
+}
+
+function isValidLockToken(row: Pick<EditSessionRow, 'lock_token_hash'>, lockToken: string): boolean {
+  return hashLockToken(lockToken) === row.lock_token_hash;
 }
 
 function ttlExpiry(seconds = DEFAULT_EDIT_TTL_SECONDS): Date {
@@ -346,7 +383,31 @@ function mapReviewGate(row: SubversionRow): DocumentSubversionReviewGateDto {
   };
 }
 
-function mapSession(row: EditSessionRow): DocumentEditSessionDto {
+function mapSubversionRevision(row: SubversionRevisionRow): DocumentSubversionRevisionDto {
+  return {
+    changeType: row.change_type,
+    author: row.author_label,
+    changedAt: nullableIso(row.changed_at),
+    beforeText: row.before_text,
+    afterText: row.after_text,
+  };
+}
+
+function revisionSummary(
+  revisions: readonly SubversionRevisionRow[],
+): DocumentSubversionRevisionSummaryDto {
+  return {
+    totalCount: revisions.length,
+    insertCount: revisions.filter((revision) => revision.change_type === 'insert').length,
+    deleteCount: revisions.filter((revision) => revision.change_type === 'delete').length,
+    moveCount: revisions.filter(
+      (revision) => revision.change_type === 'move_from' || revision.change_type === 'move_to',
+    ).length,
+    formatCount: revisions.filter((revision) => revision.change_type === 'format').length,
+  };
+}
+
+function mapSession(row: EditSessionRow, lockToken?: string): DocumentEditSessionDto {
   return {
     editSessionId: row.edit_session_id,
     documentId: row.document_id,
@@ -362,10 +423,12 @@ function mapSession(row: EditSessionRow): DocumentEditSessionDto {
     cancelledAt: nullableIso(row.cancelled_at),
     expiredAt: nullableIso(row.expired_at),
     conflictedAt: nullableIso(row.conflicted_at),
+    ...(lockToken ? { lockToken } : {}),
   };
 }
 
 function mapSubversion(row: SubversionRow): DocumentSubversionDto {
+  const revisions = row.revisions ?? [];
   return {
     subversionId: row.subversion_id,
     documentId: row.document_id,
@@ -383,6 +446,8 @@ function mapSubversion(row: SubversionRow): DocumentSubversionDto {
     submittedAt: nullableIso(row.submitted_at),
     promotedVersionId: row.promoted_version_id,
     reviewGate: mapReviewGate(row),
+    revisionSummary: revisionSummary(revisions),
+    revisions: revisions.map(mapSubversionRevision),
   };
 }
 
@@ -458,6 +523,9 @@ export class DocumentEditingService {
     @Inject(ExtractionQueueService)
     private readonly extractionQueue?: ExtractionQueueService,
     @Optional()
+    @Inject(ExtractionDispatcher)
+    private readonly extractionDispatcher?: ExtractionDispatcher,
+    @Optional()
     @Inject(SearchIndexSyncHook)
     private readonly searchIndexSync?: SearchIndexSyncHook,
   ) {}
@@ -515,6 +583,7 @@ export class DocumentEditingService {
       }
 
       const expiresAt = ttlExpiry(input.requestedTtlSeconds);
+      const lockToken = randomLockToken();
       const inserted = await tx.query(
         `
           WITH inserted AS (
@@ -525,7 +594,7 @@ export class DocumentEditingService {
             VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8)
             RETURNING edit_session_id, document_id, base_version_id, status, client_kind,
               lock_owner_user_id, checked_out_at, heartbeat_at, expires_at, checked_in_at,
-              cancelled_at, expired_at, conflicted_at
+              cancelled_at, expired_at, conflicted_at, lock_token_hash
           )
           SELECT inserted.*, d.matter_id, $9::integer AS base_version_no
           FROM inserted
@@ -539,7 +608,7 @@ export class DocumentEditingService {
           current.version_id,
           actorUserId,
           input.clientKind,
-          randomLockTokenHash(),
+          hashLockToken(lockToken),
           input.checkoutReasonCode ?? null,
           expiresAt,
           current.version_no,
@@ -574,7 +643,7 @@ export class DocumentEditingService {
         `,
         [context.tenantId, documentId, row.edit_session_id, audit.eventId],
       );
-      return { session: mapSession(row) };
+      return { session: mapSession(row, lockToken) };
     });
     if ('staleBaseVersion' in result) throw validationFailed('base_version_stale');
     return result.session;
@@ -602,6 +671,45 @@ export class DocumentEditingService {
       }
       return mapSession(active);
     });
+  }
+
+  async sweepExpiredSessionsForTenant(input: {
+    tenantId: TenantId;
+    limit?: number;
+    now?: Date;
+  }): Promise<ExpiredEditSessionSweepResult> {
+    const limit = Math.max(1, Math.min(input.limit ?? 100, 500));
+    const now = input.now ?? new Date();
+    const expiredCount = await this.auditService.transaction(input.tenantId, async (tx) => {
+      const candidates = await tx.query(
+        `
+          SELECT es.edit_session_id, es.document_id, d.matter_id, es.base_version_id,
+            bv.version_no AS base_version_no, es.status, es.client_kind, es.lock_owner_user_id,
+            es.checked_out_at, es.heartbeat_at, es.expires_at, es.checked_in_at,
+            es.cancelled_at, es.expired_at, es.conflicted_at, es.lock_token_hash
+          FROM document_edit_sessions es
+          JOIN documents d
+            ON d.tenant_id = es.tenant_id
+           AND d.document_id = es.document_id
+          JOIN document_versions bv
+            ON bv.tenant_id = es.tenant_id
+           AND bv.version_id = es.base_version_id
+          WHERE es.tenant_id = $1
+            AND es.status = 'active'
+            AND es.expires_at <= $2
+          ORDER BY es.expires_at ASC, es.edit_session_id ASC
+          LIMIT $3
+          FOR UPDATE OF es SKIP LOCKED
+        `,
+        [input.tenantId, now, limit],
+      );
+      const rows = candidates.rows as EditSessionRow[];
+      for (const row of rows) {
+        await this.expireSession(input.tenantId, row.lock_owner_user_id, row, tx);
+      }
+      return rows.length;
+    });
+    return { tenantId: input.tenantId, expiredCount };
   }
 
   async heartbeat(
@@ -634,7 +742,7 @@ export class DocumentEditingService {
               AND edit_session_id = $3
             RETURNING edit_session_id, document_id, base_version_id, status, client_kind,
               lock_owner_user_id, checked_out_at, heartbeat_at, expires_at, checked_in_at,
-              cancelled_at, expired_at, conflicted_at
+              cancelled_at, expired_at, conflicted_at, lock_token_hash
           )
           SELECT updated.*, d.matter_id, bv.version_no AS base_version_no
           FROM updated
@@ -1010,7 +1118,20 @@ export class DocumentEditingService {
         `,
         [context.tenantId, documentId, actorUserId],
       );
-      return { items: (result.rows as SubversionRow[]).map(mapSubversion) };
+      const rows = result.rows as SubversionRow[];
+      const revisionsBySubversionId = await this.findRevisionRowsForSubversions(
+        context.tenantId,
+        rows.map((row) => row.subversion_id),
+        tx,
+      );
+      return {
+        items: rows.map((row) =>
+          mapSubversion({
+            ...row,
+            revisions: revisionsBySubversionId.get(row.subversion_id) ?? [],
+          }),
+        ),
+      };
     });
   }
 
@@ -1383,6 +1504,7 @@ export class DocumentEditingService {
         editSessionId,
         this.permissionService.canCheckInDocument.bind(this.permissionService),
         tx,
+        input.lockToken,
       );
       if (session === 'expired') return { expired: true as const };
       const latest = await this.findLatestSavedSubversion(context.tenantId, editSessionId, tx);
@@ -1430,7 +1552,7 @@ export class DocumentEditingService {
               AND status = 'active'
             RETURNING edit_session_id, document_id, base_version_id, status, client_kind,
               lock_owner_user_id, checked_out_at, heartbeat_at, expires_at, checked_in_at,
-              cancelled_at, expired_at, conflicted_at
+              cancelled_at, expired_at, conflicted_at, lock_token_hash
           )
           SELECT updated.*, d.matter_id, bv.version_no AS base_version_no
           FROM updated
@@ -1455,7 +1577,7 @@ export class DocumentEditingService {
     actorUserId: string,
     documentId: string,
     editSessionId: string,
-    reasonCode?: string,
+    input: CancelDocumentEditSessionDto,
   ): Promise<DocumentEditSessionDto> {
     const context = this.tenantContext.require();
     const result = await this.auditService.transaction(context.tenantId, async (tx) => {
@@ -1466,6 +1588,7 @@ export class DocumentEditingService {
         editSessionId,
         this.permissionService.canCheckInDocument.bind(this.permissionService),
         tx,
+        input.lockToken,
       );
       if (session === 'expired') return { expired: true as const };
       await tx.query(
@@ -1489,7 +1612,7 @@ export class DocumentEditingService {
           matterId: session.matter_id,
           editSessionId,
           baseVersionId: session.base_version_id,
-          ...(reasonCode ? { reasonCode } : {}),
+          ...(input.cancelledReasonCode ? { reasonCode: input.cancelledReasonCode } : {}),
         }),
         tx,
       );
@@ -1508,7 +1631,7 @@ export class DocumentEditingService {
               AND status = 'active'
             RETURNING edit_session_id, document_id, base_version_id, status, client_kind,
               lock_owner_user_id, checked_out_at, heartbeat_at, expires_at, checked_in_at,
-              cancelled_at, expired_at, conflicted_at
+              cancelled_at, expired_at, conflicted_at, lock_token_hash
           )
           SELECT updated.*, d.matter_id, bv.version_no AS base_version_no
           FROM updated
@@ -1519,10 +1642,89 @@ export class DocumentEditingService {
             ON bv.tenant_id = $1
             AND bv.version_id = updated.base_version_id
         `,
-        [context.tenantId, documentId, editSessionId, reasonCode ?? null, audit.eventId],
+        [context.tenantId, documentId, editSessionId, input.cancelledReasonCode ?? null, audit.eventId],
       );
       const row = updated.rows[0] as EditSessionRow | undefined;
       if (!row) throw validationFailed('edit_session_conflict');
+      return { session: mapSession(row) };
+    });
+    if ('expired' in result) throw documentLocked('edit_session_expired');
+    return result.session;
+  }
+
+  async forceRelease(
+    actorUserId: string,
+    documentId: string,
+    editSessionId: string,
+    input: ForceReleaseDocumentEditSessionDto,
+  ): Promise<DocumentEditSessionDto> {
+    const context = this.tenantContext.require();
+    const result = await this.auditService.transaction(context.tenantId, async (tx) => {
+      const session = await this.findSessionById(context.tenantId, documentId, editSessionId, tx, true);
+      if (!session) throw notFoundDenied();
+      await this.assertCanForceReleaseEditLock(context.tenantId, actorUserId, session, tx);
+      if (session.status !== 'active') throw validationFailed('edit_session_not_found');
+      if (isExpired(session)) {
+        await this.expireSession(context.tenantId, actorUserId, session, tx);
+        return { expired: true as const };
+      }
+      await tx.query(
+        `
+          UPDATE document_subversions
+          SET status = 'abandoned',
+            abandoned_at = now(),
+            updated_at = now()
+          WHERE tenant_id = $1
+            AND document_id = $2
+            AND edit_session_id = $3
+            AND status = 'saved'
+        `,
+        [context.tenantId, documentId, editSessionId],
+      );
+      const audit = await this.auditService.log(
+        documentLockForceReleasedAudit({
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          documentId,
+          matterId: session.matter_id,
+          editSessionId,
+          baseVersionId: session.base_version_id,
+          lockOwnerUserId: session.lock_owner_user_id,
+          reasonCode: input.forceReleaseReasonCode,
+        }),
+        tx,
+      );
+      const updated = await tx.query(
+        `
+          WITH updated AS (
+            UPDATE document_edit_sessions
+            SET status = 'cancelled',
+              cancelled_at = now(),
+              cancelled_reason_code = $4,
+              last_audit_event_id = $5,
+              updated_at = now()
+            WHERE tenant_id = $1
+              AND document_id = $2
+              AND edit_session_id = $3
+              AND status = 'active'
+            RETURNING edit_session_id, document_id, base_version_id, status, client_kind,
+              lock_owner_user_id, checked_out_at, heartbeat_at, expires_at, checked_in_at,
+              cancelled_at, expired_at, conflicted_at, lock_token_hash
+          )
+          SELECT updated.*, d.matter_id, bv.version_no AS base_version_no
+          FROM updated
+          JOIN documents d
+            ON d.tenant_id = $1
+            AND d.document_id = updated.document_id
+          JOIN document_versions bv
+            ON bv.tenant_id = $1
+            AND bv.version_id = updated.base_version_id
+        `,
+        [context.tenantId, documentId, editSessionId, input.forceReleaseReasonCode, audit.eventId],
+      );
+      const row = updated.rows[0] as EditSessionRow | undefined;
+      if (!row) throw validationFailed('edit_session_conflict');
+      await this.upsertEditLockReleasedNotification(context.tenantId, session, audit, tx);
       return { session: mapSession(row) };
     });
     if ('expired' in result) throw documentLocked('edit_session_expired');
@@ -1600,6 +1802,8 @@ export class DocumentEditingService {
         return { conflict: true as const };
       }
       const nextVersionNo = this.versionNumberResolver.nextAfter(current.version_no);
+      const versionLabel = input.versionLabel ?? `v${nextVersionNo}.0`;
+      const versionSignificance = input.versionSignificance ?? 'final';
       const superseded = await tx.query(
         `
           UPDATE document_versions
@@ -1621,9 +1825,10 @@ export class DocumentEditingService {
           INSERT INTO document_versions (
             tenant_id, document_id, version_no, version_status, file_object_id, file_hash,
             created_by, supersedes_version_id, promoted_from_subversion_id, published_by,
-            published_at, publish_reason_code
+            published_at, publish_reason_code, version_label, version_significance,
+            rendition_type, base_clean_version_id
           )
-          VALUES ($1, $2, $3, 'current', $4, $5, $6, $7, $8, $6, now(), $9)
+          VALUES ($1, $2, $3, 'current', $4, $5, $6, $7, $8, $6, now(), $9, $10, $11, 'clean', NULL)
           RETURNING version_id, document_id, version_no, version_status, file_object_id,
             file_hash, created_by, created_at, supersedes_version_id,
             promoted_from_subversion_id, published_at
@@ -1638,6 +1843,8 @@ export class DocumentEditingService {
           current.version_id,
           subversionId,
           input.publishReasonCode ?? null,
+          versionLabel,
+          versionSignificance,
         ],
       );
       const version = inserted.rows[0] as PromotionVersionRow | undefined;
@@ -1662,6 +1869,8 @@ export class DocumentEditingService {
           promotedVersionId: version.version_id,
           versionNo: version.version_no,
           ...(input.publishReasonCode ? { reasonCode: input.publishReasonCode } : {}),
+          versionLabel,
+          versionSignificance,
         }),
         tx,
       );
@@ -1771,6 +1980,7 @@ export class DocumentEditingService {
         input.editSessionId,
         this.permissionService.canSaveDocumentSubversion.bind(this.permissionService),
         tx,
+        input.fields.lockToken,
       );
       if (session === 'expired') return { expired: true as const };
       if (shouldValidateEditPackageSave(input.fields)) {
@@ -1811,6 +2021,16 @@ export class DocumentEditingService {
     });
 
     try {
+      const extractedRevisions = await this.extractSubversionRevisions({
+        tenantId: context.tenantId,
+        documentId: input.documentId,
+        matterId: preflight.session.matter_id,
+        baseVersionId: preflight.session.base_version_id,
+        fileObjectId: input.prepared.fileObjectId,
+        storageUri: storage.storageUri,
+        normalizedFilename: input.prepared.normalizedFilename,
+        mimeType: input.prepared.mimeType,
+      });
       const saved = await this.auditService.transaction(context.tenantId, async (tx) => {
         const session = await this.requireOwnedActiveSession(
           context.tenantId,
@@ -1819,6 +2039,7 @@ export class DocumentEditingService {
           input.editSessionId,
           this.permissionService.canSaveDocumentSubversion.bind(this.permissionService),
           tx,
+          input.fields.lockToken,
         );
         if (session === 'expired') return { expired: true as const };
         await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
@@ -1931,7 +2152,18 @@ export class DocumentEditingService {
           `,
           [context.tenantId, input.documentId, subversion.subversion_id, audit.eventId],
         );
-        return { subversion: mapSubversion(subversion) };
+        const revisions = await this.storeSubversionRevisions(
+          {
+            tenantId: context.tenantId,
+            documentId: input.documentId,
+            matterId: session.matter_id,
+            baseVersionId: session.base_version_id,
+            subversionId: subversion.subversion_id,
+            revisions: extractedRevisions,
+          },
+          tx,
+        );
+        return { subversion: mapSubversion({ ...subversion, revisions }) };
       });
       if ('expired' in saved) throw documentLocked('edit_session_expired');
       return saved.subversion;
@@ -1970,12 +2202,14 @@ export class DocumentEditingService {
     editSessionId: string,
     permissionCheck: PermissionCheck,
     tx: PoolClient,
+    lockToken?: string,
   ): Promise<EditSessionRow | 'expired'> {
     const row = await this.findSessionById(tenantId, documentId, editSessionId, tx, true);
     if (!row) throw notFoundDenied();
     await this.assertAllowed(permissionCheck, tenantId, actorUserId, documentId);
     if (row.lock_owner_user_id !== actorUserId) throw permissionDenied();
     if (row.status !== 'active') throw validationFailed('edit_session_not_found');
+    if (lockToken !== undefined && !isValidLockToken(row, lockToken)) throw permissionDenied();
     if (!isExpired(row)) return row;
     await this.expireSession(tenantId, actorUserId, row, tx);
     return 'expired';
@@ -1995,6 +2229,89 @@ export class DocumentEditingService {
     }
     if (decision?.effect === 'ALLOW') return;
     if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
+    throw permissionDenied();
+  }
+
+  private async assertCanForceReleaseEditLock(
+    tenantId: TenantId,
+    actorUserId: string,
+    row: EditSessionRow,
+    tx: PoolClient,
+  ): Promise<void> {
+    const result = await tx.query<ForceReleasePermissionRow>(
+      `
+        WITH user_subjects AS (
+          SELECT 'user'::text AS subject_type, $2::text AS subject_id
+          UNION ALL
+          SELECT 'group', gm.group_id::text
+          FROM group_members gm
+          WHERE gm.tenant_id = $1
+            AND gm.user_id = $2::uuid
+        ),
+        actor AS (
+          SELECT u.role, mm.matter_role
+          FROM users u
+          LEFT JOIN matter_members mm
+            ON mm.tenant_id = u.tenant_id
+           AND mm.matter_id = $3
+           AND mm.user_id = u.user_id
+          WHERE u.tenant_id = $1
+            AND u.user_id = $2::uuid
+            AND u.status = 'active'
+          LIMIT 1
+        ),
+        wall_decision AS (
+          SELECT
+            bool_or(
+              EXISTS (
+                SELECT 1
+                FROM ethical_wall_memberships ewm
+                JOIN user_subjects us
+                  ON us.subject_type = ewm.subject_type
+                 AND us.subject_id = ewm.subject_id::text
+                WHERE ewm.tenant_id = ew.tenant_id
+                  AND ewm.wall_id = ew.wall_id
+                  AND ewm.membership_type = 'excluded'
+              )
+            ) AS user_is_excluded,
+            bool_or(
+              EXISTS (
+                SELECT 1
+                FROM ethical_wall_memberships ewm
+                WHERE ewm.tenant_id = ew.tenant_id
+                  AND ewm.wall_id = ew.wall_id
+                  AND ewm.membership_type = 'insider'
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM ethical_wall_memberships ewm
+                JOIN user_subjects us
+                  ON us.subject_type = ewm.subject_type
+                 AND us.subject_id = ewm.subject_id::text
+                WHERE ewm.tenant_id = ew.tenant_id
+                  AND ewm.wall_id = ew.wall_id
+                  AND ewm.membership_type = 'insider'
+              )
+            ) AS insider_required
+          FROM ethical_walls ew
+          WHERE ew.tenant_id = $1
+            AND ew.matter_id = $3
+            AND ew.status = 'active'
+        )
+        SELECT actor.role,
+          actor.matter_role,
+          COALESCE(wall_decision.user_is_excluded, false) AS user_is_excluded,
+          COALESCE(wall_decision.insider_required, false) AS insider_required
+        FROM actor
+        CROSS JOIN wall_decision
+      `,
+      [tenantId, actorUserId, row.matter_id],
+    );
+    const permission = result.rows[0];
+    if (!permission) throw permissionDenied();
+    if (permission.user_is_excluded || permission.insider_required) throw ethicalWallBlocked();
+    if (permission.matter_role === 'owner') return;
+    if (permission.role === 'firm_admin' || permission.role === 'security_admin') return;
     throw permissionDenied();
   }
 
@@ -2028,6 +2345,123 @@ export class DocumentEditingService {
           AND status = 'active'
       `,
       [tenantId, row.document_id, row.edit_session_id, audit.eventId],
+    );
+    await this.upsertEditLockExpiredNotification(tenantId, row, audit, tx);
+  }
+
+  private async upsertEditLockExpiredNotification(
+    tenantId: TenantId,
+    row: EditSessionRow,
+    audit: AuditLogResult,
+    tx: PoolClient,
+  ): Promise<void> {
+    await tx.query(
+      `
+        INSERT INTO notifications (
+          tenant_id, source, kind, target_type, target_id, matter_id, document_id,
+          recipient_scope, recipient_user_id, recipient_key, status, occurred_at,
+          created_audit_event_id, last_audit_event_id
+        )
+        VALUES (
+          $1, 'operational_data', 'edit_lock_expired', 'document', $2, $3, $2,
+          'user', $4::uuid, 'user:' || $4::uuid::text, 'unread', $5,
+          $6, $6
+        )
+        ON CONFLICT (tenant_id, source, kind, target_type, target_id, recipient_key)
+        DO UPDATE SET
+          occurred_at = EXCLUDED.occurred_at,
+          last_audit_event_id = EXCLUDED.last_audit_event_id,
+          status = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN 'unread'
+            ELSE notifications.status
+          END,
+          read_by = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.read_by
+          END,
+          read_at = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.read_at
+          END,
+          dismissed_by = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.dismissed_by
+          END,
+          dismissed_at = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.dismissed_at
+          END,
+          updated_at = now()
+      `,
+      [tenantId, row.document_id, row.matter_id, row.lock_owner_user_id, audit.createdAt, audit.eventId],
+    );
+  }
+
+  private async upsertEditLockReleasedNotification(
+    tenantId: TenantId,
+    row: EditSessionRow,
+    audit: AuditLogResult,
+    tx: PoolClient,
+  ): Promise<void> {
+    await tx.query(
+      `
+        INSERT INTO notifications (
+          tenant_id, source, kind, target_type, target_id, matter_id, document_id,
+          recipient_scope, recipient_user_id, recipient_key, status, occurred_at,
+          created_audit_event_id, last_audit_event_id
+        )
+        VALUES (
+          $1, 'operational_data', 'edit_lock_released', 'document', $2, $3, $2,
+          'user', $4::uuid, 'user:' || $4::uuid::text, 'unread', $5,
+          $6, $6
+        )
+        ON CONFLICT (tenant_id, source, kind, target_type, target_id, recipient_key)
+        DO UPDATE SET
+          occurred_at = EXCLUDED.occurred_at,
+          last_audit_event_id = EXCLUDED.last_audit_event_id,
+          status = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN 'unread'
+            ELSE notifications.status
+          END,
+          read_by = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.read_by
+          END,
+          read_at = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.read_at
+          END,
+          dismissed_by = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.dismissed_by
+          END,
+          dismissed_at = CASE
+            WHEN notifications.last_audit_event_id IS DISTINCT FROM EXCLUDED.last_audit_event_id
+              OR notifications.status = 'cancelled'
+              THEN NULL
+            ELSE notifications.dismissed_at
+          END,
+          updated_at = now()
+      `,
+      [tenantId, row.document_id, row.matter_id, row.lock_owner_user_id, audit.createdAt, audit.eventId],
     );
   }
 
@@ -2086,7 +2520,7 @@ export class DocumentEditingService {
         SELECT es.edit_session_id, es.document_id, d.matter_id, es.base_version_id,
           bv.version_no AS base_version_no, es.status, es.client_kind, es.lock_owner_user_id,
           es.checked_out_at, es.heartbeat_at, es.expires_at, es.checked_in_at,
-          es.cancelled_at, es.expired_at, es.conflicted_at
+          es.cancelled_at, es.expired_at, es.conflicted_at, es.lock_token_hash
         FROM document_edit_sessions es
         JOIN documents d
           ON d.tenant_id = es.tenant_id
@@ -2118,7 +2552,7 @@ export class DocumentEditingService {
         SELECT es.edit_session_id, es.document_id, d.matter_id, es.base_version_id,
           bv.version_no AS base_version_no, es.status, es.client_kind, es.lock_owner_user_id,
           es.checked_out_at, es.heartbeat_at, es.expires_at, es.checked_in_at,
-          es.cancelled_at, es.expired_at, es.conflicted_at
+          es.cancelled_at, es.expired_at, es.conflicted_at, es.lock_token_hash
         FROM document_edit_sessions es
         JOIN documents d
           ON d.tenant_id = es.tenant_id
@@ -2196,6 +2630,164 @@ export class DocumentEditingService {
       [tenantId, documentId, editSessionId, clientSaveId],
     );
     return (result.rows[0] as SubversionRow | undefined) ?? null;
+  }
+
+  private async findRevisionRowsForSubversions(
+    tenantId: TenantId,
+    subversionIds: readonly string[],
+    client: QueryClient,
+  ): Promise<Map<string, SubversionRevisionRow[]>> {
+    const revisionsBySubversionId = new Map<string, SubversionRevisionRow[]>();
+    if (subversionIds.length === 0) return revisionsBySubversionId;
+    const result = await client.query(
+      `
+        SELECT subversion_id, change_type, author_label, changed_at, before_text, after_text
+        FROM document_revisions
+        WHERE tenant_id = $1
+          AND subversion_id = ANY($2::uuid[])
+          AND stale = false
+        ORDER BY subversion_id, sequence_no
+      `,
+      [tenantId, subversionIds],
+    );
+    const rows = result.rows as Array<
+      SubversionRevisionRow & {
+        subversion_id: string;
+      }
+    >;
+    for (const row of rows) {
+      const rows = revisionsBySubversionId.get(row.subversion_id) ?? [];
+      rows.push(row);
+      revisionsBySubversionId.set(row.subversion_id, rows);
+    }
+    return revisionsBySubversionId;
+  }
+
+  private async extractSubversionRevisions(input: {
+    tenantId: TenantId;
+    documentId: string;
+    matterId: string;
+    baseVersionId: string;
+    fileObjectId: string;
+    storageUri: string;
+    normalizedFilename: string;
+    mimeType: string;
+  }): Promise<readonly DocumentRevisionExtractionInput[] | undefined> {
+    if (!this.extractionDispatcher) return undefined;
+    const target: ExtractionTarget = {
+      tenantId: input.tenantId,
+      documentId: input.documentId,
+      matterId: input.matterId,
+      versionId: input.baseVersionId,
+      fileObjectId: input.fileObjectId,
+      storageUri: input.storageUri,
+      normalizedFilename: input.normalizedFilename,
+      mimeType: input.mimeType,
+    };
+    try {
+      return await this.extractionDispatcher.extractRevisionsForTarget(target);
+    } catch {
+      this.logger.warn({
+        code: 'DOCUMENT_SUBVERSION_REVISION_EXTRACTION_UNAVAILABLE',
+        documentId: input.documentId,
+      });
+      return undefined;
+    }
+  }
+
+  private async storeSubversionRevisions(
+    input: {
+      tenantId: TenantId;
+      documentId: string;
+      matterId: string;
+      baseVersionId: string;
+      subversionId: string;
+      revisions: readonly DocumentRevisionExtractionInput[] | undefined;
+    },
+    client: QueryClient,
+  ): Promise<SubversionRevisionRow[]> {
+    if (input.revisions === undefined) return [];
+    await client.query(
+      `
+        UPDATE document_revisions
+        SET stale = true, updated_at = now()
+        WHERE tenant_id = $1
+          AND subversion_id = $2
+          AND stale = false
+      `,
+      [input.tenantId, input.subversionId],
+    );
+    const rows: SubversionRevisionRow[] = [];
+    for (const [sequenceNo, revision] of input.revisions.entries()) {
+      const changedAt = revision.changedAt ? new Date(revision.changedAt) : null;
+      await client.query(
+        `
+          INSERT INTO document_revisions (
+            tenant_id, matter_id, document_id, version_id, subversion_id,
+            sequence_no, change_type, author_label, changed_at,
+            before_text, after_text, before_text_hash, after_text_hash,
+            parser_version, stale
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'b10-worker-v1', false)
+        `,
+        [
+          input.tenantId,
+          input.matterId,
+          input.documentId,
+          input.baseVersionId,
+          input.subversionId,
+          sequenceNo,
+          revision.changeType,
+          revision.author,
+          changedAt,
+          revision.beforeText,
+          revision.afterText,
+          sha256Text(revision.beforeText),
+          sha256Text(revision.afterText),
+        ],
+      );
+      rows.push({
+        change_type: revision.changeType,
+        author_label: revision.author,
+        changed_at: changedAt,
+        before_text: revision.beforeText,
+        after_text: revision.afterText,
+      });
+    }
+    await this.auditService.log(
+      {
+        tenantId: input.tenantId,
+        actorType: 'system',
+        actorId: null,
+        action: 'DOCUMENT_REVISIONS_EXTRACTED',
+        targetType: 'document',
+        targetId: input.documentId,
+        matterId: input.matterId,
+        metadata: {
+          document_id: input.documentId,
+          matter_id: input.matterId,
+          version_id: input.baseVersionId,
+          subversion_id: input.subversionId,
+          item_count: input.revisions.length,
+          parser_status: 'success',
+          hash: sha256Text(
+            input.revisions
+              .map((revision) =>
+                [
+                  revision.changeType,
+                  revision.author ?? '',
+                  revision.changedAt ?? '',
+                  sha256Text(revision.beforeText),
+                  sha256Text(revision.afterText),
+                ].join(':'),
+              )
+              .join('|'),
+          ),
+        },
+      },
+      client,
+    );
+    return rows;
   }
 
   private async findBaseVersionFile(

@@ -7,8 +7,9 @@ import { hashPassword } from '../user/password';
 import { UserEntity } from '../user/user.entity';
 import type { UserService } from '../user/user.service';
 import type { AuditService } from '../audit/audit.service';
-import { AuthService } from './auth.service';
+import { AuthService, type LoginResult } from './auth.service';
 import { MfaPolicy } from './mfa.policy';
+import type { MfaService } from './mfa.service';
 import type { SessionRecord, SessionRepository } from './session.repository';
 
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
@@ -91,13 +92,14 @@ class MemorySessionRepository {
     userId: string;
     tokenHash: string;
     expiresAt: Date;
+    mfaVerified?: boolean;
   }): Promise<SessionRecord> {
     const session: SessionRecord = {
       sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       tenantId: input.tenantId,
       userId: input.userId,
       tokenHash: input.tokenHash,
-      mfaVerified: false,
+      mfaVerified: input.mfaVerified ?? false,
       expiresAt: input.expiresAt,
       revokedAt: null,
     };
@@ -130,13 +132,39 @@ function sessionFor(entity: UserEntity): SessionRecord {
   };
 }
 
-function createService(entity: UserEntity | null, tenantEntity: TenantEntity | null = tenant()) {
+function fakeMfaService(input: { hasActiveSecret?: boolean } = {}): MfaService {
+  return {
+    async hasActiveSecret() {
+      return input.hasActiveSecret ?? false;
+    },
+    async startChallenge() {
+      return {
+        mfaRequired: true,
+        mfaEnabled: true,
+        mfaChallengeId: `${tenantId}.challenge-token`,
+      };
+    },
+  } as unknown as MfaService;
+}
+
+function expectLoginComplete(
+  result: LoginResult,
+): asserts result is Extract<LoginResult, { mfaRequired?: false }> {
+  expect(result.mfaRequired).not.toBe(true);
+}
+
+function createService(
+  entity: UserEntity | null,
+  tenantEntity: TenantEntity | null = tenant(),
+  mfaService: MfaService = fakeMfaService(),
+) {
   const auditService = new MemoryAuditService();
   return new AuthService(
     fakeTenantService(tenantEntity),
     fakeUserService(entity),
     new MemorySessionRepository() as unknown as SessionRepository,
     new MfaPolicy(),
+    mfaService,
     auditService as unknown as AuditService,
   );
 }
@@ -149,6 +177,7 @@ describe('AuthService', () => {
       { tenantId, email: 'Alpha@Test.Local', password: 'secret-password' },
       { ipAddress: '127.0.0.1', userAgent: 'vitest' },
     );
+    expectLoginComplete(result);
 
     expect(result.sessionToken).toHaveLength(43);
     expect(result.session.tokenHash).toMatch(/^sha256:[0-9a-f]{64}$/);
@@ -164,6 +193,7 @@ describe('AuthService', () => {
       { email: 'Alpha@Test.Local', password: 'secret-password' },
       { ipAddress: '127.0.0.1', userAgent: 'vitest' },
     );
+    expectLoginComplete(result);
 
     expect(result.user.email).toBe('alpha@test.local');
     expect(result.session.tenantId).toBe(tenantId);
@@ -176,6 +206,7 @@ describe('AuthService', () => {
       fakeUserService(existingUser, null, { tenant: tenant(), user: existingUser }),
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
+      fakeMfaService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -183,6 +214,7 @@ describe('AuthService', () => {
       { accountLedgerId: 'ACCT-ALPHA-001', password: 'secret-password' },
       { ipAddress: '127.0.0.1', userAgent: 'vitest' },
     );
+    expectLoginComplete(result);
 
     expect(result.user.email).toBe('alpha@test.local');
     expect(result.session.tenantId).toBe(tenantId);
@@ -195,6 +227,7 @@ describe('AuthService', () => {
       fakeUserService(existingUser, null, { tenant: tenant(), user: existingUser }),
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
+      fakeMfaService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -243,6 +276,7 @@ describe('AuthService', () => {
       fakeUserService(null, null),
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
+      fakeMfaService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -272,7 +306,7 @@ describe('AuthService', () => {
     }
   });
 
-  it('fails closed for mfa_enabled users before R1 TOTP exists', async () => {
+  it('fails closed for mfa_enabled users without an active TOTP secret', async () => {
     const service = createService(await user('secret-password', true));
 
     await expect(
@@ -280,7 +314,28 @@ describe('AuthService', () => {
         { tenantId, email: 'alpha@test.local', password: 'secret-password' },
         { ipAddress: null, userAgent: null },
       ),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toMatchObject({
+      response: { code: 'AUTH_REQUIRED', reason: 'mfa_enrollment_required' },
+    });
+  });
+
+  it('returns an MFA challenge instead of a session for mfa_enabled users with TOTP', async () => {
+    const service = createService(
+      await user('secret-password', true),
+      tenant(),
+      fakeMfaService({ hasActiveSecret: true }),
+    );
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).resolves.toEqual({
+      mfaRequired: true,
+      mfaEnabled: true,
+      mfaChallengeId: `${tenantId}.challenge-token`,
+    });
   });
 
   it('denies external_user session issuance before R11', async () => {

@@ -4,6 +4,7 @@ import {
   emailFiledAudit,
   emailImportedAudit,
   emailMetadataUpdatedAudit,
+  emailRawDownloadedAudit,
 } from './email-events';
 
 const base = {
@@ -95,6 +96,36 @@ describe('email audit event builders', () => {
         document_id: documentId,
         filter_refs: `document_id:${documentId}`,
         result_count: 1,
+      },
+    });
+    expect(JSON.stringify(event)).not.toContain('Subject');
+    expect(JSON.stringify(event)).not.toContain('body');
+    expect(JSON.stringify(event)).not.toContain('person@example.test');
+  });
+
+  it('records raw email downloads as references and hashes only', () => {
+    const matterId = '11111111-1111-4111-8111-111111111122';
+    const rawFileObjectId = '11111111-1111-4111-8111-111111111144';
+    const event = emailRawDownloadedAudit({
+      ...base,
+      matterId,
+      rawFileObjectId,
+      rawSha256: 'c'.repeat(64),
+      reasonCode: 'casework',
+    });
+
+    expect(event).toMatchObject({
+      action: 'EMAIL_RAW_DOWNLOADED',
+      targetType: 'email',
+      targetId: base.emailId,
+      matterId,
+      metadata: {
+        scope_type: 'email_raw',
+        scope_id: base.emailId,
+        matter_id: matterId,
+        file_object_id: rawFileObjectId,
+        hash: 'c'.repeat(64),
+        reason_code: 'casework',
       },
     });
     expect(JSON.stringify(event)).not.toContain('Subject');

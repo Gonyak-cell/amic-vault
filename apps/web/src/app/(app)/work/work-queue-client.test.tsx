@@ -10,12 +10,16 @@ describe('WorkQueueClient', () => {
     expect(html).toContain('작업함');
     expect(html).toContain('권한과 운영 상태가 확인된 작업만 표시됩니다.');
     expect(html).toContain('작업함 조치 콘솔');
-    expect(html).toContain('전체 출처');
+    expect(html).toContain('전체 종류');
+    expect(html).toContain('전체 담당');
+    expect(html).toContain('전체 구분');
     expect(html).toContain('전체 상태');
     expect(html).toContain('주의 항목 우선');
-    expect(html).toContain('작업 API 연결 대기 중입니다.');
+    expect(html).toContain('업무 상태 연결 대기 중입니다.');
     expect(html).toContain('문서함 조치 필터');
-    expect(html).toContain('추출, OCR, 파일 정리 항목은 권한 내 문서함 필터로 바로 열 수 있습니다.');
+    expect(html).toContain(
+      '추출, OCR, 파일 정리 항목은 권한 내 문서함 필터로 바로 열 수 있습니다.',
+    );
     expect(html).toContain('/files?extractionStatus=failed');
     expect(html).toContain('/files?extractionStatus=ocr_pending');
     expect(html).toContain('/files?status=draft');
@@ -52,6 +56,7 @@ describe('WorkQueueClient', () => {
             status: 'ready',
             data: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
           },
+          usageStats: { status: 'unavailable' },
         }}
         workItemsState={{
           status: 'ready',
@@ -77,6 +82,7 @@ describe('WorkQueueClient', () => {
             {
               itemKey: 'document-work-0',
               source: 'operational_data',
+              kind: 'document_extraction_failed',
               sourceLabel: '문서 운영',
               title: '추출 실패 확인',
               description: 'AMIC-2026-0002 · 계약 증거 파일 · 추출 실패',
@@ -86,16 +92,75 @@ describe('WorkQueueClient', () => {
               statusLabel: '대기',
               dueAt: '2026-06-22T00:00:00.000Z',
             },
+            {
+              itemKey: 'workflow-work-aabbccddeeff',
+              source: 'operational_data',
+              kind: 'contract_review_stage',
+              sourceLabel: '워크플로',
+              title: '계약 검토 단계 확인',
+              description: 'AMIC-2026-0003 · Alpha Reviewer · 대기',
+              href: '/work?kind=contract_review_stage',
+              tone: 'warning',
+              status: 'open',
+              statusLabel: '대기',
+              assignedToLabel: 'Alpha Reviewer',
+              dueAt: '2026-06-23T00:00:00.000Z',
+            },
+            {
+              itemKey: 'workflow-work-ccddee001122',
+              targetId: '11111111-1111-4111-8111-111111111444',
+              source: 'operational_data',
+              kind: 'knowledge_candidate_review',
+              sourceLabel: '워크플로',
+              title: '지식은행 후보 검토',
+              description: 'AMIC-2026-0005 · 종결 의견서 · 대기',
+              href: '/work?kind=knowledge_candidate_review',
+              tone: 'warning',
+              status: 'open',
+              statusLabel: '대기',
+              assignedToLabel: 'Alpha Reviewer',
+              dueAt: '2026-06-24T00:00:00.000Z',
+            },
+            {
+              itemKey: 'graph-fact-review-bbccddeeff00',
+              targetId: '11111111-1111-4111-8111-111111111333',
+              source: 'ai_prep',
+              kind: 'graph_fact_review',
+              sourceLabel: 'AI 준비',
+              title: 'AI Fact 후보 확인',
+              description: 'AMIC-2026-0004 · 후보 계약서 · 매수인은 잔금을 지급했다.',
+              href: '/work?kind=graph_fact_review',
+              tone: 'warning',
+              status: 'open',
+              statusLabel: '대기',
+              assignedToLabel: 'Alpha Reviewer',
+              dueAt: '2026-06-24T00:00:00.000Z',
+            },
           ],
         }}
+        workPage={{ limit: 20, offset: 0, total: 26, hasNext: true }}
       />,
     );
 
     expect(html).toContain('권한/정책 알림 확인');
     expect(html).toContain('파일 정리 준비 상태 확인');
     expect(html).toContain('추출 실패 확인');
+    expect(html).toContain('계약 검토 단계 확인');
+    expect(html).toContain('지식은행 후보 검토');
+    expect(html).toContain('종결 의견서');
+    expect(html).toContain('승인');
+    expect(html).toContain('반려');
+    expect(html).toContain('AI Fact 후보 확인');
+    expect(html).toContain('매수인은 잔금을 지급했다.');
+    expect(html).toContain('확인');
+    expect(html).toContain('거절');
+    expect(html).toContain('담당자 Alpha Reviewer');
     expect(html).toContain('/files?extractionStatus=failed');
-    expect(html).toContain('3건 표시 · 전체 3건');
+    expect(html).toContain('6건 표시 · 전체 26건');
+    expect(html).toContain('1-20 / 26');
+    expect(html).toContain('담당자 재배정');
+    expect(html).toContain('새 담당자 ID');
+    expect(html).toContain('재배정');
     expect(html).toContain('권한/정책');
     expect(html).toContain('파일 정리 준비');
     expect(html).toContain('문서 운영');

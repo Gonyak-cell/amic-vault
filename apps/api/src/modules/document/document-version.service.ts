@@ -10,6 +10,8 @@ import type { PoolClient } from 'pg';
 import type { DocumentStatusValue } from '@amic-vault/domain';
 import type {
   DocumentVersionDto,
+  DocumentVersionRenditionType,
+  DocumentVersionSignificance,
   DocumentVersionListDto,
   DocumentVersionStatus,
   ListDocumentVersionsQueryDto,
@@ -18,6 +20,7 @@ import type {
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
+import { PreviewPrecreateQueueService } from '../preview/preview-precreate-queue.service';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { TenantContextService } from '../tenant/tenant-context';
 import { ExtractionQueueService } from './extraction/extraction-queue.service';
@@ -35,6 +38,10 @@ interface DocumentVersionRow {
   created_at: Date;
   supersedes_version_id: string | null;
   promoted_from_subversion_id: string | null;
+  version_label: string | null;
+  version_significance: DocumentVersionSignificance;
+  rendition_type: DocumentVersionRenditionType;
+  base_clean_version_id: string | null;
 }
 
 interface CurrentVersionRow {
@@ -57,6 +64,10 @@ export interface CreateInitialDocumentVersionInput {
   fileObjectId: string;
   fileHash: string;
   createdBy: string;
+  versionLabel?: string | null;
+  versionSignificance?: DocumentVersionSignificance | undefined;
+  renditionType?: DocumentVersionRenditionType | undefined;
+  baseCleanVersionId?: string | null;
 }
 
 export type AddNextDocumentVersionInput = CreateInitialDocumentVersionInput;
@@ -90,6 +101,10 @@ function mapVersion(row: DocumentVersionRow): DocumentVersionDto {
     createdAt: row.created_at.toISOString(),
     supersedesVersionId: row.supersedes_version_id,
     promotedFromSubversionId: row.promoted_from_subversion_id,
+    versionLabel: row.version_label,
+    versionSignificance: row.version_significance,
+    renditionType: row.rendition_type,
+    baseCleanVersionId: row.base_clean_version_id,
   };
 }
 
@@ -116,6 +131,9 @@ export class DocumentVersionService {
     @Optional()
     @Inject(SearchIndexSyncHook)
     private readonly searchIndexSync?: SearchIndexSyncHook,
+    @Optional()
+    @Inject(PreviewPrecreateQueueService)
+    private readonly previewPrecreateQueue?: PreviewPrecreateQueueService,
   ) {}
 
   async createInitialVersion(
@@ -126,12 +144,14 @@ export class DocumentVersionService {
       `
         INSERT INTO document_versions (
           tenant_id, document_id, version_no, version_status, file_object_id, file_hash,
-          created_by, supersedes_version_id
+          created_by, supersedes_version_id, version_label, version_significance, rendition_type,
+          base_clean_version_id
         )
-        VALUES ($1, $2, $3, 'current', $4, $5, $6, NULL)
+        VALUES ($1, $2, $3, 'current', $4, $5, $6, NULL, $7, $8, $9, $10)
         RETURNING version_id, document_id, version_no, version_status, file_object_id,
           file_hash, created_by, created_at, supersedes_version_id,
-          NULL::uuid AS promoted_from_subversion_id
+          NULL::uuid AS promoted_from_subversion_id, version_label, version_significance,
+          rendition_type, base_clean_version_id
       `,
       [
         input.tenantId,
@@ -140,6 +160,10 @@ export class DocumentVersionService {
         input.fileObjectId,
         input.fileHash,
         input.createdBy,
+        input.versionLabel ?? null,
+        input.versionSignificance ?? 'internal_draft',
+        input.renditionType ?? 'clean',
+        input.baseCleanVersionId ?? null,
       ],
     );
     const row = result.rows[0] as DocumentVersionRow | undefined;
@@ -151,6 +175,16 @@ export class DocumentVersionService {
         documentId: input.documentId,
         versionId: version.versionId,
         fileObjectId: input.fileObjectId,
+      },
+      client,
+    );
+    await this.previewPrecreateQueue?.enqueueVersionCreated(
+      {
+        tenantId: input.tenantId,
+        documentId: input.documentId,
+        versionId: version.versionId,
+        fileObjectId: input.fileObjectId,
+        actorUserId: input.createdBy,
       },
       client,
     );
@@ -167,6 +201,7 @@ export class DocumentVersionService {
 
     const current = await this.findCurrentVersion(input.tenantId, input.documentId, client);
     if (!current) throw validationFailed('DOCUMENT_VERSION_BASELINE_MISSING');
+    await this.assertBaseCleanVersion(input, client);
     const nextVersionNo = this.versionNumberResolver.nextAfter(current.version_no);
 
     const superseded = await client.query(
@@ -190,12 +225,14 @@ export class DocumentVersionService {
       `
         INSERT INTO document_versions (
           tenant_id, document_id, version_no, version_status, file_object_id, file_hash,
-          created_by, supersedes_version_id
+          created_by, supersedes_version_id, version_label, version_significance, rendition_type,
+          base_clean_version_id
         )
-        VALUES ($1, $2, $3, 'current', $4, $5, $6, $7)
+        VALUES ($1, $2, $3, 'current', $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING version_id, document_id, version_no, version_status, file_object_id,
           file_hash, created_by, created_at, supersedes_version_id,
-          NULL::uuid AS promoted_from_subversion_id
+          NULL::uuid AS promoted_from_subversion_id, version_label, version_significance,
+          rendition_type, base_clean_version_id
       `,
       [
         input.tenantId,
@@ -205,6 +242,10 @@ export class DocumentVersionService {
         input.fileHash,
         input.createdBy,
         current.version_id,
+        input.versionLabel ?? null,
+        input.versionSignificance ?? 'internal_draft',
+        input.renditionType ?? 'clean',
+        input.baseCleanVersionId ?? null,
       ],
     );
     const row = inserted.rows[0] as DocumentVersionRow | undefined;
@@ -216,6 +257,16 @@ export class DocumentVersionService {
         documentId: input.documentId,
         versionId: version.versionId,
         fileObjectId: input.fileObjectId,
+      },
+      client,
+    );
+    await this.previewPrecreateQueue?.enqueueVersionCreated(
+      {
+        tenantId: input.tenantId,
+        documentId: input.documentId,
+        versionId: version.versionId,
+        fileObjectId: input.fileObjectId,
+        actorUserId: input.createdBy,
       },
       client,
     );
@@ -254,7 +305,8 @@ export class DocumentVersionService {
         `
           SELECT version_id, document_id, version_no, version_status, file_object_id,
             file_hash, created_by, created_at, supersedes_version_id,
-            ${promotedFromSubversionIdProjection}
+            ${promotedFromSubversionIdProjection}, version_label, version_significance,
+            rendition_type, base_clean_version_id
           FROM document_versions
           WHERE ${filters.join(' AND ')}
           ORDER BY version_no DESC, created_at DESC, version_id DESC
@@ -362,6 +414,30 @@ export class DocumentVersionService {
       [tenantId, documentId],
     );
     return (result.rows[0] as CurrentVersionRow | undefined) ?? null;
+  }
+
+  private async assertBaseCleanVersion(
+    input: AddNextDocumentVersionInput,
+    client: QueryClient,
+  ): Promise<void> {
+    if ((input.renditionType ?? 'clean') === 'clean') {
+      if (input.baseCleanVersionId) throw validationFailed('BASE_CLEAN_VERSION_NOT_ALLOWED');
+      return;
+    }
+    if (!input.baseCleanVersionId) throw validationFailed('BASE_CLEAN_VERSION_REQUIRED');
+    const result = await client.query(
+      `
+        SELECT version_id
+        FROM document_versions
+        WHERE tenant_id = $1
+          AND document_id = $2
+          AND version_id = $3
+          AND rendition_type = 'clean'
+        LIMIT 1
+      `,
+      [input.tenantId, input.documentId, input.baseCleanVersionId],
+    );
+    if (result.rowCount !== 1) throw validationFailed('BASE_CLEAN_VERSION_REQUIRED');
   }
 
   private async promotedFromSubversionIdProjection(client: QueryClient): Promise<string> {

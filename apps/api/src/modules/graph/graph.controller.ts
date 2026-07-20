@@ -4,12 +4,18 @@ import {
   Controller,
   Get,
   Inject,
+  Param,
   Post,
   Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { graphFactsQuerySchema, graphSyncRequestSchema } from '@amic-vault/shared';
+import {
+  graphFactsQuerySchema,
+  graphNeighborhoodQuerySchema,
+  graphNodeReviewRequestSchema,
+  graphSyncRequestSchema,
+} from '@amic-vault/shared';
 import { RequireRoles } from '../../common/decorators/require-roles.decorator';
 import { RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import type { RequestWithSession } from '../auth/session.guard';
@@ -68,11 +74,33 @@ export class GraphController {
     });
   }
 
+  @Get('neighborhood')
+  listNeighborhood(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
+    const input = parseOrValidation(() => graphNeighborhoodQuerySchema.parse(query));
+    return this.query.listNeighborhood(sessionParts(request), {
+      nodeId: input.nodeId,
+      depth: input.depth,
+      edgeTypes: input.edgeTypes,
+      cursor: input.cursor,
+      limit: input.limit,
+    });
+  }
+
   @Get('consistency')
   @RequireRoles('firm_admin', 'security_admin')
   @UseGuards(RequireRolesGuard)
   checkConsistency(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
     const input = parseOrValidation(() => graphFactsQuerySchema.parse(query));
     return this.consistency.checkMatter(sessionParts(request), input.matterId);
+  }
+
+  @Post('nodes/:nodeId/review')
+  reviewFactNode(
+    @Req() request: RequestWithSession,
+    @Param('nodeId') nodeId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => graphNodeReviewRequestSchema.parse(body ?? {}));
+    return this.sync.reviewFactNode(sessionParts(request), nodeId, input);
   }
 }

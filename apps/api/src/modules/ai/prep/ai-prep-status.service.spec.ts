@@ -255,6 +255,78 @@ describe('AiPrepStatusService', () => {
     expect(readiness.documents[0]?.readinessStatus).toBe('rejected');
   });
 
+  it('includes matter timeline and latest matter summary signals in admin readiness', async () => {
+    const { service } = createService([
+      [{ role: 'security_admin', status: 'active' }],
+      [{ matter_id: matterId }],
+      [
+        {
+          document_id: documentId,
+          title: 'Matter file',
+          ai_allowed: true,
+          version_id: versionId,
+          total_artifact_count: 1,
+          completed_artifact_count: 1,
+          pending_artifact_count: 0,
+          blocked_artifact_count: 0,
+          failed_artifact_count: 0,
+          rejected_artifact_count: 0,
+          stale_artifact_count: 0,
+          fallback_artifact_count: 0,
+          updated_at: new Date('2026-06-15T00:00:01.000Z'),
+        },
+      ],
+      [
+        {
+          ai_prep_artifact_id: artifactId,
+          document_id: documentId,
+          document_version_id: versionId,
+          generated_at: new Date('2026-06-15T00:00:02.000Z'),
+          updated_at: new Date('2026-06-15T00:00:02.000Z'),
+          payload_json: {
+            answer: 'Matter timeline contains 1 cited dated fact.',
+            sections: [
+              {
+                section_id: 'timeline-1',
+                heading: '계약서 수령',
+                text: '2026-06-15 계약서 수령',
+                source_refs: [`chunk:${chunkId}`],
+              },
+            ],
+            claims: [
+              {
+                claim_id: 'timeline-1',
+                kind: 'timeline',
+                text: '2026-06-15 계약서 수령',
+                source_refs: [`chunk:${chunkId}`],
+                is_legal_conclusion: false,
+              },
+            ],
+            source_refs: [`chunk:${chunkId}`],
+          },
+        },
+      ],
+      [
+        {
+          response_text: JSON.stringify(summaryResponse()),
+        },
+      ],
+    ]);
+
+    const readiness = await service.getMatterReadiness({ tenantId, userId }, matterId);
+
+    expect(readiness.timeline[0]).toMatchObject({
+      date: '2026-06-15',
+      documentId,
+      citationRefs: [`chunk:${chunkId}`],
+    });
+    expect(readiness.openQuestions[0]?.question).toContain('회신');
+    expect(readiness.recommendedActions[0]).toMatchObject({
+      action: '담당 변호사 검토',
+      reviewRequired: true,
+    });
+  });
+
   it('records structured artifact feedback and audits reference metadata only', async () => {
     const { audit, documentPermission, service } = createService([
       [
@@ -327,3 +399,55 @@ describe('AiPrepStatusService', () => {
     expect(response.enqueuedJobCount).toBe(1);
   });
 });
+
+function summaryResponse() {
+  return {
+    sessionId: '11111111-1111-4111-8111-111111111210',
+    matterId,
+    task: 'matter_summary',
+    status: 'completed',
+    modelRoute: 'local_gemma',
+    evidencePackId: '11111111-1111-4111-8111-111111111211',
+    conclusion: '근거 기반 요약입니다.',
+    openQuestions: [
+      {
+        question: '상대방 회신 여부 확인',
+        neededEvidence: '최근 이메일 또는 송부 기록',
+        citationRefs: [`chunk:${chunkId}`],
+      },
+    ],
+    recommendedActions: [{ action: '담당 변호사 검토', reviewRequired: true }],
+    excludedSourcesNotice: { count: 0 },
+    citations: [
+      {
+        citationRef: `chunk:${chunkId}`,
+        matterId,
+        documentId,
+        versionId,
+        chunkId,
+        quoteHash: 'a'.repeat(64),
+        sourceTextHash: 'b'.repeat(64),
+      },
+    ],
+    claims: [
+      {
+        claimId: 'claim-1',
+        claimHash: 'c'.repeat(64),
+        citationRefs: [`chunk:${chunkId}`],
+        isLegalConclusion: false,
+      },
+    ],
+    sections: [
+      {
+        sectionId: 'summary',
+        heading: '요약',
+        text: '근거 기반 요약입니다.',
+        citationRefs: [`chunk:${chunkId}`],
+      },
+    ],
+    warnings: ['NO_DENIED_SOURCES_INCLUDED'],
+    citationWarnings: [],
+    escalationRequired: true,
+    legalConclusionAutoApproval: false,
+  };
+}

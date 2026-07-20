@@ -15,6 +15,7 @@ const documentId = '11111111-1111-4111-8111-1111111111dd';
 const matterId = '11111111-1111-4111-8111-1111111111aa';
 const baseVersionId = '11111111-1111-4111-8111-1111111111b1';
 const editSessionId = '11111111-1111-4111-8111-1111111111e1';
+const secondEditSessionId = '11111111-1111-4111-8111-1111111111e2';
 const subversionId = '11111111-1111-4111-8111-1111111111s1';
 const promotedVersionId = '11111111-1111-4111-8111-1111111111f4';
 const fileObjectId = '11111111-1111-4111-8111-1111111111f1';
@@ -22,6 +23,8 @@ const subversionReviewerId = '11111111-1111-4111-8111-1111111111a5';
 const subversionReviewId = '11111111-1111-4111-8111-1111111111d1';
 const reviewerUserId = '11111111-1111-4111-8111-111111111102';
 const hash = 'a'.repeat(64);
+const lockToken = 'edit-lock-token-2026';
+const lockTokenHash = createHash('sha256').update(lockToken).digest('hex');
 const now = new Date('2026-06-22T00:00:00.000Z');
 const future = new Date('2099-06-22T01:00:00.000Z');
 
@@ -65,6 +68,7 @@ function sessionRow(overrides: Record<string, unknown> = {}) {
     cancelled_at: null,
     expired_at: null,
     conflicted_at: null,
+    lock_token_hash: lockTokenHash,
     ...overrides,
   };
 }
@@ -206,6 +210,7 @@ function createService() {
   const deleteByStorageUri = vi.fn(async () => undefined);
   const enqueueVersionCreated = vi.fn(async () => 'extraction-job-id');
   const enqueueVersion = vi.fn(async () => undefined);
+  const extractRevisionsForTarget = vi.fn(async () => undefined);
   const permissionService = {
     canCheckoutDocument: vi.fn(async () => allowPermission()),
     canReadDocumentSubversion: vi.fn(async () => allowPermission()),
@@ -221,6 +226,7 @@ function createService() {
     { require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }) } as never,
     new VersionNumberResolver(),
     { enqueueVersionCreated } as never,
+    { extractRevisionsForTarget } as never,
     { enqueueVersion } as never,
   );
   return {
@@ -229,6 +235,7 @@ function createService() {
     deleteByStorageUri,
     enqueueVersion,
     enqueueVersionCreated,
+    extractRevisionsForTarget,
     permissionService,
     getByStorageUri,
     putTenantObject,
@@ -328,6 +335,165 @@ describe('DocumentEditingService', () => {
       expect.anything(),
     );
     expect(query.mock.calls[2]?.[0]).toContain("SET status = 'expired'");
+    expect(query.mock.calls[3]?.[0]).toContain("kind, target_type, target_id");
+    expect(query.mock.calls[3]?.[0]).toContain("'edit_lock_expired'");
+    expect(query.mock.calls[3]?.[1]).toEqual([
+      tenantId,
+      documentId,
+      matterId,
+      actorUserId,
+      now,
+      'audit-DOCUMENT_LOCK_EXPIRED',
+    ]);
+  });
+
+  it('sweeps expired active sessions with audit and owner notifications', async () => {
+    const { auditLog, query, service } = createService();
+    const sweepNow = new Date('2026-07-03T00:00:00.000Z');
+    query
+      .mockResolvedValueOnce({
+        rowCount: 2,
+        rows: [
+          sessionRow({ expires_at: new Date('2026-07-02T23:00:00.000Z') }),
+          sessionRow({
+            edit_session_id: secondEditSessionId,
+            expires_at: new Date('2026-07-02T23:30:00.000Z'),
+          }),
+        ],
+      })
+      .mockResolvedValue({ rowCount: 1, rows: [] });
+
+    await expect(
+      service.sweepExpiredSessionsForTenant({ tenantId, limit: 999, now: sweepNow }),
+    ).resolves.toEqual({ tenantId, expiredCount: 2 });
+
+    expect(query.mock.calls[0]?.[0]).toContain('FOR UPDATE OF es SKIP LOCKED');
+    expect(query.mock.calls[0]?.[1]).toEqual([tenantId, sweepNow, 500]);
+    expect(auditLog).toHaveBeenCalledTimes(2);
+    expect(auditLog).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        action: 'DOCUMENT_LOCK_EXPIRED',
+        metadata: expect.objectContaining({ edit_session_id: editSessionId }),
+      }),
+      expect.anything(),
+    );
+    expect(auditLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        action: 'DOCUMENT_LOCK_EXPIRED',
+        metadata: expect.objectContaining({ edit_session_id: secondEditSessionId }),
+      }),
+      expect.anything(),
+    );
+    expect(query.mock.calls[1]?.[0]).toContain("SET status = 'expired'");
+    expect(query.mock.calls[2]?.[0]).toContain("'edit_lock_expired'");
+    expect(query.mock.calls[3]?.[0]).toContain("SET status = 'expired'");
+    expect(query.mock.calls[4]?.[0]).toContain("'edit_lock_expired'");
+  });
+
+  it('force releases active edit sessions for matter owners with audit and owner notifications', async () => {
+    const { auditLog, query, service } = createService();
+    query
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [sessionRow({ lock_owner_user_id: reviewerUserId })],
+      })
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          {
+            role: 'matter_member',
+            matter_role: 'owner',
+            user_is_excluded: false,
+            insider_required: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          sessionRow({
+            status: 'cancelled',
+            lock_owner_user_id: reviewerUserId,
+            cancelled_at: now,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });
+
+    await expect(
+      service.forceRelease(actorUserId, documentId, editSessionId, {
+        forceReleaseReasonCode: 'OWNER_FORCE_RELEASE',
+      }),
+    ).resolves.toMatchObject({
+      editSessionId,
+      lockOwnerUserId: reviewerUserId,
+      status: 'cancelled',
+    });
+
+    expect(query.mock.calls[1]?.[0]).toContain('ethical_walls');
+    expect(query.mock.calls[2]?.[0]).toContain("SET status = 'abandoned'");
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DOCUMENT_LOCK_FORCE_RELEASED',
+        metadata: expect.objectContaining({
+          edit_session_id: editSessionId,
+          target_user_id: reviewerUserId,
+          reason_code: 'OWNER_FORCE_RELEASE',
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(query.mock.calls[3]?.[0]).toContain("SET status = 'cancelled'");
+    expect(query.mock.calls[4]?.[0]).toContain("'edit_lock_released'");
+    expect(query.mock.calls[4]?.[1]).toEqual([
+      tenantId,
+      documentId,
+      matterId,
+      reviewerUserId,
+      now,
+      'audit-DOCUMENT_LOCK_FORCE_RELEASED',
+    ]);
+  });
+
+  it('allows tenant admins to force release edit sessions without matter membership', async () => {
+    const { query, service } = createService();
+    query
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [sessionRow({ lock_owner_user_id: reviewerUserId })],
+      })
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          {
+            role: 'firm_admin',
+            matter_role: null,
+            user_is_excluded: false,
+            insider_required: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          sessionRow({
+            status: 'cancelled',
+            lock_owner_user_id: reviewerUserId,
+            cancelled_at: now,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] });
+
+    await expect(
+      service.forceRelease(actorUserId, documentId, editSessionId, {
+        forceReleaseReasonCode: 'ADMIN_FORCE_RELEASE',
+      }),
+    ).resolves.toMatchObject({ status: 'cancelled' });
   });
 
   it('saves an internal subversion without creating an official extraction or search job', async () => {
@@ -363,7 +529,7 @@ describe('DocumentEditingService', () => {
       actorUserId,
       documentId,
       editSessionId,
-      fields: { visibilityScope: 'matter_editors', saveReasonCode: 'AUTOSAVE' },
+      fields: { visibilityScope: 'matter_editors', lockToken, saveReasonCode: 'AUTOSAVE' },
       file,
     });
 
@@ -419,6 +585,7 @@ describe('DocumentEditingService', () => {
       fields: {
         visibilityScope: 'matter_editors',
         clientSaveId: 'native-save-2026:0001',
+        lockToken,
       },
       file,
     });
@@ -486,6 +653,7 @@ describe('DocumentEditingService', () => {
         fields: {
           editPackageMode: 'vault_text',
           expectedBaseSha256: 'b'.repeat(64),
+          lockToken,
           visibilityScope: 'matter_editors',
         },
         file,
@@ -881,6 +1049,7 @@ describe('DocumentEditingService', () => {
     const response = await service.saveNativeDraft(actorUserId, documentId, editSessionId, {
       clientSaveId: 'native-save-2026:0001',
       content,
+      lockToken,
       saveReasonCode: 'NATIVE_SAVE',
       visibilityScope: 'matter_editors',
     });
@@ -933,6 +1102,7 @@ describe('DocumentEditingService', () => {
 
     const response = await service.checkIn(actorUserId, documentId, editSessionId, {
       expectedLastSubversionId: subversionId,
+      lockToken,
     });
 
     expect(response.status).toBe('checked_in');

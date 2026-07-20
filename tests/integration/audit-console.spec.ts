@@ -5,7 +5,11 @@ import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
+import { AuditAnchorService } from '../../apps/api/src/modules/audit/audit-anchor.service';
+import { AuditMetadataNormalizer } from '../../apps/api/src/modules/audit/audit-metadata.normalizer';
+import { AuditService } from '../../apps/api/src/modules/audit/audit.service';
 import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
+import { TenantContextService } from '../../apps/api/src/modules/tenant/tenant-context';
 import {
   createAppClient,
   createOwnerClient,
@@ -17,9 +21,13 @@ import {
 
 const alphaFirmAdminUserId = '11111111-1111-4111-8111-111111111100';
 const alphaSecurityAdminUserId = '11111111-1111-4111-8111-111111111110';
-const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
 const betaOwnerUserId = '22222222-2222-4222-8222-222222222201';
+
+function uniqueAnchorDate(): string {
+  const offset = Number.parseInt(randomUUID().split('-').join('').slice(0, 6), 16) % 20000;
+  return new Date(Date.UTC(2030, 0, 1 + offset)).toISOString().slice(0, 10);
+}
 
 async function login(
   baseUrl: string,
@@ -62,6 +70,46 @@ async function insertAuditFixture(): Promise<void> {
   });
 }
 
+async function insertAnchorAuditFixture(anchorDate: string): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO audit_events (
+          tenant_id, actor_id, action, target_type, target_id, result,
+          metadata_json, created_at
+        )
+        VALUES
+          ($1, $2, 'ACCESS_DENIED', 'user', $3, 'denied', $4::jsonb, $5::timestamptz),
+          ($1, $6, 'LOGIN_SUCCESS', 'user', $6, 'success', '{}'::jsonb, $7::timestamptz)
+      `,
+      [
+        tenantAlphaId,
+        alphaSecurityAdminUserId,
+        alphaMemberUserId,
+        JSON.stringify({ reason_code: 'PERMISSION_DENIED' }),
+        `${anchorDate}T00:00:00.000Z`,
+        alphaFirmAdminUserId,
+        `${anchorDate}T00:01:00.000Z`,
+      ],
+    );
+  });
+}
+
+async function clearAuditAnchorFixtures(): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      'ALTER TABLE audit_daily_anchors DISABLE TRIGGER trg_audit_daily_anchors_block_update_delete',
+    );
+    try {
+      await client.query('DELETE FROM audit_daily_anchors WHERE tenant_id = $1', [tenantAlphaId]);
+    } finally {
+      await client.query(
+        'ALTER TABLE audit_daily_anchors ENABLE TRIGGER trg_audit_daily_anchors_block_update_delete',
+      );
+    }
+  });
+}
+
 async function latestAuditConsoleAction(action: string) {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{
@@ -82,6 +130,20 @@ async function latestAuditConsoleAction(action: string) {
     );
     return result.rows[0];
   });
+}
+
+function createAnchorService(): AuditAnchorService {
+  const storage = {
+    putAuditAnchorObject: async (input: { tenantId: string; anchorDate: string }) => ({
+      key: `tenants/${input.tenantId}/audit-anchors/${input.anchorDate}.json`,
+      storageUri: `s3://vault-dev/tenants/${input.tenantId}/audit-anchors/${input.anchorDate}.json`,
+      encryptionKeyId: null,
+    }),
+  };
+  return new AuditAnchorService(
+    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    storage,
+  );
 }
 
 describe('audit console integration', () => {
@@ -213,6 +275,41 @@ describe('audit console integration', () => {
       export_format: 'csv',
       scope_type: 'tenant_audit',
     });
+  });
+
+  it('returns the recent audit anchor verification badge status', async () => {
+    const anchorDate = uniqueAnchorDate();
+    await clearAuditAnchorFixtures();
+    await insertAnchorAuditFixture(anchorDate);
+    await createAnchorService().recordDailyAnchor({
+      tenantId: tenantAlphaId,
+      anchorDate,
+    });
+
+    const response = await fetch(`${baseUrl}/v1/audit-events/anchors`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const body = await response.text();
+    expect(response.status, body).toBe(200);
+    const parsed = JSON.parse(body) as {
+      status: string;
+      latest: {
+        anchorDate: string;
+        eventCount: number;
+        storageRecorded: boolean;
+      } | null;
+      mismatchCount: number;
+    };
+
+    expect(parsed).toMatchObject({
+      status: 'verified',
+      mismatchCount: 0,
+      latest: {
+        anchorDate,
+        storageRecorded: true,
+      },
+    });
+    expect(parsed.latest?.eventCount).toBeGreaterThan(0);
   });
 });
 

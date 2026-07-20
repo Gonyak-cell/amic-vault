@@ -69,6 +69,7 @@ export const enterpriseDmsSearchRefinerFieldKeys = [
   'confidentiality_level',
   'document_type',
   'extraction_status',
+  'ocr_confidence',
   'legal_hold',
   'matter',
   'matter_code',
@@ -491,6 +492,13 @@ export const createEnterpriseBackupSnapshotRequestSchema = z
   .object({
     scope: enterpriseBackupScopeSchema,
     reasonCode: codeSchema,
+    status: enterpriseBackupStatusSchema.optional(),
+    drillId: keySchema.optional(),
+    drillEvidenceRef: keySchema.optional(),
+    drillManifestHash: hash64Schema.optional(),
+    schemaHash: hash64Schema.optional(),
+    restoredSchemaHash: hash64Schema.optional(),
+    rowCountsDriftHash: hash64Schema.optional(),
   })
   .strict();
 
@@ -503,6 +511,12 @@ export const enterpriseBackupSnapshotSchema = z
     rowCountsHash: hash64Schema,
     tableCount: z.number().int().min(0),
     reasonCode: codeSchema,
+    drillId: keySchema.nullable(),
+    drillEvidenceRef: keySchema.nullable(),
+    drillManifestHash: hash64Schema.nullable(),
+    schemaHash: hash64Schema.nullable(),
+    restoredSchemaHash: hash64Schema.nullable(),
+    rowCountsDriftHash: hash64Schema.nullable(),
     createdAt: z.string().datetime(),
   })
   .strict();

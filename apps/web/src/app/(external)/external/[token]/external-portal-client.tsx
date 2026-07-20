@@ -49,7 +49,7 @@ const portalCopy: Record<
   }
 > = {
   ko: {
-    eyebrow: 'AMIC Vault 외부 공유',
+    eyebrow: 'AMIC 문서 공유',
     title: '공유 문서',
     loading: '접근 상태를 확인하는 중입니다.',
     blocked: '이 링크로는 더 이상 접근할 수 없습니다.',

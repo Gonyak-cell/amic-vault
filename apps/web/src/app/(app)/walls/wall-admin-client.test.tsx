@@ -14,7 +14,7 @@ describe('WallAdminClient', () => {
 
     expect(html).toContain('정보 장벽');
     expect(html).toContain('aria-label="정보 장벽 조회"');
-    expect(html).toContain('Matter app 연결 필요');
+    expect(html).toContain('Matter 관리 시스템 연결 필요');
     expect(html).toContain('정책 작업');
     expect(html).toContain('정보 장벽 추가');
     expect(html).toContain('정보 장벽 구성원 추가');
@@ -23,8 +23,8 @@ describe('WallAdminClient', () => {
     expect(html).toContain('차단 예외');
     expect(html).toContain('접근 차단');
     expect(html).not.toContain('보안 운영 참조 입력');
-    expect(html).not.toContain('사용자 참조');
-    expect(html).not.toContain('정보 장벽 참조');
+    expect(html).not.toContain('사용자 식별값');
+    expect(html).not.toContain('정보 장벽 식별값');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain('정보 장벽 ID');
     expect(html).not.toContain('사용자 ID');

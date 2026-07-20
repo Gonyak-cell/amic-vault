@@ -87,6 +87,8 @@ describe('AiOpsService', () => {
           stale_rebuild_count: 1,
           generation_completed_count: 2,
           generation_blocked_count: 0,
+          generation_fallback_count: 1,
+          generation_fallback_rate: 0.5,
           invalid_output_count: 1,
           citation_rejected_count: 0,
           p95_prep_latency_ms: 1200,
@@ -100,6 +102,7 @@ describe('AiOpsService', () => {
     expect(metrics.prepCompletedCount).toBe(3);
     expect(metrics.prepRejectedCount).toBe(1);
     expect(metrics.prepFallbackCount).toBe(2);
+    expect(metrics.generationFallbackRate).toBe(0.5);
     expect(JSON.stringify(metrics)).not.toMatch(/body|content|snippet|raw|prompt|response/i);
   });
 

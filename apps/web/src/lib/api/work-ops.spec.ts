@@ -7,6 +7,9 @@ import {
   markNotificationRead,
   notificationCenterToState,
   operationalApiErrorState,
+  reassignWorkItem,
+  reviewGraphFactNode,
+  reviewKnowledgeCandidate,
   workQueueToState,
 } from './work-ops';
 
@@ -21,13 +24,31 @@ vi.mock('../api-client', async () => {
 describe('work ops API client', () => {
   it('loads work and notification API payloads without auth redirects', async () => {
     await getWorkQueue();
+    await getWorkQueue({
+      kind: 'contract_review_stage',
+      assignee: 'mine',
+      limit: 20,
+      offset: 20,
+    });
     await getNotificationCenter();
     await markNotificationRead('notification-aabbccddeeff0011');
     await dismissNotification('notification-aabbccddeeff0011');
+    await reassignWorkItem(
+      'workflow-work-aabbccddeeff',
+      '11111111-1111-4111-8111-111111111222',
+    );
+    await reviewGraphFactNode('11111111-1111-4111-8111-111111111333', 'confirm');
+    await reviewKnowledgeCandidate('11111111-1111-4111-8111-111111111444', 'approve');
 
     expect(apiFetch).toHaveBeenCalledWith('/work/items', {
       redirectOnAuthRequired: false,
     });
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/work/items?kind=contract_review_stage&assignee=mine&limit=20&offset=20',
+      {
+        redirectOnAuthRequired: false,
+      },
+    );
     expect(apiFetch).toHaveBeenCalledWith('/notifications', {
       redirectOnAuthRequired: false,
     });
@@ -39,6 +60,27 @@ describe('work ops API client', () => {
       '/notifications/notification-aabbccddeeff0011/dismiss',
       {
         method: 'PATCH',
+        redirectOnAuthRequired: false,
+      },
+    );
+    expect(apiFetch).toHaveBeenCalledWith('/work/items/workflow-work-aabbccddeeff/assignee', {
+      method: 'PATCH',
+      body: JSON.stringify({ assignedToUserId: '11111111-1111-4111-8111-111111111222' }),
+      headers: { 'content-type': 'application/json' },
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenCalledWith('/graph/nodes/11111111-1111-4111-8111-111111111333/review', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'confirm' }),
+      headers: { 'content-type': 'application/json' },
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/matters/knowledge-candidates/11111111-1111-4111-8111-111111111444/review',
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'approve' }),
+        headers: { 'content-type': 'application/json' },
         redirectOnAuthRequired: false,
       },
     );

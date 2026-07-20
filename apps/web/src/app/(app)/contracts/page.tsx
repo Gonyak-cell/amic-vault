@@ -1,6 +1,6 @@
 import React from 'react';
-import { RouteBlockedState } from '@/components/security/route-blocked-state';
+import { ClauseBankBrowser } from './clause-bank-browser';
 
 export default function ContractsPage() {
-  return <RouteBlockedState areaKey="route.area.contracts" />;
+  return <ClauseBankBrowser />;
 }

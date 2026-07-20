@@ -38,6 +38,9 @@ const response: SearchResponseDto = {
     documentTypes: [],
     confidentialityLevels: [],
     extractionStatuses: [],
+    emailRecipientDomains: [],
+    emailSenderDomains: [],
+    ocrConfidence: [],
     legalHolds: [],
     privilegeStatuses: [],
     recordsStatuses: [],
@@ -50,7 +53,9 @@ const response: SearchResponseDto = {
       versionId: '11111111-1111-4111-8111-111111111402',
       matterId: '11111111-1111-4111-8111-111111111403',
       clientId: '11111111-1111-4111-8111-111111111404',
+      author: null,
       clientDisplayName: 'AMIC',
+      contentTruncated: false,
       title: 'Search Result One',
       matterDisplayCode: 'AMIC-2026-0007',
       matterDisplayName: 'Vault Upgrade',
@@ -58,6 +63,14 @@ const response: SearchResponseDto = {
       highlights: [],
       documentType: 'contract',
       extractionStatus: 'failed',
+      permissionBadges: {
+        confidentiality: 'standard',
+        legalHold: 'no_hold',
+        privilege: 'none',
+      },
+      aiAllowed: false,
+      prevVersionId: null,
+      nextVersionId: null,
       versionStatus: 'current',
       score: 0.42,
       updatedAt: '2026-06-12T10:00:00.000Z',
@@ -107,6 +120,23 @@ describe('SearchResults', () => {
     expect(html).toContain('AMIC-2026-0007 · Vault Upgrade');
     expect(html).not.toContain(response.results[0]?.matterId);
     expect(html).not.toContain(response.results[0]?.clientId);
+  });
+
+  it('renders capped totals as 1,000+', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <SearchResults
+          response={{ ...response, total: 1001 }}
+          page={1}
+          pageSize={10}
+          busy={false}
+          error={null}
+          onPage={() => undefined}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('결과 1,000+개');
   });
 
   it('shows safe empty and error states without server internals', () => {

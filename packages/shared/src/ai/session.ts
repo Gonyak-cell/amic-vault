@@ -34,6 +34,7 @@ export const aiSessionBlockedReasonSchema = z.enum([
 ]);
 
 export const aiSessionResponseStatusSchema = z.enum(['responded', 'blocked', 'failed']);
+export const aiSessionGenerationResultSchema = z.enum(['generated', 'fallback', 'template']);
 
 export const aiSessionCreateSchema = z
   .object({
@@ -55,6 +56,9 @@ export const aiSessionResponseLogSchema = z
     status: aiSessionResponseStatusSchema.optional(),
     escalationRequired: z.boolean().optional(),
     blockedReason: aiSessionBlockedReasonSchema.optional(),
+    requestKind: z.string().min(1).max(80).optional(),
+    generationResult: aiSessionGenerationResultSchema.optional(),
+    fallbackReasonCode: z.string().min(1).max(80).optional(),
   })
   .strict();
 
@@ -106,6 +110,58 @@ export const aiSessionDetailSchema = z
   })
   .strict();
 
+export const aiSessionPayloadSchema = z
+  .object({
+    sessionId: uuidSchema,
+    matterId: uuidSchema,
+    ownerUserId: uuidSchema,
+    promptText: z.string().max(20000),
+    responseText: z.string().max(20000),
+    promptHash: hashSchema,
+    responseHash: hashSchema,
+    promptLength: z.number().int().min(0).max(20000),
+    responseLength: z.number().int().min(0).max(20000),
+    riskFlag: z.boolean(),
+    dlpFindingCount: z.number().int().min(0).max(10000),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const listAiSessionsQuerySchema = z
+  .object({
+    matterId: uuidSchema.optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(50).default(10),
+  })
+  .strict();
+
+export const aiSessionListItemSchema = z
+  .object({
+    sessionId: uuidSchema,
+    matterId: uuidSchema,
+    ownerUserId: uuidSchema,
+    modelRoute: aiSessionModelRouteSchema,
+    status: aiSessionStatusSchema,
+    responseTokenCount: z.number().int().min(0).max(20000).nullable(),
+    latencyMs: z.number().int().min(0).max(600000).nullable(),
+    escalationRequired: z.boolean(),
+    blockedReason: aiSessionBlockedReasonSchema.nullable(),
+    policySummary: z.string().min(1).max(80),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const aiSessionListSchema = z
+  .object({
+    items: z.array(aiSessionListItemSchema).max(50),
+    totalCount: z.number().int().min(0),
+    page: z.number().int().min(1),
+    pageSize: z.number().int().min(1).max(50),
+  })
+  .strict();
+
 export type AiSessionStatus = z.infer<typeof aiSessionStatusSchema>;
 export type AiSessionModelRoute = z.infer<typeof aiSessionModelRouteSchema>;
 export type AiSessionChunkReasonCode = z.infer<typeof aiSessionChunkReasonCodeSchema>;
@@ -114,3 +170,7 @@ export type AiSessionResponseLogDto = z.infer<typeof aiSessionResponseLogSchema>
 export type AiSessionChunkLogDto = z.infer<typeof aiSessionChunkLogSchema>;
 export type AiSessionChunkDetailDto = z.infer<typeof aiSessionChunkDetailSchema>;
 export type AiSessionDetailDto = z.infer<typeof aiSessionDetailSchema>;
+export type AiSessionPayloadDto = z.infer<typeof aiSessionPayloadSchema>;
+export type ListAiSessionsQueryDto = z.infer<typeof listAiSessionsQuerySchema>;
+export type AiSessionListItemDto = z.infer<typeof aiSessionListItemSchema>;
+export type AiSessionListDto = z.infer<typeof aiSessionListSchema>;

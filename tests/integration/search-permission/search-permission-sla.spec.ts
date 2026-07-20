@@ -47,7 +47,7 @@ describe('search permission SLA integration', () => {
         matterId,
         documentId: randomUUID(),
         versionId,
-        title: 'SP SLA No Reindex',
+        title: `SP SLA No Reindex ${token}`,
         contentText: `${token} stable indexed text`,
         documentType: 'contract',
         documentStatus: 'draft',
@@ -65,9 +65,9 @@ describe('search permission SLA integration', () => {
     });
     const indexedAtBefore = await indexTimestamp(versionId);
 
-    const before = await postSearch(baseUrl, cookie, { query: token });
+    const before = await postSearch(baseUrl, cookie, { query: token, target: 'title' });
     await removeMatterMember({ tenantId: tenantAlphaId, matterId, userId: alphaOwnerUserId });
-    const after = await postSearch(baseUrl, cookie, { query: token });
+    const after = await postSearch(baseUrl, cookie, { query: token, target: 'title' });
     const indexedAtAfter = await indexTimestamp(versionId);
 
     expect(before.total).toBe(1);

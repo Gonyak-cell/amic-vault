@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createEnterpriseBackupSnapshotRequestSchema,
   createEnterpriseKeyReferenceRequestSchema,
   createEnterpriseSsoProviderRequestSchema,
+  enterpriseBackupSnapshotSchema,
   enterpriseApprovedDmsMatterTemplateCatalogSchema,
   enterpriseApprovedDmsSearchRefinerCatalogSchema,
   enterpriseApprovedDmsTaxonomyCatalogSchema,
@@ -56,6 +58,47 @@ describe('enterprise types', () => {
     });
 
     expect(parsed.technicalPass).toBe(true);
+  });
+
+  it('accepts verified backup restore drill metadata', () => {
+    const upperHash = 'B'.repeat(64);
+    const parsed = createEnterpriseBackupSnapshotRequestSchema.parse({
+      scope: 'tenant',
+      reasonCode: 'MONTHLY_DRILL',
+      status: 'verified',
+      drillId: 'restore-drill-2026-07-03',
+      drillEvidenceRef: 'aws-drill-2026-07-03',
+      drillManifestHash: upperHash,
+      schemaHash: upperHash,
+      restoredSchemaHash: upperHash,
+      rowCountsDriftHash: upperHash,
+    });
+
+    expect(parsed.status).toBe('verified');
+    expect(parsed.drillManifestHash).toBe('b'.repeat(64));
+    expect(parsed.schemaHash).toBe('b'.repeat(64));
+  });
+
+  it('serializes nullable backup drill fields on snapshot responses', () => {
+    const snapshot = enterpriseBackupSnapshotSchema.parse({
+      backupSnapshotId: '11111111-1111-4111-8111-111111111111',
+      scope: 'tenant',
+      status: 'recorded',
+      manifestHash: hash,
+      rowCountsHash: hash,
+      tableCount: 12,
+      reasonCode: 'R13_GATE',
+      drillId: null,
+      drillEvidenceRef: null,
+      drillManifestHash: null,
+      schemaHash: null,
+      restoredSchemaHash: null,
+      rowCountsDriftHash: null,
+      createdAt: '2026-07-03T00:00:00.000Z',
+    });
+
+    expect(snapshot.drillId).toBeNull();
+    expect(snapshot.rowCountsDriftHash).toBeNull();
   });
 
   it('validates DMS taxonomy configuration without raw content fields', () => {

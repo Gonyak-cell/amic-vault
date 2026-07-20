@@ -16,13 +16,18 @@ const matter = {
   matterId: '11111111-1111-4111-8111-111111111122',
   tenantId: '11111111-1111-4111-8111-111111111111',
   clientId: '11111111-1111-4111-8111-111111111133',
+  confidentialityLevel: 'standard',
+  conflictsStatus: 'cleared',
   matterCode: 'AMIC-2026-0001',
   matterName: 'Investment Advisory',
   matterType: 'advisory',
   status: 'active',
   openedAt: null,
   closedAt: null,
+  ethicalWallActive: false,
+  leadAssociateId: null,
   leadLawyerId: null,
+  leadPartnerId: null,
   practiceGroup: 'Finance',
   metadata: { clientDisplayName: 'AMIC Client' },
   legalHold: false,
@@ -40,8 +45,8 @@ describe('MatterCodePicker', () => {
       <MatterCodePicker selectedMatter={null} onMatterSelected={() => undefined} sourceMode="unconfigured" />,
     );
 
-    expect(html).toContain('Matter app 연결 필요');
-    expect(html).toContain('Matter Code를 선택한 뒤 작업을 진행합니다.');
+    expect(html).toContain('Matter 관리 시스템 연결 필요');
+    expect(html).toContain('Matter code를 선택한 뒤 작업을 진행합니다.');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(matter.matterId);
   });
@@ -56,10 +61,10 @@ describe('MatterCodePicker', () => {
       />,
     );
 
-    expect(html).toContain('Matter Code, 이름 또는 고객 검색');
+    expect(html).toContain('Matter code, Matter 이름 또는 고객 검색');
     expect(html).toContain('value="AMIC-2026-0001"');
     expect(html).toContain('로컬 Matter 목록');
-    expect(html).toContain('운영 업로드 source로 사용하지 않습니다.');
+    expect(html).toContain('실제 업로드에는 사용하지 않습니다.');
     expect(html).not.toContain('Vault projection');
     expect(html).not.toContain('Matter ID');
   });
@@ -82,7 +87,7 @@ describe('MatterCodePicker', () => {
       'matter_app_api',
     );
     const option = options[0];
-    if (!option) throw new Error('missing Matter Code option fixture');
+    if (!option) throw new Error('missing matter code option fixture');
 
     expect(findMatterCodeOption(options, ' amic-2026-0001 ')).toEqual(option);
     expect(findMatterCodeOption(options, matter.matterId)).toBeNull();
@@ -98,8 +103,8 @@ describe('MatterCodePicker', () => {
       />,
     );
 
-    expect(html).toContain('Matter Code 또는 이름으로 검색해 주세요.');
-    expect(html).toContain('Vault 내부 참조를 사용할 수 없습니다.');
+    expect(html).toContain('Matter code 또는 Matter 이름으로 검색해 주세요.');
+    expect(html).toContain('일반 문서 작업에서는 Matter code 또는 Matter 이름으로만 선택합니다.');
     expect(html).not.toContain(`value="${matter.matterId}"`);
     expect(html).not.toContain(matter.matterId);
   });

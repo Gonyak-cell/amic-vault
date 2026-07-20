@@ -1,6 +1,7 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import {
   dashboardOverviewSchema,
+  dashboardUsageStatsResponseSchema,
   dmsNotificationCenterResponseSchema,
   dmsWorkQueueResponseSchema,
   isUserRole,
@@ -15,6 +16,8 @@ import {
   type DashboardPolicyAlertDto,
   type DashboardRecentActivityDto,
   type DashboardRecentFileDto,
+  type DashboardUsageStatsQueryDto,
+  type DashboardUsageStatsResponseDto,
   type UserRole,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
@@ -67,8 +70,28 @@ interface IntegrationStatusRow {
   updated_at: Date | null;
 }
 
+interface UsageTotalsRow {
+  active_users: number | string;
+  uploads: number | string;
+  downloads: number | string;
+  searches: number | string;
+}
+
+interface UsageStorageRow {
+  storage_bytes: number | string | null;
+}
+
+interface UsageTopMatterRow {
+  matter_label: string | null;
+  activity_count: number | string;
+}
+
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
+}
+
+function validationFailed(): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED' });
 }
 
 function isoDate(value: Date | null | undefined): string | undefined {
@@ -104,6 +127,67 @@ function resultLabel(result: string): string {
 
 function numberValue(value: number | string): number {
   return typeof value === 'number' ? value : Number.parseInt(value, 10) || 0;
+}
+
+function countValue(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.max(0, value) : 0;
+  return Number.parseInt(value, 10) || 0;
+}
+
+const usageStatsActions = ['DOCUMENT_UPLOADED', 'DOCUMENT_DOWNLOADED', 'SEARCH_EXECUTED'] as const;
+const defaultUsageStatsWindowMs = 30 * 24 * 60 * 60 * 1000;
+
+function resolveUsagePeriod(
+  query: DashboardUsageStatsQueryDto,
+  now: Date,
+): { from: Date; to: Date } {
+  const to = query.to ? new Date(query.to) : now;
+  const from = query.from
+    ? new Date(query.from)
+    : new Date(to.getTime() - defaultUsageStatsWindowMs);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from.getTime() > to.getTime()) {
+    throw validationFailed();
+  }
+  return { from, to };
+}
+
+function isUsageStatsAdminRole(role: UserRole): boolean {
+  return role === 'firm_admin' || role === 'security_admin';
+}
+
+function usageStatsFilterRefs(period: { from: Date; to: Date }): readonly string[] {
+  return [
+    `scope:usage_stats`,
+    `date_range:${period.from.toISOString()}..${period.to.toISOString()}`,
+  ];
+}
+
+function csvCell(value: string | number): string {
+  const text = String(value);
+  if (!/[",\n\r]/u.test(text)) return text;
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function usageStatsCsv(stats: DashboardUsageStatsResponseDto): string {
+  const period = [stats.period.from, stats.period.to] as const;
+  const rows: Array<[string, string, number, string, string]> = [
+    ['summary', 'active_users', stats.totals.activeUsers, ...period],
+    ['summary', 'uploads', stats.totals.uploads, ...period],
+    ['summary', 'downloads', stats.totals.downloads, ...period],
+    ['summary', 'searches', stats.totals.searches, ...period],
+    ['summary', 'storage_bytes', stats.totals.storageBytes, ...period],
+    ...stats.topMatters.map((matter): [string, string, number, string, string] => [
+      'top_matter',
+      matter.matterLabel,
+      matter.activityCount,
+      ...period,
+    ]),
+  ];
+  return [
+    'section,label,value,period_from,period_to',
+    ...rows.map((row) => row.map(csvCell).join(',')),
+  ].join('\n');
 }
 
 function aiPrepStatusLabel(row: AiPrepRow): string {
@@ -181,6 +265,136 @@ export class DashboardService {
       generatedAt: overview.generatedAt,
       source: 'dashboard_operational_state',
       items: notificationItemsFromOverview(overview),
+    });
+  }
+
+  async getUsageStats(
+    actorUserId: string,
+    query: DashboardUsageStatsQueryDto = {},
+    now = new Date(),
+  ): Promise<DashboardUsageStatsResponseDto> {
+    const context = this.tenantContext.require();
+    return this.auditService.transaction(context.tenantId, async (client) => {
+      await this.requireUsageStatsAdmin(client, context.tenantId, actorUserId);
+      return this.buildUsageStats(client, context.tenantId, query, now);
+    });
+  }
+
+  async exportUsageStatsCsv(
+    actorUserId: string,
+    query: DashboardUsageStatsQueryDto = {},
+    now = new Date(),
+  ): Promise<string> {
+    const context = this.tenantContext.require();
+    const startedAt = Date.now();
+    return this.auditService.transaction(context.tenantId, async (client) => {
+      await this.requireUsageStatsAdmin(client, context.tenantId, actorUserId);
+      const stats = await this.buildUsageStats(client, context.tenantId, query, now);
+      await this.auditService.log(
+        {
+          tenantId: context.tenantId,
+          actorId: actorUserId,
+          action: 'AUDIT_EXPORT_CREATED',
+          targetType: 'usage_stats',
+          result: 'success',
+          metadata: {
+            scope_type: 'usage_stats',
+            export_format: 'csv',
+            filter_refs: usageStatsFilterRefs({
+              from: new Date(stats.period.from),
+              to: new Date(stats.period.to),
+            }),
+            result_count: stats.topMatters.length + 5,
+            duration_ms: Date.now() - startedAt,
+          },
+        },
+        client,
+      );
+      return usageStatsCsv(stats);
+    });
+  }
+
+  private async requireUsageStatsAdmin(
+    client: QueryClient,
+    tenantId: string,
+    userId: string,
+  ): Promise<PermissionQueryContext> {
+    const actor = await this.findActor(client, tenantId, userId);
+    if (!actor || !isUsageStatsAdminRole(actor.role)) throw permissionDenied();
+    return actor;
+  }
+
+  private async buildUsageStats(
+    client: QueryClient,
+    tenantId: string,
+    query: DashboardUsageStatsQueryDto,
+    now: Date,
+  ): Promise<DashboardUsageStatsResponseDto> {
+    const period = resolveUsagePeriod(query, now);
+    const totalsResult = await client.query(
+      `
+        SELECT
+          (count(DISTINCT ae.actor_id) FILTER (WHERE ae.actor_id IS NOT NULL))::int AS active_users,
+          (count(*) FILTER (WHERE ae.action = 'DOCUMENT_UPLOADED'))::int AS uploads,
+          (count(*) FILTER (WHERE ae.action = 'DOCUMENT_DOWNLOADED'))::int AS downloads,
+          (count(*) FILTER (WHERE ae.action = 'SEARCH_EXECUTED'))::int AS searches
+        FROM audit_events ae
+        WHERE ae.tenant_id = $1
+          AND ae.created_at >= $2
+          AND ae.created_at <= $3
+      `,
+      [tenantId, period.from, period.to],
+    );
+    const storageResult = await client.query(
+      `
+        SELECT COALESCE(sum(size_bytes), 0)::bigint AS storage_bytes
+        FROM file_objects
+        WHERE tenant_id = $1
+          AND created_at >= $2
+          AND created_at <= $3
+      `,
+      [tenantId, period.from, period.to],
+    );
+    const topMatterResult = await client.query(
+      `
+        SELECT
+          nullif(concat_ws(' · ', nullif(m.matter_code, ''), nullif(m.matter_name, '')), '') AS matter_label,
+          count(*)::int AS activity_count
+        FROM audit_events ae
+        JOIN matters m
+          ON m.tenant_id = ae.tenant_id
+         AND m.matter_id = ae.matter_id
+        WHERE ae.tenant_id = $1
+          AND ae.created_at >= $2
+          AND ae.created_at <= $3
+          AND ae.action = ANY($4::text[])
+          AND ae.matter_id IS NOT NULL
+        GROUP BY m.matter_id, m.matter_code, m.matter_name
+        ORDER BY count(*) DESC, max(ae.created_at) DESC, m.matter_id
+        LIMIT 5
+      `,
+      [tenantId, period.from, period.to, usageStatsActions],
+    );
+    const totals = totalsResult.rows[0] as UsageTotalsRow | undefined;
+    const storage = storageResult.rows[0] as UsageStorageRow | undefined;
+
+    return dashboardUsageStatsResponseSchema.parse({
+      generatedAt: now.toISOString(),
+      period: {
+        from: period.from.toISOString(),
+        to: period.to.toISOString(),
+      },
+      totals: {
+        activeUsers: countValue(totals?.active_users),
+        uploads: countValue(totals?.uploads),
+        downloads: countValue(totals?.downloads),
+        searches: countValue(totals?.searches),
+        storageBytes: countValue(storage?.storage_bytes),
+      },
+      topMatters: (topMatterResult.rows as UsageTopMatterRow[]).map((row) => ({
+        matterLabel: safeMatterLabel(row.matter_label),
+        activityCount: countValue(row.activity_count),
+      })),
     });
   }
 
@@ -432,9 +646,7 @@ function workItemsFromOverview(overview: DashboardOverviewDto): DmsWorkQueueItem
   return items;
 }
 
-function notificationItemsFromOverview(
-  overview: DashboardOverviewDto,
-): DmsNotificationItemDto[] {
+function notificationItemsFromOverview(overview: DashboardOverviewDto): DmsNotificationItemDto[] {
   const items: DmsNotificationItemDto[] = [];
 
   overview.permissionPolicyAlerts.slice(0, 5).forEach((alert, index) => {
@@ -488,8 +700,6 @@ function notificationItemsFromOverview(
   return items.slice(0, 20);
 }
 
-function notificationToneForActivity(
-  activity: DashboardRecentActivityDto,
-): DmsOperationalTone {
+function notificationToneForActivity(activity: DashboardRecentActivityDto): DmsOperationalTone {
   return activity.resultLabel.includes('차단') ? 'blocked' : 'success';
 }

@@ -1,6 +1,13 @@
 # Production Source-of-Truth Cutover Next Gate Plan
 
-Status: ready for separate approval.
+Status: historical approval packet. Superseded by later preflight PASS,
+source-of-truth cutover execute PASS, and the post-cutover next-gate package.
+
+Current source:
+`docs/release/production-post-cutover-next-gates.md`.
+
+This document is retained as the historical approval text and planning basis for
+the preflight/execute lane. It is not the current next gate.
 
 This plan starts after:
 

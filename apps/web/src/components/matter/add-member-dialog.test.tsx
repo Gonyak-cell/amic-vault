@@ -36,8 +36,8 @@ describe('AddMemberDialog', () => {
     expect(html).toContain('접근 권한');
     expect(html).not.toContain('구성원 선택 준비 중');
     expect(html).not.toContain('운영 화면에 표시하지 않습니다.');
-    expect(html).not.toContain('고급 사용자 참조 입력');
-    expect(html).not.toContain('승인된 사용자 참조');
+    expect(html).not.toContain('관리자용 사용자 직접 입력');
+    expect(html).not.toContain('승인된 사용자 식별값');
     expect(html).not.toContain('사용자 ID');
     expect(html).not.toContain(matterId);
   });
@@ -49,8 +49,8 @@ describe('AddMemberDialog', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('고급 사용자 참조 입력');
-    expect(html).toContain('승인된 사용자 참조');
+    expect(html).toContain('관리자용 사용자 직접 입력');
+    expect(html).toContain('구성원 계정');
     expect(html).toContain('역할');
     expect(html).toContain('접근 권한');
     expect(html).toContain('구성원 추가');

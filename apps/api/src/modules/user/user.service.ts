@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
 import { Pool, type PoolClient } from 'pg';
-import type { TenantId, TenantStatus, UserRole, UserStatus } from '@amic-vault/shared';
+import type { TenantId, TenantStatus, UserListDto, UserRole, UserStatus } from '@amic-vault/shared';
 import type { QueryClient } from '../audit/audit.service';
 import type { TenantEntity } from '../tenant/tenant.entity';
 import { hashPassword, normalizeEmail } from './password';
@@ -148,6 +148,7 @@ export interface UserStore {
   ): Promise<void>;
   findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null>;
   findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null>;
+  listByTenant(tenantId: TenantId, client?: QueryClient): Promise<UserEntity[]>;
   updatePasswordHash(tenantId: TenantId, userId: string, passwordHash: string): Promise<void>;
   setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void>;
   recordLoginSuccess(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void>;
@@ -155,6 +156,12 @@ export interface UserStore {
     tenantId: TenantId,
     userId: string,
     role: UserRole,
+    client?: QueryClient,
+  ): Promise<UserEntity | null>;
+  updateStatus(
+    tenantId: TenantId,
+    userId: string,
+    status: Extract<UserStatus, 'active' | 'inactive'>,
     client?: QueryClient,
   ): Promise<UserEntity | null>;
   countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number>;
@@ -289,6 +296,34 @@ export class PgUserStore implements UserStore {
     });
   }
 
+  async listByTenant(tenantId: TenantId, client?: QueryClient): Promise<UserEntity[]> {
+    if (!client) {
+      return withTenantClient(tenantId, (tenantClient) => this.listByTenant(tenantId, tenantClient));
+    }
+    const result = await client.query(
+      `
+        SELECT user_id, tenant_id, email, name, role, practice_group, status,
+          password_hash, mfa_enabled, last_login_at, created_at, updated_at
+        FROM users
+        WHERE tenant_id = $1
+        ORDER BY
+          CASE role
+            WHEN 'firm_admin' THEN 0
+            WHEN 'security_admin' THEN 1
+            WHEN 'knowledge_manager' THEN 2
+            WHEN 'matter_owner' THEN 3
+            WHEN 'matter_member' THEN 4
+            ELSE 5
+          END,
+          CASE status WHEN 'active' THEN 0 WHEN 'locked' THEN 1 ELSE 2 END,
+          lower(name),
+          lower(email)
+      `,
+      [tenantId],
+    );
+    return (result.rows as UserRow[]).map(mapUser);
+  }
+
   async updatePasswordHash(
     tenantId: TenantId,
     userId: string,
@@ -362,6 +397,34 @@ export class PgUserStore implements UserStore {
           password_hash, mfa_enabled, last_login_at, created_at, updated_at
       `,
       [tenantId, userId, role],
+    );
+    const row = result.rows[0] as UserRow | undefined;
+    return row ? mapUser(row) : null;
+  }
+
+  async updateStatus(
+    tenantId: TenantId,
+    userId: string,
+    status: Extract<UserStatus, 'active' | 'inactive'>,
+    client?: QueryClient,
+  ): Promise<UserEntity | null> {
+    if (!client) {
+      return withTenantClient(tenantId, (tenantClient) =>
+        this.updateStatus(tenantId, userId, status, tenantClient),
+      );
+    }
+    const result = await client.query(
+      `
+        UPDATE users
+        SET status = $3,
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND user_id = $2
+          AND status <> 'locked'
+        RETURNING user_id, tenant_id, email, name, role, practice_group, status,
+          password_hash, mfa_enabled, last_login_at, created_at, updated_at
+      `,
+      [tenantId, userId, status],
     );
     const row = result.rows[0] as UserRow | undefined;
     return row ? mapUser(row) : null;
@@ -442,6 +505,11 @@ export class UserService {
     return this.store.findByTenantAndId(tenantId, userId);
   }
 
+  async listSummaries(tenantId: TenantId): Promise<UserListDto> {
+    const users = await this.store.listByTenant(tenantId);
+    return { items: users.map((user) => user.toSummary()) };
+  }
+
   async updatePassword(tenantId: TenantId, userId: string, password: string): Promise<void> {
     const passwordHash = await hashPassword(password);
     await this.store.updatePasswordHash(tenantId, userId, passwordHash);
@@ -462,6 +530,15 @@ export class UserService {
     client?: QueryClient,
   ): Promise<UserEntity | null> {
     return this.store.updateRole(tenantId, userId, role, client);
+  }
+
+  updateStatus(
+    tenantId: TenantId,
+    userId: string,
+    status: Extract<UserStatus, 'active' | 'inactive'>,
+    client?: QueryClient,
+  ): Promise<UserEntity | null> {
+    return this.store.updateStatus(tenantId, userId, status, client);
   }
 
   countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number> {

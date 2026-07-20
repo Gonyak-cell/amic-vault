@@ -34,7 +34,7 @@ describe('search permission provider binding integration', () => {
     expect(decision).toMatchObject({
       effect: 'ALLOW',
       appliedRules: expect.arrayContaining([
-        'matter.membership:required',
+        'matter_members:materialized_required_for_read',
         'document.permissions:explicit_deny',
         'ethical_wall:excluded_filter',
       ]),

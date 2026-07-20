@@ -3,6 +3,11 @@
 Status: PRODUCTION DEPLOYED - MONITORING ACTIVE
 Date: 2026-06-16
 
+Current-state note, 2026-07-06: this control sheet is historical release-lane
+evidence. It is not the current source for customer-wide go-live readiness.
+Current post-cutover gates and non-claims are tracked in
+`docs/release/production-post-cutover-next-gates.md`.
+
 This is the one-page control sheet for the release-completion lane. It shows the
 current technical state, the commands Codex can run, and the approval refs that
 have been recorded.

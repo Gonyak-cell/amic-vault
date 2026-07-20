@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import type { TenantId, UserRole } from '@amic-vault/shared';
+import type { TenantId, UserRole, UserStatus } from '@amic-vault/shared';
 import { verifyPasswordHash } from './password';
 import { UserEntity } from './user.entity';
 import {
@@ -107,6 +107,10 @@ class MemoryUserStore implements UserStore {
     return this.users.find((user) => user.tenantId === tenantId && user.userId === userId) ?? null;
   }
 
+  async listByTenant(tenantId: TenantId): Promise<UserEntity[]> {
+    return this.users.filter((user) => user.tenantId === tenantId);
+  }
+
   async updatePasswordHash(
     tenantId: TenantId,
     userId: string,
@@ -135,6 +139,18 @@ class MemoryUserStore implements UserStore {
     const user = await this.findByTenantAndId(tenantId, userId);
     if (!user) return null;
     const updated = new UserEntity({ ...user, role });
+    this.users.splice(this.users.indexOf(user), 1, updated);
+    return updated;
+  }
+
+  async updateStatus(
+    tenantId: TenantId,
+    userId: string,
+    status: Extract<UserStatus, 'active' | 'inactive'>,
+  ): Promise<UserEntity | null> {
+    const user = await this.findByTenantAndId(tenantId, userId);
+    if (!user || user.status === 'locked') return null;
+    const updated = new UserEntity({ ...user, status });
     this.users.splice(this.users.indexOf(user), 1, updated);
     return updated;
   }
@@ -199,6 +215,23 @@ describe('UserService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('lists tenant users as summaries without password material', async () => {
+    const store = new MemoryUserStore();
+    const service = new UserService(store);
+
+    await service.createUser(createInput(tenantAlpha, 'alpha-list@test.local'));
+    await service.createUser(createInput(tenantBeta, 'beta-list@test.local'));
+
+    const listed = await service.listSummaries(tenantAlpha);
+
+    expect(listed.items).toHaveLength(1);
+    expect(listed.items[0]).toMatchObject({
+      tenantId: tenantAlpha,
+      email: 'alpha-list@test.local',
+    });
+    expect(JSON.stringify(listed)).not.toContain('password');
+  });
+
   it('resolves an email-only login candidate only when the normalized email is unique', async () => {
     const store = new MemoryUserStore();
     const service = new UserService(store);
@@ -257,5 +290,32 @@ describe('UserService', () => {
         accountLedgerId: 'acct-global-001',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('updates active and inactive status without unlocking locked users', async () => {
+    const store = new MemoryUserStore();
+    const service = new UserService(store);
+    const active = await service.createUser(createInput(tenantAlpha, 'active-status@test.local'));
+    const locked = new UserEntity({
+      ...active,
+      userId: 'locked-status-user',
+      email: 'locked-status@test.local',
+      status: 'locked',
+    });
+    store.users.push(locked);
+
+    await expect(
+      service.updateStatus(tenantAlpha, active.userId, 'inactive'),
+    ).resolves.toMatchObject({
+      userId: active.userId,
+      status: 'inactive',
+    });
+    await expect(service.updateStatus(tenantAlpha, active.userId, 'active')).resolves.toMatchObject(
+      {
+        userId: active.userId,
+        status: 'active',
+      },
+    );
+    await expect(service.updateStatus(tenantAlpha, locked.userId, 'active')).resolves.toBeNull();
   });
 });

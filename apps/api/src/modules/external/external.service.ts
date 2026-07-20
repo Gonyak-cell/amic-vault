@@ -14,6 +14,7 @@ import {
   externalDownloadTicketSchema,
   externalLinkCreatedResponseSchema,
   externalLinkSchema,
+  externalManagementWorkspaceListResponseSchema,
   externalNdaAcceptanceSchema,
   externalQaListResponseSchema,
   externalQaMessageSchema,
@@ -31,17 +32,21 @@ import {
   type ExternalDownloadTicketDto,
   type ExternalLinkCreatedResponseDto,
   type ExternalLinkDto,
+  type ExternalManagementWorkspaceListResponseDto,
   type ExternalNdaAcceptanceDto,
   type ExternalQaListResponseDto,
   type ExternalQaMessageDto,
   type ExternalUserDto,
   type ExternalWorkspaceDto,
+  type ListExternalWorkspacesQueryDto,
   type PermissionContext,
+  type ReviewExternalAnswerRequestDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 import { DlpService } from '../dlp/dlp.service';
 import { DocumentPermissionService } from '../permission/document-permission.service';
 import { PermissionService } from '../permission/permission.service';
+import { WorkService } from '../work/work.service';
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -102,6 +107,22 @@ interface LinkRow {
   matter_legal_hold: boolean;
 }
 
+type LinkListRow = Pick<
+  LinkRow,
+  | 'link_id'
+  | 'workspace_id'
+  | 'external_user_id'
+  | 'document_id'
+  | 'version_id'
+  | 'status'
+  | 'expires_at'
+  | 'nda_required'
+  | 'watermark_required'
+  | 'dlp_warning_status'
+  | 'created_at'
+  | 'updated_at'
+>;
+
 interface QaMessageRow {
   qa_message_id: string;
   workspace_id: string;
@@ -111,6 +132,10 @@ interface QaMessageRow {
   direction: string;
   message_text: string;
   message_hash: string;
+  status: string;
+  visibility_scope: string;
+  created_by_internal_user_id: string | null;
+  reviewed_at: Date | null;
   created_at: Date;
   matter_id: string;
   document_id: string;
@@ -154,6 +179,10 @@ interface ActorRoleRow {
 interface MatterMemberRoleRow {
   matter_role: string;
   access_level: string;
+}
+
+interface QaApprovalAssigneeRow {
+  user_id: string;
 }
 
 function validationFailed(reason?: string): BadRequestException {
@@ -258,6 +287,9 @@ function mapQaMessage(row: QaMessageRow): ExternalQaMessageDto {
     direction: row.direction,
     messageText: row.message_text,
     messageHash: row.message_hash,
+    status: row.status,
+    visibilityScope: row.visibility_scope,
+    reviewedAt: row.reviewed_at ? iso(row.reviewed_at) : null,
     createdAt: iso(row.created_at),
   });
 }
@@ -266,8 +298,8 @@ function dlpScanHash(detections: readonly DlpDetection[]): string {
   return sha256Hex(detections.map((item) => `${item.ruleId}:${item.valueHash}`).join('|'));
 }
 
-function watermarkRefFor(link: LinkRow): string {
-  return `watermark:${link.link_id}:${link.external_user_id}`;
+function unappliedWatermark(): { watermarkApplied: false; watermarkRef: null } {
+  return { watermarkApplied: false, watermarkRef: null };
 }
 
 function downloadRefFor(link: LinkRow): string {
@@ -282,7 +314,81 @@ export class ExternalService {
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: DocumentPermissionService,
     @Inject(DlpService) private readonly dlpService: DlpService,
+    @Inject(WorkService) private readonly workService: WorkService,
   ) {}
+
+  async listWorkspaces(
+    ctx: PermissionContext,
+    input: ListExternalWorkspacesQueryDto,
+  ): Promise<ExternalManagementWorkspaceListResponseDto> {
+    const matter = await this.findMatterForTenant(ctx.tenantId, input.matterId);
+    if (!matter) throw notFoundDenied();
+    await this.assertCanManageExternalMatter(ctx, input.matterId);
+
+    const workspaces = await getPool().query<WorkspaceRow>(
+      `
+        SELECT workspace_id, matter_id, workspace_code, display_ref, status,
+          expires_at, created_at, updated_at
+        FROM external_workspaces
+        WHERE tenant_id = $1
+          AND matter_id = $2
+        ORDER BY created_at DESC, workspace_id
+        LIMIT 100
+      `,
+      [ctx.tenantId, input.matterId],
+    );
+    const workspaceIds = workspaces.rows.map((row) => row.workspace_id);
+    if (workspaceIds.length === 0) {
+      return externalManagementWorkspaceListResponseSchema.parse({ workspaces: [] });
+    }
+
+    const users = await getPool().query<ExternalUserRow>(
+      `
+        SELECT u.external_user_id, u.email_hash, u.display_ref, u.status,
+          m.workspace_id, u.created_at, u.updated_at
+        FROM external_workspace_members m
+        JOIN external_users u
+          ON u.tenant_id = m.tenant_id
+         AND u.external_user_id = m.external_user_id
+        WHERE m.tenant_id = $1
+          AND m.workspace_id = ANY($2::uuid[])
+        ORDER BY m.workspace_id, u.created_at DESC, u.external_user_id
+      `,
+      [ctx.tenantId, workspaceIds],
+    );
+    const links = await getPool().query<LinkListRow>(
+      `
+        SELECT link_id, workspace_id, external_user_id, document_id, version_id,
+          status, expires_at, nda_required, watermark_required, dlp_warning_status,
+          created_at, updated_at
+        FROM external_secure_links
+        WHERE tenant_id = $1
+          AND workspace_id = ANY($2::uuid[])
+        ORDER BY workspace_id, created_at DESC, link_id
+      `,
+      [ctx.tenantId, workspaceIds],
+    );
+    const usersByWorkspace = new Map<string, ExternalUserDto[]>();
+    for (const row of users.rows) {
+      const current = usersByWorkspace.get(row.workspace_id) ?? [];
+      current.push(mapExternalUser(row));
+      usersByWorkspace.set(row.workspace_id, current);
+    }
+    const linksByWorkspace = new Map<string, ExternalLinkDto[]>();
+    for (const row of links.rows) {
+      const current = linksByWorkspace.get(row.workspace_id) ?? [];
+      current.push(mapLink(row));
+      linksByWorkspace.set(row.workspace_id, current);
+    }
+
+    return externalManagementWorkspaceListResponseSchema.parse({
+      workspaces: workspaces.rows.map((row) => ({
+        ...mapWorkspace(row),
+        users: usersByWorkspace.get(row.workspace_id) ?? [],
+        links: linksByWorkspace.get(row.workspace_id) ?? [],
+      })),
+    });
+  }
 
   async createWorkspace(
     ctx: PermissionContext,
@@ -656,7 +762,7 @@ export class ExternalService {
     metadata: { actorRef: string | null },
   ): Promise<ExternalAccessManifestDto> {
     const link = await this.resolveReadyToken(token);
-    const watermarkRef = watermarkRefFor(link);
+    const watermark = unappliedWatermark();
     return this.auditService.transaction(link.tenant_id, async (client) => {
       await client.query(
         `
@@ -669,7 +775,7 @@ export class ExternalService {
         [link.tenant_id, link.link_id],
       );
       await this.auditService.log(
-        externalAccessAudit(link, 'ready', metadata.actorRef, watermarkRef),
+        externalAccessAudit(link, 'ready', metadata.actorRef, watermark.watermarkRef ?? undefined),
         client,
       );
       return externalAccessManifestSchema.parse({
@@ -679,8 +785,7 @@ export class ExternalService {
         documentId: link.document_id,
         versionId: link.version_id,
         expiresAt: iso(link.expires_at),
-        watermarkApplied: true,
-        watermarkRef,
+        ...watermark,
       });
     });
   }
@@ -690,7 +795,7 @@ export class ExternalService {
     metadata: { actorRef: string | null },
   ): Promise<ExternalDownloadTicketDto> {
     const link = await this.resolveReadyToken(token);
-    const watermarkRef = watermarkRefFor(link);
+    const watermark = unappliedWatermark();
     const downloadRef = downloadRefFor(link);
     return this.auditService.transaction(link.tenant_id, async (client) => {
       await client.query(
@@ -722,7 +827,7 @@ export class ExternalService {
             access_status: 'download_ticket_issued',
             scope_type: 'download_ticket',
             scope_id: downloadRef,
-            watermark_ref: watermarkRef,
+            ...(watermark.watermarkRef ? { watermark_ref: watermark.watermarkRef } : {}),
             ...(metadata.actorRef ? { hash: sha256Hex(metadata.actorRef) } : {}),
           },
         },
@@ -735,8 +840,7 @@ export class ExternalService {
         documentId: link.document_id,
         versionId: link.version_id,
         expiresAt: iso(link.expires_at),
-        watermarkApplied: true,
-        watermarkRef,
+        ...watermark,
         downloadRef,
       });
     });
@@ -747,7 +851,8 @@ export class ExternalService {
     const result = await getPool().query<QaMessageRow>(
       `
         SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
-          q.parent_message_id, q.direction, q.message_text, q.message_hash, q.created_at,
+          q.parent_message_id, q.direction, q.message_text, q.message_hash,
+          q.status, q.visibility_scope, q.created_by_internal_user_id, q.reviewed_at, q.created_at,
           w.matter_id, l.document_id, l.version_id, l.expires_at
         FROM external_qa_messages q
         JOIN external_secure_links l
@@ -757,11 +862,22 @@ export class ExternalService {
           ON w.tenant_id = q.tenant_id
          AND w.workspace_id = q.workspace_id
         WHERE q.tenant_id = $1
-          AND q.link_id = $2
+          AND q.workspace_id = $2
+          AND (
+            (q.direction = 'external_question' AND q.link_id = $3)
+            OR (
+              q.direction = 'internal_answer'
+              AND q.status = 'published'
+              AND (
+                q.visibility_scope = 'workspace'
+                OR q.external_user_id = $4
+              )
+            )
+          )
         ORDER BY q.created_at ASC, q.qa_message_id ASC
         LIMIT 200
       `,
-      [link.tenant_id, link.link_id],
+      [link.tenant_id, link.workspace_id, link.link_id, link.external_user_id],
     );
     return externalQaListResponseSchema.parse({
       messages: result.rows.map(mapQaMessage),
@@ -780,11 +896,12 @@ export class ExternalService {
         `
           INSERT INTO external_qa_messages (
             tenant_id, workspace_id, link_id, external_user_id, direction,
-            message_text, message_hash, actor_ref_hash
+            message_text, message_hash, actor_ref_hash, status, visibility_scope
           )
-          VALUES ($1, $2, $3, $4, 'external_question', $5, $6, $7)
+          VALUES ($1, $2, $3, $4, 'external_question', $5, $6, $7, 'published', 'workspace')
           RETURNING qa_message_id, workspace_id, link_id, external_user_id,
-            parent_message_id, direction, message_text, message_hash, created_at
+            parent_message_id, direction, message_text, message_hash, status,
+            visibility_scope, created_by_internal_user_id, reviewed_at, created_at
         `,
         [
           link.tenant_id,
@@ -816,7 +933,8 @@ export class ExternalService {
     const result = await getPool().query<QaMessageRow>(
       `
         SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
-          q.parent_message_id, q.direction, q.message_text, q.message_hash, q.created_at,
+          q.parent_message_id, q.direction, q.message_text, q.message_hash,
+          q.status, q.visibility_scope, q.created_by_internal_user_id, q.reviewed_at, q.created_at,
           w.matter_id, l.document_id, l.version_id, l.expires_at
         FROM external_qa_messages q
         JOIN external_secure_links l
@@ -855,11 +973,13 @@ export class ExternalService {
         `
           INSERT INTO external_qa_messages (
             tenant_id, workspace_id, link_id, external_user_id, parent_message_id,
-            direction, message_text, message_hash, created_by_internal_user_id
+            direction, message_text, message_hash, created_by_internal_user_id,
+            status, visibility_scope
           )
-          VALUES ($1, $2, $3, $4, $5, 'internal_answer', $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, 'internal_answer', $6, $7, $8, 'pending_approval', $9)
           RETURNING qa_message_id, workspace_id, link_id, external_user_id,
-            parent_message_id, direction, message_text, message_hash, created_at
+            parent_message_id, direction, message_text, message_hash, status,
+            visibility_scope, created_by_internal_user_id, reviewed_at, created_at
         `,
         [
           ctx.tenantId,
@@ -870,10 +990,11 @@ export class ExternalService {
           input.messageText,
           messageHash,
           ctx.userId,
+          input.visibilityScope,
         ],
       );
       const message = mapQaMessage(requiredRow(result.rows[0]));
-      await this.auditService.log(
+      const audit = await this.auditService.log(
         {
           ...externalQaAudit(
             qaAuditScope(ctx.tenantId, parent),
@@ -886,6 +1007,117 @@ export class ExternalService {
         },
         client,
       );
+      const assignedToUserId = await this.findQaApprovalAssignee(
+        client,
+        ctx.tenantId,
+        parent.matter_id,
+        ctx.userId,
+      );
+      await this.workService.openWorkflowWork(client, {
+        tenantId: ctx.tenantId,
+        kind: 'external_qa_approval',
+        targetId: message.messageId,
+        matterId: parent.matter_id,
+        documentId: parent.document_id,
+        assignedToUserId,
+        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        actorUserId: ctx.userId,
+        auditEventId: audit.eventId,
+      });
+      return message;
+    });
+  }
+
+  async reviewAnswer(
+    ctx: PermissionContext,
+    messageId: string,
+    input: ReviewExternalAnswerRequestDto,
+  ): Promise<ExternalQaMessageDto> {
+    if (!uuidPattern.test(messageId)) throw notFoundDenied();
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const currentResult = await client.query<QaMessageRow>(
+        `
+          SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
+            q.parent_message_id, q.direction, q.message_text, q.message_hash,
+            q.status, q.visibility_scope, q.created_by_internal_user_id, q.reviewed_at, q.created_at,
+            w.matter_id, l.document_id, l.version_id, l.expires_at
+          FROM external_qa_messages q
+          JOIN external_secure_links l
+            ON l.tenant_id = q.tenant_id
+           AND l.link_id = q.link_id
+          JOIN external_workspaces w
+            ON w.tenant_id = q.tenant_id
+           AND w.workspace_id = q.workspace_id
+          WHERE q.tenant_id = $1
+            AND q.qa_message_id = $2
+          FOR UPDATE
+          LIMIT 1
+        `,
+        [ctx.tenantId, messageId],
+      );
+      const current = requiredRow(currentResult.rows[0]);
+      if (current.direction !== 'internal_answer' || current.status !== 'pending_approval') {
+        throw validationFailed('EXTERNAL_QA_REVIEW_STATE_INVALID');
+      }
+      if (current.created_by_internal_user_id === ctx.userId) {
+        throw permissionDenied();
+      }
+      await this.assertCanReviewExternalAnswer(ctx, current.matter_id);
+
+      const nextStatus = input.decision === 'approve' ? 'published' : 'rejected';
+      const updatedResult = await client.query<QaMessageRow>(
+        `
+          UPDATE external_qa_messages
+          SET status = $3,
+              reviewed_by_internal_user_id = $4,
+              reviewed_at = now()
+          WHERE tenant_id = $1
+            AND qa_message_id = $2
+          RETURNING qa_message_id, workspace_id, link_id, external_user_id,
+            parent_message_id, direction, message_text, message_hash, status,
+            visibility_scope, created_by_internal_user_id, reviewed_at, created_at,
+            $5::uuid AS matter_id, $6::uuid AS document_id, $7::uuid AS version_id,
+            $8::timestamptz AS expires_at
+        `,
+        [
+          ctx.tenantId,
+          messageId,
+          nextStatus,
+          ctx.userId,
+          current.matter_id,
+          current.document_id,
+          current.version_id,
+          current.expires_at,
+        ],
+      );
+      const message = mapQaMessage(requiredRow(updatedResult.rows[0]));
+      const auditInput = externalQaAudit(
+        qaAuditScope(ctx.tenantId, current),
+        message,
+        'internal_answer',
+      );
+      const audit = await this.auditService.log(
+        {
+          ...auditInput,
+          actorType: 'user',
+          actorId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+          metadata: {
+            ...auditInput.metadata,
+            review_decision: input.decision,
+            status_before: current.status,
+            status_after: nextStatus,
+          },
+        },
+        client,
+      );
+      await this.workService.completeWorkflowWork(client, {
+        tenantId: ctx.tenantId,
+        kind: 'external_qa_approval',
+        targetId: message.messageId,
+        actorUserId: ctx.userId,
+        auditEventId: audit.eventId,
+      });
       return message;
     });
   }
@@ -904,6 +1136,16 @@ export class ExternalService {
       return;
     }
     throw permissionDenied();
+  }
+
+  private async assertCanReviewExternalAnswer(
+    ctx: PermissionContext,
+    matterId: string,
+  ): Promise<void> {
+    const decision = await this.permissionService.canEditMatter(ctx, matterId);
+    if (decision.effect !== 'ALLOW') throw permissionDenied();
+    const actor = await this.findActor(ctx.tenantId, ctx.userId);
+    if (!actor || actor.status !== 'active') throw permissionDenied();
   }
 
   private async assertSharingPoliciesEnabled(tenantId: string): Promise<void> {
@@ -1090,6 +1332,23 @@ export class ExternalService {
     return result.rows[0] ?? null;
   }
 
+  private async findMatterForTenant(
+    tenantId: string,
+    matterId: string,
+  ): Promise<{ matter_id: string } | null> {
+    const result = await getPool().query<{ matter_id: string }>(
+      `
+        SELECT matter_id
+        FROM matters
+        WHERE tenant_id = $1
+          AND matter_id = $2
+        LIMIT 1
+      `,
+      [tenantId, matterId],
+    );
+    return result.rows[0] ?? null;
+  }
+
   private async findExternalUserForWorkspace(
     client: PoolClient,
     tenantId: string,
@@ -1191,7 +1450,8 @@ export class ExternalService {
     const result = await getPool().query<QaMessageRow>(
       `
         SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
-          q.parent_message_id, q.direction, q.message_text, q.message_hash, q.created_at,
+          q.parent_message_id, q.direction, q.message_text, q.message_hash,
+          q.status, q.visibility_scope, q.created_by_internal_user_id, q.reviewed_at, q.created_at,
           w.matter_id, l.document_id, l.version_id, l.expires_at
         FROM external_qa_messages q
         JOIN external_secure_links l
@@ -1207,6 +1467,35 @@ export class ExternalService {
       [tenantId, messageId],
     );
     return result.rows[0] ?? null;
+  }
+
+  private async findQaApprovalAssignee(
+    client: PoolClient,
+    tenantId: string,
+    matterId: string,
+    authorUserId: string,
+  ): Promise<string> {
+    const result = await client.query<QaApprovalAssigneeRow>(
+      `
+        SELECT u.user_id
+        FROM matter_members mm
+        JOIN users u
+          ON u.tenant_id = mm.tenant_id
+         AND u.user_id = mm.user_id
+        WHERE mm.tenant_id = $1
+          AND mm.matter_id = $2
+          AND mm.user_id <> $3
+          AND mm.access_level = 'edit'
+          AND u.role IN ('matter_owner', 'matter_member')
+          AND u.status = 'active'
+        ORDER BY u.user_id
+        LIMIT 1
+      `,
+      [tenantId, matterId, authorUserId],
+    );
+    const assignee = result.rows[0]?.user_id;
+    if (!assignee) throw validationFailed('EXTERNAL_QA_APPROVER_UNAVAILABLE');
+    return assignee;
   }
 
   private async resolveToken(token: string): Promise<LinkRow> {
@@ -1383,6 +1672,8 @@ function externalQaAudit(
       scope_id: message.messageId,
       hash: message.messageHash,
       access_status: direction,
+      status_after: message.status,
+      visibility_scope: message.visibilityScope,
       result_count: 1,
     },
   };
