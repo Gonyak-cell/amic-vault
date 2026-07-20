@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-19T10:37:00.000Z`
+- asOf / generatedAt: `2026-07-20T00:55:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3`
-- Transition journal SHA-256: `ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21`
+- Overrides SHA-256: `e3926c5ae6408acb4d1c6850fba7bf65e91f060a0b081fe742aafb51f8105fec`
+- Transition journal SHA-256: `508fa9206009b710b3b02bef71706a7101b4825f110ff918f2e8e36c3d265711`
 
 ## Objective
 
@@ -18,13 +18,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 ## Status Counts
 
-- COMPLETE_CANDIDATE: 14
-- NOT_STARTED: 5
+- NOT_STARTED: 11
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 82
 - EXTERNAL_BLOCKED: 12
+- COMPLETE_CANDIDATE: 8
 - PARTIAL: 4
-- BOOTSTRAP_PREIMAGE: 105
-- CURRENT_VALIDATED: 12
+- BOOTSTRAP_PREIMAGE: 99
+- CURRENT_VALIDATED: 18
 
 ## Rules
 
@@ -42,13 +42,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 | ID | H | Size | Status | Validation | Current evidence | Historical evidence | Blocker | Gaps | Plan line | Next action |
 |---|---:|:---:|---|---|---:|---:|---|---:|---:|---|
-| A1 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 28 | NONE | 0 | 54 | A1 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A1. |
-| A2 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 29 | NONE | 0 | 82 | A2 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A2. |
+| A1 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 28 | NONE | 3 | 54 | Recover the registered A1 implementation only in its authorized implementation PACK, then obtain current scoped evidence. |
+| A2 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 29 | NONE | 3 | 82 | Recover A1 first, then implement and verify the registered A2 state-machine and panel scope. |
 | A3 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 26 | NONE | 2 | 106 | Keep A3 not started until the registered implementation and evidence PACK executes. |
-| A4 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 34 | NONE | 0 | 127 | A4 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A4. |
+| A4 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 34 | NONE | 3 | 127 | Recover the registered A4 implementation only in its authorized implementation PACK, then obtain current scoped evidence. |
 | A5 | 1 | S | NOT_STARTED | CURRENT_VALIDATED | 0 | 40 | NONE | 2 | 156 | Keep A5 not started until the registered implementation and evidence PACK executes. |
-| A6 | 1 | L | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 55 | NONE | 0 | 178 | A6 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A6. |
-| A7 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 45 | NONE | 0 | 204 | A7 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A7. |
+| A6 | 1 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 55 | NONE | 3 | 178 | Recover the registered A6 implementation only under an authorized policy-compatible PACK, then obtain current scoped evidence. |
+| A7 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 45 | NONE | 3 | 204 | Recover A3 and A6 first, then implement and verify the registered A7 template scope. |
 | B1 | 1 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 42 | NONE | 2 | 237 | Keep B1 below COMPLETE_CANDIDATE. Collect an actual staging /files to /search manual QA receipt for the scanned Korean PDF flow, then rerun the focused B1 checks, LSP, ledger rebuild, and diff hygiene before considering promotion. |
 | B2 | 1 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 157 | NONE | 1 | 271 | Keep B2 below COMPLETE_CANDIDATE. Collect the staging pptx precreated-preview manual QA receipt; after that, rerun focused B2 package/integration checks, LSP diagnostics, ledger rebuild, and diff hygiene before promotion. |
 | B3 | 1 | M | EXTERNAL_BLOCKED | BOOTSTRAP_PREIMAGE | 0 | 43 | EXTERNAL_EVIDENCE | 2 | 309 | Do not implement more B3 code under the current R11 stop rule. Obtain explicit R11 release authority or operator/ledger resolution for external secure-link watermark rendering; after that, resume B3 with worker /watermark/pdf, artifact cache, rendered sha256 audit, stamped-byte integration tests, staging Acrobat manual QA, and focused local gates. |
@@ -80,7 +80,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | H6 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 29 | NONE | 3 | 1015 | Keep H6 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the docker-compose api+worker upload-to-search receipt and the api-only backlog-then-worker-drain receipt, then rerun focused H6 gates before any COMPLETE_CANDIDATE promotion. |
 | A8 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 52 | NONE | 2 | 1046 | Keep A8 below COMPLETE_CANDIDATE. Collect the browser/staging related-Matter reciprocal-detail plus /matters wall/confidentiality receipt, then rerun the focused A8 gate and promote only if all local and manual evidence remains current. |
 | A9 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 51 | NONE | 2 | 1072 | Keep A9 below COMPLETE_CANDIDATE. Collect the advisory-Matter browser/staging issues/key-date/status-change plus audit-console receipt, then rerun the focused A9 gate and promote only if all local and manual evidence remains current. |
-| A10 | 2 | L | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 31 | NONE | 0 | 1099 | A10 is ready for independent review as COMPLETE_CANDIDATE. Continue with the next dependency-valid TUW and do not claim overall product readiness until all 110 rows are COMPLETE_CANDIDATE or EXTERNAL_BLOCKED with evidence. |
+| A10 | 2 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 31 | NONE | 3 | 1099 | Recover and validate A9 first, then implement and verify the registered A10 dashboard scope. |
 | A11 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 30 | NONE | 1 | 1128 | Collect the staging/manual Closing tab receipt, rerun focused A11 checks/LSP/db roundtrip if anything changes, run diff hygiene, rebuild the 110-row ledger, and only then consider promotion to COMPLETE_CANDIDATE. |
 | A12 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 50 | NONE | 3 | 1157 | Collect the A11 and A12 staging/manual Closing tab receipts, verify JSON/CSV manifest hash locally with sha256sum, rerun focused A12 package/integration/LSP/db/diff gates if anything changes, rebuild the 110-row ledger, and only then consider promotion to COMPLETE_CANDIDATE. |
 | A14 | 2 | S | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 40 | NONE | 0 | 1181 | A14 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A14. |

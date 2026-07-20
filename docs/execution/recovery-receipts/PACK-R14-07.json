@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "packId": "PACK-R14-07",
+  "status": "CANDIDATE_BOOKKEEPING_PREPARED",
+  "recordedAt": "2026-07-20",
+  "authorityRef": "TASK6B-TECHNICAL-GATES-AUTHORITY-20260717",
+  "executionBase": "bd477500b70b4e2f00c68a64dfa3f966f492eaf4",
+  "purpose": "Establish the repo-safe candidate-bookkeeping baseline before six registered Matter-chain control-plane re-adjudications.",
+  "adjudicationBasis": {
+    "A1": "Current main lacks the registered conflict_checks migration, conflict-check service/controller/module, and conflict-check integration anchors.",
+    "A2": "Current main retains partial Matter lifecycle anchors, but the A1 hard dependency has no current implementation and the dedicated conflicts panel anchor is absent.",
+    "A4": "Current main lacks the registered client pages and client-alias migration required by the candidate evidence.",
+    "A6": "Current main lacks the access-scope migration; this non-complete-only row must also preserve its recorded policy boundary.",
+    "A7": "Current main lacks the intake-template migration and Matter creation route, and depends on non-complete A3 and A6.",
+    "A10": "Current main lacks the Matter dashboard service and depends on A9, which has not been adjudicated complete."
+  },
+  "claimBoundary": {
+    "productCodeChanged": false,
+    "migrationChanged": false,
+    "externalStateChanged": false,
+    "completionClaimed": false,
+    "releaseClaimed": false,
+    "goLiveClaimed": false
+  }
+}

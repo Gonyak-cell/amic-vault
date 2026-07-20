@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
   "phase": "TRANSITION",
-  "generatedAt": "2026-07-19T10:37:00.000Z",
+  "generatedAt": "2026-07-20T00:55:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,13 +11,13 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "c178c1c8db3f7724f3e55d1edf7b96f55da8022d5c3803852f6547badfe13ef3"
+      "value": "e3926c5ae6408acb4d1c6850fba7bf65e91f060a0b081fe742aafb51f8105fec"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "ef2af2fe895bb0a03214f486179a9b097926a653dfcd55b5cb8ac6dfe7218b21"
+      "value": "508fa9206009b710b3b02bef71706a7101b4825f110ff918f2e8e36c3d265711"
     },
-    "asOf": "2026-07-19T10:37:00.000Z",
+    "asOf": "2026-07-20T00:55:00.000Z",
     "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
@@ -43,15 +43,15 @@
     "apply state changes only through the sealed one-row transition journal and require every replay prefix to validate"
   ],
   "counts": {
-    "COMPLETE_CANDIDATE": 14,
-    "NOT_STARTED": 5,
+    "NOT_STARTED": 11,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 82,
     "EXTERNAL_BLOCKED": 12,
+    "COMPLETE_CANDIDATE": 8,
     "PARTIAL": 4
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 105,
-    "CURRENT_VALIDATED": 12
+    "BOOTSTRAP_PREIMAGE": 99,
+    "CURRENT_VALIDATED": 18
   },
   "units": [
     {
@@ -63,7 +63,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 54
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -144,9 +144,36 @@
       "externalEvidenceNeeds": [
         "**Scope:** 만들 것: (1) 신규 마이그레이션 — CREATE EXTENSION pg_trgm, matters.conflicts_status 컬럼(not_started/in_review/cleared/blocked, default not_started), conflict_checks 테이블(matter_id FK, 검사 대상 이름 목록, 매치 결과 JSON, 해소 상태·근거·해소자, tenant RLS FORCE + 컬럼 GRANT — 기존 마이그레이션 CONVENTIONS 준수). (2) ConflictCheckService: clients.name, parties.name(전 매터), matters의 과거 관계인을 pg_trgm similarity + 정규화(공백·법인격 접미사 제거)로 매칭하고 후보를 유사도 순으로 반환. (3) API — POST /matters/:matterId/conflict-checks(실행), GET /matters/:matterId/conflict-checks(이력), PATCH .../:checkId(cleared/blocked + 근거 필수). 모든 변이는 AuditService 트랜잭션 패턴으로 감사 기록. (4) MatterDto에 conflictsStatus 노출. 만들지 않을 것: OpenSearch 기반 매칭, 외부 기업DB 조회, 상대방 로펌 축 — 9인 로펌 규모에서 pg_trgm으로 충분."
       ],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/matter/matter-conflict-check.controller.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/matter/matter-conflict-check.service.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "db/migrations/0098_create_conflict_checks.sql",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/conflict-check.spec.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "95f21b9631d8cc017c57b07fb7ecb46040faa6235c9fa7d3f935fc0bbbf17734"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -294,10 +321,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A1 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A1.",
-      "statusRationale": "A1 has current evidence for the pg_trgm/conflict_checks migration, matter conflict status exposure, API routes, permission-gated service implementation, run/resolve audit logging, normalization unit tests, conflict-check integration tests, permission-negative coverage, performance assertion, focused api package checks, default DB migrate/seed, clean throwaway DB migrate/rollback/migrate/seed, and live admin API manual QA against the default DB. The earlier default DB drift was local schema_migrations metadata ordering for already-applied 0098; it was repaired without changing application schema or migration files, and normal pnpm db:migrate now reports no migrations to run. The implementation is anchored under the existing matter module rather than the plan's proposed modules/conflicts path; the audited behavior matches the A1 acceptance surface.",
-      "lastReviewedAt": "2026-07-03T01:38:56.000Z"
+      "remainingGaps": [
+        "missing current migration",
+        "missing current service and controller",
+        "missing current integration coverage"
+      ],
+      "nextAction": "Recover the registered A1 implementation only in its authorized implementation PACK, then obtain current scoped evidence.",
+      "statusRationale": "Current registered candidate lacks the conflict_checks migration, Matter conflict-check service/controller, and integration specification; historical candidate evidence cannot establish current implementation.",
+      "lastReviewedAt": "2026-07-20T00:50:00.000Z"
     },
     {
       "id": "A2",
@@ -308,7 +339,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 82
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [
         {
           "id": "A1",
@@ -368,9 +399,45 @@
         "- 자동: tests/integration/matter-lifecycle.spec.ts 확장 — (a) cleared 전 PATCH /matters/:id/status(open) 요청이 409/422 + CONFLICTS_NOT_CLEARED 코드로 거부, (b) cleared 후 동일 요청 성공, (c) blocked 매터는 open 전이 거부 지속, (d) 거부 이벤트가 audit_events에 기록"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+            }
+          },
+          {
+            "path": "apps/web/src/components/matter/matter-conflicts-panel.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "packages/domain/src/matter/matter-transitions.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "dd88bf3f6d2527e5c76eb81564bf6e4149d554038ef161a936d903ce5c07ee79"
+            }
+          },
+          {
+            "path": "tests/integration/matter-lifecycle.spec.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "3b0702d7300ee8acbc43ae0e7af5054579f2babaae6256e57cdb44bb10ba5465"
+            }
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "3cd398a995269fd2534552e99fe006c96dfff2fcb34d668e6ceef9e46907b219"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -523,10 +590,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A2 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A2.",
-      "statusRationale": "A2 has current evidence for the domain conflicts-status gate, API fail-closed proposed-to-open enforcement with denial audit logging, Matter DTO conflictsStatus exposure, web API client functions, Matter detail Conflicts panel rendering/actions, web component tests, lifecycle integration tests, focused domain/web checks, fresh browser manual QA through the real web surface, ledger regeneration, structural validation, and diff/whitespace checks. No A2-specific migration is required beyond the A1 conflicts_status schema already present; the manual gate was rerun after restarting a stale local API process so the evidence is from the current compiled runtime.",
-      "lastReviewedAt": "2026-07-03T01:52:25.000Z"
+      "remainingGaps": [
+        "A1 dependency not current-complete",
+        "missing current conflicts panel",
+        "missing current conflict-state integration evidence"
+      ],
+      "nextAction": "Recover A1 first, then implement and verify the registered A2 state-machine and panel scope.",
+      "statusRationale": "Current registered candidate has partial Matter lifecycle anchors but lacks the conflicts panel and its A1 conflict-check dependency; historical evidence cannot establish the required current chain.",
+      "lastReviewedAt": "2026-07-20T00:51:00.000Z"
     },
     {
       "id": "A3",
@@ -764,7 +835,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 127
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -831,9 +902,39 @@
         "- 자동: tests/integration/client.spec.ts 확장 — alias 필드 CRUD와 sensitive 키 차단, cross-tenant 조회 차단 검증; tests/integration/matter-core.spec.ts 확장 — GET /matters/:id 응답에 clientDisplayName 포함 검증"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/clients/[clientId]/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/web/src/app/(app)/clients/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "db/migrations/0099_add_client_aliases.sql",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/client.spec.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "e59a6827dc8c2284817d8db29e347e064fb9c01a67b0b28d88b3ef8c50f1965d"
+            }
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "09b3e1405559f6211291bb3b6b9dc9dd59a67aba797debec1fb444f5fddb085b"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -1011,10 +1112,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A4 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A4.",
-      "statusRationale": "A4 has current evidence for the clients API, aliases migration and rollback, client alias create/list/update behavior, reference-only client audit metadata, non-manager and cross-tenant negative tests, MatterDto clientDisplayName exposure on create/detail/list, /clients list and detail pages, web API client client functions, client page unit tests, conflict-check alias matching on both target and candidate client names, focused api/web checks, isolated DB migrate/rollback/migrate/seed, browser manual QA through /clients, /matters/new, /clients/[clientId], and /matters, sloplint, and diff hygiene. No customer portal or CRM surface was added.",
-      "lastReviewedAt": "2026-07-03T02:23:31.000Z"
+      "remainingGaps": [
+        "missing current client-alias migration",
+        "missing current client list and detail pages",
+        "missing current registered UI coverage"
+      ],
+      "nextAction": "Recover the registered A4 implementation only in its authorized implementation PACK, then obtain current scoped evidence.",
+      "statusRationale": "Current registered candidate lacks the client-alias migration and both registered client management pages, so historical candidate evidence cannot establish current A4 behavior.",
+      "lastReviewedAt": "2026-07-20T00:52:00.000Z"
     },
     {
       "id": "A5",
@@ -1327,7 +1432,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 178
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -1406,9 +1511,45 @@
         "- 자동: tests/integration/ethical-wall.spec.ts·fail-closed.spec.ts 기존 케이스 전부 통과(wall fail-closed 회귀 없음)"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/permission/permission-query.builder.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "4bed95fc0fb05717a4162e305a6f1eb3d669fc734466f07088f184c0466e6f9a"
+            }
+          },
+          {
+            "path": "apps/api/src/modules/permission/permission.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "461aa96edf587391b4c74edc689e2eab7a3ba9321b050de4430d978579a0be0f"
+            }
+          },
+          {
+            "path": "db/migrations/0100_add_matter_access_scope.sql",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/ethical-wall.spec.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "1f6cb6e1a08c2959a574d451e0fdc058ff4eddb4f21fa19d541beac2332aac5c"
+            }
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "0a40fafbc1fcbfbd224506156bca51c4cea2868c409f293abe23c1c1e78071d6"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -1691,10 +1832,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A6 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A6.",
-      "statusRationale": "A6 has current evidence for the matters.access_scope migration and backfill, PermissionService read/write split, permission-query list filter, shared Matter DTO/create/update schemas, Matter create/update/list persistence, owner-gated access-scope changes with MATTER_UPDATED audit metadata, web create/detail management controls, A6-specific integration tests including non-member read/list/document-list/write-denial, restricted hiding, ethical-wall fail-closed, active-wall backfill, focused API/web package checks, default DB migrate/seed, disposable DB migrate/rollback/migrate/seed, and live browser manual QA as a non-member user. The implementation keeps document confidentiality defaults and role/group matrices out of scope.",
-      "lastReviewedAt": "2026-07-03T02:47:40.000Z"
+      "remainingGaps": [
+        "missing current access-scope migration",
+        "missing current A6 implementation evidence",
+        "policy semantics remain unmodified"
+      ],
+      "nextAction": "Recover the registered A6 implementation only under an authorized policy-compatible PACK, then obtain current scoped evidence.",
+      "statusRationale": "Current registered candidate lacks the access-scope migration that the A6 evidence requires. This non-complete transition preserves the existing policy boundary and makes no authority or semantic-override claim.",
+      "lastReviewedAt": "2026-07-20T00:53:00.000Z"
     },
     {
       "id": "A7",
@@ -1705,7 +1850,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 204
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [
         {
           "id": "A3",
@@ -1789,9 +1934,42 @@
         "- (앵커 부정확) anchors의 apps/web/src/app/(app)/matters/new/page.tsx는 현재 실존하지 않음(A3의 신규 산출물) — '신규(A3 산출물):' 표기로 수정할 것. 또한 신규 0101_create_matter_intake_templates.sql은 기존 db/migrations/0088_create_enterprise_dms_matter_templates.sql의 enterprise_dms_matter_templates(matter_type별 템플릿, document_sets_json 보유)와 역할이 중복됨 — 새 테이블 대신 0088 테이블에 access_scope/retention_policy_id/ai_policy_id 컬럼을 추가하는 방향을 우선 검토하고, 별도 테이블이 필요하면 근거를 명시할 것. 부가로 acceptance_tests의 '(다이제스트 low/QUALITY finding 흡수)'는 판정 기준이 아닌 메타 주석이므로 삭제 권장."
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/matter/matter.service.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c86732863b9f80fcc3da74e9a07d278728a1d2c6bb2d995d4299a01649fbdf92"
+            }
+          },
+          {
+            "path": "apps/web/src/app/(app)/matters/new/page.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "db/migrations/0101_create_matter_intake_templates.sql",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/matter-core.spec.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "069c40efd5503761ffd8d2cb79f21c8b96752d35e0ecf78b63f23059f02e69f7"
+            }
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "6571657e7f9c56d7643f507ec3756601ac196b86b6ac7f880ec6b369abb88f1f"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -2024,10 +2202,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A7 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A7.",
-      "statusRationale": "A7 has current evidence for fixed default_open and restricted Matter intake templates, template-driven access_scope, template-driven local AI policy selection, lead-owner member insertion, MATTER_CREATED audit metadata with template_ref, rollback on invalid active template configuration, /matters/new template selector and preview, focused API/web checks, DB migrate and seed, clean disposable DB migrate/rollback/migrate/seed, live browser manual QA, sloplint, and diff whitespace checks. A7 completion follows the correction in the A7 plan critique: retention-policy auto-binding is excluded from H1/A7 and remains deferred to H8/H2, so no retention-policy binding is claimed here.",
-      "lastReviewedAt": "2026-07-03T03:03:36.000Z"
+      "remainingGaps": [
+        "missing current intake-template migration",
+        "missing current Matter creation route",
+        "A3 and A6 dependencies not current-complete"
+      ],
+      "nextAction": "Recover A3 and A6 first, then implement and verify the registered A7 template scope.",
+      "statusRationale": "Current registered candidate lacks the intake-template migration and Matter creation route, while required dependencies A3 and A6 are non-complete; A7 cannot receive a completion claim.",
+      "lastReviewedAt": "2026-07-20T00:54:00.000Z"
     },
     {
       "id": "B1",
@@ -13534,7 +13716,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 1099
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [
         {
           "id": "A9",
@@ -13625,9 +13807,42 @@
         "- (테스트 불가능한 완료판정) 통합 테스트 (a)의 'dashboard 응답에 7개 섹션이 모두 채워짐'은 7개 섹션이 유닛 어디에도 열거되지 않았고 시드 데이터는 4종(쟁점·기한·외부링크·AI세션)뿐이라 객관 판정 불가. 섹션 목록을 명시적으로 열거(예: 쟁점/기한/멤버/최근 문서/최근 감사활동/외부링크/AI세션)하고 각 섹션에 대응하는 시드를 1:1로 정의할 것. p95 < 1.5초 assert도 측정 방식(반복 횟수 N, 워밍업 제외 여부)을 명시해야 재현 가능한 판정이 됨."
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/matter/matter-dashboard.service.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/matter/matter.controller.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "995163ff32db45544d4fc28ff0792ea7bb5385c4cbecd2c61a34c4d1577945ed"
+            }
+          },
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+            }
+          },
+          {
+            "path": "tests/integration/matter-dashboard.spec.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "67b1a06ac61070daf8f79bdfc8aea55eef8aa22bc5572628ec53b6bc098ddeed"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -13790,10 +14005,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A10 is ready for independent review as COMPLETE_CANDIDATE. Continue with the next dependency-valid TUW and do not claim overall product readiness until all 110 rows are COMPLETE_CANDIDATE or EXTERNAL_BLOCKED with evidence.",
-      "statusRationale": "A10 is COMPLETE_CANDIDATE with current evidence for the per-Matter dashboard aggregate endpoint, AI session matterId listing, shared DTO/API client wiring, Matter detail dashboard panel, permission-negative and ethical-wall negative tests, other-matter AI/external isolation, p95 performance assertion, focused package checks, production build, diff hygiene, direct changed-file LSP diagnostics for all 13 A10 files, and live local browser manual QA at 1440px through the Matter page. The previous TSX LSP gap was a collector URI-normalization issue for the Next app route group path; the normalized direct typescript-language-server receipt now has allFilesReceived=true with zero errors/warnings. No new DB migration was introduced; A10 reuses existing 0050 ai_sessions and 0058 external core tables.",
-      "lastReviewedAt": "2026-07-04T02:38:29Z"
+      "remainingGaps": [
+        "missing current dashboard service",
+        "missing current dashboard integration coverage",
+        "A9 dependency not current-complete"
+      ],
+      "nextAction": "Recover and validate A9 first, then implement and verify the registered A10 dashboard scope.",
+      "statusRationale": "Current registered candidate lacks the Matter dashboard service and dashboard integration specification, and hard dependency A9 is not current-complete; A10 cannot receive a completion claim.",
+      "lastReviewedAt": "2026-07-20T00:55:00.000Z"
     },
     {
       "id": "A11",
