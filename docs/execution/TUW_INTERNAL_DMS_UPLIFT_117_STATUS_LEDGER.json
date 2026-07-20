@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
-  "phase": "CANDIDATE_ROLLOVER",
-  "generatedAt": "2026-07-19T10:37:00.000Z",
+  "phase": "TRANSITION",
+  "generatedAt": "2026-07-20T00:50:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,14 +11,14 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "da3b71381d6f573cdb62670256cc513d8c62fc2ba5006017c3828667e18a0b5c"
+      "value": "6a7eb65e247e59e5791ce99063c7f7a1e90c89674c88fb7c2f85ce2ab996f292"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "873931debe010493607e3e7f5a7e380486cb1610e4694b6a410f38c3e343e5f3"
+      "value": "bcb7910c6d350a29b1092d99af5b5d1c8c0228b6376845ee4413c44dc09516fc"
     },
-    "asOf": "2026-07-19T10:37:00.000Z",
-    "phase": "CANDIDATE_ROLLOVER"
+    "asOf": "2026-07-20T00:50:00.000Z",
+    "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
   "overridesPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json",
@@ -43,15 +43,15 @@
     "apply state changes only through the sealed one-row transition journal and require every replay prefix to validate"
   ],
   "counts": {
-    "COMPLETE_CANDIDATE": 14,
-    "NOT_STARTED": 5,
+    "NOT_STARTED": 6,
+    "COMPLETE_CANDIDATE": 13,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 82,
     "EXTERNAL_BLOCKED": 12,
     "PARTIAL": 4
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 105,
-    "CURRENT_VALIDATED": 12
+    "BOOTSTRAP_PREIMAGE": 104,
+    "CURRENT_VALIDATED": 13
   },
   "units": [
     {
@@ -63,7 +63,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 54
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [],
       "codeAnchors": [
         {
@@ -144,9 +144,36 @@
       "externalEvidenceNeeds": [
         "**Scope:** 만들 것: (1) 신규 마이그레이션 — CREATE EXTENSION pg_trgm, matters.conflicts_status 컬럼(not_started/in_review/cleared/blocked, default not_started), conflict_checks 테이블(matter_id FK, 검사 대상 이름 목록, 매치 결과 JSON, 해소 상태·근거·해소자, tenant RLS FORCE + 컬럼 GRANT — 기존 마이그레이션 CONVENTIONS 준수). (2) ConflictCheckService: clients.name, parties.name(전 매터), matters의 과거 관계인을 pg_trgm similarity + 정규화(공백·법인격 접미사 제거)로 매칭하고 후보를 유사도 순으로 반환. (3) API — POST /matters/:matterId/conflict-checks(실행), GET /matters/:matterId/conflict-checks(이력), PATCH .../:checkId(cleared/blocked + 근거 필수). 모든 변이는 AuditService 트랜잭션 패턴으로 감사 기록. (4) MatterDto에 conflictsStatus 노출. 만들지 않을 것: OpenSearch 기반 매칭, 외부 기업DB 조회, 상대방 로펌 축 — 9인 로펌 규모에서 pg_trgm으로 충분."
       ],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/api/src/modules/matter/matter-conflict-check.controller.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "apps/api/src/modules/matter/matter-conflict-check.service.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "db/migrations/0098_create_conflict_checks.sql",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "tests/integration/conflict-check.spec.ts",
+            "mode": "ABSENT",
+            "contentSha256": null
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "95f21b9631d8cc017c57b07fb7ecb46040faa6235c9fa7d3f935fc0bbbf17734"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -294,10 +321,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A1 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A1.",
-      "statusRationale": "A1 has current evidence for the pg_trgm/conflict_checks migration, matter conflict status exposure, API routes, permission-gated service implementation, run/resolve audit logging, normalization unit tests, conflict-check integration tests, permission-negative coverage, performance assertion, focused api package checks, default DB migrate/seed, clean throwaway DB migrate/rollback/migrate/seed, and live admin API manual QA against the default DB. The earlier default DB drift was local schema_migrations metadata ordering for already-applied 0098; it was repaired without changing application schema or migration files, and normal pnpm db:migrate now reports no migrations to run. The implementation is anchored under the existing matter module rather than the plan's proposed modules/conflicts path; the audited behavior matches the A1 acceptance surface.",
-      "lastReviewedAt": "2026-07-03T01:38:56.000Z"
+      "remainingGaps": [
+        "missing current migration",
+        "missing current service and controller",
+        "missing current integration coverage"
+      ],
+      "nextAction": "Recover the registered A1 implementation only in its authorized implementation PACK, then obtain current scoped evidence.",
+      "statusRationale": "Current registered candidate lacks the conflict_checks migration, Matter conflict-check service/controller, and integration specification; historical candidate evidence cannot establish current implementation.",
+      "lastReviewedAt": "2026-07-20T00:50:00.000Z"
     },
     {
       "id": "A2",

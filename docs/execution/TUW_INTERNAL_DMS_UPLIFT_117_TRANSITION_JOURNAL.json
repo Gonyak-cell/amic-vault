@@ -14,10 +14,10 @@
     "algorithm": "SHA-256",
     "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
   },
-  "asOf": "2026-07-19T10:37:00.000Z",
+  "asOf": "2026-07-20T00:50:00.000Z",
   "previousAcceptedJournalHead": {
     "algorithm": "SHA-256",
-    "value": "3889d9a7eed4a5170efab7c41fb83720d42e6976b5d4dcb5b3636f55ebe550cf"
+    "value": "15d4c09afed8d448baf4b01f0838282a43f42b4a033972e6dcefb73f12f9f5bf"
   },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
@@ -25809,7 +25809,7 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "a42caaa0925111183b29e3307db60437967c9e7d25bddaa3fc10ad7d6aad6029"
+    "value": "b220b98c47aa261e86bdbbe52548317308eaac88f8decee372d32e70c7fba8d6"
   },
   "entries": [
     {
@@ -25938,11 +25938,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "a42caaa0925111183b29e3307db60437967c9e7d25bddaa3fc10ad7d6aad6029"
+        "value": "b220b98c47aa261e86bdbbe52548317308eaac88f8decee372d32e70c7fba8d6"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "351a5158a5ea4352a9fc3c273d01131fb07bdd01ee60396ef4f015d322b86b68"
+        "value": "c184a1ab8a0566356bce425b20b6c349cd2e5a9b6f1a98d547b03d23aece9346"
       }
     },
     {
@@ -26071,11 +26071,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "351a5158a5ea4352a9fc3c273d01131fb07bdd01ee60396ef4f015d322b86b68"
+        "value": "c184a1ab8a0566356bce425b20b6c349cd2e5a9b6f1a98d547b03d23aece9346"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "c6118a38ff6d7b54d055f3515ee1bb7f765ce0a78beae407b2776d44dd5bf36b"
+        "value": "b6784efb23c6df62c284b2fb6f606ba55480c8b968a29d7f97f03fe8f8f66213"
       }
     },
     {
@@ -26204,11 +26204,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "c6118a38ff6d7b54d055f3515ee1bb7f765ce0a78beae407b2776d44dd5bf36b"
+        "value": "b6784efb23c6df62c284b2fb6f606ba55480c8b968a29d7f97f03fe8f8f66213"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "c1b9f5d81beca2285545c88fc10fb46f08cefacbf932808d25cab29864e26e80"
+        "value": "64861b3c721133f07d976631952c0ec729a24552bac3645f609587586b51a7ef"
       }
     },
     {
@@ -26339,11 +26339,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "c1b9f5d81beca2285545c88fc10fb46f08cefacbf932808d25cab29864e26e80"
+        "value": "64861b3c721133f07d976631952c0ec729a24552bac3645f609587586b51a7ef"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "6c8f787b411a8256116d95e02c99aca0f05fa518dafe3e8ffee674e3ecc54fc3"
+        "value": "1f4a7dbf5003481dfe62727d9b93f612c9aa7d6f66daecd9018b36460d1a900c"
       }
     },
     {
@@ -26474,11 +26474,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "6c8f787b411a8256116d95e02c99aca0f05fa518dafe3e8ffee674e3ecc54fc3"
+        "value": "1f4a7dbf5003481dfe62727d9b93f612c9aa7d6f66daecd9018b36460d1a900c"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "f32a4b6ec7c69eb11a1f53a2fbde99b79f7331508793b99e8681123c99a2df1c"
+        "value": "d2ee9ad0d22ca1208fe9b4aa13f2f482bf2304905c43b9d29ed2f063bce8d8f6"
       }
     },
     {
@@ -26610,11 +26610,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "f32a4b6ec7c69eb11a1f53a2fbde99b79f7331508793b99e8681123c99a2df1c"
+        "value": "d2ee9ad0d22ca1208fe9b4aa13f2f482bf2304905c43b9d29ed2f063bce8d8f6"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "cefec63fefe3e5287cc3421d421411c580f580b36374ae922bc4698ca4c28c70"
+        "value": "4eb2ba107e48e3252d72eb9f815232d90a0fc4d7178e4484f496d59a4b893e46"
       }
     },
     {
@@ -26746,11 +26746,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "cefec63fefe3e5287cc3421d421411c580f580b36374ae922bc4698ca4c28c70"
+        "value": "4eb2ba107e48e3252d72eb9f815232d90a0fc4d7178e4484f496d59a4b893e46"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "1d094930fca38e78b46fd38e57fca80c8f305144f0d812aa5ff806039d6ccdec"
+        "value": "66c8dd65164d822d5f8237c7e781e4168c3981db6bd5ab44f34d20b24041e536"
       }
     },
     {
@@ -27017,11 +27017,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "1d094930fca38e78b46fd38e57fca80c8f305144f0d812aa5ff806039d6ccdec"
+        "value": "66c8dd65164d822d5f8237c7e781e4168c3981db6bd5ab44f34d20b24041e536"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "e1efcd145d76107bd4dd8e68cac9461ae1cd7646306c50242ff1ddab97798098"
+        "value": "eea3977625661f26148ada6e0f980af67df6effba53f84b7811e59c09d860314"
       }
     },
     {
@@ -27218,11 +27218,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "e1efcd145d76107bd4dd8e68cac9461ae1cd7646306c50242ff1ddab97798098"
+        "value": "eea3977625661f26148ada6e0f980af67df6effba53f84b7811e59c09d860314"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "4e0c93133059c82465f559b60fae17ca9afc50fdbf389fc998699a114131a37d"
+        "value": "78bed417ee8419a4887f0eee2f7222c8c9f3cbaf6ff8cdc796e44432de574460"
       }
     },
     {
@@ -27564,11 +27564,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "4e0c93133059c82465f559b60fae17ca9afc50fdbf389fc998699a114131a37d"
+        "value": "78bed417ee8419a4887f0eee2f7222c8c9f3cbaf6ff8cdc796e44432de574460"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "b9123405ba7ca709570422efcc29d6d33b1372792b1bf45cd83ae4dcdf54e489"
+        "value": "af2402008416aabc52bd3974f4b13baa2420d784ba4ec57c9869c494671459f6"
       }
     },
     {
@@ -27825,11 +27825,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "b9123405ba7ca709570422efcc29d6d33b1372792b1bf45cd83ae4dcdf54e489"
+        "value": "af2402008416aabc52bd3974f4b13baa2420d784ba4ec57c9869c494671459f6"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "304c1445205e903659da908e979f1e8af22a6018bc23f5f868ae34764a65f5ad"
+        "value": "0a1424c76bdb0cdf157b538a57c50fb74cef0e3fc3a33bc483be5867813db3fa"
       }
     },
     {
@@ -28139,11 +28139,230 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "304c1445205e903659da908e979f1e8af22a6018bc23f5f868ae34764a65f5ad"
+        "value": "0a1424c76bdb0cdf157b538a57c50fb74cef0e3fc3a33bc483be5867813db3fa"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "15d4c09afed8d448baf4b01f0838282a43f42b4a033972e6dcefb73f12f9f5bf"
+        "value": "b8a1577b687aa94b5d1a87501964aa57c3afde4019b04b885fd90dc927716478"
+      }
+    },
+    {
+      "sequence": 13,
+      "transitionId": "TR-000013",
+      "packId": "PACK-R14-07",
+      "tuwId": "A1",
+      "transitionKind": "DEMOTE",
+      "candidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "95f21b9631d8cc017c57b07fb7ecb46040faa6235c9fa7d3f935fc0bbbf17734"
+      },
+      "recordedAt": "2026-07-20T00:50:00.000Z",
+      "reasonCode": "CURRENT_SOURCE_AUDIT",
+      "reason": "Current registered candidate lacks the conflict_checks migration, Matter conflict-check service/controller, and integration specification; historical candidate evidence cannot establish current implementation.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "cf903526746771254ee453a874796eab92f8ddc8cc3340750bc56a4a91f99e8d"
+      },
+      "afterOverride": {
+        "status": "NOT_STARTED",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/matter/matter-conflict-check.controller.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/matter/matter-conflict-check.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "db/migrations/0098_create_conflict_checks.sql",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "tests/integration/conflict-check.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "95f21b9631d8cc017c57b07fb7ecb46040faa6235c9fa7d3f935fc0bbbf17734"
+          }
+        },
+        "lastReviewedAt": "2026-07-20T00:50:00.000Z",
+        "statusRationale": "Current registered candidate lacks the conflict_checks migration, Matter conflict-check service/controller, and integration specification; historical candidate evidence cannot establish current implementation.",
+        "historicalEvidenceRefs": [
+          {
+            "type": "source_plan",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:47",
+            "note": "Authoritative A1 acceptance block: pg_trgm/conflict_checks schema, POST/GET/PATCH API, audit events, normalization unit test, integration conflict candidates, cross-tenant exclusion, manual admin API QA, and 200-client/1000-party p95 check."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "db/migrations/0098_create_conflict_checks.sql:3",
+            "note": "Migration enables pg_trgm."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "db/migrations/0098_create_conflict_checks.sql:160",
+            "note": "Migration adds matters.conflicts_status with not_started/in_review/cleared/blocked constraint and default."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "db/migrations/0098_create_conflict_checks.sql:165",
+            "note": "Migration creates conflict_checks with tenant_id, matter_id, target_names, match_results, status, resolution rationale, actor fields, and constraints."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "db/migrations/0098_create_conflict_checks.sql:213",
+            "note": "Migration enables and forces tenant RLS on conflict_checks."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-conflict-check.controller.ts:49",
+            "note": "POST/GET/PATCH conflict-check routes are registered under the matter module."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "packages/shared/src/matter/matter.dto.ts:105",
+            "note": "MatterDto exposes conflictsStatus."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-conflict-check.service.ts:190",
+            "note": "Conflict-check execution asserts canEditMatter, runs in an audit transaction, inserts the check, updates matters.conflicts_status to in_review, and logs CONFLICT_CHECK_EXECUTED."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-conflict-check.service.ts:246",
+            "note": "Conflict-check resolution asserts canEditMatter, validates the check, updates resolution status/rationale, updates matters.conflicts_status, and logs CONFLICT_CHECK_RESOLVED."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-conflict-check.service.ts:350",
+            "note": "Candidate matching compares normalized client, party, and matter names by tenant using pg_trgm similarity."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-conflict-check.service.spec.ts:5",
+            "note": "Normalization unit test covers 8 Korean legal suffix/spacing variants and unrelated-name separation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/conflict-check.spec.ts:228",
+            "note": "Integration test covers similar legal suffix candidate, missing-rationale 400, cleared rationale success, MatterDto conflictsStatus cleared, and run/resolve audit events."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/conflict-check.spec.ts:287",
+            "note": "Integration test covers unrelated names returning zero candidates and cross-tenant party exclusion."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/conflict-check.spec.ts:309",
+            "note": "Integration permission-negative test denies same-tenant users without matter edit permission and leaves conflictsStatus not_started."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/conflict-check.spec.ts:331",
+            "note": "Integration performance assertion seeds 200 clients and 1000 parties, then requires the conflict check to complete under 2000 ms."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/api test -- matter-conflict-check.service.spec.ts",
+            "note": "2026-07-03: 1 file passed, 2 tests passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "DATABASE_URL=postgres://.../amic_vault_c1_evidence_1783041414738 APP_DATABASE_URL=postgres://.../amic_vault_c1_evidence_1783041414738 pnpm test:integration -- conflict-check",
+            "note": "2026-07-03: after adding the permission-negative case, tests/integration/conflict-check.spec.ts passed, 1 file/4 tests."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/api lint && pnpm --filter @amic-vault/api typecheck && pnpm --filter @amic-vault/api build",
+            "note": "2026-07-03: focused api lint, typecheck, and build passed after the A1 permission-negative integration patch."
+          },
+          {
+            "type": "command_pass",
+            "ref": "DATABASE_URL=postgres://.../amic_vault_c1_roundtrip_1783041497095 pnpm db:migrate && pnpm db:rollback && pnpm db:migrate && pnpm db:seed",
+            "note": "2026-07-03: isolated clean DB migration roundtrip passed, then seed completed tenants=2 users=11."
+          },
+          {
+            "type": "manual_api_qa_pass",
+            "ref": "API_PORT=4311 DATABASE_URL=.../amic_vault_c1_evidence_1783041414738 node manual A1 HTTP probe",
+            "note": "2026-07-03: live built API server accepted beta owner login; POST /v1/matters/ae4c7d37-47f0-4433-8873-6c774c52ed2c/conflict-checks returned 201 with 2 candidates and party source similarity=1; GET conflict-checks returned 200; PATCH without rationale returned 400; PATCH cleared with rationale returned 200; GET /v1/matters/ae4c7d37-47f0-4433-8873-6c774c52ed2c returned conflictsStatus=cleared."
+          },
+          {
+            "type": "local_db_repair",
+            "ref": "schema_migrations run_on repair for 0098_create_conflict_checks on amic_vault",
+            "note": "2026-07-03: verified A1 schema objects already existed, then adjusted only schema_migrations.run_on so 0098_create_conflict_checks sorts one microsecond before 0099_add_client_aliases; application tables and migration files were not changed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm db:migrate",
+            "note": "2026-07-03: after local migration metadata repair, default amic_vault DB migrated through 0114 successfully."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm db:seed",
+            "note": "2026-07-03: default amic_vault DB seed completed: tenants=2 users=11."
+          },
+          {
+            "type": "command_pass",
+            "ref": "DATABASE_URL=postgres://.../amic_vault_a1_roundtrip_1783042660 pnpm db:migrate && pnpm db:rollback && pnpm db:migrate && pnpm db:seed",
+            "note": "2026-07-03: fresh throwaway DB roundtrip completed with repo-correct Node 22/pnpm 9; final seed completed tenants=2 users=11."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm test:integration -- conflict-check",
+            "note": "2026-07-03: default amic_vault DB integration run passed tests/integration/conflict-check.spec.ts, 1 file/4 tests."
+          },
+          {
+            "type": "manual_api_qa_pass",
+            "ref": "API_PORT=4311 DATABASE_URL=default amic_vault node manual A1 HTTP probe",
+            "note": "2026-07-03: live built API server on default DB accepted beta owner login; POST /v1/matters/ba261c86-d654-429d-bdb0-906106815580/conflict-checks returned 201 with 2 candidates and party source similarity=1; GET conflict-checks returned 200; PATCH without rationale returned 400; PATCH cleared with rationale returned 200; GET /v1/matters/ba261c86-d654-429d-bdb0-906106815580 returned conflictsStatus=cleared."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm db:migrate",
+            "note": "2026-07-03: final default DB migration check passed with no migrations to run."
+          },
+          {
+            "type": "command_pass",
+            "ref": "git diff --check -- tests/integration/document-access/email-filing.spec.ts",
+            "note": "2026-07-03: tracked-file diff whitespace check passed for the modified email-filing spec; separate trailing-whitespace scan covers untracked ledger/tool/test artifacts."
+          }
+        ],
+        "evidenceRefs": [],
+        "remainingGaps": [
+          "missing current migration",
+          "missing current service and controller",
+          "missing current integration coverage"
+        ],
+        "nextAction": "Recover the registered A1 implementation only in its authorized implementation PACK, then obtain current scoped evidence.",
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "1ea56ad2a5e9953584ee703d53b1eefbfdcb893975f2863cfb0cbfc42f0cb813"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "b8a1577b687aa94b5d1a87501964aa57c3afde4019b04b885fd90dc927716478"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "3c2922b55411d2346988d2cb01fd788fedb0d5fb0a3e4d9342c3125f70cf3949"
       }
     }
   ],
