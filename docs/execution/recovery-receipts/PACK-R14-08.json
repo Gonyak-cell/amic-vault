@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "packId": "PACK-R14-08",
+  "status": "VERIFIED_TECHNICAL_GATES",
+  "recordedAt": "2026-07-20",
+  "authorityRef": "TASK6B-TECHNICAL-GATES-AUTHORITY-20260717",
+  "executionBase": "5f3bdef125c6e9abdba11649fc2f12e93711cfbe",
+  "purpose": "Recover the registered LawOS canonical Matter reflection runner exactly from its assigned source commit and verify its repo-local technical gates.",
+  "source": {
+    "sourceId": "TASK8-LAWOS-REFLECTION-0B39414",
+    "kind": "GIT_SINGLE_COMMIT",
+    "sourceCommit": "0b39414d4de746597e8f3c6ff64f7c1989789135",
+    "reconstructionMode": "PRESERVE_SINGLE_COMMIT_THEN_APPLY_OWNED_OVERLAY_HUNKS",
+    "restoredPaths": [
+      "docs/release/lawos-canonical-matter-reflection-tuw-plan.md",
+      "tools/migration/lawos-canonical-matter-reflection.mjs",
+      "tools/migration/lawos-canonical-matter-reflection.spec.mjs",
+      "package.json"
+    ],
+    "exactSourcePathDiffVerified": true
+  },
+  "claimBoundary": {
+    "implementationRecovered": true,
+    "operationalRunnerExecuted": false,
+    "dataImported": false,
+    "migrationChanged": false,
+    "externalStateChanged": false,
+    "productionStateChanged": false,
+    "releaseClaimed": false,
+    "goLiveClaimed": false
+  },
+  "scope": {
+    "createdPaths": [
+      "docs/release/lawos-canonical-matter-reflection-tuw-plan.md",
+      "tools/migration/lawos-canonical-matter-reflection.mjs",
+      "tools/migration/lawos-canonical-matter-reflection.spec.mjs"
+    ],
+    "modifiedPaths": [
+      "package.json"
+    ],
+    "controlPlanePaths": [
+      "docs/execution/recovery-receipts/PACK-R14-08.json",
+      "docs/ledger/execution.md"
+    ],
+    "notChanged": [
+      "docs/package/**",
+      "AGENTS.md",
+      ".omo/**",
+      "database migrations",
+      "production or external state"
+    ]
+  },
+  "verification": {
+    "exactHeadRequired": true,
+    "status": "PASS",
+    "focusedTest": "tools/migration/lawos-canonical-matter-reflection.spec.mjs: 7/7 passed",
+    "commands": [
+      "node tools/execution/build-post-r14-recovery-pack-manifest.mjs --check --committed-only",
+      "pnpm install --frozen-lockfile",
+      "node tools/execution/build-post-r14-recovery-pack-manifest.mjs --assert-focused-test 'tools/migration/lawos-canonical-matter-reflection.spec.mjs'",
+      "node tools/execution/build-post-r14-recovery-pack-manifest.mjs --run-focused-test 'tools/migration/lawos-canonical-matter-reflection.spec.mjs'",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+      "pnpm backlog:validate",
+      "pnpm docs:frozen",
+      "git diff --check"
+    ]
+  }
+}
