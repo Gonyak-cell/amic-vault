@@ -1,6 +1,6 @@
 {
     "schemaVersion": 1,
-    "updatedAt": "2026-07-20T00:53:00.000Z",
+    "updatedAt": "2026-07-20T00:54:00.000Z",
     "unitOverrides": {
         "A1": {
             "status": "NOT_STARTED",
@@ -1356,12 +1356,45 @@
             "dependencyConditions": []
         },
         "A7": {
-            "status": "COMPLETE_CANDIDATE",
-            "validationState": "BOOTSTRAP_PREIMAGE",
-            "validatedCandidateSha": null,
-            "validationScope": null,
-            "lastReviewedAt": "2026-07-03T03:03:36.000Z",
-            "statusRationale": "A7 has current evidence for fixed default_open and restricted Matter intake templates, template-driven access_scope, template-driven local AI policy selection, lead-owner member insertion, MATTER_CREATED audit metadata with template_ref, rollback on invalid active template configuration, /matters/new template selector and preview, focused API/web checks, DB migrate and seed, clean disposable DB migrate/rollback/migrate/seed, live browser manual QA, sloplint, and diff whitespace checks. A7 completion follows the correction in the A7 plan critique: retention-policy auto-binding is excluded from H1/A7 and remains deferred to H8/H2, so no retention-policy binding is claimed here.",
+            "status": "NOT_STARTED",
+            "validationState": "CURRENT_VALIDATED",
+            "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+            "validationScope": {
+                "entries": [
+                    {
+                        "path": "apps/api/src/modules/matter/matter.service.ts",
+                        "mode": "100644",
+                        "contentSha256": {
+                            "algorithm": "SHA-256",
+                            "value": "c86732863b9f80fcc3da74e9a07d278728a1d2c6bb2d995d4299a01649fbdf92"
+                        }
+                    },
+                    {
+                        "path": "apps/web/src/app/(app)/matters/new/page.tsx",
+                        "mode": "ABSENT",
+                        "contentSha256": null
+                    },
+                    {
+                        "path": "db/migrations/0101_create_matter_intake_templates.sql",
+                        "mode": "ABSENT",
+                        "contentSha256": null
+                    },
+                    {
+                        "path": "tests/integration/matter-core.spec.ts",
+                        "mode": "100644",
+                        "contentSha256": {
+                            "algorithm": "SHA-256",
+                            "value": "069c40efd5503761ffd8d2cb79f21c8b96752d35e0ecf78b63f23059f02e69f7"
+                        }
+                    }
+                ],
+                "aggregateSha256": {
+                    "algorithm": "SHA-256",
+                    "value": "6571657e7f9c56d7643f507ec3756601ac196b86b6ac7f880ec6b369abb88f1f"
+                }
+            },
+            "lastReviewedAt": "2026-07-20T00:54:00.000Z",
+            "statusRationale": "Current registered candidate lacks the intake-template migration and Matter creation route, while required dependencies A3 and A6 are non-complete; A7 cannot receive a completion claim.",
             "historicalEvidenceRefs": [
                 {
                     "type": "source_plan",
@@ -1590,8 +1623,12 @@
                 }
             ],
             "evidenceRefs": [],
-            "remainingGaps": [],
-            "nextAction": "A7 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A7.",
+            "remainingGaps": [
+                "missing current intake-template migration",
+                "missing current Matter creation route",
+                "A3 and A6 dependencies not current-complete"
+            ],
+            "nextAction": "Recover A3 and A6 first, then implement and verify the registered A7 template scope.",
             "blockerClass": "NONE",
             "blockingRefs": [],
             "acceptedBlockers": [],

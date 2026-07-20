@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-20T00:53:00.000Z`
+- asOf / generatedAt: `2026-07-20T00:54:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `3be37248fbc6b466767ac351d5ab1e3fabb9525e1376d490c85fb9362964b8f9`
-- Transition journal SHA-256: `dc728195080e3369f7b7fa5b729d04711f692b90d3e2fe36eccd1ee596d1f0f9`
+- Overrides SHA-256: `3be7fe005fead700301ff8df3f920f3ae2adfee1e392e09acec37fac66182529`
+- Transition journal SHA-256: `4398893d9f75ea34a3fdaaacedfd69c50f7a9a548f6b9f30454b267f9997a36f`
 
 ## Objective
 
@@ -18,13 +18,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 ## Status Counts
 
-- NOT_STARTED: 9
-- COMPLETE_CANDIDATE: 10
+- NOT_STARTED: 10
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 82
 - EXTERNAL_BLOCKED: 12
+- COMPLETE_CANDIDATE: 9
 - PARTIAL: 4
-- BOOTSTRAP_PREIMAGE: 101
-- CURRENT_VALIDATED: 16
+- BOOTSTRAP_PREIMAGE: 100
+- CURRENT_VALIDATED: 17
 
 ## Rules
 
@@ -48,7 +48,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | A4 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 34 | NONE | 3 | 127 | Recover the registered A4 implementation only in its authorized implementation PACK, then obtain current scoped evidence. |
 | A5 | 1 | S | NOT_STARTED | CURRENT_VALIDATED | 0 | 40 | NONE | 2 | 156 | Keep A5 not started until the registered implementation and evidence PACK executes. |
 | A6 | 1 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 55 | NONE | 3 | 178 | Recover the registered A6 implementation only under an authorized policy-compatible PACK, then obtain current scoped evidence. |
-| A7 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 45 | NONE | 0 | 204 | A7 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A7. |
+| A7 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 45 | NONE | 3 | 204 | Recover A3 and A6 first, then implement and verify the registered A7 template scope. |
 | B1 | 1 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 42 | NONE | 2 | 237 | Keep B1 below COMPLETE_CANDIDATE. Collect an actual staging /files to /search manual QA receipt for the scanned Korean PDF flow, then rerun the focused B1 checks, LSP, ledger rebuild, and diff hygiene before considering promotion. |
 | B2 | 1 | L | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 157 | NONE | 1 | 271 | Keep B2 below COMPLETE_CANDIDATE. Collect the staging pptx precreated-preview manual QA receipt; after that, rerun focused B2 package/integration checks, LSP diagnostics, ledger rebuild, and diff hygiene before promotion. |
 | B3 | 1 | M | EXTERNAL_BLOCKED | BOOTSTRAP_PREIMAGE | 0 | 43 | EXTERNAL_EVIDENCE | 2 | 309 | Do not implement more B3 code under the current R11 stop rule. Obtain explicit R11 release authority or operator/ledger resolution for external secure-link watermark rendering; after that, resume B3 with worker /watermark/pdf, artifact cache, rendered sha256 audit, stamped-byte integration tests, staging Acrobat manual QA, and focused local gates. |
