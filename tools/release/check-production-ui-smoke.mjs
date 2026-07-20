@@ -7,14 +7,11 @@ import process from 'node:process';
 
 const repoRoot = process.cwd();
 
-const hiddenRoutes = ['/launch', '/scale', '/contracts', '/dd', '/litigation'];
+const hiddenRoutes = ['/launch', '/scale'];
 const hiddenUntilApiRoutes = ['/integrations/onedrive'];
 const blockedRoutePages = new Map([
   ['/launch', 'apps/web/src/app/(app)/launch/page.tsx'],
   ['/scale', 'apps/web/src/app/(app)/scale/page.tsx'],
-  ['/contracts', 'apps/web/src/app/(app)/contracts/page.tsx'],
-  ['/dd', 'apps/web/src/app/(app)/dd/page.tsx'],
-  ['/litigation', 'apps/web/src/app/(app)/litigation/page.tsx'],
 ]);
 
 const scanRoots = ['apps/web/src/app', 'apps/web/src/components'];
@@ -143,8 +140,7 @@ const productionInventoryPatterns = [
   },
   {
     name: 'hidden route list',
-    pattern:
-      /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`[\s\S]*\/contracts[\s\S]*`hidden`[\s\S]*\/dd[\s\S]*`hidden`[\s\S]*\/litigation[\s\S]*`hidden`/,
+    pattern: /\/launch[\s\S]*`hidden`[\s\S]*\/scale[\s\S]*`hidden`/,
   },
   {
     name: 'route policy source link',
@@ -495,10 +491,13 @@ const enterpriseSearchFiles = [
   {
     path: 'apps/api/src/modules/search/query/search-query.builder.ts',
     patterns: [
-      { name: 'target-scoped keyword search', pattern: /keywordMatchSql/ },
-      { name: 'safe sort switch', pattern: /orderBySql/ },
+      { name: 'target-scoped keyword search', pattern: /keywordRowMatchSql/ },
+      { name: 'safe sort switch', pattern: /matchedOrderBySql/ },
       { name: 'title search target', pattern: /idx\.title_tsv @@ tsq\.query/ },
-      { name: 'body search target', pattern: /idx\.content_tsv @@ tsq\.query/ },
+      {
+        name: 'body search target',
+        pattern: /target === 'body'\) return 'body_hit\.chunk_id IS NOT NULL'/,
+      },
     ],
   },
   {
@@ -609,7 +608,7 @@ const enterpriseSearchFiles = [
       { name: 'body search limitation copy', pattern: /본문 검색 품질이 제한/ },
       {
         name: 'search result preview hit fragment',
-        pattern: /documentPreviewUrl\(result\.documentId,\s*\{/,
+        pattern: /documentPreviewUrl\(result\.documentId \?\? '',\s*\{/,
       },
       { name: 'search result safe preview anchor', pattern: /anchorId/ },
     ],

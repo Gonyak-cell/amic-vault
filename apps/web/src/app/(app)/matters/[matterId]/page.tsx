@@ -461,10 +461,12 @@ function MatterDashboardPanel({
   const firstDate = dashboard?.upcomingKeyDates[0];
   const latestExternal = dashboard?.externalActivity[0];
   const latestAiSession = dashboard?.aiSessions[0];
-  const activeLinks =
-    dashboard?.externalActivity.reduce((sum, item) => sum + item.activeLinkCount, 0) ?? 0;
-  const accessCount =
-    dashboard?.externalActivity.reduce((sum, item) => sum + item.accessCount, 0) ?? 0;
+  const activeLinks = dashboard
+    ? dashboard.externalActivity.reduce((sum, item) => sum + item.activeLinkCount, 0)
+    : 0;
+  const accessCount = dashboard
+    ? dashboard.externalActivity.reduce((sum, item) => sum + item.accessCount, 0)
+    : 0;
   const cards = [
     {
       title: '최근 활동',

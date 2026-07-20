@@ -134,6 +134,16 @@ export default function MatterAppIntegrationPage() {
             description="사용자는 Matter code를 먼저 선택해야 하며, 임의 값을 직접 입력하지 않습니다."
           />
           <ContractRow
+            title="문서 보관함 기준 표시"
+            status={
+              status.projectionFallbackAllowed && !status.productionRuntime
+                ? '개발 환경 확인용'
+                : '운영 환경에서 사용 안 함'
+            }
+            tone="neutral"
+            description="연결 검증 전 문서 보관함 기준 표시는 개발 환경에서만 확인용으로 사용하며, 운영 업로드 권한을 부여하지 않습니다."
+          />
+          <ContractRow
             title="권한 확인"
             status="권한 확인"
             tone="success"

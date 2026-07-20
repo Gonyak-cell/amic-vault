@@ -25,6 +25,7 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 |---|---|---|---|---|---|---|
 | `/dashboard` | Vault | `visible` | Shown | Internal production users | AppShell route | Real API data only; empty/unavailable before success; DMS action launcher links only to approved production surfaces; action queue derives only from dashboard API sections and connection states |
 | `/matters` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-scoped matters only; Matter Code/display data must align with the canonical Matter app source of truth |
+| `/clients` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-scoped client ledger only; empty/unavailable before API success; client registration validates input before submission |
 | `/search` | Vault | `visible` | Shown | Internal production users | AppShell route | Permission-before-search; no ID fallback; supports title/body/all target, display-safe Matter Code/client/title filters, legal-hold/records-status refiners, URL state, sort, grouping, user-scoped saved searches, current-search reusable links, and result actions to document detail/preview/file-cabinet filters with bounded hit context and preview fragments only |
 | `/search/folders` | Vault | `visible` | Shown | Internal production users | AppShell route backed by saved-search APIs | User-scoped saved searches are exposed as search folders; no fake folder tree, raw saved-search IDs, snippets, document body, prompt/source text, or model responses are displayed or stored by the UI |
 | `/files` | Vault | `visible` | Shown | Internal production users | AppShell route with all-documents vault, server-backed document filters/sort, extraction/OCR status filters, Matter Code picker, single/bulk upload panel, and matter-scoped list foundation | Permission-scoped real document data only; no document ID or placeholder data; upload/list UX must stay Matter Code-gated and fail closed when Matter app source is unconfigured; bulk upload uses the same per-file Matter-scoped API and displays partial failures; source labels use operating-language copy, not implementation labels such as source-of-truth or projection |
@@ -43,6 +44,9 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 | `/integrations/outlook` | Integrations | `visible_admin_only` | Shown when role policy allows | Firm admin, security admin | Admin status route | Status API data only plus Vault filing-path alignment; Office task pane stays separate |
 | `/integrations/onedrive` | Integrations | `hidden_until_api_ready` | Hidden | Firm admin, security admin after API readiness | No production route until contract is approved | Must not claim OneDrive connection, Office open/save, coauthoring, live edit, lock state, or sync before auth/storage/version/audit/callback/rollback contract approval under `docs/adr/ADR-017-office-onedrive-flow.md` |
 | `/ai-prep` | AI Prep/Ops | `visible_limited` | Hidden by default | Firm admin, security admin, matter owner, knowledge manager | Approved linked entry points only | File organization prep/readiness only |
+| `/contracts` | Vault | `visible_limited` | Hidden by default | Internal production users | Approved Matter workspace entry points only | Clause bank shows permission-scoped, real contract data only |
+| `/dd` | Vault | `visible_limited` | Hidden by default | Internal production users | Redirects to the Matter workspace | Due-diligence work remains Matter-scoped; no standalone placeholder list |
+| `/litigation` | Vault | `visible_limited` | Hidden by default | Internal production users | Redirects to the Matter workspace | Litigation work remains Matter-scoped; no standalone placeholder list |
 
 ## Hidden And Out-Of-Scope Routes
 
@@ -50,9 +54,6 @@ For DMS core routes, backend API readiness alone is not enough to declare produc
 |---|---|---|---|
 | `/launch` | Internal Ops | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
 | `/scale` | Internal Ops | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
-| `/contracts` | Out of scope | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
-| `/dd` | Out of scope | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
-| `/litigation` | Out of scope | `hidden` | No navigation entry; direct access renders `RouteBlockedState` |
 | `/showcase` | Out of scope | `hidden` | No navigation entry; direct access returns Next `notFound()` |
 | `/external/[token]` | External route | out of current UIUX batch scope | Not part of internal AppShell navigation; external scope remains governed by release gates |
 | `/outlook-addin` | Office task pane | task-pane-only | Not shown in internal console navigation; managed through `/integrations/outlook` status |

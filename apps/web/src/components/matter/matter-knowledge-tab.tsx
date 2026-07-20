@@ -138,7 +138,7 @@ function MatterKnowledgeView({ data, matterId }: { data: MatterKnowledgeData; ma
   return (
     <div className="grid gap-4">
       <KnowledgeSubtabs
-        claimCount={data.claims?.claims.length ?? 0}
+        claimCount={data.claims ? data.claims.claims.length : 0}
         factCount={data.facts.length}
         issueCount={issueCount}
         wikiCount={data.wiki.pages.length}
@@ -488,7 +488,7 @@ function renderWikiLinks(
   const pattern = /\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/gu;
   let cursor = 0;
   for (const match of text.matchAll(pattern)) {
-    const index = match.index ?? 0;
+    const index = match.index === undefined ? 0 : match.index;
     if (index > cursor) nodes.push(text.slice(cursor, index));
     const target = match[1]?.trim() ?? '';
     const label = match[2]?.trim() || target;
