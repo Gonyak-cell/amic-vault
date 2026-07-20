@@ -1,11 +1,13 @@
 import { inflateRawSync } from 'node:zlib';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 export interface DartApiClientConfig {
   apiKey?: string | undefined;
   baseUrl?: string | undefined;
   fetchImpl?: typeof fetch | undefined;
 }
+
+export const DART_API_CLIENT_CONFIG = Symbol('DART_API_CLIENT_CONFIG');
 
 export interface DartFilingsInput {
   corpCode: string;
@@ -234,7 +236,9 @@ export class DartApiClient {
   private readonly fetchImpl: typeof fetch;
   private corpCodeCache: CorpCodeCache | undefined;
 
-  constructor(config: DartApiClientConfig = {}) {
+  constructor(
+    @Optional() @Inject(DART_API_CLIENT_CONFIG) config: DartApiClientConfig = {},
+  ) {
     this.apiKeyOverride = config.apiKey?.trim() || undefined;
     this.useApiKeyOverride = Object.prototype.hasOwnProperty.call(config, 'apiKey');
     this.baseUrl = (config.baseUrl ?? envValue('DART_API_BASE_URL') ?? defaultBaseUrl).replace(

@@ -1,8 +1,12 @@
+import { Inject, Injectable, Optional } from '@nestjs/common';
+
 export interface LawApiClientConfig {
   apiKey?: string | undefined;
   baseUrl?: string | undefined;
   fetchImpl?: typeof fetch | undefined;
 }
+
+export const LAW_API_CLIENT_CONFIG = Symbol('LAW_API_CLIENT_CONFIG');
 
 export interface LawSearchInput {
   query: string;
@@ -110,7 +114,9 @@ export class LawApiClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(config: LawApiClientConfig = {}) {
+  constructor(
+    @Optional() @Inject(LAW_API_CLIENT_CONFIG) config: LawApiClientConfig = {},
+  ) {
     this.apiKeyOverride = config.apiKey?.trim() || undefined;
     this.useApiKeyOverride = Object.prototype.hasOwnProperty.call(config, 'apiKey');
     this.baseUrl = (config.baseUrl ?? envValue('LAW_DATA_API_BASE_URL') ?? defaultBaseUrl).replace(
@@ -157,4 +163,3 @@ export class LawApiClient {
       : envValue('LAW_DATA_OC', 'LAW_GO_KR_OC', 'LAW_API_OC');
   }
 }
-import { Injectable } from '@nestjs/common';

@@ -27,33 +27,34 @@ const translations = {
   'app.homeAria': { ko: 'AMIC Vault 홈', en: 'AMIC Vault home' },
   'nav.toggle': { ko: '메뉴 열기', en: 'Toggle navigation' },
   'nav.close': { ko: '메뉴 닫기', en: 'Close navigation' },
-  'nav.mobileLabel': { ko: 'Vault 내비게이션', en: 'Vault navigation' },
-  'nav.create': { ko: 'New Matter', en: 'New Matter' },
+  'nav.mobileLabel': { ko: '문서 보관함 메뉴', en: 'Vault navigation' },
+  'nav.create': { ko: '새 Matter', en: 'New Matter' },
   'nav.recent': { ko: '최근 항목', en: 'Recent' },
   'nav.favorites': { ko: '즐겨찾기', en: 'Favorites' },
   'nav.spaces': { ko: '워크스페이스', en: 'Workspaces' },
   'nav.globalSearch': {
-    ko: 'Matter, 파일, 활동 검색',
+    ko: 'Matter, 문서, 활동 검색',
     en: 'Search matters, files, and activity',
   },
-  'nav.searchAria': { ko: 'Vault 검색', en: 'Vault search' },
+  'nav.searchAria': { ko: '문서 보관함 검색', en: 'Vault search' },
   'nav.searchPlaceholder': {
-    ko: 'Matter, 파일, 담당자 검색',
+    ko: 'Matter, 문서, 담당자 검색',
     en: 'Search matters, files, or people',
   },
-  'nav.group.vault': { ko: 'Vault', en: 'Vault' },
+  'nav.group.vault': { ko: '문서 보관', en: 'Vault' },
   'nav.group.governance': { ko: '정책 관리', en: 'Governance' },
   'nav.group.audit': { ko: '감사', en: 'Audit' },
   'nav.group.security': { ko: '보안', en: 'Security' },
   'nav.group.admin': { ko: '관리', en: 'Admin' },
-  'nav.group.integrations': { ko: '통합', en: 'Integrations' },
-  'nav.group.aiPrep': { ko: 'AI Prep', en: 'AI Prep' },
+  'nav.group.integrations': { ko: '연동 관리', en: 'Integrations' },
+  'nav.group.aiPrep': { ko: '문서 정리 준비', en: 'AI Prep' },
   'nav.securityQueue': { ko: '보안 알림', en: 'Security alerts' },
   'nav.notifications': { ko: '알림', en: 'Notifications' },
   'nav.help': { ko: '도움말', en: 'Help' },
   'nav.settings': { ko: '설정', en: 'Settings' },
   'nav.dashboard': { ko: '홈', en: 'Home' },
   'nav.matters': { ko: 'Matter', en: 'Matters' },
+  'nav.clients': { ko: '고객', en: 'Clients' },
   'nav.files': { ko: '문서함', en: 'Document vault' },
   'nav.workQueue': { ko: '작업함', en: 'Work queue' },
   'nav.search': { ko: '문서 검색', en: 'Document search' },
@@ -77,6 +78,12 @@ const translations = {
   'auth.identifier': { ko: '계정 ID 또는 이메일', en: 'Account ID or email' },
   'auth.email': { ko: '이메일', en: 'Email' },
   'auth.password': { ko: '비밀번호', en: 'Password' },
+  'auth.passwordDivider': { ko: '또는 비밀번호', en: 'or password' },
+  'auth.mfaCode': { ko: '인증 코드', en: 'Authentication code' },
+  'auth.mfaDescription': {
+    ko: '인증앱의 6자리 코드를 입력하세요.',
+    en: 'Enter the 6-digit code from your authenticator app.',
+  },
   'auth.newPassword': { ko: '새 비밀번호', en: 'New password' },
   'auth.confirmPassword': { ko: '비밀번호 확인', en: 'Confirm password' },
   'auth.invalid': {
@@ -84,7 +91,9 @@ const translations = {
     en: 'We could not verify those login details.',
   },
   'auth.pending': { ko: '로그인 중', en: 'Signing in' },
+  'auth.verifyPending': { ko: '확인 중', en: 'Verifying' },
   'auth.login': { ko: '로그인', en: 'Log in' },
+  'auth.verify': { ko: '확인', en: 'Verify' },
   'auth.logout': { ko: '로그아웃', en: 'Log out' },
   'auth.resetDescription': {
     ko: '새 비밀번호를 설정하면 계정이 활성화됩니다.',
@@ -156,7 +165,7 @@ const translations = {
   'route.area.adminSecurity': { ko: '보안 설정', en: 'Security settings' },
   'files.page.title': { ko: '문서함', en: 'Document vault' },
   'files.page.description': {
-    ko: '접근 권한이 확인된 전체 문서와 Matter별 업로드 흐름을 한곳에서 관리합니다.',
+    ko: '접근 권한이 확인된 전체 문서와 Matter별 업로드를 한곳에서 관리합니다.',
     en: 'Review authorized documents and matter-scoped upload flow in one place.',
   },
   'files.section.title': { ko: '전체 문서', en: 'All documents' },
@@ -165,17 +174,17 @@ const translations = {
     ko: '파일 목록을 표시할 수 없습니다.',
     en: 'The file list cannot be displayed.',
   },
-  'integrations.page.title': { ko: '통합', en: 'Integrations' },
+  'integrations.page.title': { ko: '연동 관리', en: 'Integrations' },
   'integrations.page.description': {
-    ko: '연결 상태 API가 확인된 통합만 표시합니다.',
+    ko: '연동 상태가 확인된 항목만 표시합니다.',
     en: 'Only integrations confirmed by status APIs are shown.',
   },
-  'integrations.section.title': { ko: '통합 상태', en: 'Integration status' },
-  'integrations.section.meta': { ko: '운영 데이터 미연결', en: 'Operational data not connected' },
+  'integrations.section.title': { ko: '연동 상태', en: 'Integration status' },
+  'integrations.section.meta': { ko: '확인된 상태 기준', en: 'Operational data not connected' },
   'search.title': { ko: '문서 검색', en: 'Document search' },
   'search.label': { ko: '문서 검색', en: 'Document search' },
   'search.placeholder': {
-    ko: '계약서, 사건, 키워드 검색',
+    ko: '계약서, Matter, 키워드 검색',
     en: 'Search contracts, matters, or keywords',
   },
   'search.submit': { ko: '검색 실행', en: 'Run search' },
@@ -199,10 +208,11 @@ const translations = {
   'search.next': { ko: '다음', en: 'Next' },
   'search.facet.type': { ko: '파일 유형', en: 'File type' },
   'search.facet.version': { ko: '버전 상태', en: 'Version status' },
-  'search.facet.matter': { ko: '사건', en: 'Matter' },
+  'search.facet.matter': { ko: 'Matter', en: 'Matter' },
   'search.facet.client': { ko: '고객', en: 'Client' },
   'search.facet.updated': { ko: '수정일', en: 'Updated' },
   'search.facet.searchability': { ko: '추출/OCR', en: 'Extraction/OCR' },
+  'search.facet.ocrConfidence': { ko: 'OCR 신뢰도', en: 'OCR confidence' },
   'search.facet.confidentiality': { ko: '기밀도', en: 'Confidentiality' },
   'search.facet.privilege': { ko: '특권 상태', en: 'Privilege status' },
   'search.facet.legalHold': { ko: '보존/삭제 금지', en: 'Legal hold' },
@@ -227,6 +237,7 @@ const translations = {
   'search.facet.extractionPending': { ko: '추출 대기', en: 'Extraction pending' },
   'search.facet.extractionOcrPending': { ko: 'OCR 필요', en: 'OCR required' },
   'search.facet.extractionFailed': { ko: '추출 실패', en: 'Extraction failed' },
+  'search.facet.ocrLowConfidence': { ko: 'OCR 저신뢰', en: 'Low-confidence OCR' },
   'search.facet.documentHold': { ko: '파일 삭제 금지', en: 'File hold' },
   'search.facet.matterHold': { ko: 'Matter 삭제 금지', en: 'Matter hold' },
   'search.facet.noHold': { ko: '보존 조치 없음', en: 'No hold' },
@@ -240,19 +251,19 @@ const translations = {
     ko: '표시 가능한 제목 없음',
     en: 'No display title available',
   },
-  'outlook.page.title': { ko: 'Outlook 통합', en: 'Outlook integration' },
+  'outlook.page.title': { ko: 'Outlook 연동', en: 'Outlook integration' },
   'outlook.page.description': {
     ko: 'Office 작업 창과 별도로, 관리자용 연결 상태만 표시합니다.',
     en: 'Shows admin connection status separately from the Office task pane.',
   },
   'outlook.section.statusTitle': { ko: 'Outlook 운영 상태', en: 'Outlook operational status' },
-  'outlook.section.statusMeta': { ko: '상태 API 기준', en: 'Status API source' },
+  'outlook.section.statusMeta': { ko: '상태 확인 기준', en: 'Status API source' },
   'outlook.loading.title': {
     ko: 'Outlook 운영 상태를 불러오는 중입니다.',
     en: 'Loading Outlook operational status.',
   },
   'outlook.loading.description': {
-    ko: '상태 API 응답 전에는 연결 여부나 배포 상태를 표시하지 않습니다.',
+    ko: '상태 확인 전에는 연결 여부나 배포 상태를 표시하지 않습니다.',
     en: 'Connection and rollout status are hidden until the status API responds.',
   },
   'outlook.error.title': {
@@ -260,7 +271,7 @@ const translations = {
     en: 'Unable to display Outlook operational status.',
   },
   'outlook.error.description': {
-    ko: '권한 또는 상태 API 연결을 확인해 주세요.',
+    ko: '권한 또는 상태 확인 연결을 확인해 주세요.',
     en: 'Check permissions or the status API connection.',
   },
   'outlook.gate.title': { ko: '운영 조건', en: 'Operational conditions' },
@@ -283,8 +294,14 @@ const translations = {
   'outlook.evidence.invalid': { ko: '형식 확인 필요', en: 'Format review needed' },
   'outlook.evidence.missing': { ko: '미제출', en: 'Missing' },
   'outlook.features.title': { ko: '기능별 운영 상태', en: 'Feature operational status' },
-  'outlook.features.meta': { ko: '기능 설정 및 접근 조건', en: 'Feature settings and access conditions' },
-  'outlook.features.caption': { ko: 'Outlook 기능별 운영 상태', en: 'Outlook feature operational status' },
+  'outlook.features.meta': {
+    ko: '기능 설정 및 접근 조건',
+    en: 'Feature settings and access conditions',
+  },
+  'outlook.features.caption': {
+    ko: 'Outlook 기능별 운영 상태',
+    en: 'Outlook feature operational status',
+  },
   'outlook.features.feature': { ko: '기능', en: 'Feature' },
   'outlook.features.configuration': { ko: '설정', en: 'Configuration' },
   'outlook.features.gate': { ko: '조건', en: 'Condition' },
@@ -295,31 +312,55 @@ const translations = {
   'outlook.features.blocked': { ko: '차단', en: 'Blocked' },
   'outlook.features.noReason': { ko: '없음', en: 'None' },
   'outlook.features.policyReview': { ko: '정책 확인 필요', en: 'Policy review needed' },
-  'outlook.feature.addinBootstrap': { ko: 'Add-in 시작', en: 'Add-in bootstrap' },
+  'outlook.feature.addinBootstrap': { ko: 'Outlook 추가 기능 시작', en: 'Add-in bootstrap' },
   'outlook.feature.authExchange': { ko: '인증 교환', en: 'Authentication exchange' },
   'outlook.feature.graphAttachment': { ko: 'Microsoft 첨부 확인', en: 'Microsoft attachment access' },
   'outlook.feature.smartAlerts': { ko: '스마트 알림', en: 'Smart Alerts' },
   'outlook.feature.sendFile': { ko: '전송 및 보관', en: 'Send and file' },
-  'outlook.feature.documentInsertion': { ko: 'Vault 문서 삽입', en: 'Vault document insertion' },
+  'outlook.feature.documentInsertion': {
+    ko: '문서 보관함 문서 삽입',
+    en: 'Vault document insertion',
+  },
   'outlook.feature.folderMapping': { ko: '폴더 매핑', en: 'Folder mapping' },
-  'outlook.feature.autofile': { ko: '자동 파일링', en: 'Auto-file' },
+  'outlook.feature.autofile': { ko: '자동 보관', en: 'Auto-file' },
   'outlook.feature.unknown': { ko: '기능 정보 없음', en: 'Feature not displayable' },
   'outlook.reason.auditUnavailable': { ko: '감사 기록을 확인할 수 없음', en: 'Audit unavailable' },
-  'outlook.reason.globalDisabled': { ko: '통합이 전역 비활성화됨', en: 'Integration globally disabled' },
+  'outlook.reason.globalDisabled': {
+    ko: '연동이 전역 비활성화됨',
+    en: 'Integration globally disabled',
+  },
   'outlook.reason.featureDisabled': { ko: '기능 사용 중지', en: 'Feature disabled' },
-  'outlook.reason.ringNotAllowed': { ko: '현재 적용 범위에서 사용할 수 없음', en: 'Not available in this scope' },
-  'outlook.reason.missingEvidence': { ko: '필수 확인 정보 없음', en: 'Required verification missing' },
-  'outlook.reason.malformedEvidence': { ko: '확인 정보 검토 필요', en: 'Verification review needed' },
+  'outlook.reason.ringNotAllowed': {
+    ko: '현재 적용 범위에서 사용할 수 없음',
+    en: 'Not available in this scope',
+  },
+  'outlook.reason.missingEvidence': {
+    ko: '필수 확인 정보 없음',
+    en: 'Required verification missing',
+  },
+  'outlook.reason.malformedEvidence': {
+    ko: '확인 정보 검토 필요',
+    en: 'Verification review needed',
+  },
   'outlook.reason.graphConsentMissing': { ko: 'Microsoft 권한 확인 필요', en: 'Microsoft permission check needed' },
-  'outlook.reason.manifestMissing': { ko: '앱 등록 확인 필요', en: 'App registration check needed' },
-  'outlook.reason.operatorApprovalMissing': { ko: '운영 승인 필요', en: 'Operator approval needed' },
-  'outlook.reason.rollbackMissing': { ko: '비활성화 절차 확인 필요', en: 'Disable procedure check needed' },
+  'outlook.reason.manifestMissing': {
+    ko: '앱 등록 확인 필요',
+    en: 'App registration check needed',
+  },
+  'outlook.reason.operatorApprovalMissing': {
+    ko: '운영 승인 필요',
+    en: 'Operator approval needed',
+  },
+  'outlook.reason.rollbackMissing': {
+    ko: '비활성화 절차 확인 필요',
+    en: 'Disable procedure check needed',
+  },
   'outlook.reason.unknownFeature': { ko: '알 수 없는 기능', en: 'Unknown feature' },
   'outlook.reason.unknownRing': { ko: '알 수 없는 적용 범위', en: 'Unknown availability scope' },
   'matter.term': { ko: 'Matter', en: 'Matter' },
   'matter.list.title': { ko: 'Matter 목록', en: 'Matter list' },
   'matter.list.description': {
-    ko: 'Matter app에서 동기화되고 접근 권한이 확인된 Matter만 표시됩니다.',
+    ko: 'Matter 관리 시스템에서 동기화되고 접근 권한이 확인된 Matter만 표시됩니다.',
     en: 'Only matters confirmed by access permissions are shown.',
   },
   'matter.list.scoped': { ko: '권한으로 보호됨', en: 'Permissions applied' },
@@ -330,7 +371,10 @@ const translations = {
     ko: '권한이 확인된 Matter 정보만 표시됩니다.',
     en: 'Only matter details confirmed by access permissions are shown.',
   },
-  'matter.detail.errorTitle': { ko: 'Matter를 표시할 수 없습니다.', en: 'Unable to display matter.' },
+  'matter.detail.errorTitle': {
+    ko: 'Matter를 표시할 수 없습니다.',
+    en: 'Unable to display matter.',
+  },
 } as const satisfies Record<string, Translation>;
 
 export type TranslationKey = keyof typeof translations;
@@ -348,6 +392,7 @@ export function getTranslation(key: TranslationKey, language: Language): string 
 }
 
 export function formatSearchResultCount(total: number, language: Language): string {
+  if (total > 1000) return language === 'ko' ? '결과 1,000+개' : '1,000+ results';
   return language === 'ko' ? `결과 ${total}개` : `${total} results`;
 }
 
@@ -406,9 +451,7 @@ export function useI18n(): I18nContextValue {
 export function LanguageToggle() {
   const { language, setLanguage, t } = useI18n();
   return (
-    <div
-      className="relative inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background text-xs font-semibold text-foreground shadow-sm"
-    >
+    <div className="relative inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background text-xs font-semibold text-foreground shadow-sm">
       <select
         aria-label={t('language.label')}
         className="h-full appearance-none rounded-md bg-transparent py-0 pl-3 pr-8 text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
