@@ -70,9 +70,19 @@ const integrationEnv = {
   MATTER_APP_SOURCE_MODE: process.env.MATTER_APP_SOURCE_MODE ?? 'matter_app_event_projection',
 };
 
-const result = spawnSync('pnpm', ['exec', 'vitest', 'run', '--no-file-parallelism', ...specs], {
-  env: integrationEnv,
-  stdio: 'inherit',
-});
+const fullSuiteBatchSize = 8;
+const specBatches =
+  filters.length === 0
+    ? Array.from({ length: Math.ceil(specs.length / fullSuiteBatchSize) }, (_, index) =>
+        specs.slice(index * fullSuiteBatchSize, (index + 1) * fullSuiteBatchSize),
+      )
+    : [specs];
 
-process.exit(result.status ?? 1);
+for (const batch of specBatches) {
+  const result = spawnSync('pnpm', ['exec', 'vitest', 'run', '--no-file-parallelism', ...batch], {
+    env: integrationEnv,
+    stdio: 'inherit',
+  });
+
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
