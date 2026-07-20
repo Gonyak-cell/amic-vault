@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = 'd68fd55f07d390586c2bef8f1cee0675c2b2a56e237a6a83bf1be0ddca15b398';
+const CANONICAL_PAYLOAD_SHA256 = '98a25e309c6855e14254700375fbbbd896234baa3bb050689929df1b99578cdb';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -47,6 +47,25 @@ const R14_09_EXECUTION_BLOCK = {
     'completion transition or claim',
   ],
   resumeCondition: 'A separately registered amendment must prove a unique, executable declaration-consumer closure partition and its predecessor DAG before this PACK may reconstruct any owned hunk.',
+};
+const R14_24_EXECUTION_BLOCK = {
+  code: 'R14_24_PERMISSION_CONSTITUTION_CONFLICT',
+  status: 'BLOCKED_NORMATIVE_DECISION_REQUIRED',
+  observedAt: '2026-07-20',
+  executionBase: '8c92e86d2b2f6e4d725c6a5cfbc0b09b8aece120',
+  sourceHead: '0b39414d4de746597e8f3c6ff64f7c1989789135',
+  affectedTuwIds: ['A6', 'A7'],
+  observedContract: {
+    required: 'matter_members is a necessary condition for every ALLOW',
+    observed: 'firm_open permits active non-member matter reads',
+    affectedMigration: 'db/migrations/0100_add_matter_access_scope.sql',
+  },
+  prohibitedUntilResolved: [
+    'A6 or A7 source, test, or migration reconstruction',
+    'aggregate snapshot containing an A6 or A7 artifact',
+    'completion transition or claim for PACK-R14-24 or dependent PACK-R14-25',
+  ],
+  resumeCondition: 'A specific owner-approved normative resolution must reconcile the matter_members ALLOW requirement with the requested firm_open behavior before any A6/A7 artifact may be reconstructed.',
 };
 const BASE_COMMIT = '5c722f8a4b1f0a4c99b41089664c98ad151db2b8';
 const ORIGINAL_TREE = '1ef1af32028e998a18a6c9ee8a882068fdf7a7f3';
@@ -1666,7 +1685,7 @@ export async function buildManifest(sourceDir) {
           postTransitionNonControlPlaneChangeForbidden: true,
         },
       },
-      executionBlock: pack.key === 'T12' ? R14_09_EXECUTION_BLOCK : null,
+      executionBlock: pack.key === 'T12' ? R14_09_EXECUTION_BLOCK : pack.key === 'T33' ? R14_24_EXECUTION_BLOCK : null,
       stopConditions: [
         'exact predecessor or hunk fingerprint mismatch',
         'unlisted path, hunk, migration, dependency, or package change',
@@ -2157,7 +2176,7 @@ export function validateManifest(manifest) {
       || digest(controlPlane.candidateRollover ?? null) !== digest(expectedCandidateRollover)) {
       fail('PACK_CONTROL_PLANE_CONTRACT', pack.packId);
     }
-    const expectedExecutionBlock = blueprint?.key === 'T12' ? R14_09_EXECUTION_BLOCK : null;
+    const expectedExecutionBlock = blueprint?.key === 'T12' ? R14_09_EXECUTION_BLOCK : blueprint?.key === 'T33' ? R14_24_EXECUTION_BLOCK : null;
     if (digest(pack.executionBlock ?? null) !== digest(expectedExecutionBlock)) {
       fail('PACK_EXECUTION_BLOCK_CONTRACT', pack.packId);
     }

@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `d68fd55f07d390586c2bef8f1cee0675c2b2a56e237a6a83bf1be0ddca15b398`.
+  `98a25e309c6855e14254700375fbbbd896234baa3bb050689929df1b99578cdb`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2045,6 +2045,17 @@ R14-09 may therefore not borrow later-owned declaration or consumer hunks,
 land or execute a migration, or claim completion. It can resume only after a
 new registered amendment proves a unique executable declaration-consumer
 closure and predecessor DAG for every moved or retained hunk.
+
+Amendment-07 records a second independent execution-block for PACK-R14-24.
+The preserved A6 source, integration tests, and migration allow an active
+non-member to read a `firm_open` matter, while the governing permission
+constitution requires `matter_members` for every ALLOW. The block applies to
+A6 and dependent A7 artifacts and prohibits their reconstruction, an aggregate
+snapshot containing either artifact, and any R14-24/R14-25 completion claim.
+It is not a normative resolution: reconstruction may resume only after a
+specific owner-approved decision reconciles the two permission rules. No
+product code, migration, external operation, release, deployment, or go-live is
+authorized by this control-plane correction.
 
 This amendment contains exactly three TUWs, executed in order:
 
