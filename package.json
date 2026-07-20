@@ -55,6 +55,7 @@
     "matter:canonical-sync": "node tools/migration/matter-app-canonical-upsert-sync.mjs",
     "matter:canonical-rollback": "node tools/migration/matter-app-canonical-projection-rollback.mjs",
     "matter:bridge-closeout": "node tools/migration/matter-app-migration-db-linkage-closeout.mjs",
+    "matter:lawos-reflection": "node tools/migration/lawos-canonical-matter-reflection.mjs",
     "gemma:ai-allowed-pilot": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-ai-allowed-pilot-runner.js",
     "gemma:customer-wide": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-runner.js",
     "gemma:customer-wide-fallback-closeout": "pnpm --filter @amic-vault/api build && node apps/api/dist/tools/gemma-customer-wide-fallback-closeout-runner.js",
