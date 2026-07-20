@@ -400,14 +400,11 @@ test('authority validation keeps inline-comment text active and honors fence len
 
   const heading = '## PACK-R14-03-AMENDMENT-01 — Recovery manifest v2 correction';
   const canonical = '- Canonical payload SHA-256:\n  `' + manifest.payloadSha256 + '`.';
-  const affirmative = decisionLedger.split('\n').filter(
-    (line) => line.includes('authority decision record:'),
-  ).join('\n');
   const fencedRegistry = packRegistry.replace(
     heading + '\n\nStatus:',
     '````md\n```\n' + heading + '\n\nStatus:',
   ).replace(canonical, canonical + '\n````');
-  const fencedLedger = decisionLedger.replace(affirmative, '````text\n```\n' + affirmative + '\n````');
+  const fencedLedger = '````text\n```\n' + decisionLedger + '\n````';
   const fencedResult = validateAuthorityArtifacts(manifest, {
     packRegistry: fencedRegistry,
     decisionLedger: fencedLedger,
@@ -1497,9 +1494,9 @@ test('allowing candidate bookkeeping after transitions is rejected', async () =>
     .some((error) => error.code === 'PACK_CONTROL_PLANE_CONTRACT'), true);
 });
 
-test('R14-06 candidate rollover contract cannot be removed or widened', async () => {
+test('every transition-bearing pack candidate rollover contract cannot be removed or widened', async () => {
   const manifest = await fixture();
-  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-06');
+  const pack = manifest.payload.packs.find((item) => item.packId === 'PACK-R14-07');
   pack.controlPlane.candidateRollover.permitsPostRolloverPerEntryValidationScopes = false;
   resign(manifest);
   assert.equal(validateManifest(manifest).errors

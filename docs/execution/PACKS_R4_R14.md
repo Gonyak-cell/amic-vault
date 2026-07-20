@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `33b17f509f5bf7e893dbf27ecfe2bf484e5abb5ba1ebe673fe0858224fb5a344`.
+  `53aba1870c253278e8284070b2680a42e5275d892b2fa30c6409292618e6f506`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2044,7 +2044,11 @@ This amendment contains exactly three TUWs, executed in order:
 2. `RECOVERY-MANIFEST-CONTROL-PLANE-TUW-005` — separate effective payload,
    overlay, source, candidate-bookkeeping, and four-file one-row transition
    paths; require receipt plus exact EOF execution-ledger append before any
-   transition commit and forbid non-control-plane changes afterward.
+   transition commit and forbid non-control-plane changes afterward. Every PACK
+   with one or more transition rows must then perform an exact four-control-plane
+   candidate rollover, so its receipt-plus-ledger bookkeeping commit is excluded
+   from the candidate-to-HEAD transition diff; a no-transition historical or
+   support PACK has no rollover.
 3. `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` — reject commit/path
    substitution, stale historical-base reactivation, missing receipt/ledger or
    transition paths, wrong ordering, stale evidence routing, and amendment
