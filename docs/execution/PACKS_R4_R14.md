@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `98a25e309c6855e14254700375fbbbd896234baa3bb050689929df1b99578cdb`.
+  `1827533616623788a0384ba878999c6447f4118af1501cae5561dd0804ec3123`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2056,6 +2056,15 @@ It is not a normative resolution: reconstruction may resume only after a
 specific owner-approved decision reconciles the two permission rules. No
 product code, migration, external operation, release, deployment, or go-live is
 authorized by this control-plane correction.
+
+Amendment-08 proves that R14-09 cannot be reopened by expanding only its
+lint-error files. The smallest nine-file source closure passes API and web
+lint, but typecheck then requires declarations in
+`packages/shared/src/audit/audit-event-types.ts`; that path contains quarantined
+H14 hunks 3166 and 3167. It therefore does not form a unique executable
+closure, and the existing prohibition on borrowing later-owned or quarantined
+hunks remains in force. No product code, migration, external operation,
+release, deployment, or go-live is authorized by this control-plane correction.
 
 This amendment contains exactly three TUWs, executed in order:
 

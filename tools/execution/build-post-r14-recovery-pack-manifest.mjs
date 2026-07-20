@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '98a25e309c6855e14254700375fbbbd896234baa3bb050689929df1b99578cdb';
+const CANONICAL_PAYLOAD_SHA256 = '1827533616623788a0384ba878999c6447f4118af1501cae5561dd0804ec3123';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -39,6 +39,20 @@ const R14_09_EXECUTION_BLOCK = {
     command: 'pnpm --filter @amic-vault/api lint && pnpm --filter @amic-vault/web lint',
     errorCount: 26,
     fullOverlayBaseline: 'PASS',
+  },
+  closureProbe: {
+    observedAt: '2026-07-20',
+    reconstructionBase: '76d22daf14d0a40986a6c90870e15d34d5b44715',
+    preservedPartialHead: '1c00df7ade8b6074a065fc0eb2a0771e0f79f253',
+    sourceFileClosureCount: 9,
+    lint: 'PASS',
+    typecheck: {
+      errorCount: 13,
+      requiredQuarantinePath: 'packages/shared/src/audit/audit-event-types.ts',
+      requiredQuarantineHunkOrdinals: [3166, 3167],
+      requiredQuarantineOwner: 'H14',
+    },
+    conclusion: 'No unique executable R14-09 closure exists: its smallest lint-clean source-file closure still requires quarantined H14 audit declarations at typecheck.',
   },
   prohibitedUntilAmended: [
     'owned partial-hunk reconstruction',
