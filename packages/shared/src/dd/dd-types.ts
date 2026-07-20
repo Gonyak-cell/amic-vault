@@ -64,6 +64,7 @@ export const ddPriorities = ['low', 'medium', 'high', 'critical'] as const;
 export const ddMappingStatuses = ['mapped', 'missing', 'supplement_requested'] as const;
 export const ddIssueSeverities = ['info', 'low', 'medium', 'high', 'critical'] as const;
 export const ddIssueStatuses = ['open', 'triaged', 'mitigated', 'accepted', 'closed'] as const;
+export const ddIssueCitationRequiredReason = 'DD_ISSUE_CITATION_REQUIRED';
 export const ddRiskCategories = [
   'legal',
   'financial',
@@ -74,6 +75,7 @@ export const ddRiskCategories = [
 ] as const;
 export const ddRiskLikelihoods = ['low', 'medium', 'high'] as const;
 export const ddRiskStatuses = ['open', 'monitoring', 'mitigated', 'accepted', 'closed'] as const;
+export const ddExportTypes = ['dd_report', 'negotiation_issues'] as const;
 
 export const ddRfiCategorySchema = z.enum(ddRfiCategories);
 export const ddRfiStatusSchema = z.enum(ddRfiStatuses);

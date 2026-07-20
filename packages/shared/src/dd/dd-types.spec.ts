@@ -3,6 +3,8 @@ import {
   createDdDataRoomMappingRequestSchema,
   createDdIssueRequestSchema,
   createDdRfiRequestSchema,
+  ddExportTypes,
+  ddIssueCitationRequiredReason,
   ddTraceabilityResponseSchema,
 } from './dd-types';
 
@@ -10,6 +12,11 @@ const matterId = '11111111-1111-4111-8111-111111111111';
 const documentId = '11111111-1111-4111-8111-111111111122';
 
 describe('DD Vault shared schemas', () => {
+  it('publishes the bounded DD declaration vocabulary', () => {
+    expect(ddExportTypes).toEqual(['dd_report', 'negotiation_issues']);
+    expect(ddIssueCitationRequiredReason).toBe('DD_ISSUE_CITATION_REQUIRED');
+  });
+
   it('accepts bounded RFI inputs and rejects secret-like text', () => {
     expect(
       createDdRfiRequestSchema.parse({
