@@ -70,6 +70,15 @@ export const litigationPleadingStatuses = [
   'served_recorded',
   'withdrawn',
 ] as const;
+export const litigationHearingTypes = [
+  'hearing',
+  'deadline',
+  'trial',
+  'mediation',
+  'conference',
+  'other',
+] as const;
+export const litigationHearingStatuses = ['scheduled', 'completed', 'cancelled'] as const;
 
 export const litigationEvidenceTypeSchema = z.enum(litigationEvidenceTypes);
 export const litigationCustodyStatusSchema = z.enum(litigationCustodyStatuses);
@@ -128,6 +137,16 @@ export const litigationEvidenceListResponseSchema = z
   .object({
     matterId: uuidSchema,
     evidence: z.array(litigationEvidenceSchema).max(100),
+  })
+  .strict();
+
+export const litigationEvidenceNextCodeResponseSchema = z
+  .object({
+    matterId: uuidSchema,
+    direction: z.enum(['gap', 'eul']),
+    evidenceCode: codeSchema,
+    exhibitLabel: safeLabelSchema,
+    nextSequence: z.number().int().min(1).max(999_999),
   })
   .strict();
 

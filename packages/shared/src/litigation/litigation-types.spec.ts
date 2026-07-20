@@ -4,6 +4,9 @@ import {
   createLitigationFactRequestSchema,
   createLitigationPleadingRequestSchema,
   litigationCaseMapResponseSchema,
+  litigationEvidenceNextCodeResponseSchema,
+  litigationHearingStatuses,
+  litigationHearingTypes,
 } from './litigation-types';
 
 const matterId = '11111111-1111-4111-8111-111111111111';
@@ -11,6 +14,27 @@ const documentId = '22222222-2222-4222-8222-222222222222';
 const versionId = '33333333-3333-4333-8333-333333333333';
 
 describe('litigation shared schemas', () => {
+  it('publishes bounded hearing and evidence-code declarations', () => {
+    expect(litigationHearingTypes).toEqual([
+      'hearing',
+      'deadline',
+      'trial',
+      'mediation',
+      'conference',
+      'other',
+    ]);
+    expect(litigationHearingStatuses).toEqual(['scheduled', 'completed', 'cancelled']);
+    expect(
+      litigationEvidenceNextCodeResponseSchema.parse({
+        matterId,
+        direction: 'eul',
+        evidenceCode: 'EUL-001',
+        exhibitLabel: 'Exhibit 1',
+        nextSequence: 1,
+      }),
+    ).toMatchObject({ direction: 'eul', nextSequence: 1 });
+  });
+
   it('requires version references to include their document reference', () => {
     expect(() =>
       createLitigationEvidenceRequestSchema.parse({
