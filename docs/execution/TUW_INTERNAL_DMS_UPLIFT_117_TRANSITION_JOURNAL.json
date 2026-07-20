@@ -14,10 +14,10 @@
     "algorithm": "SHA-256",
     "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
   },
-  "asOf": "2026-07-20T00:50:00.000Z",
+  "asOf": "2026-07-20T00:51:00.000Z",
   "previousAcceptedJournalHead": {
     "algorithm": "SHA-256",
-    "value": "15d4c09afed8d448baf4b01f0838282a43f42b4a033972e6dcefb73f12f9f5bf"
+    "value": "3c2922b55411d2346988d2cb01fd788fedb0d5fb0a3e4d9342c3125f70cf3949"
   },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
@@ -25809,7 +25809,7 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "b220b98c47aa261e86bdbbe52548317308eaac88f8decee372d32e70c7fba8d6"
+    "value": "82dc22dcb3328072b8dc5e41fe00073ebe3662525e856a9e11112219185cf97c"
   },
   "entries": [
     {
@@ -25938,11 +25938,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "b220b98c47aa261e86bdbbe52548317308eaac88f8decee372d32e70c7fba8d6"
+        "value": "82dc22dcb3328072b8dc5e41fe00073ebe3662525e856a9e11112219185cf97c"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "c184a1ab8a0566356bce425b20b6c349cd2e5a9b6f1a98d547b03d23aece9346"
+        "value": "2fd1ca19b41b0c2227fb6499a2580030376e7728076748423ef33776dbcc8ac2"
       }
     },
     {
@@ -26071,11 +26071,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "c184a1ab8a0566356bce425b20b6c349cd2e5a9b6f1a98d547b03d23aece9346"
+        "value": "2fd1ca19b41b0c2227fb6499a2580030376e7728076748423ef33776dbcc8ac2"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "b6784efb23c6df62c284b2fb6f606ba55480c8b968a29d7f97f03fe8f8f66213"
+        "value": "f6ae403165c44818d569cbfdbadd2c61d44d6abbb4a65cffeebea452422f83bc"
       }
     },
     {
@@ -26204,11 +26204,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "b6784efb23c6df62c284b2fb6f606ba55480c8b968a29d7f97f03fe8f8f66213"
+        "value": "f6ae403165c44818d569cbfdbadd2c61d44d6abbb4a65cffeebea452422f83bc"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "64861b3c721133f07d976631952c0ec729a24552bac3645f609587586b51a7ef"
+        "value": "769547e267d0ebe5629f21704cf216fc325949ffbf286b942b54ca4e2be672af"
       }
     },
     {
@@ -26339,11 +26339,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "64861b3c721133f07d976631952c0ec729a24552bac3645f609587586b51a7ef"
+        "value": "769547e267d0ebe5629f21704cf216fc325949ffbf286b942b54ca4e2be672af"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "1f4a7dbf5003481dfe62727d9b93f612c9aa7d6f66daecd9018b36460d1a900c"
+        "value": "c7f9c2637ccd9688e9ff4d20f65cad59dde5e4006719569e523a963d95ab9067"
       }
     },
     {
@@ -26474,11 +26474,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "1f4a7dbf5003481dfe62727d9b93f612c9aa7d6f66daecd9018b36460d1a900c"
+        "value": "c7f9c2637ccd9688e9ff4d20f65cad59dde5e4006719569e523a963d95ab9067"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "d2ee9ad0d22ca1208fe9b4aa13f2f482bf2304905c43b9d29ed2f063bce8d8f6"
+        "value": "ff4395d8f6bf538957ed7eae7e1d565ff71baeb732108ca6499917f56c07588b"
       }
     },
     {
@@ -26610,11 +26610,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "d2ee9ad0d22ca1208fe9b4aa13f2f482bf2304905c43b9d29ed2f063bce8d8f6"
+        "value": "ff4395d8f6bf538957ed7eae7e1d565ff71baeb732108ca6499917f56c07588b"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "4eb2ba107e48e3252d72eb9f815232d90a0fc4d7178e4484f496d59a4b893e46"
+        "value": "a673319d65d22302c3e11bc45fe6600f52f4b0ac4aa5cd6ff5faf3f4c3e9dc1c"
       }
     },
     {
@@ -26746,11 +26746,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "4eb2ba107e48e3252d72eb9f815232d90a0fc4d7178e4484f496d59a4b893e46"
+        "value": "a673319d65d22302c3e11bc45fe6600f52f4b0ac4aa5cd6ff5faf3f4c3e9dc1c"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "66c8dd65164d822d5f8237c7e781e4168c3981db6bd5ab44f34d20b24041e536"
+        "value": "7f403e5fd7e7d7878dfcab6a0e992b20a0b3d4418c9b21cb5533fc525aa0fdf9"
       }
     },
     {
@@ -27017,11 +27017,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "66c8dd65164d822d5f8237c7e781e4168c3981db6bd5ab44f34d20b24041e536"
+        "value": "7f403e5fd7e7d7878dfcab6a0e992b20a0b3d4418c9b21cb5533fc525aa0fdf9"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "eea3977625661f26148ada6e0f980af67df6effba53f84b7811e59c09d860314"
+        "value": "d2ca8bdc187635c5b61e2c026016bd064947f4772e1887498c941e93242abd81"
       }
     },
     {
@@ -27218,11 +27218,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "eea3977625661f26148ada6e0f980af67df6effba53f84b7811e59c09d860314"
+        "value": "d2ca8bdc187635c5b61e2c026016bd064947f4772e1887498c941e93242abd81"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "78bed417ee8419a4887f0eee2f7222c8c9f3cbaf6ff8cdc796e44432de574460"
+        "value": "b0ea9dca8e6412fc7d8fa8d397eb19a13574e9bc3a1d01a0f954bb7cbb5260a4"
       }
     },
     {
@@ -27564,11 +27564,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "78bed417ee8419a4887f0eee2f7222c8c9f3cbaf6ff8cdc796e44432de574460"
+        "value": "b0ea9dca8e6412fc7d8fa8d397eb19a13574e9bc3a1d01a0f954bb7cbb5260a4"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "af2402008416aabc52bd3974f4b13baa2420d784ba4ec57c9869c494671459f6"
+        "value": "96bcacbb8a4869ee751b9956c413e1c8549e7ed73c9729f5750c159dacaaf709"
       }
     },
     {
@@ -27825,11 +27825,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "af2402008416aabc52bd3974f4b13baa2420d784ba4ec57c9869c494671459f6"
+        "value": "96bcacbb8a4869ee751b9956c413e1c8549e7ed73c9729f5750c159dacaaf709"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "0a1424c76bdb0cdf157b538a57c50fb74cef0e3fc3a33bc483be5867813db3fa"
+        "value": "98a722512db34df0c6f62b7247a2bf73fe5bcb498c06687bf65a14cf47e1f424"
       }
     },
     {
@@ -28139,11 +28139,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "0a1424c76bdb0cdf157b538a57c50fb74cef0e3fc3a33bc483be5867813db3fa"
+        "value": "98a722512db34df0c6f62b7247a2bf73fe5bcb498c06687bf65a14cf47e1f424"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "b8a1577b687aa94b5d1a87501964aa57c3afde4019b04b885fd90dc927716478"
+        "value": "1f38bf41811dead9f2830f25ea0b98fdb79f4c1274285ce15421efde31cd6337"
       }
     },
     {
@@ -28358,11 +28358,244 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "b8a1577b687aa94b5d1a87501964aa57c3afde4019b04b885fd90dc927716478"
+        "value": "1f38bf41811dead9f2830f25ea0b98fdb79f4c1274285ce15421efde31cd6337"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "3c2922b55411d2346988d2cb01fd788fedb0d5fb0a3e4d9342c3125f70cf3949"
+        "value": "9f49e93802b0365d6b90cbddd20efa983677f785218f8b386a5e1abfba829608"
+      }
+    },
+    {
+      "sequence": 14,
+      "transitionId": "TR-000014",
+      "packId": "PACK-R14-07",
+      "tuwId": "A2",
+      "transitionKind": "DEMOTE",
+      "candidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "3cd398a995269fd2534552e99fe006c96dfff2fcb34d668e6ceef9e46907b219"
+      },
+      "recordedAt": "2026-07-20T00:51:00.000Z",
+      "reasonCode": "CURRENT_SOURCE_AUDIT",
+      "reason": "Current registered candidate has partial Matter lifecycle anchors but lacks the conflicts panel and its A1 conflict-check dependency; historical evidence cannot establish the required current chain.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "5c9bf3fdf6535a812356c01c6fb0639ef15c9b3b4f5ab3b716046b080ca55aef"
+      },
+      "afterOverride": {
+        "status": "NOT_STARTED",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+              }
+            },
+            {
+              "path": "apps/web/src/components/matter/matter-conflicts-panel.tsx",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "packages/domain/src/matter/matter-transitions.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "dd88bf3f6d2527e5c76eb81564bf6e4149d554038ef161a936d903ce5c07ee79"
+              }
+            },
+            {
+              "path": "tests/integration/matter-lifecycle.spec.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "3b0702d7300ee8acbc43ae0e7af5054579f2babaae6256e57cdb44bb10ba5465"
+              }
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "3cd398a995269fd2534552e99fe006c96dfff2fcb34d668e6ceef9e46907b219"
+          }
+        },
+        "lastReviewedAt": "2026-07-20T00:51:00.000Z",
+        "statusRationale": "Current registered candidate has partial Matter lifecycle anchors but lacks the conflicts panel and its A1 conflict-check dependency; historical evidence cannot establish the required current chain.",
+        "historicalEvidenceRefs": [
+          {
+            "type": "source_plan",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:75",
+            "note": "Authoritative A2 acceptance block: conflict state-machine gate, matter.service fail-closed updateStatus, blocked open path, Matter detail Conflicts panel, API client functions, integration lifecycle test, web component test, and manual web QA."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "packages/domain/src/matter/matter-transitions.ts:27",
+            "note": "Matter transition context accepts conflictsStatus for state-machine evaluation."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "packages/domain/src/matter/matter-transitions.ts:55",
+            "note": "proposed -> open is denied with CONFLICTS_NOT_CLEARED unless conflictsStatus is cleared."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "packages/domain/src/matter/matter-transitions.spec.ts:23",
+            "note": "Domain unit test covers not_started, in_review, cleared, and blocked conflict statuses for proposed -> open."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter.entity.ts:48",
+            "note": "MatterDto serialization exposes conflictsStatus from the MatterEntity."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter.service.ts:316",
+            "note": "MatterService.updateStatus passes before.props.conflictsStatus into validateMatterTransition."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter.service.ts:333",
+            "note": "CONFLICTS_NOT_CLEARED transition denial records audit evidence and returns a fail-closed validation response."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter.service.ts:680",
+            "note": "Denied conflict-status transitions log ACCESS_DENIED metadata with before/after refs, blocked_reason, and reason_code."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "tests/integration/matter-lifecycle.spec.ts:276",
+            "note": "Integration test covers not_started/in_review denial, denial audit, cleared open success, blocked denial, and blocked denial audit."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/lib/api-client.ts:244",
+            "note": "Web API client exposes list/run/resolve conflict-check functions and updateMatterStatus for the panel flow."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-conflicts-panel.tsx:44",
+            "note": "Conflicts panel defines not_started/in_review/cleared/blocked status badges and candidate source labels."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-conflicts-panel.tsx:147",
+            "note": "Panel renders the status badge, run button, candidate table, rationale form, resolve buttons, Matter open button, and blocked /walls link."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-conflicts-panel.tsx:319",
+            "note": "Panel resolve action sends cleared/blocked status with rationale and refreshes Matter state."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-conflicts-panel.tsx:344",
+            "note": "Panel Matter open action calls updateMatterStatus and maps CONFLICTS_NOT_CLEARED to safe user-facing errors."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-conflicts-panel.test.tsx:58",
+            "note": "Web component test covers status badge, candidate table, source label, similarity formatting, and /walls link rendering."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/components/matter/matter-conflicts-panel.test.tsx:81",
+            "note": "Web component test verifies resolution buttons are disabled until rationale is provided."
+          },
+          {
+            "type": "code_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/page.tsx:168",
+            "note": "Matter detail page renders MatterConflictsPanel and wires onMatterUpdated."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/domain test -- matter-transitions.spec.ts",
+            "note": "2026-07-03: 1 file passed, 3 tests passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm test:integration -- matter-lifecycle",
+            "note": "2026-07-03: tests/integration/matter-lifecycle.spec.ts passed, 1 file/4 tests."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/web test -- matter-conflicts-panel.test.tsx api-client.spec.ts",
+            "note": "2026-07-03: 2 files passed, 31 tests passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/domain lint && pnpm --filter @amic-vault/domain typecheck && pnpm --filter @amic-vault/domain build",
+            "note": "2026-07-03: focused domain lint, typecheck, and build passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "pnpm --filter @amic-vault/web lint && pnpm --filter @amic-vault/web build && pnpm --filter @amic-vault/web typecheck",
+            "note": "2026-07-03: focused web lint, build, and typecheck passed; an initial pre-build typecheck miss from absent .next/types was resolved by the normal web build output before rerunning typecheck."
+          },
+          {
+            "type": "migration_not_required",
+            "ref": "A2 code/migration audit",
+            "note": "2026-07-03: A2 adds no migration; it consumes the matters.conflicts_status schema introduced by A1/0098, and the default dev DB was already migrated through 0114 during A1 evidence collection."
+          },
+          {
+            "type": "runtime_check_pass",
+            "ref": "API_PORT=3001 authenticated GET /v1/matters/f8751cea-5051-4d63-ab9c-d9666dad28a2",
+            "note": "2026-07-03: after restarting a stale API process, fresh runtime response exposed accessScope=firm_open and conflictsStatus=not_started."
+          },
+          {
+            "type": "manual_web_qa_pass",
+            "ref": "Chrome headless against http://localhost:3000 with API http://localhost:3001/v1, marker A2웹QA91032bcd",
+            "note": "2026-07-03: browser QA created current-run clear target Matter 1f327a19-77a6-433e-96ba-3005f728c87d and blocked target Matter b8459ab5-8acf-470f-b7e1-2e8e04eaf477; verified 미검사 badge, pre-clear Matter open denial, 검사 실행 candidate row with marker and 당사자/% columns, resolve buttons disabled without rationale and enabled with rationale, 해소됨 then Matter status open, 차단됨 /walls link, and blocked Matter open denial while status stayed proposed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "node tools/execution/build-tuw-status-ledger.mjs && node tools/execution/build-tuw-status-ledger.mjs --check",
+            "note": "2026-07-03: ledger regenerated and generator check passed with 110 rows; counts COMPLETE_CANDIDATE=2, LOCAL_IMPLEMENTED_NEEDS_EVIDENCE=23, PARTIAL=65, NOT_STARTED=17, EXTERNAL_BLOCKED=3."
+          },
+          {
+            "type": "command_pass",
+            "ref": "node ad hoc ledger structural validator",
+            "note": "2026-07-03: validated 110 units, no duplicate ids, valid statuses, required evidence fields present, count map matches ledger.counts, and COMPLETE_CANDIDATE units are A1 and A2."
+          },
+          {
+            "type": "command_pass",
+            "ref": "git diff --check -- docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_OVERRIDES.json docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.json docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.md tools/execution/build-tuw-status-ledger.mjs tests/integration/conflict-check.spec.ts tests/integration/document-access/email-filing.spec.ts",
+            "note": "2026-07-03: focused diff whitespace check passed."
+          },
+          {
+            "type": "command_pass",
+            "ref": "rg -n \"[ \\\\t]+$\" docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_OVERRIDES.json docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.json docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.md tools/execution/build-tuw-status-ledger.mjs tests/integration/conflict-check.spec.ts tests/integration/document-access/email-filing.spec.ts",
+            "note": "2026-07-03: trailing-whitespace scan found no matches."
+          }
+        ],
+        "evidenceRefs": [],
+        "remainingGaps": [
+          "A1 dependency not current-complete",
+          "missing current conflicts panel",
+          "missing current conflict-state integration evidence"
+        ],
+        "nextAction": "Recover A1 first, then implement and verify the registered A2 state-machine and panel scope.",
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "74187827b88a97cd1155ff5df55790ca077a5ee14b0d6357743e56e7cc1bfa14"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "9f49e93802b0365d6b90cbddd20efa983677f785218f8b386a5e1abfba829608"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "570f353bee6ec961f320c25598bbc06429b07cf3179ff76088086940206a1c83"
       }
     }
   ],

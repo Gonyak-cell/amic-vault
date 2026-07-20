@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-20T00:50:00.000Z`
+- asOf / generatedAt: `2026-07-20T00:51:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `6a7eb65e247e59e5791ce99063c7f7a1e90c89674c88fb7c2f85ce2ab996f292`
-- Transition journal SHA-256: `bcb7910c6d350a29b1092d99af5b5d1c8c0228b6376845ee4413c44dc09516fc`
+- Overrides SHA-256: `8c1a53039a6fe59ad59c2e717c5434fda07d35a5e910782ece26c398a778613e`
+- Transition journal SHA-256: `30be1a38b95dafac984b08e0e3dabd9100a25e746b0b6cf31d5d240f536c074c`
 
 ## Objective
 
@@ -18,13 +18,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 ## Status Counts
 
-- NOT_STARTED: 6
-- COMPLETE_CANDIDATE: 13
+- NOT_STARTED: 7
+- COMPLETE_CANDIDATE: 12
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 82
 - EXTERNAL_BLOCKED: 12
 - PARTIAL: 4
-- BOOTSTRAP_PREIMAGE: 104
-- CURRENT_VALIDATED: 13
+- BOOTSTRAP_PREIMAGE: 103
+- CURRENT_VALIDATED: 14
 
 ## Rules
 
@@ -43,7 +43,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | ID | H | Size | Status | Validation | Current evidence | Historical evidence | Blocker | Gaps | Plan line | Next action |
 |---|---:|:---:|---|---|---:|---:|---|---:|---:|---|
 | A1 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 28 | NONE | 3 | 54 | Recover the registered A1 implementation only in its authorized implementation PACK, then obtain current scoped evidence. |
-| A2 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 29 | NONE | 0 | 82 | A2 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A2. |
+| A2 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 29 | NONE | 3 | 82 | Recover A1 first, then implement and verify the registered A2 state-machine and panel scope. |
 | A3 | 1 | M | NOT_STARTED | CURRENT_VALIDATED | 0 | 26 | NONE | 2 | 106 | Keep A3 not started until the registered implementation and evidence PACK executes. |
 | A4 | 1 | M | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 34 | NONE | 0 | 127 | A4 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A4. |
 | A5 | 1 | S | NOT_STARTED | CURRENT_VALIDATED | 0 | 40 | NONE | 2 | 156 | Keep A5 not started until the registered implementation and evidence PACK executes. |

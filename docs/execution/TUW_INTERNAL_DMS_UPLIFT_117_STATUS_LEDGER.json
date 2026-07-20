@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "schemaId": "PACK-R14-02-TASK5-SCHEMA-V1",
   "phase": "TRANSITION",
-  "generatedAt": "2026-07-20T00:50:00.000Z",
+  "generatedAt": "2026-07-20T00:51:00.000Z",
   "generationMetadata": {
     "hashAlgorithm": "SHA-256",
     "sourcePlanSha256": {
@@ -11,13 +11,13 @@
     },
     "overridesSha256": {
       "algorithm": "SHA-256",
-      "value": "6a7eb65e247e59e5791ce99063c7f7a1e90c89674c88fb7c2f85ce2ab996f292"
+      "value": "8c1a53039a6fe59ad59c2e717c5434fda07d35a5e910782ece26c398a778613e"
     },
     "transitionJournalSha256": {
       "algorithm": "SHA-256",
-      "value": "bcb7910c6d350a29b1092d99af5b5d1c8c0228b6376845ee4413c44dc09516fc"
+      "value": "30be1a38b95dafac984b08e0e3dabd9100a25e746b0b6cf31d5d240f536c074c"
     },
-    "asOf": "2026-07-20T00:50:00.000Z",
+    "asOf": "2026-07-20T00:51:00.000Z",
     "phase": "TRANSITION"
   },
   "sourcePlan": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
@@ -43,15 +43,15 @@
     "apply state changes only through the sealed one-row transition journal and require every replay prefix to validate"
   ],
   "counts": {
-    "NOT_STARTED": 6,
-    "COMPLETE_CANDIDATE": 13,
+    "NOT_STARTED": 7,
+    "COMPLETE_CANDIDATE": 12,
     "LOCAL_IMPLEMENTED_NEEDS_EVIDENCE": 82,
     "EXTERNAL_BLOCKED": 12,
     "PARTIAL": 4
   },
   "validationCounts": {
-    "BOOTSTRAP_PREIMAGE": 104,
-    "CURRENT_VALIDATED": 13
+    "BOOTSTRAP_PREIMAGE": 103,
+    "CURRENT_VALIDATED": 14
   },
   "units": [
     {
@@ -339,7 +339,7 @@
         "planPath": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md",
         "planLine": 82
       },
-      "status": "COMPLETE_CANDIDATE",
+      "status": "NOT_STARTED",
       "dependencies": [
         {
           "id": "A1",
@@ -399,9 +399,45 @@
         "- 자동: tests/integration/matter-lifecycle.spec.ts 확장 — (a) cleared 전 PATCH /matters/:id/status(open) 요청이 409/422 + CONFLICTS_NOT_CLEARED 코드로 거부, (b) cleared 후 동일 요청 성공, (c) blocked 매터는 open 전이 거부 지속, (d) 거부 이벤트가 audit_events에 기록"
       ],
       "externalEvidenceNeeds": [],
-      "validationState": "BOOTSTRAP_PREIMAGE",
-      "validatedCandidateSha": null,
-      "validationScope": null,
+      "validationState": "CURRENT_VALIDATED",
+      "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScope": {
+        "entries": [
+          {
+            "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+            }
+          },
+          {
+            "path": "apps/web/src/components/matter/matter-conflicts-panel.tsx",
+            "mode": "ABSENT",
+            "contentSha256": null
+          },
+          {
+            "path": "packages/domain/src/matter/matter-transitions.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "dd88bf3f6d2527e5c76eb81564bf6e4149d554038ef161a936d903ce5c07ee79"
+            }
+          },
+          {
+            "path": "tests/integration/matter-lifecycle.spec.ts",
+            "mode": "100644",
+            "contentSha256": {
+              "algorithm": "SHA-256",
+              "value": "3b0702d7300ee8acbc43ae0e7af5054579f2babaae6256e57cdb44bb10ba5465"
+            }
+          }
+        ],
+        "aggregateSha256": {
+          "algorithm": "SHA-256",
+          "value": "3cd398a995269fd2534552e99fe006c96dfff2fcb34d668e6ceef9e46907b219"
+        }
+      },
       "historicalEvidenceRefs": [
         {
           "type": "source_plan",
@@ -554,10 +590,14 @@
       "blockingRefs": [],
       "acceptedBlockers": [],
       "dependencyConditions": [],
-      "remainingGaps": [],
-      "nextAction": "A2 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A2.",
-      "statusRationale": "A2 has current evidence for the domain conflicts-status gate, API fail-closed proposed-to-open enforcement with denial audit logging, Matter DTO conflictsStatus exposure, web API client functions, Matter detail Conflicts panel rendering/actions, web component tests, lifecycle integration tests, focused domain/web checks, fresh browser manual QA through the real web surface, ledger regeneration, structural validation, and diff/whitespace checks. No A2-specific migration is required beyond the A1 conflicts_status schema already present; the manual gate was rerun after restarting a stale local API process so the evidence is from the current compiled runtime.",
-      "lastReviewedAt": "2026-07-03T01:52:25.000Z"
+      "remainingGaps": [
+        "A1 dependency not current-complete",
+        "missing current conflicts panel",
+        "missing current conflict-state integration evidence"
+      ],
+      "nextAction": "Recover A1 first, then implement and verify the registered A2 state-machine and panel scope.",
+      "statusRationale": "Current registered candidate has partial Matter lifecycle anchors but lacks the conflicts panel and its A1 conflict-check dependency; historical evidence cannot establish the required current chain.",
+      "lastReviewedAt": "2026-07-20T00:51:00.000Z"
     },
     {
       "id": "A3",
