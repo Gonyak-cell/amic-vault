@@ -7,10 +7,10 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 - Schema: `PACK-R14-02-TASK5-SCHEMA-V1`
 - Phase: `TRANSITION`
-- asOf / generatedAt: `2026-07-20T00:54:00.000Z`
+- asOf / generatedAt: `2026-07-20T00:55:00.000Z`
 - Source plan SHA-256: `23774be4a061ad1e887d44cbbcfb1a34cae66f13165e08ff62d44968a57a81f7`
-- Overrides SHA-256: `3be7fe005fead700301ff8df3f920f3ae2adfee1e392e09acec37fac66182529`
-- Transition journal SHA-256: `4398893d9f75ea34a3fdaaacedfd69c50f7a9a548f6b9f30454b267f9997a36f`
+- Overrides SHA-256: `e3926c5ae6408acb4d1c6850fba7bf65e91f060a0b081fe742aafb51f8105fec`
+- Transition journal SHA-256: `508fa9206009b710b3b02bef71706a7101b4825f110ff918f2e8e36c3d265711`
 
 ## Objective
 
@@ -18,13 +18,13 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 
 ## Status Counts
 
-- NOT_STARTED: 10
+- NOT_STARTED: 11
 - LOCAL_IMPLEMENTED_NEEDS_EVIDENCE: 82
 - EXTERNAL_BLOCKED: 12
-- COMPLETE_CANDIDATE: 9
+- COMPLETE_CANDIDATE: 8
 - PARTIAL: 4
-- BOOTSTRAP_PREIMAGE: 100
-- CURRENT_VALIDATED: 17
+- BOOTSTRAP_PREIMAGE: 99
+- CURRENT_VALIDATED: 18
 
 ## Rules
 
@@ -80,7 +80,7 @@ Overrides: `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_OVERRIDES.json`. P
 | H6 | 1 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 29 | NONE | 3 | 1015 | Keep H6 as LOCAL_IMPLEMENTED_NEEDS_EVIDENCE. Collect the docker-compose api+worker upload-to-search receipt and the api-only backlog-then-worker-drain receipt, then rerun focused H6 gates before any COMPLETE_CANDIDATE promotion. |
 | A8 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 52 | NONE | 2 | 1046 | Keep A8 below COMPLETE_CANDIDATE. Collect the browser/staging related-Matter reciprocal-detail plus /matters wall/confidentiality receipt, then rerun the focused A8 gate and promote only if all local and manual evidence remains current. |
 | A9 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 51 | NONE | 2 | 1072 | Keep A9 below COMPLETE_CANDIDATE. Collect the advisory-Matter browser/staging issues/key-date/status-change plus audit-console receipt, then rerun the focused A9 gate and promote only if all local and manual evidence remains current. |
-| A10 | 2 | L | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 31 | NONE | 0 | 1099 | A10 is ready for independent review as COMPLETE_CANDIDATE. Continue with the next dependency-valid TUW and do not claim overall product readiness until all 110 rows are COMPLETE_CANDIDATE or EXTERNAL_BLOCKED with evidence. |
+| A10 | 2 | L | NOT_STARTED | CURRENT_VALIDATED | 0 | 31 | NONE | 3 | 1099 | Recover and validate A9 first, then implement and verify the registered A10 dashboard scope. |
 | A11 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 30 | NONE | 1 | 1128 | Collect the staging/manual Closing tab receipt, rerun focused A11 checks/LSP/db roundtrip if anything changes, run diff hygiene, rebuild the 110-row ledger, and only then consider promotion to COMPLETE_CANDIDATE. |
 | A12 | 2 | M | LOCAL_IMPLEMENTED_NEEDS_EVIDENCE | BOOTSTRAP_PREIMAGE | 0 | 50 | NONE | 3 | 1157 | Collect the A11 and A12 staging/manual Closing tab receipts, verify JSON/CSV manifest hash locally with sha256sum, rerun focused A12 package/integration/LSP/db/diff gates if anything changes, rebuild the 110-row ledger, and only then consider promotion to COMPLETE_CANDIDATE. |
 | A14 | 2 | S | COMPLETE_CANDIDATE | BOOTSTRAP_PREIMAGE | 0 | 40 | NONE | 0 | 1181 | A14 can remain COMPLETE_CANDIDATE while a reviewer checks the recorded evidence; continue the 110-row gate with the next dependency-valid TUW instead of broadening A14. |

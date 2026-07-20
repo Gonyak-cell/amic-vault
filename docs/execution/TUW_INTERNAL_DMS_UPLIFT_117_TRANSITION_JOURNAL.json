@@ -14,10 +14,10 @@
     "algorithm": "SHA-256",
     "value": "00ca3e7918c00fb48d1446b59167d377125e8b5f9505d1b603a808fcf5680166"
   },
-  "asOf": "2026-07-20T00:54:00.000Z",
+  "asOf": "2026-07-20T00:55:00.000Z",
   "previousAcceptedJournalHead": {
     "algorithm": "SHA-256",
-    "value": "ce04b9f6d38e53a4fcb8d937d32946c3a44aea8c2cbf362434733b97b7cbceaa"
+    "value": "b7881ee12000ea56085f342b53574be901b0138823dbe8475480a25fda8ffb27"
   },
   "bootstrap": {
     "bootstrapId": "PACK-R14-02-BOOTSTRAP-117",
@@ -25809,7 +25809,7 @@
   },
   "genesisHash": {
     "algorithm": "SHA-256",
-    "value": "46fbd2a8fc9fe5be4ebc2344445756922f0607420256e0a8984ca113d7a090d3"
+    "value": "1d2dcab38faf8af93d85b30797d54d99d3f06dd28c3287f5969682a13b07c02a"
   },
   "entries": [
     {
@@ -25938,11 +25938,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "46fbd2a8fc9fe5be4ebc2344445756922f0607420256e0a8984ca113d7a090d3"
+        "value": "1d2dcab38faf8af93d85b30797d54d99d3f06dd28c3287f5969682a13b07c02a"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "43e9c0d39ddd4d86140550a2f512c8ecf7fa361a595f393e288804873cead5bd"
+        "value": "63661acb6db440d32438cfec97d72bcc3d6c86d18620e35ffd93526a65e52f23"
       }
     },
     {
@@ -26071,11 +26071,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "43e9c0d39ddd4d86140550a2f512c8ecf7fa361a595f393e288804873cead5bd"
+        "value": "63661acb6db440d32438cfec97d72bcc3d6c86d18620e35ffd93526a65e52f23"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "470dad8591b44d3eeec4495d08213b8d0cf94c6a25907a80eb515c46add30e1d"
+        "value": "a09b28585235b9ea9b6072f89d1a1d7133ebdb2cf0c85eb8506706d58ff4d265"
       }
     },
     {
@@ -26204,11 +26204,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "470dad8591b44d3eeec4495d08213b8d0cf94c6a25907a80eb515c46add30e1d"
+        "value": "a09b28585235b9ea9b6072f89d1a1d7133ebdb2cf0c85eb8506706d58ff4d265"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "0d6945b39f7cbaaf3cff9c5fa8215b1639fe207fe2ce6949e43decea8d5c6405"
+        "value": "fcb6ef924827b76a304519ad4049bbd83fad8cfff5b833556bd06343c11e3865"
       }
     },
     {
@@ -26339,11 +26339,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "0d6945b39f7cbaaf3cff9c5fa8215b1639fe207fe2ce6949e43decea8d5c6405"
+        "value": "fcb6ef924827b76a304519ad4049bbd83fad8cfff5b833556bd06343c11e3865"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "a75204caad37548f362e3798db9d09f3a9b98b15451cdf4455974dad0c2f202b"
+        "value": "b2aad6be540aed728edb41f3fee8ef16653dbd3d5df6a81bf032866f8b8e79e3"
       }
     },
     {
@@ -26474,11 +26474,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "a75204caad37548f362e3798db9d09f3a9b98b15451cdf4455974dad0c2f202b"
+        "value": "b2aad6be540aed728edb41f3fee8ef16653dbd3d5df6a81bf032866f8b8e79e3"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "ef8bbcc17079dc43fc4584b79ae1d5a276e165623a17a7c6d075ed6d4ea5f60f"
+        "value": "85ec44cac832878612a8ba77939dd3d2741dd95056cc9ea480a1a68f6720120d"
       }
     },
     {
@@ -26610,11 +26610,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "ef8bbcc17079dc43fc4584b79ae1d5a276e165623a17a7c6d075ed6d4ea5f60f"
+        "value": "85ec44cac832878612a8ba77939dd3d2741dd95056cc9ea480a1a68f6720120d"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "89121f7430e2da8bbce29cffb29247ad21c98818dbd49002a4379685d29ea378"
+        "value": "56edd9683315a64cecf113b5d6361e001e006d245cd035a9f02eb48a1f89377c"
       }
     },
     {
@@ -26746,11 +26746,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "89121f7430e2da8bbce29cffb29247ad21c98818dbd49002a4379685d29ea378"
+        "value": "56edd9683315a64cecf113b5d6361e001e006d245cd035a9f02eb48a1f89377c"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "5a1a1809a9bcc8469db3a85818b5416ea25d0ab101e72d1ec79dd3e6d6b56cec"
+        "value": "8f4a3a6309588530cd584e33406eb590d70d7174f52aab01c65524670dfff570"
       }
     },
     {
@@ -27017,11 +27017,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "5a1a1809a9bcc8469db3a85818b5416ea25d0ab101e72d1ec79dd3e6d6b56cec"
+        "value": "8f4a3a6309588530cd584e33406eb590d70d7174f52aab01c65524670dfff570"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "e0bff1ba5f4bd42622adbc8a9e9df0274c44ee6bbc6a3bb3b0169f01d332b6c2"
+        "value": "3552f816deba5529d16db289933ed7bd7085bc47be3554b8c18b6b922ac5eb1c"
       }
     },
     {
@@ -27218,11 +27218,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "e0bff1ba5f4bd42622adbc8a9e9df0274c44ee6bbc6a3bb3b0169f01d332b6c2"
+        "value": "3552f816deba5529d16db289933ed7bd7085bc47be3554b8c18b6b922ac5eb1c"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "bfe9da9d217b1f7eecb2d34c0a38e8f2f4a9e53c924ea387d9b3af02c2b5a035"
+        "value": "188e7c135003ba3e9ae6957368a507a8566007a04dc14920d86eb561325bd296"
       }
     },
     {
@@ -27564,11 +27564,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "bfe9da9d217b1f7eecb2d34c0a38e8f2f4a9e53c924ea387d9b3af02c2b5a035"
+        "value": "188e7c135003ba3e9ae6957368a507a8566007a04dc14920d86eb561325bd296"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "09170da44582af0da8051af3fcf23bdcb9758877283131d4b63f77adeb1a2aca"
+        "value": "c409998410bc061bbbfed17f4678eb5095750358c984a192136fdae63c75d67f"
       }
     },
     {
@@ -27825,11 +27825,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "09170da44582af0da8051af3fcf23bdcb9758877283131d4b63f77adeb1a2aca"
+        "value": "c409998410bc061bbbfed17f4678eb5095750358c984a192136fdae63c75d67f"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "bde7a4fda3a591a7fda78ddabfe52e60ca5cf9dc40589eefd69d2b05dce3f39e"
+        "value": "19488353382bdda3ff968e5720643f1f8ccb7095cabd394f3b42901f70279469"
       }
     },
     {
@@ -28139,11 +28139,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "bde7a4fda3a591a7fda78ddabfe52e60ca5cf9dc40589eefd69d2b05dce3f39e"
+        "value": "19488353382bdda3ff968e5720643f1f8ccb7095cabd394f3b42901f70279469"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "626e90afc4f655df377c081775524ddfb0a82e91c086ed33e478cfd426810aa4"
+        "value": "fd1b970e8e99988dd35f48794e417e8b3f08e052539abafc45768e7d89eda304"
       }
     },
     {
@@ -28358,11 +28358,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "626e90afc4f655df377c081775524ddfb0a82e91c086ed33e478cfd426810aa4"
+        "value": "fd1b970e8e99988dd35f48794e417e8b3f08e052539abafc45768e7d89eda304"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "dd926cfa8b389520e59e03b1b4bb38b9b4f246b9bb06c4ffd7bd3081e717bbc9"
+        "value": "3c4573fe90784da1a701dbebc1b7f9b780875d92feed13e0286ae5e63cf32d07"
       }
     },
     {
@@ -28591,11 +28591,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "dd926cfa8b389520e59e03b1b4bb38b9b4f246b9bb06c4ffd7bd3081e717bbc9"
+        "value": "3c4573fe90784da1a701dbebc1b7f9b780875d92feed13e0286ae5e63cf32d07"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "598f687ce38082de818620020326a1f9a9d08ec1070dc5909a98839083b9b68b"
+        "value": "32bb8d069321414b7b811a564fae0ed24f72eb276eae929fb7606dbc2cb0ee75"
       }
     },
     {
@@ -28843,11 +28843,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "598f687ce38082de818620020326a1f9a9d08ec1070dc5909a98839083b9b68b"
+        "value": "32bb8d069321414b7b811a564fae0ed24f72eb276eae929fb7606dbc2cb0ee75"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "b782da491be5aa33e06e2bd2eda80e2fe49fc51e0a5cf56b2c6e9f8036c1a7b0"
+        "value": "0bbf7c9d09c15fd538a9c41d569f40531acc86be60be931b9c022373270e5433"
       }
     },
     {
@@ -29206,11 +29206,11 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "b782da491be5aa33e06e2bd2eda80e2fe49fc51e0a5cf56b2c6e9f8036c1a7b0"
+        "value": "0bbf7c9d09c15fd538a9c41d569f40531acc86be60be931b9c022373270e5433"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "16c9e929a7c94ca806e8d0098be6a1ee291696ae3b5ba5312b49f6fa515ce667"
+        "value": "98176e09ee66c3f79f839517ab710458e46d1927940429a6e50940dd8b780a4d"
       }
     },
     {
@@ -29516,11 +29516,252 @@
       },
       "previousEntryHash": {
         "algorithm": "SHA-256",
-        "value": "16c9e929a7c94ca806e8d0098be6a1ee291696ae3b5ba5312b49f6fa515ce667"
+        "value": "98176e09ee66c3f79f839517ab710458e46d1927940429a6e50940dd8b780a4d"
       },
       "entryHash": {
         "algorithm": "SHA-256",
-        "value": "b7881ee12000ea56085f342b53574be901b0138823dbe8475480a25fda8ffb27"
+        "value": "e4e63799dca60037545133576d4cf62c02a5db96aadc6473f4c48bb2b3b7c720"
+      }
+    },
+    {
+      "sequence": 18,
+      "transitionId": "TR-000018",
+      "packId": "PACK-R14-07",
+      "tuwId": "A10",
+      "transitionKind": "DEMOTE",
+      "candidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+      "validationScopeDigest": {
+        "algorithm": "SHA-256",
+        "value": "67b1a06ac61070daf8f79bdfc8aea55eef8aa22bc5572628ec53b6bc098ddeed"
+      },
+      "recordedAt": "2026-07-20T00:55:00.000Z",
+      "reasonCode": "CURRENT_SOURCE_AUDIT",
+      "reason": "Current registered candidate lacks the Matter dashboard service and dashboard integration specification, and hard dependency A9 is not current-complete; A10 cannot receive a completion claim.",
+      "beforeOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "781090a3506ad5430beb8d514475b3210977c43c24650c20eeae9433bdf5dac1"
+      },
+      "afterOverride": {
+        "status": "NOT_STARTED",
+        "validationState": "CURRENT_VALIDATED",
+        "validatedCandidateSha": "6b5e6fb93942f357ad74ac5b4bf676a0329d9306",
+        "validationScope": {
+          "entries": [
+            {
+              "path": "apps/api/src/modules/matter/matter-dashboard.service.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            },
+            {
+              "path": "apps/api/src/modules/matter/matter.controller.ts",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "995163ff32db45544d4fc28ff0792ea7bb5385c4cbecd2c61a34c4d1577945ed"
+              }
+            },
+            {
+              "path": "apps/web/src/app/(app)/matters/[matterId]/page.tsx",
+              "mode": "100644",
+              "contentSha256": {
+                "algorithm": "SHA-256",
+                "value": "c09d2b459581123159e648c339ac164d0350c7950e13bed5508fa0b410665593"
+              }
+            },
+            {
+              "path": "tests/integration/matter-dashboard.spec.ts",
+              "mode": "ABSENT",
+              "contentSha256": null
+            }
+          ],
+          "aggregateSha256": {
+            "algorithm": "SHA-256",
+            "value": "67b1a06ac61070daf8f79bdfc8aea55eef8aa22bc5572628ec53b6bc098ddeed"
+          }
+        },
+        "lastReviewedAt": "2026-07-20T00:55:00.000Z",
+        "statusRationale": "Current registered candidate lacks the Matter dashboard service and dashboard integration specification, and hard dependency A9 is not current-complete; A10 cannot receive a completion claim.",
+        "historicalEvidenceRefs": [
+          {
+            "type": "source_plan",
+            "ref": "docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md:1093",
+            "note": "Authoritative A10 block: per-Matter dashboard endpoint, AI session matterId listing, Matter detail workspace panel, integration/permission/perf/manual QA acceptance."
+          },
+          {
+            "type": "api_service_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-dashboard.service.ts:92",
+            "note": "New MatterDashboardService implements the A10 per-Matter aggregate in the existing Matter module."
+          },
+          {
+            "type": "api_service_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-dashboard.service.ts:99",
+            "note": "getDashboard obtains tenant context, matter summary, PermissionService read decision, then aggregates dashboard sections in one tenant-scoped transaction."
+          },
+          {
+            "type": "permission_invariant_present",
+            "ref": "apps/api/src/modules/matter/matter-dashboard.service.ts:145",
+            "note": "Dashboard read authorization goes through PermissionService.canReadMatter and maps ethical-wall denial to ETHICAL_WALL_BLOCKED."
+          },
+          {
+            "type": "api_route_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter.controller.ts:80",
+            "note": "GET /matters/:matterId/dashboard route is registered before the generic :matterId route."
+          },
+          {
+            "type": "api_module_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter.module.ts:23",
+            "note": "MatterDashboardService is provided by MatterModule."
+          },
+          {
+            "type": "dashboard_section_anchor_present",
+            "ref": "apps/api/src/modules/matter/matter-dashboard.service.ts:283",
+            "note": "Upcoming key dates aggregate unions core matter_key_dates, litigation pleading deadlines, and DD RFI due dates with source tags."
+          },
+          {
+            "type": "date_invariant_present",
+            "ref": "apps/api/src/modules/matter/matter-dashboard.service.ts:447",
+            "note": "Date-only values are formatted with local date fields to avoid timezone off-by-one in dashboard due dates."
+          },
+          {
+            "type": "ai_route_anchor_present",
+            "ref": "apps/api/src/modules/ai/session/ai-session.controller.ts:37",
+            "note": "GET /ai/sessions parses listAiSessionsQuerySchema and calls the session list service."
+          },
+          {
+            "type": "ai_service_anchor_present",
+            "ref": "apps/api/src/modules/ai/session/ai-session-log.service.ts:464",
+            "note": "listSessions supports matterId-scoped listing with read permission check, descending created_at ordering, pagination, model route, and policy summary."
+          },
+          {
+            "type": "shared_contract_anchor_present",
+            "ref": "packages/shared/src/ai/session.ts:138",
+            "note": "Shared AI session list schema and DTOs define the /ai/sessions list response contract."
+          },
+          {
+            "type": "shared_contract_anchor_present",
+            "ref": "packages/shared/src/matter/matter.dto.ts:282",
+            "note": "Shared Matter dashboard DTO includes bounded matterSummary and dashboard section contracts."
+          },
+          {
+            "type": "web_api_anchor_present",
+            "ref": "apps/web/src/lib/api-client.ts:267",
+            "note": "Web API client exposes getMatterDashboard for the Matter detail page."
+          },
+          {
+            "type": "web_ui_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/page.tsx:134",
+            "note": "Matter detail page fetches dashboard aggregate state alongside the existing Matter detail data."
+          },
+          {
+            "type": "web_ui_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/page.tsx:402",
+            "note": "MatterDashboardPanel renders compact cards for recent activity, key documents, issues, key dates, external activity, and AI sessions."
+          },
+          {
+            "type": "integration_test_anchor_present",
+            "ref": "tests/integration/matter-dashboard.spec.ts:109",
+            "note": "New integration spec asserts seven dashboard fields/sections, issue/date/external/AI seed visibility, read-deny 403, ethical-wall 403, and other-matter AI/external isolation."
+          },
+          {
+            "type": "performance_test_anchor_present",
+            "ref": "tests/integration/matter-dashboard.spec.ts:208",
+            "note": "Integration spec seeds 500 documents and 2000 audit events and asserts p95 dashboard response time under 1.5 seconds after warm-up."
+          },
+          {
+            "type": "ai_session_test_anchor_present",
+            "ref": "tests/integration/ai-session.spec.ts:251",
+            "note": "AI session integration spec now covers matterId filter, descending ordering, pagination, and other-matter exclusion."
+          },
+          {
+            "type": "web_test_anchor_present",
+            "ref": "apps/web/src/app/(app)/matters/[matterId]/page.test.tsx:56",
+            "note": "Matter detail source-level test verifies dashboard API wiring, panel insertion, labels, audit link, and AI anchor."
+          },
+          {
+            "type": "lazyweb_attempted_no_report",
+            "ref": "lazyweb_generate_report objective=create route_to=lazyweb-deep-design-research",
+            "note": "Lazyweb report call returned redirect/no report because no current screenshot was available; A10 UI followed existing Matter detail design patterns and was manually verified in browser."
+          },
+          {
+            "type": "migration_not_applicable",
+            "ref": "A10 uses existing db/migrations/0050_create_ai_sessions.sql and db/migrations/0058_create_external_core.sql",
+            "note": "No new migration was introduced for A10; db migrate/rollback evidence is not applicable to this slice."
+          },
+          {
+            "type": "lsp_diagnostics_pass",
+            "ref": "tmp/a10-evidence/lsp-diagnostics-current.json",
+            "note": "PASS 2026-07-04T11:31+09:00: direct /Users/jws/.local/bin/typescript-language-server --stdio diagnostics with normalized file-URI matching received all 13 A10 TS/TSX files; totalErrors=0 and totalWarnings=0."
+          },
+          {
+            "type": "lsp_diagnostics_mcp_unavailable",
+            "ref": "mcp__lsp.status",
+            "note": "MCP LSP still returned Transport closed, so the direct local typescript-language-server receipt is the current diagnostics evidence path."
+          },
+          {
+            "type": "lint_pass",
+            "ref": "npx -y pnpm@9.15.9 --filter @amic-vault/api lint; --filter @amic-vault/web lint; --filter @amic-vault/shared lint",
+            "note": "PASS 2026-07-04T11:33+09:00: API, web, and shared ESLint checks passed after the final LSP receipt."
+          },
+          {
+            "type": "typecheck_pass",
+            "ref": "npx -y pnpm@9.15.9 --filter @amic-vault/api typecheck; --filter @amic-vault/web typecheck; --filter @amic-vault/shared typecheck",
+            "note": "PASS 2026-07-04T11:33+09:00: API, web, and shared typechecks passed after the final LSP receipt."
+          },
+          {
+            "type": "build_pass",
+            "ref": "npx -y pnpm@9.15.9 --filter @amic-vault/api build; --filter @amic-vault/web build; --filter @amic-vault/shared build",
+            "note": "PASS 2026-07-04T11:34+09:00: API, web, and shared package builds passed; web build completed Next static generation and standalone asset preparation."
+          },
+          {
+            "type": "focused_web_test_pass",
+            "ref": "npx -y pnpm@9.15.9 --filter @amic-vault/web test -- 'src/app/(app)/matters/[matterId]/page.test.tsx'",
+            "note": "PASS 2026-07-04T11:34+09:00: Matter detail page focused test passed; 1 file, 5 tests."
+          },
+          {
+            "type": "focused_integration_pass",
+            "ref": "PATH=<pnpm-9.15.9-shim> node tools/integration/run.mjs matter-dashboard ai-session",
+            "note": "PASS 2026-07-04T11:35+09:00: matter-dashboard and ai-session integration specs passed; 2 files, 10 tests, including read-deny 403, ETHICAL_WALL_BLOCKED 403, other-matter AI/external isolation, and p95 performance assertion."
+          },
+          {
+            "type": "manual_browser_qa_pass",
+            "ref": "/tmp/a10-matter-dashboard-qa-current.json and /tmp/a10-matter-dashboard-current-1440.png",
+            "note": "PASS 2026-07-04T11:38+09:00: local API/Web with system Chrome at 1440x900; seeded alpha owner session opened /matters/e73bf499-8ffb-41a7-860f-341d8aac77e7, all six dashboard cards had live aggregate data, dashboard box 404.5..704.5 was inside first viewport, AI card navigated to #matter-ai, and external activity navigated to /audit?matterId=e73bf499-8ffb-41a7-860f-341d8aac77e7."
+          },
+          {
+            "type": "ai_slop_review_nonblocking",
+            "ref": "python3 /Users/jws/Applications/ai-slop-taxonomy/scripts/sloplint.py --repo \"$PWD\" --changed",
+            "note": "PASS 2026-07-04T11:38+09:00 command exited 0. It reported existing repo/doc findings, but no blocking new A10 Matter dashboard surface finding."
+          },
+          {
+            "type": "diff_hygiene_pass",
+            "ref": "git diff --check -- A10 tracked pathspecs plus no-index whitespace scan for untracked A10 files and tmp/a10-evidence/lsp-diagnostics-current.json",
+            "note": "PASS 2026-07-04T11:38+09:00: no whitespace errors for A10 tracked changes, new files, or current LSP evidence file."
+          }
+        ],
+        "evidenceRefs": [],
+        "remainingGaps": [
+          "missing current dashboard service",
+          "missing current dashboard integration coverage",
+          "A9 dependency not current-complete"
+        ],
+        "nextAction": "Recover and validate A9 first, then implement and verify the registered A10 dashboard scope.",
+        "externalEvidenceNeeds": [],
+        "blockerClass": "NONE",
+        "blockingRefs": [],
+        "acceptedBlockers": [],
+        "dependencyConditions": []
+      },
+      "afterOverrideSha256": {
+        "algorithm": "SHA-256",
+        "value": "995eefbb961a0efcd3ac2998e8bf4dc0b2d75b78a27efd5817938fef432d9abb"
+      },
+      "previousEntryHash": {
+        "algorithm": "SHA-256",
+        "value": "e4e63799dca60037545133576d4cf62c02a5db96aadc6473f4c48bb2b3b7c720"
+      },
+      "entryHash": {
+        "algorithm": "SHA-256",
+        "value": "521be4d4532e297e7c599bfa83a4fdb71304e0fd06bf0cf2816ee9fdba1df66d"
       }
     }
   ],
