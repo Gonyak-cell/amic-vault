@@ -2017,7 +2017,7 @@ Registration authority and immutable anchors:
 - Branch: `feat/pack-r14-03-recovery-manifest-v2`.
 - Canonical manifest ID: `POST-R14-RECOVERY-PACK-MANIFEST-V2`.
 - Canonical payload SHA-256:
-  `6eec56b829590d1032333c57e0b47603f0afe0bbd1a5d2258c3e7f04ece2d7a5`.
+  `a72a64f639dac0324feb3c0b86da54180a24ea419807e6c2c5f60adeac5e80c5`.
 - Sealed raw test-anchor source contract SHA-256:
   `b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20`.
 - Sealed exact-base collision source contract SHA-256:
@@ -2058,6 +2058,15 @@ of the 14 observed type errors; the remaining eight require their own
 predecessor plan. A separate approval must confirm the two-path implementation
 scope, direct declaration tests, no-OIDC scan, and residual-error plan before
 implementation or merge.
+
+Amendment-11 registers the remaining declaration design as three independent
+predecessors after `PACK-R14-09A`: `PACK-R14-09B` owns only the DD declaration
+and existing direct-spec paths; `PACK-R14-09C` owns only the litigation
+declaration and existing direct-spec paths; and `PACK-R14-09D` owns only the
+search DTO declaration and existing direct-spec paths. Their observed closure
+counts are 4, 3, and 1 respectively. This is a control-plane design and static
+validation only: implementation, migration, OIDC/Microsoft/Entra, deployment,
+R14-09 reconstruction or completion, and every merge remain unapproved.
 
 Amendment-07 records a second independent execution-block for PACK-R14-24.
 The preserved A6 source, integration tests, and migration allow an active

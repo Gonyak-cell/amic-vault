@@ -15,7 +15,7 @@ const LEDGER_PATH = path.join(ROOT, 'docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_
 
 const SCHEMA_VERSION = 'post-r14-recovery-pack-manifest/v2';
 const MANIFEST_ID = 'POST-R14-RECOVERY-PACK-MANIFEST-V2';
-const CANONICAL_PAYLOAD_SHA256 = '6eec56b829590d1032333c57e0b47603f0afe0bbd1a5d2258c3e7f04ece2d7a5';
+const CANONICAL_PAYLOAD_SHA256 = 'a72a64f639dac0324feb3c0b86da54180a24ea419807e6c2c5f60adeac5e80c5';
 const TEST_ANCHOR_SOURCE_CONTRACT_SHA256 = 'b1d4ae82dceb1b337905f725167cef001007c18643be4d985f4d1909fbd99e20';
 const HISTORICAL_BASE_SOURCE_CONTRACT_SHA256 = 'dbfeb6a1fd47052b65c15352ecef132062b643efc2f88e199d6681217fafa3e1';
 const BASE_PATH_COLLISION_SOURCE_CONTRACT_SHA256 = '0a13126c84eb30f53095b4aae2ac0d530419d00fa56aa2a92b6901b7aa524467';
@@ -120,6 +120,58 @@ const R14_09_EXECUTION_BLOCK = {
     ],
     implementationGate: 'A separate approval must confirm this exact two-path scope, declaration test results, no-OIDC static scan, and the remaining eight-error predecessor plan before implementation or merge.',
     conclusion: 'The bridge is an independent new declaration design, not a reassignment of H14; it can only remove six audit re-export type errors and does not make PACK-R14-09 executable on its own.',
+  },
+  residualDeclarationPredecessorPlan: {
+    authorityRef: 'OWNER-APPROVAL-R14-09-RESIDUAL-DECLARATION-DESIGN-20260720',
+    observedAt: '2026-07-20',
+    status: 'DESIGNED_AND_STATICALLY_VALIDATED_AWAITING_SEPARATE_IMPLEMENTATION_APPROVAL',
+    prerequisites: ['PACK-R14-09A'],
+    predecessorOf: ['PACK-R14-09'],
+    closureEvidence: {
+      totalDiagnosticCountAfterR14_09A: 8,
+      resolvedByR14_09A: 6,
+      diagnosticsByPack: { 'PACK-R14-09B': 4, 'PACK-R14-09C': 3, 'PACK-R14-09D': 1 },
+    },
+    proposedPacks: [
+      {
+        packId: 'PACK-R14-09B',
+        branch: 'feat/pack-r14-09b-dd-declarations',
+        title: 'DD shared declaration prerequisite',
+        requiredDeclarations: ['ddExportTypes', 'ddIssueCitationRequiredReason'],
+        modifyOnly: ['packages/shared/src/dd/dd-types.ts', 'packages/shared/src/dd/dd-types.spec.ts'],
+      },
+      {
+        packId: 'PACK-R14-09C',
+        branch: 'feat/pack-r14-09c-litigation-declarations',
+        title: 'Litigation shared declaration prerequisite',
+        requiredDeclarations: [
+          'litigationEvidenceNextCodeResponseSchema',
+          'litigationHearingTypes',
+          'litigationHearingStatuses',
+        ],
+        modifyOnly: [
+          'packages/shared/src/litigation/litigation-types.ts',
+          'packages/shared/src/litigation/litigation-types.spec.ts',
+        ],
+      },
+      {
+        packId: 'PACK-R14-09D',
+        branch: 'feat/pack-r14-09d-search-author-declaration',
+        title: 'Search DTO declaration prerequisite',
+        requiredDeclarations: ['SearchAuthorDto'],
+        modifyOnly: [
+          'packages/shared/src/search/search-query.dto.ts',
+          'packages/shared/src/search/search-query.dto.spec.ts',
+        ],
+      },
+    ],
+    prohibitedUntilSeparatelyApproved: [
+      'product-code implementation for PACK-R14-09B, PACK-R14-09C, or PACK-R14-09D',
+      'OIDC code, Microsoft or Entra configuration, migration, deployment, or external operation',
+      'PACK-R14-09 reconstruction, completion transition, or merge',
+    ],
+    implementationGate: 'Each proposed PACK needs its own approval, exact two-path diff, focused declaration regression, shared lint/typecheck/build, and a fresh closure probe before any R14-09 scope decision.',
+    conclusion: 'The three proposed PACKs are independent of each other after R14-09A but all are mandatory predecessors; their design alone does not authorize implementation or make R14-09 executable.',
   },
   prohibitedUntilAmended: [
     'owned partial-hunk reconstruction',
@@ -3364,8 +3416,9 @@ export function renderMarkdown(manifest) {
     'overlay linted cleanly. No later-owned declaration or consumer hunk may be borrowed.',
     'The proposed PACK-R14-09A shared audit declaration bridge is a design-only predecessor:',
     'it does not reassign H14, keeps Microsoft OIDC inactive, touches no migration or deployment,',
-    'and can remove only six audit re-export errors. Eight non-bridge type errors still require',
-    'their own predecessor plan. A separate implementation approval is required before source',
+    'and can remove only six audit re-export errors. The remaining eight are registered as',
+    'three independently designed predecessors: R14-09B (DD, four), R14-09C (litigation,',
+    'three), and R14-09D (search DTO, one). A separate implementation approval is required before source',
     'reconstruction or merge; R14-09 remains blocked until a unique executable closure and DAG exist.',
     '',
     '## Registered non-overlay Git sources',
