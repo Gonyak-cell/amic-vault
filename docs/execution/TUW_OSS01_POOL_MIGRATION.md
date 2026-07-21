@@ -103,12 +103,12 @@ This is the just-in-time canonical form of `PROPOSED-PACK-OSS01-02`; frozen
 
 ## `DEVOPS-OSS01-DBM-TUW-004`
 
-- **Files create:** none.
+- **Files create:** only `0182_grant_runtime_saved_searches.sql`.
 - **Files modify:** bulk-upload batch, edit-session sweeper, duplicate
   detector, zip-child service, FileObject service, search permission scope
   provider, their modules/specs, and source-map constructor rows only.
 - **Files NOT-modify:** storage object semantics, immutable triggers, search
-  scope SQL meaning, result post-filtering, migrations/RLS, dependencies,
+  scope SQL meaning, result post-filtering, RLS, dependencies,
   `docs/package/**`.
 - **Verification:** affected specs; document-access, storage-isolation,
   search-permission, metadata-leakage, cross-tenant and audit-coverage; final
@@ -116,6 +116,12 @@ This is the just-in-time canonical form of `PROPOSED-PACK-OSS01-02`; frozen
   integration, frozen-doc/backlog/source-map/reuse-first/diff checks.
 - **Stop:** storage rollback or queue atomicity breaks, or search needs result
   post-filtering.
+- **Scope amendment (2026-07-22):** the exact-head runtime integration
+  reproduces a pre-existing `saved_searches` privilege gap in the existing
+  audited SearchService path. `0182_grant_runtime_saved_searches.sql` may add
+  only reversible `SELECT`, `INSERT`, and the exact existing update columns
+  for save/revoke/open flows. It must not change RLS, search scope SQL,
+  post-filtering, policies, SECURITY DEFINER SQL, or queue behavior.
 
 ## Evidence and completion boundary
 

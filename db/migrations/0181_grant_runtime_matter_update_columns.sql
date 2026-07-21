@@ -15,5 +15,6 @@ GRANT UPDATE (
 REVOKE UPDATE (
   status, opened_at, closed_at,
   matter_name, practice_group, metadata_json, access_scope,
-  confidentiality_level, lead_partner_id, lead_lawyer_id, lead_associate_id
+  confidentiality_level, lead_partner_id, lead_lawyer_id, lead_associate_id,
+  updated_at
 ) ON matters FROM vault_app;
