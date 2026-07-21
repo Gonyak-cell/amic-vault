@@ -65,6 +65,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R14-03 | `feat/pack-r14-03-recovery-manifest` | 3 | `RECOVERY-MANIFEST-SCHEMA-TUW-001` through `RECOVERY-MANIFEST-REGISTRATION-TUW-003` (recovery-plan Task 6B only) |
 | PACK-R14-03-AMENDMENT-01 | `feat/pack-r14-03-recovery-manifest-v2` | 3 | `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` through `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` (Task 7+ preflight correction only) |
 | PACK-OSS00-01 | `feat/pack-oss00-01-governance-provenance` | 4 | `DEVOPS-OSSGOV-PROV-TUW-001` through `DEVOPS-OSSGOV-PROV-TUW-004` (`docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`) |
+| PACK-OSS00-02 | `feat/pack-oss00-02-dependency-python-hardening` | 3 | `DEVOPS-OSSDEP-TRIAGE-TUW-001`, `SEC-UPLOAD-MULTIPART-TUW-001`, `DEVOPS-OSSPY-LOCK-TUW-001` (`docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2368,6 +2369,28 @@ the focused governance checkers, `pnpm backlog:validate`, `pnpm docs:frozen`,
 and `git diff --check`. A missing upstream pin, decision owner, source tree,
 or safe evidence field is a stop condition. CI success does not authorize
 deployment, external operation, or a successor PACK.
+
+## PACK-OSS00-02 — Dependency and Python hardening
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00-01` local technical evidence is
+its predecessor. This registration does not claim CI, independent review, push,
+PR, merge, deployment, or release success.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00-02-dependency-python-hardening`.
+- Detail contract: `docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`.
+- Execution order: `DEVOPS-OSSDEP-TRIAGE-TUW-001` →
+  `SEC-UPLOAD-MULTIPART-TUW-001` and `DEVOPS-OSSPY-LOCK-TUW-001`.
+- Scope: advisory triage, multipart security regression, and a conditional
+  Python lock/CI design. New NPM/Python tool dependency or version changes,
+  CI/workflow changes, deployment, external mutation, product-tree vendoring,
+  and external state remain unauthorized under the active authority.
+
+Every TUW must retain the canonical `Files NOT-modify` boundary and its AND
+verification. A remediation that requires a package/version/tool change is an
+explicit `BLOCKED` outcome, not permission to alter the lockfile or pipeline.
 
 ## Gate Reports
 

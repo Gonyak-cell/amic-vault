@@ -1,5 +1,5 @@
 {
-  "total": 178,
+  "total": 181,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -2820,6 +2820,57 @@
         "tools/security"
       ],
       "verification": "PR-equivalent governance command passes valid input AND invalid manifest fails without adding dependency deployment external permission or pass stub"
+    },
+    {
+      "id": "DEVOPS-OSSDEP-TRIAGE-TUW-001",
+      "title": "Current dependency advisory triage",
+      "release": "R14",
+      "module": "DEVOPS-OSSDEP-TRIAGE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-004"
+      ],
+      "files": [
+        "docs/architecture/oss-adoption-decisions",
+        "security/oss-vulnerability-exceptions.yml",
+        "security/oss-provenance.yml"
+      ],
+      "verification": "exact production advisory set is normalized with source-path reachability evidence AND unclassified production High Critical is zero AND manifests lockfiles application source remain unchanged"
+    },
+    {
+      "id": "SEC-UPLOAD-MULTIPART-TUW-001",
+      "title": "Multer upload parser security regression",
+      "release": "R14",
+      "module": "SEC-UPLOAD-MULTIPART",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSSDEP-TRIAGE-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/document",
+        "tests/integration/document-access",
+        "tests/integration/storage-isolation"
+      ],
+      "verification": "malformed multipart returns bounded VALIDATION_FAILED AND no temp file object DB row remains AND authorized upload permission audit regression remains green"
+    },
+    {
+      "id": "DEVOPS-OSSPY-LOCK-TUW-001",
+      "title": "Python uv lock and frozen CI",
+      "release": "R14",
+      "module": "DEVOPS-OSSPY-LOCK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSDEP-TRIAGE-TUW-001"
+      ],
+      "files": [
+        "workers/ingestion",
+        ".github/workflows/ci.yml",
+        "security/oss-provenance.yml"
+      ],
+      "verification": "two frozen Python sync inventories have identical hash AND worker tests container health and lock drift failure pass only after separately authorized tool introduction"
     }
   ]
 }
