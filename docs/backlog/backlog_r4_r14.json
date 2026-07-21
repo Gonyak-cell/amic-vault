@@ -1,5 +1,5 @@
 {
-  "total": 174,
+  "total": 178,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -2754,6 +2754,72 @@
         "docs/ledger/gates"
       ],
       "verification": "R14 Gate evidence records performance cost eval migration learning blockers zero and full regression green"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-001",
+      "title": "Exact-head provenance inventory and evidence schema",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "M",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "security/oss-provenance.yml",
+        "security/oss-evidence-schema.json",
+        "tools/security"
+      ],
+      "verification": "direct dependencies image builds and included source inputs bind to source SHA tree and deterministic evidence schema AND malformed provenance fails closed"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-002",
+      "title": "License NOTICE and delivery-profile policy",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-001"
+      ],
+      "files": [
+        "security",
+        "tools/security",
+        "third_party/NOTICE.md"
+      ],
+      "verification": "license policy separates SaaS on-premises and modified-service obligations AND unknown or strong-copyleft inputs require valid decision evidence"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-003",
+      "title": "Vulnerability and VEX exception contract",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-001"
+      ],
+      "files": [
+        "security",
+        "tools/security"
+      ],
+      "verification": "production-reachable High Critical findings are fixed or valid VEX AND expired ownerless malformed or wrong-SHA exceptions fail"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-004",
+      "title": "Governance check CI integration",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-002",
+        "DEVOPS-OSSGOV-PROV-TUW-003"
+      ],
+      "files": [
+        ".github/workflows",
+        "security",
+        "tools/security"
+      ],
+      "verification": "PR-equivalent governance command passes valid input AND invalid manifest fails without adding dependency deployment external permission or pass stub"
     }
   ]
 }

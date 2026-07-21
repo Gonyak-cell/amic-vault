@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "oss-license-policy-v1",
+  "deliveryProfiles": ["SAAS", "ON_PREM", "NETWORK_SERVICE"],
+  "defaults": {
+    "external": {
+      "spdxExpression": "UNKNOWN",
+      "sourceType": "registry",
+      "adoptionMode": "L1",
+      "deliveryProfiles": ["SAAS", "ON_PREM", "NETWORK_SERVICE"],
+      "shipped": false,
+      "approval": {
+        "decision": "BLOCKED",
+        "owner": "legal-oss",
+        "issuedAt": null,
+        "expiresAt": null,
+        "sourceOffer": null,
+        "fileMap": null,
+        "exitPlan": null
+      }
+    },
+    "workspace": {
+      "spdxExpression": "INTERNAL",
+      "sourceType": "internal",
+      "adoptionMode": "L0",
+      "deliveryProfiles": ["SAAS", "ON_PREM", "NETWORK_SERVICE"],
+      "shipped": false,
+      "approval": {
+        "decision": "INTERNAL",
+        "owner": "engineering",
+        "issuedAt": null,
+        "expiresAt": null,
+        "sourceOffer": null,
+        "fileMap": null,
+        "exitPlan": null
+      }
+    }
+  },
+  "components": {}
+}

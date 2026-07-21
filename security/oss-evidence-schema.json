@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AMIC Vault OSS evidence manifest v1",
+  "required": [
+    "pack",
+    "tuw",
+    "sourceSha",
+    "sourceTree",
+    "upstreamInputs",
+    "commands",
+    "artifacts",
+    "truthState",
+    "syntheticOnly",
+    "externalEvidence",
+    "vulnerabilityDecisionReference"
+  ],
+  "upstreamInputRequired": [
+    "inputKey",
+    "kind",
+    "manifestPath",
+    "fileInclusion",
+    "upstreamUrl",
+    "upstreamSha",
+    "upstreamTree",
+    "licenseHash",
+    "artifactDigest",
+    "owner",
+    "evidenceState",
+    "modifier"
+  ],
+  "truthStates": [
+    "SOURCE_IMPLEMENTED",
+    "LOCAL_FOCUSED_VERIFIED",
+    "LOCAL_VERIFIED",
+    "CI_VERIFIED",
+    "EXTERNAL_BLOCKED"
+  ]
+}
