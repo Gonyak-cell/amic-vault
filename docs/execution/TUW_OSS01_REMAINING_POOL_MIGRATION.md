@@ -124,6 +124,15 @@ It is the just-in-time canonical form of `PROPOSED-PACK-OSS01-03`; frozen
 - **Stop:** any change would require an external AI SDK/call, policy
   post-filter, raw-content passage, owner runtime credential, or altered
   local-only route.
+- **Scope amendment (2026-07-22, AI retrieval-log upsert grant):** clean
+  runtime-role verification found the existing idempotent `ai_session_chunks`
+  retrieval-log upsert needs its conflict-update columns, which the legacy
+  `SELECT, INSERT` grant omitted. Permit only reversible 0197 `UPDATE`
+  privilege on `included`, `reason_code`, `rank_index`, `score`, `quote_hash`,
+  and `source_text_hash` for `vault_app`; RLS and the existing tenant GUC stay
+  mandatory. No AI policy, retrieval order/scope, prompt/response/content
+  schema, audit semantics, dependency, deployment, or external behavior
+  changes.
 
 ## `DEVOPS-OSS01-DBR-TUW-003`
 

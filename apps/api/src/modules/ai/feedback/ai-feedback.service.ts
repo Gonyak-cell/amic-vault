@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   aiFeedbackMetricsSchema,
   aiFeedbackRequestSchema,
@@ -9,17 +9,7 @@ import {
   type AiFeedbackResponseDto,
 } from '@amic-vault/shared';
 import { AiAuditRecorder } from '../audit/ai-audit-recorder.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../../common/db/database.service';
 
 export interface AiFeedbackRequestContext {
   tenantId: string;
@@ -63,14 +53,17 @@ interface FeedbackMetricRow {
 
 @Injectable()
 export class AiFeedbackService {
-  constructor(@Inject(AiAuditRecorder) private readonly aiAuditRecorder: AiAuditRecorder) {}
+  constructor(
+    @Inject(AiAuditRecorder) private readonly aiAuditRecorder: AiAuditRecorder,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+  ) {}
 
   async recordFeedback(
     ctx: AiFeedbackRequestContext,
     input: AiFeedbackRequestDto,
   ): Promise<AiFeedbackResponseDto> {
     const parsed = aiFeedbackRequestSchema.parse(input);
-    return withTenantTransaction(ctx.tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       const session = await this.findSessionForFeedback(client, ctx.tenantId, parsed.sessionId);
       if (!session || !(await this.canRecordFeedback(client, ctx, session))) {
         throw permissionDenied();
@@ -133,8 +126,9 @@ export class AiFeedbackService {
     matterId: string | null,
   ): Promise<AiFeedbackMetricsDto> {
     await this.assertAdmin(ctx);
-    const result = await getPool().query<FeedbackMetricRow>(
-      `
+    const result = await this.databaseService.tenantTransaction(ctx.tenantId, (client) =>
+      client.query<FeedbackMetricRow>(
+        `
         SELECT
           count(*)::text AS feedback_count,
           avg(rating)::text AS average_rating,
@@ -149,7 +143,8 @@ export class AiFeedbackService {
         WHERE tenant_id = $1
           AND ($2::uuid IS NULL OR matter_id = $2::uuid)
       `,
-      [ctx.tenantId, matterId],
+        [ctx.tenantId, matterId],
+      ),
     );
     const row = result.rows[0];
     const feedbackCount = Number(row?.feedback_count ?? '0');
@@ -161,8 +156,7 @@ export class AiFeedbackService {
     const helpfulRate =
       helpfulTotal === 0 ? null : Number(row?.helpful_count ?? '0') / helpfulTotal;
     const correctionRate = feedbackCount === 0 ? 0 : correctionCount / feedbackCount;
-    const hallucinationReportRate =
-      feedbackCount === 0 ? 0 : hallucinationCount / feedbackCount;
+    const hallucinationReportRate = feedbackCount === 0 ? 0 : hallucinationCount / feedbackCount;
 
     return aiFeedbackMetricsSchema.parse({
       tenantId: ctx.tenantId,
@@ -222,13 +216,14 @@ export class AiFeedbackService {
     if (session.actor_id === ctx.userId) return true;
     const actor = await this.findActor(client, ctx.tenantId, ctx.userId);
     return (
-      actor?.status === 'active' &&
-      (actor.role === 'firm_admin' || actor.role === 'security_admin')
+      actor?.status === 'active' && (actor.role === 'firm_admin' || actor.role === 'security_admin')
     );
   }
 
   private async assertAdmin(ctx: AiFeedbackRequestContext): Promise<void> {
-    const actor = await this.findActor(getPool(), ctx.tenantId, ctx.userId);
+    const actor = await this.databaseService.tenantTransaction(ctx.tenantId, (client) =>
+      this.findActor(client, ctx.tenantId, ctx.userId),
+    );
     if (
       actor?.status !== 'active' ||
       (actor.role !== 'firm_admin' && actor.role !== 'security_admin')
@@ -253,25 +248,6 @@ export class AiFeedbackService {
       [tenantId, userId],
     );
     return result.rows[0] ?? null;
-  }
-}
-
-async function withTenantTransaction<T>(
-  tenantId: string,
-  run: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-    const result = await run(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
   }
 }
 

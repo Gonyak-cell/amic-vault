@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   aiSessionClaimsResponseSchema,
   aiSessionChunkLogSchema,
@@ -29,19 +29,9 @@ import {
   type ListAiSessionsQueryDto,
 } from '@amic-vault/shared';
 import { AiAuditRecorder } from '../audit/ai-audit-recorder.service';
+import { DatabaseService } from '../../../common/db/database.service';
 import { DocumentPermissionService } from '../../permission/document-permission.service';
 import { PermissionService } from '../../permission/permission.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 export interface AiSessionRequestContext {
   tenantId: string;
@@ -147,6 +137,7 @@ export class AiSessionLogService {
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: Pick<DocumentPermissionService, 'canReadDocument'>,
     @Inject(AiAuditRecorder) private readonly aiAuditRecorder: AiAuditRecorder,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
   ) {}
 
   async createSession(
@@ -155,7 +146,7 @@ export class AiSessionLogService {
   ): Promise<{ sessionId: string }> {
     const parsed = aiSessionCreateSchema.parse(input);
     await this.assertCanReadMatter(ctx, parsed.matterId);
-    return withTenantTransaction(ctx.tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       const result = await client.query<{ ai_session_id: string }>(
         `
           INSERT INTO ai_sessions (
@@ -199,7 +190,7 @@ export class AiSessionLogService {
     chunks: readonly AiSessionChunkLogDto[],
   ): Promise<void> {
     const parsedChunks = chunks.map((chunk) => aiSessionChunkLogSchema.parse(chunk));
-    await withTenantTransaction(ctx.tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       const session = await this.findOwnedSession(client, ctx, sessionId);
       for (const chunk of parsedChunks) {
         await this.assertChunkBelongsToSessionMatter(client, ctx.tenantId, session, chunk);
@@ -262,7 +253,7 @@ export class AiSessionLogService {
     input: AiSessionResponseLogDto,
   ): Promise<void> {
     const parsed = aiSessionResponseLogSchema.parse(input);
-    await withTenantTransaction(ctx.tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       const session = await this.findOwnedSession(client, ctx, sessionId);
       const status = parsed.status ?? 'responded';
       const escalationRequired = parsed.escalationRequired ?? session.escalation_required;
@@ -320,7 +311,7 @@ export class AiSessionLogService {
     input: AiSessionPayloadLogInput,
   ): Promise<void> {
     const payload = parsePayloadInput(input);
-    await withTenantTransaction(ctx.tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       const session = await this.findOwnedSession(client, ctx, sessionId);
       const promptHash = sha256Hex(payload.promptText);
       const responseHash = sha256Hex(payload.responseText);
@@ -373,7 +364,7 @@ export class AiSessionLogService {
     ctx: AiSessionRequestContext,
     sessionId: string,
   ): Promise<AiSessionPayloadDto> {
-    return withTenantTransaction(ctx.tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       if (!(await this.canViewPayloadWithClient(client, ctx))) throw payloadPermissionDenied();
       const result = await client.query<AiSessionPayloadRow>(
         `
@@ -433,7 +424,7 @@ export class AiSessionLogService {
   ): Promise<void> {
     if (claims.length === 0) throw validationFailed();
     const citationsByRef = new Map(citations.map((citation) => [citation.citationRef, citation]));
-    await withTenantTransaction(ctx.tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       const session = await this.findOwnedSession(client, ctx, sessionId);
       for (const claim of claims) {
         if (claim.citationRefs.length === 0) throw validationFailed();
@@ -552,8 +543,9 @@ export class AiSessionLogService {
   ): Promise<AiSessionClaimsResponseDto> {
     const session = await this.findSession(ctx.tenantId, sessionId);
     if (!session || !(await this.canViewSession(ctx, session))) throw claimsPermissionDenied();
-    const result = await getPool().query<AiClaimLedgerRow>(
-      `
+    const result = await this.databaseService.tenantTransaction(ctx.tenantId, (client) =>
+      client.query<AiClaimLedgerRow>(
+        `
         SELECT c.claim_id, c.session_claim_id, c.ai_session_id, c.claim_hash, c.claim_text,
           c.kind, c.is_legal_conclusion, c.verification_status, c.created_at,
           cc.source_ref, cc.document_id, cc.version_id, cc.chunk_id
@@ -565,26 +557,28 @@ export class AiSessionLogService {
           AND c.ai_session_id = $2
         ORDER BY c.created_at ASC, c.session_claim_id ASC, cc.source_ref ASC
       `,
-      [ctx.tenantId, session.ai_session_id],
+        [ctx.tenantId, session.ai_session_id],
+      ),
     );
-    const claims = new Map<string, Omit<AiSessionClaimsResponseDto['claims'][number], 'citations'> & {
-      citations: AiSessionClaimsResponseDto['claims'][number]['citations'];
-    }>();
+    const claims = new Map<
+      string,
+      Omit<AiSessionClaimsResponseDto['claims'][number], 'citations'> & {
+        citations: AiSessionClaimsResponseDto['claims'][number]['citations'];
+      }
+    >();
     for (const row of result.rows) {
-      const current =
-        claims.get(row.claim_id) ??
-        {
-          claimId: row.claim_id,
-          sessionClaimId: row.session_claim_id,
-          sessionId: row.ai_session_id,
-          claimHash: row.claim_hash,
-          claimText: row.claim_text,
-          kind: row.kind,
-          isLegalConclusion: row.is_legal_conclusion,
-          verificationStatus: row.verification_status,
-          citations: [],
-          createdAt: row.created_at.toISOString(),
-        };
+      const current = claims.get(row.claim_id) ?? {
+        claimId: row.claim_id,
+        sessionClaimId: row.session_claim_id,
+        sessionId: row.ai_session_id,
+        claimHash: row.claim_hash,
+        claimText: row.claim_text,
+        kind: row.kind,
+        isLegalConclusion: row.is_legal_conclusion,
+        verificationStatus: row.verification_status,
+        citations: [],
+        createdAt: row.created_at.toISOString(),
+      };
       current.citations.push({
         sourceRef: row.source_ref,
         documentId: row.document_id,
@@ -611,8 +605,9 @@ export class AiSessionLogService {
       ? [ctx.tenantId, input.matterId, pageSize, offset]
       : [ctx.tenantId, ctx.userId, pageSize, offset];
     const scopeSql = input.matterId ? 'matter_id = $2' : 'actor_id = $2';
-    const result = await getPool().query<AiSessionListRow>(
-      `
+    const result = await this.databaseService.tenantTransaction(ctx.tenantId, (client) =>
+      client.query<AiSessionListRow>(
+        `
         SELECT ai_session_id, matter_id, actor_id, auth_session_id, model_route, status,
           prompt_hash, prompt_length, response_hash, response_length, response_token_count,
           latency_ms, escalation_required, blocked_reason, created_at, updated_at,
@@ -623,7 +618,8 @@ export class AiSessionLogService {
         ORDER BY created_at DESC, ai_session_id DESC
         LIMIT $3 OFFSET $4
       `,
-      params,
+        params,
+      ),
     );
     const totalCount = Number(result.rows[0]?.total_count ?? 0);
     return aiSessionListSchema.parse({
@@ -647,10 +643,7 @@ export class AiSessionLogService {
     });
   }
 
-  private async assertCanReadMatter(
-    ctx: AiSessionRequestContext,
-    matterId: string,
-  ): Promise<void> {
+  private async assertCanReadMatter(ctx: AiSessionRequestContext, matterId: string): Promise<void> {
     let decision: Awaited<ReturnType<PermissionService['canReadMatter']>> | undefined;
     try {
       decision = await this.permissionService.canReadMatter(
@@ -711,20 +704,21 @@ export class AiSessionLogService {
     session: AiSessionRow,
   ): Promise<boolean> {
     if (session.actor_id === ctx.userId) return true;
-    const result = await getPool().query<{ role: string; status: string }>(
-      `
+    const result = await this.databaseService.tenantTransaction(ctx.tenantId, (client) =>
+      client.query<{ role: string; status: string }>(
+        `
         SELECT role, status
         FROM users
         WHERE tenant_id = $1
           AND user_id = $2
         LIMIT 1
       `,
-      [ctx.tenantId, ctx.userId],
+        [ctx.tenantId, ctx.userId],
+      ),
     );
     const actor = result.rows[0];
     return (
-      actor?.status === 'active' &&
-      (actor.role === 'firm_admin' || actor.role === 'security_admin')
+      actor?.status === 'active' && (actor.role === 'firm_admin' || actor.role === 'security_admin')
     );
   }
 
@@ -759,7 +753,9 @@ export class AiSessionLogService {
   }
 
   private async findSession(tenantId: string, sessionId: string): Promise<AiSessionRow | null> {
-    const result = await getPool().query<AiSessionRow>(sessionQuery, [tenantId, sessionId]);
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<AiSessionRow>(sessionQuery, [tenantId, sessionId]),
+    );
     return result.rows[0] ?? null;
   }
 
@@ -776,8 +772,9 @@ export class AiSessionLogService {
     tenantId: string,
     sessionId: string,
   ): Promise<AiSessionChunkRow[]> {
-    const result = await getPool().query<AiSessionChunkRow>(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<AiSessionChunkRow>(
+        `
         SELECT document_id, version_id, chunk_id, included, reason_code, rank_index,
           score, quote_hash, source_text_hash
         FROM ai_session_chunks
@@ -786,7 +783,8 @@ export class AiSessionLogService {
         ORDER BY included DESC, rank_index ASC NULLS LAST, created_at ASC, chunk_id ASC
         LIMIT 200
       `,
-      [tenantId, sessionId],
+        [tenantId, sessionId],
+      ),
     );
     return result.rows;
   }
@@ -801,25 +799,6 @@ const sessionQuery = `
     AND ai_session_id = $2
   LIMIT 1
 `;
-
-async function withTenantTransaction<T>(
-  tenantId: string,
-  run: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-    const result = await run(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 function permissionDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
@@ -837,7 +816,9 @@ function claimsPermissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
 
-function aiSessionPolicySummary(session: Pick<AiSessionRow, 'blocked_reason' | 'escalation_required'>) {
+function aiSessionPolicySummary(
+  session: Pick<AiSessionRow, 'blocked_reason' | 'escalation_required'>,
+) {
   if (session.blocked_reason) return session.blocked_reason;
   if (session.escalation_required) return 'escalation_required';
   return 'allowed';
@@ -866,11 +847,7 @@ export function normalizeAiSessionPayloadRisk(input: {
   dlpFindingCount?: number;
 }): { riskFlag: boolean; dlpFindingCount: number } {
   const dlpFindingCount = input.dlpFindingCount ?? 0;
-  if (
-    !Number.isInteger(dlpFindingCount) ||
-    dlpFindingCount < 0 ||
-    dlpFindingCount > 10000
-  ) {
+  if (!Number.isInteger(dlpFindingCount) || dlpFindingCount < 0 || dlpFindingCount > 10000) {
     throw validationFailed();
   }
   return {
