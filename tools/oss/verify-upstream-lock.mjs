@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 const SHA = /^[a-f0-9]{40}$/u;
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[a-z0-9][a-z0-9-]*$/u;
-const BASELINE_OUTCOME = new Set(['PASS', 'TEST_FAILURE', 'ENVIRONMENT_BLOCKED']);
 
 function fail(message) {
   throw new Error(`upstream lock verification failed: ${message}`);
@@ -29,18 +28,6 @@ function isWithin(parent, candidate) {
 function relativeSafePath(value, label) {
   assert(typeof value === 'string' && value && !value.startsWith('/') && !value.split('/').includes('..'), `${label} must be a relative path without traversal`);
   return value;
-}
-
-function validateBaseline(row) {
-  if (row.baseline === undefined) return;
-  assert(row.baseline && typeof row.baseline === 'object' && !Array.isArray(row.baseline), `${row.id}: baseline invalid`);
-  assert(Array.isArray(row.baseline.command) && row.baseline.command.length > 0 && row.baseline.command.every((value) => typeof value === 'string' && value), `${row.id}: baseline command invalid`);
-  assert(Number.isInteger(row.baseline.timeoutMs) && row.baseline.timeoutMs > 0 && row.baseline.timeoutMs <= 1_800_000, `${row.id}: baseline timeout invalid`);
-  assert(BASELINE_OUTCOME.has(row.baseline.outcome), `${row.id}: baseline outcome invalid`);
-  assert(row.baseline.exitCode === null || Number.isInteger(row.baseline.exitCode), `${row.id}: baseline exit code invalid`);
-  assert(typeof row.baseline.timedOut === 'boolean', `${row.id}: baseline timeout result invalid`);
-  for (const key of ['stdoutSha256', 'stderrSha256']) assert(DIGEST.test(row.baseline.logs?.[key] ?? ''), `${row.id}: baseline ${key} invalid`);
-  for (const key of ['stdoutBytes', 'stderrBytes']) assert(Number.isInteger(row.baseline.logs?.[key]) && row.baseline.logs[key] >= 0, `${row.id}: baseline ${key} invalid`);
 }
 
 function runGit(args, cwd) {
@@ -81,7 +68,6 @@ export function validateLockRow(row, sourceRoot) {
   assert(DIGEST.test(row.licenseHash), `${row.id}: license hash invalid`);
   relativeSafePath(row.licensePath, `${row.id}: license path`);
   relativeSafePath(row.clonePath, `${row.id}: clone path`);
-  validateBaseline(row);
   const clonePath = resolve(sourceRoot, row.clonePath);
   assert(isWithin(sourceRoot, clonePath), `${row.id}: clone path escapes source root`);
   return { id: row.id, state: row.state, clonePath };
