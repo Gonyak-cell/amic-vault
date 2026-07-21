@@ -26,6 +26,7 @@ function createService() {
       new PermissionQueryBuilder(),
       context,
       userService as never,
+      { tenantTransaction: vi.fn() } as never,
     ),
     userService,
   };
@@ -215,7 +216,7 @@ describe('MatterAppRuntimeService', () => {
     expect(sql).toContain('FROM matter_members mm');
     expect(sql).toContain('FROM ethical_walls ew');
     expect(sql).toContain('LEFT JOIN clients c');
-    expect(sql).toContain('lower(coalesce(c.name, \'\')) LIKE');
+    expect(sql).toContain("lower(coalesce(c.name, '')) LIKE");
     expect(response.items).toEqual([
       expect.objectContaining({
         matterCode: 'AMIC-2026-0001',

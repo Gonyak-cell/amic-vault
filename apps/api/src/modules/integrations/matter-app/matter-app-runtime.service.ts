@@ -1,5 +1,4 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
 import {
   isUserRole,
   matterAppLookupResponseSchema,
@@ -14,14 +13,11 @@ import {
   type TenantId,
   type UserRole,
 } from '@amic-vault/shared';
+import { DatabaseService } from '../../../common/db/database.service';
 import { tenantQuery } from '../../../common/db/tenant-query';
 import { PermissionQueryBuilder } from '../../permission/permission-query.builder';
 import { TenantContextService } from '../../tenant/tenant-context';
 import { UserService } from '../../user/user.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 const sourceLabels = {
   unconfigured: 'Matter app connection required',
@@ -40,13 +36,6 @@ const sourceDescriptions = {
 
 const vaultInternalReferencePattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterLookupRow {
   matter_id: string;
@@ -83,7 +72,10 @@ function envFlag(value: string | undefined): boolean {
 }
 
 function matterAppApiConfigured(): boolean {
-  return Boolean(envValue('MATTER_APP_API_BASE_URL')?.trim()) && Boolean(envValue('MATTER_APP_API_TOKEN')?.trim());
+  return (
+    Boolean(envValue('MATTER_APP_API_BASE_URL')?.trim()) &&
+    Boolean(envValue('MATTER_APP_API_TOKEN')?.trim())
+  );
 }
 
 function normalizeSourceMode(value: string | undefined): MatterAppSourceMode {
@@ -135,10 +127,7 @@ function isVaultInternalReferenceLike(value: string): boolean {
   return vaultInternalReferencePattern.test(value.trim());
 }
 
-function metadataString(
-  metadata: Record<string, unknown> | null,
-  key: string,
-): string | undefined {
+function metadataString(metadata: Record<string, unknown> | null, key: string): string | undefined {
   const value = metadata?.[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
@@ -169,7 +158,10 @@ function sourceRevision(metadata: Record<string, unknown> | null): string | null
   );
 }
 
-function uploadEligibility(status: string): { blockedReason: string | null; uploadEligible: boolean } {
+function uploadEligibility(status: string): {
+  blockedReason: string | null;
+  uploadEligible: boolean;
+} {
   if (['closed', 'archived', 'disposal_review', 'disposed'].includes(status)) {
     return { blockedReason: `status:${status}`, uploadEligible: false };
   }
@@ -182,6 +174,7 @@ export class MatterAppRuntimeService {
     @Inject(PermissionQueryBuilder) private readonly permissionQuery: PermissionQueryBuilder,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
   ) {}
 
   async status(now = new Date()): Promise<MatterAppSourceStatusDto> {
@@ -189,13 +182,15 @@ export class MatterAppRuntimeService {
       envValue('MATTER_APP_SOURCE_MODE', 'NEXT_PUBLIC_MATTER_APP_SOURCE_MODE'),
     );
     const syncState = envMode === 'matter_app_api' ? null : await this.loadSyncState();
-    const requestedMode = envMode === 'unconfigured' && syncState ? 'matter_app_event_projection' : envMode;
-    const sourceConfigured = envFlag(
-      envValue('MATTER_APP_SOURCE_CONFIGURED', 'NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED'),
-    ) || syncState !== null;
-    const runtimeReady = envFlag(
-      envValue('MATTER_APP_RUNTIME_READY', 'NEXT_PUBLIC_MATTER_APP_RUNTIME_READY'),
-    ) || syncState !== null;
+    const requestedMode =
+      envMode === 'unconfigured' && syncState ? 'matter_app_event_projection' : envMode;
+    const sourceConfigured =
+      envFlag(
+        envValue('MATTER_APP_SOURCE_CONFIGURED', 'NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED'),
+      ) || syncState !== null;
+    const runtimeReady =
+      envFlag(envValue('MATTER_APP_RUNTIME_READY', 'NEXT_PUBLIC_MATTER_APP_RUNTIME_READY')) ||
+      syncState !== null;
     const projectionFallbackAllowed = envFlag(
       envValue(
         'ALLOW_VAULT_PROJECTION_MATTER_SOURCE',
@@ -230,7 +225,8 @@ export class MatterAppRuntimeService {
       sourceConfigured,
       runtimeReady,
       sourceContractReady,
-      sourceAvailable: mode !== 'unconfigured' && (mode !== 'vault_projection_only' || !productionRuntime),
+      sourceAvailable:
+        mode !== 'unconfigured' && (mode !== 'vault_projection_only' || !productionRuntime),
       uploadAuthoritative: mode === 'matter_app_api' || mode === 'matter_app_event_projection',
       productionRuntime,
       projectionFallbackAllowed,
@@ -250,7 +246,7 @@ export class MatterAppRuntimeService {
     if (!context) return null;
     try {
       const result = await tenantQuery<MatterAppSyncStateRow>(
-        getPool(),
+        this.databaseService,
         context.tenantId,
         `
           SELECT last_sync_at, reflected_count, drift_count
@@ -357,7 +353,7 @@ export class MatterAppRuntimeService {
       : '';
     params.push(pageSize);
     const result = await tenantQuery<MatterLookupRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT

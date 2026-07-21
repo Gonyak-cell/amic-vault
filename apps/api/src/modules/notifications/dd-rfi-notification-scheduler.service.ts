@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { TenantId } from '@amic-vault/shared';
-import { Pool } from 'pg';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
+import { DatabaseService } from '../../common/db/database.service';
 import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
 import { queueWorkerEnabled } from '../../common/process-role';
 import { NotificationsService } from './notifications.service';
@@ -26,23 +26,11 @@ export interface DdRfiNotificationSweepJobResult {
 }
 
 @Injectable()
-export class DdRfiNotificationTenantReader implements OnModuleDestroy {
-  private readonly pool = new Pool({ connectionString: databaseUrl });
+export class DdRfiNotificationTenantReader {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   async listActiveTenantIds(): Promise<TenantId[]> {
-    const result = await this.pool.query<{ tenant_id: string }>(
-      `
-        SELECT tenant_id::text AS tenant_id
-        FROM tenants
-        WHERE status = 'active'
-        ORDER BY tenant_id ASC
-      `,
-    );
-    return result.rows.map((row) => row.tenant_id as TenantId);
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.pool.end();
+    return (await this.databaseService.listActiveTenantRegistryIds()) as TenantId[];
   }
 }
 
@@ -55,7 +43,10 @@ export class DdRfiNotificationSchedulerService implements OnModuleInit, OnModule
 
   constructor(
     @Inject(NotificationsService)
-    private readonly notifications: Pick<NotificationsService, 'refreshDdRfiNotificationsForTenant'>,
+    private readonly notifications: Pick<
+      NotificationsService,
+      'refreshDdRfiNotificationsForTenant'
+    >,
     @Inject(DdRfiNotificationTenantReader)
     private readonly tenantReader: Pick<DdRfiNotificationTenantReader, 'listActiveTenantIds'>,
   ) {}
@@ -144,9 +135,7 @@ export class DdRfiNotificationSchedulerService implements OnModuleInit, OnModule
   }
 }
 
-export function isDdRfiNotificationSchedulerEnabled(
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
+export function isDdRfiNotificationSchedulerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return queueWorkerEnabled('DD_RFI_NOTIFICATION_SWEEPER_ENABLED', env);
 }
 
