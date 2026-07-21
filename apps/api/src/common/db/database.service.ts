@@ -42,6 +42,7 @@ export class DatabaseService implements OnModuleDestroy {
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: DatabasePool,
+    @Inject(TenantAwareDataSource)
     private readonly tenantAwareDataSource: TenantAwareDataSource,
   ) {
     this.pool.on('error', () => {
