@@ -103,7 +103,10 @@ export async function runKoreanEval(path?: string): Promise<KoreanEvalMetrics> {
       const queryResult = await client.query<EvalRow>(
         `
           SELECT expected,
-            to_tsvector('simple', body_text) @@ websearch_to_tsquery('simple', $1) AS matched
+            (
+              to_tsvector('simple', body_text) @@ websearch_to_tsquery('simple', $1)
+              OR amic_korean_search_match(body_text, $1)
+            ) AS matched
           FROM korean_eval_docs
           ORDER BY doc_id
         `,

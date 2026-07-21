@@ -10,10 +10,10 @@ describe('NotificationsClient', () => {
     expect(html).toContain('알림');
     expect(html).toContain('권한이 확인된 실제 운영 이벤트와 상태 알림만 표시됩니다.');
     expect(html).toContain('알림 조치 콘솔');
-    expect(html).toContain('전체 출처');
+    expect(html).toContain('전체 구분');
     expect(html).toContain('전체 상태');
     expect(html).toContain('주의 알림 우선');
-    expect(html).toContain('알림 API 연결 대기 중입니다.');
+    expect(html).toContain('알림 연결 대기 중입니다.');
     expect(html).toContain('운영 데이터 연결 대기 중입니다.');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');
@@ -54,6 +54,7 @@ describe('NotificationsClient', () => {
             status: 'ready',
             data: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
           },
+          usageStats: { status: 'unavailable' },
         }}
         notificationState={{
           status: 'ready',

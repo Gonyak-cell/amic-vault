@@ -23,7 +23,7 @@ describe('FilesPage', () => {
     expect(html).toContain('전체 문서');
     expect(html).toContain('문서함 보기');
     expect(html).toContain('전체 문서를 확인하는 중입니다.');
-    expect(html).toContain('Matter 업로드');
+    expect(html).toContain('Matter 문서 업로드');
     expect(html).not.toContain('파일 업로드');
     expect(html).not.toContain('Matter 업로드 단계');
     expect(html).not.toContain('Matter Code 미선택');
@@ -43,5 +43,14 @@ describe('FilesPage', () => {
     expect(source).toMatch(/<DocumentVaultList refreshKey=\{uploadRevision\} \/>/);
     expect(source).toMatch(/<MatterDocumentList refreshKey=\{uploadRevision\}/);
     expect(source).toMatch(/setActiveWorkspaceTab\('upload'\)/);
+  });
+
+  it('exposes the Email Vault upload entry point from the upload workspace', () => {
+    const source = readFileSync(fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'), 'utf8');
+
+    expect(source).toMatch(/<EmailUploadCard/);
+    expect(source).toContain('title="이메일 업로드"');
+    expect(source).toContain('EML·MSG 원문 보관');
+    expect(source).toMatch(/isMatterUploadSourceMode\(selectedMatter\.sourceMode\)/);
   });
 });

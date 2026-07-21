@@ -20,10 +20,15 @@ interface UploadResponse {
   title: string;
   documentType: string;
   confidentialityLevel: string;
+  source: string;
+  versionLabel: string | null;
+  versionSignificance: string;
+  renditionType: string;
   metadataSuggestion: {
     documentType?: string;
     date?: string;
     versionLabel?: string;
+    versionSignificance?: string;
   };
 }
 
@@ -54,12 +59,18 @@ async function createClient(baseUrl: string, cookie: string): Promise<string> {
   return (JSON.parse(body) as { clientId: string }).clientId;
 }
 
-async function createMatter(baseUrl: string, cookie: string, clientId: string): Promise<string> {
+async function createMatter(
+  baseUrl: string,
+  cookie: string,
+  clientId: string,
+  input: { confidentialityLevel?: 'standard' | 'high' | 'restricted' } = {},
+): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/matters`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({
       clientId,
+      confidentialityLevel: input.confidentialityLevel,
       matterCode: `META-${randomUUID()}`,
       matterName: `Document Metadata ${randomUUID()}`,
       matterType: 'contract',
@@ -102,6 +113,51 @@ async function upload(
   return JSON.parse(body) as UploadResponse;
 }
 
+async function ensureFreshMatterAppSyncState(): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          '{"fixture":"b4_document_metadata"}'::jsonb
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantBetaId],
+    );
+  });
+}
+
 async function documentRow(documentId: string) {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{
@@ -112,13 +168,14 @@ async function documentRow(documentId: string) {
       subtype: string | null;
       confidentiality_level: string;
       privilege_status: string;
+      source: string;
     }>(
       `
         SELECT d.tenant_id, d.matter_id, f.storage_uri, d.document_type, d.subtype,
-          d.confidentiality_level, d.privilege_status
+          d.confidentiality_level, d.privilege_status, d.source
         FROM documents d
         JOIN file_objects f
-          ON f.storage_uri LIKE ('s3://amic-vault-dev/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
+          ON f.storage_uri LIKE ('s3://%/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
         WHERE d.document_id = $1
         LIMIT 1
       `,
@@ -201,6 +258,7 @@ describe('document-metadata integration', () => {
     });
     const clientId = await createClient(baseUrl, betaOwnerCookie);
     betaMatterId = await createMatter(baseUrl, betaOwnerCookie, clientId);
+    await ensureFreshMatterAppSyncState();
   });
 
   afterAll(async () => {
@@ -216,6 +274,10 @@ describe('document-metadata integration', () => {
     expect(uploaded.title).toBe('Metadata Draft');
     expect(uploaded.documentType).toBe('other');
     expect(uploaded.confidentialityLevel).toBe('standard');
+    expect(uploaded.source).toBe('internal_work_product');
+    expect(uploaded.versionLabel).toBe('v2');
+    expect(uploaded.versionSignificance).toBe('internal_draft');
+    expect(uploaded.renditionType).toBe('clean');
     expect(uploaded.metadataSuggestion).toEqual({
       documentType: 'contract',
       date: '2026-06-12',
@@ -228,6 +290,7 @@ describe('document-metadata integration', () => {
       subtype: null,
       confidentiality_level: 'standard',
       privilege_status: 'none',
+      source: 'internal_work_product',
     });
     if (beforeRow?.storage_uri) createdStorageUris.push(beforeRow.storage_uri);
 
@@ -239,6 +302,7 @@ describe('document-metadata integration', () => {
         documentType: 'memo',
         subtype: 'review',
         confidentialityLevel: 'restricted',
+        source: 'counterparty_provided',
       }),
     });
     const updateBody = await update.text();
@@ -249,13 +313,14 @@ describe('document-metadata integration', () => {
       subtype: 'review',
       confidentialityLevel: 'restricted',
       privilegeStatus: 'none',
+      source: 'counterparty_provided',
     });
 
     const audit = await latestMetadataAudit(uploaded.documentId);
     expect(audit?.metadata_json).toMatchObject({
       document_id: uploaded.documentId,
       matter_id: betaMatterId,
-      diff_keys: ['title', 'document_type', 'subtype', 'confidentiality_level'],
+      diff_keys: ['title', 'document_type', 'subtype', 'confidentiality_level', 'source'],
       before_ref: expect.stringMatching(/^document_metadata:[0-9a-f]{64}$/),
       after_ref: expect.stringMatching(/^document_metadata:[0-9a-f]{64}$/),
       decision_ref: expect.stringMatching(/^matter-source-mutation:[0-9a-f]{64}$/),
@@ -273,10 +338,30 @@ describe('document-metadata integration', () => {
         documentType: 'memo',
         subtype: 'review',
         confidentialityLevel: 'restricted',
+        source: 'counterparty_provided',
       }),
     });
     expect(noop.status, await noop.text()).toBe(200);
     expect(await metadataAuditCount(uploaded.documentId)).toBe(countBeforeNoop);
+  });
+
+  it('inherits default document confidentiality from a high-confidentiality matter', async () => {
+    const clientId = await createClient(baseUrl, betaOwnerCookie);
+    const highMatterId = await createMatter(baseUrl, betaOwnerCookie, clientId, {
+      confidentialityLevel: 'high',
+    });
+
+    const uploaded = await upload(baseUrl, betaOwnerCookie, highMatterId, {
+      duplicateDecision: 'new_document',
+    });
+    expect(uploaded.confidentialityLevel).toBe('high');
+
+    const row = await documentRow(uploaded.documentId);
+    expect(row).toMatchObject({
+      confidentiality_level: 'high',
+      source: 'internal_work_product',
+    });
+    if (row?.storage_uri) createdStorageUris.push(row.storage_uri);
   });
 
   it('fails closed for invalid metadata, non-members, and cross-tenant access', async () => {
@@ -292,6 +377,13 @@ describe('document-metadata integration', () => {
       body: JSON.stringify({ documentType: 'MA' }),
     });
     expect(invalidType.status, await invalidType.text()).toBe(400);
+
+    const invalidSource = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/metadata`, {
+      method: 'PATCH',
+      headers: { cookie: betaOwnerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ source: 'mailbox_domain_guess' }),
+    });
+    expect(invalidSource.status, await invalidSource.text()).toBe(400);
 
     const forbidden = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/metadata`, {
       method: 'PATCH',

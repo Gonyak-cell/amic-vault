@@ -1,10 +1,11 @@
 import 'reflect-metadata';
-import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createHash, randomUUID } from 'node:crypto';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type { AiSummaryResponseDto } from '@amic-vault/shared';
 import { AppModule } from '../../apps/api/src/app.module';
+import { LocalGemmaGenerationService } from '../../apps/api/src/modules/ai/generation/local-gemma-generation.service';
 import { configureApp } from '../../apps/api/src/main';
 import {
   createOwnerClient,
@@ -36,6 +37,7 @@ describe('AI summaries integration', () => {
   let app: INestApplication;
   let baseUrl: string;
   let cookie: string;
+  let securityAdminCookie: string;
   let visible: SummaryFixtureDocument;
   let aiDenied: SummaryFixtureDocument;
   let explicitDenied: SummaryFixtureDocument;
@@ -84,6 +86,11 @@ describe('AI summaries integration', () => {
       email: 'alpha-matter-owner@test.local',
       password: 'dev-alpha-owner-password',
     });
+    securityAdminCookie = await loginSearchUser(baseUrl, {
+      tenantId: tenantAlphaId,
+      email: 'alpha-security-admin@test.local',
+      password: 'dev-alpha-security-admin-password',
+    });
   });
 
   afterAll(async () => {
@@ -91,10 +98,11 @@ describe('AI summaries integration', () => {
   });
 
   it('creates cited matter summaries from authorized Evidence Pack sources only', async () => {
+    const query = `${marker} authorized hidden summary`;
     const summary = await postSummary({
       matterId,
       task: 'matter_summary',
-      query: `${marker} authorized hidden summary`,
+      query,
       filters: { clientId },
       maxChunks: 6,
     });
@@ -109,8 +117,26 @@ describe('AI summaries integration', () => {
     });
     expect(summary.sections.length).toBeGreaterThan(0);
     expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
+    expectStructuredAnswerFields(summary);
+    expect(summary.excludedSourcesNotice.count).toBe(1);
     expect(summary.citations.map((citation) => citation.documentId)).toEqual([visible.documentId]);
     expectNoDeniedReference(summary);
+
+    const chunks = await aiSessionChunks(summary.sessionId);
+    expect(chunks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          document_id: visible.documentId,
+          included: true,
+          reason_code: 'included',
+        }),
+        expect.objectContaining({
+          document_id: aiDenied.documentId,
+          included: false,
+          reason_code: 'ai_policy_blocked',
+        }),
+      ]),
+    );
 
     const audits = await aiAuditEvents(summary.sessionId, matterId);
     expect(audits.map((audit) => audit.action)).toEqual([
@@ -120,12 +146,99 @@ describe('AI summaries integration', () => {
       'AI_CITED_DOCUMENT',
       'AI_RESPONSE',
     ]);
+    expect(audits.find((audit) => audit.action === 'AI_RETRIEVAL_EXCLUDED')).toMatchObject({
+      metadata_json: {
+        excluded_count: 1,
+      },
+    });
     const rawAudit = audits.map((audit) => audit.raw_metadata).join('\n');
-    expect(rawAudit).not.toContain(`${marker} authorized hidden summary`);
+    expect(rawAudit).not.toContain(query);
     expect(rawAudit).not.toContain(visible.contentText);
     expect(rawAudit).not.toContain(aiDenied.contentText);
     expect(rawAudit).not.toContain(explicitDenied.contentText);
     expect(rawAudit).not.toMatch(/prompt_text|response_text|body|snippet|raw/i);
+
+    const payload = await getSessionPayload(summary.sessionId);
+    expect(payload.promptText).toBe(query);
+    expect(payload.promptHash).toBe(sha256Hex(query));
+    expect(payload.responseHash).toBe(sha256Hex(payload.responseText));
+    expect(payload.responseText).toContain(summary.sessionId);
+    expect(JSON.parse(payload.responseText)).toMatchObject({
+      sessionId: summary.sessionId,
+      matterId,
+      task: 'matter_summary',
+    });
+  });
+
+  it('uses the ai_policies row gate to branch matter_qa Gemma generation and fallback', async () => {
+    const sourceChunkId = await firstSemanticChunkId(visible.versionId);
+    const gemmaSpy = vi
+      .spyOn(LocalGemmaGenerationService.prototype, 'generateGrounded')
+      .mockResolvedValue({
+        status: 'completed',
+        output: {
+          answer: 'Generated matter answer',
+          sections: [
+            {
+              section_id: 'generated-matter-answer',
+              heading: 'Generated answer',
+              text: 'Generated cited matter answer',
+              source_refs: [`chunk:${sourceChunkId}`],
+            },
+          ],
+          claims: [
+            {
+              claim_id: 'generated-matter-answer-claim',
+              kind: 'answer',
+              text: 'Generated cited matter answer',
+              source_refs: [`chunk:${sourceChunkId}`],
+              is_legal_conclusion: false,
+            },
+          ],
+          warnings: [],
+        },
+      });
+
+    try {
+      await setSummaryGenerationEnabled(false);
+      const fallback = await postSummary({
+        matterId,
+        task: 'matter_qa',
+        query: `${marker} 계약 상대방은?`,
+        filters: { clientId },
+        maxChunks: 3,
+      });
+      expect(fallback.warnings).toContain('EVIDENCE_ONLY_DEGRADED');
+      expect(fallback.sections[0]?.text).toContain(
+        'Cited answer from authorized matter evidence only',
+      );
+      expectStructuredAnswerFields(fallback);
+      expect(gemmaSpy).not.toHaveBeenCalled();
+
+      await setSummaryGenerationEnabled(true);
+      const generated = await postSummary({
+        matterId,
+        task: 'matter_qa',
+        query: `${marker} 계약 상대방은?`,
+        filters: { clientId },
+        maxChunks: 3,
+      });
+      expect(generated.sections[0]).toMatchObject({
+        sectionId: 'generated-matter-answer',
+        text: 'Generated cited matter answer',
+      });
+      expectStructuredAnswerFields(generated);
+      expect(generated.warnings).not.toContain('EVIDENCE_ONLY_DEGRADED');
+      expect(gemmaSpy).toHaveBeenCalledTimes(1);
+      const audits = await aiAuditEvents(generated.sessionId, matterId);
+      expect(audits.map((audit) => audit.action)).toContain('AI_RESPONSE');
+      expect(audits.map((audit) => audit.raw_metadata).join('\n')).not.toMatch(
+        /prompt_text|response_text|body|snippet|raw/i,
+      );
+    } finally {
+      gemmaSpy.mockRestore();
+      await setSummaryGenerationEnabled(false);
+    }
   });
 
   it('creates document and filed email thread summaries with citations', async () => {
@@ -159,19 +272,170 @@ describe('AI summaries integration', () => {
     expectNoDeniedReference(emailSummary);
   });
 
-  it('returns R8 clause templates with required citations', async () => {
-    const summary = await postSummary({
-      matterId,
-      task: 'clause_analysis',
-      query: `${marker} closing covenant clause`,
-      filters: { clientId },
-      maxChunks: 3,
+  it('extracts filed email requests and deadline timeline claims with citations', async () => {
+    const emailThread = await insertSummaryDocument({
+      title: `${marker} Filed Email Thread`,
+      contentText: `${marker} 금요일까지 계약서 회신 요청. 담당자가 원본 계약서를 검토해야 합니다. lawyer@example.test`,
+      aiAllowed: true,
+      index: 984,
+      documentType: 'email',
     });
+    const sourceChunkId = await firstSemanticChunkId(emailThread.versionId);
+    const gemmaSpy = vi
+      .spyOn(LocalGemmaGenerationService.prototype, 'generateGrounded')
+      .mockResolvedValue({
+        status: 'completed',
+        output: {
+          answer: '금요일까지 계약서 회신 요청이 있습니다.',
+          sections: [
+            {
+              section_id: 'generated-email-thread',
+              heading: '요청사항과 기한',
+              text: '금요일까지 계약서 회신 요청이 확인됩니다.',
+              source_refs: [`chunk:${sourceChunkId}`],
+            },
+          ],
+          claims: [
+            {
+              claim_id: 'generated-email-request',
+              kind: 'key_fact',
+              text: '금요일까지 계약서 회신 요청',
+              source_refs: [`chunk:${sourceChunkId}`],
+              is_legal_conclusion: false,
+            },
+            {
+              claim_id: 'generated-email-deadline',
+              kind: 'timeline',
+              text: '금요일 회신 기한',
+              source_refs: [`chunk:${sourceChunkId}`],
+              is_legal_conclusion: false,
+            },
+          ],
+          warnings: [],
+        },
+      });
 
-    expect(summary.status).toBe('escalated');
-    expect(summary.warnings).not.toContain('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
-    expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
-    expectNoDeniedReference(summary);
+    try {
+      await setSummaryGenerationEnabled(true);
+      const summary = await postSummary({
+        matterId,
+        task: 'email_thread_summary',
+        query: `${marker} 금요일 계약서 회신 요청`,
+        targetDocumentId: emailThread.documentId,
+        filters: { clientId },
+        maxChunks: 3,
+      });
+
+      expect(summary).toMatchObject({
+        matterId,
+        task: 'email_thread_summary',
+        status: 'escalated',
+        legalConclusionAutoApproval: false,
+      });
+      expect(summary.recommendedActions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: expect.stringContaining('금요일까지 계약서 회신 요청'),
+            reviewRequired: true,
+          }),
+          expect.objectContaining({
+            action: expect.stringContaining('금요일 회신 기한'),
+            reviewRequired: true,
+          }),
+        ]),
+      );
+      expect(summary.citations.map((citation) => citation.documentId)).toEqual([
+        emailThread.documentId,
+      ]);
+      expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
+      expect(await aiClaimKinds(summary.sessionId)).toEqual(
+        expect.arrayContaining(['key_fact', 'timeline']),
+      );
+      expect(await aiClaimCitationCounts(summary.sessionId)).toEqual(
+        expect.arrayContaining([
+          { kind: 'key_fact', citation_count: 1 },
+          { kind: 'timeline', citation_count: 1 },
+        ]),
+      );
+      expect(gemmaSpy).toHaveBeenCalledWith(expect.objectContaining({ taskType: 'summary' }), {
+        compileOptions: {
+          purpose: 'email_thread_summary',
+          allowedClaimKinds: ['summary', 'key_fact', 'timeline', 'question'],
+        },
+      });
+      expectNoDeniedReference(summary);
+    } finally {
+      gemmaSpy.mockRestore();
+      await setSummaryGenerationEnabled(false);
+    }
+  });
+
+  it('returns generated R8 clause risk analysis with required citations', async () => {
+    const sourceChunkId = await firstSemanticChunkId(visible.versionId);
+    const gemmaSpy = vi
+      .spyOn(LocalGemmaGenerationService.prototype, 'generateGrounded')
+      .mockResolvedValue({
+        status: 'completed',
+        output: {
+          answer: 'Generated clause risk answer',
+          sections: [
+            {
+              section_id: 'generated-clause-risk',
+              heading: 'Generated clause risk',
+              text: 'Generated cited clause risk',
+              source_refs: [`chunk:${sourceChunkId}`],
+            },
+          ],
+          claims: [
+            {
+              claim_id: 'generated-clause-risk-claim',
+              kind: 'risk',
+              text: 'Generated cited clause risk',
+              source_refs: [`chunk:${sourceChunkId}`],
+              is_legal_conclusion: false,
+            },
+          ],
+          warnings: [],
+        },
+      });
+
+    try {
+      await setSummaryGenerationEnabled(true);
+      const summary = await postSummary({
+        matterId,
+        task: 'clause_analysis',
+        query: `${marker} closing covenant clause`,
+        targetDocumentId: visible.documentId,
+        filters: { clientId },
+        maxChunks: 3,
+      });
+
+      expect(summary.status).toBe('escalated');
+      expect(summary.sections[0]).toMatchObject({
+        sectionId: 'generated-clause-risk',
+        text: 'Generated cited clause risk',
+      });
+      expect(summary.citationWarnings).toEqual([]);
+      expect(summary.warnings).not.toContain('RULE_FINDINGS_UNAVAILABLE_BEFORE_R8');
+      expect(summary.sections.every((section) => section.citationRefs.length > 0)).toBe(true);
+      expect(await aiClaimKinds(summary.sessionId)).toContain('risk');
+      expect(gemmaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ruleFindings: expect.any(Array),
+          taskType: 'review',
+        }),
+        {
+          compileOptions: {
+            purpose: 'clause_risk_analysis',
+            allowedClaimKinds: ['risk', 'clause', 'issue'],
+          },
+        },
+      );
+      expectNoDeniedReference(summary);
+    } finally {
+      gemmaSpy.mockRestore();
+      await setSummaryGenerationEnabled(false);
+    }
   });
 
   it('escalates risk extraction templates without unsupported conclusions', async () => {
@@ -197,6 +461,7 @@ describe('AI summaries integration', () => {
     contentText: string;
     aiAllowed: boolean;
     index: number;
+    documentType?: SummaryFixtureDocumentType;
   }): Promise<SummaryFixtureDocument> {
     const documentId = randomUUID();
     const versionId = randomUUID();
@@ -210,7 +475,7 @@ describe('AI summaries integration', () => {
         versionId,
         title: input.title,
         contentText: input.contentText,
-        documentType: 'memo',
+        documentType: input.documentType ?? 'memo',
         documentStatus: 'draft',
         versionStatus: 'current',
         updatedAt: '2026-06-26T00:00:00.000Z',
@@ -239,9 +504,10 @@ describe('AI summaries integration', () => {
       await client.query(
         `
           INSERT INTO ai_policies (
-            policy_id, tenant_id, name, allowed_model_tiers
+            policy_id, tenant_id, name, allowed_model_tiers,
+            summary_generation_enabled, session_payload_preservation_enabled
           )
-          VALUES ($1, $2, 'R6 summary local policy', ARRAY['local']::text[])
+          VALUES ($1, $2, 'R6 summary local policy', ARRAY['local']::text[], false, true)
         `,
         [policyId, tenantAlphaId],
       );
@@ -269,6 +535,52 @@ describe('AI summaries integration', () => {
     });
   }
 
+  async function setSummaryGenerationEnabled(enabled: boolean): Promise<void> {
+    await withClient(createOwnerClient(), async (client) => {
+      await setTenant(client, tenantAlphaId);
+      await client.query(
+        `
+          UPDATE ai_policies
+          SET summary_generation_enabled = $3,
+            updated_at = now()
+          WHERE tenant_id = $1
+            AND policy_id = (
+              SELECT ai_policy_id
+              FROM matters
+              WHERE tenant_id = $1
+                AND matter_id = $2
+            )
+        `,
+        [tenantAlphaId, matterId, enabled],
+      );
+    });
+  }
+
+  async function firstSemanticChunkId(versionId: string): Promise<string> {
+    return withClient(createOwnerClient(), async (client) => {
+      await setTenant(client, tenantAlphaId);
+      const result = await client.query<{ chunk_id: string }>(
+        `
+          SELECT c.chunk_id
+          FROM document_chunks c
+          JOIN document_chunk_embeddings e
+            ON e.tenant_id = c.tenant_id
+           AND e.chunk_id = c.chunk_id
+           AND e.stale = false
+          WHERE c.tenant_id = $1
+            AND c.version_id = $2
+            AND c.stale = false
+          ORDER BY c.chunk_ordinal ASC
+          LIMIT 1
+        `,
+        [tenantAlphaId, versionId],
+      );
+      const row = result.rows[0];
+      if (!row) throw new Error('summary fixture semantic chunk missing');
+      return row.chunk_id;
+    });
+  }
+
   async function postSummary(body: Record<string, unknown>): Promise<AiSummaryResponseDto> {
     const response = await fetch(`${baseUrl}/v1/ai/summaries`, {
       method: 'POST',
@@ -280,6 +592,25 @@ describe('AI summaries integration', () => {
     return JSON.parse(text) as AiSummaryResponseDto;
   }
 
+  async function getSessionPayload(sessionId: string): Promise<{
+    promptText: string;
+    responseText: string;
+    promptHash: string;
+    responseHash: string;
+  }> {
+    const response = await fetch(`${baseUrl}/v1/ai/sessions/${sessionId}/payload`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const text = await response.text();
+    expect(response.status, text).toBe(200);
+    return JSON.parse(text) as {
+      promptText: string;
+      responseText: string;
+      promptHash: string;
+      responseHash: string;
+    };
+  }
+
   function expectNoDeniedReference(output: unknown): void {
     const raw = JSON.stringify(output);
     for (const denied of [aiDenied, explicitDenied]) {
@@ -289,7 +620,21 @@ describe('AI summaries integration', () => {
       expect(raw).not.toContain(denied.contentText);
     }
   }
+
+  function expectStructuredAnswerFields(summary: AiSummaryResponseDto): void {
+    expect(typeof summary.conclusion).toBe('string');
+    expect(summary.conclusion.length).toBeGreaterThan(0);
+    expect(Array.isArray(summary.openQuestions)).toBe(true);
+    expect(Array.isArray(summary.recommendedActions)).toBe(true);
+    expect(summary.excludedSourcesNotice).toEqual({
+      count: expect.any(Number),
+    });
+  }
 });
+
+function sha256Hex(input: string): string {
+  return createHash('sha256').update(input).digest('hex');
+}
 
 async function aiAuditEvents(sessionId: string, matterId: string): Promise<
   {
@@ -333,5 +678,80 @@ async function aiAuditEvents(sessionId: string, matterId: string): Promise<
         row.action !== 'AI_CITED_DOCUMENT' ||
         index === rows.findIndex((candidate) => candidate.action === 'AI_CITED_DOCUMENT'),
     );
+  });
+}
+
+async function aiSessionChunks(sessionId: string): Promise<
+  {
+    document_id: string;
+    included: boolean;
+    reason_code: string;
+  }[]
+> {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query<{
+      document_id: string;
+      included: boolean;
+      reason_code: string;
+    }>(
+      `
+        SELECT document_id, included, reason_code
+        FROM ai_session_chunks
+        WHERE tenant_id = $1
+          AND ai_session_id = $2
+        ORDER BY included DESC, reason_code ASC, document_id ASC
+      `,
+      [tenantAlphaId, sessionId],
+    );
+    return result.rows;
+  });
+}
+
+async function aiClaimKinds(sessionId: string): Promise<string[]> {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query<{ kind: string }>(
+      `
+        SELECT kind
+        FROM ai_claims
+        WHERE tenant_id = $1
+          AND ai_session_id = $2
+        ORDER BY created_at ASC, claim_id ASC
+      `,
+      [tenantAlphaId, sessionId],
+    );
+    return result.rows.map((row) => row.kind);
+  });
+}
+
+type SummaryFixtureDocumentType = 'memo' | 'email';
+
+async function aiClaimCitationCounts(sessionId: string): Promise<
+  {
+    kind: string;
+    citation_count: number;
+  }[]
+> {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query<{
+      kind: string;
+      citation_count: number;
+    }>(
+      `
+        SELECT c.kind, COUNT(cc.source_ref)::int AS citation_count
+        FROM ai_claims c
+        JOIN ai_claim_citations cc
+          ON cc.tenant_id = c.tenant_id
+         AND cc.claim_id = c.claim_id
+        WHERE c.tenant_id = $1
+          AND c.ai_session_id = $2
+        GROUP BY c.kind
+        ORDER BY c.kind ASC
+      `,
+      [tenantAlphaId, sessionId],
+    );
+    return result.rows;
   });
 }

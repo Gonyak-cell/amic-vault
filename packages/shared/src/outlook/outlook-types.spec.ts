@@ -9,6 +9,7 @@ import {
   matterSuggestionQuerySchema,
   outlookAddinSessionExchangeSchema,
   outlookAttachmentRefSchema,
+  outlookDlpScanReportSchema,
   outlookItemRefSchema,
   updateOutlookFolderMappingSchema,
 } from './outlook-types';
@@ -221,11 +222,44 @@ describe('Outlook add-in DTO contracts', () => {
         },
         attachments: [],
         subjectHash: hash,
+        dlpReport: {
+          status: 'finding',
+          findingCount: 1,
+          restrictedFindingCount: 1,
+          findingRefs: [
+            {
+              ruleId: 'kr-rrn-format-v1',
+              findingType: 'korean_resident_id',
+              valueHash: hash,
+              evidenceHash: hash,
+              confidence: 0.95,
+            },
+          ],
+        },
         clientRequestId: 'send-policy-1',
       }),
     ).toMatchObject({
       matterId: '11111111-1111-4111-8111-111111111111',
       subjectHash: hash,
+      dlpReport: {
+        status: 'finding',
+        findingCount: 1,
+      },
+    });
+  });
+
+  it('accepts bounded Smart Alert DLP scan failures without content', () => {
+    expect(
+      outlookDlpScanReportSchema.parse({
+        status: 'scan_failed',
+        failureCode: 'body_unavailable',
+      }),
+    ).toEqual({
+      status: 'scan_failed',
+      findingCount: 0,
+      restrictedFindingCount: 0,
+      findingRefs: [],
+      failureCode: 'body_unavailable',
     });
   });
 
@@ -252,6 +286,20 @@ describe('Outlook add-in DTO contracts', () => {
             selectedForFiling: true,
           },
         ],
+        dlpReport: {
+          status: 'finding',
+          findingCount: 1,
+          restrictedFindingCount: 1,
+          findingRefs: [
+            {
+              ruleId: 'kr-rrn-format-v1',
+              findingType: 'korean_resident_id',
+              valueHash: hash,
+              evidenceHash: hash,
+              rawValue: '000000-0000000',
+            },
+          ],
+        },
         clientRequestId: 'send-policy-1',
       }),
     ).toThrow();

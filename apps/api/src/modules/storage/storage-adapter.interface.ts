@@ -10,6 +10,22 @@ export interface StoragePutObjectInput {
   payloadSha256?: string;
 }
 
+export interface StorageGetRangeInput {
+  key: string;
+  start: number;
+  end: number;
+}
+
+export interface StorageCreateReadUrlInput {
+  key: string;
+  expiresInSeconds?: number;
+}
+
+export interface StorageReadUrlResult {
+  url: string;
+  expiresAt: Date;
+}
+
 export interface StorageObjectMetadata {
   key: string;
   contentLength: number;
@@ -24,6 +40,8 @@ export interface StorageGetObjectResult extends StorageObjectMetadata {
 export interface StorageAdapter {
   putIfAbsent(input: StoragePutObjectInput): Promise<void>;
   get(key: string): Promise<StorageGetObjectResult>;
+  getRange(input: StorageGetRangeInput): Promise<StorageGetObjectResult>;
+  createReadUrl(input: StorageCreateReadUrlInput): Promise<StorageReadUrlResult>;
   head(key: string): Promise<StorageObjectMetadata | null>;
   delete(key: string): Promise<void>;
 }

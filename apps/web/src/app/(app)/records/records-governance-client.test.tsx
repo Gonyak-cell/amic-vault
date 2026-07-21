@@ -49,6 +49,25 @@ describe('RecordsGovernanceClient', () => {
     expect(html).not.toContain('CLIENT_RECORDS');
   });
 
+  it('shows disposal review queue copy only on the disposal tab', () => {
+    navigationMock.searchParams = new URLSearchParams({ tab: 'disposal' });
+
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <RecordsGovernanceClient />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('보존 검토 대기');
+    expect(html).toContain('자동 삭제 없음');
+    expect(html).toContain('삭제 금지 대상 제외');
+    expect(html).toContain('검토 대기 중인 삭제 요청이 없습니다.');
+    expect(html).toContain('선택된 검토 요청');
+    expect(html).not.toContain('삭제 요청 ID');
+    expect(html).not.toContain('파일 해시');
+    expect(html).not.toContain('증명서 해시');
+  });
+
   it('uses document context query labels without displaying raw record refs', () => {
     navigationMock.searchParams = new URLSearchParams({
       tab: 'archive',
@@ -74,7 +93,7 @@ describe('RecordsGovernanceClient', () => {
     expect(html).toContain('대상 Matter');
     expect(html).toContain('대상 파일');
     expect(html).toContain('보관 처리');
-    expect(html).not.toContain('사건 삭제 금지');
+    expect(html).not.toContain('Matter 삭제 금지');
     expect(html).not.toContain('id="records-archive-document-ref"');
     expect(html).not.toContain('고급 참조 입력');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111201');

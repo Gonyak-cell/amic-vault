@@ -41,9 +41,9 @@ export function dashboardActionItems(state: DashboardOverviewState): DmsWorkQueu
     items.push({
       itemKey: 'integration-0',
       source: 'integration',
-      sourceLabel: '통합',
-      title: '통합 상태 확인',
-      description: `${state.integrationStatus.data.length}개 통합 상태가 보고되었습니다.`,
+      sourceLabel: '연동',
+      title: '연동 상태 확인',
+      description: `${state.integrationStatus.data.length}개 연동 상태가 보고되었습니다.`,
       href: '/integrations/outlook',
       tone: 'neutral',
       updatedAt: state.integrationStatus.data[0]?.updatedAt,
@@ -66,7 +66,7 @@ export function dashboardActionItems(state: DashboardOverviewState): DmsWorkQueu
 export function DashboardWorkQueueSection({
   itemsState,
   state,
-  title = '작업 큐',
+  title = '처리할 업무',
 }: {
   itemsState?: DataState<DmsWorkQueueItemDto[]> | undefined;
   state: DashboardOverviewState;
@@ -105,6 +105,11 @@ export function DashboardWorkQueueList({ items }: { items: DmsWorkQueueItemDto[]
                 <StatusBadge tone={item.tone}>{item.sourceLabel}</StatusBadge>
               </div>
               <div className="mt-1 text-[12px] text-muted-foreground">{item.description}</div>
+              {item.assignedToLabel ? (
+                <div className="mt-1 text-[12px] text-muted-foreground">
+                  담당자 {item.assignedToLabel}
+                </div>
+              ) : null}
             </div>
             <Button asChild size="sm" variant="outline">
               <Link href={item.href}>열기</Link>
@@ -125,7 +130,7 @@ function workQueueMeta(
   if (state.status === 'empty') return '표시할 항목 없음';
   if (state.status === 'error') return '연결 확인 필요';
   if (state.status === 'forbidden' || state.status === 'blocked') return '권한 정책 적용';
-  return '작업 API 연결 대기';
+  return '업무 상태 연결 대기';
 }
 
 function WorkQueueStateEmpty({ state }: { state: DataState<DmsWorkQueueItemDto[]> }) {
@@ -133,15 +138,15 @@ function WorkQueueStateEmpty({ state }: { state: DataState<DmsWorkQueueItemDto[]
     return (
       <EmptyState
         title="표시할 작업이 없습니다."
-        description="작업 API가 실제 운영 상태에서 파생한 항목만 표시됩니다."
+        description="확인된 운영 상태에서 파생한 항목만 표시됩니다."
       />
     );
   }
   if (state.status === 'error') {
-    return <EmptyState variant="api-error" title="작업 API 데이터를 표시할 수 없습니다." />;
+    return <EmptyState variant="api-error" title="업무 데이터를 표시할 수 없습니다." />;
   }
   if (state.status === 'forbidden') {
-    return <EmptyState variant="no-access" title="작업 API에 접근할 권한이 없습니다." />;
+    return <EmptyState variant="no-access" title="업무 데이터에 접근할 권한이 없습니다." />;
   }
   if (state.status === 'blocked') {
     return (
@@ -151,5 +156,5 @@ function WorkQueueStateEmpty({ state }: { state: DataState<DmsWorkQueueItemDto[]
       />
     );
   }
-  return <EmptyState variant="api-unavailable" title="작업 API 연결 대기 중입니다." />;
+  return <EmptyState variant="api-unavailable" title="업무 상태 연결 대기 중입니다." />;
 }

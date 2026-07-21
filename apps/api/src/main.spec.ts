@@ -1,10 +1,11 @@
 import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { configureApp } from './main';
+import { configureApiProcessEnv, configureApp } from './main';
 import { noStoreApiMiddleware } from './common/security/no-store.middleware';
 
 const originalEnv = {
   NODE_ENV: process.env.NODE_ENV,
+  PROCESS_ROLE: process.env.PROCESS_ROLE,
   WEB_ORIGIN: process.env.WEB_ORIGIN,
 };
 
@@ -19,6 +20,7 @@ function appDouble() {
 describe('configureApp', () => {
   afterEach(() => {
     process.env.NODE_ENV = originalEnv.NODE_ENV;
+    process.env.PROCESS_ROLE = originalEnv.PROCESS_ROLE;
     process.env.WEB_ORIGIN = originalEnv.WEB_ORIGIN;
   });
 
@@ -60,5 +62,21 @@ describe('configureApp', () => {
       origin: 'https://vault.example.test',
       credentials: true,
     });
+  });
+
+  it('defaults the HTTP entrypoint to the enqueue-only api process role', () => {
+    delete process.env.PROCESS_ROLE;
+
+    configureApiProcessEnv();
+
+    expect(process.env.PROCESS_ROLE).toBe('api');
+  });
+
+  it('does not override an explicit process role for specialized runs', () => {
+    process.env.PROCESS_ROLE = 'worker';
+
+    configureApiProcessEnv();
+
+    expect(process.env.PROCESS_ROLE).toBe('worker');
   });
 });

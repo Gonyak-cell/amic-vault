@@ -1,11 +1,18 @@
 # Production Source-of-Truth Cutover Preflight Closeout
 
-Status: READINESS REMEDIATION APPLIED; BLOCKED pending production customer document import execute approval.
+Status: AFTER-IMPORT PREFLIGHT PASS; source-of-truth cutover execute completed under separate approval.
+
+Current source:
+`docs/release/production-source-cutover-execute-closeout.md` records the execute
+PASS, and `docs/release/production-post-cutover-next-gates.md` records the
+remaining non-claims.
 
 Approval refs:
 
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUTOVER-PREFLIGHT-2026-06-30`
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUTOVER-READINESS-REMEDIATION-2026-06-30`
+- `APPROVAL-ONEDRIVE-PRODUCTION-SOURCE-CUTOVER-PREFLIGHT-AFTER-IMPORT-2026-06-30`
+- follow-on execute approval: `APPROVAL-ONEDRIVE-PRODUCTION-SOURCE-CUTOVER-EXECUTE-2026-06-30`
 
 Scope actually evaluated:
 
@@ -18,8 +25,10 @@ Scope actually evaluated:
 - Production cutover control surface migration readiness remediation.
 - Production runtime target dry-run.
 - Production customer document import wrapper dry-run.
+- Production customer-wide import final closeout PASS evidence.
+- After-import source-of-truth cutover no-write preflight.
 
-Not executed:
+Not executed by this preflight step:
 
 - Source-of-truth cutover execute.
 - Customer document import.
@@ -42,6 +51,10 @@ Sanitized local receipts:
 - `.omo/evidence/PRODUCTION-CUTOVER-READINESS-REMEDIATION/production-pilot-import-dry-run.sanitized.json`
 - `.omo/evidence/PRODUCTION-CUTOVER-READINESS-REMEDIATION/production-vault-db-baseline.after-remediation.sanitized.json`
 - `.omo/evidence/PRODUCTION-CUTOVER-READINESS-REMEDIATION/production-cutover-readiness-remediation-closeout.sanitized.json`
+- `.omo/evidence/PRODUCTION-SOURCE-CUTOVER-PREFLIGHT/production-customer-wide-import-closeout.normalized-for-source-cutover.sanitized.json`
+- `.omo/evidence/PRODUCTION-SOURCE-CUTOVER-PREFLIGHT/production-target-resolution-after-import.sanitized.json`
+- `.omo/evidence/PRODUCTION-SOURCE-CUTOVER-PREFLIGHT/production-source-cutover-preflight-after-import.sanitized.json`
+- `.omo/evidence/PRODUCTION-SOURCE-CUTOVER-PREFLIGHT/production-source-cutover-preflight-after-import-closeout.sanitized.json`
 
 Basis docs:
 
@@ -51,10 +64,31 @@ Basis docs:
 
 ## Result
 
+After-import source-of-truth cutover preflight:
+
+- status: PASS
+- preflight status: `ready_for_manual_cutover_decision`
+- source-of-truth cutover executed: false
+- DB write executed: false
+- blockers: 0
+- resolved import manifest rows: 22,403
+- imported or reused rows: 22,286
+- allowed skipped rows: 117
+- accounted rows: 22,403
+- ready rows: 0
+- failed rows: 0
+- blocked rows: 0
+- target resolution conflict rows: 0
+- separate cutover approval ref present: true
+- source-of-truth control ref present: true
+- customer-wide import execute PASS: true
+- imported/reused count matches resolved manifest: true
+
 The original source-of-truth cutover preflight did not reach `ready_for_execute`.
 The remediation approval resolved the missing production cutover control surface
 and regenerated the bounded production import dry-run/preflight inputs, but it
-did not authorize or execute production customer document import.
+did not authorize or execute production customer document import. That historical
+blocker is superseded by the after-import PASS evidence above.
 
 Basis identity evidence remains PASS:
 
@@ -93,21 +127,21 @@ Readiness remediation results:
 - dry-run expected audit events: 1
 - temporary DB ingress during remediation: authorized and revoked in the same run
 
-Blocking conditions:
+Historical pre-import blocking conditions:
 
 - Production customer documents are not imported in the production DB.
 - Production customer-wide import closeout PASS receipt is not present.
 - Production customer document import execute is not approved by this remediation.
 - Production cutover gate remains blocked by missing/not-passed production import closeout.
 
-## Handoff
+## Follow-On Execute
 
-Before requesting source-of-truth cutover execute approval:
+Source-of-truth cutover execute was completed under separate approval after
+this preflight passed.
 
-1. Use a separate approval for production customer document import execute.
-2. Complete the approved production customer document import and produce a production customer-wide import closeout PASS receipt, or explicitly redefine the next cutover scope as identity-only.
-3. Rerun production source-of-truth cutover preflight until `ready_for_execute=true`.
-4. Request separate source-of-truth cutover execute approval only after preflight PASS.
+- execute closeout: `.omo/evidence/PRODUCTION-SOURCE-CUTOVER-EXECUTE/production-source-cutover-execute-closeout.sanitized.json`
+- release closeout: `docs/release/production-source-cutover-execute-closeout.md`
+- OneDrive connected-state, Office open/save/sync, Gemma indexing, and customer-wide go-live claims remain false unless separately approved and evidenced.
 
 ## Required Next Approval Text
 
@@ -147,4 +181,4 @@ Gemma indexing execution, customer-wide go-live claim은 승인하지 않는다.
 
 ## Sanitization
 
-This closeout stores only counts, booleans, hashes, sanitized evidence filenames, and non-claim states. It does not store raw endpoints, secrets, tokens, ARNs, account IDs, tenant UUIDs, user UUIDs, raw paths, object keys, customer document body/OCR text, Matter Codes, matter names, or client labels.
+This closeout stores only counts, booleans, hashes, sanitized evidence filenames, and non-claim states. Forbidden raw private values are not stored.

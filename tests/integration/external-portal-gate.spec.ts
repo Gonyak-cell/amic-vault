@@ -75,7 +75,7 @@ describe('External portal Gate integration', () => {
       matterId,
       userId: alphaMemberUserId,
       matterRole: 'member',
-      accessLevel: 'read',
+      accessLevel: 'edit',
     });
 
     app = await NestFactory.create(AppModule, { logger: false });
@@ -181,7 +181,8 @@ describe('External portal Gate integration', () => {
       externalUserId: externalUser.externalUserId,
       documentId,
       versionId,
-      watermarkApplied: true,
+      watermarkApplied: false,
+      watermarkRef: null,
     });
     expect(download.downloadRef).toContain(`download:${link.linkId}`);
     expect(JSON.stringify(download)).not.toContain(linkToken);
@@ -206,11 +207,47 @@ describe('External portal Gate integration', () => {
       `/v1/external/qa/${question.messageId}/answers`,
       {
         messageText: 'Clause five remains bounded to the room.',
+        visibilityScope: 'workspace',
       },
     );
     expect(answer).toMatchObject({
       direction: 'internal_answer',
       parentMessageId: question.messageId,
+      status: 'pending_approval',
+      visibilityScope: 'workspace',
+    });
+
+    const draftPublicQa = await getPublicJson<ExternalQaListResponseDto>(
+      `/v1/external/access/${linkToken}/qa`,
+    );
+    expect(draftPublicQa.messages.map((message) => message.messageId)).toEqual([
+      question.messageId,
+    ]);
+
+    const openApprovalWork = await latestWorkflowWork(answer.messageId);
+    expect(openApprovalWork).toMatchObject({
+      kind: 'external_qa_approval',
+      status: 'open',
+      assigned_to_user_id: alphaMemberUserId,
+    });
+
+    const selfApproval = await fetch(`${baseUrl}/v1/external/qa/${answer.messageId}/review`, {
+      method: 'POST',
+      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ decision: 'approve' }),
+    });
+    expect(selfApproval.status, await selfApproval.text()).toBe(403);
+
+    const approvedAnswer = await postJsonAs<ExternalQaMessageDto>(
+      `/v1/external/qa/${answer.messageId}/review`,
+      { decision: 'approve' },
+      memberCookie,
+      200,
+    );
+    expect(approvedAnswer).toMatchObject({
+      messageId: answer.messageId,
+      status: 'published',
+      visibilityScope: 'workspace',
     });
 
     const publicQa = await getPublicJson<ExternalQaListResponseDto>(
@@ -218,8 +255,59 @@ describe('External portal Gate integration', () => {
     );
     expect(publicQa.messages.map((message) => message.messageId)).toEqual([
       question.messageId,
-      answer.messageId,
+      approvedAnswer.messageId,
     ]);
+
+    const completedApprovalWork = await latestWorkflowWork(answer.messageId);
+    expect(completedApprovalWork).toMatchObject({
+      kind: 'external_qa_approval',
+      status: 'completed',
+      completed_by: alphaMemberUserId,
+    });
+
+    const otherExternalUser = await postJson<ExternalUserDto>('/v1/external/users', {
+      workspaceId: workspace.workspaceId,
+      emailHash: sha256Hex(`other-recipient-${marker}@example.test`),
+      displayRef: `other recipient ${marker}`,
+    });
+    const otherLink = await postJson<ExternalLinkCreatedResponseDto>('/v1/external/links', {
+      ...baseLinkRequest(),
+      externalUserId: otherExternalUser.externalUserId,
+      dlpWarningAccepted: true,
+      dlpOverrideReasonCode: 'CLIENT_APPROVED',
+    });
+    await postPublicJson<ExternalNdaAcceptanceDto>(
+      `/v1/external/access/${otherLink.linkToken}/nda`,
+      {
+        accepted: true,
+        ndaVersion: 'NDA-R11-V1',
+      },
+    );
+    const privateQuestion = await postPublicJson<ExternalQaMessageDto>(
+      `/v1/external/access/${linkToken}/qa/questions`,
+      {
+        messageText: 'Please answer only to this recipient.',
+      },
+    );
+    const privateAnswer = await postJson<ExternalQaMessageDto>(
+      `/v1/external/qa/${privateQuestion.messageId}/answers`,
+      {
+        messageText: 'This answer is limited to the asker.',
+        visibilityScope: 'asker_only',
+      },
+    );
+    await postJsonAs<ExternalQaMessageDto>(
+      `/v1/external/qa/${privateAnswer.messageId}/review`,
+      { decision: 'approve' },
+      memberCookie,
+      200,
+    );
+    const otherPublicQa = await getPublicJson<ExternalQaListResponseDto>(
+      `/v1/external/access/${otherLink.linkToken}/qa`,
+    );
+    expect(otherPublicQa.messages.map((message) => message.messageId)).not.toContain(
+      privateAnswer.messageId,
+    );
 
     const workspaceQa = await getJson<ExternalQaListResponseDto>(
       `/v1/external/workspaces/${workspace.workspaceId}/qa`,
@@ -236,8 +324,8 @@ describe('External portal Gate integration', () => {
     expect(downloadAudit?.metadata_json).toMatchObject({
       external_link_id: link.linkId,
       access_status: 'download_ticket_issued',
-      watermark_ref: download.watermarkRef,
     });
+    expect(downloadAudit?.metadata_json).not.toHaveProperty('watermark_ref');
     const questionAudit = await latestExternalAudit(
       'EXTERNAL_QA_MESSAGE_RECORDED',
       question.messageId,
@@ -252,6 +340,9 @@ describe('External portal Gate integration', () => {
       scope_id: answer.messageId,
       hash: answer.messageHash,
       access_status: 'internal_answer',
+      review_decision: 'approve',
+      status_after: 'published',
+      visibility_scope: 'workspace',
     });
     const auditText = JSON.stringify([
       dlpAccepted?.metadata_json,
@@ -318,13 +409,22 @@ describe('External portal Gate integration', () => {
   });
 
   async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    return postJsonAs<T>(path, body, ownerCookie, 201);
+  }
+
+  async function postJsonAs<T>(
+    path: string,
+    body: Record<string, unknown>,
+    cookie: string,
+    expectedStatus: number,
+  ): Promise<T> {
     const response = await fetch(`${baseUrl}${path}`, {
       method: 'POST',
-      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
+      headers: { cookie, 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
     const text = await response.text();
-    expect(response.status, text).toBe(201);
+    expect(response.status, text).toBe(expectedStatus);
     return JSON.parse(text) as T;
   }
 
@@ -399,5 +499,32 @@ async function latestExternalAudit(action: string, targetId: string) {
       ],
     );
     return result.rows[0] as { result: string; metadata_json: Record<string, unknown> } | undefined;
+  });
+}
+
+async function latestWorkflowWork(targetId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query(
+      `
+        SELECT kind, status, assigned_to_user_id, completed_by
+        FROM work_items
+        WHERE tenant_id = $1
+          AND kind = 'external_qa_approval'
+          AND target_type = 'external_qa'
+          AND target_id = $2
+        ORDER BY updated_at DESC, work_item_id DESC
+        LIMIT 1
+      `,
+      [tenantAlphaId, targetId],
+    );
+    return result.rows[0] as
+      | {
+          kind: string;
+          status: string;
+          assigned_to_user_id: string | null;
+          completed_by: string | null;
+        }
+      | undefined;
   });
 }

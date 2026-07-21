@@ -8,7 +8,7 @@ import type {
   MatterMemberSnapshot,
   MatterSnapshot,
 } from './permission.service';
-import type { WallMembershipReader } from './wall-membership.reader';
+import type { MatterWallMembershipState, WallMembershipReader } from './wall-membership.reader';
 
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
 const matterId = '11111111-1111-4111-8111-111111111199';
@@ -16,7 +16,12 @@ const userId = '11111111-1111-4111-8111-111111111101';
 
 class TestPermissionService extends PermissionService {
   actor: ActorSnapshot | null = { userId, role: 'matter_owner', status: 'active' };
-  matter: MatterSnapshot | null = { matterId, tenantId, status: 'active' };
+  matter: MatterSnapshot | null = {
+    accessScope: 'restricted',
+    matterId,
+    tenantId,
+    status: 'active',
+  };
   member: MatterMemberSnapshot | null = { matterRole: 'owner', accessLevel: 'edit' };
   explicitRows: ExplicitPermissionRow[] = [];
 
@@ -37,12 +42,19 @@ class TestPermissionService extends PermissionService {
   }
 }
 
-function createService(wallState = { isExcluded: false, isInsider: false }) {
+function createService(wallState: Partial<MatterWallMembershipState> = {}) {
   const recordAccessDenied = vi.fn(async () => undefined);
   const wrapper = new FailClosedPermissionWrapper({ recordAccessDenied } as never);
   const wallReader = {
     async readUserMatterState() {
-      return { hasActiveWall: false, wallIds: [], ...wallState };
+      return {
+        hasActiveWall: false,
+        insiderRequiredWallIds: [],
+        wallIds: [],
+        excludedWallIds: [],
+        insiderWallIds: [],
+        ...wallState,
+      };
     },
   } as unknown as WallMembershipReader;
   return {
@@ -52,7 +64,7 @@ function createService(wallState = { isExcluded: false, isInsider: false }) {
 }
 
 describe('PermissionService matter evaluator', () => {
-  it('allows read for active members and denies non-members by default', async () => {
+  it('allows restricted matter reads for active members and denies non-members by default', async () => {
     const { service, recordAccessDenied } = createService();
 
     await expect(service.canReadMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
@@ -69,6 +81,21 @@ describe('PermissionService matter evaluator', () => {
     );
   });
 
+  it('denies firm_open matter reads for non-members', async () => {
+    const { service } = createService();
+    service.matter = { ...service.matter!, accessScope: 'firm_open' };
+    service.member = null;
+
+    await expect(service.canReadMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['matter_members:missing'],
+    });
+    await expect(service.canEditMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'DENY',
+      appliedRules: ['matter_members:missing'],
+    });
+  });
+
   it('treats ethical wall exclusion as a deny override', async () => {
     const { service } = createService({ isExcluded: true, isInsider: true });
 
@@ -78,6 +105,21 @@ describe('PermissionService matter evaluator', () => {
       appliedRules: ['ethical_wall:excluded'],
     });
   });
+
+  it('fails closed when an active wall requires insiders and the actor is not an insider', async () => {
+    const { service } = createService({
+      insiderRequiredWallIds: ['11111111-1111-4111-8111-111111111166'],
+      isExcluded: false,
+      isInsider: false,
+    });
+
+    await expect(service.canReadMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'ETHICAL_WALL_BLOCKED',
+      appliedRules: ['ethical_wall:insider_required'],
+    });
+  });
+
 
   it('allows edit only for owner or edit-level members', async () => {
     const { service } = createService();
@@ -104,7 +146,7 @@ describe('PermissionService matter evaluator', () => {
       effect: 'ALLOW',
     });
 
-    service.matter = { matterId, tenantId, status: 'closed' };
+    service.matter = { ...service.matter!, status: 'closed' };
     await expect(service.canUploadToMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
       effect: 'DENY',
       reasonCode: 'MATTER_CLOSED',
@@ -130,6 +172,7 @@ describe('PermissionService matter evaluator', () => {
       practiceGroup: 'litigation',
     };
     service.matter = {
+      accessScope: 'restricted',
       matterId,
       tenantId,
       status: 'active',

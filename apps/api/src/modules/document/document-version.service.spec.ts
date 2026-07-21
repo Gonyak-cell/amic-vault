@@ -22,11 +22,20 @@ function versionRow(overrides: Record<string, unknown> = {}) {
     created_at: new Date('2026-06-12T00:00:00.000Z'),
     supersedes_version_id: null,
     promoted_from_subversion_id: null,
+    version_label: null,
+    version_significance: 'internal_draft',
+    rendition_type: 'clean',
+    base_clean_version_id: null,
     ...overrides,
   };
 }
 
-function createService(options: { enqueueVersionCreated?: ReturnType<typeof vi.fn> } = {}) {
+function createService(
+  options: {
+    enqueueVersionCreated?: ReturnType<typeof vi.fn>;
+    enqueuePreviewVersionCreated?: ReturnType<typeof vi.fn>;
+  } = {},
+) {
   return new DocumentVersionService(
     { transaction: vi.fn() } as never,
     { canReadDocument: vi.fn(), canReadMatter: vi.fn() } as never,
@@ -35,6 +44,10 @@ function createService(options: { enqueueVersionCreated?: ReturnType<typeof vi.f
     options.enqueueVersionCreated
       ? ({ enqueueVersionCreated: options.enqueueVersionCreated } as never)
       : undefined,
+    undefined,
+    options.enqueuePreviewVersionCreated
+      ? ({ enqueueVersionCreated: options.enqueuePreviewVersionCreated } as never)
+      : undefined,
   );
 }
 
@@ -42,6 +55,7 @@ function createServiceWithOptions(options: {
   transaction?: ReturnType<typeof vi.fn>;
   canReadDocument?: ReturnType<typeof vi.fn>;
   enqueueVersionCreated?: ReturnType<typeof vi.fn>;
+  enqueuePreviewVersionCreated?: ReturnType<typeof vi.fn>;
 } = {}) {
   return new DocumentVersionService(
     { transaction: options.transaction ?? vi.fn() } as never,
@@ -54,12 +68,17 @@ function createServiceWithOptions(options: {
     options.enqueueVersionCreated
       ? ({ enqueueVersionCreated: options.enqueueVersionCreated } as never)
       : undefined,
+    undefined,
+    options.enqueuePreviewVersionCreated
+      ? ({ enqueueVersionCreated: options.enqueuePreviewVersionCreated } as never)
+      : undefined,
   );
 }
 
 describe('DocumentVersionService', () => {
   it('creates the initial current version at version 1', async () => {
     const enqueueVersionCreated = vi.fn(async () => 'extraction-job-id');
+    const enqueuePreviewVersionCreated = vi.fn(async () => 'preview-job-id');
     const tx = {
       query: vi.fn(async (sql: string, params?: readonly unknown[]) => {
         void sql;
@@ -71,7 +90,10 @@ describe('DocumentVersionService', () => {
       }),
     };
 
-    const result = await createService({ enqueueVersionCreated }).createInitialVersion(
+    const result = await createService({
+      enqueueVersionCreated,
+      enqueuePreviewVersionCreated,
+    }).createInitialVersion(
       {
         tenantId,
         documentId,
@@ -98,6 +120,10 @@ describe('DocumentVersionService', () => {
       fileObjectId,
       hash,
       actorUserId,
+      null,
+      'internal_draft',
+      'clean',
+      null,
     ]);
     expect(tx.query.mock.calls[0]?.[0]).toContain(
       'NULL::uuid AS promoted_from_subversion_id',
@@ -108,6 +134,16 @@ describe('DocumentVersionService', () => {
         documentId,
         versionId: '11111111-1111-4111-8111-111111111155',
         fileObjectId,
+      },
+      tx,
+    );
+    expect(enqueuePreviewVersionCreated).toHaveBeenCalledWith(
+      {
+        tenantId,
+        documentId,
+        versionId: '11111111-1111-4111-8111-111111111155',
+        fileObjectId,
+        actorUserId,
       },
       tx,
     );
@@ -163,7 +199,8 @@ describe('DocumentVersionService', () => {
       query,
     };
 
-    const result = await createService().addNextVersion(
+    const enqueuePreviewVersionCreated = vi.fn(async () => 'preview-job-id');
+    const result = await createService({ enqueuePreviewVersionCreated }).addNextVersion(
       {
         tenantId,
         documentId,
@@ -190,9 +227,23 @@ describe('DocumentVersionService', () => {
       hash,
       actorUserId,
       previousVersionId,
+      null,
+      'internal_draft',
+      'clean',
+      null,
     ]);
     expect(tx.query.mock.calls[3]?.[0]).toContain(
       'NULL::uuid AS promoted_from_subversion_id',
+    );
+    expect(enqueuePreviewVersionCreated).toHaveBeenCalledWith(
+      {
+        tenantId,
+        documentId,
+        versionId: '11111111-1111-4111-8111-111111111188',
+        fileObjectId: nextFileObjectId,
+        actorUserId,
+      },
+      tx,
     );
   });
 

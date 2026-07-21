@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useEffect, useState } from 'react';
 import { HelpCircle, SlidersHorizontal, X } from 'lucide-react';
 import {
@@ -16,6 +14,8 @@ import {
   type EnterpriseApprovedDmsTaxonomyDto,
   type SearchGroupBy,
   type SearchLegalHold,
+  type SearchMode,
+  type SearchOcrConfidence,
   type SearchRecordsStatus,
   type SearchSort,
   type SearchTarget,
@@ -40,10 +40,12 @@ export interface SearchAdvancedSelection {
   dateRange?: SearchDateRange | undefined;
   documentType?: DocumentType | undefined;
   extractionStatus?: DocumentExtractionStatus | undefined;
+  ocrConfidence?: SearchOcrConfidence | undefined;
   groupBy?: SearchGroupBy | undefined;
   legalHold?: SearchLegalHold | undefined;
   matterCode?: string | undefined;
   matterName?: string | undefined;
+  mode?: SearchMode | undefined;
   privilegeStatus?: DocumentPrivilegeStatus | undefined;
   recordsStatus?: SearchRecordsStatus | undefined;
   sortBy?: SearchSort | undefined;
@@ -82,6 +84,9 @@ const targetLabels = {
   all: '제목+본문',
   title: '제목',
   body: '본문',
+  email: '이메일',
+  clause: '조항',
+  authority: '판례·법령',
 } as const satisfies Record<SearchTarget, string>;
 
 const sortLabels = {
@@ -106,6 +111,7 @@ const documentTypeLabels = {
   opinion: '의견서',
   court_filing: '법원 제출 문서',
   evidence: '증거',
+  email: '이메일',
   correspondence: '서신',
   corporate_record: '회사 기록',
   financial: '재무',
@@ -586,7 +592,7 @@ export function SearchAdvancedControls({
         ) : null}
         {allowed('matterCode') ? (
           <label className="space-y-1 text-sm font-medium">
-            Matter Code
+            Matter code
             <Input
               value={draft.matterCode}
               disabled={busy}
@@ -666,7 +672,7 @@ export function SearchAdvancedControls({
               <code className="rounded border bg-muted px-1 py-0.5 text-foreground">-제외어</code>
               <span className="ml-2">제외어 반영</span>
             </li>
-            <li>본문/제목 범위와 Matter Code는 위 필터로 고정</li>
+            <li>본문/제목 범위와 Matter code는 위 필터로 고정</li>
           </ul>
         </section>
       </div>
@@ -757,7 +763,7 @@ function activeSearchChips(
     selection.matterCode &&
     hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
   ) {
-    chips.push({ label: 'Matter Code', value: selection.matterCode });
+    chips.push({ label: 'Matter code', value: selection.matterCode });
   }
   if (
     selection.matterName &&

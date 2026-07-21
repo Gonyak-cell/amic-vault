@@ -1,0 +1,869 @@
+
+로펌용 통합 데이터베이스 Vault 시스템장기개발 사양명세서
+Matter-Centric Vault + Knowledge Graph + AI-Ready Data Governance Platform
+Version 1.0 | 2026-06-08 | 장기개발 착수용
+
+문서 관리 정보
+항목
+내용
+문서명
+로펌용 통합 데이터베이스 Vault 시스템 장기개발 사양명세서
+목적
+비싼 비용을 투입해 외부 개발팀 또는 내부 전담팀을 구성할 때 기준이 되는 제품·기능·보안·AI·운영 사양 정의
+대상 독자
+대표변호사, CIO/CTO, 개발팀, 보안책임자, 지식관리팀, PM, QA, 외부 SI/개발사
+제품 범위
+Matter 중심 DMS, Email Vault, Knowledge Graph, AI Governance, VDR, DD/Litigation Workflow, Records Management
+전제
+최상위권 SaaS 수준을 목표로 하되 MVP부터 단계적으로 구축
+목차
+1. 제품 비전 및 범위
+2. 최상위권 SaaS 기준 핵심 목표
+3. 제품 철학 및 설계 원칙
+4. 전체 시스템 아키텍처
+5. 핵심 데이터 모델
+6. 주요 기능 사양
+7. 보안·권한·윤리장벽
+8. AI Vault Assistant 및 AI Governance
+9. Workflow 모듈
+10. External Collaboration / VDR
+11. 기술 아키텍처
+12. API 및 통합 연동
+13. 성능·확장성·운영 요구사항
+14. 데이터 마이그레이션
+15. 개발 로드맵
+16. MVP 범위와 성공 기준
+17. 개발팀 구성 및 우선순위
+18. 주요 리스크와 대응
+19. 최종 제품 수준별 목표
+20. 부록: 주요 객체·정책·체크리스트
+
+1. 제품 비전 및 범위
+Law Firm Vault System은 단순 문서보관함이 아니라 로펌의 모든 사건, 고객, 문서, 이메일, 지식, 권한, 감사로그, AI 활용기록을 Matter 중심으로 통합 관리하는 보안 데이터 플랫폼이다. 최종 목표는 문서 저장을 넘어 권한 있는 지식의 재사용, 업무 흐름 자동화, AI 기반 검색·검토·보고서 작성 지원까지 제공하는 엔터프라이즈 SaaS 수준의 Legal Data OS를 구축하는 것이다.
+구성요소
+정의
+핵심 산출물
+DMS
+문서 저장·버전·무결성·검색 관리
+계약서, 의견서, 소장, 증거, 회의록
+EMS
+이메일 및 첨부파일을 Matter에 자동 저장
+MSG/EML, 쓰레드, 첨부파일 관계
+Matter DB
+사건·거래·자문 중심 정형 데이터
+고객, 담당자, 상태, 기한, 권한
+Knowledge Graph
+문서·쟁점·조항·판례·사람·고객의 관계망
+유사사건, 조항은행, 리스크 패턴
+Governance Layer
+권한·윤리장벽·보존·폐기·감사·AI 통제
+정책, 로그, DLP, Records Management
+1.1 제품 포지셔닝
+Matter-Centric Vault: 폴더가 아니라 사건·거래·자문을 중심으로 모든 자료를 구성한다.
+AI-Ready Legal Knowledge Platform: AI가 접근할 수 있는 데이터와 접근할 수 없는 데이터를 명확히 분리한다.
+Enterprise Governance System: 보안, 윤리장벽, 보존정책, 감사로그를 제품 핵심에 내장한다.
+한국 로펌 특화 SaaS: 한글/HWPX, 국내 법령·판례, 전자소송, DART, 상법·개인정보 이슈를 고려한다.
+2. 최상위권 SaaS 기준 핵심 목표
+최상위권 Vault는 일반 DMS와 다르게 문서 검색, 보존, AI 활용, 외부협업, 지식관리까지 하나의 데이터 통제층에서 작동해야 한다.
+구분
+일반 DMS
+최상위권 Vault 목표
+기본 단위
+폴더/파일
+Matter, Client, Deal, Litigation, Issue
+검색
+키워드 검색
+키워드+메타데이터+의미검색+그래프검색+AI 질의
+이메일
+수동 저장
+Matter 자동분류, 쓰레드 분석, 첨부파일 분리
+권한
+사용자/폴더 권한
+문서·조항·AI 접근권한, 윤리장벽, DLP
+AI
+단순 요약
+권한연동 RAG, 출처표시, AI 감사로그
+지식관리
+템플릿 저장
+조항은행, 고객 Playbook, 상대방 협상패턴
+컴플라이언스
+기본 로그인/백업
+보존·폐기정책, Litigation Hold, 감사추적, BYOK
+3. 제품 철학 및 설계 원칙
+3.1 Matter-Centric이 기본이다
+로펌 업무의 기본 단위는 문서가 아니라 사건/거래/자문이다. 따라서 Vault의 최상위 객체는 폴더가 아니라 Matter여야 한다.
+고객, 상대방, 이해관계자, 담당 변호사, 업무유형, 기한을 Matter에 연결한다.
+문서, 이메일, 회의록, 쟁점, 판례·법령·리서치, 외부공유 이력, AI 사용 이력을 Matter에 연결한다.
+Matter 종료 시 체결본, 최종 의견서, Closing Binder, 지식은행 후보를 자동 정리한다.
+3.2 모든 데이터는 출처와 권한을 가진다
+업로드자, 업로드 시각, 원본/사본 여부, 고객제공/내부작성/상대방제공 여부를 기록한다.
+비밀등급, AI 접근 가능 여부, 외부공유 가능 여부, 보존기간, 삭제 가능 여부를 문서 단위로 관리한다.
+증거자료와 소송보존 자료는 해시 및 chain-of-custody 구조를 적용한다.
+3.3 AI는 Vault 권한체계 안에서만 작동한다
+AI 기능은 별도 챗봇이 아니라 Vault 권한 모델 아래에서 작동해야 한다. 사용자가 접근권한이 없는 Matter나 문서는 AI 검색·요약·인용 대상에서 제외되어야 한다.
+4. 전체 시스템 아키텍처
+레이어
+역할
+핵심 기능
+Identity & Access
+사용자·조직·권한·SSO
+RBAC, ABAC, MFA, Azure AD/Google SSO
+Matter Core
+사건·거래·자문 데이터 모델
+Matter 생성, 상태, 담당자, 관련사건
+Document Vault
+원본 파일과 메타데이터 관리
+업로드, 버전, OCR, 해시, 비교
+Email Vault
+이메일 및 첨부파일 관리
+Outlook/Gmail, Matter 자동분류, 쓰레드
+Knowledge Graph
+관계 기반 지식검색
+고객-문서-조항-쟁점-판례 연결
+Search & Retrieval
+검색 계층
+전문검색, 의미검색, 필터, 그래프검색
+AI Governance
+AI 접근·출처·로그 관리
+RAG, 정책, 인용, AI Audit
+Workflow
+업무흐름 자동화
+계약검토, DD, 송무, 의견서
+External Portal
+고객·외부자 협업
+VDR, Q&A, 워터마크, 링크만료
+Compliance & Records
+보존·폐기·감사
+DLP, Litigation Hold, retention label
+Analytics
+운영·지식 활용 분석
+사용량, 쟁점빈도, 재사용률
+Integration & API
+외부 시스템 연동
+M365, ERP, Billing, DART, 법령/판례 DB
+5. 핵심 데이터 모델
+5.1 기본 객체
+객체
+설명
+주요 필드 예시
+Client
+고객
+Client ID, 고객명, 산업, 담당 파트너
+Matter
+사건·거래·자문
+Matter ID, 유형, 담당자, 상태, 비밀등급
+Document
+문서 파일
+문서유형, 버전, 작성자, 출처, 해시
+Email
+이메일
+발신자, 수신자, 쓰레드, 첨부파일, Matter
+Clause
+계약 조항
+조항유형, 조항본문, 리스크, 협상상태
+Issue
+법률쟁점
+쟁점명, 리스크 등급, 근거문서, 관련 법령
+Authority
+법령·판례·유권해석
+출처, 관할, 최신성, 관련 쟁점
+AI Session
+AI 사용기록
+Prompt, 참조문서, 모델, 답변, 사용자
+Audit Event
+감사로그
+사용자, 시간, IP, 이벤트, 대상 객체
+5.2 Matter 필수 필드
+필드
+설명
+Matter ID
+고유 사건번호
+Matter Name
+사건명
+Client ID
+고객
+Matter Type
+M&A, 투자, 송무, 자문, 실사, 규제 등
+Lead Partner / Lead Associate
+총괄 및 실무 담당자
+Conflicts Status
+이해상충 검토 상태
+Ethical Wall Status
+윤리장벽 설정 여부
+Confidentiality Level
+비밀등급
+AI Access Policy
+AI 접근 가능 범위
+Retention Policy
+보존기간 및 폐기정책
+Related Matters
+관련 사건
+5.3 Document 필수 필드
+필드
+설명
+Document ID
+고유 문서번호
+Matter ID
+연결 사건
+Document Type
+계약서, 의견서, 서면, 증거, 이메일첨부, DD자료 등
+Source
+고객제공, 상대방제공, 내부작성, 공개자료
+Version No.
+버전
+Status
+초안, 검토중, 고객송부, 상대방송부, 최종본, 체결본
+Privilege
+변호사-의뢰인 특권/업무상 비밀/소송자료 여부
+AI Allowed
+AI 검색·요약 허용 여부
+Hash
+원본 무결성 해시
+OCR Text / Vector ID
+검색 및 AI 활용을 위한 텍스트·벡터 참조
+5.4 Clause 객체
+필드
+설명
+Clause ID
+조항 ID
+Clause Type
+진술보장, 선행조건, 손해배상, 해제, 비밀유지, 경업금지 등
+Clause Text
+조항 본문
+Position
+매도인/매수인/투자자/회사 유리성
+Market Standard
+시장표준 여부
+Risk Level
+Low, Medium, High, Critical
+Negotiation Status
+수용, 거절, 수정, 보류
+Related Authority
+관련 법령·판례·리서치
+Reuse Approved
+재사용 승인 여부
+6. 주요 기능 사양
+6.1 Matter-Centric Workspace
+사용자는 특정 Matter에 들어가면 사건 개요, 담당자, 주요 일정, 문서, 이메일, 쟁점, 업무목록, 회의록, 리서치, 외부공유 공간, AI 질의창, 감사로그, 관련 지식 추천을 한 화면에서 확인한다.
+Matter Dashboard: 최근 활동, 핵심 문서, 미해결 쟁점, 리스크, 기한, 외부활동, AI 세션 표시
+Matter 생성: 고객 선택, 이해상충 검사, 담당자 지정, 권한 템플릿, 보존정책, AI 정책 자동 적용
+Matter 종료: 체결본·최종본·Closing Binder·지식은행 후보 자동 정리
+6.2 Document Vault
+Word, PDF, Excel, PPT, MSG, EML, HTML, TXT, ZIP, HWP/HWPX 지원 구조
+대량 업로드, 폴더 업로드, OCR, PDF/Word 텍스트 추출, Track Changes 및 PDF 주석 추출
+버전관리, 해시 기반 중복 탐지, 문서 상태관리, 문서 링크, 워터마크, 다운로드/인쇄/복사 제한
+문서별 AI 접근제어 및 외부공유 승인 워크플로우
+버전관리 표준
+버전
+의미
+v0.1
+내부 초안
+v1.0
+고객 송부본
+v2.0
+상대방 송부본
+v2.1
+상대방 마크업 반영본
+v3.0
+협상본
+Final
+최종본
+Execution Copy
+체결본
+Clean / Markup
+클린본 / 비교본
+문서 비교 고도화
+두 버전 간 조항별 변경사항 추출
+변경사항의 법률적 의미 자동 요약
+상대방에게 유리한 변경 탐지
+삭제된 조항 복원 및 협상 포지션별 변경 분류
+고객에게 보낼 변경요약 이메일 초안 생성
+6.3 Email Vault
+Outlook add-in 및 Gmail add-on 제공
+이메일을 Matter에 저장하고 쓰레드 단위로 관리
+첨부파일 자동 분리 및 원문 이메일과의 관계 유지
+발신자·수신자·참조자 자동 인식, 고객/상대방/내부자 분류
+Matter 자동 추천, 중복 이메일 제거, 외부 송부 전 DLP 검사
+신뢰도
+처리방식
+95% 이상
+자동 저장
+80~95%
+사용자 확인 후 저장
+50~80%
+후보 Matter 제시
+50% 미만
+수동 선택 필요
+6.4 Legal Knowledge Graph
+Knowledge Graph는 문서가 아니라 관계를 찾는 계층이다. 고객, 사건, 문서, 조항, 법률쟁점, 판례, 담당자, 이메일, AI 세션을 노드로 두고 이들 간의 관계를 엣지로 관리한다.
+질문 예시
+필요 데이터 관계
+최근 3년간 매도인 측 SPA에서 책임한도 10% 이하 조항을 찾아줘
+Matter-Type, Party Position, Clause Type, Clause Text, Deal Value
+이 상대방 로펌이 과거 자주 요구한 indemnity 조항은?
+Counterparty Counsel, Clause, Negotiation History
+상법 제398조 자기거래 이슈가 있었던 실사보고서를 찾아줘
+Issue, Authority, DD Report, Matter
+6.5 Search & Retrieval
+키워드 검색, 메타데이터 검색, 전문검색, 의미검색, 조항검색, 판례·법령 검색, OCR 검색, 이메일 검색, 버전 검색, 권한 내 검색, 자연어 질의검색을 통합 제공한다.
+검색결과는 문서명뿐 아니라 Matter, 고객, 작성자, 날짜, 관련 조항, 관련 쟁점, 문맥, 유사도, 권한상태, AI 요약 가능 여부, 이전/다음 버전을 함께 표시한다.
+7. 보안·권한·윤리장벽
+7.1 권한 모델
+권한 수준
+설명
+Firm Admin
+전체 시스템 관리자
+Practice Admin
+업무그룹 관리자
+Matter Owner
+사건 책임자
+Matter Member
+사건 참여자
+Limited Reviewer
+제한적 검토자
+External User
+고객, 외부전문가, 상대방 등
+7.2 문서별 권한
+열람, 다운로드, 편집, 버전 생성, 코멘트, 외부공유, 인쇄, 복사, 삭제, 영구삭제, 보존정책 변경을 분리한다.
+AI 검색 허용, AI 요약 허용, AI 학습 허용을 별도 권한으로 관리한다.
+고도비밀, Insider Restricted, Litigation Hold 문서는 기본적으로 외부공유 및 AI 접근을 제한한다.
+7.3 Ethical Wall
+고객별, Matter별, 상대방별, 투자자/펀드별, 내부자정보별 접근 차단
+M&A clean team 구성 및 팀 간 검색결과 격리
+AI 검색에서도 동일한 윤리장벽 적용
+차단 시도와 관리자 승인 이력을 감사로그에 저장
+7.4 비밀등급
+등급
+설명
+Public
+공개자료
+Internal
+내부자료
+Client Confidential
+고객 비밀자료
+Highly Confidential
+고도비밀
+Attorney Work Product
+변호사 업무산출물
+Privileged
+변호사-의뢰인 특권/비밀
+Insider Restricted
+미공개중요정보
+Litigation Hold
+소송보존 대상
+External Share Prohibited
+외부공유 금지
+8. AI Vault Assistant 및 AI Governance
+8.1 AI 기본 원칙
+권한 있는 문서만 검색한다.
+출처 없는 답변을 금지하거나 명확히 경고한다.
+AI가 참조한 문서와 chunk를 로그로 남긴다.
+고객 비밀정보의 외부모델 전송을 정책으로 제한한다.
+AI 답변은 최종 법률의견이 아니라 검토 보조물로 표시한다.
+8.2 AI 기능
+모듈
+기능
+Matter AI
+사건 요약, 타임라인, 주요 문서, 미해결 쟁점, 다음 액션 추천
+Document AI
+계약서 요약, 조항별 리스크, 변경사항 분석, 정의·날짜·금액 추출
+Clause AI
+유사조항 검색, 대체조항 추천, 시장표준 대비 이례성 분석, fallback clause 제안
+DD AI
+RFI 매핑, 누락자료 식별, 이슈 초안, 리스크 분류, 보고서 표 생성
+Litigation AI
+증거분류, 사실관계 타임라인, 쟁점별 증거 매핑, 판례 연결
+Email AI
+쓰레드 요약, 고객 요청사항·기한 추출, 답변 초안, 민감정보 탐지
+8.3 AI 답변 구조
+결론
+근거 문서
+문서별 인용 위치
+불확실한 부분
+추가 확인 필요자료
+권장 조치
+권한상 제외된 자료 또는 접근 불가 자료 표시
+8.4 AI Audit Log
+항목
+설명
+User
+질문자
+Time
+질문 시간
+Matter
+사건
+Prompt
+입력 프롬프트
+Retrieved Documents
+검색된 문서
+Cited Documents
+실제 인용 문서
+Model
+사용 모델
+Output
+답변
+Shared
+외부공유 여부
+Risk Flag
+민감정보 포함 여부
+8.5 RAG 파이프라인
+사용자 인증
+Matter 권한 확인
+AI 정책 확인
+검색범위 제한
+문서 검색
+민감도 라벨 확인
+금지문서 제외
+관련 chunk 추출
+출처 메타데이터 결합
+모델 질의
+답변 생성
+인용검증
+금지정보 필터링
+감사로그 저장
+9. Workflow 모듈
+9.1 계약서 검토 워크플로우
+Matter 생성
+계약서 업로드
+문서유형 자동 인식
+조항 추출
+리스크 룰엔진 실행
+AI 1차 검토
+담당 변호사 검토
+고객 송부본 생성
+상대방 마크업 수령
+버전 비교
+협상쟁점표 업데이트
+최종본 확정
+체결본 저장
+Closing Binder 생성
+조항은행 후보 등록
+9.2 M&A 실사 워크플로우
+DD Matter 생성
+RFI 템플릿 선택
+고객 포털 개설
+자료요청 발송
+자료 업로드
+자료 자동분류
+RFI 항목별 매핑
+누락자료 알림
+검토 배정
+이슈 태깅
+리스크 등급 부여
+고객 확인질문 생성
+보고서 초안 생성
+SPA 반영사항 추출
+데이터룸 archive 생성
+9.3 송무 워크플로우
+Litigation Matter 생성
+소장/답변서 업로드
+증거자료 업로드
+OCR
+사실관계 추출
+Fact Ledger 작성
+쟁점트리 작성
+증거번호 후보 생성
+판례 리서치 연결
+준비서면 초안 보조
+제출본 저장
+기일 관리
+상대방 서면 분석
+판결문 저장
+항소검토 메모 생성
+10. External Collaboration / Client Portal / VDR
+고객별·Matter별 포털을 제공하고 자료 업로드, 다운로드, Q&A, 요청자료 목록, 제출현황, 기한 알림을 제공한다.
+외부사용자는 NDA 동의, 2FA, IP 제한, 링크 만료, 워터마크, 파일별 권한을 거쳐 접근한다.
+VDR은 bidder별 권한, 다운로드 불가 모드, redaction, index export, closing archive, 열람통계를 제공한다.
+기능
+세부 사양
+자료요청
+RFI 번호별 요청, 담당자, 기한, 상태
+Q&A
+질문/답변, 공개범위, 승인흐름
+워터마크
+사용자명, 이메일, IP, 시간 삽입
+열람통계
+문서별 열람자, 시간, 다운로드 여부
+Archive
+종료 후 freeze, index, PDF/ZIP export
+11. 기술 아키텍처
+11.1 권장 기술스택
+영역
+후보
+Frontend
+React / Next.js, Tailwind, shadcn/ui, PDF.js, Office Web Viewer
+Backend
+NestJS, FastAPI, Go
+Auth
+Keycloak, Auth0, Azure AD
+Main DB
+PostgreSQL
+Search
+OpenSearch / Elasticsearch
+Vector DB
+pgvector, Qdrant, Weaviate
+Graph DB
+Neo4j
+Object Storage
+S3-compatible storage
+Queue
+Kafka, RabbitMQ, SQS
+Workflow
+Temporal, Camunda
+AI Orchestration
+LangGraph, LlamaIndex, custom RAG service
+Infrastructure
+Kubernetes, Terraform, Prometheus, Grafana, OpenTelemetry
+11.2 저장소 구조
+저장소
+역할
+PostgreSQL
+정형 메타데이터
+Object Storage
+원본 파일
+OpenSearch
+전문검색
+Vector DB
+의미검색
+Neo4j
+관계검색
+Audit Store
+감사로그
+Redis
+캐시
+Cold Archive
+장기보관
+11.3 멀티테넌시
+방식
+장점
+단점
+권장 용도
+Shared DB + Tenant ID
+저비용
+강한 격리 어려움
+초기 MVP
+Schema per Tenant
+중간 격리
+운영복잡도 증가
+중소형 로펌
+DB per Tenant
+강한 격리
+비용 증가
+대형 로펌
+Dedicated Deployment
+최고 격리
+고비용
+초대형/보안 민감 고객
+12. API 및 통합 연동
+12.1 주요 API 그룹
+Auth API, User API, Client API, Matter API, Document API, Email API, Search API, Clause API, Issue API, Knowledge API, AI API, External Portal API, Audit API, Retention API, Admin API, Integration API
+12.2 예시 엔드포인트
+Method
+Endpoint
+설명
+POST
+/matters
+Matter 생성
+GET
+/matters/{id}
+Matter 조회
+POST
+/matters/{id}/documents
+문서 업로드
+GET
+/documents/{id}/versions
+버전 조회
+POST
+/documents/{id}/compare
+버전 비교
+POST
+/search
+통합검색
+POST
+/ai/query
+AI 질의
+POST
+/clauses/extract
+조항 추출
+POST
+/ethical-walls
+윤리장벽 생성
+GET
+/audit/events
+감사로그 조회
+POST
+/external-links
+외부공유 링크 생성
+POST
+/retention/review
+폐기검토 생성
+12.3 외부 연동
+Microsoft 365: Outlook, Word, Excel, PowerPoint, Teams, SharePoint, OneDrive, Azure AD, Graph API
+Google Workspace: Gmail, Drive, Docs, Calendar, Groups, SSO
+국내 법률/공시 데이터: 법제처, 국가법령정보센터, 대법원, 헌법재판소, 금융위, 금감원, 공정위, 개인정보위, DART, KRX
+내부 시스템: CRM, ERP, Billing, Time Tracking, Calendar, HR, Messenger, Accounting
+13. 성능·확장성·운영 요구사항
+항목
+목표
+일반 페이지 로딩
+2초 이내
+문서 검색
+3초 이내
+의미검색
+5초 이내
+문서 업로드
+1GB 파일 지원
+대량 업로드
+10,000개 파일 배치 처리
+AI 요약
+30초 이내 1차 응답
+문서 비교
+100페이지 Word 기준 30초 이내
+동시 사용자
+초기 100명, 장기 10,000명 이상
+가용성
+99.9%에서 장기 99.99%
+RPO/RTO
+RPO 15분 이하, RTO 1시간 이하
+tenant별 수백만 문서, 이메일 수천만 건, 조항 수천만 개, 감사로그 수십억 이벤트까지 확장 가능한 아키텍처가 필요하다.
+검색 인덱스 샤딩, 이벤트 기반 비동기 처리, cold storage 자동 이동, tenant별 벡터 인덱스 분리를 적용한다.
+14. 데이터 마이그레이션
+14.1 대상
+로컬 파일서버, NAS, SharePoint, OneDrive, Google Drive, Dropbox, iManage, NetDocuments, 이메일 PST/Outlook mailbox, 기존 ERP/CRM, 엑셀 사건목록, 종이문서 스캔본
+14.2 단계
+데이터 소스 조사
+폴더구조 분석
+파일명 패턴 분석
+중복파일 식별
+권한구조 분석
+Matter 매핑
+고객 매핑
+문서유형 매핑
+비밀등급 추정
+테스트 마이그레이션
+샘플 검수
+전체 이관
+검색 인덱싱
+검수 리포트
+legacy archive 보관
+14.3 마이그레이션 AI
+파일명 기반 Matter 추정
+문서본문 기반 고객 추정
+이메일 도메인 기반 Matter 추정
+계약서 유형 자동분류
+체결본 여부 판단
+중복문서 병합 후보 추천
+보존정책 추천
+민감정보 라벨 추천
+15. 개발 로드맵
+단계
+명칭
+기간
+핵심 산출물
+Phase 0
+Discovery & Architecture
+2~3개월
+PRD, ERD, 권한모델, taxonomy, UX wireframe, 기술스택 확정
+Phase 1
+Core Vault MVP
+4~6개월
+사용자/조직, Matter, 문서 업로드, 메타데이터, 기본검색, 버전, 권한, 감사로그
+Phase 2
+Email & Search Expansion
+4~6개월
+Outlook add-in, 이메일 저장, 전문검색, 문서 미리보기, 외부공유 링크
+Phase 3
+Security & Governance
+4~6개월
+비밀등급, 윤리장벽, DLP, 보존정책, MFA/SSO, 관리자 콘솔
+Phase 4
+AI-Ready Knowledge Layer
+6~9개월
+Vector search, RAG, AI 질의응답, 조항 추출, AI 감사로그, 출처표시
+Phase 5
+Contract & DD Intelligence
+6~9개월
+계약 유형분류, 조항은행, 마크업 분석, RFI, DD 이슈, Closing Binder
+Phase 6
+Litigation Vault
+6~9개월
+증거관리, Fact Ledger, 쟁점트리, 판례연결, 전자소송 패키징
+Phase 7
+External Portal / VDR
+6개월
+고객포털, VDR, Q&A, 워터마크, bidder별 권한, archive export
+Phase 8
+Enterprise SaaS Hardening
+9~12개월
+멀티테넌시, BYOK, SOC 2/ISO 대응, 고가용성, DR, SIEM 연동
+16. MVP 범위와 성공 기준
+16.1 MVP 필수 기능
+Matter 생성, Client 생성, 문서 업로드, 메타데이터 입력, 폴더/태그 혼합 구조, 기본 권한, 문서 버전관리, 전문검색, OCR, 감사로그, Outlook 이메일 저장, Matter 대시보드, 외부공유 링크, AI 문서 요약, 권한연동 AI 검색
+16.2 MVP 제외 가능 기능
+완전한 VDR, 고급 조항은행, 송무 Fact Ledger, BYOK, SOC 2 자동화, 고급 DLP, 상대방 로펌 패턴분석, 완전한 Knowledge Graph, 자동 보고서 생성, 멀티리전 배포
+16.3 MVP 성공 기준
+변호사가 실제 사건에서 파일서버 대신 Vault를 사용한다.
+이메일과 첨부파일이 Matter에 저장된다.
+특정 계약서·이메일·최종본을 10초 안에 찾을 수 있다.
+누가 어떤 문서를 열람·다운로드했는지 확인 가능하다.
+AI가 권한 있는 자료만 인용하여 답변한다.
+문서 버전 혼선이 줄어든다.
+Matter 종료 시 Closing Binder 또는 archive를 만들 수 있다.
+17. 개발팀 구성 및 우선순위
+17.1 권장 개발팀
+역할
+권장 인원
+Product Lead
+1
+Legal Workflow Lead
+1
+Security Architect
+1
+Backend Lead
+1
+Backend Engineers
+3~5
+Frontend Lead
+1
+Frontend Engineers
+3
+AI/RAG Engineers
+2
+Data/Search Engineer
+2
+DevOps/SRE
+2
+QA Automation
+2
+UX/UI
+2
+Technical Writer
+1
+Customer Success / Implementation
+1~2
+17.2 우선순위 매트릭스
+기능
+중요도
+난이도
+우선순위
+Matter 구조
+매우 높음
+중간
+1
+문서 업로드/버전관리
+매우 높음
+중간
+1
+권한관리
+매우 높음
+높음
+1
+감사로그
+매우 높음
+중간
+1
+검색
+매우 높음
+높음
+1
+Outlook 연동
+높음
+높음
+2
+OCR
+높음
+중간
+2
+AI 권한연동
+매우 높음
+높음
+2
+윤리장벽
+매우 높음
+높음
+3
+조항은행
+높음
+높음
+4
+DD 모듈
+높음
+중간
+4
+VDR
+중간
+높음
+5
+송무 모듈
+중간
+높음
+5
+BYOK
+중간
+높음
+6
+SOC 2 대응
+높음
+높음
+6
+18. 주요 리스크와 대응
+리스크
+문제
+대응
+범위 과대
+DMS, VDR, AI, DD, 송무, 보안을 한 번에 만들면 실패 가능성이 높다.
+MVP는 Matter + Document + Email + Search + Permission + Audit + Basic AI로 제한한다.
+권한설계 실패
+권한 오류는 로펌 시스템 신뢰를 무너뜨린다.
+처음부터 RBAC + ABAC + Matter Permission + Ethical Wall을 데이터 모델에 포함한다.
+AI 비밀정보 참조
+AI가 접근권한 없는 문서를 참조하면 중대한 보안사고가 된다.
+AI는 Vault 권한체계 하위에서만 작동하게 한다.
+검색 품질 저하
+검색결과가 부정확하면 사용자가 이탈한다.
+전문검색 + 메타데이터 + 의미검색 + 그래프검색을 결합한다.
+입력 부담
+메타데이터 입력이 많으면 사용성이 떨어진다.
+AI 자동분류, 파일명 정규화, Matter 추천을 제공한다.
+한글/HWP 처리
+한국 로펌에는 한글 문서와 스캔 PDF가 많다.
+HWP/HWPX, OCR, 문단번호 인식, 별지/첨부 구분을 별도 개발항목으로 둔다.
+19. 최종 제품 수준별 목표
+레벨
+명칭
+핵심 수준
+Level 1
+내부 문서관리 시스템
+Matter별 문서 저장, 기본검색, 권한, 버전관리
+Level 2
+로펌 DMS
+이메일 연동, 전문검색, 외부공유, 감사로그, 보존정책
+Level 3
+Legal Knowledge Vault
+조항은행, 유사문서 검색, DD/계약/송무 워크플로우, 고객 playbook
+Level 4
+AI-Ready Legal OS
+권한연동 AI, Knowledge Graph, 계약·실사·송무 자동분석, AI 감사로그
+Level 5
+Enterprise Legal Data Governance Platform
+멀티테넌시, BYOK, SOC 2/ISO 대응, VDR, eDiscovery, SIEM, 글로벌 데이터 레지던시
+20. 부록: 주요 체크리스트
+20.1 보안 체크리스트
+SSO/MFA 적용
+tenant별 암호화 키 분리
+권한 정기검토
+윤리장벽 테스트
+대량 다운로드 감지
+외부공유 승인
+AI 접근정책 검증
+감사로그 불변성 확보
+백업·복구 리허설
+퇴사자 접근권한 즉시 회수
+20.2 계약서 분석 체크리스트
+당사자, 체결일, 효력발생일, 계약기간, 자동갱신, 해지권, 손해배상, 책임한도, 준거법·관할, 양도금지, Change of Control, 비밀유지기간, 경업금지, 독점권, 선행조건, 진술보장, Closing deliverables 추출
+20.3 실사 체크리스트
+RFI 생성, 자료 제출현황, 누락자료, Q&A, 이슈 태깅, 리스크 등급, 고객 확인사항, 보고서 반영 여부, SPA 반영사항, Disclosure Schedule 후보, Closing Condition 후보
+20.4 송무 체크리스트
+증거번호, 증거설명, 사실관계 타임라인, 쟁점별 증거 매핑, 상대방 주장, 반박자료, 판례·법령, 재판기일, 제출기한, 전자소송 제출파일, 증인신문사항, 판결문 분석
+결론
+Vault의 본질은 저장소가 아니라 권한 있는 지식의 재사용 시스템이다. 따라서 첫 설계부터 문서가 어느 Matter에 속하고, 어떤 법률쟁점과 연결되며, 누가 접근할 수 있고, AI가 어떤 근거로 사용할 수 있는지를 기준으로 데이터 모델을 잡아야 한다. 개발 우선순위는 Matter Core, Document Vault, Permission & Audit, Search, Email Vault, AI with Governance, Knowledge Graph, Contract/DD/Litigation Workflow, External Portal/VDR, Enterprise SaaS Hardening 순서가 적절하다.

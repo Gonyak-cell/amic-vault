@@ -39,14 +39,14 @@ const actionLabels: Partial<Record<DocumentAuditEventDto['action'], string>> = {
   DOCUMENT_TEXT_EXTRACTED: '본문 추출',
   DISPOSAL_EXECUTED: '폐기 실행',
   DISPOSAL_REQUESTED: '폐기 요청',
-  LEGAL_HOLD_APPLIED: 'Legal Hold 적용',
-  LEGAL_HOLD_RELEASED: 'Legal Hold 해제',
+  LEGAL_HOLD_APPLIED: '보존 조치 적용',
+  LEGAL_HOLD_RELEASED: '보존 조치 해제',
   RECORD_ARCHIVED: '보관 처리',
 };
 
 function categoryLabel(action: DocumentAuditEventDto['action']): string {
   if (action === 'DOCUMENT_VIEWED' || action === 'DOCUMENT_DOWNLOADED') return '열람/다운로드';
-  if (action === 'DOCUMENT_METADATA_CHANGED') return '메타데이터';
+  if (action === 'DOCUMENT_METADATA_CHANGED') return '문서 정보';
   if (
     action === 'DOCUMENT_UPLOADED' ||
     action === 'DOCUMENT_VERSION_ADDED' ||
@@ -61,7 +61,7 @@ function categoryLabel(action: DocumentAuditEventDto['action']): string {
     action === 'DISPOSAL_REQUESTED' ||
     action === 'DISPOSAL_EXECUTED'
   ) {
-    return 'Records';
+    return '기록 보존';
   }
   return '정책 관리';
 }
@@ -133,8 +133,8 @@ export function DocumentAuditTimeline({
   return (
     <SectionCard
       icon={<Activity className="h-4 w-4" />}
-      title="문서 감사 타임라인"
-      meta="문서 통합 활동"
+      title="문서 감사 로그"
+      meta="문서 활동 내역"
       actions={
         <Button asChild size="sm" variant="outline">
           <Link
@@ -154,7 +154,7 @@ export function DocumentAuditTimeline({
           variant="api-error"
         />
       ) : (
-        <DataTable caption="문서 감사 타임라인" minWidthClassName="min-w-[680px]">
+        <DataTable caption="문서 감사 로그" minWidthClassName="min-w-[680px]">
           <DataTableHeader>
             <DataTableRow>
               <DataTableHead>시간</DataTableHead>

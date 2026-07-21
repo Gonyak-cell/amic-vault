@@ -14,6 +14,8 @@ import {
   createLegalHoldRequestSchema,
   createRetentionPolicyRequestSchema,
   disposalCertificateSchema,
+  disposalReviewListResponseSchema,
+  disposalReviewItemSchema,
   disposalRequestSchema,
   legalHoldListResponseSchema,
   legalHoldSchema,
@@ -25,6 +27,8 @@ import {
   type CreateLegalHoldRequestDto,
   type CreateRetentionPolicyRequestDto,
   type DisposalCertificateDto,
+  type DisposalReviewItemDto,
+  type DisposalReviewListResponseDto,
   type DisposalRequestDto,
   type LegalHoldDto,
   type LegalHoldListResponseDto,
@@ -38,7 +42,6 @@ import {
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { StorageService } from '../storage/storage.service';
-import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { WorkService } from '../work/work.service';
 
@@ -212,6 +215,7 @@ interface RecordsArchiveRow {
   document_id: string;
   previous_status: string;
   archive_status: string;
+  closing_binder_id?: string | null;
   created_at: Date;
 }
 
@@ -233,6 +237,12 @@ interface DisposalRequestRow {
   approved_at: Date | null;
   executed_at: Date | null;
   certificate_id: string | null;
+}
+
+interface DisposalReviewRow extends DisposalRequestRow {
+  matter_code: string;
+  matter_name: string;
+  document_title: string;
 }
 
 interface DisposalCertificateRow {
@@ -401,6 +411,17 @@ function mapDisposalRequest(row: DisposalRequestRow): DisposalRequestDto {
   });
 }
 
+function mapDisposalReviewItem(row: DisposalReviewRow): DisposalReviewItemDto {
+  return disposalReviewItemSchema.parse({
+    ...mapDisposalRequest(row),
+    matterCode: row.matter_code,
+    matterName: row.matter_name,
+    documentTitle: row.document_title,
+    reviewSource:
+      row.reason_code === 'RETENTION_EXPIRED' ? 'retention_scheduler' : 'manual_request',
+  });
+}
+
 function mapCertificate(row: DisposalCertificateRow): DisposalCertificateDto {
   return disposalCertificateSchema.parse({
     certificateId: row.certificate_id,
@@ -431,15 +452,11 @@ export class RecordsService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(StorageService) private readonly storageService: StorageService,
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
     @Inject(WorkService) private readonly workService: WorkService,
   ) {}
 
-  async createRetentionPolicy(
-    ctx: PermissionContext,
-    body: unknown,
-  ): Promise<RetentionPolicyDto> {
+  async createRetentionPolicy(ctx: PermissionContext, body: unknown): Promise<RetentionPolicyDto> {
     const input = parseCreateRetentionPolicy(body);
     this.assertContext(ctx);
     await this.assertRecordsAdmin(ctx.tenantId as TenantId, ctx.userId);
@@ -507,12 +524,7 @@ export class RecordsService {
     return this.auditService.transaction(ctx.tenantId, async (tx) => {
       if (input.holdScope === 'document') {
         const documentId = this.documentHoldId(input);
-        const document = await this.findDocumentTarget(
-          tx,
-          ctx.tenantId,
-          documentId,
-          true,
-        );
+        const document = await this.findDocumentTarget(tx, ctx.tenantId, documentId, true);
         if (!document) throw notFoundDenied();
         if (document.matter_id !== input.matterId) throw validationFailed('LEGAL_HOLD_SCOPE');
       } else {
@@ -651,7 +663,13 @@ export class RecordsService {
       const updated = updatedResult.rows[0] as LegalHoldRow | undefined;
       if (!updated) throw validationFailed('LEGAL_HOLD_RELEASE_CONFLICT');
       if (updated.hold_scope === 'matter') {
-        const active = await this.countActiveHolds(tx, ctx.tenantId, updated.matter_id, 'matter', null);
+        const active = await this.countActiveHolds(
+          tx,
+          ctx.tenantId,
+          updated.matter_id,
+          'matter',
+          null,
+        );
         if (active === 0) {
           await tx.query(
             `
@@ -782,10 +800,94 @@ export class RecordsService {
     });
   }
 
-  async createDisposalRequest(
+  async archiveDocumentForClosingBinder(
+    client: QueryClient,
     ctx: PermissionContext,
-    body: unknown,
-  ): Promise<DisposalRequestDto> {
+    input: { closingBinderId: string; documentId: string; reasonCode: string },
+  ): Promise<RecordsArchiveDto> {
+    if (!ctx.tenantId || !ctx.userId) throw validationFailed();
+    const existing = await client.query(
+      `
+        SELECT archive_id, matter_id, document_id, previous_status, archive_status,
+          closing_binder_id, created_at
+        FROM records_archives
+        WHERE tenant_id = $1
+          AND document_id = $2
+        FOR UPDATE
+      `,
+      [ctx.tenantId, input.documentId],
+    );
+    const existingRow = existing.rows[0] as RecordsArchiveRow | undefined;
+    if (existingRow) {
+      if (existingRow.closing_binder_id === input.closingBinderId) return mapArchive(existingRow);
+      throw validationFailed('DOCUMENT_ARCHIVE_CONFLICT');
+    }
+
+    const target = await this.findDocumentTarget(client, ctx.tenantId, input.documentId, true);
+    if (!target) throw notFoundDenied();
+    await this.assertCanEditMatter(ctx, target.matter_id);
+    if (!mutableRecordStatuses.has(target.status)) {
+      throw documentLocked('DOCUMENT_IMMUTABLE_STATE');
+    }
+    this.assertNoHoldFlags(target);
+    await this.assertNoActiveHoldsForDocument(client, ctx.tenantId, target.matter_id, input.documentId);
+    const updated = await client.query(
+      `
+        UPDATE documents
+        SET status = 'archived',
+          updated_at = now()
+        WHERE tenant_id = $1
+          AND document_id = $2
+      `,
+      [ctx.tenantId, input.documentId],
+    );
+    if (updated.rowCount !== 1) throw validationFailed('DOCUMENT_ARCHIVE_CONFLICT');
+    const result = await client.query(
+      `
+        INSERT INTO records_archives (
+          tenant_id, matter_id, document_id, previous_status, reason_code, archived_by,
+          closing_binder_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING archive_id, matter_id, document_id, previous_status, archive_status,
+          closing_binder_id, created_at
+      `,
+      [
+        ctx.tenantId,
+        target.matter_id,
+        input.documentId,
+        target.status,
+        input.reasonCode,
+        ctx.userId,
+        input.closingBinderId,
+      ],
+    );
+    const row = result.rows[0] as RecordsArchiveRow | undefined;
+    if (!row) throw validationFailed('ARCHIVE_CREATE_FAILED');
+    await this.auditService.log(
+      {
+        tenantId: ctx.tenantId,
+        actorId: ctx.userId,
+        action: 'RECORD_ARCHIVED',
+        targetType: 'document',
+        targetId: input.documentId,
+        matterId: target.matter_id,
+        metadata: {
+          archive_id: row.archive_id,
+          closing_binder_id: input.closingBinderId,
+          matter_id: target.matter_id,
+          document_id: input.documentId,
+          status_before: target.status,
+          status_after: 'archived',
+          reason_code: input.reasonCode,
+        },
+      },
+      client,
+    );
+    return mapArchive(row);
+  }
+
+  async createDisposalRequest(ctx: PermissionContext, body: unknown): Promise<DisposalRequestDto> {
     const input = parseCreateDisposal(body);
     this.assertContext(ctx);
 
@@ -797,7 +899,12 @@ export class RecordsService {
         throw documentLocked('DOCUMENT_IMMUTABLE_STATE');
       }
       this.assertNoHoldFlags(target);
-      await this.assertNoActiveHoldsForDocument(tx, ctx.tenantId, target.matter_id, input.documentId);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        target.matter_id,
+        input.documentId,
+      );
       await this.assertNoBusinessReferences(tx, ctx.tenantId, input.documentId);
       await this.assertNoOpenDisposalRequest(tx, ctx.tenantId, input.documentId);
 
@@ -874,6 +981,41 @@ export class RecordsService {
     });
   }
 
+  async listDisposalRequests(ctx: PermissionContext): Promise<DisposalReviewListResponseDto> {
+    this.assertContext(ctx);
+    await this.assertRecordsAdmin(ctx.tenantId as TenantId, ctx.userId);
+    return this.auditService.transaction(ctx.tenantId, async (tx) => {
+      const result = await tx.query(
+        `
+          SELECT dr.disposal_request_id, dr.matter_id, dr.document_id, dr.status,
+            dr.reason_code, dr.requested_by, dr.approved_by, dr.executed_by,
+            dr.assigned_to_user_id, dr.assigned_role, dr.due_at,
+            dr.workflow_item_id, dr.workflow_audit_event_id,
+            dr.created_at, dr.approved_at, dr.executed_at, dc.certificate_id,
+            m.matter_code, m.matter_name, d.title AS document_title
+          FROM disposal_requests dr
+          JOIN matters m
+            ON m.tenant_id = dr.tenant_id
+            AND m.matter_id = dr.matter_id
+          JOIN documents d
+            ON d.tenant_id = dr.tenant_id
+            AND d.document_id = dr.document_id
+          LEFT JOIN disposal_certificates dc
+            ON dc.tenant_id = dr.tenant_id
+            AND dc.disposal_request_id = dr.disposal_request_id
+          WHERE dr.tenant_id = $1
+            AND dr.status IN ('requested', 'approved')
+          ORDER BY dr.due_at ASC, dr.created_at DESC, dr.disposal_request_id ASC
+          LIMIT 100
+        `,
+        [ctx.tenantId],
+      );
+      return disposalReviewListResponseSchema.parse({
+        disposals: (result.rows as DisposalReviewRow[]).map(mapDisposalReviewItem),
+      });
+    });
+  }
+
   async approveDisposalRequest(
     ctx: PermissionContext,
     disposalRequestId: string,
@@ -891,7 +1033,12 @@ export class RecordsService {
       const target = await this.findDocumentTarget(tx, ctx.tenantId, before.document_id, true);
       if (!target) throw notFoundDenied();
       this.assertNoHoldFlags(target);
-      await this.assertNoActiveHoldsForDocument(tx, ctx.tenantId, before.matter_id, before.document_id);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        before.matter_id,
+        before.document_id,
+      );
       await this.assertNoBusinessReferences(tx, ctx.tenantId, before.document_id);
 
       const result = await tx.query(
@@ -984,7 +1131,12 @@ export class RecordsService {
       const target = await this.findDocumentTarget(tx, ctx.tenantId, request.document_id, true);
       if (!target) throw notFoundDenied();
       this.assertNoHoldFlags(target);
-      await this.assertNoActiveHoldsForDocument(tx, ctx.tenantId, request.matter_id, request.document_id);
+      await this.assertNoActiveHoldsForDocument(
+        tx,
+        ctx.tenantId,
+        request.matter_id,
+        request.document_id,
+      );
       await this.assertNoBusinessReferences(tx, ctx.tenantId, request.document_id);
 
       const versionFiles = await this.listVersionFiles(tx, ctx.tenantId, request.document_id);
@@ -995,7 +1147,12 @@ export class RecordsService {
       ].sort();
       const versionIds = versionFiles.map((row) => row.version_id).sort();
       const storageUris = uniqueStorageUris([...versionFiles, ...previewFiles]);
-      const documentHash = sha256Hex(versionFiles.map((row) => row.file_hash).sort().join(':'));
+      const documentHash = sha256Hex(
+        versionFiles
+          .map((row) => row.file_hash)
+          .sort()
+          .join(':'),
+      );
       const executedAt = new Date();
       const certificateHash = sha256Hex(
         [
@@ -1461,10 +1618,7 @@ export class RecordsService {
     },
   ): Promise<number> {
     let deletedRows = 0;
-    await client.query('SELECT set_config($1, $2, true)', [
-      'app.records_disposal_executor',
-      'on',
-    ]);
+    await client.query('SELECT set_config($1, $2, true)', ['app.records_disposal_executor', 'on']);
     deletedRows += rowCount(
       await client.query(
         `

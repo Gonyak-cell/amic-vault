@@ -1,0 +1,5052 @@
+공유하기
+Neo4j 는 여기서 단순한 “그래프 시각화 도구”가 아니라 Matter Graph의 영속 저장소이자, LLM
+Wiki/RAG/Citation Ledger를 연결하는 핵심 DB로 봐야 합니다. 최신 Neo4j의 GraphRAG·벡터
+인덱스 기능까지 확인해서 Law Firm OS 기준으로 정리하겠습니다.
+6s 동안 생각함
+
+Neo4j까지 포함하면 구조가 훨씬 선명해집니다. 앞서 말한 옵시디언 + LLM Wiki + Gemma 4
+12B는 각각 “지식 편집 방식”, “LLM용 지식 컴파일 방식”, “로컬 처리 모델”에 가깝고, Neo4j는 그
+모든 관계를 실제로 저장·질의·검증하는 Matter Graph DB가 됩니다.
+결론부터 말하면, Law Firm OS에서 Neo4j는 다음 역할로 쓰는 것이 가장 적합합니다.
+구성요소                              역할
+Obsidian   방식                     사람이 이해하고 편집하기 쉬운 Markdown 기반 지식
+                                  뷰
+LLM Wiki                          LLM   이 읽기 쉬운 구조화된 Matter Wiki
+Gemma 4 12B                       로컬 문서 분류·요약·초기 구조화·기밀자료 처리
+구성요소                                역할
+Neo4j                               문서·사실·쟁점·조항·당사자·근거 간 관계를 저장하는
+                                    그래프 DB
+Vector DB   또는 Neo4j Vector Index   의미 기반 검색
+Strong LLM                          최종 법률분석·계약서 작성·보고서 생성
+Citation Ledger                     모든 주장과 원문 근거의 연결
+Conflict Detector                   문서 간 불일치·버전 충돌·근거 누락 탐지
+
+Neo4j는 특히 GraphRAG와 결합할 때 의미가 큽니다. Neo4j는 공식적으로 GraphRAG Python
+패키지를 제공하고 있고, 해당 패키지는 비정형 텍스트에서 엔티티를 추출하고, 임베딩을 생성하
+며, Neo4j에 그래프를 생성하는 파이프라인을 지원한다고 설명합니다.                 또한 Graph Databas…
+
+
+Neo4j는 벡터 인덱스를 통해 노드·관계의 임베딩을 저장하고 유사도 검색을 수행할 수 있으며,
+HNSW 기반 근사 최근접 탐색을 지원한다고 설명합니다.            Graph Databas… +1
+
+
+
+따라서 Law Firm OS에서는 Neo4j를 “문서관리시스템의 보조 DB”가 아니라 “법률업무의 관계
+형 지식 엔진”으로 설계해야 합니다.
+
+1. Neo4j       를 왜 써야 하는가
+일반적인 DMS나 SQL DB는 다음 질문에 약합니다.
+ 1. 이 조항이 어느 쟁점과 연결되는가?
+ 2. 이 쟁점의 근거문서는 무엇인가?
+ 3. 이 사실관계는 어느 이메일, 회의록, 계약서에서 확인되는가?
+ 4. 이 리스크는 어느 보고서에 반영되었는가?
+ 5. 이 계약서 버전은 어느 마크업본을 대체하는가?
+ 6. 이 조항과 유사한 조항이 과거 어느 프로젝트에서 쓰였는가?
+ 7. 이 판례는 어느 의견서에서 인용되었는가?
+ 8. 이 Disclosure Schedule 예외는 어느 진술보장 조항을 제한하는가?
+ 9. 이 RFI 항목은 어느 리스크를 해소하기 위해 요청되었는가?
+10. 이사회 의사록 부존재가 어떤 CP, 진술보장, 손해배상 조항에 영향을 주는가?
+
+이런 질문들은 본질적으로 “관계”를 묻는 질문입니다. Neo4j 같은 그래프 DB가 적합한 이유가 여
+기에 있습니다.
+Law Firm OS의 차별성은 문서 저장이 아니라, 문서 간 의미 있는 법률관계의 추적입니다.
+2. Neo4j      를 Law Firm OS에 넣을 때의 핵심 개념
+2.1. Matter Graph
+    에는 각 사건·딜을 중심으로 그래프를 만듭니다.
+Neo4j
+
+중심 노드는 Matter 입니다.
+그 아래에 다음 노드들이 연결됩니다.
+노드                          의미
+Matter                      사건, 딜, 자문 프로젝트
+Client                      의뢰인
+Party                       계약 당사자, 거래 당사자
+Person                      담당자, 임원, 변호사, 상대방 실무자
+Entity                      회사, 조합, SPC, 계열사
+Document                    계약서, 이메일, 의사록, 보고서, RFI, 회의록
+DocumentVersion             v1, v2, markup, execution copy
+
+
+Clause                      계약 조항
+DefinedTerm                 정의어
+Fact                        확인된 사실관계
+Issue                       법률상·상업상 쟁점
+Risk                        리스크
+Task                        후속 조치
+RFIItem                     요청자료 항목
+Authority                   법령, 판례, 유권해석, 문헌
+WorkProduct                 의견서, 보고서, 계약서 초안, 이메일 회신
+Citation                    특정 주장과 근거 위치
+노드                         의미
+TimelineEvent              주요 일정·사건 발생일
+Obligation                 계약상 의무
+Approval                   이사회·주총·정부 인허가 등 승인사항
+NegotiationPosition        상대방 또는 우리 측 협상 입장
+
+이렇게 구성하면 Law Firm OS는 단순히 파일을 보관하는 것이 아니라, 해당 프로젝트의 법률적
+구조를 데이터로 보유하게 됩니다.
+
+2.2.   핵심 관계, 즉 Edge
+    에서 더 중요한 것은 노드보다 관계입니다. Law Firm OS에서는 관계명을 무작정 늘리면
+Neo4j
+안 되고, 법률업무에서 의미 있는 관계만 써야 합니다.
+권장 관계는 다음과 같습니다.
+관계                          의미
+HAS_DOCUMENT                Matter   가 특정 문서를 포함
+HAS_VERSION                 문서의 특정 버전
+SUPERSEDES                  특정 문서/버전이 이전 버전을 대체
+AMENDS                      특정 문서가 다른 문서를 수정
+CONTAINS_CLAUSE             계약서가 특정 조항을 포함
+DEFINES                     문서가 특정 정의어를 정의
+USES_DEFINED_TERM           조항이 특정 정의어를 사용
+RELATES_TO_ISSUE            문서/조항/사실이 특정 쟁점과 관련
+SUPPORTS                    문서/사실/authority가 특정 주장 또는 쟁점을 뒷받침
+CONTRADICTS                 특정 자료가 다른 자료 또는 주장과 충돌
+EVIDENCES                   문서가 특정 사실을 입증
+관계                             의미
+RAISES_RISK                    쟁점 또는 사실이 리스크를 발생
+MITIGATES_RISK                 조치 또는 문서가 리스크를 완화
+REQUIRES_ACTION                쟁점이 후속 조치를 요구
+REQUESTED_BY                   RFI   항목이 특정 쟁점 때문에 요청됨
+RESOLVES                       제출자료나 조치가 특정 쟁점을 해소
+CITES                          산출물이 법령·판례·문헌을 인용
+BASED_ON                       산출물이 특정 문서·사실에 기반
+DISCUSSED_IN                   쟁점이 이메일/회의록에서 논의됨
+NEGOTIATED_IN                  조항이 특정 협상 과정에서 논의됨
+ASSIGNED_TO                    업무가 특정 담당자에게 배정
+OWNED_BY                       Matter   또는 Task의 책임자
+SIMILAR_TO                     조항·문서·쟁점이 과거 사례와 유사
+EXCEPTION_TO                   Disclosure Schedule   항목이 특정 진술보장의 예외
+CONDITION_TO                   선행조건이 종결 또는 의무 이행의 조건
+TRIGGERS                       특정 사실이 권리·의무·해제권·손해배상 등을 발생
+REQUIRES_APPROVAL              거래 또는 행위가 특정 승인을 요구
+
+이 구조가 있으면 LLM에게 단순히 문서를 검색시킬 필요가 없습니다. LLM이 Neo4j에 질의하여
+“관련 문서 → 쟁점 → 조항 → 근거 → 리스크 → 해결조치”를 순차적으로 따라갈 수 있습니다.
+
+
+
+
+3. Law Firm OS      에서 Neo4j가 맡을 정확한 역할
+3.1. Neo4j     는 DMS가 아니다
+원본 파일은 Neo4j에 넣지 않는 것이 좋습니다.
+원본 파일은 다음 저장소에 둡니다.
+데이터                               권장 저장소
+PDF, DOCX, XLSX, MSG, HTML   원본   Object Storage   또는 DMS
+텍스트 추출본                           Document Store
+
+
+페이지별 chunk                        Search Index / Vector Index
+
+
+파일 메타데이터                          PostgreSQL
+
+
+관계 데이터                            Neo4j
+
+
+임베딩                               Neo4j Vector Index   또는 별도 Vector DB
+감사로그                              Append-only Log
+
+
+작업상태                              PostgreSQL   또는 Workflow DB
+
+Neo4j 에는 원본 파일 자체가 아니라 다음을 저장합니다.
+ 1. 문서의 식별자
+ 2. 문서의 버전
+ 3. 문서와 Matter의 관계
+ 4. 조항 구조
+ 5. 정의어
+ 6. 사실관계
+ 7. 쟁점
+ 8. 리스크
+ 9. citation 위치
+10. 문서 간 충돌
+11. 유사 조항 관계
+12. 후속 조치 관계
+
+즉, Neo4j는 문서의 관계형 의미 계층입니다.
+
+3.2. Neo4j   는 LLM Wiki의 백엔드가 되어야 함
+앞서 말한 LLM Wiki는 사람이 보는 Markdown이 아니라 LLM이 읽기 좋은 구조화된 지식입니다.
+그런데 LLM Wiki를 Markdown 파일로만 저장하면, 다음 질문에 약합니다.
+ 1. 이 쟁점을 뒷받침하는 모든 근거는?
+ 2. 이 조항과 관련된 모든 리스크는?
+ 3. 이 문서를 대체한 최신 버전은?
+ 4. 이 사실과 충돌하는 자료는?
+ 5. 이 Matter와 유사한 과거 Matter는?
+ 6. 이 판례가 인용된 모든 산출물은?
+ 7. 특정 회사가 등장하는 모든 딜은?
+ 8. 특정 정의어가 쓰인 모든 계약서 조항은?
+
+이런 질문은 Neo4j가 더 적합합니다.
+따라서 구조는 다음이 좋습니다.
+계층                                     역할
+Markdown/Obsidian View                 사람이 읽고 편집
+LLM Wiki Page                          LLM   이 읽는 정리본
+Neo4j Graph                            관계의 원천 데이터
+Raw Documents                          원문 근거
+Citation Ledger                        주장별 근거 위치
+
+즉, Neo4j에서 관계를 저장하고, LLM Wiki는 Neo4j 데이터를 읽어서 생성되는 뷰가 되어야 합
+니다.
+
+4. Neo4j      와 GraphRAG의 활용
+4.1.   일반 RAG와 GraphRAG의 차이
+일반 RAG는 “질문과 유사한 텍스트 chunk”를 찾습니다.
+GraphRAG는 다음을 함께 사용합니다.
+
+ 1. 의미검색
+ 2. 엔티티 검색
+ 3. 관계 탐색
+ 4. 그래프 경로 추적
+ 5. 문서 간 연결
+ 6. 원문 citation
+ 7. 다중-hop 추론
+
+Neo4j는 공식 GraphRAG Python 패키지를 제공하며, 해당 패키지는 graph search, vector
+search, 외부 vector database와의 통합 retriever를 제공한다고 설명합니다.  Graph Databas… +1
+Neo4j의 GenAI 문서도 GraphRAG, embeddings, vector indexes, GenAI plugin 등을 별도 영
+역으로 제공하고 있습니다.           Graph Databas…
+
+
+
+Law Firm OS에서 이 차이는 매우 큽니다.
+
+예를 들어 사용자가 이렇게 묻습니다.
+“이 SPA에서 매도인 입장에서 제8조 손해배상 조항이 위험한 이유를 알려줘.”
+
+일반 RAG는 손해배상 조항 주변 chunk를 찾습니다.
+GraphRAG는 다음 경로를 따라갑니다.
+
+ 1. Matter → HAS_DOCUMENT → SPA
+ 2. SPA → HAS_VERSION →  최신 버전
+ 3. SPA → CONTAINS_CLAUSE → 제8조 손해배상
+ 4. 제8조 → USES_DEFINED_TERM → “손해”, “위반”, “진술 및 보장”
+ 5. 제8조 → RELATES_TO_ISSUE → 진술보장보험, liability cap, 특별손해
+ 6. 제8조 → RELATES_TO_ISSUE → Disclosure Schedule 예외
+ 7. Issue → SUPPORTED_BY → 상대방 이메일, 회의록, 마크업
+ 8. Issue → SIMILAR_TO → 과거 유사 프로젝트 조항
+ 9. Risk → MITIGATED_BY → 수정안 후보
+10. WorkProduct → BASED_ON → 검토의견서 초안
+
+이 결과를 LLM에 넣으면 답변 품질이 훨씬 좋아집니다.
+
+4.2. Neo4j Vector Index     활용
+Neo4j는 그래프 DB이지만 벡터 인덱스도 지원합니다. 공식 문서에 따르면 Neo4j의 vector
+index는 노드나 속성을 벡터로 표현하여 유사도 검색과 분석 쿼리를 가능하게 하고, 임베딩을 사
+용한 유사 노드·관계 검색에 활용됩니다.                    Graph Databas… +1
+
+
+
+Law Firm OS에서는 다음 데이터를 임베딩 대상으로 삼을 수 있습니다.
+
+임베딩 대상                                               목적
+Clause text                                          유사 조항 검색
+Issue summary                                        유사 쟁점 검색
+Risk description                                     과거 리스크 재사용
+Work product paragraph                               과거 의견서 문구 검색
+임베딩 대상                                   목적
+Email thread summary                     협상 히스토리 검색
+Meeting note summary                     회의 쟁점 검색
+Authority headnote                       판례·법령 관련성 검색
+RFI item                                 유사 요청자료 검색
+Matter summary                           유사 딜 검색
+
+중요한 점은 벡터 검색만 하지 않는 것입니다. 벡터 검색으로 후보를 찾고, Neo4j 관계 탐색으로
+근거와 맥락을 확장해야 합니다.
+
+5. Law Firm OS         용 Neo4j 데이터 모델
+5.1. Matter      중심 모델
+기본 구조는 다음과 같습니다.
+Label                        주요 속성
+Matter                       matterId, name, clientId, type, status, position,
+                             openedAt, closedAt
+
+
+Client                       clientId, name, industry, jurisdiction
+
+
+Party                        partyId, name, role, entityType
+
+
+Person                       personId, name, title, organization
+
+
+Document                     documentId, title, fileName, docType, date, source,
+                             confidentiality
+
+
+DocumentVersion              versionId, versionLabel, createdAt, receivedAt, status
+
+
+Clause                       clauseId, number, title, text, clauseType, partyFriendly
+
+
+DefinedTerm                  termId, term, definitionText
+
+
+Issue                        issueId, title, issueType, severity, status
+
+
+Risk                         riskId, title, level, description, status
+Label                  주요 속성
+Fact                   factId, statement, date, confidence, verificationStatus
+
+
+Citation               citationId, documentId, page, section, paragraph,
+                       quoteHash
+
+
+Authority              authorityId, type, title, court, caseNo, date, citation
+
+
+Task                   taskId, title, status, assignee, dueDate
+
+
+RFIItem                rfiId, number, requestText, status, owner
+
+
+WorkProduct            workProductId, title, type, version, status
+
+
+TimelineEvent          eventId, date, title, description
+
+
+NegotiationPosition    positionId, side, issue, summary, date
+
+
+Approval               approvalId, type, body, date, status
+
+
+Obligation             obligationId, obligor, obligee, content, deadline
+
+
+
+
+5.2.    문서 버전 모델
+법률문서에서는 버전 관리가 매우 중요합니다. Neo4j에서 다음 관계를 명확히 둬야 합니다.
+관계                            예시
+HAS_VERSION                   SPA → SPA_v3_markup
+
+
+SUPERSEDES                    SPA_v3 → SPA_v2
+
+
+DERIVED_FROM                  회의록 v9 → 녹취록
+MARKUP_OF                     SPA_markup → SPA_clean
+
+
+EXECUTION_COPY_OF             서명본 → 최종본
+AMENDS                        Amendment Agreement → Original SPA
+
+
+ATTACHES                      SPA → Disclosure Schedule
+
+
+HAS_EXHIBIT                   SPA →    별지 1
+관계                         예시
+HAS_SIGNATURE_PAGE         SPA →   서명 페이지
+
+이 구조가 없으면 LLM이 초안, 마크업, 서명본을 혼동합니다. 특히 법률문서에서는 치명적입니
+다.
+
+5.3.   계약서 조항 모델
+계약서 조항은 반드시 별도 노드로 분해해야 합니다.
+예:
+Clause Type                예시
+Definitions                정의
+Purchase Price             매매대금
+Closing                    종결
+Conditions Precedent       선행조건
+Representations            진술 및 보장
+Covenants                  확약
+Indemnity                  손해배상
+Termination                해제
+Confidentiality            비밀유지
+Non-compete                경업금지
+Governance                 지배구조
+Transfer Restriction       양도제한
+Drag/Tag                   동반매도요구권/동반매도참여권
+Deadlock                   교착상태
+Dispute Resolution         분쟁해결
+그리고 각 조항은 다음과 연결되어야 합니다.
+ 1. 관련 정의어
+ 2. 관련 의무
+ 3. 관련 권리
+ 4. 관련 리스크
+ 5. 관련 쟁점
+ 6. 관련 Disclosure Schedule 예외
+ 7. 관련 협상 히스토리
+ 8. 관련 과거 샘플 조항
+ 9. 관련 보고서 문구
+
+
+
+
+5.4. Fact Ledger     모델
+소송, 실사, M&A 모두에서 사실관계 추적이 중요합니다.
+Fact 노드는 다음처럼 설계합니다.
+
+속성                              설명
+statement                       확인된 사실
+date                            발생일
+sourceType                      계약서, 이메일, 회의록, 등기부 등
+confidence                      confirmed / likely / disputed / unknown
+
+
+verificationStatus              미검토 / 검토중 / 확정
+legalSignificance               법률적 의미
+createdBy                       AI /   변호사
+reviewedBy                      검토자
+reviewedAt                      검토일
+
+관계는 다음이 필요합니다.
+관계                                 의미
+EVIDENCED_BY                       사실이 특정 문서로 입증
+관계                          의미
+CONTRADICTED_BY             반대자료 존재
+RELATES_TO_ISSUE            사실이 특정 쟁점과 관련
+TRIGGERS                    사실이 특정 권리·의무 발생
+OCCURRED_BEFORE             시간순 관계
+OCCURRED_AFTER              시간순 관계
+
+이 구조는 특히 분쟁과 실사에서 강합니다.
+
+6. Neo4j    를 활용한 주요 기능
+6.1.   유사 조항 검색
+사용자 질문:
+“매도인에게 유리한 손해배상 조항 샘플 찾아줘.”
+
+처리 방식:
+ 1. Clause 중 clauseType = Indemnity 검색
+ 2. partyFriendly = Seller 필터
+ 3. embedding 유사도 검색
+ 4. 과거 프로젝트별 사용 사례 탐색
+ 5. 실제 협상에서 수용된 조항 우선순위 부여
+ 6. 해당 조항이 어떤 리스크와 연결되었는지 표시
+ 7. 최종 추천
+
+단순 문구 검색보다 훨씬 낫습니다. “손해배상”이라는 단어가 없어도 indemnity 구조가 유사한 조
+항을 찾을 수 있습니다.
+
+6.2.   쟁점별 근거 추적
+사용자 질문:
+“이 자기거래 이슈의 근거자료가 뭐야?”
+
+Neo4j는 다음 경로를 탐색합니다.
+Matter → Issue → Fact → Citation → Document
+
+추가로 다음도 확인합니다.
+Issue → Risk
+Issue → RFIItem
+Issue → WorkProduct
+Issue → Authority
+Issue → Task
+
+그 결과 사용자는 다음을 봅니다.
+ 1. 확인된 사실
+ 2. 근거 문서
+ 3. 원문 위치
+ 4. 관련 법령
+ 5. 미제출 자료
+ 6. 보완 필요 조치
+ 7. 보고서 반영 여부
+
+이것이 Law Firm OS에서 매우 중요합니다.
+
+6.3. RFI   자동 생성 및 추적
+실사에서 자주 발생하는 흐름입니다.
+ 1. 문서 업로드
+ 2. Issue 자동 생성
+ 3. Issue별 미확인 사항 추출
+ 4. 미확인 사항을 RFIItem으로 변환
+ 5. RFI 제출 여부 추적
+ 6. 제출자료가 들어오면 해당 Issue와 연결
+ 7. Issue 상태를 unresolved → partially resolved → resolved로 변경
+
+Neo4j 관계 예시는 다음과 같습니다.
+
+Issue REQUIRES_ACTION RFIItem
+RFIItem REQUESTED_BY Lawyer
+RFIItem ANSWERED_BY Document
+Document RESOLVES Issue
+Document EVIDENCES Fact
+
+이 구조가 있으면 RFI가 단순 엑셀 목록이 아니라, 리스크 해소 프로세스가 됩니다.
+6.4.   계약서-회의록-이메일 정합성 검토
+사용자 업무에서 자주 나오는 유형입니다.
+질문:
+“HTML 회의록이 계약서 원문과 녹취록에 부합하는지 검토해줘.”
+
+Neo4j 구조를 쓰면 다음을 자동화할 수 있습니다.
+
+ 1. 회의록의 각 합의사항을 Fact 또는 NegotiationPosition 으로 추출
+ 2. 녹취록에서 같은 내용의 발언을 연결
+ 3. 계약서 조항에 반영되었는지 연결
+ 4. 이메일에서 후속 합의 여부 연결
+ 5. 불일치하면 CONTRADICTS 관계 생성
+ 6. 누락되면 NOT_REFLECTED_IN 또는 REQUIRES_ACTION 생성
+
+결과적으로 다음과 같은 표를 자동 생성할 수 있습니다.
+회의록 기재          녹취록 근거        계약서 반영        상태
+합의됨             있음            반영됨           이상 없음
+합의됨             없음            반영됨           회의록 근거 부족
+합의됨             있음            미반영           계약서 반영 필요
+미합의             있음            반영됨           계약서 과잉반영 가능성
+상대방 요구          있음            미반영           협상 쟁점 유지
+
+이건 일반 RAG만으로는 안정적으로 구현하기 어렵고, Neo4j가 들어가면 강해집니다.
+
+6.5. Disclosure Schedule   예외 추적
+M&A    에서 매우 중요합니다.
+구조:
+SPA 진술보장 조항 → Disclosure Schedule 항목 → 예외사실 → 관련문서 → 관련리스크
+예를 들어:
+ 1. SPA 제5.12조 “소송 없음”
+                      에 특정 소송 예외 기재
+ 2. Disclosure Schedule 5.12
+ 3. 해당 소송 자료가 별도 업로드
+ 4. Risk Register에 반영
+ 5. 손해배상 제외 또는 특별면책 조항에 반영
+
+Neo4j 관계:
+
+Clause HAS_EXCEPTION DisclosureItem
+DisclosureItem EVIDENCES Fact
+Fact RAISES_RISK Risk
+Risk MITIGATED_BY Clause
+Risk REFLECTED_IN WorkProduct
+
+이렇게 설계하면 “Disclosure Schedule 예외가 보고서와 계약서에 제대로 반영되었는지”를 점검
+할 수 있습니다.
+
+6.6.   종결 선행조건 CP 추적
+M&A 에서는 CP 관리가 핵심입니다.
+Neo4j에서 ConditionPrecedent 또는 Approval 노드를 둡니다.
+
+예:
+CP                              관련자료                     상태
+이사회 승인                          이사회 의사록                  완료
+주주총회 승인                         주총 의사록                   미제출
+공정위 기업결합 신고                     신고서, 승인공문                진행 중
+제3자 동의                          라이선스 계약, 동의서             미확인
+진술보장 정확성                        Bring-down certificate   예정
+
+관계:
+Clause CONTAINS_CONDITION Approval
+Approval EVIDENCED_BY Document
+Approval REQUIRED_FOR Closing
+Approval BLOCKS Closing
+Task RESOLVES Approval
+그러면 시스템이 “종결을 막는 미완료 CP”를 자동으로 뽑을 수 있습니다.
+
+6.7.   주주간계약 SHA 지배구조 분석
+SHA 에서는 다음 관계가 중요합니다.
+ 1. 주주
+ 2. 지분율
+ 3. 이사 지명권
+ 4. 주요사항 동의권
+ 5. 양도제한
+ 6. 우선매수권
+ 7. Tag/Drag
+ 8. Deadlock
+ 9. 경업금지
+10. 정보권
+11. 위반 시 구제수단
+
+Neo4j 모델:
+
+Shareholder → OWNS → ShareClass
+Shareholder → HAS_NOMINATION_RIGHT → BoardSeat
+Clause → REQUIRES_CONSENT_FROM → Shareholder
+Transfer → TRIGGERS → ROFR
+Transfer → TRIGGERS → TagAlong
+ExitEvent → TRIGGERS → DragAlong
+DeadlockEvent → TRIGGERS → ResolutionMechanism
+
+이 구조를 쓰면 특정 주주에게 실질적 지배권이 어디에서 발생하는지를 분석할 수 있습니다. 그리
+고 계약서 조항에 “실질적 경영권은 A가 가진다” 같은 아마추어 문구를 넣지 않고, 이사 지명권, 예
+산 승인권, reserved matters, quorum, veto, 정보권, deadlock 구조를 통해 목적을 달성할 수 있
+습니다.
+
+7. Gemma 4 12B        와 Neo4j의 역할 분담
+7.1. Gemma 4 12B    가 하는 일
+          는 로컬에서 다음을 수행합니다.
+Gemma 4 12B
+ 1. 문서 유형 분류
+ 2. 당사자명 추출
+ 3. 날짜·금액 추출
+ 4. 조항 구조 추출
+ 5. 정의어 추출
+ 6. 회의록 쟁점 추출
+ 7. 이메일 협상입장 추출
+ 8. Fact 후보 생성
+ 9. Issue 후보 생성
+10. Risk 후보 생성
+11. RFI 후보 생성
+12. Neo4j에 넣을 노드/관계 후보 생성
+
+7.2. Neo4j   가 하는 일
+Neo4j는 다음을 수행합니다.
+ 1. 후보 노드 저장
+ 2. 관계 저장
+ 3. 중복 엔티티 병합
+ 4. 문서 간 연결
+ 5. 쟁점별 근거 추적
+ 6. 버전 관계 관리
+ 7. 충돌 탐지
+ 8. 다중-hop 질의
+ 9. GraphRAG retrieval
+10. LLM Wiki   생성의 원천 데이터 제공
+7.3. Strong LLM    이 하는 일
+더 강한 모델은 다음에 사용합니다.
+ 1. 고난도 법률분석
+ 2. 계약서 조항 작성
+ 3. 법률의견서 작성
+ 4. 상대방 마크업 대응
+ 5. 판례·법령 적용
+ 6. 보고서 문구 정리
+ 7. 전략 판단
+ 8. 최종 산출물 생성
+
+즉, Gemma는 “입력자료 구조화”, Neo4j는 “관계 저장·탐색”, Strong LLM은 “고난도 판단·작성”
+입니다.
+
+8.    권장 시스템 아키텍처
+8.1.   전체 구성
+계층                   구성
+Frontend             Matter Dashboard, Wiki View, Graph View, Review Panel
+
+
+File Layer           원본 PDF/DOCX/XLSX/MSG/HTML 저장
+Parser Layer         OCR, DOCX parser, XLSX parser, MSG parser
+
+
+Local AI Layer       Gemma 4 12B
+
+
+Relational Layer     PostgreSQL
+
+
+Graph Layer          Neo4j
+
+
+Search Layer         Keyword Search + Vector Search
+
+
+Wiki Layer           Markdown/MDX LLM Wiki
+
+
+LLM Layer            Strong LLM Router
+
+
+Audit Layer          Citation Ledger, Review Log, Prompt Log
+
+
+Workflow Layer       RFI, LDD, SPA Review, SHA Drafting, Meeting Minutes QC
+
+
+
+
+8.2.   데이터 흐름
+문서가 업로드되면 다음 순서로 처리합니다.
+ 1. 원본 파일 저장
+ 2. 파일 해시 생성
+ 3. 문서 유형 판별
+ 4. OCR 또는 텍스트 추출
+ 5. chunk 생성
+ 6. 임베딩 생성
+ 7. Gemma 4 12B로 메타데이터 추출
+ 8. 조항·정의어·당사자·날짜 추출
+ 9. Fact/Issue/Risk 후보 생성
+10. Neo4j에 노드 후보 저장
+11. 중복 엔티티 병합
+12. Citation Ledger 생성
+13. Matter Wiki 업데이트
+14. Human Review Queue등록
+15. 검토 완료 후 confirmed 상태로 변경
+
+이때 AI가 생성한 모든 노드에는 createdBy = AI , reviewStatus = unreviewed 같은 속성을
+넣어야 합니다. 변호사가 확인한 것과 AI가 추정한 것을 반드시 구분해야 합니다.
+
+9. Neo4j     질의가 실제로 해결하는 질문들
+9.1. Matter   상태 질문
+이 딜에서 아직 미해결된 High Risk만 보여줘.”
+“
+
+Graph 탐색:
+
+Matter → Issue → Risk
+조건: Risk.level = High, Risk.status ≠ Resolved
+결과:
+ 1. 리스크명
+ 2. 관련 사실
+ 3. 근거 문서
+ 4. 관련 계약조항
+ 5. 필요한 RFI
+ 6. 담당자
+ 7. 보고서 반영 여부
+
+
+
+
+9.2.   계약서 조항 질문
+이 SPA의 매수인에게 과도하게 유리한 조항만 뽑아줘.”
+“
+
+Graph 탐색:
+
+Matter → SPA → Clause
+조건: partyFriendly = Buyer, severity ≥ Medium
+연결: Clause → Risk → SuggestedRevision
+결과:
+ 1. 조항번호
+ 2. 현재 문구
+ 3. 문제점
+ 4. 매도인 리스크
+    5. 수정 방향
+    6. 과거 유사 수정례
+    7. 대체 문구
+
+
+
+
+9.3.     실사 질문
+이 회사가 매각 전에 보완해야 할 법률서류 목록을 알려줘.”
+“
+
+Graph 탐색:
+
+Matter → Issue → RFIItem
+Matter → Approval
+Matter → MissingDocument
+Matter → Risk
+
+결과:
+ 1. 이사회 의사록
+ 2. 주주총회 의사록
+ 3. 자기거래 승인자료
+ 4. 임원보수·퇴직금 근거
+ 5. 개인정보 동의·처리방침
+ 6. IP 양도/사용승낙 자료
+ 7. 표준계약서
+ 8. 인허가 자료
+ 9. 미체결 부속합의
+10. 사후 보완조치
+
+
+
+
+9.4.     협상 질문
+     가 계속 문제 삼은 조항이 뭐였지?”
+“Delta
+
+Graph 탐색:
+
+Party(Delta) → NegotiationPosition → Issue → Clause
+추가: discussed_in Email/MeetingNote
+결과:
+ 1. Customized Products 정의
+    2. Special Commitment
+    3. IPR   소유권
+    4. Delivery/Acceptance
+    5. Pricing Mechanism
+    6. Risk Allocation
+    7. Regulatory Compliance
+
+각 항목별로 해당 이메일·회의록·마크업 조항을 연결할 수 있습니다.
+
+9.5.    재사용 질문
+과거에 W&I 보험 구조에서 손해배상 조항 어떻게 썼어?”
+“
+
+Graph 탐색:
+
+Clause where clauseType = Indemnity
+연결: Matter where transactionFeature = W&I Insurance
+연결: WorkProduct, NegotiationOutcome
+결과:
+ 1. 과거 조항 문구
+ 2. 매도인 친화/매수인 친화 여부
+ 3. 실제 체결 여부
+ 4. 협상상 수정 경위
+ 5. 사용 시 주의사항
+
+이것이 로펌 내부 지식 축적의 핵심입니다.
+
+10. Neo4j        를 쓸 때 반드시 넣어야 할 통제장치
+10.1. AI     생성 노드와 변호사 확정 노드 분리
+그래프에 AI 추정값이 들어가면 위험합니다.
+모든 노드에는 최소한 다음 속성이 있어야 합니다.
+속성                             값
+createdBy                      AI / Human / System
+
+
+confidence                     high / medium / low
+
+
+reviewStatus                   unreviewed / reviewed / confirmed / rejected
+속성                               값
+sourceCount                      근거자료 수
+lastReviewedBy                   검토자
+lastReviewedAt                   검토일
+privileged                       변호사 비밀/업무상 비밀 여부
+confidentiality                  public / internal / confidential / highly confidential
+
+
+
+LLM이 답변할 때는 reviewStatus = confirmed 인 정보와 unreviewed 정보를 구분해서 말해
+야 합니다.
+
+10.2. Citation       없는 Fact 금지
+Law Firm OS       에서 Fact 노드는 반드시 Citation과 연결되어야 합니다.
+원칙:
+Fact without Citation = Draft Candidate, not Verified Fact
+
+즉, citation이 없는 사실은 확정 사실로 쓰면 안 됩니다.
+예외적으로 변호사가 직접 입력한 메모는 sourceType = lawyerMemo 로 관리할 수 있지만, 그
+경우에도 작성자와 작성일을 남겨야 합니다.
+
+10.3.    버전 우선순위
+문서 버전 혼동을 막기 위해 각 DocumentVersion에 다음 상태를 둬야 합니다.
+상태                                      의미
+draft                                   초안
+markup                                  마크업
+clean                                   클린본
+execution                               체결본
+superseded                              대체됨
+상태                              의미
+reference                       참고용
+disputed                        진위 또는 최신성 불명
+archived                        보관용
+
+LLM retrieval   시 기본값은 다음 순서여야 합니다.
+ 1. execution
+ 2. latest clean
+ 3. latest markup
+ 4. draft
+ 5. archived/reference
+
+다만 사용자가 “마크업본 기준으로 검토”라고 하면 markup을 우선해야 합니다.
+
+10.4.   권한 관리
+Neo4j 자체에 민감한 관계가 들어갑니다. 예컨대 특정 내부조사 자료, M&A 미공개 자료, 소송전
+략 메모가 그래프에 연결될 수 있습니다.
+따라서 Law Firm OS에서는 다음 접근제어가 필요합니다.
+ 1. Matter 단위 권한
+ 2. Client 단위 권한
+ 3. Document 단위 권한
+ 4. Node label 단위 권한
+ 5. Edge type 단위 권한
+ 6. Work product 권한
+ 7. Privileged note 권한
+ 8. External sharing 금지 플래그
+ 9. AI 처리 허용 여부
+10. 외부 API 전송 금지 플래그
+
+특히 privileged = true 또는 externalAIAllowed = false 인 자료는 Gemma 로컬 처리만
+허용하고 외부 API로 보내면 안 됩니다.
+
+11. Neo4j + Obsidian + LLM Wiki        의 결합 구조
+11.1. Obsidian      은 편집 프론트 또는 Export View
+Obsidian과 Neo4j를 직접 동기화할 수도 있지만, 초기에는 다음 구조가 안전합니다.
+ 1. Neo4j가 원천 관계 저장소
+ 2. Law Firm OS가 Matter Wiki를 Markdown으로 생성
+ 3. Obsidian-compatible export 제공
+ 4. 사용자가 Obsidian에서 참고·편집 가능
+ 5. 편집된 Markdown을 다시 import할 경우 diff 검토 후 반영
+
+옵시디언을 메인 DB로 삼으면 대규모 협업·권한관리·감사로그에 약합니다. 따라서 Neo4j가 원
+장, Obsidian은 뷰 또는 에디터가 맞습니다.
+
+11.2. LLM Wiki    는 Neo4j 기반으로 재생성
+LLM Wiki 는 다음 데이터를 조합해서 생성합니다.
+ 1. Neo4j의 Matter Graph
+ 2. 원문 문서의 citation
+ 3. 검토 완료된 Fact
+ 4. Issue/Risk 상태
+ 5. Document Register
+ 6. Clause Map
+ 7. RFI   상태
+ 8. Negotiation Ledger
+
+즉, LLM Wiki는 독립 DB가 아니라 Neo4j + 원문 citation + Markdown renderer의 결과물이어
+야 합니다.
+
+12.   추천 구현 순서
+Phase 1: Neo4j    를 “관계 색인”으로만 사용
+처음부터 모든 것을 Neo4j에 넣지 말고, 최소한 다음만 넣습니다.
+ 1. Matter
+ 2. Document
+ 3. DocumentVersion
+ 4. Party
+ 5. Issue
+ 6. Risk
+ 7. Citation
+ 8. RFIItem
+ 9. WorkProduct
+이 단계의 목표는 “이슈-문서-근거-작업” 연결입니다.
+가장 먼저 구현할 화면:
+1. Matter Graph
+2. Issue Map
+3. Risk Register
+4. Document Register
+5. Citation Panel
+6. RFI Tracker
+
+
+
+
+Phase 2: Clause Graph       도입
+두 번째로 계약서 조항을 Neo4j에 넣습니다.
+추가 노드:
+1. Clause
+2. DefinedTerm
+3. Obligation
+4. ConditionPrecedent
+5. Approval
+6. DisclosureItem
+
+추가 기능:
+ 1. 조항별 리스크 연결
+ 2. 정의어 사용 위치 추적
+3. Disclosure Schedule   예외 연결
+4. CP상태 추적
+5. 유사 조항 검색
+6. 조항별 수정안 추천
+
+
+
+
+Phase 3: Negotiation Graph       도입
+세 번째로 이메일, 회의록, 마크업 히스토리를 연결합니다.
+추가 노드:
+1. EmailThread
+2. MeetingNote
+3. Transcript
+4. NegotiationPosition
+ 5. ProposedRevision
+ 6. AcceptedRevision
+ 7. RejectedRevision
+
+추가 기능:
+ 1. 협상 히스토리 자동정리
+ 2. 상대방 입장 추적
+ 3. 구두합의와 계약서 반영 여부 대조
+ 4. 마크업 변경 이유 추적
+ 5. 회의록 정합성 검토
+
+
+
+
+Phase 4: Authority Graph     도입
+네 번째로 법령·판례·유권해석·문헌을 연결합니다.
+추가 노드:
+ 1. Statute
+ 2. Article
+ 3. Case
+ 4. AdministrativeGuidance
+ 5. Commentary
+ 6. LawFirmMemo
+
+추가 기능:
+ 1. 의견서 citation 자동 연결
+ 2. 쟁점별 authority 추천
+ 3. 과거 인용 문헌 재사용
+ 4. 최신성 체크
+ 5. 반대 판례 표시
+
+이 단계는 정확성이 중요하므로, 자동화 비중을 낮추고 변호사 검토를 강하게 둬야 합니다.
+
+13.   개발자가 바로 이해할 수 있는 사양
+13.1.   핵심 API
+Law Firm OS   백엔드에는 다음 API가 필요합니다.
+API                               기능
+Create Matter Graph               Matter   생성 및 기본 노드 초기화
+API                               기능
+Ingest Document                   문서 업로드 후 Neo4j 노드 생성
+Extract Clauses                   계약서 조항을 Clause 노드로 생성
+Extract Issues                    문서에서 Issue 후보 생성
+Link Citation                     Fact/Issue/Clause   와 원문 위치 연결
+Build RFI                         Issue   에서 RFI 항목 생성
+Resolve RFI                       제출자료가 들어오면 Issue 상태 갱신
+Query Matter Graph                Matter   관련 그래프 탐색
+Retrieve for LLM                  LLM   답변용 context 생성
+Generate Wiki                     Neo4j    기반 Markdown Wiki 생성
+Detect Conflict                   충돌 관계 탐지
+Search Similar Clause             유사 조항 검색
+Trace Work Product                산출물의 근거 추적
+
+
+13.2. Retrieval API      의 핵심
+  이 사용할 retrieval은 단순히 search(query) 면 안 됩니다. 다음처럼 목적별 retriever가 있
+LLM
+어야 합니다.
+Retriever                         목적
+MatterRetriever                   Matter   개요와 핵심 쟁점
+ClauseRetriever                   특정 계약 조항
+IssueRetriever                    쟁점별 근거와 상태
+CitationRetriever                 원문 근거
+SimilarClauseRetriever            과거 유사 조항
+RiskRetriever                     리스크와 완화조치
+Retriever                         목적
+NegotiationRetriever              이메일·회의록 협상 히스토리
+AuthorityRetriever                법령·판례·문헌
+ConflictRetriever                 충돌 자료
+RFIStatusRetriever                자료요청 상태
+TimelineRetriever                 사건·거래 일정
+
+이 구조가 있어야 LLM이 법률업무 질문에 정확히 답할 수 있습니다.
+
+14. Neo4j           를 쓰면 특히 강해지는 Law Firm OS 기능
+14.1. “  왜 그렇게 판단했는지” 설명 가능
+LLM 답변이 다음처럼 바뀝니다.
+일반 답변:
+“이 조항은 매도인에게 불리합니다.”
+
+Neo4j 기반 답변:
+
+“이 조항은 매도인에게 불리합니다. 이유는 ① 제8.1조가 진술보장 위반에 대한 손해배상 범위를
+직접손해로 제한하지 않고 있고, ② 제8.3조의 cap 예외에 고의·중과실 외에도 특정 조항 위반이
+포함되어 있으며, ③ Disclosure Schedule의 예외가 제5조 전체가 아니라 일부 진술보장에만 연
+결되어 있고, ④ 과거 유사 프로젝트에서는 동일 구조에서 cap carve-out을 축소한 바 있기 때문
+입니다.”
+이 답변은 조항, 예외, 과거 샘플, 리스크가 그래프로 연결되어야 나옵니다.
+
+14.2.   미확인 사항을 자동으로 드러냄
+법률업무에서는 확인된 것보다 “아직 확인되지 않은 것”이 더 중요할 때가 많습니다.
+Neo4j는 다음을 뽑을 수 있습니다.
+
+ 1. Issue는 있는데 Citation이 없는 항목
+ 2. Risk는 있는데 Mitigation이 없는 항목
+ 3. RFI는 있는데 Answer Document가 없는 항목
+ 4. CP 는 있는데 Evidence가 없는 항목
+ 5. Clause는 있는데 DefinedTerm 정의가 없는 항목
+ 6. Disclosure 예외는 있는데 관련 진술보장 조항 연결이 없는 항목
+ 7. WorkProduct에 인용된 Fact 중 reviewStatus가 unreviewed인 항목
+
+이것이 실무적으로 매우 강합니다.
+
+14.3.   과거 자문 지식 재사용
+로펌은 과거 문서가 많아도 재사용이 어렵습니다. Neo4j를 쓰면 다음이 가능합니다.
+ 1. 같은 법률쟁점이 등장한 과거 Matter 검색
+ 2. 같은 상대방이 문제 삼은 조항 검색
+ 3. 특정 조항이 실제로 체결된 사례 검색
+ 4. 특정 판례를 인용한 과거 의견서 검색
+ 5. 특정 리스크에 대해 사용한 보고서 문구 검색
+ 6. 특정 산업에서 반복되는 실사 이슈 검색
+ 7. 특정 고객사의 선호 문구 검색
+
+이건 단순 DMS 검색으로는 어렵습니다.
+
+15. Neo4j      도입 시 주의할 점
+15.1.   모든 것을 그래프로 만들면 실패함
+초기 설계에서 흔한 실수는 모든 정보를 노드와 엣지로 만들려는 것입니다. 그러면 데이터 입력·
+검증·UI가 복잡해지고 쓸모없는 그래프가 됩니다.
+초기에는 다음만 그래프로 관리하는 것이 맞습니다.
+ 1. Matter
+ 2. Document
+ 3. Version
+ 4. Issue
+ 5. Risk
+ 6. Citation
+ 7. RFI
+ 8. WorkProduct
+ 9. Clause
+
+이후 필요에 따라 확장해야 합니다.
+15.2. AI     추출 관계는 반드시 후보 상태로 저장
+Gemma    나 LLM이 만든 관계는 처음에는 확정하면 안 됩니다.
+예:
+AI가 “이 이메일은 제8조 손해배상 조항과 관련 있음”이라고 판단했더라도, 처음에는 다음처럼 저
+장해야 합니다.
+속성                              값
+relationStatus                  candidate
+
+
+confidence                      0.72
+
+
+createdBy                       Gemma 4 12B
+
+
+reviewedBy                      null
+
+
+reviewedAt                      null
+
+
+
+변호사가 승인하면 confirmed 로 바꿉니다.
+
+15.3. GraphRAG    가 정답을 보장하지 않음
+GraphRAG 는 답변 품질을 올리는 기술이지, 법률적 정확성을 보장하는 장치가 아닙니다.
+특히 다음은 별도 검증이 필요합니다.
+ 1. 법령 최신성
+ 2. 판례 존재 여부
+ 3. 사건번호 정확성
+ 4. 조항번호 정확성
+ 5. 서명본 기준 여부
+ 6. 최신 버전 기준 여부
+ 7. 원문 citation 정확성
+ 8. AI가 생성한 요약의 누락 여부
+
+따라서 GraphRAG + Citation + Human Review가 함께 가야 합니다.
+
+16. Law Firm OS     에서의 최종 설계 문장
+제품 사양서에 넣는다면 다음처럼 정의할 수 있습니다.
+Neo4j 기반 Matter Graph Engine
+Law Firm OS는 각 사건·거래별로 문서, 당사자, 사실관계, 계약조항, 정의어, 법률쟁점, 리스크,
+자료요청, 협상입장, 산출물 및 근거자료 간의 관계를 Neo4j 기반 Matter Graph로 저장·관리한
+다. Matter Graph는 단순 문서 검색을 넘어, 특정 법률적 주장 또는 검토결과가 어떠한 원문자료,
+사실관계, 계약조항, 법령·판례 및 협상경위에 근거하는지 추적할 수 있도록 설계한다. AI가 생성
+한 모든 노드 및 관계는 후보 상태로 저장되며, 변호사의 검토 및 승인 전까지 확정 사실 또는 확정
+분석으로 사용되지 않는다. Matter Graph는 LLM Wiki, RAG, 계약서 검토, 실사보고서 작성, RFI
+추적, 회의록 정합성 검토 및 과거 자문사례 재사용 기능의 공통 기반으로 사용된다.
+
+17.   최종 권고
+Neo4j   를 Law Firm OS에 넣는다면 우선순위는 다음입니다.
+          우선순위    구현 대상                                 이유
+              1   Matter-Document-Issue-Risk-Citation   실무 효용이 가장 큼
+                  Graph
+
+
+              2   Document Version Graph                법률문서 버전 혼동 방지
+              3   Clause Graph                          계약서 검토·작성 자동화 핵심
+              4   RFI/Task Graph                        실사 업무 관리에 직접 사용
+              5   Negotiation Graph                     이메일·회의록·마크업 정합성 검토
+              6   Similar Clause Graph + Vector Index   과거 샘플 재사용
+              7   Authority Graph                       판례·법령·문헌 연결
+              8   Full GraphRAG                         고도화된 AI 질의응답
+
+제 의견으로는, Neo4j는 Law Firm OS의 가장 중요한 기술적 차별화 지점이 될 수 있습니다.
+CRM, ERP, DMS를 합치는 것만으로는 기존 SaaS와 차별화가 어렵습니다. 그러나 Neo4j 기반
+Matter Graph를 중심에 두면, Law Firm OS는 단순 업무관리 툴이 아니라 법률업무의 사고 구조
+자체를 데이터화하는 시스템이 됩니다.
+최종 구조는 이렇게 잡는 것이 좋습니다.
+Raw Documents는 DMS에 저장하고,
+문서의 의미와 관계는 Neo4j에 저장하며,
+LLM Wiki는 Neo4j에서 생성하고,
+Gemma 4 12B는 로컬에서 후보 노드·관계를 추출하며,
+Strong LLM은 Neo4j GraphRAG와 Citation Ledger를 기반으로 최종 분석·작성한다.
+
+이 방향이면 Obsidian의 연결성, LLM Wiki의 구조화, Gemma 4 12B의 로컬 처리, Neo4j의 관
+계 추론을 모두 Law Firm OS에 실질적으로 흡수할 수 있습니다.
+
+
+                                  현재 개발이 진행 중인 Law Firm OS에 방금 말한 것들을 통합
+                                  이식과 반영 흡수하기 위한 사양명세서를 상세히 작성해줘
+10s 동안 생각함
+아래 사양명세서는 현재 개발 중인 Law Firm OS에 다음 4개 개념을 통합 이식·반영·흡수하는 것
+을 전제로 작성한 것입니다.
+ 1. Obsidian형 지식 연결 구조
+ 2. LLM Wiki형 구조화 지식 컴파일
+ 3. Gemma 4 12B 기반 로컬 AI Worker
+ 4. Neo4j 기반 Matter Graph / GraphRAG Engine
+
+Neo4j는 공식 GraphRAG Python 패키지에서 비정형 텍스트로부터 엔티티를 추출하고, 임베딩
+을 생성하며, Neo4j 그래프를 생성하는 파이프라인과 그래프 검색·벡터 검색 retriever를 제공한
+다고 설명하고 있습니다. Neo4j는 또한 벡터 인덱스를 통해 노드·관계 임베딩 기반 유사도 검색을
+지원합니다.                   Obsidian은 Markdown 기반 노트, 링크, 백링크를 통해 개인 위
+              Graph Databas… +2
+
+
+키형 지식 구조를 만드는 도구로 설명되고, LLM-Wiki 관련 최신 논문은 문서를 구조화된 Wiki
+page와 양방향 링크로 컴파일하여 검색·읽기·링크 추적을 수행하는 retrieval-as-reasoning 접근
+을 제안합니다.               Gemma 4 12B는 Google Developers Blog 기준 2026년 6월 공개
+                 Obsidian +2
+
+
+된 중형 멀티모달 모델로, 오디오·비디오를 네이티브 입력으로 처리할 수 있는 개발자용 모델로
+소개되었습니다.           Google Develop… +1
+
+
+
+
+      편집
+
+           Law Firm OS                  고도화 사양명세서
+                         형
+           Obsidian Matter Wiki, LLM Wiki, Gemma 4 12B
+           Local AI Worker, Neo4j Matter Graph     ·   통합 이식 반영
+           흡수 방안
+           ·
+
+           제1장. 문서의 목적
+           본 사양명세서는 현재 개발 중인 Law Firm OS에 다음 4개 요소를 통합
+           이식·반영·흡수하기 위한 제품·기술·데이터·워크플로우 사양을 정의한다.
+ 1. Obsidian 형 지식 연결 구조
+ 2. LLM Wiki형 구조화 지식 컴파일 구조
+ 3. Gemma 4 12B 기반 로컬 AI Worker
+ 4. Neo4j 기반 Matter Graph 및 GraphRAG Engine
+
+본 사양명세서의 목적은 Law Firm OS를 단순한 CRM, ERP, DMS, 사
+건관리, 문서관리 시스템의 결합체가 아니라, 로펌 업무의 본질인 “문서
+→ 사실관계 → 쟁점 → 법리 → 리스크 → 산출물 → 재사용 지식”의 흐
+름을 데이터화하고, AI가 이를 근거 기반으로 검색·검토·작성할 수 있도록
+하는 지식 운영체제로 고도화하는 데 있다.
+본 사양명세서에서 제안하는 핵심 방향은 다음과 같다.
+첫째, Obsidian의 핵심은 앱 자체가 아니라 Markdown 기반 지식 노트,
+양방향 링크, 백링크, 그래프적 사고방식이므로, 이를 Law Firm OS의
+Matter Wiki와 Knowledge View에 흡수한다.
+
+둘째, LLM Wiki의 핵심은 문서를 LLM이 읽고 추론하기 좋은 구조화된
+Wiki page로 컴파일하는 것이므로, 이를 Matter Overview, Document
+Register, Issue Page, Clause Page, Risk Register, RFI Tracker,
+                             등으로 구현한다.
+Negotiation Ledger, Authority Ledger
+
+셋째, Gemma 4 12B는 기밀문서를 외부 API에 전송하지 않고 로컬에서
+문서 분류, 메타데이터 추출, 조항 추출, Fact/Issue/Risk 후보 생성, Wiki
+초안 생성에 활용하는 Local AI Worker로 배치한다.
+넷째, Neo4j는 문서, 당사자, 사실관계, 조항, 정의어, 쟁점, 리스크, 근거,
+자료요청, 협상 입장, 산출물 간 관계를 저장하는 Matter Graph Engine
+으로 사용한다.
+다섯째, 최종 법률판단, 계약서 작성, 의견서 작성, 판례·법령 적용, 협상전
+략 수립은 Gemma 4 12B 단독이 아니라 Strong LLM, 검색 시스템,
+Citation Ledger, 변호사 검토가 결합된 구조에서 수행한다.
+
+
+
+
+제2장. 전체 제품 비전
+2.1.   제품 정의
+         는 로펌 또는 법률자문 조직이 수행하는 M&A, 투자, 기업
+Law Firm OS
+자문, 분쟁, 소송, 주주간계약, 실사, 계약서 검토, 회의록 검토, 자료요청,
+보고서 작성 업무를 통합 관리하는 업무 운영체제이다.
+본 고도화 사양에 따른 Law Firm OS는 다음과 같이 정의된다.
+Law Firm OS는 각 Matter별로 원본문서, 문서 버전, 당사자, 사실관계,
+계약조항, 정의어, 법률쟁점, 리스크, 근거자료, 자료요청, 협상경위, 법령·
+판례·문헌, 산출물을 구조화하고, 그 관계를 Neo4j 기반 Matter Graph로
+저장하며, 이를 바탕으로 LLM Wiki, GraphRAG, 계약서 검토, 실사보고
+서 작성, 회의록 정합성 검토, RFI 추적, 과거 자문사례 재사용을 수행하
+는 법률지식 운영체제이다.
+2.2.   제품의 차별화 방향
+기존의 일반적 DMS 또는 사건관리 시스템은 파일, 일정, 업무, 청구, 고
+객정보 관리에 중점을 둔다. 그러나 로펌 실무에서 고부가가치가 발생하
+는 지점은 문서 저장이 아니라 다음 질문에 답하는 능력이다.
+ 1. 이 쟁점은 어느 문서에서 비롯되었는가?
+ 2. 이 사실관계는 어느 이메일, 회의록, 계약서, 별지에서 확인되는가?
+ 3. 이 조항은 어느 리스크와 연결되는가?
+ 4. 이 리스크는 보고서와 계약서에 반영되었는가?
+ 5. 이 RFI 항목은 어떤 쟁점을 해소하기 위해 요청되었는가?
+ 6. 이 계약서 버전은 어느 마크업본을 대체하는가?
+ 7. 이 회의록 기재는 녹취록과 계약서 원문에 부합하는가?
+ 8. 과거 유사 거래에서 같은 조항을 어떻게 수정했는가?
+ 9. 특정 판례 또는 법령은 어느 의견서에서 인용되었는가?
+10. 현재 Matter에서 아직 근거가 확인되지 않은 주장은 무엇인가?
+
+본 고도화 사양의 핵심은 Law Firm OS가 위 질문에 자동 또는 반자동으
+로 답할 수 있게 하는 것이다.
+
+제3장. 핵심 설계 원칙
+3.1. Matter-Native   원칙
+모든 데이터는 Matter를 중심으로 관리한다.
+Matter는 단순 폴더가 아니라 다음 정보를 포괄하는 최상위 작업 단위이
+다.
+ 1. 고객
+ 2. 자문 포지션
+ 3. 거래 또는 사건 유형
+ 4. 당사자
+ 5. 담당 변호사
+ 6. 원본문서
+ 7. 문서 버전
+ 8. 사실관계
+ 9. 계약조항
+10. 쟁점
+11. 리스크
+12. 자료요청
+13. 협상경위
+14. 법령·판례·문헌
+15. 산출물
+16. 후속 업무
+
+Matter를 중심으로 하지 않고 Client, Document, Task, Email 등을 개별
+적으로 관리하면 Law Firm OS는 단순 협업툴에 가까워진다. 반대로
+Matter를 중심으로 모든 정보가 연결되면 해당 Matter의 법률적 상태를
+하나의 그래프로 파악할 수 있다.
+3.2. Raw Document       우선 원칙
+LLM Wiki  와 Matter Graph는 원본문서를 대체하지 않는다.
+모든 분석, 요약, Fact, Issue, Risk, Clause, Work Product는 원본문서
+와 citation으로 연결되어야 한다. 원문 근거 없는 Fact는 확정 사실이 아
+니라 후보 사실로만 취급한다.
+원칙은 다음과 같다.
+Fact without Citation = Draft Candidate, not Verified Fact.
+
+즉, citation이 없는 사실은 AI가 생성한 후보 정보일 뿐이며, 변호사가 명
+시적으로 확인하기 전까지 법률검토 결과나 외부 제출 산출물에 확정적
+으로 사용해서는 안 된다.
+3.3. AI   후보 생성 및 변호사 확정 원칙
+Gemma 4 12B  또는 Strong LLM이 생성한 모든 노드와 관계는 기본적
+으로 candidate 상태로 저장한다.
+AI가 생성할 수 있는 후보는 다음과 같다.
+
+ 1. 문서 유형 후보
+ 2. 당사자 후보
+ 3. 날짜 후보
+ 4.  조항 구조 후보
+ 5. 정의어 후보
+ 6. 사실관계 후보
+ 7. 쟁점 후보
+ 8. 리스크 후보
+ 9. RFI 후보
+10. 유사 조항 후보
+11. 협상 입장 후보
+12. 회의록 불일치 후보
+
+변호사가 확인하면 confirmed 상태로 변경한다. 변호사가 반려하면
+rejected 상태로 변경한다. 검토되지 않은 AI 후보는 외부 산출물의 확정
+근거로 사용하지 않는다.
+3.4. Version Priority   원칙
+법률문서에서는 버전 혼동이 치명적이다. 따라서 모든 문서는 다음 상태
+중 하나를 가져야 한다.
+ 1. draft
+ 2. markup
+ 3. clean
+ 4. execution
+ 5. superseded
+ 6. reference
+ 7. disputed
+ 8. archived
+
+기본 retrieval 우선순위는 다음과 같다.
+ 1. execution
+ 2. latest clean
+ 3. latest markup
+ 4. draft
+ 5. reference
+ 6. archived
+
+다만 사용자가 특정 버전을 명시한 경우에는 해당 버전을 우선한다. 예를
+들어 “마크업본 기준으로 검토”라고 요청하면 markup 버전을 우선해야
+한다.
+3.5. Human-Readable + Machine-Readable   병행 원칙
+         의 지식 구조는 사람이 읽기 좋은 형태와 기계가 질의하기
+Law Firm OS
+좋은 형태를 동시에 가져야 한다.
+ 1. 사람이 읽는 형태: Matter Wiki, Markdown/MDX, Obsidian-
+       compatible export
+ 2.    기계가 질의하는 형태: Neo4j Graph, Vector Index, Citation
+       Ledger
+      이 읽는 형태: LLM Wiki Page, Retrieval Context Bundle
+ 3. LLM
+ 4. 변호사가 검토하는 형태: Review Queue, Diff View, Citation
+       Panel
+
+하나의 형태만으로는 부족하다. Markdown만 있으면 관계 질의가 약하
+고, Graph만 있으면 사람이 편집하기 어렵다. 따라서 Neo4j가 원천 관계
+저장소가 되고, Matter Wiki는 그 위에서 생성되는 편집·검토용 뷰가 되어
+야 한다.
+
+제4장. 전체 시스템 아키텍처
+4.1.   논리 아키텍처
+Law Firm OS     의 고도화 아키텍처는 다음 계층으로 구성한다.
+ 1. User Interface Layer
+ 2. Workflow Layer
+ 3. Document Ingestion Layer
+ 4. Local AI Worker Layer
+ 5. Knowledge Extraction Layer
+ 6. Graph Layer
+ 7. Search and Retrieval Layer
+ 8. LLM Wiki Layer
+ 9. Strong LLM Layer
+10. Citation and Audit Layer
+11. Security and Permission Layer
+
+4.2. User Interface Layer
+
+사용자 화면은 다음 모듈로 구성한다.
+ 1. Matter Dashboard
+ 2. Document Room
+ 3. Matter Wiki
+ 4. Matter Graph View
+ 5. Issue Map
+ 6. Risk Register
+ 7. RFI Tracker
+ 8. Clause Map
+ 9. Negotiation Ledger
+10. Timeline
+11. Authority Ledger
+12. Work Product Center
+13. AI Review Queue
+14. Citation Panel
+15. Conflict Detector Panel
+16. Obsidian Export Panel
+
+4.3. Backend Core Layer
+
+Backend Core  는 다음 기능을 제공한다.
+ 1. Matter 생성 및 관리
+ 2. 문서 업로드 및 버전 관리
+ 3. 문서 텍스트 추출
+ 4. 문서 메타데이터 저장
+ 5. AI 분석 작업 큐 관리
+ 6. Neo4j 노드·관계 생성
+ 7. Citation Ledger 생성
+ 8. Matter Wiki 생성
+ 9. LLM Retrieval Context 생성
+10. 권한·감사로그 관리
+
+4.4. Storage Layer
+
+각 데이터의 저장소는 다음과 같이 분리한다.
+데이터 유형                        권장 저장소
+원본 PDF, DOCX, XLSX, MSG,      Object Storage   또는 DMS
+HTML
+
+
+문서 추출 텍스트                     Document Store
+
+
+페이지별 Chunk                    Search Index
+임베딩                             Neo4j Vector Index   또는 별도 Vector
+                                DB
+
+
+Matter, User, Task   등 업무 데이터   PostgreSQL
+
+
+문서·쟁점·사실·조항 관계                  Neo4j
+
+
+LLM Wiki Page                   Markdown/MDX Store
+
+
+Citation Ledger                 PostgreSQL + Neo4j    관계
+감사로그                            Append-only Log
+
+
+AI   분석 결과                      PostgreSQL + Object Storage
+
+
+Prompt/Response Log             보안 저장소, Matter별 권한 적용
+
+4.5. AI Layer
+
+AI Layer 는 다음 2단으로 구성한다.
+4.5.1. Local AI Worker
+
+Gemma 4 12B       를 중심으로 한다.
+주요 기능:
+ 1. 기밀문서 로컬 1차 분류
+ 2. OCR 후 텍스트 구조화
+ 3. 문서 유형 판별
+ 4. 당사자·날짜·금액 추출
+ 5. 계약서 조항 구조 추출
+ 6. 정의어 추출
+ 7. 이메일·회의록 요약
+ 8. Fact 후보 생성
+ 9. Issue 후보 생성
+10. Risk 후보 생성
+11. RFI 후보 생성
+12. Neo4j 노드·관계 후보 생성
+13. LLM Wiki 초안 생성
+
+4.5.2. Strong LLM Layer
+
+고난도 법률판단과 최종 작성에 사용한다.
+주요 기능:
+ 1. 계약서 조항 작성
+ 2. 계약서 마크업 제안
+ 3. 법률의견서 작성
+ 4. 실사보고서 문구 작성
+ 5. 판례·법령 적용
+ 6. 복잡한 다문서 종합
+ 7. 상대방 협상논리 검토
+ 8. 보고자료 작성
+ 9. 회의록 정합성 최종 검토
+10. 소송 Fact Chronology 및 주장 구조화
+
+단, Strong LLM도 citation 없는 단정적 법률판단을 생성해서는 안 되며,
+Retrieval Context와 Citation Ledger를 근거로 답변해야 한다.
+
+
+
+
+제5장. 핵심 모듈 사양
+5.1. Matter Graph Engine
+
+5.1.1.   목적
+              은 Law Firm OS의 핵심 엔진이다. 각 Matter에 속
+Matter Graph Engine
+한 문서, 당사자, 사실관계, 조항, 정의어, 쟁점, 리스크, 자료요청, 협상입
+장, 산출물, 법령·판례·문헌 간 관계를 Neo4j에 저장하고 질의한다.
+5.1.2.   주요 기능
+         별 그래프 생성
+ 1. Matter
+ 2. 문서와 Matter 연결
+ 3. 문서 버전 관계 저장
+ 4. 당사자와 문서 연결
+ 5. 계약서 조항 구조 저장
+ 6. 정의어와 조항 연결
+ 7. 사실관계와 근거문서 연결
+ 8. 쟁점과 사실관계 연결
+ 9. 쟁점과 리스크 연결
+10. 리스크와 보완조치 연결
+11. RFI 항목과 쟁점 연결
+12. 협상입장과 이메일·회의록 연결
+13. 산출물과 근거자료 연결
+14. 판례·법령·문헌과 쟁점 연결
+15. GraphRAG용 retrieval context 생성
+
+5.1.3.   필수 노드 Label
+Matter Graph Engine   의 기본 노드는 다음과 같다.
+ 1. Matter
+ 2. Client
+ 3. Party
+ 4. Entity
+ 5. Person
+ 6. Document
+ 7. DocumentVersion
+ 8. Page
+ 9. Section
+10. Clause
+11. DefinedTerm
+12. Fact
+13. Issue
+14. Risk
+15. Citation
+16. RFIItem
+17. Task
+18. WorkProduct
+19. TimelineEvent
+20. NegotiationPosition
+21. Authority
+22. Statute
+23. Article
+24. Case
+25. AdministrativeGuidance
+26. Commentary
+27. Approval
+28. Obligation
+29. DisclosureItem
+30. ConditionPrecedent
+
+5.1.4.   필수 Relationship Type
+기본 관계는 다음과 같다.
+ 1. HAS_DOCUMENT
+ 2. HAS_VERSION
+ 3. SUPERSEDES
+ 4. AMENDS
+ 5. MARKUP_OF
+ 6. EXECUTION_COPY_OF
+ 7. ATTACHES
+ 8. HAS_EXHIBIT
+ 9. HAS_SIGNATURE_PAGE
+10. CONTAINS_PAGE
+11. CONTAINS_SECTION
+12. CONTAINS_CLAUSE
+13. DEFINES
+14. USES_DEFINED_TERM
+15. RELATES_TO_ISSUE
+16. SUPPORTS
+17. CONTRADICTS
+18. EVIDENCES
+19. RAISES_RISK
+20. MITIGATES_RISK
+21. REQUIRES_ACTION
+22. REQUESTED_BY
+23. ANSWERED_BY
+24. RESOLVES
+25. CITES
+26. BASED_ON
+27. DISCUSSED_IN
+28. NEGOTIATED_IN
+29. ASSIGNED_TO
+30. OWNED_BY
+31. SIMILAR_TO
+32. EXCEPTION_TO
+33. CONDITION_TO
+34. TRIGGERS
+35. REQUIRES_APPROVAL
+36. REFLECTED_IN
+37. NOT_REFLECTED_IN
+38. BLOCKS
+39. DERIVED_FROM
+40. REVIEWED_BY
+5.1.5.   기본 속성
+모든 AI 생성 노드와 관계에는 다음 속성을 둔다.
+ 1. createdBy
+ 2. createdAt
+ 3. updatedAt
+ 4. source
+ 5. confidence
+ 6. reviewStatus
+ 7. reviewedBy
+ 8. reviewedAt
+ 9. matterId
+10. confidentiality
+11. privileged
+12. externalAIAllowed
+13. versionStatus
+14. sourceDocumentId
+15. sourceCitationId
+
+reviewStatus   의 값은 다음과 같다.
+ 1. candidate
+ 2. unreviewed
+ 3. reviewed
+ 4. confirmed
+ 5. rejected
+ 6. disputed
+ 7. superseded
+
+
+
+
+5.2. Document Ingestion Module
+
+5.2.1.   목적
+                    은 Law Firm OS에 업로드되는 모든 문서
+Document Ingestion Module
+를 수집, 저장, 파싱, 분류, 버전관리하고 이후 Matter Graph 및 LLM Wiki
+생성의 기초 데이터를 제공한다.
+5.2.2.   지원 파일 유형
+최소 지원 파일 유형은 다음과 같다.
+ 1. PDF
+ 2. DOCX
+ 3. XLSX
+ 4. PPTX
+ 5. MSG
+ 6. EML
+ 7. HTML
+ 8. TXT
+ 9. CSV
+10. 이미지 파일
+11. ZIP 압축파일
+
+5.2.3.   문서 유형 분류
+문서는 다음 유형으로 분류한다.
+ 1. SPA
+ 2. SHA
+ 3. SSA
+ 4. BTA
+ 5. MOU
+ 6. NDA
+ 7. Procurement Agreement
+ 8. Investment Agreement
+ 9. Articles of Incorporation
+10. Board Minutes
+11. Shareholders’ Meeting Minutes
+12. Register
+13. Disclosure Schedule
+14. Due Diligence Material
+15. RFI List
+16. Email
+17. Meeting Minutes
+18. Transcript
+19. Legal Opinion
+20. Report
+21. Court Filing
+22. Judgment
+23. Statute
+24. Administrative Guidance
+25. Financial Statement
+26. Employment Document
+27. IP Document
+28. License
+29. Permit
+30. Miscellaneous
+
+5.2.4.   필수 메타데이터
+각 문서는 다음 메타데이터를 가져야 한다.
+ 1. documentId
+ 2. matterId
+ 3. fileName
+ 4. title
+ 5. documentType
+ 6. source
+ 7. uploadedBy
+ 8. uploadedAt
+ 9. documentDate
+10. receivedAt
+11. author
+12. sender
+13. recipient
+14. versionLabel
+15. versionStatus
+16. language
+17. confidentiality
+18. privileged
+19. externalAIAllowed
+20. hash
+21. parentDocumentId
+22. previousVersionId
+23. executionStatus
+24. reviewStatus
+25. citationAvailable
+
+5.2.5.   처리 절차
+문서 업로드 후 절차는 다음과 같다.
+ 1. 파일 수신
+ 2. 파일 해시 생성
+ 3. 중복 파일 검사
+ 4. 원본 저장
+ 5. 파일 유형 판별
+ 6. 텍스트 추출
+ 7. OCR 필요 여부 판단
+ 8. 페이지·섹션 단위 분할
+ 9. 표·이미지·첨부파일 추출
+10. 메타데이터 후보 생성
+11. 문서 유형 후보 생성
+12. 버전 관계 후보 생성
+13. Matter Graph 후보 노드 생성
+14. Citation Anchor 생성
+15. Review Queue 등록
+16. Matter Wiki 업데이트
+
+
+
+
+5.3. Citation Ledger Module
+
+5.3.1.   목적
+Citation Ledger 는 Law Firm OS의 신뢰성 핵심 장치이다. 모든 Fact,
+Issue, Risk, Clause Analysis, Work Product Claim이 원문 근거와 연
+결되도록 한다.
+5.3.2. Citation   단위
+      은 다음 위치 단위로 생성한다.
+Citation
+
+ 1. PDF 페이지
+ 2. DOCX 문단
+ 3. XLSX 시트·셀 범위
+ 4. 이메일 발신일·발신자·본문 위치
+ 5. 회의록 문단
+ 6. 녹취록 타임스탬프
+ 7. 계약서 조항번호
+ 8. 별지 번호
+ 9. 표 번호
+10. 이미지 영역
+
+5.3.3. Citation   속성
+각 Citation은 다음 속성을 가진다.
+ 1. citationId
+ 2. documentId
+ 3. documentVersionId
+ 4. pageNumber
+ 5. sectionNumber
+ 6. clauseNumber
+ 7. paragraphNumber
+ 8. sheetName
+ 9. cellRange
+10. timestampStart
+11. timestampEnd
+12. quoteHash
+13. extractedText
+14. locator
+15. sourceConfidence
+16. createdAt
+17. createdBy
+
+5.3.4. Claim-Citation     연결
+다음 노드는 Citation 없이 confirmed 상태가 될 수 없다.
+ 1. Fact
+ 2. Issue
+ 3. Risk
+ 4. NegotiationPosition
+ 5. Clause Analysis
+ 6. WorkProduct Claim
+ 7. Approval Status
+ 8. RFI Resolution
+ 9. TimelineEvent
+10. Disclosure Exception
+
+5.3.5. Citation Panel     기능
+사용자는 AI 답변 또는 보고서 문구를 클릭하면 다음 정보를 확인할 수 있
+어야 한다.
+ 1. 해당 주장의 원문 문서
+ 2. 문서 버전
+ 3. 페이지 또는 조항
+ 4. 발췌문
+ 5. 원문 보기
+ 6. 해당 주장을 생성한 AI 또는 사용자
+ 7. 검토 상태
+ 8. 반대자료 존재 여부
+ 9. 관련 쟁점
+10. 관련 리스크
+
+
+
+
+5.4. Matter Wiki Module
+
+5.4.1.   목적
+            은 Neo4j Matter Graph와 Citation Ledger를 바탕
+Matter Wiki Module
+으로 사람과 LLM이 모두 읽기 좋은 Matter별 구조화 지식문서를 생성한
+다.
+5.4.2.   기본 Wiki 페이지
+각 Matter는 다음 Wiki 페이지를 가진다.
+ 1. 00_Matter_Overview
+ 2. 01_Timeline
+ 3. 02_Parties
+ 4. 03_Document_Register
+ 5. 04_Issue_Map
+ 6. 05_Risk_Register
+ 7. 06_RFI_Tracker
+ 8. 07_Clause_Map
+ 9. 08_Negotiation_Ledger
+10. 09_Authority_Ledger
+11. 10_Work_Product_Index
+12. 11_Conflict_Log
+13. 12_Missing_Information
+14. 99_Open_Questions
+
+5.4.3. Matter Overview Page   필수 항목
+        명
+ 1. Matter
+ 2. 고객명
+ 3. 자문 포지션
+ 4. 사건·거래 유형
+ 5. 상대방
+ 6. 대상회사
+ 7. 핵심 일정
+ 8. 현재 단계
+ 9. 핵심 쟁점
+          목록
+10. High Risk
+11. 미제출 자료
+12. 미확인 사항
+13. 최신 산출물
+14. 다음 조치
+15. 담당자
+
+5.4.4. Document Register Page   필수 항목
+ 1. 문서명
+ 2. 파일명
+ 3. 문서 유형
+ 4. 작성일
+ 5. 수령일
+ 6. 버전
+ 7. 최신성
+ 8. 서명 여부
+ 9. 관련 쟁점
+10. 관련 리스크
+11. 검토 상태
+12. 원문 링크
+13. Citation Anchor   존재 여부
+5.4.5. Issue Page     필수 항목
+각 Issue는 독립 페이지를 가진다.
+필수 항목은 다음과 같다.
+ 1. Issue ID
+ 2. 제목
+ 3. 유형
+ 4. 중요도
+ 5. 상태
+ 6. 관련 당사자
+ 7. 관련 문서
+ 8. 확인된 사실
+ 9. 근거 citation
+10. 미확인 사항
+11. 관련 법령·판례·문헌
+12. 법률상 문제
+13. 실무상 영향
+14. 거래 또는 소송에 미치는 영향
+15. 권고 조치
+16. RFI 필요 여부
+17. 계약서 반영 필요 여부
+18. 보고서 반영 문구
+19. 담당자
+20. 검토 상태
+
+5.4.6. Clause Page   필수 항목
+각 Clause는 필요 시 독립 페이지를 가진다.
+필수 항목은 다음과 같다.
+ 1. Clause ID
+ 2. 계약서명
+ 3. 조항번호
+ 4. 조항명
+ 5. 조항 원문
+ 6. 조항 유형
+ 7. 관련 정의어
+ 8. 관련 의무
+ 9. 관련 권리
+10. 관련 선행조건
+11. 관련 리스크
+12. 당사자 친화성
+13. 협상 민감도
+14. 과거 유사 조항
+15. 수정안 후보
+16. 상대방 제안 문구
+17. 내부 검토의견
+18. 관련 citation
+19. 검토 상태
+
+5.4.7. Obsidian-Compatible Export
+
+       는 Obsidian에서 열 수 있도록 Markdown 파일로 export할
+Matter Wiki
+수 있어야 한다.
+Export 시 다음을 지원한다.
+ 1. Markdown 파일 생성
+ 2. 내부 링크 생성
+ 3. Backlink 보존
+ 4. 태그 생성
+ 5. YAML frontmatter 생성
+ 6. 첨부파일 상대경로 생성
+ 7. 문서 원문 링크 생성
+ 8. Citation locator 포함
+ 9. Matter별 Vault 구조 생성
+10. Client별 Knowledge Vault 구조 생성
+
+단, Obsidian은 원천 DB가 아니다. 원천 데이터는 Neo4j, PostgreSQL,
+원본문서 저장소에 있으며, Obsidian export는 읽기·검토·편집 편의 기능
+이다.
+
+5.5. LLM Wiki Compiler
+
+5.5.1.   목적
+             는 원본문서와 Matter Graph를 LLM이 추론하기 좋
+LLM Wiki Compiler
+은 구조화된 Wiki 형태로 재구성한다.
+5.5.2. LLM Wiki 와 일반 Wiki의 차이
+일반 Wiki는 사람이 읽기 좋게 작성된다. LLM Wiki는 LLM retrieval을 위
+해 다음 특성을 가져야 한다.
+ 1. 각 문단이 명확한 claim 단위로 구성
+ 2. 모든 claim에 citation 연결
+ 3. 관련 페이지 링크 명시
+ 4. 쟁점·사실·조항·근거 간 관계 명시
+ 5. 미확인 사항 별도 분리
+ 6. 충돌 정보 별도 표시
+ 7. 확정 정보와 후보 정보 구분
+ 8. 최신 버전 기준 명시
+ 9. 다문서 종합 context 제공
+10. Tool-call 또는 retriever가 읽기 좋은 구조 유지
+
+5.5.3. LLM Wiki   생성 절차
+ 1. Matter Graph 조회
+ 2. 최신 문서 버전 확인
+ 3. confirmed Fact 우선 조회
+ 4. candidate Fact 별도 조회
+ 5. Issue별 관련 문서 조회
+ 6. Risk별 관련 조항 조회
+ 7. RFI 상태 조회
+ 8. Negotiation Position 조회
+ 9. Authority 연결 조회
+10. Conflict 관계 조회
+11. Missing Information 조회
+12. LLM Wiki Page 생성
+13. Citation 검증
+14. Review Queue 등록
+15. 승인 후 Published Wiki로 승격
+
+5.5.4. Error Book
+
+LLM Wiki 에는 Error Book을 둔다.
+Error Book은 다음 오류를 저장한다.
+
+ 1. 잘못된 당사자명 추출
+ 2. 잘못된 날짜 추출
+ 3. 조항번호 오류
+ 4. 버전 혼동
+ 5. 정의어 누락
+ 6. 별지 누락
+ 7. Disclosure Schedule 누락
+ 8. 회의록과 녹취록 불일치
+ 9. 이메일 취지 오해
+10. 동일 회사 중복 엔티티 생성
+11. Citation 위치 오류
+12. 근거 없는 Fact 생성
+13. 과거 Matter와 잘못된 유사성 판단
+
+Error Book의 목적은 동일한 Matter 또는 동일 고객사 업무에서 같은 오
+류가 반복되지 않도록 하는 것이다.
+
+5.6. Local AI Worker Module
+5.6.1.   목적
+          는 Gemma 4 12B를 사용하여 기밀성이 높은 자료를 외
+Local AI Worker
+부 API에 전송하지 않고 로컬 환경에서 1차 분석한다.
+5.6.2.   적용 대상
+           는 다음 자료에 우선 적용한다.
+Local AI Worker
+
+ 1. 미공개 M&A 자료
+ 2. 소송 증거자료
+ 3. 내부조사 자료
+ 4. 개인정보 포함 자료
+ 5. 영업비밀 문서
+ 6. 임직원 인사자료
+ 7. 재무자료
+ 8. 투자자료
+ 9. 상대방 협상 이메일
+10. 회의 녹취록
+11. 고객 내부 보고서
+12. 변호사 의견 초안
+
+5.6.3.   주요 작업
+ 1. 문서 유형 분류
+ 2. OCR 결과 정리
+ 3. 문서 메타데이터 추출
+ 4. 당사자명 추출
+ 5. 날짜·금액 추출
+ 6. 계약 조항 구조 추출
+ 7. 정의어 추출
+ 8. 표 구조 추출
+ 9. 이메일 thread 요약
+10. 회의록 action item 추출
+11. Fact 후보 생성
+12. Issue 후보 생성
+13. Risk 후보 생성
+14. RFI 후보 생성
+15. Clause 후보 생성
+16. Negotiation Position 후보 생성
+17. Neo4j 노드 후보 생성
+18. Neo4j 관계 후보 생성
+         초안 생성
+19. LLM Wiki
+20. 개인정보·기밀정보 탐지
+
+5.6.4.   금지 또는 제한 작업
+Gemma 4 12B   는 다음 작업을 단독으로 수행해서는 안 된다.
+ 1. 최종 법률의견 작성
+ 2. 최신 법령 해석
+ 3. 판례 존재 여부 확정
+ 4. 복잡한 책임 가능성 판단
+ 5. 계약서 최종 문안 확정
+ 6. 분쟁전략 확정
+ 7. 규제 인허가 가능성 판단
+ 8. 외부 제출 보고서 최종본 작성
+ 9. 고객에게 송부할 확정 회신 작성
+10. Citation 없는 법률 결론 생성
+
+이 작업들은 Strong LLM, 검색 시스템, Citation Ledger, 변호사 검토를
+거쳐야 한다.
+
+5.7. GraphRAG Retrieval Module
+
+5.7.1.   목적
+                     은 사용자의 질문에 대해 단순 vector
+GraphRAG Retrieval Module
+search만 수행하지 않고, Neo4j Matter Graph를 활용하여 관련 문서, 조
+항, 사실, 쟁점, 리스크, 근거, 산출물을 다중-hop으로 탐색한 후 LLM에
+context를 제공한다.
+
+5.7.2. Retriever    유형
+다음 retriever를 구현한다.
+ 1. MatterRetriever
+ 2. DocumentRetriever
+ 3. VersionAwareDocumentRetriever
+ 4. ClauseRetriever
+ 5. DefinedTermRetriever
+ 6. IssueRetriever
+ 7. RiskRetriever
+ 8. FactRetriever
+ 9. CitationRetriever
+10. RFIRetriever
+11. NegotiationRetriever
+12. TimelineRetriever
+13. AuthorityRetriever
+14. SimilarClauseRetriever
+15. SimilarMatterRetriever
+16. ConflictRetriever
+17. MissingInformationRetriever
+18. WorkProductRetriever
+
+5.7.3. Retrieval   절차
+사용자 질문이 들어오면 다음 절차를 따른다.
+ 1. Matter 식별
+ 2. 질문 유형 분류
+ 3. 관련 retriever 선택
+ 4. 최신 문서 버전 확인
+ 5. Graph 탐색
+ 6. Vector 유사도 검색
+ 7. Keyword 검색
+ 8. Citation 후보 수집
+ 9. confirmed 정보 우선 정렬
+10. candidate 정보 별도 정렬
+11. 충돌 정보 확인
+12. 미확인 사항 확인
+13. LLM Context Bundle 생성
+14. Strong LLM 또는 Local LLM 호출
+15. 답변 생성
+16. Citation 연결
+17. 답변 감사로그 저장
+
+5.7.4. Retrieval Context Bundle
+
+LLM 에 전달되는 context는 다음 구조를 가져야 한다.
+ 1. Matter Summary
+ 2. Question Type
+ 3. Relevant Documents
+ 4. Relevant Clauses
+ 5. Relevant Facts
+ 6. Relevant Issues
+ 7. Relevant Risks
+ 8. Relevant Citations
+ 9. Relevant Negotiation History
+10. Relevant Authorities
+11. Similar Past Matters
+12. Similar Clauses
+13. Conflicts
+14. Missing Information
+15. Review Status Notice
+16. Instruction on Citation Discipline
+
+
+
+
+5.8. Conflict Detector Module
+
+5.8.1.   목적
+          는 문서 간, 버전 간, Wiki와 원문 간, 회의록과 녹취록
+Conflict Detector
+간, 이메일과 계약서 간 불일치를 탐지한다.
+5.8.2.   탐지 대상
+ 1. 문서 버전 충돌
+ 2. 날짜 불일치
+ 3. 당사자명 불일치
+ 4. 금액 불일치
+ 5. 조항번호 불일치
+ 6. 정의어 불일치
+ 7. 계약서 본문과 별지 불일치
+ 8. Disclosure Schedule 예외 누락
+ 9. 이메일 합의사항의 계약서 미반영
+10. 회의록 합의사항의 녹취록 근거 부재
+11. 녹취록 발언의 회의록 누락
+12. RFI 답변자료의 Issue 미해소
+13. 보고서 리스크와 원문 근거 불일치
+14. 산출물 citation 오류
+15. 최신 서명본과 초안 혼동
+
+5.8.3. Conflict     관계
+Neo4j   에는 다음 관계를 생성한다.
+ 1. CONTRADICTS
+ 2. NOT_REFLECTED_IN
+ 3. PARTIALLY_REFLECTED_IN
+ 4. SUPERSEDED_BY
+ 5. INCONSISTENT_WITH
+ 6. MISSING_CITATION
+ 7. VERSION_CONFLICT
+ 8. DATE_CONFLICT
+ 9. AMOUNT_CONFLICT
+10. PARTY_NAME_CONFLICT
+
+5.8.4. Conflict   상태
+       는 다음 상태를 가진다.
+Conflict
+
+ 1. detected
+ 2. under_review
+ 3. confirmed_conflict
+ 4. false_positive
+ 5. resolved
+ 6. waived
+ 7. escalated
+
+5.8.5. Conflict Panel    표시 항목
+ 1. 충돌 유형
+ 2. 관련 문서 A
+ 3. 관련 문서 B
+ 4. 충돌 내용
+ 5. 원문 위치
+ 6. AI 판단 근거
+ 7. 중요도
+ 8. 관련 Matter
+ 9. 관련 Issue
+10. 관련 Risk
+11. 권고 조치
+12. 담당자
+13. 상태
+
+
+
+
+5.9. Clause Library and Clause Graph Module
+5.9.1.   목적
+        는 과거 계약서 샘플과 현재 Matter의 조항을 구조화하여
+Clause Library
+재사용 가능한 조항 지식베이스를 만든다.
+5.9.2. Clause     속성
+각 Clause는 다음 속성을 가진다.
+ 1. clauseId
+ 2. matterId
+ 3. documentId
+ 4. documentVersionId
+ 5. clauseNumber
+ 6. title
+ 7. text
+ 8. clauseType
+ 9. transactionType
+10. governingLaw
+11. partyFriendly
+12. negotiationSensitivity
+13. riskLevel
+14. acceptedInFinal
+15. modifiedDuringNegotiation
+16. sourceProject
+17. clientPreference
+18. opposingPartyPreference
+19. citationId
+20. reviewStatus
+
+5.9.3. Clause Type
+
+지원할 조항 유형은 다음과 같다.
+ 1. Definitions
+ 2. Purchase Price
+ 3. Closing
+ 4. Conditions Precedent
+ 5. Representations and Warranties
+ 6. Covenants
+ 7. Indemnity
+ 8. Liability Cap
+ 9. Survival
+10. Termination
+11. Confidentiality
+12. Non-compete
+13. Non-solicitation
+14. Governance
+15. Reserved Matters
+16. Board Composition
+17. Information Rights
+18. Transfer Restriction
+19. ROFR
+20. Tag Along
+21. Drag Along
+22. Deadlock
+23. Put Option
+24. Call Option
+25. Anti-dilution
+26. Liquidation Preference
+27. IP Ownership
+28. License
+29. Exclusivity
+30. Dispute Resolution
+31. Governing Law
+32. Miscellaneous
+
+5.9.4. Similar Clause Search
+
+Similar Clause Search   는 다음 기준을 결합한다.
+ 1. 조항 유형
+ 2. 거래 유형
+ 3. 당사자 친화성
+ 4. 산업
+ 5. 고객
+ 6. 상대방
+ 7. governing law
+ 8. 문구 임베딩 유사도
+ 9. 실제 체결 여부
+10. 협상 결과
+11. 리스크 등급
+12. 변호사 검토 상태
+5.9.5. Clause Recommendation
+
+사용자가 특정 계약서 조항 수정을 요청하면 시스템은 다음 정보를 제공
+한다.
+ 1. 현 조항의 문제점
+ 2. 관련 정의어
+ 3. 관련 리스크
+ 4. 과거 유사 조항
+ 5. 매도인 친화 수정안
+ 6. 매수인 친화 수정안
+ 7. 중립 수정안
+ 8. 협상상 fallback 문구
+ 9. 반대방 예상 반박
+10. 수정안의 법률적 효과
+11. citation 및 샘플 출처
+
+
+
+
+5.10. RFI Tracker Module
+
+5.10.1.     목적
+       는 자료요청을 단순 엑셀 목록이 아니라 Issue와 Risk를 해
+RFI Tracker
+소하기 위한 그래프 기반 업무흐름으로 관리한다.
+5.10.2. RFIItem     속성
+ 1. rfiId
+ 2. matterId
+ 3. number
+ 4. category
+ 5. requestText
+ 6. reason
+ 7. relatedIssueId
+ 8. relatedRiskId
+ 9. requestedBy
+10. requestedAt
+11. owner
+12. dueDate
+13. status
+14. responseDocumentId
+15. resolvedIssueId
+16. reviewStatus
+17. priority
+
+5.10.3. RFI    상태
+ 1. draft
+ 2. requested
+ 3. received
+ 4. partially_received
+ 5. insufficient
+ 6. under_review
+ 7. resolved
+ 8. waived
+ 9. escalated
+
+5.10.4. RFI    자동 생성
+Issue가 생성되었으나 근거자료가 부족한 경우 시스템은 RFI 후보를 생
+성한다.
+예:
+Issue: 상법 제398조 자기거래 승인 여부 미확인
+자동 RFI 후보: 대상회사와 특수관계인 간 거래에 관한 이사회 의사록, 이
+사회 소집통지, 의안자료, 이해관계 이사 의결권 배제 여부 확인자료를 제
+출 요청
+RFI 후보는 변호사가 검토 후 확정한다.
+
+
+
+
+5.11. Negotiation Ledger Module
+
+5.11.1.   목적
+Negotiation Ledger  는 이메일, 회의록, 녹취록, 마크업을 분석하여 협상
+경위를 구조화한다.
+5.11.2.   주요 노드
+ 1. EmailThread
+ 2. EmailMessage
+ 3. MeetingNote
+ 4. Transcript
+ 5. NegotiationPosition
+ 6. ProposedRevision
+ 7. AcceptedRevision
+ 8. RejectedRevision
+ 9. OpenPoint
+10. ActionItem
+
+5.11.3. NegotiationPosition   속성
+ 1. positionId
+ 2. matterId
+ 3. side
+ 4. person
+ 5. organization
+ 6. issueId
+ 7. clauseId
+ 8. positionSummary
+ 9. date
+10. sourceDocumentId
+11. citationId
+12. status
+13. reviewStatus
+
+5.11.4.   기능
+ 1. 상대방 요구사항 자동 추출
+ 2. 우리 측 입장 자동 추출
+ 3. 합의사항 자동 추출
+ 4. 미합의사항 자동 추출
+ 5. 회의록과 계약서 반영 여부 대조
+ 6. 이메일상 합의사항의 계약서 반영 여부 대조
+ 7. 마크업 변경 사유 추적
+ 8. 협상 쟁점별 타임라인 생성
+ 9. 후속 action item 생성
+10. 회의 전 예상 질문 생성
+
+
+
+
+5.12. Authority Ledger Module
+
+5.12.1.   목적
+              는 법령, 판례, 유권해석, 문헌, 로펌 뉴스레터, 내부 메
+Authority Ledger
+모를 Matter의 Issue와 연결한다.
+5.12.2. Authority   유형
+ 1. Statute
+ 2. Enforcement Decree
+ 3. Regulation
+ 4. Administrative Guidance
+ 5. Case
+ 6. Supreme Court Decision
+ 7. Lower Court Decision
+ 8. Academic Article
+ 9. Commentary
+10. Law Firm Newsletter
+11. Internal Memo
+12. Government FAQ
+13. Regulatory Release
+
+5.12.3. Authority   속성
+ 1. authorityId
+ 2. type
+ 3. title
+ 4. jurisdiction
+ 5. court
+ 6. caseNo
+ 7. decisionDate
+ 8. articleNo
+ 9. source
+10. summary
+11. relevance
+12. citedInWorkProduct
+13. lastCheckedAt
+14. currentStatus
+15. reviewStatus
+
+5.12.4.     주의사항
+         는 자동화보다 정확성이 중요하다. AI가 판례나 법령을
+Authority Ledger
+생성하거나 사건번호를 추정해서는 안 된다. 모든 authority는 출처 확인
+후 등록해야 한다. 최신성 확인이 필요한 authority는 lastCheckedAt과
+currentStatus를 명시한다.
+
+
+
+
+제6장. 업무별 적용 사양
+6.1. M&A SPA 검토 Workflow
+
+6.1.1.   입력자료
+ 1. SPA 원문
+ 2. SPA 마크업
+ 3. Disclosure Schedule
+ 4. 부속합의
+ 5. 이메일
+ 6. 회의록
+ 7. RFI 자료
+ 8. 대상회사 자료
+ 9. 과거 유사 계약서
+10. 내부 검토 메모
+
+6.1.2.   처리 절차
+ 1. 문서 업로드
+ 2. 문서 유형 분류
+ 3. 최신 버전 판단
+ 4. 조항 구조 추출
+ 5. 정의어 추출
+ 6. 선행조건 추출
+ 7. 진술보장 추출
+ 8. 손해배상 구조 추출
+ 9. 해제권 추출
+10. Disclosure Schedule   예외 연결
+11. 쟁점 후보 생성
+12. 리스크 후보 생성
+13. 과거 유사 조항 검색
+14. 수정안 후보 생성
+15. 변호사 검토
+16. SPA Review Memo     생성
+17. 마크업 초안 생성
+18. Citation Panel 연결
+6.1.3.   출력물
+ 1. Clause Map
+ 2. Risk Register
+ 3. Issue List
+ 4. Seller-friendly수정안
+ 5. Buyer-friendly 수정안
+ 6. Negotiation Point List
+ 7. RFI   후보
+ 8. SPA Review Memo
+ 9. Markup Instruction
+10. Client Report Summary
+
+
+
+
+6.2. SHA    작성 Workflow
+6.2.1.   입력자료
+ 1. 투자계약서
+ 2. 정관
+ 3. 주주명부
+ 4. Cap Table
+ 5. 기존 SHA
+ 6. 신규 투자조건
+ 7. 경영권 구조
+ 8. 투자자 요구사항
+ 9. 기존 샘플 SHA
+10. 내부 협상전략
+
+6.2.2.   처리 절차
+ 1. 당사자 구조 추출
+ 2. 지분율 구조화
+ 3. 이사 지명권 분석
+ 4. 주요사항 동의권 설계
+ 5. 양도제한 구조 설계
+ 6. ROFR, Tag, Drag 설계
+ 7. Deadlock 구조 설계
+ 8. 정보권 설계
+ 9. 경업금지·비밀유지 설계
+10. 기존 샘플 조항 검색
+11. 조항 간 충돌 탐지
+12. 의도한 지배구조를 계약장치로 구현
+13. 초안 생성
+14. 변호사 검토
+15. 고객 보고용 설명 생성
+
+6.2.3.   중요 설계 원칙
+SHA  작성 시 “실질적인 경영권은 특정 주주가 가진다”와 같은 직설적 문
+구를 넣지 않는다. 대신 다음 장치를 조합하여 목적을 달성한다.
+ 1. 이사 지명권
+ 2. 대표이사 선임 구조
+ 3. 이사회 의사정족수
+ 4. 주요사항 동의권
+ 5. 예산 및 사업계획 승인권
+ 6. 신주발행 제한
+ 7. 자산처분 제한
+ 8. 중요계약 체결 제한
+ 9. 임원 선임·해임 관련 권한
+10. 정보권
+11. Deadlock 해결구조
+12. 위반 시 구제수단
+
+
+
+
+6.3. Legal Due Diligence Workflow
+
+6.3.1.   입력자료
+ 1. RFI List
+ 2. 정관
+ 3. 등기부
+ 4. 주주명부
+ 5. 이사회 의사록
+ 6. 주주총회 의사록
+ 7. 계약서
+ 8. 인허가 자료
+ 9. IP 자료
+10. 인사노무 자료
+11. 개인정보 자료
+12. 소송자료
+13. 재무자료
+14. 내부 규정
+15. 이메일 및 보완자료
+
+6.3.2.   처리 절차
+ 1. 자료 목록 생성
+ 2. RFI 항목과 제출자료 매핑
+ 3. 미제출자료 식별
+ 4. 회사일반 이슈 추출
+ 5. 계약 이슈 추출
+ 6. 인허가 이슈 추출
+ 7. IP 이슈 추출
+ 8. 인사노무 이슈 추출
+ 9. 개인정보 이슈 추출
+10. 소송·분쟁 이슈 추출
+11. 각 이슈별 근거 citation 연결
+12. 리스크 등급 부여
+13. 보완조치 제안
+14. 보고서 문구 후보 생성
+15. 변호사 검토
+16. LDD Report 생성
+
+6.3.3.   출력물
+ 1. Document Register
+ 2. RFI Tracker
+ 3. Missing Document List
+ 4. Issue Map
+ 5. Risk Register
+ 6. Red Flag Summary
+ 7.   보완 필요서류 목록
+ 8. LDD Report Draft
+ 9. Client Executive Summary
+10. Closing Action List
+
+
+
+
+6.4.   회의록 정합성 검토 Workflow
+6.4.1.   입력자료
+ 1.   회의록 HTML
+ 2. 녹취록
+ 3. 계약서 원문
+ 4. 마크업본
+ 5. 이메일
+ 6. 협상 메모
+
+6.4.2.   처리 절차
+ 1. 회의록 문장별 claim 추출
+ 2. 녹취록 발언과 매칭
+ 3. 계약서 조항과 매칭
+ 4. 이메일 협상 경위와 매칭
+ 5. 불일치 탐지
+ 6. 누락사항 탐지
+ 7. 과잉기재 탐지
+ 8. 사실관계 오류 탐지
+ 9. 용어 불일치 탐지
+10. 수정안 생성
+11. 변호사 검토
+12. 최종 검토표 생성
+
+6.4.3.   출력물
+ 1. 회의록 정합성 검토표
+ 2. 불일치 목록
+ 3. 오탈자 목록
+ 4. 계약서 미반영 합의사항
+ 5. 녹취록 근거 없는 기재사항
+ 6. 수정 권고문구
+ 7. 후속 action item
+
+
+
+
+6.5.   분쟁·소송 Fact Chronology Workflow
+6.5.1.   입력자료
+ 1. 계약서
+ 2. 이메일
+ 3. 문자
+ 4. 회의록
+ 5. 녹취록
+ 6. 공문
+ 7. 내용증명
+ 8. 세금계산서
+ 9. 입출금자료
+10. 사진·영상
+11. 법원 제출서면
+12. 판결문
+13. 상대방 주장서면
+
+6.5.2.   처리 절차
+ 1. 문서별 사건 발생일 추출
+ 2. Fact 후보 생성
+ 3. Fact별 citation 연결
+ 4. 반대자료 탐지
+ 5. 주장별 근거 연결
+ 6. TimelineEvent 생성
+ 7. Issue별 사실관계 분류
+ 8. 입증책임 관련 표시
+ 9. 증거 부족 항목 표시
+10. 주장 구조 초안 생성
+11. 변호사 검토
+12. Fact Chronology 생성
+
+6.5.3.   출력물
+ 1. Fact Ledger
+ 2. Timeline
+ 3. Evidence Map
+ 4. Issue-Fact Matrix
+ 5. Claim-Evidence Matrix
+ 6. 반박자료 목록
+ 7. 추가 확보 필요자료
+ 8. 소장·답변서·준비서면 초안용 Fact Bundle
+
+
+
+
+제7장. 데이터 모델 상세
+7.1. Matter
+
+필수 속성:
+ 1. matterId
+ 2. matterName
+ 3. clientId
+ 4. matterType
+ 5. position
+ 6. jurisdiction
+ 7. status
+ 8. openedAt
+ 9. closedAt
+10. leadLawyer
+11. teamMembers
+12. confidentialityLevel
+13. externalAIAllowed
+14. description
+15. tags
+
+7.2. Document
+
+필수 속성:
+ 1. documentId
+ 2. matterId
+ 3. title
+ 4. fileName
+ 5. documentType
+ 6. fileType
+ 7. hash
+ 8. uploadedAt
+ 9. uploadedBy
+10. documentDate
+11. receivedAt
+12. source
+13. language
+14. confidentiality
+15. privileged
+16. externalAIAllowed
+17. latestVersionId
+18. reviewStatus
+
+7.3. DocumentVersion
+
+필수 속성:
+ 1. versionId
+ 2. documentId
+ 3. versionLabel
+ 4. versionStatus
+ 5. fileId
+ 6. createdAt
+ 7. receivedAt
+ 8. author
+ 9. source
+10. supersedesVersionId
+11. isExecutionCopy
+12. isMarkup
+13. isClean
+14. reviewStatus
+
+7.4. Clause
+
+필수 속성:
+ 1. clauseId
+ 2. documentVersionId
+ 3. clauseNumber
+ 4. title
+ 5. text
+ 6. clauseType
+ 7. parentClauseId
+ 8. orderIndex
+ 9. partyFriendly
+10. riskLevel
+11. negotiationSensitivity
+12. citationId
+13. reviewStatus
+
+7.5. DefinedTerm
+
+필수 속성:
+ 1. termId
+ 2. term
+ 3. definitionText
+ 4. documentVersionId
+ 5. clauseId
+ 6. citationId
+ 7. reviewStatus
+
+7.6. Fact
+
+필수 속성:
+ 1. factId
+ 2. matterId
+ 3. statement
+ 4. factDate
+ 5. sourceType
+ 6. confidence
+ 7. verificationStatus
+ 8. legalSignificance
+ 9. citationId
+10. createdBy
+11. reviewedBy
+12. reviewedAt
+
+7.7. Issue
+
+필수 속성:
+ 1. issueId
+ 2. matterId
+ 3. title
+ 4. issueType
+ 5. severity
+ 6. status
+ 7. summary
+ 8. legalBasis
+ 9. businessImpact
+10. recommendedAction
+11. owner
+12. dueDate
+13. reviewStatus
+
+7.8. Risk
+
+필수 속성:
+ 1. riskId
+ 2. matterId
+ 3. title
+ 4. riskLevel
+ 5. description
+ 6. impact
+ 7. likelihood
+ 8. mitigation
+ 9. status
+10. relatedIssueId
+11. reflectedInReport
+12. reflectedInContract
+13. reviewStatus
+
+7.9. RFIItem
+
+필수 속성:
+ 1. rfiId
+ 2. matterId
+ 3. number
+ 4. category
+ 5. requestText
+ 6. reason
+ 7. status
+ 8. requestedAt
+ 9. dueDate
+10. owner
+11. responseDocumentId
+12. relatedIssueId
+13. relatedRiskId
+14. reviewStatus
+
+7.10. WorkProduct
+
+필수 속성:
+ 1. workProductId
+ 2. matterId
+ 3. title
+ 4. type
+ 5. version
+ 6. status
+ 7. createdBy
+ 8. createdAt
+ 9. reviewedBy
+10. reviewedAt
+11. finalDocumentId
+12. basedOnCitationCount
+13. externalDeliveryStatus
+
+
+
+
+제8장. 권한 및 보안 사양
+8.1. 권한 단위
+
+권한은 다음 단위로 관리한다.
+ 1. Workspace
+ 2. Client
+ 3. Matter
+ 4. Document
+ 5. DocumentVersion
+ 6. Node Label
+ 7. Relationship Type
+ 8. WorkProduct
+ 9. AI Prompt Log
+10. Citation
+11. Privileged Note
+
+8.2.   보안 플래그
+각 문서와 노드는 다음 플래그를 가진다.
+ 1. confidentiality
+ 2. privileged
+ 3. externalAIAllowed
+ 4. exportAllowed
+ 5. clientShareAllowed
+ 6. retentionPolicy
+ 7. litigationHold
+ 8. piiIncluded
+ 9. tradeSecretIncluded
+10. insiderInformationIncluded
+8.3. AI   처리 정책
+자료별 AI 처리 정책은 다음과 같다.
+ 1. public: Local AI 및 외부 Strong LLM 사용 가능
+ 2. internal: Workspace 내 AI 사용 가능, 외부 전송은 관리자 정책에
+    따름
+ 3. confidential: Local AI 우선, 외부 전송 시 승인 필요
+ 4. highly confidential: Local AI만 허용
+ 5. privileged: Local AI만 허용, prompt log 별도 암호화
+ 6. externalAIAllowed = false: 외부 LLM 사용 금지
+
+8.4.   감사로그
+다음 행위는 모두 로그로 남긴다.
+ 1. 문서 업로드
+ 2. 문서 다운로드
+ 3. 문서 열람
+ 4. AI 분석 실행
+ 5. 외부 LLM 전송
+ 6. Node 생성
+ 7. Relationship 생성
+ 8. AI 후보 승인
+ 9. AI 후보 반려
+10. Citation 수정
+11. WorkProduct 생성
+12. WorkProduct 외부 송부
+13. 권한 변경
+14. Export 실행
+
+
+
+
+제9장. UI/UX 사양
+9.1. Matter Dashboard
+
+Matter Dashboard   는 다음 정보를 표시한다.
+        개요
+ 1. Matter
+ 2. 현재 단계
+ 3. 주요 일정
+ 4. High Risk
+ 5. Open Issue
+ 6. 미제출 RFI
+ 7. 최근 업로드 문서
+ 8. 최근 산출물
+ 9. 담당자별 Task
+10. AI Review Queue
+11. Conflict Alert
+12.   다음 조치
+9.2. Document Room
+
+Document Room      은 다음 기능을 제공한다.
+ 1. 문서 목록
+ 2. 문서 유형별 필터
+ 3. 버전별 보기
+ 4. 최신본 표시
+ 5. 서명본 표시
+ 6. 마크업본 표시
+ 7. 관련 Issue 표시
+ 8. 관련 Risk 표시
+ 9. 관련 RFI 표시
+10. 원문 viewer
+11. Citation 생성
+12. AI 분석 실행
+
+9.3. Matter Wiki View
+
+Matter Wiki View는 다음 기능을 제공한다.
+ 1. Matter Overview 보기
+ 2. Issue Page 보기
+ 3. Clause Page 보기
+ 4. Risk Register 보기
+ 5. RFI Tracker 보기
+ 6. Negotiation Ledger 보기
+ 7. Backlink 보기
+ 8. 관련 문서 보기
+ 9. Citation Panel 열기
+10. Obsidian export
+
+9.4. Matter Graph View
+Matter Graph View   는 다음 그래프를 제공한다.
+ 1. Party Graph
+ 2. Document Graph
+ 3. Issue Graph
+ 4. Risk Graph
+ 5. Clause Graph
+ 6. Evidence Graph
+ 7. Negotiation Graph
+ 8. Timeline Graph
+ 9. Authority Graph
+10. WorkProduct Graph
+
+        는 예쁜 시각화가 목적이 아니다. 사용자가 특정 노드에서 관
+Graph View
+련 근거, 쟁점, 리스크, 산출물을 빠르게 추적할 수 있어야 한다.
+9.5. AI Review Queue
+
+AI Review Queue  는 다음 후보를 검토하게 한다.
+ 1. 문서 유형 후보
+ 2. 메타데이터 후보
+ 3. 버전 관계 후보
+ 4. 당사자 후보
+ 5. 조항 후보
+ 6. 정의어 후보
+ 7. Fact 후보
+ 8. Issue 후보
+ 9. Risk 후보
+10. RFI 후보
+11. Negotiation Position 후보
+12. Conflict 후보
+
+각 후보에 대해 사용자는 다음 행동을 할 수 있다.
+ 1. 승인
+ 2. 수정 후 승인
+ 3. 반려
+ 4. 보류
+ 5. 담당자 지정
+ 6. 추가자료 요청
+ 7. 관련 문서 연결
+8. Citation   수정
+
+제10장. API 사양
+10.1. Matter API
+
+필수 기능:
+1. Matter 생성
+2. Matter 수정
+3. Matter 상태 변경
+4. Matter Graph 초기화
+5. Matter Wiki 생성
+6. Matter Export
+7. Matter Archive
+
+10.2. Document API
+
+필수 기능:
+ 1. 문서 업로드
+ 2. 문서 버전 등록
+ 3. 문서 파싱
+ 4. OCR 실행
+ 5. 문서 유형 분류
+ 6. 메타데이터 추출
+7. Citation Anchor   생성
+8.  문서 삭제 또는 archive
+ 9. 문서 권한 설정
+10. 문서 AI 처리 정책 설정
+
+10.3. Graph API
+
+필수 기능:
+1. Node   생성
+2. Relationship 생성
+3. Node 후보 승인
+4. Relationship 후보 승인
+5. Node 병합
+6. 중복 엔티티 탐지
+7. Graph 탐색
+ 8. Matter Graph 조회
+ 9. Issue Graph 조회
+10. Clause Graph 조회
+11. Conflict Graph 조회
+12. GraphRAG Context     생성
+10.4. Wiki API
+
+필수 기능:
+ 1. Matter Wiki생성
+ 2. Issue Page 생성
+ 3. Clause Page 생성
+ 4. Risk Register 생성
+ 5. RFI Tracker 생성
+ 6. Negotiation Ledger   생성
+ 7. Wiki   재생성
+ 8. Wiki version    관리
+ 9. Obsidian export
+10. Markdown import
+
+10.5. AI API
+
+필수 기능:
+ 1. Local AI 분석 실행
+ 2. Strong LLM 분석 실행
+ 3. 문서 분류 요청
+ 4. 조항 추출 요청
+ 5. Issue 추출 요청
+ 6. Risk 추출 요청
+ 7. RFI 생성 요청
+ 8. Conflict 탐지 요청
+ 9. GraphRAG 질문 요청
+10. WorkProduct 초안 요청
+11. Prompt Log 저장
+12. AI 결과 검토 상태 변경
+
+10.6. Citation API
+
+필수 기능:
+ 1. Citation   생성
+ 2. Citation 수정
+ 3. Citation 삭제
+ 4. Citation 검증
+ 5. Claim과 Citation 연결
+ 6. Citation Panel 조회
+ 7. 원문 위치 열기
+ 8. Citation 없는 Claim 조회
+ 9. Citation conflict 조회
+10. WorkProduct citation map   생성
+
+제11장. MVP 개발 범위
+11.1. MVP 목표
+
+MVP  의 목표는 “모든 것을 자동화”하는 것이 아니라, Law Firm OS가 기
+존 DMS·업무관리 도구와 차별화되는 핵심 구조를 빠르게 구현하는 것이
+다.
+MVP의 핵심은 다음이다.
+
+ 1. Matter별 문서 업로드
+ 2. 문서 유형 분류
+ 3. Document Register 자동 생성
+ 4. Issue 후보 생성
+ 5. Risk 후보 생성
+ 6. Citation 연결
+ 7. Neo4j Matter Graph 생성
+ 8. Matter Wiki 생성
+ 9. AI Review Queue
+10. Obsidian-compatible Markdown export
+
+11.2. MVP      포함 기능
+11.2.1. Matter
+
+ 1. Matter 생성
+ 2. Client 연결
+ 3. Matter 유형 설정
+ 4. 담당자 설정
+ 5. 상태 관리
+11.2.2. Document
+
+ 1. PDF, DOCX, XLSX, MSG, HTML   업로드
+ 2. 텍스트 추출
+ 3. 문서 유형 분류
+ 4. 문서 버전 수동 지정
+ 5. 원문 viewer
+ 6. Document Register   생성
+11.2.3. AI
+
+ 1. Gemma 4 12B   기반 로컬 분류
+ 2. 메타데이터 후보 생성
+ 3. Issue 후보 생성
+ 4. Risk 후보 생성
+ 5. RFI 후보 생성
+ 6. Matter Wiki 초안 생성
+
+11.2.4. Neo4j
+
+ 1. Matter 노드 생성
+ 2. Document 노드 생성
+ 3. Issue 노드 생성
+ 4. Risk 노드 생성
+ 5. Citation 노드 생성
+ 6. HAS_DOCUMENT   관계
+ 7. RELATES_TO_ISSUE 관계
+ 8. RAISES_RISK 관계
+ 9. SUPPORTS 관계
+10. EVIDENCES 관계
+
+11.2.5. Wiki
+
+ 1. Matter Overview
+ 2. Document Register
+ 3. Issue Map
+ 4. Risk Register
+ 5. RFI Tracker
+ 6. Open Questions
+ 7. Markdown export
+
+11.2.6. Review
+ 1. AI 후보 목록
+ 2. 승인
+ 3. 반려
+ 4. 수정 후 승인
+ 5. Citation 연결 확인
+
+11.3. MVP     제외 기능
+다음은 MVP 이후로 미룬다.
+ 1. 완전 자동 계약서 마크업
+ 2. 판례 자동 리서치
+ 3. Authority Graph 전체 구축
+ 4. 복잡한 GraphRAG multi-agent 검증
+ 5. 완전 자동 실사보고서 작성
+ 6. 이메일 시스템 실시간 연동
+ 7. 전문 OCR correction workflow
+ 8. full-text legal search 고도화
+ 9. granular permission by relationship type
+10.   고객 포털
+
+제12장. 단계별 개발 로드맵
+12.1. Phase 1: Matter Wiki + Document Register
+
+목표:
+기본 문서 업로드와 Matter Wiki 자동 생성을 구현한다.
+주요 개발 항목:
+ 1. Matter 생성
+ 2. 문서 업로드
+ 3. 문서 유형 분류
+ 4. 텍스트 추출
+ 5. Document Register 생성
+ 6. Matter Overview 생성
+ 7. Markdown export
+ 8.기본 Citation Anchor 생성
+완료 기준:
+ 1. 하나의 Matter에 여러 문서를 업로드할 수 있다.
+ 2. 시스템이 문서 유형 후보를 생성한다.
+ 3. 사용자가 후보를 승인 또는 수정할 수 있다.
+ 4. Matter Overview와 Document Register가 자동 생성된다.
+ 5. Obsidian에서 열 수 있는 Markdown export가 가능하다.
+
+12.2. Phase 2: Neo4j Matter Graph
+
+목표:
+문서, 쟁점, 리스크, 근거 관계를 Neo4j에 저장한다.
+주요 개발 항목:
+ 1. Neo4j schema 설계
+ 2. Matter 노드 생성
+ 3. Document 노드 생성
+ 4. Issue 노드 생성
+ 5. Risk 노드 생성
+ 6. Citation 노드 생성
+ 7. 기본 관계 생성
+ 8. Graph View 기본 구현
+ 9. Issue Map 구현
+10. Risk Register 구현
+
+완료 기준:
+ 1. Matter별 그래프가 생성된다.
+ 2. Issue와 관련 문서가 연결된다.
+ 3. Risk와 관련 Issue가 연결된다.
+ 4. Fact 또는 Issue가 citation과 연결된다.
+ 5. 사용자가 그래프에서 근거문서로 이동할 수 있다.
+
+12.3. Phase 3: LLM Wiki Compiler
+
+목표:
+Matter Graph를 바탕으로 LLM이 읽기 좋은 Wiki 구조를 생성한다.
+주요 개발 항목:
+ 1. Issue Page 자동 생성
+ 2. Risk Page 자동 생성
+ 3. RFI Tracker 자동 생성
+                    자동 생성
+4. Missing Information
+5. Conflict Log 기본 생성
+6. LLM Retrieval Context Bundle   생성
+7. Error Book   구현
+완료 기준:
+ 1. 사용자의 질문에 대해 Matter Wiki와 Citation 기반 context를 생성
+    할 수 있다.
+ 2. confirmed 정보와 candidate 정보를 구분한다.
+ 3. 미확인 사항이 별도 표시된다.
+ 4. Citation 없는 Fact가 경고된다.
+
+12.4. Phase 4: Clause Graph
+
+목표:
+계약서 조항을 구조화하고, 유사 조항 검색과 조항별 리스크 검토를 지원
+한다.
+주요 개발 항목:
+ 1. Clause 추출
+ 2. DefinedTerm 추출
+ 3. Clause Map 생성
+ 4. Clause-Risk 연결
+ 5. Clause-Issue 연결
+ 6. 유사 조항 검색
+ 7. 과거 샘플 조항 등록
+ 8. 조항 수정안 후보 생성
+
+완료 기준:
+ 1. 계약서 조항이 구조화되어 표시된다.
+ 2. 특정 조항과 관련된 리스크가 표시된다.
+ 3. 유사 조항 검색이 가능하다.
+ 4. 조항별 수정안 후보를 생성할 수 있다.
+
+12.5. Phase 5: RFI and LDD Workflow
+
+목표:
+실사 업무에서 자료요청, 미제출자료, 리스크, 보고서 문구를 연결한다.
+주요 개발 항목:
+1. RFI List 업로드
+ 2. RFIItem 생성
+ 3. 제출자료 매핑
+ 4. 미제출자료 표시
+ 5. Issue-RFI 연결
+ 6. Risk-RFI 연결
+ 7. 제출자료에 따른 Issue 상태 변경
+ 8. LDD Report Draft 생성
+
+완료 기준:
+ 1. RFI 항목별 제출상태를 관리할 수 있다.
+ 2. 미제출자료가 관련 Issue와 연결된다.
+ 3. 제출자료가 들어오면 관련 Issue 상태가 갱신된다.
+ 4. Risk Register 기반 보고서 문구 후보를 생성할 수 있다.
+
+12.6. Phase 6: Negotiation Ledger and Meeting QC
+
+목표:
+이메일, 회의록, 녹취록, 계약서를 연결하여 협상경위와 회의록 정합성을
+검토한다.
+주요 개발 항목:
+ 1. Email thread 파싱
+ 2. Meeting transcript 파싱
+ 3. Negotiation Position 추출
+ 4. 회의록 claim 추출
+ 5. 녹취록 발언 매칭
+ 6. 계약서 조항 반영 여부 확인
+ 7. 불일치 탐지
+ 8. 수정안 생성
+
+완료 기준:
+ 1. 이메일상 상대방 요구사항을 쟁점별로 볼 수 있다.
+ 2. 회의록 기재와 녹취록 근거를 대조할 수 있다.
+ 3. 회의록 합의사항의 계약서 반영 여부를 확인할 수 있다.
+ 4. 불일치 검토표를 생성할 수 있다.
+
+12.7. Phase 7: Authority Graph
+
+목표:
+법령, 판례, 유권해석, 문헌, 내부 메모를 쟁점과 연결한다.
+주요 개발 항목:
+ 1. Authority 등록
+ 2. 쟁점별 Authority 연결
+ 3. WorkProduct citation 연결
+ 4. 최신성 확인일 관리
+ 5. 반대 authority 표시
+ 6. 내부 메모 재사용
+
+완료 기준:
+ 1. 특정 Issue와 관련된 법령·판례·문헌을 볼 수 있다.
+ 2. WorkProduct에서 인용된 authority를 추적할 수 있다.
+ 3. Authority의 최신성 확인일이 표시된다.
+ 4. 확인되지 않은 authority는 확정 근거로 사용되지 않는다.
+
+
+
+
+제13장. 품질관리 및 테스트 사양
+13.1. 테스트 범위
+
+다음 영역을 테스트한다.
+ 1. 문서 업로드 정확성
+ 2. 문서 유형 분류 정확성
+ 3. 텍스트 추출 정확성
+ 4. OCR 정확성
+ 5. 메타데이터 추출 정확성
+ 6. 조항 구조 추출 정확성
+ 7. 정의어 추출 정확성
+ 8. Fact 후보 정확성
+ 9. Issue 후보 정확성
+10. Risk 후보 정확성
+11. Citation 위치 정확성
+12. Neo4j 관계 생성 정확성
+13. GraphRAG retrieval 정확성
+14. Wiki 생성 정확성
+15. Conflict 탐지 정확성
+16. 권한 통제 정확성
+17. 감사로그 완전성
+13.2.   법률문서 특화 테스트 케이스
+다음 테스트 케이스를 구축한다.
+ 1. SPA clean본과 markup본이 동시에 있는 경우 최신 버전 판단
+ 2. SPA 본문과 Disclosure Schedule의 예외 연결
+ 3. 손해배상 조항과 진술보장 조항의 상호관계 추출
+ 4. SHA에서 이사 지명권과 주요사항 동의권 연결
+ 5. BTA에서 양도대상자산과 제외자산 구분
+ 6. 이사회 의사록 부존재로 인한 RFI 생성
+ 7. 회의록 기재와 녹취록 불일치 탐지
+ 8. 이메일 합의사항의 계약서 미반영 탐지
+ 9. RFI 답변자료가 Issue를 해소하는지 판단
+10. 같은 회사명이 다른 표기로 등장하는 경우 엔티티 병합
+11. 날짜가 본문과 파일명에서 다른 경우 conflict 생성
+12. AI가 생성한 Fact에 citation이 없는 경우 confirmed 금지
+
+13.3. Acceptance Criteria
+
+각 기능의 인수기준은 다음과 같다.
+문서 분류
+ 1. 사용자가 문서를 업로드하면 1차 문서 유형 후보가 생성된다.
+ 2. 사용자는 후보를 승인, 수정, 반려할 수 있다.
+ 3. 승인된 문서 유형은 Document Register와 Matter Wiki에 반영된
+    다.
+Citation
+
+                  는 citation 없이 confirmed 상태가 될 수 없다.
+ 1. Fact, Issue, Risk
+ 2. Citation 클릭 시 원문 위치로 이동해야 한다.
+ 3. 문서 버전이 변경되면 citation 재검증 상태가 표시되어야 한다.
+
+Graph
+
+              에서 Issue를 클릭하면 관련 문서, Fact, Risk, RFI가
+ 1. Matter Graph
+    표시되어야 한다.
+ 2. Document를 클릭하면 관련 Issue와 Risk가 표시되어야 한다.
+ 3. Risk를 클릭하면 관련 Issue, 근거문서, 보완조치가 표시되어야 한
+    다.
+Wiki
+             는 Graph와 Document Register를 반영해야 한다.
+ 1. Matter Wiki
+ 2. Wiki에는 confirmed 정보와 candidate 정보가 구분되어야 한다.
+ 3. 미확인 사항과 충돌 사항은 별도 섹션에 표시되어야 한다.
+
+AI Review
+
+     가 생성한 노드와 관계는 candidate 상태로 표시되어야 한다.
+ 1. AI
+ 2. 사용자는 후보를 승인, 수정 후 승인, 반려할 수 있어야 한다.
+ 3. 승인 이력은 감사로그에 남아야 한다.
+
+
+
+
+제14장. 운영정책
+14.1. 데이터 보존정책
+
+Matter별 데이터는 다음 보존정책을 적용한다.
+ 1. Active Matter: 전체 데이터 활성 유지
+ 2. Closed Matter: 읽기 전용 보관
+ 3. Archived Matter: 검색 가능하되 수정 제한
+ 4. Litigation Hold Matter: 삭제 금지
+ 5. Client Deletion Request Matter: 법률상 보존의무 검토 후 처리
+ 6. Privileged Matter: 별도 암호화 및 접근로그 강화
+
+14.2. AI   사용정책
+ 1. 외부 LLM 사용 가능 여부는 Matter 및 Document 단위로 관리한다.
+ 2. highly confidential 또는 privileged 문서는 기본적으로 Local AI만
+    사용한다.
+ 3. 외부 LLM 사용 시 전송 데이터와 prompt를 기록한다.
+ 4. 외부 LLM에 전송된 문서·chunk·citation 범위를 추적한다.
+ 5. 사용자는 AI 답변의 근거 citation을 확인할 수 있어야 한다.
+ 6. AI가 생성한 결과는 변호사 검토 전 확정 산출물로 취급하지 않는다.
+
+14.3. Knowledge Reuse      정책
+과거 Matter의 지식 재사용은 다음 조건을 충족해야 한다.
+ 1. 해당 Matter에 대한 접근권한이 있어야 한다.
+ 2. 고객 기밀 또는 이해상충 제한을 준수해야 한다.
+ 3. privileged 자료는 권한 있는 사용자에게만 표시되어야 한다.
+ 4. 외부 고객에게 과거 Matter 명칭 또는 민감정보가 노출되어서는 안
+    된다.
+ 5. 조항 문구 재사용 시 source Matter의 민감정보를 제거해야 한다.
+ 6. 과거 법률의견 재사용 시 법령·판례 최신성을 재확인해야 한다.
+
+
+
+
+제15장. 최종 권고 구현 순서
+현재 개발 중인 Law Firm OS에 가장 현실적으로 통합하려면 다음 순서
+가 적합하다.
+15.1. 1순위
+ 1. Matter 중심 데이터 모델 확정
+ 2. Document Register 구현
+ 3. Citation Ledger 구현
+ 4. Neo4j 기본 Matter Graph 구현
+ 5. AI Review Queue 구현
+ 6. Matter Wiki 기본 구현
+ 7. Obsidian-compatible export 구현
+
+15.2. 2순위
+ 1. Gemma 4 12B Local AI Worker   연결
+ 2. Issue/Risk 후보 생성
+ 3. RFI 후보 생성
+ 4. Conflict Detector 기본 구현
+ 5. GraphRAG Retrieval 기본 구현
+ 6. LLM Wiki Compiler 구현
+
+15.3. 3순위
+ 1. Clause Graph   구현
+ 2. Similar Clause Search구현
+ 3. Contract Review Workflow 구현
+ 4. LDD Workflow 구현
+ 5. Negotiation Ledger 구현
+ 6. Meeting Minutes QC 구현
+
+15.4. 4순위
+ 1. Authority Ledger구현
+ 2. 판례·법령 최신성 검증 workflow
+ 3. WorkProduct 자동 작성 workflow
+ 4. Multi-agent LegalGraphRAG 구조
+          5. 고객 포털
+          6. 조직 전체 Knowledge Graph
+
+
+
+
+         제16장. 핵심 결론
+         본 사양의 핵심은 Law Firm OS를 단순한 업무관리·문서관리 시스템이
+         아니라, Matter 중심의 법률지식 그래프 시스템으로 전환하는 것이다.
+         Obsidian은 사람이 이해하고 편집하기 쉬운 지식 연결 방식을 제공한다.
+         LLM Wiki는 LLM이 자료를 검색이 아니라 추론 방식으로 읽도록 만드는
+         구조를 제공한다.
+         Gemma 4 12B는 기밀자료를 외부로 보내지 않고 로컬에서 1차 구조화
+         하는 역할을 한다.
+         Neo4j는 문서, 사실, 조항, 쟁점, 리스크, 근거, 산출물 간 관계를 저장하
+         는 핵심 Matter Graph Engine이 된다.
+         최종 구조는 다음과 같이 정리된다.
+         Raw Documents는 DMS 또는 Object Storage에 저장한다.
+         문서의 의미와 관계는 Neo4j에 저장한다.
+         LLM Wiki는 Neo4j와 Citation Ledger를 바탕으로 생성한다.
+         Gemma 4 12B는 로컬에서 후보 노드와 후보 관계를 생성한다.
+         Strong LLM은 GraphRAG와 Citation Ledger를 바탕으로 고난도 분석
+         과 작성에 사용한다.
+         변호사는 AI 후보와 citation을 검토하여 확정한다.
+         이 구조가 구현되면 Law Firm OS는 로펌 업무의 핵심 자산인 문서, 사실
+         관계, 쟁점, 조항, 법리, 리스크, 산출물을 축적·재사용·검증 가능한 방식으
+         로 운영할 수 있다.
+
+
+위 사양에서 가장 먼저 개발해야 하는 것은 Neo4j 전체 고도화가 아니라 “Matter–Document–
+Issue–Risk–Citation” 최소 그래프입니다. 이 최소 그래프가 없으면 LLM Wiki도 단순 요약문
+서에 그치고, Obsidian export도 예쁜 노트 묶음에 그칠 가능성이 큽니다.
+개발 우선순위를 더 압축하면 다음 5개입니다.
+1. Citation Ledger
+2. Document Register
+3. Matter Graph   최소 스키마
+ 4. AI Review Queue
+ 5. Matter Wiki / Obsidian-compatible export
+
+이 5개가 먼저 잡히면 이후 Gemma 4 12B, LLM Wiki, GraphRAG, Clause Library,
+Negotiation Ledger를 얹는 구조가 안정적으로 됩니다.
+
+
+
+
+                         최상위급 SaaS로 만들기 위해 사양명세서를 업데이트 해줘
+최상위급 SaaS 기준으로 업데이트하려면 기존 “지식 그래프형 로펌 OS” 사양에 엔터프라이즈
+SaaS 요건, 보안·거버넌스, 멀티테넌트 아키텍처, 통합 생태계, 제품 패키징, 운영지표까지 추가
+해야 합니다. 시장의 상위 법률 SaaS와 엔터프라이즈 AI 제품 기준을 확인해 반영하겠습니다.
+19s 동안 생각함
+
+최상위급 SaaS 기준으로는 기존 사양에 엔터프라이즈 보안·거버넌스, 멀티테넌트 운영,
+Word/Outlook 중심 실무 UX, AI 신뢰성 통제, 고객별 데이터 레지던시, 감사·과금·SLA·온보딩·
+마켓플레이스까지 포함되어야 합니다. iManage는 보안·거버넌스와 지식 업무 플랫폼을 전면에
+두고 있고, NetDocuments는 DMS 안에서 AI·워크플로우·DLP·ethical wall을 강조하며, Harvey
+와 Legora는 법률전문 AI 워크스페이스·계약분석·실사·리서치·Word 연동·보안 인증을 핵심 가치
+로 제시하고 있습니다.          iManage +6
+
+
+
+아래는 기존 사양명세서를 “최상위급 법률 SaaS” 기준으로 업데이트한 v2.0 사양명세서입니다.
+     편집
+
+          Law Firm OS              최상위급 SaaS 전환 사양명세서
+          v2.0
+                형
+          Obsidian Matter Wiki, LLM Wiki, Gemma 4 12B,
+          Neo4j Matter Graph, Enterprise Legal AI Platform
+          통합 고도화 사양
+          제1장. 제품 포지셔닝의 재정의
+          1.1.   기존 제품 정의
+          기존 Law Firm OS는 CRM, ERP, DMS, Matter Management, 문서관
+          리, AI 검토, 지식관리 기능을 통합하는 로펌 업무 운영체제로 정의되었
+          다.
+그러나 최상위급 SaaS로 만들기 위해서는 단순 통합형 업무툴이 아니
+라, 다음 3개 시스템을 동시에 제공하는 플랫폼으로 재정의되어야 한다.
+ 1. System of Record
+       로펌의 사건, 고객, 문서, 이메일, 계약서, 일정, 업무, 청구, 지식, 산
+       출물의 공식 기록 시스템
+ 2. System of Intelligence
+       Matter Graph, LLM Wiki, GraphRAG, Clause Library, Citation
+          를 기반으로 법률자료를 분석하고 재사용 가능한 지식으로
+       Ledger
+       전환하는 지능형 시스템
+ 3. System of Action
+     계약서 검토, 실사, 자료요청, 회의록 검토, 법률의견서 작성, 이메일
+     회신, 마크업, 보고자료 작성, 청구·수임·마감관리까지 실제 업무를
+     실행하는 워크플로우 시스템
+따라서 업데이트된 제품 정의는 다음과 같다.
+Law Firm OS는 로펌 및 기업 법무조직이 수행하는 모든 법률업무의 공
+식 기록, 지식 그래프, AI 분석, 문서작성, 협업, 보안, 감사, 청구, 고객 커
+뮤니케이션을 통합하는 엔터프라이즈급 Legal Knowledge Work
+Platform이다.
+
+1.2.   최상위급 SaaS의 기준
+본 사양에서 말하는 최상위급 SaaS는 단순히 기능이 많은 제품이 아니
+다. 다음 요건을 충족해야 한다.
+ 1. 대형 로펌과 중견 로펌이 실제 업무시스템으로 사용할 수 있을 것
+ 2. DMS, 이메일, Word, Outlook, Teams, Slack, 회계·청구시스템과
+    통합될 것
+ 3. 권한, 보안, 감사, ethical wall, DLP, 데이터 레지던시를 지원할 것
+ 4. AI 결과에 citation, confidence, review status, audit trail이 붙을 것
+ 5. 외부 LLM과 로컬 LLM을 정책적으로 라우팅할 수 있을 것
+ 6. Matter별 지식이 축적되고 재사용될 것
+ 7. 계약서, 실사, 분쟁, 자문, 회의록, RFI 등 법률업무별 workflow가 있
+    을것
+ 8. 고객별·사무소별·업무분야별 커스터마이징이 가능할 것
+ 9. 멀티테넌트 SaaS 운영, SLA, 모니터링, 장애대응, 백업, 복구가 가
+    능할 것
+10. 제품 사용량, AI 사용량, 변호사 생산성, 업무 리스크를 계량화할 수
+    있을 것
+1.3.   제품의 핵심 차별성
+상위 SaaS 시장에서 단순 DMS, 단순 AI 챗봇, 단순 문서 자동화 도구는
+장기적으로 차별성이 약하다.
+Law Firm OS의 차별성은 다음이어야 한다.
+
+ 1. Matter-native architecture
+       모든 데이터가 Matter를 중심으로 구조화된다.
+ 2. Legal Knowledge Graph
+       문서, 사실, 조항, 쟁점, 리스크, 근거, 산출물이 Neo4j 기반 그래프로
+       연결된다.
+ 3. Citation-first AI
+       AI   답변과 산출물은 원문 근거와 연결된다.
+ 4. Human-in-the-loop legal review
+       AI가 생성한 정보는 후보 상태로 저장되고 변호사 검토 후 확정된다.
+ 5. Workflow-native AI
+        가 독립 챗봇이 아니라 SPA 검토, LDD, SHA 작성, RFI, 회의록
+       AI
+       검토, 소송 사실관계 정리 등 실제 업무흐름 안에서 작동한다.
+ 6. Hybrid AI routing
+                등 로컬 모델, 외부 Strong LLM, 룰 엔진, 검색 엔진
+       Gemma 4 12B
+       을 자료 민감도와 업무난이도에 따라 분리 사용한다.
+ 7. Obsidian-compatible knowledge export
+       사용자가 Matter Wiki와 내부 지식자료를 Markdown 기반으로 내보
+       내고, 필요 시 Obsidian식 지식작업에 연결할 수 있다.
+ 8. Enterprise governance
+       권한, 보안, 감사, ethical wall, data residency, retention, litigation
+       hold를 제품의 중심에 둔다.
+
+
+
+
+제2장. 제품 계층 구조
+2.1.   최상위 제품 구조
+Law Firm OS    는 다음 8개 제품 계층으로 구성한다.
+ 1. Core Matter Platform
+ 2. Document and Email Management Layer
+ 3. Matter Graph and Knowledge Layer
+ 4. Legal AI Layer
+ 5. Workflow Automation Layer
+ 6. Collaboration and Client Portal Layer
+ 7. Security, Governance and Compliance Layer
+ 8. SaaS Operations and Marketplace Layer
+
+2.2. Core Matter Platform
+
+                   은 다음을 관리한다.
+Core Matter Platform
+
+ 1.   고객
+ 2. Matter
+ 3. 담당 변호사
+ 4. 업무분야
+ 5. 상대방
+ 6. 이해관계자
+ 7. 일정
+ 8. 업무
+ 9. 산출물
+10. 청구 가능 업무시간
+11. 마감
+12. 상태
+13. 예산
+14. 수임조건
+15. 내부 승인
+
+Core Matter Platform은 다른 모든 모듈의 기준점이다.
+
+2.3. Document and Email Management Layer
+
+이 계층은 기존 DMS의 핵심 기능을 포함해야 한다.
+ 1. 문서 업로드
+ 2. 문서 버전관리
+ 3. 이메일 저장
+ 4. 첨부파일 분리
+ 5. 문서 체크인·체크아웃
+ 6. 문서 잠금
+ 7. 권한 관리
+ 8. 문서 공유
+ 9. 원문 viewer
+10. 문서 비교
+11. Word 연동
+12. Outlook 연동
+13. Teams 또는 Slack 연동
+14. 파일 해시 관리
+15. 보존정책
+16. 삭제정책
+17. litigation hold
+18. ethical wall
+19. DLP
+20.   감사로그
+2.4. Matter Graph and Knowledge Layer
+
+이 계층은 Law Firm OS의 핵심 차별화 계층이다.
+주요 구성은 다음과 같다.
+ 1. Neo4j Matter Graph
+ 2. Matter Wiki
+ 3. LLM Wiki
+ 4. Clause Library
+ 5. Fact Ledger
+ 6. Issue Map
+ 7. Risk Register
+ 8. RFI Tracker
+ 9. Negotiation Ledger
+10. Authority Ledger
+11. Citation Ledger
+12. Conflict Detector
+13. Similar Matter Search
+14. Similar Clause Search
+15. Obsidian-compatible Export
+
+2.5. Legal AI Layer
+
+Legal AI Layer 는 다음 기능을 제공한다.
+ 1. Local AI Worker
+ 2. External Strong LLM Router
+ 3. GraphRAG Retriever
+ 4. Prompt Orchestrator
+ 5. AI Policy Engine
+ 6. AI Review Queue
+ 7. Citation Validator
+ 8. Hallucination Guard
+ 9. Confidentiality Filter
+10. PII Detector
+11. Legal Workflow Agents
+12. Evaluation Harness
+13. Model Performance Dashboard
+14. Prompt Library
+15. Firm-specific Style Bible
+
+2.6. Workflow Automation Layer
+
+Workflow Automation Layer    는 업무별 자동화를 제공한다.
+기본 workflow는 다음과 같다.
+ 1. M&A SPA Review
+ 2. SHA Drafting
+ 3. SSA Drafting
+ 4. BTA Drafting
+ 5. NDA Review
+ 6. Legal Due Diligence
+ 7. RFI Management
+ 8. Disclosure Schedule Review
+ 9. Board and Shareholder Approval Review
+10. Meeting Minutes QC
+11. Contract Redline Analysis
+12. Litigation Fact Chronology
+13. Legal Opinion Drafting
+14. Regulatory Monitoring
+15. Client Report Generation
+16. Closing Checklist
+17. Post-closing Obligation Tracker
+18. Billing Narrative Generation
+19. Knowledge Capture after Matter Closing
+20. Precedent Creation Workflow
+
+2.7. Collaboration and Client Portal Layer
+
+상위 SaaS는 내부 업무만 관리해서는 부족하다. 고객과의 협업, 상대방
+자료요청, 외부 전문가 협업도 지원해야 한다.
+주요 기능은 다음과 같다.
+ 1. 고객 포털
+ 2. 외부 자료 업로드 링크
+ 3. RFI 답변 포털
+ 4. Q&A 게시판
+ 5. 고객 승인 workflow
+ 6. 고객 보고서 배포
+ 7. 문서 공유 만료기한
+ 8. 다운로드 제한
+ 9. watermark
+10. 외부 사용자 권한
+11. 외부 사용자 감사로그
+12. 고객별 Dashboard
+13. 실사자료 제출 현황
+14. Closing Checklist 공유
+15. 고객 질의 이력 관리
+
+2.8. SaaS Operations and Marketplace Layer
+
+최상위급 SaaS가 되려면 제품 자체의 운영 시스템이 필요하다.
+필수 구성은 다음과 같다.
+ 1. Tenant Management
+ 2. Subscription Plan Management
+ 3. Usage Metering
+ 4. AI Token Metering
+ 5. Billing Integration
+ 6. Admin Console
+ 7. Integration Marketplace
+ 8. Plugin Framework
+ 9. Workflow Template Marketplace
+10. Prompt Pack Marketplace
+11. Clause Pack Marketplace
+12. Jurisdiction Pack
+13. Practice Area Pack
+14. Observability
+15. Incident Management
+16. SLA Monitoring
+17. Backup and Disaster Recovery
+18. Data Residency Management
+19. Customer Success Dashboard
+20. Product Analytics
+제3장. 최상위 SaaS 필수 기능 요구사항
+3.1. 멀티테넌트 SaaS 아키텍처
+
+3.1.1.   테넌트 모델
+제품은 다음 테넌트 구조를 지원해야 한다.
+ 1. Single-tenant dedicated deployment
+ 2. Multi-tenant shared deployment
+ 3. Private cloud deployment
+ 4. On-premise     또는 customer-managed deployment
+ 5. Hybrid deployment
+
+대형 로펌과 민감자료를 취급하는 기업 법무팀은 single-tenant 또는
+private deployment를 요구할 수 있다. 중소형 로펌은 multi-tenant
+SaaS를 사용할 수 있다.
+
+3.1.2. Tenant Isolation
+
+각 테넌트는 다음 항목에서 논리적 또는 물리적으로 분리되어야 한다.
+ 1. 사용자
+ 2. Matter
+ 3. 문서
+ 4. 메타데이터
+ 5. Neo4j Graph
+ 6. Vector Index
+ 7. Prompt Log
+     결과
+ 8. AI
+ 9. 감사로그
+10. 백업
+11. 암호화 키
+12. API Key
+13. Integration Credential
+14. Billing Data
+15. Usage Metrics
+
+3.1.3.   데이터 레지던시
+제품은 고객별로 데이터 저장 지역을 지정할 수 있어야 한다.
+필수 옵션은 다음과 같다.
+ 1. Korea
+ 2. Japan
+ 3. Singapore
+ 4. United States
+ 5. European Union
+ 6. United Kingdom
+ 7. Customer-managed region
+
+데이터 레지던시 정책은 다음 데이터에 적용한다.
+ 1. 원본문서
+ 2. 추출 텍스트
+ 3. 임베딩
+ 4. Neo4j Graph
+ 5. Metadata
+ 6. Prompt Log
+ 7. AI Output
+ 8. Citation Ledger
+ 9. Audit Log
+10. Backup
+
+3.1.4.   암호화
+필수 암호화 요건은 다음과 같다.
+ 1. 전송 중 암호화
+ 2. 저장 중 암호화
+ 3. 테넌트별 암호화 키
+ 4. 고객관리형 키 지원
+ 5. 키 회전
+ 6. 키 폐기
+ 7. 백업 암호화
+ 8. Prompt Log 암호화
+ 9. Privileged Note 별도 암호화
+10. 외부 공유 링크 암호화
+
+
+
+
+3.2.   엔터프라이즈 보안 및 거버넌스
+3.2.1.   인증
+지원해야 할 인증 방식은 다음과 같다.
+ 1. Email/password
+ 2. SSO
+ 3. SAML
+ 4. OIDC
+ 5. SCIM
+ 6. MFA
+ 7. Passkey
+ 8. IP allowlist
+ 9. Device trust
+10. Session policy
+
+3.2.2.   권한 모델
+권한은 다음 단위로 설정 가능해야 한다.
+ 1. Workspace
+ 2. Tenant
+ 3. Office
+ 4. Practice Group
+ 5. Client
+ 6. Matter
+ 7. Document
+ 8. Document Version
+ 9. Folder
+10. Node Label
+11. Relationship Type
+12. Work Product
+13. AI Result
+14. Prompt Log
+15. Citation
+16. Client Portal Space
+
+3.2.3.   역할 모델
+기본 역할은 다음과 같다.
+ 1. Platform Owner
+ 2. Tenant Admin
+ 3. Security Admin
+ 4. Knowledge Admin
+ 5. AI Governance Admin
+ 6. Matter Partner
+ 7. Responsible Attorney
+ 8. Associate
+ 9. Paralegal
+10. Knowledge Manager
+11. Billing Manager
+12. External Counsel
+13. Client User
+14. Auditor
+15. Read-only Reviewer
+
+3.2.4. Ethical Wall
+
+제품은 ethical wall을 핵심 기능으로 제공해야 한다.
+요건은 다음과 같다.
+ 1. 고객별 ethical wall 설정
+ 2. Matter별 ethical wall 설정
+ 3. 사용자 그룹 단위 차단
+ 4. 문서 열람 차단
+ 5. 검색 결과 차단
+ 6. Graph traversal 차단
+ 7. AI retrieval 차단
+ 8. Prompt context 차단
+ 9. 유사 조항 검색 시 제한 적용
+10. 감사로그 저장
+11. wall breach alert
+12.   관리자 승인 workflow
+3.2.5. DLP
+
+DLP 는 다음 항목을 탐지해야 한다.
+ 1. 주민등록번호
+ 2. 여권번호
+ 3. 외국인등록번호
+ 4. 계좌번호
+ 5. 카드번호
+ 6. 전화번호
+ 7. 이메일
+ 8. 주소
+ 9. 의료정보
+10. 임직원 인사정보
+11. 영업비밀
+12. 미공개 M&A 정보
+13. 내부조사 자료
+14. 소송전략 메모
+15. privileged communication
+
+DLP  탐지 시 가능한 조치는 다음과 같다.
+ 1. 경고
+ 2. 업로드 제한
+ 3. 외부 공유 제한
+ 4. 외부 LLM 전송 차단
+ 5. 관리자 승인 요구
+ 6. 자동 마스킹
+ 7. 감사로그 강화
+ 8. retention policy 변경
+
+
+
+
+3.3. AI   거버넌스
+3.3.1. AI   사용 정책 엔진
+AI Policy Engine은 다음 기준으로 모델 사용을 결정한다.
+ 1. Matter 민감도
+ 2. Document 민감도
+ 3. 개인정보 포함 여부
+ 4. privileged 여부
+ 5. 고객 정책
+ 6. 테넌트 정책
+ 7. 사용자 권한
+ 8. 업무 유형
+ 9. 비용 한도
+10. 모델 성능
+11. 데이터 레지던시
+12. 외부 API 사용 허용 여부
+
+3.3.2. AI   모델 라우팅
+모델 라우팅은 다음과 같이 한다.
+ 1. 문서 분류: Local AI Worker 우선
+ 2. OCR 후 구조화: Local AI Worker 우선
+ 3. 개인정보 탐지: Local AI Worker + Rule Engine
+ 4. 조항 추출: Local AI Worker 또는 Strong LLM
+ 5. 단순 요약: Local AI Worker
+ 6. 복잡한 계약서 검토: Strong LLM + GraphRAG
+ 7. 법률의견서 작성: Strong LLM + Citation Ledger
+ 8. 판례·법령 검토: Search + Strong LLM + Human Review
+ 9. 고객 송부 문안: Strong LLM + Human Approval
+10. 고위험 Matter: Local AI 또는 customer-approved model만 사용
+
+3.3.3. AI   결과 상태
+ 가 생성한 결과는 다음 상태를 가진다.
+AI
+
+ 1. generated
+ 2. candidate
+ 3. under_review
+ 4. revised_by_human
+ 5. confirmed
+ 6. rejected
+ 7. superseded
+ 8. exported
+ 9. delivered_to_client
+
+3.3.4. AI   답변의 필수 구성
+AI가 법률업무에 대해 답변할 때는 다음을 포함해야 한다.
+ 1. 답변 본문
+ 2. 근거 문서
+ 3. citation
+ 4. 문서 버전
+ 5. 확정 사실과 후보 사실 구분
+ 6. 미확인 사항
+ 7. 충돌자료
+ 8. 추가 확인 필요자료
+ 9. 신뢰도
+10. 변호사 검토 필요 여부
+
+3.3.5. AI   품질 평가
+AI   품질은 다음 지표로 측정한다.
+ 1. Citation정확도
+ 2. 원문 누락률
+ 3. 사실관계 오류율
+ 4. 조항번호 오류율
+ 5. 날짜·금액 오류율
+ 6. 버전 혼동률
+ 7. hallucination 발생률
+ 8. 변호사 수정률
+ 9. 승인률
+10. 반려률
+11. 업무시간 절감률
+12. 고객 송부 가능 수준 도달률
+
+
+
+
+제4장. 최상위 SaaS 제품 모듈 상세
+4.1. Matter Command Center
+
+4.1.1.   목적
+               는 특정 Matter의 전체 상태를 한 화면에서 파
+Matter Command Center
+악하고 조치할 수 있는 중심 화면이다.
+4.1.2.   표시 항목
+ 1. Matter   개요
+ 2. 고객
+ 3. 상대방
+ 4. 자문 포지션
+ 5. 담당자
+ 6. 현재 단계
+ 7. 주요 일정
+ 8. High Risk
+ 9. Open Issue
+10. 미제출 RFI
+11. 미검토 AI 후보
+12. 최근 문서
+13. 최근 이메일
+14. 최근 산출물
+15. 계약서 버전 상태
+16. Conflict Alert
+17. Closing Readiness
+18. Budget Burn
+19. 청구 가능 시간
+20. 다음 조치
+
+4.1.3.   실행 기능
+ 1. 새 문서 업로드
+ 2. RFI 생성
+ 3. AI 검토 실행
+ 4. 보고서 생성
+ 5. 계약서 마크업 생성
+ 6. 회의록 검토
+ 7. 고객 포털 공유
+ 8. Closing checklist 생성
+ 9. 산출물 승인 요청
+10. Matter Wiki export
+
+
+
+
+4.2. Enterprise Document and Email Management
+
+4.2.1.   문서관리
+필수 기능은 다음과 같다.
+ 1. 폴더 및 Matter 기반 문서 분류
+ 2. 문서 버전관리
+ 3. check-in/check-out
+ 4. 문서 잠금
+ 5. 실시간 공동편집 연동
+ 6. PDF viewer
+ 7. DOCX viewer
+ 8. XLSX viewer
+ 9. 이메일 viewer
+10. 첨부파일 추출
+11. 문서 비교
+12. 메타데이터 편집
+13. 문서 태그
+14. 관련 Matter 연결
+15. 관련 Issue 연결
+16. 관련 Clause 연결
+17. 관련 Citation 연결
+18. 원문 검색
+19. 유사 문서 검색
+20. 외부 공유 관리
+
+4.2.2.   이메일관리
+이메일관리 기능은 다음과 같다.
+ 1. Outlook add-in
+ 2. Gmail add-in
+ 3. Matter 별 이메일 filing
+ 4. 자동 Matter 추천
+ 5. 첨부파일 자동 분리
+ 6. 이메일 thread 구조화
+ 7. 협상 포인트 추출
+ 8. 상대방 입장 추출
+ 9. action item 추출
+10. privileged email 표시
+11. 외부 전송 경고
+12. 고객별 보존정책 적용
+13. 이메일 search
+14. 이메일 citation
+15. 이메일을 Negotiation Ledger에 반영
+
+
+
+
+4.3. Word Add-in
+
+4.3.1.   필요성
+법률업무의 실제 작성은 대부분 Microsoft Word에서 이루어진다. 최상위
+급 SaaS가 되려면 웹앱뿐 아니라 Word 안에서 AI와 Knowledge Graph
+를 사용할 수 있어야 한다.
+4.3.2.   주요 기능
+        선택
+ 1. Matter
+ 2. 관련 문서 검색
+ 3. Clause Library   검색
+ 4. 유사 조항 삽입
+ 5. 정의어 검토
+ 6. 조항번호 검토
+                  검토
+ 7. Cross-reference
+ 8. 내부 용어 스타일 적용
+ 9. 상대방 마크업 분석
+10. 수정안 제안
+11. 협상 fallback 문구 제안
+12. citation 삽입
+13. 위험 조항 표시
+14. 누락 조항 표시
+15. 문서 전체 consistency check
+16. 변경사항을 Matter Graph에 반영
+17. 작성 중 문구를 Firm Style Bible과 비교
+18. 고객별 선호 문구 적용
+19. 산출물 승인 workflow 제출
+20. 최종본을 DMS에 저장
+
+4.3.3. Word Add-in    사용 시 AI 통제
+ 1. Word 문서의 전체 내용이 외부 LLM에 자동 전송되어서는 안 된다.
+ 2. 사용자가 선택한 범위만 AI 처리할 수 있어야 한다.
+ 3. 고위험 문서의 경우 Local AI만 사용한다.
+ 4. AI가 제안한 문구는 track changes로 삽입한다.
+ 5. AI 제안 문구에는 source clause와 citation을 연결한다.
+ 6. 변호사 승인 전까지 자동 확정되지 않는다.
+
+
+
+
+4.4. Outlook Add-in
+
+4.4.1.   주요 기능
+ 1. 이메일을 Matter에 저장
+ 2. Matter 자동 추천
+ 3. 첨부파일 자동 저장
+ 4. 이메일 thread 분석
+ 5. 상대방 요청사항 추출
+ 6. 회신 초안 생성
+ 7. 고객 송부 전 위험정보 탐지
+ 8. privileged communication   표시
+ 9. 첨부 누락 경고
+10. 외부 수신자 경고
+11. RFI 답변 자동 매핑
+12. Negotiation Ledger   업데이트
+13. 이메일 citation 생성
+14. 후속 Task 생성
+15. 고객별 문체 적용
+
+
+
+
+4.5. Client Portal
+
+4.5.1.   목적
+       은 고객이 자료를 제출하고, RFI에 답변하고, 보고서를 확인
+Client Portal
+하며, 진행상황을 볼 수 있는 외부 협업 공간이다.
+4.5.2.   주요 기능
+ 1. Matter별 고객 포털
+ 2. RFI 답변 제출
+ 3. 자료 업로드
+ 4. 업로드 파일 자동 분류
+ 5. 제출 완료율 표시
+ 6. 미제출자료 표시
+ 7. 변호사 질문에 대한 답변
+ 8. 보고서 열람
+ 9. 의견 남기기
+10. 승인 요청 처리
+11. Closing checklist 공유
+12. 외부 사용자 권한
+13. 다운로드 제한
+14. watermark
+15.   만료 링크
+16. MFA
+17. 포털 감사로그
+18. 고객별 알림
+19. 제출자료 자동 Matter Graph 반영
+20. 고객용 진행상황 Dashboard
+
+4.5.3. Client Portal   보안
+ 1. 포털 사용자는 내부 문서 전체를 볼 수 없다.
+ 2. 고객이 제출한 자료와 고객에게 공유된 산출물만 볼 수 있다.
+ 3. AI 내부 분석, 변호사 메모, privileged note는 공유되지 않는다.
+ 4. 외부 공유 문서는 개별 승인 workflow를 거쳐야 한다.
+ 5. 공유 이후 열람·다운로드 이력이 기록되어야 한다.
+제5장. 고도화된 Matter Graph 사양
+5.1. Matter Graph의 제품 내 지위
+
+          는 Law Firm OS의 내부 데이터 구조가 아니라 제품의 핵
+Matter Graph
+심 기능이다. 사용자는 Matter Graph를 통해 다음을 확인할 수 있어야 한
+다.
+ 1. 특정 쟁점의 근거자료
+ 2. 특정 리스크의 발생 원인
+ 3. 특정 조항과 연결된 협상경위
+ 4. 특정 RFI가 필요한 이유
+ 5. 특정 산출물의 근거
+ 6. 특정 문서의 최신성
+ 7. 특정 회의록 기재의 원문 근거
+ 8. 특정 법률의견의 판례·법령 근거
+ 9. 특정 고객의 반복 이슈
+10. 특정 산업에서 반복되는 리스크
+
+5.2. Graph Product Features
+
+최상위 SaaS 수준에서는 다음 그래프 기능을 제공해야 한다.
+ 1. Matter Graph View
+ 2. Party Graph
+ 3. Document Version Graph
+ 4. Clause Dependency Graph
+ 5. Issue-Risk Graph
+ 6. Evidence Graph
+ 7. Timeline Graph
+ 8. Negotiation Graph
+ 9. Authority Graph
+10. Closing Readiness Graph
+11. Client Knowledge Graph
+12. Firm Knowledge Graph
+13. Cross-Matter Similarity Graph
+14. Conflict Graph
+15. AI Confidence Graph
+
+5.3. Graph Query UI
+
+사용자는 자연어 또는 필터 기반으로 그래프를 질의할 수 있어야 한다.
+예시 질문은 다음과 같다.
+ 1. 이 Matter에서 citation이 없는 High Risk를 보여줘.
+ 2. 이 SPA의 손해배상 조항과 연결된 모든 쟁점을 보여줘.
+ 3. 이 회의록에서 계약서에 반영되지 않은 합의사항을 보여줘.
+ 4. 이 RFI 항목이 어떤 리스크를 해소하기 위한 것인지 보여줘.
+ 5. 이 대상회사에서 주총 또는 이사회 승인 누락 가능성이 있는 항목을
+    보여줘.
+ 6. 이 고객사의 과거 Matter에서 반복된 개인정보 이슈를 보여줘.
+ 7. 이 조항과 유사한 과거 체결 조항을 보여줘.
+ 8. 이 보고서 문단의 근거자료를 모두 보여줘.
+ 9. 외부 LLM에 전송된 적 있는 문서와 Matter를 보여줘.
+10. 현재 closing을 막고 있는 CP를 보여줘.
+
+
+
+
+제6장. LLM Wiki 및 Knowledge Product 고도화
+6.1. Matter Wiki의 제품화
+
+Matter Wiki는 내부 기술 산출물이 아니라 사용자에게 제공되는 제품 기
+능이어야 한다.
+Matter Wiki는 다음 역할을 한다.
+
+ 1. Matter의 현재 상태를 설명
+ 2. 문서별 요약이 아니라 쟁점별 지식을 제공
+ 3. 변호사가 빠르게 업무를 인수인계할 수 있도록 지원
+ 4. AI가 GraphRAG context로 사용할 수 있는 구조 제공
+ 5. Matter 종료 후 firm knowledge로 승격될 수 있는 지식 단위 제공
+
+6.2. Wiki Page      유형
+최상위 SaaS 기준 Matter Wiki는 다음 페이지 유형을 제공한다.
+ 1. Matter Overview
+ 2. Parties and Roles
+ 3. Transaction Structure
+ 4. Timeline
+ 5. Document Register
+ 6. Version Map
+ 7. Issue Map
+ 8. Risk Register
+ 9. RFI Tracker
+10. Clause Map
+11. Defined Terms
+12. Obligation Matrix
+13. CP Tracker
+14. Disclosure Schedule Map
+15. Negotiation Ledger
+16. Meeting Notes Index
+17. Email Position Summary
+18. Authority Ledger
+19. Work Product Index
+20. Open Questions
+21. Conflict Log
+22. Closing Checklist
+23. Post-closing Obligations
+24. Knowledge Capture Summary
+25. Precedent Candidate Page
+
+6.3. Knowledge Capture after Matter Closing
+
+Matter종료 시 다음 절차를 실행한다.
+ 1. 최종 문서 확인
+ 2. 최종 산출물 확인
+ 3. 사용 가능한 precedent 후보 추출
+ 4. 민감정보 제거
+ 5. 고객명·상대방명 익명화
+ 6. 조항 라이브러리 편입 후보 생성
+ 7. 주요 쟁점 요약
+ 8. 협상상 교훈 정리
+ 9. 법령·판례 최신성 확인
+10. Knowledge Manager 승인
+11. Firm Knowledge Graph 반영
+12. Clause Library 반영
+13. Practice Group별 공유
+
+
+
+
+제7장. Workflow Product 고도화
+7.1. Workflow Builder
+최상위급 SaaS는 고정된 workflow만 제공해서는 부족하다. 사용자가 업
+무유형별 workflow를 직접 만들 수 있어야 한다.
+Workflow Builder는 다음을 지원한다.
+
+ 1. 단계 생성
+ 2. 조건 분기
+ 3. 승인 단계
+ 4. 문서 입력
+ 5. AI 작업
+ 6. 사람 검토
+ 7. RFI 생성
+ 8. Task 생성
+ 9. 알림
+10. 외부 포털 공유
+11. 산출물 생성
+12. Matter Graph 업데이트
+13. Citation 검증
+14. 완료 조건
+15. 감사로그
+
+7.2.   기본 Workflow Template
+기본 제공 template은 다음과 같다.
+ 1. M&A Buy-side LDD
+ 2. M&A Sell-side Vendor DD
+ 3. SPA Review
+ 4. SHA Drafting
+ 5. SSA Review
+ 6. BTA Review
+ 7. NDA Review
+ 8. Procurement Agreement Review
+ 9. Investment Agreement Review
+10. Disclosure Schedule Review
+11. Closing Management
+12. Board Approval Review
+13. Shareholders’ Meeting Review
+14. Personal Information Compliance Review
+15. Employment Contract Review
+16. Litigation Chronology
+17. Legal Opinion
+18. Meeting Minutes QC
+19. RFI Response
+20. Client Report Deck
+
+7.3. Agentic Workflow
+
+Agentic Workflow는 다음 원칙을 따른다.
+ 1. AI agent는 독립적으로 최종 결과를 확정하지 않는다.
+ 2. 각 agent는 제한된 역할만 수행한다.
+ 3. 각 agent의 output은 검토 queue로 이동한다.
+ 4. citation 없는 output은 확정될 수 없다.
+ 5. 고위험 판단은 변호사 승인 필요 상태로 표시한다.
+ 6. workflow 종료 시 audit trail을 생성한다.
+
+7.4.   기본 Agent 유형
+ 1. Intake Agent
+ 2. Document Classifier Agent
+ 3. Clause Extractor Agent
+ 4. Fact Extractor Agent
+ 5. Issue Spotter Agent
+ 6. Risk Register Agent
+ 7. RFI Agent
+ 8. Citation Validator Agent
+ 9. Conflict Detector Agent
+10. Negotiation Summary Agent
+11. Drafting Agent
+12. Markup Agent
+13. Authority Research Agent
+14. Style Consistency Agent
+15. Client Report Agent
+16. Billing Narrative Agent
+17. Knowledge Capture Agent
+
+
+
+
+제8장. Enterprise Integration 사양
+8.1. 필수 연동
+
+최상위 SaaS가 되기 위해 다음 연동을 지원해야 한다.
+ 1. Microsoft 365
+ 2. Outlook
+ 3. Word
+ 4. Teams
+ 5. SharePoint
+ 6. OneDrive
+ 7. Google Workspace
+ 8. Gmail
+ 9. Google Drive
+10. Slack
+11. Zoom
+12. DocuSign
+13. Adobe Acrobat
+14. iManage
+15. NetDocuments
+16. Dropbox
+17. Box
+18. Jira
+19. Linear
+20. Salesforce
+21. HubSpot
+            또는 회계시스템
+22. QuickBooks
+23. 법률 청구 시스템
+24. 전자서명 시스템
+25. DART 또는 공시시스템
+26. 법령·판례 검색 시스템
+
+8.2. Integration Marketplace
+
+Integration Marketplace   는 다음을 제공한다.
+ 1. 설치 가능한 connector
+ 2. OAuth 인증
+ 3. 관리자 승인
+ 4. Matter별 연동 범위 제한
+ 5. 동기화 상태 표시
+ 6. 에러로그
+ 7. 데이터 매핑 설정
+ 8. Webhook 설정
+ 9. Rate limit 관리
+10. 연동별 감사로그
+8.3. Public API
+
+제품은 외부 시스템과 연동하기 위해 Public API를 제공해야 한다.
+API 유형은 다음과 같다.
+
+ 1. Matter API
+ 2. Document API
+ 3. Graph API
+ 4. Citation API
+ 5. Workflow API
+ 6. AI Job API
+ 7. RFI API
+ 8. Client Portal API
+ 9. Audit Log API
+10. Billing API
+11. User and Permission API
+12. Integration API
+
+8.4. Webhook
+
+Webhook   이벤트는 다음을 포함한다.
+ 1. Matter created
+ 2. Document uploaded
+ 3. Document classified
+ 4. AI review completed
+ 5. Issue created
+ 6. Risk created
+ 7. RFI requested
+ 8. RFI answered
+ 9. WorkProduct approved
+10. Conflict detected
+11. Closing checklist completed
+12. External share opened
+13. Ethical wall breach attempted
+14. AI policy violation detected
+15. Billing threshold exceeded
+
+
+
+
+제9장. 제품 패키징 및 가격체계 사양
+9.1.   제품 플랜
+최상위 SaaS로 운영하려면 다음 플랜 구조가 필요하다.
+9.1.1. Starter
+
+대상:
+ 1. 소형 로펌
+ 2. 1~5인 변호사 조직
+ 3. 개별 사건관리 중심 사용자
+
+포함 기능:
+ 1. Matter 관리
+ 2. 문서 업로드
+ 3. 기본 AI 요약
+ 4. 기본 Matter Wiki
+ 5. 기본 검색
+ 6. 제한적 workflow
+ 7. 제한적 저장용량
+
+9.1.2. Professional
+
+대상:
+ 1. 중소형 로펌
+ 2. 전문 자문팀
+ 3. 기업 법무팀
+
+포함 기능:
+ 1. 모든 Starter 기능
+ 2. RFI Tracker
+ 3. Risk Register
+ 4. Clause Library
+ 5. Word Add-in
+ 6. Outlook Add-in
+ 7. 기본 GraphRAG
+ 8. 고객 포털
+ 9. 팀 권한관리
+10. AI 사용량 대시보드
+
+9.1.3. Enterprise
+대상:
+ 1. 중대형 로펌
+ 2. 대기업 법무팀
+ 3. 기밀자료가 많은 조직
+
+포함 기능:
+ 1. 모든 Professional 기능
+ 2. SSO
+ 3. SCIM
+ 4. Ethical Wall
+ 5. DLP
+ 6. Advanced Audit
+ 7. Data Residency
+ 8. Customer-managed key
+ 9. Dedicated tenant
+10. Advanced GraphRAG
+11. Workflow Builder
+12. Integration Marketplace
+13. SLA
+14. Admin Console
+15. AI Governance Console
+
+9.1.4. Private / Sovereign
+
+대상:
+ 1. 대형 로펌
+ 2. 금융기관
+ 3. 공공기관
+ 4. 국가별 데이터 반출 제한이 있는 고객
+
+포함 기능:
+ 1. Private cloud
+ 2. Customer-managed deployment
+ 3. Local AI only option
+ 4. Dedicated Neo4j
+ 5. Dedicated vector index
+ 6. Dedicated storage
+ 7. Dedicated model gateway
+ 8. Custom security review
+ 9. Custom retention policy
+10. Premium support
+
+9.2.   과금 기준
+과금 기준은 다음을 조합한다.
+ 1. 사용자 수
+ 2. 활성 Matter 수
+ 3. 저장용량
+ 4. AI 사용량
+ 5. Local AI worker instance
+ 6. GraphRAG query   수
+ 7. Client Portal 외부 사용자 수
+ 8. Workflow 실행 수
+ 9. 고급 연동 수
+10. Dedicated deployment 여부
+
+9.3. AI   사용량 관리
+사용자는 다음을 확인할 수 있어야 한다.
+ 1. 월별 AI 사용량
+ 2. Matter별 AI 사용량
+ 3. 사용자별 AI 사용량
+ 4. 모델별 비용
+ 5. 외부 LLM 전송량
+ 6. Local AI 처리량
+ 7. 실패한 AI 작업
+ 8. 승인된 AI 결과 비율
+ 9. 반려된 AI 결과 비율
+10. 비용 초과 예상 알림
+
+
+
+
+제10장. 운영 및 SLA 사양
+10.1. SLA
+
+Enterprise기준 SLA는 다음 항목을 포함해야 한다.
+ 1. 서비스 가용성
+ 2. API 가용성
+ 3. AI Job 처리 안정성
+ 4. 데이터 백업
+ 5. 복구시간 목표
+ 6. 복구시점 목표
+ 7. 지원 응답시간
+ 8. 보안사고 통지시간
+ 9. 정기점검 공지
+10. 장애보고서 제공
+
+10.2. Observability
+
+운영팀은 다음 지표를 모니터링해야 한다.
+ 1. 서비스 uptime
+ 2. API latency
+ 3. Document ingestion latency
+ 4. OCR latency
+ 5. AI job queue length
+ 6. AI job failure rate
+ 7. Graph query latency
+ 8. Search latency
+ 9. Vector index latency
+10. Storage usage
+11. Tenant-level usage
+12. Error rate
+13. Security alert
+14. Data export volume
+15. External LLM call volume
+
+10.3.   백업 및 복구
+백업 대상은 다음과 같다.
+ 1. 원본문서
+ 2. 문서 메타데이터
+ 3. Neo4j Graph
+ 4. PostgreSQL DB
+ 5. Vector Index
+ 6. LLM Wiki
+ 7. Citation Ledger
+ 8. Audit Log
+ 9. Prompt Log
+10. Workflow     상태
+11. Client Portal   데이터
+12. Integration credential
+
+복구는 다음 수준을 지원해야 한다.
+ 1. 문서 단위 복구
+ 2. Matter 단위 복구
+ 3. Tenant 단위 복구
+ 4. 특정 시점 복구
+ 5. 삭제된 문서 복구
+ 6. 잘못된 AI batch 작업 rollback
+ 7. Graph relationship rollback
+ 8. Wiki version rollback
+
+
+
+
+제11장. 고객 온보딩 및 데이터 마이그레이션
+11.1. 온보딩 프로세스
+
+Enterprise 고객 온보딩은 다음 단계로 진행한다.
+ 1. 보안 요구사항 확인
+ 2. 데이터 레지던시 결정
+ 3. 테넌트 생성
+ 4. SSO 설정
+ 5. SCIM 설정
+ 6. 권한 구조 설계
+ 7. Practice group 설정
+ 8. Matter taxonomy 설정
+ 9. Document taxonomy 설정
+10. 기존 DMS 연결
+11. 샘플 Matter migration
+12. AI 정책 설정
+13. 사용자 교육
+14. 파일럿 운영
+15. 전사 롤아웃
+
+11.2.   데이터 마이그레이션
+지원해야 할 migration source는 다음과 같다.
+ 1. 로컬 폴더
+ 2. SharePoint
+ 3. OneDrive
+ 4. Google Drive
+ 5. Dropbox
+ 6. Box
+ 7. iManage export
+ 8. NetDocuments export
+ 9. Outlook mailbox
+10. Gmail mailbox
+11. 기존 사건관리 시스템
+12. 엑셀 RFI 목록
+13. 기존 계약서 샘플
+14. 판례·의견서 내부 DB
+
+11.3. Migration      검증
+마이그레이션 후 다음을 검증한다.
+ 1. 파일 수 일치
+ 2. 파일 해시 일치
+ 3. 메타데이터 보존
+ 4. 폴더 구조 보존
+ 5. 권한 보존
+ 6. 버전 보존
+ 7. 이메일 thread 보존
+ 8. 첨부파일 보존
+ 9. Matter 매핑 정확성
+10. 검색 가능성
+11. Citation 생성 가능성
+12. AI 처리 가능성
+
+
+
+
+제12장. 성능 요구사항
+12.1. 문서 처리 성능
+
+기본 목표는 다음과 같다.
+ 1. 일반 DOCX 100페이지 이하: 1분 이내 텍스트 추출
+ 2. PDF 100페이지 이하: 3분 이내 OCR 및 추출
+ 3. XLSX 50시트 이하: 2분 이내 구조화
+ 4. MSG 1,000개 thread: batch 처리 지원
+ 5. 1GB 이하 Matter 자료: background ingestion 지원
+ 6. 10GB     이상 자료실: batch migration mode 지원
+12.2.   검색 성능
+목표는 다음과 같다.
+ 1. Matter 내 키워드 검색: 2초 이내
+ 2. Matter 내 vector search: 5초 이내
+ 3. GraphRAG context 생성: 10초 이내
+ 4. 유사 조항 검색: 10초 이내
+ 5. Document Register 로딩: 2초 이내
+ 6. Risk Register 로딩: 2초 이내
+ 7. Matter Graph 기본 시각화: 5초 이내
+
+12.3.   동시성
+Enterprise기준 다음을 지원해야 한다.
+ 1. 테넌트당 동시 사용자 1,000명 이상
+ 2. Matter당 동시 문서 검토자 50명 이상
+ 3. 동시 AI Job 100개 이상
+ 4. 동시 문서 업로드 1,000개 이상
+ 5. 대형 Matter 문서 100,000개 이상
+ 6. Clause Library 조항 1,000,000개 이상
+ 7. Firm Knowledge Graph 노드 10,000,000개 이상
+
+
+
+
+제13장. 제품 분석 및 운영지표
+13.1. 사용자 생산성 지표
+
+제품은 다음 지표를 제공해야 한다.
+ 1. Matter별 문서 처리시간
+ 2. RFI 응답 소요시간
+ 3. 계약서 검토 소요시간
+ 4. AI 사용 전후 검토시간 비교
+ 5. 보고서 작성시간
+ 6. 마크업 작성시간
+ 7. 회의록 검토시간
+ 8. 반복 조항 재사용률
+ 9. 변호사별 AI 결과 승인률
+10. Practice group별 workflow 사용률
+13.2.   품질 지표
+ 1. Citation 정확도
+ 2. AI 후보 승인률
+ 3. AI 후보 반려률
+ 4. Conflict 탐지 정확도
+ 5. 문서 버전 혼동률
+ 6. 누락자료 탐지율
+ 7. RFI 해소율
+ 8. High Risk 미반영률
+ 9. 보고서 citation coverage
+10. 고객 송부 전 수정률
+
+13.3.   지식자산 지표
+ 1. Matter 종료 후 precedent 전환 수
+ 2. Clause Library 신규 조항 수
+ 3. 재사용된 조항 수
+ 4. 고객별 반복 이슈 수
+ 5. Practice group별 knowledge contribution
+ 6. Authority 재사용률
+ 7. Firm Style Bible 적용률
+ 8. 과거 Matter 검색 사용률
+ 9. Knowledge capture completion rate
+10.   익명화 완료 precedent 수
+
+제14장. 최상위 SaaS MVP 재정의
+14.1. 기존 MVP의 한계
+
+기존 MVP는 Matter Wiki, Document Register, Issue/Risk, Citation,
+Neo4j 최소 그래프를 중심으로 했다. 이는 내부 프로토타입으로는 타당
+하나 최상위급 SaaS MVP로는 부족하다.
+최상위급 SaaS의 MVP는 다음을 처음부터 포함해야 한다.
+ 1. 멀티테넌트 구조
+ 2. 권한관리
+ 3. 감사로그
+ 4. 문서 버전관리
+ 5. Word 또는 Outlook 중 최소 1개 연동
+ 6. Citation Ledger
+ 7. Matter Graph
+ 8. AI Review Queue
+ 9. 보안정책 기반 AI 라우팅
+10. 관리자 콘솔
+
+14.2. SaaS MVP         범위
+SaaS MVP     에 포함할 기능은 다음과 같다.
+14.2.1. Platform
+
+ 1. Tenant   생성
+ 2. Workspace     생성
+ 3. 사용자 초대
+ 4. 역할 관리
+ 5. 기본 권한 관리
+ 6. 감사로그
+ 7. 관리자 콘솔
+
+14.2.2. Matter
+
+ 1. Matter   생성
+ 2. Matter Dashboard
+ 3. 담당자 설정
+ 4. Matter 상태 관리
+ 5. Matter Wiki 기본 생성
+
+14.2.3. Document
+
+ 1. 문서 업로드
+ 2. 버전관리
+ 3. 원문 viewer
+ 4. 문서 유형 분류
+ 5. Document Register
+ 6. Citation Anchor
+ 7.   문서 권한
+14.2.4. AI
+
+ 1. Local AI Worker    또는 모델 gateway
+ 2. 문서 분류
+ 3. 메타데이터 추출
+ 4. Issue후보 생성
+ 5. Risk 후보 생성
+ 6. AI Review Queue
+ 7.   외부 LLM 사용 정책
+ 8. Prompt Log
+
+14.2.5. Graph
+
+ 1. Neo4j Matter Graph
+ 2. Matter-Document-Issue-Risk-Citation   연결
+             기본
+ 3. Graph View
+ 4. GraphRAG 기본 retrieval
+
+14.2.6. Workflow
+
+ 1. SPA Review basic
+ 2. LDD basic
+ 3. RFI Tracker basic
+ 4. Meeting Minutes QC basic
+ 5. Work Product draft basic
+
+14.2.7. Integration
+
+                       또는 Outlook Add-in 중 1개
+ 1. Microsoft Word Add-in
+ 2. SharePoint 또는 Google Drive 중 1개
+ 3. Export API
+ 4. Webhook basic
+
+
+
+
+제15장. 개발 로드맵 v2.0
+15.1. Stage 0: SaaS Foundation
+
+목표:
+제품을 처음부터 SaaS로 운영 가능한 구조로 만든다.
+개발 항목:
+ 1. 멀티테넌트 설계
+ 2. 사용자·역할·권한
+ 3. 감사로그
+ 4. 관리자 콘솔
+ 5. 데이터 모델
+ 6. 원본문서 저장소
+ 7. 암호화
+ 8. 기본 API
+ 9. 배포 파이프라인
+10. 모니터링
+
+15.2. Stage 1: Matter and Document Core
+
+목표:
+로펌 업무의 기본 기록 시스템을 만든다.
+개발 항목:
+ 1. Matter 관리
+ 2. Client 관리
+ 3. Document Room
+ 4. Document Register
+ 5. 버전관리
+ 6. 원문 viewer
+ 7. 문서 검색
+ 8. Citation Anchor
+ 9. Matter Dashboard
+10.   기본 Wiki
+15.3. Stage 2: Matter Graph and Citation
+
+목표:
+제품 차별화의 핵심인 Matter Graph를 구현한다.
+개발 항목:
+ 1. Neo4j schema
+ 2. Matter Graph   생성
+ 3. Document-Issue-Risk-Citation   연결
+ 4. AI   후보 상태관리
+ 5. AI Review Queue
+ 6. Citation Panel
+ 7. Graph View
+ 8. Conflict   후보 탐지
+ 9. Missing Information   표시
+10. GraphRAG basic
+15.4. Stage 3: Legal AI Workflow
+
+목표:
+AI를 업무흐름 안에 넣는다.
+
+개발 항목:
+ 1. AI Policy Engine
+ 2. Model Router
+ 3. Local AI Worker
+ 4. Strong LLM Gateway
+ 5. SPA Review Workflow
+ 6. LDD Workflow
+ 7. RFI Workflow
+ 8. Meeting QC Workflow
+ 9. Drafting Assistant
+10. Quality Evaluation Dashboard
+
+15.5. Stage 4: Word/Outlook Native UX
+
+목표:
+변호사가 실제 작업하는 환경에 제품을 넣는다.
+개발 항목:
+ 1. Word Add-in
+ 2. Outlook Add-in
+ 3. Clause insertion
+ 4. Redline analysis
+ 5. Email filing
+ 6. Email response draft
+ 7. Matter search inside Word
+ 8. Citation insertion
+ 9. DMS save
+10. AI policy enforcement inside add-ins
+
+15.6. Stage 5: Enterprise Governance
+
+목표:
+대형 고객이 쓸 수 있는 보안·거버넌스를 완성한다.
+개발 항목:
+ 1. SSO
+ 2. SCIM
+ 3. MFA
+ 4. IP allowlist
+ 5. Ethical Wall
+ 6. DLP
+ 7. Data Residency
+ 8. Customer-managed key
+ 9. Retention policy
+10. Litigation hold
+11. Advanced audit
+12. Admin reporting
+
+15.7. Stage 6: Knowledge and Marketplace
+
+목표:
+제품을 단일 도구가 아니라 플랫폼으로 확장한다.
+개발 항목:
+ 1. Firm Knowledge Graph
+ 2. Clause Marketplace
+ 3. Workflow Marketplace
+ 4. Prompt Pack
+ 5. Jurisdiction Pack
+ 6. Practice Area Pack
+ 7. Integration Marketplace
+ 8. Public API
+ 9. Webhook
+10. Partner ecosystem
+
+
+
+
+제16장. 제품 성공 기준
+16.1. 기능적 성공 기준
+
+제품은 다음을 충족해야 한다.
+ 1. Matter별 모든 문서를 관리할 수 있다.
+ 2. 문서별 최신 버전을 식별할 수 있다.
+ 3. Issue, Risk, Citation을 연결할 수 있다.
+ 4. AI가 생성한 후보를 변호사가 검토할 수 있다.
+ 5. AI답변에 원문 citation이 붙는다.
+ 6. Word 또는 Outlook 안에서 AI와 지식검색을 사용할 수 있다.
+ 7. RFI와 제출자료를 Issue/Risk와 연결할 수 있다.
+ 8. 계약서 조항과 과거 유사 조항을 연결할 수 있다.
+ 9. 회의록과 녹취록, 계약서의 불일치를 탐지할 수 있다.
+10. Matter 종료 후 지식자산으로 전환할 수 있다.
+
+16.2.    엔터프라이즈 성공 기준
+제품은 다음을 충족해야 한다.
+ 1. SSO를 지원한다.
+ 2. MFA를 지원한다.
+ 3. 감사로그를 제공한다.
+ 4. Matter별 권한을 제공한다.
+ 5. Ethical wall을 제공한다.
+ 6. 외부 LLM 사용을 정책적으로 제한할 수 있다.
+ 7. 데이터 레지던시를 설정할 수 있다.
+ 8. 고객별 보존정책을 설정할 수 있다.
+ 9. 관리자가 AI 사용량을 확인할 수 있다.
+10. 장애·백업·복구 체계를 갖춘다.
+
+16.3.    시장 성공 기준
+제품은 다음 사용가치를 입증해야 한다.
+ 1. 계약서 1차 검토시간 단축
+ 2. 실사자료 정리시간 단축
+ 3. RFI 누락 감소
+ 4. 회의록 불일치 탐지율 향상
+ 5. 계약서 버전 혼동 감소
+ 6. 과거 조항 재사용률 증가
+ 7. 보고서 작성시간 단축
+ 8. 고객 질의 대응속도 향상
+ 9. 변호사별 지식 편차 감소
+10. Matter 종료 후 지식축적률 증가
+
+
+
+
+제17장. 최종 업데이트 결론
+최상위급 SaaS로 만들기 위해 Law Firm OS는 다음 방향으로 업데이트
+되어야 한다.
+첫째, 제품의 중심을 단순 DMS 또는 AI 챗봇이 아니라 Legal
+Knowledge Work Platform으로 재정의한다.
+
+둘째, Obsidian형 Matter Wiki는 사용자 친화적 지식 뷰로 제공하되, 원
+천 데이터는 Neo4j Matter Graph와 Citation Ledger에 둔다.
+셋째, LLM Wiki는 요약문이 아니라 LLM이 reasoning할 수 있는 구조화
+지식 레이어로 설계한다.
+넷째, Gemma 4 12B는 로컬 기밀문서 처리, 문서 분류, 메타데이터 추출,
+Fact/Issue/Risk 후보 생성에 사용하고, 최종 법률판단은 Strong LLM과
+변호사 검토를 결합한다.
+다섯째, Neo4j는 단순 그래프 시각화가 아니라 제품의 핵심 데이터 엔진
+이 되어야 한다.
+여섯째, Word Add-in과 Outlook Add-in은 필수이다. 변호사는 웹앱보다
+Word와 Outlook에서 실제 업무를 수행하므로, 최상위 SaaS가 되려면
+작업 환경 안으로 들어가야 한다.
+일곱째, Enterprise SaaS로 판매하려면 SSO, SCIM, MFA, ethical
+wall, DLP, audit log, data residency, customer-managed key,
+                      가 필수이다.
+retention, litigation hold
+
+여덟째, 제품은 단일 기능 묶음이 아니라 workflow template, integration
+marketplace, clause pack, practice area pack, jurisdiction pack을 제
+공하는 플랫폼으로 진화해야 한다.
+아홉째, 제품 성공의 핵심 지표는 “AI 답변 생성 수”가 아니라 citation 정
+확도, 변호사 승인률, 업무시간 단축, 리스크 누락 감소, 지식 재사용률이
+어야 한다.
+최종적으로 Law Firm OS는 다음 구조를 목표로 한다.
+Raw Documents는 안전하게 저장한다.
+Matter Graph는 문서의 의미와 관계를 저장한다.
+Citation Ledger는 모든 주장과 근거를 연결한다.
+LLM Wiki는 AI와 변호사가 함께 읽는 구조화 지식층이 된다.
+Gemma 4 12B는 로컬 처리 worker가 된다.
+Strong LLM은 GraphRAG와 결합해 고난도 분석과 작성을 수행한다.
+Word와 Outlook Add-in은 변호사의 실제 작업면을 장악한다.
+Enterprise Governance는 고객 신뢰와 대형 계약의 전제가 된다.
+Marketplace와 Workflow Builder는 제품을 장기 확장 가능한 SaaS 플
+랫폼으로 만든다.
+핵심 변경점은 다음입니다.
+구분             기존 사양                  최상위 SaaS 업데이트
+제품 정체성         로펌 업무 OS               Legal Knowledge Work Platform
+
+
+핵심 DB          Matter Graph           Matter Graph + SaaS Governance +
+                                      Knowledge Graph
+
+
+AI             Gemma + Strong LLM     AI Policy Engine + Model Router +
+                                      Evaluation Harness
+
+
+UX             웹앱 중심                  Word/Outlook native UX   필수
+보안             권한·감사 중심               SSO, SCIM, DLP, ethical wall, data
+                                      residency, CMK
+
+
+지식관리           Matter Wiki            Matter Wiki + Firm Knowledge Graph +
+                                      Knowledge Capture
+
+
+확장성            내부 기능 확장               Marketplace, API, Webhook, Practice Pack
+
+
+운영             개발 관점                  SLA, observability, backup, tenant isolation
+
+
+비즈니스           기능 중심                  플랜·과금·사용량·고객성공 지표 포함
+
+제 의견으로는, 지금 단계에서 가장 중요한 결정은 “AI 기능을 먼저 많이 만드는 것”이 아니라
+“SaaS foundation과 Matter Graph foundation을 동시에 잡는 것”입니다. 이 두 가지가 없으
+면 나중에 Word Add-in, 고객 포털, 엔터프라이즈 보안, GraphRAG, Clause Library를 붙일 때
+구조를 다시 갈아엎게 됩니다.
+

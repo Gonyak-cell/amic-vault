@@ -17,6 +17,7 @@ import type {
   DocumentExtractionStatus,
   DocumentListDto,
   DocumentPrivilegeStatus,
+  DocumentSource,
   DocumentStatus,
   DocumentType,
   ListDocumentSort,
@@ -51,6 +52,8 @@ const documentMetadataDiffOrder = [
   'document_type',
   'subtype',
   'confidentiality_level',
+  'source',
+  'folder_id',
 ] as const;
 
 export interface CreateDraftDocumentInput {
@@ -63,7 +66,9 @@ export interface CreateDraftDocumentInput {
   subtype?: string | null | undefined;
   confidentialityLevel?: DocumentConfidentialityLevel | undefined;
   privilegeStatus?: DocumentPrivilegeStatus | undefined;
+  source?: DocumentSource | undefined;
   aiAllowed?: boolean | undefined;
+  folderId?: string | null | undefined;
   createdBy: string;
 }
 
@@ -80,8 +85,12 @@ interface DocumentRow {
   subtype: string | null;
   confidentiality_level: DocumentConfidentialityLevel;
   privilege_status: DocumentPrivilegeStatus;
+  source: DocumentSource;
   ai_allowed: boolean;
   legal_hold: boolean;
+  folder_id?: string | null;
+  folder_path?: string | null;
+  tags?: string[] | null;
   version_id?: string | null;
   extraction_status?: DocumentExtractionStatus | null;
   extraction_method?: DocumentExtractionMethod | null;
@@ -116,8 +125,12 @@ function mapDocument(row: DocumentRow): DocumentDto {
     subtype: row.subtype,
     confidentialityLevel: row.confidentiality_level,
     privilegeStatus: row.privilege_status,
+    source: row.source,
     aiAllowed: row.ai_allowed,
     legalHold: row.legal_hold,
+    folderId: row.folder_id ?? null,
+    folderPath: row.folder_path ?? null,
+    tags: row.tags ?? [],
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
     updatedAt: (row.updated_at ?? row.created_at).toISOString(),
@@ -157,6 +170,8 @@ function canonicalDocumentMetadata(row: DocumentRow): string {
   return JSON.stringify({
     confidentiality_level: row.confidentiality_level,
     document_type: row.document_type,
+    folder_id: row.folder_id ?? null,
+    source: row.source,
     subtype: row.subtype,
     title: row.title,
   });
@@ -178,10 +193,14 @@ function documentMetadataDiffKeys(
       return input.documentType !== undefined && input.documentType !== before.document_type;
     }
     if (key === 'subtype') return input.subtype !== undefined && input.subtype !== before.subtype;
-    return (
-      input.confidentialityLevel !== undefined &&
-      input.confidentialityLevel !== before.confidentiality_level
-    );
+    if (key === 'confidentiality_level') {
+      return (
+        input.confidentialityLevel !== undefined &&
+        input.confidentialityLevel !== before.confidentiality_level
+      );
+    }
+    if (key === 'source') return input.source !== undefined && input.source !== before.source;
+    return input.folderId !== undefined && input.folderId !== (before.folder_id ?? null);
   });
 }
 
@@ -262,10 +281,25 @@ function documentListFilterClauses(params: unknown[], input: ListDocumentsQueryD
   if (input.privilegeStatus) {
     clauses.push(`AND doc.privilege_status = ${pushParam(params, input.privilegeStatus)}`);
   }
+  if (input.source) {
+    clauses.push(`AND doc.source = ${pushParam(params, input.source)}`);
+  }
   if (input.extractionStatus) {
     clauses.push(
       `AND coalesce(cd.extraction_status, 'pending') = ${pushParam(params, input.extractionStatus)}`,
     );
+  }
+  if (input.folderId) {
+    clauses.push(`AND doc.folder_id = ${pushParam(params, input.folderId)}::uuid`);
+  }
+  if (input.tag) {
+    clauses.push(`AND EXISTS (
+      SELECT 1
+      FROM document_tags filter_tag
+      WHERE filter_tag.tenant_id = doc.tenant_id
+        AND filter_tag.document_id = doc.document_id
+        AND filter_tag.tag = ${pushParam(params, input.tag)}
+    )`);
   }
   if (input.aiAllowed !== undefined) {
     clauses.push(`AND doc.ai_allowed = ${pushParam(params, input.aiAllowed)}`);
@@ -301,12 +335,18 @@ export class DocumentService {
       `
         INSERT INTO documents (
           document_id, tenant_id, matter_id, document_family_id, title, status,
-          document_type, subtype, confidentiality_level, privilege_status, ai_allowed, created_by
+          document_type, subtype, confidentiality_level, privilege_status, source, ai_allowed,
+          folder_id, created_by
         )
-        VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10, $11)
+        SELECT $1, $2, $3, $4, $5, 'draft', $6, $7,
+          COALESCE($8::text, m.confidentiality_level),
+          $9, $10, $11, $12, $13
+        FROM matters m
+        WHERE m.tenant_id = $2
+          AND m.matter_id = $3
         RETURNING document_id, tenant_id, matter_id, document_family_id, title,
           status, document_type, subtype, confidentiality_level, privilege_status,
-          ai_allowed, legal_hold, created_by, created_at, updated_at
+          source, ai_allowed, legal_hold, folder_id, created_by, created_at, updated_at
       `,
       [
         input.documentId,
@@ -316,9 +356,11 @@ export class DocumentService {
         input.title,
         input.documentType ?? 'other',
         input.subtype ?? null,
-        input.confidentialityLevel ?? 'standard',
+        input.confidentialityLevel ?? null,
         input.privilegeStatus ?? 'none',
+        input.source ?? 'internal_work_product',
         input.aiAllowed ?? false,
+        input.folderId ?? null,
         input.createdBy,
       ],
     );
@@ -349,6 +391,9 @@ export class DocumentService {
         documentStatus: before.status,
         matterStatus: before.matter_status,
       });
+      if (input.folderId !== undefined) {
+        await this.assertFolderTarget(tx, context.tenantId, before.matter_id, input.folderId);
+      }
       const diffKeys = documentMetadataDiffKeys(before, input);
       if (diffKeys.length === 0) return mapDocument(before);
 
@@ -377,7 +422,8 @@ export class DocumentService {
         { tenantId: context.tenantId, documentId },
         tx,
       );
-      return mapDocument(updated);
+      const refreshed = await this.findByIdWithExtractionForTenant(context.tenantId, documentId, tx);
+      return mapDocument(refreshed ?? updated);
     });
   }
 
@@ -442,8 +488,12 @@ export class DocumentService {
             doc.subtype,
             doc.confidentiality_level,
             doc.privilege_status,
+            doc.source,
             doc.ai_allowed,
             doc.legal_hold,
+            doc.folder_id,
+            folder_path.folder_path,
+            coalesce(tags.tags, '{}'::text[]) AS tags,
             cd.extraction_status,
             cd.extraction_method,
             cd.confidence::float8 AS extraction_confidence,
@@ -461,6 +511,28 @@ export class DocumentService {
           LEFT JOIN canonical_documents cd
             ON cd.tenant_id = idx.tenant_id
            AND cd.version_id = idx.version_id
+          LEFT JOIN LATERAL (
+            WITH RECURSIVE ancestors AS (
+              SELECT folder_id, parent_folder_id, name, 0 AS depth
+              FROM document_folders
+              WHERE tenant_id = doc.tenant_id
+                AND folder_id = doc.folder_id
+              UNION ALL
+              SELECT parent.folder_id, parent.parent_folder_id, parent.name, ancestors.depth + 1
+              FROM ancestors
+              JOIN document_folders parent
+                ON parent.tenant_id = doc.tenant_id
+               AND parent.folder_id = ancestors.parent_folder_id
+            )
+            SELECT string_agg(name, '/' ORDER BY depth DESC) AS folder_path
+            FROM ancestors
+          ) folder_path ON doc.folder_id IS NOT NULL
+          LEFT JOIN LATERAL (
+            SELECT array_agg(tag ORDER BY tag ASC) AS tags
+            FROM document_tags
+            WHERE tenant_id = doc.tenant_id
+              AND document_id = doc.document_id
+          ) tags ON true
           WHERE (${bound.sql})
             AND idx.matter_id = ${matterParam}::uuid
             AND idx.document_status <> ${deletedParam}
@@ -514,8 +586,12 @@ export class DocumentService {
             doc.subtype,
             doc.confidentiality_level,
             doc.privilege_status,
+            doc.source,
             doc.ai_allowed,
             doc.legal_hold,
+            doc.folder_id,
+            folder_path.folder_path,
+            coalesce(tags.tags, '{}'::text[]) AS tags,
             cd.extraction_status,
             cd.extraction_method,
             cd.confidence::float8 AS extraction_confidence,
@@ -533,6 +609,28 @@ export class DocumentService {
           LEFT JOIN canonical_documents cd
             ON cd.tenant_id = idx.tenant_id
            AND cd.version_id = idx.version_id
+          LEFT JOIN LATERAL (
+            WITH RECURSIVE ancestors AS (
+              SELECT folder_id, parent_folder_id, name, 0 AS depth
+              FROM document_folders
+              WHERE tenant_id = doc.tenant_id
+                AND folder_id = doc.folder_id
+              UNION ALL
+              SELECT parent.folder_id, parent.parent_folder_id, parent.name, ancestors.depth + 1
+              FROM ancestors
+              JOIN document_folders parent
+                ON parent.tenant_id = doc.tenant_id
+               AND parent.folder_id = ancestors.parent_folder_id
+            )
+            SELECT string_agg(name, '/' ORDER BY depth DESC) AS folder_path
+            FROM ancestors
+          ) folder_path ON doc.folder_id IS NOT NULL
+          LEFT JOIN LATERAL (
+            SELECT array_agg(tag ORDER BY tag ASC) AS tags
+            FROM document_tags
+            WHERE tenant_id = doc.tenant_id
+              AND document_id = doc.document_id
+          ) tags ON true
           WHERE (${bound.sql})
             AND idx.document_status <> ${deletedParam}
             AND idx.version_status = ${currentParam}
@@ -670,7 +768,7 @@ export class DocumentService {
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.ai_allowed, d.legal_hold, d.created_by, d.created_at, d.updated_at,
+          d.source, d.ai_allowed, d.legal_hold, d.folder_id, d.created_by, d.created_at, d.updated_at,
           m.status AS matter_status
         FROM documents d
         JOIN matters m
@@ -694,8 +792,11 @@ export class DocumentService {
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.ai_allowed, d.legal_hold, dv.version_id, cd.extraction_status, cd.extraction_method,
+          d.source, d.ai_allowed, d.legal_hold, dv.version_id, cd.extraction_status, cd.extraction_method,
           cd.confidence::float8 AS extraction_confidence,
+          d.folder_id,
+          folder_path.folder_path,
+          coalesce(tags.tags, '{}'::text[]) AS tags,
           d.created_by, d.created_at, d.updated_at, m.status AS matter_status
         FROM documents d
         JOIN matters m
@@ -708,6 +809,28 @@ export class DocumentService {
         LEFT JOIN canonical_documents cd
           ON cd.tenant_id = dv.tenant_id
           AND cd.version_id = dv.version_id
+        LEFT JOIN LATERAL (
+          WITH RECURSIVE ancestors AS (
+            SELECT folder_id, parent_folder_id, name, 0 AS depth
+            FROM document_folders
+            WHERE tenant_id = d.tenant_id
+              AND folder_id = d.folder_id
+            UNION ALL
+            SELECT parent.folder_id, parent.parent_folder_id, parent.name, ancestors.depth + 1
+            FROM ancestors
+            JOIN document_folders parent
+              ON parent.tenant_id = d.tenant_id
+             AND parent.folder_id = ancestors.parent_folder_id
+          )
+          SELECT string_agg(name, '/' ORDER BY depth DESC) AS folder_path
+          FROM ancestors
+        ) folder_path ON d.folder_id IS NOT NULL
+        LEFT JOIN LATERAL (
+          SELECT array_agg(tag ORDER BY tag ASC) AS tags
+          FROM document_tags
+          WHERE tenant_id = d.tenant_id
+            AND document_id = d.document_id
+        ) tags ON true
         WHERE d.tenant_id = $1
           AND d.document_id = $2
         LIMIT 1
@@ -741,6 +864,14 @@ export class DocumentService {
       params.push(input.confidentialityLevel);
       sets.push(`confidentiality_level = $${params.length}`);
     }
+    if (input.source !== undefined) {
+      params.push(input.source);
+      sets.push(`source = $${params.length}`);
+    }
+    if (input.folderId !== undefined) {
+      params.push(input.folderId);
+      sets.push(`folder_id = $${params.length}::uuid`);
+    }
     sets.push('updated_at = now()');
 
     const result = await client.query(
@@ -754,12 +885,33 @@ export class DocumentService {
           AND m.matter_id = d.matter_id
         RETURNING d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.ai_allowed, d.legal_hold, d.created_by, d.created_at, d.updated_at,
+          d.source, d.ai_allowed, d.legal_hold, d.folder_id, d.created_by, d.created_at, d.updated_at,
           m.status AS matter_status
       `,
       params,
     );
     return (result.rows[0] as DocumentWithMatterRow | undefined) ?? null;
+  }
+
+  private async assertFolderTarget(
+    client: QueryClient,
+    tenantId: TenantId,
+    matterId: string,
+    folderId: string | null,
+  ): Promise<void> {
+    if (folderId === null) return;
+    const result = await client.query(
+      `
+        SELECT 1
+        FROM document_folders
+        WHERE tenant_id = $1
+          AND matter_id = $2
+          AND folder_id = $3
+        LIMIT 1
+      `,
+      [tenantId, matterId, folderId],
+    );
+    if (result.rowCount !== 1) throw validationFailed('DOCUMENT_FOLDER_NOT_FOUND');
   }
 
   private async updateDocumentLegalHold(
@@ -780,7 +932,7 @@ export class DocumentService {
           AND m.matter_id = d.matter_id
         RETURNING d.document_id, d.tenant_id, d.matter_id, d.document_family_id, d.title,
           d.status, d.document_type, d.subtype, d.confidentiality_level, d.privilege_status,
-          d.ai_allowed, d.legal_hold, d.created_by, d.created_at, d.updated_at,
+          d.source, d.ai_allowed, d.legal_hold, d.created_by, d.created_at, d.updated_at,
           m.status AS matter_status
       `,
       [tenantId, documentId, legalHold],

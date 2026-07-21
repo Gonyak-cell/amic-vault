@@ -19,8 +19,9 @@ import type {
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
 } from '@amic-vault/shared';
-import { AuditService } from '../audit/audit.service';
+import { AuditService, type QueryClient } from '../audit/audit.service';
 import { documentUploadedAudit, documentVersionAddedAudit } from '../audit/events/document-events';
+import { GraphSyncOutboxWorker } from '../graph/graph-sync-outbox.worker';
 import {
   MatterSourcePolicyService,
   type MatterSourceMutationDecision,
@@ -30,6 +31,7 @@ import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { DocumentVersionService } from './document-version.service';
+import { DocumentFolderService } from './document-folder.service';
 import { DocumentService } from './document.service';
 import { DuplicateDetectorService } from './integrity/duplicate-detector.service';
 import { sha256File } from './integrity/sha256.util';
@@ -51,6 +53,17 @@ export interface UploadDocumentInput {
   fields: UploadDocumentFieldsDto;
   file: UploadedDiskFile | undefined;
   sourceSystem?: 'upload' | 'email_ingest' | 'migration';
+  afterUploadAudit?: (
+    client: QueryClient,
+    uploaded: {
+      documentId: string;
+      matterId: string;
+      fileObjectId: string;
+      versionId: string;
+      sha256: string;
+      title: string;
+    },
+  ) => Promise<void>;
 }
 
 export interface UploadBufferedDocumentInput {
@@ -61,6 +74,7 @@ export interface UploadBufferedDocumentInput {
   mimeType: string;
   body: Buffer;
   sourceSystem?: 'upload' | 'email_ingest' | 'migration';
+  afterUploadAudit?: UploadDocumentInput['afterUploadAudit'];
 }
 
 export interface AddDocumentVersionInput {
@@ -131,6 +145,12 @@ export class DocumentUploadService {
     @Optional()
     @Inject(MatterSourcePolicyService)
     private readonly matterSourcePolicy?: MatterSourcePolicyService,
+    @Optional()
+    @Inject(DocumentFolderService)
+    private readonly documentFolderService?: DocumentFolderService,
+    @Optional()
+    @Inject(GraphSyncOutboxWorker)
+    private readonly graphSyncOutbox?: GraphSyncOutboxWorker,
   ) {}
 
   async uploadBuffer(input: UploadBufferedDocumentInput): Promise<UploadDocumentResponseDto> {
@@ -143,6 +163,7 @@ export class DocumentUploadService {
         matterId: input.matterId,
         fields: input.fields,
         sourceSystem: input.sourceSystem ?? 'upload',
+        ...(input.afterUploadAudit ? { afterUploadAudit: input.afterUploadAudit } : {}),
         file: {
           path,
           originalname: input.originalFilename,
@@ -206,11 +227,22 @@ export class DocumentUploadService {
       let uploaded:
         | {
             document: Awaited<ReturnType<DocumentService['createDraft']>>;
+            version: Awaited<ReturnType<DocumentVersionService['createInitialVersion']>>;
             duplicates: UploadDocumentResponseDto['duplicates'];
+            folderPath: string | null;
+            tags: string[];
           }
         | undefined;
       try {
         uploaded = await this.auditService.transaction(context.tenantId, async (tx) => {
+          const organization = await this.resolveUploadOrganization(tx, {
+            actorUserId: input.actorUserId,
+            folderId: input.fields.folderId,
+            matterId: input.matterId,
+            sourceRelativePath: input.fields.sourceRelativePath,
+            tags: input.fields.tags,
+            tenantId: context.tenantId,
+          });
           const document = await this.documentService.createDraft(
             {
               documentId,
@@ -222,7 +254,9 @@ export class DocumentUploadService {
               subtype: input.fields.subtype,
               confidentialityLevel: input.fields.confidentialityLevel,
               privilegeStatus: input.fields.privilegeStatus,
+              source: input.fields.source,
               aiAllowed: input.fields.aiAllowed,
+              folderId: organization.folderId,
               createdBy: input.actorUserId,
             },
             tx,
@@ -250,6 +284,13 @@ export class DocumentUploadService {
               fileObjectId,
               fileHash: sha256,
               createdBy: input.actorUserId,
+              versionLabel: input.fields.versionLabel ?? metadataSuggestion.versionLabel ?? null,
+              versionSignificance:
+                input.fields.versionSignificance ??
+                metadataSuggestion.versionSignificance ??
+                'internal_draft',
+              renditionType: input.fields.renditionType ?? 'clean',
+              baseCleanVersionId: null,
             },
             tx,
           );
@@ -262,6 +303,15 @@ export class DocumentUploadService {
             },
             tx,
           );
+          if (organization.tags.length > 0) {
+            await this.requireDocumentFolderService().applyUploadTags(tx, {
+              actorUserId: input.actorUserId,
+              documentId,
+              matterId: input.matterId,
+              tags: organization.tags,
+              tenantId: context.tenantId,
+            });
+          }
           await this.auditService.log(
             documentUploadedAudit({
               tenantId: context.tenantId,
@@ -275,7 +325,24 @@ export class DocumentUploadService {
             }),
             tx,
           );
-          return { document, duplicates };
+          await input.afterUploadAudit?.(tx, {
+            documentId,
+            matterId: input.matterId,
+            fileObjectId,
+            versionId: version.versionId,
+            sha256,
+            title: document.title,
+          });
+          await this.graphSyncOutbox?.enqueue(
+            {
+              tenantId: context.tenantId,
+              matterId: input.matterId,
+              reasonCode: 'document_uploaded',
+              requestedBy: input.actorUserId,
+            },
+            tx,
+          );
+          return { document, version, duplicates, folderPath: organization.folderPath, tags: organization.tags };
         });
       } catch (error) {
         await this.compensateStorageObject(context.tenantId, storage.storageUri);
@@ -293,7 +360,14 @@ export class DocumentUploadService {
         subtype: uploaded.document.subtype,
         confidentialityLevel: uploaded.document.confidentialityLevel,
         privilegeStatus: uploaded.document.privilegeStatus,
+        source: uploaded.document.source,
         aiAllowed: uploaded.document.aiAllowed,
+        folderId: uploaded.document.folderId ?? null,
+        folderPath: uploaded.folderPath,
+        tags: uploaded.tags,
+        versionLabel: uploaded.version.versionLabel,
+        versionSignificance: uploaded.version.versionSignificance,
+        renditionType: uploaded.version.renditionType,
         metadataSuggestion,
         duplicates: uploaded.duplicates,
       };
@@ -379,6 +453,13 @@ export class DocumentUploadService {
               fileObjectId,
               fileHash: sha256,
               createdBy: input.actorUserId,
+              versionLabel: input.fields.versionLabel ?? metadataSuggestion.versionLabel ?? null,
+              versionSignificance:
+                input.fields.versionSignificance ??
+                metadataSuggestion.versionSignificance ??
+                'internal_draft',
+              renditionType: input.fields.renditionType ?? 'clean',
+              baseCleanVersionId: input.fields.baseCleanVersionId ?? null,
             },
             tx,
           );
@@ -414,6 +495,15 @@ export class DocumentUploadService {
             }),
             tx,
           );
+          await this.graphSyncOutbox?.enqueue(
+            {
+              tenantId: context.tenantId,
+              matterId: target.matter_id,
+              reasonCode: 'document_version_added',
+              requestedBy: input.actorUserId,
+            },
+            tx,
+          );
           return {
             documentId: input.documentId,
             matterId: target.matter_id,
@@ -422,6 +512,10 @@ export class DocumentUploadService {
             versionStatus: 'current',
             fileObjectId,
             sha256,
+            versionLabel: version.versionLabel,
+            versionSignificance: version.versionSignificance,
+            renditionType: version.renditionType,
+            baseCleanVersionId: version.baseCleanVersionId,
             metadataSuggestion,
             duplicates: [...versionDuplicates, ...documentDuplicates],
           };
@@ -474,6 +568,31 @@ export class DocumentUploadService {
     }
     await this.assertCanUpload(tenantId, actorUserId, matterId);
     return undefined;
+  }
+
+  private async resolveUploadOrganization(
+    client: QueryClient,
+    input: {
+      actorUserId: string;
+      folderId?: string | undefined;
+      matterId: string;
+      sourceRelativePath?: string | undefined;
+      tags?: string[] | undefined;
+      tenantId: TenantId;
+    },
+  ) {
+    if (!this.documentFolderService) {
+      if (input.folderId || input.sourceRelativePath || (input.tags?.length ?? 0) > 0) {
+        throw validationFailed('DOCUMENT_ORGANIZATION_UNAVAILABLE');
+      }
+      return { folderId: null, folderPath: null, tags: [] };
+    }
+    return this.documentFolderService.resolveUploadOrganization(client, input);
+  }
+
+  private requireDocumentFolderService(): DocumentFolderService {
+    if (!this.documentFolderService) throw validationFailed('DOCUMENT_ORGANIZATION_UNAVAILABLE');
+    return this.documentFolderService;
   }
 
   private async assertUploadDuplicateDecision(input: {

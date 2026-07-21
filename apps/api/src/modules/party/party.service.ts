@@ -72,6 +72,24 @@ function mapParty(row: PartyRow): PartyEntity {
   });
 }
 
+function partyEditDiffKeys(before: PartyEntity, input: UpdatePartyDto): string[] {
+  const keys: string[] = [];
+  if (input.name !== undefined && input.name !== before.props.name) keys.push('name');
+  if (input.partyType !== undefined && input.partyType !== before.props.partyType) {
+    keys.push('party_type');
+  }
+  if (input.partyRole !== undefined && input.partyRole !== before.props.partyRole) {
+    keys.push('party_role');
+  }
+  if (
+    input.relatedClientId !== undefined &&
+    input.relatedClientId !== before.props.relatedClientId
+  ) {
+    keys.push('related_client_id');
+  }
+  return keys;
+}
+
 function validationFailed(reason?: string): BadRequestException {
   return new BadRequestException({
     code: 'VALIDATION_FAILED',
@@ -155,29 +173,70 @@ export class PartyService {
     const context = this.tenantContext.require();
     const before = await this.findByIdForTenant(context.tenantId, partyId);
     if (!before) throw notFoundDenied();
-    await this.assertCanRestrictParty(context.tenantId, actorUserId, before.props.matterId);
-    if (before.props.isRestricted === input.isRestricted) return before.toDto();
+    const editDiffKeys = partyEditDiffKeys(before, input);
+    const restrictionChanged =
+      input.isRestricted !== undefined && before.props.isRestricted !== input.isRestricted;
+    if (editDiffKeys.length === 0 && !restrictionChanged) return before.toDto();
+
+    if (editDiffKeys.length > 0) {
+      await this.assertCanEditMatter(context.tenantId, actorUserId, before.props.matterId);
+      await this.assertMatterMutable(context.tenantId, before.props.matterId);
+      if (input.relatedClientId !== undefined) {
+        await this.assertRelatedClientUsable(context.tenantId, input.relatedClientId);
+      }
+    }
+    if (restrictionChanged) {
+      await this.assertCanRestrictParty(context.tenantId, actorUserId, before.props.matterId);
+    }
 
     const updated = await this.auditService.transaction(context.tenantId, async (tx) => {
-      const entity = await this.updateRestricted(tx, context.tenantId, partyId, input.isRestricted);
-      if (!entity) throw notFoundDenied();
-      await this.auditService.log(
-        {
-          tenantId: context.tenantId,
-          actorId: actorUserId,
-          action: 'PARTY_RESTRICTED_MARKED',
-          targetType: 'party',
-          targetId: partyId,
-          matterId: before.props.matterId,
-          metadata: {
-            party_id: partyId,
-            matter_id: before.props.matterId,
-            before_ref: `restricted:${before.props.isRestricted}`,
-            after_ref: `restricted:${input.isRestricted}`,
+      let entity: PartyEntity | null = before;
+      if (editDiffKeys.length > 0) {
+        entity = await this.updatePartyDetails(tx, context.tenantId, partyId, input);
+        if (!entity) throw notFoundDenied();
+        await this.auditService.log(
+          {
+            tenantId: context.tenantId,
+            actorId: actorUserId,
+            action: 'PARTY_UPDATED',
+            targetType: 'party',
+            targetId: partyId,
+            matterId: before.props.matterId,
+            metadata: {
+              party_id: partyId,
+              matter_id: before.props.matterId,
+              diff_keys: editDiffKeys,
+            },
           },
-        },
-        tx,
-      );
+          tx,
+        );
+      }
+      if (restrictionChanged) {
+        entity = await this.updateRestricted(
+          tx,
+          context.tenantId,
+          partyId,
+          input.isRestricted ?? before.props.isRestricted,
+        );
+        if (!entity) throw notFoundDenied();
+        await this.auditService.log(
+          {
+            tenantId: context.tenantId,
+            actorId: actorUserId,
+            action: 'PARTY_RESTRICTED_MARKED',
+            targetType: 'party',
+            targetId: partyId,
+            matterId: before.props.matterId,
+            metadata: {
+              party_id: partyId,
+              matter_id: before.props.matterId,
+              before_ref: `restricted:${before.props.isRestricted}`,
+              after_ref: `restricted:${input.isRestricted}`,
+            },
+          },
+          tx,
+        );
+      }
       return entity;
     });
 
@@ -336,6 +395,46 @@ export class PartyService {
           AND party_id = $2
       `,
       [tenantId, partyId],
+    );
+    const row = result.rows[0] as PartyRow | undefined;
+    return row ? mapParty(row) : null;
+  }
+
+  private async updatePartyDetails(
+    tx: QueryClient,
+    tenantId: TenantId,
+    partyId: string,
+    input: UpdatePartyDto,
+  ): Promise<PartyEntity | null> {
+    const params: unknown[] = [tenantId, partyId];
+    const sets: string[] = [];
+    if (input.name !== undefined) {
+      params.push(input.name);
+      sets.push(`name = $${params.length}`);
+    }
+    if (input.partyType !== undefined) {
+      params.push(input.partyType);
+      sets.push(`party_type = $${params.length}`);
+    }
+    if (input.partyRole !== undefined) {
+      params.push(input.partyRole);
+      sets.push(`party_role = $${params.length}`);
+    }
+    if (input.relatedClientId !== undefined) {
+      params.push(input.relatedClientId);
+      sets.push(`related_client_id = $${params.length}`);
+    }
+
+    const result = await tx.query(
+      `
+        UPDATE parties
+        SET ${sets.join(', ')}
+        WHERE tenant_id = $1
+          AND party_id = $2
+        RETURNING party_id, tenant_id, matter_id, name, party_type, party_role,
+          related_client_id, is_restricted, created_by, created_at
+      `,
+      params,
     );
     const row = result.rows[0] as PartyRow | undefined;
     return row ? mapParty(row) : null;

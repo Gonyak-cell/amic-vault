@@ -23,4 +23,22 @@ Section 2 Obligations
     expect(parsed.redlineChanges).toEqual([]);
     expect(parsed.warnings).toContain('contract.redline:malformed_marker');
   });
+
+  it('extracts Korean article, numeric, and letter clause headings', () => {
+    const parsed = parseContractText(`제1조 목적
+본문
+
+1. 세부 항목
+내용
+
+가. 하위 항목
+내용`);
+
+    expect(parsed.clauses.map((clause) => [clause.clauseKind, clause.clauseNumber])).toEqual([
+      ['article', '1'],
+      ['section', '1'],
+      ['paragraph', '가'],
+    ]);
+    expect(parsed.clauses[0]?.headingText).toBe('제1조 목적');
+  });
 });

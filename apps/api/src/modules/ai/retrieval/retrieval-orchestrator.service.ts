@@ -17,6 +17,7 @@ import { AiDeterministicReranker } from './reranker';
 import type {
   AiRetrievalCandidate,
   AiRetrievalDeniedReason,
+  AiExcludedRetrievedChunk,
   AiRetrievalRequest,
   AiRetrievalResult,
 } from './ai-retrieval.types';
@@ -49,7 +50,11 @@ function filterRefs(input: {
   const priorityRules = [
     ...new Set([
       ...input.appliedRules.filter((rule) => rule.startsWith('metadata_filter:')),
-      ...input.appliedRules.filter((rule) => rule === 'matter.membership:required'),
+      ...input.appliedRules.filter(
+        (rule) =>
+          rule === 'matter.access_scope:firm_open_or_membership' ||
+          rule === 'matter.membership:required',
+      ),
       ...input.appliedRules.filter((rule) => rule.startsWith('document.permissions:')),
       ...input.appliedRules.filter((rule) => rule.startsWith('ethical_wall:')),
       ...input.appliedRules.filter((rule) => rule.startsWith('permission_scope:')),
@@ -75,6 +80,7 @@ function compactRuleRef(rule: string): string {
     'metadata_filter:schema_valid': 'meta_valid',
     'metadata_filter:matter_mismatch': 'meta_mismatch',
     'metadata_filter:invalid_fail_closed': 'meta_invalid',
+    'matter.access_scope:firm_open_or_membership': 'matter_scope',
     'matter.membership:required': 'matter_member',
     'document.permissions:condition_fail_closed': 'doc_condition_closed',
     'document.permissions:explicit_deny': 'doc_explicit_deny',
@@ -204,8 +210,9 @@ export class AiRetrievalOrchestratorService {
         ]);
       }
 
+      let policyDecision: Awaited<ReturnType<AiPolicyService['evaluate']>>;
       try {
-        await this.aiPolicyService.assertAllowed({
+        policyDecision = await this.aiPolicyService.evaluate({
           tenantId: input.tenantId,
           userId: input.userId,
           matterId: input.matterId,
@@ -221,17 +228,56 @@ export class AiRetrievalOrchestratorService {
           'ai_policy:blocked_after_retrieval',
         ]);
       }
+      if (policyDecision.effect !== 'ALLOW') {
+        return this.deny(input, 'ai_policy_blocked', startedAt, [
+          ...classification.appliedRules,
+          ...metadataDecision.appliedRules,
+          ...(scopeDecision.appliedRules ?? []),
+          'ai_policy:blocked_after_retrieval',
+        ]);
+      }
+      const allowedDocumentIds = new Set(policyDecision.allowedDocumentIds);
+      const excludedDocumentIds = new Set(
+        policyDecision.excludedDocumentDecisions.map((decision) => decision.documentId),
+      );
+      const allowedChunks = redacted.chunks.filter((chunk) =>
+        allowedDocumentIds.has(chunk.documentId),
+      );
+      const excludedChunks: AiExcludedRetrievedChunk[] = redacted.chunks
+        .map((chunk, rankIndex) => ({ chunk, rankIndex }))
+        .filter(({ chunk }) => excludedDocumentIds.has(chunk.documentId))
+        .map(({ chunk, rankIndex }) => ({
+          documentId: chunk.documentId,
+          versionId: chunk.versionId,
+          matterId: chunk.matterId,
+          chunkId: chunk.chunkId,
+          reasonCode: 'ai_policy_blocked',
+          rankIndex,
+          score: Math.max(0, chunk.score),
+          textHash: chunk.textHash,
+          sourceTextHash: chunk.sourceTextHash,
+        }));
+      if (redacted.chunks.length > 0 && allowedChunks.length === 0) {
+        return this.deny(input, 'ai_policy_blocked', startedAt, [
+          ...classification.appliedRules,
+          ...metadataDecision.appliedRules,
+          ...(scopeDecision.appliedRules ?? []),
+          'ai_policy:blocked_after_retrieval',
+        ]);
+      }
 
       const result: AiRetrievalResult = {
         status: 'ready',
         questionKind: classification.kind,
-        chunks: redacted.chunks,
+        chunks: allowedChunks,
+        excludedChunks,
         omittedChunkIds: [],
         appliedRules: [
           ...classification.appliedRules,
           ...metadataDecision.appliedRules,
           ...(scopeDecision.appliedRules ?? []),
           ...redacted.appliedRules,
+          ...(excludedChunks.length > 0 ? ['ai_policy:excluded_after_retrieval'] : []),
           'retrieval.hybrid:query_stage_scope',
           'reranker:deterministic',
         ],

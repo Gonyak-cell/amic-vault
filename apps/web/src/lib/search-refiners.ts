@@ -12,6 +12,7 @@ export const searchRefinerFieldKeys = {
   dateRange: 'updated_at',
   documentType: 'document_type',
   extractionStatus: 'extraction_status',
+  ocrConfidence: 'ocr_confidence',
   legalHold: 'legal_hold',
   matterCode: 'matter_code',
   matterId: 'matter',

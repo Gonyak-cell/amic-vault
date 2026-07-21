@@ -42,4 +42,20 @@ describe('document status domain contract', () => {
       false,
     );
   });
+
+  it('allows the G3 counterparty markup negotiation path', () => {
+    expect(
+      canTransitionDocumentStatus(DocumentStatus.InternalReview, DocumentStatus.CounterpartySent),
+    ).toBe(true);
+    expect(
+      canTransitionDocumentStatus(DocumentStatus.CounterpartySent, DocumentStatus.MarkupReceived),
+    ).toBe(true);
+    expect(
+      canTransitionDocumentStatus(DocumentStatus.MarkupReceived, DocumentStatus.Negotiation),
+    ).toBe(true);
+    expect(canTransitionDocumentStatus(DocumentStatus.Negotiation, DocumentStatus.Final)).toBe(
+      true,
+    );
+    expect(canTransitionDocumentStatus(DocumentStatus.Final, DocumentStatus.Executed)).toBe(true);
+  });
 });

@@ -65,14 +65,6 @@ function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
     auditService as never,
     { canEditMatter: vi.fn(async () => allowPermission()) } as never,
     { deleteByStorageUri: vi.fn(async () => undefined) } as never,
-    {
-      require: vi.fn(() => ({
-        tenantId,
-        slug: 'tenant-alpha',
-        source: 'session',
-        status: 'active',
-      })),
-    } as never,
     { findByTenantAndId: vi.fn(async () => ({ status: 'active', role: 'security_admin' })) } as never,
     workService as never,
   );
@@ -208,5 +200,52 @@ describe('RecordsService legal hold lifecycle', () => {
       auditEventId,
       kind: 'records_disposal_approval',
     });
+  });
+
+  it('lists active disposal reviews with display labels for the records console', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          {
+            disposal_request_id: disposalRequestId,
+            matter_id: matterId,
+            document_id: documentId,
+            status: 'requested',
+            reason_code: 'RETENTION_EXPIRED',
+            requested_by: actorUserId,
+            approved_by: null,
+            executed_by: null,
+            assigned_to_user_id: null,
+            assigned_role: 'records_admin',
+            due_at: new Date('2026-06-27T00:00:00.000Z'),
+            workflow_item_id: workItemId,
+            workflow_audit_event_id: auditEventId,
+            created_at: new Date('2026-06-20T00:00:00.000Z'),
+            approved_at: null,
+            executed_at: null,
+            certificate_id: null,
+            matter_code: 'REC-2026-0001',
+            matter_name: 'Records Governance Review',
+            document_title: 'Retention Review Candidate',
+          },
+        ],
+      }),
+    };
+    const { service } = serviceWith(tx);
+
+    const response = await service.listDisposalRequests(ctx);
+
+    expect(response.disposals).toEqual([
+      expect.objectContaining({
+        disposalRequestId,
+        documentTitle: 'Retention Review Candidate',
+        matterCode: 'REC-2026-0001',
+        matterName: 'Records Governance Review',
+        reviewSource: 'retention_scheduler',
+        status: 'requested',
+      }),
+    ]);
+    expect(tx.query).toHaveBeenCalledWith(expect.stringContaining('dr.status IN'), [tenantId]);
   });
 });

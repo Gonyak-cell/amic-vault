@@ -43,6 +43,7 @@ interface MatterMemberRow {
   user_name?: string | null;
   user_email?: string | null;
   matter_role: MatterMemberRole;
+  lead_role: 'lead_partner' | 'lead_associate' | null;
   access_level: MatterMemberAccessLevel;
   added_by: string;
   added_at: Date;
@@ -77,6 +78,7 @@ function mapMatterMemberDto(row: MatterMemberRow) {
     userDisplayEmail,
     safeLabel: buildSafeLabel(userDisplayName, userDisplayEmail),
     canViewSensitiveRef: false,
+    leadRole: row.lead_role,
   };
 }
 
@@ -123,8 +125,17 @@ export class MatterMemberService {
     const result = await getPool().query<MatterMemberRow>(
       `
         SELECT mm.matter_id, mm.tenant_id, mm.user_id, u.name AS user_name, u.email AS user_email,
-          mm.matter_role, mm.access_level, mm.added_by, mm.added_at
+          mm.matter_role,
+          CASE
+            WHEN mm.user_id = m.lead_partner_id THEN 'lead_partner'
+            WHEN mm.user_id = m.lead_associate_id THEN 'lead_associate'
+            ELSE NULL
+          END AS lead_role,
+          mm.access_level, mm.added_by, mm.added_at
         FROM matter_members mm
+        JOIN matters m
+          ON m.tenant_id = mm.tenant_id
+         AND m.matter_id = mm.matter_id
         LEFT JOIN users u
           ON u.tenant_id = mm.tenant_id
           AND u.user_id = mm.user_id

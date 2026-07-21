@@ -8,6 +8,7 @@ export interface ParsedClause {
   clauseNumber: string;
   startOffset: number;
   endOffset: number;
+  headingText: string;
   headingHash: string;
   textHash: string;
 }
@@ -36,7 +37,7 @@ export interface ContractParseResult {
 }
 
 const clauseLinePattern =
-  /^(?<heading>\s*(Article|Section|Clause)\s+(?<number>[A-Za-z0-9_.-]+)\b[^\n]{0,160}|\s*제\s*(?<krNumber>\d+)\s*조\b[^\n]{0,160})/gim;
+  /^(?<heading>\s*(Article|Section|Clause)\s+(?<number>[A-Za-z0-9_.-]+)\b[^\n]{0,160}|\s*제\s*(?<krNumber>\d+)\s*조[^\n]{0,160}|\s*(?<decimalNumber>\d+(?:\.\d+)*)\.\s+[^\n]{0,160}|\s*(?<krLetter>[가-힣])\.\s+[^\n]{0,160})/gim;
 
 const definedTermPattern =
   /["“](?<term>[A-Za-z0-9][A-Za-z0-9 _./&()-]{1,78})["”]\s+(means|shall mean|has the meaning)\s+(?<definition>[^.\n]{3,320})/gim;
@@ -85,6 +86,7 @@ function parseClauses(text: string): ParsedClause[] {
         clauseNumber: 'whole-document',
         startOffset: 0,
         endOffset: text.length,
+        headingText: 'whole-document',
         headingHash: sha256Hex('whole-document'),
         textHash: sha256Hex(text),
       },
@@ -94,14 +96,21 @@ function parseClauses(text: string): ParsedClause[] {
     const start = match.index ?? 0;
     const end = index + 1 < matches.length ? matches[index + 1]!.index ?? text.length : text.length;
     const heading = String(match.groups?.heading ?? '').trim();
-    const number = String(match.groups?.number ?? match.groups?.krNumber ?? index + 1);
+    const number = String(
+      match.groups?.number ??
+        match.groups?.krNumber ??
+        match.groups?.decimalNumber ??
+        match.groups?.krLetter ??
+        index + 1,
+    );
+    const isArticle = heading.toLowerCase().startsWith('article') || heading.startsWith('제');
+    const isParagraph = Boolean(match.groups?.krLetter);
     return {
-      clauseKind: heading.toLowerCase().startsWith('article') || heading.startsWith('제')
-        ? 'article'
-        : 'section',
+      clauseKind: isArticle ? 'article' : isParagraph ? 'paragraph' : 'section',
       clauseNumber: number.slice(0, 80),
       startOffset: start,
       endOffset: Math.max(start + 1, end),
+      headingText: heading.slice(0, 240),
       headingHash: sha256Hex(heading),
       textHash: sha256Hex(text.slice(start, end)),
     };

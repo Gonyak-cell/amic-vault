@@ -1,29 +1,29 @@
 # ADR-016: Document Editing And Office Flow
 
-Status: Proposed
+Status: Proposed - B12 local handoff update pending PR/operator approval
 
-Source: DMS-UX PR-B document operations plan (`DMS-UX-208`, `DMS-UX-210`).
+Source: DMS-UX PR-B document operations plan (`DMS-UX-208`, `DMS-UX-210`)
+and B12 Office/Hancom native editing uplift.
 
 ## Context
 
-The document detail surface needs to feel like an enterprise DMS action center,
-but it must not imply editing semantics that the server does not yet enforce.
-Vault already has immutable original handling, version creation, preview,
-download, metadata update, legal hold state, permission checks, and audit
-expectations. It does not yet have a complete controlled editing contract.
+The document detail surface needs controlled editing without weakening the Vault
+constitution. Since the original read/download-only decision, the repo has added
+server-side edit sessions, lock tokens, heartbeat, saveSubversion idempotency,
+check-in/cancel/force-release, review gates, immutable version promotion, and
+reference-only audit events.
 
-The missing pieces for live editing are:
-
-- document lock ownership and lease/expiry behavior,
-- check-out/check-in/cancel-checkout APIs,
-- conflict handling when a new version appears during editing,
-- Office open/save integration or coauthoring authority,
-- audit events for lock, edit, check-in, abandoned edit, and conflict,
-- rollback and recovery behavior if Office or storage callbacks fail.
+The remaining B12 need is a local desktop handoff for firms that edit DOCX/HWP
+files in installed Word or Hancom Office. The handoff must not become a second
+source of truth, must not overwrite originals, and must not claim browser
+coauthoring or WOPI runtime support before a separate approval.
 
 ## Decision
 
-Adopt a read/download-only launch model for PR-B.
+Adopt a controlled local desktop handoff as the proposed next editing model.
+Until this ADR and ADR-018 receive PR/operator approval, the implementation may
+ship only as repo-local B12 evidence and must stay below product-readiness
+claims.
 
 The production document action center may expose:
 
@@ -31,48 +31,49 @@ The production document action center may expose:
 2. controlled download with a reason code,
 3. metadata profile read/edit through the existing metadata endpoint,
 4. version history through the existing version list endpoint,
-5. new version upload through the existing immutable version endpoint.
+5. new version upload through the existing immutable version endpoint,
+6. server-authoritative check-out/check-in/review subversion controls,
+7. a desktop edit protocol URL that carries only document/version references,
+8. local app handoff after server checkout, package download, local temporary
+   file write, watcher debounce, saveSubversion retry/idempotency, heartbeat,
+   and explicit check-in/cancel.
 
-The production document action center must not expose:
+The production document action center and desktop bridge must not expose:
 
-1. generic "edit document" buttons,
-2. check-out/check-in/cancel-checkout controls,
-3. Office live edit or coauthoring claims,
-4. local desktop editing bridges,
-5. external sharing links as an editing workaround.
+1. lock tokens, storage URIs, raw file hashes, API URLs, document body text, or
+   credentials in protocol URLs, UI evidence, logs, or notifications,
+2. WOPI host endpoints, browser editing, or coauthoring controls,
+3. external sharing links as an editing workaround,
+4. any path that bypasses PermissionService, immutable original preservation, or
+   audit-by-default behavior.
 
-## Deferred Options
+## WOPI Boundary
 
-### Option A: Explicit check-out/check-in
-
-This remains the preferred DMS-native path if Vault later implements lock state,
-lease expiry, conflict handling, version upload from check-in, and audit events.
-
-### Option B: Office integration
-
-Office integration is deferred to the Microsoft 365/OneDrive lane. It requires
-auth, storage, versioning, audit, coauthoring/lock, callback validation, and
-rollback design before production UI may claim live Office editing.
-
-### Option C: Continue read/download-only
-
-This is accepted for PR-B. Users can preview, download, and upload a new
-version without the UI pretending to support controlled editing.
+WOPI is evaluated in `ADR-018-wopi-evaluation.md`. B12 does not implement WOPI
+CheckFileInfo/GetFile/PutFile/Lock endpoints, Office Online browser editing, or
+coauthoring. A later ADR must approve auth, storage, version, audit, callback,
+rollback, tenant isolation, and cost before runtime WOPI work starts.
 
 ## Guardrails
 
-- No check-out/check-in UI before the backing API and audit model exist.
-- No Office integration UI before the M365 integration gate approves it.
-- No external sharing, secure link, client portal, or VDR path as a shortcut.
-- No raw document body, raw source text, prompt, model response, token, or
-  storage object URI may appear in UI evidence or logs.
-- New versions must create a new version and must not overwrite the original.
+- Checkout, package download, saveSubversion, check-in, cancel, and heartbeat
+  remain server-authoritative.
+- Every saved local edit creates a new review subversion and never overwrites
+  the official version or original FileObject.
+- `clientSaveId` is reused only for retries of the same local save burst.
+- Local desktop notifications use workflow state only; no raw document content,
+  token, storage URI, or API URL is shown.
+- The desktop app may use temporary working files for the active edit package
+  only. It must not introduce persistent document cache, offline sync, local DB,
+  search cache, audit cache, AI cache, or records cache.
+- Coauthoring and live browser editing remain non-goals for B12 and must stay
+  behind release-smoke claim gates.
 
 ## Review Triggers
 
 Revisit this ADR when:
 
-- lock/check-out/check-in schema and APIs are approved,
-- Office or OneDrive integration receives production gate approval,
-- version conflict handling becomes a user-facing workflow,
-- customer requirements demand controlled editing before broader DMS rollout.
+- B12 desktop manual QA captures Word and Hancom open-save-check-in receipts,
+- ADR-018 receives PR/operator approval,
+- a future requirement needs simultaneous browser editing or coauthoring,
+- a WOPI/CSPP contract is approved with rollback and tenant isolation evidence.

@@ -58,6 +58,27 @@ export const aiSummarySectionSchema = z
   })
   .strict();
 
+export const aiSummaryOpenQuestionSchema = z
+  .object({
+    question: z.string().min(1).max(600),
+    neededEvidence: z.string().min(1).max(600),
+    citationRefs: z.array(z.string().min(1).max(120)).max(20).optional(),
+  })
+  .strict();
+
+export const aiSummaryRecommendedActionSchema = z
+  .object({
+    action: z.string().min(1).max(600),
+    reviewRequired: z.boolean(),
+  })
+  .strict();
+
+export const aiSummaryExcludedSourcesNoticeSchema = z
+  .object({
+    count: z.number().int().min(0).max(10000),
+  })
+  .strict();
+
 export const aiSummaryResponseSchema = z
   .object({
     sessionId: uuidSchema,
@@ -66,6 +87,10 @@ export const aiSummaryResponseSchema = z
     status: aiSummaryStatusSchema,
     modelRoute: z.literal('local_gemma'),
     evidencePackId: uuidSchema,
+    conclusion: z.string().min(1).max(2400),
+    openQuestions: z.array(aiSummaryOpenQuestionSchema).max(20),
+    recommendedActions: z.array(aiSummaryRecommendedActionSchema).max(20),
+    excludedSourcesNotice: aiSummaryExcludedSourcesNoticeSchema,
     citations: z.array(aiCitationSchema).min(1).max(50),
     claims: z.array(aiCitationClaimSchema).min(1).max(100),
     sections: z.array(aiSummarySectionSchema).min(1).max(12),
@@ -74,11 +99,25 @@ export const aiSummaryResponseSchema = z
     escalationRequired: z.boolean(),
     legalConclusionAutoApproval: z.literal(false),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.recommendedActions.length > 0 && value.escalationRequired !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'recommendedActions require escalationRequired=true',
+        path: ['escalationRequired'],
+      });
+    }
+  });
 
 export type AiSummaryTask = z.infer<typeof aiSummaryTaskSchema>;
 export type AiSummaryStatus = z.infer<typeof aiSummaryStatusSchema>;
 export type AiSummaryWarningCode = z.infer<typeof aiSummaryWarningCodeSchema>;
 export type AiSummaryRequestDto = z.infer<typeof aiSummaryRequestSchema>;
 export type AiSummarySectionDto = z.infer<typeof aiSummarySectionSchema>;
+export type AiSummaryOpenQuestionDto = z.infer<typeof aiSummaryOpenQuestionSchema>;
+export type AiSummaryRecommendedActionDto = z.infer<typeof aiSummaryRecommendedActionSchema>;
+export type AiSummaryExcludedSourcesNoticeDto = z.infer<
+  typeof aiSummaryExcludedSourcesNoticeSchema
+>;
 export type AiSummaryResponseDto = z.infer<typeof aiSummaryResponseSchema>;

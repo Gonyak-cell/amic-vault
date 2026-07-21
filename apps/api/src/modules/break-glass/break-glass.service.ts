@@ -7,9 +7,11 @@ import {
 } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type {
+  BreakGlassRequestListDto,
   BreakGlassRequestDto,
   BreakGlassRequestStatus,
   CreateBreakGlassRequestDto,
+  ListBreakGlassRequestsQueryDto,
   RevokeBreakGlassRequestDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
@@ -122,6 +124,43 @@ export class BreakGlassService {
         tx,
       );
       return mapRequest(created);
+    });
+  }
+
+  async listRequests(
+    _actorUserId: string,
+    input: ListBreakGlassRequestsQueryDto = {},
+  ): Promise<BreakGlassRequestListDto> {
+    const context = this.tenantContext.require();
+    return this.auditService.transaction(context.tenantId, async (tx) => {
+      const params: unknown[] = [context.tenantId];
+      const statusClause = input.status ? `AND bgr.status = $2` : '';
+      if (input.status) params.push(input.status);
+      const result = await tx.query<BreakGlassRequestRow>(
+        `
+          SELECT bgr.*,
+            (
+              SELECT count(*)::text
+              FROM break_glass_approvals bga
+              WHERE bga.tenant_id = bgr.tenant_id
+                AND bga.request_id = bgr.request_id
+            ) AS approval_count
+          FROM break_glass_requests bgr
+          WHERE bgr.tenant_id = $1
+            ${statusClause}
+          ORDER BY
+            CASE bgr.status
+              WHEN 'pending' THEN 0
+              WHEN 'approved' THEN 1
+              WHEN 'revoked' THEN 2
+              ELSE 3
+            END,
+            bgr.created_at DESC
+          LIMIT 50
+        `,
+        params,
+      );
+      return { items: result.rows.map(mapRequest) };
     });
   }
 

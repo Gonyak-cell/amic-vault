@@ -6,12 +6,35 @@ import { MatterEmailTimeline } from './matter-email-timeline';
 
 describe('MatterEmailTimeline', () => {
   it('links permitted filed emails to document detail with safe labels', () => {
-    const html = renderToStaticMarkup(<MatterEmailTimeline emails={[emailFiling()]} />);
+    const email = emailFiling();
+    const html = renderToStaticMarkup(
+      <MatterEmailTimeline
+        emails={[email]}
+        threads={[
+          {
+            threadId: email.thread.threadId,
+            rootMessageHash: email.thread.rootMessageHash,
+            conversationIdHash: email.thread.conversationIdHash,
+            relatedEmailCount: 3,
+            filedEmailCount: 1,
+            documentIds: email.documentIds,
+            latestFiledAt: email.filedAt,
+            items: [email],
+          },
+        ]}
+        onFileThread={() => undefined}
+      />,
+    );
 
     expect(html).toContain('보관된 이메일');
     expect(html).toContain('권한이 확인된 이메일만 표시');
     expect(html).toContain('Matter filing receipt');
+    expect(html).toContain('스레드 전체 보관');
+    expect(html).toContain('이메일 1건');
     expect(html).toContain('문서 2건');
+    expect(html).toContain('내부 1');
+    expect(html).toContain('고객 1');
+    expect(html).toContain('상대방 1');
     expect(html).toContain('문서 1 열기');
     expect(html).toContain('문서 2 열기');
     expect(html).toContain('href="/documents/11111111-1111-4111-8111-1111111111d0"');
@@ -32,13 +55,20 @@ function emailFiling(): EmailMatterFilingDto {
     sentAt: '2026-06-18T02:10:00.000Z',
     hasOutsideParticipants: true,
     warningCodes: ['outside_participant'],
+    participantClasses: [
+      { class: 'internal', count: 1 },
+      { class: 'client', count: 1 },
+      { class: 'opposing', count: 1 },
+    ],
     privilegeTagSuggestion: {
       tag: 'attorney_client_privilege',
       reasonCodes: ['subject_keyword'],
       requiresUserConfirmation: true,
     },
     thread: {
+      threadId: '11111111-1111-4111-8111-1111111112ab',
       rootMessageHash: 'c'.repeat(64),
+      conversationIdHash: null,
       directReferenceCount: 1,
       relatedEmailCount: 3,
       referenceHashes: ['d'.repeat(64)],

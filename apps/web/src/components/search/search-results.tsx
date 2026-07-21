@@ -1,8 +1,7 @@
-'use client';
-
 import React from 'react';
 import type {
   SearchGroupBy,
+  SearchMode,
   SearchResponseDto,
   SearchResultDto,
   SearchTarget,
@@ -21,6 +20,7 @@ interface SearchResultsProps {
   pageSize: number;
   busy: boolean;
   groupBy?: SearchGroupBy;
+  mode?: SearchMode;
   target?: SearchTarget;
   error: SearchErrorKind | null;
   onPage: (page: number) => void;
@@ -33,6 +33,7 @@ export function SearchResults({
   busy,
   error,
   groupBy = 'none',
+  mode = 'keyword',
   target = 'all',
   onPage,
 }: SearchResultsProps) {
@@ -75,17 +76,19 @@ export function SearchResults({
           </Button>
         </div>
       </div>
-      <GroupedResults groupBy={groupBy} results={response.results} target={target} />
+      <GroupedResults groupBy={groupBy} mode={mode} results={response.results} target={target} />
     </section>
   );
 }
 
 function GroupedResults({
   groupBy,
+  mode,
   results,
   target,
 }: {
   groupBy: SearchGroupBy;
+  mode: SearchMode;
   results: SearchResultDto[];
   target: SearchTarget;
 }) {
@@ -93,7 +96,7 @@ function GroupedResults({
     return (
       <div className="flex flex-col gap-3">
         {results.map((result) => (
-          <ResultCard key={result.versionId} result={result} target={target} />
+          <ResultCard key={resultKey(result)} mode={mode} result={result} target={target} />
         ))}
       </div>
     );
@@ -107,7 +110,7 @@ function GroupedResults({
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">{group.label}</h2>
           <div className="flex flex-col gap-3">
             {group.items.map((result) => (
-              <ResultCard key={result.versionId} result={result} target={target} />
+              <ResultCard key={resultKey(result)} mode={mode} result={result} target={target} />
             ))}
           </div>
         </section>
@@ -126,6 +129,7 @@ function groupResults(results: SearchResultDto[], groupBy: Exclude<SearchGroupBy
 }
 
 function groupLabel(result: SearchResultDto, groupBy: Exclude<SearchGroupBy, 'none'>): string {
+  if (String(result.resultKind) === 'authority' || result.authorityId) return '판례·법령';
   if (groupBy === 'type') return result.documentType || '파일 유형 없음';
   if (groupBy === 'client') return result.clientDisplayName || '고객 표시명 없음';
   const code = result.matterDisplayCode?.trim();
@@ -134,6 +138,10 @@ function groupLabel(result: SearchResultDto, groupBy: Exclude<SearchGroupBy, 'no
   if (code) return code;
   if (name) return name;
   return 'Matter 표시명 없음';
+}
+
+function resultKey(result: SearchResultDto): string {
+  return result.versionId ?? result.authorityId ?? `${result.title}:${result.updatedAt}`;
 }
 
 function searchErrorKey(error: SearchErrorKind): TranslationKey {

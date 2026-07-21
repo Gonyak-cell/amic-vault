@@ -2,6 +2,8 @@ import type { DocumentExtractionMethod, DocumentExtractionStatus } from '@amic-v
 
 export const extractionQueueName = 'ingestion.extract';
 export const extractionDeadLetterQueueName = 'ingestion.extract.dead';
+export const ocrQueueName = 'ingestion.ocr';
+export const ocrDeadLetterQueueName = 'ingestion.ocr.dead';
 
 export interface ExtractionJobPayload {
   tenantId: string;
@@ -16,6 +18,24 @@ export interface ExtractionResultInput extends ExtractionJobPayload {
   bodyText: string;
   confidence: number;
   failureReasonCode: string | null;
+  revisions?: readonly DocumentRevisionExtractionInput[];
+  annotations?: readonly DocumentAnnotationExtractionInput[];
+}
+
+export interface DocumentRevisionExtractionInput {
+  changeType: 'insert' | 'delete' | 'move_from' | 'move_to' | 'format';
+  author: string | null;
+  changedAt: string | null;
+  beforeText: string;
+  afterText: string;
+}
+
+export interface DocumentAnnotationExtractionInput {
+  annotationType: string;
+  page: number;
+  author: string | null;
+  contents: string;
+  rect: readonly number[];
 }
 
 export interface ExtractionTarget {
@@ -34,7 +54,19 @@ const extractionMethods = new Set<string>([
   'pending',
   'pdf_text',
   'docx',
+  'doc',
   'hwpx',
+  'hwp5',
+  'email',
+  'text',
+  'csv',
+  'markdown',
+  'html',
+  'xlsx',
+  'xls',
+  'pptx',
+  'ppt',
+  'ocr',
   'ocr_required',
   'failed',
 ]);

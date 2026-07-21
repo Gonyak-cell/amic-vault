@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nest
 import type { PoolClient } from 'pg';
 import type { Job, PgBoss, SendOptions } from 'pg-boss';
 import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
+import { queueWorkerEnabled } from '../../../common/process-role';
 import { ExtractionDispatcher } from './extraction-dispatcher';
 import {
   extractionDeadLetterQueueName,
@@ -14,10 +15,8 @@ const databaseUrl =
   process.env.DATABASE_URL ??
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
-function workerEnabled(): boolean {
-  return ['1', 'true', 'yes'].includes(
-    (process.env.EXTRACTION_QUEUE_WORKER_ENABLED ?? '').trim().toLowerCase(),
-  );
+export function isExtractionQueueWorkerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return queueWorkerEnabled('EXTRACTION_QUEUE_WORKER_ENABLED', env);
 }
 
 export function extractionQueueSendOptions(versionId: string, client: PoolClient): SendOptions {
@@ -41,7 +40,7 @@ export class ExtractionQueueService implements OnModuleInit, OnModuleDestroy {
   constructor(@Inject(ExtractionDispatcher) private readonly dispatcher: ExtractionDispatcher) {}
 
   async onModuleInit(): Promise<void> {
-    if (!workerEnabled()) return;
+    if (!isExtractionQueueWorkerEnabled()) return;
     await this.registerWorkers();
   }
 

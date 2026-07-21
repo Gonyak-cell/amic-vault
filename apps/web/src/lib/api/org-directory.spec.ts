@@ -20,4 +20,17 @@ describe('org directory API client', () => {
       '/org-directory/subjects?limit=12&matterId=11111111-1111-4111-8111-111111111901&purpose=matter-team&q=Alpha+Partner&subjectType=user',
     );
   });
+
+  it('queries matter intake subjects before a matter id exists', async () => {
+    await searchOrgDirectorySubjects({
+      limit: 12,
+      purpose: 'matter-intake',
+      q: 'Alpha Partner',
+      subjectType: 'user',
+    });
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      '/org-directory/subjects?limit=12&purpose=matter-intake&q=Alpha+Partner&subjectType=user',
+    );
+  });
 });

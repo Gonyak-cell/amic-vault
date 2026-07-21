@@ -35,6 +35,10 @@ interface AddVersionResponse {
   versionStatus: 'current';
   fileObjectId: string;
   sha256: string;
+  versionLabel: string | null;
+  versionSignificance: string;
+  renditionType: string;
+  baseCleanVersionId: string | null;
   duplicates: Array<{ documentId: string; fileObjectId: string; sha256: string }>;
 }
 
@@ -49,6 +53,10 @@ interface VersionListResponse {
     createdBy: string;
     createdAt: string;
     supersedesVersionId: string | null;
+    versionLabel: string | null;
+    versionSignificance: string;
+    renditionType: string;
+    baseCleanVersionId: string | null;
   }>;
 }
 
@@ -61,6 +69,10 @@ interface VersionRow {
   file_object_id: string;
   file_hash: string;
   supersedes_version_id: string | null;
+  version_label: string | null;
+  version_significance: string;
+  rendition_type: string;
+  base_clean_version_id: string | null;
   storage_uri: string;
 }
 
@@ -111,18 +123,32 @@ async function createMatter(baseUrl: string, cookie: string, clientId: string): 
 function uploadForm(filename: string, bytes: Uint8Array): FormData {
   const form = new FormData();
   form.append('title', `Versioned Draft ${randomUUID()}`);
-  form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
+  form.append('file', new Blob([blobPart(bytes)], { type: 'application/pdf' }), filename);
   return form;
+}
+
+function blobPart(bytes: Uint8Array): ArrayBuffer {
+  return new Uint8Array(bytes).buffer;
 }
 
 function versionForm(
   filename: string,
   bytes: Uint8Array,
-  fields: { duplicateDecision?: 'new_version' } = {},
+  fields: {
+    duplicateDecision?: 'new_version';
+    versionLabel?: string;
+    versionSignificance?: string;
+    renditionType?: 'clean' | 'markup';
+    baseCleanVersionId?: string;
+  } = {},
 ): FormData {
   const form = new FormData();
   if (fields.duplicateDecision) form.append('duplicateDecision', fields.duplicateDecision);
-  form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
+  if (fields.versionLabel) form.append('versionLabel', fields.versionLabel);
+  if (fields.versionSignificance) form.append('versionSignificance', fields.versionSignificance);
+  if (fields.renditionType) form.append('renditionType', fields.renditionType);
+  if (fields.baseCleanVersionId) form.append('baseCleanVersionId', fields.baseCleanVersionId);
+  form.append('file', new Blob([blobPart(bytes)], { type: 'application/pdf' }), filename);
   return form;
 }
 
@@ -148,7 +174,13 @@ async function addVersion(
   documentId: string,
   filename: string,
   bytes: Uint8Array,
-  fields: { duplicateDecision?: 'new_version' } = {},
+  fields: {
+    duplicateDecision?: 'new_version';
+    versionLabel?: string;
+    versionSignificance?: string;
+    renditionType?: 'clean' | 'markup';
+    baseCleanVersionId?: string;
+  } = {},
 ): Promise<AddVersionResponse> {
   const response = await fetch(`${baseUrl}/v1/documents/${documentId}/versions`, {
     method: 'POST',
@@ -166,6 +198,8 @@ async function versionRows(documentId: string): Promise<VersionRow[]> {
       `
         SELECT dv.version_id, dv.document_id, d.document_family_id, dv.version_no,
           dv.version_status, dv.file_object_id, dv.file_hash, dv.supersedes_version_id,
+          dv.version_label, dv.version_significance, dv.rendition_type,
+          dv.base_clean_version_id,
           f.storage_uri
         FROM document_versions dv
         JOIN documents d
@@ -231,6 +265,51 @@ async function rejectFamilyMutation(documentId: string): Promise<void> {
   });
 }
 
+async function ensureFreshMatterAppSyncState(): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          '{"fixture":"b4_document_versioning"}'::jsonb
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantBetaId],
+    );
+  });
+}
+
 function createStorageService(): StorageService {
   return new StorageService(
     S3StorageAdapter.fromEnv(),
@@ -270,6 +349,7 @@ describe('document-versioning integration', () => {
     });
     const clientId = await createClient(baseUrl, betaOwnerCookie);
     betaMatterId = await createMatter(baseUrl, betaOwnerCookie, clientId);
+    await ensureFreshMatterAppSyncState();
   });
 
   afterAll(async () => {
@@ -295,8 +375,16 @@ describe('document-versioning integration', () => {
       version_no: 1,
       version_status: 'current',
       file_object_id: uploaded.fileObjectId,
+      version_label: null,
+      version_significance: 'internal_draft',
+      rendition_type: 'clean',
+      base_clean_version_id: null,
     });
     expect(rows[0]?.file_hash).toMatch(/^[0-9a-f]{64}$/);
+    const baseCleanVersionId = rows[0]?.version_id;
+    if (!baseCleanVersionId) {
+      throw new Error('Expected initial clean version id for markup version test');
+    }
 
     const duplicate = await addVersion(
       baseUrl,
@@ -304,9 +392,12 @@ describe('document-versioning integration', () => {
       uploaded.documentId,
       'Duplicate.pdf',
       initialBytes,
-      { duplicateDecision: 'new_version' },
+      { duplicateDecision: 'new_version', versionLabel: 'v2.0', versionSignificance: 'client_sent' },
     );
     expect(duplicate.versionNo).toBe(2);
+    expect(duplicate.versionLabel).toBe('v2.0');
+    expect(duplicate.versionSignificance).toBe('client_sent');
+    expect(duplicate.renditionType).toBe('clean');
     expect(duplicate.duplicates).toEqual([
       {
         documentId: uploaded.documentId,
@@ -321,8 +412,17 @@ describe('document-versioning integration', () => {
       uploaded.documentId,
       'Changed.pdf',
       Buffer.from('%PDF-1.7\nVERSION-CHANGED\n'),
+      {
+        versionLabel: 'v3-markup',
+        versionSignificance: 'negotiation',
+        renditionType: 'markup',
+        baseCleanVersionId,
+      },
     );
     expect(changed.versionNo).toBe(3);
+    expect(changed.versionLabel).toBe('v3-markup');
+    expect(changed.renditionType).toBe('markup');
+    expect(changed.baseCleanVersionId).toBe(baseCleanVersionId);
 
     const deniedAdd = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/versions`, {
       method: 'POST',
@@ -357,6 +457,18 @@ describe('document-versioning integration', () => {
     expect(listed.items.filter((item) => item.versionStatus === 'current')).toHaveLength(1);
     expect(listed.items[0]?.supersedesVersionId).toBe(listed.items[1]?.versionId);
     expect(listed.items[1]?.supersedesVersionId).toBe(listed.items[2]?.versionId);
+    expect(listed.items[0]).toMatchObject({
+      versionLabel: 'v3-markup',
+      versionSignificance: 'negotiation',
+      renditionType: 'markup',
+      baseCleanVersionId: rows[0]?.version_id,
+    });
+    expect(listed.items[1]).toMatchObject({
+      versionLabel: 'v2.0',
+      versionSignificance: 'client_sent',
+      renditionType: 'clean',
+      baseCleanVersionId: null,
+    });
 
     const currentOnly = await fetch(
       `${baseUrl}/v1/documents/${uploaded.documentId}/versions?status=current`,
@@ -387,6 +499,18 @@ describe('document-versioning integration', () => {
     expect(rows.map((row) => row.version_no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     expect(new Set(rows.map((row) => row.file_object_id)).size).toBe(rows.length);
     expect(rows.filter((row) => row.version_status === 'current')).toHaveLength(1);
+    expect(rows[1]).toMatchObject({
+      version_label: 'v2.0',
+      version_significance: 'client_sent',
+      rendition_type: 'clean',
+      base_clean_version_id: null,
+    });
+    expect(rows[2]).toMatchObject({
+      version_label: 'v3-markup',
+      version_significance: 'negotiation',
+      rendition_type: 'markup',
+      base_clean_version_id: rows[0]?.version_id,
+    });
     expect(rows.at(-1)?.version_status).toBe('current');
     expect(await versionAuditCount(uploaded.documentId)).toBe(12);
     await rejectFamilyMutation(uploaded.documentId);

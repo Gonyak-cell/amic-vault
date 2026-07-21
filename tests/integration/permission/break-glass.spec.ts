@@ -191,6 +191,46 @@ describe('break glass dual approval integration', () => {
 
     const requestId = await requestBreakGlass(baseUrl, ownerCookie, wallId);
 
+    const listedPending = await fetch(`${baseUrl}/v1/break-glass/requests?status=pending`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const listedPendingBody = await listedPending.text();
+    expect(listedPending.status, listedPendingBody).toBe(200);
+    expect(JSON.parse(listedPendingBody)).toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          requestId,
+          status: 'pending',
+          approvalCount: 0,
+        }),
+      ]),
+    });
+    expect(listedPendingBody).not.toContain('Break Glass Wall');
+
+    const adminNotifications = await fetch(`${baseUrl}/v1/notifications`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const adminNotificationsBody = await adminNotifications.text();
+    expect(adminNotifications.status, adminNotificationsBody).toBe(200);
+    expect(JSON.parse(adminNotificationsBody)).toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          source: 'operational_data',
+          category: '보안 운영',
+          title: 'Break-glass 승인 요청',
+          href: '/admin/security',
+          status: 'unread',
+        }),
+      ]),
+    });
+    expect(adminNotificationsBody).not.toContain(requestId);
+    expect(adminNotificationsBody).not.toContain('Break Glass Wall');
+
+    const requesterListDenied = await fetch(`${baseUrl}/v1/break-glass/requests`, {
+      headers: { cookie: ownerCookie },
+    });
+    expect(requesterListDenied.status, await requesterListDenied.text()).toBe(403);
+
     const selfApproval = await fetch(`${baseUrl}/v1/break-glass/requests/${requestId}/approvals`, {
       method: 'POST',
       headers: { cookie: ownerCookie },
@@ -211,6 +251,21 @@ describe('break glass dual approval integration', () => {
     await expect(approve(baseUrl, firmAdminCookie, requestId)).resolves.toMatchObject({
       status: 'approved',
       approvalCount: 2,
+    });
+
+    const listedApproved = await fetch(`${baseUrl}/v1/break-glass/requests?status=approved`, {
+      headers: { cookie: firmAdminCookie },
+    });
+    const listedApprovedBody = await listedApproved.text();
+    expect(listedApproved.status, listedApprovedBody).toBe(200);
+    expect(JSON.parse(listedApprovedBody)).toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          requestId,
+          status: 'approved',
+          approvalCount: 2,
+        }),
+      ]),
     });
 
     const allowed = await fetch(`${baseUrl}/v1/matters/${matterId}`, {

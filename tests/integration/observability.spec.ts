@@ -62,6 +62,10 @@ describe('observability integration', () => {
     expect(response.status).toBe(200);
     expect(body).toContain('http_requests_total');
     expect(body).toContain('http_request_duration_ms_bucket');
+    expect(body).toContain('# TYPE pgboss_queue_depth gauge');
+    expect(body).toContain('pgboss_queue_depth{queue="ai-prep"}');
+    expect(body).toContain('pgboss_queue_depth{queue="extraction"}');
+    expect(body).toContain('pgboss_queue_depth{queue="indexing"}');
     expect(body).not.toContain('tenant_id');
     expect(body).not.toContain('user_id');
     expect(body).not.toContain('@test.local');

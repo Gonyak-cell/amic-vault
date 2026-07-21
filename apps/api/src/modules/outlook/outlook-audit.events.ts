@@ -261,10 +261,64 @@ export function outlookEmailFileRequestedAudit(
   };
 }
 
+export function outlookEmailFileCompletedAudit(
+  input: BaseOutlookAuditInput & {
+    emailRecordId: string;
+    filedAttachmentCount: number;
+    statusBefore: OutlookFilingRequestStatus;
+    duplicate: boolean;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'OUTLOOK_EMAIL_FILE_COMPLETED',
+    targetType: 'outlook_filing_request',
+    targetId: input.requestId,
+    matterId: input.matterId,
+    metadata: {
+      ...baseMetadata(input),
+      email_record_id: input.emailRecordId,
+      filed_attachment_count: input.filedAttachmentCount,
+      status_before: input.statusBefore,
+      status_after: 'completed',
+      outlook_status: 'completed',
+      ...(input.duplicate ? { reason_code: 'duplicate' } : {}),
+    },
+  };
+}
+
+export function outlookEmailFileFailedAudit(
+  input: BaseOutlookAuditInput & {
+    reasonCode: OutlookDeniedReasonCode;
+    statusBefore: OutlookFilingRequestStatus;
+    retryCount: number;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'OUTLOOK_EMAIL_FILE_FAILED',
+    targetType: 'outlook_filing_request',
+    targetId: input.requestId,
+    matterId: input.matterId,
+    result: 'failure',
+    metadata: {
+      ...baseMetadata(input),
+      reason_code: input.reasonCode,
+      status_before: input.statusBefore,
+      status_after: 'failed',
+      outlook_status: 'failed',
+      retry_count: input.retryCount,
+    },
+  };
+}
+
 export function outlookSendPolicyEvaluatedAudit(
   input: BaseOutlookSendPolicyAuditInput & {
     decision: OutlookSendPolicyDecision;
     warningCodes: readonly OutlookSendWarningReasonCode[];
+    dlpFindingCount?: number;
     deniedReasonCode?: OutlookDeniedReasonCode;
   },
 ): AuditLogInput {
@@ -282,6 +336,7 @@ export function outlookSendPolicyEvaluatedAudit(
       policy_decision: input.decision,
       warning_count: input.warningCodes.length,
       ...(input.warningCodes.length > 0 ? { warning_codes: input.warningCodes } : {}),
+      ...(input.dlpFindingCount ? { dlp_finding_count: input.dlpFindingCount } : {}),
       ...(input.deniedReasonCode ? { reason_code: input.deniedReasonCode } : {}),
     },
   };

@@ -26,6 +26,7 @@ const member: MatterMemberDto = {
   userDisplayName: '조우상',
   userDisplayEmail: 'jwsuh@amic.kr',
   matterRole: 'member',
+  leadRole: 'lead_associate',
   accessLevel: 'read',
   addedBy: '11111111-1111-4111-8111-111111111101',
   addedAt: '2026-06-12T00:00:00.000Z',
@@ -41,11 +42,12 @@ describe('TeamMemberList', () => {
     expect(html).toContain('조우상');
     expect(html).toContain('jwsuh@amic.kr');
     expect(html).not.toContain('표시 가능한 사용자 정보 없음');
-    expect(html).not.toContain('내부 참조는 표시하지 않음');
+    expect(html).not.toContain('내부 식별값은 표시하지 않음');
     expect(html).toContain('팀 구성원 표');
     expect(html).toContain('min-w-[720px]');
     expect(html).not.toContain(member.userId);
     expect(html).toContain('팀원');
+    expect(html).toContain('리드 어소');
     expect(html).toContain('보기');
     expect(html).not.toContain('Save team member');
     expect(html).not.toContain('Remove team member');

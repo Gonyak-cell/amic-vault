@@ -14,6 +14,7 @@ import {
   type AuditMetadata,
 } from '@amic-vault/shared';
 import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
+import { queueWorkerEnabled } from '../../../common/process-role';
 import { AuditService } from '../../audit/audit.service';
 import { pgBossDbFromPoolClient } from '../../document/extraction/pool-client-db-adapter';
 import { AiPrepProcessor } from './ai-prep.processor';
@@ -24,10 +25,8 @@ const databaseUrl =
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 const localGemmaPrepGroupId = 'local_gemma';
 
-function workerEnabled(): boolean {
-  return ['1', 'true', 'yes'].includes(
-    (process.env.AI_PREP_QUEUE_WORKER_ENABLED ?? '').trim().toLowerCase(),
-  );
+export function isAiPrepQueueWorkerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return queueWorkerEnabled('AI_PREP_QUEUE_WORKER_ENABLED', env);
 }
 
 function truthy(raw: string | undefined): boolean {
@@ -115,7 +114,19 @@ export function aiPrepQueueWorkOptions(): WorkOptions {
 
 export function defaultAiPrepArtifactKinds(): AiPrepJobPayload['artifactKind'][] {
   const raw = process.env.AI_PREP_ARTIFACT_KINDS;
-  if (!raw) return ['document_profile', 'key_fields', 'keyword_tags', 'filing_suggestions'];
+  if (!raw) {
+    return [
+      'document_profile',
+      'key_fields',
+      'date_facts',
+      'keyword_tags',
+      'filing_suggestions',
+      'fact_candidates',
+      'issue_candidates',
+      'risk_candidates',
+      'graph_candidate_edges',
+    ];
+  }
   const parsed = raw
     .split(',')
     .map((entry) => entry.trim())
@@ -144,7 +155,7 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!workerEnabled() || !this.processor) return;
+    if (!isAiPrepQueueWorkerEnabled() || !this.processor) return;
     await this.registerWorkers();
   }
 

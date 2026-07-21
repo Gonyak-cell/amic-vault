@@ -77,6 +77,21 @@ declare global {
 
 type ClientState = 'loading' | 'ready' | 'unavailable';
 
+type InsertableDocumentSearchResult = SearchResultDto & {
+  documentId: string;
+  versionId: string;
+};
+
+function isInsertableDocumentSearchResult(
+  result: SearchResultDto,
+): result is InsertableDocumentSearchResult {
+  return (
+    String(result.resultKind ?? 'document') !== 'authority' &&
+    typeof result.documentId === 'string' &&
+    typeof result.versionId === 'string'
+  );
+}
+
 interface OutlookAddinClientProps {
   initialDocumentInsertion?: OutlookDocumentInsertionDto;
   initialSnapshot?: OutlookItemSnapshot;
@@ -111,7 +126,7 @@ export function OutlookAddinClient({
   const [sendStatus, setSendStatus] = useState<OutlookSendFileRequestStatusDto | undefined>();
   const [folderMapping, setFolderMapping] = useState<OutlookFolderMappingDto | undefined>();
   const [documentQuery, setDocumentQuery] = useState('');
-  const [documentResults, setDocumentResults] = useState<SearchResultDto[]>([]);
+  const [documentResults, setDocumentResults] = useState<InsertableDocumentSearchResult[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState('');
   const [documentInsertion, setDocumentInsertion] = useState<
     OutlookDocumentInsertionDto | undefined
@@ -323,11 +338,12 @@ export function OutlookAddinClient({
         page: 1,
         pageSize: 5,
       });
-      setDocumentResults(response.results);
+      const results = response.results.filter(isInsertableDocumentSearchResult);
+      setDocumentResults(results);
       setSelectedDocumentId((current) =>
-        response.results.some((item) => item.documentId === current)
+        results.some((item) => item.documentId === current)
           ? current
-          : (response.results[0]?.documentId ?? ''),
+          : (results[0]?.documentId ?? ''),
       );
       setDocumentInsertion(undefined);
     } catch (error) {
@@ -451,7 +467,7 @@ export function OutlookAddinClient({
           <CardHeader className="flex-row items-center justify-between gap-2 p-3">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" aria-hidden />
-              <CardTitle className="text-sm">Vault 문서</CardTitle>
+              <CardTitle className="text-sm">문서 보관함 문서</CardTitle>
             </div>
             <Button
               type="button"
@@ -597,7 +613,7 @@ export function OutlookAddinClient({
 
         <Card className="rounded-md shadow-none">
           <CardHeader className="flex-row items-center justify-between gap-2 p-3">
-            <CardTitle className="text-sm">사건</CardTitle>
+            <CardTitle className="text-sm">Matter</CardTitle>
             <Button
               type="button"
               variant="outline"
@@ -629,7 +645,7 @@ export function OutlookAddinClient({
                     <span className="block text-xs text-muted-foreground">{suggestion.matterCode}</span>
                   </span>
                   <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-xs text-primary">
-                    {Math.round(suggestion.score)}
+                    {matterSuggestionBandLabel(suggestion.confidenceBand)} {Math.round(suggestion.confidence)}
                   </span>
                 </label>
               ))
@@ -663,17 +679,17 @@ export function OutlookAddinClient({
             {snapshot?.folderRefHash ? (
               <div className="grid grid-cols-2 gap-2">
                 <SummaryItem label="폴더" value="연결됨" />
-                <SummaryItem label="사건" value={selectedMatterId ? '선택됨' : '없음'} />
+                <SummaryItem label="Matter" value={selectedMatterId ? '선택됨' : '없음'} />
               </div>
             ) : (
               <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
-                폴더 ref 없음
+                폴더 연결 정보 없음
               </p>
             )}
             {folderMapping ? (
               <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
                 {folderMapping.approvalStatus} · 매핑 기록됨
-                {folderMapping.autoFileEnabled ? ' · 자동 파일링' : ''}
+                {folderMapping.autoFileEnabled ? ' · 자동 보관' : ''}
               </div>
             ) : null}
             <Button
@@ -739,7 +755,7 @@ export function OutlookAddinClient({
                 <span className="text-xs">요청 기록됨</span>
               </div>
               <div className="mt-1 text-xs">
-                파일링 요청이 사건에 연결됨
+                파일링 요청이 Matter에 연결됨
                 {status.filedAttachmentCount !== undefined
                   ? ` · 첨부 ${status.filedAttachmentCount}`
                   : ''}
@@ -769,7 +785,7 @@ export function OutlookAddinClient({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            선택 사건 {selectedMatterId ? '있음' : '없음'} · 첨부 {selectedCount}
+            선택 Matter {selectedMatterId ? '있음' : '없음'} · 첨부 {selectedCount}
           </p>
         </section>
       </div>
@@ -802,6 +818,19 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <dd className="truncate text-xs">{value}</dd>
     </div>
   );
+}
+
+function matterSuggestionBandLabel(band: MatterSuggestionDto['confidenceBand']): string {
+  switch (band) {
+    case 'auto_file':
+      return '자동저장';
+    case 'confirm':
+      return '확인';
+    case 'candidate':
+      return '후보';
+    case 'manual':
+      return '수동';
+  }
 }
 
 function SendPolicyPanel({

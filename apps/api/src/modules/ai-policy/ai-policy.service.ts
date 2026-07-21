@@ -88,6 +88,8 @@ export class AiPolicyService {
         modelRoute: null,
         matterId: input.matterId,
         documentDecisions: [],
+        allowedDocumentIds: [],
+        excludedDocumentDecisions: [],
         appliedRules: ['ai_policy:evaluation_error'],
       });
     }

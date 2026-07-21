@@ -98,6 +98,7 @@ export class SessionRepository {
       ipAddress: string | null;
       userAgent: string | null;
       expiresAt: Date;
+      mfaVerified?: boolean;
     },
     client?: QueryClient,
   ): Promise<SessionRecord> {
@@ -109,9 +110,9 @@ export class SessionRepository {
     const result = await client.query(
       `
         INSERT INTO sessions (
-          tenant_id, user_id, token_hash, ip_address, user_agent, expires_at
+          tenant_id, user_id, token_hash, ip_address, user_agent, expires_at, mfa_verified
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING session_id, tenant_id, user_id, token_hash, mfa_verified, expires_at, revoked_at
       `,
       [
@@ -121,6 +122,7 @@ export class SessionRepository {
         input.ipAddress,
         input.userAgent,
         input.expiresAt,
+        input.mfaVerified ?? false,
       ],
     );
     const row = result.rows[0] as SessionRow | undefined;

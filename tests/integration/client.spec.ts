@@ -86,6 +86,7 @@ describe('client registry integration', () => {
       headers: { cookie: alphaOwnerCookie, 'content-type': 'application/json' },
       body: JSON.stringify({
         name: clientName,
+        aliases: ['ASC Korea', queryToken],
         clientType: 'corporation',
         confidentialityLevel: 'high',
         metadata: { externalRef: 'CRM-001' },
@@ -93,8 +94,9 @@ describe('client registry integration', () => {
     });
     const createBody = await create.text();
     expect(create.status, createBody).toBe(201);
-    const created = JSON.parse(createBody) as { clientId: string; name: string };
+    const created = JSON.parse(createBody) as { aliases: string[]; clientId: string; name: string };
     expect(created.name).toBe(clientName);
+    expect(created.aliases).toEqual(['ASC Korea', queryToken]);
 
     const createAudit = await latestClientAudit(created.clientId, 'CLIENT_CREATED');
     expect(createAudit?.metadata_json).toEqual({ client_id: created.clientId });
@@ -113,22 +115,38 @@ describe('client registry integration', () => {
     expect(list.status, listBody).toBe(200);
     expect(JSON.parse(listBody)).toMatchObject({ totalCount: 1 });
 
+    const aliasList = await fetch(
+      `${baseUrl}/v1/clients?q=${encodeURIComponent('ASC Korea')}&pageSize=100`,
+      { headers: { cookie: alphaOwnerCookie } },
+    );
+    const aliasListBody = await aliasList.text();
+    expect(aliasList.status, aliasListBody).toBe(200);
+    expect(JSON.parse(aliasListBody)).toMatchObject({
+      items: [{ aliases: ['ASC Korea', queryToken], clientId: created.clientId }],
+      totalCount: 1,
+    });
+
     const update = await fetch(`${baseUrl}/v1/clients/${created.clientId}`, {
       method: 'PATCH',
       headers: { cookie: alphaOwnerCookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ status: 'dormant', confidentialityLevel: 'restricted' }),
+      body: JSON.stringify({
+        aliases: ['ASC Seoul'],
+        status: 'dormant',
+        confidentialityLevel: 'restricted',
+      }),
     });
     const updateBody = await update.text();
     expect(update.status, updateBody).toBe(200);
     expect(JSON.parse(updateBody)).toMatchObject({
       status: 'dormant',
       confidentialityLevel: 'restricted',
+      aliases: ['ASC Seoul'],
     });
 
     const updateAudit = await latestClientAudit(created.clientId, 'CLIENT_UPDATED');
     expect(updateAudit?.metadata_json).toEqual({
       client_id: created.clientId,
-      diff_keys: ['confidentiality_level', 'status'],
+      diff_keys: ['aliases', 'confidentiality_level', 'status'],
     });
   });
 

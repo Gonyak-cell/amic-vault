@@ -4,6 +4,7 @@ export const permissionAttributeKeys = [
   'matter.status',
   'matter.practice_group',
   'matter.client_id',
+  'matter.confidentiality_level',
   'document.status',
   'document.document_type',
   'document.confidentiality_level',
@@ -33,6 +34,7 @@ export interface PermissionAttributeContext {
     status?: string | null;
     practiceGroup?: string | null;
     clientId?: string | null;
+    confidentialityLevel?: string | null;
   };
   document?: {
     status?: string | null;
@@ -107,6 +109,8 @@ function resolveAttribute(
       return context.matter?.practiceGroup ?? null;
     case 'matter.client_id':
       return context.matter?.clientId ?? null;
+    case 'matter.confidentiality_level':
+      return context.matter?.confidentialityLevel ?? null;
     case 'document.status':
       return context.document?.status ?? null;
     case 'document.document_type':

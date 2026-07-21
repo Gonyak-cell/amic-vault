@@ -7,6 +7,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import {
@@ -16,6 +17,8 @@ import {
   createExternalQuestionRequestSchema,
   createExternalUserRequestSchema,
   createExternalWorkspaceRequestSchema,
+  listExternalWorkspacesQuerySchema,
+  reviewExternalAnswerRequestSchema,
 } from '@amic-vault/shared';
 import { Public } from '../auth/public.decorator';
 import type { RequestWithSession } from '../auth/session.guard';
@@ -75,6 +78,12 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
 export class ExternalController {
   constructor(@Inject(ExternalService) private readonly external: ExternalService) {}
 
+  @Get('workspaces')
+  listWorkspaces(@Req() request: RequestWithSession, @Query() query: unknown) {
+    const input = parseOrValidation(() => listExternalWorkspacesQuerySchema.parse(query ?? {}));
+    return this.external.listWorkspaces(permissionContext(request), input);
+  }
+
   @Post('workspaces')
   createWorkspace(@Req() request: RequestWithSession, @Body() body: unknown) {
     const input = parseOrValidation(() => createExternalWorkspaceRequestSchema.parse(body ?? {}));
@@ -112,6 +121,17 @@ export class ExternalController {
   ) {
     const input = parseOrValidation(() => createExternalAnswerRequestSchema.parse(body ?? {}));
     return this.external.createAnswer(permissionContext(request), messageId, input);
+  }
+
+  @Post('qa/:messageId/review')
+  @HttpCode(200)
+  reviewAnswer(
+    @Req() request: RequestWithSession,
+    @Param('messageId') messageId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => reviewExternalAnswerRequestSchema.parse(body ?? {}));
+    return this.external.reviewAnswer(permissionContext(request), messageId, input);
   }
 
   @Public()

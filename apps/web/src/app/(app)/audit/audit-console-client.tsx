@@ -1,7 +1,7 @@
 'use client';
 
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Search } from 'lucide-react';
+import { Download, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { auditActions, type AuditAction } from '@amic-vault/shared';
 import { AuditEventInspector } from '@/components/audit/audit-event-inspector';
 import { AuditEventTable } from '@/components/audit/audit-event-table';
@@ -10,7 +10,7 @@ import { FilterBar, FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
-import { exportAuditEventsCsv, listAuditEvents } from '@/lib/api/audit';
+import { exportAuditEventsCsv, getAuditAnchorStatus, listAuditEvents } from '@/lib/api/audit';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { useI18n } from '@/lib/i18n';
 
@@ -43,11 +43,11 @@ export function AuditConsoleClient() {
       ? {
           title: '활동 기록',
           description:
-            '권한이 확인된 감사 이벤트만 조회합니다. 내부 참조 필터는 고급 영역에서만 사용합니다.',
+            '권한이 확인된 활동 기록만 조회합니다. 상세 조건은 고급 영역에서만 사용합니다.',
           filterTitle: '활동 기록 필터',
           filterMeta: '운영 데이터 기준',
-          advancedFilters: '고급 참조 필터',
-          actor: '수행자 참조',
+          advancedFilters: '고급 감사 조건',
+          actor: '수행자',
           action: '활동',
           allActions: '모든 활동',
           result: '결과',
@@ -56,13 +56,25 @@ export function AuditConsoleClient() {
           denied: '접근 제한',
           failure: '실패',
           targetType: '대상 유형',
-          targetId: '대상 참조',
-          matterId: '사건 참조',
+          targetId: '대상 확인 정보',
+          matterId: 'Matter 확인 정보',
           from: '시작일',
           to: '종료일',
           search: '검색',
           export: 'CSV 내보내기',
           more: '더 보기',
+          anchorTitle: '감사 무결성',
+          anchorChecking: '확인 중',
+          anchorVerified: '검증됨',
+          anchorMissing: '앵커 없음',
+          anchorMismatch: '불일치',
+          anchorUnavailable: '확인 실패',
+          latestAnchor: '최근 앵커',
+          anchoredEvents: '이벤트',
+          sequenceRange: 'Seq',
+          storageReceipt: '보관 영수증',
+          stored: '있음',
+          notStored: '없음',
         }
       : {
           title: 'Activity log',
@@ -87,6 +99,18 @@ export function AuditConsoleClient() {
           search: 'Search activity',
           export: 'Export CSV',
           more: 'More',
+          anchorTitle: 'Audit integrity',
+          anchorChecking: 'Checking',
+          anchorVerified: 'Verified',
+          anchorMissing: 'No anchor',
+          anchorMismatch: 'Mismatch',
+          anchorUnavailable: 'Unavailable',
+          latestAnchor: 'Latest anchor',
+          anchoredEvents: 'Events',
+          sequenceRange: 'Seq',
+          storageReceipt: 'Object receipt',
+          stored: 'Recorded',
+          notStored: 'Missing',
         };
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(emptyFilters);
@@ -95,6 +119,10 @@ export function AuditConsoleClient() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [auditReady, setAuditReady] = useState(false);
+  const [anchorStatus, setAnchorStatus] = useState<Awaited<
+    ReturnType<typeof getAuditAnchorStatus>
+  > | null>(null);
+  const [anchorStatusFailed, setAnchorStatusFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const query = useMemo(() => queryFromFilters(appliedFilters), [appliedFilters]);
   const selectedEvent = useMemo(
@@ -128,6 +156,24 @@ export function AuditConsoleClient() {
   useEffect(() => {
     void load(null);
   }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    void getAuditAnchorStatus()
+      .then((status) => {
+        if (!active) return;
+        setAnchorStatus(status);
+        setAnchorStatusFailed(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAnchorStatus(null);
+        setAnchorStatusFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -266,6 +312,24 @@ export function AuditConsoleClient() {
           </details>
         </FilterBar>
       </form>
+      <AuditAnchorPanel
+        status={anchorStatus}
+        failed={anchorStatusFailed}
+        copy={{
+          title: copy.anchorTitle,
+          checking: copy.anchorChecking,
+          verified: copy.anchorVerified,
+          missing: copy.anchorMissing,
+          mismatch: copy.anchorMismatch,
+          unavailable: copy.anchorUnavailable,
+          latestAnchor: copy.latestAnchor,
+          anchoredEvents: copy.anchoredEvents,
+          sequenceRange: copy.sequenceRange,
+          storageReceipt: copy.storageReceipt,
+          stored: copy.stored,
+          notStored: copy.notStored,
+        }}
+      />
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <AuditEventTable
           events={events}
@@ -289,6 +353,82 @@ export function AuditConsoleClient() {
         </Button>
       ) : null}
     </PageShell>
+  );
+}
+
+function AuditAnchorPanel({
+  status,
+  failed,
+  copy,
+}: {
+  status: Awaited<ReturnType<typeof getAuditAnchorStatus>> | null;
+  failed: boolean;
+  copy: {
+    title: string;
+    checking: string;
+    verified: string;
+    missing: string;
+    mismatch: string;
+    unavailable: string;
+    latestAnchor: string;
+    anchoredEvents: string;
+    sequenceRange: string;
+    storageReceipt: string;
+    stored: string;
+    notStored: string;
+  };
+}) {
+  const state = failed ? 'unavailable' : (status?.status ?? 'checking');
+  const label =
+    state === 'verified'
+      ? copy.verified
+      : state === 'missing'
+        ? copy.missing
+        : state === 'mismatch'
+          ? copy.mismatch
+          : state === 'unavailable'
+            ? copy.unavailable
+            : copy.checking;
+  const ok = state === 'verified';
+  const latest = status?.latest ?? null;
+
+  return (
+    <section className="flex flex-col gap-3 rounded-md border bg-background p-3 text-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex items-center gap-2">
+        {ok ? (
+          <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+        ) : (
+          <ShieldAlert className="h-4 w-4 text-amber-700" aria-hidden="true" />
+        )}
+        <div>
+          <div className="font-medium text-foreground">{copy.title}</div>
+          <div className="text-muted-foreground">{label}</div>
+        </div>
+      </div>
+      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-4 md:min-w-[36rem]">
+        <AuditAnchorFact label={copy.latestAnchor} value={latest?.anchorDate ?? '-'} />
+        <AuditAnchorFact label={copy.anchoredEvents} value={String(latest?.eventCount ?? '-')} />
+        <AuditAnchorFact
+          label={copy.sequenceRange}
+          value={
+            latest?.seqStart && latest.seqEnd ? `${latest.seqStart}-${latest.seqEnd}` : '-'
+          }
+        />
+        <AuditAnchorFact
+          label={copy.storageReceipt}
+          value={latest?.storageRecorded ? copy.stored : copy.notStored}
+        />
+      </div>
+    </section>
+  );
+}
+
+function AuditAnchorFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div>{label}</div>
+      <div className="truncate font-mono text-foreground">{value}</div>
+    </div>
   );
 }
 

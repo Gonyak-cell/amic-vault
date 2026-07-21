@@ -29,6 +29,18 @@ export interface AiResponseAuditInput extends AiSessionAuditInput {
   status: 'responded' | 'blocked' | 'failed';
   blockedReason?: string | null;
   escalationRequired: boolean;
+  requestKind?: string | null;
+  generationResult?: 'generated' | 'fallback' | 'template' | null;
+  fallbackReasonCode?: string | null;
+}
+
+export interface AiPayloadViewedAuditInput extends AiSessionAuditInput {
+  promptHash: string;
+  responseHash: string;
+  promptLength: number;
+  responseLength: number;
+  riskFlag: boolean;
+  dlpFindingCount: number;
 }
 
 export interface AiCitedDocumentAuditInput {
@@ -157,6 +169,38 @@ export class AiAuditRecorder {
           ai_response_status: input.status,
           blocked_reason: input.blockedReason ?? null,
           escalation_required: input.escalationRequired,
+          request_kind: input.requestKind ?? null,
+          generation_result: input.generationResult ?? null,
+          fallback_reason_code: input.fallbackReasonCode ?? null,
+        },
+      },
+      client,
+    );
+  }
+
+  async recordPayloadViewed(
+    ctx: AiAuditContext,
+    input: AiPayloadViewedAuditInput,
+    client?: QueryClient,
+  ): Promise<void> {
+    await this.auditService.log(
+      {
+        tenantId: ctx.tenantId,
+        actorId: ctx.userId,
+        sessionId: ctx.sessionId ?? null,
+        action: 'AI_PAYLOAD_VIEWED',
+        targetType: 'ai_session_payload',
+        targetId: input.aiSessionId,
+        matterId: input.matterId,
+        metadata: {
+          ai_session_id: input.aiSessionId,
+          matter_id: input.matterId,
+          prompt_hash: input.promptHash,
+          response_hash: input.responseHash,
+          response_length: input.responseLength,
+          query_length: input.promptLength,
+          risk_flag: input.riskFlag,
+          dlp_finding_count: input.dlpFindingCount,
         },
       },
       client,

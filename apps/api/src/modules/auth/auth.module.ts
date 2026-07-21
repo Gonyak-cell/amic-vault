@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { MailerStub } from './mailer.stub';
 import { MfaPolicy } from './mfa.policy';
+import { MfaService } from './mfa.service';
 import {
   PASSWORD_RESET_STORE,
   PasswordResetService,
@@ -14,6 +15,7 @@ import {
 } from './password-reset.service';
 import { SessionGuard } from './session.guard';
 import { SessionRepository } from './session.repository';
+import { TotpService } from './totp.service';
 
 @Module({
   imports: [AuditModule, TenantModule, UserModule],
@@ -22,9 +24,11 @@ import { SessionRepository } from './session.repository';
     AuthService,
     MailerStub,
     MfaPolicy,
+    MfaService,
     PasswordResetService,
     PgPasswordResetStore,
     SessionRepository,
+    TotpService,
     {
       provide: PASSWORD_RESET_STORE,
       useExisting: PgPasswordResetStore,
@@ -34,6 +38,6 @@ import { SessionRepository } from './session.repository';
       useClass: SessionGuard,
     },
   ],
-  exports: [AuthService, MailerStub, SessionRepository],
+  exports: [AuthService, MailerStub, MfaService, SessionRepository, TotpService],
 })
 export class AuthModule {}

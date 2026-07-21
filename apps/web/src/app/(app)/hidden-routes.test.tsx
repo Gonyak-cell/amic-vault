@@ -1,12 +1,21 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
-import ContractsPage from './contracts/page';
 import DdPage from './dd/page';
 import LaunchPage from './launch/page';
 import LitigationPage from './litigation/page';
 import ScalePage from './scale/page';
+import ShowcasePage from '../showcase/page';
+
+vi.mock('next/navigation', () => ({
+  notFound: () => {
+    throw new Error('NEXT_NOT_FOUND');
+  },
+  redirect: (path: string) => {
+    throw new Error(`NEXT_REDIRECT:${path}`);
+  },
+}));
 
 describe('hidden production routes', () => {
   it('renders safe blocked states instead of route clients', () => {
@@ -21,30 +30,18 @@ describe('hidden production routes', () => {
           <ScalePage />
         </LanguageProvider>,
       ),
-      renderToStaticMarkup(
-        <LanguageProvider>
-          <ContractsPage />
-        </LanguageProvider>,
-      ),
-      renderToStaticMarkup(
-        <LanguageProvider>
-          <DdPage />
-        </LanguageProvider>,
-      ),
-      renderToStaticMarkup(
-        <LanguageProvider>
-          <LitigationPage />
-        </LanguageProvider>,
-      ),
     ].join('\n');
 
     expect(html).toContain('운영 노출 차단');
     expect(html).toContain('이 화면은 표시할 수 없습니다.');
-    expect(html).not.toContain('RFI-001');
-    expect(html).not.toContain('EV-001');
-    expect(html).not.toContain('FACT-001');
-    expect(html).not.toContain('PLD-001');
-    expect(html).not.toContain('Witness timeline');
-    expect(html).not.toContain('Corporate charter documents');
+  });
+
+  it('keeps showcase unavailable through the not-found boundary', () => {
+    expect(() => ShowcasePage()).toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('keeps DD and litigation root routes redirected away from standalone browsers', () => {
+    expect(() => DdPage()).toThrow('NEXT_REDIRECT:/matters');
+    expect(() => LitigationPage()).toThrow('NEXT_REDIRECT:/matters');
   });
 });

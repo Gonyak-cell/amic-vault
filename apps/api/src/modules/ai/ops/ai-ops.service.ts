@@ -32,6 +32,8 @@ interface OpsMetricsRow {
   stale_rebuild_count: number;
   generation_completed_count: number;
   generation_blocked_count: number;
+  generation_fallback_count: number;
+  generation_fallback_rate: number;
   invalid_output_count: number;
   citation_rejected_count: number;
   p95_prep_latency_ms: number | null;
@@ -104,6 +106,8 @@ export class AiOpsService {
         staleRebuildCount: Number(row.stale_rebuild_count),
         generationCompletedCount: Number(row.generation_completed_count),
         generationBlockedCount: Number(row.generation_blocked_count),
+        generationFallbackCount: Number(row.generation_fallback_count),
+        generationFallbackRate: Number(row.generation_fallback_rate),
         invalidOutputCount: Number(row.invalid_output_count),
         citationRejectedCount: Number(row.citation_rejected_count),
         p95PrepLatencyMs:
@@ -249,14 +253,38 @@ export class AiOpsService {
         ),
         generation AS (
           SELECT
-            count(*) FILTER (WHERE status = 'responded')::int AS generation_completed_count,
-            count(*) FILTER (WHERE status IN ('blocked', 'failed'))::int
+            count(*) FILTER (WHERE ai_sessions.status = 'responded')::int
+              AS generation_completed_count,
+            count(*) FILTER (WHERE ai_sessions.status IN ('blocked', 'failed'))::int
               AS generation_blocked_count,
-            percentile_disc(0.95) WITHIN GROUP (ORDER BY latency_ms) FILTER (
-              WHERE latency_ms IS NOT NULL
+            count(*) FILTER (
+              WHERE response_event.metadata_json->>'request_kind' = 'matter_qa'
+                AND response_event.metadata_json->>'generation_result' = 'fallback'
+            )::int AS generation_fallback_count,
+            coalesce(
+              (
+                count(*) FILTER (
+                  WHERE response_event.metadata_json->>'request_kind' = 'matter_qa'
+                    AND response_event.metadata_json->>'generation_result' = 'fallback'
+                )
+              )::numeric
+              / nullif(
+                count(*) FILTER (
+                  WHERE response_event.metadata_json->>'request_kind' = 'matter_qa'
+                ),
+                0
+              ),
+              0
+            )::float8 AS generation_fallback_rate,
+            percentile_disc(0.95) WITHIN GROUP (ORDER BY ai_sessions.latency_ms) FILTER (
+              WHERE ai_sessions.latency_ms IS NOT NULL
             )::int AS p95_generation_latency_ms
           FROM ai_sessions
-          WHERE tenant_id = $1
+          LEFT JOIN audit_events response_event
+            ON response_event.tenant_id = ai_sessions.tenant_id
+           AND response_event.action = 'AI_RESPONSE'
+           AND response_event.metadata_json->>'ai_session_id' = ai_sessions.ai_session_id::text
+          WHERE ai_sessions.tenant_id = $1
         ),
         citations AS (
           SELECT count(*)::int AS citation_rejected_count
@@ -280,6 +308,8 @@ export class AiOpsService {
         stale_rebuild_count: 0,
         generation_completed_count: 0,
         generation_blocked_count: 0,
+        generation_fallback_count: 0,
+        generation_fallback_rate: 0,
         invalid_output_count: 0,
         citation_rejected_count: 0,
         p95_prep_latency_ms: null,

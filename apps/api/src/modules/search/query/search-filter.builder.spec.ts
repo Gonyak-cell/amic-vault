@@ -131,6 +131,16 @@ describe('SearchFilterBuilder', () => {
     expect(built.params).toEqual([tenantId, 'deleted', 'current', 'ocr_pending']);
   });
 
+  it('filters low-confidence OCR through the indexed review flag', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: { ocrConfidence: 'ocr_low_confidence' },
+    });
+
+    expect(built.whereSql).toContain('idx.ocr_low_confidence = true');
+    expect(built.params).toEqual([tenantId, 'deleted', 'current']);
+  });
+
   it('filters confidentiality and privilege through current document metadata', () => {
     const built = new SearchFilterBuilder().build({
       scope: tenantScope(),

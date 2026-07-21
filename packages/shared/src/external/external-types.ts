@@ -3,6 +3,7 @@ import { z } from 'zod';
 const uuidSchema = z.string().uuid();
 const hashSchema = z.string().trim().regex(/^[a-f0-9]{64}$/iu);
 const codeSchema = z.string().trim().min(2).max(64).regex(/^[A-Z0-9][A-Z0-9._-]*$/);
+const watermarkRefSchema = z.string().min(16).max(160).regex(/^watermark:[a-f0-9:-]+$/iu);
 const safeRefSchema = z
   .string()
   .trim()
@@ -13,12 +14,20 @@ const safeRefSchema = z
     message: 'unsafe external ref',
   });
 
-export const externalWorkspaceStatuses = ['active', 'suspended', 'closed'] as const;
+export const externalWorkspaceStatuses = ['active', 'suspended', 'closed', 'frozen'] as const;
 export const externalUserStatuses = ['invited', 'active', 'revoked'] as const;
 export const externalLinkStatuses = ['active', 'revoked', 'expired'] as const;
 export const externalAccessStatuses = ['nda_required', 'ready'] as const;
 export const externalDlpWarningStatuses = ['not_required', 'required', 'accepted'] as const;
 export const externalQaDirections = ['external_question', 'internal_answer'] as const;
+export const externalQaMessageStatuses = [
+  'draft',
+  'pending_approval',
+  'published',
+  'rejected',
+] as const;
+export const externalQaVisibilityScopes = ['asker_only', 'workspace'] as const;
+export const externalQaReviewDecisions = ['approve', 'reject'] as const;
 
 export const externalWorkspaceStatusSchema = z.enum(externalWorkspaceStatuses);
 export const externalUserStatusSchema = z.enum(externalUserStatuses);
@@ -26,6 +35,9 @@ export const externalLinkStatusSchema = z.enum(externalLinkStatuses);
 export const externalAccessStatusSchema = z.enum(externalAccessStatuses);
 export const externalDlpWarningStatusSchema = z.enum(externalDlpWarningStatuses);
 export const externalQaDirectionSchema = z.enum(externalQaDirections);
+export const externalQaMessageStatusSchema = z.enum(externalQaMessageStatuses);
+export const externalQaVisibilityScopeSchema = z.enum(externalQaVisibilityScopes);
+export const externalQaReviewDecisionSchema = z.enum(externalQaReviewDecisions);
 
 const externalQaMessageTextSchema = z
   .string()
@@ -42,6 +54,12 @@ export const createExternalWorkspaceRequestSchema = z
     workspaceCode: codeSchema,
     displayRef: safeRefSchema,
     expiresAt: z.string().datetime(),
+  })
+  .strict();
+
+export const listExternalWorkspacesQuerySchema = z
+  .object({
+    matterId: uuidSchema,
   })
   .strict();
 
@@ -139,6 +157,19 @@ export const externalLinkCreatedResponseSchema = z
   })
   .strict();
 
+export const externalManagementWorkspaceSchema = externalWorkspaceSchema
+  .extend({
+    links: z.array(externalLinkSchema).max(500),
+    users: z.array(externalUserSchema).max(200),
+  })
+  .strict();
+
+export const externalManagementWorkspaceListResponseSchema = z
+  .object({
+    workspaces: z.array(externalManagementWorkspaceSchema).max(100),
+  })
+  .strict();
+
 export const externalAccessStatusResponseSchema = z
   .object({
     status: externalAccessStatusSchema,
@@ -155,10 +186,26 @@ export const externalAccessManifestSchema = z
     documentId: uuidSchema,
     versionId: uuidSchema.nullable(),
     expiresAt: z.string().datetime(),
-    watermarkApplied: z.literal(true),
-    watermarkRef: z.string().min(16).max(160).regex(/^watermark:[a-f0-9:-]+$/iu),
+    watermarkApplied: z.boolean(),
+    watermarkRef: watermarkRefSchema.nullable(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.watermarkApplied && !value.watermarkRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['watermarkRef'],
+        message: 'watermark ref required when applied',
+      });
+    }
+    if (!value.watermarkApplied && value.watermarkRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['watermarkRef'],
+        message: 'watermark ref requires applied watermark',
+      });
+    }
+  });
 
 export const externalDownloadTicketSchema = z
   .object({
@@ -168,11 +215,27 @@ export const externalDownloadTicketSchema = z
     documentId: uuidSchema,
     versionId: uuidSchema.nullable(),
     expiresAt: z.string().datetime(),
-    watermarkApplied: z.literal(true),
-    watermarkRef: z.string().min(16).max(160).regex(/^watermark:[a-f0-9:-]+$/iu),
+    watermarkApplied: z.boolean(),
+    watermarkRef: watermarkRefSchema.nullable(),
     downloadRef: z.string().min(16).max(160).regex(/^download:[a-f0-9:-]+$/iu),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.watermarkApplied && !value.watermarkRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['watermarkRef'],
+        message: 'watermark ref required when applied',
+      });
+    }
+    if (!value.watermarkApplied && value.watermarkRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['watermarkRef'],
+        message: 'watermark ref requires applied watermark',
+      });
+    }
+  });
 
 export const externalNdaAcceptanceSchema = z
   .object({
@@ -191,6 +254,13 @@ export const createExternalQuestionRequestSchema = z
 export const createExternalAnswerRequestSchema = z
   .object({
     messageText: externalQaMessageTextSchema,
+    visibilityScope: externalQaVisibilityScopeSchema.default('asker_only'),
+  })
+  .strict();
+
+export const reviewExternalAnswerRequestSchema = z
+  .object({
+    decision: externalQaReviewDecisionSchema,
   })
   .strict();
 
@@ -204,6 +274,9 @@ export const externalQaMessageSchema = z
     direction: externalQaDirectionSchema,
     messageText: externalQaMessageTextSchema,
     messageHash: hashSchema,
+    status: externalQaMessageStatusSchema.default('published'),
+    visibilityScope: externalQaVisibilityScopeSchema.default('workspace'),
+    reviewedAt: z.string().datetime().nullable().default(null),
     createdAt: z.string().datetime(),
   })
   .strict();
@@ -220,13 +293,22 @@ export type ExternalLinkStatus = (typeof externalLinkStatuses)[number];
 export type ExternalAccessStatus = (typeof externalAccessStatuses)[number];
 export type ExternalDlpWarningStatus = (typeof externalDlpWarningStatuses)[number];
 export type ExternalQaDirection = (typeof externalQaDirections)[number];
+export type ExternalQaMessageStatus = (typeof externalQaMessageStatuses)[number];
+export type ExternalQaVisibilityScope = (typeof externalQaVisibilityScopes)[number];
+export type ExternalQaReviewDecision = (typeof externalQaReviewDecisions)[number];
 export type CreateExternalWorkspaceRequestDto = z.infer<typeof createExternalWorkspaceRequestSchema>;
+export type ListExternalWorkspacesQueryDto = z.infer<typeof listExternalWorkspacesQuerySchema>;
 export type CreateExternalUserRequestDto = z.infer<typeof createExternalUserRequestSchema>;
 export type CreateExternalLinkRequestDto = z.infer<typeof createExternalLinkRequestSchema>;
 export type AcceptExternalNdaRequestDto = z.infer<typeof acceptExternalNdaRequestSchema>;
 export type CreateExternalQuestionRequestDto = z.infer<typeof createExternalQuestionRequestSchema>;
 export type CreateExternalAnswerRequestDto = z.infer<typeof createExternalAnswerRequestSchema>;
+export type ReviewExternalAnswerRequestDto = z.infer<typeof reviewExternalAnswerRequestSchema>;
 export type ExternalWorkspaceDto = z.infer<typeof externalWorkspaceSchema>;
+export type ExternalManagementWorkspaceDto = z.infer<typeof externalManagementWorkspaceSchema>;
+export type ExternalManagementWorkspaceListResponseDto = z.infer<
+  typeof externalManagementWorkspaceListResponseSchema
+>;
 export type ExternalUserDto = z.infer<typeof externalUserSchema>;
 export type ExternalLinkDto = z.infer<typeof externalLinkSchema>;
 export type ExternalLinkCreatedResponseDto = z.infer<typeof externalLinkCreatedResponseSchema>;

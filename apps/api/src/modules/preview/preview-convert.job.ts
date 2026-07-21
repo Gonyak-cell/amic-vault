@@ -17,24 +17,23 @@ function workerBaseUrl(): string {
 export class PreviewConvertJob {
   readonly queueName = previewConvertQueueName;
 
-  async convertDocxToPdf(input: {
+  async convertOfficeToPdf(input: {
     tenantId: string;
     filename: string;
+    contentType: string;
     body: Buffer;
   }): Promise<Buffer> {
     const form = new FormData();
     form.append('tenant_id', input.tenantId);
     form.append(
       'file',
-      new Blob([new Uint8Array(input.body)], {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      }),
+      new Blob([new Uint8Array(input.body)], { type: input.contentType }),
       input.filename,
     );
 
     let response: Response;
     try {
-      response = await fetch(`${workerBaseUrl()}/convert/docx-to-pdf`, {
+      response = await fetch(`${workerBaseUrl()}/convert/office-to-pdf`, {
         method: 'POST',
         headers: { 'x-amic-tenant-id': input.tenantId },
         body: form,
@@ -54,5 +53,16 @@ export class PreviewConvertJob {
       throw new PreviewConversionUnavailableError('preview conversion returned invalid pdf');
     }
     return buffer;
+  }
+
+  async convertDocxToPdf(input: {
+    tenantId: string;
+    filename: string;
+    body: Buffer;
+  }): Promise<Buffer> {
+    return this.convertOfficeToPdf({
+      ...input,
+      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
   }
 }

@@ -4,6 +4,7 @@ import type {
   CreateLegalHoldRequestDto,
   CreateRetentionPolicyRequestDto,
   DisposalCertificateDto,
+  DisposalReviewListResponseDto,
   DisposalRequestDto,
   LegalHoldListResponseDto,
   LegalHoldDto,
@@ -66,24 +67,22 @@ export function createDisposalRequest(
   });
 }
 
+export function listDisposalRequests(): Promise<DisposalReviewListResponseDto> {
+  return apiFetch<DisposalReviewListResponseDto>('/records/disposals');
+}
+
 export function approveDisposalRequest(disposalRequestId: string): Promise<DisposalRequestDto> {
-  return apiFetch<DisposalRequestDto>(
-    `/records/disposals/${disposalRequestId}/approve`,
-    { method: 'POST' },
-  );
+  return apiFetch<DisposalRequestDto>(`/records/disposals/${disposalRequestId}/approve`, {
+    method: 'POST',
+  });
 }
 
 export function executeDisposalRequest(disposalRequestId: string): Promise<DisposalCertificateDto> {
-  return apiFetch<DisposalCertificateDto>(
-    `/records/disposals/${disposalRequestId}/execute`,
-    { method: 'POST' },
-  );
+  return apiFetch<DisposalCertificateDto>(`/records/disposals/${disposalRequestId}/execute`, {
+    method: 'POST',
+  });
 }
 
-export function getDisposalCertificate(
-  disposalRequestId: string,
-): Promise<DisposalCertificateDto> {
-  return apiFetch<DisposalCertificateDto>(
-    `/records/disposals/${disposalRequestId}/certificate`,
-  );
+export function getDisposalCertificate(disposalRequestId: string): Promise<DisposalCertificateDto> {
+  return apiFetch<DisposalCertificateDto>(`/records/disposals/${disposalRequestId}/certificate`);
 }

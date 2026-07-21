@@ -9,6 +9,13 @@ interface BaseDocumentEventInput {
   matterId: string;
 }
 
+interface DocumentFolderEventInput {
+  tenantId: string;
+  actorId: string;
+  folderId: string;
+  matterId: string;
+}
+
 interface VersionedDocumentEventInput extends BaseDocumentEventInput {
   versionId: string;
   hash?: string;
@@ -48,6 +55,10 @@ function duplicateDecisionMetadata(decision: DuplicateDecisionAudit | undefined)
     reason_code: `duplicate_${decision.decision}`,
     result_count: decision.candidateCount,
   };
+}
+
+function documentStatusRef(status: string): string {
+  return `document_status:${status}`;
 }
 
 export function documentUploadedAudit(input: VersionedDocumentEventInput): AuditLogInput {
@@ -185,6 +196,8 @@ export function documentVersionPromotedAudit(
     promotedVersionId: string;
     versionNo: number;
     reasonCode?: string;
+    versionLabel?: string;
+    versionSignificance?: string;
   },
 ): AuditLogInput {
   return {
@@ -203,6 +216,8 @@ export function documentVersionPromotedAudit(
       version_id: input.promotedVersionId,
       version_no: input.versionNo,
       ...(input.reasonCode ? { reason_code: input.reasonCode } : {}),
+      ...(input.versionLabel ? { version_label: input.versionLabel } : {}),
+      ...(input.versionSignificance ? { version_significance: input.versionSignificance } : {}),
     },
   };
 }
@@ -337,6 +352,30 @@ export function documentLockExpiredAudit(input: EditSessionDocumentEventInput): 
   };
 }
 
+export function documentLockForceReleasedAudit(
+  input: EditSessionDocumentEventInput & {
+    lockOwnerUserId: string;
+    reasonCode: string;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'DOCUMENT_LOCK_FORCE_RELEASED',
+    targetType: 'document',
+    targetId: input.documentId,
+    matterId: input.matterId,
+    metadata: {
+      document_id: input.documentId,
+      matter_id: input.matterId,
+      edit_session_id: input.editSessionId,
+      base_version_id: input.baseVersionId,
+      target_user_id: input.lockOwnerUserId,
+      reason_code: input.reasonCode,
+    },
+  };
+}
+
 export function documentViewedAudit(
   input: VersionedDocumentEventInput & { channel: DocumentViewChannel },
 ): AuditLogInput {
@@ -402,6 +441,111 @@ export function documentMetadataChangedAudit(
       before_ref: input.beforeRef,
       after_ref: input.afterRef,
       ...matterSourceMetadata(input.matterSourceDecision),
+    },
+  };
+}
+
+export function documentFolderCreatedAudit(
+  input: DocumentFolderEventInput & {
+    parentFolderId: string | null;
+    folderPath: string;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'DOCUMENT_FOLDER_CREATED',
+    targetType: 'document_folder',
+    targetId: input.folderId,
+    matterId: input.matterId,
+    metadata: {
+      folder_id: input.folderId,
+      matter_id: input.matterId,
+      folder_path: input.folderPath,
+      ...(input.parentFolderId ? { parent_folder_id: input.parentFolderId } : {}),
+    },
+  };
+}
+
+export function documentFolderRenamedAudit(
+  input: DocumentFolderEventInput & {
+    beforePath: string;
+    afterPath: string;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'DOCUMENT_FOLDER_RENAMED',
+    targetType: 'document_folder',
+    targetId: input.folderId,
+    matterId: input.matterId,
+    metadata: {
+      folder_id: input.folderId,
+      matter_id: input.matterId,
+      before_ref: `document_folder:${input.beforePath}`,
+      after_ref: `document_folder:${input.afterPath}`,
+    },
+  };
+}
+
+export function documentFolderMovedAudit(
+  input: DocumentFolderEventInput & {
+    beforePath: string;
+    afterPath: string;
+  },
+): AuditLogInput {
+  return {
+    ...documentFolderRenamedAudit(input),
+    action: 'DOCUMENT_FOLDER_MOVED',
+  };
+}
+
+export function documentTagsChangedAudit(
+  input: BaseDocumentEventInput & {
+    beforeTags: readonly string[];
+    afterTags: readonly string[];
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'DOCUMENT_TAGS_CHANGED',
+    targetType: 'document',
+    targetId: input.documentId,
+    matterId: input.matterId,
+    metadata: {
+      document_id: input.documentId,
+      matter_id: input.matterId,
+      before_ref: `document_tags:${input.beforeTags.join(',')}`,
+      after_ref: `document_tags:${input.afterTags.join(',')}`,
+      result_count: input.afterTags.length,
+    },
+  };
+}
+
+export function documentStatusChangedAudit(
+  input: BaseDocumentEventInput & {
+    beforeStatus: string;
+    afterStatus: string;
+    noteProvided?: boolean;
+  },
+): AuditLogInput {
+  return {
+    tenantId: input.tenantId,
+    actorId: input.actorId,
+    action: 'DOCUMENT_STATUS_CHANGED',
+    targetType: 'document',
+    targetId: input.documentId,
+    matterId: input.matterId,
+    metadata: {
+      document_id: input.documentId,
+      matter_id: input.matterId,
+      before_ref: documentStatusRef(input.beforeStatus),
+      after_ref: documentStatusRef(input.afterStatus),
+      status_before: input.beforeStatus,
+      status_after: input.afterStatus,
+      ...(input.noteProvided ? { reason_code: 'status_transition_note' } : {}),
     },
   };
 }

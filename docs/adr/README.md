@@ -21,5 +21,8 @@ Status note: ADR-001 through ADR-012 inherit their accepted status from `docs/pa
 | ADR-013 | Permission model freeze | DEC-15, C-1, PACK-R1-07, DEVOPS-FREEZE-PERMMODEL-TUW-001, `docs/package/codex/21_Permission_Model.md` |
 | ADR-014 | Desktop client strategy | DEC-01, DEC-03, DEC-04, DEC-09, DEC-11, DEC-14, DEC-17, DEC-18 |
 | ADR-015 | Outlook add-in strategy | ADR-014, DEC-09, DEC-14, DEC-17, DEC-23, DEC-26, desktop deferred-integration boundary |
+| ADR-016 | Document editing and Office flow | DMS-UX-208, DMS-UX-210, B12 local desktop handoff |
+| ADR-017 | Office and OneDrive flow gate | DMS-GA-605, DMS-UX-607, DMS-UX-610 |
+| ADR-018 | WOPI evaluation for Office and Hancom editing | ADR-016, ADR-017, B12 |
 
 ADR changes require human approval and a Decision Ledger append.

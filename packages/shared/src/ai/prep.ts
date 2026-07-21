@@ -4,16 +4,23 @@ import {
   aiGroundedGenerationOutputSchema,
   type AiGroundedClaimKind,
 } from './generation';
+import { aiSummaryOpenQuestionSchema, aiSummaryRecommendedActionSchema } from './summary';
 
 export const aiPrepArtifactKinds = [
   'document_profile',
   'key_fields',
   'date_facts',
+  'matter_timeline',
   'people_organizations',
   'keyword_tags',
   'filing_suggestions',
   'source_outline',
   'retrieval_hints',
+  'fact_candidates',
+  'issue_candidates',
+  'risk_candidates',
+  'graph_candidate_edges',
+  'minutes_qc',
 ] as const;
 
 export const aiPrepArtifactKindSchema = z.enum(aiPrepArtifactKinds);
@@ -26,6 +33,8 @@ export const aiPrepClaimKinds = [
   'timeline',
   'question',
   'answer',
+  'issue',
+  'risk',
 ] as const satisfies readonly AiGroundedClaimKind[];
 
 export const aiPrepClaimKindSchema = z.enum(aiPrepClaimKinds);
@@ -36,11 +45,17 @@ export const aiPrepArtifactClaimKindAllowlist = {
   document_profile: ['summary', 'key_fact'],
   key_fields: ['key_fact'],
   date_facts: ['timeline', 'key_fact'],
+  matter_timeline: ['timeline', 'key_fact'],
   people_organizations: ['key_fact'],
   keyword_tags: ['key_fact'],
   filing_suggestions: ['answer', 'key_fact'],
   source_outline: ['summary', 'key_fact'],
   retrieval_hints: ['question', 'answer', 'key_fact'],
+  fact_candidates: ['key_fact'],
+  issue_candidates: ['issue'],
+  risk_candidates: ['risk'],
+  graph_candidate_edges: ['key_fact', 'issue', 'risk'],
+  minutes_qc: ['key_fact'],
 } as const satisfies Record<AiPrepArtifactKind, readonly AiPrepClaimKind[]>;
 
 export const aiPrepStatuses = [
@@ -257,6 +272,18 @@ export const aiPrepMatterDocumentReadinessSchema = z
   })
   .strict();
 
+export const aiPrepMatterTimelineItemSchema = z
+  .object({
+    timelineId: z.string().min(1).max(120),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    label: z.string().min(1).max(240),
+    detail: z.string().min(1).max(1200),
+    documentId: z.string().uuid(),
+    versionId: z.string().uuid(),
+    citationRefs: z.array(z.string().min(1).max(120)).min(1).max(20),
+  })
+  .strict();
+
 export const aiPrepMatterReadinessSchema = z
   .object({
     matterId: z.string().uuid(),
@@ -275,6 +302,9 @@ export const aiPrepMatterReadinessSchema = z
     blockedArtifactCount: z.number().int().min(0),
     rejectedArtifactCount: z.number().int().min(0),
     fallbackArtifactCount: z.number().int().min(0),
+    timeline: z.array(aiPrepMatterTimelineItemSchema).max(50),
+    openQuestions: z.array(aiSummaryOpenQuestionSchema).max(20),
+    recommendedActions: z.array(aiSummaryRecommendedActionSchema).max(20),
     documents: z.array(aiPrepMatterDocumentReadinessSchema).max(100),
   })
   .strict();
@@ -303,5 +333,6 @@ export type AiPrepFeedbackResponseDto = z.infer<typeof aiPrepFeedbackResponseSch
 export type AiPrepMatterDocumentReadinessDto = z.infer<
   typeof aiPrepMatterDocumentReadinessSchema
 >;
+export type AiPrepMatterTimelineItemDto = z.infer<typeof aiPrepMatterTimelineItemSchema>;
 export type AiPrepMatterReadinessDto = z.infer<typeof aiPrepMatterReadinessSchema>;
 export type AiPrepMatterRetryResponseDto = z.infer<typeof aiPrepMatterRetryResponseSchema>;

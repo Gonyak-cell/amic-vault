@@ -43,7 +43,7 @@ describe('SearchSavePanel', () => {
       />,
     );
 
-    expect(html).toContain('저장된 검색');
+    expect(html).toContain('검색 폴더');
     expect(html).toContain('현재 검색 조건');
     expect(html).toContain('계약서');
     expect(html).toContain('AMIC-2026-0001');
@@ -110,8 +110,8 @@ describe('SearchSavePanel', () => {
       />,
     );
 
-    expect(html).toContain('비공개 저장 참조');
-    expect(html).toContain('참조 복사');
+    expect(html).toContain('비공개 검색 폴더 링크');
+    expect(html).toContain('비공개 링크 복사');
     expect(html).toContain('Private acquisition search');
     expect(html).not.toContain('/search?q=');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111901');
@@ -127,6 +127,7 @@ describe('SearchSavePanel', () => {
         groupBy: 'client',
         legalHold: 'matter_hold',
         matterName: 'Vault Upgrade',
+        mode: 'hybrid',
         privilegeStatus: 'work_product',
         recordsStatus: 'disposal_locked',
         sortBy: 'title_asc',
@@ -135,6 +136,7 @@ describe('SearchSavePanel', () => {
     ).toEqual(
       expect.arrayContaining([
         { label: '검색어', value: 'NDA' },
+        { label: '검색 방식', value: '혼합' },
         { label: '검색 범위', value: '제목' },
         { label: '정렬', value: '제목' },
         { label: '그룹', value: '고객' },

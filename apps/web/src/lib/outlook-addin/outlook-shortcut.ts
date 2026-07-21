@@ -37,7 +37,7 @@ export function buildVaultEditShortcutHtml(editUrl: string): string {
     '<p>',
     '<a href="',
     href,
-    '">Vault에서 문서 편집 열기</a>',
+    '">문서 보관함에서 문서 편집 열기</a>',
     '</p>',
   ].join('');
 }

@@ -38,7 +38,12 @@ describe('ai prep shared contract', () => {
   it('defines bounded artifact kinds and statuses', () => {
     expect(aiPrepArtifactKindSchema.parse('document_profile')).toBe('document_profile');
     expect(aiPrepArtifactKindSchema.parse('key_fields')).toBe('key_fields');
-    expect(() => aiPrepArtifactKindSchema.parse('risk_candidates')).toThrow();
+    expect(aiPrepArtifactKindSchema.parse('matter_timeline')).toBe('matter_timeline');
+    expect(aiPrepArtifactKindSchema.parse('fact_candidates')).toBe('fact_candidates');
+    expect(aiPrepArtifactKindSchema.parse('issue_candidates')).toBe('issue_candidates');
+    expect(aiPrepArtifactKindSchema.parse('risk_candidates')).toBe('risk_candidates');
+    expect(aiPrepArtifactKindSchema.parse('graph_candidate_edges')).toBe('graph_candidate_edges');
+    expect(aiPrepArtifactKindSchema.parse('minutes_qc')).toBe('minutes_qc');
     expect(aiPrepStatusSchema.parse('completed')).toBe('completed');
     expect(aiPrepStatusSchema.parse('blocked')).toBe('blocked');
     expect(aiPrepStatusSchema.parse('rejected')).toBe('rejected');
@@ -57,19 +62,70 @@ describe('ai prep shared contract', () => {
     });
   });
 
-  it('rejects legal-analysis claim kinds in prep payloads', () => {
-    for (const kind of ['risk', 'issue', 'clause'] as const) {
-      expect(() =>
-        aiPrepArtifactPayloadSchema.parse({
+  it('rejects unsupported or legal-conclusion claim kinds in prep payloads', () => {
+    expect(() =>
+      aiPrepArtifactPayloadSchema.parse({
+        ...validPayload,
+        claims: [{ ...validPayload.claims[0], kind: 'clause' }],
+      }),
+    ).toThrow();
+    expect(() =>
+      aiPrepArtifactPayloadSchema.parse({
+        ...validPayload,
+        claims: [{ ...validPayload.claims[0], is_legal_conclusion: true }],
+      }),
+    ).toThrow();
+  });
+
+  it('enforces candidate artifact claim kind allowlists', () => {
+    expect(
+      parseAiPrepArtifactPayload(
+        {
           ...validPayload,
-          claims: [{ ...validPayload.claims[0], kind }],
-        }),
+          claims: [{ ...validPayload.claims[0], kind: 'key_fact' }],
+        },
+        'fact_candidates',
+      ).claims[0]?.kind,
+    ).toBe('key_fact');
+    expect(
+      parseAiPrepArtifactPayload(
+        {
+          ...validPayload,
+          claims: [{ ...validPayload.claims[0], kind: 'issue' }],
+        },
+        'issue_candidates',
+      ).claims[0]?.kind,
+    ).toBe('issue');
+    expect(
+      parseAiPrepArtifactPayload(
+        {
+          ...validPayload,
+          claims: [{ ...validPayload.claims[0], kind: 'risk' }],
+        },
+        'risk_candidates',
+      ).claims[0]?.kind,
+    ).toBe('risk');
+    for (const [artifactKind, claimKind] of [
+      ['fact_candidates', 'risk'],
+      ['issue_candidates', 'risk'],
+      ['risk_candidates', 'issue'],
+    ] as const) {
+      expect(() =>
+        parseAiPrepArtifactPayload(
+          {
+            ...validPayload,
+            claims: [{ ...validPayload.claims[0], kind: claimKind }],
+          },
+          artifactKind,
+        ),
       ).toThrow();
     }
   });
 
   it('enforces artifact-specific prep claim kind allowlists', () => {
     expect(aiPrepArtifactAllowedClaimKinds('date_facts')).toContain('timeline');
+    expect(aiPrepArtifactAllowedClaimKinds('matter_timeline')).toContain('timeline');
+    expect(aiPrepArtifactAllowedClaimKinds('minutes_qc')).toContain('key_fact');
     expect(
       parseAiPrepArtifactPayload(
         {
@@ -79,6 +135,24 @@ describe('ai prep shared contract', () => {
         'date_facts',
       ).claims[0]?.kind,
     ).toBe('timeline');
+    expect(
+      parseAiPrepArtifactPayload(
+        {
+          ...validPayload,
+          claims: [{ ...validPayload.claims[0], kind: 'timeline' }],
+        },
+        'matter_timeline',
+      ).claims[0]?.kind,
+    ).toBe('timeline');
+    expect(
+      parseAiPrepArtifactPayload(
+        {
+          ...validPayload,
+          claims: [{ ...validPayload.claims[0], kind: 'key_fact' }],
+        },
+        'minutes_qc',
+      ).claims[0]?.kind,
+    ).toBe('key_fact');
     expect(() =>
       parseAiPrepArtifactPayload(
         {
@@ -195,6 +269,25 @@ describe('ai prep shared contract', () => {
       blockedArtifactCount: 0,
       rejectedArtifactCount: 0,
       fallbackArtifactCount: 0,
+      timeline: [
+        {
+          timelineId: 'timeline-1',
+          date: '2026-06-15',
+          label: '계약서 수령',
+          detail: '문서에 기재된 일자입니다.',
+          documentId: '11111111-1111-4111-8111-111111111201',
+          versionId: '11111111-1111-4111-8111-111111111202',
+          citationRefs: ['chunk:11111111-1111-4111-8111-111111111111'],
+        },
+      ],
+      openQuestions: [
+        {
+          question: '상대방 회신 여부 확인',
+          neededEvidence: '최근 이메일 또는 송부 기록',
+          citationRefs: ['chunk:11111111-1111-4111-8111-111111111111'],
+        },
+      ],
+      recommendedActions: [{ action: '담당 변호사 검토', reviewRequired: true }],
       documents: [
         {
           documentId: '11111111-1111-4111-8111-111111111201',
@@ -216,5 +309,7 @@ describe('ai prep shared contract', () => {
     });
 
     expect(parsed.readyDocumentCount).toBe(1);
+    expect(parsed.timeline[0]?.date).toBe('2026-06-15');
+    expect(parsed.openQuestions[0]?.question).toContain('회신');
   });
 });

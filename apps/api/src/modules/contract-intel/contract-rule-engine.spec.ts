@@ -5,6 +5,7 @@ const matterId = '11111111-1111-4111-8111-111111111001';
 const documentId = '11111111-1111-4111-8111-111111111002';
 const versionId = '11111111-1111-4111-8111-111111111003';
 const clauseId = '11111111-1111-4111-8111-111111111004';
+const redlineChangeId = '11111111-1111-4111-8111-111111111005';
 const hash = 'a'.repeat(64);
 
 describe('contract rule engine', () => {
@@ -36,6 +37,54 @@ describe('contract rule engine', () => {
     expect(finding.status).toBe('unsupported');
     expect(finding.findingCode).toBe('threshold.unsupported_expression');
     expect(finding.evidenceRefs).toEqual([]);
+  });
+
+  it('keeps redline-count threshold findings anchored to redline references', () => {
+    const finding = evaluatePlaybookRule(
+      playbookRule({
+        ruleType: 'threshold',
+        expression: { metric: 'redline_change_count', operator: 'gte', value: 1 },
+      }),
+      {
+        ...ruleFacts(),
+        redlineChanges: [
+          {
+            redlineChangeId,
+            matterId,
+            documentId,
+            versionId,
+            clauseId,
+            changeType: 'added',
+            textHash: hash,
+          },
+        ],
+      },
+    );
+
+    expect(finding).toMatchObject({
+      status: 'pass',
+      findingCode: 'threshold.redline_change_count.gte.pass',
+      clauseId: null,
+      evidenceRefs: [`redline:${redlineChangeId}`],
+    });
+  });
+
+  it('evaluates client-scoped rules with the same deterministic rule semantics', () => {
+    const finding = evaluatePlaybookRule(
+      playbookRule({
+        matterId: null,
+        clientId: '22222222-2222-4222-8222-222222222222',
+        ruleType: 'required_clause',
+        expression: { requiredClauseKind: 'section', minCount: 1 },
+      }),
+      ruleFacts(),
+    );
+
+    expect(finding).toMatchObject({
+      status: 'pass',
+      findingCode: 'required_clause.section.pass',
+      evidenceRefs: [`clause:${clauseId}`],
+    });
   });
 });
 

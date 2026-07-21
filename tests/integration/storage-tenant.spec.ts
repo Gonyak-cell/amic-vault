@@ -54,7 +54,7 @@ describe('storage tenant integration', () => {
     createdUris.push(stored.storageUri);
 
     expect(stored.key).toBe(`tenants/${tenantAlphaId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`);
-    expect(stored.storageUri).toBe(`s3://amic-vault-dev/${stored.key}`);
+    expect(stored.storageUri).toBe(`s3://${process.env.S3_BUCKET ?? 'amic-vault-dev'}/${stored.key}`);
 
     await expect(service.headByStorageUri(tenantAlphaId, stored.storageUri)).resolves.toMatchObject({
       contentLength: body.length,

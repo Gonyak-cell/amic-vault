@@ -15,6 +15,7 @@ describe('navigation visibility', () => {
 
     expect(labels).toContain('홈');
     expect(labels).toContain('Matter');
+    expect(labels).toContain('고객');
     expect(labels).toContain('문서함');
     expect(labels).toContain('작업함');
     expect(labels).toContain('알림');
@@ -31,6 +32,7 @@ describe('navigation visibility', () => {
     expect(groups.map((group) => group.label)).toContain('정책 관리');
     expect(groups.map((group) => group.label)).not.toContain('거버넌스');
     expect(labels).toContain('기록 보존');
+    expect(labels).toContain('고객');
     expect(labels).toContain('작업함');
     expect(labels).toContain('알림');
     expect(labels).toContain('접근 기록');

@@ -3,9 +3,11 @@ import type { DisplayFieldsDto } from '../display/display-fields.dto';
 
 export const matterMemberRoles = ['owner', 'member', 'limited_reviewer'] as const;
 export const matterMemberAccessLevels = ['read', 'edit'] as const;
+export const matterLeadRoles = ['lead_partner', 'lead_associate'] as const;
 
 export type MatterMemberRole = (typeof matterMemberRoles)[number];
 export type MatterMemberAccessLevel = (typeof matterMemberAccessLevels)[number];
+export type MatterLeadRole = (typeof matterLeadRoles)[number];
 
 export const matterMemberRoleSchema = z.enum(matterMemberRoles);
 export const matterMemberAccessLevelSchema = z.enum(matterMemberAccessLevels);
@@ -49,6 +51,7 @@ export interface MatterMemberDto extends DisplayFieldsDto {
   userDisplayName?: string | null;
   userDisplayEmail?: string | null;
   matterRole: MatterMemberRole;
+  leadRole?: MatterLeadRole | null;
   accessLevel: MatterMemberAccessLevel;
   addedBy: string;
   addedAt: string;

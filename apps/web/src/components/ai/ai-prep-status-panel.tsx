@@ -50,11 +50,17 @@ const artifactKindLabel: Record<AiPrepArtifactKind, string> = {
   document_profile: '파일 개요',
   key_fields: '주요 정보',
   date_facts: '날짜 정보',
+  matter_timeline: 'Matter 타임라인',
   people_organizations: '사람 및 기관',
   keyword_tags: '키워드',
   filing_suggestions: '보관 위치 제안',
   source_outline: '문서 구조',
   retrieval_hints: '검색 힌트',
+  fact_candidates: '사실 후보',
+  issue_candidates: '쟁점 후보',
+  risk_candidates: '리스크 후보',
+  graph_candidate_edges: '그래프 후보',
+  minutes_qc: '회의록 정합성 QC',
 };
 
 function documentStatusTone(status: AiPrepDocumentReadinessStatus): StatusBadgeTone {
@@ -174,7 +180,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     ) : null}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {artifact.sourceChunkCount > 0 ? '참조 확인됨' : '참조 없음'}
+                    {artifact.sourceChunkCount > 0 ? '근거 확인됨' : '근거 없음'}
                   </span>
                 </div>
 
@@ -185,7 +191,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     <p className="text-xs text-muted-foreground">
                       {content.sourceRefs.length > 0
                         ? '권한 확인된 파일 정보로 정리됨'
-                        : '표시 가능한 참조 없음'}
+                        : '표시 가능한 근거 없음'}
                     </p>
                   </div>
                 ) : (
@@ -221,8 +227,8 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                   </button>
                   <button
                     type="button"
-                    aria-label={`${artifactLabel} 참조 부족 표시`}
-                    title={`${artifactLabel} 참조 부족 표시`}
+                    aria-label={`${artifactLabel} 근거 부족 표시`}
+                    title={`${artifactLabel} 근거 부족 표시`}
                     disabled={
                       busyKey !== null || artifact.status !== 'completed' || artifact.isStale
                     }
@@ -231,7 +237,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     }
                     className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2 text-xs hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                   >
-                    참조
+                    근거
                   </button>
                   <button
                     type="button"

@@ -6,6 +6,7 @@ import { SearchModule } from '../search/search.module';
 import { GraphConsistencyService } from './graph-consistency.service';
 import { GraphController } from './graph.controller';
 import { GraphQueryService } from './graph-query.service';
+import { GraphSyncOutboxWorker } from './graph-sync-outbox.worker';
 import { GraphSyncService } from './graph-sync.service';
 
 @Module({
@@ -14,10 +15,11 @@ import { GraphSyncService } from './graph-sync.service';
   providers: [
     GraphConsistencyService,
     GraphQueryService,
+    GraphSyncOutboxWorker,
     GraphSyncService,
     PgRoleLookup,
     RequireRolesGuard,
   ],
-  exports: [GraphConsistencyService, GraphQueryService, GraphSyncService],
+  exports: [GraphConsistencyService, GraphQueryService, GraphSyncOutboxWorker, GraphSyncService],
 })
 export class GraphModule {}

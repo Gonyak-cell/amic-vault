@@ -47,7 +47,7 @@ describe('SearchFoldersContent', () => {
     expect(html).toContain('NDA 본문 폴더');
     expect(html).toContain('관리자 공유');
     expect(html).toContain('7회');
-    expect(html).toContain('Matter Code');
+    expect(html).toContain('Matter code');
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('고객');
     expect(html).toContain('AMIC');

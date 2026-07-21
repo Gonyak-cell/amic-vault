@@ -43,6 +43,10 @@ function isAdminRole(role: UserRole): boolean {
   return role === 'firm_admin' || role === 'security_admin';
 }
 
+function canCreateMatterRole(role: UserRole): boolean {
+  return role === 'firm_admin' || role === 'security_admin' || role === 'matter_owner';
+}
+
 function likePattern(input: string): string {
   const escaped = input.trim().replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   return `%${escaped}%`;
@@ -100,6 +104,10 @@ export class OrgDirectoryService {
     }
     if (input.purpose === 'records' || input.purpose === 'user-admin') {
       if (!isAdminRole(role)) throw permissionDenied();
+      return;
+    }
+    if (input.purpose === 'matter-intake') {
+      if (!canCreateMatterRole(role)) throw permissionDenied();
       return;
     }
     if (!input.matterId) throw permissionDenied();

@@ -61,6 +61,32 @@ describe('OrgDirectoryController', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('parses matter intake search before a matter exists', async () => {
+    const searchSubjects = vi.fn(async () => ({ items: [] }));
+    const controller = new OrgDirectoryController({ searchSubjects } as unknown as OrgDirectoryService);
+
+    await expect(
+      controller.searchSubjects(request, {
+        purpose: 'matter-intake',
+        q: 'Alpha',
+        subjectType: 'user',
+      }),
+    ).resolves.toEqual({ items: [] });
+    expect(searchSubjects).toHaveBeenCalledWith(
+      {
+        sessionId: session.sessionId,
+        tenantId,
+        userId: session.userId,
+      },
+      {
+        limit: 10,
+        purpose: 'matter-intake',
+        q: 'Alpha',
+        subjectType: 'user',
+      },
+    );
+  });
+
   it('fails closed without a complete session context', () => {
     const controller = new OrgDirectoryController({ searchSubjects: vi.fn() } as unknown as OrgDirectoryService);
 

@@ -9,9 +9,35 @@ export interface LoginRequestDto {
   password: string;
 }
 
-export interface LoginResponseDto {
+export interface LoginCompleteResponseDto {
   user: UserSummary;
   mfaEnabled: boolean;
+  mfaRequired?: false;
+}
+
+export interface LoginMfaRequiredResponseDto {
+  mfaRequired: true;
+  mfaEnabled: true;
+  mfaChallengeId: string;
+}
+
+export type LoginResponseDto = LoginCompleteResponseDto | LoginMfaRequiredResponseDto;
+
+export interface MfaVerifyRequestDto {
+  challengeId: string;
+  code: string;
+}
+
+export interface MfaEnrollResponseDto {
+  secretId: string;
+  otpauthUri: string;
+  manualEntryKey: string;
+  recoveryCodes: string[];
+}
+
+export interface MfaActivateRequestDto {
+  secretId: string;
+  code: string;
 }
 
 export interface CurrentUserResponseDto {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { negotiationIssueStatusSchema } from '../contract/contract-types';
 
 const uuidSchema = z.string().uuid();
 const codeSchema = z.string().trim().min(2).max(64).regex(/^[A-Z0-9][A-Z0-9._-]*$/);
@@ -61,7 +62,7 @@ export const ddRfiStatuses = [
   'reported',
 ] as const;
 export const ddPriorities = ['low', 'medium', 'high', 'critical'] as const;
-export const ddMappingStatuses = ['mapped', 'missing', 'supplement_requested'] as const;
+export const ddMappingStatuses = ['mapped', 'missing', 'supplement_requested', 'suggested'] as const;
 export const ddIssueSeverities = ['info', 'low', 'medium', 'high', 'critical'] as const;
 export const ddIssueStatuses = ['open', 'triaged', 'mitigated', 'accepted', 'closed'] as const;
 export const ddIssueCitationRequiredReason = 'DD_ISSUE_CITATION_REQUIRED';
@@ -81,11 +82,20 @@ export const ddRfiCategorySchema = z.enum(ddRfiCategories);
 export const ddRfiStatusSchema = z.enum(ddRfiStatuses);
 export const ddPrioritySchema = z.enum(ddPriorities);
 export const ddMappingStatusSchema = z.enum(ddMappingStatuses);
+const createDdMappingStatusSchema = z.enum(['mapped', 'missing', 'supplement_requested']);
 export const ddIssueSeveritySchema = z.enum(ddIssueSeverities);
 export const ddIssueStatusSchema = z.enum(ddIssueStatuses);
 export const ddRiskCategorySchema = z.enum(ddRiskCategories);
 export const ddRiskLikelihoodSchema = z.enum(ddRiskLikelihoods);
 export const ddRiskStatusSchema = z.enum(ddRiskStatuses);
+export const ddExportTypeSchema = z.enum(ddExportTypes);
+
+function hasRequiredIssueCitations(value: {
+  status: (typeof ddIssueStatuses)[number];
+  citationRefs: readonly string[];
+}): boolean {
+  return value.status === 'open' || value.citationRefs.length > 0;
+}
 
 export const createDdRfiRequestSchema = z
   .object({
@@ -148,6 +158,37 @@ export const ddRfiListResponseSchema = z
   })
   .strict();
 
+export const ddRfiGapQuerySchema = z
+  .object({
+    matterId: uuidSchema,
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  .strict();
+
+export const ddRfiGapListResponseSchema = z
+  .object({
+    matterId: uuidSchema,
+    rfis: z.array(ddRfiSchema).max(100),
+  })
+  .strict();
+
+export const ddRfiTemplateInstantiateRequestSchema = z
+  .object({
+    matterId: uuidSchema,
+    ownerUserId: uuidSchema.nullish(),
+    dueDate: z.string().date().nullish(),
+  })
+  .strict();
+
+export const ddRfiTemplateInstantiationResponseSchema = z
+  .object({
+    templateId: uuidSchema,
+    matterId: uuidSchema,
+    createdCount: z.number().int().min(0).max(100),
+    rfis: z.array(ddRfiSchema).max(100),
+  })
+  .strict();
+
 export const createDdDataRoomMappingRequestSchema = z
   .object({
     matterId: uuidSchema,
@@ -156,7 +197,7 @@ export const createDdDataRoomMappingRequestSchema = z
     versionId: uuidSchema.optional(),
     internalLabel: safeLabelSchema,
     sectionPath: safeLabelSchema,
-    mappingStatus: ddMappingStatusSchema.default('missing'),
+    mappingStatus: createDdMappingStatusSchema.default('missing'),
   })
   .strict()
   .refine(
@@ -202,6 +243,20 @@ export const ddDataRoomMappingListResponseSchema = z
   })
   .strict();
 
+export const reviewDdMappingSuggestionRequestSchema = z
+  .object({
+    decision: z.enum(['approve', 'reject']),
+  })
+  .strict();
+
+export const ddMappingSuggestionReviewResponseSchema = z
+  .object({
+    mappingId: uuidSchema,
+    decision: z.enum(['approve', 'reject']),
+    mapping: ddDataRoomMappingSchema.nullable(),
+  })
+  .strict();
+
 export const createDdIssueRequestSchema = z
   .object({
     matterId: uuidSchema,
@@ -214,7 +269,32 @@ export const createDdIssueRequestSchema = z
     citationRefs: z.array(citationRefSchema).max(20).default([]),
     reportInclusion: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .refine(hasRequiredIssueCitations, {
+    message: ddIssueCitationRequiredReason,
+    path: ['citationRefs'],
+  });
+
+export const updateDdIssueRequestSchema = z
+  .object({
+    status: ddIssueStatusSchema.optional(),
+    citationRefs: z.array(citationRefSchema).max(20).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'at least one field is required',
+  })
+  .refine(
+    (value) =>
+      value.status === undefined ||
+      value.status === 'open' ||
+      value.citationRefs === undefined ||
+      value.citationRefs.length > 0,
+    {
+      message: ddIssueCitationRequiredReason,
+      path: ['citationRefs'],
+    },
+  );
 
 export const ddIssueQuerySchema = z
   .object({
@@ -239,7 +319,11 @@ export const ddIssueSchema = z
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
-  .strict();
+  .strict()
+  .refine(hasRequiredIssueCitations, {
+    message: ddIssueCitationRequiredReason,
+    path: ['citationRefs'],
+  });
 
 export const ddIssueListResponseSchema = z
   .object({
@@ -323,6 +407,71 @@ export const ddTraceabilityResponseSchema = z
   })
   .strict();
 
+export const createDdReportExportRequestSchema = z
+  .object({
+    matterId: uuidSchema,
+    exportFormat: z.literal('docx').default('docx'),
+  })
+  .strict();
+
+export const ddReportExportResponseSchema = z
+  .object({
+    matterId: uuidSchema,
+    documentId: uuidSchema,
+    fileObjectId: uuidSchema,
+    title: z.string().min(1).max(1000),
+    exportFormat: z.literal('docx'),
+    issueCount: z.number().int().min(0).max(100),
+    riskCount: z.number().int().min(0).max(100),
+    itemCount: z.number().int().min(1).max(200),
+  })
+  .strict();
+
+export const createDdNegotiationIssueExportRequestSchema = z
+  .object({
+    matterId: uuidSchema,
+    documentId: uuidSchema.optional(),
+    status: negotiationIssueStatusSchema.optional(),
+    exportFormat: z.literal('docx').default('docx'),
+  })
+  .strict();
+
+export const ddNegotiationIssueExportResponseSchema = z
+  .object({
+    matterId: uuidSchema,
+    sourceDocumentId: uuidSchema.nullable(),
+    documentId: uuidSchema,
+    fileObjectId: uuidSchema,
+    title: z.string().min(1).max(1000),
+    exportFormat: z.literal('docx'),
+    negotiationIssueCount: z.number().int().min(1).max(100),
+    itemCount: z.number().int().min(1).max(100),
+  })
+  .strict();
+
+const createDdReportExportJobRequestSchema = createDdReportExportRequestSchema
+  .extend({ exportType: z.literal('dd_report') })
+  .strict();
+
+const createDdNegotiationIssueExportJobRequestSchema =
+  createDdNegotiationIssueExportRequestSchema
+    .extend({ exportType: z.literal('negotiation_issues') })
+    .strict();
+
+export const createDdExportJobRequestSchema = z.discriminatedUnion('exportType', [
+  createDdReportExportJobRequestSchema,
+  createDdNegotiationIssueExportJobRequestSchema,
+]);
+
+export const ddExportJobResponseSchema = z
+  .object({
+    jobId: z.string().trim().min(1).max(120),
+    queueName: z.literal('dd.export'),
+    exportType: ddExportTypeSchema,
+    matterId: uuidSchema,
+  })
+  .strict();
+
 export type DdRfiCategory = (typeof ddRfiCategories)[number];
 export type DdRfiStatus = (typeof ddRfiStatuses)[number];
 export type DdPriority = (typeof ddPriorities)[number];
@@ -332,13 +481,28 @@ export type DdIssueStatus = (typeof ddIssueStatuses)[number];
 export type DdRiskCategory = (typeof ddRiskCategories)[number];
 export type DdRiskLikelihood = (typeof ddRiskLikelihoods)[number];
 export type DdRiskStatus = (typeof ddRiskStatuses)[number];
+export type DdExportType = (typeof ddExportTypes)[number];
 export type CreateDdRfiRequestDto = z.infer<typeof createDdRfiRequestSchema>;
 export type UpdateDdRfiRequestDto = z.infer<typeof updateDdRfiRequestSchema>;
 export type DdRfiQueryDto = z.infer<typeof ddRfiQuerySchema>;
 export type DdRfiDto = z.infer<typeof ddRfiSchema>;
 export type DdRfiListResponseDto = z.infer<typeof ddRfiListResponseSchema>;
+export type DdRfiGapQueryDto = z.infer<typeof ddRfiGapQuerySchema>;
+export type DdRfiGapListResponseDto = z.infer<typeof ddRfiGapListResponseSchema>;
+export type DdRfiTemplateInstantiateRequestDto = z.infer<
+  typeof ddRfiTemplateInstantiateRequestSchema
+>;
+export type DdRfiTemplateInstantiationResponseDto = z.infer<
+  typeof ddRfiTemplateInstantiationResponseSchema
+>;
 export type CreateDdDataRoomMappingRequestDto = z.infer<
   typeof createDdDataRoomMappingRequestSchema
+>;
+export type ReviewDdMappingSuggestionRequestDto = z.infer<
+  typeof reviewDdMappingSuggestionRequestSchema
+>;
+export type DdMappingSuggestionReviewResponseDto = z.infer<
+  typeof ddMappingSuggestionReviewResponseSchema
 >;
 export type DdDataRoomMappingQueryDto = z.infer<typeof ddDataRoomMappingQuerySchema>;
 export type DdDataRoomMappingDto = z.infer<typeof ddDataRoomMappingSchema>;
@@ -346,6 +510,7 @@ export type DdDataRoomMappingListResponseDto = z.infer<
   typeof ddDataRoomMappingListResponseSchema
 >;
 export type CreateDdIssueRequestDto = z.infer<typeof createDdIssueRequestSchema>;
+export type UpdateDdIssueRequestDto = z.infer<typeof updateDdIssueRequestSchema>;
 export type DdIssueQueryDto = z.infer<typeof ddIssueQuerySchema>;
 export type DdIssueDto = z.infer<typeof ddIssueSchema>;
 export type DdIssueListResponseDto = z.infer<typeof ddIssueListResponseSchema>;
@@ -356,3 +521,15 @@ export type DdRiskListResponseDto = z.infer<typeof ddRiskListResponseSchema>;
 export type DdTraceabilityQueryDto = z.infer<typeof ddTraceabilityQuerySchema>;
 export type DdTraceabilityItemDto = z.infer<typeof ddTraceabilityItemSchema>;
 export type DdTraceabilityResponseDto = z.infer<typeof ddTraceabilityResponseSchema>;
+export type CreateDdReportExportRequestDto = z.infer<
+  typeof createDdReportExportRequestSchema
+>;
+export type DdReportExportResponseDto = z.infer<typeof ddReportExportResponseSchema>;
+export type CreateDdNegotiationIssueExportRequestDto = z.infer<
+  typeof createDdNegotiationIssueExportRequestSchema
+>;
+export type DdNegotiationIssueExportResponseDto = z.infer<
+  typeof ddNegotiationIssueExportResponseSchema
+>;
+export type CreateDdExportJobRequestDto = z.infer<typeof createDdExportJobRequestSchema>;
+export type DdExportJobResponseDto = z.infer<typeof ddExportJobResponseSchema>;

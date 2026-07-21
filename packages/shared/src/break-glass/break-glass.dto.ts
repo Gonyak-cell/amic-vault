@@ -25,6 +25,12 @@ export const revokeBreakGlassRequestSchema = z
   })
   .default({});
 
+export const listBreakGlassRequestsQuerySchema = z
+  .object({
+    status: z.enum(breakGlassRequestStatuses).optional(),
+  })
+  .default({});
+
 export interface CreateBreakGlassRequestDto {
   wallId: string;
   reasonCode: BreakGlassReasonCode;
@@ -33,6 +39,10 @@ export interface CreateBreakGlassRequestDto {
 
 export interface RevokeBreakGlassRequestDto {
   reasonCode?: BreakGlassReasonCode | undefined;
+}
+
+export interface ListBreakGlassRequestsQueryDto {
+  status?: BreakGlassRequestStatus | undefined;
 }
 
 export interface BreakGlassRequestDto {
@@ -49,4 +59,8 @@ export interface BreakGlassRequestDto {
   revokedBy: string | null;
   revokedAt: string | null;
   createdAt: string;
+}
+
+export interface BreakGlassRequestListDto {
+  items: BreakGlassRequestDto[];
 }

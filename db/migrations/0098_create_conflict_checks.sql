@@ -1,0 +1,395 @@
+-- Up Migration
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+ALTER TABLE audit_events
+  DROP CONSTRAINT IF EXISTS audit_events_action_check;
+
+ALTER TABLE audit_events
+  ADD CONSTRAINT audit_events_action_check CHECK (
+    action IN (
+      'CLIENT_CREATED',
+      'CLIENT_UPDATED',
+      'MATTER_CREATED',
+      'MATTER_UPDATED',
+      'MATTER_STATUS_CHANGED',
+      'MATTER_MEMBER_ADDED',
+      'MATTER_MEMBER_REMOVED',
+      'MATTER_MEMBER_ROLE_CHANGED',
+      'PARTY_ADDED',
+      'PARTY_RESTRICTED_MARKED',
+      'CONFLICT_CHECK_EXECUTED',
+      'CONFLICT_CHECK_RESOLVED',
+      'ROLE_ASSIGNED',
+      'ROLE_CHANGED',
+      'ACCOUNT_LEDGER_ID_ASSIGNED',
+      'PERMISSION_CHANGED',
+      'ACCESS_DENIED',
+      'ETHICAL_WALL_CREATED',
+      'ETHICAL_WALL_MEMBERSHIP_CHANGED',
+      'ETHICAL_WALL_APPLIED',
+      'LOGIN_SUCCESS',
+      'LOGIN_FAILURE',
+      'SESSION_REVOKED',
+      'PERMISSION_DENIED_HIT',
+      'DOCUMENT_UPLOADED',
+      'DOCUMENT_VIEWED',
+      'DOCUMENT_DOWNLOADED',
+      'DOCUMENT_DELETED',
+      'DOCUMENT_RESTORED',
+      'DOCUMENT_VERSION_ADDED',
+      'DOCUMENT_METADATA_CHANGED',
+      'DOCUMENT_INTEGRITY_ALERT',
+      'DOCUMENT_CHECKED_OUT',
+      'DOCUMENT_SUBVERSION_SAVED',
+      'DOCUMENT_CHECKIN_CANCELLED',
+      'DOCUMENT_CHECKED_IN',
+      'DOCUMENT_VERSION_PROMOTED',
+      'DOCUMENT_EDIT_CONFLICT',
+      'DOCUMENT_LOCK_EXPIRED',
+      'DOCUMENT_SUBVERSION_REVIEWER_ASSIGNED',
+      'DOCUMENT_SUBVERSION_REVIEWER_REVOKED',
+      'DOCUMENT_SUBVERSION_REVIEW_SUBMITTED',
+      'LEGAL_HOLD_CHANGED',
+      'DOCUMENT_TEXT_EXTRACTED',
+      'SEARCH_REINDEX_REQUESTED',
+      'SEARCH_EXECUTED',
+      'DLP_SCAN_COMPLETED',
+      'DLP_FINDING_RECORDED',
+      'DLP_EGRESS_BLOCKED',
+      'BREAK_GLASS_REQUESTED',
+      'BREAK_GLASS_APPROVED',
+      'BREAK_GLASS_ACTIVATED',
+      'BREAK_GLASS_USED',
+      'BREAK_GLASS_REVOKED',
+      'BREAK_GLASS_EXPIRED',
+      'AUDIT_QUERY_EXECUTED',
+      'AUDIT_EXPORT_CREATED',
+      'AI_POLICY_EVALUATED',
+      'AI_QUERY_SUBMITTED',
+      'AI_RETRIEVAL',
+      'AI_RESPONSE',
+      'AI_CITED_DOCUMENT',
+      'AI_RETRIEVAL_EXCLUDED',
+      'AI_FEEDBACK_RECORDED',
+      'AI_PREP_REQUESTED',
+      'AI_PREP_COMPLETED',
+      'AI_PREP_BLOCKED',
+      'AI_PREP_FAILED',
+      'AI_PREP_REJECTED',
+      'AI_PREP_STALE',
+      'GRAPH_SYNCED',
+      'GRAPH_QUERY_EXECUTED',
+      'GRAPH_CONSISTENCY_CHECKED',
+      'CONTRACT_CLASSIFIED',
+      'CONTRACT_CLAUSES_EXTRACTED',
+      'CONTRACT_TERMS_EXTRACTED',
+      'CONTRACT_REDLINE_PARSED',
+      'PLAYBOOK_RULE_CHANGED',
+      'CONTRACT_RULE_EVALUATED',
+      'CONTRACT_CLAUSE_BANK_VIEWED',
+      'DD_RFI_CHANGED',
+      'DD_DATA_ROOM_MAPPED',
+      'DD_ISSUE_CHANGED',
+      'DD_RISK_CHANGED',
+      'DD_TRACE_VIEWED',
+      'LIT_EVIDENCE_CHANGED',
+      'LIT_FACT_CHANGED',
+      'LIT_ISSUE_TREE_CHANGED',
+      'LIT_PLEADING_CHANGED',
+      'LIT_CASE_MAP_VIEWED',
+      'EXTERNAL_USER_CHANGED',
+      'EXTERNAL_WORKSPACE_CHANGED',
+      'EXTERNAL_LINK_CREATED',
+      'EXTERNAL_LINK_REVOKED',
+      'EXTERNAL_LINK_ACCESSED',
+      'EXTERNAL_NDA_ACCEPTED',
+      'EXTERNAL_DLP_WARNING_BLOCKED',
+      'EXTERNAL_DLP_WARNING_ACCEPTED',
+      'EXTERNAL_DOWNLOAD_REQUESTED',
+      'EXTERNAL_QA_MESSAGE_RECORDED',
+      'RETENTION_POLICY_CHANGED',
+      'LEGAL_HOLD_APPLIED',
+      'LEGAL_HOLD_RELEASED',
+      'RECORD_ARCHIVED',
+      'DISPOSAL_REQUESTED',
+      'DISPOSAL_APPROVED',
+      'DISPOSAL_EXECUTED',
+      'DISPOSAL_CERTIFICATE_CREATED',
+      'SSO_PROVIDER_CHANGED',
+      'SSO_METADATA_VIEWED',
+      'BYOK_KEY_REFERENCE_CHANGED',
+      'SIEM_EXPORT_RECORDED',
+      'BACKUP_SNAPSHOT_RECORDED',
+      'COMPLIANCE_EVIDENCE_RECORDED',
+      'ENTERPRISE_READINESS_VIEWED',
+      'ENTERPRISE_DMS_CONFIGURATION_CHANGED',
+      'SCALE_PERFORMANCE_RECORDED',
+      'SCALE_COST_SNAPSHOT_RECORDED',
+      'SCALE_EVAL_RUN_RECORDED',
+      'SCALE_MIGRATION_DRILL_RECORDED',
+      'SCALE_LEARNING_EVENT_RECORDED',
+      'ADVANCED_AI_GATE_REVIEWED',
+      'SCALE_READINESS_VIEWED',
+      'EMAIL_IMPORTED',
+      'EMAIL_DUPLICATE_BLOCKED',
+      'EMAIL_METADATA_UPDATED',
+      'EMAIL_FILED',
+      'OUTLOOK_ADDIN_SESSION_EXCHANGED',
+      'OUTLOOK_ADDIN_SESSION_DENIED',
+      'OUTLOOK_EMAIL_FILE_REQUESTED',
+      'OUTLOOK_EMAIL_FILE_COMPLETED',
+      'OUTLOOK_EMAIL_FILE_DENIED',
+      'OUTLOOK_EMAIL_FILE_FAILED',
+      'OUTLOOK_EMAIL_FILE_CANCELLED',
+      'OUTLOOK_ATTACHMENT_FILED',
+      'OUTLOOK_MATTER_SUGGESTIONS_VIEWED',
+      'OUTLOOK_SEND_POLICY_EVALUATED',
+      'OUTLOOK_SEND_FILE_REQUESTED',
+      'OUTLOOK_SEND_FILE_DENIED',
+      'OUTLOOK_DOCUMENT_INSERT_REQUESTED',
+      'OUTLOOK_DOCUMENT_INSERT_DENIED',
+      'OUTLOOK_FOLDER_MAPPING_CHANGED',
+      'OUTLOOK_AUTOFILE_JOB_RECORDED',
+      'OUTLOOK_GRAPH_ATTACHMENT_ACQUIRE_REQUESTED',
+      'OUTLOOK_GRAPH_ATTACHMENT_ACQUIRED',
+      'OUTLOOK_GRAPH_ATTACHMENT_ACQUIRE_DENIED'
+    )
+  );
+
+ALTER TABLE matters
+  ADD COLUMN conflicts_status text NOT NULL DEFAULT 'not_started'
+    CONSTRAINT matters_conflicts_status_check
+    CHECK (conflicts_status IN ('not_started', 'in_review', 'cleared', 'blocked'));
+
+CREATE TABLE conflict_checks (
+  conflict_check_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(tenant_id) ON DELETE RESTRICT,
+  matter_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'in_review'
+    CHECK (status IN ('in_review', 'cleared', 'blocked')),
+  target_names jsonb NOT NULL DEFAULT '[]'::jsonb,
+  match_results jsonb NOT NULL DEFAULT '[]'::jsonb,
+  resolution_rationale text CHECK (
+    resolution_rationale IS NULL OR char_length(resolution_rationale) BETWEEN 1 AND 2000
+  ),
+  created_by uuid NOT NULL,
+  resolved_by uuid,
+  resolved_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, conflict_check_id),
+  CONSTRAINT fk_conflict_checks_matter
+    FOREIGN KEY (tenant_id, matter_id)
+    REFERENCES matters (tenant_id, matter_id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_conflict_checks_created_by
+    FOREIGN KEY (tenant_id, created_by)
+    REFERENCES users (tenant_id, user_id)
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_conflict_checks_resolved_by
+    FOREIGN KEY (tenant_id, resolved_by)
+    REFERENCES users (tenant_id, user_id)
+    ON DELETE RESTRICT,
+  CHECK (jsonb_typeof(target_names) = 'array'),
+  CHECK (jsonb_typeof(match_results) = 'array'),
+  CHECK (
+    (status = 'in_review' AND resolved_by IS NULL AND resolved_at IS NULL AND resolution_rationale IS NULL)
+    OR (status IN ('cleared', 'blocked') AND resolved_by IS NOT NULL AND resolved_at IS NOT NULL AND resolution_rationale IS NOT NULL)
+  )
+);
+
+CREATE INDEX idx_conflict_checks_tenant_matter
+  ON conflict_checks (tenant_id, matter_id, created_at DESC, conflict_check_id);
+CREATE INDEX idx_matters_tenant_conflicts_status
+  ON matters (tenant_id, conflicts_status, matter_id);
+CREATE INDEX idx_clients_conflict_name_trgm
+  ON clients USING gin (lower(name) gin_trgm_ops);
+CREATE INDEX idx_parties_conflict_name_trgm
+  ON parties USING gin (lower(name) gin_trgm_ops);
+CREATE INDEX idx_matters_conflict_name_trgm
+  ON matters USING gin (lower(matter_name) gin_trgm_ops);
+
+ALTER TABLE conflict_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conflict_checks FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY rls_conflict_checks_tenant ON conflict_checks
+  USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid);
+
+GRANT SELECT, INSERT ON conflict_checks TO vault_app;
+GRANT UPDATE (
+  status,
+  resolution_rationale,
+  resolved_by,
+  resolved_at,
+  updated_at
+) ON conflict_checks TO vault_app;
+GRANT UPDATE (conflicts_status, updated_at) ON matters TO vault_app;
+
+-- Down Migration
+
+DROP TABLE IF EXISTS conflict_checks;
+DROP INDEX IF EXISTS idx_matters_tenant_conflicts_status;
+DROP INDEX IF EXISTS idx_clients_conflict_name_trgm;
+DROP INDEX IF EXISTS idx_parties_conflict_name_trgm;
+DROP INDEX IF EXISTS idx_matters_conflict_name_trgm;
+
+ALTER TABLE matters
+  DROP COLUMN IF EXISTS conflicts_status;
+
+ALTER TABLE audit_events
+  DROP CONSTRAINT IF EXISTS audit_events_action_check;
+
+-- audit_events is append-only. After conflict-check actions have been recorded,
+-- rollback cannot safely remove the action from durable history; this down path
+-- restores the pre-0098 allow-list for clean roundtrip verification.
+ALTER TABLE audit_events
+  ADD CONSTRAINT audit_events_action_check CHECK (
+    action IN (
+      'CLIENT_CREATED',
+      'CLIENT_UPDATED',
+      'MATTER_CREATED',
+      'MATTER_UPDATED',
+      'MATTER_STATUS_CHANGED',
+      'MATTER_MEMBER_ADDED',
+      'MATTER_MEMBER_REMOVED',
+      'MATTER_MEMBER_ROLE_CHANGED',
+      'PARTY_ADDED',
+      'PARTY_RESTRICTED_MARKED',
+      'ROLE_ASSIGNED',
+      'ROLE_CHANGED',
+      'ACCOUNT_LEDGER_ID_ASSIGNED',
+      'PERMISSION_CHANGED',
+      'ACCESS_DENIED',
+      'ETHICAL_WALL_CREATED',
+      'ETHICAL_WALL_MEMBERSHIP_CHANGED',
+      'ETHICAL_WALL_APPLIED',
+      'LOGIN_SUCCESS',
+      'LOGIN_FAILURE',
+      'SESSION_REVOKED',
+      'PERMISSION_DENIED_HIT',
+      'DOCUMENT_UPLOADED',
+      'DOCUMENT_VIEWED',
+      'DOCUMENT_DOWNLOADED',
+      'DOCUMENT_DELETED',
+      'DOCUMENT_RESTORED',
+      'DOCUMENT_VERSION_ADDED',
+      'DOCUMENT_METADATA_CHANGED',
+      'DOCUMENT_INTEGRITY_ALERT',
+      'DOCUMENT_CHECKED_OUT',
+      'DOCUMENT_SUBVERSION_SAVED',
+      'DOCUMENT_CHECKIN_CANCELLED',
+      'DOCUMENT_CHECKED_IN',
+      'DOCUMENT_VERSION_PROMOTED',
+      'DOCUMENT_EDIT_CONFLICT',
+      'DOCUMENT_LOCK_EXPIRED',
+      'DOCUMENT_SUBVERSION_REVIEWER_ASSIGNED',
+      'DOCUMENT_SUBVERSION_REVIEWER_REVOKED',
+      'DOCUMENT_SUBVERSION_REVIEW_SUBMITTED',
+      'LEGAL_HOLD_CHANGED',
+      'DOCUMENT_TEXT_EXTRACTED',
+      'SEARCH_REINDEX_REQUESTED',
+      'SEARCH_EXECUTED',
+      'DLP_SCAN_COMPLETED',
+      'DLP_FINDING_RECORDED',
+      'DLP_EGRESS_BLOCKED',
+      'BREAK_GLASS_REQUESTED',
+      'BREAK_GLASS_APPROVED',
+      'BREAK_GLASS_ACTIVATED',
+      'BREAK_GLASS_USED',
+      'BREAK_GLASS_REVOKED',
+      'BREAK_GLASS_EXPIRED',
+      'AUDIT_QUERY_EXECUTED',
+      'AUDIT_EXPORT_CREATED',
+      'AI_POLICY_EVALUATED',
+      'AI_QUERY_SUBMITTED',
+      'AI_RETRIEVAL',
+      'AI_RESPONSE',
+      'AI_CITED_DOCUMENT',
+      'AI_RETRIEVAL_EXCLUDED',
+      'AI_FEEDBACK_RECORDED',
+      'AI_PREP_REQUESTED',
+      'AI_PREP_COMPLETED',
+      'AI_PREP_BLOCKED',
+      'AI_PREP_FAILED',
+      'AI_PREP_REJECTED',
+      'AI_PREP_STALE',
+      'GRAPH_SYNCED',
+      'GRAPH_QUERY_EXECUTED',
+      'GRAPH_CONSISTENCY_CHECKED',
+      'CONTRACT_CLASSIFIED',
+      'CONTRACT_CLAUSES_EXTRACTED',
+      'CONTRACT_TERMS_EXTRACTED',
+      'CONTRACT_REDLINE_PARSED',
+      'PLAYBOOK_RULE_CHANGED',
+      'CONTRACT_RULE_EVALUATED',
+      'CONTRACT_CLAUSE_BANK_VIEWED',
+      'DD_RFI_CHANGED',
+      'DD_DATA_ROOM_MAPPED',
+      'DD_ISSUE_CHANGED',
+      'DD_RISK_CHANGED',
+      'DD_TRACE_VIEWED',
+      'LIT_EVIDENCE_CHANGED',
+      'LIT_FACT_CHANGED',
+      'LIT_ISSUE_TREE_CHANGED',
+      'LIT_PLEADING_CHANGED',
+      'LIT_CASE_MAP_VIEWED',
+      'EXTERNAL_USER_CHANGED',
+      'EXTERNAL_WORKSPACE_CHANGED',
+      'EXTERNAL_LINK_CREATED',
+      'EXTERNAL_LINK_REVOKED',
+      'EXTERNAL_LINK_ACCESSED',
+      'EXTERNAL_NDA_ACCEPTED',
+      'EXTERNAL_DLP_WARNING_BLOCKED',
+      'EXTERNAL_DLP_WARNING_ACCEPTED',
+      'EXTERNAL_DOWNLOAD_REQUESTED',
+      'EXTERNAL_QA_MESSAGE_RECORDED',
+      'RETENTION_POLICY_CHANGED',
+      'LEGAL_HOLD_APPLIED',
+      'LEGAL_HOLD_RELEASED',
+      'RECORD_ARCHIVED',
+      'DISPOSAL_REQUESTED',
+      'DISPOSAL_APPROVED',
+      'DISPOSAL_EXECUTED',
+      'DISPOSAL_CERTIFICATE_CREATED',
+      'SSO_PROVIDER_CHANGED',
+      'SSO_METADATA_VIEWED',
+      'BYOK_KEY_REFERENCE_CHANGED',
+      'SIEM_EXPORT_RECORDED',
+      'BACKUP_SNAPSHOT_RECORDED',
+      'COMPLIANCE_EVIDENCE_RECORDED',
+      'ENTERPRISE_READINESS_VIEWED',
+      'ENTERPRISE_DMS_CONFIGURATION_CHANGED',
+      'SCALE_PERFORMANCE_RECORDED',
+      'SCALE_COST_SNAPSHOT_RECORDED',
+      'SCALE_EVAL_RUN_RECORDED',
+      'SCALE_MIGRATION_DRILL_RECORDED',
+      'SCALE_LEARNING_EVENT_RECORDED',
+      'ADVANCED_AI_GATE_REVIEWED',
+      'SCALE_READINESS_VIEWED',
+      'EMAIL_IMPORTED',
+      'EMAIL_DUPLICATE_BLOCKED',
+      'EMAIL_METADATA_UPDATED',
+      'EMAIL_FILED',
+      'OUTLOOK_ADDIN_SESSION_EXCHANGED',
+      'OUTLOOK_ADDIN_SESSION_DENIED',
+      'OUTLOOK_EMAIL_FILE_REQUESTED',
+      'OUTLOOK_EMAIL_FILE_COMPLETED',
+      'OUTLOOK_EMAIL_FILE_DENIED',
+      'OUTLOOK_EMAIL_FILE_FAILED',
+      'OUTLOOK_EMAIL_FILE_CANCELLED',
+      'OUTLOOK_ATTACHMENT_FILED',
+      'OUTLOOK_MATTER_SUGGESTIONS_VIEWED',
+      'OUTLOOK_SEND_POLICY_EVALUATED',
+      'OUTLOOK_SEND_FILE_REQUESTED',
+      'OUTLOOK_SEND_FILE_DENIED',
+      'OUTLOOK_DOCUMENT_INSERT_REQUESTED',
+      'OUTLOOK_DOCUMENT_INSERT_DENIED',
+      'OUTLOOK_FOLDER_MAPPING_CHANGED',
+      'OUTLOOK_AUTOFILE_JOB_RECORDED',
+      'OUTLOOK_GRAPH_ATTACHMENT_ACQUIRE_REQUESTED',
+      'OUTLOOK_GRAPH_ATTACHMENT_ACQUIRED',
+      'OUTLOOK_GRAPH_ATTACHMENT_ACQUIRE_DENIED'
+    )
+  );

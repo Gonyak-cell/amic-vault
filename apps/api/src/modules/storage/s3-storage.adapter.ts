@@ -1,11 +1,16 @@
 import { createHash, createHmac } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import type {
   StorageAdapter,
+  StorageCreateReadUrlInput,
+  StorageGetRangeInput,
   StorageGetObjectResult,
   StorageObjectMetadata,
   StoragePutObjectInput,
+  StorageReadUrlResult,
 } from './storage-adapter.interface';
 import {
   StorageObjectAlreadyExistsError,
@@ -14,14 +19,19 @@ import {
 
 interface S3StorageAdapterConfig {
   endpoint: string;
+  readUrlEndpoint?: string;
   bucket: string;
   region: string;
   accessKeyId: string;
   secretAccessKey: string;
+  serverSideEncryption?: string;
 }
 
 type SignedHeaders = Record<string, string>;
 type FetchInit = RequestInit & { duplex?: 'half' };
+type SignedRequest = { url: URL; headers: SignedHeaders };
+type SignedWriteResponse = { status: number; ok: boolean };
+const defaultReadUrlTtlSeconds = 300;
 
 function sha256Hex(value: string | Buffer): string {
   return createHash('sha256').update(value).digest('hex');
@@ -50,6 +60,20 @@ function canonicalHeaders(headers: SignedHeaders): { canonical: string; signed: 
   };
 }
 
+function encodeQueryComponent(value: string): string {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
+function canonicalQuery(params: Record<string, string>): string {
+  return Object.entries(params)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${encodeQueryComponent(key)}=${encodeQueryComponent(value)}`)
+    .join('&');
+}
+
 function signingKey(secret: string, shortDate: string, region: string): Buffer {
   const dateKey = hmac(`AWS4${secret}`, shortDate);
   const regionKey = hmac(dateKey, region);
@@ -64,21 +88,30 @@ function toFetchBody(body: StoragePutObjectInput['body']): BodyInit {
 
 export class S3StorageAdapter implements StorageAdapter {
   private readonly endpoint: URL;
+  private readonly readUrlEndpoint: URL;
 
   constructor(private readonly config: S3StorageAdapterConfig) {
     this.endpoint = new URL(config.endpoint);
+    this.readUrlEndpoint = new URL(config.readUrlEndpoint ?? config.endpoint);
   }
 
   static fromEnv(): S3StorageAdapter {
     return new S3StorageAdapter({
       endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
+      ...(process.env.S3_READ_URL_ENDPOINT
+        ? { readUrlEndpoint: process.env.S3_READ_URL_ENDPOINT }
+        : {}),
       bucket: process.env.S3_BUCKET ?? 'amic-vault-dev',
       region: process.env.S3_REGION ?? 'us-east-1',
-      accessKeyId: process.env.S3_ACCESS_KEY_ID ?? process.env.MINIO_ROOT_USER ?? 'amic-vault-minio',
+      accessKeyId:
+        process.env.S3_ACCESS_KEY_ID ?? process.env.MINIO_ROOT_USER ?? 'amic-vault-minio',
       secretAccessKey:
         process.env.S3_SECRET_ACCESS_KEY ??
         process.env.MINIO_ROOT_PASSWORD ??
         'amic-vault-minio-dev-password',
+      ...(process.env.S3_SERVER_SIDE_ENCRYPTION
+        ? { serverSideEncryption: process.env.S3_SERVER_SIDE_ENCRYPTION }
+        : {}),
     });
   }
 
@@ -92,8 +125,13 @@ export class S3StorageAdapter implements StorageAdapter {
       'content-type': input.contentType,
       'if-none-match': '*',
       'x-amz-content-sha256': payloadHash,
+      ...(this.config.serverSideEncryption
+        ? { 'x-amz-server-side-encryption': this.config.serverSideEncryption }
+        : {}),
     };
-    const response = await this.fetchSigned('PUT', input.key, headers, toFetchBody(input.body));
+    const response = Buffer.isBuffer(input.body)
+      ? await this.fetchSigned('PUT', input.key, headers, toFetchBody(input.body))
+      : await this.writeSignedStream('PUT', input.key, headers, input.body);
     if (response.status === 412 || response.status === 409) {
       throw new StorageObjectAlreadyExistsError(input.key);
     }
@@ -115,6 +153,72 @@ export class S3StorageAdapter implements StorageAdapter {
     return {
       ...this.metadataFromResponse(key, response),
       body: Readable.fromWeb(response.body as unknown as WebReadableStream<Uint8Array>),
+    };
+  }
+
+  async getRange(input: StorageGetRangeInput): Promise<StorageGetObjectResult> {
+    const response = await this.fetchSigned('GET', input.key, {
+      range: `bytes=${input.start}-${input.end}`,
+      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    });
+    if (response.status === 404) {
+      throw new StorageUnavailableError('storage object missing');
+    }
+    if (!response.ok || !response.body) {
+      throw new StorageUnavailableError(`storage range get failed: ${response.status}`);
+    }
+    return {
+      ...this.metadataFromResponse(input.key, response),
+      body: Readable.fromWeb(response.body as unknown as WebReadableStream<Uint8Array>),
+    };
+  }
+
+  async createReadUrl(input: StorageCreateReadUrlInput): Promise<StorageReadUrlResult> {
+    if (!this.config.accessKeyId || !this.config.secretAccessKey) {
+      throw new StorageUnavailableError('storage credentials are not configured');
+    }
+    const ttl = input.expiresInSeconds ?? defaultReadUrlTtlSeconds;
+    if (!Number.isSafeInteger(ttl) || ttl <= 0 || ttl > 86_400) {
+      throw new StorageUnavailableError('storage read url ttl is invalid');
+    }
+
+    const nowDate = new Date();
+    const now = amzDate(nowDate);
+    const url = new URL(this.readUrlEndpoint.toString());
+    url.pathname = `/${this.config.bucket}/${encodeKey(input.key)}`;
+    const credentialScope = `${now.short}/${this.config.region}/s3/aws4_request`;
+    const params: Record<string, string> = {
+      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+      'X-Amz-Credential': `${this.config.accessKeyId}/${credentialScope}`,
+      'X-Amz-Date': now.stamp,
+      'X-Amz-Expires': String(ttl),
+      'X-Amz-SignedHeaders': 'host',
+    };
+    const headers = canonicalHeaders({ host: url.host });
+    const canonicalRequest = [
+      'GET',
+      url.pathname,
+      canonicalQuery(params),
+      headers.canonical,
+      headers.signed,
+      'UNSIGNED-PAYLOAD',
+    ].join('\n');
+    const stringToSign = [
+      'AWS4-HMAC-SHA256',
+      now.stamp,
+      credentialScope,
+      sha256Hex(canonicalRequest),
+    ].join('\n');
+    params['X-Amz-Signature'] = createHmac(
+      'sha256',
+      signingKey(this.config.secretAccessKey, now.short, this.config.region),
+    )
+      .update(stringToSign)
+      .digest('hex');
+    url.search = canonicalQuery(params);
+    return {
+      url: url.toString(),
+      expiresAt: new Date(nowDate.getTime() + ttl * 1000),
     };
   }
 
@@ -153,6 +257,45 @@ export class S3StorageAdapter implements StorageAdapter {
     headers: SignedHeaders,
     body?: BodyInit,
   ): Promise<Response> {
+    const signed = this.signRequest(method, key, headers);
+    const init: FetchInit = {
+      method,
+      headers: signed.headers,
+      ...(body ? { body, duplex: 'half' } : {}),
+    };
+    return fetch(signed.url, init);
+  }
+
+  private writeSignedStream(
+    method: string,
+    key: string,
+    headers: SignedHeaders,
+    body: Readable,
+  ): Promise<SignedWriteResponse> {
+    const signed = this.signRequest(method, key, headers);
+    const request = signed.url.protocol === 'https:' ? httpsRequest : httpRequest;
+    return new Promise((resolve, reject) => {
+      const req = request(
+        signed.url,
+        {
+          method,
+          headers: signed.headers,
+        },
+        (res) => {
+          res.resume();
+          res.once('end', () => {
+            const status = res.statusCode ?? 0;
+            resolve({ status, ok: status >= 200 && status < 300 });
+          });
+        },
+      );
+      req.once('error', reject);
+      body.once('error', reject);
+      body.pipe(req);
+    });
+  }
+
+  private signRequest(method: string, key: string, headers: SignedHeaders): SignedRequest {
     if (!this.config.accessKeyId || !this.config.secretAccessKey) {
       throw new StorageUnavailableError('storage credentials are not configured');
     }
@@ -192,11 +335,6 @@ export class S3StorageAdapter implements StorageAdapter {
       `AWS4-HMAC-SHA256 Credential=${this.config.accessKeyId}/${credentialScope}, ` +
       `SignedHeaders=${canonical.signed}, Signature=${signature}`;
 
-    const init: FetchInit = {
-      method,
-      headers: signedHeaders,
-      ...(body ? { body, duplex: 'half' } : {}),
-    };
-    return fetch(url, init);
+    return { url, headers: signedHeaders };
   }
 }

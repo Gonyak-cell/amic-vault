@@ -37,6 +37,10 @@ describe('matter app DTO schemas', () => {
         stalenessMaxSeconds: 900,
         sourceUpdatedAt: null,
         sourceStale: false,
+        lastSyncAt: null,
+        reflectedCount: 0,
+        driftCount: 0,
+        syncStateAvailable: false,
         unavailableReason: 'runtime_not_ready',
       }),
     ).toMatchObject({
@@ -63,6 +67,10 @@ describe('matter app DTO schemas', () => {
           stalenessMaxSeconds: 900,
           sourceUpdatedAt: null,
           sourceStale: false,
+          lastSyncAt: '2026-06-20T00:00:00.000Z',
+          reflectedCount: 5,
+          driftCount: 0,
+          syncStateAvailable: true,
         },
         lookupAvailable: true,
         items: [

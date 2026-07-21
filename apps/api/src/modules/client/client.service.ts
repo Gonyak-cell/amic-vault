@@ -36,6 +36,7 @@ interface ClientRow {
   client_id: string;
   tenant_id: string;
   name: string;
+  aliases: string[];
   client_type: ClientType;
   confidentiality_level: ClientConfidentialityLevel;
   status: ClientStatus;
@@ -54,6 +55,7 @@ function mapClient(row: ClientRow): ClientEntity {
     clientId: row.client_id,
     tenantId: row.tenant_id,
     name: row.name,
+    aliases: row.aliases,
     clientType: row.client_type,
     confidentialityLevel: row.confidentiality_level,
     status: row.status,
@@ -83,6 +85,12 @@ function escapeLike(input: string): string {
 function changedKeys(before: ClientEntity, input: UpdateClientDto): string[] {
   const keys: string[] = [];
   if (input.name !== undefined && input.name !== before.props.name) keys.push('name');
+  if (
+    input.aliases !== undefined &&
+    JSON.stringify(input.aliases) !== JSON.stringify(before.props.aliases)
+  ) {
+    keys.push('aliases');
+  }
   if (input.clientType !== undefined && input.clientType !== before.props.clientType) {
     keys.push('client_type');
   }
@@ -193,15 +201,16 @@ export class ClientService {
     const result = await client.query(
       `
         INSERT INTO clients (
-          tenant_id, name, client_type, confidentiality_level, status, metadata_json, created_by
+          tenant_id, name, aliases, client_type, confidentiality_level, status, metadata_json, created_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-        RETURNING client_id, tenant_id, name, client_type, confidentiality_level, status,
+        VALUES ($1, $2, $3::text[], $4, $5, $6, $7::jsonb, $8)
+        RETURNING client_id, tenant_id, name, aliases, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at
       `,
       [
         tenantId,
         input.name,
+        input.aliases ?? [],
         input.clientType,
         input.confidentialityLevel,
         input.status,
@@ -219,8 +228,8 @@ export class ClientService {
     clientId: string,
     queryClient?: QueryClient,
   ): Promise<ClientEntity | null> {
-    const sql = `
-        SELECT client_id, tenant_id, name, client_type, confidentiality_level, status,
+      const sql = `
+        SELECT client_id, tenant_id, name, aliases, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at
         FROM clients
         WHERE tenant_id = $1
@@ -250,14 +259,21 @@ export class ClientService {
     }
     if (query.q) {
       params.push(`%${escapeLike(query.q)}%`);
-      filters.push(`name ILIKE $${params.length} ESCAPE '\\'`);
+      filters.push(`(
+        name ILIKE $${params.length} ESCAPE '\\'
+        OR EXISTS (
+          SELECT 1
+          FROM unnest(aliases) AS client_alias(alias_name)
+          WHERE client_alias.alias_name ILIKE $${params.length} ESCAPE '\\'
+        )
+      )`);
     }
     params.push(query.pageSize, (query.page - 1) * query.pageSize);
     const result = await tenantQuery<ClientListRow>(
       getPool(),
       tenantId,
       `
-        SELECT client_id, tenant_id, name, client_type, confidentiality_level, status,
+        SELECT client_id, tenant_id, name, aliases, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at, count(*) OVER()::text AS total_count
         FROM clients
         WHERE ${filters.join(' AND ')}
@@ -283,20 +299,22 @@ export class ClientService {
       `
         UPDATE clients
         SET name = COALESCE($3, name),
-            client_type = COALESCE($4, client_type),
-            confidentiality_level = COALESCE($5, confidentiality_level),
-            status = COALESCE($6, status),
-            metadata_json = COALESCE($7::jsonb, metadata_json),
+            aliases = COALESCE($4::text[], aliases),
+            client_type = COALESCE($5, client_type),
+            confidentiality_level = COALESCE($6, confidentiality_level),
+            status = COALESCE($7, status),
+            metadata_json = COALESCE($8::jsonb, metadata_json),
             updated_at = now()
         WHERE tenant_id = $1
           AND client_id = $2
-        RETURNING client_id, tenant_id, name, client_type, confidentiality_level, status,
+        RETURNING client_id, tenant_id, name, aliases, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at
       `,
       [
         tenantId,
         clientId,
         input.name ?? null,
+        input.aliases ?? null,
         input.clientType ?? null,
         input.confidentialityLevel ?? null,
         input.status ?? null,

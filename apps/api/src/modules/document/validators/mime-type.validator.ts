@@ -23,6 +23,8 @@ const supportedMimeExtensions = [
   'eml',
   'hwp',
   'hwpx',
+  'html',
+  'htm',
   'jpeg',
   'jpg',
   'json',
@@ -36,6 +38,7 @@ const supportedMimeExtensions = [
   'txt',
   'xls',
   'xlsx',
+  'zip',
 ] as const;
 
 type SupportedMimeExtension = (typeof supportedMimeExtensions)[number];
@@ -84,6 +87,16 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
       'application/x-hwp+zip',
       'application/zip',
     ],
+  },
+  html: {
+    extension: 'html',
+    mimeType: 'text/html',
+    declaredAliases: ['text/html', 'application/xhtml+xml', 'text/plain'],
+  },
+  htm: {
+    extension: 'htm',
+    mimeType: 'text/html',
+    declaredAliases: ['text/html', 'application/xhtml+xml', 'text/plain'],
   },
   jpeg: {
     extension: 'jpeg',
@@ -156,6 +169,11 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
       'application/zip',
     ],
   },
+  zip: {
+    extension: 'zip',
+    mimeType: 'application/zip',
+    declaredAliases: ['application/zip', 'application/x-zip-compressed'],
+  },
 };
 
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
@@ -207,6 +225,7 @@ function sniffSupportedBinaryMime(
   if (!startsWith(buffer, 'PK\x03\x04') && !startsWith(buffer, 'PK\x05\x06')) {
     throw unsupportedFileType();
   }
+  if (extension === 'zip') return supportedMimes.zip;
 
   const text = buffer.toString('utf8');
   const hasContentTypes = text.includes('[Content_Types].xml');
@@ -262,12 +281,20 @@ function sniffSupportedTextMime(
   buffer: Buffer,
   extension: SupportedMimeExtension,
 ): SupportedMime | null {
-  if (!['txt', 'md', 'markdown', 'csv', 'json'].includes(extension)) return null;
+  if (!['txt', 'md', 'markdown', 'csv', 'json', 'html', 'htm'].includes(extension)) {
+    return null;
+  }
   const text = assertSupportedText(buffer);
   if (extension === 'json') {
     try {
       JSON.parse(text);
     } catch {
+      throw unsupportedFileType();
+    }
+  }
+  if (extension === 'html' || extension === 'htm') {
+    const head = text.trimStart().slice(0, 512).toLowerCase();
+    if (!head.startsWith('<!doctype html') && !head.startsWith('<html')) {
       throw unsupportedFileType();
     }
   }

@@ -245,6 +245,9 @@ describe('AI feedback and gate metrics integration', () => {
     expect(report.permissionAccuracy).toBe(1);
     expect(report.hallucinationRate).toBe(0);
     expect(report.auditCoverage).toBe(1);
+    expect(report.p95GenerationLatencyMs === null || report.p95GenerationLatencyMs <= 20_000).toBe(
+      true,
+    );
     expect(report.externalModelCallAttempts).toBe(0);
 
     const leakage = computeAiGateMetrics({
@@ -260,9 +263,13 @@ describe('AI feedback and gate metrics integration', () => {
       totalSessions: 1,
       sessionsWithQueryAudit: 1,
       sessionsWithResponseAudit: 1,
+      matterQaSessionCount: 1,
+      matterQaFallbackCount: 1,
+      p95GenerationLatencyMs: 21_000,
       externalModelCallAttempts: 0,
     });
     expect(leakage.permissionAccuracy).toBe(0.5);
+    expect(leakage.matterQaFallbackRate).toBe(1);
     expect(leakage.technicalPass).toBe(false);
   });
 

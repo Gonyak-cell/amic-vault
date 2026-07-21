@@ -13,6 +13,8 @@ export interface EvaluationCaseInput {
   caseType: string;
   queryText: string;
   expectedRefs: string[];
+  expectedAnswerFacts: string[];
+  expectedCitationDocumentIds: string[];
   deidentified: boolean;
   notes?: string | null;
 }
@@ -43,18 +45,43 @@ function assertString(value: unknown, field: string): string {
   return value;
 }
 
+function assertStringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string')) {
+    throw new Error(`evalset ${field} must be an array of strings`);
+  }
+  return value;
+}
+
+function optionalStringArray(value: unknown, field: string): string[] {
+  if (value === undefined) return [];
+  return assertStringArray(value, field);
+}
+
+function assertUuidArray(value: unknown, field: string): string[] {
+  const entries = optionalStringArray(value, field);
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+  if (!entries.every((entry) => uuidPattern.test(entry))) {
+    throw new Error(`evalset ${field} must be an array of uuid strings`);
+  }
+  return entries.map((entry) => entry.toLowerCase());
+}
+
 function parseCase(value: unknown): EvaluationCaseInput {
   if (!isRecord(value)) throw new Error('evalset case must be an object');
-  const expectedRefs = value.expectedRefs;
-  if (!Array.isArray(expectedRefs) || !expectedRefs.every((entry) => typeof entry === 'string')) {
-    throw new Error('evalset expectedRefs must be an array of strings');
-  }
+  const expectedRefs = assertStringArray(value.expectedRefs, 'expectedRefs');
+  const expectedAnswerFacts = optionalStringArray(value.expectedAnswerFacts, 'expectedAnswerFacts');
+  const expectedCitationDocumentIds = assertUuidArray(
+    value.expectedCitationDocumentIds,
+    'expectedCitationDocumentIds',
+  );
   const parsed = {
     caseNo: assertString(value.caseNo, 'caseNo'),
     sourceDocRef: assertString(value.sourceDocRef, 'sourceDocRef'),
     caseType: assertString(value.caseType, 'caseType'),
     queryText: assertString(value.queryText, 'queryText'),
     expectedRefs,
+    expectedAnswerFacts,
+    expectedCitationDocumentIds,
     deidentified: value.deidentified === true,
     notes: typeof value.notes === 'string' ? value.notes : null,
   };
@@ -65,6 +92,7 @@ function parseCase(value: unknown): EvaluationCaseInput {
     caseType: parsed.caseType,
     queryText: parsed.queryText,
     expectedRefs: parsed.expectedRefs,
+    expectedAnswerFacts: parsed.expectedAnswerFacts,
     notes: parsed.notes,
   });
   return parsed;
@@ -101,15 +129,18 @@ export async function loadEvaluationCases(
         `
           INSERT INTO evaluation_cases (
             tenant_id, case_no, source_doc_ref, case_type, query_text,
-            expected_refs, deidentified, notes, updated_at
+            expected_refs, expected_answer_facts, expected_citation_document_ids,
+            deidentified, notes, updated_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6::jsonb, true, $7, now())
+          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::uuid[], true, $9, now())
           ON CONFLICT (tenant_id, case_no)
           DO UPDATE SET
             source_doc_ref = EXCLUDED.source_doc_ref,
             case_type = EXCLUDED.case_type,
             query_text = EXCLUDED.query_text,
             expected_refs = EXCLUDED.expected_refs,
+            expected_answer_facts = EXCLUDED.expected_answer_facts,
+            expected_citation_document_ids = EXCLUDED.expected_citation_document_ids,
             deidentified = true,
             notes = EXCLUDED.notes,
             updated_at = now()
@@ -121,6 +152,8 @@ export async function loadEvaluationCases(
           item.caseType,
           item.queryText,
           JSON.stringify(item.expectedRefs),
+          JSON.stringify(item.expectedAnswerFacts),
+          item.expectedCitationDocumentIds,
           item.notes,
         ],
       );

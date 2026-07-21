@@ -12,29 +12,47 @@ import {
 } from '@nestjs/common';
 import {
   createDdDataRoomMappingRequestSchema,
+  createDdExportJobRequestSchema,
   createDdIssueRequestSchema,
+  createDdNegotiationIssueExportRequestSchema,
+  createDdReportExportRequestSchema,
   createDdRfiRequestSchema,
   createDdRiskRequestSchema,
+  ddRfiGapQuerySchema,
+  ddIssueCitationRequiredReason,
   ddDataRoomMappingQuerySchema,
+  ddRfiTemplateInstantiateRequestSchema,
   ddIssueQuerySchema,
   ddRfiQuerySchema,
   ddRiskQuerySchema,
   ddTraceabilityQuerySchema,
+  reviewDdMappingSuggestionRequestSchema,
+  updateDdIssueRequestSchema,
   updateDdRfiRequestSchema,
 } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
+import { DdExportQueueService } from './dd-export-queue.service';
 import { DdService } from './dd.service';
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED', ...(reason ? { reason } : {}) });
 }
 
 function parseOrValidation<T>(parse: () => T): T {
   try {
     return parse();
-  } catch {
-    throw validationFailed();
+  } catch (error) {
+    throw validationFailed(parseValidationReason(error, [ddIssueCitationRequiredReason]));
   }
+}
+
+function parseValidationReason(error: unknown, allowedReasons: readonly string[]): string | undefined {
+  if (typeof error !== 'object' || error === null || !('issues' in error)) return undefined;
+  const issues = (error as { issues?: Array<{ message?: unknown }> }).issues;
+  if (!Array.isArray(issues)) return undefined;
+  return allowedReasons.find((reason) =>
+    issues.some((issue) => issue.message === reason),
+  );
 }
 
 function permissionContext(request: RequestWithSession): {
@@ -58,7 +76,10 @@ function parseUuidParam(value: string): string {
 
 @Controller('dd')
 export class DdController {
-  constructor(@Inject(DdService) private readonly dd: DdService) {}
+  constructor(
+    @Inject(DdService) private readonly dd: DdService,
+    @Inject(DdExportQueueService) private readonly exportQueue: DdExportQueueService,
+  ) {}
 
   @Post('rfis')
   createRfi(@Req() request: RequestWithSession, @Body() body: unknown) {
@@ -70,6 +91,22 @@ export class DdController {
   listRfis(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
     const input = parseOrValidation(() => ddRfiQuerySchema.parse(query));
     return this.dd.listRfis(permissionContext(request), input);
+  }
+
+  @Get('rfi-gaps')
+  listRfiGaps(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
+    const input = parseOrValidation(() => ddRfiGapQuerySchema.parse(query));
+    return this.dd.listRfiGaps(permissionContext(request), input);
+  }
+
+  @Post('rfi-templates/:templateId/instantiate')
+  instantiateRfiTemplate(
+    @Req() request: RequestWithSession,
+    @Param('templateId') templateId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => ddRfiTemplateInstantiateRequestSchema.parse(body ?? {}));
+    return this.dd.instantiateRfiTemplate(permissionContext(request), parseUuidParam(templateId), input);
   }
 
   @Patch('rfis/:rfiId')
@@ -96,10 +133,30 @@ export class DdController {
     return this.dd.listMappings(permissionContext(request), input);
   }
 
+  @Patch('data-room-mappings/:mappingId/review')
+  reviewMappingSuggestion(
+    @Req() request: RequestWithSession,
+    @Param('mappingId') mappingId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => reviewDdMappingSuggestionRequestSchema.parse(body ?? {}));
+    return this.dd.reviewMappingSuggestion(permissionContext(request), parseUuidParam(mappingId), input);
+  }
+
   @Post('issues')
   createIssue(@Req() request: RequestWithSession, @Body() body: unknown) {
     const input = parseOrValidation(() => createDdIssueRequestSchema.parse(body ?? {}));
     return this.dd.createIssue(permissionContext(request), input);
+  }
+
+  @Patch('issues/:issueId')
+  updateIssue(
+    @Req() request: RequestWithSession,
+    @Param('issueId') issueId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseOrValidation(() => updateDdIssueRequestSchema.parse(body ?? {}));
+    return this.dd.updateIssue(permissionContext(request), parseUuidParam(issueId), input);
   }
 
   @Get('issues')
@@ -124,5 +181,25 @@ export class DdController {
   traceability(@Req() request: RequestWithSession, @Query() query: Record<string, unknown>) {
     const input = parseOrValidation(() => ddTraceabilityQuerySchema.parse(query));
     return this.dd.traceability(permissionContext(request), input);
+  }
+
+  @Post('report-export')
+  exportReport(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() => createDdReportExportRequestSchema.parse(body ?? {}));
+    return this.dd.exportReport(permissionContext(request), input);
+  }
+
+  @Post('negotiation-issue-export')
+  exportNegotiationIssues(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() =>
+      createDdNegotiationIssueExportRequestSchema.parse(body ?? {}),
+    );
+    return this.dd.exportNegotiationIssues(permissionContext(request), input);
+  }
+
+  @Post('export-jobs')
+  createExportJob(@Req() request: RequestWithSession, @Body() body: unknown) {
+    const input = parseOrValidation(() => createDdExportJobRequestSchema.parse(body ?? {}));
+    return this.exportQueue.enqueueFromRequest(permissionContext(request), input);
   }
 }

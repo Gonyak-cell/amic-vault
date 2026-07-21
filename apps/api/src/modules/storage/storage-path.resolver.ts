@@ -11,6 +11,11 @@ export interface EmailRawStorageObjectIds {
   fileObjectId: string;
 }
 
+export interface AuditAnchorStorageObjectIds {
+  tenantId: string;
+  anchorDate: string;
+}
+
 export type ParsedStorageObjectKey =
   | (StorageObjectIds & {
       objectType: 'document';
@@ -18,6 +23,10 @@ export type ParsedStorageObjectKey =
     })
   | (EmailRawStorageObjectIds & {
       objectType: 'email_raw';
+      key: string;
+    })
+  | (AuditAnchorStorageObjectIds & {
+      objectType: 'audit_anchor';
       key: string;
     });
 
@@ -42,6 +51,7 @@ export class StorageTenantIsolationViolationError extends Error {
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const utcDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 function assertUuid(name: string, value: string): string {
   if (!uuidPattern.test(value)) {
@@ -71,6 +81,14 @@ export class StoragePathResolver {
     const emailId = assertUuid('emailId', input.emailId);
     const fileObjectId = assertUuid('fileObjectId', input.fileObjectId);
     return `tenants/${tenantId}/emails/${emailId}/raw/${fileObjectId}`;
+  }
+
+  buildAuditAnchorObjectKey(input: AuditAnchorStorageObjectIds): string {
+    const tenantId = assertUuid('tenantId', input.tenantId);
+    if (!utcDatePattern.test(input.anchorDate)) {
+      throw new StoragePathViolationError('anchorDate: invalid utc date');
+    }
+    return `tenants/${tenantId}/audit-anchors/${input.anchorDate}.json`;
   }
 
   storageUriForKey(key: string): string {
@@ -121,6 +139,20 @@ export class StoragePathResolver {
         tenantId: assertUuid('tenantId', parts[1] ?? ''),
         emailId: assertUuid('emailId', parts[3] ?? ''),
         fileObjectId: assertUuid('fileObjectId', parts[5] ?? ''),
+        key: decoded,
+      };
+    }
+
+    if (parts.length === 4 && parts[2] === 'audit-anchors') {
+      const fileName = parts[3] ?? '';
+      const anchorDate = fileName.endsWith('.json') ? fileName.slice(0, -5) : '';
+      if (!utcDatePattern.test(anchorDate)) {
+        throw new StoragePathViolationError('anchorDate: invalid utc date');
+      }
+      return {
+        objectType: 'audit_anchor',
+        tenantId: assertUuid('tenantId', parts[1] ?? ''),
+        anchorDate,
         key: decoded,
       };
     }

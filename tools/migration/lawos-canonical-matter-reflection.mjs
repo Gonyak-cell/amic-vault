@@ -7,18 +7,12 @@ import { Client } from 'pg';
 import { databaseUrl as defaultDatabaseUrl } from '../db/config.mjs';
 import { receiptLeakFindings, sha256Hex } from './matter-app-identity-preflight.mjs';
 
-export const LAWOS_SOURCE_ARTIFACT =
-  '/Users/jws/Documents/Codex/Law Firm OS/docs/lazycodex/evidence/matter-desktop/artifacts/amic-matter-code-candidates-2026-07-01.json';
-export const LAWOS_SOURCE_PACKAGE =
-  '/Users/jws/Documents/Codex/Law Firm OS/packages/matter/src/amic-matter-code-candidates.js';
-export const LAWOS_SOURCE_CONTRACT =
-  '/Users/jws/Documents/Codex/Law Firm OS/contracts/matter-core-contract.json';
-export const LAWOS_SOURCE_REVISION = 'amic_current_onedrive_matter_code_inventory_2026_07_01';
-
 const DEFAULT_OUTPUT_DIR = '.omo/evidence/LAWOS-CANONICAL-MATTER-REFLECTION';
 const DEFAULT_RECEIPT = `${DEFAULT_OUTPUT_DIR}/lawos-canonical-matter-reflection.sanitized.json`;
 const DEFAULT_DETAILS = `${DEFAULT_OUTPUT_DIR}/lawos-canonical-matter-reflection.local.ndjson.gz`;
 const SOURCE_REF = 'lawos_lazycodex_canonical_identity';
+const DEFAULT_SOURCE_PACKAGE_REF = 'amic-matter-code-candidates.js';
+const DEFAULT_SOURCE_CONTRACT_REF = 'matter-core-contract.json';
 const ALLOWED_AXES = new Set(['Advisory', 'DEAL', 'Dispute']);
 const LITIGATION_AXES = new Set(['CIV', 'CRM', 'ADM']);
 const VALID_MODES = new Set([
@@ -49,6 +43,21 @@ const EXPECTED_AXIS_COUNTS = Object.freeze({
 });
 const DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME = 'AMIC local file organization prep';
 
+export function usage() {
+  return [
+    'usage: pnpm matter:lawos-reflection -- --mode <preflight|dry-run|execute|replay|invariant-check|runtime-smoke|negative-smoke|rollback|closeout> --source-artifact <path> --source-revision <revision> --tenant-id <uuid> [--operator-user-id <uuid>] [--approval-ref <ref>]',
+    '',
+    'Required contract inputs:',
+    '  --source-artifact <path>      LawOS canonical matter artifact JSON, or LAWOS_CANONICAL_SOURCE_ARTIFACT',
+    '  --source-revision <revision> Expected artifact revision, or LAWOS_CANONICAL_SOURCE_REVISION',
+    '',
+    'Optional contract inputs:',
+    '  --expected-clients <count>    Expected client count, default 99',
+    '  --expected-matters <count>    Expected matter count, default 148',
+    '  --expected-axis-counts <json> Expected axis-count object, default production inventory counts',
+  ].join('\n');
+}
+
 function clean(value) {
   return value == null ? '' : String(value).trim();
 }
@@ -60,6 +69,24 @@ function isoStamp(value = new Date()) {
 function parseIntArg(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseAxisCountsArg(value) {
+  if (!value) return { ...EXPECTED_AXIS_COUNTS };
+  const parsed = JSON.parse(value);
+  const output = {};
+  for (const axis of ['Advisory', 'LIT', 'Dispute', 'DEAL']) {
+    const count = Number.parseInt(String(parsed?.[axis] ?? ''), 10);
+    if (!Number.isFinite(count) || count < 0) throw new Error(usage());
+    output[axis] = count;
+  }
+  return output;
+}
+
+function valueArg(argv, index) {
+  const value = argv[index + 1];
+  if (!value || value === '--' || value.startsWith('--')) throw new Error(usage());
+  return value;
 }
 
 function shortHash(value) {
@@ -85,8 +112,10 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     tenantId: null,
     operatorUserId: null,
     mode: env.LAWOS_CANONICAL_REFLECTION_MODE || 'preflight',
-    sourceArtifact: env.LAWOS_CANONICAL_SOURCE_ARTIFACT || LAWOS_SOURCE_ARTIFACT,
-    sourceRevision: env.LAWOS_CANONICAL_SOURCE_REVISION || LAWOS_SOURCE_REVISION,
+    sourceArtifact: env.LAWOS_CANONICAL_SOURCE_ARTIFACT || '',
+    sourceRevision: env.LAWOS_CANONICAL_SOURCE_REVISION || '',
+    sourcePackageRef: env.LAWOS_CANONICAL_SOURCE_PACKAGE_REF || DEFAULT_SOURCE_PACKAGE_REF,
+    sourceContractRef: env.LAWOS_CANONICAL_SOURCE_CONTRACT_REF || DEFAULT_SOURCE_CONTRACT_REF,
     approvalRef: env.LAWOS_CANONICAL_REFLECTION_APPROVAL_REF || '',
     rollbackApprovalRef: env.LAWOS_CANONICAL_REFLECTION_ROLLBACK_APPROVAL_REF || '',
     runId: `lawos-canonical-matter-reflection-${isoStamp()}`,
@@ -95,26 +124,30 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     executeReceipt: DEFAULT_RECEIPT,
     expectedClients: 99,
     expectedMatters: 148,
+    expectedAxisCounts: parseAxisCountsArg(env.LAWOS_CANONICAL_EXPECTED_AXIS_COUNTS),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
-    const value = argv[index + 1];
     if (key === '--') continue;
-    if (key === '--database-url') args.databaseUrl = value;
-    else if (key === '--tenant-id') args.tenantId = value;
-    else if (key === '--operator-user-id') args.operatorUserId = value;
-    else if (key === '--mode') args.mode = value;
-    else if (key === '--source-artifact') args.sourceArtifact = value;
-    else if (key === '--source-revision') args.sourceRevision = value;
-    else if (key === '--approval-ref') args.approvalRef = value;
-    else if (key === '--rollback-approval-ref') args.rollbackApprovalRef = value;
-    else if (key === '--run-id') args.runId = value;
-    else if (key === '--receipt') args.receipt = value;
-    else if (key === '--details') args.details = value;
-    else if (key === '--execute-receipt') args.executeReceipt = value;
-    else if (key === '--expected-clients') args.expectedClients = parseIntArg(value, 99);
-    else if (key === '--expected-matters') args.expectedMatters = parseIntArg(value, 148);
-    else if (key === '--dry-run') {
+    if (key === '--database-url') args.databaseUrl = valueArg(argv, index);
+    else if (key === '--tenant-id') args.tenantId = valueArg(argv, index);
+    else if (key === '--operator-user-id') args.operatorUserId = valueArg(argv, index);
+    else if (key === '--mode') args.mode = valueArg(argv, index);
+    else if (key === '--source-artifact') args.sourceArtifact = valueArg(argv, index);
+    else if (key === '--source-revision') args.sourceRevision = valueArg(argv, index);
+    else if (key === '--source-package-ref') args.sourcePackageRef = valueArg(argv, index);
+    else if (key === '--source-contract-ref') args.sourceContractRef = valueArg(argv, index);
+    else if (key === '--approval-ref') args.approvalRef = valueArg(argv, index);
+    else if (key === '--rollback-approval-ref') args.rollbackApprovalRef = valueArg(argv, index);
+    else if (key === '--run-id') args.runId = valueArg(argv, index);
+    else if (key === '--receipt') args.receipt = valueArg(argv, index);
+    else if (key === '--details') args.details = valueArg(argv, index);
+    else if (key === '--execute-receipt') args.executeReceipt = valueArg(argv, index);
+    else if (key === '--expected-clients') args.expectedClients = parseIntArg(valueArg(argv, index), 99);
+    else if (key === '--expected-matters') args.expectedMatters = parseIntArg(valueArg(argv, index), 148);
+    else if (key === '--expected-axis-counts') {
+      args.expectedAxisCounts = parseAxisCountsArg(valueArg(argv, index));
+    } else if (key === '--dry-run') {
       args.mode = 'dry-run';
       continue;
     } else if (key === '--execute') {
@@ -127,7 +160,9 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     else throw new Error(`unknown argument: ${key}`);
     if (key?.startsWith('--') && key !== '--help') index += 1;
   }
+  if (args.help) return args;
   if (!VALID_MODES.has(args.mode)) throw new Error(`invalid mode: ${args.mode}`);
+  if (!clean(args.sourceArtifact) || !clean(args.sourceRevision)) throw new Error(usage());
   return args;
 }
 
@@ -200,7 +235,7 @@ export function buildReflectionManifest({ source, sourceArtifactHash, args }) {
   if (source?.matter_count !== args.expectedMatters || matters.length !== args.expectedMatters) {
     blockers.push('source_matter_count_mismatch');
   }
-  for (const [axis, expected] of Object.entries(EXPECTED_AXIS_COUNTS)) {
+  for (const [axis, expected] of Object.entries(args.expectedAxisCounts ?? EXPECTED_AXIS_COUNTS)) {
     if (source?.axis_counts?.[axis] !== expected) blockers.push(`source_axis_${axis}_count_mismatch`);
   }
 
@@ -267,8 +302,8 @@ export function buildReflectionManifest({ source, sourceArtifactHash, args }) {
   return {
     source: {
       artifact_ref: path.basename(args.sourceArtifact),
-      package_ref: path.basename(LAWOS_SOURCE_PACKAGE),
-      contract_ref: path.basename(LAWOS_SOURCE_CONTRACT),
+      package_ref: path.basename(args.sourcePackageRef ?? DEFAULT_SOURCE_PACKAGE_REF),
+      contract_ref: path.basename(args.sourceContractRef ?? DEFAULT_SOURCE_CONTRACT_REF),
       source_revision: clean(source?.source_revision),
       expected_source_revision: args.sourceRevision,
       source_artifact_hash: sourceArtifactHash,
@@ -297,8 +332,8 @@ export function validateManifest(manifest, args) {
   if (manifest.counts.invalid_format_rows !== 0) blockers.push('manifest_invalid_format_rows_present');
   if (manifest.counts.review_required !== 0) blockers.push('manifest_review_required_present');
   if (manifest.counts.duplicate_codes !== 0) blockers.push('manifest_duplicate_codes_present');
-  if (manifest.source.source_revision !== LAWOS_SOURCE_REVISION) {
-    blockers.push('manifest_source_revision_not_pinned');
+  if (manifest.source.source_revision !== args.sourceRevision) {
+    blockers.push('manifest_source_revision_not_expected');
   }
   return [...new Set(blockers)];
 }
@@ -1034,6 +1069,68 @@ async function executeReflection(db, { args, manifest, plan, snapshot }) {
   };
 }
 
+function reflectedCount(executeResult) {
+  return (
+    (executeResult?.clients_created ?? 0) +
+    (executeResult?.clients_updated ?? 0) +
+    (executeResult?.matters_created ?? 0) +
+    (executeResult?.matters_updated ?? 0)
+  );
+}
+
+function driftCount(plan) {
+  return Object.values(plan.summary.blockers ?? {}).reduce((sum, count) => sum + Number(count ?? 0), 0);
+}
+
+async function recordMatterAppSyncState(db, { args, manifest, plan, executeResult }) {
+  await db.query(
+    `
+      INSERT INTO matter_app_sync_state (
+        tenant_id,
+        source_ref,
+        last_sync_at,
+        reflected_count,
+        drift_count,
+        source_revision_hash,
+        source_artifact_hash,
+        run_id_hash,
+        status,
+        summary_json,
+        updated_at
+      )
+      VALUES ($1, $2, now(), $3, $4, $5, $6, $7, 'pass', $8::jsonb, now())
+      ON CONFLICT (tenant_id, source_ref)
+      DO UPDATE SET
+        last_sync_at = EXCLUDED.last_sync_at,
+        reflected_count = EXCLUDED.reflected_count,
+        drift_count = EXCLUDED.drift_count,
+        source_revision_hash = EXCLUDED.source_revision_hash,
+        source_artifact_hash = EXCLUDED.source_artifact_hash,
+        run_id_hash = EXCLUDED.run_id_hash,
+        status = EXCLUDED.status,
+        summary_json = EXCLUDED.summary_json,
+        updated_at = now()
+    `,
+    [
+      args.tenantId,
+      SOURCE_REF,
+      reflectedCount(executeResult),
+      driftCount(plan),
+      sha256Hex(manifest.source.source_revision),
+      manifest.source.source_artifact_hash,
+      sha256Hex(args.runId),
+      JSON.stringify({
+        artifact: 'lawos_canonical_matter_reflection_sanitized',
+        reflected_count: reflectedCount(executeResult),
+        drift_count: driftCount(plan),
+        action_counts: plan.summary.actions,
+        blocker_counts: plan.summary.blockers,
+        target_rows: plan.summary.target_rows,
+      }),
+    ],
+  );
+}
+
 async function executeRollbackContainment(db, { args, manifest }) {
   const matterResult = await db.query(
     `
@@ -1199,11 +1296,16 @@ function validateExecuteReceipt(receipt) {
 }
 
 async function main() {
-  const args = parseArgs();
+  let args;
+  try {
+    args = parseArgs();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(2);
+    return;
+  }
   if (args.help) {
-    console.error(
-      'usage: pnpm matter:lawos-reflection -- --mode <preflight|dry-run|execute|replay|invariant-check|runtime-smoke|negative-smoke|rollback|closeout> --tenant-id <uuid> [--operator-user-id <uuid>] [--approval-ref <ref>]',
-    );
+    console.error(usage());
     process.exit(0);
     return;
   }
@@ -1302,8 +1404,12 @@ async function main() {
       executeResult,
       rollbackResult,
     });
-    if (executeMode && receipt.status === 'pass') await db.query('COMMIT');
-    else await db.query('ROLLBACK');
+    if (executeMode && receipt.status === 'pass') {
+      if (args.mode === 'execute') {
+        await recordMatterAppSyncState(db, { args, manifest, plan, executeResult });
+      }
+      await db.query('COMMIT');
+    } else await db.query('ROLLBACK');
     await writeNdjsonGz(args.details, plan.details);
     await writeJson(args.receipt, receipt);
     console.log(JSON.stringify(receipt, null, 2));

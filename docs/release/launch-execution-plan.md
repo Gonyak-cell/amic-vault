@@ -3,6 +3,11 @@
 Status: EXECUTED - POST-LAUNCH MONITORING ACTIVE
 Date: 2026-06-14
 
+Current-state note, 2026-07-06: this is historical launch-lane execution
+evidence. It is not the current customer-wide go-live approval; current
+post-cutover non-claims are tracked in
+`docs/release/production-post-cutover-next-gates.md`.
+
 This plan converts the prepared launch package into an executable release
 sequence. It records only non-secret evidence refs for the later approvals,
 staging execution, UAT acceptance, production bootstrap, and production smoke.

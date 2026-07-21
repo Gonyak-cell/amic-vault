@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   adaptEvidencePackToPrepSourceRefs,
   aiPrepArtifactAllowedClaimKinds,
@@ -19,10 +19,15 @@ import {
 import { AiEvidencePromptCompiler } from '../generation/evidence-prompt.compiler';
 import { LocalGemmaGenerationService } from '../generation/local-gemma-generation.service';
 import { AiRedactionPreprocessor } from '../retrieval/redaction-preprocessor';
+import { WorkService } from '../../work/work.service';
+import { DdService } from '../../dd/dd.service';
+import { LitigationAiClassifierService } from '../../litigation/litigation-ai-classifier.service';
 import { normalizeAiPrepMetadata } from './ai-prep-metadata-normalizer';
 import { AiPrepRepository } from './ai-prep.repository';
 import { applyAiPrepRetrievalPlan, planAiPrepRetrieval } from './ai-prep-retrieval-planner';
 import type { AiPrepJobPayload, AiPrepSource, AiPrepSourceChunk } from './ai-prep.types';
+import { MatterTimelineBuilder } from './matter-timeline.builder';
+import { MinutesQcBuilder } from './minutes-qc.builder';
 
 @Injectable()
 export class AiPrepProcessor {
@@ -41,6 +46,13 @@ export class AiPrepProcessor {
     private readonly promptCompiler: AiEvidencePromptCompiler,
     @Inject(LocalGemmaGenerationService)
     private readonly generation: LocalGemmaGenerationService,
+    @Inject(WorkService) private readonly workService: WorkService,
+    @Inject(MatterTimelineBuilder) private readonly matterTimeline: MatterTimelineBuilder,
+    @Inject(MinutesQcBuilder) private readonly minutesQc: MinutesQcBuilder,
+    @Optional() @Inject(DdService) private readonly dd?: DdService,
+    @Optional()
+    @Inject(LitigationAiClassifierService)
+    private readonly litigationClassifier?: LitigationAiClassifierService,
   ) {}
 
   async handle(payload: AiPrepJobPayload): Promise<void> {
@@ -196,6 +208,7 @@ export class AiPrepProcessor {
           payload.artifactKind,
         );
         const responseHash = sha256Hex(JSON.stringify(payloadJson));
+        let completedArtifactId: string | null = null;
         await this.auditService.transaction(source.tenantId, async (tx) => {
           const artifactId = await this.repository.upsertCompleted(tx, {
             source: plannedSource,
@@ -207,7 +220,8 @@ export class AiPrepProcessor {
             modelName: generationResult.model,
             latencyMs: generationResult.latencyMs,
           });
-          await this.recordArtifactAudit(tx, {
+          completedArtifactId = artifactId;
+          const audit = await this.recordArtifactAudit(tx, {
             action: 'AI_PREP_COMPLETED',
             artifactId,
             source: plannedSource,
@@ -219,7 +233,27 @@ export class AiPrepProcessor {
             responseHash,
             generationResult: 'gemma',
           });
+          if (isCandidateArtifactKind(payload.artifactKind)) {
+            await this.workService.openAiCandidateReviewWork(tx, {
+              tenantId: plannedSource.tenantId,
+              artifactId,
+              matterId: plannedSource.matterId,
+              documentId: plannedSource.documentId,
+              actorUserId: plannedSource.actorId,
+              auditEventId: audit.eventId,
+            });
+          }
         });
+        if (payload.artifactKind === 'document_profile' && completedArtifactId) {
+          await this.suggestFromDocumentProfile(plannedSource, {
+            artifactId: completedArtifactId,
+            responseHash,
+          });
+        }
+        if (payload.artifactKind === 'date_facts') {
+          await this.buildMatterTimeline(plannedSource, payload);
+          await this.buildMinutesQc(plannedSource, payload);
+        }
         return;
       } catch {
         await this.recordRejected(plannedSource, payload, pack, {
@@ -295,6 +329,51 @@ export class AiPrepProcessor {
         fallbackReasonCode: input.reasonCode,
       });
     });
+  }
+
+  private async suggestFromDocumentProfile(
+    source: AiPrepSource,
+    input: { artifactId: string; responseHash: string },
+  ): Promise<void> {
+    const bodyText = source.chunks.map((chunk) => chunk.chunkText).join('\n\n').trim();
+    if (!bodyText) return;
+    try {
+      if (this.dd) {
+        await this.auditService.transaction(source.tenantId, (tx) =>
+          this.dd!.suggestMappingsFromAiPrepArtifact(tx, {
+            tenantId: source.tenantId,
+            matterId: source.matterId,
+            documentId: source.documentId,
+            versionId: source.versionId,
+            sourceArtifactId: input.artifactId,
+            sourceHash: input.responseHash,
+            bodyText,
+          }),
+        );
+      }
+      const litigationSuggestion = inferLitigationSuggestion(source.title, bodyText);
+      if (this.litigationClassifier && litigationSuggestion) {
+        await this.auditService.transaction(source.tenantId, (tx) =>
+          this.litigationClassifier!.suggestFromAiPrepArtifact(tx, {
+            tenantId: source.tenantId,
+            matterId: source.matterId,
+            documentId: source.documentId,
+            versionId: source.versionId,
+            sourceArtifactId: input.artifactId,
+            sourceHash: input.responseHash,
+            actorUserId: source.actorId,
+            ...litigationSuggestion,
+          }),
+        );
+      }
+    } catch (error) {
+      this.logger.warn({
+        code: 'AI_PREP_CLASSIFICATION_SUGGESTION_FAILED',
+        documentId: source.documentId,
+        versionId: source.versionId,
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+    }
   }
 
   private async recordRejected(
@@ -438,8 +517,8 @@ export class AiPrepProcessor {
       fallbackReasonCode?: string | undefined;
       deadLetterId?: string | undefined;
     },
-  ): Promise<void> {
-    await this.auditService.log(
+  ): Promise<{ eventId: string }> {
+    return this.auditService.log(
       {
         tenantId: input.source.tenantId,
         actorType: 'system',
@@ -467,6 +546,71 @@ export class AiPrepProcessor {
       },
       tx,
     );
+  }
+
+  private async buildMatterTimeline(source: AiPrepSource, payload: AiPrepJobPayload): Promise<void> {
+    try {
+      await this.auditService.transaction(source.tenantId, async (tx) => {
+        const timeline = await this.matterTimeline.buildForMatter(tx, {
+          tenantId: source.tenantId,
+          matterId: source.matterId,
+          actorId: source.actorId,
+          targetDocumentId: source.documentId,
+          targetVersionId: source.versionId,
+        });
+        if (!timeline) return;
+        await this.recordArtifactAudit(tx, {
+          action: 'AI_PREP_COMPLETED',
+          artifactId: timeline.artifactId,
+          source,
+          payload: { ...payload, artifactKind: 'matter_timeline' },
+          status: 'completed',
+          result: 'success',
+          sourceChunkCount: timeline.itemCount,
+          generationResult: 'fallback',
+        });
+      });
+    } catch {
+      this.logger.warn({ code: 'AI_PREP_MATTER_TIMELINE_FAILED', matterId: source.matterId });
+    }
+  }
+
+  private async buildMinutesQc(source: AiPrepSource, payload: AiPrepJobPayload): Promise<void> {
+    try {
+      await this.auditService.transaction(source.tenantId, async (tx) => {
+        const report = await this.minutesQc.buildForDocument(tx, {
+          tenantId: source.tenantId,
+          matterId: source.matterId,
+          actorId: source.actorId,
+          targetDocumentId: source.documentId,
+          targetVersionId: source.versionId,
+          title: source.title,
+        });
+        if (!report) return;
+        const audit = await this.recordArtifactAudit(tx, {
+          action: 'AI_PREP_COMPLETED',
+          artifactId: report.artifactId,
+          source,
+          payload: { ...payload, artifactKind: 'minutes_qc' },
+          status: 'completed',
+          result: 'success',
+          sourceChunkCount: report.sourceChunkCount,
+          generationResult: 'fallback',
+        });
+        if (report.inconsistencyCount > 0) {
+          await this.workService.openAiCandidateReviewWork(tx, {
+            tenantId: source.tenantId,
+            artifactId: report.artifactId,
+            matterId: source.matterId,
+            documentId: source.documentId,
+            actorUserId: source.actorId,
+            auditEventId: audit.eventId,
+          });
+        }
+      });
+    } catch {
+      this.logger.warn({ code: 'AI_PREP_MINUTES_QC_FAILED', matterId: source.matterId });
+    }
   }
 }
 
@@ -598,6 +742,8 @@ function artifactLabel(artifactKind: AiPrepArtifactKind): string {
       return '주요 필드';
     case 'date_facts':
       return '날짜 정보';
+    case 'matter_timeline':
+      return 'Matter 타임라인';
     case 'people_organizations':
       return '인물·조직 정보';
     case 'keyword_tags':
@@ -608,7 +754,71 @@ function artifactLabel(artifactKind: AiPrepArtifactKind): string {
       return '출처 개요';
     case 'retrieval_hints':
       return '검색 힌트';
+    case 'fact_candidates':
+      return '사실 후보';
+    case 'issue_candidates':
+      return '쟁점 후보';
+    case 'risk_candidates':
+      return '리스크 후보';
+    case 'graph_candidate_edges':
+      return '그래프 관계 후보';
+    case 'minutes_qc':
+      return '회의록 정합성 QC';
   }
+}
+
+function isCandidateArtifactKind(artifactKind: AiPrepArtifactKind): boolean {
+  return [
+    'fact_candidates',
+    'issue_candidates',
+    'risk_candidates',
+    'graph_candidate_edges',
+  ].includes(artifactKind);
+}
+
+function inferLitigationSuggestion(
+  title: string,
+  bodyText: string,
+): {
+  suggestedEvidenceDirection: 'gap' | 'eul';
+  suggestedEvidenceType: 'document' | 'email' | 'testimony' | 'exhibit' | 'expert' | 'other';
+  suggestedIssueTitle?: string | null | undefined;
+  confidence: number;
+} | null {
+  const combined = `${title}\n${bodyText}`;
+  if (
+    !/(witness|testimony|deposition|exhibit|evidence|court|hearing|complaint|pleading|motion|trial|claim|damages|affidavit|declaration|증거|증언|진술|소장|준비서면|손해|책임)/iu.test(
+      combined,
+    )
+  ) {
+    return null;
+  }
+  const lower = combined.toLowerCase();
+  const suggestedEvidenceType = /expert|감정/u.test(lower)
+    ? 'expert'
+    : /witness|testimony|deposition|affidavit|declaration|증언|진술/u.test(lower)
+      ? 'testimony'
+      : /email|message|메일/u.test(lower)
+        ? 'email'
+        : /exhibit|증거/u.test(lower)
+          ? 'exhibit'
+          : 'document';
+  const suggestedEvidenceDirection = /defen[cs]e|respondent|counterclaim|rebuttal|항변|반소/u.test(
+    lower,
+  )
+    ? 'eul'
+    : 'gap';
+  const suggestedIssueTitle = /damage|damages|loss|손해/u.test(lower)
+    ? '손해액 입증'
+    : /liability|breach|책임|위반/u.test(lower)
+      ? '책임 입증'
+      : null;
+  return {
+    suggestedEvidenceDirection,
+    suggestedEvidenceType,
+    suggestedIssueTitle,
+    confidence: suggestedIssueTitle ? 0.78 : suggestedEvidenceType === 'document' ? 0.62 : 0.72,
+  };
 }
 
 function sha256Hex(input: string): string {

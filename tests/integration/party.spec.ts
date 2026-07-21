@@ -50,6 +50,7 @@ async function createMatter(
   cookie: string,
   clientId: string,
   leadLawyerId: string,
+  options: { intakeTemplateCode?: 'default_open' | 'restricted' } = {},
 ): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/matters`, {
     method: 'POST',
@@ -60,6 +61,7 @@ async function createMatter(
       matterName: `Party Matter ${randomUUID()}`,
       matterType: 'contract',
       leadLawyerId,
+      ...options,
     }),
   });
   const body = await response.text();
@@ -103,6 +105,19 @@ async function createParty(
   });
 }
 
+async function updateParty(
+  baseUrl: string,
+  cookie: string,
+  partyId: string,
+  body: Record<string, unknown>,
+) {
+  return fetch(`${baseUrl}/v1/parties/${partyId}`, {
+    method: 'PATCH',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 async function updateStatus(baseUrl: string, cookie: string, matterId: string, status: string) {
   const response = await fetch(`${baseUrl}/v1/matters/${matterId}/status`, {
     method: 'PATCH',
@@ -110,6 +125,33 @@ async function updateStatus(baseUrl: string, cookie: string, matterId: string, s
     body: JSON.stringify({ status }),
   });
   expect(response.status, await response.text()).toBe(200);
+}
+
+async function closeMatter(baseUrl: string, cookie: string, matterId: string): Promise<void> {
+  for (const status of ['open', 'active', 'closing']) {
+    await updateStatus(baseUrl, cookie, matterId, status);
+  }
+  const checklist = await fetch(`${baseUrl}/v1/matters/${matterId}/closing-checklist`, {
+    headers: { cookie },
+  });
+  const checklistBody = await checklist.text();
+  expect(checklist.status, checklistBody).toBe(200);
+  const { items } = JSON.parse(checklistBody) as {
+    items: Array<{ itemCode: string; status: 'passed' | 'waived' | 'failed' | 'pending' }>;
+  };
+  for (const item of items) {
+    if (item.status === 'passed' || item.status === 'waived') continue;
+    const waiver = await fetch(
+      `${baseUrl}/v1/matters/${matterId}/closing-checklist/${item.itemCode}/waive`,
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Integration fixture closure waiver' }),
+      },
+    );
+    expect(waiver.status, await waiver.text()).toBe(201);
+  }
+  await updateStatus(baseUrl, cookie, matterId, 'closed');
 }
 
 async function latestAudit(action: string, targetId: string) {
@@ -146,6 +188,22 @@ async function partyRestrictedAuditCount(partyId: string): Promise<number> {
       [tenantAlphaId, partyId],
     );
     return Number(result.rows[0]?.count ?? '0');
+  });
+}
+
+async function setMatterConflictsCleared(matterId: string) {
+  await withClient(createOwnerClient(), async (client) => {
+    const result = await client.query(
+      `
+        UPDATE matters
+        SET conflicts_status = 'cleared',
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND matter_id = $2
+      `,
+      [tenantAlphaId, matterId],
+    );
+    expect(result.rowCount).toBe(1);
   });
 }
 
@@ -196,11 +254,11 @@ describe('party integration', () => {
     await app.close();
   });
 
-  it('creates and lists parties only through matter permissions and reference-only audit', async () => {
+  it('creates, updates, and lists parties only through matter permissions and reference-only audit', async () => {
     const matterId = await createMatter(baseUrl, ownerCookie, clientId, alphaOwnerUserId);
     await addMember(baseUrl, ownerCookie, matterId, 'edit');
 
-    const created = await createParty(baseUrl, memberCookie, matterId, { partyRole: 'witness' });
+    const created = await createParty(baseUrl, memberCookie, matterId);
     const createdBody = await created.text();
     expect(created.status, createdBody).toBe(201);
     const party = JSON.parse(createdBody) as { partyId: string; name: string };
@@ -222,10 +280,36 @@ describe('party integration', () => {
     expect((JSON.parse(listBody) as { items: Array<{ partyId: string }> }).items).toEqual(
       expect.arrayContaining([expect.objectContaining({ partyId: party.partyId })]),
     );
+
+    const updatedName = `Updated Counterparty ${randomUUID()}`;
+    const updated = await updateParty(baseUrl, memberCookie, party.partyId, {
+      name: updatedName,
+      partyRole: 'witness',
+      partyType: 'individual',
+    });
+    const updatedBody = await updated.text();
+    expect(updated.status, updatedBody).toBe(200);
+    expect(JSON.parse(updatedBody)).toMatchObject({
+      name: updatedName,
+      partyId: party.partyId,
+      partyRole: 'witness',
+      partyType: 'individual',
+    });
+
+    const updateAudit = await latestAudit('PARTY_UPDATED', party.partyId);
+    expect(updateAudit?.matter_id).toBe(matterId);
+    expect(updateAudit?.metadata_json).toMatchObject({
+      party_id: party.partyId,
+      matter_id: matterId,
+      diff_keys: ['name', 'party_type', 'party_role'],
+    });
+    expect(JSON.stringify(updateAudit?.metadata_json)).not.toContain(updatedName);
   });
 
   it('denies nonmembers, read-only members, cross-tenant related clients, and closed matters', async () => {
-    const readMatterId = await createMatter(baseUrl, ownerCookie, clientId, alphaOwnerUserId);
+    const readMatterId = await createMatter(baseUrl, ownerCookie, clientId, alphaOwnerUserId, {
+      intakeTemplateCode: 'restricted',
+    });
     await addMember(baseUrl, ownerCookie, readMatterId, 'read');
 
     const readOnlyDenied = await createParty(baseUrl, memberCookie, readMatterId);
@@ -247,13 +331,23 @@ describe('party integration', () => {
     expect(crossTenantClient.status, await crossTenantClient.text()).toBe(404);
 
     const closedMatterId = await createMatter(baseUrl, ownerCookie, clientId, alphaOwnerUserId);
-    for (const status of ['open', 'active', 'closing', 'closed']) {
-      await updateStatus(baseUrl, ownerCookie, closedMatterId, status);
-    }
+    const closedParty = await createParty(baseUrl, ownerCookie, closedMatterId);
+    const closedPartyBody = await closedParty.text();
+    expect(closedParty.status, closedPartyBody).toBe(201);
+    const closedPartyId = (JSON.parse(closedPartyBody) as { partyId: string }).partyId;
+    await setMatterConflictsCleared(closedMatterId);
+    await closeMatter(baseUrl, ownerCookie, closedMatterId);
     const closedDenied = await createParty(baseUrl, ownerCookie, closedMatterId);
     const closedDeniedBody = await closedDenied.text();
     expect(closedDenied.status, closedDeniedBody).toBe(400);
     expect(closedDeniedBody).toContain('MATTER_CLOSED');
+
+    const closedUpdateDenied = await updateParty(baseUrl, ownerCookie, closedPartyId, {
+      name: `Closed Update ${randomUUID()}`,
+    });
+    const closedUpdateDeniedBody = await closedUpdateDenied.text();
+    expect(closedUpdateDenied.status, closedUpdateDeniedBody).toBe(400);
+    expect(closedUpdateDeniedBody).toContain('MATTER_CLOSED');
   });
 
   it('marks restricted parties through security admin or matter owner only', async () => {
@@ -264,28 +358,20 @@ describe('party integration', () => {
     expect(create.status, createBody).toBe(201);
     const party = JSON.parse(createBody) as { partyId: string };
 
-    const memberDenied = await fetch(`${baseUrl}/v1/parties/${party.partyId}`, {
-      method: 'PATCH',
-      headers: { cookie: memberCookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ isRestricted: true }),
+    const memberDenied = await updateParty(baseUrl, memberCookie, party.partyId, {
+      isRestricted: true,
     });
     expect(memberDenied.status, await memberDenied.text()).toBe(403);
 
-    const securityMarked = await fetch(`${baseUrl}/v1/parties/${party.partyId}`, {
-      method: 'PATCH',
-      headers: { cookie: securityAdminCookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ isRestricted: true }),
+    const securityMarked = await updateParty(baseUrl, securityAdminCookie, party.partyId, {
+      isRestricted: true,
     });
     const securityMarkedBody = await securityMarked.text();
     expect(securityMarked.status, securityMarkedBody).toBe(200);
     expect(JSON.parse(securityMarkedBody)).toMatchObject({ isRestricted: true });
 
     const beforeNoop = await partyRestrictedAuditCount(party.partyId);
-    const noop = await fetch(`${baseUrl}/v1/parties/${party.partyId}`, {
-      method: 'PATCH',
-      headers: { cookie: ownerCookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ isRestricted: true }),
-    });
+    const noop = await updateParty(baseUrl, ownerCookie, party.partyId, { isRestricted: true });
     expect(noop.status, await noop.text()).toBe(200);
     await expect(partyRestrictedAuditCount(party.partyId)).resolves.toBe(beforeNoop);
 

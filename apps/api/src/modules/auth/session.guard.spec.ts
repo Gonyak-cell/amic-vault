@@ -8,6 +8,8 @@ import type { TenantId } from '@amic-vault/shared';
 import { TenantContextService } from '../tenant/tenant-context';
 import type { TenantEntity } from '../tenant/tenant.entity';
 import type { TenantService } from '../tenant/tenant.service';
+import type { UserEntity } from '../user/user.entity';
+import type { UserService } from '../user/user.service';
 import { AuthController } from './auth.controller';
 import { IS_PUBLIC_ROUTE } from './public.decorator';
 import { SessionGuard } from './session.guard';
@@ -64,6 +66,29 @@ function fakeTenantService(entity: TenantEntity | null): TenantService {
   } as unknown as TenantService;
 }
 
+function fakeUserService(mfaEnabled = false): UserService {
+  return {
+    async findByTenantAndId() {
+      return {
+        userId: '11111111-1111-4111-8111-111111111101',
+        tenantId,
+        email: 'alpha@test.local',
+        name: 'Alpha',
+        role: 'matter_owner',
+        practiceGroup: 'corporate',
+        status: 'active',
+        passwordHash: '$argon2id$placeholder',
+        mfaEnabled,
+        lastLoginAt: null,
+        createdAt: new Date('2026-06-11T00:00:00Z'),
+        updatedAt: new Date('2026-06-11T00:00:00Z'),
+        toSummary: () => ({}),
+        toJSON: () => ({}),
+      } as unknown as UserEntity;
+    },
+  } as unknown as UserService;
+}
+
 function contextFor(handler: () => void, headers: Record<string, string> = {}): ExecutionContext {
   const request = { headers };
   return {
@@ -96,6 +121,7 @@ describe('SessionGuard', () => {
   it('keeps the public route allowlist limited to login and password reset routes', () => {
     expect(publicAuthRoutes()).toEqual([
       '/v1/auth/login',
+      '/v1/auth/mfa/verify',
       '/v1/auth/password-reset/request',
       '/v1/auth/password-reset/confirm',
     ]);
@@ -107,6 +133,7 @@ describe('SessionGuard', () => {
       new FakeSessionRepository(null) as unknown as SessionRepository,
       fakeTenantService(tenant()),
       new TenantContextService(),
+      fakeUserService(),
     );
 
     await expect(guard.canActivate(contextFor(() => undefined))).rejects.toBeInstanceOf(
@@ -124,6 +151,7 @@ describe('SessionGuard', () => {
       new FakeSessionRepository(session()) as unknown as SessionRepository,
       fakeTenantService(tenant()),
       tenantContext,
+      fakeUserService(),
     );
 
     await expect(
@@ -139,5 +167,19 @@ describe('SessionGuard', () => {
       tenantId,
       source: 'session',
     });
+  });
+
+  it('rejects unverified sessions after MFA is enabled for the user', async () => {
+    const guard = new SessionGuard(
+      new Reflector(),
+      new FakeSessionRepository(session()) as unknown as SessionRepository,
+      fakeTenantService(tenant()),
+      new TenantContextService(),
+      fakeUserService(true),
+    );
+
+    await expect(
+      guard.canActivate(contextFor(() => undefined, { cookie: `${SESSION_COOKIE_NAME}=${token}` })),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

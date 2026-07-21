@@ -29,3 +29,11 @@ COPY --from=build /app/packages/shared packages/shared
 COPY --from=deps /app/node_modules node_modules
 COPY --from=deps /app/apps/api/node_modules apps/api/node_modules
 CMD ["node", "apps/api/dist/main.js"]
+
+FROM runtime AS worker
+ENV PROCESS_ROLE=worker
+CMD ["node", "apps/api/dist/worker-main.js"]
+
+FROM runtime AS api
+ENV PROCESS_ROLE=api
+CMD ["node", "apps/api/dist/main.js"]

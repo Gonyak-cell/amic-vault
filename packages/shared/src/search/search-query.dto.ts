@@ -26,9 +26,11 @@ export const searchLegalHoldValues = ['document_hold', 'matter_hold', 'no_hold']
 export const searchLegalHoldSchema = z.enum(searchLegalHoldValues);
 export const searchRecordsStatusValues = ['active', 'archived', 'disposal_locked'] as const;
 export const searchRecordsStatusSchema = z.enum(searchRecordsStatusValues);
+export const searchOcrConfidenceValues = ['ocr_low_confidence'] as const;
+export const searchOcrConfidenceSchema = z.enum(searchOcrConfidenceValues);
 export const searchModes = ['keyword', 'semantic', 'hybrid'] as const;
 export const searchModeSchema = z.enum(searchModes);
-export const searchTargets = ['all', 'title', 'body'] as const;
+export const searchTargets = ['all', 'title', 'body', 'email', 'clause', 'authority'] as const;
 export const searchTargetSchema = z.enum(searchTargets);
 export const searchSorts = [
   'relevance',
@@ -66,6 +68,7 @@ export const searchFiltersSchema = z
     confidentialityLevel: documentConfidentialityLevelSchema.optional(),
     documentType: searchDocumentTypeFilterSchema.optional(),
     extractionStatus: searchExtractionStatusSchema.optional(),
+    ocrConfidence: searchOcrConfidenceSchema.optional(),
     legalHold: searchLegalHoldSchema.optional(),
     recordsStatus: searchRecordsStatusSchema.optional(),
     privilegeStatus: documentPrivilegeStatusSchema.optional(),
@@ -160,24 +163,112 @@ export interface SearchHighlightDto {
   end: number;
 }
 
+export const searchAuthorSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(200).nullable().default(null),
+    userId: z.string().uuid(),
+  })
+  .strict();
+
+export const searchPermissionBadgesSchema = z
+  .object({
+    confidentiality: documentConfidentialityLevelSchema.default('standard'),
+    legalHold: searchLegalHoldSchema.default('no_hold'),
+    privilege: documentPrivilegeStatusSchema.default('none'),
+  })
+  .strict();
+
+export const searchHighlightSchema = z
+  .object({
+    anchorId: z.string().trim().min(1).max(80).optional(),
+    start: z.number().int().min(0),
+    end: z.number().int().min(0),
+  })
+  .strict()
+  .refine((value) => value.end >= value.start, {
+    message: 'highlight end must be greater than or equal to start',
+    path: ['end'],
+  });
+
+export const searchResultSchema = z
+  .object({
+    aiAllowed: z.boolean().default(false),
+    author: searchAuthorSchema.nullable().default(null),
+    authorityId: z.string().uuid().optional(),
+    canViewSensitiveRef: z.boolean().optional(),
+    clauseId: z.string().uuid().optional(),
+    clauseKind: z.string().trim().min(1).max(80).nullable().optional(),
+    clauseNumber: z.string().trim().min(1).max(80).nullable().optional(),
+    citation: z.string().trim().min(1).max(500).optional(),
+    clientDisplayName: z.string().nullable().optional(),
+    clientId: z.string().uuid().optional(),
+    contentTruncated: z.boolean().default(false),
+    displayCode: z.string().nullable().optional(),
+    displayEmail: z.string().nullable().optional(),
+    displayName: z.string().nullable().optional(),
+    documentId: z.string().uuid().optional(),
+    documentType: z.string().trim().min(1).max(80),
+    externalRef: z.string().trim().min(1).max(200).optional(),
+    extractionStatus: z.enum(documentExtractionStatuses).nullable().optional(),
+    highlights: z.array(searchHighlightSchema).default([]),
+    matterDisplayCode: z.string().nullable().optional(),
+    matterDisplayName: z.string().nullable().optional(),
+    matterId: z.string().uuid().optional(),
+    nextVersionId: z.string().uuid().nullable().default(null),
+    permissionBadges: searchPermissionBadgesSchema.default({}),
+    prevVersionId: z.string().uuid().nullable().default(null),
+    resultKind: z.enum(['document', 'clause', 'authority']).default('document').optional(),
+    safeLabel: z.string().nullable().optional(),
+    score: z.number().default(0),
+    snippet: z.string().max(2000).default(''),
+    sourceType: z.string().trim().min(1).max(80).optional(),
+    sourceUrl: z.string().trim().min(1).max(1000).optional(),
+    title: z.string(),
+    updatedAt: searchIsoDateTimeSchema,
+    versionId: z.string().uuid().optional(),
+    versionStatus: z.string().trim().min(1).max(40),
+  })
+  .strict();
+
 export interface SearchAuthorDto {
   displayName: string | null;
   userId: string;
 }
 
+export interface SearchPermissionBadgesDto {
+  confidentiality: DocumentConfidentialityLevel;
+  legalHold: SearchLegalHold;
+  privilege: DocumentPrivilegeStatus;
+}
+
 export interface SearchResultDto extends DisplayFieldsDto {
-  documentId: string;
-  versionId: string;
-  matterId: string;
+  aiAllowed: boolean;
+  author: SearchAuthorDto | null;
+  authorityId?: string;
+  clauseId?: string;
+  clauseKind?: string | null;
+  clauseNumber?: string | null;
+  citation?: string;
+  contentTruncated: boolean;
+  documentId?: string;
+  versionId?: string;
+  matterId?: string;
   matterDisplayName?: string | null;
   matterDisplayCode?: string | null;
-  clientId: string;
+  clientId?: string;
   clientDisplayName?: string | null;
+  externalRef?: string;
   title: string;
   snippet: string;
   highlights: SearchHighlightDto[];
   documentType: string;
   extractionStatus?: DocumentExtractionStatus | null;
+  nextVersionId: string | null;
+  permissionBadges: SearchPermissionBadgesDto;
+  prevVersionId: string | null;
+  resultKind?: 'document' | 'clause' | 'authority';
+  sourceType?: string;
+  sourceUrl?: string;
   versionStatus: string;
   score: number;
   updatedAt: string;
@@ -200,6 +291,9 @@ export interface SearchFacetsDto {
   matters: SearchFacetBucketDto[];
   documentTypes: SearchFacetBucketDto[];
   extractionStatuses: SearchFacetBucketDto[];
+  emailRecipientDomains: SearchFacetBucketDto[];
+  emailSenderDomains: SearchFacetBucketDto[];
+  ocrConfidence: SearchFacetBucketDto[];
   legalHolds: SearchFacetBucketDto[];
   privilegeStatuses: SearchFacetBucketDto[];
   recordsStatuses: SearchFacetBucketDto[];
@@ -234,6 +328,7 @@ export type SearchConfidentialityLevel = DocumentConfidentialityLevel;
 export type SearchVersionStatus = (typeof searchVersionStatusValues)[number];
 export type SearchLegalHold = (typeof searchLegalHoldValues)[number];
 export type SearchRecordsStatus = (typeof searchRecordsStatusValues)[number];
+export type SearchOcrConfidence = (typeof searchOcrConfidenceValues)[number];
 export type SearchPrivilegeStatus = DocumentPrivilegeStatus;
 export type SearchMode = (typeof searchModes)[number];
 export type SearchTarget = (typeof searchTargets)[number];
@@ -244,7 +339,10 @@ export type SearchFolderScope = (typeof savedSearchScopes)[number];
 export type SearchFiltersDto = z.infer<typeof searchFiltersSchema>;
 export type SearchPrivacySettingsDto = z.infer<typeof searchPrivacySettingsSchema>;
 type ParsedSearchQueryDto = z.infer<typeof searchQuerySchema>;
-export type SearchQueryDto = Omit<ParsedSearchQueryDto, 'mode' | 'target' | 'sortBy' | 'groupBy'> & {
+export type SearchQueryDto = Omit<
+  ParsedSearchQueryDto,
+  'mode' | 'target' | 'sortBy' | 'groupBy'
+> & {
   groupBy?: SearchGroupBy;
   mode?: SearchMode;
   sortBy?: SearchSort;

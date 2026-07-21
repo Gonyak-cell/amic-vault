@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createOwnerClient, withClient } from './helpers/db';
+import { createOwnerClient, setTenant, tenantAlphaId, tenantBetaId, withClient } from './helpers/db';
 
 describe('seed loader', () => {
   it('loads deterministic demo tenants and users idempotently', async () => {
@@ -29,10 +29,24 @@ describe('seed loader', () => {
       const plaintextPasswords = await client.query<{ count: string }>(
         "SELECT count(*)::text AS count FROM users WHERE password_hash LIKE 'dev-%password%'",
       );
-
       expect(tenants.rows[0]?.count).toBe('2');
       expect(users.rows[0]?.count).toBe('11');
       expect(plaintextPasswords.rows[0]?.count).toBe('0');
+
+      for (const tenantId of [tenantAlphaId, tenantBetaId]) {
+        await setTenant(client, tenantId);
+        const matterIntakeTemplates = await client.query<{ count: string }>(
+          `
+            SELECT count(*)::text AS count
+            FROM matter_intake_templates
+            WHERE tenant_id = $1
+              AND template_code IN ('default_open', 'restricted')
+              AND status = 'active'
+          `,
+          [tenantId],
+        );
+        expect(matterIntakeTemplates.rows[0]?.count).toBe('2');
+      }
     });
   });
 });

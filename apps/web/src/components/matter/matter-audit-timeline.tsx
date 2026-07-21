@@ -37,14 +37,14 @@ const actionLabels: Record<string, string> = {
   DOCUMENT_UPLOADED: '문서 업로드',
   DOCUMENT_VERSION_ADDED: '문서 버전 추가',
   DOCUMENT_VIEWED: '문서 열람',
-  LEGAL_HOLD_APPLIED: 'Legal Hold 적용',
-  LEGAL_HOLD_RELEASED: 'Legal Hold 해제',
-  MATTER_CREATED: '사건 생성',
+  LEGAL_HOLD_APPLIED: '보존 조치 적용',
+  LEGAL_HOLD_RELEASED: '보존 조치 해제',
+  MATTER_CREATED: 'Matter 생성',
   MATTER_MEMBER_ADDED: '팀원 추가',
   MATTER_MEMBER_REMOVED: '팀원 제거',
   MATTER_MEMBER_ROLE_CHANGED: '팀 권한 변경',
   MATTER_STATUS_CHANGED: '상태 변경',
-  MATTER_UPDATED: '사건 정보 변경',
+  MATTER_UPDATED: 'Matter 정보 변경',
   PERMISSION_CHANGED: '권한 변경',
   RECORD_ARCHIVED: '보관 처리',
   SEARCH_EXECUTED: '검색 실행',
@@ -53,7 +53,7 @@ const actionLabels: Record<string, string> = {
 function categoryLabel(action: string): string {
   if (action.startsWith('DOCUMENT_')) {
     if (action === 'DOCUMENT_VIEWED' || action === 'DOCUMENT_DOWNLOADED') return '열람/다운로드';
-    if (action === 'DOCUMENT_METADATA_CHANGED') return '메타데이터';
+    if (action === 'DOCUMENT_METADATA_CHANGED') return '문서 정보';
     return '문서/버전';
   }
   if (action.startsWith('SEARCH_')) return '검색';
@@ -63,7 +63,7 @@ function categoryLabel(action: string): string {
     action === 'LEGAL_HOLD_RELEASED' ||
     action === 'RECORD_ARCHIVED'
   ) {
-    return 'Records';
+    return '기록 보존';
   }
   if (action.startsWith('MATTER_')) return 'Matter';
   return '정책 관리';
@@ -140,8 +140,8 @@ export function MatterAuditTimeline({
   return (
     <SectionCard
       icon={<Activity className="h-4 w-4" />}
-      title="사건 감사 타임라인"
-      meta="Matter 통합 활동"
+      title="Matter 감사 로그"
+      meta="Matter 활동 내역"
     >
       {error ? (
         <EmptyState
@@ -151,7 +151,7 @@ export function MatterAuditTimeline({
           variant="api-error"
         />
       ) : (
-        <DataTable caption="사건 감사 타임라인" minWidthClassName="min-w-[760px]">
+        <DataTable caption="Matter 감사 로그" minWidthClassName="min-w-[760px]">
           <DataTableHeader>
             <DataTableRow>
               <DataTableHead>시간</DataTableHead>

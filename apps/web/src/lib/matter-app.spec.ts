@@ -19,13 +19,18 @@ const matter = {
   matterId: '11111111-1111-4111-8111-111111111122',
   tenantId: '11111111-1111-4111-8111-111111111111',
   clientId: '11111111-1111-4111-8111-111111111133',
+  confidentialityLevel: 'standard',
+  conflictsStatus: 'cleared',
   matterCode: 'AMIC-2026-0001',
   matterName: 'Investment Advisory',
   matterType: 'advisory',
   status: 'active',
   openedAt: null,
   closedAt: null,
+  ethicalWallActive: false,
+  leadAssociateId: null,
   leadLawyerId: null,
+  leadPartnerId: null,
   practiceGroup: 'Finance',
   metadata: { clientDisplayName: 'AMIC Client' },
   legalHold: false,
@@ -153,9 +158,9 @@ describe('matter app source contract helpers', () => {
   });
 
   it('keeps user-facing source labels clear of implementation wording', () => {
-    expect(matterAppSourceLabels.matter_app_api).toBe('Matter app 확인됨');
+    expect(matterAppSourceLabels.matter_app_api).toBe('Matter 관리 시스템 확인됨');
     expect(matterAppSourceLabels.vault_projection_only).toBe('로컬 Matter 목록');
-    expect(matterAppSourceDescriptions.vault_projection_only).toContain('운영 업로드 source로 사용하지 않습니다.');
+    expect(matterAppSourceDescriptions.vault_projection_only).toContain('실제 업로드에는 사용하지 않습니다.');
     expect(matterAppSourceLabels.vault_projection_only).not.toContain('projection');
   });
 

@@ -32,7 +32,8 @@ describe('email audit coverage', () => {
             ($1, 'system', 'EMAIL_IMPORTED', 'email', $2, 'success', $3::jsonb),
             ($1, 'system', 'EMAIL_DUPLICATE_BLOCKED', 'email', $2, 'denied', $4::jsonb),
             ($1, 'system', 'EMAIL_METADATA_UPDATED', 'email', $2, 'success', $5::jsonb),
-            ($1, 'system', 'EMAIL_FILED', 'email', $2, 'success', $6::jsonb)
+            ($1, 'system', 'EMAIL_FILED', 'email', $2, 'success', $6::jsonb),
+            ($1, 'system', 'EMAIL_RAW_DOWNLOADED', 'email', $2, 'success', $7::jsonb)
         `,
         [
           tenantAlphaId,
@@ -64,6 +65,14 @@ describe('email audit coverage', () => {
             filter_refs: `document_id:${documentId}`,
             result_count: 1,
           }),
+          JSON.stringify({
+            scope_type: 'email_raw',
+            scope_id: emailId,
+            matter_id: matterId,
+            file_object_id: fileObjectId,
+            hash: rawSha256,
+            reason_code: 'casework',
+          }),
         ],
       );
 
@@ -82,7 +91,8 @@ describe('email audit coverage', () => {
               'EMAIL_IMPORTED',
               'EMAIL_DUPLICATE_BLOCKED',
               'EMAIL_METADATA_UPDATED',
-              'EMAIL_FILED'
+              'EMAIL_FILED',
+              'EMAIL_RAW_DOWNLOADED'
             )
             AND target_id = $5
           GROUP BY action
@@ -96,6 +106,7 @@ describe('email audit coverage', () => {
         { action: 'EMAIL_FILED', count: '1', unsafe: '0' },
         { action: 'EMAIL_IMPORTED', count: '1', unsafe: '0' },
         { action: 'EMAIL_METADATA_UPDATED', count: '1', unsafe: '0' },
+        { action: 'EMAIL_RAW_DOWNLOADED', count: '1', unsafe: '0' },
       ]);
     });
   });

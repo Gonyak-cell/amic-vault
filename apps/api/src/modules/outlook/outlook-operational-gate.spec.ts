@@ -21,6 +21,17 @@ const validRefs = {
   OUTLOOK_DISABLE_REMOVE_REHEARSAL_REF: 'REHEARSAL-OUTLOOK-REMOVE-20260616-ABCDEFGH',
 };
 
+const allFeatureFlags = {
+  OUTLOOK_ADDIN_ENABLED: 'true',
+  OUTLOOK_AUTH_EXCHANGE_ENABLED: 'true',
+  OUTLOOK_GRAPH_ATTACHMENT_ACQUISITION_ENABLED: 'true',
+  OUTLOOK_SMART_ALERTS_ENABLED: 'true',
+  OUTLOOK_SEND_FILE_ENABLED: 'true',
+  OUTLOOK_DOCUMENT_INSERTION_ENABLED: 'true',
+  OUTLOOK_FOLDER_MAPPING_ENABLED: 'true',
+  OUTLOOK_AUTOFILE_ENABLED: 'true',
+};
+
 describe('OutlookOperationalGateService', () => {
   it('fails closed when the feature flag is missing', () => {
     expect(gate({}).evaluate('ADDIN_BOOTSTRAP')).toEqual(
@@ -105,6 +116,43 @@ describe('OutlookOperationalGateService', () => {
     );
   });
 
+  it('allows Graph acquisition in the R1 pilot ring when all Outlook evidence refs are recorded', () => {
+    expect(
+      gate({
+        OUTLOOK_OPERATIONAL_ENFORCE: 'true',
+        OUTLOOK_ADDIN_ENABLED: 'true',
+        OUTLOOK_GRAPH_ATTACHMENT_ACQUISITION_ENABLED: 'true',
+        OUTLOOK_ROLLOUT_RING: 'R1_PILOT_PRACTICE',
+        OUTLOOK_AUDIT_AVAILABLE: 'true',
+        ...validRefs,
+      }).evaluate('GRAPH_ATTACHMENT_ACQUISITION'),
+    ).toEqual(
+      expect.objectContaining({
+        allow: true,
+        feature: 'GRAPH_ATTACHMENT_ACQUISITION',
+        ring: 'R1_PILOT_PRACTICE',
+      }),
+    );
+  });
+
+  it('keeps Graph acquisition blocked in the R0 admin ring even with recorded evidence refs', () => {
+    expect(
+      gate({
+        OUTLOOK_OPERATIONAL_ENFORCE: 'true',
+        OUTLOOK_ADDIN_ENABLED: 'true',
+        OUTLOOK_GRAPH_ATTACHMENT_ACQUISITION_ENABLED: 'true',
+        OUTLOOK_ROLLOUT_RING: 'R0_ADMIN_ONLY',
+        OUTLOOK_AUDIT_AVAILABLE: 'true',
+        ...validRefs,
+      }).evaluate('GRAPH_ATTACHMENT_ACQUISITION'),
+    ).toEqual(
+      expect.objectContaining({
+        allow: false,
+        reasonCode: 'RING_NOT_ALLOWED',
+      }),
+    );
+  });
+
   it('denies mutating Outlook features when audit is explicitly unavailable', () => {
     expect(
       gate({
@@ -151,6 +199,35 @@ describe('OutlookOperationalGateService', () => {
         ...validRefs,
       }).evaluate('SEND_FILE'),
     ).toEqual(expect.objectContaining({ allow: true }));
+  });
+
+  it('allows every Outlook feature in the R3 production ring with full rollout evidence', () => {
+    const service = gate({
+      OUTLOOK_OPERATIONAL_ENFORCE: 'true',
+      OUTLOOK_ROLLOUT_RING: 'R3_PRODUCTION',
+      OUTLOOK_AUDIT_AVAILABLE: 'true',
+      ...allFeatureFlags,
+      ...validRefs,
+    });
+
+    for (const feature of [
+      'ADDIN_BOOTSTRAP',
+      'AUTH_EXCHANGE',
+      'GRAPH_ATTACHMENT_ACQUISITION',
+      'SMART_ALERTS',
+      'SEND_FILE',
+      'DOCUMENT_INSERTION',
+      'FOLDER_MAPPING',
+      'AUTOFILE',
+    ] as const) {
+      expect(service.evaluate(feature)).toEqual(
+        expect.objectContaining({
+          allow: true,
+          feature,
+          ring: 'R3_PRODUCTION',
+        }),
+      );
+    }
   });
 
   it('accepts only opaque reference-only evidence values', () => {

@@ -1,12 +1,26 @@
 # AMIC Vault Current Code State
 
-Date: 2026-06-22
-Checkout: `codex/dms-editing-lifecycle-candidate` based on `origin/main@b6d1bba`
+Date: 2026-07-06
+Checkout: `codex/release-freeze-20260705-current` at `0b39414`
 
 This file is the current-state overlay for the live repository checkout. It is
 not a replacement for the normative execution package under `docs/package/**`.
 The package remains read-only and governs constitutional constraints, but it is
 not a live inventory of implemented code after later release work.
+
+Current documentation truth map:
+`docs/maintenance/current-document-truth-map-2026-07-06.md`.
+
+## Current Truth As Of 2026-07-06
+
+- Production customer document import is PASS through final wave-225.
+- Production source-of-truth cutover execute is PASS under a separate approval.
+- Current post-cutover gate package:
+  `docs/release/production-post-cutover-next-gates.md`.
+- The following remain unclaimed: OneDrive connected-state, Office
+  open/save/sync, Gemma indexing execution, and customer-wide go-live.
+- DMS uplift strict-completion ledger state is 19 `COMPLETE_CANDIDATE`, 80
+  `LOCAL_IMPLEMENTED_NEEDS_EVIDENCE`, and 11 `EXTERNAL_BLOCKED`.
 
 ## Implementation Surface
 
@@ -51,9 +65,11 @@ not a live inventory of implemented code after later release work.
   `docs/release/launch-closeout-execution-a2d3bb9.md`.
 - That closeout is `TECHNICAL-READY / EXTERNAL-EVIDENCE-REQUIRED-BEFORE-PROMOTION`.
   It is not a live production approval for latest main.
-- The current checkout also contains the DMS editing lifecycle candidate:
-  edit sessions, internal subversions, reviewer gates, official version
-  promotion, Outlook edit links, and the `/documents/[id]?edit=1` surface.
+- The current checkout contains the DMS editing lifecycle implementation and
+  a DMS smoke edit-loop gate covering checkout, edit package, subversion save,
+  reviewer approval, check-in, promotion, `promoted_from_subversion_id`, and
+  audit-chain evidence. External staging PASS receipts are still required
+  before production promotion.
 - Older production and staging documents may contain valid historical evidence
   for earlier SHAs. Treat them as evidence records unless their header says they
   are the current source for a lane.

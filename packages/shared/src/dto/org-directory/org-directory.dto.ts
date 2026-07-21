@@ -4,6 +4,7 @@ import type { UserRole } from '../../permission/roles';
 
 export const orgDirectoryPurposes = [
   'matter-team',
+  'matter-intake',
   'ethical-wall',
   'records',
   'user-admin',

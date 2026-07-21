@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nest
 import type { PoolClient } from 'pg';
 import type { PgBoss, SendOptions } from 'pg-boss';
 import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
+import { queueWorkerEnabled } from '../../../common/process-role';
 import { pgBossDbFromPoolClient } from '../../document/extraction/pool-client-db-adapter';
 import { IndexingProcessor } from './indexing.processor';
 
@@ -18,10 +19,8 @@ export interface SearchIndexJobPayload {
   versionId: string;
 }
 
-function workerEnabled(): boolean {
-  return ['1', 'true', 'yes'].includes(
-    (process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED ?? '').trim().toLowerCase(),
-  );
+export function isSearchIndexQueueWorkerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return queueWorkerEnabled('SEARCH_INDEX_QUEUE_WORKER_ENABLED', env);
 }
 
 export function searchIndexQueueSendOptions(
@@ -48,7 +47,7 @@ export class SearchIndexingService implements OnModuleInit, OnModuleDestroy {
   constructor(@Inject(IndexingProcessor) private readonly processor: IndexingProcessor) {}
 
   async onModuleInit(): Promise<void> {
-    if (!workerEnabled()) return;
+    if (!isSearchIndexQueueWorkerEnabled()) return;
     await this.registerWorkers();
   }
 

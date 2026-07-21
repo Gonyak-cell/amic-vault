@@ -14,7 +14,7 @@ describe('AiPrepStatusPanel', () => {
     expect(html).toContain('권한 확인된 파일 정보로 정리됨');
     expect(html).not.toContain('chunk:11111111-1111-4111-8111-111111111118');
     expect(html).toContain('파일 개요 유용함 표시');
-    expect(html).toContain('참조 부족 표시');
+    expect(html).toContain('근거 부족 표시');
     expect(html).not.toMatch(
       /legal analysis|summary|external model|prompt|raw source|model response|hidden unauthorized/i,
     );

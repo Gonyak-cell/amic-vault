@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
-export const DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES = 200 * 1024 * 1024;
+export const DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES = 500 * 1024 * 1024;
 export const DEFAULT_DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024;
 
 export interface FileSizeValidationOptions {
@@ -23,7 +23,8 @@ export function documentUploadMaxBytes(value = process.env.DOCUMENT_UPLOAD_MAX_B
 export function documentMigrationUploadMaxBytes(
   value = process.env.DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES,
 ): number {
-  if (value === undefined || value.trim() === '') return DEFAULT_DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES;
+  if (value === undefined || value.trim() === '')
+    return DEFAULT_DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES;
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     throw new Error('DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES must be a positive integer');

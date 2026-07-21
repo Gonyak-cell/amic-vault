@@ -256,7 +256,7 @@ export class MatterSourcePolicyService {
     tenantId: TenantId;
     now?: Date;
   }): Promise<MatterSourceMutationDecision> {
-    const source = this.matterAppRuntime.status(input.now ?? new Date());
+    const source = await this.matterAppRuntime.status(input.now ?? new Date());
     if (!source.uploadAuthoritative || !source.sourceContractReady || source.sourceStale) {
       throw validationFailed(source.unavailableReason ?? 'MATTER_SOURCE_UNAVAILABLE');
     }

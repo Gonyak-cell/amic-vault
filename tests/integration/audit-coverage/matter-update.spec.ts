@@ -134,6 +134,26 @@ describe('matter update audit coverage', () => {
     });
     expect(update.status, await update.text()).toBe(200);
 
+    const conflictCheckResponse = await fetch(`${baseUrl}/v1/matters/${matterId}/conflict-checks`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+    });
+    const conflictCheckBody = await conflictCheckResponse.text();
+    expect(conflictCheckResponse.status, conflictCheckBody).toBe(201);
+    const conflictCheckId = (JSON.parse(conflictCheckBody) as { conflictCheckId: string })
+      .conflictCheckId;
+    expect(conflictCheckId).toMatch(/^[0-9a-f-]{36}$/i);
+
+    const conflictResolution = await fetch(
+      `${baseUrl}/v1/matters/${matterId}/conflict-checks/${conflictCheckId}`,
+      {
+        method: 'PATCH',
+        headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'cleared', rationale: 'Audit coverage fixture cleared.' }),
+      },
+    );
+    expect(conflictResolution.status, await conflictResolution.text()).toBe(200);
+
     const status = await fetch(`${baseUrl}/v1/matters/${matterId}/status`, {
       method: 'PATCH',
       headers: { cookie, 'content-type': 'application/json' },

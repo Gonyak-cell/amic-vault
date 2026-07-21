@@ -425,6 +425,8 @@ function questionForArtifactKind(kind: AiPrepArtifactKind, title: string): strin
       return `Extract basic file fields from ${label}: dates, amounts, identifiers, parties, senders, recipients, and reference numbers.`;
     case 'date_facts':
       return `List dated facts found in ${label} without interpreting legal significance.`;
+    case 'matter_timeline':
+      return `Create neutral matter timeline entries from dated facts in ${label}. Do not interpret legal significance.`;
     case 'people_organizations':
       return `List people and organizations mentioned in ${label} with their document-stated roles only.`;
     case 'keyword_tags':
@@ -435,6 +437,16 @@ function questionForArtifactKind(kind: AiPrepArtifactKind, title: string): strin
       return `Create a section and heading outline for ${label}.`;
     case 'retrieval_hints':
       return `Create neutral search hints for retrieving ${label} later.`;
+    case 'fact_candidates':
+      return `Extract candidate facts from ${label} using only cited chunks. Do not mark them as confirmed.`;
+    case 'issue_candidates':
+      return `Extract candidate unresolved issues from ${label} using only cited chunks. Do not give legal advice or mark them as confirmed.`;
+    case 'risk_candidates':
+      return `Extract candidate risks from ${label} using only cited chunks. Do not give legal advice or mark them as confirmed.`;
+    case 'graph_candidate_edges':
+      return `Extract candidate graph relationships among cited facts, issues, risks, documents, and parties from ${label}. Do not mark them as confirmed.`;
+    case 'minutes_qc':
+      return `Compare meeting minutes dates and decisions in ${label} against confirmed matter timeline facts using only cited chunks. Do not modify source data.`;
   }
 }
 

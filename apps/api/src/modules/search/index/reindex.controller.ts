@@ -12,7 +12,11 @@ import {
 import { RequireRoles } from '../../../common/decorators/require-roles.decorator';
 import { RequireRolesGuard } from '../../../common/guards/require-roles.guard';
 import type { RequestWithSession } from '../../auth/session.guard';
-import { ReindexService, type ReindexRequestInput } from './reindex.service';
+import {
+  ReindexService,
+  type EmbeddingBackfillRequestInput,
+  type ReindexRequestInput,
+} from './reindex.service';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -46,6 +50,14 @@ function parseReindexRequest(body: unknown): ReindexRequestInput {
   throw validationFailed();
 }
 
+function parseEmbeddingBackfillRequest(body: unknown): EmbeddingBackfillRequestInput {
+  const parsed = parseReindexRequest(body);
+  const batchSize = (body as Record<string, unknown>).batchSize;
+  if (batchSize === undefined || batchSize === null) return parsed;
+  if (typeof batchSize !== 'number' || !Number.isInteger(batchSize)) throw validationFailed();
+  return { ...parsed, batchSize };
+}
+
 @Controller('admin/search')
 export class ReindexController {
   constructor(@Inject(ReindexService) private readonly reindexService: ReindexService) {}
@@ -55,6 +67,23 @@ export class ReindexController {
   @UseGuards(RequireRolesGuard)
   requestReindex(@Req() request: RequestWithSession, @Body() body: unknown) {
     return this.reindexService.requestReindex(sessionUserId(request), parseReindexRequest(body));
+  }
+
+  @Post('embeddings/backfill')
+  @RequireRoles('firm_admin', 'security_admin')
+  @UseGuards(RequireRolesGuard)
+  requestEmbeddingBackfill(@Req() request: RequestWithSession, @Body() body: unknown) {
+    return this.reindexService.requestEmbeddingBackfill(
+      sessionUserId(request),
+      parseEmbeddingBackfillRequest(body),
+    );
+  }
+
+  @Get('embeddings/backfill/progress')
+  @RequireRoles('firm_admin', 'security_admin')
+  @UseGuards(RequireRolesGuard)
+  getEmbeddingBackfillProgress() {
+    return this.reindexService.getEmbeddingBackfillProgress();
   }
 
   @Get('health')

@@ -1,8 +1,12 @@
 import { ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import {
   canIssueSessionForRole,
+  type LoginCompleteResponseDto,
+  type LoginMfaRequiredResponseDto,
   type LoginRequestDto,
-  type LoginResponseDto,
+  type MfaActivateRequestDto,
+  type MfaEnrollResponseDto,
+  type MfaVerifyRequestDto,
   type CurrentUserResponseDto,
   type PasswordResetAcceptedDto,
 } from '@amic-vault/shared';
@@ -13,6 +17,7 @@ import { normalizeEmail, verifyPasswordHash, verifyPasswordOrDummy } from '../us
 import type { UserEntity } from '../user/user.entity';
 import { UserService } from '../user/user.service';
 import { MfaPolicy } from './mfa.policy';
+import { MfaService } from './mfa.service';
 import {
   createOpaqueToken,
   hashOpaqueToken,
@@ -21,11 +26,13 @@ import {
   SessionRepository,
 } from './session.repository';
 
-export interface LoginResult extends LoginResponseDto {
+export type LoginCompleteResult = LoginCompleteResponseDto & {
   sessionToken: string;
   session: SessionRecord;
   cookieMaxAgeMs: number;
-}
+};
+
+export type LoginResult = LoginCompleteResult | LoginMfaRequiredResponseDto;
 
 export interface AuthSecurityEvent {
   action: 'LOGIN_SUCCESS' | 'LOGIN_FAILURE' | 'SESSION_REVOKED';
@@ -51,6 +58,7 @@ export class AuthService {
     @Inject(UserService) private readonly userService: UserService,
     @Inject(SessionRepository) private readonly sessions: SessionRepository,
     @Inject(MfaPolicy) private readonly mfaPolicy: MfaPolicy,
+    @Inject(MfaService) private readonly mfaService: MfaService,
     @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
@@ -102,8 +110,12 @@ export class AuthService {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
 
-    const mfaDecision = this.mfaPolicy.evaluate(user);
-    if (!mfaDecision.allowed) {
+    const mfaDecision = this.mfaPolicy.evaluate(user, {
+      hasActiveSecret: user.mfaEnabled
+        ? await this.mfaService.hasActiveSecret(tenant.tenantId, user.userId)
+        : false,
+    });
+    if (mfaDecision.outcome === 'deny') {
       this.recordEvent(
         'LOGIN_FAILURE',
         tenant.tenantId,
@@ -124,7 +136,57 @@ export class AuthService {
       });
       throw authRequired(mfaDecision.reason);
     }
+    if (mfaDecision.outcome === 'challenge') {
+      return this.mfaService.startChallenge(tenant.tenantId, user.userId);
+    }
 
+    const issued = await this.issueSession(user, tenant, metadata, false);
+    return {
+      user: user.toSummary(),
+      mfaEnabled: user.mfaEnabled,
+      ...issued,
+    };
+  }
+
+  async verifyMfa(
+    input: MfaVerifyRequestDto,
+    metadata: { ipAddress: string | null; userAgent: string | null },
+  ): Promise<LoginResult> {
+    const verified = await this.mfaService.verifyChallenge(input);
+    const tenant = await this.tenantService.findById(verified.tenantId);
+    const user = await this.userService.findByTenantAndId(verified.tenantId, verified.userId);
+    if (!tenant || tenant.status !== 'active' || !user || user.status !== 'active') {
+      throw authRequired();
+    }
+    if (!canIssueSessionForRole(user.role)) {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    const issued = await this.issueSession(user, tenant, metadata, true);
+    return {
+      user: user.toSummary(),
+      mfaEnabled: user.mfaEnabled,
+      ...issued,
+    };
+  }
+
+  enrollMfa(session: SessionRecord, accountName: string): Promise<MfaEnrollResponseDto> {
+    return this.mfaService.enroll(session, accountName);
+  }
+
+  activateMfa(
+    session: SessionRecord,
+    input: MfaActivateRequestDto,
+  ): Promise<PasswordResetAcceptedDto> {
+    return this.mfaService.activate(session, input);
+  }
+
+  private async issueSession(
+    user: UserEntity,
+    tenant: TenantEntity,
+    metadata: { ipAddress: string | null; userAgent: string | null },
+    mfaVerified: boolean,
+    options: { method?: string } = {},
+  ): Promise<{ sessionToken: string; session: SessionRecord; cookieMaxAgeMs: number }> {
     const sessionToken = createOpaqueToken();
     const tokenHash = hashOpaqueToken(sessionToken);
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
@@ -137,6 +199,7 @@ export class AuthService {
           ipAddress: metadata.ipAddress,
           userAgent: metadata.userAgent,
           expiresAt,
+          mfaVerified,
         },
         client,
       );
@@ -153,6 +216,7 @@ export class AuthService {
             reason_code: 'ok',
             ip_address: metadata.ipAddress,
             session_id: createdSession.sessionId,
+            ...(options.method ? { method: options.method } : {}),
           },
         },
         client,
@@ -160,10 +224,7 @@ export class AuthService {
       return createdSession;
     });
     this.recordEvent('LOGIN_SUCCESS', tenant.tenantId, user.userId, 'ok');
-
     return {
-      user: user.toSummary(),
-      mfaEnabled: user.mfaEnabled,
       sessionToken,
       session,
       cookieMaxAgeMs: SESSION_TTL_MS,

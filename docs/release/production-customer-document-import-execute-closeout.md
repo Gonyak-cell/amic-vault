@@ -1,6 +1,12 @@
 # Production Customer Document Import Execute Closeout
 
-Status: BOUNDED PILOT IMPORT PASS, batch expansion gate PASS, expanded wave-001 PASS, expanded wave-002 PASS, expanded wave-003 PASS, expanded wave-004 PASS, expanded wave-005 PASS, expanded wave-006 PASS, expanded wave-007 PASS, expanded wave-008 PASS, expanded wave-009 PASS, expanded wave-010 PASS, and expanded wave-011 PASS; next expanded wave requires separate approval.
+Status: PRODUCTION CUSTOMER DOCUMENT IMPORT PASS through final wave-225.
+
+Current-state note, 2026-07-06: this document is the production import closeout.
+Source-of-truth cutover execute was completed later under separate approval in
+`docs/release/production-source-cutover-execute-closeout.md`. Current
+post-cutover next gates are tracked in
+`docs/release/production-post-cutover-next-gates.md`.
 
 Approval refs:
 
@@ -18,6 +24,8 @@ Approval refs:
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-009-2026-06-30`
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-010-2026-06-30`
 - `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-EXPANDED-WAVE-011-2026-06-30`
+- `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-REMAINING-WAVES-011-225-2026-06-30`
+- `APPROVAL-ONEDRIVE-PRODUCTION-CUSTOMER-IMPORT-FINAL-CLOSEOUT-2026-06-30`
 
 Scope actually evaluated:
 
@@ -51,10 +59,14 @@ Scope actually evaluated:
 - No-write wave-010 bounded closeout and post-import reconciliation.
 - Expanded production customer document import wave-011, offset 1001, limit 100.
 - No-write wave-011 bounded closeout and post-import reconciliation.
+- Expanded production customer document import remaining waves 012-225.
+- Per-wave role remediation, replay idempotency, bounded closeout, and post-import reconciliation.
+- Final wave-225 processed only the remaining approved scope rows.
 
 Not executed or not claimed:
 
-- Source-of-truth cutover execute.
+- Source-of-truth cutover execute by this import closeout. It was completed
+  later under separate approval.
 - OneDrive connected-state claim.
 - Office open/save/sync claim.
 - Gemma indexing execution.
@@ -165,6 +177,13 @@ Sanitized local receipts:
 - `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-role-remediation-wave-011-post.sanitized.json`
 - `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-011-bounded-closeout.sanitized.json`
 - `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-011-closeout.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-remaining-waves-progress.sanitized.ndjson`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-remaining-waves-summary.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-remaining-waves-db-reconciliation.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-remaining-waves-final-closeout.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-wide-import-final-closeout.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-028-retry-reconciliation.sanitized.json`
+- `.omo/evidence/PRODUCTION-CUSTOMER-IMPORT-EXECUTE/production-customer-import-expanded-wave-052-permission-diagnosis.sanitized.json`
 
 Basis docs:
 
@@ -173,6 +192,39 @@ Basis docs:
 - `docs/release/onedrive-production-import-tuw-plan.md`
 
 ## Result
+
+Final production customer document import closeout:
+
+- status: PASS
+- approved scope rows: 22,403
+- approved processed rows: 22,403
+- approved imported document rows: 22,286
+- approved skipped rows: 117
+- approved blocked rows: 0
+- approved failed rows: 0
+- wave closeout PASS count: 225 / 225
+- replay idempotency not-pass count: 0
+- operator role restore PASS count: 225 / 225
+- remaining waves processed rows: 21,302
+- remaining waves effective imported rows: 21,188
+- remaining waves skipped rows: 114
+- remaining waves blocked rows: 0
+- remaining waves failed rows: 0
+
+Final production DB reconciliation:
+
+- documents: 22,306
+- document versions: 22,306
+- file objects: 22,306
+- audit events: 31,322
+- documents without version: 0
+- document versions missing document relation: 0
+- document versions missing file object relation: 0
+- file objects without version: 0
+- final operator role: `firm_admin`
+
+The production DB document count includes 20 pre-existing or bounded-pilot
+baseline documents outside the approved customer-wide import scope.
 
 Production manifest projection completed:
 

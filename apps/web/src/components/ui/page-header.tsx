@@ -12,7 +12,7 @@ export interface PageHeaderProps extends React.HTMLAttributes<HTMLElement> {
 
 export function PageHeader({
   actions,
-  breadcrumbs = ['Vault'],
+  breadcrumbs = ['문서 보관'],
   className,
   description,
   navigation,

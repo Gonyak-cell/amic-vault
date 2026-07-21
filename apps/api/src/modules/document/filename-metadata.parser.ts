@@ -32,7 +32,9 @@ function dateFromFilename(filename: string): string | undefined {
 }
 
 function versionFromFilename(filename: string): string | undefined {
-  const version = /(?:^|[\s_.(-])(?<version>[vV]\d{1,3})(?:$|[\s_.)-])/.exec(filename);
+  const version = /(?:^|[\s_.(-])(?<version>[vV]\d{1,3}(?:\.\d{1,3})?)(?:$|[\s_.)-])/.exec(
+    filename,
+  );
   if (version?.groups?.version) return version.groups.version.toLowerCase();
   const copyNumber = /\((?<version>\d{1,3})\)/.exec(filename);
   if (copyNumber?.groups?.version) return `copy-${copyNumber.groups.version}`;
@@ -49,5 +51,6 @@ export function parseFilenameMetadata(filename: string): DocumentMetadataSuggest
   if (date) output.date = date;
   const versionLabel = versionFromFilename(name);
   if (versionLabel) output.versionLabel = versionLabel;
+  if (name.includes('최종')) output.versionSignificance = 'final';
   return output;
 }

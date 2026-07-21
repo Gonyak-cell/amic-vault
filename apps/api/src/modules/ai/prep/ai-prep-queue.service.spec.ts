@@ -10,6 +10,7 @@ import {
   aiPrepTenantConcurrencyAllows,
   aiPrepTenantAllowed,
   defaultAiPrepArtifactKinds,
+  isAiPrepQueueWorkerEnabled,
 } from './ai-prep-queue.service';
 import type { AiPrepJobPayload } from './ai-prep.types';
 
@@ -42,6 +43,29 @@ describe('AiPrepQueueService options', () => {
     });
   });
 
+  it('uses PROCESS_ROLE as the default worker activation contract', () => {
+    delete process.env.AI_PREP_QUEUE_WORKER_ENABLED;
+
+    process.env.PROCESS_ROLE = 'worker';
+    expect(isAiPrepQueueWorkerEnabled()).toBe(true);
+
+    process.env.PROCESS_ROLE = 'api';
+    expect(isAiPrepQueueWorkerEnabled()).toBe(false);
+
+    delete process.env.PROCESS_ROLE;
+    expect(isAiPrepQueueWorkerEnabled()).toBe(false);
+  });
+
+  it('keeps the legacy ai prep worker flag as an explicit override', () => {
+    process.env.PROCESS_ROLE = 'api';
+    process.env.AI_PREP_QUEUE_WORKER_ENABLED = '1';
+    expect(isAiPrepQueueWorkerEnabled()).toBe(true);
+
+    process.env.PROCESS_ROLE = 'worker';
+    process.env.AI_PREP_QUEUE_WORKER_ENABLED = 'no';
+    expect(isAiPrepQueueWorkerEnabled()).toBe(false);
+  });
+
   it('serializes local Gemma prep workers globally', () => {
     process.env.AI_PREP_QUEUE_BATCH_SIZE = '4';
 
@@ -69,8 +93,13 @@ describe('AiPrepQueueService options', () => {
     expect(defaultAiPrepArtifactKinds()).toEqual([
       'document_profile',
       'key_fields',
+      'date_facts',
       'keyword_tags',
       'filing_suggestions',
+      'fact_candidates',
+      'issue_candidates',
+      'risk_candidates',
+      'graph_candidate_edges',
     ]);
   });
 

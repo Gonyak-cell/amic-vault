@@ -12,6 +12,16 @@ import { getMatterAppStatus } from '@/lib/api-client';
 import { matterAppSourceStatus } from '@/lib/matter-app';
 import { useI18n } from '@/lib/i18n';
 
+function formatSyncTime(value: string | null): string {
+  if (!value) return '기록 없음';
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return '기록 오류';
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(timestamp));
+}
+
 export default function MatterAppIntegrationPage() {
   const { t } = useI18n();
   const localStatus = React.useMemo(
@@ -32,18 +42,7 @@ export default function MatterAppIntegrationPage() {
     getMatterAppStatus()
       .then((apiStatus) => {
         if (!active) return;
-        setStatus({
-          ...localStatus,
-          mode: apiStatus.mode,
-          requestedMode: apiStatus.requestedMode,
-          sourceConfigured: apiStatus.sourceConfigured,
-          runtimeReady: apiStatus.runtimeReady,
-          sourceContractReady: apiStatus.sourceContractReady,
-          sourceAvailable: apiStatus.sourceAvailable,
-          uploadAuthoritative: apiStatus.uploadAuthoritative,
-          productionRuntime: apiStatus.productionRuntime,
-          projectionFallbackAllowed: apiStatus.projectionFallbackAllowed,
-        });
+        setStatus(apiStatus);
         setStatusSource('api');
       })
       .catch(() => {
@@ -54,13 +53,16 @@ export default function MatterAppIntegrationPage() {
     };
   }, [localStatus]);
   const uploadTone: StatusBadgeTone = status.uploadAuthoritative ? 'success' : 'blocked';
+  const syncTone: StatusBadgeTone = status.syncStateAvailable ? 'success' : 'blocked';
+  const driftTone: StatusBadgeTone =
+    status.driftCount === 0 && status.syncStateAvailable ? 'success' : 'warning';
 
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', t('integrations.page.title'), 'Matter app']}
-        title="Matter app 연결 상태"
-        description="Matter Code 기준 정보와 업로드 조건을 확인합니다. 연결 전에는 파일 업로드가 Matter app 확인 상태로 표시되지 않습니다."
+        breadcrumbs={['문서 보관', t('integrations.page.title'), 'Matter 관리 시스템']}
+        title="Matter 관리 시스템 연결 상태"
+        description="Matter code 기준 정보와 업로드 가능 여부를 확인합니다. 연결 전에는 파일 업로드가 가능 상태로 표시되지 않습니다."
         actions={
           <Button asChild variant="outline">
             <Link href="/files">업로드 화면 보기</Link>
@@ -70,7 +72,7 @@ export default function MatterAppIntegrationPage() {
 
       <SectionCard
         icon={<FolderSearch className="h-4 w-4" />}
-        title="Matter Code 기준 정보"
+        title="Matter code 기준 정보"
         meta="연결 기준"
       >
         <div className="grid gap-3 lg:grid-cols-4">
@@ -82,29 +84,29 @@ export default function MatterAppIntegrationPage() {
             description={status.description}
           />
           <StatusTile
+            icon={<ShieldCheck className="h-4 w-4" />}
+            title="마지막 반영"
+            value={formatSyncTime(status.lastSyncAt)}
+            tone={syncTone}
+            description={
+              status.syncStateAvailable
+                ? `${status.reflectedCount.toLocaleString('ko-KR')}건 반영 기록을 확인했습니다.`
+                : '서버의 반영 기록이 확인되기 전에는 연결 준비로 보지 않습니다.'
+            }
+          />
+          <StatusTile
+            icon={<FolderSearch className="h-4 w-4" />}
+            title="드리프트"
+            value={`${status.driftCount.toLocaleString('ko-KR')}건`}
+            tone={driftTone}
+            description="마지막 반영 이후 서버가 계산한 미해소 차이 건수입니다."
+          />
+          <StatusTile
             icon={<FileInput className="h-4 w-4" />}
             title="업로드 조건"
             value={status.uploadAuthoritative ? '업로드 가능' : '업로드 차단'}
             tone={uploadTone}
-            description="파일 업로드는 Matter 연결 상태가 확인될 때만 사용할 수 있습니다."
-          />
-          <StatusTile
-            icon={<ShieldCheck className="h-4 w-4" />}
-            title="Matter 연결 상태"
-            value={status.sourceContractReady ? '준비됨' : '준비 필요'}
-            tone={status.sourceContractReady ? 'success' : 'blocked'}
-            description={
-              statusSource === 'api'
-                ? '서버에서 Matter 연결 가능 상태를 확인했습니다.'
-                : '서버 확인 전에는 안전 기준으로 제한 표시합니다.'
-            }
-          />
-          <StatusTile
-            icon={<ShieldCheck className="h-4 w-4" />}
-            title="Vault 기준 표시"
-            value={status.productionRuntime ? '차단' : status.projectionFallbackAllowed ? '제한적 사용' : '차단'}
-            tone={status.productionRuntime || !status.projectionFallbackAllowed ? 'warning' : 'neutral'}
-            description="연결 확인 전에는 Vault에 저장된 기준 정보만 표시합니다."
+            description="파일 업로드는 Matter 정보 연결이 확인될 때만 사용할 수 있습니다."
           />
         </div>
       </SectionCard>
@@ -116,28 +118,42 @@ export default function MatterAppIntegrationPage() {
       >
         <div className="grid gap-3 lg:grid-cols-2">
           <ContractRow
-            title="Matter app 확인"
+            title="Matter 정보 확인"
             status={status.sourceContractReady ? '확인됨' : '설정 필요'}
             tone={status.sourceContractReady ? 'success' : 'blocked'}
-            description="Matter Code, 표시명, 고객, 상태, 업무그룹은 Matter 연결 또는 승인된 동기화 정보에서 확인합니다."
+            description={
+              statusSource === 'api'
+                ? 'Matter code, 표시명, 고객, 상태, 업무그룹은 서버의 승인된 동기화 헬스로 확인합니다.'
+                : '서버 확인 전에는 업로드 가능한 연결로 취급하지 않습니다.'
+            }
           />
           <ContractRow
             title="Matter 미선택 업로드"
             status="불가"
             tone="blocked"
-            description="일반 사용자는 Matter Code를 먼저 선택해야 하며, Vault 내부 식별자를 직접 입력하지 않습니다."
+            description="사용자는 Matter code를 먼저 선택해야 하며, 임의 값을 직접 입력하지 않습니다."
+          />
+          <ContractRow
+            title="문서 보관함 기준 표시"
+            status={
+              status.projectionFallbackAllowed && !status.productionRuntime
+                ? '개발 환경 확인용'
+                : '운영 환경에서 사용 안 함'
+            }
+            tone="neutral"
+            description="연결 검증 전 문서 보관함 기준 표시는 개발 환경에서만 확인용으로 사용하며, 운영 업로드 권한을 부여하지 않습니다."
           />
           <ContractRow
             title="권한 확인"
-            status="Vault 권한"
+            status="권한 확인"
             tone="success"
-            description="선택된 Matter context로 Vault PermissionService와 ethical wall을 통과한 뒤 문서 작업이 진행됩니다."
+            description="선택한 Matter 기준으로 권한과 정보 차단 정책을 확인한 뒤 문서 작업이 진행됩니다."
           />
           <ContractRow
             title="증빙 범위"
-            status="refs only"
+            status="확인용 정보만 표시"
             tone="neutral"
-            description="연결 상태 화면은 endpoint, token, cookie, 내부 식별자, document body를 노출하지 않습니다."
+            description="연결 상태 화면에는 민감한 연결 정보나 문서 본문을 표시하지 않습니다."
           />
         </div>
       </SectionCard>

@@ -160,9 +160,9 @@ describe('PasswordResetService', () => {
       new MemoryPasswordResetStore(),
     );
 
-    await expect(
-      service.requestReset({ tenantId, email: 'missing@test.local' }),
-    ).resolves.toEqual({ accepted: true });
+    await expect(service.requestReset({ tenantId, email: 'missing@test.local' })).resolves.toEqual({
+      accepted: true,
+    });
     expect(mailer.sentMessages()).toHaveLength(0);
   });
 
@@ -248,9 +248,9 @@ describe('PasswordResetService', () => {
       new MemoryPasswordResetStore(),
     );
 
-    await expect(
-      service.requestReset({ tenantId, email: 'alpha@test.local' }),
-    ).resolves.toEqual({ accepted: true });
+    await expect(service.requestReset({ tenantId, email: 'alpha@test.local' })).resolves.toEqual({
+      accepted: true,
+    });
     expect(mailer.sentMessages()).toHaveLength(0);
   });
 });

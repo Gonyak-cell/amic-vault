@@ -4,6 +4,7 @@ import { isMatterMutationBlockedState, isMatterState } from '@amic-vault/domain'
 import type {
   MatterMemberAccessLevel,
   MatterMemberRole,
+  MatterAccessScope,
   PermissionAttributeContext,
   PermissionDecision,
   PermissionContext,
@@ -46,9 +47,11 @@ export interface ActorSnapshot {
 }
 
 export interface MatterSnapshot {
+  accessScope: MatterAccessScope;
   matterId: string;
   tenantId: TenantId;
   status: string;
+  confidentialityLevel?: string | null;
   clientId?: string | null;
   practiceGroup?: string | null;
 }
@@ -99,6 +102,7 @@ function matterConditionContext(
       status: matter.status,
       practiceGroup: matter.practiceGroup ?? null,
       clientId: matter.clientId ?? null,
+      confidentialityLevel: matter.confidentialityLevel ?? null,
     },
   };
 }
@@ -291,9 +295,17 @@ export class PermissionService {
         return denyPermission('ETHICAL_WALL_BLOCKED', ['ethical_wall:excluded']);
       }
     }
-
-    const member = await this.findMatterMember(ctx.tenantId as TenantId, matterId, ctx.userId);
-    if (!member) return denyPermission('PERMISSION_DENIED', ['matter_members:missing']);
+    if (wall.insiderRequiredWallIds.length > 0 && !wall.isInsider) {
+      const overridden = await this.allExcludedWallsOverridden(
+        ctx.tenantId as TenantId,
+        matterId,
+        ctx.userId,
+        wall.insiderRequiredWallIds,
+      );
+      if (!overridden) {
+        return denyPermission('ETHICAL_WALL_BLOCKED', ['ethical_wall:insider_required']);
+      }
+    }
 
     const explicit = await this.evaluateExplicitMatterPermissions(
       ctx.tenantId as TenantId,
@@ -302,6 +314,19 @@ export class PermissionService {
       'read',
     );
     if (explicit.effect === 'DENY') return explicit;
+
+    const member = await this.findMatterMember(ctx.tenantId as TenantId, matterId, ctx.userId);
+    if (!member) return denyPermission('PERMISSION_DENIED', ['matter_members:missing']);
+
+    if (matter.accessScope === 'firm_open') {
+      return allowPermission([
+        'matter.read:role_allow',
+        'matter.access_scope:firm_open',
+        'matter_members:present',
+        ...explicit.appliedRules,
+        ...(wall.isInsider ? ['ethical_wall:insider'] : []),
+      ]);
+    }
 
     return allowPermission([
       'matter.read:role_allow',
@@ -432,13 +457,16 @@ export class PermissionService {
       matter_id: string;
       tenant_id: TenantId;
       status: string;
+      access_scope: MatterAccessScope;
+      confidentiality_level: string | null;
       client_id: string | null;
       practice_group: string | null;
     }>(
       getPool(),
       tenantId,
       `
-        SELECT matter_id, tenant_id, status, client_id, practice_group
+        SELECT matter_id, tenant_id, status, access_scope, confidentiality_level,
+          client_id, practice_group
         FROM matters
         WHERE tenant_id = $1
           AND matter_id = $2
@@ -450,6 +478,8 @@ export class PermissionService {
     return row
       ? {
           matterId: row.matter_id,
+          accessScope: row.access_scope,
+          confidentialityLevel: row.confidentiality_level,
           tenantId: row.tenant_id,
           status: row.status,
           clientId: row.client_id,

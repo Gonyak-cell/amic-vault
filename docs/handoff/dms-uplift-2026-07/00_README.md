@@ -5,7 +5,7 @@ Package owner: 서지원 (jwsuh@amic.kr)
 대상 리포지토리: `amic-vault` (pnpm/turborepo — apps/api NestJS, apps/web Next.js, apps/desktop Tauri, packages/*, workers/ingestion, db/migrations)
 분석 기준 체크아웃: `codex/matter-identity-staging-execute-gate` (origin/main 이후 미커밋 변경 포함)
 
-현재 실행 기준(2026-07-17): 이 핸드오프는 2026-07-03 발주 패키지 원본이다. 실제 strict-completion 진행 상태는 활성 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md` / `.json`(생성 시각 `2026-07-17T00:00:00.000Z`)을 기준으로 읽는다. 현재 활성 장부는 117행 중 `COMPLETE_CANDIDATE` 19, `LOCAL_IMPLEMENTED_NEEDS_EVIDENCE` 80, `EXTERNAL_BLOCKED` 11, `UNADJUDICATED` 7이다. 기존 110행 정책·원장·오버라이드는 byte-identical historical snapshot으로 보존하며, `UNADJUDICATED`는 완료 증거가 아니다.
+현재 실행 기준(2026-07-06): 이 핸드오프는 2026-07-03 발주 패키지 원본이다. 실제 strict-completion 진행 상태는 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.md` / `.json`(생성 시각 `2026-07-05T09:03:31.603Z`)을 기준으로 읽는다. 현재 장부는 110행 중 `COMPLETE_CANDIDATE` 19, `LOCAL_IMPLEMENTED_NEEDS_EVIDENCE` 80, `EXTERNAL_BLOCKED` 11이다. 이 패키지의 "117 유닛" 표현은 원 발주 범위/기준선이며, 그 자체를 현재 완료 증거로 승격하지 않는다.
 
 ## 이 패키지의 목적
 
@@ -13,7 +13,7 @@ Package owner: 서지원 (jwsuh@amic.kr)
 이 패키지만으로 개발팀이 배경 이해 → 유닛 착수 → 완료 판정 → 최종 인수까지 외부 질의 없이 진행할 수 있도록 작성되었다.
 
 **규범(normative) 문서는 두 개다:**
-1. **작업계획**: `03_workplan-TUW-snapshot.md` — 발주 시점 117개 Testable Units of Work 고정본. 라이브 계획 원본은 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md`이며, strict-completion 운영 상태는 활성 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_117_STATUS_LEDGER.md` / `.json`을 우선한다. 110행 ledger/policy/overrides는 immutable historical artifacts다.
+1. **작업계획**: `03_workplan-TUW-snapshot.md` — 발주 시점 117개 Testable Units of Work 고정본. 라이브 계획 원본은 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_H1_H3.md`이며, strict-completion 운영 상태는 `docs/execution/TUW_INTERNAL_DMS_UPLIFT_110_STATUS_LEDGER.md` / `.json`을 우선한다.
 2. **최종 인수 기준**: `04_baseline8-requirements.md`의 E2E 인수 시나리오 8종 + `06_execution-guide.md`의 Definition of Done.
 
 나머지 문서(01, 02, 05, 07, reference/)는 배경·근거·이식 명세다.

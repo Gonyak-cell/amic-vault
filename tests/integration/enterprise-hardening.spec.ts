@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type {
   EnterpriseBackupSnapshotDto,
+  EnterpriseBackupSnapshotListResponseDto,
   EnterpriseApprovedDmsMatterTemplateCatalogDto,
   EnterpriseApprovedDmsSearchRefinerCatalogDto,
   EnterpriseApprovedDmsTaxonomyCatalogDto,
@@ -103,6 +104,40 @@ describe('Enterprise Hardening integration', () => {
     );
     expect(snapshot.tableCount).toBeGreaterThan(5);
 
+    const drillManifestHash = hashText(`drill-manifest-${marker}`);
+    const schemaHash = hashText(`schema-${marker}`);
+    const rowCountsDriftHash = hashText(`row-counts-drift-${marker}`);
+    const drillSnapshot = await postJson<EnterpriseBackupSnapshotDto>(
+      '/v1/enterprise/backups/snapshots',
+      {
+        scope: 'tenant',
+        reasonCode: 'MONTHLY_DRILL',
+        status: 'verified',
+        drillId: `restore-drill-${marker}`,
+        drillEvidenceRef: `aws-drill-${marker}`,
+        drillManifestHash,
+        schemaHash,
+        restoredSchemaHash: schemaHash,
+        rowCountsDriftHash,
+      },
+    );
+    expect(drillSnapshot.status).toBe('verified');
+    expect(drillSnapshot.drillId).toBe(`restore-drill-${marker}`);
+    expect(drillSnapshot.drillEvidenceRef).toBe(`aws-drill-${marker}`);
+    expect(drillSnapshot.drillManifestHash).toBe(drillManifestHash);
+    expect(drillSnapshot.schemaHash).toBe(schemaHash);
+    expect(drillSnapshot.restoredSchemaHash).toBe(schemaHash);
+    expect(drillSnapshot.rowCountsDriftHash).toBe(rowCountsDriftHash);
+
+    const backupSnapshots = await getJson<EnterpriseBackupSnapshotListResponseDto>(
+      '/v1/enterprise/backups/snapshots',
+    );
+    const listedDrillSnapshot = backupSnapshots.snapshots.find(
+      (item) => item.backupSnapshotId === drillSnapshot.backupSnapshotId,
+    );
+    expect(listedDrillSnapshot?.status).toBe('verified');
+    expect(listedDrillSnapshot?.drillId).toBe(`restore-drill-${marker}`);
+
     const evidence = await postJson<EnterpriseComplianceEvidenceDto>(
       '/v1/enterprise/compliance/evidence',
       {
@@ -124,6 +159,9 @@ describe('Enterprise Hardening integration', () => {
     expect(auditText).toContain(key.keyReferenceId);
     expect(auditText).toContain(siemExport.siemExportId);
     expect(auditText).toContain(snapshot.backupSnapshotId);
+    expect(auditText).toContain(drillSnapshot.backupSnapshotId);
+    expect(auditText).toContain(`restore-drill-${marker}`);
+    expect(auditText).toContain(drillManifestHash);
     expect(auditText).toContain(evidence.complianceEvidenceId);
     expect(auditText).not.toContain('https://idp.example');
     expect(auditText).not.toContain('<xml>');

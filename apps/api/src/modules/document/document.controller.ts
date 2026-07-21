@@ -21,6 +21,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addDocumentVersionFieldsSchema,
   documentDownloadReasonQuerySchema,
+  documentStatusSchema,
   listDocumentVersionsQuerySchema,
   listDocumentsQuerySchema,
   updateDocumentMetadataSchema,
@@ -61,6 +62,20 @@ function parseMetadataBody(body: unknown) {
   } catch {
     throw validationFailed();
   }
+}
+
+function parseStatusBody(body: unknown) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw validationFailed();
+  const input = body as Record<string, unknown>;
+  const status = documentStatusSchema.safeParse(input.status);
+  if (!status.success) throw validationFailed();
+  if (input.note !== undefined && typeof input.note !== 'string') throw validationFailed();
+  const note = input.note?.trim();
+  if (note !== undefined && (note.length === 0 || note.length > 400)) throw validationFailed();
+  for (const key of Object.keys(input)) {
+    if (key !== 'status' && key !== 'note') throw validationFailed();
+  }
+  return note ? { status: status.data, note } : { status: status.data };
 }
 
 function parseAddVersionBody(body: unknown) {
@@ -184,6 +199,21 @@ export class DocumentMetadataController {
       sessionUserId(request),
       parseUuid(documentId),
       parseMetadataBody(body),
+    );
+  }
+
+  @Patch(':documentId/status')
+  transitionStatus(
+    @Req() request: RequestWithSession,
+    @Param('documentId') documentId: string,
+    @Body() body: unknown,
+  ) {
+    const input = parseStatusBody(body);
+    return this.lifecycleService.transitionStatus(
+      sessionUserId(request),
+      parseUuid(documentId),
+      input.status,
+      input.note,
     );
   }
 

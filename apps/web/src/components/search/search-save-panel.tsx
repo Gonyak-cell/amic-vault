@@ -9,6 +9,7 @@ import type {
   SavedSearchDto,
   SearchFolderScope,
   SearchGroupBy,
+  SearchMode,
   SearchQueryDto,
   SearchSort,
   SearchTarget,
@@ -49,7 +50,16 @@ const targetLabels = {
   all: '제목+본문',
   title: '제목',
   body: '본문',
+  email: '이메일',
+  clause: '조항',
+  authority: '판례·법령',
 } as const satisfies Record<SearchTarget, string>;
+
+const modeLabels = {
+  keyword: '키워드',
+  semantic: '의미',
+  hybrid: '혼합',
+} as const satisfies Record<SearchMode, string>;
 
 const sortLabels = {
   relevance: '관련도',
@@ -73,6 +83,7 @@ const documentTypeLabels = {
   opinion: '의견서',
   court_filing: '법원 제출 문서',
   evidence: '증거',
+  email: '이메일',
   correspondence: '서신',
   corporate_record: '회사 기록',
   financial: '재무',
@@ -176,8 +187,8 @@ export function SearchSavePanel({
   return (
     <SectionCard
       icon={<Bookmark className="h-4 w-4" />}
-      title="저장된 검색"
-      meta="현재 조건 재사용"
+      title="검색 폴더"
+      meta="검색 조건 재사용"
       actions={
         <StatusBadge tone={savedSearchBusy ? 'warning' : 'neutral'}>
           {savedSearchBusy ? '동기화 중' : `${savedSearches.length}개`}
@@ -203,7 +214,7 @@ export function SearchSavePanel({
                 </p>
               ) : (
                 <p className="mt-3 rounded-md border bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
-                  검색어 포함 URL 비활성화 · 비공개 저장 참조
+                  검색어 포함 링크 비활성화 · 비공개 검색 폴더 링크
                 </p>
               )}
             </>
@@ -311,7 +322,7 @@ export function SearchSavePanel({
                           onClick={() => void copySavedSearchReference(savedSearch.savedSearchId)}
                         >
                           <Copy className="h-4 w-4" />
-                          참조 복사
+                          비공개 링크 복사
                         </Button>
                       ) : null}
                       <Button
@@ -355,11 +366,12 @@ export function searchPatternItems(
   selection: SearchFacetSelection,
 ): SearchPatternItem[] {
   const items: SearchPatternItem[] = [{ label: '검색어', value: query.trim() || '입력 전' }];
+  items.push({ label: '검색 방식', value: modeLabels[selection.mode ?? 'keyword'] });
   items.push({ label: '검색 범위', value: targetLabels[selection.target ?? 'all'] });
   items.push({ label: '정렬', value: sortLabels[selection.sortBy ?? 'relevance'] });
   items.push({ label: '그룹', value: groupLabels[selection.groupBy ?? 'none'] });
   if (selection.title) items.push({ label: '제목', value: selection.title });
-  if (selection.matterCode) items.push({ label: 'Matter Code', value: selection.matterCode });
+  if (selection.matterCode) items.push({ label: 'Matter code', value: selection.matterCode });
   if (selection.matterName) items.push({ label: 'Matter 이름', value: selection.matterName });
   if (selection.clientName) items.push({ label: '고객명', value: selection.clientName });
   if (selection.documentType) {
@@ -411,6 +423,7 @@ export function savedSearchSummary(query: SearchQueryDto): string {
     legalHold: query.filters?.legalHold,
     matterCode: query.filters?.matterCode,
     matterName: query.filters?.matterName,
+    mode: query.mode,
     privilegeStatus: query.filters?.privilegeStatus,
     recordsStatus: query.filters?.recordsStatus,
     sortBy: query.sortBy,

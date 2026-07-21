@@ -24,3 +24,23 @@ def test_contract_parser_preserves_original_on_malformed_redline() -> None:
     assert parsed.status == "partial"
     assert parsed.redline_changes == []
     assert parsed.warnings == ["contract.redline:malformed_marker"]
+
+
+def test_contract_parser_extracts_korean_article_numeric_and_letter_headings() -> None:
+    parsed = parse_contract_text(
+        """제1조 목적
+본문
+
+1. 세부 항목
+내용
+
+가. 하위 항목
+내용"""
+    )
+
+    assert [(clause.clause_kind, clause.clause_number) for clause in parsed.clauses] == [
+        ("article", "1"),
+        ("section", "1"),
+        ("paragraph", "가"),
+    ]
+    assert parsed.clauses[0].heading_text == "제1조 목적"

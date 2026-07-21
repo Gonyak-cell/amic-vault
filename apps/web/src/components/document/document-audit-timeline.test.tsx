@@ -46,11 +46,10 @@ describe('DocumentAuditTimeline', () => {
       />,
     );
 
-    expect(html).toContain('문서 감사 타임라인');
-    expect(html).toContain('문서 통합 활동');
+    expect(html).toContain('문서 감사 로그');
     expect(html).toContain('범주');
     expect(html).toContain('열람/다운로드');
-    expect(html).toContain('Records');
+    expect(html).toContain('기록 보존');
     expect(html).toContain('열람');
     expect(html).toContain('보관 처리');
     expect(html).toContain('시스템');

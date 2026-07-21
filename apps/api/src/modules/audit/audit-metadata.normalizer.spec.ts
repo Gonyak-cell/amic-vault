@@ -12,6 +12,9 @@ describe('AuditMetadataNormalizer', () => {
         filter_refs: ['matter', 'document', 'wall'],
         included_chunk_ids: ['11111111-1111-4111-8111-111111111222'],
         excluded_chunk_ids: ['11111111-1111-4111-8111-111111111333'],
+        pending_items: ['legal_hold_clear'],
+        related_matter_id: '11111111-1111-4111-8111-111111111444',
+        relation_type: 'parallel',
         name: 'Acme Corp',
       }),
     ).toEqual({
@@ -20,6 +23,9 @@ describe('AuditMetadataNormalizer', () => {
       filter_refs: ['matter', 'document', 'wall'],
       included_chunk_ids: ['11111111-1111-4111-8111-111111111222'],
       excluded_chunk_ids: ['11111111-1111-4111-8111-111111111333'],
+      pending_items: ['legal_hold_clear'],
+      related_matter_id: '11111111-1111-4111-8111-111111111444',
+      relation_type: 'parallel',
     });
   });
 

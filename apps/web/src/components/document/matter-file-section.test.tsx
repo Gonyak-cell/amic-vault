@@ -37,13 +37,18 @@ const matter = {
   matterId: '11111111-1111-4111-8111-111111111122',
   tenantId: '11111111-1111-4111-8111-111111111111',
   clientId: '11111111-1111-4111-8111-111111111133',
+  confidentialityLevel: 'standard',
+  conflictsStatus: 'cleared',
   matterCode: 'AMIC-2026-0001',
   matterName: 'Investment Advisory',
   matterType: 'advisory',
   status: 'active',
   openedAt: null,
   closedAt: null,
+  ethicalWallActive: false,
+  leadAssociateId: null,
   leadLawyerId: null,
+  leadPartnerId: null,
   practiceGroup: 'Finance',
   metadata: {},
   legalHold: false,
@@ -61,20 +66,20 @@ describe('MatterFileSection', () => {
       <MatterFileSection matter={matter} sourceMode="matter_app_api" />,
     );
 
-    expect(html).toContain('파일링 기준');
-    expect(html).toContain('Matter 메타데이터');
+    expect(html).toContain('보관 기준');
+    expect(html).toContain('Matter 기준 정보');
     expect(html).toContain('업무 그룹');
     expect(html).toContain('Finance');
-    expect(html).toContain('Matter 원장');
-    expect(html).toContain('Matter app 확인됨');
-    expect(html).toContain('파일링 모델');
-    expect(html).toContain('Matter 메타데이터 기준');
-    expect(html).toContain('폴더 모델');
+    expect(html).toContain('문서 보관 기준');
+    expect(html).toContain('Matter 관리 시스템 확인됨');
+    expect(html).toContain('문서 보관 방식');
+    expect(html).toContain('Matter 정보 기준');
+    expect(html).toContain('문서 세트');
     expect(html).toContain('미적용');
     expect(html).toContain('파일');
-    expect(html).toContain('Matter 범위 목록');
+    expect(html).toContain('Matter별 문서 목록');
     expect(html).toContain('파일 업로드');
-    expect(html).toContain('Matter Code 확인 후 업로드');
+    expect(html).toContain('Matter code 확인 후 업로드');
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('Investment Advisory');
     expect(html).toContain('type="file"');
@@ -112,7 +117,7 @@ describe('MatterFileSection', () => {
       />,
     );
 
-    expect(html).toContain('문서 세트 계약');
+    expect(html).toContain('승인된 문서 세트');
     expect(html).toContain('Advisory template');
     expect(html).toContain('Closing set');
     expect(html).toContain('contract, memo');

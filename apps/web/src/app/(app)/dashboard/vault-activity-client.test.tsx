@@ -8,15 +8,15 @@ describe('VaultActivityClient', () => {
     const html = renderToStaticMarkup(<VaultActivityClient />);
 
     expect(html).toContain('권한이 확인된 실제 파일과 활동만 표시됩니다.');
-    expect(html).toContain('DMS 작업 바로가기');
-    expect(html).toContain('Matter 업로드');
+    expect(html).toContain('문서 업무 바로가기');
+    expect(html).toContain('Matter 문서 업로드');
     expect(html).toContain('전체 문서함');
-    expect(html).toContain('본문/메타데이터 검색');
+    expect(html).toContain('본문/문서 정보 검색');
     expect(html).toContain('검색 폴더');
     expect(html).toContain('작업함');
     expect(html).toContain('알림');
     expect(html).toContain('파일 정리 준비');
-    expect(html).toContain('검색/운영 헬스');
+    expect(html).toContain('검색/운영 상태');
     expect(html).toContain('href="/files#matter-upload"');
     expect(html).toContain('href="/files"');
     expect(html).toContain('href="/search"');
@@ -28,9 +28,11 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('최근 접근 파일');
     expect(html).toContain('최근 활동');
     expect(html).toContain('권한/정책 알림');
-    expect(html).toContain('작업 큐');
-    expect(html).toContain('AI Prep 상태');
-    expect(html).toContain('통합 상태');
+    expect(html).toContain('사용 통계');
+    expect(html).toContain('사용 통계 CSV 다운로드');
+    expect(html).toContain('처리할 업무');
+    expect(html).toContain('문서 정리 준비');
+    expect(html).toContain('연동 상태');
     expect(html).toContain('운영 데이터 연결 상태');
     expect(html).toContain('운영 데이터 연결 대기 중입니다.');
     expect(html).toContain('실제 운영 데이터에서 발생한 작업만 표시됩니다.');
@@ -82,6 +84,24 @@ describe('VaultActivityClient', () => {
             status: 'ready',
             data: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
           },
+          usageStats: {
+            status: 'ready',
+            data: {
+              generatedAt: '2026-07-01T00:00:00.000Z',
+              period: {
+                from: '2026-06-01T00:00:00.000Z',
+                to: '2026-06-30T23:59:59.999Z',
+              },
+              totals: {
+                activeUsers: 3,
+                uploads: 3,
+                downloads: 2,
+                searches: 5,
+                storageBytes: 3072,
+              },
+              topMatters: [{ matterLabel: 'AMIC-2026-001 · Governance', activityCount: 10 }],
+            },
+          },
         }}
       />,
     );
@@ -90,14 +110,17 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('Document viewed');
     expect(html).toContain('준비 완료 2건');
     expect(html).toContain('Outlook 파일링');
+    expect(html).toContain('활성 사용자');
+    expect(html).toContain('AMIC-2026-001 · Governance');
+    expect(html).toContain('3 KB');
     expect(html).toContain('href="/files?title=Board+minutes"');
     expect(html).toContain('문서함 열기');
     expect(html).toContain('감사 열기');
     expect(html).toContain('알림 열기');
     expect(html).toContain('문서함 필터');
-    expect(html).toContain('통합 열기');
+    expect(html).toContain('연동 열기');
     expect(html).toContain('파일 정리 준비 상태 확인');
-    expect(html).toContain('통합 상태 확인');
+    expect(html).toContain('연동 상태 확인');
     expect(html).not.toContain('표시할 작업이 없습니다.');
     expect(html).not.toContain('DOC-204');
     expect(html).not.toContain('김민준');

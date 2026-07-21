@@ -18,11 +18,17 @@ const artifactBudgets = {
   document_profile: { tokenBudget: 1200, maxChunks: 6 },
   key_fields: { tokenBudget: 2200, maxChunks: 12 },
   date_facts: { tokenBudget: 2200, maxChunks: 12 },
+  matter_timeline: { tokenBudget: 2400, maxChunks: 12 },
   people_organizations: { tokenBudget: 2000, maxChunks: 10 },
   keyword_tags: { tokenBudget: 1600, maxChunks: 8 },
   filing_suggestions: { tokenBudget: 1800, maxChunks: 8 },
   source_outline: { tokenBudget: 2400, maxChunks: 12 },
   retrieval_hints: { tokenBudget: 1600, maxChunks: 8 },
+  fact_candidates: { tokenBudget: 2400, maxChunks: 12 },
+  issue_candidates: { tokenBudget: 2400, maxChunks: 12 },
+  risk_candidates: { tokenBudget: 2400, maxChunks: 12 },
+  graph_candidate_edges: { tokenBudget: 2400, maxChunks: 12 },
+  minutes_qc: { tokenBudget: 2400, maxChunks: 12 },
 } as const satisfies Record<AiPrepArtifactKind, { tokenBudget: number; maxChunks: number }>;
 
 export function planAiPrepRetrieval(input: {
@@ -93,6 +99,7 @@ function signalBonus(text: string, artifactKind: AiPrepArtifactKind): number {
         ? 0.5
         : 0;
     case 'date_facts':
+    case 'matter_timeline':
       return hasAny(text, [/\b\d{4}[-./]\d{1,2}[-./]\d{1,2}\b/u, /\b\d{1,2}월\s*\d{1,2}일/u])
         ? 0.6
         : 0;
@@ -104,6 +111,16 @@ function signalBonus(text: string, artifactKind: AiPrepArtifactKind): number {
       return hasAny(text, [/계약|송장|보고서|이메일|증빙|분류|folder|filing/u]) ? 0.4 : 0;
     case 'retrieval_hints':
       return hasAny(text, [/검색|참조|식별|번호|키워드|reference|id/u]) ? 0.3 : 0;
+    case 'fact_candidates':
+      return hasAny(text, [/사실|발생|진행|확인|보고|fact|occurred|confirmed/u]) ? 0.4 : 0;
+    case 'issue_candidates':
+      return hasAny(text, [/쟁점|분쟁|질문|미해결|issue|dispute|question/u]) ? 0.4 : 0;
+    case 'risk_candidates':
+      return hasAny(text, [/위험|리스크|위반|손해|risk|breach|liability/u]) ? 0.4 : 0;
+    case 'graph_candidate_edges':
+      return hasAny(text, [/관련|근거|인용|연결|cites|relates|supports/u]) ? 0.4 : 0;
+    case 'minutes_qc':
+      return hasAny(text, [/회의록|의사록|minutes|meeting|결정|참석|안건/u]) ? 0.5 : 0;
     case 'document_profile':
     case 'source_outline':
       return 0;

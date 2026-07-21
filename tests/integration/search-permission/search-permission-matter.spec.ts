@@ -67,7 +67,7 @@ describe('search permission matter filter integration', () => {
     await app.close();
   });
 
-  it('injects matter membership before search ranking, snippets, and counts', async () => {
+  it('injects restricted matter membership before search ranking, snippets, and counts', async () => {
     const response = await postSearch(baseUrl, cookie, {
       query: 'termination',
       filters: { clientId: fixture.alphaClientId },

@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import { contractRuleFindingSchema } from '../contract/contract-types';
+import {
+  graphEdgeTypeSchema,
+  graphNodeCreatedByKindSchema,
+  graphNodeProvenanceSchema,
+  graphNodeReviewStatusSchema,
+  graphNodeTypeSchema,
+} from '../graph/graph-types';
 
 const hashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const chunkSourceRefSchema = z.string().regex(/^chunk:[A-Za-z0-9:_-]+$/).max(120);
@@ -39,37 +46,19 @@ export const evidencePackChunkSchema = z
 export const evidencePackGraphFactSchema = z
   .object({
     edgeId: z.string().uuid(),
-    edgeType: z.enum([
-      'HAS_MATTER',
-      'HAS_DOCUMENT',
-      'HAS_VERSION',
-      'HAS_CLAUSE',
-      'HAS_ISSUE',
-      'HAS_RISK',
-      'RELATED_TO',
-    ]),
+    edgeType: graphEdgeTypeSchema,
     matterId: z.string().uuid(),
     documentId: z.string().uuid().nullable(),
     sourceNodeId: z.string().uuid(),
-    sourceNodeType: z.enum([
-      'client',
-      'matter',
-      'document',
-      'version',
-      'clause',
-      'issue',
-      'risk',
-    ]),
+    sourceNodeType: graphNodeTypeSchema,
+    sourceProvenance: graphNodeProvenanceSchema,
+    sourceReviewStatus: graphNodeReviewStatusSchema.nullable(),
+    sourceCreatedByKind: graphNodeCreatedByKindSchema,
     targetNodeId: z.string().uuid(),
-    targetNodeType: z.enum([
-      'client',
-      'matter',
-      'document',
-      'version',
-      'clause',
-      'issue',
-      'risk',
-    ]),
+    targetNodeType: graphNodeTypeSchema,
+    targetProvenance: graphNodeProvenanceSchema,
+    targetReviewStatus: graphNodeReviewStatusSchema.nullable(),
+    targetCreatedByKind: graphNodeCreatedByKindSchema,
     sourceHash: hashSchema,
   })
   .strict();

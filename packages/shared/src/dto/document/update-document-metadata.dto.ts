@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { documentConfidentialityLevelSchema, documentTypeSchema } from '../../types/document';
+import {
+  documentConfidentialityLevelSchema,
+  documentSourceSchema,
+  documentTypeSchema,
+} from '../../types/document';
 
 export const updateDocumentMetadataSchema = z
   .object({
@@ -7,6 +11,8 @@ export const updateDocumentMetadataSchema = z
     documentType: documentTypeSchema.optional(),
     subtype: z.string().trim().min(1).max(128).nullable().optional(),
     confidentialityLevel: documentConfidentialityLevelSchema.optional(),
+    source: documentSourceSchema.optional(),
+    folderId: z.string().uuid().nullable().optional(),
   })
   .strict();
 

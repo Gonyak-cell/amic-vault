@@ -9,6 +9,7 @@ import {
   hashOpaqueToken,
   SESSION_COOKIE_NAME,
 } from '../../apps/api/src/modules/auth/session.repository';
+import { totpCodeForSecret } from '../../apps/api/src/modules/auth/totp.service';
 import {
   createAppClient,
   createOwnerClient,
@@ -58,6 +59,35 @@ async function setMfaEnabled(userId: string, enabled: boolean): Promise<void> {
   });
 }
 
+async function resetMfa(userId: string): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query('DELETE FROM mfa_challenges WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM mfa_secrets WHERE user_id = $1', [userId]);
+    await client.query('UPDATE users SET mfa_enabled = false WHERE user_id = $1', [userId]);
+  });
+}
+
+async function activeChallengeAttempts(challengeId: string): Promise<number | null> {
+  const separatorIndex = challengeId.indexOf('.');
+  const tenantId = challengeId.slice(0, separatorIndex);
+  const token = challengeId.slice(separatorIndex + 1);
+  return withClient(createAppClient(), async (client) => {
+    await setTenant(client, tenantId);
+    const result = await client.query<{ attempt_count: number }>(
+      `
+        SELECT attempt_count
+        FROM mfa_challenges
+        WHERE tenant_id = $1
+          AND challenge_token_hash = $2
+          AND verified_at IS NULL
+          AND locked_at IS NULL
+      `,
+      [tenantId, hashOpaqueToken(token)],
+    );
+    return result.rows[0]?.attempt_count ?? null;
+  });
+}
+
 async function assignAccountLedgerId(userId: string, accountLedgerId: string): Promise<void> {
   await withClient(createAppClient(), async (client) => {
     await client.query('BEGIN');
@@ -95,6 +125,16 @@ async function countSessionsForUser(userId: string): Promise<number> {
   });
 }
 
+async function sessionMfaVerified(cookie: string): Promise<boolean | null> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ mfa_verified: boolean }>(
+      'SELECT mfa_verified FROM sessions WHERE token_hash = $1',
+      [hashOpaqueToken(extractSessionToken(cookie))],
+    );
+    return result.rows[0]?.mfa_verified ?? null;
+  });
+}
+
 async function expireSession(cookie: string): Promise<void> {
   await withClient(createOwnerClient(), async (client) => {
     await client.query('UPDATE sessions SET expires_at = now() WHERE token_hash = $1', [
@@ -125,6 +165,7 @@ describe('auth session integration', () => {
   let mailer: MailerStub;
 
   beforeAll(async () => {
+    process.env.MFA_SECRET_ENCRYPTION_KEY = 'integration-test-mfa-secret-key';
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
     await app.listen(0);
@@ -134,7 +175,7 @@ describe('auth session integration', () => {
   });
 
   afterAll(async () => {
-    await setMfaEnabled(betaAuthMfaUserId, false);
+    await resetMfa(betaAuthMfaUserId);
     await app.close();
   });
 
@@ -250,7 +291,7 @@ describe('auth session integration', () => {
     expect(revoked.status).toBe(401);
   });
 
-  it('fails closed for mfa_enabled users without creating a session', async () => {
+  it('fails closed for mfa_enabled users without an active TOTP secret', async () => {
     await setMfaEnabled(betaAuthMfaUserId, true);
     try {
       const before = await countSessionsForUser(betaAuthMfaUserId);
@@ -269,11 +310,76 @@ describe('auth session integration', () => {
 
       expect(response.status, body).toBe(401);
       expect(body).toContain('AUTH_REQUIRED');
-      expect(body).toContain('mfa_not_available');
+      expect(body).toContain('mfa_enrollment_required');
       expect(after).toBe(before);
     } finally {
       await setMfaEnabled(betaAuthMfaUserId, false);
     }
+  });
+
+  it('enrolls TOTP and completes MFA login with a verified session', async () => {
+    await resetMfa(betaAuthMfaUserId);
+    const initial = await login(baseUrl, {
+      tenantId: tenantBetaId,
+      email: 'beta-auth-mfa@test.local',
+      password: 'dev-beta-auth-mfa-password',
+    });
+    expect(initial.response.status).toBe(201);
+
+    const enroll = await fetch(`${baseUrl}/v1/auth/mfa/enroll`, {
+      method: 'POST',
+      headers: { cookie: initial.cookie },
+    });
+    const enrollBody = await enroll.text();
+    expect(enroll.status, enrollBody).toBe(201);
+    const enrolled = JSON.parse(enrollBody) as {
+      secretId: string;
+      manualEntryKey: string;
+      otpauthUri: string;
+      recoveryCodes: string[];
+    };
+    expect(enrolled.otpauthUri).toContain('otpauth://totp/');
+    expect(enrolled.recoveryCodes).toHaveLength(8);
+
+    const activate = await fetch(`${baseUrl}/v1/auth/mfa/activate`, {
+      method: 'POST',
+      headers: { cookie: initial.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        secretId: enrolled.secretId,
+        code: totpCodeForSecret(enrolled.manualEntryKey),
+      }),
+    });
+    expect(activate.status, await activate.text()).toBe(201);
+
+    const challenged = await fetch(`${baseUrl}/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tenantId: tenantBetaId,
+        email: 'beta-auth-mfa@test.local',
+        password: 'dev-beta-auth-mfa-password',
+      }),
+    });
+    const challengedBody = await challenged.text();
+    expect(challenged.status, challengedBody).toBe(201);
+    expect(challenged.headers.get('set-cookie') ?? '').toBe('');
+    const challenge = JSON.parse(challengedBody) as { mfaRequired: true; mfaChallengeId: string };
+    expect(challenge.mfaRequired).toBe(true);
+    expect(challenge.mfaChallengeId).toContain(`${tenantBetaId}.`);
+    await expect(activeChallengeAttempts(challenge.mfaChallengeId)).resolves.toBe(0);
+
+    const verified = await fetch(`${baseUrl}/v1/auth/mfa/verify`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        challengeId: challenge.mfaChallengeId,
+        code: totpCodeForSecret(enrolled.manualEntryKey),
+      }),
+    });
+    const verifiedBody = await verified.text();
+    expect(verified.status, verifiedBody).toBe(201);
+    const verifiedCookie = extractSessionCookie(verified);
+    await expect(sessionMfaVerified(verifiedCookie)).resolves.toBe(true);
   });
 
   it('completes password reset without storing plaintext tokens and revokes old sessions', async () => {

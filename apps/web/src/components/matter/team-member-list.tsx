@@ -51,6 +51,7 @@ type TeamCopy = {
   denied: string;
   failed: string;
   roleLabels: Record<MatterMemberRole, string>;
+  leadRoleLabels: Record<NonNullable<MatterMemberDto['leadRole']>, string>;
   accessLabels: Record<MatterMemberAccessLevel, string>;
 };
 
@@ -73,6 +74,10 @@ const teamCopy: Record<Language, TeamCopy> = {
       owner: '소유자',
       member: '팀원',
       limited_reviewer: '제한된 검토자',
+    },
+    leadRoleLabels: {
+      lead_partner: '리드 파트너',
+      lead_associate: '리드 어소',
     },
     accessLabels: {
       read: '보기',
@@ -97,6 +102,10 @@ const teamCopy: Record<Language, TeamCopy> = {
       owner: 'Owner',
       member: 'Member',
       limited_reviewer: 'Limited reviewer',
+    },
+    leadRoleLabels: {
+      lead_partner: 'Lead partner',
+      lead_associate: 'Lead associate',
     },
     accessLabels: {
       read: 'View',
@@ -211,7 +220,14 @@ export function TeamMemberList({
                       ))}
                     </select>
                   ) : (
-                    copy.roleLabels[member.matterRole]
+                    <span className="inline-flex flex-wrap gap-1">
+                      <span>{copy.roleLabels[member.matterRole]}</span>
+                      {member.leadRole ? (
+                        <span className="rounded-md border px-1.5 text-xs text-muted-foreground">
+                          {copy.leadRoleLabels[member.leadRole]}
+                        </span>
+                      ) : null}
+                    </span>
                   )}
                 </DataTableCell>
                 <DataTableCell>

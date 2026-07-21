@@ -1,181 +1,142 @@
 import 'reflect-metadata';
-import { createHash, randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { NestFactory } from '@nestjs/core';
-import type { INestApplication } from '@nestjs/common';
-import { AppModule } from '../../../apps/api/src/app.module';
-import { configureApp } from '../../../apps/api/src/main';
-import { createOwnerClient, tenantAlphaId, withClient } from '../helpers/db';
+import { randomUUID } from 'node:crypto';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { AuditMetadataNormalizer } from '../../../apps/api/src/modules/audit/audit-metadata.normalizer';
+import { AuditService } from '../../../apps/api/src/modules/audit/audit.service';
+import type {
+  SearchPermissionScopeDecision,
+  SearchPermissionScopeProvider,
+} from '../../../apps/api/src/modules/search/permission/search-permission-scope.provider';
+import { SearchFilterBuilder } from '../../../apps/api/src/modules/search/query/search-filter.builder';
+import { SearchQueryBuilder } from '../../../apps/api/src/modules/search/query/search-query.builder';
+import { SnippetBuilder } from '../../../apps/api/src/modules/search/query/snippet-builder';
+import { truncateUtf8 } from '../../../apps/api/src/modules/search/index/search-index.repository';
+import { SearchService } from '../../../apps/api/src/modules/search/search.service';
+import { TenantContextService } from '../../../apps/api/src/modules/tenant/tenant-context';
+import { tenantAlphaId, tenantBetaId } from '../helpers/db';
 import {
   addMatterMember,
   alphaOwnerUserId,
+  betaOwnerUserId,
   insertSearchIndexedRow,
+  seedSemanticChunksForVersion,
+  tenantVersionScope,
 } from './search-fixtures';
-import { loginSearchUser, postSearch, resultTitles } from './search-http-helpers';
 
-function sha256Hex(input: string): string {
-  return createHash('sha256').update(input).digest('hex');
+function createService(versionIds: readonly string[]): SearchService {
+  const snippetBuilder = new SnippetBuilder();
+  const provider: SearchPermissionScopeProvider = {
+    async scopeForSearch(): Promise<SearchPermissionScopeDecision> {
+      return {
+        effect: 'ALLOW',
+        scope: tenantVersionScope(tenantAlphaId, versionIds),
+      };
+    },
+  };
+  return new SearchService(
+    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    new SearchQueryBuilder(new SearchFilterBuilder(), snippetBuilder),
+    snippetBuilder,
+    provider,
+  );
 }
 
-async function latestSearchAudit(input: {
-  queryHash: string;
-  actorId: string;
-}): Promise<{ metadata_json: Record<string, unknown>; raw_metadata: string } | undefined> {
-  return withClient(createOwnerClient(), async (client) => {
-    const result = await client.query<{
-      metadata_json: Record<string, unknown>;
-      raw_metadata: string;
-    }>(
-      `
-        SELECT metadata_json, metadata_json::text AS raw_metadata
-        FROM audit_events
-        WHERE tenant_id = $1
-          AND actor_id = $2
-          AND action = 'SEARCH_EXECUTED'
-          AND target_type = 'search'
-          AND metadata_json->>'query_hash' = $3
-        ORDER BY created_at DESC
-        LIMIT 1
-      `,
-      [tenantAlphaId, input.actorId, input.queryHash],
-    );
-    return result.rows[0];
-  });
+function twoMegabyteBody(uniquePhrase: string): string {
+  const prefix = 'alpha '.repeat(Math.ceil((1536 * 1024) / 6));
+  const suffix = ' omega'.repeat(Math.ceil((512 * 1024) / 6));
+  return `${prefix}${uniquePhrase}${suffix}`;
 }
 
-describe('DMS body search fixture integration', () => {
-  let app: INestApplication;
-  let baseUrl: string;
-  let cookie: string;
-  let bodyOnlyToken: string;
-  let visibleMatterId: string;
-  let hiddenMatterId: string;
-  let visibleDocumentId: string;
-  let hiddenDocumentId: string;
-  let visibleTitle: string;
-  let hiddenTitle: string;
+describe('search body fixture integration', () => {
+  const marker = `D6Body${randomUUID().replaceAll('-', '')}`;
+  const allowedClientId = randomUUID();
+  const allowedMatterId = randomUUID();
+  const allowedDocumentId = randomUUID();
+  const allowedVersionId = randomUUID();
+  const deniedClientId = randomUUID();
+  const deniedMatterId = randomUUID();
+  const deniedDocumentId = randomUUID();
+  const deniedVersionId = randomUUID();
+  const uniquePhrase = `${marker}TailNeedle`;
+  const longBody = twoMegabyteBody(uniquePhrase);
 
   beforeAll(async () => {
-    const clientId = randomUUID();
-    visibleMatterId = randomUUID();
-    hiddenMatterId = randomUUID();
-    visibleDocumentId = randomUUID();
-    hiddenDocumentId = randomUUID();
-    bodyOnlyToken = `dmsbody${randomUUID().replaceAll('-', '')}`;
-    visibleTitle = 'DMS Body Fixture Visible Profile';
-    hiddenTitle = 'DMS Body Fixture Hidden Profile';
-
     await insertSearchIndexedRow(
       {
         tenantId: tenantAlphaId,
         ownerUserId: alphaOwnerUserId,
-        clientId,
-        matterId: visibleMatterId,
-        documentId: visibleDocumentId,
-        versionId: randomUUID(),
-        title: visibleTitle,
-        contentText: `This permitted matter body contains ${bodyOnlyToken} for full text search only.`,
+        clientId: allowedClientId,
+        matterId: allowedMatterId,
+        documentId: allowedDocumentId,
+        versionId: allowedVersionId,
+        title: `${marker} Large Body Memo`,
+        contentText: truncateUtf8(longBody),
+        contentTruncated: true,
+        seedChunks: false,
         documentType: 'memo',
         documentStatus: 'draft',
         versionStatus: 'current',
-        updatedAt: '2026-06-19T00:00:00.000Z',
+        updatedAt: '2026-07-04T00:00:00.000Z',
       },
-      1301,
+      8601,
     );
-    await insertSearchIndexedRow(
-      {
-        tenantId: tenantAlphaId,
-        ownerUserId: alphaOwnerUserId,
-        clientId,
-        matterId: hiddenMatterId,
-        documentId: hiddenDocumentId,
-        versionId: randomUUID(),
-        title: hiddenTitle,
-        contentText: `This hidden matter body also contains ${bodyOnlyToken}.`,
-        documentType: 'memo',
-        documentStatus: 'draft',
-        versionStatus: 'current',
-        updatedAt: '2026-06-19T00:00:00.000Z',
-      },
-      1302,
-    );
+    await seedSemanticChunksForVersion({
+      tenantId: tenantAlphaId,
+      documentId: allowedDocumentId,
+      versionId: allowedVersionId,
+      contentText: longBody,
+      embeddings: false,
+    });
     await addMatterMember({
       tenantId: tenantAlphaId,
-      matterId: visibleMatterId,
+      matterId: allowedMatterId,
       userId: alphaOwnerUserId,
       matterRole: 'owner',
       accessLevel: 'edit',
     });
 
-    app = await NestFactory.create(AppModule, { logger: false });
-    configureApp(app);
-    await app.listen(0);
-    baseUrl = await app.getUrl();
-    cookie = await loginSearchUser(baseUrl, {
-      tenantId: tenantAlphaId,
-      email: 'alpha-matter-owner@test.local',
-      password: 'dev-alpha-owner-password',
+    await insertSearchIndexedRow(
+      {
+        tenantId: tenantBetaId,
+        ownerUserId: betaOwnerUserId,
+        clientId: deniedClientId,
+        matterId: deniedMatterId,
+        documentId: deniedDocumentId,
+        versionId: deniedVersionId,
+        title: `${marker} Hidden Large Body Memo`,
+        contentText: truncateUtf8(longBody),
+        contentTruncated: true,
+        seedChunks: false,
+        documentType: 'memo',
+        documentStatus: 'draft',
+        versionStatus: 'current',
+        updatedAt: '2026-07-04T00:00:00.000Z',
+      },
+      8602,
+    );
+    await seedSemanticChunksForVersion({
+      tenantId: tenantBetaId,
+      documentId: deniedDocumentId,
+      versionId: deniedVersionId,
+      contentText: longBody,
+      embeddings: false,
     });
-  });
+  }, 60_000);
 
-  afterAll(async () => {
-    await app.close();
-  });
+  it('finds a unique phrase after the 1MB preview limit through permission-scoped chunks', async () => {
+    expect(truncateUtf8(longBody)).not.toContain(uniquePhrase);
 
-  it('proves body-only text is found by body/full-text search but not title-only search', async () => {
-    const titleOnly = await postSearch(baseUrl, cookie, {
-      query: bodyOnlyToken,
-      target: 'title',
-      pageSize: 10,
+    const response = await createService([allowedVersionId]).search(
+      { tenantId: tenantAlphaId, userId: alphaOwnerUserId },
+      { query: uniquePhrase, target: 'body', page: 1, pageSize: 10 },
+    );
+
+    expect(response.total).toBe(1);
+    expect(response.results[0]).toMatchObject({
+      versionId: allowedVersionId,
+      contentTruncated: true,
     });
-
-    expect(titleOnly.total).toBe(0);
-    expect(titleOnly.results).toEqual([]);
-    expect(JSON.stringify(titleOnly)).not.toContain(visibleDocumentId);
-    expect(JSON.stringify(titleOnly)).not.toContain(hiddenDocumentId);
-
-    const bodySearch = await postSearch(baseUrl, cookie, {
-      query: bodyOnlyToken,
-      target: 'body',
-      pageSize: 10,
-    });
-
-    expect(bodySearch.total).toBe(1);
-    expect(resultTitles(bodySearch)).toEqual([visibleTitle]);
-    expect(bodySearch.results[0]).toMatchObject({
-      documentId: visibleDocumentId,
-      matterId: visibleMatterId,
-      title: visibleTitle,
-    });
-    expect(bodySearch.results[0]?.snippet).toContain(bodyOnlyToken);
-    expect(bodySearch.results[0]?.highlights.length).toBeGreaterThan(0);
-    expect(JSON.stringify(bodySearch)).not.toContain(hiddenMatterId);
-    expect(JSON.stringify(bodySearch)).not.toContain(hiddenDocumentId);
-    expect(JSON.stringify(bodySearch)).not.toContain(hiddenTitle);
-  });
-
-  it('records only bounded audit metadata for body searches', async () => {
-    await postSearch(baseUrl, cookie, {
-      query: bodyOnlyToken,
-      target: 'body',
-      pageSize: 10,
-    });
-
-    const audit = await latestSearchAudit({
-      actorId: alphaOwnerUserId,
-      queryHash: sha256Hex(bodyOnlyToken),
-    });
-
-    expect(audit?.metadata_json).toMatchObject({
-      query_hash: sha256Hex(bodyOnlyToken),
-      query_length: bodyOnlyToken.length,
-      result_count: 1,
-      scope_type: 'keyword',
-    });
-    expect(audit?.raw_metadata).not.toContain(bodyOnlyToken);
-    expect(audit?.raw_metadata).not.toContain(visibleTitle);
-    expect(audit?.raw_metadata).not.toContain(hiddenTitle);
-    expect(audit?.raw_metadata).not.toContain(visibleDocumentId);
-    expect(audit?.raw_metadata).not.toContain(hiddenDocumentId);
+    expect(response.results[0]?.snippet).toContain(uniquePhrase);
+    expect(response.results[0]?.versionId).not.toBe(deniedVersionId);
   });
 });

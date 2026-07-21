@@ -53,7 +53,11 @@ export async function loginBetaMember(baseUrl: string): Promise<string> {
   });
 }
 
-export async function createClient(baseUrl: string, cookie: string, marker: string): Promise<string> {
+export async function createClient(
+  baseUrl: string,
+  cookie: string,
+  marker: string,
+): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/clients`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
@@ -64,7 +68,12 @@ export async function createClient(baseUrl: string, cookie: string, marker: stri
   return (JSON.parse(body) as { clientId: string }).clientId;
 }
 
-export async function createMatter(baseUrl: string, cookie: string, clientId: string, marker: string) {
+export async function createMatter(
+  baseUrl: string,
+  cookie: string,
+  clientId: string,
+  marker: string,
+) {
   const response = await fetch(`${baseUrl}/v1/matters`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
@@ -104,7 +113,11 @@ function pdfForm(marker: string): FormData {
   const bytes = Buffer.from(`%PDF-1.7\nAMIC-${marker}\n`);
   const form = new FormData();
   form.append('title', `${marker} Document`);
-  form.append('file', new Blob([bytes], { type: 'application/pdf' }), `${marker}.pdf`);
+  form.append(
+    'file',
+    new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }),
+    `${marker}.pdf`,
+  );
   return form;
 }
 
@@ -164,7 +177,7 @@ function zipStore(files: Array<{ name: string; body: string }>): Buffer {
   return Buffer.concat([...locals, ...centrals, end]);
 }
 
-function docxBytes(marker: string): Buffer {
+export function docxBytes(marker: string, bodyText?: string): Buffer {
   return zipStore([
     {
       name: '[Content_Types].xml',
@@ -189,19 +202,19 @@ function docxBytes(marker: string): Buffer {
       body:
         '<?xml version="1.0" encoding="UTF-8"?>' +
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-        '<w:body><w:p><w:r><w:t>AMIC-DOCX-' +
-        marker +
+        '<w:body><w:p><w:r><w:t>' +
+        (bodyText ?? `AMIC-DOCX-${marker}`) +
         '</w:t></w:r></w:p></w:body></w:document>',
     },
   ]);
 }
 
-function docxForm(marker: string): FormData {
+function docxForm(marker: string, bodyText?: string, includeTitle = true): FormData {
   const form = new FormData();
-  form.append('title', `${marker} Document`);
+  if (includeTitle) form.append('title', `${marker} Document`);
   form.append(
     'file',
-    new Blob([docxBytes(marker)], {
+    new Blob([new Uint8Array(docxBytes(marker, bodyText))], {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     }),
     `${marker}.docx`,
@@ -234,15 +247,86 @@ export async function uploadDocx(
   cookie: string,
   matterId: string,
   marker: string,
+  bodyText?: string,
 ): Promise<{ documentId: string; fileObjectId: string }> {
   const response = await fetch(`${baseUrl}/v1/matters/${matterId}/documents`, {
     method: 'POST',
     headers: { cookie },
-    body: docxForm(marker),
+    body: docxForm(marker, bodyText),
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
   return JSON.parse(body) as { documentId: string; fileObjectId: string };
+}
+
+export async function uploadDocxVersion(
+  baseUrl: string,
+  cookie: string,
+  documentId: string,
+  marker: string,
+  bodyText?: string,
+): Promise<{ versionId: string; versionNo: number; fileObjectId: string; sha256: string }> {
+  const response = await fetch(`${baseUrl}/v1/documents/${documentId}/versions`, {
+    method: 'POST',
+    headers: { cookie },
+    body: docxForm(marker, bodyText, false),
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
+  return JSON.parse(body) as {
+    versionId: string;
+    versionNo: number;
+    fileObjectId: string;
+    sha256: string;
+  };
+}
+
+export async function ensureFreshMatterAppSyncState(
+  tenantId: string,
+  fixtureName: string,
+): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          jsonb_build_object('fixture', $2::text)
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantId, fixtureName],
+    );
+  });
 }
 
 export function createStorageService(): StorageService {

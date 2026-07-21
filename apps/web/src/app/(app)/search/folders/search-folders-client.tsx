@@ -249,6 +249,7 @@ const documentTypeLabels = {
   opinion: '의견서',
   court_filing: '법원 제출 문서',
   evidence: '증거',
+  email: '이메일',
   correspondence: '서신',
   corporate_record: '회사 기록',
   financial: '재무',
@@ -290,7 +291,7 @@ const recordsStatusLabels = {
 function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string; value: string }> {
   const filters = query.filters;
   const items: Array<{ label: string; value: string }> = [];
-  if (filters?.matterCode) items.push({ label: 'Matter Code', value: filters.matterCode });
+  if (filters?.matterCode) items.push({ label: 'Matter code', value: filters.matterCode });
   if (filters?.matterName) items.push({ label: 'Matter', value: filters.matterName });
   if (filters?.clientName) items.push({ label: '고객', value: filters.clientName });
   if (filters?.title) items.push({ label: '제목', value: filters.title });
@@ -319,6 +320,7 @@ function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string;
 function searchFolderTargetLabel(query: SearchQueryDto): string {
   if (query.target === 'title') return '제목';
   if (query.target === 'body') return '본문';
+  if (query.target === 'email') return '이메일';
   return '제목+본문';
 }
 

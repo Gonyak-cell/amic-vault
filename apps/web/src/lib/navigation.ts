@@ -1,6 +1,7 @@
 import {
   Archive,
   Bell,
+  Building2,
   CheckSquare,
   FileText,
   FolderKanban,
@@ -58,6 +59,11 @@ const routeNavigation = {
     group: 'Vault',
     icon: FolderKanban,
     labelKey: 'nav.matters',
+  },
+  '/clients': {
+    group: 'Vault',
+    icon: Building2,
+    labelKey: 'nav.clients',
   },
   '/search': {
     group: 'Vault',

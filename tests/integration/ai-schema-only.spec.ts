@@ -129,6 +129,9 @@ describe('ai policy boundary integration', () => {
       'apps/api/src/modules/ai/prep/ai-prep-status.controller.ts',
       'apps/api/src/modules/ai/session/ai-session.controller.ts',
       'apps/api/src/modules/ai/features/ai-summary.controller.ts',
+      'apps/api/src/modules/contract-intel/contract-intel.controller.ts',
+      'apps/api/src/modules/litigation/litigation.controller.ts',
+      'apps/api/src/modules/matter/matter.controller.ts',
       'apps/api/src/modules/scale/scale.controller.ts',
     ]);
     expect(controllerRefs.filter((file) => !allowedR6ControllerRefs.has(file))).toEqual([]);

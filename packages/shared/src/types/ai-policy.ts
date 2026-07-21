@@ -48,6 +48,14 @@ export interface AiDocumentPolicyDecision {
   aiAllowed: boolean;
 }
 
+export interface AiDocumentPolicyExclusion {
+  documentId: string;
+  reasonCode: Extract<
+    AiPolicyBlockReasonCode,
+    'document_ai_not_allowed' | 'document_missing_or_denied'
+  >;
+}
+
 export interface AiPolicyEvaluationResult {
   effect: AiPolicyDecisionEffect;
   code?: 'AI_POLICY_BLOCKED' | undefined;
@@ -57,6 +65,8 @@ export interface AiPolicyEvaluationResult {
   modelRoute: string | null;
   matterId: string;
   documentDecisions: readonly AiDocumentPolicyDecision[];
+  allowedDocumentIds: readonly string[];
+  excludedDocumentDecisions: readonly AiDocumentPolicyExclusion[];
   appliedRules: readonly string[];
   decisionRef: string;
 }

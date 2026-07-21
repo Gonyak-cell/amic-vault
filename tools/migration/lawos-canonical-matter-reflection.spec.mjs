@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
-  LAWOS_SOURCE_REVISION,
   buildReceipt,
   buildReflectionManifest,
   matterTypeToVault,
@@ -13,9 +14,12 @@ import {
   validateManifest,
   validateProjectionInvariants,
   validateReplayIdempotency,
+  usage,
 } from './lawos-canonical-matter-reflection.mjs';
 import { receiptLeakFindings, sha256Hex } from './matter-app-identity-preflight.mjs';
 
+const scriptPath = fileURLToPath(new URL('./lawos-canonical-matter-reflection.mjs', import.meta.url));
+const sampleRevision = 'amic_current_onedrive_matter_code_inventory_2026_07_01';
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const operatorUserId = '22222222-2222-4222-8222-222222222222';
 const clientId = '33333333-3333-4333-8333-333333333333';
@@ -41,7 +45,7 @@ function sourceMatter(overrides = {}) {
     source_ref: '4. 기업 자문-샘플고객',
     client_case_role: null,
     client_case_role_confidence: null,
-    source_revision: LAWOS_SOURCE_REVISION,
+    source_revision: sampleRevision,
     status: 'opening',
     confidence: 'sample',
     review_required: false,
@@ -58,7 +62,7 @@ function sourceClient(overrides = {}) {
     legal_form: null,
     candidate_type: 'sample',
     source_lanes: ['4. 기업 자문'],
-    source_revision: LAWOS_SOURCE_REVISION,
+    source_revision: sampleRevision,
     ...overrides,
   };
 }
@@ -66,7 +70,7 @@ function sourceClient(overrides = {}) {
 function sampleSource() {
   return {
     generated_at: '2026-07-01T00:00:00.000+09:00',
-    source_revision: LAWOS_SOURCE_REVISION,
+    source_revision: sampleRevision,
     client_count: 1,
     matter_count: 4,
     axis_counts: { Advisory: 1, LIT: 1, Dispute: 1, DEAL: 1 },
@@ -113,7 +117,9 @@ function manifestArgs(mode = 'dry-run') {
   return {
     mode,
     sourceArtifact: '/tmp/amic-matter-code-candidates-2026-07-01.json',
-    sourceRevision: LAWOS_SOURCE_REVISION,
+    sourceRevision: sampleRevision,
+    sourcePackageRef: 'amic-matter-code-candidates.js',
+    sourceContractRef: 'matter-core-contract.json',
     expectedClients: 1,
     expectedMatters: 4,
     runId: 'run-1',
@@ -143,8 +149,10 @@ test('parses reflection args and convenience mode flags', () => {
       '--approval-ref',
       'APPROVAL-LAWOS-001',
       '--dry-run',
+      '--source-artifact',
+      '/tmp/amic-matter-code-candidates-2026-07-01.json',
       '--source-revision',
-      LAWOS_SOURCE_REVISION,
+      sampleRevision,
     ],
     {},
   );
@@ -153,6 +161,22 @@ test('parses reflection args and convenience mode flags', () => {
   assert.equal(args.operatorUserId, operatorUserId);
   assert.equal(args.approvalRef, 'APPROVAL-LAWOS-001');
   assert.equal(args.mode, 'dry-run');
+  assert.equal(args.sourceArtifact, '/tmp/amic-matter-code-candidates-2026-07-01.json');
+});
+
+test('exits non-zero with usage when source artifact contract input is missing', () => {
+  const result = spawnSync(
+    process.execPath,
+    [scriptPath, '--dry-run', '--source-revision', sampleRevision],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, LAWOS_CANONICAL_SOURCE_ARTIFACT: '', LAWOS_CANONICAL_SOURCE_REVISION: '' },
+    },
+  );
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /usage: pnpm matter:lawos-reflection/);
+  assert.equal(result.stderr.includes(usage()), true);
 });
 
 test('validates Law Firm OS matter code format without alias rewrites', () => {
@@ -189,6 +213,28 @@ test('validates Law Firm OS matter code format without alias rewrites', () => {
     ).blockers.includes('lit_matter_code_requires_litigation_axis'),
     true,
   );
+});
+
+test('rejects artifacts whose revision does not match the expected contract input', () => {
+  const args = manifestArgs();
+  const manifest = buildReflectionManifest({
+    source: {
+      ...sampleSource(),
+      source_revision: 'unexpected_revision',
+      clients: sampleSource().clients.map((client) => ({
+        ...client,
+        source_revision: 'unexpected_revision',
+      })),
+      matters: sampleSource().matters.map((matter) => ({
+        ...matter,
+        source_revision: 'unexpected_revision',
+      })),
+    },
+    sourceArtifactHash: sha256Hex('sample'),
+    args,
+  });
+
+  assert.equal(validateManifest(manifest, args).includes('source_revision_mismatch'), true);
 });
 
 test('maps Law Firm OS axes to current Vault matter type enum', () => {
@@ -245,7 +291,7 @@ test('plans create then idempotent replay update against reflected Vault rows', 
         status: 'active',
         metadata_json: {
           lawosClientId: 'client_rp05_amic_current_001',
-          lawosSourceRevision: LAWOS_SOURCE_REVISION,
+          lawosSourceRevision: sampleRevision,
         },
       },
     ],
@@ -259,7 +305,7 @@ test('plans create then idempotent replay update against reflected Vault rows', 
       active_document_count: 0,
       metadata_json: {
         lawosMatterId: matter.matter_id,
-        lawosSourceRevision: LAWOS_SOURCE_REVISION,
+        lawosSourceRevision: sampleRevision,
       },
     })),
   };
@@ -287,7 +333,7 @@ test('checks projection invariants for the exact Law Firm OS source revision', (
         status: 'active',
         metadata_json: {
           lawosClientId: 'client_rp05_amic_current_001',
-          lawosSourceRevision: LAWOS_SOURCE_REVISION,
+          lawosSourceRevision: sampleRevision,
         },
       },
     ],
@@ -301,7 +347,7 @@ test('checks projection invariants for the exact Law Firm OS source revision', (
       active_document_count: 0,
       metadata_json: {
         lawosMatterId: matter.matter_id,
-        lawosSourceRevision: LAWOS_SOURCE_REVISION,
+        lawosSourceRevision: sampleRevision,
       },
     })),
   };

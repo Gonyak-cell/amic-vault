@@ -65,6 +65,23 @@ const config = {
     'DMS_SMOKE_NEGATIVE_PASSWORD',
     value('SMOKE_NEGATIVE_PASSWORD', localMode ? 'dev-beta-member-password' : undefined),
   ),
+  reviewerTenantId: value('DMS_SMOKE_REVIEWER_TENANT_ID', value('SMOKE_REVIEWER_TENANT_ID', undefined)),
+  reviewerTenantSlug: value(
+    'DMS_SMOKE_REVIEWER_TENANT_SLUG',
+    value('SMOKE_REVIEWER_TENANT_SLUG', undefined),
+  ),
+  reviewerEmail: value(
+    'DMS_SMOKE_REVIEWER_EMAIL',
+    value('SMOKE_REVIEWER_EMAIL', localMode ? 'alpha-member@test.local' : undefined),
+  ),
+  reviewerPassword: value(
+    'DMS_SMOKE_REVIEWER_PASSWORD',
+    value('SMOKE_REVIEWER_PASSWORD', localMode ? 'dev-alpha-member-password' : undefined),
+  ),
+  reviewerUserId: value(
+    'DMS_SMOKE_REVIEWER_USER_ID',
+    value('SMOKE_REVIEWER_USER_ID', localMode ? '11111111-1111-4111-8111-111111111102' : undefined),
+  ),
   createSynthetic: value('DMS_SMOKE_CREATE_SYNTHETIC', localMode ? '1' : '0') === '1',
   clientId: value('DMS_SMOKE_CLIENT_ID', undefined),
   matterId: value('DMS_SMOKE_MATTER_ID', undefined),
@@ -75,6 +92,8 @@ const config = {
   pollAttempts: positiveInt(value('DMS_SMOKE_POLL_ATTEMPTS', localMode ? '8' : '12'), 8),
   pollDelayMs: positiveInt(value('DMS_SMOKE_POLL_DELAY_MS', '1000'), 1000),
 };
+config.reviewerTenantId ??= config.tenantId;
+config.reviewerTenantSlug ??= config.tenantSlug;
 
 const plannedChecks = [
   ['DMS-SMOKE-001', 'Login with approved DMS smoke user'],
@@ -83,6 +102,7 @@ const plannedChecks = [
   ['DMS-SMOKE-004', 'Open document detail and safe profile fields'],
   ['DMS-SMOKE-005', 'Open preview or safe preview-unavailable state'],
   ['DMS-SMOKE-006', 'List document versions'],
+  ['DMS-SMOKE-014', 'Run document edit lifecycle checkout/review/check-in/promote'],
   ['DMS-SMOKE-007', 'Confirm matter-scoped file list visibility'],
   ['DMS-SMOKE-008', 'Confirm title/body/metadata search visibility'],
   ['DMS-SMOKE-009', 'Read document and matter audit refs only'],
@@ -123,6 +143,7 @@ if (config.createSynthetic && !isLocalOrExplicitSynthetic()) {
 const results = [];
 let sessionCookie;
 let negativeCookie;
+let reviewerCookie;
 let matterId = config.matterId;
 let matterCode = '';
 let documentId;
@@ -214,6 +235,165 @@ await run('DMS-SMOKE-006', 'List document versions', async () => {
   assert(items.length > 0, 'document versions missing current version');
   assertNoRawLeakage(items);
   return { status: 'listed', versionCount: items.length };
+});
+
+await run('DMS-SMOKE-014', 'Run document edit lifecycle checkout/review/check-in/promote', async () => {
+  assert(sessionCookie, 'missing session cookie');
+  assert(documentId, 'missing document id');
+  assert(matterId, 'missing matter id');
+  assert(hasReviewerCredentials(), 'missing reviewer DMS smoke credentials or user ref');
+
+  const membership = await ensureReviewerMatterMember();
+  reviewerCookie ??= await loginReviewerUser();
+
+  const versionList = await getJsonWithCookie(`/documents/${documentId}/versions`, sessionCookie);
+  const baseVersion = currentVersionFrom(versionList?.items);
+  assert(baseVersion?.versionId, 'document current version missing version ref');
+  assert(baseVersion?.fileHash, 'document current version missing file hash');
+
+  const checkoutResponse = await postJson(
+    apiUrl(`/documents/${documentId}/edit-sessions`),
+    {
+      baseVersionId: baseVersion.versionId,
+      clientKind: 'web_upload',
+      checkoutReasonCode: 'DMS_SMOKE_EDIT',
+      idempotencyKey: `dms-smoke-checkout-${Date.now()}`,
+    },
+    sessionCookie,
+  );
+  assert(
+    checkoutResponse.status === 201 || checkoutResponse.status === 200,
+    `checkout status ${checkoutResponse.status}`,
+  );
+  const checkout = await checkoutResponse.json();
+  const editSessionId = checkout?.editSessionId;
+  const lockToken = checkout?.lockToken;
+  assert(editSessionId, 'checkout response missing edit session ref');
+  assert(lockToken, 'checkout response missing one-time lock token');
+
+  const editPackage = await getJsonWithCookie(
+    `/documents/${documentId}/edit-sessions/${editSessionId}/edit-package`,
+    sessionCookie,
+  );
+  assert(editPackage?.baseVersionId === baseVersion.versionId, 'edit package base version mismatch');
+  assert(editPackage?.sha256 === baseVersion.fileHash, 'edit package hash mismatch');
+  assert(editPackage?.mode, 'edit package missing mode');
+
+  const editFile = smokeEditedFile();
+  const saveForm = new FormData();
+  saveForm.append('visibilityScope', 'reviewers');
+  saveForm.append('saveReasonCode', 'DMS_SMOKE_SAVE');
+  saveForm.append('clientSaveId', `dms-smoke-save-${Date.now()}`);
+  saveForm.append('expectedBaseSha256', editPackage.sha256);
+  saveForm.append('editPackageMode', editPackage.mode);
+  saveForm.append('lockToken', lockToken);
+  saveForm.append('file', new Blob([editFile.body], { type: editFile.mimeType }), editFile.filename);
+  const saveResponse = await fetchWithTimeout(
+    apiUrl(`/documents/${documentId}/edit-sessions/${editSessionId}/subversions`),
+    {
+      method: 'POST',
+      headers: { cookie: sessionCookie },
+      body: saveForm,
+    },
+  );
+  if (saveResponse.status !== 201 && saveResponse.status !== 200) {
+    throw new Error(
+      `save subversion status ${saveResponse.status}${safeErrorDetail(await safeJson(saveResponse))}`,
+    );
+  }
+  const subversion = await saveResponse.json();
+  const subversionId = subversion?.subversionId;
+  assert(subversionId, 'save subversion response missing subversion ref');
+  assert(subversion?.status === 'saved', 'saved subversion did not remain saved for review');
+
+  const assignResponse = await postJson(
+    apiUrl(`/documents/${documentId}/subversions/${subversionId}/reviewers`),
+    { reviewerUserId: config.reviewerUserId },
+    sessionCookie,
+  );
+  assert(
+    assignResponse.status === 201 || assignResponse.status === 200,
+    `assign reviewer status ${assignResponse.status}`,
+  );
+
+  const reviewResponse = await postJson(
+    apiUrl(`/documents/${documentId}/subversions/${subversionId}/reviews/me`),
+    { decision: 'approved' },
+    reviewerCookie,
+  );
+  assert(
+    reviewResponse.status === 201 || reviewResponse.status === 200,
+    `review status ${reviewResponse.status}`,
+  );
+  const review = await reviewResponse.json();
+  assert(review?.decision === 'approved', 'review decision was not approved');
+
+  const checkInResponse = await postJson(
+    apiUrl(`/documents/${documentId}/edit-sessions/${editSessionId}/check-in`),
+    { expectedLastSubversionId: subversionId, lockToken },
+    sessionCookie,
+  );
+  assert(
+    checkInResponse.status === 201 || checkInResponse.status === 200,
+    `check-in status ${checkInResponse.status}`,
+  );
+  const checkedIn = await checkInResponse.json();
+  assert(checkedIn?.status === 'checked_in', 'edit session was not checked in');
+
+  const promoteResponse = await postJson(
+    apiUrl(`/documents/${documentId}/subversions/${subversionId}/promote`),
+    {
+      expectedBaseVersionId: baseVersion.versionId,
+      publishReasonCode: 'DMS_SMOKE_PROMOTE',
+      idempotencyKey: `dms-smoke-promote-${Date.now()}`,
+    },
+    sessionCookie,
+  );
+  assert(
+    promoteResponse.status === 201 || promoteResponse.status === 200,
+    `promote status ${promoteResponse.status}`,
+  );
+  const promotion = await promoteResponse.json();
+  assert(
+    promotion?.promotedFromSubversionId === subversionId,
+    'promotion response did not preserve promoted_from_subversion_id',
+  );
+
+  const promotedVersions = await getJsonWithCookie(`/documents/${documentId}/versions`, sessionCookie);
+  const promotedCurrent = currentVersionFrom(promotedVersions?.items);
+  assert(
+    promotedCurrent?.promotedFromSubversionId === subversionId,
+    'current promoted version missing promoted_from_subversion_id',
+  );
+
+  const documentAudit = await getJsonWithCookie(
+    `/documents/${documentId}/audit-events?limit=50`,
+    sessionCookie,
+  );
+  const actions = new Set((Array.isArray(documentAudit?.items) ? documentAudit.items : []).map(auditAction));
+  const requiredActions = [
+    'DOCUMENT_CHECKED_OUT',
+    'DOCUMENT_SUBVERSION_SAVED',
+    'DOCUMENT_SUBVERSION_REVIEWER_ASSIGNED',
+    'DOCUMENT_SUBVERSION_REVIEW_SUBMITTED',
+    'DOCUMENT_CHECKED_IN',
+    'DOCUMENT_VERSION_PROMOTED',
+  ];
+  const missingActions = requiredActions.filter((action) => !actions.has(action));
+  assert(missingActions.length === 0, `missing edit audit chain actions: ${missingActions.join(',')}`);
+  assertNoRawLeakage(documentAudit);
+
+  return {
+    editLoop: 'promoted',
+    reviewerMembership: membership.status,
+    editPackageMode: editPackage.mode,
+    subversionSaved: true,
+    reviewerApproved: true,
+    checkedIn: true,
+    promotedFromSubversion: true,
+    auditChainComplete: true,
+    auditRefs: actions.size,
+  };
 });
 
 await run('DMS-SMOKE-007', 'Confirm matter-scoped file list visibility', async () => {
@@ -498,6 +678,22 @@ function evaluateEnvironmentReadiness() {
     });
   }
 
+  addEnvCheck(checks, missing, {
+    id: 'DMS-ENV-007',
+    name: 'Reviewer DMS smoke credentials and user ref configured',
+    ok:
+      hasReviewerCredentials() &&
+      config.reviewerEmail !== config.email &&
+      config.reviewerUserId !== undefined,
+    required: [
+      'DMS_SMOKE_REVIEWER_EMAIL',
+      'DMS_SMOKE_REVIEWER_PASSWORD',
+      'DMS_SMOKE_REVIEWER_USER_ID',
+    ],
+    alternate: ['SMOKE_REVIEWER_EMAIL', 'SMOKE_REVIEWER_PASSWORD', 'SMOKE_REVIEWER_USER_ID'],
+    message: 'reviewer DMS smoke credentials and a distinct reviewer user ref are required',
+  });
+
   if (config.allowIndexPending) {
     holds.push('DMS_SMOKE_ALLOW_INDEX_PENDING=0 is required for release signoff');
     checks.push({
@@ -624,6 +820,35 @@ async function uploadSmokeDocument(targetMatterId) {
   return response.json();
 }
 
+async function ensureReviewerMatterMember() {
+  assert(config.reviewerUserId, 'missing reviewer user ref');
+  const body = await getJsonWithCookie(`/matters/${matterId}/members`, sessionCookie);
+  const members = Array.isArray(body?.items) ? body.items : [];
+  const existing = members.find((member) => member?.userId === config.reviewerUserId);
+  if (existing?.matterRole !== 'limited_reviewer' && existing?.accessLevel === 'edit') {
+    return { status: 'already-edit' };
+  }
+  if (existing) {
+    const response = await patchJson(
+      apiUrl(`/matters/${matterId}/members/${config.reviewerUserId}`),
+      { matterRole: 'member', accessLevel: 'edit' },
+      sessionCookie,
+    );
+    assert(response.status === 200, `reviewer member update status ${response.status}`);
+    return { status: 'updated-edit' };
+  }
+  const response = await postJson(
+    apiUrl(`/matters/${matterId}/members`),
+    { userId: config.reviewerUserId, matterRole: 'member', accessLevel: 'edit' },
+    sessionCookie,
+  );
+  assert(
+    response.status === 201 || response.status === 200,
+    `reviewer member add status ${response.status}`,
+  );
+  return { status: 'added-edit' };
+}
+
 async function createUploadPreflight(targetMatterId) {
   const response = await postJson(
     apiUrl(`/matters/${targetMatterId}/documents/upload-preflight`),
@@ -648,6 +873,14 @@ function smokeFile() {
   return {
     body: smokePdf('DMS Smoke Extractable Text governing law metadata'),
     filename: 'dms-smoke.pdf',
+    mimeType: 'application/pdf',
+  };
+}
+
+function smokeEditedFile() {
+  return {
+    body: smokePdf('DMS Smoke Edited Roundtrip Text reviewer approval promotion audit'),
+    filename: 'dms-smoke-edited.pdf',
     mimeType: 'application/pdf',
   };
 }
@@ -697,6 +930,14 @@ async function loginNegativeUser() {
   return cookie;
 }
 
+async function loginReviewerUser() {
+  const response = await postJson(apiUrl('/auth/login'), reviewerLoginPayload(config));
+  assert(response.status === 201 || response.status === 200, `reviewer login status ${response.status}`);
+  const cookie = extractSessionCookie(response.headers.get('set-cookie'));
+  assert(cookie, 'reviewer login missing session cookie');
+  return cookie;
+}
+
 async function getJsonWithCookie(path, cookie) {
   const response = await fetchWithTimeout(apiUrl(path), { headers: { cookie } });
   assert(response.status === 200, `${path} status ${response.status}`);
@@ -708,6 +949,16 @@ async function postJson(url, payload, cookie) {
   if (cookie) headers.cookie = cookie;
   return fetchWithTimeout(url, {
     method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+}
+
+async function patchJson(url, payload, cookie) {
+  const headers = { 'content-type': 'application/json' };
+  if (cookie) headers.cookie = cookie;
+  return fetchWithTimeout(url, {
+    method: 'PATCH',
     headers,
     body: JSON.stringify(payload),
   });
@@ -738,6 +989,14 @@ async function safeJson(response) {
   } catch {
     return {};
   }
+}
+
+function safeErrorDetail(body) {
+  if (!body || typeof body !== 'object') return '';
+  const code = typeof body.code === 'string' ? body.code : undefined;
+  const reason = typeof body.reason === 'string' ? body.reason : undefined;
+  const detail = [code, reason].filter(Boolean).join(':');
+  return detail ? ` (${detail})` : '';
 }
 
 function apiUrl(path) {
@@ -806,12 +1065,35 @@ function negativeLoginPayload(input) {
   return payload;
 }
 
+function reviewerLoginPayload(input) {
+  const payload = {
+    email: input.reviewerEmail,
+    password: input.reviewerPassword,
+  };
+  if (input.reviewerTenantId) payload.tenantId = input.reviewerTenantId;
+  if (input.reviewerTenantSlug) payload.tenantSlug = input.reviewerTenantSlug;
+  return payload;
+}
+
 function hasPrimaryCredentials() {
   return Boolean(config.email && config.password);
 }
 
 function hasNegativeCredentials() {
   return Boolean(config.negativeEmail && config.negativePassword);
+}
+
+function hasReviewerCredentials() {
+  return Boolean(config.reviewerEmail && config.reviewerPassword && config.reviewerUserId);
+}
+
+function currentVersionFrom(items) {
+  const versions = Array.isArray(items) ? items : [];
+  return versions.find((item) => item?.versionStatus === 'current') ?? versions[0];
+}
+
+function auditAction(item) {
+  return item?.action ?? item?.eventType ?? item?.auditAction;
 }
 
 function extractSessionCookie(header) {

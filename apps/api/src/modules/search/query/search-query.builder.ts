@@ -10,6 +10,7 @@ import {
   type SearchSqlFragment,
   type SearchSqlValue,
 } from './search-filter.builder';
+import { searchEmbeddingModelRoute } from '../index/search-index.repository';
 import { SnippetBuilder } from './snippet-builder';
 
 export interface BuiltSearchQuery {
@@ -18,47 +19,144 @@ export interface BuiltSearchQuery {
 }
 
 type VectorSearchMode = Extract<SearchMode, 'semantic' | 'hybrid'>;
+type LexicalSearchTarget = Exclude<SearchTarget, 'email' | 'clause' | 'authority'>;
+const boundedSearchTotalLimit = 101;
 
 function targetFor(input: SearchQueryDto): SearchTarget {
   return input.target ?? 'all';
+}
+
+function lexicalTargetFor(input: SearchQueryDto): LexicalSearchTarget {
+  const target = targetFor(input) as string;
+  return target === 'email' || target === 'clause' || target === 'authority'
+    ? 'all'
+    : (target as LexicalSearchTarget);
+}
+
+function emailTargetFilterSql(input: SearchQueryDto): string {
+  return (targetFor(input) as string) === 'email'
+    ? "\n            AND idx.document_type = 'email'"
+    : '';
+}
+
+function isClauseTarget(input: SearchQueryDto): boolean {
+  return targetFor(input) === 'clause';
 }
 
 function sortFor(input: SearchQueryDto): SearchSort {
   return input.sortBy ?? 'relevance';
 }
 
-function keywordMatchSql(target: SearchTarget): string {
-  if (target === 'title') return 'idx.title_tsv @@ tsq.query';
-  if (target === 'body') return 'idx.content_tsv @@ tsq.query';
-  return '(idx.title_tsv @@ tsq.query OR idx.content_tsv @@ tsq.query)';
+function normalizedFieldMatchSql(fieldSql: string): string {
+  return `(
+    tsq.normalized_query <> ''
+    AND amic_korean_search_normalize(${fieldSql}) LIKE ('%' || tsq.normalized_query || '%')
+    AND (
+      char_length(tsq.normalized_query) > 2
+      OR tsq.normalized_query !~ '^[가-힣]+$'
+      OR ${fieldSql} ~ ('(^|[^가-힣])' || tsq.normalized_query || '([^가-힣]|$)')
+    )
+  )`;
 }
 
-function keywordSnippetSourceSql(target: SearchTarget): string {
-  if (target === 'title') return 'idx.title';
-  if (target === 'body') return 'idx.content_text';
-  return 'CASE WHEN idx.content_tsv @@ tsq.query THEN idx.content_text ELSE idx.title END';
+function titleKeywordMatchSql(): string {
+  return `(idx.title_tsv @@ tsq.query OR ${normalizedFieldMatchSql('idx.title')})`;
 }
 
-function keywordScoreSql(target: SearchTarget): string {
-  if (target === 'title') return "ts_rank_cd(setweight(idx.title_tsv, 'A'), tsq.query)::float8";
-  if (target === 'body') return "ts_rank_cd(setweight(idx.content_tsv, 'B'), tsq.query)::float8";
+function chunkKeywordMatchSql(fieldSql = 'chunk.chunk_text'): string {
+  return `(to_tsvector('simple', ${fieldSql}) @@ tsq.query OR ${normalizedFieldMatchSql(fieldSql)})`;
+}
+
+function clauseKeywordMatchSql(): string {
+  return `(clause_chunk.chunk_search_tsv @@ tsq.query OR ${normalizedFieldMatchSql('clause_chunk.chunk_text')})`;
+}
+
+function keywordRowMatchSql(target: LexicalSearchTarget): string {
+  if (target === 'title') return titleKeywordMatchSql();
+  if (target === 'body') return 'body_hit.chunk_id IS NOT NULL';
+  return `(${titleKeywordMatchSql()} OR body_hit.chunk_id IS NOT NULL)`;
+}
+
+function keywordChunkHitJoinSql(target: LexicalSearchTarget): string {
+  if (target === 'title') return '';
+  const chunkScoreSql = chunkKeywordScoreSql('chunk.chunk_text');
   return `
-    ts_rank_cd(
-      setweight(idx.title_tsv, 'A') || setweight(idx.content_tsv, 'B'),
-      tsq.query
-    )::float8
-  `;
+          LEFT JOIN LATERAL (
+            SELECT chunk.chunk_id, chunk.chunk_text, ${chunkScoreSql} AS score
+            FROM document_chunks chunk
+            WHERE chunk.tenant_id = idx.tenant_id
+              AND chunk.version_id = idx.version_id
+              AND chunk.chunk_kind = 'child'
+              AND chunk.stale = false
+              AND ${chunkKeywordMatchSql('chunk.chunk_text')}
+            ORDER BY score DESC, chunk.chunk_ordinal ASC
+            LIMIT 1
+          ) body_hit ON true`;
 }
 
-function orderBySql(sortBy: SearchSort, hasQuery: boolean): string {
-  if (sortBy === 'updated_asc') return 'idx.updated_at ASC, idx.version_id';
-  if (sortBy === 'updated_desc') return 'idx.updated_at DESC, idx.version_id';
-  if (sortBy === 'title_asc') return 'lower(idx.title) ASC, idx.updated_at DESC, idx.version_id';
+function keywordFacetMatchSql(target: LexicalSearchTarget): string {
+  const chunkExists = `EXISTS (
+    SELECT 1
+    FROM document_chunks chunk
+    WHERE chunk.tenant_id = idx.tenant_id
+      AND chunk.version_id = idx.version_id
+      AND chunk.chunk_kind = 'child'
+      AND chunk.stale = false
+      AND ${chunkKeywordMatchSql('chunk.chunk_text')}
+  )`;
+  if (target === 'title') return titleKeywordMatchSql();
+  if (target === 'body') return chunkExists;
+  return `(${titleKeywordMatchSql()} OR ${chunkExists})`;
+}
+
+function keywordSnippetSourceSql(target: LexicalSearchTarget): string {
+  if (target === 'title') return 'idx.title';
+  if (target === 'body') return 'body_hit.chunk_text';
+  return 'COALESCE(body_hit.chunk_text, idx.title)';
+}
+
+function titleKeywordScoreSql(): string {
+  const normalizedBoostSql = `CASE WHEN ${normalizedFieldMatchSql('idx.title')} THEN 0.05 ELSE 0 END`;
+  return `(ts_rank_cd(setweight(idx.title_tsv, 'A'), tsq.query)::float8 + ${normalizedBoostSql})`;
+}
+
+function chunkKeywordScoreSql(fieldSql = 'chunk.chunk_text'): string {
+  const normalizedBoostSql = `CASE WHEN ${normalizedFieldMatchSql(fieldSql)} THEN 0.05 ELSE 0 END`;
+  return `(ts_rank_cd(setweight(to_tsvector('simple', ${fieldSql}), 'B'), tsq.query)::float8 + ${normalizedBoostSql})`;
+}
+
+function clauseKeywordScoreSql(): string {
+  const normalizedBoostSql = `CASE WHEN ${normalizedFieldMatchSql('clause_chunk.chunk_text')} THEN 0.05 ELSE 0 END`;
+  return `(ts_rank_cd(setweight(clause_chunk.chunk_search_tsv, 'B'), tsq.query)::float8 + ${normalizedBoostSql})`;
+}
+
+function keywordScoreSql(target: LexicalSearchTarget): string {
+  if (target === 'title') return titleKeywordScoreSql();
+  if (target === 'body') return 'COALESCE(body_hit.score, 0::float8)';
+  return `GREATEST(${titleKeywordScoreSql()}, COALESCE(body_hit.score, 0::float8))`;
+}
+
+function chunkScopedKeywordMatchSql(target: LexicalSearchTarget): string {
+  if (target === 'title') return titleKeywordMatchSql();
+  if (target === 'body') return chunkKeywordMatchSql('chunk.chunk_text');
+  return `(${titleKeywordMatchSql()} OR ${chunkKeywordMatchSql('chunk.chunk_text')})`;
+}
+
+function chunkScopedKeywordScoreSql(target: LexicalSearchTarget): string {
+  if (target === 'title') return titleKeywordScoreSql();
+  if (target === 'body') return chunkKeywordScoreSql('chunk.chunk_text');
+  return `GREATEST(${titleKeywordScoreSql()}, ${chunkKeywordScoreSql('chunk.chunk_text')})`;
+}
+
+function matchedOrderBySql(sortBy: SearchSort, hasQuery: boolean): string {
+  if (sortBy === 'updated_asc') return 'updated_at ASC, version_id';
+  if (sortBy === 'updated_desc') return 'updated_at DESC, version_id';
+  if (sortBy === 'title_asc') return 'lower(title) ASC, updated_at DESC, version_id';
   if (sortBy === 'matter_asc') {
-    return "lower(coalesce(m.matter_code, m.matter_name, '')) ASC, idx.updated_at DESC, idx.version_id";
+    return "lower(coalesce(matter_code, matter_name, '')) ASC, updated_at DESC, version_id";
   }
-  if (sortBy === 'type_asc') return 'idx.document_type ASC, idx.updated_at DESC, idx.version_id';
-  return hasQuery ? 'score DESC, idx.updated_at DESC, idx.version_id' : 'idx.updated_at DESC, idx.version_id';
+  if (sortBy === 'type_asc') return 'document_type ASC, updated_at DESC, version_id';
+  return hasQuery ? 'score DESC, updated_at DESC, version_id' : 'updated_at DESC, version_id';
 }
 
 @Injectable()
@@ -77,11 +175,12 @@ export class SearchQueryBuilder {
     const offset = (input.page - 1) * pageSize;
 
     if (input.query) {
-      const target = targetFor(input);
-      const matchSql = keywordMatchSql(target);
+      if (isClauseTarget(input)) return this.buildClauseKeyword(input, scope);
+      const target = lexicalTargetFor(input);
+      const matchSql = keywordRowMatchSql(target);
       params.push(input.query);
       const queryParam = `$${params.length}`;
-      params.push(pageSize);
+      params.push(boundedSearchTotalLimit);
       const limitParam = `$${params.length}`;
       params.push(offset);
       const offsetParam = `$${params.length}`;
@@ -90,30 +189,45 @@ export class SearchQueryBuilder {
         'tsq.query',
       );
       const scoreSql = keywordScoreSql(target);
-      const orderSql = orderBySql(sortFor(input), true);
+      const orderSql = matchedOrderBySql(sortFor(input), true);
 
       return {
         sql: `
           WITH tsq AS (
-            SELECT websearch_to_tsquery('simple', ${queryParam}) AS query
+            SELECT
+              websearch_to_tsquery('simple', ${queryParam}) AS query,
+              amic_korean_search_normalize(${queryParam}) AS normalized_query
+          ),
+          matched AS (
+            SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
+              idx.title, m.matter_name, m.matter_code, c.name AS client_name,
+              idx.author_user_id, author.name AS author_name,
+              ${searchConfidentialityLevelSql} AS confidentiality_level,
+              ${searchLegalHoldSql} AS legal_hold,
+              ${searchPrivilegeStatusSql} AS privilege_status,
+              idx.ai_allowed, idx.prev_version_id, idx.next_version_id,
+              idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+              idx.content_truncated, idx.version_status, idx.updated_at,
+              ${scoreSql} AS score,
+              ${headlineSql} AS raw_snippet
+            FROM document_search_index idx
+            CROSS JOIN tsq
+            LEFT JOIN matters m
+              ON m.tenant_id = idx.tenant_id
+              AND m.matter_id = idx.matter_id
+            LEFT JOIN clients c
+              ON c.tenant_id = idx.tenant_id
+              AND c.client_id = idx.client_id
+            LEFT JOIN users author
+              ON author.tenant_id = idx.tenant_id
+              AND author.user_id = idx.author_user_id
+            ${keywordChunkHitJoinSql(target)}
+            ${filters.whereSql}
+              ${emailTargetFilterSql(input)}
+              AND ${matchSql}
           )
-          SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
-            idx.title, m.matter_name, m.matter_code, c.name AS client_name,
-            idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
-            idx.version_status, idx.updated_at,
-            ${scoreSql} AS score,
-            ${headlineSql} AS raw_snippet,
-            count(*) OVER()::int AS total
-          FROM document_search_index idx
-          CROSS JOIN tsq
-          LEFT JOIN matters m
-            ON m.tenant_id = idx.tenant_id
-            AND m.matter_id = idx.matter_id
-          LEFT JOIN clients c
-            ON c.tenant_id = idx.tenant_id
-            AND c.client_id = idx.client_id
-          ${filters.whereSql}
-            AND ${matchSql}
+          SELECT matched.*
+          FROM matched
           ORDER BY ${orderSql}
           LIMIT ${limitParam}
           OFFSET ${offsetParam}
@@ -122,30 +236,113 @@ export class SearchQueryBuilder {
       };
     }
 
-    params.push(pageSize);
+    params.push(boundedSearchTotalLimit);
     const limitParam = `$${params.length}`;
     params.push(offset);
     const offsetParam = `$${params.length}`;
-    const orderSql = orderBySql(sortFor(input), false);
+    const orderSql = matchedOrderBySql(sortFor(input), false);
 
     return {
       sql: `
-        SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
-          idx.title, m.matter_name, m.matter_code, c.name AS client_name,
-          idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
-          idx.version_status, idx.updated_at,
-          0::float8 AS score,
-          left(COALESCE(NULLIF(idx.content_text, ''), idx.title), 200) AS raw_snippet,
-          count(*) OVER()::int AS total
-        FROM document_search_index idx
-        LEFT JOIN matters m
-          ON m.tenant_id = idx.tenant_id
-          AND m.matter_id = idx.matter_id
-        LEFT JOIN clients c
-          ON c.tenant_id = idx.tenant_id
-          AND c.client_id = idx.client_id
-        ${filters.whereSql}
+        WITH matched AS (
+          SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
+            idx.title, m.matter_name, m.matter_code, c.name AS client_name,
+            idx.author_user_id, author.name AS author_name,
+            ${searchConfidentialityLevelSql} AS confidentiality_level,
+            ${searchLegalHoldSql} AS legal_hold,
+            ${searchPrivilegeStatusSql} AS privilege_status,
+            idx.ai_allowed, idx.prev_version_id, idx.next_version_id,
+            idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+            idx.content_truncated, idx.version_status, idx.updated_at,
+            0::float8 AS score,
+            left(COALESCE(NULLIF(idx.content_text, ''), idx.title), 200) AS raw_snippet
+          FROM document_search_index idx
+          LEFT JOIN matters m
+            ON m.tenant_id = idx.tenant_id
+            AND m.matter_id = idx.matter_id
+          LEFT JOIN clients c
+            ON c.tenant_id = idx.tenant_id
+            AND c.client_id = idx.client_id
+          LEFT JOIN users author
+            ON author.tenant_id = idx.tenant_id
+            AND author.user_id = idx.author_user_id
+          ${filters.whereSql}
+            ${emailTargetFilterSql(input)}
+        )
+        SELECT matched.*
+        FROM matched
         ORDER BY ${orderSql}
+        LIMIT ${limitParam}
+        OFFSET ${offsetParam}
+      `,
+      params,
+    };
+  }
+
+  private buildClauseKeyword(input: SearchQueryDto, scope: SearchSqlFragment): BuiltSearchQuery {
+    const filters = this.filterBuilder.build({ filters: input.filters, scope });
+    const params = [...filters.params];
+    const pageSize = input.pageSize;
+    const offset = (input.page - 1) * pageSize;
+    params.push(input.query ?? '');
+    const queryParam = `$${params.length}`;
+    params.push(boundedSearchTotalLimit);
+    const limitParam = `$${params.length}`;
+    params.push(offset);
+    const offsetParam = `$${params.length}`;
+    const headlineSql = this.snippetBuilder.headlineSql('clause_chunk.chunk_text', 'tsq.query');
+    const scoreSql = clauseKeywordScoreSql();
+
+    return {
+      sql: `
+          WITH tsq AS (
+            SELECT
+              websearch_to_tsquery('simple', ${queryParam}) AS query,
+              amic_korean_search_normalize(${queryParam}) AS normalized_query
+          ),
+          matched AS (
+            SELECT idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
+              idx.title, m.matter_name, m.matter_code, c.name AS client_name,
+              idx.author_user_id, author.name AS author_name,
+              ${searchConfidentialityLevelSql} AS confidentiality_level,
+              ${searchLegalHoldSql} AS legal_hold,
+              ${searchPrivilegeStatusSql} AS privilege_status,
+              idx.ai_allowed, idx.prev_version_id, idx.next_version_id,
+              idx.document_type, ${searchExtractionStatusSql} AS extraction_status,
+              idx.content_truncated, idx.version_status, idx.updated_at,
+              ${scoreSql} AS score,
+              ${headlineSql} AS raw_snippet,
+              'clause'::text AS result_kind,
+              clause.clause_id,
+              clause.clause_kind,
+              clause.clause_number,
+              clause.start_offset
+            FROM document_search_index idx
+            CROSS JOIN tsq
+            JOIN contract_clause_chunks clause_chunk
+              ON clause_chunk.tenant_id = idx.tenant_id
+              AND clause_chunk.version_id = idx.version_id
+              AND clause_chunk.stale = false
+            JOIN contract_clauses clause
+              ON clause.tenant_id = clause_chunk.tenant_id
+              AND clause.clause_id = clause_chunk.clause_id
+              AND clause.stale = false
+            LEFT JOIN matters m
+              ON m.tenant_id = idx.tenant_id
+              AND m.matter_id = idx.matter_id
+            LEFT JOIN clients c
+              ON c.tenant_id = idx.tenant_id
+              AND c.client_id = idx.client_id
+            LEFT JOIN users author
+              ON author.tenant_id = idx.tenant_id
+              AND author.user_id = idx.author_user_id
+            ${filters.whereSql}
+              AND NULLIF(clause_chunk.chunk_text, '') IS NOT NULL
+              AND ${clauseKeywordMatchSql()}
+          )
+        SELECT matched.*
+        FROM matched
+        ORDER BY ${matchedOrderBySql(sortFor(input), true)}, start_offset ASC, clause_id
         LIMIT ${limitParam}
         OFFSET ${offsetParam}
       `,
@@ -215,6 +412,38 @@ export class SearchQueryBuilder {
               GROUP BY document_type
             ) document_type_counts
           ), '[]'::jsonb),
+          'emailSenderDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role = 'from'
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_sender_domain_counts
+          ), '[]'::jsonb),
+          'emailRecipientDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role IN ('to', 'cc')
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_recipient_domain_counts
+          ), '[]'::jsonb),
           'confidentialityLevels', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', confidentiality_level, 'count', row_count) ORDER BY row_count DESC, confidentiality_level)
             FROM (
@@ -231,6 +460,15 @@ export class SearchQueryBuilder {
               FROM filtered
               GROUP BY extraction_status
             ) extraction_status_counts
+          ), '[]'::jsonb),
+          'ocrConfidence', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', 'ocr_low_confidence', 'count', row_count))
+            FROM (
+              SELECT count(*)::int AS row_count
+              FROM filtered
+              WHERE ocr_low_confidence = true
+            ) ocr_confidence_counts
+            WHERE row_count > 0
           ), '[]'::jsonb),
           'legalHolds', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', legal_hold, 'count', row_count) ORDER BY row_count DESC, legal_hold)
@@ -298,7 +536,7 @@ export class SearchQueryBuilder {
     const cteSql = this.vectorCandidateCte(input, scope, queryVector, mode, params);
     const pageSize = input.pageSize;
     const offset = (input.page - 1) * pageSize;
-    params.push(pageSize);
+    params.push(boundedSearchTotalLimit);
     const limitParam = `$${params.length}`;
     params.push(offset);
     const offsetParam = `$${params.length}`;
@@ -308,10 +546,13 @@ export class SearchQueryBuilder {
         ${cteSql}
         SELECT best.document_id, best.version_id, best.matter_id, best.client_id,
           best.title, m.matter_name, m.matter_code, c.name AS client_name,
-          best.document_type, best.extraction_status, best.version_status, best.updated_at,
+          best.author_user_id, author.name AS author_name,
+          best.confidentiality_level, best.legal_hold, best.privilege_status,
+          best.ai_allowed, best.prev_version_id, best.next_version_id,
+          best.document_type, best.extraction_status, best.content_truncated,
+          best.version_status, best.updated_at,
           score::float8 AS score,
-          left(chunk_text, 200) AS raw_snippet,
-          count(*) OVER()::int AS total
+          left(chunk_text, 200) AS raw_snippet
         FROM best
         LEFT JOIN matters m
           ON m.tenant_id = best.tenant_id
@@ -319,6 +560,9 @@ export class SearchQueryBuilder {
         LEFT JOIN clients c
           ON c.tenant_id = best.tenant_id
           AND c.client_id = best.client_id
+        LEFT JOIN users author
+          ON author.tenant_id = best.tenant_id
+          AND author.user_id = best.author_user_id
         ORDER BY score DESC, updated_at DESC, version_id
         LIMIT ${limitParam}
         OFFSET ${offsetParam}
@@ -340,8 +584,9 @@ export class SearchQueryBuilder {
       sql: `
         ${cteSql},
         filtered AS (
-          SELECT tenant_id, client_id, matter_id, document_type, confidentiality_level,
-            extraction_status, legal_hold, privilege_status, records_status, version_status, updated_at
+          SELECT tenant_id, document_id, client_id, matter_id, document_type, confidentiality_level,
+            extraction_status, ocr_low_confidence, legal_hold, privilege_status, records_status,
+            version_status, updated_at
           FROM best
         )
         SELECT jsonb_build_object(
@@ -398,6 +643,38 @@ export class SearchQueryBuilder {
               GROUP BY document_type
             ) document_type_counts
           ), '[]'::jsonb),
+          'emailSenderDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role = 'from'
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_sender_domain_counts
+          ), '[]'::jsonb),
+          'emailRecipientDomains', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', domain_ref, 'count', row_count) ORDER BY row_count DESC, domain_ref)
+            FROM (
+              SELECT ep.domain_ref, count(DISTINCT filtered.document_id)::int AS row_count
+              FROM filtered
+              JOIN email_matter_filings emf
+                ON emf.tenant_id = filtered.tenant_id
+                AND emf.body_document_id = filtered.document_id
+              JOIN email_participants ep
+                ON ep.tenant_id = emf.tenant_id
+                AND ep.email_id = emf.email_id
+                AND ep.role IN ('to', 'cc')
+              WHERE ep.domain_ref IS NOT NULL
+              GROUP BY ep.domain_ref
+            ) email_recipient_domain_counts
+          ), '[]'::jsonb),
           'confidentialityLevels', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', confidentiality_level, 'count', row_count) ORDER BY row_count DESC, confidentiality_level)
             FROM (
@@ -414,6 +691,15 @@ export class SearchQueryBuilder {
               FROM filtered
               GROUP BY extraction_status
             ) extraction_status_counts
+          ), '[]'::jsonb),
+          'ocrConfidence', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('value', 'ocr_low_confidence', 'count', row_count))
+            FROM (
+              SELECT count(*)::int AS row_count
+              FROM filtered
+              WHERE ocr_low_confidence = true
+            ) ocr_confidence_counts
+            WHERE row_count > 0
           ), '[]'::jsonb),
           'legalHolds', COALESCE((
             SELECT jsonb_agg(jsonb_build_object('value', legal_hold, 'count', row_count) ORDER BY row_count DESC, legal_hold)
@@ -502,18 +788,55 @@ export class SearchQueryBuilder {
     whereSql: string,
     params: SearchSqlValue[],
   ): string {
+    if (input.query && isClauseTarget(input)) {
+      params.push(input.query);
+      const queryParam = `$${params.length}`;
+      return `
+        WITH tsq AS (
+          SELECT
+            websearch_to_tsquery('simple', ${queryParam}) AS query,
+            amic_korean_search_normalize(${queryParam}) AS normalized_query
+        ),
+        filtered AS (
+          SELECT idx.tenant_id, idx.document_id, idx.client_id, idx.matter_id, idx.document_type,
+            ${searchConfidentialityLevelSql} AS confidentiality_level,
+            ${searchExtractionStatusSql} AS extraction_status,
+            idx.ocr_low_confidence,
+            ${searchLegalHoldSql} AS legal_hold,
+            ${searchPrivilegeStatusSql} AS privilege_status,
+            ${searchRecordsStatusSql} AS records_status,
+            idx.version_status, idx.updated_at
+          FROM document_search_index idx
+          CROSS JOIN tsq
+          JOIN contract_clause_chunks clause_chunk
+            ON clause_chunk.tenant_id = idx.tenant_id
+            AND clause_chunk.version_id = idx.version_id
+            AND clause_chunk.stale = false
+          JOIN contract_clauses clause
+            ON clause.tenant_id = clause_chunk.tenant_id
+            AND clause.clause_id = clause_chunk.clause_id
+            AND clause.stale = false
+          ${whereSql}
+            AND NULLIF(clause_chunk.chunk_text, '') IS NOT NULL
+            AND ${clauseKeywordMatchSql()}
+        )
+      `;
+    }
+
     if (!input.query) {
       return `
         WITH filtered AS (
-          SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+          SELECT idx.tenant_id, idx.document_id, idx.client_id, idx.matter_id, idx.document_type,
             ${searchConfidentialityLevelSql} AS confidentiality_level,
             ${searchExtractionStatusSql} AS extraction_status,
+            idx.ocr_low_confidence,
             ${searchLegalHoldSql} AS legal_hold,
             ${searchPrivilegeStatusSql} AS privilege_status,
             ${searchRecordsStatusSql} AS records_status,
             idx.version_status, idx.updated_at
           FROM document_search_index idx
           ${whereSql}
+            ${emailTargetFilterSql(input)}
         )
       `;
     }
@@ -522,12 +845,15 @@ export class SearchQueryBuilder {
     const queryParam = `$${params.length}`;
     return `
       WITH tsq AS (
-        SELECT websearch_to_tsquery('simple', ${queryParam}) AS query
+        SELECT
+          websearch_to_tsquery('simple', ${queryParam}) AS query,
+          amic_korean_search_normalize(${queryParam}) AS normalized_query
       ),
       filtered AS (
-        SELECT idx.tenant_id, idx.client_id, idx.matter_id, idx.document_type,
+        SELECT idx.tenant_id, idx.document_id, idx.client_id, idx.matter_id, idx.document_type,
           ${searchConfidentialityLevelSql} AS confidentiality_level,
           ${searchExtractionStatusSql} AS extraction_status,
+          idx.ocr_low_confidence,
           ${searchLegalHoldSql} AS legal_hold,
           ${searchPrivilegeStatusSql} AS privilege_status,
           ${searchRecordsStatusSql} AS records_status,
@@ -535,7 +861,8 @@ export class SearchQueryBuilder {
         FROM document_search_index idx
         CROSS JOIN tsq
         ${whereSql}
-          AND ${keywordMatchSql(targetFor(input))}
+          ${emailTargetFilterSql(input)}
+          AND ${keywordFacetMatchSql(lexicalTargetFor(input))}
       )
     `;
   }
@@ -559,14 +886,16 @@ export class SearchQueryBuilder {
         ? (() => {
             outputParams.push(input.query ?? '');
             return `tsq AS (
-              SELECT websearch_to_tsquery('simple', $${outputParams.length}) AS query
+              SELECT
+                websearch_to_tsquery('simple', $${outputParams.length}) AS query,
+                amic_korean_search_normalize($${outputParams.length}) AS normalized_query
             ),`;
           })()
         : '';
     const joinTsqSql = mode === 'hybrid' ? 'CROSS JOIN tsq' : '';
-    const target = targetFor(input);
-    const matchSql = keywordMatchSql(target);
-    const lexicalScoreSql = keywordScoreSql(target);
+    const target = lexicalTargetFor(input);
+    const matchSql = chunkScopedKeywordMatchSql(target);
+    const lexicalScoreSql = chunkScopedKeywordScoreSql(target);
     const keywordScoreExpression =
       mode === 'hybrid'
         ? `
@@ -576,7 +905,7 @@ export class SearchQueryBuilder {
             ELSE 0::float8
           END
         `
-      : '0::float8';
+        : '0::float8';
     const semanticScoreSql = `(1 - (emb.embedding <=> ${vectorParam}::vector))`;
     const scoreSql =
       mode === 'hybrid'
@@ -587,9 +916,12 @@ export class SearchQueryBuilder {
       WITH ${tsqSql}
       candidates AS (
         SELECT idx.tenant_id, idx.document_id, idx.version_id, idx.matter_id, idx.client_id,
-          idx.title, idx.document_type,
+          idx.title, idx.author_user_id, idx.ai_allowed, idx.prev_version_id,
+          idx.next_version_id, idx.document_type,
           ${searchConfidentialityLevelSql} AS confidentiality_level,
           ${searchExtractionStatusSql} AS extraction_status,
+          idx.content_truncated,
+          idx.ocr_low_confidence,
           ${searchLegalHoldSql} AS legal_hold,
           ${searchPrivilegeStatusSql} AS privilege_status,
           ${searchRecordsStatusSql} AS records_status,
@@ -601,10 +933,6 @@ export class SearchQueryBuilder {
           ${scoreSql} AS score
         FROM document_search_index idx
         ${joinTsqSql}
-        JOIN documents ai_doc
-          ON ai_doc.tenant_id = idx.tenant_id
-          AND ai_doc.document_id = idx.document_id
-          AND ai_doc.ai_allowed = true
         JOIN document_chunks chunk
           ON chunk.tenant_id = idx.tenant_id
           AND chunk.version_id = idx.version_id
@@ -613,9 +941,10 @@ export class SearchQueryBuilder {
         JOIN document_chunk_embeddings emb
           ON emb.tenant_id = chunk.tenant_id
           AND emb.chunk_id = chunk.chunk_id
-          AND emb.model_route = 'local_gemma'
+          AND emb.model_route = '${searchEmbeddingModelRoute}'
           AND emb.stale = false
         ${filters.whereSql}
+          ${emailTargetFilterSql(input)}
       ),
       ranked AS (
         SELECT *,
@@ -627,7 +956,8 @@ export class SearchQueryBuilder {
       ),
       best AS (
         SELECT tenant_id, document_id, version_id, matter_id, client_id, title, document_type,
-          confidentiality_level, extraction_status, legal_hold, privilege_status,
+          author_user_id, ai_allowed, prev_version_id, next_version_id, confidentiality_level,
+          extraction_status, content_truncated, ocr_low_confidence, legal_hold, privilege_status,
           records_status, version_status, updated_at, chunk_id, parent_chunk_id, chunk_ordinal,
           token_count, chunk_text, text_hash, source_text_hash, score
         FROM ranked

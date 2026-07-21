@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   AuditMetadata,
   CreateSavedSearchDto,
+  EmailMatterSuggestionConfidenceBand,
   MatterSuggestionDto,
   MatterSuggestionListDto,
   MatterSuggestionQueryDto,
@@ -27,9 +28,21 @@ import {
 import type { SearchSqlFragment } from './query/search-filter.builder';
 import { SearchQueryBuilder } from './query/search-query.builder';
 import { SnippetBuilder } from './query/snippet-builder';
-import { deterministicEmbeddingVector, vectorToSqlLiteral } from './semantic/local-embedding';
+import {
+  createDefaultSearchEmbeddingGateway,
+  SEARCH_EMBEDDING_GATEWAY,
+  type SearchEmbeddingGateway,
+} from './index/search-index.repository';
+import { vectorToSqlLiteral } from './semantic/local-embedding';
+import {
+  LawAuthoritySearchRepository,
+  type LawAuthoritySearchRow,
+} from '../integrations/law-data/law-authority-search.repository';
 
 interface SearchDbRow {
+  clause_id?: string | null;
+  clause_kind?: string | null;
+  clause_number?: string | null;
   document_id: string;
   version_id: string;
   matter_id: string;
@@ -38,18 +51,31 @@ interface SearchDbRow {
   client_id: string;
   client_name: string | null;
   title: string;
+  author_user_id: string;
+  author_name: string | null;
+  confidentiality_level: string | null;
+  legal_hold: string | null;
+  privilege_status: string | null;
+  ai_allowed: boolean | null;
+  prev_version_id: string | null;
+  next_version_id: string | null;
   document_type: string;
   extraction_status: string | null;
+  content_truncated: boolean | null;
   version_status: string;
   updated_at: Date;
   score: number | string;
   raw_snippet: string | null;
-  total: number | string;
+  result_kind?: string | null;
+  total?: number | string;
 }
 
 interface SearchFacetDbRow {
   facets: unknown;
 }
+
+const boundedSearchTotalScanLimit = 101;
+const cappedSearchTotal = 1001;
 
 interface MatterSuggestionDbRow {
   matter_id: string;
@@ -58,6 +84,8 @@ interface MatterSuggestionDbRow {
   client_id: string;
   reason_codes: string[] | null;
   score: number | string;
+  confidence: number | string;
+  confidence_band: EmailMatterSuggestionConfidenceBand;
 }
 
 interface SavedSearchDbRow {
@@ -159,6 +187,9 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
     if (filters.extractionStatus) {
       refs.push(`extraction_status:${filters.extractionStatus}`);
     }
+    if (filters.ocrConfidence) {
+      refs.push(`ocr_confidence:${filters.ocrConfidence}`);
+    }
     if (filters.legalHold) {
       refs.push(`legal_hold:${filters.legalHold}`);
     }
@@ -214,7 +245,87 @@ function searchAuditMetadata(
     result_count: resultCount,
     duration_ms: durationMs,
     scope_type: searchMode(input),
+    search_mode: searchMode(input),
+    zero_result: resultCount === 0,
   };
+}
+
+const koreanParticleSuffixes = [
+  '에서',
+  '에게',
+  '으로',
+  '부터',
+  '까지',
+  '보다',
+  '은',
+  '는',
+  '이',
+  '가',
+  '을',
+  '를',
+  '의',
+  '과',
+  '와',
+  '도',
+  '만',
+  '에',
+  '로',
+  '께',
+] as const;
+
+const koreanVerbSuffixes = [
+  '하였다',
+  '합니다',
+  '한다',
+  '했다',
+  '된다',
+  '되는',
+  '하여',
+  '하고',
+  '하는',
+  '하다',
+  '된',
+  '한',
+  '할',
+] as const;
+
+function stripKoreanSearchSuffixes(input: string): string {
+  let value = input;
+  for (const suffix of [...koreanParticleSuffixes, ...koreanVerbSuffixes]) {
+    if (value.length > suffix.length + 1 && value.endsWith(suffix)) {
+      value = value.slice(0, -suffix.length);
+      break;
+    }
+  }
+  return value;
+}
+
+function fallbackHighlightNeedles(query: string): string[] {
+  const candidates = query
+    .toLowerCase()
+    .split(/[^0-9a-z가-힣]+/u)
+    .flatMap((token) => [token, stripKoreanSearchSuffixes(token)])
+    .filter((token) => token.length >= 2);
+  return [...new Set(candidates)].sort((left, right) => right.length - left.length);
+}
+
+function koreanFallbackHighlights(snippet: string, query: string): SearchHighlightDto[] {
+  const lowerSnippet = snippet.toLowerCase();
+  const highlights: SearchHighlightDto[] = [];
+  for (const needle of fallbackHighlightNeedles(query)) {
+    let fromIndex = 0;
+    while (fromIndex < lowerSnippet.length) {
+      const start = lowerSnippet.indexOf(needle, fromIndex);
+      if (start < 0) break;
+      const end = start + needle.length;
+      const overlaps = highlights.some(
+        (highlight) => start < highlight.end && end > highlight.start,
+      );
+      if (!overlaps) highlights.push({ start, end });
+      fromIndex = end;
+    }
+  }
+  return highlights.sort((left, right) => left.start - right.start).slice(0, 8);
 }
 
 function outlookSuggestionFilterRefs(
@@ -286,16 +397,30 @@ function boundedPreviewOffset(value: number, fallback: number): number {
 
 @Injectable()
 export class SearchService {
+  private readonly embeddingGateway: SearchEmbeddingGateway;
+
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(SearchQueryBuilder) private readonly queryBuilder: SearchQueryBuilder,
     @Inject(SnippetBuilder) private readonly snippetBuilder: SnippetBuilder,
     @Inject(SEARCH_PERMISSION_SCOPE_PROVIDER)
     private readonly scopeProvider: SearchPermissionScopeProvider,
-  ) {}
+    @Optional()
+    @Inject(SEARCH_EMBEDDING_GATEWAY)
+    embeddingGateway?: SearchEmbeddingGateway,
+    @Optional()
+    @Inject(LawAuthoritySearchRepository)
+    private readonly authoritySearch?: LawAuthoritySearchRepository,
+  ) {
+    this.embeddingGateway = embeddingGateway ?? createDefaultSearchEmbeddingGateway();
+  }
 
   async search(ctx: SearchRequestContext, input: SearchQueryDto): Promise<SearchResponseDto> {
     const startedAt = performance.now();
+    if (String(input.target ?? 'all') === 'authority') {
+      return this.searchAuthorities(ctx, input, startedAt);
+    }
+
     let scopeDecision: Awaited<ReturnType<SearchPermissionScopeProvider['scopeForSearch']>>;
     try {
       scopeDecision = await this.scopeProvider.scopeForSearch(ctx);
@@ -312,9 +437,20 @@ export class SearchService {
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       const mode = searchMode(input);
       const queryVector =
-        mode === 'keyword'
-          ? null
-          : vectorToSqlLiteral(deterministicEmbeddingVector(input.query ?? ''));
+        mode === 'keyword' ? null : await this.queryEmbeddingVectorLiteral(input.query ?? '');
+      if (mode !== 'keyword' && !queryVector) {
+        const response = emptySearchResponse();
+        await this.recordSearchAudit(
+          client,
+          ctx,
+          input,
+          'success',
+          response.total,
+          startedAt,
+          scopeDecision.appliedRules,
+        );
+        return response;
+      }
       const built =
         mode === 'keyword'
           ? this.queryBuilder.build(input, scopeDecision.scope)
@@ -327,7 +463,7 @@ export class SearchService {
       const facetResult = await client.query(facetQuery.sql, facetQuery.params);
       const rows = result.rows as SearchDbRow[];
       const facetRows = facetResult.rows as SearchFacetDbRow[];
-      const response = this.mapRows(rows, parseFacets(facetRows[0]?.facets));
+      const response = this.mapRows(rows, parseFacets(facetRows[0]?.facets), input);
       await this.recordSearchAudit(
         client,
         ctx,
@@ -339,6 +475,36 @@ export class SearchService {
       );
       return response;
     });
+  }
+
+  private async searchAuthorities(
+    ctx: SearchRequestContext,
+    input: SearchQueryDto,
+    startedAt: number,
+  ): Promise<SearchResponseDto> {
+    if (!this.authoritySearch) {
+      throw new Error('authority search repository is not configured');
+    }
+    return this.auditService.transaction(ctx.tenantId, async (client) => {
+      const authorityInput: Parameters<LawAuthoritySearchRepository['search']>[1] = {
+        page: input.page,
+        pageSize: input.pageSize,
+        query: input.query,
+        ...(input.sortBy ? { sortBy: input.sortBy } : {}),
+      };
+      const rows = await this.authoritySearch!.search(client, authorityInput);
+      const response = this.mapAuthorityRows(rows, input.query);
+      await this.recordSearchAudit(client, ctx, input, 'success', response.total, startedAt, [
+        'authority_public_cache',
+      ]);
+      return response;
+    });
+  }
+
+  private async queryEmbeddingVectorLiteral(query: string): Promise<string | null> {
+    const embeddingResult = await this.embeddingGateway.embedText({ text: query });
+    if (embeddingResult.status !== 'completed' || !embeddingResult.embedding) return null;
+    return vectorToSqlLiteral(embeddingResult.embedding);
   }
 
   async suggestMatters(
@@ -422,7 +588,7 @@ export class SearchService {
     const queryHash = sha256Hex(input.query.query ?? '');
     const refs = filterRefs(input.query);
     const scope = input.scope ?? 'personal';
-    const matterId = scope === 'matter-team' ? input.matterId ?? null : null;
+    const matterId = scope === 'matter-team' ? (input.matterId ?? null) : null;
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       await this.assertCanSaveSavedSearch(client, ctx, scope, matterId);
       const result = await client.query(
@@ -753,6 +919,7 @@ export class SearchService {
     const currentParam = pushParam(params, 'current');
     const subjectParam = pushParam(params, input.subjectHash ?? null);
     const participantDomainHashesParam = pushParam(params, input.participantDomainHashes);
+    const conversationHashParam = pushParam(params, input.conversationIdHash ?? null);
     const limitParam = pushParam(params, input.limit);
     const subjectHashSql = (expression: string) => `
       nullif(lower(trim(${expression})), '') IS NOT NULL
@@ -795,7 +962,20 @@ export class SearchService {
                 (${domainHashSql("m.metadata_json->>'domain'")})
                 OR (${domainHashSql("c.metadata_json->>'domain'")})
               )
-            ) AS participant_domain_hash_match
+            ) AS participant_domain_hash_match,
+            (
+              ${conversationHashParam}::text IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                FROM email_matter_filings emf
+                JOIN email_messages em
+                  ON em.tenant_id = emf.tenant_id
+                 AND em.email_id = emf.email_id
+                WHERE emf.tenant_id = m.tenant_id
+                  AND emf.matter_id = m.matter_id
+                  AND em.conversation_id_hash = ${conversationHashParam}::text
+              )
+            ) AS conversation_hash_match
           FROM authorized_idx
           JOIN matters m
             ON m.tenant_id = authorized_idx.tenant_id
@@ -811,26 +991,63 @@ export class SearchService {
           client_id,
           array_remove(ARRAY[
             CASE WHEN subject_hash_match THEN 'subject_hash' END,
-            CASE WHEN participant_domain_hash_match THEN 'participant_domain_hash' END
+            CASE WHEN participant_domain_hash_match THEN 'participant_domain_hash' END,
+            CASE WHEN conversation_hash_match THEN 'conversation_hash' END
           ], NULL) AS reason_codes,
-          ((CASE WHEN subject_hash_match THEN 70 ELSE 0 END)
-            + (CASE WHEN participant_domain_hash_match THEN 30 ELSE 0 END))::int AS score
+          ((CASE WHEN conversation_hash_match THEN 95 ELSE 0 END)
+            + (CASE WHEN subject_hash_match THEN 70 ELSE 0 END)
+            + (CASE WHEN participant_domain_hash_match THEN 30 ELSE 0 END))::int AS score,
+          CASE
+            WHEN conversation_hash_match THEN 97
+            WHEN subject_hash_match AND participant_domain_hash_match THEN 83
+            WHEN participant_domain_hash_match THEN 58
+            WHEN subject_hash_match THEN 50
+            ELSE 0
+          END::int AS confidence,
+          CASE
+            WHEN conversation_hash_match THEN 'auto_file'
+            WHEN subject_hash_match AND participant_domain_hash_match THEN 'confirm'
+            WHEN participant_domain_hash_match OR subject_hash_match THEN 'candidate'
+            ELSE 'manual'
+          END::text AS confidence_band
         FROM candidates
-        WHERE subject_hash_match OR participant_domain_hash_match
-        ORDER BY score DESC, latest_indexed_at DESC, matter_code ASC, matter_id ASC
+        WHERE subject_hash_match OR participant_domain_hash_match OR conversation_hash_match
+        ORDER BY conversation_hash_match DESC, score DESC, latest_indexed_at DESC, matter_code ASC, matter_id ASC
         LIMIT ${limitParam}
       `,
       params,
     };
   }
 
-  private mapRows(rows: SearchDbRow[], facets: SearchFacetsDto): SearchResponseDto {
-    const total = Number(rows[0]?.total ?? 0);
+  private mapRows(
+    rows: SearchDbRow[],
+    facets: SearchFacetsDto,
+    input: SearchQueryDto,
+  ): SearchResponseDto {
+    const pageSize = input.pageSize;
+    const visibleRows = rows.slice(0, pageSize);
+    const offset = (input.page - 1) * pageSize;
+    const total =
+      rows.length >= boundedSearchTotalScanLimit ? cappedSearchTotal : offset + rows.length;
     return {
       facets,
       total,
-      results: rows.map((row): SearchResultDto => {
+      results: visibleRows.map((row): SearchResultDto => {
+        const clauseId = row.clause_id;
+        const clauseFields =
+          row.result_kind === 'clause' && clauseId
+            ? {
+                clauseId,
+                clauseKind: row.clause_kind ?? null,
+                clauseNumber: row.clause_number ?? null,
+                resultKind: 'clause' as const,
+              }
+            : { resultKind: 'document' as const };
         const parsed = this.snippetBuilder.parseHeadline(row.raw_snippet);
+        const highlights =
+          parsed.highlights.length > 0 || !input.query
+            ? parsed.highlights
+            : koreanFallbackHighlights(parsed.snippet, input.query);
         return {
           documentId: row.document_id,
           versionId: row.version_id,
@@ -843,13 +1060,73 @@ export class SearchService {
           displayName: row.title,
           safeLabel: buildSafeLabel(row.title, row.matter_code, row.matter_name),
           canViewSensitiveRef: false,
+          ...clauseFields,
+          author: row.author_user_id
+            ? { userId: row.author_user_id, displayName: row.author_name ?? null }
+            : null,
+          permissionBadges: {
+            confidentiality: parseConfidentialityLevel(row.confidentiality_level),
+            legalHold: parseLegalHold(row.legal_hold),
+            privilege: parsePrivilegeStatus(row.privilege_status),
+          },
+          aiAllowed: row.ai_allowed === true,
+          contentTruncated: row.content_truncated === true,
+          prevVersionId: row.prev_version_id,
+          nextVersionId: row.next_version_id,
           snippet: parsed.snippet,
-          highlights: previewAnchorsForHighlights(parsed.highlights),
+          highlights: previewAnchorsForHighlights(highlights),
           documentType: row.document_type,
           extractionStatus: parseExtractionStatus(row.extraction_status),
           versionStatus: row.version_status,
           score: Number(row.score),
           updatedAt: row.updated_at.toISOString(),
+        };
+      }),
+    };
+  }
+
+  private mapAuthorityRows(
+    rows: LawAuthoritySearchRow[],
+    query: string | undefined,
+  ): SearchResponseDto {
+    const total = Number(rows[0]?.total ?? 0);
+    return {
+      facets: emptyFacets,
+      total,
+      results: rows.map((row): SearchResultDto => {
+        const parsed = this.snippetBuilder.parseHeadline(row.raw_snippet);
+        const highlights =
+          parsed.highlights.length > 0 || !query
+            ? parsed.highlights
+            : koreanFallbackHighlights(parsed.snippet, query);
+        return {
+          aiAllowed: false,
+          author: null,
+          authorityId: row.authority_id,
+          citation: row.citation,
+          clientDisplayName: null,
+          contentTruncated: false,
+          documentType: 'authority',
+          externalRef: row.external_ref,
+          highlights,
+          matterDisplayCode: null,
+          matterDisplayName: null,
+          nextVersionId: null,
+          permissionBadges: {
+            confidentiality: 'standard',
+            legalHold: 'no_hold',
+            privilege: 'none',
+          },
+          prevVersionId: null,
+          resultKind: 'authority',
+          safeLabel: row.title,
+          score: Number(row.score),
+          snippet: parsed.snippet || row.citation,
+          sourceType: row.source_type,
+          sourceUrl: row.source_url,
+          title: row.title,
+          updatedAt: row.updated_at.toISOString(),
+          versionStatus: 'public',
         };
       }),
     };
@@ -886,6 +1163,8 @@ function mapMatterSuggestionRow(row: MatterSuggestionDbRow): MatterSuggestionDto
     clientId: row.client_id,
     reasonCodes: parseMatterSuggestionReasonCodes(row.reason_codes),
     score: Number(row.score),
+    confidence: Number(row.confidence),
+    confidenceBand: row.confidence_band,
   };
 }
 
@@ -908,7 +1187,13 @@ function parseMatterSuggestionReasonCodes(
 ): MatterSuggestionDto['reasonCodes'] {
   if (!Array.isArray(input)) return [];
   return input.flatMap((value) => {
-    if (value === 'subject_hash' || value === 'participant_domain_hash') return [value];
+    if (
+      value === 'subject_hash' ||
+      value === 'participant_domain_hash' ||
+      value === 'conversation_hash'
+    ) {
+      return [value];
+    }
     return [];
   });
 }
@@ -919,12 +1204,19 @@ const emptyFacets: SearchFacetsDto = {
   matters: [],
   documentTypes: [],
   extractionStatuses: [],
+  emailRecipientDomains: [],
+  emailSenderDomains: [],
+  ocrConfidence: [],
   legalHolds: [],
   privilegeStatuses: [],
   recordsStatuses: [],
   versionStatuses: [],
   dateRanges: [],
 };
+
+function emptySearchResponse(): SearchResponseDto {
+  return { facets: emptyFacets, results: [], total: 0 };
+}
 
 function parseFacets(input: unknown): SearchFacetsDto {
   if (!isRecord(input)) return emptyFacets;
@@ -934,6 +1226,9 @@ function parseFacets(input: unknown): SearchFacetsDto {
     matters: parseBuckets(input.matters),
     documentTypes: parseBuckets(input.documentTypes),
     extractionStatuses: parseBuckets(input.extractionStatuses),
+    emailRecipientDomains: parseBuckets(input.emailRecipientDomains),
+    emailSenderDomains: parseBuckets(input.emailSenderDomains),
+    ocrConfidence: parseBuckets(input.ocrConfidence),
     legalHolds: parseBuckets(input.legalHolds),
     privilegeStatuses: parseBuckets(input.privilegeStatuses),
     recordsStatuses: parseBuckets(input.recordsStatuses),
@@ -984,4 +1279,25 @@ function parseExtractionStatus(
     return value;
   }
   return null;
+}
+
+function parseConfidentialityLevel(
+  value: string | null,
+): SearchResultDto['permissionBadges']['confidentiality'] {
+  if (value === 'high' || value === 'restricted') return value;
+  return 'standard';
+}
+
+function parseLegalHold(value: string | null): SearchResultDto['permissionBadges']['legalHold'] {
+  if (value === 'document_hold' || value === 'matter_hold') return value;
+  return 'no_hold';
+}
+
+function parsePrivilegeStatus(
+  value: string | null,
+): SearchResultDto['permissionBadges']['privilege'] {
+  if (value === 'privileged' || value === 'work_product' || value === 'joint_privilege') {
+    return value;
+  }
+  return 'none';
 }

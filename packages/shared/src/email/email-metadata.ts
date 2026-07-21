@@ -91,7 +91,7 @@ function parseParticipants(
       participants.push({
         role,
         ...normalized,
-        isOutside: tenantDomains.size > 0 && !tenantDomains.has(normalized.domainRef),
+        isOutside: !tenantDomains.has(normalized.domainRef),
       });
     }
   }

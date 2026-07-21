@@ -28,6 +28,7 @@ const document: DocumentDto = {
   matterDisplayName: 'Governance',
   matterId: '11111111-1111-4111-8111-111111111104',
   privilegeStatus: 'privileged',
+  source: 'internal_work_product',
   status: 'internal_review',
   subtype: null,
   tenantId: '11111111-1111-4111-8111-111111111105',
@@ -47,15 +48,21 @@ const prepStatus: AiPrepDocumentStatusDto = {
 };
 
 const matter: MatterDto = {
+  accessScope: 'restricted',
   clientId: '11111111-1111-4111-8111-111111111106',
+  confidentialityLevel: 'restricted',
+  conflictsStatus: 'cleared',
   createdAt: '2026-06-17T00:00:00.000Z',
   createdBy: '11111111-1111-4111-8111-111111111107',
   displayCode: 'AMIC-2026-001',
   displayName: 'Governance',
+  ethicalWallActive: false,
   legalHold: true,
+  leadAssociateId: null,
   leadLawyerDisplayEmail: 'lead@amic.kr',
   leadLawyerDisplayName: 'Lead Lawyer',
   leadLawyerId: '11111111-1111-4111-8111-111111111108',
+  leadPartnerId: '11111111-1111-4111-8111-111111111108',
   matterCode: 'AMIC-2026-001',
   matterId: document.matterId,
   matterName: 'Governance',
@@ -79,14 +86,17 @@ const readiness: AiPrepMatterReadinessDto = {
   fallbackArtifactCount: 0,
   matterId: matter.matterId,
   notReadyDocumentCount: 0,
+  openQuestions: [],
   partialDocumentCount: 0,
   pendingDocumentCount: 1,
   pendingJobCount: 1,
   readyDocumentCount: 0,
+  recommendedActions: [],
   rejectedArtifactCount: 0,
   rejectedDocumentCount: 0,
   staleArtifactCount: 0,
   staleDocumentCount: 0,
+  timeline: [],
 };
 
 describe('governance context panels', () => {
@@ -99,7 +109,7 @@ describe('governance context panels', () => {
     );
 
     expect(html).toContain('정책 관리 상태');
-    expect(html).toContain('Legal Hold');
+    expect(html).toContain('보존 조치');
     expect(html).toContain('본문 추출 대기');
     expect(html).toContain('파일 정리 준비');
     expect(html).not.toContain('legal analysis');
@@ -118,6 +128,8 @@ describe('governance context panels', () => {
 
     expect(html).toContain('Matter 관리 상태');
     expect(html).toContain('AMIC-2026-001');
+    expect(html).toContain('접근 범위');
+    expect(html).toContain('제한 Matter');
     expect(html).toContain('파일 정리 준비 실패 확인');
     expect(html).toContain('추가로 확인할 작업이 없습니다.');
     expect(html).not.toContain('가짜 작업');

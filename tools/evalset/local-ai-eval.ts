@@ -14,36 +14,109 @@ const maxTechnicalRejectedRate = 0.05;
 const maxTechnicalPendingAgeSeconds = 900;
 const minTechnicalEvaluationCaseCount = 100;
 const minTechnicalGeneratedOutputCount = 5;
+const minGoldenEvaluationCaseCount = 30;
+const minClaimRecall = 0.7;
+const minCitationDocumentJaccard = 0.6;
 const aiPrepArtifactKinds = [
   'document_profile',
   'key_fields',
   'date_facts',
+  'matter_timeline',
   'people_organizations',
   'keyword_tags',
   'filing_suggestions',
   'source_outline',
   'retrieval_hints',
+  'fact_candidates',
+  'issue_candidates',
+  'risk_candidates',
+  'graph_candidate_edges',
+  'minutes_qc',
 ] as const;
 type AiPrepArtifactKind = (typeof aiPrepArtifactKinds)[number];
 const minCompletedByArtifactKind: Record<AiPrepArtifactKind, number> = {
   document_profile: 20,
   key_fields: 0,
   date_facts: 0,
+  matter_timeline: 0,
   people_organizations: 0,
   keyword_tags: 0,
   filing_suggestions: 0,
   source_outline: 0,
   retrieval_hints: 0,
+  fact_candidates: 0,
+  issue_candidates: 0,
+  risk_candidates: 0,
+  graph_candidate_edges: 0,
+  minutes_qc: 0,
 };
 
 export interface LocalAiEvalInput {
   tenantId: string;
   databaseUrl?: string | undefined;
+  matterId?: string | undefined;
+  evaluateSummary?: SummaryEvaluator | undefined;
 }
 
 interface EvaluationCaseRow {
   total_count: string;
   deidentified_count: string;
+}
+
+interface GoldenLabelRow {
+  expected_answer_facts: unknown;
+  expected_citation_document_ids: string[] | null;
+}
+
+interface GoldenEvaluationCaseRow extends GoldenLabelRow {
+  case_no: string;
+  query_text: string;
+}
+
+interface QueryableClient {
+  query<T = unknown>(
+    sql: string,
+    params?: readonly unknown[],
+  ): Promise<{ rows: T[]; rowCount: number | null }>;
+}
+
+export interface GoldenSetCaseInput {
+  expectedAnswerFacts: readonly string[];
+  actualAnswerFacts: readonly string[];
+  expectedCitationDocumentIds: readonly string[];
+  actualCitationDocumentIds: readonly string[];
+}
+
+export interface GoldenEvaluationCase {
+  caseNo: string;
+  queryText: string;
+  expectedAnswerFacts: readonly string[];
+  expectedCitationDocumentIds: readonly string[];
+}
+
+export interface SummaryEvaluationInput {
+  tenantId: string;
+  matterId: string;
+  caseNo: string;
+  queryText: string;
+}
+
+export interface SummaryEvaluationOutput {
+  claimTexts: readonly string[];
+  citationDocumentIds: readonly string[];
+}
+
+export type SummaryEvaluator = (input: SummaryEvaluationInput) => Promise<SummaryEvaluationOutput>;
+
+export interface GoldenSetMetrics {
+  caseCount: number;
+  expectedFactCount: number;
+  matchedExpectedFactCount: number;
+  actualFactCount: number;
+  matchedActualFactCount: number;
+  claimRecall: number;
+  claimPrecision: number;
+  citationDocumentJaccard: number;
 }
 
 interface ArtifactEvalRow {
@@ -71,6 +144,102 @@ interface ArtifactKindEvalRow {
   p95_latency_ms: string | null;
 }
 
+function normalizeGoldenFact(value: string): string {
+  return value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+function uniqueNormalized(values: readonly string[], normalize: (value: string) => string): string[] {
+  return [...new Set(values.map(normalize).filter((value) => value.length > 0))];
+}
+
+function jaccard(expected: readonly string[], actual: readonly string[]): number {
+  const expectedSet = new Set(expected);
+  const actualSet = new Set(actual);
+  const union = new Set([...expectedSet, ...actualSet]);
+  if (union.size === 0) return 1;
+  let intersection = 0;
+  for (const value of expectedSet) {
+    if (actualSet.has(value)) intersection += 1;
+  }
+  return intersection / union.size;
+}
+
+export function computeGoldenSetMetrics(cases: readonly GoldenSetCaseInput[]): GoldenSetMetrics {
+  let expectedFactCount = 0;
+  let matchedExpectedFactCount = 0;
+  let actualFactCount = 0;
+  let matchedActualFactCount = 0;
+  let citationJaccardTotal = 0;
+
+  for (const item of cases) {
+    const expectedFacts = uniqueNormalized(item.expectedAnswerFacts, normalizeGoldenFact);
+    const actualFacts = uniqueNormalized(item.actualAnswerFacts, normalizeGoldenFact);
+    const expectedFactSet = new Set(expectedFacts);
+    const actualFactSet = new Set(actualFacts);
+    expectedFactCount += expectedFacts.length;
+    actualFactCount += actualFacts.length;
+    matchedExpectedFactCount += expectedFacts.filter((fact) => actualFactSet.has(fact)).length;
+    matchedActualFactCount += actualFacts.filter((fact) => expectedFactSet.has(fact)).length;
+
+    const expectedCitationIds = uniqueNormalized(item.expectedCitationDocumentIds, (value) =>
+      value.trim().toLowerCase(),
+    );
+    const actualCitationIds = uniqueNormalized(item.actualCitationDocumentIds, (value) =>
+      value.trim().toLowerCase(),
+    );
+    citationJaccardTotal += jaccard(expectedCitationIds, actualCitationIds);
+  }
+
+  return {
+    caseCount: cases.length,
+    expectedFactCount,
+    matchedExpectedFactCount,
+    actualFactCount,
+    matchedActualFactCount,
+    claimRecall: expectedFactCount === 0 ? (cases.length === 0 ? 0 : 1) : matchedExpectedFactCount / expectedFactCount,
+    claimPrecision: actualFactCount === 0 ? (expectedFactCount === 0 ? 1 : 0) : matchedActualFactCount / actualFactCount,
+    citationDocumentJaccard: cases.length === 0 ? 0 : citationJaccardTotal / cases.length,
+  };
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+}
+
+function rowToGoldenEvaluationCase(row: GoldenEvaluationCaseRow): GoldenEvaluationCase {
+  return {
+    caseNo: row.case_no,
+    queryText: row.query_text,
+    expectedAnswerFacts: stringArray(row.expected_answer_facts),
+    expectedCitationDocumentIds: row.expected_citation_document_ids ?? [],
+  };
+}
+
+export async function collectLiveGoldenSetMetrics(input: {
+  client: QueryableClient;
+  tenantId: string;
+  matterId: string;
+  evaluateSummary: SummaryEvaluator;
+}): Promise<GoldenSetMetrics> {
+  const cases = await collectGoldenEvaluationCases(input.client, input.tenantId);
+  const results: GoldenSetCaseInput[] = [];
+  for (const item of cases) {
+    const output = await input.evaluateSummary({
+      tenantId: input.tenantId,
+      matterId: input.matterId,
+      caseNo: item.caseNo,
+      queryText: item.queryText,
+    });
+    results.push({
+      expectedAnswerFacts: item.expectedAnswerFacts,
+      actualAnswerFacts: output.claimTexts,
+      expectedCitationDocumentIds: item.expectedCitationDocumentIds,
+      actualCitationDocumentIds: output.citationDocumentIds,
+    });
+  }
+  return computeGoldenSetMetrics(results);
+}
+
 export function computeLocalAiEvalReport(input: {
   tenantId: string;
   caseCount: number;
@@ -89,6 +258,7 @@ export function computeLocalAiEvalReport(input: {
   pendingPrepCount?: number | undefined;
   maxPendingAgeSeconds?: number | null | undefined;
   artifactKindMetrics?: readonly LocalAiEvalArtifactKindMetricDto[] | undefined;
+  goldenSetMetrics?: GoldenSetMetrics | undefined;
 }): LocalAiEvalReportDto {
   const citationAccuracy =
     input.totalSourceRefs === 0 ? 1 : input.matchedSourceRefs / input.totalSourceRefs;
@@ -110,6 +280,12 @@ export function computeLocalAiEvalReport(input: {
   const pendingPrepCount = input.pendingPrepCount ?? 0;
   const maxPendingAgeSeconds = input.maxPendingAgeSeconds ?? null;
   const artifactKindMetrics = [...(input.artifactKindMetrics ?? [])];
+  const goldenSetMetrics = input.goldenSetMetrics ?? computeGoldenSetMetrics([]);
+  const goldenCaseCount = input.goldenSetMetrics ? goldenSetMetrics.caseCount : 0;
+  const goldenSetPass =
+    goldenCaseCount >= minGoldenEvaluationCaseCount &&
+    goldenSetMetrics.claimRecall >= minClaimRecall &&
+    goldenSetMetrics.citationDocumentJaccard >= minCitationDocumentJaccard;
   const warnings: string[] = [];
   if (input.caseCount === 0) warnings.push('No evaluation_cases loaded for tenant.');
   if (input.caseCount < minTechnicalEvaluationCaseCount) {
@@ -143,6 +319,15 @@ export function computeLocalAiEvalReport(input: {
   if (artifactKindMetrics.some((metric) => !metric.technicalPass)) {
     warnings.push('Per-artifact local AI prep threshold failed.');
   }
+  if (goldenCaseCount < minGoldenEvaluationCaseCount) {
+    warnings.push('Golden-labeled eval corpus is below the 30-case manual gate.');
+  }
+  if (goldenSetMetrics.claimRecall < minClaimRecall) {
+    warnings.push('Golden-set claim recall is below the evaluation threshold.');
+  }
+  if (goldenSetMetrics.citationDocumentJaccard < minCitationDocumentJaccard) {
+    warnings.push('Golden-set citation document match is below the evaluation threshold.');
+  }
   if (!koreanLegalLanguagePass) warnings.push('Korean legal language heuristic failed.');
 
   return localAiEvalReportSchema.parse({
@@ -156,6 +341,11 @@ export function computeLocalAiEvalReport(input: {
     permissionLeakageCount: input.leakageCount,
     prepSchemaViolationCount: input.prepSchemaViolationCount,
     citationAccuracy,
+    goldenCaseCount,
+    claimRecall: goldenSetMetrics.claimRecall,
+    claimPrecision: goldenSetMetrics.claimPrecision,
+    citationDocumentJaccard: goldenSetMetrics.citationDocumentJaccard,
+    goldenSetPass,
     unsupportedClaimRate,
     fallbackRate,
     rejectedRate,
@@ -180,7 +370,8 @@ export function computeLocalAiEvalReport(input: {
       (maxPendingAgeSeconds === null ||
         pendingPrepCount === 0 ||
         maxPendingAgeSeconds <= maxTechnicalPendingAgeSeconds) &&
-      artifactKindMetrics.every((metric) => metric.technicalPass),
+      artifactKindMetrics.every((metric) => metric.technicalPass) &&
+      goldenSetPass,
     warnings,
   });
 }
@@ -192,6 +383,15 @@ export async function collectLocalAiEval(input: LocalAiEvalInput): Promise<Local
     const cases = await countEvaluationCases(client, input.tenantId);
     const artifacts = await collectArtifactEval(client, input.tenantId);
     const artifactKindMetrics = await collectArtifactKindMetrics(client, input.tenantId);
+    const goldenSetMetrics =
+      input.evaluateSummary && input.matterId
+        ? await collectLiveGoldenSetMetrics({
+            client,
+            tenantId: input.tenantId,
+            matterId: input.matterId,
+            evaluateSummary: input.evaluateSummary,
+          })
+        : await collectGoldenLabelMetrics(client, input.tenantId);
     return computeLocalAiEvalReport({
       tenantId: input.tenantId,
       caseCount: Number(cases.total_count),
@@ -214,6 +414,7 @@ export async function collectLocalAiEval(input: LocalAiEvalInput): Promise<Local
           ? null
           : Math.round(Number(artifacts.max_pending_age_seconds)),
       artifactKindMetrics,
+      goldenSetMetrics,
     });
   } finally {
     await client.end();
@@ -234,6 +435,38 @@ async function countEvaluationCases(
     [tenantId],
   );
   return result.rows[0] ?? { total_count: '0', deidentified_count: '0' };
+}
+
+async function collectGoldenEvaluationCases(
+  client: QueryableClient,
+  tenantId: string,
+): Promise<GoldenEvaluationCase[]> {
+  const result = await client.query<GoldenEvaluationCaseRow>(
+    `
+      SELECT case_no, query_text, expected_answer_facts, expected_citation_document_ids
+      FROM evaluation_cases
+      WHERE tenant_id = $1
+        AND (
+          jsonb_array_length(expected_answer_facts) > 0
+          OR coalesce(array_length(expected_citation_document_ids, 1), 0) > 0
+        )
+      ORDER BY case_no ASC
+    `,
+    [tenantId],
+  );
+  return result.rows.map(rowToGoldenEvaluationCase);
+}
+
+async function collectGoldenLabelMetrics(client: QueryableClient, tenantId: string): Promise<GoldenSetMetrics> {
+  const cases = await collectGoldenEvaluationCases(client, tenantId);
+  return computeGoldenSetMetrics(
+    cases.map((item) => ({
+      expectedAnswerFacts: item.expectedAnswerFacts,
+      actualAnswerFacts: [],
+      expectedCitationDocumentIds: item.expectedCitationDocumentIds,
+      actualCitationDocumentIds: [],
+    })),
+  );
 }
 
 async function collectArtifactEval(client: Client, tenantId: string): Promise<ArtifactEvalRow> {

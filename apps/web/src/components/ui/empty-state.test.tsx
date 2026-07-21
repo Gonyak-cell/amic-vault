@@ -31,7 +31,7 @@ describe('EmptyState', () => {
         aria-labelledby="custom-empty-title"
         aria-describedby="custom-empty-description"
         title="연결된 통합이 없습니다."
-        description="상태 API가 준비되면 운영 데이터만 표시됩니다."
+        description="상태 확인이 준비되면 운영 데이터만 표시됩니다."
       />,
     );
 
@@ -39,6 +39,6 @@ describe('EmptyState', () => {
     expect(html).toContain('aria-live="off"');
     expect(html).toContain('aria-labelledby="custom-empty-title"');
     expect(html).toContain('aria-describedby="custom-empty-description"');
-    expect(html).toContain('상태 API가 준비되면 운영 데이터만 표시됩니다.');
+    expect(html).toContain('상태 확인이 준비되면 운영 데이터만 표시됩니다.');
   });
 });

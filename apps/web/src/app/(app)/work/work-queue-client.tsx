@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Activity, Bell, Bot, FileSearch, PlugZap } from 'lucide-react';
+import { Activity, Bell, Bot, Check, FileSearch, PlugZap, Users, X } from 'lucide-react';
 import {
   dashboardActionItems,
   DashboardWorkQueueSection,
@@ -25,26 +25,73 @@ import {
   createWorkItemsUnavailableState,
   getWorkQueue,
   operationalApiErrorState,
+  reassignWorkItem as requestWorkItemReassignment,
+  reviewGraphFactNode,
+  reviewKnowledgeCandidate,
+  reviewMatterWikiPage,
   workQueueToState,
   type DmsWorkQueueItem,
 } from '@/lib/api/work-ops';
+import type {
+  DmsWorkQueueAssigneeFilter,
+  GraphNodeReviewAction,
+  KnowledgeCandidateReviewAction,
+  MatterWikiReviewAction,
+} from '@amic-vault/shared';
 import type { DataState } from '@/lib/data-state';
 
 type WorkSourceFilter = 'all' | DmsWorkQueueItem['source'];
+type WorkKindFilter = 'all' | NonNullable<DmsWorkQueueItem['kind']>;
 type WorkToneFilter = 'all' | DmsWorkQueueItem['tone'];
 type WorkSortMode = 'attention' | 'updated_desc' | 'source';
+type WorkQueuePage = { limit: number; offset: number; total: number; hasNext: boolean };
+type ReassignHandler = (itemKey: string, assignedToUserId: string) => Promise<void>;
+type GraphFactReviewHandler = (nodeId: string, action: GraphNodeReviewAction) => Promise<void>;
+type KnowledgeCandidateReviewHandler = (
+  candidateId: string,
+  action: KnowledgeCandidateReviewAction,
+) => Promise<void>;
+type MatterWikiReviewHandler = (pageId: string, action: MatterWikiReviewAction) => Promise<void>;
+
+const workPageSize = 20;
 
 const selectClassName =
   'flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
 
 const sourceFilterLabels = {
-  all: '전체 출처',
+  all: '전체 구분',
   permission_policy: '권한/정책',
   ai_prep: '파일 정리 준비',
-  integration: '통합',
+  integration: '연동',
   operational_data: '운영 데이터',
   records: '기록 보존',
 } as const satisfies Record<WorkSourceFilter, string>;
+
+const kindFilterLabels = {
+  all: '전체 종류',
+  records_disposal_approval: '삭제 승인',
+  records_disposal_execution: '삭제 실행',
+  document_extraction_failed: '추출 실패',
+  document_ocr_pending: 'OCR 대기',
+  document_metadata_required: '문서 정보 보완',
+  duplicate_decision_pending: '중복 결정',
+  upload_exception: '업로드 예외',
+  contract_review_stage: '계약 검토',
+  dd_rfi_due: 'DD RFI',
+  dd_mapping_review: 'DD 매핑',
+  external_qa_approval: '외부 Q&A',
+  litigation_deadline: '송무 기한',
+  knowledge_candidate_review: '지식은행 후보',
+  wiki_page_review: '위키 페이지',
+  ai_candidate_review: 'AI 후보 검토',
+  graph_fact_review: 'AI Fact 검토',
+} as const satisfies Record<WorkKindFilter, string>;
+
+const assigneeFilterLabels = {
+  all: '전체 담당',
+  mine: '내 담당',
+  unassigned: '미배정',
+} as const satisfies Record<DmsWorkQueueAssigneeFilter, string>;
 
 const toneFilterLabels = {
   all: '전체 상태',
@@ -57,10 +104,12 @@ const toneFilterLabels = {
 const sortModeLabels = {
   attention: '주의 항목 우선',
   updated_desc: '최근 업데이트',
-  source: '출처별',
+  source: '업무 구분별',
 } as const satisfies Record<WorkSortMode, string>;
 
 const sourceFilterOptions = Object.keys(sourceFilterLabels) as WorkSourceFilter[];
+const kindFilterOptions = Object.keys(kindFilterLabels) as WorkKindFilter[];
+const assigneeFilterOptions = Object.keys(assigneeFilterLabels) as DmsWorkQueueAssigneeFilter[];
 const toneFilterOptions = Object.keys(toneFilterLabels) as WorkToneFilter[];
 const sortModeOptions = Object.keys(sortModeLabels) as WorkSortMode[];
 
@@ -71,6 +120,15 @@ export function WorkQueueClient() {
   const [workItemsState, setWorkItemsState] = useState<DataState<DmsWorkQueueItem[]>>(() =>
     createWorkItemsUnavailableState(),
   );
+  const [workPage, setWorkPage] = useState<WorkQueuePage>(() => ({
+    limit: workPageSize,
+    offset: 0,
+    total: 0,
+    hasNext: false,
+  }));
+  const [kindFilter, setKindFilter] = useState<WorkKindFilter>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<DmsWorkQueueAssigneeFilter>('all');
+  const [pageOffset, setPageOffset] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -86,11 +144,43 @@ export function WorkQueueClient() {
     };
   }, []);
 
+  const loadWorkQueue = useCallback(async () => {
+    const response = await getWorkQueue({
+      ...(kindFilter === 'all' ? {} : { kind: kindFilter }),
+      assignee: assigneeFilter,
+      limit: workPageSize,
+      offset: pageOffset,
+    });
+    setWorkItemsState(workQueueToState(response));
+    setWorkPage(
+      response.page ?? {
+        limit: workPageSize,
+        offset: pageOffset,
+        total: response.items.length,
+        hasNext: false,
+      },
+    );
+  }, [assigneeFilter, kindFilter, pageOffset]);
+
   useEffect(() => {
     let active = true;
-    getWorkQueue()
+    getWorkQueue({
+      ...(kindFilter === 'all' ? {} : { kind: kindFilter }),
+      assignee: assigneeFilter,
+      limit: workPageSize,
+      offset: pageOffset,
+    })
       .then((response) => {
-        if (active) setWorkItemsState(workQueueToState(response));
+        if (!active) return;
+        setWorkItemsState(workQueueToState(response));
+        setWorkPage(
+          response.page ?? {
+            limit: workPageSize,
+            offset: pageOffset,
+            total: response.items.length,
+            hasNext: false,
+          },
+        );
       })
       .catch((error: unknown) => {
         if (active) setWorkItemsState(operationalApiErrorState(error));
@@ -98,16 +188,86 @@ export function WorkQueueClient() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [assigneeFilter, kindFilter, pageOffset]);
 
-  return <WorkQueueContent dashboardState={dashboardState} workItemsState={workItemsState} />;
+  const handleReassign = useCallback<ReassignHandler>(
+    async (itemKey, assignedToUserId) => {
+      await requestWorkItemReassignment(itemKey, assignedToUserId);
+      await loadWorkQueue();
+    },
+    [loadWorkQueue],
+  );
+  const handleGraphFactReview = useCallback<GraphFactReviewHandler>(
+    async (nodeId, action) => {
+      await reviewGraphFactNode(nodeId, action);
+      await loadWorkQueue();
+    },
+    [loadWorkQueue],
+  );
+  const handleKnowledgeCandidateReview = useCallback<KnowledgeCandidateReviewHandler>(
+    async (candidateId, action) => {
+      await reviewKnowledgeCandidate(candidateId, action);
+      await loadWorkQueue();
+    },
+    [loadWorkQueue],
+  );
+  const handleMatterWikiReview = useCallback<MatterWikiReviewHandler>(
+    async (pageId, action) => {
+      await reviewMatterWikiPage(pageId, action);
+      await loadWorkQueue();
+    },
+    [loadWorkQueue],
+  );
+
+  return (
+    <WorkQueueContent
+      assigneeFilter={assigneeFilter}
+      dashboardState={dashboardState}
+      kindFilter={kindFilter}
+      onAssigneeFilterChange={(next) => {
+        setAssigneeFilter(next);
+        setPageOffset(0);
+      }}
+      onKindFilterChange={(next) => {
+        setKindFilter(next);
+        setPageOffset(0);
+      }}
+      onPageOffsetChange={setPageOffset}
+      onGraphFactReview={handleGraphFactReview}
+      onKnowledgeCandidateReview={handleKnowledgeCandidateReview}
+      onMatterWikiReview={handleMatterWikiReview}
+      onReassign={handleReassign}
+      workItemsState={workItemsState}
+      workPage={workPage}
+    />
+  );
 }
 
 export function WorkQueueContent({
+  assigneeFilter = 'all',
   dashboardState,
+  kindFilter = 'all',
+  onAssigneeFilterChange,
+  onKindFilterChange,
+  onPageOffsetChange,
+  onGraphFactReview,
+  onKnowledgeCandidateReview,
+  onMatterWikiReview,
+  onReassign,
+  workPage,
   workItemsState,
 }: {
+  assigneeFilter?: DmsWorkQueueAssigneeFilter;
   dashboardState: DashboardOverviewState;
+  kindFilter?: WorkKindFilter;
+  onAssigneeFilterChange?: (next: DmsWorkQueueAssigneeFilter) => void;
+  onKindFilterChange?: (next: WorkKindFilter) => void;
+  onPageOffsetChange?: (offset: number) => void;
+  onGraphFactReview?: GraphFactReviewHandler | undefined;
+  onKnowledgeCandidateReview?: KnowledgeCandidateReviewHandler | undefined;
+  onMatterWikiReview?: MatterWikiReviewHandler | undefined;
+  onReassign?: ReassignHandler;
+  workPage?: WorkQueuePage;
   workItemsState?: DataState<DmsWorkQueueItem[]>;
 }) {
   const [sourceFilter, setSourceFilter] = useState<WorkSourceFilter>('all');
@@ -123,10 +283,15 @@ export function WorkQueueContent({
     () => filteredWorkItemsState(workItemsState, visibleActionItems),
     [visibleActionItems, workItemsState],
   );
+  const hasServerFilters = kindFilter !== 'all' || assigneeFilter !== 'all';
+  const hasDisplayFilters =
+    sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention';
+  const canPageBackward = Boolean(workPage && workPage.offset > 0);
+  const canPageForward = Boolean(workPage?.hasNext);
   return (
     <PageShell>
       <PageHeader
-        breadcrumbs={['Vault', '작업함']}
+        breadcrumbs={['문서 보관', '작업함']}
         title="작업함"
         description="권한과 운영 상태가 확인된 작업만 표시됩니다."
         actions={
@@ -149,18 +314,21 @@ export function WorkQueueContent({
                     작업함 조치 콘솔
                   </h2>
                   <p className="text-xs leading-5 text-muted-foreground">
-                    실제 문서·사건 상태에서 발생한 작업만 출처와 상태 기준으로 좁힙니다.
+                    실제 문서·Matter 상태에서 발생한 작업만 업무 구분과 상태 기준으로 좁힙니다.
                   </p>
                   <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
-                    {workFilterSummary(workItemsState, visibleActionItems, actionItems)}
+                    {workFilterSummary(workItemsState, visibleActionItems, actionItems, workPage)}
                   </div>
                 </div>
-                {sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention' ? (
+                {hasServerFilters || hasDisplayFilters ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      onKindFilterChange?.('all');
+                      onAssigneeFilterChange?.('all');
+                      onPageOffsetChange?.(0);
                       setSourceFilter('all');
                       setToneFilter('all');
                       setSortMode('attention');
@@ -170,8 +338,42 @@ export function WorkQueueContent({
                   </Button>
                 ) : null}
               </div>
-              <div className="grid min-w-0 gap-3 sm:grid-cols-3 lg:max-w-3xl">
-                <FilterField htmlFor="work-source-filter" label="출처">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <FilterField htmlFor="work-kind-filter" label="작업 종류">
+                  <select
+                    id="work-kind-filter"
+                    className={selectClassName}
+                    value={kindFilter}
+                    onChange={(event) => {
+                      onKindFilterChange?.(event.target.value as WorkKindFilter);
+                      onPageOffsetChange?.(0);
+                    }}
+                  >
+                    {kindFilterOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {kindFilterLabels[option]}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+                <FilterField htmlFor="work-assignee-filter" label="담당">
+                  <select
+                    id="work-assignee-filter"
+                    className={selectClassName}
+                    value={assigneeFilter}
+                    onChange={(event) => {
+                      onAssigneeFilterChange?.(event.target.value as DmsWorkQueueAssigneeFilter);
+                      onPageOffsetChange?.(0);
+                    }}
+                  >
+                    {assigneeFilterOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {assigneeFilterLabels[option]}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+                <FilterField htmlFor="work-source-filter" label="업무 구분">
                   <select
                     id="work-source-filter"
                     className={selectClassName}
@@ -221,6 +423,46 @@ export function WorkQueueContent({
             state={dashboardState}
             title="내 작업"
           />
+          <KnowledgeCandidateReviewPanel
+            items={visibleActionItems}
+            onReview={onKnowledgeCandidateReview}
+          />
+          <GraphFactReviewPanel items={visibleActionItems} onReview={onGraphFactReview} />
+          <MatterWikiReviewPanel items={visibleActionItems} onReview={onMatterWikiReview} />
+          {workPage && workPage.total > workPage.limit ? (
+            <nav
+              aria-label="작업함 페이지"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground"
+            >
+              <span>
+                {workPage.offset + 1}-{Math.min(workPage.offset + workPage.limit, workPage.total)} /{' '}
+                {workPage.total}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!canPageBackward}
+                  onClick={() =>
+                    onPageOffsetChange?.(Math.max(0, workPage.offset - workPage.limit))
+                  }
+                >
+                  이전
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!canPageForward}
+                  onClick={() => onPageOffsetChange?.(workPage.offset + workPage.limit)}
+                >
+                  다음
+                </Button>
+              </div>
+            </nav>
+          ) : null}
+          <WorkReassignmentPanel items={visibleActionItems} onReassign={onReassign} />
           <SectionCard
             icon={<FileSearch className="h-4 w-4" />}
             title="문서함 조치 필터"
@@ -237,7 +479,7 @@ export function WorkQueueContent({
                 <Link href="/files?extractionStatus=ocr_pending">OCR 필요</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
-                <Link href="/files?status=draft">메타데이터 보완</Link>
+                <Link href="/files?status=draft">문서 정보 보완</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
                 <Link href="/files?aiAllowed=true&sortBy=matter_asc">파일 정리 준비</Link>
@@ -247,14 +489,18 @@ export function WorkQueueContent({
               </Button>
             </div>
           </SectionCard>
-          <SectionCard icon={<Activity className="h-4 w-4" />} title="작업 출처" meta="운영 API">
+          <SectionCard
+            icon={<Activity className="h-4 w-4" />}
+            title="업무 구분"
+            meta="확인된 데이터 기준"
+          >
             <ul className="grid gap-2 sm:grid-cols-2">
               <SourceStateItem
                 label="권한/정책 알림"
                 state={dashboardState.permissionPolicyAlerts}
               />
               <SourceStateItem label="파일 정리 준비" state={dashboardState.aiPrepStatus} />
-              <SourceStateItem label="통합 상태" state={dashboardState.integrationStatus} />
+              <SourceStateItem label="연동 상태" state={dashboardState.integrationStatus} />
               <SourceStateItem label="운영 데이터 연결" state={dashboardState.recentActivity} />
             </ul>
           </SectionCard>
@@ -275,13 +521,338 @@ export function WorkQueueContent({
           />
           <QueueSourcePanel
             icon={<PlugZap className="h-4 w-4" />}
-            title="통합"
-            emptyTitle="연결된 통합 상태가 없습니다."
+            title="연동"
+            emptyTitle="연결된 연동 상태가 없습니다."
             state={dashboardState.integrationStatus}
           />
         </aside>
       </div>
     </PageShell>
+  );
+}
+
+function KnowledgeCandidateReviewPanel({
+  items,
+  onReview,
+}: {
+  items: DmsWorkQueueItem[];
+  onReview?: KnowledgeCandidateReviewHandler | undefined;
+}) {
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const reviewItems = items.filter(
+    (item) =>
+      item.kind === 'knowledge_candidate_review' &&
+      item.targetId &&
+      (item.status === 'open' || item.status === 'in_progress'),
+  );
+  if (reviewItems.length === 0) return null;
+  return (
+    <SectionCard
+      icon={<FileSearch className="h-4 w-4" />}
+      title="지식은행 후보"
+      meta={`${reviewItems.length}건`}
+    >
+      <ul className="grid gap-2">
+        {reviewItems.slice(0, 5).map((item) => {
+          const disabled = !onReview || pendingKey === item.itemKey;
+          return (
+            <li key={item.itemKey} className="rounded-md border bg-background px-3 py-2">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground">{item.title}</div>
+                  <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
+                    {item.description}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() =>
+                      handleKnowledgeCandidateReviewClick(item, 'approve', onReview, setPendingKey)
+                    }
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    승인
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() =>
+                      handleKnowledgeCandidateReviewClick(item, 'reject', onReview, setPendingKey)
+                    }
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    반려
+                  </Button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </SectionCard>
+  );
+}
+
+async function handleKnowledgeCandidateReviewClick(
+  item: DmsWorkQueueItem,
+  action: KnowledgeCandidateReviewAction,
+  onReview: KnowledgeCandidateReviewHandler | undefined,
+  setPendingKey: React.Dispatch<React.SetStateAction<string | null>>,
+): Promise<void> {
+  if (!onReview || !item.targetId) return;
+  setPendingKey(item.itemKey);
+  try {
+    await onReview(item.targetId, action);
+  } finally {
+    setPendingKey(null);
+  }
+}
+
+function MatterWikiReviewPanel({
+  items,
+  onReview,
+}: {
+  items: DmsWorkQueueItem[];
+  onReview?: MatterWikiReviewHandler | undefined;
+}) {
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const reviewItems = items.filter(
+    (item) =>
+      item.kind === 'wiki_page_review' &&
+      item.targetId &&
+      (item.status === 'open' || item.status === 'in_progress'),
+  );
+  if (reviewItems.length === 0) return null;
+  return (
+    <SectionCard
+      icon={<FileSearch className="h-4 w-4" />}
+      title="위키 페이지"
+      meta={`${reviewItems.length}건`}
+    >
+      <ul className="grid gap-2">
+        {reviewItems.slice(0, 5).map((item) => {
+          const disabled = !onReview || pendingKey === item.itemKey;
+          return (
+            <li key={item.itemKey} className="rounded-md border bg-background px-3 py-2">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground">{item.title}</div>
+                  <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
+                    {item.description}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() =>
+                      handleMatterWikiReviewClick(item, 'confirm', onReview, setPendingKey)
+                    }
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    확인
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() =>
+                      handleMatterWikiReviewClick(item, 'reject', onReview, setPendingKey)
+                    }
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    거절
+                  </Button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </SectionCard>
+  );
+}
+
+async function handleMatterWikiReviewClick(
+  item: DmsWorkQueueItem,
+  action: MatterWikiReviewAction,
+  onReview: MatterWikiReviewHandler | undefined,
+  setPendingKey: React.Dispatch<React.SetStateAction<string | null>>,
+): Promise<void> {
+  if (!onReview || !item.targetId) return;
+  setPendingKey(item.itemKey);
+  try {
+    await onReview(item.targetId, action);
+  } finally {
+    setPendingKey(null);
+  }
+}
+
+function GraphFactReviewPanel({
+  items,
+  onReview,
+}: {
+  items: DmsWorkQueueItem[];
+  onReview?: GraphFactReviewHandler | undefined;
+}) {
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const reviewItems = items.filter(
+    (item) =>
+      item.kind === 'graph_fact_review' &&
+      item.targetId &&
+      (item.status === 'open' || item.status === 'in_progress'),
+  );
+  if (reviewItems.length === 0) return null;
+  return (
+    <SectionCard
+      icon={<Bot className="h-4 w-4" />}
+      title="AI Fact 검토"
+      meta={`${reviewItems.length}건`}
+    >
+      <ul className="grid gap-2">
+        {reviewItems.slice(0, 5).map((item) => {
+          const disabled = !onReview || pendingKey === item.itemKey;
+          return (
+            <li key={item.itemKey} className="rounded-md border bg-background px-3 py-2">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground">{item.title}</div>
+                  <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
+                    {item.description}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() =>
+                      handleGraphFactReviewClick(item, 'confirm', onReview, setPendingKey)
+                    }
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    확인
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() =>
+                      handleGraphFactReviewClick(item, 'reject', onReview, setPendingKey)
+                    }
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    거절
+                  </Button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </SectionCard>
+  );
+}
+
+async function handleGraphFactReviewClick(
+  item: DmsWorkQueueItem,
+  action: GraphNodeReviewAction,
+  onReview: GraphFactReviewHandler | undefined,
+  setPendingKey: React.Dispatch<React.SetStateAction<string | null>>,
+): Promise<void> {
+  if (!onReview || !item.targetId) return;
+  setPendingKey(item.itemKey);
+  try {
+    await onReview(item.targetId, action);
+  } finally {
+    setPendingKey(null);
+  }
+}
+
+function WorkReassignmentPanel({
+  items,
+  onReassign,
+}: {
+  items: DmsWorkQueueItem[];
+  onReassign?: ReassignHandler | undefined;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const actionableItems = items.filter(
+    (item) => item.status === 'open' || item.status === 'in_progress',
+  );
+  if (actionableItems.length === 0) return null;
+  return (
+    <SectionCard
+      icon={<Users className="h-4 w-4" />}
+      title="담당자 재배정"
+      meta="권한 확인 후 반영"
+    >
+      <ul className="grid gap-2">
+        {actionableItems.slice(0, 5).map((item) => {
+          const draft = drafts[item.itemKey] ?? '';
+          const disabled = !onReassign || draft.trim().length === 0 || pendingKey === item.itemKey;
+          return (
+            <li key={item.itemKey} className="rounded-md border bg-background px-3 py-2">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-foreground">{item.title}</div>
+                  <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
+                    {item.assignedToLabel ? `담당자 ${item.assignedToLabel}` : '담당자 미지정'}
+                  </div>
+                </div>
+                <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
+                  <FilterField htmlFor={`assignee-${item.itemKey}`} label="새 담당자 ID">
+                    <input
+                      id={`assignee-${item.itemKey}`}
+                      className={selectClassName}
+                      value={draft}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [item.itemKey]: event.target.value,
+                        }))
+                      }
+                    />
+                  </FilterField>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={async () => {
+                      const assignedToUserId = draft.trim();
+                      if (!onReassign || assignedToUserId.length === 0) return;
+                      setPendingKey(item.itemKey);
+                      try {
+                        await onReassign(item.itemKey, assignedToUserId);
+                        setDrafts((current) => ({ ...current, [item.itemKey]: '' }));
+                      } finally {
+                        setPendingKey(null);
+                      }
+                    }}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    재배정
+                  </Button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </SectionCard>
   );
 }
 
@@ -419,9 +990,11 @@ function workFilterSummary(
   state: DataState<DmsWorkQueueItem[]> | undefined,
   visibleItems: DmsWorkQueueItem[],
   allItems: DmsWorkQueueItem[],
+  page?: WorkQueuePage,
 ): string {
   if (state?.status === 'error') return '운영 데이터 연결 확인 필요';
   if (state?.status === 'forbidden' || state?.status === 'blocked') return '권한 정책 적용';
   if (state && state.status !== 'ready') return '작업 데이터 연결 대기';
+  if (page) return `${visibleItems.length}건 표시 · 전체 ${page.total}건`;
   return `${visibleItems.length}건 표시 · 전체 ${allItems.length}건`;
 }

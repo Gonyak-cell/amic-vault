@@ -3,6 +3,11 @@
 Status: PRODUCTION EXECUTED - MONITORING ACTIVE
 Date: 2026-06-14
 
+Current-state note, 2026-07-06: this is historical launch procedure/evidence.
+It does not claim the current customer-wide go-live lane. Use
+`docs/release/production-post-cutover-next-gates.md` for current post-cutover
+truth and remaining approval gates.
+
 This runbook explains how to move AMIC Vault from the current technical
 completion state to staging, pilot, production, and monitoring. It separates
 operator/security/legal/product decisions from Codex-executable verification

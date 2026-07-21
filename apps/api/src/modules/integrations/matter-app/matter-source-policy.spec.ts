@@ -28,6 +28,10 @@ function sourceStatus(overrides: Record<string, unknown> = {}) {
     stalenessMaxSeconds: 900,
     sourceUpdatedAt: null,
     sourceStale: false,
+    lastSyncAt: null,
+    reflectedCount: 0,
+    driftCount: 0,
+    syncStateAvailable: false,
     ...overrides,
   };
 }

@@ -179,10 +179,10 @@ async function insertIndexedRow(row: IndexedFixtureRow, index: number): Promise<
         `
           INSERT INTO document_search_index (
             tenant_id, document_id, version_id, matter_id, client_id, document_type,
-            document_status, version_status, title, content_text, source_text_hash,
-            indexed_at, updated_at
+            document_status, version_status, author_user_id, title, content_text,
+            source_text_hash, indexed_at, updated_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), $13)
         `,
         [
           row.tenantId,
@@ -193,6 +193,7 @@ async function insertIndexedRow(row: IndexedFixtureRow, index: number): Promise<
           row.documentType,
           row.documentStatus,
           row.versionStatus,
+          row.ownerUserId,
           row.title,
           `${row.title} content`,
           hexHash(index + 100),
@@ -238,10 +239,6 @@ async function queryRows(
     );
     return result.rows;
   });
-}
-
-function titles(rows: SearchRow[]): string[] {
-  return rows.map((row) => row.title);
 }
 
 describe('search metadata filter integration', () => {

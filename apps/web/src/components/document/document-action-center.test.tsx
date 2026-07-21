@@ -1,20 +1,39 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
+  AiSummaryResponseDto,
   DocumentAuditEventDto,
+  DocumentComparisonDto,
   DocumentDto,
   DocumentEditSessionDto,
   DocumentSubversionDto,
   DocumentVersionDto,
-  EmailMatterFilingDto,
 } from '@amic-vault/shared';
+import type { EmailDocumentLinkDto } from '@/lib/api-client';
+
+const apiClientMocks = vi.hoisted(() => ({
+  listDocumentEmailLinks: vi.fn(),
+  listMatterEmailTimeline: vi.fn(),
+}));
+
+vi.mock('@/lib/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api-client')>();
+  return {
+    ...actual,
+    listDocumentEmailLinks: apiClientMocks.listDocumentEmailLinks,
+    listMatterEmailTimeline: apiClientMocks.listMatterEmailTimeline,
+  };
+});
+
 import {
   DocumentActionCenter,
+  desktopDocumentEditUrl,
   editLifecycleErrorMessage,
   editIntentFromParams,
+  loadRelatedDocumentEmailLinks,
   nextEditIntentAutomationStep,
-  relatedMatterEmails,
+  relatedDocumentEmailLinks,
   relatedMatterDocuments,
   searchHitContextFromParams,
   versionUploadStatusMessage,
@@ -34,6 +53,7 @@ const document = {
   subtype: 'closing',
   confidentialityLevel: 'high',
   privilegeStatus: 'privileged',
+  source: 'client_provided',
   aiAllowed: true,
   legalHold: false,
   extractionStatus: 'ready',
@@ -42,6 +62,16 @@ const document = {
   createdBy: '11111111-1111-4111-8111-111111111401',
   createdAt: '2026-06-18T00:00:00.000Z',
   updatedAt: '2026-06-18T01:00:00.000Z',
+} satisfies DocumentDto;
+
+const emailDocument = {
+  ...document,
+  documentId: '11111111-1111-4111-8111-111111111204',
+  documentFamilyId: '11111111-1111-4111-8111-111111111304',
+  title: '금요일 회신 요청 이메일',
+  documentType: 'email',
+  subtype: 'eml',
+  extractionMethod: 'email',
 } satisfies DocumentDto;
 
 const versions = [
@@ -56,6 +86,10 @@ const versions = [
     createdAt: '2026-06-18T01:00:00.000Z',
     supersedesVersionId: '11111111-1111-4111-8111-111111111502',
     promotedFromSubversionId: '11111111-1111-4111-8111-111111111812',
+    versionLabel: 'v2.0',
+    versionSignificance: 'client_sent',
+    renditionType: 'clean',
+    baseCleanVersionId: null,
   },
   {
     versionId: '11111111-1111-4111-8111-111111111502',
@@ -68,8 +102,64 @@ const versions = [
     createdAt: '2026-06-17T01:00:00.000Z',
     supersedesVersionId: null,
     promotedFromSubversionId: null,
+    versionLabel: 'v1.0',
+    versionSignificance: 'execution_copy',
+    renditionType: 'clean',
+    baseCleanVersionId: null,
   },
 ] satisfies DocumentVersionDto[];
+
+const comparison = {
+  comparisonId: '11111111-1111-4111-8111-111111112501',
+  documentId: document.documentId,
+  matterId: document.matterId,
+  baseVersionId: versions[1]?.versionId ?? '',
+  targetVersionId: versions[0]?.versionId ?? '',
+  status: 'completed',
+  summary: {
+    addedCount: 1,
+    deletedCount: 1,
+    modifiedCount: 1,
+    unchangedCount: 7,
+    totalCount: 10,
+    durationMs: 180,
+  },
+  changes: [
+    {
+      changeId: '11111111-1111-4111-8111-111111112601',
+      sequenceNo: 0,
+      changeType: 'modified',
+      clauseNumber: '2',
+      headingText: '제2조 비밀유지',
+      baseText: '제2조 비밀유지\n수령자는 합리적인 보호조치를 취한다.',
+      targetText: '제2조 비밀유지\n수령자는 업계 표준 보호조치를 취한다.',
+      diffHunks: [],
+    },
+    {
+      changeId: '11111111-1111-4111-8111-111111112602',
+      sequenceNo: 1,
+      changeType: 'added',
+      clauseNumber: '9',
+      headingText: '제9조 준거법',
+      baseText: '',
+      targetText: '제9조 준거법\n대한민국 법을 준거법으로 한다.',
+      diffHunks: [],
+    },
+    {
+      changeId: '11111111-1111-4111-8111-111111112603',
+      sequenceNo: 2,
+      changeType: 'deleted',
+      clauseNumber: '10',
+      headingText: '제10조 일방 해지',
+      baseText: '제10조 일방 해지\n일방 당사자는 즉시 해지할 수 있다.',
+      targetText: '',
+      diffHunks: [],
+    },
+  ],
+  createdAt: '2026-06-18T02:00:00.000Z',
+  completedAt: '2026-06-18T02:00:01.000Z',
+  failureReasonCode: null,
+} satisfies DocumentComparisonDto;
 
 const activeEditSession = {
   editSessionId: '11111111-1111-4111-8111-111111111801',
@@ -111,6 +201,29 @@ const subversions = [
       approvedReviewCount: 0,
       changesRequestedCount: 0,
     },
+    revisionSummary: {
+      totalCount: 2,
+      insertCount: 1,
+      deleteCount: 1,
+      moveCount: 0,
+      formatCount: 0,
+    },
+    revisions: [
+      {
+        changeType: 'insert',
+        author: '상대방 검토자',
+        changedAt: '2026-06-18T01:16:00.000Z',
+        beforeText: '',
+        afterText: '손해배상 제한 문구 추가',
+      },
+      {
+        changeType: 'delete',
+        author: '상대방 검토자',
+        changedAt: '2026-06-18T01:17:00.000Z',
+        beforeText: '일방 해지 조항 삭제',
+        afterText: '',
+      },
+    ],
   },
   {
     subversionId: '11111111-1111-4111-8111-111111111812',
@@ -134,6 +247,14 @@ const subversions = [
       approvedReviewCount: 1,
       changesRequestedCount: 0,
     },
+    revisionSummary: {
+      totalCount: 0,
+      insertCount: 0,
+      deleteCount: 0,
+      moveCount: 0,
+      formatCount: 0,
+    },
+    revisions: [],
   },
 ] satisfies DocumentSubversionDto[];
 
@@ -163,50 +284,32 @@ const relatedDocuments = [
 
 const relatedEmails = [
   {
-    filingId: '11111111-1111-4111-8111-111111112001',
+    linkId: '11111111-1111-4111-8111-111111112001',
     tenantId: document.tenantId,
     emailId: '11111111-1111-4111-8111-111111112101',
-    matterId: document.matterId,
-    subject: 'Closing checklist follow-up',
-    sentAt: '2026-06-18T02:10:00.000Z',
-    hasOutsideParticipants: true,
-    warningCodes: ['outside_participant'],
-    privilegeTagSuggestion: {
-      tag: 'attorney_client_privilege',
-      reasonCodes: ['subject_keyword'],
-      requiresUserConfirmation: true,
-    },
-    thread: {
-      rootMessageHash: 'root-message-hash',
-      directReferenceCount: 1,
-      relatedEmailCount: 3,
-      referenceHashes: ['reference-message-hash'],
-    },
-    documentIds: [document.documentId, '11111111-1111-4111-8111-111111111202'],
-    filedBy: '11111111-1111-4111-8111-111111112201',
-    filedAt: '2026-06-18T02:20:00.000Z',
+    documentId: document.documentId,
+    fileObjectId: '11111111-1111-4111-8111-111111112201',
+    attachmentIndex: 0,
+    attachmentFilename: 'closing-checklist.pdf',
+    mediaType: 'application/pdf',
+    sizeBytes: 1024,
+    sha256: 'a'.repeat(64),
+    createdAt: '2026-06-18T02:20:00.000Z',
   },
   {
-    filingId: '11111111-1111-4111-8111-111111112002',
+    linkId: '11111111-1111-4111-8111-111111112002',
     tenantId: document.tenantId,
     emailId: '11111111-1111-4111-8111-111111112102',
-    matterId: document.matterId,
-    subject: 'Unrelated matter filing',
-    sentAt: '2026-06-18T02:30:00.000Z',
-    hasOutsideParticipants: false,
-    warningCodes: [],
-    privilegeTagSuggestion: null,
-    thread: {
-      rootMessageHash: 'other-root-message-hash',
-      directReferenceCount: 0,
-      relatedEmailCount: 1,
-      referenceHashes: [],
-    },
-    documentIds: ['11111111-1111-4111-8111-111111111299'],
-    filedBy: '11111111-1111-4111-8111-111111112202',
-    filedAt: '2026-06-18T02:40:00.000Z',
+    documentId: '11111111-1111-4111-8111-111111111299',
+    fileObjectId: '11111111-1111-4111-8111-111111112202',
+    attachmentIndex: 1,
+    attachmentFilename: 'unrelated-attachment.pdf',
+    mediaType: 'application/pdf',
+    sizeBytes: 2048,
+    sha256: 'b'.repeat(64),
+    createdAt: '2026-06-18T02:40:00.000Z',
   },
-] satisfies EmailMatterFilingDto[];
+] satisfies EmailDocumentLinkDto[];
 
 const auditEvents = [
   {
@@ -228,7 +331,100 @@ const auditEvents = [
   },
 ] satisfies DocumentAuditEventDto[];
 
+const clauseAnalysis = {
+  sessionId: '11111111-1111-4111-8111-111111113001',
+  matterId: document.matterId,
+  task: 'clause_analysis',
+  status: 'escalated',
+  modelRoute: 'local_gemma',
+  evidencePackId: '11111111-1111-4111-8111-111111113002',
+  conclusion: '금지 조항 가능성이 있어 변호사 검토가 필요합니다.',
+  openQuestions: [],
+  recommendedActions: [{ action: '담당 변호사가 인용된 조항을 검토합니다.', reviewRequired: true }],
+  excludedSourcesNotice: { count: 0 },
+  citations: [
+    {
+      citationRef: 'chunk:11111111-1111-4111-8111-111111113003',
+      matterId: document.matterId,
+      documentId: document.documentId,
+      versionId: '11111111-1111-4111-8111-111111113004',
+      chunkId: '11111111-1111-4111-8111-111111113003',
+      quoteHash: 'a'.repeat(64),
+      sourceTextHash: 'b'.repeat(64),
+    },
+  ],
+  claims: [
+    {
+      claimId: 'generated-clause-risk-claim',
+      claimHash: 'c'.repeat(64),
+      citationRefs: ['chunk:11111111-1111-4111-8111-111111113003'],
+    },
+  ],
+  sections: [
+    {
+      sectionId: 'generated-clause-risk',
+      heading: '조항 리스크',
+      text: '금지 조항 가능성이 있는 문구입니다.',
+      citationRefs: ['chunk:11111111-1111-4111-8111-111111113003'],
+      escalationRequired: true,
+    },
+  ],
+  warnings: ['HUMAN_REVIEW_REQUIRED', 'NO_DENIED_SOURCES_INCLUDED'],
+  citationWarnings: [],
+  escalationRequired: true,
+  legalConclusionAutoApproval: false,
+} satisfies AiSummaryResponseDto;
+
+const emailThreadSummary = {
+  sessionId: '11111111-1111-4111-8111-111111113101',
+  matterId: emailDocument.matterId,
+  task: 'email_thread_summary',
+  status: 'escalated',
+  modelRoute: 'local_gemma',
+  evidencePackId: '11111111-1111-4111-8111-111111113102',
+  conclusion: '금요일까지 계약서 회신 요청이 있습니다.',
+  openQuestions: [],
+  recommendedActions: [{ action: '기한 확인: 금요일 회신 기한', reviewRequired: true }],
+  excludedSourcesNotice: { count: 0 },
+  citations: [
+    {
+      citationRef: 'chunk:11111111-1111-4111-8111-111111113103',
+      matterId: emailDocument.matterId,
+      documentId: emailDocument.documentId,
+      versionId: '11111111-1111-4111-8111-111111113104',
+      chunkId: '11111111-1111-4111-8111-111111113103',
+      quoteHash: 'd'.repeat(64),
+      sourceTextHash: 'e'.repeat(64),
+    },
+  ],
+  claims: [
+    {
+      claimId: 'generated-email-deadline',
+      claimHash: 'f'.repeat(64),
+      citationRefs: ['chunk:11111111-1111-4111-8111-111111113103'],
+    },
+  ],
+  sections: [
+    {
+      sectionId: 'generated-email-thread',
+      heading: '요청사항과 기한',
+      text: '금요일까지 계약서 회신 요청이 확인됩니다.',
+      citationRefs: ['chunk:11111111-1111-4111-8111-111111113103'],
+      escalationRequired: true,
+    },
+  ],
+  warnings: ['NO_DENIED_SOURCES_INCLUDED'],
+  citationWarnings: [],
+  escalationRequired: true,
+  legalConclusionAutoApproval: false,
+} satisfies AiSummaryResponseDto;
+
 describe('DocumentActionCenter', () => {
+  beforeEach(() => {
+    apiClientMocks.listDocumentEmailLinks.mockReset();
+    apiClientMocks.listMatterEmailTimeline.mockReset();
+  });
+
   it('renders document operations from real document data without user-facing raw refs', () => {
     const currentVersion = versions[0];
     if (!currentVersion) throw new Error('missing current version fixture');
@@ -276,33 +472,41 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('작업 우선순위');
     expect(html).toContain('편집 라이프사이클');
     expect(html).toContain('편집 시작');
-    expect(html).toContain('내부 저장');
+    expect(html).toContain('검토 저장');
     expect(html).toContain('체크인');
     expect(html).toContain('공식 발행');
-    expect(html).toContain('읽기/다운로드 전용 동작은 사유 기반 감사 다운로드로 유지됩니다.');
-    expect(html).toContain('내부 subversion으로 기록되며');
+    expect(html).toContain('로컬 편집 핸드오프와 파일 왕복 저장은 같은 공식 버전을 덮어쓰지 않고');
+    expect(html).toContain('검토본으로 기록됩니다');
     expect(html).toContain('문서 프로필');
+    expect(html).toContain('조항 리스크 분석');
+    expect(html).toContain('초안');
+    expect(html).toContain('내부 검토');
     expect(html).toContain('Tenant Contract');
+    expect(html).toContain('고객 제공');
     expect(html).toContain('미리보기');
     expect(html).toContain('다운로드 사유');
     expect(html).toContain('업무 처리');
     expect(html).toContain('버전');
-    expect(html).toContain('업로드 및 처리 큐');
-    expect(html).toContain('문서 감사 타임라인');
+    expect(html).toContain('업로드 및 처리 상태');
+    expect(html).toContain('문서 감사 로그');
     expect(html).toContain('다운로드');
     expect(html).toContain('서지원');
     expect(html).toContain('v2');
+    expect(html).toContain('v2.0');
+    expect(html).toContain('고객송부본');
     expect(html).toContain('v1');
+    expect(html).toContain('체결본');
     expect(html).toContain('새 버전 추가');
     expect(html).toContain('문서 편집');
     expect(html).toContain('편집 패키지');
     expect(html).toContain('패키지 준비');
-    expect(html).toContain('Vault 편집기');
-    expect(html).toContain('Vault 편집기 열기');
+    expect(html).toContain('잠금 강제 해제');
+    expect(html).toContain('문서 보관함 편집기');
+    expect(html).toContain('문서 보관함 편집기 열기');
     expect(html).toContain('v2 편집 중');
     expect(html).toContain('편집 바로가기에서 열린 문서입니다.');
     expect(html).toContain('id="document-editing"');
-    expect(html).toContain('내부 subversion 저장');
+    expect(html).toContain('검토본 저장');
     expect(html).toContain('검토 대기');
     expect(html).toContain('검토 1/2');
     expect(html).toContain('가시성');
@@ -312,6 +516,12 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('현재 검토자');
     expect(html).toContain('검토 결정');
     expect(html).toContain('검토 파일 열기');
+    expect(html).toContain('변경 2건');
+    expect(html).toContain('삽입 1');
+    expect(html).toContain('삭제 1');
+    expect(html).toContain('상대방 검토자');
+    expect(html).toContain('손해배상 제한 문구 추가');
+    expect(html).toContain('일방 해지 조항 삭제');
     expect(html).toContain('승인');
     expect(html).toContain('변경 요청');
     expect(html).toContain('구조화된 결정 코드');
@@ -328,12 +538,11 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('동일 Matter에서 권한이 확인된 문서');
     expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111202"');
     expect(html).toContain('관련 이메일');
-    expect(html).toContain('Closing checklist follow-up');
-    expect(html).toContain('문서 2건');
-    expect(html).toContain('관련 이메일 3건');
-    expect(html).toContain('외부 참여자');
-    expect(html).toContain('비밀특권 후보');
-    expect(html).not.toContain('Unrelated matter filing');
+    expect(html).toContain('closing-checklist.pdf');
+    expect(html).toContain('첨부 1번');
+    expect(html).toContain('application/pdf');
+    expect(html).toContain('원문 .eml');
+    expect(html).not.toContain('unrelated-attachment.pdf');
     expect(html).toContain('보존 검토');
     expect(html).toContain('신청 가능');
     expect(html).toContain('보관 처리');
@@ -350,7 +559,9 @@ describe('DocumentActionCenter', () => {
     );
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(document.matterId);
-    expect(html).not.toContain(currentVersion.versionId);
+    expect(desktopDocumentEditUrl(document.documentId, currentVersion.versionId)).toContain(
+      currentVersion.versionId,
+    );
     expect(html).not.toContain(currentVersion.fileObjectId);
     expect(html).not.toContain(currentVersion.fileHash);
     expect(html).not.toContain(activeEditSession.editSessionId);
@@ -363,13 +574,111 @@ describe('DocumentActionCenter', () => {
     expect(html).not.toContain(submittedSubversion.fileHash);
     expect(html).not.toContain(currentAuditEvent.eventId);
     expect(html).not.toContain(currentAuditEvent.actorId);
-    expect(html).not.toContain(currentRelatedEmail.filingId);
+    expect(html).not.toContain(currentRelatedEmail.linkId);
     expect(html).not.toContain(currentRelatedEmail.emailId);
-    expect(html).not.toContain(currentRelatedEmail.filedBy);
-    expect(html).not.toContain('root-message-hash');
+    expect(html).not.toContain(currentRelatedEmail.fileObjectId);
+    expect(html).not.toContain(currentRelatedEmail.sha256);
     expect(html).not.toContain('Open in Office');
     expect(html).not.toContain('check-out');
     expect(html).not.toContain('check-in');
+  });
+
+  it('renders clause risk analysis results with citation links', () => {
+    const html = renderToStaticMarkup(
+      <DocumentActionCenter
+        disableInitialLoad
+        documentId={document.documentId}
+        initialClauseAnalysis={clauseAnalysis}
+        initialDocument={document}
+        initialVersions={versions}
+      />,
+    );
+
+    expect(html).toContain('조항 리스크 분석');
+    expect(html).toContain('금지 조항 가능성이 있어 변호사 검토가 필요합니다.');
+    expect(html).toContain('조항 리스크');
+    expect(html).toContain('금지 조항 가능성이 있는 문구입니다.');
+    expect(html).toContain('인용 1');
+    expect(html).toContain(
+      'href="/documents/11111111-1111-4111-8111-111111111201?chunk=1"',
+    );
+    expect(html).not.toContain(clauseAnalysis.sessionId);
+    expect(html).not.toContain(clauseAnalysis.evidencePackId);
+  });
+
+  it('renders email thread summary entry point and cited deadline results for email documents', () => {
+    const html = renderToStaticMarkup(
+      <DocumentActionCenter
+        disableInitialLoad
+        documentId={emailDocument.documentId}
+        initialDocument={emailDocument}
+        initialEmailThreadSummary={emailThreadSummary}
+        initialVersions={versions}
+      />,
+    );
+
+    expect(html).toContain('이메일 요청·기한 요약');
+    expect(html).toContain('요청·기한 요약');
+    expect(html).toContain('요청/기한 확인');
+    expect(html).toContain('금요일까지 계약서 회신 요청이 있습니다.');
+    expect(html).toContain('요청사항과 기한');
+    expect(html).toContain('금요일까지 계약서 회신 요청이 확인됩니다.');
+    expect(html).toContain('기한 확인: 금요일 회신 기한');
+    expect(html).toContain(
+      'href="/documents/11111111-1111-4111-8111-111111111204?chunk=1"',
+    );
+    expect(html).not.toContain(emailThreadSummary.sessionId);
+    expect(html).not.toContain(emailThreadSummary.evidencePackId);
+  });
+
+  it('renders document comparison version pair controls and clause side-by-side changes', () => {
+    const html = renderToStaticMarkup(
+      <DocumentActionCenter
+        disableInitialLoad
+        documentId={document.documentId}
+        initialComparison={comparison}
+        initialDocument={document}
+        initialVersions={versions}
+      />,
+    );
+
+    expect(html).toContain('문서 비교');
+    expect(html).toContain('기준 버전');
+    expect(html).toContain('대상 버전');
+    expect(html).toContain('비교 생성');
+    expect(html).toContain('수정 1');
+    expect(html).toContain('추가 1');
+    expect(html).toContain('삭제 1');
+    expect(html).toContain('제2조 비밀유지');
+    expect(html).toContain('수령자는 합리적인 보호조치를 취한다.');
+    expect(html).toContain('수령자는 업계 표준 보호조치를 취한다.');
+    expect(html).toContain('제9조 준거법');
+    expect(html).toContain('제10조 일방 해지');
+    expect(html).not.toContain(comparison.comparisonId);
+    expect(html).not.toContain(comparison.changes[0]?.changeId ?? '');
+    expect(html).not.toContain(comparison.baseVersionId);
+    expect(desktopDocumentEditUrl(document.documentId, versions[0]?.versionId)).toContain(
+      comparison.targetVersionId,
+    );
+  });
+
+  it('renders desktop edit deep link without lock tokens or API URLs', () => {
+    const html = renderToStaticMarkup(
+      <DocumentActionCenter
+        disableInitialLoad
+        documentId={document.documentId}
+        initialDocument={document}
+        initialVersions={versions}
+      />,
+    );
+
+    expect(html).toContain('데스크톱에서 편집');
+    const protocolUrl = desktopDocumentEditUrl(document.documentId, versions[0]?.versionId);
+    expect(html).toContain(`href="${protocolUrl}"`);
+    expect(protocolUrl).not.toContain('/v1/documents');
+    expect(protocolUrl).not.toContain('lockToken');
+    expect(html).not.toContain('lockToken');
+    expect(html).not.toContain('saveSubversionUrl');
   });
 
   it('renders a bounded empty state before document data is available', () => {
@@ -467,11 +776,23 @@ describe('DocumentActionCenter', () => {
     expect(relatedMatterDocuments(relatedDocuments, document.documentId, 1)).toHaveLength(1);
   });
 
-  it('derives related Matter emails only when the filing includes the current document', () => {
-    expect(relatedMatterEmails(relatedEmails, document.documentId).map((item) => item.subject)).toEqual([
-      'Closing checklist follow-up',
+  it('derives related document email links only for the current document', () => {
+    expect(
+      relatedDocumentEmailLinks(relatedEmails, document.documentId).map(
+        (item) => item.attachmentFilename,
+      ),
+    ).toEqual(['closing-checklist.pdf']);
+    expect(relatedDocumentEmailLinks(relatedEmails, document.documentId, 0)).toHaveLength(0);
+  });
+
+  it('loads related emails through direct document links without fetching the matter timeline', async () => {
+    apiClientMocks.listDocumentEmailLinks.mockResolvedValueOnce(relatedEmails);
+
+    await expect(loadRelatedDocumentEmailLinks(document.documentId)).resolves.toEqual([
+      relatedEmails[0],
     ]);
-    expect(relatedMatterEmails(relatedEmails, document.documentId, 0)).toHaveLength(0);
+    expect(apiClientMocks.listDocumentEmailLinks).toHaveBeenCalledWith(document.documentId);
+    expect(apiClientMocks.listMatterEmailTimeline).not.toHaveBeenCalled();
   });
 
   it('renders search hit context without carrying raw snippets into the document route', () => {
@@ -536,6 +857,12 @@ describe('DocumentActionCenter', () => {
       target: 'body',
     });
     expect(searchHitContextFromParams(new URLSearchParams())).toBeNull();
+    expect(searchHitContextFromParams(new URLSearchParams({ chunk: '3' }))).toEqual({
+      hitCount: 3,
+      hitIndex: 3,
+      source: 'ai_citation',
+      target: 'body',
+    });
   });
 
   it('parses edit intent from route params without carrying arbitrary values', () => {
@@ -554,6 +881,15 @@ describe('DocumentActionCenter', () => {
     expect(editIntentFromParams(new URLSearchParams())).toBeNull();
   });
 
+  it('builds desktop edit protocol URLs from document and version references only', () => {
+    expect(desktopDocumentEditUrl(document.documentId)).toBe(
+      `amic-vault://documents/${document.documentId}/edit`,
+    );
+    expect(desktopDocumentEditUrl(document.documentId, versions[0]?.versionId)).toBe(
+      `amic-vault://documents/${document.documentId}/edit?versionId=${versions[0]?.versionId}`,
+    );
+  });
+
   it('maps edit lifecycle reason codes to operator-actionable messages', () => {
     expect(
       editLifecycleErrorMessage(
@@ -562,7 +898,7 @@ describe('DocumentActionCenter', () => {
           reason: 'edit_session_expired',
         }),
       ),
-    ).toContain('편집 lock이 만료되었습니다.');
+    ).toContain('편집 잠금이 만료되었습니다.');
 
     expect(
       editLifecycleErrorMessage(
@@ -592,6 +928,10 @@ describe('DocumentActionCenter', () => {
       versionStatus: 'current',
       fileObjectId: '11111111-1111-4111-8111-111111111902',
       sha256: 'a'.repeat(64),
+      versionLabel: 'v3.0',
+      versionSignificance: 'client_sent',
+      renditionType: 'clean',
+      baseCleanVersionId: null,
       metadataSuggestion: {},
       duplicates: [
         {
@@ -603,7 +943,7 @@ describe('DocumentActionCenter', () => {
     });
 
     expect(message).toContain('v3 새 버전이 추가되었습니다.');
-    expect(message).toContain('버전 목록, 감사 타임라인, 파일 정리 준비 상태를 갱신했습니다.');
+    expect(message).toContain('버전 목록, 활동 기록, 파일 정리 준비 상태를 갱신했습니다.');
     expect(message).toContain('중복 후보 1건이 감지되었습니다.');
     expect(message).not.toContain(document.documentId);
     expect(message).not.toContain(document.matterId);

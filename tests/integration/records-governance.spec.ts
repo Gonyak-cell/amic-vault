@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type {
   DisposalCertificateDto,
+  DisposalReviewListResponseDto,
   DisposalRequestDto,
   DmsWorkQueueResponseDto,
   ExternalLinkCreatedResponseDto,
@@ -17,6 +18,7 @@ import type {
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
 import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
+import { RetentionSchedulerService } from '../../apps/api/src/modules/records/retention-scheduler.service';
 import { NoopEncryptionHook } from '../../apps/api/src/modules/storage/noop-encryption.hook';
 import { S3StorageAdapter } from '../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../apps/api/src/modules/storage/storage-path.resolver';
@@ -95,12 +97,7 @@ async function createMatter(
   return (JSON.parse(body) as { matterId: string }).matterId;
 }
 
-async function addMatterMember(
-  baseUrl: string,
-  cookie: string,
-  matterId: string,
-  userId: string,
-) {
+async function addMatterMember(baseUrl: string, cookie: string, matterId: string, userId: string) {
   const response = await fetch(`${baseUrl}/v1/matters/${matterId}/members`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
@@ -113,7 +110,12 @@ async function addMatterMember(
 function uploadForm(title: string, filename: string, bytes: Uint8Array): FormData {
   const form = new FormData();
   form.append('title', title);
-  form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
+  const fileBytes = new Uint8Array(bytes);
+  const filePart = fileBytes.buffer.slice(
+    fileBytes.byteOffset,
+    fileBytes.byteOffset + fileBytes.byteLength,
+  );
+  form.append('file', new Blob([filePart], { type: 'application/pdf' }), filename);
   return form;
 }
 
@@ -274,6 +276,74 @@ async function recordsWorkItemStatuses(disposalRequestId: string) {
   });
 }
 
+async function disposalReviewRows(documentId: string) {
+  return withClient(createOwnerClient(), async (client) => {
+    await setTenant(client, tenantAlphaId);
+    const result = await client.query<{
+      disposal_request_id: string;
+      status: string;
+      reason_code: string;
+      workflow_item_id: string | null;
+    }>(
+      `
+        SELECT disposal_request_id::text AS disposal_request_id,
+          status, reason_code, workflow_item_id::text AS workflow_item_id
+        FROM disposal_requests
+        WHERE tenant_id = $1
+          AND document_id = $2
+        ORDER BY created_at ASC, disposal_request_id ASC
+      `,
+      [tenantAlphaId, documentId],
+    );
+    return result.rows;
+  });
+}
+
+async function ensureFreshMatterAppSyncState(): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          '{"fixture":"records_governance_integration"}'::jsonb
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantAlphaId],
+    );
+  });
+}
+
 async function recordsTableProtectionEvidence() {
   return withClient(createOwnerClient(), async (client) => {
     const tableNames = [
@@ -330,6 +400,8 @@ describe('records governance integration', () => {
   let holdDocument: UploadResponse;
   let disposalDocument: UploadResponse;
   let referencedDocument: UploadResponse;
+  let retentionReviewDocument: UploadResponse | undefined;
+  let retentionHeldDocument: UploadResponse | undefined;
 
   beforeAll(async () => {
     app = await NestFactory.create(AppModule, { logger: false });
@@ -356,6 +428,7 @@ describe('records governance integration', () => {
     matterId = await createMatter(baseUrl, ownerCookie, clientId, marker);
     await addMatterMember(baseUrl, ownerCookie, matterId, alphaFirmAdminUserId);
     await addMatterMember(baseUrl, ownerCookie, matterId, alphaSecurityAdminUserId);
+    await ensureFreshMatterAppSyncState();
     holdDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-HOLD`);
     disposalDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-DISPOSE`);
     referencedDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-REF`);
@@ -363,7 +436,12 @@ describe('records governance integration', () => {
 
   afterAll(async () => {
     const storage = createStorageService();
-    for (const documentId of [holdDocument?.documentId, referencedDocument?.documentId]) {
+    for (const documentId of [
+      holdDocument?.documentId,
+      referencedDocument?.documentId,
+      retentionReviewDocument?.documentId,
+      retentionHeldDocument?.documentId,
+    ]) {
       if (!documentId) continue;
       for (const storageUri of await storageUris(documentId)) {
         await storage.deleteByStorageUri(tenantAlphaId, storageUri);
@@ -483,6 +561,130 @@ describe('records governance integration', () => {
     expect(JSON.stringify([policyAudit, holdAudit, releaseAudit])).not.toContain('.pdf');
   });
 
+  it('schedules expired matter retention reviews without duplicating or including legal holds', async () => {
+    const policy = await postJson<RetentionPolicyDto>(
+      baseUrl,
+      securityAdminCookie,
+      '/v1/records/retention-policies',
+      {
+        policyCode: `RET-H8-${marker}`,
+        label: `Retention H8 ${marker}`,
+        retentionDays: 1,
+      },
+    );
+    const clientId = await createClient(baseUrl, ownerCookie, `H8-${marker}`);
+    const reviewMatterId = await createMatter(baseUrl, ownerCookie, clientId, `H8-${marker}`);
+    await addMatterMember(baseUrl, ownerCookie, reviewMatterId, alphaFirmAdminUserId);
+    await addMatterMember(baseUrl, ownerCookie, reviewMatterId, alphaSecurityAdminUserId);
+    retentionReviewDocument = await upload(
+      baseUrl,
+      ownerCookie,
+      reviewMatterId,
+      `H8-${marker}-REVIEW`,
+    );
+    retentionHeldDocument = await upload(baseUrl, ownerCookie, reviewMatterId, `H8-${marker}-HELD`);
+
+    const hold = await postJson<LegalHoldDto>(
+      baseUrl,
+      securityAdminCookie,
+      '/v1/records/legal-holds',
+      {
+        matterId: reviewMatterId,
+        documentId: retentionHeldDocument.documentId,
+        holdScope: 'document',
+        reasonCode: 'RETENTION_HOLD',
+      },
+    );
+    expect(hold.status).toBe('active');
+
+    await withClient(createOwnerClient(), async (client) => {
+      await setTenant(client, tenantAlphaId);
+      await client.query(
+        `
+          UPDATE matters
+          SET status = 'closed',
+            opened_at = COALESCE(opened_at, '2025-12-31T00:00:00.000Z'::timestamptz),
+            closed_at = '2026-01-01T00:00:00.000Z'::timestamptz,
+            retention_policy_id = $3,
+            updated_at = now()
+          WHERE tenant_id = $1
+            AND matter_id = $2
+        `,
+        [tenantAlphaId, reviewMatterId, policy.retentionPolicyId],
+      );
+    });
+
+    const scheduler = app.get(RetentionSchedulerService);
+    const scheduled = await scheduler.scheduleExpiredRetentionReviews({
+      asOf: new Date('2026-01-03T00:00:00.000Z'),
+      tenantIds: [tenantAlphaId],
+    });
+    expect(scheduled.scheduledCount).toBeGreaterThanOrEqual(1);
+
+    const reviewRows = await disposalReviewRows(retentionReviewDocument.documentId);
+    expect(reviewRows).toHaveLength(1);
+    expect(reviewRows[0]).toMatchObject({
+      status: 'requested',
+      reason_code: 'RETENTION_EXPIRED',
+    });
+    expect(reviewRows[0]?.workflow_item_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
+    );
+    await expect(disposalReviewRows(retentionHeldDocument.documentId)).resolves.toHaveLength(0);
+
+    const pendingReviews = await fetch(`${baseUrl}/v1/records/disposals`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const pendingReviewsBody = await pendingReviews.text();
+    expect(pendingReviews.status, pendingReviewsBody).toBe(200);
+    expect(JSON.parse(pendingReviewsBody) as DisposalReviewListResponseDto).toMatchObject({
+      disposals: expect.arrayContaining([
+        expect.objectContaining({
+          disposalRequestId: reviewRows[0]?.disposal_request_id,
+          documentTitle: `Records Document H8-${marker}-REVIEW`,
+          matterName: `Records Governance H8-${marker}`,
+          reasonCode: 'RETENTION_EXPIRED',
+          reviewSource: 'retention_scheduler',
+          status: 'requested',
+        }),
+      ]),
+    });
+
+    const approvalQueue = await workQueue(baseUrl, securityAdminCookie);
+    expect(approvalQueue.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'records',
+          status: 'open',
+          href: '/records?tab=disposal',
+        }),
+      ]),
+    );
+    await expect(
+      recordsWorkItemStatuses(reviewRows[0]?.disposal_request_id ?? ''),
+    ).resolves.toEqual([{ kind: 'records_disposal_approval', status: 'open' }]);
+    const schedulerAudit = await recordsAudit(
+      'RETENTION_REVIEW_SCHEDULED',
+      retentionReviewDocument.documentId,
+    );
+    expect(schedulerAudit?.metadata_json).toMatchObject({
+      disposal_request_id: reviewRows[0]?.disposal_request_id,
+      document_id: retentionReviewDocument.documentId,
+      matter_id: reviewMatterId,
+      reason_code: 'RETENTION_EXPIRED',
+      retention_days: 1,
+      retention_policy_id: policy.retentionPolicyId,
+    });
+    expect(JSON.stringify(schedulerAudit)).not.toContain(`Records-H8-${marker}`);
+
+    const rerun = await scheduler.scheduleExpiredRetentionReviews({
+      asOf: new Date('2026-01-03T00:00:00.000Z'),
+      tenantIds: [tenantAlphaId],
+    });
+    expect(rerun.scheduledCount).toBe(0);
+    await expect(disposalReviewRows(retentionReviewDocument.documentId)).resolves.toHaveLength(1);
+  });
+
   it('archives and executes disposal only after approval, preserving a reference-only certificate', async () => {
     const archive = await postJson<RecordsArchiveDto>(
       baseUrl,
@@ -531,6 +733,24 @@ describe('records governance integration', () => {
     expect(request.dueAt).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
     await expect(documentFlags(disposalDocument.documentId)).resolves.toMatchObject({
       status: 'disposal_locked',
+    });
+
+    const pendingReviews = await fetch(`${baseUrl}/v1/records/disposals`, {
+      headers: { cookie: securityAdminCookie },
+    });
+    const pendingReviewsBody = await pendingReviews.text();
+    expect(pendingReviews.status, pendingReviewsBody).toBe(200);
+    expect(JSON.parse(pendingReviewsBody)).toMatchObject({
+      disposals: expect.arrayContaining([
+        expect.objectContaining({
+          disposalRequestId: request.disposalRequestId,
+          documentTitle: `Records Document ${marker}-DISPOSE`,
+          matterName: `Records Governance ${marker}`,
+          reasonCode: 'CLIENT_RECORDS',
+          reviewSource: 'manual_request',
+          status: 'requested',
+        }),
+      ]),
     });
 
     const approvalQueue = await workQueue(baseUrl, securityAdminCookie);
@@ -608,9 +828,12 @@ describe('records governance integration', () => {
     );
     expect(getCertificate.status, await getCertificate.text()).toBe(200);
 
-    const getDeletedDocument = await fetch(`${baseUrl}/v1/documents/${disposalDocument.documentId}`, {
-      headers: { cookie: ownerCookie },
-    });
+    const getDeletedDocument = await fetch(
+      `${baseUrl}/v1/documents/${disposalDocument.documentId}`,
+      {
+        headers: { cookie: ownerCookie },
+      },
+    );
     expect(getDeletedDocument.status, await getDeletedDocument.text()).toBe(404);
 
     await expect(

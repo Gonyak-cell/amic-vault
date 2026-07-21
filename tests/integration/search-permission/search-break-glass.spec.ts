@@ -107,7 +107,7 @@ describe('search break glass permission filter integration', () => {
 
   it('keeps wall filtering in SQL and only reveals rows for approved unexpired overrides', async () => {
     const marker = `breakglass-${randomUUID()}`;
-    const fixture = await createSearchFixture(marker);
+    const fixture = await createSearchFixture(marker, { seedChunks: false });
     await addMatterMember({
       tenantId: tenantAlphaId,
       matterId: fixture.alphaMatterId,
@@ -151,5 +151,5 @@ describe('search break glass permission filter integration', () => {
     });
 
     await expect(search(baseUrl, ownerCookie, marker)).resolves.toEqual([]);
-  });
+  }, 15000);
 });

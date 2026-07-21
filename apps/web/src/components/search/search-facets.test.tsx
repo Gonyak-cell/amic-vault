@@ -35,6 +35,9 @@ const facets: SearchFacetsDto = {
     { value: 'failed', count: 1 },
     { value: 'ready', count: 0 },
   ],
+  emailRecipientDomains: [],
+  emailSenderDomains: [],
+  ocrConfidence: [{ value: 'ocr_low_confidence', count: 1 }],
   legalHolds: [
     { value: 'document_hold', count: 1 },
     { value: 'no_hold', count: 1 },
@@ -79,6 +82,8 @@ describe('SearchFacets', () => {
     expect(html).toContain('특권 없음');
     expect(html).toContain('추출/OCR');
     expect(html).toContain('추출 실패');
+    expect(html).toContain('OCR 신뢰도');
+    expect(html).toContain('OCR 저신뢰');
     expect(html).toContain('보존/삭제 금지');
     expect(html).toContain('파일 삭제 금지');
     expect(html).toContain('보존 조치 없음');
@@ -86,7 +91,7 @@ describe('SearchFacets', () => {
     expect(html).toContain('보관됨');
     expect(html).toContain('운영 중');
     expect(html).not.toContain('본문 검색 가능');
-    expect(html).toContain('사건');
+    expect(html).toContain('Matter');
     expect(html).toContain('고객');
     expect(html).toContain('AMIC-2026 · Vault UI');
     expect(html).toContain('AMIC');

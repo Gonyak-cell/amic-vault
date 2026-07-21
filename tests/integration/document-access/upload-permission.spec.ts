@@ -19,7 +19,6 @@ import { createOwnerClient, tenantAlphaId, withClient } from '../helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
-const alphaSecurityAdminUserId = '11111111-1111-4111-8111-111111111110';
 
 async function login(
   baseUrl: string,
@@ -92,17 +91,56 @@ async function updateStatus(baseUrl: string, cookie: string, matterId: string, s
   expect(response.status, await response.text()).toBe(200);
 }
 
+async function clearConflicts(matterId: string): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        UPDATE matters
+        SET conflicts_status = 'cleared',
+            updated_at = now()
+        WHERE tenant_id = $1
+          AND matter_id = $2
+      `,
+      [tenantAlphaId, matterId],
+    );
+  });
+}
+
 async function closeMatter(baseUrl: string, cookie: string, matterId: string): Promise<void> {
-  for (const status of ['open', 'active', 'closing', 'closed']) {
+  await clearConflicts(matterId);
+  for (const status of ['open', 'active', 'closing']) {
     await updateStatus(baseUrl, cookie, matterId, status);
   }
+  const checklist = await fetch(`${baseUrl}/v1/matters/${matterId}/closing-checklist`, {
+    headers: { cookie },
+  });
+  const checklistBody = await checklist.text();
+  expect(checklist.status, checklistBody).toBe(200);
+  const { items } = JSON.parse(checklistBody) as {
+    items: Array<{ itemCode: string; status: 'passed' | 'waived' | 'failed' | 'pending' }>;
+  };
+  for (const item of items) {
+    if (item.status === 'passed' || item.status === 'waived') continue;
+    const waiver = await fetch(
+      `${baseUrl}/v1/matters/${matterId}/closing-checklist/${item.itemCode}/waive`,
+      {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: 'Integration fixture closure waiver' }),
+      },
+    );
+    expect(waiver.status, await waiver.text()).toBe(201);
+  }
+  await updateStatus(baseUrl, cookie, matterId, 'closed');
 }
 
 function uploadForm(marker: string): FormData {
   const bytes = Buffer.from(`%PDF-1.7\nFIXMARK-DOC-${marker}\n`);
+  const payload = new Uint8Array(bytes.byteLength);
+  payload.set(bytes);
   const form = new FormData();
   form.append('title', `Permission ${marker}`);
-  form.append('file', new Blob([bytes], { type: 'application/pdf' }), `${marker}.pdf`);
+  form.append('file', new Blob([payload.buffer], { type: 'application/pdf' }), `${marker}.pdf`);
   return form;
 }
 
@@ -121,7 +159,7 @@ async function uploadedRow(documentId: string) {
         SELECT f.storage_uri
         FROM documents d
         JOIN file_objects f
-          ON f.storage_uri LIKE ('s3://amic-vault-dev/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
+          ON f.storage_uri LIKE ('s3://%/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
         WHERE d.document_id = $1
         LIMIT 1
       `,
@@ -193,6 +231,51 @@ function createStorageService(): StorageService {
   );
 }
 
+async function ensureFreshMatterAppSyncState(): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          '{"fixture":"upload_permission_integration"}'::jsonb
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantAlphaId],
+    );
+  });
+}
+
 describe('document upload permission integration', () => {
   let app: INestApplication;
   let baseUrl: string;
@@ -222,6 +305,7 @@ describe('document upload permission integration', () => {
       email: 'alpha-security-admin@test.local',
       password: 'dev-alpha-security-admin-password',
     });
+    await ensureFreshMatterAppSyncState();
     clientId = await createClient(baseUrl, ownerCookie);
   });
 

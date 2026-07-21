@@ -17,6 +17,7 @@ def test_eml_parser_normalizes_message_id_without_body_text() -> None:
     assert result.normalized_message_id == "case-001@example.test"
     assert result.subject == "Fixture"
     assert result.sent_at is not None
+    assert result.received_at is None
     assert len(result.participants) == 3
     assert result.participants[0].normalized_address == "sender@example.test"
     assert "body must not be returned" not in repr(result)
@@ -57,10 +58,10 @@ def test_eml_parser_failure_does_not_emit_body_text() -> None:
     assert "body must not be returned" not in repr(result)
 
 
-def test_msg_parser_is_pending_unsupported_skeleton() -> None:
+def test_msg_parser_invalid_ole_fails_without_pending_unsupported_claim() -> None:
     result = parse_msg_skeleton(b"\xd0\xcf\x11\xe0not-real-msg")
 
     assert result.parser == "msg"
-    assert result.status == "pending_unsupported"
-    assert result.failure_reason_code == "UNSUPPORTED_MSG"
+    assert result.status == "failed"
+    assert result.failure_reason_code == "MALFORMED_HEADERS"
     assert result.normalized_message_id is None

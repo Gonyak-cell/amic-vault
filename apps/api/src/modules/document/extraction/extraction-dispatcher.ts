@@ -1,13 +1,19 @@
+import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { MetricsRegistry } from '../../../common/metrics/metrics.middleware';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
+import { DdService } from '../../dd/dd.service';
+import { GraphSyncOutboxWorker } from '../../graph/graph-sync-outbox.worker';
 import { SearchIndexSyncHook } from '../../search/index/index-sync.hook';
 import { StorageService } from '../../storage/storage.service';
 import type {
+  DocumentAnnotationExtractionInput,
+  DocumentRevisionExtractionInput,
   ExtractionJobPayload,
   ExtractionResultInput,
   ExtractionTarget,
 } from './extraction.types';
+import { OcrQueueService } from './ocr-queue.service';
 import {
   isExtractionMethod,
   isExtractionStatus,
@@ -20,6 +26,41 @@ interface WorkerResponse {
   body_text?: unknown;
   confidence?: unknown;
   failure_reason_code?: unknown;
+}
+
+const b10ParserVersion = 'b10-worker-v1';
+const revisionChangeTypes = new Set<DocumentRevisionExtractionInput['changeType']>([
+  'insert',
+  'delete',
+  'move_from',
+  'move_to',
+  'format',
+]);
+const annotationTypes = new Set([
+  'highlight',
+  'text',
+  'freetext',
+  'underline',
+  'squiggly',
+  'strikeout',
+  'line',
+  'square',
+  'circle',
+  'polygon',
+  'polyline',
+  'ink',
+  'stamp',
+  'popup',
+  'link',
+  'unknown',
+]);
+
+interface ReadUrlStorageService {
+  createReadUrlByStorageUri(
+    tenantId: string,
+    storageUri: string,
+    expiresInSeconds?: number,
+  ): Promise<{ url: string }>;
 }
 
 function workerBaseUrl(): string {
@@ -41,6 +82,98 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
 
 function sanitizeBodyText(value: string): string {
   return value.replaceAll(String.fromCharCode(0), '');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sha256Hex(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function boundedText(value: unknown): string {
+  return typeof value === 'string' ? sanitizeBodyText(value).slice(0, 16_000) : '';
+}
+
+function boundedLabel(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = sanitizeBodyText(value).trim().slice(0, 160);
+  if (!trimmed || /(password|secret|token)/i.test(trimmed)) return null;
+  return trimmed;
+}
+
+function normalizedIsoDate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function extensionFromName(filename: string): string {
+  const dotIndex = filename.lastIndexOf('.');
+  return dotIndex >= 0 ? filename.slice(dotIndex + 1).toLowerCase() : '';
+}
+
+function normalizeRevisionChangeType(
+  value: unknown,
+): DocumentRevisionExtractionInput['changeType'] | null {
+  if (typeof value !== 'string') return null;
+  return revisionChangeTypes.has(value as DocumentRevisionExtractionInput['changeType'])
+    ? (value as DocumentRevisionExtractionInput['changeType'])
+    : null;
+}
+
+function normalizeAnnotationType(value: unknown): string {
+  const normalized = typeof value === 'string' ? value.toLowerCase().slice(0, 40) : 'unknown';
+  return annotationTypes.has(normalized) ? normalized : 'unknown';
+}
+
+function normalizePageNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.floor(value) : 1;
+}
+
+function normalizeRect(value: unknown): readonly number[] {
+  if (!Array.isArray(value) || value.length !== 4) return [];
+  const rect = value.map((item) => Number(item));
+  return rect.every(Number.isFinite) ? rect : [];
+}
+
+function parseRevisionResponse(payload: unknown): DocumentRevisionExtractionInput[] | undefined {
+  if (!isRecord(payload) || payload.status !== 'ready' || !Array.isArray(payload.revisions)) {
+    return undefined;
+  }
+  return payload.revisions.flatMap((revision) => {
+    if (!isRecord(revision)) return [];
+    const changeType = normalizeRevisionChangeType(revision.change_type);
+    if (!changeType) return [];
+    return [
+      {
+        changeType,
+        author: boundedLabel(revision.author),
+        changedAt: normalizedIsoDate(revision.date),
+        beforeText: boundedText(revision.before_text),
+        afterText: boundedText(revision.after_text),
+      },
+    ];
+  });
+}
+
+function parseAnnotationResponse(payload: unknown): DocumentAnnotationExtractionInput[] | undefined {
+  if (!isRecord(payload) || payload.status !== 'ready' || !Array.isArray(payload.annotations)) {
+    return undefined;
+  }
+  return payload.annotations.flatMap((annotation) => {
+    if (!isRecord(annotation)) return [];
+    return [
+      {
+        annotationType: normalizeAnnotationType(annotation.annotation_type),
+        page: normalizePageNumber(annotation.page),
+        author: boundedLabel(annotation.author),
+        contents: boundedText(annotation.contents),
+        rect: normalizeRect(annotation.rect),
+      },
+    ];
+  });
 }
 
 function parseWorkerResponse(payload: WorkerResponse, fallback: ExtractionJobPayload) {
@@ -98,9 +231,42 @@ export class ExtractionDispatcher {
     @Optional()
     @Inject(SearchIndexSyncHook)
     private readonly searchIndexSync?: SearchIndexSyncHook,
+    @Optional()
+    @Inject(OcrQueueService)
+    private readonly ocrQueue?: OcrQueueService,
+    @Optional()
+    @Inject(GraphSyncOutboxWorker)
+    private readonly graphSyncOutbox?: GraphSyncOutboxWorker,
+    @Optional()
+    @Inject(DdService)
+    private readonly ddService?: DdService,
   ) {}
 
   async handle(payload: ExtractionJobPayload): Promise<void> {
+    await this.handleWithWorker(payload, 'extract');
+  }
+
+  async handleOcr(payload: ExtractionJobPayload): Promise<void> {
+    await this.handleWithWorker(payload, 'ocr');
+  }
+
+  async extractRevisionsForTarget(
+    target: ExtractionTarget,
+  ): Promise<readonly DocumentRevisionExtractionInput[] | undefined> {
+    const extension = extensionFromName(target.normalizedFilename);
+    if (
+      extension !== 'docx' &&
+      target.mimeType !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      return undefined;
+    }
+    return parseRevisionResponse(await this.callSupplementalWorker(target, 'extract-revisions'));
+  }
+
+  private async handleWithWorker(
+    payload: ExtractionJobPayload,
+    workerPath: 'extract' | 'ocr',
+  ): Promise<void> {
     const target = await this.findTarget(payload);
     if (!target) {
       this.logger.warn({ code: 'EXTRACTION_TARGET_MISSING', versionId: payload.versionId });
@@ -108,9 +274,7 @@ export class ExtractionDispatcher {
       return;
     }
 
-    const stored = await this.storageService.getByStorageUri(target.tenantId, target.storageUri);
-    const fileBuffer = await streamToBuffer(stored.body);
-    const result = await this.callWorker(target, fileBuffer, payload);
+    const result = await this.callWorker(target, payload, workerPath);
     await this.storeResult(result);
   }
 
@@ -118,43 +282,28 @@ export class ExtractionDispatcher {
     await this.storeDeadLetter(payload, 'RETRY_EXHAUSTED');
   }
 
+  async markOcrDeadLetter(payload: ExtractionJobPayload): Promise<void> {
+    await this.storeResult({
+      ...payload,
+      status: 'failed',
+      method: 'ocr',
+      bodyText: '',
+      confidence: 0,
+      failureReasonCode: 'OCR_RETRY_EXHAUSTED',
+    });
+  }
+
   private async callWorker(
     target: ExtractionTarget,
-    fileBuffer: Buffer,
     payload: ExtractionJobPayload,
+    workerPath: 'extract' | 'ocr',
   ): Promise<ExtractionResultInput> {
-    const form = new FormData();
-    form.append('tenant_id', target.tenantId);
-    form.append('version_id', target.versionId);
-    form.append(
-      'file',
-      new Blob([new Uint8Array(fileBuffer)], { type: target.mimeType }),
-      target.normalizedFilename,
-    );
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), extractionWorkerTimeoutMs());
-    let response: Response;
-    try {
-      response = await fetch(`${workerBaseUrl()}/extract`, {
-        method: 'POST',
-        headers: { 'x-amic-tenant-id': target.tenantId },
-        signal: controller.signal,
-        body: form,
-      });
-    } catch (error) {
-      if (controller.signal.aborted) {
-        this.metrics.recordExtractionResult('failed');
-        throw new Error('transient extraction worker failure: timeout');
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-    }
+    const workerLabel = workerPath === 'extract' ? 'extraction' : 'ocr';
+    const response = await this.postWorkerForm(target, workerPath, workerLabel);
 
     if (response.status >= 500 || response.status === 408 || response.status === 429) {
       this.metrics.recordExtractionResult('failed');
-      throw new Error(`transient extraction worker failure: ${response.status}`);
+      throw new Error(`transient ${workerLabel} worker failure: ${response.status}`);
     }
 
     if (!response.ok) {
@@ -168,7 +317,120 @@ export class ExtractionDispatcher {
       };
     }
 
-    return parseWorkerResponse((await response.json()) as WorkerResponse, payload);
+    const responseJson = await this.readWorkerJson(response);
+    const result = parseWorkerResponse(
+      isRecord(responseJson) ? (responseJson as WorkerResponse) : {},
+      payload,
+    );
+    if (workerPath === 'extract') {
+      return this.attachSupplementalExtraction(target, result);
+    }
+    return result;
+  }
+
+  private async attachSupplementalExtraction(
+    target: ExtractionTarget,
+    result: ExtractionResultInput,
+  ): Promise<ExtractionResultInput> {
+    if (result.status !== 'ready') return result;
+    const extension = extensionFromName(target.normalizedFilename);
+    if (
+      result.method === 'docx' ||
+      extension === 'docx' ||
+      target.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      const revisions = parseRevisionResponse(
+        await this.callSupplementalWorker(target, 'extract-revisions'),
+      );
+      return revisions === undefined ? result : { ...result, revisions };
+    }
+    if (result.method === 'pdf_text' || extension === 'pdf' || target.mimeType === 'application/pdf') {
+      const annotations = parseAnnotationResponse(
+        await this.callSupplementalWorker(target, 'extract-annotations'),
+      );
+      return annotations === undefined ? result : { ...result, annotations };
+    }
+    return result;
+  }
+
+  private async callSupplementalWorker(
+    target: ExtractionTarget,
+    workerPath: 'extract-revisions' | 'extract-annotations',
+  ): Promise<unknown | null> {
+    const response = await this.postWorkerForm(target, workerPath, 'extraction');
+    if (response.status >= 500 || response.status === 408 || response.status === 429) {
+      this.metrics.recordExtractionResult('failed');
+      throw new Error(`transient extraction worker failure: ${response.status}`);
+    }
+    if (!response.ok) return null;
+    return this.readWorkerJson(response);
+  }
+
+  private async postWorkerForm(
+    target: ExtractionTarget,
+    workerPath: 'extract' | 'ocr' | 'extract-revisions' | 'extract-annotations',
+    workerLabel: string,
+  ): Promise<Response> {
+    const form = await this.createWorkerForm(target);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), extractionWorkerTimeoutMs());
+    try {
+      return await fetch(`${workerBaseUrl()}/${workerPath}`, {
+        method: 'POST',
+        headers: { 'x-amic-tenant-id': target.tenantId },
+        signal: controller.signal,
+        body: form,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        this.metrics.recordExtractionResult('failed');
+        throw new Error(`transient ${workerLabel} worker failure: timeout`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async createWorkerForm(target: ExtractionTarget): Promise<FormData> {
+    const form = new FormData();
+    form.append('tenant_id', target.tenantId);
+    form.append('version_id', target.versionId);
+    const readUrl = await this.createWorkerReadUrl(target);
+    if (readUrl) {
+      form.append('storage_url', readUrl);
+      form.append('source_filename', target.normalizedFilename);
+      form.append('source_mime_type', target.mimeType);
+      return form;
+    }
+    const stored = await this.storageService.getByStorageUri(target.tenantId, target.storageUri);
+    const fileBuffer = await streamToBuffer(stored.body);
+    form.append(
+      'file',
+      new Blob([new Uint8Array(fileBuffer)], { type: target.mimeType }),
+      target.normalizedFilename,
+    );
+    return form;
+  }
+
+  private async readWorkerJson(response: Response): Promise<unknown | null> {
+    if (response.bodyUsed) return null;
+    try {
+      return (await response.json()) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  private async createWorkerReadUrl(target: ExtractionTarget): Promise<string | null> {
+    const storageService = this.storageService as unknown as Partial<ReadUrlStorageService>;
+    if (typeof storageService.createReadUrlByStorageUri !== 'function') return null;
+    const result = await storageService.createReadUrlByStorageUri(
+      target.tenantId,
+      target.storageUri,
+      300,
+    );
+    return result.url;
   }
 
   private async findTarget(payload: ExtractionJobPayload): Promise<ExtractionTarget | null> {
@@ -285,12 +547,41 @@ export class ExtractionDispatcher {
         },
         tx,
       );
+      await this.storeDocumentRevisions(input, target, tx);
+      await this.storeDocumentAnnotations(input, target, tx);
       if (input.status === 'ready') {
+        await this.ddService?.suggestMappingsFromExtraction(tx, {
+          tenantId: input.tenantId,
+          matterId: target.matterId,
+          documentId: input.documentId,
+          versionId: input.versionId,
+          bodyText: input.bodyText,
+        });
         await this.searchIndexSync?.enqueueVersion(
           {
             tenantId: input.tenantId,
             documentId: input.documentId,
             versionId: input.versionId,
+          },
+          tx,
+        );
+        await this.graphSyncOutbox?.enqueue(
+          {
+            tenantId: input.tenantId,
+            matterId: target.matterId,
+            reasonCode: 'document_text_extracted',
+            requestedBy: null,
+          },
+          tx,
+        );
+      }
+      if (input.status === 'ocr_pending') {
+        await this.ocrQueue?.enqueueOcrRequired(
+          {
+            tenantId: input.tenantId,
+            documentId: input.documentId,
+            versionId: input.versionId,
+            fileObjectId: input.fileObjectId,
           },
           tx,
         );
@@ -320,5 +611,163 @@ export class ExtractionDispatcher {
     );
     const row = result.rows[0] as { matter_id: string } | undefined;
     return row ? { matterId: row.matter_id } : null;
+  }
+
+  private async storeDocumentRevisions(
+    input: ExtractionResultInput,
+    target: { matterId: string },
+    tx: QueryClient,
+  ): Promise<void> {
+    if (input.revisions === undefined) return;
+    await tx.query(
+      `
+        UPDATE document_revisions
+        SET stale = true, updated_at = now()
+        WHERE tenant_id = $1
+          AND version_id = $2
+          AND subversion_id IS NULL
+          AND stale = false
+      `,
+      [input.tenantId, input.versionId],
+    );
+    for (const [sequenceNo, revision] of input.revisions.entries()) {
+      await tx.query(
+        `
+          INSERT INTO document_revisions (
+            tenant_id, matter_id, document_id, version_id, subversion_id,
+            sequence_no, change_type, author_label, changed_at,
+            before_text, after_text, before_text_hash, after_text_hash,
+            parser_version, stale
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, false)
+        `,
+        [
+          input.tenantId,
+          target.matterId,
+          input.documentId,
+          input.versionId,
+          null,
+          sequenceNo,
+          revision.changeType,
+          revision.author,
+          revision.changedAt,
+          revision.beforeText,
+          revision.afterText,
+          sha256Hex(revision.beforeText),
+          sha256Hex(revision.afterText),
+          b10ParserVersion,
+        ],
+      );
+    }
+    await this.auditService.log(
+      {
+        tenantId: input.tenantId,
+        actorType: 'system',
+        actorId: null,
+        action: 'DOCUMENT_REVISIONS_EXTRACTED',
+        targetType: 'document',
+        targetId: input.documentId,
+        matterId: target.matterId,
+        metadata: {
+          document_id: input.documentId,
+          matter_id: target.matterId,
+          version_id: input.versionId,
+          item_count: input.revisions.length,
+          parser_status: 'success',
+          hash: sha256Hex(
+            input.revisions
+              .map((revision) =>
+                [
+                  revision.changeType,
+                  revision.author ?? '',
+                  revision.changedAt ?? '',
+                  sha256Hex(revision.beforeText),
+                  sha256Hex(revision.afterText),
+                ].join(':'),
+              )
+              .join('|'),
+          ),
+        },
+      },
+      tx,
+    );
+  }
+
+  private async storeDocumentAnnotations(
+    input: ExtractionResultInput,
+    target: { matterId: string },
+    tx: QueryClient,
+  ): Promise<void> {
+    if (input.annotations === undefined) return;
+    await tx.query(
+      `
+        UPDATE document_annotations
+        SET stale = true, updated_at = now()
+        WHERE tenant_id = $1
+          AND version_id = $2
+          AND subversion_id IS NULL
+          AND stale = false
+      `,
+      [input.tenantId, input.versionId],
+    );
+    for (const [sequenceNo, annotation] of input.annotations.entries()) {
+      await tx.query(
+        `
+          INSERT INTO document_annotations (
+            tenant_id, matter_id, document_id, version_id, subversion_id,
+            sequence_no, annotation_type, page_number, author_label,
+            contents, contents_hash, rect, parser_version, stale
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::numeric[], $13, false)
+        `,
+        [
+          input.tenantId,
+          target.matterId,
+          input.documentId,
+          input.versionId,
+          null,
+          sequenceNo,
+          annotation.annotationType,
+          annotation.page,
+          annotation.author,
+          annotation.contents,
+          sha256Hex(annotation.contents),
+          annotation.rect,
+          b10ParserVersion,
+        ],
+      );
+    }
+    await this.auditService.log(
+      {
+        tenantId: input.tenantId,
+        actorType: 'system',
+        actorId: null,
+        action: 'DOCUMENT_ANNOTATIONS_EXTRACTED',
+        targetType: 'document',
+        targetId: input.documentId,
+        matterId: target.matterId,
+        metadata: {
+          document_id: input.documentId,
+          matter_id: target.matterId,
+          version_id: input.versionId,
+          item_count: input.annotations.length,
+          parser_status: 'success',
+          hash: sha256Hex(
+            input.annotations
+              .map((annotation) =>
+                [
+                  annotation.annotationType,
+                  annotation.page,
+                  annotation.author ?? '',
+                  sha256Hex(annotation.contents),
+                  annotation.rect.join(','),
+                ].join(':'),
+              )
+              .join('|'),
+          ),
+        },
+      },
+      tx,
+    );
   }
 }

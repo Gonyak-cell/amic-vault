@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 const uuidSchema = z.string().uuid();
-const codeSchema = z.string().trim().min(2).max(64).regex(/^[A-Z0-9][A-Z0-9._-]*$/);
+const codeSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(64)
+  .regex(/^[A-Z0-9][A-Z0-9._-]*$/);
 const safeLabelSchema = z
   .string()
   .trim()
@@ -137,6 +142,21 @@ export const disposalCertificateSchema = z
   })
   .strict();
 
+export const disposalReviewItemSchema = disposalRequestSchema
+  .extend({
+    matterCode: z.string().min(1).max(120),
+    matterName: z.string().min(1).max(1000),
+    documentTitle: z.string().min(1).max(1000),
+    reviewSource: z.enum(['manual_request', 'retention_scheduler']),
+  })
+  .strict();
+
+export const disposalReviewListResponseSchema = z
+  .object({
+    disposals: z.array(disposalReviewItemSchema).max(100),
+  })
+  .strict();
+
 export type CreateRetentionPolicyRequestDto = z.infer<typeof createRetentionPolicyRequestSchema>;
 export type RetentionPolicyDto = z.infer<typeof retentionPolicySchema>;
 export type RetentionPolicyListResponseDto = z.infer<typeof retentionPolicyListResponseSchema>;
@@ -148,6 +168,8 @@ export type RecordsArchiveDto = z.infer<typeof recordsArchiveSchema>;
 export type CreateDisposalRequestDto = z.infer<typeof createDisposalRequestSchema>;
 export type DisposalRequestDto = z.infer<typeof disposalRequestSchema>;
 export type DisposalCertificateDto = z.infer<typeof disposalCertificateSchema>;
+export type DisposalReviewItemDto = z.infer<typeof disposalReviewItemSchema>;
+export type DisposalReviewListResponseDto = z.infer<typeof disposalReviewListResponseSchema>;
 export type LegalHoldScope = (typeof legalHoldScopes)[number];
 export type LegalHoldStatus = (typeof legalHoldStatuses)[number];
 export type DisposalRequestStatus = (typeof disposalRequestStatuses)[number];

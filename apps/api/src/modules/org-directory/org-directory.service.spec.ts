@@ -132,6 +132,21 @@ describe('OrgDirectoryService', () => {
     expect(canManageMatterMembers).not.toHaveBeenCalled();
   });
 
+  it('allows matter creators to search lead lawyer candidates before a matter exists', async () => {
+    const { canManageMatterMembers, service } = createService('matter_owner');
+
+    await expect(
+      service.searchSubjects(
+        { tenantId, userId: actorUserId },
+        { limit: 5, purpose: 'matter-intake', q: 'alpha', subjectType: 'user' },
+      ),
+    ).resolves.toMatchObject({
+      items: [expect.objectContaining({ subjectType: 'user' })],
+    });
+
+    expect(canManageMatterMembers).not.toHaveBeenCalled();
+  });
+
   it('fails closed for unauthorized purposes without leaking result counts', async () => {
     const { query, service } = createService('matter_owner');
 
@@ -139,6 +154,18 @@ describe('OrgDirectoryService', () => {
       service.searchSubjects(
         { tenantId, userId: actorUserId },
         { limit: 10, purpose: 'user-admin', q: 'alpha', subjectType: 'all' },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed for matter intake lookup by non-creator roles', async () => {
+    const { query, service } = createService('matter_member');
+
+    await expect(
+      service.searchSubjects(
+        { tenantId, userId: actorUserId },
+        { limit: 5, purpose: 'matter-intake', q: 'alpha', subjectType: 'user' },
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(query).toHaveBeenCalledTimes(1);

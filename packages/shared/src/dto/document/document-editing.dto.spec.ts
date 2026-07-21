@@ -5,11 +5,14 @@ import {
   createDocumentEditSessionSchema,
   documentEditPackageModeSchema,
   documentEditingFailureReasonSchema,
+  forceReleaseDocumentEditSessionSchema,
   promoteDocumentSubversionSchema,
   saveDocumentSubversionFieldsSchema,
   saveNativeDocumentEditDraftSchema,
   submitDocumentSubversionReviewSchema,
 } from './document-editing.dto';
+
+const lockToken = 'a'.repeat(64);
 
 describe('document editing DTO schemas', () => {
   it('parses checkout requests with bounded reason codes and safe idempotency', () => {
@@ -40,13 +43,15 @@ describe('document editing DTO schemas', () => {
   });
 
   it('parses internal subversion save fields without free-text notes', () => {
-    expect(saveDocumentSubversionFieldsSchema.parse({})).toEqual({
+    expect(saveDocumentSubversionFieldsSchema.parse({ lockToken })).toEqual({
+      lockToken,
       visibilityScope: 'session_owner',
     });
     expect(
       saveDocumentSubversionFieldsSchema.parse({
         editPackageMode: 'binary_roundtrip',
         expectedBaseSha256: 'A'.repeat(64),
+        lockToken,
         visibilityScope: 'reviewers',
         saveReasonCode: 'INTERNAL_REVIEW',
         clientSaveId: 'save-2026:0001',
@@ -54,6 +59,7 @@ describe('document editing DTO schemas', () => {
     ).toMatchObject({
       editPackageMode: 'binary_roundtrip',
       expectedBaseSha256: 'a'.repeat(64),
+      lockToken,
       visibilityScope: 'reviewers',
       saveReasonCode: 'INTERNAL_REVIEW',
     });
@@ -67,6 +73,7 @@ describe('document editing DTO schemas', () => {
         saveNote: 'contains possible negotiation strategy',
       }),
     ).toThrow();
+    expect(() => saveDocumentSubversionFieldsSchema.parse({})).toThrow();
   });
 
   it('parses native draft saves as bounded internal subversion payloads', () => {
@@ -74,11 +81,13 @@ describe('document editing DTO schemas', () => {
       saveNativeDocumentEditDraftSchema.parse({
         clientSaveId: 'native-save-2026:0001',
         content: 'client-approved clause draft',
+        lockToken,
         saveReasonCode: 'NATIVE_SAVE',
         visibilityScope: 'matter_editors',
       }),
     ).toMatchObject({
       content: 'client-approved clause draft',
+      lockToken,
       saveReasonCode: 'NATIVE_SAVE',
       visibilityScope: 'matter_editors',
     });
@@ -91,6 +100,11 @@ describe('document editing DTO schemas', () => {
       saveNativeDocumentEditDraftSchema.parse({
         content: 'draft',
         rawComment: 'negotiation strategy',
+      }),
+    ).toThrow();
+    expect(() =>
+      saveNativeDocumentEditDraftSchema.parse({
+        content: 'draft',
       }),
     ).toThrow();
   });
@@ -148,10 +162,30 @@ describe('document editing DTO schemas', () => {
     expect(
       cancelDocumentEditSessionSchema.parse({
         cancelledReasonCode: 'USER_CANCELLED',
+        lockToken,
       }),
     ).toEqual({
       cancelledReasonCode: 'USER_CANCELLED',
+      lockToken,
     });
+    expect(() =>
+      cancelDocumentEditSessionSchema.parse({
+        cancelledReasonCode: 'USER_CANCELLED',
+      }),
+    ).toThrow();
+    expect(
+      forceReleaseDocumentEditSessionSchema.parse({
+        forceReleaseReasonCode: 'OWNER_FORCE_RELEASE',
+      }),
+    ).toEqual({
+      forceReleaseReasonCode: 'OWNER_FORCE_RELEASE',
+    });
+    expect(() => forceReleaseDocumentEditSessionSchema.parse({})).toThrow();
+    expect(() =>
+      forceReleaseDocumentEditSessionSchema.parse({
+        forceReleaseReasonCode: 'owner asked in chat',
+      }),
+    ).toThrow();
     expect(
       promoteDocumentSubversionSchema.parse({
         expectedBaseVersionId: '11111111-1111-4111-8111-111111111111',

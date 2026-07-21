@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { computeLocalAiEvalReport } from './local-ai-eval';
+import {
+  collectLiveGoldenSetMetrics,
+  computeGoldenSetMetrics,
+  computeLocalAiEvalReport,
+  type SummaryEvaluationInput,
+} from './local-ai-eval';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
+const citationA = '11111111-1111-4111-8111-111111111101';
+const citationB = '11111111-1111-4111-8111-111111111102';
+const citationC = '11111111-1111-4111-8111-111111111103';
+const citationD = '11111111-1111-4111-8111-111111111104';
+
+function passingGoldenSetMetrics() {
+  return computeGoldenSetMetrics(
+    Array.from({ length: 30 }, (_, index) => ({
+      expectedAnswerFacts: [`golden fact ${index}`],
+      actualAnswerFacts: [`golden fact ${index}`],
+      expectedCitationDocumentIds: [citationA],
+      actualCitationDocumentIds: [citationA],
+    })),
+  );
+}
 
 describe('local AI eval metrics', () => {
   it('passes when deidentified cases, citations, leakage, and latency satisfy the gate', () => {
@@ -20,6 +40,7 @@ describe('local AI eval metrics', () => {
       matchedSourceRefs: 10,
       koreanOutputCount: 5,
       p95LatencyMs: 1200,
+      goldenSetMetrics: passingGoldenSetMetrics(),
     });
 
     expect(report.technicalPass).toBe(true);
@@ -27,6 +48,98 @@ describe('local AI eval metrics', () => {
     expect(report.rejectedOutputCount).toBe(0);
     expect(report.generatedOutputCount).toBe(5);
     expect(report.fallbackRate).toBeCloseTo(1 / 6);
+    expect(report.claimRecall).toBe(1);
+    expect(report.citationDocumentJaccard).toBe(1);
+  });
+
+  it('computes golden fact recall, precision, and citation Jaccard for the gate', () => {
+    const metrics = computeGoldenSetMetrics(
+      Array.from({ length: 30 }, () => ({
+        expectedAnswerFacts: ['termination notice is 30 days', 'governing law is Korean law', 'late fee is capped'],
+        actualAnswerFacts: ['termination notice is 30 days', 'governing law is Korean law', 'extra unsupported fact'],
+        expectedCitationDocumentIds: [citationA, citationB, citationC],
+        actualCitationDocumentIds: [citationA, citationC, citationD],
+      })),
+    );
+
+    expect(metrics.claimRecall).toBeCloseTo(2 / 3);
+    expect(metrics.claimPrecision).toBeCloseTo(2 / 3);
+    expect(metrics.citationDocumentJaccard).toBeCloseTo(2 / 4);
+
+    const report = computeLocalAiEvalReport({
+      tenantId,
+      caseCount: 100,
+      deidentifiedCaseCount: 100,
+      outputCount: 6,
+      fallbackCount: 0,
+      rejectedCount: 0,
+      generatedOutputCount: 6,
+      unsupportedCount: 0,
+      leakageCount: 0,
+      prepSchemaViolationCount: 0,
+      totalSourceRefs: 6,
+      matchedSourceRefs: 6,
+      koreanOutputCount: 6,
+      p95LatencyMs: 1200,
+      goldenSetMetrics: metrics,
+    });
+
+    expect(report.technicalPass).toBe(false);
+    expect(report.goldenSetPass).toBe(false);
+    expect(report.warnings).toContain('Golden-set claim recall is below the evaluation threshold.');
+    expect(report.warnings).toContain(
+      'Golden-set citation document match is below the evaluation threshold.',
+    );
+  });
+
+  it('runs every golden-labeled case through a supplied summary evaluator', async () => {
+    const matterId = '11111111-1111-4111-8111-111111111120';
+    const calls: SummaryEvaluationInput[] = [];
+    const rows = [
+      {
+        case_no: 'EV-LIVE-0001',
+        query_text: 'first golden question',
+        expected_answer_facts: ['first fact', 'second fact'],
+        expected_citation_document_ids: [citationA, citationB],
+      },
+      {
+        case_no: 'EV-LIVE-0002',
+        query_text: 'second golden question',
+        expected_answer_facts: ['third fact'],
+        expected_citation_document_ids: [citationC],
+      },
+    ];
+
+    const metrics = await collectLiveGoldenSetMetrics({
+      client: {
+        async query<T = unknown>() {
+          return { rows: rows as T[], rowCount: rows.length };
+        },
+      },
+      tenantId,
+      matterId,
+      evaluateSummary: async (input) => {
+        calls.push(input);
+        if (input.caseNo === 'EV-LIVE-0001') {
+          return {
+            claimTexts: ['first fact', 'extra fact'],
+            citationDocumentIds: [citationA, citationD],
+          };
+        }
+        return {
+          claimTexts: ['third fact'],
+          citationDocumentIds: [citationC],
+        };
+      },
+    });
+
+    expect(calls).toEqual([
+      { tenantId, matterId, caseNo: 'EV-LIVE-0001', queryText: 'first golden question' },
+      { tenantId, matterId, caseNo: 'EV-LIVE-0002', queryText: 'second golden question' },
+    ]);
+    expect(metrics.claimRecall).toBeCloseTo(2 / 3);
+    expect(metrics.claimPrecision).toBeCloseTo(2 / 3);
+    expect(metrics.citationDocumentJaccard).toBeCloseTo(((1 / 3) + 1) / 2);
   });
 
   it('fails closed when leakage is observed', () => {

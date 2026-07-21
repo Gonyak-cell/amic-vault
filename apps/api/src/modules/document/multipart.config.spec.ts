@@ -8,6 +8,7 @@ describe('multipart upload config', () => {
 
     expect(multipartFieldName).toBe('file');
     expect(options.limits.files).toBe(1);
+    expect(options.limits.fields).toBe(6);
     expect(options.dest).toBe(multipartUploadTempDir());
     expect(existsSync(options.dest)).toBe(true);
   });

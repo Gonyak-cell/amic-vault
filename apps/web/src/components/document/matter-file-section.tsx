@@ -83,7 +83,7 @@ function MatterTemplateDocumentSets({
     <div className="mt-3 rounded-md border bg-muted/30 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">문서 세트 계약</p>
+          <p className="truncate text-sm font-semibold text-foreground">승인된 문서 세트</p>
           <p className="mt-1 truncate text-[12px] text-muted-foreground">{template.displayName}</p>
         </div>
         <StatusBadge tone="success">승인됨</StatusBadge>
@@ -140,24 +140,24 @@ export function MatterFileSection({
   const approvedTemplate =
     templateCatalog?.templates.find((template) => template.matterType === matter.matterType) ?? null;
   const filingRows: FilingContextRow[] = [
-    { label: 'Matter Code', value: matter.matterCode },
+    { label: 'Matter code', value: matter.matterCode },
     { label: 'Matter', value: matterLabel },
     { label: '업무 그룹', value: matter.practiceGroup ?? '미지정' },
     { label: 'Matter 상태', value: matterStatusLabel(matter.status) },
     {
-      label: 'Matter 원장',
+      label: 'Matter 기준 정보',
       value: matterAppSourceLabels[resolvedSourceMode],
       tone: sourceModeTone(resolvedSourceMode),
     },
     {
-      label: 'Legal Hold',
+      label: '보존 조치',
       value: matter.legalHold ? '적용' : '미적용',
       tone: matter.legalHold ? 'warning' : 'success',
     },
-    { label: '파일링 모델', value: 'Matter 메타데이터 기준', tone: 'success' },
+    { label: '문서 보관 방식', value: 'Matter 정보 기준', tone: 'success' },
     {
-      label: '폴더 모델',
-      value: approvedTemplate ? '문서 세트 계약' : '미적용',
+      label: '문서 세트',
+      value: approvedTemplate ? '승인된 문서 세트' : '미적용',
       tone: approvedTemplate ? 'success' : 'neutral',
     },
   ];
@@ -166,8 +166,8 @@ export function MatterFileSection({
     <>
       <SectionCard
         icon={<FolderTree className="h-4 w-4" />}
-        title="파일링 기준"
-        meta="Matter 메타데이터"
+        title="문서 보관 기준"
+        meta="Matter 정보"
       >
         <FilingContextRows rows={filingRows} />
         <MatterTemplateDocumentSets template={approvedTemplate} />
@@ -175,14 +175,14 @@ export function MatterFileSection({
       <SectionCard
         icon={<FolderOpen className="h-4 w-4" />}
         title="파일"
-        meta="Matter 범위 목록"
+        meta="Matter별 문서 목록"
       >
         <MatterDocumentList refreshKey={uploadRevision} selectedMatter={matterOption} />
       </SectionCard>
       <SectionCard
         icon={<FolderUp className="h-4 w-4" />}
         title="파일 업로드"
-        meta="Matter Code 확인 후 업로드"
+        meta="Matter code 확인 후 업로드"
       >
         <DocumentUploadPanel
           selectedMatter={matterOption}

@@ -2,16 +2,21 @@ import type {
   AddDocumentVersionFieldsDto,
   AddDocumentVersionResponseDto,
   ApiErrorResponse,
+  BulkUploadBatchDto,
   ErrorCode,
   AddMatterMemberDto,
+  AiSessionListDto,
   AssignDocumentSubversionReviewerDto,
   CancelDocumentEditSessionDto,
   CheckInDocumentEditSessionDto,
   CreateDocumentEditSessionDto,
+  ForceReleaseDocumentEditSessionDto,
   DocumentDto,
+  DocumentStatus,
   DocumentEditSessionDto,
   DocumentListDto,
   DocumentDownloadReasonCode,
+  DocumentFolderDto,
   DocumentNativeEditDraftDto,
   DocumentEditPackageDto,
   DocumentSubversionDto,
@@ -20,19 +25,50 @@ import type {
   DocumentSubversionReviewListDto,
   DocumentSubversionReviewerListDto,
   DocumentSubversionReviewerDto,
+  CreateDocumentComparisonRequestDto,
+  DocumentComparisonDto,
   DocumentVersionListDto,
+  EmailMatterSuggestionListDto,
+  EmailMatterSuggestionQueryDto,
   EmailTimelineDto,
+  FileEmailToMatterDto,
+  UndoEmailAutofileDto,
   HeartbeatDocumentEditSessionDto,
+  ClientDto,
+  ClientListDto,
+  ConflictCheckDto,
+  ConflictCheckListDto,
+  CreateClientDto,
+  CreateMatterIssueDto,
+  CreateMatterKeyDateDto,
+  CreateMatterDto,
+  CreateMatterRelatedMatterDto,
   ListDocumentVersionsQueryDto,
   ListDocumentsQueryDto,
+  ListAiSessionsQueryDto,
+  ListClientsQueryDto,
   ListMattersQueryDto,
+  MatterClosingChecklistDto,
+  MatterClosingChecklistItemCode,
+  MatterClosingBinderResponseDto,
   MatterAppLookupQueryDto,
   MatterAppLookupResponseDto,
   MatterAppSourceStatusDto,
   MatterDto,
+  MatterDashboardDto,
+  MatterIssueDto,
+  MatterIssueListDto,
+  MatterKeyDateDto,
+  MatterKeyDateListDto,
   MatterMemberDto,
   MatterMemberListDto,
   MatterListDto,
+  MatterRelatedMatterListDto,
+  MatterRelationType,
+  CreatePartyDto,
+  ListPartiesQueryDto,
+  PartyDto,
+  PartyListDto,
   PromoteDocumentSubversionDto,
   PromoteDocumentSubversionResponseDto,
   SaveDocumentSubversionFieldsDto,
@@ -40,14 +76,52 @@ import type {
   SubmitDocumentSubversionReviewDto,
   SearchTarget,
   UpdateDocumentMetadataDto,
+  UpdateDocumentFolderDto,
+  UpdateDocumentTagsDto,
+  UpdateClientDto,
+  UpdateMatterDto,
+  UpdateMatterIssueDto,
+  UpdateMatterKeyDateDto,
+  UpdateMatterStatusDto,
+  WaiveMatterClosingChecklistItemDto,
   UpdateMatterMemberDto,
+  ResolveConflictCheckDto,
   CreateUploadPreflightRequestDto,
+  RegisterBulkUploadBatchDto,
+  RetryBulkUploadBatchItemDto,
   UploadPreflightResponseDto,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
+  UploadEmailToMatterFieldsDto,
+  UploadEmailToMatterResponseDto,
+  DocumentTagListDto,
+  UpdatePartyDto,
 } from '@amic-vault/shared';
 import { ERROR_CODES } from '@amic-vault/shared';
 import { apiBaseUrl } from './config';
+
+interface UpdateDocumentStatusInput {
+  status: DocumentStatus;
+  note?: string;
+}
+
+interface StageBulkUploadBatchOptions {
+  sourceRelativePaths?: readonly string[];
+}
+
+export interface EmailDocumentLinkDto {
+  linkId: string;
+  tenantId: string;
+  emailId: string;
+  documentId: string;
+  fileObjectId: string;
+  attachmentIndex: number;
+  attachmentFilename: string;
+  mediaType: string;
+  sizeBytes: number;
+  sha256: string;
+  createdAt: string;
+}
 
 export class ApiClientError extends Error {
   readonly code: ErrorCode;
@@ -163,6 +237,35 @@ export function listMatters(query: Partial<ListMattersQueryDto> = {}): Promise<M
   return apiFetch<MatterListDto>(`/matters${queryString(query)}`);
 }
 
+export function createMatter(input: CreateMatterDto): Promise<MatterDto> {
+  return apiFetch<MatterDto>('/matters', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listClients(query: Partial<ListClientsQueryDto> = {}): Promise<ClientListDto> {
+  return apiFetch<ClientListDto>(`/clients${queryString(query)}`);
+}
+
+export function getClient(clientId: string): Promise<ClientDto> {
+  return apiFetch<ClientDto>(`/clients/${encodeURIComponent(clientId)}`);
+}
+
+export function createClient(input: CreateClientDto): Promise<ClientDto> {
+  return apiFetch<ClientDto>('/clients', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateClient(clientId: string, input: UpdateClientDto): Promise<ClientDto> {
+  return apiFetch<ClientDto>(`/clients/${encodeURIComponent(clientId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
 export function getMatterAppStatus(): Promise<MatterAppSourceStatusDto> {
   return apiFetch<MatterAppSourceStatusDto>('/integrations/matter-app/status');
 }
@@ -179,8 +282,223 @@ export function getMatter(matterId: string): Promise<MatterDto> {
   return apiFetch<MatterDto>(`/matters/${matterId}`);
 }
 
+export function getMatterDashboard(matterId: string): Promise<MatterDashboardDto> {
+  return apiFetch<MatterDashboardDto>(`/matters/${encodeURIComponent(matterId)}/dashboard`);
+}
+
+export function updateMatter(matterId: string, input: UpdateMatterDto): Promise<MatterDto> {
+  return apiFetch<MatterDto>(`/matters/${encodeURIComponent(matterId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateMatterStatus(
+  matterId: string,
+  input: UpdateMatterStatusDto,
+): Promise<MatterDto> {
+  return apiFetch<MatterDto>(`/matters/${encodeURIComponent(matterId)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getMatterClosingChecklist(matterId: string): Promise<MatterClosingChecklistDto> {
+  return apiFetch<MatterClosingChecklistDto>(
+    `/matters/${encodeURIComponent(matterId)}/closing-checklist`,
+  );
+}
+
+export function evaluateMatterClosingChecklist(
+  matterId: string,
+): Promise<MatterClosingChecklistDto> {
+  return apiFetch<MatterClosingChecklistDto>(
+    `/matters/${encodeURIComponent(matterId)}/closing-checklist/evaluate`,
+    { method: 'POST' },
+  );
+}
+
+export function waiveMatterClosingChecklistItem(
+  matterId: string,
+  itemCode: MatterClosingChecklistItemCode,
+  input: WaiveMatterClosingChecklistItemDto,
+): Promise<MatterClosingChecklistDto> {
+  return apiFetch<MatterClosingChecklistDto>(
+    `/matters/${encodeURIComponent(matterId)}/closing-checklist/${encodeURIComponent(
+      itemCode,
+    )}/waive`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getMatterClosingBinder(matterId: string): Promise<MatterClosingBinderResponseDto> {
+  return apiFetch<MatterClosingBinderResponseDto>(
+    `/matters/${encodeURIComponent(matterId)}/closing-binder`,
+  );
+}
+
+export function matterClosingBinderManifestUrl(matterId: string, format: 'csv' | 'json'): string {
+  return `${apiBaseUrl()}/matters/${encodeURIComponent(matterId)}/closing-binder/manifest${queryString({ format })}`;
+}
+
+export function listMatterRelatedMatters(matterId: string): Promise<MatterRelatedMatterListDto> {
+  return apiFetch<MatterRelatedMatterListDto>(
+    `/matters/${encodeURIComponent(matterId)}/related-matters`,
+  );
+}
+
+export function addMatterRelatedMatter(
+  matterId: string,
+  input: CreateMatterRelatedMatterDto,
+): Promise<MatterRelatedMatterListDto> {
+  return apiFetch<MatterRelatedMatterListDto>(
+    `/matters/${encodeURIComponent(matterId)}/related-matters`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function removeMatterRelatedMatter(
+  matterId: string,
+  relatedMatterId: string,
+  relationType: MatterRelationType,
+): Promise<MatterRelatedMatterListDto> {
+  return apiFetch<MatterRelatedMatterListDto>(
+    `/matters/${encodeURIComponent(matterId)}/related-matters/${encodeURIComponent(
+      relatedMatterId,
+    )}?${queryString({ relationType }).slice(1)}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
+export function listMatterIssues(matterId: string): Promise<MatterIssueListDto> {
+  return apiFetch<MatterIssueListDto>(`/matters/${encodeURIComponent(matterId)}/issues`);
+}
+
+export function createMatterIssue(
+  matterId: string,
+  input: CreateMatterIssueDto,
+): Promise<MatterIssueDto> {
+  return apiFetch<MatterIssueDto>(`/matters/${encodeURIComponent(matterId)}/issues`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateMatterIssue(
+  matterId: string,
+  issueId: string,
+  input: UpdateMatterIssueDto,
+): Promise<MatterIssueDto> {
+  return apiFetch<MatterIssueDto>(
+    `/matters/${encodeURIComponent(matterId)}/issues/${encodeURIComponent(issueId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function deleteMatterIssue(matterId: string, issueId: string): Promise<void> {
+  return apiFetch<void>(
+    `/matters/${encodeURIComponent(matterId)}/issues/${encodeURIComponent(issueId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function listMatterKeyDates(matterId: string): Promise<MatterKeyDateListDto> {
+  return apiFetch<MatterKeyDateListDto>(`/matters/${encodeURIComponent(matterId)}/key-dates`);
+}
+
+export function createMatterKeyDate(
+  matterId: string,
+  input: CreateMatterKeyDateDto,
+): Promise<MatterKeyDateDto> {
+  return apiFetch<MatterKeyDateDto>(`/matters/${encodeURIComponent(matterId)}/key-dates`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateMatterKeyDate(
+  matterId: string,
+  keyDateId: string,
+  input: UpdateMatterKeyDateDto,
+): Promise<MatterKeyDateDto> {
+  return apiFetch<MatterKeyDateDto>(
+    `/matters/${encodeURIComponent(matterId)}/key-dates/${encodeURIComponent(keyDateId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function deleteMatterKeyDate(matterId: string, keyDateId: string): Promise<void> {
+  return apiFetch<void>(
+    `/matters/${encodeURIComponent(matterId)}/key-dates/${encodeURIComponent(keyDateId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function listMatterConflictChecks(matterId: string): Promise<ConflictCheckListDto> {
+  return apiFetch<ConflictCheckListDto>(`/matters/${encodeURIComponent(matterId)}/conflict-checks`);
+}
+
+export function runMatterConflictCheck(matterId: string): Promise<ConflictCheckDto> {
+  return apiFetch<ConflictCheckDto>(`/matters/${encodeURIComponent(matterId)}/conflict-checks`, {
+    method: 'POST',
+  });
+}
+
+export function resolveMatterConflictCheck(
+  matterId: string,
+  conflictCheckId: string,
+  input: ResolveConflictCheckDto,
+): Promise<ConflictCheckDto> {
+  return apiFetch<ConflictCheckDto>(
+    `/matters/${encodeURIComponent(matterId)}/conflict-checks/${encodeURIComponent(
+      conflictCheckId,
+    )}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export function listMatterMembers(matterId: string): Promise<MatterMemberListDto> {
   return apiFetch<MatterMemberListDto>(`/matters/${matterId}/members`);
+}
+
+export function listMatterParties(
+  matterId: string,
+  query: Partial<ListPartiesQueryDto> = {},
+): Promise<PartyListDto> {
+  return apiFetch<PartyListDto>(
+    `/matters/${encodeURIComponent(matterId)}/parties${queryString(query)}`,
+  );
+}
+
+export function createMatterParty(matterId: string, input: CreatePartyDto): Promise<PartyDto> {
+  return apiFetch<PartyDto>(`/matters/${encodeURIComponent(matterId)}/parties`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateParty(partyId: string, input: UpdatePartyDto): Promise<PartyDto> {
+  return apiFetch<PartyDto>(`/parties/${encodeURIComponent(partyId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 }
 
 export function addMatterMember(
@@ -211,7 +529,83 @@ export function removeMatterMember(matterId: string, userId: string): Promise<vo
 }
 
 export function listMatterEmailTimeline(matterId: string): Promise<EmailTimelineDto> {
-  return apiFetch<EmailTimelineDto>(`/matters/${matterId}/email-timeline`);
+  return apiFetch<EmailTimelineDto>(`/matters/${encodeURIComponent(matterId)}/email-timeline`);
+}
+
+export function listAiSessions(
+  query: Partial<ListAiSessionsQueryDto> = {},
+): Promise<AiSessionListDto> {
+  return apiFetch<AiSessionListDto>(`/ai/sessions${queryString(query)}`);
+}
+
+export function listEmailDocumentLinks(emailId: string): Promise<EmailDocumentLinkDto[]> {
+  return apiFetch<EmailDocumentLinkDto[]>(`/emails/${encodeURIComponent(emailId)}/document-links`);
+}
+
+export function listDocumentEmailLinks(documentId: string): Promise<EmailDocumentLinkDto[]> {
+  return apiFetch<EmailDocumentLinkDto[]>(
+    `/documents/${encodeURIComponent(documentId)}/email-links`,
+  );
+}
+
+export function uploadRawEmailToMatter(
+  matterId: string,
+  file: File,
+  fields: UploadEmailToMatterFieldsDto = {},
+): Promise<UploadEmailToMatterResponseDto> {
+  const formData = new FormData();
+  formData.set('file', file);
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined)
+      formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
+  }
+  return apiFetchFormData<UploadEmailToMatterResponseDto>(
+    `/matters/${encodeURIComponent(matterId)}/emails`,
+    formData,
+    { method: 'POST' },
+  );
+}
+
+export function getEmailMatterSuggestions(
+  emailId: string,
+  query: Partial<EmailMatterSuggestionQueryDto> = {},
+): Promise<EmailMatterSuggestionListDto> {
+  return apiFetch<EmailMatterSuggestionListDto>(
+    `/emails/${encodeURIComponent(emailId)}/matter-suggestions${queryString(query)}`,
+  );
+}
+
+export function fileEmailToMatter(
+  emailId: string,
+  input: FileEmailToMatterDto,
+): Promise<EmailTimelineDto['items'][number]> {
+  return apiFetch<EmailTimelineDto['items'][number]>(
+    `/emails/${encodeURIComponent(emailId)}/file`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function fileEmailThreadToMatter(
+  threadId: string,
+  input: FileEmailToMatterDto,
+): Promise<EmailTimelineDto> {
+  return apiFetch<EmailTimelineDto>(`/email-threads/${encodeURIComponent(threadId)}/file`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function undoEmailAutofile(
+  emailId: string,
+  input: UndoEmailAutofileDto,
+): Promise<EmailTimelineDto> {
+  return apiFetch<EmailTimelineDto>(`/emails/${encodeURIComponent(emailId)}/autofile/undo`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 export function listMatterDocuments(
@@ -237,7 +631,7 @@ export function uploadDocument(
   const formData = new FormData();
   formData.set('file', file);
   for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined) formData.set(key, String(value));
+    if (value !== undefined) formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
   }
   return apiFetchFormData<UploadDocumentResponseDto>(
     `/matters/${encodeURIComponent(matterReference)}/documents`,
@@ -259,6 +653,58 @@ export function createUploadPreflight(
   );
 }
 
+export function stageBulkUploadBatch(
+  matterReference: string,
+  files: readonly File[],
+  fields: UploadDocumentFieldsDto = {},
+  options: StageBulkUploadBatchOptions = {},
+): Promise<BulkUploadBatchDto> {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
+  }
+  if (options.sourceRelativePaths) {
+    formData.set('sourceRelativePaths', JSON.stringify(options.sourceRelativePaths));
+  }
+  for (const file of files) formData.append('file', file);
+  return apiFetchFormData<BulkUploadBatchDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents/bulk-upload-batches/stage`,
+    formData,
+    { method: 'POST' },
+  );
+}
+
+export function registerBulkUploadBatch(
+  matterReference: string,
+  input: RegisterBulkUploadBatchDto,
+): Promise<BulkUploadBatchDto> {
+  return apiFetch<BulkUploadBatchDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents/bulk-upload-batches`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function getBulkUploadBatch(
+  matterReference: string,
+  batchId: string,
+): Promise<BulkUploadBatchDto> {
+  return apiFetch<BulkUploadBatchDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents/bulk-upload-batches/${encodeURIComponent(batchId)}`,
+  );
+}
+
+export function retryBulkUploadBatchItem(
+  matterReference: string,
+  batchId: string,
+  itemId: string,
+  input: RetryBulkUploadBatchItemDto = {},
+): Promise<BulkUploadBatchDto> {
+  return apiFetch<BulkUploadBatchDto>(
+    `/matters/${encodeURIComponent(matterReference)}/documents/bulk-upload-batches/${encodeURIComponent(batchId)}/items/${encodeURIComponent(itemId)}/retry`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
 export function getDocument(documentId: string): Promise<DocumentDto> {
   return apiFetch<DocumentDto>(`/documents/${encodeURIComponent(documentId)}`);
 }
@@ -269,6 +715,52 @@ export function updateDocumentMetadata(
 ): Promise<DocumentDto> {
   return apiFetch<DocumentDto>(`/documents/${encodeURIComponent(documentId)}/metadata`, {
     method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateDocumentStatus(
+  documentId: string,
+  input: UpdateDocumentStatusInput,
+): Promise<DocumentDto> {
+  return apiFetch<DocumentDto>(`/documents/${encodeURIComponent(documentId)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listDocumentFolders(matterReference: string): Promise<DocumentFolderDto[]> {
+  return apiFetch<DocumentFolderDto[]>(
+    `/matters/${encodeURIComponent(matterReference)}/document-folders`,
+  );
+}
+
+export function updateDocumentFolder(
+  matterReference: string,
+  folderId: string,
+  input: UpdateDocumentFolderDto,
+): Promise<DocumentFolderDto> {
+  return apiFetch<DocumentFolderDto>(
+    `/matters/${encodeURIComponent(matterReference)}/document-folders/${encodeURIComponent(folderId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function listDocumentTags(matterReference: string): Promise<DocumentTagListDto> {
+  return apiFetch<DocumentTagListDto>(
+    `/matters/${encodeURIComponent(matterReference)}/document-tags`,
+  );
+}
+
+export function setDocumentTags(
+  documentId: string,
+  input: UpdateDocumentTagsDto,
+): Promise<DocumentTagListDto> {
+  return apiFetch<DocumentTagListDto>(`/documents/${encodeURIComponent(documentId)}/tags`, {
+    method: 'PUT',
     body: JSON.stringify(input),
   });
 }
@@ -296,6 +788,25 @@ export function addDocumentVersion(
     `/documents/${encodeURIComponent(documentId)}/versions`,
     formData,
     { method: 'POST' },
+  );
+}
+
+export function createDocumentComparison(
+  documentId: string,
+  input: CreateDocumentComparisonRequestDto,
+): Promise<DocumentComparisonDto> {
+  return apiFetch<DocumentComparisonDto>(`/documents/${encodeURIComponent(documentId)}/comparisons`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getDocumentComparison(
+  documentId: string,
+  comparisonId: string,
+): Promise<DocumentComparisonDto> {
+  return apiFetch<DocumentComparisonDto>(
+    `/documents/${encodeURIComponent(documentId)}/comparisons/${encodeURIComponent(comparisonId)}`,
   );
 }
 
@@ -340,7 +851,7 @@ export function saveDocumentSubversion(
   documentId: string,
   editSessionId: string,
   file: File,
-  fields: SaveDocumentSubversionFieldsDto = { visibilityScope: 'session_owner' },
+  fields: SaveDocumentSubversionFieldsDto,
 ): Promise<DocumentSubversionDto> {
   const formData = new FormData();
   formData.set('file', file);
@@ -415,7 +926,7 @@ export function listDocumentSubversions(documentId: string): Promise<DocumentSub
 export function checkInDocumentEditSession(
   documentId: string,
   editSessionId: string,
-  input: CheckInDocumentEditSessionDto = {},
+  input: CheckInDocumentEditSessionDto,
 ): Promise<DocumentEditSessionDto> {
   return apiFetch<DocumentEditSessionDto>(
     `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
@@ -431,12 +942,28 @@ export function checkInDocumentEditSession(
 export function cancelDocumentEditSession(
   documentId: string,
   editSessionId: string,
-  input: CancelDocumentEditSessionDto = {},
+  input: CancelDocumentEditSessionDto,
 ): Promise<DocumentEditSessionDto> {
   return apiFetch<DocumentEditSessionDto>(
     `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
       editSessionId,
     )}/cancel`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function forceReleaseDocumentEditSession(
+  documentId: string,
+  editSessionId: string,
+  input: ForceReleaseDocumentEditSessionDto,
+): Promise<DocumentEditSessionDto> {
+  return apiFetch<DocumentEditSessionDto>(
+    `/documents/${encodeURIComponent(documentId)}/edit-sessions/${encodeURIComponent(
+      editSessionId,
+    )}/force-release`,
     {
       method: 'POST',
       body: JSON.stringify(input),
@@ -582,6 +1109,18 @@ export function documentDownloadUrl(
   if (reasonCode) params.set('reasonCode', reasonCode);
   const queryString = params.toString();
   return `${apiBaseUrl()}/documents/${encodeURIComponent(documentId)}/download${
+    queryString ? `?${queryString}` : ''
+  }`;
+}
+
+export function emailRawDownloadUrl(
+  emailId: string,
+  reasonCode?: DocumentDownloadReasonCode,
+): string {
+  const params = new URLSearchParams();
+  if (reasonCode) params.set('reasonCode', reasonCode);
+  const queryString = params.toString();
+  return `${apiBaseUrl()}/emails/${encodeURIComponent(emailId)}/raw${
     queryString ? `?${queryString}` : ''
   }`;
 }

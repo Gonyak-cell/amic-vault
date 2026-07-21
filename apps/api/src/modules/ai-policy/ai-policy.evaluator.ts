@@ -1,5 +1,6 @@
 import type {
   AiDocumentPolicyDecision,
+  AiDocumentPolicyExclusion,
   AiPolicyAuditResult,
   AiPolicyBlockReasonCode,
   AiPolicyDecisionEffect,
@@ -41,7 +42,14 @@ export interface AiPolicyCoreDecision {
   modelRoute: string | null;
   matterId: string;
   documentDecisions: readonly AiDocumentPolicyDecision[];
+  allowedDocumentIds: readonly string[];
+  excludedDocumentDecisions: readonly AiDocumentPolicyExclusion[];
   appliedRules: readonly string[];
+}
+
+export interface AiDocumentPolicyPartition {
+  allowedDocumentIds: readonly string[];
+  excludedDocumentDecisions: readonly AiDocumentPolicyExclusion[];
 }
 
 function deny(
@@ -59,8 +67,34 @@ function deny(
     modelRoute: routePattern.test(input.modelRoute) ? input.modelRoute : null,
     matterId: input.matterId,
     documentDecisions: input.documents,
+    allowedDocumentIds: [],
+    excludedDocumentDecisions: [],
     appliedRules,
   };
+}
+
+export function partitionAiPolicyDocuments(input: {
+  requestedDocumentIds: readonly string[];
+  documents: readonly AiDocumentPolicyDecision[];
+}): AiDocumentPolicyPartition {
+  const byDocumentId = new Map(input.documents.map((document) => [document.documentId, document]));
+  const allowedDocumentIds: string[] = [];
+  const excludedDocumentDecisions: AiDocumentPolicyExclusion[] = [];
+
+  for (const documentId of input.requestedDocumentIds) {
+    const decision = byDocumentId.get(documentId);
+    if (!decision) {
+      excludedDocumentDecisions.push({ documentId, reasonCode: 'document_missing_or_denied' });
+      continue;
+    }
+    if (!decision.aiAllowed) {
+      excludedDocumentDecisions.push({ documentId, reasonCode: 'document_ai_not_allowed' });
+      continue;
+    }
+    allowedDocumentIds.push(documentId);
+  }
+
+  return { allowedDocumentIds, excludedDocumentDecisions };
 }
 
 export function evaluateAiPolicySnapshot(input: AiPolicySnapshotInput): AiPolicyCoreDecision {
@@ -101,8 +135,12 @@ export function evaluateAiPolicySnapshot(input: AiPolicySnapshotInput): AiPolicy
   if (input.documents.length !== input.requestedDocumentIds.length) {
     return deny(input, 'document_missing_or_denied', ['document:missing_or_outside_matter']);
   }
-  if (input.documents.some((document) => !document.aiAllowed)) {
-    return deny(input, 'document_ai_not_allowed', ['document.ai_allowed:false']);
+  const partition = partitionAiPolicyDocuments(input);
+  if (partition.excludedDocumentDecisions.length > 0 && partition.allowedDocumentIds.length === 0) {
+    return {
+      ...deny(input, 'document_ai_not_allowed', ['document.ai_allowed:false']),
+      excludedDocumentDecisions: partition.excludedDocumentDecisions,
+    };
   }
 
   return {
@@ -112,11 +150,15 @@ export function evaluateAiPolicySnapshot(input: AiPolicySnapshotInput): AiPolicy
     modelRoute: input.modelRoute,
     matterId: input.matterId,
     documentDecisions: input.documents,
+    allowedDocumentIds: partition.allowedDocumentIds,
+    excludedDocumentDecisions: partition.excludedDocumentDecisions,
     appliedRules: [
       'matter_policy:present',
       'model_access_policy:enabled',
       'model_tier:allowed',
-      'document.ai_allowed:true_or_not_requested',
+      partition.excludedDocumentDecisions.length > 0
+        ? 'document.ai_allowed:mixed_excluded'
+        : 'document.ai_allowed:true_or_not_requested',
     ],
   };
 }

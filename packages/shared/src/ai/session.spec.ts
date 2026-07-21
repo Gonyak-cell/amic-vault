@@ -3,6 +3,7 @@ import {
   aiSessionChunkLogSchema,
   aiSessionCreateSchema,
   aiSessionDetailSchema,
+  aiSessionPayloadSchema,
   aiSessionResponseLogSchema,
 } from './session';
 
@@ -26,8 +27,11 @@ describe('AI session schemas', () => {
         responseLength: 256,
         responseTokenCount: 64,
         latencyMs: 120,
+        requestKind: 'matter_qa',
+        generationResult: 'fallback',
+        fallbackReasonCode: 'SUMMARY_GENERATION_DISABLED',
       }),
-    ).toMatchObject({ responseHash: '1'.repeat(64) });
+    ).toMatchObject({ responseHash: '1'.repeat(64), requestKind: 'matter_qa' });
 
     expect(() =>
       aiSessionCreateSchema.parse({
@@ -95,5 +99,26 @@ describe('AI session schemas', () => {
 
     expect(detail.promptHash).toBe(hash);
     expect(JSON.stringify(detail)).not.toContain('raw body');
+  });
+
+  it('has a separate security payload response schema for preserved prompt and response text', () => {
+    const payload = aiSessionPayloadSchema.parse({
+      sessionId: id,
+      matterId: id,
+      ownerUserId: id,
+      promptText: 'matter_summary:raw user query',
+      responseText: '{"status":"completed"}',
+      promptHash: hash,
+      responseHash: '1'.repeat(64),
+      promptLength: 29,
+      responseLength: 22,
+      riskFlag: true,
+      dlpFindingCount: 1,
+      createdAt: '2026-06-12T00:00:00.000Z',
+      updatedAt: '2026-06-12T00:00:00.000Z',
+    });
+
+    expect(payload.promptText).toContain('raw user query');
+    expect(payload.riskFlag).toBe(true);
   });
 });

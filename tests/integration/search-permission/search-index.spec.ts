@@ -11,6 +11,10 @@ import { SESSION_COOKIE_NAME } from '../../../apps/api/src/modules/auth/session.
 import { ExtractionDispatcher } from '../../../apps/api/src/modules/document/extraction/extraction-dispatcher';
 import { IndexingProcessor } from '../../../apps/api/src/modules/search/index/indexing.processor';
 import { searchIndexQueueName } from '../../../apps/api/src/modules/search/index/indexing.service';
+import {
+  deterministicEmbeddingVector,
+  vectorToSqlLiteral,
+} from '../../../apps/api/src/modules/search/semantic/local-embedding';
 import { NoopEncryptionHook } from '../../../apps/api/src/modules/storage/noop-encryption.hook';
 import { S3StorageAdapter } from '../../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../../apps/api/src/modules/storage/storage-path.resolver';
@@ -45,6 +49,12 @@ interface SearchJobRow {
   retry_backoff: boolean;
   dead_letter: string;
   singleton_key: string;
+}
+
+interface EmbeddingRow {
+  dimensions: number;
+  model_route: string;
+  stale: boolean;
 }
 
 async function login(
@@ -105,6 +115,51 @@ async function currentVersion(tenantId: string, documentId: string): Promise<Cur
   });
 }
 
+async function ensureFreshMatterAppSyncState(tenantId: string): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO matter_app_sync_state (
+          tenant_id,
+          source_ref,
+          last_sync_at,
+          reflected_count,
+          drift_count,
+          source_revision_hash,
+          source_artifact_hash,
+          run_id_hash,
+          status,
+          summary_json
+        )
+        VALUES (
+          $1,
+          'lawos_lazycodex_canonical_identity',
+          now(),
+          1,
+          0,
+          repeat('a', 64),
+          repeat('b', 64),
+          repeat('c', 64),
+          'pass',
+          '{"fixture":"search_index"}'::jsonb
+        )
+        ON CONFLICT (tenant_id, source_ref)
+        DO UPDATE SET
+          last_sync_at = EXCLUDED.last_sync_at,
+          reflected_count = EXCLUDED.reflected_count,
+          drift_count = EXCLUDED.drift_count,
+          source_revision_hash = EXCLUDED.source_revision_hash,
+          source_artifact_hash = EXCLUDED.source_artifact_hash,
+          run_id_hash = EXCLUDED.run_id_hash,
+          status = EXCLUDED.status,
+          summary_json = EXCLUDED.summary_json,
+          updated_at = now()
+      `,
+      [tenantId],
+    );
+  });
+}
+
 async function searchJob(versionId: string): Promise<SearchJobRow> {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<SearchJobRow>(
@@ -143,6 +198,110 @@ async function indexRow(tenantId: string, versionId: string) {
     );
     expect(result.rows[0]).toBeDefined();
     return result.rows[0];
+  });
+}
+
+async function embeddingRow(tenantId: string, versionId: string): Promise<EmbeddingRow> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<EmbeddingRow>(
+      `
+        SELECT model_route, stale, vector_dims(embedding)::int AS dimensions
+        FROM document_chunk_embeddings
+        WHERE tenant_id = $1
+          AND version_id = $2
+          AND model_route = 'bge_m3'
+        ORDER BY stale ASC, updated_at DESC
+        LIMIT 1
+      `,
+      [tenantId, versionId],
+    );
+    expect(result.rows[0]).toBeDefined();
+    return result.rows[0] as EmbeddingRow;
+  });
+}
+
+async function seedLegacyEmbeddingRow(tenantId: string, versionId: string): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    const vector = vectorToSqlLiteral(deterministicEmbeddingVector('legacy embedding seed'));
+    await client.query(
+      `
+        UPDATE document_chunk_embeddings
+        SET stale = true,
+          updated_at = now()
+        WHERE tenant_id = $1
+          AND version_id = $2
+          AND model_route = 'bge_m3'
+      `,
+      [tenantId, versionId],
+    );
+    await client.query(
+      `
+        INSERT INTO document_chunk_embeddings (
+          tenant_id, chunk_id, document_id, version_id, model_route, model_tier,
+          embedding, embedding_hash, source_text_hash, stale, updated_at
+        )
+        SELECT tenant_id, chunk_id, document_id, version_id, 'local_gemma', 'local',
+          $3::vector, repeat('1', 64), source_text_hash, false, now()
+        FROM document_chunks
+        WHERE tenant_id = $1
+          AND version_id = $2
+          AND chunk_kind = 'child'
+        ORDER BY chunk_ordinal ASC
+        LIMIT 1
+        ON CONFLICT (tenant_id, chunk_id, model_route)
+        DO UPDATE SET
+          embedding = EXCLUDED.embedding,
+          embedding_hash = EXCLUDED.embedding_hash,
+          stale = false,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [tenantId, versionId, vector],
+    );
+  });
+}
+
+async function legacyEmbeddingCount(tenantId: string, versionId: string): Promise<number> {
+  return withClient(createOwnerClient(), async (client) => {
+    const result = await client.query<{ count: string }>(
+      `
+        SELECT count(*)::text
+        FROM document_chunk_embeddings
+        WHERE tenant_id = $1
+          AND version_id = $2
+          AND model_route <> 'bge_m3'
+      `,
+      [tenantId, versionId],
+    );
+    return Number(result.rows[0]?.count ?? '0');
+  });
+}
+
+async function hnswPlanUsesBgeM3Index(): Promise<boolean> {
+  return withClient(createOwnerClient(), async (client) => {
+    await client.query('BEGIN');
+    try {
+      await client.query('SET LOCAL enable_seqscan = off');
+      await client.query('SET LOCAL enable_bitmapscan = off');
+      await client.query('SET LOCAL enable_sort = off');
+      const vector = vectorToSqlLiteral(deterministicEmbeddingVector('termination governing law'));
+      const result = await client.query<{ 'QUERY PLAN': string }>(
+        `
+          EXPLAIN (COSTS OFF)
+          SELECT embedding_id
+          FROM document_chunk_embeddings
+          WHERE model_route = 'bge_m3'
+            AND stale = false
+          ORDER BY embedding <=> $1::vector
+          LIMIT 1
+        `,
+        [vector],
+      );
+      return result.rows.some((row) =>
+        row['QUERY PLAN'].includes('idx_document_chunk_embeddings_bge_m3_hnsw'),
+      );
+    } finally {
+      await client.query('ROLLBACK');
+    }
   });
 }
 
@@ -185,6 +344,36 @@ function startMockWorker(): Promise<{ server: Server; url: string }> {
   });
 }
 
+function startMockEmbeddingServer(): Promise<{ server: Server; url: string }> {
+  const server = createServer(async (request, response) => {
+    if (request.method !== 'POST' || request.url !== '/api/embed') {
+      response.writeHead(404, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ error: 'not_found' }));
+      return;
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { input?: unknown };
+    const inputs = Array.isArray(body.input) ? body.input : [body.input];
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(
+      JSON.stringify({
+        model: 'bge-m3',
+        embeddings: inputs.map((input) => deterministicEmbeddingVector(String(input ?? ''))),
+        total_duration: 10_000_000,
+        load_duration: 1_000_000,
+        prompt_eval_count: inputs.length,
+      }),
+    );
+  });
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const port = (server.address() as AddressInfo).port;
+      resolve({ server, url: `http://127.0.0.1:${port}` });
+    });
+  });
+}
+
 function createStorageService(): StorageService {
   return new StorageService(
     S3StorageAdapter.fromEnv(),
@@ -197,19 +386,27 @@ describe('search-index integration', () => {
   let app: INestApplication;
   let baseUrl: string;
   let mockWorker: Awaited<ReturnType<typeof startMockWorker>>;
+  let mockEmbeddingServer: Awaited<ReturnType<typeof startMockEmbeddingServer>>;
   let previousWorkerUrl: string | undefined;
   let previousExtractionWorkerEnabled: string | undefined;
   let previousSearchWorkerEnabled: string | undefined;
+  let previousLocalEmbeddingEndpoint: string | undefined;
+  let previousLocalEmbeddingModel: string | undefined;
   const storageUris: Array<{ tenantId: string; storageUri: string }> = [];
 
   beforeAll(async () => {
     previousWorkerUrl = process.env.INGESTION_WORKER_URL;
     previousExtractionWorkerEnabled = process.env.EXTRACTION_QUEUE_WORKER_ENABLED;
     previousSearchWorkerEnabled = process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED;
+    previousLocalEmbeddingEndpoint = process.env.LOCAL_EMBEDDING_ENDPOINT;
+    previousLocalEmbeddingModel = process.env.LOCAL_EMBEDDING_MODEL;
     mockWorker = await startMockWorker();
+    mockEmbeddingServer = await startMockEmbeddingServer();
     process.env.INGESTION_WORKER_URL = mockWorker.url;
     process.env.EXTRACTION_QUEUE_WORKER_ENABLED = '0';
     process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED = '0';
+    process.env.LOCAL_EMBEDDING_ENDPOINT = mockEmbeddingServer.url;
+    process.env.LOCAL_EMBEDDING_MODEL = 'bge-m3';
 
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
@@ -224,12 +421,17 @@ describe('search-index integration', () => {
     }
     await app.close();
     await new Promise<void>((resolve) => mockWorker.server.close(() => resolve()));
+    await new Promise<void>((resolve) => mockEmbeddingServer.server.close(() => resolve()));
     if (previousWorkerUrl === undefined) delete process.env.INGESTION_WORKER_URL;
     else process.env.INGESTION_WORKER_URL = previousWorkerUrl;
     if (previousExtractionWorkerEnabled === undefined) delete process.env.EXTRACTION_QUEUE_WORKER_ENABLED;
     else process.env.EXTRACTION_QUEUE_WORKER_ENABLED = previousExtractionWorkerEnabled;
     if (previousSearchWorkerEnabled === undefined) delete process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED;
     else process.env.SEARCH_INDEX_QUEUE_WORKER_ENABLED = previousSearchWorkerEnabled;
+    if (previousLocalEmbeddingEndpoint === undefined) delete process.env.LOCAL_EMBEDDING_ENDPOINT;
+    else process.env.LOCAL_EMBEDDING_ENDPOINT = previousLocalEmbeddingEndpoint;
+    if (previousLocalEmbeddingModel === undefined) delete process.env.LOCAL_EMBEDDING_MODEL;
+    else process.env.LOCAL_EMBEDDING_MODEL = previousLocalEmbeddingModel;
   });
 
   it('indexes extracted text, stays tenant isolated, and syncs metadata/status updates', async () => {
@@ -240,6 +442,7 @@ describe('search-index integration', () => {
       marker: 'SEARCH-IDX',
       leadLawyerId: betaOwnerUserId,
     });
+    await ensureFreshMatterAppSyncState(tenantBetaId);
     const uploaded = await uploadPdf(baseUrl, cookie, matterId, 'search-index');
     const version = await currentVersion(tenantBetaId, uploaded.documentId);
     storageUris.push({ tenantId: tenantBetaId, storageUri: version.storage_uri });
@@ -267,6 +470,12 @@ describe('search-index integration', () => {
       document_status: 'draft',
       version_status: 'current',
     });
+    await expect(embeddingRow(tenantBetaId, version.version_id)).resolves.toMatchObject({
+      dimensions: 1024,
+      model_route: 'bge_m3',
+      stale: false,
+    });
+    await expect(hnswPlanUsesBgeM3Index()).resolves.toBe(true);
     await expect(indexCountVisibleFromTenant(tenantAlphaId, version.version_id)).resolves.toBe(0);
 
     const startedAt = performance.now();
@@ -314,6 +523,7 @@ describe('search-index integration', () => {
       marker: 'SEARCH-REINDEX',
       leadLawyerId: alphaOwnerUserId,
     });
+    await ensureFreshMatterAppSyncState(tenantAlphaId);
     const uploaded = await uploadPdf(baseUrl, ownerCookie, matterId, 'search-reindex');
     const version = await currentVersion(tenantAlphaId, uploaded.documentId);
     storageUris.push({ tenantId: tenantAlphaId, storageUri: version.storage_uri });
@@ -396,4 +606,108 @@ describe('search-index integration', () => {
       /synthetic-no-result-health-check|body_text|content_text|snippet|raw|prompt|response/i,
     );
   });
+
+  it('backfills stale and legacy embeddings through the admin API and cleans old routes', async () => {
+    const adminCookie = await login(baseUrl, {
+      tenantId: tenantAlphaId,
+      email: 'alpha-firm-admin@test.local',
+      password: 'dev-alpha-firm-admin-password',
+    });
+    const ownerCookie = await login(baseUrl, {
+      tenantId: tenantAlphaId,
+      email: 'alpha-matter-owner@test.local',
+      password: 'dev-alpha-owner-password',
+    });
+    const clientId = await createClient(baseUrl, adminCookie, 'Search Backfill');
+    const matterId = await createMatterForTenant(baseUrl, ownerCookie, {
+      clientId,
+      marker: 'SEARCH-BACKFILL',
+      leadLawyerId: alphaOwnerUserId,
+    });
+    await ensureFreshMatterAppSyncState(tenantAlphaId);
+    const uploaded = await uploadPdf(baseUrl, ownerCookie, matterId, 'search-backfill');
+    const version = await currentVersion(tenantAlphaId, uploaded.documentId);
+    storageUris.push({ tenantId: tenantAlphaId, storageUri: version.storage_uri });
+
+    await app.get(ExtractionDispatcher).handle({
+      tenantId: tenantAlphaId,
+      documentId: uploaded.documentId,
+      versionId: version.version_id,
+      fileObjectId: uploaded.fileObjectId,
+    });
+    await app.get(IndexingProcessor).handle((await searchJob(version.version_id)).data);
+    await seedLegacyEmbeddingRow(tenantAlphaId, version.version_id);
+    await expect(embeddingRow(tenantAlphaId, version.version_id)).resolves.toMatchObject({
+      model_route: 'bge_m3',
+      stale: true,
+    });
+    await expect(legacyEmbeddingCount(tenantAlphaId, version.version_id)).resolves.toBeGreaterThan(0);
+
+    const progressBefore = await fetch(`${baseUrl}/v1/admin/search/embeddings/backfill/progress`, {
+      headers: { cookie: adminCookie },
+    });
+    const progressBeforeBody = await progressBefore.text();
+    expect(progressBefore.status, progressBeforeBody).toBe(200);
+    expect(JSON.parse(progressBeforeBody)).toMatchObject({
+      staleEmbeddingCount: expect.any(Number),
+      legacyEmbeddingCount: expect.any(Number),
+      deadLetterJobCount: expect.any(Number),
+    });
+
+    const accepted = await fetch(`${baseUrl}/v1/admin/search/embeddings/backfill`, {
+      method: 'POST',
+      headers: { cookie: adminCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ scopeType: 'matter', scopeId: matterId, batchSize: 5 }),
+    });
+    const acceptedBody = await accepted.text();
+    expect(accepted.status, acceptedBody).toBe(201);
+    expect(JSON.parse(acceptedBody)).toMatchObject({
+      accepted: true,
+      scopeType: 'matter',
+      scopeId: matterId,
+      batchSize: 5,
+      candidateVersionCount: 1,
+      enqueuedJobCount: 1,
+    });
+    const job = await searchJob(version.version_id);
+    expect(job).toMatchObject({
+      retry_limit: 5,
+      retry_delay: 1,
+      retry_backoff: true,
+      dead_letter: 'search.index.dead',
+      singleton_key: version.version_id,
+    });
+
+    await app.get(IndexingProcessor).handle(job.data);
+
+    await expect(embeddingRow(tenantAlphaId, version.version_id)).resolves.toMatchObject({
+      dimensions: 1024,
+      model_route: 'bge_m3',
+      stale: false,
+    });
+    await expect(legacyEmbeddingCount(tenantAlphaId, version.version_id)).resolves.toBe(0);
+
+    await withClient(createOwnerClient(), async (client) => {
+      const audit = await client.query<{ count: string }>(
+        `
+          SELECT count(*)::text
+          FROM audit_events
+          WHERE tenant_id = $1
+            AND action = 'SEARCH_REINDEX_REQUESTED'
+            AND actor_id = $2
+            AND metadata_json->>'scope_type' = 'embedding_backfill_matter'
+            AND metadata_json->>'scope_id' = $3
+            AND metadata_json->>'batch_size' = '5'
+            AND metadata_json->>'enqueued_job_count' = '1'
+            AND metadata_json->>'queue_name' = 'search.index'
+            AND metadata_json->>'dead_letter_queue' = 'search.index.dead'
+            AND NOT (metadata_json ? 'body')
+            AND NOT (metadata_json ? 'content')
+            AND NOT (metadata_json ? 'snippet')
+        `,
+        [tenantAlphaId, alphaFirmAdminUserId, matterId],
+      );
+      expect(Number(audit.rows[0]?.count ?? '0')).toBeGreaterThanOrEqual(1);
+    });
+  }, 20_000);
 });

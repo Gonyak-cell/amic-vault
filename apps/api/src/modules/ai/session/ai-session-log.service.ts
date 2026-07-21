@@ -1,16 +1,32 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import {
+  aiSessionClaimsResponseSchema,
   aiSessionChunkLogSchema,
   aiSessionCreateSchema,
   aiSessionDetailSchema,
+  aiSessionListSchema,
+  aiSessionPayloadSchema,
   aiSessionResponseLogSchema,
+  type AiCitationDto,
+  type AiGroundedClaimKind,
+  type AiSessionClaimsResponseDto,
   type AiSessionChunkDetailDto,
   type AiSessionChunkLogDto,
   type AiSessionCreateDto,
   type AiSessionDetailDto,
+  type AiSessionListDto,
+  type AiSessionPayloadDto,
   type AiSessionResponseLogDto,
   type AiSessionStatus,
+  type ListAiSessionsQueryDto,
 } from '@amic-vault/shared';
 import { AiAuditRecorder } from '../audit/ai-audit-recorder.service';
 import { DocumentPermissionService } from '../../permission/document-permission.service';
@@ -52,6 +68,10 @@ interface AiSessionRow {
   updated_at: Date;
 }
 
+interface AiSessionListRow extends AiSessionRow {
+  total_count: number | string;
+}
+
 interface AiSessionChunkRow {
   document_id: string;
   version_id: string;
@@ -64,10 +84,59 @@ interface AiSessionChunkRow {
   source_text_hash: string;
 }
 
+interface AiSessionPayloadRow {
+  ai_session_payload_id: string;
+  ai_session_id: string;
+  matter_id: string;
+  actor_id: string;
+  prompt_text: string;
+  response_text: string;
+  prompt_hash: string;
+  response_hash: string;
+  prompt_length: number;
+  response_length: number;
+  risk_flag: boolean;
+  dlp_finding_count: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
 interface ChunkSourceRow {
   matter_id: string;
   text_hash: string;
   source_text_hash: string;
+}
+
+export interface AiClaimLedgerInput {
+  sessionClaimId: string;
+  claimHash: string;
+  claimText: string;
+  kind: AiGroundedClaimKind;
+  citationRefs: readonly string[];
+  isLegalConclusion?: boolean;
+}
+
+export interface AiSessionPayloadLogInput {
+  promptText: string;
+  responseText: string;
+  riskFlag?: boolean;
+  dlpFindingCount?: number;
+}
+
+interface AiClaimLedgerRow {
+  claim_id: string;
+  session_claim_id: string;
+  ai_session_id: string;
+  claim_hash: string;
+  claim_text: string;
+  kind: AiGroundedClaimKind;
+  is_legal_conclusion: boolean;
+  verification_status: 'cited' | 'review_required';
+  created_at: Date;
+  source_ref: string;
+  document_id: string;
+  version_id: string;
+  chunk_id: string;
 }
 
 @Injectable()
@@ -236,9 +305,190 @@ export class AiSessionLogService {
           status,
           blockedReason,
           escalationRequired,
+          requestKind: parsed.requestKind ?? null,
+          generationResult: parsed.generationResult ?? null,
+          fallbackReasonCode: parsed.fallbackReasonCode ?? null,
         },
         client,
       );
+    });
+  }
+
+  async recordPayload(
+    ctx: AiSessionRequestContext,
+    sessionId: string,
+    input: AiSessionPayloadLogInput,
+  ): Promise<void> {
+    const payload = parsePayloadInput(input);
+    await withTenantTransaction(ctx.tenantId, async (client) => {
+      const session = await this.findOwnedSession(client, ctx, sessionId);
+      const promptHash = sha256Hex(payload.promptText);
+      const responseHash = sha256Hex(payload.responseText);
+      if (
+        promptHash !== session.prompt_hash ||
+        responseHash !== session.response_hash ||
+        payload.promptText.length !== session.prompt_length ||
+        payload.responseText.length !== session.response_length
+      ) {
+        throw validationFailed();
+      }
+
+      await client.query(
+        `
+          INSERT INTO ai_session_payloads (
+            tenant_id, ai_session_id, prompt_text, response_text,
+            prompt_hash, response_hash, prompt_length, response_length,
+            risk_flag, dlp_finding_count
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          ON CONFLICT (tenant_id, ai_session_id)
+          DO UPDATE SET
+            prompt_text = EXCLUDED.prompt_text,
+            response_text = EXCLUDED.response_text,
+            prompt_hash = EXCLUDED.prompt_hash,
+            response_hash = EXCLUDED.response_hash,
+            prompt_length = EXCLUDED.prompt_length,
+            response_length = EXCLUDED.response_length,
+            risk_flag = EXCLUDED.risk_flag,
+            dlp_finding_count = EXCLUDED.dlp_finding_count,
+            updated_at = now()
+        `,
+        [
+          ctx.tenantId,
+          session.ai_session_id,
+          payload.promptText,
+          payload.responseText,
+          promptHash,
+          responseHash,
+          payload.promptText.length,
+          payload.responseText.length,
+          payload.riskFlag,
+          payload.dlpFindingCount,
+        ],
+      );
+    });
+  }
+
+  async getSessionPayload(
+    ctx: AiSessionRequestContext,
+    sessionId: string,
+  ): Promise<AiSessionPayloadDto> {
+    return withTenantTransaction(ctx.tenantId, async (client) => {
+      if (!(await this.canViewPayloadWithClient(client, ctx))) throw payloadPermissionDenied();
+      const result = await client.query<AiSessionPayloadRow>(
+        `
+          SELECT p.ai_session_payload_id, p.ai_session_id, s.matter_id, s.actor_id,
+            p.prompt_text, p.response_text, p.prompt_hash, p.response_hash,
+            p.prompt_length, p.response_length, p.risk_flag, p.dlp_finding_count,
+            p.created_at, p.updated_at
+          FROM ai_session_payloads p
+          JOIN ai_sessions s
+            ON s.tenant_id = p.tenant_id
+           AND s.ai_session_id = p.ai_session_id
+          WHERE p.tenant_id = $1
+            AND p.ai_session_id = $2
+          LIMIT 1
+        `,
+        [ctx.tenantId, sessionId],
+      );
+      const payload = result.rows[0];
+      if (!payload) throw permissionDenied();
+      await this.aiAuditRecorder.recordPayloadViewed(
+        ctx,
+        {
+          aiSessionId: payload.ai_session_id,
+          matterId: payload.matter_id,
+          promptHash: payload.prompt_hash,
+          responseHash: payload.response_hash,
+          promptLength: payload.prompt_length,
+          responseLength: payload.response_length,
+          riskFlag: payload.risk_flag,
+          dlpFindingCount: payload.dlp_finding_count,
+        },
+        client,
+      );
+      return aiSessionPayloadSchema.parse({
+        sessionId: payload.ai_session_id,
+        matterId: payload.matter_id,
+        ownerUserId: payload.actor_id,
+        promptText: payload.prompt_text,
+        responseText: payload.response_text,
+        promptHash: payload.prompt_hash,
+        responseHash: payload.response_hash,
+        promptLength: payload.prompt_length,
+        responseLength: payload.response_length,
+        riskFlag: payload.risk_flag,
+        dlpFindingCount: payload.dlp_finding_count,
+        createdAt: payload.created_at.toISOString(),
+        updatedAt: payload.updated_at.toISOString(),
+      });
+    });
+  }
+
+  async recordClaims(
+    ctx: AiSessionRequestContext,
+    sessionId: string,
+    claims: readonly AiClaimLedgerInput[],
+    citations: readonly AiCitationDto[],
+  ): Promise<void> {
+    if (claims.length === 0) throw validationFailed();
+    const citationsByRef = new Map(citations.map((citation) => [citation.citationRef, citation]));
+    await withTenantTransaction(ctx.tenantId, async (client) => {
+      const session = await this.findOwnedSession(client, ctx, sessionId);
+      for (const claim of claims) {
+        if (claim.citationRefs.length === 0) throw validationFailed();
+        const result = await client.query<{ claim_id: string }>(
+          `
+            INSERT INTO ai_claims (
+              tenant_id, ai_session_id, session_claim_id, claim_hash, claim_text,
+              kind, is_legal_conclusion, verification_status
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (tenant_id, ai_session_id, session_claim_id)
+            DO UPDATE SET
+              claim_hash = EXCLUDED.claim_hash,
+              claim_text = EXCLUDED.claim_text,
+              kind = EXCLUDED.kind,
+              is_legal_conclusion = EXCLUDED.is_legal_conclusion,
+              verification_status = EXCLUDED.verification_status,
+              updated_at = now()
+            RETURNING claim_id
+          `,
+          [
+            ctx.tenantId,
+            session.ai_session_id,
+            claim.sessionClaimId,
+            claim.claimHash,
+            claim.claimText,
+            claim.kind,
+            claim.isLegalConclusion ?? false,
+            claim.isLegalConclusion ? 'review_required' : 'cited',
+          ],
+        );
+        const claimId = result.rows[0]?.claim_id;
+        if (!claimId) throw validationFailed();
+        for (const sourceRef of claim.citationRefs) {
+          const citation = citationsByRef.get(sourceRef);
+          if (!citation) throw validationFailed();
+          await client.query(
+            `
+              INSERT INTO ai_claim_citations (
+                tenant_id, claim_id, source_ref, document_id, version_id, chunk_id
+              )
+              VALUES ($1, $2, $3, $4, $5, $6)
+              ON CONFLICT (tenant_id, claim_id, source_ref) DO NOTHING
+            `,
+            [
+              ctx.tenantId,
+              claimId,
+              sourceRef,
+              citation.documentId,
+              citation.versionId,
+              citation.chunkId,
+            ],
+          );
+        }
+      }
     });
   }
 
@@ -293,6 +543,107 @@ export class AiSessionLogService {
       hiddenSourceCount,
       createdAt: session.created_at.toISOString(),
       updatedAt: session.updated_at.toISOString(),
+    });
+  }
+
+  async getSessionClaims(
+    ctx: AiSessionRequestContext,
+    sessionId: string,
+  ): Promise<AiSessionClaimsResponseDto> {
+    const session = await this.findSession(ctx.tenantId, sessionId);
+    if (!session || !(await this.canViewSession(ctx, session))) throw claimsPermissionDenied();
+    const result = await getPool().query<AiClaimLedgerRow>(
+      `
+        SELECT c.claim_id, c.session_claim_id, c.ai_session_id, c.claim_hash, c.claim_text,
+          c.kind, c.is_legal_conclusion, c.verification_status, c.created_at,
+          cc.source_ref, cc.document_id, cc.version_id, cc.chunk_id
+        FROM ai_claims c
+        JOIN ai_claim_citations cc
+          ON cc.tenant_id = c.tenant_id
+         AND cc.claim_id = c.claim_id
+        WHERE c.tenant_id = $1
+          AND c.ai_session_id = $2
+        ORDER BY c.created_at ASC, c.session_claim_id ASC, cc.source_ref ASC
+      `,
+      [ctx.tenantId, session.ai_session_id],
+    );
+    const claims = new Map<string, Omit<AiSessionClaimsResponseDto['claims'][number], 'citations'> & {
+      citations: AiSessionClaimsResponseDto['claims'][number]['citations'];
+    }>();
+    for (const row of result.rows) {
+      const current =
+        claims.get(row.claim_id) ??
+        {
+          claimId: row.claim_id,
+          sessionClaimId: row.session_claim_id,
+          sessionId: row.ai_session_id,
+          claimHash: row.claim_hash,
+          claimText: row.claim_text,
+          kind: row.kind,
+          isLegalConclusion: row.is_legal_conclusion,
+          verificationStatus: row.verification_status,
+          citations: [],
+          createdAt: row.created_at.toISOString(),
+        };
+      current.citations.push({
+        sourceRef: row.source_ref,
+        documentId: row.document_id,
+        versionId: row.version_id,
+        chunkId: row.chunk_id,
+      });
+      claims.set(row.claim_id, current);
+    }
+    return aiSessionClaimsResponseSchema.parse({
+      sessionId: session.ai_session_id,
+      claims: [...claims.values()],
+    });
+  }
+
+  async listSessions(
+    ctx: AiSessionRequestContext,
+    input: ListAiSessionsQueryDto,
+  ): Promise<AiSessionListDto> {
+    if (input.matterId) await this.assertCanReadMatter(ctx, input.matterId);
+    const page = input.page;
+    const pageSize = input.pageSize;
+    const offset = (page - 1) * pageSize;
+    const params = input.matterId
+      ? [ctx.tenantId, input.matterId, pageSize, offset]
+      : [ctx.tenantId, ctx.userId, pageSize, offset];
+    const scopeSql = input.matterId ? 'matter_id = $2' : 'actor_id = $2';
+    const result = await getPool().query<AiSessionListRow>(
+      `
+        SELECT ai_session_id, matter_id, actor_id, auth_session_id, model_route, status,
+          prompt_hash, prompt_length, response_hash, response_length, response_token_count,
+          latency_ms, escalation_required, blocked_reason, created_at, updated_at,
+          count(*) OVER()::int AS total_count
+        FROM ai_sessions
+        WHERE tenant_id = $1
+          AND ${scopeSql}
+        ORDER BY created_at DESC, ai_session_id DESC
+        LIMIT $3 OFFSET $4
+      `,
+      params,
+    );
+    const totalCount = Number(result.rows[0]?.total_count ?? 0);
+    return aiSessionListSchema.parse({
+      items: result.rows.map((row) => ({
+        sessionId: row.ai_session_id,
+        matterId: row.matter_id,
+        ownerUserId: row.actor_id,
+        modelRoute: row.model_route,
+        status: row.status,
+        responseTokenCount: row.response_token_count,
+        latencyMs: row.latency_ms,
+        escalationRequired: row.escalation_required,
+        blockedReason: row.blocked_reason,
+        policySummary: aiSessionPolicySummary(row),
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
+      })),
+      totalCount,
+      page,
+      pageSize,
     });
   }
 
@@ -377,6 +728,24 @@ export class AiSessionLogService {
     );
   }
 
+  private async canViewPayloadWithClient(
+    client: PoolClient,
+    ctx: AiSessionRequestContext,
+  ): Promise<boolean> {
+    const result = await client.query<{ role: string; status: string }>(
+      `
+        SELECT role, status
+        FROM users
+        WHERE tenant_id = $1
+          AND user_id = $2
+        LIMIT 1
+      `,
+      [ctx.tenantId, ctx.userId],
+    );
+    const actor = result.rows[0];
+    return actor?.status === 'active' && actor.role === 'security_admin';
+  }
+
   private async canReadSource(ctx: AiSessionRequestContext, documentId: string): Promise<boolean> {
     try {
       const decision = await this.documentPermissionService.canReadDocument(
@@ -454,4 +823,62 @@ async function withTenantTransaction<T>(
 
 function permissionDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
+}
+
+function payloadPermissionDenied(): ForbiddenException {
+  return new ForbiddenException({ code: 'PERMISSION_DENIED' });
+}
+
+function validationFailed(): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+}
+
+function claimsPermissionDenied(): ForbiddenException {
+  return new ForbiddenException({ code: 'PERMISSION_DENIED' });
+}
+
+function aiSessionPolicySummary(session: Pick<AiSessionRow, 'blocked_reason' | 'escalation_required'>) {
+  if (session.blocked_reason) return session.blocked_reason;
+  if (session.escalation_required) return 'escalation_required';
+  return 'allowed';
+}
+
+function parsePayloadInput(input: AiSessionPayloadLogInput): Required<AiSessionPayloadLogInput> {
+  if (
+    typeof input.promptText !== 'string' ||
+    typeof input.responseText !== 'string' ||
+    input.promptText.length > 20000 ||
+    input.responseText.length > 20000
+  ) {
+    throw validationFailed();
+  }
+  const risk = normalizeAiSessionPayloadRisk(input);
+  return {
+    promptText: input.promptText,
+    responseText: input.responseText,
+    riskFlag: risk.riskFlag,
+    dlpFindingCount: risk.dlpFindingCount,
+  };
+}
+
+export function normalizeAiSessionPayloadRisk(input: {
+  riskFlag?: boolean;
+  dlpFindingCount?: number;
+}): { riskFlag: boolean; dlpFindingCount: number } {
+  const dlpFindingCount = input.dlpFindingCount ?? 0;
+  if (
+    !Number.isInteger(dlpFindingCount) ||
+    dlpFindingCount < 0 ||
+    dlpFindingCount > 10000
+  ) {
+    throw validationFailed();
+  }
+  return {
+    dlpFindingCount,
+    riskFlag: input.riskFlag ?? dlpFindingCount > 0,
+  };
+}
+
+function sha256Hex(input: string): string {
+  return createHash('sha256').update(input).digest('hex');
 }

@@ -10,6 +10,19 @@ const tenantId = '11111111-1111-4111-8111-111111111001';
 const matterId = '11111111-1111-4111-8111-111111111002';
 const versionId = '11111111-1111-4111-8111-111111111003';
 const sourceHash = 'c'.repeat(64);
+const graphNodeStatus = {
+  provenance: 'derived',
+  reviewStatus: 'confirmed',
+  createdByKind: 'system',
+} as const;
+const flattenedGraphNodeStatus = {
+  sourceProvenance: 'derived',
+  sourceReviewStatus: 'confirmed',
+  sourceCreatedByKind: 'system',
+  targetProvenance: 'derived',
+  targetReviewStatus: 'confirmed',
+  targetCreatedByKind: 'system',
+} as const;
 
 function chunk(input: Partial<AiRetrievedChunk>): AiRetrievedChunk {
   return {
@@ -36,7 +49,7 @@ function readyRetrieval(chunks: AiRetrievedChunk[]): AiRetrievalResult {
     omittedChunkIds: [],
     appliedRules: [
       'question.retrieval:supported',
-      'matter.membership:required',
+      'matter.access_scope:firm_open_or_membership',
       'retrieval.hybrid:query_stage_scope',
     ],
   };
@@ -163,6 +176,7 @@ describe('AiEvidencePackBuilder', () => {
             matterId,
             documentId: null,
             versionId: null,
+            ...graphNodeStatus,
           },
           target: {
             nodeId: '11111111-1111-4111-8111-111111111403',
@@ -171,6 +185,7 @@ describe('AiEvidencePackBuilder', () => {
             matterId,
             documentId: '11111111-1111-4111-8111-111111111201',
             versionId: null,
+            ...graphNodeStatus,
           },
         },
       ],
@@ -186,11 +201,100 @@ describe('AiEvidencePackBuilder', () => {
         sourceNodeType: 'matter',
         targetNodeId: '11111111-1111-4111-8111-111111111403',
         targetNodeType: 'document',
+        ...flattenedGraphNodeStatus,
         sourceHash,
       },
     ]);
     expect(JSON.stringify(pack.graphFacts)).not.toMatch(/body|snippet|raw|content|text/u);
     expect(pack.ruleFindings).toEqual([]);
+  });
+
+  it('includes F2 clause graph facts alongside retrieved chunks without clause body text', () => {
+    const builder = new AiEvidencePackBuilder(
+      new AiContextRanker(),
+      new AiContextWindowManager(),
+    );
+    const retrievedChunk = chunk({
+      chunkId: '11111111-1111-4111-8111-111111111301',
+      redactedText: 'authorized redacted clause context',
+    });
+
+    const pack = builder.build({
+      tenantId,
+      matterId,
+      userQuestion: 'show aligned clause context',
+      retrieval: readyRetrieval([retrievedChunk]),
+      graphFacts: [
+        {
+          edgeId: '11111111-1111-4111-8111-111111111411',
+          edgeType: 'ALIGNED_WITH',
+          matterId,
+          documentId: retrievedChunk.documentId,
+          sourceHash,
+          source: {
+            nodeId: '11111111-1111-4111-8111-111111111412',
+            nodeType: 'clause',
+            sourceId: '11111111-1111-4111-8111-111111111501',
+            matterId,
+            documentId: retrievedChunk.documentId,
+            versionId,
+            ...graphNodeStatus,
+          },
+          target: {
+            nodeId: '11111111-1111-4111-8111-111111111413',
+            nodeType: 'text_chunk',
+            sourceId: retrievedChunk.chunkId,
+            matterId,
+            documentId: retrievedChunk.documentId,
+            versionId,
+            ...graphNodeStatus,
+          },
+        },
+        {
+          edgeId: '11111111-1111-4111-8111-111111111414',
+          edgeType: 'DEFINES',
+          matterId,
+          documentId: retrievedChunk.documentId,
+          sourceHash,
+          source: {
+            nodeId: '11111111-1111-4111-8111-111111111415',
+            nodeType: 'version',
+            sourceId: versionId,
+            matterId,
+            documentId: retrievedChunk.documentId,
+            versionId,
+            ...graphNodeStatus,
+          },
+          target: {
+            nodeId: '11111111-1111-4111-8111-111111111416',
+            nodeType: 'defined_term',
+            sourceId: '11111111-1111-4111-8111-111111111502',
+            matterId,
+            documentId: retrievedChunk.documentId,
+            versionId,
+            ...graphNodeStatus,
+          },
+        },
+      ],
+    });
+
+    expect(pack.retrievedChunks[0]?.chunkId).toBe(retrievedChunk.chunkId);
+    expect(pack.graphFacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          edgeType: 'ALIGNED_WITH',
+          sourceNodeType: 'clause',
+          targetNodeType: 'text_chunk',
+        }),
+        expect.objectContaining({
+          edgeType: 'DEFINES',
+          sourceNodeType: 'version',
+          targetNodeType: 'defined_term',
+        }),
+      ]),
+    );
+    expect(JSON.stringify(pack.graphFacts)).not.toContain('authorized redacted clause context');
+    expect(JSON.stringify(pack.graphFacts)).not.toMatch(/body|snippet|raw|lawyer@example/u);
   });
 
   it('includes R8 rule findings only as rule output references', () => {

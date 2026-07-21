@@ -41,12 +41,12 @@ type AddMemberCopy = {
 
 const addMemberCopy: Record<Language, AddMemberCopy> = {
   ko: {
-    userRef: '승인된 사용자 참조',
+    userRef: '구성원 계정',
     title: '구성원 추가',
     description: '권한이 확인된 조직 디렉터리에서 표시 가능한 사용자만 선택할 수 있습니다.',
     selected: '선택된 구성원',
-    advancedTitle: '고급 사용자 참조 입력',
-    advancedDescription: '승인된 권한 관리자만 예외적으로 내부 사용자 참조를 직접 입력합니다.',
+    advancedTitle: '관리자용 사용자 직접 입력',
+    advancedDescription: '조직 디렉터리에서 찾을 수 없고 승인된 경우에만 사용합니다.',
     role: '역할',
     access: '접근 권한',
     add: '구성원 추가',

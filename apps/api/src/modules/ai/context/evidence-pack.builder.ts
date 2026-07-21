@@ -41,6 +41,9 @@ export class AiEvidencePackBuilder {
       tokenBudget: input.tokenBudget,
       maxChunks: 12,
     });
+    const policyExcludedChunkIds = (input.retrieval.excludedChunks ?? []).map(
+      (chunk) => chunk.chunkId,
+    );
     const retrievedChunks = window.chunks.map((chunk) => toEvidenceChunk(chunk));
     const sourceRefs = retrievedChunks.map((chunk) => chunk.citationRef);
     const pack = {
@@ -59,7 +62,13 @@ export class AiEvidencePackBuilder {
       relevantDocuments: summarizeDocuments(window.chunks),
       authoritativeSources: [],
       retrievedChunks,
-      omittedChunkIds: [...new Set([...input.retrieval.omittedChunkIds, ...window.omittedChunkIds])],
+      omittedChunkIds: [
+        ...new Set([
+          ...policyExcludedChunkIds,
+          ...input.retrieval.omittedChunkIds,
+          ...window.omittedChunkIds,
+        ]),
+      ],
       window: {
         tokenBudget: window.tokenBudget,
         tokenCount: window.tokenCount,
@@ -67,10 +76,7 @@ export class AiEvidencePackBuilder {
       graphFacts: toEvidenceGraphFacts(input.graphFacts ?? []),
       ruleFindings: toEvidenceRuleFindings(input.ruleFindings ?? []),
       conflicts: [],
-      uncertainty:
-        window.omittedChunkIds.length > 0
-          ? ['Context window omitted chunks by id only.']
-          : [],
+      uncertainty: uncertaintyForOmissions(window.omittedChunkIds),
       prohibitedAssumptions: [
         'Do not use facts outside retrieved chunks.',
         'Use graph_facts only as ID-backed relationships.',
@@ -103,6 +109,13 @@ export class AiEvidencePackBuilder {
   }
 }
 
+function uncertaintyForOmissions(windowOmittedChunkIds: readonly string[]): string[] {
+  if (windowOmittedChunkIds.length > 0) {
+    return ['Context window omitted chunks by id only.'];
+  }
+  return [];
+}
+
 function toEvidenceRuleFindings(
   findings: readonly ContractRuleFindingDto[] | readonly EvidencePackRuleFindingDto[],
 ): EvidencePackRuleFindingDto[] {
@@ -121,8 +134,14 @@ function toEvidenceGraphFacts(
       documentId: fact.documentId,
       sourceNodeId: fact.source.nodeId,
       sourceNodeType: fact.source.nodeType,
+      sourceProvenance: fact.source.provenance,
+      sourceReviewStatus: fact.source.reviewStatus,
+      sourceCreatedByKind: fact.source.createdByKind,
       targetNodeId: fact.target.nodeId,
       targetNodeType: fact.target.nodeType,
+      targetProvenance: fact.target.provenance,
+      targetReviewStatus: fact.target.reviewStatus,
+      targetCreatedByKind: fact.target.createdByKind,
       sourceHash: fact.sourceHash,
     };
   });

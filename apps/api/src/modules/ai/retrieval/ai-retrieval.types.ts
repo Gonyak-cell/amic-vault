@@ -35,11 +35,24 @@ export interface AiRetrievedChunk {
   sourceTextHash: string;
 }
 
+export interface AiExcludedRetrievedChunk {
+  documentId: string;
+  versionId: string;
+  matterId: string;
+  chunkId: string;
+  reasonCode: 'ai_policy_blocked';
+  rankIndex: number;
+  score: number;
+  textHash: string;
+  sourceTextHash: string;
+}
+
 export interface AiRetrievalResult {
   status: AiRetrievalStatus;
   questionKind: AiQuestionKind;
   reasonCode?: AiRetrievalDeniedReason | undefined;
   chunks: AiRetrievedChunk[];
+  excludedChunks?: AiExcludedRetrievedChunk[] | undefined;
   omittedChunkIds: string[];
   appliedRules: readonly string[];
 }

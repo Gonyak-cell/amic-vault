@@ -64,6 +64,20 @@ describe('route visibility policies', () => {
     expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
   });
 
+  it('shows clients to internal users as a production Vault route', () => {
+    const policy = findRouteVisibilityPolicy('/clients');
+    expect(policy).toMatchObject({
+      group: 'Vault',
+      production: 'visible',
+      showInNavigation: true,
+    });
+    if (!policy) throw new Error('missing clients route policy');
+
+    expect(canRoleViewRoute(policy, 'matter_member')).toBe(true);
+    expect(canRoleViewRoute(policy, 'limited_reviewer')).toBe(true);
+    expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
+  });
+
   it('shows search folders to internal users as a production Vault route', () => {
     const policy = findRouteVisibilityPolicy('/search/folders');
     expect(policy).toMatchObject({
@@ -78,12 +92,30 @@ describe('route visibility policies', () => {
     expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
   });
 
-  it('keeps hidden internal and out-of-scope routes blocked by policy', () => {
-    for (const route of ['/launch', '/scale', '/contracts', '/dd', '/litigation']) {
+  it('keeps hidden internal routes blocked by policy', () => {
+    for (const route of ['/launch', '/scale']) {
       const policy = findRouteVisibilityPolicy(route);
       expect(policy, `${route} policy`).toBeDefined();
       if (!policy) continue;
       expect(canRoleViewRoute(policy, 'firm_admin')).toBe(false);
+    }
+  });
+
+  it('exposes matter workstream entry routes only to internal roles', () => {
+    for (const route of ['/contracts', '/dd', '/litigation']) {
+      const policy = findRouteVisibilityPolicy(route);
+      expect(policy, `${route} policy`).toMatchObject({
+        group: 'Vault',
+        production: 'visible_limited',
+        showInNavigation: false,
+      });
+      if (!policy) continue;
+
+      expect(canRoleViewRoute(policy, 'matter_owner')).toBe(true);
+      expect(canRoleViewRoute(policy, 'matter_member')).toBe(true);
+      expect(canRoleViewRoute(policy, 'limited_reviewer')).toBe(true);
+      expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
+      expect(canRoleViewRoute(policy, undefined)).toBe(false);
     }
   });
 

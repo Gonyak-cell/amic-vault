@@ -6,6 +6,7 @@ import {
   aiPrepFeedbackResponseSchema,
   aiPrepMatterReadinessSchema,
   aiPrepMatterRetryResponseSchema,
+  aiSummaryResponseSchema,
   parseAiPrepArtifactPayload,
   type AiPrepStaleReason,
   type AiPrepArtifactKind,
@@ -15,12 +16,15 @@ import {
   type AiPrepFeedbackResponseDto,
   type AiPrepMatterReadinessDto,
   type AiPrepMatterRetryResponseDto,
+  type AiSummaryOpenQuestionDto,
+  type AiSummaryRecommendedActionDto,
   type AiPrepStatus,
   type PermissionContext,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { DocumentPermissionService } from '../../permission/document-permission.service';
 import { AiPrepQueueService } from './ai-prep-queue.service';
+import { matterTimelineItemsFromPayload, type MatterTimelineItemDto } from './matter-timeline.builder';
 
 interface CurrentVersionRow {
   document_id: string;
@@ -77,6 +81,19 @@ interface RetryDocumentRow {
   document_id: string;
   version_id: string;
   matter_id: string;
+}
+
+interface MatterTimelineArtifactRow {
+  ai_prep_artifact_id: string;
+  document_id: string;
+  document_version_id: string;
+  payload_json: unknown;
+  generated_at: Date | null;
+  updated_at: Date;
+}
+
+interface SummaryPayloadRow {
+  response_text: string;
 }
 
 @Injectable()
@@ -137,6 +154,8 @@ export class AiPrepStatusService {
       await this.assertAdmin(tx, ctx);
       await this.assertMatterExists(tx, ctx.tenantId, matterId);
       const rows = await this.listMatterReadinessRows(tx, ctx.tenantId, matterId);
+      const timeline = await this.listMatterTimeline(tx, ctx.tenantId, matterId);
+      const summarySignals = await this.findLatestMatterSummarySignals(tx, ctx.tenantId, matterId);
       const documents = rows.map((row) => {
         const readiness = matterDocumentReadiness(row);
         return {
@@ -198,6 +217,9 @@ export class AiPrepStatusService {
           (total, document) => total + document.fallbackArtifactCount,
           0,
         ),
+        timeline,
+        openQuestions: summarySignals.openQuestions,
+        recommendedActions: summarySignals.recommendedActions,
         documents,
       });
     });
@@ -553,6 +575,85 @@ export class AiPrepStatusService {
     );
     return result.rows as RetryDocumentRow[];
   }
+
+  private async listMatterTimeline(
+    tx: QueryClient,
+    tenantId: string,
+    matterId: string,
+  ): Promise<MatterTimelineItemDto[]> {
+    const result = await tx.query(
+      `
+        SELECT ai_prep_artifact_id, document_id, document_version_id,
+          payload_json, generated_at, updated_at
+        FROM ai_prep_artifacts
+        WHERE tenant_id = $1
+          AND matter_id = $2
+          AND artifact_kind = 'matter_timeline'
+          AND status = 'completed'
+          AND is_stale = false
+        ORDER BY generated_at DESC NULLS LAST, updated_at DESC, ai_prep_artifact_id DESC
+        LIMIT 20
+      `,
+      [tenantId, matterId],
+    );
+    const rows = result.rows as MatterTimelineArtifactRow[];
+    const deduped = new Map<string, MatterTimelineItemDto>();
+    for (const row of rows) {
+      for (const item of matterTimelineItemsFromPayload({
+        artifactId: row.ai_prep_artifact_id,
+        documentId: row.document_id,
+        versionId: row.document_version_id,
+        payload: row.payload_json,
+        generatedAt: row.generated_at,
+        updatedAt: row.updated_at,
+      })) {
+        deduped.set(`${item.date}:${item.detail}`, item);
+      }
+    }
+    return [...deduped.values()]
+      .sort((left, right) => {
+        if (left.date !== right.date) return left.date.localeCompare(right.date);
+        return left.label.localeCompare(right.label);
+      })
+      .slice(0, 50);
+  }
+
+  private async findLatestMatterSummarySignals(
+    tx: QueryClient,
+    tenantId: string,
+    matterId: string,
+  ): Promise<{
+    openQuestions: AiSummaryOpenQuestionDto[];
+    recommendedActions: AiSummaryRecommendedActionDto[];
+  }> {
+    const result = await tx.query(
+      `
+        SELECT payload.response_text
+        FROM ai_sessions session
+        JOIN ai_session_payloads payload
+          ON payload.tenant_id = session.tenant_id
+          AND payload.ai_session_id = session.ai_session_id
+        WHERE session.tenant_id = $1
+          AND session.matter_id = $2
+          AND session.status = 'responded'
+        ORDER BY session.updated_at DESC, session.ai_session_id DESC
+        LIMIT 10
+      `,
+      [tenantId, matterId],
+    );
+    const rows = result.rows as SummaryPayloadRow[];
+    for (const row of rows) {
+      const parsedJson = safeJsonParse(row.response_text);
+      const parsed = aiSummaryResponseSchema.safeParse(parsedJson);
+      if (parsed.success && parsed.data.task === 'matter_summary') {
+        return {
+          openQuestions: parsed.data.openQuestions,
+          recommendedActions: parsed.data.recommendedActions,
+        };
+      }
+    }
+    return { openQuestions: [], recommendedActions: [] };
+  }
 }
 
 function readinessStatus(artifacts: readonly ArtifactRow[]): AiPrepDocumentReadinessStatus {
@@ -581,4 +682,12 @@ function matterDocumentReadiness(row: MatterReadinessRow): AiPrepDocumentReadine
 
 function permissionDenied(): NotFoundException {
   return new NotFoundException({ code: 'PERMISSION_DENIED' });
+}
+
+function safeJsonParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }

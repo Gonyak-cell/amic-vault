@@ -146,6 +146,14 @@ export class ProcessOutlookOperationalConfigProvider implements OutlookOperation
   }
 }
 
+export function readOutlookEnvValue(name: string): string | undefined {
+  return process.env[name]?.trim() || undefined;
+}
+
+export function isOutlookEnvValue(name: string, expectedValue: string): boolean {
+  return readOutlookEnvValue(name)?.toLowerCase() === expectedValue.toLowerCase();
+}
+
 export function parseOutlookEvidenceRef(
   kind: OutlookEvidenceKind,
   value: string | undefined,

@@ -4,6 +4,7 @@ import { MetricsModule } from '../../common/metrics/metrics.module';
 import { AuditModule } from '../audit/audit.module';
 import { AiPrepQueueService } from '../ai/prep/ai-prep-queue.service';
 import { BreakGlassModule } from '../break-glass/break-glass.module';
+import { LawDataModule } from '../integrations/law-data/law-data.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { IndexFailureHandler } from './index/index-failure.handler';
 import { IndexingProcessor } from './index/indexing.processor';
@@ -27,7 +28,7 @@ import { SearchQueryBuilder } from './query/search-query.builder';
 import { SnippetBuilder } from './query/snippet-builder';
 
 @Module({
-  imports: [AuditModule, BreakGlassModule, MetricsModule, TenantModule],
+  imports: [AuditModule, BreakGlassModule, LawDataModule, MetricsModule, TenantModule],
   controllers: [ReindexController, SearchController],
   providers: [
     DenyAllSearchPermissionScopeProvider,

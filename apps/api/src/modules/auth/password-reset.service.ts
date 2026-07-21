@@ -58,7 +58,7 @@ export interface CompletedPasswordReset {
 }
 
 export interface PasswordResetStore {
-  revokeOpenTokensForUser(tenantId: TenantId, userId: string): Promise<void>;
+  revokeOpenTokensForUser(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void>;
   createToken(input: {
     tenantId: TenantId;
     userId: string;
@@ -75,19 +75,26 @@ export interface PasswordResetStore {
 }
 
 export class PgPasswordResetStore implements PasswordResetStore {
-  async revokeOpenTokensForUser(tenantId: TenantId, userId: string): Promise<void> {
-    await withTenantClient(tenantId, async (client) => {
-      await client.query(
-        `
+  async revokeOpenTokensForUser(
+    tenantId: TenantId,
+    userId: string,
+    client?: QueryClient,
+  ): Promise<void> {
+    if (!client) {
+      return withTenantClient(tenantId, (tenantClient) =>
+        this.revokeOpenTokensForUser(tenantId, userId, tenantClient),
+      );
+    }
+    await client.query(
+      `
         UPDATE password_reset_tokens
         SET used_at = COALESCE(used_at, now())
         WHERE tenant_id = $1
           AND user_id = $2
           AND used_at IS NULL
       `,
-        [tenantId, userId],
-      );
-    });
+      [tenantId, userId],
+    );
   }
 
   async createToken(input: {

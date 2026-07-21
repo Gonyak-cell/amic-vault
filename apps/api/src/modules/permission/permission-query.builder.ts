@@ -30,11 +30,11 @@ export class PermissionQueryBuilder {
     return {
       sql: `
         EXISTS (
-          SELECT 1
-          FROM matter_members mm
-          WHERE mm.tenant_id = ${matterAlias}.tenant_id
-            AND mm.matter_id = ${matterAlias}.matter_id
-            AND mm.user_id = $${memberParam}::uuid
+            SELECT 1
+            FROM matter_members mm
+            WHERE mm.tenant_id = ${matterAlias}.tenant_id
+              AND mm.matter_id = ${matterAlias}.matter_id
+              AND mm.user_id = $${memberParam}::uuid
         )
         AND NOT EXISTS (
           SELECT 1
@@ -61,7 +61,7 @@ export class PermissionQueryBuilder {
         )
       `,
       params: [ctx.userId, ctx.userId],
-      appliedRules: ['matter.membership:required', 'ethical_wall:excluded_filter'],
+      appliedRules: ['matter_members:required_for_read', 'ethical_wall:excluded_filter'],
     };
   }
 }
