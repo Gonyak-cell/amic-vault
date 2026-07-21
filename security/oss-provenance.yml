@@ -96,10 +96,15 @@
       "sourceTree": "e8fd38d40cfc955f7dbbe3a543c77639a9072359",
       "sourceLicenseSpdx": "Apache-2.0",
       "sourceLicenseHash": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-      "releaseAsset": {
-        "platform": "darwin/arm64",
-        "url": "https://github.com/anchore/syft/releases/download/v1.44.0/syft_1.44.0_darwin_arm64.tar.gz",
-        "sha256": "sha256:24e4d34078ae81da7c82539616f0ccac3e226cf4f74a38ce6fb3463619e50a55"
+      "releaseAssets": {
+        "darwin/arm64": {
+          "url": "https://github.com/anchore/syft/releases/download/v1.44.0/syft_1.44.0_darwin_arm64.tar.gz",
+          "sha256": "sha256:24e4d34078ae81da7c82539616f0ccac3e226cf4f74a38ce6fb3463619e50a55"
+        },
+        "linux/amd64": {
+          "url": "https://github.com/anchore/syft/releases/download/v1.44.0/syft_1.44.0_linux_amd64.tar.gz",
+          "sha256": "sha256:0e91737aee2b5baf1d255b959630194a302335d848ff97bb07921eb6205b5f5a"
+        }
       },
       "evidenceState": "VERIFIED"
     },

@@ -45,3 +45,39 @@ jobs:
           name: oss-governance-${{ github.sha }}
           path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-01/DEVOPS-OSSGOV-PROV-TUW-004
           if-no-files-found: error
+
+  sbom:
+    needs: governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Download the source-pinned Syft release
+        run: |
+          mkdir -p .tmp/syft
+          curl --fail --location --silent --show-error --output .tmp/syft/syft.tar.gz https://github.com/anchore/syft/releases/download/v1.44.0/syft_1.44.0_linux_amd64.tar.gz
+          echo '0e91737aee2b5baf1d255b959630194a302335d848ff97bb07921eb6205b5f5a  .tmp/syft/syft.tar.gz' | sha256sum --check --status
+          tar -xzf .tmp/syft/syft.tar.gz -C .tmp/syft
+          .tmp/syft/syft version | grep -F 'GitCommit:     8cb78ce40ced6a731fb83f2a491a67444f541bf1'
+      - name: Build local source images without registry access
+        run: |
+          docker build --file apps/api/Dockerfile --target api --tag amic-vault-sbom-api:${{ github.sha }} .
+          docker build --file apps/web/Dockerfile --tag amic-vault-sbom-web:${{ github.sha }} .
+          docker build --file workers/ingestion/Dockerfile --tag amic-vault-sbom-ingestion:${{ github.sha }} .
+      - name: Generate and validate source-bound SBOMs
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-SBOM-TUW-001"
+          api_digest="$(docker image inspect --format '{{.Id}}' amic-vault-sbom-api:${{ github.sha }})"
+          web_digest="$(docker image inspect --format '{{.Id}}' amic-vault-sbom-web:${{ github.sha }})"
+          ingestion_digest="$(docker image inspect --format '{{.Id}}' amic-vault-sbom-ingestion:${{ github.sha }})"
+          node tools/security/generate-sbom.mjs --syft "$PWD/.tmp/syft/syft" --out "$report_root" --image "api=docker:${api_digest}" --image "web=docker:${web_digest}" --image "ingestion=docker:${ingestion_digest}"
+          REPORT_ROOT="$report_root" WORKFLOW_SHA='${{ github.sha }}' node --input-type=module -e "import { readFileSync } from 'node:fs'; const manifest=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/sbom-manifest.json', 'utf8')); if (manifest.sourceSha !== process.env.WORKFLOW_SHA || manifest.sboms.length !== 4 || manifest.sboms.some((sbom) => sbom.name !== 'source' && !sbom.imageDigest?.startsWith('sha256:'))) throw new Error('source/image SBOM identity validation failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-sbom-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-SBOM-TUW-001
+          if-no-files-found: error
