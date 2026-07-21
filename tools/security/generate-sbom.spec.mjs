@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assertSourceIdentity, normalizedComponentHash, normalizedComponents, parseImageSpec, verifySyft } from './generate-sbom.mjs';
+import { assertMatchingNormalizedInventories, assertSourceIdentity, normalizedComponentHash, normalizedComponents, parseImageSpec, verifySyft } from './generate-sbom.mjs';
 
 const DIGEST = `sha256:${'a'.repeat(64)}`;
 
@@ -35,4 +35,10 @@ test('requires the pinned Syft release identity', () => {
   const good = () => ({ status: 0, stdout: 'Version:       1.44.0\nGitCommit:     8cb78ce40ced6a731fb83f2a491a67444f541bf1\n', stderr: '' });
   verifySyft('/tmp/syft', good);
   assert.throws(() => verifySyft('/tmp/syft', () => ({ status: 0, stdout: 'Version:       1.44.0\nGitCommit:     deadbeef\n', stderr: '' })), /GitCommit/);
+});
+
+test('accepts only identical normalized inventories for the same inputs', () => {
+  const inventory = { sboms: [{ name: 'api', imageDigest: DIGEST, normalizedComponentHash: `sha256:${'b'.repeat(64)}`, componentCount: 1 }] };
+  assert.doesNotThrow(() => assertMatchingNormalizedInventories(inventory, { ...inventory, sboms: [...inventory.sboms] }));
+  assert.throws(() => assertMatchingNormalizedInventories(inventory, { sboms: [{ ...inventory.sboms[0], componentCount: 2 }] }), /same-input/);
 });

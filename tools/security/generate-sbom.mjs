@@ -62,6 +62,13 @@ export function normalizedComponentHash(cycloneDx) {
   return sha256(`${JSON.stringify(normalizedComponents(cycloneDx))}\n`);
 }
 
+export function assertMatchingNormalizedInventories(left, right) {
+  const normalize = (manifest) => manifest.sboms
+    .map(({ name, imageDigest, normalizedComponentHash, componentCount }) => ({ name, imageDigest, normalizedComponentHash, componentCount }))
+    .sort((first, second) => first.name.localeCompare(second.name));
+  assert(JSON.stringify(normalize(left)) === JSON.stringify(normalize(right)), 'same-input normalized SBOM inventories differ');
+}
+
 export function verifySyft(binary, run = spawnSync) {
   const result = run(binary, ['version'], { encoding: 'utf8' });
   assert(result.status === 0, `Syft version command failed: ${result.stderr ?? ''}`);
@@ -101,10 +108,10 @@ export function generateSbomBundle({ repoRoot = process.cwd(), outDir, syftBinar
   const parsedImages = images.map(parseImageSpec);
   assert(new Set(parsedImages.map((image) => image.name)).size === parsedImages.length, 'image names must be unique');
   mkdirSync(outDir, { recursive: true });
-  const sources = [{ name: 'source', reference: `dir:${root}` }, ...parsedImages];
-  const sboms = sources.map(({ name, reference, digest }) => {
+  const sources = [{ name: 'source', scanSource: `dir:${root}`, reference: 'source-tree' }, ...parsedImages.map((image) => ({ ...image, scanSource: image.reference }))];
+  const sboms = sources.map(({ name, scanSource, reference, digest }) => {
     const path = resolve(outDir, `${name}.cdx.json`);
-    const document = runSyft({ binary: syftBinary, source: reference, output: path, run });
+    const document = runSyft({ binary: syftBinary, source: scanSource, output: path, run });
     return {
       name,
       reference,
