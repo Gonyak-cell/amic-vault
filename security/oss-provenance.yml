@@ -71,5 +71,20 @@
     "unknownExternalState": "BLOCKED",
     "researchOnlyAdoptionMode": "L4"
   },
+  "vulnerabilityAudit": {
+    "sourceSha": "0f43e3017dd2a46fe88ed7d518fa25e30892718e",
+    "sourceTree": "f8c2739b8a559732bcd9b5fdd6a85ee3a1726345",
+    "lockfileSha256": "cd82ccda191f048d4e793091b6957bce08a6864caaae8540953beb130d1b0ccc",
+    "auditHash": "sha256:095e7f41f39b3a854ab603c87e167732ec7c1ebf0d482b6d3d570234c5916882",
+    "observedAt": "2026-07-21",
+    "uniqueAdvisoryCount": 25,
+    "productionHighCritical": {
+      "blocked": 9,
+      "unclassified": 0,
+      "releaseSafe": false
+    },
+    "truthState": "LOCAL_AUDIT_TRIAGED_BLOCKED_REMEDIATION",
+    "decisionDocument": "docs/architecture/oss-adoption-decisions/dependency-advisory-baseline.md"
+  },
   "overrides": {}
 }
