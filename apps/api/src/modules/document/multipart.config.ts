@@ -9,6 +9,7 @@ export interface MultipartUploadOptions {
   dest: string;
   limits: {
     fieldNameSize: number;
+    fieldNestingDepth: number;
     fieldSize: number;
     files: number;
     fields: number;
@@ -28,6 +29,7 @@ export function multipartUploadOptions(): MultipartUploadOptions {
     dest: multipartUploadTempDir(),
     limits: {
       fieldNameSize: 100,
+      fieldNestingDepth: 8,
       fieldSize: 1024 * 1024,
       files: 1,
       fields: 6,
@@ -42,6 +44,7 @@ export function multipartBatchUploadOptions(): MultipartUploadOptions {
     dest: multipartUploadTempDir(),
     limits: {
       fieldNameSize: 100,
+      fieldNestingDepth: 8,
       fieldSize: 1024 * 1024,
       files: 5000,
       fields: 6,

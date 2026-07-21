@@ -16,6 +16,7 @@ describe('multipart upload config', () => {
     expect(options.limits.fields).toBe(6);
     expect(options.limits.parts).toBe(8);
     expect(options.limits.fieldNameSize).toBe(100);
+    expect(options.limits.fieldNestingDepth).toBe(8);
     expect(options.limits.fieldSize).toBe(1024 * 1024);
     expect(options.dest).toBe(multipartUploadTempDir());
     expect(existsSync(options.dest)).toBe(true);
@@ -28,6 +29,7 @@ describe('multipart upload config', () => {
     expect(options.limits.fields).toBe(6);
     expect(options.limits.parts).toBe(5007);
     expect(options.limits.fieldNameSize).toBe(100);
+    expect(options.limits.fieldNestingDepth).toBe(8);
     expect(options.limits.fieldSize).toBe(1024 * 1024);
   });
 });
