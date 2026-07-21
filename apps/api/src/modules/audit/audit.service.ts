@@ -8,7 +8,6 @@ import {
 } from '@amic-vault/shared';
 import { currentRequestId } from '../../common/logging/correlation.middleware';
 import { DatabaseService } from '../../common/db/database.service';
-import type { TenantTransactionExecutor } from '../../common/db/tenant-query';
 import { TenantContextService } from '../tenant/tenant-context';
 import { AuditMetadataNormalizer } from './audit-metadata.normalizer';
 
@@ -49,7 +48,7 @@ export class AuditService {
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AuditMetadataNormalizer)
     private readonly metadataNormalizer: AuditMetadataNormalizer,
-    @Inject(DatabaseService) private readonly databaseService: TenantTransactionExecutor,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
   ) {}
 
   async transaction<T>(tenantId: string, run: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -69,6 +68,19 @@ export class AuditService {
     }
 
     return this.insertLog(input, tenantId, client);
+  }
+
+  async logDeniedAccess(input: AuditLogInput): Promise<AuditLogResult> {
+    if (input.action !== 'ACCESS_DENIED' || input.result !== 'denied') {
+      throw new Error('denied-access audit requires ACCESS_DENIED/denied');
+    }
+    const tenantId = input.tenantId ?? this.tenantContext.current()?.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+    return this.databaseService.auditTransaction(tenantId, (tx) =>
+      this.insertLog(input, tenantId, tx),
+    );
   }
 
   private async insertLog(

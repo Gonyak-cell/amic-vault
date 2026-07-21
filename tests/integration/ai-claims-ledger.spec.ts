@@ -22,7 +22,7 @@ import {
 import { loginSearchUser } from './search-permission/search-http-helpers';
 
 describe('AI claims ledger integration', () => {
-  const marker = `ai-claims-${randomUUID()}`;
+  const marker = `ai-claims-${randomUUID().replaceAll('-', 'q')}`;
   const clientId = randomUUID();
   const matterId = randomUUID();
   let app: INestApplication;

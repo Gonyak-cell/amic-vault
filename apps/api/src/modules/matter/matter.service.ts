@@ -717,7 +717,8 @@ export class MatterService {
 
   private async assertClientUsable(tenantId: TenantId, clientId: string): Promise<void> {
     if (await this.clientExistsForTenant(tenantId, clientId)) return;
-    throw notFoundDenied();
+    if (await this.databaseService.clientExistsAnyTenant(clientId)) throw notFoundDenied();
+    throw validationFailed();
   }
 
   private async assertLeadLawyerUsable(tenantId: TenantId, userId: string): Promise<void> {

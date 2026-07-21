@@ -69,7 +69,7 @@ export class PermissionEventRecorder {
     const metadata: AuditMetadata = { reason_code: input.reasonCode };
     if (input.matterId) metadata.matter_id = input.matterId;
     try {
-      await this.auditService.log({
+      await this.auditService.logDeniedAccess({
         tenantId: input.tenantId,
         actorId: input.actorId,
         action: 'ACCESS_DENIED',

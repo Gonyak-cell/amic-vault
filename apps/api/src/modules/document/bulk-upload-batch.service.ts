@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { stat } from 'node:fs/promises';
 import type { PoolClient } from 'pg';
 import {
@@ -98,7 +98,7 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
 
 @Injectable()
 export class BulkUploadBatchService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   async registerBatch(
     input: {

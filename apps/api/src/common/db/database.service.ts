@@ -60,13 +60,22 @@ export interface TenantRegistryRecord extends QueryResultRow {
   updatedAt: Date;
 }
 
+interface ExistsLookup extends QueryResultRow {
+  exists: boolean;
+}
+
+interface TenantTransactionScope {
+  client: PoolClient;
+  tenantId: string;
+}
+
 function denied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
-  private readonly transactionScope = new AsyncLocalStorage<true>();
+  private readonly transactionScope = new AsyncLocalStorage<TenantTransactionScope | undefined>();
   private readonly logger = new Logger(DatabaseService.name);
   private closePromise: Promise<void> | undefined;
   private poolFailed = false;
@@ -86,19 +95,36 @@ export class DatabaseService implements OnModuleDestroy {
     tenantId: string,
     work: (client: PoolClient) => Promise<T>,
   ): Promise<T> {
-    if (!tenantId.trim() || this.transactionScope.getStore()) {
+    if (!tenantId.trim()) {
       throw denied();
+    }
+    const activeScope = this.transactionScope.getStore();
+    if (activeScope) {
+      if (activeScope.tenantId !== tenantId) throw denied();
+      return work(activeScope.client);
     }
     this.assertPoolAvailable();
 
-    return this.transactionScope.run(true, async () => {
-      const client = await this.pool.connect();
-      try {
-        return await this.tenantAwareDataSource.transactionForTenant(client, tenantId, work);
-      } finally {
-        client.release();
-      }
-    });
+    const client = await this.pool.connect();
+    try {
+      return await this.transactionScope.run({ tenantId, client }, () =>
+        this.tenantAwareDataSource.transactionForTenant(client, tenantId, work),
+      );
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Persists a denial audit independently of the business transaction that
+   * rejected the request. This is deliberately not a general query escape
+   * hatch: callers still receive only the transaction callback client.
+   */
+  async auditTransaction<T>(
+    tenantId: string,
+    work: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    return this.transactionScope.run(undefined, () => this.tenantTransaction(tenantId, work));
   }
 
   async findActiveSessionByTokenHash(tokenHash: string): Promise<ActiveSessionLookup | undefined> {
@@ -125,6 +151,14 @@ export class DatabaseService implements OnModuleDestroy {
       [email],
     );
     return result[0];
+  }
+
+  async clientExistsAnyTenant(clientId: string): Promise<boolean> {
+    const result = await this.authLookup<ExistsLookup>(
+      'SELECT app_client_exists_any_tenant($1) AS exists',
+      [clientId],
+    );
+    return result[0]?.exists === true;
   }
 
   async revokeSessionByTokenHash(tokenHash: string): Promise<void> {

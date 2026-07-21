@@ -49,6 +49,30 @@ const runtimeDatabaseUrl =
   process.env.APP_DATABASE_URL ??
   'postgres://vault_app:vault_app_dev_password@localhost:5432/amic_vault';
 
+// Production queue schemas are prepared once by a migration-role task before
+// API/worker runtime starts. Reuse that exact local tool for integration so
+// runtime-role tests exercise an already-provisioned queue rather than letting
+// the runtime identity create schema objects.
+const queuePrepare = spawnSync(
+  'node',
+  [
+    'apps/api/dist/tools/prepare-ai-prep-queue.js',
+    '--runtime-role',
+    process.env.DATABASE_RUNTIME_ROLE ?? 'vault_app',
+  ],
+  {
+    env: {
+      ...process.env,
+      DATABASE_URL: migrationDatabaseUrl,
+    },
+    stdio: 'inherit',
+  },
+);
+
+if (queuePrepare.status !== 0) {
+  process.exit(queuePrepare.status ?? 1);
+}
+
 const seed = spawnSync('pnpm', ['db:seed'], {
   env: {
     ...process.env,

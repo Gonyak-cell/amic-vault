@@ -12,7 +12,8 @@ class FakeClient {
   readonly queries: string[] = [];
   readonly params: Array<readonly unknown[] | undefined> = [];
   readonly release = vi.fn();
-  readonly rows: unknown[] = [];
+
+  constructor(readonly rows: unknown[] = []) {}
 
   async query<T = unknown>(
     sql: string,
@@ -26,8 +27,15 @@ class FakeClient {
 
 class FakePool implements DatabasePool {
   readonly client = new FakeClient();
+  readonly clients = [this.client];
   readonly end = vi.fn(async () => undefined);
-  readonly connect = vi.fn(async () => this.client as unknown as PoolClient);
+  private nextClientIndex = 0;
+  readonly connect = vi.fn(async () => {
+    const client = this.clients[this.nextClientIndex] ?? new FakeClient(this.client.rows);
+    if (this.nextClientIndex === this.clients.length) this.clients.push(client);
+    this.nextClientIndex += 1;
+    return client as unknown as PoolClient;
+  });
   private errorListener: ((error: Error) => void) | undefined;
 
   on(event: 'error', listener: (error: Error) => void): void {
@@ -75,18 +83,59 @@ describe('DatabaseService', () => {
     expect(pool.client.release).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects missing tenants and nested transaction misuse before a second checkout', async () => {
+  it('reuses the active client only for same-tenant nested work and rejects cross-tenant nesting', async () => {
     const { pool, service } = createService();
 
     await expect(service.tenantTransaction(' ', async () => undefined)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
-    await expect(
-      service.tenantTransaction(tenantId, async () => service.tenantTransaction(tenantId, async () => undefined)),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await service.tenantTransaction(tenantId, async (outerClient) => {
+      await service.tenantTransaction(tenantId, async (innerClient) => {
+        expect(innerClient).toBe(outerClient);
+        await innerClient.query('SELECT 1');
+      });
+      await expect(
+        service.tenantTransaction('22222222-2222-4222-8222-222222222222', async () => undefined),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
 
     expect(pool.connect).toHaveBeenCalledTimes(1);
     expect(pool.client.release).toHaveBeenCalledTimes(1);
+    expect(pool.client.queries).toEqual([
+      'BEGIN',
+      'SELECT set_config($1, $2, true)',
+      'SELECT 1',
+      'COMMIT',
+    ]);
+  });
+
+  it('commits a denial audit independently when its enclosing business transaction rolls back', async () => {
+    const { pool, service } = createService();
+
+    await expect(
+      service.tenantTransaction(tenantId, async (businessClient) => {
+        await service.auditTransaction(tenantId, async (auditClient) => {
+          expect(auditClient).not.toBe(businessClient);
+          await auditClient.query('INSERT ACCESS_DENIED');
+        });
+        throw new Error('safe denial');
+      }),
+    ).rejects.toThrow('safe denial');
+
+    expect(pool.connect).toHaveBeenCalledTimes(2);
+    expect(pool.client.queries).toEqual([
+      'BEGIN',
+      'SELECT set_config($1, $2, true)',
+      'ROLLBACK',
+    ]);
+    expect(pool.clients[1]?.queries).toEqual([
+      'BEGIN',
+      'SELECT set_config($1, $2, true)',
+      'INSERT ACCESS_DENIED',
+      'COMMIT',
+    ]);
+    expect(pool.client.release).toHaveBeenCalledTimes(1);
+    expect(pool.clients[1]?.release).toHaveBeenCalledTimes(1);
   });
 
   it('fails closed after an unexpected pool error', async () => {
@@ -132,9 +181,22 @@ describe('DatabaseService', () => {
     await expect(service.listTenantRegistryByStatus('active')).resolves.toHaveLength(1);
     await expect(service.listActiveTenantRegistryIds()).resolves.toEqual([tenantId]);
 
-    expect(pool.client.queries).toHaveLength(4);
-    expect(pool.client.queries.every((query) => !query.includes('BEGIN'))).toBe(true);
-    expect(pool.client.release).toHaveBeenCalledTimes(4);
+    const registryQueries = pool.clients.flatMap((client) => client.queries);
+    expect(registryQueries).toHaveLength(4);
+    expect(registryQueries.every((query) => !query.includes('BEGIN'))).toBe(true);
+    expect(pool.clients.every((client) => client.release.mock.calls.length === 1)).toBe(true);
+  });
+
+  it('exposes only the named boolean cross-tenant client classifier', async () => {
+    const { pool, service } = createService();
+    pool.client.rows.push({ exists: true });
+
+    await expect(service.clientExistsAnyTenant('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).resolves.toBe(
+      true,
+    );
+
+    expect(pool.client.queries).toEqual(['SELECT app_client_exists_any_tenant($1) AS exists']);
+    expect(pool.client.params).toEqual([['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']]);
   });
 
   it('closes each singleton pool exactly once across 50 create/close loops', async () => {
