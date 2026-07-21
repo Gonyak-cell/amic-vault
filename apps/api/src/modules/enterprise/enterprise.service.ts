@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   enterpriseBackupSnapshotListResponseSchema,
   enterpriseBackupSnapshotSchema,
@@ -68,17 +68,8 @@ import {
   type UpsertEnterpriseDmsTaxonomyRequestDto,
 } from '@amic-vault/shared';
 import { AuditService, type AuditLogResult } from '../audit/audit.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 
 interface ActorRoleRow {
   role: string;
@@ -222,7 +213,10 @@ const backupTables = [
 
 @Injectable()
 export class EnterpriseService {
-  constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
+  constructor(
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+  ) {}
 
   async createSsoProvider(
     ctx: PermissionContext,
@@ -280,7 +274,9 @@ export class EnterpriseService {
 
   async listSsoProviders(ctx: PermissionContext): Promise<EnterpriseSsoProviderListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<SsoProviderRow>(
+    const result = await tenantQuery<SsoProviderRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT provider_id, provider_key, display_name, protocol, status,
           idp_entity_id, sso_url_hash, certificate_fingerprint, metadata_hash,
@@ -428,7 +424,9 @@ export class EnterpriseService {
 
   async listKeyReferences(ctx: PermissionContext): Promise<EnterpriseKeyReferenceListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<KeyReferenceRow>(
+    const result = await tenantQuery<KeyReferenceRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT key_reference_id, key_label, key_provider, key_ref_hash,
           key_fingerprint, status, rotation_due_at, last_verified_at, created_at, updated_at
@@ -553,7 +551,9 @@ export class EnterpriseService {
 
   async listSiemExports(ctx: PermissionContext): Promise<EnterpriseSiemExportListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<SiemExportRow>(
+    const result = await tenantQuery<SiemExportRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT siem_export_id, sink_type, endpoint_hash, seq_start, seq_end,
           event_count, manifest_hash, status, created_at
@@ -658,7 +658,9 @@ export class EnterpriseService {
     ctx: PermissionContext,
   ): Promise<EnterpriseBackupSnapshotListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<BackupSnapshotRow>(
+    const result = await tenantQuery<BackupSnapshotRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT backup_snapshot_id, scope, status, manifest_hash,
           row_counts_hash, table_count, reason_code, drill_id, drill_evidence_ref,
@@ -731,7 +733,9 @@ export class EnterpriseService {
     ctx: PermissionContext,
   ): Promise<EnterpriseComplianceEvidenceListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<ComplianceEvidenceRow>(
+    const result = await tenantQuery<ComplianceEvidenceRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT compliance_evidence_id, framework, control_id, status,
           evidence_ref, evidence_hash, owner_user_id, created_at, updated_at
@@ -836,7 +840,9 @@ export class EnterpriseService {
 
   async listDmsTaxonomies(ctx: PermissionContext): Promise<EnterpriseDmsTaxonomyListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<DmsTaxonomyRow>(
+    const result = await tenantQuery<DmsTaxonomyRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT taxonomy_id, document_type_code, display_name, description,
           status, subtypes_json, metadata_fields_json, version_no,
@@ -857,7 +863,9 @@ export class EnterpriseService {
     ctx: PermissionContext,
   ): Promise<EnterpriseApprovedDmsTaxonomyCatalogDto> {
     await this.assertActiveInternalUser(ctx);
-    const result = await getPool().query<DmsTaxonomyRow>(
+    const result = await tenantQuery<DmsTaxonomyRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT taxonomy_id, document_type_code, display_name, description,
           status, subtypes_json, metadata_fields_json, version_no,
@@ -975,7 +983,9 @@ export class EnterpriseService {
     ctx: PermissionContext,
   ): Promise<EnterpriseDmsMatterTemplateListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<DmsMatterTemplateRow>(
+    const result = await tenantQuery<DmsMatterTemplateRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT template_id, matter_type, display_name, description, status,
           document_sets_json, created_at, updated_at
@@ -999,7 +1009,9 @@ export class EnterpriseService {
     const params: unknown[] = [ctx.tenantId];
     const matterTypeFilter = matterType ? 'AND matter_type = $2' : '';
     if (matterType) params.push(matterType);
-    const result = await getPool().query<DmsMatterTemplateRow>(
+    const result = await tenantQuery<DmsMatterTemplateRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT template_id, matter_type, display_name, description, status,
           document_sets_json, created_at, updated_at
@@ -1198,7 +1210,9 @@ export class EnterpriseService {
     ctx: PermissionContext,
   ): Promise<EnterpriseDmsSearchRefinerListResponseDto> {
     await this.assertEnterpriseAdmin(ctx);
-    const result = await getPool().query<DmsSearchRefinerRow>(
+    const result = await tenantQuery<DmsSearchRefinerRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT refiner_id, field_key, display_name, field_type, source,
           searchable, refinable, filterable, status, sort_order, created_at, updated_at
@@ -1219,7 +1233,9 @@ export class EnterpriseService {
     ctx: PermissionContext,
   ): Promise<EnterpriseApprovedDmsSearchRefinerCatalogDto> {
     await this.assertActiveInternalUser(ctx);
-    const result = await getPool().query<DmsSearchRefinerRow>(
+    const result = await tenantQuery<DmsSearchRefinerRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT refiner_id, field_key, display_name, field_type, source,
           searchable, refinable, filterable, status, sort_order, created_at, updated_at
@@ -1365,7 +1381,9 @@ export class EnterpriseService {
   }
 
   private async assertEnterpriseAdmin(ctx: PermissionContext): Promise<void> {
-    const result = await getPool().query<ActorRoleRow>(
+    const result = await tenantQuery<ActorRoleRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT role, status
         FROM users
@@ -1382,7 +1400,9 @@ export class EnterpriseService {
   }
 
   private async assertActiveInternalUser(ctx: PermissionContext): Promise<void> {
-    const result = await getPool().query<ActorRoleRow>(
+    const result = await tenantQuery<ActorRoleRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT role, status
         FROM users

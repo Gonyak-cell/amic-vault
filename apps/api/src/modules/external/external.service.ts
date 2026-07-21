@@ -7,7 +7,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   externalAccessManifestSchema,
   externalAccessStatusResponseSchema,
@@ -43,22 +43,14 @@ import {
   type ReviewExternalAnswerRequestDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 import { DlpService } from '../dlp/dlp.service';
 import { DocumentPermissionService } from '../permission/document-permission.service';
 import { PermissionService } from '../permission/permission.service';
 import { WorkService } from '../work/work.service';
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface WorkspaceRow {
   workspace_id: string;
@@ -310,6 +302,7 @@ function downloadRefFor(link: LinkRow): string {
 export class ExternalService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: DocumentPermissionService,
@@ -325,7 +318,9 @@ export class ExternalService {
     if (!matter) throw notFoundDenied();
     await this.assertCanManageExternalMatter(ctx, input.matterId);
 
-    const workspaces = await getPool().query<WorkspaceRow>(
+    const workspaces = await tenantQuery<WorkspaceRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT workspace_id, matter_id, workspace_code, display_ref, status,
           expires_at, created_at, updated_at
@@ -342,7 +337,9 @@ export class ExternalService {
       return externalManagementWorkspaceListResponseSchema.parse({ workspaces: [] });
     }
 
-    const users = await getPool().query<ExternalUserRow>(
+    const users = await tenantQuery<ExternalUserRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT u.external_user_id, u.email_hash, u.display_ref, u.status,
           m.workspace_id, u.created_at, u.updated_at
@@ -356,7 +353,9 @@ export class ExternalService {
       `,
       [ctx.tenantId, workspaceIds],
     );
-    const links = await getPool().query<LinkListRow>(
+    const links = await tenantQuery<LinkListRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT link_id, workspace_id, external_user_id, document_id, version_id,
           status, expires_at, nda_required, watermark_required, dlp_warning_status,
@@ -848,7 +847,9 @@ export class ExternalService {
 
   async listQa(token: string): Promise<ExternalQaListResponseDto> {
     const link = await this.resolveReadyToken(token);
-    const result = await getPool().query<QaMessageRow>(
+    const result = await tenantQuery<QaMessageRow>(
+      this.databaseService,
+      link.tenant_id,
       `
         SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
           q.parent_message_id, q.direction, q.message_text, q.message_hash,
@@ -930,7 +931,9 @@ export class ExternalService {
     const workspace = await this.findWorkspace(ctx.tenantId, workspaceId);
     if (!workspace) throw notFoundDenied();
     await this.assertCanManageExternalMatter(ctx, workspace.matter_id);
-    const result = await getPool().query<QaMessageRow>(
+    const result = await tenantQuery<QaMessageRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
           q.parent_message_id, q.direction, q.message_text, q.message_hash,
@@ -1149,7 +1152,9 @@ export class ExternalService {
   }
 
   private async assertSharingPoliciesEnabled(tenantId: string): Promise<void> {
-    const result = await getPool().query<{ count: string }>(
+    const result = await tenantQuery<{ count: string }>(
+      this.databaseService,
+      tenantId,
       `
         SELECT count(*)::text AS count
         FROM sharing_policy_definitions
@@ -1234,7 +1239,9 @@ export class ExternalService {
     documentId: string,
     versionId: string | null,
   ): Promise<string | null> {
-    const canonical = await getPool().query<DlpTextRow>(
+    const canonical = await tenantQuery<DlpTextRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT cd.body_text AS scan_text
         FROM canonical_documents cd
@@ -1256,7 +1263,9 @@ export class ExternalService {
     const canonicalText = canonical.rows[0]?.scan_text;
     if (canonicalText) return canonicalText;
 
-    const indexed = await getPool().query<DlpTextRow>(
+    const indexed = await tenantQuery<DlpTextRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT content_text AS scan_text
         FROM document_search_index
@@ -1275,7 +1284,9 @@ export class ExternalService {
   }
 
   private async assertActiveWorkspace(tenantId: string, workspaceId: string): Promise<void> {
-    const result = await getPool().query<{ status: string; expires_at: Date }>(
+    const result = await tenantQuery<{ status: string; expires_at: Date }>(
+      this.databaseService,
+      tenantId,
       `
         SELECT status, expires_at
         FROM external_workspaces
@@ -1295,7 +1306,9 @@ export class ExternalService {
     workspaceId: string,
     externalUserId: string,
   ): Promise<void> {
-    const result = await getPool().query<{ status: string; user_status: string }>(
+    const result = await tenantQuery<{ status: string; user_status: string }>(
+      this.databaseService,
+      tenantId,
       `
         SELECT m.status, u.status AS user_status
         FROM external_workspace_members m
@@ -1319,7 +1332,9 @@ export class ExternalService {
     tenantId: string,
     workspaceId: string,
   ): Promise<{ workspace_id: string; matter_id: string } | null> {
-    const result = await getPool().query<{ workspace_id: string; matter_id: string }>(
+    const result = await tenantQuery<{ workspace_id: string; matter_id: string }>(
+      this.databaseService,
+      tenantId,
       `
         SELECT workspace_id, matter_id
         FROM external_workspaces
@@ -1336,7 +1351,9 @@ export class ExternalService {
     tenantId: string,
     matterId: string,
   ): Promise<{ matter_id: string } | null> {
-    const result = await getPool().query<{ matter_id: string }>(
+    const result = await tenantQuery<{ matter_id: string }>(
+      this.databaseService,
+      tenantId,
       `
         SELECT matter_id
         FROM matters
@@ -1378,7 +1395,9 @@ export class ExternalService {
     documentId: string,
     versionId?: string,
   ): Promise<DocumentTargetRow | null> {
-    const result = await getPool().query<DocumentTargetRow>(
+    const result = await tenantQuery<DocumentTargetRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT d.matter_id, d.document_id, $3::uuid AS version_id,
           d.status AS document_status,
@@ -1408,7 +1427,9 @@ export class ExternalService {
   }
 
   private async findLinkForAdmin(tenantId: string, linkId: string): Promise<LinkRow | null> {
-    const result = await getPool().query<LinkRow>(
+    const result = await tenantQuery<LinkRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT l.link_id, l.tenant_id, l.workspace_id, l.external_user_id,
           l.document_id, l.version_id, l.status, l.expires_at, l.nda_required,
@@ -1447,7 +1468,9 @@ export class ExternalService {
     tenantId: string,
     messageId: string,
   ): Promise<QaMessageRow | null> {
-    const result = await getPool().query<QaMessageRow>(
+    const result = await tenantQuery<QaMessageRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT q.qa_message_id, q.workspace_id, q.link_id, q.external_user_id,
           q.parent_message_id, q.direction, q.message_text, q.message_hash,
@@ -1500,38 +1523,7 @@ export class ExternalService {
 
   private async resolveToken(token: string): Promise<LinkRow> {
     const tokenHash = sha256Hex(token);
-    const result = await getPool().query<LinkRow>(
-      `
-        SELECT l.link_id, l.tenant_id, l.workspace_id, l.external_user_id,
-          l.document_id, l.version_id, l.status, l.expires_at, l.nda_required,
-          l.watermark_required, l.dlp_warning_status, l.dlp_result_hash,
-          l.dlp_finding_count, l.dlp_override_reason_code, l.created_at, l.updated_at,
-          w.matter_id, w.status AS workspace_status, u.status AS external_user_status,
-          m.status AS membership_status, d.status AS document_status,
-          d.legal_hold AS document_legal_hold, mt.legal_hold AS matter_legal_hold
-        FROM external_secure_links l
-        JOIN external_workspaces w
-          ON w.tenant_id = l.tenant_id
-         AND w.workspace_id = l.workspace_id
-        JOIN external_workspace_members m
-          ON m.tenant_id = l.tenant_id
-         AND m.workspace_id = l.workspace_id
-         AND m.external_user_id = l.external_user_id
-        JOIN external_users u
-          ON u.tenant_id = l.tenant_id
-         AND u.external_user_id = l.external_user_id
-        JOIN documents d
-          ON d.tenant_id = l.tenant_id
-         AND d.document_id = l.document_id
-        JOIN matters mt
-          ON mt.tenant_id = d.tenant_id
-         AND mt.matter_id = d.matter_id
-        WHERE l.token_hash = $1
-        LIMIT 1
-      `,
-      [tokenHash],
-    );
-    const link = result.rows[0];
+    const link = await this.databaseService.findExternalLinkByTokenHash(tokenHash);
     if (!link) throw permissionDenied();
     if (link.expires_at.getTime() <= Date.now()) throw linkExpired();
     if (
@@ -1550,7 +1542,9 @@ export class ExternalService {
 
   private async hasNdaAcceptance(link: LinkRow): Promise<boolean> {
     if (!link.nda_required) return true;
-    const result = await getPool().query<{ count: string }>(
+    const result = await tenantQuery<{ count: string }>(
+      this.databaseService,
+      link.tenant_id,
       `
         SELECT count(*)::text AS count
         FROM external_nda_acceptances
@@ -1564,7 +1558,9 @@ export class ExternalService {
   }
 
   private async findActor(tenantId: string, userId: string): Promise<ActorRoleRow | null> {
-    const result = await getPool().query<ActorRoleRow>(
+    const result = await tenantQuery<ActorRoleRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT role, status
         FROM users
@@ -1582,7 +1578,9 @@ export class ExternalService {
     matterId: string,
     userId: string,
   ): Promise<MatterMemberRoleRow | null> {
-    const result = await getPool().query<MatterMemberRoleRow>(
+    const result = await tenantQuery<MatterMemberRoleRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT matter_role, access_level
         FROM matter_members

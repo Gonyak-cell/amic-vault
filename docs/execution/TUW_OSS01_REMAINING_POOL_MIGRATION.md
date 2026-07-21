@@ -75,6 +75,26 @@ It is the just-in-time canonical form of `PROPOSED-PACK-OSS01-03`; frozen
 - **Stop:** public-token tenant isolation bypass; a records action whose audit
   must split; a global metric that requires a runtime owner credential; or a
   required policy/threshold/feature-flag change.
+- **Scope amendment (2026-07-22, bounded capability-token resolver):** the
+  existing external public-token flow has no tenant context until the token is
+  resolved, so it cannot be moved to a tenant transaction directly. Permit
+  `db/migrations/0196_add_external_link_token_lookup.sql` and the single named
+  `DatabaseService.findExternalLinkByTokenHash` adapter. The function is
+  `SECURITY DEFINER` with fixed public search path, `PUBLIC` revoked, and
+  `vault_app` execute only; it accepts the existing token hash and returns only
+  existing link state required to establish a tenant context. After resolution,
+  every query again uses the central tenant transaction. It may not expose a
+  generic lookup, raw token, tenant enumeration, external feature change, RLS
+  or policy change, dependency, deployment, or external mutation.
+- **Scope amendment (2026-07-22, bounded PgBoss aggregate metrics):** the
+  existing queue-metrics service must preserve its global operational count
+  while removing its direct pool. Permit one named
+  `DatabaseService.readPgBossQueueMetrics` method that accepts only the fixed
+  registered queue names and returns aggregate depth/dead-letter counts. It
+  validates the configured schema identifier and never returns job payloads or
+  exposes an arbitrary global SQL method. PgBoss lifecycle/migration ownership,
+  queue names/payloads, telemetry label policy, runtime owner credentials,
+  RLS/policy, dependencies, deployment, and external behavior remain unchanged.
 
 ## `DEVOPS-OSS01-DBR-TUW-002`
 

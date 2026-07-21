@@ -1,11 +1,13 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Pool } from 'pg';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
 import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
+import { DatabaseService } from '../../common/db/database.service';
 import { queueWorkerEnabled } from '../../common/process-role';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { WorkService } from '../work/work.service';
 
+// PgBoss lifecycle ownership is the separate OSS01-04 scope. This PACK removes
+// only the tenant-registry Pool and leaves the existing queue constructor intact.
 const databaseUrl =
   process.env.DATABASE_URL ??
   'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
@@ -39,23 +41,11 @@ export interface RetentionReviewJobResult {
 }
 
 @Injectable()
-export class RetentionTenantReader implements OnModuleDestroy {
-  private readonly pool = new Pool({ connectionString: databaseUrl });
+export class RetentionTenantReader {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   async listActiveTenantIds(): Promise<string[]> {
-    const result = await this.pool.query<{ tenant_id: string }>(
-      `
-        SELECT tenant_id::text AS tenant_id
-        FROM tenants
-        WHERE status = 'active'
-        ORDER BY tenant_id ASC
-      `,
-    );
-    return result.rows.map((row) => row.tenant_id);
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.pool.end();
+    return this.databaseService.listActiveTenantRegistryIds();
   }
 }
 

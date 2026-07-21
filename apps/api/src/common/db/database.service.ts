@@ -3,6 +3,7 @@ import { ForbiddenException, Inject, Injectable, Logger, type OnModuleDestroy } 
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { TenantStatus, UserRole, UserStatus } from '@amic-vault/shared';
 import { DATABASE_POOL } from './database.tokens';
+import { pgBossSchema } from './pg-boss-runtime-options';
 import { TenantAwareDataSource } from './tenant-aware-datasource';
 
 export interface DatabasePool {
@@ -52,6 +53,43 @@ export interface TenantRegistryRecord extends QueryResultRow {
   status: TenantStatus;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Capability-token lookup is the sole tenant-resolution exception. */
+export interface ExternalLinkTokenLookup extends QueryResultRow {
+  link_id: string;
+  tenant_id: string;
+  workspace_id: string;
+  external_user_id: string;
+  document_id: string;
+  version_id: string | null;
+  status: string;
+  expires_at: Date;
+  nda_required: boolean;
+  watermark_required: boolean;
+  dlp_warning_status: string;
+  dlp_result_hash: string | null;
+  dlp_finding_count: number;
+  dlp_override_reason_code: string | null;
+  created_at: Date;
+  updated_at: Date;
+  matter_id: string;
+  workspace_status: string;
+  external_user_status: string;
+  membership_status: string;
+  document_status: string;
+  document_legal_hold: boolean;
+  matter_legal_hold: boolean;
+}
+
+export interface PgBossQueueMetricLookup extends QueryResultRow {
+  queue: string;
+  depth: string;
+  dead_letter_count: string;
+}
+
+interface ExistsLookup extends QueryResultRow {
+  exists: boolean;
 }
 
 interface TenantTransactionScope {
@@ -147,6 +185,24 @@ export class DatabaseService implements OnModuleDestroy {
     return result[0];
   }
 
+  async clientExistsAnyTenant(clientId: string): Promise<boolean> {
+    const result = await this.authLookup<ExistsLookup>(
+      'SELECT app_client_exists_any_tenant($1) AS exists',
+      [clientId],
+    );
+    return result[0]?.exists === true;
+  }
+
+  async findExternalLinkByTokenHash(
+    tokenHash: string,
+  ): Promise<ExternalLinkTokenLookup | undefined> {
+    const result = await this.authLookup<ExternalLinkTokenLookup>(
+      'SELECT * FROM app_find_external_link_by_token_hash($1)',
+      [tokenHash],
+    );
+    return result[0];
+  }
+
   async findTenantRegistryById(tenantId: string): Promise<TenantRegistryRecord | undefined> {
     return (await this.readTenantRegistry('WHERE tenant_id = $1', [tenantId]))[0];
   }
@@ -164,6 +220,47 @@ export class DatabaseService implements OnModuleDestroy {
       "WHERE status = 'active' ORDER BY tenant_id ASC",
     );
     return rows.map((row) => row.tenant_id);
+  }
+
+  /** Returns aggregate operational queue counts only, never job payloads. */
+  async readPgBossQueueMetrics(
+    definitions: readonly { queue: string; mainQueue: string; deadLetterQueue: string }[],
+  ): Promise<PgBossQueueMetricLookup[]> {
+    const schema = pgBossSchema() ?? 'pgboss';
+    if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(schema)) throw denied();
+    this.assertPoolAvailable();
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query<PgBossQueueMetricLookup>(
+        `
+          WITH queue_defs(metric_queue, main_queue, dead_queue) AS (
+            SELECT * FROM unnest($1::text[], $2::text[], $3::text[])
+          )
+          SELECT q.metric_queue AS queue,
+            count(*) FILTER (
+              WHERE j.name = q.main_queue
+                AND j.state IN ('created', 'retry', 'active')
+            )::text AS depth,
+            count(*) FILTER (
+              WHERE j.name = q.dead_queue
+                AND j.state IN ('created', 'retry', 'active', 'failed')
+            )::text AS dead_letter_count
+          FROM queue_defs q
+          LEFT JOIN ${quotePgIdentifier(schema)}.${quotePgIdentifier('job')} j
+            ON j.name IN (q.main_queue, q.dead_queue)
+          GROUP BY q.metric_queue
+          ORDER BY q.metric_queue ASC
+        `,
+        [
+          definitions.map((definition) => definition.queue),
+          definitions.map((definition) => definition.mainQueue),
+          definitions.map((definition) => definition.deadLetterQueue),
+        ],
+      );
+      return result.rows;
+    } finally {
+      client.release();
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -210,4 +307,8 @@ export class DatabaseService implements OnModuleDestroy {
       throw denied();
     }
   }
+}
+
+function quotePgIdentifier(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
 }

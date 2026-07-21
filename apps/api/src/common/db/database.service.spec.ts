@@ -124,6 +124,40 @@ describe('DatabaseService', () => {
     expect(auditClient).toBeDefined();
   });
 
+  it('exposes only the named boolean cross-tenant client classifier', async () => {
+    const { pool, service } = createService();
+    pool.client.rows.push({ exists: true });
+
+    await expect(service.clientExistsAnyTenant('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).resolves.toBe(
+      true,
+    );
+    expect(pool.client.queries).toEqual(['SELECT app_client_exists_any_tenant($1) AS exists']);
+  });
+
+  it('resolves an external capability token only through its named bounded function', async () => {
+    const { pool, service } = createService();
+    pool.client.rows.push({ link_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', tenant_id: tenantId });
+
+    await expect(service.findExternalLinkByTokenHash('a'.repeat(64))).resolves.toMatchObject({
+      link_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      tenant_id: tenantId,
+    });
+    expect(pool.client.queries).toEqual(['SELECT * FROM app_find_external_link_by_token_hash($1)']);
+  });
+
+  it('returns only aggregate PgBoss counts from a bounded named query', async () => {
+    const { pool, service } = createService();
+    pool.client.rows.push({ queue: 'ai-prep', depth: '2', dead_letter_count: '1' });
+
+    await expect(
+      service.readPgBossQueueMetrics([
+        { queue: 'ai-prep', mainQueue: 'ai.prep', deadLetterQueue: 'ai.prep.dead' },
+      ]),
+    ).resolves.toEqual([{ queue: 'ai-prep', depth: '2', dead_letter_count: '1' }]);
+    expect(pool.client.queries[0]).toContain('LEFT JOIN "pgboss"."job"');
+    expect(pool.client.queries[0]).not.toContain('data');
+  });
+
   it('closes each singleton pool exactly once across 50 create/close loops', async () => {
     const pools: FakePool[] = [];
     for (let index = 0; index < 50; index += 1) {

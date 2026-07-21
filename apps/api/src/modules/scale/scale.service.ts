@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   scaleAiGateReviewListResponseSchema,
   scaleAiGateReviewSchema,
@@ -36,17 +36,8 @@ import {
   type ScaleReadinessSummaryDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 
 interface ActorRoleRow {
   role: string;
@@ -125,7 +116,10 @@ interface AiGateReviewRow {
 
 @Injectable()
 export class ScaleService {
-  constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
+  constructor(
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+  ) {}
 
   async createPerformanceRun(
     ctx: PermissionContext,
@@ -175,7 +169,9 @@ export class ScaleService {
 
   async listPerformanceRuns(ctx: PermissionContext): Promise<ScalePerformanceRunListResponseDto> {
     await this.assertScaleAdmin(ctx);
-    const result = await getPool().query<PerformanceRunRow>(
+    const result = await tenantQuery<PerformanceRunRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT performance_run_id, scenario, sample_count, p50_ms, p95_ms,
           p99_ms, target_p95_ms, status, measurement_hash, evidence_ref, created_at
@@ -232,7 +228,9 @@ export class ScaleService {
 
   async listCostSnapshots(ctx: PermissionContext): Promise<ScaleCostSnapshotListResponseDto> {
     await this.assertScaleAdmin(ctx);
-    const result = await getPool().query<CostSnapshotRow>(
+    const result = await tenantQuery<CostSnapshotRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT cost_snapshot_id, scope, period_start, period_end, unit_count,
           estimated_cost_cents, currency, cost_model_hash, evidence_ref, created_at
@@ -291,7 +289,9 @@ export class ScaleService {
 
   async listEvalRuns(ctx: PermissionContext): Promise<ScaleEvalRunListResponseDto> {
     await this.assertScaleAdmin(ctx);
-    const result = await getPool().query<EvalRunRow>(
+    const result = await tenantQuery<EvalRunRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT eval_run_id, suite, case_count, pass_count, fail_count,
           status, metric_hash, evidence_ref, created_at
@@ -347,7 +347,9 @@ export class ScaleService {
 
   async listMigrationDrills(ctx: PermissionContext): Promise<ScaleMigrationDrillListResponseDto> {
     await this.assertScaleAdmin(ctx);
-    const result = await getPool().query<MigrationDrillRow>(
+    const result = await tenantQuery<MigrationDrillRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT migration_drill_id, scope, duration_ms, schema_hash_before,
           schema_hash_after, status, evidence_ref, created_at
@@ -401,7 +403,9 @@ export class ScaleService {
 
   async listLearningEvents(ctx: PermissionContext): Promise<ScaleLearningEventListResponseDto> {
     await this.assertScaleAdmin(ctx);
-    const result = await getPool().query<LearningEventRow>(
+    const result = await tenantQuery<LearningEventRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT learning_event_id, category, severity, pattern_code,
           evidence_ref, resolution_ref, created_at
@@ -455,7 +459,9 @@ export class ScaleService {
 
   async listAiGateReviews(ctx: PermissionContext): Promise<ScaleAiGateReviewListResponseDto> {
     await this.assertScaleAdmin(ctx);
-    const result = await getPool().query<AiGateReviewRow>(
+    const result = await tenantQuery<AiGateReviewRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT ai_gate_review_id, candidate_route, decision,
           external_model_allowed, control_hash, evidence_ref, created_at
@@ -488,7 +494,9 @@ export class ScaleService {
   }
 
   private async assertScaleAdmin(ctx: PermissionContext): Promise<void> {
-    const result = await getPool().query<ActorRoleRow>(
+    const result = await tenantQuery<ActorRoleRow>(
+      this.databaseService,
+      ctx.tenantId,
       `
         SELECT role, status
         FROM users
