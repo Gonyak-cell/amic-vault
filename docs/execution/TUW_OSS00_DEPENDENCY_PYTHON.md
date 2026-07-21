@@ -86,12 +86,14 @@ push, merge, or release. `docs/package/**` remains frozen.
 - **Inputs:** dependency-triage decision,
   `apps/api/src/modules/document/multipart.config.ts`, document upload tests,
   exact resolved `multer@2.0.2` source/test pin.
-- **Files create:** `apps/api/src/modules/document/multipart-security.spec.ts`
-  only if the closest existing test cannot host the regression.
+- **Files create:** none; the closest existing configuration and document-upload
+  integration tests host the regression.
 - **Files modify:** `apps/api/src/modules/document/multipart.config.ts` for
-  bounded limits only; `apps/api/package.json`, root manifest, and
-  `pnpm-lock.yaml` only when separately authorized for a compatible patched
-  line.
+  bounded limits only; `apps/api/src/modules/document/multipart.config.spec.ts`
+  for the static limit contract; `tests/integration/upload.spec.ts` for a
+  synthetic malformed-shape/no-artifact regression; `apps/api/package.json`,
+  root manifest, and `pnpm-lock.yaml` only when separately authorized for a
+  compatible patched line.
 - **Files NOT-modify:** PermissionService, storage authority, upload audit
   semantics, file-size policy relaxation, `docs/package/**`, deployment
   configuration, and external state.
