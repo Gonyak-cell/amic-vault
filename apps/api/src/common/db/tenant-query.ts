@@ -1,11 +1,23 @@
-import type { Pool, QueryResult, QueryResultRow } from 'pg';
+import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+
+export interface TenantTransactionExecutor {
+  tenantTransaction<T>(
+    tenantId: string,
+    work: (client: PoolClient) => Promise<T>,
+  ): Promise<T>;
+}
 
 export async function tenantQuery<T extends QueryResultRow>(
-  pool: Pool,
+  pool: Pool | TenantTransactionExecutor,
   tenantId: string,
   sql: string,
   params?: readonly unknown[],
 ): Promise<QueryResult<T>> {
+  if ('tenantTransaction' in pool) {
+    return pool.tenantTransaction(tenantId, (client) =>
+      client.query<T>(sql, params ? [...params] : undefined),
+    );
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

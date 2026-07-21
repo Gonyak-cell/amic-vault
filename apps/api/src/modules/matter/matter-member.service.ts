@@ -6,7 +6,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   AddMatterMemberDto,
   MatterMemberAccessLevel,
@@ -18,23 +17,14 @@ import type {
 } from '@amic-vault/shared';
 import { buildSafeLabel } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { assertMatterMutationAllowed } from './guards/matter-mutability.guard';
 import { MatterMemberEntity } from './matter-member.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterMemberRow {
   matter_id: string;
@@ -107,6 +97,7 @@ function notFoundDenied(): NotFoundException {
 export class MatterMemberService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
@@ -122,7 +113,9 @@ export class MatterMemberService {
     );
     if (read.effect !== 'ALLOW') throwReadDenied(read);
     const canManage = await this.canManageMembers(context.tenantId, actorUserId, matterId);
-    const result = await getPool().query<MatterMemberRow>(
+    const result = await tenantQuery<MatterMemberRow>(
+      this.databaseService,
+      context.tenantId,
       `
         SELECT mm.matter_id, mm.tenant_id, mm.user_id, u.name AS user_name, u.email AS user_email,
           mm.matter_role,
@@ -300,7 +293,9 @@ export class MatterMemberService {
   }
 
   async isMember(tenantId: TenantId, matterId: string, userId: string): Promise<boolean> {
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      this.databaseService,
+      tenantId,
       `
         SELECT 1
         FROM matter_members
@@ -392,7 +387,9 @@ export class MatterMemberService {
   }
 
   private async assertMatterExists(tenantId: TenantId, matterId: string): Promise<MatterRow> {
-    const result = await getPool().query<MatterRow>(
+    const result = await tenantQuery<MatterRow>(
+      this.databaseService,
+      tenantId,
       'SELECT matter_id, status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
       [tenantId, matterId],
     );
@@ -417,7 +414,9 @@ export class MatterMemberService {
     matterId: string,
     excludedUserId: string,
   ): Promise<void> {
-    const result = await getPool().query<{ count: string }>(
+    const result = await tenantQuery<{ count: string }>(
+      this.databaseService,
+      tenantId,
       `
         SELECT count(*)::text AS count
         FROM matter_members
@@ -435,18 +434,23 @@ export class MatterMemberService {
     tenantId: TenantId,
     matterId: string,
     userId: string,
-    queryClient: QueryClient = getPool(),
+    queryClient?: QueryClient,
   ): Promise<MatterMemberEntity | null> {
-    const result = await queryClient.query(
-      `
+    const sql = `
         SELECT matter_id, tenant_id, user_id, matter_role, access_level, added_by, added_at
         FROM matter_members
         WHERE tenant_id = $1
           AND matter_id = $2
           AND user_id = $3
-      `,
-      [tenantId, matterId, userId],
-    );
+      `;
+    const result = queryClient
+      ? await queryClient.query(sql, [tenantId, matterId, userId])
+      : await tenantQuery<MatterMemberRow>(
+          this.databaseService,
+          tenantId,
+          sql,
+          [tenantId, matterId, userId],
+        );
     const row = result.rows[0] as MatterMemberRow | undefined;
     return row ? mapMatterMember(row) : null;
   }

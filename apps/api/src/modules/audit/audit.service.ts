@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   isAuditAction,
   type AuditAction,
@@ -7,19 +7,10 @@ import {
   type AuditMetadataValue,
 } from '@amic-vault/shared';
 import { currentRequestId } from '../../common/logging/correlation.middleware';
+import { DatabaseService } from '../../common/db/database.service';
+import type { TenantTransactionExecutor } from '../../common/db/tenant-query';
 import { TenantContextService } from '../tenant/tenant-context';
 import { AuditMetadataNormalizer } from './audit-metadata.normalizer';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 export interface QueryClient {
   query(
@@ -58,22 +49,11 @@ export class AuditService {
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AuditMetadataNormalizer)
     private readonly metadataNormalizer: AuditMetadataNormalizer,
+    @Inject(DatabaseService) private readonly databaseService: TenantTransactionExecutor,
   ) {}
 
   async transaction<T>(tenantId: string, run: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await getPool().connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-      const result = await run(client);
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    return this.databaseService.tenantTransaction(tenantId, run);
   }
 
   async log(input: AuditLogInput, client?: QueryClient): Promise<AuditLogResult> {

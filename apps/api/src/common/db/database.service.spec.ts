@@ -112,6 +112,31 @@ describe('DatabaseService', () => {
     expect(auditClient).toBeDefined();
   });
 
+  it('limits tenant-less reads to named tenant registry methods', async () => {
+    const { pool, service } = createService();
+    pool.client.rows.push({
+      tenantId,
+      name: 'Tenant Alpha',
+      slug: 'tenant-alpha',
+      region: 'kr',
+      dataResidency: 'kr',
+      status: 'active',
+      createdAt: new Date('2026-07-21T00:00:00.000Z'),
+      updatedAt: new Date('2026-07-21T00:00:00.000Z'),
+    });
+
+    await expect(service.findTenantRegistryById(tenantId)).resolves.toMatchObject({ tenantId });
+    await expect(service.findTenantRegistryBySlug('tenant-alpha')).resolves.toMatchObject({
+      slug: 'tenant-alpha',
+    });
+    await expect(service.listTenantRegistryByStatus('active')).resolves.toHaveLength(1);
+    await expect(service.listActiveTenantRegistryIds()).resolves.toEqual([tenantId]);
+
+    expect(pool.client.queries).toHaveLength(4);
+    expect(pool.client.queries.every((query) => !query.includes('BEGIN'))).toBe(true);
+    expect(pool.client.release).toHaveBeenCalledTimes(4);
+  });
+
   it('closes each singleton pool exactly once across 50 create/close loops', async () => {
     const pools: FakePool[] = [];
 

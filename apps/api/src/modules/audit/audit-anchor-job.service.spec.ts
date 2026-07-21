@@ -3,6 +3,7 @@ import {
   auditAnchorDailyCron,
   auditAnchorDeadLetterQueueName,
   AuditAnchorJobService,
+  AuditAnchorTenantReader,
   type AuditAnchorJobPayload,
   auditAnchorQueueName,
   auditAnchorScheduleKey,
@@ -63,6 +64,20 @@ describe('AuditAnchorJobService', () => {
       retryBackoff: true,
       deadLetter: auditAnchorDeadLetterQueueName,
     });
+  });
+
+  it('reads the RLS-exempt active tenant registry through DatabaseService', async () => {
+    const databaseService = {
+      listActiveTenantRegistryIds: vi.fn(async () => [
+        '11111111-1111-4111-8111-111111111111',
+      ]),
+    };
+    const reader = new AuditAnchorTenantReader(databaseService as never);
+
+    await expect(reader.listActiveTenantIds()).resolves.toEqual([
+      '11111111-1111-4111-8111-111111111111',
+    ]);
+    expect(databaseService.listActiveTenantRegistryIds).toHaveBeenCalledOnce();
   });
 
   it('registers the daily schedule and records anchors for all active tenants', async () => {

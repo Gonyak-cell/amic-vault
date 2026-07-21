@@ -1,5 +1,4 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { Pool } from 'pg';
 import { isMatterMutationBlockedState, isMatterState } from '@amic-vault/domain';
 import type {
   MatterMemberAccessLevel,
@@ -27,17 +26,7 @@ import { WallMembershipReader } from './wall-membership.reader';
 import { DocumentPermissionService } from './document-permission.service';
 import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
 import { tenantQuery } from '../../common/db/tenant-query';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
 
 export interface ActorSnapshot {
   userId: string;
@@ -113,6 +102,7 @@ export class PermissionService {
     @Inject(FailClosedPermissionWrapper)
     private readonly wrapper: FailClosedPermissionWrapper,
     @Inject(WallMembershipReader) private readonly wallMembershipReader: WallMembershipReader,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Optional()
     @Inject(BreakGlassOverrideReader)
     private readonly breakGlassOverrideReader?: BreakGlassOverrideReader,
@@ -431,7 +421,7 @@ export class PermissionService {
       status: string;
       practice_group: string | null;
     }>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT user_id, role, status, practice_group
@@ -462,7 +452,7 @@ export class PermissionService {
       client_id: string | null;
       practice_group: string | null;
     }>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT matter_id, tenant_id, status, access_scope, confidentiality_level,
@@ -494,7 +484,7 @@ export class PermissionService {
     userId: string,
   ): Promise<MatterMemberSnapshot | null> {
     const result = await tenantQuery<MatterMemberSnapshot>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT matter_role AS "matterRole", access_level AS "accessLevel"
@@ -516,7 +506,7 @@ export class PermissionService {
     action: MatterPermissionAction,
   ): Promise<ExplicitPermissionRow[]> {
     const result = await tenantQuery<ExplicitPermissionRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT permission_id AS "permissionId", effect, condition_json, priority

@@ -6,40 +6,10 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Pool, type PoolClient } from 'pg';
 import { isUserRole, type UserRole } from '@amic-vault/shared';
+import { DatabaseService } from '../db/database.service';
 import type { RequestWithSession } from '../../modules/auth/session.guard';
 import { REQUIRED_ROLES_KEY } from '../decorators/require-roles.decorator';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
-
-async function withTenantClient<T>(
-  tenantId: string,
-  run: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-    const result = await run(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
@@ -47,8 +17,10 @@ function permissionDenied(): ForbiddenException {
 
 @Injectable()
 export class PgRoleLookup {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+
   async findActiveRole(tenantId: string, userId: string): Promise<UserRole | null> {
-    return withTenantClient(tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(tenantId, async (client) => {
       const result = await client.query<{ role: string }>(
         `
         SELECT role

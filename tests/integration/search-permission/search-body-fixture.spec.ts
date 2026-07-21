@@ -13,7 +13,11 @@ import { SnippetBuilder } from '../../../apps/api/src/modules/search/query/snipp
 import { truncateUtf8 } from '../../../apps/api/src/modules/search/index/search-index.repository';
 import { SearchService } from '../../../apps/api/src/modules/search/search.service';
 import { TenantContextService } from '../../../apps/api/src/modules/tenant/tenant-context';
-import { tenantAlphaId, tenantBetaId } from '../helpers/db';
+import {
+  createRuntimeTenantTransactionExecutor,
+  tenantAlphaId,
+  tenantBetaId,
+} from '../helpers/db';
 import {
   addMatterMember,
   alphaOwnerUserId,
@@ -34,7 +38,11 @@ function createService(versionIds: readonly string[]): SearchService {
     },
   };
   return new SearchService(
-    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    new AuditService(
+      new TenantContextService(),
+      new AuditMetadataNormalizer(),
+      createRuntimeTenantTransactionExecutor(),
+    ),
     new SearchQueryBuilder(new SearchFilterBuilder(), snippetBuilder),
     snippetBuilder,
     provider,

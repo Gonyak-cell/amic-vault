@@ -34,14 +34,23 @@ This is the just-in-time canonical form of `PROPOSED-PACK-OSS01-02`; frozen
   `audit-anchor-job.service.ts`, `apps/api/src/modules/tenant/tenant.store.ts`,
   `apps/api/src/modules/permission/permission.service.ts`,
   `document-permission.service.ts`, `wall-membership.reader.ts`,
-  `apps/api/src/common/guards/require-roles.guard.ts`, and only their
-  colocated specs; `security/oss-source-map.yml` OSS-01 constructor rows only.
+  `apps/api/src/common/guards/require-roles.guard.ts`,
+  `apps/api/src/common/db/database.service.ts`,
+  `database.service.spec.ts`, `tenant-query.ts`, and Database/Audit/Tenant/
+  Permission module wiring plus only their colocated specs; the named
+  integration specs which directly construct `AuditService` and the
+  test-only tenant-transaction adapter in `tests/integration/helpers/db.ts`;
+  `security/oss-source-map.yml` OSS-01 constructor rows only.
 - **Files NOT-modify:** permission evaluation rules, audit metadata/action
   schema, RLS/migrations, dependencies/locks, `docs/package/**`.
 - **Implementation:** replace module-level pool/getPool access with injected
   existing database interfaces. Tenant queries use the central tenant
-  transaction/client. Any tenant-less lookup is limited to the already
-  allowlisted stored-function path; no generic query escape hatch is added.
+  transaction/client. `tenants` is an existing RLS-exempt global registry, so
+  the central service may expose only named, typed registry reads needed by
+  this batch (tenant by id, tenant by slug, status list, active tenant IDs for
+  the daily anchor); it must not expose a generic tenant-less query method.
+  Any other tenant-less lookup is limited to the already allowlisted
+  stored-function path.
 - **Verification:** affected unit specs; `permission-matrix`, `cross-tenant`,
   `fail-closed`, `audit-immutability`, relevant `audit-coverage`; audit insert
   failure rollback; authority checker shows the listed sites removed.
@@ -52,14 +61,23 @@ This is the just-in-time canonical form of `PROPOSED-PACK-OSS01-02`; frozen
 
 - **Files create:** only if necessary,
   `apps/api/src/common/db/auth-runtime-query.service.ts` and its spec, with
-  explicit token-hash lookup/revoke/consume methods and no generic query API.
+  explicit token-hash lookup/revoke/consume methods and no generic query API;
+  or one reversible runtime-role column-grant migration if an existing audited
+  user workflow is otherwise rejected by `vault_app` after its direct pool is
+  removed.
 - **Files modify:** `apps/api/src/modules/auth/session.repository.ts`,
   `mfa.service.ts`, `password-reset.service.ts`,
   `apps/api/src/modules/user/user.service.ts`, auth/user modules and their
-  colocated specs; source-map constructor rows only.
+  colocated specs; named `DatabaseService` auth helper methods and specs;
+  source-map constructor rows only.
 - **Files NOT-modify:** password/MFA algorithms, cookie/token format, role
-  issuance policy, SECURITY DEFINER SQL body, migrations/RLS, dependencies,
-  `docs/package/**`.
+  issuance policy, SECURITY DEFINER SQL body, dependencies, `docs/package/**`.
+- **Scope amendment (2026-07-21):** a runtime-role integration failure proved
+  that the existing audited role-assignment path needs only `UPDATE (role)` on
+  `users` once its transaction moves from a legacy owner URL to the central
+  runtime provider. `0180_grant_runtime_user_role_update.sql` is permitted
+  with reversible GRANT/REVOKE only; it may not change RLS, policy logic, or
+  SECURITY DEFINER function bodies.
 - **Verification:** affected unit specs, `auth-session`, `auth-mfa`,
   `fail-closed`, cross-tenant, disabled-user and token-replay negatives.
 - **Stop:** owner credential or tenant-less generic table scan required.
@@ -73,6 +91,11 @@ This is the just-in-time canonical form of `PROPOSED-PACK-OSS01-02`; frozen
 - **Files NOT-modify:** Matter state machine, role matrix, wall
   deny-overrides, break-glass approval semantics, migrations/RLS,
   dependencies, `docs/package/**`.
+- **Scope amendment (2026-07-21):** central runtime transactions proved that
+  existing audited MatterService updates need the exact columns they already
+  write, after legacy owner-pool removal. `0181_grant_runtime_matter_update_columns.sql`
+  is permitted as reversible GRANT/REVOKE only; it must not alter RLS, state
+  transitions, policy, or SECURITY DEFINER SQL.
 - **Verification:** affected specs, matter core/access/lifecycle,
   permission-matrix wall, ethical-wall, break-glass, cross-tenant and matter
   audit coverage. Confirm wall A→B, B→A and nearest unauthorized negative.

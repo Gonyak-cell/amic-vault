@@ -1,5 +1,4 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
 import type {
   PasswordResetAcceptedDto,
   PasswordResetConfirmDto,
@@ -12,38 +11,9 @@ import type { TenantEntity } from '../tenant/tenant.entity';
 import { TenantService } from '../tenant/tenant.service';
 import { hashPassword, normalizeEmail } from '../user/password';
 import { UserService } from '../user/user.service';
+import { DatabaseService } from '../../common/db/database.service';
 import { MailerStub } from './mailer.stub';
 import { createOpaqueToken, hashOpaqueToken, SessionRepository } from './session.repository';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
-
-async function withTenantClient<T>(
-  tenantId: TenantId,
-  run: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-    const result = await run(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 const PASSWORD_RESET_TTL_MS = 1000 * 60 * 30;
 
@@ -74,14 +44,17 @@ export interface PasswordResetStore {
   ): Promise<CompletedPasswordReset | null>;
 }
 
+@Injectable()
 export class PgPasswordResetStore implements PasswordResetStore {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+
   async revokeOpenTokensForUser(
     tenantId: TenantId,
     userId: string,
     client?: QueryClient,
   ): Promise<void> {
     if (!client) {
-      return withTenantClient(tenantId, (tenantClient) =>
+      return this.databaseService.tenantTransaction(tenantId, (tenantClient) =>
         this.revokeOpenTokensForUser(tenantId, userId, tenantClient),
       );
     }
@@ -103,7 +76,7 @@ export class PgPasswordResetStore implements PasswordResetStore {
     tokenHash: string;
     expiresAt: Date;
   }): Promise<void> {
-    await withTenantClient(input.tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(input.tenantId, async (client) => {
       await client.query(
         `
         INSERT INTO password_reset_tokens (tenant_id, user_id, token_hash, expires_at)
@@ -115,14 +88,7 @@ export class PgPasswordResetStore implements PasswordResetStore {
   }
 
   async consumeTokenHash(tokenHash: string): Promise<ConsumedPasswordResetToken | null> {
-    const result = await getPool().query<{ tenant_id: string; user_id: string }>(
-      `
-        SELECT tenant_id, user_id
-        FROM app_consume_password_reset_token_hash($1)
-      `,
-      [tokenHash],
-    );
-    const row = result.rows[0];
+    const row = await this.databaseService.consumePasswordResetTokenHash(tokenHash);
     return row ? { tenantId: row.tenant_id as TenantId, userId: row.user_id } : null;
   }
 
@@ -133,7 +99,7 @@ export class PgPasswordResetStore implements PasswordResetStore {
     client?: QueryClient,
   ): Promise<CompletedPasswordReset | null> {
     if (!client) {
-      return withTenantClient(tenantId, (tenantClient) =>
+      return this.databaseService.tenantTransaction(tenantId, (tenantClient) =>
         this.updateUserPasswordHashAndActivate(tenantId, userId, passwordHash, tenantClient),
       );
     }

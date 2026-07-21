@@ -19,7 +19,7 @@ describe('DuplicateDetectorService', () => {
         };
       },
     };
-    const service = new DuplicateDetectorService();
+    const service = new DuplicateDetectorService({} as never);
 
     await expect(
       service.findCandidates(
@@ -58,7 +58,7 @@ describe('DuplicateDetectorService', () => {
         };
       },
     };
-    const service = new DuplicateDetectorService();
+    const service = new DuplicateDetectorService({} as never);
 
     await expect(
       service.findSafeUploadCandidates(

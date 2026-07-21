@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   ClientConfidentialityLevel,
   ClientListDto,
@@ -17,20 +16,10 @@ import type {
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { tenantQuery } from '../../common/db/tenant-query';
+import { DatabaseService } from '../../common/db/database.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { ClientEntity } from './client.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface ClientRow {
   client_id: string;
@@ -109,6 +98,7 @@ function changedKeys(before: ClientEntity, input: UpdateClientDto): string[] {
 export class ClientService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
   ) {}
@@ -238,7 +228,7 @@ export class ClientService {
     const params = [tenantId, clientId];
     const result = queryClient
       ? await queryClient.query(sql, params)
-      : await tenantQuery<ClientRow>(getPool(), tenantId, sql, params);
+      : await tenantQuery<ClientRow>(this.databaseService, tenantId, sql, params);
     const row = result.rows[0] as ClientRow | undefined;
     return row ? mapClient(row) : null;
   }
@@ -270,7 +260,7 @@ export class ClientService {
     }
     params.push(query.pageSize, (query.page - 1) * query.pageSize);
     const result = await tenantQuery<ClientListRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT client_id, tenant_id, name, aliases, client_type, confidentiality_level, status,

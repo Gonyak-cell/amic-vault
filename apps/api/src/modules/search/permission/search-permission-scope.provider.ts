@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import { isUserRole } from '@amic-vault/shared';
 import type { SearchSqlFragment } from '../query/search-filter.builder';
 import { DocumentScopeFilter } from './document-scope.filter';
@@ -10,6 +10,7 @@ import type {
   SearchScopeFilter,
 } from './search-scope.types';
 import { WallScopeFilter } from './wall-scope.filter';
+import { DatabaseService } from '../../../common/db/database.service';
 
 export interface SearchRequestContext {
   tenantId: string;
@@ -37,17 +38,6 @@ export interface SearchPermissionScopeProvider {
 
 export const SEARCH_PERMISSION_SCOPE_PROVIDER = Symbol('SEARCH_PERMISSION_SCOPE_PROVIDER');
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
-
 @Injectable()
 export class DenyAllSearchPermissionScopeProvider implements SearchPermissionScopeProvider {
   async scopeForSearch(): Promise<SearchPermissionScopeDecision> {
@@ -58,6 +48,8 @@ export class DenyAllSearchPermissionScopeProvider implements SearchPermissionSco
 @Injectable()
 export class PermissionBoundSearchPermissionScopeProvider implements SearchPermissionScopeProvider {
   constructor(
+    @Inject(DatabaseService)
+    private readonly databaseService: DatabaseService,
     @Inject(MatterScopeFilter)
     private readonly matterFilter: MatterScopeFilter,
     @Inject(DocumentScopeFilter)
@@ -83,32 +75,17 @@ export class PermissionBoundSearchPermissionScopeProvider implements SearchPermi
   }
 
   private async findActor(ctx: SearchRequestContext): Promise<SearchPermissionActor | null> {
-    const client = await getPool().connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', [
-        'app.current_tenant_id',
-        ctx.tenantId,
-      ]);
+    return this.databaseService.tenantTransaction(ctx.tenantId, async (client) => {
       const result = await selectActor(client, ctx);
       const row = result.rows[0];
-      if (!row || row.status !== 'active' || !isUserRole(row.role)) {
-        await client.query('COMMIT');
-        return null;
-      }
-      await client.query('COMMIT');
+      if (!row || row.status !== 'active' || !isUserRole(row.role)) return null;
       return {
         tenantId: ctx.tenantId,
         userId: ctx.userId,
         role: row.role,
         materializedScope: materializedScopeFromRow(row),
       };
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 }
 

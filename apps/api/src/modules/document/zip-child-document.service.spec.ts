@@ -67,7 +67,10 @@ describe('ZipChildDocumentService', () => {
     const dir = await mkdtemp(join(tmpdir(), 'amic-vault-zip-child-'));
     const zipPath = join(dir, 'bundle.zip');
     const uploadService = { uploadBuffer: vi.fn() };
-    const service = new ZipChildDocumentService(uploadService as unknown as DocumentUploadService);
+    const service = new ZipChildDocumentService(
+      uploadService as unknown as DocumentUploadService,
+      {} as never,
+    );
     await writeFile(
       zipPath,
       storedZip([{ name: '../escape.pdf', body: Buffer.from('%PDF-1.7\nescape\n') }]),

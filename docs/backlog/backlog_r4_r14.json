@@ -3091,8 +3091,8 @@
       "risk": "C",
       "size": "L",
       "depends_on": ["DEVOPS-OSS01-DBA-TUW-004"],
-      "files": ["apps/api/src/modules/audit", "apps/api/src/modules/tenant", "apps/api/src/modules/permission", "apps/api/src/common/guards", "tests/integration"],
-      "verification": "listed direct pools move to DatabaseService tenant transactions AND permission audit cross-tenant and fail-closed suites preserve same-transaction behavior"
+      "files": ["apps/api/src/modules/audit", "apps/api/src/modules/tenant", "apps/api/src/modules/permission", "apps/api/src/common/guards", "apps/api/src/common/db", "tests/integration"],
+      "verification": "listed direct pools move to DatabaseService tenant transactions with only named global tenant-registry reads AND permission audit cross-tenant and fail-closed suites preserve same-transaction behavior"
     },
     {
       "id": "DEVOPS-OSS01-DBM-TUW-002",

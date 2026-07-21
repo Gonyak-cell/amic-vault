@@ -1,19 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
 import type { TenantId } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
 import { tenantQuery } from '../../common/db/tenant-query';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 export interface BreakGlassOverride {
   requestId: string;
@@ -23,7 +12,10 @@ export interface BreakGlassOverride {
 
 @Injectable()
 export class BreakGlassOverrideReader {
-  constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
+  constructor(
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+  ) {}
 
   async findActiveOverride(
     tenantId: TenantId,
@@ -36,7 +28,7 @@ export class BreakGlassOverrideReader {
       wall_id: string;
       expires_at: Date;
     }>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT bgr.request_id, bgr.wall_id, bgr.expires_at
