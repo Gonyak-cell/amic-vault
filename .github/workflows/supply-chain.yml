@@ -81,3 +81,49 @@ jobs:
           name: oss-sbom-${{ github.sha }}
           path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-SBOM-TUW-001
           if-no-files-found: error
+
+  scanner:
+    needs: sbom
+    runs-on: ubuntu-latest
+    steps:
+      # Full history is required for the separate historical-secret scan. The
+      # runner still receives only immutable local image IDs and writes a safe
+      # normalized summary, never a raw report or scanner database.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Download source-pinned scanner releases
+        run: |
+          mkdir -p .tmp/gitleaks .tmp/trivy
+          curl --fail --location --silent --show-error --output .tmp/gitleaks/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz
+          echo '79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e  .tmp/gitleaks/gitleaks.tar.gz' | sha256sum --check --status
+          tar -xzf .tmp/gitleaks/gitleaks.tar.gz -C .tmp/gitleaks
+          .tmp/gitleaks/gitleaks version | grep -F '8.30.0'
+          curl --fail --location --silent --show-error --output .tmp/trivy/trivy.tar.gz https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_Linux-64bit.tar.gz
+          echo '8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9  .tmp/trivy/trivy.tar.gz' | sha256sum --check --status
+          tar -xzf .tmp/trivy/trivy.tar.gz -C .tmp/trivy
+          .tmp/trivy/trivy --version | grep -F 'Version: 0.70.0'
+          docker pull semgrep/semgrep@sha256:207983631beecdbe7fa29196c7f4a7a5f29033933cdb76c687ce4a672e07618d
+      - name: Build immutable local image scan inputs
+        run: |
+          docker build --file apps/api/Dockerfile --target api --tag amic-vault-scan-api:${{ github.sha }} .
+          docker build --file apps/web/Dockerfile --tag amic-vault-scan-web:${{ github.sha }} .
+          docker build --file workers/ingestion/Dockerfile --tag amic-vault-scan-ingestion:${{ github.sha }} .
+      - name: Run source, IaC, secret, and image scan contract
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/SEC-OSSSCAN-PIPELINE-TUW-001"
+          api_digest="$(docker image inspect --format '{{.Id}}' amic-vault-scan-api:${{ github.sha }})"
+          web_digest="$(docker image inspect --format '{{.Id}}' amic-vault-scan-web:${{ github.sha }})"
+          ingestion_digest="$(docker image inspect --format '{{.Id}}' amic-vault-scan-ingestion:${{ github.sha }})"
+          node tools/security/run-security-scans.mjs --gitleaks "$PWD/.tmp/gitleaks/gitleaks" --trivy "$PWD/.tmp/trivy/trivy" --out "$report_root" --image "api=docker:${api_digest}" --image "web=docker:${web_digest}" --image "ingestion=docker:${ingestion_digest}"
+          REPORT_ROOT="$report_root" WORKFLOW_SHA='${{ github.sha }}' node --input-type=module -e "import { readFileSync } from 'node:fs'; const summary=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/security-scan-summary.json', 'utf8')); if (summary.sourceSha !== process.env.WORKFLOW_SHA || summary.productionHighCritical.unclassified !== 0 || !Array.isArray(summary.findings)) throw new Error('scan evidence validation failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-security-scan-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/SEC-OSSSCAN-PIPELINE-TUW-001
+          if-no-files-found: error
