@@ -1,5 +1,15 @@
 {
   "schemaVersion": "amic-vault.oss-test-reuse.v1",
+  "conditionalEntries": [
+    { "component": "otel-collector", "state": "REJECTED", "reason": "no exact source pin and telemetry redaction/trace policy approval" },
+    { "component": "opentofu", "state": "REJECTED", "reason": "cloud/region authority and exact source pin absent" },
+    { "component": "cloudnativepg", "state": "REJECTED", "reason": "cluster operator authority and exact source pin absent" },
+    { "component": "pgbackrest", "state": "REJECTED", "reason": "restore/key-loss proof and exact source pin absent" },
+    { "component": "openbao", "state": "REJECTED", "reason": "secret-management authority and exact source pin absent" },
+    { "component": "opensearch", "state": "REJECTED", "reason": "ADR-006 keeps PG FTS and transition proof is absent" },
+    { "component": "collabora-online", "state": "REJECTED", "reason": "ADR-018/R11 WOPI go criteria are unmet" },
+    { "component": "pgbouncer", "state": "REJECTED", "reason": "connection-budget trigger and exact source pin are absent" }
+  ],
   "entries": [
     { "id": "paperless-records-behavior", "component": "paperless-ngx", "classification": "REJECTED", "sourceBlob": "1591d0b06e4129240f00b94810ce3eb0012d3c3f", "testBlob": "c25e83e13e0df281b4ca577525d419ad8b81856f", "sourceLicenseHash": "sha256:d62f065830aa3739cc031156b9690805c7b2e811b4a178c8b4acd8725d561c94", "canonicalSuite": "tests/integration/records-governance.spec.ts", "scenario": "document-search lifecycle observation only", "assertions": ["permission-deny", "audit-event"], "fixturePolicy": "NO_COPY", "reason": "upstream DMS ownership and license posture do not transfer Vault records authority" },
     { "id": "mayan-ocr-behavior", "component": "mayan-edms", "classification": "REJECTED", "sourceBlob": "026eb5e501cdf4ba7455931d9a6afa660e8bf7a3", "testBlob": "06811493e32107f34d90db7ddc1fab6029e93113", "sourceLicenseHash": "sha256:23ed506c87996843195442bcd8032296e15f2d1cb3820638fbc846acd03b59d3", "canonicalSuite": "tests/integration/worker-processing.spec.ts", "scenario": "OCR task retry observation only", "assertions": ["permission-deny", "fault-reconciliation"], "fixturePolicy": "NO_COPY", "reason": "upstream task code is not a substitute for Vault worker, audit, or storage authority" },
