@@ -5,7 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   ConflictCheckCandidateDto,
   ConflictCheckDto,
@@ -16,26 +15,16 @@ import type {
   TenantId,
 } from '@amic-vault/shared';
 import { tenantQuery } from '../../common/db/tenant-query';
+import { DatabaseService } from '../../common/db/database.service';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 const legalSuffixPattern =
   '(주식회사|\\(주\\)|㈜|유한책임회사|유한회사|합자회사|합명회사|법무법인|사단법인|재단법인|의료법인|학교법인|농업회사법인|영농조합법인|corporation|corp\\.?|inc\\.?|incorporated|company|co\\.?|ltd\\.?|limited|llc|llp)';
 const stripPattern = String.raw`[[:space:]\.,·ㆍ\-_\/\\\(\)\[\]\{\}"']+`;
 const conflictSimilarityThreshold = 0.62;
 const maxConflictCandidates = 50;
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface ConflictCandidateRow {
   source_type: ConflictCheckCandidateDto['sourceType'];
@@ -183,6 +172,7 @@ function mapConflictCheck(row: ConflictCheckRow): ConflictCheckDto {
 export class MatterConflictCheckService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -228,7 +218,7 @@ export class MatterConflictCheckService {
     const context = this.tenantContext.require();
     await this.assertCanReadMatter(context.tenantId, actorUserId, matterId);
     const result = await tenantQuery<ConflictCheckRow>(
-      getPool(),
+      this.databaseService,
       context.tenantId,
       `
         SELECT conflict_check_id, matter_id, status, target_names, match_results,

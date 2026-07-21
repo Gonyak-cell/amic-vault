@@ -1,5 +1,5 @@
 {
-  "total": 174,
+  "total": 202,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -2754,6 +2754,378 @@
         "docs/ledger/gates"
       ],
       "verification": "R14 Gate evidence records performance cost eval migration learning blockers zero and full regression green"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-001",
+      "title": "Exact-head provenance inventory and evidence schema",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "M",
+      "size": "M",
+      "depends_on": [],
+      "files": [
+        "security/oss-provenance.yml",
+        "security/oss-evidence-schema.json",
+        "tools/security"
+      ],
+      "verification": "direct dependencies image builds and included source inputs bind to source SHA tree and deterministic evidence schema AND malformed provenance fails closed"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-002",
+      "title": "License NOTICE and delivery-profile policy",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-001"
+      ],
+      "files": [
+        "security",
+        "tools/security",
+        "third_party/NOTICE.md"
+      ],
+      "verification": "license policy separates SaaS on-premises and modified-service obligations AND unknown or strong-copyleft inputs require valid decision evidence"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-003",
+      "title": "Vulnerability and VEX exception contract",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-001"
+      ],
+      "files": [
+        "security",
+        "tools/security"
+      ],
+      "verification": "production-reachable High Critical findings are fixed or valid VEX AND expired ownerless malformed or wrong-SHA exceptions fail"
+    },
+    {
+      "id": "DEVOPS-OSSGOV-PROV-TUW-004",
+      "title": "Governance check CI integration",
+      "release": "R14",
+      "module": "DEVOPS-OSSGOV-PROV",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-002",
+        "DEVOPS-OSSGOV-PROV-TUW-003"
+      ],
+      "files": [
+        ".github/workflows",
+        "security",
+        "tools/security"
+      ],
+      "verification": "PR-equivalent governance command passes valid input AND invalid manifest fails without adding dependency deployment external permission or pass stub"
+    },
+    {
+      "id": "DEVOPS-OSSDEP-TRIAGE-TUW-001",
+      "title": "Current dependency advisory triage",
+      "release": "R14",
+      "module": "DEVOPS-OSSDEP-TRIAGE",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSGOV-PROV-TUW-004"
+      ],
+      "files": [
+        "docs/architecture/oss-adoption-decisions",
+        "security/oss-vulnerability-exceptions.yml",
+        "security/oss-provenance.yml"
+      ],
+      "verification": "exact production advisory set is normalized with source-path reachability evidence AND unclassified production High Critical is zero AND manifests lockfiles application source remain unchanged"
+    },
+    {
+      "id": "SEC-UPLOAD-MULTIPART-TUW-001",
+      "title": "Multer upload parser security regression",
+      "release": "R14",
+      "module": "SEC-UPLOAD-MULTIPART",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSSDEP-TRIAGE-TUW-001"
+      ],
+      "files": [
+        "apps/api/src/modules/document",
+        "tests/integration/document-access",
+        "tests/integration/storage-isolation"
+      ],
+      "verification": "malformed multipart returns bounded VALIDATION_FAILED AND no temp file object DB row remains AND authorized upload permission audit regression remains green"
+    },
+    {
+      "id": "DEVOPS-OSSPY-LOCK-TUW-001",
+      "title": "Python uv lock and frozen CI",
+      "release": "R14",
+      "module": "DEVOPS-OSSPY-LOCK",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSDEP-TRIAGE-TUW-001"
+      ],
+      "files": [
+        "workers/ingestion",
+        ".github/workflows/ci.yml",
+        "security/oss-provenance.yml"
+      ],
+      "verification": "two frozen Python sync inventories have identical hash AND worker tests container health and lock drift failure pass only after separately authorized tool introduction"
+    },
+    {
+      "id": "DEVOPS-OSSATT-SBOM-TUW-001",
+      "title": "Source and three-image CycloneDX SBOM",
+      "release": "R14",
+      "module": "DEVOPS-OSSATT-SBOM",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "SEC-UPLOAD-MULTIPART-TUW-001",
+        "DEVOPS-OSSPY-LOCK-TUW-001"
+      ],
+      "files": [
+        "tools/security",
+        "security",
+        ".github/workflows/supply-chain.yml"
+      ],
+      "verification": "four CycloneDX SBOMs bind immutable local image digests to one source SHA tree AND mutable-tag malformed-schema duplicate-purl missing-digest and identity-mismatch fixtures fail AND two normalized runs match"
+    },
+    {
+      "id": "SEC-OSSSCAN-PIPELINE-TUW-001",
+      "title": "Source IaC secret and image scanning contract",
+      "release": "R14",
+      "module": "SEC-OSSSCAN-PIPELINE",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSSATT-SBOM-TUW-001",
+        "DEVOPS-OSSGOV-PROV-TUW-003"
+      ],
+      "files": [
+        "tools/security",
+        "security",
+        ".github/workflows/supply-chain.yml",
+        ".gitleaks.toml",
+        ".semgrep.yml"
+      ],
+      "verification": "clean policy result plus injected secret and insecure configuration fixtures are detected AND broad ownerless expired wrong-scope ignore fails AND unresolved production High Critical stays blocked"
+    },
+    {
+      "id": "DEVOPS-OSSATT-IDENTITY-TUW-001",
+      "title": "Unsigned release identity verifier and attestation boundary",
+      "release": "R14",
+      "module": "DEVOPS-OSSATT-IDENTITY",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSATT-SBOM-TUW-001",
+        "SEC-OSSSCAN-PIPELINE-TUW-001"
+      ],
+      "files": [
+        "tools/security",
+        "security",
+        ".github/workflows/supply-chain.yml",
+        "docs/execution/evidence"
+      ],
+      "verification": "source tree image digest SBOM and scan hashes form one verified unsigned graph AND wrong/replayed/missing edges and unresolved policy fail AND signing is explicitly external-blocked"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-BOUNDARY-TUW-001",
+      "title": "Isolated source-lab boundary and lock schema",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-OSSATT-IDENTITY-TUW-001"],
+      "files": ["security/oss-source-map.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
+      "verification": "external source root is outside product/build context AND invalid pin path symlink and dirty-baseline fixtures fail"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-CLONE-TUW-001",
+      "title": "Official shortlist exact-clone verifier",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSLAB-BOUNDARY-TUW-001"],
+      "files": ["security/oss-source-map.yml", "tools/oss"],
+      "verification": "every shortlist row has official remote detached commit tree license hash and clean status OR explicit bounded blocked owner"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-BASELINE-TUW-001",
+      "title": "Unmodified upstream baseline runner",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSLAB-CLONE-TUW-001"],
+      "files": ["security/oss-source-map.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
+      "verification": "each adoptable row preserves upstream command environment result classification and redacted bounded log hash AND unavailable dependencies stay blocked"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-REPRO-TUW-001",
+      "title": "Second-clone source lock reproducibility gate",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-OSSLAB-BASELINE-TUW-001"],
+      "files": ["tools/oss", "security/oss-source-map.yml", ".github/workflows/supply-chain.yml"],
+      "verification": "second-clone and tamper drift fixtures distinguish pinned reproduced and blocked without product source or CI permission mutation"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-AUTH-TUW-001",
+      "title": "Vault authority and gap map",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSLAB-REPRO-TUW-001"],
+      "files": ["docs/architecture/oss-adoption-decisions", "security/oss-source-map.yml"],
+      "verification": "all OSS-01 through OSS-11 portfolios have a valid Vault target AND KEEP AUGMENT GAP UNKNOWN authority is explicit AND stale local targets and wholesale replacement are rejected"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-SOURCEMAP-TUW-002",
+      "title": "DMS pipeline security identity source-test map",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-AUTH-TUW-001"],
+      "files": ["docs/architecture/oss-adoption-decisions", "security/oss-source-map.yml"],
+      "verification": "exact clone path blob license and test input bind OSS-03 through OSS-08 targets AND root-only missing-test or unlicensed fixture candidates fail"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-REUSE-TUW-003",
+      "title": "Test fixture reuse classification and parity skeleton",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-SOURCEMAP-TUW-002"],
+      "files": ["security/oss-test-reuse.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
+      "verification": "missing license wrong hash copied-source misclassification and invalid canonical suite fail AND security portfolios retain a negative or fault parity scenario"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-OPS-TUW-004",
+      "title": "Ops infra search editor source-test map",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-REUSE-TUW-003"],
+      "files": ["docs/architecture/oss-adoption-decisions", "security/oss-source-map.yml", "security/oss-test-reuse.yml"],
+      "verification": "exact source path blob map or explicit conditional blocked record covers OSS-09 through OSS-11 AND ADR or trigger absent candidates are not adoption-ready"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-DECISION-TUW-005",
+      "title": "L0 through L4 TCO and license adoption decisions",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-OPS-TUW-004"],
+      "files": ["security/oss-adoption-decisions.yml", "docs/architecture/oss-adoption-decisions"],
+      "verification": "every source test fixture and conditional row has a decision AND L2 L3 obligation gaps and Permission Audit replacement decisions fail"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-GATE-TUW-006",
+      "title": "Source map and reuse first gate",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-DECISION-TUW-005"],
+      "files": ["tools/oss", ".github/workflows/supply-chain.yml", "security/oss-evidence-schema.json"],
+      "verification": "missing pin dirty source fake hash copied fixture no decision new dependency and source-lab build-context inputs fail while valid source map coverage passes"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-001",
+      "title": "Direct Pool and PgBoss authority inventory",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-OSSADOPT-GATE-TUW-006"],
+      "files": ["tools/quality", "security/oss-source-map.yml", "docs/architecture/oss-adoption-decisions"],
+      "verification": "all direct constructor sites have runtime or CLI classification owner role transaction shutdown and migration batch AND aliases comments strings type-only imports classify correctly AND unclassified runtime sites are zero"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-002",
+      "title": "Runtime role URL split and assertion",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-001"],
+      "files": ["apps/api/src/common/db", ".env.example", "infra/docker-compose.dev.yml", "tools/db"],
+      "verification": "runtime uses only vault_app URL AND owner superuser BYPASSRLS table-owner and credential-swap starts fail before listen AND owner migration up down up passes"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-003",
+      "title": "Singleton DatabaseModule authority",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-002"],
+      "files": ["apps/api/src/common/db", "apps/api/src/app.module.ts"],
+      "verification": "tenant transaction commit rollback transaction-local GUC and release pass AND 50 create close loops leak no connection AND missing tenant nested misuse and audit incompatibility fail"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-004",
+      "title": "Runtime role integration harness",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-003"],
+      "files": ["tools/integration", "tests/integration", ".github/workflows/ci.yml", "infra/docker-compose.dev.yml"],
+      "verification": "owner bootstrap is process-separated from runtime AppModule worker AND owner credential boot fails AND runtime RLS fail-closed audit integration suites pass"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-001",
+      "title": "Audit Tenant Permission core Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-004"],
+      "files": ["apps/api/src/modules/audit", "apps/api/src/modules/tenant", "apps/api/src/modules/permission", "apps/api/src/common/guards", "apps/api/src/common/db", "tests/integration"],
+      "verification": "listed direct pools move to DatabaseService tenant transactions with only named global tenant-registry reads AND permission audit cross-tenant and fail-closed suites preserve same-transaction behavior"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-002",
+      "title": "Auth User session Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBM-TUW-001"],
+      "files": ["apps/api/src/modules/auth", "apps/api/src/modules/user", "apps/api/src/common/db", "tests/integration"],
+      "verification": "session MFA password-reset and user access use bounded runtime adapters AND token replay disabled-user and cross-tenant negatives remain denied"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-003",
+      "title": "Matter authority Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBM-TUW-002"],
+      "files": ["apps/api/src/modules/matter", "apps/api/src/modules/client", "apps/api/src/modules/party", "apps/api/src/modules/ethical-wall", "apps/api/src/modules/break-glass", "tests/integration"],
+      "verification": "matter client party wall and break-glass listed direct pools are zero AND bidirectional wall and nearest unauthorized negatives preserve audit parity"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-004",
+      "title": "Document Storage Search critical Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBM-TUW-003"],
+      "files": ["apps/api/src/modules/document", "apps/api/src/modules/storage", "apps/api/src/modules/search", "tests/integration"],
+      "verification": "document storage and search listed direct pools are zero AND immutable storage permission-before-search metadata leakage and audit regressions remain green"
     }
   ]
 }

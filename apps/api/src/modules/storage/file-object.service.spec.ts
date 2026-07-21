@@ -30,7 +30,7 @@ describe('FileObjectService', () => {
       },
     };
 
-    const service = new FileObjectService();
+    const service = new FileObjectService({} as never);
     await expect(
       service.create(
         {
@@ -85,7 +85,7 @@ describe('FileObjectService', () => {
       },
     };
 
-    const service = new FileObjectService();
+    const service = new FileObjectService({} as never);
     await expect(
       service.create(
         {

@@ -58,7 +58,7 @@ function createService() {
   const wrapper = new FailClosedPermissionWrapper({ recordAccessDenied } as never);
   return {
     recordAccessDenied,
-    service: new TestDocumentPermissionService(wrapper),
+    service: new TestDocumentPermissionService(wrapper, {} as never),
   };
 }
 

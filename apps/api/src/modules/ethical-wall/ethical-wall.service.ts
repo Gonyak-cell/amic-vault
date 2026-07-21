@@ -5,7 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   AddEthicalWallMembershipDto,
   CreateEthicalWallDto,
@@ -17,21 +16,12 @@ import type {
   WallSubjectType,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 import { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import { TenantContextService } from '../tenant/tenant-context';
 import { EthicalWallEntity } from './ethical-wall.entity';
 import { WallMembershipEntity } from './wall-membership.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface EthicalWallRow {
   wall_id: string;
@@ -112,6 +102,7 @@ function membershipRef(membership: WallMembershipEntity): string {
 export class EthicalWallService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -368,10 +359,9 @@ export class EthicalWallService {
     tenantId: TenantId,
     matterId: string,
     userId: string,
-    queryClient: QueryClient = getPool(),
+    queryClient?: QueryClient,
   ): Promise<boolean> {
-    const result = await queryClient.query(
-      `
+    const sql = `
         SELECT 1
         FROM ethical_walls ew
         JOIN ethical_wall_memberships ewm
@@ -394,9 +384,10 @@ export class EthicalWallService {
           )
           AND ewm.membership_type = 'excluded'
         LIMIT 1
-      `,
-      [tenantId, matterId, userId],
-    );
+      `;
+    const result = queryClient
+      ? await queryClient.query(sql, [tenantId, matterId, userId])
+      : await tenantQuery(this.databaseService, tenantId, sql, [tenantId, matterId, userId]);
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -410,21 +401,20 @@ export class EthicalWallService {
   }
 
   private async assertMatterExists(tenantId: TenantId, matterId: string): Promise<void> {
-    const tenantResult = await getPool().query(
+    const tenantResult = await tenantQuery(
+      this.databaseService,
+      tenantId,
       'SELECT 1 FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
       [tenantId, matterId],
     );
     if ((tenantResult.rowCount ?? 0) > 0) return;
-    const anyTenantResult = await getPool().query(
-      'SELECT 1 FROM matters WHERE matter_id = $1 LIMIT 1',
-      [matterId],
-    );
-    if ((anyTenantResult.rowCount ?? 0) > 0) throw notFoundDenied();
-    throw validationFailed();
+    throw notFoundDenied();
   }
 
   protected async findWallById(tenantId: TenantId, wallId: string): Promise<EthicalWallRow | null> {
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      this.databaseService,
+      tenantId,
       `
         SELECT wall_id, tenant_id, matter_id, wall_name, reason, status, created_by,
           created_at, released_by, released_at
@@ -442,7 +432,9 @@ export class EthicalWallService {
     tenantId: TenantId,
     query: ListEthicalWallsQueryDto,
   ): Promise<EthicalWallRow[]> {
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      this.databaseService,
+      tenantId,
       `
         SELECT wall_id, tenant_id, matter_id, wall_name, reason, status, created_by,
           created_at, released_by, released_at
@@ -463,7 +455,9 @@ export class EthicalWallService {
     wallIds: readonly string[],
   ): Promise<WallMembershipEntity[]> {
     if (wallIds.length === 0) return [];
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      this.databaseService,
+      tenantId,
       `
         SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
           membership_type, created_by, created_at
@@ -482,7 +476,9 @@ export class EthicalWallService {
     wallId: string,
     membershipId: string,
   ): Promise<WallMembershipEntity | null> {
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      this.databaseService,
+      tenantId,
       `
         SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
           membership_type, created_by, created_at
@@ -503,7 +499,9 @@ export class EthicalWallService {
     wallId: string,
     input: AddEthicalWallMembershipDto,
   ): Promise<WallMembershipEntity | null> {
-    const result = await getPool().query(
+    const result = await tenantQuery(
+      this.databaseService,
+      tenantId,
       `
         SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
           membership_type, created_by, created_at
@@ -527,7 +525,9 @@ export class EthicalWallService {
     for (const member of members) {
       const table = member.subjectType === 'user' ? 'users' : 'groups';
       const idColumn = member.subjectType === 'user' ? 'user_id' : 'group_id';
-      const result = await getPool().query(
+      const result = await tenantQuery(
+        this.databaseService,
+        tenantId,
         `SELECT 1 FROM ${table} WHERE tenant_id = $1 AND ${idColumn} = $2 LIMIT 1`,
         [tenantId, member.subjectId],
       );

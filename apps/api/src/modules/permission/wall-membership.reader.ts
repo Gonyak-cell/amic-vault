@@ -1,18 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Inject, Injectable } from '@nestjs/common';
 import type { TenantId } from '@amic-vault/shared';
+import { DatabaseService } from '../../common/db/database.service';
 import { tenantQuery } from '../../common/db/tenant-query';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 export interface MatterWallMembershipState {
   hasActiveWall: boolean;
@@ -31,13 +20,15 @@ interface WallMembershipRow {
 
 @Injectable()
 export class WallMembershipReader {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+
   async readUserMatterState(
     tenantId: TenantId,
     matterId: string,
     userId: string,
   ): Promise<MatterWallMembershipState> {
     const result = await tenantQuery<WallMembershipRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT ew.wall_id, ewm.membership_type
@@ -85,7 +76,7 @@ export class WallMembershipReader {
 
   private async hasActiveMatterWall(tenantId: TenantId, matterId: string): Promise<boolean> {
     const result = await tenantQuery(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT 1
@@ -105,7 +96,7 @@ export class WallMembershipReader {
     matterId: string,
   ): Promise<string[]> {
     const result = await tenantQuery<{ wall_id: string }>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT DISTINCT ew.wall_id

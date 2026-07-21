@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import type {
   MatterDashboardAiSessionDto,
   MatterDashboardDto,
@@ -17,17 +17,7 @@ import { AuditService } from '../audit/audit.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { tenantQuery } from '../../common/db/tenant-query';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
 
 interface MatterRow {
   matter_id: string;
@@ -92,6 +82,7 @@ interface AiSessionRow {
 export class MatterDashboardService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -142,7 +133,7 @@ export class MatterDashboardService {
     matterId: string,
   ): Promise<MatterDashboardMatterSummaryDto> {
     const result = await tenantQuery<MatterRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT m.matter_id, m.matter_code, m.matter_name,

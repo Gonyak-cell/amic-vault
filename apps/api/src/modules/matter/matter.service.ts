@@ -12,7 +12,6 @@ import {
   validateMatterTransition,
   type MatterStateValue,
 } from '@amic-vault/domain';
-import { Pool } from 'pg';
 import type {
   CreateMatterDto,
   ListMattersQueryDto,
@@ -35,6 +34,7 @@ import type {
 import { buildSafeLabel, isUserRole, matterIntakeTemplateAccessScopes } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { tenantQuery } from '../../common/db/tenant-query';
+import { DatabaseService } from '../../common/db/database.service';
 import { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
@@ -47,19 +47,9 @@ import { MatterClosingService } from './matter-closing.service';
 import { MatterMemberService } from './matter-member.service';
 import { MatterEntity } from './matter.entity';
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 export const DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME = 'AMIC local file organization prep';
 const DEFAULT_MATTER_INTAKE_TEMPLATE_CODE =
   'default_open' satisfies MatterIntakeTemplateCode;
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterRow {
   access_scope: MatterAccessScope;
@@ -281,6 +271,7 @@ function matterDiffKeys(before: MatterEntity, input: UpdateMatterDto): string[] 
 export class MatterService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(MatterMemberService) private readonly matterMemberService: MatterMemberService,
     @Inject(PermissionQueryBuilder) private readonly permissionQueryBuilder: PermissionQueryBuilder,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
@@ -726,38 +717,23 @@ export class MatterService {
 
   private async assertClientUsable(tenantId: TenantId, clientId: string): Promise<void> {
     if (await this.clientExistsForTenant(tenantId, clientId)) return;
-    if (await this.clientExistsAnyTenant(clientId)) throw notFoundDenied();
+    if (await this.databaseService.clientExistsAnyTenant(clientId)) throw notFoundDenied();
     throw validationFailed();
   }
 
   private async assertLeadLawyerUsable(tenantId: TenantId, userId: string): Promise<void> {
     const user = await this.userService.findByTenantAndId(tenantId, userId);
     if (user) return;
-    if (await this.userExistsAnyTenant(userId)) throw notFoundDenied();
-    throw validationFailed();
+    throw notFoundDenied();
   }
 
   private async clientExistsForTenant(tenantId: TenantId, clientId: string): Promise<boolean> {
     const result = await tenantQuery(
-      getPool(),
+      this.databaseService,
       tenantId,
       'SELECT 1 FROM clients WHERE tenant_id = $1 AND client_id = $2 LIMIT 1',
       [tenantId, clientId],
     );
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  private async clientExistsAnyTenant(clientId: string): Promise<boolean> {
-    const result = await getPool().query('SELECT 1 FROM clients WHERE client_id = $1 LIMIT 1', [
-      clientId,
-    ]);
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  private async userExistsAnyTenant(userId: string): Promise<boolean> {
-    const result = await getPool().query('SELECT 1 FROM users WHERE user_id = $1 LIMIT 1', [
-      userId,
-    ]);
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -766,7 +742,7 @@ export class MatterService {
     matterId: string,
   ): Promise<RelatedMatterRow[]> {
     const result = await tenantQuery<RelatedMatterRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT rm.link_id, rm.matter_id, rm.related_matter_id, rm.relation_type,
@@ -984,7 +960,7 @@ export class MatterService {
     const params = [tenantId, matterId];
     const result = queryClient
       ? await queryClient.query(sql, params)
-      : await tenantQuery<MatterRow>(getPool(), tenantId, sql, params);
+      : await tenantQuery<MatterRow>(this.databaseService, tenantId, sql, params);
     const row = result.rows[0] as MatterRow | undefined;
     return row ? mapMatter(row) : null;
   }
@@ -1244,7 +1220,7 @@ export class MatterService {
 
     params.push(query.pageSize, (query.page - 1) * query.pageSize);
     const result = await tenantQuery<MatterListRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT matters.matter_id, matters.tenant_id, matters.client_id,

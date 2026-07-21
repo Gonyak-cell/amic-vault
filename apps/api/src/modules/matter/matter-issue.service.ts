@@ -6,7 +6,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   CreateMatterIssueDto,
   CreateMatterKeyDateDto,
@@ -26,20 +25,10 @@ import type {
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
 import { tenantQuery } from '../../common/db/tenant-query';
+import { DatabaseService } from '../../common/db/database.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { isMatterMutationAllowed } from './guards/matter-mutability.guard';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterStatusRow {
   matter_id: string;
@@ -83,6 +72,7 @@ type UpdatePlan = {
 export class MatterIssueService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -92,7 +82,7 @@ export class MatterIssueService {
     await this.assertMatterExists(context.tenantId, matterId);
     await this.assertCanReadMatter(context.tenantId, actorUserId, matterId);
     const result = await tenantQuery<MatterIssueRow>(
-      getPool(),
+      this.databaseService,
       context.tenantId,
       `
         SELECT issue_id, matter_id, title, summary, status, risk_level, created_at, updated_at
@@ -256,7 +246,7 @@ export class MatterIssueService {
     await this.assertMatterExists(context.tenantId, matterId);
     await this.assertCanReadMatter(context.tenantId, actorUserId, matterId);
     const result = await tenantQuery<MatterKeyDateRow>(
-      getPool(),
+      this.databaseService,
       context.tenantId,
       `
         SELECT
@@ -521,7 +511,7 @@ export class MatterIssueService {
 
   private async assertMatterExists(tenantId: TenantId, matterId: string): Promise<MatterStatusRow> {
     const result = await tenantQuery<MatterStatusRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       'SELECT matter_id, status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
       [tenantId, matterId],
@@ -539,7 +529,7 @@ export class MatterIssueService {
   private async assertAssignableUser(tenantId: TenantId, userId: string | null): Promise<void> {
     if (!userId) return;
     const result = await tenantQuery(
-      getPool(),
+      this.databaseService,
       tenantId,
       'SELECT 1 FROM users WHERE tenant_id = $1 AND user_id = $2 LIMIT 1',
       [tenantId, userId],
@@ -553,7 +543,7 @@ export class MatterIssueService {
     issueId: string,
   ): Promise<MatterIssueRow | null> {
     const result = await tenantQuery<MatterIssueRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT issue_id, matter_id, title, summary, status, risk_level, created_at, updated_at
@@ -574,7 +564,7 @@ export class MatterIssueService {
     keyDateId: string,
   ): Promise<MatterKeyDateRow | null> {
     const result = await tenantQuery<MatterKeyDateRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT

@@ -1,0 +1,4 @@
+title = "AMIC Vault narrow Gitleaks extension"
+
+[extend]
+useDefault = true

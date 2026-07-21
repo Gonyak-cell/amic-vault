@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { TenantId } from '@amic-vault/shared';
-import { Pool } from 'pg';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
 import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
+import { DatabaseService } from '../../common/db/database.service';
 import { queueWorkerEnabled } from '../../common/process-role';
 import {
   DocumentEditingService,
@@ -31,23 +31,11 @@ export interface EditSessionSweepJobResult {
 }
 
 @Injectable()
-export class EditSessionSweepTenantReader implements OnModuleDestroy {
-  private readonly pool = new Pool({ connectionString: databaseUrl });
+export class EditSessionSweepTenantReader {
+  constructor(private readonly databaseService: DatabaseService) {}
 
   async listActiveTenantIds(): Promise<TenantId[]> {
-    const result = await this.pool.query<{ tenant_id: string }>(
-      `
-        SELECT tenant_id::text AS tenant_id
-        FROM tenants
-        WHERE status = 'active'
-        ORDER BY tenant_id ASC
-      `,
-    );
-    return result.rows.map((row) => row.tenant_id as TenantId);
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.pool.end();
+    return (await this.databaseService.listActiveTenantRegistryIds()) as TenantId[];
   }
 }
 

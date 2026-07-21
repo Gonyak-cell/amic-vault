@@ -163,6 +163,35 @@ describe('search filter endpoint permission integration', () => {
       mode: 'hybrid',
       query: marker,
     });
+
+    const listResponse = await fetch(`${baseUrl}/v1/search/saved-searches`, {
+      headers: { cookie },
+    });
+    const listText = await listResponse.text();
+    expect(listResponse.status, listText).toBe(200);
+    const listed = JSON.parse(listText) as { items: Array<{ savedSearchId: string }> };
+    expect(listed.items).toContainEqual(expect.objectContaining({ savedSearchId: saved.savedSearchId }));
+
+    const deleteResponse = await fetch(
+      `${baseUrl}/v1/search/saved-searches/${saved.savedSearchId}`,
+      {
+        method: 'DELETE',
+        headers: { cookie },
+      },
+    );
+    expect(deleteResponse.status).toBe(204);
+
+    const afterDeleteResponse = await fetch(`${baseUrl}/v1/search/saved-searches`, {
+      headers: { cookie },
+    });
+    const afterDeleteText = await afterDeleteResponse.text();
+    expect(afterDeleteResponse.status, afterDeleteText).toBe(200);
+    const afterDelete = JSON.parse(afterDeleteText) as {
+      items: Array<{ savedSearchId: string }>;
+    };
+    expect(afterDelete.items).not.toContainEqual(
+      expect.objectContaining({ savedSearchId: saved.savedSearchId }),
+    );
   });
 
   function expectZeroLeakage(response: SearchHttpResponse): void {

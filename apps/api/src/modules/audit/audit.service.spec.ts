@@ -20,7 +20,7 @@ class MemoryClient implements QueryClient {
 }
 
 function createService(context = new TenantContextService()): AuditService {
-  return new AuditService(context, new AuditMetadataNormalizer());
+  return new AuditService(context, new AuditMetadataNormalizer(), {} as never);
 }
 
 describe('AuditService', () => {

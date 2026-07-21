@@ -1,0 +1,190 @@
+name: supply-chain
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'codex/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  source-lab-lock:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate static upstream source-lock and baseline records
+        run: node tools/oss/verify-upstream-baseline.mjs --static --source-map security/oss-source-map.yml
+
+  source-map-reuse:
+    runs-on: ubuntu-latest
+    steps:
+      # Full product history is read only to compute the immutable gate range;
+      # this job never clones, builds, or executes an upstream OSS source tree.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate source-map authority and reuse-first gate
+        run: |
+          node tools/oss/verify-source-map.mjs --static --source-map security/oss-source-map.yml --decisions security/oss-adoption-decisions.yml --reuse security/oss-test-reuse.yml
+          node tools/oss/check-reuse-first.mjs --base 830eeeac92e6417ad45273bbab41cdf3b57fcbb3 --decisions security/oss-adoption-decisions.yml
+
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Validate provenance and license policies
+        run: |
+          node tools/security/check-evidence-manifest.mjs security/oss-provenance.yml security/oss-evidence-schema.json
+          node tools/security/check-oss-license-policy.mjs
+      - name: Prove malformed governance input fails closed
+        run: |
+          node --test tools/security/check-evidence-manifest.spec.mjs \
+            tools/security/check-oss-license-policy.spec.mjs \
+            tools/security/check-vulnerability-policy.spec.mjs
+      - name: Write provenance-bound local governance reports
+        env:
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${WORKFLOW_SHA}/PACK-OSS00-01/DEVOPS-OSSGOV-PROV-TUW-004"
+          mkdir -p "$report_root"
+          REPORT_ROOT="$report_root" node --input-type=module -e "import { execFileSync } from 'node:child_process'; import { writeFileSync } from 'node:fs'; import { validateInventory } from './tools/security/check-evidence-manifest.mjs'; import { evaluateLicensePolicy } from './tools/security/check-oss-license-policy.mjs'; const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(); if (sourceSha !== process.env.WORKFLOW_SHA) throw new Error('workflow SHA does not match checked-out source'); const root = process.env.REPORT_ROOT; const provenance = validateInventory(); const license = evaluateLicensePolicy(); const common = { sourceSha, sourceTree, workflowSha: process.env.WORKFLOW_SHA, syntheticOnly: true }; writeFileSync(root + '/governance-ci-local.json', JSON.stringify({ ...common, provenance: { inputCount: provenance.inputCount, unresolvedCount: provenance.unresolvedCount }, license: { total: license.total, approved: license.approved, blocked: license.blocked, internal: license.internal }, vulnerability: { truthState: 'EXTERNAL_BLOCKED', reason: 'live audit, SBOM, and signature scanners are intentionally not run in this network-independent job', vulnerabilityDecisionReference: 'security/oss-vulnerability-exceptions.yml' } }, null, 2) + '\n'); writeFileSync(root + '/artifact-hash-list.json', JSON.stringify({ ...common, artifactReports: ['governance-ci-local.json', 'workflow-command-inventory.json'], scannerStatus: 'NOT_IMPLEMENTED_IN_WORKFLOW' }, null, 2) + '\n');"
+          REPORT_ROOT="$report_root" node --input-type=module -e "import { execFileSync } from 'node:child_process'; import { readFileSync, writeFileSync } from 'node:fs'; const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(); const ci = readFileSync('.github/workflows/ci.yml', 'utf8').split('\n').filter((line) => line.trimStart().startsWith('- run:')).map((line) => line.trim()); writeFileSync(process.env.REPORT_ROOT + '/workflow-command-inventory.json', JSON.stringify({ sourceSha, sourceTree, workflowSha: process.env.WORKFLOW_SHA, existingCiRunCommands: ci, existingCiChanged: false }, null, 2) + '\n');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-governance-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-01/DEVOPS-OSSGOV-PROV-TUW-004
+          if-no-files-found: error
+
+  sbom:
+    needs: governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Download the source-pinned Syft release
+        run: |
+          mkdir -p .tmp/syft
+          curl --fail --location --silent --show-error --output .tmp/syft/syft.tar.gz https://github.com/anchore/syft/releases/download/v1.44.0/syft_1.44.0_linux_amd64.tar.gz
+          echo '0e91737aee2b5baf1d255b959630194a302335d848ff97bb07921eb6205b5f5a  .tmp/syft/syft.tar.gz' | sha256sum --check --status
+          tar -xzf .tmp/syft/syft.tar.gz -C .tmp/syft
+          .tmp/syft/syft version | grep -F 'GitCommit:     8cb78ce40ced6a731fb83f2a491a67444f541bf1'
+      - name: Build local source images without registry access
+        run: |
+          docker build --file apps/api/Dockerfile --target api --tag amic-vault-sbom-api:${{ github.sha }} .
+          docker build --file apps/web/Dockerfile --tag amic-vault-sbom-web:${{ github.sha }} .
+          docker build --file workers/ingestion/Dockerfile --tag amic-vault-sbom-ingestion:${{ github.sha }} .
+      - name: Generate and validate source-bound SBOMs
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-SBOM-TUW-001"
+          api_digest="$(docker image inspect --format '{{.Id}}' amic-vault-sbom-api:${{ github.sha }})"
+          web_digest="$(docker image inspect --format '{{.Id}}' amic-vault-sbom-web:${{ github.sha }})"
+          ingestion_digest="$(docker image inspect --format '{{.Id}}' amic-vault-sbom-ingestion:${{ github.sha }})"
+          node tools/security/generate-sbom.mjs --syft "$PWD/.tmp/syft/syft" --out "$report_root" --image "api=docker:${api_digest}" --image "web=docker:${web_digest}" --image "ingestion=docker:${ingestion_digest}"
+          REPORT_ROOT="$report_root" WORKFLOW_SHA='${{ github.sha }}' node --input-type=module -e "import { readFileSync } from 'node:fs'; const manifest=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/sbom-manifest.json', 'utf8')); if (manifest.sourceSha !== process.env.WORKFLOW_SHA || manifest.sboms.length !== 4 || manifest.sboms.some((sbom) => sbom.name !== 'source' && !sbom.imageDigest?.startsWith('sha256:'))) throw new Error('source/image SBOM identity validation failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-sbom-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-SBOM-TUW-001
+          if-no-files-found: error
+
+  scanner:
+    needs: sbom
+    runs-on: ubuntu-latest
+    steps:
+      # Full history is required for the separate historical-secret scan. The
+      # runner still receives only immutable local image IDs and writes a safe
+      # normalized summary, never a raw report or scanner database.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Download source-pinned scanner releases
+        run: |
+          mkdir -p .tmp/gitleaks .tmp/trivy
+          curl --fail --location --silent --show-error --output .tmp/gitleaks/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz
+          echo '79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e  .tmp/gitleaks/gitleaks.tar.gz' | sha256sum --check --status
+          tar -xzf .tmp/gitleaks/gitleaks.tar.gz -C .tmp/gitleaks
+          .tmp/gitleaks/gitleaks version | grep -F '8.30.0'
+          curl --fail --location --silent --show-error --output .tmp/trivy/trivy.tar.gz https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_Linux-64bit.tar.gz
+          echo '8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9  .tmp/trivy/trivy.tar.gz' | sha256sum --check --status
+          tar -xzf .tmp/trivy/trivy.tar.gz -C .tmp/trivy
+          .tmp/trivy/trivy --version | grep -F 'Version: 0.70.0'
+          docker pull semgrep/semgrep@sha256:207983631beecdbe7fa29196c7f4a7a5f29033933cdb76c687ce4a672e07618d
+      - name: Build immutable local image scan inputs
+        run: |
+          docker build --file apps/api/Dockerfile --target api --tag amic-vault-scan-api:${{ github.sha }} .
+          docker build --file apps/web/Dockerfile --tag amic-vault-scan-web:${{ github.sha }} .
+          docker build --file workers/ingestion/Dockerfile --tag amic-vault-scan-ingestion:${{ github.sha }} .
+      - name: Run source, IaC, secret, and image scan contract
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/SEC-OSSSCAN-PIPELINE-TUW-001"
+          api_digest="$(docker image inspect --format '{{.Id}}' amic-vault-scan-api:${{ github.sha }})"
+          web_digest="$(docker image inspect --format '{{.Id}}' amic-vault-scan-web:${{ github.sha }})"
+          ingestion_digest="$(docker image inspect --format '{{.Id}}' amic-vault-scan-ingestion:${{ github.sha }})"
+          node tools/security/run-security-scans.mjs --gitleaks "$PWD/.tmp/gitleaks/gitleaks" --trivy "$PWD/.tmp/trivy/trivy" --out "$report_root" --image "api=docker:${api_digest}" --image "web=docker:${web_digest}" --image "ingestion=docker:${ingestion_digest}"
+          REPORT_ROOT="$report_root" WORKFLOW_SHA='${{ github.sha }}' node --input-type=module -e "import { readFileSync } from 'node:fs'; const summary=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/security-scan-summary.json', 'utf8')); if (summary.sourceSha !== process.env.WORKFLOW_SHA || summary.productionHighCritical.unclassified !== 0 || !Array.isArray(summary.findings)) throw new Error('scan evidence validation failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-security-scan-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/SEC-OSSSCAN-PIPELINE-TUW-001
+          if-no-files-found: error
+
+  unsigned-identity:
+    needs: [sbom, scanner]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: oss-sbom-${{ github.sha }}
+          path: .tmp/identity-input/sbom
+      - uses: actions/download-artifact@v4
+        with:
+          name: oss-security-scan-${{ github.sha }}
+          path: .tmp/identity-input/scan
+      - name: Verify unsigned source-image-SBOM-scan identity graph
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-IDENTITY-TUW-001"
+          node tools/security/verify-release-identity.mjs --sbom .tmp/identity-input/sbom/sbom-manifest.json --scan .tmp/identity-input/scan/security-scan-summary.json --out "$report_root"
+          REPORT_ROOT="$report_root" WORKFLOW_SHA='${{ github.sha }}' node --input-type=module -e "import { readFileSync } from 'node:fs'; const identity=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/unsigned-release-identity.json', 'utf8')); const boundary=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/signing-boundary-receipt.json', 'utf8')); if (identity.sourceSha !== process.env.WORKFLOW_SHA || boundary.status !== 'EXTERNAL_BLOCKED_SIGNING_IDENTITY_REQUIRED' || boundary.signingPerformed !== false) throw new Error('unsigned identity boundary validation failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-unsigned-identity-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-IDENTITY-TUW-001
+          if-no-files-found: error

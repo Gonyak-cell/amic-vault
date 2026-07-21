@@ -54,4 +54,26 @@ describe('tenantQuery', () => {
     expect(query).toHaveBeenNthCalledWith(4, 'ROLLBACK');
     expect(release).toHaveBeenCalledOnce();
   });
+
+  it('delegates to the central tenant transaction executor when provided', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ ok: true }], rowCount: 1 });
+    const tenantTransaction = vi.fn(async (_tenantId, work) => work({ query }));
+
+    await expect(
+      tenantQuery(
+        { tenantTransaction } as never,
+        '11111111-1111-4111-8111-111111111111',
+        'SELECT ok FROM tenant_table WHERE tenant_id = $1',
+        ['11111111-1111-4111-8111-111111111111'],
+      ),
+    ).resolves.toMatchObject({ rows: [{ ok: true }] });
+
+    expect(tenantTransaction).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      expect.any(Function),
+    );
+    expect(query).toHaveBeenCalledWith('SELECT ok FROM tenant_table WHERE tenant_id = $1', [
+      '11111111-1111-4111-8111-111111111111',
+    ]);
+  });
 });

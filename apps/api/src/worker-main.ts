@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { StructuredLogger } from './common/logging/logger';
 import { setDefaultProcessRole } from './common/process-role';
+import { assertRuntimeDatabaseRole } from './common/db/runtime-role.assertion';
 
 export function configureWorkerProcessEnv(env: NodeJS.ProcessEnv = process.env): void {
   setDefaultProcessRole('worker', env);
@@ -11,6 +12,7 @@ export function configureWorkerProcessEnv(env: NodeJS.ProcessEnv = process.env):
 
 export async function bootstrapWorker(): Promise<INestApplicationContext> {
   configureWorkerProcessEnv();
+  await assertRuntimeDatabaseRole();
   const logger = new StructuredLogger();
   const app = await NestFactory.createApplicationContext(AppModule, { logger });
   app.enableShutdownHooks();

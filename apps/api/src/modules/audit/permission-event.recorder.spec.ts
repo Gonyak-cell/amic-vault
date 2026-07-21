@@ -10,6 +10,10 @@ class MemoryAuditService {
     if (this.shouldFail) throw new Error('audit unavailable');
     this.events.push(input);
   }
+
+  async logDeniedAccess(input: unknown): Promise<void> {
+    return this.log(input);
+  }
 }
 
 describe('PermissionEventRecorder', () => {
@@ -149,5 +153,27 @@ describe('PermissionEventRecorder', () => {
         reasonCode: 'PERMISSION_DENIED',
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it('records denied access through the isolated denial-audit path', async () => {
+    const audit = new MemoryAuditService();
+    const recorder = new PermissionEventRecorder(audit as unknown as AuditService);
+
+    await recorder.recordAccessDenied({
+      tenantId: '11111111-1111-4111-8111-111111111111',
+      actorId: '11111111-1111-4111-8111-111111111101',
+      targetType: 'document',
+      targetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      matterId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      reasonCode: 'ETHICAL_WALL_BLOCKED',
+    });
+
+    expect(audit.events).toEqual([
+      expect.objectContaining({
+        action: 'ACCESS_DENIED',
+        result: 'denied',
+        metadata: { reason_code: 'ETHICAL_WALL_BLOCKED', matter_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+      }),
+    ]);
   });
 });

@@ -9,9 +9,24 @@ export interface QueryClient {
 export class TenantAwareDataSource {
   constructor(private readonly tenantContext: TenantContextService) {}
 
-  async transaction<T>(client: QueryClient, work: (client: QueryClient) => Promise<T>): Promise<T> {
+  async transaction<T, Client extends QueryClient>(
+    client: Client,
+    work: (client: Client) => Promise<T>,
+  ): Promise<T> {
     const context = this.tenantContext.current();
     if (!context) {
+      throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+    }
+
+    return this.transactionForTenant(client, context.tenantId, work);
+  }
+
+  async transactionForTenant<T, Client extends QueryClient>(
+    client: Client,
+    tenantId: string,
+    work: (client: Client) => Promise<T>,
+  ): Promise<T> {
+    if (!tenantId.trim()) {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
 
@@ -19,7 +34,7 @@ export class TenantAwareDataSource {
     try {
       await client.query('SELECT set_config($1, $2, true)', [
         'app.current_tenant_id',
-        context.tenantId,
+        tenantId,
       ]);
       const result = await work(client);
       await client.query('COMMIT');

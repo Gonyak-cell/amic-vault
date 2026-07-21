@@ -1,17 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
 import type { FileObjectDto } from '@amic-vault/shared';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
+import { tenantQuery } from '../../common/db/tenant-query';
 
 interface QueryClient {
   query(
@@ -68,9 +58,10 @@ function mapFileObject(row: FileObjectRow): FileObjectDto {
 
 @Injectable()
 export class FileObjectService {
-  async create(input: CreateFileObjectInput, client: QueryClient = getPool()) {
-    const result = await client.query(
-      `
+  constructor(private readonly databaseService: DatabaseService) {}
+
+  async create(input: CreateFileObjectInput, client?: QueryClient) {
+    const sql = `
         INSERT INTO file_objects (
           file_object_id, tenant_id, storage_uri, original_filename, normalized_filename,
           mime_type, size_bytes, sha256, encryption_key_id, source_system, created_by
@@ -79,8 +70,8 @@ export class FileObjectService {
         RETURNING file_object_id, tenant_id, storage_uri, original_filename,
           normalized_filename, mime_type, size_bytes::text, sha256, encryption_key_id,
           source_system, created_by, created_at
-      `,
-      [
+      `;
+    const params = [
         input.fileObjectId,
         input.tenantId,
         input.storageUri,
@@ -92,15 +83,19 @@ export class FileObjectService {
         input.encryptionKeyId,
         input.sourceSystem ?? 'upload',
         input.createdBy,
-      ],
-    );
+    ];
+    const result = client
+      ? await client.query(sql, params)
+      : await tenantQuery(this.databaseService, input.tenantId, sql, params);
     const row = result.rows[0] as FileObjectRow | undefined;
     if (!row) throw new Error('file object insert returned no row');
     return mapFileObject(row);
   }
 
   async findByIdForTenant(tenantId: string, fileObjectId: string) {
-    const result = await getPool().query(
+    const result = await tenantQuery<FileObjectRow>(
+      this.databaseService,
+      tenantId,
       `
         SELECT file_object_id, tenant_id, storage_uri, original_filename,
           normalized_filename, mime_type, size_bytes::text, sha256, encryption_key_id,

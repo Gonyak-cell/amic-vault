@@ -1,6 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
 import type {
   MfaActivateRequestDto,
   MfaEnrollResponseDto,
@@ -8,43 +7,14 @@ import type {
   TenantId,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
 import { hashPassword, verifyPasswordHash } from '../user/password';
 import { createOpaqueToken, hashOpaqueToken, type SessionRecord } from './session.repository';
 import { TotpService } from './totp.service';
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
 const mfaChallengeTtlMs = 1000 * 60 * 5;
 const issuer = 'AMIC Vault';
 const secretCipherPrefix = 'v1';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
-
-async function withTenantClient<T>(
-  tenantId: TenantId,
-  run: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-    const result = await run(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 interface MfaSecretRow {
   secret_id: string;
@@ -96,10 +66,11 @@ export class MfaService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(TotpService) private readonly totp: TotpService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
   ) {}
 
   async hasActiveSecret(tenantId: TenantId, userId: string): Promise<boolean> {
-    return withTenantClient(tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(tenantId, async (client) => {
       const result = await client.query<{ present: boolean }>(
         `
           SELECT true AS present
@@ -117,7 +88,7 @@ export class MfaService {
 
   async startChallenge(tenantId: TenantId, userId: string): Promise<MfaChallengeStart> {
     const token = createOpaqueToken();
-    await withTenantClient(tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(tenantId, async (client) => {
       await client.query(
         `
           INSERT INTO mfa_challenges (
@@ -138,7 +109,7 @@ export class MfaService {
   async verifyChallenge(input: MfaVerifyRequestDto): Promise<VerifiedMfaChallenge> {
     const parsed = parseChallengeId(input.challengeId);
     if (!parsed) throw authRequired('mfa_invalid');
-    const outcome = await withTenantClient(
+    const outcome = await this.databaseService.tenantTransaction(
       parsed.tenantId,
       async (client): Promise<MfaVerifyOutcome> => {
         const challenge = await this.findOpenChallenge(client, parsed.tenantId, parsed.tokenHash);
@@ -232,7 +203,7 @@ export class MfaService {
       recoveryCodes.map(async (code) => ({ hash: await hashPassword(code), usedAt: null })),
     );
     const encrypted = encryptSecret(secret);
-    const secretId = await withTenantClient(session.tenantId, async (client) => {
+    const secretId = await this.databaseService.tenantTransaction(session.tenantId, async (client) => {
       await client.query(
         `
           UPDATE mfa_secrets
@@ -270,7 +241,7 @@ export class MfaService {
     session: SessionRecord,
     input: MfaActivateRequestDto,
   ): Promise<{ accepted: true }> {
-    const outcome = await withTenantClient(
+    const outcome = await this.databaseService.tenantTransaction(
       session.tenantId,
       async (client): Promise<MfaActivateOutcome> => {
         const secretRow = await this.findPendingSecret(

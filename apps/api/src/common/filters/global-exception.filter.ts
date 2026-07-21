@@ -21,6 +21,17 @@ interface RequestLike {
   url?: string;
 }
 
+const MULTER_VALIDATION_CODES = new Set([
+  'LIMIT_PART_COUNT',
+  'LIMIT_FILE_SIZE',
+  'LIMIT_FILE_COUNT',
+  'LIMIT_FIELD_KEY',
+  'LIMIT_FIELD_VALUE',
+  'LIMIT_FIELD_COUNT',
+  'LIMIT_FIELD_NESTING',
+  'LIMIT_UNEXPECTED_FILE',
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -29,6 +40,10 @@ function standardCode(value: unknown): ErrorCode | undefined {
   return typeof value === 'string' && ERROR_CODES.includes(value as ErrorCode)
     ? (value as ErrorCode)
     : undefined;
+}
+
+function isMulterValidationError(value: unknown): boolean {
+  return isRecord(value) && typeof value.code === 'string' && MULTER_VALIDATION_CODES.has(value.code);
 }
 
 function codeFromStatus(status: number): ErrorCode {
@@ -53,8 +68,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const response = http.getResponse<ResponseLike>();
     const request = http.getRequest<RequestLike>();
-    const status =
-      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const parserValidationError = isMulterValidationError(exception);
+    const status = exception instanceof HttpException
+      ? exception.getStatus()
+      : parserValidationError
+        ? HttpStatus.BAD_REQUEST
+        : HttpStatus.INTERNAL_SERVER_ERROR;
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
     const responseCode = isRecord(exceptionResponse)
@@ -64,7 +83,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const reason = reasonFromResponse(exceptionResponse);
     const requestId = currentRequestId();
 
-    if (!(exception instanceof HttpException) || status >= 500) {
+    if ((!parserValidationError && !(exception instanceof HttpException)) || status >= 500) {
       void this.captureSafely(exception, {
         requestId,
         method: request.method,

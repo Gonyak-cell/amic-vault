@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuditService } from '../audit/audit.service';
 import type { PermissionEventRecorder } from '../audit/permission-event.recorder';
 import type { TenantContextService } from '../tenant/tenant-context';
+import type { DatabaseService } from '../../common/db/database.service';
 import { EthicalWallService } from './ethical-wall.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
@@ -31,6 +32,7 @@ describe('EthicalWallService', () => {
   it('accepts group subject type in wall membership validation and rejects duplicates', async () => {
     const service = new EthicalWallService(
       {} as unknown as AuditService,
+      {} as unknown as DatabaseService,
       {} as unknown as PermissionEventRecorder,
       {} as unknown as TenantContextService,
     );
@@ -63,6 +65,7 @@ describe('EthicalWallService', () => {
     }));
     const service = new TestEthicalWallService(
       { log: auditLog } as unknown as AuditService,
+      {} as unknown as DatabaseService,
       {} as unknown as PermissionEventRecorder,
       { require: () => ({ tenantId }) } as unknown as TenantContextService,
     );

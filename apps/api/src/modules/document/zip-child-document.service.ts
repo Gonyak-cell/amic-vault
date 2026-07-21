@@ -2,13 +2,9 @@ import { inflateRawSync } from 'node:zlib';
 import { basename } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
 import type { TenantId, UploadDocumentFieldsDto } from '@amic-vault/shared';
+import { DatabaseService } from '../../common/db/database.service';
 import { DocumentUploadService } from './document-upload.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 const localFileHeaderSignature = 0x04034b50;
 const centralDirectorySignature = 0x02014b50;
@@ -17,7 +13,6 @@ const maxZipItems = 5000;
 const maxZipUncompressedBytes = 2_000_000_000;
 const maxCompressionRatio = 100;
 
-let pool: Pool | undefined;
 
 interface ZipChildInput {
   tenantId: TenantId;
@@ -34,11 +29,6 @@ interface ZipChildInput {
 interface SafeZipEntry {
   path: string;
   body: Buffer;
-}
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
 }
 
 function validationFailed(reason: string): BadRequestException {
@@ -157,7 +147,10 @@ function parseSafeZip(buffer: Buffer): SafeZipEntry[] {
 
 @Injectable()
 export class ZipChildDocumentService {
-  constructor(@Inject(DocumentUploadService) private readonly uploadService: DocumentUploadService) {}
+  constructor(
+    @Inject(DocumentUploadService) private readonly uploadService: DocumentUploadService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+  ) {}
 
   async registerChildren(input: ZipChildInput): Promise<number> {
     if (!isZipFilename(input.originalFilename)) return 0;
@@ -195,10 +188,7 @@ export class ZipChildDocumentService {
     zipEntryPath: string;
     createdBy: string;
   }): Promise<void> {
-    const client = await getPool().connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', input.tenantId]);
+    await this.databaseService.tenantTransaction(input.tenantId, async (client) => {
       await client.query(
         `
           INSERT INTO document_zip_children (
@@ -217,12 +207,6 @@ export class ZipChildDocumentService {
           input.createdBy,
         ],
       );
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK').catch(() => undefined);
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 }

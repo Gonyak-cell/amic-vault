@@ -1,0 +1,6 @@
+rules:
+  - id: vault-no-dynamic-eval
+    message: Dynamic eval is prohibited in Vault application code.
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern: eval(...)

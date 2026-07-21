@@ -1,4 +1,4 @@
-# R4~R14 Live Execution Packs
+# R4~R14 and Post-R14 Live Execution Packs
 
 Status: live extension after R3 Gate
 Source constraints: `docs/package/codex/30_Release_Roadmap.md`,
@@ -6,7 +6,9 @@ Source constraints: `docs/package/codex/30_Release_Roadmap.md`,
 
 `docs/package/` is read-only, so these PACK definitions extend the frozen package
 without modifying it. Each PACK still follows the AGENTS cycle: branch, implement,
-verify, ledger append, PR, CI, merge under the active waiver.
+verify, ledger append, PR, CI, merge under the active waiver. The OSS Terra
+post-R14 sequence additionally follows
+`docs/execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md`.
 
 ## Common Validation
 
@@ -62,6 +64,23 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R14-02 | `feat/pack-r14-02-control-plane-recovery` | 4 | `DEVOPS-EXECCTRL-PARSE117-TUW-001` through `DEVOPS-EXECCTRL-TRANSITION-TUW-004` (recovery-plan Task 4 then Task 5 only) |
 | PACK-R14-03 | `feat/pack-r14-03-recovery-manifest` | 3 | `RECOVERY-MANIFEST-SCHEMA-TUW-001` through `RECOVERY-MANIFEST-REGISTRATION-TUW-003` (recovery-plan Task 6B only) |
 | PACK-R14-03-AMENDMENT-01 | `feat/pack-r14-03-recovery-manifest-v2` | 3 | `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` through `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` (Task 7+ preflight correction only) |
+| PACK-OSS00-01 | `feat/pack-oss00-01-governance-provenance` | 4 | `DEVOPS-OSSGOV-PROV-TUW-001` through `DEVOPS-OSSGOV-PROV-TUW-004` (`docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`) |
+| PACK-OSS00-02 | `feat/pack-oss00-02-dependency-python-hardening` | 3 | `DEVOPS-OSSDEP-TRIAGE-TUW-001`, `SEC-UPLOAD-MULTIPART-TUW-001`, `DEVOPS-OSSPY-LOCK-TUW-001` (`docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`) |
+| PACK-OSS00-03 | `feat/pack-oss00-03-sbom-scan-attestation` | 3 | `DEVOPS-OSSATT-SBOM-TUW-001`, `SEC-OSSSCAN-PIPELINE-TUW-001`, `DEVOPS-OSSATT-IDENTITY-TUW-001` (`docs/execution/TUW_OSS00_SBOM_SCAN_ATTESTATION.md`) |
+| PACK-OSS00A-01 | `feat/pack-oss00a-01-source-lab-baseline` | 4 | `DEVOPS-OSSLAB-BOUNDARY-TUW-001` through `DEVOPS-OSSLAB-REPRO-TUW-001` (`docs/execution/TUW_OSS00A_SOURCE_LAB.md`) |
+| PACK-OSS00A-02 | `feat/pack-oss00a-02-authority-source-map` | 3 | `DEVOPS-OSSADOPT-AUTH-TUW-001` through `DEVOPS-OSSADOPT-REUSE-TUW-003` (`docs/execution/TUW_OSS00A_ADOPTION_MAP.md`) |
+| PACK-OSS00A-03 | `feat/pack-oss00a-03-ops-adoption-gate` | 3 | `DEVOPS-OSSADOPT-OPS-TUW-004` through `DEVOPS-OSSADOPT-GATE-TUW-006` (`docs/execution/TUW_OSS00A_OPS_ADOPTION_GATE.md`) |
+| PACK-OSS01-01 | `feat/pack-oss01-01-runtime-db-contract` | 4 | `DEVOPS-OSS01-DBA-TUW-001` through `DEVOPS-OSS01-DBA-TUW-004` (`docs/execution/TUW_OSS01_RUNTIME_DB_CONTRACT.md`) |
+| PACK-OSS01-02 | `feat/pack-oss01-02-authority-pool-migration` | 4 | `DEVOPS-OSS01-DBM-TUW-001` through `DEVOPS-OSS01-DBM-TUW-004` (`docs/execution/TUW_OSS01_POOL_MIGRATION.md`) |
+
+## OSS Terra autonomous sequential-execution authority
+
+`USER-UMBRELLA-AUTONOMY-20260721` authorizes the just-in-time canonical
+registration and local sequential implementation of all 30 OSS Terra sub-PACKs
+and 111 TUWs without a new human approval between PACKs. The detailed scope,
+hard stops, and unchanged dependency/deployment/external-operation/PR-merge
+boundaries are normative in
+`docs/execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md`.
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
@@ -2325,6 +2344,174 @@ integration gates open.
 | PACK-OPS-OA-01 | `codex/outlook-operational-gates` | 10 | `OPS-OA-01` through `OPS-OA-08`, `OPS-OA-10`, `OPS-OA-11` |
 
 Planning contract: `docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md`.
+
+## PACK-OSS00-01 — OSS governance and provenance
+
+Status: canonical post-R14 extension, registration approved
+`USER-APPROVAL-PACK-OSS00-01-REGISTRATION-20260721`.
+
+This is the initial implementation PACK from the enterprise DMS OSS Terra plan.
+It uses the live post-R14 registry rather than modifying the frozen
+`docs/package/**` source. The four rows are recorded with release `R14` in
+`docs/backlog/backlog_r4_r14.{csv,json}` solely so the existing machine
+validator can enforce required fields, unique IDs, dependency ordering, and
+release bans; it does not reopen or alter the historical R14 Gate.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00-01-governance-provenance`.
+- Detail contract: `docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`.
+- Source plan: `docs/architecture/enterprise-dms-oss-terra-tuw-execution-plan-main-2026-07-21.md`.
+- Execution order: `DEVOPS-OSSGOV-PROV-TUW-001` →
+  `DEVOPS-OSSGOV-PROV-TUW-002` and
+  `DEVOPS-OSSGOV-PROV-TUW-003` → `DEVOPS-OSSGOV-PROV-TUW-004`.
+- Scope: provenance schema/inventory, license and VEX policy checkers, and
+  governance-only CI wiring. No new dependency, deployment, external system
+  mutation, artifact signing service, SBOM service, or next PACK is authorized.
+
+Every TUW must satisfy its own AND verification and write an exact-head
+evidence manifest. Before a PR, run the Common Validation sequence above,
+the focused governance checkers, `pnpm backlog:validate`, `pnpm docs:frozen`,
+and `git diff --check`. A missing upstream pin, decision owner, source tree,
+or safe evidence field is a stop condition. CI success does not authorize
+deployment, external operation, or a successor PACK.
+
+## PACK-OSS00-02 — Dependency and Python hardening
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00-01` local technical evidence is
+its predecessor. This registration does not claim CI, independent review, push,
+PR, merge, deployment, or release success.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00-02-dependency-python-hardening`.
+- Detail contract: `docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`.
+- Execution order: `DEVOPS-OSSDEP-TRIAGE-TUW-001` →
+  `SEC-UPLOAD-MULTIPART-TUW-001` and `DEVOPS-OSSPY-LOCK-TUW-001`.
+- Scope: advisory triage, multipart security regression, and Python lock/CI
+  hardening. Only exact NPM/Python tool or version changes named in the
+  canonical TUW and backed by source-pin/license/compatibility evidence are
+  authorized; unplanned dependency changes, deployment, external mutation,
+  product-tree vendoring, CI/PR/push/merge, and external state remain outside
+  active authority.
+
+Every TUW must retain the canonical `Files NOT-modify` boundary and its AND
+verification. An in-scope package/version/tool change is allowed only after its
+exact source pin, license policy, lockfile delta, compatibility, and negative
+tests are evidenced; other dependency/pipeline changes are `BLOCKED`.
+
+## PACK-OSS00-03 — SBOM, scanning, and release identity
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00-02` is locally technically
+verified but remains release-unsafe, so this PACK must preserve rather than
+mask its unresolved High findings.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00-03-sbom-scan-attestation`.
+- Detail contract: `docs/execution/TUW_OSS00_SBOM_SCAN_ATTESTATION.md`.
+- Execution order: `DEVOPS-OSSATT-SBOM-TUW-001` →
+  `SEC-OSSSCAN-PIPELINE-TUW-001` → `DEVOPS-OSSATT-IDENTITY-TUW-001`.
+- Scope: exact-pinned local SBOM/scanner/identity verifier evidence and
+  non-deploying CI artifact wiring. Product dependencies, package locks,
+  Dockerfile behavior, production registry, signing identities, OIDC/write
+  permissions, deployment, push/PR/merge, and external state remain out of
+  scope. Actual signing is represented only as `EXTERNAL_BLOCKED`.
+
+Every TUW must retain its `Files NOT-modify` boundary, synthetic negative
+fixtures, existing VEX/license authority, and exact source/image/SBOM/scan
+identity graph. A mutable tag, missing digest, raw secret/private path, broad
+ignore, or signing credential is a stop condition.
+
+## PACK-OSS00A-01 — isolated upstream source lab
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00-03` has local technical
+evidence. The source-lab dependency is satisfied only for read-only, exact-SHA
+research clones outside the product tree; it is not authorization to adopt or
+ship upstream code.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00a-01-source-lab-baseline`.
+- Detail contract: `docs/execution/TUW_OSS00A_SOURCE_LAB.md`.
+- Execution order: `DEVOPS-OSSLAB-BOUNDARY-TUW-001` →
+  `DEVOPS-OSSLAB-CLONE-TUW-001` → `DEVOPS-OSSLAB-BASELINE-TUW-001` →
+  `DEVOPS-OSSLAB-REPRO-TUW-001`.
+- Scope: source-lab boundary, exact remote lock, unmodified upstream baseline,
+  and reproducibility proof. Product source/runtime, dependency locks,
+  Docker build context, vendor/fork/source inclusion, CI permission expansion,
+  deployment, push/PR/merge, and external state are out of scope.
+
+## PACK-OSS00A-02 — authority and product-facing source map
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00A-01` has local technical
+evidence. This PACK makes Vault-versus-upstream authority and reusable
+source/test evidence explicit before any product-facing OSS implementation.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00a-02-authority-source-map`.
+- Detail contract: `docs/execution/TUW_OSS00A_ADOPTION_MAP.md`.
+- Execution order: `DEVOPS-OSSADOPT-AUTH-TUW-001` →
+  `DEVOPS-OSSADOPT-SOURCEMAP-TUW-002` →
+  `DEVOPS-OSSADOPT-REUSE-TUW-003`.
+- Scope: authority/gap map, external-source path/blob references, and
+  test-reuse classification only. Product code/tests, source vendoring,
+  dependencies/locks, runtime/build inputs, Docker context, CI permission
+  expansion, deployment, push/PR/merge, and external state are out of scope.
+
+## PACK-OSS00A-03 — ops source map and adoption gate
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00A-02` has local technical
+evidence. This PACK maps operational candidates and makes an explicit
+L0-L4/reuse-first decision gate before a product-facing implementation.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00a-03-ops-adoption-gate`.
+- Detail contract: `docs/execution/TUW_OSS00A_OPS_ADOPTION_GATE.md`.
+- Execution order: `DEVOPS-OSSADOPT-OPS-TUW-004` →
+  `DEVOPS-OSSADOPT-DECISION-TUW-005` →
+  `DEVOPS-OSSADOPT-GATE-TUW-006`.
+- Scope: decision/map/checker work only. Product code/tests, source
+  vendoring/forks, dependencies/locks, CI permission expansion, deployment,
+  push/PR/merge, and external state remain out of scope.
+
+## PACK-OSS01-02 — authority-critical direct Pool migration
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS01-01` has local technical
+evidence. The four serial TUWs remove only the authority-critical direct
+`Pool` consumers already classified as the DBM batch; they do not change
+product authority or introduce an OSS runtime component.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss01-02-authority-pool-migration`.
+- Detail contract: `docs/execution/TUW_OSS01_POOL_MIGRATION.md`.
+- Execution order: `DEVOPS-OSS01-DBM-TUW-001` →
+  `DEVOPS-OSS01-DBM-TUW-002` → `DEVOPS-OSS01-DBM-TUW-003` →
+  `DEVOPS-OSS01-DBM-TUW-004`.
+- Scope: migration of existing Audit/Tenant/Permission, Auth/User,
+  Matter/Client/Party/Wall/Break-glass, and Document/Storage/Search direct
+  pool consumers to the existing `DatabaseService` contract; owner migration
+  tools remain explicit exceptions.
+- Out of scope: dependencies/locks, migrations/RLS, PermissionService policy
+  semantics, audit metadata/action schema, storage object semantics, search
+  query semantics/post-filtering, source vendoring/forks, CI/PR/push/merge,
+  deployment, external mutation, release and go-live.
+
+Each TUW must preserve tenant-local GUC, explicit tenant predicates,
+permission-before-search, same-transaction audit, fail-closed behavior, and
+the immutable-original boundary. A direct constructor count may fall only with
+the corresponding inventory/source-map delta. Any required generic
+tenant-less query adapter, owner runtime credential, PermissionService bypass,
+or audit split is a hard stop.
 
 ## Gate Reports
 

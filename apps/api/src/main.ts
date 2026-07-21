@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { StructuredLogger } from './common/logging/logger';
 import { setDefaultProcessRole } from './common/process-role';
 import { noStoreApiMiddleware } from './common/security/no-store.middleware';
+import { assertRuntimeDatabaseRole } from './common/db/runtime-role.assertion';
 
 export function configureApp(app: INestApplication): void {
   app.use(noStoreApiMiddleware);
@@ -28,6 +29,7 @@ export function configureApiProcessEnv(env: NodeJS.ProcessEnv = process.env): vo
 
 export async function bootstrap(): Promise<void> {
   configureApiProcessEnv();
+  await assertRuntimeDatabaseRole();
   const logger = new StructuredLogger();
   const app = await NestFactory.create(AppModule, { logger });
   configureApp(app);
