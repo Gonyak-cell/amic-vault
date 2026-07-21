@@ -72,14 +72,14 @@
     "researchOnlyAdoptionMode": "L4"
   },
   "vulnerabilityAudit": {
-    "sourceSha": "0f43e3017dd2a46fe88ed7d518fa25e30892718e",
-    "sourceTree": "f8c2739b8a559732bcd9b5fdd6a85ee3a1726345",
-    "lockfileSha256": "cd82ccda191f048d4e793091b6957bce08a6864caaae8540953beb130d1b0ccc",
-    "auditHash": "sha256:095e7f41f39b3a854ab603c87e167732ec7c1ebf0d482b6d3d570234c5916882",
-    "observedAt": "2026-07-21",
-    "uniqueAdvisoryCount": 25,
+    "sourceSha": "9570e0a42a57d5e98bcc81f1b80d89ff595944c3",
+    "sourceTree": "f8fae3757346320b35e989a5a2280a764bba8f84",
+    "lockfileSha256": "7dabea4825205840497ff2bfcc0581226a8aa7a04ee484a33bc92e1a17725104",
+    "auditHash": "sha256:7dae03da656b3663de072279d7e0ab1c061fe9b5e12a6017fc4817c88671ba5a",
+    "observedAt": "2026-07-22",
+    "uniqueAdvisoryCount": 20,
     "productionHighCritical": {
-      "blocked": 9,
+      "blocked": 5,
       "unclassified": 0,
       "releaseSafe": false
     },
