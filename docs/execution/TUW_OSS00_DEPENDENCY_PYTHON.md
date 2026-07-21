@@ -12,9 +12,11 @@ live-backlog uniqueness, DAG, and release-ban validation)
 the actual source SHA/tree at each atomic commit.
 
 **Authority:** [OSS Terra 자율 순차 실행 권한](./OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md).
-It removes per-PACK/TUW human approval waits but does not authorize an NPM/Python
-dependency addition or version upgrade, deployment, external mutation, CI/PR,
-push, merge, or release. `docs/package/**` remains frozen.
+It removes per-PACK/TUW human approval waits. The package, version, or uv-tool
+changes explicitly scoped by this contract may proceed only after source-pin,
+license-policy, compatibility, and negative-test evidence; deployment, external
+mutation, CI/PR, push, merge, and release remain unauthorized.
+`docs/package/**` remains frozen.
 
 ## Common execution contract
 
@@ -27,9 +29,11 @@ push, merge, or release. `docs/package/**` remains frozen.
 - A raw upstream advisory response, registry URL, signed URL, secret, customer
   path, or document contents must not enter a committed report. Store only
   normalized advisory IDs, opaque hashes, package/version data, and source refs.
-- A package/version change requested by a remediation conclusion is a hard stop
-  under the active authority. Record the bounded queue and leave it blocked;
-  do not silently change a manifest or lockfile to make the report green.
+- A package/version change is permitted only when this contract explicitly names
+  its component and files and the exact source pin, license policy, lockfile,
+  compatibility, and negative-test checks are recorded. An unplanned override
+  or unrelated upgrade remains a hard stop; do not silently change a manifest
+  or lockfile merely to make a report green.
 
 ## TUW inventory
 
@@ -92,8 +96,8 @@ push, merge, or release. `docs/package/**` remains frozen.
   bounded limits only; `apps/api/src/modules/document/multipart.config.spec.ts`
   for the static limit contract; `tests/integration/upload.spec.ts` for a
   synthetic malformed-shape/no-artifact regression; `apps/api/package.json`,
-  root manifest, and `pnpm-lock.yaml` only when separately authorized for a
-  compatible patched line.
+  root manifest, and `pnpm-lock.yaml` only for an exact compatible patched
+  Multer line whose source pin, license, and regression evidence are recorded.
 - **Files NOT-modify:** PermissionService, storage authority, upload audit
   semantics, file-size policy relaxation, `docs/package/**`, deployment
   configuration, and external state.
@@ -102,9 +106,9 @@ push, merge, or release. `docs/package/**` remains frozen.
   negative cases; (3) reuse existing limits/helper first; (4) record that the
   installed `busboy@1.6.0` source fixes multipart header parsing to internal
   constants and does not read the documented `limits.headerPairs` input, so no
-  header-pair mitigation is claimed without an authorized package change; (5)
-  if a version change is required, preserve the red test/evidence and stop for
-  separate authority.
+  header-pair mitigation is claimed without a compatible patched dependency
+  line; (5) if a version change is required, preserve the red test/evidence and
+  continue only after its exact source pin and compatibility are verified.
 - **Verification (AND):** focused multipart tests AND
   `tests/integration/document-access/upload-permission.spec.ts` AND
   `tests/integration/storage-isolation` AND document audit coverage tests AND
@@ -112,13 +116,14 @@ push, merge, or release. `docs/package/**` remains frozen.
 - **Done:** bounded aggregate-part malformed input produces
   `VALIDATION_FAILED`, authorized normal upload remains green, and
   cleanup/audit authority is unchanged. Header-pair remediation remains
-  explicitly blocked until a compatible patched dependency line is authorized.
+  explicitly blocked until a compatible patched dependency line is source-pinned
+  and compatibility-verified.
 - **Edge cases:** zero-byte, duplicate field names, Unicode filename, client
   disconnect, and chunked transfer without content length.
 - **Stop / escalation:** patched line is incompatible with the Nest adapter,
   bounded limit breaks normal large upload without evidence, the installed
-  parser ignores a required limit, or only a package upgrade could fix the
-  defect.
+  parser ignores a required limit, or the required package upgrade falls outside
+  this contract's explicit component/file scope.
 - **Evidence target:**
   `artifacts/enterprise-dms-oss/<source-sha>/PACK-OSS00-02/SEC-UPLOAD-MULTIPART-TUW-001/`
   with negative results, source/test map, cleanup/audit results, and lockfile
@@ -135,16 +140,16 @@ push, merge, or release. `docs/package/**` remains frozen.
   Python-worker CI job, and an exact official uv release/source pin.
 - **Files create:** `workers/ingestion/uv.lock`.
 - **Files modify:** `workers/ingestion/Dockerfile`, `.github/workflows/ci.yml`,
-  and provenance inventory, only after the uv tool/runtime introduction is
-  separately authorized.
+  and provenance inventory, only for the exact uv pin whose source, license,
+  container, and CI behavior are verified.
 - **Files NOT-modify:** parser behavior, fixture semantics, Python version
   range, `docs/package/**`, deployment configuration, and external state.
 - **Implementation sequence:** (1) prove the requested uv binary/image pin and
   license/adoption decision; (2) create base plus test-extra lock; (3) align
   CI/Docker on `uv sync --frozen` or equivalent hash-locked install; (4) compare
   normalized package/version/hash lists from two clean temporary environments.
-  Without the separate tool authority, retain this TUW as blocked before writing
-  a lock or CI/Docker delta.
+  Do not write a lock or CI/Docker delta if the exact uv pin, license, or
+  supported-platform behavior cannot be verified.
 - **Verification (AND):** two frozen syncs exit zero with identical normalized
   inventory hashes AND worker pytest is green AND container import/health is
   green AND lock/pyproject drift exits non-zero.
@@ -152,8 +157,9 @@ push, merge, or release. `docs/package/**` remains frozen.
   locked environment is reproducible across two clean runs.
 - **Edge cases:** platform wheels, LibreOffice system packages, optional test
   extras, and sdist-only dependencies.
-- **Stop / escalation:** reproducible hash/wheel is unavailable, supported
-  platform breaks, or uv introduction/CI change lacks separate authority.
+- **Stop / escalation:** reproducible hash/wheel is unavailable, a supported
+  platform breaks, or a required uv/CI change falls outside this contract's
+  explicit component/file scope.
 - **Evidence target:**
   `artifacts/enterprise-dms-oss/<source-sha>/PACK-OSS00-02/DEVOPS-OSSPY-LOCK-TUW-001/`
   with two sync inventories, inventory hash, test report, container health, and

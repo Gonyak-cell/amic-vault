@@ -31,8 +31,11 @@ registry와 backlog에 성공적으로 등록되기 전까지 canonical이 아�
 
 이 권한은 반복적인 **사람 승인 대기만 제거**한다. 다음은 자동 승인하지 않는다.
 
-- 새 runtime/build dependency의 추가 또는 버전 교체(해당 TUW가 명시하더라도
-  변경 전 별도 operator authority가 필요하다).
+- canonical TUW에 명시되지 않은 runtime/build dependency, version, 또는 tool
+  변경. 단, canonical TUW가 component와 정확한 file scope를 명시한 변경은 exact
+  source pin, license policy, lockfile/compatibility, and negative-test evidence를
+  통과하는 범위에서 이 권한으로 구현할 수 있다. 이 예외는 unplanned transitive
+  override 또는 광범위한 upgrade를 허용하지 않는다.
 - deployment, cloud/IdP/registry/SIEM/account 설정, secret 사용, external service
   mutation, customer data 접근, production/staging traffic 변경.
 - push, PR 생성/수정, CI 실행, protected-branch merge, release 또는 go-live 주장.
