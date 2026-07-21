@@ -1,35 +1,31 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import type { PgBoss } from 'pg-boss';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { QueueRegistry } from '../../../common/queue/queue.registry';
+import { currentProcessRole } from '../../../common/process-role';
 import { ExtractionDispatcher } from './extraction-dispatcher';
 import {
   ocrDeadLetterQueueName,
   ocrQueueName,
   type ExtractionJobPayload,
 } from './extraction.types';
-import { createStartedOcrBoss, isOcrQueueWorkerEnabled } from './ocr-queue.service';
+import { isOcrQueueWorkerEnabled } from './ocr-queue.service';
 
 @Injectable()
-export class OcrQueueWorkerService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(OcrQueueWorkerService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+export class OcrQueueWorkerService implements OnModuleInit {
   private workerRegistered = false;
 
-  constructor(@Inject(ExtractionDispatcher) private readonly dispatcher: ExtractionDispatcher) {}
+  constructor(
+    @Inject(ExtractionDispatcher) private readonly dispatcher: ExtractionDispatcher,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
+  ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isOcrQueueWorkerEnabled()) return;
+    if (currentProcessRole() !== 'worker' || !isOcrQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.queueRegistry.consumer(ocrQueueName);
     await boss.work<ExtractionJobPayload>(
       ocrQueueName,
       { batchSize: 1, pollingIntervalSeconds: 1 },
@@ -49,10 +45,4 @@ export class OcrQueueWorkerService implements OnModuleInit, OnModuleDestroy {
     this.workerRegistered = true;
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= createStartedOcrBoss(this.logger, 'amic-vault-ocr-worker');
-    this.boss = await this.startPromise;
-    return this.boss;
-  }
 }

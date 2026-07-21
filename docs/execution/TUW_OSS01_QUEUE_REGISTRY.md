@@ -60,6 +60,7 @@ Status: canonical post-R14 extension under
   `document/edit-session-sweeper.service.ts`,
   `document/extraction/extraction-queue.service.ts`,
   `document/extraction/ocr-queue.service.ts`,
+  `document/extraction/ocr-queue-worker.service.ts`,
   `email/email-reparse.service.ts`, `preview/preview-precreate-queue.service.ts`,
   `search/index/indexing.service.ts`, their owning modules/specs, and
   `security/oss-source-map.yml`.

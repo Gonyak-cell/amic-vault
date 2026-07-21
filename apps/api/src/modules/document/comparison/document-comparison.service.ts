@@ -6,11 +6,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss, SendOptions } from 'pg-boss';
+import type { Job, SendOptions } from 'pg-boss';
 import type {
   CreateDocumentComparisonRequestDto,
   DocumentComparisonChangeType,
@@ -21,8 +20,8 @@ import type {
   PermissionDecision,
   TenantId,
 } from '@amic-vault/shared';
-import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../../common/process-role';
+import { QueueRegistry } from '../../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../../common/process-role';
 import { parseContractText, type ParsedClause } from '../../contract-intel/contract-parser';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { PermissionService } from '../../permission/permission.service';
@@ -33,9 +32,6 @@ const parserVersion = 'b11-clause-diff-v1';
 const storedClauseTextLimit = 32_000;
 const diffTokenProductLimit = 250_000;
 const diffHunkTextLimit = 4_000;
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 export const documentComparisonQueueName = 'document.comparison';
 export const documentComparisonDeadLetterQueueName = 'document.comparison.dead';
 
@@ -434,26 +430,22 @@ function computeChanges(baseText: string, targetText: string): ComputedClauseCha
 }
 
 @Injectable()
-export class DocumentComparisonService implements OnModuleInit, OnModuleDestroy {
+export class DocumentComparisonService implements OnModuleInit {
   private readonly logger = new Logger(DocumentComparisonService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isDocumentComparisonQueueWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isDocumentComparisonQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async createComparison(
@@ -571,7 +563,7 @@ export class DocumentComparisonService implements OnModuleInit, OnModuleDestroy 
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await boss.work<DocumentComparisonJobPayload>(
       documentComparisonQueueName,
       { batchSize: 1, pollingIntervalSeconds: 1 },
@@ -605,42 +597,38 @@ export class DocumentComparisonService implements OnModuleInit, OnModuleDestroy 
     return jobId;
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: documentComparisonDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: documentComparisonQueueName,
+      options: {
+        retryLimit: 3,
+        retryDelay: 1,
+        retryBackoff: true,
+        deadLetter: documentComparisonDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
   }
 
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-document-comparison-queue',
-        migrateEnvName: 'DOCUMENT_COMPARISON_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'DOCUMENT_COMPARISON_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'DOCUMENT_COMPARISON_QUEUE_SUPERVISE_ENABLED',
-      }),
-    });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'DOCUMENT_COMPARISON_QUEUE_ERROR', message: String(error.message) });
-    });
-    await boss.start();
-    await boss.createQueue(documentComparisonDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(documentComparisonQueueName, {
-      retryLimit: 3,
-      retryDelay: 1,
-      retryBackoff: true,
-      deadLetter: documentComparisonDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+  private async ensureStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.producer(documentComparisonQueueName);
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(documentComparisonQueueName);
   }
 
   private async markComparisonFailed(

@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 import type { Readable } from 'node:stream';
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { type EmailMetadataWarningCode } from '@amic-vault/shared';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss, SendOptions } from 'pg-boss';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../common/process-role';
+import type { Job, SendOptions } from 'pg-boss';
+import { QueueRegistry } from '../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../common/process-role';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { emailMetadataUpdatedAudit } from '../audit/events/email-events';
 import { pgBossDbFromPoolClient } from '../document/extraction/pool-client-db-adapter';
@@ -23,10 +23,6 @@ import {
   type EmailWorkerParseResult,
   type EmailWorkerParticipantRole,
 } from './email-worker-parser.client';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export const emailReparseQueueName = 'email.reparse';
 export const emailReparseDeadLetterQueueName = 'email.reparse.dead';
@@ -109,26 +105,22 @@ function messageIdHash(value: string): string {
 }
 
 @Injectable()
-export class EmailReparseService implements OnModuleInit, OnModuleDestroy {
+export class EmailReparseService implements OnModuleInit {
   private readonly logger = new Logger(EmailReparseService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(EmailWorkerParserClient) private readonly parserClient: EmailWorkerParserClient,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isEmailReparseQueueWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isEmailReparseQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async enqueueReparseBatch(
@@ -187,7 +179,7 @@ export class EmailReparseService implements OnModuleInit, OnModuleDestroy {
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await boss.work<EmailReparseJobPayload>(
       emailReparseQueueName,
       { batchSize: 1, pollingIntervalSeconds: 1 },
@@ -207,42 +199,38 @@ export class EmailReparseService implements OnModuleInit, OnModuleDestroy {
     this.workerRegistered = true;
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: emailReparseDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: emailReparseQueueName,
+      options: {
+        retryLimit: 3,
+        retryDelay: 1,
+        retryBackoff: true,
+        deadLetter: emailReparseDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
   }
 
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-email-reparse-queue',
-        migrateEnvName: 'EMAIL_REPARSE_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'EMAIL_REPARSE_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'EMAIL_REPARSE_QUEUE_SUPERVISE_ENABLED',
-      }),
-    });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'EMAIL_REPARSE_QUEUE_ERROR', message: String(error.message) });
-    });
-    await boss.start();
-    await boss.createQueue(emailReparseDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(emailReparseQueueName, {
-      retryLimit: 3,
-      retryDelay: 1,
-      retryBackoff: true,
-      deadLetter: emailReparseDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+  private async ensureStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.producer(emailReparseQueueName);
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(emailReparseQueueName);
   }
 
   private async findTarget(payload: EmailReparseJobPayload): Promise<EmailReparseTargetRow | null> {

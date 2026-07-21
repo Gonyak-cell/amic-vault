@@ -12,7 +12,6 @@ import {
 } from './edit-session-sweeper.service';
 
 interface FakeBoss {
-  createQueue: (name: string, options?: object) => Promise<void>;
   schedule: (name: string, cron: string, data?: object | null, options?: object) => Promise<void>;
   work: (
     name: string,
@@ -61,13 +60,13 @@ describe('EditSessionSweeperService', () => {
   });
 
   it('registers the scheduled sweep and expires active sessions for all tenants', async () => {
+    process.env.PROCESS_ROLE = 'worker';
     process.env.EDIT_SESSION_SWEEPER_ENABLED = 'true';
     const handlers = new Map<
       string,
       (jobs: Array<{ data: EditSessionSweepJobPayload }>) => Promise<void>
     >();
     const boss: FakeBoss = {
-      createQueue: vi.fn(async () => undefined),
       schedule: vi.fn(async () => undefined),
       work: vi.fn(async (name, _options, handler) => {
         handlers.set(name, handler);
@@ -84,23 +83,20 @@ describe('EditSessionSweeperService', () => {
     const tenantReader = {
       listActiveTenantIds: vi.fn(async () => [tenantAlpha, tenantBeta]),
     };
-    const service = new EditSessionSweeperService(documentEditing, tenantReader);
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<FakeBoss>;
-      }
-    ).ensureStarted = async () => boss;
+    const queueRegistry = {
+      register: vi.fn(),
+      consumer: vi.fn(async () => boss),
+    };
+    const service = new EditSessionSweeperService(
+      documentEditing,
+      tenantReader,
+      queueRegistry as never,
+    );
 
     await service.onModuleInit();
 
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      editSessionSweepDeadLetterQueueName,
-      expect.objectContaining({ retryLimit: 0 }),
-    );
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      editSessionSweepQueueName,
-      expect.objectContaining({ deadLetter: editSessionSweepDeadLetterQueueName }),
-    );
+    expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.consumer).toHaveBeenCalledWith(editSessionSweepQueueName);
     expect(boss.schedule).toHaveBeenCalledWith(
       editSessionSweepQueueName,
       '*/5 * * * *',
@@ -129,7 +125,7 @@ describe('EditSessionSweeperService', () => {
     const tenantReader = {
       listActiveTenantIds: vi.fn(async () => [tenantAlpha, tenantBeta]),
     };
-    const service = new EditSessionSweeperService(documentEditing, tenantReader);
+    const service = new EditSessionSweeperService(documentEditing, tenantReader, {} as never);
 
     await expect(service.sweepExpiredEditSessions()).rejects.toThrow(
       'edit session sweep failed for 1 tenant(s)',
