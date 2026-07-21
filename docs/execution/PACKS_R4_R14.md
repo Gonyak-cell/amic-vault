@@ -67,6 +67,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS00-01 | `feat/pack-oss00-01-governance-provenance` | 4 | `DEVOPS-OSSGOV-PROV-TUW-001` through `DEVOPS-OSSGOV-PROV-TUW-004` (`docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`) |
 | PACK-OSS00-02 | `feat/pack-oss00-02-dependency-python-hardening` | 3 | `DEVOPS-OSSDEP-TRIAGE-TUW-001`, `SEC-UPLOAD-MULTIPART-TUW-001`, `DEVOPS-OSSPY-LOCK-TUW-001` (`docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`) |
 | PACK-OSS00-03 | `feat/pack-oss00-03-sbom-scan-attestation` | 3 | `DEVOPS-OSSATT-SBOM-TUW-001`, `SEC-OSSSCAN-PIPELINE-TUW-001`, `DEVOPS-OSSATT-IDENTITY-TUW-001` (`docs/execution/TUW_OSS00_SBOM_SCAN_ATTESTATION.md`) |
+| PACK-OSS00A-01 | `feat/pack-oss00a-01-source-lab-baseline` | 4 | `DEVOPS-OSSLAB-BOUNDARY-TUW-001` through `DEVOPS-OSSLAB-REPRO-TUW-001` (`docs/execution/TUW_OSS00A_SOURCE_LAB.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2419,6 +2420,26 @@ Every TUW must retain its `Files NOT-modify` boundary, synthetic negative
 fixtures, existing VEX/license authority, and exact source/image/SBOM/scan
 identity graph. A mutable tag, missing digest, raw secret/private path, broad
 ignore, or signing credential is a stop condition.
+
+## PACK-OSS00A-01 — isolated upstream source lab
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00-03` has local technical
+evidence. The source-lab dependency is satisfied only for read-only, exact-SHA
+research clones outside the product tree; it is not authorization to adopt or
+ship upstream code.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00a-01-source-lab-baseline`.
+- Detail contract: `docs/execution/TUW_OSS00A_SOURCE_LAB.md`.
+- Execution order: `DEVOPS-OSSLAB-BOUNDARY-TUW-001` →
+  `DEVOPS-OSSLAB-CLONE-TUW-001` → `DEVOPS-OSSLAB-BASELINE-TUW-001` →
+  `DEVOPS-OSSLAB-REPRO-TUW-001`.
+- Scope: source-lab boundary, exact remote lock, unmodified upstream baseline,
+  and reproducibility proof. Product source/runtime, dependency locks,
+  Docker build context, vendor/fork/source inclusion, CI permission expansion,
+  deployment, push/PR/merge, and external state are out of scope.
 
 ## Gate Reports
 
