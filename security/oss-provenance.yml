@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "oss-provenance-v1",
+  "baseline": {
+    "sourceSha": "91ac55a59b538cb57ecacecea4e69c92dc7c4cfd",
+    "sourceTree": "1fd8af8e62e61bd808598d0480a064359f4da1bd"
+  },
+  "inventory": {
+    "nodePackageManifests": [
+      "package.json",
+      "apps/api/package.json",
+      "apps/desktop/package.json",
+      "apps/web/package.json",
+      "packages/ai/package.json",
+      "packages/domain/package.json",
+      "packages/shared/package.json"
+    ],
+    "nodeLockfile": "pnpm-lock.yaml",
+    "pythonProject": "workers/ingestion/pyproject.toml",
+    "dockerfiles": [
+      "apps/api/Dockerfile",
+      "apps/web/Dockerfile",
+      "workers/ingestion/Dockerfile"
+    ]
+  },
+  "upstreamDefaults": {
+    "npm": {
+      "upstreamUrl": "unresolved",
+      "upstreamSha": "unresolved",
+      "upstreamTree": "unresolved",
+      "licenseHash": "unresolved",
+      "artifactDigest": "unresolved",
+      "owner": "security-oss",
+      "evidenceState": "UNRESOLVED",
+      "modifier": "none"
+    },
+    "workspace": {
+      "upstreamUrl": "repository",
+      "upstreamSha": "91ac55a59b538cb57ecacecea4e69c92dc7c4cfd",
+      "upstreamTree": "1fd8af8e62e61bd808598d0480a064359f4da1bd",
+      "licenseHash": "repository-policy-pending",
+      "artifactDigest": "repository-tree",
+      "owner": "engineering",
+      "evidenceState": "VERIFIED",
+      "modifier": "none"
+    },
+    "python": {
+      "upstreamUrl": "unresolved",
+      "upstreamSha": "unresolved",
+      "upstreamTree": "unresolved",
+      "licenseHash": "unresolved",
+      "artifactDigest": "unresolved",
+      "owner": "security-oss",
+      "evidenceState": "UNRESOLVED",
+      "modifier": "none"
+    },
+    "image": {
+      "upstreamUrl": "unresolved",
+      "upstreamSha": "unresolved",
+      "upstreamTree": "unresolved",
+      "licenseHash": "unresolved",
+      "artifactDigest": "unresolved",
+      "owner": "platform-security",
+      "evidenceState": "UNRESOLVED",
+      "modifier": "none"
+    }
+  },
+  "overrides": {}
+}
