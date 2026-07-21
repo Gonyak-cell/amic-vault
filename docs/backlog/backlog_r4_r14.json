@@ -1,5 +1,5 @@
 {
-  "total": 191,
+  "total": 194,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3005,6 +3005,39 @@
       "depends_on": ["DEVOPS-OSSADOPT-SOURCEMAP-TUW-002"],
       "files": ["security/oss-test-reuse.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
       "verification": "missing license wrong hash copied-source misclassification and invalid canonical suite fail AND security portfolios retain a negative or fault parity scenario"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-OPS-TUW-004",
+      "title": "Ops infra search editor source-test map",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-REUSE-TUW-003"],
+      "files": ["docs/architecture/oss-adoption-decisions", "security/oss-source-map.yml", "security/oss-test-reuse.yml"],
+      "verification": "exact source path blob map or explicit conditional blocked record covers OSS-09 through OSS-11 AND ADR or trigger absent candidates are not adoption-ready"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-DECISION-TUW-005",
+      "title": "L0 through L4 TCO and license adoption decisions",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-OPS-TUW-004"],
+      "files": ["security/oss-adoption-decisions.yml", "docs/architecture/oss-adoption-decisions"],
+      "verification": "every source test fixture and conditional row has a decision AND L2 L3 obligation gaps and Permission Audit replacement decisions fail"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-GATE-TUW-006",
+      "title": "Source map and reuse first gate",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-DECISION-TUW-005"],
+      "files": ["tools/oss", ".github/workflows/supply-chain.yml", "security/oss-evidence-schema.json"],
+      "verification": "missing pin dirty source fake hash copied fixture no decision new dependency and source-lab build-context inputs fail while valid source map coverage passes"
     }
   ]
 }

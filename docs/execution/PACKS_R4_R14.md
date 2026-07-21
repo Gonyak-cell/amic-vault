@@ -69,6 +69,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS00-03 | `feat/pack-oss00-03-sbom-scan-attestation` | 3 | `DEVOPS-OSSATT-SBOM-TUW-001`, `SEC-OSSSCAN-PIPELINE-TUW-001`, `DEVOPS-OSSATT-IDENTITY-TUW-001` (`docs/execution/TUW_OSS00_SBOM_SCAN_ATTESTATION.md`) |
 | PACK-OSS00A-01 | `feat/pack-oss00a-01-source-lab-baseline` | 4 | `DEVOPS-OSSLAB-BOUNDARY-TUW-001` through `DEVOPS-OSSLAB-REPRO-TUW-001` (`docs/execution/TUW_OSS00A_SOURCE_LAB.md`) |
 | PACK-OSS00A-02 | `feat/pack-oss00a-02-authority-source-map` | 3 | `DEVOPS-OSSADOPT-AUTH-TUW-001` through `DEVOPS-OSSADOPT-REUSE-TUW-003` (`docs/execution/TUW_OSS00A_ADOPTION_MAP.md`) |
+| PACK-OSS00A-03 | `feat/pack-oss00a-03-ops-adoption-gate` | 3 | `DEVOPS-OSSADOPT-OPS-TUW-004` through `DEVOPS-OSSADOPT-GATE-TUW-006` (`docs/execution/TUW_OSS00A_OPS_ADOPTION_GATE.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2460,6 +2461,24 @@ source/test evidence explicit before any product-facing OSS implementation.
   test-reuse classification only. Product code/tests, source vendoring,
   dependencies/locks, runtime/build inputs, Docker context, CI permission
   expansion, deployment, push/PR/merge, and external state are out of scope.
+
+## PACK-OSS00A-03 — ops source map and adoption gate
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00A-02` has local technical
+evidence. This PACK maps operational candidates and makes an explicit
+L0-L4/reuse-first decision gate before a product-facing implementation.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00a-03-ops-adoption-gate`.
+- Detail contract: `docs/execution/TUW_OSS00A_OPS_ADOPTION_GATE.md`.
+- Execution order: `DEVOPS-OSSADOPT-OPS-TUW-004` →
+  `DEVOPS-OSSADOPT-DECISION-TUW-005` →
+  `DEVOPS-OSSADOPT-GATE-TUW-006`.
+- Scope: decision/map/checker work only. Product code/tests, source
+  vendoring/forks, dependencies/locks, CI permission expansion, deployment,
+  push/PR/merge, and external state remain out of scope.
 
 ## Gate Reports
 
