@@ -21,3 +21,12 @@ commit URLs. OSS-07 (`openid-client`) and OSS-08 (`Presidio`) are explicit
 `L0_NO_CANDIDATE`: neither has the exact source/license lock needed to enter a
 reuse decision. This preserves the local identity and DLP boundaries rather
 than treating a popular repository as evidence of authorization.
+
+## Reuse classification
+
+`security/oss-test-reuse.yml` turns these inputs into existing canonical
+integration-suite parity scenarios. It rejects the five full-DMS inputs for
+code/fixture reuse, and uses ClamAV, Gotenberg and tusd only as no-copy
+behavioral scenarios. The verifier requires source/test blob and license
+provenance, an existing `tests/integration/**` target, and a negative or fault
+assertion for OSS-04, OSS-05 and OSS-06. No row authorizes copied source.

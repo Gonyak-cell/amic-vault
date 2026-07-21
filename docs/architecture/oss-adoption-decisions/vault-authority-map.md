@@ -35,3 +35,7 @@ The machine-readable target list is `security/oss-source-map.yml` under
 `productAuthorityTargets`. All listed product and test paths were checked
 against this worktree. The next source-map TUW must reject a component input
 that cannot name one of these targets and its prohibited Vault authority.
+
+The companion `security/oss-test-reuse.yml` may bind a verified external input
+to an existing parity scenario, but it cannot turn the listed `KEEP` authority
+into a source-copy or replacement authorization.
