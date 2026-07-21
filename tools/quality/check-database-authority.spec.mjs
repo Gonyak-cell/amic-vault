@@ -40,8 +40,14 @@ test('recognizes a locally bound dynamic pg-boss import without string matching'
 
 test('fails closed when the locked inventory digest or count drifts', () => {
   const report = inventoryReport(scanSources([{ path: 'apps/api/src/modules/example.service.ts', text: "import { Pool } from 'pg'; new Pool({});" }]));
-  const sourceMap = { productAuthorityTargets: [{ portfolio: 'OSS-01', directConstructorBaseline: { poolCount: report.poolCount, pgBossCount: report.pgBossCount, inventorySha256: report.inventorySha256 } }] };
+  const sourceMap = { productAuthorityTargets: [{ portfolio: 'OSS-01', directConstructorBaseline: { poolCount: report.poolCount, clientCount: report.clientCount, pgBossCount: report.pgBossCount, inventorySha256: report.inventorySha256, directConnectionAllowlist: [{ path: 'apps/api/src/modules/example.service.ts', constructor: 'Pool', processRole: 'API_RUNTIME', connectionEnvironment: 'INDIRECT_OR_ARGUMENT' }] } }] };
   assert.equal(validateInventory({ report, sourceMap }).status, 'PASS');
   sourceMap.productAuthorityTargets[0].directConstructorBaseline.poolCount += 1;
   assert.throws(() => validateInventory({ report, sourceMap }), /poolCount drift/);
+});
+
+test('rejects an unallowlisted direct Client constructor', () => {
+  const report = inventoryReport(scanSources([{ path: 'apps/api/src/modules/example.service.ts', text: "import { Client } from 'pg'; new Client({});" }]));
+  const sourceMap = { productAuthorityTargets: [{ portfolio: 'OSS-01', directConstructorBaseline: { poolCount: report.poolCount, clientCount: report.clientCount, pgBossCount: report.pgBossCount, inventorySha256: report.inventorySha256, directConnectionAllowlist: [] } }] };
+  assert.throws(() => validateInventory({ report, sourceMap }), /unallowlisted direct Client/);
 });

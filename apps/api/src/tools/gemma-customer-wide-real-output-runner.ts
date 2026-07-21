@@ -11,8 +11,6 @@ import {
   type AiPrepArtifactPayloadDto,
 } from '@amic-vault/shared';
 
-const defaultDatabaseUrl =
-  process.env.DATABASE_URL ?? 'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 const requiredArtifactKinds = [
   'document_profile',
   'key_fields',
@@ -21,6 +19,7 @@ const requiredArtifactKinds = [
 ] as const satisfies readonly AiPrepArtifactKind[];
 const safeRunIdPattern = /^[A-Za-z0-9._-]{3,120}$/;
 const safeRefPattern = /^[A-Za-z0-9._-]{3,180}$/;
+const postgresIdentifierPattern = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
 
 export interface GemmaCustomerWideRealOutputCliArgs {
   dryRun: boolean;
@@ -31,6 +30,7 @@ export interface GemmaCustomerWideRealOutputCliArgs {
   controlRef: string;
   sanitizedOut: string;
   databaseUrl: string;
+  databaseRole: string;
   limit: number;
   concurrency: number;
   maxPromptChars: number;
@@ -68,7 +68,7 @@ interface WorkerResult {
 
 export function usage(): string {
   return [
-    'usage: pnpm gemma:customer-wide-real-output -- --dry-run|--execute --run-id <id> --tenant-slug <slug> --approval-ref <ref> --control-ref <ref> --sanitized-out <out.json> [--limit <n>] [--concurrency <n>]',
+    'usage: DATABASE_MIGRATION_URL=<owner-url> pnpm gemma:customer-wide-real-output -- --dry-run|--execute --run-id <id> --tenant-slug <slug> --approval-ref <ref> --control-ref <ref> --sanitized-out <out.json> [--limit <n>] [--concurrency <n>]',
     '',
     'Creates missing or replaces fallback prep artifacts with actual local Gemma text output.',
   ].join('\n');
@@ -82,6 +82,11 @@ export function parseGemmaCustomerWideRealOutputArgs(
   const dryRun = argv.includes('--dry-run');
   const execute = argv.includes('--execute');
   if (dryRun === execute) throw new Error('exactly one of --dry-run or --execute is required');
+  const databaseUrl = env.DATABASE_MIGRATION_URL?.trim();
+  if (!databaseUrl) throw new Error('DATABASE_MIGRATION_URL_REQUIRED');
+  const databaseRole = env.DATABASE_MIGRATION_ROLE?.trim() || 'amic_vault';
+  if (!postgresIdentifierPattern.test(databaseRole))
+    throw new Error('DATABASE_MIGRATION_ROLE_INVALID');
   return {
     dryRun,
     execute,
@@ -90,10 +95,15 @@ export function parseGemmaCustomerWideRealOutputArgs(
     approvalRef: requiredArg(argv, '--approval-ref'),
     controlRef: requiredArg(argv, '--control-ref'),
     sanitizedOut: requiredArg(argv, '--sanitized-out'),
-    databaseUrl: argValue(argv, '--database-url') ?? env.DATABASE_URL ?? defaultDatabaseUrl,
+    databaseUrl,
+    databaseRole,
     limit: optionalPositiveInt(argValue(argv, '--limit'), '--limit') ?? 100,
-    concurrency: Math.min(optionalPositiveInt(argValue(argv, '--concurrency'), '--concurrency') ?? 2, 8),
-    maxPromptChars: optionalPositiveInt(argValue(argv, '--max-prompt-chars'), '--max-prompt-chars') ?? 3200,
+    concurrency: Math.min(
+      optionalPositiveInt(argValue(argv, '--concurrency'), '--concurrency') ?? 2,
+      8,
+    ),
+    maxPromptChars:
+      optionalPositiveInt(argValue(argv, '--max-prompt-chars'), '--max-prompt-chars') ?? 3200,
     documentsPerCall: Math.min(
       optionalPositiveInt(argValue(argv, '--documents-per-call'), '--documents-per-call') ?? 1,
       100,
@@ -102,8 +112,12 @@ export function parseGemmaCustomerWideRealOutputArgs(
 }
 
 export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideRealOutputCliArgs) {
-  const pool = new Pool({ connectionString: args.databaseUrl, max: Math.max(2, args.concurrency + 1) });
+  const pool = new Pool({
+    connectionString: args.databaseUrl,
+    max: Math.max(2, args.concurrency + 1),
+  });
   try {
+    await assertOwnerDatabaseRole(pool, args.databaseRole);
     const plan = await collectPlan(pool, args);
     const blockers = validateReadiness(args, plan);
     const results =
@@ -152,7 +166,9 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
         dry_run_or_no_worker_failures:
           args.dryRun || results.every((result) => result.status === 'completed'),
         real_gemma_outputs_increased:
-          closeoutComplete || args.dryRun || finalCounts.realGemmaOutputCount > plan.realGemmaOutputCount,
+          closeoutComplete ||
+          args.dryRun ||
+          finalCounts.realGemmaOutputCount > plan.realGemmaOutputCount,
         fallback_artifact_count_zero: finalCounts.fallbackArtifactCount === 0,
         missing_artifact_count_zero: finalCounts.missingArtifactCount === 0,
       },
@@ -184,7 +200,18 @@ export async function runGemmaCustomerWideRealOutput(args: GemmaCustomerWideReal
   }
 }
 
-async function collectPlan(pool: Pool, args: GemmaCustomerWideRealOutputCliArgs): Promise<RealOutputPlan> {
+async function assertOwnerDatabaseRole(
+  pool: Pick<Pool, 'query'>,
+  expectedRole: string,
+): Promise<void> {
+  const result = await pool.query<{ current_user: string }>('SELECT current_user');
+  if (result.rows[0]?.current_user !== expectedRole) throw new Error('OWNER_DATABASE_ROLE_INVALID');
+}
+
+async function collectPlan(
+  pool: Pool,
+  args: GemmaCustomerWideRealOutputCliArgs,
+): Promise<RealOutputPlan> {
   const tenant = await pool.query<{ tenant_id: string }>(
     "SELECT tenant_id FROM tenants WHERE slug = $1 AND status = 'active' LIMIT 1",
     [args.tenantSlug],
@@ -403,7 +430,12 @@ async function processCandidate(
 ): Promise<WorkerResult> {
   const generated = await generateGemmaText(candidate.prompt_text);
   if (generated.status !== 'completed') {
-    return { status: 'failed', documentCount: 0, artifactCount: 0, reasonCode: generated.reasonCode };
+    return {
+      status: 'failed',
+      documentCount: 0,
+      artifactCount: 0,
+      reasonCode: generated.reasonCode,
+    };
   }
   return writeCandidateOutput(pool, args, candidate, generated);
 }
@@ -415,7 +447,12 @@ async function processCandidateBatch(
 ): Promise<WorkerResult> {
   const generated = await generateGemmaBatchTexts(candidates);
   if (generated.status !== 'completed') {
-    return { status: 'failed', documentCount: 0, artifactCount: 0, reasonCode: generated.reasonCode };
+    return {
+      status: 'failed',
+      documentCount: 0,
+      artifactCount: 0,
+      reasonCode: generated.reasonCode,
+    };
   }
   let artifactCount = 0;
   for (let index = 0; index < candidates.length; index += 1) {
@@ -449,7 +486,10 @@ async function writeCandidateOutput(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', candidate.tenant_id]);
+    await client.query('SELECT set_config($1, $2, true)', [
+      'app.current_tenant_id',
+      candidate.tenant_id,
+    ]);
     let artifactCount = 0;
     for (const artifactKind of candidate.artifact_kinds) {
       const payload = buildPayload(artifactKind, generated.text, sourceRefs);
@@ -550,11 +590,14 @@ async function writeCandidateOutput(
   }
 }
 
-async function generateGemmaBatchTexts(candidates: readonly RealOutputCandidate[]): Promise<
+async function generateGemmaBatchTexts(
+  candidates: readonly RealOutputCandidate[],
+): Promise<
   | { status: 'completed'; texts: string[]; fullText: string; model: string; latencyMs: number }
   | { status: 'failed'; reasonCode: string }
 > {
-  const endpoint = process.env.LOCAL_GEMMA_ENDPOINT ?? process.env.AI_GATEWAY_ENDPOINT ?? 'http://127.0.0.1:11434';
+  const endpoint =
+    process.env.LOCAL_GEMMA_ENDPOINT ?? process.env.AI_GATEWAY_ENDPOINT ?? 'http://127.0.0.1:11434';
   const model = process.env.LOCAL_GEMMA_MODEL ?? localGemmaDefaultModel;
   const startedAt = performance.now();
   try {
@@ -602,11 +645,14 @@ async function generateGemmaBatchTexts(candidates: readonly RealOutputCandidate[
   }
 }
 
-async function generateGemmaText(promptText: string): Promise<
+async function generateGemmaText(
+  promptText: string,
+): Promise<
   | { status: 'completed'; text: string; model: string; latencyMs: number }
   | { status: 'failed'; reasonCode: string }
 > {
-  const endpoint = process.env.LOCAL_GEMMA_ENDPOINT ?? process.env.AI_GATEWAY_ENDPOINT ?? 'http://127.0.0.1:11434';
+  const endpoint =
+    process.env.LOCAL_GEMMA_ENDPOINT ?? process.env.AI_GATEWAY_ENDPOINT ?? 'http://127.0.0.1:11434';
   const model = process.env.LOCAL_GEMMA_MODEL ?? localGemmaDefaultModel;
   const startedAt = performance.now();
   try {
@@ -682,7 +728,10 @@ function buildPayload(
   );
 }
 
-function validateReadiness(args: GemmaCustomerWideRealOutputCliArgs, plan: RealOutputPlan): string[] {
+function validateReadiness(
+  args: GemmaCustomerWideRealOutputCliArgs,
+  plan: RealOutputPlan,
+): string[] {
   const blockers = [...plan.blockers];
   if (!safeRunIdPattern.test(args.runId)) blockers.push('run_id_invalid');
   if (!safeRefPattern.test(args.approvalRef)) blockers.push('approval_ref_invalid');
@@ -780,7 +829,11 @@ function uniqueSourceHashes(sourceHashes: readonly string[]): string[] {
 }
 
 function safeReasonCode(input: string): string {
-  const normalized = input.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 80);
+  const normalized = input
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]/g, '_')
+    .slice(0, 80);
   return normalized || 'REAL_OUTPUT_FAILED';
 }
 
@@ -799,7 +852,8 @@ function argValue(argv: readonly string[], name: string): string | undefined {
 function optionalPositiveInt(value: string | undefined, name: string): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name} must be a positive integer`);
+  if (!Number.isInteger(parsed) || parsed <= 0)
+    throw new Error(`${name} must be a positive integer`);
   return parsed;
 }
 

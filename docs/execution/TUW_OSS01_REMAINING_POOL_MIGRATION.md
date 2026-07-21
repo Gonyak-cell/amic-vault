@@ -186,6 +186,13 @@ It is the just-in-time canonical form of `PROPOSED-PACK-OSS01-03`; frozen
   application `new Pool`/`new Client`, `DATABASE_URL` fallback, default raw
   connection string, or unclosed pool outside its explicit allowlist. Fixtures
   must prove both valid and intentional-invalid classifications.
+- **Clarification (2026-07-22):** the two named maintenance tools accept only
+  `DATABASE_MIGRATION_URL` and the identifier-validated
+  `DATABASE_MIGRATION_ROLE` (default `amic_vault`); CLI `--database-url`,
+  `DATABASE_URL`, and a raw development fallback are not authority inputs.
+  The first database operation verifies `current_user` before planning or
+  mutation, and the pool is always closed in `finally`. These are explicit
+  owner-maintenance exceptions only, not runtime application authority.
 - **Verification (AND):** checker green on current source; intentional
   violation fixtures red; 50 AppModule/tool create-close loops restore the
   connection baseline; full lint/typecheck/test/build; isolated owner DB
