@@ -281,6 +281,8 @@ async function hnswPlanUsesBgeM3Index(): Promise<boolean> {
     await client.query('BEGIN');
     try {
       await client.query('SET LOCAL enable_seqscan = off');
+      await client.query('SET LOCAL enable_bitmapscan = off');
+      await client.query('SET LOCAL enable_sort = off');
       const vector = vectorToSqlLiteral(deterministicEmbeddingVector('termination governing law'));
       const result = await client.query<{ 'QUERY PLAN': string }>(
         `

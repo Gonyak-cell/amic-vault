@@ -16,6 +16,7 @@ import {
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
+const upcomingKeyDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 interface MatterDashboardResponse {
   matterSummary: {
@@ -179,7 +180,7 @@ describe('matter dashboard integration', () => {
       expect.arrayContaining([
         expect.objectContaining({
           title: fixture.keyDateTitle,
-          dueDate: '2026-07-20',
+          dueDate: upcomingKeyDate,
           sourceType: 'core',
         }),
       ]),
@@ -306,9 +307,9 @@ async function seedDashboardFixture(matterId: string, otherMatterId: string): Pr
         INSERT INTO matter_key_dates (
           tenant_id, matter_id, title, due_date, date_type, status, created_by, updated_by
         )
-        VALUES ($1, $2, $3, '2026-07-20'::date, 'court', 'pending', $4, $4)
+        VALUES ($1, $2, $3, $4::date, 'court', 'pending', $5, $5)
       `,
-      [tenantAlphaId, matterId, keyDateTitle, alphaOwnerUserId],
+      [tenantAlphaId, matterId, keyDateTitle, upcomingKeyDate, alphaOwnerUserId],
     );
     await client.query(
       `
