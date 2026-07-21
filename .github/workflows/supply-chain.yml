@@ -127,3 +127,32 @@ jobs:
           name: oss-security-scan-${{ github.sha }}
           path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/SEC-OSSSCAN-PIPELINE-TUW-001
           if-no-files-found: error
+
+  unsigned-identity:
+    needs: [sbom, scanner]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: oss-sbom-${{ github.sha }}
+          path: .tmp/identity-input/sbom
+      - uses: actions/download-artifact@v4
+        with:
+          name: oss-security-scan-${{ github.sha }}
+          path: .tmp/identity-input/scan
+      - name: Verify unsigned source-image-SBOM-scan identity graph
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-IDENTITY-TUW-001"
+          node tools/security/verify-release-identity.mjs --sbom .tmp/identity-input/sbom/sbom-manifest.json --scan .tmp/identity-input/scan/security-scan-summary.json --out "$report_root"
+          REPORT_ROOT="$report_root" WORKFLOW_SHA='${{ github.sha }}' node --input-type=module -e "import { readFileSync } from 'node:fs'; const identity=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/unsigned-release-identity.json', 'utf8')); const boundary=JSON.parse(readFileSync(process.env.REPORT_ROOT + '/signing-boundary-receipt.json', 'utf8')); if (identity.sourceSha !== process.env.WORKFLOW_SHA || boundary.status !== 'EXTERNAL_BLOCKED_SIGNING_IDENTITY_REQUIRED' || boundary.signingPerformed !== false) throw new Error('unsigned identity boundary validation failed');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-unsigned-identity-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-03/DEVOPS-OSSATT-IDENTITY-TUW-001
+          if-no-files-found: error
