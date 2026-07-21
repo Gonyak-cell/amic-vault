@@ -52,7 +52,7 @@ jobs:
           package-manager-cache: false
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: docker compose -f infra/docker-compose.dev.yml up -d --wait
+      - run: docker compose -f infra/docker-compose.dev.yml up -d --wait postgres minio minio-init ingestion
       - run: node tools/db/check-migration-conventions.mjs
       - run: pnpm db:migrate
       - run: pnpm db:rollback

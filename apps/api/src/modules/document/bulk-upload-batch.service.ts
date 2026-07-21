@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { stat } from 'node:fs/promises';
 import { Pool, type PoolClient } from 'pg';
 import {
   bulkUploadJobSchema,
@@ -190,6 +191,7 @@ export class BulkUploadBatchService {
     return this.transaction(input.tenantId, async (client) => {
       const item = await this.selectRetryItem(client, input);
       const fields = parsed.fields ?? item.fields_json;
+      const size = (await stat(item.file_path)).size;
       const payload = bulkUploadJobSchema.parse({
         batchId: input.batchId,
         chunkIndex: 0,
@@ -205,7 +207,7 @@ export class BulkUploadBatchService {
               path: item.file_path,
               originalname: item.original_filename,
               mimetype: item.mime_type,
-              size: Number(item.size_bytes),
+              size,
             },
           },
         ],
@@ -219,6 +221,7 @@ export class BulkUploadBatchService {
               error_code = NULL,
               error_reason = NULL,
               job_id = $6,
+              size_bytes = $7,
               retry_count = retry_count + 1,
               updated_at = now()
           WHERE tenant_id = $1
@@ -233,6 +236,7 @@ export class BulkUploadBatchService {
           input.actorUserId,
           JSON.stringify(fields),
           jobId,
+          size,
         ],
       );
       await this.refreshBatchStatus(client, input.tenantId, input.batchId);
