@@ -1,5 +1,5 @@
 {
-  "total": 198,
+  "total": 202,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3082,6 +3082,50 @@
       "depends_on": ["DEVOPS-OSS01-DBA-TUW-003"],
       "files": ["tools/integration", "tests/integration", ".github/workflows/ci.yml", "infra/docker-compose.dev.yml"],
       "verification": "owner bootstrap is process-separated from runtime AppModule worker AND owner credential boot fails AND runtime RLS fail-closed audit integration suites pass"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-001",
+      "title": "Audit Tenant Permission core Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-004"],
+      "files": ["apps/api/src/modules/audit", "apps/api/src/modules/tenant", "apps/api/src/modules/permission", "apps/api/src/common/guards", "tests/integration"],
+      "verification": "listed direct pools move to DatabaseService tenant transactions AND permission audit cross-tenant and fail-closed suites preserve same-transaction behavior"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-002",
+      "title": "Auth User session Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBM-TUW-001"],
+      "files": ["apps/api/src/modules/auth", "apps/api/src/modules/user", "apps/api/src/common/db", "tests/integration"],
+      "verification": "session MFA password-reset and user access use bounded runtime adapters AND token replay disabled-user and cross-tenant negatives remain denied"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-003",
+      "title": "Matter authority Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBM-TUW-002"],
+      "files": ["apps/api/src/modules/matter", "apps/api/src/modules/client", "apps/api/src/modules/party", "apps/api/src/modules/ethical-wall", "apps/api/src/modules/break-glass", "tests/integration"],
+      "verification": "matter client party wall and break-glass listed direct pools are zero AND bidirectional wall and nearest unauthorized negatives preserve audit parity"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBM-TUW-004",
+      "title": "Document Storage Search critical Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBM-TUW-003"],
+      "files": ["apps/api/src/modules/document", "apps/api/src/modules/storage", "apps/api/src/modules/search", "tests/integration"],
+      "verification": "document storage and search listed direct pools are zero AND immutable storage permission-before-search metadata leakage and audit regressions remain green"
     }
   ]
 }

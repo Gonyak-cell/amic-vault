@@ -71,6 +71,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS00A-02 | `feat/pack-oss00a-02-authority-source-map` | 3 | `DEVOPS-OSSADOPT-AUTH-TUW-001` through `DEVOPS-OSSADOPT-REUSE-TUW-003` (`docs/execution/TUW_OSS00A_ADOPTION_MAP.md`) |
 | PACK-OSS00A-03 | `feat/pack-oss00a-03-ops-adoption-gate` | 3 | `DEVOPS-OSSADOPT-OPS-TUW-004` through `DEVOPS-OSSADOPT-GATE-TUW-006` (`docs/execution/TUW_OSS00A_OPS_ADOPTION_GATE.md`) |
 | PACK-OSS01-01 | `feat/pack-oss01-01-runtime-db-contract` | 4 | `DEVOPS-OSS01-DBA-TUW-001` through `DEVOPS-OSS01-DBA-TUW-004` (`docs/execution/TUW_OSS01_RUNTIME_DB_CONTRACT.md`) |
+| PACK-OSS01-02 | `feat/pack-oss01-02-authority-pool-migration` | 4 | `DEVOPS-OSS01-DBM-TUW-001` through `DEVOPS-OSS01-DBM-TUW-004` (`docs/execution/TUW_OSS01_POOL_MIGRATION.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2480,6 +2481,37 @@ L0-L4/reuse-first decision gate before a product-facing implementation.
 - Scope: decision/map/checker work only. Product code/tests, source
   vendoring/forks, dependencies/locks, CI permission expansion, deployment,
   push/PR/merge, and external state remain out of scope.
+
+## PACK-OSS01-02 — authority-critical direct Pool migration
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS01-01` has local technical
+evidence. The four serial TUWs remove only the authority-critical direct
+`Pool` consumers already classified as the DBM batch; they do not change
+product authority or introduce an OSS runtime component.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss01-02-authority-pool-migration`.
+- Detail contract: `docs/execution/TUW_OSS01_POOL_MIGRATION.md`.
+- Execution order: `DEVOPS-OSS01-DBM-TUW-001` →
+  `DEVOPS-OSS01-DBM-TUW-002` → `DEVOPS-OSS01-DBM-TUW-003` →
+  `DEVOPS-OSS01-DBM-TUW-004`.
+- Scope: migration of existing Audit/Tenant/Permission, Auth/User,
+  Matter/Client/Party/Wall/Break-glass, and Document/Storage/Search direct
+  pool consumers to the existing `DatabaseService` contract; owner migration
+  tools remain explicit exceptions.
+- Out of scope: dependencies/locks, migrations/RLS, PermissionService policy
+  semantics, audit metadata/action schema, storage object semantics, search
+  query semantics/post-filtering, source vendoring/forks, CI/PR/push/merge,
+  deployment, external mutation, release and go-live.
+
+Each TUW must preserve tenant-local GUC, explicit tenant predicates,
+permission-before-search, same-transaction audit, fail-closed behavior, and
+the immutable-original boundary. A direct constructor count may fall only with
+the corresponding inventory/source-map delta. Any required generic
+tenant-less query adapter, owner runtime credential, PermissionService bypass,
+or audit split is a hard stop.
 
 ## Gate Reports
 
