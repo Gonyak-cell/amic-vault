@@ -10,13 +10,20 @@ export function setDefaultProcessRole(
   env.PROCESS_ROLE ??= role;
 }
 
+export function currentProcessRole(env: NodeJS.ProcessEnv = process.env): ProcessRole {
+  const configured = env.PROCESS_ROLE?.trim().toLowerCase();
+  if (!configured) return 'api';
+  if (configured === 'api' || configured === 'worker') return configured;
+  throw new Error('PROCESS_ROLE_INVALID');
+}
+
 export function queueWorkerEnabled(
   legacyEnvName: string,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   const legacyOverride = envBoolean(env[legacyEnvName]);
   if (legacyOverride !== undefined) return legacyOverride;
-  return env.PROCESS_ROLE?.trim().toLowerCase() === 'worker';
+  return currentProcessRole(env) === 'worker';
 }
 
 function envBoolean(raw: string | undefined): boolean | undefined {
