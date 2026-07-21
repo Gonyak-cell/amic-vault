@@ -11,7 +11,8 @@
     "artifacts",
     "truthState",
     "syntheticOnly",
-    "externalEvidence"
+    "externalEvidence",
+    "vulnerabilityDecisionReference"
   ],
   "upstreamInputRequired": [
     "inputKey",
