@@ -1,4 +1,4 @@
-# R4~R14 Live Execution Packs
+# R4~R14 and Post-R14 Live Execution Packs
 
 Status: live extension after R3 Gate
 Source constraints: `docs/package/codex/30_Release_Roadmap.md`,
@@ -62,6 +62,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R14-02 | `feat/pack-r14-02-control-plane-recovery` | 4 | `DEVOPS-EXECCTRL-PARSE117-TUW-001` through `DEVOPS-EXECCTRL-TRANSITION-TUW-004` (recovery-plan Task 4 then Task 5 only) |
 | PACK-R14-03 | `feat/pack-r14-03-recovery-manifest` | 3 | `RECOVERY-MANIFEST-SCHEMA-TUW-001` through `RECOVERY-MANIFEST-REGISTRATION-TUW-003` (recovery-plan Task 6B only) |
 | PACK-R14-03-AMENDMENT-01 | `feat/pack-r14-03-recovery-manifest-v2` | 3 | `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` through `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` (Task 7+ preflight correction only) |
+| PACK-OSS00-01 | `feat/pack-oss00-01-governance-provenance` | 4 | `DEVOPS-OSSGOV-PROV-TUW-001` through `DEVOPS-OSSGOV-PROV-TUW-004` (`docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`) |
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
@@ -2325,6 +2326,37 @@ integration gates open.
 | PACK-OPS-OA-01 | `codex/outlook-operational-gates` | 10 | `OPS-OA-01` through `OPS-OA-08`, `OPS-OA-10`, `OPS-OA-11` |
 
 Planning contract: `docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md`.
+
+## PACK-OSS00-01 — OSS governance and provenance
+
+Status: canonical post-R14 extension, registration approved
+`USER-APPROVAL-PACK-OSS00-01-REGISTRATION-20260721`.
+
+This is the initial implementation PACK from the enterprise DMS OSS Terra plan.
+It uses the live post-R14 registry rather than modifying the frozen
+`docs/package/**` source. The four rows are recorded with release `R14` in
+`docs/backlog/backlog_r4_r14.{csv,json}` solely so the existing machine
+validator can enforce required fields, unique IDs, dependency ordering, and
+release bans; it does not reopen or alter the historical R14 Gate.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00-01-governance-provenance`.
+- Detail contract: `docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`.
+- Source plan: `docs/architecture/enterprise-dms-oss-terra-tuw-execution-plan-main-2026-07-21.md`.
+- Execution order: `DEVOPS-OSSGOV-PROV-TUW-001` →
+  `DEVOPS-OSSGOV-PROV-TUW-002` and
+  `DEVOPS-OSSGOV-PROV-TUW-003` → `DEVOPS-OSSGOV-PROV-TUW-004`.
+- Scope: provenance schema/inventory, license and VEX policy checkers, and
+  governance-only CI wiring. No new dependency, deployment, external system
+  mutation, artifact signing service, SBOM service, or next PACK is authorized.
+
+Every TUW must satisfy its own AND verification and write an exact-head
+evidence manifest. Before a PR, run the Common Validation sequence above,
+the focused governance checkers, `pnpm backlog:validate`, `pnpm docs:frozen`,
+and `git diff --check`. A missing upstream pin, decision owner, source tree,
+or safe evidence field is a stop condition. CI success does not authorize
+deployment, external operation, or a successor PACK.
 
 ## Gate Reports
 
