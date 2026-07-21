@@ -2383,14 +2383,17 @@ PR, merge, deployment, or release success.
 - Detail contract: `docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`.
 - Execution order: `DEVOPS-OSSDEP-TRIAGE-TUW-001` →
   `SEC-UPLOAD-MULTIPART-TUW-001` and `DEVOPS-OSSPY-LOCK-TUW-001`.
-- Scope: advisory triage, multipart security regression, and a conditional
-  Python lock/CI design. New NPM/Python tool dependency or version changes,
-  CI/workflow changes, deployment, external mutation, product-tree vendoring,
-  and external state remain unauthorized under the active authority.
+- Scope: advisory triage, multipart security regression, and Python lock/CI
+  hardening. Only exact NPM/Python tool or version changes named in the
+  canonical TUW and backed by source-pin/license/compatibility evidence are
+  authorized; unplanned dependency changes, deployment, external mutation,
+  product-tree vendoring, CI/PR/push/merge, and external state remain outside
+  active authority.
 
 Every TUW must retain the canonical `Files NOT-modify` boundary and its AND
-verification. A remediation that requires a package/version/tool change is an
-explicit `BLOCKED` outcome, not permission to alter the lockfile or pipeline.
+verification. An in-scope package/version/tool change is allowed only after its
+exact source pin, license policy, lockfile delta, compatibility, and negative
+tests are evidenced; other dependency/pipeline changes are `BLOCKED`.
 
 ## Gate Reports
 
