@@ -20,3 +20,7 @@ The current OpenSearch decision is explicitly deferred by [ADR-006](../../adr/AD
 The current WOPI/co-editor decision is explicitly not a runtime implementation
 by [ADR-018](../../adr/ADR-018-wopi-evaluation.md). The candidate map must not
 be read as an exception to either decision.
+
+All eight operational rows are `REJECTED` for the current scope in
+`security/oss-adoption-decisions.yml`. A future exact source pin alone cannot
+override their listed trigger, security, authority, maintenance, or exit veto.

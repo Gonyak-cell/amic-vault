@@ -39,3 +39,8 @@ that cannot name one of these targets and its prohibited Vault authority.
 The companion `security/oss-test-reuse.yml` may bind a verified external input
 to an existing parity scenario, but it cannot turn the listed `KEEP` authority
 into a source-copy or replacement authorization.
+
+`security/oss-adoption-decisions.yml` records the hard-veto and TCO decision
+for every current source or operational candidate. It contains no L2-L4
+decision: such a decision would require the separate obligations described in
+the canonical PACK and a Risk=C independent review before merge.

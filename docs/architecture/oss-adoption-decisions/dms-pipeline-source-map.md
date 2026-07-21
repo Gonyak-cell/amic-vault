@@ -30,3 +30,7 @@ code/fixture reuse, and uses ClamAV, Gotenberg and tusd only as no-copy
 behavioral scenarios. The verifier requires source/test blob and license
 provenance, an existing `tests/integration/**` target, and a negative or fault
 assertion for OSS-04, OSS-05 and OSS-06. No row authorizes copied source.
+
+The full-DMS rows are `REJECTED`; ClamAV, Gotenberg and tusd are only L1
+component candidates and remain blocked until their separately scoped OSS-04,
+OSS-05 or OSS-06 TUW proves Vault authority parity.
