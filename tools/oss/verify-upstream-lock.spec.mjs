@@ -48,6 +48,7 @@ test('rejects product overlap, symlink roots, malformed pins, traversal, and uno
     assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, commit: 'short' }] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false }), /commit/);
     assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, clonePath: '../escape' }] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false }), /traversal/);
     assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, state: 'BLOCKED', blockedReason: '' }] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false }), /blocked reason/);
+    assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, baseline: { command: ['test'], timeoutMs: 1, outcome: 'PASS', exitCode: 0, timedOut: false, logs: { stdoutSha256: 'not-a-hash', stderrSha256: `sha256:${'d'.repeat(64)}`, stdoutBytes: 0, stderrBytes: 0 } } }] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false }), /baseline stdoutSha256/);
   } finally {
     rmSync(value.root, { recursive: true, force: true });
   }

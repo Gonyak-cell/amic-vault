@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateSourceLabBoundary } from './verify-upstream-lock.mjs';
+import { validateSourceLabBoundary, validateUpstreamLock } from './verify-upstream-lock.mjs';
 
 const SHA = /^[a-f0-9]{40}$/u;
 const SECRET = /(authorization:\s*bearer\s+|(?:api[_-]?key|token|password|secret)\s*[=:]\s*)[^\s"']+/giu;
@@ -31,13 +31,16 @@ export function classifyResult(result) {
   return 'TEST_FAILURE';
 }
 
-export function runUpstreamBaseline({ component, sourceRoot, command, outDir, timeoutMs = 120_000, repoRoot = process.cwd(), run = spawnSync }) {
+export function runUpstreamBaseline({ map, component, sourceRoot, command, outDir, timeoutMs = 120_000, repoRoot = process.cwd(), run = spawnSync }) {
+  assert(map && Array.isArray(map.components), 'source map is required');
   assert(component && typeof component === 'object', 'component is required');
   assert(component.state === 'PINNED', 'only a pinned component can run a baseline');
   assert(SHA.test(component.commit) && SHA.test(component.tree), `${component.id}: source pin invalid`);
   assert(Array.isArray(command) && command.length > 0 && command.every((value) => typeof value === 'string' && value), 'command must be a nonempty argument array');
   assert(typeof outDir === 'string' && outDir, 'output directory is required');
   assert(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 1_800_000, 'timeout must be between 1ms and 30min');
+  assert(map.components.find((row) => row.id === component.id) === component, `${component.id}: component must be the exact source-map row`);
+  validateUpstreamLock({ map, sourceRoot, repoRoot });
   const boundary = validateSourceLabBoundary({ sourceRoot, repoRoot });
   const clonePath = resolve(boundary.labRoot, component.clonePath);
   assert(clonePath.startsWith(`${boundary.labRoot}/`) && existsSync(clonePath), `${component.id}: clone is unavailable`);
@@ -82,6 +85,6 @@ if (isCli) {
   const args = parseArgs(process.argv.slice(2));
   const map = JSON.parse(readFileSync(resolve(args.sourceMapPath ?? 'security/oss-source-map.yml'), 'utf8'));
   const component = map.components.find((value) => value.id === args.componentId);
-  const manifest = runUpstreamBaseline({ component, sourceRoot: args.sourceRoot ?? process.env.OSS_RESEARCH_ROOT, command: args.command, outDir: args.outDir, timeoutMs: args.timeoutMs });
+  const manifest = runUpstreamBaseline({ map, component, sourceRoot: args.sourceRoot ?? process.env.OSS_RESEARCH_ROOT, command: args.command, outDir: args.outDir, timeoutMs: args.timeoutMs });
   console.log(JSON.stringify({ component: manifest.component, outcome: manifest.outcome, exitCode: manifest.exitCode, logs: manifest.logs }, null, 2));
 }
