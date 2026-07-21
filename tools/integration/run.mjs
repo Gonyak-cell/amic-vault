@@ -86,6 +86,10 @@ if (specs.length === 0) {
 
 const integrationEnv = {
   ...process.env,
+  // Several in-process legacy providers still read DATABASE_URL at module load.
+  // Keep them on the same owner connection as fixture setup; runtime-process
+  // coverage explicitly clears this value and exercises DATABASE_RUNTIME_URL.
+  DATABASE_URL: migrationDatabaseUrl,
   DATABASE_MIGRATION_URL: migrationDatabaseUrl,
   DATABASE_RUNTIME_URL: runtimeDatabaseUrl,
   DATABASE_RUNTIME_ROLE: process.env.DATABASE_RUNTIME_ROLE ?? 'vault_app',
