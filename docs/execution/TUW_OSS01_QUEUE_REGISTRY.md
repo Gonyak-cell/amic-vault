@@ -89,18 +89,21 @@ Status: canonical post-R14 extension under
   `ai/features/contract-ai-review-worker.service.ts`,
   `ai/prep/ai-prep-queue.service.ts`,
   `contract-intel/contract-ai-review-queue.service.ts`,
-  `dd/dd-export-queue.service.ts`, their modules/specs, and
+  `dd/dd-export-queue.service.ts`, `common/queue/queue.module.ts`,
+  `common/queue/queue.registry.ts` and spec,
+  `tools/prepare-ai-prep-queue.ts`, their modules/specs, and
   `security/oss-source-map.yml`.
 - **Files create:** none.
 - **Files NOT-modify:** audit append-only semantics, DLP/action policies,
   AI local-only/permission gates, export permissions, schedule cadence,
-  `tools/prepare-ai-prep-queue.ts`, dependencies/locks, `docs/package/**`.
+  dependencies/locks, `docs/package/**`.
 - **Implementation:** migrate the remaining constructor sites to named
   registry handles, retain singleton schedule keys and disabled feature gates,
   and preserve producer-only tools as non-consumers.
 - **Verification (AND):** affected specs; audit/DLP/AI/contract/DD integrations;
   duplicate schedule/start, worker-only consumption, disabled AI and
-  producer-only negatives; final direct-PgBoss count zero.
+  producer-only negatives; final service/tool direct-PgBoss count zero and
+  exactly one central QueueModule factory constructor.
 - **Stop:** consolidation hides audit failure, enables AI, or changes schedule
   retry/retention behavior.
 

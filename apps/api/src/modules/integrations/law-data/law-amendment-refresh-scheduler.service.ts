@@ -1,13 +1,9 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
 import { DatabaseService } from '../../../common/db/database.service';
-import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../../common/process-role';
+import { QueueRegistry } from '../../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../../common/process-role';
 import { LawDataService } from './law-data.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export const lawAmendmentRefreshQueueName = 'law.amendment-refresh';
 export const lawAmendmentRefreshDeadLetterQueueName = 'law.amendment-refresh.dead';
@@ -39,10 +35,9 @@ export class LawDataTenantReader {
 }
 
 @Injectable()
-export class LawAmendmentRefreshSchedulerService implements OnModuleInit, OnModuleDestroy {
+export class LawAmendmentRefreshSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(LawAmendmentRefreshSchedulerService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
@@ -50,16 +45,13 @@ export class LawAmendmentRefreshSchedulerService implements OnModuleInit, OnModu
     private readonly lawData: Pick<LawDataService, 'refreshStaleLawAuthoritiesForTenant'>,
     @Inject(LawDataTenantReader)
     private readonly tenantReader: Pick<LawDataTenantReader, 'listActiveTenantIds'>,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isLawAmendmentRefreshSchedulerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isLawAmendmentRefreshSchedulerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async refreshLawAmendments(
@@ -111,7 +103,7 @@ export class LawAmendmentRefreshSchedulerService implements OnModuleInit, OnModu
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await ensureLawAmendmentRefreshSchedule(boss);
     await boss.work<LawAmendmentRefreshJobPayload>(
       lawAmendmentRefreshQueueName,
@@ -138,14 +130,16 @@ export class LawAmendmentRefreshSchedulerService implements OnModuleInit, OnModu
     await this.refreshLawAmendments(job.data ?? {});
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= createStartedLawAmendmentRefreshBoss(
-      this.logger,
-      'amic-vault-law-amendment-refresh-worker',
-    );
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({ name: lawAmendmentRefreshDeadLetterQueueName, options: { retryLimit: 0, retentionSeconds: 7 * 24 * 60 * 60, deleteAfterSeconds: 7 * 24 * 60 * 60 } });
+    this.queueRegistry.register({ name: lawAmendmentRefreshQueueName, options: { retryLimit: 3, retryDelay: 60, retryBackoff: true, deadLetter: lawAmendmentRefreshDeadLetterQueueName, retentionSeconds: 14 * 24 * 60 * 60, deleteAfterSeconds: 7 * 24 * 60 * 60 } });
+    this.queueDefinitionsRegistered = true;
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(lawAmendmentRefreshQueueName);
   }
 }
 
@@ -180,43 +174,9 @@ export function lawAmendmentRefreshWorkOptions(): WorkOptions {
   };
 }
 
-export async function createStartedLawAmendmentRefreshBoss(
-  logger: Pick<Logger, 'warn'>,
-  applicationName: string,
-): Promise<PgBoss> {
-  const { PgBoss } = await import('pg-boss');
-  const boss = new PgBoss({
-    connectionString: databaseUrl,
-    ...pgBossRuntimeOptions({
-      applicationName,
-      migrateEnvName: 'LAW_AMENDMENT_REFRESH_MIGRATE_ENABLED',
-      createSchemaEnvName: 'LAW_AMENDMENT_REFRESH_CREATE_SCHEMA_ENABLED',
-      superviseEnvName: 'LAW_AMENDMENT_REFRESH_SUPERVISE_ENABLED',
-    }),
-  });
-  boss.on('error', () => {
-    logger.warn({ code: 'LAW_AMENDMENT_REFRESH_QUEUE_ERROR' });
-  });
-  await boss.start();
-  return boss;
-}
-
 export async function ensureLawAmendmentRefreshSchedule(
-  boss: Pick<PgBoss, 'createQueue' | 'schedule'>,
+  boss: Pick<PgBoss, 'schedule'>,
 ): Promise<void> {
-  await boss.createQueue(lawAmendmentRefreshDeadLetterQueueName, {
-    retryLimit: 0,
-    retentionSeconds: 7 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
-  await boss.createQueue(lawAmendmentRefreshQueueName, {
-    retryLimit: 3,
-    retryDelay: 60,
-    retryBackoff: true,
-    deadLetter: lawAmendmentRefreshDeadLetterQueueName,
-    retentionSeconds: 14 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
   await boss.schedule(
     lawAmendmentRefreshQueueName,
     lawAmendmentRefreshCron(),

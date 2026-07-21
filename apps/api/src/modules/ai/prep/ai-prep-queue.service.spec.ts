@@ -66,6 +66,19 @@ describe('AiPrepQueueService options', () => {
     expect(isAiPrepQueueWorkerEnabled()).toBe(false);
   });
 
+  it('reuses the complete shared AI prep definitions when another module owns the provider', async () => {
+    process.env.PROCESS_ROLE = 'api';
+    const queueRegistry = {
+      registeredQueueNames: vi.fn(() => ['ai.prep.dead', 'ai.prep']),
+      register: vi.fn(),
+    };
+    const service = new AiPrepQueueService({ log: vi.fn() } as never, queueRegistry as never);
+
+    await service.onModuleInit();
+
+    expect(queueRegistry.register).not.toHaveBeenCalled();
+  });
+
   it('serializes local Gemma prep workers globally', () => {
     process.env.AI_PREP_QUEUE_BATCH_SIZE = '4';
 
@@ -150,7 +163,7 @@ describe('AiPrepQueueService options', () => {
     const client = {
       query: vi.fn(async () => ({ rows: [{ matter_id: matterId }], rowCount: 1 })),
     };
-    const service = new AiPrepQueueService(audit as never);
+    const service = new AiPrepQueueService(audit as never, {} as never);
 
     await expect(
       service.enqueueVersionArtifacts(
@@ -186,7 +199,7 @@ describe('AiPrepQueueService options', () => {
     const client = {
       query: vi.fn(async () => ({ rows: [{ matter_id: matterId }], rowCount: 1 })),
     };
-    const service = new AiPrepQueueService(audit as never);
+    const service = new AiPrepQueueService(audit as never, {} as never);
 
     await expect(
       service.enqueueVersionArtifacts(
@@ -220,7 +233,11 @@ describe('AiPrepQueueService options', () => {
       }),
       markWorkerFailure: vi.fn(async () => undefined),
     };
-    const service = new AiPrepQueueService({ log: vi.fn() } as never, processor as never);
+    const service = new AiPrepQueueService(
+      { log: vi.fn() } as never,
+      {} as never,
+      processor as never,
+    );
 
     await expect(
       (

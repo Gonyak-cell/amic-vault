@@ -5,11 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { NestFactory } from '@nestjs/core';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import type { BulkUploadBatchDto, RegisterBulkUploadBatchDto } from '@amic-vault/shared';
 import { AppModule } from '../../../apps/api/src/app.module';
 import { configureApp } from '../../../apps/api/src/main';
+import { bootstrapWorker } from '../../../apps/api/src/worker-main';
 import {
   createClient,
   createMatter,
@@ -162,6 +163,7 @@ async function waitForBatch(
 
 describe('bulk upload batch integration', () => {
   let app: INestApplication;
+  let workerApp: INestApplicationContext;
   let baseUrl: string;
   let betaOwnerCookie: string;
   let betaMatterId: string;
@@ -171,12 +173,16 @@ describe('bulk upload batch integration', () => {
 
   beforeAll(async () => {
     process.env.BULK_UPLOAD_QUEUE_WORKER_ENABLED = 'true';
+    process.env.PROCESS_ROLE = 'api';
     tempDir = await mkdtemp(join(tmpdir(), 'amic-vault-b7-bulk-'));
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
     await app.listen(0);
     baseUrl = await app.getUrl();
     betaOwnerCookie = await loginBetaOwner(baseUrl);
+    process.env.PROCESS_ROLE = 'worker';
+    workerApp = await bootstrapWorker();
+    process.env.PROCESS_ROLE = 'api';
     await ensureFreshMatterAppSyncState('22222222-2222-4222-8222-222222222222', 'b7_bulk_upload');
     const clientId = await createClient(baseUrl, betaOwnerCookie, `B7 Bulk Client ${randomUUID()}`);
     betaMatterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'B7-BULK');
@@ -189,6 +195,7 @@ describe('bulk upload batch integration', () => {
         await storage.deleteByStorageUri('22222222-2222-4222-8222-222222222222', storageUri);
       }
     }
+    await workerApp?.close();
     await app?.close();
     if (tempDir) await rm(tempDir, { recursive: true, force: true });
     process.env = previousEnv;

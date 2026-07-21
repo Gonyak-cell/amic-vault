@@ -61,7 +61,11 @@ function createService(
   return {
     auditLog,
     queries,
-    service: new BulkDownloadMonitorService(auditService as unknown as AuditService, tenantReader),
+    service: new BulkDownloadMonitorService(
+      auditService as unknown as AuditService,
+      tenantReader,
+      {} as never,
+    ),
     tenantReader,
   };
 }

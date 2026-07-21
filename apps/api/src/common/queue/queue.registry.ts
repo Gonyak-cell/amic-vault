@@ -25,6 +25,8 @@ export function assertRuntimeQueueOptions(
 export class QueueRegistry implements OnModuleDestroy {
   private readonly logger = new Logger(QueueRegistry.name);
   private readonly definitions = new Map<string, QueueDefinition>();
+  private readonly createdQueueNames = new Set<string>();
+  private readonly queueCreationPromises = new Map<string, Promise<void>>();
   private boss: PgBoss | undefined;
   private startPromise: Promise<PgBoss> | undefined;
   private closePromise: Promise<void> | undefined;
@@ -48,7 +50,9 @@ export class QueueRegistry implements OnModuleDestroy {
 
   async producer(name: string): Promise<PgBoss> {
     this.assertRegistered(name);
-    return this.ensureStarted();
+    const boss = await this.ensureStarted();
+    await this.ensureQueueCreated(boss, name);
+    return boss;
   }
 
   async consumer(name: string): Promise<PgBoss> {
@@ -94,15 +98,35 @@ export class QueueRegistry implements OnModuleDestroy {
 
     try {
       await boss.start();
-      for (const definition of this.definitions.values()) {
-        await boss.createQueue(definition.name, definition.options);
-      }
       this.boss = boss;
+      for (const definition of this.definitions.values()) {
+        await this.ensureQueueCreated(boss, definition.name);
+      }
       return boss;
     } catch (error) {
+      this.boss = undefined;
       await boss.stop().catch(() => undefined);
       throw error;
     }
+  }
+
+  private async ensureQueueCreated(boss: PgBoss, name: string): Promise<void> {
+    if (this.createdQueueNames.has(name)) return;
+    const definition = this.definitions.get(name);
+    if (!definition) throw new Error('QUEUE_NOT_REGISTERED');
+
+    let creation = this.queueCreationPromises.get(name);
+    if (!creation) {
+      creation = boss.createQueue(name, definition.options).then(() => {
+        this.createdQueueNames.add(name);
+      });
+      this.queueCreationPromises.set(name, creation);
+      void creation.then(
+        () => this.queueCreationPromises.delete(name),
+        () => this.queueCreationPromises.delete(name),
+      );
+    }
+    await creation;
   }
 
   private async stopOnce(): Promise<void> {

@@ -3,7 +3,7 @@ import type { ConstructorOptions, PgBoss } from 'pg-boss';
 import { QueueRegistry } from './queue.registry';
 import { QUEUE_BOSS_FACTORY, QUEUE_RUNTIME_ENV, type QueueBossFactory } from './queue.tokens';
 
-export async function createRuntimeQueueBoss(options: ConstructorOptions): Promise<PgBoss> {
+export async function createQueueBoss(options: ConstructorOptions): Promise<PgBoss> {
   const { PgBoss } = await import('pg-boss');
   return new PgBoss(options);
 }
@@ -17,7 +17,7 @@ export async function createRuntimeQueueBoss(options: ConstructorOptions): Promi
     },
     {
       provide: QUEUE_BOSS_FACTORY,
-      useValue: createRuntimeQueueBoss satisfies QueueBossFactory,
+      useValue: createQueueBoss satisfies QueueBossFactory,
     },
     QueueRegistry,
   ],

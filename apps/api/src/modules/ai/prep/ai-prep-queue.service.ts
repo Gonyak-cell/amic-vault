@@ -2,27 +2,23 @@ import {
   Inject,
   Injectable,
   Logger,
-  OnModuleDestroy,
   OnModuleInit,
   Optional,
 } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss, SendOptions, WorkOptions } from 'pg-boss';
+import type { Job, SendOptions, WorkOptions } from 'pg-boss';
 import {
   aiPrepArtifactKindSchema,
   aiPrepArtifactKinds,
   type AuditMetadata,
 } from '@amic-vault/shared';
-import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../../common/process-role';
+import { currentProcessRole, queueWorkerEnabled } from '../../../common/process-role';
+import { QueueRegistry } from '../../../common/queue/queue.registry';
 import { AuditService } from '../../audit/audit.service';
 import { pgBossDbFromPoolClient } from '../../document/extraction/pool-client-db-adapter';
 import { AiPrepProcessor } from './ai-prep.processor';
 import { aiPrepDeadLetterQueueName, aiPrepQueueName, type AiPrepJobPayload } from './ai-prep.types';
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 const localGemmaPrepGroupId = 'local_gemma';
 
 export function isAiPrepQueueWorkerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -140,28 +136,24 @@ export function defaultAiPrepArtifactKinds(): AiPrepJobPayload['artifactKind'][]
 }
 
 @Injectable()
-export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
+export class AiPrepQueueService implements OnModuleInit {
   private readonly logger = new Logger(AiPrepQueueService.name);
   private readonly activeTenantCounts = new Map<string, number>();
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
     @Optional()
     @Inject(AiPrepProcessor)
     private readonly processor?: AiPrepProcessor,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isAiPrepQueueWorkerEnabled() || !this.processor) return;
+    this.ensureQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isAiPrepQueueWorkerEnabled() || !this.processor) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async enqueueVersionArtifacts(
@@ -203,7 +195,8 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
         matterId: targetMatterId,
         artifactKind,
       };
-      const boss = await this.ensureStarted();
+      this.ensureQueueDefinitions();
+      const boss = await this.queueRegistry.producer(aiPrepQueueName);
       const jobId = await boss.send(
         aiPrepQueueName,
         payload,
@@ -236,7 +229,7 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered || !this.processor) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.queueRegistry.consumer(aiPrepQueueName);
     await boss.work<AiPrepJobPayload>(
       aiPrepQueueName,
       aiPrepQueueWorkOptions(),
@@ -303,43 +296,38 @@ export class AiPrepQueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
-  }
-
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-ai-prep-queue',
-        migrateEnvName: 'AI_PREP_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'AI_PREP_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'AI_PREP_QUEUE_SUPERVISE_ENABLED',
-      }),
+  private ensureQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    const registered = new Set(this.queueRegistry.registeredQueueNames());
+    const existingDefinitions = [aiPrepDeadLetterQueueName, aiPrepQueueName].filter((name) =>
+      registered.has(name),
+    );
+    if (existingDefinitions.length > 0) {
+      if (existingDefinitions.length !== 2) throw new Error('AI_PREP_QUEUE_DEFINITION_PARTIAL');
+      this.queueDefinitionsRegistered = true;
+      return;
+    }
+    this.queueRegistry.register({
+      name: aiPrepDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
     });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'AI_PREP_QUEUE_ERROR', message: String(error.message) });
+    this.queueRegistry.register({
+      name: aiPrepQueueName,
+      options: {
+        expireInSeconds: aiPrepQueueExpireSeconds(),
+        retryLimit: 5,
+        retryDelay: 2,
+        retryBackoff: true,
+        deadLetter: aiPrepDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
     });
-    await boss.start();
-    await boss.createQueue(aiPrepDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(aiPrepQueueName, {
-      expireInSeconds: aiPrepQueueExpireSeconds(),
-      retryLimit: 5,
-      retryDelay: 2,
-      retryBackoff: true,
-      deadLetter: aiPrepDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+    this.queueDefinitionsRegistered = true;
   }
 
   private async findMatterId(

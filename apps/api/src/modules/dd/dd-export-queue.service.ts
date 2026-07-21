@@ -1,13 +1,14 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss } from 'pg-boss';
+import type { Job } from 'pg-boss';
 import {
   ddExportJobResponseSchema,
   type CreateDdExportJobRequestDto,
   type DdExportJobResponseDto,
   type PermissionContext,
 } from '@amic-vault/shared';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
+import { currentProcessRole } from '../../common/process-role';
+import { QueueRegistry } from '../../common/queue/queue.registry';
 import { AuditService } from '../audit/audit.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { TenantService } from '../tenant/tenant.service';
@@ -21,15 +22,10 @@ import {
 } from './dd-export-queue.types';
 import { DdService } from './dd.service';
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
 @Injectable()
-export class DdExportQueueService implements OnModuleInit, OnModuleDestroy {
+export class DdExportQueueService implements OnModuleInit {
   private readonly logger = new Logger(DdExportQueueService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
@@ -37,16 +33,13 @@ export class DdExportQueueService implements OnModuleInit, OnModuleDestroy {
     @Inject(DdService) private readonly dd: DdService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(TenantService) private readonly tenants: TenantService,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isDdExportQueueWorkerEnabled()) return;
+    this.ensureQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isDdExportQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async enqueueFromRequest(
@@ -80,7 +73,8 @@ export class DdExportQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async enqueue(input: DdExportJobPayload, client: PoolClient): Promise<string> {
-    const boss = await this.ensureStarted();
+    this.ensureQueueDefinitions();
+    const boss = await this.queueRegistry.producer(ddExportQueueName);
     const jobId = await boss.send(ddExportQueueName, input, ddExportQueueSendOptions(input, client));
     if (!jobId) throw new Error('DD export job enqueue returned no id');
     return jobId;
@@ -121,7 +115,7 @@ export class DdExportQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.queueRegistry.consumer(ddExportQueueName);
     await boss.work<DdExportJobPayload>(
       ddExportQueueName,
       ddExportQueueWorkOptions(),
@@ -161,41 +155,27 @@ export class DdExportQueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
-  }
-
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-dd-export-queue',
-        migrateEnvName: 'DD_EXPORT_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'DD_EXPORT_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'DD_EXPORT_QUEUE_SUPERVISE_ENABLED',
-      }),
+  private ensureQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: ddExportDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
     });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'DD_EXPORT_QUEUE_ERROR', message: String(error.message) });
+    this.queueRegistry.register({
+      name: ddExportQueueName,
+      options: {
+        retryLimit: 3,
+        retryDelay: 1,
+        retryBackoff: true,
+        deadLetter: ddExportDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
     });
-    await boss.start();
-    await boss.createQueue(ddExportDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(ddExportQueueName, {
-      retryLimit: 3,
-      retryDelay: 1,
-      retryBackoff: true,
-      deadLetter: ddExportDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+    this.queueDefinitionsRegistered = true;
   }
 }

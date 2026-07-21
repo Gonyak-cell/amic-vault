@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NestFactory } from '@nestjs/core';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, INestApplicationContext } from '@nestjs/common';
 import type {
   ClauseBankEntryDto,
   ClauseBankEntryListResponseDto,
@@ -27,6 +27,7 @@ import type {
 } from '@amic-vault/shared';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
+import { bootstrapWorker } from '../../apps/api/src/worker-main';
 import {
   createOwnerClient,
   setTenant,
@@ -101,6 +102,7 @@ describe('contract intelligence integration', () => {
     MATTER_APP_API_TOKEN: process.env.MATTER_APP_API_TOKEN,
   };
   let app: INestApplication;
+  let workerApp: INestApplicationContext;
   let baseUrl: string;
   let ownerCookie: string;
   let adminCookie: string;
@@ -109,6 +111,7 @@ describe('contract intelligence integration', () => {
   let previousEmbeddingEnabled: string | undefined;
   let previousEmbeddingModel: string | undefined;
   let previousDdExportQueueWorkerEnabled: string | undefined;
+  let previousProcessRole: string | undefined;
   const playbookRuleKey = `nda.confidentiality.${marker}`;
 
   beforeAll(async () => {
@@ -116,12 +119,14 @@ describe('contract intelligence integration', () => {
     previousEmbeddingEnabled = process.env.LOCAL_EMBEDDING_ENABLED;
     previousEmbeddingModel = process.env.LOCAL_EMBEDDING_MODEL;
     previousDdExportQueueWorkerEnabled = process.env.DD_EXPORT_QUEUE_WORKER_ENABLED;
+    previousProcessRole = process.env.PROCESS_ROLE;
     const embeddingEndpoint = await startEmbeddingEndpoint();
     embeddingServer = embeddingEndpoint.server;
     process.env.LOCAL_EMBEDDING_ENDPOINT = embeddingEndpoint.url;
     process.env.LOCAL_EMBEDDING_ENABLED = '1';
     process.env.LOCAL_EMBEDDING_MODEL = 'bge-m3';
     process.env.DD_EXPORT_QUEUE_WORKER_ENABLED = '1';
+    process.env.PROCESS_ROLE = 'api';
     process.env.MATTER_APP_SOURCE_MODE = 'matter_app_api';
     process.env.MATTER_APP_SOURCE_CONFIGURED = 'true';
     process.env.MATTER_APP_RUNTIME_READY = 'true';
@@ -308,15 +313,20 @@ This Non-Disclosure Agreement protects confidential information. Use reasonable 
       email: 'alpha-firm-admin@test.local',
       password: 'dev-alpha-firm-admin-password',
     });
+    process.env.PROCESS_ROLE = 'worker';
+    workerApp = await bootstrapWorker();
+    process.env.PROCESS_ROLE = 'api';
   });
 
   afterAll(async () => {
+    await workerApp.close();
     await app.close();
     await closeServer(embeddingServer);
     restoreEnv('LOCAL_EMBEDDING_ENDPOINT', previousEmbeddingEndpoint);
     restoreEnv('LOCAL_EMBEDDING_ENABLED', previousEmbeddingEnabled);
     restoreEnv('LOCAL_EMBEDDING_MODEL', previousEmbeddingModel);
     restoreEnv('DD_EXPORT_QUEUE_WORKER_ENABLED', previousDdExportQueueWorkerEnabled);
+    restoreEnv('PROCESS_ROLE', previousProcessRole);
     restoreEnv('MATTER_APP_SOURCE_MODE', previousMatterAppEnv.MATTER_APP_SOURCE_MODE);
     restoreEnv('MATTER_APP_SOURCE_CONFIGURED', previousMatterAppEnv.MATTER_APP_SOURCE_CONFIGURED);
     restoreEnv('MATTER_APP_RUNTIME_READY', previousMatterAppEnv.MATTER_APP_RUNTIME_READY);

@@ -1,16 +1,10 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
 import { DatabaseService } from '../../common/db/database.service';
-import { queueWorkerEnabled } from '../../common/process-role';
+import { QueueRegistry } from '../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../common/process-role';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { WorkService } from '../work/work.service';
-
-// PgBoss lifecycle ownership is the separate OSS01-04 scope. This PACK removes
-// only the tenant-registry Pool and leaves the existing queue constructor intact.
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export const retentionReviewQueueName = 'records.retention.review';
 export const retentionReviewDeadLetterQueueName = 'records.retention.review.dead';
@@ -50,10 +44,9 @@ export class RetentionTenantReader {
 }
 
 @Injectable()
-export class RetentionSchedulerService implements OnModuleInit, OnModuleDestroy {
+export class RetentionSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(RetentionSchedulerService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
@@ -61,16 +54,13 @@ export class RetentionSchedulerService implements OnModuleInit, OnModuleDestroy 
     @Inject(WorkService) private readonly workService: WorkService,
     @Inject(RetentionTenantReader)
     private readonly tenantReader: Pick<RetentionTenantReader, 'listActiveTenantIds'>,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isRetentionSchedulerWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isRetentionSchedulerWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async scheduleExpiredRetentionReviews(input: {
@@ -283,7 +273,7 @@ export class RetentionSchedulerService implements OnModuleInit, OnModuleDestroy 
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await ensureRetentionReviewSchedule(boss);
     await boss.work<RetentionReviewJobPayload>(
       retentionReviewQueueName,
@@ -311,14 +301,16 @@ export class RetentionSchedulerService implements OnModuleInit, OnModuleDestroy 
     await this.scheduleExpiredRetentionReviews(asOf ? { asOf } : {});
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= createStartedRetentionReviewBoss(
-      this.logger,
-      'amic-vault-retention-review-worker',
-    );
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({ name: retentionReviewDeadLetterQueueName, options: { retryLimit: 0, retentionSeconds: 7 * 24 * 60 * 60, deleteAfterSeconds: 7 * 24 * 60 * 60 } });
+    this.queueRegistry.register({ name: retentionReviewQueueName, options: { retryLimit: 5, retryDelay: 60, retryBackoff: true, deadLetter: retentionReviewDeadLetterQueueName, retentionSeconds: 14 * 24 * 60 * 60, deleteAfterSeconds: 7 * 24 * 60 * 60 } });
+    this.queueDefinitionsRegistered = true;
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(retentionReviewQueueName);
   }
 }
 
@@ -351,43 +343,9 @@ export function retentionReviewWorkOptions(): WorkOptions {
   };
 }
 
-export async function createStartedRetentionReviewBoss(
-  logger: Pick<Logger, 'warn'>,
-  applicationName: string,
-): Promise<PgBoss> {
-  const { PgBoss } = await import('pg-boss');
-  const boss = new PgBoss({
-    connectionString: databaseUrl,
-    ...pgBossRuntimeOptions({
-      applicationName,
-      migrateEnvName: 'RETENTION_REVIEW_QUEUE_MIGRATE_ENABLED',
-      createSchemaEnvName: 'RETENTION_REVIEW_QUEUE_CREATE_SCHEMA_ENABLED',
-      superviseEnvName: 'RETENTION_REVIEW_QUEUE_SUPERVISE_ENABLED',
-    }),
-  });
-  boss.on('error', () => {
-    logger.warn({ code: 'RETENTION_REVIEW_QUEUE_ERROR' });
-  });
-  await boss.start();
-  return boss;
-}
-
 export async function ensureRetentionReviewSchedule(
-  boss: Pick<PgBoss, 'createQueue' | 'schedule'>,
+  boss: Pick<PgBoss, 'schedule'>,
 ): Promise<void> {
-  await boss.createQueue(retentionReviewDeadLetterQueueName, {
-    retryLimit: 0,
-    retentionSeconds: 7 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
-  await boss.createQueue(retentionReviewQueueName, {
-    retryLimit: 5,
-    retryDelay: 60,
-    retryBackoff: true,
-    deadLetter: retentionReviewDeadLetterQueueName,
-    retentionSeconds: 14 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
   await boss.schedule(
     retentionReviewQueueName,
     retentionReviewCron(),

@@ -1,10 +1,11 @@
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../../apps/api/src/app.module';
 import { configureApp } from '../../../apps/api/src/main';
+import { bootstrapWorker } from '../../../apps/api/src/worker-main';
 import {
   createClient,
   createMatter,
@@ -178,24 +179,31 @@ async function comparisonAuditMetadata(documentId: string) {
 
 describe('document comparison integration', () => {
   let app: INestApplication;
+  let workerApp: INestApplicationContext;
   let baseUrl: string;
   let ownerCookie: string;
   let memberCookie: string;
   let previousQueueWorkerEnabled: string | undefined;
   let previousComparisonQueueWorkerEnabled: string | undefined;
+  let previousProcessRole: string | undefined;
   const createdDocumentIds: string[] = [];
 
   beforeAll(async () => {
     previousQueueWorkerEnabled = process.env.EXTRACTION_QUEUE_WORKER_ENABLED;
     previousComparisonQueueWorkerEnabled = process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED;
+    previousProcessRole = process.env.PROCESS_ROLE;
     process.env.EXTRACTION_QUEUE_WORKER_ENABLED = '0';
     process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED = '1';
+    process.env.PROCESS_ROLE = 'api';
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
     await app.listen(0);
     baseUrl = await app.getUrl();
     ownerCookie = await loginBetaOwner(baseUrl);
     memberCookie = await loginBetaMember(baseUrl);
+    process.env.PROCESS_ROLE = 'worker';
+    workerApp = await bootstrapWorker();
+    process.env.PROCESS_ROLE = 'api';
     await ensureFreshMatterAppSyncState(tenantBetaId, 'b11_document_comparison');
   });
 
@@ -206,6 +214,7 @@ describe('document comparison integration', () => {
         await storage.deleteByStorageUri(tenantBetaId, storageUri).catch(() => undefined);
       }
     }
+    await workerApp.close();
     await app.close();
     if (previousQueueWorkerEnabled === undefined) {
       delete process.env.EXTRACTION_QUEUE_WORKER_ENABLED;
@@ -217,6 +226,8 @@ describe('document comparison integration', () => {
     } else {
       process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED = previousComparisonQueueWorkerEnabled;
     }
+    if (previousProcessRole === undefined) delete process.env.PROCESS_ROLE;
+    else process.env.PROCESS_ROLE = previousProcessRole;
   });
 
   it('creates a clause-level comparison for uploaded v1/v2 DOCX versions and blocks unauthorized users', async () => {

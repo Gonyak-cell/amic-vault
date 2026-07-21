@@ -1,14 +1,10 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { TenantId } from '@amic-vault/shared';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
 import { DatabaseService } from '../../common/db/database.service';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../common/process-role';
+import { QueueRegistry } from '../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../common/process-role';
 import { NotificationsService } from './notifications.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export const ddRfiNotificationSweepQueueName = 'dd.rfi-notification.sweep';
 export const ddRfiNotificationSweepDeadLetterQueueName = 'dd.rfi-notification.sweep.dead';
@@ -35,10 +31,9 @@ export class DdRfiNotificationTenantReader {
 }
 
 @Injectable()
-export class DdRfiNotificationSchedulerService implements OnModuleInit, OnModuleDestroy {
+export class DdRfiNotificationSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(DdRfiNotificationSchedulerService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
@@ -49,16 +44,13 @@ export class DdRfiNotificationSchedulerService implements OnModuleInit, OnModule
     >,
     @Inject(DdRfiNotificationTenantReader)
     private readonly tenantReader: Pick<DdRfiNotificationTenantReader, 'listActiveTenantIds'>,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isDdRfiNotificationSchedulerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isDdRfiNotificationSchedulerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async sweepDdRfiNotifications(
@@ -97,7 +89,7 @@ export class DdRfiNotificationSchedulerService implements OnModuleInit, OnModule
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await ensureDdRfiNotificationSweepSchedule(boss);
     await boss.work<DdRfiNotificationSweepJobPayload>(
       ddRfiNotificationSweepQueueName,
@@ -124,14 +116,16 @@ export class DdRfiNotificationSchedulerService implements OnModuleInit, OnModule
     await this.sweepDdRfiNotifications(job.data ?? {});
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= createStartedDdRfiNotificationBoss(
-      this.logger,
-      'amic-vault-dd-rfi-notification-worker',
-    );
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({ name: ddRfiNotificationSweepDeadLetterQueueName, options: { retryLimit: 0, retentionSeconds: 7 * 24 * 60 * 60, deleteAfterSeconds: 7 * 24 * 60 * 60 } });
+    this.queueRegistry.register({ name: ddRfiNotificationSweepQueueName, options: { retryLimit: 3, retryDelay: 60, retryBackoff: true, deadLetter: ddRfiNotificationSweepDeadLetterQueueName, retentionSeconds: 14 * 24 * 60 * 60, deleteAfterSeconds: 7 * 24 * 60 * 60 } });
+    this.queueDefinitionsRegistered = true;
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(ddRfiNotificationSweepQueueName);
   }
 }
 
@@ -164,43 +158,9 @@ export function ddRfiNotificationSweepWorkOptions(): WorkOptions {
   };
 }
 
-export async function createStartedDdRfiNotificationBoss(
-  logger: Pick<Logger, 'warn'>,
-  applicationName: string,
-): Promise<PgBoss> {
-  const { PgBoss } = await import('pg-boss');
-  const boss = new PgBoss({
-    connectionString: databaseUrl,
-    ...pgBossRuntimeOptions({
-      applicationName,
-      migrateEnvName: 'DD_RFI_NOTIFICATION_SWEEPER_MIGRATE_ENABLED',
-      createSchemaEnvName: 'DD_RFI_NOTIFICATION_SWEEPER_CREATE_SCHEMA_ENABLED',
-      superviseEnvName: 'DD_RFI_NOTIFICATION_SWEEPER_SUPERVISE_ENABLED',
-    }),
-  });
-  boss.on('error', () => {
-    logger.warn({ code: 'DD_RFI_NOTIFICATION_SWEEP_QUEUE_ERROR' });
-  });
-  await boss.start();
-  return boss;
-}
-
 export async function ensureDdRfiNotificationSweepSchedule(
-  boss: Pick<PgBoss, 'createQueue' | 'schedule'>,
+  boss: Pick<PgBoss, 'schedule'>,
 ): Promise<void> {
-  await boss.createQueue(ddRfiNotificationSweepDeadLetterQueueName, {
-    retryLimit: 0,
-    retentionSeconds: 7 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
-  await boss.createQueue(ddRfiNotificationSweepQueueName, {
-    retryLimit: 3,
-    retryDelay: 60,
-    retryBackoff: true,
-    deadLetter: ddRfiNotificationSweepDeadLetterQueueName,
-    retentionSeconds: 14 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
   await boss.schedule(
     ddRfiNotificationSweepQueueName,
     ddRfiNotificationSweepCron(),

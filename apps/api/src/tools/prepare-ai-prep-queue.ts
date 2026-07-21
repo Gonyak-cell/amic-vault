@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { Client } from 'pg';
+import { createQueueBoss } from '../common/queue/queue.module';
 import { aiPrepDeadLetterQueueName, aiPrepQueueName } from '../modules/ai/prep/ai-prep.types';
 
 const defaultDatabaseUrl =
@@ -56,8 +57,7 @@ export async function prepareAiPrepQueue(
     };
   }
 
-  const { PgBoss } = await import('pg-boss');
-  const boss = new PgBoss({
+  const boss = await createQueueBoss({
     connectionString: args.databaseUrl,
     application_name: 'amic-vault-ai-prep-queue-prepare',
     schema: args.schema,

@@ -11,6 +11,8 @@ describe('ContractAiReviewWorkerService', () => {
     };
     const worker = new ContractAiReviewWorkerService(
       summaries as unknown as AiSummaryService,
+      { ensureQueueDefinitions: vi.fn() } as never,
+      {} as never,
     );
 
     await worker.handle({

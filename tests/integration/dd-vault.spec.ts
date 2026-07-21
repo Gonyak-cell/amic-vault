@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NestFactory } from '@nestjs/core';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, INestApplicationContext } from '@nestjs/common';
 import type {
   DdDataRoomMappingDto,
   DdExportJobResponseDto,
@@ -16,6 +16,7 @@ import type {
 } from '@amic-vault/shared';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
+import { bootstrapWorker } from '../../apps/api/src/worker-main';
 import { ddExportQueueName } from '../../apps/api/src/modules/dd/dd-export-queue.types';
 import { DdService } from '../../apps/api/src/modules/dd/dd.service';
 import { NotificationsService } from '../../apps/api/src/modules/notifications/notifications.service';
@@ -51,8 +52,10 @@ describe('DD Vault integration', () => {
     DD_EXPORT_QUEUE_WORKER_ENABLED: process.env.DD_EXPORT_QUEUE_WORKER_ENABLED,
   };
   let app: INestApplication;
+  let workerApp: INestApplicationContext;
   let baseUrl: string;
   let ownerCookie: string;
+  let previousProcessRole: string | undefined;
 
   beforeAll(async () => {
     process.env.MATTER_APP_SOURCE_MODE = 'matter_app_api';
@@ -62,6 +65,8 @@ describe('DD Vault integration', () => {
     process.env.MATTER_APP_API_BASE_URL = 'https://matter-app.test.local';
     process.env.MATTER_APP_API_TOKEN = 'test-matter-app-token';
     process.env.DD_EXPORT_QUEUE_WORKER_ENABLED = '1';
+    previousProcessRole = process.env.PROCESS_ROLE;
+    process.env.PROCESS_ROLE = 'api';
     await insertDocument({
       documentId,
       versionId,
@@ -100,9 +105,13 @@ describe('DD Vault integration', () => {
       email: 'alpha-matter-owner@test.local',
       password: 'dev-alpha-owner-password',
     });
+    process.env.PROCESS_ROLE = 'worker';
+    workerApp = await bootstrapWorker();
+    process.env.PROCESS_ROLE = 'api';
   });
 
   afterAll(async () => {
+    await workerApp.close();
     await app.close();
     restoreEnv('MATTER_APP_SOURCE_MODE', previousMatterAppEnv.MATTER_APP_SOURCE_MODE);
     restoreEnv('MATTER_APP_SOURCE_CONFIGURED', previousMatterAppEnv.MATTER_APP_SOURCE_CONFIGURED);
@@ -114,6 +123,7 @@ describe('DD Vault integration', () => {
       'DD_EXPORT_QUEUE_WORKER_ENABLED',
       previousMatterAppEnv.DD_EXPORT_QUEUE_WORKER_ENABLED,
     );
+    restoreEnv('PROCESS_ROLE', previousProcessRole);
   });
 
   it('creates internal RFI, mapping, issue, risk, and permission-scoped traceability', async () => {

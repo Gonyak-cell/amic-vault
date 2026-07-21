@@ -13,7 +13,6 @@ import {
 import type { AuditAnchorRecord } from './audit-anchor.service';
 
 interface FakeBoss {
-  createQueue: (name: string, options?: object) => Promise<void>;
   schedule: (name: string, cron: string, data?: object | null, options?: object) => Promise<void>;
   work: (
     name: string,
@@ -66,6 +65,7 @@ describe('AuditAnchorJobService', () => {
   });
 
   it('registers the daily schedule and records anchors for all active tenants', async () => {
+    process.env.PROCESS_ROLE = 'worker';
     process.env.AUDIT_ANCHOR_QUEUE_WORKER_ENABLED = 'true';
     const tenantIds = [
       '11111111-1111-4111-8111-111111111111',
@@ -76,7 +76,6 @@ describe('AuditAnchorJobService', () => {
       (jobs: Array<{ data: AuditAnchorJobPayload }>) => Promise<void>
     >();
     const boss: FakeBoss = {
-      createQueue: vi.fn(async () => undefined),
       schedule: vi.fn(async () => undefined),
       work: vi.fn(async (name, _options, handler) => {
         handlers.set(name, handler);
@@ -92,23 +91,16 @@ describe('AuditAnchorJobService', () => {
         anchorRecord(input.tenantId, input.anchorDate),
       ),
     };
-    const service = new AuditAnchorJobService(anchorService, tenantReader);
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<FakeBoss>;
-      }
-    ).ensureStarted = async () => boss;
+    const queueRegistry = {
+      register: vi.fn(),
+      consumer: vi.fn(async () => boss),
+    };
+    const service = new AuditAnchorJobService(anchorService, tenantReader, queueRegistry as never);
 
     await service.onModuleInit();
 
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      auditAnchorDeadLetterQueueName,
-      expect.objectContaining({ retryLimit: 0 }),
-    );
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      auditAnchorQueueName,
-      expect.objectContaining({ deadLetter: auditAnchorDeadLetterQueueName }),
-    );
+    expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.consumer).toHaveBeenCalledWith(auditAnchorQueueName);
     expect(boss.schedule).toHaveBeenCalledWith(
       auditAnchorQueueName,
       '10 0 * * *',
@@ -142,7 +134,7 @@ describe('AuditAnchorJobService', () => {
         return anchorRecord(input.tenantId, input.anchorDate);
       }),
     };
-    const service = new AuditAnchorJobService(anchorService, tenantReader);
+    const service = new AuditAnchorJobService(anchorService, tenantReader, {} as never);
 
     await expect(service.recordDailyAnchors({ anchorDate: '2026-01-02' })).rejects.toThrow(
       'audit anchor daily job failed for 1 tenant(s)',

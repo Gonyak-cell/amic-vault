@@ -61,6 +61,17 @@ describe('QueueRegistry', () => {
     expect(factory).not.toHaveBeenCalled();
   });
 
+  it('provisions a definition registered after the shared lifecycle has started', async () => {
+    const { registry, boss } = createRegistry();
+    registry.register({ name: 'queue.first' });
+    await registry.producer('queue.first');
+    registry.register({ name: 'queue.late', options: { retryLimit: 2 } });
+
+    await expect(registry.producer('queue.late')).resolves.toBe(boss);
+
+    expect(boss.createQueue).toHaveBeenCalledWith('queue.late', { retryLimit: 2 });
+  });
+
   it('allows consumer acquisition only in worker role', async () => {
     const { registry, boss } = createRegistry({
       NODE_ENV: 'test',
