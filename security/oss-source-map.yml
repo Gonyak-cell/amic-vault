@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "oss-source-map-v1",
+  "sourceLab": {
+    "rootEnvironment": "OSS_RESEARCH_ROOT",
+    "owner": "engineering",
+    "retention": "research-only; remove clones when their lock row is retired",
+    "productTreeInclusion": "FORBIDDEN",
+    "credentialPolicy": "no credentials, customer data, or private remotes"
+  },
+  "components": []
+}
