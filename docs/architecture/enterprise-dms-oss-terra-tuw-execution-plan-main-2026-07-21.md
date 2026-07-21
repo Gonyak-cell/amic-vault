@@ -1,6 +1,9 @@
 # AMIC Vault 엔터프라이즈 DMS OSS Source-First 실행계획 — GPT-5.6 Terra용 TUW 분해
 
-**상태:** Proposed — canonical PACK/TUW 등록과 사람 승인 전 구현 금지
+**상태:** Active execution plan — proposed ID는 just-in-time canonical 등록 전까지
+proposal이며, 등록·구현은
+[OSS Terra 자율 순차 실행 권한](../execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md)을
+따른다.
 
 **작성일:** 2026-07-21
 
@@ -20,9 +23,11 @@
 
 다만 이 ID들은 모두 계획용이다. 실제 실행 전 다음 절차가 선행돼야 한다.
 
-1. 사람 승인을 받은 뒤 `docs/package/codex/60_Execution_Packs.md`와 해당 backlog에 canonical PACK/TUW를 등록한다.
+1. 자율 실행 권한 아래에서 frozen `docs/package/codex/60_Execution_Packs.md`를
+   변경하지 않고 live execution registry와 해당 backlog에 canonical PACK/TUW를 등록한다.
 2. 등록 과정에서 ID, release, branch, dependency, `Files create / modify / NOT-modify`, 검증 명령을 다시 확정한다.
-3. `docs/package/**`는 현재 문서 작업에서 수정하지 않는다. 등록은 별도 승인 작업이다.
+3. `docs/package/**`는 현재 문서 작업에서 수정하지 않는다. 등록은 별도 사람 승인
+   작업이 아니지만 live registry 검증을 통과해야 한다.
 4. canonical 등록 전에는 이 문서를 근거로 application code, migration, dependency, infrastructure를 변경하지 않는다.
 
 이 계획의 OSS 활용 의미는 “README 참고”가 아니다. OSS-00A에서 모든 후보를 제품 repository 밖의 승인된 source lab에 exact SHA로 clone하고 upstream build/test와 file-level source map을 만든다. 후속 TUW는 그 map이 승인한 L0~L4 입력만 사용한다. 전체 repository를 제품 tree에 복사하거나 DMS core를 교체하는 계획은 아니다.
@@ -31,8 +36,10 @@
 
 ### 1.1 한 번에 실행할 범위
 
-- 운영자가 지정한 **canonical TUW 1개만** 구현한다. sub-PACK 전체를 한 번에 추정 구현하지 않는다.
-- 같은 sub-PACK의 앞 TUW가 merge되지 않았으면 다음 TUW를 시작하지 않는다.
+- 에이전트는 다음 dependency-ready **canonical TUW 1개만** 구현한다. sub-PACK 전체를
+  한 번에 추정 구현하지 않는다.
+- 같은 sub-PACK의 앞 TUW는 atomic commit과 local technical evidence가 있어야 한다.
+  자율 실행 권한에서는 merge를 다음 TUW 시작의 선행조건으로 삼지 않는다.
 - TUW마다 focused test를 green으로 만들고 한 개의 atomic commit 후보를 남긴다.
 - sub-PACK 마지막 TUW에서만 PACK 전체 회귀, evidence manifest, PR 준비를 수행한다.
 - 현재 checkout이 dirty이면 먼저 변경 소유권과 겹침을 분류한다. 관련 없는 사용자 변경을 stage, reset, reformat, revert하지 않는다.
@@ -51,7 +58,8 @@ git rev-parse origin/main
 그 다음 아래를 확인한다.
 
 1. 해당 proposed ID가 canonical ID로 등록됐고 지정 branch가 존재하는가.
-2. `Depends_on`의 모든 PACK/TUW가 merge됐고 필요한 Gate/사람 승인이 있는가.
+2. `Depends_on`의 모든 PACK/TUW가 canonical 등록됐고 local technical evidence와
+   required Gate가 있는가. 이 계획의 반복 사람 승인은 자율 실행 권한으로 대체된다.
 3. 상위 계획, 본 TUW, `security/oss-source-map.yml`, 해당 `docs/architecture/oss-adoption-decisions/<component>.md`가 같은 adoption mode와 pin을 가리키는가.
 4. 신규 migration이면 시작 직전 `db/migrations/`의 실제 다음 번호를 다시 계산했는가. 계획의 `<next>`를 숫자로 추측하지 않는다.
 5. 신규 dependency 또는 service가 TUW에 명시됐는가. 명시되지 않았으면 추가하지 않는다.

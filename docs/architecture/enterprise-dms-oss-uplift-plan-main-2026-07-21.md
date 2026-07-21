@@ -1,6 +1,8 @@
 # AMIC Vault 엔터프라이즈 DMS OSS 활용 상세 계획
 
-**상태:** Proposed — 실행 전 PACK/TUW 등록과 승인 필요
+**상태:** Active execution plan — proposed ID의 just-in-time canonical 등록과 구현은
+[OSS Terra 자율 순차 실행 권한](../execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md)을
+따른다.
 
 **작성일:** 2026-07-21
 
@@ -26,7 +28,10 @@
 
 기존 `docs/handoff/dms-uplift-2026-07/`는 9인 단일 로펌 내부용 완화 정책을 전제로 SSO, BYOK, SIEM, 강화된 멀티테넌시 등을 제외했다. 본 계획은 그 원장을 덮어쓰지 않고, 현재 `main`을 엔터프라이즈 SaaS로 올리기 위한 별도 확장 계획이다.
 
-`docs/package/**`는 읽기 전용이다. 본 계획의 제안 ID는 canonical TUW/PACK ID가 아니며, 실제 실행 전 `docs/package/codex/60_Execution_Packs.md`와 ledger 절차에 따라 등록해야 한다.
+`docs/package/**`는 읽기 전용이다. 본 계획의 제안 ID는 canonical TUW/PACK ID가 아니며,
+실제 실행 전 live execution registry, canonical backlog, TUW detail contract와
+append-only ledger 절차에 따라 등록해야 한다. 이 과정의 PACK별 사람 승인은 자율 순차
+실행 권한으로 대체되며, frozen package는 수정하지 않는다.
 
 이 문서의 “OSS 최대 활용”은 shortlist 저장소를 root URL로만 참고하는 뜻이 아니다. 모든 유력 후보를 제품 repository 밖의 승인된 source lab에 exact commit으로 로컬 clone하고, upstream 원본 build/test와 file-level source map을 만든 뒤, 새 제품 코드를 작성하기 전에 공식 artifact·adapter·selective vendoring·patch/fork·behavioral transplant 가능성을 순서대로 판정하는 것을 뜻한다. clone은 전수 조사 원칙이고 제품 코드 편입은 선택적 승인 사항이다.
 
@@ -436,7 +441,7 @@ repository root URL만 있거나 upstream test path가 비어 있는데 “최�
 
 아래 `PROPOSED-OSS-*`는 계획 식별자다. canonical PACK/TUW 등록 전 구현 금지다.
 
-정확히는 아래 항목은 수 주 규모의 **macro portfolio**이며 한 브랜치·한 PR로 실행하는 canonical PACK이 아니다. 실제 구현 단위는 동반 [Terra TUW 실행계획](./enterprise-dms-oss-terra-tuw-execution-plan-main-2026-07-21.md)의 30개 proposed sub-PACK/111개 TUW다. 그 ID도 canonical이 아니므로 `docs/package/codex/60_Execution_Packs.md` 등록·사람 승인 후에만 실행한다.
+정확히는 아래 항목은 수 주 규모의 **macro portfolio**이며 한 브랜치·한 PR로 실행하는 canonical PACK이 아니다. 실제 구현 단위는 동반 [Terra TUW 실행계획](./enterprise-dms-oss-terra-tuw-execution-plan-main-2026-07-21.md)의 30개 proposed sub-PACK/111개 TUW다. 그 ID도 canonical이 아니므로 live registry·backlog·detail contract 등록 후에만 실행한다. 이 등록과 순차 구현은 자율 실행 권한 아래 PACK별 사람 승인 없이 진행한다.
 
 OSS-00과 OSS-00A를 제외한 모든 PACK은 시작 전에 관련 `security/oss-source-map.yml` row와 adoption decision이 승인돼야 한다. 각 PACK은 source map에 지정된 upstream baseline을 재생하고, 재사용한 code/test/fixture/behavior와 의도적으로 거부한 부분을 evidence에 포함한다.
 
@@ -1798,7 +1803,8 @@ node tools/security/check-source-provenance.mjs
 ## 15. 실행 착수 체크리스트
 
 - [ ] 현재 main SHA/tree 재확인
-- [ ] 이 Proposed 계획의 canonical PACK/TUW 등록 승인
+- [x] `USER-UMBRELLA-AUTONOMY-20260721`에 따른 이 Proposed 계획의 canonical
+  PACK/TUW just-in-time 등록 권한
 - [ ] 각 TUW의 Files create/modify/NOT-modify 확정
 - [ ] Risk=C independent reviewer 지정
 - [ ] Source-First 방법론 S0~S9와 L0~L4 승인
@@ -1853,4 +1859,10 @@ LOC 복사량이 아니라 다음 지표로 “OSS 최대 활용”을 판정한
 
 ---
 
-이 문서가 승인되더라도 upstream clone, source adoption, 구현, CI, staging, production, go-live는 자동 승인되지 않는다. 첫 등록 후보는 Terra 계획의 `PROPOSED-PACK-OSS00-01`(governance/provenance 4 TUW)이며, 이를 canonical PACK/TUW로 변환·승인한 뒤 순차 실행한다. `PROPOSED-PACK-OSS00A-01~03` Source Harvest/Adoption Gate 완료 전에는 어떤 product-code PACK도 시작하지 않는다.
+이 문서는 upstream clone, source adoption, 구현, CI, staging, production, go-live를
+동일한 하나의 권한으로 취급하지 않는다. `USER-UMBRELLA-AUTONOMY-20260721`은
+source-lab의 read-only exact-SHA clone, canonical 등록, local 구현·검증·증적을
+PACK별 별도 사람 승인 없이 허용한다. dependency 변경, product-tree vendoring/fork,
+CI/PR/push/merge, staging, production, 외부 시스템 변경은 여전히 자동 승인되지
+않는다. `PROPOSED-PACK-OSS00A-01~03` Source Harvest/Adoption Gate 완료 전에는 어떤
+product-code PACK도 시작하지 않는다.

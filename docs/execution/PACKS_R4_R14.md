@@ -6,7 +6,9 @@ Source constraints: `docs/package/codex/30_Release_Roadmap.md`,
 
 `docs/package/` is read-only, so these PACK definitions extend the frozen package
 without modifying it. Each PACK still follows the AGENTS cycle: branch, implement,
-verify, ledger append, PR, CI, merge under the active waiver.
+verify, ledger append, PR, CI, merge under the active waiver. The OSS Terra
+post-R14 sequence additionally follows
+`docs/execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md`.
 
 ## Common Validation
 
@@ -63,6 +65,15 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R14-03 | `feat/pack-r14-03-recovery-manifest` | 3 | `RECOVERY-MANIFEST-SCHEMA-TUW-001` through `RECOVERY-MANIFEST-REGISTRATION-TUW-003` (recovery-plan Task 6B only) |
 | PACK-R14-03-AMENDMENT-01 | `feat/pack-r14-03-recovery-manifest-v2` | 3 | `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` through `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` (Task 7+ preflight correction only) |
 | PACK-OSS00-01 | `feat/pack-oss00-01-governance-provenance` | 4 | `DEVOPS-OSSGOV-PROV-TUW-001` through `DEVOPS-OSSGOV-PROV-TUW-004` (`docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`) |
+
+## OSS Terra autonomous sequential-execution authority
+
+`USER-UMBRELLA-AUTONOMY-20260721` authorizes the just-in-time canonical
+registration and local sequential implementation of all 30 OSS Terra sub-PACKs
+and 111 TUWs without a new human approval between PACKs. The detailed scope,
+hard stops, and unchanged dependency/deployment/external-operation/PR-merge
+boundaries are normative in
+`docs/execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md`.
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
