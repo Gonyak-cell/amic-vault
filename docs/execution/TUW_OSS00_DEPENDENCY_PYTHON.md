@@ -98,6 +98,12 @@ mutation, CI/PR, push, merge, and release remain unauthorized.
   synthetic malformed-shape/no-artifact regression; `apps/api/package.json`,
   root manifest, and `pnpm-lock.yaml` only for an exact compatible patched
   Multer line whose source pin, license, and regression evidence are recorded.
+  The root manifest is limited to the one `multer: 2.2.0` override required
+  because the active Nest platform package pins its transitive Multer version
+  exactly; unrelated overrides are forbidden. The existing global exception
+  filter and its spec may change only to map the verified Multer parser-limit
+  code set to the existing safe HTTP 400 `VALIDATION_FAILED` response without
+  logging a parser error payload; no other error semantics may change.
 - **Files NOT-modify:** PermissionService, storage authority, upload audit
   semantics, file-size policy relaxation, `docs/package/**`, deployment
   configuration, and external state.
@@ -108,7 +114,11 @@ mutation, CI/PR, push, merge, and release remain unauthorized.
   constants and does not read the documented `limits.headerPairs` input, so no
   header-pair mitigation is claimed without a compatible patched dependency
   line; (5) if a version change is required, preserve the red test/evidence and
-  continue only after its exact source pin and compatibility are verified.
+  continue only after its exact source pin and compatibility are verified. (6)
+  if the Nest platform package pins Multer exactly, use only the named root
+  package-manager override and prove the resolved interceptor dependency changed.
+  (7) Map only the verified Multer parser-limit codes to the existing safe
+  `VALIDATION_FAILED` Bad Request response, with a direct filter regression.
 - **Verification (AND):** focused multipart tests AND
   `tests/integration/document-access/upload-permission.spec.ts` AND
   `tests/integration/storage-isolation` AND document audit coverage tests AND

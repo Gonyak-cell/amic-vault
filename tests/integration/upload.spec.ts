@@ -95,6 +95,29 @@ function partExhaustionPayload(): { body: Buffer; contentType: string } {
   return { body: Buffer.from(body), contentType: `multipart/form-data; boundary=${boundary}` };
 }
 
+function fieldNestingPayload(): { body: Buffer; contentType: string } {
+  const boundary = `amic-nesting-limit-${randomUUID()}`;
+  const nestedFieldName = `metadata${'[child]'.repeat(9)}`;
+  const body = [
+    `--${boundary}`,
+    'Content-Disposition: form-data; name="title"',
+    '',
+    'Nesting limit fixture',
+    `--${boundary}`,
+    `Content-Disposition: form-data; name="${nestedFieldName}"`,
+    '',
+    'bounded',
+    `--${boundary}`,
+    'Content-Disposition: form-data; name="file"; filename="nesting-limit.pdf"',
+    'Content-Type: application/pdf',
+    '',
+    '%PDF-1.7 synthetic nesting-limit fixture',
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+  return { body: Buffer.from(body), contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
 function createStorageService(): StorageService {
   return new StorageService(
     S3StorageAdapter.fromEnv(),
@@ -339,6 +362,22 @@ describe('document upload integration', () => {
   it('rejects a multipart part-exhaustion attempt before document or object creation', async () => {
     const before = await uploadedRowCountForMatter(betaMatterId);
     const payload = partExhaustionPayload();
+
+    const response = await fetch(`${baseUrl}/v1/matters/${betaMatterId}/documents`, {
+      method: 'POST',
+      headers: { cookie: betaOwnerCookie, 'content-type': payload.contentType },
+      body: payload.body,
+    });
+    const body = await response.text();
+
+    expect(response.status, body).toBe(400);
+    expect(body).toContain('VALIDATION_FAILED');
+    expect(await uploadedRowCountForMatter(betaMatterId)).toBe(before);
+  });
+
+  it('rejects excessive multipart field nesting before document or object creation', async () => {
+    const before = await uploadedRowCountForMatter(betaMatterId);
+    const payload = fieldNestingPayload();
 
     const response = await fetch(`${baseUrl}/v1/matters/${betaMatterId}/documents`, {
       method: 'POST',
