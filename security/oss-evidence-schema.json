@@ -48,5 +48,16 @@
     "BLOCKED",
     "NOT_REQUIRED",
     "VEX_APPROVED"
-  ]
+  ],
+  "unsignedReleaseIdentityRequired": [
+    "schema",
+    "predicateType",
+    "sourceSha",
+    "sourceTree",
+    "artifacts",
+    "policy",
+    "localIntegrity",
+    "releaseSafe"
+  ],
+  "signingBoundaryStatus": "EXTERNAL_BLOCKED_SIGNING_IDENTITY_REQUIRED"
 }
