@@ -1,0 +1,47 @@
+name: supply-chain
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'codex/**'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Validate provenance and license policies
+        run: |
+          node tools/security/check-evidence-manifest.mjs security/oss-provenance.yml security/oss-evidence-schema.json
+          node tools/security/check-oss-license-policy.mjs
+      - name: Prove malformed governance input fails closed
+        run: |
+          node --test tools/security/check-evidence-manifest.spec.mjs \
+            tools/security/check-oss-license-policy.spec.mjs \
+            tools/security/check-vulnerability-policy.spec.mjs
+      - name: Write provenance-bound local governance reports
+        env:
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          report_root="artifacts/enterprise-dms-oss/${WORKFLOW_SHA}/PACK-OSS00-01/DEVOPS-OSSGOV-PROV-TUW-004"
+          mkdir -p "$report_root"
+          REPORT_ROOT="$report_root" node --input-type=module -e "import { execFileSync } from 'node:child_process'; import { writeFileSync } from 'node:fs'; import { validateInventory } from './tools/security/check-evidence-manifest.mjs'; import { evaluateLicensePolicy } from './tools/security/check-oss-license-policy.mjs'; const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(); if (sourceSha !== process.env.WORKFLOW_SHA) throw new Error('workflow SHA does not match checked-out source'); const root = process.env.REPORT_ROOT; const provenance = validateInventory(); const license = evaluateLicensePolicy(); const common = { sourceSha, sourceTree, workflowSha: process.env.WORKFLOW_SHA, syntheticOnly: true }; writeFileSync(root + '/governance-ci-local.json', JSON.stringify({ ...common, provenance: { inputCount: provenance.inputCount, unresolvedCount: provenance.unresolvedCount }, license: { total: license.total, approved: license.approved, blocked: license.blocked, internal: license.internal }, vulnerability: { truthState: 'EXTERNAL_BLOCKED', reason: 'live audit, SBOM, and signature scanners are intentionally not run in this network-independent job', vulnerabilityDecisionReference: 'security/oss-vulnerability-exceptions.yml' } }, null, 2) + '\n'); writeFileSync(root + '/artifact-hash-list.json', JSON.stringify({ ...common, artifactReports: ['governance-ci-local.json', 'workflow-command-inventory.json'], scannerStatus: 'NOT_IMPLEMENTED_IN_WORKFLOW' }, null, 2) + '\n');"
+          REPORT_ROOT="$report_root" node --input-type=module -e "import { execFileSync } from 'node:child_process'; import { readFileSync, writeFileSync } from 'node:fs'; const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(); const ci = readFileSync('.github/workflows/ci.yml', 'utf8').split('\n').filter((line) => line.trimStart().startsWith('- run:')).map((line) => line.trim()); writeFileSync(process.env.REPORT_ROOT + '/workflow-command-inventory.json', JSON.stringify({ sourceSha, sourceTree, workflowSha: process.env.WORKFLOW_SHA, existingCiRunCommands: ci, existingCiChanged: false }, null, 2) + '\n');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oss-governance-${{ github.sha }}
+          path: artifacts/enterprise-dms-oss/${{ github.sha }}/PACK-OSS00-01/DEVOPS-OSSGOV-PROV-TUW-004
+          if-no-files-found: error
