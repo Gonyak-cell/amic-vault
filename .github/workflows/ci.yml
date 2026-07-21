@@ -95,7 +95,7 @@ jobs:
       - name: Install LibreOffice for legacy Office extraction tests
         run: sudo apt-get update && sudo apt-get install -y libreoffice
       - run: python --version
-      - run: uv --version | grep -Fx 'uv 0.11.15'
+      - run: uv --version | grep -Eq '^uv 0\.11\.15( \(|$)'
       - run: uv sync --frozen --all-extras --no-editable
         working-directory: workers/ingestion
       - run: uv run --frozen pytest tests
