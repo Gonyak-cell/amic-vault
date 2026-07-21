@@ -70,6 +70,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS00A-01 | `feat/pack-oss00a-01-source-lab-baseline` | 4 | `DEVOPS-OSSLAB-BOUNDARY-TUW-001` through `DEVOPS-OSSLAB-REPRO-TUW-001` (`docs/execution/TUW_OSS00A_SOURCE_LAB.md`) |
 | PACK-OSS00A-02 | `feat/pack-oss00a-02-authority-source-map` | 3 | `DEVOPS-OSSADOPT-AUTH-TUW-001` through `DEVOPS-OSSADOPT-REUSE-TUW-003` (`docs/execution/TUW_OSS00A_ADOPTION_MAP.md`) |
 | PACK-OSS00A-03 | `feat/pack-oss00a-03-ops-adoption-gate` | 3 | `DEVOPS-OSSADOPT-OPS-TUW-004` through `DEVOPS-OSSADOPT-GATE-TUW-006` (`docs/execution/TUW_OSS00A_OPS_ADOPTION_GATE.md`) |
+| PACK-OSS01-01 | `feat/pack-oss01-01-runtime-db-contract` | 4 | `DEVOPS-OSS01-DBA-TUW-001` through `DEVOPS-OSS01-DBA-TUW-004` (`docs/execution/TUW_OSS01_RUNTIME_DB_CONTRACT.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
