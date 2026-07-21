@@ -1,5 +1,5 @@
 {
-  "total": 181,
+  "total": 184,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -2871,6 +2871,63 @@
         "security/oss-provenance.yml"
       ],
       "verification": "two frozen Python sync inventories have identical hash AND worker tests container health and lock drift failure pass only after separately authorized tool introduction"
+    },
+    {
+      "id": "DEVOPS-OSSATT-SBOM-TUW-001",
+      "title": "Source and three-image CycloneDX SBOM",
+      "release": "R14",
+      "module": "DEVOPS-OSSATT-SBOM",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "SEC-UPLOAD-MULTIPART-TUW-001",
+        "DEVOPS-OSSPY-LOCK-TUW-001"
+      ],
+      "files": [
+        "tools/security",
+        "security",
+        ".github/workflows/supply-chain.yml"
+      ],
+      "verification": "four CycloneDX SBOMs bind immutable local image digests to one source SHA tree AND mutable-tag malformed-schema duplicate-purl missing-digest and identity-mismatch fixtures fail AND two normalized runs match"
+    },
+    {
+      "id": "SEC-OSSSCAN-PIPELINE-TUW-001",
+      "title": "Source IaC secret and image scanning contract",
+      "release": "R14",
+      "module": "SEC-OSSSCAN-PIPELINE",
+      "risk": "H",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSSATT-SBOM-TUW-001",
+        "DEVOPS-OSSGOV-PROV-TUW-003"
+      ],
+      "files": [
+        "tools/security",
+        "security",
+        ".github/workflows/supply-chain.yml",
+        ".gitleaks.toml",
+        ".semgrep.yml"
+      ],
+      "verification": "clean policy result plus injected secret and insecure configuration fixtures are detected AND broad ownerless expired wrong-scope ignore fails AND unresolved production High Critical stays blocked"
+    },
+    {
+      "id": "DEVOPS-OSSATT-IDENTITY-TUW-001",
+      "title": "Unsigned release identity verifier and attestation boundary",
+      "release": "R14",
+      "module": "DEVOPS-OSSATT-IDENTITY",
+      "risk": "H",
+      "size": "M",
+      "depends_on": [
+        "DEVOPS-OSSATT-SBOM-TUW-001",
+        "SEC-OSSSCAN-PIPELINE-TUW-001"
+      ],
+      "files": [
+        "tools/security",
+        "security",
+        ".github/workflows/supply-chain.yml",
+        "docs/execution/evidence"
+      ],
+      "verification": "source tree image digest SBOM and scan hashes form one verified unsigned graph AND wrong/replayed/missing edges and unresolved policy fail AND signing is explicitly external-blocked"
     }
   ]
 }

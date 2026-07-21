@@ -66,6 +66,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-R14-03-AMENDMENT-01 | `feat/pack-r14-03-recovery-manifest-v2` | 3 | `RECOVERY-MANIFEST-HISTORY-SOURCE-TUW-004` through `RECOVERY-MANIFEST-AMENDMENT-VALIDATION-TUW-006` (Task 7+ preflight correction only) |
 | PACK-OSS00-01 | `feat/pack-oss00-01-governance-provenance` | 4 | `DEVOPS-OSSGOV-PROV-TUW-001` through `DEVOPS-OSSGOV-PROV-TUW-004` (`docs/execution/TUW_OSS00_GOVERNANCE_PROVENANCE.md`) |
 | PACK-OSS00-02 | `feat/pack-oss00-02-dependency-python-hardening` | 3 | `DEVOPS-OSSDEP-TRIAGE-TUW-001`, `SEC-UPLOAD-MULTIPART-TUW-001`, `DEVOPS-OSSPY-LOCK-TUW-001` (`docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`) |
+| PACK-OSS00-03 | `feat/pack-oss00-03-sbom-scan-attestation` | 3 | `DEVOPS-OSSATT-SBOM-TUW-001`, `SEC-OSSSCAN-PIPELINE-TUW-001`, `DEVOPS-OSSATT-IDENTITY-TUW-001` (`docs/execution/TUW_OSS00_SBOM_SCAN_ATTESTATION.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2394,6 +2395,30 @@ Every TUW must retain the canonical `Files NOT-modify` boundary and its AND
 verification. An in-scope package/version/tool change is allowed only after its
 exact source pin, license policy, lockfile delta, compatibility, and negative
 tests are evidenced; other dependency/pipeline changes are `BLOCKED`.
+
+## PACK-OSS00-03 — SBOM, scanning, and release identity
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00-02` is locally technically
+verified but remains release-unsafe, so this PACK must preserve rather than
+mask its unresolved High findings.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00-03-sbom-scan-attestation`.
+- Detail contract: `docs/execution/TUW_OSS00_SBOM_SCAN_ATTESTATION.md`.
+- Execution order: `DEVOPS-OSSATT-SBOM-TUW-001` →
+  `SEC-OSSSCAN-PIPELINE-TUW-001` → `DEVOPS-OSSATT-IDENTITY-TUW-001`.
+- Scope: exact-pinned local SBOM/scanner/identity verifier evidence and
+  non-deploying CI artifact wiring. Product dependencies, package locks,
+  Dockerfile behavior, production registry, signing identities, OIDC/write
+  permissions, deployment, push/PR/merge, and external state remain out of
+  scope. Actual signing is represented only as `EXTERNAL_BLOCKED`.
+
+Every TUW must retain its `Files NOT-modify` boundary, synthetic negative
+fixtures, existing VEX/license authority, and exact source/image/SBOM/scan
+identity graph. A mutable tag, missing digest, raw secret/private path, broad
+ignore, or signing credential is a stop condition.
 
 ## Gate Reports
 
