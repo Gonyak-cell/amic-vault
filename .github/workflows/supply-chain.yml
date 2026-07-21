@@ -27,6 +27,23 @@ jobs:
       - name: Validate static upstream source-lock and baseline records
         run: node tools/oss/verify-upstream-baseline.mjs --static --source-map security/oss-source-map.yml
 
+  source-map-reuse:
+    runs-on: ubuntu-latest
+    steps:
+      # Full product history is read only to compute the immutable gate range;
+      # this job never clones, builds, or executes an upstream OSS source tree.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate source-map authority and reuse-first gate
+        run: |
+          node tools/oss/verify-source-map.mjs --static --source-map security/oss-source-map.yml --decisions security/oss-adoption-decisions.yml --reuse security/oss-test-reuse.yml
+          node tools/oss/check-reuse-first.mjs --base 830eeeac92e6417ad45273bbab41cdf3b57fcbb3 --decisions security/oss-adoption-decisions.yml
+
   governance:
     runs-on: ubuntu-latest
     steps:

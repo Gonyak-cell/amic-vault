@@ -59,5 +59,12 @@
     "localIntegrity",
     "releaseSafe"
   ],
+  "sourceMapGateRequired": [
+    "sourceMapPath",
+    "adoptionDecisionPath",
+    "testReuseManifestPath",
+    "immutableBaseRef",
+    "sourceLabBuildContextForbidden"
+  ],
   "signingBoundaryStatus": "EXTERNAL_BLOCKED_SIGNING_IDENTITY_REQUIRED"
 }
