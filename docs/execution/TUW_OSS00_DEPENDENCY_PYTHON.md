@@ -98,21 +98,27 @@ push, merge, or release. `docs/package/**` remains frozen.
   semantics, file-size policy relaxation, `docs/package/**`, deployment
   configuration, and external state.
 - **Implementation sequence:** (1) compare the pinned resolved source/tests to
-  current behavior; (2) add nested field, field-count, header-pair, oversize,
-  and aborted-stream negative cases; (3) reuse existing limits/helper first;
-  (4) if current line is safe, adopt regression only; (5) if a version change
-  is required, preserve the red test/evidence and stop for separate authority.
+  current behavior; (2) add aggregate-part/field-count and malformed-stream
+  negative cases; (3) reuse existing limits/helper first; (4) record that the
+  installed `busboy@1.6.0` source fixes multipart header parsing to internal
+  constants and does not read the documented `limits.headerPairs` input, so no
+  header-pair mitigation is claimed without an authorized package change; (5)
+  if a version change is required, preserve the red test/evidence and stop for
+  separate authority.
 - **Verification (AND):** focused multipart tests AND
   `tests/integration/document-access/upload-permission.spec.ts` AND
   `tests/integration/storage-isolation` AND document audit coverage tests AND
   a negative assertion that malformed input leaves no temp file/object/DB row.
-- **Done:** malformed input produces bounded `VALIDATION_FAILED`, authorized
-  normal upload remains green, and cleanup/audit authority is unchanged.
+- **Done:** bounded aggregate-part malformed input produces
+  `VALIDATION_FAILED`, authorized normal upload remains green, and
+  cleanup/audit authority is unchanged. Header-pair remediation remains
+  explicitly blocked until a compatible patched dependency line is authorized.
 - **Edge cases:** zero-byte, duplicate field names, Unicode filename, client
   disconnect, and chunked transfer without content length.
 - **Stop / escalation:** patched line is incompatible with the Nest adapter,
-  bounded limit breaks normal large upload without evidence, or only a package
-  upgrade could fix the defect.
+  bounded limit breaks normal large upload without evidence, the installed
+  parser ignores a required limit, or only a package upgrade could fix the
+  defect.
 - **Evidence target:**
   `artifacts/enterprise-dms-oss/<source-sha>/PACK-OSS00-02/SEC-UPLOAD-MULTIPART-TUW-001/`
   with negative results, source/test map, cleanup/audit results, and lockfile

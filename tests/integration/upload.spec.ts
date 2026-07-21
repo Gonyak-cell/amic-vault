@@ -67,6 +67,34 @@ function uploadForm(filename: string, bytes: Uint8Array, type = 'application/pdf
   return form;
 }
 
+function partExhaustionPayload(): { body: Buffer; contentType: string } {
+  const boundary = `amic-part-limit-${randomUUID()}`;
+  const textFields = Array.from({ length: 5 }, (_, index) => [
+    `--${boundary}`,
+    `Content-Disposition: form-data; name="extra-${index}"`,
+    '',
+    'bounded',
+  ]);
+  const body = [
+    `--${boundary}`,
+    'Content-Disposition: form-data; name="title"',
+    '',
+    'Part limit fixture',
+    ...textFields.flat(),
+    `--${boundary}`,
+    'Content-Disposition: form-data; name="file"; filename="part-limit.pdf.exe"',
+    'Content-Type: application/octet-stream',
+    '',
+    '%PDF-1.7 synthetic part-limit fixture',
+    `--${boundary}`,
+    'X-Unrecognized-Part: bounded',
+    '',
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+  return { body: Buffer.from(body), contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
 function createStorageService(): StorageService {
   return new StorageService(
     S3StorageAdapter.fromEnv(),
@@ -306,5 +334,21 @@ describe('document upload integration', () => {
     expect(mismatchBody).not.toContain('Mismatch');
     const after = await uploadedRowCountForMatter(betaMatterId);
     expect(after).toBe(before);
+  });
+
+  it('rejects a multipart part-exhaustion attempt before document or object creation', async () => {
+    const before = await uploadedRowCountForMatter(betaMatterId);
+    const payload = partExhaustionPayload();
+
+    const response = await fetch(`${baseUrl}/v1/matters/${betaMatterId}/documents`, {
+      method: 'POST',
+      headers: { cookie: betaOwnerCookie, 'content-type': payload.contentType },
+      body: payload.body,
+    });
+    const body = await response.text();
+
+    expect(response.status, body).toBe(400);
+    expect(body).toContain('VALIDATION_FAILED');
+    expect(await uploadedRowCountForMatter(betaMatterId)).toBe(before);
   });
 });
