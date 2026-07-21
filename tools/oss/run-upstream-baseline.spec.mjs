@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -20,8 +22,22 @@ test('requires a pinned external clone and writes only a safe manifest', () => {
   mkdirSync(clone, { recursive: true });
   mkdirSync(product);
   try {
+    const git = (args) => {
+      const result = spawnSync('git', args, { cwd: clone, encoding: 'utf8' });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    writeFileSync(join(clone, 'LICENSE'), 'test license\n');
+    git(['init', '--quiet']);
+    git(['config', 'user.email', 'test@example.invalid']);
+    git(['config', 'user.name', 'Test']);
+    git(['add', 'LICENSE']);
+    git(['commit', '--quiet', '-m', 'baseline fixture']);
+    git(['remote', 'add', 'origin', 'https://github.com/example/candidate']);
+    const component = { id: 'candidate', state: 'PINNED', officialUrl: 'https://github.com/example/candidate', release: 'v1.0.0', commit: git(['rev-parse', 'HEAD']), tree: git(['rev-parse', 'HEAD^{tree}']), licensePath: 'LICENSE', licenseHash: `sha256:${createHash('sha256').update('test license\n').digest('hex')}`, clonePath: 'clones/candidate', owner: 'engineering' };
     const manifest = runUpstreamBaseline({
-      component: { id: 'candidate', state: 'PINNED', commit: 'a'.repeat(40), tree: 'b'.repeat(40), licenseHash: `sha256:${'c'.repeat(64)}`, clonePath: 'clones/candidate' },
+      map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [component] },
+      component,
       sourceRoot: lab,
       repoRoot: product,
       command: ['baseline'],
@@ -30,7 +46,7 @@ test('requires a pinned external clone and writes only a safe manifest', () => {
     });
     assert.equal(manifest.outcome, 'PASS');
     assert.equal(JSON.stringify(manifest).includes('not-retained'), false);
-    assert.throws(() => runUpstreamBaseline({ component: { state: 'BLOCKED' }, sourceRoot: lab, repoRoot: product, command: ['baseline'], outDir: join(root, 'out') }), /pinned/);
+    assert.throws(() => runUpstreamBaseline({ map: { components: [] }, component: { state: 'BLOCKED' }, sourceRoot: lab, repoRoot: product, command: ['baseline'], outDir: join(root, 'out') }), /pinned/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
