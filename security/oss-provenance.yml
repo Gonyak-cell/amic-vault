@@ -64,5 +64,12 @@
       "modifier": "none"
     }
   },
+  "licenseDelivery": {
+    "allowlistPath": "security/oss-allowlist.yml",
+    "policyPath": "security/oss-license-policy.yml",
+    "noticePath": "third_party/NOTICE.md",
+    "unknownExternalState": "BLOCKED",
+    "researchOnlyAdoptionMode": "L4"
+  },
   "overrides": {}
 }
