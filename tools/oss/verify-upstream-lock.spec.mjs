@@ -30,7 +30,7 @@ function fixture() {
 test('accepts a disjoint source root and safe lock schema', () => {
   const value = fixture();
   try {
-    const report = validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [row] }, sourceRoot: value.lab, repoRoot: value.product });
+    const report = validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [row] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false });
     assert.equal(report.componentCount, 1);
     assert.equal(report.productBuildContextIncludesSourceLab, false);
   } finally {
@@ -45,9 +45,9 @@ test('rejects product overlap, symlink roots, malformed pins, traversal, and uno
     const linked = join(value.root, 'linked-lab');
     symlinkSync(value.lab, linked);
     assert.throws(() => validateSourceLabBoundary({ sourceRoot: linked, repoRoot: value.product }), /symlink/);
-    assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, commit: 'short' }] }, sourceRoot: value.lab, repoRoot: value.product }), /commit/);
-    assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, clonePath: '../escape' }] }, sourceRoot: value.lab, repoRoot: value.product }), /traversal/);
-    assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, state: 'BLOCKED', blockedReason: '' }] }, sourceRoot: value.lab, repoRoot: value.product }), /blocked reason/);
+    assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, commit: 'short' }] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false }), /commit/);
+    assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, clonePath: '../escape' }] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false }), /traversal/);
+    assert.throws(() => validateUpstreamLock({ map: { schemaVersion: 'oss-source-map-v1', sourceLab: { rootEnvironment: 'OSS_RESEARCH_ROOT' }, components: [{ ...row, state: 'BLOCKED', blockedReason: '' }] }, sourceRoot: value.lab, repoRoot: value.product, checkClones: false }), /blocked reason/);
   } finally {
     rmSync(value.root, { recursive: true, force: true });
   }
