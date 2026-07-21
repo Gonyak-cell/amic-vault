@@ -34,5 +34,19 @@
     "LOCAL_VERIFIED",
     "CI_VERIFIED",
     "EXTERNAL_BLOCKED"
+  ],
+  "scanSummaryRequired": [
+    "schema",
+    "sourceSha",
+    "sourceTree",
+    "toolPins",
+    "findingCount",
+    "productionHighCritical",
+    "findings"
+  ],
+  "scanFindingDecisions": [
+    "BLOCKED",
+    "NOT_REQUIRED",
+    "VEX_APPROVED"
   ]
 }
