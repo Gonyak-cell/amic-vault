@@ -77,7 +77,9 @@ modifying frozen `docs/package/**`.
   `apps/api/src/common/db/database.tokens.ts`,
   `apps/api/src/common/db/database.service.ts`, and colocated `*.spec.ts`.
 - **Files modify:** `apps/api/src/common/db/tenant-aware-datasource.ts`, its
-  spec, and `apps/api/src/app.module.ts`.
+  spec, `apps/api/src/app.module.ts`, `security/oss-source-map.yml` OSS-01
+  direct-constructor baseline only, and
+  `security/oss-adoption-decisions.yml` L0-ineligible path rows only.
 - **Files NOT-modify:** PermissionService decisions, audit schema/RLS policy,
   migration runner, dependencies/locks, `docs/package/**`.
 - **Implementation:** extend `common/db` rather than create a parallel data
@@ -85,6 +87,9 @@ modifying frozen `docs/package/**`.
   BEGIN → transaction-local tenant setting → work → COMMIT/ROLLBACK → release;
   tenant-less auth is an allowlisted stored-function adapter; nested misuse is
   rejected or explicitly receives the existing client; close is idempotent.
+  Before product files are created, register their exact paths as L0-ineligible
+  (Vault-owned control code, no upstream source reuse); update only the locked
+  constructor count/hash caused by the singleton provider.
 - **Verification:** commit/rollback/GUC isolation/release tests; 50
   create/close loops with no connection delta; missing tenant/nested misuse and
   pool-error cases fail closed; AuditService transaction compatibility passes.
