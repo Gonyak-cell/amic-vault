@@ -86,7 +86,9 @@ OSS09 telemetry-sink decisions.
 - **Files modify:** `apps/web/src/lib/api-client.ts` and spec,
   `apps/web/src/components/document/document-action-center.tsx` and test, and
   `apps/web/src/components/search/result-card.tsx` and test when inventory
-  confirms its direct preview link.
+  confirms its direct preview link; `tools/release/check-production-ui-smoke.mjs`
+  only to replace its obsolete sessionless-preview assertions with the approved
+  controlled-session contract.
 - **Files NOT-modify:** UI redesign, token URL/query/fragment use,
   localStorage/sessionStorage, service-worker cache or third-party viewer.
 - **Verification (AND):** issue-to-range flow; expiry controlled reissue; no
