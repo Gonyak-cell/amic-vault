@@ -3258,6 +3258,50 @@
       "depends_on": ["DEVOPS-OSS03-DSP-TUW-003"],
       "files": ["apps/api/src/modules/records", "apps/api/src/common/queue", "tests/integration"],
       "verification": "SKIP LOCKED claim fresh hold approval recheck exact-version delete HEAD reconciliation bounded receipts duplicate runs and API-role disabled negatives pass without unversioned fallback or automatic dead-letter replay"
+    },
+    {
+      "id": "DEVOPS-OSS04-QRT-TUW-001",
+      "title": "Quarantine security state and audit schema",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-QUE-TUW-004"],
+      "files": ["db/migrations/0199_create_file_security_scans.sql", "packages/shared/src/file-security", "packages/shared/src/audit"],
+      "verification": "tenant scan registry and attempts have NOT NULL tenant ID FORCE RLS bounded state hash/result/signature constraints and audit action declarations AND cross-tenant illegal-transition sensitive-column and immutable-file audit regressions pass"
+    },
+    {
+      "id": "DEVOPS-OSS04-QRT-TUW-002",
+      "title": "Pinned ClamAV sidecar client conformance",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-QRT-TUW-001"],
+      "files": ["workers/ingestion/app/security", "workers/ingestion/tests", "infra/docker-compose.dev.yml", "security"],
+      "verification": "exact official ClamAV source artifact license and supported-client evidence bind a non-public no-mount sidecar AND clean EICAR malformed timeout unavailable and stale-signature cases fail closed"
+    },
+    {
+      "id": "DEVOPS-OSS04-QRT-TUW-003",
+      "title": "Idempotent scan queue and audit authority",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-QRT-TUW-002"],
+      "files": ["apps/api/src/modules/file-security", "apps/api/src/common/queue", "workers/ingestion/app", "tests/integration"],
+      "verification": "opaque quarantine ref expected-hash queue jobs are idempotent AND malformed timeout mismatch and audit failure never produce clean AND API consumers remain zero worker consumers are bounded"
+    },
+    {
+      "id": "DEVOPS-OSS04-QRT-TUW-004",
+      "title": "Quarantine-first upload intake",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-QRT-TUW-003"],
+      "files": ["apps/api/src/modules/file-security", "apps/api/src/modules/document", "apps/api/src/modules/storage", "tests/integration", "security"],
+      "verification": "enabled direct bulk email and migration ingress writes only server-derived quarantine objects and returns pending ref AND permission wall tenant quota hash enqueue audit failure and primary-prefix bypass cases fail"
     }
   ]
 }
