@@ -14,6 +14,8 @@ import { TenantContextService } from '../tenant/tenant-context';
 import { DocumentUploadService } from './document-upload.service';
 import { errorCodeFromUnknown } from './document-error.mapper';
 import { ZipChildDocumentService } from './zip-child-document.service';
+import { QuarantineIntakeService } from '../file-security/quarantine-intake.service';
+import { quarantineIngressEnabled } from '../file-security/file-security.types';
 
 @Injectable()
 export class BulkUploadJob {
@@ -23,6 +25,7 @@ export class BulkUploadJob {
     @Inject(DocumentUploadService) private readonly uploadService: DocumentUploadService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(ZipChildDocumentService) private readonly zipChildService: ZipChildDocumentService,
+    @Inject(QuarantineIntakeService) private readonly quarantineIntake: QuarantineIntakeService,
   ) {}
 
   async process(job: BulkUploadJobDto): Promise<BulkUploadReportDto> {
@@ -32,6 +35,27 @@ export class BulkUploadJob {
     for (const item of parsed.items) {
       try {
         const file = parsed.batchId ? await batchAttemptFile(item) : item.file;
+        if (quarantineIngressEnabled()) {
+          const quarantine = await this.tenantContext.run(
+            {
+              tenantId: item.tenantId as TenantId,
+              slug: item.tenantSlug,
+              status: 'active',
+              source: 'session',
+            },
+            () =>
+              this.quarantineIntake.intake({
+                actorUserId: item.actorUserId,
+                matterId: item.matterId,
+                fields: item.fields,
+                file,
+                sourceSystem: 'upload',
+              }),
+          );
+          items.push({ itemId: item.itemId, status: 'quarantined' as const, quarantineRef: quarantine.quarantineRef });
+          if (parsed.batchId) await unlink(item.file.path).catch(() => undefined);
+          continue;
+        }
         const document = await this.tenantContext.run(
           {
             tenantId: item.tenantId as TenantId,

@@ -54,6 +54,7 @@ describe('BulkUploadJob', () => {
       { upload } as never,
       { run: (_context: unknown, callback: () => unknown) => callback() } as never,
       { registerChildren: vi.fn() } as never,
+      { intake: vi.fn() } as never,
     );
 
     const report = await job.process({ items: [item('one'), item('two'), item('three')] });
@@ -85,6 +86,7 @@ describe('BulkUploadJob', () => {
       { upload } as never,
       { run: (_context: unknown, callback: () => unknown) => callback() } as never,
       { registerChildren: vi.fn() } as never,
+      { intake: vi.fn() } as never,
     );
 
     const report = await job.process({ items: [item('dupe')] });
@@ -200,6 +202,40 @@ describe('BulkUploadJob', () => {
       expect(batchService.markJobDeadLetter).toHaveBeenCalledWith(payload);
     } finally {
       process.env = previousEnv;
+    }
+  });
+
+  it('does not create a document or ZIP children when quarantine ingress is enabled', async () => {
+    const previous = process.env.FILE_SECURITY_QUARANTINE_ENABLED;
+    process.env.FILE_SECURITY_QUARANTINE_ENABLED = 'true';
+    const upload = vi.fn();
+    const intake = vi.fn(async () => ({
+      status: 'quarantined' as const,
+      matterId,
+      quarantineRef: '11111111-1111-4111-8111-111111111188',
+    }));
+    const zipChildService = { registerChildren: vi.fn() };
+    const job = new BulkUploadJob(
+      { upload } as never,
+      { run: (_context: unknown, callback: () => unknown) => callback() } as never,
+      zipChildService as never,
+      { intake } as never,
+    );
+
+    try {
+      const report = await job.process({ items: [item('quarantine')] });
+      expect(upload).not.toHaveBeenCalled();
+      expect(zipChildService.registerChildren).not.toHaveBeenCalled();
+      expect(report.items).toEqual([
+        {
+          itemId: 'quarantine',
+          status: 'quarantined',
+          quarantineRef: '11111111-1111-4111-8111-111111111188',
+        },
+      ]);
+    } finally {
+      if (previous === undefined) delete process.env.FILE_SECURITY_QUARANTINE_ENABLED;
+      else process.env.FILE_SECURITY_QUARANTINE_ENABLED = previous;
     }
   });
 });

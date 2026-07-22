@@ -31,6 +31,8 @@ import {
 import type { RequestWithSession } from '../auth/session.guard';
 import { multipartFieldName, multipartUploadOptions } from './multipart.config';
 import { DocumentUploadService, type UploadedDiskFile } from './document-upload.service';
+import { QuarantineIntakeService } from '../file-security/quarantine-intake.service';
+import { quarantineIngressEnabled } from '../file-security/file-security.types';
 import { mapDocumentUploadError } from './document-error.mapper';
 import { DocumentService } from './document.service';
 import { DocumentVersionService } from './document-version.service';
@@ -133,6 +135,7 @@ function sessionUserId(request: RequestWithSession): string {
 export class DocumentController {
   constructor(
     @Inject(DocumentUploadService) private readonly uploadService: DocumentUploadService,
+    @Inject(QuarantineIntakeService) private readonly quarantineIntake: QuarantineIntakeService,
     @Inject(DocumentService) private readonly documentService: DocumentService,
   ) {}
 
@@ -156,14 +159,20 @@ export class DocumentController {
     @Param('matterId') matterId: string,
     @Body() body: unknown,
     @UploadedFile() file: UploadedDiskFile | undefined,
+    @Res({ passthrough: true }) response: { status(code: number): void },
   ) {
     try {
-      return await this.uploadService.upload({
+      const input = {
         actorUserId: sessionUserId(request),
         matterId: parseUuid(matterId),
         fields: parseBody(body),
         file,
-      });
+      };
+      if (quarantineIngressEnabled()) {
+        response.status(202);
+        return await this.quarantineIntake.intake(input);
+      }
+      return await this.uploadService.upload(input);
     } catch (error) {
       throw mapDocumentUploadError(error);
     }

@@ -21,6 +21,8 @@ import {
   DocumentUploadService,
   type UploadedDiskFile,
 } from '../modules/document/document-upload.service';
+import { QuarantineIntakeService } from '../modules/file-security/quarantine-intake.service';
+import { quarantineIngressEnabled } from '../modules/file-security/file-security.types';
 import { TenantContextService } from '../modules/tenant/tenant-context';
 
 const supportedExtensions = new Set([
@@ -129,9 +131,10 @@ interface UploadInput {
 }
 
 interface UploadResult {
-  documentId: string;
   matterId: string;
-  fileObjectId: string;
+  documentId?: string;
+  fileObjectId?: string;
+  quarantineRef?: string;
 }
 
 interface SkippedImportResult {
@@ -162,7 +165,7 @@ interface RunnerState {
 
 interface SanitizedItem {
   item_id: string;
-  status: 'ready' | 'imported' | 'already_imported' | 'skipped' | 'blocked' | 'failed';
+  status: 'ready' | 'imported' | 'quarantined' | 'already_imported' | 'already_quarantined' | 'skipped' | 'blocked' | 'failed';
   reasons: string[];
   warnings: string[];
   extension: string;
@@ -266,10 +269,15 @@ export async function runCustomerWideImport(
       }
       const key = classified.ready.idempotencyKey;
       if (state.imported[key]) {
+        const existing = state.imported[key];
         sanitizedItems.push({
           ...classified.item,
-          status: 'already_imported',
-          reasons: ['idempotency_key_already_imported'],
+          status: isQuarantinedResult(existing) ? 'already_quarantined' : 'already_imported',
+          reasons: [
+            isQuarantinedResult(existing)
+              ? 'idempotency_key_already_quarantined'
+              : 'idempotency_key_already_imported',
+          ],
         });
         continue;
       }
@@ -320,6 +328,28 @@ export async function runCustomerWideImport(
         });
         state.imported[key] = uploadResult;
         await saveState(args.statePath, state);
+        if (isQuarantinedResult(uploadResult)) {
+          await appendLocalReceipt(args.localReceiptOut, {
+            item_id: classified.ready.itemId,
+            source_hash: classified.ready.sourceHash,
+            status: 'quarantined',
+            tenant_id: classified.ready.tenantId,
+            client_id: classified.ready.clientId,
+            matter_id: uploadResult.matterId,
+            quarantine_ref: uploadResult.quarantineRef,
+            idempotency_key: key,
+            imported_at: generatedAt,
+          });
+          localReceipts.push(uploadResult);
+          sanitizedItems.push({
+            ...classified.item,
+            status: 'quarantined',
+            reasons: ['customer_wide_import_quarantined_pending_scan'],
+          });
+          repeatedFailures = 0;
+          continue;
+        }
+        if (!hasDocumentResult(uploadResult)) throw new Error('MIGRATION_UPLOAD_RESULT_INVALID');
         await appendLocalReceipt(args.localReceiptOut, {
           item_id: classified.ready.itemId,
           source_hash: classified.ready.sourceHash,
@@ -418,6 +448,7 @@ async function createNestUploader(): Promise<{
     logger: new StructuredLogger(),
   });
   const uploadService = app.get(DocumentUploadService);
+  const quarantineIntake = app.get(QuarantineIntakeService);
   const tenantContext = app.get(TenantContextService);
   return {
     uploadOne: (input) =>
@@ -429,16 +460,34 @@ async function createNestUploader(): Promise<{
           source: 'session',
         },
         () =>
-          uploadService.upload({
-            actorUserId: input.actorUserId,
-            matterId: input.target.matterId,
-            fields: input.fields,
-            file: input.file,
-            sourceSystem: 'migration',
-          }),
+          quarantineIngressEnabled()
+            ? quarantineIntake.intake({
+                actorUserId: input.actorUserId,
+                matterId: input.target.matterId,
+                fields: input.fields,
+                file: input.file,
+                sourceSystem: 'migration',
+              })
+            : uploadService.upload({
+                actorUserId: input.actorUserId,
+                matterId: input.target.matterId,
+                fields: input.fields,
+                file: input.file,
+                sourceSystem: 'migration',
+              }),
       ),
     close: () => app.close(),
   };
+}
+
+function isQuarantinedResult(result: UploadResult): result is UploadResult & { quarantineRef: string } {
+  return typeof result.quarantineRef === 'string';
+}
+
+function hasDocumentResult(
+  result: UploadResult,
+): result is UploadResult & { documentId: string; fileObjectId: string } {
+  return typeof result.documentId === 'string' && typeof result.fileObjectId === 'string';
 }
 
 function uploadFieldsFor(args: CustomerWideImportCliArgs): UploadDocumentFieldsDto {

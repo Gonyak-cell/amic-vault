@@ -43,5 +43,6 @@ describe('bulk upload dto schemas', () => {
 
   it('exposes duplicate as an explicit batch item status', () => {
     expect(bulkUploadBatchItemStatusSchema.parse('duplicate')).toBe('duplicate');
+    expect(bulkUploadBatchItemStatusSchema.parse('quarantined')).toBe('quarantined');
   });
 });

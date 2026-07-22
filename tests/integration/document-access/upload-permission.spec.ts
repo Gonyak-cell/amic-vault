@@ -328,6 +328,61 @@ describe('document upload permission integration', () => {
     if (row?.storage_uri) createdStorageUris.push(row.storage_uri);
   });
 
+  it('returns an opaque quarantine receipt without creating a document or primary file object when enabled', async () => {
+    const previous = process.env.FILE_SECURITY_QUARANTINE_ENABLED;
+    process.env.FILE_SECURITY_QUARANTINE_ENABLED = 'true';
+    try {
+      const matterId = await createMatter(baseUrl, ownerCookie, clientId);
+      const response = await upload(baseUrl, ownerCookie, matterId, 'QUARANTINE');
+      const body = await response.text();
+      expect(response.status, body).toBe(202);
+      const receipt = JSON.parse(body) as { status: string; matterId: string; quarantineRef: string };
+      expect(receipt).toMatchObject({ status: 'quarantined', matterId });
+      expect(receipt.quarantineRef).toMatch(/^[0-9a-f-]{36}$/i);
+
+      await withClient(createOwnerClient(), async (client) => {
+        const scan = await client.query<{
+          quarantine_storage_uri: string;
+          quarantine_ref: string;
+        }>(
+          `SELECT quarantine_storage_uri, quarantine_ref
+           FROM file_security_scans
+           WHERE tenant_id = $1 AND matter_id = $2`,
+          [tenantAlphaId, matterId],
+        );
+        const documentCount = await client.query<{ count: string }>(
+          'SELECT count(*)::text AS count FROM documents WHERE tenant_id = $1 AND matter_id = $2',
+          [tenantAlphaId, matterId],
+        );
+        const primaryObjectCount = await client.query<{ count: string }>(
+          `SELECT count(*)::text AS count
+           FROM file_objects
+           WHERE tenant_id = $1 AND storage_uri LIKE $2`,
+          [tenantAlphaId, `%/tenants/${tenantAlphaId}/matters/${matterId}/%`],
+        );
+        const auditCount = await client.query<{ count: string }>(
+          `SELECT count(*)::text AS count
+           FROM audit_events
+           WHERE tenant_id = $1 AND action = 'FILE_QUARANTINED'
+             AND target_id = (SELECT scan_id FROM file_security_scans WHERE tenant_id = $1 AND matter_id = $2)`,
+          [tenantAlphaId, matterId],
+        );
+        expect(scan.rows).toHaveLength(1);
+        expect(scan.rows[0]).toMatchObject({
+          quarantine_ref: receipt.quarantineRef,
+          quarantine_storage_uri: expect.stringContaining(`/tenants/${tenantAlphaId}/quarantine/${receipt.quarantineRef}`),
+        });
+        expect(documentCount.rows[0]?.count).toBe('0');
+        expect(primaryObjectCount.rows[0]?.count).toBe('0');
+        expect(auditCount.rows[0]?.count).toBe('1');
+        if (scan.rows[0]?.quarantine_storage_uri) createdStorageUris.push(scan.rows[0].quarantine_storage_uri);
+      });
+    } finally {
+      if (previous === undefined) delete process.env.FILE_SECURITY_QUARANTINE_ENABLED;
+      else process.env.FILE_SECURITY_QUARANTINE_ENABLED = previous;
+    }
+  });
+
   it('blocks nonmember, limited reviewer, and external user uploads', async () => {
     const nonmemberMatterId = await createMatter(baseUrl, ownerCookie, clientId);
     const nonmember = await upload(baseUrl, memberCookie, nonmemberMatterId, 'NONMEMBER');

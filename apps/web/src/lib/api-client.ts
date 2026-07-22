@@ -92,6 +92,7 @@ import type {
   UploadPreflightResponseDto,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
+  QuarantinedIntakeResponseDto,
   UploadEmailToMatterFieldsDto,
   UploadEmailToMatterResponseDto,
   DocumentTagListDto,
@@ -627,13 +628,13 @@ export function uploadDocument(
   matterReference: string,
   file: File,
   fields: UploadDocumentFieldsDto = {},
-): Promise<UploadDocumentResponseDto> {
+): Promise<UploadDocumentResponseDto | QuarantinedIntakeResponseDto> {
   const formData = new FormData();
   formData.set('file', file);
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
   }
-  return apiFetchFormData<UploadDocumentResponseDto>(
+  return apiFetchFormData<UploadDocumentResponseDto | QuarantinedIntakeResponseDto>(
     `/matters/${encodeURIComponent(matterReference)}/documents`,
     formData,
     { method: 'POST' },

@@ -46,6 +46,8 @@ import {
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { DocumentUploadService, type UploadedDiskFile } from '../document/document-upload.service';
+import { QuarantineIntakeService } from '../file-security/quarantine-intake.service';
+import { quarantineIngressEnabled } from '../file-security/file-security.types';
 import { DlpService } from '../dlp/dlp.service';
 import { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import { PermissionService } from '../permission/permission.service';
@@ -614,6 +616,9 @@ export class EmailService {
     @Optional()
     @Inject(DocumentUploadService)
     private readonly documentUploadService?: DocumentUploadService,
+    @Optional()
+    @Inject(QuarantineIntakeService)
+    private readonly quarantineIntake?: QuarantineIntakeService,
     @Optional()
     @Inject(PermissionService)
     private readonly permissionService?: PermissionService,
@@ -2631,6 +2636,25 @@ export class EmailService {
         matterId: input.matterId,
         attachment,
       });
+      if (quarantineIngressEnabled()) {
+        if (!this.quarantineIntake) throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+        await this.quarantineIntake.intakeBuffer({
+          actorUserId: input.actorUserId,
+          matterId: input.matterId,
+          fields: {
+            title: input.fields.title ?? attachment.normalizedFilename,
+            documentType: input.fields.documentType ?? 'correspondence',
+            subtype: input.fields.subtype,
+            confidentialityLevel: input.fields.confidentialityLevel,
+            privilegeStatus: input.fields.privilegeStatus,
+          },
+          originalFilename: attachment.normalizedFilename,
+          mimeType: attachment.contentType,
+          body: attachment.body,
+          sourceSystem: 'email_ingest',
+        });
+        continue;
+      }
       const document = await this.documentUploadService.uploadBuffer({
         actorUserId: input.actorUserId,
         matterId: input.matterId,

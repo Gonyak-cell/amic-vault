@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MetricsModule } from '../../common/metrics/metrics.module';
 import { AuditModule } from '../audit/audit.module';
+import { FileSecurityModule } from '../file-security/file-security.module';
 import { GraphModule } from '../graph/graph.module';
 import { DdModule } from '../dd/dd.module';
 import { MatterAppModule } from '../integrations/matter-app/matter-app.module';
@@ -44,6 +45,7 @@ import { ZipChildDocumentService } from './zip-child-document.service';
 @Module({
   imports: [
     AuditModule,
+    FileSecurityModule,
     forwardRef(() => DdModule),
     GraphModule,
     MatterAppModule,

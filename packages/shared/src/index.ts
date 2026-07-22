@@ -960,6 +960,10 @@ export {
   type UploadDocumentResponseDto,
 } from './dto/document/upload-document.dto';
 export {
+  quarantinedIntakeResponseSchema,
+  type QuarantinedIntakeResponseDto,
+} from './dto/document/quarantine-intake.dto';
+export {
   documentFolderNameSchema,
   updateDocumentFolderSchema,
   updateDocumentTagsSchema,
@@ -1130,6 +1134,7 @@ export {
   type BulkUploadJobItemDto,
   type BulkUploadReportDto,
   type BulkUploadSuccessItemDto,
+  type BulkUploadQuarantinedItemDto,
   type RegisterBulkUploadBatchDto,
   type RegisterBulkUploadBatchItemDto,
   type RetryBulkUploadBatchItemDto,

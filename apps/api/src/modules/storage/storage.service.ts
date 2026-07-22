@@ -38,6 +38,14 @@ export interface PutAuditAnchorObjectInput {
   contentType: string;
 }
 
+export interface PutQuarantineObjectInput {
+  tenantId: string;
+  quarantineRef: string;
+  body: StorageBody;
+  contentLength: number;
+  contentType: string;
+}
+
 export interface PutTenantObjectResult {
   key: string;
   storageUri: string;
@@ -108,6 +116,28 @@ export class StorageService {
     const encrypted = await this.encryptionHook.beforePut({
       tenantId: input.tenantId,
       fileObjectId: `audit-anchor:${input.anchorDate}`,
+      body: input.body,
+      contentLength: input.contentLength,
+      contentType: input.contentType,
+    });
+    await this.adapter.putIfAbsent({
+      key,
+      body: encrypted.body,
+      contentLength: encrypted.contentLength,
+      contentType: encrypted.contentType,
+    });
+    return {
+      key,
+      storageUri: this.pathResolver.storageUriForKey(key),
+      encryptionKeyId: encrypted.encryptionKeyId,
+    };
+  }
+
+  async putQuarantineObject(input: PutQuarantineObjectInput): Promise<PutTenantObjectResult> {
+    const key = this.pathResolver.buildQuarantineObjectKey(input);
+    const encrypted = await this.encryptionHook.beforePut({
+      tenantId: input.tenantId,
+      fileObjectId: `quarantine:${input.quarantineRef}`,
       body: input.body,
       contentLength: input.contentLength,
       contentType: input.contentType,

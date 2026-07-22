@@ -20,6 +20,7 @@ const documentId = '11111111-1111-4111-8111-111111111133';
 const fileObjectId = '11111111-1111-4111-8111-111111111144';
 const emailId = '11111111-1111-4111-8111-111111111155';
 const anchorDate = '2026-07-02';
+const quarantineRef = '11111111-1111-4111-8111-111111111166';
 
 class MemoryStorageAdapter implements StorageAdapter {
   private readonly objects = new Map<string, { body: Buffer; contentType: string }>();
@@ -152,6 +153,28 @@ describe('StorageService', () => {
     });
     await expect(service.headByStorageUri(tenantId, result.storageUri)).resolves.toMatchObject({
       contentLength: 20,
+    });
+  });
+
+  it('stores quarantine bytes under a server-derived tenant quarantine prefix', async () => {
+    const service = new StorageService(
+      new MemoryStorageAdapter(),
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
+
+    const result = await service.putQuarantineObject({
+      tenantId,
+      quarantineRef,
+      body: Buffer.from('unscanned'),
+      contentLength: 9,
+      contentType: 'application/pdf',
+    });
+
+    expect(result).toEqual({
+      key: `tenants/${tenantId}/quarantine/${quarantineRef}`,
+      storageUri: `s3://vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`,
+      encryptionKeyId: null,
     });
   });
 

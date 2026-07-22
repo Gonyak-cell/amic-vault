@@ -16,6 +16,11 @@ export interface AuditAnchorStorageObjectIds {
   anchorDate: string;
 }
 
+export interface QuarantineStorageObjectIds {
+  tenantId: string;
+  quarantineRef: string;
+}
+
 export type ParsedStorageObjectKey =
   | (StorageObjectIds & {
       objectType: 'document';
@@ -95,6 +100,12 @@ export class StoragePathResolver {
       throw new StoragePathViolationError('anchorDate: invalid utc date');
     }
     return `tenants/${tenantId}/audit-anchors/${input.anchorDate}.json`;
+  }
+
+  buildQuarantineObjectKey(input: QuarantineStorageObjectIds): string {
+    const tenantId = assertUuid('tenantId', input.tenantId);
+    const quarantineRef = assertUuid('quarantineRef', input.quarantineRef);
+    return `tenants/${tenantId}/quarantine/${quarantineRef}`;
   }
 
   storageUriForKey(key: string): string {

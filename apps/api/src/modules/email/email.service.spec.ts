@@ -424,6 +424,13 @@ function createService(
     duplicates: [{ documentId: 'dupe-doc', fileObjectId: 'dupe-file', sha256: 'b'.repeat(64) }],
   }));
   const documentUploadService = { uploadBuffer } as unknown as DocumentUploadService;
+  const quarantineIntake = {
+    intakeBuffer: vi.fn(async () => ({
+      status: 'quarantined' as const,
+      matterId: '11111111-1111-4111-8111-1111111111a0',
+      quarantineRef: '11111111-1111-4111-8111-1111111111a9',
+    })),
+  };
   const canReadDocument = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
   const canUploadToMatter = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
   const permissionService = { canReadDocument, canUploadToMatter } as unknown as PermissionService;
@@ -463,6 +470,7 @@ function createService(
     createDraft,
     createInitialVersion,
     query,
+    quarantineIntake,
     scanAndRecord,
     upsertVersion,
     service: new EmailService(
@@ -471,6 +479,7 @@ function createService(
       storageService,
       tenantContext,
       documentUploadService,
+      quarantineIntake as never,
       permissionService,
       permissionQueryBuilder,
       userService,
@@ -866,6 +875,50 @@ describe('EmailService', () => {
       query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO email_document_links')),
     ).toBe(true);
     expect(JSON.stringify(query.mock.calls)).not.toContain('raw email body');
+  });
+
+  it('quarantines email attachments without creating an email-document link when enabled', async () => {
+    const previous = process.env.FILE_SECURITY_QUARANTINE_ENABLED;
+    process.env.FILE_SECURITY_QUARANTINE_ENABLED = 'true';
+    const { query, quarantineIntake, scanAndRecord, service, uploadBuffer } = createService();
+    const pdf = Buffer.from('%PDF-1.7\nattachment\n%%EOF\n');
+    vi.mocked(quarantineIntake.intakeBuffer).mockResolvedValueOnce({
+      status: 'quarantined',
+      matterId: '11111111-1111-4111-8111-1111111111a0',
+      quarantineRef: '11111111-1111-4111-8111-1111111111a9',
+    });
+
+    try {
+      await service.importRawEmail({
+        tenantId,
+        actorUserId,
+        matterId: '11111111-1111-4111-8111-1111111111a0',
+        originalFilename: 'with-attachment.eml',
+        body: Buffer.from([
+          'Message-ID: <case-quarantine@example.test>',
+          'Content-Type: multipart/mixed; boundary="amic-boundary"',
+          '',
+          '--amic-boundary',
+          'Content-Type: application/pdf; name="attachment.pdf"',
+          'Content-Disposition: attachment; filename="attachment.pdf"',
+          'Content-Transfer-Encoding: base64',
+          '',
+          pdf.toString('base64'),
+          '--amic-boundary--',
+          '',
+        ].join('\r\n')),
+      });
+
+      expect(scanAndRecord).toHaveBeenCalledOnce();
+      expect(quarantineIntake.intakeBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({ body: pdf, sourceSystem: 'email_ingest' }),
+      );
+      expect(uploadBuffer).not.toHaveBeenCalled();
+      expect(query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO email_document_links'))).toBe(false);
+    } finally {
+      if (previous === undefined) delete process.env.FILE_SECURITY_QUARANTINE_ENABLED;
+      else process.env.FILE_SECURITY_QUARANTINE_ENABLED = previous;
+    }
   });
 
   it('fails closed before document upload when attachment DLP scan fails', async () => {

@@ -11,6 +11,7 @@ import {
   createClient,
   createMatter,
   createStorageService,
+  ensureFreshMatterAppSyncState,
   latestAuditMetadata,
   loginBetaOwner,
   storageUrisForDocument,
@@ -29,6 +30,7 @@ describe('desktop view and download audit integration', () => {
     await app.listen(0);
     baseUrl = await app.getUrl();
     betaOwnerCookie = await loginBetaOwner(baseUrl);
+    await ensureFreshMatterAppSyncState(tenantBetaId, 'desktop_view_download_audit');
   });
 
   afterAll(async () => {

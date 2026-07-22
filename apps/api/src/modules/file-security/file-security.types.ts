@@ -6,3 +6,7 @@ export interface FileSecurityScanJobPayload {
   quarantineRef: string;
   expectedSha256: string;
 }
+
+export function quarantineIngressEnabled(): boolean {
+  return process.env.FILE_SECURITY_QUARANTINE_ENABLED === 'true';
+}

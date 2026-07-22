@@ -210,6 +210,25 @@ describe('onedrive-customer-wide-import-runner', () => {
     expect(serialized.includes('raw-bucket')).toBe(false);
   });
 
+  it('records a quarantine receipt without claiming a customer-wide document import', async () => {
+    const files = await fixtureFiles();
+    const report = await runCustomerWideImport(args(files, true), {
+      downloadSourceObject: vi.fn(async (input: { destinationPath: string }) => {
+        await writeFile(input.destinationPath, Buffer.from('hello world!'));
+      }),
+      uploadOne: vi.fn(async () => ({
+        matterId,
+        quarantineRef: '22222222-2222-4222-8222-222222222222',
+      })),
+    });
+    const receipt = await readFile(files.localReceiptOut, 'utf8');
+
+    expect(report.summary.status_counts.quarantined).toBe(1);
+    expect(receipt).toContain('"status":"quarantined"');
+    expect(receipt).not.toContain('document_id');
+    expect(receipt).not.toContain('file_object_id');
+  });
+
   it('refuses bundled source-of-truth cutover', async () => {
     const files = await fixtureFiles({ cutoverPolicy: 'execute_after_import' });
     const report = await runCustomerWideImport(args(files));
