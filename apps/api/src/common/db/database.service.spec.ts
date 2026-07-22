@@ -1,0 +1,94 @@
+import { ForbiddenException } from '@nestjs/common';
+import type { PoolClient } from 'pg';
+import { describe, expect, it, vi } from 'vitest';
+import type { QueryClient as AuditQueryClient } from '../../modules/audit/audit.service';
+import { TenantContextService } from '../../modules/tenant/tenant-context';
+import { DatabaseService, type DatabasePool } from './database.service';
+import { TenantAwareDataSource } from './tenant-aware-datasource';
+
+const tenantId = '11111111-1111-4111-8111-111111111111';
+
+class FakeClient {
+  readonly queries: string[] = [];
+  readonly params: Array<readonly unknown[] | undefined> = [];
+  readonly release = vi.fn();
+  readonly rows: unknown[] = [];
+
+  async query<T = unknown>(sql: string, params?: readonly unknown[]): Promise<{ rows: T[]; rowCount: number | null }> {
+    this.queries.push(sql);
+    this.params.push(params);
+    return { rows: this.rows as T[], rowCount: this.rows.length };
+  }
+}
+
+class FakePool implements DatabasePool {
+  readonly client = new FakeClient();
+  readonly end = vi.fn(async () => undefined);
+  readonly connect = vi.fn(async () => this.client as unknown as PoolClient);
+  private errorListener: ((error: Error) => void) | undefined;
+
+  on(event: 'error', listener: (error: Error) => void): void {
+    if (event === 'error') this.errorListener = listener;
+  }
+
+  fail(error = new Error('pool failed')): void {
+    this.errorListener?.(error);
+  }
+}
+
+function createService(pool = new FakePool()): { pool: FakePool; service: DatabaseService } {
+  return { pool, service: new DatabaseService(pool, new TenantAwareDataSource(new TenantContextService())) };
+}
+
+describe('DatabaseService', () => {
+  it('commits tenant work with a transaction-local GUC and releases the client', async () => {
+    const { pool, service } = createService();
+    await expect(service.tenantTransaction(tenantId, async () => 'ok')).resolves.toBe('ok');
+    expect(pool.client.queries).toEqual(['BEGIN', 'SELECT set_config($1, $2, true)', 'COMMIT']);
+    expect(pool.client.params[1]).toEqual(['app.current_tenant_id', tenantId]);
+    expect(pool.client.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls back and releases when tenant work fails', async () => {
+    const { pool, service } = createService();
+    await expect(service.tenantTransaction(tenantId, async () => { throw new Error('expected test failure'); })).rejects.toThrow('expected test failure');
+    expect(pool.client.queries).toEqual(['BEGIN', 'SELECT set_config($1, $2, true)', 'ROLLBACK']);
+    expect(pool.client.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects missing tenants and nested transaction misuse before a second checkout', async () => {
+    const { pool, service } = createService();
+    await expect(service.tenantTransaction(' ', async () => undefined)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.tenantTransaction(tenantId, async () => service.tenantTransaction(tenantId, async () => undefined))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(pool.connect).toHaveBeenCalledTimes(1);
+    expect(pool.client.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed after an unexpected pool error', async () => {
+    const { pool, service } = createService();
+    pool.fail();
+    await expect(service.tenantTransaction(tenantId, async () => undefined)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(pool.connect).not.toHaveBeenCalled();
+  });
+
+  it('allows AuditService-compatible query clients without exporting a raw pool', async () => {
+    const { service } = createService();
+    let auditClient: AuditQueryClient | undefined;
+    await service.tenantTransaction(tenantId, async (client) => { auditClient = client; await client.query('SELECT 1'); });
+    expect(auditClient).toBeDefined();
+  });
+
+  it('closes each singleton pool exactly once across 50 create/close loops', async () => {
+    const pools: FakePool[] = [];
+    for (let index = 0; index < 50; index += 1) {
+      const pool = new FakePool();
+      const service = createService(pool).service;
+      pools.push(pool);
+      await service.tenantTransaction(tenantId, async () => undefined);
+      await service.onModuleDestroy();
+      await service.onModuleDestroy();
+    }
+    expect(pools.every((pool) => pool.client.release.mock.calls.length === 1)).toBe(true);
+    expect(pools.every((pool) => pool.end.mock.calls.length === 1)).toBe(true);
+  });
+});

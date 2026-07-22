@@ -44,6 +44,10 @@ jobs:
 
   db-integration:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_MIGRATION_URL: postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault
+      DATABASE_RUNTIME_URL: postgres://vault_app:vault_app_dev_password@localhost:5432/amic_vault
+      DATABASE_RUNTIME_ROLE: vault_app
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

@@ -9,6 +9,15 @@
     "L4": "separately governed long-lived fork; requires a new authority record",
     "REJECTED": "cannot be used by a downstream implementation"
   },
+  "l0IneligiblePaths": [
+    "apps/api/src/common/db/runtime-role.assertion.ts",
+    "apps/api/src/common/db/runtime-role.assertion.spec.ts",
+    "apps/api/src/common/db/database.module.ts",
+    "apps/api/src/common/db/database.module.spec.ts",
+    "apps/api/src/common/db/database.tokens.ts",
+    "apps/api/src/common/db/database.service.ts",
+    "apps/api/src/common/db/database.service.spec.ts"
+  ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },
     { "id": "mayan-edms", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 4, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace worker/storage/audit authority"], "reason": "OCR behavior may be studied but task source is not ported" },

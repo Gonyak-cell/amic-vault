@@ -6,9 +6,11 @@ import { TenantAwareDataSource, type QueryClient } from './tenant-aware-datasour
 
 class FakeClient implements QueryClient {
   readonly queries: string[] = [];
+  readonly params: Array<readonly unknown[] | undefined> = [];
 
-  async query(sql: string): Promise<unknown> {
+  async query(sql: string, params?: readonly unknown[]): Promise<unknown> {
     this.queries.push(sql);
+    this.params.push(params);
     return {};
   }
 }
@@ -36,5 +38,28 @@ describe('TenantAwareDataSource', () => {
     );
 
     expect(client.queries).toEqual(['BEGIN', 'SELECT set_config($1, $2, true)', 'COMMIT']);
+    expect(client.params[1]).toEqual(['app.current_tenant_id', tenantId]);
+  });
+
+  it('uses the supplied tenant only inside the transaction-local GUC', async () => {
+    const client = new FakeClient();
+    const dataSource = new TenantAwareDataSource(new TenantContextService());
+    await dataSource.transactionForTenant(client, tenantId, async () => 'ok');
+    expect(client.queries).toEqual(['BEGIN', 'SELECT set_config($1, $2, true)', 'COMMIT']);
+    expect(client.params[1]).toEqual(['app.current_tenant_id', tenantId]);
+  });
+
+  it('fails closed for a missing explicit tenant before beginning a transaction', async () => {
+    const client = new FakeClient();
+    const dataSource = new TenantAwareDataSource(new TenantContextService());
+    await expect(dataSource.transactionForTenant(client, '   ', async () => undefined)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(client.queries).toEqual([]);
+  });
+
+  it('rolls back when tenant work fails', async () => {
+    const client = new FakeClient();
+    const dataSource = new TenantAwareDataSource(new TenantContextService());
+    await expect(dataSource.transactionForTenant(client, tenantId, async () => { throw new Error('expected test failure'); })).rejects.toThrow('expected test failure');
+    expect(client.queries).toEqual(['BEGIN', 'SELECT set_config($1, $2, true)', 'ROLLBACK']);
   });
 });

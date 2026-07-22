@@ -93,7 +93,10 @@ services:
     environment:
       NODE_ENV: development
       PROCESS_ROLE: api
-      DATABASE_URL: postgres://amic_vault:amic_vault_dev_password@postgres:5432/amic_vault
+      DATABASE_MIGRATION_URL: ''
+      DATABASE_URL: ''
+      DATABASE_RUNTIME_URL: postgres://vault_app:vault_app_dev_password@postgres:5432/amic_vault
+      DATABASE_RUNTIME_ROLE: vault_app
       S3_ENDPOINT: http://minio:9000
       S3_BUCKET: ${S3_BUCKET:-amic-vault-dev}
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-amic-vault-minio}
@@ -120,7 +123,10 @@ services:
     environment:
       NODE_ENV: development
       PROCESS_ROLE: worker
-      DATABASE_URL: postgres://amic_vault:amic_vault_dev_password@postgres:5432/amic_vault
+      DATABASE_MIGRATION_URL: ''
+      DATABASE_URL: ''
+      DATABASE_RUNTIME_URL: postgres://vault_app:vault_app_dev_password@postgres:5432/amic_vault
+      DATABASE_RUNTIME_ROLE: vault_app
       S3_ENDPOINT: http://minio:9000
       S3_BUCKET: ${S3_BUCKET:-amic-vault-dev}
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-amic-vault-minio}
