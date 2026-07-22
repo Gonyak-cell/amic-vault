@@ -4,6 +4,7 @@ import { MetricsRegistry } from '../../../common/metrics/metrics.middleware';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { DdService } from '../../dd/dd.service';
 import { GraphSyncOutboxWorker } from '../../graph/graph-sync-outbox.worker';
+import { promotedDocumentExistsSql } from '../../file-security/promoted-file.guard';
 import { SearchIndexSyncHook } from '../../search/index/index-sync.hook';
 import { StorageService } from '../../storage/storage.service';
 import type {
@@ -446,11 +447,12 @@ export class ExtractionDispatcher {
           JOIN file_objects f
             ON f.tenant_id = dv.tenant_id
             AND f.file_object_id = dv.file_object_id
-          WHERE dv.tenant_id = $1
-            AND dv.document_id = $2
-            AND dv.version_id = $3
-            AND dv.file_object_id = $4
-          LIMIT 1
+        WHERE dv.tenant_id = $1
+          AND dv.document_id = $2
+          AND dv.version_id = $3
+          AND dv.file_object_id = $4
+          AND ${promotedDocumentExistsSql('d')}
+        LIMIT 1
         `,
         [payload.tenantId, payload.documentId, payload.versionId, payload.fileObjectId],
       );
@@ -605,6 +607,7 @@ export class ExtractionDispatcher {
           AND dv.document_id = $2
           AND dv.version_id = $3
           AND dv.file_object_id = $4
+          AND ${promotedDocumentExistsSql('d')}
         LIMIT 1
       `,
       [input.tenantId, input.documentId, input.versionId, input.fileObjectId],

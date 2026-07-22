@@ -263,6 +263,8 @@ describe('DocumentLifecycleService', () => {
       filename: 'download.pdf',
       sha256: 'abc123',
     });
+    expect(String(tx.query.mock.calls[0]?.[0])).toContain('FROM file_security_promotions promotion');
+    expect(String(tx.query.mock.calls[0]?.[0])).toContain("scan.state = 'promoted'");
     expect(auditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'DOCUMENT_DOWNLOADED',

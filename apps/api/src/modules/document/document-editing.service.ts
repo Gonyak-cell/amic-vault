@@ -61,6 +61,7 @@ import {
   documentVersionPromotedAudit,
 } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
+import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -2807,6 +2808,7 @@ export class DocumentEditingService {
         WHERE dv.tenant_id = $1
           AND dv.document_id = $2
           AND dv.version_id = $3
+          AND ${promotedDocumentExistsSql('dv')}
         LIMIT 1
       `,
       [tenantId, documentId, baseVersionId],
@@ -2925,6 +2927,7 @@ export class DocumentEditingService {
         WHERE sv.tenant_id = $1
           AND sv.document_id = $2
           AND sv.subversion_id = $3
+          AND ${promotedDocumentExistsSql('bv')}
           AND (
             sv.created_by = $4
             OR EXISTS (

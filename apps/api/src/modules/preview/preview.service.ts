@@ -4,6 +4,7 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import type { TenantId } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { FileObjectService } from '../storage/file-object.service';
+import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { PreviewConversionUnavailableError, PreviewConvertJob } from './preview-convert.job';
@@ -310,6 +311,7 @@ export class PreviewService {
           AND d.document_id = $2
           AND dv.version_id = $3
           AND dv.file_object_id = $4
+          AND ${promotedDocumentExistsSql('d')}
         LIMIT 1
       `,
       [tenantId, documentId, versionId, fileObjectId],

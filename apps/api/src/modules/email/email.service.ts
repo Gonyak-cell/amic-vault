@@ -49,6 +49,7 @@ import { DocumentUploadService, type UploadedDiskFile } from '../document/docume
 import { QuarantineIntakeService } from '../file-security/quarantine-intake.service';
 import { quarantineIngressEnabled } from '../file-security/file-security.types';
 import { DlpService } from '../dlp/dlp.service';
+import { isDocumentPromoted } from '../file-security/promoted-file.guard';
 import { PermissionQueryBuilder } from '../permission/permission-query.builder';
 import { PermissionService } from '../permission/permission.service';
 import {
@@ -1920,6 +1921,12 @@ export class EmailService {
       const row = await this.findRawEmailDownloadTarget(tx, tenantId, emailId);
       if (!row) throw new NotFoundException({ code: 'PERMISSION_DENIED' });
       const linkedDocuments = await this.findRawEmailLinkedDocuments(tx, tenantId, emailId);
+      if (linkedDocuments.length === 0) throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+      for (const document of linkedDocuments) {
+        if (!(await isDocumentPromoted(tx, { tenantId, documentId: document.document_id }))) {
+          throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
+        }
+      }
       const matterId = await this.assertCanDownloadRawEmail(
         tenantId,
         actorUserId,

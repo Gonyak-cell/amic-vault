@@ -23,8 +23,8 @@ export class IndexingProcessor {
     await this.auditService.transaction(payload.tenantId, async (tx) => {
       const indexed = await this.repository.upsertVersion(tx, payload);
       if (!indexed) {
-        this.logger.warn({ code: 'SEARCH_INDEX_TARGET_MISSING', versionId: payload.versionId });
-        throw new Error('search index target missing');
+        this.logger.warn({ code: 'SEARCH_INDEX_TARGET_NOT_PROMOTED' });
+        return;
       }
       await markAndAuditAiPrepArtifactsStale(this.auditService, tx, {
         tenantId: payload.tenantId,

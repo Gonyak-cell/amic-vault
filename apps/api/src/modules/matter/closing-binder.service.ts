@@ -13,6 +13,7 @@ import type {
 } from '@amic-vault/shared';
 import { buildStoredZip, type StoredZipFile } from '../../common/zip-store';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { isDocumentPromoted } from '../file-security/promoted-file.guard';
 import { PermissionService } from '../permission/permission.service';
 import { RecordsService } from '../records/records.service';
 import { StorageService } from '../storage/storage.service';
@@ -236,9 +237,21 @@ export class ClosingBinderService {
       const row = await this.findBinder(tx, context.tenantId, matterId, false);
       if (!row) throw notFoundDenied();
       if (row.status !== 'finalized') throw validationFailed('CLOSING_BINDER_ARCHIVE_REQUIRES_FINALIZED');
+      const sources = await this.collectArchiveSources(tx, context.tenantId, row.manifest_json);
+      for (const source of sources) {
+        if (
+          source.item.documentId &&
+          !(await isDocumentPromoted(tx, {
+            tenantId: context.tenantId,
+            documentId: source.item.documentId,
+          }))
+        ) {
+          throw notFoundDenied();
+        }
+      }
       return {
         binder: row,
-        sources: await this.collectArchiveSources(tx, context.tenantId, row.manifest_json),
+        sources,
       };
     });
 
