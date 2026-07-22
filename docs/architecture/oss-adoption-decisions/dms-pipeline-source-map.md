@@ -35,3 +35,5 @@ The next TUW may create a parity classification for a mapped test only when it
 keeps `NO_COPY`, names an existing canonical Vault integration suite, and
 retains an appropriate negative or fault assertion. It may not copy upstream
 source, fixture content, wording, binaries, or test code into the product tree.
+The machine-readable parity skeleton is `security/oss-test-reuse.yml` and is
+fail-closed validated by `tools/oss/verify-test-reuse.mjs`.

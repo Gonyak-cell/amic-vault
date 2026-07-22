@@ -56,5 +56,6 @@
   "noCandidateTargets": [
     { "portfolio": "OSS-07", "component": "openid-client", "result": "L0_NO_CANDIDATE", "reason": "exact source pin and license evidence are blocked; local identity authority remains primary" },
     { "portfolio": "OSS-08", "component": "presidio", "result": "L0_NO_CANDIDATE", "reason": "exact source pin and license evidence are blocked; R11 external behavior is not authorized" }
-  ]
+  ],
+  "testReuseManifest": "security/oss-test-reuse.yml"
 }
