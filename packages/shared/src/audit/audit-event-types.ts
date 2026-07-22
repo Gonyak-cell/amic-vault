@@ -73,6 +73,12 @@ export const r4DlpAuditActions = [
   'DLP_BULK_DOWNLOAD_DETECTED',
 ] as const;
 
+export const fileSecurityAuditActions = [
+  'FILE_QUARANTINED',
+  'FILE_SCAN_COMPLETED',
+  'FILE_SECURITY_HELD',
+] as const;
+
 export const r5DlpAuditActions = ['DLP_EGRESS_BLOCKED'] as const;
 
 export const r5BreakGlassAuditActions = [
@@ -251,6 +257,7 @@ export const auditActions = [
   ...r2DocumentAuditActions,
   ...r3SearchAuditActions,
   ...r4DlpAuditActions,
+  ...fileSecurityAuditActions,
   ...r5DlpAuditActions,
   ...r5BreakGlassAuditActions,
   ...r5AuditConsoleActions,
@@ -277,6 +284,7 @@ export type R1AuditAction = (typeof r1AuditActions)[number];
 export type R2DocumentAuditAction = (typeof r2DocumentAuditActions)[number];
 export type R3SearchAuditAction = (typeof r3SearchAuditActions)[number];
 export type R4DlpAuditAction = (typeof r4DlpAuditActions)[number];
+export type FileSecurityAuditAction = (typeof fileSecurityAuditActions)[number];
 export type R5DlpAuditAction = (typeof r5DlpAuditActions)[number];
 export type R5BreakGlassAuditAction = (typeof r5BreakGlassAuditActions)[number];
 export type R5AuditConsoleAction = (typeof r5AuditConsoleActions)[number];

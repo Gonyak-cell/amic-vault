@@ -75,6 +75,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS01-03 | `feat/pack-oss01-03-remaining-pool-migration` | 4 | `DEVOPS-OSS01-DBR-TUW-001` through `DEVOPS-OSS01-DBR-TUW-004` (`docs/execution/TUW_OSS01_REMAINING_POOL_MIGRATION.md`) |
 | PACK-OSS01-04 | `feat/pack-oss01-04-queue-registry-budget` | 4 | `DEVOPS-OSS01-QUE-TUW-001` through `DEVOPS-OSS01-QUE-TUW-004` (`docs/execution/TUW_OSS01_QUEUE_REGISTRY.md`) |
 | PACK-OSS03-01 | `feat/pack-oss03-01-sealed-disposal-inventory` | 4 | `DEVOPS-OSS03-DSP-TUW-001` through `DEVOPS-OSS03-DSP-TUW-004` (`docs/execution/TUW_OSS03_SEALED_DISPOSAL_INVENTORY.md`) |
+| PACK-OSS04-01 | `feat/pack-oss04-01-quarantine-scan` | 4 | `DEVOPS-OSS04-QRT-TUW-001` through `DEVOPS-OSS04-QRT-TUW-004` (`docs/execution/TUW_OSS04_QUARANTINE_SCAN.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 

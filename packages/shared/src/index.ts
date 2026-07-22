@@ -27,6 +27,7 @@ export {
   auditActions,
   auditAnchorActions,
   dmsWorkAuditActions,
+  fileSecurityAuditActions,
   auditMetadataKeys,
   isAuditAction,
   isAuditMetadataKey,
@@ -54,6 +55,7 @@ export {
   type AuditAction,
   type AuditAnchorAction,
   type DmsWorkAuditAction,
+  type FileSecurityAuditAction,
   type AuditMetadata,
   type AuditMetadataKey,
   type AuditMetadataValue,
@@ -79,6 +81,17 @@ export {
   type R14ScaleLearningAuditAction,
   type OutlookAuditAction,
 } from './types/audit';
+
+export {
+  canPromoteFileSecurityScan,
+  canTransitionFileSecurityState,
+  fileSecurityResultCodeSchema,
+  fileSecurityResultCodes,
+  fileSecurityStateSchema,
+  fileSecurityStates,
+  type FileSecurityResultCode,
+  type FileSecurityState,
+} from './file-security/file-security.types';
 
 export {
   createScaleAiGateReviewRequestSchema,

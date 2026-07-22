@@ -3,6 +3,7 @@ import {
   auditActions,
   auditAnchorActions,
   dmsWorkAuditActions,
+  fileSecurityAuditActions,
   isAuditAction,
   knowledgeBankAuditActions,
 } from './audit-event-types';
@@ -18,10 +19,16 @@ describe('shared audit declaration bridge', () => {
       'WIKI_PAGE_REVIEWED',
       'WIKI_EXPORTED',
     ]);
+    expect(fileSecurityAuditActions).toEqual([
+      'FILE_QUARANTINED',
+      'FILE_SCAN_COMPLETED',
+      'FILE_SECURITY_HELD',
+    ]);
     expect(auditActions).toEqual(expect.arrayContaining([
       ...auditAnchorActions,
       ...dmsWorkAuditActions,
       ...knowledgeBankAuditActions,
+      ...fileSecurityAuditActions,
     ]));
     expect(isAuditAction('OIDC_LOGIN_SUCCEEDED')).toBe(false);
   });
