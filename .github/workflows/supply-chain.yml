@@ -27,6 +27,28 @@ jobs:
       - name: Validate static upstream source-lock and baseline records
         run: node tools/oss/verify-upstream-baseline.mjs --static --source-map security/oss-source-map.yml
 
+  source-map-reuse:
+    runs-on: ubuntu-latest
+    steps:
+      # This job validates committed metadata and Git diff only. It never clones,
+      # executes, or builds upstream source and has no deployment permissions.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate source-map authority and reuse-first gate
+        run: |
+          node --test tools/oss/verify-source-map.spec.mjs tools/oss/check-reuse-first.spec.mjs
+          node tools/oss/verify-source-map.mjs --static --source-map security/oss-source-map.yml --decisions security/oss-adoption-decisions.yml --reuse security/oss-test-reuse.yml
+          BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before || github.sha }}"
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git merge-base HEAD "origin/${{ github.event.repository.default_branch }}")"
+          fi
+          node tools/oss/check-reuse-first.mjs --base "$BASE_SHA" --decisions security/oss-adoption-decisions.yml
+
   governance:
     runs-on: ubuntu-latest
     steps:
