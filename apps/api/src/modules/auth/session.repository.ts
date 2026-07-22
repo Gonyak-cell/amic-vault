@@ -1,38 +1,8 @@
 import { randomBytes, createHash } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import { Inject, Injectable } from '@nestjs/common';
 import type { TenantId } from '@amic-vault/shared';
+import { DatabaseService } from '../../common/db/database.service';
 import type { QueryClient } from '../audit/audit.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
-
-async function withTenantClient<T>(
-  tenantId: TenantId,
-  run: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-    const result = await run(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 export const SESSION_COOKIE_NAME = 'amic_session';
 export const SESSION_TTL_MS = 1000 * 60 * 60 * 8;
@@ -90,6 +60,8 @@ export function readCookie(
 
 @Injectable()
 export class SessionRepository {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+
   async createSession(
     input: {
       tenantId: TenantId;
@@ -103,7 +75,7 @@ export class SessionRepository {
     client?: QueryClient,
   ): Promise<SessionRecord> {
     if (!client) {
-      return withTenantClient(input.tenantId, (tenantClient) =>
+      return this.databaseService.tenantTransaction(input.tenantId, (tenantClient) =>
         this.createSession(input, tenantClient),
       );
     }
@@ -133,29 +105,17 @@ export class SessionRepository {
   }
 
   async findActiveByTokenHash(tokenHash: string): Promise<SessionRecord | null> {
-    const result = await getPool().query<SessionRow>(
-      `
-        SELECT session_id, tenant_id, user_id, token_hash, mfa_verified, expires_at, revoked_at
-        FROM app_find_active_session_by_token_hash($1)
-      `,
-      [tokenHash],
-    );
-    const row = result.rows[0];
+    const row = await this.databaseService.findActiveSessionByTokenHash(tokenHash);
     return row ? mapSession(row) : null;
   }
 
   async revokeByTokenHash(tokenHash: string): Promise<void> {
-    await getPool().query(
-      `
-        SELECT app_revoke_session_by_token_hash($1)
-      `,
-      [tokenHash],
-    );
+    await this.databaseService.revokeSessionByTokenHash(tokenHash);
   }
 
   async revokeAllForUser(tenantId: TenantId, userId: string, client?: QueryClient): Promise<void> {
     if (!client) {
-      return withTenantClient(tenantId, (tenantClient) =>
+      return this.databaseService.tenantTransaction(tenantId, (tenantClient) =>
         this.revokeAllForUser(tenantId, userId, tenantClient),
       );
     }

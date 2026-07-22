@@ -1,40 +1,10 @@
 import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
 import type { TenantId, TenantStatus, UserListDto, UserRole, UserStatus } from '@amic-vault/shared';
+import { DatabaseService } from '../../common/db/database.service';
 import type { QueryClient } from '../audit/audit.service';
 import type { TenantEntity } from '../tenant/tenant.entity';
 import { hashPassword, normalizeEmail } from './password';
 import { UserEntity } from './user.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
-
-async function withTenantClient<T>(
-  tenantId: TenantId,
-  run: (client: PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await getPool().connect();
-  try {
-    await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-    const result = await run(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 interface UserRow {
   user_id: string;
@@ -175,9 +145,12 @@ export function normalizeAccountLedgerId(accountLedgerId: string): string | null
   return normalized;
 }
 
+@Injectable()
 export class PgUserStore implements UserStore {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+
   async createUser(input: CreateUserInput & { passwordHash: string }): Promise<UserEntity> {
-    return withTenantClient(input.tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(input.tenantId, async (client) => {
       const result = await client.query<UserRow>(
         `
         INSERT INTO users (
@@ -205,34 +178,14 @@ export class PgUserStore implements UserStore {
   }
 
   async findUniqueLoginCandidateByEmail(email: string): Promise<LoginCandidate | null> {
-    const result = await getPool().query<LoginCandidateRow>(
-      `
-        SELECT tenant_id, tenant_name, tenant_slug, tenant_region, tenant_data_residency,
-          tenant_status, tenant_created_at, tenant_updated_at, user_id, user_email,
-          user_name, user_role, user_practice_group, user_status, user_password_hash,
-          user_mfa_enabled, user_last_login_at, user_created_at, user_updated_at
-        FROM app_find_unique_login_candidate_by_email($1)
-      `,
-      [email],
-    );
-    const row = result.rows[0];
+    const row = await this.databaseService.findUniqueLoginCandidateByEmail(email);
     return row ? mapLoginCandidate(row) : null;
   }
 
   async findLoginCandidateByAccountLedgerId(
     accountLedgerId: string,
   ): Promise<LoginCandidate | null> {
-    const result = await getPool().query<LoginCandidateRow>(
-      `
-        SELECT tenant_id, tenant_name, tenant_slug, tenant_region, tenant_data_residency,
-          tenant_status, tenant_created_at, tenant_updated_at, user_id, user_email,
-          user_name, user_role, user_practice_group, user_status, user_password_hash,
-          user_mfa_enabled, user_last_login_at, user_created_at, user_updated_at
-        FROM app_find_login_candidate_by_account_ledger_id($1)
-      `,
-      [accountLedgerId],
-    );
-    const row = result.rows[0];
+    const row = await this.databaseService.findLoginCandidateByAccountLedgerId(accountLedgerId);
     return row ? mapLoginCandidate(row) : null;
   }
 
@@ -259,11 +212,11 @@ export class PgUserStore implements UserStore {
       await run(client);
       return;
     }
-    await withTenantClient(input.tenantId, run);
+    await this.databaseService.tenantTransaction(input.tenantId, run);
   }
 
   async findByTenantAndEmail(tenantId: TenantId, email: string): Promise<UserEntity | null> {
-    return withTenantClient(tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(tenantId, async (client) => {
       const result = await client.query<UserRow>(
         `
         SELECT user_id, tenant_id, email, name, role, practice_group, status,
@@ -280,7 +233,7 @@ export class PgUserStore implements UserStore {
   }
 
   async findByTenantAndId(tenantId: TenantId, userId: string): Promise<UserEntity | null> {
-    return withTenantClient(tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(tenantId, async (client) => {
       const result = await client.query<UserRow>(
         `
         SELECT user_id, tenant_id, email, name, role, practice_group, status,
@@ -298,7 +251,7 @@ export class PgUserStore implements UserStore {
 
   async listByTenant(tenantId: TenantId, client?: QueryClient): Promise<UserEntity[]> {
     if (!client) {
-      return withTenantClient(tenantId, (tenantClient) => this.listByTenant(tenantId, tenantClient));
+      return this.databaseService.tenantTransaction(tenantId, (tenantClient) => this.listByTenant(tenantId, tenantClient));
     }
     const result = await client.query(
       `
@@ -329,7 +282,7 @@ export class PgUserStore implements UserStore {
     userId: string,
     passwordHash: string,
   ): Promise<void> {
-    await withTenantClient(tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(tenantId, async (client) => {
       await client.query(
         `
         UPDATE users
@@ -344,7 +297,7 @@ export class PgUserStore implements UserStore {
   }
 
   async setMfaEnabled(tenantId: TenantId, userId: string, enabled: boolean): Promise<void> {
-    await withTenantClient(tenantId, async (client) => {
+    await this.databaseService.tenantTransaction(tenantId, async (client) => {
       await client.query(
         `
         UPDATE users
@@ -361,8 +314,13 @@ export class PgUserStore implements UserStore {
   async recordLoginSuccess(
     tenantId: TenantId,
     userId: string,
-    client: QueryClient = getPool(),
+    client?: QueryClient,
   ): Promise<void> {
+    if (!client) {
+      return this.databaseService.tenantTransaction(tenantId, (tenantClient) =>
+        this.recordLoginSuccess(tenantId, userId, tenantClient),
+      );
+    }
     await client.query(
       `
         UPDATE users
@@ -382,7 +340,7 @@ export class PgUserStore implements UserStore {
     client?: QueryClient,
   ): Promise<UserEntity | null> {
     if (!client) {
-      return withTenantClient(tenantId, (tenantClient) =>
+      return this.databaseService.tenantTransaction(tenantId, (tenantClient) =>
         this.updateRole(tenantId, userId, role, tenantClient),
       );
     }
@@ -409,7 +367,7 @@ export class PgUserStore implements UserStore {
     client?: QueryClient,
   ): Promise<UserEntity | null> {
     if (!client) {
-      return withTenantClient(tenantId, (tenantClient) =>
+      return this.databaseService.tenantTransaction(tenantId, (tenantClient) =>
         this.updateStatus(tenantId, userId, status, tenantClient),
       );
     }
@@ -431,7 +389,7 @@ export class PgUserStore implements UserStore {
   }
 
   async countActiveUsersByRole(tenantId: TenantId, role: UserRole): Promise<number> {
-    return withTenantClient(tenantId, async (client) => {
+    return this.databaseService.tenantTransaction(tenantId, async (client) => {
       const result = await client.query<{ count: string }>(
         `
         SELECT count(*)::text AS count
