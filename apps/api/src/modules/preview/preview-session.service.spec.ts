@@ -1,8 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import type { TenantId } from '@amic-vault/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { PreviewSessionService } from './preview-session.service';
 
-const tenantId = '11111111-1111-4111-8111-111111111101';
+const tenantId = '11111111-1111-4111-8111-111111111101' as TenantId;
 const actorUserId = '11111111-1111-4111-8111-111111111102';
 const documentId = '11111111-1111-4111-8111-111111111103';
 const versionId = '11111111-1111-4111-8111-111111111104';
@@ -108,6 +109,53 @@ describe('PreviewSessionService', () => {
       (error: unknown) => code(error) === 'PERMISSION_DENIED',
     );
     expect(auditService.log).toHaveBeenCalledOnce();
+  });
+
+  it('accepts only an active session bound to the same tenant user document and version', async () => {
+    const { service } = setup();
+    const query = vi.fn(async () => ({ rows: [{ exists: 1 }], rowCount: 1 }));
+    const previewSessionToken = 'dGhpcy1pcy1hLXRlc3QtcHJldmlldy1zZXNzaW9uLXRva2VuXzEyMw';
+
+    await expect(
+      service.assertActiveSession(
+        { query },
+        tenantId,
+        actorUserId,
+        documentId,
+        versionId,
+        previewSessionToken,
+      ),
+    ).resolves.toBeUndefined();
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('expires_at > now()'),
+      [
+        tenantId,
+        actorUserId,
+        documentId,
+        versionId,
+        expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      ],
+    );
+  });
+
+  it('denies absent, expired, revoked, or replayed session references without querying storage', async () => {
+    const { service } = setup();
+    const query = vi.fn(async () => ({ rows: [], rowCount: 0 }));
+    const previewSessionToken = 'dGhpcy1pcy1hLXRlc3QtcHJldmlldy1zZXNzaW9uLXRva2VuXzEyMw';
+
+    await expect(
+      service.assertActiveSession(
+        { query },
+        tenantId,
+        actorUserId,
+        documentId,
+        versionId,
+        previewSessionToken,
+      ),
+    ).rejects.toSatisfy((error: unknown) => code(error) === 'PERMISSION_DENIED');
+    await expect(
+      service.assertActiveSession({ query }, tenantId, actorUserId, documentId, versionId, undefined),
+    ).rejects.toSatisfy((error: unknown) => code(error) === 'PERMISSION_DENIED');
   });
 
   it('keeps deleted documents and locked permission decisions distinct without metadata', async () => {

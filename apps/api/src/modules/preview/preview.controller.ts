@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   Inject,
   Param,
@@ -48,6 +49,7 @@ export class PreviewController {
   ) {}
 
   @Post('preview-sessions')
+  @Header('cache-control', 'no-store')
   async issuePreviewSession(
     @Req() request: RequestWithSession,
     @Param('documentId') documentId: string,
@@ -58,10 +60,12 @@ export class PreviewController {
   }
 
   @Get('preview')
+  @Header('cache-control', 'no-store')
   async preview(
     @Req() request: RequestWithSession,
     @Param('documentId') documentId: string,
     @Headers('range') rangeHeader: string | undefined,
+    @Headers('x-amic-preview-session') previewSessionToken: string | undefined,
     @Res({ passthrough: true })
     response: {
       status(code: number): void;
@@ -71,6 +75,7 @@ export class PreviewController {
     const preview = await this.previewService.openPreview(
       sessionUserId(request),
       parseUuid(documentId),
+      previewSessionToken,
       rangeHeader,
     );
     response.status(preview.statusCode);

@@ -1,5 +1,10 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { CreatePreviewSessionResponseDto, PermissionDecision, TenantId } from '@amic-vault/shared';
+import {
+  previewSessionTokenSchema,
+  type CreatePreviewSessionResponseDto,
+  type PermissionDecision,
+  type TenantId,
+} from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { documentViewedAudit } from '../audit/events/document-events';
 import { createOpaqueToken, hashOpaqueToken } from '../auth/session.repository';
@@ -75,6 +80,35 @@ export class PreviewSessionService {
       if (error instanceof BadRequestException || error instanceof NotFoundException) throw error;
       throw notFoundDenied();
     }
+  }
+
+  async assertActiveSession(
+    client: QueryClient,
+    tenantId: TenantId,
+    actorUserId: string,
+    documentId: string,
+    versionId: string,
+    previewSessionToken: string | undefined,
+  ): Promise<void> {
+    const parsedToken = previewSessionTokenSchema.safeParse(previewSessionToken);
+    if (!parsedToken.success) throw notFoundDenied();
+    const result = await client.query(
+      `
+        SELECT 1
+        FROM preview_access_sessions
+        WHERE tenant_id = $1
+          AND user_id = $2
+          AND document_id = $3
+          AND version_id = $4
+          AND token_hash = $5
+          AND revoked_at IS NULL
+          AND expires_at > now()
+        LIMIT 1
+      `,
+      [tenantId, actorUserId, documentId, versionId, hashOpaqueToken(parsedToken.data)],
+    );
+    if (result.rows.length === 1) return;
+    throw notFoundDenied();
   }
 
   private async assertCanPreview(

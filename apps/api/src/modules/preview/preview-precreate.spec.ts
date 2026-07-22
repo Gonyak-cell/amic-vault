@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TenantId } from '@amic-vault/shared';
 import { previewConvertQueueName } from './preview-convert.job';
@@ -204,6 +205,7 @@ describe('PreviewPrecreateQueueService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     await service.markPrecreateFailed(payload);
@@ -219,5 +221,100 @@ describe('PreviewPrecreateQueueService', () => {
       fileObjectId,
       'PREVIEW_CONVERSION_UNAVAILABLE',
     ]);
+  });
+
+  it('checks the bound session before either full or range storage reads', async () => {
+    const query = vi.fn(async () => ({
+      rowCount: 1,
+      rows: [
+        {
+          document_id: documentId,
+          tenant_id: tenantId,
+          matter_id: '11111111-1111-4111-8111-111111111199',
+          status: 'active',
+          version_id: versionId,
+          file_object_id: fileObjectId,
+          storage_uri: `s3://amic-vault-dev/${tenantId}/${documentId}/${fileObjectId}`,
+          normalized_filename: 'preview.pdf',
+          mime_type: 'application/pdf',
+          size_bytes: '8',
+          sha256: 'a'.repeat(64),
+        },
+      ],
+    }));
+    const tx = { query };
+    const previewSessionService = { assertActiveSession: vi.fn(async () => undefined) };
+    const storageService = {
+      getByStorageUri: vi.fn(async () => ({ body: Readable.from('%PDF-1.7'), contentLength: 8 })),
+      getRangeByStorageUri: vi.fn(async () => ({ body: Readable.from('%PDF-1.7'), contentLength: 8 })),
+    };
+    const service = new PreviewService(
+      { transaction: vi.fn(async (_tenantId: TenantId, run: (client: typeof tx) => Promise<unknown>) => run(tx)) } as never,
+      {} as never,
+      { canReadDocument: vi.fn(async () => ({ effect: 'ALLOW' })) } as never,
+      {} as never,
+      previewSessionService as never,
+      storageService as never,
+      { require: () => ({ tenantId }) } as never,
+    );
+    const previewSessionToken = 'dGhpcy1pcy1hLXRlc3QtcHJldmlldy1zZXNzaW9uLXRva2VuXzEyMw';
+
+    const result = await service.openPreview(
+      actorUserId,
+      documentId,
+      previewSessionToken,
+      'bytes=0-7',
+    );
+
+    expect(result.statusCode).toBe(206);
+    expect(previewSessionService.assertActiveSession).toHaveBeenCalledWith(
+      tx,
+      tenantId,
+      actorUserId,
+      documentId,
+      versionId,
+      previewSessionToken,
+    );
+    expect(storageService.getRangeByStorageUri).toHaveBeenCalledOnce();
+    expect(storageService.getByStorageUri).not.toHaveBeenCalled();
+  });
+
+  it('does not call storage when the preview-session validator denies', async () => {
+    const query = vi.fn(async () => ({
+      rowCount: 1,
+      rows: [
+        {
+          document_id: documentId,
+          tenant_id: tenantId,
+          matter_id: '11111111-1111-4111-8111-111111111199',
+          status: 'active',
+          version_id: versionId,
+          file_object_id: fileObjectId,
+          storage_uri: `s3://amic-vault-dev/${tenantId}/${documentId}/${fileObjectId}`,
+          normalized_filename: 'preview.pdf',
+          mime_type: 'application/pdf',
+          size_bytes: '8',
+          sha256: 'a'.repeat(64),
+        },
+      ],
+    }));
+    const tx = { query };
+    const storageService = {
+      getByStorageUri: vi.fn(),
+      getRangeByStorageUri: vi.fn(),
+    };
+    const service = new PreviewService(
+      { transaction: vi.fn(async (_tenantId: TenantId, run: (client: typeof tx) => Promise<unknown>) => run(tx)) } as never,
+      {} as never,
+      { canReadDocument: vi.fn(async () => ({ effect: 'ALLOW' })) } as never,
+      {} as never,
+      { assertActiveSession: vi.fn(async () => { throw new Error('denied'); }) } as never,
+      storageService as never,
+      { require: () => ({ tenantId }) } as never,
+    );
+
+    await expect(service.openPreview(actorUserId, documentId, undefined)).rejects.toThrow('denied');
+    expect(storageService.getByStorageUri).not.toHaveBeenCalled();
+    expect(storageService.getRangeByStorageUri).not.toHaveBeenCalled();
   });
 });
