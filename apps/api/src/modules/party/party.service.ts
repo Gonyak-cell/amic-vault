@@ -5,7 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   CreatePartyDto,
   ListPartiesQueryDto,
@@ -17,21 +16,11 @@ import type {
   UpdatePartyDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { PartyEntity } from './party.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface PartyRow {
   party_id: string;
@@ -123,6 +112,7 @@ function throwWriteDenied(decision: PermissionDecision): never {
 export class PartyService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
@@ -283,9 +273,11 @@ export class PartyService {
   }
 
   private async assertMatterMutable(tenantId: TenantId, matterId: string): Promise<void> {
-    const result = await getPool().query<MatterStatusRow>(
-      'SELECT status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
-      [tenantId, matterId],
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<MatterStatusRow>(
+        'SELECT status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
+        [tenantId, matterId],
+      ),
     );
     const status = result.rows[0]?.status;
     if (!status) throw notFoundDenied();
@@ -298,22 +290,16 @@ export class PartyService {
   ): Promise<void> {
     if (!clientId) return;
     if (await this.clientExistsForTenant(tenantId, clientId)) return;
-    if (await this.clientExistsAnyTenant(clientId)) throw notFoundDenied();
-    throw validationFailed();
+    throw notFoundDenied();
   }
 
   private async clientExistsForTenant(tenantId: TenantId, clientId: string): Promise<boolean> {
-    const result = await getPool().query(
-      'SELECT 1 FROM clients WHERE tenant_id = $1 AND client_id = $2 LIMIT 1',
-      [tenantId, clientId],
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query('SELECT 1 FROM clients WHERE tenant_id = $1 AND client_id = $2 LIMIT 1', [
+        tenantId,
+        clientId,
+      ]),
     );
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  private async clientExistsAnyTenant(clientId: string): Promise<boolean> {
-    const result = await getPool().query('SELECT 1 FROM clients WHERE client_id = $1 LIMIT 1', [
-      clientId,
-    ]);
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -368,15 +354,17 @@ export class PartyService {
       filters.push(`is_restricted = $${params.length}`);
     }
 
-    const result = await getPool().query<PartyRow>(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<PartyRow>(
+        `
         SELECT party_id, tenant_id, matter_id, name, party_type, party_role,
           related_client_id, is_restricted, created_by, created_at
         FROM parties
         WHERE ${filters.join(' AND ')}
         ORDER BY created_at ASC, party_id ASC
       `,
-      params,
+        params,
+      ),
     );
     return result.rows.map(mapParty);
   }
@@ -384,18 +372,31 @@ export class PartyService {
   private async findByIdForTenant(
     tenantId: TenantId,
     partyId: string,
-    queryClient: QueryClient = getPool(),
+    queryClient?: QueryClient,
   ): Promise<PartyEntity | null> {
-    const result = await queryClient.query(
-      `
+    const result = queryClient
+      ? await queryClient.query(
+          `
         SELECT party_id, tenant_id, matter_id, name, party_type, party_role,
           related_client_id, is_restricted, created_by, created_at
         FROM parties
         WHERE tenant_id = $1
           AND party_id = $2
       `,
-      [tenantId, partyId],
-    );
+          [tenantId, partyId],
+        )
+      : await this.databaseService.tenantTransaction(tenantId, (client) =>
+          client.query(
+            `
+        SELECT party_id, tenant_id, matter_id, name, party_type, party_role,
+          related_client_id, is_restricted, created_by, created_at
+        FROM parties
+        WHERE tenant_id = $1
+          AND party_id = $2
+      `,
+            [tenantId, partyId],
+          ),
+        );
     const row = result.rows[0] as PartyRow | undefined;
     return row ? mapParty(row) : null;
   }

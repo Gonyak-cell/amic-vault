@@ -204,9 +204,9 @@ async function countMatterMembersByCode(matterCode: string): Promise<number> {
   });
 }
 
-async function matterMembers(matterId: string): Promise<
-  Array<{ access_level: string; matter_role: string; user_id: string }>
-> {
+async function matterMembers(
+  matterId: string,
+): Promise<Array<{ access_level: string; matter_role: string; user_id: string }>> {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{
       access_level: string;
@@ -377,7 +377,12 @@ describe('matter core integration', () => {
     expect(list.status, listBody).toBe(200);
     expect(
       JSON.parse(listBody) as {
-        items: Array<{ confidentialityLevel: string; ethicalWallActive: boolean; matterId: string; status: string }>;
+        items: Array<{
+          confidentialityLevel: string;
+          ethicalWallActive: boolean;
+          matterId: string;
+          status: string;
+        }>;
       },
     ).toMatchObject({
       items: [
@@ -441,9 +446,12 @@ describe('matter core integration', () => {
       ],
     });
 
-    const inverseRelation = await fetch(`${baseUrl}/v1/matters/${target.matterId}/related-matters`, {
-      headers: { cookie: betaOwnerCookie },
-    });
+    const inverseRelation = await fetch(
+      `${baseUrl}/v1/matters/${target.matterId}/related-matters`,
+      {
+        headers: { cookie: betaOwnerCookie },
+      },
+    );
     const inverseRelationBody = await inverseRelation.text();
     expect(inverseRelation.status, inverseRelationBody).toBe(200);
     expect(JSON.parse(inverseRelationBody)).toMatchObject({
@@ -640,11 +648,13 @@ describe('matter core integration', () => {
     expect(JSON.stringify(audit?.metadata_json)).not.toContain('intake');
   });
 
-  it('fails closed for invalid clients, cross-tenant clients, and non-manager creates', async () => {
+  it('fails closed for unresolved clients, cross-tenant clients, and non-manager creates', async () => {
     const missingClient = await createMatter(baseUrl, betaOwnerCookie, {
       clientId: randomUUID(),
     });
-    expect(missingClient.status, await missingClient.text()).toBe(400);
+    const missingClientBody = await missingClient.text();
+    expect(missingClient.status, missingClientBody).toBe(404);
+    expect(missingClientBody).toContain('PERMISSION_DENIED');
 
     const alphaClientId = await createClient(
       baseUrl,

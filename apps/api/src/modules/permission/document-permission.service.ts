@@ -1,5 +1,4 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   DocumentConfidentialityLevel,
   DocumentPermissionService as SharedDocumentPermissionService,
@@ -32,17 +31,7 @@ import {
 } from './fail-closed.wrapper';
 import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
 import { tenantQuery } from '../../common/db/tenant-query';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
 
 export interface DocumentActorSnapshot {
   userId: string;
@@ -98,6 +87,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
   constructor(
     @Inject(FailClosedPermissionWrapper)
     private readonly wrapper: FailClosedPermissionWrapper,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Optional()
     @Inject(BreakGlassOverrideReader)
     private readonly breakGlassOverrideReader?: BreakGlassOverrideReader,
@@ -233,7 +223,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       status: string;
       practice_group: string | null;
     }>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT user_id, role, status, practice_group
@@ -270,7 +260,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       confidentiality_level: DocumentConfidentialityLevel;
       privilege_status: DocumentPrivilegeStatus;
     }>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT d.document_id, d.tenant_id, d.matter_id, m.client_id, d.status,
@@ -309,7 +299,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     userId: string,
   ): Promise<DocumentMatterMemberSnapshot | null> {
     const result = await tenantQuery<DocumentMatterMemberSnapshot>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT matter_role AS "matterRole", access_level AS "accessLevel"
@@ -335,7 +325,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       user_is_insider: boolean;
       user_is_excluded: boolean;
     }>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         WITH user_subjects AS (
@@ -426,7 +416,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     action: DocumentPermissionAction,
   ): Promise<ExplicitDocumentPermissionRow[]> {
     const result = await tenantQuery<ExplicitDocumentPermissionRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT permission_id AS "permissionId", effect, condition_json, priority

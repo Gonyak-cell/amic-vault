@@ -6,7 +6,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   AddMatterMemberDto,
   MatterMemberAccessLevel,
@@ -19,22 +18,12 @@ import type {
 import { buildSafeLabel } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionEventRecorder } from '../audit/permission-event.recorder';
+import { DatabaseService } from '../../common/db/database.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { assertMatterMutationAllowed } from './guards/matter-mutability.guard';
 import { MatterMemberEntity } from './matter-member.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterMemberRow {
   matter_id: string;
@@ -107,6 +96,7 @@ function notFoundDenied(): NotFoundException {
 export class MatterMemberService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
@@ -122,8 +112,9 @@ export class MatterMemberService {
     );
     if (read.effect !== 'ALLOW') throwReadDenied(read);
     const canManage = await this.canManageMembers(context.tenantId, actorUserId, matterId);
-    const result = await getPool().query<MatterMemberRow>(
-      `
+    const result = await this.databaseService.tenantTransaction(context.tenantId, (client) =>
+      client.query<MatterMemberRow>(
+        `
         SELECT mm.matter_id, mm.tenant_id, mm.user_id, u.name AS user_name, u.email AS user_email,
           mm.matter_role,
           CASE
@@ -143,7 +134,8 @@ export class MatterMemberService {
           AND mm.matter_id = $2
         ORDER BY mm.matter_role = 'owner' DESC, mm.added_at ASC, mm.user_id
       `,
-      [context.tenantId, matterId],
+        [context.tenantId, matterId],
+      ),
     );
     return {
       items: result.rows.map(mapMatterMemberDto),
@@ -300,8 +292,9 @@ export class MatterMemberService {
   }
 
   async isMember(tenantId: TenantId, matterId: string, userId: string): Promise<boolean> {
-    const result = await getPool().query(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query(
+        `
         SELECT 1
         FROM matter_members
         WHERE tenant_id = $1
@@ -309,7 +302,8 @@ export class MatterMemberService {
           AND user_id = $3
         LIMIT 1
       `,
-      [tenantId, matterId, userId],
+        [tenantId, matterId, userId],
+      ),
     );
     return (result.rowCount ?? 0) > 0;
   }
@@ -392,9 +386,11 @@ export class MatterMemberService {
   }
 
   private async assertMatterExists(tenantId: TenantId, matterId: string): Promise<MatterRow> {
-    const result = await getPool().query<MatterRow>(
-      'SELECT matter_id, status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
-      [tenantId, matterId],
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<MatterRow>(
+        'SELECT matter_id, status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
+        [tenantId, matterId],
+      ),
     );
     const row = result.rows[0];
     if (!row) throw notFoundDenied();
@@ -417,8 +413,9 @@ export class MatterMemberService {
     matterId: string,
     excludedUserId: string,
   ): Promise<void> {
-    const result = await getPool().query<{ count: string }>(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<{ count: string }>(
+        `
         SELECT count(*)::text AS count
         FROM matter_members
         WHERE tenant_id = $1
@@ -426,7 +423,8 @@ export class MatterMemberService {
           AND matter_role = 'owner'
           AND user_id <> $3
       `,
-      [tenantId, matterId, excludedUserId],
+        [tenantId, matterId, excludedUserId],
+      ),
     );
     if (Number(result.rows[0]?.count ?? '0') === 0) throw validationFailed();
   }
@@ -435,18 +433,31 @@ export class MatterMemberService {
     tenantId: TenantId,
     matterId: string,
     userId: string,
-    queryClient: QueryClient = getPool(),
+    queryClient?: QueryClient,
   ): Promise<MatterMemberEntity | null> {
-    const result = await queryClient.query(
-      `
+    const result = queryClient
+      ? await queryClient.query(
+          `
         SELECT matter_id, tenant_id, user_id, matter_role, access_level, added_by, added_at
         FROM matter_members
         WHERE tenant_id = $1
           AND matter_id = $2
           AND user_id = $3
       `,
-      [tenantId, matterId, userId],
-    );
+          [tenantId, matterId, userId],
+        )
+      : await this.databaseService.tenantTransaction(tenantId, (client) =>
+          client.query(
+            `
+        SELECT matter_id, tenant_id, user_id, matter_role, access_level, added_by, added_at
+        FROM matter_members
+        WHERE tenant_id = $1
+          AND matter_id = $2
+          AND user_id = $3
+      `,
+            [tenantId, matterId, userId],
+          ),
+        );
     const row = result.rows[0] as MatterMemberRow | undefined;
     return row ? mapMatterMember(row) : null;
   }

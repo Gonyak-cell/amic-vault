@@ -31,6 +31,7 @@ describe('EthicalWallService', () => {
   it('accepts group subject type in wall membership validation and rejects duplicates', async () => {
     const service = new EthicalWallService(
       {} as unknown as AuditService,
+      {} as never,
       {} as unknown as PermissionEventRecorder,
       {} as unknown as TenantContextService,
     );
@@ -63,6 +64,7 @@ describe('EthicalWallService', () => {
     }));
     const service = new TestEthicalWallService(
       { log: auditLog } as unknown as AuditService,
+      {} as never,
       {} as unknown as PermissionEventRecorder,
       { require: () => ({ tenantId }) } as unknown as TenantContextService,
     );

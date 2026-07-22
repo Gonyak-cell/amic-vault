@@ -17,7 +17,7 @@ import { SearchQueryBuilder } from '../../../apps/api/src/modules/search/query/s
 import { SnippetBuilder } from '../../../apps/api/src/modules/search/query/snippet-builder';
 import { SearchService } from '../../../apps/api/src/modules/search/search.service';
 import { TenantContextService } from '../../../apps/api/src/modules/tenant/tenant-context';
-import { createOwnerClient, setTenant, tenantAlphaId, withClient } from '../helpers/db';
+import { createOwnerClient, createRuntimeDatabaseExecutor, setTenant, tenantAlphaId, withClient } from '../helpers/db';
 import {
   addMatterMember,
   alphaOwnerUserId,
@@ -144,7 +144,7 @@ async function login(baseUrl: string): Promise<string> {
 function createService(provider: SearchPermissionScopeProvider): SearchService {
   const snippetBuilder = new SnippetBuilder();
   return new SearchService(
-    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    new AuditService(new TenantContextService(), new AuditMetadataNormalizer(), createRuntimeDatabaseExecutor() as never),
     new SearchQueryBuilder(new SearchFilterBuilder(), snippetBuilder),
     snippetBuilder,
     provider,

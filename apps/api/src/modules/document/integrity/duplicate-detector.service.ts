@@ -1,16 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../../common/db/database.service';
+import { tenantQuery } from '../../../common/db/tenant-query';
 
 export interface QueryClient {
   query(
@@ -49,6 +39,8 @@ interface SafeDuplicateCandidateRow {
 
 @Injectable()
 export class DuplicateDetectorService {
+  constructor(private readonly databaseService: DatabaseService) {}
+
   async findCandidates(
     input: {
       tenantId: string;
@@ -57,10 +49,9 @@ export class DuplicateDetectorService {
       sha256: string;
       limit?: number;
     },
-    client: QueryClient = getPool(),
+    client?: QueryClient,
   ): Promise<DuplicateCandidateDto[]> {
-    const result = await client.query(
-      `
+    const sql = `
         SELECT d.document_id, f.file_object_id, f.sha256
         FROM documents d
         JOIN file_objects f
@@ -76,9 +67,11 @@ export class DuplicateDetectorService {
           AND f.sha256 = $4
         ORDER BY d.created_at DESC, d.document_id DESC
         LIMIT $5
-      `,
-      [input.tenantId, input.matterId, input.documentId, input.sha256, input.limit ?? 10],
-    );
+      `;
+    const params = [input.tenantId, input.matterId, input.documentId, input.sha256, input.limit ?? 10];
+    const result = client
+      ? await client.query(sql, params)
+      : await tenantQuery(this.databaseService, input.tenantId, sql, params);
     return (result.rows as DuplicateCandidateRow[]).map((row) => ({
       documentId: row.document_id,
       fileObjectId: row.file_object_id,
@@ -93,10 +86,9 @@ export class DuplicateDetectorService {
       sha256: string;
       limit?: number;
     },
-    client: QueryClient = getPool(),
+    client?: QueryClient,
   ): Promise<SafeDuplicateCandidateDto[]> {
-    const result = await client.query(
-      `
+    const sql = `
         SELECT
           d.document_id,
           d.title,
@@ -123,9 +115,11 @@ export class DuplicateDetectorService {
         GROUP BY d.document_id, d.title, m.matter_code, m.matter_name, d.created_at
         ORDER BY d.created_at DESC, d.document_id DESC
         LIMIT $4
-      `,
-      [input.tenantId, input.matterId, input.sha256, input.limit ?? 5],
-    );
+      `;
+    const params = [input.tenantId, input.matterId, input.sha256, input.limit ?? 5];
+    const result = client
+      ? await client.query(sql, params)
+      : await tenantQuery(this.databaseService, input.tenantId, sql, params);
     return (result.rows as SafeDuplicateCandidateRow[]).map((row) => ({
       documentReference: row.document_id,
       matterCode: row.matter_code,

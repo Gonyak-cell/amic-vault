@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Pool } from 'pg';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
 import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
+import { DatabaseService } from '../../common/db/database.service';
 import { queueWorkerEnabled } from '../../common/process-role';
 import { AuditAnchorService, normalizeAnchorDate } from './audit-anchor.service';
 
@@ -26,23 +26,11 @@ export interface AuditAnchorJobResult {
 }
 
 @Injectable()
-export class AuditAnchorTenantReader implements OnModuleDestroy {
-  private readonly pool = new Pool({ connectionString: databaseUrl });
+export class AuditAnchorTenantReader {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   async listActiveTenantIds(): Promise<string[]> {
-    const result = await this.pool.query<{ tenant_id: string }>(
-      `
-        SELECT tenant_id::text AS tenant_id
-        FROM tenants
-        WHERE status = 'active'
-        ORDER BY tenant_id ASC
-      `,
-    );
-    return result.rows.map((row) => row.tenant_id);
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.pool.end();
+    return this.databaseService.listActiveTenantRegistryIds();
   }
 }
 

@@ -6,7 +6,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   CreateMatterIssueDto,
   CreateMatterKeyDateDto,
@@ -25,21 +24,10 @@ import type {
   UpdateMatterKeyDateDto,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
-import { tenantQuery } from '../../common/db/tenant-query';
+import { DatabaseService } from '../../common/db/database.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { isMatterMutationAllowed } from './guards/matter-mutability.guard';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterStatusRow {
   matter_id: string;
@@ -83,6 +71,7 @@ type UpdatePlan = {
 export class MatterIssueService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -91,10 +80,9 @@ export class MatterIssueService {
     const context = this.tenantContext.require();
     await this.assertMatterExists(context.tenantId, matterId);
     await this.assertCanReadMatter(context.tenantId, actorUserId, matterId);
-    const result = await tenantQuery<MatterIssueRow>(
-      getPool(),
-      context.tenantId,
-      `
+    const result = await this.databaseService.tenantTransaction(context.tenantId, (client) =>
+      client.query<MatterIssueRow>(
+        `
         SELECT issue_id, matter_id, title, summary, status, risk_level, created_at, updated_at
         FROM matter_issues
         WHERE tenant_id = $1
@@ -110,7 +98,8 @@ export class MatterIssueService {
           updated_at DESC,
           issue_id
       `,
-      [context.tenantId, matterId],
+        [context.tenantId, matterId],
+      ),
     );
     return { matterId, items: result.rows.map(mapIssueRow) };
   }
@@ -255,10 +244,9 @@ export class MatterIssueService {
     const context = this.tenantContext.require();
     await this.assertMatterExists(context.tenantId, matterId);
     await this.assertCanReadMatter(context.tenantId, actorUserId, matterId);
-    const result = await tenantQuery<MatterKeyDateRow>(
-      getPool(),
-      context.tenantId,
-      `
+    const result = await this.databaseService.tenantTransaction(context.tenantId, (client) =>
+      client.query<MatterKeyDateRow>(
+        `
         SELECT
           key_date_id::text AS key_date_id,
           key_date_id::text AS core_key_date_id,
@@ -323,7 +311,8 @@ export class MatterIssueService {
           AND due_date IS NOT NULL
         ORDER BY due_date ASC, source_type, key_date_id
       `,
-      [context.tenantId, matterId],
+        [context.tenantId, matterId],
+      ),
     );
     return { matterId, items: result.rows.map(mapKeyDateRow) };
   }
@@ -520,11 +509,11 @@ export class MatterIssueService {
   }
 
   private async assertMatterExists(tenantId: TenantId, matterId: string): Promise<MatterStatusRow> {
-    const result = await tenantQuery<MatterStatusRow>(
-      getPool(),
-      tenantId,
-      'SELECT matter_id, status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
-      [tenantId, matterId],
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<MatterStatusRow>(
+        'SELECT matter_id, status FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
+        [tenantId, matterId],
+      ),
     );
     const row = result.rows[0];
     if (!row) throw notFoundDenied();
@@ -538,11 +527,11 @@ export class MatterIssueService {
 
   private async assertAssignableUser(tenantId: TenantId, userId: string | null): Promise<void> {
     if (!userId) return;
-    const result = await tenantQuery(
-      getPool(),
-      tenantId,
-      'SELECT 1 FROM users WHERE tenant_id = $1 AND user_id = $2 LIMIT 1',
-      [tenantId, userId],
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query('SELECT 1 FROM users WHERE tenant_id = $1 AND user_id = $2 LIMIT 1', [
+        tenantId,
+        userId,
+      ]),
     );
     if ((result.rowCount ?? 0) !== 1) throw notFoundDenied();
   }
@@ -552,10 +541,9 @@ export class MatterIssueService {
     matterId: string,
     issueId: string,
   ): Promise<MatterIssueRow | null> {
-    const result = await tenantQuery<MatterIssueRow>(
-      getPool(),
-      tenantId,
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<MatterIssueRow>(
+        `
         SELECT issue_id, matter_id, title, summary, status, risk_level, created_at, updated_at
         FROM matter_issues
         WHERE tenant_id = $1
@@ -563,7 +551,8 @@ export class MatterIssueService {
           AND issue_id = $3
         LIMIT 1
       `,
-      [tenantId, matterId, issueId],
+        [tenantId, matterId, issueId],
+      ),
     );
     return result.rows[0] ?? null;
   }
@@ -573,10 +562,9 @@ export class MatterIssueService {
     matterId: string,
     keyDateId: string,
   ): Promise<MatterKeyDateRow | null> {
-    const result = await tenantQuery<MatterKeyDateRow>(
-      getPool(),
-      tenantId,
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<MatterKeyDateRow>(
+        `
         SELECT
           key_date_id::text AS key_date_id,
           key_date_id::text AS core_key_date_id,
@@ -597,7 +585,8 @@ export class MatterIssueService {
           AND key_date_id = $3
         LIMIT 1
       `,
-      [tenantId, matterId, keyDateId],
+        [tenantId, matterId, keyDateId],
+      ),
     );
     return result.rows[0] ?? null;
   }

@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import type {
   MatterDashboardAiSessionDto,
   MatterDashboardDto,
@@ -14,20 +14,9 @@ import type {
   TenantId,
 } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
-import { tenantQuery } from '../../common/db/tenant-query';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterRow {
   matter_id: string;
@@ -92,6 +81,7 @@ interface AiSessionRow {
 export class MatterDashboardService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -141,10 +131,9 @@ export class MatterDashboardService {
     tenantId: TenantId,
     matterId: string,
   ): Promise<MatterDashboardMatterSummaryDto> {
-    const result = await tenantQuery<MatterRow>(
-      getPool(),
-      tenantId,
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<MatterRow>(
+        `
         SELECT m.matter_id, m.matter_code, m.matter_name,
           c.name AS client_display_name, m.status, m.confidentiality_level
         FROM matters m
@@ -155,7 +144,8 @@ export class MatterDashboardService {
           AND m.matter_id = $2
         LIMIT 1
       `,
-      [tenantId, matterId],
+        [tenantId, matterId],
+      ),
     );
     const row = result.rows[0];
     if (!row) throw notFoundDenied();
@@ -175,7 +165,10 @@ export class MatterDashboardService {
   ): Promise<void> {
     let decision: PermissionDecision | undefined;
     try {
-      decision = await this.permissionService.canReadMatter({ tenantId, userId: actorUserId }, matterId);
+      decision = await this.permissionService.canReadMatter(
+        { tenantId, userId: actorUserId },
+        matterId,
+      );
     } catch {
       decision = undefined;
     }
@@ -429,7 +422,9 @@ function resultLabel(result: string): string {
   return '확인 필요';
 }
 
-function aiSessionPolicySummary(row: Pick<AiSessionRow, 'blocked_reason' | 'escalation_required'>): string {
+function aiSessionPolicySummary(
+  row: Pick<AiSessionRow, 'blocked_reason' | 'escalation_required'>,
+): string {
   if (row.blocked_reason === 'ai_policy_blocked') return '정책 차단';
   if (row.blocked_reason === 'permission_denied') return '권한 차단';
   if (row.blocked_reason === 'ethical_wall_blocked') return '윤리장벽 차단';

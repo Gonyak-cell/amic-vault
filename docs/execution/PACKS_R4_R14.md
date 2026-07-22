@@ -2504,6 +2504,84 @@ source-map gate; it is not merged or otherwise treated as a current baseline.
   external mutation, CI execution, push/PR/merge, deployment, release, or
   go-live is in scope.
 
+## PACK-OSS01-02 — authority-critical direct Pool migration
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; PACK-OSS01-01 has local technical evidence.
+The historic non-main implementation is an input only; no migration, grant,
+RLS, dependency, source-vendoring or CI claim transfers from it.
+
+- Planning baseline: current local predecessor
+  `0c0bb99752a9a8b9a13b8968fb5b6c16817dce66`, descended from fetched
+  `origin/main` `ab770ae9bcaf7c4b287bdf1cb75e72cf687d417a`.
+- Branch: `feat/pack-oss01-02-authority-pool-migration-rebased-20260722`.
+- Detail contract: `docs/execution/TUW_OSS01_POOL_MIGRATION.md`.
+- Execution order: `DEVOPS-OSS01-DBM-TUW-001` →
+  `DEVOPS-OSS01-DBM-TUW-002` → `DEVOPS-OSS01-DBM-TUW-003` →
+  `DEVOPS-OSS01-DBM-TUW-004`.
+- Scope: only listed authority-critical direct-pool consumer migration through
+  existing common/db control code. Any need for RLS/grant/migration, generic
+  tenant-less access, audit split, post-filter, dependency change, external
+  mutation, CI execution, push/PR/merge, deployment, release or go-live is
+  outside this PACK and is a stop condition.
+- Scope amendment, `2026-07-22`: DBM-004 may use the existing migration-role
+  Queue preparation tool for disposable integration setup and add only two
+  exact reversible runtime column grants documented in its detail contract.
+  This does not permit a generic privilege, owner runtime fallback, RLS/policy
+  change, Queue behavior change, dependency, external mutation, or release
+  action.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the four
+  existing pending-finding refresh columns on `contract_ai_review_findings`.
+  It preserves the contract review upsert's pending-only predicate, RLS, audit
+  transaction, AI policy and accepted-finding immutability; no general table
+  privilege, contract/AI behavior, dependency, external operation or release
+  action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally add only the exact
+  reversible email metadata, participant and filing lifecycle grants recorded
+  in its detail contract. They preserve existing tenant RLS, permission
+  checks, audit transactions, bounded metadata constraints and filing
+  semantics; no generic table privilege, email behavior, policy, dependency,
+  external operation, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  reversible runtime `DELETE` required by the existing tenant/version/model
+  route-scoped cleanup of obsolete derived embedding cache rows. It does not
+  permit deletion of originals, versions, canonical text, audits, email or
+  Records artifacts, and it preserves RLS and the existing restrictive SQL
+  predicate; no product behavior, retention/policy, dependency, external
+  operation, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  reversible `external_nda_acceptances.accepted_at` UPDATE required by the
+  existing audited, token-resolved NDA idempotency upsert. Existing token
+  hashing, tenant RLS, link validation, NDA uniqueness and audit remain
+  authoritative; no sharing capability, external call, token persistence,
+  direct-pool migration, dependency, deployment or release action is
+  authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  three existing external Q&A review columns needed for its lock-protected
+  pending-to-terminal state transition. It preserves self-review denial,
+  state/visibility constraints, RLS, audit and workflow semantics; no new
+  external behavior, token persistence, outbound operation, direct-pool
+  migration, dependency, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  two existing Matter-wiki draft-generation metadata columns omitted from the
+  tenant-scoped audited upsert. Matter permission checks, RLS, the review
+  consistency constraint, audit/work-item behavior and the local generation
+  route remain authoritative; no AI behavior, source, direct-pool migration,
+  dependency, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  existing R12 Records approved-disposal delete set and one version-link
+  clearing column. Existing approval, legal/business-reference hold checks,
+  tenant RLS, immutable-file trigger, storage operation and certificate/audit
+  transaction remain authoritative; no new disposal behavior, policy or
+  retention change, direct-pool migration, dependency, deployment or release
+  action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  existing saved-search save/revoke/open lifecycle operations and exact
+  fields. Permission-before-search construction, scope authorization, RLS,
+  bounded filter references and audit remain authoritative; no retrieval,
+  result-filtering, direct-pool migration, dependency, deployment or release
+  action is authorized.
+
 ## Gate Reports
 
 Each release closes with a `docs/ledger/gates/R{N}_gate.md` report and an

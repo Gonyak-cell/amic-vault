@@ -23,8 +23,15 @@ class FakeClient {
 
 class FakePool implements DatabasePool {
   readonly client = new FakeClient();
+  readonly clients = [this.client];
   readonly end = vi.fn(async () => undefined);
-  readonly connect = vi.fn(async () => this.client as unknown as PoolClient);
+  private nextClientIndex = 0;
+  readonly connect = vi.fn(async () => {
+    const client = this.clients[this.nextClientIndex] ?? new FakeClient();
+    if (this.nextClientIndex === this.clients.length) this.clients.push(client);
+    this.nextClientIndex += 1;
+    return client as unknown as PoolClient;
+  });
   private errorListener: ((error: Error) => void) | undefined;
 
   on(event: 'error', listener: (error: Error) => void): void {
@@ -56,12 +63,51 @@ describe('DatabaseService', () => {
     expect(pool.client.release).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects missing tenants and nested transaction misuse before a second checkout', async () => {
+  it('reuses the active client only for same-tenant nested work and rejects cross-tenant nesting', async () => {
     const { pool, service } = createService();
     await expect(service.tenantTransaction(' ', async () => undefined)).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(service.tenantTransaction(tenantId, async () => service.tenantTransaction(tenantId, async () => undefined))).rejects.toBeInstanceOf(ForbiddenException);
+    await service.tenantTransaction(tenantId, async (outerClient) => {
+      await service.tenantTransaction(tenantId, async (innerClient) => {
+        expect(innerClient).toBe(outerClient);
+        await innerClient.query('SELECT 1');
+      });
+      await expect(
+        service.tenantTransaction('22222222-2222-4222-8222-222222222222', async () => undefined),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
     expect(pool.connect).toHaveBeenCalledTimes(1);
     expect(pool.client.release).toHaveBeenCalledTimes(1);
+    expect(pool.client.queries).toEqual([
+      'BEGIN',
+      'SELECT set_config($1, $2, true)',
+      'SELECT 1',
+      'COMMIT',
+    ]);
+  });
+
+  it('commits a named denial audit when the enclosing business transaction rolls back', async () => {
+    const { pool, service } = createService();
+    await expect(
+      service.tenantTransaction(tenantId, async (businessClient) => {
+        await service.auditTransaction(tenantId, async (auditClient) => {
+          expect(auditClient).not.toBe(businessClient);
+          await auditClient.query('INSERT ACCESS_DENIED');
+        });
+        throw new Error('safe denial');
+      }),
+    ).rejects.toThrow('safe denial');
+    expect(pool.connect).toHaveBeenCalledTimes(2);
+    expect(pool.client.queries).toEqual([
+      'BEGIN',
+      'SELECT set_config($1, $2, true)',
+      'ROLLBACK',
+    ]);
+    expect(pool.clients[1]?.queries).toEqual([
+      'BEGIN',
+      'SELECT set_config($1, $2, true)',
+      'INSERT ACCESS_DENIED',
+      'COMMIT',
+    ]);
   });
 
   it('fails closed after an unexpected pool error', async () => {
