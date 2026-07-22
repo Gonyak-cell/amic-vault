@@ -8,13 +8,18 @@ import type {
   StorageCreateReadUrlInput,
   StorageGetRangeInput,
   StorageGetObjectResult,
+  StorageObjectVersion,
   StorageObjectMetadata,
   StoragePutObjectInput,
   StorageReadUrlResult,
+  StorageVersionedObjectMetadata,
+  StorageVersionReference,
+  VersionedStorageAdapter,
 } from './storage-adapter.interface';
 import {
   StorageObjectAlreadyExistsError,
   StorageUnavailableError,
+  StorageVersioningUnsupportedError,
 } from './storage-adapter.interface';
 
 interface S3StorageAdapterConfig {
@@ -32,6 +37,24 @@ type FetchInit = RequestInit & { duplex?: 'half' };
 type SignedRequest = { url: URL; headers: SignedHeaders };
 type SignedWriteResponse = { status: number; ok: boolean };
 const defaultReadUrlTtlSeconds = 300;
+
+function decodeXmlText(value: string): string {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function readXmlTag(block: string, tag: string): string | undefined {
+  const match = block.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`));
+  return match?.[1] === undefined ? undefined : decodeXmlText(match[1]);
+}
+
+function readXmlBoolean(block: string, tag: string): boolean {
+  return readXmlTag(block, tag) === 'true';
+}
 
 function sha256Hex(value: string | Buffer): string {
   return createHash('sha256').update(value).digest('hex');
@@ -86,9 +109,10 @@ function toFetchBody(body: StoragePutObjectInput['body']): BodyInit {
   return Readable.toWeb(body) as unknown as BodyInit;
 }
 
-export class S3StorageAdapter implements StorageAdapter {
+export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter {
   private readonly endpoint: URL;
   private readonly readUrlEndpoint: URL;
+  private readonly objectVersions = new WeakMap<StorageObjectVersion, string>();
 
   constructor(private readonly config: S3StorageAdapterConfig) {
     this.endpoint = new URL(config.endpoint);
@@ -242,6 +266,81 @@ export class S3StorageAdapter implements StorageAdapter {
     }
   }
 
+  async listObjectVersions(key: string): Promise<readonly StorageVersionedObjectMetadata[]> {
+    const response = await this.fetchSigned(
+      'GET',
+      '',
+      { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' },
+      undefined,
+      { prefix: key, versions: '' },
+    );
+    if (response.status === 400 || response.status === 501) {
+      throw new StorageVersioningUnsupportedError();
+    }
+    if (!response.ok) {
+      throw new StorageUnavailableError(`storage version inventory failed: ${response.status}`);
+    }
+
+    const xml = await response.text();
+    if (readXmlBoolean(xml, 'IsTruncated')) {
+      throw new StorageUnavailableError('storage version inventory is truncated');
+    }
+    const entries: StorageVersionedObjectMetadata[] = [];
+    for (const match of xml.matchAll(/<(Version|DeleteMarker)>([\s\S]*?)<\/\1>/g)) {
+      const kind = match[1];
+      const block = match[2];
+      if (!kind || !block) throw new StorageUnavailableError('storage version inventory is malformed');
+      const objectKey = readXmlTag(block, 'Key');
+      const rawVersion = readXmlTag(block, 'VersionId');
+      if (objectKey !== key) continue;
+      if (!rawVersion || rawVersion === 'null') throw new StorageVersioningUnsupportedError();
+      const contentLength = Number(readXmlTag(block, 'Size') ?? '0');
+      if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
+        throw new StorageUnavailableError('storage version inventory size is invalid');
+      }
+      const version = {} as StorageObjectVersion;
+      this.objectVersions.set(version, rawVersion);
+      entries.push({
+        key,
+        contentLength,
+        contentType: null,
+        etag: readXmlTag(block, 'ETag') ?? null,
+        version,
+        isDeleteMarker: kind === 'DeleteMarker',
+        isLatest: readXmlBoolean(block, 'IsLatest'),
+      });
+    }
+    return entries;
+  }
+
+  async headObjectVersion(reference: StorageVersionReference): Promise<StorageObjectMetadata | null> {
+    const response = await this.fetchSigned(
+      'HEAD',
+      reference.key,
+      { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' },
+      undefined,
+      { versionId: this.requireVersionId(reference.version) },
+    );
+    if (response.status === 404 || response.status === 405) return null;
+    if (!response.ok) {
+      throw new StorageUnavailableError(`storage version head failed: ${response.status}`);
+    }
+    return this.metadataFromResponse(reference.key, response);
+  }
+
+  async deleteObjectVersion(reference: StorageVersionReference): Promise<void> {
+    const response = await this.fetchSigned(
+      'DELETE',
+      reference.key,
+      { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' },
+      undefined,
+      { versionId: this.requireVersionId(reference.version) },
+    );
+    if (!response.ok) {
+      throw new StorageUnavailableError(`storage version delete failed: ${response.status}`);
+    }
+  }
+
   private metadataFromResponse(key: string, response: Response): StorageObjectMetadata {
     return {
       key,
@@ -256,14 +355,19 @@ export class S3StorageAdapter implements StorageAdapter {
     key: string,
     headers: SignedHeaders,
     body?: BodyInit,
+    query?: Record<string, string>,
   ): Promise<Response> {
-    const signed = this.signRequest(method, key, headers);
+    const signed = this.signRequest(method, key, headers, query);
     const init: FetchInit = {
       method,
       headers: signed.headers,
       ...(body ? { body, duplex: 'half' } : {}),
     };
-    return fetch(signed.url, init);
+    try {
+      return await fetch(signed.url, init);
+    } catch {
+      throw new StorageUnavailableError('storage request failed');
+    }
   }
 
   private writeSignedStream(
@@ -295,7 +399,18 @@ export class S3StorageAdapter implements StorageAdapter {
     });
   }
 
-  private signRequest(method: string, key: string, headers: SignedHeaders): SignedRequest {
+  private requireVersionId(version: StorageObjectVersion): string {
+    const versionId = this.objectVersions.get(version);
+    if (!versionId) throw new StorageUnavailableError('storage version reference is invalid');
+    return versionId;
+  }
+
+  private signRequest(
+    method: string,
+    key: string,
+    headers: SignedHeaders,
+    query: Record<string, string> = {},
+  ): SignedRequest {
     if (!this.config.accessKeyId || !this.config.secretAccessKey) {
       throw new StorageUnavailableError('storage credentials are not configured');
     }
@@ -303,6 +418,8 @@ export class S3StorageAdapter implements StorageAdapter {
     const now = amzDate(new Date());
     const url = new URL(this.endpoint.toString());
     url.pathname = `/${this.config.bucket}/${encodeKey(key)}`;
+    const queryString = canonicalQuery(query);
+    if (queryString) url.search = queryString;
     const host = url.host;
     const signedHeaders: SignedHeaders = {
       host,
@@ -313,7 +430,7 @@ export class S3StorageAdapter implements StorageAdapter {
     const canonicalRequest = [
       method,
       url.pathname,
-      '',
+      queryString,
       canonical.canonical,
       canonical.signed,
       signedHeaders['x-amz-content-sha256'] ?? 'UNSIGNED-PAYLOAD',
