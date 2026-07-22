@@ -2482,6 +2482,28 @@ explicit L0-L4/reuse-first decision gate before any product-facing adoption.
   dependency/install/runtime/build-context changes, CI permissions,
   deployment, push/PR/merge, and external state are out of scope.
 
+## PACK-OSS01-01 — runtime DB role and central contract
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; PACK-OSS00A-03 has local technical evidence.
+The historic candidate implementation is revalidated only on the current
+source-map gate; it is not merged or otherwise treated as a current baseline.
+
+- Planning baseline: `origin/main`
+  `ab770ae9bcaf7c4b287bdf1cb75e72cf687d417a` plus local PACK-OSS00A evidence.
+- Branch: `feat/pack-oss01-01-runtime-db-contract-rebased-20260722`.
+- Detail contract: `docs/execution/TUW_OSS01_RUNTIME_DB_CONTRACT.md`.
+- Execution order: `DEVOPS-OSS01-DBA-TUW-001` →
+  `DEVOPS-OSS01-DBA-TUW-002` → `DEVOPS-OSS01-DBA-TUW-003` →
+  `DEVOPS-OSS01-DBA-TUW-004`.
+- Scope: direct-constructor inventory, runtime/owner URL separation,
+  fail-closed runtime-role assertion, a singleton `common/db` provider, and
+  process-isolated runtime-role integration proof. Product-source changes are
+  allowed only in the registered TUW file boundaries after source-map approval.
+  No upstream source vendoring, dependency change, database topology change,
+  external mutation, CI execution, push/PR/merge, deployment, release, or
+  go-live is in scope.
+
 ## Gate Reports
 
 Each release closes with a `docs/ledger/gates/R{N}_gate.md` report and an

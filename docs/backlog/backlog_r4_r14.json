@@ -1,5 +1,5 @@
 {
-  "total": 194,
+  "total": 198,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3038,6 +3038,50 @@
       "depends_on": ["DEVOPS-OSSADOPT-DECISION-TUW-005"],
       "files": ["tools/oss", "security/oss-evidence-schema.json", ".github/workflows/supply-chain.yml"],
       "verification": "missing provenance fake SHA dirty clone copied fixture no-decision new dependency and source-lab build-context fixtures fail AND upper-plan creates are covered"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-001",
+      "title": "Direct Pool and PgBoss authority inventory",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-OSSADOPT-GATE-TUW-006"],
+      "files": ["tools/quality", "security/oss-source-map.yml", "docs/architecture/oss-adoption-decisions"],
+      "verification": "all direct constructor sites have runtime or CLI classification owner role transaction shutdown and migration batch AND aliases comments strings type-only imports classify correctly AND unclassified runtime sites are zero"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-002",
+      "title": "Runtime role URL split and assertion",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-001"],
+      "files": ["apps/api/src/common/db", ".env.example", "infra/docker-compose.dev.yml", "tools/db"],
+      "verification": "runtime uses only vault_app URL AND owner superuser BYPASSRLS table-owner and credential-swap starts fail before listen AND owner migration up down up passes"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-003",
+      "title": "Singleton DatabaseModule authority",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-002"],
+      "files": ["apps/api/src/common/db", "apps/api/src/app.module.ts", "security/oss-source-map.yml", "security/oss-adoption-decisions.yml"],
+      "verification": "tenant transaction commit rollback transaction-local GUC and release pass AND 50 create close loops leak no connection AND missing tenant nested misuse and audit incompatibility fail"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBA-TUW-004",
+      "title": "Runtime role integration harness",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBA-TUW-003"],
+      "files": ["tools/integration", "tests/integration", ".github/workflows/ci.yml", "infra/docker-compose.dev.yml"],
+      "verification": "owner bootstrap is process-separated from runtime AppModule worker AND owner credential boot fails AND runtime RLS fail-closed audit integration suites pass"
     }
   ]
 }
