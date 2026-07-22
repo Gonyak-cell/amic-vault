@@ -69,7 +69,11 @@ export function validateSourceMap({ sourceMap, decisions, reuseManifest, repoRoo
   for (const id of requiredDecisions) {
     const decision = decisionById.get(id);
     assert(decision && decision.decision !== 'REPLACE' && decision.hardVeto?.length && decision.reason, `${id}: decision missing or weak`);
-    if (decision.decision === 'L1') assert(/^BLOCKED_PENDING_OSS\d\d_SCOPE$/u.test(decision.status ?? ''), `${id}: L1 must remain separately scoped`);
+    if (decision.decision === 'L1') {
+      const isBlocked = /^BLOCKED_PENDING_OSS\d\d_SCOPE$/u.test(decision.status ?? '');
+      const isExplicitlyScoped = decision.status === 'APPROVED_FOR_PRODUCT_CHANGE' && Array.isArray(decision.approvedPaths) && decision.approvedPaths.length > 0;
+      assert(isBlocked || isExplicitlyScoped, `${id}: L1 must remain blocked or be explicitly path-scoped`);
+    }
     if (['L2', 'L3', 'L4'].includes(decision.decision)) assert(decision.status === 'APPROVED_FOR_PRODUCT_CHANGE' && decision.obligations?.length, `${id}: advanced adoption obligations missing`);
   }
   for (const portfolio of ['OSS-09', 'OSS-10', 'OSS-11']) assert((sourceMap.operationalNoCandidateTargets ?? []).some((row) => row.portfolio === portfolio), `${portfolio}: operational coverage missing`);

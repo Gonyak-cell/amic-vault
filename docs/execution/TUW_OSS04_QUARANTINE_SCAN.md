@@ -121,6 +121,16 @@ QRT-002: no scanner credential, bucket mount, public port, application
 permission/audit service, queue, upload, primary promotion, deployment or
 external data change is authorized.
 
+### QRT-002 scope amendment — L1 path-scoped validation
+
+The static source-map validator may distinguish an unapproved L1 candidate from
+an L1 component approved only for its listed product paths. This amendment
+permits the corresponding validator and regression-test change only: a blocked
+L1 remains blocked, and an approved L1 must declare a non-empty explicit path
+list. It authorizes no further source adoption, runtime behavior, dependency,
+credential, mount, public port, queue, upload, promotion, deployment, or
+external data change.
+
 ## `DEVOPS-OSS04-QRT-TUW-003`
 
 - **Files create:** `apps/api/src/modules/file-security/file-security.module.ts`,
