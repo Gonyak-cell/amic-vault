@@ -25,6 +25,7 @@ function walk(root) {
 
 function importedConstructors(sourceFile) {
   const pools = new Set();
+  const clients = new Set();
   const bosses = new Set();
   const pgNamespaces = new Set();
   for (const statement of sourceFile.statements) {
@@ -38,6 +39,7 @@ function importedConstructors(sourceFile) {
       if (item.isTypeOnly) continue;
       const imported = item.propertyName?.text ?? item.name.text;
       if (moduleName === 'pg' && imported === 'Pool') pools.add(item.name.text);
+      if (moduleName === 'pg' && imported === 'Client') clients.add(item.name.text);
       if (moduleName === 'pg-boss' && imported === 'PgBoss') bosses.add(item.name.text);
     }
     if (moduleName === 'pg' && clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) pgNamespaces.add(clause.namedBindings.name.text);
@@ -53,6 +55,7 @@ function importedConstructors(sourceFile) {
           for (const element of node.name.elements) {
             const imported = element.propertyName?.getText(sourceFile) ?? element.name.getText(sourceFile);
             if (moduleName === 'pg' && imported === 'Pool') pools.add(element.name.getText(sourceFile));
+            if (moduleName === 'pg' && imported === 'Client') clients.add(element.name.getText(sourceFile));
             if (moduleName === 'pg-boss' && imported === 'PgBoss') bosses.add(element.name.getText(sourceFile));
           }
         } else if (ts.isIdentifier(node.name) && moduleName === 'pg') pgNamespaces.add(node.name.text);
@@ -61,18 +64,19 @@ function importedConstructors(sourceFile) {
     ts.forEachChild(node, collectDynamicImport);
   };
   collectDynamicImport(sourceFile);
-  return { pools, bosses, pgNamespaces };
+  return { pools, clients, bosses, pgNamespaces };
 }
 
 function constructorKind(node, imports) {
   if (ts.isIdentifier(node.expression)) {
     if (imports.pools.has(node.expression.text)) return 'Pool';
+    if (imports.clients.has(node.expression.text)) return 'Client';
     if (imports.bosses.has(node.expression.text)) return 'PgBoss';
   }
   if (ts.isPropertyAccessExpression(node.expression)
     && ts.isIdentifier(node.expression.expression)
     && imports.pgNamespaces.has(node.expression.expression.text)
-    && node.expression.name.text === 'Pool') return 'Pool';
+    && ['Pool', 'Client'].includes(node.expression.name.text)) return node.expression.name.text;
   return undefined;
 }
 
@@ -92,7 +96,7 @@ function migrationBatch(path, kind, role) {
 }
 
 function connectionEnvironment(text) {
-  const names = [...new Set([...text.matchAll(/process\.env\.(DATABASE_[A-Z_]+|DATABASE_URL)/g)].map((match) => match[1]))];
+  const names = [...new Set([...text.matchAll(/\b(?:process\.)?env\.(DATABASE_[A-Z_]+|DATABASE_URL)\b/g)].map((match) => match[1]))];
   return names.length === 0 ? 'INDIRECT_OR_ARGUMENT' : names.sort().join(',');
 }
 
@@ -139,6 +143,7 @@ export function inventoryReport(records) {
   return {
     schemaVersion: 'amic-vault.database-authority-inventory.v1',
     poolCount: records.filter((record) => record.constructor === 'Pool').length,
+    clientCount: records.filter((record) => record.constructor === 'Client').length,
     pgBossCount: records.filter((record) => record.constructor === 'PgBoss').length,
     runtimeCount: runtime.length,
     cliCount: records.filter((record) => record.processRole === 'CLI').length,
@@ -155,13 +160,31 @@ function oss01Baseline(sourceMap) {
   return row.directConstructorBaseline;
 }
 
+function directConnectionKey(record) {
+  return `${record.path}|${record.constructor}|${record.processRole}|${record.connectionEnvironment}`;
+}
+
+function validateDirectConnectionAllowlist({ report, sourceMap }) {
+  const allowlist = oss01Baseline(sourceMap).directConnectionAllowlist;
+  if (!Array.isArray(allowlist)) fail('OSS-01 directConnectionAllowlist is missing');
+  const approved = new Set(allowlist.map((item) =>
+    `${item.path}|${item.constructor}|${item.processRole}|${item.connectionEnvironment}`,
+  ));
+  for (const record of report.records.filter((item) => item.constructor === 'Pool' || item.constructor === 'Client')) {
+    if (!approved.has(directConnectionKey(record))) {
+      fail(`unallowlisted direct ${record.constructor}: ${directConnectionKey(record)}`);
+    }
+  }
+}
+
 export function validateInventory({ report, sourceMap }) {
   const baseline = oss01Baseline(sourceMap);
-  for (const key of ['poolCount', 'pgBossCount', 'inventorySha256']) {
+  for (const key of ['poolCount', 'clientCount', 'pgBossCount', 'inventorySha256']) {
     if (baseline[key] !== report[key]) fail(`${key} drift: expected ${baseline[key]}, found ${report[key]}`);
   }
   if (report.unclassifiedRuntimeCount !== 0) fail(`unclassified runtime constructor site count is ${report.unclassifiedRuntimeCount}`);
-  return { schemaVersion: 'amic-vault.database-authority-validation.v1', status: 'PASS', poolCount: report.poolCount, pgBossCount: report.pgBossCount, inventorySha256: report.inventorySha256, migrationBatches: Object.keys(report.migrationBatches).sort() };
+  validateDirectConnectionAllowlist({ report, sourceMap });
+  return { schemaVersion: 'amic-vault.database-authority-validation.v1', status: 'PASS', poolCount: report.poolCount, clientCount: report.clientCount, pgBossCount: report.pgBossCount, inventorySha256: report.inventorySha256, migrationBatches: Object.keys(report.migrationBatches).sort() };
 }
 
 function parseArgs(args) {

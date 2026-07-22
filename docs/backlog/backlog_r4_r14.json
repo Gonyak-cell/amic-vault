@@ -1,5 +1,5 @@
 {
-  "total": 202,
+  "total": 206,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3126,6 +3126,50 @@
       "depends_on": ["DEVOPS-OSS01-DBM-TUW-003"],
       "files": ["apps/api/src/modules/document", "apps/api/src/modules/storage", "apps/api/src/modules/search", "apps/api/src/modules/contract-intel", "apps/api/src/modules/email", "apps/api/src/modules/external", "apps/api/src/modules/matter/matter-wiki.service.ts", "apps/api/src/modules/records/records.service.ts", "tools/integration/run.mjs", "db/migrations/0183_grant_runtime_subversion_reviewer_reassign.sql", "db/migrations/0184_grant_runtime_bulk_retry_size.sql", "db/migrations/0185_grant_runtime_contract_review_refresh.sql", "db/migrations/0186_grant_runtime_email_metadata_lifecycle.sql", "db/migrations/0187_grant_runtime_email_reparse_participants.sql", "db/migrations/0188_grant_runtime_email_filing_lifecycle.sql", "db/migrations/0189_grant_runtime_derived_embedding_cleanup.sql", "db/migrations/0190_grant_runtime_external_nda_acceptance.sql", "db/migrations/0191_grant_runtime_external_qa_review.sql", "db/migrations/0192_grant_runtime_matter_wiki_generation_metadata.sql", "db/migrations/0193_grant_runtime_records_disposal_execution.sql", "db/migrations/0194_grant_runtime_saved_search_lifecycle.sql", "security/oss-adoption-decisions.yml", "tests/integration"],
       "verification": "document storage and search listed direct pools are zero AND immutable storage permission-before-search metadata leakage and audit regressions remain green AND disposable queue bootstrap preserves runtime role separation AND only exact reversible reviewer bulk retry pending-contract-review refresh email metadata lifecycle derived-embedding cleanup NDA idempotency external Q&A review Matter-wiki generation metadata approved-records-disposal and saved-search lifecycle grants are present"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBR-TUW-001",
+      "title": "Records DLP External Enterprise Scale Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBM-TUW-004"],
+      "files": ["apps/api/src/modules/records", "apps/api/src/modules/dlp", "apps/api/src/modules/external", "apps/api/src/modules/enterprise", "apps/api/src/modules/scale", "apps/api/src/common/metrics", "db/migrations/0196_add_external_link_token_lookup.sql", "tests/integration", "security/oss-source-map.yml"],
+      "verification": "listed records DLP external enterprise scale and queue metrics direct pools use central runtime authority AND R11-disabled surfaces legal-hold DLP audit cross-tenant and fail-closed negatives remain intact"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBR-TUW-002",
+      "title": "AI policy session services Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBR-TUW-001"],
+      "files": ["apps/api/src/modules/ai-policy", "apps/api/src/modules/ai", "db/migrations/0197_grant_runtime_ai_session_chunk_upsert.sql", "tests/integration", "security/oss-source-map.yml"],
+      "verification": "listed AI policy summary-gate feedback and session direct pools use central tenant transactions AND permission-before-AI local-only raw-content-safe audit cross-tenant and fail-closed guarantees remain intact"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBR-TUW-003",
+      "title": "Integration scheduler Pool migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBR-TUW-002"],
+      "files": ["apps/api/src/modules/integrations", "apps/api/src/modules/notifications", "tests/integration", "security/oss-source-map.yml"],
+      "verification": "law-data Matter App and notification scheduler direct pools use process-role-aware central authority AND API worker role tenant isolation duplicate tick partial failure audit and fail-closed negatives remain intact"
+    },
+    {
+      "id": "DEVOPS-OSS01-DBR-TUW-004",
+      "title": "CLI exceptions and database authority hard gate",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBR-TUW-001", "DEVOPS-OSS01-DBR-TUW-002", "DEVOPS-OSS01-DBR-TUW-003"],
+      "files": ["apps/api/src/tools/gemma-customer-wide-real-output-runner.ts", "apps/api/src/tools/onedrive-full-closeout-remediation-runner.ts", "tools/quality/check-database-authority.mjs", "security/oss-source-map.yml", ".github/workflows/ci.yml"],
+      "verification": "runtime application direct Pool or Client DATABASE_URL fallback default connection string and unclosed pool outside explicit owner-only maintenance exceptions fail AND valid source authority and connection lifecycle checks pass"
     }
   ]
 }

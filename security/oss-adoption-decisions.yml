@@ -31,7 +31,9 @@
     "db/migrations/0191_grant_runtime_external_qa_review.sql",
     "db/migrations/0192_grant_runtime_matter_wiki_generation_metadata.sql",
     "db/migrations/0193_grant_runtime_records_disposal_execution.sql",
-    "db/migrations/0194_grant_runtime_saved_search_lifecycle.sql"
+    "db/migrations/0194_grant_runtime_saved_search_lifecycle.sql",
+    "db/migrations/0196_add_external_link_token_lookup.sql",
+    "db/migrations/0197_grant_runtime_ai_session_chunk_upsert.sql"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

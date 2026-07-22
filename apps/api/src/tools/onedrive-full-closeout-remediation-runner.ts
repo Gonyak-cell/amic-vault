@@ -5,10 +5,9 @@ import process from 'node:process';
 import { Pool } from 'pg';
 import { SearchIndexRepository } from '../modules/search/index/search-index.repository';
 
-const defaultDatabaseUrl =
-  process.env.DATABASE_URL ?? 'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 const safeRunIdPattern = /^[A-Za-z0-9._-]{3,120}$/;
 const safeRefPattern = /^[A-Za-z0-9._-]{3,180}$/;
+const postgresIdentifierPattern = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
 
 export interface FullCloseoutRemediationCliArgs {
   dryRun: boolean;
@@ -19,6 +18,7 @@ export interface FullCloseoutRemediationCliArgs {
   controlRef: string;
   sanitizedOut: string;
   databaseUrl: string;
+  databaseRole: string;
   limit: number;
   concurrency: number;
 }
@@ -55,7 +55,7 @@ interface WorkerResult {
 
 export function usage(): string {
   return [
-    'usage: pnpm onedrive:full-closeout-remediate -- --dry-run|--execute --run-id <id> --tenant-slug <slug> --approval-ref <ref> --control-ref <ref> --sanitized-out <out.json> [--limit <n>] [--concurrency <n>]',
+    'usage: DATABASE_MIGRATION_URL=<owner-url> pnpm onedrive:full-closeout-remediate -- --dry-run|--execute --run-id <id> --tenant-slug <slug> --approval-ref <ref> --control-ref <ref> --sanitized-out <out.json> [--limit <n>] [--concurrency <n>]',
     '',
     'Converts not-ready imported documents to metadata-only canonical ready text and backfills search index/chunks without storing raw paths, OCR excerpts, object keys, or source document body in receipts.',
   ].join('\n');
@@ -69,6 +69,11 @@ export function parseFullCloseoutRemediationArgs(
   const dryRun = argv.includes('--dry-run');
   const execute = argv.includes('--execute');
   if (dryRun === execute) throw new Error('exactly one of --dry-run or --execute is required');
+  const databaseUrl = env.DATABASE_MIGRATION_URL?.trim();
+  if (!databaseUrl) throw new Error('DATABASE_MIGRATION_URL_REQUIRED');
+  const databaseRole = env.DATABASE_MIGRATION_ROLE?.trim() || 'amic_vault';
+  if (!postgresIdentifierPattern.test(databaseRole))
+    throw new Error('DATABASE_MIGRATION_ROLE_INVALID');
   return {
     dryRun,
     execute,
@@ -77,15 +82,20 @@ export function parseFullCloseoutRemediationArgs(
     approvalRef: requiredArg(argv, '--approval-ref'),
     controlRef: requiredArg(argv, '--control-ref'),
     sanitizedOut: requiredArg(argv, '--sanitized-out'),
-    databaseUrl: argValue(argv, '--database-url') ?? env.DATABASE_URL ?? defaultDatabaseUrl,
+    databaseUrl,
+    databaseRole,
     limit: optionalPositiveInt(argValue(argv, '--limit'), '--limit') ?? 500,
-    concurrency: Math.min(optionalPositiveInt(argValue(argv, '--concurrency'), '--concurrency') ?? 4, 16),
+    concurrency: Math.min(
+      optionalPositiveInt(argValue(argv, '--concurrency'), '--concurrency') ?? 4,
+      16,
+    ),
   };
 }
 
 export async function runFullCloseoutRemediation(args: FullCloseoutRemediationCliArgs) {
   const pool = new Pool({ connectionString: args.databaseUrl, max: args.concurrency + 2 });
   try {
+    await assertOwnerDatabaseRole(pool, args.databaseRole);
     const tenantId = await findTenantId(pool, args.tenantSlug);
     const before = tenantId ? await collectCounts(pool, tenantId) : emptyCounts();
     const candidates = tenantId ? await collectCandidates(pool, tenantId, args.limit) : [];
@@ -157,6 +167,14 @@ export async function runFullCloseoutRemediation(args: FullCloseoutRemediationCl
   } finally {
     await pool.end();
   }
+}
+
+async function assertOwnerDatabaseRole(
+  pool: Pick<Pool, 'query'>,
+  expectedRole: string,
+): Promise<void> {
+  const result = await pool.query<{ current_user: string }>('SELECT current_user');
+  if (result.rows[0]?.current_user !== expectedRole) throw new Error('OWNER_DATABASE_ROLE_INVALID');
 }
 
 async function findTenantId(pool: Pool, tenantSlug: string): Promise<string | null> {
@@ -249,7 +267,9 @@ async function runWorkers(
       results.push(await remediateCandidate(pool, args, candidate));
     }
   }
-  await Promise.all(Array.from({ length: Math.min(args.concurrency, candidates.length) }, () => worker()));
+  await Promise.all(
+    Array.from({ length: Math.min(args.concurrency, candidates.length) }, () => worker()),
+  );
   return results;
 }
 
@@ -262,7 +282,10 @@ async function remediateCandidate(
   const repository = new SearchIndexRepository();
   try {
     await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', candidate.tenant_id]);
+    await client.query('SELECT set_config($1, $2, true)', [
+      'app.current_tenant_id',
+      candidate.tenant_id,
+    ]);
     const bodyText = buildMetadataOnlyCanonicalText(candidate);
     await client.query(
       `
@@ -356,7 +379,10 @@ function safeCategory(value: string): string {
   return value.replace(/[^A-Za-z0-9.+/_-]/g, '_').slice(0, 120) || 'unknown';
 }
 
-function validateReadiness(args: FullCloseoutRemediationCliArgs, tenantId: string | null): string[] {
+function validateReadiness(
+  args: FullCloseoutRemediationCliArgs,
+  tenantId: string | null,
+): string[] {
   const blockers: string[] = [];
   if (!tenantId) blockers.push('tenant_not_found');
   if (!safeRunIdPattern.test(args.runId)) blockers.push('run_id_invalid');
@@ -410,7 +436,13 @@ function emptyCounts(): CountsRow {
 }
 
 function safeReasonCode(input: string): string {
-  return input.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 80) || 'REMEDIATION_FAILED';
+  return (
+    input
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9_]/g, '_')
+      .slice(0, 80) || 'REMEDIATION_FAILED'
+  );
 }
 
 function requiredArg(argv: readonly string[], name: string): string {
@@ -428,7 +460,8 @@ function argValue(argv: readonly string[], name: string): string | undefined {
 function optionalPositiveInt(value: string | undefined, name: string): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name} must be a positive integer`);
+  if (!Number.isInteger(parsed) || parsed <= 0)
+    throw new Error(`${name} must be a positive integer`);
   return parsed;
 }
 

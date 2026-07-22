@@ -47,10 +47,12 @@ function matterRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createService(options: {
-  permission?: 'allow' | 'deny' | 'wall';
-  source?: Record<string, unknown>;
-} = {}) {
+function createService(
+  options: {
+    permission?: 'allow' | 'deny' | 'wall';
+    source?: Record<string, unknown>;
+  } = {},
+) {
   const permission =
     options.permission === 'deny'
       ? denyPermission('PERMISSION_DENIED')
@@ -60,6 +62,7 @@ function createService(options: {
   return new MatterSourcePolicyService(
     { status: vi.fn(() => sourceStatus(options.source)) } as never,
     { canUploadToMatter: vi.fn(async () => permission) } as never,
+    { tenantTransaction: vi.fn() } as never,
   );
 }
 

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   aiPolicyBlockedResponse,
   type AiDocumentPolicyDecision,
@@ -9,23 +9,13 @@ import {
 } from '@amic-vault/shared';
 import { markAndAuditAiPrepArtifactsStale } from '../ai/prep/ai-prep-lifecycle';
 import { AuditService } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
 import {
   evaluateAiPolicySnapshot,
   type AiPolicyCoreDecision,
   type MatterPolicySnapshot,
   type ModelAccessPolicySnapshot,
 } from './ai-policy.evaluator';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterPolicyRow {
   ai_policy_id: string | null;
@@ -56,7 +46,10 @@ interface PolicySnapshot {
 export class AiPolicyService {
   private readonly logger = new Logger(AiPolicyService.name);
 
-  constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
+  constructor(
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+  ) {}
 
   async evaluate(input: AiPolicyEvaluationRequest): Promise<AiPolicyEvaluationResult> {
     const startedAt = Date.now();
@@ -142,30 +135,11 @@ export class AiPolicyService {
     modelRoute: string,
     documentIds: readonly string[],
   ): Promise<PolicySnapshot> {
-    return this.withTenantClient(tenantId, async (client) => ({
+    return this.databaseService.tenantTransaction(tenantId, async (client) => ({
       matterPolicy: await this.findMatterPolicy(client, tenantId, matterId),
       modelAccessPolicy: await this.findModelAccessPolicy(client, tenantId, modelRoute),
       documents: await this.findDocumentDecisions(client, tenantId, matterId, documentIds),
     }));
-  }
-
-  private async withTenantClient<T>(
-    tenantId: string,
-    callback: (client: PoolClient) => Promise<T>,
-  ): Promise<T> {
-    const client = await getPool().connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-      const result = await callback(client);
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK').catch(() => undefined);
-      throw error;
-    } finally {
-      client.release();
-    }
   }
 
   private async findMatterPolicy(
@@ -274,8 +248,6 @@ export class AiPolicyService {
   }
 
   private documentSetHash(documentIds: readonly string[]): string {
-    return createHash('sha256')
-      .update(this.uniqueDocumentIds(documentIds).join('|'))
-      .digest('hex');
+    return createHash('sha256').update(this.uniqueDocumentIds(documentIds).join('|')).digest('hex');
   }
 }

@@ -14,24 +14,14 @@ import {
   type UploadPreflightPurpose,
   type UploadPreflightResponseDto,
 } from '@amic-vault/shared';
-import { Pool } from 'pg';
+import { DatabaseService } from '../../../common/db/database.service';
 import { tenantQuery } from '../../../common/db/tenant-query';
 import { PermissionService } from '../../permission/permission.service';
 import { MatterAppRuntimeService } from './matter-app-runtime.service';
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
 const PREFLIGHT_TTL_MS = 1000 * 60 * 5;
 
-let pool: Pool | undefined;
 const uploadPreflightReceipts = new Map<string, UploadPreflightReceipt>();
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface MatterSourceRow {
   matter_id: string;
@@ -73,10 +63,7 @@ function ethicalWallBlocked(): ForbiddenException {
   return new ForbiddenException({ code: 'ETHICAL_WALL_BLOCKED' });
 }
 
-function metadataString(
-  metadata: Record<string, unknown> | null,
-  key: string,
-): string | undefined {
+function metadataString(metadata: Record<string, unknown> | null, key: string): string | undefined {
   const value = metadata?.[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
@@ -90,9 +77,7 @@ function matterSourceRevision(row: MatterSourceRow): string | null {
 }
 
 function hashRef(prefix: string, parts: readonly unknown[]): string {
-  const hash = createHash('sha256')
-    .update(JSON.stringify(parts))
-    .digest('hex');
+  const hash = createHash('sha256').update(JSON.stringify(parts)).digest('hex');
   return `${prefix}:${hash}`;
 }
 
@@ -116,6 +101,7 @@ export class MatterSourcePolicyService {
   constructor(
     @Inject(MatterAppRuntimeService) private readonly matterAppRuntime: MatterAppRuntimeService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
   ) {}
 
   async createUploadPreflight(input: {
@@ -308,7 +294,7 @@ export class MatterSourcePolicyService {
 
   private async findMatter(tenantId: TenantId, matterId: string): Promise<MatterSourceRow | null> {
     const result = await tenantQuery<MatterSourceRow>(
-      getPool(),
+      this.databaseService,
       tenantId,
       `
         SELECT matter_id, matter_code, status, metadata_json, updated_at
