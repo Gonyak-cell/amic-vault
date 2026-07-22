@@ -78,6 +78,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS03-02 | `feat/pack-oss03-02-reconcile-certificate-fault` | 3 | `DEVOPS-OSS03-RCN-TUW-001` through `DEVOPS-OSS03-RCN-TUW-003` (`docs/execution/TUW_OSS03_RECONCILE_CERTIFICATE_FAULT.md`) |
 | PACK-OSS04-01 | `feat/pack-oss04-01-quarantine-scan` | 4 | `DEVOPS-OSS04-QRT-TUW-001` through `DEVOPS-OSS04-QRT-TUW-004` (`docs/execution/TUW_OSS04_QUARANTINE_SCAN.md`) |
 | PACK-OSS04-02 | `feat/pack-oss04-02-promotion-reconcile-gate` | 4 | `DEVOPS-OSS04-PRM-TUW-001` through `DEVOPS-OSS04-PRM-TUW-004` (`docs/execution/TUW_OSS04_PROMOTION_RECONCILIATION_GATE.md`) |
+| PACK-OSS05-01 | `feat/pack-oss05-01-ingestion-contract` | 4 | `DEVOPS-OSS05-ING-TUW-001` through `DEVOPS-OSS05-ING-TUW-004` (`docs/execution/TUW_OSS05_INGESTION_IDENTITY_STORAGE.md`) |
 | PACK-OSS07-01 | `feat/pack-oss07-01-identity-topology` | 4 | `DEVOPS-OSS07-IDP-TUW-001` through `DEVOPS-OSS07-IDP-TUW-004` (`docs/execution/TUW_OSS07_IDENTITY_TOPOLOGY.md`) |
 | PACK-OSS09-01 | `feat/pack-oss09-01-telemetry-policy` | 4 | `DEVOPS-OSS09-TEL-TUW-001` through `DEVOPS-OSS09-TEL-TUW-004` (`docs/execution/TUW_OSS09_TELEMETRY_POLICY.md`) |
 
@@ -118,6 +119,25 @@ Status: canonical post-R14 successor to `PACK-OSS04-01` under
   queue boundaries are L0 reuse. No scanner authority, original overwrite,
   infected/error release, public scanner port, dependency, deployment,
   external operation, source vendoring, or `docs/package/**` change is in scope.
+
+## PACK-OSS05-01 — Bounded ingestion identity and storage contract
+
+Status: canonical post-R14 successor to merged `PACK-OSS04-02` under
+`USER-UMBRELLA-AUTONOMY-20260721`, independently based on `origin/main`
+`33944bca70a637dfffd8c3f433f2faea5cdb6663`.
+
+- Branch: `feat/pack-oss05-01-ingestion-contract`.
+- Detail contract: `docs/execution/TUW_OSS05_INGESTION_IDENTITY_STORAGE.md`.
+- Existing Vault extraction, promoted-file guard, storage path resolver,
+  immutable file object, Matter permission and audit boundaries are L0 no-copy
+  reuse. Paperless/Mayan are behavioral-source references only; no source or
+  fixture is copied.
+- This PACK does not authorize a client-selected URL, host, bucket, endpoint,
+  storage credential, public worker route, arbitrary worker network fetch,
+  original overwrite, dependency, deployment, external operation, source
+  vendoring, or `docs/package/**` change. TUW-002 is blocked until a platform
+  peer-identity topology is recorded; it may not invent production crypto or
+  promote a dev identity profile.
 
 ## PACK-OSS03-02 — Reconcile, certificate, and fault gate
 

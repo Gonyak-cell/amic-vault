@@ -1,5 +1,5 @@
 {
-  "total": 238,
+  "total": 242,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3379,6 +3379,50 @@
       "depends_on": ["DEVOPS-OSS04-PRM-TUW-001", "DEVOPS-OSS04-PRM-TUW-002", "DEVOPS-OSS04-PRM-TUW-003"],
       "files": ["tests/integration/storage-isolation", "tests/integration/document-access", "tests/integration/search-permission", "tests/integration/audit-coverage", "infra"],
       "verification": "real clamd clean EICAR unavailable timeout stale hash mismatch duplicate cross-tenant and audit failure prove every ingress/surface denies before promotion and only exact promoted bytes become readable"
+    },
+    {
+      "id": "DEVOPS-OSS05-ING-TUW-001",
+      "title": "Cross-language bounded ingestion envelope",
+      "release": "R14",
+      "module": "DEVOPS-OSS05",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-PRM-TUW-004"],
+      "files": ["packages/shared/src/ingestion", "workers/ingestion/app/contracts.py", "workers/ingestion/tests/test_contracts.py", "tests/fixtures/documents", "security"],
+      "verification": "TS Zod and Python Pydantic consume one synthetic golden corpus with exact normalized accept/reject outcomes AND URL host private-IP extra-field expired oversize and bad-hash cases reject AND no request field can select a network destination"
+    },
+    {
+      "id": "DEVOPS-OSS05-ING-TUW-002",
+      "title": "Workload identity nonce and replay profile",
+      "release": "R14",
+      "module": "DEVOPS-OSS05",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS05-ING-TUW-001", "PLATFORM-IDENTITY-DECISION"],
+      "files": ["apps/api/src/modules/document/extraction", "workers/ingestion/app", "infra", "security"],
+      "verification": "approved mTLS SPIFFE or non-spoofable gateway identity binds subject audience expiry and one-use nonce AND wrong subject audience expiry replay rotation spoofed header and production-dev-profile negatives deny"
+    },
+    {
+      "id": "DEVOPS-OSS05-ING-TUW-003",
+      "title": "Dispatcher bounded envelope with no signed URL",
+      "release": "R14",
+      "module": "DEVOPS-OSS05",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS05-ING-TUW-001", "DEVOPS-OSS05-ING-TUW-002"],
+      "files": ["apps/api/src/modules/document/extraction", "apps/api/src/modules/storage", "tests/integration"],
+      "verification": "dispatcher emits server-derived alias key version hash size parser profile request expiry identity binding with no storage_url or credential AND timeout response-size invalid-response and promoted-guard negatives deny"
+    },
+    {
+      "id": "DEVOPS-OSS05-ING-TUW-004",
+      "title": "Worker fixed storage adapter prefix verification",
+      "release": "R14",
+      "module": "DEVOPS-OSS05",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS05-ING-TUW-003"],
+      "files": ["workers/ingestion/app", "workers/ingestion/tests", "workers/ingestion/pyproject.toml", "workers/ingestion/uv.lock"],
+      "verification": "fixed boot-time object-store profile validates tenant alias prefix version hash and size AND traversal endpoint injection cross-tenant wrong-version timeout 403 404 and rotation negatives deny"
     },
     {
       "id": "DEVOPS-OSS07-IDP-TUW-001",
