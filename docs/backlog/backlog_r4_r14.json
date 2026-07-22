@@ -3398,9 +3398,9 @@
       "module": "DEVOPS-OSS05",
       "risk": "C",
       "size": "L",
-      "depends_on": ["DEVOPS-OSS05-ING-TUW-001", "PLATFORM-IDENTITY-DECISION"],
+      "depends_on": ["DEVOPS-OSS05-ING-TUW-001"],
       "files": ["apps/api/src/modules/document/extraction", "workers/ingestion/app", "infra", "security"],
-      "verification": "approved mTLS SPIFFE or non-spoofable gateway identity binds subject audience expiry and one-use nonce AND wrong subject audience expiry replay rotation spoofed header and production-dev-profile negatives deny"
+      "verification": "approved mTLS SPIFFE or non-spoofable gateway identity binds subject audience expiry and one-use nonce AND wrong subject audience expiry replay rotation spoofed header and production-dev-profile negatives deny; platform identity is an explicit external gate recorded in the canonical TUW and ledger"
     },
     {
       "id": "DEVOPS-OSS05-ING-TUW-003",
