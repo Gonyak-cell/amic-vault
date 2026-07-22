@@ -1,15 +1,20 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
+  Header,
   Headers,
   Inject,
   Param,
+  Post,
   Req,
   Res,
   StreamableFile,
 } from '@nestjs/common';
+import { createPreviewSessionRequestSchema } from '@amic-vault/shared';
 import type { RequestWithSession } from '../auth/session.guard';
+import { PreviewSessionService } from './preview-session.service';
 import { PreviewService } from './preview.service';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -27,15 +32,40 @@ function sessionUserId(request: RequestWithSession): string {
   return userId;
 }
 
-@Controller('documents/:documentId/preview')
-export class PreviewController {
-  constructor(@Inject(PreviewService) private readonly previewService: PreviewService) {}
+function parsePreviewSessionBody(body: unknown) {
+  try {
+    return createPreviewSessionRequestSchema.parse(body ?? {});
+  } catch {
+    throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+  }
+}
 
-  @Get()
+@Controller('documents/:documentId')
+export class PreviewController {
+  constructor(
+    @Inject(PreviewService) private readonly previewService: PreviewService,
+    @Inject(PreviewSessionService)
+    private readonly previewSessionService: PreviewSessionService,
+  ) {}
+
+  @Post('preview-sessions')
+  @Header('cache-control', 'no-store')
+  async issuePreviewSession(
+    @Req() request: RequestWithSession,
+    @Param('documentId') documentId: string,
+    @Body() body: unknown,
+  ) {
+    parsePreviewSessionBody(body);
+    return this.previewSessionService.issue(sessionUserId(request), parseUuid(documentId));
+  }
+
+  @Get('preview')
+  @Header('cache-control', 'no-store')
   async preview(
     @Req() request: RequestWithSession,
     @Param('documentId') documentId: string,
     @Headers('range') rangeHeader: string | undefined,
+    @Headers('x-amic-preview-session') previewSessionToken: string | undefined,
     @Res({ passthrough: true })
     response: {
       status(code: number): void;
@@ -45,6 +75,7 @@ export class PreviewController {
     const preview = await this.previewService.openPreview(
       sessionUserId(request),
       parseUuid(documentId),
+      previewSessionToken,
       rangeHeader,
     );
     response.status(preview.statusCode);

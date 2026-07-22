@@ -3,12 +3,12 @@ import { Readable } from 'node:stream';
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { PermissionDecision, TenantId } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
-import { documentViewedAudit } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { PreviewConversionUnavailableError, PreviewConvertJob } from './preview-convert.job';
+import { PreviewSessionService } from './preview-session.service';
 
 interface PreviewFileRow {
   document_id: string;
@@ -116,6 +116,8 @@ export class PreviewService {
     @Inject(FileObjectService) private readonly fileObjectService: FileObjectService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(PreviewConvertJob) private readonly previewConvertJob: PreviewConvertJob,
+    @Inject(PreviewSessionService)
+    private readonly previewSessionService: PreviewSessionService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -123,6 +125,7 @@ export class PreviewService {
   async openPreview(
     actorUserId: string,
     documentId: string,
+    previewSessionToken: string | undefined,
     rangeHeader?: string,
   ): Promise<PreviewResult> {
     const context = this.tenantContext.require();
@@ -131,6 +134,14 @@ export class PreviewService {
       if (!target) throw notFoundDenied();
       if (target.status === 'deleted') throw documentLocked();
       await this.assertCanPreview(context.tenantId, actorUserId, documentId);
+      await this.previewSessionService.assertActiveSession(
+        tx,
+        context.tenantId,
+        actorUserId,
+        target.document_id,
+        target.version_id,
+        previewSessionToken,
+      );
       return target;
     });
 
@@ -146,7 +157,6 @@ export class PreviewService {
         context.tenantId,
         previewFile.storage_uri,
       );
-      await this.recordPreviewViewed(context.tenantId, actorUserId, original);
       return {
         body: object.body,
         contentType: 'application/pdf',
@@ -216,26 +226,6 @@ export class PreviewService {
           WHERE document_preview_artifacts.status <> 'ready'
         `,
         [input.tenantId, input.documentId, input.versionId, input.fileObjectId, failureReasonCode],
-      );
-    });
-  }
-
-  private async recordPreviewViewed(
-    tenantId: TenantId,
-    actorUserId: string,
-    original: PreviewFileRow,
-  ): Promise<void> {
-    await this.auditService.transaction(tenantId, async (tx) => {
-      await this.auditService.log(
-        documentViewedAudit({
-          tenantId,
-          actorId: actorUserId,
-          documentId: original.document_id,
-          matterId: original.matter_id,
-          versionId: original.version_id,
-          channel: 'preview',
-        }),
-        tx,
       );
     });
   }

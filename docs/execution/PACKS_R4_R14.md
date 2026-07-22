@@ -74,6 +74,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS01-02 | `feat/pack-oss01-02-authority-pool-migration` | 4 | `DEVOPS-OSS01-DBM-TUW-001` through `DEVOPS-OSS01-DBM-TUW-004` (`docs/execution/TUW_OSS01_POOL_MIGRATION.md`) |
 | PACK-OSS01-03 | `feat/pack-oss01-03-remaining-pool-migration` | 4 | `DEVOPS-OSS01-DBR-TUW-001` through `DEVOPS-OSS01-DBR-TUW-004` (`docs/execution/TUW_OSS01_REMAINING_POOL_MIGRATION.md`) |
 | PACK-OSS01-04 | `feat/pack-oss01-04-queue-registry-budget` | 4 | `DEVOPS-OSS01-QUE-TUW-001` through `DEVOPS-OSS01-QUE-TUW-004` (`docs/execution/TUW_OSS01_QUEUE_REGISTRY.md`) |
+| PACK-OSS02-01 | `feat/pack-oss02-01-audited-preview-session` | 5 | `DEVOPS-OSS02-PRV-TUW-001` through `DEVOPS-OSS02-PRV-TUW-005` (`docs/execution/TUW_OSS02_AUDITED_PREVIEW_SESSION.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -83,6 +84,22 @@ and 111 TUWs without a new human approval between PACKs. The detailed scope,
 hard stops, and unchanged dependency/deployment/external-operation/PR-merge
 boundaries are normative in
 `docs/execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md`.
+
+## PACK-OSS02-01 — Audited preview session
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`. This is the just-in-time canonical form of
+`PROPOSED-PACK-OSS02-01`, rebased on merged predecessor `PACK-OSS01-04` at
+`origin/main` `95580b5ca5a32b31b5d2dd14ea34a03633f88f98`.
+
+- Branch: `feat/pack-oss02-01-audited-preview-session`.
+- Detail contract: `docs/execution/TUW_OSS02_AUDITED_PREVIEW_SESSION.md`.
+- No runtime/build dependency, upstream source copy, vendor/fork, deployment,
+  external operation, or `docs/package/**` change is authorized.
+- The existing Vault preview, PermissionService, AuditService, tenant
+  transaction, storage, and web API-client structures are L0 Vault-owned
+  reuse. New product files must be explicitly recorded as L0 no-copy paths
+  before the reuse-first gate is claimed.
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
