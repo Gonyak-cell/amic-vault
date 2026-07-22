@@ -196,6 +196,64 @@
   non-current-route predicates remain authoritative. No generic privilege,
   query behavior, retention/policy change, dependency, external operation,
   deployment, or release work is authorized.
+- **Canonical scope amendment (2026-07-22, external NDA idempotency):** the
+  runtime regression reaches the existing token-resolved, tenant-scoped,
+  audited NDA acceptance upsert only. The TUW may add
+  `apps/api/src/modules/external` to the observed runtime scope and create
+  `0190_grant_runtime_external_nda_acceptance.sql` with its matching L0 source
+  decision, granting and reversibly revoking only `UPDATE (accepted_at)` on
+  `external_nda_acceptances` for the existing conflict no-op. Existing token
+  hashing, link expiry/status validation, tenant RLS, NDA uniqueness,
+  acceptance audit, external portal behavior, and data fields remain
+  unchanged. This authorizes no direct-pool migration, new sharing capability,
+  token persistence, outbound integration, dependency, deployment or release
+  work.
+- **Canonical scope amendment (2026-07-22, external Q&A review):** the next
+  runtime regression reaches the existing tenant-scoped, permission- and
+  audit-guarded external-answer review lock and state transition. The TUW may
+  create `0191_grant_runtime_external_qa_review.sql` with its matching L0
+  source decision, granting and reversibly revoking only `UPDATE (status,
+  reviewed_by_internal_user_id, reviewed_at)` on `external_qa_messages`.
+  Existing self-approval denial, review state machine, visibility scope, RLS,
+  audit and workflow completion remain unchanged. No new external Q&A
+  behavior, sharing, token persistence, outbound integration, direct-pool
+  migration, dependency, deployment or release work is authorized.
+- **Canonical scope amendment (2026-07-22, Matter wiki generation metadata):**
+  the next runtime regression reaches the existing tenant-scoped,
+  permission-checked, audited Matter-wiki draft regeneration upsert. The TUW
+  may create `0192_grant_runtime_matter_wiki_generation_metadata.sql` with
+  its matching L0 source decision, granting and reversibly revoking only
+  `UPDATE (generated_by, generated_at)` on `matter_wiki_pages`. Existing
+  page body/source-reference behavior, review-state consistency constraint,
+  Matter permission check, RLS, audit, work-item linkage and local generation
+  route remain unchanged. No AI behavior, new source, sharing, direct-pool
+  migration, dependency, deployment or release work is authorized.
+- **Canonical scope amendment (2026-07-22, Records disposal execution):**
+  the next runtime regression reaches the existing R12 Records disposal
+  executor after its approval, legal-hold, active-hold, business-reference,
+  storage-delete and certificate/audit preconditions. The TUW may create
+  `0193_grant_runtime_records_disposal_execution.sql` with its matching L0
+  source decision, granting and reversibly revoking only `DELETE` on
+  `document_chunks`, `canonical_documents`, `document_search_index`,
+  `document_preview_artifacts`, `document_versions`, `file_objects` and
+  `documents`, plus `UPDATE (supersedes_version_id)` on `document_versions`.
+  This restores no new deletion behavior: the existing approved-disposal
+  transaction, tenant predicates/RLS, immutable-file trigger, hold checks and
+  certificate/audit behavior remain authoritative. No disposal workflow,
+  policy/retention, storage, direct-pool migration, dependency, deployment or
+  release work is authorized.
+- **Canonical scope amendment (2026-07-22, saved-search lifecycle):** the
+  next runtime regression reaches the existing tenant-scoped, permission- and
+  audit-guarded saved-search save, revoke and open-count SQL. The TUW may
+  create `0194_grant_runtime_saved_search_lifecycle.sql` with its matching L0
+  source decision, granting and reversibly revoking only `SELECT`, `INSERT`
+  and `UPDATE (scope_type, matter_id, search_query_json, query_hash,
+  filter_refs, revoked_at, revoked_by, updated_at, opened_count,
+  last_opened_at)` on `saved_searches`. Existing scope authorization,
+  tenant RLS, bounded filter-reference policy, audit events and
+  permission-before-search query construction remain unchanged. No search
+  retrieval, result filtering, source, direct-pool migration, dependency,
+  deployment or release work is authorized.
 - **Implementation:** move DB state and bulk enqueue coupling to the active
   tenant client. The scope provider returns a SQL predicate before query build;
   it must not fetch results or add a result post-filter.

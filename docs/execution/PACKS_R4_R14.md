@@ -2549,6 +2549,38 @@ RLS, dependency, source-vendoring or CI claim transfers from it.
   Records artifacts, and it preserves RLS and the existing restrictive SQL
   predicate; no product behavior, retention/policy, dependency, external
   operation, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  reversible `external_nda_acceptances.accepted_at` UPDATE required by the
+  existing audited, token-resolved NDA idempotency upsert. Existing token
+  hashing, tenant RLS, link validation, NDA uniqueness and audit remain
+  authoritative; no sharing capability, external call, token persistence,
+  direct-pool migration, dependency, deployment or release action is
+  authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  three existing external Q&A review columns needed for its lock-protected
+  pending-to-terminal state transition. It preserves self-review denial,
+  state/visibility constraints, RLS, audit and workflow semantics; no new
+  external behavior, token persistence, outbound operation, direct-pool
+  migration, dependency, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  two existing Matter-wiki draft-generation metadata columns omitted from the
+  tenant-scoped audited upsert. Matter permission checks, RLS, the review
+  consistency constraint, audit/work-item behavior and the local generation
+  route remain authoritative; no AI behavior, source, direct-pool migration,
+  dependency, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  existing R12 Records approved-disposal delete set and one version-link
+  clearing column. Existing approval, legal/business-reference hold checks,
+  tenant RLS, immutable-file trigger, storage operation and certificate/audit
+  transaction remain authoritative; no new disposal behavior, policy or
+  retention change, direct-pool migration, dependency, deployment or release
+  action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  existing saved-search save/revoke/open lifecycle operations and exact
+  fields. Permission-before-search construction, scope authorization, RLS,
+  bounded filter references and audit remain authoritative; no retrieval,
+  result-filtering, direct-pool migration, dependency, deployment or release
+  action is authorized.
 
 ## Gate Reports
 
