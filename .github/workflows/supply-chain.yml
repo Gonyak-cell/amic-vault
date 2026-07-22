@@ -7,11 +7,26 @@ on:
       - main
       - 'feat/**'
       - 'codex/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
+  source-lab-lock:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Validate static upstream source-lock and baseline records
+        run: node tools/oss/verify-upstream-baseline.mjs --static --source-map security/oss-source-map.yml
+
   governance:
     runs-on: ubuntu-latest
     steps:

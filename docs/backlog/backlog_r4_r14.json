@@ -1,5 +1,5 @@
 {
-  "total": 184,
+  "total": 188,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -2928,6 +2928,50 @@
         "docs/execution/evidence"
       ],
       "verification": "source tree image digest SBOM and scan hashes form one verified unsigned graph AND wrong/replayed/missing edges and unresolved policy fail AND signing is explicitly external-blocked"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-BOUNDARY-TUW-001",
+      "title": "Isolated source-lab boundary and lock schema",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-OSSATT-IDENTITY-TUW-001"],
+      "files": ["security/oss-source-map.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
+      "verification": "external source root is outside product/build context AND invalid pin path symlink and dirty-baseline fixtures fail"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-CLONE-TUW-001",
+      "title": "Official shortlist exact-clone verifier",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSLAB-BOUNDARY-TUW-001"],
+      "files": ["security/oss-source-map.yml", "tools/oss"],
+      "verification": "every shortlist row has official remote detached commit tree license hash and clean status OR explicit bounded blocked owner"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-BASELINE-TUW-001",
+      "title": "Unmodified upstream baseline runner",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSLAB-CLONE-TUW-001"],
+      "files": ["security/oss-source-map.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
+      "verification": "each adoptable row preserves upstream command environment result classification and redacted bounded log hash AND unavailable dependencies stay blocked"
+    },
+    {
+      "id": "DEVOPS-OSSLAB-REPRO-TUW-001",
+      "title": "Second-clone source lock reproducibility gate",
+      "release": "R14",
+      "module": "DEVOPS-OSSLAB",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-OSSLAB-BASELINE-TUW-001"],
+      "files": ["tools/oss", "security/oss-source-map.yml", ".github/workflows/supply-chain.yml"],
+      "verification": "second-clone and tamper drift fixtures distinguish pinned reproduced and blocked without product source or CI permission mutation"
     }
   ]
 }
