@@ -61,9 +61,10 @@ scoped migration: an append-only tenant-RLS retry-authorization record with a
 bounded reason, terminal state/code snapshot, actor and audit reference, plus
 a trigger that permits terminal-to-pending only when a fresh authorization is
 present. This amendment permits that migration, its audit-action declaration,
-and direct migration/service specs. It does not permit automatic retry, receipt
-or inventory mutation, raw storage data, a dependency, external operation,
-deployment, or `docs/package/**` change.
+its single L0 no-copy path declaration, and direct migration/service specs. It
+does not permit automatic retry, receipt or inventory mutation, raw storage
+data, a dependency, external operation, deployment, or `docs/package/**`
+change.
 
 ### RCN-001 reuse determination — no duplicate reconciler
 

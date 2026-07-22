@@ -68,6 +68,7 @@
     "tools/storage/probe-versioned-disposal.mjs",
     "tools/storage/probe-versioned-disposal.spec.mjs",
     "db/migrations/0202_create_records_disposal_outbox.sql",
+    "db/migrations/0203_records_disposal_retry_authorizations.sql",
     "apps/api/src/modules/records/disposal-receipt.types.ts",
     "apps/api/src/modules/records/disposal-receipt.types.spec.ts",
     "apps/api/src/modules/records/records-disposal.worker.ts",
