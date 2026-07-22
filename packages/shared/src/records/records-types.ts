@@ -111,6 +111,12 @@ export const createDisposalRequestSchema = z
   })
   .strict();
 
+export const retryDisposalRequestSchema = z
+  .object({
+    reasonCode: codeSchema,
+  })
+  .strict();
+
 export const disposalRequestSchema = z
   .object({
     disposalRequestId: uuidSchema,
@@ -167,6 +173,7 @@ export type LegalHoldListResponseDto = z.infer<typeof legalHoldListResponseSchem
 export type CreateArchiveRequestDto = z.infer<typeof createArchiveRequestSchema>;
 export type RecordsArchiveDto = z.infer<typeof recordsArchiveSchema>;
 export type CreateDisposalRequestDto = z.infer<typeof createDisposalRequestSchema>;
+export type RetryDisposalRequestDto = z.infer<typeof retryDisposalRequestSchema>;
 export type DisposalRequestDto = z.infer<typeof disposalRequestSchema>;
 export type DisposalCertificateDto = z.infer<typeof disposalCertificateSchema>;
 export type DisposalReviewItemDto = z.infer<typeof disposalReviewItemSchema>;

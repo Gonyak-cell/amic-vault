@@ -4,6 +4,7 @@ import {
   createRetentionPolicyRequestSchema,
   disposalCertificateSchema,
   disposalReviewListResponseSchema,
+  retryDisposalRequestSchema,
 } from './records-types';
 
 describe('records governance shared schemas', () => {
@@ -85,5 +86,13 @@ describe('records governance shared schemas', () => {
         ],
       }).disposals[0]?.documentTitle,
     ).toBe('Retention Review Candidate');
+  });
+
+  it('requires a bounded reason code for an audited terminal disposal retry', () => {
+    expect(retryDisposalRequestSchema.parse({ reasonCode: 'OPERATOR_REVIEW' })).toEqual({
+      reasonCode: 'OPERATOR_REVIEW',
+    });
+    expect(() => retryDisposalRequestSchema.parse({ reasonCode: 'retry raw file body' })).toThrow();
+    expect(() => retryDisposalRequestSchema.parse({ reasonCode: 'OPERATOR_REVIEW', note: 'extra' })).toThrow();
   });
 });

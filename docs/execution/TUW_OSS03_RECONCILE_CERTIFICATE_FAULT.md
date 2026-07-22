@@ -30,11 +30,14 @@ Status: canonical under `USER-UMBRELLA-AUTONOMY-20260721`, based on merged
 
 ## `DEVOPS-OSS03-RCN-TUW-001` — crash reconciler and dead-letter review
 
-- **Files create:** `apps/api/src/modules/records/records-disposal-reconciler.service.ts`
-  and direct spec.
-- **Files modify:** `records.module.ts`; `records.controller.ts` and shared
-  DTO only when needed for a read-only review or explicit retry endpoint;
-  direct Records integration tests.
+- **Files create:** none when the existing `RecordsDisposalWorker` already
+  supplies the required tenant iteration, stale-claim recovery, exact-version
+  inspection, and missing-receipt reconciliation; otherwise
+  `records-disposal-reconciler.service.ts` and direct spec.
+- **Files modify:** the existing worker only when its reconciliation invariant
+  is incomplete; `records.controller.ts` and shared DTO only when needed for a
+  read-only review or explicit retry endpoint; direct Records integration
+  tests.
 - **Files NOT-modify:** sealed inventory/receipt mutability rules, automatic
   dead-letter retry, hardcoded tenant scans, legacy key-only delete,
   dependencies/locks, `docs/package/**`.
@@ -49,6 +52,27 @@ Status: canonical under `USER-UMBRELLA-AUTONOMY-20260721`, based on merged
   negative, and audit-failure rollback of retry authorization.
 - **Stop:** reconciliation requires guessed object identity, stores raw error
   or content, or needs automatic retry to make progress.
+
+### RCN-001 scope amendment — audited terminal retry authority
+
+The pre-existing sealed outbox transition intentionally makes `dead_letter`
+and `blocked` terminal. An explicit operator retry therefore needs a narrowly
+scoped migration: an append-only tenant-RLS retry-authorization record with a
+bounded reason, terminal state/code snapshot, actor and audit reference, plus
+a trigger that permits terminal-to-pending only when a fresh authorization is
+present. This amendment permits that migration, its audit-action declaration,
+and direct migration/service specs. It does not permit automatic retry, receipt
+or inventory mutation, raw storage data, a dependency, external operation,
+deployment, or `docs/package/**` change.
+
+### RCN-001 reuse determination — no duplicate reconciler
+
+`RecordsDisposalWorker` already iterates configured tenants, atomically recovers
+only stale `processing` claims, inspects the sealed exact version, treats an
+exactly absent version as `already_absent`, and persists immutable receipts.
+RCN-001 therefore reuses that L0 reconciler and adds only the missing audited
+terminal retry authority; a parallel reconciler would duplicate the same queue
+and state-transition authority.
 
 ## `DEVOPS-OSS03-RCN-TUW-002` — finalization, tombstone, and certificate
 

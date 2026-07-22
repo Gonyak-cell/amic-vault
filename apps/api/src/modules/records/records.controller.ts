@@ -114,6 +114,19 @@ export class RecordsController {
     );
   }
 
+  @Post('disposals/:disposalRequestId/retry')
+  retryDisposalRequest(
+    @Req() request: RequestWithSession,
+    @Param('disposalRequestId') disposalRequestId: string,
+    @Body() body: unknown,
+  ) {
+    return this.records.authorizeDisposalRetry(
+      permissionContext(request),
+      parseUuid(disposalRequestId),
+      body,
+    );
+  }
+
   @Get('disposals/:disposalRequestId/certificate')
   getDisposalCertificate(
     @Req() request: RequestWithSession,

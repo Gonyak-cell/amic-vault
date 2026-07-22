@@ -342,4 +342,75 @@ describe('RecordsService legal hold lifecycle', () => {
     expect(retryTx.query).toHaveBeenCalledTimes(1);
     expect(retryStorage.latestVersionFingerprintByStorageUri).not.toHaveBeenCalled();
   });
+
+  it('requires a records-admin audit receipt before returning a terminal disposal to pending', async () => {
+    const terminalOutbox = {
+      disposal_outbox_id: workItemId,
+      disposal_request_id: disposalRequestId,
+      state: 'dead_letter' as const,
+      last_error_code: 'storage_timeout',
+      terminal_at: new Date('2026-06-20T00:05:00.000Z'),
+      matter_id: matterId,
+      document_id: documentId,
+      document_legal_hold: false,
+      matter_legal_hold: false,
+    };
+    const tx = {
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({ rowCount: 1, rows: [terminalOutbox] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [] }),
+    };
+    const { auditLog, service } = serviceWith(tx);
+
+    await expect(
+      service.authorizeDisposalRetry(ctx, disposalRequestId, { reasonCode: 'OPERATOR_REVIEW' }),
+    ).resolves.toBeUndefined();
+
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DISPOSAL_RETRY_AUTHORIZED',
+        targetId: workItemId,
+        metadata: expect.objectContaining({ reason_code: 'OPERATOR_REVIEW', status_before: 'dead_letter' }),
+      }),
+      tx,
+    );
+    expect(tx.query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('INSERT INTO records_disposal_retry_authorizations'),
+      expect.arrayContaining([tenantId, workItemId, 'dead_letter', 'storage_timeout', 'OPERATOR_REVIEW']),
+    );
+    expect(tx.query).toHaveBeenNthCalledWith(3, expect.stringContaining("SET state = 'pending'"), [
+      tenantId,
+      workItemId,
+      'dead_letter',
+    ]);
+  });
+
+  it('does not write a retry authorization when its audit receipt fails', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [{
+          disposal_outbox_id: workItemId,
+          disposal_request_id: disposalRequestId,
+          state: 'blocked',
+          last_error_code: 'storage_access_denied',
+          terminal_at: new Date('2026-06-20T00:05:00.000Z'),
+          matter_id: matterId,
+          document_id: documentId,
+          document_legal_hold: false,
+          matter_legal_hold: false,
+        }],
+      }),
+    };
+    const { auditLog, service } = serviceWith(tx);
+    auditLog.mockRejectedValueOnce(new Error('audit unavailable'));
+
+    await expect(
+      service.authorizeDisposalRetry(ctx, disposalRequestId, { reasonCode: 'OPERATOR_REVIEW' }),
+    ).rejects.toThrow('audit unavailable');
+    expect(tx.query).toHaveBeenCalledTimes(1);
+  });
 });

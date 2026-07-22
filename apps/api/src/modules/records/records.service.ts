@@ -19,6 +19,7 @@ import {
   legalHoldListResponseSchema,
   legalHoldSchema,
   recordsArchiveSchema,
+  retryDisposalRequestSchema,
   retentionPolicyListResponseSchema,
   retentionPolicySchema,
   type CreateArchiveRequestDto,
@@ -36,6 +37,7 @@ import {
   type RecordsArchiveDto,
   type RetentionPolicyDto,
   type RetentionPolicyListResponseDto,
+  type RetryDisposalRequestDto,
   type TenantId,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
@@ -357,6 +359,14 @@ function parseCreateArchive(input: unknown): CreateArchiveRequestDto {
 function parseCreateDisposal(input: unknown): CreateDisposalRequestDto {
   try {
     return createDisposalRequestSchema.parse(input ?? {});
+  } catch {
+    throw validationFailed();
+  }
+}
+
+function parseRetryDisposal(input: unknown): RetryDisposalRequestDto {
+  try {
+    return retryDisposalRequestSchema.parse(input ?? {});
   } catch {
     throw validationFailed();
   }
@@ -1177,6 +1187,78 @@ export class RecordsService {
     await this.assertRecordsAdmin(ctx.tenantId as TenantId, ctx.userId);
     void disposalRequestId;
     throw validationFailed('DISPOSAL_EXECUTION_WORKER_ONLY');
+  }
+
+  async authorizeDisposalRetry(
+    ctx: PermissionContext,
+    disposalRequestId: string,
+    body: unknown,
+  ): Promise<void> {
+    const input = parseRetryDisposal(body);
+    this.assertContext(ctx);
+    await this.assertRecordsAdmin(ctx.tenantId as TenantId, ctx.userId);
+    await this.auditService.transaction(ctx.tenantId, async (tx) => {
+      const outbox = await tx.query<{
+        disposal_outbox_id: string;
+        disposal_request_id: string;
+        state: 'dead_letter' | 'blocked';
+        last_error_code: string;
+        terminal_at: Date;
+        matter_id: string;
+        document_id: string;
+        document_legal_hold: boolean;
+        matter_legal_hold: boolean;
+      }>(`
+        SELECT outbox.disposal_outbox_id, outbox.disposal_request_id, outbox.state,
+          outbox.last_error_code, outbox.terminal_at, d.matter_id, d.document_id,
+          d.legal_hold AS document_legal_hold, m.legal_hold AS matter_legal_hold
+        FROM records_disposal_outbox outbox
+        JOIN disposal_requests dr ON dr.tenant_id = outbox.tenant_id
+          AND dr.disposal_request_id = outbox.disposal_request_id
+        JOIN documents d ON d.tenant_id = dr.tenant_id AND d.document_id = dr.document_id
+        JOIN matters m ON m.tenant_id = d.tenant_id AND m.matter_id = d.matter_id
+        WHERE outbox.tenant_id = $1 AND outbox.disposal_request_id = $2
+          AND outbox.state IN ('dead_letter', 'blocked')
+          AND dr.status = 'approved'
+        FOR UPDATE OF outbox, dr, d, m
+      `, [ctx.tenantId, disposalRequestId]);
+      const row = outbox.rows[0];
+      if (!row || !row.last_error_code || !row.terminal_at) throw validationFailed('DISPOSAL_RETRY_NOT_REVIEWABLE');
+      if (row.document_legal_hold || row.matter_legal_hold) {
+        throw documentLocked('LEGAL_HOLD_ACTIVE');
+      }
+      const audit = await this.auditService.log({
+        tenantId: ctx.tenantId,
+        actorId: ctx.userId,
+        sessionId: this.sessionId(ctx),
+        action: 'DISPOSAL_RETRY_AUTHORIZED',
+        targetType: 'records_disposal_outbox',
+        targetId: row.disposal_outbox_id,
+        matterId: row.matter_id,
+        metadata: {
+          disposal_request_id: row.disposal_request_id,
+          document_id: row.document_id,
+          evidence_id: row.disposal_outbox_id,
+          reason_code: input.reasonCode,
+          status_before: row.state,
+          status_after: 'pending',
+        },
+      }, tx);
+      await tx.query(`
+        INSERT INTO records_disposal_retry_authorizations (
+          tenant_id, disposal_outbox_id, terminal_state, terminal_error_code,
+          retry_reason_code, authorized_by, audit_event_id, authorized_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+      `, [ctx.tenantId, row.disposal_outbox_id, row.state, row.last_error_code, input.reasonCode, ctx.userId, audit.eventId]);
+      const updated = await tx.query(`
+        UPDATE records_disposal_outbox
+        SET state = 'pending', claim_token = NULL, claim_started_at = NULL,
+          terminal_at = NULL, last_error_code = NULL, updated_at = now()
+        WHERE tenant_id = $1 AND disposal_outbox_id = $2
+          AND state = $3
+      `, [ctx.tenantId, row.disposal_outbox_id, row.state]);
+      if (rowCount(updated) !== 1) throw validationFailed('DISPOSAL_RETRY_CONFLICT');
+    });
   }
 
   async getDisposalCertificate(
