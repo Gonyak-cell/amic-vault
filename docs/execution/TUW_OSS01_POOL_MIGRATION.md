@@ -41,8 +41,10 @@
   `document-permission.service.ts`, `wall-membership.reader.ts`,
   `apps/api/src/common/guards/require-roles.guard.ts`; their existing
   colocated `*.spec.ts`; existing Audit/Tenant/Permission module wiring only;
-  `apps/api/src/common/db/database.service.{ts,spec.ts}` and
-  `tenant-query.{ts,spec.ts}` only when required to expose a named,
+  `apps/api/src/common/db/database.service.{ts,spec.ts}`, `database.module.ts`,
+  `apps/api/src/modules/tenant/tenant.module.ts`, `tenant-query.{ts,spec.ts}`
+  and `apps/api/src/modules/audit/permission-event.recorder.ts` only when
+  required to expose a named,
   typed existing authority; `security/oss-source-map.yml` OSS-01 constructor
   rows only; existing directly affected integration specs and
   `tests/integration/helpers/db.ts` only for central transaction setup.
@@ -50,7 +52,10 @@
   schema, RLS or grants, migrations, dependencies/locks, `docs/package/**`.
 - **Implementation:** remove each listed direct pool/getPool access through
   constructor injection. Use one same-tenant client for business,
-  PermissionService and successful/action audit work. A tenant registry read
+  PermissionService and successful/action audit work. The sole safe-denied
+  `ACCESS_DENIED` audit may use a separate named audit transaction so its
+  evidence survives rollback of a rejected enclosing transaction; it is not a
+  general query escape hatch. A tenant registry read
   is limited to existing typed status/id/slug reads; no generic global query.
 - **Verification (AND):** affected unit specs; `permission-matrix`,
   `cross-tenant`, `fail-closed`, `audit-immutability`, relevant

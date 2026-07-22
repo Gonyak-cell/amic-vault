@@ -1,4 +1,5 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { forwardRef, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { DatabaseModule } from '../../common/db/database.module';
 import { PgRoleLookup, RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { TenantController } from './tenant.controller';
 import { TenantContextMiddleware } from './tenant-context.middleware';
@@ -8,6 +9,7 @@ import { PgTenantStore, TENANT_STORE } from './tenant.store';
 import { WorkspaceService } from './workspace.service';
 
 @Module({
+  imports: [forwardRef(() => DatabaseModule)],
   controllers: [TenantController],
   providers: [
     PgTenantStore,

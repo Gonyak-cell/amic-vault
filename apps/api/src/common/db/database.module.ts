@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Global, Module } from '@nestjs/common';
 import { Pool } from 'pg';
 import { TenantModule } from '../../modules/tenant/tenant.module';
 import { DATABASE_POOL } from './database.tokens';
@@ -13,8 +13,9 @@ export function createRuntimeDatabasePool(): Pool {
   return new Pool({ connectionString });
 }
 
+@Global()
 @Module({
-  imports: [TenantModule],
+  imports: [forwardRef(() => TenantModule)],
   providers: [
     TenantAwareDataSource,
     {

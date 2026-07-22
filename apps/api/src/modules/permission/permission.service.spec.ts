@@ -59,7 +59,7 @@ function createService(wallState: Partial<MatterWallMembershipState> = {}) {
   } as unknown as WallMembershipReader;
   return {
     recordAccessDenied,
-    service: new TestPermissionService(wrapper, wallReader),
+    service: new TestPermissionService(wrapper, wallReader, {} as never),
   };
 }
 
