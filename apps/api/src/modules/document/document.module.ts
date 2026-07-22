@@ -45,7 +45,7 @@ import { ZipChildDocumentService } from './zip-child-document.service';
 @Module({
   imports: [
     AuditModule,
-    FileSecurityModule,
+    forwardRef(() => FileSecurityModule),
     forwardRef(() => DdModule),
     GraphModule,
     MatterAppModule,

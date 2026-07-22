@@ -93,7 +93,7 @@ export class FileSecurityService {
         const verdict = body.outcome as Verdict;
         const engineVersion = typeof body.engine_version === 'string' && body.engine_version.length <= 128 ? body.engine_version : null;
         const signatureAge = typeof body.signature_age_seconds === 'number' && Number.isSafeInteger(body.signature_age_seconds) && body.signature_age_seconds >= 0 ? body.signature_age_seconds : null;
-        if ((verdict === 'clean' || verdict === 'infected') && (!engineVersion || signatureAge === null)) return this.failure('malformed_response', observedSha256);
+        if (verdict === 'clean' && (!engineVersion || signatureAge === null)) return this.failure('malformed_response', observedSha256);
         const signatureAt = signatureAge === null ? null : new Date(Date.now() - signatureAge * 1000);
         if (verdict === 'clean') return { state: 'clean', code: 'clean', observedSha256, engineVersion, signatureAt };
         if (verdict === 'infected') return { state: 'infected', code: 'infected', observedSha256, engineVersion, signatureAt };

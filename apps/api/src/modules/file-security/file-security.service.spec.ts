@@ -63,6 +63,24 @@ describe('FileSecurityService', () => {
     expect(promotion.promote).toHaveBeenCalledWith({ tenantId, quarantineRef, expectedSha256 });
   });
 
+  it('accepts an infected verdict without scanner metadata so detection details stay outside Vault', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM file_security_scans')) return { rows: [{ scan_id: '33333333-3333-4333-8333-333333333333', matter_id: '44444444-4444-4444-8444-444444444444', quarantine_storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`, size_bytes: '4', state: 'quarantined' }] };
+      if (sql.includes('COALESCE(MAX(attempt_no)')) return { rows: [{ attempt_no: 1 }] };
+      return { rows: [] };
+    });
+    const tx = { query };
+    const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
+    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('safe')]) }) };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ outcome: 'infected' }), { status: 200 })));
+    await new FileSecurityService(audit as never, { promote: vi.fn() } as never, storage as never).handle({ tenantId, quarantineRef, expectedSha256 });
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'FILE_SCAN_COMPLETED',
+      result: 'success',
+      metadata: expect.objectContaining({ reason_code: 'infected' }),
+    }), expect.anything());
+  });
+
   it.each([
     ['malformed worker response', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })), 'malformed_response'],
     ['worker timeout', vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError')), 'scanner_timeout'],
