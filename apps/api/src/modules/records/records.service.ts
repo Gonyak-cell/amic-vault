@@ -1238,7 +1238,6 @@ export class RecordsService {
           AND receipt.disposal_inventory_id = inventory.disposal_inventory_id
         WHERE inventory.tenant_id = $1 AND inventory.disposal_outbox_id = $2
         ORDER BY inventory.canonical_ordinal ASC
-        FOR UPDATE OF inventory, receipt
       `, [ctx.tenantId, sealed.disposal_outbox_id]);
       if (receipts.rows.length === 0 || receipts.rows.some((receipt) => !receipt.outcome || !receipt.receipt_hash)) {
         throw validationFailed('DISPOSAL_RECEIPTS_INCOMPLETE');
