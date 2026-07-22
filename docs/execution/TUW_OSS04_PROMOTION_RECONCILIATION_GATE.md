@@ -30,11 +30,12 @@ Status: canonical under `USER-UMBRELLA-AUTONOMY-20260721`, based on merged
 
 ## `DEVOPS-OSS04-PRM-TUW-001` — clean promotion and finalization
 
-- **Files create:** `apps/api/src/modules/file-security/file-promotion.service.ts` and direct spec.
-- **Files modify:** direct storage adapter/service only for server-derived copy/readback; direct document upload-finalization helper; file-security module; direct integration tests.
+- **Files create:** `db/migrations/0204_create_file_security_promotion_inputs.sql`, `apps/api/src/modules/file-security/file-promotion.service.ts` and their direct specs.
+- **Files modify:** `quarantine-intake.service.ts` and its direct spec only to atomically retain the already-validated, bounded document/file metadata required for later finalization; direct storage adapter/service only for server-derived copy/readback; direct document upload-finalization helper; file-security module; direct audit action/types; direct integration tests.
 - **Files NOT-modify:** original overwrite, infected/error release, audit success after failure, scanner authority, dependencies/locks, `docs/package/**`.
-- **Implementation:** lock scan row; recheck clean result, signature freshness and expected hash; copy quarantine bytes to a server-derived immutable primary identity; HEAD/hash verify; atomically create document/version/file object, mark scan promoted, and record bounded upload/promotion audit. A DB rollback keeps the surface closed and records an orphan for later review.
-- **Verification (AND):** clean success; stale/infected/error/hash mismatch denial; duplicate promotion x10; copy failure; DB/audit rollback; primary hash equality.
+- **Metadata contract:** the new tenant-RLS/FORCE append-only `file_security_promotion_inputs` row is created in the same intake/audit transaction as its scan row. It retains only the normalized/original filename, sniffed MIME type, allowed source system, uploader, and schema-validated document/version/folder/tag/duplicate/preflight fields required to reproduce the accepted upload intent. It never holds content, storage key/credential, malware label/signature text, or audit metadata; it is not selected by the scanner worker. Existing scan rows without this receipt are fail-closed and become reconciliation evidence rather than guessed promotions.
+- **Implementation:** lock scan plus promotion-input rows; recheck clean result, signature freshness, expected hash, original upload permission/preflight and any legal hold; copy quarantine bytes to a server-derived immutable primary identity; HEAD/hash verify; atomically create document/version/file object, mark scan promoted, and record bounded upload/promotion audit. A DB rollback keeps the surface closed and records an orphan for later review.
+- **Verification (AND):** promotion-input RLS/append-only/constraint negatives; clean success; missing/invalid input, stale/infected/error/hash mismatch denial; duplicate promotion x10; copy failure; DB/audit rollback; primary hash equality.
 - **Stop:** server-side copy/readback equality or idempotent finalization cannot be proven.
 
 ## `DEVOPS-OSS04-PRM-TUW-002` — shared promoted guard

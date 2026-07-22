@@ -3344,8 +3344,8 @@
       "risk": "C",
       "size": "L",
       "depends_on": ["DEVOPS-OSS04-QRT-TUW-004"],
-      "files": ["apps/api/src/modules/file-security", "apps/api/src/modules/storage", "apps/api/src/modules/document", "tests/integration"],
-      "verification": "only clean fresh matching-hash quarantine objects copy server-side to immutable primary storage AND document version file object scan promoted and audit commit atomically while partial results remain unreadable"
+      "files": ["db/migrations/0204_create_file_security_promotion_inputs.sql", "apps/api/src/modules/file-security", "apps/api/src/modules/storage", "apps/api/src/modules/document", "packages/shared/src/audit", "tests/integration"],
+      "verification": "tenant-RLS append-only promotion input retains only validated DMS metadata AND only clean fresh matching-hash quarantine objects copy server-side to immutable primary storage AND document version file object scan promoted and audit commit atomically while partial results remain unreadable"
     },
     {
       "id": "DEVOPS-OSS04-PRM-TUW-002",
