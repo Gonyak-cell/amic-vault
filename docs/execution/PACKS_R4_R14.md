@@ -75,6 +75,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS01-03 | `feat/pack-oss01-03-remaining-pool-migration` | 4 | `DEVOPS-OSS01-DBR-TUW-001` through `DEVOPS-OSS01-DBR-TUW-004` (`docs/execution/TUW_OSS01_REMAINING_POOL_MIGRATION.md`) |
 | PACK-OSS01-04 | `feat/pack-oss01-04-queue-registry-budget` | 4 | `DEVOPS-OSS01-QUE-TUW-001` through `DEVOPS-OSS01-QUE-TUW-004` (`docs/execution/TUW_OSS01_QUEUE_REGISTRY.md`) |
 | PACK-OSS03-01 | `feat/pack-oss03-01-sealed-disposal-inventory` | 4 | `DEVOPS-OSS03-DSP-TUW-001` through `DEVOPS-OSS03-DSP-TUW-004` (`docs/execution/TUW_OSS03_SEALED_DISPOSAL_INVENTORY.md`) |
+| PACK-OSS03-02 | `feat/pack-oss03-02-reconcile-certificate-fault` | 3 | `DEVOPS-OSS03-RCN-TUW-001` through `DEVOPS-OSS03-RCN-TUW-003` (`docs/execution/TUW_OSS03_RECONCILE_CERTIFICATE_FAULT.md`) |
 | PACK-OSS04-01 | `feat/pack-oss04-01-quarantine-scan` | 4 | `DEVOPS-OSS04-QRT-TUW-001` through `DEVOPS-OSS04-QRT-TUW-004` (`docs/execution/TUW_OSS04_QUARANTINE_SCAN.md`) |
 | PACK-OSS07-01 | `feat/pack-oss07-01-identity-topology` | 4 | `DEVOPS-OSS07-IDP-TUW-001` through `DEVOPS-OSS07-IDP-TUW-004` (`docs/execution/TUW_OSS07_IDENTITY_TOPOLOGY.md`) |
 | PACK-OSS09-01 | `feat/pack-oss09-01-telemetry-policy` | 4 | `DEVOPS-OSS09-TEL-TUW-001` through `DEVOPS-OSS09-TEL-TUW-004` (`docs/execution/TUW_OSS09_TELEMETRY_POLICY.md`) |
@@ -103,6 +104,20 @@ Status: canonical post-R14 extension under
 - The existing Vault storage/Records/audit/permission structures are L0
   no-copy reuse. Exact-version capability must pass a synthetic disposable
   probe before any new disposal schema or destructive worker is introduced.
+
+## PACK-OSS03-02 — Reconcile, certificate, and fault gate
+
+Status: canonical post-R14 successor to `PACK-OSS03-01` under
+`USER-UMBRELLA-AUTONOMY-20260721`, independently based on `origin/main`
+`23c7e6aefa23bafd3ca08761f32c1a880dc3f3a6` after merged `DSP-004`.
+
+- Branch: `feat/pack-oss03-02-reconcile-certificate-fault`.
+- Detail contract: `docs/execution/TUW_OSS03_RECONCILE_CERTIFICATE_FAULT.md`.
+- No bucket policy, production object, dependency, deployment, external
+  operation, source vendoring, or `docs/package/**` change is authorized.
+- Reuse sealed inventory/receipt, exact-version storage, PermissionService,
+  AuditService, tenant RLS, and the existing records workflow as L0 Vault-owned
+  code. No legacy key-only delete or automatic dead-letter replay is permitted.
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
