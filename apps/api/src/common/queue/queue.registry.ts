@@ -92,8 +92,8 @@ export class QueueRegistry implements OnModuleDestroy {
     assertRuntimeQueueOptions(options, this.env);
 
     const boss = await this.createBoss({ connectionString, ...options });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'QUEUE_REGISTRY_ERROR', message: String(error.message) });
+    boss.on('error', () => {
+      this.logger.warn({ code: 'QUEUE_REGISTRY_ERROR' });
     });
 
     try {
