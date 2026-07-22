@@ -185,6 +185,7 @@ export const r12RecordsAuditActions = [
   'DISPOSAL_APPROVED',
   'DISPOSAL_EXECUTED',
   'DISPOSAL_CERTIFICATE_CREATED',
+  'DISPOSAL_RETRY_AUTHORIZED',
 ] as const;
 
 export const knowledgeBankAuditActions = [
