@@ -196,6 +196,7 @@ describe('S3StorageAdapter', () => {
     if (!version) throw new Error('version inventory missing');
 
     expect(JSON.stringify(version.version)).toBe('{}');
+    expect(version.versionFingerprint).toMatch(/^[a-f0-9]{64}$/u);
     await expect(
       adapter.headObjectVersion({ key: version.key, version: version.version }),
     ).resolves.toMatchObject({ contentLength: 8 });

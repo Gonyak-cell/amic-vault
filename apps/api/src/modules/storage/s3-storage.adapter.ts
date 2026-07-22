@@ -306,6 +306,7 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
         contentType: null,
         etag: readXmlTag(block, 'ETag') ?? null,
         version,
+        versionFingerprint: sha256Hex(rawVersion),
         isDeleteMarker: kind === 'DeleteMarker',
         isLatest: readXmlBoolean(block, 'IsLatest'),
       });

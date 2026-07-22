@@ -53,6 +53,7 @@ class CapabilityAdapter implements VersionedStorageCapabilityAdapter {
         contentType: null,
         etag: null,
         version: deleteMarker,
+        versionFingerprint: 'b'.repeat(64),
         isDeleteMarker: true,
         isLatest: true,
       });
@@ -64,6 +65,7 @@ class CapabilityAdapter implements VersionedStorageCapabilityAdapter {
         contentType: 'application/octet-stream',
         etag: null,
         version: versionOne,
+        versionFingerprint: 'a'.repeat(64),
         isDeleteMarker: false,
         isLatest: !this.markerPresent,
       });

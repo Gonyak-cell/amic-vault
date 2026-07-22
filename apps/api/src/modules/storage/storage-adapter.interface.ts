@@ -48,6 +48,12 @@ export interface StorageObjectVersion {
 
 export interface StorageVersionedObjectMetadata extends StorageObjectMetadata {
   version: StorageObjectVersion;
+  /**
+   * Stable SHA-256 fingerprint of the provider version identifier. It can be
+   * sealed in Records inventory and later matched against a fresh adapter
+   * inventory without exposing or persisting the raw provider identifier.
+   */
+  versionFingerprint: string;
   isDeleteMarker: boolean;
   isLatest: boolean;
 }
