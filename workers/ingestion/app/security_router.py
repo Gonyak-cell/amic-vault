@@ -1,4 +1,6 @@
+from re import fullmatch
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -6,6 +8,7 @@ from pydantic import BaseModel
 from .security.clamav_client import ClamAvClient
 
 router = APIRouter()
+MAX_SCAN_BYTES = 25 * 1024 * 1024
 
 
 class ScanResponse(BaseModel):
@@ -21,9 +24,16 @@ async def scan(
     file: Annotated[UploadFile, File()],
     x_amic_tenant_id: Annotated[str | None, Header(alias="x-amic-tenant-id")] = None,
 ) -> ScanResponse:
-    if not x_amic_tenant_id or len(quarantine_ref) != 36 or len(expected_sha256) != 64:
+    try:
+        UUID(quarantine_ref)
+        UUID(x_amic_tenant_id or "")
+    except ValueError:
+        raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"}) from None
+    if fullmatch(r"[a-f0-9]{64}", expected_sha256) is None:
         raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"})
-    payload = await file.read(25 * 1024 * 1024 + 1)
+    payload = await file.read(MAX_SCAN_BYTES + 1)
+    if len(payload) > MAX_SCAN_BYTES:
+        raise HTTPException(status_code=413, detail={"code": "VALIDATION_FAILED"})
     verdict = ClamAvClient().scan(payload)
     return ScanResponse(
         outcome=verdict.outcome,
