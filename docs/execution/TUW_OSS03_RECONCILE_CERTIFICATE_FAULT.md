@@ -99,11 +99,13 @@ and state-transition authority.
 
 ## `DEVOPS-OSS03-RCN-TUW-003` — real storage disposal fault gate
 
-- **Files create:** `tests/integration/legal-hold/records-disposal-faults.spec.ts`,
-  `tests/integration/storage-isolation/disposal-object-versions.spec.ts`, and
-  `tests/integration/audit-coverage/disposal-saga-audit.spec.ts`.
-- **Files modify:** `tests/integration/records-governance.spec.ts` and direct
-  helpers only.
+- **Files create:** none when the existing direct worker/service fault suites
+  and `tests/integration/records-governance.spec.ts` together cover the fault,
+  real versioned-storage, audit and RLS assertions; otherwise the three named
+  focused suites below.
+- **Files modify:** `apps/api/src/modules/records/records-disposal.worker.spec.ts`,
+  `records.service.spec.ts`, `tests/integration/records-governance.spec.ts`,
+  and direct helpers only.
 - **Files NOT-modify:** a new integration top-level suite, flaky skips, real
   customer objects, dependencies/locks, `docs/package/**`.
 - **Implementation:** use a disposable Nest/Postgres/versioned MinIO fixture to
@@ -116,6 +118,18 @@ and state-transition authority.
   validation; exact-head evidence artifacts.
 - **Stop:** real versioned-storage failure injection is unavailable; unit-only
   proof cannot pass this Gate.
+
+### RCN-003 reuse determination — one real fixture plus existing fault matrix
+
+The direct `RecordsDisposalWorker` suite already injects exact absence,
+Object Lock, partial receipt then timeout, hold-after-approval, 403, timeout,
+unavailable, and repeated worker execution. The direct Records service suite
+already covers incomplete-receipt denial and audit-failure retry rollback.
+`records-governance.spec.ts` supplies the non-substitutable real, disposable
+versioned-storage path: approval, exact worker deletion, receipt completion,
+certificate/idempotency, audit redaction, tenant RLS, and no destructive
+runtime-table privilege. Creating parallel suites would replicate fixtures
+without adding a distinct trust-boundary assertion.
 
 ## Evidence boundary
 
