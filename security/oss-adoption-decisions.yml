@@ -42,7 +42,14 @@
     "apps/api/src/common/telemetry/telemetry-policy.ts",
     "apps/api/src/common/telemetry/telemetry-policy.spec.ts",
     "packages/shared/src/file-security/file-security.types.ts",
-    "packages/shared/src/file-security/file-security.types.spec.ts"
+    "packages/shared/src/file-security/file-security.types.spec.ts",
+    "apps/api/src/modules/preview/preview-session.service.ts",
+    "apps/api/src/modules/preview/preview-session.service.spec.ts",
+    "apps/web/src/components/document/preview-session-frame.tsx",
+    "apps/web/src/components/document/preview-session-frame.test.tsx",
+    "db/migrations/0200_create_preview_access_sessions.sql",
+    "packages/shared/src/dto/document/preview-session.dto.ts",
+    "packages/shared/src/dto/document/preview-session.dto.spec.ts"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

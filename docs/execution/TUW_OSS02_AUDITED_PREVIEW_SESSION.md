@@ -47,8 +47,9 @@ OSS09 telemetry-sink decisions.
 
 - **Files create:** `db/migrations/0200_create_preview_access_sessions.sql`,
   `packages/shared/src/dto/document/preview-session.dto.ts` and its spec.
-- **Files modify:** `packages/shared/src/index.ts`, canonical backlog/PACK and
-  append-only ledger records only.
+- **Files modify:** `packages/shared/src/index.ts`, canonical backlog/PACK,
+  the explicit L0 no-copy path declarations in
+  `security/oss-adoption-decisions.yml`, and append-only ledger records only.
 - **Files NOT-modify:** existing document/file immutability, PermissionService
   evaluator, `audit_events` schema or mutability, storage paths and packages.
 - **Verification (AND):** DTO allow/deny tests; migration up/down/up; RLS and
