@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
@@ -23,7 +23,10 @@ function validHash(value: string): boolean { return /^[a-f0-9]{64}$/u.test(value
 
 @Injectable()
 export class FileSecurityService {
-  constructor(private readonly auditService: AuditService, private readonly storageService: StorageService) {}
+  constructor(
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(StorageService) private readonly storageService: StorageService,
+  ) {}
 
   async handle(payload: FileSecurityScanJobPayload): Promise<void> {
     if (!validHash(payload.expectedSha256)) throw new Error('FILE_SECURITY_PAYLOAD_INVALID');
@@ -48,7 +51,7 @@ export class FileSecurityService {
         WHERE tenant_id = $1 AND scan_id = $2`, [payload.tenantId, row.scan_id]);
       const attemptNo = attempt.rows[0]?.attempt_no;
       if (!attemptNo) throw new Error('FILE_SECURITY_ATTEMPT_UNAVAILABLE');
-      await tx.query(`UPDATE file_security_scans SET state = 'scanning', observed_sha256 = NULL, engine_version = NULL, signature_at = NULL, updated_at = now() WHERE tenant_id = $1 AND scan_id = $2`, [payload.tenantId, row.scan_id]);
+      await tx.query(`UPDATE file_security_scans SET state = 'scanning', result_code = 'pending', observed_sha256 = NULL, engine_version = NULL, signature_at = NULL, updated_at = now() WHERE tenant_id = $1 AND scan_id = $2`, [payload.tenantId, row.scan_id]);
       await tx.query(`INSERT INTO file_security_scan_attempts (tenant_id, scan_id, attempt_no, expected_sha256) VALUES ($1, $2, $3, $4)`, [payload.tenantId, row.scan_id, attemptNo, payload.expectedSha256]);
       return { scanId: row.scan_id, matterId: row.matter_id, storageUri: row.quarantine_storage_uri, sizeBytes: Number(row.size_bytes), attemptNo };
     });

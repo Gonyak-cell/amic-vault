@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type { SendOptions } from 'pg-boss';
 import { QueueRegistry } from '../../common/queue/queue.registry';
@@ -15,7 +15,10 @@ export function fileSecurityScanSendOptions(payload: FileSecurityScanJobPayload,
 export class FileScanQueueService implements OnModuleInit {
   private registered = false;
   private workerRegistered = false;
-  constructor(private readonly fileSecurityService: FileSecurityService, private readonly queueRegistry: QueueRegistry) {}
+  constructor(
+    @Inject(FileSecurityService) private readonly fileSecurityService: FileSecurityService,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     this.registerQueues();
