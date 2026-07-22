@@ -5,7 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import type {
   AddEthicalWallMembershipDto,
   CreateEthicalWallDto,
@@ -18,20 +17,10 @@ import type {
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { PermissionEventRecorder } from '../audit/permission-event.recorder';
+import { DatabaseService } from '../../common/db/database.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { EthicalWallEntity } from './ethical-wall.entity';
 import { WallMembershipEntity } from './wall-membership.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface EthicalWallRow {
   wall_id: string;
@@ -112,6 +101,7 @@ function membershipRef(membership: WallMembershipEntity): string {
 export class EthicalWallService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(PermissionEventRecorder) private readonly permissionEvents: PermissionEventRecorder,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -368,10 +358,11 @@ export class EthicalWallService {
     tenantId: TenantId,
     matterId: string,
     userId: string,
-    queryClient: QueryClient = getPool(),
+    queryClient?: QueryClient,
   ): Promise<boolean> {
-    const result = await queryClient.query(
-      `
+    const result = queryClient
+      ? await queryClient.query(
+          `
         SELECT 1
         FROM ethical_walls ew
         JOIN ethical_wall_memberships ewm
@@ -395,8 +386,37 @@ export class EthicalWallService {
           AND ewm.membership_type = 'excluded'
         LIMIT 1
       `,
-      [tenantId, matterId, userId],
-    );
+          [tenantId, matterId, userId],
+        )
+      : await this.databaseService.tenantTransaction(tenantId, (client) =>
+          client.query(
+            `
+        SELECT 1
+        FROM ethical_walls ew
+        JOIN ethical_wall_memberships ewm
+          ON ewm.tenant_id = ew.tenant_id
+         AND ewm.wall_id = ew.wall_id
+        WHERE ew.tenant_id = $1
+          AND ew.matter_id = $2
+          AND ew.status = 'active'
+          AND (
+            (ewm.subject_type = 'user' AND ewm.subject_id = $3)
+            OR (
+              ewm.subject_type = 'group'
+              AND ewm.subject_id IN (
+                SELECT gm.group_id
+                FROM group_members gm
+                WHERE gm.tenant_id = ew.tenant_id
+                  AND gm.user_id = $3
+              )
+            )
+          )
+          AND ewm.membership_type = 'excluded'
+        LIMIT 1
+      `,
+            [tenantId, matterId, userId],
+          ),
+        );
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -410,22 +430,20 @@ export class EthicalWallService {
   }
 
   private async assertMatterExists(tenantId: TenantId, matterId: string): Promise<void> {
-    const tenantResult = await getPool().query(
-      'SELECT 1 FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1',
-      [tenantId, matterId],
+    const tenantResult = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query('SELECT 1 FROM matters WHERE tenant_id = $1 AND matter_id = $2 LIMIT 1', [
+        tenantId,
+        matterId,
+      ]),
     );
     if ((tenantResult.rowCount ?? 0) > 0) return;
-    const anyTenantResult = await getPool().query(
-      'SELECT 1 FROM matters WHERE matter_id = $1 LIMIT 1',
-      [matterId],
-    );
-    if ((anyTenantResult.rowCount ?? 0) > 0) throw notFoundDenied();
-    throw validationFailed();
+    throw notFoundDenied();
   }
 
   protected async findWallById(tenantId: TenantId, wallId: string): Promise<EthicalWallRow | null> {
-    const result = await getPool().query(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query(
+        `
         SELECT wall_id, tenant_id, matter_id, wall_name, reason, status, created_by,
           created_at, released_by, released_at
         FROM ethical_walls
@@ -433,7 +451,8 @@ export class EthicalWallService {
           AND wall_id = $2
         LIMIT 1
       `,
-      [tenantId, wallId],
+        [tenantId, wallId],
+      ),
     );
     return (result.rows[0] as EthicalWallRow | undefined) ?? null;
   }
@@ -442,8 +461,9 @@ export class EthicalWallService {
     tenantId: TenantId,
     query: ListEthicalWallsQueryDto,
   ): Promise<EthicalWallRow[]> {
-    const result = await getPool().query(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query(
+        `
         SELECT wall_id, tenant_id, matter_id, wall_name, reason, status, created_by,
           created_at, released_by, released_at
         FROM ethical_walls
@@ -453,7 +473,8 @@ export class EthicalWallService {
         ORDER BY created_at DESC, wall_id DESC
         LIMIT $4
       `,
-      [tenantId, query.matterId ?? null, query.status ?? null, query.limit],
+        [tenantId, query.matterId ?? null, query.status ?? null, query.limit],
+      ),
     );
     return result.rows as EthicalWallRow[];
   }
@@ -463,8 +484,9 @@ export class EthicalWallService {
     wallIds: readonly string[],
   ): Promise<WallMembershipEntity[]> {
     if (wallIds.length === 0) return [];
-    const result = await getPool().query(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query(
+        `
         SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
           membership_type, created_by, created_at
         FROM ethical_wall_memberships
@@ -472,7 +494,8 @@ export class EthicalWallService {
           AND wall_id = ANY($2::uuid[])
         ORDER BY created_at ASC, membership_id ASC
       `,
-      [tenantId, wallIds],
+        [tenantId, wallIds],
+      ),
     );
     return (result.rows as WallMembershipRow[]).map(mapMembership);
   }
@@ -482,8 +505,9 @@ export class EthicalWallService {
     wallId: string,
     membershipId: string,
   ): Promise<WallMembershipEntity | null> {
-    const result = await getPool().query(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query(
+        `
         SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
           membership_type, created_by, created_at
         FROM ethical_wall_memberships
@@ -492,7 +516,8 @@ export class EthicalWallService {
           AND membership_id = $3
         LIMIT 1
       `,
-      [tenantId, wallId, membershipId],
+        [tenantId, wallId, membershipId],
+      ),
     );
     const row = result.rows[0] as WallMembershipRow | undefined;
     return row ? mapMembership(row) : null;
@@ -503,8 +528,9 @@ export class EthicalWallService {
     wallId: string,
     input: AddEthicalWallMembershipDto,
   ): Promise<WallMembershipEntity | null> {
-    const result = await getPool().query(
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query(
+        `
         SELECT membership_id, wall_id, tenant_id, subject_type, subject_id,
           membership_type, created_by, created_at
         FROM ethical_wall_memberships
@@ -514,7 +540,8 @@ export class EthicalWallService {
           AND subject_id = $4
         LIMIT 1
       `,
-      [tenantId, wallId, input.subjectType, input.subjectId],
+        [tenantId, wallId, input.subjectType, input.subjectId],
+      ),
     );
     const row = result.rows[0] as WallMembershipRow | undefined;
     return row ? mapMembership(row) : null;
@@ -527,9 +554,11 @@ export class EthicalWallService {
     for (const member of members) {
       const table = member.subjectType === 'user' ? 'users' : 'groups';
       const idColumn = member.subjectType === 'user' ? 'user_id' : 'group_id';
-      const result = await getPool().query(
-        `SELECT 1 FROM ${table} WHERE tenant_id = $1 AND ${idColumn} = $2 LIMIT 1`,
-        [tenantId, member.subjectId],
+      const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+        client.query(`SELECT 1 FROM ${table} WHERE tenant_id = $1 AND ${idColumn} = $2 LIMIT 1`, [
+          tenantId,
+          member.subjectId,
+        ]),
       );
       if ((result.rowCount ?? 0) === 0) throw validationFailed();
     }

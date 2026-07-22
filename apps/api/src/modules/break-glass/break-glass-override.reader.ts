@@ -1,19 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
 import type { TenantId } from '@amic-vault/shared';
 import { AuditService } from '../audit/audit.service';
-import { tenantQuery } from '../../common/db/tenant-query';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
 
 export interface BreakGlassOverride {
   requestId: string;
@@ -23,7 +11,10 @@ export interface BreakGlassOverride {
 
 @Injectable()
 export class BreakGlassOverrideReader {
-  constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
+  constructor(
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+  ) {}
 
   async findActiveOverride(
     tenantId: TenantId,
@@ -31,14 +22,13 @@ export class BreakGlassOverrideReader {
     userId: string,
     wallId?: string,
   ): Promise<BreakGlassOverride | null> {
-    const result = await tenantQuery<{
-      request_id: string;
-      wall_id: string;
-      expires_at: Date;
-    }>(
-      getPool(),
-      tenantId,
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<{
+        request_id: string;
+        wall_id: string;
+        expires_at: Date;
+      }>(
+        `
         SELECT bgr.request_id, bgr.wall_id, bgr.expires_at
         FROM break_glass_requests bgr
         JOIN ethical_walls ew
@@ -61,7 +51,8 @@ export class BreakGlassOverrideReader {
         ORDER BY bgr.expires_at DESC, bgr.request_id
         LIMIT 1
       `,
-      [tenantId, matterId, userId, wallId ?? null],
+        [tenantId, matterId, userId, wallId ?? null],
+      ),
     );
     const row = result.rows[0];
     return row
@@ -91,5 +82,4 @@ export class BreakGlassOverrideReader {
       },
     });
   }
-
 }

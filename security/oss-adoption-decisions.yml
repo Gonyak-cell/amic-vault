@@ -18,7 +18,8 @@
     "apps/api/src/common/db/database.service.ts",
     "apps/api/src/common/db/database.service.spec.ts",
     "db/migrations/0180_grant_runtime_user_role_update.sql",
-    "db/migrations/0181_grant_runtime_matter_update_columns.sql"
+    "db/migrations/0181_grant_runtime_matter_update_columns.sql",
+    "db/migrations/0182_grant_runtime_work_items_assignment_scope_update.sql"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

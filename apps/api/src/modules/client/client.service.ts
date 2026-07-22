@@ -1,10 +1,4 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Pool } from 'pg';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   ClientConfidentialityLevel,
   ClientListDto,
@@ -16,21 +10,10 @@ import type {
   UpdateClientDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
-import { tenantQuery } from '../../common/db/tenant-query';
+import { DatabaseService } from '../../common/db/database.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { UserService } from '../user/user.service';
 import { ClientEntity } from './client.entity';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
 
 interface ClientRow {
   client_id: string;
@@ -109,6 +92,7 @@ function changedKeys(before: ClientEntity, input: UpdateClientDto): string[] {
 export class ClientService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
   ) {}
@@ -118,12 +102,7 @@ export class ClientService {
     await this.assertClientManager(context.tenantId, actorUserId);
 
     const client = await this.auditService.transaction(context.tenantId, async (tx) => {
-      const created = await this.insertClient(
-        tx,
-        context.tenantId,
-        actorUserId,
-        input,
-      );
+      const created = await this.insertClient(tx, context.tenantId, actorUserId, input);
       await this.auditService.log(
         {
           tenantId: context.tenantId,
@@ -228,7 +207,7 @@ export class ClientService {
     clientId: string,
     queryClient?: QueryClient,
   ): Promise<ClientEntity | null> {
-      const sql = `
+    const sql = `
         SELECT client_id, tenant_id, name, aliases, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at
         FROM clients
@@ -238,7 +217,9 @@ export class ClientService {
     const params = [tenantId, clientId];
     const result = queryClient
       ? await queryClient.query(sql, params)
-      : await tenantQuery<ClientRow>(getPool(), tenantId, sql, params);
+      : await this.databaseService.tenantTransaction(tenantId, (client) =>
+          client.query<ClientRow>(sql, params),
+        );
     const row = result.rows[0] as ClientRow | undefined;
     return row ? mapClient(row) : null;
   }
@@ -269,10 +250,9 @@ export class ClientService {
       )`);
     }
     params.push(query.pageSize, (query.page - 1) * query.pageSize);
-    const result = await tenantQuery<ClientListRow>(
-      getPool(),
-      tenantId,
-      `
+    const result = await this.databaseService.tenantTransaction(tenantId, (client) =>
+      client.query<ClientListRow>(
+        `
         SELECT client_id, tenant_id, name, aliases, client_type, confidentiality_level, status,
           metadata_json, created_by, created_at, updated_at, count(*) OVER()::text AS total_count
         FROM clients
@@ -281,7 +261,8 @@ export class ClientService {
         LIMIT $${params.length - 1}
         OFFSET $${params.length}
       `,
-      params,
+        params,
+      ),
     );
     return {
       items: result.rows.map(mapClient),
