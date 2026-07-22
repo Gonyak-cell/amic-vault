@@ -22,7 +22,11 @@
     "db/migrations/0182_grant_runtime_work_items_assignment_scope_update.sql",
     "db/migrations/0183_grant_runtime_subversion_reviewer_reassign.sql",
     "db/migrations/0184_grant_runtime_bulk_retry_size.sql",
-    "db/migrations/0185_grant_runtime_contract_review_refresh.sql"
+    "db/migrations/0185_grant_runtime_contract_review_refresh.sql",
+    "db/migrations/0186_grant_runtime_email_metadata_lifecycle.sql",
+    "db/migrations/0187_grant_runtime_email_reparse_participants.sql",
+    "db/migrations/0188_grant_runtime_email_filing_lifecycle.sql",
+    "db/migrations/0189_grant_runtime_derived_embedding_cleanup.sql"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

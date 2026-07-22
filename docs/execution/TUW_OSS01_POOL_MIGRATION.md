@@ -164,6 +164,38 @@
   This preserves its existing RLS policy, pending-only conflict predicate,
   accepted-finding immutability, AI policy/permission checks, audit
   transaction, dependencies, and external behavior.
+- **Canonical scope amendment (2026-07-22, email metadata lifecycle):** the
+  full runtime-role regression next reaches only existing, tenant-scoped,
+  permission-checked and audited email metadata lifecycle SQL. The TUW may
+  add `apps/api/src/modules/email` to the observed runtime scope and create
+  `0186_grant_runtime_email_metadata_lifecycle.sql`,
+  `0187_grant_runtime_email_reparse_participants.sql`, and
+  `0188_grant_runtime_email_filing_lifecycle.sql`, with matching L0 source
+  decisions. Together they may grant and reversibly revoke only: `UPDATE
+  (parser, parser_version, parse_status, failure_reason_code, subject,
+  sent_at, received_at, metadata_warning_code, references_json,
+  has_outside_participants, thread_id, conversation_id_hash)` on
+  `email_messages`; `UPDATE (participant_class, is_outside, domain_ref,
+  display_name)` and `DELETE` on `email_participants`; and `UPDATE
+  (body_document_id)` and `DELETE` on `email_matter_filings`. Existing RLS,
+  permission checks, audit transactions, bounded metadata constraints,
+  participant/address handling, filing semantics, dependencies, and external
+  behavior remain unchanged. No generic table privilege, new email behavior,
+  policy change, dependency, external operation, deployment, or release work
+  is authorized.
+- **Canonical scope amendment (2026-07-22, derived embedding cleanup):** the
+  email-body indexing regression reaches the pre-existing
+  `SearchIndexRepository.deleteObsoleteEmbeddingRows` cleanup of only derived
+  `document_chunk_embeddings` rows scoped by tenant, version and obsolete
+  model route. The TUW may create
+  `0189_grant_runtime_derived_embedding_cleanup.sql` and its matching L0
+  source decision to grant and reversibly revoke `DELETE` on that derived
+  index table only. This never deletes a document, version, file object,
+  canonical text, audit record, email, filing, or legal/records artifact;
+  existing tenant RLS and the query's `tenant_id`, `version_id`, and
+  non-current-route predicates remain authoritative. No generic privilege,
+  query behavior, retention/policy change, dependency, external operation,
+  deployment, or release work is authorized.
 - **Implementation:** move DB state and bulk enqueue coupling to the active
   tenant client. The scope provider returns a SQL predicate before query build;
   it must not fetch results or add a result post-filter.

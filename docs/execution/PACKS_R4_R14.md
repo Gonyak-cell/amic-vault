@@ -2536,6 +2536,19 @@ RLS, dependency, source-vendoring or CI claim transfers from it.
   transaction, AI policy and accepted-finding immutability; no general table
   privilege, contract/AI behavior, dependency, external operation or release
   action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally add only the exact
+  reversible email metadata, participant and filing lifecycle grants recorded
+  in its detail contract. They preserve existing tenant RLS, permission
+  checks, audit transactions, bounded metadata constraints and filing
+  semantics; no generic table privilege, email behavior, policy, dependency,
+  external operation, deployment or release action is authorized.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the
+  reversible runtime `DELETE` required by the existing tenant/version/model
+  route-scoped cleanup of obsolete derived embedding cache rows. It does not
+  permit deletion of originals, versions, canonical text, audits, email or
+  Records artifacts, and it preserves RLS and the existing restrictive SQL
+  predicate; no product behavior, retention/policy, dependency, external
+  operation, deployment or release action is authorized.
 
 ## Gate Reports
 
