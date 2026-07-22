@@ -2,7 +2,11 @@ import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { S3StorageAdapter } from './s3-storage.adapter';
-import { StorageUnavailableError, StorageVersioningUnsupportedError } from './storage-adapter.interface';
+import {
+  StorageAccessDeniedError,
+  StorageUnavailableError,
+  StorageVersioningUnsupportedError,
+} from './storage-adapter.interface';
 
 function createAdapter(input: { serverSideEncryption?: string } = {}): S3StorageAdapter {
   return new S3StorageAdapter({
@@ -183,7 +187,14 @@ describe('S3StorageAdapter', () => {
         urls.push(new URL(String(input)));
         return new Response('', {
           status: 200,
-          headers: { 'content-length': '8', 'content-type': 'application/pdf', etag: '"etag"' },
+          headers: {
+            'content-length': '8',
+            'content-type': 'application/pdf',
+            etag: '"etag"',
+            'x-amz-object-lock-legal-hold': 'ON',
+            'x-amz-object-lock-mode': 'GOVERNANCE',
+            'x-amz-object-lock-retain-until-date': '2030-01-01T00:00:00.000Z',
+          },
         });
       })
       .mockImplementationOnce(async (input) => {
@@ -197,9 +208,10 @@ describe('S3StorageAdapter', () => {
 
     expect(JSON.stringify(version.version)).toBe('{}');
     expect(version.versionFingerprint).toMatch(/^[a-f0-9]{64}$/u);
-    await expect(
-      adapter.headObjectVersion({ key: version.key, version: version.version }),
-    ).resolves.toMatchObject({ contentLength: 8 });
+    await expect(adapter.headObjectVersion({ key: version.key, version: version.version })).resolves.toMatchObject({
+      contentLength: 8,
+      objectLock: { legalHold: true, retentionMode: 'governance' },
+    });
     await expect(
       adapter.deleteObjectVersion({ key: version.key, version: version.version }),
     ).resolves.toBeUndefined();
@@ -243,7 +255,7 @@ describe('S3StorageAdapter', () => {
     if (!version) throw new Error('version inventory missing');
     await expect(
       adapter.headObjectVersion({ key: version.key, version: version.version }),
-    ).rejects.toBeInstanceOf(StorageUnavailableError);
+    ).rejects.toBeInstanceOf(StorageAccessDeniedError);
   });
 
   it('treats missing exact versions as absent and network or server failures as unavailable', async () => {

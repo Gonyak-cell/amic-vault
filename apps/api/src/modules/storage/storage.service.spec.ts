@@ -97,7 +97,13 @@ class VersionedMemoryStorageAdapter extends MemoryStorageAdapter implements Vers
   }
 
   async headObjectVersion(): Promise<StorageObjectMetadata | null> {
-    return null;
+    return {
+      key: 'opaque',
+      contentLength: 8,
+      contentType: 'application/pdf',
+      etag: null,
+      objectLock: { legalHold: false, retentionMode: null, retainUntil: null },
+    };
   }
 
   async deleteObjectVersion(): Promise<void> {
@@ -252,6 +258,24 @@ describe('StorageService', () => {
     );
     await expect(
       service.latestVersionFingerprintByStorageUri('22222222-2222-4222-8222-222222222222', storageUri),
+    ).rejects.toMatchObject({ response: { code: 'TENANT_ISOLATION_VIOLATION' } });
+  });
+
+  it('keeps exact version handles opaque while exposing only HEAD and Object Lock facts', async () => {
+    const adapter = new VersionedMemoryStorageAdapter();
+    const service = new StorageService(adapter, new StoragePathResolver('vault-dev'), new NoopEncryptionHook());
+    const storageUri = `s3://vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
+
+    const inspection = await service.inspectSealedVersionByStorageUri(
+      tenantId,
+      storageUri,
+      'a'.repeat(64),
+    );
+    expect(JSON.stringify(inspection.version)).toBe('{}');
+    expect(inspection).toMatchObject({ present: true, objectLockProtected: false });
+    await expect(service.sealedVersionIsPresent(inspection.version)).resolves.toBe(true);
+    await expect(
+      service.inspectSealedVersionByStorageUri('22222222-2222-4222-8222-222222222222', storageUri, 'a'.repeat(64)),
     ).rejects.toMatchObject({ response: { code: 'TENANT_ISOLATION_VIOLATION' } });
   });
 

@@ -31,6 +31,18 @@ export interface StorageObjectMetadata {
   contentLength: number;
   contentType: string | null;
   etag: string | null;
+  /**
+   * Exact-version HEAD implementations report retention state when the
+   * provider supports S3 Object Lock. Missing evidence is not safe for
+   * Records disposal and is rejected at the StorageService boundary.
+   */
+  objectLock?: StorageObjectLockMetadata;
+}
+
+export interface StorageObjectLockMetadata {
+  legalHold: boolean;
+  retentionMode: 'governance' | 'compliance' | null;
+  retainUntil: Date | null;
 }
 
 declare const storageObjectVersionBrand: unique symbol;
@@ -110,5 +122,29 @@ export class StorageVersioningUnsupportedError extends StorageUnavailableError {
   constructor() {
     super('storage versioning is unsupported');
     this.name = 'StorageVersioningUnsupportedError';
+  }
+}
+
+export class StorageVersionFingerprintUnavailableError extends StorageUnavailableError {
+  constructor() {
+    super('storage sealed version fingerprint is unavailable');
+  }
+}
+
+export class StorageAccessDeniedError extends StorageUnavailableError {
+  constructor() {
+    super('storage access denied');
+  }
+}
+
+export class StorageRequestTimeoutError extends StorageUnavailableError {
+  constructor() {
+    super('storage request timed out');
+  }
+}
+
+export class StorageExactVersionMissingError extends StorageUnavailableError {
+  constructor() {
+    super('storage exact version is missing');
   }
 }

@@ -7,7 +7,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { PoolClient } from 'pg';
 import {
   createArchiveRequestSchema,
   createDisposalRequestSchema,
@@ -442,14 +441,6 @@ function mapCertificate(row: DisposalCertificateRow): DisposalCertificateDto {
     executedBy: row.executed_by,
     executedAt: iso(row.executed_at),
   });
-}
-
-function uniqueStorageUris(rows: readonly FileObjectRefRow[]): string[] {
-  return [...new Set(rows.map((row) => row.storage_uri))].sort();
-}
-
-function uuidArray(values: readonly string[]): readonly string[] {
-  return values.length === 0 ? ['00000000-0000-0000-0000-000000000000'] : values;
 }
 
 @Injectable()
@@ -1184,158 +1175,8 @@ export class RecordsService {
   ): Promise<DisposalCertificateDto> {
     this.assertContext(ctx);
     await this.assertRecordsAdmin(ctx.tenantId as TenantId, ctx.userId);
-
-    return this.auditService.transaction(ctx.tenantId, async (tx) => {
-      const request = await this.findDisposalRequest(tx, ctx.tenantId, disposalRequestId, true);
-      if (!request) throw notFoundDenied();
-      if (request.status !== 'approved' || !request.approved_by) {
-        throw validationFailed('DISPOSAL_NOT_APPROVED');
-      }
-      const target = await this.findDocumentTarget(tx, ctx.tenantId, request.document_id, true);
-      if (!target) throw notFoundDenied();
-      this.assertNoHoldFlags(target);
-      await this.assertNoActiveHoldsForDocument(
-        tx,
-        ctx.tenantId,
-        request.matter_id,
-        request.document_id,
-      );
-      await this.assertNoBusinessReferences(tx, ctx.tenantId, request.document_id);
-
-      const versionFiles = await this.listVersionFiles(tx, ctx.tenantId, request.document_id);
-      if (versionFiles.length === 0) throw validationFailed('DISPOSAL_FILE_OBJECT_REQUIRED');
-      const previewFiles = await this.listPreviewFiles(tx, ctx.tenantId, request.document_id);
-      const fileObjectIds = [
-        ...new Set([...versionFiles, ...previewFiles].map((row) => row.file_object_id)),
-      ].sort();
-      const versionIds = versionFiles.map((row) => row.version_id).sort();
-      const storageUris = uniqueStorageUris([...versionFiles, ...previewFiles]);
-      const documentHash = sha256Hex(
-        versionFiles
-          .map((row) => row.file_hash)
-          .sort()
-          .join(':'),
-      );
-      const executedAt = new Date();
-      const certificateHash = sha256Hex(
-        [
-          ctx.tenantId,
-          disposalRequestId,
-          request.document_id,
-          documentHash,
-          request.approved_by,
-          ctx.userId,
-          executedAt.toISOString(),
-        ].join(':'),
-      );
-
-      for (const storageUri of storageUris) {
-        await this.storageService.deleteByStorageUri(ctx.tenantId, storageUri);
-      }
-
-      const deletedRowCount = await this.deleteDocumentRows(tx, {
-        tenantId: ctx.tenantId,
-        documentId: request.document_id,
-        versionIds,
-        fileObjectIds,
-      });
-      const certificateResult = await tx.query(
-        `
-          INSERT INTO disposal_certificates (
-            tenant_id, disposal_request_id, matter_id, document_id, document_hash,
-            certificate_hash, approved_by, executed_by, executed_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          RETURNING certificate_id, disposal_request_id, matter_id, document_id,
-            document_hash, certificate_hash, approved_by, executed_by, executed_at
-        `,
-        [
-          ctx.tenantId,
-          disposalRequestId,
-          request.matter_id,
-          request.document_id,
-          documentHash,
-          certificateHash,
-          request.approved_by,
-          ctx.userId,
-          executedAt,
-        ],
-      );
-      const certificate = certificateResult.rows[0] as DisposalCertificateRow | undefined;
-      if (!certificate) throw validationFailed('DISPOSAL_CERTIFICATE_CREATE_FAILED');
-      const updateResult = await tx.query(
-        `
-          UPDATE disposal_requests
-          SET status = 'executed',
-            executed_by = $3,
-            executed_at = $4,
-            updated_at = now()
-          WHERE tenant_id = $1
-            AND disposal_request_id = $2
-            AND status = 'approved'
-        `,
-        [ctx.tenantId, disposalRequestId, ctx.userId, executedAt],
-      );
-      if (updateResult.rowCount !== 1) throw validationFailed('DISPOSAL_EXECUTE_CONFLICT');
-      const executedAudit = await this.auditService.log(
-        {
-          tenantId: ctx.tenantId,
-          actorId: ctx.userId,
-          sessionId: this.sessionId(ctx),
-          action: 'DISPOSAL_EXECUTED',
-          targetType: 'document',
-          targetId: request.document_id,
-          matterId: request.matter_id,
-          metadata: {
-            disposal_request_id: disposalRequestId,
-            certificate_id: certificate.certificate_id,
-            certificate_hash: certificate.certificate_hash,
-            matter_id: request.matter_id,
-            document_id: request.document_id,
-            deleted_row_count: deletedRowCount,
-            storage_object_count: storageUris.length,
-            executor_user_id: ctx.userId,
-            status_before: 'approved',
-            status_after: 'executed',
-          },
-        },
-        tx,
-      );
-      await this.workService.completeRecordsDisposalWork(tx, {
-        tenantId: ctx.tenantId,
-        disposalRequestId,
-        actorUserId: ctx.userId,
-        auditEventId: executedAudit.eventId,
-        kind: 'records_disposal_execution',
-      });
-      await this.markDisposalWorkflowAdvanced(
-        tx,
-        ctx.tenantId,
-        disposalRequestId,
-        executedAudit.eventId,
-      );
-      await this.auditService.log(
-        {
-          tenantId: ctx.tenantId,
-          actorId: ctx.userId,
-          sessionId: this.sessionId(ctx),
-          action: 'DISPOSAL_CERTIFICATE_CREATED',
-          targetType: 'disposal_certificate',
-          targetId: certificate.certificate_id,
-          matterId: request.matter_id,
-          metadata: {
-            disposal_request_id: disposalRequestId,
-            certificate_id: certificate.certificate_id,
-            certificate_hash: certificate.certificate_hash,
-            matter_id: request.matter_id,
-            document_id: request.document_id,
-            executor_user_id: ctx.userId,
-          },
-        },
-        tx,
-      );
-      return mapCertificate(certificate);
-    });
+    void disposalRequestId;
+    throw validationFailed('DISPOSAL_EXECUTION_WORKER_ONLY');
   }
 
   async getDisposalCertificate(
@@ -1614,25 +1455,6 @@ export class RecordsService {
     if (rowCount(result) !== 1) throw validationFailed('DISPOSAL_WORKFLOW_ATTACH_FAILED');
   }
 
-  private async markDisposalWorkflowAdvanced(
-    client: QueryClient,
-    tenantId: string,
-    disposalRequestId: string,
-    auditEventId: string,
-  ): Promise<void> {
-    const result = await client.query(
-      `
-        UPDATE disposal_requests
-        SET workflow_audit_event_id = $3,
-          updated_at = now()
-        WHERE tenant_id = $1
-          AND disposal_request_id = $2
-      `,
-      [tenantId, disposalRequestId, auditEventId],
-    );
-    if (rowCount(result) !== 1) throw validationFailed('DISPOSAL_WORKFLOW_ADVANCE_FAILED');
-  }
-
   private async listVersionFiles(
     client: QueryClient,
     tenantId: string,
@@ -1728,117 +1550,4 @@ export class RecordsService {
     return { entries, inventoryHash: sealedDisposalInventoryHash(entries) };
   }
 
-  private async deleteDocumentRows(
-    client: PoolClient,
-    input: {
-      tenantId: string;
-      documentId: string;
-      versionIds: readonly string[];
-      fileObjectIds: readonly string[];
-    },
-  ): Promise<number> {
-    let deletedRows = 0;
-    await client.query('SELECT set_config($1, $2, true)', ['app.records_disposal_executor', 'on']);
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM document_chunk_embeddings
-          WHERE tenant_id = $1
-            AND document_id = $2
-        `,
-        [input.tenantId, input.documentId],
-      ),
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM document_chunks
-          WHERE tenant_id = $1
-            AND document_id = $2
-            AND chunk_kind = 'child'
-        `,
-        [input.tenantId, input.documentId],
-      ),
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM document_chunks
-          WHERE tenant_id = $1
-            AND document_id = $2
-        `,
-        [input.tenantId, input.documentId],
-      ),
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM canonical_documents
-          WHERE tenant_id = $1
-            AND version_id = ANY($2::uuid[])
-        `,
-        [input.tenantId, uuidArray(input.versionIds)],
-      ),
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM document_search_index
-          WHERE tenant_id = $1
-            AND document_id = $2
-        `,
-        [input.tenantId, input.documentId],
-      ),
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM document_preview_artifacts
-          WHERE tenant_id = $1
-            AND document_id = $2
-        `,
-        [input.tenantId, input.documentId],
-      ),
-    );
-    await client.query(
-      `
-        UPDATE document_versions
-        SET supersedes_version_id = NULL
-        WHERE tenant_id = $1
-          AND document_id = $2
-      `,
-      [input.tenantId, input.documentId],
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM document_versions
-          WHERE tenant_id = $1
-            AND document_id = $2
-        `,
-        [input.tenantId, input.documentId],
-      ),
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM file_objects
-          WHERE tenant_id = $1
-            AND file_object_id = ANY($2::uuid[])
-        `,
-        [input.tenantId, uuidArray(input.fileObjectIds)],
-      ),
-    );
-    deletedRows += rowCount(
-      await client.query(
-        `
-          DELETE FROM documents
-          WHERE tenant_id = $1
-            AND document_id = $2
-        `,
-        [input.tenantId, input.documentId],
-      ),
-    );
-    return deletedRows;
-  }
 }

@@ -10,6 +10,7 @@ import type {
   StorageGetObjectResult,
   StorageObjectVersion,
   StorageObjectMetadata,
+  StorageObjectLockMetadata,
   StoragePutObjectInput,
   StorageReadUrlResult,
   StorageVersionedObjectMetadata,
@@ -17,7 +18,10 @@ import type {
   VersionedStorageAdapter,
 } from './storage-adapter.interface';
 import {
+  StorageAccessDeniedError,
+  StorageExactVersionMissingError,
   StorageObjectAlreadyExistsError,
+  StorageRequestTimeoutError,
   StorageUnavailableError,
   StorageVersioningUnsupportedError,
 } from './storage-adapter.interface';
@@ -58,6 +62,25 @@ function readXmlBoolean(block: string, tag: string): boolean {
 
 function sha256Hex(value: string | Buffer): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function objectLockFromHeaders(headers: Headers): StorageObjectLockMetadata {
+  const legalHold = headers.get('x-amz-object-lock-legal-hold');
+  const mode = headers.get('x-amz-object-lock-mode')?.toLowerCase();
+  const retainUntilRaw = headers.get('x-amz-object-lock-retain-until-date');
+  const retainUntil = retainUntilRaw ? new Date(retainUntilRaw) : null;
+  if (
+    (legalHold !== null && !['ON', 'OFF'].includes(legalHold.toUpperCase())) ||
+    (mode !== undefined && mode !== 'governance' && mode !== 'compliance') ||
+    (retainUntil !== null && Number.isNaN(retainUntil.getTime()))
+  ) {
+    throw new StorageUnavailableError('storage object lock metadata is invalid');
+  }
+  return {
+    legalHold: legalHold?.toUpperCase() === 'ON',
+    retentionMode: mode === 'governance' || mode === 'compliance' ? mode : null,
+    retainUntil,
+  };
 }
 
 function hmac(key: Buffer | string, value: string): Buffer {
@@ -277,6 +300,7 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
     if (response.status === 400 || response.status === 501) {
       throw new StorageVersioningUnsupportedError();
     }
+    if (response.status === 403) throw new StorageAccessDeniedError();
     if (!response.ok) {
       throw new StorageUnavailableError(`storage version inventory failed: ${response.status}`);
     }
@@ -323,6 +347,7 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
       { versionId: this.requireVersionId(reference.version) },
     );
     if (response.status === 404 || response.status === 405) return null;
+    if (response.status === 403) throw new StorageAccessDeniedError();
     if (!response.ok) {
       throw new StorageUnavailableError(`storage version head failed: ${response.status}`);
     }
@@ -337,6 +362,8 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
       undefined,
       { versionId: this.requireVersionId(reference.version) },
     );
+    if (response.status === 404) throw new StorageExactVersionMissingError();
+    if (response.status === 403) throw new StorageAccessDeniedError();
     if (!response.ok) {
       throw new StorageUnavailableError(`storage version delete failed: ${response.status}`);
     }
@@ -348,6 +375,7 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
       contentLength: Number(response.headers.get('content-length') ?? '0'),
       contentType: response.headers.get('content-type'),
       etag: response.headers.get('etag'),
+      objectLock: objectLockFromHeaders(response.headers),
     };
   }
 
@@ -362,11 +390,15 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
     const init: FetchInit = {
       method,
       headers: signed.headers,
+      signal: AbortSignal.timeout(10_000),
       ...(body ? { body, duplex: 'half' } : {}),
     };
     try {
       return await fetch(signed.url, init);
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
+        throw new StorageRequestTimeoutError();
+      }
       throw new StorageUnavailableError('storage request failed');
     }
   }
