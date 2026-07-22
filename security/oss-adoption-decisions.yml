@@ -39,6 +39,8 @@
     "db/migrations/0196_add_external_link_token_lookup.sql",
     "db/migrations/0197_grant_runtime_ai_session_chunk_upsert.sql",
     "db/migrations/0198_create_preview_access_sessions.sql",
+    "apps/api/src/modules/preview/preview-session.service.ts",
+    "apps/api/src/modules/preview/preview-session.service.spec.ts",
     "packages/shared/src/dto/document/preview-session.dto.ts",
     "packages/shared/src/dto/document/preview-session.dto.spec.ts"
   ],
