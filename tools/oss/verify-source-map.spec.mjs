@@ -29,3 +29,14 @@ test('rejects fake source hash, missing decision, and adopted conditional candid
   adopted.sourceMap.operationalNoCandidateTargets[0].state = 'ADOPTION_READY';
   assert.throws(() => validateSourceMap(adopted), /operational row must be conditional/);
 });
+
+test('allows L1 adoption only when its product paths are explicit', () => {
+  const approved = fixture();
+  const clamav = approved.decisions.decisions.find((row) => row.id === 'clamav');
+  assert.equal(clamav.status, 'APPROVED_FOR_PRODUCT_CHANGE');
+  assert.ok(clamav.approvedPaths.length > 0);
+  assert.doesNotThrow(() => validateSourceMap(approved));
+
+  clamav.approvedPaths = [];
+  assert.throws(() => validateSourceMap(approved), /L1 must remain blocked or be explicitly path-scoped/);
+});
