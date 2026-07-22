@@ -93,6 +93,8 @@ services:
     environment:
       NODE_ENV: development
       PROCESS_ROLE: api
+      DATABASE_MIGRATION_URL: ''
+      DATABASE_URL: ''
       DATABASE_RUNTIME_URL: postgres://vault_app:vault_app_dev_password@postgres:5432/amic_vault
       DATABASE_RUNTIME_ROLE: vault_app
       S3_ENDPOINT: http://minio:9000
@@ -121,6 +123,8 @@ services:
     environment:
       NODE_ENV: development
       PROCESS_ROLE: worker
+      DATABASE_MIGRATION_URL: ''
+      DATABASE_URL: ''
       DATABASE_RUNTIME_URL: postgres://vault_app:vault_app_dev_password@postgres:5432/amic_vault
       DATABASE_RUNTIME_ROLE: vault_app
       S3_ENDPOINT: http://minio:9000
