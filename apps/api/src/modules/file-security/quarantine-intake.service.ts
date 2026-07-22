@@ -197,7 +197,7 @@ export class QuarantineIntakeService {
     try {
       decision = await this.permissionService.canUploadToMatter({ tenantId, userId: actorUserId }, matterId);
     } catch {
-      this.logger.warn({ code: 'PERM_EVAL_ERROR', matterId });
+      this.logger.warn({ code: 'PERM_EVAL_ERROR' });
     }
     if (decision?.effect === 'ALLOW') return;
     if (decision?.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
