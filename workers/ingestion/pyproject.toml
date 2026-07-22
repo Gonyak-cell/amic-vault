@@ -31,7 +31,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["app", "app.parsers", "app.converters", "app.security", "app.synthesis"]
+packages = ["app", "app.parsers", "app.converters", "app.synthesis"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
