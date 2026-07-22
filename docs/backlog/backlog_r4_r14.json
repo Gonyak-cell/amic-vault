@@ -1,5 +1,5 @@
 {
-  "total": 218,
+  "total": 222,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3302,6 +3302,79 @@
       "depends_on": ["DEVOPS-OSS04-QRT-TUW-003"],
       "files": ["apps/api/src/modules/file-security", "apps/api/src/modules/document", "apps/api/src/modules/storage", "tests/integration", "security"],
       "verification": "enabled direct bulk email and migration ingress writes only server-derived quarantine objects and returns pending ref AND permission wall tenant quota hash enqueue audit failure and primary-prefix bypass cases fail"
+    },
+    {
+      "id": "DEVOPS-OSS07-IDP-TUW-001",
+      "title": "Enterprise identity topology and source conformance decision",
+      "release": "R14",
+      "module": "DEVOPS-OSS07",
+      "risk": "C",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSS01-QUE-TUW-004"
+      ],
+      "files": [
+        "docs/architecture/oss-adoption-decisions",
+        "security",
+        "docs/execution",
+        "docs/backlog",
+        "docs/ledger"
+      ],
+      "verification": "exact direct OIDC and broker source license baseline and current SAML/login schema evidence are recorded AND absent customer protocol hosting or staging owner blocks a guessed topology with product auth changes zero"
+    },
+    {
+      "id": "DEVOPS-OSS07-IDP-TUW-002",
+      "title": "Federated issuer subject mapping schema",
+      "release": "R14",
+      "module": "DEVOPS-OSS07",
+      "risk": "C",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSS07-IDP-TUW-001"
+      ],
+      "files": [
+        "db/migrations",
+        "apps/api/src/modules/enterprise",
+        "packages/shared/src",
+        "tests/integration"
+      ],
+      "verification": "verified provider issuer and issuer-subject mapping is tenant scoped FORCE RLS and JIT-off AND duplicate cross-tenant raw-secret and provider audit negatives pass"
+    },
+    {
+      "id": "DEVOPS-OSS07-IDP-TUW-003",
+      "title": "Pinned OIDC validation adapter",
+      "release": "R14",
+      "module": "DEVOPS-OSS07",
+      "risk": "C",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSS07-IDP-TUW-002"
+      ],
+      "files": [
+        "apps/api/src/modules/auth",
+        "apps/api/package.json",
+        "pnpm-lock.yaml",
+        "tests/integration"
+      ],
+      "verification": "pinned OIDC code PKCE state nonce issuer audience and discovery negative scenarios pass AND adapter returns verified identity only without role permission or token persistence"
+    },
+    {
+      "id": "DEVOPS-OSS07-IDP-TUW-004",
+      "title": "One-use federated callback state",
+      "release": "R14",
+      "module": "DEVOPS-OSS07",
+      "risk": "C",
+      "size": "L",
+      "depends_on": [
+        "DEVOPS-OSS07-IDP-TUW-003"
+      ],
+      "files": [
+        "apps/api/src/modules/auth",
+        "db/migrations",
+        "packages/shared/src",
+        "tests/integration"
+      ],
+      "verification": "one-use short-lived provider tenant bound callback state rejects replay cross-tenant nonce state expiry race redirect and store outage without issuing a local session before verification"
     }
   ]
 }
