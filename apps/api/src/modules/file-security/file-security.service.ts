@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
+import { FilePromotionService } from './file-promotion.service';
 import type { FileSecurityScanJobPayload } from './file-security.types';
 
 type Verdict = 'clean' | 'infected' | 'error' | 'stale_signature';
@@ -25,15 +26,20 @@ function validHash(value: string): boolean { return /^[a-f0-9]{64}$/u.test(value
 export class FileSecurityService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(FilePromotionService) private readonly filePromotionService: FilePromotionService,
     @Inject(StorageService) private readonly storageService: StorageService,
   ) {}
 
   async handle(payload: FileSecurityScanJobPayload): Promise<void> {
     if (!validHash(payload.expectedSha256)) throw new Error('FILE_SECURITY_PAYLOAD_INVALID');
     const target = await this.claim(payload);
-    if (!target) return;
+    if (!target) {
+      await this.filePromotionService.promote(payload);
+      return;
+    }
     const result = await this.scan(target, payload);
     await this.complete(target, payload, result);
+    if (result.state === 'clean') await this.filePromotionService.promote(payload);
   }
 
   private async claim(payload: FileSecurityScanJobPayload): Promise<ScanTarget | null> {
