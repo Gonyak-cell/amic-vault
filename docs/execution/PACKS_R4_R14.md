@@ -2530,6 +2530,12 @@ RLS, dependency, source-vendoring or CI claim transfers from it.
   This does not permit a generic privilege, owner runtime fallback, RLS/policy
   change, Queue behavior change, dependency, external mutation, or release
   action.
+- Scope amendment, `2026-07-22`: DBM-004 may additionally grant only the four
+  existing pending-finding refresh columns on `contract_ai_review_findings`.
+  It preserves the contract review upsert's pending-only predicate, RLS, audit
+  transaction, AI policy and accepted-finding immutability; no general table
+  privilege, contract/AI behavior, dependency, external operation or release
+  action is authorized.
 
 ## Gate Reports
 

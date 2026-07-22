@@ -155,6 +155,15 @@
   (size_bytes)` on `bulk_upload_batch_items`, respectively. Existing RLS,
   reviewer state, bulk state, storage/audit/permission semantics, ownership,
   dependencies, and external behavior remain unchanged.
+- **Canonical scope amendment (2026-07-22, contract-review refresh):** the
+  full runtime-role regression reaches the existing `contract-intel` finding
+  materialization upsert. The TUW may create
+  `0185_grant_runtime_contract_review_refresh.sql` and its matching L0 source
+  decision only to grant and reversibly revoke `UPDATE (severity,
+  finding_code, finding_hash, updated_at)` on `contract_ai_review_findings`.
+  This preserves its existing RLS policy, pending-only conflict predicate,
+  accepted-finding immutability, AI policy/permission checks, audit
+  transaction, dependencies, and external behavior.
 - **Implementation:** move DB state and bulk enqueue coupling to the active
   tenant client. The scope provider returns a SQL predicate before query build;
   it must not fetch results or add a result post-filter.
