@@ -175,16 +175,22 @@ describe('BulkUploadJob', () => {
       ),
       stop: vi.fn(async () => undefined),
     };
-    const service = new BulkUploadQueueService(processor as never, batchService as never);
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<typeof boss>;
-      }
-    ).ensureStarted = async () => boss;
+    const queueRegistry = {
+      register: vi.fn(),
+      producer: vi.fn(async () => boss),
+      consumer: vi.fn(async () => boss),
+    };
+    const service = new BulkUploadQueueService(
+      processor as never,
+      batchService as never,
+      queueRegistry as never,
+    );
 
     try {
       await service.onModuleInit();
 
+      expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+      expect(queueRegistry.consumer).toHaveBeenCalledWith(bulkUploadQueueName);
       expect(boss.work).toHaveBeenCalledTimes(2);
       await handlers.get(bulkUploadQueueName)?.([{ data: payload, id: 'job-1' }]);
       await handlers.get(bulkUploadDeadLetterQueueName)?.([{ data: payload, id: 'job-dead' }]);

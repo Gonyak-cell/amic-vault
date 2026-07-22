@@ -108,7 +108,12 @@ function createService() {
     ],
   }));
   const parserClient = { parseRawEmail } as unknown as EmailWorkerParserClient;
-  const service = new EmailReparseService(auditService, storageService, parserClient);
+  const queueRegistry = {
+    register: vi.fn(),
+    producer: vi.fn(),
+    consumer: vi.fn(),
+  };
+  const service = new EmailReparseService(auditService, storageService, parserClient, queueRegistry as never);
   return { auditLog, parseRawEmail, query, service, storageService };
 }
 

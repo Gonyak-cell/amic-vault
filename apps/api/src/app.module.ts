@@ -3,6 +3,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { ERROR_CODES } from '@amic-vault/shared';
 import { DatabaseModule } from './common/db/database.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { QueueModule } from './common/queue/queue.module';
 import { CorrelationMiddleware } from './common/logging/correlation.middleware';
 import { LoggerModule } from './common/logging/logger.module';
 import { MetricsModule } from './common/metrics/metrics.module';
@@ -63,6 +64,7 @@ class AppController {
     BreakGlassModule,
     TenantModule,
     DatabaseModule,
+    QueueModule,
     AuthModule,
     GraphModule,
     ContractIntelModule,

@@ -73,6 +73,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS01-01 | `feat/pack-oss01-01-runtime-db-contract` | 4 | `DEVOPS-OSS01-DBA-TUW-001` through `DEVOPS-OSS01-DBA-TUW-004` (`docs/execution/TUW_OSS01_RUNTIME_DB_CONTRACT.md`) |
 | PACK-OSS01-02 | `feat/pack-oss01-02-authority-pool-migration` | 4 | `DEVOPS-OSS01-DBM-TUW-001` through `DEVOPS-OSS01-DBM-TUW-004` (`docs/execution/TUW_OSS01_POOL_MIGRATION.md`) |
 | PACK-OSS01-03 | `feat/pack-oss01-03-remaining-pool-migration` | 4 | `DEVOPS-OSS01-DBR-TUW-001` through `DEVOPS-OSS01-DBR-TUW-004` (`docs/execution/TUW_OSS01_REMAINING_POOL_MIGRATION.md`) |
+| PACK-OSS01-04 | `feat/pack-oss01-04-queue-registry-budget` | 4 | `DEVOPS-OSS01-QUE-TUW-001` through `DEVOPS-OSS01-QUE-TUW-004` (`docs/execution/TUW_OSS01_QUEUE_REGISTRY.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2584,6 +2585,36 @@ RLS, dependency, source-vendoring or CI claim transfers from it.
   bounded filter references and audit remain authoritative; no retrieval,
   result-filtering, direct-pool migration, dependency, deployment or release
   action is authorized.
+
+## PACK-OSS01-04 — PgBoss registry and connection budget
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS01-03` has local technical
+evidence. This completes the remaining runtime-constructor authority lane by
+centralizing existing PgBoss lifecycle and proving its bounded connection
+budget; it does not adopt or vendor an upstream queue implementation.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss01-04-queue-registry-budget`.
+- Detail contract: `docs/execution/TUW_OSS01_QUEUE_REGISTRY.md`.
+- Execution order: `DEVOPS-OSS01-QUE-TUW-001` →
+  `DEVOPS-OSS01-QUE-TUW-002` → `DEVOPS-OSS01-QUE-TUW-003` →
+  `DEVOPS-OSS01-QUE-TUW-004`.
+- Scope: a singleton role-aware registry for the existing 19 PgBoss
+  constructions, migration-disabled production runtime defaults, service
+  migration in two bounded batches, and local connection/outage proof.
+- Out of scope: queue names, payload schemas, retry/dead-letter/retention
+  semantics, runtime schema migration, new queue infrastructure, PgBouncer,
+  pool-size tuning without measured evidence, dependencies/locks, external
+  services, CI execution, push/PR/merge, deployment, release, and go-live.
+
+Each migration preserves transaction-client enqueue behavior, API
+producer-only/worker-consumer role separation, disabled-feature gates,
+permission/audit semantics, and safe shutdown. The registry fails closed for a
+required unavailable queue. Any loss of business-and-enqueue atomicity, runtime
+schema migration, changed queue policy, implicit owner credential, or
+Permission/Audit transaction weakening is a hard stop.
 
 ## Gate Reports
 

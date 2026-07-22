@@ -93,6 +93,7 @@ describe('ExtractionQueueService options', () => {
   });
 
   it('routes OCR queue jobs and dead letters to the OCR dispatcher path', async () => {
+    process.env.PROCESS_ROLE = 'worker';
     process.env.OCR_QUEUE_WORKER_ENABLED = 'true';
     const payload: ExtractionJobPayload = {
       tenantId: '11111111-1111-4111-8111-111111111111',
@@ -120,16 +121,13 @@ describe('ExtractionQueueService options', () => {
       handleOcr: vi.fn(async () => undefined),
       markOcrDeadLetter: vi.fn(async () => undefined),
     };
-    const service = new OcrQueueWorkerService(dispatcher as never);
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<typeof boss>;
-      }
-    ).ensureStarted = async () => boss;
+    const queueRegistry = { consumer: vi.fn(async () => boss) };
+    const service = new OcrQueueWorkerService(dispatcher as never, queueRegistry as never);
 
     await service.onModuleInit();
 
     expect(boss.work).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.consumer).toHaveBeenCalledWith(ocrQueueName);
     await handlers.get(ocrQueueName)?.([{ data: payload }]);
     await handlers.get(ocrDeadLetterQueueName)?.([{ data: payload }]);
 

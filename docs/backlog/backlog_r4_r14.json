@@ -1,5 +1,5 @@
 {
-  "total": 206,
+  "total": 210,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3170,6 +3170,50 @@
       "depends_on": ["DEVOPS-OSS01-DBR-TUW-001", "DEVOPS-OSS01-DBR-TUW-002", "DEVOPS-OSS01-DBR-TUW-003"],
       "files": ["apps/api/src/tools/gemma-customer-wide-real-output-runner.ts", "apps/api/src/tools/onedrive-full-closeout-remediation-runner.ts", "tools/quality/check-database-authority.mjs", "security/oss-source-map.yml", ".github/workflows/ci.yml"],
       "verification": "runtime application direct Pool or Client DATABASE_URL fallback default connection string and unclosed pool outside explicit owner-only maintenance exceptions fail AND valid source authority and connection lifecycle checks pass"
+    },
+    {
+      "id": "DEVOPS-OSS01-QUE-TUW-001",
+      "title": "Singleton QueueModule registry contract",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-DBR-TUW-004"],
+      "files": ["apps/api/src/common/queue", "apps/api/src/common/db/pg-boss-runtime-options.ts", "apps/api/src/common/process-role.ts", "apps/api/src/app.module.ts"],
+      "verification": "one registry owns existing PgBoss connection lifecycle and named definitions AND API producer-only worker-consumer separation duplicate registration runtime schema-migration prohibition and 50 lifecycle loops pass"
+    },
+    {
+      "id": "DEVOPS-OSS01-QUE-TUW-002",
+      "title": "Core PgBoss consumer migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-QUE-TUW-001"],
+      "files": ["apps/api/src/modules/document", "apps/api/src/modules/email", "apps/api/src/modules/preview", "apps/api/src/modules/search", "security/oss-source-map.yml", "tests/integration"],
+      "verification": "listed document search preview and email PgBoss constructors are zero AND transaction enqueue queue-policy parity API consumer zero worker graceful stop and document/search/email regressions pass"
+    },
+    {
+      "id": "DEVOPS-OSS01-QUE-TUW-003",
+      "title": "Enterprise PgBoss consumer migration",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-QUE-TUW-002"],
+      "files": ["apps/api/src/modules/audit", "apps/api/src/modules/dlp", "apps/api/src/modules/integrations", "apps/api/src/modules/notifications", "apps/api/src/modules/records", "apps/api/src/modules/ai", "apps/api/src/modules/contract-intel", "apps/api/src/modules/dd", "security/oss-source-map.yml", "tests/integration"],
+      "verification": "all remaining application PgBoss constructors are zero AND audit DLP local-AI contract DD schedule duplicate worker-only and disabled-feature regressions preserve queue parity"
+    },
+    {
+      "id": "DEVOPS-OSS01-QUE-TUW-004",
+      "title": "Queue authority and connection budget gate",
+      "release": "R14",
+      "module": "DEVOPS-OSS01",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-QUE-TUW-001", "DEVOPS-OSS01-QUE-TUW-002", "DEVOPS-OSS01-QUE-TUW-003"],
+      "files": ["tools/quality", "tests/integration/fail-closed", "apps/api/src/modules/health", "security/oss-source-map.yml"],
+      "verification": "direct PgBoss constructor unregistered queue runtime migration role-incorrect consumer and outage cases fail AND measured lifecycle connection budget permission audit search and cross-tenant regressions pass"
     }
   ]
 }

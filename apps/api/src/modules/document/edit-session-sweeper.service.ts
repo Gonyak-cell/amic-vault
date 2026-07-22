@@ -1,17 +1,13 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { TenantId } from '@amic-vault/shared';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
 import { DatabaseService } from '../../common/db/database.service';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../common/process-role';
+import { QueueRegistry } from '../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../common/process-role';
 import {
   DocumentEditingService,
   type ExpiredEditSessionSweepResult,
 } from './document-editing.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export const editSessionSweepQueueName = 'document.edit-session.sweep';
 export const editSessionSweepDeadLetterQueueName = 'document.edit-session.sweep.dead';
@@ -32,7 +28,7 @@ export interface EditSessionSweepJobResult {
 
 @Injectable()
 export class EditSessionSweepTenantReader {
-  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+  constructor(private readonly databaseService: DatabaseService) {}
 
   async listActiveTenantIds(): Promise<TenantId[]> {
     return (await this.databaseService.listActiveTenantRegistryIds()) as TenantId[];
@@ -40,10 +36,9 @@ export class EditSessionSweepTenantReader {
 }
 
 @Injectable()
-export class EditSessionSweeperService implements OnModuleInit, OnModuleDestroy {
+export class EditSessionSweeperService implements OnModuleInit {
   private readonly logger = new Logger(EditSessionSweeperService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
@@ -51,16 +46,13 @@ export class EditSessionSweeperService implements OnModuleInit, OnModuleDestroy 
     private readonly documentEditing: Pick<DocumentEditingService, 'sweepExpiredSessionsForTenant'>,
     @Inject(EditSessionSweepTenantReader)
     private readonly tenantReader: Pick<EditSessionSweepTenantReader, 'listActiveTenantIds'>,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isEditSessionSweeperEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isEditSessionSweeperEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async sweepExpiredEditSessions(
@@ -110,7 +102,7 @@ export class EditSessionSweeperService implements OnModuleInit, OnModuleDestroy 
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await ensureEditSessionSweepSchedule(boss);
     await boss.work<EditSessionSweepJobPayload>(
       editSessionSweepQueueName,
@@ -137,14 +129,33 @@ export class EditSessionSweeperService implements OnModuleInit, OnModuleDestroy 
     await this.sweepExpiredEditSessions(job.data ?? {});
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= createStartedEditSessionSweepBoss(
-      this.logger,
-      'amic-vault-edit-session-sweeper',
-    );
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: editSessionSweepDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: editSessionSweepQueueName,
+      options: {
+        retryLimit: 3,
+        retryDelay: 60,
+        retryBackoff: true,
+        deadLetter: editSessionSweepDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(editSessionSweepQueueName);
   }
 }
 
@@ -177,43 +188,9 @@ export function editSessionSweepWorkOptions(): WorkOptions {
   };
 }
 
-export async function createStartedEditSessionSweepBoss(
-  logger: Pick<Logger, 'warn'>,
-  applicationName: string,
-): Promise<PgBoss> {
-  const { PgBoss } = await import('pg-boss');
-  const boss = new PgBoss({
-    connectionString: databaseUrl,
-    ...pgBossRuntimeOptions({
-      applicationName,
-      migrateEnvName: 'EDIT_SESSION_SWEEPER_MIGRATE_ENABLED',
-      createSchemaEnvName: 'EDIT_SESSION_SWEEPER_CREATE_SCHEMA_ENABLED',
-      superviseEnvName: 'EDIT_SESSION_SWEEPER_SUPERVISE_ENABLED',
-    }),
-  });
-  boss.on('error', () => {
-    logger.warn({ code: 'DOCUMENT_EDIT_SESSION_SWEEP_QUEUE_ERROR' });
-  });
-  await boss.start();
-  return boss;
-}
-
 export async function ensureEditSessionSweepSchedule(
-  boss: Pick<PgBoss, 'createQueue' | 'schedule'>,
+  boss: Pick<PgBoss, 'schedule'>,
 ): Promise<void> {
-  await boss.createQueue(editSessionSweepDeadLetterQueueName, {
-    retryLimit: 0,
-    retentionSeconds: 7 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
-  await boss.createQueue(editSessionSweepQueueName, {
-    retryLimit: 3,
-    retryDelay: 60,
-    retryBackoff: true,
-    deadLetter: editSessionSweepDeadLetterQueueName,
-    retentionSeconds: 14 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
   await boss.schedule(
     editSessionSweepQueueName,
     editSessionSweepCron(),

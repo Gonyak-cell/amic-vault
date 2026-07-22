@@ -13,7 +13,6 @@ import {
 const tenantId = '11111111-1111-4111-8111-111111111111';
 
 interface FakeBoss {
-  createQueue: (name: string, options?: object) => Promise<void>;
   schedule: (name: string, cron: string, data?: object | null, options?: object) => Promise<void>;
   work: (
     name: string,
@@ -57,13 +56,13 @@ describe('LawAmendmentRefreshSchedulerService', () => {
   });
 
   it('registers queues and runs law amendment refresh jobs', async () => {
+    process.env.PROCESS_ROLE = 'worker';
     process.env.LAW_AMENDMENT_REFRESH_WORKER_ENABLED = 'true';
     const handlers = new Map<
       string,
       (jobs: Array<{ data: LawAmendmentRefreshJobPayload }>) => Promise<void>
     >();
     const boss: FakeBoss = {
-      createQueue: vi.fn(async () => undefined),
       schedule: vi.fn(async () => undefined),
       work: vi.fn(async (name, _options, handler) => {
         handlers.set(name, handler);
@@ -79,25 +78,17 @@ describe('LawAmendmentRefreshSchedulerService', () => {
         notConfigured: false,
       })),
     };
-    const service = new LawAmendmentRefreshSchedulerService(lawData, {
-      listActiveTenantIds: vi.fn(async () => [tenantId]),
-    });
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<FakeBoss>;
-      }
-    ).ensureStarted = async () => boss;
+    const queueRegistry = { register: vi.fn(), consumer: vi.fn(async () => boss) };
+    const service = new LawAmendmentRefreshSchedulerService(
+      lawData,
+      { listActiveTenantIds: vi.fn(async () => [tenantId]) },
+      queueRegistry as never,
+    );
 
     await service.onModuleInit();
 
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      lawAmendmentRefreshDeadLetterQueueName,
-      expect.objectContaining({ retryLimit: 0 }),
-    );
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      lawAmendmentRefreshQueueName,
-      expect.objectContaining({ deadLetter: lawAmendmentRefreshDeadLetterQueueName }),
-    );
+    expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.consumer).toHaveBeenCalledWith(lawAmendmentRefreshQueueName);
     expect(boss.schedule).toHaveBeenCalledWith(
       lawAmendmentRefreshQueueName,
       '0 18 * * *',

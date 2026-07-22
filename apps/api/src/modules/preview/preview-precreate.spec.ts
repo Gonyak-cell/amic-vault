@@ -72,6 +72,24 @@ describe('PreviewPrecreateQueueService', () => {
     expect(isPreviewConvertQueueWorkerEnabled()).toBe(false);
   });
 
+  it('never registers an API process as a queue consumer', async () => {
+    process.env.PROCESS_ROLE = 'api';
+    process.env.PREVIEW_CONVERT_QUEUE_WORKER_ENABLED = 'true';
+    const queueRegistry = {
+      register: vi.fn(),
+      consumer: vi.fn(),
+    };
+    const service = new PreviewPrecreateQueueService(
+      { precreatePreview: vi.fn(), markPrecreateFailed: vi.fn() } as never,
+      queueRegistry as never,
+    );
+
+    await service.onModuleInit();
+
+    expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.consumer).not.toHaveBeenCalled();
+  });
+
   it('enqueues only Office preview conversion jobs after upload commit', async () => {
     const client = {
       query: vi.fn(async () => ({
@@ -87,15 +105,14 @@ describe('PreviewPrecreateQueueService', () => {
       send: vi.fn(async () => 'preview-job-id'),
       stop: vi.fn(async () => undefined),
     };
-    const service = new PreviewPrecreateQueueService({
-      precreatePreview: vi.fn(),
-      markPrecreateFailed: vi.fn(),
-    } as never);
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<typeof boss>;
-      }
-    ).ensureStarted = async () => boss;
+    const queueRegistry = {
+      register: vi.fn(),
+      producer: vi.fn(async () => boss),
+    };
+    const service = new PreviewPrecreateQueueService(
+      { precreatePreview: vi.fn(), markPrecreateFailed: vi.fn() } as never,
+      queueRegistry as never,
+    );
 
     await expect(service.enqueueVersionCreated(payload, client as never)).resolves.toBe(
       'preview-job-id',
@@ -116,9 +133,12 @@ describe('PreviewPrecreateQueueService', () => {
     });
     await expect(service.enqueueVersionCreated(payload, client as never)).resolves.toBeNull();
     expect(boss.send).toHaveBeenCalledTimes(1);
+    expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.producer).toHaveBeenCalledWith(previewConvertQueueName);
   });
 
   it('routes worker jobs to precreate and dead letters to failed status marking', async () => {
+    process.env.PROCESS_ROLE = 'worker';
     process.env.PREVIEW_CONVERT_QUEUE_WORKER_ENABLED = 'true';
     const handlers = new Map<
       string,
@@ -136,19 +156,23 @@ describe('PreviewPrecreateQueueService', () => {
       ),
       stop: vi.fn(async () => undefined),
     };
+    const queueRegistry = {
+      register: vi.fn(),
+      consumer: vi.fn(async () => boss),
+    };
     const previewService = {
       precreatePreview: vi.fn(async () => 'ready' as const),
       markPrecreateFailed: vi.fn(async () => undefined),
     };
-    const service = new PreviewPrecreateQueueService(previewService as never);
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<typeof boss>;
-      }
-    ).ensureStarted = async () => boss;
+    const service = new PreviewPrecreateQueueService(
+      previewService as never,
+      queueRegistry as never,
+    );
 
     await service.onModuleInit();
 
+    expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.consumer).toHaveBeenCalledWith(previewConvertQueueName);
     expect(boss.work).toHaveBeenCalledTimes(2);
     await handlers.get(previewConvertQueueName)?.([{ data: payload }]);
     await handlers.get(previewConvertDeadLetterQueueName)?.([{ data: payload }]);

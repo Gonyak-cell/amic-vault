@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Job, PgBoss, ScheduleOptions, WorkOptions } from 'pg-boss';
 import {
   dlpBehaviorAlertListResponseSchema,
@@ -7,16 +7,10 @@ import {
   type DlpBehaviorAlertListResponseDto,
   type PermissionContext,
 } from '@amic-vault/shared';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
 import { DatabaseService } from '../../common/db/database.service';
-import { queueWorkerEnabled } from '../../common/process-role';
+import { QueueRegistry } from '../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../common/process-role';
 import { AuditService, type QueryClient } from '../audit/audit.service';
-
-// PgBoss lifecycle ownership is the separate OSS01-04 scope. This PACK removes
-// only the tenant-registry Pool and leaves the existing queue constructor intact.
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 const defaultThresholdCount = 50;
 const defaultThresholdBytes = 500 * 1024 * 1024;
@@ -87,26 +81,22 @@ export class BulkDownloadMonitorTenantReader {
 }
 
 @Injectable()
-export class BulkDownloadMonitorService implements OnModuleInit, OnModuleDestroy {
+export class BulkDownloadMonitorService implements OnModuleInit {
   private readonly logger = new Logger(BulkDownloadMonitorService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(BulkDownloadMonitorTenantReader)
     private readonly tenantReader: Pick<BulkDownloadMonitorTenantReader, 'listActiveTenantIds'>,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isBulkDownloadMonitorWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isBulkDownloadMonitorWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async sweepBulkDownloadAlerts(
@@ -365,7 +355,7 @@ export class BulkDownloadMonitorService implements OnModuleInit, OnModuleDestroy
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await ensureBulkDownloadMonitorSchedule(boss);
     await boss.work<BulkDownloadMonitorJobPayload>(
       bulkDownloadMonitorQueueName,
@@ -395,14 +385,33 @@ export class BulkDownloadMonitorService implements OnModuleInit, OnModuleDestroy
     await this.sweepBulkDownloadAlerts(asOf ? { asOf } : {});
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= createStartedBulkDownloadMonitorBoss(
-      this.logger,
-      'amic-vault-bulk-download-monitor-worker',
-    );
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: bulkDownloadMonitorDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: bulkDownloadMonitorQueueName,
+      options: {
+        retryLimit: 5,
+        retryDelay: 60,
+        retryBackoff: true,
+        deadLetter: bulkDownloadMonitorDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(bulkDownloadMonitorQueueName);
   }
 }
 
@@ -462,43 +471,9 @@ export function bulkDownloadMonitorWorkOptions(): WorkOptions {
   };
 }
 
-export async function createStartedBulkDownloadMonitorBoss(
-  logger: Pick<Logger, 'warn'>,
-  applicationName: string,
-): Promise<PgBoss> {
-  const { PgBoss } = await import('pg-boss');
-  const boss = new PgBoss({
-    connectionString: databaseUrl,
-    ...pgBossRuntimeOptions({
-      applicationName,
-      migrateEnvName: 'DLP_BULK_DOWNLOAD_MONITOR_QUEUE_MIGRATE_ENABLED',
-      createSchemaEnvName: 'DLP_BULK_DOWNLOAD_MONITOR_QUEUE_CREATE_SCHEMA_ENABLED',
-      superviseEnvName: 'DLP_BULK_DOWNLOAD_MONITOR_QUEUE_SUPERVISE_ENABLED',
-    }),
-  });
-  boss.on('error', () => {
-    logger.warn({ code: 'DLP_BULK_DOWNLOAD_MONITOR_QUEUE_ERROR' });
-  });
-  await boss.start();
-  return boss;
-}
-
 export async function ensureBulkDownloadMonitorSchedule(
-  boss: Pick<PgBoss, 'createQueue' | 'schedule'>,
+  boss: Pick<PgBoss, 'schedule'>,
 ): Promise<void> {
-  await boss.createQueue(bulkDownloadMonitorDeadLetterQueueName, {
-    retryLimit: 0,
-    retentionSeconds: 7 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
-  await boss.createQueue(bulkDownloadMonitorQueueName, {
-    retryLimit: 5,
-    retryDelay: 60,
-    retryBackoff: true,
-    deadLetter: bulkDownloadMonitorDeadLetterQueueName,
-    retentionSeconds: 14 * 24 * 60 * 60,
-    deleteAfterSeconds: 7 * 24 * 60 * 60,
-  });
   await boss.schedule(
     bulkDownloadMonitorQueueName,
     bulkDownloadMonitorCron(),

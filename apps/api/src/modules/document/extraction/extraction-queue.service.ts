@@ -1,8 +1,8 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss, SendOptions } from 'pg-boss';
-import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../../common/process-role';
+import type { Job, SendOptions } from 'pg-boss';
+import { QueueRegistry } from '../../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../../common/process-role';
 import { ExtractionDispatcher } from './extraction-dispatcher';
 import {
   extractionDeadLetterQueueName,
@@ -10,10 +10,6 @@ import {
   type ExtractionJobPayload,
 } from './extraction.types';
 import { pgBossDbFromPoolClient } from './pool-client-db-adapter';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export function isExtractionQueueWorkerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return queueWorkerEnabled('EXTRACTION_QUEUE_WORKER_ENABLED', env);
@@ -31,22 +27,19 @@ export function extractionQueueSendOptions(versionId: string, client: PoolClient
 }
 
 @Injectable()
-export class ExtractionQueueService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(ExtractionQueueService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+export class ExtractionQueueService implements OnModuleInit {
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
-  constructor(@Inject(ExtractionDispatcher) private readonly dispatcher: ExtractionDispatcher) {}
+  constructor(
+    @Inject(ExtractionDispatcher) private readonly dispatcher: ExtractionDispatcher,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
+  ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isExtractionQueueWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isExtractionQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async enqueueVersionCreated(input: ExtractionJobPayload, client: PoolClient): Promise<string> {
@@ -63,7 +56,7 @@ export class ExtractionQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await boss.work<ExtractionJobPayload>(
       extractionQueueName,
       { batchSize: 1, pollingIntervalSeconds: 1 },
@@ -83,42 +76,38 @@ export class ExtractionQueueService implements OnModuleInit, OnModuleDestroy {
     this.workerRegistered = true;
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: extractionDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: extractionQueueName,
+      options: {
+        retryLimit: 3,
+        retryDelay: 1,
+        retryBackoff: true,
+        deadLetter: extractionDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
   }
 
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-extraction-queue',
-        migrateEnvName: 'EXTRACTION_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'EXTRACTION_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'EXTRACTION_QUEUE_SUPERVISE_ENABLED',
-      }),
-    });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'EXTRACTION_QUEUE_ERROR', message: String(error.message) });
-    });
-    await boss.start();
-    await boss.createQueue(extractionDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(extractionQueueName, {
-      retryLimit: 3,
-      retryDelay: 1,
-      retryBackoff: true,
-      deadLetter: extractionDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+  private async ensureStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.producer(extractionQueueName);
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(extractionQueueName);
   }
 
   private async createPendingCanonicalDocument(

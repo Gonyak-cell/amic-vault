@@ -1,9 +1,10 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import type { Job, PgBoss } from 'pg-boss';
-import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import type { Job } from 'pg-boss';
+import { currentProcessRole } from '../../../common/process-role';
+import { QueueRegistry } from '../../../common/queue/queue.registry';
+import { ContractAiReviewQueueService } from '../../contract-intel/contract-ai-review-queue.service';
 import {
   contractAiReviewDeadLetterQueueName,
-  contractAiReviewQueueExpireSeconds,
   contractAiReviewQueueName,
   contractAiReviewQueueWorkOptions,
   isContractAiReviewQueueWorkerEnabled,
@@ -11,27 +12,22 @@ import {
 } from '../../contract-intel/contract-ai-review-queue.types';
 import { AiSummaryService } from './ai-summary.service';
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
 @Injectable()
-export class ContractAiReviewWorkerService implements OnModuleInit, OnModuleDestroy {
+export class ContractAiReviewWorkerService implements OnModuleInit {
   private readonly logger = new Logger(ContractAiReviewWorkerService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
   private workerRegistered = false;
 
-  constructor(@Inject(AiSummaryService) private readonly summaries: AiSummaryService) {}
+  constructor(
+    @Inject(AiSummaryService) private readonly summaries: AiSummaryService,
+    @Inject(ContractAiReviewQueueService)
+    private readonly reviewQueue: ContractAiReviewQueueService,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
+  ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isContractAiReviewQueueWorkerEnabled()) return;
+    this.reviewQueue.ensureQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isContractAiReviewQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async handle(input: ContractAiReviewJobPayload): Promise<void> {
@@ -55,7 +51,7 @@ export class ContractAiReviewWorkerService implements OnModuleInit, OnModuleDest
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.queueRegistry.consumer(contractAiReviewQueueName);
     await boss.work<ContractAiReviewJobPayload>(
       contractAiReviewQueueName,
       contractAiReviewQueueWorkOptions(),
@@ -95,47 +91,6 @@ export class ContractAiReviewWorkerService implements OnModuleInit, OnModuleDest
     }
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
-  }
-
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-contract-ai-review-worker',
-        migrateEnvName: 'CONTRACT_AI_REVIEW_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'CONTRACT_AI_REVIEW_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'CONTRACT_AI_REVIEW_QUEUE_SUPERVISE_ENABLED',
-      }),
-    });
-    boss.on('error', (error) => {
-      this.logger.warn({
-        code: 'CONTRACT_AI_REVIEW_WORKER_QUEUE_ERROR',
-        message: String(error.message),
-      });
-    });
-    await boss.start();
-    await boss.createQueue(contractAiReviewDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(contractAiReviewQueueName, {
-      expireInSeconds: contractAiReviewQueueExpireSeconds(),
-      retryLimit: 5,
-      retryDelay: 2,
-      retryBackoff: true,
-      deadLetter: contractAiReviewDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
-  }
 }
 
 function contractAiReviewQuery(task: ContractAiReviewJobPayload['task']): string {

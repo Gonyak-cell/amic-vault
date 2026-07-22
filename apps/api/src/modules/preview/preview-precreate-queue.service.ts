@@ -1,9 +1,9 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import type { TenantId } from '@amic-vault/shared';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss, SendOptions } from 'pg-boss';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../common/process-role';
+import type { Job, SendOptions } from 'pg-boss';
+import { QueueRegistry } from '../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../common/process-role';
 import { pgBossDbFromPoolClient } from '../document/extraction/pool-client-db-adapter';
 import { previewConvertQueueName } from './preview-convert.job';
 import {
@@ -11,10 +11,6 @@ import {
   PreviewService,
   type PreviewPrecreateInput,
 } from './preview.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export const previewConvertDeadLetterQueueName = 'document.preview-convert.dead';
 
@@ -39,22 +35,19 @@ export function previewConvertQueueSendOptions(
 }
 
 @Injectable()
-export class PreviewPrecreateQueueService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(PreviewPrecreateQueueService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+export class PreviewPrecreateQueueService implements OnModuleInit {
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
-  constructor(@Inject(PreviewService) private readonly previewService: PreviewService) {}
+  constructor(
+    @Inject(PreviewService) private readonly previewService: PreviewService,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
+  ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isPreviewConvertQueueWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isPreviewConvertQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async enqueueVersionCreated(
@@ -82,7 +75,7 @@ export class PreviewPrecreateQueueService implements OnModuleInit, OnModuleDestr
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await boss.work<PreviewPrecreateJobPayload>(
       previewConvertQueueName,
       { batchSize: 1, pollingIntervalSeconds: 1 },
@@ -102,42 +95,38 @@ export class PreviewPrecreateQueueService implements OnModuleInit, OnModuleDestr
     this.workerRegistered = true;
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: previewConvertDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: previewConvertQueueName,
+      options: {
+        retryLimit: 3,
+        retryDelay: 1,
+        retryBackoff: true,
+        deadLetter: previewConvertDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
   }
 
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-preview-convert-queue',
-        migrateEnvName: 'PREVIEW_CONVERT_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'PREVIEW_CONVERT_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'PREVIEW_CONVERT_QUEUE_SUPERVISE_ENABLED',
-      }),
-    });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'PREVIEW_CONVERT_QUEUE_ERROR', message: String(error.message) });
-    });
-    await boss.start();
-    await boss.createQueue(previewConvertDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(previewConvertQueueName, {
-      retryLimit: 3,
-      retryDelay: 1,
-      retryBackoff: true,
-      deadLetter: previewConvertDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+  private async ensureStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.producer(previewConvertQueueName);
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(previewConvertQueueName);
   }
 
   private async isOfficeVersion(

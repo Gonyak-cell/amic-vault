@@ -30,6 +30,7 @@ describe('LitigationDeadlineNotificationSchedulerService', () => {
       litigation,
       notifications,
       tenantReader,
+      {} as never,
     );
 
     await expect(service.sweepLitigationDeadlineNotifications()).resolves.toEqual({

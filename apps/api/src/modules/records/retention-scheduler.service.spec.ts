@@ -21,7 +21,6 @@ const workItemId = '11111111-1111-4111-8111-111111111177';
 const auditEventId = '11111111-1111-4111-8111-111111111188';
 
 interface FakeBoss {
-  createQueue: (name: string, options?: object) => Promise<void>;
   schedule: (name: string, cron: string, data?: object | null, options?: object) => Promise<void>;
   work: (
     name: string,
@@ -63,13 +62,13 @@ describe('RetentionSchedulerService', () => {
   });
 
   it('registers queues and runs expired retention review jobs', async () => {
+    process.env.PROCESS_ROLE = 'worker';
     process.env.RETENTION_REVIEW_QUEUE_WORKER_ENABLED = 'true';
     const handlers = new Map<
       string,
       (jobs: Array<{ data: RetentionReviewJobPayload }>) => Promise<void>
     >();
     const boss: FakeBoss = {
-      createQueue: vi.fn(async () => undefined),
       schedule: vi.fn(async () => undefined),
       work: vi.fn(async (name, _options, handler) => {
         handlers.set(name, handler);
@@ -78,22 +77,13 @@ describe('RetentionSchedulerService', () => {
       stop: vi.fn(async () => undefined),
     };
     const { service, tx, auditLog, workService } = serviceWithTransaction();
-    (
-      service as unknown as {
-        ensureStarted: () => Promise<FakeBoss>;
-      }
-    ).ensureStarted = async () => boss;
+    const queueRegistry = { register: vi.fn(), consumer: vi.fn(async () => boss) };
+    (service as unknown as { queueRegistry: typeof queueRegistry }).queueRegistry = queueRegistry;
 
     await service.onModuleInit();
 
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      retentionReviewDeadLetterQueueName,
-      expect.objectContaining({ retryLimit: 0 }),
-    );
-    expect(boss.createQueue).toHaveBeenCalledWith(
-      retentionReviewQueueName,
-      expect.objectContaining({ deadLetter: retentionReviewDeadLetterQueueName }),
-    );
+    expect(queueRegistry.register).toHaveBeenCalledTimes(2);
+    expect(queueRegistry.consumer).toHaveBeenCalledWith(retentionReviewQueueName);
     expect(boss.schedule).toHaveBeenCalledWith(
       retentionReviewQueueName,
       '30 0 * * *',
@@ -222,6 +212,7 @@ function serviceWithTransaction(
     auditService as never,
     workService as never,
     tenantReader,
+    {} as never,
   );
   return { service, tx, auditLog, workService };
 }

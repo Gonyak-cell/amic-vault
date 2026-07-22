@@ -1,20 +1,16 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import type { Job, PgBoss, SendOptions, WorkOptions } from 'pg-boss';
+import type { Job, SendOptions, WorkOptions } from 'pg-boss';
 import {
   bulkUploadDeadLetterQueueName,
   bulkUploadQueueName,
   type BulkUploadJobDto,
 } from '@amic-vault/shared';
-import { pgBossRuntimeOptions } from '../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../common/process-role';
+import { QueueRegistry } from '../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../common/process-role';
 import { pgBossDbFromPoolClient } from './extraction/pool-client-db-adapter';
 import { BulkUploadJob } from './bulk-upload.job';
 import { BulkUploadBatchService } from './bulk-upload-batch.service';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export function isBulkUploadQueueWorkerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return queueWorkerEnabled('BULK_UPLOAD_QUEUE_WORKER_ENABLED', env);
@@ -49,25 +45,20 @@ export function bulkUploadQueueWorkOptions(): WorkOptions {
 }
 
 @Injectable()
-export class BulkUploadQueueService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(BulkUploadQueueService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+export class BulkUploadQueueService implements OnModuleInit {
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
   constructor(
     @Inject(BulkUploadJob) private readonly jobProcessor: BulkUploadJob,
     @Inject(BulkUploadBatchService) private readonly batchService: BulkUploadBatchService,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isBulkUploadQueueWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isBulkUploadQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async enqueueJob(payload: BulkUploadJobDto, client: PoolClient): Promise<string> {
@@ -79,7 +70,7 @@ export class BulkUploadQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await boss.work<BulkUploadJobDto>(
       bulkUploadQueueName,
       bulkUploadQueueWorkOptions(),
@@ -103,41 +94,37 @@ export class BulkUploadQueueService implements OnModuleInit, OnModuleDestroy {
     await this.batchService.recordJobReport(job.data, report);
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: bulkUploadDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: bulkUploadQueueName,
+      options: {
+        retryLimit: 3,
+        retryDelay: 5,
+        retryBackoff: true,
+        deadLetter: bulkUploadDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
   }
 
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-bulk-upload-queue',
-        migrateEnvName: 'BULK_UPLOAD_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'BULK_UPLOAD_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'BULK_UPLOAD_QUEUE_SUPERVISE_ENABLED',
-      }),
-    });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'BULK_UPLOAD_QUEUE_ERROR', message: String(error.message) });
-    });
-    await boss.start();
-    await boss.createQueue(bulkUploadDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(bulkUploadQueueName, {
-      retryLimit: 3,
-      retryDelay: 5,
-      retryBackoff: true,
-      deadLetter: bulkUploadDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+  private async ensureStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.producer(bulkUploadQueueName);
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(bulkUploadQueueName);
   }
 }

@@ -1,14 +1,10 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
-import type { PgBoss, SendOptions } from 'pg-boss';
-import { pgBossRuntimeOptions } from '../../../common/db/pg-boss-runtime-options';
-import { queueWorkerEnabled } from '../../../common/process-role';
+import type { SendOptions } from 'pg-boss';
+import { QueueRegistry } from '../../../common/queue/queue.registry';
+import { currentProcessRole, queueWorkerEnabled } from '../../../common/process-role';
 import { pgBossDbFromPoolClient } from '../../document/extraction/pool-client-db-adapter';
 import { IndexingProcessor } from './indexing.processor';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
 
 export const searchIndexQueueName = 'search.index';
 export const searchIndexDeadLetterQueueName = 'search.index.dead';
@@ -38,22 +34,19 @@ export function searchIndexQueueSendOptions(
 }
 
 @Injectable()
-export class SearchIndexingService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(SearchIndexingService.name);
-  private boss: PgBoss | null = null;
-  private startPromise: Promise<PgBoss> | null = null;
+export class SearchIndexingService implements OnModuleInit {
+  private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
-  constructor(@Inject(IndexingProcessor) private readonly processor: IndexingProcessor) {}
+  constructor(
+    @Inject(IndexingProcessor) private readonly processor: IndexingProcessor,
+    @Inject(QueueRegistry) private readonly queueRegistry: QueueRegistry,
+  ) {}
 
   async onModuleInit(): Promise<void> {
-    if (!isSearchIndexQueueWorkerEnabled()) return;
+    this.registerQueueDefinitions();
+    if (currentProcessRole() !== 'worker' || !isSearchIndexQueueWorkerEnabled()) return;
     await this.registerWorkers();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (!this.boss) return;
-    await this.boss.stop();
   }
 
   async enqueueVersion(payload: SearchIndexJobPayload, client: PoolClient): Promise<string> {
@@ -123,7 +116,7 @@ export class SearchIndexingService implements OnModuleInit, OnModuleDestroy {
 
   private async registerWorkers(): Promise<void> {
     if (this.workerRegistered) return;
-    const boss = await this.ensureStarted();
+    const boss = await this.ensureConsumerStarted();
     await boss.work<SearchIndexJobPayload>(
       searchIndexQueueName,
       { batchSize: 1, pollingIntervalSeconds: 1 },
@@ -143,41 +136,37 @@ export class SearchIndexingService implements OnModuleInit, OnModuleDestroy {
     this.workerRegistered = true;
   }
 
-  private async ensureStarted(): Promise<PgBoss> {
-    if (this.boss) return this.boss;
-    this.startPromise ??= this.createStartedBoss();
-    this.boss = await this.startPromise;
-    return this.boss;
+  private registerQueueDefinitions(): void {
+    if (this.queueDefinitionsRegistered) return;
+    this.queueRegistry.register({
+      name: searchIndexDeadLetterQueueName,
+      options: {
+        retryLimit: 0,
+        retentionSeconds: 7 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueRegistry.register({
+      name: searchIndexQueueName,
+      options: {
+        retryLimit: 5,
+        retryDelay: 1,
+        retryBackoff: true,
+        deadLetter: searchIndexDeadLetterQueueName,
+        retentionSeconds: 14 * 24 * 60 * 60,
+        deleteAfterSeconds: 7 * 24 * 60 * 60,
+      },
+    });
+    this.queueDefinitionsRegistered = true;
   }
 
-  private async createStartedBoss(): Promise<PgBoss> {
-    const { PgBoss } = await import('pg-boss');
-    const boss = new PgBoss({
-      connectionString: databaseUrl,
-      ...pgBossRuntimeOptions({
-        applicationName: 'amic-vault-search-index-queue',
-        migrateEnvName: 'SEARCH_INDEX_QUEUE_MIGRATE_ENABLED',
-        createSchemaEnvName: 'SEARCH_INDEX_QUEUE_CREATE_SCHEMA_ENABLED',
-        superviseEnvName: 'SEARCH_INDEX_QUEUE_SUPERVISE_ENABLED',
-      }),
-    });
-    boss.on('error', (error) => {
-      this.logger.warn({ code: 'SEARCH_INDEX_QUEUE_ERROR', message: String(error.message) });
-    });
-    await boss.start();
-    await boss.createQueue(searchIndexDeadLetterQueueName, {
-      retryLimit: 0,
-      retentionSeconds: 7 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    await boss.createQueue(searchIndexQueueName, {
-      retryLimit: 5,
-      retryDelay: 1,
-      retryBackoff: true,
-      deadLetter: searchIndexDeadLetterQueueName,
-      retentionSeconds: 14 * 24 * 60 * 60,
-      deleteAfterSeconds: 7 * 24 * 60 * 60,
-    });
-    return boss;
+  private async ensureStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.producer(searchIndexQueueName);
+  }
+
+  private async ensureConsumerStarted() {
+    this.registerQueueDefinitions();
+    return this.queueRegistry.consumer(searchIndexQueueName);
   }
 }
