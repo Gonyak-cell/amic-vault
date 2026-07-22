@@ -165,6 +165,14 @@ does not authorize a quarantine write, an ingress change, primary promotion or
 any QRT-004 intake behavior. QRT-004 retains ownership of server-derived
 quarantine key creation and every upload-ingress change.
 
+### QRT-003 scope amendment — Vault-owned control provenance
+
+QRT-003 may declare its new API queue/service/module and ingestion scan-router
+files as explicit L0 no-copy control code in the existing adoption-decision
+manifest. This changes no upstream source, fixture, dependency or runtime
+authority; it makes the reuse-first gate prove that the queue, audit and
+adapter bridge remain Vault-owned.
+
 ## `DEVOPS-OSS04-QRT-TUW-004`
 
 - **Files create:** `apps/api/src/modules/file-security/quarantine-intake.service.ts`
