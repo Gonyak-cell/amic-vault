@@ -55,6 +55,21 @@ describe('GlobalExceptionFilter', () => {
     expect(JSON.stringify(tracker.capture.mock.calls)).not.toContain('password');
   });
 
+  it('returns a safe bad request for a known Multer parser limit without tracking it', () => {
+    const tracker = new SpyTracker();
+    const filter = new GlobalExceptionFilter(tracker as never);
+    const { host, json, status } = createHost();
+    const exception = Object.assign(new Error('Field name nesting too deep'), {
+      code: 'LIMIT_FIELD_NESTING',
+    });
+
+    filter.catch(exception, host);
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+    expect(json).toHaveBeenCalledWith({ code: 'VALIDATION_FAILED', requestId: undefined });
+    expect(tracker.capture).not.toHaveBeenCalled();
+  });
+
   it('keeps responses stable when the tracker throws', () => {
     const tracker = { capture: vi.fn(() => Promise.reject(new Error('tracker failed'))) };
     const filter = new GlobalExceptionFilter(tracker as never);
