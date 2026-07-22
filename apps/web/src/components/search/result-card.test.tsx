@@ -69,9 +69,7 @@ describe('ResultCard', () => {
     expect(html).toContain('문서 열기');
     expect(html).toContain('미리보기');
     expect(html).toContain('문서함');
-    expect(html).toContain(
-      'href="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=1&amp;vault-preview-target=all&amp;vault-preview-anchor=vph-1-0-6"',
-    );
+    expect(html).not.toContain('/v1/documents/11111111-1111-4111-8111-111111111201/preview');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007&amp;title=Escrow+Closing+Memo"');
     expect(html).toContain('Escrow Closing Memo');
     expect(html).toContain('AMIC-2026-0007 · Vault Upgrade');
@@ -142,7 +140,7 @@ describe('ResultCard', () => {
     expect(html).toContain('AMIC-2026-0007 · Vault Upgrade');
     expect(html).toContain('contract');
     expect(html).toContain('target=clause');
-    expect(html).toContain('vault-preview-target=clause');
+    expect(html).not.toContain('vault-preview-target=clause');
     expect(html).toContain('손해배상 책');
     expect(html).toContain('임 한도는 계약금액으로 제한한다.');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111208');

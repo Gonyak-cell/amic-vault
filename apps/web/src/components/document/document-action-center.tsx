@@ -65,6 +65,7 @@ import { AiPrepStatusPanel } from '@/components/ai/ai-prep-status-panel';
 import { AiStructuredAnswerPanel } from '@/components/ai/ai-assistant-panel';
 import { OrgSubjectPicker } from '@/components/access/org-subject-picker';
 import { DocumentAuditTimeline } from '@/components/document/document-audit-timeline';
+import { PreviewSessionFrame } from '@/components/document/preview-session-frame';
 import {
   DocumentGovernanceContextPanel,
   DocumentWorkflowOpsPanel,
@@ -94,7 +95,6 @@ import {
   createDocumentEditSession,
   documentEditBaseFileUrl,
   documentDownloadUrl,
-  documentPreviewUrl,
   documentSubversionFileUrl,
   emailRawDownloadUrl,
   forceReleaseDocumentEditSession,
@@ -696,23 +696,6 @@ export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto
   const duplicateMessage =
     result.duplicates.length > 0 ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.` : '';
   return `v${result.versionNo} 새 버전이 추가되었습니다. 버전 목록, 활동 기록, 파일 정리 준비 상태를 갱신했습니다.${duplicateMessage}`;
-}
-
-function previewUrlForDocument(
-  documentId: string,
-  context: DocumentSearchHitContext | null,
-): string {
-  if (!context || context.hitCount < 1 || context.source === 'ai_citation') {
-    return documentPreviewUrl(documentId);
-  }
-  return documentPreviewUrl(documentId, {
-    searchHit: {
-      ...(context.anchorId ? { anchorId: context.anchorId } : {}),
-      hitCount: context.hitCount,
-      hitIndex: context.hitIndex,
-      target: context.target,
-    },
-  });
 }
 
 const searchTargetLabels = {
@@ -2164,11 +2147,6 @@ export function DocumentActionCenter({
     return 'Matter 표시명 없음';
   }, [document]);
 
-  const previewSrc = useMemo(
-    () => (document ? previewUrlForDocument(document.documentId, searchHitContext) : ''),
-    [document, searchHitContext],
-  );
-
   async function saveProfile() {
     if (!document || !profileDraft || profileSaving) return;
     setProfileSaving(true);
@@ -3122,15 +3100,11 @@ export function DocumentActionCenter({
               }
             >
               <div className="aspect-[16/10] overflow-hidden rounded-md border bg-muted">
-                <iframe
-                  className="h-full w-full bg-background"
-                  src={previewSrc}
-                  title={`${document.title} preview`}
-                />
+                <PreviewSessionFrame documentId={document.documentId} title={document.title} />
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 {searchHitContext?.hitCount
-                  ? '검색 hit 위치는 서버로 검색어 또는 스니펫을 보내지 않는 미리보기 fragment로만 연결됩니다.'
+                  ? '검색 문맥은 문서 화면에만 유지하며, 미리보기 요청에는 세션 자격 증명 외의 검색어 또는 스니펫을 보내지 않습니다.'
                   : '미리보기가 준비되지 않은 파일은 서버가 안전한 오류 상태를 반환합니다.'}
               </p>
             </SectionCard>

@@ -1076,6 +1076,10 @@ export {
   type UpdateDocumentMetadataDto,
 } from './dto/document/update-document-metadata.dto';
 export {
+  previewAccessSessionSchema,
+  type PreviewAccessSessionDto,
+} from './dto/document/preview-session.dto';
+export {
   updateDocumentStatusSchema,
   type UpdateDocumentStatusDto,
 } from './dto/document/update-document-status.dto';

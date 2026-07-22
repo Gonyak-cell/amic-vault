@@ -19,7 +19,6 @@ import type {
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
-import { documentPreviewUrl } from '@/lib/api-client';
 import { useI18n } from '@/lib/i18n';
 
 interface ResultCardProps {
@@ -47,17 +46,6 @@ export function ResultCard({ mode = 'keyword', result, target = 'all' }: ResultC
     .filter(Boolean)
     .join(' · ');
   const documentHref = documentSearchHitUrlForSearchResult(result, target);
-  const previewHref =
-    result.highlights.length > 0
-      ? documentPreviewUrl(result.documentId ?? '', {
-          searchHit: {
-            ...(result.highlights[0]?.anchorId ? { anchorId: result.highlights[0].anchorId } : {}),
-            hitCount: result.highlights.length,
-            hitIndex: 1,
-            target,
-          },
-        })
-      : documentPreviewUrl(result.documentId ?? '');
   const fileCabinetHref = fileCabinetUrlForSearchResult(result);
   const authorLabel = result.author?.displayName?.trim();
   const permissionBadges = result.permissionBadges;
@@ -87,10 +75,10 @@ export function ResultCard({ mode = 'keyword', result, target = 'all' }: ResultC
             </Link>
           </Button>
           <Button asChild size="sm" variant="outline">
-            <a href={previewHref} target="_blank" rel="noreferrer">
+            <Link href={documentHref}>
               <Eye className="h-4 w-4" aria-hidden="true" />
               미리보기
-            </a>
+            </Link>
           </Button>
           <Button asChild size="sm" variant="outline">
             <Link href={fileCabinetHref}>

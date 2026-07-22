@@ -820,11 +820,9 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain(
       'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=body&amp;hit=2&amp;hitCount=2"',
     );
+    expect(html).not.toContain('/v1/documents/11111111-1111-4111-8111-111111111201/preview');
     expect(html).toContain(
-      'src="http://localhost:3001/v1/documents/11111111-1111-4111-8111-111111111201/preview#vault-preview-hit=1&amp;vault-preview-hit-count=2&amp;vault-preview-target=body&amp;vault-preview-anchor=vph-1-0-18"',
-    );
-    expect(html).toContain(
-      '검색 hit 위치는 서버로 검색어 또는 스니펫을 보내지 않는 미리보기 fragment로만 연결됩니다.',
+      '검색 문맥은 문서 화면에만 유지하며, 미리보기 요청에는 세션 자격 증명 외의 검색어 또는 스니펫을 보내지 않습니다.',
     );
     expect(html).toContain('검색으로 돌아가기');
     expect(html).not.toContain('authorized snippet');
