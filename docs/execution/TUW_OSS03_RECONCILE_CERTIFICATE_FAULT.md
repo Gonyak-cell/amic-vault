@@ -84,10 +84,13 @@ and state-transition authority.
   historical metadata, key-only delete, dependencies/locks, `docs/package/**`.
 - **Implementation:** verify the complete receipt set and canonical hashes;
   recheck approval/hold immediately before update; transition allowed DB state
-  to the tombstone/final status; insert one certificate with inventory/result
-  hash and approval/audit references; record audit; commit atomically. Define
-  the audit-ID/hash ordering explicitly and make duplicate finalization return
-  the same certificate without a second state transition.
+  to the `disposal_requests.executed` tombstone/final status; insert one
+  certificate with the sealed inventory hash and deterministic receipt-result
+  hash bound into its certificate hash; record audit; commit atomically. The
+  Document row remains historical metadata and is neither physically deleted
+  nor status-mutated in this TUW. Define the audit-ID/hash ordering explicitly
+  and make duplicate finalization return the same certificate without a second
+  state transition.
 - **Verification (AND):** incomplete/blocked receipt deny, hold-race deny,
   audit rollback, duplicate finalization x10, and exact certificate
   recalculation.

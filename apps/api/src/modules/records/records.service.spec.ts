@@ -413,4 +413,147 @@ describe('RecordsService legal hold lifecycle', () => {
     ).rejects.toThrow('audit unavailable');
     expect(tx.query).toHaveBeenCalledTimes(1);
   });
+
+  it('certifies only a completed sealed disposal with every immutable receipt', async () => {
+    const approvedRow = {
+      disposal_request_id: disposalRequestId,
+      matter_id: matterId,
+      document_id: documentId,
+      status: 'approved',
+      reason_code: 'CLIENT_RECORDS',
+      requested_by: '11111111-1111-4111-8111-111111111199',
+      approved_by: actorUserId,
+      executed_by: null,
+      assigned_to_user_id: null,
+      assigned_role: 'records_admin',
+      due_at: new Date('2026-06-27T00:00:00.000Z'),
+      workflow_item_id: workItemId,
+      workflow_audit_event_id: auditEventId,
+      created_at: new Date('2026-06-20T00:00:00.000Z'),
+      approved_at: new Date('2026-06-20T00:01:00.000Z'),
+      executed_at: null,
+      certificate_id: null,
+      pending_execution_ref: workItemId,
+    };
+    const certificate = {
+      certificate_id: auditEventId,
+      disposal_request_id: disposalRequestId,
+      matter_id: matterId,
+      document_id: documentId,
+      document_hash: 'a'.repeat(64),
+      certificate_hash: 'b'.repeat(64),
+      approved_by: actorUserId,
+      executed_by: actorUserId,
+      executed_at: new Date('2026-06-20T00:06:00.000Z'),
+    };
+    const tx = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('FROM disposal_requests dr')) return { rowCount: 1, rows: [approvedRow] };
+        if (sql.includes('FROM documents d')) return { rowCount: 1, rows: [documentTarget()] };
+        if (sql.includes('FROM legal_holds') || sql.includes('SELECT count(*)::text AS count')) {
+          return { rowCount: 1, rows: [{ count: '0' }] };
+        }
+        if (sql.includes('FROM records_disposal_outbox')) {
+          return { rowCount: 1, rows: [{
+            disposal_outbox_id: workItemId,
+            inventory_hash: 'a'.repeat(64),
+            state: 'completed',
+          }] };
+        }
+        if (sql.includes('FROM records_disposal_inventory inventory')) {
+          return { rowCount: 1, rows: [{
+            disposal_inventory_id: '11111111-1111-4111-8111-111111111155',
+            canonical_ordinal: 1,
+            outcome: 'deleted',
+            receipt_hash: 'c'.repeat(64),
+          }] };
+        }
+        if (sql.includes("UPDATE disposal_requests\n        SET status = 'executed'")) {
+          return { rowCount: 1, rows: [{
+            disposal_request_id: disposalRequestId,
+            matter_id: matterId,
+            document_id: documentId,
+            approved_by: actorUserId,
+            executed_by: actorUserId,
+            executed_at: certificate.executed_at,
+          }] };
+        }
+        if (sql.includes('INSERT INTO disposal_certificates')) return { rowCount: 1, rows: [certificate] };
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+    const { auditLog, service, workService } = serviceWith(tx);
+
+    await expect(service.executeDisposalRequest(ctx, disposalRequestId)).resolves.toMatchObject({
+      certificateId: auditEventId,
+      certificateHash: 'b'.repeat(64),
+      disposalRequestId,
+    });
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DISPOSAL_CERTIFICATE_CREATED',
+        metadata: expect.objectContaining({ evidence_id: workItemId, item_count: 1 }),
+      }),
+      tx,
+    );
+    expect(workService.completeRecordsDisposalWork).toHaveBeenCalledWith(tx, expect.objectContaining({
+      kind: 'records_disposal_execution',
+    }));
+  });
+
+  it('blocks certification before any state mutation when a sealed receipt is missing', async () => {
+    const tx = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('FROM disposal_requests dr')) {
+          return { rowCount: 1, rows: [{
+            disposal_request_id: disposalRequestId,
+            matter_id: matterId,
+            document_id: documentId,
+            status: 'approved',
+            reason_code: 'CLIENT_RECORDS',
+            requested_by: '11111111-1111-4111-8111-111111111199',
+            approved_by: actorUserId,
+            executed_by: null,
+            assigned_to_user_id: null,
+            assigned_role: 'records_admin',
+            due_at: new Date('2026-06-27T00:00:00.000Z'),
+            workflow_item_id: workItemId,
+            workflow_audit_event_id: auditEventId,
+            created_at: new Date('2026-06-20T00:00:00.000Z'),
+            approved_at: new Date('2026-06-20T00:01:00.000Z'),
+            executed_at: null,
+            certificate_id: null,
+            pending_execution_ref: workItemId,
+          }] };
+        }
+        if (sql.includes('FROM documents d')) return { rowCount: 1, rows: [documentTarget()] };
+        if (sql.includes('FROM legal_holds') || sql.includes('SELECT count(*)::text AS count')) {
+          return { rowCount: 1, rows: [{ count: '0' }] };
+        }
+        if (sql.includes('FROM records_disposal_outbox')) {
+          return { rowCount: 1, rows: [{
+            disposal_outbox_id: workItemId,
+            inventory_hash: 'a'.repeat(64),
+            state: 'completed',
+          }] };
+        }
+        if (sql.includes('FROM records_disposal_inventory inventory')) {
+          return { rowCount: 1, rows: [{
+            disposal_inventory_id: '11111111-1111-4111-8111-111111111155',
+            canonical_ordinal: 1,
+            outcome: null,
+            receipt_hash: null,
+          }] };
+        }
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+    const { auditLog, service } = serviceWith(tx);
+
+    await expect(service.executeDisposalRequest(ctx, disposalRequestId)).rejects.toMatchObject({
+      response: { reason: 'DISPOSAL_RECEIPTS_INCOMPLETE' },
+    });
+    expect(tx.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE disposal_requests'))).toBe(false);
+    expect(auditLog).not.toHaveBeenCalled();
+  });
 });
