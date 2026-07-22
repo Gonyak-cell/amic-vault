@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { stat } from 'node:fs/promises';
-import { Pool, type PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
 import {
   bulkUploadJobSchema,
   registerBulkUploadBatchSchema,
@@ -16,17 +16,7 @@ import {
   type RetryBulkUploadBatchItemDto,
   type TenantId,
 } from '@amic-vault/shared';
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://amic_vault:amic_vault_dev_password@localhost:5432/amic_vault';
-
-let pool: Pool | undefined;
-
-function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl });
-  return pool;
-}
+import { DatabaseService } from '../../common/db/database.service';
 
 export type BulkUploadEnqueue = (payload: BulkUploadJobDto, client: PoolClient) => Promise<string>;
 
@@ -108,6 +98,8 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
 
 @Injectable()
 export class BulkUploadBatchService {
+  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+
   async registerBatch(
     input: {
       actorUserId: string;
@@ -336,19 +328,7 @@ export class BulkUploadBatchService {
   }
 
   private async transaction<T>(tenantId: TenantId, run: (client: PoolClient) => Promise<T>) {
-    const client = await getPool().connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
-      const result = await run(client);
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    return this.databaseService.tenantTransaction(tenantId, run);
   }
 
   private async insertBatch(
