@@ -43,7 +43,11 @@ jobs:
         run: |
           node --test tools/oss/verify-source-map.spec.mjs tools/oss/check-reuse-first.spec.mjs
           node tools/oss/verify-source-map.mjs --static --source-map security/oss-source-map.yml --decisions security/oss-adoption-decisions.yml --reuse security/oss-test-reuse.yml
-          node tools/oss/check-reuse-first.mjs --base ${{ github.event.pull_request.base.sha || github.event.before || github.sha }} --decisions security/oss-adoption-decisions.yml
+          BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before || github.sha }}"
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git merge-base HEAD "origin/${{ github.event.repository.default_branch }}")"
+          fi
+          node tools/oss/check-reuse-first.mjs --base "$BASE_SHA" --decisions security/oss-adoption-decisions.yml
 
   governance:
     runs-on: ubuntu-latest
