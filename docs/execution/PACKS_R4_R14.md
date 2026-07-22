@@ -77,6 +77,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS03-01 | `feat/pack-oss03-01-sealed-disposal-inventory` | 4 | `DEVOPS-OSS03-DSP-TUW-001` through `DEVOPS-OSS03-DSP-TUW-004` (`docs/execution/TUW_OSS03_SEALED_DISPOSAL_INVENTORY.md`) |
 | PACK-OSS04-01 | `feat/pack-oss04-01-quarantine-scan` | 4 | `DEVOPS-OSS04-QRT-TUW-001` through `DEVOPS-OSS04-QRT-TUW-004` (`docs/execution/TUW_OSS04_QUARANTINE_SCAN.md`) |
 | PACK-OSS07-01 | `feat/pack-oss07-01-identity-topology` | 4 | `DEVOPS-OSS07-IDP-TUW-001` through `DEVOPS-OSS07-IDP-TUW-004` (`docs/execution/TUW_OSS07_IDENTITY_TOPOLOGY.md`) |
+| PACK-OSS09-01 | `feat/pack-oss09-01-telemetry-policy` | 4 | `DEVOPS-OSS09-TEL-TUW-001` through `DEVOPS-OSS09-TEL-TUW-004` (`docs/execution/TUW_OSS09_TELEMETRY_POLICY.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 

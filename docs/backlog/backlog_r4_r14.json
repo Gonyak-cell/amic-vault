@@ -1,5 +1,5 @@
 {
-  "total": 222,
+  "total": 226,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3375,6 +3375,50 @@
         "tests/integration"
       ],
       "verification": "one-use short-lived provider tenant bound callback state rejects replay cross-tenant nonce state expiry race redirect and store outage without issuing a local session before verification"
+    },
+    {
+      "id": "DEVOPS-OSS09-TEL-TUW-001",
+      "title": "Telemetry semantic redaction and cardinality contract",
+      "release": "R14",
+      "module": "DEVOPS-OSS09",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-QUE-TUW-004"],
+      "files": ["apps/api/src/common/telemetry", "security/telemetry-data-policy.yml", "tools/quality", "docs/architecture/oss-adoption-decisions"],
+      "verification": "allow deny raw identifier content token UUID route and dynamic-cardinality cases pass AND source canary baseline is zero AND new raw identifier telemetry or log fields fail the CI checker"
+    },
+    {
+      "id": "DEVOPS-OSS09-TEL-TUW-002",
+      "title": "Pinned internal telemetry collector stack",
+      "release": "R14",
+      "module": "DEVOPS-OSS09",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS09-TEL-TUW-001"],
+      "files": ["infra", "security", "docs/architecture/oss-adoption-decisions", "tests/integration"],
+      "verification": "exact Collector metrics trace source artifact and license provenance plus internal-only redaction backpressure retry and no-public-listener cases pass after sink retention and owner authority"
+    },
+    {
+      "id": "DEVOPS-OSS09-TEL-TUW-003",
+      "title": "Bounded API DB storage and audit telemetry",
+      "release": "R14",
+      "module": "DEVOPS-OSS09",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS09-TEL-TUW-002"],
+      "files": ["apps/api/src/common", "apps/api/src/modules", "tests/integration"],
+      "verification": "all instrumentation calls use the telemetry contract AND lifecycle and sensitive SQL body identifier canary negatives pass without changing permission or audit authority"
+    },
+    {
+      "id": "DEVOPS-OSS09-TEL-TUW-004",
+      "title": "Cross-process bounded trace continuity",
+      "release": "R14",
+      "module": "DEVOPS-OSS09",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS09-TEL-TUW-003"],
+      "files": ["apps/api/src/common", "workers/ingestion", "tests/integration"],
+      "verification": "synthetic API queue worker scanner trace continuity passes AND replay cross-tenant raw-baggage content and authorization-signal negatives fail closed"
     }
   ]
 }
