@@ -46,4 +46,21 @@ describe('FileSecurityService', () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'FILE_SECURITY_HELD', metadata: expect.objectContaining({ reason_code: 'hash_mismatch' }) }), tx);
   });
+
+  it.each([
+    ['malformed worker response', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })), 'malformed_response'],
+    ['worker timeout', vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError')), 'scanner_timeout'],
+  ])('fails closed on %s', async (_label, fetchMock, expectedCode) => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM file_security_scans')) return { rows: [{ scan_id: '33333333-3333-4333-8333-333333333333', matter_id: '44444444-4444-4444-8444-444444444444', quarantine_storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`, size_bytes: '4', state: 'quarantined' }] };
+      if (sql.includes('COALESCE(MAX(attempt_no)')) return { rows: [{ attempt_no: 1 }] };
+      return { rows: [] };
+    });
+    const tx = { query };
+    const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
+    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('safe')]) }) };
+    vi.stubGlobal('fetch', fetchMock);
+    await new FileSecurityService(audit as never, storage as never).handle({ tenantId, quarantineRef, expectedSha256 });
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'FILE_SCAN_COMPLETED', result: 'failure', metadata: expect.objectContaining({ reason_code: expectedCode }) }), tx);
+  });
 });
