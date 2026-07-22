@@ -24,6 +24,7 @@ import { NoopEncryptionHook } from '../../apps/api/src/modules/storage/noop-encr
 import { S3StorageAdapter } from '../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../apps/api/src/modules/storage/storage-path.resolver';
 import { StorageService } from '../../apps/api/src/modules/storage/storage.service';
+import { markPromotedFixture } from './document-access/document-api-helpers';
 import { createOwnerClient, setTenant, tenantAlphaId, withClient } from './helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
@@ -128,7 +129,9 @@ async function upload(
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
-  return JSON.parse(body) as UploadResponse;
+  const uploaded = JSON.parse(body) as UploadResponse;
+  await markPromotedFixture({ documentId: uploaded.documentId });
+  return uploaded;
 }
 
 async function postJson<T>(
