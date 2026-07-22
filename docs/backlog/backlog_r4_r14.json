@@ -1,5 +1,5 @@
 {
-  "total": 191,
+  "total": 194,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3005,6 +3005,39 @@
       "depends_on": ["DEVOPS-OSSADOPT-SOURCEMAP-TUW-002"],
       "files": ["security/oss-test-reuse.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
       "verification": "missing license wrong hash copied-source misclassification and invalid canonical suite fail AND security portfolios retain a negative or fault parity scenario"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-OPS-TUW-004",
+      "title": "Ops infra search editor source-test map",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-REUSE-TUW-003"],
+      "files": ["docs/architecture/oss-adoption-decisions", "security/oss-source-map.yml", "security/oss-test-reuse.yml"],
+      "verification": "exact source path blob map or explicit conditional blocked record covers OSS-09 through OSS-11 AND ADR or trigger absent candidates are not adoption-ready"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-DECISION-TUW-005",
+      "title": "L0 L4 TCO license adoption decisions",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-OPS-TUW-004"],
+      "files": ["security/oss-adoption-decisions.yml", "docs/architecture/oss-adoption-decisions"],
+      "verification": "every source test fixture and conditional row has a decision AND L2 L3 obligations negative-test AND Permission Audit core REPLACE is zero"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-GATE-TUW-006",
+      "title": "Source map reuse-first CI gate",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-DECISION-TUW-005"],
+      "files": ["tools/oss", "security/oss-evidence-schema.json", ".github/workflows/supply-chain.yml"],
+      "verification": "missing provenance fake SHA dirty clone copied fixture no-decision new dependency and source-lab build-context fixtures fail AND upper-plan creates are covered"
     }
   ]
 }
