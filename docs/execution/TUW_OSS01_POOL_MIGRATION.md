@@ -34,7 +34,11 @@
 
 ## `DEVOPS-OSS01-DBM-TUW-001`
 
-- **Files create:** none.
+- **Files create:** `db/migrations/0180_grant_runtime_user_role_update.sql` and
+  `db/migrations/0181_grant_runtime_matter_update_columns.sql` only. Both are
+  reversible `GRANT`/`REVOKE` migrations for the existing `vault_app` role;
+  neither may alter RLS, policies, SECURITY DEFINER bodies, state-machine
+  logic, audit schema or ownership.
 - **Files modify:** `apps/api/src/modules/audit/audit.service.ts`,
   `audit-anchor-job.service.ts`, `apps/api/src/modules/tenant/tenant.store.ts`,
   `apps/api/src/modules/permission/permission.service.ts`,
@@ -46,10 +50,12 @@
   and `apps/api/src/modules/audit/permission-event.recorder.ts` only when
   required to expose a named,
   typed existing authority; `security/oss-source-map.yml` OSS-01 constructor
-  rows only; existing directly affected integration specs and
+  rows and `security/oss-adoption-decisions.yml` L0 path rows for the two
+  named grant migrations only; existing directly affected integration specs and
   `tests/integration/helpers/db.ts` only for central transaction setup.
 - **Files NOT-modify:** permission-evaluation rules, audit metadata/action
-  schema, RLS or grants, migrations, dependencies/locks, `docs/package/**`.
+  schema, RLS policies, SECURITY DEFINER bodies, dependencies/locks,
+  `docs/package/**`.
 - **Implementation:** remove each listed direct pool/getPool access through
   constructor injection. Use one same-tenant client for business,
   PermissionService and successful/action audit work. The sole safe-denied
@@ -57,6 +63,15 @@
   evidence survives rollback of a rejected enclosing transaction; it is not a
   general query escape hatch. A tenant registry read
   is limited to existing typed status/id/slug reads; no generic global query.
+- **Privilege remediation:** runtime-role audit coverage proves two existing
+  central-client mutation paths otherwise fail before audit completion:
+  `UPDATE (role)` on `users`, and the exact existing Matter lifecycle/metadata
+  update columns `status`, `opened_at`, `closed_at`, `matter_name`,
+  `practice_group`, `metadata_json`, `access_scope`,
+  `confidentiality_level`, `lead_partner_id`, `lead_lawyer_id`,
+  `lead_associate_id`, `updated_at`. The two named migrations may grant and
+  reversibly revoke only those actions to `vault_app`; all row isolation stays
+  enforced by existing RLS.
 - **Verification (AND):** affected unit specs; `permission-matrix`,
   `cross-tenant`, `fail-closed`, `audit-immutability`, relevant
   `audit-coverage`; synthetic audit-insert failure rolls back action; checker

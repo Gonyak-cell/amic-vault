@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import { Client, type PoolClient } from 'pg';
 
 const databaseUrl =
   process.env.DATABASE_MIGRATION_URL ??
@@ -29,6 +29,32 @@ export async function withClient<T>(client: Client, run: (client: Client) => Pro
 
 export async function setTenant(client: Client, tenantId: string): Promise<void> {
   await client.query('SELECT set_config($1, $2, false)', ['app.current_tenant_id', tenantId]);
+}
+
+export interface RuntimeDatabaseExecutor {
+  tenantTransaction<T>(tenantId: string, work: (client: PoolClient) => Promise<T>): Promise<T>;
+  auditTransaction<T>(tenantId: string, work: (client: PoolClient) => Promise<T>): Promise<T>;
+}
+
+export function createRuntimeDatabaseExecutor(): RuntimeDatabaseExecutor {
+  const transaction = async <T>(
+    tenantId: string,
+    work: (client: PoolClient) => Promise<T>,
+  ): Promise<T> => {
+    return withClient(createAppClient(), async (client) => {
+      await client.query('BEGIN');
+      try {
+        await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId]);
+        const result = await work(client);
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      }
+    });
+  };
+  return { tenantTransaction: transaction, auditTransaction: transaction };
 }
 
 export const tenantAlphaId = '11111111-1111-4111-8111-111111111111';

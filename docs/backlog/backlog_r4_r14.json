@@ -3091,8 +3091,8 @@
       "risk": "C",
       "size": "L",
       "depends_on": ["DEVOPS-OSS01-DBA-TUW-004"],
-      "files": ["apps/api/src/modules/audit", "apps/api/src/modules/tenant", "apps/api/src/modules/permission", "apps/api/src/common/guards", "apps/api/src/common/db", "tests/integration"],
-      "verification": "listed direct pools move to DatabaseService tenant transactions AND permission audit cross-tenant and fail-closed suites preserve same-transaction behavior"
+      "files": ["apps/api/src/modules/audit", "apps/api/src/modules/tenant", "apps/api/src/modules/permission", "apps/api/src/common/guards", "apps/api/src/common/db", "db/migrations/0180_grant_runtime_user_role_update.sql", "db/migrations/0181_grant_runtime_matter_update_columns.sql", "tests/integration", "security/oss-source-map.yml", "security/oss-adoption-decisions.yml"],
+      "verification": "listed direct pools move to DatabaseService tenant transactions AND only two exact reversible runtime role grants preserve audited existing role and Matter updates while RLS remains unchanged"
     },
     {
       "id": "DEVOPS-OSS01-DBM-TUW-002",

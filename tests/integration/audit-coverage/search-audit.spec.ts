@@ -13,7 +13,7 @@ import { SearchQueryBuilder } from '../../../apps/api/src/modules/search/query/s
 import { SnippetBuilder } from '../../../apps/api/src/modules/search/query/snippet-builder';
 import { SearchService } from '../../../apps/api/src/modules/search/search.service';
 import { TenantContextService } from '../../../apps/api/src/modules/tenant/tenant-context';
-import { createOwnerClient, tenantAlphaId, withClient } from '../helpers/db';
+import { createOwnerClient, createRuntimeDatabaseExecutor, tenantAlphaId, withClient } from '../helpers/db';
 import {
   alphaOwnerUserId,
   createSearchFixture,
@@ -48,7 +48,7 @@ function createService(fixture: SearchFixture): SearchService {
     },
   };
   return new SearchService(
-    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    new AuditService(new TenantContextService(), new AuditMetadataNormalizer(), createRuntimeDatabaseExecutor() as never),
     new SearchQueryBuilder(new SearchFilterBuilder(), snippetBuilder),
     snippetBuilder,
     provider,
@@ -58,7 +58,7 @@ function createService(fixture: SearchFixture): SearchService {
 function createServiceWithProvider(provider: SearchPermissionScopeProvider): SearchService {
   const snippetBuilder = new SnippetBuilder();
   return new SearchService(
-    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    new AuditService(new TenantContextService(), new AuditMetadataNormalizer(), createRuntimeDatabaseExecutor() as never),
     new SearchQueryBuilder(new SearchFilterBuilder(), snippetBuilder),
     snippetBuilder,
     provider,

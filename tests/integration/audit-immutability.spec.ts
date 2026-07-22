@@ -9,6 +9,7 @@ import { TenantContextService } from '../../apps/api/src/modules/tenant/tenant-c
 import {
   createAppClient,
   createOwnerClient,
+  createRuntimeDatabaseExecutor,
   setTenant,
   tenantAlphaId,
   withClient,
@@ -73,7 +74,7 @@ function createAnchorService(): AuditAnchorService {
     })),
   };
   return new AuditAnchorService(
-    new AuditService(new TenantContextService(), new AuditMetadataNormalizer()),
+    new AuditService(new TenantContextService(), new AuditMetadataNormalizer(), createRuntimeDatabaseExecutor() as never),
     storage,
   );
 }
