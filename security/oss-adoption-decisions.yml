@@ -66,7 +66,10 @@
     "apps/api/src/modules/storage/versioned-storage-capability.ts",
     "apps/api/src/modules/storage/versioned-storage-capability.spec.ts",
     "tools/storage/probe-versioned-disposal.mjs",
-    "tools/storage/probe-versioned-disposal.spec.mjs"
+    "tools/storage/probe-versioned-disposal.spec.mjs",
+    "db/migrations/0202_create_records_disposal_outbox.sql",
+    "apps/api/src/modules/records/disposal-receipt.types.ts",
+    "apps/api/src/modules/records/disposal-receipt.types.spec.ts"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },
