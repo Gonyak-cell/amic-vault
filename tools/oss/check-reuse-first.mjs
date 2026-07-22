@@ -1,0 +1,12 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+
+const PRODUCT_PREFIXES = ['apps/', 'packages/', 'workers/', 'db/', 'infra/'];
+const DEPENDENCY = /(^|\/)(package\.json|pnpm-lock\.yaml|pyproject\.toml|uv\.lock|requirements(?:-[^/]+)?\.txt)$/u;
+function product(file) { return PRODUCT_PREFIXES.some((prefix) => file.startsWith(prefix)); }
+function approved(decisions, file) { return (decisions.l0IneligiblePaths ?? []).includes(file) || (decisions.decisions ?? []).some((row) => ['L1', 'L2', 'L3', 'L4'].includes(row.decision) && row.status === 'APPROVED_FOR_PRODUCT_CHANGE' && row.approvedPaths?.includes(file)); }
+export function evaluateReuseFirst({ changedFiles, addedFiles = changedFiles, decisions }) { const violations = []; for (const file of changedFiles) { if (/^(clones|reproductions|baselines)\//u.test(file)) violations.push({ file, code: 'SOURCE_LAB_BUILD_CONTEXT_FORBIDDEN' }); if (DEPENDENCY.test(file)) violations.push({ file, code: 'NEW_DEPENDENCY_REQUIRES_SCOPED_DECISION' }); } for (const file of addedFiles) if (product(file) && !approved(decisions, file)) violations.push({ file, code: 'NEW_PRODUCT_FILE_REQUIRES_L0_L4_DECISION' }); return { schemaVersion: 'amic-vault.reuse-first-report.v1', status: violations.length ? 'FAIL' : 'PASS', changedFileCount: changedFiles.length, violations, reviewSignals: ['Text similarity is a human-review signal only and never authorizes copied OSS source.'] }; }
+const isCli = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isCli) { try { const [baseFlag, base, decisionsFlag, decisionsPath = 'security/oss-adoption-decisions.yml'] = process.argv.slice(2); if (baseFlag !== '--base' || !/^[a-f0-9]{40}$/u.test(base) || decisionsFlag !== '--decisions') throw new Error('usage: --base <full-sha> --decisions <path>'); const changedFiles = execFileSync('git', ['diff', '--name-only', `${base}..HEAD`], { encoding: 'utf8' }).split('\n').filter(Boolean); const addedFiles = execFileSync('git', ['diff', '--name-only', '--diff-filter=A', `${base}..HEAD`], { encoding: 'utf8' }).split('\n').filter(Boolean); const report = evaluateReuseFirst({ changedFiles, addedFiles, decisions: JSON.parse(readFileSync(decisionsPath, 'utf8')) }); console.log(JSON.stringify(report)); if (report.status !== 'PASS') process.exitCode = 1; } catch (error) { process.stderr.write(`REUSE_FIRST_GATE_INVALID: ${error.message}\n`); process.exitCode = 1; } }
