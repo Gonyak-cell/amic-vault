@@ -354,6 +354,18 @@ describe('document upload permission integration', () => {
           'SELECT count(*)::text AS count FROM documents WHERE tenant_id = $1 AND matter_id = $2',
           [tenantAlphaId, matterId],
         );
+        const promotionInput = await client.query<{
+          original_filename: string;
+          normalized_filename: string;
+          mime_type: string;
+          source_system: string;
+        }>(
+          `SELECT i.original_filename, i.normalized_filename, i.mime_type, i.source_system
+           FROM file_security_promotion_inputs i
+           JOIN file_security_scans s ON s.tenant_id = i.tenant_id AND s.scan_id = i.scan_id
+           WHERE i.tenant_id = $1 AND s.matter_id = $2`,
+          [tenantAlphaId, matterId],
+        );
         const primaryObjectCount = await client.query<{ count: string }>(
           `SELECT count(*)::text AS count
            FROM file_objects
@@ -373,6 +385,14 @@ describe('document upload permission integration', () => {
           quarantine_storage_uri: expect.stringContaining(`/tenants/${tenantAlphaId}/quarantine/${receipt.quarantineRef}`),
         });
         expect(documentCount.rows[0]?.count).toBe('0');
+        expect(promotionInput.rows).toEqual([
+          expect.objectContaining({
+            original_filename: 'QUARANTINE.pdf',
+            normalized_filename: 'QUARANTINE.pdf',
+            mime_type: 'application/pdf',
+            source_system: 'upload',
+          }),
+        ]);
         expect(primaryObjectCount.rows[0]?.count).toBe('0');
         expect(auditCount.rows[0]?.count).toBe('1');
         if (scan.rows[0]?.quarantine_storage_uri) createdStorageUris.push(scan.rows[0].quarantine_storage_uri);

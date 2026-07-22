@@ -49,6 +49,20 @@ describe('FileSecurityService', () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'FILE_SECURITY_HELD', metadata: expect.objectContaining({ reason_code: 'hash_mismatch' }) }), tx);
   });
 
+  it('keeps a legacy clean scan closed when its immutable promotion input is absent', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM file_security_scans')) return { rows: [{ scan_id: '33333333-3333-4333-8333-333333333333', matter_id: '44444444-4444-4444-8444-444444444444', quarantine_storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`, size_bytes: '4', state: 'clean' }] };
+      return { rows: [] };
+    });
+    const tx = { query };
+    const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
+    const promotion = { promote: vi.fn().mockRejectedValue(new Error('FILE_SECURITY_PROMOTION_INPUT_MISSING')) };
+
+    await expect(new FileSecurityService(audit as never, promotion as never, { getByStorageUri: vi.fn() } as never).handle({ tenantId, quarantineRef, expectedSha256 })).resolves.toBeUndefined();
+
+    expect(promotion.promote).toHaveBeenCalledWith({ tenantId, quarantineRef, expectedSha256 });
+  });
+
   it.each([
     ['malformed worker response', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })), 'malformed_response'],
     ['worker timeout', vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError')), 'scanner_timeout'],

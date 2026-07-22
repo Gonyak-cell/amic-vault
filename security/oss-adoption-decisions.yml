@@ -77,7 +77,8 @@
     "apps/api/src/modules/records/records-disposal.worker.ts",
     "apps/api/src/modules/records/records-disposal.worker.spec.ts",
     "apps/api/src/modules/file-security/file-promotion.service.ts",
-    "apps/api/src/modules/file-security/file-promotion.service.spec.ts"
+    "apps/api/src/modules/file-security/file-promotion.service.spec.ts",
+    "tests/integration/document-access/upload-permission.spec.ts"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

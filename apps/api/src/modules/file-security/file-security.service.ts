@@ -21,6 +21,9 @@ interface ScanTarget {
 function workerUrl(): string { return `${(process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '')}/security/scan`; }
 function timeoutMs(): number { const value = Number(process.env.FILE_SECURITY_SCAN_TIMEOUT_MS ?? '10000'); return Number.isInteger(value) && value > 0 ? value : 10000; }
 function validHash(value: string): boolean { return /^[a-f0-9]{64}$/u.test(value); }
+function isLegacyPromotionInputMissing(error: unknown): boolean {
+  return error instanceof Error && error.message === 'FILE_SECURITY_PROMOTION_INPUT_MISSING';
+}
 
 @Injectable()
 export class FileSecurityService {
@@ -34,12 +37,22 @@ export class FileSecurityService {
     if (!validHash(payload.expectedSha256)) throw new Error('FILE_SECURITY_PAYLOAD_INVALID');
     const target = await this.claim(payload);
     if (!target) {
-      await this.filePromotionService.promote(payload);
+      try {
+        await this.filePromotionService.promote(payload);
+      } catch (error) {
+        if (!isLegacyPromotionInputMissing(error)) throw error;
+      }
       return;
     }
     const result = await this.scan(target, payload);
     await this.complete(target, payload, result);
-    if (result.state === 'clean') await this.filePromotionService.promote(payload);
+    if (result.state === 'clean') {
+      try {
+        await this.filePromotionService.promote(payload);
+      } catch (error) {
+        if (!isLegacyPromotionInputMissing(error)) throw error;
+      }
+    }
   }
 
   private async claim(payload: FileSecurityScanJobPayload): Promise<ScanTarget | null> {
