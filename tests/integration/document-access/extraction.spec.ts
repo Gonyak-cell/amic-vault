@@ -16,6 +16,7 @@ import { NoopEncryptionHook } from '../../../apps/api/src/modules/storage/noop-e
 import { S3StorageAdapter } from '../../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../../apps/api/src/modules/storage/storage-path.resolver';
 import { StorageService } from '../../../apps/api/src/modules/storage/storage.service';
+import { markPromotedFixture } from './document-api-helpers';
 import {
   createAppClient,
   createOwnerClient,
@@ -193,7 +194,9 @@ async function uploadDocument(
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
-  return JSON.parse(body) as UploadResponse;
+  const uploaded = JSON.parse(body) as UploadResponse;
+  await markPromotedFixture({ documentId: uploaded.documentId });
+  return uploaded;
 }
 
 async function currentVersion(documentId: string): Promise<CurrentVersionRow> {

@@ -95,6 +95,8 @@
     "tests/integration/document-access/preview.spec.ts",
     "tests/integration/document-access/document-editing-lifecycle.spec.ts",
     "tests/integration/document-access/email-filing.spec.ts",
+    "tests/integration/document-access/extraction.spec.ts",
+    "tests/integration/document-access/extraction-ocr.spec.ts",
     "tests/integration/closing-binder.spec.ts",
     "tests/integration/file-security-scan.spec.ts",
     "tests/integration/file-security-promotion-faults.spec.ts",
