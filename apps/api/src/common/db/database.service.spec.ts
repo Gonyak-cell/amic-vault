@@ -63,6 +63,18 @@ describe('DatabaseService', () => {
     expect(pool.client.release).toHaveBeenCalledTimes(1);
   });
 
+  it('permits an explicit repeatable-read tenant transaction without weakening the tenant GUC', async () => {
+    const { pool, service } = createService();
+    await expect(
+      service.tenantTransaction(tenantId, async () => 'ok', { isolationLevel: 'repeatable read' }),
+    ).resolves.toBe('ok');
+    expect(pool.client.queries).toEqual([
+      'BEGIN ISOLATION LEVEL REPEATABLE READ',
+      'SELECT set_config($1, $2, true)',
+      'COMMIT',
+    ]);
+  });
+
   it('reuses the active client only for same-tenant nested work and rejects cross-tenant nesting', async () => {
     const { pool, service } = createService();
     await expect(service.tenantTransaction(' ', async () => undefined)).rejects.toBeInstanceOf(ForbiddenException);

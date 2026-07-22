@@ -5,7 +5,9 @@ import type {
   StorageBody,
   StorageGetObjectResult,
   StorageReadUrlResult,
+  VersionedStorageAdapter,
 } from './storage-adapter.interface';
+import { StorageUnavailableError, StorageVersioningUnsupportedError } from './storage-adapter.interface';
 import { ENCRYPTION_HOOK, type EncryptionHook } from './encryption-hook.interface';
 import { StoragePathResolver, StorageTenantIsolationViolationError } from './storage-path.resolver';
 
@@ -211,6 +213,22 @@ export class StorageService {
     return sha256Stream(object.body);
   }
 
+  /**
+   * Returns only an adapter-produced version fingerprint after tenant storage
+   * URI validation. Provider version IDs and opaque handles never leave this
+   * storage boundary.
+   */
+  async latestVersionFingerprintByStorageUri(tenantId: string, storageUri: string): Promise<string> {
+    const parsed = this.assertTenantStorageUri(tenantId, storageUri);
+    const latest = (await this.versionedAdapter().listObjectVersions(parsed.key)).find(
+      (entry) => !entry.isDeleteMarker && entry.isLatest,
+    );
+    if (!latest || !/^[a-f0-9]{64}$/u.test(latest.versionFingerprint)) {
+      throw new StorageUnavailableError('storage latest version fingerprint is unavailable');
+    }
+    return latest.versionFingerprint;
+  }
+
   async deleteByStorageUri(tenantId: string, storageUri: string): Promise<void> {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
     await this.adapter.delete(parsed.key);
@@ -223,5 +241,13 @@ export class StorageService {
       if (error instanceof StorageTenantIsolationViolationError) throw tenantIsolationDenied();
       throw error;
     }
+  }
+
+  private versionedAdapter(): VersionedStorageAdapter {
+    const candidate = this.adapter as Partial<VersionedStorageAdapter>;
+    if (typeof candidate.listObjectVersions !== 'function') {
+      throw new StorageVersioningUnsupportedError();
+    }
+    return candidate as VersionedStorageAdapter;
   }
 }

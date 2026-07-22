@@ -4,7 +4,7 @@ import type { PoolClient, QueryResultRow } from 'pg';
 import type { TenantStatus, UserRole, UserStatus } from '@amic-vault/shared';
 import { DATABASE_POOL } from './database.tokens';
 import { pgBossSchema } from './pg-boss-runtime-options';
-import { TenantAwareDataSource } from './tenant-aware-datasource';
+import { TenantAwareDataSource, type TenantTransactionOptions } from './tenant-aware-datasource';
 
 export interface DatabasePool {
   connect(): Promise<PoolClient>;
@@ -95,6 +95,7 @@ interface ExistsLookup extends QueryResultRow {
 interface TenantTransactionScope {
   client: PoolClient;
   tenantId: string;
+  isolationLevel: TenantTransactionOptions['isolationLevel'];
 }
 
 function denied(): ForbiddenException {
@@ -122,19 +123,23 @@ export class DatabaseService implements OnModuleDestroy {
   async tenantTransaction<T>(
     tenantId: string,
     work: (client: PoolClient) => Promise<T>,
+    options: TenantTransactionOptions = {},
   ): Promise<T> {
     if (!tenantId.trim()) throw denied();
     const activeScope = this.transactionScope.getStore();
     if (activeScope) {
       if (activeScope.tenantId !== tenantId) throw denied();
+      if (options.isolationLevel === 'repeatable read' && activeScope.isolationLevel !== 'repeatable read') {
+        throw denied();
+      }
       return work(activeScope.client);
     }
     this.assertPoolAvailable();
 
     const client = await this.pool.connect();
     try {
-      return await this.transactionScope.run({ tenantId, client }, () =>
-        this.tenantAwareDataSource.transactionForTenant(client, tenantId, work),
+      return await this.transactionScope.run({ tenantId, client, isolationLevel: options.isolationLevel }, () =>
+        this.tenantAwareDataSource.transactionForTenant(client, tenantId, work, options),
       );
     } finally {
       client.release();
