@@ -26,6 +26,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm exec vitest run tools/evalset/local-ai-eval.spec.ts
+      - run: node --test tools/quality/check-telemetry-policy.spec.mjs
+      - run: node tools/quality/check-telemetry-policy.mjs
       - run: pnpm check:production-ui-literals
       - run: pnpm ui:production-smoke
       - run: pnpm check:ui-pr-checklist
