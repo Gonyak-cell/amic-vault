@@ -95,6 +95,57 @@ function makeStorageUri(input: {
   return `s3://amic-vault-dev/tenants/${input.tenantId}/matters/${input.matterId}/documents/${input.documentId}/${input.fileObjectId}`;
 }
 
+async function insertPromotedFixtureReceipt(
+  client: Awaited<ReturnType<typeof createOwnerClient>>,
+  input: {
+    tenantId: string;
+    matterId: string;
+    documentId: string;
+    versionId: string;
+    fileObjectId: string;
+    sha256: string;
+    createdBy: string;
+  },
+): Promise<void> {
+  const scanId = randomUUID();
+  const quarantineRef = randomUUID();
+  await client.query(
+    `
+      INSERT INTO file_security_scans (
+        scan_id, tenant_id, matter_id, quarantine_ref, quarantine_storage_uri,
+        expected_sha256, observed_sha256, size_bytes, state, result_code,
+        engine_version, signature_at, created_by, promoted_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $6, 32, 'promoted', 'clean', 'fixture-engine', now(), $7, now())
+    `,
+    [
+      scanId,
+      input.tenantId,
+      input.matterId,
+      quarantineRef,
+      `s3://amic-vault-dev/tenants/${input.tenantId}/quarantine/${quarantineRef}`,
+      input.sha256,
+      input.createdBy,
+    ],
+  );
+  await client.query(
+    `
+      INSERT INTO file_security_promotions (
+        scan_id, tenant_id, document_id, version_id, file_object_id, primary_sha256, promoted_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `,
+    [
+      scanId,
+      input.tenantId,
+      input.documentId,
+      input.versionId,
+      input.fileObjectId,
+      input.sha256,
+      input.createdBy,
+    ],
+  );
+}
+
 export function tenantVersionScope(tenantId: string, versionIds: readonly string[]) {
   return {
     sql: 'idx.tenant_id = ? AND idx.version_id = ANY(?::uuid[])',
@@ -511,6 +562,7 @@ export async function insertSearchIndexedRow(
 ): Promise<void> {
   await withClient(createOwnerClient(), async (client) => {
     const fileObjectId = randomUUID();
+    const fileHash = hexHash(index);
     const indexSourceTextHash = hexHash(index + 100);
     await client.query('BEGIN');
     try {
@@ -560,7 +612,7 @@ export async function insertSearchIndexedRow(
             fileObjectId,
           }),
           `${row.title}.pdf`,
-          hexHash(index),
+          fileHash,
           row.ownerUserId,
         ],
       );
@@ -609,11 +661,20 @@ export async function insertSearchIndexedRow(
           row.versionNo ?? 1,
           row.versionStatus,
           fileObjectId,
-          hexHash(index),
+          fileHash,
           row.ownerUserId,
           row.supersedesVersionId ?? null,
         ],
       );
+      await insertPromotedFixtureReceipt(client, {
+        tenantId: row.tenantId,
+        matterId: row.matterId,
+        documentId: row.documentId,
+        versionId: row.versionId,
+        fileObjectId,
+        sha256: fileHash,
+        createdBy: row.ownerUserId,
+      });
       await client.query(
         `
           INSERT INTO document_search_index (

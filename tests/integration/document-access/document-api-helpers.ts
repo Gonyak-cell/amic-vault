@@ -13,6 +13,101 @@ export const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 export const betaOwnerUserId = '22222222-2222-4222-8222-222222222201';
 export const betaMemberUserId = '22222222-2222-4222-8222-222222222202';
 
+export async function markPromotedFixture(input: {
+  documentId: string;
+  versionId?: string;
+}): Promise<void> {
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query('BEGIN');
+    try {
+      const target = await client.query<{
+        tenant_id: string;
+        matter_id: string;
+        version_id: string;
+        file_object_id: string;
+        sha256: string;
+        size_bytes: string;
+        created_by: string;
+      }>(
+        `
+          SELECT d.tenant_id, d.matter_id, dv.version_id, dv.file_object_id, f.sha256, f.size_bytes::text, dv.created_by
+          FROM documents d
+          JOIN document_versions dv
+            ON dv.tenant_id = d.tenant_id
+            AND dv.document_id = d.document_id
+          JOIN file_objects f
+            ON f.tenant_id = dv.tenant_id
+            AND f.file_object_id = dv.file_object_id
+          WHERE d.document_id = $1
+            AND ($2::uuid IS NULL OR dv.version_id = $2)
+          ORDER BY dv.version_no DESC
+          LIMIT 1
+          FOR UPDATE
+        `,
+        [input.documentId, input.versionId ?? null],
+      );
+      const row = target.rows[0];
+      if (!row) throw new Error('promoted fixture upload target missing');
+      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', row.tenant_id]);
+      const existing = await client.query(
+        `
+          SELECT 1
+          FROM file_security_promotions
+          WHERE tenant_id = $1
+            AND document_id = $2
+            AND version_id = $3
+          LIMIT 1
+        `,
+        [row.tenant_id, input.documentId, row.version_id],
+      );
+      if (existing.rowCount === 0) {
+        const scanId = randomUUID();
+        const quarantineRef = randomUUID();
+        await client.query(
+          `
+            INSERT INTO file_security_scans (
+              scan_id, tenant_id, matter_id, quarantine_ref, quarantine_storage_uri,
+              expected_sha256, observed_sha256, size_bytes, state, result_code,
+              engine_version, signature_at, created_by, promoted_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, 'promoted', 'clean', 'fixture-engine', now(), $8, now())
+          `,
+          [
+            scanId,
+            row.tenant_id,
+            row.matter_id,
+            quarantineRef,
+            `s3://amic-vault-dev/tenants/${row.tenant_id}/quarantine/${quarantineRef}`,
+            row.sha256,
+            Number(row.size_bytes),
+            row.created_by,
+          ],
+        );
+        await client.query(
+          `
+            INSERT INTO file_security_promotions (
+              scan_id, tenant_id, document_id, version_id, file_object_id, primary_sha256, promoted_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `,
+          [
+            scanId,
+            row.tenant_id,
+            input.documentId,
+            row.version_id,
+            row.file_object_id,
+            row.sha256,
+            row.created_by,
+          ],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  });
+}
+
 export async function login(
   baseUrl: string,
   input: { tenantId: string; email: string; password: string },
@@ -239,6 +334,7 @@ export async function uploadPdf(
   expect(parsed.documentId).toMatch(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   );
+  await markPromotedFixture({ documentId: parsed.documentId });
   return parsed;
 }
 
@@ -256,7 +352,9 @@ export async function uploadDocx(
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
-  return JSON.parse(body) as { documentId: string; fileObjectId: string };
+  const parsed = JSON.parse(body) as { documentId: string; fileObjectId: string };
+  await markPromotedFixture({ documentId: parsed.documentId });
+  return parsed;
 }
 
 export async function uploadDocxVersion(
@@ -265,6 +363,7 @@ export async function uploadDocxVersion(
   documentId: string,
   marker: string,
   bodyText?: string,
+  options?: { markPromoted?: boolean },
 ): Promise<{ versionId: string; versionNo: number; fileObjectId: string; sha256: string }> {
   const response = await fetch(`${baseUrl}/v1/documents/${documentId}/versions`, {
     method: 'POST',
@@ -273,12 +372,16 @@ export async function uploadDocxVersion(
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
-  return JSON.parse(body) as {
+  const parsed = JSON.parse(body) as {
     versionId: string;
     versionNo: number;
     fileObjectId: string;
     sha256: string;
   };
+  if (options?.markPromoted !== false) {
+    await markPromotedFixture({ documentId, versionId: parsed.versionId });
+  }
+  return parsed;
 }
 
 export async function ensureFreshMatterAppSyncState(

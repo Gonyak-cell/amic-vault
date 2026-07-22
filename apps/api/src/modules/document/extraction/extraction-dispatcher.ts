@@ -451,7 +451,7 @@ export class ExtractionDispatcher {
           AND dv.document_id = $2
           AND dv.version_id = $3
           AND dv.file_object_id = $4
-          AND ${promotedDocumentExistsSql('d')}
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
         `,
         [payload.tenantId, payload.documentId, payload.versionId, payload.fileObjectId],
@@ -607,7 +607,7 @@ export class ExtractionDispatcher {
           AND dv.document_id = $2
           AND dv.version_id = $3
           AND dv.file_object_id = $4
-          AND ${promotedDocumentExistsSql('d')}
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
       `,
       [input.tenantId, input.documentId, input.versionId, input.fileObjectId],

@@ -2808,7 +2808,7 @@ export class DocumentEditingService {
         WHERE dv.tenant_id = $1
           AND dv.document_id = $2
           AND dv.version_id = $3
-          AND ${promotedDocumentExistsSql('dv')}
+          AND ${promotedDocumentExistsSql('dv', 'dv')}
         LIMIT 1
       `,
       [tenantId, documentId, baseVersionId],
@@ -2927,7 +2927,7 @@ export class DocumentEditingService {
         WHERE sv.tenant_id = $1
           AND sv.document_id = $2
           AND sv.subversion_id = $3
-          AND ${promotedDocumentExistsSql('bv')}
+          AND ${promotedDocumentExistsSql('bv', 'bv')}
           AND (
             sv.created_by = $4
             OR EXISTS (

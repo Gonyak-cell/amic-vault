@@ -53,6 +53,7 @@ describe('SearchFilterBuilder', () => {
         "      AND scan.state = 'promoted'",
         '    WHERE promotion.tenant_id = idx.tenant_id',
         '      AND promotion.document_id = idx.document_id',
+        '      AND promotion.version_id = idx.version_id',
         '  ))',
         '  AND (idx.version_status = $3)',
         '  AND (idx.matter_id = $4)',

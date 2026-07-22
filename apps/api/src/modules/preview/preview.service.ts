@@ -311,7 +311,7 @@ export class PreviewService {
           AND d.document_id = $2
           AND dv.version_id = $3
           AND dv.file_object_id = $4
-          AND ${promotedDocumentExistsSql('d')}
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
       `,
       [tenantId, documentId, versionId, fileObjectId],

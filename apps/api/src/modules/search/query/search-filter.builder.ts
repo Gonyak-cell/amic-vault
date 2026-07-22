@@ -114,7 +114,7 @@ export class SearchFilterBuilder {
     const fragments: SearchSqlFragment[] = [
       input.scope ?? denyAllSearchScope,
       { sql: 'idx.document_status <> ?', params: ['deleted'] },
-      { sql: promotedDocumentExistsSql('idx'), params: [] },
+      { sql: promotedDocumentExistsSql('idx', 'idx'), params: [] },
     ];
 
     const versionStatus: SearchVersionStatus = filters.versionStatus ?? 'current';

@@ -294,7 +294,7 @@ export class SearchIndexRepository {
         WHERE dv.tenant_id = $1
           AND dv.document_id = $2
           AND dv.version_id = $3
-          AND ${promotedDocumentExistsSql('d')}
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
       `,
       [input.tenantId, input.documentId, input.versionId],

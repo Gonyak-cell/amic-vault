@@ -165,7 +165,7 @@ export class PreviewSessionService {
           AND f.file_object_id = dv.file_object_id
         WHERE d.tenant_id = $1
           AND d.document_id = $2
-          AND ${promotedDocumentExistsSql('d')}
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
       `,
       [tenantId, documentId],
