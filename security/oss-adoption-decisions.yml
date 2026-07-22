@@ -93,6 +93,7 @@
     "tests/integration/document-access/upload-permission.spec.ts",
     "tests/integration/document-access/document-api-helpers.ts",
     "tests/integration/document-access/preview.spec.ts",
+    "tests/integration/closing-binder.spec.ts",
     "tests/integration/file-security-scan.spec.ts",
     "tests/integration/file-security-promotion-faults.spec.ts",
     "tests/integration/search-permission/search-filter.spec.ts",
