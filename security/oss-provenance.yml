@@ -87,6 +87,81 @@
     "decisionDocument": "docs/architecture/oss-adoption-decisions/dependency-advisory-baseline.md"
   },
   "tooling": {
+    "syft": {
+      "version": "1.44.0",
+      "adoptionMode": "L1",
+      "shipped": false,
+      "sourceUrl": "https://github.com/anchore/syft",
+      "sourceSha": "8cb78ce40ced6a731fb83f2a491a67444f541bf1",
+      "sourceTree": "e8fd38d40cfc955f7dbbe3a543c77639a9072359",
+      "sourceLicenseSpdx": "Apache-2.0",
+      "sourceLicenseHash": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "releaseAssets": {
+        "darwin/arm64": {
+          "url": "https://github.com/anchore/syft/releases/download/v1.44.0/syft_1.44.0_darwin_arm64.tar.gz",
+          "sha256": "sha256:24e4d34078ae81da7c82539616f0ccac3e226cf4f74a38ce6fb3463619e50a55"
+        },
+        "linux/amd64": {
+          "url": "https://github.com/anchore/syft/releases/download/v1.44.0/syft_1.44.0_linux_amd64.tar.gz",
+          "sha256": "sha256:0e91737aee2b5baf1d255b959630194a302335d848ff97bb07921eb6205b5f5a"
+        }
+      },
+      "evidenceState": "VERIFIED"
+    },
+    "gitleaks": {
+      "version": "8.30.0",
+      "adoptionMode": "L1",
+      "shipped": false,
+      "sourceUrl": "https://github.com/gitleaks/gitleaks",
+      "sourceSha": "6eaad039603a4de39fddd1cf5f727391efe9974e",
+      "sourceTree": "2e329225c34c440e02351bc5c73c42dafe53d9b5",
+      "sourceLicenseSpdx": "MIT",
+      "sourceLicenseHash": "sha256:e3884b252b3bfc045e55be43a34d1e80da070bc6f804ac95bf4660e97d62ebc6",
+      "releaseAssets": {
+        "darwin/arm64": {
+          "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_darwin_arm64.tar.gz",
+          "sha256": "sha256:b251ab2bcd4cd8ba9e56ff37698c033ebf38582b477d21ebd86586d927cf87e7"
+        },
+        "linux/amd64": {
+          "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz",
+          "sha256": "sha256:79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
+        }
+      },
+      "evidenceState": "VERIFIED"
+    },
+    "trivy": {
+      "version": "0.70.0",
+      "adoptionMode": "L1",
+      "shipped": false,
+      "sourceUrl": "https://github.com/aquasecurity/trivy",
+      "sourceSha": "8a3177aedf7ee0864920eb1852eef031cd3742b8",
+      "sourceTree": "6986fb2cb47c51244fc6baa57f9617dc5fb6297c",
+      "sourceLicenseSpdx": "Apache-2.0",
+      "sourceLicenseHash": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "releaseAssets": {
+        "darwin/arm64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_macOS-ARM64.tar.gz",
+          "sha256": "sha256:68e543c51dcc96e1c344053a4fde9660cf602c25565d9f09dc17dd41e13b838a"
+        },
+        "linux/amd64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_Linux-64bit.tar.gz",
+          "sha256": "sha256:8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9"
+        }
+      },
+      "evidenceState": "VERIFIED"
+    },
+    "semgrep": {
+      "version": "1.164.0",
+      "adoptionMode": "L1",
+      "shipped": false,
+      "sourceUrl": "https://github.com/semgrep/semgrep",
+      "sourceSha": "887f1f48a6f35e692870e68651100db7496036cf",
+      "sourceTree": "1173da1f7f16027c49c03e0545d482162c850a06",
+      "sourceLicenseSpdx": "LGPL-2.1-only",
+      "sourceLicenseHash": "sha256:20c17d8b8c48a600800dfd14f95d5cb9ff47066a9641ddeab48dc54aec96e331",
+      "containerImage": "semgrep/semgrep:1.164.0@sha256:207983631beecdbe7fa29196c7f4a7a5f29033933cdb76c687ce4a672e07618d",
+      "evidenceState": "VERIFIED"
+    },
     "uv": {
       "version": "0.11.15",
       "adoptionMode": "L1",
