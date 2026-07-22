@@ -14,6 +14,7 @@ import {
   tenantAlphaId,
   withClient,
 } from '../helpers/db';
+import { markPromotedFixture } from './document-api-helpers';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 const alphaMemberUserId = '11111111-1111-4111-8111-111111111102';
@@ -1217,6 +1218,27 @@ describe('email filing integration', () => {
 
     const attachmentDocumentId = uploadedBody.filing.documentIds[0];
     expect(attachmentDocumentId).toBeDefined();
+    await markPromotedFixture({ documentId: attachmentDocumentId });
+    const bodyDocumentId = await withClient(createAppClient(), async (client) => {
+      await setTenant(client, tenantAlphaId);
+      const result = await client.query<{ body_document_id: string | null }>(
+        `
+          SELECT body_document_id
+          FROM email_matter_filings
+          WHERE tenant_id = $1 AND email_id = $2 AND matter_id = $3
+          LIMIT 1
+        `,
+        [tenantAlphaId, uploadedBody.email.emailId, matterId],
+      );
+      const documentId = result.rows[0]?.body_document_id;
+      if (!documentId) throw new Error('EMAIL_BODY_DOCUMENT_MISSING');
+      return documentId;
+    });
+    await markPromotedFixture({ documentId: bodyDocumentId });
+    await indexAttachmentDocumentForSearch(
+      bodyDocumentId,
+      `searchable filed email body ${bodyToken}`,
+    );
     const emailDocumentLinks = await fetch(
       `${baseUrl}/v1/emails/${uploadedBody.email.emailId}/document-links`,
       { headers: { cookie: ownerCookie } },
