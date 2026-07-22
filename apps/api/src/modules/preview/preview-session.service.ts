@@ -137,7 +137,7 @@ export class PreviewSessionService {
         documentId,
       );
     } catch {
-      this.logger.warn({ code: 'PERM_EVAL_ERROR', documentId });
+      this.logger.warn({ code: 'PERM_EVAL_ERROR' });
     }
     if (decision?.effect === 'ALLOW') return;
     if (decision?.reasonCode === 'DOCUMENT_LOCKED') throw documentLocked();
