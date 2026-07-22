@@ -58,12 +58,38 @@ services:
       retries: 20
     restart: 'no'
 
+  clamav:
+    build:
+      context: ..
+      dockerfile: infra/clamav.Dockerfile
+    platform: linux/amd64
+    command: ['sh', '-lc', 'freshclam --foreground --stdout && unset CLAMAV_NO_CLAMD && exec /init']
+    environment:
+      CLAMD_CONF_StreamMaxLength: 25M
+      CLAMD_CONF_MaxFileSize: 25M
+      CLAMD_CONF_MaxScanSize: 25M
+      CLAMD_CONF_ReadTimeout: 5
+      CLAMD_CONF_CommandReadTimeout: 5
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdscan -p1 >/dev/null 2>&1']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
   ingestion:
     build:
       context: ..
       dockerfile: workers/ingestion/Dockerfile
     environment:
       PYTHONUNBUFFERED: '1'
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: '3310'
+      CLAMAV_TIMEOUT_SECONDS: '5'
+      CLAMAV_MAX_BYTES: '26214400'
+      CLAMAV_MAX_SIGNATURE_AGE_SECONDS: '604800'
+    depends_on:
+      clamav:
+        condition: service_healthy
     ports:
       - '${INGESTION_WORKER_PORT:-8000}:8000'
     healthcheck:

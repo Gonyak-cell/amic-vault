@@ -30,14 +30,17 @@ Status: canonical post-R14 extension under
 
 ## Upstream and license boundary
 
-- Source lock: `Cisco-Talos/clamav-devel` at
-  `a93732350bb6be75821f67c6d4423fcf723232de`, tree
-  `4a6f1ee900522e74f8ebb8f5e9800ec88243f9a4`, `COPYING.txt` hash
+- Source lock: official `clamav-1.4.3` tag of `Cisco-Talos/clamav-devel` at
+  `d8b053865fd5995f7af98bfbcd98c9a5644bfe2b`, tree
+  `94730b32d264dbc5d1550927a33ee2fb9fb6abbd`, `COPYING.txt` hash
   `sha256:0c4fd2fa9733fc9122503797648710851e4ee6d9e4969dd33fcbd8c63cd2f584`.
-- Source/test map: `clamscan/clamscan.c` blob
-  `ea4378c1afafe7f65ecc6148df03a4ce9c830d14` and
-  `unit_tests/examples/ex_scan_callbacks_test.py` blob
-  `3b60a6f88968a59d9dc5c877866ee38d64d6e503`; both remain behavioral input
+- Official artifact: `clamav/clamav:1.4.3` index
+  `sha256:75fb5fd95fcbe1d7e6d240c369c1572b686ee2c95949d1042b5148de8eddebb4`
+  for `linux/amd64`, consumed unchanged through `infra/clamav.Dockerfile`.
+- Source/test map: `clamdscan/proto.c` blob
+  `4c26e1695bc9142d43e4677c5aac54f2a7d24e31` and
+  `unit_tests/check_clamd.c` blob
+  `2f526709a7f60fe3fa825c5eb8b95b543570950b`; both remain behavioral input
   only under `NO_COPY`.
 - Before TUW-002 can run, the exact official image digest, release-to-source
   mapping, license policy and supported CLI/client route must be recorded and
@@ -81,10 +84,13 @@ Status: canonical post-R14 extension under
 ## `DEVOPS-OSS04-QRT-TUW-002`
 
 - **Files create:** `workers/ingestion/app/security/__init__.py`,
-  `workers/ingestion/app/security/clamav_client.py`, and
-  `workers/ingestion/tests/test_clamav_client.py`.
+  `workers/ingestion/app/security/clamav_client.py`,
+  `workers/ingestion/tests/test_clamav_client.py`, `infra/clamav.Dockerfile`,
+  and `third_party/clamav-1.4.3-source-offer.md`.
 - **Files modify:** `security/oss-adoption-decisions.yml`,
-  `security/oss-source-map.yml`, `infra/docker-compose.dev.yml`, worker
+  `security/oss-source-map.yml`, `security/oss-test-reuse.yml`,
+  `security/oss-provenance.yml`, `security/oss-license-policy.yml`,
+  `third_party/NOTICE.md`, `infra/docker-compose.dev.yml`, worker
   configuration and `workers/ingestion/pyproject.toml`/`uv.lock` only if the
   approved supported client is indispensable.
 - **Files NOT-modify:** scanner bucket mount, scanner public port, custom wire
@@ -101,6 +107,19 @@ Status: canonical post-R14 extension under
   and isolated sidecar configuration checks.
 - **Stop:** no supported official client/CLI is available, image/source digest
   cannot be proven, or the scanner requires object-store/full-filesystem access.
+
+### QRT-002 scope amendment — release-aligned artifact boundary
+
+The initial development-branch source pin did not map to the official runtime
+image. This amendment replaces it with the official `clamav-1.4.3` release tag
+and its digest, records the GPL delivery decision/source offer, and adds the
+one-line digest-pinned sidecar Dockerfile so the existing provenance checker
+can inventory the actual image. The Vault adapter uses only Python's standard
+library and independently implements the no-copy upstream `INSTREAM` behavior;
+it does not add a Python dependency or copy protocol code. This is limited to
+QRT-002: no scanner credential, bucket mount, public port, application
+permission/audit service, queue, upload, primary promotion, deployment or
+external data change is authorized.
 
 ## `DEVOPS-OSS04-QRT-TUW-003`
 

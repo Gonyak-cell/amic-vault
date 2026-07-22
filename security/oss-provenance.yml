@@ -19,6 +19,7 @@
     "dockerfiles": [
       "apps/api/Dockerfile",
       "apps/web/Dockerfile",
+      "infra/clamav.Dockerfile",
       "workers/ingestion/Dockerfile"
     ]
   },
@@ -187,6 +188,16 @@
     }
   },
   "overrides": {
+    "image:infra/clamav.Dockerfile:1": {
+      "upstreamUrl": "https://github.com/Cisco-Talos/clamav-devel",
+      "upstreamSha": "d8b053865fd5995f7af98bfbcd98c9a5644bfe2b",
+      "upstreamTree": "94730b32d264dbc5d1550927a33ee2fb9fb6abbd",
+      "licenseHash": "sha256:0c4fd2fa9733fc9122503797648710851e4ee6d9e4969dd33fcbd8c63cd2f584",
+      "artifactDigest": "sha256:75fb5fd95fcbe1d7e6d240c369c1572b686ee2c95949d1042b5148de8eddebb4",
+      "owner": "security-oss",
+      "evidenceState": "VERIFIED",
+      "modifier": "none"
+    },
     "image:workers/ingestion/Dockerfile:1": {
       "upstreamUrl": "https://github.com/astral-sh/uv",
       "upstreamSha": "3cffe97c2e48c9e49422c738da3af95919dd0bf5",

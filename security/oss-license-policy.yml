@@ -35,5 +35,22 @@
       }
     }
   },
-  "components": {}
+  "components": {
+    "image:infra/clamav.Dockerfile:1": {
+      "spdxExpression": "GPL-2.0-only",
+      "sourceType": "registry",
+      "adoptionMode": "L1",
+      "deliveryProfiles": ["SAAS", "ON_PREM", "NETWORK_SERVICE"],
+      "shipped": true,
+      "approval": {
+        "decision": "APPROVED",
+        "owner": "operator",
+        "issuedAt": "2026-07-22",
+        "expiresAt": "2026-10-20",
+        "sourceOffer": "third_party/clamav-1.4.3-source-offer.md",
+        "fileMap": "infra/clamav.Dockerfile",
+        "exitPlan": "Remove the isolated sidecar and the bounded adapter before any scanner replacement; no Vault document state relies on a scanner verdict in QRT-002."
+      }
+    }
+  }
 }
