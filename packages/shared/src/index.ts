@@ -968,6 +968,13 @@ export {
   type UploadPreflightResponseDto,
 } from './dto/document/upload-preflight.dto';
 export {
+  createPreviewSessionRequestSchema,
+  createPreviewSessionResponseSchema,
+  previewSessionTokenSchema,
+  type CreatePreviewSessionRequestDto,
+  type CreatePreviewSessionResponseDto,
+} from './dto/document/preview-session.dto';
+export {
   addDocumentVersionFieldsSchema,
   type AddDocumentVersionFieldsDto,
   type AddDocumentVersionResponseDto,
