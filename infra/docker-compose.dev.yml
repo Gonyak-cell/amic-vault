@@ -48,7 +48,10 @@ services:
       - -c
       - |
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
-        mc mb --ignore-existing "local/$${S3_BUCKET}"
+        mc mb --with-lock --ignore-existing "local/$${S3_BUCKET}"
+        mc version enable "local/$${S3_BUCKET}"
+        mc retention set --default governance 1d "local/$${S3_BUCKET}"
+        mc retention clear --default "local/$${S3_BUCKET}"
         mc anonymous set none "local/$${S3_BUCKET}"
         tail -f /dev/null
     healthcheck:

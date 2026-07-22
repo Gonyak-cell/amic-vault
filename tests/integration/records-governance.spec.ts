@@ -4,7 +4,6 @@ import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type {
-  DisposalCertificateDto,
   DisposalReviewListResponseDto,
   DisposalRequestDto,
   DmsWorkQueueResponseDto,
@@ -19,6 +18,7 @@ import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
 import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
 import { RetentionSchedulerService } from '../../apps/api/src/modules/records/retention-scheduler.service';
+import { RecordsDisposalWorker } from '../../apps/api/src/modules/records/records-disposal.worker';
 import { NoopEncryptionHook } from '../../apps/api/src/modules/storage/noop-encryption.hook';
 import { S3StorageAdapter } from '../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../apps/api/src/modules/storage/storage-path.resolver';
@@ -37,15 +37,6 @@ interface UploadResponse {
 interface DocumentFlags {
   status: string | null;
   legal_hold: boolean | null;
-}
-
-interface DisposalCounts {
-  documents: number;
-  versions: number;
-  fileObjects: number;
-  searchIndex: number;
-  chunks: number;
-  embeddings: number;
 }
 
 async function login(
@@ -193,40 +184,6 @@ async function storageUris(documentId: string): Promise<string[]> {
       [tenantAlphaId, documentId],
     );
     return result.rows.map((row) => row.storage_uri);
-  });
-}
-
-async function disposalCounts(documentId: string, fileObjectId: string): Promise<DisposalCounts> {
-  return withClient(createOwnerClient(), async (client) => {
-    await setTenant(client, tenantAlphaId);
-    const result = await client.query<{
-      documents: string;
-      versions: string;
-      file_objects: string;
-      search_index: string;
-      chunks: string;
-      embeddings: string;
-    }>(
-      `
-        SELECT
-          (SELECT count(*)::text FROM documents WHERE tenant_id = $1 AND document_id = $2) AS documents,
-          (SELECT count(*)::text FROM document_versions WHERE tenant_id = $1 AND document_id = $2) AS versions,
-          (SELECT count(*)::text FROM file_objects WHERE tenant_id = $1 AND file_object_id = $3) AS file_objects,
-          (SELECT count(*)::text FROM document_search_index WHERE tenant_id = $1 AND document_id = $2) AS search_index,
-          (SELECT count(*)::text FROM document_chunks WHERE tenant_id = $1 AND document_id = $2) AS chunks,
-          (SELECT count(*)::text FROM document_chunk_embeddings WHERE tenant_id = $1 AND document_id = $2) AS embeddings
-      `,
-      [tenantAlphaId, documentId, fileObjectId],
-    );
-    const row = result.rows[0];
-    return {
-      documents: Number(row?.documents ?? '0'),
-      versions: Number(row?.versions ?? '0'),
-      fileObjects: Number(row?.file_objects ?? '0'),
-      searchIndex: Number(row?.search_index ?? '0'),
-      chunks: Number(row?.chunks ?? '0'),
-      embeddings: Number(row?.embeddings ?? '0'),
-    };
   });
 }
 
@@ -685,7 +642,7 @@ describe('records governance integration', () => {
     await expect(disposalReviewRows(retentionReviewDocument.documentId)).resolves.toHaveLength(1);
   });
 
-  it('archives and executes disposal only after approval, preserving a reference-only certificate', async () => {
+  it('seals approval then exact-deletes only in the worker, retaining DB finalization for a later pack', async () => {
     const archive = await postJson<RecordsArchiveDto>(
       baseUrl,
       ownerCookie,
@@ -784,6 +741,7 @@ describe('records governance integration', () => {
     );
     expect(approved.status).toBe('approved');
     expect(approved.assignedRole).toBe('records_admin');
+    expect(approved.pendingExecutionRef).toMatch(/^[0-9a-f-]{36}$/u);
 
     const executionQueue = await workQueue(baseUrl, firmAdminCookie);
     expect(executionQueue.items).toEqual(
@@ -797,27 +755,22 @@ describe('records governance integration', () => {
       ]),
     );
 
-    const certificate = await postJson<DisposalCertificateDto>(
-      baseUrl,
-      firmAdminCookie,
-      `/v1/records/disposals/${request.disposalRequestId}/execute`,
+    const apiExecute = await fetch(
+      `${baseUrl}/v1/records/disposals/${request.disposalRequestId}/execute`,
+      { method: 'POST', headers: { cookie: firmAdminCookie } },
     );
-    expect(certificate.disposalRequestId).toBe(request.disposalRequestId);
-    expect(certificate.documentHash).toMatch(/^[a-f0-9]{64}$/u);
-    expect(certificate.certificateHash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(apiExecute.status, await apiExecute.text()).toBe(400);
+    const worker = app.get(RecordsDisposalWorker);
+    await expect(worker.runOnceForTenant(tenantAlphaId)).resolves.toMatchObject({
+      claimedCount: 1,
+      completedCount: 1,
+      blockedCount: 0,
+      deadLetterCount: 0,
+    });
 
-    const completedQueue = await workQueue(baseUrl, securityAdminCookie);
-    expect(completedQueue.items).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          title: '삭제 실행 대기',
-          dueAt: approved.dueAt,
-        }),
-      ]),
-    );
     await expect(recordsWorkItemStatuses(request.disposalRequestId)).resolves.toEqual([
       { kind: 'records_disposal_approval', status: 'completed' },
-      { kind: 'records_disposal_execution', status: 'completed' },
+      { kind: 'records_disposal_execution', status: 'open' },
     ]);
 
     const getCertificate = await fetch(
@@ -826,48 +779,29 @@ describe('records governance integration', () => {
         headers: { cookie: securityAdminCookie },
       },
     );
-    expect(getCertificate.status, await getCertificate.text()).toBe(200);
+    expect(getCertificate.status, await getCertificate.text()).toBe(404);
 
-    const getDeletedDocument = await fetch(
+    const getDocument = await fetch(
       `${baseUrl}/v1/documents/${disposalDocument.documentId}`,
       {
         headers: { cookie: ownerCookie },
       },
     );
-    expect(getDeletedDocument.status, await getDeletedDocument.text()).toBe(404);
-
-    await expect(
-      disposalCounts(disposalDocument.documentId, disposalDocument.fileObjectId),
-    ).resolves.toEqual({
-      documents: 0,
-      versions: 0,
-      fileObjects: 0,
-      searchIndex: 0,
-      chunks: 0,
-      embeddings: 0,
+    expect(getDocument.status, await getDocument.text()).toBe(200);
+    await expect(documentFlags(disposalDocument.documentId)).resolves.toMatchObject({
+      status: 'disposal_locked',
     });
 
-    const executedAudit = await recordsAudit('DISPOSAL_EXECUTED', disposalDocument.documentId);
-    const certificateAudit = await recordsAudit(
-      'DISPOSAL_CERTIFICATE_CREATED',
-      certificate.certificateId,
-    );
+    const executedAudit = await recordsAudit('DISPOSAL_EXECUTED', approved.pendingExecutionRef ?? '');
     expect(executedAudit?.metadata_json).toMatchObject({
       disposal_request_id: request.disposalRequestId,
-      certificate_id: certificate.certificateId,
-      certificate_hash: certificate.certificateHash,
       document_id: disposalDocument.documentId,
-      storage_object_count: 1,
-      executor_user_id: certificate.executedBy,
+      evidence_id: approved.pendingExecutionRef,
+      item_count: 1,
+      status_after: 'completed',
     });
-    expect(Number(executedAudit?.metadata_json.deleted_row_count ?? 0)).toBeGreaterThan(0);
-    expect(certificateAudit?.metadata_json).toMatchObject({
-      disposal_request_id: request.disposalRequestId,
-      certificate_id: certificate.certificateId,
-      certificate_hash: certificate.certificateHash,
-    });
-    expect(JSON.stringify([executedAudit, certificateAudit])).not.toContain('Should remain locked');
-    expect(JSON.stringify([executedAudit, certificateAudit])).not.toContain('.pdf');
+    expect(JSON.stringify(executedAudit)).not.toContain('Should remain locked');
+    expect(JSON.stringify(executedAudit)).not.toContain('.pdf');
   });
 
   it('blocks referenced disposal and keeps records tables RLS protected', async () => {

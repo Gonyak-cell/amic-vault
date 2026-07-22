@@ -6,8 +6,11 @@ import type {
   StorageGetRangeInput,
   StorageGetObjectResult,
   StorageObjectMetadata,
+  StorageObjectVersion,
   StoragePutObjectInput,
   StorageReadUrlResult,
+  StorageVersionedObjectMetadata,
+  VersionedStorageAdapter,
 } from './storage-adapter.interface';
 import { StorageObjectAlreadyExistsError } from './storage-adapter.interface';
 import { NoopEncryptionHook } from './noop-encryption.hook';
@@ -74,6 +77,37 @@ class MemoryStorageAdapter implements StorageAdapter {
 
   async delete(key: string): Promise<void> {
     this.objects.delete(key);
+  }
+}
+
+class VersionedMemoryStorageAdapter extends MemoryStorageAdapter implements VersionedStorageAdapter {
+  async listObjectVersions(key: string): Promise<readonly StorageVersionedObjectMetadata[]> {
+    return [
+      {
+        key,
+        contentLength: 8,
+        contentType: 'application/pdf',
+        etag: null,
+        version: {} as StorageObjectVersion,
+        versionFingerprint: 'a'.repeat(64),
+        isDeleteMarker: false,
+        isLatest: true,
+      },
+    ];
+  }
+
+  async headObjectVersion(): Promise<StorageObjectMetadata | null> {
+    return {
+      key: 'opaque',
+      contentLength: 8,
+      contentType: 'application/pdf',
+      etag: null,
+      objectLock: { legalHold: false, retentionMode: null, retainUntil: null },
+    };
+  }
+
+  async deleteObjectVersion(): Promise<void> {
+    throw new Error('not used');
   }
 }
 
@@ -212,6 +246,37 @@ describe('StorageService', () => {
     await expect(service.sha256ByStorageUri(tenantId, result.storageUri)).resolves.toBe(
       'cc8321d6375c494d043fdd0260f21bc0ec51dacc9f6abb7f909cdcd3041b78bf',
     );
+  });
+
+  it('returns only a tenant-validated latest version fingerprint', async () => {
+    const adapter = new VersionedMemoryStorageAdapter();
+    const service = new StorageService(adapter, new StoragePathResolver('vault-dev'), new NoopEncryptionHook());
+    const storageUri = `s3://vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
+
+    await expect(service.latestVersionFingerprintByStorageUri(tenantId, storageUri)).resolves.toBe(
+      'a'.repeat(64),
+    );
+    await expect(
+      service.latestVersionFingerprintByStorageUri('22222222-2222-4222-8222-222222222222', storageUri),
+    ).rejects.toMatchObject({ response: { code: 'TENANT_ISOLATION_VIOLATION' } });
+  });
+
+  it('keeps exact version handles opaque while exposing only HEAD and Object Lock facts', async () => {
+    const adapter = new VersionedMemoryStorageAdapter();
+    const service = new StorageService(adapter, new StoragePathResolver('vault-dev'), new NoopEncryptionHook());
+    const storageUri = `s3://vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
+
+    const inspection = await service.inspectSealedVersionByStorageUri(
+      tenantId,
+      storageUri,
+      'a'.repeat(64),
+    );
+    expect(JSON.stringify(inspection.version)).toBe('{}');
+    expect(inspection).toMatchObject({ present: true, objectLockProtected: false });
+    await expect(service.sealedVersionIsPresent(inspection.version)).resolves.toBe(true);
+    await expect(
+      service.inspectSealedVersionByStorageUri('22222222-2222-4222-8222-222222222222', storageUri, 'a'.repeat(64)),
+    ).rejects.toMatchObject({ response: { code: 'TENANT_ISOLATION_VIOLATION' } });
   });
 
   it('range-reads tenant objects only after storage URI isolation validation', async () => {

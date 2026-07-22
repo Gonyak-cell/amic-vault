@@ -2,6 +2,11 @@ import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { S3StorageAdapter } from './s3-storage.adapter';
+import {
+  StorageAccessDeniedError,
+  StorageUnavailableError,
+  StorageVersioningUnsupportedError,
+} from './storage-adapter.interface';
 
 function createAdapter(input: { serverSideEncryption?: string } = {}): S3StorageAdapter {
   return new S3StorageAdapter({
@@ -161,5 +166,123 @@ describe('S3StorageAdapter', () => {
     expect(calls[0]?.method).toBe('PUT');
     expect(calls[0]?.body.toString()).toBe('contract');
     expect(calls[0]?.headers.join('\n')).toContain('if-none-match\n*');
+  });
+
+  it('returns opaque exact-version handles and signs inventory, HEAD and delete requests', async () => {
+    const urls: URL[] = [];
+    vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async (input) => {
+        urls.push(new URL(String(input)));
+        return new Response(
+          [
+            '<ListVersionsResult>',
+            '<IsTruncated>false</IsTruncated>',
+            '<Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>version-one</VersionId><IsLatest>true</IsLatest><Size>8</Size><ETag>"etag"</ETag></Version>',
+            '</ListVersionsResult>',
+          ].join(''),
+          { status: 200 },
+        );
+      })
+      .mockImplementationOnce(async (input) => {
+        urls.push(new URL(String(input)));
+        return new Response('', {
+          status: 200,
+          headers: {
+            'content-length': '8',
+            'content-type': 'application/pdf',
+            etag: '"etag"',
+            'x-amz-object-lock-legal-hold': 'ON',
+            'x-amz-object-lock-mode': 'GOVERNANCE',
+            'x-amz-object-lock-retain-until-date': '2030-01-01T00:00:00.000Z',
+          },
+        });
+      })
+      .mockImplementationOnce(async (input) => {
+        urls.push(new URL(String(input)));
+        return new Response(null, { status: 204 });
+      });
+
+    const adapter = createAdapter();
+    const [version] = await adapter.listObjectVersions('tenants/t1/documents/file.pdf');
+    if (!version) throw new Error('version inventory missing');
+
+    expect(JSON.stringify(version.version)).toBe('{}');
+    expect(version.versionFingerprint).toMatch(/^[a-f0-9]{64}$/u);
+    await expect(adapter.headObjectVersion({ key: version.key, version: version.version })).resolves.toMatchObject({
+      contentLength: 8,
+      objectLock: { legalHold: true, retentionMode: 'governance' },
+    });
+    await expect(
+      adapter.deleteObjectVersion({ key: version.key, version: version.version }),
+    ).resolves.toBeUndefined();
+    expect(urls[0]?.searchParams.get('versions')).toBe('');
+    expect(urls[0]?.searchParams.get('prefix')).toBe('tenants/t1/documents/file.pdf');
+    expect(urls[1]?.searchParams.get('versionId')).toBe('version-one');
+    expect(urls[2]?.searchParams.get('versionId')).toBe('version-one');
+  });
+
+  it('rejects null version inventory and untrusted version handles without provider fallback', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      new Response(
+        '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>null</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
+        { status: 200 },
+      ),
+    );
+
+    await expect(createAdapter().listObjectVersions('tenants/t1/documents/file.pdf')).rejects.toBeInstanceOf(
+      StorageVersioningUnsupportedError,
+    );
+    await expect(
+      createAdapter().headObjectVersion({
+        key: 'tenants/t1/documents/file.pdf',
+        version: {} as never,
+      }),
+    ).rejects.toBeInstanceOf(StorageUnavailableError);
+  });
+
+  it('fails closed for an exact-version authorization error', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () =>
+        new Response(
+          '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>version-one</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
+          { status: 200 },
+        ),
+      )
+      .mockImplementationOnce(async () => new Response('', { status: 403 }));
+
+    const adapter = createAdapter();
+    const [version] = await adapter.listObjectVersions('tenants/t1/documents/file.pdf');
+    if (!version) throw new Error('version inventory missing');
+    await expect(
+      adapter.headObjectVersion({ key: version.key, version: version.version }),
+    ).rejects.toBeInstanceOf(StorageAccessDeniedError);
+  });
+
+  it('treats missing exact versions as absent and network or server failures as unavailable', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () =>
+        new Response(
+          '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>version-one</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
+          { status: 200 },
+        ),
+      )
+      .mockImplementationOnce(async () => new Response(null, { status: 404 }))
+      .mockImplementationOnce(async () => new Response(null, { status: 503 }))
+      .mockImplementationOnce(async () => {
+        throw new TypeError('socket timeout');
+      });
+
+    const adapter = createAdapter();
+    const [version] = await adapter.listObjectVersions('tenants/t1/documents/file.pdf');
+    if (!version) throw new Error('version inventory missing');
+    await expect(
+      adapter.headObjectVersion({ key: version.key, version: version.version }),
+    ).resolves.toBeNull();
+    await expect(
+      adapter.headObjectVersion({ key: version.key, version: version.version }),
+    ).rejects.toBeInstanceOf(StorageUnavailableError);
+    await expect(
+      adapter.headObjectVersion({ key: version.key, version: version.version }),
+    ).rejects.toBeInstanceOf(StorageUnavailableError);
   });
 });

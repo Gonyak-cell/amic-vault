@@ -49,6 +49,19 @@ describe('TenantAwareDataSource', () => {
     expect(client.params[1]).toEqual(['app.current_tenant_id', tenantId]);
   });
 
+  it('starts repeatable-read transactions before the tenant-local GUC query', async () => {
+    const client = new FakeClient();
+    const dataSource = new TenantAwareDataSource(new TenantContextService());
+    await dataSource.transactionForTenant(client, tenantId, async () => 'ok', {
+      isolationLevel: 'repeatable read',
+    });
+    expect(client.queries).toEqual([
+      'BEGIN ISOLATION LEVEL REPEATABLE READ',
+      'SELECT set_config($1, $2, true)',
+      'COMMIT',
+    ]);
+  });
+
   it('fails closed for a missing explicit tenant before beginning a transaction', async () => {
     const client = new FakeClient();
     const dataSource = new TenantAwareDataSource(new TenantContextService());

@@ -73,6 +73,7 @@ describe('records governance shared schemas', () => {
             dueAt: '2026-06-27T00:00:00.000Z',
             approvalCount: 0,
             certificateId: null,
+            pendingExecutionRef: null,
             createdAt: '2026-06-20T00:00:00.000Z',
             approvedAt: null,
             executedAt: null,

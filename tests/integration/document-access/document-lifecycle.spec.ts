@@ -104,14 +104,14 @@ describe('document-lifecycle integration', () => {
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_RESTORED')).toBe(1);
   });
 
-  it('keeps physical document and file-object deletes scoped to records disposal only', () => {
+  it('defers physical document and file-object deletes until a later records-disposal stage', () => {
     const matches = ['apps', 'packages'].flatMap(sourceFiles).flatMap((file) => {
       const text = readIfSmall(file);
       return /DELETE\s+FROM\s+(documents|file_objects)/i.test(text) ? [file] : [];
     });
-    expect(matches).toEqual(['apps/api/src/modules/records/records.service.ts']);
-    expect(readIfSmall('apps/api/src/modules/records/records.service.ts')).toContain(
-      'app.records_disposal_executor',
+    expect(matches).toEqual([]);
+    expect(readIfSmall('apps/api/src/modules/records/records-disposal.worker.ts')).toContain(
+      'deleteSealedVersion',
     );
   });
 });

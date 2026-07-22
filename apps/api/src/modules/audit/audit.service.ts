@@ -8,6 +8,7 @@ import {
 } from '@amic-vault/shared';
 import { currentRequestId } from '../../common/logging/correlation.middleware';
 import { DatabaseService } from '../../common/db/database.service';
+import type { TenantTransactionOptions } from '../../common/db/tenant-aware-datasource';
 import { TenantContextService } from '../tenant/tenant-context';
 import { AuditMetadataNormalizer } from './audit-metadata.normalizer';
 
@@ -51,8 +52,12 @@ export class AuditService {
     @Inject(DatabaseService) private readonly databaseService: DatabaseService,
   ) {}
 
-  async transaction<T>(tenantId: string, run: (client: PoolClient) => Promise<T>): Promise<T> {
-    return this.databaseService.tenantTransaction(tenantId, run);
+  async transaction<T>(
+    tenantId: string,
+    run: (client: PoolClient) => Promise<T>,
+    options: TenantTransactionOptions = {},
+  ): Promise<T> {
+    return this.databaseService.tenantTransaction(tenantId, run, options);
   }
 
   async log(input: AuditLogInput, client?: QueryClient): Promise<AuditLogResult> {

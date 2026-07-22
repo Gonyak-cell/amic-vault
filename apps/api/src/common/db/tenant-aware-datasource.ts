@@ -5,6 +5,10 @@ export interface QueryClient {
   query(sql: string, params?: readonly unknown[]): Promise<unknown>;
 }
 
+export interface TenantTransactionOptions {
+  isolationLevel?: 'repeatable read';
+}
+
 @Injectable()
 export class TenantAwareDataSource {
   constructor(private readonly tenantContext: TenantContextService) {}
@@ -25,12 +29,15 @@ export class TenantAwareDataSource {
     client: Client,
     tenantId: string,
     work: (client: Client) => Promise<T>,
+    options: TenantTransactionOptions = {},
   ): Promise<T> {
     if (!tenantId.trim()) {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
 
-    await client.query('BEGIN');
+    await client.query(
+      options.isolationLevel === 'repeatable read' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN',
+    );
     try {
       await client.query('SELECT set_config($1, $2, true)', [
         'app.current_tenant_id',

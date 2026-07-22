@@ -31,6 +31,60 @@ export interface StorageObjectMetadata {
   contentLength: number;
   contentType: string | null;
   etag: string | null;
+  /**
+   * Exact-version HEAD implementations report retention state when the
+   * provider supports S3 Object Lock. Missing evidence is not safe for
+   * Records disposal and is rejected at the StorageService boundary.
+   */
+  objectLock?: StorageObjectLockMetadata;
+}
+
+export interface StorageObjectLockMetadata {
+  legalHold: boolean;
+  retentionMode: 'governance' | 'compliance' | null;
+  retainUntil: Date | null;
+}
+
+declare const storageObjectVersionBrand: unique symbol;
+
+/**
+ * A version identifier returned by a storage adapter inventory operation.
+ *
+ * The raw provider identifier is intentionally not exposed. A caller must use
+ * a value returned by `listObjectVersions`; it cannot derive a version from a
+ * key, ETag, filename, or a client supplied value.
+ */
+export interface StorageObjectVersion {
+  readonly [storageObjectVersionBrand]: true;
+}
+
+export interface StorageVersionedObjectMetadata extends StorageObjectMetadata {
+  version: StorageObjectVersion;
+  /**
+   * Stable SHA-256 fingerprint of the provider version identifier. It can be
+   * sealed in Records inventory and later matched against a fresh adapter
+   * inventory without exposing or persisting the raw provider identifier.
+   */
+  versionFingerprint: string;
+  isDeleteMarker: boolean;
+  isLatest: boolean;
+}
+
+export interface StorageVersionReference {
+  key: string;
+  version: StorageObjectVersion;
+}
+
+/**
+ * Optional exact-version capability. It is deliberately separate from the
+ * primary StorageAdapter so existing document storage cannot accidentally
+ * acquire disposal semantics. Records disposal must use this interface, never
+ * the legacy key-only delete method.
+ */
+export interface VersionedStorageAdapter {
+  listObjectVersions(key: string): Promise<readonly StorageVersionedObjectMetadata[]>;
+  headObjectVersion(reference: StorageVersionReference): Promise<StorageObjectMetadata | null>;
+  deleteObjectVersion(reference: StorageVersionReference): Promise<void>;
 }
 
 export interface StorageGetObjectResult extends StorageObjectMetadata {
@@ -43,6 +97,10 @@ export interface StorageAdapter {
   getRange(input: StorageGetRangeInput): Promise<StorageGetObjectResult>;
   createReadUrl(input: StorageCreateReadUrlInput): Promise<StorageReadUrlResult>;
   head(key: string): Promise<StorageObjectMetadata | null>;
+  /**
+   * Legacy key-only deletion for existing non-Records flows. It is ineligible
+   * for Records disposal because it cannot prove an exact object version.
+   */
   delete(key: string): Promise<void>;
 }
 
@@ -57,5 +115,36 @@ export class StorageUnavailableError extends Error {
   constructor(message = 'storage backend unavailable') {
     super(message);
     this.name = 'StorageUnavailableError';
+  }
+}
+
+export class StorageVersioningUnsupportedError extends StorageUnavailableError {
+  constructor() {
+    super('storage versioning is unsupported');
+    this.name = 'StorageVersioningUnsupportedError';
+  }
+}
+
+export class StorageVersionFingerprintUnavailableError extends StorageUnavailableError {
+  constructor() {
+    super('storage sealed version fingerprint is unavailable');
+  }
+}
+
+export class StorageAccessDeniedError extends StorageUnavailableError {
+  constructor() {
+    super('storage access denied');
+  }
+}
+
+export class StorageRequestTimeoutError extends StorageUnavailableError {
+  constructor() {
+    super('storage request timed out');
+  }
+}
+
+export class StorageExactVersionMissingError extends StorageUnavailableError {
+  constructor() {
+    super('storage exact version is missing');
   }
 }

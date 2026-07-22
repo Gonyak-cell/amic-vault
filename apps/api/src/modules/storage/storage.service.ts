@@ -5,11 +5,31 @@ import type {
   StorageBody,
   StorageGetObjectResult,
   StorageReadUrlResult,
+  StorageObjectVersion,
+  VersionedStorageAdapter,
+} from './storage-adapter.interface';
+import {
+  StorageUnavailableError,
+  StorageVersionFingerprintUnavailableError,
+  StorageVersioningUnsupportedError,
 } from './storage-adapter.interface';
 import { ENCRYPTION_HOOK, type EncryptionHook } from './encryption-hook.interface';
 import { StoragePathResolver, StorageTenantIsolationViolationError } from './storage-path.resolver';
 
 export const STORAGE_ADAPTER = Symbol('STORAGE_ADAPTER');
+
+declare const sealedStorageVersionBrand: unique symbol;
+
+/** Opaque worker-only reference; neither key nor provider version escapes StorageService. */
+export interface SealedStorageVersion {
+  readonly [sealedStorageVersionBrand]: true;
+}
+
+export interface SealedStorageVersionInspection {
+  version: SealedStorageVersion;
+  present: boolean;
+  objectLockProtected: boolean;
+}
 
 export interface PutTenantObjectInput {
   tenantId: string;
@@ -58,6 +78,10 @@ function tenantIsolationDenied(): ForbiddenException {
 
 @Injectable()
 export class StorageService {
+  private readonly sealedVersions = new WeakMap<
+    SealedStorageVersion,
+    { key: string; version: StorageObjectVersion }
+  >();
   constructor(
     @Inject(STORAGE_ADAPTER) private readonly adapter: StorageAdapter,
     @Inject(StoragePathResolver) private readonly pathResolver: StoragePathResolver,
@@ -211,6 +235,68 @@ export class StorageService {
     return sha256Stream(object.body);
   }
 
+  /**
+   * Returns only an adapter-produced version fingerprint after tenant storage
+   * URI validation. Provider version IDs and opaque handles never leave this
+   * storage boundary.
+   */
+  async latestVersionFingerprintByStorageUri(tenantId: string, storageUri: string): Promise<string> {
+    const parsed = this.assertTenantStorageUri(tenantId, storageUri);
+    const latest = (await this.versionedAdapter().listObjectVersions(parsed.key)).find(
+      (entry) => !entry.isDeleteMarker && entry.isLatest,
+    );
+    if (!latest || !/^[a-f0-9]{64}$/u.test(latest.versionFingerprint)) {
+      throw new StorageUnavailableError('storage latest version fingerprint is unavailable');
+    }
+    return latest.versionFingerprint;
+  }
+
+  /**
+   * Resolves an inventory fingerprint to a fresh opaque provider version and
+   * performs the required exact HEAD. The caller receives only an opaque
+   * capability plus bounded presence/Object-Lock facts.
+   */
+  async inspectSealedVersionByStorageUri(
+    tenantId: string,
+    storageUri: string,
+    storageVersionFingerprint: string,
+  ): Promise<SealedStorageVersionInspection> {
+    if (!/^[a-f0-9]{64}$/u.test(storageVersionFingerprint)) {
+      throw new StorageVersionFingerprintUnavailableError();
+    }
+    const parsed = this.assertTenantStorageUri(tenantId, storageUri);
+    const found = (await this.versionedAdapter().listObjectVersions(parsed.key)).filter(
+      (entry) => !entry.isDeleteMarker && entry.versionFingerprint === storageVersionFingerprint,
+    );
+    if (found.length !== 1) throw new StorageVersionFingerprintUnavailableError();
+    const entry = found[0];
+    if (!entry) throw new StorageVersionFingerprintUnavailableError();
+    const version = {} as SealedStorageVersion;
+    this.sealedVersions.set(version, { key: parsed.key, version: entry.version });
+    const metadata = await this.versionedAdapter().headObjectVersion({
+      key: parsed.key,
+      version: entry.version,
+    });
+    if (!metadata) return { version, present: false, objectLockProtected: false };
+    const objectLock = metadata.objectLock;
+    if (!objectLock) throw new StorageUnavailableError('storage object lock state is unavailable');
+    return {
+      version,
+      present: true,
+      objectLockProtected:
+        objectLock.legalHold ||
+        (objectLock.retainUntil !== null && objectLock.retainUntil.getTime() > Date.now()),
+    };
+  }
+
+  async deleteSealedVersion(version: SealedStorageVersion): Promise<void> {
+    await this.versionedAdapter().deleteObjectVersion(this.requireSealedVersion(version));
+  }
+
+  async sealedVersionIsPresent(version: SealedStorageVersion): Promise<boolean> {
+    return (await this.versionedAdapter().headObjectVersion(this.requireSealedVersion(version))) !== null;
+  }
+
   async deleteByStorageUri(tenantId: string, storageUri: string): Promise<void> {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
     await this.adapter.delete(parsed.key);
@@ -223,5 +309,19 @@ export class StorageService {
       if (error instanceof StorageTenantIsolationViolationError) throw tenantIsolationDenied();
       throw error;
     }
+  }
+
+  private versionedAdapter(): VersionedStorageAdapter {
+    const candidate = this.adapter as Partial<VersionedStorageAdapter>;
+    if (typeof candidate.listObjectVersions !== 'function') {
+      throw new StorageVersioningUnsupportedError();
+    }
+    return candidate as VersionedStorageAdapter;
+  }
+
+  private requireSealedVersion(version: SealedStorageVersion) {
+    const reference = this.sealedVersions.get(version);
+    if (!reference) throw new StorageUnavailableError('storage sealed version reference is invalid');
+    return reference;
   }
 }
