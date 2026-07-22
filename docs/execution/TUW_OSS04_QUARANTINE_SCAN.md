@@ -138,7 +138,8 @@ external data change.
   worker scan handler only if the current ingestion service owns the adapter
   call.
 - **Files modify:** `apps/api/src/app.module.ts`, the existing QueueRegistry,
-  worker router/main and source map.
+  worker router/main, `StoragePathResolver` plus its spec for the
+  tenant-bound quarantine read/validation variant, and source map.
 - **Files NOT-modify:** document/version finalization, primary storage
   promotion, search/extraction dispatch, queue payload policy unrelated to
   scans, `docs/package/**`.
@@ -153,6 +154,24 @@ external data change.
   object key accepted.
 - **Stop:** a worker chooses storage location, a `clean` transition occurs
   outside its audit transaction, or queue retry changes unrelated policy.
+
+### QRT-003 scope amendment — authoritative quarantine read boundary
+
+Under `USER-UMBRELLA-AUTONOMY-20260721`, QRT-003 may add only the existing
+Vault `StoragePathResolver`'s tenant-bound quarantine URI parse/validation
+variant and use it through `StorageService` for its bounded read. The worker
+still receives neither bucket/key/URL choice nor storage credentials, and this
+does not authorize a quarantine write, an ingress change, primary promotion or
+any QRT-004 intake behavior. QRT-004 retains ownership of server-derived
+quarantine key creation and every upload-ingress change.
+
+### QRT-003 scope amendment — Vault-owned control provenance
+
+QRT-003 may declare its new API queue/service/module and ingestion scan-router
+files as explicit L0 no-copy control code in the existing adoption-decision
+manifest. This changes no upstream source, fixture, dependency or runtime
+authority; it makes the reuse-first gate prove that the queue, audit and
+adapter bridge remain Vault-owned.
 
 ## `DEVOPS-OSS04-QRT-TUW-004`
 

@@ -41,6 +41,7 @@ import { SearchModule } from './modules/search/search.module';
 import { OrgDirectoryModule } from './modules/org-directory/org-directory.module';
 import { WorkModule } from './modules/work/work.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { FileSecurityModule } from './modules/file-security/file-security.module';
 
 @Controller()
 class AppController {
@@ -65,6 +66,7 @@ class AppController {
     TenantModule,
     DatabaseModule,
     QueueModule,
+    FileSecurityModule,
     AuthModule,
     GraphModule,
     ContractIntelModule,
