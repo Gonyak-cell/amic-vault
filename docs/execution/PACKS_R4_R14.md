@@ -74,6 +74,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS01-02 | `feat/pack-oss01-02-authority-pool-migration` | 4 | `DEVOPS-OSS01-DBM-TUW-001` through `DEVOPS-OSS01-DBM-TUW-004` (`docs/execution/TUW_OSS01_POOL_MIGRATION.md`) |
 | PACK-OSS01-03 | `feat/pack-oss01-03-remaining-pool-migration` | 4 | `DEVOPS-OSS01-DBR-TUW-001` through `DEVOPS-OSS01-DBR-TUW-004` (`docs/execution/TUW_OSS01_REMAINING_POOL_MIGRATION.md`) |
 | PACK-OSS01-04 | `feat/pack-oss01-04-queue-registry-budget` | 4 | `DEVOPS-OSS01-QUE-TUW-001` through `DEVOPS-OSS01-QUE-TUW-004` (`docs/execution/TUW_OSS01_QUEUE_REGISTRY.md`) |
+| PACK-OSS03-01 | `feat/pack-oss03-01-sealed-disposal-inventory` | 4 | `DEVOPS-OSS03-DSP-TUW-001` through `DEVOPS-OSS03-DSP-TUW-004` (`docs/execution/TUW_OSS03_SEALED_DISPOSAL_INVENTORY.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -83,6 +84,22 @@ and 111 TUWs without a new human approval between PACKs. The detailed scope,
 hard stops, and unchanged dependency/deployment/external-operation/PR-merge
 boundaries are normative in
 `docs/execution/OSS_TERRA_AUTONOMOUS_EXECUTION_AUTHORITY.md`.
+
+## PACK-OSS03-01 — Sealed disposal inventory and saga
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`. This is the just-in-time canonical form of
+`PROPOSED-PACK-OSS03-01`, independently rebased on `origin/main`
+`95580b5ca5a32b31b5d2dd14ea34a03633f88f98` after merged `PACK-OSS01-04`.
+
+- Branch: `feat/pack-oss03-01-sealed-disposal-inventory`.
+- Detail contract: `docs/execution/TUW_OSS03_SEALED_DISPOSAL_INVENTORY.md`.
+- No unversioned disposal fallback, bucket-policy/production-object change,
+  deployment, dependency, external operation, source vendoring, or
+  `docs/package/**` change is authorized.
+- The existing Vault storage/Records/audit/permission structures are L0
+  no-copy reuse. Exact-version capability must pass a synthetic disposable
+  probe before any new disposal schema or destructive worker is introduced.
 
 ## PACK-R14-02 — 117-row control-plane recovery
 
