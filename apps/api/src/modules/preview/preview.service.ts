@@ -1,28 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { PermissionDecision, TenantId } from '@amic-vault/shared';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import type { TenantId } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
-import { documentViewedAudit } from '../audit/events/document-events';
-import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import { PreviewConversionUnavailableError, PreviewConvertJob } from './preview-convert.job';
+import { PreviewSessionService, type PreviewSessionTarget } from './preview-session.service';
 
-interface PreviewFileRow {
-  document_id: string;
-  tenant_id: string;
-  matter_id: string;
-  status: string;
-  version_id: string;
-  file_object_id: string;
-  storage_uri: string;
-  normalized_filename: string;
-  mime_type: string;
-  size_bytes: string;
-  sha256: string;
-}
+type PreviewFileRow = PreviewSessionTarget;
 
 interface PreviewArtifactRow {
   file_object_id: string;
@@ -63,14 +50,6 @@ const officePreviewMimeTypes = new Set([
 
 export function isOfficePreviewMimeType(mimeType: string): boolean {
   return officePreviewMimeTypes.has(mimeType);
-}
-
-function notFoundDenied(): NotFoundException {
-  return new NotFoundException({ code: 'PERMISSION_DENIED' });
-}
-
-function documentLocked(): BadRequestException {
-  return new BadRequestException({ code: 'DOCUMENT_LOCKED' });
 }
 
 function conversionUnavailable(): BadRequestException {
@@ -114,8 +93,8 @@ export class PreviewService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(FileObjectService) private readonly fileObjectService: FileObjectService,
-    @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(PreviewConvertJob) private readonly previewConvertJob: PreviewConvertJob,
+    @Inject(PreviewSessionService) private readonly previewSessionService: PreviewSessionService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
@@ -123,16 +102,17 @@ export class PreviewService {
   async openPreview(
     actorUserId: string,
     documentId: string,
+    previewSessionId: string,
+    previewToken: string,
     rangeHeader?: string,
   ): Promise<PreviewResult> {
     const context = this.tenantContext.require();
-    const original = await this.auditService.transaction(context.tenantId, async (tx) => {
-      const target = await this.findCurrentPreviewTarget(tx, context.tenantId, documentId);
-      if (!target) throw notFoundDenied();
-      if (target.status === 'deleted') throw documentLocked();
-      await this.assertCanPreview(context.tenantId, actorUserId, documentId);
-      return target;
-    });
+    const original = await this.previewSessionService.authorizeStream(
+      actorUserId,
+      documentId,
+      previewSessionId,
+      previewToken,
+    );
 
     const previewFile =
       original.mime_type === 'application/pdf'
@@ -146,7 +126,6 @@ export class PreviewService {
         context.tenantId,
         previewFile.storage_uri,
       );
-      await this.recordPreviewViewed(context.tenantId, actorUserId, original);
       return {
         body: object.body,
         contentType: 'application/pdf',
@@ -216,26 +195,6 @@ export class PreviewService {
           WHERE document_preview_artifacts.status <> 'ready'
         `,
         [input.tenantId, input.documentId, input.versionId, input.fileObjectId, failureReasonCode],
-      );
-    });
-  }
-
-  private async recordPreviewViewed(
-    tenantId: TenantId,
-    actorUserId: string,
-    original: PreviewFileRow,
-  ): Promise<void> {
-    await this.auditService.transaction(tenantId, async (tx) => {
-      await this.auditService.log(
-        documentViewedAudit({
-          tenantId,
-          actorId: actorUserId,
-          documentId: original.document_id,
-          matterId: original.matter_id,
-          versionId: original.version_id,
-          channel: 'preview',
-        }),
-        tx,
       );
     });
   }
@@ -326,52 +285,6 @@ export class PreviewService {
         .catch(() => undefined);
       throw error;
     }
-  }
-
-  private async assertCanPreview(
-    tenantId: TenantId,
-    actorUserId: string,
-    documentId: string,
-  ): Promise<void> {
-    let decision: PermissionDecision | undefined;
-    try {
-      decision = await this.permissionService.canReadDocument(
-        { tenantId, userId: actorUserId },
-        documentId,
-      );
-    } catch {
-      this.logger.warn({ code: 'PERM_EVAL_ERROR', documentId });
-    }
-    if (decision?.effect === 'ALLOW') return;
-    if (decision?.reasonCode === 'DOCUMENT_LOCKED') throw documentLocked();
-    throw notFoundDenied();
-  }
-
-  private async findCurrentPreviewTarget(
-    client: QueryClient,
-    tenantId: TenantId,
-    documentId: string,
-  ): Promise<PreviewFileRow | null> {
-    const result = await client.query(
-      `
-        SELECT d.document_id, d.tenant_id, d.matter_id, d.status,
-          dv.version_id, dv.file_object_id, f.storage_uri, f.normalized_filename,
-          f.mime_type, f.size_bytes::text, f.sha256
-        FROM documents d
-        JOIN document_versions dv
-          ON dv.tenant_id = d.tenant_id
-          AND dv.document_id = d.document_id
-          AND dv.version_status = 'current'
-        JOIN file_objects f
-          ON f.tenant_id = dv.tenant_id
-          AND f.file_object_id = dv.file_object_id
-        WHERE d.tenant_id = $1
-          AND d.document_id = $2
-        LIMIT 1
-      `,
-      [tenantId, documentId],
-    );
-    return (result.rows[0] as PreviewFileRow | undefined) ?? null;
   }
 
   private async findVersionPreviewTarget(

@@ -2636,6 +2636,33 @@ required unavailable queue. Any loss of business-and-enqueue atomicity, runtime
 schema migration, changed queue policy, implicit owner credential, or
 Permission/Audit transaction weakening is a hard stop.
 
+## PACK-OSS02-01 — audited preview session
+
+Status: canonical post-R14 extension under `USER-UMBRELLA-AUTONOMY-20260721`.
+It is the serial successor to merged `PACK-OSS01-04` and the canonical form of
+`PROPOSED-PACK-OSS02-01`.
+
+- Planning baseline: `origin/main`
+  `c25bb0b2713b5a7da51fd4aa9cdbb1bdf6366790`.
+- Branch: `feat/pack-oss02-01-audited-preview-session-main-20260722`.
+- Detail contract: `docs/execution/TUW_OSS02_AUDITED_PREVIEW_SESSION.md`.
+- Execution order: `DEVOPS-OSS02-PRV-TUW-001` → `DEVOPS-OSS02-PRV-TUW-002` →
+  `DEVOPS-OSS02-PRV-TUW-003` → `DEVOPS-OSS02-PRV-TUW-004` →
+  `DEVOPS-OSS02-PRV-TUW-005`.
+- Scope: Vault-owned short-lived hashed preview-session persistence, atomic
+  `DOCUMENT_VIEWED` issuance audit, session-gated API streaming, in-memory
+  web handshake and real integration proof. The web caller may use bounded
+  header-based range fetches into an object URL because the existing native
+  iframe cannot transmit a header; it must not persist or expose the token.
+- Out of scope: package/lockfile changes, source vendoring, external preview
+  service, storage-path change, PermissionService/audit semantic change,
+  third-party viewer, deployment, release and go-live.
+
+Every TUW must preserve its Files NOT-modify list and AND verification. Any
+need for a raw token URL, sessionless preview fallback, storage-key exposure,
+audit after first byte, permission bypass, unbounded API buffering or token
+persistence is a hard stop.
+
 ## Gate Reports
 
 Each release closes with a `docs/ledger/gates/R{N}_gate.md` report and an

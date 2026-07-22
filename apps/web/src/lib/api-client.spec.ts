@@ -15,11 +15,11 @@ import {
   createUploadPreflight,
   documentDownloadUrl,
   emailRawDownloadUrl,
-  documentPreviewUrl,
   deleteMatterIssue,
   deleteMatterKeyDate,
   forceReleaseDocumentEditSession,
   fileEmailToMatter,
+  fetchDocumentPreviewRange,
   fileEmailThreadToMatter,
   getEmailMatterSuggestions,
   getDocument,
@@ -28,6 +28,7 @@ import {
   getMatterAppStatus,
   getDocumentEditPackage,
   getNativeDocumentEditDraft,
+  issueDocumentPreviewSession,
   addMatterRelatedMatter,
   listClients,
   listDocumentEmailLinks,
@@ -1380,34 +1381,47 @@ describe('api client', () => {
     );
   });
 
-  it('builds preview and controlled download URLs without exposing raw refs beyond the route id', () => {
-    expect(documentPreviewUrl('doc-ref')).toBe(
+  it('issues a session before previewing and keeps its opaque token out of the URL', async () => {
+    const session = {
+      previewSessionId: '11111111-1111-4111-8111-111111111111',
+      expiresAt: '2026-07-22T00:05:00.000Z',
+      token: '1234567890123456789012345678901234567890123',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(session), { status: 201 }))
+      .mockResolvedValueOnce(
+        new Response('preview', {
+          headers: { 'content-range': 'bytes 0-6/7' },
+          status: 206,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(issueDocumentPreviewSession('doc-ref')).resolves.toEqual(session);
+    await expect(fetchDocumentPreviewRange('doc-ref', session, 'bytes=0-6')).resolves.toBeInstanceOf(
+      Response,
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:3001/v1/documents/doc-ref/preview-sessions',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
       'http://localhost:3001/v1/documents/doc-ref/preview',
-    );
-    expect(
-      documentPreviewUrl('doc-ref', {
-        searchHit: {
-          anchorId: 'vph-1-0-12',
-          hitCount: 80,
-          hitIndex: 99,
-          target: 'body',
+      expect.objectContaining({
+        cache: 'no-store',
+        credentials: 'include',
+        headers: {
+          range: 'bytes=0-6',
+          'x-amic-preview-session': session.previewSessionId,
+          'x-amic-preview-token': session.token,
         },
       }),
-    ).toBe(
-      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=50&vault-preview-hit-count=50&vault-preview-target=body&vault-preview-anchor=vph-1-0-12',
     );
-    expect(
-      documentPreviewUrl('doc-ref', {
-        searchHit: {
-          anchorId: 'raw-query-text',
-          hitCount: 1,
-          hitIndex: 1,
-          target: 'body',
-        },
-      }),
-    ).toBe(
-      'http://localhost:3001/v1/documents/doc-ref/preview#vault-preview-hit=1&vault-preview-hit-count=1&vault-preview-target=body',
-    );
+    expect(String(fetchMock.mock.calls[1]?.[0])).not.toContain(session.token);
     expect(documentDownloadUrl('doc-ref', 'casework')).toBe(
       'http://localhost:3001/v1/documents/doc-ref/download?reasonCode=casework',
     );

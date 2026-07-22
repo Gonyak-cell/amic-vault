@@ -78,6 +78,29 @@ async function uploadOffice(
   return JSON.parse(body) as { documentId: string; fileObjectId: string };
 }
 
+async function issuePreviewSession(baseUrl: string, cookie: string, documentId: string) {
+  const response = await fetch(`${baseUrl}/v1/documents/${documentId}/preview-sessions`, {
+    method: 'POST',
+    headers: { cookie },
+  });
+  const body = await response.text();
+  expect(response.status, body).toBe(201);
+  return JSON.parse(body) as { previewSessionId: string; token: string };
+}
+
+function previewHeaders(
+  cookie: string,
+  session: { previewSessionId: string; token: string },
+  range?: string,
+): Record<string, string> {
+  return {
+    cookie,
+    'x-amic-preview-session': session.previewSessionId,
+    'x-amic-preview-token': session.token,
+    ...(range ? { range } : {}),
+  };
+}
+
 async function ensureFreshMatterAppSyncState(): Promise<void> {
   await withClient(createOwnerClient(), async (client) => {
     await client.query(
@@ -223,14 +246,16 @@ describe('preview integration', () => {
     const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, 'preview-pdf');
     storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
 
-    const denied = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
+    const denied = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview-sessions`, {
+      method: 'POST',
       headers: { cookie: alphaOwnerCookie },
     });
     expect(denied.status).toBe(404);
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(0);
 
+    const session = await issuePreviewSession(baseUrl, betaOwnerCookie, uploaded.documentId);
     const preview = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
-      headers: { cookie: betaOwnerCookie },
+      headers: previewHeaders(betaOwnerCookie, session),
     });
     expect(preview.status, await preview.text()).toBe(200);
     expect(preview.headers.get('content-type')).toContain('application/pdf');
@@ -242,13 +267,19 @@ describe('preview integration', () => {
     });
 
     const range = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
-      headers: { cookie: betaOwnerCookie, range: 'bytes=0-7' },
+      headers: previewHeaders(betaOwnerCookie, session, 'bytes=0-7'),
     });
     const rangeBody = await range.text();
     expect(range.status, rangeBody).toBe(206);
     expect(rangeBody).toBe('%PDF-1.7');
     expect(range.headers.get('content-length')).toBe('8');
     expect(range.headers.get('content-range')).toMatch(/^bytes 0-7\//);
+    expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(1);
+
+    const invalidRange = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
+      headers: previewHeaders(betaOwnerCookie, session, 'bytes=invalid'),
+    });
+    expect(invalidRange.status, await invalidRange.text()).toBe(200);
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(1);
   });
 
@@ -257,8 +288,9 @@ describe('preview integration', () => {
     const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'PDOCX');
     const uploaded = await uploadDocx(baseUrl, betaOwnerCookie, matterId, 'preview-docx');
 
+    const session = await issuePreviewSession(baseUrl, betaOwnerCookie, uploaded.documentId);
     const preview = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
-      headers: { cookie: betaOwnerCookie },
+      headers: previewHeaders(betaOwnerCookie, session),
     });
     const body = await preview.text();
     expect(preview.status, body).toBe(200);
@@ -313,8 +345,9 @@ describe('preview integration', () => {
       const uploaded = await uploadOffice(baseUrl, betaOwnerCookie, matterId, officeCase);
       const beforeCalls = previewWorker.calls.length;
 
+      const firstSession = await issuePreviewSession(baseUrl, betaOwnerCookie, uploaded.documentId);
       const first = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
-        headers: { cookie: betaOwnerCookie },
+        headers: previewHeaders(betaOwnerCookie, firstSession),
       });
       const firstBody = await first.text();
       expect(first.status, firstBody).toBe(200);
@@ -326,8 +359,9 @@ describe('preview integration', () => {
         tenantHeader: tenantBetaId,
       });
 
+      const secondSession = await issuePreviewSession(baseUrl, betaOwnerCookie, uploaded.documentId);
       const second = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
-        headers: { cookie: betaOwnerCookie },
+        headers: previewHeaders(betaOwnerCookie, secondSession),
       });
       expect(second.status, await second.text()).toBe(200);
       expect(previewWorker.calls).toHaveLength(beforeCalls + 1);
@@ -372,8 +406,9 @@ describe('preview integration', () => {
       preview_file_count: '1',
     });
 
+    const session = await issuePreviewSession(baseUrl, betaOwnerCookie, uploaded.documentId);
     const first = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview`, {
-      headers: { cookie: betaOwnerCookie },
+      headers: previewHeaders(betaOwnerCookie, session),
     });
     expect(first.status, await first.text()).toBe(200);
     expect(first.headers.get('content-type')).toContain('application/pdf');

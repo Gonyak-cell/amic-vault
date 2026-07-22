@@ -1,5 +1,5 @@
 {
-  "total": 226,
+  "total": 231,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3419,6 +3419,61 @@
       "depends_on": ["DEVOPS-OSS09-TEL-TUW-003"],
       "files": ["apps/api/src/common", "workers/ingestion", "tests/integration"],
       "verification": "synthetic API queue worker scanner trace continuity passes AND replay cross-tenant raw-baggage content and authorization-signal negatives fail closed"
+    },
+    {
+      "id": "DEVOPS-OSS02-PRV-TUW-001",
+      "title": "Preview access session schema and DTO contract",
+      "release": "R14",
+      "module": "DEVOPS-OSS02",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS01-QUE-TUW-004"],
+      "files": ["db/migrations/0200_create_preview_access_sessions.sql", "packages/shared/src/dto/document", "tests/integration"],
+      "verification": "tenant RLS FORCE hashed session schema and strict DTO contract round-trip AND cross-tenant raw-token duplicate expiry revoke and immutable-audit negatives fail"
+    },
+    {
+      "id": "DEVOPS-OSS02-PRV-TUW-002",
+      "title": "Atomic preview session issue and view audit",
+      "release": "R14",
+      "module": "DEVOPS-OSS02",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS02-PRV-TUW-001"],
+      "files": ["apps/api/src/modules/preview", "packages/shared/src/dto/document", "tests/integration"],
+      "verification": "PermissionService allow creates one tenant user document version-bound hash session and DOCUMENT_VIEWED atomically AND denial wall cross-tenant permission-error and audit-fault paths return no token or row"
+    },
+    {
+      "id": "DEVOPS-OSS02-PRV-TUW-003",
+      "title": "Session-gated full and range preview stream",
+      "release": "R14",
+      "module": "DEVOPS-OSS02",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS02-PRV-TUW-002"],
+      "files": ["apps/api/src/modules/preview", "tests/integration/document-access"],
+      "verification": "full and 206 streams require current valid bound session before storage opens AND no-session expired revoked wrong-user tenant document version replay invalid-range and audit-fault byte-zero cases deny safely"
+    },
+    {
+      "id": "DEVOPS-OSS02-PRV-TUW-004",
+      "title": "In-memory web preview session handshake",
+      "release": "R14",
+      "module": "DEVOPS-OSS02",
+      "risk": "M",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS02-PRV-TUW-003"],
+      "files": ["apps/web/src/lib", "apps/web/src/components/document", "apps/web/src/components/search"],
+      "verification": "controlled web caller issues session and sends only in-memory header-bound bounded range requests AND token URL storage HTML telemetry cache and direct sessionless preview-link cases are zero"
+    },
+    {
+      "id": "DEVOPS-OSS02-PRV-TUW-005",
+      "title": "Preview permission audit and leakage integration gate",
+      "release": "R14",
+      "module": "DEVOPS-OSS02",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS02-PRV-TUW-001", "DEVOPS-OSS02-PRV-TUW-002", "DEVOPS-OSS02-PRV-TUW-003", "DEVOPS-OSS02-PRV-TUW-004"],
+      "files": ["tests/integration/document-access", "tests/integration/audit-coverage", "tests/integration/metadata-leakage"],
+      "verification": "real Nest PostgreSQL MinIO issue-to-range permission audit fault replay revoke expiry and metadata-leakage proof passes AND full document-access audit-coverage metadata-leakage cross-tenant regressions remain green"
     }
   ]
 }
