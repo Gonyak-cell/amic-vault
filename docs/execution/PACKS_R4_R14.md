@@ -68,6 +68,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS00-02 | `feat/pack-oss00-02-dependency-python-hardening` | 3 | `DEVOPS-OSSDEP-TRIAGE-TUW-001`, `SEC-UPLOAD-MULTIPART-TUW-001`, `DEVOPS-OSSPY-LOCK-TUW-001` (`docs/execution/TUW_OSS00_DEPENDENCY_PYTHON.md`) |
 | PACK-OSS00-03 | `feat/pack-oss00-03-sbom-scan-attestation` | 3 | `DEVOPS-OSSATT-SBOM-TUW-001`, `SEC-OSSSCAN-PIPELINE-TUW-001`, `DEVOPS-OSSATT-IDENTITY-TUW-001` (`docs/execution/TUW_OSS00_SBOM_SCAN_ATTESTATION.md`) |
 | PACK-OSS00A-01 | `feat/pack-oss00a-01-source-lab-baseline` | 4 | `DEVOPS-OSSLAB-BOUNDARY-TUW-001` through `DEVOPS-OSSLAB-REPRO-TUW-001` (`docs/execution/TUW_OSS00A_SOURCE_LAB.md`) |
+| PACK-OSS00A-02 | `feat/pack-oss00a-02-authority-source-map` | 3 | `DEVOPS-OSSADOPT-AUTH-TUW-001` through `DEVOPS-OSSADOPT-REUSE-TUW-003` (`docs/execution/TUW_OSS00A_ADOPTION_MAP.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2440,6 +2441,26 @@ ship upstream code.
   and reproducibility proof. Product source/runtime, dependency locks,
   Docker build context, vendor/fork/source inclusion, CI permission expansion,
   deployment, push/PR/merge, and external state are out of scope.
+
+## PACK-OSS00A-02 — authority and product-facing source map
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; `PACK-OSS00A-01` has local technical
+evidence. This PACK makes Vault-versus-upstream authority and reusable test
+inputs explicit before any product-facing OSS adoption work.
+
+- Planning baseline: `origin/main`
+  `91ac55a59b538cb57ecacecea4e69c92dc7c4cfd`.
+- Branch: `feat/pack-oss00a-02-authority-source-map`.
+- Detail contract: `docs/execution/TUW_OSS00A_ADOPTION_MAP.md`.
+- Execution order: `DEVOPS-OSSADOPT-AUTH-TUW-001` →
+  `DEVOPS-OSSADOPT-SOURCEMAP-TUW-002` →
+  `DEVOPS-OSSADOPT-REUSE-TUW-003`.
+- Scope: source-derived authority/gap inventory, exact upstream source/test
+  path map, and test-reuse classification only. Product code/tests, source
+  vendoring, dependencies/locks, runtime/build inputs, Docker context, CI
+  permission expansion, deployment, push/PR/merge, and external state are out
+  of scope.
 
 ## Gate Reports
 

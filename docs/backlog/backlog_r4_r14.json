@@ -1,5 +1,5 @@
 {
-  "total": 188,
+  "total": 191,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -2972,6 +2972,39 @@
       "depends_on": ["DEVOPS-OSSLAB-BASELINE-TUW-001"],
       "files": ["tools/oss", "security/oss-source-map.yml", ".github/workflows/supply-chain.yml"],
       "verification": "second-clone and tamper drift fixtures distinguish pinned reproduced and blocked without product source or CI permission mutation"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-AUTH-TUW-001",
+      "title": "Vault authority and gap map",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSLAB-REPRO-TUW-001"],
+      "files": ["docs/architecture/oss-adoption-decisions", "security/oss-source-map.yml"],
+      "verification": "all OSS-01 through OSS-11 portfolios have a valid Vault target AND KEEP AUGMENT GAP UNKNOWN authority is explicit AND stale local targets and wholesale replacement are rejected"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-SOURCEMAP-TUW-002",
+      "title": "DMS pipeline security identity source-test map",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-AUTH-TUW-001"],
+      "files": ["docs/architecture/oss-adoption-decisions", "security/oss-source-map.yml"],
+      "verification": "exact clone path blob license and test input bind OSS-03 through OSS-08 targets AND root-only missing-test or unlicensed fixture candidates fail"
+    },
+    {
+      "id": "DEVOPS-OSSADOPT-REUSE-TUW-003",
+      "title": "Test fixture reuse classification and parity skeleton",
+      "release": "R14",
+      "module": "DEVOPS-OSSADOPT",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSSADOPT-SOURCEMAP-TUW-002"],
+      "files": ["security/oss-test-reuse.yml", "tools/oss", "docs/architecture/oss-adoption-decisions"],
+      "verification": "missing license wrong hash copied-source misclassification and invalid canonical suite fail AND security portfolios retain a negative or fault parity scenario"
     }
   ]
 }
