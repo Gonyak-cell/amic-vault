@@ -92,6 +92,7 @@
     "tests/integration/document-access/upload-permission.spec.ts",
     "tests/integration/file-security-scan.spec.ts",
     "tests/integration/file-security-promotion-faults.spec.ts",
+    "tests/integration/search-permission/search-filter.spec.ts",
     "apps/api/src/modules/file-security/promoted-file.guard.ts",
     "apps/api/src/modules/file-security/promoted-file.guard.spec.ts",
     "apps/api/src/modules/document/document-editing.service.ts",
