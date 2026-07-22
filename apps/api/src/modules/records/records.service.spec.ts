@@ -55,20 +55,26 @@ function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
     })),
     completeRecordsDisposalWork: vi.fn(async () => undefined),
   };
+  const storageService = {
+    deleteByStorageUri: vi.fn(async () => undefined),
+    latestVersionFingerprintByStorageUri: vi.fn(async () => 'a'.repeat(64)),
+  };
+  const auditTransaction = vi.fn(
+    async (_tenantId: string, run: (client: QueryClient) => Promise<unknown>) =>
+      run(tx as unknown as QueryClient),
+  );
   const auditService = {
     log: auditLog,
-    transaction: vi.fn(async (_tenantId: string, run: (client: QueryClient) => Promise<unknown>) =>
-      run(tx as unknown as QueryClient),
-    ),
+    transaction: auditTransaction,
   };
   const service = new RecordsService(
     auditService as never,
     { canEditMatter: vi.fn(async () => allowPermission()) } as never,
-    { deleteByStorageUri: vi.fn(async () => undefined) } as never,
+    storageService as never,
     { findByTenantAndId: vi.fn(async () => ({ status: 'active', role: 'security_admin' })) } as never,
     workService as never,
   );
-  return { auditLog, service, workService };
+  return { auditLog, auditTransaction, service, storageService, workService };
 }
 
 describe('RecordsService legal hold lifecycle', () => {
@@ -247,5 +253,93 @@ describe('RecordsService legal hold lifecycle', () => {
       }),
     ]);
     expect(tx.query).toHaveBeenCalledWith(expect.stringContaining('dr.status IN'), [tenantId]);
+  });
+
+  it('seals one repeatable-read disposal inventory and returns the same pending reference on retry', async () => {
+    const approvedRow = {
+      disposal_request_id: disposalRequestId,
+      matter_id: matterId,
+      document_id: documentId,
+      status: 'approved',
+      reason_code: 'CLIENT_RECORDS',
+      requested_by: '11111111-1111-4111-8111-111111111199',
+      approved_by: actorUserId,
+      executed_by: null,
+      assigned_to_user_id: null,
+      assigned_role: 'records_admin',
+      due_at: new Date('2026-06-27T00:00:00.000Z'),
+      workflow_item_id: null,
+      workflow_audit_event_id: null,
+      created_at: new Date('2026-06-20T00:00:00.000Z'),
+      approved_at: new Date('2026-06-20T00:01:00.000Z'),
+      executed_at: null,
+      certificate_id: null,
+      pending_execution_ref: null,
+    };
+    const tx = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('FROM disposal_requests dr')) {
+          return { rowCount: 1, rows: [{ ...approvedRow, status: 'requested', approved_by: null, approved_at: null }] };
+        }
+        if (sql.includes('FROM documents d')) return { rowCount: 1, rows: [documentTarget()] };
+        if (sql.includes('SELECT count(*)::text AS count')) return { rowCount: 1, rows: [{ count: '0' }] };
+        if (sql.includes('FROM document_versions')) {
+          return {
+            rowCount: 1,
+            rows: [
+              {
+                version_id: '11111111-1111-4111-8111-111111111177',
+                file_object_id: '11111111-1111-4111-8111-111111111188',
+                file_hash: 'b'.repeat(64),
+                storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/11111111-1111-4111-8111-111111111188`,
+                sha256: 'b'.repeat(64),
+              },
+            ],
+          };
+        }
+        if (sql.includes('FROM document_preview_artifacts')) return { rowCount: 0, rows: [] };
+        if (sql.includes('UPDATE disposal_requests')) return { rowCount: 1, rows: [approvedRow] };
+        if (sql.includes('INSERT INTO records_disposal_outbox')) {
+          return { rowCount: 1, rows: [{ disposal_outbox_id: workItemId }] };
+        }
+        if (sql.includes('INSERT INTO records_disposal_inventory')) return { rowCount: 1, rows: [] };
+        if (sql.includes('UPDATE disposal_requests\n        SET workflow_item_id')) return { rowCount: 1, rows: [] };
+        throw new Error(`unexpected query: ${sql}`);
+      }),
+    };
+    const { auditLog, auditTransaction, service, storageService } = serviceWith(tx);
+
+    const approved = await service.approveDisposalRequest(ctx, disposalRequestId);
+
+    expect(approved).toMatchObject({
+      status: 'approved',
+      pendingExecutionRef: workItemId,
+    });
+    expect(auditTransaction).toHaveBeenCalledWith(tenantId, expect.any(Function), {
+      isolationLevel: 'repeatable read',
+    });
+    expect(storageService.latestVersionFingerprintByStorageUri).toHaveBeenCalledTimes(1);
+    expect(storageService.deleteByStorageUri).not.toHaveBeenCalled();
+    expect(auditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DISPOSAL_APPROVED',
+        metadata: expect.objectContaining({ evidence_id: workItemId, item_count: 1 }),
+      }),
+      tx,
+    );
+
+    const retryTx = {
+      query: vi.fn(async () => ({
+        rowCount: 1,
+        rows: [{ ...approvedRow, pending_execution_ref: workItemId }],
+      })),
+    };
+    const { service: retryService, storageService: retryStorage } = serviceWith(retryTx);
+    await expect(retryService.approveDisposalRequest(ctx, disposalRequestId)).resolves.toMatchObject({
+      pendingExecutionRef: workItemId,
+      status: 'approved',
+    });
+    expect(retryTx.query).toHaveBeenCalledTimes(1);
+    expect(retryStorage.latestVersionFingerprintByStorageUri).not.toHaveBeenCalled();
   });
 });

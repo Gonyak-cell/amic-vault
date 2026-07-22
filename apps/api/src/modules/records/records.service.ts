@@ -44,6 +44,11 @@ import { PermissionService } from '../permission/permission.service';
 import { StorageService } from '../storage/storage.service';
 import { UserService } from '../user/user.service';
 import { WorkService } from '../work/work.service';
+import {
+  sealedDisposalInventoryHash,
+  type DisposalInventoryObjectKind,
+  type SealedDisposalInventoryEntry,
+} from './disposal-receipt.types';
 
 const mutableRecordStatuses = new Set([
   'draft',
@@ -237,6 +242,7 @@ interface DisposalRequestRow {
   approved_at: Date | null;
   executed_at: Date | null;
   certificate_id: string | null;
+  pending_execution_ref: string | null;
 }
 
 interface DisposalReviewRow extends DisposalRequestRow {
@@ -279,6 +285,7 @@ interface CountRow {
 interface FileObjectRefRow {
   file_object_id: string;
   storage_uri: string;
+  sha256: string;
 }
 
 interface VersionFileRow extends FileObjectRefRow {
@@ -405,6 +412,7 @@ function mapDisposalRequest(row: DisposalRequestRow): DisposalRequestDto {
     dueAt: iso(row.due_at),
     approvalCount: row.approved_by ? 1 : 0,
     certificateId: row.certificate_id,
+    pendingExecutionRef: row.pending_execution_ref ?? null,
     createdAt: iso(row.created_at),
     approvedAt: row.approved_at ? iso(row.approved_at) : null,
     executedAt: row.executed_at ? iso(row.executed_at) : null,
@@ -918,7 +926,8 @@ export class RecordsService {
             requested_by, approved_by, executed_by, assigned_to_user_id, assigned_role,
             due_at, workflow_item_id, workflow_audit_event_id,
             created_at, approved_at, executed_at,
-            NULL::uuid AS certificate_id
+            NULL::uuid AS certificate_id,
+            NULL::uuid AS pending_execution_ref
         `,
         [ctx.tenantId, target.matter_id, input.documentId, input.reasonCode, ctx.userId],
       );
@@ -992,6 +1001,7 @@ export class RecordsService {
             dr.assigned_to_user_id, dr.assigned_role, dr.due_at,
             dr.workflow_item_id, dr.workflow_audit_event_id,
             dr.created_at, dr.approved_at, dr.executed_at, dc.certificate_id,
+            rdo.disposal_outbox_id AS pending_execution_ref,
             m.matter_code, m.matter_name, d.title AS document_title
           FROM disposal_requests dr
           JOIN matters m
@@ -1003,6 +1013,9 @@ export class RecordsService {
           LEFT JOIN disposal_certificates dc
             ON dc.tenant_id = dr.tenant_id
             AND dc.disposal_request_id = dr.disposal_request_id
+          LEFT JOIN records_disposal_outbox rdo
+            ON rdo.tenant_id = dr.tenant_id
+            AND rdo.disposal_request_id = dr.disposal_request_id
           WHERE dr.tenant_id = $1
             AND dr.status IN ('requested', 'approved')
           ORDER BY dr.due_at ASC, dr.created_at DESC, dr.disposal_request_id ASC
@@ -1026,6 +1039,9 @@ export class RecordsService {
     return this.auditService.transaction(ctx.tenantId, async (tx) => {
       const before = await this.findDisposalRequest(tx, ctx.tenantId, disposalRequestId, true);
       if (!before) throw notFoundDenied();
+      if (before.status === 'approved' && before.pending_execution_ref) {
+        return mapDisposalRequest(before);
+      }
       if (before.status !== 'requested') throw validationFailed('DISPOSAL_NOT_REQUESTED');
       if (before.requested_by === ctx.userId) {
         throw validationFailed('DISPOSAL_SELF_APPROVAL_DENIED');
@@ -1040,6 +1056,10 @@ export class RecordsService {
         before.document_id,
       );
       await this.assertNoBusinessReferences(tx, ctx.tenantId, before.document_id);
+      const sealedInventory = await this.buildSealedInventory(tx, {
+        tenantId: ctx.tenantId,
+        documentId: before.document_id,
+      });
 
       const result = await tx.query(
         `
@@ -1055,12 +1075,51 @@ export class RecordsService {
             requested_by, approved_by, executed_by, assigned_to_user_id, assigned_role,
             due_at, workflow_item_id, workflow_audit_event_id,
             created_at, approved_at, executed_at,
-            NULL::uuid AS certificate_id
+            NULL::uuid AS certificate_id,
+            NULL::uuid AS pending_execution_ref
         `,
         [ctx.tenantId, disposalRequestId, ctx.userId],
       );
       const row = result.rows[0] as DisposalRequestRow | undefined;
       if (!row) throw validationFailed('DISPOSAL_APPROVAL_CONFLICT');
+      const outboxResult = await tx.query(
+        `
+          INSERT INTO records_disposal_outbox (
+            tenant_id, disposal_request_id, inventory_hash
+          )
+          VALUES ($1, $2, $3)
+          RETURNING disposal_outbox_id
+        `,
+        [ctx.tenantId, disposalRequestId, sealedInventory.inventoryHash],
+      );
+      const disposalOutboxId = (outboxResult.rows[0] as { disposal_outbox_id?: string } | undefined)
+        ?.disposal_outbox_id;
+      if (!disposalOutboxId) throw validationFailed('DISPOSAL_OUTBOX_CREATE_FAILED');
+      for (const entry of sealedInventory.entries) {
+        const insertResult = await tx.query(
+          `
+            INSERT INTO records_disposal_inventory (
+              tenant_id, disposal_outbox_id, document_id, document_version_id,
+              file_object_id, object_kind, storage_key_hash,
+              storage_version_fingerprint, content_sha256, canonical_ordinal
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          `,
+          [
+            ctx.tenantId,
+            disposalOutboxId,
+            entry.documentId,
+            entry.documentVersionId,
+            entry.fileObjectId,
+            entry.objectKind,
+            entry.storageKeyHash,
+            entry.storageVersionFingerprint,
+            entry.contentSha256,
+            entry.canonicalOrdinal,
+          ],
+        );
+        if (rowCount(insertResult) !== 1) throw validationFailed('DISPOSAL_INVENTORY_CREATE_FAILED');
+      }
       const audit = await this.auditService.log(
         {
           tenantId: ctx.tenantId,
@@ -1076,6 +1135,9 @@ export class RecordsService {
             document_id: row.document_id,
             approver_user_id: ctx.userId,
             approval_count: 1,
+            evidence_id: disposalOutboxId,
+            hash: sealedInventory.inventoryHash,
+            item_count: sealedInventory.entries.length,
             status_before: 'requested',
             status_after: 'approved',
           },
@@ -1108,11 +1170,12 @@ export class RecordsService {
       );
       return mapDisposalRequest({
         ...row,
+        pending_execution_ref: disposalOutboxId,
         due_at: workItem.dueAt,
         workflow_item_id: workItem.workItemId,
         workflow_audit_event_id: audit.eventId,
       });
-    });
+    }, { isolationLevel: 'repeatable read' });
   }
 
   async executeDisposalRequest(
@@ -1509,11 +1572,15 @@ export class RecordsService {
           dr.reason_code, dr.requested_by, dr.approved_by, dr.executed_by,
           dr.assigned_to_user_id, dr.assigned_role, dr.due_at,
           dr.workflow_item_id, dr.workflow_audit_event_id,
-          dr.created_at, dr.approved_at, dr.executed_at, dc.certificate_id
+          dr.created_at, dr.approved_at, dr.executed_at, dc.certificate_id,
+          rdo.disposal_outbox_id AS pending_execution_ref
         FROM disposal_requests dr
         LEFT JOIN disposal_certificates dc
           ON dc.tenant_id = dr.tenant_id
           AND dc.disposal_request_id = dr.disposal_request_id
+        LEFT JOIN records_disposal_outbox rdo
+          ON rdo.tenant_id = dr.tenant_id
+          AND rdo.disposal_request_id = dr.disposal_request_id
         WHERE dr.tenant_id = $1
           AND dr.disposal_request_id = $2
         LIMIT 1
@@ -1573,7 +1640,7 @@ export class RecordsService {
   ): Promise<VersionFileRow[]> {
     const result = await client.query(
       `
-        SELECT dv.version_id, dv.file_object_id, dv.file_hash, f.storage_uri
+        SELECT dv.version_id, dv.file_object_id, dv.file_hash, f.storage_uri, f.sha256
         FROM document_versions dv
         JOIN file_objects f
           ON f.tenant_id = dv.tenant_id
@@ -1594,7 +1661,7 @@ export class RecordsService {
   ): Promise<FileObjectRefRow[]> {
     const result = await client.query(
       `
-        SELECT dpa.file_object_id, f.storage_uri
+        SELECT dpa.file_object_id, f.storage_uri, f.sha256
         FROM document_preview_artifacts dpa
         JOIN file_objects f
           ON f.tenant_id = dpa.tenant_id
@@ -1606,6 +1673,59 @@ export class RecordsService {
       [tenantId, documentId],
     );
     return result.rows as FileObjectRefRow[];
+  }
+
+  private async buildSealedInventory(
+    client: QueryClient,
+    input: { tenantId: string; documentId: string },
+  ): Promise<{ entries: SealedDisposalInventoryEntry[]; inventoryHash: string }> {
+    const versionFiles = await this.listVersionFiles(client, input.tenantId, input.documentId);
+    if (versionFiles.length === 0) throw validationFailed('DISPOSAL_FILE_OBJECT_REQUIRED');
+    const previewFiles = await this.listPreviewFiles(client, input.tenantId, input.documentId);
+    const objects: Array<{
+      documentVersionId: string | null;
+      fileObjectId: string;
+      objectKind: DisposalInventoryObjectKind;
+      storageUri: string;
+      contentSha256: string;
+    }> = [
+      ...versionFiles.map((file) => ({
+        documentVersionId: file.version_id,
+        fileObjectId: file.file_object_id,
+        objectKind: 'document_version' as const,
+        storageUri: file.storage_uri,
+        contentSha256: file.file_hash,
+      })),
+      ...previewFiles.map((file) => ({
+        documentVersionId: null,
+        fileObjectId: file.file_object_id,
+        objectKind: 'preview_derivative' as const,
+        storageUri: file.storage_uri,
+        contentSha256: file.sha256,
+      })),
+    ].sort((left, right) =>
+      [left.objectKind, left.documentVersionId ?? '', left.fileObjectId].join(':').localeCompare(
+        [right.objectKind, right.documentVersionId ?? '', right.fileObjectId].join(':'),
+      ),
+    );
+    const entries: SealedDisposalInventoryEntry[] = [];
+    for (const [index, object] of objects.entries()) {
+      const storageVersionFingerprint = await this.storageService.latestVersionFingerprintByStorageUri(
+        input.tenantId,
+        object.storageUri,
+      );
+      entries.push({
+        documentId: input.documentId,
+        documentVersionId: object.documentVersionId,
+        fileObjectId: object.fileObjectId,
+        objectKind: object.objectKind,
+        storageKeyHash: sha256Hex(object.storageUri),
+        storageVersionFingerprint,
+        contentSha256: object.contentSha256,
+        canonicalOrdinal: index + 1,
+      });
+    }
+    return { entries, inventoryHash: sealedDisposalInventoryHash(entries) };
   }
 
   private async deleteDocumentRows(

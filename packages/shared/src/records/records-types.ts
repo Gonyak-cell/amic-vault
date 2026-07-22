@@ -122,6 +122,7 @@ export const disposalRequestSchema = z
     dueAt: z.string().datetime(),
     approvalCount: z.number().int().min(0).max(1),
     certificateId: uuidSchema.nullable(),
+    pendingExecutionRef: uuidSchema.nullable(),
     createdAt: z.string().datetime(),
     approvedAt: z.string().datetime().nullable(),
     executedAt: z.string().datetime().nullable(),
