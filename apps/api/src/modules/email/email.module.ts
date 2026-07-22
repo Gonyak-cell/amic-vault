@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { DlpModule } from '../dlp/dlp.module';
 import { DocumentModule } from '../document/document.module';
+import { FileSecurityModule } from '../file-security/file-security.module';
 import { PermissionModule } from '../permission/permission.module';
 import { SearchModule } from '../search/search.module';
 import { StorageModule } from '../storage/storage.module';
@@ -18,6 +19,7 @@ import { EmailWorkerParserClient } from './email-worker-parser.client';
     AuditModule,
     DlpModule,
     DocumentModule,
+    FileSecurityModule,
     PermissionModule,
     SearchModule,
     StorageModule,

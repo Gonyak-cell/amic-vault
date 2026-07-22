@@ -57,7 +57,12 @@
     "apps/api/src/modules/file-security/file-scan-queue.service.spec.ts",
     "apps/api/src/modules/file-security/file-security.module.ts",
     "workers/ingestion/app/security_router.py",
-    "workers/ingestion/tests/test_security_router.py"
+    "workers/ingestion/tests/test_security_router.py",
+    "db/migrations/0201_add_bulk_quarantine_receipts.sql",
+    "packages/shared/src/dto/document/quarantine-intake.dto.ts",
+    "apps/api/src/modules/file-security/quarantine-intake.service.ts",
+    "apps/api/src/modules/file-security/quarantine-intake.service.spec.ts",
+    "apps/api/src/modules/document/document.controller.spec.ts"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

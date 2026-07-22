@@ -196,6 +196,22 @@ adapter bridge remain Vault-owned.
 - **Stop:** any enabled ingress can bypass quarantine or unscanned bytes reach
   document/version/search/preview/AI/external surfaces.
 
+### QRT-004 scope amendment — explicit pending ingress receipts
+
+Under `USER-UMBRELLA-AUTONOMY-20260721`, QRT-004 may extend the existing
+bulk-upload receipt state and its reversible database constraint only to record
+the already-authoritative opaque quarantine reference as `quarantined`. This is
+required because treating a quarantined batch item as `done` would falsely claim
+that a document and immutable file object exist, while treating it as `failed`
+would discard a successful security intake. The corresponding web upload
+receipt may render that state as a non-linking, accessibility-announced
+security-scan-pending status. The amendment also permits the narrowly required
+email-attachment and migration-runner receipt unions so they never claim a
+document ID or file-object ID when the feature flag is enabled. It authorizes
+no primary document/version finalization, promotion, search/extraction/preview/
+AI dispatch, external sharing, client-controlled storage coordinates, new
+dependency, deployment, or external data action.
+
 ## Evidence boundary
 
 Each TUW records source SHA/tree, source/artifact/license decision, exact file

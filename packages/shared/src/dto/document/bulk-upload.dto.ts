@@ -11,6 +11,7 @@ export const bulkUploadBatchItemStatuses = [
   'failed',
   'duplicate',
   'done',
+  'quarantined',
 ] as const;
 export const bulkUploadBatchItemStatusSchema = z.enum(bulkUploadBatchItemStatuses);
 
@@ -68,10 +69,17 @@ export interface BulkUploadDuplicateItemDto {
   reason: 'DUPLICATE_DECISION_REQUIRED';
 }
 
+export interface BulkUploadQuarantinedItemDto {
+  itemId: string;
+  status: 'quarantined';
+  quarantineRef: string;
+}
+
 export type BulkUploadItemResultDto =
   | BulkUploadSuccessItemDto
   | BulkUploadFailedItemDto
-  | BulkUploadDuplicateItemDto;
+  | BulkUploadDuplicateItemDto
+  | BulkUploadQuarantinedItemDto;
 
 export interface BulkUploadReportDto {
   queueName: typeof bulkUploadQueueName;
@@ -115,6 +123,7 @@ export interface BulkUploadBatchItemDto {
   sizeBytes: number;
   documentId: string | null;
   fileObjectId: string | null;
+  quarantineRef?: string | null;
   errorCode: ErrorCode | null;
   errorReason: string | null;
   retryCount: number;

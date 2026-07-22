@@ -7,6 +7,7 @@ import type {
   BulkUploadBatchDto,
   BulkUploadBatchItemDto,
   EnterpriseApprovedDmsTaxonomyDto,
+  QuarantinedIntakeResponseDto,
   UploadDocumentResponseDto,
   UploadDuplicateCandidateDto,
 } from '@amic-vault/shared';
@@ -43,6 +44,7 @@ import {
 
 export type DocumentUploadCompletionResult =
   | UploadDocumentResponseDto
+  | QuarantinedIntakeResponseDto
   | AddDocumentVersionResponseDto;
 
 export interface DocumentUploadPanelProps {
@@ -51,7 +53,7 @@ export interface DocumentUploadPanelProps {
   sourceMode?: MatterAppSourceMode;
 }
 
-type UploadQueueStatus = 'pending' | 'uploading' | 'uploaded' | 'failed' | 'duplicate';
+type UploadQueueStatus = 'pending' | 'uploading' | 'uploaded' | 'quarantined' | 'failed' | 'duplicate';
 
 export interface UploadQueueRow {
   duplicateCount?: number;
@@ -105,6 +107,7 @@ const uploadQueueStatusLabels = {
   pending: '대기',
   uploading: '업로드 중',
   uploaded: '완료',
+  quarantined: '검사 대기',
   failed: '실패',
   duplicate: '중복 확인',
 } as const satisfies Record<UploadQueueStatus, string>;
@@ -113,6 +116,7 @@ const uploadQueueStatusTones = {
   pending: 'neutral',
   uploading: 'warning',
   uploaded: 'success',
+  quarantined: 'warning',
   failed: 'blocked',
   duplicate: 'warning',
 } as const satisfies Record<UploadQueueStatus, StatusBadgeTone>;
@@ -214,6 +218,7 @@ export function DocumentUploadPanel({
       }
 
       let successCount = 0;
+      let quarantinedCount = 0;
       let failureCount = 0;
       const failedEntries: UploadFileEntry[] = [];
       const uploadTags = parseUploadTags(tagInput);
@@ -275,6 +280,18 @@ export function DocumentUploadPanel({
               : {}),
             ...(fileEntries.length === 1 && title.trim() ? { title: title.trim() } : {}),
           });
+          if (isQuarantinedIntakeResponse(result)) {
+            quarantinedCount += 1;
+            setUploadQueue((current) =>
+              updateUploadQueue(current, index, {
+                message: quarantinedIntakeStatusMessage(),
+                status: 'quarantined',
+                title: selectedFile.name,
+              }),
+            );
+            onUploadComplete?.(result);
+            continue;
+          }
           const uploadedPath = result.folderPath ?? entry.sourceRelativePath;
           successCount += 1;
           setUploadQueue((current) =>
@@ -299,12 +316,14 @@ export function DocumentUploadPanel({
           );
         }
       }
-      setStatusMessage(bulkUploadStatusMessage(successCount, failureCount));
-      if (successCount > 0) {
+      setStatusMessage(bulkUploadStatusMessage(successCount, failureCount, quarantinedCount));
+      if (successCount + quarantinedCount > 0) {
         setFileEntries(failedEntries);
         if (failedEntries.length === 0) setTitle('');
       }
-      if (successCount === 0 && failureCount > 0) setErrorMessage('업로드된 파일이 없습니다.');
+      if (successCount + quarantinedCount === 0 && failureCount > 0) {
+        setErrorMessage('업로드된 파일이 없습니다.');
+      }
     } finally {
       setIsUploading(false);
     }
@@ -333,11 +352,11 @@ export function DocumentUploadPanel({
     setActiveBatch(completed);
     setUploadQueue(batchToUploadQueue(completed));
     setStatusMessage(batchUploadStatusMessage(completed));
-    if (completed.doneItems > 0 && completed.failedItems === 0 && completed.duplicateItems === 0) {
+    if (acceptedBatchItems(completed) > 0 && completed.failedItems === 0 && completed.duplicateItems === 0) {
       setFileEntries([]);
       setTitle('');
     }
-    if (completed.doneItems === 0 && completed.failedItems + completed.duplicateItems > 0) {
+    if (acceptedBatchItems(completed) === 0 && completed.failedItems + completed.duplicateItems > 0) {
       setErrorMessage('업로드 완료 항목이 없습니다.');
     }
   }
@@ -376,7 +395,7 @@ export function DocumentUploadPanel({
       setActiveBatch(completed);
       setUploadQueue(batchToUploadQueue(completed));
       setStatusMessage(batchUploadStatusMessage(completed));
-      if (completed.doneItems > 0 && completed.failedItems === 0 && completed.duplicateItems === 0) {
+      if (acceptedBatchItems(completed) > 0 && completed.failedItems === 0 && completed.duplicateItems === 0) {
         setFileEntries([]);
         setTitle('');
       }
@@ -779,6 +798,7 @@ function batchItemToUploadQueueRow(item: BulkUploadBatchItemDto): UploadQueueRow
 
 function batchItemUploadStatus(item: BulkUploadBatchItemDto): UploadQueueStatus {
   if (item.status === 'done') return 'uploaded';
+  if (item.status === 'quarantined') return 'quarantined';
   if (item.status === 'duplicate') return 'duplicate';
   if (item.status === 'failed') return 'failed';
   if (item.status === 'uploaded') return 'uploading';
@@ -787,6 +807,7 @@ function batchItemUploadStatus(item: BulkUploadBatchItemDto): UploadQueueStatus 
 
 function batchItemStatusMessage(item: BulkUploadBatchItemDto): string {
   if (item.status === 'done') return '배치 업로드 완료.';
+  if (item.status === 'quarantined') return '보안 검사가 완료될 때까지 문서함에 표시되지 않습니다.';
   if (item.status === 'duplicate') return item.errorReason ?? '중복 결정이 필요합니다.';
   if (item.status === 'failed') return item.errorReason ?? item.errorCode ?? '업로드에 실패했습니다.';
   if (item.status === 'uploaded') return '서버 배치에서 처리 중입니다.';
@@ -839,6 +860,16 @@ export function uploadStatusMessage(result: UploadDocumentResponseDto): string {
     : `${result.title} 업로드 완료. 파일 정리 준비는 제외되었습니다.${duplicateMessage}`;
 }
 
+export function isQuarantinedIntakeResponse(
+  result: UploadDocumentResponseDto | QuarantinedIntakeResponseDto,
+): result is QuarantinedIntakeResponseDto {
+  return result.status === 'quarantined';
+}
+
+export function quarantinedIntakeStatusMessage(): string {
+  return '보안 검사가 완료될 때까지 문서함에 표시되지 않습니다.';
+}
+
 export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto): string {
   const duplicateMessage =
     result.duplicates.length > 0
@@ -847,7 +878,20 @@ export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto
   return `v${result.versionNo} 새 버전 추가 완료.${duplicateMessage}`;
 }
 
-export function bulkUploadStatusMessage(successCount: number, failureCount: number): string {
+export function bulkUploadStatusMessage(
+  successCount: number,
+  failureCount: number,
+  quarantinedCount = 0,
+): string {
+  if (quarantinedCount > 0 && successCount === 0 && failureCount === 0) {
+    return `${quarantinedCount}개 보안 검사 대기 중입니다.`;
+  }
+  if (quarantinedCount > 0 && failureCount === 0) {
+    return `${successCount}개 업로드 완료, ${quarantinedCount}개 보안 검사 대기 중입니다.`;
+  }
+  if (quarantinedCount > 0) {
+    return `${successCount}개 업로드 완료, ${quarantinedCount}개 보안 검사 대기, ${failureCount}개 실패. 실패 항목을 확인해 주세요.`;
+  }
   if (successCount > 0 && failureCount > 0) {
     return `${successCount}개 업로드 완료, ${failureCount}개 실패. 실패 항목을 확인해 주세요.`;
   }
@@ -856,12 +900,23 @@ export function bulkUploadStatusMessage(successCount: number, failureCount: numb
 }
 
 export function batchUploadStatusMessage(batch: BulkUploadBatchDto): string {
+  const quarantinedItems = batch.items.filter((item) => item.status === 'quarantined').length;
+  if (quarantinedItems > 0 && batch.doneItems === 0 && batch.failedItems + batch.duplicateItems === 0) {
+    return `${quarantinedItems}개 보안 검사 대기 중입니다.`;
+  }
+  if (quarantinedItems > 0 && batch.failedItems + batch.duplicateItems === 0) {
+    return `${batch.doneItems}개 배치 업로드 완료, ${quarantinedItems}개 보안 검사 대기 중입니다.`;
+  }
   if (batch.doneItems > 0 && batch.failedItems + batch.duplicateItems > 0) {
     return `${batch.doneItems}개 완료, ${batch.failedItems}개 실패, ${batch.duplicateItems}개 중복 확인 필요.`;
   }
   if (batch.doneItems > 0) return `${batch.doneItems}개 배치 업로드 완료.`;
   if (batch.duplicateItems > 0) return `${batch.duplicateItems}개 중복 확인이 필요합니다.`;
   return `${batch.failedItems}개 배치 업로드 실패.`;
+}
+
+function acceptedBatchItems(batch: BulkUploadBatchDto): number {
+  return batch.doneItems + batch.items.filter((item) => item.status === 'quarantined').length;
 }
 
 async function sha256BrowserFile(file: File): Promise<string> {

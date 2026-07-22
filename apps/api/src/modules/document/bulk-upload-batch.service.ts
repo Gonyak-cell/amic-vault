@@ -42,6 +42,7 @@ interface BatchItemRow {
   size_bytes: string;
   document_id: string | null;
   file_object_id: string | null;
+  quarantine_ref: string | null;
   error_code: ErrorCode | null;
   error_reason: string | null;
   retry_count: number;
@@ -275,6 +276,25 @@ export class BulkUploadBatchService {
           );
           continue;
         }
+        if (result.status === 'quarantined') {
+          await client.query(
+            `
+              UPDATE bulk_upload_batch_items
+              SET status = 'quarantined',
+                  document_id = NULL,
+                  file_object_id = NULL,
+                  quarantine_ref = $4,
+                  error_code = NULL,
+                  error_reason = NULL,
+                  updated_at = now()
+              WHERE tenant_id = $1
+                AND batch_id = $2
+                AND item_id = $3
+            `,
+            [tenantId, batchId, result.itemId, result.quarantineRef],
+          );
+          continue;
+        }
         const status = result.status === 'duplicate' ? 'duplicate' : 'failed';
         await client.query(
           `
@@ -410,7 +430,7 @@ export class BulkUploadBatchService {
     const itemResult = await client.query<BatchItemRow>(
       `
         SELECT batch_item_id, item_id, status, original_filename, size_bytes::text,
-          document_id, file_object_id, error_code, error_reason, retry_count, updated_at
+          document_id, file_object_id, quarantine_ref, error_code, error_reason, retry_count, updated_at
         FROM bulk_upload_batch_items
         WHERE tenant_id = $1
           AND batch_id = $2
@@ -507,6 +527,7 @@ function toBatchItemDto(row: BatchItemRow): BulkUploadBatchItemDto {
     sizeBytes: Number(row.size_bytes),
     documentId: row.document_id,
     fileObjectId: row.file_object_id,
+    quarantineRef: row.quarantine_ref,
     errorCode: row.error_code,
     errorReason: row.error_reason,
     retryCount: row.retry_count,
