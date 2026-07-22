@@ -7,7 +7,7 @@ import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
 import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
 import { createOwnerClient, setTenant, tenantAlphaId, tenantBetaId, withClient } from './helpers/db';
-import { createStorageService } from './document-access/document-api-helpers';
+import { createStorageService, markPromotedFixture } from './document-access/document-api-helpers';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 
@@ -223,6 +223,7 @@ async function insertBinderDocument(
       ],
     );
   });
+  await markPromotedFixture({ documentId, versionId });
   return { documentId, hash, title, versionId, body: body.toString('utf8') };
 }
 

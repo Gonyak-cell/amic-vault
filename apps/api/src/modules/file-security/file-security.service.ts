@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
+import { FilePromotionService } from './file-promotion.service';
 import type { FileSecurityScanJobPayload } from './file-security.types';
 
 type Verdict = 'clean' | 'infected' | 'error' | 'stale_signature';
@@ -20,20 +21,38 @@ interface ScanTarget {
 function workerUrl(): string { return `${(process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '')}/security/scan`; }
 function timeoutMs(): number { const value = Number(process.env.FILE_SECURITY_SCAN_TIMEOUT_MS ?? '10000'); return Number.isInteger(value) && value > 0 ? value : 10000; }
 function validHash(value: string): boolean { return /^[a-f0-9]{64}$/u.test(value); }
+function isLegacyPromotionInputMissing(error: unknown): boolean {
+  return error instanceof Error && error.message === 'FILE_SECURITY_PROMOTION_INPUT_MISSING';
+}
 
 @Injectable()
 export class FileSecurityService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(FilePromotionService) private readonly filePromotionService: FilePromotionService,
     @Inject(StorageService) private readonly storageService: StorageService,
   ) {}
 
   async handle(payload: FileSecurityScanJobPayload): Promise<void> {
     if (!validHash(payload.expectedSha256)) throw new Error('FILE_SECURITY_PAYLOAD_INVALID');
     const target = await this.claim(payload);
-    if (!target) return;
+    if (!target) {
+      try {
+        await this.filePromotionService.promote(payload);
+      } catch (error) {
+        if (!isLegacyPromotionInputMissing(error)) throw error;
+      }
+      return;
+    }
     const result = await this.scan(target, payload);
     await this.complete(target, payload, result);
+    if (result.state === 'clean') {
+      try {
+        await this.filePromotionService.promote(payload);
+      } catch (error) {
+        if (!isLegacyPromotionInputMissing(error)) throw error;
+      }
+    }
   }
 
   private async claim(payload: FileSecurityScanJobPayload): Promise<ScanTarget | null> {
@@ -74,7 +93,7 @@ export class FileSecurityService {
         const verdict = body.outcome as Verdict;
         const engineVersion = typeof body.engine_version === 'string' && body.engine_version.length <= 128 ? body.engine_version : null;
         const signatureAge = typeof body.signature_age_seconds === 'number' && Number.isSafeInteger(body.signature_age_seconds) && body.signature_age_seconds >= 0 ? body.signature_age_seconds : null;
-        if ((verdict === 'clean' || verdict === 'infected') && (!engineVersion || signatureAge === null)) return this.failure('malformed_response', observedSha256);
+        if (verdict === 'clean' && (!engineVersion || signatureAge === null)) return this.failure('malformed_response', observedSha256);
         const signatureAt = signatureAge === null ? null : new Date(Date.now() - signatureAge * 1000);
         if (verdict === 'clean') return { state: 'clean', code: 'clean', observedSha256, engineVersion, signatureAt };
         if (verdict === 'infected') return { state: 'infected', code: 'infected', observedSha256, engineVersion, signatureAt };

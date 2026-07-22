@@ -20,9 +20,11 @@ import {
   latestAuditMetadata,
   loginAlphaOwner,
   loginBetaOwner,
+  markPromotedFixture,
   previewArtifactSummary,
   storageUrisForDocument,
   uploadDocx,
+  uploadDocxVersion,
   uploadPdf,
 } from './document-api-helpers';
 
@@ -75,7 +77,9 @@ async function uploadOffice(
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
-  return JSON.parse(body) as { documentId: string; fileObjectId: string };
+  const uploaded = JSON.parse(body) as { documentId: string; fileObjectId: string };
+  await markPromotedFixture({ documentId: uploaded.documentId });
+  return uploaded;
 }
 
 async function issuePreviewSession(baseUrl: string, cookie: string, documentId: string) {
@@ -302,6 +306,32 @@ describe('preview integration', () => {
       preview_file_count: '1',
     });
     expect(summary?.source_systems).toContain('preview_derived');
+    storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
+  });
+
+  it('does not let a promoted v1 receipt expose an unpromoted current v2', async () => {
+    const clientId = await createClient(baseUrl, betaOwnerCookie, 'PVERS');
+    const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'PVERS');
+    const uploaded = await uploadDocx(baseUrl, betaOwnerCookie, matterId, 'preview-version-v1');
+    await uploadDocxVersion(
+      baseUrl,
+      betaOwnerCookie,
+      uploaded.documentId,
+      'preview-version-v2-unpromoted',
+      undefined,
+      { markPromoted: false },
+    );
+
+    const previewSession = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/preview-sessions`, {
+      method: 'POST',
+      headers: { cookie: betaOwnerCookie },
+    });
+    expect(previewSession.status, await previewSession.text()).toBe(404);
+
+    const download = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/download`, {
+      headers: { cookie: betaOwnerCookie },
+    });
+    expect(download.status, await download.text()).toBe(404);
     storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
   });
 

@@ -24,6 +24,7 @@ import {
   createMatter,
   createStorageService,
   loginBetaOwner,
+  markPromotedFixture,
 } from './document-access/document-api-helpers';
 import { createOwnerClient, tenantBetaId, withClient } from './helpers/db';
 
@@ -315,6 +316,7 @@ describe('worker processing integration', () => {
     const uploaded = await uploadPdfWithPreflight(baseUrl, cookie, matterId, 'h6-worker');
     const version = await currentVersion(uploaded.documentId);
     storageUris.push(version.storage_uri);
+    await markPromotedFixture({ documentId: uploaded.documentId, versionId: version.version_id });
 
     await expect(canonicalRow(version.version_id)).resolves.toMatchObject({
       extraction_status: 'pending',

@@ -36,6 +36,7 @@ import {
   documentStatusChangedAudit,
 } from '../audit/events/document-events';
 import { GraphSyncOutboxWorker } from '../graph/graph-sync-outbox.worker';
+import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { PermissionService } from '../permission/permission.service';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { StorageService } from '../storage/storage.service';
@@ -517,6 +518,7 @@ export class DocumentLifecycleService {
           AND f.file_object_id = dv.file_object_id
         WHERE d.tenant_id = $1
           AND d.document_id = $2
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
       `,
       [tenantId, documentId],

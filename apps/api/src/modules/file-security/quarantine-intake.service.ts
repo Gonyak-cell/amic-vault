@@ -101,7 +101,7 @@ export class QuarantineIntakeService {
         input.fields.uploadPreflightRef,
       );
       const originalFilename = normalizeTransportFilename(file.originalname);
-      const { extension } = this.extensionValidator.validate(originalFilename);
+      const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
       const sniffed = await this.mimeTypeValidator.validate({
         path: file.path,
         sizeBytes: file.size,
@@ -136,6 +136,24 @@ export class QuarantineIntakeService {
           ]);
           const scanId = inserted.rows[0]?.scan_id;
           if (!scanId) throw new Error('FILE_SECURITY_SCAN_INSERT_FAILED');
+          await tx.query(
+            `
+              INSERT INTO file_security_promotion_inputs (
+                scan_id, tenant_id, original_filename, normalized_filename, mime_type,
+                source_system, created_by, fields_json
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+            `,
+            [
+              scanId,
+              context.tenantId,
+              originalFilename,
+              normalizedFilename,
+              sniffed.mimeType,
+              sourceSystem,
+              input.actorUserId,
+              JSON.stringify(input.fields),
+            ],
+          );
           await this.queueService.enqueue({ tenantId: context.tenantId, quarantineRef, expectedSha256 }, tx);
           await this.auditService.log({
             tenantId: context.tenantId,

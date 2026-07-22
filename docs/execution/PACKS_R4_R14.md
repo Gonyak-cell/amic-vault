@@ -77,6 +77,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS03-01 | `feat/pack-oss03-01-sealed-disposal-inventory` | 4 | `DEVOPS-OSS03-DSP-TUW-001` through `DEVOPS-OSS03-DSP-TUW-004` (`docs/execution/TUW_OSS03_SEALED_DISPOSAL_INVENTORY.md`) |
 | PACK-OSS03-02 | `feat/pack-oss03-02-reconcile-certificate-fault` | 3 | `DEVOPS-OSS03-RCN-TUW-001` through `DEVOPS-OSS03-RCN-TUW-003` (`docs/execution/TUW_OSS03_RECONCILE_CERTIFICATE_FAULT.md`) |
 | PACK-OSS04-01 | `feat/pack-oss04-01-quarantine-scan` | 4 | `DEVOPS-OSS04-QRT-TUW-001` through `DEVOPS-OSS04-QRT-TUW-004` (`docs/execution/TUW_OSS04_QUARANTINE_SCAN.md`) |
+| PACK-OSS04-02 | `feat/pack-oss04-02-promotion-reconcile-gate` | 4 | `DEVOPS-OSS04-PRM-TUW-001` through `DEVOPS-OSS04-PRM-TUW-004` (`docs/execution/TUW_OSS04_PROMOTION_RECONCILIATION_GATE.md`) |
 | PACK-OSS07-01 | `feat/pack-oss07-01-identity-topology` | 4 | `DEVOPS-OSS07-IDP-TUW-001` through `DEVOPS-OSS07-IDP-TUW-004` (`docs/execution/TUW_OSS07_IDENTITY_TOPOLOGY.md`) |
 | PACK-OSS09-01 | `feat/pack-oss09-01-telemetry-policy` | 4 | `DEVOPS-OSS09-TEL-TUW-001` through `DEVOPS-OSS09-TEL-TUW-004` (`docs/execution/TUW_OSS09_TELEMETRY_POLICY.md`) |
 
@@ -104,6 +105,19 @@ Status: canonical post-R14 extension under
 - The existing Vault storage/Records/audit/permission structures are L0
   no-copy reuse. Exact-version capability must pass a synthetic disposable
   probe before any new disposal schema or destructive worker is introduced.
+
+## PACK-OSS04-02 — Promotion, reconciliation, and malware gate
+
+Status: canonical post-R14 successor to `PACK-OSS04-01` under
+`USER-UMBRELLA-AUTONOMY-20260721`, independently based on `origin/main`
+`23c7e6aefa23bafd3ca08761f32c1a880dc3f3a6` after merged QRT-004.
+
+- Branch: `feat/pack-oss04-02-promotion-reconcile-gate`.
+- Detail contract: `docs/execution/TUW_OSS04_PROMOTION_RECONCILIATION_GATE.md`.
+- Existing Vault file-security, storage, document, permission, audit and
+  queue boundaries are L0 reuse. No scanner authority, original overwrite,
+  infected/error release, public scanner port, dependency, deployment,
+  external operation, source vendoring, or `docs/package/**` change is in scope.
 
 ## PACK-OSS03-02 — Reconcile, certificate, and fault gate
 

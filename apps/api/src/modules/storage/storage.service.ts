@@ -6,6 +6,7 @@ import type {
   StorageGetObjectResult,
   StorageReadUrlResult,
   StorageObjectVersion,
+  QuarantineInventoryStorageAdapter,
   VersionedStorageAdapter,
 } from './storage-adapter.interface';
 import {
@@ -184,6 +185,25 @@ export class StorageService {
     return this.adapter.head(parsed.key);
   }
 
+  /** Returns only validated UUID references; raw storage keys never cross this boundary. */
+  async listQuarantineRefs(tenantId: string): Promise<readonly string[]> {
+    const prefix = this.pathResolver.buildQuarantinePrefix(tenantId);
+    const keys = await this.quarantineInventoryAdapter().listKeysByPrefix(prefix);
+    const refs = keys.map((key) => {
+      try {
+        const parsed = this.pathResolver.parseObjectKey(key);
+        if (parsed.objectType !== 'quarantine' || parsed.tenantId !== this.pathResolver.assertTenantKey(tenantId, key).tenantId) {
+          throw new StorageTenantIsolationViolationError();
+        }
+        return parsed.quarantineRef;
+      } catch {
+        throw new StorageUnavailableError('quarantine inventory is invalid');
+      }
+    });
+    if (new Set(refs).size !== refs.length) throw new StorageUnavailableError('quarantine inventory is duplicated');
+    return refs.sort();
+  }
+
   async getByStorageUri(tenantId: string, storageUri: string): Promise<StorageGetObjectResult> {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
     const object = await this.adapter.get(parsed.key);
@@ -317,6 +337,14 @@ export class StorageService {
       throw new StorageVersioningUnsupportedError();
     }
     return candidate as VersionedStorageAdapter;
+  }
+
+  private quarantineInventoryAdapter(): QuarantineInventoryStorageAdapter {
+    const candidate = this.adapter as Partial<QuarantineInventoryStorageAdapter>;
+    if (typeof candidate.listKeysByPrefix !== 'function') {
+      throw new StorageUnavailableError('quarantine inventory is unsupported');
+    }
+    return candidate as QuarantineInventoryStorageAdapter;
   }
 
   private requireSealedVersion(version: SealedStorageVersion) {

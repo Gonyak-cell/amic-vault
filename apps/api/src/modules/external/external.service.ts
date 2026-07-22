@@ -46,6 +46,7 @@ import { AuditService } from '../audit/audit.service';
 import { DatabaseService } from '../../common/db/database.service';
 import { tenantQuery } from '../../common/db/tenant-query';
 import { DlpService } from '../dlp/dlp.service';
+import { isDocumentPromoted, promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { DocumentPermissionService } from '../permission/document-permission.service';
 import { PermissionService } from '../permission/permission.service';
 import { WorkService } from '../work/work.service';
@@ -1409,6 +1410,7 @@ export class ExternalService {
          AND m.matter_id = d.matter_id
         WHERE d.tenant_id = $1
           AND d.document_id = $2
+          AND ${promotedDocumentExistsSql('d')}
           AND (
             $3::uuid IS NULL
             OR EXISTS (
@@ -1537,6 +1539,10 @@ export class ExternalService {
     if (link.document_status === 'deleted' || link.document_legal_hold || link.matter_legal_hold) {
       throw permissionDenied();
     }
+    const promoted = await this.auditService.transaction(link.tenant_id, (client) =>
+      isDocumentPromoted(client, { tenantId: link.tenant_id, documentId: link.document_id }),
+    );
+    if (!promoted) throw permissionDenied();
     return link;
   }
 

@@ -11,6 +11,7 @@ import {
   SESSION_COOKIE_NAME,
 } from '../../../apps/api/src/modules/auth/session.repository';
 import { PermissionService } from '../../../apps/api/src/modules/permission/permission.service';
+import { FileSecurityService } from '../../../apps/api/src/modules/file-security/file-security.service';
 import { NoopEncryptionHook } from '../../../apps/api/src/modules/storage/noop-encryption.hook';
 import { S3StorageAdapter } from '../../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../../apps/api/src/modules/storage/storage-path.resolver';
@@ -328,7 +329,7 @@ describe('document upload permission integration', () => {
     if (row?.storage_uri) createdStorageUris.push(row.storage_uri);
   });
 
-  it('returns an opaque quarantine receipt without creating a document or primary file object when enabled', async () => {
+  it('keeps an upload opaque until the real scanner verdict, then promotes only clean bytes', async () => {
     const previous = process.env.FILE_SECURITY_QUARANTINE_ENABLED;
     process.env.FILE_SECURITY_QUARANTINE_ENABLED = 'true';
     try {
@@ -342,16 +343,30 @@ describe('document upload permission integration', () => {
 
       await withClient(createOwnerClient(), async (client) => {
         const scan = await client.query<{
+          scan_id: string;
           quarantine_storage_uri: string;
           quarantine_ref: string;
+          expected_sha256: string;
         }>(
-          `SELECT quarantine_storage_uri, quarantine_ref
+          `SELECT scan_id, quarantine_storage_uri, quarantine_ref, expected_sha256
            FROM file_security_scans
            WHERE tenant_id = $1 AND matter_id = $2`,
           [tenantAlphaId, matterId],
         );
         const documentCount = await client.query<{ count: string }>(
           'SELECT count(*)::text AS count FROM documents WHERE tenant_id = $1 AND matter_id = $2',
+          [tenantAlphaId, matterId],
+        );
+        const promotionInput = await client.query<{
+          original_filename: string;
+          normalized_filename: string;
+          mime_type: string;
+          source_system: string;
+        }>(
+          `SELECT i.original_filename, i.normalized_filename, i.mime_type, i.source_system
+           FROM file_security_promotion_inputs i
+           JOIN file_security_scans s ON s.tenant_id = i.tenant_id AND s.scan_id = i.scan_id
+           WHERE i.tenant_id = $1 AND s.matter_id = $2`,
           [tenantAlphaId, matterId],
         );
         const primaryObjectCount = await client.query<{ count: string }>(
@@ -373,9 +388,59 @@ describe('document upload permission integration', () => {
           quarantine_storage_uri: expect.stringContaining(`/tenants/${tenantAlphaId}/quarantine/${receipt.quarantineRef}`),
         });
         expect(documentCount.rows[0]?.count).toBe('0');
+        expect(promotionInput.rows).toEqual([
+          expect.objectContaining({
+            original_filename: 'QUARANTINE.pdf',
+            normalized_filename: 'QUARANTINE.pdf',
+            mime_type: 'application/pdf',
+            source_system: 'upload',
+          }),
+        ]);
         expect(primaryObjectCount.rows[0]?.count).toBe('0');
         expect(auditCount.rows[0]?.count).toBe('1');
         if (scan.rows[0]?.quarantine_storage_uri) createdStorageUris.push(scan.rows[0].quarantine_storage_uri);
+
+        const pending = scan.rows[0];
+        if (!pending) throw new Error('file security scan fixture missing');
+        await app.get(FileSecurityService).handle({
+          tenantId: tenantAlphaId,
+          quarantineRef: pending.quarantine_ref,
+          expectedSha256: pending.expected_sha256,
+        });
+        await app.get(FileSecurityService).handle({
+          tenantId: tenantAlphaId,
+          quarantineRef: pending.quarantine_ref,
+          expectedSha256: pending.expected_sha256,
+        });
+
+        const promoted = await client.query<{
+          document_id: string;
+          state: string;
+          storage_uri: string;
+          primary_sha256: string;
+        }>(
+          `SELECT p.document_id, s.state, f.storage_uri, p.primary_sha256
+           FROM file_security_scans s
+           JOIN file_security_promotions p
+             ON p.tenant_id = s.tenant_id AND p.scan_id = s.scan_id
+           JOIN file_objects f
+             ON f.tenant_id = p.tenant_id AND f.file_object_id = p.file_object_id
+           WHERE s.tenant_id = $1 AND s.scan_id = $2`,
+          [tenantAlphaId, pending.scan_id],
+        );
+        expect(promoted.rows).toHaveLength(1);
+        expect(promoted.rows[0]).toMatchObject({
+          state: 'promoted',
+          primary_sha256: pending.expected_sha256,
+        });
+        expect(promoted.rows[0]?.storage_uri).toContain(`/tenants/${tenantAlphaId}/matters/${matterId}/documents/`);
+        if (promoted.rows[0]?.storage_uri) createdStorageUris.push(promoted.rows[0].storage_uri);
+        const promotedAudit = await client.query(
+          `SELECT event_id FROM audit_events
+           WHERE tenant_id = $1 AND action = 'FILE_PROMOTED' AND target_id = $2`,
+          [tenantAlphaId, pending.scan_id],
+        );
+        expect(promotedAudit.rowCount).toBe(1);
       });
     } finally {
       if (previous === undefined) delete process.env.FILE_SECURITY_QUARANTINE_ENABLED;

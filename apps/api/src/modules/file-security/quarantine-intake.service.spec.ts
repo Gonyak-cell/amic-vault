@@ -59,13 +59,13 @@ function createService(options: { permission?: 'allow' | 'deny' | 'wall'; queueF
     { putQuarantineObject, deleteByStorageUri } as never,
     { require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }) } as never,
   );
-  return { audit, deleteByStorageUri, enqueue, putQuarantineObject, service };
+  return { audit, deleteByStorageUri, enqueue, putQuarantineObject, query, service };
 }
 
 describe('QuarantineIntakeService', () => {
   it('writes only the quarantine prefix, then records registry, queue and audit atomically', async () => {
     const file = await tempUploadFile();
-    const { audit, enqueue, putQuarantineObject, service } = createService();
+    const { audit, enqueue, putQuarantineObject, query, service } = createService();
 
     const response = await service.intake({ actorUserId, matterId, fields: {}, file });
 
@@ -80,6 +80,16 @@ describe('QuarantineIntakeService', () => {
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'FILE_QUARANTINED', targetType: 'file_security_scan' }),
       expect.anything(),
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO file_security_promotion_inputs'),
+      expect.arrayContaining([
+        'contract.pdf',
+        'application/pdf',
+        'upload',
+        actorUserId,
+        '{}',
+      ]),
     );
   });
 

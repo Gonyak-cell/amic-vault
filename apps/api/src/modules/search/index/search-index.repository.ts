@@ -7,6 +7,7 @@ import {
   type LocalEmbeddingResult,
 } from '@amic-vault/ai';
 import type { QueryClient } from '../../audit/audit.service';
+import { promotedDocumentExistsSql } from '../../file-security/promoted-file.guard';
 import { buildParentChildChunks, type BuiltDocumentChunk } from '../semantic/document-chunker';
 import {
   embeddingHash,
@@ -293,6 +294,7 @@ export class SearchIndexRepository {
         WHERE dv.tenant_id = $1
           AND dv.document_id = $2
           AND dv.version_id = $3
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
       `,
       [input.tenantId, input.documentId, input.versionId],

@@ -23,6 +23,9 @@ describe('shared audit declaration bridge', () => {
       'FILE_QUARANTINED',
       'FILE_SCAN_COMPLETED',
       'FILE_SECURITY_HELD',
+      'FILE_PROMOTED',
+      'FILE_SECURITY_RECONCILIATION_REVIEWED',
+      'FILE_SECURITY_RECONCILIATION_RETRY_REQUESTED',
     ]);
     expect(auditActions).toEqual(expect.arrayContaining([
       ...auditAnchorActions,

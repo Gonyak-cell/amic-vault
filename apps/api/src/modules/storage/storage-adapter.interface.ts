@@ -104,6 +104,14 @@ export interface StorageAdapter {
   delete(key: string): Promise<void>;
 }
 
+/**
+ * Optional read-only capability for the narrowly scoped quarantine reconciler.
+ * StorageService validates every returned key and never exposes it to callers.
+ */
+export interface QuarantineInventoryStorageAdapter {
+  listKeysByPrefix(prefix: string): Promise<readonly string[]>;
+}
+
 export class StorageObjectAlreadyExistsError extends Error {
   constructor(key: string) {
     super(`storage object already exists: ${key}`);

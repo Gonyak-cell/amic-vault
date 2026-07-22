@@ -221,6 +221,33 @@ describe('S3StorageAdapter', () => {
     expect(urls[2]?.searchParams.get('versionId')).toBe('version-one');
   });
 
+  it('paginates a prefix inventory without falling back to arbitrary object access', async () => {
+    const urls: URL[] = [];
+    vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async (input) => {
+        urls.push(new URL(String(input)));
+        return new Response(
+          '<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>next</NextContinuationToken><Contents><Key>tenants/t1/quarantine/one</Key></Contents></ListBucketResult>',
+          { status: 200 },
+        );
+      })
+      .mockImplementationOnce(async (input) => {
+        urls.push(new URL(String(input)));
+        return new Response(
+          '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>tenants/t1/quarantine/two</Key></Contents></ListBucketResult>',
+          { status: 200 },
+        );
+      });
+
+    await expect(createAdapter().listKeysByPrefix('tenants/t1/quarantine/')).resolves.toEqual([
+      'tenants/t1/quarantine/one',
+      'tenants/t1/quarantine/two',
+    ]);
+    expect(urls[0]?.searchParams.get('list-type')).toBe('2');
+    expect(urls[0]?.searchParams.get('prefix')).toBe('tenants/t1/quarantine/');
+    expect(urls[1]?.searchParams.get('continuation-token')).toBe('next');
+  });
+
   it('rejects null version inventory and untrusted version handles without provider fallback', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
       new Response(

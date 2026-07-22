@@ -3,6 +3,7 @@ import type { PermissionDecision, PreviewAccessSessionDto, TenantId } from '@ami
 import { createOpaqueToken, hashOpaqueToken } from '../auth/session.repository';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { documentViewedAudit } from '../audit/events/document-events';
+import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 
@@ -164,6 +165,7 @@ export class PreviewSessionService {
           AND f.file_object_id = dv.file_object_id
         WHERE d.tenant_id = $1
           AND d.document_id = $2
+          AND ${promotedDocumentExistsSql('d', 'dv')}
         LIMIT 1
       `,
       [tenantId, documentId],

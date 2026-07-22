@@ -6,6 +6,7 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import type {
   StorageAdapter,
   StorageCreateReadUrlInput,
+  QuarantineInventoryStorageAdapter,
   StorageGetRangeInput,
   StorageGetObjectResult,
   StorageObjectVersion,
@@ -132,7 +133,7 @@ function toFetchBody(body: StoragePutObjectInput['body']): BodyInit {
   return Readable.toWeb(body) as unknown as BodyInit;
 }
 
-export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter {
+export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter, QuarantineInventoryStorageAdapter {
   private readonly endpoint: URL;
   private readonly readUrlEndpoint: URL;
   private readonly objectVersions = new WeakMap<StorageObjectVersion, string>();
@@ -287,6 +288,36 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
     if (!response.ok && response.status !== 404) {
       throw new StorageUnavailableError(`storage delete failed: ${response.status}`);
     }
+  }
+
+  async listKeysByPrefix(prefix: string): Promise<readonly string[]> {
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    for (let page = 0; page < 100; page += 1) {
+      const response = await this.fetchSigned(
+        'GET',
+        '',
+        { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' },
+        undefined,
+        {
+          'list-type': '2',
+          prefix,
+          ...(continuationToken ? { 'continuation-token': continuationToken } : {}),
+        },
+      );
+      if (response.status === 403) throw new StorageAccessDeniedError();
+      if (!response.ok) throw new StorageUnavailableError(`storage inventory failed: ${response.status}`);
+      const xml = await response.text();
+      for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+        const key = readXmlTag(match[1] ?? '', 'Key');
+        if (!key || !key.startsWith(prefix)) throw new StorageUnavailableError('storage inventory key is invalid');
+        keys.push(key);
+      }
+      if (!readXmlBoolean(xml, 'IsTruncated')) return keys;
+      continuationToken = readXmlTag(xml, 'NextContinuationToken');
+      if (!continuationToken) throw new StorageUnavailableError('storage inventory continuation is unavailable');
+    }
+    throw new StorageUnavailableError('storage inventory page limit exceeded');
   }
 
   async listObjectVersions(key: string): Promise<readonly StorageVersionedObjectMetadata[]> {

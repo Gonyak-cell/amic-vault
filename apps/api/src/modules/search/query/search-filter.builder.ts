@@ -9,6 +9,7 @@ import {
   type SearchRecordsStatus,
   type SearchVersionStatus,
 } from '@amic-vault/shared';
+import { promotedDocumentExistsSql } from '../../file-security/promoted-file.guard';
 
 export type SearchSqlValue = string | number | boolean | Date | readonly string[];
 
@@ -113,6 +114,7 @@ export class SearchFilterBuilder {
     const fragments: SearchSqlFragment[] = [
       input.scope ?? denyAllSearchScope,
       { sql: 'idx.document_status <> ?', params: ['deleted'] },
+      { sql: promotedDocumentExistsSql('idx', 'idx'), params: [] },
     ];
 
     const versionStatus: SearchVersionStatus = filters.versionStatus ?? 'current';

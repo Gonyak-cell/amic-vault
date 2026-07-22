@@ -77,6 +77,9 @@ export const fileSecurityAuditActions = [
   'FILE_QUARANTINED',
   'FILE_SCAN_COMPLETED',
   'FILE_SECURITY_HELD',
+  'FILE_PROMOTED',
+  'FILE_SECURITY_RECONCILIATION_REVIEWED',
+  'FILE_SECURITY_RECONCILIATION_RETRY_REQUESTED',
 ] as const;
 
 export const r5DlpAuditActions = ['DLP_EGRESS_BLOCKED'] as const;

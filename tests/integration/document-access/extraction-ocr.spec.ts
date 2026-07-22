@@ -21,6 +21,7 @@ import {
   createStorageService,
   login,
   loginBetaOwner,
+  markPromotedFixture,
 } from './document-api-helpers';
 import {
   createAppClient,
@@ -135,7 +136,9 @@ async function uploadScanPdf(
   });
   const body = await response.text();
   expect(response.status, body).toBe(201);
-  return JSON.parse(body) as UploadResponse;
+  const uploaded = JSON.parse(body) as UploadResponse;
+  await markPromotedFixture({ documentId: uploaded.documentId });
+  return uploaded;
 }
 
 async function ensureFreshMatterAppSyncState(): Promise<void> {

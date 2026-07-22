@@ -78,6 +78,9 @@ function makeStorageUri(input: {
 async function insertIndexedRow(row: IndexedFixtureRow, index: number): Promise<void> {
   await withClient(createOwnerClient(), async (client) => {
     const fileObjectId = randomUUID();
+    const scanId = randomUUID();
+    const quarantineRef = randomUUID();
+    const fileHash = hexHash(index);
     await client.query('BEGIN');
     try {
       await setTenant(client, row.tenantId);
@@ -124,7 +127,7 @@ async function insertIndexedRow(row: IndexedFixtureRow, index: number): Promise<
             fileObjectId,
           }),
           `${row.title}.pdf`,
-          hexHash(index),
+          fileHash,
           row.ownerUserId,
         ],
       );
@@ -171,9 +174,36 @@ async function insertIndexedRow(row: IndexedFixtureRow, index: number): Promise<
           row.documentId,
           row.versionStatus,
           fileObjectId,
-          hexHash(index),
+          fileHash,
           row.ownerUserId,
         ],
+      );
+      await client.query(
+        `
+          INSERT INTO file_security_scans (
+            scan_id, tenant_id, matter_id, quarantine_ref, quarantine_storage_uri,
+            expected_sha256, observed_sha256, size_bytes, state, result_code,
+            engine_version, signature_at, created_by, promoted_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $6, 32, 'promoted', 'clean', 'fixture-engine', now(), $7, now())
+        `,
+        [
+          scanId,
+          row.tenantId,
+          row.matterId,
+          quarantineRef,
+          `s3://amic-vault-dev/tenants/${row.tenantId}/quarantine/${quarantineRef}`,
+          fileHash,
+          row.ownerUserId,
+        ],
+      );
+      await client.query(
+        `
+          INSERT INTO file_security_promotions (
+            scan_id, tenant_id, document_id, version_id, file_object_id, primary_sha256, promoted_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [scanId, row.tenantId, row.documentId, row.versionId, fileObjectId, fileHash, row.ownerUserId],
       );
       await client.query(
         `

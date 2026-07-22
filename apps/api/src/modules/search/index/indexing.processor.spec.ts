@@ -8,6 +8,26 @@ const payload = {
 };
 
 describe('IndexingProcessor', () => {
+  it('does not index or enqueue an unpromoted document version', async () => {
+    const audit = {
+      transaction: vi.fn(async (_tenantId: string, run: (client: never) => Promise<unknown>) =>
+        run({ query: vi.fn() } as never),
+      ),
+    };
+    const repository = { upsertVersion: vi.fn(async () => null) };
+    const queue = { enqueueVersionArtifacts: vi.fn() };
+    const processor = new IndexingProcessor(
+      audit as never,
+      { recordDeadLetter: vi.fn() } as never,
+      repository as never,
+      queue as never,
+    );
+
+    await expect(processor.handle(payload)).resolves.toBeUndefined();
+
+    expect(queue.enqueueVersionArtifacts).not.toHaveBeenCalled();
+  });
+
   it('marks current-version prep artifacts stale before enqueueing rebuild jobs', async () => {
     const events: string[] = [];
     const tx = {

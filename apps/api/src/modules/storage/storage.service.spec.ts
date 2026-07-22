@@ -78,6 +78,10 @@ class MemoryStorageAdapter implements StorageAdapter {
   async delete(key: string): Promise<void> {
     this.objects.delete(key);
   }
+
+  async listKeysByPrefix(prefix: string): Promise<readonly string[]> {
+    return [...this.objects.keys()].filter((key) => key.startsWith(prefix)).sort();
+  }
 }
 
 class VersionedMemoryStorageAdapter extends MemoryStorageAdapter implements VersionedStorageAdapter {
@@ -210,6 +214,26 @@ describe('StorageService', () => {
       storageUri: `s3://vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`,
       encryptionKeyId: null,
     });
+    await expect(service.listQuarantineRefs(tenantId)).resolves.toEqual([quarantineRef]);
+  });
+
+  it('rejects malformed quarantine inventory keys without exposing them', async () => {
+    const adapter = new MemoryStorageAdapter();
+    await adapter.putIfAbsent({
+      key: `tenants/${tenantId}/quarantine/${quarantineRef}`,
+      body: Buffer.from('unscanned'),
+      contentLength: 9,
+      contentType: 'application/pdf',
+    });
+    const service = new StorageService(
+      Object.assign(adapter, {
+        listKeysByPrefix: async () => [`tenants/${tenantId}/quarantine/not-a-uuid`],
+      }),
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
+
+    await expect(service.listQuarantineRefs(tenantId)).rejects.toThrow('quarantine inventory is invalid');
   });
 
   it('rejects cross-tenant storage URI access before adapter calls', async () => {

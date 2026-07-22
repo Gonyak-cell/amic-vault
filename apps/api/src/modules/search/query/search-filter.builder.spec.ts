@@ -16,6 +16,8 @@ describe('SearchFilterBuilder', () => {
 
     expect(built.whereSql).toContain('(FALSE)');
     expect(built.whereSql).toContain('idx.document_status <> $1');
+    expect(built.whereSql).toContain('FROM file_security_promotions promotion');
+    expect(built.whereSql).toContain("scan.state = 'promoted'");
     expect(built.whereSql).toContain('idx.version_status = $2');
     expect(built.params).toEqual(['deleted', 'current']);
   });
@@ -42,6 +44,17 @@ describe('SearchFilterBuilder', () => {
       [
         'WHERE (idx.tenant_id = $1)',
         '  AND (idx.document_status <> $2)',
+        '  AND (EXISTS (',
+        '    SELECT 1',
+        '    FROM file_security_promotions promotion',
+        '    JOIN file_security_scans scan',
+        '      ON scan.tenant_id = promotion.tenant_id',
+        '      AND scan.scan_id = promotion.scan_id',
+        "      AND scan.state = 'promoted'",
+        '    WHERE promotion.tenant_id = idx.tenant_id',
+        '      AND promotion.document_id = idx.document_id',
+        '      AND promotion.version_id = idx.version_id',
+        '  ))',
         '  AND (idx.version_status = $3)',
         '  AND (idx.matter_id = $4)',
         '  AND (idx.client_id = $5)',
