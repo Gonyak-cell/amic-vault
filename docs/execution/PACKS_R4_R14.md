@@ -2504,6 +2504,27 @@ source-map gate; it is not merged or otherwise treated as a current baseline.
   external mutation, CI execution, push/PR/merge, deployment, release, or
   go-live is in scope.
 
+## PACK-OSS01-02 — authority-critical direct Pool migration
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721`; PACK-OSS01-01 has local technical evidence.
+The historic non-main implementation is an input only; no migration, grant,
+RLS, dependency, source-vendoring or CI claim transfers from it.
+
+- Planning baseline: current local predecessor
+  `0c0bb99752a9a8b9a13b8968fb5b6c16817dce66`, descended from fetched
+  `origin/main` `ab770ae9bcaf7c4b287bdf1cb75e72cf687d417a`.
+- Branch: `feat/pack-oss01-02-authority-pool-migration-rebased-20260722`.
+- Detail contract: `docs/execution/TUW_OSS01_POOL_MIGRATION.md`.
+- Execution order: `DEVOPS-OSS01-DBM-TUW-001` →
+  `DEVOPS-OSS01-DBM-TUW-002` → `DEVOPS-OSS01-DBM-TUW-003` →
+  `DEVOPS-OSS01-DBM-TUW-004`.
+- Scope: only listed authority-critical direct-pool consumer migration through
+  existing common/db control code. Any need for RLS/grant/migration, generic
+  tenant-less access, audit split, post-filter, dependency change, external
+  mutation, CI execution, push/PR/merge, deployment, release or go-live is
+  outside this PACK and is a stop condition.
+
 ## Gate Reports
 
 Each release closes with a `docs/ledger/gates/R{N}_gate.md` report and an
