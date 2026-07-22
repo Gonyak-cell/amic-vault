@@ -98,6 +98,7 @@
     "tests/integration/document-access/extraction.spec.ts",
     "tests/integration/document-access/extraction-ocr.spec.ts",
     "tests/integration/records-governance.spec.ts",
+    "tests/integration/worker-processing.spec.ts",
     "tests/integration/closing-binder.spec.ts",
     "tests/integration/file-security-scan.spec.ts",
     "tests/integration/file-security-promotion-faults.spec.ts",
