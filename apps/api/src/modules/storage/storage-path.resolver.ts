@@ -108,6 +108,10 @@ export class StoragePathResolver {
     return `tenants/${tenantId}/quarantine/${quarantineRef}`;
   }
 
+  buildQuarantinePrefix(tenantId: string): string {
+    return `tenants/${assertUuid('tenantId', tenantId)}/quarantine/`;
+  }
+
   storageUriForKey(key: string): string {
     return `s3://${this.bucket}/${this.parseObjectKey(key).key}`;
   }
