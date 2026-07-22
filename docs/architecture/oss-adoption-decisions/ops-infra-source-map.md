@@ -21,3 +21,8 @@ non-runtime evaluation under `docs/adr/ADR-018-wopi-evaluation.md`. A future
 source pin alone cannot override authority, security, maintenance, exit, or
 operational-trigger requirements. Every row is intentionally ineligible for
 adoption in the current scope.
+
+The corresponding `security/oss-adoption-decisions.yml` rows are all
+`REJECTED` for this scope. A future decision may not advance to L2/L3 merely
+by improving its TCO scores: the hard veto and complete adoption obligations
+must be resolved first.
