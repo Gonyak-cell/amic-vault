@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type {
   DisposalReviewListResponseDto,
   DisposalRequestDto,
+  DisposalCertificateDto,
   DmsWorkQueueResponseDto,
   ExternalLinkCreatedResponseDto,
   ExternalUserDto,
@@ -642,7 +643,7 @@ describe('records governance integration', () => {
     await expect(disposalReviewRows(retentionReviewDocument.documentId)).resolves.toHaveLength(1);
   });
 
-  it('seals approval then exact-deletes only in the worker, retaining DB finalization for a later pack', async () => {
+  it('seals approval, exact-deletes in the worker, then certifies only the completed receipt set', async () => {
     const archive = await postJson<RecordsArchiveDto>(
       baseUrl,
       ownerCookie,
@@ -768,9 +769,29 @@ describe('records governance integration', () => {
       deadLetterCount: 0,
     });
 
+    const certificate = await postJson<DisposalCertificateDto>(
+      baseUrl,
+      securityAdminCookie,
+      `/v1/records/disposals/${request.disposalRequestId}/execute`,
+    );
+    expect(certificate).toMatchObject({
+      disposalRequestId: request.disposalRequestId,
+      matterId,
+      documentId: disposalDocument.documentId,
+      approvedBy: alphaSecurityAdminUserId,
+      executedBy: alphaSecurityAdminUserId,
+    });
+    await expect(
+      postJson<DisposalCertificateDto>(
+        baseUrl,
+        securityAdminCookie,
+        `/v1/records/disposals/${request.disposalRequestId}/execute`,
+      ),
+    ).resolves.toMatchObject({ certificateId: certificate.certificateId });
+
     await expect(recordsWorkItemStatuses(request.disposalRequestId)).resolves.toEqual([
       { kind: 'records_disposal_approval', status: 'completed' },
-      { kind: 'records_disposal_execution', status: 'open' },
+      { kind: 'records_disposal_execution', status: 'completed' },
     ]);
 
     const getCertificate = await fetch(
@@ -779,7 +800,12 @@ describe('records governance integration', () => {
         headers: { cookie: securityAdminCookie },
       },
     );
-    expect(getCertificate.status, await getCertificate.text()).toBe(404);
+    const certificateBody = await getCertificate.text();
+    expect(getCertificate.status, certificateBody).toBe(200);
+    expect(JSON.parse(certificateBody) as DisposalCertificateDto).toMatchObject({
+      certificateId: certificate.certificateId,
+      certificateHash: certificate.certificateHash,
+    });
 
     const getDocument = await fetch(
       `${baseUrl}/v1/documents/${disposalDocument.documentId}`,
@@ -802,6 +828,17 @@ describe('records governance integration', () => {
     });
     expect(JSON.stringify(executedAudit)).not.toContain('Should remain locked');
     expect(JSON.stringify(executedAudit)).not.toContain('.pdf');
+    const certificateAudit = await recordsAudit(
+      'DISPOSAL_CERTIFICATE_CREATED',
+      request.disposalRequestId,
+    );
+    expect(certificateAudit?.metadata_json).toMatchObject({
+      disposal_request_id: request.disposalRequestId,
+      document_id: disposalDocument.documentId,
+      evidence_id: approved.pendingExecutionRef,
+      status_after: 'executed',
+    });
+    expect(JSON.stringify(certificateAudit)).not.toContain('.pdf');
   });
 
   it('blocks referenced disposal and keeps records tables RLS protected', async () => {
