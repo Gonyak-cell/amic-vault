@@ -3124,8 +3124,8 @@
       "risk": "C",
       "size": "L",
       "depends_on": ["DEVOPS-OSS01-DBM-TUW-003"],
-      "files": ["apps/api/src/modules/document", "apps/api/src/modules/storage", "apps/api/src/modules/search", "tests/integration"],
-      "verification": "document storage and search listed direct pools are zero AND immutable storage permission-before-search metadata leakage and audit regressions remain green"
+      "files": ["apps/api/src/modules/document", "apps/api/src/modules/storage", "apps/api/src/modules/search", "tools/integration/run.mjs", "db/migrations/0183_grant_runtime_subversion_reviewer_reassign.sql", "db/migrations/0184_grant_runtime_bulk_retry_size.sql", "security/oss-adoption-decisions.yml", "tests/integration"],
+      "verification": "document storage and search listed direct pools are zero AND immutable storage permission-before-search metadata leakage and audit regressions remain green AND disposable queue bootstrap preserves runtime role separation AND only exact reversible reviewer and bulk retry column grants are present"
     }
   ]
 }

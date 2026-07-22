@@ -2524,6 +2524,12 @@ RLS, dependency, source-vendoring or CI claim transfers from it.
   tenant-less access, audit split, post-filter, dependency change, external
   mutation, CI execution, push/PR/merge, deployment, release or go-live is
   outside this PACK and is a stop condition.
+- Scope amendment, `2026-07-22`: DBM-004 may use the existing migration-role
+  Queue preparation tool for disposable integration setup and add only two
+  exact reversible runtime column grants documented in its detail contract.
+  This does not permit a generic privilege, owner runtime fallback, RLS/policy
+  change, Queue behavior change, dependency, external mutation, or release
+  action.
 
 ## Gate Reports
 

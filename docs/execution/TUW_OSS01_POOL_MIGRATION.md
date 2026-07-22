@@ -141,6 +141,20 @@
 - **Files NOT-modify:** storage object semantics, immutable triggers, search
   scope SQL meaning, post-filter behavior, RLS/grants/migrations,
   dependencies/locks, `docs/package/**`.
+- **Canonical scope amendment (2026-07-22, runtime queue bootstrap and exact
+  column grants):** the existing integration runner may invoke the already
+  built `prepare-ai-prep-queue` migration-role tool after API build and before
+  seed, passing only the migration URL and configured runtime role. This
+  provisions the disposable test queue before runtime-role tests; it must not
+  expose an owner URL to API/worker runtime, alter queue names/payloads/retry
+  behavior, or change production deployment. The TUW may additionally create
+  `0183_grant_runtime_subversion_reviewer_reassign.sql` and
+  `0184_grant_runtime_bulk_retry_size.sql`, with matching L0 source-decision
+  entries. They may grant and reversibly revoke only `UPDATE (status,
+  assigned_by, revoked_at)` on `document_subversion_reviewers` and `UPDATE
+  (size_bytes)` on `bulk_upload_batch_items`, respectively. Existing RLS,
+  reviewer state, bulk state, storage/audit/permission semantics, ownership,
+  dependencies, and external behavior remain unchanged.
 - **Implementation:** move DB state and bulk enqueue coupling to the active
   tenant client. The scope provider returns a SQL predicate before query build;
   it must not fetch results or add a result post-filter.
