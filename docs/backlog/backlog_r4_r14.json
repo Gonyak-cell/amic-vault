@@ -1,5 +1,5 @@
 {
-  "total": 231,
+  "total": 235,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3302,6 +3302,50 @@
       "depends_on": ["DEVOPS-OSS04-QRT-TUW-003"],
       "files": ["apps/api/src/modules/file-security", "apps/api/src/modules/document", "apps/api/src/modules/storage", "tests/integration", "security"],
       "verification": "enabled direct bulk email and migration ingress writes only server-derived quarantine objects and returns pending ref AND permission wall tenant quota hash enqueue audit failure and primary-prefix bypass cases fail"
+    },
+    {
+      "id": "DEVOPS-OSS04-PRM-TUW-001",
+      "title": "Clean promotion and document version finalization",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-QRT-TUW-004"],
+      "files": ["apps/api/src/modules/file-security", "apps/api/src/modules/storage", "apps/api/src/modules/document", "tests/integration"],
+      "verification": "only clean fresh matching-hash quarantine objects copy server-side to immutable primary storage AND document version file object scan promoted and audit commit atomically while partial results remain unreadable"
+    },
+    {
+      "id": "DEVOPS-OSS04-PRM-TUW-002",
+      "title": "Shared promoted guard across all surfaces",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-PRM-TUW-001"],
+      "files": ["apps/api/src/modules/file-security", "apps/api/src/modules/document", "apps/api/src/modules/preview", "apps/api/src/modules/search", "apps/api/src/modules/ai", "apps/api/src/modules/integrations", "tests/integration"],
+      "verification": "each byte search AI and delivery surface requires permission plus promoted state AND unknown quarantined scanning infected error stale cross-tenant and permission failures deny without leakage"
+    },
+    {
+      "id": "DEVOPS-OSS04-PRM-TUW-003",
+      "title": "Quarantine primary orphan reconciler and review",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-PRM-TUW-002"],
+      "files": ["apps/api/src/modules/file-security", "apps/api/src/common/queue", "tests/integration"],
+      "verification": "quarantine row primary and stale-signature orphans classify with bounded records AND retry review requires permission reason audit while held infected/error content never auto-releases or deletes"
+    },
+    {
+      "id": "DEVOPS-OSS04-PRM-TUW-004",
+      "title": "Real EICAR clean fault and cutover gate",
+      "release": "R14",
+      "module": "DEVOPS-OSS04",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS04-PRM-TUW-001", "DEVOPS-OSS04-PRM-TUW-002", "DEVOPS-OSS04-PRM-TUW-003"],
+      "files": ["tests/integration/storage-isolation", "tests/integration/document-access", "tests/integration/search-permission", "tests/integration/audit-coverage", "infra"],
+      "verification": "real clamd clean EICAR unavailable timeout stale hash mismatch duplicate cross-tenant and audit failure prove every ingress/surface denies before promotion and only exact promoted bytes become readable"
     },
     {
       "id": "DEVOPS-OSS07-IDP-TUW-001",
