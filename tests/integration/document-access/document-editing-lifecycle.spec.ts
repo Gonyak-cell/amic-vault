@@ -15,6 +15,7 @@ import {
   docxBytes,
   loginBetaMember,
   loginBetaOwner,
+  markPromotedFixture,
   storageUrisForDocument,
   uploadDocx,
 } from './document-api-helpers';
@@ -147,7 +148,9 @@ async function uploadTextDocument(
     headers: { cookie },
     body: textUploadForm(marker, content),
   });
-  return expectJson<UploadResponse>(response, 201);
+  const uploaded = await expectJson<UploadResponse>(response, 201);
+  await markPromotedFixture({ documentId: uploaded.documentId });
+  return uploaded;
 }
 
 function desktopSaveForm(input: {
