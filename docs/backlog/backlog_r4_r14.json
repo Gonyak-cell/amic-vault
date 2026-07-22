@@ -3058,7 +3058,7 @@
       "risk": "C",
       "size": "L",
       "depends_on": ["DEVOPS-OSS01-DBA-TUW-001"],
-      "files": ["apps/api/src/common/db", ".env.example", "infra/docker-compose.dev.yml", "tools/db"],
+      "files": ["apps/api/src/common/db", ".env.example", "infra/docker-compose.dev.yml", "tools/db", "security/oss-adoption-decisions.yml"],
       "verification": "runtime uses only vault_app URL AND owner superuser BYPASSRLS table-owner and credential-swap starts fail before listen AND owner migration up down up passes"
     },
     {

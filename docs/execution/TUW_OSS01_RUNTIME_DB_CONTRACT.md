@@ -54,14 +54,17 @@ modifying frozen `docs/package/**`.
 - **Files create:** `apps/api/src/common/db/runtime-role.assertion.ts`,
   `apps/api/src/common/db/runtime-role.assertion.spec.ts`.
 - **Files modify:** `.env.example`, `infra/docker-compose.dev.yml`,
-  `tools/db/config.mjs`, `apps/api/src/main.ts`, `apps/api/src/worker-main.ts`.
+  `tools/db/config.mjs`, `apps/api/src/main.ts`, `apps/api/src/worker-main.ts`,
+  `security/oss-adoption-decisions.yml` L0-ineligible path rows only.
 - **Files NOT-modify:** migration ownership/grants, RLS policies,
   PermissionService, audit schema, dependencies/locks, `docs/package/**`.
 - **Implementation:** define `DATABASE_MIGRATION_URL` and
   `DATABASE_RUNTIME_URL`; reject a production `DATABASE_URL` fallback; assert
   runtime `current_user`, superuser/BYPASSRLS flags and protected-table
   ownership before listen/worker work; split owner/runtime compose credentials;
-  never log a URL or password.
+  never log a URL or password. Before creating either assertion file, register
+  its exact path as Vault-owned L0-ineligible code in the reuse-first decision
+  manifest; this is not upstream source reuse.
 - **Verification:** safe runtime role starts; owner/superuser/BYPASSRLS/table-
   owner/credential-swap fixtures fail before listen; migration up/down/up uses
   the owner URL; URL values are absent from output; required focused and DB
