@@ -48,7 +48,7 @@ export class FileSecurityService {
         WHERE tenant_id = $1 AND scan_id = $2`, [payload.tenantId, row.scan_id]);
       const attemptNo = attempt.rows[0]?.attempt_no;
       if (!attemptNo) throw new Error('FILE_SECURITY_ATTEMPT_UNAVAILABLE');
-      await tx.query(`UPDATE file_security_scans SET state = 'scanning', updated_at = now() WHERE tenant_id = $1 AND scan_id = $2`, [payload.tenantId, row.scan_id]);
+      await tx.query(`UPDATE file_security_scans SET state = 'scanning', observed_sha256 = NULL, engine_version = NULL, signature_at = NULL, updated_at = now() WHERE tenant_id = $1 AND scan_id = $2`, [payload.tenantId, row.scan_id]);
       await tx.query(`INSERT INTO file_security_scan_attempts (tenant_id, scan_id, attempt_no, expected_sha256) VALUES ($1, $2, $3, $4)`, [payload.tenantId, row.scan_id, attemptNo, payload.expectedSha256]);
       return { scanId: row.scan_id, matterId: row.matter_id, storageUri: row.quarantine_storage_uri, sizeBytes: Number(row.size_bytes), attemptNo };
     });

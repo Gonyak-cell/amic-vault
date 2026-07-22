@@ -27,6 +27,7 @@ describe('FileSecurityService', () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'FILE_SCAN_COMPLETED', result: 'success', metadata: expect.objectContaining({ queue_name: 'security.file-scan' }) }), tx);
     const queryCalls = query.mock.calls as unknown as Array<[string, readonly unknown[]]>;
     expect(queryCalls.some(([sql, params]) => sql.includes('UPDATE file_security_scans') && params[2] === 'clean')).toBe(true);
+    expect(queryCalls.some(([sql]) => sql.includes("state = 'scanning'") && sql.includes('observed_sha256 = NULL'))).toBe(true);
   });
 
   it('holds a hash mismatch without calling the worker', async () => {
