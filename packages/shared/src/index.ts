@@ -270,6 +270,7 @@ export {
   legalHoldStatusSchema,
   legalHoldStatuses,
   recordsArchiveSchema,
+  retryDisposalRequestSchema,
   retentionPolicyListResponseSchema,
   retentionPolicySchema,
   retentionPolicyStatusSchema,
@@ -288,6 +289,7 @@ export {
   type LegalHoldScope,
   type LegalHoldStatus,
   type RecordsArchiveDto,
+  type RetryDisposalRequestDto,
   type RetentionPolicyDto,
   type RetentionPolicyListResponseDto,
 } from './records/records-types';

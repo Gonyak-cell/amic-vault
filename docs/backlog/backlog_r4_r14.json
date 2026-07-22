@@ -1,5 +1,5 @@
 {
-  "total": 235,
+  "total": 238,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3258,6 +3258,39 @@
       "depends_on": ["DEVOPS-OSS03-DSP-TUW-003"],
       "files": ["apps/api/src/modules/records", "apps/api/src/common/queue", "tests/integration"],
       "verification": "SKIP LOCKED claim fresh hold approval recheck exact-version delete HEAD reconciliation bounded receipts duplicate runs and API-role disabled negatives pass without unversioned fallback or automatic dead-letter replay"
+    },
+    {
+      "id": "DEVOPS-OSS03-RCN-TUW-001",
+      "title": "Crash reconciler and dead-letter review",
+      "release": "R14",
+      "module": "DEVOPS-OSS03",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS03-DSP-TUW-004"],
+      "files": ["apps/api/src/modules/records", "tests/integration"],
+      "verification": "stale processing and missing receipts reconcile only exact sealed versions AND dead-letter review requires permission reason and transactional audit while cross-tenant raw-error and automatic replay attempts fail"
+    },
+    {
+      "id": "DEVOPS-OSS03-RCN-TUW-002",
+      "title": "Finalization tombstone and certificate transaction",
+      "release": "R14",
+      "module": "DEVOPS-OSS03",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS03-RCN-TUW-001"],
+      "files": ["apps/api/src/modules/records", "packages/shared/src", "tests/integration"],
+      "verification": "only complete proven receipt sets permit hold-rechecked tombstone certificate and audit in one transaction AND incomplete hold-race audit-failure duplicate and certificate-recalculation cases fail closed or are idempotent"
+    },
+    {
+      "id": "DEVOPS-OSS03-RCN-TUW-003",
+      "title": "Real storage disposal fault gate",
+      "release": "R14",
+      "module": "DEVOPS-OSS03",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-OSS03-RCN-TUW-001", "DEVOPS-OSS03-RCN-TUW-002"],
+      "files": ["tests/integration/legal-hold", "tests/integration/storage-isolation", "tests/integration/audit-coverage", "tests/integration/records-governance.spec.ts"],
+      "verification": "versioned MinIO before partial all-delete 404 403 timeout 5xx hold audit and duplicate faults prove no disposed-object-remains or active-object-missing-without-recovery invariant violation"
     },
     {
       "id": "DEVOPS-OSS04-QRT-TUW-001",
