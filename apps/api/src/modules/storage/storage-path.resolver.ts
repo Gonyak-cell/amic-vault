@@ -28,7 +28,13 @@ export type ParsedStorageObjectKey =
   | (AuditAnchorStorageObjectIds & {
       objectType: 'audit_anchor';
       key: string;
-    });
+    })
+  | {
+      objectType: 'quarantine';
+      tenantId: string;
+      quarantineRef: string;
+      key: string;
+    };
 
 interface ParsedStorageObjectKeyBase {
   tenantId: string;
@@ -153,6 +159,15 @@ export class StoragePathResolver {
         objectType: 'audit_anchor',
         tenantId: assertUuid('tenantId', parts[1] ?? ''),
         anchorDate,
+        key: decoded,
+      };
+    }
+
+    if (parts.length === 4 && parts[2] === 'quarantine') {
+      return {
+        objectType: 'quarantine',
+        tenantId: assertUuid('tenantId', parts[1] ?? ''),
+        quarantineRef: assertUuid('quarantineRef', parts[3] ?? ''),
         key: decoded,
       };
     }

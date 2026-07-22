@@ -59,6 +59,21 @@ describe('StoragePathResolver', () => {
     });
   });
 
+  it('parses only a tenant-bound opaque quarantine reference', () => {
+    const resolver = new StoragePathResolver('vault-dev');
+    const quarantineRef = '22222222-2222-4222-8222-222222222222';
+    const key = `tenants/${tenantId}/quarantine/${quarantineRef}`;
+
+    expect(resolver.parseStorageUri(`s3://vault-dev/${key}`)).toMatchObject({
+      objectType: 'quarantine',
+      tenantId,
+      quarantineRef,
+    });
+    expect(() => resolver.parseObjectKey(`tenants/${tenantId}/quarantine/not-a-reference`)).toThrow(
+      StoragePathViolationError,
+    );
+  });
+
   it('rejects missing tenant prefixes and traversal attempts', () => {
     const resolver = new StoragePathResolver('vault-dev');
 
