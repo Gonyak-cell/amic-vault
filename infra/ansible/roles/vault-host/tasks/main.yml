@@ -1,0 +1,123 @@
+---
+- name: Validate bounded deployment inputs
+  ansible.builtin.assert:
+    that:
+      - vault_source_root is match('^/[^\\x00]{1,240}$')
+      - vault_release_root is match('^/opt/amic-vault/releases/[a-f0-9]{40}$')
+      - vault_config_sha256 is match('^[a-f0-9]{64}$')
+      - vault_web_image is match('^[a-z0-9][a-z0-9./_-]{1,180}@sha256:[a-f0-9]{64}$')
+      - vault_api_image is match('^[a-z0-9][a-z0-9./_-]{1,180}@sha256:[a-f0-9]{64}$')
+      - vault_ingestion_image is match('^[a-z0-9][a-z0-9./_-]{1,180}@sha256:[a-f0-9]{64}$')
+    fail_msg: PRODUCTION_DEPLOYMENT_INPUT_INVALID
+
+- name: Create the immutable release directory
+  ansible.builtin.file:
+    path: "{{ vault_release_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install the reviewed production profile
+  ansible.builtin.copy:
+    src: "{{ vault_source_root }}/infra/production/profile.yml"
+    dest: "{{ vault_release_root }}/profile.yml"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Install the reviewed base Compose model
+  ansible.builtin.copy:
+    src: "{{ vault_source_root }}/infra/production/compose.yml"
+    dest: "{{ vault_release_root }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Install the immutable-image Compose overlay
+  ansible.builtin.copy:
+    src: "{{ vault_source_root }}/infra/production/compose.images.yml"
+    dest: "{{ vault_release_root }}/compose.images.yml"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Install the reviewed gateway configuration
+  ansible.builtin.copy:
+    src: "{{ vault_source_root }}/infra/ingestion-gateway/nginx.conf"
+    dest: "{{ vault_release_root }}/ingestion-gateway.nginx.conf"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Record the precomputed canonical configuration hash
+  ansible.builtin.copy:
+    content: "{{ vault_config_sha256 }}\n"
+    dest: "{{ vault_release_root }}/configuration.sha256"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Validate the effective image-only Compose model
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --file
+      - "{{ vault_release_root }}/compose.yml"
+      - --file
+      - "{{ vault_release_root }}/compose.images.yml"
+      - config
+      - --quiet
+  args:
+    chdir: "{{ vault_release_root }}"
+  environment:
+    VAULT_WEB_IMAGE: "{{ vault_web_image }}"
+    VAULT_API_IMAGE: "{{ vault_api_image }}"
+    VAULT_INGESTION_IMAGE: "{{ vault_ingestion_image }}"
+  changed_when: false
+  no_log: true
+
+- name: Pull only the reviewed immutable images
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --file
+      - "{{ vault_release_root }}/compose.yml"
+      - --file
+      - "{{ vault_release_root }}/compose.images.yml"
+      - pull
+      - --quiet
+  args:
+    chdir: "{{ vault_release_root }}"
+  environment:
+    VAULT_WEB_IMAGE: "{{ vault_web_image }}"
+    VAULT_API_IMAGE: "{{ vault_api_image }}"
+    VAULT_INGESTION_IMAGE: "{{ vault_ingestion_image }}"
+  register: vault_pull_result
+  changed_when: vault_pull_result.rc == 0
+  no_log: true
+
+- name: Converge the reviewed application graph
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --file
+      - "{{ vault_release_root }}/compose.yml"
+      - --file
+      - "{{ vault_release_root }}/compose.images.yml"
+      - up
+      - --detach
+      - --wait
+      - --remove-orphans
+  args:
+    chdir: "{{ vault_release_root }}"
+  environment:
+    VAULT_WEB_IMAGE: "{{ vault_web_image }}"
+    VAULT_API_IMAGE: "{{ vault_api_image }}"
+    VAULT_INGESTION_IMAGE: "{{ vault_ingestion_image }}"
+  register: vault_compose_result
+  changed_when: vault_compose_result.rc == 0
+  no_log: true

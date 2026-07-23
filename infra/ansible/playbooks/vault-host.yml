@@ -1,0 +1,23 @@
+---
+- name: Converge the approved AMIC Vault SF20 application host
+  hosts: vault_hosts
+  gather_facts: true
+  become: true
+  vars:
+    vault_required_ansible_version: "2.21.2"
+  pre_tasks:
+    - name: Require the exact reviewed Ansible release
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full == vault_required_ansible_version
+        fail_msg: ANSIBLE_VERSION_MISMATCH
+
+    - name: Require the approved Linux host boundary
+      ansible.builtin.assert:
+        that:
+          - ansible_system == "Linux"
+          - vault_approved_host_receipt is match('^HOST-[A-Z0-9._-]{8,80}$')
+        fail_msg: APPROVED_HOST_RECEIPT_REQUIRED
+
+  roles:
+    - role: vault-host
