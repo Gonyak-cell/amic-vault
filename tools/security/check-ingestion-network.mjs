@@ -32,6 +32,7 @@ function noPublishedPort(service, name) {
 }
 
 function validateNginx(nginx, fixture, policy) {
+  assert(/^user\s+nginx\s*;/mu.test(nginx), 'NGINX workers must run as nginx');
   assert(/ssl_verify_client\s+on\s*;/u.test(nginx), 'client certificate verification missing');
   assert(/ssl_verify_depth\s+2\s*;/u.test(nginx), 'client verify depth mismatch');
   assert(
@@ -94,8 +95,17 @@ export function validateIngestionNetwork({
   const gateway = object(services['ingestion-gateway'], 'gateway service');
   const worker = object(services.ingestion, 'ingestion service');
   assert(gateway.image === EXPECTED_NGINX_IMAGE, 'NGINX image digest mismatch');
+  assert(
+    !Object.hasOwn(gateway, 'user'),
+    'gateway master must retain image root identity to read root-owned secrets',
+  );
   assert(gateway.read_only === true, 'gateway root filesystem must be read-only');
   exactSet(gateway.cap_drop, ['ALL'], 'gateway dropped capabilities');
+  exactSet(
+    gateway.cap_add,
+    ['CHOWN', 'DAC_READ_SEARCH', 'SETGID', 'SETUID'],
+    'gateway secret-reader and worker-drop capabilities',
+  );
   assert(
     gateway.security_opt?.includes('no-new-privileges:true'),
     'gateway no-new-privileges missing',

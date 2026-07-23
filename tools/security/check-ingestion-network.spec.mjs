@@ -74,6 +74,15 @@ test('unpinned gateway and weak TLS or identity mapping fail', () => {
   fails(({ compose }) => {
     compose.services['ingestion-gateway'].image = 'nginx:latest';
   }, /NGINX image digest mismatch/u);
+  fails(({ compose }) => {
+    compose.services['ingestion-gateway'].user = '101:101';
+  }, /gateway master must retain image root identity/u);
+  fails(({ compose }) => {
+    compose.services['ingestion-gateway'].cap_add = ['DAC_READ_SEARCH', 'SETGID', 'SETUID'];
+  }, /gateway secret-reader and worker-drop capabilities count mismatch/u);
+  fails((value) => {
+    value.nginx = value.nginx.replace('user nginx;', '');
+  }, /NGINX workers must run as nginx/u);
   fails((value) => {
     value.nginx = value.nginx.replace('ssl_verify_client on;', 'ssl_verify_client optional;');
   }, /client certificate verification missing/u);

@@ -71,9 +71,9 @@
     },
     "ingestion-gateway": {
       "image": "docker.io/library/nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46",
-      "user": "101:101",
       "read_only": true,
       "cap_drop": ["ALL"],
+      "cap_add": ["CHOWN", "DAC_READ_SEARCH", "SETGID", "SETUID"],
       "security_opt": ["no-new-privileges:true"],
       "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"],
       "volumes": [

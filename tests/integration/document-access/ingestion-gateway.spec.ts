@@ -254,7 +254,43 @@ function runCompose(args: readonly string[], timeout = 120_000): string {
     maxBuffer: 8 * 1024 * 1024,
   });
   if (result.status !== 0) {
-    throw new Error(`INGESTION_GATEWAY_COMPOSE_FAILED:${args[0] ?? 'unknown'}`);
+    const logs = spawnSync(
+      'docker',
+      composeArgs([
+        'logs',
+        '--no-color',
+        '--tail',
+        '80',
+        'ingestion-gateway',
+        'ingestion',
+        'api-probe',
+      ]),
+      {
+        cwd: repoRoot,
+        env: composeEnvironment,
+        encoding: 'utf8',
+        timeout: 15_000,
+        maxBuffer: 2 * 1024 * 1024,
+      },
+    );
+    const diagnostic = `${logs.stdout}\n${logs.stderr}\n${result.stderr}`.toLowerCase();
+    const reason = [
+      ['setgid', 'SETGID_FAILED'],
+      ['setuid', 'SETUID_FAILED'],
+      ['operation not permitted', 'OPERATION_NOT_PERMITTED'],
+      ['permission denied', 'SECRET_PERMISSION_DENIED'],
+      ['cannot load certificate', 'CERTIFICATE_LOAD_FAILED'],
+      ['mkdir()', 'RUNTIME_DIRECTORY_FAILED'],
+      ['bind()', 'LISTENER_BIND_FAILED'],
+      ['getgrnam', 'WORKER_GROUP_MISSING'],
+      ['getpwnam', 'WORKER_USER_MISSING'],
+      ['no such file', 'REQUIRED_FILE_MISSING'],
+      ['unhealthy', 'SERVICE_UNHEALTHY'],
+      ['failed to solve', 'IMAGE_BUILD_FAILED'],
+    ].find(([needle]) => diagnostic.includes(needle))?.[1] ?? 'UNKNOWN';
+    throw new Error(
+      `INGESTION_GATEWAY_COMPOSE_FAILED:${args[0] ?? 'unknown'}:${reason}`,
+    );
   }
   return result.stdout;
 }
@@ -428,6 +464,19 @@ beforeAll(() => {
     INGESTION_GATEWAY_CLIENT_KEY_FILE: activeClient.key,
   };
   composeAttempted = true;
+  runCompose(
+    [
+      'run',
+      '--rm',
+      '--no-deps',
+      '--entrypoint',
+      'sh',
+      'ingestion-gateway',
+      '-c',
+      'test -r /run/secrets/ingestion_gateway_ca && test -r /run/secrets/ingestion_gateway_server_cert && test -r /run/secrets/ingestion_gateway_server_key',
+    ],
+    60_000,
+  );
   runCompose(
     ['up', '-d', '--build', '--wait', '--wait-timeout', '180', 'ingestion', 'ingestion-gateway', 'api-probe'],
     300_000,
