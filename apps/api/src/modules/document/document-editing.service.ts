@@ -2031,6 +2031,8 @@ export class DocumentEditingService {
         storageUri: storage.storageUri,
         normalizedFilename: input.prepared.normalizedFilename,
         mimeType: input.prepared.mimeType,
+        sha256: input.prepared.sha256,
+        sizeBytes: input.prepared.sizeBytes,
       });
       const saved = await this.auditService.transaction(context.tenantId, async (tx) => {
         const session = await this.requireOwnedActiveSession(
@@ -2673,6 +2675,8 @@ export class DocumentEditingService {
     storageUri: string;
     normalizedFilename: string;
     mimeType: string;
+    sha256: string;
+    sizeBytes: number;
   }): Promise<readonly DocumentRevisionExtractionInput[] | undefined> {
     if (!this.extractionDispatcher) return undefined;
     const target: ExtractionTarget = {
@@ -2684,6 +2688,8 @@ export class DocumentEditingService {
       storageUri: input.storageUri,
       normalizedFilename: input.normalizedFilename,
       mimeType: input.mimeType,
+      sha256: input.sha256,
+      sizeBytes: input.sizeBytes,
     };
     try {
       return await this.extractionDispatcher.extractRevisionsForTarget(target);
