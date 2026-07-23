@@ -75,16 +75,25 @@ Local tests prove the contract using synthetic metadata. Until an approved regio
 
 ## Restore Drill Procedure
 
-1. Restore the RDS snapshot or point-in-time recovery target into an isolated subnet/security group.
-2. Apply the same migration level as primary if the restore target was created from an older recovery point.
-3. Block application traffic to the restored database. The restore target is read-only for drill verification.
-4. Run the drill tool:
+1. Restore the selected recovery point into a disposable database in an isolated subnet/security group.
+2. Restore the PostgreSQL 16 custom-format backup and confirm its migration level without changing the primary database.
+3. Create a separate connection as the application runtime role. The runtime role must not be an owner, superuser, or `BYPASSRLS` role.
+4. Block all application traffic to the restored database. Do not set the whole database to read-only: the drill must prove that the audit table itself rejects `UPDATE` and `DELETE` with SQLSTATE `42501`. Both attempts run inside savepoints and the enclosing transaction is rolled back.
+5. Supply an operator-owned exact-version adapter. It must expose only an `exact-version` read operation bound to the signed manifest reference and version fingerprint; a current/latest read is not accepted.
+6. Supply teardown and cleanup-verification callbacks for the disposable database and object fixture. The snapshot ledger is not called until cleanup is verified.
+7. Invoke the tool through that adapter:
 
 ```bash
 node tools/release/backup-restore-drill.mjs \
   --primary-database-url "$PRIMARY_DATABASE_URL" \
   --restored-database-url "$RESTORED_DATABASE_URL" \
+  --restored-runtime-database-url "$RESTORED_RUNTIME_DATABASE_URL" \
   --tenant-id "$TENANT_ID" \
+  --other-tenant-id "$SYNTHETIC_OTHER_TENANT_ID" \
+  --backup-set-manifest "$COMPLETE_BACKUP_SET_MANIFEST" \
+  --verification-key "$BACKUP_SIGNING_PUBLIC_KEY_FILE" \
+  --approved-region "$APPROVED_REGION_CODE" \
+  --profile-fingerprint "$PRODUCTION_PROFILE_SHA256" \
   --api-base-url "$API_BASE_URL" \
   --session-cookie "$AMIC_SESSION_COOKIE" \
   --reason-code MONTHLY_DRILL \
@@ -92,18 +101,27 @@ node tools/release/backup-restore-drill.mjs \
   --evidence-ref "$EXTERNAL_EVIDENCE_REF"
 ```
 
-Use `--dry-run` before recording if the restored database is still being checked.
+The command-line module deliberately does not load a provider SDK or infer object paths. An operator wrapper imports `main`, injects the exact-version reader and teardown callbacks, and forwards the arguments above. Calling the CLI without that adapter fails with `external_restore_adapter_required`. Use `--dry-run` to perform every direct proof and cleanup without recording the snapshot ledger.
 
 The tool verifies:
 
-- Primary and restored schema hashes match the query set used by `tools/db/schema-hash.mjs`.
-- Core tenant row counts match for the enterprise backup snapshot table set.
-- The manifest hash and drill fields are recorded in the existing backup snapshot ledger.
+- The Ed25519 signature, trust-anchor fingerprint, region, and production-profile fingerprint of the sealed backup set.
+- Primary and restored schema hashes and all core tenant row counts.
+- Every required tenant table exists and has RLS, FORCE RLS, and at least one policy.
+- The non-owner runtime role cannot update or delete audit rows and changes zero rows.
+- A synthetic tenant context sees zero rows for a different synthetic tenant, or receives the closed `42501` denial.
+- Every selected object is read by exact version, streamed under a cap, and matches the sealed version fingerprint, SHA-256, and byte count.
+- Disposable database/object resources are torn down and cleanup is verified before the manifest can be marked `verified` or posted.
+
+The bounded result includes table names, counts, hashes, and verdicts. It omits database URLs, session cookies, raw tenant IDs, object references/keys, provider details, and object content.
 
 ## Failure Handling
 
-- Schema hash mismatch: stop the drill, keep the restored database intact, and compare migration state before retrying.
+- Schema hash mismatch: stop the drill, retain only bounded external diagnostics, tear down the disposable target, and compare migration state before a clean retry.
 - Row-count mismatch: stop the drill and compare the listed table counts. Do not mark the snapshot verified.
+- RLS, FORCE RLS, policy, runtime-role, audit, tenant-context, or cross-tenant failure: reject the restore and investigate the restored role/catalog; never rerun as owner or disable a policy/trigger.
+- Object version/hash/size/missing/truncated/oversized failure: reject the entire backup set. Do not substitute latest/current object bytes.
+- Cleanup failure: treat the drill as failed and remove the isolated resources before any retry.
 - API ledger failure: keep the printed manifest, fix the admin session or API availability issue, then rerun with the same `--drill-id`.
 - RPO or RTO miss: record an incident ticket and do not mark the monthly drill as passing until the cause is remediated.
 
