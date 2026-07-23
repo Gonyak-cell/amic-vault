@@ -76,9 +76,9 @@ fixtures, and integration gate are independently written Vault code.
 
 ## `DEVOPS-SF20-GW-TUW-001`
 
-**Title:** Shared API private gateway mTLS transport  
-**Release/module:** R14 / DEVOPS-SF20-GW  
-**Risk/size:** C / L  
+**Title:** Shared API private gateway mTLS transport
+**Release/module:** R14 / DEVOPS-SF20-GW
+**Risk/size:** C / L
 **Objective:** Every fixed API/API-worker ingestion call presents a valid
 client certificate to the configured private gateway through one
 standard-library Node HTTPS transport.
@@ -141,9 +141,9 @@ URL, unbounded buffering regression, or private-profile global fetch is needed.
 
 ## `DEVOPS-SF20-GW-TUW-002`
 
-**Title:** NGINX mTLS subject and identity header sanitation  
-**Release/module:** R14 / DEVOPS-SF20-GW  
-**Risk/size:** C / L  
+**Title:** NGINX mTLS subject and identity header sanitation
+**Release/module:** R14 / DEVOPS-SF20-GW
+**Risk/size:** C / L
 **Objective:** The digest-pinned NGINX gateway accepts only the approved API
 client identity and is the sole producer of worker workload identity headers.
 
@@ -186,9 +186,9 @@ upstream copy, unpinned image, public port, or private key fixture.
 
 ## `DEVOPS-SF20-GW-TUW-003`
 
-**Title:** Gateway-only worker network topology  
-**Release/module:** R14 / DEVOPS-SF20-GW  
-**Risk/size:** C / M  
+**Title:** Gateway-only worker network topology
+**Release/module:** R14 / DEVOPS-SF20-GW
+**Risk/size:** C / M
 **Objective:** The ingestion worker is reachable only from NGINX on an
 internal worker network and has no host/public/API direct route.
 
@@ -231,9 +231,9 @@ port, or if an unapproved orchestrator/firewall is required.
 
 ## `DEVOPS-SF20-GW-TUW-004`
 
-**Title:** Bounded durable single-node nonce replay store  
-**Release/module:** R14 / DEVOPS-SF20-GW  
-**Risk/size:** H / M  
+**Title:** Bounded durable single-node nonce replay store
+**Release/module:** R14 / DEVOPS-SF20-GW
+**Risk/size:** H / M
 **Objective:** The one-worker profile rejects a duplicate nonce across process
 restart while retaining only a bounded digest and expiry.
 
@@ -285,9 +285,9 @@ explicit future shared-authority trigger.
 
 ## `DEVOPS-SF20-GW-TUW-005`
 
-**Title:** Private gateway rotation, replay, and direct-access runtime gate  
-**Release/module:** R14 / DEVOPS-SF20-GW  
-**Risk/size:** C / L  
+**Title:** Private gateway rotation, replay, and direct-access runtime gate
+**Release/module:** R14 / DEVOPS-SF20-GW
+**Risk/size:** C / L
 **Objective:** A real API-image client, pinned NGINX, worker, TLS handshake,
 network graph, and durable store jointly prove the private gateway contract.
 
