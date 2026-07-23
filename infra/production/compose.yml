@@ -1,6 +1,47 @@
 {
   "name": "amic-vault-production",
   "services": {
+    "web": {
+      "build": {
+        "context": "../..",
+        "dockerfile": "apps/web/Dockerfile"
+      },
+      "environment": {
+        "NODE_ENV": "production",
+        "HOSTNAME": "0.0.0.0",
+        "PORT": "3000"
+      },
+      "user": "10002:10002",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 128,
+      "cpus": "1.0",
+      "mem_limit": "1g",
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=128m,uid=10002,gid=10002,mode=1770",
+        "/app/apps/web/.next/cache:rw,noexec,nosuid,nodev,size=128m,uid=10002,gid=10002,mode=1770"
+      ],
+      "networks": ["application"],
+      "ports": ["127.0.0.1:${VAULT_WEB_LOOPBACK_PORT:-3000}:3000"],
+      "depends_on": {
+        "api": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r=>{if(r.status>=500)process.exit(1)}).catch(()=>process.exit(1))"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 20
+      },
+      "restart": "unless-stopped"
+    },
     "api": {
       "build": {
         "context": "../..",
@@ -10,6 +51,16 @@
       "environment": {
         "NODE_ENV": "production",
         "PROCESS_ROLE": "api",
+        "DATABASE_RUNTIME_URL_FILE": "/run/secrets/database_runtime_url",
+        "DATABASE_RUNTIME_ROLE": "vault_app",
+        "S3_ENDPOINT": "${S3_ENDPOINT:?set S3_ENDPOINT}",
+        "S3_READ_URL_ENDPOINT": "${S3_READ_URL_ENDPOINT:-}",
+        "S3_BUCKET": "${S3_BUCKET:?set S3_BUCKET}",
+        "S3_REGION": "${S3_REGION:?set S3_REGION}",
+        "S3_ACCESS_KEY_ID_FILE": "/run/secrets/s3_api_access_key_id",
+        "S3_SECRET_ACCESS_KEY_FILE": "/run/secrets/s3_api_secret_access_key",
+        "S3_SERVER_SIDE_ENCRYPTION": "${S3_SERVER_SIDE_ENCRYPTION:?set S3_SERVER_SIDE_ENCRYPTION}",
+        "MFA_SECRET_ENCRYPTION_KEY_FILE": "/run/secrets/mfa_secret_encryption_key",
         "INGESTION_WORKER_IDENTITY_PROFILE": "private-gateway-mtls",
         "INGESTION_GATEWAY_MTLS_ENABLED": "true",
         "INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS": "true",
@@ -23,15 +74,39 @@
         "INGESTION_GATEWAY_SERVER_NAME": "ingestion-gateway"
       },
       "secrets": [
+        "database_runtime_url",
+        "s3_api_access_key_id",
+        "s3_api_secret_access_key",
+        "mfa_secret_encryption_key",
         "ingestion_gateway_ca",
         "ingestion_api_client_cert",
         "ingestion_api_client_key"
       ],
+      "user": "10003:10003",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 256,
+      "cpus": "2.0",
+      "mem_limit": "2g",
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=256m,uid=10003,gid=10003,mode=1770"],
       "networks": ["application", "ingestion-client"],
+      "ports": ["127.0.0.1:${VAULT_API_LOOPBACK_PORT:-3001}:3001"],
       "depends_on": {
         "ingestion-gateway": {
           "condition": "service_healthy"
         }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/v1/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 20
       },
       "restart": "unless-stopped"
     },
@@ -44,6 +119,16 @@
       "environment": {
         "NODE_ENV": "production",
         "PROCESS_ROLE": "worker",
+        "DATABASE_RUNTIME_URL_FILE": "/run/secrets/database_runtime_url",
+        "DATABASE_RUNTIME_ROLE": "vault_app",
+        "S3_ENDPOINT": "${S3_ENDPOINT:?set S3_ENDPOINT}",
+        "S3_READ_URL_ENDPOINT": "${S3_READ_URL_ENDPOINT:-}",
+        "S3_BUCKET": "${S3_BUCKET:?set S3_BUCKET}",
+        "S3_REGION": "${S3_REGION:?set S3_REGION}",
+        "S3_ACCESS_KEY_ID_FILE": "/run/secrets/s3_api_access_key_id",
+        "S3_SECRET_ACCESS_KEY_FILE": "/run/secrets/s3_api_secret_access_key",
+        "S3_SERVER_SIDE_ENCRYPTION": "${S3_SERVER_SIDE_ENCRYPTION:?set S3_SERVER_SIDE_ENCRYPTION}",
+        "MFA_SECRET_ENCRYPTION_KEY_FILE": "/run/secrets/mfa_secret_encryption_key",
         "INGESTION_WORKER_IDENTITY_PROFILE": "private-gateway-mtls",
         "INGESTION_GATEWAY_MTLS_ENABLED": "true",
         "INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS": "true",
@@ -57,15 +142,33 @@
         "INGESTION_GATEWAY_SERVER_NAME": "ingestion-gateway"
       },
       "secrets": [
+        "database_runtime_url",
+        "s3_api_access_key_id",
+        "s3_api_secret_access_key",
+        "mfa_secret_encryption_key",
         "ingestion_gateway_ca",
         "ingestion_api_client_cert",
         "ingestion_api_client_key"
       ],
+      "user": "10003:10003",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 256,
+      "cpus": "2.0",
+      "mem_limit": "2g",
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=256m,uid=10003,gid=10003,mode=1770"],
       "networks": ["application", "ingestion-client"],
       "depends_on": {
         "ingestion-gateway": {
           "condition": "service_healthy"
         }
+      },
+      "healthcheck": {
+        "test": ["CMD", "node", "-e", "process.kill(1,0)"],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 20
       },
       "restart": "unless-stopped"
     },
@@ -76,6 +179,9 @@
       "cap_add": ["CHOWN", "DAC_READ_SEARCH", "SETGID", "SETUID"],
       "security_opt": ["no-new-privileges:true"],
       "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"],
+      "pids_limit": 64,
+      "cpus": "0.5",
+      "mem_limit": "256m",
       "volumes": [
         "../ingestion-gateway/nginx.conf:/etc/nginx/nginx.conf:ro"
       ],
@@ -95,6 +201,39 @@
         "interval": "10s",
         "timeout": "5s",
         "retries": 12
+      },
+      "restart": "unless-stopped"
+    },
+    "clamav": {
+      "build": {
+        "context": "../..",
+        "dockerfile": "infra/clamav.Dockerfile"
+      },
+      "platform": "linux/amd64",
+      "environment": {
+        "CLAMD_CONF_StreamMaxLength": "25M",
+        "CLAMD_CONF_MaxFileSize": "25M",
+        "CLAMD_CONF_MaxScanSize": "25M",
+        "CLAMD_CONF_ReadTimeout": "5",
+        "CLAMD_CONF_CommandReadTimeout": "5"
+      },
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 128,
+      "cpus": "2.0",
+      "mem_limit": "2g",
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=128m",
+        "/run/clamav:rw,noexec,nosuid,nodev,size=32m"
+      ],
+      "volumes": ["clamav-signatures:/var/lib/clamav"],
+      "networks": ["ingestion-egress"],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "clamdscan -p1 >/dev/null 2>&1"],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 30
       },
       "restart": "unless-stopped"
     },
@@ -118,9 +257,17 @@
         "INGESTION_EGRESS_CLAMAV_AUTHORITY": "${INGESTION_EGRESS_CLAMAV_AUTHORITY:?set INGESTION_EGRESS_CLAMAV_AUTHORITY}",
         "INGESTION_EGRESS_ALLOWED_CIDRS": "${INGESTION_EGRESS_ALLOWED_CIDRS:?set INGESTION_EGRESS_ALLOWED_CIDRS}",
         "INGESTION_STORAGE_ENDPOINT": "${INGESTION_STORAGE_ENDPOINT:?set INGESTION_STORAGE_ENDPOINT}",
+        "INGESTION_STORAGE_BUCKET": "${INGESTION_STORAGE_BUCKET:?set INGESTION_STORAGE_BUCKET}",
+        "INGESTION_STORAGE_REGION": "${INGESTION_STORAGE_REGION:?set INGESTION_STORAGE_REGION}",
+        "INGESTION_STORAGE_ACCESS_KEY_ID_FILE": "/run/secrets/s3_ingestion_access_key_id",
+        "INGESTION_STORAGE_SECRET_ACCESS_KEY_FILE": "/run/secrets/s3_ingestion_secret_access_key",
         "INGESTION_CLAMAV_HOST": "${INGESTION_CLAMAV_HOST:?set INGESTION_CLAMAV_HOST}",
         "INGESTION_CLAMAV_PORT": "${INGESTION_CLAMAV_PORT:?set INGESTION_CLAMAV_PORT}"
       },
+      "secrets": [
+        "s3_ingestion_access_key_id",
+        "s3_ingestion_secret_access_key"
+      ],
       "user": "10001:10001",
       "read_only": true,
       "cap_drop": ["ALL"],
@@ -166,9 +313,28 @@
     }
   },
   "volumes": {
-    "ingestion-replay": {}
+    "ingestion-replay": {},
+    "clamav-signatures": {}
   },
   "secrets": {
+    "database_runtime_url": {
+      "file": "${DATABASE_RUNTIME_URL_SECRET_FILE:?set DATABASE_RUNTIME_URL_SECRET_FILE}"
+    },
+    "s3_api_access_key_id": {
+      "file": "${S3_API_ACCESS_KEY_ID_SECRET_FILE:?set S3_API_ACCESS_KEY_ID_SECRET_FILE}"
+    },
+    "s3_api_secret_access_key": {
+      "file": "${S3_API_SECRET_ACCESS_KEY_SECRET_FILE:?set S3_API_SECRET_ACCESS_KEY_SECRET_FILE}"
+    },
+    "mfa_secret_encryption_key": {
+      "file": "${MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE:?set MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE}"
+    },
+    "s3_ingestion_access_key_id": {
+      "file": "${S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE:?set S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE}"
+    },
+    "s3_ingestion_secret_access_key": {
+      "file": "${S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE:?set S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE}"
+    },
     "ingestion_gateway_ca": {
       "file": "${INGESTION_GATEWAY_CA_FILE:?set INGESTION_GATEWAY_CA_FILE}"
     },

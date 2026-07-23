@@ -24,6 +24,22 @@ describe('S3StorageAdapter', () => {
     vi.restoreAllMocks();
   });
 
+  it('rejects direct production credentials and missing managed storage config', () => {
+    expect(() =>
+      S3StorageAdapter.fromEnv({
+        NODE_ENV: 'production',
+        S3_ENDPOINT: 'https://storage.internal',
+        S3_BUCKET: 'amic-vault-documents',
+        S3_REGION: 'ap-northeast-2',
+        S3_ACCESS_KEY_ID: 'direct-access-key',
+        S3_SECRET_ACCESS_KEY: 'direct-secret-key',
+      }),
+    ).toThrow('S3_ACCESS_KEY_ID_DIRECT_ENV_FORBIDDEN');
+    expect(() => S3StorageAdapter.fromEnv({ NODE_ENV: 'production' })).toThrow(
+      'S3_CONFIGURATION_REQUIRED',
+    );
+  });
+
   it('signs range GET requests with the Range header', async () => {
     const calls: Array<{ init: RequestInit | undefined }> = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
@@ -208,7 +224,9 @@ describe('S3StorageAdapter', () => {
 
     expect(JSON.stringify(version.version)).toBe('{}');
     expect(version.versionFingerprint).toMatch(/^[a-f0-9]{64}$/u);
-    await expect(adapter.headObjectVersion({ key: version.key, version: version.version })).resolves.toMatchObject({
+    await expect(
+      adapter.headObjectVersion({ key: version.key, version: version.version }),
+    ).resolves.toMatchObject({
       contentLength: 8,
       objectLock: { legalHold: true, retentionMode: 'governance' },
     });
@@ -249,16 +267,17 @@ describe('S3StorageAdapter', () => {
   });
 
   it('rejects null version inventory and untrusted version handles without provider fallback', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-      new Response(
-        '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>null</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
-        { status: 200 },
-      ),
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(
+          '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>null</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
+          { status: 200 },
+        ),
     );
 
-    await expect(createAdapter().listObjectVersions('tenants/t1/documents/file.pdf')).rejects.toBeInstanceOf(
-      StorageVersioningUnsupportedError,
-    );
+    await expect(
+      createAdapter().listObjectVersions('tenants/t1/documents/file.pdf'),
+    ).rejects.toBeInstanceOf(StorageVersioningUnsupportedError);
     await expect(
       createAdapter().headObjectVersion({
         key: 'tenants/t1/documents/file.pdf',
@@ -269,11 +288,12 @@ describe('S3StorageAdapter', () => {
 
   it('fails closed for an exact-version authorization error', async () => {
     vi.spyOn(globalThis, 'fetch')
-      .mockImplementationOnce(async () =>
-        new Response(
-          '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>version-one</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
-          { status: 200 },
-        ),
+      .mockImplementationOnce(
+        async () =>
+          new Response(
+            '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>version-one</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
+            { status: 200 },
+          ),
       )
       .mockImplementationOnce(async () => new Response('', { status: 403 }));
 
@@ -287,11 +307,12 @@ describe('S3StorageAdapter', () => {
 
   it('treats missing exact versions as absent and network or server failures as unavailable', async () => {
     vi.spyOn(globalThis, 'fetch')
-      .mockImplementationOnce(async () =>
-        new Response(
-          '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>version-one</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
-          { status: 200 },
-        ),
+      .mockImplementationOnce(
+        async () =>
+          new Response(
+            '<ListVersionsResult><Version><Key>tenants/t1/documents/file.pdf</Key><VersionId>version-one</VersionId><IsLatest>true</IsLatest><Size>8</Size></Version></ListVersionsResult>',
+            { status: 200 },
+          ),
       )
       .mockImplementationOnce(async () => new Response(null, { status: 404 }))
       .mockImplementationOnce(async () => new Response(null, { status: 503 }))

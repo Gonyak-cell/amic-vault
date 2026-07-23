@@ -113,7 +113,7 @@ function privateEnvironment(
   caFile: string = caCertificate,
 ): NodeJS.ProcessEnv {
   return {
-    NODE_ENV: 'production',
+    NODE_ENV: 'test',
     INGESTION_WORKER_IDENTITY_PROFILE: 'private-gateway-mtls',
     INGESTION_GATEWAY_MTLS_ENABLED: 'true',
     INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS: 'true',
@@ -164,9 +164,7 @@ beforeAll(async () => {
   });
   server = createServer(
     {
-      key: await import('node:fs/promises').then(({ readFile }) =>
-        readFile(serverCertificate.key),
-      ),
+      key: await import('node:fs/promises').then(({ readFile }) => readFile(serverCertificate.key)),
       cert: await import('node:fs/promises').then(({ readFile }) =>
         readFile(serverCertificate.certificate),
       ),

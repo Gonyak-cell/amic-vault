@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HealthController } from './health.controller';
+import { createDefaultReadinessProbe, HealthController } from './health.controller';
 
 describe('HealthController', () => {
   it('returns liveness without internal details', () => {
@@ -23,5 +23,15 @@ describe('HealthController', () => {
     expect(statusCode).toBe(503);
     expect(body).toEqual({ status: 'unready' });
     expect(JSON.stringify(body)).not.toContain('postgres');
+  });
+
+  it('fails readiness closed instead of falling back to a development database', async () => {
+    await expect(createDefaultReadinessProbe({ NODE_ENV: 'production' })()).resolves.toBe(false);
+    await expect(
+      createDefaultReadinessProbe({
+        NODE_ENV: 'production',
+        DATABASE_RUNTIME_URL: 'postgres://vault_app:direct@db/vault',
+      })(),
+    ).resolves.toBe(false);
   });
 });

@@ -217,7 +217,7 @@
       "testBlob": "272744d578039b4abbbb5008f7522063e8a9eaff",
       "runtimeArtifact": {
         "state": "SOURCE_PIN_ONLY",
-        "requiredBeforeUse": "PACK-SF20-03"
+        "requiredBeforeUse": "approved host plus exact Ansible v2.21.2 runtime receipt"
       }
     },
     {
@@ -234,7 +234,7 @@
       "testBlob": "ad79447ef10120406882cd721e50ddb1ed5c7c84",
       "runtimeArtifact": {
         "state": "CONDITIONAL_NOT_AUTHORIZED",
-        "requiredBeforeUse": "PACK-SF20-03 restore-tool decision"
+        "requiredBeforeUse": "approved self-managed database or measured native pg_dump and pg_restore failure plus explicit follow-on approval"
       }
     }
   ],
@@ -320,6 +320,9 @@
       "docker-compose.yml"
     ],
     "includedSuffixes": [".Dockerfile", ".yaml", ".yml"],
-    "excludedPaths": ["infra/docker-compose.dev.yml"]
+    "excludedPaths": [
+      "infra/docker-compose.dev.yml",
+      "infra/production/profile.yml"
+    ]
   }
 }

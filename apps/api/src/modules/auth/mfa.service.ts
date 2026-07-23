@@ -6,6 +6,7 @@ import type {
   MfaVerifyRequestDto,
   TenantId,
 } from '@amic-vault/shared';
+import { runtimeSecretValue } from '../../common/config/runtime-secret';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import { DatabaseService } from '../../common/db/database.service';
 import { hashPassword, verifyPasswordHash } from '../user/password';
@@ -486,8 +487,9 @@ function normalizeRecoveryCode(input: string): string | null {
 }
 
 function encryptionKey(): Buffer {
-  const raw = process.env.MFA_SECRET_ENCRYPTION_KEY;
-  if (!raw) throw new Error('MFA_SECRET_ENCRYPTION_KEY is required');
+  const raw = runtimeSecretValue('MFA_SECRET_ENCRYPTION_KEY', process.env, {
+    maximumBytes: 4096,
+  });
   return createHash('sha256').update(raw).digest();
 }
 

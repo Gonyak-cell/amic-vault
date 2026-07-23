@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -41,8 +41,11 @@ fetchIngestionWorker('/extract', {
     status: response.status,
     body: (await response.text()).slice(0, 512)
   }) + '\\n');
-}).catch(() => {
-  process.stdout.write(JSON.stringify({ kind: 'transport-error' }) + '\\n');
+}).catch((error) => {
+  process.stdout.write(JSON.stringify({
+    kind: 'transport-error',
+    body: error instanceof Error ? error.message : 'UNKNOWN'
+  }) + '\\n');
   process.exitCode = 2;
 });
 `;
@@ -85,6 +88,20 @@ function openssl(args: readonly string[]): void {
   execFileSync('openssl', [...args], { cwd: certificateRoot, stdio: 'ignore' });
 }
 
+function hostFixtureUser(): string {
+  if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') {
+    throw new Error('INGESTION_GATEWAY_HOST_IDENTITY_UNAVAILABLE');
+  }
+  return `${process.getuid()}:${process.getgid()}`;
+}
+
+function runtimeSecret(name: string, value: string): string {
+  const path = join(certificateRoot, name);
+  writeFileSync(path, `${value}\n`, { mode: 0o600 });
+  chmodSync(path, 0o600);
+  return path;
+}
+
 function createCa(name: string): CertificatePair {
   const key = join(certificateRoot, `${name}.key`);
   const certificate = join(certificateRoot, `${name}.crt`);
@@ -103,6 +120,8 @@ function createCa(name: string): CertificatePair {
     '-subj',
     `/CN=${name}`,
   ]);
+  chmodSync(certificate, 0o644);
+  chmodSync(key, 0o600);
   return { certificate, key };
 }
 
@@ -155,6 +174,8 @@ function issueCertificate(input: {
     '-extfile',
     extensions,
   ]);
+  chmodSync(certificate, 0o644);
+  chmodSync(key, 0o600);
   return { certificate, key };
 }
 
@@ -219,6 +240,8 @@ extendedKeyUsage = clientAuth
     '-extensions',
     'client_ext',
   ]);
+  chmodSync(certificate, 0o644);
+  chmodSync(key, 0o600);
   return { certificate, key };
 }
 
@@ -352,6 +375,7 @@ function expectWorkerValidation(result: ProbeResult): void {
 
 beforeAll(() => {
   mkdirSync(certificateRoot);
+  const fixtureUser = hostFixtureUser();
   ca = createCa('ca');
   const untrustedCa = createCa('amic-vault-untrusted-ca');
   const server = issueCertificate({
@@ -398,6 +422,26 @@ beforeAll(() => {
   };
   copyFileSync(oldClient.certificate, activeClient.certificate);
   copyFileSync(oldClient.key, activeClient.key);
+  chmodSync(ca.certificate, 0o644);
+  chmodSync(server.certificate, 0o644);
+  chmodSync(server.key, 0o600);
+  chmodSync(activeClient.certificate, 0o644);
+  chmodSync(activeClient.key, 0o600);
+  const databaseRuntimeUrl = runtimeSecret(
+    'database-runtime-url',
+    'postgres://vault_app:synthetic@database.internal/amic_vault',
+  );
+  const apiStorageAccessKey = runtimeSecret('api-storage-access-key', 'synthetic-api-access');
+  const apiStorageSecretKey = runtimeSecret('api-storage-secret-key', 'synthetic-api-secret');
+  const mfaEncryptionKey = runtimeSecret('mfa-encryption-key', 'synthetic-mfa-encryption-key');
+  const workerStorageAccessKey = runtimeSecret(
+    'worker-storage-access-key',
+    'synthetic-worker-access',
+  );
+  const workerStorageSecretKey = runtimeSecret(
+    'worker-storage-secret-key',
+    'synthetic-worker-secret',
+  );
   writeFileSync(
     overridePath,
     JSON.stringify({
@@ -409,6 +453,7 @@ beforeAll(() => {
             target: 'api',
           },
           command: ['sh', '-lc', 'sleep infinity'],
+          user: fixtureUser,
           environment: {
             NODE_ENV: 'production',
             INGESTION_WORKER_IDENTITY_PROFILE: 'private-gateway-mtls',
@@ -418,12 +463,12 @@ beforeAll(() => {
             INGESTION_GATEWAY_WORKLOAD_SUBJECT: 'amic-vault-api',
             INGESTION_GATEWAY_AUDIENCE: 'amic-vault-ingestion',
             INGESTION_WORKER_URL: 'https://ingestion-gateway:8443',
-            INGESTION_GATEWAY_CA_FILE: '/test-certs/ca.crt',
-            INGESTION_GATEWAY_CLIENT_CERT_FILE: '/test-certs/active-client.crt',
-            INGESTION_GATEWAY_CLIENT_KEY_FILE: '/test-certs/active-client.key',
+            INGESTION_GATEWAY_CA_FILE: '/run/secrets/ca.crt',
+            INGESTION_GATEWAY_CLIENT_CERT_FILE: '/run/secrets/active-client.crt',
+            INGESTION_GATEWAY_CLIENT_KEY_FILE: '/run/secrets/active-client.key',
             INGESTION_GATEWAY_SERVER_NAME: 'ingestion-gateway',
           },
-          volumes: [`${certificateRoot}:/test-certs:ro`],
+          volumes: [`${certificateRoot}:/run/secrets:ro`, `${certificateRoot}:/test-certs:ro`],
           networks: ['ingestion-client'],
           depends_on: {
             'ingestion-gateway': {
@@ -441,10 +486,22 @@ beforeAll(() => {
     INGESTION_GATEWAY_SERVER_KEY_FILE: server.key,
     INGESTION_GATEWAY_CLIENT_CERT_FILE: activeClient.certificate,
     INGESTION_GATEWAY_CLIENT_KEY_FILE: activeClient.key,
+    DATABASE_RUNTIME_URL_SECRET_FILE: databaseRuntimeUrl,
+    S3_API_ACCESS_KEY_ID_SECRET_FILE: apiStorageAccessKey,
+    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: apiStorageSecretKey,
+    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: mfaEncryptionKey,
+    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: workerStorageAccessKey,
+    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: workerStorageSecretKey,
+    S3_ENDPOINT: 'https://storage.invalid',
+    S3_BUCKET: 'sf20-api',
+    S3_REGION: 'us-east-1',
+    S3_SERVER_SIDE_ENCRYPTION: 'AES256',
     INGESTION_EGRESS_STORAGE_AUTHORITY: 'ingestion:8000',
     INGESTION_EGRESS_CLAMAV_AUTHORITY: 'ingestion:8000',
     INGESTION_EGRESS_ALLOWED_CIDRS: '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16',
     INGESTION_STORAGE_ENDPOINT: 'https://ingestion:8000',
+    INGESTION_STORAGE_BUCKET: 'sf20-ingestion',
+    INGESTION_STORAGE_REGION: 'us-east-1',
     INGESTION_CLAMAV_HOST: 'ingestion',
     INGESTION_CLAMAV_PORT: '8000',
   };
@@ -587,14 +644,14 @@ describe.sequential('private ingestion gateway production topology', () => {
   it('accepts old and new exact-subject client certificates during rotation overlap', () => {
     expectWorkerValidation(
       transportProbe({
-        certificate: '/test-certs/api-client-old.crt',
-        key: '/test-certs/api-client-old.key',
+        certificate: '/run/secrets/api-client-old.crt',
+        key: '/run/secrets/api-client-old.key',
       }),
     );
     expectWorkerValidation(
       transportProbe({
-        certificate: '/test-certs/api-client-new.crt',
-        key: '/test-certs/api-client-new.key',
+        certificate: '/run/secrets/api-client-new.crt',
+        key: '/run/secrets/api-client-new.key',
       }),
     );
   });

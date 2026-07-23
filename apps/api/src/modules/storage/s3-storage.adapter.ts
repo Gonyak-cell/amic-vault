@@ -3,6 +3,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
+import { runtimeSecretValue } from '../../common/config/runtime-secret';
 import type {
   StorageAdapter,
   StorageCreateReadUrlInput,
@@ -143,22 +144,29 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
     this.readUrlEndpoint = new URL(config.readUrlEndpoint ?? config.endpoint);
   }
 
-  static fromEnv(): S3StorageAdapter {
+  static fromEnv(env: NodeJS.ProcessEnv = process.env): S3StorageAdapter {
+    const production = env.NODE_ENV === 'production';
+    const endpoint = env.S3_ENDPOINT?.trim() || (production ? '' : 'http://localhost:9000');
+    const bucket = env.S3_BUCKET?.trim() || (production ? '' : 'amic-vault-dev');
+    const region = env.S3_REGION?.trim() || (production ? '' : 'us-east-1');
+    if (!endpoint || !bucket || !region) {
+      throw new Error('S3_CONFIGURATION_REQUIRED');
+    }
+    const accessKeyId = production
+      ? runtimeSecretValue('S3_ACCESS_KEY_ID', env, { maximumBytes: 1024 })
+      : (env.S3_ACCESS_KEY_ID ?? env.MINIO_ROOT_USER ?? 'amic-vault-minio');
+    const secretAccessKey = production
+      ? runtimeSecretValue('S3_SECRET_ACCESS_KEY', env, { maximumBytes: 4096 })
+      : (env.S3_SECRET_ACCESS_KEY ?? env.MINIO_ROOT_PASSWORD ?? 'amic-vault-minio-dev-password');
     return new S3StorageAdapter({
-      endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
-      ...(process.env.S3_READ_URL_ENDPOINT
-        ? { readUrlEndpoint: process.env.S3_READ_URL_ENDPOINT }
-        : {}),
-      bucket: process.env.S3_BUCKET ?? 'amic-vault-dev',
-      region: process.env.S3_REGION ?? 'us-east-1',
-      accessKeyId:
-        process.env.S3_ACCESS_KEY_ID ?? process.env.MINIO_ROOT_USER ?? 'amic-vault-minio',
-      secretAccessKey:
-        process.env.S3_SECRET_ACCESS_KEY ??
-        process.env.MINIO_ROOT_PASSWORD ??
-        'amic-vault-minio-dev-password',
-      ...(process.env.S3_SERVER_SIDE_ENCRYPTION
-        ? { serverSideEncryption: process.env.S3_SERVER_SIDE_ENCRYPTION }
+      endpoint,
+      ...(env.S3_READ_URL_ENDPOINT ? { readUrlEndpoint: env.S3_READ_URL_ENDPOINT } : {}),
+      bucket,
+      region,
+      accessKeyId,
+      secretAccessKey,
+      ...(env.S3_SERVER_SIDE_ENCRYPTION
+        ? { serverSideEncryption: env.S3_SERVER_SIDE_ENCRYPTION }
         : {}),
     });
   }

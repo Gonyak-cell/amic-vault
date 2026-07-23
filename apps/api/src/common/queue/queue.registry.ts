@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import type { ConstructorOptions, PgBoss, Queue } from 'pg-boss';
+import { RuntimeSecretError, runtimeSecretValue } from '../config/runtime-secret';
 import { pgBossRuntimeOptions } from '../db/pg-boss-runtime-options';
 import { currentProcessRole } from '../process-role';
 import { QUEUE_BOSS_FACTORY, QUEUE_RUNTIME_ENV, type QueueBossFactory } from './queue.tokens';
@@ -82,8 +83,17 @@ export class QueueRegistry implements OnModuleDestroy {
   }
 
   private async createStartedBoss(): Promise<PgBoss> {
-    const connectionString = this.env.DATABASE_RUNTIME_URL?.trim();
-    if (!connectionString) throw new Error('QUEUE_RUNTIME_URL_REQUIRED');
+    let connectionString: string;
+    try {
+      connectionString = runtimeSecretValue('DATABASE_RUNTIME_URL', this.env, {
+        maximumBytes: 4096,
+      });
+    } catch (error) {
+      if (error instanceof RuntimeSecretError && error.code === 'DATABASE_RUNTIME_URL_REQUIRED') {
+        throw new Error('QUEUE_RUNTIME_URL_REQUIRED');
+      }
+      throw error;
+    }
 
     const options = pgBossRuntimeOptions({
       applicationName: queueRegistryApplicationName,
@@ -110,10 +120,25 @@ export class QueueRegistry implements OnModuleDestroy {
     }
   }
 
-  private async ensureQueueCreated(boss: PgBoss, name: string): Promise<void> {
+  private async ensureQueueCreated(
+    boss: PgBoss,
+    name: string,
+    dependencyPath: readonly string[] = [],
+  ): Promise<void> {
     if (this.createdQueueNames.has(name)) return;
     const definition = this.definitions.get(name);
     if (!definition) throw new Error('QUEUE_NOT_REGISTERED');
+
+    const deadLetter = definition.options?.deadLetter;
+    if (deadLetter) {
+      if (deadLetter === name || dependencyPath.includes(deadLetter)) {
+        throw new Error('QUEUE_DEFINITION_CYCLE');
+      }
+      if (!this.definitions.has(deadLetter)) {
+        throw new Error('QUEUE_DEAD_LETTER_NOT_REGISTERED');
+      }
+      await this.ensureQueueCreated(boss, deadLetter, [...dependencyPath, name]);
+    }
 
     let creation = this.queueCreationPromises.get(name);
     if (!creation) {
