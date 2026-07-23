@@ -2854,6 +2854,45 @@ complete, latest-object restore, owner/superuser-only isolation proof,
 disabled RLS/audit protection, invented external receipt, or false
 deployment-ready claim is a hard stop.
 
+## PACK-SF20-04 — Bounded operations monitoring and alert drills
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721` and the owner's all-immediate-track execution
+direction. It is the serial successor to merged `PACK-SF20-03`, independently
+based on `origin/main`
+`74dbd9af3399365418c7994aac43e2c6697174ad`.
+
+- Branch: `feat/pack-sf20-04-observability`.
+- Detail contract: `docs/execution/TUW_SF20_OPERATIONS.md`.
+- Execution order: `DEVOPS-SF20-OPS-TUW-001` →
+  `DEVOPS-SF20-OPS-TUW-002` → `DEVOPS-SF20-OPS-TUW-003` →
+  `DEVOPS-SF20-OPS-TUW-004` → `DEVOPS-SF20-OPS-TUW-005`.
+- Scope: bounded aggregate API/queue/scanner/quarantine/audit/storage/database/
+  backup/disk metrics; versioned 99.5% SLO and actionable rules; digest-pinned
+  internal-only Prometheus and Alertmanager with finite retention/resources;
+  reference-safe API-to-queue-to-worker JSON logs with disk rotation; and a
+  real local alert fire/ack/resolve drill plus an honest approved-staging
+  receipt boundary.
+- OSS boundary: reuse the exact pinned Prometheus v3.13.1 and Alertmanager
+  v0.33.1 official images, their documented configuration schemas, and their
+  bundled `promtool`/`amtool` validators without copying upstream Go source,
+  tests, or fixtures. Vault owns metric meaning, labels, SLOs, runbooks,
+  redaction, drill inputs, and readiness verdicts.
+- Out of scope: dependency/lockfile or database-schema changes, Grafana,
+  OpenTelemetry collectors/tracing, Jaeger, SIEM/export sinks, public
+  dashboards/listeners, document/audit body export, external notification
+  credentials, customer data, host/cloud/staging mutation, deployment,
+  release, go-live, conditional component activation, and `docs/package/**`.
+
+Monitoring may observe only aggregate bounded state and may never become a
+permission, audit, backup, or release authority. Prometheus and Alertmanager
+remain internal, finite, and disposable; API and ingestion correctness do not
+depend on them. Any tenant/user/document/file/object/token label, raw
+identifier/path/content/filename/credential log value, public monitoring port,
+unbounded series/retention/disk, invented external delivery receipt, copied
+upstream code/test, or alert that lacks owner/runbook/first action/silence
+ceiling is a hard stop.
+
 ## Gate Reports
 
 Each release closes with a `docs/ledger/gates/R{N}_gate.md` report and an
