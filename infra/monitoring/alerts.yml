@@ -1,0 +1,213 @@
+{
+  "groups": [
+    {
+      "name": "sf20.operations",
+      "interval": "15s",
+      "rules": [
+        {
+          "record": "sf20:availability:ratio30m",
+          "expr": "clamp_min(1 - (sum(rate(http_requests_total{status=~\"5..\"}[30m])) / clamp_min(sum(rate(http_requests_total[30m])), 0.001)), 0)"
+        },
+        {
+          "record": "sf20:api_http_duration_ms:p95_5m",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_ms_bucket[5m])))"
+        },
+        {
+          "record": "sf20:search_http_duration_ms:p95_5m",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_ms_bucket{path=~\"/v1/search(?:/.*)?\"}[5m])))"
+        },
+        {
+          "record": "sf20:audit_write_success:ratio5m",
+          "expr": "sum(rate(audit_writes_total{outcome=\"success\"}[5m])) / clamp_min(sum(rate(audit_writes_total[5m])), 0.001)"
+        },
+        {
+          "alert": "Sf20AvailabilitySloBreach",
+          "expr": "sf20:availability:ratio30m < 0.995",
+          "for": "10m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20availabilityslobreach",
+            "first_action": "Confirm API health and recent 5xx rate",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20ApiLatencyHigh",
+          "expr": "sf20:api_http_duration_ms:p95_5m > 1000",
+          "for": "10m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20apilatencyhigh",
+            "first_action": "Check database waits and queue age",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20SearchLatencyHigh",
+          "expr": "sf20:search_http_duration_ms:p95_5m > 2000",
+          "for": "10m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20searchlatencyhigh",
+            "first_action": "Check permission-scoped search latency",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20AuditWriteFailure",
+          "expr": "sum(increase(audit_writes_total{outcome=\"failure\"}[5m])) > 0",
+          "for": "2m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20auditwritefailure",
+            "first_action": "Stop affected writes and verify audit database health",
+            "silence_max": "15m"
+          }
+        },
+        {
+          "alert": "Sf20IngestionFailure",
+          "expr": "sum(increase(document_ingestion_results_total{outcome=\"failure\"}[10m])) > 0",
+          "for": "2m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20ingestionfailure",
+            "first_action": "Check gateway and worker health",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20QueueAgeHigh",
+          "expr": "max(pgboss_queue_oldest_age_seconds) > 300",
+          "for": "5m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20queueagehigh",
+            "first_action": "Identify the oldest registered queue",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20ScannerUnavailable",
+          "expr": "sf20_scanner_signature_available == 0",
+          "for": "5m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20scannerunavailable",
+            "first_action": "Keep files quarantined and check ClamAV",
+            "silence_max": "15m"
+          }
+        },
+        {
+          "alert": "Sf20ScannerSignatureStale",
+          "expr": "sf20_scanner_signature_available == 1 and sf20_scanner_signature_age_seconds > 86400",
+          "for": "5m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20scannersignaturestale",
+            "first_action": "Keep files quarantined and refresh signatures",
+            "silence_max": "15m"
+          }
+        },
+        {
+          "alert": "Sf20QuarantineAgeHigh",
+          "expr": "sf20_quarantine_objects > 0 and sf20_oldest_quarantine_age_seconds > 3600",
+          "for": "5m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20quarantineagehigh",
+            "first_action": "Inspect scanner and promotion backlog",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20DatabaseUnavailable",
+          "expr": "sf20_database_available == 0",
+          "for": "2m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20databaseunavailable",
+            "first_action": "Stop writes and verify managed database health",
+            "silence_max": "15m"
+          }
+        },
+        {
+          "alert": "Sf20DatabasePoolWaiting",
+          "expr": "max(sf20_database_pool_connections{state=\"waiting\"}) > 0",
+          "for": "5m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20databasepoolwaiting",
+            "first_action": "Check slow requests before changing limits",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20StorageFailure",
+          "expr": "sum(increase(storage_failures_total[5m])) > 0",
+          "for": "2m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20storagefailure",
+            "first_action": "Stop mutations and verify exact-version storage access",
+            "silence_max": "15m"
+          }
+        },
+        {
+          "alert": "Sf20BackupStatusUnavailable",
+          "expr": "sf20_backup_status_available == 0",
+          "for": "5m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20backupstatusunavailable",
+            "first_action": "Verify the sealed backup status input",
+            "silence_max": "15m"
+          }
+        },
+        {
+          "alert": "Sf20BackupStale",
+          "expr": "sf20_backup_status_available == 1 and sf20_backup_age_seconds > 3600",
+          "for": "5m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20backupstale",
+            "first_action": "Run the approved backup procedure",
+            "silence_max": "15m"
+          }
+        },
+        {
+          "alert": "Sf20RestoreRtoExceeded",
+          "expr": "sf20_last_restore_duration_seconds > 14400",
+          "for": "2m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20restorertoexceeded",
+            "first_action": "Review the latest isolated restore receipt",
+            "silence_max": "60m"
+          }
+        },
+        {
+          "alert": "Sf20DiskStatsUnavailable",
+          "expr": "sf20_monitored_disk_available == 0",
+          "for": "5m",
+          "labels": { "severity": "warning", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20diskstatsunavailable",
+            "first_action": "Verify the bounded monitored filesystem",
+            "silence_max": "30m"
+          }
+        },
+        {
+          "alert": "Sf20DiskPressure",
+          "expr": "sf20_monitored_disk_available == 1 and sf20_monitored_disk_free_ratio < 0.15",
+          "for": "5m",
+          "labels": { "severity": "critical", "owner": "vault-operator" },
+          "annotations": {
+            "runbook": "docs/release/small-firm-operations-runbook.md#sf20diskpressure",
+            "first_action": "Stop nonessential work and reclaim bounded storage",
+            "silence_max": "15m"
+          }
+        }
+      ]
+    }
+  ]
+}

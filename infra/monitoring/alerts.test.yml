@@ -1,0 +1,401 @@
+{
+  "rule_files": ["/etc/prometheus/alerts.yml"],
+  "evaluation_interval": "15s",
+  "group_eval_order": ["sf20.operations"],
+  "tests": [
+    {
+      "name": "critical states fire at the configured thresholds",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "http_requests_total{method=\"GET\",path=\"/v1/documents\",status=\"200\"}",
+          "values": "0+1x20"
+        },
+        {
+          "series": "http_requests_total{method=\"GET\",path=\"/v1/documents\",status=\"500\"}",
+          "values": "0+1x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/documents\",status=\"200\",le=\"1000\"}",
+          "values": "0x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/documents\",status=\"200\",le=\"5000\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/documents\",status=\"200\",le=\"+Inf\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/search\",status=\"200\",le=\"1000\"}",
+          "values": "0x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/search\",status=\"200\",le=\"5000\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/search\",status=\"200\",le=\"+Inf\"}",
+          "values": "0+100x20"
+        },
+        { "series": "audit_writes_total{outcome=\"success\"}", "values": "0+1x20" },
+        { "series": "audit_writes_total{outcome=\"failure\"}", "values": "0+1x20" },
+        { "series": "document_ingestion_results_total{outcome=\"failure\"}", "values": "0+1x20" },
+        {
+          "series": "pgboss_queue_oldest_age_seconds{queue=\"document.extract\"}",
+          "values": "600x20"
+        },
+        { "series": "sf20_scanner_signature_available", "values": "1x20" },
+        { "series": "sf20_scanner_signature_age_seconds", "values": "90000x20" },
+        { "series": "sf20_quarantine_objects", "values": "1x20" },
+        { "series": "sf20_oldest_quarantine_age_seconds", "values": "4000x20" },
+        { "series": "sf20_database_available", "values": "0x20" },
+        { "series": "sf20_database_pool_connections{state=\"waiting\"}", "values": "1x20" },
+        { "series": "storage_failures_total{error_class=\"timeout\"}", "values": "0+1x20" },
+        { "series": "sf20_backup_status_available", "values": "1x20" },
+        { "series": "sf20_backup_age_seconds", "values": "4000x20" },
+        { "series": "sf20_last_restore_duration_seconds", "values": "15000x20" },
+        { "series": "sf20_monitored_disk_available", "values": "1x20" },
+        { "series": "sf20_monitored_disk_free_ratio", "values": "0.1x20" }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20AvailabilitySloBreach",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20availabilityslobreach",
+                "first_action": "Confirm API health and recent 5xx rate",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20ApiLatencyHigh",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20apilatencyhigh",
+                "first_action": "Check database waits and queue age",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20SearchLatencyHigh",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20searchlatencyhigh",
+                "first_action": "Check permission-scoped search latency",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20AuditWriteFailure",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20auditwritefailure",
+                "first_action": "Stop affected writes and verify audit database health",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20IngestionFailure",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20ingestionfailure",
+                "first_action": "Check gateway and worker health",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20QueueAgeHigh",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20queueagehigh",
+                "first_action": "Identify the oldest registered queue",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20ScannerSignatureStale",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20scannersignaturestale",
+                "first_action": "Keep files quarantined and refresh signatures",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20QuarantineAgeHigh",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20quarantineagehigh",
+                "first_action": "Inspect scanner and promotion backlog",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20DatabaseUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20databaseunavailable",
+                "first_action": "Stop writes and verify managed database health",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20DatabasePoolWaiting",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20databasepoolwaiting",
+                "first_action": "Check slow requests before changing limits",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20StorageFailure",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20storagefailure",
+                "first_action": "Stop mutations and verify exact-version storage access",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20BackupStale",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20backupstale",
+                "first_action": "Run the approved backup procedure",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20RestoreRtoExceeded",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20restorertoexceeded",
+                "first_action": "Review the latest isolated restore receipt",
+                "silence_max": "60m"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20DiskPressure",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20diskpressure",
+                "first_action": "Stop nonessential work and reclaim bounded storage",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "scanner availability failure fires",
+      "interval": "1m",
+      "input_series": [{ "series": "sf20_scanner_signature_available", "values": "0x20" }],
+      "alert_rule_test": [
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20ScannerUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20scannerunavailable",
+                "first_action": "Keep files quarantined and check ClamAV",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "backup status availability failure fires",
+      "interval": "1m",
+      "input_series": [{ "series": "sf20_backup_status_available", "values": "0x20" }],
+      "alert_rule_test": [
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20BackupStatusUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "critical", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20backupstatusunavailable",
+                "first_action": "Verify the sealed backup status input",
+                "silence_max": "15m"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "disk statistics availability failure fires",
+      "interval": "1m",
+      "input_series": [{ "series": "sf20_monitored_disk_available", "values": "0x20" }],
+      "alert_rule_test": [
+        {
+          "eval_time": "15m",
+          "alertname": "Sf20DiskStatsUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": { "severity": "warning", "owner": "vault-operator" },
+              "exp_annotations": {
+                "runbook": "docs/release/small-firm-operations-runbook.md#sf20diskstatsunavailable",
+                "first_action": "Verify the bounded monitored filesystem",
+                "silence_max": "30m"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "healthy and exact threshold states recover every alert",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "http_requests_total{method=\"GET\",path=\"/v1/documents\",status=\"200\"}",
+          "values": "0+199x20"
+        },
+        {
+          "series": "http_requests_total{method=\"GET\",path=\"/v1/documents\",status=\"500\"}",
+          "values": "0+1x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/documents\",status=\"200\",le=\"1000\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/documents\",status=\"200\",le=\"5000\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/documents\",status=\"200\",le=\"+Inf\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/search\",status=\"200\",le=\"1000\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/search\",status=\"200\",le=\"5000\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "http_request_duration_ms_bucket{method=\"GET\",path=\"/v1/search\",status=\"200\",le=\"+Inf\"}",
+          "values": "0+100x20"
+        },
+        { "series": "audit_writes_total{outcome=\"success\"}", "values": "0+1x20" },
+        { "series": "audit_writes_total{outcome=\"failure\"}", "values": "0x20" },
+        { "series": "document_ingestion_results_total{outcome=\"failure\"}", "values": "0x20" },
+        {
+          "series": "pgboss_queue_oldest_age_seconds{queue=\"document.extract\"}",
+          "values": "300x20"
+        },
+        { "series": "sf20_scanner_signature_available", "values": "1x20" },
+        { "series": "sf20_scanner_signature_age_seconds", "values": "86400x20" },
+        { "series": "sf20_quarantine_objects", "values": "1x20" },
+        { "series": "sf20_oldest_quarantine_age_seconds", "values": "3600x20" },
+        { "series": "sf20_database_available", "values": "1x20" },
+        { "series": "sf20_database_pool_connections{state=\"waiting\"}", "values": "0x20" },
+        { "series": "storage_failures_total{error_class=\"timeout\"}", "values": "0x20" },
+        { "series": "sf20_backup_status_available", "values": "1x20" },
+        { "series": "sf20_backup_age_seconds", "values": "3600x20" },
+        { "series": "sf20_last_restore_duration_seconds", "values": "14400x20" },
+        { "series": "sf20_monitored_disk_available", "values": "1x20" },
+        { "series": "sf20_monitored_disk_free_ratio", "values": "0.15x20" }
+      ],
+      "alert_rule_test": [
+        { "eval_time": "15m", "alertname": "Sf20AvailabilitySloBreach", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20ApiLatencyHigh", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20SearchLatencyHigh", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20AuditWriteFailure", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20IngestionFailure", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20QueueAgeHigh", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20ScannerUnavailable", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20ScannerSignatureStale", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20QuarantineAgeHigh", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20DatabaseUnavailable", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20DatabasePoolWaiting", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20StorageFailure", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20BackupStatusUnavailable", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20BackupStale", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20RestoreRtoExceeded", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20DiskStatsUnavailable", "exp_alerts": [] },
+        { "eval_time": "15m", "alertname": "Sf20DiskPressure", "exp_alerts": [] }
+      ]
+    }
+  ]
+}
