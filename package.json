@@ -21,7 +21,6 @@
     "check:lcx-knowledge-ui-evidence": "node tools/quality/check-lcx-knowledge-ui-evidence.mjs",
     "ui:production-smoke": "node tools/release/check-production-ui-smoke.mjs",
     "check:ui-pr-checklist": "node tools/quality/check-ui-pr-checklist.mjs",
-    "check:small-firm-monitoring": "node tools/monitoring/check-small-firm-monitoring.mjs",
     "backlog:validate": "node tools/backlog/validate-all.mjs",
     "launch:readiness": "node tools/release/check-launch-readiness.mjs",
     "launch:execution": "node tools/release/check-launch-execution.mjs",
