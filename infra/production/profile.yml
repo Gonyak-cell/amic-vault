@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "amic-vault.sf20-production-profile.v1",
+  "profileId": "sf20-single-node-managed-state",
+  "capacity": {
+    "namedUsersMaximum": 20,
+    "applicationNodes": 1,
+    "availabilityModel": "single-node-recoverable"
+  },
+  "residency": {
+    "country": "KR",
+    "regionSelection": "operator-receipt-required",
+    "crossRegionCopiesAllowed": false,
+    "coLocatedSurfaces": [
+      "application",
+      "database",
+      "object-storage",
+      "backup",
+      "secret-and-key-service",
+      "telemetry"
+    ]
+  },
+  "applicationNode": {
+    "operatingSystem": "linux",
+    "orchestrator": "docker-compose-v2",
+    "publicEntrypoints": ["web", "api"],
+    "privateOnlyServices": [
+      "api-worker",
+      "ingestion-gateway",
+      "ingestion",
+      "clamav"
+    ],
+    "monitoringActivation": "PACK-SF20-04",
+    "approvedHostReceipt": "EXTERNAL_BLOCKED_APPROVED_HOST_RECEIPT_REQUIRED"
+  },
+  "database": {
+    "engine": "postgresql",
+    "majorVersion": 16,
+    "serviceModel": "managed",
+    "selfHosted": false,
+    "network": "private-endpoint",
+    "publicAccess": false,
+    "tls": "required",
+    "atRestEncryption": "provider-managed-or-approved-customer-key",
+    "pitr": {
+      "required": true,
+      "maximumRpoMinutes": 60
+    },
+    "portableBackup": {
+      "tool": "pg_dump",
+      "format": "custom",
+      "restoreTool": "pg_restore"
+    }
+  },
+  "objectStorage": {
+    "protocol": "s3-compatible",
+    "serviceModel": "managed",
+    "network": "private-endpoint",
+    "publicAccess": false,
+    "tls": "required",
+    "atRestEncryption": "provider-managed-or-approved-customer-key",
+    "versioning": true,
+    "exactVersionRead": true,
+    "objectLock": {
+      "required": true,
+      "allowedModes": ["governance", "compliance"]
+    }
+  },
+  "runtimeSecrets": {
+    "delivery": "file-or-provider-mounted-file",
+    "mountRoot": "/run/secrets",
+    "valuesInEnvironment": false,
+    "valuesInCommandArguments": false,
+    "valuesInImages": false,
+    "manifest": "infra/production/secret-manifest.yml"
+  },
+  "certificates": {
+    "owner": "platform-security",
+    "delivery": "file-or-provider-mounted-file",
+    "minimumTlsVersion": "1.2",
+    "rotationOverlapMinutes": 60
+  },
+  "backupAndRecovery": {
+    "providerPitrRequired": true,
+    "portableDatabaseBackupRequired": true,
+    "objectVersionInventoryRequired": true,
+    "canonicalManifestSignature": "ed25519",
+    "maximumBackupCaptureWindowMinutes": 60,
+    "maximumRpoMinutes": 60,
+    "maximumRtoMinutes": 240,
+    "isolatedRestoreRequired": true
+  },
+  "prohibitedTopology": [
+    "kubernetes",
+    "service-mesh",
+    "self-hosted-database",
+    "public-database",
+    "public-object-storage",
+    "public-ingestion-worker",
+    "provider-resource-creation",
+    "multi-node-availability-claim"
+  ],
+  "externalReceipts": [
+    {
+      "id": "domestic-region",
+      "status": "EXTERNAL_BLOCKED_APPROVED_DOMESTIC_REGION_RECEIPT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    },
+    {
+      "id": "private-endpoints",
+      "status": "EXTERNAL_BLOCKED_PRIVATE_ENDPOINT_RECEIPT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    },
+    {
+      "id": "managed-database",
+      "status": "EXTERNAL_BLOCKED_MANAGED_POSTGRESQL_RECEIPT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    },
+    {
+      "id": "managed-object-storage",
+      "status": "EXTERNAL_BLOCKED_MANAGED_OBJECT_STORAGE_RECEIPT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    },
+    {
+      "id": "encryption-and-key-ownership",
+      "status": "EXTERNAL_BLOCKED_KEY_OWNERSHIP_RECEIPT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    },
+    {
+      "id": "certificate-and-secret-ownership",
+      "status": "EXTERNAL_BLOCKED_CERTIFICATE_SECRET_RECEIPT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    },
+    {
+      "id": "backup-set",
+      "status": "EXTERNAL_BLOCKED_BACKUP_SET_INPUT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    },
+    {
+      "id": "approved-host-and-staging",
+      "status": "EXTERNAL_BLOCKED_APPROVED_STAGING_ROLLBACK_RECEIPT_REQUIRED",
+      "requiredFor": "DEPLOYMENT_READY"
+    }
+  ]
+}
