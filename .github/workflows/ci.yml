@@ -28,6 +28,9 @@ jobs:
       - run: pnpm exec vitest run tools/evalset/local-ai-eval.spec.ts
       - run: node --test tools/quality/check-telemetry-policy.spec.mjs
       - run: node tools/quality/check-telemetry-policy.mjs
+      - run: node --test tools/quality/check-small-firm-profile.spec.mjs tools/bench/small-firm-20-profile.spec.mjs
+      - run: node tools/quality/check-small-firm-profile.mjs --static
+      - run: node tools/bench/small-firm-20-profile.mjs
       - run: pnpm check:production-ui-literals
       - run: pnpm ui:production-smoke
       - run: pnpm check:ui-pr-checklist

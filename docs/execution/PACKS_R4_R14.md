@@ -81,6 +81,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS05-01 | `feat/pack-oss05-01-ingestion-contract` | 4 | `DEVOPS-OSS05-ING-TUW-001` through `DEVOPS-OSS05-ING-TUW-004` (`docs/execution/TUW_OSS05_INGESTION_IDENTITY_STORAGE.md`) |
 | PACK-OSS07-01 | `feat/pack-oss07-01-identity-topology` | 4 | `DEVOPS-OSS07-IDP-TUW-001` through `DEVOPS-OSS07-IDP-TUW-004` (`docs/execution/TUW_OSS07_IDENTITY_TOPOLOGY.md`) |
 | PACK-OSS09-01 | `feat/pack-oss09-01-telemetry-policy` | 4 | `DEVOPS-OSS09-TEL-TUW-001` through `DEVOPS-OSS09-TEL-TUW-004` (`docs/execution/TUW_OSS09_TELEMETRY_POLICY.md`) |
+| PACK-SF20-00 | `feat/pack-sf20-00-profile-freeze` | 4 | `DEVOPS-SF20-BASE-TUW-001`, `DEVOPS-SF20-CAP-TUW-002`, `DEVOPS-SF20-OSS-TUW-003`, `DEVOPS-SF20-GATE-TUW-004` (`docs/execution/TUW_SF20_SMALL_FIRM_PROFILE.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2711,6 +2712,32 @@ Every TUW must preserve its Files NOT-modify list and AND verification. Any
 need for a raw token URL, sessionless preview fallback, storage-key exposure,
 audit after first byte, permission bypass, unbounded API buffering or token
 persistence is a hard stop.
+
+## PACK-SF20-00 — Small-firm profile freeze and OSS provenance
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721` and the owner's immediate-track execution
+direction. It is independently based on `origin/main`
+`287c9e3f52b2b8fbc0b6ade8bab5d56d47cf80e9`.
+
+- Branch: `feat/pack-sf20-00-profile-freeze`.
+- Detail contract: `docs/execution/TUW_SF20_SMALL_FIRM_PROFILE.md`.
+- Execution order: `DEVOPS-SF20-BASE-TUW-001` →
+  `DEVOPS-SF20-CAP-TUW-002` and `DEVOPS-SF20-OSS-TUW-003` →
+  `DEVOPS-SF20-GATE-TUW-004`.
+- Scope: freeze the maximum-20-user capacity/SLO profile, preserve the exact
+  19 original immediate outcomes and 33 testable TUWs, pin the minimal
+  gateway/monitoring/host/backup OSS sources, and enforce a conditional
+  runtime-expansion gate.
+- Out of scope: application runtime behavior, dependencies/lockfiles,
+  certificates/secrets, cloud or staging operations, deployment, release,
+  go-live, any conditional component activation, and `docs/package/**`.
+
+All upstream clones remain outside the product tree with `NO_COPY` source/test
+policy. A source pin does not authorize runtime adoption. Any reduction below
+19 outcomes or 33 TUWs, missing constitutional/recovery invariant, unpinned
+runtime artifact, public worker port, or conditional component without an
+exact trigger receipt and approval reference is a hard stop.
 
 ## Gate Reports
 

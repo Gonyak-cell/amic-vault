@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "amic-vault.small-firm-20-capacity-fixture.v1",
+  "seed": "sf20-capacity-v1-fixed",
+  "syntheticOnly": true,
+  "tenants": [
+    {
+      "ref": "synthetic-tenant-a",
+      "namedUsers": 12,
+      "documentVersions": 300000,
+      "objectStorageBytes": 1319413953331
+    },
+    {
+      "ref": "synthetic-tenant-b",
+      "namedUsers": 8,
+      "documentVersions": 200000,
+      "objectStorageBytes": 879609302221
+    }
+  ],
+  "load": {
+    "simultaneousActiveSessions": 12,
+    "concurrentApiRequestBurst": 25,
+    "simultaneousPreviewDownloads": 8,
+    "concurrentIngestionJobs": 4
+  },
+  "expectedOutcomes": {
+    "authorizedMatterRead": "ALLOW",
+    "crossTenantDocumentRead": "PERMISSION_DENIED",
+    "ethicalWallSearch": "ETHICAL_WALL_BLOCKED",
+    "unknownPolicy": "PERMISSION_DENIED"
+  }
+}
