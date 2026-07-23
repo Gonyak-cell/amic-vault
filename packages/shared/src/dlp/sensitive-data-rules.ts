@@ -1,4 +1,11 @@
-import type { DlpDetection, DlpFindingType, DlpRuleId, DlpScanOptions } from './dlp-types';
+import {
+  sf20DlpDefaultMaxFindings,
+  type DlpDetection,
+  type DlpFindingType,
+  type DlpRuleId,
+  type DlpScanOptions,
+  type DlpSensitiveDataScanResult,
+} from './dlp-types';
 
 export interface SensitiveDataRule {
   ruleId: DlpRuleId;
@@ -13,7 +20,6 @@ export interface SensitiveDataScanOptions extends DlpScanOptions {
   hash(input: string): string;
 }
 
-const defaultMaxFindings = 200;
 const contextRadius = 24;
 
 function digitsOnly(input: string): string {
@@ -103,8 +109,19 @@ function contextHash(
   return hash(text.slice(start, end));
 }
 
-export function scanSensitiveData(text: string, options: SensitiveDataScanOptions): DlpDetection[] {
-  const maxFindings = options.maxFindings ?? defaultMaxFindings;
+function normalizedMaxFindings(options: DlpScanOptions): number {
+  const value = options.maxFindings ?? sf20DlpDefaultMaxFindings;
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new RangeError('maxFindings must be a positive safe integer');
+  }
+  return value;
+}
+
+export function scanSensitiveDataWithStatus(
+  text: string,
+  options: SensitiveDataScanOptions,
+): DlpSensitiveDataScanResult {
+  const maxFindings = normalizedMaxFindings(options);
   const detections: DlpDetection[] = [];
   const seen = new Set<string>();
 
@@ -130,11 +147,25 @@ export function scanSensitiveData(text: string, options: SensitiveDataScanOption
         endOffset,
         confidence: rule.confidence,
       });
-      if (detections.length >= maxFindings) {
-        return detections.sort((left, right) => left.startOffset - right.startOffset);
+      if (detections.length > maxFindings) {
+        return {
+          detections: detections
+            .slice(0, maxFindings)
+            .sort((left, right) => left.startOffset - right.startOffset),
+          completed: false,
+          limitReached: true,
+        };
       }
     }
   }
 
-  return detections.sort((left, right) => left.startOffset - right.startOffset);
+  return {
+    detections: detections.sort((left, right) => left.startOffset - right.startOffset),
+    completed: true,
+    limitReached: false,
+  };
+}
+
+export function scanSensitiveData(text: string, options: SensitiveDataScanOptions): DlpDetection[] {
+  return scanSensitiveDataWithStatus(text, options).detections;
 }

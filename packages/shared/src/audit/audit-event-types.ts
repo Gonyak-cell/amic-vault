@@ -82,7 +82,11 @@ export const fileSecurityAuditActions = [
   'FILE_SECURITY_RECONCILIATION_RETRY_REQUESTED',
 ] as const;
 
-export const r5DlpAuditActions = ['DLP_EGRESS_BLOCKED'] as const;
+export const r5DlpAuditActions = [
+  'DLP_EGRESS_BLOCKED',
+  'DLP_REVIEW_RECORDED',
+  'DLP_REVIEW_APPLIED',
+] as const;
 
 export const r5BreakGlassAuditActions = [
   'BREAK_GLASS_REQUESTED',

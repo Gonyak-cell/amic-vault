@@ -52,4 +52,21 @@ describe('SensitiveDataDetector', () => {
     expect(result).toHaveLength(2);
     expect(result[0]?.startOffset).toBeLessThan(result[1]?.startOffset ?? Number.MAX_SAFE_INTEGER);
   });
+
+  it('reports scan completeness separately from the bounded findings', () => {
+    const detector = new SensitiveDataDetector();
+
+    expect(
+      detector.scanWithStatus('000000-0000000\n900101-5000000\n010-0000-0000', {
+        maxFindings: 2,
+      }),
+    ).toMatchObject({
+      completed: false,
+      limitReached: true,
+      detections: expect.arrayContaining([
+        expect.objectContaining({ findingType: 'korean_resident_id' }),
+        expect.objectContaining({ findingType: 'korean_alien_registration_number' }),
+      ]),
+    });
+  });
 });

@@ -6,6 +6,7 @@ import {
   fileSecurityAuditActions,
   isAuditAction,
   knowledgeBankAuditActions,
+  r5DlpAuditActions,
 } from './audit-event-types';
 
 describe('shared audit declaration bridge', () => {
@@ -26,6 +27,11 @@ describe('shared audit declaration bridge', () => {
       'FILE_PROMOTED',
       'FILE_SECURITY_RECONCILIATION_REVIEWED',
       'FILE_SECURITY_RECONCILIATION_RETRY_REQUESTED',
+    ]);
+    expect(r5DlpAuditActions).toEqual([
+      'DLP_EGRESS_BLOCKED',
+      'DLP_REVIEW_RECORDED',
+      'DLP_REVIEW_APPLIED',
     ]);
     expect(auditActions).toEqual(expect.arrayContaining([
       ...auditAnchorActions,
