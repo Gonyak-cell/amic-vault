@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import socket
+import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from re import compile as compile_pattern
+from typing import Mapping
+
+from app.egress_policy import EgressPolicyDenied, configured_egress_policy
 
 
 class ScanOutcome(StrEnum):
@@ -35,18 +39,40 @@ class ClamAvClient:
 
     def __init__(
         self,
-        host: str = "clamav",
-        port: int = 3310,
+        host: str | None = None,
+        port: int | None = None,
         timeout_seconds: float = 5,
         max_bytes: int = 25 * 1024 * 1024,
         max_chunk_bytes: int = 1024 * 1024,
         max_signature_age: timedelta = timedelta(days=7),
         now: Callable[[], datetime] | None = None,
+        env: Mapping[str, str] = os.environ,
     ) -> None:
-        if port < 1 or port > 65535 or timeout_seconds <= 0 or max_bytes < 1 or max_chunk_bytes < 1:
+        resolved_host = host if host is not None else env.get("INGESTION_CLAMAV_HOST", "clamav")
+        try:
+            resolved_port = (
+                port
+                if port is not None
+                else int(env.get("INGESTION_CLAMAV_PORT", "3310"), 10)
+            )
+        except ValueError as exc:
+            raise ValueError("invalid ClamAV client bounds") from exc
+        if (
+            resolved_port < 1
+            or resolved_port > 65535
+            or timeout_seconds <= 0
+            or max_bytes < 1
+            or max_chunk_bytes < 1
+        ):
             raise ValueError("invalid ClamAV client bounds")
-        self._host = host
-        self._port = port
+        policy = configured_egress_policy(env)
+        if policy is not None:
+            try:
+                policy.assert_clamav_endpoint(resolved_host, resolved_port)
+            except EgressPolicyDenied as exc:
+                raise ValueError("invalid ClamAV client bounds") from exc
+        self._host = resolved_host
+        self._port = resolved_port
         self._timeout_seconds = timeout_seconds
         self._max_bytes = max_bytes
         self._max_chunk_bytes = max_chunk_bytes

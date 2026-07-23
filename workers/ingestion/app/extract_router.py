@@ -16,6 +16,16 @@ from .parsers.pdf import extract_pdf
 from .parsers.pdf_annotations import extract_pdf_annotations
 from .parsers.plaintext import extract_csv, extract_html, extract_plaintext
 from .parsers.types import ExtractionResult
+from .resource_policy import (
+    ParserLimitExceeded,
+    assert_input_bytes,
+    assert_output_text,
+    assert_page_count,
+    assert_wall_time,
+    parser_profile,
+    start_wall_clock,
+    validate_archive_members,
+)
 from .storage_client import (
     WorkerStorageAccessDenied,
     WorkerStorageError,
@@ -119,7 +129,15 @@ def _extension_from_stored_object(stored: WorkerStoredObject) -> str:
         return "hwp" if is_hwp_binary(stored.body) else ""
     try:
         with ZipFile(BytesIO(stored.body)) as archive:
-            entries = set(archive.namelist())
+            entries = {
+                safe_path
+                for _, safe_path in validate_archive_members(
+                    parser_profile("extract"),
+                    archive.infolist(),
+                )
+            }
+    except ParserLimitExceeded:
+        return ""
     except BadZipFile:
         return ""
     if "word/document.xml" in entries:
@@ -133,14 +151,24 @@ def _extension_from_stored_object(stored: WorkerStoredObject) -> str:
     return ""
 
 
-async def _read_validated_stored_object(request: Request, parser_profile: str) -> tuple[IngestionJobEnvelope, WorkerStoredObject]:
+async def _read_validated_stored_object(
+    request: Request,
+    parser_profile_name: str,
+) -> tuple[IngestionJobEnvelope, WorkerStoredObject]:
     try:
         payload = await request.json()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail={"code": "VALIDATION_FAILED"}) from exc
     job, code = validate_ingestion_job(payload)
-    if job is None or code is not None or job.parserProfile != parser_profile:
+    if job is None or code is not None or job.parserProfile != parser_profile_name:
         raise HTTPException(status_code=400, detail={"code": "VALIDATION_FAILED"})
+    try:
+        assert_input_bytes(parser_profile(parser_profile_name), job.sizeBytes)
+    except ParserLimitExceeded as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "VALIDATION_FAILED", "reason": exc.reason_code},
+        ) from exc
     identity = getattr(request.state, "ingestion_identity", None)
     if identity is None:
         raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"})
@@ -161,31 +189,49 @@ async def _read_validated_stored_object(request: Request, parser_profile: str) -
 
 
 def _parse(ext: str, payload: bytes) -> ExtractionResult:
-    if ext == "hwp":
-        return extract_hwp_binary(payload)
-    if ext == "hwpx" and is_hwp_binary(payload):
-        return ExtractionResult.failed("failed", "UNSUPPORTED_HWP_BINARY")
-    if ext == "pdf":
-        return extract_pdf(payload)
-    if ext == "docx":
-        return extract_docx(payload)
-    if ext == "hwpx":
-        return extract_hwpx(payload)
-    if ext == "txt":
-        return extract_plaintext(payload, "text")
-    if ext in {"md", "markdown"}:
-        return extract_plaintext(payload, "markdown")
-    if ext == "csv":
-        return extract_csv(payload)
-    if ext in {"html", "htm"}:
-        return extract_html(payload)
-    if ext == "xlsx":
-        return extract_xlsx(payload)
-    if ext == "pptx":
-        return extract_pptx(payload)
-    if ext in {"doc", "xls", "ppt"}:
-        return extract_legacy_office(payload, ext)
-    raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
+    try:
+        assert_input_bytes(profile, len(payload))
+        if ext == "hwpx" and is_hwp_binary(payload):
+            return ExtractionResult.failed("failed", "UNSUPPORTED_HWP_BINARY")
+        if ext in {"docx", "hwpx", "xlsx", "pptx"}:
+            with ZipFile(BytesIO(payload)) as archive:
+                validate_archive_members(profile, archive.infolist())
+        if ext == "hwp":
+            result = extract_hwp_binary(payload)
+        elif ext == "pdf":
+            result = extract_pdf(payload)
+        elif ext == "docx":
+            result = extract_docx(payload)
+        elif ext == "hwpx":
+            result = extract_hwpx(payload)
+        elif ext == "txt":
+            result = extract_plaintext(payload, "text")
+        elif ext in {"md", "markdown"}:
+            result = extract_plaintext(payload, "markdown")
+        elif ext == "csv":
+            result = extract_csv(payload)
+        elif ext in {"html", "htm"}:
+            result = extract_html(payload)
+        elif ext == "xlsx":
+            result = extract_xlsx(payload)
+        elif ext == "pptx":
+            result = extract_pptx(payload)
+        elif ext in {"doc", "xls", "ppt"}:
+            result = extract_legacy_office(payload, ext)
+        else:
+            raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
+        if result.status == "ready":
+            assert_output_text(profile, result.body_text)
+            if result.pages:
+                assert_page_count(profile, len(result.pages))
+        assert_wall_time(profile, started_at)
+        return result
+    except BadZipFile:
+        return ExtractionResult.failed(ext or "archive", "ARCHIVE_INVALID")
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed(ext or "sandbox", exc.reason_code)
 
 
 @router.post("/extract", response_model=ExtractResponse)
@@ -206,10 +252,23 @@ async def extract_revisions(request: Request) -> ExtractRevisionsResponse:
     _, stored = await _read_validated_stored_object(request, "extract")
     if _extension_from_stored_object(stored) != "docx":
         raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
     try:
+        assert_input_bytes(profile, len(stored.body))
         revisions = extract_docx_revisions(stored.body)
-    except ValueError as exc:
-        return ExtractRevisionsResponse(status="failed", failure_reason_code=str(exc))
+        assert_output_text(
+            profile,
+            "\n".join(
+                f"{item.before_text}\n{item.after_text}"
+                for item in revisions
+            ),
+        )
+        assert_wall_time(profile, started_at)
+    except ParserLimitExceeded as exc:
+        return ExtractRevisionsResponse(status="failed", failure_reason_code=exc.reason_code)
+    except ValueError:
+        return ExtractRevisionsResponse(status="failed", failure_reason_code="DOCX_REVISIONS_FAILED")
     return ExtractRevisionsResponse(
         status="ready",
         revisions=[RevisionItem(**revision.__dict__) for revision in revisions],
@@ -221,10 +280,18 @@ async def extract_annotations(request: Request) -> ExtractAnnotationsResponse:
     _, stored = await _read_validated_stored_object(request, "extract")
     if _extension_from_stored_object(stored) != "pdf":
         raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
     try:
+        assert_input_bytes(profile, len(stored.body))
         annotations = extract_pdf_annotations(stored.body)
-    except ValueError as exc:
-        return ExtractAnnotationsResponse(status="failed", failure_reason_code=str(exc))
+        assert_page_count(profile, max((item.page for item in annotations), default=1))
+        assert_output_text(profile, "\n".join(item.contents for item in annotations))
+        assert_wall_time(profile, started_at)
+    except ParserLimitExceeded as exc:
+        return ExtractAnnotationsResponse(status="failed", failure_reason_code=exc.reason_code)
+    except ValueError:
+        return ExtractAnnotationsResponse(status="failed", failure_reason_code="PDF_ANNOTATIONS_FAILED")
     return ExtractAnnotationsResponse(
         status="ready",
         annotations=[AnnotationItem(**annotation.__dict__) for annotation in annotations],
@@ -240,7 +307,15 @@ async def extract_clause_tree_endpoint(request: Request) -> ExtractClauseTreeRes
             status="failed",
             failure_reason_code=result.failure_reason_code or "EXTRACTION_NOT_READY",
         )
-    return ExtractClauseTreeResponse(
-        status="ready",
-        clauses=[_clause_tree_item(node) for node in extract_clause_tree(result.body_text)],
-    )
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
+    try:
+        clauses = [_clause_tree_item(node) for node in extract_clause_tree(result.body_text)]
+        assert_output_text(
+            profile,
+            "\n".join(f"{item.title}\n{item.body}" for item in clauses),
+        )
+        assert_wall_time(profile, started_at)
+        return ExtractClauseTreeResponse(status="ready", clauses=clauses)
+    except ParserLimitExceeded as exc:
+        return ExtractClauseTreeResponse(status="failed", failure_reason_code=exc.reason_code)

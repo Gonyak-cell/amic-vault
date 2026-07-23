@@ -393,13 +393,13 @@ def test_hwpx_endpoint_rejects_hwp_binary_without_binary_parser() -> None:
 
 
 def test_hwp5_binary_extraction_uses_hwp5txt(monkeypatch) -> None:
-    def fake_run(command, check, stdout, stderr, timeout):
+    def fake_run(command, *, profile_name, cwd, check, timeout_seconds):
         assert command[0] == "hwp5txt"
         assert command[1].endswith("source.hwp")
+        assert profile_name == "extract"
+        assert cwd
         assert check is False
-        assert stdout == subprocess.PIPE
-        assert stderr == subprocess.PIPE
-        assert timeout == 30
+        assert timeout_seconds == 30
         return subprocess.CompletedProcess(
             command,
             0,
@@ -407,7 +407,7 @@ def test_hwp5_binary_extraction_uses_hwp5txt(monkeypatch) -> None:
             stderr=b"",
         )
 
-    monkeypatch.setattr("app.parsers.hwp_binary.subprocess.run", fake_run)
+    monkeypatch.setattr("app.parsers.hwp_binary.run_bounded_subprocess", fake_run)
 
     response = _post_extract("legacy.hwp", _hwp_binary_fixture())
     assert response.status_code == 200, response.text
@@ -419,7 +419,7 @@ def test_hwp5_binary_extraction_uses_hwp5txt(monkeypatch) -> None:
 
 
 def test_hwp5_binary_failure_returns_explicit_reason(monkeypatch) -> None:
-    def fake_run(command, check, stdout, stderr, timeout):
+    def fake_run(command, **_):
         return subprocess.CompletedProcess(
             command,
             1,
@@ -427,7 +427,7 @@ def test_hwp5_binary_failure_returns_explicit_reason(monkeypatch) -> None:
             stderr=b"encrypted distribution document requires password",
         )
 
-    monkeypatch.setattr("app.parsers.hwp_binary.subprocess.run", fake_run)
+    monkeypatch.setattr("app.parsers.hwp_binary.run_bounded_subprocess", fake_run)
 
     response = _post_extract("legacy.hwp", _hwp_binary_fixture())
     assert response.status_code == 200, response.text

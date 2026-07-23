@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "amic-vault.ingestion-egress-policy.v1",
+  "profile": "small-firm-20-fixed-private-destinations",
+  "service": "ingestion",
+  "enforcement": "required",
+  "network": "ingestion-egress",
+  "networkInternal": true,
+  "configuration": {
+    "INGESTION_EGRESS_STORAGE_AUTHORITY": "${INGESTION_EGRESS_STORAGE_AUTHORITY:?set INGESTION_EGRESS_STORAGE_AUTHORITY}",
+    "INGESTION_EGRESS_CLAMAV_AUTHORITY": "${INGESTION_EGRESS_CLAMAV_AUTHORITY:?set INGESTION_EGRESS_CLAMAV_AUTHORITY}",
+    "INGESTION_EGRESS_ALLOWED_CIDRS": "${INGESTION_EGRESS_ALLOWED_CIDRS:?set INGESTION_EGRESS_ALLOWED_CIDRS}",
+    "INGESTION_STORAGE_ENDPOINT": "${INGESTION_STORAGE_ENDPOINT:?set INGESTION_STORAGE_ENDPOINT}",
+    "INGESTION_CLAMAV_HOST": "${INGESTION_CLAMAV_HOST:?set INGESTION_CLAMAV_HOST}",
+    "INGESTION_CLAMAV_PORT": "${INGESTION_CLAMAV_PORT:?set INGESTION_CLAMAV_PORT}"
+  },
+  "prohibitedServiceKeys": [
+    "ports",
+    "expose",
+    "network_mode",
+    "extra_hosts",
+    "links",
+    "dns",
+    "dns_search",
+    "devices",
+    "privileged"
+  ],
+  "forbiddenEnvelopeFields": [
+    "endpoint",
+    "endpointUrl",
+    "host",
+    "port",
+    "storageUrl",
+    "storage_url",
+    "url",
+    "uri"
+  ],
+  "approvedSocketModules": [
+    "workers/ingestion/app/security/clamav_client.py",
+    "workers/ingestion/app/storage_client.py",
+    "workers/ingestion/app/egress_policy.py"
+  ],
+  "blockedAddressClasses": [
+    "literal",
+    "loopback",
+    "link-local",
+    "multicast",
+    "unspecified",
+    "public",
+    "outside-approved-cidr",
+    "mixed-answer",
+    "answer-drift"
+  ]
+}

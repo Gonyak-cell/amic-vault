@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "amic-vault.sf20-parser-corpus.v1",
+  "profile": "small-firm-20-required-document-set",
+  "syntheticOnly": true,
+  "requiredCases": [
+    {
+      "id": "plain-korean-utf8",
+      "format": "txt",
+      "expectedCapability": "Korean UTF-8 text extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "legal-html",
+      "format": "html",
+      "expectedCapability": "bounded visible text extraction without URL fetch",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "legal-csv",
+      "format": "csv",
+      "expectedCapability": "bounded tabular text extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "searchable-pdf",
+      "format": "pdf",
+      "expectedCapability": "text layer and page extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "korean-english-scanned-pdf",
+      "format": "pdf-image",
+      "expectedCapability": "bounded kor+eng OCR text extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_ocr_router.py"
+    },
+    {
+      "id": "modern-word",
+      "format": "docx",
+      "expectedCapability": "paragraph and table extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "modern-hangul",
+      "format": "hwpx",
+      "expectedCapability": "section text extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "legacy-hangul",
+      "format": "hwp",
+      "expectedCapability": "binary HWP text extraction or bounded unsupported result",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "modern-spreadsheet",
+      "format": "xlsx",
+      "expectedCapability": "read-only bounded cell extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "modern-presentation",
+      "format": "pptx",
+      "expectedCapability": "bounded slide text extraction",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "legacy-office",
+      "format": "doc-xls-ppt",
+      "expectedCapability": "bounded local LibreOffice fallback",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_extract_router.py"
+    },
+    {
+      "id": "malformed-and-oversize",
+      "format": "hostile",
+      "expectedCapability": "bounded failure without partial success",
+      "currentStatus": "PASS",
+      "evidence": "workers/ingestion/tests/test_resource_policy.py"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "gotenberg",
+      "license": "MIT",
+      "sourceReuse": "L1 official service only if a later trigger is approved",
+      "closesCases": ["legacy-office"],
+      "latencyClass": "external-service-roundtrip",
+      "memoryClass": "high-browser-office-service",
+      "failureBehavior": "separate HTTP service; needs timeout and fixed network adapter",
+      "operatingServiceDelta": 1,
+      "rollback": "remove optional service and adapter; retain local LibreOffice path"
+    },
+    {
+      "id": "tika",
+      "license": "Apache-2.0",
+      "sourceReuse": "L0 pinned source and test study; no source copy",
+      "closesCases": [],
+      "latencyClass": "external-jvm-service-roundtrip",
+      "memoryClass": "high-jvm-parser-service",
+      "failureBehavior": "forking reduces parser blast radius but is not a malware boundary",
+      "operatingServiceDelta": 1,
+      "rollback": "no runtime was added"
+    },
+    {
+      "id": "ocrmypdf",
+      "license": "MPL-2.0",
+      "sourceReuse": "L0 pinned source and test study; no source copy",
+      "closesCases": ["korean-english-scanned-pdf"],
+      "latencyClass": "multi-process-page-pipeline",
+      "memoryClass": "high-raster-pipeline",
+      "failureBehavior": "derived PDF pipeline; offers no security guarantee",
+      "operatingServiceDelta": 1,
+      "rollback": "no runtime was added; original remains immutable"
+    }
+  ],
+  "productGraphBaseline": {
+    "package.json": "sha256:37f188eaf942b10430f162e8d82533ac09048337c07a9b77f76b9ad426c918a3",
+    "pnpm-lock.yaml": "sha256:7dabea4825205840497ff2bfcc0581226a8aa7a04ee484a33bc92e1a17725104",
+    "workers/ingestion/pyproject.toml": "sha256:8e2acfdc685aad7f8ef765e85af822a959119c089fc0a3221915c40a4161d160",
+    "workers/ingestion/uv.lock": "sha256:30bc23d3cd459ab2f1486f6c41da5029ba44981be2ba87e6d17abff9f5de2b64"
+  }
+}

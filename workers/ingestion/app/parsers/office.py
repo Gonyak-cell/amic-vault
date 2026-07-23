@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 import tempfile
 from collections.abc import Iterable
 from datetime import date, datetime, time
@@ -9,6 +8,18 @@ from io import BytesIO
 from pathlib import Path
 
 from app.converters.docx_to_pdf import legacy_office_signature, libreoffice_command
+from app.resource_policy import (
+    ParserLimitExceeded,
+    ParserSubprocessFailed,
+    assert_input_bytes,
+    assert_output_bytes,
+    assert_output_text,
+    assert_page_count,
+    assert_wall_time,
+    parser_profile,
+    run_bounded_subprocess,
+    start_wall_clock,
+)
 
 from .plaintext import extract_csv, extract_html, extract_plaintext
 from .types import ExtractionResult
@@ -39,6 +50,8 @@ def _non_empty(values: Iterable[object]) -> list[str]:
 
 
 def _convert_legacy_office(payload: bytes, extension: str, timeout_seconds: int = 30) -> bytes:
+    profile = parser_profile("extract")
+    assert_input_bytes(profile, len(payload))
     target = _legacy_targets.get(extension)
     if target is None:
         raise LegacyOfficeExtractionError("unsupported legacy office extension")
@@ -51,9 +64,10 @@ def _convert_legacy_office(payload: bytes, extension: str, timeout_seconds: int 
         source = workdir / f"source.{extension}"
         source.write_bytes(payload)
         try:
-            subprocess.run(
+            run_bounded_subprocess(
                 [
                     libreoffice_command(),
+                    f"-env:UserInstallation={workdir.joinpath('lo-profile').as_uri()}",
                     "--headless",
                     "--nologo",
                     "--nofirststartwizard",
@@ -63,26 +77,32 @@ def _convert_legacy_office(payload: bytes, extension: str, timeout_seconds: int 
                     str(workdir),
                     str(source),
                 ],
+                profile_name="extract",
+                cwd=workdir,
                 check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=timeout_seconds,
+                timeout_seconds=timeout_seconds,
             )
-        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        except ParserSubprocessFailed as exc:
             raise LegacyOfficeExtractionError("libreoffice text conversion failed") from exc
 
         output = workdir / f"source.{output_extension}"
         if not output.exists():
             raise LegacyOfficeExtractionError("libreoffice did not write a text derivative")
-        return output.read_bytes()
+        if output.stat().st_size > profile.max_output_bytes:
+            raise LegacyOfficeExtractionError("libreoffice output exceeds resource policy")
+        result = output.read_bytes()
+        assert_output_bytes(profile, result)
+        return result
 
 
 def extract_legacy_office(payload: bytes, extension: str) -> ExtractionResult:
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
     if extension not in legacy_office_extensions:
         return ExtractionResult.failed("failed", "UNSUPPORTED_FILE_TYPE")
     try:
         text_payload = _convert_legacy_office(payload, extension)
-    except LegacyOfficeExtractionError:
+    except (LegacyOfficeExtractionError, ParserLimitExceeded):
         return ExtractionResult.failed(extension, "LEGACY_OFFICE_TEXT_EXTRACTION_FAILED")
 
     if extension == "xls":
@@ -93,14 +113,24 @@ def extract_legacy_office(payload: bytes, extension: str) -> ExtractionResult:
         result = extract_plaintext(text_payload, extension)
     if result.status != "ready":
         return ExtractionResult.failed(extension, result.failure_reason_code or "LEGACY_OFFICE_TEXT_EMPTY")
+    try:
+        assert_output_text(profile, result.body_text)
+        assert_wall_time(profile, started_at)
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed(extension, exc.reason_code)
     return ExtractionResult.ready(extension, result.body_text, result.confidence)
 
 
 def extract_xlsx(payload: bytes) -> ExtractionResult:
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
     try:
+        assert_input_bytes(profile, len(payload))
         from openpyxl import load_workbook
 
         workbook = load_workbook(BytesIO(payload), read_only=True, data_only=True)
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed("xlsx", exc.reason_code)
     except Exception:
         return ExtractionResult.failed("xlsx", "PROTECTED_XLSX_OR_INVALID")
 
@@ -121,6 +151,11 @@ def extract_xlsx(payload: bytes) -> ExtractionResult:
     body_text = "\n".join(parts).strip()
     if not body_text:
         return ExtractionResult.failed("xlsx", "XLSX_TEXT_EMPTY")
+    try:
+        assert_output_text(profile, body_text)
+        assert_wall_time(profile, started_at)
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed("xlsx", exc.reason_code)
     return ExtractionResult.ready("xlsx", body_text)
 
 
@@ -144,14 +179,23 @@ def _shape_text(shape: object) -> list[str]:
 
 
 def extract_pptx(payload: bytes) -> ExtractionResult:
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
     try:
+        assert_input_bytes(profile, len(payload))
         from pptx import Presentation
 
         presentation = Presentation(BytesIO(payload))
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed("pptx", exc.reason_code)
     except Exception:
         return ExtractionResult.failed("pptx", "PROTECTED_PPTX_OR_INVALID")
 
     parts: list[str] = []
+    try:
+        assert_page_count(profile, len(presentation.slides))
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed("pptx", exc.reason_code)
     for index, slide in enumerate(presentation.slides, start=1):
         slide_parts: list[str] = []
         for shape in slide.shapes:
@@ -163,6 +207,11 @@ def extract_pptx(payload: bytes) -> ExtractionResult:
     body_text = "\n".join(parts).strip()
     if not body_text:
         return ExtractionResult.failed("pptx", "PPTX_TEXT_EMPTY")
+    try:
+        assert_output_text(profile, body_text)
+        assert_wall_time(profile, started_at)
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed("pptx", exc.reason_code)
     return ExtractionResult.ready("pptx", body_text)
 
 

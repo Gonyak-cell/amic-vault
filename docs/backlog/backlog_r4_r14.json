@@ -1,5 +1,5 @@
 {
-  "total": 251,
+  "total": 256,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3694,6 +3694,61 @@
       "depends_on": ["DEVOPS-SF20-GW-TUW-001", "DEVOPS-SF20-GW-TUW-002", "DEVOPS-SF20-GW-TUW-003", "DEVOPS-SF20-GW-TUW-004"],
       "files": ["tests/integration/document-access/ingestion-gateway.spec.ts", "tools/security", "infra/production"],
       "verification": "real synthetic CA and certificates prove valid wrong subject audience spoof replay expiry old-new rotation direct-port denial production-loopback denial and a subsequent clean request on the production topology"
+    },
+    {
+      "id": "DEVOPS-SF20-SBX-TUW-001",
+      "title": "Central parser resource policy and bounded outcomes",
+      "release": "R14",
+      "module": "DEVOPS-SF20-SBX",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-GW-TUW-005"],
+      "files": ["workers/ingestion/app/resource_policy.py", "workers/ingestion/app/parsers", "workers/ingestion/app/converters", "workers/ingestion/tests"],
+      "verification": "all parser profiles enforce one wall subprocess page archive expansion output and fallback matrix AND hostile partial timeout and cleanup cases return bounded failures before a subsequent clean job"
+    },
+    {
+      "id": "DEVOPS-SF20-SBX-TUW-002",
+      "title": "Fixed non-root read-only resource-limited ingestion container",
+      "release": "R14",
+      "module": "DEVOPS-SF20-SBX",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-SBX-TUW-001"],
+      "files": ["workers/ingestion/Dockerfile", "infra/production/compose.yml", "infra/policies/ingestion-container-policy.yml", "tools/security/check-ingestion-container.mjs"],
+      "verification": "effective runtime is UID/GID 10001 read-only cap-drop no-new-privileges finite PID CPU memory and bounded tmpfs AND rootfs host socket device and resource-pressure negatives remain contained"
+    },
+    {
+      "id": "DEVOPS-SF20-SBX-TUW-003",
+      "title": "Closed ingestion egress and endpoint DNS enforcement",
+      "release": "R14",
+      "module": "DEVOPS-SF20-SBX",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-SBX-TUW-002"],
+      "files": ["workers/ingestion/app/egress_policy.py", "workers/ingestion/app/storage_client.py", "workers/ingestion/app/security/clamav_client.py", "infra/policies/ingestion-egress-policy.yml", "tools/security/check-ingestion-egress.mjs"],
+      "verification": "only fixed storage and ClamAV authorities resolving wholly inside approved CIDRs can be used AND metadata loopback public unapproved-private redirect DNS-rebinding and request-selected destinations fail before IO"
+    },
+    {
+      "id": "DEVOPS-SF20-SBX-TUW-004",
+      "title": "Minimal parser candidate measurement and decision",
+      "release": "R14",
+      "module": "DEVOPS-SF20-SBX",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-SBX-TUW-001", "DEVOPS-SF20-SBX-TUW-002", "DEVOPS-SF20-SBX-TUW-003"],
+      "files": ["tests/fixtures/ingestion-sandbox/parser-candidate-corpus.json", "tools/oss/evaluate-parser-candidates.mjs", "docs/architecture/oss-adoption-decisions/sf20-parser-candidates.md", "security/oss-source-map.yml", "security/oss-adoption-decisions.yml"],
+      "verification": "deterministic current-parser corpus records format fidelity latency memory failure license source and operating-cost evidence for Gotenberg Tika OCRmyPDF AND no candidate runtime is added without a measured trigger and later approval"
+    },
+    {
+      "id": "DEVOPS-SF20-SBX-TUW-005",
+      "title": "Real hostile-document and sandbox-containment runtime gate",
+      "release": "R14",
+      "module": "DEVOPS-SF20-SBX",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-SBX-TUW-001", "DEVOPS-SF20-SBX-TUW-002", "DEVOPS-SF20-SBX-TUW-003", "DEVOPS-SF20-SBX-TUW-004"],
+      "files": ["tests/integration/document-access/ingestion-sandbox.spec.ts", "tests/integration/storage-isolation", "infra/production", "tools/security"],
+      "verification": "real gateway non-root worker fixed storage scanner and closed networks deny bomb malformed timeout SSRF egress tenant mismatch identity spoof and replay AND leak no content and process a subsequent clean job with zero disposable resources"
     }
   ]
 }

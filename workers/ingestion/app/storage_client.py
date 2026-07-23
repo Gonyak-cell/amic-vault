@@ -14,6 +14,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError, ConnectTimeoutError, ReadTimeoutError
 
 from .contracts import IngestionJobEnvelope, MAX_INGESTION_OBJECT_BYTES
+from .egress_policy import EgressPolicyDenied, configured_egress_policy
 
 
 class WorkerStorageError(RuntimeError):
@@ -70,6 +71,12 @@ class WorkerStorageProfile:
             or values["storage_alias"] != "primary"
         ):
             raise WorkerStorageUnavailable()
+        policy = configured_egress_policy(env)
+        if policy is not None:
+            try:
+                policy.assert_storage_endpoint(values["endpoint"])
+            except EgressPolicyDenied as exc:
+                raise WorkerStorageUnavailable() from exc
         return cls(**values)
 
 
@@ -108,7 +115,12 @@ class FixedProfileStorageClient:
             region_name=profile.region,
             aws_access_key_id=profile.access_key_id,
             aws_secret_access_key=profile.secret_access_key,
-            config=Config(connect_timeout=5, read_timeout=10, retries={"max_attempts": 2, "mode": "standard"}),
+            config=Config(
+                connect_timeout=5,
+                read_timeout=10,
+                retries={"max_attempts": 2, "mode": "standard"},
+                s3={"addressing_style": "path"},
+            ),
         )
 
     def read(self, job: IngestionJobEnvelope) -> WorkerStoredObject:

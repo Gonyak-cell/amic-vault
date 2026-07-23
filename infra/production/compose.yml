@@ -112,9 +112,27 @@
         "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "blocked",
         "INGESTION_GATEWAY_WORKLOAD_SUBJECT": "amic-vault-api",
         "INGESTION_GATEWAY_AUDIENCE": "amic-vault-ingestion",
-        "INGESTION_NONCE_STORE_PATH": "/var/lib/amic-vault/replay/nonces.sqlite3"
+        "INGESTION_NONCE_STORE_PATH": "/var/lib/amic-vault/replay/nonces.sqlite3",
+        "INGESTION_EGRESS_ENFORCEMENT": "required",
+        "INGESTION_EGRESS_STORAGE_AUTHORITY": "${INGESTION_EGRESS_STORAGE_AUTHORITY:?set INGESTION_EGRESS_STORAGE_AUTHORITY}",
+        "INGESTION_EGRESS_CLAMAV_AUTHORITY": "${INGESTION_EGRESS_CLAMAV_AUTHORITY:?set INGESTION_EGRESS_CLAMAV_AUTHORITY}",
+        "INGESTION_EGRESS_ALLOWED_CIDRS": "${INGESTION_EGRESS_ALLOWED_CIDRS:?set INGESTION_EGRESS_ALLOWED_CIDRS}",
+        "INGESTION_STORAGE_ENDPOINT": "${INGESTION_STORAGE_ENDPOINT:?set INGESTION_STORAGE_ENDPOINT}",
+        "INGESTION_CLAMAV_HOST": "${INGESTION_CLAMAV_HOST:?set INGESTION_CLAMAV_HOST}",
+        "INGESTION_CLAMAV_PORT": "${INGESTION_CLAMAV_PORT:?set INGESTION_CLAMAV_PORT}"
       },
-      "networks": ["ingestion-worker"],
+      "user": "10001:10001",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 96,
+      "cpus": "2.0",
+      "mem_limit": "2g",
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=1770",
+        "/var/tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770"
+      ],
+      "networks": ["ingestion-worker", "ingestion-egress"],
       "volumes": [
         "ingestion-replay:/var/lib/amic-vault/replay"
       ],
@@ -129,6 +147,7 @@
         "timeout": "5s",
         "retries": 20
       },
+      "stop_grace_period": "20s",
       "restart": "unless-stopped"
     }
   },
@@ -140,6 +159,9 @@
       "internal": true
     },
     "ingestion-worker": {
+      "internal": true
+    },
+    "ingestion-egress": {
       "internal": true
     }
   },

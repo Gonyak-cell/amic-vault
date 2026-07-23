@@ -4,6 +4,7 @@ from threading import Lock
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from .convert_router import router as convert_router
+from .egress_policy import EgressPolicyDenied, assert_egress_profile
 from .email_router import router as email_router
 from .extract_router import router as extract_router
 from .ocr_router import router as ocr_router
@@ -63,8 +64,9 @@ async def enforce_ingestion_service_identity(request: Request, call_next):
 def assert_ingestion_identity_profile() -> None:
     try:
         assert_service_identity_profile(os.environ)
+        assert_egress_profile(os.environ)
         _configured_nonce_store()
-    except ServiceIdentityDenied as exc:
+    except (ServiceIdentityDenied, EgressPolicyDenied) as exc:
         raise RuntimeError("INGESTION_WORKER_IDENTITY_CONFIGURATION_INVALID") from exc
 
 

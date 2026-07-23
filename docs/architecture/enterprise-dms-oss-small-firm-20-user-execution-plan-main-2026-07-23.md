@@ -1,6 +1,6 @@
 # AMIC Vault 소규모 로펌(최대 20명) OSS 조정 실행계획
 
-상태: **Canonical SF20 execution profile — `PACK-SF20-00` 등록**
+상태: **Canonical SF20 execution profile — `PACK-SF20-00~02` 순차 등록**
 
 기준일: 2026-07-23
 
@@ -367,6 +367,13 @@ gateway, network, replay-store로 완성한다.
 ---
 
 ## `PROPOSED-PACK-SF20-02` — Parser sandbox와 공격 내성
+
+**Canonical execution status (2026-07-23):** `PACK-SF20-02` and
+`DEVOPS-SF20-SBX-TUW-001~005` are registered in the live PACK registry and
+backlogs on the merged `PACK-SF20-01` main baseline
+`953537d6b34ba5a2a78ec33165b435c330815df3`. The detailed executable contract
+is `docs/execution/TUW_SF20_PARSER_SANDBOX.md`; the `PROPOSED-*` labels below
+remain as the immutable planning-origin vocabulary for traceability.
 
 목적: 기존 parser portfolio를 유지하면서 hostile document의 blast radius를
 ingestion container 하나로 제한한다.

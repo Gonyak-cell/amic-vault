@@ -8,6 +8,7 @@ from .converters.docx_to_pdf import (
     convert_office_bytes_to_pdf,
     office_pdf_extensions,
 )
+from .resource_policy import ParserLimitExceeded, assert_input_bytes, parser_profile
 
 router = APIRouter()
 
@@ -24,10 +25,12 @@ async def convert_docx_to_pdf(
     if not filename.endswith(".docx"):
         raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
 
-    payload = await file.read()
+    profile = parser_profile("convert")
+    payload = await file.read(profile.max_input_bytes + 1)
     try:
+        assert_input_bytes(profile, len(payload))
         pdf = convert_docx_bytes_to_pdf(payload)
-    except DocxToPdfConversionError:
+    except (DocxToPdfConversionError, ParserLimitExceeded):
         raise HTTPException(
             status_code=503,
             detail={"code": "VALIDATION_FAILED", "reason": "PREVIEW_CONVERSION_UNAVAILABLE"},
@@ -48,10 +51,12 @@ async def convert_office_to_pdf(
     if extension not in office_pdf_extensions:
         raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
 
-    payload = await file.read()
+    profile = parser_profile("convert")
+    payload = await file.read(profile.max_input_bytes + 1)
     try:
+        assert_input_bytes(profile, len(payload))
         pdf = convert_office_bytes_to_pdf(payload, filename)
-    except DocxToPdfConversionError:
+    except (DocxToPdfConversionError, ParserLimitExceeded):
         raise HTTPException(
             status_code=503,
             detail={"code": "VALIDATION_FAILED", "reason": "PREVIEW_CONVERSION_UNAVAILABLE"},

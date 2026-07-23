@@ -83,6 +83,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS09-01 | `feat/pack-oss09-01-telemetry-policy` | 4 | `DEVOPS-OSS09-TEL-TUW-001` through `DEVOPS-OSS09-TEL-TUW-004` (`docs/execution/TUW_OSS09_TELEMETRY_POLICY.md`) |
 | PACK-SF20-00 | `feat/pack-sf20-00-profile-freeze` | 4 | `DEVOPS-SF20-BASE-TUW-001`, `DEVOPS-SF20-CAP-TUW-002`, `DEVOPS-SF20-OSS-TUW-003`, `DEVOPS-SF20-GATE-TUW-004` (`docs/execution/TUW_SF20_SMALL_FIRM_PROFILE.md`) |
 | PACK-SF20-01 | `feat/pack-sf20-01-private-gateway` | 5 | `DEVOPS-SF20-GW-TUW-001` through `DEVOPS-SF20-GW-TUW-005` (`docs/execution/TUW_SF20_PRIVATE_GATEWAY.md`) |
+| PACK-SF20-02 | `feat/pack-sf20-02-parser-sandbox` | 5 | `DEVOPS-SF20-SBX-TUW-001` through `DEVOPS-SF20-SBX-TUW-005` (`docs/execution/TUW_SF20_PARSER_SANDBOX.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2774,6 +2775,43 @@ shares the worker network. The worker must reject replay after restart and
 fail closed when its nonce store is locked, corrupt, missing, or unwritable.
 Any direct route, fail-open memory fallback, raw nonce persistence, credential
 logging, upstream source/test copy, or mock-only final gate is a hard stop.
+
+## PACK-SF20-02 — Parser sandbox and hostile-document containment
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721` and the owner's all-immediate-track execution
+direction. It is the serial successor to merged `PACK-SF20-01`, independently
+based on `origin/main`
+`953537d6b34ba5a2a78ec33165b435c330815df3`.
+
+- Branch: `feat/pack-sf20-02-parser-sandbox`.
+- Detail contract: `docs/execution/TUW_SF20_PARSER_SANDBOX.md`.
+- Execution order: `DEVOPS-SF20-SBX-TUW-001` →
+  `DEVOPS-SF20-SBX-TUW-002` → `DEVOPS-SF20-SBX-TUW-003` →
+  `DEVOPS-SF20-SBX-TUW-004` → `DEVOPS-SF20-SBX-TUW-005`.
+- Scope: one central parser resource matrix and bounded failure vocabulary;
+  fixed non-root/read-only/capability-free/PID/CPU/memory/tmpfs runtime;
+  fixed storage and ClamAV destination validation plus closed internal
+  networks; a deterministic current-parser versus Gotenberg/Tika/OCRmyPDF
+  candidate decision; and a real hostile-document containment gate.
+- OSS boundary: reuse the installed Python/parser/LibreOffice/Tesseract/ClamAV
+  runtime and locally pinned upstream evidence. No upstream source or test is
+  copied. A candidate benchmark or clone is evidence, not runtime adoption.
+- Out of scope: dependency/lockfile or database schema changes, customer
+  documents, production endpoint/CIDR guesses, cloud/staging mutation, public
+  worker or candidate service, privileged/host/socket/device access,
+  Kubernetes/service mesh, deployment, release, go-live, and
+  `docs/package/**`.
+
+Every parser route must use the central policy, and every exceeded/unmeasurable
+limit must remain a bounded failure rather than clean/ready/empty output.
+Production ingestion must run as `10001:10001` with read-only rootfs, no
+capabilities, finite resource limits, replay durability, and no arbitrary
+egress. Storage and ClamAV are the only fixed destination authorities and must
+resolve wholly inside operator-supplied approved CIDRs. Any request-selected
+destination, wildcard allowlist, root/writable/privileged runtime, unbounded
+archive/output/fallback, copied upstream code/test, automatic candidate
+adoption, content-bearing evidence, or mock-only final gate is a hard stop.
 
 ## Gate Reports
 

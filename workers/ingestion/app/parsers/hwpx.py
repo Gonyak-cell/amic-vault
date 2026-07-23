@@ -2,6 +2,16 @@ from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 from xml.etree import ElementTree
 
+from app.resource_policy import (
+    ParserLimitExceeded,
+    assert_input_bytes,
+    assert_output_text,
+    assert_wall_time,
+    parser_profile,
+    start_wall_clock,
+    validate_archive_members,
+)
+
 from .types import ExtractionResult
 
 
@@ -23,13 +33,22 @@ def _text_from_xml(xml: bytes) -> list[str]:
 
 
 def extract_hwpx(payload: bytes) -> ExtractionResult:
+    profile = parser_profile("extract")
+    started_at = start_wall_clock()
     try:
+        assert_input_bytes(profile, len(payload))
         archive = ZipFile(BytesIO(payload))
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed("hwpx", exc.reason_code)
     except BadZipFile:
         return ExtractionResult.failed("failed", "HWPX_ZIP_INVALID")
 
     with archive:
-        names = archive.namelist()
+        try:
+            accepted = validate_archive_members(profile, archive.infolist())
+        except ParserLimitExceeded as exc:
+            return ExtractionResult.failed("hwpx", exc.reason_code)
+        names = [name for _, name in accepted]
         section_names = sorted(
             (
                 name
@@ -48,4 +67,9 @@ def extract_hwpx(payload: bytes) -> ExtractionResult:
     body_text = "\n".join(parts).strip()
     if not body_text:
         return ExtractionResult.failed("hwpx", "HWPX_TEXT_EMPTY")
+    try:
+        assert_output_text(profile, body_text)
+        assert_wall_time(profile, started_at)
+    except ParserLimitExceeded as exc:
+        return ExtractionResult.failed("hwpx", exc.reason_code)
     return ExtractionResult.ready("hwpx", body_text)
