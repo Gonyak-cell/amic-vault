@@ -82,6 +82,10 @@ describe('createIngestionWorkerRequest', () => {
     vi.stubEnv('INGESTION_GATEWAY_WORKLOAD_SUBJECT', 'amic-vault-api');
     vi.stubEnv('INGESTION_GATEWAY_AUDIENCE', 'amic-vault-ingestion');
     vi.stubEnv('INGESTION_WORKER_URL', 'https://ingestion-gateway.internal');
+    vi.stubEnv('INGESTION_GATEWAY_CA_FILE', '/run/secrets/ingestion_gateway_ca');
+    vi.stubEnv('INGESTION_GATEWAY_CLIENT_CERT_FILE', '/run/secrets/ingestion_api_client_cert');
+    vi.stubEnv('INGESTION_GATEWAY_CLIENT_KEY_FILE', '/run/secrets/ingestion_api_client_key');
+    vi.stubEnv('INGESTION_GATEWAY_SERVER_NAME', 'ingestion-gateway.internal');
 
     const request = await createIngestionWorkerRequest({
       target,

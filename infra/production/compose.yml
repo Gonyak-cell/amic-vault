@@ -1,0 +1,166 @@
+{
+  "name": "amic-vault-production",
+  "services": {
+    "api": {
+      "build": {
+        "context": "../..",
+        "dockerfile": "apps/api/Dockerfile",
+        "target": "api"
+      },
+      "environment": {
+        "NODE_ENV": "production",
+        "PROCESS_ROLE": "api",
+        "INGESTION_WORKER_IDENTITY_PROFILE": "private-gateway-mtls",
+        "INGESTION_GATEWAY_MTLS_ENABLED": "true",
+        "INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS": "true",
+        "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "blocked",
+        "INGESTION_GATEWAY_WORKLOAD_SUBJECT": "amic-vault-api",
+        "INGESTION_GATEWAY_AUDIENCE": "amic-vault-ingestion",
+        "INGESTION_WORKER_URL": "https://ingestion-gateway:8443",
+        "INGESTION_GATEWAY_CA_FILE": "/run/secrets/ingestion_gateway_ca",
+        "INGESTION_GATEWAY_CLIENT_CERT_FILE": "/run/secrets/ingestion_api_client_cert",
+        "INGESTION_GATEWAY_CLIENT_KEY_FILE": "/run/secrets/ingestion_api_client_key",
+        "INGESTION_GATEWAY_SERVER_NAME": "ingestion-gateway"
+      },
+      "secrets": [
+        "ingestion_gateway_ca",
+        "ingestion_api_client_cert",
+        "ingestion_api_client_key"
+      ],
+      "networks": ["application", "ingestion-client"],
+      "depends_on": {
+        "ingestion-gateway": {
+          "condition": "service_healthy"
+        }
+      },
+      "restart": "unless-stopped"
+    },
+    "api-worker": {
+      "build": {
+        "context": "../..",
+        "dockerfile": "apps/api/Dockerfile",
+        "target": "worker"
+      },
+      "environment": {
+        "NODE_ENV": "production",
+        "PROCESS_ROLE": "worker",
+        "INGESTION_WORKER_IDENTITY_PROFILE": "private-gateway-mtls",
+        "INGESTION_GATEWAY_MTLS_ENABLED": "true",
+        "INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS": "true",
+        "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "blocked",
+        "INGESTION_GATEWAY_WORKLOAD_SUBJECT": "amic-vault-api",
+        "INGESTION_GATEWAY_AUDIENCE": "amic-vault-ingestion",
+        "INGESTION_WORKER_URL": "https://ingestion-gateway:8443",
+        "INGESTION_GATEWAY_CA_FILE": "/run/secrets/ingestion_gateway_ca",
+        "INGESTION_GATEWAY_CLIENT_CERT_FILE": "/run/secrets/ingestion_api_client_cert",
+        "INGESTION_GATEWAY_CLIENT_KEY_FILE": "/run/secrets/ingestion_api_client_key",
+        "INGESTION_GATEWAY_SERVER_NAME": "ingestion-gateway"
+      },
+      "secrets": [
+        "ingestion_gateway_ca",
+        "ingestion_api_client_cert",
+        "ingestion_api_client_key"
+      ],
+      "networks": ["application", "ingestion-client"],
+      "depends_on": {
+        "ingestion-gateway": {
+          "condition": "service_healthy"
+        }
+      },
+      "restart": "unless-stopped"
+    },
+    "ingestion-gateway": {
+      "image": "docker.io/library/nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46",
+      "user": "101:101",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=64m"],
+      "volumes": [
+        "../ingestion-gateway/nginx.conf:/etc/nginx/nginx.conf:ro"
+      ],
+      "secrets": [
+        "ingestion_gateway_ca",
+        "ingestion_gateway_server_cert",
+        "ingestion_gateway_server_key"
+      ],
+      "networks": ["ingestion-client", "ingestion-worker"],
+      "depends_on": {
+        "ingestion": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": ["CMD", "nginx", "-t"],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 12
+      },
+      "restart": "unless-stopped"
+    },
+    "ingestion": {
+      "build": {
+        "context": "../..",
+        "dockerfile": "workers/ingestion/Dockerfile"
+      },
+      "environment": {
+        "NODE_ENV": "production",
+        "PYTHONUNBUFFERED": "1",
+        "INGESTION_WORKER_IDENTITY_PROFILE": "private-gateway-mtls",
+        "INGESTION_GATEWAY_MTLS_ENABLED": "true",
+        "INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS": "true",
+        "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "blocked",
+        "INGESTION_GATEWAY_WORKLOAD_SUBJECT": "amic-vault-api",
+        "INGESTION_GATEWAY_AUDIENCE": "amic-vault-ingestion",
+        "INGESTION_NONCE_STORE_PATH": "/var/lib/amic-vault/replay/nonces.sqlite3"
+      },
+      "networks": ["ingestion-worker"],
+      "volumes": [
+        "ingestion-replay:/var/lib/amic-vault/replay"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 20
+      },
+      "restart": "unless-stopped"
+    }
+  },
+  "networks": {
+    "application": {
+      "internal": true
+    },
+    "ingestion-client": {
+      "internal": true
+    },
+    "ingestion-worker": {
+      "internal": true
+    }
+  },
+  "volumes": {
+    "ingestion-replay": {}
+  },
+  "secrets": {
+    "ingestion_gateway_ca": {
+      "file": "${INGESTION_GATEWAY_CA_FILE:?set INGESTION_GATEWAY_CA_FILE}"
+    },
+    "ingestion_gateway_server_cert": {
+      "file": "${INGESTION_GATEWAY_SERVER_CERT_FILE:?set INGESTION_GATEWAY_SERVER_CERT_FILE}"
+    },
+    "ingestion_gateway_server_key": {
+      "file": "${INGESTION_GATEWAY_SERVER_KEY_FILE:?set INGESTION_GATEWAY_SERVER_KEY_FILE}"
+    },
+    "ingestion_api_client_cert": {
+      "file": "${INGESTION_GATEWAY_CLIENT_CERT_FILE:?set INGESTION_GATEWAY_CLIENT_CERT_FILE}"
+    },
+    "ingestion_api_client_key": {
+      "file": "${INGESTION_GATEWAY_CLIENT_KEY_FILE:?set INGESTION_GATEWAY_CLIENT_KEY_FILE}"
+    }
+  }
+}

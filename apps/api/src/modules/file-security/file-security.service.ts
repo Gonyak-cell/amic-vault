@@ -1,8 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { AuditService } from '../audit/audit.service';
-import { createWorkerIdentityAdapter } from '../document/extraction/worker-identity.adapters';
+import { fetchIngestionWorker } from '../document/extraction/private-gateway.transport';
 import { StorageService } from '../storage/storage.service';
 import { FilePromotionService } from './file-promotion.service';
 import type { FileSecurityScanJobPayload } from './file-security.types';
@@ -19,21 +19,8 @@ interface ScanTarget {
   attemptNo: number;
 }
 
-function workerUrl(): string { return `${(process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '')}/security/scan`; }
 function timeoutMs(): number { const value = Number(process.env.FILE_SECURITY_SCAN_TIMEOUT_MS ?? '10000'); return Number.isInteger(value) && value > 0 ? value : 10000; }
 function validHash(value: string): boolean { return /^[a-f0-9]{64}$/u.test(value); }
-function workerIdentityHeaders(): Record<string, string> {
-  const adapter = createWorkerIdentityAdapter();
-  const identity = adapter.createRequestIdentity(randomUUID());
-  return {
-    'x-amic-request-id': identity.requestId,
-    'x-amic-ingestion-nonce': identity.nonce,
-    'x-amic-ingestion-expires-at': identity.expiresAt,
-    ...(adapter.profile === 'loopback-dev'
-      ? { 'x-amic-dev-loopback-identity': 'true' }
-      : {}),
-  };
-}
 function isLegacyPromotionInputMissing(error: unknown): boolean {
   return error instanceof Error && error.message === 'FILE_SECURITY_PROMOTION_INPUT_MISSING';
 }
@@ -100,7 +87,7 @@ export class FileSecurityService {
       const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs());
       try {
         const form = new FormData(); form.append('quarantine_ref', payload.quarantineRef); form.append('expected_sha256', payload.expectedSha256); form.append('file', new Blob([new Uint8Array(Buffer.concat(chunks))]), 'quarantine.bin');
-        const response = await fetch(workerUrl(), { method: 'POST', headers: { 'x-amic-tenant-id': payload.tenantId, ...workerIdentityHeaders() }, body: form, signal: controller.signal });
+        const response = await fetchIngestionWorker('/security/scan', { method: 'POST', headers: { 'x-amic-tenant-id': payload.tenantId }, body: form, signal: controller.signal });
         const body = await response.json().catch(() => null) as Record<string, unknown> | null;
         if (!response.ok || !body || !['clean', 'infected', 'error', 'stale_signature'].includes(String(body.outcome))) return this.failure('malformed_response', observedSha256);
         const verdict = body.outcome as Verdict;

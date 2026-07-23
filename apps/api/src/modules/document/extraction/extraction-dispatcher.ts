@@ -22,6 +22,10 @@ import {
   normalizeFailureReasonCode,
 } from './extraction.types';
 import { createIngestionWorkerRequest } from './ingestion-request.factory';
+import {
+  fetchIngestionWorker,
+  type IngestionWorkerPath,
+} from './private-gateway.transport';
 
 interface WorkerResponse {
   status?: unknown;
@@ -57,24 +61,6 @@ const annotationTypes = new Set([
   'link',
   'unknown',
 ]);
-
-function workerBaseUrl(): string {
-  const configured = process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000';
-  if (process.env.INGESTION_WORKER_IDENTITY_PROFILE === 'private-gateway-mtls') {
-    try {
-      const gateway = new URL(configured);
-      if (
-        gateway.protocol !== 'https:' ||
-        ['127.0.0.1', '::1', 'localhost'].includes(gateway.hostname)
-      ) {
-        throw new Error('invalid private gateway');
-      }
-    } catch {
-      throw new Error('WORKER_IDENTITY_CONFIGURATION_INVALID');
-    }
-  }
-  return configured.replace(/\/+$/, '');
-}
 
 function extractionWorkerTimeoutMs(): number {
   const parsed = Number(process.env.EXTRACTION_WORKER_TIMEOUT_MS ?? '60000');
@@ -385,7 +371,7 @@ export class ExtractionDispatcher {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), extractionWorkerTimeoutMs());
     try {
-      return await fetch(`${workerBaseUrl()}/${workerPath}`, {
+      return await fetchIngestionWorker(`/${workerPath}` as IngestionWorkerPath, {
         method: 'POST',
         headers: request.headers,
         signal: controller.signal,

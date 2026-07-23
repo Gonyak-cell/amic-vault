@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { fetchIngestionWorker } from '../document/extraction/private-gateway.transport';
 
 export const previewConvertQueueName = 'document.preview-convert';
 
@@ -7,24 +8,6 @@ export class PreviewConversionUnavailableError extends Error {
     super(message);
     this.name = 'PreviewConversionUnavailableError';
   }
-}
-
-function workerBaseUrl(): string {
-  const configured = process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000';
-  if (process.env.INGESTION_WORKER_IDENTITY_PROFILE === 'private-gateway-mtls') {
-    try {
-      const gateway = new URL(configured);
-      if (
-        gateway.protocol !== 'https:' ||
-        ['127.0.0.1', '::1', 'localhost'].includes(gateway.hostname)
-      ) {
-        throw new Error('invalid private gateway');
-      }
-    } catch {
-      throw new PreviewConversionUnavailableError('private gateway configuration invalid');
-    }
-  }
-  return configured.replace(/\/+$/, '');
 }
 
 @Injectable()
@@ -47,7 +30,7 @@ export class PreviewConvertJob {
 
     let response: Response;
     try {
-      response = await fetch(`${workerBaseUrl()}/convert/office-to-pdf`, {
+      response = await fetchIngestionWorker('/convert/office-to-pdf', {
         method: 'POST',
         headers: { 'x-amic-tenant-id': input.tenantId },
         body: form,

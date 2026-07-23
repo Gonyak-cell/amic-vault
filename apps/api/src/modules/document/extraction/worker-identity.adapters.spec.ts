@@ -15,6 +15,10 @@ const gatewayEnvironment = {
   INGESTION_GATEWAY_WORKLOAD_SUBJECT: 'amic-vault-api',
   INGESTION_GATEWAY_AUDIENCE: 'amic-vault-ingestion',
   INGESTION_WORKER_URL: 'https://ingestion-gateway.internal',
+  INGESTION_GATEWAY_CA_FILE: '/run/secrets/ingestion_gateway_ca',
+  INGESTION_GATEWAY_CLIENT_CERT_FILE: '/run/secrets/ingestion_api_client_cert',
+  INGESTION_GATEWAY_CLIENT_KEY_FILE: '/run/secrets/ingestion_api_client_key',
+  INGESTION_GATEWAY_SERVER_NAME: 'ingestion-gateway.internal',
 } as const;
 
 describe('worker identity adapters', () => {
@@ -38,6 +42,10 @@ describe('worker identity adapters', () => {
       ['INGESTION_GATEWAY_AUDIENCE', 'other-worker'],
       ['INGESTION_WORKER_URL', 'http://ingestion-gateway.internal'],
       ['INGESTION_WORKER_URL', 'https://127.0.0.1:8000'],
+      ['INGESTION_GATEWAY_CA_FILE', 'relative/ca.pem'],
+      ['INGESTION_GATEWAY_CLIENT_CERT_FILE', ''],
+      ['INGESTION_GATEWAY_CLIENT_KEY_FILE', 'relative/key.pem'],
+      ['INGESTION_GATEWAY_SERVER_NAME', 'other.internal'],
     ] as const) {
       expect(
         () =>

@@ -1,5 +1,4 @@
 import asyncio
-import os
 from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 
@@ -17,11 +16,6 @@ from .parsers.pdf import extract_pdf
 from .parsers.pdf_annotations import extract_pdf_annotations
 from .parsers.plaintext import extract_csv, extract_html, extract_plaintext
 from .parsers.types import ExtractionResult
-from .service_identity import (
-    InMemoryNonceReplayStore,
-    ServiceIdentityDenied,
-    verify_ingestion_request_identity,
-)
 from .storage_client import (
     WorkerStorageAccessDenied,
     WorkerStorageError,
@@ -31,9 +25,6 @@ from .storage_client import (
 )
 
 router = APIRouter()
-_nonce_store = InMemoryNonceReplayStore()
-
-
 class ExtractResponse(BaseModel):
     status: str
     extraction_method: str
@@ -152,14 +143,7 @@ async def _read_validated_stored_object(request: Request, parser_profile: str) -
         raise HTTPException(status_code=400, detail={"code": "VALIDATION_FAILED"})
     identity = getattr(request.state, "ingestion_identity", None)
     if identity is None:
-        try:
-            identity = verify_ingestion_request_identity(
-                request.headers,
-                env=os.environ,
-                nonce_store=_nonce_store,
-            )
-        except ServiceIdentityDenied as exc:
-            raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"}) from exc
+        raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"})
     if (
         identity.request_id != job.requestId
         or identity.expires_at.strftime("%Y-%m-%dT%H:%M:%SZ") != job.expiresAt

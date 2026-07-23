@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "amic-vault.ingestion-gateway-identity-fixture.v1",
+  "approvedClientSubject": "CN=amic-vault-api",
+  "injectedHeaders": {
+    "X-Amic-Gateway-Mtls-Verified": "true",
+    "X-Amic-Gateway-Workload-Subject": "amic-vault-api",
+    "X-Amic-Gateway-Audience": "amic-vault-ingestion"
+  },
+  "clearedHeaders": ["X-Amic-Dev-Loopback-Identity"],
+  "tlsProtocols": ["TLSv1.2", "TLSv1.3"],
+  "deniedCases": [
+    "missing-client-certificate",
+    "untrusted-client-ca",
+    "expired-client-certificate",
+    "wrong-client-subject"
+  ]
+}
