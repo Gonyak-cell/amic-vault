@@ -36,6 +36,7 @@ const repoRoot = process.cwd();
 const tempRoot = mkdtempSync(join(tmpdir(), 'amic-vault-ingestion-sandbox-e2e-'));
 const certificateRoot = join(tempRoot, 'certs');
 const fixtureRoot = join(tempRoot, 'fixtures');
+const replayRoot = join(tempRoot, 'replay');
 const overridePath = join(tempRoot, 'compose.override.json');
 const bombPath = join(tempRoot, 'bomb.zip');
 const projectName = `amic-vault-sf20-sandbox-${process.pid}`;
@@ -475,7 +476,9 @@ function createBomb(): Buffer {
 beforeAll(() => {
   mkdirSync(certificateRoot);
   mkdirSync(fixtureRoot);
+  mkdirSync(replayRoot);
   const fixtureUser = hostFixtureUser();
+  const [fixtureUid, fixtureGid] = fixtureUser.split(':');
   ca = createCa();
   const gatewayServer = issueCertificate({
     name: 'gateway-server',
@@ -540,6 +543,7 @@ beforeAll(() => {
     JSON.stringify({
       services: {
         ingestion: {
+          user: fixtureUser,
           environment: {
             AWS_CA_BUNDLE: '/test-certs/ca.crt',
             INGESTION_EGRESS_ENFORCEMENT: 'required',
@@ -552,7 +556,14 @@ beforeAll(() => {
             INGESTION_CLAMAV_HOST: 'clamav-fixture',
             INGESTION_CLAMAV_PORT: '3310',
           },
-          volumes: [`${certificateRoot}:/test-certs:ro`],
+          volumes: [
+            `${replayRoot}:/var/lib/amic-vault/replay`,
+            `${certificateRoot}:/test-certs:ro`,
+          ],
+          tmpfs: [
+            `/tmp:rw,noexec,nosuid,nodev,size=512m,uid=${fixtureUid},gid=${fixtureGid},mode=1770`,
+            `/var/tmp:rw,noexec,nosuid,nodev,size=64m,uid=${fixtureUid},gid=${fixtureGid},mode=1770`,
+          ],
           depends_on: {
             'storage-fixture': { condition: 'service_healthy' },
             'clamav-fixture': { condition: 'service_healthy' },
@@ -826,6 +837,15 @@ describe.sequential('hostile document containment on the production ingestion to
   });
 
   it('enforces the declared non-root read-only resource profile at runtime', () => {
+    const productionIngestion = JSON.parse(readFileSync(baseCompose, 'utf8')).services.ingestion;
+    expect(productionIngestion.user).toBe('10001:10001');
+    expect(productionIngestion.tmpfs).toEqual([
+      '/tmp:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=1770',
+      '/var/tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770',
+    ]);
+
+    const fixtureUser = hostFixtureUser();
+    const [fixtureUid, fixtureGid] = fixtureUser.split(':');
     const containerId = runCompose(['ps', '-q', 'ingestion']).trim();
     const inspected = JSON.parse(
       execFileSync('docker', ['inspect', containerId], {
@@ -833,7 +853,7 @@ describe.sequential('hostile document containment on the production ingestion to
         timeout: 15_000,
       }),
     )[0];
-    expect(inspected.Config.User).toBe('10001:10001');
+    expect(inspected.Config.User).toBe(fixtureUser);
     expect(inspected.HostConfig.ReadonlyRootfs).toBe(true);
     expect(inspected.HostConfig.CapDrop).toEqual(['ALL']);
     expect(inspected.HostConfig.PidsLimit).toBe(96);
@@ -847,8 +867,8 @@ describe.sequential('hostile document containment on the production ingestion to
       'sh',
       '-lc',
       [
-        'test "$(id -u)" = 10001',
-        'test "$(id -g)" = 10001',
+        `test "$(id -u)" = ${fixtureUid}`,
+        `test "$(id -g)" = ${fixtureGid}`,
         'test "$(awk \'/CapEff/ {print $2}\' /proc/self/status)" = 0000000000000000',
         '! touch /worker/forbidden',
         '! touch /etc/forbidden',
