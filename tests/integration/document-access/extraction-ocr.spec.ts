@@ -425,7 +425,15 @@ function startMockOcrWorker(): Promise<{
     });
     request.on('end', () => {
       const body = Buffer.concat(chunks).toString('utf8');
-      expect([tenantAlphaId, tenantBetaId]).toContain(request.headers['x-amic-tenant-id']);
+      const job = JSON.parse(body) as { tenantId?: unknown };
+      if (
+        request.headers['x-amic-tenant-id'] !== undefined ||
+        ![tenantAlphaId, tenantBetaId].includes(job.tenantId as string)
+      ) {
+        response.writeHead(400);
+        response.end();
+        return;
+      }
       if (request.url === '/extract') {
         bodies.extract.push(body);
         response.writeHead(200, { 'content-type': 'application/json' });
