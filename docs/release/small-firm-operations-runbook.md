@@ -218,3 +218,28 @@ recovery -> resolved delivery` 순서로 확인한다. receipt에는 alertname,
 bounded state, timestamp, duration, delivery count, config/image digest,
 cleanup result만 허용한다. 로컬 성공은 `TECHNICAL_PASS`이며 배포 또는
 외부 알림 전달 준비 완료를 의미하지 않는다.
+
+실행 명령:
+
+```bash
+node tools/release/small-firm-alert-drill.mjs
+```
+
+이 명령은 source map에 고정된 exact-digest Prometheus, Alertmanager,
+Python 이미지만 사용한다. 각 실행은 고유한 `--internal` Docker
+네트워크에서 동작하며 외부 또는 loopback 포트를 publish하지 않는다.
+공식 `promtool`/`amtool` 검증 후, 공개된 Prometheus
+`ALERTS_FOR_STATE` 복원 형식과 `promtool tsdb create-blocks-from
+openmetrics`를 재사용한다. disposable rule group의 평가 주기만 1초로
+단축하며 canonical alert expression, `for` 시간, label, annotation은
+변경하지 않는다.
+
+성공 receipt는 두 번의 독립 실행과 실행별 6개 시나리오를 포함해야
+한다. 각 시나리오는 `HEALTHY_BASELINE -> INJECTED ->
+PROMETHEUS_FIRING -> ALERTMANAGER_DELIVERED -> ACKNOWLEDGED ->
+RECOVERED -> PROMETHEUS_INACTIVE -> RESOLVED_DELIVERED` 순서를
+지키며, raw canary 수와 잔여 container/network/volume/process/temp-file
+수가 모두 0이어야 한다. 로컬 receipt는 항상 `deploymentReady=false`와
+`EXTERNAL_BLOCKED_APPROVED_STAGING_ALERT_DRILL_RECEIPT_REQUIRED`를
+유지한다. 승인된 staging host와 실제 내부 전달 경로에서 동일
+6개 시나리오를 참관한 별도 receipt 없이는 이 상태를 해제하지 않는다.
