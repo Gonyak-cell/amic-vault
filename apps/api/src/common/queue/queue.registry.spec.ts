@@ -72,6 +72,44 @@ describe('QueueRegistry', () => {
     expect(boss.createQueue).toHaveBeenCalledWith('queue.late', { retryLimit: 2 });
   });
 
+  it('creates a registered dead-letter dependency before its main queue', async () => {
+    const { registry, boss } = createRegistry();
+    const created = new Set<string>();
+    vi.mocked(boss.createQueue).mockImplementation(async (name, options) => {
+      if (options?.deadLetter && !created.has(options.deadLetter)) {
+        throw new Error(`Queue ${options.deadLetter} does not exist`);
+      }
+      created.add(name);
+    });
+    registry.register({ name: 'queue.main', options: { deadLetter: 'queue.main.dead' } });
+    registry.register({ name: 'queue.main.dead', options: { retryLimit: 0 } });
+
+    await expect(registry.producer('queue.main')).resolves.toBe(boss);
+
+    expect(boss.createQueue).toHaveBeenNthCalledWith(1, 'queue.main.dead', { retryLimit: 0 });
+    expect(boss.createQueue).toHaveBeenNthCalledWith(2, 'queue.main', {
+      deadLetter: 'queue.main.dead',
+    });
+  });
+
+  it('fails closed for a missing or cyclic dead-letter dependency', async () => {
+    const missing = createRegistry();
+    missing.registry.register({
+      name: 'queue.main',
+      options: { deadLetter: 'queue.main.dead' },
+    });
+    await expect(missing.registry.producer('queue.main')).rejects.toThrow(
+      'QUEUE_DEAD_LETTER_NOT_REGISTERED',
+    );
+
+    const cyclic = createRegistry();
+    cyclic.registry.register({ name: 'queue.first', options: { deadLetter: 'queue.second' } });
+    cyclic.registry.register({ name: 'queue.second', options: { deadLetter: 'queue.first' } });
+    await expect(cyclic.registry.producer('queue.first')).rejects.toThrow(
+      'QUEUE_DEFINITION_CYCLE',
+    );
+  });
+
   it('allows consumer acquisition only in worker role', async () => {
     const { registry, boss } = createRegistry({
       NODE_ENV: 'test',

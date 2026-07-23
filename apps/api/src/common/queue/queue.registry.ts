@@ -120,10 +120,25 @@ export class QueueRegistry implements OnModuleDestroy {
     }
   }
 
-  private async ensureQueueCreated(boss: PgBoss, name: string): Promise<void> {
+  private async ensureQueueCreated(
+    boss: PgBoss,
+    name: string,
+    dependencyPath: readonly string[] = [],
+  ): Promise<void> {
     if (this.createdQueueNames.has(name)) return;
     const definition = this.definitions.get(name);
     if (!definition) throw new Error('QUEUE_NOT_REGISTERED');
+
+    const deadLetter = definition.options?.deadLetter;
+    if (deadLetter) {
+      if (deadLetter === name || dependencyPath.includes(deadLetter)) {
+        throw new Error('QUEUE_DEFINITION_CYCLE');
+      }
+      if (!this.definitions.has(deadLetter)) {
+        throw new Error('QUEUE_DEAD_LETTER_NOT_REGISTERED');
+      }
+      await this.ensureQueueCreated(boss, deadLetter, [...dependencyPath, name]);
+    }
 
     let creation = this.queueCreationPromises.get(name);
     if (!creation) {

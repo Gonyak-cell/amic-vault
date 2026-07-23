@@ -196,7 +196,9 @@ continue to build locally from the same base Compose file.
   `tools/security/check-production-host.mjs`,
   `tools/security/check-production-host.spec.mjs`.
 - **Modify:** `infra/production/compose.yml` for the bounded web/API/API-worker/
-  gateway/ingestion/ClamAV host graph and security/health ordering only.
+  gateway/ingestion/ClamAV host graph and security/health ordering only;
+  `apps/api/src/common/queue/queue.registry.ts` and its colocated spec only
+  for deterministic dead-letter-before-main provisioning on a fresh database.
 - **May create:** a generated-hash-free fixture describing expected service,
   image, network, volume, secret, and port names.
 - **NOT modify:** development Compose behavior, application dependencies,
@@ -223,6 +225,10 @@ continue to build locally from the same base Compose file.
   the approved-host marker, Ansible version, source checksums, directory/file
   modes, effective `docker compose config`, image digests, and canonical
   configuration hash before a start would be allowed.
+- Queue creation follows its registered dead-letter dependency before the
+  main queue regardless of provider/module initialization order. Missing or
+  cyclic queue dependencies fail closed instead of making a fresh host depend
+  on pre-existing queue rows.
 - Ansible accepts only explicit bounded variables and secret file references.
   It does not create cloud resources, generate secrets/certificates, install
   unpinned packages, copy upstream code, or print Compose environment.
@@ -243,6 +249,8 @@ continue to build locally from the same base Compose file.
   source drift, weak file mode, and non-matching config hash.
 - Repeated fixture/check-mode renders produce an identical image set and
   configuration hash without contacting or mutating a real host.
+- A fresh migrated database provisions registered main/dead-letter pairs in
+  dependency order; missing and cyclic definitions fail with bounded codes.
 - The existing mTLS gateway 8-case and hostile sandbox 8-case runtime Gates
   remain green against the base production topology.
 
