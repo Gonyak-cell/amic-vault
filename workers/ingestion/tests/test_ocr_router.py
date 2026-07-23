@@ -24,6 +24,18 @@ client = TestClient(app)
 _stored_objects: dict[str, WorkerStoredObject] = {}
 
 
+def _loopback_identity_headers() -> dict[str, str]:
+    request_id = str(uuid4())
+    nonce = str(uuid4())
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    return {
+        "x-amic-dev-loopback-identity": "true",
+        "x-amic-request-id": request_id,
+        "x-amic-ingestion-nonce": nonce,
+        "x-amic-ingestion-expires-at": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 def _fake_read_ingestion_object(job):
     return _stored_objects[job.objectKey]
 
@@ -132,10 +144,11 @@ def test_ocr_extracts_png_with_injected_engine(monkeypatch) -> None:
 
 
 def test_ocr_tenant_header_mismatch_fails_closed() -> None:
+    headers = _loopback_identity_headers()
     response = client.post(
         "/ocr",
         json={},
-        headers={"x-amic-tenant-id": "22222222-2222-4222-8222-222222222222"},
+        headers={**headers, "x-amic-tenant-id": "22222222-2222-4222-8222-222222222222"},
     )
 
     assert response.status_code == 400
