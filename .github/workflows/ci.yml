@@ -31,6 +31,22 @@ jobs:
       - run: node --test tools/quality/check-small-firm-profile.spec.mjs tools/bench/small-firm-20-profile.spec.mjs
       - run: node tools/quality/check-small-firm-profile.mjs --static
       - run: node tools/bench/small-firm-20-profile.mjs
+      - name: Verify SF20 monitoring contracts with official tools
+        run: |
+          node --test tools/monitoring/check-small-firm-monitoring.spec.mjs
+          node tools/monitoring/check-small-firm-monitoring.mjs
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$PWD/infra/monitoring:/etc/prometheus:ro" \
+            docker.io/prom/prometheus:v3.13.1@sha256:3c42b892cf723fa54d2f262c37a0e1f80aa8c8ddb1da7b9b0df9455a35a7f893 \
+            check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$PWD/infra/monitoring:/etc/prometheus:ro" \
+            docker.io/prom/prometheus:v3.13.1@sha256:3c42b892cf723fa54d2f262c37a0e1f80aa8c8ddb1da7b9b0df9455a35a7f893 \
+            test rules /etc/prometheus/alerts.test.yml
+          docker run --rm --entrypoint /bin/amtool \
+            -v "$PWD/infra/monitoring:/etc/alertmanager:ro" \
+            docker.io/prom/alertmanager:v0.33.1@sha256:9e082985f56f4c8c9f724e18f2288c6708f472e56a5286b8863d080434ea065d \
+            check-config /etc/alertmanager/alertmanager.yml
       - name: Verify SF20 production and recovery contracts
         run: |
           node --test \

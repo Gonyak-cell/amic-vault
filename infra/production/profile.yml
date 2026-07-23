@@ -27,7 +27,9 @@
       "api-worker",
       "ingestion-gateway",
       "ingestion",
-      "clamav"
+      "clamav",
+      "prometheus",
+      "alertmanager"
     ],
     "monitoringActivation": "PACK-SF20-04",
     "approvedHostReceipt": "EXTERNAL_BLOCKED_APPROVED_HOST_RECEIPT_REQUIRED"

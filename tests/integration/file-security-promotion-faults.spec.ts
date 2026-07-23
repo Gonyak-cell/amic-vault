@@ -32,6 +32,7 @@ describe('file security promotion fault integration', () => {
   let fileSecurity: FileSecurityService;
   let audit: AuditService;
   let storage: StorageService;
+  let clientId: string;
   let matterId: string;
   let userId: string;
   const scanIds: string[] = [];
@@ -45,24 +46,29 @@ describe('file security promotion fault integration', () => {
     audit = app.get(AuditService);
     storage = app.get(StorageService);
     const fixture = await withClient(createOwnerClient(), async (client) => {
-      const result = await client.query<{ client_id: string; user_id: string }>(
-        `SELECT c.client_id, u.user_id
-         FROM clients c JOIN users u ON u.tenant_id = c.tenant_id
-         WHERE c.tenant_id = $1
+      const result = await client.query<{ user_id: string }>(
+        `SELECT user_id
+         FROM users
+         WHERE tenant_id = $1
          LIMIT 1`,
         [tenantAlphaId],
       );
       return result.rows[0];
     });
     if (!fixture) throw new Error('file security fixture missing');
+    clientId = randomUUID();
     matterId = randomUUID();
     userId = fixture.user_id;
     await withClient(createOwnerClient(), (client) => client.query(
-      `INSERT INTO matters (
+      `WITH inserted_client AS (
+        INSERT INTO clients (client_id, tenant_id, name, created_by)
+        VALUES ($1, $2, 'File security promotion fault client', $3)
+      )
+      INSERT INTO matters (
         matter_id, tenant_id, client_id, matter_code, matter_name, matter_type,
         status, lead_lawyer_id, created_by
-      ) VALUES ($1, $2, $3, $4, 'File security promotion fault fixture', 'contract', 'active', $5, $5)`,
-      [matterId, tenantAlphaId, fixture.client_id, `FPROM-${matterId}`, userId],
+      ) VALUES ($4, $2, $1, $5, 'File security promotion fault fixture', 'contract', 'active', $3, $3)`,
+      [clientId, tenantAlphaId, userId, matterId, `FPROM-${matterId}`],
     ));
   });
 
@@ -73,6 +79,7 @@ describe('file security promotion fault integration', () => {
         await client.query('DELETE FROM file_security_scans WHERE tenant_id = $1 AND scan_id = ANY($2::uuid[])', [tenantAlphaId, scanIds]);
       }
       await client.query('DELETE FROM matters WHERE tenant_id = $1 AND matter_id = $2', [tenantAlphaId, matterId]);
+      await client.query('DELETE FROM clients WHERE tenant_id = $1 AND client_id = $2', [tenantAlphaId, clientId]);
     });
     for (const storageUri of storageUris) await storage.deleteByStorageUri(tenantAlphaId, storageUri);
     await app.close();
@@ -201,5 +208,5 @@ describe('file security promotion fault integration', () => {
     } finally {
       restore();
     }
-  });
+  }, 15_000);
 });

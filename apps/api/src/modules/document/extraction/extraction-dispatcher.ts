@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { safeReference } from '../../../common/logging/logger';
 import { MetricsRegistry } from '../../../common/metrics/metrics.middleware';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { DdService } from '../../dd/dd.service';
@@ -22,10 +23,7 @@ import {
   normalizeFailureReasonCode,
 } from './extraction.types';
 import { createIngestionWorkerRequest } from './ingestion-request.factory';
-import {
-  fetchIngestionWorker,
-  type IngestionWorkerPath,
-} from './private-gateway.transport';
+import { fetchIngestionWorker, type IngestionWorkerPath } from './private-gateway.transport';
 
 interface WorkerResponse {
   status?: unknown;
@@ -145,7 +143,9 @@ function parseRevisionResponse(payload: unknown): DocumentRevisionExtractionInpu
   });
 }
 
-function parseAnnotationResponse(payload: unknown): DocumentAnnotationExtractionInput[] | undefined {
+function parseAnnotationResponse(
+  payload: unknown,
+): DocumentAnnotationExtractionInput[] | undefined {
   if (!isRecord(payload) || payload.status !== 'ready' || !Array.isArray(payload.annotations)) {
     return undefined;
   }
@@ -260,7 +260,10 @@ export class ExtractionDispatcher {
   ): Promise<void> {
     const target = await this.findTarget(payload);
     if (!target) {
-      this.logger.warn({ code: 'EXTRACTION_TARGET_MISSING', versionId: payload.versionId });
+      this.logger.warn({
+        code: 'EXTRACTION_TARGET_MISSING',
+        versionRef: safeReference(payload.versionId),
+      });
       await this.storeDeadLetter(payload, 'EXTRACTION_TARGET_MISSING');
       return;
     }
@@ -335,7 +338,11 @@ export class ExtractionDispatcher {
       );
       return revisions === undefined ? result : { ...result, revisions };
     }
-    if (result.method === 'pdf_text' || extension === 'pdf' || target.mimeType === 'application/pdf') {
+    if (
+      result.method === 'pdf_text' ||
+      extension === 'pdf' ||
+      target.mimeType === 'application/pdf'
+    ) {
       const annotations = parseAnnotationResponse(
         await this.callSupplementalWorker(target, 'extract-annotations'),
       );
@@ -367,6 +374,13 @@ export class ExtractionDispatcher {
       parserProfile: workerPath === 'ocr' ? 'ocr' : 'extract',
       storageService: this.storageService,
       storagePathResolver: this.storagePathResolver,
+    });
+    this.logger.log({
+      code: 'INGESTION_DISPATCH',
+      queue: workerLabel,
+      operation: workerPath,
+      versionRef: safeReference(target.versionId),
+      ingestionRequestRef: safeReference(request.job.requestId),
     });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), extractionWorkerTimeoutMs());
@@ -479,7 +493,10 @@ export class ExtractionDispatcher {
     await this.auditService.transaction(input.tenantId, async (tx) => {
       const target = await this.findTargetInTransaction(input, tx);
       if (!target) {
-        this.logger.warn({ code: 'EXTRACTION_RESULT_TARGET_MISSING', versionId: input.versionId });
+        this.logger.warn({
+          code: 'EXTRACTION_RESULT_TARGET_MISSING',
+          versionRef: safeReference(input.versionId),
+        });
         return;
       }
       await tx.query(

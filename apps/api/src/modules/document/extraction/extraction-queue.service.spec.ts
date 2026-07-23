@@ -1,11 +1,15 @@
+import { Logger } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { safeReference } from '../../../common/logging/logger';
 import {
   extractionDeadLetterQueueName,
+  extractionQueueName,
   ocrDeadLetterQueueName,
   ocrQueueName,
   type ExtractionJobPayload,
 } from './extraction.types';
 import {
+  ExtractionQueueService,
   extractionQueueSendOptions,
   isExtractionQueueWorkerEnabled,
 } from './extraction-queue.service';
@@ -17,6 +21,39 @@ describe('ExtractionQueueService options', () => {
 
   afterEach(() => {
     process.env = { ...previousEnv };
+    vi.restoreAllMocks();
+  });
+
+  it('logs only safe queue, version, and job references after transactional enqueue', async () => {
+    const payload: ExtractionJobPayload = {
+      tenantId: '11111111-1111-4111-8111-111111111111',
+      documentId: '11111111-1111-4111-8111-111111111133',
+      versionId: '11111111-1111-4111-8111-111111111155',
+      fileObjectId: '11111111-1111-4111-8111-111111111144',
+    };
+    const client = { query: vi.fn(async () => ({ rowCount: 1, rows: [] })) };
+    const boss = {
+      send: vi.fn(async () => '22222222-2222-4222-8222-222222222222'),
+    };
+    const queueRegistry = {
+      register: vi.fn(),
+      producer: vi.fn(async () => boss),
+    };
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const service = new ExtractionQueueService({} as never, queueRegistry as never);
+
+    await expect(service.enqueueVersionCreated(payload, client as never)).resolves.toBe(
+      '22222222-2222-4222-8222-222222222222',
+    );
+
+    expect(log).toHaveBeenCalledWith({
+      code: 'EXTRACTION_ENQUEUED',
+      queue: extractionQueueName,
+      versionRef: safeReference(payload.versionId),
+      jobRef: safeReference('22222222-2222-4222-8222-222222222222'),
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain(payload.versionId);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('22222222-2222-4222-8222-222222222222');
   });
 
   it('uses max three retries, exponential backoff, and dead letter queue', async () => {

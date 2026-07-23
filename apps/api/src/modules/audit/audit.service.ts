@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import {
   isAuditAction,
@@ -8,6 +8,7 @@ import {
 } from '@amic-vault/shared';
 import { currentRequestId } from '../../common/logging/correlation.middleware';
 import { DatabaseService } from '../../common/db/database.service';
+import { MetricsRegistry } from '../../common/metrics/metrics.middleware';
 import type { TenantTransactionOptions } from '../../common/db/tenant-aware-datasource';
 import { TenantContextService } from '../tenant/tenant-context';
 import { AuditMetadataNormalizer } from './audit-metadata.normalizer';
@@ -50,6 +51,9 @@ export class AuditService {
     @Inject(AuditMetadataNormalizer)
     private readonly metadataNormalizer: AuditMetadataNormalizer,
     @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+    @Optional()
+    @Inject(MetricsRegistry)
+    private readonly metricsRegistry?: MetricsRegistry,
   ) {}
 
   async transaction<T>(
@@ -92,37 +96,43 @@ export class AuditService {
     queryClient: QueryClient,
   ): Promise<AuditLogResult> {
     const metadata = this.metadataNormalizer.normalize(input.metadata);
-    const result = await queryClient.query(
-      `
+    try {
+      const result = await queryClient.query(
+        `
         INSERT INTO audit_events (
           tenant_id, actor_type, actor_id, session_id, action, target_type, target_id,
           matter_id, result, metadata_json, correlation_id, retention_label
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)
         RETURNING event_id, created_at
-      `,
-      [
-        tenantId,
-        input.actorType ?? (input.actorId ? 'user' : 'system'),
-        input.actorId ?? null,
-        input.sessionId ?? null,
-        input.action,
-        input.targetType,
-        input.targetId ?? null,
-        input.matterId ?? null,
-        input.result ?? 'success',
-        JSON.stringify(metadata),
-        input.metadata && hasMetadataValue(input.metadata, 'correlation_id')
-          ? String((input.metadata as Record<string, unknown>).correlation_id)
-          : (currentRequestId() ?? null),
-        input.retentionLabel ?? 'PERMANENT',
-      ],
-    );
-    const row = result.rows[0] as AuditRow | undefined;
-    if (!row) {
-      throw new Error('audit insert returned no row');
+        `,
+        [
+          tenantId,
+          input.actorType ?? (input.actorId ? 'user' : 'system'),
+          input.actorId ?? null,
+          input.sessionId ?? null,
+          input.action,
+          input.targetType,
+          input.targetId ?? null,
+          input.matterId ?? null,
+          input.result ?? 'success',
+          JSON.stringify(metadata),
+          input.metadata && hasMetadataValue(input.metadata, 'correlation_id')
+            ? String((input.metadata as Record<string, unknown>).correlation_id)
+            : (currentRequestId() ?? null),
+          input.retentionLabel ?? 'PERMANENT',
+        ],
+      );
+      const row = result.rows[0] as AuditRow | undefined;
+      if (!row) {
+        throw new Error('audit insert returned no row');
+      }
+      this.metricsRegistry?.recordAuditWrite('success');
+      return { eventId: row.event_id, createdAt: row.created_at };
+    } catch (error) {
+      this.metricsRegistry?.recordAuditWrite('failure');
+      throw error;
     }
-    return { eventId: row.event_id, createdAt: row.created_at };
   }
 }
 

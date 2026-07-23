@@ -49,6 +49,15 @@ export class QueueRegistry implements OnModuleDestroy {
     return [...this.definitions.keys()].sort();
   }
 
+  registeredQueueDefinitions(): QueueDefinition[] {
+    return [...this.definitions.values()]
+      .map((definition) => ({
+        name: definition.name,
+        ...(definition.options ? { options: { ...definition.options } } : {}),
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
   async producer(name: string): Promise<PgBoss> {
     this.assertRegistered(name);
     const boss = await this.ensureStarted();

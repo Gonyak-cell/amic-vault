@@ -40,6 +40,14 @@
         "timeout": "5s",
         "retries": 20
       },
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
+      },
       "restart": "unless-stopped"
     },
     "api": {
@@ -108,6 +116,14 @@
         "timeout": "5s",
         "retries": 20
       },
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
+      },
       "restart": "unless-stopped"
     },
     "api-worker": {
@@ -170,6 +186,14 @@
         "timeout": "5s",
         "retries": 20
       },
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
+      },
       "restart": "unless-stopped"
     },
     "ingestion-gateway": {
@@ -182,9 +206,7 @@
       "pids_limit": 64,
       "cpus": "0.5",
       "mem_limit": "256m",
-      "volumes": [
-        "../ingestion-gateway/nginx.conf:/etc/nginx/nginx.conf:ro"
-      ],
+      "volumes": ["../ingestion-gateway/nginx.conf:/etc/nginx/nginx.conf:ro"],
       "secrets": [
         "ingestion_gateway_ca",
         "ingestion_gateway_server_cert",
@@ -201,6 +223,14 @@
         "interval": "10s",
         "timeout": "5s",
         "retries": 12
+      },
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
       },
       "restart": "unless-stopped"
     },
@@ -235,6 +265,14 @@
         "timeout": "5s",
         "retries": 30
       },
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
+      },
       "restart": "unless-stopped"
     },
     "ingestion": {
@@ -264,10 +302,7 @@
         "INGESTION_CLAMAV_HOST": "${INGESTION_CLAMAV_HOST:?set INGESTION_CLAMAV_HOST}",
         "INGESTION_CLAMAV_PORT": "${INGESTION_CLAMAV_PORT:?set INGESTION_CLAMAV_PORT}"
       },
-      "secrets": [
-        "s3_ingestion_access_key_id",
-        "s3_ingestion_secret_access_key"
-      ],
+      "secrets": ["s3_ingestion_access_key_id", "s3_ingestion_secret_access_key"],
       "user": "10001:10001",
       "read_only": true,
       "cap_drop": ["ALL"],
@@ -280,9 +315,7 @@
         "/var/tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770"
       ],
       "networks": ["ingestion-worker", "ingestion-egress"],
-      "volumes": [
-        "ingestion-replay:/var/lib/amic-vault/replay"
-      ],
+      "volumes": ["ingestion-replay:/var/lib/amic-vault/replay"],
       "healthcheck": {
         "test": [
           "CMD",
@@ -295,6 +328,88 @@
         "retries": 20
       },
       "stop_grace_period": "20s",
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
+      },
+      "restart": "unless-stopped"
+    },
+    "prometheus": {
+      "image": "docker.io/prom/prometheus:v3.13.1@sha256:3c42b892cf723fa54d2f262c37a0e1f80aa8c8ddb1da7b9b0df9455a35a7f893",
+      "command": [
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+        "--web.listen-address=0.0.0.0:9090"
+      ],
+      "user": "65534:65534",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 64,
+      "cpus": "0.5",
+      "mem_limit": "512m",
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=32m,uid=65534,gid=65534,mode=1770"],
+      "volumes": [
+        "../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro",
+        "../monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro",
+        "prometheus-data:/prometheus"
+      ],
+      "networks": ["application", "monitoring"],
+      "healthcheck": {
+        "test": ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 20
+      },
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
+      },
+      "restart": "unless-stopped"
+    },
+    "alertmanager": {
+      "image": "docker.io/prom/alertmanager:v0.33.1@sha256:9e082985f56f4c8c9f724e18f2288c6708f472e56a5286b8863d080434ea065d",
+      "command": [
+        "--config.file=/etc/alertmanager/alertmanager.yml",
+        "--storage.path=/alertmanager",
+        "--data.retention=120h",
+        "--web.listen-address=0.0.0.0:9093"
+      ],
+      "user": "65534:65534",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 64,
+      "cpus": "0.25",
+      "mem_limit": "256m",
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=32m,uid=65534,gid=65534,mode=1770"],
+      "volumes": [
+        "../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro",
+        "alertmanager-data:/alertmanager"
+      ],
+      "networks": ["monitoring"],
+      "healthcheck": {
+        "test": ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9093/-/ready"],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 20
+      },
+      "logging": {
+        "driver": "local",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5",
+          "compress": "true"
+        }
+      },
       "restart": "unless-stopped"
     }
   },
@@ -310,11 +425,16 @@
     },
     "ingestion-egress": {
       "internal": true
+    },
+    "monitoring": {
+      "internal": true
     }
   },
   "volumes": {
     "ingestion-replay": {},
-    "clamav-signatures": {}
+    "clamav-signatures": {},
+    "prometheus-data": {},
+    "alertmanager-data": {}
   },
   "secrets": {
     "database_runtime_url": {

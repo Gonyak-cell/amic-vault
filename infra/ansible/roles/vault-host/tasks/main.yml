@@ -37,59 +37,95 @@
 
 - name: Create the immutable release directory
   ansible.builtin.file:
-    path: "{{ vault_release_root }}"
+    path: '{{ vault_release_root }}'
     state: directory
     owner: root
     group: root
-    mode: "0750"
+    mode: '0750'
+
+- name: Create the immutable release configuration directories
+  ansible.builtin.file:
+    path: '{{ vault_release_root }}/{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  loop:
+    - production
+    - ingestion-gateway
+    - monitoring
 
 - name: Install the reviewed production profile
   ansible.builtin.copy:
-    src: "{{ vault_source_root }}/infra/production/profile.yml"
-    dest: "{{ vault_release_root }}/profile.yml"
+    src: '{{ vault_source_root }}/infra/production/profile.yml'
+    dest: '{{ vault_release_root }}/production/profile.yml'
     owner: root
     group: root
-    mode: "0640"
+    mode: '0640'
 
 - name: Install the reviewed base Compose model
   ansible.builtin.copy:
-    src: "{{ vault_source_root }}/infra/production/compose.yml"
-    dest: "{{ vault_release_root }}/compose.yml"
+    src: '{{ vault_source_root }}/infra/production/compose.yml'
+    dest: '{{ vault_release_root }}/production/compose.yml'
     owner: root
     group: root
-    mode: "0640"
+    mode: '0640'
 
 - name: Install the immutable-image Compose overlay
   ansible.builtin.copy:
-    src: "{{ vault_source_root }}/infra/production/compose.images.yml"
-    dest: "{{ vault_release_root }}/compose.images.yml"
+    src: '{{ vault_source_root }}/infra/production/compose.images.yml'
+    dest: '{{ vault_release_root }}/production/compose.images.yml'
     owner: root
     group: root
-    mode: "0640"
+    mode: '0640'
 
 - name: Install the reviewed secret reference manifest
   ansible.builtin.copy:
-    src: "{{ vault_source_root }}/infra/production/secret-manifest.yml"
-    dest: "{{ vault_release_root }}/secret-manifest.yml"
+    src: '{{ vault_source_root }}/infra/production/secret-manifest.yml'
+    dest: '{{ vault_release_root }}/production/secret-manifest.yml'
     owner: root
     group: root
-    mode: "0640"
+    mode: '0640'
 
 - name: Install the reviewed gateway configuration
   ansible.builtin.copy:
-    src: "{{ vault_source_root }}/infra/ingestion-gateway/nginx.conf"
-    dest: "{{ vault_release_root }}/ingestion-gateway.nginx.conf"
+    src: '{{ vault_source_root }}/infra/ingestion-gateway/nginx.conf'
+    dest: '{{ vault_release_root }}/ingestion-gateway/nginx.conf'
     owner: root
     group: root
-    mode: "0640"
+    mode: '0640'
+
+- name: Install the reviewed Prometheus configuration
+  ansible.builtin.copy:
+    src: '{{ vault_source_root }}/infra/monitoring/prometheus.yml'
+    dest: '{{ vault_release_root }}/monitoring/prometheus.yml'
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Install the reviewed Prometheus rules
+  ansible.builtin.copy:
+    src: '{{ vault_source_root }}/infra/monitoring/alerts.yml'
+    dest: '{{ vault_release_root }}/monitoring/alerts.yml'
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Install the reviewed Alertmanager configuration
+  ansible.builtin.copy:
+    src: '{{ vault_source_root }}/infra/monitoring/alertmanager.yml'
+    dest: '{{ vault_release_root }}/monitoring/alertmanager.yml'
+    owner: root
+    group: root
+    mode: '0640'
 
 - name: Record the precomputed canonical configuration hash
   ansible.builtin.copy:
     content: "{{ vault_config_sha256 }}\n"
-    dest: "{{ vault_release_root }}/configuration.sha256"
+    dest: '{{ vault_release_root }}/configuration.sha256'
     owner: root
     group: root
-    mode: "0640"
+    mode: '0640'
 
 - name: Validate the effective image-only Compose model
   ansible.builtin.command:
@@ -97,40 +133,40 @@
       - docker
       - compose
       - --file
-      - "{{ vault_release_root }}/compose.yml"
+      - '{{ vault_release_root }}/production/compose.yml'
       - --file
-      - "{{ vault_release_root }}/compose.images.yml"
+      - '{{ vault_release_root }}/production/compose.images.yml'
       - config
       - --quiet
   args:
-    chdir: "{{ vault_release_root }}"
+    chdir: '{{ vault_release_root }}/production'
   environment:
-    VAULT_WEB_IMAGE: "{{ vault_web_image }}"
-    VAULT_API_IMAGE: "{{ vault_api_image }}"
-    VAULT_INGESTION_IMAGE: "{{ vault_ingestion_image }}"
-    DATABASE_RUNTIME_URL_SECRET_FILE: "{{ vault_database_runtime_url_file }}"
-    S3_API_ACCESS_KEY_ID_SECRET_FILE: "{{ vault_s3_api_access_key_id_file }}"
-    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: "{{ vault_s3_api_secret_access_key_file }}"
-    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: "{{ vault_mfa_secret_encryption_key_file }}"
-    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: "{{ vault_s3_ingestion_access_key_id_file }}"
-    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: "{{ vault_s3_ingestion_secret_access_key_file }}"
-    INGESTION_GATEWAY_CA_FILE: "{{ vault_ingestion_gateway_ca_file }}"
-    INGESTION_GATEWAY_SERVER_CERT_FILE: "{{ vault_ingestion_gateway_server_cert_file }}"
-    INGESTION_GATEWAY_SERVER_KEY_FILE: "{{ vault_ingestion_gateway_server_key_file }}"
-    INGESTION_GATEWAY_CLIENT_CERT_FILE: "{{ vault_ingestion_gateway_client_cert_file }}"
-    INGESTION_GATEWAY_CLIENT_KEY_FILE: "{{ vault_ingestion_gateway_client_key_file }}"
-    S3_ENDPOINT: "{{ vault_s3_endpoint }}"
-    S3_BUCKET: "{{ vault_s3_bucket }}"
-    S3_REGION: "{{ vault_s3_region }}"
-    S3_SERVER_SIDE_ENCRYPTION: "{{ vault_s3_server_side_encryption }}"
-    INGESTION_EGRESS_STORAGE_AUTHORITY: "{{ vault_ingestion_egress_storage_authority }}"
-    INGESTION_EGRESS_CLAMAV_AUTHORITY: "{{ vault_ingestion_egress_clamav_authority }}"
-    INGESTION_EGRESS_ALLOWED_CIDRS: "{{ vault_ingestion_egress_allowed_cidrs }}"
-    INGESTION_STORAGE_ENDPOINT: "{{ vault_ingestion_storage_endpoint }}"
-    INGESTION_STORAGE_BUCKET: "{{ vault_ingestion_storage_bucket }}"
-    INGESTION_STORAGE_REGION: "{{ vault_ingestion_storage_region }}"
-    INGESTION_CLAMAV_HOST: "{{ vault_ingestion_clamav_host }}"
-    INGESTION_CLAMAV_PORT: "{{ vault_ingestion_clamav_port }}"
+    VAULT_WEB_IMAGE: '{{ vault_web_image }}'
+    VAULT_API_IMAGE: '{{ vault_api_image }}'
+    VAULT_INGESTION_IMAGE: '{{ vault_ingestion_image }}'
+    DATABASE_RUNTIME_URL_SECRET_FILE: '{{ vault_database_runtime_url_file }}'
+    S3_API_ACCESS_KEY_ID_SECRET_FILE: '{{ vault_s3_api_access_key_id_file }}'
+    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: '{{ vault_s3_api_secret_access_key_file }}'
+    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: '{{ vault_mfa_secret_encryption_key_file }}'
+    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: '{{ vault_s3_ingestion_access_key_id_file }}'
+    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: '{{ vault_s3_ingestion_secret_access_key_file }}'
+    INGESTION_GATEWAY_CA_FILE: '{{ vault_ingestion_gateway_ca_file }}'
+    INGESTION_GATEWAY_SERVER_CERT_FILE: '{{ vault_ingestion_gateway_server_cert_file }}'
+    INGESTION_GATEWAY_SERVER_KEY_FILE: '{{ vault_ingestion_gateway_server_key_file }}'
+    INGESTION_GATEWAY_CLIENT_CERT_FILE: '{{ vault_ingestion_gateway_client_cert_file }}'
+    INGESTION_GATEWAY_CLIENT_KEY_FILE: '{{ vault_ingestion_gateway_client_key_file }}'
+    S3_ENDPOINT: '{{ vault_s3_endpoint }}'
+    S3_BUCKET: '{{ vault_s3_bucket }}'
+    S3_REGION: '{{ vault_s3_region }}'
+    S3_SERVER_SIDE_ENCRYPTION: '{{ vault_s3_server_side_encryption }}'
+    INGESTION_EGRESS_STORAGE_AUTHORITY: '{{ vault_ingestion_egress_storage_authority }}'
+    INGESTION_EGRESS_CLAMAV_AUTHORITY: '{{ vault_ingestion_egress_clamav_authority }}'
+    INGESTION_EGRESS_ALLOWED_CIDRS: '{{ vault_ingestion_egress_allowed_cidrs }}'
+    INGESTION_STORAGE_ENDPOINT: '{{ vault_ingestion_storage_endpoint }}'
+    INGESTION_STORAGE_BUCKET: '{{ vault_ingestion_storage_bucket }}'
+    INGESTION_STORAGE_REGION: '{{ vault_ingestion_storage_region }}'
+    INGESTION_CLAMAV_HOST: '{{ vault_ingestion_clamav_host }}'
+    INGESTION_CLAMAV_PORT: '{{ vault_ingestion_clamav_port }}'
   changed_when: false
   no_log: true
 
@@ -140,40 +176,40 @@
       - docker
       - compose
       - --file
-      - "{{ vault_release_root }}/compose.yml"
+      - '{{ vault_release_root }}/production/compose.yml'
       - --file
-      - "{{ vault_release_root }}/compose.images.yml"
+      - '{{ vault_release_root }}/production/compose.images.yml'
       - pull
       - --quiet
   args:
-    chdir: "{{ vault_release_root }}"
+    chdir: '{{ vault_release_root }}/production'
   environment:
-    VAULT_WEB_IMAGE: "{{ vault_web_image }}"
-    VAULT_API_IMAGE: "{{ vault_api_image }}"
-    VAULT_INGESTION_IMAGE: "{{ vault_ingestion_image }}"
-    DATABASE_RUNTIME_URL_SECRET_FILE: "{{ vault_database_runtime_url_file }}"
-    S3_API_ACCESS_KEY_ID_SECRET_FILE: "{{ vault_s3_api_access_key_id_file }}"
-    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: "{{ vault_s3_api_secret_access_key_file }}"
-    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: "{{ vault_mfa_secret_encryption_key_file }}"
-    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: "{{ vault_s3_ingestion_access_key_id_file }}"
-    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: "{{ vault_s3_ingestion_secret_access_key_file }}"
-    INGESTION_GATEWAY_CA_FILE: "{{ vault_ingestion_gateway_ca_file }}"
-    INGESTION_GATEWAY_SERVER_CERT_FILE: "{{ vault_ingestion_gateway_server_cert_file }}"
-    INGESTION_GATEWAY_SERVER_KEY_FILE: "{{ vault_ingestion_gateway_server_key_file }}"
-    INGESTION_GATEWAY_CLIENT_CERT_FILE: "{{ vault_ingestion_gateway_client_cert_file }}"
-    INGESTION_GATEWAY_CLIENT_KEY_FILE: "{{ vault_ingestion_gateway_client_key_file }}"
-    S3_ENDPOINT: "{{ vault_s3_endpoint }}"
-    S3_BUCKET: "{{ vault_s3_bucket }}"
-    S3_REGION: "{{ vault_s3_region }}"
-    S3_SERVER_SIDE_ENCRYPTION: "{{ vault_s3_server_side_encryption }}"
-    INGESTION_EGRESS_STORAGE_AUTHORITY: "{{ vault_ingestion_egress_storage_authority }}"
-    INGESTION_EGRESS_CLAMAV_AUTHORITY: "{{ vault_ingestion_egress_clamav_authority }}"
-    INGESTION_EGRESS_ALLOWED_CIDRS: "{{ vault_ingestion_egress_allowed_cidrs }}"
-    INGESTION_STORAGE_ENDPOINT: "{{ vault_ingestion_storage_endpoint }}"
-    INGESTION_STORAGE_BUCKET: "{{ vault_ingestion_storage_bucket }}"
-    INGESTION_STORAGE_REGION: "{{ vault_ingestion_storage_region }}"
-    INGESTION_CLAMAV_HOST: "{{ vault_ingestion_clamav_host }}"
-    INGESTION_CLAMAV_PORT: "{{ vault_ingestion_clamav_port }}"
+    VAULT_WEB_IMAGE: '{{ vault_web_image }}'
+    VAULT_API_IMAGE: '{{ vault_api_image }}'
+    VAULT_INGESTION_IMAGE: '{{ vault_ingestion_image }}'
+    DATABASE_RUNTIME_URL_SECRET_FILE: '{{ vault_database_runtime_url_file }}'
+    S3_API_ACCESS_KEY_ID_SECRET_FILE: '{{ vault_s3_api_access_key_id_file }}'
+    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: '{{ vault_s3_api_secret_access_key_file }}'
+    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: '{{ vault_mfa_secret_encryption_key_file }}'
+    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: '{{ vault_s3_ingestion_access_key_id_file }}'
+    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: '{{ vault_s3_ingestion_secret_access_key_file }}'
+    INGESTION_GATEWAY_CA_FILE: '{{ vault_ingestion_gateway_ca_file }}'
+    INGESTION_GATEWAY_SERVER_CERT_FILE: '{{ vault_ingestion_gateway_server_cert_file }}'
+    INGESTION_GATEWAY_SERVER_KEY_FILE: '{{ vault_ingestion_gateway_server_key_file }}'
+    INGESTION_GATEWAY_CLIENT_CERT_FILE: '{{ vault_ingestion_gateway_client_cert_file }}'
+    INGESTION_GATEWAY_CLIENT_KEY_FILE: '{{ vault_ingestion_gateway_client_key_file }}'
+    S3_ENDPOINT: '{{ vault_s3_endpoint }}'
+    S3_BUCKET: '{{ vault_s3_bucket }}'
+    S3_REGION: '{{ vault_s3_region }}'
+    S3_SERVER_SIDE_ENCRYPTION: '{{ vault_s3_server_side_encryption }}'
+    INGESTION_EGRESS_STORAGE_AUTHORITY: '{{ vault_ingestion_egress_storage_authority }}'
+    INGESTION_EGRESS_CLAMAV_AUTHORITY: '{{ vault_ingestion_egress_clamav_authority }}'
+    INGESTION_EGRESS_ALLOWED_CIDRS: '{{ vault_ingestion_egress_allowed_cidrs }}'
+    INGESTION_STORAGE_ENDPOINT: '{{ vault_ingestion_storage_endpoint }}'
+    INGESTION_STORAGE_BUCKET: '{{ vault_ingestion_storage_bucket }}'
+    INGESTION_STORAGE_REGION: '{{ vault_ingestion_storage_region }}'
+    INGESTION_CLAMAV_HOST: '{{ vault_ingestion_clamav_host }}'
+    INGESTION_CLAMAV_PORT: '{{ vault_ingestion_clamav_port }}'
   register: vault_pull_result
   changed_when: vault_pull_result.rc == 0
   no_log: true
@@ -184,42 +220,42 @@
       - docker
       - compose
       - --file
-      - "{{ vault_release_root }}/compose.yml"
+      - '{{ vault_release_root }}/production/compose.yml'
       - --file
-      - "{{ vault_release_root }}/compose.images.yml"
+      - '{{ vault_release_root }}/production/compose.images.yml'
       - up
       - --detach
       - --wait
       - --remove-orphans
   args:
-    chdir: "{{ vault_release_root }}"
+    chdir: '{{ vault_release_root }}/production'
   environment:
-    VAULT_WEB_IMAGE: "{{ vault_web_image }}"
-    VAULT_API_IMAGE: "{{ vault_api_image }}"
-    VAULT_INGESTION_IMAGE: "{{ vault_ingestion_image }}"
-    DATABASE_RUNTIME_URL_SECRET_FILE: "{{ vault_database_runtime_url_file }}"
-    S3_API_ACCESS_KEY_ID_SECRET_FILE: "{{ vault_s3_api_access_key_id_file }}"
-    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: "{{ vault_s3_api_secret_access_key_file }}"
-    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: "{{ vault_mfa_secret_encryption_key_file }}"
-    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: "{{ vault_s3_ingestion_access_key_id_file }}"
-    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: "{{ vault_s3_ingestion_secret_access_key_file }}"
-    INGESTION_GATEWAY_CA_FILE: "{{ vault_ingestion_gateway_ca_file }}"
-    INGESTION_GATEWAY_SERVER_CERT_FILE: "{{ vault_ingestion_gateway_server_cert_file }}"
-    INGESTION_GATEWAY_SERVER_KEY_FILE: "{{ vault_ingestion_gateway_server_key_file }}"
-    INGESTION_GATEWAY_CLIENT_CERT_FILE: "{{ vault_ingestion_gateway_client_cert_file }}"
-    INGESTION_GATEWAY_CLIENT_KEY_FILE: "{{ vault_ingestion_gateway_client_key_file }}"
-    S3_ENDPOINT: "{{ vault_s3_endpoint }}"
-    S3_BUCKET: "{{ vault_s3_bucket }}"
-    S3_REGION: "{{ vault_s3_region }}"
-    S3_SERVER_SIDE_ENCRYPTION: "{{ vault_s3_server_side_encryption }}"
-    INGESTION_EGRESS_STORAGE_AUTHORITY: "{{ vault_ingestion_egress_storage_authority }}"
-    INGESTION_EGRESS_CLAMAV_AUTHORITY: "{{ vault_ingestion_egress_clamav_authority }}"
-    INGESTION_EGRESS_ALLOWED_CIDRS: "{{ vault_ingestion_egress_allowed_cidrs }}"
-    INGESTION_STORAGE_ENDPOINT: "{{ vault_ingestion_storage_endpoint }}"
-    INGESTION_STORAGE_BUCKET: "{{ vault_ingestion_storage_bucket }}"
-    INGESTION_STORAGE_REGION: "{{ vault_ingestion_storage_region }}"
-    INGESTION_CLAMAV_HOST: "{{ vault_ingestion_clamav_host }}"
-    INGESTION_CLAMAV_PORT: "{{ vault_ingestion_clamav_port }}"
+    VAULT_WEB_IMAGE: '{{ vault_web_image }}'
+    VAULT_API_IMAGE: '{{ vault_api_image }}'
+    VAULT_INGESTION_IMAGE: '{{ vault_ingestion_image }}'
+    DATABASE_RUNTIME_URL_SECRET_FILE: '{{ vault_database_runtime_url_file }}'
+    S3_API_ACCESS_KEY_ID_SECRET_FILE: '{{ vault_s3_api_access_key_id_file }}'
+    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: '{{ vault_s3_api_secret_access_key_file }}'
+    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: '{{ vault_mfa_secret_encryption_key_file }}'
+    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: '{{ vault_s3_ingestion_access_key_id_file }}'
+    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: '{{ vault_s3_ingestion_secret_access_key_file }}'
+    INGESTION_GATEWAY_CA_FILE: '{{ vault_ingestion_gateway_ca_file }}'
+    INGESTION_GATEWAY_SERVER_CERT_FILE: '{{ vault_ingestion_gateway_server_cert_file }}'
+    INGESTION_GATEWAY_SERVER_KEY_FILE: '{{ vault_ingestion_gateway_server_key_file }}'
+    INGESTION_GATEWAY_CLIENT_CERT_FILE: '{{ vault_ingestion_gateway_client_cert_file }}'
+    INGESTION_GATEWAY_CLIENT_KEY_FILE: '{{ vault_ingestion_gateway_client_key_file }}'
+    S3_ENDPOINT: '{{ vault_s3_endpoint }}'
+    S3_BUCKET: '{{ vault_s3_bucket }}'
+    S3_REGION: '{{ vault_s3_region }}'
+    S3_SERVER_SIDE_ENCRYPTION: '{{ vault_s3_server_side_encryption }}'
+    INGESTION_EGRESS_STORAGE_AUTHORITY: '{{ vault_ingestion_egress_storage_authority }}'
+    INGESTION_EGRESS_CLAMAV_AUTHORITY: '{{ vault_ingestion_egress_clamav_authority }}'
+    INGESTION_EGRESS_ALLOWED_CIDRS: '{{ vault_ingestion_egress_allowed_cidrs }}'
+    INGESTION_STORAGE_ENDPOINT: '{{ vault_ingestion_storage_endpoint }}'
+    INGESTION_STORAGE_BUCKET: '{{ vault_ingestion_storage_bucket }}'
+    INGESTION_STORAGE_REGION: '{{ vault_ingestion_storage_region }}'
+    INGESTION_CLAMAV_HOST: '{{ vault_ingestion_clamav_host }}'
+    INGESTION_CLAMAV_PORT: '{{ vault_ingestion_clamav_port }}'
   register: vault_compose_result
   changed_when: vault_compose_result.rc == 0
   no_log: true

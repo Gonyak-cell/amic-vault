@@ -55,6 +55,23 @@ export interface QueueMetricSnapshot {
   queue: string;
   depth: number;
   deadLetterCount: number;
+  oldestAgeSeconds: number;
+}
+
+export interface OperationalMetricSnapshot {
+  databaseAvailable: boolean;
+  databasePoolTotal: number;
+  databasePoolIdle: number;
+  databasePoolWaiting: number;
+  scannerSignatureAvailable: boolean;
+  scannerSignatureAgeSeconds: number;
+  quarantineCount: number;
+  oldestQuarantineAgeSeconds: number;
+  backupStatusAvailable: boolean;
+  backupAgeSeconds: number;
+  lastRestoreDurationSeconds: number;
+  monitoredDiskAvailable: boolean;
+  monitoredDiskFreeRatio: number;
 }
 
 export interface MetricsRegistryStats {
@@ -70,6 +87,9 @@ export class MetricsRegistry {
   private readonly httpSeries = new Map<string, HttpSeries>();
   private documentIntegrityAlerts = 0;
   private readonly extractionResults = new Map<string, number>();
+  private readonly ingestionResults = new Map<'failure' | 'pending' | 'success', number>();
+  private readonly auditWrites = new Map<'failure' | 'success', number>();
+  private readonly storageFailures = new Map<StorageFailureClass, number>();
   private searchIndexFailures = 0;
 
   observe(input: Observation): void {
@@ -92,7 +112,19 @@ export class MetricsRegistry {
   }
 
   recordExtractionResult(status: string): void {
-    this.extractionResults.set(status, (this.extractionResults.get(status) ?? 0) + 1);
+    const boundedStatus = extractionStatus(status);
+    this.extractionResults.set(boundedStatus, (this.extractionResults.get(boundedStatus) ?? 0) + 1);
+    const outcome =
+      boundedStatus === 'ready' ? 'success' : boundedStatus === 'failed' ? 'failure' : 'pending';
+    this.ingestionResults.set(outcome, (this.ingestionResults.get(outcome) ?? 0) + 1);
+  }
+
+  recordAuditWrite(outcome: 'failure' | 'success'): void {
+    this.auditWrites.set(outcome, (this.auditWrites.get(outcome) ?? 0) + 1);
+  }
+
+  recordStorageFailure(errorClass: StorageFailureClass): void {
+    this.storageFailures.set(errorClass, (this.storageFailures.get(errorClass) ?? 0) + 1);
   }
 
   recordSearchIndexFailure(): void {
@@ -103,6 +135,9 @@ export class MetricsRegistry {
     this.httpSeries.clear();
     this.documentIntegrityAlerts = 0;
     this.extractionResults.clear();
+    this.ingestionResults.clear();
+    this.auditWrites.clear();
+    this.storageFailures.clear();
     this.searchIndexFailures = 0;
   }
 
@@ -120,7 +155,10 @@ export class MetricsRegistry {
     };
   }
 
-  render(queueMetrics: readonly QueueMetricSnapshot[] = []): string {
+  render(
+    queueMetrics: readonly QueueMetricSnapshot[] = [],
+    operational: OperationalMetricSnapshot = unavailableOperationalSnapshot,
+  ): string {
     const totalLines = [
       '# HELP http_requests_total Total HTTP requests.',
       '# TYPE http_requests_total counter',
@@ -175,11 +213,42 @@ export class MetricsRegistry {
       `search_index_failures_total ${this.searchIndexFailures}`,
     ];
 
+    const ingestionLines = [
+      '# HELP document_ingestion_results_total Total bounded ingestion events by outcome.',
+      '# TYPE document_ingestion_results_total counter',
+      ...(['success', 'pending', 'failure'] as const).map(
+        (outcome) =>
+          `document_ingestion_results_total{outcome="${outcome}"} ${
+            this.ingestionResults.get(outcome) ?? 0
+          }`,
+      ),
+    ];
+    const auditLines = [
+      '# HELP audit_writes_total Total central audit write attempts by outcome.',
+      '# TYPE audit_writes_total counter',
+      ...(['success', 'failure'] as const).map(
+        (outcome) =>
+          `audit_writes_total{outcome="${outcome}"} ${this.auditWrites.get(outcome) ?? 0}`,
+      ),
+    ];
+    const storageLines = [
+      '# HELP storage_failures_total Total storage failures by bounded class.',
+      '# TYPE storage_failures_total counter',
+      ...storageFailureClasses.map(
+        (errorClass) =>
+          `storage_failures_total{error_class="${errorClass}"} ${
+            this.storageFailures.get(errorClass) ?? 0
+          }`,
+      ),
+    ];
+
     const queueLines = [
       '# HELP pgboss_queue_depth Pending pg-boss jobs by bounded queue name.',
       '# TYPE pgboss_queue_depth gauge',
       '# HELP pgboss_dead_letter_jobs Dead-letter pg-boss jobs by bounded queue name.',
       '# TYPE pgboss_dead_letter_jobs gauge',
+      '# HELP pgboss_queue_oldest_age_seconds Age of the oldest pending pg-boss job.',
+      '# TYPE pgboss_queue_oldest_age_seconds gauge',
     ];
     for (const metric of [...queueMetrics].sort((left, right) =>
       left.queue.localeCompare(right.queue),
@@ -187,7 +256,50 @@ export class MetricsRegistry {
       const queueLabel = labelValue(metric.queue);
       queueLines.push(`pgboss_queue_depth{queue="${queueLabel}"} ${metric.depth}`);
       queueLines.push(`pgboss_dead_letter_jobs{queue="${queueLabel}"} ${metric.deadLetterCount}`);
+      queueLines.push(
+        `pgboss_queue_oldest_age_seconds{queue="${queueLabel}"} ${metric.oldestAgeSeconds}`,
+      );
     }
+
+    const operationalLines = [
+      '# HELP sf20_database_available Whether aggregate database observations succeeded.',
+      '# TYPE sf20_database_available gauge',
+      `sf20_database_available ${booleanMetric(operational.databaseAvailable)}`,
+      '# HELP sf20_database_pool_connections Database pool connections by closed state.',
+      '# TYPE sf20_database_pool_connections gauge',
+      `sf20_database_pool_connections{state="total"} ${nonnegative(operational.databasePoolTotal)}`,
+      `sf20_database_pool_connections{state="idle"} ${nonnegative(operational.databasePoolIdle)}`,
+      `sf20_database_pool_connections{state="waiting"} ${nonnegative(
+        operational.databasePoolWaiting,
+      )}`,
+      '# HELP sf20_scanner_signature_available Whether a verified scanner signature time exists.',
+      '# TYPE sf20_scanner_signature_available gauge',
+      `sf20_scanner_signature_available ${booleanMetric(operational.scannerSignatureAvailable)}`,
+      '# HELP sf20_scanner_signature_age_seconds Age of the freshest verified scanner signature.',
+      '# TYPE sf20_scanner_signature_age_seconds gauge',
+      `sf20_scanner_signature_age_seconds ${nonnegative(operational.scannerSignatureAgeSeconds)}`,
+      '# HELP sf20_quarantine_objects Current non-promoted quarantine objects.',
+      '# TYPE sf20_quarantine_objects gauge',
+      `sf20_quarantine_objects ${nonnegative(operational.quarantineCount)}`,
+      '# HELP sf20_oldest_quarantine_age_seconds Age of the oldest non-promoted quarantine object.',
+      '# TYPE sf20_oldest_quarantine_age_seconds gauge',
+      `sf20_oldest_quarantine_age_seconds ${nonnegative(operational.oldestQuarantineAgeSeconds)}`,
+      '# HELP sf20_backup_status_available Whether a closed backup status document is available.',
+      '# TYPE sf20_backup_status_available gauge',
+      `sf20_backup_status_available ${booleanMetric(operational.backupStatusAvailable)}`,
+      '# HELP sf20_backup_age_seconds Age of the latest completed backup.',
+      '# TYPE sf20_backup_age_seconds gauge',
+      `sf20_backup_age_seconds ${nonnegative(operational.backupAgeSeconds)}`,
+      '# HELP sf20_last_restore_duration_seconds Duration of the latest verified restore.',
+      '# TYPE sf20_last_restore_duration_seconds gauge',
+      `sf20_last_restore_duration_seconds ${nonnegative(operational.lastRestoreDurationSeconds)}`,
+      '# HELP sf20_monitored_disk_available Whether monitored filesystem statistics are available.',
+      '# TYPE sf20_monitored_disk_available gauge',
+      `sf20_monitored_disk_available ${booleanMetric(operational.monitoredDiskAvailable)}`,
+      '# HELP sf20_monitored_disk_free_ratio Free ratio of the bounded monitored filesystem.',
+      '# TYPE sf20_monitored_disk_free_ratio gauge',
+      `sf20_monitored_disk_free_ratio ${ratio(operational.monitoredDiskFreeRatio)}`,
+    ];
 
     return [
       ...totalLines,
@@ -195,7 +307,11 @@ export class MetricsRegistry {
       ...integrityLines,
       ...extractionLines,
       ...searchIndexLines,
+      ...ingestionLines,
+      ...auditLines,
+      ...storageLines,
       ...queueLines,
+      ...operationalLines,
       '',
     ].join('\n');
   }
@@ -224,6 +340,49 @@ export class MetricsRegistry {
     this.httpSeries.set(key, series);
     return series;
   }
+}
+
+export const storageFailureClasses = [
+  'access_denied',
+  'exact_version',
+  'timeout',
+  'unavailable',
+  'versioning',
+  'unknown',
+] as const;
+export type StorageFailureClass = (typeof storageFailureClasses)[number];
+
+const extractionStatuses = new Set(['failed', 'ocr_pending', 'pending', 'ready']);
+const unavailableOperationalSnapshot: OperationalMetricSnapshot = {
+  databaseAvailable: false,
+  databasePoolTotal: 0,
+  databasePoolIdle: 0,
+  databasePoolWaiting: 0,
+  scannerSignatureAvailable: false,
+  scannerSignatureAgeSeconds: 0,
+  quarantineCount: 0,
+  oldestQuarantineAgeSeconds: 0,
+  backupStatusAvailable: false,
+  backupAgeSeconds: 0,
+  lastRestoreDurationSeconds: 0,
+  monitoredDiskAvailable: false,
+  monitoredDiskFreeRatio: 0,
+};
+
+function extractionStatus(value: string): string {
+  return extractionStatuses.has(value) ? value : 'unknown';
+}
+
+function booleanMetric(value: boolean): number {
+  return value ? 1 : 0;
+}
+
+function nonnegative(value: number): number {
+  return Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+function ratio(value: number): number {
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 
 @Injectable()

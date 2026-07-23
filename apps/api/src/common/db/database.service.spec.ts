@@ -14,7 +14,10 @@ class FakeClient {
   readonly release = vi.fn();
   readonly rows: unknown[] = [];
 
-  async query<T = unknown>(sql: string, params?: readonly unknown[]): Promise<{ rows: T[]; rowCount: number | null }> {
+  async query<T = unknown>(
+    sql: string,
+    params?: readonly unknown[],
+  ): Promise<{ rows: T[]; rowCount: number | null }> {
     this.queries.push(sql);
     this.params.push(params);
     return { rows: this.rows as T[], rowCount: this.rows.length };
@@ -25,6 +28,9 @@ class FakePool implements DatabasePool {
   readonly client = new FakeClient();
   readonly clients = [this.client];
   readonly end = vi.fn(async () => undefined);
+  readonly totalCount = 4;
+  readonly idleCount = 3;
+  readonly waitingCount = 1;
   private nextClientIndex = 0;
   readonly connect = vi.fn(async () => {
     const client = this.clients[this.nextClientIndex] ?? new FakeClient();
@@ -44,7 +50,10 @@ class FakePool implements DatabasePool {
 }
 
 function createService(pool = new FakePool()): { pool: FakePool; service: DatabaseService } {
-  return { pool, service: new DatabaseService(pool, new TenantAwareDataSource(new TenantContextService())) };
+  return {
+    pool,
+    service: new DatabaseService(pool, new TenantAwareDataSource(new TenantContextService())),
+  };
 }
 
 describe('DatabaseService', () => {
@@ -58,7 +67,11 @@ describe('DatabaseService', () => {
 
   it('rolls back and releases when tenant work fails', async () => {
     const { pool, service } = createService();
-    await expect(service.tenantTransaction(tenantId, async () => { throw new Error('expected test failure'); })).rejects.toThrow('expected test failure');
+    await expect(
+      service.tenantTransaction(tenantId, async () => {
+        throw new Error('expected test failure');
+      }),
+    ).rejects.toThrow('expected test failure');
     expect(pool.client.queries).toEqual(['BEGIN', 'SELECT set_config($1, $2, true)', 'ROLLBACK']);
     expect(pool.client.release).toHaveBeenCalledTimes(1);
   });
@@ -77,7 +90,9 @@ describe('DatabaseService', () => {
 
   it('reuses the active client only for same-tenant nested work and rejects cross-tenant nesting', async () => {
     const { pool, service } = createService();
-    await expect(service.tenantTransaction(' ', async () => undefined)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.tenantTransaction(' ', async () => undefined)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     await service.tenantTransaction(tenantId, async (outerClient) => {
       await service.tenantTransaction(tenantId, async (innerClient) => {
         expect(innerClient).toBe(outerClient);
@@ -109,11 +124,7 @@ describe('DatabaseService', () => {
       }),
     ).rejects.toThrow('safe denial');
     expect(pool.connect).toHaveBeenCalledTimes(2);
-    expect(pool.client.queries).toEqual([
-      'BEGIN',
-      'SELECT set_config($1, $2, true)',
-      'ROLLBACK',
-    ]);
+    expect(pool.client.queries).toEqual(['BEGIN', 'SELECT set_config($1, $2, true)', 'ROLLBACK']);
     expect(pool.clients[1]?.queries).toEqual([
       'BEGIN',
       'SELECT set_config($1, $2, true)',
@@ -125,14 +136,19 @@ describe('DatabaseService', () => {
   it('fails closed after an unexpected pool error', async () => {
     const { pool, service } = createService();
     pool.fail();
-    await expect(service.tenantTransaction(tenantId, async () => undefined)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.tenantTransaction(tenantId, async () => undefined)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(pool.connect).not.toHaveBeenCalled();
   });
 
   it('allows AuditService-compatible query clients without exporting a raw pool', async () => {
     const { service } = createService();
     let auditClient: AuditQueryClient | undefined;
-    await service.tenantTransaction(tenantId, async (client) => { auditClient = client; await client.query('SELECT 1'); });
+    await service.tenantTransaction(tenantId, async (client) => {
+      auditClient = client;
+      await client.query('SELECT 1');
+    });
     expect(auditClient).toBeDefined();
   });
 
@@ -140,9 +156,9 @@ describe('DatabaseService', () => {
     const { pool, service } = createService();
     pool.client.rows.push({ exists: true });
 
-    await expect(service.clientExistsAnyTenant('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).resolves.toBe(
-      true,
-    );
+    await expect(
+      service.clientExistsAnyTenant('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    ).resolves.toBe(true);
     expect(pool.client.queries).toEqual(['SELECT app_client_exists_any_tenant($1) AS exists']);
   });
 
@@ -157,17 +173,78 @@ describe('DatabaseService', () => {
     expect(pool.client.queries).toEqual(['SELECT * FROM app_find_external_link_by_token_hash($1)']);
   });
 
+  it('returns active tenant registry IDs from the canonical camel-case projection', async () => {
+    const { pool, service } = createService();
+    pool.client.rows.push({ tenantId });
+
+    await expect(service.listActiveTenantRegistryIds()).resolves.toEqual([tenantId]);
+    expect(pool.client.queries[0]).toContain('tenant_id AS "tenantId"');
+  });
+
   it('returns only aggregate PgBoss counts from a bounded named query', async () => {
     const { pool, service } = createService();
-    pool.client.rows.push({ queue: 'ai-prep', depth: '2', dead_letter_count: '1' });
+    pool.client.rows.push({
+      queue: 'ai.prep',
+      depth: '2',
+      dead_letter_count: '1',
+      oldest_age_seconds: '42.5',
+    });
 
     await expect(
       service.readPgBossQueueMetrics([
-        { queue: 'ai-prep', mainQueue: 'ai.prep', deadLetterQueue: 'ai.prep.dead' },
+        { queue: 'ai.prep', mainQueue: 'ai.prep', deadLetterQueue: 'ai.prep.dead' },
       ]),
-    ).resolves.toEqual([{ queue: 'ai-prep', depth: '2', dead_letter_count: '1' }]);
+    ).resolves.toEqual([
+      {
+        queue: 'ai.prep',
+        depth: '2',
+        dead_letter_count: '1',
+        oldest_age_seconds: '42.5',
+      },
+    ]);
     expect(pool.client.queries[0]).toContain('LEFT JOIN "pgboss"."job"');
+    expect(pool.client.queries[0]).toContain('j.created_on');
     expect(pool.client.queries[0]).not.toContain('data');
+  });
+
+  it('returns bounded pool counts without exposing the pool', () => {
+    const { service } = createService();
+    expect(service.databasePoolMetrics()).toEqual({ total: 4, idle: 3, waiting: 1 });
+  });
+
+  it('aggregates file-security extrema inside tenant transactions without identifiers', async () => {
+    const { service } = createService();
+    const firstTenant = '11111111-1111-4111-8111-111111111111';
+    const secondTenant = '22222222-2222-4222-8222-222222222222';
+    vi.spyOn(service, 'listActiveTenantRegistryIds').mockResolvedValue([firstTenant, secondTenant]);
+    vi.spyOn(service, 'tenantTransaction').mockImplementation(async (currentTenant, work) => {
+      const rows =
+        currentTenant === firstTenant
+          ? [
+              {
+                scanner_signature_at: new Date('2026-07-23T10:00:00Z'),
+                oldest_quarantine_at: new Date('2026-07-23T08:00:00Z'),
+                quarantine_count: '2',
+              },
+            ]
+          : [
+              {
+                scanner_signature_at: new Date('2026-07-23T11:00:00Z'),
+                oldest_quarantine_at: new Date('2026-07-23T07:00:00Z'),
+                quarantine_count: '3',
+              },
+            ];
+      return work({ query: vi.fn(async () => ({ rows, rowCount: 1 })) } as never);
+    });
+
+    const result = await service.readFileSecurityOperationalMetrics();
+    expect(result).toEqual({
+      scannerSignatureAt: new Date('2026-07-23T11:00:00Z'),
+      oldestQuarantineAt: new Date('2026-07-23T07:00:00Z'),
+      quarantineCount: 5,
+    });
+    expect(JSON.stringify(result)).not.toContain(firstTenant);
+    expect(JSON.stringify(result)).not.toContain(secondTenant);
   });
 
   it('closes each singleton pool exactly once across 50 create/close loops', async () => {

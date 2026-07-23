@@ -75,6 +75,10 @@ export function validateIngestionContainer({ compose, policy, dockerfile }) {
   ]) {
     assert(dockerfile.includes(variable), `scratch environment missing ${variable}`);
   }
+  assert(
+    /^CMD\s+\[[^\n]*"--no-access-log"[^\n]*\]\s*$/mu.test(dockerfile),
+    'Uvicorn access log must be disabled',
+  );
 
   return {
     schemaVersion: 'amic-vault.ingestion-container-report.v1',
@@ -89,6 +93,7 @@ export function validateIngestionContainer({ compose, policy, dockerfile }) {
     tmpfsCount: worker.tmpfs.length,
     writableVolumeCount: worker.volumes.length,
     baseImage: policy.image.base,
+    accessLog: 'disabled',
   };
 }
 

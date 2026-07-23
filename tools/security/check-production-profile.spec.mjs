@@ -77,6 +77,9 @@ test('public state self-hosted database and weakened recovery fail closed', () =
   fails(({ profile }) => {
     profile.prohibitedTopology.shift();
   }, 'PROHIBITED_TOPOLOGY_INVALID');
+  fails(({ profile }) => {
+    profile.applicationNode.privateOnlyServices.pop();
+  }, 'PRIVATE_SERVICE_INVALID');
 });
 
 test('environment secrets provider values and unknown schema fields fail', () => {
