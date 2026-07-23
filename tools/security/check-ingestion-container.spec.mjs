@@ -37,6 +37,7 @@ test('canonical ingestion container profile passes', () => {
     writableVolumeCount: 1,
     baseImage:
       'docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de',
+    accessLog: 'disabled',
   });
 });
 
@@ -99,4 +100,11 @@ test('unpinned base non-root USER and replay ownership drift fail', () => {
     value.dockerfile = value.dockerfile.replace(from, to);
     assert.throws(() => validateIngestionContainer(value), pattern);
   }
+});
+
+test('Uvicorn access-log drift fails', () => {
+  const value = fixture();
+  value.dockerfile = value.dockerfile.replace(', "--no-access-log"', '');
+
+  assert.throws(() => validateIngestionContainer(value), /Uvicorn access log must be disabled/u);
 });

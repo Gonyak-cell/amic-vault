@@ -1,5 +1,6 @@
 import os
 from threading import Lock
+from time import perf_counter
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -8,6 +9,7 @@ from .egress_policy import EgressPolicyDenied, assert_egress_profile
 from .email_router import router as email_router
 from .extract_router import router as extract_router
 from .ocr_router import router as ocr_router
+from .safe_logging import emit_ingestion_event
 from .security_router import router as security_router
 from .service_identity import (
     InMemoryNonceReplayStore,
@@ -32,6 +34,31 @@ _identity_nonce_store_key = ("loopback-dev", "")
 _identity_nonce_store_lock = Lock()
 
 
+def _status_class(status_code: int) -> str:
+    return f"{status_code // 100}xx" if 200 <= status_code <= 599 else "unknown"
+
+
+def _emit_request_event(
+    event: str,
+    *,
+    request_id: str | None,
+    outcome: str,
+    status: str,
+    started_at: float,
+) -> None:
+    try:
+        emit_ingestion_event(
+            event,
+            request_id=request_id,
+            outcome=outcome,
+            status=status,
+            duration_ms=round((perf_counter() - started_at) * 1000),
+        )
+    except (OSError, TypeError, ValueError):
+        # Observability failure cannot change the worker request result.
+        return
+
+
 def _configured_nonce_store() -> NonceReplayStore:
     global _identity_nonce_store, _identity_nonce_store_key
     key = (
@@ -49,15 +76,42 @@ def _configured_nonce_store() -> NonceReplayStore:
 async def enforce_ingestion_service_identity(request: Request, call_next):
     if request.url.path == "/health":
         return await call_next(request)
+    started_at = perf_counter()
     try:
-        request.state.ingestion_identity = verify_ingestion_request_identity(
+        identity = verify_ingestion_request_identity(
             request.headers,
             env=os.environ,
             nonce_store=_configured_nonce_store(),
         )
     except ServiceIdentityDenied:
+        _emit_request_event(
+            "INGESTION_IDENTITY_DENIED",
+            request_id=None,
+            outcome="denied",
+            status="4xx",
+            started_at=started_at,
+        )
         return JSONResponse(status_code=403, content={"detail": {"code": "PERMISSION_DENIED"}})
-    return await call_next(request)
+    request.state.ingestion_identity = identity
+    try:
+        response = await call_next(request)
+    except Exception:
+        _emit_request_event(
+            "INGESTION_REQUEST_COMPLETED",
+            request_id=identity.request_id,
+            outcome="failure",
+            status="5xx",
+            started_at=started_at,
+        )
+        raise
+    _emit_request_event(
+        "INGESTION_REQUEST_COMPLETED",
+        request_id=identity.request_id,
+        outcome="success" if response.status_code < 400 else "failure",
+        status=_status_class(response.status_code),
+        started_at=started_at,
+    )
+    return response
 
 
 @app.on_event("startup")

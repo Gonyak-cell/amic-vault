@@ -1,6 +1,7 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type { Job, SendOptions } from 'pg-boss';
+import { safeReference } from '../../../common/logging/logger';
 import { QueueRegistry } from '../../../common/queue/queue.registry';
 import { currentProcessRole, queueWorkerEnabled } from '../../../common/process-role';
 import { ExtractionDispatcher } from './extraction-dispatcher';
@@ -28,6 +29,7 @@ export function extractionQueueSendOptions(versionId: string, client: PoolClient
 
 @Injectable()
 export class ExtractionQueueService implements OnModuleInit {
+  private readonly logger = new Logger(ExtractionQueueService.name);
   private queueDefinitionsRegistered = false;
   private workerRegistered = false;
 
@@ -51,6 +53,12 @@ export class ExtractionQueueService implements OnModuleInit {
       extractionQueueSendOptions(input.versionId, client),
     );
     if (!jobId) throw new Error('extraction job enqueue returned no id');
+    this.logger.log({
+      code: 'EXTRACTION_ENQUEUED',
+      queue: extractionQueueName,
+      versionRef: safeReference(input.versionId),
+      jobRef: safeReference(jobId),
+    });
     return jobId;
   }
 

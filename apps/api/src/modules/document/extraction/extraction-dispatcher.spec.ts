@@ -1,5 +1,7 @@
 import { Readable } from 'node:stream';
+import { Logger } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { safeReference } from '../../../common/logging/logger';
 import { MetricsRegistry } from '../../../common/metrics/metrics.middleware';
 import { ExtractionDispatcher } from './extraction-dispatcher';
 import type { ExtractionJobPayload } from './extraction.types';
@@ -352,6 +354,7 @@ describe('ExtractionDispatcher', () => {
   });
 
   it('passes the server-derived envelope and identity metadata without a storage URL or source bytes', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     const firstTx = {
       query: vi.fn(async () => ({ rowCount: 1, rows: [targetRow()] })),
     };
@@ -392,7 +395,10 @@ describe('ExtractionDispatcher', () => {
 
     await dispatcher.handle(payload);
 
-    expect(latestVersionFingerprintByStorageUri).toHaveBeenCalledWith(tenantId, targetRow().storage_uri);
+    expect(latestVersionFingerprintByStorageUri).toHaveBeenCalledWith(
+      tenantId,
+      targetRow().storage_uri,
+    );
     expect(getByStorageUri).not.toHaveBeenCalled();
     const init = fetchMock.mock.calls[0]?.[1];
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
@@ -418,6 +424,16 @@ describe('ExtractionDispatcher', () => {
         'x-amic-ingestion-expires-at': body.expiresAt,
       }),
     );
+    expect(log).toHaveBeenCalledWith({
+      code: 'INGESTION_DISPATCH',
+      queue: 'extraction',
+      operation: 'extract',
+      versionRef: safeReference(versionId),
+      ingestionRequestRef: safeReference(String(body.requestId)),
+    });
+    const bridgeLog = JSON.stringify(log.mock.calls);
+    expect(bridgeLog).not.toContain(versionId);
+    expect(bridgeLog).not.toContain(String(body.requestId));
   });
 
   it('enqueues OCR when extraction stores an ocr_pending result', async () => {
