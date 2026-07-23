@@ -12,6 +12,8 @@ const EXPECTED_SERVICES = Object.freeze([
   'ingestion-gateway',
   'ingestion',
   'clamav',
+  'prometheus',
+  'alertmanager',
 ]);
 
 const EXPECTED_NETWORKS = Object.freeze([
@@ -19,9 +21,20 @@ const EXPECTED_NETWORKS = Object.freeze([
   'ingestion-client',
   'ingestion-worker',
   'ingestion-egress',
+  'monitoring',
 ]);
 
-const EXPECTED_VOLUMES = Object.freeze(['ingestion-replay', 'clamav-signatures']);
+const EXPECTED_VOLUMES = Object.freeze([
+  'ingestion-replay',
+  'clamav-signatures',
+  'prometheus-data',
+  'alertmanager-data',
+]);
+
+const PROMETHEUS_IMAGE =
+  'docker.io/prom/prometheus:v3.13.1@sha256:3c42b892cf723fa54d2f262c37a0e1f80aa8c8ddb1da7b9b0df9455a35a7f893';
+const ALERTMANAGER_IMAGE =
+  'docker.io/prom/alertmanager:v0.33.1@sha256:9e082985f56f4c8c9f724e18f2288c6708f472e56a5286b8863d080434ea065d';
 
 const SYNTHETIC_IMAGE_INPUTS = Object.freeze({
   VAULT_WEB_IMAGE:
@@ -161,6 +174,105 @@ function validateServiceSecurity(name, service) {
       `${name} adds capability`,
     );
   }
+  assert(service.logging?.driver === 'local', 'SERVICE_LOGGING_INVALID', `${name} log driver`);
+  const loggingOptions = object(
+    service.logging?.options,
+    'SERVICE_LOGGING_INVALID',
+    `${name} log options`,
+  );
+  exactSet(
+    Object.keys(loggingOptions),
+    ['max-size', 'max-file', 'compress'],
+    'SERVICE_LOGGING_INVALID',
+    `${name} log options`,
+  );
+  assert(
+    loggingOptions['max-size'] === '10m' &&
+      loggingOptions['max-file'] === '5' &&
+      loggingOptions.compress === 'true',
+    'SERVICE_LOGGING_INVALID',
+    `${name} log bounds`,
+  );
+}
+
+function validateMonitoringServices(baseServices, overlayServices, effectiveServices) {
+  assert(
+    baseServices.prometheus.image === PROMETHEUS_IMAGE &&
+      overlayServices.prometheus.image === PROMETHEUS_IMAGE &&
+      effectiveServices.prometheus.image === PROMETHEUS_IMAGE,
+    'MONITORING_IMAGE_INVALID',
+    'Prometheus image must match the approved digest',
+  );
+  assert(
+    baseServices.alertmanager.image === ALERTMANAGER_IMAGE &&
+      overlayServices.alertmanager.image === ALERTMANAGER_IMAGE &&
+      effectiveServices.alertmanager.image === ALERTMANAGER_IMAGE,
+    'MONITORING_IMAGE_INVALID',
+    'Alertmanager image must match the approved digest',
+  );
+  for (const name of ['prometheus', 'alertmanager']) {
+    const service = effectiveServices[name];
+    assert(
+      typeof service.user === 'string' && /^[1-9][0-9]*:[1-9][0-9]*$/u.test(service.user),
+      'MONITORING_IDENTITY_INVALID',
+      `${name} must run as a non-root UID/GID`,
+    );
+    assert(
+      !Object.hasOwn(service, 'depends_on'),
+      'MONITORING_DEPENDENCY_INVALID',
+      `${name} startup must not block on application health`,
+    );
+  }
+  exactSet(
+    effectiveServices.prometheus.command,
+    [
+      '--config.file=/etc/prometheus/prometheus.yml',
+      '--storage.tsdb.path=/prometheus',
+      '--web.listen-address=0.0.0.0:9090',
+    ],
+    'MONITORING_COMMAND_INVALID',
+    'Prometheus command',
+  );
+  exactSet(
+    effectiveServices.prometheus.volumes,
+    [
+      '../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro',
+      '../monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro',
+      'prometheus-data:/prometheus',
+    ],
+    'MONITORING_MOUNT_INVALID',
+    'Prometheus volumes',
+  );
+  exactSet(
+    effectiveServices.alertmanager.command,
+    [
+      '--config.file=/etc/alertmanager/alertmanager.yml',
+      '--storage.path=/alertmanager',
+      '--data.retention=120h',
+      '--web.listen-address=0.0.0.0:9093',
+    ],
+    'MONITORING_COMMAND_INVALID',
+    'Alertmanager command',
+  );
+  exactSet(
+    effectiveServices.alertmanager.volumes,
+    [
+      '../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro',
+      'alertmanager-data:/alertmanager',
+    ],
+    'MONITORING_MOUNT_INVALID',
+    'Alertmanager volumes',
+  );
+  for (const name of EXPECTED_SERVICES.filter(
+    (serviceName) => !['prometheus', 'alertmanager'].includes(serviceName),
+  )) {
+    const dependencies = Object.keys(effectiveServices[name].depends_on ?? {});
+    assert(
+      !dependencies.includes('prometheus') && !dependencies.includes('alertmanager'),
+      'MONITORING_DEPENDENCY_INVALID',
+      `${name} must not depend on monitoring`,
+    );
+  }
 }
 
 function validatePorts(services) {
@@ -207,6 +319,9 @@ function validateAnsible(playbook, role) {
     'infra/production/compose.images.yml',
     'infra/production/secret-manifest.yml',
     'infra/ingestion-gateway/nginx.conf',
+    'infra/monitoring/prometheus.yml',
+    'infra/monitoring/alerts.yml',
+    'infra/monitoring/alertmanager.yml',
   ]) {
     assert(role.includes(path), 'ANSIBLE_SOURCE_INVALID', `Ansible source missing ${path}`);
   }
@@ -302,11 +417,12 @@ export function validateProductionHost({
     validateServiceSecurity(name, service);
   }
   assert(
-    new Set(EXPECTED_SERVICES.map((name) => effectiveServices[name].image)).size === 5,
+    new Set(EXPECTED_SERVICES.map((name) => effectiveServices[name].image)).size === 7,
     'IMAGE_SET_INVALID',
-    'API and API worker must share one of five exact images',
+    'API and API worker must share one of seven exact images',
   );
 
+  validateMonitoringServices(services, overlayServices, effectiveServices);
   validatePorts(effectiveServices);
   dependency(effectiveServices.web, 'web', 'api');
   dependency(effectiveServices.api, 'api', 'ingestion-gateway');
@@ -333,6 +449,8 @@ export function validateProductionHost({
     'ingestion-gateway': ['ingestion-client', 'ingestion-worker'],
     ingestion: ['ingestion-worker', 'ingestion-egress'],
     clamav: ['ingestion-egress'],
+    prometheus: ['application', 'monitoring'],
+    alertmanager: ['monitoring'],
   };
   for (const [name, expected] of Object.entries(expectedNetworks)) {
     exactSet(

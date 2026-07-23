@@ -179,7 +179,7 @@ export function validateProductionProfile({ profile, decisions }) {
   );
   exactArray(
     app.privateOnlyServices,
-    ['api-worker', 'ingestion-gateway', 'ingestion', 'clamav'],
+    ['api-worker', 'ingestion-gateway', 'ingestion', 'clamav', 'prometheus', 'alertmanager'],
     'PRIVATE_SERVICE_INVALID',
     'private services',
   );

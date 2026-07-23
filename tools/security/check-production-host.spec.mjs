@@ -32,9 +32,10 @@ test('canonical base plus image overlay produces one deterministic host model', 
   const second = validateProductionHost(fixture());
   assert.deepEqual(first, second);
   assert.equal(first.status, 'PASS');
-  assert.equal(first.serviceCount, 6);
-  assert.equal(first.imageCount, 5);
-  assert.equal(first.internalNetworkCount, 4);
+  assert.equal(first.serviceCount, 8);
+  assert.equal(first.imageCount, 7);
+  assert.equal(first.internalNetworkCount, 5);
+  assert.equal(first.namedVolumeCount, 4);
   assert.equal(first.publicLoopbackPortCount, 2);
   assert.equal(first.publicGatewayOrWorkerPortCount, 0);
   assert.match(first.configurationSha256, /^[a-f0-9]{64}$/u);
@@ -72,6 +73,12 @@ test('extra service network port and mutable host boundary fail', () => {
   fails(({ baseCompose }) => {
     baseCompose.services.api.ports = ['0.0.0.0:3001:3001'];
   }, 'PUBLIC_PORT_INVALID');
+  fails(({ baseCompose }) => {
+    baseCompose.services.prometheus.ports = ['9090:9090'];
+  }, 'PUBLIC_PORT_INVALID');
+  fails(({ baseCompose }) => {
+    baseCompose.services.alertmanager.expose = ['9093'];
+  }, 'PUBLIC_PORT_INVALID');
 });
 
 test('privileged writable unbounded or unhealthy services fail', () => {
@@ -90,6 +97,12 @@ test('privileged writable unbounded or unhealthy services fail', () => {
   fails(({ baseCompose }) => {
     baseCompose.services['ingestion-gateway'].restart = 'no';
   }, 'SERVICE_RESTART_INVALID');
+  fails(({ baseCompose }) => {
+    baseCompose.services.prometheus.user = '0:0';
+  }, 'MONITORING_IDENTITY_INVALID');
+  fails(({ baseCompose }) => {
+    delete baseCompose.services.alertmanager.logging;
+  }, 'SERVICE_LOGGING_INVALID');
 });
 
 test('health ordering and fixed network membership are mandatory', () => {
@@ -105,6 +118,28 @@ test('health ordering and fixed network membership are mandatory', () => {
   fails(({ baseCompose }) => {
     baseCompose.services.clamav.networks = ['application'];
   }, 'NETWORK_GRAPH_INVALID');
+  fails(({ baseCompose }) => {
+    baseCompose.services.prometheus.networks.push('ingestion-worker');
+  }, 'NETWORK_GRAPH_INVALID');
+  fails(({ baseCompose }) => {
+    baseCompose.services.api.depends_on.prometheus = { condition: 'service_healthy' };
+  }, 'MONITORING_DEPENDENCY_INVALID');
+});
+
+test('monitoring images mounts and finite retention are exact', () => {
+  fails(({ imageOverlay }) => {
+    imageOverlay.services.prometheus.image =
+      'docker.io/prom/prometheus:v3.13.1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  }, 'MONITORING_IMAGE_INVALID');
+  fails(({ baseCompose }) => {
+    baseCompose.services.alertmanager.command = baseCompose.services.alertmanager.command.filter(
+      (value) => value !== '--data.retention=120h',
+    );
+  }, 'MONITORING_COMMAND_INVALID');
+  fails(({ baseCompose }) => {
+    baseCompose.services.prometheus.volumes[0] =
+      '../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:rw';
+  }, 'MONITORING_MOUNT_INVALID');
 });
 
 test('Ansible must remain exact-version bounded built-in and no-log', () => {
