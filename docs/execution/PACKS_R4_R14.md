@@ -84,6 +84,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-SF20-00 | `feat/pack-sf20-00-profile-freeze` | 4 | `DEVOPS-SF20-BASE-TUW-001`, `DEVOPS-SF20-CAP-TUW-002`, `DEVOPS-SF20-OSS-TUW-003`, `DEVOPS-SF20-GATE-TUW-004` (`docs/execution/TUW_SF20_SMALL_FIRM_PROFILE.md`) |
 | PACK-SF20-01 | `feat/pack-sf20-01-private-gateway` | 5 | `DEVOPS-SF20-GW-TUW-001` through `DEVOPS-SF20-GW-TUW-005` (`docs/execution/TUW_SF20_PRIVATE_GATEWAY.md`) |
 | PACK-SF20-02 | `feat/pack-sf20-02-parser-sandbox` | 5 | `DEVOPS-SF20-SBX-TUW-001` through `DEVOPS-SF20-SBX-TUW-005` (`docs/execution/TUW_SF20_PARSER_SANDBOX.md`) |
+| PACK-SF20-03 | `feat/pack-sf20-03-production-recovery` | 6 | `DEVOPS-SF20-IAC-TUW-001` through `DEVOPS-SF20-IAC-TUW-003`, `DEVOPS-SF20-DR-TUW-001` through `DEVOPS-SF20-DR-TUW-003` (`docs/execution/TUW_SF20_PRODUCTION_RECOVERY.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2812,6 +2813,46 @@ resolve wholly inside operator-supplied approved CIDRs. Any request-selected
 destination, wildcard allowlist, root/writable/privileged runtime, unbounded
 archive/output/fallback, copied upstream code/test, automatic candidate
 adoption, content-bearing evidence, or mock-only final gate is a hard stop.
+
+## PACK-SF20-03 — Single-node production profile and recovery
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721` and the owner's all-immediate-track execution
+direction. It is the serial successor to merged `PACK-SF20-02`, independently
+based on `origin/main`
+`321ef450f0540fcda89cd0314676c35ce08ef51b`.
+
+- Branch: `feat/pack-sf20-03-production-recovery`.
+- Detail contract: `docs/execution/TUW_SF20_PRODUCTION_RECOVERY.md`.
+- Execution order: `DEVOPS-SF20-IAC-TUW-001` →
+  `DEVOPS-SF20-IAC-TUW-002` → `DEVOPS-SF20-IAC-TUW-003` →
+  `DEVOPS-SF20-DR-TUW-001` → `DEVOPS-SF20-DR-TUW-002` →
+  `DEVOPS-SF20-DR-TUW-003`.
+- Scope: one provider-neutral domestic-region single-node profile; immutable
+  image-only production Compose plus independently authored pinned Ansible
+  orchestration; file-only production runtime secrets; a signed provider
+  PITR/PostgreSQL-native/object-version backup set; direct isolated
+  database/object restore proof; and residency, measured RPO/RTO, and rollback
+  readiness.
+- OSS boundary: reuse Docker Compose, PostgreSQL 16 native tooling, the current
+  restore drill, and the exact Ansible source pin without copying upstream
+  source/tests. pgBackRest remains pinned but rejected for the SF20 baseline
+  unless a later self-managed-database or measured native-tooling trigger is
+  approved.
+- Out of scope: dependency/lockfile or database-schema changes, provider
+  resource creation, real secrets/certificates, customer data, public state
+  endpoints, Kubernetes/service mesh, self-hosted database, monitoring owned
+  by SF20-04, cloud/host/staging mutation, deployment, release, go-live, and
+  `docs/package/**`.
+
+External region, private endpoint, managed service, key/certificate, backup,
+approved host, and staging receipts remain honest `EXTERNAL_BLOCKED_*`
+deployment inputs; they do not block synthetic implementation and merge.
+Any embedded secret, environment/argument secret value, floating production
+image, public worker/state endpoint, partial or unsigned backup called
+complete, latest-object restore, owner/superuser-only isolation proof,
+disabled RLS/audit protection, invented external receipt, or false
+deployment-ready claim is a hard stop.
 
 ## Gate Reports
 

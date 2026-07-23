@@ -1,5 +1,5 @@
 {
-  "total": 256,
+  "total": 262,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3749,6 +3749,72 @@
       "depends_on": ["DEVOPS-SF20-SBX-TUW-001", "DEVOPS-SF20-SBX-TUW-002", "DEVOPS-SF20-SBX-TUW-003", "DEVOPS-SF20-SBX-TUW-004"],
       "files": ["tests/integration/document-access/ingestion-sandbox.spec.ts", "tests/integration/storage-isolation", "infra/production", "tools/security"],
       "verification": "real gateway non-root worker fixed storage scanner and closed networks deny bomb malformed timeout SSRF egress tenant mismatch identity spoof and replay AND leak no content and process a subsequent clean job with zero disposable resources"
+    },
+    {
+      "id": "DEVOPS-SF20-IAC-TUW-001",
+      "title": "Provider-neutral single-node production profile",
+      "release": "R14",
+      "module": "DEVOPS-SF20-IAC",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-SBX-TUW-005"],
+      "files": ["infra/production/profile.yml", "tools/security/check-production-profile.mjs", "docs/architecture/oss-adoption-decisions/small-firm-production-profile.md", "security/oss-adoption-decisions.yml"],
+      "verification": "one KR domestic-region application node managed PostgreSQL 16 and managed versioned S3-compatible profile requires private endpoints encryption PITR immutability and explicit owners AND public state self-hosted DB Kubernetes guessed provider inputs and pgBackRest baseline runtime fail"
+    },
+    {
+      "id": "DEVOPS-SF20-IAC-TUW-002",
+      "title": "Deterministic Compose and pinned Ansible host deployment",
+      "release": "R14",
+      "module": "DEVOPS-SF20-IAC",
+      "risk": "H",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-IAC-TUW-001"],
+      "files": ["infra/production/compose.yml", "infra/production/compose.images.yml", "infra/ansible/playbooks/vault-host.yml", "infra/ansible/roles/vault-host/tasks/main.yml", "tools/security/check-production-host.mjs"],
+      "verification": "base plus immutable-image overlay and independently authored pinned Ansible produce the same effective config hash twice AND floating images extra ports privileged host socket device weak health security or copied upstream code fail"
+    },
+    {
+      "id": "DEVOPS-SF20-IAC-TUW-003",
+      "title": "File-only production secret certificate and runtime identity contract",
+      "release": "R14",
+      "module": "DEVOPS-SF20-IAC",
+      "risk": "C",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-IAC-TUW-001", "DEVOPS-SF20-IAC-TUW-002"],
+      "files": ["infra/production/secret-manifest.yml", "apps/api/src/common/config/runtime-secret.ts", "workers/ingestion/app/runtime_secret.py", "infra/production/compose.yml", "tools/security/check-production-secrets.mjs"],
+      "verification": "DB S3 MFA session and private identity material is read only from bounded owner-mode-checked files without environment argument image log or evidence values AND missing weak symlink dev-default direct-env and expired-rotation cases fail before IO"
+    },
+    {
+      "id": "DEVOPS-SF20-DR-TUW-001",
+      "title": "Signed cross-store backup-set manifest",
+      "release": "R14",
+      "module": "DEVOPS-SF20-DR",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-IAC-TUW-001", "DEVOPS-SF20-IAC-TUW-003"],
+      "files": ["tools/release/build-backup-set-manifest.mjs", "docs/release/backup-dr-runbook.md", "security/oss-adoption-decisions.yml"],
+      "verification": "fresh provider PITR receipt portable PostgreSQL 16 backup bytes and exact object-version inventory share one region time boundary and Ed25519-sealed canonical manifest AND partial stale mutable unsigned unencrypted hash-mismatched and cross-region sets fail"
+    },
+    {
+      "id": "DEVOPS-SF20-DR-TUW-002",
+      "title": "Isolated database and exact-object restore readback",
+      "release": "R14",
+      "module": "DEVOPS-SF20-DR",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-DR-TUW-001"],
+      "files": ["tools/release/backup-restore-drill.mjs", "tools/release/backup-restore-drill.spec.mjs", "docs/release/backup-dr-runbook.md", "tests/integration/cross-tenant", "tests/integration/audit-coverage", "tests/integration/storage-isolation"],
+      "verification": "disposable restore directly matches schema RLS FORCE policies audit UPDATE DELETE denial row counts cross-tenant runtime-role denial and exact object version bytes hash AND latest owner-bypass mismatch or API-health-only proof fails"
+    },
+    {
+      "id": "DEVOPS-SF20-DR-TUW-003",
+      "title": "Residency measured RPO RTO and rollback readiness gate",
+      "release": "R14",
+      "module": "DEVOPS-SF20-DR",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-IAC-TUW-002", "DEVOPS-SF20-IAC-TUW-003", "DEVOPS-SF20-DR-TUW-001", "DEVOPS-SF20-DR-TUW-002"],
+      "files": ["tools/release/check-sf20-residency.mjs", "tools/release/small-firm-rollback-drill.mjs", "docs/release/backup-dr-runbook.md"],
+      "verification": "all state receipts match the approved domestic profile with measured RPO at most 60 minutes and RTO at most 240 minutes AND bad migration image key restore object cases return to the exact compatible digest and data authority before permission wall audit original and gateway regressions pass"
     }
   ]
 }

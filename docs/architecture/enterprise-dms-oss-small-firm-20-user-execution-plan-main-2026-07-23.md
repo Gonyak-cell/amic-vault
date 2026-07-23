@@ -1,6 +1,6 @@
 # AMIC Vault 소규모 로펌(최대 20명) OSS 조정 실행계획
 
-상태: **Canonical SF20 execution profile — `PACK-SF20-00~02` 순차 등록**
+상태: **Canonical SF20 execution profile — `PACK-SF20-00~03` 순차 등록**
 
 기준일: 2026-07-23
 
@@ -445,6 +445,15 @@ ingestion container 하나로 제한한다.
 ---
 
 ## `PROPOSED-PACK-SF20-03` — 단일 노드 production profile과 복구
+
+**Canonical execution status (2026-07-23):** `PACK-SF20-03`,
+`DEVOPS-SF20-IAC-TUW-001~003`, and `DEVOPS-SF20-DR-TUW-001~003` are
+registered in the live PACK registry and backlogs on the merged
+`PACK-SF20-02` main baseline
+`321ef450f0540fcda89cd0314676c35ce08ef51b`. The detailed executable
+contract is `docs/execution/TUW_SF20_PRODUCTION_RECOVERY.md`; the
+`PROPOSED-*` labels below remain as the immutable planning-origin vocabulary
+for traceability.
 
 목적: HA cluster 대신 재현 가능한 application node, managed state services,
 sealed backup, isolated restore를 제공한다.
