@@ -125,7 +125,12 @@
     "packages/shared/src/ingestion/ingestion-job.ts",
     "packages/shared/src/ingestion/ingestion-job.spec.ts",
     "workers/ingestion/app/contracts.py",
-    "workers/ingestion/tests/test_contracts.py"
+    "workers/ingestion/tests/test_contracts.py",
+    "apps/api/src/modules/document/extraction/worker-identity.interface.ts",
+    "apps/api/src/modules/document/extraction/worker-identity.adapters.ts",
+    "apps/api/src/modules/document/extraction/worker-identity.adapters.spec.ts",
+    "workers/ingestion/app/service_identity.py",
+    "workers/ingestion/tests/test_service_identity.py"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },
