@@ -317,9 +317,8 @@ function runCompose(args: readonly string[], timeout = 120_000): string {
       timeout: 15_000,
       maxBuffer: 512 * 1024,
     });
-    const reason = classifyComposeFailure(
-      `${state.stdout}\n${state.stderr}\n${logs.stdout}\n${logs.stderr}\n${result.stderr}`,
-    );
+    const rawDiagnostic = `${state.stdout}\n${state.stderr}\n${logs.stdout}\n${logs.stderr}\n${result.stderr}`;
+    const reason = classifyComposeFailure(rawDiagnostic);
     throw new Error(`INGESTION_SANDBOX_COMPOSE_FAILED:${args[0] ?? 'unknown'}:${reason}`);
   }
   return result.stdout;
@@ -507,8 +506,8 @@ beforeAll(() => {
           },
           volumes: [`${certificateRoot}:/test-certs:ro`],
           depends_on: {
-            'storage-fixture': { condition: 'service_started' },
-            'clamav-fixture': { condition: 'service_started' },
+            'storage-fixture': { condition: 'service_healthy' },
+            'clamav-fixture': { condition: 'service_healthy' },
           },
         },
         'storage-fixture': {
@@ -523,6 +522,17 @@ beforeAll(() => {
           security_opt: ['no-new-privileges:true'],
           volumes: [`${fixtureRoot}:/fixtures:ro`, `${certificateRoot}:/test-certs:ro`],
           networks: ['ingestion-egress'],
+          healthcheck: {
+            test: [
+              'CMD',
+              'python',
+              '-c',
+              "import socket; socket.create_connection(('127.0.0.1', 4443), 2).close()",
+            ],
+            interval: '1s',
+            timeout: '3s',
+            retries: 30,
+          },
         },
         'clamav-fixture': {
           image: pythonImage,
@@ -532,6 +542,17 @@ beforeAll(() => {
           security_opt: ['no-new-privileges:true'],
           volumes: [`${fixtureRoot}:/fixtures:ro`],
           networks: ['ingestion-egress'],
+          healthcheck: {
+            test: [
+              'CMD',
+              'python',
+              '-c',
+              "import socket; socket.create_connection(('127.0.0.1', 3310), 2).close()",
+            ],
+            interval: '1s',
+            timeout: '3s',
+            retries: 30,
+          },
         },
         'unapproved-fixture': {
           image: pythonImage,
@@ -540,6 +561,17 @@ beforeAll(() => {
           cap_drop: ['ALL'],
           security_opt: ['no-new-privileges:true'],
           networks: ['sandbox-denied'],
+          healthcheck: {
+            test: [
+              'CMD',
+              'python',
+              '-c',
+              "import socket; socket.create_connection(('127.0.0.1', 4555), 2).close()",
+            ],
+            interval: '1s',
+            timeout: '3s',
+            retries: 30,
+          },
         },
         'api-probe': {
           build: {
@@ -593,7 +625,22 @@ beforeAll(() => {
     [
       'up',
       '-d',
-      '--build',
+      '--wait',
+      '--wait-timeout',
+      '60',
+      'storage-fixture',
+      'clamav-fixture',
+      'unapproved-fixture',
+    ],
+    120_000,
+  );
+  runCompose(['build', 'ingestion'], 420_000);
+  runCompose(['build', 'api-probe'], 420_000);
+  runCompose(
+    [
+      'up',
+      '-d',
+      '--no-build',
       '--wait',
       '--wait-timeout',
       '240',

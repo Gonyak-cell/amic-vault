@@ -20,6 +20,11 @@ export type ComposeFailureReason =
   | 'API_PROBE_NOT_READY'
   | 'SERVICE_UNHEALTHY'
   | 'IMAGE_BUILD_FAILED'
+  | 'IMAGE_PULL_FAILED'
+  | 'IMAGE_PULL_RATE_LIMITED'
+  | 'PLATFORM_MISMATCH'
+  | 'FIXTURE_CONFIG_INVALID'
+  | 'FIXTURE_RUNTIME_FAILED'
   | 'DISK_EXHAUSTED'
   | 'MEMORY_EXHAUSTED'
   | 'COMMAND_TIMEOUT'
@@ -48,6 +53,7 @@ function serviceNotReadyReason(diagnostic: string): ComposeFailureReason | undef
         const lifecycle = String(state.state ?? state.State ?? '').toLowerCase();
         const health = String(state.health ?? state.Health ?? '').toLowerCase();
         const exitCode = Number(state.exitCode ?? state.ExitCode ?? 0);
+        if (exitCode === 137) return 'MEMORY_EXHAUSTED';
         if (
           ['exited', 'dead', 'restarting'].includes(lifecycle) ||
           health === 'unhealthy' ||
@@ -65,37 +71,47 @@ function serviceNotReadyReason(diagnostic: string): ComposeFailureReason | undef
 
 export function classifyComposeFailure(rawDiagnostic: string): ComposeFailureReason {
   const diagnostic = rawDiagnostic.toLowerCase();
-  const serviceReason = serviceNotReadyReason(diagnostic);
-  if (serviceReason) return serviceReason;
+  const specificReason = (
+    [
+      ['egress_dns_unavailable', 'EGRESS_DNS_UNAVAILABLE'],
+      ['egress_destination_denied', 'EGRESS_DESTINATION_DENIED'],
+      ['certificate verify failed', 'CERTIFICATE_VERIFY_FAILED'],
+      ['cannot load certificate', 'CERTIFICATE_LOAD_FAILED'],
+      ['setgid', 'SETGID_FAILED'],
+      ['setuid', 'SETUID_FAILED'],
+      ['operation not permitted', 'OPERATION_NOT_PERMITTED'],
+      ['permission denied', 'SECRET_PERMISSION_DENIED'],
+      ['mkdir()', 'RUNTIME_DIRECTORY_FAILED'],
+      ['bind()', 'LISTENER_BIND_FAILED'],
+      ['address already in use', 'LISTENER_BIND_FAILED'],
+      ['getgrnam', 'WORKER_GROUP_MISSING'],
+      ['getpwnam', 'WORKER_USER_MISSING'],
+      ['no such file', 'REQUIRED_FILE_MISSING'],
+      ['no space left on device', 'DISK_EXHAUSTED'],
+      ['cannot allocate memory', 'MEMORY_EXHAUSTED'],
+      ['out of memory', 'MEMORY_EXHAUSTED'],
+      ['exit code: 137', 'MEMORY_EXHAUSTED'],
+      ['signal: killed', 'MEMORY_EXHAUSTED'],
+      ['toomanyrequests', 'IMAGE_PULL_RATE_LIMITED'],
+      ['pull rate limit', 'IMAGE_PULL_RATE_LIMITED'],
+      ['no matching manifest', 'PLATFORM_MISMATCH'],
+      ['does not provide the specified platform', 'PLATFORM_MISMATCH'],
+      ['exec format error', 'PLATFORM_MISMATCH'],
+      ['manifest unknown', 'IMAGE_PULL_FAILED'],
+      ['pull access denied', 'IMAGE_PULL_FAILED'],
+      ['jsondecodeerror', 'FIXTURE_CONFIG_INVALID'],
+      ['sslerror', 'FIXTURE_RUNTIME_FAILED'],
+      ['traceback (most recent call last)', 'FIXTURE_RUNTIME_FAILED'],
+      ['context deadline exceeded', 'COMMAND_TIMEOUT'],
+      ['timed out', 'COMMAND_TIMEOUT'],
+      ['failed to solve', 'IMAGE_BUILD_FAILED'],
+      ['build failed', 'IMAGE_BUILD_FAILED'],
+    ] as const
+  ).find(([needle]) => diagnostic.includes(needle))?.[1];
+  if (specificReason) return specificReason;
 
   return (
-    (
-      [
-        ['egress_dns_unavailable', 'EGRESS_DNS_UNAVAILABLE'],
-        ['egress_destination_denied', 'EGRESS_DESTINATION_DENIED'],
-        ['certificate verify failed', 'CERTIFICATE_VERIFY_FAILED'],
-        ['cannot load certificate', 'CERTIFICATE_LOAD_FAILED'],
-        ['setgid', 'SETGID_FAILED'],
-        ['setuid', 'SETUID_FAILED'],
-        ['operation not permitted', 'OPERATION_NOT_PERMITTED'],
-        ['permission denied', 'SECRET_PERMISSION_DENIED'],
-        ['mkdir()', 'RUNTIME_DIRECTORY_FAILED'],
-        ['bind()', 'LISTENER_BIND_FAILED'],
-        ['address already in use', 'LISTENER_BIND_FAILED'],
-        ['getgrnam', 'WORKER_GROUP_MISSING'],
-        ['getpwnam', 'WORKER_USER_MISSING'],
-        ['no such file', 'REQUIRED_FILE_MISSING'],
-        ['no space left on device', 'DISK_EXHAUSTED'],
-        ['cannot allocate memory', 'MEMORY_EXHAUSTED'],
-        ['out of memory', 'MEMORY_EXHAUSTED'],
-        ['exit code: 137', 'MEMORY_EXHAUSTED'],
-        ['signal: killed', 'MEMORY_EXHAUSTED'],
-        ['context deadline exceeded', 'COMMAND_TIMEOUT'],
-        ['timed out', 'COMMAND_TIMEOUT'],
-        ['unhealthy', 'SERVICE_UNHEALTHY'],
-        ['failed to solve', 'IMAGE_BUILD_FAILED'],
-        ['build failed', 'IMAGE_BUILD_FAILED'],
-      ] as const
-    ).find(([needle]) => diagnostic.includes(needle))?.[1] ?? 'UNKNOWN'
+    serviceNotReadyReason(rawDiagnostic) ??
+    (diagnostic.includes('unhealthy') ? 'SERVICE_UNHEALTHY' : 'UNKNOWN')
   );
 }
