@@ -12,10 +12,10 @@
       "networks": ["ingestion-client", "ingestion-worker"]
     },
     "ingestion": {
-      "networks": ["ingestion-worker"]
+      "networks": ["ingestion-worker", "ingestion-egress"]
     }
   },
-  "internalNetworks": ["application", "ingestion-client", "ingestion-worker"],
+  "internalNetworks": ["application", "ingestion-client", "ingestion-worker", "ingestion-egress"],
   "prohibitedServiceKeys": ["network_mode", "extra_hosts", "links"],
   "unpublishedServices": ["ingestion-gateway", "ingestion"],
   "gateway": {

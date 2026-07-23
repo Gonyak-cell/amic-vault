@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "amic-vault.ingestion-container-policy.v1",
+  "profile": "small-firm-20-single-worker",
+  "service": "ingestion",
+  "image": {
+    "base": "docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de",
+    "uid": 10001,
+    "gid": 10001
+  },
+  "runtime": {
+    "user": "10001:10001",
+    "readOnly": true,
+    "capDrop": ["ALL"],
+    "securityOpt": ["no-new-privileges:true"],
+    "pidsLimit": 96,
+    "cpus": "2.0",
+    "memory": "2g",
+    "tmpfs": [
+      "/tmp:rw,noexec,nosuid,nodev,size=512m,uid=10001,gid=10001,mode=1770",
+      "/var/tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770"
+    ],
+    "writableVolumes": ["ingestion-replay:/var/lib/amic-vault/replay"],
+    "stopGracePeriod": "20s"
+  },
+  "prohibitedKeys": [
+    "privileged",
+    "devices",
+    "device_cgroup_rules",
+    "network_mode",
+    "ipc",
+    "pid",
+    "uts",
+    "extra_hosts",
+    "links",
+    "group_add"
+  ],
+  "prohibitedMountFragments": [
+    "/var/run/docker.sock",
+    "/run/containerd",
+    "/dev/",
+    "../",
+    "./",
+    "/Users/",
+    "/home/"
+  ]
+}

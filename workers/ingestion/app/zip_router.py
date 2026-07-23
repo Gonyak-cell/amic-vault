@@ -2,18 +2,27 @@ from __future__ import annotations
 
 from hashlib import sha256
 from io import BytesIO
-from pathlib import PurePosixPath
 from typing import Annotated
 from zipfile import BadZipFile, ZipFile
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel
+from .resource_policy import (
+    ParserLimitExceeded,
+    assert_input_bytes,
+    assert_output_bytes,
+    assert_wall_time,
+    parser_profile,
+    start_wall_clock,
+    validate_archive_members,
+)
 
 router = APIRouter()
 
-MAX_ZIP_ITEMS = 5000
-MAX_ZIP_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
-MAX_ZIP_COMPRESSION_RATIO = 100
+_ZIP_PROFILE = parser_profile("zip")
+MAX_ZIP_ITEMS = _ZIP_PROFILE.max_archive_members
+MAX_ZIP_UNCOMPRESSED_BYTES = _ZIP_PROFILE.max_expanded_bytes
+MAX_ZIP_COMPRESSION_RATIO = _ZIP_PROFILE.max_compression_ratio
 
 
 class ZipItem(BaseModel):
@@ -33,40 +42,22 @@ def _reject(reason: str) -> None:
     raise HTTPException(status_code=400, detail={"code": "VALIDATION_FAILED", "reason": reason})
 
 
-def _assert_safe_member(name: str) -> str:
-    normalized = name.replace("\\", "/")
-    path = PurePosixPath(normalized)
-    if not normalized or path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
-        _reject("ZIP_PATH_TRAVERSAL")
-    return path.as_posix()
-
-
 def inspect_zip_payload(payload: bytes) -> list[ZipItem]:
+    started_at = start_wall_clock()
     if not payload.startswith(b"PK"):
         raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
     try:
+        assert_input_bytes(_ZIP_PROFILE, len(payload))
         with ZipFile(BytesIO(payload)) as archive:
             items: list[ZipItem] = []
-            total_uncompressed = 0
-            for info in archive.infolist():
-                if info.is_dir():
-                    continue
-                if len(items) >= MAX_ZIP_ITEMS:
-                    _reject("ZIP_ITEM_COUNT_EXCEEDED")
-                safe_path = _assert_safe_member(info.filename)
-                if info.flag_bits & 0x1:
-                    _reject("ZIP_ENCRYPTED_ENTRY")
-                if info.file_size > 0 and info.compress_size == 0:
-                    _reject("ZIP_COMPRESSION_RATIO_EXCEEDED")
-                if (
-                    info.compress_size > 0
-                    and info.file_size / info.compress_size > MAX_ZIP_COMPRESSION_RATIO
-                ):
-                    _reject("ZIP_COMPRESSION_RATIO_EXCEEDED")
-                total_uncompressed += info.file_size
-                if total_uncompressed > MAX_ZIP_UNCOMPRESSED_BYTES:
-                    _reject("ZIP_UNCOMPRESSED_SIZE_EXCEEDED")
+            for info, safe_path in validate_archive_members(
+                _ZIP_PROFILE,
+                archive.infolist(),
+            ):
                 body = archive.read(info)
+                if len(body) != info.file_size:
+                    raise ParserLimitExceeded("ZIP_MEMBER_SIZE_MISMATCH")
+                assert_output_bytes(_ZIP_PROFILE, body)
                 items.append(
                     ZipItem(
                         path=safe_path,
@@ -75,7 +66,10 @@ def inspect_zip_payload(payload: bytes) -> list[ZipItem]:
                         sha256=sha256(body).hexdigest(),
                     )
                 )
+            assert_wall_time(_ZIP_PROFILE, started_at)
             return items
+    except ParserLimitExceeded as exc:
+        _reject(exc.reason_code)
     except BadZipFile as exc:
         raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"}) from exc
 
@@ -91,6 +85,6 @@ async def inspect_zip(
         raise HTTPException(status_code=403, detail={"code": "TENANT_ISOLATION_VIOLATION"})
     if not batch_id:
         raise HTTPException(status_code=400, detail={"code": "VALIDATION_FAILED"})
-    payload = await file.read()
+    payload = await file.read(_ZIP_PROFILE.max_input_bytes + 1)
     items = inspect_zip_payload(payload)
     return ZipInspectResponse(status="ready", item_count=len(items), items=items)

@@ -18,7 +18,7 @@ def test_docx_converter_invokes_libreoffice_and_returns_pdf(monkeypatch: pytest.
         (outdir / "source.pdf").write_bytes(b"%PDF-1.7\nconverted")
         return subprocess.CompletedProcess(cmd, 0)
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("app.converters.docx_to_pdf.run_bounded_subprocess", fake_run)
     assert convert_docx_bytes_to_pdf(b"PK\x03\x04docx") == b"%PDF-1.7\nconverted"
 
 
@@ -28,7 +28,7 @@ def test_office_converter_accepts_legacy_compound_payloads(monkeypatch: pytest.M
         (outdir / "source.pdf").write_bytes(b"%PDF-1.7\nconverted")
         return subprocess.CompletedProcess(cmd, 0)
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("app.converters.docx_to_pdf.run_bounded_subprocess", fake_run)
     assert convert_office_bytes_to_pdf(b"\xd0\xcf\x11\xe0legacy", "source.ppt") == (
         b"%PDF-1.7\nconverted"
     )

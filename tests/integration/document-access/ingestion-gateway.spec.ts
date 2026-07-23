@@ -1,11 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import {
-  copyFileSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -32,10 +26,6 @@ const gatewayDnsName = 'ingestion-gateway';
 let composeEnvironment: NodeJS.ProcessEnv;
 let ca: CertificatePair;
 let oldClient: CertificatePair;
-let newClient: CertificatePair;
-let wrongSubjectClient: CertificatePair;
-let untrustedClient: CertificatePair;
-let expiredClient: CertificatePair;
 let composeAttempted = false;
 
 const transportProbeSource = `
@@ -233,16 +223,7 @@ extendedKeyUsage = clientAuth
 }
 
 function composeArgs(args: readonly string[]): string[] {
-  return [
-    'compose',
-    '-f',
-    baseCompose,
-    '-f',
-    overridePath,
-    '-p',
-    projectName,
-    ...args,
-  ];
+  return ['compose', '-f', baseCompose, '-f', overridePath, '-p', projectName, ...args];
 }
 
 function runCompose(args: readonly string[], timeout = 120_000): string {
@@ -274,23 +255,22 @@ function runCompose(args: readonly string[], timeout = 120_000): string {
       },
     );
     const diagnostic = `${logs.stdout}\n${logs.stderr}\n${result.stderr}`.toLowerCase();
-    const reason = [
-      ['setgid', 'SETGID_FAILED'],
-      ['setuid', 'SETUID_FAILED'],
-      ['operation not permitted', 'OPERATION_NOT_PERMITTED'],
-      ['permission denied', 'SECRET_PERMISSION_DENIED'],
-      ['cannot load certificate', 'CERTIFICATE_LOAD_FAILED'],
-      ['mkdir()', 'RUNTIME_DIRECTORY_FAILED'],
-      ['bind()', 'LISTENER_BIND_FAILED'],
-      ['getgrnam', 'WORKER_GROUP_MISSING'],
-      ['getpwnam', 'WORKER_USER_MISSING'],
-      ['no such file', 'REQUIRED_FILE_MISSING'],
-      ['unhealthy', 'SERVICE_UNHEALTHY'],
-      ['failed to solve', 'IMAGE_BUILD_FAILED'],
-    ].find(([needle]) => diagnostic.includes(needle))?.[1] ?? 'UNKNOWN';
-    throw new Error(
-      `INGESTION_GATEWAY_COMPOSE_FAILED:${args[0] ?? 'unknown'}:${reason}`,
-    );
+    const reason =
+      [
+        ['setgid', 'SETGID_FAILED'],
+        ['setuid', 'SETUID_FAILED'],
+        ['operation not permitted', 'OPERATION_NOT_PERMITTED'],
+        ['permission denied', 'SECRET_PERMISSION_DENIED'],
+        ['cannot load certificate', 'CERTIFICATE_LOAD_FAILED'],
+        ['mkdir()', 'RUNTIME_DIRECTORY_FAILED'],
+        ['bind()', 'LISTENER_BIND_FAILED'],
+        ['getgrnam', 'WORKER_GROUP_MISSING'],
+        ['getpwnam', 'WORKER_USER_MISSING'],
+        ['no such file', 'REQUIRED_FILE_MISSING'],
+        ['unhealthy', 'SERVICE_UNHEALTHY'],
+        ['failed to solve', 'IMAGE_BUILD_FAILED'],
+      ].find(([needle]) => diagnostic.includes(needle))?.[1] ?? 'UNKNOWN';
+    throw new Error(`INGESTION_GATEWAY_COMPOSE_FAILED:${args[0] ?? 'unknown'}:${reason}`);
   }
   return result.stdout;
 }
@@ -316,11 +296,13 @@ function parseProbe(output: string): ProbeResult {
   return JSON.parse(line) as ProbeResult;
 }
 
-function transportProbe(input: {
-  headers?: Record<string, string>;
-  certificate?: string;
-  key?: string;
-} = {}): ProbeResult {
+function transportProbe(
+  input: {
+    headers?: Record<string, string>;
+    certificate?: string;
+    key?: string;
+  } = {},
+): ProbeResult {
   const args = ['exec', '-T'];
   if (input.certificate) {
     args.push(
@@ -348,19 +330,16 @@ function transportProbe(input: {
   return parseProbe(result.stdout);
 }
 
-function rawTlsProbe(input: {
-  headers?: Record<string, string>;
-  certificate?: string;
-  key?: string;
-} = {}): ProbeResult {
+function rawTlsProbe(
+  input: {
+    headers?: Record<string, string>;
+    certificate?: string;
+    key?: string;
+  } = {},
+): ProbeResult {
   const args = ['exec', '-T', '-e', `PROBE_HEADERS=${JSON.stringify(input.headers ?? {})}`];
   if (input.certificate) {
-    args.push(
-      '-e',
-      `PROBE_CERT=${input.certificate}`,
-      '-e',
-      `PROBE_KEY=${input.key ?? ''}`,
-    );
+    args.push('-e', `PROBE_CERT=${input.certificate}`, '-e', `PROBE_KEY=${input.key ?? ''}`);
   }
   args.push('api-probe', 'node', '-e', rawTlsProbeSource);
   return parseProbe(runCompose(args, 30_000));
@@ -390,28 +369,28 @@ beforeAll(() => {
     usage: 'clientAuth',
     signer: ca,
   });
-  newClient = issueCertificate({
+  issueCertificate({
     name: 'api-client-new',
     subject: 'amic-vault-api',
     serial: 102,
     usage: 'clientAuth',
     signer: ca,
   });
-  wrongSubjectClient = issueCertificate({
+  issueCertificate({
     name: 'wrong-subject-client',
     subject: 'other-api',
     serial: 103,
     usage: 'clientAuth',
     signer: ca,
   });
-  untrustedClient = issueCertificate({
+  issueCertificate({
     name: 'untrusted-client',
     subject: 'amic-vault-api',
     serial: 104,
     usage: 'clientAuth',
     signer: untrustedCa,
   });
-  expiredClient = issueExpiredClient(ca);
+  issueExpiredClient(ca);
 
   const activeClient = {
     certificate: join(certificateRoot, 'active-client.crt'),
@@ -462,6 +441,12 @@ beforeAll(() => {
     INGESTION_GATEWAY_SERVER_KEY_FILE: server.key,
     INGESTION_GATEWAY_CLIENT_CERT_FILE: activeClient.certificate,
     INGESTION_GATEWAY_CLIENT_KEY_FILE: activeClient.key,
+    INGESTION_EGRESS_STORAGE_AUTHORITY: 'ingestion:8000',
+    INGESTION_EGRESS_CLAMAV_AUTHORITY: 'ingestion:8000',
+    INGESTION_EGRESS_ALLOWED_CIDRS: '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16',
+    INGESTION_STORAGE_ENDPOINT: 'https://ingestion:8000',
+    INGESTION_CLAMAV_HOST: 'ingestion',
+    INGESTION_CLAMAV_PORT: '8000',
   };
   composeAttempted = true;
   runCompose(
@@ -478,7 +463,17 @@ beforeAll(() => {
     60_000,
   );
   runCompose(
-    ['up', '-d', '--build', '--wait', '--wait-timeout', '180', 'ingestion', 'ingestion-gateway', 'api-probe'],
+    [
+      'up',
+      '-d',
+      '--build',
+      '--wait',
+      '--wait-timeout',
+      '180',
+      'ingestion',
+      'ingestion-gateway',
+      'api-probe',
+    ],
     300_000,
   );
 }, 330_000);
@@ -581,7 +576,10 @@ describe.sequential('private ingestion gateway production topology', () => {
     expect(transportProbe({ headers })).toMatchObject({ kind: 'response', status: 403 });
 
     runCompose(['restart', 'ingestion'], 60_000);
-    runCompose(['up', '-d', '--wait', '--wait-timeout', '90', 'ingestion', 'ingestion-gateway', 'api-probe'], 120_000);
+    runCompose(
+      ['up', '-d', '--wait', '--wait-timeout', '90', 'ingestion', 'ingestion-gateway', 'api-probe'],
+      120_000,
+    );
     expect(transportProbe({ headers })).toMatchObject({ kind: 'response', status: 403 });
     expectWorkerValidation(transportProbe({ headers: bindingHeaders() }));
   });
@@ -655,7 +653,7 @@ describe.sequential('private ingestion gateway production topology', () => {
         'ingestion',
         'python',
         '-c',
-        "import os; from app.service_identity import assert_service_identity_profile; assert_service_identity_profile(os.environ)",
+        'import os; from app.service_identity import assert_service_identity_profile; assert_service_identity_profile(os.environ)',
       ]),
       {
         cwd: repoRoot,

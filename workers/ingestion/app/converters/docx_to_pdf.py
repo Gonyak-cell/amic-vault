@@ -1,9 +1,19 @@
 from __future__ import annotations
 
-import subprocess
 import tempfile
 from pathlib import Path
 from shutil import which
+
+from app.resource_policy import (
+    ParserLimitExceeded,
+    ParserSubprocessFailed,
+    assert_input_bytes,
+    assert_output_bytes,
+    assert_wall_time,
+    parser_profile,
+    run_bounded_subprocess,
+    start_wall_clock,
+)
 
 
 class DocxToPdfConversionError(Exception):
@@ -29,6 +39,9 @@ def convert_office_bytes_to_pdf(
     filename: str,
     timeout_seconds: int = 30,
 ) -> bytes:
+    profile = parser_profile("convert")
+    started_at = start_wall_clock()
+    assert_input_bytes(profile, len(payload))
     extension = _extension(filename)
     if extension not in office_pdf_extensions:
         raise DocxToPdfConversionError("unsupported office preview extension")
@@ -42,9 +55,10 @@ def convert_office_bytes_to_pdf(
         source = workdir / f"source.{extension}"
         source.write_bytes(payload)
         try:
-            subprocess.run(
+            run_bounded_subprocess(
                 [
                     libreoffice_command(),
+                    f"-env:UserInstallation={workdir.joinpath('lo-profile').as_uri()}",
                     "--headless",
                     "--nologo",
                     "--nofirststartwizard",
@@ -54,20 +68,27 @@ def convert_office_bytes_to_pdf(
                     str(workdir),
                     str(source),
                 ],
+                profile_name="convert",
+                cwd=workdir,
                 check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=timeout_seconds,
+                timeout_seconds=timeout_seconds,
             )
-        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        except ParserSubprocessFailed as exc:
             raise DocxToPdfConversionError("libreoffice conversion failed") from exc
 
         output = workdir / "source.pdf"
         if not output.exists():
             raise DocxToPdfConversionError("libreoffice did not write a pdf")
+        if output.stat().st_size > profile.max_output_bytes:
+            raise DocxToPdfConversionError("converted output exceeds policy")
         pdf = output.read_bytes()
         if not pdf.startswith(b"%PDF"):
             raise DocxToPdfConversionError("converted output is not a pdf")
+        try:
+            assert_output_bytes(profile, pdf)
+            assert_wall_time(profile, started_at)
+        except ParserLimitExceeded as exc:
+            raise DocxToPdfConversionError("conversion resource policy exceeded") from exc
         return pdf
 
 
