@@ -1,6 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -201,6 +209,13 @@ function sha256(value: string | Buffer): string {
 
 function openssl(args: readonly string[]): void {
   execFileSync('openssl', [...args], { cwd: certificateRoot, stdio: 'ignore' });
+}
+
+function hostFixtureUser(): string {
+  if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') {
+    throw new Error('INGESTION_SANDBOX_HOST_IDENTITY_UNAVAILABLE');
+  }
+  return `${process.getuid()}:${process.getgid()}`;
 }
 
 function createCa(): CertificatePair {
@@ -447,6 +462,7 @@ function createBomb(): Buffer {
 beforeAll(() => {
   mkdirSync(certificateRoot);
   mkdirSync(fixtureRoot);
+  const fixtureUser = hostFixtureUser();
   ca = createCa();
   const gatewayServer = issueCertificate({
     name: 'gateway-server',
@@ -476,6 +492,10 @@ beforeAll(() => {
   copyFileSync(client.key, activeClient.key);
   writeFileSync(join(fixtureRoot, 'storage_fixture.py'), storageFixtureSource);
   writeFileSync(join(fixtureRoot, 'clamav_fixture.py'), clamAvFixtureSource);
+  chmodSync(ca.certificate, 0o644);
+  chmodSync(join(certificateRoot, 'storage.crt'), 0o644);
+  chmodSync(activeClient.certificate, 0o644);
+  chmodSync(activeClient.key, 0o600);
 
   const storageObjects = JSON.stringify([
     {
@@ -512,6 +532,7 @@ beforeAll(() => {
         },
         'storage-fixture': {
           image: pythonImage,
+          user: fixtureUser,
           command: ['python', '/fixtures/storage_fixture.py'],
           environment: {
             STORAGE_BUCKET: 'sf20-ingestion',
