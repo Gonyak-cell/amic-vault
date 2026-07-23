@@ -85,6 +85,8 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-SF20-01 | `feat/pack-sf20-01-private-gateway` | 5 | `DEVOPS-SF20-GW-TUW-001` through `DEVOPS-SF20-GW-TUW-005` (`docs/execution/TUW_SF20_PRIVATE_GATEWAY.md`) |
 | PACK-SF20-02 | `feat/pack-sf20-02-parser-sandbox` | 5 | `DEVOPS-SF20-SBX-TUW-001` through `DEVOPS-SF20-SBX-TUW-005` (`docs/execution/TUW_SF20_PARSER_SANDBOX.md`) |
 | PACK-SF20-03 | `feat/pack-sf20-03-production-recovery` | 6 | `DEVOPS-SF20-IAC-TUW-001` through `DEVOPS-SF20-IAC-TUW-003`, `DEVOPS-SF20-DR-TUW-001` through `DEVOPS-SF20-DR-TUW-003` (`docs/execution/TUW_SF20_PRODUCTION_RECOVERY.md`) |
+| PACK-SF20-04 | `feat/pack-sf20-04-observability` | 5 | `DEVOPS-SF20-OPS-TUW-001` through `DEVOPS-SF20-OPS-TUW-005` (`docs/execution/TUW_SF20_OPERATIONS.md`) |
+| PACK-SF20-05 | `feat/pack-sf20-05-dlp-safe-state` | 4 | `DEVOPS-SF20-DLP-TUW-001` through `DEVOPS-SF20-DLP-TUW-004` (`docs/execution/TUW_SF20_DLP_SAFE_STATE.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2892,6 +2894,45 @@ identifier/path/content/filename/credential log value, public monitoring port,
 unbounded series/retention/disk, invented external delivery receipt, copied
 upstream code/test, or alert that lacks owner/runbook/first action/silence
 ceiling is a hard stop.
+
+## PACK-SF20-05 — DLP safe-state and bounded manual review
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721` and the owner's all-immediate-track execution
+direction. It is the serial successor to merged `PACK-SF20-04`, independently
+based on `origin/main`
+`e2958d7f8c3b7ba51377479c93771d81c3dc7271`.
+
+- Branch: `feat/pack-sf20-05-dlp-safe-state`.
+- Detail contract: `docs/execution/TUW_SF20_DLP_SAFE_STATE.md`.
+- Execution order: `DEVOPS-SF20-DLP-TUW-001` →
+  `DEVOPS-SF20-DLP-TUW-002` → `DEVOPS-SF20-DLP-TUW-003` →
+  `DEVOPS-SF20-DLP-TUW-004`.
+- Scope: explicit persisted clean/findings/unscannable assessment; a
+  deterministic seven-class Korean synthetic corpus; exact-assessment,
+  expiring, permission/wall-bound manual review for covered egress; a closed
+  byte/ticket route inventory; and an exact local Presidio source/test/license
+  pin with measured activation triggers.
+- OSS boundary: Microsoft Presidio `2.2.364` commit
+  `779dbd286d5ef4d1fbe2514275fb1bce358f2417` is L0/NO_COPY behavioral
+  evidence for Korean RRN/passport positive and hard-negative cases. No
+  upstream source, test, fixture, model, dependency, container, or runtime
+  service enters the product tree. Passing corpus thresholds yields
+  `DEFERRED_BY_PROFILE`.
+- Out of scope: permission/ethical-wall or audit-authority replacement,
+  immutable-original/file-security promotion changes, raw finding/content
+  storage or logging, silent override, external DLP, Presidio activation,
+  dependency/lockfile change, provider/host/staging mutation, deployment,
+  release, go-live, customer data, and `docs/package/**`.
+
+Clean requires completed bounded inspection; zero findings alone is
+insufficient. Missing/pending/failed/password-protected/oversized/limit-hit
+content is unscannable and covered egress fails closed until an exact,
+unexpired reviewer decision exists. Reviewer role never bypasses ordinary
+Matter permission or ethical walls. Any raw PII in fixtures/evidence, stale
+version/hash/policy approval, cross-tenant review, audit-after-stream,
+unclassified byte/ticket route, copied upstream source/test, or threshold-free
+Presidio adoption is a hard stop.
 
 ## Gate Reports
 
