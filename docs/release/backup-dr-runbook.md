@@ -2,26 +2,29 @@
 
 ## Objective
 
-Verify AMIC Vault backup recoverability for internal operations.
+Verify AMIC Vault backup recoverability for the provider-neutral SF20 production profile.
 
-- RPO: 5 minutes or less, measured by RDS latest restorable time.
+- SF20 readiness RPO ceiling: 60 minutes, derived from timestamps rather than a declared number.
+- Provider operating target: 5 minutes where purchased; this tighter target does not replace the 60-minute readiness Gate.
 - RTO: 4 hours or less, measured from restore start to schema and row-count verification.
-- Scope: PostgreSQL RDS, S3-compatible object storage, and the tenant backup snapshot ledger.
+- Scope: managed PostgreSQL 16 PITR, a PostgreSQL 16 `pg_dump` custom-format backup, exact S3-compatible object versions, and the backup snapshot ledger.
 - Evidence boundary: this runbook stores bounded references and SHA-256 hashes only. Do not paste provider ARNs, endpoints, credentials, object keys, document names, or database URLs into audit metadata.
 
 ## Monthly Checklist
 
-1. Confirm RDS automated backups are enabled and the latest restorable time is within 5 minutes.
+1. Confirm managed PostgreSQL PITR is enabled and record its trusted restore-point timestamp.
 2. Confirm the document object bucket has versioning enabled.
 3. Confirm the document object bucket uses managed server-side encryption.
-4. Restore RDS to an isolated drill database.
-5. Point the drill tool at the primary and restored databases.
-6. Record the verified manifest through `/v1/enterprise/backups/snapshots`.
-7. Store the provider screenshots or CLI output in the external evidence vault and record only its bounded evidence reference.
+4. Produce a PostgreSQL 16 custom-format portable backup and hash its bytes directly.
+5. Capture a bounded inventory of immutable exact object versions.
+6. Build and offline-verify one Ed25519-signed `COMPLETE` backup-set manifest.
+7. Restore to an isolated drill database and read back every selected exact object version.
+8. Record the verified drill manifest through `/v1/enterprise/backups/snapshots`.
+9. Store raw provider receipts outside the repository and retain only opaque references and fingerprints.
 
-## AWS Evidence Commands
+## Provider Evidence Example
 
-Run these from an operator shell with read-only AWS credentials for the target account. Replace placeholders locally and keep raw output outside the repo.
+The following is an AWS-shaped example only. Equivalent managed-provider receipts are acceptable when they satisfy the same bounded contract. Run with read-only credentials and keep raw output outside the repository.
 
 ```bash
 aws rds describe-db-instances \
@@ -42,6 +45,33 @@ Pass criteria:
 - `storageEncrypted` is `true`.
 - S3 versioning status is `Enabled`.
 - S3 default encryption is configured with SSE-S3 or SSE-KMS.
+
+## Signed Backup-set Procedure
+
+The input to `build-backup-set-manifest.mjs` is a closed JSON document. It contains only:
+
+- one opaque backup-set ID, country/region, capture start/end, and the exact production-profile fingerprint;
+- database and object-store target fingerprints;
+- a bounded PITR receipt with an opaque reference and restore-point timestamp;
+- PostgreSQL major `16`, custom-format portable-backup hash and byte count;
+- one or more immutable, encrypted, exact-version object entries with opaque reference, version fingerprint, hash, byte count, and capture time.
+
+It must not contain a receipt body, URL, provider account, endpoint, tenant/document identifier, object key, credential, or content. The signing key is an owner-only Ed25519 private-key file; the independently supplied public key is the offline trust anchor.
+
+```bash
+node tools/release/build-backup-set-manifest.mjs \
+  --input "$BOUNDED_BACKUP_SET_INPUT" \
+  --portable-backup "$PORTABLE_PG_DUMP" \
+  --signing-key "$BACKUP_SIGNING_PRIVATE_KEY_FILE" \
+  --verification-key "$BACKUP_SIGNING_PUBLIC_KEY_FILE" \
+  --approved-region "$APPROVED_REGION_CODE" \
+  --profile-fingerprint "$PRODUCTION_PROFILE_SHA256" \
+  --output "$COMPLETE_BACKUP_SET_MANIFEST"
+```
+
+The tool hashes the portable backup through a bounded stream, canonicalizes the unsigned payload, signs with Ed25519, verifies with the expected public key, and only then creates the output. An existing output is never overwritten. Database-only, object-only, unsigned, stale, cross-region, mutable/latest-object, or revoked-key inputs fail without a partial-success status.
+
+Local tests prove the contract using synthetic metadata. Until an approved region, provider receipts, actual portable backup, exact-version inventory, and signing custody are supplied, the operational state remains `EXTERNAL_BLOCKED_BACKUP_SET_INPUT_REQUIRED`.
 
 ## Restore Drill Procedure
 
