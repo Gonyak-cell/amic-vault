@@ -1,0 +1,325 @@
+{
+  "schemaVersion": "amic-vault.small-firm-20-profile.v1",
+  "profileId": "SF20",
+  "status": "CANONICAL_BASELINE",
+  "baseline": {
+    "sourceRef": "origin/main",
+    "sourceSha": "287c9e3f52b2b8fbc0b6ade8bab5d56d47cf80e9",
+    "capturedAt": "2026-07-23",
+    "planPath": "docs/architecture/enterprise-dms-oss-small-firm-20-user-execution-plan-main-2026-07-23.md",
+    "packRegistryPath": "docs/execution/PACKS_R4_R14.md",
+    "backlogCsvPath": "docs/backlog/backlog_r4_r14.csv",
+    "backlogJsonPath": "docs/backlog/backlog_r4_r14.json"
+  },
+  "capacity": {
+    "namedUsers": 20,
+    "simultaneousActiveSessions": 12,
+    "concurrentApiRequestBurst": 25,
+    "simultaneousPreviewDownloads": 8,
+    "concurrentIngestionJobs": 4,
+    "documentVersions": 500000,
+    "objectStorageBytes": 2199023255552,
+    "tenantFixtureCount": 2
+  },
+  "slo": {
+    "monthlyAvailabilityPercent": 99.5,
+    "apiP95Milliseconds": 1000,
+    "permissionBoundSearchP95Milliseconds": 2000,
+    "previewFirstByteP95Milliseconds": 3000,
+    "databaseRpoMinutes": 60,
+    "databaseRtoMinutes": 240
+  },
+  "mandatoryInvariants": [
+    "permission-before-search",
+    "permission-before-ai",
+    "audit-by-default",
+    "fail-closed",
+    "immutable-original",
+    "ethical-wall-deny-precedence",
+    "tenant-rls-force",
+    "quarantine-before-promotion",
+    "private-gateway-mtls",
+    "production-loopback-identity-deny",
+    "restore-direct-readback",
+    "sensitive-data-not-logged"
+  ],
+  "originalImmediateOutcomes": [
+    "PROPOSED-OSS05-SBX-TUW-001",
+    "PROPOSED-OSS05-SBX-TUW-002",
+    "PROPOSED-OSS05-SBX-TUW-003",
+    "PROPOSED-OSS05-SBX-TUW-004",
+    "PROPOSED-OSS07-LCM-TUW-002",
+    "PROPOSED-OSS07-LCM-TUW-003",
+    "PROPOSED-OSS08-DLP-TUW-001",
+    "PROPOSED-OSS08-DLP-TUW-002",
+    "PROPOSED-OSS09-OPS-TUW-001",
+    "PROPOSED-OSS09-OPS-TUW-002",
+    "PROPOSED-OSS09-OPS-TUW-004",
+    "PROPOSED-OSS10-IAC-TUW-001",
+    "PROPOSED-OSS10-IAC-TUW-002",
+    "PROPOSED-OSS10-IAC-TUW-003",
+    "PROPOSED-OSS10-IAC-TUW-004",
+    "PROPOSED-OSS10-DR-TUW-001",
+    "PROPOSED-OSS10-DR-TUW-002",
+    "PROPOSED-OSS10-DR-TUW-003",
+    "PROPOSED-OSS10-DR-TUW-004"
+  ],
+  "executionPacks": [
+    {
+      "id": "PACK-SF20-00",
+      "order": 0,
+      "dependsOn": [],
+      "tuws": [
+        "DEVOPS-SF20-BASE-TUW-001",
+        "DEVOPS-SF20-CAP-TUW-002",
+        "DEVOPS-SF20-OSS-TUW-003",
+        "DEVOPS-SF20-GATE-TUW-004"
+      ]
+    },
+    {
+      "id": "PACK-SF20-01",
+      "order": 1,
+      "dependsOn": ["PACK-SF20-00"],
+      "tuws": [
+        "DEVOPS-SF20-GW-TUW-001",
+        "DEVOPS-SF20-GW-TUW-002",
+        "DEVOPS-SF20-GW-TUW-003",
+        "DEVOPS-SF20-GW-TUW-004",
+        "DEVOPS-SF20-GW-TUW-005"
+      ]
+    },
+    {
+      "id": "PACK-SF20-02",
+      "order": 2,
+      "dependsOn": ["PACK-SF20-01"],
+      "tuws": [
+        "DEVOPS-SF20-SBX-TUW-001",
+        "DEVOPS-SF20-SBX-TUW-002",
+        "DEVOPS-SF20-SBX-TUW-003",
+        "DEVOPS-SF20-SBX-TUW-004",
+        "DEVOPS-SF20-SBX-TUW-005"
+      ]
+    },
+    {
+      "id": "PACK-SF20-03",
+      "order": 3,
+      "dependsOn": ["PACK-SF20-01", "PACK-SF20-02"],
+      "tuws": [
+        "DEVOPS-SF20-IAC-TUW-001",
+        "DEVOPS-SF20-IAC-TUW-002",
+        "DEVOPS-SF20-IAC-TUW-003",
+        "DEVOPS-SF20-DR-TUW-001",
+        "DEVOPS-SF20-DR-TUW-002",
+        "DEVOPS-SF20-DR-TUW-003"
+      ]
+    },
+    {
+      "id": "PACK-SF20-04",
+      "order": 4,
+      "dependsOn": ["PACK-SF20-03"],
+      "tuws": [
+        "DEVOPS-SF20-OPS-TUW-001",
+        "DEVOPS-SF20-OPS-TUW-002",
+        "DEVOPS-SF20-OPS-TUW-003",
+        "DEVOPS-SF20-OPS-TUW-004",
+        "DEVOPS-SF20-OPS-TUW-005"
+      ]
+    },
+    {
+      "id": "PACK-SF20-05",
+      "order": 5,
+      "dependsOn": ["PACK-SF20-02"],
+      "tuws": [
+        "SEC-SF20-DLP-TUW-001",
+        "SEC-SF20-DLP-TUW-002",
+        "SEC-SF20-DLP-TUW-003",
+        "SEC-SF20-DLP-TUW-004"
+      ]
+    },
+    {
+      "id": "PACK-SF20-06",
+      "order": 6,
+      "dependsOn": ["PACK-SF20-03"],
+      "tuws": [
+        "SEC-SF20-AUTH-TUW-001",
+        "SEC-SF20-AUTH-TUW-002",
+        "SEC-SF20-AUTH-TUW-003",
+        "SEC-SF20-AUTH-TUW-004"
+      ]
+    }
+  ],
+  "sourcePins": [
+    {
+      "id": "nginx",
+      "component": "nginx",
+      "portfolio": "SF20-01",
+      "reuseLevel": "L1",
+      "copyPolicy": "NO_COPY",
+      "license": "BSD-2-Clause",
+      "sourcePath": "src/http/modules/ngx_http_ssl_module.c",
+      "sourceBlob": "43fcafd50e6326bfc7fe9c1790b80b1641b8c1b3",
+      "testComponent": "nginx-tests",
+      "testPath": "ssl_verify_client.t",
+      "testBlob": "3bbad3aba07c69f4b7a84576f82edb4156de98df",
+      "runtimeArtifact": {
+        "state": "PINNED",
+        "reference": "docker.io/library/nginx:1.30.4-alpine",
+        "digest": "sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46"
+      }
+    },
+    {
+      "id": "prometheus",
+      "component": "prometheus",
+      "portfolio": "SF20-04",
+      "reuseLevel": "L1",
+      "copyPolicy": "NO_COPY",
+      "license": "Apache-2.0",
+      "sourcePath": "cmd/prometheus/main.go",
+      "sourceBlob": "6795c6bb4cdd456028dc73de472aab434a99cc70",
+      "testComponent": "prometheus",
+      "testPath": "cmd/prometheus/main_test.go",
+      "testBlob": "216bb882c8028f977de3616696739fba8e8dd530",
+      "runtimeArtifact": {
+        "state": "PINNED",
+        "reference": "docker.io/prom/prometheus:v3.13.1",
+        "digest": "sha256:3c42b892cf723fa54d2f262c37a0e1f80aa8c8ddb1da7b9b0df9455a35a7f893"
+      }
+    },
+    {
+      "id": "alertmanager",
+      "component": "alertmanager",
+      "portfolio": "SF20-04",
+      "reuseLevel": "L1",
+      "copyPolicy": "NO_COPY",
+      "license": "Apache-2.0",
+      "sourcePath": "cmd/alertmanager/main.go",
+      "sourceBlob": "0e5142e8aca88b8445c7facadb69c4f092401668",
+      "testComponent": "alertmanager",
+      "testPath": "cmd/alertmanager/main_test.go",
+      "testBlob": "28f21bdc2b4b6e6b71d49dac8527b0298ad95092",
+      "runtimeArtifact": {
+        "state": "PINNED",
+        "reference": "docker.io/prom/alertmanager:v0.33.1",
+        "digest": "sha256:9e082985f56f4c8c9f724e18f2288c6708f472e56a5286b8863d080434ea065d"
+      }
+    },
+    {
+      "id": "ansible",
+      "component": "ansible",
+      "portfolio": "SF20-03",
+      "reuseLevel": "L0",
+      "copyPolicy": "NO_COPY",
+      "license": "GPL-3.0-or-later",
+      "sourcePath": "lib/ansible/playbook/play.py",
+      "sourceBlob": "5cb639f851bb929caeb3c53025488d4d65e8c8cf",
+      "testComponent": "ansible",
+      "testPath": "test/units/playbook/test_play.py",
+      "testBlob": "272744d578039b4abbbb5008f7522063e8a9eaff",
+      "runtimeArtifact": {
+        "state": "SOURCE_PIN_ONLY",
+        "requiredBeforeUse": "PACK-SF20-03"
+      }
+    },
+    {
+      "id": "pgbackrest",
+      "component": "pgbackrest",
+      "portfolio": "SF20-03",
+      "reuseLevel": "L0",
+      "copyPolicy": "NO_COPY",
+      "license": "MIT",
+      "sourcePath": "src/command/backup/backup.c",
+      "sourceBlob": "61f8a91c1a9cbd2b5acc499ed8b7633cf3d9cd7b",
+      "testComponent": "pgbackrest",
+      "testPath": "test/src/module/command/backupTest.c",
+      "testBlob": "ad79447ef10120406882cd721e50ddb1ed5c7c84",
+      "runtimeArtifact": {
+        "state": "CONDITIONAL_NOT_AUTHORIZED",
+        "requiredBeforeUse": "PACK-SF20-03 restore-tool decision"
+      }
+    }
+  ],
+  "expansionPolicy": {
+    "approvedExpansions": [],
+    "conditionalComponents": [
+      {
+        "id": "kubernetes",
+        "patterns": ["\\bkubernetes\\b", "\\bk8s\\.io\\b", "\\bapiVersion:\\s*apps/v1\\b"],
+        "triggerReference": "more than 50 users or a 99.9 percent multi-node availability contract"
+      },
+      {
+        "id": "redis",
+        "patterns": ["\\bredis(?:[-:@/]|\\b)"],
+        "triggerReference": "approved shared replay or cache authority"
+      },
+      {
+        "id": "kafka",
+        "patterns": ["\\bkafka(?:[-:@/]|\\b)"],
+        "triggerReference": "approved event-platform scale trigger"
+      },
+      {
+        "id": "opensearch",
+        "patterns": ["\\bopensearch(?:[-:@/]|\\b)"],
+        "triggerReference": "ADR-006 measured PostgreSQL search failure"
+      },
+      {
+        "id": "wopi",
+        "patterns": ["\\bwopi\\b"],
+        "triggerReference": "approved browser collaborative-editing contract"
+      },
+      {
+        "id": "pgbouncer",
+        "patterns": ["\\bpgbouncer(?:[-:@/]|\\b)"],
+        "triggerReference": "measured database connection utilization trigger"
+      },
+      {
+        "id": "keycloak",
+        "patterns": ["\\bkeycloak(?:[-:@/]|\\b)"],
+        "triggerReference": "approved multi-protocol identity broker topology"
+      },
+      {
+        "id": "presidio",
+        "patterns": ["\\bpresidio(?:[-:@/]|\\b)"],
+        "triggerReference": "approved DLP quality threshold miss"
+      },
+      {
+        "id": "jaeger",
+        "patterns": ["\\bjaeger(?:[-:@/]|\\b)"],
+        "triggerReference": "approved full distributed-tracing operations profile"
+      },
+      {
+        "id": "otel-collector",
+        "patterns": ["\\botel[-_]collector\\b", "\\bopentelemetry-collector\\b"],
+        "triggerReference": "approved internal telemetry sink and retention owner"
+      },
+      {
+        "id": "collabora",
+        "patterns": ["\\bcollabora(?:[-:@/]|\\b)"],
+        "triggerReference": "ADR-018 and R11 WOPI approval"
+      },
+      {
+        "id": "onlyoffice",
+        "patterns": ["\\bonlyoffice(?:[-:@/]|\\b)"],
+        "triggerReference": "ADR-018 and R11 WOPI approval"
+      },
+      {
+        "id": "tusd",
+        "patterns": ["\\btusd(?:[-:@/]|\\b)"],
+        "triggerReference": "approved SF20 resumable-upload trigger receipt"
+      }
+    ]
+  },
+  "runtimeManifestScan": {
+    "rootFiles": ["package.json", "pnpm-lock.yaml"],
+    "roots": ["apps", "packages", "workers", "infra"],
+    "includedNames": [
+      "package.json",
+      "pyproject.toml",
+      "uv.lock",
+      "Dockerfile",
+      "compose.yml",
+      "docker-compose.yml"
+    ],
+    "includedSuffixes": [".Dockerfile", ".yaml", ".yml"],
+    "excludedPaths": ["infra/docker-compose.dev.yml"]
+  }
+}

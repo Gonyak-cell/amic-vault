@@ -1,5 +1,5 @@
 {
-  "total": 242,
+  "total": 246,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3595,6 +3595,50 @@
       "depends_on": ["DEVOPS-OSS02-PRV-TUW-001", "DEVOPS-OSS02-PRV-TUW-002", "DEVOPS-OSS02-PRV-TUW-003", "DEVOPS-OSS02-PRV-TUW-004"],
       "files": ["tests/integration/document-access", "tests/integration/audit-coverage", "tests/integration/metadata-leakage"],
       "verification": "real Nest PostgreSQL MinIO issue-to-range permission audit fault replay revoke expiry and metadata-leakage proof passes AND full document-access audit-coverage metadata-leakage cross-tenant regressions remain green"
+    },
+    {
+      "id": "DEVOPS-SF20-BASE-TUW-001",
+      "title": "Small-firm exact-main profile manifest",
+      "release": "R14",
+      "module": "DEVOPS-SF20",
+      "risk": "M",
+      "size": "M",
+      "depends_on": [],
+      "files": ["security/small-firm-20-profile.yml", "tools/quality/check-small-firm-profile.mjs", "docs/architecture", "docs/execution"],
+      "verification": "origin/main SHA 19 original outcomes seven PACKs 33 unique TUWs and mandatory permission audit immutable gateway and restore invariants validate AND each removal or shrinkage fails"
+    },
+    {
+      "id": "DEVOPS-SF20-CAP-TUW-002",
+      "title": "Deterministic SF20 capacity and SLO fixture",
+      "release": "R14",
+      "module": "DEVOPS-SF20",
+      "risk": "M",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-BASE-TUW-001"],
+      "files": ["tools/bench/small-firm-20-profile.mjs", "tests/fixtures/small-firm-20-capacity.json"],
+      "verification": "two synthetic tenants total 20 users 500000 versions 2 TiB and fixed load with permission wall negatives AND repeat manifest hashes match and raw-data fields fail"
+    },
+    {
+      "id": "DEVOPS-SF20-OSS-TUW-003",
+      "title": "Minimal gateway monitoring and recovery OSS source lock",
+      "release": "R14",
+      "module": "DEVOPS-SF20",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-BASE-TUW-001"],
+      "files": ["security/oss-source-map.yml", "security/oss-adoption-decisions.yml", "security/small-firm-20-profile.yml", "docs/architecture/oss-adoption-decisions"],
+      "verification": "NGINX tests Prometheus Alertmanager Ansible and pgBackRest official URL release commit tree license source and test blobs validate AND selected service images are digest pinned with NO_COPY boundaries"
+    },
+    {
+      "id": "DEVOPS-SF20-GATE-TUW-004",
+      "title": "Small-firm runtime expansion gate",
+      "release": "R14",
+      "module": "DEVOPS-SF20",
+      "risk": "M",
+      "size": "S",
+      "depends_on": ["DEVOPS-SF20-BASE-TUW-001", "DEVOPS-SF20-CAP-TUW-002", "DEVOPS-SF20-OSS-TUW-003"],
+      "files": ["tools/quality/check-small-firm-profile.mjs", ".github/workflows/ci.yml", ".github/workflows/supply-chain.yml"],
+      "verification": "each conditional component and public ingestion port canary fails AND only exact path trigger receipt and approval reference can authorize an expansion"
     }
   ]
 }
