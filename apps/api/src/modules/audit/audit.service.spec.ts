@@ -19,12 +19,11 @@ class MemoryClient implements QueryClient {
   }
 }
 
-function createService(context = new TenantContextService()): AuditService {
-  return new AuditService(
-    context,
-    new AuditMetadataNormalizer(),
-    {} as never,
-  );
+function createService(
+  context = new TenantContextService(),
+  metrics?: { recordAuditWrite(outcome: 'failure' | 'success'): void },
+): AuditService {
+  return new AuditService(context, new AuditMetadataNormalizer(), {} as never, metrics as never);
 }
 
 describe('AuditService', () => {
@@ -92,5 +91,41 @@ describe('AuditService', () => {
 
     expect(transaction).toHaveBeenCalledWith(tenantId, expect.any(Function));
     expect(client.params[0]?.[0]).toBe(tenantId);
+  });
+
+  it('records bounded success and failure outcomes without audit payload labels', async () => {
+    const outcomes: string[] = [];
+    const service = createService(new TenantContextService(), {
+      recordAuditWrite: (outcome) => outcomes.push(outcome),
+    });
+
+    await expect(
+      service.log(
+        {
+          tenantId,
+          action: 'LOGIN_SUCCESS',
+          targetType: 'auth',
+        },
+        new MemoryClient(),
+      ),
+    ).resolves.toBeDefined();
+
+    await expect(
+      service.log(
+        {
+          tenantId,
+          action: 'LOGIN_SUCCESS',
+          targetType: 'auth',
+        },
+        {
+          query: async () => {
+            throw new Error('audit unavailable');
+          },
+        },
+      ),
+    ).rejects.toThrow('audit unavailable');
+
+    expect(outcomes).toEqual(['success', 'failure']);
+    expect(JSON.stringify(outcomes)).not.toContain(tenantId);
   });
 });

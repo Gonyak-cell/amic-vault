@@ -72,6 +72,28 @@ describe('QueueRegistry', () => {
     expect(boss.createQueue).toHaveBeenCalledWith('queue.late', { retryLimit: 2 });
   });
 
+  it('exposes sorted defensive definition copies for bounded operational metrics', () => {
+    const { registry } = createRegistry();
+    registry.register({ name: 'queue.second', options: { retryLimit: 2 } });
+    registry.register({
+      name: 'queue.first',
+      options: { deadLetter: 'queue.first.dead', retryLimit: 3 },
+    });
+    registry.register({ name: 'queue.first.dead', options: { retryLimit: 0 } });
+
+    const definitions = registry.registeredQueueDefinitions();
+    expect(definitions.map(({ name }) => name)).toEqual([
+      'queue.first',
+      'queue.first.dead',
+      'queue.second',
+    ]);
+
+    const first = definitions[0];
+    if (!first?.options) throw new Error('test definition missing');
+    first.options.retryLimit = 99;
+    expect(registry.registeredQueueDefinitions()[0]?.options?.retryLimit).toBe(3);
+  });
+
   it('creates a registered dead-letter dependency before its main queue', async () => {
     const { registry, boss } = createRegistry();
     const created = new Set<string>();
@@ -105,9 +127,7 @@ describe('QueueRegistry', () => {
     const cyclic = createRegistry();
     cyclic.registry.register({ name: 'queue.first', options: { deadLetter: 'queue.second' } });
     cyclic.registry.register({ name: 'queue.second', options: { deadLetter: 'queue.first' } });
-    await expect(cyclic.registry.producer('queue.first')).rejects.toThrow(
-      'QUEUE_DEFINITION_CYCLE',
-    );
+    await expect(cyclic.registry.producer('queue.first')).rejects.toThrow('QUEUE_DEFINITION_CYCLE');
   });
 
   it('allows consumer acquisition only in worker role', async () => {

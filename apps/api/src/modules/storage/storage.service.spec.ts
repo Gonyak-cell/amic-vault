@@ -12,7 +12,11 @@ import type {
   StorageVersionedObjectMetadata,
   VersionedStorageAdapter,
 } from './storage-adapter.interface';
-import { StorageObjectAlreadyExistsError } from './storage-adapter.interface';
+import {
+  StorageObjectAlreadyExistsError,
+  StorageRequestTimeoutError,
+} from './storage-adapter.interface';
+import { MetricsRegistry } from '../../common/metrics/metrics.middleware';
 import { NoopEncryptionHook } from './noop-encryption.hook';
 import { StorageService } from './storage.service';
 import { StoragePathResolver } from './storage-path.resolver';
@@ -84,7 +88,10 @@ class MemoryStorageAdapter implements StorageAdapter {
   }
 }
 
-class VersionedMemoryStorageAdapter extends MemoryStorageAdapter implements VersionedStorageAdapter {
+class VersionedMemoryStorageAdapter
+  extends MemoryStorageAdapter
+  implements VersionedStorageAdapter
+{
   async listObjectVersions(key: string): Promise<readonly StorageVersionedObjectMetadata[]> {
     return [
       {
@@ -233,7 +240,9 @@ describe('StorageService', () => {
       new NoopEncryptionHook(),
     );
 
-    await expect(service.listQuarantineRefs(tenantId)).rejects.toThrow('quarantine inventory is invalid');
+    await expect(service.listQuarantineRefs(tenantId)).rejects.toThrow(
+      'quarantine inventory is invalid',
+    );
   });
 
   it('rejects cross-tenant storage URI access before adapter calls', async () => {
@@ -274,20 +283,31 @@ describe('StorageService', () => {
 
   it('returns only a tenant-validated latest version fingerprint', async () => {
     const adapter = new VersionedMemoryStorageAdapter();
-    const service = new StorageService(adapter, new StoragePathResolver('vault-dev'), new NoopEncryptionHook());
+    const service = new StorageService(
+      adapter,
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
     const storageUri = `s3://vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
 
     await expect(service.latestVersionFingerprintByStorageUri(tenantId, storageUri)).resolves.toBe(
       'a'.repeat(64),
     );
     await expect(
-      service.latestVersionFingerprintByStorageUri('22222222-2222-4222-8222-222222222222', storageUri),
+      service.latestVersionFingerprintByStorageUri(
+        '22222222-2222-4222-8222-222222222222',
+        storageUri,
+      ),
     ).rejects.toMatchObject({ response: { code: 'TENANT_ISOLATION_VIOLATION' } });
   });
 
   it('keeps exact version handles opaque while exposing only HEAD and Object Lock facts', async () => {
     const adapter = new VersionedMemoryStorageAdapter();
-    const service = new StorageService(adapter, new StoragePathResolver('vault-dev'), new NoopEncryptionHook());
+    const service = new StorageService(
+      adapter,
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+    );
     const storageUri = `s3://vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
 
     const inspection = await service.inspectSealedVersionByStorageUri(
@@ -299,7 +319,11 @@ describe('StorageService', () => {
     expect(inspection).toMatchObject({ present: true, objectLockProtected: false });
     await expect(service.sealedVersionIsPresent(inspection.version)).resolves.toBe(true);
     await expect(
-      service.inspectSealedVersionByStorageUri('22222222-2222-4222-8222-222222222222', storageUri, 'a'.repeat(64)),
+      service.inspectSealedVersionByStorageUri(
+        '22222222-2222-4222-8222-222222222222',
+        storageUri,
+        'a'.repeat(64),
+      ),
     ).rejects.toMatchObject({ response: { code: 'TENANT_ISOLATION_VIOLATION' } });
   });
 
@@ -358,5 +382,30 @@ describe('StorageService', () => {
     ).rejects.toMatchObject({
       response: { code: 'TENANT_ISOLATION_VIOLATION' },
     });
+  });
+
+  it('records only bounded backend failure classes without storage identifiers', async () => {
+    const adapter = new MemoryStorageAdapter();
+    adapter.head = async () => {
+      throw new StorageRequestTimeoutError();
+    };
+    const metrics = new MetricsRegistry();
+    const service = new StorageService(
+      adapter,
+      new StoragePathResolver('vault-dev'),
+      new NoopEncryptionHook(),
+      metrics,
+    );
+    const storageUri = `s3://vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
+
+    await expect(service.headByStorageUri(tenantId, storageUri)).rejects.toBeInstanceOf(
+      StorageRequestTimeoutError,
+    );
+
+    const rendered = metrics.render();
+    expect(rendered).toContain('storage_failures_total{error_class="timeout"} 1');
+    expect(rendered).not.toContain(tenantId);
+    expect(rendered).not.toContain(fileObjectId);
+    expect(rendered).not.toContain(storageUri);
   });
 });

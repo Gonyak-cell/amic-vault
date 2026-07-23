@@ -1,5 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ForbiddenException, Inject, Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+} from '@nestjs/common';
 import type { PoolClient, QueryResultRow } from 'pg';
 import type { TenantStatus, UserRole, UserStatus } from '@amic-vault/shared';
 import { DATABASE_POOL } from './database.tokens';
@@ -10,6 +16,9 @@ export interface DatabasePool {
   connect(): Promise<PoolClient>;
   end(): Promise<void>;
   on(event: 'error', listener: (error: Error) => void): unknown;
+  readonly totalCount?: number;
+  readonly idleCount?: number;
+  readonly waitingCount?: number;
 }
 
 export interface ActiveSessionLookup extends QueryResultRow {
@@ -86,6 +95,25 @@ export interface PgBossQueueMetricLookup extends QueryResultRow {
   queue: string;
   depth: string;
   dead_letter_count: string;
+  oldest_age_seconds: string;
+}
+
+export interface FileSecurityOperationalMetrics {
+  scannerSignatureAt: Date | null;
+  oldestQuarantineAt: Date | null;
+  quarantineCount: number;
+}
+
+export interface DatabasePoolMetrics {
+  total: number;
+  idle: number;
+  waiting: number;
+}
+
+interface FileSecurityOperationalLookup extends QueryResultRow {
+  scanner_signature_at: Date | null;
+  oldest_quarantine_at: Date | null;
+  quarantine_count: string;
 }
 
 interface ExistsLookup extends QueryResultRow {
@@ -129,7 +157,10 @@ export class DatabaseService implements OnModuleDestroy {
     const activeScope = this.transactionScope.getStore();
     if (activeScope) {
       if (activeScope.tenantId !== tenantId) throw denied();
-      if (options.isolationLevel === 'repeatable read' && activeScope.isolationLevel !== 'repeatable read') {
+      if (
+        options.isolationLevel === 'repeatable read' &&
+        activeScope.isolationLevel !== 'repeatable read'
+      ) {
         throw denied();
       }
       return work(activeScope.client);
@@ -138,15 +169,19 @@ export class DatabaseService implements OnModuleDestroy {
 
     const client = await this.pool.connect();
     try {
-      return await this.transactionScope.run({ tenantId, client, isolationLevel: options.isolationLevel }, () =>
-        this.tenantAwareDataSource.transactionForTenant(client, tenantId, work, options),
+      return await this.transactionScope.run(
+        { tenantId, client, isolationLevel: options.isolationLevel },
+        () => this.tenantAwareDataSource.transactionForTenant(client, tenantId, work, options),
       );
     } finally {
       client.release();
     }
   }
 
-  async auditTransaction<T>(tenantId: string, work: (client: PoolClient) => Promise<T>): Promise<T> {
+  async auditTransaction<T>(
+    tenantId: string,
+    work: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
     return this.transactionScope.run(undefined, () => this.tenantTransaction(tenantId, work));
   }
 
@@ -217,20 +252,70 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   async listTenantRegistryByStatus(status?: TenantStatus): Promise<TenantRegistryRecord[]> {
-    return this.readTenantRegistry('WHERE $1::text IS NULL OR status = $1 ORDER BY slug', [status ?? null]);
+    return this.readTenantRegistry('WHERE $1::text IS NULL OR status = $1 ORDER BY slug', [
+      status ?? null,
+    ]);
   }
 
   async listActiveTenantRegistryIds(): Promise<string[]> {
-    const rows = await this.readTenantRegistry<{ tenant_id: string }>(
+    const rows = await this.readTenantRegistry<Pick<TenantRegistryRecord, 'tenantId'>>(
       "WHERE status = 'active' ORDER BY tenant_id ASC",
     );
-    return rows.map((row) => row.tenant_id);
+    return rows.map((row) => row.tenantId);
+  }
+
+  databasePoolMetrics(): DatabasePoolMetrics {
+    return {
+      total: safePoolCount(this.pool.totalCount),
+      idle: safePoolCount(this.pool.idleCount),
+      waiting: safePoolCount(this.pool.waitingCount),
+    };
+  }
+
+  /** Aggregates RLS-scoped scanner/quarantine state without returning tenant identifiers. */
+  async readFileSecurityOperationalMetrics(): Promise<FileSecurityOperationalMetrics> {
+    let scannerSignatureAt: Date | null = null;
+    let oldestQuarantineAt: Date | null = null;
+    let quarantineCount = 0;
+    for (const tenantId of await this.listActiveTenantRegistryIds()) {
+      const row = await this.tenantTransaction(tenantId, async (client) => {
+        const result = await client.query<FileSecurityOperationalLookup>(
+          `
+            SELECT max(signature_at) AS scanner_signature_at,
+              min(created_at) FILTER (WHERE state <> 'promoted') AS oldest_quarantine_at,
+              count(*) FILTER (WHERE state <> 'promoted')::text AS quarantine_count
+            FROM file_security_scans
+            WHERE tenant_id = $1
+          `,
+          [tenantId],
+        );
+        return result.rows[0];
+      });
+      if (!row) continue;
+      if (validDate(row.scanner_signature_at)) {
+        if (!scannerSignatureAt || row.scanner_signature_at > scannerSignatureAt) {
+          scannerSignatureAt = row.scanner_signature_at;
+        }
+      }
+      if (validDate(row.oldest_quarantine_at)) {
+        if (!oldestQuarantineAt || row.oldest_quarantine_at < oldestQuarantineAt) {
+          oldestQuarantineAt = row.oldest_quarantine_at;
+        }
+      }
+      quarantineCount += safeMetricCount(row.quarantine_count);
+    }
+    return { scannerSignatureAt, oldestQuarantineAt, quarantineCount };
   }
 
   /** Returns aggregate operational queue counts only, never job payloads. */
   async readPgBossQueueMetrics(
-    definitions: readonly { queue: string; mainQueue: string; deadLetterQueue: string }[],
+    definitions: readonly {
+      queue: string;
+      mainQueue: string;
+      deadLetterQueue?: string;
+    }[],
   ): Promise<PgBossQueueMetricLookup[]> {
+    if (definitions.length === 0) return [];
     const schema = pgBossSchema() ?? 'pgboss';
     if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(schema)) throw denied();
     this.assertPoolAvailable();
@@ -249,17 +334,24 @@ export class DatabaseService implements OnModuleDestroy {
             count(*) FILTER (
               WHERE j.name = q.dead_queue
                 AND j.state IN ('created', 'retry', 'active', 'failed')
-            )::text AS dead_letter_count
+            )::text AS dead_letter_count,
+            coalesce(greatest(extract(epoch FROM (
+              clock_timestamp() - min(j.created_on) FILTER (
+                WHERE j.name = q.main_queue
+                  AND j.state IN ('created', 'retry', 'active')
+              )
+            )), 0), 0)::text AS oldest_age_seconds
           FROM queue_defs q
           LEFT JOIN ${quotePgIdentifier(schema)}.${quotePgIdentifier('job')} j
-            ON j.name IN (q.main_queue, q.dead_queue)
+            ON j.name = q.main_queue
+              OR (q.dead_queue IS NOT NULL AND j.name = q.dead_queue)
           GROUP BY q.metric_queue
           ORDER BY q.metric_queue ASC
         `,
         [
           definitions.map((definition) => definition.queue),
           definitions.map((definition) => definition.mainQueue),
-          definitions.map((definition) => definition.deadLetterQueue),
+          definitions.map((definition) => definition.deadLetterQueue ?? null),
         ],
       );
       return result.rows;
@@ -312,6 +404,19 @@ export class DatabaseService implements OnModuleDestroy {
       throw denied();
     }
   }
+}
+
+function safePoolCount(value: number | undefined): number {
+  return Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : 0;
+}
+
+function safeMetricCount(value: string): number {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function validDate(value: Date | null): value is Date {
+  return value instanceof Date && Number.isFinite(value.getTime());
 }
 
 function quotePgIdentifier(value: string): string {

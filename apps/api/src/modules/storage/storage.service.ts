@@ -1,4 +1,5 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
+import { MetricsRegistry, type StorageFailureClass } from '../../common/metrics/metrics.middleware';
 import { sha256Stream } from '../document/integrity/sha256.util';
 import type {
   StorageAdapter,
@@ -10,6 +11,9 @@ import type {
   VersionedStorageAdapter,
 } from './storage-adapter.interface';
 import {
+  StorageAccessDeniedError,
+  StorageExactVersionMissingError,
+  StorageRequestTimeoutError,
   StorageUnavailableError,
   StorageVersionFingerprintUnavailableError,
   StorageVersioningUnsupportedError,
@@ -87,6 +91,9 @@ export class StorageService {
     @Inject(STORAGE_ADAPTER) private readonly adapter: StorageAdapter,
     @Inject(StoragePathResolver) private readonly pathResolver: StoragePathResolver,
     @Inject(ENCRYPTION_HOOK) private readonly encryptionHook: EncryptionHook,
+    @Optional()
+    @Inject(MetricsRegistry)
+    private readonly metricsRegistry?: MetricsRegistry,
   ) {}
 
   async putTenantObject(input: PutTenantObjectInput): Promise<PutTenantObjectResult> {
@@ -100,12 +107,14 @@ export class StorageService {
       contentLength: input.contentLength,
       contentType: input.contentType,
     });
-    await this.adapter.putIfAbsent({
-      key,
-      body: encrypted.body,
-      contentLength: encrypted.contentLength,
-      contentType: encrypted.contentType,
-    });
+    await this.observeStorageOperation(() =>
+      this.adapter.putIfAbsent({
+        key,
+        body: encrypted.body,
+        contentLength: encrypted.contentLength,
+        contentType: encrypted.contentType,
+      }),
+    );
     return {
       key,
       storageUri: this.pathResolver.storageUriForKey(key),
@@ -123,12 +132,14 @@ export class StorageService {
       contentLength: input.contentLength,
       contentType: input.contentType,
     });
-    await this.adapter.putIfAbsent({
-      key,
-      body: encrypted.body,
-      contentLength: encrypted.contentLength,
-      contentType: encrypted.contentType,
-    });
+    await this.observeStorageOperation(() =>
+      this.adapter.putIfAbsent({
+        key,
+        body: encrypted.body,
+        contentLength: encrypted.contentLength,
+        contentType: encrypted.contentType,
+      }),
+    );
     return {
       key,
       storageUri: this.pathResolver.storageUriForKey(key),
@@ -145,12 +156,14 @@ export class StorageService {
       contentLength: input.contentLength,
       contentType: input.contentType,
     });
-    await this.adapter.putIfAbsent({
-      key,
-      body: encrypted.body,
-      contentLength: encrypted.contentLength,
-      contentType: encrypted.contentType,
-    });
+    await this.observeStorageOperation(() =>
+      this.adapter.putIfAbsent({
+        key,
+        body: encrypted.body,
+        contentLength: encrypted.contentLength,
+        contentType: encrypted.contentType,
+      }),
+    );
     return {
       key,
       storageUri: this.pathResolver.storageUriForKey(key),
@@ -167,12 +180,14 @@ export class StorageService {
       contentLength: input.contentLength,
       contentType: input.contentType,
     });
-    await this.adapter.putIfAbsent({
-      key,
-      body: encrypted.body,
-      contentLength: encrypted.contentLength,
-      contentType: encrypted.contentType,
-    });
+    await this.observeStorageOperation(() =>
+      this.adapter.putIfAbsent({
+        key,
+        body: encrypted.body,
+        contentLength: encrypted.contentLength,
+        contentType: encrypted.contentType,
+      }),
+    );
     return {
       key,
       storageUri: this.pathResolver.storageUriForKey(key),
@@ -182,31 +197,42 @@ export class StorageService {
 
   async headByStorageUri(tenantId: string, storageUri: string) {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
-    return this.adapter.head(parsed.key);
+    return this.observeStorageOperation(() => this.adapter.head(parsed.key));
   }
 
   /** Returns only validated UUID references; raw storage keys never cross this boundary. */
   async listQuarantineRefs(tenantId: string): Promise<readonly string[]> {
     const prefix = this.pathResolver.buildQuarantinePrefix(tenantId);
-    const keys = await this.quarantineInventoryAdapter().listKeysByPrefix(prefix);
+    const keys = await this.observeStorageOperation(() =>
+      this.quarantineInventoryAdapter().listKeysByPrefix(prefix),
+    );
     const refs = keys.map((key) => {
       try {
         const parsed = this.pathResolver.parseObjectKey(key);
-        if (parsed.objectType !== 'quarantine' || parsed.tenantId !== this.pathResolver.assertTenantKey(tenantId, key).tenantId) {
+        if (
+          parsed.objectType !== 'quarantine' ||
+          parsed.tenantId !== this.pathResolver.assertTenantKey(tenantId, key).tenantId
+        ) {
           throw new StorageTenantIsolationViolationError();
         }
         return parsed.quarantineRef;
       } catch {
-        throw new StorageUnavailableError('quarantine inventory is invalid');
+        throw this.recordStorageFailure(
+          new StorageUnavailableError('quarantine inventory is invalid'),
+        );
       }
     });
-    if (new Set(refs).size !== refs.length) throw new StorageUnavailableError('quarantine inventory is duplicated');
+    if (new Set(refs).size !== refs.length) {
+      throw this.recordStorageFailure(
+        new StorageUnavailableError('quarantine inventory is duplicated'),
+      );
+    }
     return refs.sort();
   }
 
   async getByStorageUri(tenantId: string, storageUri: string): Promise<StorageGetObjectResult> {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
-    const object = await this.adapter.get(parsed.key);
+    const object = await this.observeStorageOperation(() => this.adapter.get(parsed.key));
     const decrypted = await this.encryptionHook.afterGet({
       tenantId,
       key: parsed.key,
@@ -227,7 +253,9 @@ export class StorageService {
       throw tenantIsolationDenied();
     }
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
-    const object = await this.adapter.getRange({ key: parsed.key, start, end });
+    const object = await this.observeStorageOperation(() =>
+      this.adapter.getRange({ key: parsed.key, start, end }),
+    );
     const decrypted = await this.encryptionHook.afterGet({
       tenantId,
       key: parsed.key,
@@ -244,10 +272,12 @@ export class StorageService {
     expiresInSeconds?: number,
   ): Promise<StorageReadUrlResult> {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
-    return this.adapter.createReadUrl({
-      key: parsed.key,
-      ...(expiresInSeconds === undefined ? {} : { expiresInSeconds }),
-    });
+    return this.observeStorageOperation(() =>
+      this.adapter.createReadUrl({
+        key: parsed.key,
+        ...(expiresInSeconds === undefined ? {} : { expiresInSeconds }),
+      }),
+    );
   }
 
   async sha256ByStorageUri(tenantId: string, storageUri: string): Promise<string> {
@@ -260,13 +290,20 @@ export class StorageService {
    * URI validation. Provider version IDs and opaque handles never leave this
    * storage boundary.
    */
-  async latestVersionFingerprintByStorageUri(tenantId: string, storageUri: string): Promise<string> {
+  async latestVersionFingerprintByStorageUri(
+    tenantId: string,
+    storageUri: string,
+  ): Promise<string> {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
-    const latest = (await this.versionedAdapter().listObjectVersions(parsed.key)).find(
-      (entry) => !entry.isDeleteMarker && entry.isLatest,
-    );
+    const latest = (
+      await this.observeStorageOperation(() =>
+        this.versionedAdapter().listObjectVersions(parsed.key),
+      )
+    ).find((entry) => !entry.isDeleteMarker && entry.isLatest);
     if (!latest || !/^[a-f0-9]{64}$/u.test(latest.versionFingerprint)) {
-      throw new StorageUnavailableError('storage latest version fingerprint is unavailable');
+      throw this.recordStorageFailure(
+        new StorageUnavailableError('storage latest version fingerprint is unavailable'),
+      );
     }
     return latest.versionFingerprint;
   }
@@ -285,21 +322,35 @@ export class StorageService {
       throw new StorageVersionFingerprintUnavailableError();
     }
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
-    const found = (await this.versionedAdapter().listObjectVersions(parsed.key)).filter(
+    const found = (
+      await this.observeStorageOperation(() =>
+        this.versionedAdapter().listObjectVersions(parsed.key),
+      )
+    ).filter(
       (entry) => !entry.isDeleteMarker && entry.versionFingerprint === storageVersionFingerprint,
     );
-    if (found.length !== 1) throw new StorageVersionFingerprintUnavailableError();
+    if (found.length !== 1) {
+      throw this.recordStorageFailure(new StorageVersionFingerprintUnavailableError());
+    }
     const entry = found[0];
-    if (!entry) throw new StorageVersionFingerprintUnavailableError();
+    if (!entry) {
+      throw this.recordStorageFailure(new StorageVersionFingerprintUnavailableError());
+    }
     const version = {} as SealedStorageVersion;
     this.sealedVersions.set(version, { key: parsed.key, version: entry.version });
-    const metadata = await this.versionedAdapter().headObjectVersion({
-      key: parsed.key,
-      version: entry.version,
-    });
+    const metadata = await this.observeStorageOperation(() =>
+      this.versionedAdapter().headObjectVersion({
+        key: parsed.key,
+        version: entry.version,
+      }),
+    );
     if (!metadata) return { version, present: false, objectLockProtected: false };
     const objectLock = metadata.objectLock;
-    if (!objectLock) throw new StorageUnavailableError('storage object lock state is unavailable');
+    if (!objectLock) {
+      throw this.recordStorageFailure(
+        new StorageUnavailableError('storage object lock state is unavailable'),
+      );
+    }
     return {
       version,
       present: true,
@@ -310,16 +361,36 @@ export class StorageService {
   }
 
   async deleteSealedVersion(version: SealedStorageVersion): Promise<void> {
-    await this.versionedAdapter().deleteObjectVersion(this.requireSealedVersion(version));
+    await this.observeStorageOperation(() =>
+      this.versionedAdapter().deleteObjectVersion(this.requireSealedVersion(version)),
+    );
   }
 
   async sealedVersionIsPresent(version: SealedStorageVersion): Promise<boolean> {
-    return (await this.versionedAdapter().headObjectVersion(this.requireSealedVersion(version))) !== null;
+    return (
+      (await this.observeStorageOperation(() =>
+        this.versionedAdapter().headObjectVersion(this.requireSealedVersion(version)),
+      )) !== null
+    );
   }
 
   async deleteByStorageUri(tenantId: string, storageUri: string): Promise<void> {
     const parsed = this.assertTenantStorageUri(tenantId, storageUri);
-    await this.adapter.delete(parsed.key);
+    await this.observeStorageOperation(() => this.adapter.delete(parsed.key));
+  }
+
+  private async observeStorageOperation<T>(run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (error) {
+      if (error instanceof StorageUnavailableError) this.recordStorageFailure(error);
+      throw error;
+    }
+  }
+
+  private recordStorageFailure(error: StorageUnavailableError): StorageUnavailableError {
+    this.metricsRegistry?.recordStorageFailure(storageFailureClass(error));
+    return error;
   }
 
   private assertTenantStorageUri(tenantId: string, storageUri: string) {
@@ -349,7 +420,21 @@ export class StorageService {
 
   private requireSealedVersion(version: SealedStorageVersion) {
     const reference = this.sealedVersions.get(version);
-    if (!reference) throw new StorageUnavailableError('storage sealed version reference is invalid');
+    if (!reference)
+      throw new StorageUnavailableError('storage sealed version reference is invalid');
     return reference;
   }
+}
+
+function storageFailureClass(error: StorageUnavailableError): StorageFailureClass {
+  if (error instanceof StorageAccessDeniedError) return 'access_denied';
+  if (
+    error instanceof StorageExactVersionMissingError ||
+    error instanceof StorageVersionFingerprintUnavailableError
+  ) {
+    return 'exact_version';
+  }
+  if (error instanceof StorageRequestTimeoutError) return 'timeout';
+  if (error instanceof StorageVersioningUnsupportedError) return 'versioning';
+  return 'unavailable';
 }
