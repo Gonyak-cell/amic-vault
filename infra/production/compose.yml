@@ -51,6 +51,16 @@
       "environment": {
         "NODE_ENV": "production",
         "PROCESS_ROLE": "api",
+        "DATABASE_RUNTIME_URL_FILE": "/run/secrets/database_runtime_url",
+        "DATABASE_RUNTIME_ROLE": "vault_app",
+        "S3_ENDPOINT": "${S3_ENDPOINT:?set S3_ENDPOINT}",
+        "S3_READ_URL_ENDPOINT": "${S3_READ_URL_ENDPOINT:-}",
+        "S3_BUCKET": "${S3_BUCKET:?set S3_BUCKET}",
+        "S3_REGION": "${S3_REGION:?set S3_REGION}",
+        "S3_ACCESS_KEY_ID_FILE": "/run/secrets/s3_api_access_key_id",
+        "S3_SECRET_ACCESS_KEY_FILE": "/run/secrets/s3_api_secret_access_key",
+        "S3_SERVER_SIDE_ENCRYPTION": "${S3_SERVER_SIDE_ENCRYPTION:?set S3_SERVER_SIDE_ENCRYPTION}",
+        "MFA_SECRET_ENCRYPTION_KEY_FILE": "/run/secrets/mfa_secret_encryption_key",
         "INGESTION_WORKER_IDENTITY_PROFILE": "private-gateway-mtls",
         "INGESTION_GATEWAY_MTLS_ENABLED": "true",
         "INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS": "true",
@@ -64,6 +74,10 @@
         "INGESTION_GATEWAY_SERVER_NAME": "ingestion-gateway"
       },
       "secrets": [
+        "database_runtime_url",
+        "s3_api_access_key_id",
+        "s3_api_secret_access_key",
+        "mfa_secret_encryption_key",
         "ingestion_gateway_ca",
         "ingestion_api_client_cert",
         "ingestion_api_client_key"
@@ -105,6 +119,16 @@
       "environment": {
         "NODE_ENV": "production",
         "PROCESS_ROLE": "worker",
+        "DATABASE_RUNTIME_URL_FILE": "/run/secrets/database_runtime_url",
+        "DATABASE_RUNTIME_ROLE": "vault_app",
+        "S3_ENDPOINT": "${S3_ENDPOINT:?set S3_ENDPOINT}",
+        "S3_READ_URL_ENDPOINT": "${S3_READ_URL_ENDPOINT:-}",
+        "S3_BUCKET": "${S3_BUCKET:?set S3_BUCKET}",
+        "S3_REGION": "${S3_REGION:?set S3_REGION}",
+        "S3_ACCESS_KEY_ID_FILE": "/run/secrets/s3_api_access_key_id",
+        "S3_SECRET_ACCESS_KEY_FILE": "/run/secrets/s3_api_secret_access_key",
+        "S3_SERVER_SIDE_ENCRYPTION": "${S3_SERVER_SIDE_ENCRYPTION:?set S3_SERVER_SIDE_ENCRYPTION}",
+        "MFA_SECRET_ENCRYPTION_KEY_FILE": "/run/secrets/mfa_secret_encryption_key",
         "INGESTION_WORKER_IDENTITY_PROFILE": "private-gateway-mtls",
         "INGESTION_GATEWAY_MTLS_ENABLED": "true",
         "INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS": "true",
@@ -118,6 +142,10 @@
         "INGESTION_GATEWAY_SERVER_NAME": "ingestion-gateway"
       },
       "secrets": [
+        "database_runtime_url",
+        "s3_api_access_key_id",
+        "s3_api_secret_access_key",
+        "mfa_secret_encryption_key",
         "ingestion_gateway_ca",
         "ingestion_api_client_cert",
         "ingestion_api_client_key"
@@ -229,9 +257,17 @@
         "INGESTION_EGRESS_CLAMAV_AUTHORITY": "${INGESTION_EGRESS_CLAMAV_AUTHORITY:?set INGESTION_EGRESS_CLAMAV_AUTHORITY}",
         "INGESTION_EGRESS_ALLOWED_CIDRS": "${INGESTION_EGRESS_ALLOWED_CIDRS:?set INGESTION_EGRESS_ALLOWED_CIDRS}",
         "INGESTION_STORAGE_ENDPOINT": "${INGESTION_STORAGE_ENDPOINT:?set INGESTION_STORAGE_ENDPOINT}",
+        "INGESTION_STORAGE_BUCKET": "${INGESTION_STORAGE_BUCKET:?set INGESTION_STORAGE_BUCKET}",
+        "INGESTION_STORAGE_REGION": "${INGESTION_STORAGE_REGION:?set INGESTION_STORAGE_REGION}",
+        "INGESTION_STORAGE_ACCESS_KEY_ID_FILE": "/run/secrets/s3_ingestion_access_key_id",
+        "INGESTION_STORAGE_SECRET_ACCESS_KEY_FILE": "/run/secrets/s3_ingestion_secret_access_key",
         "INGESTION_CLAMAV_HOST": "${INGESTION_CLAMAV_HOST:?set INGESTION_CLAMAV_HOST}",
         "INGESTION_CLAMAV_PORT": "${INGESTION_CLAMAV_PORT:?set INGESTION_CLAMAV_PORT}"
       },
+      "secrets": [
+        "s3_ingestion_access_key_id",
+        "s3_ingestion_secret_access_key"
+      ],
       "user": "10001:10001",
       "read_only": true,
       "cap_drop": ["ALL"],
@@ -281,6 +317,24 @@
     "clamav-signatures": {}
   },
   "secrets": {
+    "database_runtime_url": {
+      "file": "${DATABASE_RUNTIME_URL_SECRET_FILE:?set DATABASE_RUNTIME_URL_SECRET_FILE}"
+    },
+    "s3_api_access_key_id": {
+      "file": "${S3_API_ACCESS_KEY_ID_SECRET_FILE:?set S3_API_ACCESS_KEY_ID_SECRET_FILE}"
+    },
+    "s3_api_secret_access_key": {
+      "file": "${S3_API_SECRET_ACCESS_KEY_SECRET_FILE:?set S3_API_SECRET_ACCESS_KEY_SECRET_FILE}"
+    },
+    "mfa_secret_encryption_key": {
+      "file": "${MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE:?set MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE}"
+    },
+    "s3_ingestion_access_key_id": {
+      "file": "${S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE:?set S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE}"
+    },
+    "s3_ingestion_secret_access_key": {
+      "file": "${S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE:?set S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE}"
+    },
     "ingestion_gateway_ca": {
       "file": "${INGESTION_GATEWAY_CA_FILE:?set INGESTION_GATEWAY_CA_FILE}"
     },

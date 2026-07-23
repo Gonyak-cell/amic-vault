@@ -89,14 +89,11 @@ describe('QueueRegistry', () => {
 
     await expect(registry.producer('queue.test')).rejects.toThrow('QUEUE_RUNTIME_URL_REQUIRED');
     expect(() =>
-      assertRuntimeQueueOptions(
-        { migrate: true, createSchema: false },
-        { NODE_ENV: 'production' },
-      ),
+      assertRuntimeQueueOptions({ migrate: true, createSchema: false }, { NODE_ENV: 'production' }),
     ).toThrow('QUEUE_RUNTIME_SCHEMA_MUTATION_FORBIDDEN');
   });
 
-  it('rejects a production migration override before creating a boss', async () => {
+  it('rejects a direct production database secret before creating a boss', async () => {
     const { registry, factory } = createRegistry({
       NODE_ENV: 'production',
       PROCESS_ROLE: 'worker',
@@ -106,7 +103,7 @@ describe('QueueRegistry', () => {
     registry.register({ name: 'queue.test' });
 
     await expect(registry.producer('queue.test')).rejects.toThrow(
-      'QUEUE_RUNTIME_SCHEMA_MUTATION_FORBIDDEN',
+      'DATABASE_RUNTIME_URL_DIRECT_ENV_FORBIDDEN',
     );
     expect(factory).not.toHaveBeenCalled();
   });

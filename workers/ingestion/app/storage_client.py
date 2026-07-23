@@ -15,6 +15,7 @@ from botocore.exceptions import BotoCoreError, ClientError, ConnectTimeoutError,
 
 from .contracts import IngestionJobEnvelope, MAX_INGESTION_OBJECT_BYTES
 from .egress_policy import EgressPolicyDenied, configured_egress_policy
+from .runtime_secret import RuntimeSecretDenied, runtime_secret_value
 
 
 class WorkerStorageError(RuntimeError):
@@ -47,12 +48,34 @@ class WorkerStorageProfile:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "WorkerStorageProfile":
+        production = env.get("NODE_ENV") == "production"
+        try:
+            access_key_id = (
+                runtime_secret_value(
+                    "INGESTION_STORAGE_ACCESS_KEY_ID",
+                    env,
+                    maximum_bytes=1024,
+                )
+                if production
+                else env.get("INGESTION_STORAGE_ACCESS_KEY_ID", "")
+            )
+            secret_access_key = (
+                runtime_secret_value(
+                    "INGESTION_STORAGE_SECRET_ACCESS_KEY",
+                    env,
+                    maximum_bytes=4096,
+                )
+                if production
+                else env.get("INGESTION_STORAGE_SECRET_ACCESS_KEY", "")
+            )
+        except RuntimeSecretDenied as exc:
+            raise WorkerStorageUnavailable() from exc
         values = {
             "endpoint": env.get("INGESTION_STORAGE_ENDPOINT", ""),
             "bucket": env.get("INGESTION_STORAGE_BUCKET", ""),
             "region": env.get("INGESTION_STORAGE_REGION", ""),
-            "access_key_id": env.get("INGESTION_STORAGE_ACCESS_KEY_ID", ""),
-            "secret_access_key": env.get("INGESTION_STORAGE_SECRET_ACCESS_KEY", ""),
+            "access_key_id": access_key_id,
+            "secret_access_key": secret_access_key,
             "storage_alias": env.get("INGESTION_STORAGE_ALIAS", "primary"),
         }
         endpoint = urlsplit(values["endpoint"])

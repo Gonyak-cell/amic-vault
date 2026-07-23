@@ -205,6 +205,7 @@ function validateAnsible(playbook, role) {
     'infra/production/profile.yml',
     'infra/production/compose.yml',
     'infra/production/compose.images.yml',
+    'infra/production/secret-manifest.yml',
     'infra/ingestion-gateway/nginx.conf',
   ]) {
     assert(role.includes(path), 'ANSIBLE_SOURCE_INVALID', `Ansible source missing ${path}`);
@@ -214,6 +215,14 @@ function validateAnsible(playbook, role) {
     'vault_web_image',
     'vault_api_image',
     'vault_ingestion_image',
+    "vault_secret_root == '/run/secrets'",
+    'DATABASE_RUNTIME_URL_SECRET_FILE',
+    'S3_API_ACCESS_KEY_ID_SECRET_FILE',
+    'S3_API_SECRET_ACCESS_KEY_SECRET_FILE',
+    'MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE',
+    'S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE',
+    'S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE',
+    'INGESTION_GATEWAY_SERVER_KEY_FILE',
     '--remove-orphans',
     '--wait',
   ]) {

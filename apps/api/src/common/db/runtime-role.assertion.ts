@@ -1,4 +1,5 @@
 import { Client } from 'pg';
+import { runtimeSecretValue } from '../config/runtime-secret';
 
 export interface RuntimeRoleRow {
   current_user: string;
@@ -14,12 +15,7 @@ export interface RuntimeRoleQueryable {
 const protectedTables = ['audit_events', 'documents', 'file_objects'];
 
 export function configureRuntimeDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string {
-  const runtimeUrl = env.DATABASE_RUNTIME_URL?.trim();
-  if (!runtimeUrl) throw new Error('DATABASE_RUNTIME_URL_REQUIRED');
-  // Direct-pool consumers are migrated in subsequent batches. This bridge is
-  // assigned only after the runtime URL is required, never from owner fallback.
-  env.DATABASE_URL = runtimeUrl;
-  return runtimeUrl;
+  return runtimeSecretValue('DATABASE_RUNTIME_URL', env, { maximumBytes: 4096 });
 }
 
 export async function assertRuntimeRole(
@@ -45,11 +41,13 @@ export async function assertRuntimeRole(
     [protectedTables],
   );
   const row = result.rows[0];
-  if (!row
-    || row.current_user !== expectedRole
-    || row.rolsuper
-    || row.rolbypassrls
-    || row.owns_protected_table) {
+  if (
+    !row ||
+    row.current_user !== expectedRole ||
+    row.rolsuper ||
+    row.rolbypassrls ||
+    row.owns_protected_table
+  ) {
     throw new Error('RUNTIME_DATABASE_ROLE_INVALID');
   }
 }

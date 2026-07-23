@@ -43,6 +43,12 @@ const baseCompose = resolve(repoRoot, 'infra/production/compose.yml');
 const pythonImage =
   'docker.io/library/python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de';
 const rawCanary = 'SF20_RAW_CUSTOMER_SECRET_CANARY_7251';
+const databaseSecretCanary = 'SF20_DATABASE_SECRET_CANARY_4381';
+const apiStorageAccessCanary = 'SF20_API_STORAGE_ACCESS_CANARY_4382';
+const apiStorageSecretCanary = 'SF20_API_STORAGE_SECRET_CANARY_4383';
+const mfaEncryptionCanary = 'SF20_MFA_ENCRYPTION_CANARY_4384';
+const workerStorageAccessCanary = 'SF20_WORKER_STORAGE_ACCESS_CANARY_4385';
+const workerStorageSecretCanary = 'SF20_WORKER_STORAGE_SECRET_CANARY_4386';
 const cleanBody = Buffer.from(`대한민국 법률 문서\n${rawCanary}`, 'utf8');
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const otherTenantId = '22222222-2222-4222-8222-222222222222';
@@ -216,6 +222,13 @@ function hostFixtureUser(): string {
     throw new Error('INGESTION_SANDBOX_HOST_IDENTITY_UNAVAILABLE');
   }
   return `${process.getuid()}:${process.getgid()}`;
+}
+
+function runtimeSecret(name: string, value: string): string {
+  const path = join(certificateRoot, name);
+  writeFileSync(path, `${value}\n`, { mode: 0o600 });
+  chmodSync(path, 0o600);
+  return path;
 }
 
 function createCa(): CertificatePair {
@@ -493,9 +506,26 @@ beforeAll(() => {
   writeFileSync(join(fixtureRoot, 'storage_fixture.py'), storageFixtureSource);
   writeFileSync(join(fixtureRoot, 'clamav_fixture.py'), clamAvFixtureSource);
   chmodSync(ca.certificate, 0o644);
+  chmodSync(gatewayServer.certificate, 0o644);
+  chmodSync(gatewayServer.key, 0o600);
   chmodSync(join(certificateRoot, 'storage.crt'), 0o644);
   chmodSync(activeClient.certificate, 0o644);
   chmodSync(activeClient.key, 0o600);
+  const databaseRuntimeUrlFile = runtimeSecret(
+    'database-runtime-url',
+    `postgres://vault_app:${databaseSecretCanary}@database.internal/amic_vault`,
+  );
+  const apiStorageAccessKey = runtimeSecret('api-storage-access-key', apiStorageAccessCanary);
+  const apiStorageSecretKey = runtimeSecret('api-storage-secret-key', apiStorageSecretCanary);
+  const mfaEncryptionKey = runtimeSecret('mfa-encryption-key', mfaEncryptionCanary);
+  const workerStorageAccessKey = runtimeSecret(
+    'worker-storage-access-key',
+    workerStorageAccessCanary,
+  );
+  const workerStorageSecretKey = runtimeSecret(
+    'worker-storage-secret-key',
+    workerStorageSecretCanary,
+  );
 
   const storageObjects = JSON.stringify([
     {
@@ -519,8 +549,6 @@ beforeAll(() => {
             INGESTION_STORAGE_ENDPOINT: 'https://storage-fixture:4443',
             INGESTION_STORAGE_BUCKET: 'sf20-ingestion',
             INGESTION_STORAGE_REGION: 'us-east-1',
-            INGESTION_STORAGE_ACCESS_KEY_ID: 'sf20-fixture-access',
-            INGESTION_STORAGE_SECRET_ACCESS_KEY: 'sf20-fixture-secret',
             INGESTION_CLAMAV_HOST: 'clamav-fixture',
             INGESTION_CLAMAV_PORT: '3310',
           },
@@ -601,6 +629,7 @@ beforeAll(() => {
             target: 'api',
           },
           command: ['sh', '-lc', 'sleep infinity'],
+          user: fixtureUser,
           environment: {
             NODE_ENV: 'production',
             INGESTION_WORKER_IDENTITY_PROFILE: 'private-gateway-mtls',
@@ -610,12 +639,12 @@ beforeAll(() => {
             INGESTION_GATEWAY_WORKLOAD_SUBJECT: 'amic-vault-api',
             INGESTION_GATEWAY_AUDIENCE: 'amic-vault-ingestion',
             INGESTION_WORKER_URL: 'https://ingestion-gateway:8443',
-            INGESTION_GATEWAY_CA_FILE: '/test-certs/ca.crt',
-            INGESTION_GATEWAY_CLIENT_CERT_FILE: '/test-certs/active-client.crt',
-            INGESTION_GATEWAY_CLIENT_KEY_FILE: '/test-certs/active-client.key',
+            INGESTION_GATEWAY_CA_FILE: '/run/secrets/ca.crt',
+            INGESTION_GATEWAY_CLIENT_CERT_FILE: '/run/secrets/active-client.crt',
+            INGESTION_GATEWAY_CLIENT_KEY_FILE: '/run/secrets/active-client.key',
             INGESTION_GATEWAY_SERVER_NAME: 'ingestion-gateway',
           },
-          volumes: [`${certificateRoot}:/test-certs:ro`],
+          volumes: [`${certificateRoot}:/run/secrets:ro`, `${certificateRoot}:/test-certs:ro`],
           networks: ['ingestion-client'],
           depends_on: {
             'ingestion-gateway': { condition: 'service_healthy' },
@@ -634,10 +663,22 @@ beforeAll(() => {
     INGESTION_GATEWAY_SERVER_KEY_FILE: gatewayServer.key,
     INGESTION_GATEWAY_CLIENT_CERT_FILE: activeClient.certificate,
     INGESTION_GATEWAY_CLIENT_KEY_FILE: activeClient.key,
+    DATABASE_RUNTIME_URL_SECRET_FILE: databaseRuntimeUrlFile,
+    S3_API_ACCESS_KEY_ID_SECRET_FILE: apiStorageAccessKey,
+    S3_API_SECRET_ACCESS_KEY_SECRET_FILE: apiStorageSecretKey,
+    MFA_SECRET_ENCRYPTION_KEY_SECRET_FILE: mfaEncryptionKey,
+    S3_INGESTION_ACCESS_KEY_ID_SECRET_FILE: workerStorageAccessKey,
+    S3_INGESTION_SECRET_ACCESS_KEY_SECRET_FILE: workerStorageSecretKey,
+    S3_ENDPOINT: 'https://storage-fixture:4443',
+    S3_BUCKET: 'sf20-api',
+    S3_REGION: 'us-east-1',
+    S3_SERVER_SIDE_ENCRYPTION: 'AES256',
     INGESTION_EGRESS_STORAGE_AUTHORITY: 'storage-fixture:4443',
     INGESTION_EGRESS_CLAMAV_AUTHORITY: 'clamav-fixture:3310',
     INGESTION_EGRESS_ALLOWED_CIDRS: '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16',
     INGESTION_STORAGE_ENDPOINT: 'https://storage-fixture:4443',
+    INGESTION_STORAGE_BUCKET: 'sf20-ingestion',
+    INGESTION_STORAGE_REGION: 'us-east-1',
     INGESTION_CLAMAV_HOST: 'clamav-fixture',
     INGESTION_CLAMAV_PORT: '3310',
   };
@@ -870,7 +911,48 @@ describe.sequential('hostile document containment on the production ingestion to
       'ingestion-gateway',
     ]);
     expect(logs).not.toContain(rawCanary);
-    expect(logs).not.toContain('sf20-fixture-secret');
     expect(logs).not.toContain(cleanBody.toString('base64'));
+
+    const runtimeSurfaces = [logs, runCompose(['config', '--format', 'json'])];
+    for (const service of ['ingestion', 'api-probe']) {
+      const containerId = runCompose(['ps', '-q', service]).trim();
+      const inspected = JSON.parse(
+        execFileSync('docker', ['inspect', containerId], {
+          encoding: 'utf8',
+          timeout: 15_000,
+        }),
+      )[0];
+      runtimeSurfaces.push(
+        JSON.stringify({
+          config: inspected.Config,
+          path: inspected.Path,
+          args: inspected.Args,
+        }),
+      );
+      runtimeSurfaces.push(
+        execFileSync('docker', ['image', 'history', '--no-trunc', inspected.Image], {
+          encoding: 'utf8',
+          timeout: 30_000,
+          maxBuffer: 8 * 1024 * 1024,
+        }),
+      );
+    }
+    runtimeSurfaces.push(
+      JSON.stringify({
+        schemaVersion: 'amic-vault.sf20-runtime-secret-surface-evidence.v1',
+        status: 'PASS',
+        values: 0,
+      }),
+    );
+    for (const canary of [
+      databaseSecretCanary,
+      apiStorageAccessCanary,
+      apiStorageSecretCanary,
+      mfaEncryptionCanary,
+      workerStorageAccessCanary,
+      workerStorageSecretCanary,
+    ]) {
+      for (const surface of runtimeSurfaces) expect(surface).not.toContain(canary);
+    }
   });
 });

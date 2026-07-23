@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import type { ConstructorOptions, PgBoss, Queue } from 'pg-boss';
+import { RuntimeSecretError, runtimeSecretValue } from '../config/runtime-secret';
 import { pgBossRuntimeOptions } from '../db/pg-boss-runtime-options';
 import { currentProcessRole } from '../process-role';
 import { QUEUE_BOSS_FACTORY, QUEUE_RUNTIME_ENV, type QueueBossFactory } from './queue.tokens';
@@ -82,8 +83,17 @@ export class QueueRegistry implements OnModuleDestroy {
   }
 
   private async createStartedBoss(): Promise<PgBoss> {
-    const connectionString = this.env.DATABASE_RUNTIME_URL?.trim();
-    if (!connectionString) throw new Error('QUEUE_RUNTIME_URL_REQUIRED');
+    let connectionString: string;
+    try {
+      connectionString = runtimeSecretValue('DATABASE_RUNTIME_URL', this.env, {
+        maximumBytes: 4096,
+      });
+    } catch (error) {
+      if (error instanceof RuntimeSecretError && error.code === 'DATABASE_RUNTIME_URL_REQUIRED') {
+        throw new Error('QUEUE_RUNTIME_URL_REQUIRED');
+      }
+      throw error;
+    }
 
     const options = pgBossRuntimeOptions({
       applicationName: queueRegistryApplicationName,

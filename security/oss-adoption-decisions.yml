@@ -145,8 +145,18 @@
     "workers/ingestion/app/resource_policy.py",
     "workers/ingestion/tests/test_egress_policy.py",
     "workers/ingestion/tests/test_resource_policy.py",
+    "apps/api/src/common/config/runtime-secret.ts",
+    "apps/api/src/common/config/runtime-secret.spec.ts",
+    "apps/api/src/modules/health/health.controller.ts",
+    "apps/api/src/modules/health/health.controller.spec.ts",
+    "apps/api/src/modules/auth/mfa.service.ts",
+    "workers/ingestion/app/runtime_secret.py",
+    "workers/ingestion/tests/test_runtime_secret.py",
+    "tests/integration/document-access/ingestion-gateway.spec.ts",
+    "tests/integration/document-access/ingestion-sandbox.spec.ts",
     "infra/production/profile.yml",
-    "infra/production/compose.images.yml"
+    "infra/production/compose.images.yml",
+    "infra/production/secret-manifest.yml"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

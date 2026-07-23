@@ -1,8 +1,8 @@
 import { createPrivateKey, X509Certificate } from 'node:crypto';
-import { promises as fs } from 'node:fs';
 import { request as httpsRequest } from 'node:https';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
+import { readRuntimeFile } from '../../../common/config/runtime-secret';
 import {
   createWorkerIdentityAdapter,
   createWorkerIdentityHeaders,
@@ -85,14 +85,19 @@ function boundedHeaders(init: RequestInit, env: TransportEnvironment): Record<st
   return Object.fromEntries(headers.entries());
 }
 
-async function readPem(path: string | undefined): Promise<Buffer> {
+function readPem(
+  name:
+    | 'INGESTION_GATEWAY_CA_FILE'
+    | 'INGESTION_GATEWAY_CLIENT_CERT_FILE'
+    | 'INGESTION_GATEWAY_CLIENT_KEY_FILE',
+  env: TransportEnvironment,
+  confidential: boolean,
+): Buffer {
   try {
-    if (!path) throw configurationError();
-    const file = await fs.stat(path);
-    if (!file.isFile() || file.size < 1 || file.size > MAX_PEM_BYTES) {
-      throw configurationError();
-    }
-    return await fs.readFile(path);
+    return readRuntimeFile(name, env[name], env, {
+      confidential,
+      maximumBytes: MAX_PEM_BYTES,
+    });
   } catch {
     throw configurationError();
   }
@@ -121,11 +126,9 @@ async function privateGatewayFetch(
   env: TransportEnvironment,
   headers: Record<string, string>,
 ): Promise<Response> {
-  const [ca, certificate, key] = await Promise.all([
-    readPem(env.INGESTION_GATEWAY_CA_FILE),
-    readPem(env.INGESTION_GATEWAY_CLIENT_CERT_FILE),
-    readPem(env.INGESTION_GATEWAY_CLIENT_KEY_FILE),
-  ]);
+  const ca = readPem('INGESTION_GATEWAY_CA_FILE', env, false);
+  const certificate = readPem('INGESTION_GATEWAY_CLIENT_CERT_FILE', env, false);
+  const key = readPem('INGESTION_GATEWAY_CLIENT_KEY_FILE', env, true);
   try {
     new X509Certificate(ca);
   } catch {
