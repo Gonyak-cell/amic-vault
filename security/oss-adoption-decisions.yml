@@ -156,6 +156,10 @@
     "tests/integration/document-access/ingestion-sandbox.spec.ts",
     "tools/release/build-backup-set-manifest.mjs",
     "tools/release/build-backup-set-manifest.spec.mjs",
+    "tools/release/check-sf20-residency.mjs",
+    "tools/release/check-sf20-residency.spec.mjs",
+    "tools/release/small-firm-rollback-drill.mjs",
+    "tools/release/small-firm-rollback-drill.spec.mjs",
     "infra/production/profile.yml",
     "infra/production/compose.images.yml",
     "infra/production/secret-manifest.yml"

@@ -125,6 +125,53 @@ The bounded result includes table names, counts, hashes, and verdicts. It omits 
 - API ledger failure: keep the printed manifest, fix the admin session or API availability issue, then rerun with the same `--drill-id`.
 - RPO or RTO miss: record an incident ticket and do not mark the monthly drill as passing until the cause is remediated.
 
+## Residency and Measured Recovery Gate
+
+Prepare one closed input for `check-sf20-residency.mjs`. It contains:
+
+- the approved `KR` country, explicit domestic region, exact production-profile fingerprint, and evaluation timestamp;
+- fresh, bounded receipts for app, database, object storage, backup, and secret/key surfaces;
+- a telemetry receipt after the SF20-04 telemetry profile is activated;
+- incident cutoff, trusted restore point, drill start, verified-ready timestamp, and the independently measured monotonic RTO seconds.
+
+Each receipt contains only surface, country, region, profile hash, validity window, and `VERIFIED` status. Its integrity is either the SHA-256 of the closed canonical receipt payload or an Ed25519 signature verified with an injected trusted public key. Raw provider output, endpoints, account IDs, resource names, secrets, and customer identifiers are not valid receipt fields.
+
+```bash
+node tools/release/check-sf20-residency.mjs \
+  --input "$BOUNDED_RESIDENCY_INPUT"
+```
+
+When SF20-04 is active, add `--require-telemetry`. The tool derives RPO as `incident cutoff - restore point` and RTO as `verified ready - drill start`; the wall-clock RTO must exactly match the supplied whole-second monotonic measurement. Clock inversion, subsecond ambiguity, stale/expired/unsigned receipt, mixed region, profile drift, RPO above 3,600 seconds, or RTO above 14,400 seconds fails.
+
+A successful local result is only `TECHNICAL_PASS` and always carries `EXTERNAL_BLOCKED_APPROVED_STAGING_ROLLBACK_RECEIPT_REQUIRED`. It cannot emit `DEPLOYMENT_READY`.
+
+## Transactional Rollback Drill
+
+The rollback input contains two immutable release states:
+
+- the current image digest and matching migration/data authority;
+- the immediately previous digest and its exact compatible migration fingerprint, data authority, backup-set reference, secret generation, and object-inventory hash.
+
+It also contains the bounded observed compensation receipt and all mandatory post-rollback probes. Run each injected failure independently:
+
+```bash
+node tools/release/small-firm-rollback-drill.mjs \
+  --input "$BOUNDED_ROLLBACK_INPUT"
+```
+
+The supported injections are `BAD_MIGRATION`, `BAD_IMAGE_HEALTH`, `MISSING_KEY`, `RESTORE_TIMEOUT`, `OBJECT_MISMATCH`, and `ROLLBACK_INTERRUPTION`. The state machine fails forward readiness, selects the whole immediately previous compatible pair, and never accepts a caller-selected latest image or a mixed image/data/key/object state.
+
+For a completed compensation, the observed image digest, migration/data fingerprints, backup-set reference, secret generation, and object inventory must exactly equal the selected previous state. Then all of these probes must pass:
+
+- ordinary unauthorized document access denied;
+- ethical-wall access denied;
+- audit insertion succeeds and audit mutation remains denied;
+- original hash is preserved and the restored clean operation creates a new version;
+- direct gateway port and replay attempts are denied;
+- one clean document operation succeeds.
+
+`ROLLBACK_INTERRUPTION` intentionally returns nonzero `FAILED_CLOSED` with `technicalReady=false` and `deploymentReady=false`; partial compensation never runs or reports successful probes. Other injections yield only local `TECHNICAL_PASS` with `technicalReady=true` and `deploymentReady=false` after exact compensation and all probes. Actual staging rollback, deployment, release, and go-live remain external non-claims.
+
 ## Ledger Fields
 
 The snapshot ledger stores these drill fields:
