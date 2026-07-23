@@ -38,6 +38,7 @@
     "word:deployment:check": "node tools/release/check-word-deployment.mjs",
     "word:manifest:render": "node tools/release/render-word-manifest.mjs",
     "docs:frozen": "node infra/ci/scripts/check-docs-package-frozen.mjs",
+    "dlp:corpus:check": "pnpm --filter @amic-vault/shared build && node --test tools/dlp/run-korean-pii-eval.spec.mjs && node tools/dlp/run-korean-pii-eval.mjs --check",
     "db:migrate": "node tools/db/migrate.mjs up",
     "db:rollback": "node tools/db/migrate.mjs down 999",
     "db:seed": "node tools/db/seed.mjs",

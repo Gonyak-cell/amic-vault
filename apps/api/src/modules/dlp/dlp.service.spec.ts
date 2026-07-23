@@ -27,13 +27,13 @@ describe('DlpService', () => {
       tenantId,
       sourceType: 'text',
       sourceId,
-      text: 'resident 000000-0000000 and email person@example.test',
+      text: 'resident 000101-1000000 and email person@example.test',
     });
 
     expect(result.findings).toHaveLength(2);
-    expect(JSON.stringify(result)).not.toContain('000000-0000000');
+    expect(JSON.stringify(result)).not.toContain('000101-1000000');
     expect(JSON.stringify(result)).not.toContain('person@example.test');
-    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('000000-0000000');
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('000101-1000000');
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('person@example.test');
     expect(auditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'DLP_SCAN_COMPLETED' }),
@@ -138,7 +138,7 @@ describe('DlpService', () => {
       completed: true,
     });
     expect(
-      service.evaluateText('000000-0000000\n900101-5000000\n010-0000-0000', {
+      service.evaluateText('000101-1000000\n900101-5000000\n010-0000-0000', {
         options: { maxFindings: 2 },
       }),
     ).toMatchObject({

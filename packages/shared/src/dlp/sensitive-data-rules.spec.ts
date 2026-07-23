@@ -9,7 +9,7 @@ function sha256Hex(input: string): string {
 describe('scanSensitiveData', () => {
   it('detects core and R5 identity/card patterns without raw values', () => {
     const rawValues = [
-      '000000-0000000',
+      '000101-1000000',
       '900101-5000000',
       '000-000000-00-000',
       'M12345678',
@@ -48,7 +48,7 @@ describe('scanSensitiveData', () => {
   });
 
   it('deduplicates matches and honors the maxFindings cap', () => {
-    const result = scanSensitiveData('000000-0000000\n000000-0000000\n010-0000-0000', {
+    const result = scanSensitiveData('000101-1000000\n000101-1000000\n010-0000-0000', {
       hash: sha256Hex,
       maxFindings: 2,
     });
@@ -58,12 +58,12 @@ describe('scanSensitiveData', () => {
   });
 
   it('distinguishes an exact-size complete scan from a truncated scan', () => {
-    const exact = scanSensitiveDataWithStatus('000000-0000000\n010-0000-0000', {
+    const exact = scanSensitiveDataWithStatus('000101-1000000\n010-0000-0000', {
       hash: sha256Hex,
       maxFindings: 2,
     });
     const truncated = scanSensitiveDataWithStatus(
-      '000000-0000000\n900101-5000000\n010-0000-0000',
+      '000101-1000000\n900101-5000000\n010-0000-0000',
       {
         hash: sha256Hex,
         maxFindings: 2,
@@ -85,7 +85,7 @@ describe('scanSensitiveData', () => {
   it('rejects invalid finding limits instead of silently weakening the cap', () => {
     for (const maxFindings of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
       expect(() =>
-        scanSensitiveDataWithStatus('000000-0000000', {
+        scanSensitiveDataWithStatus('000101-1000000', {
           hash: sha256Hex,
           maxFindings,
         }),

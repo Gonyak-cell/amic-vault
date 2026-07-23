@@ -5,7 +5,7 @@ describe('SensitiveDataDetector', () => {
   it('detects core and R5 identity/card patterns without raw values', () => {
     const detector = new SensitiveDataDetector();
     const rawValues = [
-      '000000-0000000',
+      '000101-1000000',
       '900101-5000000',
       '000-000000-00-000',
       'M12345678',
@@ -45,7 +45,7 @@ describe('SensitiveDataDetector', () => {
 
   it('deduplicates matches and honors the maxFindings cap', () => {
     const detector = new SensitiveDataDetector();
-    const result = detector.scan('000000-0000000\n000000-0000000\n010-0000-0000', {
+    const result = detector.scan('000101-1000000\n000101-1000000\n010-0000-0000', {
       maxFindings: 2,
     });
 
@@ -57,7 +57,7 @@ describe('SensitiveDataDetector', () => {
     const detector = new SensitiveDataDetector();
 
     expect(
-      detector.scanWithStatus('000000-0000000\n900101-5000000\n010-0000-0000', {
+      detector.scanWithStatus('000101-1000000\n900101-5000000\n010-0000-0000', {
         maxFindings: 2,
       }),
     ).toMatchObject({
