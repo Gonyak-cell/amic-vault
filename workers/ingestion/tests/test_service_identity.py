@@ -6,9 +6,11 @@ from app.service_identity import (
     INGESTION_GATEWAY_WORKLOAD_SUBJECT,
     INGESTION_WORKER_AUDIENCE,
     InMemoryNonceReplayStore,
+    DevelopmentLoopbackServiceIdentity,
     PrivateGatewayMtlsServiceIdentity,
     ServiceIdentityDenied,
     assert_service_identity_profile,
+    verify_ingestion_request_identity,
 )
 
 
@@ -86,4 +88,38 @@ def test_private_gateway_profile_requires_enforcement_and_production_rejects_loo
     with pytest.raises(ServiceIdentityDenied, match="PERMISSION_DENIED"):
         assert_service_identity_profile(
             {"NODE_ENV": "production", "INGESTION_WORKER_IDENTITY_PROFILE": "loopback-dev"}
+        )
+
+
+def test_development_loopback_identity_is_explicit_short_lived_and_one_use() -> None:
+    headers = {
+        "x-amic-dev-loopback-identity": "true",
+        "x-amic-request-id": HEADERS["x-amic-request-id"],
+        "x-amic-ingestion-nonce": HEADERS["x-amic-ingestion-nonce"],
+        "x-amic-ingestion-expires-at": HEADERS["x-amic-ingestion-expires-at"],
+    }
+    verifier = DevelopmentLoopbackServiceIdentity(InMemoryNonceReplayStore())
+    identity = verifier.verify(headers, NOW)
+    assert identity.audience == INGESTION_WORKER_AUDIENCE
+    with pytest.raises(ServiceIdentityDenied, match="PERMISSION_DENIED"):
+        verifier.verify(headers, NOW)
+    with pytest.raises(ServiceIdentityDenied, match="PERMISSION_DENIED"):
+        DevelopmentLoopbackServiceIdentity(InMemoryNonceReplayStore()).verify(
+            {key: value for key, value in headers.items() if key != "x-amic-dev-loopback-identity"}, NOW
+        )
+
+
+def test_identity_profile_selects_gateway_in_production_and_loopback_only_outside_it() -> None:
+    assert verify_ingestion_request_identity(
+        HEADERS,
+        env=GATEWAY_ENV,
+        nonce_store=InMemoryNonceReplayStore(),
+        now=NOW,
+    ).subject == INGESTION_GATEWAY_WORKLOAD_SUBJECT
+    with pytest.raises(ServiceIdentityDenied, match="PERMISSION_DENIED"):
+        verify_ingestion_request_identity(
+            HEADERS,
+            env={"NODE_ENV": "production", "INGESTION_WORKER_IDENTITY_PROFILE": "loopback-dev"},
+            nonce_store=InMemoryNonceReplayStore(),
+            now=NOW,
         )

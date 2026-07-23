@@ -53,6 +53,7 @@ describe('createIngestionWorkerRequest', () => {
       'x-amic-request-id': request.job.requestId,
       'x-amic-ingestion-nonce': expect.stringMatching(/^[0-9a-f-]{36}$/),
       'x-amic-ingestion-expires-at': request.job.expiresAt,
+      'x-amic-dev-loopback-identity': 'true',
     });
     expect(latestVersionFingerprintByStorageUri).toHaveBeenCalledWith(target.tenantId, target.storageUri);
     expect(JSON.stringify(request)).not.toContain('storage_url');
@@ -70,5 +71,26 @@ describe('createIngestionWorkerRequest', () => {
         storagePathResolver: new StoragePathResolver('amic-vault-dev'),
       }),
     ).rejects.toThrow('WORKER_INGESTION_REQUEST_INVALID');
+  });
+
+  it('uses only the private HTTPS gateway profile outside development', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('INGESTION_WORKER_IDENTITY_PROFILE', 'private-gateway-mtls');
+    vi.stubEnv('INGESTION_GATEWAY_MTLS_ENABLED', 'true');
+    vi.stubEnv('INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS', 'true');
+    vi.stubEnv('INGESTION_GATEWAY_DIRECT_WORKER_ACCESS', 'blocked');
+    vi.stubEnv('INGESTION_GATEWAY_WORKLOAD_SUBJECT', 'amic-vault-api');
+    vi.stubEnv('INGESTION_GATEWAY_AUDIENCE', 'amic-vault-ingestion');
+    vi.stubEnv('INGESTION_WORKER_URL', 'https://ingestion-gateway.internal');
+
+    const request = await createIngestionWorkerRequest({
+      target,
+      parserProfile: 'extract',
+      storageService: { latestVersionFingerprintByStorageUri: vi.fn(async () => 'b'.repeat(64)) },
+      storagePathResolver: new StoragePathResolver('amic-vault-dev'),
+      now: new Date('2030-01-01T00:00:00Z'),
+    });
+
+    expect(request.headers).not.toHaveProperty('x-amic-dev-loopback-identity');
   });
 });

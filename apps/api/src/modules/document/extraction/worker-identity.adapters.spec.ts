@@ -14,6 +14,7 @@ const gatewayEnvironment = {
   INGESTION_GATEWAY_DIRECT_WORKER_ACCESS: 'blocked',
   INGESTION_GATEWAY_WORKLOAD_SUBJECT: 'amic-vault-api',
   INGESTION_GATEWAY_AUDIENCE: 'amic-vault-ingestion',
+  INGESTION_WORKER_URL: 'https://ingestion-gateway.internal',
 } as const;
 
 describe('worker identity adapters', () => {
@@ -35,6 +36,8 @@ describe('worker identity adapters', () => {
       ['INGESTION_GATEWAY_DIRECT_WORKER_ACCESS', 'allowed'],
       ['INGESTION_GATEWAY_WORKLOAD_SUBJECT', 'other-api'],
       ['INGESTION_GATEWAY_AUDIENCE', 'other-worker'],
+      ['INGESTION_WORKER_URL', 'http://ingestion-gateway.internal'],
+      ['INGESTION_WORKER_URL', 'https://127.0.0.1:8000'],
     ] as const) {
       expect(
         () =>

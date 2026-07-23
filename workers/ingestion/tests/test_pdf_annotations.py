@@ -1,18 +1,27 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from io import BytesIO
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 from pypdf.annotations import FreeText, Highlight, Text
 from pypdf.generic import ArrayObject, FloatObject, NameObject, TextStringObject
 
+from app import extract_router
 from app.main import app
+from app.storage_client import WorkerStoredObject
 
 TENANT_ID = "11111111-1111-4111-8111-111111111111"
 VERSION_ID = "11111111-1111-4111-8111-111111111155"
+MATTER_ID = "11111111-1111-4111-8111-111111111122"
+DOCUMENT_ID = "11111111-1111-4111-8111-111111111133"
+FILE_OBJECT_ID = "11111111-1111-4111-8111-111111111144"
 
 client = TestClient(app)
+_stored_objects: dict[str, WorkerStoredObject] = {}
 
 
 def _annotated_pdf() -> bytes:
@@ -56,11 +65,36 @@ def _annotated_pdf() -> bytes:
 
 
 def test_extract_annotations_returns_pdf_annotation_types_and_content() -> None:
+    payload = _annotated_pdf()
+    request_id = str(uuid4())
+    nonce = str(uuid4())
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    expires_at_value = expires_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    object_key = f"tenants/{TENANT_ID}/matters/{MATTER_ID}/documents/{DOCUMENT_ID}/{FILE_OBJECT_ID}"
+    _stored_objects[object_key] = WorkerStoredObject(payload, "application/pdf")
+    app.state.ingestion_storage_reader = lambda job: _stored_objects[job.objectKey]
     response = client.post(
         "/extract-annotations",
-        data={"tenant_id": TENANT_ID, "version_id": VERSION_ID},
-        files={"file": ("annotated.pdf", _annotated_pdf(), "application/pdf")},
-        headers={"x-amic-tenant-id": TENANT_ID},
+        json={
+            "tenantId": TENANT_ID,
+            "documentId": DOCUMENT_ID,
+            "versionId": VERSION_ID,
+            "fileObjectId": FILE_OBJECT_ID,
+            "storageAlias": "primary",
+            "objectKey": object_key,
+            "objectVersion": "b" * 64,
+            "sha256": sha256(payload).hexdigest(),
+            "sizeBytes": len(payload),
+            "parserProfile": "extract",
+            "requestId": request_id,
+            "expiresAt": expires_at_value,
+        },
+        headers={
+            "x-amic-dev-loopback-identity": "true",
+            "x-amic-request-id": request_id,
+            "x-amic-ingestion-nonce": nonce,
+            "x-amic-ingestion-expires-at": expires_at_value,
+        },
     )
 
     assert response.status_code == 200, response.text

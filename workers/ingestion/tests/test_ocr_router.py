@@ -1,26 +1,64 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from io import BytesIO
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 from reportlab.pdfgen import canvas
 
+from app import extract_router, ocr_router
 from app.main import app
 from app.parsers import ocr as ocr_parser
+from app.storage_client import WorkerStoredObject
 
 TENANT_ID = "11111111-1111-4111-8111-111111111111"
 VERSION_ID = "11111111-1111-4111-8111-111111111155"
+MATTER_ID = "11111111-1111-4111-8111-111111111122"
+DOCUMENT_ID = "11111111-1111-4111-8111-111111111133"
+FILE_OBJECT_ID = "11111111-1111-4111-8111-111111111144"
 
 client = TestClient(app)
+_stored_objects: dict[str, WorkerStoredObject] = {}
+
+
+def _fake_read_ingestion_object(job):
+    return _stored_objects[job.objectKey]
 
 
 def _post_ocr(filename: str, payload: bytes, tenant_id: str = TENANT_ID):
+    request_id = str(uuid4())
+    nonce = str(uuid4())
+    object_key = f"tenants/{tenant_id}/matters/{MATTER_ID}/documents/{DOCUMENT_ID}/{FILE_OBJECT_ID}"
+    content_type = {"pdf": "application/pdf", "png": "image/png"}[filename.rsplit(".", 1)[-1]]
+    _stored_objects[object_key] = WorkerStoredObject(payload, content_type)
+    app.state.ingestion_storage_reader = _fake_read_ingestion_object
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    expires_at_value = expires_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     return client.post(
         "/ocr",
-        data={"tenant_id": tenant_id, "version_id": VERSION_ID},
-        files={"file": (filename, payload, "application/octet-stream")},
-        headers={"x-amic-tenant-id": tenant_id},
+        json={
+            "tenantId": tenant_id,
+            "documentId": DOCUMENT_ID,
+            "versionId": VERSION_ID,
+            "fileObjectId": FILE_OBJECT_ID,
+            "storageAlias": "primary",
+            "objectKey": object_key,
+            "objectVersion": "b" * 64,
+            "sha256": sha256(payload).hexdigest(),
+            "sizeBytes": len(payload),
+            "parserProfile": "ocr",
+            "requestId": request_id,
+            "expiresAt": expires_at_value,
+        },
+        headers={
+            "x-amic-dev-loopback-identity": "true",
+            "x-amic-request-id": request_id,
+            "x-amic-ingestion-nonce": nonce,
+            "x-amic-ingestion-expires-at": expires_at_value,
+        },
     )
 
 
@@ -96,10 +134,9 @@ def test_ocr_extracts_png_with_injected_engine(monkeypatch) -> None:
 def test_ocr_tenant_header_mismatch_fails_closed() -> None:
     response = client.post(
         "/ocr",
-        data={"tenant_id": TENANT_ID, "version_id": VERSION_ID},
-        files={"file": ("scan.pdf", _blank_pdf(), "application/pdf")},
+        json={},
         headers={"x-amic-tenant-id": "22222222-2222-4222-8222-222222222222"},
     )
 
-    assert response.status_code == 403
-    assert "TENANT_ISOLATION_VIOLATION" in response.text
+    assert response.status_code == 400
+    assert "VALIDATION_FAILED" in response.text

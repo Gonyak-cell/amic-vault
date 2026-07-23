@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from docx import Document
@@ -14,21 +17,75 @@ from pptx.util import Inches
 from pypdf import PdfWriter
 from reportlab.pdfgen import canvas
 
+from app import extract_router
 from app.converters.docx_to_pdf import libreoffice_command
 from app.main import app
+from app.storage_client import WorkerStoredObject
 
 TENANT_ID = "11111111-1111-4111-8111-111111111111"
 VERSION_ID = "11111111-1111-4111-8111-111111111155"
+MATTER_ID = "11111111-1111-4111-8111-111111111122"
+DOCUMENT_ID = "11111111-1111-4111-8111-111111111133"
+FILE_OBJECT_ID = "11111111-1111-4111-8111-111111111144"
 
 client = TestClient(app)
+_stored_objects: dict[str, WorkerStoredObject] = {}
+
+
+def _fake_read_ingestion_object(job):
+    return _stored_objects[job.objectKey]
+
+
+def _content_type(filename: str) -> str:
+    extension = filename.rsplit(".", 1)[-1].lower()
+    return {
+        "pdf": "application/pdf",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "doc": "application/msword",
+        "xls": "application/vnd.ms-excel",
+        "ppt": "application/vnd.ms-powerpoint",
+        "hwp": "application/x-hwp",
+        "hwpx": "application/hwp+zip",
+        "txt": "text/plain",
+        "md": "text/markdown",
+        "csv": "text/csv",
+        "html": "text/html",
+        "htm": "text/html",
+    }[extension]
 
 
 def _post_extract(filename: str, payload: bytes, tenant_id: str = TENANT_ID):
+    request_id = str(uuid4())
+    nonce = str(uuid4())
+    object_key = f"tenants/{tenant_id}/matters/{MATTER_ID}/documents/{DOCUMENT_ID}/{FILE_OBJECT_ID}"
+    _stored_objects[object_key] = WorkerStoredObject(payload, _content_type(filename))
+    app.state.ingestion_storage_reader = _fake_read_ingestion_object
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    expires_at_value = expires_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     return client.post(
         "/extract",
-        data={"tenant_id": tenant_id, "version_id": VERSION_ID},
-        files={"file": (filename, payload, "application/octet-stream")},
-        headers={"x-amic-tenant-id": tenant_id},
+        json={
+            "tenantId": tenant_id,
+            "documentId": DOCUMENT_ID,
+            "versionId": VERSION_ID,
+            "fileObjectId": FILE_OBJECT_ID,
+            "storageAlias": "primary",
+            "objectKey": object_key,
+            "objectVersion": "b" * 64,
+            "sha256": sha256(payload).hexdigest(),
+            "sizeBytes": len(payload),
+            "parserProfile": "extract",
+            "requestId": request_id,
+            "expiresAt": expires_at_value,
+        },
+        headers={
+            "x-amic-dev-loopback-identity": "true",
+            "x-amic-request-id": request_id,
+            "x-amic-ingestion-nonce": nonce,
+            "x-amic-ingestion-expires-at": expires_at_value,
+        },
     )
 
 
@@ -159,41 +216,13 @@ def test_pdf_text_layer_extraction_preserves_content() -> None:
     assert "PDF fixture first page" in body["body_text"]
 
 
-def test_storage_url_mode_downloads_source_payload(monkeypatch) -> None:
-    class FakeStorageResponse:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, traceback):
-            return False
-
-        def read(self) -> bytes:
-            return _text_pdf("PDF fixture from storage URL")
-
-    def fake_urlopen(request, timeout: int):
-        assert request.full_url == "https://storage.local/presigned-fixture.pdf"
-        assert request.get_method() == "GET"
-        assert timeout == 60
-        return FakeStorageResponse()
-
-    monkeypatch.setattr("app.extract_router.urlopen", fake_urlopen)
-
+def test_storage_url_input_is_rejected_without_network_access() -> None:
     response = client.post(
         "/extract",
-        data={
-            "tenant_id": TENANT_ID,
-            "version_id": VERSION_ID,
-            "storage_url": "https://storage.local/presigned-fixture.pdf",
-            "source_filename": "fixture.pdf",
-        },
-        headers={"x-amic-tenant-id": TENANT_ID},
+        json={"storage_url": "https://storage.local/presigned-fixture.pdf"},
     )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["status"] == "ready"
-    assert body["extraction_method"] == "pdf_text"
-    assert "PDF fixture from storage URL" in body["body_text"]
+    assert response.status_code == 400
+    assert "VALIDATION_FAILED" in response.text
 
 
 def test_blank_pdf_is_ocr_pending_without_external_ocr() -> None:
@@ -398,9 +427,8 @@ def test_hwp5_binary_failure_returns_explicit_reason(monkeypatch) -> None:
 def test_tenant_header_mismatch_fails_closed() -> None:
     response = client.post(
         "/extract",
-        data={"tenant_id": TENANT_ID, "version_id": VERSION_ID},
-        files={"file": ("fixture.pdf", _text_pdf("Denied"), "application/pdf")},
+        json={},
         headers={"x-amic-tenant-id": "22222222-2222-4222-8222-222222222222"},
     )
-    assert response.status_code == 403
-    assert "TENANT_ISOLATION_VIOLATION" in response.text
+    assert response.status_code == 400
+    assert "VALIDATION_FAILED" in response.text

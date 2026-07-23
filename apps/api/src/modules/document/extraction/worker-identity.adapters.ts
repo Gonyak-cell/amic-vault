@@ -18,6 +18,7 @@ type WorkerIdentityEnvironment = Partial<
     | 'INGESTION_GATEWAY_DIRECT_WORKER_ACCESS'
     | 'INGESTION_GATEWAY_WORKLOAD_SUBJECT'
     | 'INGESTION_GATEWAY_AUDIENCE'
+    | 'INGESTION_WORKER_URL'
   >
 >;
 
@@ -69,13 +70,21 @@ export class PrivateGatewayMtlsWorkerIdentityAdapter extends BaseWorkerIdentityA
 
   constructor(env: WorkerIdentityEnvironment = process.env) {
     super();
+    let gatewayUrl: URL;
+    try {
+      gatewayUrl = new URL(env.INGESTION_WORKER_URL ?? '');
+    } catch {
+      failConfiguration();
+    }
     if (
       env.INGESTION_WORKER_IDENTITY_PROFILE !== 'private-gateway-mtls' ||
       env.INGESTION_GATEWAY_MTLS_ENABLED !== 'true' ||
       env.INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS !== 'true' ||
       env.INGESTION_GATEWAY_DIRECT_WORKER_ACCESS !== 'blocked' ||
       env.INGESTION_GATEWAY_WORKLOAD_SUBJECT !== ingestionGatewayWorkloadSubject ||
-      env.INGESTION_GATEWAY_AUDIENCE !== ingestionWorkerAudience
+      env.INGESTION_GATEWAY_AUDIENCE !== ingestionWorkerAudience ||
+      gatewayUrl.protocol !== 'https:' ||
+      ['127.0.0.1', '::1', 'localhost'].includes(gatewayUrl.hostname)
     ) {
       failConfiguration();
     }

@@ -41,7 +41,8 @@ export async function createIngestionWorkerRequest(input: {
   ) {
     invalidRequest();
   }
-  const identity = createWorkerIdentityAdapter().createRequestIdentity(randomUUID(), now);
+  const identityAdapter = createWorkerIdentityAdapter();
+  const identity = identityAdapter.createRequestIdentity(randomUUID(), now);
   const job = validatedJob(
     validateIngestionJob(
       {
@@ -71,6 +72,9 @@ export async function createIngestionWorkerRequest(input: {
       'x-amic-request-id': identity.requestId,
       'x-amic-ingestion-nonce': identity.nonce,
       'x-amic-ingestion-expires-at': identity.expiresAt,
+      ...(identityAdapter.profile === 'loopback-dev'
+        ? { 'x-amic-dev-loopback-identity': 'true' }
+        : {}),
     },
   };
 }

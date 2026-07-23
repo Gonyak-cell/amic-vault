@@ -103,6 +103,44 @@ class PrivateGatewayMtlsServiceIdentity:
         return VerifiedWorkloadIdentity(subject, audience, request_id, nonce, expires_at)
 
 
+class DevelopmentLoopbackServiceIdentity:
+    """Dev-only binding; network loopback remains a deployment responsibility."""
+
+    def __init__(self, nonce_store: NonceReplayStore) -> None:
+        self._nonce_store = nonce_store
+
+    def verify(self, headers: Mapping[str, str], now: datetime | None = None) -> VerifiedWorkloadIdentity:
+        current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        request_id = _header(headers, "x-amic-request-id")
+        nonce = _header(headers, "x-amic-ingestion-nonce")
+        expires_at_value = _header(headers, "x-amic-ingestion-expires-at")
+        if (
+            _header(headers, "x-amic-dev-loopback-identity") != "true"
+            or request_id is None
+            or nonce is None
+            or expires_at_value is None
+            or _UUID.fullmatch(request_id) is None
+            or _UUID.fullmatch(nonce) is None
+        ):
+            raise ServiceIdentityDenied()
+        expires_at = _instant(expires_at_value)
+        if expires_at <= current or expires_at > current + IDENTITY_TTL:
+            raise ServiceIdentityDenied()
+        try:
+            consumed = self._nonce_store.consume(nonce, expires_at, current)
+        except Exception as exc:
+            raise ServiceIdentityDenied() from exc
+        if not consumed:
+            raise ServiceIdentityDenied()
+        return VerifiedWorkloadIdentity(
+            INGESTION_GATEWAY_WORKLOAD_SUBJECT,
+            INGESTION_WORKER_AUDIENCE,
+            request_id,
+            nonce,
+            expires_at,
+        )
+
+
 def assert_service_identity_profile(env: Mapping[str, str]) -> None:
     """Reject dev loopback and incomplete private-gateway configuration in production."""
     profile = env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev")
@@ -121,3 +159,16 @@ def assert_service_identity_profile(env: Mapping[str, str]) -> None:
         }.items()
     ):
         raise ServiceIdentityDenied()
+
+
+def verify_ingestion_request_identity(
+    headers: Mapping[str, str],
+    *,
+    env: Mapping[str, str] = {},
+    nonce_store: NonceReplayStore,
+    now: datetime | None = None,
+) -> VerifiedWorkloadIdentity:
+    assert_service_identity_profile(env)
+    if env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev") == "private-gateway-mtls":
+        return PrivateGatewayMtlsServiceIdentity(nonce_store).verify(headers, now)
+    return DevelopmentLoopbackServiceIdentity(nonce_store).verify(headers, now)
