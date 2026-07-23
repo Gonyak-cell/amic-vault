@@ -1,5 +1,5 @@
 {
-  "total": 246,
+  "total": 251,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3639,6 +3639,61 @@
       "depends_on": ["DEVOPS-SF20-BASE-TUW-001", "DEVOPS-SF20-CAP-TUW-002", "DEVOPS-SF20-OSS-TUW-003"],
       "files": ["tools/quality/check-small-firm-profile.mjs", ".github/workflows/ci.yml", ".github/workflows/supply-chain.yml"],
       "verification": "each conditional component and public ingestion port canary fails AND only exact path trigger receipt and approval reference can authorize an expansion"
+    },
+    {
+      "id": "DEVOPS-SF20-GW-TUW-001",
+      "title": "Shared API private gateway mTLS transport",
+      "release": "R14",
+      "module": "DEVOPS-SF20-GW",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-GATE-TUW-004"],
+      "files": ["apps/api/src/modules/document/extraction/private-gateway.transport.ts", "apps/api/src/modules/document/extraction/worker-identity.adapters.ts", "apps/api/src/modules/file-security/file-security.service.ts", "apps/api/src/modules/preview/preview-convert.job.ts", "apps/api/src/modules/email/email-worker-parser.client.ts", ".env.example"],
+      "verification": "all fixed ingestion callers use one standard Node HTTPS client certificate transport in the private profile AND HTTP loopback missing wrong expired credential timeout rotation and sensitive-log canaries fail closed"
+    },
+    {
+      "id": "DEVOPS-SF20-GW-TUW-002",
+      "title": "NGINX mTLS subject and identity header sanitation",
+      "release": "R14",
+      "module": "DEVOPS-SF20-GW",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-GW-TUW-001"],
+      "files": ["infra/ingestion-gateway/nginx.conf", "infra/production/compose.yml", "tests/fixtures/ingestion-gateway"],
+      "verification": "digest-pinned NGINX accepts only the approved CA and exact API subject AND overwrites caller gateway identity headers with fixed verified subject and audience under TLS 1.2 or 1.3"
+    },
+    {
+      "id": "DEVOPS-SF20-GW-TUW-003",
+      "title": "Gateway-only worker network topology",
+      "release": "R14",
+      "module": "DEVOPS-SF20-GW",
+      "risk": "C",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-GW-TUW-002"],
+      "files": ["infra/production/compose.yml", "infra/policies/ingestion-network-policy.yml", "tools/security/check-ingestion-network.mjs"],
+      "verification": "gateway to worker succeeds AND API host public and health direct probes fail AND any worker port or shared API worker network canary is rejected"
+    },
+    {
+      "id": "DEVOPS-SF20-GW-TUW-004",
+      "title": "Bounded durable single-node nonce replay store",
+      "release": "R14",
+      "module": "DEVOPS-SF20-GW",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-GW-TUW-003"],
+      "files": ["workers/ingestion/app/replay_store.py", "workers/ingestion/app/service_identity.py", "workers/ingestion/app/main.py", "workers/ingestion/app/extract_router.py", "workers/ingestion/tests", "infra/production/compose.yml"],
+      "verification": "only nonce SHA-256 and expiry persist in a bounded SQLite store AND atomic duplicate restart concurrent expiry locked corrupt and unwritable cases fail closed without a memory fallback"
+    },
+    {
+      "id": "DEVOPS-SF20-GW-TUW-005",
+      "title": "Private gateway rotation replay and direct-access runtime gate",
+      "release": "R14",
+      "module": "DEVOPS-SF20-GW",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["DEVOPS-SF20-GW-TUW-001", "DEVOPS-SF20-GW-TUW-002", "DEVOPS-SF20-GW-TUW-003", "DEVOPS-SF20-GW-TUW-004"],
+      "files": ["tests/integration/document-access/ingestion-gateway.spec.ts", "tools/security", "infra/production"],
+      "verification": "real synthetic CA and certificates prove valid wrong subject audience spoof replay expiry old-new rotation direct-port denial production-loopback denial and a subsequent clean request on the production topology"
     }
   ]
 }

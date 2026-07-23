@@ -82,6 +82,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-OSS07-01 | `feat/pack-oss07-01-identity-topology` | 4 | `DEVOPS-OSS07-IDP-TUW-001` through `DEVOPS-OSS07-IDP-TUW-004` (`docs/execution/TUW_OSS07_IDENTITY_TOPOLOGY.md`) |
 | PACK-OSS09-01 | `feat/pack-oss09-01-telemetry-policy` | 4 | `DEVOPS-OSS09-TEL-TUW-001` through `DEVOPS-OSS09-TEL-TUW-004` (`docs/execution/TUW_OSS09_TELEMETRY_POLICY.md`) |
 | PACK-SF20-00 | `feat/pack-sf20-00-profile-freeze` | 4 | `DEVOPS-SF20-BASE-TUW-001`, `DEVOPS-SF20-CAP-TUW-002`, `DEVOPS-SF20-OSS-TUW-003`, `DEVOPS-SF20-GATE-TUW-004` (`docs/execution/TUW_SF20_SMALL_FIRM_PROFILE.md`) |
+| PACK-SF20-01 | `feat/pack-sf20-01-private-gateway` | 5 | `DEVOPS-SF20-GW-TUW-001` through `DEVOPS-SF20-GW-TUW-005` (`docs/execution/TUW_SF20_PRIVATE_GATEWAY.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 
@@ -2738,6 +2739,41 @@ policy. A source pin does not authorize runtime adoption. Any reduction below
 19 outcomes or 33 TUWs, missing constitutional/recovery invariant, unpinned
 runtime artifact, public worker port, or conditional component without an
 exact trigger receipt and approval reference is a hard stop.
+
+## PACK-SF20-01 — Private gateway mTLS and durable replay boundary
+
+Status: canonical post-R14 extension under
+`USER-UMBRELLA-AUTONOMY-20260721` and the owner's all-immediate-track execution
+direction. It is the serial successor to merged `PACK-SF20-00`, independently
+based on `origin/main`
+`bf3c7cb72c715d0246f3b0b4c305d5499827c4ae`.
+
+- Branch: `feat/pack-sf20-01-private-gateway`.
+- Detail contract: `docs/execution/TUW_SF20_PRIVATE_GATEWAY.md`.
+- Execution order: `DEVOPS-SF20-GW-TUW-001` →
+  `DEVOPS-SF20-GW-TUW-002` → `DEVOPS-SF20-GW-TUW-003` →
+  `DEVOPS-SF20-GW-TUW-004` → `DEVOPS-SF20-GW-TUW-005`.
+- Scope: one shared standard-library Node mTLS transport for every API-side
+  ingestion caller; digest-pinned NGINX client-certificate verification and
+  fixed header sanitation; a two-network topology with no worker port or
+  API-to-worker route; a bounded standard-library SQLite nonce store; and a
+  synthetic-certificate runtime gate that proves the same topology.
+- OSS boundary: use only the approved NGINX image/configuration surface.
+  Pinned NGINX and nginx-tests source remain no-copy references. Vault owns
+  request binding, replay, audience, network policy, tests, and evidence.
+- Out of scope: dependency/lockfile changes, committed certificates or private
+  keys, production secrets, public gateway/worker ports, custom cryptography,
+  Redis/shared replay infrastructure, Kubernetes, cloud or staging mutation,
+  deployment, release, go-live, and `docs/package/**`.
+
+Every private-profile caller must fail before network I/O for HTTP, loopback,
+missing/invalid/expired client material, or an unverified server name. NGINX
+must accept only the approved CA and exact `CN=amic-vault-api` subject, replace
+all caller-supplied gateway identity headers, and remain the only service that
+shares the worker network. The worker must reject replay after restart and
+fail closed when its nonce store is locked, corrupt, missing, or unwritable.
+Any direct route, fail-open memory fallback, raw nonce persistence, credential
+logging, upstream source/test copy, or mock-only final gate is a hard stop.
 
 ## Gate Reports
 
